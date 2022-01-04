@@ -1,6 +1,5 @@
 # This configuration file is used internally
-# to fill default settings for on-prem Ray clusters
-# bootstrapped by the Ray autoscaler.
+# to fill default settings for on-prem clusters
 # For annotated examples, see the example yamls in this directory.
 
 cluster_name: default
@@ -13,18 +12,18 @@ idle_timeout_minutes: 5
 docker: {}
 
 # Defaults are empty to avoid any surprise changes to on-prem cluster's state.
-# Refer to example yamls for examples of ray installation in setup commands.
+# Refer to example yamls for examples of installation in setup commands.
 initialization_commands: []
 setup_commands: []
 head_setup_commands: []
 worker_setup_commands: []
 
-head_start_ray_commands:
-    - ray stop
-    - ulimit -c unlimited; ray start --head --port=6379 --autoscaling-config=~/ray_bootstrap_config.yaml
-worker_start_ray_commands:
-    - ray stop
-    - ray start --address=$RAY_HEAD_IP:6379
+head_start_commands:
+    - cloudtik stop
+    - ulimit -c unlimited; cloudtik start --head --port=6379 --cluster-scaling-config=~/cloudtik_bootstrap_config.yaml
+worker_start_commands:
+    - cloudtik stop
+    - cloudtik start --address=$CLOUDTIK_HEAD_IP:6379
 
 file_mounts: {}
 cluster_synced_files: []

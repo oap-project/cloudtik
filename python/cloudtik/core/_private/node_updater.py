@@ -6,19 +6,18 @@ import time
 
 from threading import Thread
 
-from ray.autoscaler.tags import TAG_RAY_NODE_STATUS, TAG_RAY_RUNTIME_CONFIG, \
-    TAG_RAY_FILE_MOUNTS_CONTENTS, \
+from cloudtik.core.tags import CLOUDTIK_TAG_NODE_STATUS, CLOUDTIK_TAG_RUNTIME_CONFIG, \
+    CLOUDTIK_TAG_FILE_MOUNTS_CONTENTS, \
     STATUS_UP_TO_DATE, STATUS_UPDATE_FAILED, STATUS_WAITING_FOR_SSH, \
     STATUS_SETTING_UP, STATUS_SYNCING_FILES
-from ray.autoscaler._private.command_runner import \
-    AUTOSCALER_NODE_START_WAIT_S, \
+from cloudtik.core._private.command_executor import \
+    CLOUDTIK_NODE_START_WAIT_S, \
     ProcessRunnerError
-from ray.autoscaler._private.log_timer import LogTimer
-from ray.autoscaler._private.cli_logger import cli_logger, cf
-import ray.autoscaler._private.subprocess_output_util as cmd_output_util
-from ray.autoscaler._private.constants import \
-     RESOURCES_ENVIRONMENT_VARIABLE
-from ray.autoscaler._private.event_system import (CreateClusterEvent,
+from cloudtik.core._private.log_timer import LogTimer
+from cloudtik.core._private.cli_logger import cli_logger, cf
+import cloudtik.core._private.subprocess_output_util as cmd_output_util
+from cloudtik.core._private.constants import CLOUDTIK_RESOURCES_ENV
+from cloudtik.core._private.event_system import (CreateClusterEvent,
                                                   global_event_system)
 
 logger = logging.getLogger(__name__)
@@ -32,14 +31,14 @@ class NodeUpdater:
 
     Arguments:
         node_id: the Node ID
-        provider_config: Provider section of autoscaler yaml
+        provider_config: Provider section of cluster config yaml
         provider: NodeProvider Class
-        auth_config: Auth section of autoscaler yaml
+        auth_config: Auth section of cluster config yaml
         cluster_name: the name of the cluster.
         file_mounts: Map of remote to local paths
         initialization_commands: Commands run before container launch
-        setup_commands: Commands run before ray starts
-        ray_start_commands: Commands to start ray
+        setup_commands: Commands run before start commands
+        start_commands: Commands to start cloudtik
         runtime_hash: Used to check for config changes
         file_mounts_contents_hash: Used to check for changes to file mounts
         is_head_node: Whether to use head start/setup commands
@@ -48,8 +47,8 @@ class NodeUpdater:
             in the CommandRunner. E.g., subprocess.
         use_internal_ip: Wwhether the node_id belongs to an internal ip
             or external ip.
-        docker_config: Docker section of autoscaler yaml
-        restart_only: Whether to skip setup commands & just restart ray
+        docker_config: Docker section of cluster config yaml
+        restart_only: Whether to skip setup commands & just restart 
         for_recovery: True if updater is for a recovering node. Only used for
             metric tracking.
     """
@@ -63,7 +62,7 @@ class NodeUpdater:
                  file_mounts,
                  initialization_commands,
                  setup_commands,
-                 ray_start_commands,
+                 start_commands,
                  runtime_hash,
                  file_mounts_contents_hash,
                  is_head_node,
@@ -79,7 +78,7 @@ class NodeUpdater:
         self.log_prefix = "NodeUpdater: {}: ".format(node_id)
         use_internal_ip = (use_internal_ip
                            or provider_config.get("use_internal_ips", False))
-        self.cmd_runner = provider.get_command_runner(
+        self.cmd_executor = provider.get_command_executor(
             self.log_prefix, node_id, auth_config, cluster_name,
             process_runner, use_internal_ip, docker_config)
 
@@ -97,7 +96,7 @@ class NodeUpdater:
 
         self.initialization_commands = initialization_commands
         self.setup_commands = setup_commands
-        self.ray_start_commands = ray_start_commands
+        self.start_commands = start_commands
         self.node_resources = node_resources
         self.runtime_hash = runtime_hash
         self.file_mounts_contents_hash = file_mounts_contents_hash
@@ -134,7 +133,7 @@ class NodeUpdater:
                 self.do_update()
         except Exception as e:
             self.provider.set_node_tags(
-                self.node_id, {TAG_RAY_NODE_STATUS: STATUS_UPDATE_FAILED})
+                self.node_id, {CLOUDTIK_TAG_NODE_STATUS: STATUS_UPDATE_FAILED})
             cli_logger.error("New status: {}", cf.bold(STATUS_UPDATE_FAILED))
 
             cli_logger.error("!!!")
@@ -156,12 +155,12 @@ class NodeUpdater:
             raise
 
         tags_to_set = {
-            TAG_RAY_NODE_STATUS: STATUS_UP_TO_DATE,
-            TAG_RAY_RUNTIME_CONFIG: self.runtime_hash,
+            CLOUDTIK_TAG_NODE_STATUS: STATUS_UP_TO_DATE,
+            CLOUDTIK_TAG_RUNTIME_CONFIG: self.runtime_hash,
         }
         if self.file_mounts_contents_hash is not None:
             tags_to_set[
-                TAG_RAY_FILE_MOUNTS_CONTENTS] = self.file_mounts_contents_hash
+                CLOUDTIK_TAG_FILE_MOUNTS_CONTENTS] = self.file_mounts_contents_hash
 
         self.provider.set_node_tags(self.node_id, tags_to_set)
         cli_logger.labeled_value("New status", STATUS_UP_TO_DATE)
@@ -176,7 +175,7 @@ class NodeUpdater:
         nolog_paths = []
         if cli_logger.verbosity == 0:
             nolog_paths = [
-                "~/ray_bootstrap_key.pem", "~/ray_bootstrap_config.yaml"
+                "~/cloudtik_bootstrap_key.pem", "~/cloudtik_bootstrap_config.yaml"
             ]
 
         def do_sync(remote_path, local_path, allow_non_existing_paths=False):
@@ -202,7 +201,7 @@ class NodeUpdater:
                              and self.docker_config["container_name"] != "")
                 if not is_docker:
                     # The DockerCommandRunner handles this internally.
-                    self.cmd_runner.run(
+                    self.cmd_executor.run(
                         "mkdir -p {}".format(os.path.dirname(remote_path)),
                         run_env="host")
                 sync_cmd(
@@ -252,7 +251,7 @@ class NodeUpdater:
 
                     try:
                         # Run outside of the container
-                        self.cmd_runner.run(
+                        self.cmd_executor.run(
                             "uptime", timeout=5, run_env="host")
                         cli_logger.success("Success.")
                         return True
@@ -292,10 +291,10 @@ class NodeUpdater:
 
     def do_update(self):
         self.provider.set_node_tags(
-            self.node_id, {TAG_RAY_NODE_STATUS: STATUS_WAITING_FOR_SSH})
+            self.node_id, {CLOUDTIK_TAG_NODE_STATUS: STATUS_WAITING_FOR_SSH})
         cli_logger.labeled_value("New status", STATUS_WAITING_FOR_SSH)
 
-        deadline = time.time() + AUTOSCALER_NODE_START_WAIT_S
+        deadline = time.time() + CLOUDTIK_NODE_START_WAIT_S
         self.wait_ready(deadline)
         global_event_system.execute_callback(
             CreateClusterEvent.ssh_control_acquired)
@@ -303,22 +302,15 @@ class NodeUpdater:
         node_tags = self.provider.node_tags(self.node_id)
         logger.debug("Node tags: {}".format(str(node_tags)))
 
-        if self.provider_type == "aws" and self.provider.provider_config:
-            from ray.autoscaler._private.aws.cloudwatch.cloudwatch_helper \
-                import CloudwatchHelper
-            CloudwatchHelper(self.provider.provider_config,
-                             [self.node_id], self.provider.cluster_name). \
-                update_from_config(self.is_head_node)
-
-        if node_tags.get(TAG_RAY_RUNTIME_CONFIG) == self.runtime_hash:
+        if node_tags.get(CLOUDTIK_TAG_RUNTIME_CONFIG) == self.runtime_hash:
             # When resuming from a stopped instance the runtime_hash may be the
             # same, but the container will not be started.
-            init_required = self.cmd_runner.run_init(
+            init_required = self.cmd_executor.run_init(
                 as_head=self.is_head_node,
                 file_mounts=self.file_mounts,
                 sync_run_yet=False)
             if init_required:
-                node_tags[TAG_RAY_RUNTIME_CONFIG] += "-invalidate"
+                node_tags[CLOUDTIK_TAG_RUNTIME_CONFIG] += "-invalidate"
                 # This ensures that `setup_commands` are not removed
                 self.restart_only = False
 
@@ -327,9 +319,9 @@ class NodeUpdater:
 
         # runtime_hash will only change whenever the user restarts
         # or updates their cluster with `get_or_create_head_node`
-        if node_tags.get(TAG_RAY_RUNTIME_CONFIG) == self.runtime_hash and (
+        if node_tags.get(CLOUDTIK_TAG_RUNTIME_CONFIG) == self.runtime_hash and (
                 not self.file_mounts_contents_hash
-                or node_tags.get(TAG_RAY_FILE_MOUNTS_CONTENTS) ==
+                or node_tags.get(CLOUDTIK_TAG_FILE_MOUNTS_CONTENTS) ==
                 self.file_mounts_contents_hash):
             # todo: we lie in the confirmation message since
             # full setup might be cancelled here
@@ -344,7 +336,7 @@ class NodeUpdater:
                 _tags=dict(hash=self.runtime_hash))
 
             self.provider.set_node_tags(
-                self.node_id, {TAG_RAY_NODE_STATUS: STATUS_SYNCING_FILES})
+                self.node_id, {CLOUDTIK_TAG_NODE_STATUS: STATUS_SYNCING_FILES})
             cli_logger.labeled_value("New status", STATUS_SYNCING_FILES)
             self.sync_file_mounts(
                 self.rsync_up, step_numbers=(1, NUM_SETUP_STEPS))
@@ -352,10 +344,10 @@ class NodeUpdater:
             # Only run setup commands if runtime_hash has changed because
             # we don't want to run setup_commands every time the head node
             # file_mounts folders have changed.
-            if node_tags.get(TAG_RAY_RUNTIME_CONFIG) != self.runtime_hash:
+            if node_tags.get(CLOUDTIK_TAG_RUNTIME_CONFIG) != self.runtime_hash:
                 # Run init commands
                 self.provider.set_node_tags(
-                    self.node_id, {TAG_RAY_NODE_STATUS: STATUS_SETTING_UP})
+                    self.node_id, {CLOUDTIK_TAG_NODE_STATUS: STATUS_SETTING_UP})
                 cli_logger.labeled_value("New status", STATUS_SETTING_UP)
 
                 if self.initialization_commands:
@@ -377,7 +369,7 @@ class NodeUpdater:
                                     # this ssh_private_key as its only __init__
                                     # argument.
                                     # Run outside docker.
-                                    self.cmd_runner.run(
+                                    self.cmd_executor.run(
                                         cmd,
                                         ssh_options_override_ssh_key=self.
                                         auth_config.get("ssh_private_key"),
@@ -399,7 +391,7 @@ class NodeUpdater:
                         "Initalizing command runner",
                         # todo: fix command numbering
                         _numbered=("[]", 5, NUM_SETUP_STEPS)):
-                    self.cmd_runner.run_init(
+                    self.cmd_executor.run_init(
                         as_head=self.is_head_node,
                         file_mounts=self.file_mounts,
                         sync_run_yet=True)
@@ -431,7 +423,7 @@ class NodeUpdater:
 
                                 try:
                                     # Runs in the container if docker is in use
-                                    self.cmd_runner.run(cmd, run_env="auto")
+                                    self.cmd_executor.run(cmd, run_env="auto")
                                 except ProcessRunnerError as e:
                                     if e.msg_type == "ssh_command_failed":
                                         cli_logger.error("Failed.")
@@ -446,13 +438,13 @@ class NodeUpdater:
                         _numbered=("[]", 6, NUM_SETUP_STEPS))
 
         with cli_logger.group(
-                "Starting the Ray runtime", _numbered=("[]", 7,
+                "Starting the CloudTik runtime", _numbered=("[]", 7,
                                                        NUM_SETUP_STEPS)):
             global_event_system.execute_callback(
-                CreateClusterEvent.start_ray_runtime)
+                CreateClusterEvent.start_cloudtik_runtime)
             with LogTimer(
-                    self.log_prefix + "Ray start commands", show_status=True):
-                for cmd in self.ray_start_commands:
+                    self.log_prefix + "Start commands", show_status=True):
+                for cmd in self.start_commands:
 
                     # Add a resource override env variable if needed:
                     if self.provider_type == "local":
@@ -460,7 +452,7 @@ class NodeUpdater:
                         env_vars = {}
                     elif self.node_resources:
                         env_vars = {
-                            RESOURCES_ENVIRONMENT_VARIABLE: self.node_resources
+                            CLOUDTIK_RESOURCES_ENV: self.node_resources
                         }
                     else:
                         env_vars = {}
@@ -469,7 +461,7 @@ class NodeUpdater:
                         old_redirected = cmd_output_util.is_output_redirected()
                         cmd_output_util.set_output_redirected(False)
                         # Runs in the container if docker is in use
-                        self.cmd_runner.run(
+                        self.cmd_executor.run(
                             cmd,
                             environment_variables=env_vars,
                             run_env="auto")
@@ -481,14 +473,14 @@ class NodeUpdater:
 
                         raise click.ClickException("Start command failed.")
             global_event_system.execute_callback(
-                CreateClusterEvent.start_ray_runtime_completed)
+                CreateClusterEvent.start_cloudtik_runtime_completed)
 
     def rsync_up(self, source, target, docker_mount_if_possible=False):
         options = {}
         options["docker_mount_if_possible"] = docker_mount_if_possible
         options["rsync_exclude"] = self.rsync_options.get("rsync_exclude")
         options["rsync_filter"] = self.rsync_options.get("rsync_filter")
-        self.cmd_runner.run_rsync_up(source, target, options=options)
+        self.cmd_executor.run_rsync_up(source, target, options=options)
         cli_logger.verbose("`rsync`ed {} (local) to {} (remote)",
                            cf.bold(source), cf.bold(target))
 
@@ -497,7 +489,7 @@ class NodeUpdater:
         options["docker_mount_if_possible"] = docker_mount_if_possible
         options["rsync_exclude"] = self.rsync_options.get("rsync_exclude")
         options["rsync_filter"] = self.rsync_options.get("rsync_filter")
-        self.cmd_runner.run_rsync_down(source, target, options=options)
+        self.cmd_executor.run_rsync_down(source, target, options=options)
         cli_logger.verbose("`rsync`ed {} (remote) to {} (local)",
                            cf.bold(source), cf.bold(target))
 

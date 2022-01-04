@@ -3,8 +3,8 @@ import copy
 from typing import Any
 from typing import Dict
 
-from ray.autoscaler._private.cli_logger import cli_logger
-from ray._private.utils import get_ray_temp_dir
+from cloudtik.core._private.cli_logger import cli_logger
+from cloudtik.core._private.utils import get_cloudtik_temp_dir
 
 unsupported_field_message = ("The field {} is not supported "
                              "for on-premise clusters.")
@@ -14,17 +14,15 @@ LOCAL_CLUSTER_NODE_TYPE = "local.cluster.node"
 
 def prepare_local(config: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Prepare local cluster config for ingestion by cluster launcher and
-    autoscaler.
+    Prepare local cluster config for ingestion by cluster launcher and scaler.
     """
     config = copy.deepcopy(config)
-    for field in "head_node", "worker_nodes", "available_node_types":
+    for field in "head_node", "available_node_types":
         if config.get(field):
             err_msg = unsupported_field_message.format(field)
             cli_logger.abort(err_msg)
     # We use a config with a single node type for on-prem clusters.
-    # Resources internally detected by Ray are not overridden by the autoscaler
-    # (see NodeProvider.do_update)
+    # Resources internally detected are not overridden
     config["available_node_types"] = {
         LOCAL_CLUSTER_NODE_TYPE: {
             "node_config": {},
@@ -47,7 +45,7 @@ def prepare_coordinator(config: Dict[str, Any]) -> Dict[str, Any]:
         cli_logger.abort("The field `max_workers` is required when using an "
                          "automatically managed on-premise cluster.")
     node_type = config["available_node_types"][LOCAL_CLUSTER_NODE_TYPE]
-    # The autoscaler no longer uses global `min_workers`.
+    # The cluster coordinator no longer uses global `min_workers`.
     # Move `min_workers` to the node_type config.
     node_type["min_workers"] = config.pop("min_workers", 0)
     node_type["max_workers"] = config["max_workers"]
@@ -64,7 +62,7 @@ def prepare_manual(config: Dict[str, Any]) -> Dict[str, Any]:
     node_type = config["available_node_types"][LOCAL_CLUSTER_NODE_TYPE]
     # Default to keeping all provided ips in the cluster.
     config.setdefault("max_workers", num_ips)
-    # The autoscaler no longer uses global `min_workers`.
+    # The cluster coordinator  no longer uses global `min_workers`.
     # Move `min_workers` to the node_type config.
     node_type["min_workers"] = config.pop("min_workers", num_ips)
     node_type["max_workers"] = config["max_workers"]
@@ -72,12 +70,12 @@ def prepare_manual(config: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def get_lock_path(cluster_name: str) -> str:
-    return os.path.join(get_ray_temp_dir(),
+    return os.path.join(get_cloudtik_temp_dir(),
                         "cluster-{}.lock".format(cluster_name))
 
 
 def get_state_path(cluster_name: str) -> str:
-    return os.path.join(get_ray_temp_dir(),
+    return os.path.join(get_cloudtik_temp_dir(),
                         "cluster-{}.state".format(cluster_name))
 
 

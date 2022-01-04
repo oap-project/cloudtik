@@ -12,23 +12,20 @@ import logging
 import boto3
 import botocore
 
-from ray.autoscaler._private.util import check_legacy_fields
-from ray.autoscaler.tags import NODE_TYPE_LEGACY_HEAD, NODE_TYPE_LEGACY_WORKER
-from ray.autoscaler._private.providers import _PROVIDER_PRETTY_NAMES
-from ray.autoscaler._private.aws.utils import LazyDefaultDict, \
-    handle_boto_error, resource_cache
-from ray.autoscaler._private.cli_logger import cli_logger, cf
-from ray.autoscaler._private.event_system import (CreateClusterEvent,
+from cloudtik.core._private.providers import _PROVIDER_PRETTY_NAMES
+from cloudtik.core._private.cli_logger import cli_logger, cf
+from cloudtik.core._private.event_system import (CreateClusterEvent,
                                                   global_event_system)
-from ray.autoscaler._private.aws.cloudwatch.cloudwatch_helper import \
-    CloudwatchHelper as cwh
+                                                  
+from cloudtik.providers._private.aws.utils import LazyDefaultDict, \
+    handle_boto_error, resource_cache
 
 logger = logging.getLogger(__name__)
 
-RAY = "ray-autoscaler"
-DEFAULT_RAY_INSTANCE_PROFILE = RAY + "-v1"
-DEFAULT_RAY_IAM_ROLE = RAY + "-v1"
-SECURITY_GROUP_TEMPLATE = RAY + "-{}"
+CLOUDTIK = "cloudtik"
+CLOUDTIK_DEFAULT_INSTANCE_PROFILE = CLOUDTIK + "-v1"
+CLOUDTIK_DEFAULT_IAM_ROLE = CLOUDTIK + "-v1"
+SECURITY_GROUP_TEMPLATE = CLOUDTIK + "-{}"
 
 DEFAULT_AMI_NAME = "AWS Deep Learning AMI (Ubuntu 18.04) V30.0"
 
@@ -58,12 +55,12 @@ def key_pair(i, region, key_name):
     Returns the ith default (aws_key_pair_name, key_pair_path).
     """
     if i == 0:
-        key_pair_name = ("{}_{}".format(RAY, region)
+        key_pair_name = ("{}_{}".format(CLOUDTIK, region)
                          if key_name is None else key_name)
         return (key_pair_name,
                 os.path.expanduser("~/.ssh/{}.pem".format(key_pair_name)))
 
-    key_pair_name = ("{}_{}_{}".format(RAY, i, region)
+    key_pair_name = ("{}_{}_{}".format(CLOUDTIK, i, region)
                      if key_name is None else key_name + "_key-{}".format(i))
     return (key_pair_name,
             os.path.expanduser("~/.ssh/{}.pem".format(key_pair_name)))
@@ -206,9 +203,6 @@ def bootstrap_aws(config):
     # create a copy of the input config to modify
     config = copy.deepcopy(config)
 
-    # Log warnings if user included deprecated `head_node` or `worker_nodes`
-    # fields. Raise error if no `available_node_types`
-    check_legacy_fields(config)
     # Used internally to store head IAM role.
     config["head_node"] = {}
 
@@ -252,10 +246,7 @@ def _configure_iam_role(config):
         return config
     _set_config_info(head_instance_profile_src="default")
 
-    instance_profile_name = cwh.resolve_instance_profile_name(
-        config["provider"],
-        DEFAULT_RAY_INSTANCE_PROFILE,
-    )
+    instance_profile_name = CLOUDTIK_DEFAULT_INSTANCE_PROFILE
     profile = _get_instance_profile(instance_profile_name, config)
 
     if profile is None:
@@ -273,8 +264,7 @@ def _configure_iam_role(config):
     assert profile is not None, "Failed to create instance profile"
 
     if not profile.roles:
-        role_name = cwh.resolve_iam_role_name(config["provider"],
-                                              DEFAULT_RAY_IAM_ROLE)
+        role_name = CLOUDTIK_DEFAULT_IAM_ROLE
         role = _get_role(role_name, config)
         if role is None:
             cli_logger.verbose(
@@ -292,11 +282,10 @@ def _configure_iam_role(config):
                     },
                 ]
             }
-            attach_policy_arns = cwh.resolve_policy_arns(
-                config["provider"], iam, [
+            attach_policy_arns =  [
                     "arn:aws:iam::aws:policy/AmazonEC2FullAccess",
                     "arn:aws:iam::aws:policy/AmazonS3FullAccess"
-                ])
+                ]
 
             iam.create_role(
                 RoleName=role_name,
@@ -404,13 +393,8 @@ def _configure_key_pair(config):
 
 
 def _key_assert_msg(node_type: str) -> str:
-    if node_type == NODE_TYPE_LEGACY_WORKER:
-        return "`KeyName` missing for worker nodes."
-    elif node_type == NODE_TYPE_LEGACY_HEAD:
-        return "`KeyName` missing for head node."
-    else:
-        return ("`KeyName` missing from the `node_config` of"
-                f" node type `{node_type}`.")
+    return ("`KeyName` missing from the `node_config` of"
+            f" node type `{node_type}`.")
 
 
 def _configure_subnet(config):
@@ -470,7 +454,7 @@ def _configure_subnet(config):
     # needs to create a security group in this one VPC. Otherwise, we'd need
     # to set up security groups in all of the user's VPCs and set up networking
     # rules to allow traffic between these groups.
-    # See https://github.com/ray-project/ray/pull/14868.
+    # See pull #14868.
     subnet_ids = [
         s.subnet_id for s in subnets if s.vpc_id == subnets[0].vpc_id
     ]
@@ -657,7 +641,7 @@ def _get_security_groups(config, vpc_ids, group_names):
 def _create_security_group(config, vpc_id, group_name):
     client = _client("ec2", config)
     client.create_security_group(
-        Description="Auto-created security group for Ray workers",
+        Description="Auto-created security group for workers",
         GroupName=group_name,
         VpcId=vpc_id)
     security_group = _get_security_group(config, vpc_id, group_name)

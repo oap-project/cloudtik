@@ -37,7 +37,7 @@ from functools import wraps
 from googleapiclient.discovery import Resource
 from googleapiclient.errors import HttpError
 
-from ray.autoscaler.tags import TAG_RAY_CLUSTER_NAME, TAG_RAY_NODE_NAME
+from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_NAME
 
 logger = logging.getLogger(__name__)
 
@@ -88,12 +88,12 @@ def _generate_node_name(labels: dict, node_suffix: str) -> str:
     """Generate node name from labels and suffix.
 
     This is required so that the correct resource can be selected
-    when the only information autoscaler has is the name of the node.
+    when the only information scaler has is the name of the node.
 
     The suffix is expected to be one of 'compute' or 'tpu'
     (as in ``GCPNodeType``).
     """
-    name_label = labels[TAG_RAY_NODE_NAME]
+    name_label = labels[CLOUDTIK_TAG_NODE_NAME]
     assert (len(name_label) <=
             (INSTANCE_NAME_MAX_LEN - INSTANCE_NAME_UUID_LEN - 1)), (
                 name_label, len(name_label))
@@ -331,7 +331,7 @@ class GCPCompute(GCPResource):
 
         cluster_name_filter_expr = ("(labels.{key} = {value})"
                                     "".format(
-                                        key=TAG_RAY_CLUSTER_NAME,
+                                        key=CLOUDTIK_TAG_CLUSTER_NAME,
                                         value=self.cluster_name))
 
         not_empty_filters = [
@@ -433,7 +433,7 @@ class GCPCompute(GCPResource):
 
         config.update({
             "labels": dict(labels,
-                           **{TAG_RAY_CLUSTER_NAME: self.cluster_name}),
+                           **{CLOUDTIK_TAG_CLUSTER_NAME: self.cluster_name}),
             "name": name
         })
 
@@ -527,7 +527,7 @@ class GCPTPU(GCPResource):
 
         # same logic as in GCPCompute.list_instances
         label_filters = label_filters or {}
-        label_filters[TAG_RAY_CLUSTER_NAME] = self.cluster_name
+        label_filters[CLOUDTIK_TAG_CLUSTER_NAME] = self.cluster_name
 
         def filter_instance(instance: GCPTPUNode) -> bool:
             if instance.is_terminated():
@@ -591,7 +591,7 @@ class GCPTPU(GCPResource):
 
         config.update({
             "labels": dict(labels,
-                           **{TAG_RAY_CLUSTER_NAME: self.cluster_name}),
+                           **{CLOUDTIK_TAG_CLUSTER_NAME: self.cluster_name}),
         })
 
         if "networkConfig" not in config:

@@ -7,22 +7,18 @@ from typing import Any, Dict, List
 
 import botocore
 
-from ray.autoscaler.node_provider import NodeProvider
-from ray.autoscaler.tags import TAG_RAY_CLUSTER_NAME, TAG_RAY_NODE_NAME, \
-    TAG_RAY_LAUNCH_CONFIG, TAG_RAY_NODE_KIND, TAG_RAY_USER_NODE_TYPE
-from ray.autoscaler._private.constants import BOTO_MAX_RETRIES, \
-    BOTO_CREATE_MAX_RETRIES
-from ray.autoscaler._private.aws.config import bootstrap_aws
-from ray.autoscaler._private.log_timer import LogTimer
+from cloudtik.core.node_provider import NodeProvider
+from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_NAME, \
+    CLOUDTIK_TAG_LAUNCH_CONFIG, CLOUDTIK_TAG_NODE_KIND, CLOUDTIK_TAG_USER_NODE_TYPE
 
-from ray.autoscaler._private.aws.utils import boto_exception_handler, \
+from cloudtik.core._private.constants import BOTO_MAX_RETRIES, \
+    BOTO_CREATE_MAX_RETRIES, CLOUDTIK_DEFAULT_OBJECT_STORE_MEMORY_PROPORTION
+from cloudtik.core._private.log_timer import LogTimer
+from cloudtik.core._private.cli_logger import cli_logger, cf
+
+from cloudtik.providers._private.aws.config import bootstrap_aws
+from cloudtik.providers._private.aws.utils import boto_exception_handler, \
     resource_cache, client_cache
-from ray.autoscaler._private.cli_logger import cli_logger, cf
-import ray.ray_constants as ray_constants
-
-from ray.autoscaler._private.aws.cloudwatch.cloudwatch_helper import \
-    CloudwatchHelper, CLOUDWATCH_AGENT_INSTALLED_AMI_TAG,\
-    CLOUDWATCH_AGENT_INSTALLED_TAG
 
 logger = logging.getLogger(__name__)
 
@@ -30,19 +26,19 @@ TAG_BATCH_DELAY = 1
 
 
 def to_aws_format(tags):
-    """Convert the Ray node name tag to the AWS-specific 'Name' tag."""
+    """Convert the node name tag to the AWS-specific 'Name' tag."""
 
-    if TAG_RAY_NODE_NAME in tags:
-        tags["Name"] = tags[TAG_RAY_NODE_NAME]
-        del tags[TAG_RAY_NODE_NAME]
+    if CLOUDTIK_TAG_NODE_NAME in tags:
+        tags["Name"] = tags[CLOUDTIK_TAG_NODE_NAME]
+        del tags[CLOUDTIK_TAG_NODE_NAME]
     return tags
 
 
 def from_aws_format(tags):
-    """Convert the AWS-specific 'Name' tag to the Ray node name tag."""
+    """Convert the AWS-specific 'Name' tag to the node name tag."""
 
     if "Name" in tags:
-        tags[TAG_RAY_NODE_NAME] = tags["Name"]
+        tags[CLOUDTIK_TAG_NODE_NAME] = tags["Name"]
         del tags["Name"]
     return tags
 
@@ -128,7 +124,7 @@ class AWSNodeProvider(NodeProvider):
                 "Values": ["pending", "running"],
             },
             {
-                "Name": "tag:{}".format(TAG_RAY_CLUSTER_NAME),
+                "Name": "tag:{}".format(CLOUDTIK_TAG_CLUSTER_NAME),
                 "Values": [self.cluster_name],
             },
         ]
@@ -227,7 +223,7 @@ class AWSNodeProvider(NodeProvider):
         for (k, v), node_ids in batch_updates.items():
             m = "Set tag {}={} on {}".format(k, v, node_ids)
             with LogTimer("AWSNodeProvider: {}".format(m)):
-                if k == TAG_RAY_NODE_NAME:
+                if k == CLOUDTIK_TAG_NODE_NAME:
                     k = "Name"
                 self.ec2.meta.client.create_tags(
                     Resources=node_ids,
@@ -257,23 +253,23 @@ class AWSNodeProvider(NodeProvider):
                     "Values": ["stopped", "stopping"],
                 },
                 {
-                    "Name": "tag:{}".format(TAG_RAY_CLUSTER_NAME),
+                    "Name": "tag:{}".format(CLOUDTIK_TAG_CLUSTER_NAME),
                     "Values": [self.cluster_name],
                 },
                 {
-                    "Name": "tag:{}".format(TAG_RAY_NODE_KIND),
-                    "Values": [tags[TAG_RAY_NODE_KIND]],
+                    "Name": "tag:{}".format(CLOUDTIK_TAG_NODE_KIND),
+                    "Values": [tags[CLOUDTIK_TAG_NODE_KIND]],
                 },
                 {
-                    "Name": "tag:{}".format(TAG_RAY_LAUNCH_CONFIG),
-                    "Values": [tags[TAG_RAY_LAUNCH_CONFIG]],
+                    "Name": "tag:{}".format(CLOUDTIK_TAG_LAUNCH_CONFIG),
+                    "Values": [tags[CLOUDTIK_TAG_LAUNCH_CONFIG]],
                 },
             ]
             # This tag may not always be present.
-            if TAG_RAY_USER_NODE_TYPE in tags:
+            if CLOUDTIK_TAG_USER_NODE_TYPE in tags:
                 filters.append({
-                    "Name": "tag:{}".format(TAG_RAY_USER_NODE_TYPE),
-                    "Values": [tags[TAG_RAY_USER_NODE_TYPE]],
+                    "Name": "tag:{}".format(CLOUDTIK_TAG_USER_NODE_TYPE),
+                    "Values": [tags[CLOUDTIK_TAG_USER_NODE_TYPE]],
                 })
 
             reuse_nodes = list(
@@ -352,7 +348,7 @@ class AWSNodeProvider(NodeProvider):
         conf = node_config.copy()
 
         tag_pairs = [{
-            "Key": TAG_RAY_CLUSTER_NAME,
+            "Key": CLOUDTIK_TAG_CLUSTER_NAME,
             "Value": self.cluster_name,
         }]
         for k, v in tags.items():
@@ -360,14 +356,6 @@ class AWSNodeProvider(NodeProvider):
                 "Key": k,
                 "Value": v,
             })
-        if CloudwatchHelper.cloudwatch_config_exists(self.provider_config,
-                                                     "config"):
-            cwa_installed = self._check_ami_cwa_installation(node_config)
-            if cwa_installed:
-                tag_pairs.extend([{
-                    "Key": CLOUDWATCH_AGENT_INSTALLED_TAG,
-                    "Value": "True",
-                }])
         tag_specs = [{
             "ResourceType": "instance",
             "Tags": tag_pairs,
@@ -475,19 +463,6 @@ class AWSNodeProvider(NodeProvider):
         # the node cache is updated.
         pass
 
-    def _check_ami_cwa_installation(self, config):
-        response = self.ec2.meta.client.describe_images(
-            ImageIds=[config["ImageId"]])
-        cwa_installed = False
-        images = response.get("Images")
-        if images:
-            assert len(images) == 1, \
-                f"Expected to find only 1 AMI with the given ID, " \
-                f"but found {len(images)}."
-            image_name = images[0].get("Name", "")
-            if CLOUDWATCH_AGENT_INSTALLED_AMI_TAG in image_name:
-                cwa_installed = True
-        return cwa_installed
 
     def terminate_nodes(self, node_ids):
         if not node_ids:
@@ -601,7 +576,7 @@ class AWSNodeProvider(NodeProvider):
                     memory_total = int(memory_total) * 1024 * 1024
                     prop = (
                         1 -
-                        ray_constants.DEFAULT_OBJECT_STORE_MEMORY_PROPORTION)
+                        CLOUDTIK_DEFAULT_OBJECT_STORE_MEMORY_PROPORTION)
                     memory_resources = int(memory_total * prop)
                     autodetected_resources["memory"] = memory_resources
 

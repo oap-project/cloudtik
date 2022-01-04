@@ -1,4 +1,4 @@
-from ray.autoscaler._private import constants
+from cloudtik.core._private import constants
 from typing import List, Set, Tuple
 
 
@@ -23,7 +23,7 @@ class NodeTracker:
             return
 
         assert len(self.lru_order) == len(self.node_mapping)
-        if len(self.lru_order) >= constants.AUTOSCALER_MAX_NODES_TRACKED:
+        if len(self.lru_order) >= constants.CLOUDTIK_MAX_NODES_TRACKED:
             # The LRU eviction case
             node_id = self.lru_order.pop(0)
             del self.node_mapping[node_id]

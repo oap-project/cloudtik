@@ -7,9 +7,8 @@ try:
         Histogram,
     )
 
-    # The metrics in this class should be kept in sync with
-    # python/ray/tests/test_metrics_agent.py
-    class AutoscalerPrometheusMetrics:
+
+    class ClusterPrometheusMetrics:
         def __init__(self, registry: CollectorRegistry = None):
             self.registry: CollectorRegistry = registry or \
                                                CollectorRegistry(
@@ -25,7 +24,7 @@ try:
                 720, 900, 1200, 1500, 1800
             ]
             # Buckets: .01 seconds to 1000 seconds.
-            # Used for autoscaler update time.
+            # Used for update time.
             update_time_buckets = [.01, .1, 1, 10, 100, 1000]
             self.worker_create_node_time: Histogram = Histogram(
                 "worker_create_node_time_seconds",
@@ -36,7 +35,7 @@ try:
                 "For example, if 8 nodes are launched in 3 minutes, a launch "
                 "time of 3 minutes will be observed 8 times.",
                 unit="seconds",
-                namespace="autoscaler",
+                namespace="cloudtik",
                 registry=self.registry,
                 buckets=histogram_buckets)
             self.worker_update_time: Histogram = Histogram(
@@ -45,116 +44,115 @@ try:
                 "thread begins executing and when it exits successfully. This "
                 "metric only observes times for successful updates.",
                 unit="seconds",
-                namespace="autoscaler",
+                namespace="cloudtik",
                 registry=self.registry,
                 buckets=histogram_buckets)
             self.update_time: Histogram = Histogram(
                 "update_time",
-                "Autoscaler update time. This is the time for an autoscaler "
+                "Scaler update time. This is the time for a scaler "
                 "update iteration to complete.",
                 unit="seconds",
-                namespace="autoscaler",
+                namespace="cloudtik",
                 registry=self.registry,
                 buckets=update_time_buckets)
             self.pending_nodes: Gauge = Gauge(
                 "pending_nodes",
                 "Number of nodes pending to be started.",
                 unit="nodes",
-                namespace="autoscaler",
+                namespace="cloudtik",
                 registry=self.registry)
             self.started_nodes: Counter = Counter(
                 "started_nodes",
                 "Number of nodes started.",
                 unit="nodes",
-                namespace="autoscaler",
+                namespace="cloudtik",
                 registry=self.registry)
             self.stopped_nodes: Counter = Counter(
                 "stopped_nodes",
                 "Number of nodes stopped.",
                 unit="nodes",
-                namespace="autoscaler",
+                namespace="cloudtik",
                 registry=self.registry)
             self.updating_nodes: Gauge = Gauge(
                 "updating_nodes",
                 "Number of nodes in the process of updating.",
                 unit="nodes",
-                namespace="autoscaler",
+                namespace="cloudtik",
                 registry=self.registry)
             self.recovering_nodes: Gauge = Gauge(
                 "recovering_nodes",
                 "Number of nodes in the process of recovering.",
                 unit="nodes",
-                namespace="autoscaler",
+                namespace="cloudtik",
                 registry=self.registry)
             self.running_workers: Gauge = Gauge(
                 "running_workers",
                 "Number of worker nodes running.",
                 unit="nodes",
-                namespace="autoscaler",
+                namespace="cloudtik",
                 registry=self.registry)
             self.failed_create_nodes: Counter = Counter(
                 "failed_create_nodes",
                 "Number of nodes that failed to be created due to an "
                 "exception in the node provider's create_node method.",
                 unit="nodes",
-                namespace="autoscaler",
+                namespace="cloudtik",
                 registry=self.registry)
             self.failed_updates: Counter = Counter(
                 "failed_updates",
                 "Number of failed worker node updates.",
                 unit="updates",
-                namespace="autoscaler",
+                namespace="cloudtik",
                 registry=self.registry)
             self.successful_updates: Counter = Counter(
                 "successful_updates",
                 "Number of succesfful worker node updates.",
                 unit="updates",
-                namespace="autoscaler",
+                namespace="cloudtik",
                 registry=self.registry)
             self.failed_recoveries: Counter = Counter(
                 "failed_recoveries",
                 "Number of failed node recoveries.",
                 unit="recoveries",
-                namespace="autoscaler",
+                namespace="cloudtik",
                 registry=self.registry)
             self.successful_recoveries: Counter = Counter(
                 "successful_recoveries",
                 "Number of successful node recoveries.",
                 unit="recoveries",
-                namespace="autoscaler",
+                namespace="cloudtik",
                 registry=self.registry)
             self.update_loop_exceptions: Counter = Counter(
                 "update_loop_exceptions",
-                "Number of exceptions raised in the update loop of the "
-                "autoscaler.",
+                "Number of exceptions raised in the update loop of the scaler.",
                 unit="exceptions",
-                namespace="autoscaler",
+                namespace="cloudtik",
                 registry=self.registry)
             self.node_launch_exceptions: Counter = Counter(
                 "node_launch_exceptions",
                 "Number of exceptions raised while launching nodes.",
                 unit="exceptions",
-                namespace="autoscaler",
+                namespace="cloudtik",
                 registry=self.registry)
             self.reset_exceptions: Counter = Counter(
                 "reset_exceptions",
-                "Number of exceptions raised while resetting the autoscaler.",
+                "Number of exceptions raised while resetting the scaler.",
                 unit="exceptions",
-                namespace="autoscaler",
+                namespace="cloudtik",
                 registry=self.registry)
             self.config_validation_exceptions: Counter = Counter(
                 "config_validation_exceptions",
                 "Number of exceptions raised while validating the config "
                 "during a reset.",
                 unit="exceptions",
-                namespace="autoscaler",
+                namespace="cloudtik",
                 registry=self.registry)
             self.drain_node_exceptions: Counter = Counter(
                 "drain_node_exceptions",
                 "Number of exceptions raised when making a DrainNode rpc"
                 "prior to node termination.",
                 unit="exceptions",
-                namespace="autoscaler",
+                namespace="cloudtik",
                 registry=self.registry)
 except ImportError:
 
@@ -168,6 +166,6 @@ except ImportError:
         def inc(self):
             pass
 
-    class AutoscalerPrometheusMetrics(object):
+    class ClusterPrometheusMetrics(object):
         def __getattr__(self, attr):
             return NullMetric()

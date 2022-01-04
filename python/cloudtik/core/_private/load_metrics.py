@@ -7,13 +7,11 @@ import time
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
-import ray.ray_constants
-from ray.autoscaler._private.constants import MEMORY_RESOURCE_UNIT_BYTES,\
-    AUTOSCALER_MAX_RESOURCE_DEMAND_VECTOR_SIZE
-from ray._private.gcs_utils import PlacementGroupTableData
-from ray.autoscaler._private.resource_demand_scheduler import \
+
+from cloudtik.core._private.constants import CLOUDTIK_MEMORY_RESOURCE_UNIT_BYTES,\
+    CLOUDTIK_MAX_RESOURCE_DEMAND_VECTOR_SIZE
+from cloudtik.core._private.resource_demand_scheduler import \
     NodeIP, ResourceDict
-from ray.core.generated.common_pb2 import PlacementStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -29,13 +27,9 @@ class LoadMetricsSummary:
     # Counts of demand bundles from task/actor demand.
     # e.g. [({"CPU": 1}, 5), ({"GPU":1}, 2)]
     resource_demand: List[DictCount]
-    # Counts of pending placement groups
-    pg_demand: List[DictCount]
-    # Counts of demand bundles requested by autoscaler.sdk.request_resources
+    # Counts of demand bundles requested by cloudtik.core.api.request_resources
     request_demand: List[DictCount]
     node_types: List[DictCount]
-    # Optionally included for backwards compatibility: IP of the head node.
-    head_ip: Optional[NodeIP] = None
 
 
 def add_resources(dict1: Dict[str, float],
@@ -82,7 +76,7 @@ def freq_of_dicts(dicts: List[Dict],
 class LoadMetrics:
     """Container for cluster load metrics.
 
-    Metrics here are updated from raylet heartbeats. The autoscaler
+    Metrics here are updated from heartbeats. The scaler
     queries these metrics to determine when to scale up, and which nodes
     can be removed.
     """
@@ -92,35 +86,31 @@ class LoadMetrics:
         self.last_heartbeat_time_by_ip = {}
         self.static_resources_by_ip = {}
         self.dynamic_resources_by_ip = {}
-        self.raylet_id_by_ip = {}
+        self.node_id_by_ip = {}
         self.resource_load_by_ip = {}
         self.waiting_bundles = []
         self.infeasible_bundles = []
-        self.pending_placement_groups = []
         self.resource_requests = []
-        self.cluster_full_of_actors_detected = False
+        self.cluster_full = False
 
     def update(self,
                ip: str,
-               raylet_id: bytes,
+               node_id: bytes,
                static_resources: Dict[str, Dict],
                dynamic_resources: Dict[str, Dict],
                resource_load: Dict[str, Dict],
                waiting_bundles: List[Dict[str, float]] = None,
                infeasible_bundles: List[Dict[str, float]] = None,
-               pending_placement_groups: List[PlacementGroupTableData] = None,
-               cluster_full_of_actors_detected: bool = False):
+               cluster_full: bool = False):
         self.resource_load_by_ip[ip] = resource_load
         self.static_resources_by_ip[ip] = static_resources
-        self.raylet_id_by_ip[ip] = raylet_id
-        self.cluster_full_of_actors_detected = cluster_full_of_actors_detected
+        self.node_id_by_ip[ip] = node_id
+        self.cluster_full = cluster_full
 
         if not waiting_bundles:
             waiting_bundles = []
         if not infeasible_bundles:
             infeasible_bundles = []
-        if not pending_placement_groups:
-            pending_placement_groups = []
 
         # We are not guaranteed to have a corresponding dynamic resource
         # for every static resource because dynamic resources are based on
@@ -140,7 +130,6 @@ class LoadMetrics:
         self.last_heartbeat_time_by_ip[ip] = now
         self.waiting_bundles = waiting_bundles
         self.infeasible_bundles = infeasible_bundles
-        self.pending_placement_groups = pending_placement_groups
 
     def mark_active(self, ip):
         assert ip is not None, "IP should be known at this time"
@@ -151,16 +140,16 @@ class LoadMetrics:
         return ip in self.last_heartbeat_time_by_ip
 
     def prune_active_ips(self, active_ips: List[str]):
-        """The Raylet ips stored by LoadMetrics are obtained by polling
-        the GCS in Monitor.update_load_metrics().
+        """The ips stored by LoadMetrics are obtained by polling
+        the redis in ClusterCoordinator.update_load_metrics().
 
-        On the other hand, the autoscaler gets a list of node ips from
+        On the other hand, the scaler gets a list of node ips from
         its NodeProvider.
 
-        This method removes from LoadMetrics the ips unknown to the autoscaler.
+        This method removes from LoadMetrics the ips unknown to the scaler.
 
         Args:
-            active_ips (List[str]): The node ips known to the autoscaler.
+            active_ips (List[str]): The node ips known to the cluster coordinator.
         """
         active_ips = set(active_ips)
 
@@ -179,7 +168,7 @@ class LoadMetrics:
 
         prune(self.last_used_time_by_ip, should_log=True)
         prune(self.static_resources_by_ip, should_log=False)
-        prune(self.raylet_id_by_ip, should_log=False)
+        prune(self.node_id_by_ip, should_log=False)
         prune(self.dynamic_resources_by_ip, should_log=False)
         prune(self.resource_load_by_ip, should_log=False)
         prune(self.last_heartbeat_time_by_ip, should_log=False)
@@ -207,7 +196,7 @@ class LoadMetrics:
 
     def _get_resource_usage(self):
         num_nodes = 0
-        num_nonidle = 0
+        num_non_idle = 0
         resources_used = {}
         resources_total = {}
         for ip, max_resources in self.static_resources_by_ip.items():
@@ -234,30 +223,27 @@ class LoadMetrics:
                     if frac > max_frac:
                         max_frac = frac
             if max_frac > 0:
-                num_nonidle += 1
+                num_non_idle += 1
 
         return resources_used, resources_total
 
-    def get_resource_demand_vector(self, clip=True):
+    def get_resource_demands(self, clip=True):
         if clip:
             # Bound the total number of bundles to
-            # 2xMAX_RESOURCE_DEMAND_VECTOR_SIZE. This guarantees the resource
+            # 2 x CLOUDTIK_MAX_RESOURCE_DEMAND_VECTOR_SIZE. This guarantees the resource
             # demand scheduler bin packing algorithm takes a reasonable amount
             # of time to run.
             return (
                 self.
-                waiting_bundles[:AUTOSCALER_MAX_RESOURCE_DEMAND_VECTOR_SIZE] +
+                waiting_bundles[:CLOUDTIK_MAX_RESOURCE_DEMAND_VECTOR_SIZE] +
                 self.
-                infeasible_bundles[:AUTOSCALER_MAX_RESOURCE_DEMAND_VECTOR_SIZE]
+                infeasible_bundles[:CLOUDTIK_MAX_RESOURCE_DEMAND_VECTOR_SIZE]
             )
         else:
             return self.waiting_bundles + self.infeasible_bundles
 
     def get_resource_requests(self):
         return self.resource_requests
-
-    def get_pending_placement_groups(self):
-        return self.pending_placement_groups
 
     def resources_avail_summary(self) -> str:
         """Return a concise string of cluster size to report to event logs.
@@ -281,48 +267,26 @@ class LoadMetrics:
                                  ) if self.static_resources_by_ip else {}
         usage_dict = {}
         for key in total_resources:
-            if key in ["memory", "object_store_memory"]:
+            if key in ["memory"]:
                 total = total_resources[key] * \
-                    ray.ray_constants.MEMORY_RESOURCE_UNIT_BYTES
+                    CLOUDTIK_MEMORY_RESOURCE_UNIT_BYTES
                 available = available_resources[key] * \
-                    ray.ray_constants.MEMORY_RESOURCE_UNIT_BYTES
+                    CLOUDTIK_MEMORY_RESOURCE_UNIT_BYTES
                 usage_dict[key] = (total - available, total)
             else:
                 total = total_resources[key]
                 usage_dict[key] = (total - available_resources[key], total)
 
-        summarized_demand_vector = freq_of_dicts(
-            self.get_resource_demand_vector(clip=False))
+        summarized_resource_demands = freq_of_dicts(
+            self.get_resource_demands(clip=False))
         summarized_resource_requests = freq_of_dicts(
             self.get_resource_requests())
 
-        def placement_group_serializer(pg):
-            bundles = tuple(
-                frozenset(bundle.unit_resources.items())
-                for bundle in pg.bundles)
-            return (bundles, pg.strategy)
-
-        def placement_group_deserializer(pg_tuple):
-            # We marshal this as a dictionary so that we can easily json.dumps
-            # it later.
-            # TODO (Alex): Would there be a benefit to properly
-            # marshalling this (into a protobuf)?
-            bundles = list(map(dict, pg_tuple[0]))
-            return {
-                "bundles": freq_of_dicts(bundles),
-                "strategy": PlacementStrategy.Name(pg_tuple[1])
-            }
-
-        summarized_placement_groups = freq_of_dicts(
-            self.get_pending_placement_groups(),
-            serializer=placement_group_serializer,
-            deserializer=placement_group_deserializer)
         nodes_summary = freq_of_dicts(self.static_resources_by_ip.values())
 
         return LoadMetricsSummary(
             usage=usage_dict,
-            resource_demand=summarized_demand_vector,
-            pg_demand=summarized_placement_groups,
+            resource_demand=summarized_resource_demands,
             request_demand=summarized_resource_requests,
             node_types=nodes_summary)
 
@@ -354,10 +318,10 @@ class LoadMetrics:
         }
 
         def format_resource(key, value):
-            if key in ["object_store_memory", "memory"]:
+            if key in ["memory"]:
                 return "{} GiB".format(
                     round(
-                        value * MEMORY_RESOURCE_UNIT_BYTES /
+                        value * CLOUDTIK_MEMORY_RESOURCE_UNIT_BYTES /
                         (1024 * 1024 * 1024), 2))
             else:
                 return round(value, 2)

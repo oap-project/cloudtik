@@ -92,7 +92,7 @@
         "networkIpConfig": "[guid(resourceGroup().id, parameters('vmName'))]",
         "osDiskType": "Standard_LRS",
         "publicIpAddressName": "[concat(parameters('vmName'), '-ip' )]",
-        "subnetRef": "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'ray-vnet', 'ray-subnet')]"
+        "subnetRef": "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'cloudtik-vnet', 'cloudtik-subnet')]"
     },
     "resources": [
         {
@@ -123,7 +123,7 @@
                     }
                 ],
                 "networkSecurityGroup": {
-                    "id": "[resourceId('Microsoft.Network/networkSecurityGroups','ray-nsg')]"
+                    "id": "[resourceId('Microsoft.Network/networkSecurityGroups','cloudtik-nsg')]"
                 }
             },
             "condition": "[parameters('provisionPublicIp')]"
@@ -150,7 +150,7 @@
                     }
                 ],
                 "networkSecurityGroup": {
-                    "id": "[resourceId('Microsoft.Network/networkSecurityGroups','ray-nsg')]"
+                    "id": "[resourceId('Microsoft.Network/networkSecurityGroups','cloudtik-nsg')]"
                 }
             },
             "condition": "[not(parameters('provisionPublicIp'))]"
@@ -234,7 +234,7 @@
             "identity": {
                 "type": "UserAssigned",
                 "userAssignedIdentities": {
-                    "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'ray-msi-user-identity')]": {
+                    "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'cloudtik-msi-user-identity')]": {
                     }
                 }
             }

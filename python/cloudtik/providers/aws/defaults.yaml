@@ -5,14 +5,14 @@ cluster_name: default
 # node.
 max_workers: 2
 
-# The autoscaler will scale up the cluster faster with higher upscaling speed.
-# E.g., if the task requires adding more nodes then autoscaler will gradually
+# The cluster scaler will scale up the cluster faster with higher upscaling speed.
+# E.g., if the task requires adding more nodes then cluster scaler will gradually
 # scale up the cluster in chunks of upscaling_speed*currently_running_nodes.
 # This number should be > 0.
 upscaling_speed: 1.0
 
 # This executes all commands on all nodes in the docker container,
-# and opens all the necessary ports to support the Ray cluster.
+# and opens all the necessary ports to support the cluster.
 # Empty string means disabled.
 docker: {}
 
@@ -31,27 +31,27 @@ provider:
     # instead of stopped.
     cache_stopped_nodes: True # If not present, the default is True.
 
-# How Ray will authenticate with newly launched nodes.
+# How we will authenticate with newly launched nodes.
 auth:
     ssh_user: ubuntu
-# By default Ray creates a new private keypair, but you can also use your own.
+# By default we creates a new private keypair, but you can also use your own.
 # If you do so, make sure to also set "KeyName" in the head and worker node
 # configurations below.
 #    ssh_private_key: /path/to/your/key.pem
 
-# Tell the autoscaler the allowed node types and the resources they provide.
+# Tell the cluster scaler the allowed node types and the resources they provide.
 # The key is the name of the node type, which is just for debugging purposes.
 # The node config specifies the launch config and physical instance type.
 available_node_types:
-    ray.head.default:
+    head.default:
         # The node type's CPU and GPU resources are auto-detected based on AWS instance type.
-        # If desired, you can override the autodetected CPU and GPU resources advertised to the autoscaler.
+        # If desired, you can override the autodetected CPU and GPU resources advertised to the cluster scaler.
         # You can also set custom resources.
         # For example, to mark a node type as having 1 CPU, 1 GPU, and 5 units of a resource called "custom", set
         # resources: {"CPU": 1, "GPU": 1, "custom": 5}
         resources: {}
         # Provider-specific config for this node type, e.g. instance type. By default
-        # Ray will auto-configure unspecified fields such as SubnetId and KeyName.
+        # We will auto-configure unspecified fields such as SubnetId and KeyName.
         # For more documentation on available fields, see:
         # http://boto3.readthedocs.io/en/latest/reference/services/ec2.html#EC2.ServiceResource.create_instances
         node_config:
@@ -63,18 +63,18 @@ available_node_types:
                   Ebs:
                       VolumeSize: 100
             # Additional options in the boto docs.
-    ray.worker.default:
+    worker.default:
         # The minimum number of nodes of this type to launch.
         # This number should be >= 0.
         min_workers: 0
         # The node type's CPU and GPU resources are auto-detected based on AWS instance type.
-        # If desired, you can override the autodetected CPU and GPU resources advertised to the autoscaler.
+        # If desired, you can override the autodetected CPU and GPU resources advertised to the cluster scaler.
         # You can also set custom resources.
         # For example, to mark a node type as having 1 CPU, 1 GPU, and 5 units of a resource called "custom", set
         # resources: {"CPU": 1, "GPU": 1, "custom": 5}
         resources: {}
         # Provider-specific config for this node type, e.g. instance type. By default
-        # Ray will auto-configure unspecified fields such as SubnetId and KeyName.
+        # We will auto-configure unspecified fields such as SubnetId and KeyName.
         # For more documentation on available fields, see:
         # http://boto3.readthedocs.io/en/latest/reference/services/ec2.html#EC2.ServiceResource.create_instances
         node_config:
@@ -89,7 +89,7 @@ available_node_types:
             # Additional options in the boto docs.
 
 # Specify the node type of the head node (as configured above).
-head_node_type: ray.head.default
+head_node_type: head.default
 
 # Files or directories to copy to the head and worker nodes. The format is a
 # dictionary from REMOTE_PATH: LOCAL_PATH, e.g.
@@ -126,7 +126,7 @@ setup_commands:
     - >-
         (stat $HOME/anaconda3/envs/tensorflow2_latest_p37/ &> /dev/null &&
         echo 'export PATH="$HOME/anaconda3/envs/tensorflow2_latest_p37/bin:$PATH"' >> ~/.bashrc) || true
-    - which ray || pip install -U "ray[default] @ https://s3-us-west-2.amazonaws.com/ray-wheels/latest/ray-2.0.0.dev0-cp37-cp37m-manylinux2014_x86_64.whl"
+    - which cloudtik || pip install -U "cloudtik[default] @ https://s3-us-west-2.amazonaws.com/ray-wheels/latest/ray-2.0.0.dev0-cp37-cp37m-manylinux2014_x86_64.whl"
 
 # Custom commands that will be run on the head node after common setup.
 head_setup_commands:
@@ -135,15 +135,13 @@ head_setup_commands:
 # Custom commands that will be run on worker nodes after common setup.
 worker_setup_commands: []
 
-# Command to start ray on the head node. You don't need to change this.
-head_start_ray_commands:
-    - ray stop
-    - ulimit -n 65536; ray start --head --port=6379 --object-manager-port=8076 --autoscaling-config=~/ray_bootstrap_config.yaml
+# Command to start on the head node. You don't need to change this.
+head_start_commands:
+    - cloudtik stop
+    - ulimit -n 65536; cloudtik start --head --port=6379 --cluster-scaling-config=~/cloudtik_bootstrap_config.yaml
 
-# Command to start ray on worker nodes. You don't need to change this.
-worker_start_ray_commands:
-    - ray stop
-    - ulimit -n 65536; ray start --address=$RAY_HEAD_IP:6379 --object-manager-port=8076
+# Command to start on worker nodes. You don't need to change this.
+worker_start_commands:
+    - cloudtik stop
+    - ulimit -n 65536; cloudtik start --address=$CLOUDTIK_HEAD_IP:6379
 
-head_node: {}
-worker_nodes: {}

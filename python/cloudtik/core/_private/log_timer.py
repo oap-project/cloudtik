@@ -1,7 +1,7 @@
 import datetime
 import logging
 
-from ray.autoscaler._private.cli_logger import cli_logger
+from cloudtik.core._private.cli_logger import cli_logger
 
 logger = logging.getLogger(__name__)
 

@@ -6,8 +6,8 @@ import re
 from kubernetes import client
 from kubernetes.client.rest import ApiException
 
-from ray.autoscaler._private._kubernetes import auth_api, core_api, log_prefix
-import ray.ray_constants as ray_constants
+from cloudtik.providers._private._kubernetes import auth_api, core_api, log_prefix
+from cloudtik.core._private.constants import CLOUDTIK_DEFAULT_OBJECT_STORE_MEMORY_PROPORTION
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +58,7 @@ def not_provided_msg(resource_type):
 def bootstrap_kubernetes(config):
     if not config["provider"]["use_internal_ips"]:
         return ValueError(
-            "Exposing external IP addresses for ray containers isn't "
+            "Exposing external IP addresses for containers isn't "
             "currently supported. Please set "
             "'use_internal_ips' to false.")
 
@@ -71,9 +71,9 @@ def bootstrap_kubernetes(config):
 
     if not config["provider"].get("_operator"):
         # These steps are unecessary when using the Operator.
-        _configure_autoscaler_service_account(namespace, config["provider"])
-        _configure_autoscaler_role(namespace, config["provider"])
-        _configure_autoscaler_role_binding(namespace, config["provider"])
+        _configure_scaler_service_account(namespace, config["provider"])
+        _configure_scaler_role(namespace, config["provider"])
+        _configure_scaler_role_binding(namespace, config["provider"])
 
     return config
 
@@ -83,7 +83,7 @@ def fillout_resources_kubernetes(config):
     type.
 
     For each node type and each of CPU/GPU, looks at container's resources
-    and limits, takes min of the two. The result is rounded up, as Ray does
+    and limits, takes min of the two. The result is rounded up, as we do
     not currently support fractional CPU.
     """
     if "available_node_types" not in config:
@@ -128,7 +128,7 @@ def get_autodetected_resources(container_data):
     memory_limits = get_resource(container_resources, "memory")
     node_type_resources["memory"] = int(
         memory_limits *
-        (1 - ray_constants.DEFAULT_OBJECT_STORE_MEMORY_PROPORTION))
+        (1 - CLOUDTIK_DEFAULT_OBJECT_STORE_MEMORY_PROPORTION))
 
     return node_type_resources
 
@@ -229,8 +229,8 @@ def _configure_namespace(provider_config):
     return namespace
 
 
-def _configure_autoscaler_service_account(namespace, provider_config):
-    account_field = "autoscaler_service_account"
+def _configure_scaler_service_account(namespace, provider_config):
+    account_field = "scaler_service_account"
     if account_field not in provider_config:
         logger.info(log_prefix + not_provided_msg(account_field))
         return
@@ -255,8 +255,8 @@ def _configure_autoscaler_service_account(namespace, provider_config):
     logger.info(log_prefix + created_msg(account_field, name))
 
 
-def _configure_autoscaler_role(namespace, provider_config):
-    role_field = "autoscaler_role"
+def _configure_scaler_role(namespace, provider_config):
+    role_field = "scaler_role"
     if role_field not in provider_config:
         logger.info(log_prefix + not_provided_msg(role_field))
         return
@@ -281,8 +281,8 @@ def _configure_autoscaler_role(namespace, provider_config):
     logger.info(log_prefix + created_msg(role_field, name))
 
 
-def _configure_autoscaler_role_binding(namespace, provider_config):
-    binding_field = "autoscaler_role_binding"
+def _configure_scaler_role_binding(namespace, provider_config):
+    binding_field = "scaler_role_binding"
     if binding_field not in provider_config:
         logger.info(log_prefix + not_provided_msg(binding_field))
         return

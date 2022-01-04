@@ -5,7 +5,7 @@ try:  # py3
 except ImportError:  # py2
     from pipes import quote
 
-from ray.autoscaler._private.cli_logger import cli_logger
+from cloudtik.core._private.cli_logger import cli_logger
 
 
 def _check_docker_file_mounts(file_mounts: Dict[str, str]) -> None:
@@ -86,7 +86,7 @@ def check_docker_image(cname, docker_cmd):
 def docker_start_cmds(user, image, mount_dict, container_name, user_options,
                       cluster_name, home_directory, docker_cmd):
     # Imported here due to circular dependency.
-    from ray.autoscaler.sdk import get_docker_host_mount_location
+    from cloudtik.core.api import get_docker_host_mount_location
     docker_mount_prefix = get_docker_host_mount_location(cluster_name)
     mount = {f"{docker_mount_prefix}/{dst}": dst for dst in mount_dict}
 
@@ -96,7 +96,7 @@ def docker_start_cmds(user, image, mount_dict, container_name, user_options,
         for k, v in mount.items()
     ])
 
-    # for click, used in ray cli
+    # for click, used in cloudtik cli
     env_vars = {"LC_ALL": "C.UTF-8", "LANG": "C.UTF-8"}
     env_flags = " ".join(
         ["-e {name}={val}".format(name=k, val=v) for k, v in env_vars.items()])

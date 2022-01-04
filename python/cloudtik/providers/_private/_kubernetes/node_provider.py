@@ -3,30 +3,33 @@ import logging
 import time
 from typing import Dict
 from uuid import uuid4
+
 from kubernetes.client.rest import ApiException
 
-from ray.autoscaler._private.command_runner import KubernetesCommandRunner
-from ray.autoscaler._private._kubernetes import core_api, log_prefix, \
+from cloudtik.core.node_provider import NodeProvider
+from cloudtik.core.tags import NODE_KIND_HEAD
+from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME
+from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND
+
+from cloudtik.core._private.command_executor import KubernetesCommandExecutor
+
+from cloudtik.providers._private._kubernetes import core_api, log_prefix, \
     extensions_beta_api
-from ray.autoscaler._private._kubernetes.config import bootstrap_kubernetes, \
+from cloudtik.providers._private._kubernetes.config import bootstrap_kubernetes, \
     fillout_resources_kubernetes
-from ray.autoscaler.node_provider import NodeProvider
-from ray.autoscaler.tags import NODE_KIND_HEAD
-from ray.autoscaler.tags import TAG_RAY_CLUSTER_NAME
-from ray.autoscaler.tags import TAG_RAY_NODE_KIND
 
 logger = logging.getLogger(__name__)
 
 MAX_TAG_RETRIES = 3
 DELAY_BEFORE_TAG_RETRY = .5
 
-RAY_COMPONENT_LABEL = "cluster.ray.io/component"
+CLOUDTIK_COMPONENT_LABEL = "cloudtik/component"
 
 
 def head_service_selector(cluster_name: str) -> Dict[str, str]:
     """Selector for Operator-configured head service.
     """
-    return {RAY_COMPONENT_LABEL: f"{cluster_name}-ray-head"}
+    return {CLOUDTIK_COMPONENT_LABEL: f"{cluster_name}-cloudtik-head"}
 
 
 def to_label_selector(tags):
@@ -55,7 +58,7 @@ class KubernetesNodeProvider(NodeProvider):
             "status.phase!=Terminating",
         ])
 
-        tag_filters[TAG_RAY_CLUSTER_NAME] = self.cluster_name
+        tag_filters[CLOUDTIK_TAG_CLUSTER_NAME] = self.cluster_name
         label_selector = to_label_selector(tag_filters)
         pod_list = core_api().list_namespaced_pod(
             self.namespace,
@@ -120,8 +123,8 @@ class KubernetesNodeProvider(NodeProvider):
         service_spec = conf.get("service")
         ingress_spec = conf.get("ingress")
         node_uuid = str(uuid4())
-        tags[TAG_RAY_CLUSTER_NAME] = self.cluster_name
-        tags["ray-node-uuid"] = node_uuid
+        tags[CLOUDTIK_TAG_CLUSTER_NAME] = self.cluster_name
+        tags["cloudtik-node-uuid"] = node_uuid
         pod_spec["metadata"]["namespace"] = self.namespace
         if "labels" in pod_spec["metadata"]:
             pod_spec["metadata"]["labels"].update(tags)
@@ -129,7 +132,7 @@ class KubernetesNodeProvider(NodeProvider):
             pod_spec["metadata"]["labels"] = tags
 
         # Allow Operator-configured service to access the head node.
-        if tags[TAG_RAY_NODE_KIND] == NODE_KIND_HEAD:
+        if tags[CLOUDTIK_TAG_NODE_KIND] == NODE_KIND_HEAD:
             head_selector = head_service_selector(self.cluster_name)
             pod_spec["metadata"]["labels"].update(head_selector)
 
@@ -150,7 +153,7 @@ class KubernetesNodeProvider(NodeProvider):
                 metadata = service_spec.get("metadata", {})
                 metadata["name"] = new_node.metadata.name
                 service_spec["metadata"] = metadata
-                service_spec["spec"]["selector"] = {"ray-node-uuid": node_uuid}
+                service_spec["spec"]["selector"] = {"cloudtik-node-uuid": node_uuid}
                 svc = core_api().create_namespaced_service(
                     self.namespace, service_spec)
                 new_svcs.append(svc)
@@ -193,7 +196,7 @@ class KubernetesNodeProvider(NodeProvider):
         for node_id in node_ids:
             self.terminate_node(node_id)
 
-    def get_command_runner(self,
+    def get_command_executor(self,
                            log_prefix,
                            node_id,
                            auth_config,
@@ -201,8 +204,8 @@ class KubernetesNodeProvider(NodeProvider):
                            process_runner,
                            use_internal_ip,
                            docker_config=None):
-        return KubernetesCommandRunner(log_prefix, self.namespace, node_id,
-                                       auth_config, process_runner)
+        return KubernetesCommandExecutor(log_prefix, self.namespace, node_id,
+                                         auth_config, process_runner)
 
     @staticmethod
     def bootstrap_config(cluster_config):
@@ -226,8 +229,8 @@ def _add_service_name_to_service_port(spec, svc_name):
             if k == "serviceName" and spec[k] != svc_name:
                 raise ValueError(
                     "The value of serviceName must be set to "
-                    "${RAY_POD_NAME}. It is automatically replaced "
-                    "when using the autoscaler.")
+                    "${CLOUDTIK_POD_NAME}. It is automatically replaced "
+                    "when using the scaler.")
 
     elif isinstance(spec, list):
         spec = [
@@ -235,8 +238,8 @@ def _add_service_name_to_service_port(spec, svc_name):
         ]
 
     elif isinstance(spec, str):
-        # The magic string ${RAY_POD_NAME} is replaced with
+        # The magic string ${CLOUDTIK_POD_NAME} is replaced with
         # the true service name, which is equal to the worker pod name.
-        if "${RAY_POD_NAME}" in spec:
-            spec = spec.replace("${RAY_POD_NAME}", svc_name)
+        if "${CLOUDTIK_POD_NAME}" in spec:
+            spec = spec.replace("${CLOUDTIK_POD_NAME}", svc_name)
     return spec

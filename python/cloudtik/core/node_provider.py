@@ -2,9 +2,9 @@ import logging
 from types import ModuleType
 from typing import Any, Dict, List, Optional
 
-from ray.autoscaler.command_runner import CommandRunnerInterface
-from ray.autoscaler._private.command_runner import \
-    SSHCommandRunner, DockerCommandRunner
+from cloudtik.core.command_executor import CommandExecutor
+from cloudtik.core._private.command_executor import \
+    SSHCommandExecutor, DockerCommandExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +14,7 @@ class NodeProvider:
 
     **Important**: This is an INTERNAL API that is only exposed for the purpose
     of implementing custom node providers. It is not allowed to call into
-    NodeProvider methods from any Ray package outside the autoscaler, only to
+    NodeProvider methods from any package outside, only to
     define new implementations of NodeProvider for use with the "external" node
     provider option.
 
@@ -33,13 +33,6 @@ class NodeProvider:
         self._internal_ip_cache: Dict[str, str] = {}
         self._external_ip_cache: Dict[str, str] = {}
 
-    def is_readonly(self) -> bool:
-        """Returns whether this provider is readonly.
-
-        Readonly node providers do not allow nodes to be created or terminated.
-        """
-        return False
-
     def non_terminated_nodes(self, tag_filters: Dict[str, str]) -> List[str]:
         """Return a list of node ids filtered by the specified tags dict.
 
@@ -49,7 +42,7 @@ class NodeProvider:
         nodes() must be called again to refresh results.
 
         Examples:
-            >>> provider.non_terminated_nodes({TAG_RAY_NODE_KIND: "worker"})
+            >>> provider.non_terminated_nodes({CLOUDTIK_TAG_NODE_KIND: "worker"})
             ["node-1", "node-2"]
         """
         raise NotImplementedError
@@ -71,7 +64,7 @@ class NodeProvider:
         raise NotImplementedError
 
     def internal_ip(self, node_id: str) -> str:
-        """Returns the internal ip (Ray ip) of the given node."""
+        """Returns the internal ip of the given node."""
         raise NotImplementedError
 
     def get_node_id(self, ip_address: str,
@@ -130,7 +123,7 @@ class NodeProvider:
             resources: Dict[str, float]) -> Optional[Dict[str, Any]]:
         """Create nodes with a given resource config.
 
-        This is the method actually called by the autoscaler. Prefer to
+        This is the method actually called by the cluster scaler. Prefer to
         implement this when possible directly, otherwise it delegates to the
         create_node() implementation.
         """
@@ -181,7 +174,7 @@ class NodeProvider:
         """Bootstraps the cluster config by adding env defaults if needed."""
         return cluster_config
 
-    def get_command_runner(self,
+    def get_command_executor(self,
                            log_prefix: str,
                            node_id: str,
                            auth_config: Dict[str, Any],
@@ -189,14 +182,14 @@ class NodeProvider:
                            process_runner: ModuleType,
                            use_internal_ip: bool,
                            docker_config: Optional[Dict[str, Any]] = None
-                           ) -> CommandRunnerInterface:
+                           ) -> CommandExecutor:
         """Returns the CommandRunner class used to perform SSH commands.
 
         Args:
         log_prefix(str): stores "NodeUpdater: {}: ".format(<node_id>). Used
             to print progress in the CommandRunner.
         node_id(str): the node ID.
-        auth_config(dict): the authentication configs from the autoscaler
+        auth_config(dict): the authentication configs from the cluster config
             yaml file.
         cluster_name(str): the name of the cluster.
         process_runner(module): the module to use to run the commands
@@ -216,9 +209,9 @@ class NodeProvider:
             "use_internal_ip": use_internal_ip
         }
         if docker_config and docker_config["container_name"] != "":
-            return DockerCommandRunner(docker_config, **common_args)
+            return DockerCommandExecutor(docker_config, **common_args)
         else:
-            return SSHCommandRunner(**common_args)
+            return SSHCommandExecutor(**common_args)
 
     def prepare_for_head_node(
             self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:

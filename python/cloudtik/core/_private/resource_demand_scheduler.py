@@ -1,7 +1,7 @@
-"""Implements multi-node-type autoscaling.
+"""Implements multi-node-type cluster scaling.
 
-This file implements an autoscaling algorithm that is aware of multiple node
-types (e.g., example-multi-node-type.yaml). The Ray autoscaler will pass in
+This file implements a scaling algorithm that is aware of multiple node
+types. The scaler will pass in
 a vector of resource shape demands, and the resource demand scheduler will
 return a list of node types that can satisfy the demands given constraints
 (i.e., reverse bin packing).
@@ -17,14 +17,11 @@ from typing import List
 from typing import Optional
 from typing import Tuple
 
-from ray.autoscaler.node_provider import NodeProvider
-from ray._private.gcs_utils import PlacementGroupTableData
-from ray.core.generated.common_pb2 import PlacementStrategy
-from ray.autoscaler._private.constants import AUTOSCALER_CONSERVE_GPU_NODES
-from ray.autoscaler.tags import (
-    TAG_RAY_USER_NODE_TYPE, NODE_KIND_UNMANAGED, NODE_TYPE_LEGACY_WORKER,
-    NODE_KIND_WORKER, NODE_TYPE_LEGACY_HEAD, TAG_RAY_NODE_KIND, NODE_KIND_HEAD)
-import ray.ray_constants as ray_constants
+from cloudtik.core.node_provider import NodeProvider
+from cloudtik.core._private.constants import CLOUDTIK_CONSERVE_GPU_NODES, to_memory_units
+from cloudtik.core.tags import (
+    CLOUDTIK_TAG_USER_NODE_TYPE, NODE_KIND_UNMANAGED,
+    NODE_KIND_WORKER, CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD)
 
 logger = logging.getLogger(__name__)
 
@@ -69,9 +66,9 @@ class ResourceDemandScheduler:
         head_id, worker_ids = None, []
         for node in nodes:
             tags = self.provider.node_tags(node)
-            if tags[TAG_RAY_NODE_KIND] == NODE_KIND_HEAD:
+            if tags[CLOUDTIK_TAG_NODE_KIND] == NODE_KIND_HEAD:
                 head_id = node
-            elif tags[TAG_RAY_NODE_KIND] == NODE_KIND_WORKER:
+            elif tags[CLOUDTIK_TAG_NODE_KIND] == NODE_KIND_WORKER:
                 worker_ids.append(node)
         return head_id, worker_ids
 
@@ -82,32 +79,9 @@ class ResourceDemandScheduler:
                      head_node_type: NodeType,
                      upscaling_speed: float = 1) -> None:
         """Updates the class state variables.
-
-        For legacy yamls, it merges previous state and new state to make sure
-        inferered resources are not lost.
         """
         new_node_types = copy.deepcopy(node_types)
         final_node_types = _convert_memory_unit(new_node_types)
-        if self.is_legacy_yaml(new_node_types):  # If new configs are legacy.
-            if self.is_legacy_yaml():  # If old configs were legacy.
-
-                def _update_based_on_node_config(node_type: NodeType) -> None:
-                    if self.node_types[node_type][
-                            "node_config"] == new_node_types[node_type][
-                                "node_config"]:  # If node config didnt change.
-                        if self.node_types[node_type]["resources"]:
-                            # If we already know the resources, do not
-                            # overwrite them. This helps also if in legacy
-                            # yamls the user provides "resources" field.
-                            del new_node_types[node_type]["resources"]
-                        self.node_types[node_type].update(
-                            new_node_types[node_type])
-                    else:
-                        self.node_types[node_type] = new_node_types[node_type]
-
-                _update_based_on_node_config(NODE_TYPE_LEGACY_HEAD)
-                _update_based_on_node_config(NODE_TYPE_LEGACY_WORKER)
-                final_node_types = self.node_types
 
         self.provider = provider
         self.node_types = copy.deepcopy(final_node_types)
@@ -116,16 +90,6 @@ class ResourceDemandScheduler:
         self.head_node_type = head_node_type
         self.upscaling_speed = upscaling_speed
 
-    def is_legacy_yaml(self,
-                       node_types: Dict[NodeType, NodeTypeConfigDict] = None
-                       ) -> bool:
-        """Returns if the node types came from a legacy yaml.
-
-        A legacy yaml is one that was originally without available_node_types
-        and was autofilled with available_node_types."""
-        node_types = node_types or self.node_types
-        return (NODE_TYPE_LEGACY_HEAD in node_types
-                and NODE_TYPE_LEGACY_WORKER in node_types)
 
     def is_feasible(self, bundle: ResourceDict) -> bool:
         for node_type, config in self.node_types.items():
@@ -142,7 +106,6 @@ class ResourceDemandScheduler:
             launching_nodes: Dict[NodeType, int],
             resource_demands: List[ResourceDict],
             unused_resources_by_ip: Dict[NodeIP, ResourceDict],
-            pending_placement_groups: List[PlacementGroupTableData],
             max_resources_by_ip: Dict[NodeIP, ResourceDict],
             ensure_min_cluster_size: List[ResourceDict] = None,
     ) -> (Dict[NodeType, int], List[ResourceDict]):
@@ -152,10 +115,8 @@ class ResourceDemandScheduler:
             (1) calculates the resources present in the cluster.
             (2) calculates the remaining nodes to add to respect min_workers
                 constraint per node type.
-            (3) for each strict spread placement group, reserve space on
-                available nodes and launch new nodes if necessary.
-            (4) calculates the unfulfilled resource bundles.
-            (5) calculates which nodes need to be launched to fulfill all
+            (3) calculates the unfulfilled resource bundles.
+            (4) calculates which nodes need to be launched to fulfill all
                 the bundle requests, subject to max_worker constraints.
 
         Args:
@@ -163,7 +124,6 @@ class ResourceDemandScheduler:
             launching_nodes: Summary of node types currently being launched.
             resource_demands: Vector of resource demands from the scheduler.
             unused_resources_by_ip: Mapping from ip to available resources.
-            pending_placement_groups: Placement group demands.
             max_resources_by_ip: Mapping from ip to static node resources.
             ensure_min_cluster_size: Try to ensure the cluster can fit at least
                 this set of resources. This differs from resources_demands in
@@ -173,11 +133,6 @@ class ResourceDemandScheduler:
             Dict of count to add for each node type, and residual of resources
             that still cannot be fulfilled.
         """
-        if self.is_legacy_yaml():
-            # When using legacy yaml files we need to infer the head & worker
-            # node resources from the static node resources from LoadMetrics.
-            self._infer_legacy_node_resources_if_needed(
-                nodes, max_resources_by_ip)
 
         self._update_node_resources_from_runtime(nodes, max_resources_by_ip)
 
@@ -196,52 +151,10 @@ class ResourceDemandScheduler:
                 node_resources, node_type_counts, self.node_types,
                 self.max_workers, self.head_node_type, ensure_min_cluster_size)
 
-        # Step 3: get resource demands of placement groups and return the
-        # groups that should be strictly spread.
-        logger.debug(f"Placement group demands: {pending_placement_groups}")
-        placement_group_demand_vector, strict_spreads = \
-            placement_groups_to_resource_demands(pending_placement_groups)
-        # Place placement groups demand vector at the beginning of the resource
-        # demands vector to make it consistent (results in the same types of
-        # nodes to add) with pg_demands_nodes_max_launch_limit calculated later
-        resource_demands = placement_group_demand_vector + resource_demands
-
-        if self.is_legacy_yaml() and \
-                not self.node_types[NODE_TYPE_LEGACY_WORKER]["resources"]:
-            # Need to launch worker nodes to later infer their
-            # resources.
-            # We add request_resources() demands here to make sure we launch
-            # a single worker sometimes even if min_workers = 0 and resource
-            # demands is empty.
-            if ensure_min_cluster_size:
-                request_resources_demands = ensure_min_cluster_size
-            else:
-                request_resources_demands = []
-            return self._legacy_worker_node_to_launch(
-                nodes, launching_nodes, node_resources,
-                resource_demands + request_resources_demands), []
-
-        spread_pg_nodes_to_add, node_resources, node_type_counts = \
-            self.reserve_and_allocate_spread(
-                strict_spreads, node_resources, node_type_counts)
-
-        # Calculate the nodes to add for bypassing max launch limit for
-        # placement groups and spreads.
-        unfulfilled_placement_groups_demands, _ = get_bin_pack_residual(
-            node_resources, placement_group_demand_vector)
         # Add 1 to account for the head node.
         max_to_add = self.max_workers + 1 - sum(node_type_counts.values())
-        pg_demands_nodes_max_launch_limit, _ = get_nodes_for(
-            self.node_types, node_type_counts, self.head_node_type, max_to_add,
-            unfulfilled_placement_groups_demands)
-        placement_groups_nodes_max_limit = {
-            node_type: spread_pg_nodes_to_add.get(node_type, 0) +
-            pg_demands_nodes_max_launch_limit.get(node_type, 0)
-            for node_type in self.node_types
-        }
 
-        # Step 4/5: add nodes for pending tasks, actors, and non-strict spread
-        # groups
+        # Step 3/4: add nodes for pending tasks
         unfulfilled, _ = get_bin_pack_residual(node_resources,
                                                resource_demands)
         logger.debug("Resource demands: {}".format(resource_demands))
@@ -257,51 +170,17 @@ class ResourceDemandScheduler:
 
         for node_type in self.node_types:
             nodes_to_add = (adjusted_min_workers.get(
-                node_type, 0) + spread_pg_nodes_to_add.get(node_type, 0) +
-                            nodes_to_add_based_on_demand.get(node_type, 0))
+                node_type, 0) + nodes_to_add_based_on_demand.get(node_type, 0))
             if nodes_to_add > 0:
                 total_nodes_to_add[node_type] = nodes_to_add
 
         # Limit the number of concurrent launches
         total_nodes_to_add = self._get_concurrent_resource_demand_to_launch(
             total_nodes_to_add, unused_resources_by_ip.keys(), nodes,
-            launching_nodes, adjusted_min_workers,
-            placement_groups_nodes_max_limit)
+            launching_nodes, adjusted_min_workers)
 
         logger.debug("Node requests: {}".format(total_nodes_to_add))
         return total_nodes_to_add, final_unfulfilled
-
-    def _legacy_worker_node_to_launch(
-            self, nodes: List[NodeID], launching_nodes: Dict[NodeType, int],
-            node_resources: List[ResourceDict],
-            resource_demands: List[ResourceDict]) -> Dict[NodeType, int]:
-        """Get worker nodes to launch when resources missing in legacy yamls.
-
-        If there is unfulfilled demand and we don't know the resources of the
-        workers, it returns max(1, min_workers) worker nodes from which we
-        later calculate the node resources.
-        """
-        # Populate worker list.
-        _, worker_nodes = self._get_head_and_workers(nodes)
-
-        if self.max_workers == 0:
-            return {}
-        elif sum(launching_nodes.values()) + len(worker_nodes) > 0:
-            # If we are already launching a worker node, wait for its resources
-            # to be known.
-            # TODO(ameer): Note that if first worker node fails this will never
-            # launch any more nodes.
-            return {}
-        else:
-            unfulfilled, _ = get_bin_pack_residual(node_resources,
-                                                   resource_demands)
-            workers_to_add = min(
-                self.node_types[NODE_TYPE_LEGACY_WORKER].get("min_workers", 0),
-                self.node_types[NODE_TYPE_LEGACY_WORKER].get("max_workers", 0))
-            if workers_to_add > 0 or unfulfilled:
-                return {NODE_TYPE_LEGACY_WORKER: max(1, workers_to_add)}
-            else:
-                return {}
 
     def _update_node_resources_from_runtime(
             self, nodes: List[NodeID],
@@ -309,8 +188,7 @@ class ResourceDemandScheduler:
         """Update static node type resources with runtime resources
 
         This will update the cached static node type resources with the runtime
-        resources. Because we can not know the correctly memory or
-        object_store_memory from config file.
+        resources. Because we can not know the correct memory from config file.
         """
         need_update = len(self.node_types) != len(self.node_resource_updated)
 
@@ -319,10 +197,10 @@ class ResourceDemandScheduler:
         for node_id in nodes:
             tags = self.provider.node_tags(node_id)
 
-            if TAG_RAY_USER_NODE_TYPE not in tags:
+            if CLOUDTIK_TAG_USER_NODE_TYPE not in tags:
                 continue
 
-            node_type = tags[TAG_RAY_USER_NODE_TYPE]
+            node_type = tags[CLOUDTIK_TAG_USER_NODE_TYPE]
             if (node_type in self.node_resource_updated
                     or node_type not in self.node_types):
                 # continue if the node type has been updated or is not an known
@@ -333,12 +211,12 @@ class ResourceDemandScheduler:
             if runtime_resources:
                 runtime_resources = copy.deepcopy(runtime_resources)
                 resources = self.node_types[node_type].get("resources", {})
-                for key in ["CPU", "GPU", "memory", "object_store_memory"]:
+                for key in ["CPU", "GPU", "memory"]:
                     if key in runtime_resources:
                         resources[key] = runtime_resources[key]
                 self.node_types[node_type]["resources"] = resources
 
-                node_kind = tags[TAG_RAY_NODE_KIND]
+                node_kind = tags[CLOUDTIK_TAG_NODE_KIND]
                 if node_kind == NODE_KIND_WORKER:
                     # Here, we do not record the resources have been updated
                     # if it is the head node kind. Because it need be updated
@@ -348,40 +226,6 @@ class ResourceDemandScheduler:
                     # for worker nodes.
                     self.node_resource_updated.add(node_type)
 
-    def _infer_legacy_node_resources_if_needed(
-            self, nodes: List[NodeIP],
-            max_resources_by_ip: Dict[NodeIP, ResourceDict]
-    ) -> (bool, Dict[NodeType, int]):
-        """Infers node resources for legacy config files.
-
-        Updates the resources of the head and worker node types in
-        self.node_types.
-        Args:
-            nodes: List of all node ids in the cluster
-            max_resources_by_ip: Mapping from ip to static node resources.
-        """
-        head_node, worker_nodes = self._get_head_and_workers(nodes)
-        # We fill the head node resources only once.
-        if not self.node_types[NODE_TYPE_LEGACY_HEAD]["resources"]:
-            try:
-                head_ip = self.provider.internal_ip(head_node)
-                self.node_types[NODE_TYPE_LEGACY_HEAD]["resources"] = \
-                    copy.deepcopy(max_resources_by_ip[head_ip])
-            except (IndexError, KeyError):
-                logger.exception("Could not reach the head node.")
-        # We fill the worker node resources only once.
-        if not self.node_types[NODE_TYPE_LEGACY_WORKER]["resources"]:
-            # Set the node_types here in case we already launched a worker node
-            # from which we can directly get the node_resources.
-            worker_node_ips = [
-                self.provider.internal_ip(node_id) for node_id in worker_nodes
-            ]
-            for ip in worker_node_ips:
-                if ip in max_resources_by_ip:
-                    self.node_types[NODE_TYPE_LEGACY_WORKER][
-                        "resources"] = copy.deepcopy(max_resources_by_ip[ip])
-                    break
-
     def _get_concurrent_resource_demand_to_launch(
             self,
             to_launch: Dict[NodeType, int],
@@ -389,7 +233,6 @@ class ResourceDemandScheduler:
             non_terminated_nodes: List[NodeID],
             pending_launches_nodes: Dict[NodeType, int],
             adjusted_min_workers: Dict[NodeType, int],
-            placement_group_nodes: Dict[NodeType, int],
     ) -> Dict[NodeType, int]:
         """Updates the max concurrent resources to launch for each node type.
 
@@ -413,8 +256,6 @@ class ResourceDemandScheduler:
                 min_workers and request_resources(). This overrides the launch
                 limits since the user is hinting to immediately scale up to
                 this size.
-            placement_group_nodes: Nodes to launch for placement groups.
-                This overrides the launch concurrency limits.
         Returns:
             Dict[NodeType, int]: Maximum number of nodes to launch for each
                 node type.
@@ -437,9 +278,8 @@ class ResourceDemandScheduler:
                 max_allowed_pending_nodes - total_pending_nodes,
 
                 # Allow more nodes if this is to respect min_workers or
-                # request_resources() or placement groups.
-                adjusted_min_workers.get(node_type, 0) +
-                placement_group_nodes.get(node_type, 0))
+                # request_resources().
+                adjusted_min_workers.get(node_type, 0))
 
             if upper_bound > 0:
                 updated_nodes_to_launch[node_type] = min(
@@ -458,8 +298,8 @@ class ResourceDemandScheduler:
         pending_nodes = collections.defaultdict(int)
         for node_id in non_terminated_nodes:
             tags = self.provider.node_tags(node_id)
-            if TAG_RAY_USER_NODE_TYPE in tags:
-                node_type = tags[TAG_RAY_USER_NODE_TYPE]
+            if CLOUDTIK_TAG_USER_NODE_TYPE in tags:
+                node_type = tags[CLOUDTIK_TAG_USER_NODE_TYPE]
                 node_ip = self.provider.internal_ip(node_id)
                 if node_ip in connected_nodes:
                     running_nodes[node_type] += 1
@@ -495,14 +335,14 @@ class ResourceDemandScheduler:
                     f"cluster config: {self.node_types} under entry "
                     "available_node_types. This node's resources will be "
                     "ignored. If you are using an unmanaged node, manually "
-                    f"set the {TAG_RAY_NODE_KIND} tag to "
+                    f"set the {CLOUDTIK_TAG_NODE_KIND} tag to "
                     f"\"{NODE_KIND_UNMANAGED}\" in your cloud provider's "
                     "management console.")
                 return None
             # Careful not to include the same dict object multiple times.
             available = copy.deepcopy(self.node_types[node_type]["resources"])
             # If available_resources is None this might be because the node is
-            # no longer pending, but the raylet hasn't sent a heartbeat to gcs
+            # no longer pending, but the node hasn't sent a heartbeat to redis
             # yet.
             if available_resources is not None:
                 available = copy.deepcopy(available_resources)
@@ -512,8 +352,8 @@ class ResourceDemandScheduler:
 
         for node_id in nodes:
             tags = self.provider.node_tags(node_id)
-            if TAG_RAY_USER_NODE_TYPE in tags:
-                node_type = tags[TAG_RAY_USER_NODE_TYPE]
+            if CLOUDTIK_TAG_USER_NODE_TYPE in tags:
+                node_type = tags[CLOUDTIK_TAG_USER_NODE_TYPE]
                 ip = self.provider.internal_ip(node_id)
                 available_resources = unused_resources_by_ip.get(ip)
                 add_node(node_type, available_resources)
@@ -524,69 +364,6 @@ class ResourceDemandScheduler:
 
         return node_resources, node_type_counts
 
-    def reserve_and_allocate_spread(self,
-                                    strict_spreads: List[List[ResourceDict]],
-                                    node_resources: List[ResourceDict],
-                                    node_type_counts: Dict[NodeType, int]):
-        """For each strict spread, attempt to reserve as much space as possible
-        on the node, then allocate new nodes for the unfulfilled portion.
-
-        Args:
-            strict_spreads (List[List[ResourceDict]]): A list of placement
-                groups which must be spread out.
-            node_resources (List[ResourceDict]): Available node resources in
-                the cluster.
-            node_type_counts (Dict[NodeType, int]): The amount of each type of
-                node pending or in the cluster.
-
-        Returns:
-            Dict[NodeType, int]: Nodes to add.
-            List[ResourceDict]: The updated node_resources after the method.
-            Dict[NodeType, int]: The updated node_type_counts.
-
-        """
-        to_add = collections.defaultdict(int)
-        for bundles in strict_spreads:
-            # Try to pack as many bundles of this group as possible on existing
-            # nodes. The remaining will be allocated on new nodes.
-            unfulfilled, node_resources = get_bin_pack_residual(
-                node_resources, bundles, strict_spread=True)
-            max_to_add = self.max_workers + 1 - sum(node_type_counts.values())
-            # Allocate new nodes for the remaining bundles that don't fit.
-            to_launch, _ = get_nodes_for(
-                self.node_types,
-                node_type_counts,
-                self.head_node_type,
-                max_to_add,
-                unfulfilled,
-                strict_spread=True)
-            _inplace_add(node_type_counts, to_launch)
-            _inplace_add(to_add, to_launch)
-            new_node_resources = _node_type_counts_to_node_resources(
-                self.node_types, to_launch)
-            # Update node resources to include newly launched nodes and their
-            # bundles.
-            unfulfilled, including_reserved = get_bin_pack_residual(
-                new_node_resources, unfulfilled, strict_spread=True)
-            assert not unfulfilled
-            node_resources += including_reserved
-        return to_add, node_resources, node_type_counts
-
-    def debug_string(self, nodes: List[NodeID],
-                     pending_nodes: Dict[NodeID, int],
-                     unused_resources_by_ip: Dict[str, ResourceDict]) -> str:
-        node_resources, node_type_counts = self.calculate_node_resources(
-            nodes, pending_nodes, unused_resources_by_ip)
-
-        out = "Worker node types:"
-        for node_type, count in node_type_counts.items():
-            out += "\n - {}: {}".format(node_type, count)
-            if pending_nodes.get(node_type):
-                out += " ({} pending)".format(pending_nodes[node_type])
-
-        return out
-
-
 def _convert_memory_unit(node_types: Dict[NodeType, NodeTypeConfigDict]
                          ) -> Dict[NodeType, NodeTypeConfigDict]:
     """Convert memory and object_store_memory to memory unit"""
@@ -595,10 +372,10 @@ def _convert_memory_unit(node_types: Dict[NodeType, NodeTypeConfigDict]
         res = node_types[node_type].get("resources", {})
         if "memory" in res:
             size = float(res["memory"])
-            res["memory"] = ray_constants.to_memory_units(size, False)
+            res["memory"] = to_memory_units(size, False)
         if "object_store_memory" in res:
             size = float(res["object_store_memory"])
-            res["object_store_memory"] = ray_constants.to_memory_units(
+            res["object_store_memory"] = to_memory_units(
                 size, False)
         if res:
             node_types[node_type]["resources"] = res
@@ -738,17 +515,9 @@ def get_nodes_for(node_types: Dict[NodeType, NodeTypeConfigDict],
 
         # Give up, no feasible node.
         if not utilization_scores:
-            # TODO (Alex): We will hit this case every time a placement group
-            # starts up because placement groups are scheduled via custom
-            # resources. This will behave properly with the current utilization
-            # score heuristic, but it's a little dangerous and misleading.
             logger.warning(
-                f"The autoscaler could not find a node type to satisfy the "
-                f"request: {resources}. If this request is related to "
-                f"placement groups the resource request will resolve itself, "
-                f"otherwise please specify a node type with the necessary "
-                f"resource "
-                f"https://docs.ray.io/en/master/cluster/autoscaling.html#multiple-node-type-autoscaling."  # noqa: E501
+                f"The scaler could not find a node type to satisfy the "
+                f"request: {resources}. "
             )
             break
 
@@ -775,7 +544,7 @@ def _utilization_score(node_resources: ResourceDict,
 
     # Avoid launching GPU nodes if there aren't any GPU tasks at all. Note that
     # if there *is* a GPU task, then CPU tasks can be scheduled as well.
-    if AUTOSCALER_CONSERVE_GPU_NODES:
+    if CLOUDTIK_CONSERVE_GPU_NODES:
         if is_gpu_node and not any_gpu_task:
             return None
 
@@ -820,10 +589,6 @@ def get_bin_pack_residual(node_resources: List[ResourceDict],
                           strict_spread: bool = False
                           ) -> (List[ResourceDict], List[ResourceDict]):
     """Return a subset of resource_demands that cannot fit in the cluster.
-
-    TODO(ekl): this currently does not guarantee the resources will be packed
-    correctly by the Ray scheduler. This is only possible once the Ray backend
-    supports a placement groups API.
 
     Args:
         node_resources (List[ResourceDict]): List of resources per node.
@@ -891,47 +656,3 @@ def _inplace_add(a: collections.defaultdict, b: Dict) -> None:
     a[k] should be defined for all k in b.keys()"""
     for k, v in b.items():
         a[k] += v
-
-
-def placement_groups_to_resource_demands(
-        pending_placement_groups: List[PlacementGroupTableData]):
-    """Preprocess placement group requests into regular resource demand vectors
-    when possible. The policy is:
-        * STRICT_PACK - Convert to a single bundle.
-        * PACK - Flatten into a resource demand vector.
-        * STRICT_SPREAD - Cannot be converted.
-        * SPREAD - Flatten into a resource demand vector.
-
-    Args:
-        pending_placement_groups (List[PlacementGroupData]): List of
-        PlacementGroupLoad's.
-
-    Returns:
-        List[ResourceDict]: The placement groups which were converted to a
-            resource demand vector.
-        List[List[ResourceDict]]: The placement groups which should be strictly
-            spread.
-    """
-    resource_demand_vector = []
-    unconverted = []
-    for placement_group in pending_placement_groups:
-        shapes = [
-            dict(bundle.unit_resources) for bundle in placement_group.bundles
-        ]
-        if (placement_group.strategy == PlacementStrategy.PACK
-                or placement_group.strategy == PlacementStrategy.SPREAD):
-            resource_demand_vector.extend(shapes)
-        elif placement_group.strategy == PlacementStrategy.STRICT_PACK:
-            combined = collections.defaultdict(float)
-            for shape in shapes:
-                for label, quantity in shape.items():
-                    combined[label] += quantity
-            resource_demand_vector.append(combined)
-        elif (placement_group.strategy == PlacementStrategy.STRICT_SPREAD):
-            unconverted.append(shapes)
-        else:
-            logger.error(
-                f"Unknown placement group request type: {placement_group}. "
-                f"Please file a bug report "
-                f"https://github.com/ray-project/ray/issues/new.")
-    return resource_demand_vector, unconverted

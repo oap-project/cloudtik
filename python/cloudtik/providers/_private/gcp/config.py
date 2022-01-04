@@ -8,12 +8,12 @@ import time
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.backends import default_backend
+
 from googleapiclient import discovery, errors
 from google.oauth2 import service_account
 from google.oauth2.credentials import Credentials as OAuthCredentials
 
-from ray.autoscaler._private.util import check_legacy_fields
-from ray.autoscaler._private.gcp.node import (GCPNodeType, MAX_POLLS,
+from cloudtik.providers._private.gcp.node import (GCPNodeType, MAX_POLLS,
                                               POLL_INTERVAL)
 
 logger = logging.getLogger(__name__)
@@ -21,12 +21,12 @@ logger = logging.getLogger(__name__)
 VERSION = "v1"
 TPU_VERSION = "v2alpha"  # change once v2 is stable
 
-RAY = "ray-autoscaler"
-DEFAULT_SERVICE_ACCOUNT_ID = RAY + "-sa-" + VERSION
+CLOUDTIK = "cloudtik"
+CLOUDTIK_DEFAULT_SERVICE_ACCOUNT_ID = CLOUDTIK + "-sa-" + VERSION
 SERVICE_ACCOUNT_EMAIL_TEMPLATE = (
     "{account_id}@{project_id}.iam.gserviceaccount.com")
 DEFAULT_SERVICE_ACCOUNT_CONFIG = {
-    "displayName": "Ray Autoscaler Service Account ({})".format(VERSION),
+    "displayName": "CloudTik Service Account ({})".format(VERSION),
 }
 
 # Those roles will be always added.
@@ -120,7 +120,7 @@ def wait_for_compute_global_operation(project_name, operation, compute):
 
 def key_pair_name(i, region, project_id, ssh_user):
     """Returns the ith default gcp_key_pair_name."""
-    key_name = "{}_gcp_{}_{}_{}_{}".format(RAY, region, project_id, ssh_user,
+    key_name = "{}_gcp_{}_{}_{}_{}".format(CLOUDTIK, region, project_id, ssh_user,
                                            i)
     return key_name
 
@@ -252,7 +252,7 @@ def construct_clients_from_provider_config(provider_config):
 
 def bootstrap_gcp(config):
     config = copy.deepcopy(config)
-    check_legacy_fields(config)
+    
     # Used internally to store head IAM role.
     config["head_node"] = {}
 
@@ -287,7 +287,7 @@ def _configure_project(config, crm):
 
     project_id = config["provider"].get("project_id")
     assert config["provider"]["project_id"] is not None, (
-        "'project_id' must be set in the 'provider' section of the autoscaler"
+        "'project_id' must be set in the 'provider' section of the scaler"
         " config. Notice that the project id must be globally unique.")
     project = _get_project(project_id, crm)
 
@@ -319,17 +319,17 @@ def _configure_iam_role(config, crm, iam):
     config = copy.deepcopy(config)
 
     email = SERVICE_ACCOUNT_EMAIL_TEMPLATE.format(
-        account_id=DEFAULT_SERVICE_ACCOUNT_ID,
+        account_id=CLOUDTIK_DEFAULT_SERVICE_ACCOUNT_ID,
         project_id=config["provider"]["project_id"])
     service_account = _get_service_account(email, config, iam)
 
     if service_account is None:
         logger.info("_configure_iam_role: "
                     "Creating new service account {}".format(
-                        DEFAULT_SERVICE_ACCOUNT_ID))
+                        CLOUDTIK_DEFAULT_SERVICE_ACCOUNT_ID))
 
         service_account = _create_service_account(
-            DEFAULT_SERVICE_ACCOUNT_ID, DEFAULT_SERVICE_ACCOUNT_CONFIG, config,
+            CLOUDTIK_DEFAULT_SERVICE_ACCOUNT_ID, DEFAULT_SERVICE_ACCOUNT_CONFIG, config,
             iam)
 
     assert service_account is not None, "Failed to create service account"
@@ -359,7 +359,7 @@ def _configure_key_pair(config, compute):
     Creates a project-wide ssh key that can be used to access all the instances
     unless explicitly prohibited by instance config.
 
-    The ssh-keys created by ray are of format:
+    The ssh-keys created are of format:
 
       [USERNAME]:ssh-rsa [KEY_VALUE] [USERNAME]
 

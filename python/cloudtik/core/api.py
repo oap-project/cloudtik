@@ -6,11 +6,11 @@ import json
 import os
 import tempfile
 
-from ray.autoscaler._private import commands
-from ray.autoscaler._private.event_system import (  # noqa: F401
-    CreateClusterEvent,  # noqa: F401
+from cloudtik.core._private import cluster_operator
+from cloudtik.core._private.event_system import (
+    CreateClusterEvent, 
     global_event_system)
-from ray.autoscaler._private.cli_logger import cli_logger
+from cloudtik.core._private.cli_logger import cli_logger
 
 
 def create_or_update_cluster(cluster_config: Union[dict, str],
@@ -18,21 +18,21 @@ def create_or_update_cluster(cluster_config: Union[dict, str],
                              no_restart: bool = False,
                              restart_only: bool = False,
                              no_config_cache: bool = False) -> Dict[str, Any]:
-    """Create or updates an autoscaling Ray cluster from a config json.
+    """Create or updates an autoscaling cluster from a config json.
 
     Args:
         cluster_config (Union[str, dict]): Either the config dict of the
             cluster, or a path pointing to a file containing the config.
-        no_restart (bool): Whether to skip restarting Ray services during the
+        no_restart (bool): Whether to skip restarting services during the
             update. This avoids interrupting running jobs and can be used to
-            dynamically adjust autoscaler configuration.
+            dynamically adjust cluster configuration.
         restart_only (bool): Whether to skip running setup commands and only
-            restart Ray. This cannot be used with 'no-restart'.
+            restart. This cannot be used with 'no-restart'.
         no_config_cache (bool): Whether to disable the config cache and fully
             resolve all environment settings from the Cloud provider again.
     """
     with _as_config_file(cluster_config) as config_file:
-        return commands.create_or_update_cluster(
+        return cluster_operator.create_or_update_cluster(
             config_file=config_file,
             override_min_workers=None,
             override_max_workers=None,
@@ -48,7 +48,7 @@ def create_or_update_cluster(cluster_config: Union[dict, str],
 def teardown_cluster(cluster_config: Union[dict, str],
                      workers_only: bool = False,
                      keep_min_workers: bool = False) -> None:
-    """Destroys all nodes of a Ray cluster described by a config json.
+    """Destroys all nodes of a cluster described by a config json.
 
     Args:
         cluster_config (Union[str, dict]): Either the config dict of the
@@ -59,7 +59,7 @@ def teardown_cluster(cluster_config: Union[dict, str],
             in the YAML) still running.
     """
     with _as_config_file(cluster_config) as config_file:
-        return commands.teardown_cluster(
+        return cluster_operator.teardown_cluster(
             config_file=config_file,
             yes=True,
             workers_only=workers_only,
@@ -74,7 +74,7 @@ def run_on_cluster(cluster_config: Union[dict, str],
                    tmux: bool = False,
                    stop: bool = False,
                    no_config_cache: bool = False,
-                   port_forward: Optional[commands.Port_forward] = None,
+                   port_forward: Optional[cluster_operator.Port_forward] = None,
                    with_output: bool = False) -> Optional[str]:
     """Runs a command on the specified cluster.
 
@@ -95,7 +95,7 @@ def run_on_cluster(cluster_config: Union[dict, str],
         The output of the command as a string.
     """
     with _as_config_file(cluster_config) as config_file:
-        return commands.exec_cluster(
+        return cluster_operator.exec_cluster(
             config_file,
             cmd=cmd,
             run_env=run_env,
@@ -137,7 +137,7 @@ def rsync(cluster_config: Union[dict, str],
         RuntimeError if the cluster head node is not found.
     """
     with _as_config_file(cluster_config) as config_file:
-        return commands.rsync(
+        return cluster_operator.rsync(
             config_file=config_file,
             source=source,
             target=target,
@@ -164,7 +164,7 @@ def get_head_node_ip(cluster_config: Union[dict, str]) -> str:
         RuntimeError if the cluster is not found.
     """
     with _as_config_file(cluster_config) as config_file:
-        return commands.get_head_node_ip(config_file)
+        return cluster_operator.get_head_node_ip(config_file)
 
 
 def get_worker_node_ips(cluster_config: Union[dict, str]) -> List[str]:
@@ -181,12 +181,12 @@ def get_worker_node_ips(cluster_config: Union[dict, str]) -> List[str]:
         RuntimeError if the cluster is not found.
     """
     with _as_config_file(cluster_config) as config_file:
-        return commands.get_worker_node_ips(config_file)
+        return cluster_operator.get_worker_node_ips(config_file)
 
 
 def request_resources(num_cpus: Optional[int] = None,
                       bundles: Optional[List[dict]] = None) -> None:
-    """Command the autoscaler to scale to accommodate the specified requests.
+    """Reqeust to scale to accommodate the specified requests.
 
     The cluster will immediately attempt to scale to accommodate the requested
     resources, bypassing normal upscaling speed constraints. This takes into
@@ -197,7 +197,7 @@ def request_resources(num_cpus: Optional[int] = None,
     nodes will be added so up to 100 tasks can run concurrently. It does
     **not** add enough nodes so that 145 tasks can run.
 
-    This call is only a hint to the autoscaler. The actual resulting cluster
+    This call is only a hint. The actual resulting cluster
     size may be slightly larger or smaller than expected depending on the
     internal bin packing algorithm and max worker count restrictions.
 
@@ -217,7 +217,7 @@ def request_resources(num_cpus: Optional[int] = None,
         >>> # Same as requesting num_cpus=3.
         >>> request_resources(bundles=[{"CPU": 1}, {"CPU": 1}, {"CPU": 1}])
     """
-    return commands.request_resources(num_cpus, bundles)
+    return cluster_operator.request_resources(num_cpus, bundles)
 
 
 def configure_logging(log_style: Optional[str] = None,
@@ -249,7 +249,7 @@ def configure_logging(log_style: Optional[str] = None,
 @contextmanager
 def _as_config_file(cluster_config: Union[dict, str]) -> Iterator[str]:
     if isinstance(cluster_config, dict):
-        tmp = tempfile.NamedTemporaryFile("w", prefix="autoscaler-sdk-tmp-")
+        tmp = tempfile.NamedTemporaryFile("w", prefix="cloudtik-tmp-")
         tmp.write(json.dumps(cluster_config))
         tmp.flush()
         cluster_config = tmp.name
@@ -262,12 +262,12 @@ def bootstrap_config(cluster_config: Dict[str, Any],
                      no_config_cache: bool = False) -> Dict[str, Any]:
     """Validate and add provider-specific fields to the config. For example,
        IAM/authentication may be added here."""
-    return commands._bootstrap_config(cluster_config, no_config_cache)
+    return cluster_operator._bootstrap_config(cluster_config, no_config_cache)
 
 
 def fillout_defaults(config: Dict[str, Any]) -> Dict[str, Any]:
     """Fillout default values for a cluster_config based on the provider."""
-    from ray.autoscaler._private.util import fillout_defaults
+    from cloudtik.core._private.utils import fillout_defaults
     return fillout_defaults(config)
 
 
@@ -275,7 +275,7 @@ def register_callback_handler(
         event_name: str,
         callback: Union[Callable[[Dict], None], List[Callable[[Dict], None]]],
 ) -> None:
-    """Registers a callback handler for autoscaler events.
+    """Registers a callback handler for scaling  events.
 
     Args:
         event_name (str): Event that callback should be called on. See
@@ -289,5 +289,5 @@ def register_callback_handler(
 
 def get_docker_host_mount_location(cluster_name: str) -> str:
     """Return host path that Docker mounts attach to."""
-    docker_mount_prefix = "/tmp/ray_tmp_mount/{cluster_name}"
+    docker_mount_prefix = "/tmp/cloudtik_tmp_mount/{cluster_name}"
     return docker_mount_prefix.format(cluster_name=cluster_name)

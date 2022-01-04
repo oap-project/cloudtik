@@ -10,9 +10,10 @@ from azure.mgmt.network import NetworkManagementClient
 from azure.mgmt.resource import ResourceManagementClient
 from azure.mgmt.resource.resources.models import DeploymentMode
 
-from ray.autoscaler.node_provider import NodeProvider
-from ray.autoscaler.tags import TAG_RAY_CLUSTER_NAME, TAG_RAY_NODE_NAME
-from ray.autoscaler._private._azure.config import (bootstrap_azure,
+from cloudtik.core.node_provider import NodeProvider
+from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_NAME
+
+from cloudtik.providers._private._azure.config import (bootstrap_azure,
                                                    get_azure_sdk_function)
 
 VM_NAME_MAX_LEN = 64
@@ -40,7 +41,7 @@ class AzureNodeProvider(NodeProvider):
 
     This provider assumes Azure credentials are set by running ``az login``
     and the default subscription is configured through ``az account``
-    or set in the ``provider`` field of the autoscaler configuration.
+    or set in the ``provider`` field of the scaler configuration.
 
     Nodes may be in one of three states: {pending, running, terminated}. Nodes
     appear immediately once started by ``create_node``, and transition
@@ -123,7 +124,7 @@ class AzureNodeProvider(NodeProvider):
         nodes() must be called again to refresh results.
 
         Examples:
-            >>> provider.non_terminated_nodes({TAG_RAY_NODE_KIND: "worker"})
+            >>> provider.non_terminated_nodes({CLOUDTIK_TAG_NODE_KIND: "worker"})
             ["node-1", "node-2"]
         """
         nodes = self._get_filtered_nodes(tag_filters=tag_filters)
@@ -155,7 +156,7 @@ class AzureNodeProvider(NodeProvider):
         return ip
 
     def internal_ip(self, node_id):
-        """Returns the internal ip (Ray ip) of the given node."""
+        """Returns the internal ip of the given node."""
         ip = (self._get_cached_node(node_id=node_id)["internal_ip"]
               or self._get_node(node_id=node_id)["internal_ip"])
         return ip
@@ -174,9 +175,9 @@ class AzureNodeProvider(NodeProvider):
         # get the tags
         config_tags = node_config.get("tags", {}).copy()
         config_tags.update(tags)
-        config_tags[TAG_RAY_CLUSTER_NAME] = self.cluster_name
+        config_tags[CLOUDTIK_TAG_CLUSTER_NAME] = self.cluster_name
 
-        name_tag = config_tags.get(TAG_RAY_NODE_NAME, "node")
+        name_tag = config_tags.get(CLOUDTIK_TAG_NODE_NAME, "node")
         unique_id = uuid4().hex[:VM_NAME_UUID_LEN]
         vm_name = "{name}-{id}".format(name=name_tag, id=unique_id)
         use_internal_ips = self.provider_config.get("use_internal_ips", False)
@@ -206,7 +207,7 @@ class AzureNodeProvider(NodeProvider):
             function_name="create_or_update")
         create_or_update(
             resource_group_name=resource_group,
-            deployment_name="ray-vm-{}".format(name_tag),
+            deployment_name="cloudtik-vm-{}".format(name_tag),
             parameters=parameters).wait()
 
     @synchronized

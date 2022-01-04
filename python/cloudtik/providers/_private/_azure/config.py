@@ -10,10 +10,10 @@ from azure.mgmt.resource import ResourceManagementClient
 from azure.mgmt.resource.resources.models import DeploymentMode
 
 RETRIES = 30
-MSI_NAME = "ray-msi-user-identity"
-NSG_NAME = "ray-nsg"
-SUBNET_NAME = "ray-subnet"
-VNET_NAME = "ray-vnet"
+MSI_NAME = "cloudtik-msi-user-identity"
+NSG_NAME = "cloudtik-nsg"
+SUBNET_NAME = "cloudtik-subnet"
+VNET_NAME = "cloudtik-vnet"
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +93,7 @@ def _configure_resource_group(config):
         client=resource_client.deployments, function_name="create_or_update")
     create_or_update(
         resource_group_name=resource_group,
-        deployment_name="ray-config",
+        deployment_name="cloudtik-config",
         parameters=parameters).wait()
 
     return config

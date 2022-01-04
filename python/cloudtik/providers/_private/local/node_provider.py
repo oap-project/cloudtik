@@ -5,15 +5,16 @@ import os
 import socket
 import logging
 
-from ray.autoscaler.node_provider import NodeProvider
-from ray.autoscaler.tags import (TAG_RAY_NODE_KIND, NODE_KIND_WORKER,
-                                 NODE_KIND_HEAD, TAG_RAY_USER_NODE_TYPE,
-                                 TAG_RAY_NODE_NAME, TAG_RAY_NODE_STATUS,
+from cloudtik.core.node_provider import NodeProvider
+from cloudtik.core.tags import (CLOUDTIK_TAG_NODE_KIND, NODE_KIND_WORKER,
+                                 NODE_KIND_HEAD, CLOUDTIK_TAG_USER_NODE_TYPE,
+                                 CLOUDTIK_TAG_NODE_NAME, CLOUDTIK_TAG_NODE_STATUS,
                                  STATUS_UP_TO_DATE)
-from ray.autoscaler._private.local.config import bootstrap_local
-from ray.autoscaler._private.local.config import get_lock_path
-from ray.autoscaler._private.local.config import get_state_path
-from ray.autoscaler._private.local.config import LOCAL_CLUSTER_NODE_TYPE
+
+from cloudtik.providers._private.local.config import bootstrap_local
+from cloudtik.providers._private.local.config import get_lock_path
+from cloudtik.providers._private.local.config import get_state_path
+from cloudtik.providers._private.local.config import LOCAL_CLUSTER_NODE_TYPE
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,7 @@ class ClusterState:
                     workers = json.loads(open(self.save_path).read())
                     head_config = workers.get(provider_config["head_ip"])
                     if (not head_config or
-                            head_config.get("tags", {}).get(TAG_RAY_NODE_KIND)
+                            head_config.get("tags", {}).get(CLOUDTIK_TAG_NODE_KIND)
                             != NODE_KIND_HEAD):
                         workers = {}
                         logger.info("Head IP changed - recreating cluster.")
@@ -45,23 +46,23 @@ class ClusterState:
                     if worker_ip not in workers:
                         workers[worker_ip] = {
                             "tags": {
-                                TAG_RAY_NODE_KIND: NODE_KIND_WORKER
+                                CLOUDTIK_TAG_NODE_KIND: NODE_KIND_WORKER
                             },
                             "state": "terminated",
                         }
                     else:
-                        assert (workers[worker_ip]["tags"][TAG_RAY_NODE_KIND]
+                        assert (workers[worker_ip]["tags"][CLOUDTIK_TAG_NODE_KIND]
                                 == NODE_KIND_WORKER)
                 if provider_config["head_ip"] not in workers:
                     workers[provider_config["head_ip"]] = {
                         "tags": {
-                            TAG_RAY_NODE_KIND: NODE_KIND_HEAD
+                            CLOUDTIK_TAG_NODE_KIND: NODE_KIND_HEAD
                         },
                         "state": "terminated",
                     }
                 else:
                     assert (workers[provider_config["head_ip"]]["tags"][
-                        TAG_RAY_NODE_KIND] == NODE_KIND_HEAD)
+                        CLOUDTIK_TAG_NODE_KIND] == NODE_KIND_HEAD)
                 # Relevant when a user reduces the number of workers
                 # without changing the headnode.
                 list_of_node_ips = list(provider_config["worker_ips"])
@@ -71,7 +72,7 @@ class ClusterState:
                         del workers[worker_ip]
 
                 # Set external head ip, if provided by user.
-                # Necessary if calling `ray up` from outside the network.
+                # Necessary if calling `cloudtik up` from outside the network.
                 # Refer to LocalNodeProvider.external_ip function.
                 external_head_ip = provider_config.get("external_head_ip")
                 if external_head_ip:
@@ -155,7 +156,7 @@ class LocalNodeProvider(NodeProvider):
     When `cluster_name` is provided, it manages a single cluster in a cluster
     specific state file. But when `cluster_name` is None, it manages multiple
     clusters in a unified state file that requires each node to be tagged with
-    TAG_RAY_CLUSTER_NAME in create and non_terminated_nodes function calls to
+    CLOUDTIK_TAG_CLUSTER_NAME in create and non_terminated_nodes function calls to
     associate each node with the right cluster.
 
     The current use case of managing multiple clusters is by
@@ -211,8 +212,8 @@ class LocalNodeProvider(NodeProvider):
         """Returns an external ip if the user has supplied one.
         Otherwise, use the same logic as internal_ip below.
 
-        This can be used to call ray up from outside the network, for example
-        if the Ray cluster exists in an AWS VPC and we're interacting with
+        This can be used to call cloudtik up from outside the network, for example
+        if the cluster exists in an AWS VPC and we're interacting with
         the cluster from a laptop (where using an internal_ip will not work).
 
         Useful for debugging the local node provider with cloud VMs."""
@@ -235,13 +236,13 @@ class LocalNodeProvider(NodeProvider):
 
     def create_node(self, node_config, tags, count):
         """Creates min(count, currently available) nodes."""
-        node_type = tags[TAG_RAY_NODE_KIND]
+        node_type = tags[CLOUDTIK_TAG_NODE_KIND]
         with self.state.file_lock:
             workers = self.state.get()
             for node_id, info in workers.items():
                 if (info["state"] == "terminated"
                         and (self.use_coordinator
-                             or info["tags"][TAG_RAY_NODE_KIND] == node_type)):
+                             or info["tags"][CLOUDTIK_TAG_NODE_KIND] == node_type)):
                     info["tags"] = tags
                     info["state"] = "running"
                     self.state.put(node_id, info)
@@ -262,24 +263,24 @@ class LocalNodeProvider(NodeProvider):
 
 def record_local_head_state_if_needed(
         local_provider: LocalNodeProvider) -> None:
-    """This function is called on the Ray head from StandardAutoscaler.reset
+    """This function is called on the head from StandardClusterScaler.reset
     to record the head node's own existence in the cluster state file.
 
     This is necessary because `provider.create_node` in
-    `commands.get_or_create_head_node` records the head state on the
+    `cluster_operator.get_or_create_head_node` records the head state on the
     cluster-launching machine but not on the head.
     """
     head_ip = local_provider.provider_config["head_ip"]
     cluster_name = local_provider.cluster_name
     # If the head node is not marked as created in the cluster state file,
     if head_ip not in local_provider.non_terminated_nodes({}):
-        # These tags are based on the ones in commands.get_or_create_head_node;
+        # These tags are based on the ones in cluster_operator.get_or_create_head_node;
         # keep in sync.
         head_tags = {
-            TAG_RAY_NODE_KIND: NODE_KIND_HEAD,
-            TAG_RAY_USER_NODE_TYPE: LOCAL_CLUSTER_NODE_TYPE,
-            TAG_RAY_NODE_NAME: "ray-{}-head".format(cluster_name),
-            TAG_RAY_NODE_STATUS: STATUS_UP_TO_DATE
+            CLOUDTIK_TAG_NODE_KIND: NODE_KIND_HEAD,
+            CLOUDTIK_TAG_USER_NODE_TYPE: LOCAL_CLUSTER_NODE_TYPE,
+            CLOUDTIK_TAG_NODE_NAME: "cloudtik-{}-head".format(cluster_name),
+            CLOUDTIK_TAG_NODE_STATUS: STATUS_UP_TO_DATE
         }
         # Mark the head node as created in the cluster state file.
         local_provider.create_node(node_config={}, tags=head_tags, count=1)

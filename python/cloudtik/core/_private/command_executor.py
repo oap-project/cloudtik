@@ -11,24 +11,24 @@ import sys
 import time
 import warnings
 
-from ray.autoscaler.command_runner import CommandRunnerInterface
-from ray.autoscaler._private.constants import \
-                                     AUTOSCALER_NODE_SSH_INTERVAL_S, \
-                                     DEFAULT_OBJECT_STORE_MAX_MEMORY_BYTES, \
-                                     DEFAULT_OBJECT_STORE_MEMORY_PROPORTION, \
-                                     AUTOSCALER_NODE_START_WAIT_S
-from ray.autoscaler._private.docker import check_bind_mounts_cmd, \
+from cloudtik.core.command_executor import CommandExecutor
+from cloudtik.core._private.constants import \
+                                     CLOUDTIK_NODE_SSH_INTERVAL_S, \
+                                     CLOUDTIK_DEFAULT_OBJECT_STORE_MAX_MEMORY_BYTES, \
+                                     CLOUDTIK_DEFAULT_OBJECT_STORE_MEMORY_PROPORTION, \
+                                     CLOUDTIK_NODE_START_WAIT_S
+from cloudtik.core._private.docker import check_bind_mounts_cmd, \
                                   check_docker_running_cmd, \
                                   check_docker_image, \
                                   docker_start_cmds, \
                                   with_docker_exec
-from ray.autoscaler._private.log_timer import LogTimer
+from cloudtik.core._private.log_timer import LogTimer
 
-from ray.autoscaler._private.subprocess_output_util import (
+from cloudtik.core._private.subprocess_output_util import (
     run_cmd_redirected, ProcessRunnerError, is_output_redirected)
 
-from ray.autoscaler._private.cli_logger import cli_logger, cf
-from ray.util.debug import log_once
+from cloudtik.core._private.cli_logger import cli_logger, cf
+from cloudtik.core._private.debug import log_once
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +106,7 @@ def _with_interactive(cmd):
     return ["bash", "--login", "-c", "-i", quote(force_interactive)]
 
 
-class KubernetesCommandRunner(CommandRunnerInterface):
+class KubernetesCommandExecutor(CommandExecutor):
     def __init__(self, log_prefix, namespace, node_id, auth_config,
                  process_runner):
 
@@ -189,11 +189,11 @@ class KubernetesCommandRunner(CommandRunnerInterface):
     def run_rsync_up(self, source, target, options=None):
         options = options or {}
         if options.get("rsync_exclude"):
-            if log_once("autoscaler_k8s_rsync_exclude"):
+            if log_once("scaler_k8s_rsync_exclude"):
                 logger.warning("'rsync_exclude' detected but is currently "
                                "unsupported for k8s.")
         if options.get("rsync_filter"):
-            if log_once("autoscaler_k8s_rsync_filter"):
+            if log_once("scaler_k8s_rsync_filter"):
                 logger.warning("'rsync_filter' detected but is currently "
                                "unsupported for k8s.")
         if target.startswith("~"):
@@ -318,13 +318,13 @@ class SSHOptions:
         ]
 
 
-class SSHCommandRunner(CommandRunnerInterface):
+class SSHCommandExecutor(CommandExecutor):
     def __init__(self, log_prefix, node_id, provider, auth_config,
                  cluster_name, process_runner, use_internal_ip):
 
         ssh_control_hash = hashlib.md5(cluster_name.encode()).hexdigest()
         ssh_user_hash = hashlib.md5(getuser().encode()).hexdigest()
-        ssh_control_path = "/tmp/ray_ssh_{}/{}".format(
+        ssh_control_path = "/tmp/cloudtik_ssh_{}/{}".format(
             ssh_user_hash[:HASH_MAX_LENGTH],
             ssh_control_hash[:HASH_MAX_LENGTH])
 
@@ -357,7 +357,7 @@ class SSHCommandRunner(CommandRunnerInterface):
             cli_logger.labeled_value("Fetched IP", ip)
             return ip
 
-        interval = AUTOSCALER_NODE_SSH_INTERVAL_S
+        interval = CLOUDTIK_NODE_SSH_INTERVAL_S
         with cli_logger.group("Waiting for IP"):
             while time.time() < deadline and \
                     not self.provider.is_terminated(self.node_id):
@@ -377,7 +377,7 @@ class SSHCommandRunner(CommandRunnerInterface):
 
         # We assume that this never changes.
         #   I think that's reasonable.
-        deadline = time.time() + AUTOSCALER_NODE_START_WAIT_S
+        deadline = time.time() + CLOUDTIK_NODE_START_WAIT_S
         with LogTimer(self.log_prefix + "Got IP"):
             ip = self._wait_for_ip(deadline)
 
@@ -578,9 +578,9 @@ class SSHCommandRunner(CommandRunnerInterface):
                 self.ssh_user, self.ssh_ip)
 
 
-class DockerCommandRunner(CommandRunnerInterface):
+class DockerCommandExecutor(CommandExecutor):
     def __init__(self, docker_config, **common_args):
-        self.ssh_command_runner = SSHCommandRunner(**common_args)
+        self.ssh_command_executor = SSHCommandExecutor(**common_args)
         self.container_name = docker_config["container_name"]
         self.docker_config = docker_config
         self.home_dir = None
@@ -623,7 +623,7 @@ class DockerCommandRunner(CommandRunnerInterface):
             cmd += "; sudo shutdown -h now"
         # Do not pass shutdown_after_run argument to ssh_command_runner.run()
         # since it is handled above.
-        return self.ssh_command_runner.run(
+        return self.ssh_command_executor.run(
             cmd,
             timeout=timeout,
             exit_on_fail=exit_on_fail,
@@ -635,15 +635,15 @@ class DockerCommandRunner(CommandRunnerInterface):
         options = options or {}
         host_destination = os.path.join(
             self._get_docker_host_mount_location(
-                self.ssh_command_runner.cluster_name), target.lstrip("/"))
+                self.ssh_command_executor.cluster_name), target.lstrip("/"))
 
         host_mount_location = os.path.dirname(host_destination.rstrip("/"))
-        self.ssh_command_runner.run(
+        self.ssh_command_executor.run(
             f"mkdir -p {host_mount_location} && chown -R "
-            f"{self.ssh_command_runner.ssh_user} {host_mount_location}",
+            f"{self.ssh_command_executor.ssh_user} {host_mount_location}",
             silent=is_rsync_silent())
 
-        self.ssh_command_runner.run_rsync_up(
+        self.ssh_command_executor.run_rsync_up(
             source, host_destination, options=options)
         if self._check_container_status() and not options.get(
                 "docker_mount_if_possible", False):
@@ -663,7 +663,7 @@ class DockerCommandRunner(CommandRunnerInterface):
                 with_interactive=is_using_login_shells(),
                 docker_cmd=self.docker_cmd)[0]
 
-            self.ssh_command_runner.run(
+            self.ssh_command_executor.run(
                 "{} && rsync -e '{} exec -i' -avz {} {}:{}".format(
                     prefix, self.docker_cmd, host_destination,
                     self.container_name, self._docker_expand_user(target)),
@@ -673,11 +673,11 @@ class DockerCommandRunner(CommandRunnerInterface):
         options = options or {}
         host_source = os.path.join(
             self._get_docker_host_mount_location(
-                self.ssh_command_runner.cluster_name), source.lstrip("/"))
+                self.ssh_command_executor.cluster_name), source.lstrip("/"))
         host_mount_location = os.path.dirname(host_source.rstrip("/"))
-        self.ssh_command_runner.run(
+        self.ssh_command_executor.run(
             f"mkdir -p {host_mount_location} && chown -R "
-            f"{self.ssh_command_runner.ssh_user} {host_mount_location}",
+            f"{self.ssh_command_executor.ssh_user} {host_mount_location}",
             silent=is_rsync_silent())
         if source[-1] == "/":
             source += "."
@@ -686,23 +686,23 @@ class DockerCommandRunner(CommandRunnerInterface):
         if not options.get("docker_mount_if_possible", False):
             # NOTE: `--delete` is okay here because the container is the source
             # of truth.
-            self.ssh_command_runner.run(
+            self.ssh_command_executor.run(
                 "rsync -e '{} exec -i' -avz --delete {}:{} {}".format(
                     self.docker_cmd, self.container_name,
                     self._docker_expand_user(source), host_source),
                 silent=is_rsync_silent())
-        self.ssh_command_runner.run_rsync_down(
+        self.ssh_command_executor.run_rsync_down(
             host_source, target, options=options)
 
     def remote_shell_command_str(self):
-        inner_str = self.ssh_command_runner.remote_shell_command_str().replace(
+        inner_str = self.ssh_command_executor.remote_shell_command_str().replace(
             "ssh", "ssh -tt", 1).strip("\n")
         return inner_str + " {} exec -it {} /bin/bash\n".format(
             self.docker_cmd, self.container_name)
 
     def _check_docker_installed(self):
         no_exist = "NoExist"
-        output = self.ssh_command_runner.run(
+        output = self.ssh_command_executor.run(
             f"command -v {self.docker_cmd} || echo '{no_exist}'",
             with_output=True)
         cleaned_output = output.decode().strip()
@@ -727,7 +727,7 @@ class DockerCommandRunner(CommandRunnerInterface):
     def _check_container_status(self):
         if self.initialized:
             return True
-        output = self.ssh_command_runner.run(
+        output = self.ssh_command_executor.run(
             check_docker_running_cmd(self.container_name, self.docker_cmd),
             with_output=True).decode("utf-8").strip()
         # Checks for the false positive where "true" is in the container name
@@ -738,7 +738,7 @@ class DockerCommandRunner(CommandRunnerInterface):
         user_pos = string.find("~")
         if user_pos > -1:
             if self.home_dir is None:
-                self.home_dir = self.ssh_command_runner.run(
+                self.home_dir = self.ssh_command_executor.run(
                     f"{self.docker_cmd} exec {self.container_name} "
                     "printenv HOME",
                     with_output=True).decode("utf-8").strip()
@@ -773,7 +773,7 @@ class DockerCommandRunner(CommandRunnerInterface):
                 mnt["Destination"].strip("/")
                 for mnt in active_mounts
             }
-            # Ignore ray bootstrap files.
+            # Ignore bootstrap files.
             requested_remote_mounts = {
                 self._docker_expand_user(remote).strip("/")
                 for remote in cleaned_bind_mounts.keys()
@@ -796,7 +796,7 @@ class DockerCommandRunner(CommandRunnerInterface):
     def run_init(self, *, as_head: bool, file_mounts: Dict[str, str],
                  sync_run_yet: bool):
         BOOTSTRAP_MOUNTS = [
-            "~/ray_bootstrap_config.yaml", "~/ray_bootstrap_key.pem"
+            "~/cloudtik_bootstrap_config.yaml", "~/cloudtik_bootstrap_key.pem"
         ]
 
         specific_image = self.docker_config.get(
@@ -842,7 +842,7 @@ class DockerCommandRunner(CommandRunnerInterface):
                 # `root` as the owner.
                 return True
             # Get home directory
-            image_env = self.ssh_command_runner.run(
+            image_env = self.ssh_command_executor.run(
                 f"{self.docker_cmd} " + "inspect -f '{{json .Config.Env}}' " +
                 specific_image,
                 with_output=True).decode().strip()
@@ -856,16 +856,16 @@ class DockerCommandRunner(CommandRunnerInterface):
                 "run_options", []) + self.docker_config.get(
                     f"{'head' if as_head else 'worker'}_run_options", [])
             start_command = docker_start_cmds(
-                self.ssh_command_runner.ssh_user, specific_image,
+                self.ssh_command_executor.ssh_user, specific_image,
                 cleaned_bind_mounts, self.container_name,
                 self._configure_runtime(
                     self._auto_configure_shm(user_docker_run_options)),
-                self.ssh_command_runner.cluster_name, home_directory,
+                self.ssh_command_executor.cluster_name, home_directory,
                 self.docker_cmd)
             self.run(start_command, run_env="host")
             docker_run_executed = True
 
-        # Explicitly copy in ray bootstrap files.
+        # Explicitly copy in bootstrap files.
         for mount in BOOTSTRAP_MOUNTS:
             if mount in file_mounts:
                 if not sync_run_yet:
@@ -873,13 +873,13 @@ class DockerCommandRunner(CommandRunnerInterface):
                     #  a stopped instance,  /tmp may be deleted and `run_init`
                     # is called before the first `file_sync` happens
                     self.run_rsync_up(file_mounts[mount], mount)
-                self.ssh_command_runner.run(
+                self.ssh_command_executor.run(
                     "rsync -e '{cmd} exec -i' -avz {src} {container}:{dst}".
                     format(
                         cmd=self.docker_cmd,
                         src=os.path.join(
                             self._get_docker_host_mount_location(
-                                self.ssh_command_runner.cluster_name), mount),
+                                self.ssh_command_executor.cluster_name), mount),
                         container=self.container_name,
                         dst=self._docker_expand_user(mount)))
                 try:
@@ -902,8 +902,8 @@ class DockerCommandRunner(CommandRunnerInterface):
                         f"File ({mount}) is owned by user:{owner} and group:"
                         f"{group} with permissions ({permissions}). The "
                         f"current user ({current_user}) does not have "
-                        "permission to read these files, and Ray may not be "
-                        "able to autoscale. This can be resolved by "
+                        "permission to read these files, and we may not be "
+                        "able to scale. This can be resolved by "
                         "installing `sudo` in your container, or adding a "
                         f"command like 'chown {current_user} {mount}' to "
                         "your `setup_commands`.")
@@ -914,12 +914,12 @@ class DockerCommandRunner(CommandRunnerInterface):
         if self.docker_config.get("disable_automatic_runtime_detection"):
             return run_options
 
-        runtime_output = self.ssh_command_runner.run(
+        runtime_output = self.ssh_command_executor.run(
             f"{self.docker_cmd} " + "info -f '{{.Runtimes}}' ",
             with_output=True).decode().strip()
         if "nvidia-container-runtime" in runtime_output:
             try:
-                self.ssh_command_runner.run("nvidia-smi", with_output=False)
+                self.ssh_command_executor.run("nvidia-smi", with_output=False)
                 return run_options + ["--runtime=nvidia"]
             except Exception as e:
                 logger.warning(
@@ -938,7 +938,7 @@ class DockerCommandRunner(CommandRunnerInterface):
                             f"`run_option`: {run_opt}")
                 return run_options
         try:
-            shm_output = self.ssh_command_runner.run(
+            shm_output = self.ssh_command_executor.run(
                 "cat /proc/meminfo || true",
                 with_output=True).decode().strip()
             available_memory = int([
@@ -947,8 +947,8 @@ class DockerCommandRunner(CommandRunnerInterface):
             available_memory_bytes = available_memory * 1024
             # Overestimate SHM size by 10%
             shm_size = min((available_memory_bytes *
-                            DEFAULT_OBJECT_STORE_MEMORY_PROPORTION * 1.1),
-                           DEFAULT_OBJECT_STORE_MAX_MEMORY_BYTES)
+                            CLOUDTIK_DEFAULT_OBJECT_STORE_MEMORY_PROPORTION * 1.1),
+                           CLOUDTIK_DEFAULT_OBJECT_STORE_MAX_MEMORY_BYTES)
             return run_options + [f"--shm-size='{shm_size}b'"]
         except Exception as e:
             logger.warning(
@@ -958,5 +958,5 @@ class DockerCommandRunner(CommandRunnerInterface):
     def _get_docker_host_mount_location(self, cluster_name: str) -> str:
         """Return the docker host mount directory location."""
         # Imported here due to circular dependency in imports.
-        from ray.autoscaler.sdk import get_docker_host_mount_location
+        from cloudtik.core.api import get_docker_host_mount_location
         return get_docker_host_mount_location(cluster_name)

@@ -1,16 +1,16 @@
 from typing import Any, List, Tuple, Dict, Optional
 
 
-class CommandRunnerInterface:
+class CommandExecutor:
     """Interface to run commands on a remote cluster node.
 
     **Important**: This is an INTERNAL API that is only exposed for the purpose
     of implementing custom node providers. It is not allowed to call into
-    CommandRunner methods from any Ray package outside the autoscaler, only to
+    CommandRunner methods from any package outside, only to
     define new implementations for use with the "external" node provider
     option.
 
-    Command runner instances are returned by provider.get_command_runner()."""
+    Command executor instances are returned by provider.get_command_executor()."""
 
     def run(
             self,

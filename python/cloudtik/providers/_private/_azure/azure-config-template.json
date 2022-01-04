@@ -18,26 +18,26 @@
             "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
             "apiVersion": "2018-11-30",
             "location": "[variables('location')]",
-            "name": "ray-msi-user-identity"
+            "name": "cloudtik-msi-user-identity"
         },
         {
             "type": "Microsoft.Authorization/roleAssignments",
             "apiVersion": "2020-04-01-preview",
             "name": "[guid(resourceGroup().id)]",
             "properties": {
-                "principalId": "[reference('ray-msi-user-identity').principalId]",
+                "principalId": "[reference('cloudtik-msi-user-identity').principalId]",
                 "roleDefinitionId": "[variables('Contributor')]",
                 "scope": "[resourceGroup().id]",
                 "principalType": "ServicePrincipal"
             },
             "dependsOn": [
-                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'ray-msi-user-identity')]"
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'cloudtik-msi-user-identity')]"
             ]
         },
         {
             "type": "Microsoft.Network/networkSecurityGroups",
             "apiVersion": "2019-02-01",
-            "name": "ray-nsg",
+            "name": "cloudtik-nsg",
             "location": "[variables('location')]",
             "properties": {
                 "securityRules": [
@@ -60,7 +60,7 @@
         {
             "type": "Microsoft.Network/virtualNetworks",
             "apiVersion": "2019-11-01",
-            "name": "ray-vnet",
+            "name": "cloudtik-vnet",
             "location": "[variables('location')]",
             "properties": {
                 "addressSpace": {
@@ -70,18 +70,18 @@
                 },
                 "subnets": [
                     {
-                        "name": "ray-subnet",
+                        "name": "cloudtik-subnet",
                         "properties": {
                             "addressPrefix": "[parameters('subnet')]",
                             "networkSecurityGroup": {
-                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups','ray-nsg')]"
+                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups','cloudtik-nsg')]"
                               }
                         }
                     }
                 ]
             },
             "dependsOn": [
-                "[resourceId('Microsoft.Network/networkSecurityGroups', 'ray-nsg')]"
+                "[resourceId('Microsoft.Network/networkSecurityGroups', 'cloudtik-nsg')]"
             ]
         }
     ]

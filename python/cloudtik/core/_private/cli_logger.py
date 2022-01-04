@@ -17,8 +17,9 @@ from typing import Any, Callable, Dict, Tuple, Optional, List
 
 import click
 
-# Import ray first to use the bundled colorama
-import ray  # noqa: F401
+# TODO (haifeng): check why this is needed
+# Import cloudtik first to use the bundled colorama
+import cloudtik
 import colorama
 
 
@@ -58,8 +59,6 @@ try:
 except ModuleNotFoundError:
     # We mock Colorful to restrict the colors used for consistency
     # anyway, so we also allow for not having colorful at all.
-    # If the Ray Core dependency on colorful is ever removed,
-    # the CliLogger code will still work.
     class ColorfulString:
         pass
 
@@ -315,7 +314,7 @@ class _CliLogger():
 
     def set_format(self, format_tmpl=None):
         if not format_tmpl:
-            from ray.autoscaler._private.constants import LOGGER_FORMAT
+            from cloudtik.core._private.constants import LOGGER_FORMAT
             format_tmpl = LOGGER_FORMAT
         self._formatter = logging.Formatter(format_tmpl)
 

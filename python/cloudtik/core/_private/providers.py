@@ -15,105 +15,64 @@ _provider_instances = {}
 # Minimal config for compatibility with legacy-style external configs.
 MINIMAL_EXTERNAL_CONFIG = {
     "available_node_types": {
-        "ray.head.default": {},
-        "ray.worker.default": {},
+        "head.default": {},
+        "worker.default": {},
     },
-    "head_node_type": "ray.head.default",
-    "head_node": {},
-    "worker_nodes": {},
+    "head_node_type": "head.default",
 }
 
 
 def _import_aws(provider_config):
-    from ray.autoscaler._private.aws.node_provider import AWSNodeProvider
+    from cloudtik.providers._private.aws.node_provider import AWSNodeProvider
     return AWSNodeProvider
 
 
 def _import_gcp(provider_config):
-    from ray.autoscaler._private.gcp.node_provider import GCPNodeProvider
+    from cloudtik.providers._private.gcp.node_provider import GCPNodeProvider
     return GCPNodeProvider
 
 
 def _import_azure(provider_config):
-    from ray.autoscaler._private._azure.node_provider import AzureNodeProvider
+    from cloudtik.providers._private._azure.node_provider import AzureNodeProvider
     return AzureNodeProvider
 
 
 def _import_local(provider_config):
-    if "coordinator_address" in provider_config:
-        from ray.autoscaler._private.local.coordinator_node_provider import (
-            CoordinatorSenderNodeProvider)
-        return CoordinatorSenderNodeProvider
-    else:
-        from ray.autoscaler._private.local.node_provider import \
-            LocalNodeProvider
-        return LocalNodeProvider
-
-
-def _import_readonly(provider_config):
-    from ray.autoscaler._private.readonly.node_provider import \
-        ReadOnlyNodeProvider
-    return ReadOnlyNodeProvider
-
-
-def _import_fake_multinode(provider_config):
-    from ray.autoscaler._private.fake_multi_node.node_provider import \
-        FakeMultiNodeProvider
-    return FakeMultiNodeProvider
+    from cloudtik.providers._private.local.node_provider import \
+        LocalNodeProvider
+    return LocalNodeProvider
 
 
 def _import_kubernetes(provider_config):
-    from ray.autoscaler._private._kubernetes.node_provider import \
+    from cloudtik.providers._private._kubernetes.node_provider import \
         KubernetesNodeProvider
     return KubernetesNodeProvider
 
 
-def _import_staroid(provider_config):
-    from ray.autoscaler._private.staroid.node_provider import \
-        StaroidNodeProvider
-    return StaroidNodeProvider
-
-
-def _import_aliyun(provider_config):
-    from ray.autoscaler._private.aliyun.node_provider import \
-        AliyunNodeProvider
-    return AliyunNodeProvider
-
-
 def _load_local_defaults_config():
-    import ray.autoscaler.local as ray_local
-    return os.path.join(os.path.dirname(ray_local.__file__), "defaults.yaml")
+    import cloudtik.core.local as local_provider
+    return os.path.join(os.path.dirname(local_provider.__file__), "defaults.yaml")
 
 
 def _load_kubernetes_defaults_config():
-    import ray.autoscaler.kubernetes as ray_kubernetes
+    import cloudtik.core.kubernetes as kubernetes_provider
     return os.path.join(
-        os.path.dirname(ray_kubernetes.__file__), "defaults.yaml")
+        os.path.dirname(kubernetes_provider.__file__), "defaults.yaml")
 
 
 def _load_aws_defaults_config():
-    import ray.autoscaler.aws as ray_aws
-    return os.path.join(os.path.dirname(ray_aws.__file__), "defaults.yaml")
+    import cloudtik.core.aws as aws_provider
+    return os.path.join(os.path.dirname(aws_provider.__file__), "defaults.yaml")
 
 
 def _load_gcp_defaults_config():
-    import ray.autoscaler.gcp as ray_gcp
-    return os.path.join(os.path.dirname(ray_gcp.__file__), "defaults.yaml")
+    import cloudtik.core.gcp as gcp_provider
+    return os.path.join(os.path.dirname(gcp_provider.__file__), "defaults.yaml")
 
 
 def _load_azure_defaults_config():
-    import ray.autoscaler.azure as ray_azure
-    return os.path.join(os.path.dirname(ray_azure.__file__), "defaults.yaml")
-
-
-def _load_staroid_defaults_config():
-    import ray.autoscaler.staroid as ray_staroid
-    return os.path.join(os.path.dirname(ray_staroid.__file__), "defaults.yaml")
-
-
-def _load_aliyun_defaults_config():
-    import ray.autoscaler.aliyun as ray_aliyun
-    return os.path.join(os.path.dirname(ray_aliyun.__file__), "defaults.yaml")
+    import cloudtik.core.azure as azure_provider
+    return os.path.join(os.path.dirname(azure_provider.__file__), "defaults.yaml")
 
 
 def _import_external(provider_config):
@@ -123,27 +82,19 @@ def _import_external(provider_config):
 
 _NODE_PROVIDERS = {
     "local": _import_local,
-    "fake_multinode": _import_fake_multinode,
-    "readonly": _import_readonly,
     "aws": _import_aws,
     "gcp": _import_gcp,
     "azure": _import_azure,
-    "staroid": _import_staroid,
     "kubernetes": _import_kubernetes,
-    "aliyun": _import_aliyun,
     "external": _import_external  # Import an external module
 }
 
 _PROVIDER_PRETTY_NAMES = {
-    "readonly": "Readonly (Manual Cluster Setup)",
-    "fake_multinode": "Fake Multinode",
     "local": "Local",
     "aws": "AWS",
     "gcp": "GCP",
     "azure": "Azure",
-    "staroid": "Staroid",
     "kubernetes": "Kubernetes",
-    "aliyun": "Aliyun",
     "external": "External"
 }
 
@@ -152,8 +103,6 @@ _DEFAULT_CONFIGS = {
     "aws": _load_aws_defaults_config,
     "gcp": _load_gcp_defaults_config,
     "azure": _load_azure_defaults_config,
-    "staroid": _load_staroid_defaults_config,
-    "aliyun": _load_aliyun_defaults_config,
     "kubernetes": _load_kubernetes_defaults_config,
 }
 
@@ -180,7 +129,7 @@ def _get_node_provider_cls(provider_config: Dict[str, Any]):
     built-in node providers, so we should maintain backwards compatibility.
 
     Args:
-        provider_config: provider section of the autoscaler config.
+        provider_config: provider section of the cluster config.
 
     Returns:
         NodeProvider class
@@ -201,8 +150,8 @@ def _get_node_provider(provider_config: Dict[str, Any],
     built-in node providers, so we should maintain backwards compatibility.
 
     Args:
-        provider_config: provider section of the autoscaler config.
-        cluster_name: cluster name from the autoscaler config.
+        provider_config: provider section of the cluster config.
+        cluster_name: cluster name from the cluster config.
         use_cache: whether or not to use a cached definition if available. If
             False, the returned object will also not be stored in the cache.
 
@@ -230,8 +179,7 @@ def _clear_provider_cache():
 def _get_default_config(provider_config):
     """Retrieve a node provider.
 
-    This is an INTERNAL API. It is not allowed to call this from any Ray
-    package outside the autoscaler.
+    This is an INTERNAL API. It is not allowed to call this from outside.
     """
     if provider_config["type"] == "external":
         return copy.deepcopy(MINIMAL_EXTERNAL_CONFIG)

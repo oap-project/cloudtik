@@ -13,20 +13,18 @@ import yaml
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 
-import ray  # noqa: F401
-from ray.autoscaler._private.cli_logger import cli_logger
-
-from ray.autoscaler._private.providers import _get_node_provider
-from ray.autoscaler.tags import TAG_RAY_NODE_KIND, NODE_KIND_HEAD, \
+from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, \
     NODE_KIND_WORKER
+from cloudtik.core._private.cli_logger import cli_logger
+from cloudtik.core._private.providers import _get_node_provider
 
-# Import psutil after ray so the packaged version is used.
+# Import psutil after cloudtik so the packaged version is used.
 import psutil
 
 MAX_PARALLEL_SSH_WORKERS = 8
 DEFAULT_SSH_USER = "ubuntu"
 DEFAULT_SSH_KEYS = [
-    "~/ray_bootstrap_key.pem", "~/.ssh/ray-autoscaler_2_us-west-2.pem"
+    "~/cloudtik_bootstrap_key.pem"
 ]
 
 
@@ -64,7 +62,7 @@ class Node:
     def __init__(self,
                  host: str,
                  ssh_user: str = "ubuntu",
-                 ssh_key: str = "~/ray_bootstrap_key.pem",
+                 ssh_key: str = "~/cloudtik_bootstrap_key.pem",
                  docker_container: Optional[str] = None,
                  is_head: bool = False):
         self.host = host
@@ -85,7 +83,7 @@ class Archive:
 
     def __init__(self, file: Optional[str] = None):
         self.file = file or tempfile.mktemp(
-            prefix="ray_logs_", suffix=".tar.gz")
+            prefix="cloudtik_logs_", suffix=".tar.gz")
         self.tar = None
         self._lock = threading.Lock()
 
@@ -151,18 +149,18 @@ class Archive:
 ###
 
 
-def get_local_ray_logs(
+def get_local_logs(
         archive: Archive,
         exclude: Optional[Sequence[str]] = None,
-        session_log_dir: str = "/tmp/ray/session_latest") -> Archive:
+        session_log_dir: str = "/tmp/cloudtik/session_latest") -> Archive:
     """Copy local log files into an archive.
 
     Args:
         archive (Archive): Archive object to add log files to.
         exclude (Sequence[str]): Sequence of regex patterns. Files that match
             any of these patterns will not be included in the archive.
-        session_dir (str): Path to the Ray session files. Defaults to
-            ``/tmp/ray/session_latest``
+        session_dir (str): Path to the session files. Defaults to
+            ``/tmp/cloudtik/session_latest``
 
     Returns:
         Open archive object.
@@ -189,14 +187,14 @@ def get_local_ray_logs(
 
 
 def get_local_debug_state(archive: Archive,
-                          session_dir: str = "/tmp/ray/session_latest"
+                          session_dir: str = "/tmp/cloudtik/session_latest"
                           ) -> Archive:
     """Copy local log files into an archive.
 
     Args:
         archive (Archive): Archive object to add log files to.
-        session_dir (str): Path to the Ray session files. Defaults to
-            ``/tmp/ray/session_latest``
+        session_dir (str): Path to the session files. Defaults to
+            ``/tmp/cloudtik/session_latest``
 
     Returns:
         Open archive object.
@@ -245,10 +243,10 @@ def get_local_pip_packages(archive: Archive):
     return archive
 
 
-def get_local_ray_processes(archive: Archive,
+def get_local_processes(archive: Archive,
                             processes: Optional[List[Tuple[str, bool]]] = None,
                             verbose: bool = False):
-    """Get the status of all the relevant ray processes.
+    """Get the status of all the relevant processes.
     Args:
         archive (Archive): Archive object to add process info files to.
         processes (list): List of processes to get information on. The first
@@ -262,8 +260,9 @@ def get_local_ray_processes(archive: Archive,
     """
     if not processes:
         # local import to avoid circular dependencies
-        from ray.autoscaler._private.constants import RAY_PROCESSES
-        processes = RAY_PROCESSES
+        # TO BE IMPROVED: for different runtime has different processes
+        from cloudtik.core._private.constants import CLOUDTIK_PROCESSES
+        processes = CLOUDTIK_PROCESSES
 
     process_infos = []
     for process in psutil.process_iter(["pid", "name", "cmdline", "status"]):
@@ -306,7 +305,7 @@ def get_all_local_data(archive: Archive, parameters: GetParameters):
     """Get all local data.
 
     Gets:
-        - The Ray logs of the latest session
+        - The logs of the latest session
         - The currently installed pip packages
 
     Args:
@@ -321,7 +320,7 @@ def get_all_local_data(archive: Archive, parameters: GetParameters):
 
     if parameters.logs:
         try:
-            get_local_ray_logs(archive=archive)
+            get_local_logs(archive=archive)
         except LocalCommandFailed as exc:
             cli_logger.error(exc)
     if parameters.debug_state:
@@ -336,7 +335,7 @@ def get_all_local_data(archive: Archive, parameters: GetParameters):
             cli_logger.error(exc)
     if parameters.processes:
         try:
-            get_local_ray_processes(
+            get_local_processes(
                 archive=archive,
                 processes=parameters.processes_list,
                 verbose=parameters.processes_verbose)
@@ -357,11 +356,11 @@ def _wrap(items: List[str], quotes="'"):
 
 def create_and_get_archive_from_remote_node(remote_node: Node,
                                             parameters: GetParameters,
-                                            script_path: str = "ray"
+                                            script_path: str = "cloudtik"
                                             ) -> Optional[str]:
     """Create an archive containing logs on a remote node and transfer.
 
-    This will call ``ray local-dump --stream`` on the remote
+    This will call ``cloudtik local-dump --stream`` on the remote
     node. The resulting file will be saved locally in a temporary file and
     returned.
 
@@ -410,7 +409,7 @@ def create_and_get_archive_from_remote_node(remote_node: Node,
 
     cli_logger.print(f"Collecting data from remote node: {remote_node.host}")
     tmp = tempfile.mktemp(
-        prefix=f"ray_{cat}_{remote_node.host}_", suffix=".tar.gz")
+        prefix=f"cloudtik_{cat}_{remote_node.host}_", suffix=".tar.gz")
     with open(tmp, "wb") as fp:
         try:
             subprocess.check_call(cmd, stdout=fp, stderr=sys.stderr)
@@ -442,7 +441,7 @@ def create_and_add_remote_data_to_local_archive(
     cat = "node" if not remote_node.is_head else "head"
 
     with archive.subdir("", root=os.path.dirname(tmp)) as sd:
-        sd.add(tmp, arcname=f"ray_{cat}_{remote_node.host}.tar.gz")
+        sd.add(tmp, arcname=f"cloudtik_{cat}_{remote_node.host}.tar.gz")
 
     return archive
 
@@ -535,26 +534,26 @@ def create_archive_for_local_and_remote_nodes(archive: Archive,
 
 
 ###
-# Ray cluster info
+# cluster info
 ###
-def get_info_from_ray_cluster_config(
+def get_info_from_cluster_config(
         cluster_config: str
 ) -> Tuple[List[str], str, str, Optional[str], Optional[str]]:
-    """Get information from Ray cluster config.
+    """Get information from cluster config.
 
     Return list of host IPs, ssh user, ssh key file, and optional docker
     container.
 
     Args:
-        cluster_config (str): Path to ray cluster config.
+        cluster_config (str): Path to cluster config.
 
     Returns:
         Tuple of list of host IPs, ssh user name, ssh key file path,
             optional docker container name, optional cluster name.
     """
-    from ray.autoscaler._private.commands import _bootstrap_config
+    from cloudtik.core._private.cluster_operator import _bootstrap_config
 
-    cli_logger.print(f"Retrieving cluster information from ray cluster file: "
+    cli_logger.print(f"Retrieving cluster information from cluster file: "
                      f"{cluster_config}")
 
     cluster_config = os.path.expanduser(cluster_config)
@@ -564,10 +563,10 @@ def get_info_from_ray_cluster_config(
 
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     head_nodes = provider.non_terminated_nodes({
-        TAG_RAY_NODE_KIND: NODE_KIND_HEAD
+        CLOUDTIK_TAG_NODE_KIND: NODE_KIND_HEAD
     })
     worker_nodes = provider.non_terminated_nodes({
-        TAG_RAY_NODE_KIND: NODE_KIND_WORKER
+        CLOUDTIK_TAG_NODE_KIND: NODE_KIND_WORKER
     })
 
     hosts = [provider.external_ip(node) for node in head_nodes + worker_nodes]
@@ -596,19 +595,19 @@ def _info_from_params(
     Note: This returns a list of hosts, not a comma separated string!
     """
     if not host and not cluster:
-        bootstrap_config = os.path.expanduser("~/ray_bootstrap_config.yaml")
+        bootstrap_config = os.path.expanduser("~/cloudtik_bootstrap_config.yaml")
         if os.path.exists(bootstrap_config):
             cluster = bootstrap_config
             cli_logger.warning(f"Detected cluster config file at {cluster}. "
                                f"If this is incorrect, specify with "
-                               f"`ray cluster-dump <config>`")
+                               f"`cloudtik cluster-dump <config>`")
     elif cluster:
         cluster = os.path.expanduser(cluster)
 
     cluster_name = None
 
     if cluster:
-        h, u, k, d, cluster_name = get_info_from_ray_cluster_config(cluster)
+        h, u, k, d, cluster_name = get_info_from_cluster_config(cluster)
 
         ssh_user = ssh_user or u
         ssh_key = ssh_key or k

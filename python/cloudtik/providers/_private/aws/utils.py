@@ -5,8 +5,8 @@ from boto3.exceptions import ResourceNotExistsError
 from botocore.config import Config
 import boto3
 
-from ray.autoscaler._private.cli_logger import cli_logger, cf
-from ray.autoscaler._private.constants import BOTO_MAX_RETRIES
+from cloudtik.core._private.cli_logger import cli_logger, cf
+from cloudtik.core._private.constants import BOTO_MAX_RETRIES
 
 
 class LazyDefaultDict(defaultdict):
@@ -92,7 +92,7 @@ def handle_boto_error(exc, msg, *args, **kwargs):
         cli_logger.newline()
         cli_logger.panic("You can request a new one using")
         cli_logger.panic(cf.bold(token_command))
-        cli_logger.panic("then expose it to Ray by setting")
+        cli_logger.panic("then expose it by setting")
         cli_logger.panic(cf.bold(secret_key_var))
         cli_logger.panic(cf.bold(session_token_var))
         cli_logger.panic(cf.bold(access_key_id_var))

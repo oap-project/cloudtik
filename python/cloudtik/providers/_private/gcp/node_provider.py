@@ -4,14 +4,15 @@ from threading import RLock
 import time
 import logging
 
-from ray.autoscaler.node_provider import NodeProvider
-from ray.autoscaler._private.gcp.config import (
+from cloudtik.core.node_provider import NodeProvider
+
+from cloudtik.providers._private.gcp.config import (
     bootstrap_gcp, construct_clients_from_provider_config, get_node_type)
 
 # The logic has been abstracted away here to allow for different GCP resources
 # (API endpoints), which can differ widely, making it impossible to use
 # the same logic for everything.
-from ray.autoscaler._private.gcp.node import (  # noqa
+from cloudtik.providers._private.gcp.node import (
     GCPResource, GCPNode, GCPCompute, GCPTPU, GCPNodeType,
     INSTANCE_NAME_MAX_LEN, INSTANCE_NAME_UUID_LEN)
 
@@ -24,7 +25,7 @@ def _retry(method, max_tries=5, backoff_s=1):
     Upon catching BrokenPipeError, API clients are rebuilt and
     decorated methods are retried.
 
-    Work-around for https://github.com/ray-project/ray/issues/16072.
+    Work-around for issue #16072.
     Based on https://github.com/kubeflow/pipelines/pull/5250/files.
     """
 

@@ -15,51 +15,45 @@ from types import ModuleType
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import click
-import redis
 import yaml
 try:  # py3
     from shlex import quote
 except ImportError:  # py2
     from pipes import quote
 
-import ray
-from ray.experimental.internal_kv import _internal_kv_put
-import ray._private.services as services
-from ray.autoscaler.node_provider import NodeProvider
-from ray.autoscaler._private.constants import \
-    AUTOSCALER_RESOURCE_REQUEST_CHANNEL, \
+from cloudtik.core._private.kv_store import kv_put
+
+from cloudtik.core.node_provider import NodeProvider
+from cloudtik.core._private.constants import \
+    CLOUDTIK_RESOURCE_REQUEST_CHANNEL, \
     MAX_PARALLEL_SHUTDOWN_WORKERS
-from ray.autoscaler._private.util import validate_config, hash_runtime_conf, \
+from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     hash_launch_conf, prepare_config
-from ray.autoscaler._private.providers import _get_node_provider, \
+from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
-from ray.autoscaler.tags import (
-    TAG_RAY_NODE_KIND, TAG_RAY_LAUNCH_CONFIG, TAG_RAY_NODE_NAME,
-    NODE_KIND_WORKER, NODE_KIND_HEAD, TAG_RAY_USER_NODE_TYPE,
-    STATUS_UNINITIALIZED, STATUS_UP_TO_DATE, TAG_RAY_NODE_STATUS)
-from ray.autoscaler._private.cli_logger import cli_logger, cf
-from ray.autoscaler._private.updater import NodeUpdaterThread
-from ray.autoscaler._private.command_runner import set_using_login_shells, \
+from cloudtik.core.tags import (
+    CLOUDTIK_TAG_NODE_KIND, CLOUDTIK_TAG_LAUNCH_CONFIG, CLOUDTIK_TAG_NODE_NAME,
+    NODE_KIND_WORKER, NODE_KIND_HEAD, CLOUDTIK_TAG_USER_NODE_TYPE,
+    STATUS_UNINITIALIZED, STATUS_UP_TO_DATE, CLOUDTIK_TAG_NODE_STATUS)
+from cloudtik.core._private.cli_logger import cli_logger, cf
+from cloudtik.core._private.node_updater import NodeUpdaterThread
+from cloudtik.core._private.command_executor import set_using_login_shells, \
     set_rsync_silent
-from ray.autoscaler._private.event_system import (CreateClusterEvent,
-                                                  global_event_system)
-from ray.autoscaler._private.log_timer import LogTimer
-from ray.autoscaler._private.cluster_dump import Archive, \
+from cloudtik.core._private.event_system import (CreateClusterEvent, global_event_system)
+from cloudtik.core._private.log_timer import LogTimer
+from cloudtik.core._private.cluster_dump import Archive, \
     GetParameters, Node, _info_from_params, \
     create_archive_for_local_and_remote_nodes, \
     create_archive_for_remote_nodes, get_all_local_data
 
-from ray.worker import global_worker  # type: ignore
-from ray.util.debug import log_once
+from cloudtik.core._private.debug import log_once
 
-import ray.autoscaler._private.subprocess_output_util as cmd_output_util
-from ray.autoscaler._private.load_metrics import LoadMetricsSummary
-from ray.autoscaler._private.autoscaler import AutoscalerSummary
-from ray.autoscaler._private.util import format_info_string
+import cloudtik.core._private.subprocess_output_util as cmd_output_util
+from cloudtik.core._private.load_metrics import LoadMetricsSummary
+from cloudtik.core._private.cluster_scaler import AutoscalerSummary
+from cloudtik.core._private.utils import format_info_string
 
 logger = logging.getLogger(__name__)
-
-redis_client = None
 
 RUN_ENV_TYPES = ["auto", "host", "docker"]
 
@@ -68,24 +62,15 @@ POLL_INTERVAL = 5
 Port_forward = Union[Tuple[int, int], List[Tuple[int, int]]]
 
 
-def _redis() -> redis.StrictRedis:
-    global redis_client
-    if redis_client is None:
-        redis_client = services.create_redis_client(
-            global_worker.node.redis_address,
-            password=global_worker.node.redis_password)
-    return redis_client
-
-
 def try_logging_config(config: Dict[str, Any]) -> None:
     if config["provider"]["type"] == "aws":
-        from ray.autoscaler._private.aws.config import log_to_cli
+        from cloudtik.providers._private.aws.config import log_to_cli
         log_to_cli(config)
 
 
 def try_get_log_state(provider_config: Dict[str, Any]) -> Optional[dict]:
     if provider_config["type"] == "aws":
-        from ray.autoscaler._private.aws.config import get_log_state
+        from cloudtik.providers._private.aws.config import get_log_state
         return get_log_state()
     return None
 
@@ -95,12 +80,12 @@ def try_reload_log_state(provider_config: Dict[str, Any],
     if not log_state:
         return
     if provider_config["type"] == "aws":
-        from ray.autoscaler._private.aws.config import reload_log_state
+        from cloudtik.providers._private.aws.config import reload_log_state
         return reload_log_state(log_state)
 
 
 def debug_status(status, error) -> str:
-    """Return a debug string for the autoscaler."""
+    """Return a debug string for the cluster scaler."""
     if not status:
         status = "No cluster status."
     else:
@@ -108,8 +93,8 @@ def debug_status(status, error) -> str:
         as_dict = json.loads(status)
         time = datetime.datetime.fromtimestamp(as_dict["time"])
         lm_summary = LoadMetricsSummary(**as_dict["load_metrics_report"])
-        autoscaler_summary = AutoscalerSummary(**as_dict["autoscaler_report"])
-        status = format_info_string(lm_summary, autoscaler_summary, time=time)
+        scaler_summary = AutoscalerSummary(**as_dict["cluster_scaler_report"])
+        status = format_info_string(lm_summary, scaler_summary, time=time)
     if error:
         status += "\n"
         status += error.decode("utf-8")
@@ -118,10 +103,10 @@ def debug_status(status, error) -> str:
 
 def request_resources(num_cpus: Optional[int] = None,
                       bundles: Optional[List[dict]] = None) -> None:
-    """Remotely request some CPU or GPU resources from the autoscaler.
+    """Remotely request some CPU or GPU resources from the cluster scaler.
 
     This function is to be called e.g. on a node before submitting a bunch of
-    ray.remote calls to ensure that resources rapidly become available.
+    jobs to ensure that resources rapidly become available.
 
     Args:
         num_cpus (int): Scale the cluster to ensure this number of CPUs are
@@ -131,15 +116,14 @@ def request_resources(num_cpus: Optional[int] = None,
             resource shapes can fit. This request is persistent until another
             call to request_resources() is made.
     """
-    if not ray.is_initialized():
-        raise RuntimeError("Ray is not initialized yet")
+    # TODO (haifeng): handle resource request
     to_request = []
     if num_cpus:
         to_request += [{"CPU": 1}] * num_cpus
     if bundles:
         to_request += bundles
-    _internal_kv_put(
-        AUTOSCALER_RESOURCE_REQUEST_CHANNEL,
+    kv_put(
+        CLOUDTIK_RESOURCE_REQUEST_CHANNEL,
         json.dumps(to_request),
         overwrite=True)
 
@@ -155,11 +139,11 @@ def create_or_update_cluster(
         no_config_cache: bool = False,
         redirect_command_output: Optional[bool] = False,
         use_login_shells: bool = True,
-        no_monitor_on_head: bool = False) -> Dict[str, Any]:
-    """Creates or updates an autoscaling Ray cluster from a config json."""
-    # no_monitor_on_head is an internal flag used by the Ray K8s operator.
-    # If True, prevents autoscaling config sync to the Ray head during cluster
-    # creation. See https://github.com/ray-project/ray/pull/13720.
+        no_coordinator_on_head: bool = False) -> Dict[str, Any]:
+    """Creates or updates an scaling cluster from a config json."""
+    # no_coordinator_on_head is an internal flag used by the K8s operator.
+    # If True, prevents autoscaling config sync to the  head during cluster
+    # creation. See pull #13720.
     set_using_login_shells(use_login_shells)
     if not use_login_shells:
         cmd_output_util.set_allow_interactive(False)
@@ -234,7 +218,7 @@ def create_or_update_cluster(
 
     try_logging_config(config)
     get_or_create_head_node(config, config_file, no_restart, restart_only, yes,
-                            override_cluster_name, no_monitor_on_head)
+                            override_cluster_name, no_coordinator_on_head)
     return config
 
 
@@ -244,12 +228,12 @@ CONFIG_CACHE_VERSION = 1
 def _bootstrap_config(config: Dict[str, Any],
                       no_config_cache: bool = False) -> Dict[str, Any]:
     config = prepare_config(config)
-    # NOTE: multi-node-type autoscaler is guaranteed to be in use after this.
+    # NOTE: multi-node-type cluster scaler is guaranteed to be in use after this.
 
     hasher = hashlib.sha1()
     hasher.update(json.dumps([config], sort_keys=True).encode("utf-8"))
     cache_key = os.path.join(tempfile.gettempdir(),
-                             "ray-config-{}".format(hasher.hexdigest()))
+                             "cloudtik-config-{}".format(hasher.hexdigest()))
 
     if os.path.exists(cache_key) and not no_config_cache:
         config_cache = json.loads(open(cache_key).read())
@@ -309,9 +293,7 @@ def _bootstrap_config(config: Dict[str, Any],
         validate_config(config)
     except (ModuleNotFoundError, ImportError):
         cli_logger.abort(
-            "Not all Ray autoscaler dependencies were found. "
-            "In Ray 1.4+, the Ray CLI, autoscaler, and dashboard will "
-            "only be usable via `pip install \"ray[default]\"`. Please "
+            "Not all dependencies were found. Please "
             "update your install command.")
     resolved_config = provider_cls.bootstrap_config(config)
 
@@ -330,7 +312,7 @@ def _bootstrap_config(config: Dict[str, Any],
 def teardown_cluster(config_file: str, yes: bool, workers_only: bool,
                      override_cluster_name: Optional[str],
                      keep_min_workers: bool) -> None:
-    """Destroys all nodes of a Ray cluster described by a config json."""
+    """Destroys all nodes of a cluster described by a config json."""
     config = yaml.safe_load(open(config_file).read())
     if override_cluster_name is not None:
         config["cluster_name"] = override_cluster_name
@@ -339,11 +321,12 @@ def teardown_cluster(config_file: str, yes: bool, workers_only: bool,
 
     cli_logger.confirm(yes, "Destroying cluster.", _abort=True)
 
+    # TODO (haifeng): Check the correct way to teardown a cluster
     if not workers_only:
         try:
             exec_cluster(
                 config_file,
-                cmd="ray stop",
+                cmd="cloudtik stop",
                 run_env="auto",
                 screen=False,
                 tmux=False,
@@ -356,7 +339,7 @@ def teardown_cluster(config_file: str, yes: bool, workers_only: bool,
             # todo: add better exception info
             cli_logger.verbose_error("{}", str(e))
             cli_logger.warning(
-                "Exception occurred when stopping the cluster Ray runtime "
+                "Exception occurred when stopping the cluster runtime "
                 "(use -v to dump teardown exceptions).")
             cli_logger.warning(
                 "Ignoring the exception and "
@@ -366,7 +349,7 @@ def teardown_cluster(config_file: str, yes: bool, workers_only: bool,
 
     def remaining_nodes():
         workers = provider.non_terminated_nodes({
-            TAG_RAY_NODE_KIND: NODE_KIND_WORKER
+            CLOUDTIK_TAG_NODE_KIND: NODE_KIND_WORKER
         })
 
         if keep_min_workers:
@@ -387,7 +370,7 @@ def teardown_cluster(config_file: str, yes: bool, workers_only: bool,
             return workers
 
         head = provider.non_terminated_nodes({
-            TAG_RAY_NODE_KIND: NODE_KIND_HEAD
+            CLOUDTIK_TAG_NODE_KIND: NODE_KIND_HEAD
         })
 
         return head + workers
@@ -403,7 +386,7 @@ def teardown_cluster(config_file: str, yes: bool, workers_only: bool,
                 file_mounts=config["file_mounts"],
                 initialization_commands=[],
                 setup_commands=[],
-                ray_start_commands=[],
+                start_commands=[],
                 runtime_hash="",
                 file_mounts_contents_hash="",
                 is_head_node=False,
@@ -456,8 +439,8 @@ def teardown_cluster(config_file: str, yes: bool, workers_only: bool,
 
 def kill_node(config_file: str, yes: bool, hard: bool,
               override_cluster_name: Optional[str]) -> Optional[str]:
-    """Kills a random Raylet worker."""
-
+    """Kills a random worker."""
+    # TODO (haifeng): Check the correct way to kill a node
     config = yaml.safe_load(open(config_file).read())
     if override_cluster_name is not None:
         config["cluster_name"] = override_cluster_name
@@ -467,7 +450,7 @@ def kill_node(config_file: str, yes: bool, hard: bool,
 
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     nodes = provider.non_terminated_nodes({
-        TAG_RAY_NODE_KIND: NODE_KIND_WORKER
+        CLOUDTIK_TAG_NODE_KIND: NODE_KIND_WORKER
     })
     if not nodes:
         cli_logger.print("No worker nodes detected.")
@@ -486,13 +469,13 @@ def kill_node(config_file: str, yes: bool, hard: bool,
             file_mounts=config["file_mounts"],
             initialization_commands=[],
             setup_commands=[],
-            ray_start_commands=[],
+            start_commands=[],
             runtime_hash="",
             file_mounts_contents_hash="",
             is_head_node=False,
             docker_config=config.get("docker"))
 
-        _exec(updater, "ray stop", False, False)
+        _exec(updater, "cloudtik stop", False, False)
 
     time.sleep(POLL_INTERVAL)
 
@@ -506,8 +489,9 @@ def kill_node(config_file: str, yes: bool, hard: bool,
 
 def monitor_cluster(cluster_config_file: str, num_lines: int,
                     override_cluster_name: Optional[str]) -> None:
-    """Tails the autoscaler logs of a Ray cluster."""
-    cmd = f"tail -n {num_lines} -f /tmp/ray/session_latest/logs/monitor*"
+    """Tails the coordinator logs of a cluster."""
+    # TODO (haifeng) : the right coordinator log path
+    cmd = f"tail -n {num_lines} -f /tmp/cloudtik/session_latest/logs/cloudtik_cluster_coordinator*"
     exec_cluster(
         cluster_config_file,
         cmd=cmd,
@@ -520,24 +504,24 @@ def monitor_cluster(cluster_config_file: str, num_lines: int,
         port_forward=None)
 
 
-def warn_about_bad_start_command(start_commands: List[str],
-                                 no_monitor_on_head: bool = False) -> None:
-    ray_start_cmd = list(filter(lambda x: "ray start" in x, start_commands))
-    if len(ray_start_cmd) == 0:
+def warn_about_bad_start_commands(start_commands: List[str],
+                                 no_coordinator_on_head: bool = False) -> None:
+    start_cmds = list(filter(lambda x: "cloudtik start" in x, start_commands))
+    if len(start_cmds) == 0:
         cli_logger.warning(
-            "Ray runtime will not be started because `{}` is not in `{}`.",
-            cf.bold("ray start"), cf.bold("head_start_ray_commands"))
+            "CloudTik will not be started because `{}` is not in `{}`.",
+            cf.bold("cloudtik start"), cf.bold("head_start_commands"))
 
-    autoscaling_config_in_ray_start_cmd = any(
-        "autoscaling-config" in x for x in ray_start_cmd)
-    if not (autoscaling_config_in_ray_start_cmd or no_monitor_on_head):
+    cluster_scaling_config_in_start_cmd = any(
+        "cluster-scaling-config" in x for x in start_cmds)
+    if not (cluster_scaling_config_in_start_cmd or no_coordinator_on_head):
         cli_logger.warning(
             "The head node will not launch any workers because "
             "`{}` does not have `{}` set.\n"
             "Potential fix: add `{}` to the `{}` command under `{}`.",
-            cf.bold("ray start"), cf.bold("--autoscaling-config"),
-            cf.bold("--autoscaling-config=~/ray_bootstrap_config.yaml"),
-            cf.bold("ray start"), cf.bold("head_start_ray_commands"))
+            cf.bold("cloudtik start"), cf.bold("--cluster-scaling-config"),
+            cf.bold("--cluster-scaling-config=~/cloudtik_bootstrap_config.yaml"),
+            cf.bold("cloudtik start"), cf.bold("head_start_commands"))
 
 
 def get_or_create_head_node(config: Dict[str, Any],
@@ -546,7 +530,7 @@ def get_or_create_head_node(config: Dict[str, Any],
                             restart_only: bool,
                             yes: bool,
                             override_cluster_name: Optional[str],
-                            no_monitor_on_head: bool = False,
+                            no_coordinator_on_head: bool = False,
                             _provider: Optional[NodeProvider] = None,
                             _runner: ModuleType = subprocess) -> None:
     """Create the cluster head node, which in turn creates the workers."""
@@ -557,7 +541,7 @@ def get_or_create_head_node(config: Dict[str, Any],
 
     config = copy.deepcopy(config)
     head_node_tags = {
-        TAG_RAY_NODE_KIND: NODE_KIND_HEAD,
+        CLOUDTIK_TAG_NODE_KIND: NODE_KIND_HEAD,
     }
     nodes = provider.non_terminated_nodes(head_node_tags)
     if len(nodes) > 0:
@@ -577,13 +561,13 @@ def get_or_create_head_node(config: Dict[str, Any],
             cli_logger.confirm(
                 yes,
                 "Updating cluster configuration and "
-                "restarting the cluster Ray runtime. "
+                "restarting the cluster runtime. "
                 "Setup commands will not be run due to `{}`.\n",
                 cf.bold("--restart-only"),
                 _abort=True)
         elif no_restart:
             cli_logger.print(
-                "Cluster Ray runtime will not be restarted due "
+                "Cluster runtime will not be restarted due "
                 "to `{}`.", cf.bold("--no-restart"))
             cli_logger.confirm(
                 yes,
@@ -595,23 +579,23 @@ def get_or_create_head_node(config: Dict[str, Any],
                 "Updating cluster configuration and running full setup.")
             cli_logger.confirm(
                 yes,
-                cf.bold("Cluster Ray runtime will be restarted."),
+                cf.bold("Cluster runtime will be restarted."),
                 _abort=True)
 
     cli_logger.newline()
-    # TODO(ekl) this logic is duplicated in node_launcher.py (keep in sync)
+    
+    # The "head_node" config stores only the internal head node specific 
+    # configuration values generated in the runtime, for example IAM
     head_node_config = copy.deepcopy(config.get("head_node", {}))
-    # The above `head_node` field is deprecated in favor of per-node-type
-    # node_configs. We allow it for backwards-compatibility.
     head_node_resources = None
     head_node_type = config.get("head_node_type")
     if head_node_type:
-        head_node_tags[TAG_RAY_USER_NODE_TYPE] = head_node_type
+        head_node_tags[CLOUDTIK_TAG_USER_NODE_TYPE] = head_node_type
         head_config = config["available_node_types"][head_node_type]
         head_node_config.update(head_config["node_config"])
 
         # Not necessary to keep in sync with node_launcher.py
-        # Keep in sync with autoscaler.py _node_resources
+        # Keep in sync with cluster_scaler.py _node_resources
         head_node_resources = head_config.get("resources")
 
     launch_hash = hash_launch_conf(head_node_config, config["auth"])
@@ -628,10 +612,10 @@ def get_or_create_head_node(config: Dict[str, Any],
                 provider.terminate_node(head_node)
                 cli_logger.print("Terminated head node {}", head_node)
 
-            head_node_tags[TAG_RAY_LAUNCH_CONFIG] = launch_hash
-            head_node_tags[TAG_RAY_NODE_NAME] = "ray-{}-head".format(
+            head_node_tags[CLOUDTIK_TAG_LAUNCH_CONFIG] = launch_hash
+            head_node_tags[CLOUDTIK_TAG_NODE_NAME] = "cloudtik-{}-head".format(
                 config["cluster_name"])
-            head_node_tags[TAG_RAY_NODE_STATUS] = STATUS_UNINITIALIZED
+            head_node_tags[CLOUDTIK_TAG_NODE_STATUS] = STATUS_UNINITIALIZED
             provider.create_node(head_node_config, head_node_tags, 1)
             cli_logger.print("Launched a new head node")
 
@@ -654,7 +638,7 @@ def get_or_create_head_node(config: Dict[str, Any],
     with cli_logger.group(
             "Setting up head node",
             _numbered=("<>", 1, 1),
-            # cf.bold(provider.node_tags(head_node)[TAG_RAY_NODE_NAME]),
+            # cf.bold(provider.node_tags(head_node)[CLOUDTIK_TAG_NODE_NAME]),
             _tags=dict()):  # add id, ARN to tags?
 
         # TODO(ekl) right now we always update the head node even if the
@@ -665,7 +649,7 @@ def get_or_create_head_node(config: Dict[str, Any],
         (runtime_hash, file_mounts_contents_hash) = hash_runtime_conf(
             config["file_mounts"], None, config)
 
-        if not no_monitor_on_head:
+        if not no_coordinator_on_head:
             # Return remote_config_file to avoid prematurely closing it.
             config, remote_config_file = _set_up_config_for_head_node(
                 config, provider, no_restart)
@@ -678,19 +662,19 @@ def get_or_create_head_node(config: Dict[str, Any],
                 setup_commands = config["head_setup_commands"]
             else:
                 setup_commands = []
-            ray_start_commands = config["head_start_ray_commands"]
+            start_commands = config["head_start_commands"]
         # If user passed in --no-restart and we're not creating a new head,
         # omit start commands.
         elif no_restart and not creating_new_head:
             setup_commands = config["head_setup_commands"]
-            ray_start_commands = []
+            start_commands = []
         else:
             setup_commands = config["head_setup_commands"]
-            ray_start_commands = config["head_start_ray_commands"]
+            start_commands = config["head_start_commands"]
 
         if not no_restart:
-            warn_about_bad_start_command(ray_start_commands,
-                                         no_monitor_on_head)
+            warn_about_bad_start_commands(start_commands,
+                                         no_coordinator_on_head)
 
         updater = NodeUpdaterThread(
             node_id=head_node,
@@ -701,7 +685,7 @@ def get_or_create_head_node(config: Dict[str, Any],
             file_mounts=config["file_mounts"],
             initialization_commands=config["initialization_commands"],
             setup_commands=setup_commands,
-            ray_start_commands=ray_start_commands,
+            start_commands=start_commands,
             process_runner=_runner,
             runtime_hash=runtime_hash,
             file_mounts_contents_hash=file_mounts_contents_hash,
@@ -729,7 +713,8 @@ def get_or_create_head_node(config: Dict[str, Any],
             "head_node_id": head_node,
         })
 
-    monitor_str = "tail -n 100 -f /tmp/ray/session_latest/logs/monitor*"
+    # TODO (haifeng) : check and set to the correct log path of the coordinator
+    coordniator_str = "tail -n 100 -f /tmp/cloudtik/session_latest/logs/cloudtik_cluster_coordinator*"
     if override_cluster_name:
         modifiers = " --cluster-name={}".format(quote(override_cluster_name))
     else:
@@ -738,16 +723,16 @@ def get_or_create_head_node(config: Dict[str, Any],
     cli_logger.newline()
     with cli_logger.group("Useful commands"):
         printable_config_file = os.path.abspath(printable_config_file)
-        cli_logger.print("Monitor autoscaling with")
+        cli_logger.print("Monitor cluster with")
         cli_logger.print(
-            cf.bold("  ray exec {}{} {}"), printable_config_file, modifiers,
-            quote(monitor_str))
+            cf.bold("  cloudtik exec {}{} {}"), printable_config_file, modifiers,
+            quote(coordniator_str))
 
         cli_logger.print("Connect to a terminal on the cluster head:")
         cli_logger.print(
-            cf.bold("  ray attach {}{}"), printable_config_file, modifiers)
+            cf.bold("  cloudtik attach {}{}"), printable_config_file, modifiers)
 
-        remote_shell_str = updater.cmd_runner.remote_shell_command_str()
+        remote_shell_str = updater.cmd_executor.remote_shell_command_str()
         cli_logger.print("Get a remote shell to the cluster manually:")
         cli_logger.print("  {}", remote_shell_str.strip())
 
@@ -770,7 +755,7 @@ def _should_create_new_head(head_node_id: Optional[str], new_launch_hash: str,
         new_head_node_type (str): current user-submitted head node-type key
 
     Returns:
-        bool: True if a new Ray head node should be launched, False otherwise
+        bool: True if a new head node should be launched, False otherwise
     """
     if not head_node_id:
         # No head node exists, need to create it.
@@ -778,8 +763,8 @@ def _should_create_new_head(head_node_id: Optional[str], new_launch_hash: str,
 
     # Pull existing head's data.
     head_tags = provider.node_tags(head_node_id)
-    current_launch_hash = head_tags.get(TAG_RAY_LAUNCH_CONFIG)
-    current_head_type = head_tags.get(TAG_RAY_USER_NODE_TYPE)
+    current_launch_hash = head_tags.get(CLOUDTIK_TAG_LAUNCH_CONFIG)
+    current_head_type = head_tags.get(CLOUDTIK_TAG_USER_NODE_TYPE)
 
     # Compare to current head
     hashes_mismatch = new_launch_hash != current_launch_hash
@@ -811,7 +796,7 @@ def _set_up_config_for_head_node(config: Dict[str, Any],
                                  no_restart: bool) ->\
         Tuple[Dict[str, Any], Any]:
     """Prepares autoscaling config and, if needed, ssh key, to be mounted onto
-    the Ray head node for use by the autoscaler.
+    the head node for use by the cluster scaler.
 
     Returns the modified config and the temporary config file that will be
     mounted onto the head node.
@@ -825,7 +810,7 @@ def _set_up_config_for_head_node(config: Dict[str, Any],
     remote_config["auth"].pop("ssh_proxy_command", None)
 
     if "ssh_private_key" in config["auth"]:
-        remote_key_path = "~/ray_bootstrap_key.pem"
+        remote_key_path = "~/cloudtik_bootstrap_key.pem"
         remote_config["auth"]["ssh_private_key"] = remote_key_path
 
     # Adjust for new file locations
@@ -839,11 +824,11 @@ def _set_up_config_for_head_node(config: Dict[str, Any],
 
     # Now inject the rewritten config and SSH key into the head node
     remote_config_file = tempfile.NamedTemporaryFile(
-        "w", prefix="ray-bootstrap-")
+        "w", prefix="cloudtik-bootstrap-")
     remote_config_file.write(json.dumps(remote_config))
     remote_config_file.flush()
     config["file_mounts"].update({
-        "~/ray_bootstrap_config.yaml": remote_config_file.name
+        "~/cloudtik_bootstrap_config.yaml": remote_config_file.name
     })
 
     if "ssh_private_key" in config["auth"]:
@@ -963,7 +948,7 @@ def exec_cluster(config_file: str,
         file_mounts=config["file_mounts"],
         initialization_commands=[],
         setup_commands=[],
-        ray_start_commands=[],
+        start_commands=[],
         runtime_hash="",
         file_mounts_contents_hash="",
         is_head_node=True,
@@ -975,8 +960,8 @@ def exec_cluster(config_file: str,
     shutdown_after_run = False
     if cmd and stop:
         cmd = "; ".join([
-            cmd, "ray stop",
-            "ray teardown ~/ray_bootstrap_config.yaml --yes --workers-only"
+            cmd, "cloudtik stop",
+            "cloudtik teardown ~/cloudtik_bootstrap_config.yaml --yes --workers-only"
         ])
         shutdown_after_run = True
 
@@ -990,7 +975,7 @@ def exec_cluster(config_file: str,
         run_env=run_env,
         shutdown_after_run=shutdown_after_run)
     if tmux or screen:
-        attach_command_parts = ["ray attach", config_file]
+        attach_command_parts = ["cloudtik attach", config_file]
         if override_cluster_name is not None:
             attach_command_parts.append(
                 "--cluster-name={}".format(override_cluster_name))
@@ -1027,7 +1012,7 @@ def _exec(updater: NodeUpdaterThread,
                 quote(cmd + "; exec bash")
             ]
             cmd = " ".join(wrapped_cmd)
-    return updater.cmd_runner.run(
+    return updater.cmd_executor.run(
         cmd,
         exit_on_fail=True,
         port_forward=port_forward,
@@ -1097,7 +1082,7 @@ def rsync(config_file: str,
             file_mounts=config["file_mounts"],
             initialization_commands=[],
             setup_commands=[],
-            ray_start_commands=[],
+            start_commands=[],
             runtime_hash="",
             use_internal_ip=use_internal_ip,
             process_runner=_runner,
@@ -1168,7 +1153,7 @@ def get_worker_node_ips(config_file: str,
 
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     nodes = provider.non_terminated_nodes({
-        TAG_RAY_NODE_KIND: NODE_KIND_WORKER
+        CLOUDTIK_TAG_NODE_KIND: NODE_KIND_WORKER
     })
 
     if config.get("provider", {}).get("use_internal_ips", False) is True:
@@ -1185,7 +1170,7 @@ def _get_worker_nodes(config: Dict[str, Any],
         config["cluster_name"] = override_cluster_name
 
     provider = _get_node_provider(config["provider"], config["cluster_name"])
-    return provider.non_terminated_nodes({TAG_RAY_NODE_KIND: NODE_KIND_WORKER})
+    return provider.non_terminated_nodes({CLOUDTIK_TAG_NODE_KIND: NODE_KIND_WORKER})
 
 
 def _get_running_head_node(
@@ -1205,20 +1190,20 @@ def _get_running_head_node(
         create_if_needed (bool): Create a head node if one is not present.
         _provider (NodeProvider): [For testing], a Node Provider to use.
         _allow_uninitialized_state (bool): Whether to return a head node that
-            is not 'UP TO DATE'. This is used to allow `ray attach` and
-            `ray exec` to debug a cluster in a bad state.
+            is not 'UP TO DATE'. This is used to allow `cloudtik attach` and
+            `cloudtik exec` to debug a cluster in a bad state.
 
     """
     provider = _provider or _get_node_provider(config["provider"],
                                                config["cluster_name"])
     head_node_tags = {
-        TAG_RAY_NODE_KIND: NODE_KIND_HEAD,
+        CLOUDTIK_TAG_NODE_KIND: NODE_KIND_HEAD,
     }
     nodes = provider.non_terminated_nodes(head_node_tags)
     head_node = None
     _backup_head_node = None
     for node in nodes:
-        node_state = provider.node_tags(node).get(TAG_RAY_NODE_STATUS)
+        node_state = provider.node_tags(node).get(CLOUDTIK_TAG_NODE_STATUS)
         if node_state == STATUS_UP_TO_DATE:
             head_node = node
         else:
@@ -1251,7 +1236,7 @@ def _get_running_head_node(
                 f"The head node being returned: {_backup_head_node} is not "
                 "`up-to-date`. If you are not debugging a startup issue "
                 "it is recommended to restart this head node with: {}",
-                cf.bold(f"  ray down  {printable_config_file}"))
+                cf.bold(f"  cloudtik down  {printable_config_file}"))
 
             return _backup_head_node
         raise RuntimeError("Head node of cluster ({}) not found!".format(
@@ -1314,12 +1299,12 @@ def get_cluster_dump_archive(cluster_config_file: Optional[str] = None,
     content_str = ""
     if logs:
         content_str += \
-            "  - The logfiles of your Ray session\n" \
+            "  - The logfiles of your session\n" \
             "    This usually includes Python outputs (stdout/stderr)\n"
 
     if debug_state:
         content_str += \
-            "  - Debug state information on your Ray cluster \n" \
+            "  - Debug state information on your cluster \n" \
             "    e.g. number of workers, drivers, objects, etc.\n"
 
     if pip:
@@ -1327,7 +1312,7 @@ def get_cluster_dump_archive(cluster_config_file: Optional[str] = None,
 
     if processes:
         content_str += \
-            "  - Information on your running Ray processes\n" \
+            "  - Information on your running processes\n" \
             "    This includes command line arguments\n"
 
     cli_logger.warning(
@@ -1353,7 +1338,7 @@ def get_cluster_dump_archive(cluster_config_file: Optional[str] = None,
 
     if not nodes:
         cli_logger.error(
-            "No nodes found. Specify with `--host` or by passing a ray "
+            "No nodes found. Specify with `--host` or by passing a "
             "cluster config to `--cluster`.")
         return None
 

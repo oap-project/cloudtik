@@ -5,7 +5,7 @@ import tempfile
 import time
 import sys
 
-from ray.autoscaler._private.cli_logger import cli_logger, cf
+from cloudtik.core._private.cli_logger import cli_logger, cf
 
 CONN_REFUSED_PATIENCE = 30  # how long to wait for sshd to run
 
@@ -342,7 +342,7 @@ def run_cmd_redirected(cmd,
             use_login_shells=use_login_shells)
     else:
         tmpfile_path = os.path.join(
-            tempfile.gettempdir(), "ray-up-{}-{}.txt".format(
+            tempfile.gettempdir(), "cloudtik-up-{}-{}.txt".format(
                 cmd[0], time.time()))
         with open(
                 tmpfile_path,

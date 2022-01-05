@@ -50,28 +50,28 @@ def _import_kubernetes(provider_config):
 
 
 def _load_local_defaults_config():
-    import cloudtik.core.local as local_provider
+    import cloudtik.providers.local as local_provider
     return os.path.join(os.path.dirname(local_provider.__file__), "defaults.yaml")
 
 
 def _load_kubernetes_defaults_config():
-    import cloudtik.core.kubernetes as kubernetes_provider
+    import cloudtik.providers.kubernetes as kubernetes_provider
     return os.path.join(
         os.path.dirname(kubernetes_provider.__file__), "defaults.yaml")
 
 
 def _load_aws_defaults_config():
-    import cloudtik.core.aws as aws_provider
+    import cloudtik.providers.aws as aws_provider
     return os.path.join(os.path.dirname(aws_provider.__file__), "defaults.yaml")
 
 
 def _load_gcp_defaults_config():
-    import cloudtik.core.gcp as gcp_provider
+    import cloudtik.providers.gcp as gcp_provider
     return os.path.join(os.path.dirname(gcp_provider.__file__), "defaults.yaml")
 
 
 def _load_azure_defaults_config():
-    import cloudtik.core.azure as azure_provider
+    import cloudtik.providers.azure as azure_provider
     return os.path.join(os.path.dirname(azure_provider.__file__), "defaults.yaml")
 
 

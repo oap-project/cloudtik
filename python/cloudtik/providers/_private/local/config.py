@@ -4,7 +4,7 @@ from typing import Any
 from typing import Dict
 
 from cloudtik.core._private.cli_logger import cli_logger
-from cloudtik.core._private.utils import get_cloudtik_temp_dir
+import cloudtik.core._private.utils  as util
 
 unsupported_field_message = ("The field {} is not supported "
                              "for on-premise clusters.")
@@ -70,12 +70,12 @@ def prepare_manual(config: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def get_lock_path(cluster_name: str) -> str:
-    return os.path.join(get_cloudtik_temp_dir(),
+    return os.path.join(util.get_cloudtik_temp_dir(),
                         "cluster-{}.lock".format(cluster_name))
 
 
 def get_state_path(cluster_name: str) -> str:
-    return os.path.join(get_cloudtik_temp_dir(),
+    return os.path.join(util.get_cloudtik_temp_dir(),
                         "cluster-{}.state".format(cluster_name))
 
 

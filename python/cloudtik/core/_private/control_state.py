@@ -1,5 +1,6 @@
 import logging
 from typing import List, Optional
+import redis
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +84,6 @@ class StateClient:
         except Exception:
             raise RuntimeError(f"Failed to check existence of key {key}")
 
-
     def kv_keys(self, prefix: bytes,
                          namespace: Optional[str]) -> List[bytes]:
         logger.debug(f"internal_kv_keys {prefix} {namespace}")
@@ -101,20 +101,24 @@ class StateClient:
 class ControlStateAccessor:
     """A class used to access control state from redis.
     """
-    def __init__(self, redis_address, redis_password):
+    def __init__(self, redis_address, redis_port, redis_password):
         """Create an Access object."""
         # Args used for lazy init of this object.
         self.redis_address = redis_address
+        self.redis_port = redis_port
         self.redis_password = redis_password
+        self.redis_client = None
         self.connected = False
 
     def connect(self):
-        # TODO (haifeng): connect to the redis
+        self.redis_client = redis.StrictRedis(
+            host=self.redis_address, port=self.redis_port, password=self.redis_password)
         self.connected = True
-        pass
 
     def disconnect(self):
-        # TODO (haifeng): disconnect from the redis
+        # Don't need to do anything for Redis
+        # Because it uses connection pool underlayer
+        self.redis_client = None
         self.connected = False
         pass
 
@@ -136,6 +140,7 @@ class ControlState:
         """Create a GlobalState object."""
         # Args used for lazy init of this object.
         self.redis_address = None
+        self.redis_port = None
         self.redis_password = None
         self.control_state_accessor = None
 
@@ -159,12 +164,13 @@ class ControlState:
     def disconnect(self):
         """Disconnect control state accessor."""
         self.redis_address = None
+        self.redis_port = None
         self.redis_password = None
         if self.control_state_accessor is not None:
             self.control_state_accessor.disconnect()
             self.control_state_accessor = None
 
-    def initialize_control_state(self, redis_address, redis_password):
+    def initialize_control_state(self, redis_address, redis_port, redis_password):
         """Set args for lazily initialization of the ControlState object.
 
         It's possible that certain keys in gcs kv may not have been fully
@@ -173,16 +179,20 @@ class ControlState:
 
         Args:
             redis_address (str): The redis address
+            redis_port (int): The redis server port
             redis_password (str): The redis password if needed
         """
 
         # Save args for lazy init of global state. This avoids opening extra
         # gcs connections from each worker until needed.
         self.redis_address = redis_address
+        self.redis_port = redis_port;
         self.redis_password = redis_password
 
     def _really_init_global_state(self):
-        self.control_state_accessor = ControlStateAccessor(self.redis_address, self.redis_password)
+        self.control_state_accessor = ControlStateAccessor(self.redis_address,
+                                                           self.redis_port,
+                                                           self.redis_password)
         self.control_state_accessor.connect()
 
     def node_table(self):

@@ -248,7 +248,7 @@ def wait_for_node(redis_address,
     wait_for_redis_to_start(redis_ip_address, redis_port, redis_password)
     # TODO (haifeng): implement control state for node services
     global_state = ControlState()
-    global_state.initialize_control_state(redis_address, redis_password)
+    global_state.initialize_control_state(redis_address, redis_port, redis_password)
     start_time = time.time()
     while time.time() - start_time < timeout:
         clients = global_state.node_table()

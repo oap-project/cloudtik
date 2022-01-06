@@ -19,7 +19,7 @@ class StartParams:
             cluster coordinator, and some workers.
             It will also kill these processes when Python exits.
         redis_port (int): The port that the primary Redis shard should listen
-            to. If None, then it will fall back to constants.DEFAULT_PORT, 
+            to. If None, then it will fall back to constants.CLOUDTIK_DEFAULT_PORT,
             or a random port if the default is not available.
         redis_shard_ports: A list of the ports to use for the non-primary Redis
             shards. If None, then it will fall back to the ports right after
@@ -54,6 +54,8 @@ class StartParams:
         resources: A dictionary mapping the name of a resource to the quantity
             of that resource available.
         memory: Total available memory for workers requesting memory.
+        redirect_output (bool): True if stdout and stderr for non-worker
+            processes should be redirected to files and false otherwise.
     """
 
     def __init__(self,
@@ -78,6 +80,7 @@ class StartParams:
                  num_cpus=None,
                  num_gpus=None,
                  memory=None,
+                 redirect_output=None
                  ):
         self.external_addresses = external_addresses
         self.redis_address = redis_address
@@ -98,6 +101,7 @@ class StartParams:
         self.num_cpus = num_cpus
         self.num_gpus = num_gpus
         self.memory = memory
+        self.redirect_output = redirect_output
         self.resources = resources
         self._check_usage()
 

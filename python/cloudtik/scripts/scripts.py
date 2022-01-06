@@ -143,15 +143,37 @@ def cli(logging_level, logging_format):
     default=None,
     help="the port to use to expose metrics through a "
     "Prometheus endpoint.")
+@click.option(
+    "--no-redirect-output",
+    is_flag=True,
+    default=False,
+    help="do not redirect non-worker stdout and stderr to files")
 @add_click_logging_options
 def start(node_ip_address, address, port, head,
           redis_password, redis_shard_ports, redis_max_memory,
           memory, num_cpus, num_gpus, resources,
-          cluster_scaling_config, temp_dir, metrics_export_port):
+          cluster_scaling_config, temp_dir, metrics_export_port,
+          no_redirect_output):
     """Start the main daemon processes on the local machine."""
     # Convert hostnames to numerical IP address.
     if node_ip_address is not None:
         node_ip_address = services.address_to_ip(node_ip_address)
+    redirect_output = None if not no_redirect_output else True
+
+    try:
+        resources = json.loads(resources)
+    except Exception:
+        cli_logger.error("`{}` is not a valid JSON string.",
+                         cf.bold("--resources"))
+        cli_logger.abort(
+            "Valid values look like this: `{}`",
+            cf.bold("--resources='{\"CustomResource3\": 1, "
+                    "\"CustomResource2\": 2}'"))
+
+        raise Exception("Unable to parse the --resources argument using "
+                        "json.loads. Try using a format like\n\n"
+                        "    --resources='{\"CustomResource1\": 3, "
+                        "\"CustomReseource2\": 2}'")
 
     start_params = StartParams(
         node_ip_address=node_ip_address,
@@ -160,7 +182,8 @@ def start(node_ip_address, address, port, head,
         num_gpus=num_gpus,
         resources=resources,
         temp_dir=temp_dir,
-        metrics_export_port=metrics_export_port)
+        metrics_export_port=metrics_export_port,
+        redirect_output=redirect_output)
     if head:
         # Use default if port is none, allocate an available port if port is 0
         if port is None:

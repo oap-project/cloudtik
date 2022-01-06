@@ -219,7 +219,7 @@ class NodeServicesStarter:
 
         # Create a directory to be used for runtime environment.
         self._runtime_env_dir = os.path.join(
-            self._session_dir, self._start_params.runtime_env_dir_name)
+            self._session_dir, self._start_params.runtime_dir_name)
         try_to_create_directory(self._runtime_env_dir)
 
     def get_resource_spec(self):

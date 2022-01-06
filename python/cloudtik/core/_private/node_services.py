@@ -17,6 +17,7 @@ import time
 from typing import Optional, Dict
 from collections import defaultdict
 
+import cloudtik
 import cloudtik.core._private.constants as constants
 import cloudtik.core._private.services as services
 from cloudtik.core._private.control_state import StateClient
@@ -83,10 +84,10 @@ class NodeServicesStarter:
         if start_params.node_ip_address:
             node_ip_address = start_params.node_ip_address
         elif start_params.redis_address:
-            node_ip_address = utils.get_node_ip_address(
+            node_ip_address = services.get_node_ip_address(
                 start_params.redis_address)
         else:
-            node_ip_address = utils.get_node_ip_address()
+            node_ip_address = services.get_node_ip_address()
         self._node_ip_address = node_ip_address
 
         self._state_client = None
@@ -863,3 +864,19 @@ class NodeServicesStarter:
             raise RuntimeError(f"Could not read '{key}' from GCS (redis). "
                                "Has redis started correctly on the head node?")
         return result
+
+    def start_log_monitor(self):
+        """Start the log monitor."""
+        process_info = cloudtik.core._private.services.start_log_monitor(
+            self.redis_address,
+            self._logs_dir,
+            stdout_file=subprocess.DEVNULL,
+            stderr_file=subprocess.DEVNULL,
+            redis_password=self._start_params.redis_password,
+            fate_share=self.kernel_fate_share,
+            max_bytes=self.max_bytes,
+            backup_count=self.backup_count)
+        assert constants.PROCESS_TYPE_LOG_MONITOR not in self.all_processes
+        self.all_processes[constants.PROCESS_TYPE_LOG_MONITOR] = [
+            process_info,
+        ]

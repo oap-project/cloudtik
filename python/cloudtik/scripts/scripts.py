@@ -132,6 +132,11 @@ def cli(logging_level, logging_format):
     type=str,
     help="the file that contains the autoscaling config")
 @click.option(
+    "--temp-dir",
+    hidden=True,
+    default=None,
+    help="manually specify the root temporary dir of the Cloudtik process")
+@click.option(
     "--metrics-export-port",
     type=int,
     hidden=True,

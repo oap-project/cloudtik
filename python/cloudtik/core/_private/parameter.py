@@ -49,6 +49,11 @@ class StartParams:
         metrics_export_port(int): The port at which metrics are exposed
             through a Prometheus endpoint.
         env_vars (dict): Override environment variables for the node.
+        num_cpus (int): Number of CPUs to configure the cloudtik.
+        num_gpus (int): Number of GPUs to configure the cloudtik.
+        resources: A dictionary mapping the name of a resource to the quantity
+            of that resource available.
+        memory: Total available memory for workers requesting memory.
     """
 
     def __init__(self,
@@ -68,7 +73,12 @@ class StartParams:
                  include_log_monitor=None,
                  cluster_scaling_config=None,
                  metrics_export_port=None,
-                 env_vars=None):
+                 env_vars=None,
+                 resources=None,
+                 num_cpus=None,
+                 num_gpus=None,
+                 memory=None,
+                 ):
         self.external_addresses = external_addresses
         self.redis_address = redis_address
         self.redis_max_memory = redis_max_memory
@@ -85,6 +95,10 @@ class StartParams:
         self.cluster_scaling_config = cluster_scaling_config
         self.metrics_export_port = metrics_export_port
         self.env_vars = env_vars
+        self.num_cpus = num_cpus
+        self.num_gpus = num_gpus
+        self.memory = memory
+        self.resources = resources
         self._check_usage()
 
     def update(self, **kwargs):

@@ -28,7 +28,10 @@ def _get_key(key: bytes) -> bytes:
 
 
 class StateClient:
-    """Client to Redis state store with sharding"""
+    """
+    Client to Redis state store without sharding
+    Will use the primary redis instance to manage the keys
+    """
 
     def __init__(self,
                  redis_client,
@@ -39,55 +42,56 @@ class StateClient:
     def kv_get(self, key: bytes, namespace: Optional[str]) -> bytes:
         logger.debug(f"internal_kv_get {key} {namespace}")
         key = _make_key(namespace, key)
-        # TODO (haifeng): Add implementation
-        if True:
-            return b""
-        else:
-            raise RuntimeError(f"Failed to get value for key {key} "
-                               f"due to error {reply.status.message}")
+        try:
+            return self._redis_client.get(key)
+        except Exception:
+            raise RuntimeError(f"Failed to get value for key {key}")
 
     def kv_put(self, key: bytes, value: bytes, overwrite: bool,
                         namespace: Optional[str]) -> int:
         logger.debug(f"internal_kv_put {key} {value} {overwrite} {namespace}")
         key = _make_key(namespace, key)
-        # TODO (haifeng): Add implementation
-        if True:
-            return 0
-        else:
-            raise RuntimeError(f"Failed to put value {value} to key {key} "
-                               f"due to error {reply.status.message}")
+        try:
+            if not overwrite:
+                result = self._redis_client.set(key, value, nx=True)
+                if result is None:
+                    return 1
+                return 0
+            else:
+                self._redis_client.set(key, value)
+                # TODO: do we know whether the key exists and overwritten?
+                return 0
+        except Exception:
+            raise RuntimeError(f"Failed to put value {value} to key {key}")
 
     def kv_del(self, key: bytes, namespace: Optional[str]) -> int:
         logger.debug(f"internal_kv_del {key} {namespace}")
         key = _make_key(namespace, key)
-        # TODO (haifeng): Add implementation
-        if True:
-            return 0
-        else:
-            raise RuntimeError(f"Failed to delete key {key} "
-                               f"due to error {reply.status.message}")
+        try:
+            return self._redis_client.delete(key)
+        except Exception:
+            raise RuntimeError(f"Failed to delete key {key}")
 
     def kv_exists(self, key: bytes, namespace: Optional[str]) -> bool:
         logger.debug(f"internal_kv_exists {key} {namespace}")
         key = _make_key(namespace, key)
-        # TODO (haifeng): Add implementation
-        if True:
+        try:
+            count = self._redis_client.exists(key)
+            if count > 0:
+                return True
             return False
-        else:
-            raise RuntimeError(f"Failed to check existence of key {key} "
-                               f"due to error {reply.status.message}")
+        except Exception:
+            raise RuntimeError(f"Failed to check existence of key {key}")
 
 
     def kv_keys(self, prefix: bytes,
                          namespace: Optional[str]) -> List[bytes]:
         logger.debug(f"internal_kv_keys {prefix} {namespace}")
         prefix = _make_key(namespace, prefix)
-        # TODO (haifeng): Add implementation
-        if True:
-            return [_get_key(key) for key in []]
-        else:
-            raise RuntimeError(f"Failed to list prefix {prefix} "
-                               f"due to error {reply.status.message}")
+        try:
+            return [_get_key(key) for key in self._redis_client.scan_iter(prefix + "*")]
+        except Exception:
+            raise RuntimeError(f"Failed to list prefix {prefix}")
 
     @staticmethod
     def create_from_redis(redis_cli):

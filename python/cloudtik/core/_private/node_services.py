@@ -20,8 +20,9 @@ from collections import defaultdict
 import cloudtik
 import cloudtik.core._private.constants as constants
 import cloudtik.core._private.services as services
-from cloudtik.core._private.control_state import StateClient
-from cloudtik.core._private import kv_store, utils
+from cloudtik.core._private.state.control_state import StateClient
+from cloudtik.core._private import utils
+from cloudtik.core._private.state import kv_store
 from cloudtik.core._private.resource_spec import ResourceSpec
 
 from cloudtik.core._private.utils import (try_to_create_directory, try_to_symlink,

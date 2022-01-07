@@ -29,9 +29,9 @@ from cloudtik.core._private.utils import CLOUDTIK_CLUSTER_SCALING_ERROR, \
     CLOUDTIK_CLUSTER_SCALING_STATUS
 from cloudtik.core._private import constants, services
 from cloudtik.core._private.logging_utils import setup_component_logger
-from cloudtik.core._private.kv_store import kv_initialize, \
+from cloudtik.core._private.state.kv_store import kv_initialize, \
     kv_put, kv_initialized, kv_get, kv_del
-from cloudtik.core._private.control_state import StateClient, ResourceInfoClient
+from cloudtik.core._private.state.control_state import StateClient, ResourceInfoClient
 
 logger = logging.getLogger(__name__)
 

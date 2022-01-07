@@ -4,18 +4,14 @@ import errno
 import io
 import json
 import logging
-import multiprocessing
 import os
-from pathlib import Path
-import mmap
 import random
-import shutil
 import signal
 import socket
 import subprocess
 import sys
 import time
-from typing import Optional, List
+from typing import List
 import uuid
 
 import redis
@@ -23,12 +19,11 @@ import redis
 import cloudtik
 
 # Import psutil and colorama after cloudtik so the packaged version is used.
-import colorama
 import psutil
 
 import cloudtik.core._private.constants as constants
 import cloudtik.core._private.utils as utils
-from cloudtik.core._private.control_state import ControlState
+from cloudtik.core._private.state.control_state import ControlState
 
 resource = None
 if sys.platform != "win32":

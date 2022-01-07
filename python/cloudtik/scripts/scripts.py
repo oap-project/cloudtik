@@ -1,8 +1,7 @@
-from typing import Optional, Set
+from typing import Optional
 
 import click
 import copy
-from datetime import datetime
 import json
 import logging
 import os
@@ -15,7 +14,8 @@ from socket import socket
 
 import psutil
 
-from cloudtik.core._private import kv_store, services, control_state, utils, logging_utils
+from cloudtik.core._private import services, utils, logging_utils
+from cloudtik.core._private.state import kv_store, control_state
 from cloudtik.core._private.parameter import StartParams
 from cloudtik.core._private.node_services import NodeServicesStarter
 

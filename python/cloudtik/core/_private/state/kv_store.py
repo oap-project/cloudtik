@@ -1,6 +1,6 @@
 from typing import List, Union, Optional
 
-from cloudtik.core._private.control_state import StateClient
+from cloudtik.core._private.state.control_state import StateClient
 
 _initialized = False
 global_state_client = None

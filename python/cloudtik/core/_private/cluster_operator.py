@@ -21,7 +21,7 @@ try:  # py3
 except ImportError:  # py2
     from pipes import quote
 
-from cloudtik.core._private.kv_store import kv_put
+from cloudtik.core._private.state.kv_store import kv_put
 
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core._private.constants import \

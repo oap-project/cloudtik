@@ -63,6 +63,6 @@ def scan_values(shards_client: RedisShardsClient, table_name, keys, values_callb
         key_values = shard.mget(shard_keys)
         for k, v in zip(shard_keys, key_values):
             if v is not None:
-                key_value_map[get_real_key(k)] = v
+                key_value_map[get_real_key(k, table_name)] = v
 
     values_callback(key_value_map)

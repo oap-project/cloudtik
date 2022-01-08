@@ -18,8 +18,8 @@ except ImportError:
     prometheus_client = None
 
 import cloudtik
-from cloudtik.core._private.cluster_scaler import StandardClusterScaler
-from cloudtik.core._private.cluster_operator import teardown_cluster
+from cloudtik.core._private.cluster.cluster_scaler import StandardClusterScaler
+from cloudtik.core._private.cluster.cluster_operator import teardown_cluster
 from cloudtik.core._private.constants import CLOUDTIK_UPDATE_INTERVAL_S, \
     CLOUDTIK_METRIC_PORT, CLOUDTIK_RESOURCE_REQUEST_CHANNEL
 from cloudtik.core._private.event_summarizer import EventSummarizer

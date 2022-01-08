@@ -6,9 +6,8 @@ import json
 import os
 import tempfile
 
-from cloudtik.core._private import cluster_operator
+from cloudtik.core._private.cluster import cluster_operator
 from cloudtik.core._private.event_system import (
-    CreateClusterEvent, 
     global_event_system)
 from cloudtik.core._private.cli_logger import cli_logger
 

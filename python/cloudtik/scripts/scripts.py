@@ -19,7 +19,7 @@ from cloudtik.core._private.state import kv_store, control_state
 from cloudtik.core._private.parameter import StartParams
 from cloudtik.core._private.node_services import NodeServicesStarter
 
-from cloudtik.core._private.cluster_operator import (
+from cloudtik.core._private.cluster.cluster_operator import (
     attach_cluster, exec_cluster, create_or_update_cluster, monitor_cluster,
     rsync, teardown_cluster, get_head_node_ip, kill_node, get_worker_node_ips,
     get_cluster_dump_archive, debug_status, get_local_dump_archive,

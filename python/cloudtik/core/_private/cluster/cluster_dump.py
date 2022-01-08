@@ -551,7 +551,7 @@ def get_info_from_cluster_config(
         Tuple of list of host IPs, ssh user name, ssh key file path,
             optional docker container name, optional cluster name.
     """
-    from cloudtik.core._private.cluster_operator import _bootstrap_config
+    from cloudtik.core._private.cluster.cluster_operator import _bootstrap_config
 
     cli_logger.print(f"Retrieving cluster information from cluster file: "
                      f"{cluster_config}")

@@ -31,7 +31,7 @@ from cloudtik.core._private.prometheus_metrics import ClusterPrometheusMetrics
 from cloudtik.core._private.providers import _get_node_provider
 from cloudtik.core._private.node_updater import NodeUpdaterThread
 from cloudtik.core._private.node_launcher import NodeLauncher
-from cloudtik.core._private.node_tracker import NodeTracker
+from cloudtik.core._private.cluster.node_tracker import NodeTracker
 from cloudtik.core._private.resource_demand_scheduler import \
     get_bin_pack_residual, ResourceDemandScheduler, NodeType, NodeID, NodeIP, \
     ResourceDict

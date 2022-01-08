@@ -1148,7 +1148,7 @@ def start_cluster_coordinator(redis_address,
     Returns:
         ProcessInfo for the process that was started.
     """
-    coordinator_path = os.path.join(CLOUDTIK_PATH, CLOUDTIK_CORE_PRIVATE, "cloudtik_cluster_coordinator.py")
+    coordinator_path = os.path.join(CLOUDTIK_PATH, CLOUDTIK_CORE_PRIVATE, "cluster/cloudtik_cluster_coordinator.py")
     command = [
         sys.executable,
         "-u",

@@ -1,2 +1,19 @@
 # IDEA config files
 .idea/
+
+# Python byte code files
+*.pyc
+python/.eggs
+
+# Backup files
+*.bak
+
+# Emacs temporary files
+*~
+*#
+
+# Pytest Cache
+**/.pytest_cache
+**/.cache
+
+

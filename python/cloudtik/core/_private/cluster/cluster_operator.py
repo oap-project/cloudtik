@@ -36,7 +36,7 @@ from cloudtik.core.tags import (
     NODE_KIND_WORKER, NODE_KIND_HEAD, CLOUDTIK_TAG_USER_NODE_TYPE,
     STATUS_UNINITIALIZED, STATUS_UP_TO_DATE, CLOUDTIK_TAG_NODE_STATUS)
 from cloudtik.core._private.cli_logger import cli_logger, cf
-from cloudtik.core._private.node_updater import NodeUpdaterThread
+from cloudtik.core._private.node.node_updater import NodeUpdaterThread
 from cloudtik.core._private.command_executor import set_using_login_shells, \
     set_rsync_silent
 from cloudtik.core._private.event_system import (CreateClusterEvent, global_event_system)
@@ -49,7 +49,7 @@ from cloudtik.core._private.cluster.cluster_dump import Archive, \
 from cloudtik.core._private.debug import log_once
 
 import cloudtik.core._private.subprocess_output_util as cmd_output_util
-from cloudtik.core._private.load_metrics import LoadMetricsSummary
+from cloudtik.core._private.cluster.load_metrics import LoadMetricsSummary
 from cloudtik.core._private.cluster.cluster_scaler import AutoscalerSummary
 from cloudtik.core._private.utils import format_info_string
 

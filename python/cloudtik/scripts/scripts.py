@@ -17,7 +17,7 @@ import psutil
 from cloudtik.core._private import services, utils, logging_utils
 from cloudtik.core._private.state import kv_store, control_state
 from cloudtik.core._private.parameter import StartParams
-from cloudtik.core._private.node_services import NodeServicesStarter
+from cloudtik.core._private.node.node_services import NodeServicesStarter
 
 from cloudtik.core._private.cluster.cluster_operator import (
     attach_cluster, exec_cluster, create_or_update_cluster, monitor_cluster,

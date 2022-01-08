@@ -25,14 +25,14 @@ from cloudtik.core.tags import (
     CLOUDTIK_TAG_FILE_MOUNTS_CONTENTS, CLOUDTIK_TAG_NODE_STATUS, CLOUDTIK_TAG_NODE_KIND,
     CLOUDTIK_TAG_USER_NODE_TYPE, STATUS_UP_TO_DATE, STATUS_UPDATE_FAILED,
     NODE_KIND_WORKER, NODE_KIND_UNMANAGED, NODE_KIND_HEAD)
-from cloudtik.core._private.event_summarizer import EventSummarizer
-from cloudtik.core._private.load_metrics import LoadMetrics
+from cloudtik.core._private.cluster.event_summarizer import EventSummarizer
+from cloudtik.core._private.cluster.load_metrics import LoadMetrics
 from cloudtik.core._private.prometheus_metrics import ClusterPrometheusMetrics
 from cloudtik.core._private.providers import _get_node_provider
-from cloudtik.core._private.node_updater import NodeUpdaterThread
-from cloudtik.core._private.node_launcher import NodeLauncher
+from cloudtik.core._private.node.node_updater import NodeUpdaterThread
+from cloudtik.core._private.cluster.node_launcher import NodeLauncher
 from cloudtik.core._private.cluster.node_tracker import NodeTracker
-from cloudtik.core._private.resource_demand_scheduler import \
+from cloudtik.core._private.cluster.resource_demand_scheduler import \
     get_bin_pack_residual, ResourceDemandScheduler, NodeType, NodeID, NodeIP, \
     ResourceDict
 from cloudtik.core._private.utils import ConcurrentCounter, validate_config, \

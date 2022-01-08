@@ -22,9 +22,9 @@ from cloudtik.core._private.cluster.cluster_scaler import StandardClusterScaler
 from cloudtik.core._private.cluster.cluster_operator import teardown_cluster
 from cloudtik.core._private.constants import CLOUDTIK_UPDATE_INTERVAL_S, \
     CLOUDTIK_METRIC_PORT, CLOUDTIK_RESOURCE_REQUEST_CHANNEL
-from cloudtik.core._private.event_summarizer import EventSummarizer
+from cloudtik.core._private.cluster.event_summarizer import EventSummarizer
 from cloudtik.core._private.prometheus_metrics import ClusterPrometheusMetrics
-from cloudtik.core._private.load_metrics import LoadMetrics
+from cloudtik.core._private.cluster.load_metrics import LoadMetrics
 from cloudtik.core._private.utils import CLOUDTIK_CLUSTER_SCALING_ERROR, \
     CLOUDTIK_CLUSTER_SCALING_STATUS
 from cloudtik.core._private import constants, services

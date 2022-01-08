@@ -21,7 +21,7 @@ import multiprocessing
 
 import cloudtik
 from cloudtik.core._private import constants, services
-from cloudtik.core._private.load_metrics import LoadMetricsSummary
+from cloudtik.core._private.cluster.load_metrics import LoadMetricsSummary
 from cloudtik.providers._private.local.config import prepare_local
 from cloudtik.core._private.providers import _get_default_config
 from cloudtik.core._private.docker import validate_docker_config
@@ -45,7 +45,7 @@ ResourceBundle = Dict[str, Union[int, float]]
 
 pwd = None
 if sys.platform != "win32":
-    import pwd
+    pass
 
 logger = logging.getLogger(__name__)
 

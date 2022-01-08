@@ -34,8 +34,7 @@ EXE_SUFFIX = ".exe" if sys.platform == "win32" else ""
 # Location of the redis server.
 CLOUDTIK_HOME = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "../..")
 CLOUDTIK_PATH = os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-CLOUDTIK_PRIVATE = "_private"
-CLOUDTIK_CORE_PRIVATE = "core/_private"
+CLOUDTIK_CORE_PRIVATE_SERVICE = "core/_private/service"
 CLOUDTIK_REDIS_EXECUTABLE = os.path.join(
     CLOUDTIK_PATH, "core/thirdparty/redis/src/redis-server" + EXE_SUFFIX)
 
@@ -744,7 +743,7 @@ def start_reaper(fate_share=None):
             # other user processes.
             return None
 
-    reaper_filepath = os.path.join(CLOUDTIK_PATH, CLOUDTIK_PRIVATE,
+    reaper_filepath = os.path.join(CLOUDTIK_PATH, CLOUDTIK_CORE_PRIVATE_SERVICE,
                                    "cloudtik_process_reaper.py")
     command = [sys.executable, "-u", reaper_filepath]
     process_info = start_cloudtik_process(
@@ -1099,7 +1098,7 @@ def start_log_monitor(redis_address,
     Returns:
         ProcessInfo for the process that was started.
     """
-    log_monitor_filepath = os.path.join(CLOUDTIK_PATH, CLOUDTIK_CORE_PRIVATE,
+    log_monitor_filepath = os.path.join(CLOUDTIK_PATH, CLOUDTIK_CORE_PRIVATE_SERVICE,
                                         "cloudtik_log_monitor.py")
     command = [
         sys.executable, "-u", log_monitor_filepath,
@@ -1148,7 +1147,7 @@ def start_cluster_coordinator(redis_address,
     Returns:
         ProcessInfo for the process that was started.
     """
-    coordinator_path = os.path.join(CLOUDTIK_PATH, CLOUDTIK_CORE_PRIVATE, "cluster/cloudtik_cluster_coordinator.py")
+    coordinator_path = os.path.join(CLOUDTIK_PATH, CLOUDTIK_CORE_PRIVATE_SERVICE, "cloudtik_cluster_coordinator.py")
     command = [
         sys.executable,
         "-u",
@@ -1203,7 +1202,7 @@ def start_node_coordinator(redis_address,
     Returns:
         ProcessInfo for the process that was started.
     """
-    coordinator_path = os.path.join(CLOUDTIK_PATH, CLOUDTIK_CORE_PRIVATE, "cloudtik_node_coordinator.py")
+    coordinator_path = os.path.join(CLOUDTIK_PATH, CLOUDTIK_CORE_PRIVATE_SERVICE, "cloudtik_node_coordinator.py")
     command = [
         sys.executable,
         "-u",

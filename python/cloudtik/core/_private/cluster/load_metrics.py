@@ -4,13 +4,13 @@ from functools import reduce
 import logging
 from numbers import Number
 import time
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 import numpy as np
 
 from cloudtik.core._private.constants import CLOUDTIK_MEMORY_RESOURCE_UNIT_BYTES,\
     CLOUDTIK_MAX_RESOURCE_DEMAND_VECTOR_SIZE
-from cloudtik.core._private.resource_demand_scheduler import \
+from cloudtik.core._private.cluster.resource_demand_scheduler import \
     NodeIP, ResourceDict
 
 logger = logging.getLogger(__name__)

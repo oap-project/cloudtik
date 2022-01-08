@@ -35,7 +35,6 @@ class StateTableStore:
     """
 
     def __init__(self, store_client: StoreClient):
-        # TODO: implement initialization here
         self._store_client = store_client
         self._node_table = NodeStateTable(store_client)
 

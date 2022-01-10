@@ -186,6 +186,9 @@ LOG_FILE_NAME_CLUSTER_COORDINATOR = f"{PROCESS_TYPE_CLUSTER_COORDINATOR}.log"
 LOG_FILE_NAME_NODE_COORDINATOR = f"{PROCESS_TYPE_NODE_COORDINATOR}.log"
 LOG_FILE_NAME_LOG_MONITOR = f"{PROCESS_TYPE_LOG_MONITOR}.log"
 
+# Autoscaler events are denoted by the ":event_summary:" magic token.
+LOG_PREFIX_EVENT_SUMMARY = ":event_summary:"
+
 ERROR_CLUSTER_COORDINATOR_DIED = "cluster_coordinator_died"
 ERROR_NODE_COORDINATOR_DIED = "node_coordinator_died"
 ERROR_LOG_MONITOR_DIED = "log_monitor_died"

@@ -191,9 +191,9 @@ class ClusterCoordinator:
         while True:
             if self.stop_event and self.stop_event.is_set():
                 break
-            self.update_load_metrics()
-            self.update_resource_requests()
-            self.update_event_summary()
+            # self.update_load_metrics()
+            # self.update_resource_requests()
+            # self.update_event_summary()
             status = {
                 "load_metrics_report": asdict(self.load_metrics.summary()),
                 "time": time.time(),

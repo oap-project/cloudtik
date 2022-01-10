@@ -423,7 +423,7 @@ def _add_min_workers_nodes(
     for node_type, config in node_types.items():
         existing = node_type_counts.get(node_type, 0)
         target = min(
-            config.get("min_workers", 0), config.get("max_workers", 0))
+            config.get("min_workers", 0), max_workers)
         if node_type == head_node_type:
             # Add 1 to account for head node.
             target = target + 1

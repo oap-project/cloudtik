@@ -1044,11 +1044,6 @@ def get_demand_report(lm_summary: LoadMetricsSummary):
     if lm_summary.resource_demand:
         demand_lines.extend(
             format_resource_demand_summary(lm_summary.resource_demand))
-    for entry in lm_summary.pg_demand:
-        pg, count = entry
-        pg_str = format_pg(pg)
-        line = f" {pg_str}: {count}+ pending placement groups"
-        demand_lines.append(line)
     for bundle, count in lm_summary.request_demand:
         line = f" {bundle}: {count}+ from request_resources()"
         demand_lines.append(line)

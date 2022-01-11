@@ -36,7 +36,7 @@ CLOUDTIK_HOME = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__f
 CLOUDTIK_PATH = os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 CLOUDTIK_CORE_PRIVATE_SERVICE = "core/_private/service"
 CLOUDTIK_REDIS_EXECUTABLE = os.path.join(
-    CLOUDTIK_PATH, "core/thirdparty/redis/src/redis-server" + EXE_SUFFIX)
+    CLOUDTIK_PATH, "core/thirdparty/redis/redis-server" + EXE_SUFFIX)
 
 CLOUDTIK_JEMALLOC_LIB_PATH_ENV = "CLOUDTIK_JEMALLOC_LIB_PATH"
 CLOUDTIK_JEMALLOC_CONF_ENV = "CLOUDTIK_JEMALLOC_CONF"

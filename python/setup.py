@@ -22,6 +22,8 @@ ROOT_DIR = os.path.dirname(__file__)
 
 THIRDPARTY_SUBDIR = os.path.join("cloudtik", "thirdparty_files")
 
+exe_suffix = ".exe" if sys.platform == "win32" else ""
+
 
 def find_version(*filepath):
     # Extract version information from filepath
@@ -89,7 +91,12 @@ setup_spec = SetupSpec(
                                     "public Cloud environment including AWS, Azure, GCP and so on. ", BUILD_TYPE)
 
 
+# NOTE: The lists below must be kept in sync with cloudtik build(.sh)
 cloudtik_files = [
+    "cloudtik/core/thirdparty/redis/redis-server" + exe_suffix,
+]
+
+cloudtik_files += [
     "cloudtik/providers/aws/defaults.yaml",
     "cloudtik/providers/azure/defaults.yaml",
     "cloudtik/providers/_private/_azure/azure-vm-template.json",
@@ -98,6 +105,7 @@ cloudtik_files = [
     "cloudtik/providers/local/defaults.yaml",
     "cloudtik/providers/kubernetes/defaults.yaml",
     "cloudtik/providers/_private/_kubernetes/kubectl-rsync.sh",
+    "cloudtik/core/config-schema.json",
 ]
 
 # If you're adding dependencies for cloudtik extras, please

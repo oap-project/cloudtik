@@ -1,3 +1,9 @@
+# The build output should clearly not be checked in
+/build
+/python/build
+/python/dist
+/python/cloudtik/core/thirdparty/
+
 # IDEA config files
 .idea/
 
@@ -5,7 +11,7 @@
 *.pyc
 python/.eggs
 
-# Backup files
+# Backup and temp files
 *.bak
 
 # Emacs temporary files
@@ -15,5 +21,3 @@ python/.eggs
 # Pytest Cache
 **/.pytest_cache
 **/.cache
-
-

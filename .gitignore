@@ -3,6 +3,7 @@
 /python/build
 /python/dist
 /python/cloudtik/core/thirdparty/
+/python/cloudtik/thirdparty_files/
 
 # IDEA config files
 .idea/
@@ -21,3 +22,6 @@ python/.eggs
 # Pytest Cache
 **/.pytest_cache
 **/.cache
+
+# Python setup files
+*.egg-info

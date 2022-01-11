@@ -20,7 +20,7 @@ python3 -m pip install --upgrade build
 python3 -m pip install --upgrade twine
 
 # Build CloudTik wheel, at the same directory where pyproject.toml and setup.py locate:
-python3 -m build
+python3 setup.py bdist_wheel
 
 
 # Rename the wheels so that they can be uploaded to PyPI. TODO: This is a hack, we should use auditwheel instead.

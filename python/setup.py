@@ -89,18 +89,16 @@ setup_spec = SetupSpec(
                                     "public Cloud environment including AWS, Azure, GCP and so on. ", BUILD_TYPE)
 
 
-cloudtik_files = []
-
-# cloudtik_files += [
-#     "cloudtik/providers/aws/defaults.yaml",
-#     "cloudtik/providers/azure/defaults.yaml",
-#     "cloudtik/providers/_private/_azure/azure-vm-template.json",
-#     "cloudtik/providers/_private/_azure/azure-config-template.json",
-#     "cloudtik/providers/gcp/defaults.yaml",
-#     "cloudtik/providers/local/defaults.yaml",
-#     "cloudtik/providers/kubernetes/defaults.yaml",
-#     "cloudtik/providers/_private/_kubernetes/kubectl-rsync.sh",
-# ]
+cloudtik_files = [
+    "cloudtik/providers/aws/defaults.yaml",
+    "cloudtik/providers/azure/defaults.yaml",
+    "cloudtik/providers/_private/_azure/azure-vm-template.json",
+    "cloudtik/providers/_private/_azure/azure-config-template.json",
+    "cloudtik/providers/gcp/defaults.yaml",
+    "cloudtik/providers/local/defaults.yaml",
+    "cloudtik/providers/kubernetes/defaults.yaml",
+    "cloudtik/providers/_private/_kubernetes/kubectl-rsync.sh",
+]
 
 # If you're adding dependencies for cloudtik extras, please
 # also update the matching section of requirements/requirements.txt

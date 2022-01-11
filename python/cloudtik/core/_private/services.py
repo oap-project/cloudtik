@@ -250,7 +250,7 @@ def wait_for_node(redis_address,
         # node_ip_addresses = [
         #     client["node_ip_address"] for client in clients
         # ]
-        node_ip_addresses = ["127.0.0.1"]
+        node_ip_addresses = [node_ip_address]
         if node_ip_address in node_ip_addresses:
             return
         else:

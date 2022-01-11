@@ -5,22 +5,16 @@ set -x
 # Cause the script to exit if a single command fails.
 set -euo pipefail
 
-cat << EOF > "/usr/bin/nproc"
-#!/bin/bash
-echo 10
-EOF
-chmod +x /usr/bin/nproc
-
 # Prerequisites:
 # Make sure you have the latest version of pip installed:
-python3 -m pip install --upgrade pip
+python -m pip install --upgrade pip
 # Make sure you have the latest version of PyPA’s build installed:
-python3 -m pip install --upgrade build
+python -m pip install --upgrade build
 
-python3 -m pip install --upgrade twine
+python -m pip install --upgrade twine
 
 # Build CloudTik wheel, at the same directory where pyproject.toml and setup.py locate:
-python3 setup.py bdist_wheel
+python setup.py bdist_wheel
 
 
 # Rename the wheels so that they can be uploaded to PyPI. TODO: This is a hack, we should use auditwheel instead.

@@ -140,6 +140,12 @@ if __name__ == "__main__":
         type=str,
         default=None,
         help="The IP address of the machine hosting the coordinator process.")
+    parser.add_argument(
+        "--static_resource_list",
+        required=False,
+        type=str,
+        default="",
+        help="The static resource list of this node.")
     args = parser.parse_args()
     setup_component_logger(
         logging_level=args.logging_level,

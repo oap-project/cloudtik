@@ -846,7 +846,9 @@ class StandardClusterScaler:
         last CLOUDTIK_HEARTBEAT_TIMEOUT_S seconds.
         """
         key = self.provider.internal_ip(node_id)
-
+        # FIXME wait for the implementation about heartbeat
+        if key:
+            return True
         if key in self.load_metrics.last_heartbeat_time_by_ip:
             last_heartbeat_time = self.load_metrics.last_heartbeat_time_by_ip[
                 key]

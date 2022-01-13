@@ -58,7 +58,7 @@ WHEEL_DIR=$(mktemp -d)
 wget --quiet "$WHEEL_URL" -P "$WHEEL_DIR"
 WHEEL="$WHEEL_DIR/$(basename "$WHEEL_DIR"/*.whl)"
 # Build cloudtik-base, cloudtik-deps, and cloudtik.
-for IMAGE in "cloudtik-base" "cloudtik-deps" "cloudtik"
+for IMAGE in "cloudtik-base"
 do
     cp "$WHEEL" "docker/$IMAGE/$(basename "$WHEEL")"
     if [ $OUTPUT_SHA ]; then
@@ -70,6 +70,17 @@ do
     rm "docker/$IMAGE/$(basename "$WHEEL")"
 done 
 
+for IMAGE in "cloudtik-deps" "cloudtik"
+do
+    cp "$WHEEL" "docker/$IMAGE/$(basename "$WHEEL")"
+    if [ $OUTPUT_SHA ]; then
+        IMAGE_SHA=$(docker build $NO_CACHE --build-arg GPU="$GPU" --build-arg BASE_IMAGE="nightly" --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_VERSION="$PYTHON_VERSION" -q -t cloudtik/$IMAGE:nightly$GPU docker/$IMAGE)
+        echo "cloudtik/$IMAGE:nightly$GPU SHA:$IMAGE_SHA"
+    else
+        docker build $NO_CACHE  --build-arg GPU="$GPU" --build-arg BASE_IMAGE="nightly" --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_VERSION="$PYTHON_VERSION" -t cloudtik/$IMAGE:nightly$GPU docker/$IMAGE
+    fi
+    rm "docker/$IMAGE/$(basename "$WHEEL")"
+done 
 
 # Build the current Ray source
 if [ $BUILD_DEV ]; then 

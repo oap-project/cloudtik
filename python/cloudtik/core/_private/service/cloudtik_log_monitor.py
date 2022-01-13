@@ -288,33 +288,7 @@ class LogMonitor:
                         break
                     if next_line[-1] == "\n":
                         next_line = next_line[:-1]
-
-                    if next_line.startswith(
-                            constants.LOG_PREFIX_ACTOR_NAME):
-                        flush()  # Possible change of task/actor name.
-                        file_info.actor_name = next_line.split(
-                            constants.LOG_PREFIX_ACTOR_NAME, 1)[1]
-                        file_info.task_name = None
-                    elif next_line.startswith(
-                            constants.LOG_PREFIX_TASK_NAME):
-                        flush()  # Possible change of task/actor name.
-                        file_info.task_name = next_line.split(
-                            constants.LOG_PREFIX_TASK_NAME, 1)[1]
-                    elif next_line.startswith(
-                            "Windows fatal exception: access violation"):
-                        # We are suppressing the
-                        # 'Windows fatal exception: access violation'
-                        # message on workers on Windows here.
-                        # As far as we know it is harmless,
-                        # but is frequently popping up if Python
-                        # functions are run inside the core
-                        # worker C extension. See the investigation in
-                        # issue #18944
-                        # Also skip the following line, which is an
-                        # empty line.
-                        file_info.file_handle.readline()
-                    else:
-                        lines_to_publish.append(next_line)
+                    lines_to_publish.append(next_line)
                 except Exception:
                     logger.error(
                         f"Error: Reading file: {file_info.filename}, "

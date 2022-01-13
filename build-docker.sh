@@ -81,7 +81,7 @@ do
     rm "docker/$IMAGE/$(basename "$WHEEL")"
 done 
 
-# Build the current Ray source
+# Build the current source
 if [ $BUILD_DEV ]; then 
     git rev-parse HEAD > ./docker/cloudtik-dev/git-rev
     git archive -o ./docker/cloudtik-dev/cloudtik.tar "$(git rev-parse HEAD)"

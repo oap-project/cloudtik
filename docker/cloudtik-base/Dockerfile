@@ -11,8 +11,8 @@ ENV PATH "/home/cloudtik/anaconda3/bin:$PATH"
 ARG DEBIAN_FRONTEND=noninteractive
 ARG PYTHON_VERSION=3.7.7
 
-ARG CLOUDTIK_UID=1100
-ARG CLOUDTIK_GID=110
+ARG CLOUDTIK_UID=1000
+ARG CLOUDTIK_GID=100
 
 RUN apt-get update -y \
     && apt-get install -y sudo tzdata \
@@ -64,7 +64,7 @@ RUN sudo apt-get update -y && sudo apt-get upgrade -y \
         && sudo touch /etc/apt/sources.list.d/kubernetes.list \
         && echo "deb http://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee -a /etc/apt/sources.list.d/kubernetes.list \
         && sudo apt-get update \
-        && sudo apt-get install kubectl; \
+        && sudo apt-get install kubectl \
     && sudo rm -rf /var/lib/apt/lists/* \
     && sudo apt-get clean
 

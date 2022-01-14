@@ -9,10 +9,11 @@ max_workers: 1
 provider:
   type: aws
   region: us-west-2
-  # Security group to create with custom in bound rules and name.
+  # Security group to create with custom in bound rules and name.We provide a secutiy group "cloudtik-mininal" which works for Intel.
   security_group:
-    GroupName: ray-autoscaler-minimal
+    GroupName: cloudtik-minimal
 # How Ray will authenticate with newly launched nodes.
 auth:
   ssh_user: ubuntu
+  #According to the network of working node, the value works well in intel network.
   ssh_proxy_command: "nc --proxy-type socks5 --proxy proxy-shz.intel.com:1080 %h %p"

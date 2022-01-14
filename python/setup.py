@@ -141,17 +141,29 @@ if setup_spec.type == SetupType.CLOUDTIK:
 if setup_spec.type == SetupType.CLOUDTIK:
     setup_spec.install_requires = [
         "attrs",
+        "azure-common",
+        "azure-mgmt-resource",
+        "msrestazure",
+        "boto3",
+        "botocore",
+        "colorama",
         "click >= 7.0",
         "dataclasses; python_version < '3.7'",
         "filelock",
+        "google-api-python-client",
         "grpcio >= 1.28.1",
         "jsonschema",
+        "kubernetes",
         "msgpack >= 1.0.0, < 2.0.0",
         "numpy >= 1.16; python_version < '3.9'",
         "numpy >= 1.19.3; python_version >= '3.9'",
+        "prometheus_client >= 0.7.1",
         "protobuf >= 3.15.3",
+        "psutil",
         "pyyaml",
         "redis >= 3.5.0",
+        "requests",
+        "smart_open",
     ]
 
 

@@ -71,7 +71,7 @@ available_node_types:
     worker_small:
         # The minimum number of nodes of this type to launch.
         # This number should be >= 0.
-        min_workers: 0
+        min_workers: 1
         # The resources provided by this node type.
         resources: {"CPU": 2}
         # Provider-specific config for this node type, e.g. instance type. By default

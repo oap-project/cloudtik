@@ -95,7 +95,7 @@ head_node_type: head_node
 available_node_types:
   worker_node:
     # Minimum number of workers of this Pod type.
-    min_workers: 0
+    min_workers: 1
     node_config:
       apiVersion: v1
       kind: Pod

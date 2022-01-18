@@ -1,0 +1,21 @@
+name: runtime
+
+channels:
+  - defaults
+  - conda-forge
+  - pytorch
+
+
+dependencies:
+  - ccache
+  - cmake
+  - cxx-compiler
+  - jupyterlab
+  - openmpi
+  - pip
+  - pip:
+    - mlflow
+    - pyarrow
+    - hyperopt
+  - python=3.8
+  - gfortran_linux-64

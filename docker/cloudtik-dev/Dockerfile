@@ -1,4 +1,4 @@
-# The development Docker image build a self-contained Ray instance suitable
+# The development Docker image build a self-contained Cloudtik instance suitable
 # for developers that need the source code to actively modify.
 
 FROM cloudtik/cloudtik-deps:nightly

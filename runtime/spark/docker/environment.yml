@@ -1,21 +1,23 @@
 name: runtime
 
 channels:
-  - defaults
-  - conda-forge
   - pytorch
-
+  - conda-forge
+  - defaults
 
 dependencies:
   - ccache
   - cmake
   - cxx-compiler
   - jupyterlab
+  - mpi4py
   - openmpi
   - pip
   - pip:
-    - mlflow
-    - pyarrow
-    - hyperopt
+    - tensorflow==2.4.*
+    - -r requirements.txt
   - python=3.8
-  - gfortran_linux-64
+  - pytorch=1.7
+  - tensorboard=2.4
+  - torchaudio
+  - torchvision

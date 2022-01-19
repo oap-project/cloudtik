@@ -1,0 +1,9 @@
+mxnet
+mlflow
+pyarrow
+hyperopt
+
+# horovod==0.21.*
+# make sure horovod is re-compiled if environment is re-built
+# --no-binary=horovod
+

@@ -13,7 +13,6 @@ import urllib.request
 from enum import Enum
 from itertools import chain
 
-
 logger = logging.getLogger(__name__)
 
 SUPPORTED_PYTHONS = [(3, 6), (3, 7), (3, 8), (3, 9)]
@@ -90,7 +89,6 @@ setup_spec = SetupSpec(
                                     "scaling your distributed analytics and AI cluster such as Spark easily on "
                                     "public Cloud environment including AWS, Azure, GCP and so on. ", BUILD_TYPE)
 
-
 # NOTE: The lists below must be kept in sync with cloudtik build(.sh)
 cloudtik_files = [
     "cloudtik/core/thirdparty/redis/redis-server" + exe_suffix,
@@ -113,27 +111,23 @@ cloudtik_files += [
 # in this directory
 if setup_spec.type == SetupType.CLOUDTIK:
     setup_spec.extras = {
-        "data": [
-            "fsspec",
+        "aws": [
+            "boto3",
+            "botocore",
         ],
-        "default": [
-            "colorful",
-            "frozenlist",
-            "py-spy >= 0.2.0",
-            "requests",
-            "gpustat >= 1.0.0b1",  # for windows
-            "prometheus_client >= 0.7.1",
-            "smart_open"
+        "azure": [
+            "azure-cli",
+            "azure-core",
         ],
-        "k8s": ["kubernetes", "urllib3"],
+        "gcp": [
+            "google-api-python-client",
+        ],
+        "k8s": [
+            "kubernetes",
+            "urllib3",
+        ],
     }
 
-    if sys.version_info >= (3, 7):
-        # Numpy dropped python 3.6 support in 1.20.
-        setup_spec.extras["data"].append("numpy >= 1.20")
-
-    setup_spec.extras["all"] = list(
-        set(chain.from_iterable(setup_spec.extras.values())))
 
 # These are the main dependencies for users of cloudtik. This list
 # should be carefully curated. If you change it, please reflect
@@ -141,19 +135,12 @@ if setup_spec.type == SetupType.CLOUDTIK:
 if setup_spec.type == SetupType.CLOUDTIK:
     setup_spec.install_requires = [
         "attrs",
-        "azure-common",
-        "azure-mgmt-resource",
-        "msrestazure",
-        "boto3",
-        "botocore",
         "colorama",
         "click >= 7.0",
         "dataclasses; python_version < '3.7'",
         "filelock",
-        "google-api-python-client",
         "grpcio >= 1.28.1",
         "jsonschema",
-        "kubernetes",
         "msgpack >= 1.0.0, < 2.0.0",
         "numpy >= 1.16; python_version < '3.9'",
         "numpy >= 1.19.3; python_version >= '3.9'",
@@ -181,8 +168,8 @@ def build(build_python):
     if tuple(sys.version_info[:2]) not in SUPPORTED_PYTHONS:
         msg = ("Detected Python version {}, which is not supported. "
                "Only Python {} are supported.").format(
-                   ".".join(map(str, sys.version_info[:2])),
-                   ", ".join(".".join(map(str, v)) for v in SUPPORTED_PYTHONS))
+            ".".join(map(str, sys.version_info[:2])),
+            ", ".join(".".join(map(str, v)) for v in SUPPORTED_PYTHONS))
         raise RuntimeError(msg)
     # Note: We are passing in sys.executable so that we use the same
     # version of Python to build packages inside the build.sh script. Note
@@ -260,8 +247,8 @@ def api_main(program, *args):
         default="python",
         type=str,
         help="A list of languages to build native libraries. "
-        "Supported languages now only include \"python\". "
-        "If not specified, only the Python library will be built.")
+             "Supported languages now only include \"python\". "
+             "If not specified, only the Python library will be built.")
     parsed_args = parser.parse_args(args)
 
     result = None
@@ -304,14 +291,15 @@ if __name__ == "__main__":
     import setuptools
     import setuptools.command.build_ext
 
+
     class BuildExt(setuptools.command.build_ext.build_ext):
         def run(self):
             return pip_run(self)
 
+
     class BinaryDistribution(setuptools.Distribution):
         def has_ext_modules(self):
             return True
-
 
 # Ensure no remaining lib files.
 build_dir = os.path.join(ROOT_DIR, "build")

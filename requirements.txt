@@ -2,19 +2,12 @@
 
 # setup.py install_requires
 attrs
-azure-common
-azure-mgmt-resource
-msrestazure
-boto3
-botocore
 colorama
 click >= 7.0
 dataclasses; python_version < '3.7'
 filelock
-google-api-python-client
 grpcio >= 1.28.1
 jsonschema
-kubernetes
 msgpack >= 1.0.0, < 2.0.0
 numpy >= 1.16; python_version < '3.9'
 numpy >= 1.19.3; python_version >= '3.9'
@@ -26,3 +19,15 @@ redis >= 3.5.0
 requests
 smart_open
 
+# setup.py extras
+## for aws
+boto3
+botocore
+## for azure
+azure-cli
+azure-core
+## for gcp
+google-api-python-client
+## for kubernetes
+kubernetes
+urllib3

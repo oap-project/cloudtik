@@ -5,42 +5,29 @@ on public Cloud environment including AWS, Azure, GCP and so on. The CloudTik ta
 easily create and manage analytics and AI clusters and go quickly to focus on workload and business need insteading
 of taking a lot of time constructing the cluster and platform.
 
-## Building CloudTik
 
-Before you start to build wheels for CloudTik, we recommend you create a python environment (>= Python 3.7). We provide ```./dev/install-dev.sh``` to easily setup building environment for you.
-
-### 1. Install prerequisit package for building enviroment:
+## Getting Started with CloudTik
+### 1. Pepare Python environment
+CloudTik requires a Python envornment to run. We suggest you use Conda to manage Python environments and pakages. If you don't have Conda , you can refer ```dev/install-conda.sh``` to install conda on Ubuntu systems. 
 ```
-bash ./dev/install-dev.sh
+bash dev/install-conda.sh;  ## Optional
 ```
-
-### 2. Create a python environment (>= Python 3.7):
+Once Conda is installed, create an environment specify a python version as below.
 ```
-conda create -n cloudtik-py37 -y python=3.7
-conda activate cloudtik-py37
+conda create -n cloudtik -y python=3.7;
+conda activate cloudtik;
 ```
-
-### 3. Build CloudTik wheels with our provided script.
-```
-bash build.sh
-```
-Then under `cloudtik/python/dist` directory, you will find the `*.whl` which is your current specific python version's CloudTik wheel for Linux.
-
-
-## Using CloudTik on AWS
-### 1. Create running env for working node(if the working node not contains conda, please use ```dev/install-conda.sh``` to install conda):
-```
-bash dev/install-conda.sh;  ## Opitional
-conda create -n cloudtik-py37 -y python=3.7;
-conda activate cloudtik-py37;
-```
-### 2. Install Cloudtik libraries:
+### 2. Install CloudTik
+Installation of CloudTik is simple. Execute the below pip commands to install CloudTik to the working machine.
 ```
 pip install -U http://23.95.96.95:8000/latest/cloudtik-0.9.0-cp37-cp37m-manylinux2014_x86_64.whl
 ```
-### 3. Configure your credentials in ~/.aws/credentials as described in [the AWS docs](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html).
+### 3. Configure Credentials for Cloud Providers
 
-### 4. Use Cloudtik to manager the cluster.
+#### Configure for AWS
+Please follow the instructions described in [the AWS docs](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html) for configuring AWS credentials needed to acccess AWS.
+
+### 4. Use CloudTik to manage Spark clusters
 ```
 cloudtik up ./example/aws/example-minimal.yaml -y   # Create or up a  cluster.
 cloudtik get-head-ip ./example/aws/example-minimal.yaml    # Get the ip of head node.
@@ -52,5 +39,7 @@ cloudtik attach ./example/aws/example-minimal.yaml    # Create or attach to a SS
 cloudtik down ./example/aws/example-minimal.yaml -y # Tear down the cluster.
 ```
 
+## Building CloudTik
 
-## Contributing to CloudTik
+Usually you can install CloudTik package directly through pip as above and don't need to build it from source code. If you are contributing to CloudTik, you can follow the instrucitons in [Building CloudTik](./doc/Building.md) for building. 
+

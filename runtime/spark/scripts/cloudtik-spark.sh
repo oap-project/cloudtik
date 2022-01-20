@@ -5,10 +5,10 @@ SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 case "$1" in
   update-config)
    shift 1 # past argument
-    $SCRIPT_DIR/update-config "$@"
+    bash $SCRIPT_DIR/update-config.sh "$@"
     ;;
   start-head|stop-head|start-worker|stop-worker)
-     $SCRIPT_DIR/hadoop-daemon "$@"
+    bash $SCRIPT_DIR/hadoop-daemon.sh "$@"
     ;;
   -h|--help)
     echo "Usage: $0 update-config|format-cluster|start-head|stop-head|start-worker|stop-worker" >&2

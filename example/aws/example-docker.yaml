@@ -1,0 +1,27 @@
+# An unique identifier for the head node and workers of this cluster.
+cluster_name: minimal-docker
+
+# The maximum number of workers nodes to launch in addition to the head
+# node.
+max_workers: 2
+
+docker:
+    image: "cloudtik/runtime:nightly"
+    container_name: "cloudtik_docker"
+
+
+# Cloud-provider specific configuration.
+provider:
+    type: aws
+    region: us-west-2
+    # Security group to create with custom in bound rules and name.
+    security_group:
+        GroupName: cloudtik-minimal
+
+
+auth:
+    ssh_user: ubuntu
+    ssh_proxy_command: nc -X 5 -x proxy-shz.intel.com:1080 %h %p
+
+
+setup_commands: []

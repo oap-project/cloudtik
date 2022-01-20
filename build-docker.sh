@@ -95,3 +95,5 @@ if [ $BUILD_DEV ]; then
 fi
 
 rm -rf "$WHEEL_DIR"
+
+docker build  --no-cache -t  cloudtik/runtime:nightly runtime/spark/docker

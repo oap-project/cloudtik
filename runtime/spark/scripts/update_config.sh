@@ -25,6 +25,7 @@ else
 fi
 
 total_memory=$(awk '($1 == "MemTotal:"){print $2/1024}' /proc/meminfo)
+total_memory=${total_memory%.*}
 total_vcores=$(cat /proc/cpuinfo | grep processor | wc -l)
 
 spark_executor_cores=1
@@ -32,7 +33,7 @@ spark_executor_memory=2g
 
 cd $output_dir
 sed -i "s/master_hostname/${master_hostname}/g" `grep "master_hostname" -rl ./`
-sed -i "s/{%HADOOP_HOME%}/${HADOOP_HOME}/g" `grep "{%HADOOP_HOME%}" -rl ./`
+sed -i "s!{%HADOOP_HOME%}!${HADOOP_HOME}!g" `grep "{%HADOOP_HOME%}" -rl ./`
 sed -i "s/{%yarn.scheduler.maximum-allocation-mb%}/${total_memory}/g" `grep "{%yarn.scheduler.maximum-allocation-mb%}" -rl ./`
 sed -i "s/{%yarn.nodemanager.resource.memory-mb%}/${total_memory}/g" `grep "{%yarn.nodemanager.resource.memory-mb%}" -rl ./`
 sed -i "s/{%yarn.nodemanager.resource.cpu-vcores%}/${total_vcores}/g" `grep "{%yarn.nodemanager.resource.cpu-vcores%}" -rl ./`

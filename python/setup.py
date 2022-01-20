@@ -113,8 +113,8 @@ cloudtik_files += [
 ]
 
 # If you're adding dependencies for cloudtik extras, please
-# also update the matching section of requirements/requirements.txt
-# in this directory
+# also update the matching section of requirements.txt.
+
 if setup_spec.type == SetupType.CLOUDTIK:
     setup_spec.extras = {
         "aws": [
@@ -134,6 +134,8 @@ if setup_spec.type == SetupType.CLOUDTIK:
         ],
     }
 
+setup_spec.extras["all"] = list(
+        set(chain.from_iterable(setup_spec.extras.values())))
 
 # These are the main dependencies for users of cloudtik. This list
 # should be carefully curated. If you change it, please reflect

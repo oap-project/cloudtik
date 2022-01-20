@@ -9,12 +9,12 @@ case "$1" in
   format-cluster)
     $HADOOP_HOME/bin/hdfs namenode -format
     ;;
-  start-master)
+  start-head)
     $HADOOP_HOME/bin/hdfs --daemon start namenode
     $HADOOP_HOME/bin/hdfs --daemon start secondarynamenode
     $HADOOP_HOME/bin/yarn --daemon start resourcemanager
     ;;
-  stop-master)
+  stop-head)
     $HADOOP_HOME/bin/hdfs --daemon stop namenode
     $HADOOP_HOME/bin/hdfs --daemon stop secondarynamenode
     $HADOOP_HOME/bin/yarn --daemon stop resourcemanager
@@ -28,9 +28,9 @@ case "$1" in
     $HADOOP_HOME/bin/yarn --daemon stop nodemanager
     ;;
   -h|--help)
-    echo "Usage: $0 format-cluster|start-master|stop-master|start-worker|stop-worker" >&2
+    echo "Usage: $0 format-cluster|start-head|stop-head|start-worker|stop-worker" >&2
     ;;
   *)
-    echo "Usage: $0 format-cluster|start-master|stop-master|start-worker|stop-worker" >&2
+    echo "Usage: $0 format-cluster|start-head|stop-head|start-worker|stop-worker" >&2
     ;;
 esac

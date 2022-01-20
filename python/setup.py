@@ -336,6 +336,7 @@ setuptools.setup(
     install_requires=setup_spec.install_requires,
     setup_requires=["cython >= 0.29.15", "wheel"],
     extras_require=setup_spec.extras,
+    scripts=['runtime/scripts/cloudtik-spark.sh'],
     entry_points={
         "console_scripts": [
             "cloudtik=cloudtik.scripts.scripts:main",

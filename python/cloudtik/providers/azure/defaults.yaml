@@ -132,8 +132,8 @@ setup_commands:
 # Custom commands that will be run on the head node after common setup.
 head_setup_commands:
     - pip install -U azure-cli-core==2.29.1 azure-identity==1.7.0 azure-mgmt-compute==23.1.0 azure-mgmt-network==19.0.0 azure-mgmt-resource==20.0.0 msrestazure==0.6.4
-    - bash $CONDA_PREFIX/lib/python3.7/site-packages/cloudtik/runtime/scripts/update_config.sh
-    - bash $CONDA_PREFIX/lib/python3.7/site-packages/cloudtik/runtime/scripts/hadoop_daemon.sh format-cluster
+    - cloudtik-spark update_config
+    - cloudtik-spark format-cluster # need remove
 
 
 # Custom commands that will be run on worker nodes after common setup.
@@ -143,13 +143,13 @@ worker_setup_commands: []
 head_start_commands:
     - cloudtik stop
     - ulimit -n 65536; cloudtik start --head --port=6379  --cluster-scaling-config=~/cloudtik_bootstrap_config.yaml
-    - bash $CONDA_PREFIX/lib/python3.7/site-packages/cloudtik/runtime/scripts/hadoop_daemon.sh stop-master
-    - bash $CONDA_PREFIX/lib/python3.7/site-packages/cloudtik/runtime/scripts/hadoop_daemon.sh start-master
+    - cloudtik-spark  stop-head
+    - cloudtik-spark  start-head
 
 # Command to start cloudtik on worker nodes. You don't need to change this.
 worker_start_commands:
     - cloudtik stop
     - ulimit -n 65536; cloudtik start --address=$CLOUDTIK_HEAD_IP:6379
-    - bash $CONDA_PREFIX/lib/python3.7/site-packages/cloudtik/runtime/scripts/update_config.sh $CLOUDTIK_HEAD_IP
-    - bash $CONDA_PREFIX/lib/python3.7/site-packages/cloudtik/runtime/scripts/hadoop_daemon.sh stop-worker
-    - bash $CONDA_PREFIX/lib/python3.7/site-packages/cloudtik/runtime/scripts/hadoop_daemon.sh start-worker
+    - cloudtik-spark update-config $CLOUDTIK_HEAD_IP
+    - cloudtik-spark stop-worker
+    - cloudtik-spark start-worker

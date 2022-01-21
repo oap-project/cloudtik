@@ -7,8 +7,8 @@ of taking a lot of time constructing the cluster and platform.
 
 
 ## Getting Started with CloudTik
-### 1. Pepare Python environment
-CloudTik requires a Python envornment to run. We suggest you use Conda to manage Python environments and pakages. If you don't have Conda , you can refer ```dev/install-conda.sh``` to install conda on Ubuntu systems. 
+### 1. Prepare Python environment
+CloudTik requires a Python environment to run. We suggest you use Conda to manage Python environments and packages. If you don't have Conda , you can refer ```dev/install-conda.sh``` to install conda on Ubuntu systems. 
 ```
 bash dev/install-conda.sh;  ## Optional
 ```
@@ -18,10 +18,27 @@ conda create -n cloudtik -y python=3.7;
 conda activate cloudtik;
 ```
 ### 2. Install CloudTik
-Installation of CloudTik is simple. Execute the below pip commands to install CloudTik to the working machine.
+Installation of CloudTik is simple. Execute the below pip commands to install CloudTik to the working machine
+for specific cloud providers.
+
 ```
-pip install -U http://23.95.96.95:8000/latest/cloudtik-0.9.0-cp37-cp37m-manylinux2014_x86_64.whl
+# if running CloudTik on aws
+pip install -U "cloudtik[aws] @ http://23.95.96.95:8000/latest/cloudtik-0.9.0-cp37-cp37m-manylinux2014_x86_64.whl"
+
+# if running CloudTik on azure
+pip install -U "cloudtik[azure] @ http://23.95.96.95:8000/latest/cloudtik-0.9.0-cp37-cp37m-manylinux2014_x86_64.whl"
+
+# if running CloudTik on gcp
+pip install -U "cloudtik[gcp] @ http://23.95.96.95:8000/latest/cloudtik-0.9.0-cp37-cp37m-manylinux2014_x86_64.whl"
+
+# if running CloudTik on k8s
+pip install -U "cloudtik[k8s] @ http://23.95.96.95:8000/latest/cloudtik-0.9.0-cp37-cp37m-manylinux2014_x86_64.whl"
+
+# if need support for all above
+pip install -U "cloudtik[all] @ http://23.95.96.95:8000/latest/cloudtik-0.9.0-cp37-cp37m-manylinux2014_x86_64.whl"
+
 ```
+for 
 ### 3. Configure Credentials for Cloud Providers
 
 #### Configure for AWS

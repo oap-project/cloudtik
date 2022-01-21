@@ -133,7 +133,7 @@ setup_commands:
 head_setup_commands:
     - pip install -U azure-cli-core==2.29.1 azure-identity==1.7.0 azure-mgmt-compute==23.1.0 azure-mgmt-network==19.0.0 azure-mgmt-resource==20.0.0 msrestazure==0.6.4
     - cloudtik-spark update-config
-    - cloudtik-spark  format-cluster # need remove
+    - cloudtik-spark format-cluster # need remove
 
 
 # Custom commands that will be run on worker nodes after common setup.
@@ -143,8 +143,8 @@ worker_setup_commands: []
 head_start_commands:
     - cloudtik stop
     - ulimit -n 65536; cloudtik start --head --port=6379  --cluster-scaling-config=~/cloudtik_bootstrap_config.yaml
-    - cloudtik-spark  stop-head
-    - cloudtik-spark  start-head
+    - cloudtik-spark stop-head
+    - cloudtik-spark start-head
 
 
 # Command to start cloudtik on worker nodes. You don't need to change this.
@@ -152,5 +152,5 @@ worker_start_commands:
     - cloudtik stop
     - ulimit -n 65536; cloudtik start --address=$CLOUDTIK_HEAD_IP:6379
     - cloudtik-spark update-config --master=$CLOUDTIK_HEAD_IP
-    - cloudtik-spark  stop-worker
-    - cloudtik-spark  start-worker
+    - cloudtik-spark stop-worker
+    - cloudtik-spark start-worker

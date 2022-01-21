@@ -108,8 +108,8 @@ cloudtik_files += [
     "cloudtik/runtime/conf/hadoop/hdfs-site.xml",
     "cloudtik/runtime/conf/hadoop/yarn-site.xml",
     "cloudtik/runtime/conf/spark/spark-defaults.conf",
-    "cloudtik/runtime/scripts/hadoop_daemon.sh",
-    "cloudtik/runtime/scripts/update_config.sh",
+    "cloudtik/runtime/scripts/hadoop-daemon.sh",
+    "cloudtik/runtime/scripts/update-config.sh",
 ]
 
 # If you're adding dependencies for cloudtik extras, please
@@ -336,10 +336,10 @@ setuptools.setup(
     install_requires=setup_spec.install_requires,
     setup_requires=["cython >= 0.29.15", "wheel"],
     extras_require=setup_spec.extras,
-    scripts=['runtime/scripts/cloudtik-spark.sh'],
     entry_points={
         "console_scripts": [
             "cloudtik=cloudtik.scripts.scripts:main",
+            "cloudtik-spark=cloudtik.scripts.spark_scripts:main"
         ]
     },
     include_package_data=True,

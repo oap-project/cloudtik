@@ -145,8 +145,8 @@ setup_commands:
 # Custom commands that will be run on the head node after common setup.
 head_setup_commands:
     - pip install google-api-python-client==1.7.8
-    - cloudtik-spark update_config
-    - cloudtik-spark format-cluster # need remove
+    - cloudtik-spark update-config
+    - cloudtik-spark  format-cluster # need remove
 
 
 # Custom commands that will be run on worker nodes after common setup.
@@ -171,6 +171,6 @@ worker_start_commands:
       ulimit -n 65536;
       cloudtik start
       --address=$CLOUDTIK_HEAD_IP:6379
-    - cloudtik-spark update-config $CLOUDTIK_HEAD_IP
-    - cloudtik-spark stop-worker
-    - cloudtik-spark start-worker
+    - cloudtik-spark update-config --master=$CLOUDTIK_HEAD_IP
+    - cloudtik-spark  stop-worker
+    - cloudtik-spark  start-worker

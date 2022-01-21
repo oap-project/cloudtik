@@ -338,7 +338,7 @@ setuptools.setup(
     entry_points={
         "console_scripts": [
             "cloudtik=cloudtik.scripts.scripts:main",
-            "cloudtik-spark=cloudtik.scripts.spark_scripts:main"
+            "cloudtik-spark=cloudtik.runtime.spark.scripts:main"
         ]
     },
     include_package_data=True,

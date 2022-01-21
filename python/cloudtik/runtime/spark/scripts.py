@@ -8,11 +8,10 @@ from cloudtik.core._private import logging_utils
 from cloudtik.core._private.cli_logger import (cli_logger)
 
 
-
 CLOUDTIK_PATH = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 
 CLOUDTIK_RUNTIME_SCRIPTS_PATH = os.path.join(
-    CLOUDTIK_PATH, "runtime/scripts/")
+    CLOUDTIK_PATH, "runtime/spark/scripts/")
 
 HADOOP_DAEMON_PATH = os.path.join(CLOUDTIK_RUNTIME_SCRIPTS_PATH, "hadoop-daemon.sh")
 
@@ -67,16 +66,11 @@ def stop_head():
 def stop_worker():
     os.system("bash {} stop-worker".format(HADOOP_DAEMON_PATH))
 
-@click.command()
-def format_cluster():
-    os.system("bash {} format-cluster".format(HADOOP_DAEMON_PATH))
-
 cli.add_command(update_config)
 cli.add_command(start_head)
 cli.add_command(start_worker)
 cli.add_command(stop_head)
 cli.add_command(stop_worker)
-cli.add_command(format_cluster)
 
 
 def main():

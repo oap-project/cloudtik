@@ -18,21 +18,45 @@
 
 <configuration>
 	<property>
-        <name>fs.defaultFS</name>
-        <value>hdfs://master_hostname:9000</value>
+        <name>fs.s3a.aws.credentials.provider</name>
+        <value>org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider,com.amazonaws.auth.EnvironmentVariableCredentialsProvider,com.amazonaws.auth.InstanceProfileCredentialsProvider</value>
+    </property>
+    <property>
+        <name>fs.default.name</name>
+        <value>s3a://cloudtik-bucket-bpe</value>
     </property>
 
+    <property>
+        <name>fs.s3a.endpoint</name>
+        <value>s3.us-west-2.amazonaws.com</value>
+    </property>
+
+    <property>
+        <name>fs.s3a.path.style.access</name>
+        <value>true</value>
+    </property>
+    <property>
+        <name>fs.s3a.impl</name>
+        <value>org.apache.hadoop.fs.s3a.S3AFileSystem</value>
+    </property>
+    <property>
+        <name>fs.s3a.access.key</name>
+        <value>AKIAVCPUOMTADCOOWIQO</value>
+    </property>
+    <property>
+        <name>fs.s3a.secret.key</name>
+        <value>pvXLgsO9iZJz0QB/wSlrcljSHIf8N4INZbgrte1V</value>
+    </property>
     <property>
         <name>hadoop.proxyuser.root.groups</name>
         <value>*</value>
     </property>
-
 	<property>
         <name>hadoop.proxyuser.root.hosts</name>
         <value>*</value>
     </property>
 
-  <property>
+    <property>
         <name>io.file.buffer.size</name>
         <value>131072</value>
     </property>

@@ -11,9 +11,9 @@ case "$1" in
     bash $SCRIPT_DIR/hadoop-daemon.sh "$@"
     ;;
   -h|--help)
-    echo "Usage: $0 update-config|format-cluster|start-head|stop-head|start-worker|stop-worker" >&2
+    echo "Usage: $0 update-config|start-head|stop-head|start-worker|stop-worker" >&2
     ;;
   *)
-    echo "Usage: $0 update-config|format-cluster|start-head|stop-head|start-worker|stop-worker" >&2
+    echo "Usage: $0 update-config|start-head|stop-head|start-worker|stop-worker" >&2
     ;;
 esac

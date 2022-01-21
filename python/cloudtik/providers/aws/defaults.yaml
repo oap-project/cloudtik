@@ -132,8 +132,6 @@ setup_commands:
 head_setup_commands:
     - pip install 'boto3>=1.4.8'  # 1.4.8 adds InstanceMarketOptions
     - cloudtik-spark update-config
-    - cloudtik-spark format-cluster # need remove
-
 
 # Custom commands that will be run on worker nodes after common setup.
 worker_setup_commands: []

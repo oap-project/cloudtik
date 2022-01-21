@@ -145,8 +145,6 @@ setup_commands:
 head_setup_commands:
     - pip install google-api-python-client==1.7.8
     - cloudtik-spark update-config
-    - cloudtik-spark format-cluster # need remove
-
 
 # Custom commands that will be run on worker nodes after common setup.
 worker_setup_commands: []

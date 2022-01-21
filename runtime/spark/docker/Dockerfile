@@ -46,30 +46,22 @@ RUN wget https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SP
 
 WORKDIR /home/cloudtik/
 
-
-COPY environment.yml /tmp/env.yml
 COPY requirements.txt /tmp/requirements.txt
 
-RUN conda env create -n runtime --file /tmp/env.yml --force
-
-ENV CONDA_DEFAULT_ENV runtime
-
-ENV AI_ENV_PATH $HOME/anaconda3/envs/runtime
-
-# SHELL ["conda", "run", "-n", "runtime", "/bin/bash", "-c"]
+RUN pip install -r  /tmp/requirements.txt
 
 # jupyter config
 RUN echo 'export PYTHONPATH=${SPARK_HOME}/python:${SPARK_HOME}/python/lib/py4j-0.10.9-src.zip\
 export PYSPARK_PYTHON=${CONDA_PREFIX}/bin/python \
-export PYSPARK_DRIVER_PYTHON=${CONDA_PREFIX}/bin/python' >> ${AI_ENV_PATH}/etc/jupyterrc
+export PYSPARK_DRIVER_PYTHON=${CONDA_PREFIX}/bin/python' >> $HOME/anaconda3/etc/jupyterrc
 
 #access jupyter server remotely
-# RUN mkdir -p /home/cloudtik/jupyter && echo Y|jupyter notebook --generate-config
-# RUN sed -i  "1 ic.NotebookApp.ip = '*'" ~/.jupyter/jupyter_notebook_config.py && \
-#     sed -i  '1 ic.NotebookApp.open_browser = False' ~/.jupyter/jupyter_notebook_config.py && \
-#     sed -i  "1 ic.NotebookApp.notebook_dir = '/home/cloudtik/jupyter'" ~/.jupyter/jupyter_notebook_config.py && \
-#     sed -i  '1 ic.NotebookApp.allow_root = True'   ~/.jupyter/jupyter_notebook_config.py
+RUN mkdir -p /home/cloudtik/jupyter && echo Y|jupyter notebook --generate-config
+RUN sed -i  "1 ic.NotebookApp.ip = '*'" ~/.jupyter/jupyter_notebook_config.py && \
+    sed -i  '1 ic.NotebookApp.open_browser = False' ~/.jupyter/jupyter_notebook_config.py && \
+    sed -i  "1 ic.NotebookApp.notebook_dir = '/home/cloudtik/jupyter'" ~/.jupyter/jupyter_notebook_config.py && \
+    sed -i  '1 ic.NotebookApp.allow_root = True'   ~/.jupyter/jupyter_notebook_config.py
 
-# # jupyter kernel
-# RUN pip install spylon-kernel&&python -m spylon_kernel install
+# jupyter kernel
+RUN python -m spylon_kernel install --user
 

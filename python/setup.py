@@ -104,12 +104,11 @@ cloudtik_files += [
     "cloudtik/providers/kubernetes/defaults.yaml",
     "cloudtik/providers/_private/_kubernetes/kubectl-rsync.sh",
     "cloudtik/core/config-schema.json",
-    "cloudtik/runtime/conf/hadoop/core-site.xml",
-    "cloudtik/runtime/conf/hadoop/hdfs-site.xml",
-    "cloudtik/runtime/conf/hadoop/yarn-site.xml",
-    "cloudtik/runtime/conf/spark/spark-defaults.conf",
-    "cloudtik/runtime/scripts/hadoop-daemon.sh",
-    "cloudtik/runtime/scripts/update-config.sh",
+    "cloudtik/runtime/spark/conf/hadoop/core-site.xml",
+    "cloudtik/runtime/spark/conf/hadoop/yarn-site.xml",
+    "cloudtik/runtime/spark/conf/spark/spark-defaults.conf",
+    "cloudtik/runtime/spark/scripts/hadoop-daemon.sh",
+    "cloudtik/runtime/spark/scripts/update-config.sh",
 ]
 
 # If you're adding dependencies for cloudtik extras, please

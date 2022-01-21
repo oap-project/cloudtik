@@ -7,8 +7,7 @@ max_workers: 2
 
 docker:
     image: "cloudtik/runtime:nightly"
-    container_name: "cloudtik_docker"
-
+    container_name: "cloudtik_container"
 
 # Cloud-provider specific configuration.
 provider:
@@ -18,10 +17,7 @@ provider:
     security_group:
         GroupName: cloudtik-minimal
 
-
 auth:
     ssh_user: ubuntu
+    #Set proxy if you are in company network
     ssh_proxy_command: nc -X 5 -x proxy-shz.intel.com:1080 %h %p
-
-
-setup_commands: []

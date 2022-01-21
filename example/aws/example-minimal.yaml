@@ -3,7 +3,7 @@ cluster_name: minimal
 
 # The maximum number of workers nodes to launch in addition to the head
 # node. This takes precedence over min_workers. min_workers default to 0.
-max_workers: 1
+max_workers: 2
 
 # Cloud-provider specific configuration.
 provider:
@@ -12,7 +12,8 @@ provider:
   # Security group to create with custom in bound rules and name.We provide a secutiy group "cloudtik-mininal" which works for Intel.
   security_group:
     GroupName: cloudtik-minimal
-# How Ray will authenticate with newly launched nodes.
+
+# How we will authenticate with newly launched nodes.
 auth:
   ssh_user: ubuntu
   #According to the network of working node, the value works well in intel network.

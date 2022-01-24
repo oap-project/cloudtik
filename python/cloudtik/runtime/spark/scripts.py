@@ -41,14 +41,19 @@ def cli(logging_level, logging_format):
 
 @click.command()
 @click.option(
+    '--provider',
+    required=True,
+    type=str,
+    help="the provider of cluster ")
+@click.option(
     '--master',
     required=False,
     type=str,
     default="",
     help="the master name or ip ")
-def update_config(master):
+def update_config(provider, master):
     shell_path = os.path.join(CLOUDTIK_RUNTIME_SCRIPTS_PATH, "update-config.sh")
-    os.system("bash {} {}".format(shell_path,master))
+    os.system("bash {} {} {}".format(shell_path, provider, master))
 
 
 @click.command()

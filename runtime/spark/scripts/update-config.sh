@@ -16,8 +16,8 @@ output_dir=$(dirname ${source_dir})/outconf
 rm -rf  $output_dir
 mkdir -p $output_dir
 cp -r $source_dir/* $output_dir
-
-master_hostname=$1
+provider=$1
+master_hostname=$2
 if [ ! -n "${master_hostname}" ]; then
 	master_hostname=$(hostname) 
 else
@@ -42,7 +42,8 @@ sed -i "s/{%yarn.scheduler.maximum-allocation-vcores%}/${total_vcores}/g" `grep 
 sed -i "s/{%spark.executor.cores%}/${spark_executor_cores}/g" `grep "{%spark.executor.cores%}" -rl ./`
 sed -i "s/{%spark.executor.memory%}/${spark_executor_memory}/g" `grep "{%spark.executor.memory%}" -rl ./`
 
-cp -r ${output_dir}/hadoop/*  ${HADOOP_HOME}/etc/hadoop/
+cp -r ${output_dir}/hadoop/${provider}/core-site.xml  ${HADOOP_HOME}/etc/hadoop/
+cp -r ${output_dir}/hadoop/yarn-site.xml  ${HADOOP_HOME}/etc/hadoop/
 cp -r ${output_dir}/spark/*  ${SPARK_HOME}/conf
 
 jars=('spark-[0-9]*[0-9]-yarn-shuffle.jar' 'spark-network-common_[0-9]*[0-9].jar' 'spark-network-shuffle_[0-9]*[0-9].jar' 'jackson-databind-[0-9]*[0-9].jar' 'jackson-core-[0-9]*[0-9].jar' 'jackson-annotations-[0-9]*[0-9].jar' 'metrics-core-[0-9]*[0-9].jar' 'netty-all-[0-9]*[0-9].Final.jar' 'commons-lang3-[0-9]*[0-9].jar')

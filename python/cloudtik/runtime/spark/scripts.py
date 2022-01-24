@@ -38,7 +38,11 @@ def cli(logging_level, logging_format):
     logging_utils.setup_logger(level, logging_format)
     cli_logger.set_format(format_tmpl=logging_format)
 
-
+@click.command()
+def install():
+    install_script_path = os.path.join(CLOUDTIK_RUNTIME_SCRIPTS_PATH, "install.sh")
+    os.system("bash {}".format(install_script_path))
+    
 @click.command()
 @click.option(
     '--provider',
@@ -54,7 +58,6 @@ def cli(logging_level, logging_format):
 def update_config(provider, master):
     shell_path = os.path.join(CLOUDTIK_RUNTIME_SCRIPTS_PATH, "update-config.sh")
     os.system("bash {} {} {}".format(shell_path, provider, master))
-
 
 @click.command()
 def start_head():
@@ -72,8 +75,6 @@ def stop_head():
 def stop_worker():
     os.system("bash {} stop-worker".format(HADOOP_DAEMON_PATH))
 
-
-
 @click.command()
 def start_jupyter():
     os.system("nohup jupyter lab  --no-browser --ip=* --allow-root >/home/cloudtik/jupyter/jupyter.log 2>&1 &")
@@ -85,6 +86,7 @@ def start_jupyter():
 
 
 
+cli.add_command(install)
 cli.add_command(update_config)
 cli.add_command(start_head)
 cli.add_command(start_worker)

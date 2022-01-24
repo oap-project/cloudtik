@@ -128,6 +128,7 @@ setup_commands:
     # - sudo pkill -9 apt-get || true
     # - sudo pkill -9 dpkg || true
     # - sudo dpkg --configure -a
+    - cloudtik-spark install
 
 # Custom commands that will be run on the head node after common setup.
 head_setup_commands:

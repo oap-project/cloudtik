@@ -144,6 +144,7 @@ if setup_spec.type == SetupType.CLOUDTIK:
         "attrs",
         "colorama",
         "click >= 7.0",
+        "cryptography>=3.0.0",
         "dataclasses; python_version < '3.7'",
         "filelock",
         "grpcio >= 1.28.1",

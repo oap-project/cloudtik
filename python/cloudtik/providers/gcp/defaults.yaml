@@ -1,4 +1,4 @@
-# An unique identifier for the head node and workers of this cluster.
+# A unique identifier for the head node and workers of this cluster.
 cluster_name: default
 
 # The maximum number of workers nodes to launch in addition to the head
@@ -143,7 +143,6 @@ setup_commands:
 
 # Custom commands that will be run on the head node after common setup.
 head_setup_commands:
-    - pip install google-api-python-client==1.7.8
     - cloudtik-spark update-config --provider=gcp
 
 # Custom commands that will be run on worker nodes after common setup.

@@ -12,7 +12,7 @@ from cloudtik.core._private.cli_logger import (cli_logger)
 CLOUDTIK_PATH = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 
 CLOUDTIK_RUNTIME_SCRIPTS_PATH = os.path.join(
-    CLOUDTIK_PATH, "runtime/spark/scripts/")
+    CLOUDTIK_PATH, "spark/scripts/")
 
 HADOOP_DAEMON_PATH = os.path.join(CLOUDTIK_RUNTIME_SCRIPTS_PATH, "hadoop-daemon.sh")
 

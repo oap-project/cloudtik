@@ -20,7 +20,7 @@ provider=$1
 HEAD_ADDRESS=$2
 if [ ! -n "${HEAD_ADDRESS}" ]; then
 	local_host="`hostname --fqdn`"
-	HEAD_ADDRESS=`nslookup -sil $local_host 2>/dev/null | grep Address: | sed '1d' | sed 's/Address://g'`
+	HEAD_ADDRESS=`nslookup -sil $local_host 2>/dev/null | grep Address: | sed '1d' | sed 's/Address: //g'`
 	Is_head_node=true
 else
 	Is_head_node=false
@@ -39,7 +39,7 @@ if [ $Is_head_node == "true" ];then
 	if [ $CPU_resource -lt 4 ]; then
 		spark_executor_cores=$CPU_resource
 		spark_executor_memory=${memory_resource_MB}M
-	elif
+	else
 		spark_executor_cores=4
 	        spark_executor_memory=8096M	
 	fi

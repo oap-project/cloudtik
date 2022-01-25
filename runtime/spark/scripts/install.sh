@@ -28,6 +28,7 @@ if [ ! -d "${HADOOP_HOME}" ]; then
       mv hadoop-${HADOOP_VERSION} hadoop && \
       rm hadoop.tar.gz)
   echo "export HADOOP_HOME=$HADOOP_HOME">> ${USER_HOME}/.bashrc
+  echo "export YARN_CONF_DIR=$HADOOP_HOME/etc/hadoop">> ${USER_HOME}/.bashrc
   echo "export JAVA_HOME=$JAVA_HOME" >> ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh
 fi
   

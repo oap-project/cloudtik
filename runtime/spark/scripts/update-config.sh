@@ -17,10 +17,10 @@ rm -rf  $output_dir
 mkdir -p $output_dir
 cp -r $source_dir/* $output_dir
 provider=$1
-master_IP=$2
-if [ ! -n "${master_IP}" ]; then
+HEAD_ADDRESS=$2
+if [ ! -n "${HEAD_ADDRESS}" ]; then
 	local_host="`hostname --fqdn`"
-	master_IP=`nslookup -sil $local_host 2>/dev/null | grep Address: | sed '1d' | sed 's/Address://g'`
+	HEAD_ADDRESS=`nslookup -sil $local_host 2>/dev/null | grep Address: | sed '1d' | sed 's/Address://g'`
 	Is_head_node=true
 else
 	Is_head_node=false
@@ -47,7 +47,7 @@ if [ $Is_head_node == "true" ];then
 fi
 
 cd $output_dir
-sed -i "s/master_IP/${master_IP}/g" `grep "master_IP" -rl ./`
+sed -i "s/HEAD_ADDRESS/${HEAD_ADDRESS}/g" `grep "HEAD_ADDRESS" -rl ./`
 sed -i "s!{%HADOOP_HOME%}!${HADOOP_HOME}!g" `grep "{%HADOOP_HOME%}" -rl ./`
 sed -i "s/{%yarn.scheduler.maximum-allocation-mb%}/${total_memory}/g" `grep "{%yarn.scheduler.maximum-allocation-mb%}" -rl ./`
 sed -i "s/{%yarn.nodemanager.resource.memory-mb%}/${total_memory}/g" `grep "{%yarn.nodemanager.resource.memory-mb%}" -rl ./`

@@ -94,6 +94,7 @@ cloudtik_files = [
     "cloudtik/core/thirdparty/redis/redis-server" + exe_suffix,
 ]
 
+# cloudtik default yaml files
 cloudtik_files += [
     "cloudtik/providers/aws/defaults.yaml",
     "cloudtik/providers/azure/defaults.yaml",
@@ -104,7 +105,14 @@ cloudtik_files += [
     "cloudtik/providers/kubernetes/defaults.yaml",
     "cloudtik/providers/_private/_kubernetes/kubectl-rsync.sh",
     "cloudtik/core/config-schema.json",
-    "cloudtik/runtime/spark/conf/hadoop/core-site.xml",
+
+]
+
+# cloudtik runtime yaml files
+cloudtik_files += [
+    "cloudtik/runtime/spark/conf/hadoop/aws/core-site.xml",
+    "cloudtik/runtime/spark/conf/hadoop/azure/core-site.xml",
+    "cloudtik/runtime/spark/conf/hadoop/gcp/core-site.xml",
     "cloudtik/runtime/spark/conf/hadoop/yarn-site.xml",
     "cloudtik/runtime/spark/conf/spark/spark-defaults.conf",
     "cloudtik/runtime/spark/scripts/install.sh",

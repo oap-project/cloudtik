@@ -2,6 +2,10 @@ import logging
 from typing import List, Optional
 import redis
 
+from cloudtik.core._private.state.redis_shards_client import RedisShardsClient
+from cloudtik.core._private.state.state_table_store import StateTableStore
+
+
 logger = logging.getLogger(__name__)
 
 # b'@:' will be the leading characters for namespace
@@ -107,25 +111,30 @@ class ControlStateAccessor:
         self.redis_address = redis_address
         self.redis_port = redis_port
         self.redis_password = redis_password
-        self.redis_client = None
+        self.redis_shard_client = None
+        self.state_table_store = None
         self.connected = False
 
     def connect(self):
-        self.redis_client = redis.StrictRedis(
-            host=self.redis_address, port=self.redis_port, password=self.redis_password)
+        self.redis_shard_client = RedisShardsClient(
+            redis_address=self.redis_address,
+            redis_port=self.redis_port,
+            redis_password=self.redis_password)
+        self.redis_shard_client.connect()
+        self.state_table_store = StateTableStore(self.redis_shard_client)
         self.connected = True
 
     def disconnect(self):
         # Don't need to do anything for Redis
         # Because it uses connection pool underlayer
-        self.redis_client = None
+        self.redis_shard_client.disconnect()
+        self.redis_shard_client = None
+        self.state_table_store = None
         self.connected = False
-        pass
 
     def get_node_table(self):
         assert self.connected, "Control state accessor not connected"
-        # TODO (haifeng): read the node table from the redis
-        return []
+        return self.state_table_store.get_node_table()
 
 
 class ControlState:

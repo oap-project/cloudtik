@@ -1,6 +1,6 @@
 import logging
 
-
+from cloudtik.core._private.state.redis_shards_client import RedisShardsClient
 from cloudtik.core._private.state.store_client import StoreClient
 
 logger = logging.getLogger(__name__)
@@ -34,9 +34,9 @@ class StateTableStore:
     Class wraps the access of all the table tables from Redis sharding
     """
 
-    def __init__(self, store_client: StoreClient):
-        self._store_client = store_client
-        self._node_table = NodeStateTable(store_client)
+    def __init__(self, redis_shards_client: RedisShardsClient):
+        self._store_client = StoreClient(redis_shards_client)
+        self._node_table = NodeStateTable(self._store_client)
 
     def get_node_table(self):
         return self._node_table

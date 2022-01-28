@@ -37,6 +37,8 @@ RUN sudo apt-get update -y && sudo apt-get upgrade -y \
         rsync \
         openssh-client \
         gnupg \
+        jq \
+        dnsutils \
     && wget \
         --quiet "https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh" \
         -O /tmp/miniconda.sh \

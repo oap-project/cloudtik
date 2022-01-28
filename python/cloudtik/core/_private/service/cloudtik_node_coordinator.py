@@ -6,12 +6,14 @@ import sys
 import signal
 import time
 import traceback
+import threading
 from multiprocessing.synchronize import Event
 from typing import Optional
 
 import cloudtik
 from cloudtik.core._private import constants, services
 from cloudtik.core._private.logging_utils import setup_component_logger
+from cloudtik.core._private.state.control_state import  ControlState
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +29,7 @@ class NodeCoordinator:
                  address,
                  redis_password=None,
                  coordinator_ip=None,
+                 static_resource_list=None,
                  stop_event: Optional[Event] = None):
 
         # Initialize the Redis clients.
@@ -39,6 +42,8 @@ class NodeCoordinator:
         self.redis_address = redis_address
         self.redis_password = redis_password
         self.coordinator_ip = coordinator_ip
+        self.static_resource_list = static_resource_list
+        self.node_resource_dict = self._parse_resource_list()
 
         # Can be used to signal graceful exit from coordinator loop.
         self.stop_event = stop_event  # type: Optional[Event]
@@ -47,6 +52,7 @@ class NodeCoordinator:
 
     def _run(self):
         """Run the coordinator loop."""
+        self.create_heart_beat_thread()
         while True:
             if self.stop_event and self.stop_event.is_set():
                 break
@@ -65,6 +71,31 @@ class NodeCoordinator:
         self._handle_failure(f"Terminated with signal {sig}\n" +
                              "".join(traceback.format_stack(frame)))
         sys.exit(sig + 128)
+
+
+    def create_heart_beat_thread(self):
+        thread = threading.Thread(target=self.send_heart_beat)
+        # ensure when node_coordinator exits, the thread will stop automatically.
+        thread.setDaemon(True)
+        thread.start()
+
+    def send_heart_beat(self):
+        while True:
+            time.sleep(constants.CLOUDTIK_HEARTBEAT_PERIOD_SECONDS)
+            now = time.time()
+            node_info = self.node_resource_dict.copy()
+            node_info.update({"last_heartbeat_time": now})
+            #TODO
+            pass
+
+
+
+    def _parse_resource_list(self):
+        node_resource_dict = {}
+        resource_split = self.static_resource_list.split(",")
+        for i in range(len(resource_split / 2)):
+            node_resource_dict[resource_split[2 * i]] =  float(resource_split[2 * i + 1])
+        return node_resource_dict
 
     def run(self):
         # Register signal handlers for cluster scaler termination.
@@ -163,6 +194,7 @@ if __name__ == "__main__":
     coordinator = NodeCoordinator(
         args.redis_address,
         redis_password=args.redis_password,
-        coordinator_ip=args.coordinator_ip)
+        coordinator_ip=args.coordinator_ip,
+        static_resource_list=args.static_resource_list)
 
     coordinator.run()

@@ -15,11 +15,11 @@ class StateNodeManager:
         self._state_table_store = state_table_store
 
     def register_node(self, node_id, node_info):
-        self.state_table_store.get_node_table().put(node_id, node_info)
+        self._state_table_store.get_node_table().put(node_id, node_info)
 
     def drain_node(self, node_id):
         # TODO: update node table info to DEAD instead of delete it.
-        self.state_table_store.get_node_table().delete(node_id)
+        self._state_table_store.get_node_table().delete(node_id)
 
     def get_node_table(self):
-        self.state_table_store.get_node_table().get_all()
+        self._state_table_store.get_node_table().get_all()

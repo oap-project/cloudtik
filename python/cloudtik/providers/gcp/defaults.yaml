@@ -144,7 +144,7 @@ setup_commands:
 
 # Custom commands that will be run on the head node after common setup.
 head_setup_commands:
-    - cloudtik-spark update-config --provider=gcp
+    - cloudtik-spark configure --provider=gcp
 
 # Custom commands that will be run on worker nodes after common setup.
 worker_setup_commands: []
@@ -168,6 +168,6 @@ worker_start_commands:
       ulimit -n 65536;
       cloudtik start
       --address=$CLOUDTIK_HEAD_IP:6379
-    - cloudtik-spark update-config --provider=gcp--master=$CLOUDTIK_HEAD_IP
+    - cloudtik-spark configure --provider=gcp--master=$CLOUDTIK_HEAD_IP
     - cloudtik-spark stop-worker
     - cloudtik-spark start-worker

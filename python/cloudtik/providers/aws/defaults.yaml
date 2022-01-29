@@ -132,7 +132,7 @@ setup_commands:
 # Custom commands that will be run on the head node after common setup.
 head_setup_commands:
     - pip install 'boto3>=1.4.8'  # 1.4.8 adds InstanceMarketOptions
-    - cloudtik-spark update-config --provider=aws --aws_s3a_bucket=$AWS_S3A_BUCKET --s3a_access_key=$FS_S3A_ACCESS_KEY --s3a_secret_key=$FS_S3A_SECRET_KEY
+    - cloudtik-spark configure --provider=aws --aws_s3a_bucket=$AWS_S3A_BUCKET --s3a_access_key=$FS_S3A_ACCESS_KEY --s3a_secret_key=$FS_S3A_SECRET_KEY
 
 # Custom commands that will be run on worker nodes after common setup.
 worker_setup_commands: []
@@ -148,7 +148,7 @@ head_start_commands:
 worker_start_commands:
     - cloudtik stop
     - ulimit -n 65536; cloudtik start --address=$CLOUDTIK_HEAD_IP:6379
-    - cloudtik-spark update-config --provider=aws --master=$CLOUDTIK_HEAD_IP --aws_s3a_bucket=$AWS_S3A_BUCKET --s3a_access_key=$FS_S3A_ACCESS_KEY --s3a_secret_key=$FS_S3A_SECRET_KEY
+    - cloudtik-spark configure --provider=aws --master=$CLOUDTIK_HEAD_IP --aws_s3a_bucket=$AWS_S3A_BUCKET --s3a_access_key=$FS_S3A_ACCESS_KEY --s3a_secret_key=$FS_S3A_SECRET_KEY
     - cloudtik-spark stop-worker
     - cloudtik-spark start-worker
 

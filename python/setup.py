@@ -117,7 +117,7 @@ cloudtik_files += [
     "cloudtik/runtime/spark/conf/spark/spark-defaults.conf",
     "cloudtik/runtime/spark/scripts/install.sh",
     "cloudtik/runtime/spark/scripts/hadoop-daemon.sh",
-    "cloudtik/runtime/spark/scripts/update-config.sh",
+    "cloudtik/runtime/spark/scripts/configure.sh",
 ]
 
 # If you're adding dependencies for cloudtik extras, please

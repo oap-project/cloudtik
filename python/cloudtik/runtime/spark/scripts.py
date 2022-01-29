@@ -73,8 +73,8 @@ def install():
     type=str,
     default="",
     help="the secret key of s3a")
-def update_config(provider, master, aws_s3a_bucket, s3a_access_key, s3a_secret_key):
-    shell_path = os.path.join(CLOUDTIK_RUNTIME_SCRIPTS_PATH, "update-config.sh")
+def configure(provider, master, aws_s3a_bucket, s3a_access_key, s3a_secret_key):
+    shell_path = os.path.join(CLOUDTIK_RUNTIME_SCRIPTS_PATH, "configure.sh")
     os.system("bash {} -p {} --head_address={} --aws_s3a_bucket={} --s3a_access_key={} --s3a_secret_key={}".format(
         shell_path, provider, master, aws_s3a_bucket, s3a_access_key, s3a_secret_key))
 
@@ -106,7 +106,7 @@ def start_jupyter():
 
 
 cli.add_command(install)
-cli.add_command(update_config)
+cli.add_command(configure)
 cli.add_command(start_head)
 cli.add_command(start_worker)
 cli.add_command(stop_head)

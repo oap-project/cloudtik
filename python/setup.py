@@ -116,7 +116,7 @@ cloudtik_files += [
     "cloudtik/runtime/spark/conf/hadoop/yarn-site.xml",
     "cloudtik/runtime/spark/conf/spark/spark-defaults.conf",
     "cloudtik/runtime/spark/scripts/install.sh",
-    "cloudtik/runtime/spark/scripts/hadoop-daemon.sh",
+    "cloudtik/runtime/spark/scripts/services.sh",
     "cloudtik/runtime/spark/scripts/configure.sh",
 ]
 

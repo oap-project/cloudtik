@@ -14,7 +14,7 @@ CLOUDTIK_RUNTIME_PATH = os.path.abspath(os.path.dirname(os.path.dirname(__file__
 CLOUDTIK_RUNTIME_SCRIPTS_PATH = os.path.join(
     CLOUDTIK_RUNTIME_PATH, "spark/scripts/")
 
-HADOOP_DAEMON_PATH = os.path.join(CLOUDTIK_RUNTIME_SCRIPTS_PATH, "hadoop-daemon.sh")
+SPARK_SERVICES_SCRIPT_PATH = os.path.join(CLOUDTIK_RUNTIME_SCRIPTS_PATH, "services.sh")
 
 logger = logging.getLogger(__name__)
 
@@ -80,19 +80,19 @@ def configure(provider, master, aws_s3a_bucket, s3a_access_key, s3a_secret_key):
 
 @click.command()
 def start_head():
-    os.system("bash {} start-head".format(HADOOP_DAEMON_PATH))
+    os.system("bash {} start-head".format(SPARK_SERVICES_SCRIPT_PATH))
 
 @click.command()
 def start_worker():
-    os.system("bash {} start-worker".format(HADOOP_DAEMON_PATH))
+    os.system("bash {} start-worker".format(SPARK_SERVICES_SCRIPT_PATH))
 
 @click.command()
 def stop_head():
-    os.system("bash {} stop-head".format(HADOOP_DAEMON_PATH))
+    os.system("bash {} stop-head".format(SPARK_SERVICES_SCRIPT_PATH))
 
 @click.command()
 def stop_worker():
-    os.system("bash {} stop-worker".format(HADOOP_DAEMON_PATH))
+    os.system("bash {} stop-worker".format(SPARK_SERVICES_SCRIPT_PATH))
 
 @click.command()
 def start_jupyter():

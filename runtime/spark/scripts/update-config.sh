@@ -70,7 +70,7 @@ function check_head_or_worker() {
 }
 
 
-function caculate_worker_resource() {
+function caculate_worker_resources() {
     #For nodemanager
     total_memory=$(awk '($1 == "MemTotal:"){print $2/1024}' /proc/meminfo)
     total_memory=${total_memory%.*}
@@ -78,7 +78,7 @@ function caculate_worker_resource() {
 }
 
 
-function caculate_resource_for_spark() {
+function set_resources_for_spark() {
     #For Head Node
     if [ $Is_head_node == "true" ];then
 	    memory_resource_Bytes=$(cat ~/cloudtik_bootstrap_config.yaml | jq '."available_node_types"."worker.default"."resources"."memory"' | sed 's/\"//g')
@@ -126,7 +126,7 @@ function update_spark_runtime_config() {
 }
 
 
-function disscp_spark_jar() {
+function prepare_spark_jars() {
     #cp spark jars to hadoop path
     jars=('spark-[0-9]*[0-9]-yarn-shuffle.jar' 'spark-network-common_[0-9]*[0-9].jar' 'spark-network-shuffle_[0-9]*[0-9].jar' 'jackson-databind-[0-9]*[0-9].jar' 'jackson-core-[0-9]*[0-9].jar' 'jackson-annotations-[0-9]*[0-9].jar' 'metrics-core-[0-9]*[0-9].jar' 'netty-all-[0-9]*[0-9].Final.jar' 'commons-lang3-[0-9]*[0-9].jar')
     find ${HADOOP_HOME}/share/hadoop/yarn/lib -name netty-all-[0-9]*[0-9].Final.jar| xargs -i mv -f {} {}.old
@@ -138,17 +138,17 @@ function disscp_spark_jar() {
 }
 
 
-function hadoop_classpath() {
+function set_hadoop_classpath() {
     #Add share/hadoop/tools/lib/* into classpath
-    echo "export HADOOP_CLASSPATH=\$HADOOP_CLASSPATH:\$HADOOP_HOME/share/hadoop/tools/lib/*" >> ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh
+    echo "export set_hadoop_classpath=\$set_hadoop_classpath:\$HADOOP_HOME/share/hadoop/tools/lib/*" >> ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh
 }
 
 
 check_env
 prepare_base_conf
 check_head_or_worker
-caculate_worker_resource
-caculate_resource_for_spark
+caculate_worker_resources
+set_resources_for_spark
 update_spark_runtime_config
-disscp_spark_jar
-hadoop_classpath
+prepare_spark_jars
+set_hadoop_classpath

@@ -23,7 +23,7 @@
     </property>
     <property>
         <name>fs.default.name</name>
-        <value>s3a://cloudtik-bucket-bpe</value>
+	<value>s3a://{%aws.s3a.bucket%}</value>
     </property>
 
     <property>
@@ -41,11 +41,11 @@
     </property>
     <property>
         <name>fs.s3a.access.key</name>
-        <value>AKIAVCPUOMTADCOOWIQO</value>
+	<value>{%fs.s3a.access.key%}</value>
     </property>
     <property>
         <name>fs.s3a.secret.key</name>
-        <value>pvXLgsO9iZJz0QB/wSlrcljSHIf8N4INZbgrte1V</value>
+	<value>{%fs.s3a.secret.key%}</value>
     </property>
     <property>
         <name>hadoop.proxyuser.root.groups</name>

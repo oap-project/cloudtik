@@ -55,9 +55,28 @@ def install():
     type=str,
     default="",
     help="the master name or ip ")
-def update_config(provider, master):
+@click.option(
+    '--aws_s3a_bucket',
+    required=False,
+    type=str,
+    default="",
+    help="the bucket name of s3a")
+@click.option(
+    '--s3a_access_key',
+    required=False,
+    type=str,
+    default="",
+    help="the access key of s3a")
+@click.option(
+    '--s3a_secret_key',
+    required=False,
+    type=str,
+    default="",
+    help="the secret key of s3a")
+def update_config(provider, master, aws_s3a_bucket, s3a_access_key, s3a_secret_key):
     shell_path = os.path.join(CLOUDTIK_RUNTIME_SCRIPTS_PATH, "update-config.sh")
-    os.system("bash {} {} {}".format(shell_path, provider, master))
+    os.system("bash {} -p {} --head_address={} --aws_s3a_bucket={} --s3a_access_key={} --s3a_secret_key={}".format(
+        shell_path, provider, master, aws_s3a_bucket, s3a_access_key, s3a_secret_key))
 
 @click.command()
 def start_head():

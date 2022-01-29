@@ -46,6 +46,7 @@ from cloudtik.core._private.constants import CLOUDTIK_MAX_NUM_FAILURES, \
 from cloudtik.providers._private.local.node_provider import LocalNodeProvider
 from cloudtik.providers._private.local.node_provider import \
     record_local_head_state_if_needed
+from cloudtik.core._private.utils import with_provider_specific_config
     
 logger = logging.getLogger(__name__)
 
@@ -909,8 +910,8 @@ class StandardClusterScaler:
             file_mounts={},
             initialization_commands=[],
             setup_commands=[],
-            start_commands=with_head_node_ip(
-                self.config["worker_start_commands"], head_node_ip),
+            start_commands=with_provider_specific_config(self.config,
+                                                         self.config["worker_start_commands"], head_node_ip),
             runtime_hash=self.runtime_hash,
             file_mounts_contents_hash=self.file_mounts_contents_hash,
             process_runner=self.process_runner,
@@ -995,12 +996,13 @@ class StandardClusterScaler:
             auth_config=self.config["auth"],
             cluster_name=self.config["cluster_name"],
             file_mounts=self.config["file_mounts"],
-            initialization_commands=with_head_node_ip(
-                self._get_node_type_specific_fields(
+            initialization_commands=with_provider_specific_config(self.config,
+                                                                  self._get_node_type_specific_fields(
                     node_id, "initialization_commands"), head_node_ip),
-            setup_commands=with_head_node_ip(setup_commands, head_node_ip),
-            start_commands=with_head_node_ip(start_commands,
-                                                 head_node_ip),
+            setup_commands=with_provider_specific_config(self.config,
+                                                         setup_commands, head_node_ip),
+            start_commands=with_provider_specific_config(self.config,
+                                                         start_commands, head_node_ip),
             runtime_hash=self.runtime_hash,
             file_mounts_contents_hash=self.file_mounts_contents_hash,
             is_head_node=False,

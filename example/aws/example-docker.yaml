@@ -16,6 +16,10 @@ provider:
     # Security group to create with custom in bound rules and name.
     security_group:
         GroupName: cloudtik-minimal
+    aws_s3a_storage:
+        bucket: cloudtik-bucket-bpe
+        fs.s3a.access.key: AKIAVCPUOMTADCOOWIQO
+        fs.s3a.secret.key: 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
 
 auth:
     ssh_user: ubuntu

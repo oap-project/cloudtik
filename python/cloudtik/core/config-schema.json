@@ -164,6 +164,25 @@
                             "description": "Oauth token or JSON string constituting service account credentials"
                         }
                     }
+                },
+                "aws_s3a_storage": {
+                    "type": "object",
+                    "description": "use  s3a",
+                    "additionalProperties": false,
+                    "properties": {
+                      "bucket": {
+                        "type": "string",
+                        "description": "the bucket name"
+                      },
+                      "fs.s3a.access.key": {
+                        "type": "string",
+                        "description": "access key of s3a"
+                      },
+                      "fs.s3a.secret.key": {
+                        "type": "string",
+                        "description": "secret key of s3a"
+                      }
+                    }
                 }
             }
         },

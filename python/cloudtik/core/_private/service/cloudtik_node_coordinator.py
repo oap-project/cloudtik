@@ -9,11 +9,12 @@ import traceback
 import threading
 from multiprocessing.synchronize import Event
 from typing import Optional
+import json
 
 import cloudtik
 from cloudtik.core._private import constants, services
 from cloudtik.core._private.logging_utils import setup_component_logger
-from cloudtik.core._private.state.control_state import  ControlState
+from cloudtik.core._private.state.control_state import ControlState
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +49,9 @@ class NodeCoordinator:
         # Can be used to signal graceful exit from coordinator loop.
         self.stop_event = stop_event  # type: Optional[Event]
 
+        self.control_state = ControlState()
+        self.control_state.initialize_control_state(ip, port, redis_password)
+        self.node_table = self.control_state.get_node_table()
         logger.info("Coordinator: Started")
 
     def _run(self):
@@ -85,16 +89,15 @@ class NodeCoordinator:
             now = time.time()
             node_info = self.node_resource_dict.copy()
             node_info.update({"last_heartbeat_time": now})
-            #TODO
+            as_json = json.dumps(node_info)
+            self.node_table.put("worker", as_json)
             pass
-
-
 
     def _parse_resource_list(self):
         node_resource_dict = {}
         resource_split = self.static_resource_list.split(",")
-        for i in range(len(resource_split / 2)):
-            node_resource_dict[resource_split[2 * i]] =  float(resource_split[2 * i + 1])
+        for i in range(int(len(resource_split) / 2)):
+            node_resource_dict[resource_split[2 * i]] = float(resource_split[2 * i + 1])
         return node_resource_dict
 
     def run(self):

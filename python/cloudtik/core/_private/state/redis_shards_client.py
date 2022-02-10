@@ -15,7 +15,7 @@ def generate_redis_key(table_name, key):
     return table_name + TABLE_SEPERATOR + key
 
 
-def hash_redis_key(self, redis_key):
+def hash_redis_key(redis_key):
     return hash(redis_key)
 
 
@@ -35,7 +35,7 @@ class RedisShard:
             host=redis_address, port=redis_port, password=redis_password)
 
     def put(self, key, value):
-        self._redis_client.set(key, value)
+        self._redis_client.set(key, value.encode())
 
     def get(self, key):
         return self._redis_client.get(key)
@@ -71,7 +71,7 @@ def get_redis_shards_addresses(primary_shard: RedisShard):
 
     # Parse the redis shard address
     for element in elements:
-        redis_address, redis_port = element.split(":")
+        redis_address, redis_port = element.decode().split(":")
         redis_addresses.append(redis_address)
         redis_ports.append(redis_port)
 
@@ -85,7 +85,7 @@ class RedisShardsClient:
         self._redis_password = redis_password
         self._is_connected = False
         self._primary_shard = None
-        self._redis_shards = None
+        self._redis_shards = {}
         self._shards_count = 0
 
     def get_primary_shard(self):
@@ -106,18 +106,19 @@ class RedisShardsClient:
         self._primary_shard.connect(self._redis_address,
                                     self._redis_port,
                                     self._redis_password)
-
+        self._redis_shards[0] = self._primary_shard
         # get redis shards and connect redis shards
         shard_addresses, shard_ports = get_redis_shards_addresses(
             self._primary_shard)
         if not shard_addresses:
             shard_addresses.append(self._redis_address)
             shard_ports.append(self._redis_port)
-
+        shard_index = 1
         for shard_address, shard_port in zip(shard_addresses, shard_ports):
-            redis_shard = RedisShard
+            redis_shard = RedisShard()
             redis_shard.connect(shard_address, shard_port, self._redis_password)
-            self._redis_shards.append(redis_shard)
+            self._redis_shards[shard_index] = redis_shard
+            shard_index += 1
 
         self._shards_count = len(self._redis_shards)
         self._is_connected = True

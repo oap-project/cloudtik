@@ -19,7 +19,7 @@ class StoreClient:
     def get(self, table_name, key):
         redis_key = generate_redis_key(table_name, key)
         redis_shard = self._redis_shards_client.get_shard(redis_key)
-        return redis_shard.gut(redis_key)
+        return redis_shard.get(redis_key)
 
     def delete(self, table_name, key):
         redis_key = generate_redis_key(table_name, key)

@@ -26,7 +26,7 @@ class StateTable:
 
 class NodeStateTable(StateTable):
     def __init__(self, store_client: StoreClient):
-        super().__init__(self, "node_table", store_client)
+        super().__init__(store_client, "node_table")
 
 
 class StateTableStore:

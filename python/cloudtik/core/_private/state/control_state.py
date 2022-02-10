@@ -195,7 +195,7 @@ class ControlState:
         # Save args for lazy init of global state. This avoids opening extra
         # gcs connections from each worker until needed.
         self.redis_address = redis_address
-        self.redis_port = redis_port;
+        self.redis_port = redis_port
         self.redis_password = redis_password
 
     def _really_init_global_state(self):
@@ -203,6 +203,11 @@ class ControlState:
                                                            self.redis_port,
                                                            self.redis_password)
         self.control_state_accessor.connect()
+
+    def get_node_table(self):
+        self._check_connected()
+        node_table = self.control_state_accessor.get_node_table()
+        return node_table
 
     def node_table(self):
         """Fetch and parse the node info table.
@@ -212,7 +217,7 @@ class ControlState:
         """
         self._check_connected()
 
-        node_table = self.global_state_accessor.get_node_table()
+        node_table = self.control_state_accessor.get_node_table()
 
         results = []
         for node_info_item in node_table:

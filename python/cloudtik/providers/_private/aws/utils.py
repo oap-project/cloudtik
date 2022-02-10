@@ -133,7 +133,7 @@ def  with_s3_config(cmds, config):
     fs_s3a_secret_key = config.get("provider").get("aws_s3a_storage").get("fs.s3a.secret.key")
     out = []
     for cmd in cmds:
-        out.append("export BUCKET={}; export FS_S3A_ACCESS_KEY=; export FS_S3A_SECRET_KEY=;{}".format(bucket, fs_s3a_access_key, fs_s3a_secret_key,cmd))
+        out.append("export BUCKET={}; export FS_S3A_ACCESS_KEY={}; export FS_S3A_SECRET_KEY={};{}".format(bucket, fs_s3a_access_key, fs_s3a_secret_key,cmd))
     return out
 
 @lru_cache()

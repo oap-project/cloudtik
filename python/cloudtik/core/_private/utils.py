@@ -793,7 +793,7 @@ def with_head_node_ip(cmds, head_ip=None):
         out.append("export CLOUDTIK_HEAD_IP={}; {}".format(head_ip, cmd))
     return out
 
-def with_provider_specific_config(cmds, config, head_ip=None):
+def with_provider_specific_config(config, cmds, head_ip=None):
     out_cmds = cmds
     if config.get("provider").get("type") == "aws":
         out_cmds = with_s3_config(cmds, config)

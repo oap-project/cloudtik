@@ -25,7 +25,6 @@ from cloudtik.core._private.cluster.load_metrics import LoadMetricsSummary
 from cloudtik.providers._private.local.config import prepare_local
 from cloudtik.core._private.providers import _get_default_config
 from cloudtik.core._private.docker import validate_docker_config
-from cloudtik.providers._private.aws.utils import with_s3_config
 
 # Import psutil after others so the packaged version is used.
 import psutil
@@ -796,8 +795,13 @@ def with_head_node_ip(cmds, head_ip=None):
 def with_provider_specific_config(config, cmds, head_ip=None):
     out_cmds = cmds
     if config.get("provider").get("type") == "aws":
+        from cloudtik.providers._private.aws.utils import with_s3_config
         out_cmds = with_s3_config(cmds, config)
+    elif config.get("provider").get("type") == "gcp":
+        from cloudtik.providers._private.gcp.utils import with_gcs_config
+        out_cmds = with_gcs_config(cmds, config)
     return with_head_node_ip(out_cmds, head_ip)
+
 
 def hash_launch_conf(node_conf, auth):
     hasher = hashlib.sha1()

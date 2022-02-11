@@ -44,7 +44,18 @@ for
 #### Configure for AWS
 Please follow the instructions described in [the AWS docs](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html) for configuring AWS credentials needed to acccess AWS.
 
-### 4. Use CloudTik to manage Spark clusters
+#### Configure for GCP
+
+Set the `GOOGLE_APPLICATION_CREDENTIALS` environment variable as described in [the GCP docs](https://cloud.google.com/docs/authentication/getting-started).
+
+### 4. Configure Cloud Storage Bucket on Cloud Providers
+
+#### Configure GCS Bucket
+
+If you do not already have a GCS bucket, create one and configure its permission for your service account.
+More details, please refer to configure [gcs bucket guide](./doc/Configure-GCS-Bucket.md).
+
+### 5. Use CloudTik to manage Spark clusters
 ```
 cloudtik up ./example/aws/example-minimal.yaml -y   # Create or up a  cluster.
 cloudtik get-head-ip ./example/aws/example-minimal.yaml    # Get the ip of head node.

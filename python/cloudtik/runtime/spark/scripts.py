@@ -7,8 +7,6 @@ from cloudtik.core._private import logging_utils
 
 from cloudtik.core._private.cli_logger import (cli_logger)
 
-
-
 CLOUDTIK_RUNTIME_PATH = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 
 CLOUDTIK_RUNTIME_SCRIPTS_PATH = os.path.join(
@@ -38,11 +36,13 @@ def cli(logging_level, logging_format):
     logging_utils.setup_logger(level, logging_format)
     cli_logger.set_format(format_tmpl=logging_format)
 
+
 @click.command()
 def install():
     install_script_path = os.path.join(CLOUDTIK_RUNTIME_SCRIPTS_PATH, "install.sh")
     os.system("bash {}".format(install_script_path))
-    
+
+
 @click.command()
 @click.option(
     '--provider',
@@ -73,26 +73,65 @@ def install():
     type=str,
     default="",
     help="the secret key of s3a")
-def configure(provider, master, aws_s3a_bucket, s3a_access_key, s3a_secret_key):
+@click.option(
+    '--project_id',
+    required=False,
+    type=str,
+    default="",
+    help="gcp project id")
+@click.option(
+    '--gcp_gcs_bucket',
+    required=False,
+    type=str,
+    default="",
+    help="gcp cloud storage bucket name")
+@click.option(
+    '--fs_gs_auth_service_account_email',
+    required=False,
+    type=str,
+    default="",
+    help="google service account email")
+@click.option(
+    '--fs_gs_auth_service_account_private_key_id',
+    required=False,
+    type=str,
+    default="",
+    help="google service account private key id")
+@click.option(
+    '--fs_gs_auth_service_account_private_key',
+    required=False,
+    type=str,
+    default="",
+    help="google service account private key")
+def configure(provider, master, aws_s3a_bucket, s3a_access_key, s3a_secret_key, project_id, gcp_gcs_bucket,
+              fs_gs_auth_service_account_email, fs_gs_auth_service_account_private_key_id,
+              fs_gs_auth_service_account_private_key):
     shell_path = os.path.join(CLOUDTIK_RUNTIME_SCRIPTS_PATH, "configure.sh")
     os.system("bash {} -p {} --head_address={} --aws_s3a_bucket={} --s3a_access_key={} --s3a_secret_key={}".format(
-        shell_path, provider, master, aws_s3a_bucket, s3a_access_key, s3a_secret_key))
+        shell_path, provider, master, aws_s3a_bucket, s3a_access_key, s3a_secret_key, project_id, gcp_gcs_bucket,
+        fs_gs_auth_service_account_email, fs_gs_auth_service_account_private_key_id,
+        fs_gs_auth_service_account_private_key))
+
 
 @click.command()
 def start_head():
     os.system("bash {} start-head".format(SPARK_SERVICES_SCRIPT_PATH))
 
+
 @click.command()
 def start_worker():
     os.system("bash {} start-worker".format(SPARK_SERVICES_SCRIPT_PATH))
+
 
 @click.command()
 def stop_head():
     os.system("bash {} stop-head".format(SPARK_SERVICES_SCRIPT_PATH))
 
+
 @click.command()
 def stop_worker():
     os.system("bash {} stop-worker".format(SPARK_SERVICES_SCRIPT_PATH))
+
 
 @click.command()
 def start_jupyter():
@@ -102,7 +141,6 @@ def start_jupyter():
           " add it to the Link: http://external_ip:8888/lab?<token> , then copy this link to a browser to use JupyterLab. "
           + "\n\tKernels like Spark are ready to be used, you can choose kernels like "
           + "Python 3 (for PySpark), Spark-Scala or spylon-kernel (for Scala Spark) to run Spark.")
-
 
 
 cli.add_command(install)

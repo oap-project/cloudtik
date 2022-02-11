@@ -144,7 +144,7 @@ setup_commands:
 
 # Custom commands that will be run on the head node after common setup.
 head_setup_commands:
-    - cloudtik-spark configure --provider=gcp
+    - cloudtik-spark configure --provider=gcp --project_id=$PROJECT_ID  --gcp_gcs_bucket=$GCP_GCS_BUCKET --fs_gs_auth_service_account_email=$FS_GS_AUTH_SERVICE_ACCOUNT_EMAIL --fs_gs_auth_service_account_private_key_id=$FS_GS_AUTH_SERVICE_ACCOUNT_PRIVATE_KEY_ID --fs_gs_auth_service_account_private_key=$FS_GS_AUTH_SERVICE_ACCOUNT_PRIVATE_KEY
 
 # Custom commands that will be run on worker nodes after common setup.
 worker_setup_commands: []
@@ -168,6 +168,6 @@ worker_start_commands:
       ulimit -n 65536;
       cloudtik start
       --address=$CLOUDTIK_HEAD_IP:6379
-    - cloudtik-spark configure --provider=gcp--master=$CLOUDTIK_HEAD_IP
+    - cloudtik-spark configure --provider=gcp--master=$CLOUDTIK_HEAD_IP --project_id=$PROJECT_ID  --gcp_gcs_bucket=$GCP_GCS_BUCKET --fs_gs_auth_service_account_email=$FS_GS_AUTH_SERVICE_ACCOUNT_EMAIL --fs_gs_auth_service_account_private_key_id=$FS_GS_AUTH_SERVICE_ACCOUNT_PRIVATE_KEY_ID --fs_gs_auth_service_account_private_key=$FS_GS_AUTH_SERVICE_ACCOUNT_PRIVATE_KEY
     - cloudtik-spark stop-worker
     - cloudtik-spark start-worker

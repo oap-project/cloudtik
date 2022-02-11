@@ -165,6 +165,29 @@
                         }
                     }
                 },
+                "gcp_cloud_storage": {
+                    "type": "object",
+                    "description": "use google cloud storage",
+                    "additionalProperties": false,
+                    "properties": {
+                        "gcp.gcs.bucket": {
+                            "type": "string",
+                            "description": "gcp cloud storage bucket name"
+                        },
+                        "fs.gs.auth.service.account.email": {
+                            "type": "string",
+                            "description": "gcp service account email"
+                        },
+                        "fs.gs.auth.service.account.private.key.id": {
+                            "type": "string",
+                            "description": "gcp service account private key id"
+                        },
+                        "fs.gs.auth.service.account.private.key": {
+                            "type": "string",
+                            "description": "gcp service account private key"
+                        }
+                    }
+                },
                 "aws_s3a_storage": {
                     "type": "object",
                     "description": "use  s3a",

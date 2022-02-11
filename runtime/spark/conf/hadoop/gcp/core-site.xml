@@ -17,47 +17,50 @@
 <!-- Put site-specific property overrides in this file. -->
 
 <configuration>
-	<property>
-        <name>fs.s3a.aws.credentials.provider</name>
-        <value>org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider,com.amazonaws.auth.EnvironmentVariableCredentialsProvider,com.amazonaws.auth.InstanceProfileCredentialsProvider</value>
+    <property>
+      <name>fs.defaultFS</name>
+      <value>gs://{%gcp.gcs.bucket%}</value>
     </property>
     <property>
-        <name>fs.default.name</name>
-        <value>s3a://cloudtik-bucket-bpe</value>
-    </property>
-
-    <property>
-        <name>fs.s3a.endpoint</name>
-        <value>s3.us-west-2.amazonaws.com</value>
-    </property>
-
-    <property>
-        <name>fs.s3a.path.style.access</name>
-        <value>true</value>
+      <name>fs.AbstractFileSystem.gs.impl</name>
+      <value>com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS</value>
+      <description>The AbstractFileSystem for 'gs:' URIs.</description>
     </property>
     <property>
-        <name>fs.s3a.impl</name>
-        <value>org.apache.hadoop.fs.s3a.S3AFileSystem</value>
+      <name>fs.gs.project.id</name>
+      <value>{%project_id%}</value>
+      <description>
+        Optional. Google Cloud Project ID with access to GCS buckets.
+        Required only for list buckets and create bucket operations.
+      </description>
     </property>
     <property>
-        <name>fs.s3a.access.key</name>
-        <value>AKIAVCPUOMTADCOOWIQO</value>
+      <name>google.cloud.auth.service.account.enable</name>
+      <value>true</value>
+      <description>
+        Whether to use a service account for GCS authorization.
+        Setting this property to `false` will disable use of service accounts for
+        authentication.
+      </description>
     </property>
     <property>
-        <name>fs.s3a.secret.key</name>
-        <value>pvXLgsO9iZJz0QB/wSlrcljSHIf8N4INZbgrte1V</value>
+      <name>fs.gs.auth.service.account.email</name>
+      <value>{%fs.gs.auth.service.account.email%}</value>
     </property>
     <property>
-        <name>hadoop.proxyuser.root.groups</name>
-        <value>*</value>
+      <name>fs.gs.auth.service.account.private.key.id</name>
+      <value>{%fs.gs.auth.service.account.private.key.id%}</value>
     </property>
-	<property>
-        <name>hadoop.proxyuser.root.hosts</name>
-        <value>*</value>
-    </property>
-
     <property>
-        <name>io.file.buffer.size</name>
-        <value>131072</value>
+      <name>fs.gs.auth.service.account.private.key</name>
+      <value>{%fs.gs.auth.service.account.private.key%}</value>>
+    </property>
+    <property>
+      <name>fs.gs.reported.permissions</name>
+      <value>777</value>
+    </property>
+    <property>
+      <name>fs.gs.working.dir</name>
+      <value>/</value>
     </property>
 </configuration>

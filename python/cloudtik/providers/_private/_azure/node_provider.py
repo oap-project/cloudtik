@@ -65,6 +65,9 @@ class AzureNodeProvider(NodeProvider):
         # cache node objects
         self.cached_nodes = {}
 
+    def with_provider_environment_variables(self):
+        return {}
+
     @synchronized
     def _get_filtered_nodes(self, tag_filters):
         def match_tags(vm):

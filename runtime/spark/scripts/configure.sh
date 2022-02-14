@@ -170,7 +170,7 @@ function prepare_spark_jars() {
 
 function set_hadoop_classpath() {
     #Add share/hadoop/tools/lib/* into classpath
-    echo "export set_hadoop_classpath=\$set_hadoop_classpath:\$HADOOP_HOME/share/hadoop/tools/lib/*" >> ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh
+    echo "export HADOOP_CLASSPATH=$HADOOP_CLASSPATH:\$HADOOP_HOME/share/hadoop/tools/lib/*" >> ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh
 }
 
 

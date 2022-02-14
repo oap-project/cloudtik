@@ -421,9 +421,10 @@ class NodeUpdater:
                                     cmd_to_print,
                                     _numbered=("()", i, total))
 
+                                provider_config = self.provider.with_provider_environment_variables()
                                 try:
                                     # Runs in the container if docker is in use
-                                    self.cmd_executor.run(cmd, run_env="auto")
+                                    self.cmd_executor.run(cmd, environment_variables=provider_config, run_env="auto")
                                 except ProcessRunnerError as e:
                                     if e.msg_type == "ssh_command_failed":
                                         cli_logger.error("Failed.")

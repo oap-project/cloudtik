@@ -114,6 +114,13 @@ class AWSNodeProvider(NodeProvider):
         # excessive DescribeInstances requests.
         self.cached_nodes = {}
 
+    def with_provider_environment_variables(self):
+        dict = {}
+        dict["AWS_S3A_BUCKET"] = self.provider_config.get("aws_s3a_storage", {}).get("bucket")
+        dict["FS_S3A_ACCESS_KEY"] = self.provider_config.get("aws_s3a_storage", {}).get("fs.s3a.access.key")
+        dict["FS_S3A_SECRET_KEY"] = self.provider_config.get("aws_s3a_storage", {}).get("fs.s3a.secret.key")
+        return dict
+
     def non_terminated_nodes(self, tag_filters):
         # Note that these filters are acceptable because they are set on
         #       node initialization, and so can never be sitting in the cache.

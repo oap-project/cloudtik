@@ -33,6 +33,10 @@ class NodeProvider:
         self._internal_ip_cache: Dict[str, str] = {}
         self._external_ip_cache: Dict[str, str] = {}
 
+    def with_provider_environment_variables(self):
+        """Export necessary envrionment variables for head node"""
+        raise NotImplementedError
+
     def non_terminated_nodes(self, tag_filters: Dict[str, str]) -> List[str]:
         """Return a list of node ids filtered by the specified tags dict.
 

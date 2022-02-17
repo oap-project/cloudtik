@@ -3,6 +3,7 @@ import logging
 from pathlib import Path
 from threading import RLock
 from uuid import uuid4
+from typing import Any, Dict, List
 
 from azure.identity import DefaultAzureCredential
 from azure.mgmt.compute import ComputeManagementClient
@@ -303,3 +304,13 @@ class AzureNodeProvider(NodeProvider):
     @staticmethod
     def bootstrap_config(cluster_config):
         return bootstrap_azure(cluster_config)
+
+    @staticmethod
+    def get_cluster_resources(
+            cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+        # To be done
+        cluster_resource = {}
+        cluster_resource["head_memory"] = 512
+        cluster_resource["worker_memory"] = 512
+        cluster_resource["worker_cpu"] = 1
+        return cluster_resource

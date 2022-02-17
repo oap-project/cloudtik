@@ -1,3 +1,4 @@
+import copy
 import logging
 from types import ModuleType
 from typing import Any, Dict, List, Optional
@@ -224,6 +225,12 @@ class NodeProvider:
 
     @staticmethod
     def fillout_available_node_types_resources(
+            cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Fills out missing "resources" field for available_node_types."""
+        return cluster_config
+
+    @staticmethod
+    def get_cluster_resources(
             cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         """Fills out missing "resources" field for available_node_types."""
         return cluster_config

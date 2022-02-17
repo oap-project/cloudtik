@@ -395,6 +395,25 @@
                 }
             },
             "additionalProperties": false
+        },
+        "spark_executor_resource" : {
+            "type": "object",
+            "description": "The resource of one executor.",
+            "additionalProperties": false,
+            "properties": {
+              "spark_executor_cores": {
+                "type": "integer",
+                "default": 1
+              },
+              "spark_executor_memory": {
+                "type": "integer",
+                "default": 512
+              },
+              "spark_driver_memory": {
+                "type": "integer",
+                "default": 512
+              }
+            }
         }
     }
 }

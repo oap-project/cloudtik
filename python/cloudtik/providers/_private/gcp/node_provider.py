@@ -1,4 +1,5 @@
-from typing import Dict
+import copy
+from typing import Any, Dict, List
 from functools import wraps
 from threading import RLock
 import time
@@ -197,3 +198,38 @@ class GCPNodeProvider(NodeProvider):
     @staticmethod
     def bootstrap_config(cluster_config):
         return bootstrap_gcp(cluster_config)
+
+    @staticmethod
+    def get_cluster_resources(
+            cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Fills out spark executor resource for available_node_types."""
+        if "available_node_types" not in cluster_config:
+            return cluster_config
+
+        _, _, compute, tpu = construct_clients_from_provider_config(
+            cluster_config)
+
+        response = compute.machineTypes().list(
+            project=cluster_config["provider"]["project_id"],
+            zone=cluster_config["provider"]["availability_zone"],
+        ).execute()
+
+        instances_list = response.get("items", [])
+        instances_dict = {
+            instance["name"]: instance
+            for instance in instances_list
+        }
+        available_node_types = cluster_config["available_node_types"]
+        head_node_type = cluster_config["head_node_type"]
+        cluster_resource = {}
+        for node_type in available_node_types:
+            instance_type = available_node_types[node_type]["node_config"][
+                "machineType"]
+            if instance_type in instances_dict:
+                memory_total = instances_dict[instance_type]["memoryMb"]
+                if node_type != head_node_type:
+                    cluster_resource["worker_memory"] = memory_total
+                    cluster_resource["worker_cpu"] = instances_dict[instance_type]["guestCpus"]
+                else:
+                    cluster_resource["head_memory"] = memory_total
+        return cluster_resource

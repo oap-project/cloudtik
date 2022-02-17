@@ -610,3 +610,35 @@ class AWSNodeProvider(NodeProvider):
                                  " is not available in AWS region: " +
                                  cluster_config["provider"]["region"] + ".")
         return cluster_config
+
+    @staticmethod
+    def get_cluster_resources(
+            cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Fills out spark executor resource for available_node_types."""
+        if "available_node_types" not in cluster_config:
+            return cluster_config
+
+        instances_list = list_ec2_instances(
+            cluster_config["provider"]["region"],
+            cluster_config["provider"].get("aws_credentials"))
+        instances_dict = {
+            instance["InstanceType"]: instance
+            for instance in instances_list
+        }
+        available_node_types = cluster_config["available_node_types"]
+        head_node_type = cluster_config["head_node_type"]
+        cluster_resource = {}
+        for node_type in available_node_types:
+            instance_type = available_node_types[node_type]["node_config"][
+                "InstanceType"]
+            if instance_type in instances_dict:
+                memory_total = instances_dict[instance_type]["MemoryInfo"][
+                    "SizeInMiB"]
+                if node_type != head_node_type:
+                    cluster_resource["worker_memory"] = memory_total
+                    cluster_resource["worker_cpu"] = instances_dict[instance_type]["VCpuInfo"][
+                        "DefaultVCpus"]
+                else:
+                    cluster_resource["head_memory"] = memory_total
+
+        return cluster_resource

@@ -101,18 +101,10 @@ function caculate_worker_resources() {
 function set_resources_for_spark() {
     #For Head Node
     if [ $Is_head_node == "true" ];then
-        memory_resource_Bytes=$(cat ~/cloudtik_bootstrap_config.yaml | jq '."available_node_types"."worker.default"."resources"."memory"' | sed 's/\"//g')
-        CPU_resource=$(cat ~/cloudtik_bootstrap_config.yaml | jq '."available_node_types"."worker.default"."resources"."CPU"' | sed 's/\"//g')
-        memory_resource_MB=`expr $memory_resource_Bytes / 1048576`
-        if [ "$CPU_resource" -lt 4 ]; then
-          spark_executor_cores=$CPU_resource
-          spark_executor_memory=${memory_resource_MB}M
-        else
-          spark_executor_cores=4
-          spark_executor_memory=8096M
-        fi
-        spark_driver_memory=2048M
-      fi
+        spark_executor_cores=$(cat ~/cloudtik_bootstrap_config.yaml | jq '."spark_executor_resource"."spark_executor_cores"')
+        spark_executor_memory=$(cat ~/cloudtik_bootstrap_config.yaml | jq '."spark_executor_resource"."spark_executor_memory"')M
+        spark_driver_memory=$(cat ~/cloudtik_bootstrap_config.yaml | jq '."spark_executor_resource"."spark_driver_memory"')M
+    fi
 }
 
 

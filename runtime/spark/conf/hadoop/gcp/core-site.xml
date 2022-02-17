@@ -53,7 +53,7 @@
     </property>
     <property>
       <name>fs.gs.auth.service.account.private.key</name>
-      <value>{%fs.gs.auth.service.account.private.key%}</value>>
+      <value>{%fs.gs.auth.service.account.private.key%}</value>
     </property>
     <property>
       <name>fs.gs.reported.permissions</name>

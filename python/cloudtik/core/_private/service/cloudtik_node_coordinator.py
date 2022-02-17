@@ -89,15 +89,19 @@ class NodeCoordinator:
             now = time.time()
             node_info = self.node_resource_dict.copy()
             node_info.update({"last_heartbeat_time": now})
+            node_name = node_info.pop("node_name")
             as_json = json.dumps(node_info)
-            self.node_table.put("worker", as_json)
+            self.node_table.put(node_name, as_json)
             pass
 
     def _parse_resource_list(self):
         node_resource_dict = {}
         resource_split = self.static_resource_list.split(",")
         for i in range(int(len(resource_split) / 2)):
-            node_resource_dict[resource_split[2 * i]] = float(resource_split[2 * i + 1])
+            if "node" in resource_split[2 * i]:
+                node_resource_dict["node_name"] = resource_split[2 * i].split(":")[1].replace(".", "_")
+            else:
+                node_resource_dict[resource_split[2 * i]] = float(resource_split[2 * i + 1])
         return node_resource_dict
 
     def run(self):

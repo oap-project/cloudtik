@@ -29,7 +29,7 @@ class RedisShardsScanner:
     def scan_keys(self, match_pattern, keys_callback):
         batch_size = SCAN_BATCH_SIZE
         shard_size = self._redis_shards_client.get_shards_size()
-        for shard_index in range(len(shard_size)):
+        for shard_index in range(shard_size):
             # Scan by prefix from Redis.
             shard_context = self._redis_shards_client.get_shard_by_index(shard_index)
             new_cursor, keys = shard_context.scan(0, match_pattern, batch_size)

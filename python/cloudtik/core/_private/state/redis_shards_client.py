@@ -1,5 +1,6 @@
 import logging
 import redis
+import hashlib
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +17,12 @@ def generate_redis_key(table_name, key):
 
 
 def hash_redis_key(redis_key):
-    return hash(redis_key)
+    md5 = hashlib.md5()
+    if isinstance(redis_key, bytes):
+        md5.update(redis_key)
+    else:
+        md5.update(redis_key.encode('utf-8'))
+    return int(md5.hexdigest(), 16)
 
 
 def get_real_key(redis_key, table_name):
@@ -97,6 +103,9 @@ class RedisShardsClient:
 
     def get_shards(self):
         return self._redis_shards
+
+    def get_shards_size(self):
+        return self._shards_count
 
     def get_shard_by_index(self, shard_index):
         return self._redis_shards[shard_index]

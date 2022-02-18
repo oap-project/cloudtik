@@ -27,4 +27,4 @@ provider:
 auth:
     ssh_user: ubuntu
     #Set proxy if you are in company network
-    ssh_proxy_command: "nc -X 5 -x proxy-shz.intel.com:1080 %h %p"
+    ssh_proxy_command: "ncat --proxy-type socks5 --proxy proxy-shz.intel.com:1080 %h %p"

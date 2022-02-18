@@ -17,4 +17,4 @@ provider:
 auth:
   ssh_user: ubuntu
   #According to the network of working node, the value works well in intel network.
-  ssh_proxy_command: "nc --proxy-type socks5 --proxy proxy-shz.intel.com:1080 %h %p"
+  ssh_proxy_command: "ncat --proxy-type socks5 --proxy proxy-shz.intel.com:1080 %h %p"

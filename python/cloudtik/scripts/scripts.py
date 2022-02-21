@@ -1173,6 +1173,7 @@ add_command_alias(get_head_ip, name="get_head_ip", hidden=True)
 cli.add_command(get_worker_ips)
 cli.add_command(status)
 cli.add_command(cluster_dump)
+cli.add_command(local_dump)
 
 
 def main():

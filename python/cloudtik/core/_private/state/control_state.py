@@ -233,21 +233,31 @@ class ResourceUsageBatch:
         self.batch = []
         self.resource_demands = []
 
+    def set_batch(self, batch):
+        self.batch = batch
+
+
 
 class ResourceInfoClient:
     """Client to read resource information from Redis"""
 
     def __init__(self,
-                 state_client,
+                 state_client: ControlState,
                  nums_reconnect_retry: int = 5):
         self._state_client = state_client
         self._nums_reconnect_retry = nums_reconnect_retry
 
     def get_cluster_resource_usage(self, timeout: int = 60):
-        resources_usage_batch = ResourceUsageBatch
+
+        node_table = self._state_client.get_node_table()
         # TODO (haifeng): implement the resource usage metrics of cluster
+        resources_usage_batch = ResourceUsageBatch()
+        batch = []
+        for node_info in node_table.get_all().values():
+            batch.append(eval(node_info))
+        resources_usage_batch.set_batch(batch)
         return resources_usage_batch
 
     @staticmethod
-    def create_from_state_client(state_cli):
-        return ResourceInfoClient(state_client=state_cli)
+    def create_from_control_state(control_state):
+        return ResourceInfoClient(state_client=control_state)

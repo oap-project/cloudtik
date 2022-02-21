@@ -96,6 +96,7 @@ class LoadMetrics:
     def update(self,
                ip: str,
                node_id: bytes,
+               last_heartbeat_time,
                static_resources: Dict[str, Dict],
                dynamic_resources: Dict[str, Dict],
                resource_load: Dict[str, Dict],
@@ -127,14 +128,14 @@ class LoadMetrics:
                 self.static_resources_by_ip[ip] != \
                 self.dynamic_resources_by_ip[ip]:
             self.last_used_time_by_ip[ip] = now
-        self.last_heartbeat_time_by_ip[ip] = now
+        self.last_heartbeat_time_by_ip[ip] = last_heartbeat_time
         self.waiting_bundles = waiting_bundles
         self.infeasible_bundles = infeasible_bundles
 
-    def mark_active(self, ip):
+    def mark_active(self, ip, last_heartbeat_time=time.time()):
         assert ip is not None, "IP should be known at this time"
         logger.debug("Node {} is newly setup, treating as active".format(ip))
-        self.last_heartbeat_time_by_ip[ip] = time.time()
+        self.last_heartbeat_time_by_ip[ip] = last_heartbeat_time
 
     def is_active(self, ip):
         return ip in self.last_heartbeat_time_by_ip

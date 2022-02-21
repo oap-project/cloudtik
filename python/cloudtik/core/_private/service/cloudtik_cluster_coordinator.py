@@ -31,7 +31,8 @@ from cloudtik.core._private import constants, services
 from cloudtik.core._private.logging_utils import setup_component_logger
 from cloudtik.core._private.state.kv_store import kv_initialize, \
     kv_put, kv_initialized, kv_get, kv_del
-from cloudtik.core._private.state.control_state import StateClient, ResourceInfoClient
+from cloudtik.core._private.state.control_state import ControlState, ResourceInfoClient
+from cloudtik.core._private.services import validate_redis_address
 
 logger = logging.getLogger(__name__)
 
@@ -82,11 +83,11 @@ class ClusterCoordinator:
             # TODO (haifeng): handle metrics
             self.redis.set(constants.CLOUDTIK_METRIC_ADDRESS_KEY, coordinator_addr)
 
-        state_client = StateClient.create_from_redis(
-            self.redis)
-        self.resource_info_client = ResourceInfoClient.create_from_state_client(state_client)
+        control_state = ControlState()
+        _, redis_ip_address, redis_port = validate_redis_address(redis_address)
+        control_state.initialize_control_state(redis_ip_address, redis_port, redis_password)
 
-        kv_initialize(state_client)
+        self.resource_info_client = ResourceInfoClient.create_from_control_state(control_state)
 
         head_node_ip = redis_address.split(":")[0]
         self.redis_address = redis_address
@@ -142,16 +143,19 @@ class ClusterCoordinator:
 
         cluster_full = False
         for resource_message in resources_usage_batch.batch:
-            node_id = resource_message.node_id
+            node_id = resource_message.get('node_id')
+            last_heartbeat_time = resource_message.get('last_heartbeat_time')
             # Generate node type config based on reported node list.
 
             if (hasattr(resource_message, "cluster_full")
-                    and resource_message.cluster_full):
+                    and resource_message.get('cluster_full')):
                 # Aggregate this flag across all batches.
                 cluster_full = True
-            resource_load = dict(resource_message.resource_load)
-            total_resources = dict(resource_message.resources_total)
-            available_resources = dict(resource_message.resources_available)
+            # FIXME: implement the dynamic adjustment
+            resource_load = {}
+            total_resources = {}
+            available_resources = {}
+
 
             use_node_id_as_ip = (self.cluster_scaler is not None
                                  and self.cluster_scaler.config["provider"].get(
@@ -168,8 +172,8 @@ class ClusterCoordinator:
             if use_node_id_as_ip:
                 ip = node_id.hex()
             else:
-                ip = resource_message.node_manager_address
-            self.load_metrics.update(ip, node_id, total_resources,
+                ip = resource_message.get("ip")
+            self.load_metrics.update(ip, node_id, last_heartbeat_time, total_resources,
                                      available_resources, resource_load,
                                      waiting_bundles, infeasible_bundles,
                                      cluster_full)
@@ -191,7 +195,7 @@ class ClusterCoordinator:
         while True:
             if self.stop_event and self.stop_event.is_set():
                 break
-            # self.update_load_metrics()
+            self.update_load_metrics()
             # self.update_resource_requests()
             # self.update_event_summary()
             status = {

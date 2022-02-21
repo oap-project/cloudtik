@@ -1,7 +1,7 @@
 #!/bin/bash
 
 echo original parameters=[$@]
-args=`getopt -a -o h::p: -l head_address::,provider:,aws_s3a_bucket::,s3a_access_key::,s3a_secret_key::,project_id::,gcp_gcs_bucket::,fs_gs_auth_service_account_email::,fs_gs_auth_service_account_private_key_id::,fs_gs_auth_service_account_private_key:: -- "$@"`
+args=$(getopt -a -o h::p: -l head_address::,provider:,aws_s3a_bucket::,s3a_access_key::,s3a_secret_key::,project_id::,gcp_gcs_bucket::,fs_gs_auth_service_account_email::,fs_gs_auth_service_account_private_key_id::,fs_gs_auth_service_account_private_key::,azure_storage_account::,azure_container::,fs_azure_account_key_blob_core_windows_net:: -- "$@")
 echo ARGS=[$args]
 eval set -- "${args}"
 echo formatted parameters=[$@]
@@ -47,6 +47,18 @@ do
         ;;
     --fs_gs_auth_service_account_private_key)
         FS_GS_AUTH_SERVICE_ACCOUNT_PRIVATE_KEY=$2
+        shift
+        ;;
+    --azure_storage_account)
+        AZURE_STORAGE_ACCOUNT=$2
+        shift
+        ;;
+    --azure_container)
+        AZURE_CONTAINER=$2
+        shift
+        ;;
+    --fs_azure_account_key_blob_core_windows_net)
+        FS_AZURE_ACCOUNT_KEY_BLOB_CORE_WINDOWS_NET=$2
         shift
         ;;
     --)
@@ -137,6 +149,12 @@ function update_spark_runtime_config() {
       private_key_has_open_quote=${FS_GS_AUTH_SERVICE_ACCOUNT_PRIVATE_KEY%\"}
       private_key=${private_key_has_open_quote#\"}
       sed -i "s#{%fs.gs.auth.service.account.private.key%}#${private_key}#g" `grep "{%fs.gs.auth.service.account.private.key%}" -rl ./`
+    fi
+
+    if [ "$provider" == "azure" ]; then
+      sed -i "s#{%azure.storage.account%}#${AZURE_STORAGE_ACCOUNT}#g" "$(grep "{%azure.storage.account%}" -rl ./)"
+      sed -i "s#{%azure.container%}#${AZURE_CONTAINER}#g" "$(grep "{%azure.container%}" -rl ./)"
+      sed -i "s#{%fs.azure.account.key.blob.core.windows.net}#${FS_AZURE_ACCOUNT_KEY_BLOB_CORE_WINDOWS_NET}#g" "$(grep "{%fs.azure.account.key.blob.core.windows.net}" -rl ./)"
     fi
 
     cp -r ${output_dir}/hadoop/${provider}/core-site.xml  ${HADOOP_HOME}/etc/hadoop/

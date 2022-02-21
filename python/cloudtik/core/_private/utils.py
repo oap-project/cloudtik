@@ -810,6 +810,9 @@ def with_provider_specific_config(config, cmds, head_ip=None):
     if config.get("provider").get("type") == "aws":
         from cloudtik.providers._private.aws.utils import with_s3_config
         out_cmds = with_s3_config(cmds, config)
+    elif config.get("provider").get("type") == "azure":
+        from cloudtik.providers._private._azure.utils import with_azure_config
+        out_cmds = with_azure_config(cmds, config)
     elif config.get("provider").get("type") == "gcp":
         from cloudtik.providers._private.gcp.utils import with_gcs_config
         out_cmds = with_gcs_config(cmds, config)

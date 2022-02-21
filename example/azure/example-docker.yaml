@@ -1,0 +1,28 @@
+# A unique identifier for the head node and workers of this cluster.
+cluster_name: minimal-docker
+
+# The maximum number of workers nodes to launch in addition to the head
+# node.
+max_workers: 2
+
+docker:
+    image: "yao920910/spark:v1"
+    container_name: "cloudtik_container"
+
+
+# Cloud-provider specific configuration.
+provider:
+    type: azure
+    region: westus2
+    resource_group: azure-cluster
+    azure_blob_storage:
+        azure.storage.account: cloudtik-dev
+        azure.container: container-cloudtik-dev
+        fs.azure.account.key.blob.core.windows.net:
+
+
+# How CloudTik will authenticate with newly launched nodes.
+auth:
+    ssh_user: ubuntu
+    #Set proxy if you are in company network
+    ssh_proxy_command: "ncat --proxy-type socks5 --proxy proxy-shz.intel.com:1080 %h %p"

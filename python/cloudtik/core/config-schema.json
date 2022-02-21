@@ -188,6 +188,25 @@
                         }
                     }
                 },
+                "azure_blob_storage": {
+                    "type": "object",
+                    "description": "use azure blob storage",
+                    "additionalProperties": false,
+                    "properties": {
+                      "azure.storage.account": {
+                        "type": "string",
+                        "description": "azure blob storage account name"
+                      },
+                      "azure.container": {
+                        "type": "string",
+                        "description": "azure container name"
+                      },
+                      "fs.azure.account.key.blob.core.windows.net": {
+                        "type": "string",
+                        "description": "azure access key"
+                      }
+                    }
+                },
                 "aws_s3a_storage": {
                     "type": "object",
                     "description": "use  s3a",

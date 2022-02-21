@@ -15,7 +15,7 @@ from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_NAME
 
 from cloudtik.providers._private._azure.config import (bootstrap_azure,
-                                                   get_azure_sdk_function)
+                                                       get_azure_sdk_function)
 
 VM_NAME_MAX_LEN = 64
 VM_NAME_UUID_LEN = 8
@@ -67,7 +67,13 @@ class AzureNodeProvider(NodeProvider):
         self.cached_nodes = {}
 
     def with_provider_environment_variables(self):
-        return {}
+        config_dict = {
+            "AZURE_STORAGE_ACCOUNT": self.provider_config.get("azure_blob_storage", {}).get("azure.storage.account"),
+            "AZURE_CONTAINER": self.provider_config.get("azure_blob_storage", {}).get(
+                "azure.container"),
+            "FS_AZURE_ACCOUNT_KEY_BLOB_CORE_WINDOWS_NET": self.provider_config.get("azure_blob_storage", {}).get(
+                "fs.azure.account.key.blob.core.windows.net")}
+        return config_dict
 
     @synchronized
     def _get_filtered_nodes(self, tag_filters):

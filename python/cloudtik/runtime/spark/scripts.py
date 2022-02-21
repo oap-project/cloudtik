@@ -9,7 +9,6 @@ from cloudtik.core._private.cli_logger import (cli_logger)
 
 from shlex import quote
 
-
 CLOUDTIK_RUNTIME_PATH = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 
 CLOUDTIK_RUNTIME_SCRIPTS_PATH = os.path.join(
@@ -106,16 +105,37 @@ def install():
     type=str,
     default="",
     help="google service account private key")
+@click.option(
+    '--azure_storage_account',
+    required=False,
+    type=str,
+    default="",
+    help="azure storage account")
+@click.option(
+    '--azure_container',
+    required=False,
+    type=str,
+    default="",
+    help="azure storage container")
+@click.option(
+    '--fs_azure_account_key_blob_core_windows_net',
+    required=False,
+    type=str,
+    default="",
+    help="azure blob storage access key")
 def configure(provider, master, aws_s3a_bucket, s3a_access_key, s3a_secret_key, project_id, gcp_gcs_bucket,
               fs_gs_auth_service_account_email, fs_gs_auth_service_account_private_key_id,
-              fs_gs_auth_service_account_private_key):
+              fs_gs_auth_service_account_private_key, azure_storage_account, azure_container,
+              fs_azure_account_key_blob_core_windows_net):
     shell_path = os.path.join(CLOUDTIK_RUNTIME_SCRIPTS_PATH, "configure.sh")
     os.system("bash {} -p {} --head_address={} --aws_s3a_bucket={} --s3a_access_key={} --s3a_secret_key={} "
               "--project_id={} --gcp_gcs_bucket={} --fs_gs_auth_service_account_email={} "
-              "--fs_gs_auth_service_account_private_key_id={} --fs_gs_auth_service_account_private_key={}".format(
-        shell_path, provider, master, aws_s3a_bucket, s3a_access_key, s3a_secret_key, project_id,
-        gcp_gcs_bucket, fs_gs_auth_service_account_email, fs_gs_auth_service_account_private_key_id,
-        quote(fs_gs_auth_service_account_private_key)))
+              "--fs_gs_auth_service_account_private_key_id={} --fs_gs_auth_service_account_private_key={} "
+              "--azure_storage_account={} --azure_container={} --fs_azure_account_key_blob_core_windows_net={}".format(
+                shell_path, provider, master, aws_s3a_bucket, s3a_access_key, s3a_secret_key, project_id, gcp_gcs_bucket,
+                fs_gs_auth_service_account_email, fs_gs_auth_service_account_private_key_id,
+                quote(fs_gs_auth_service_account_private_key), azure_storage_account, azure_container,
+                fs_azure_account_key_blob_core_windows_net))
 
 
 @click.command()

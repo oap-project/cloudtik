@@ -28,7 +28,7 @@ from cloudtik.core._private.constants import \
     CLOUDTIK_RESOURCE_REQUEST_CHANNEL, \
     MAX_PARALLEL_SHUTDOWN_WORKERS
 from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
-    hash_launch_conf, prepare_config, fillout_spark_executor_resources
+    hash_launch_conf, prepare_config
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
 from cloudtik.core.tags import (
@@ -52,6 +52,7 @@ import cloudtik.core._private.subprocess_output_util as cmd_output_util
 from cloudtik.core._private.cluster.load_metrics import LoadMetricsSummary
 from cloudtik.core._private.cluster.cluster_scaler import AutoscalerSummary
 from cloudtik.core._private.utils import format_info_string
+from cloudtik.runtime.spark.utils import config_spark_runtime_resources
 
 logger = logging.getLogger(__name__)
 
@@ -278,7 +279,7 @@ def _bootstrap_config(config: Dict[str, Any],
     try:
         config = provider_cls.fillout_available_node_types_resources(config)
         cluster_resource = provider_cls.get_cluster_resources(config)
-        config = fillout_spark_executor_resources(config, cluster_resource)
+        config = config_spark_runtime_resources(config, cluster_resource)
     except Exception as exc:
         if cli_logger.verbosity > 2:
             logger.exception("Failed to autodetect node resources.")

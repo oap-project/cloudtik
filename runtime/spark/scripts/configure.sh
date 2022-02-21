@@ -157,7 +157,7 @@ function update_spark_runtime_config() {
     fi
 
     if [ "$provider" == "aws" ]; then
-	    update_aws_hadoop_config
+      update_aws_hadoop_config
     fi
 
     if [ "$provider" == "gcp" ]; then

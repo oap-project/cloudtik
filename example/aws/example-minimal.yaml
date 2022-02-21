@@ -1,20 +1,23 @@
-# An unique identifier for the head node and workers of this cluster.
+# A unique identifier for the head node and workers of this cluster.
 cluster_name: minimal
 
 # The maximum number of workers nodes to launch in addition to the head
-# node. This takes precedence over min_workers. min_workers default to 0.
+# node.
 max_workers: 2
 
 # Cloud-provider specific configuration.
 provider:
-  type: aws
-  region: us-west-2
-  # Security group to create with custom in bound rules and name.We provide a secutiy group "cloudtik-mininal" which works for Intel.
-  security_group:
-    GroupName: cloudtik-minimal
+    type: aws
+    region: us-west-2
+    # Security group to create with custom in bound rules and name.
+    security_group:
+        GroupName: cloudtik-minimal
+    aws_s3a_storage:
+        bucket: cloudtik-bucket-bpe
+        fs.s3a.access.key: AKIAVCPUOMTADCOOWIQO
+        fs.s3a.secret.key: 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
 
-# How we will authenticate with newly launched nodes.
 auth:
-  ssh_user: ubuntu
-  #According to the network of working node, the value works well in intel network.
-  ssh_proxy_command: "ncat --proxy-type socks5 --proxy proxy-shz.intel.com:1080 %h %p"
+    ssh_user: ubuntu
+    #Set proxy if you are in company network
+    ssh_proxy_command: "ncat --proxy-type socks5 --proxy proxy-shz.intel.com:1080 %h %p"

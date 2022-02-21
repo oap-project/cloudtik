@@ -1,8 +1,8 @@
 # A unique identifier for the head node and workers of this cluster.
 cluster_name: minimal
 
-# The maximum number of worker nodes to launch in addition to the head
-# node. min_workers default to 0.
+# The maximum number of workers nodes to launch in addition to the head
+# node.
 max_workers: 2
 
 # Cloud-provider specific configuration.
@@ -10,9 +10,16 @@ provider:
     type: gcp
     region: us-central1
     availability_zone: us-central1-a
-    project_id: mlp-das-bdf-oap-11228062 # Globally unique project id
+    project_id: mlp-das-bdf-oap-11228062
+    gcp_cloud_storage:
+        gcp.gcs.bucket: cloudtik-dev
+        fs.gs.auth.service.account.email: cloudtikgcp@mlp-das-bdf-oap-11228062.iam.gserviceaccount.com
+        fs.gs.auth.service.account.private.key.id: a513449d6a03ef256f66a28c4600cbb10b6023c6
+        fs.gs.auth.service.account.private.key: -----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC0nNVAz8uR8KHd\nhf6LR/ZPaaArszekGuY8HyaRORJZ0ilD+5heRuKwe3nwWqKWmxcy/JG5uXSV+J2f\nMnGU243RaCuaLCAm0kzRzevtcPbpv5BWTlDktKpGjOpG5BlYg8SONV3Y1EhDR91I\nfT+EHkJGOsi/W7oEZrf5MH6APk5pMlBHF0N0I4aQtcfy9Ua+JyMVSU+yCV/i3xyt\nD/Vs0ZW/aZ5PXz914bo30uy6uETl+0QO5gifDD/3xucAwKsvXA/+vJ6bijVxhfej\nhHYv3yBkh6t2wb4ljGM99AS/XbflYj02vanF9JgacvjcywDu/OtDqq5N9BrdfSwt\nYyLk2T2NAgMBAAECggEAA9E+xqBoYTzF8bctIpzSQr/CRWTZJmGf1SHOwF9a7nAS\niYp4oCF9FWrUBcr8nb9IaxOght2PGRkInSlFR6FTqts59LJoZDmqAFM1tdk0jCCN\nje1uKJn9nAEgIIBzXVtnnPPZeHBALhUyQvUhZwr2rqJRGjj3l7Pja+O6VhPlt15y\nQ7PXebQuWXg29refpQrep3wnWLX75a7GT4CS7e1FYe2SVrZcwFvp/b9ksYPc35lp\n64LXA1xD5YYQrZOyHa4liFC3WfWxBOLeFb0Jo9bRbYIFhVLeEw+JnQpsjQ9sny5x\n5wmmum2h9BzDNvNUgoIVSP5QbLP2MfGVEHst2hQWZwKBgQDjVm1WJwD0kYXvSYZD\nroW0dqk2GGVOHAts9NihL/gq90u+nUummVOXiX8omrR1MyMmp2NAvKVXpC4HTg8i\nWQ9G5mL5m8QErI+gPsk2TjklPCtZyazUceLaiDjDEtjJdLOWA4O0LXW2WMxedGEI\nlU1OKiqi1lVshA6oY9SaNoGvCwKBgQDLYk45xo+CUj/gQHkkBRfsiVh0H4Jh3QD3\np2tWHdMrKx/jZqph3m804t3tK8VlKNt4Ai8d2RwaLFyeF9dylvukocannZk5Apac\nxaT4kMTD3lIWWSJ0O/FdO6du/MO0Q/HRZx5nTdM9t+h1zkzuPwZMqPXJi/CStMWH\nz4yQBqoExwKBgCbGVPu+x1DviTKZDcd5euCe5JmPa6f47JH26QQFFITvjQHD/mU5\n/aH5F7ErQeBDiplLL4iZJHJgVGF2lOo82ngzT2pXgQVzEUQ5sUQL739EVfiIh2vs\nyM6RMW1ER6mEuCS8ELiokE07tA/gNbSrEnZkhsUjXYqWs5FRBbAP3+qlAoGBAJQa\npjRUb7TLCFDZIl4kh2NsMMl/GIcDVO0DMZqoZVoOMU57OJ/ERt8QReOr+DbOJeOi\nU4U80MYOf/NwESgU4nLki7ELhsSJKfxHwPZxFZg8kTJM/lX+QKlQA4FC95CR2cpP\neUho1+cdwV3oOQVVR9UTRMjb6vgqQ52+efF3qN+JAoGAApKB8UY1jaGna8MLn+BV\nNWhecvQaeLOhVqp5sI1sUgGijaKGd+qcgWO3VjmX/Hermw6iwwRQH6Q6soEcJiJZ\n/0TKgX8kqNGZ3C4zkbS/Mj2UWAhh4K7wUg4T/VqRcrAvKNiRd7bvHqo+1HpGy3lo\ny0uuGC96MK6coabzBEf7joI=\n-----END PRIVATE KEY-----\n
+
 
 # How CloudTik will authenticate with newly launched nodes.
 auth:
     ssh_user: ubuntu
+    #Set proxy if you are in company network
     ssh_proxy_command: "ncat --proxy-type socks5 --proxy proxy-shz.intel.com:1080 %h %p"

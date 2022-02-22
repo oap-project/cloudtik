@@ -140,14 +140,14 @@ worker_setup_commands: []
 # Command to start on the head node. You don't need to change this.
 head_start_commands:
     - cloudtik stop
-    - ulimit -n 65536; cloudtik start --head --port=6379 --cluster-scaling-config=~/cloudtik_bootstrap_config.yaml
+    - ulimit -n 65536; cloudtik start --head --port=6789 --cluster-scaling-config=~/cloudtik_bootstrap_config.yaml
     - cloudtik-spark stop-head
     - cloudtik-spark start-head
 
 # Command to start on worker nodes. You don't need to change this.
 worker_start_commands:
     - cloudtik stop
-    - ulimit -n 65536; cloudtik start --address=$CLOUDTIK_HEAD_IP:6379
+    - ulimit -n 65536; cloudtik start --address=$CLOUDTIK_HEAD_IP:6789
     - cloudtik-spark configure --provider=aws --master=$CLOUDTIK_HEAD_IP --aws_s3a_bucket=$AWS_S3A_BUCKET --s3a_access_key=$FS_S3A_ACCESS_KEY --s3a_secret_key=$FS_S3A_SECRET_KEY
     - cloudtik-spark stop-worker
     - cloudtik-spark start-worker

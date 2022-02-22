@@ -24,7 +24,7 @@ ID_SIZE = 28
 
 # If a user does not specify a port for the primary Redis service,
 # we attempt to start the service running at this port.
-CLOUDTIK_DEFAULT_PORT = 6379
+CLOUDTIK_DEFAULT_PORT = 6789
 
 # The environment variable name for specify the address
 CLOUDTIK_ADDRESS_ENV = "CLOUDTIK_ADDRESS"

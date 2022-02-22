@@ -156,7 +156,7 @@ head_start_commands:
       ulimit -n 65536;
       cloudtik start
       --head
-      --port=6379
+      --port=6789
       --cluster-scaling-config=~/cloudtik_bootstrap_config.yaml
     - cloudtik-spark stop-head
     - cloudtik-spark start-head
@@ -167,7 +167,7 @@ worker_start_commands:
     - >-
       ulimit -n 65536;
       cloudtik start
-      --address=$CLOUDTIK_HEAD_IP:6379
+      --address=$CLOUDTIK_HEAD_IP:6789
     - cloudtik-spark configure --provider=gcp --master=$CLOUDTIK_HEAD_IP --project_id=$PROJECT_ID  --gcp_gcs_bucket=$GCP_GCS_BUCKET --fs_gs_auth_service_account_email=$FS_GS_AUTH_SERVICE_ACCOUNT_EMAIL --fs_gs_auth_service_account_private_key_id=$FS_GS_AUTH_SERVICE_ACCOUNT_PRIVATE_KEY_ID --fs_gs_auth_service_account_private_key="$FS_GS_AUTH_SERVICE_ACCOUNT_PRIVATE_KEY"
     - cloudtik-spark stop-worker
     - cloudtik-spark start-worker

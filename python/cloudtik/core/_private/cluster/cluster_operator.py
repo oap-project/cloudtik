@@ -964,7 +964,7 @@ def exec_cluster(config_file: str,
     if cmd and stop:
         cmd = "; ".join([
             cmd, "cloudtik stop",
-            "cloudtik teardown ~/cloudtik_bootstrap_config.yaml --yes --workers-only"
+            "cloudtik down ~/cloudtik_bootstrap_config.yaml --yes --workers-only"
         ])
         shutdown_after_run = True
 

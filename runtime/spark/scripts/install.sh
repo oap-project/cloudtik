@@ -17,6 +17,7 @@ if [ ! -d "${JAVA_HOME}" ]; then
       rm jdk-8u192-linux-x64.tar && \
       mv jdk1.8.0_192 jdk)
   echo "export JAVA_HOME=$JAVA_HOME">> ${USER_HOME}/.bashrc
+  echo "export PATH=$PATH:$JAVA_HOME/bin" >> ${USER_HOME}/.bashrc
 fi
 
 # install Hadoop

@@ -93,8 +93,7 @@ function check_env() {
 
 function check_head_or_worker() {
     if [ ! -n "${HEAD_ADDRESS}" ]; then
-	    local_host="`hostname --fqdn`"
-	    HEAD_ADDRESS=`nslookup -sil $local_host 2>/dev/null | grep Address: | sed '1d' | sed 's/Address: //g'`
+	    HEAD_ADDRESS=$(hostname -I | awk '{print $1}')
 	    Is_head_node=true
     else
 	    Is_head_node=false

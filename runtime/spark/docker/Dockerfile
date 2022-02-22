@@ -23,7 +23,7 @@ RUN wget --quiet http://archive.apache.org/dist/hadoop/common/hadoop-${HADOOP_VE
 
 #java
 ENV JAVA_HOME            /home/cloudtik/runtime/jdk
-ENV PATH                          $JAVA_HOME/bin:$PATH
+ENV PATH                 $JAVA_HOME/bin:$PATH
 
 RUN wget https://devops.egov.org.in/Downloads/jdk/jdk-8u192-linux-x64.tar.gz  && \
     gunzip jdk-8u192-linux-x64.tar.gz && \
@@ -34,7 +34,7 @@ RUN wget https://devops.egov.org.in/Downloads/jdk/jdk-8u192-linux-x64.tar.gz  &&
 #spark
 ENV SPARK_VERSION        ${SPARK_VERSION}
 ENV SPARK_HOME           $RUNTIME_PATH/spark
-
+ENV PATH                 $SPARK_HOME/bin:$PATH
 
 RUN wget https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop3.2.tgz && \
     tar -zxvf spark-${SPARK_VERSION}-bin-hadoop3.2.tgz && \

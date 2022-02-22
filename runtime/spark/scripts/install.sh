@@ -17,7 +17,7 @@ if [ ! -d "${JAVA_HOME}" ]; then
       rm jdk-8u192-linux-x64.tar && \
       mv jdk1.8.0_192 jdk)
   echo "export JAVA_HOME=$JAVA_HOME">> ${USER_HOME}/.bashrc
-  echo "export PATH=$PATH:$JAVA_HOME/bin" >> ${USER_HOME}/.bashrc
+  echo "export PATH=$JAVA_HOME/bin:$PATH" >> ${USER_HOME}/.bashrc
 fi
 
 # install Hadoop
@@ -42,4 +42,5 @@ if [ ! -d "${SPARK_HOME}" ]; then
     mv spark-${SPARK_VERSION}-bin-hadoop3.2 spark && \
     rm spark-${SPARK_VERSION}-bin-hadoop3.2.tgz)
   echo "export SPARK_HOME=$SPARK_HOME">> ${USER_HOME}/.bashrc
+  echo "export PATH=$SPARK_HOME/bin:$PATH" >> ${USER_HOME}/.bashrc
 fi

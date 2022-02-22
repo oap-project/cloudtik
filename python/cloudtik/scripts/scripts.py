@@ -59,7 +59,7 @@ def cli(logging_level, logging_format):
     cli_logger.set_format(format_tmpl=logging_format)
 
 
-@cli.command()
+@cli.command(hidden=True)
 @click.option(
     "--node-ip-address",
     required=False,
@@ -298,7 +298,7 @@ def start(node_ip_address, address, port, head,
     cli_logger.flush()
 
 
-@cli.command()
+@cli.command(hidden=True)
 @click.option(
     "-f",
     "--force",
@@ -1078,7 +1078,7 @@ def cluster_dump(cluster_config_file: Optional[str] = None,
         click.echo("Could not create archive.")
 
 
-@cli.command(name="health-check", hidden=True)
+@cli.command(hidden=True)
 @click.option(
     "--address",
     required=False,
@@ -1096,7 +1096,7 @@ def cluster_dump(cluster_config_file: Optional[str] = None,
     type=str,
     help="Health check for a specific component. Currently supports: "
     "[None]")
-def healthcheck(address, redis_password, component):
+def health_check(address, redis_password, component):
     """
     This is NOT a public api.
 
@@ -1158,22 +1158,36 @@ def add_command_alias(command, name, hidden):
 
 cli.add_command(start)
 cli.add_command(stop)
+
 cli.add_command(up)
-add_command_alias(up, name="create_or_update", hidden=True)
+cli.add_command(down)
+
 cli.add_command(attach)
 cli.add_command(exec)
-add_command_alias(exec, name="exec_cmd", hidden=True)
-add_command_alias(rsync_down, name="rsync_down", hidden=True)
-add_command_alias(rsync_up, name="rsync_up", hidden=True)
 cli.add_command(submit)
-cli.add_command(down)
-add_command_alias(down, name="teardown", hidden=True)
-cli.add_command(kill_random_node)
+
+cli.add_command(rsync_down)
+add_command_alias(rsync_down, name="rsync_down", hidden=True)
+cli.add_command(rsync_up)
+add_command_alias(rsync_up, name="rsync_up", hidden=True)
+
+cli.add_command(get_head_ip)
 add_command_alias(get_head_ip, name="get_head_ip", hidden=True)
 cli.add_command(get_worker_ips)
+add_command_alias(get_worker_ips, name="get_worker_ips", hidden=True)
+
+cli.add_command(monitor)
 cli.add_command(status)
+
 cli.add_command(cluster_dump)
+add_command_alias(cluster_dump, name="cluster_dump", hidden=True)
 cli.add_command(local_dump)
+add_command_alias(local_dump, name="local_dump", hidden=True)
+
+cli.add_command(health_check)
+add_command_alias(health_check, name="health_check", hidden=True)
+cli.add_command(kill_random_node)
+add_command_alias(kill_random_node, name="kill_random_node", hidden=True)
 
 
 def main():

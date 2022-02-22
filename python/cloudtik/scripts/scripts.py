@@ -23,7 +23,7 @@ from cloudtik.core._private.cluster.cluster_operator import (
     attach_cluster, exec_cluster, create_or_update_cluster, monitor_cluster,
     rsync, teardown_cluster, get_head_node_ip, kill_node, get_worker_node_ips,
     get_cluster_dump_archive, debug_status, get_local_dump_archive,
-    RUN_ENV_TYPES)
+    show_cluster_info, RUN_ENV_TYPES)
 from cloudtik.core._private.constants import CLOUDTIK_PROCESSES, \
     CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
     CLOUDTIK_KV_NAMESPACE_HEALTHCHECK, \
@@ -852,6 +852,21 @@ def get_worker_ips(cluster_config_file, cluster_name):
 
 
 @cli.command()
+@click.argument("cluster_config_file", required=True, type=str)
+@click.option(
+    "--cluster-name",
+    "-n",
+    required=False,
+    type=str,
+    help="Override the configured cluster name.")
+@add_click_logging_options
+def info(cluster_config_file, cluster_name):
+    """Show cluster summary information and useful links to use the cluster."""
+    show_cluster_info(
+        cluster_config_file,
+        cluster_name)
+
+@cli.command()
 @click.option(
     "--address",
     required=False,
@@ -1176,6 +1191,7 @@ add_command_alias(get_head_ip, name="get_head_ip", hidden=True)
 cli.add_command(get_worker_ips)
 add_command_alias(get_worker_ips, name="get_worker_ips", hidden=True)
 
+cli.add_command(info)
 cli.add_command(monitor)
 cli.add_command(status)
 

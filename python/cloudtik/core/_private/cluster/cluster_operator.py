@@ -717,7 +717,7 @@ def get_or_create_head_node(config: Dict[str, Any],
         })
 
     # TODO (haifeng) : check and set to the correct log path of the coordinator
-    coordniator_str = "tail -n 100 -f /tmp/cloudtik/session_latest/logs/cloudtik_cluster_coordinator*"
+    coordinator_str = "tail -n 100 -f /tmp/cloudtik/session_latest/logs/cloudtik_cluster_coordinator*"
     if override_cluster_name:
         modifiers = " --cluster-name={}".format(quote(override_cluster_name))
     else:
@@ -729,7 +729,7 @@ def get_or_create_head_node(config: Dict[str, Any],
         cli_logger.print("Monitor cluster with")
         cli_logger.print(
             cf.bold("  cloudtik exec {}{} {}"), printable_config_file, modifiers,
-            quote(coordniator_str))
+            quote(coordinator_str))
 
         cli_logger.print("Connect to a terminal on the cluster head:")
         cli_logger.print(
@@ -1381,6 +1381,64 @@ def get_cluster_dump_archive(cluster_config_file: Optional[str] = None,
 
     shutil.move(archive.file, output)
     return output
+
+
+def show_cluster_info(config_file: str,
+                      override_cluster_name: Optional[str] = None
+                      ) -> None:
+    """Shows the cluster information for given configuration file."""
+    config = yaml.safe_load(open(config_file).read())
+    if override_cluster_name is not None:
+        config["cluster_name"] = override_cluster_name
+
+    config = _bootstrap_config(config, no_config_cache=False)
+
+    head_node = _get_running_head_node(
+        config,
+        config_file,
+        override_cluster_name,
+        create_if_needed=False,
+        _allow_uninitialized_state=False)
+
+    provider = _get_node_provider(config["provider"], config["cluster_name"])
+
+    updater = NodeUpdaterThread(
+        node_id=head_node,
+        provider_config=config["provider"],
+        provider=provider,
+        auth_config=config["auth"],
+        cluster_name=config["cluster_name"],
+        file_mounts=config["file_mounts"],
+        initialization_commands=[],
+        setup_commands=[],
+        start_commands=[],
+        runtime_hash="",
+        file_mounts_contents_hash="",
+        is_head_node=False,
+        docker_config=config.get("docker"))
+
+    printable_config_file = config_file
+    coordinator_str = "tail -n 100 -f /tmp/cloudtik/session_latest/logs/cloudtik_cluster_coordinator*"
+    if override_cluster_name:
+        modifiers = " --cluster-name={}".format(quote(override_cluster_name))
+    else:
+        modifiers = ""
+
+    cli_logger.newline()
+    with cli_logger.group("Useful commands"):
+        printable_config_file = os.path.abspath(printable_config_file)
+        cli_logger.print("Monitor cluster with")
+        cli_logger.print(
+            cf.bold("  cloudtik exec {}{} {}"), printable_config_file, modifiers,
+            quote(coordinator_str))
+
+        cli_logger.print("Connect to a terminal on the cluster head:")
+        cli_logger.print(
+            cf.bold("  cloudtik attach {}{}"), printable_config_file, modifiers)
+
+        remote_shell_str = updater.cmd_executor.remote_shell_command_str()
+        cli_logger.print("Get a remote shell to the cluster manually:")
+        cli_logger.print("  {}", remote_shell_str.strip())
 
 
 def confirm(msg: str, yes: bool) -> Optional[bool]:

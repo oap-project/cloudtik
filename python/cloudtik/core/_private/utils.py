@@ -23,7 +23,7 @@ import cloudtik
 from cloudtik.core._private import constants, services
 from cloudtik.core._private.cluster.load_metrics import LoadMetricsSummary
 from cloudtik.providers._private.local.config import prepare_local
-from cloudtik.core._private.providers import _get_default_config
+from cloudtik.core._private.providers import _get_default_config, _get_node_provider
 from cloudtik.core._private.docker import validate_docker_config
 
 # Import psutil after others so the packaged version is used.
@@ -712,6 +712,8 @@ def validate_config(config: Dict[str, Any]) -> None:
                 "The specified global `max_workers` is smaller than the "
                 "sum of `min_workers` of all the available node types.")
 
+    provider = _get_node_provider(config["provider"], config["cluster_name"])
+    provider.validate_provider_config(config["provider"])
 
 def prepare_config(config: Dict[str, Any]) -> Dict[str, Any]:
     """

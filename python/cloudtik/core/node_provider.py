@@ -234,3 +234,8 @@ class NodeProvider:
             cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         """Fills out missing "resources" field for available_node_types."""
         return cluster_config
+
+    @staticmethod
+    def validate_provider_config(
+            provider_config: Dict[str, Any]) -> None:
+        return None

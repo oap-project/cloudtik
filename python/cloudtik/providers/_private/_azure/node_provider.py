@@ -320,3 +320,24 @@ class AzureNodeProvider(NodeProvider):
         cluster_resource["worker_memory"] = 512
         cluster_resource["worker_cpu"] = 1
         return cluster_resource
+
+    @staticmethod
+    def validate_provider_config(
+            provider_config: Dict[str, Any]) -> None:
+        provider_config_failed = False
+        dict = {
+            "RESOURCE_GROUP": provider_config.get("resource_group"),
+            "AZURE_STORAGE_KIND": provider_config.get("azure_cloud_storage", {}).get("azure.storage.kind"),
+            "AZURE_STORAGE_ACCOUNT": provider_config.get("azure_cloud_storage", {}).get("azure.storage.account"),
+            "AZURE_CONTAINER": provider_config.get("azure_cloud_storage", {}).get(
+                "azure.container"),
+            "AZURE_ACCOUNT_KEY": provider_config.get("azure_cloud_storage", {}).get(
+                "azure.account.key")}
+
+        for key, value in dict.items():
+            if value is None:
+                provider_config_failed = True
+                logger.info("{} must be define in your yaml, please refer to config-schema.json.".format(key))
+        if provider_config_failed:
+            raise RuntimeError("{} provider must be provided right storage config, "
+                               "please refer to config-schema.json.".format(provider_config["type"]))

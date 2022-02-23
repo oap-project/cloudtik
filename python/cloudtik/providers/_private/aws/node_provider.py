@@ -642,3 +642,20 @@ class AWSNodeProvider(NodeProvider):
                     cluster_resource["head_memory"] = memory_total
 
         return cluster_resource
+
+    @staticmethod
+    def validate_provider_config(
+            provider_config: Dict[str, Any]) -> None:
+        provider_config_failed = False
+        dict = {}
+        dict["AWS_S3A_BUCKET"] = provider_config.get("aws_s3a_storage", {}).get("bucket")
+        dict["FS_S3A_ACCESS_KEY"] = provider_config.get("aws_s3a_storage", {}).get("fs.s3a.access.key")
+        dict["FS_S3A_SECRET_KEY"] = provider_config.get("aws_s3a_storage", {}).get("fs.s3a.secret.key")
+
+        for key, value in dict.items():
+            if value is None:
+                provider_config_failed = True
+                logger.info("{} must be define in your yaml, please refer to config-schema.json.".format(key))
+        if provider_config_failed:
+            raise RuntimeError("{} provider must be provided right storage config, "
+                               "please refer to config-schema.json.".format(provider_config["type"]))

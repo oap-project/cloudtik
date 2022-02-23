@@ -716,28 +716,7 @@ def get_or_create_head_node(config: Dict[str, Any],
             "head_node_id": head_node,
         })
 
-    # TODO (haifeng) : check and set to the correct log path of the coordinator
-    coordinator_str = "tail -n 100 -f /tmp/cloudtik/session_latest/logs/cloudtik_cluster_coordinator*"
-    if override_cluster_name:
-        modifiers = " --cluster-name={}".format(quote(override_cluster_name))
-    else:
-        modifiers = ""
-
-    cli_logger.newline()
-    with cli_logger.group("Useful commands"):
-        printable_config_file = os.path.abspath(printable_config_file)
-        cli_logger.print("Monitor cluster with")
-        cli_logger.print(
-            cf.bold("  cloudtik exec {}{} {}"), printable_config_file, modifiers,
-            quote(coordinator_str))
-
-        cli_logger.print("Connect to a terminal on the cluster head:")
-        cli_logger.print(
-            cf.bold("  cloudtik attach {}{}"), printable_config_file, modifiers)
-
-        remote_shell_str = updater.cmd_executor.remote_shell_command_str()
-        cli_logger.print("Get a remote shell to the cluster manually:")
-        cli_logger.print("  {}", remote_shell_str.strip())
+    show_useful_commands(printable_config_file, updater, override_cluster_name)
 
 
 def _should_create_new_head(head_node_id: Optional[str], new_launch_hash: str,
@@ -1134,15 +1113,7 @@ def get_head_node_ip(config_file: str,
     if override_cluster_name is not None:
         config["cluster_name"] = override_cluster_name
 
-    provider = _get_node_provider(config["provider"], config["cluster_name"])
-    head_node = _get_running_head_node(config, config_file,
-                                       override_cluster_name)
-    if config.get("provider", {}).get("use_internal_ips", False):
-        head_node_ip = provider.internal_ip(head_node)
-    else:
-        head_node_ip = provider.external_ip(head_node)
-
-    return head_node_ip
+    return _get_head_node_ip(config, config_file, override_cluster_name)
 
 
 def get_worker_node_ips(config_file: str,
@@ -1154,6 +1125,24 @@ def get_worker_node_ips(config_file: str,
     if override_cluster_name is not None:
         config["cluster_name"] = override_cluster_name
 
+    return _get_worker_node_ips(config)
+
+
+def _get_head_node_ip(config: Dict[str, Any],
+                      config_file: str,
+                      override_cluster_name: Optional[str] = None) -> str:
+    provider = _get_node_provider(config["provider"], config["cluster_name"])
+    head_node = _get_running_head_node(config, config_file,
+                                       override_cluster_name)
+    if config.get("provider", {}).get("use_internal_ips", False):
+        head_node_ip = provider.internal_ip(head_node)
+    else:
+        head_node_ip = provider.external_ip(head_node)
+
+    return head_node_ip
+
+
+def _get_worker_node_ips(config: Dict[str, Any]) -> List[str]:
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     nodes = provider.non_terminated_nodes({
         CLOUDTIK_TAG_NODE_KIND: NODE_KIND_WORKER
@@ -1392,15 +1381,33 @@ def show_cluster_info(config_file: str,
         config["cluster_name"] = override_cluster_name
 
     config = _bootstrap_config(config, no_config_cache=False)
-
-    head_node = _get_running_head_node(
-        config,
-        config_file,
-        override_cluster_name,
-        create_if_needed=False,
-        _allow_uninitialized_state=False)
-
     provider = _get_node_provider(config["provider"], config["cluster_name"])
+
+    head_node = None
+    # Check whether the head node is running
+    try:
+        head_node = _get_running_head_node(config, config_file,
+                                           override_cluster_name)
+        if config.get("provider", {}).get("use_internal_ips", False):
+            head_node_ip = provider.internal_ip(head_node)
+        else:
+            head_node_ip = provider.external_ip(head_node)
+    except Exception:
+        head_node_ip = None
+
+    head_count = 0
+    if head_node_ip is not None:
+        head_count = 1
+
+    cli_logger.print("{} head is running", head_count)
+
+    # Check the running worker nodes
+    worker_ips = _get_worker_node_ips(config)
+    worker_count = len(worker_ips)
+    cli_logger.print(",{} work(s) are running", worker_count)
+
+    if head_node is None:
+        return
 
     updater = NodeUpdaterThread(
         node_id=head_node,
@@ -1417,7 +1424,14 @@ def show_cluster_info(config_file: str,
         is_head_node=False,
         docker_config=config.get("docker"))
 
-    printable_config_file = config_file
+    show_useful_commands(config_file, updater, override_cluster_name)
+
+
+def show_useful_commands(printable_config_file: str,
+                         updater: NodeUpdaterThread,
+                         override_cluster_name: Optional[str] = None
+                         ) -> None:
+    # TODO (haifeng) : check and set to the correct log path of the coordinator
     coordinator_str = "tail -n 100 -f /tmp/cloudtik/session_latest/logs/cloudtik_cluster_coordinator*"
     if override_cluster_name:
         modifiers = " --cluster-name={}".format(quote(override_cluster_name))

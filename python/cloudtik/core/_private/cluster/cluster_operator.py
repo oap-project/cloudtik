@@ -1396,16 +1396,17 @@ def show_cluster_info(config_file: str,
     except Exception:
         head_node_ip = None
 
-    head_count = 0
-    if head_node_ip is not None:
-        head_count = 1
-
-    cli_logger.print("{} head is running", head_count)
+    if head_node_ip is None:
+        cli_logger.print(cf.bold("Cluster {} is not running."), config["cluster_name"])
+        return
 
     # Check the running worker nodes
+    head_count = 1
     worker_ips = _get_worker_node_ips(config)
     worker_count = len(worker_ips)
-    cli_logger.print(",{} work(s) are running", worker_count)
+    cli_logger.print(cf.bold("Cluster {} is running."), config["cluster_name"])
+    cli_logger.print(cf.bold("{} head and {} worker(s) are running"),
+                     head_count, worker_count)
 
     if head_node is None:
         return
@@ -1476,6 +1477,7 @@ def show_cluster_status(config_file: str,
                     node_info["instance_type"], node_info["public_ip"], node_info["private_ip"],
                     node_info["instance_status"]])
     print(tb)
+
 
 def confirm(msg: str, yes: bool) -> Optional[bool]:
     return None if yes else click.confirm(msg, abort=True)

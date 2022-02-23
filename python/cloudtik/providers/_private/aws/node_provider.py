@@ -91,7 +91,7 @@ class AWSNodeProvider(NodeProvider):
     def __init__(self, provider_config, cluster_name):
         NodeProvider.__init__(self, provider_config, cluster_name)
         self.cache_stopped_nodes = provider_config.get("cache_stopped_nodes",
-                                                       True)
+                                                       False)
         aws_credentials = provider_config.get("aws_credentials")
 
         self.ec2 = make_ec2_client(

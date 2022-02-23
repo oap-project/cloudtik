@@ -188,22 +188,22 @@
                         }
                     }
                 },
-                "azure_blob_storage": {
+                "azure_cloud_storage": {
                     "type": "object",
-                    "description": "use azure blob storage",
+                    "description": "use azure cloud storage",
                     "additionalProperties": false,
                     "properties": {
                       "azure.storage.account": {
                         "type": "string",
-                        "description": "azure blob storage account name"
+                        "description": "azure storage account name"
                       },
                       "azure.container": {
                         "type": "string",
                         "description": "azure container name"
                       },
-                      "fs.azure.account.key.blob.core.windows.net": {
+                      "azure.account.key": {
                         "type": "string",
-                        "description": "azure access key"
+                        "description": "azure storage account access key"
                       }
                     }
                 },

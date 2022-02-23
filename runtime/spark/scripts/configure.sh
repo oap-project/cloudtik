@@ -1,7 +1,7 @@
 #!/bin/bash
 
 echo original parameters=[$@]
-args=$(getopt -a -o h::p: -l head_address::,provider:,aws_s3a_bucket::,s3a_access_key::,s3a_secret_key::,project_id::,gcp_gcs_bucket::,fs_gs_auth_service_account_email::,fs_gs_auth_service_account_private_key_id::,fs_gs_auth_service_account_private_key::,azure_storage_account::,azure_container::,fs_azure_account_key_blob_core_windows_net:: -- "$@")
+args=$(getopt -a -o h::p: -l head_address::,provider:,aws_s3a_bucket::,s3a_access_key::,s3a_secret_key::,project_id::,gcp_gcs_bucket::,fs_gs_auth_service_account_email::,fs_gs_auth_service_account_private_key_id::,fs_gs_auth_service_account_private_key::,resource_group::,subscription_id::,azure_storage_kind::,azure_storage_account::,azure_container::,azure_account_key:: -- "$@")
 echo ARGS=[$args]
 eval set -- "${args}"
 echo formatted parameters=[$@]
@@ -49,6 +49,18 @@ do
         FS_GS_AUTH_SERVICE_ACCOUNT_PRIVATE_KEY=$2
         shift
         ;;
+    --resource_group)
+        RESOURCE_GROUP=$2
+        shift
+        ;;
+    --subscription_id)
+        SUBSCRIPTION_ID=$2
+        shift
+        ;;
+    --azure_storage_kind)
+        AZURE_STORAGE_KIND=$2
+        shift
+        ;;
     --azure_storage_account)
         AZURE_STORAGE_ACCOUNT=$2
         shift
@@ -57,8 +69,8 @@ do
         AZURE_CONTAINER=$2
         shift
         ;;
-    --fs_azure_account_key_blob_core_windows_net)
-        FS_AZURE_ACCOUNT_KEY_BLOB_CORE_WINDOWS_NET=$2
+    --azure_account_key)
+        AZURE_ACCOUNT_KEY=$2
         shift
         ;;
     --)
@@ -137,7 +149,19 @@ function update_gcp_hadoop_config() {
 function update_azure_hadoop_config() {
     sed -i "s#{%azure.storage.account%}#${AZURE_STORAGE_ACCOUNT}#g" "$(grep "{%azure.storage.account%}" -rl ./)"
     sed -i "s#{%azure.container%}#${AZURE_CONTAINER}#g" "$(grep "{%azure.container%}" -rl ./)"
-    sed -i "s#{%fs.azure.account.key.blob.core.windows.net}#${FS_AZURE_ACCOUNT_KEY_BLOB_CORE_WINDOWS_NET}#g" "$(grep "{%fs.azure.account.key.blob.core.windows.net}" -rl ./)"
+    sed -i "s#{%azure.account.key}#${AZURE_ACCOUNT_KEY}#g" "$(grep "{%azure.account.key}" -rl ./)"
+    if [ $AZURE_STORAGE_KIND == "wasb" ];then
+      sed -i "s#{%azure.storage.kind}#wasb#g" "$(grep "{%azure.storage.kind%}" -rl ./)"
+      sed -i "s#{%storage.endpoint}#blob#g" "$(grep "{%storage.endpoint}" -rl ./)"
+      sed -i "s#{%fs.AbstractFileSystem.wasb.impl}#org.apache.hadoop.fs.azure.Wasb#g" "$(grep "{%fs.AbstractFileSystem.wasb.impl}" -rl ./)"
+    elif [ $AZURE_STORAGE_KIND == "abfs" ];then
+      sed -i "s#{%azure.storage.kind}#abfs#g" "$(grep "{%azure.storage.kind%}" -rl ./)"
+      sed -i "s#{%storage.endpoint}#dfs#g" "$(grep "{%storage.endpoint}" -rl ./)"
+      sed -i "s#{%auth.type}#SharedKey#g" "$(grep "{%auth.type}" -rl ./)"
+    else
+       echo "Azure storage kind must be wasb(Azure Blob storage) or abfs(Azure Data Lake Gen 2)"
+    fi
+
 }
 
 function update_spark_runtime_config() {

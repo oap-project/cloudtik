@@ -68,11 +68,14 @@ class AzureNodeProvider(NodeProvider):
 
     def with_provider_environment_variables(self):
         config_dict = {
-            "AZURE_STORAGE_ACCOUNT": self.provider_config.get("azure_blob_storage", {}).get("azure.storage.account"),
-            "AZURE_CONTAINER": self.provider_config.get("azure_blob_storage", {}).get(
+            "RESOURCE_GROUP": self.provider_config.get("resource_group"),
+            "SUBSCRIPTION_ID": self.provider_config.get("subscription_id"),
+            "AZURE_STORAGE_KIND": self.provider_config.get("azure_cloud_storage", {}).get("azure.storage.kind"),
+            "AZURE_STORAGE_ACCOUNT": self.provider_config.get("azure_cloud_storage", {}).get("azure.storage.account"),
+            "AZURE_CONTAINER": self.provider_config.get("azure_cloud_storage", {}).get(
                 "azure.container"),
-            "FS_AZURE_ACCOUNT_KEY_BLOB_CORE_WINDOWS_NET": self.provider_config.get("azure_blob_storage", {}).get(
-                "fs.azure.account.key.blob.core.windows.net")}
+            "AZURE_ACCOUNT_KEY": self.provider_config.get("azure_cloud_storage", {}).get(
+                "azure.account.key")}
         return config_dict
 
     @synchronized
@@ -330,6 +333,7 @@ class AzureNodeProvider(NodeProvider):
         provider_config_failed = False
         dict = {
             "RESOURCE_GROUP": provider_config.get("resource_group"),
+            "SUBSCRIPTION_ID": provider_config.get("subscription_id"),
             "AZURE_STORAGE_KIND": provider_config.get("azure_cloud_storage", {}).get("azure.storage.kind"),
             "AZURE_STORAGE_ACCOUNT": provider_config.get("azure_cloud_storage", {}).get("azure.storage.account"),
             "AZURE_CONTAINER": provider_config.get("azure_cloud_storage", {}).get(

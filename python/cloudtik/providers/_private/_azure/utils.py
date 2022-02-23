@@ -1,13 +1,16 @@
 def with_azure_config(cmds, config):
-    azure_storage_account = config.get("provider").get("azure_blob_storage").get("azure.storage.account")
-    azure_container = config.get("provider").get("azure_blob_storage").get(
+    resource_group = config.get("provider").get("resource_group")
+    subscription_id = config.get("provider").get("subscription_id")
+    azure_storage_kind = config.get("provider").get("azure_cloud_storage").get("azure.storage.kind")
+    azure_storage_account = config.get("provider").get("azure_cloud_storage").get("azure.storage.account")
+    azure_container = config.get("provider").get("azure_cloud_storage").get(
         "azure.container")
-    fs_azure_account_key_blob_core_windows_net = config.get("provider").get("azure_blob_storage"). \
-        get("fs.azure.account.key.blob.core.windows.net")
+    azure_account_key = config.get("provider").get("azure_cloud_storage"). \
+        get("azure.account.key")
     out = []
     for cmd in cmds:
-        out.append("export AZURE_STORAGE_ACCOUNT={}; export AZURE_CONTAINER={}; export "
-                   "FS_AZURE_ACCOUNT_KEY_BLOB_CORE_WINDOWS_NET={}; {}".format(azure_storage_account, azure_container,
-                                                                              fs_azure_account_key_blob_core_windows_net,
-                                                                              cmd))
+        out.append("export RESOURCE_GROUP={}; export SUBSCRIPTION_ID={}; export AZURE_STORAGE_KIND={}; "
+                   "export AZURE_STORAGE_ACCOUNT={}; export AZURE_CONTAINER={}; export AZURE_ACCOUNT_KEY={}; {}".format(
+                    resource_group, subscription_id, azure_storage_kind, azure_storage_account, azure_container,
+                    azure_account_key, cmd))
     return out

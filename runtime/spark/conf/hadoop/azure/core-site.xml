@@ -19,22 +19,19 @@
 <configuration>
     <property>
       <name>fs.defaultFS</name>
-      <value>wasb://{%azure.container%}@{%azure.storage.account}.blob.core.windows.net</value>
+      <value>{%azure.storage.kind}://{%azure.container%}@{%azure.storage.account}.{%storage.endpoint}.core.windows.net</value>
     </property>
     <property>
       <name>fs.AbstractFileSystem.wasb.impl</name>
-      <value>org.apache.hadoop.fs.azure.Wasb</value>
+      <value>{%fs.AbstractFileSystem.wasb.impl}</value>
     </property>
     <property>
-      <name>fs.azure.account.key.{%azure.storage.account}.blob.core.windows.net</name>
-      <value>{%fs.azure.account.key.blob.core.windows.net}</value>
+      <name>fs.azure.account.key.{%azure.storage.account}.{%storage.endpoint}.core.windows.net</name>
+      <value>{%azure.account.key}</value>
     </property>
-<!--    <property>-->
-<!--      <name>fs.azure.account.keyprovider.{%azure.storage.account}.blob.core.windows.net</name>-->
-<!--      <value>org.apache.hadoop.fs.azure.ShellDecryptionKeyProvider</value>-->
-<!--    </property>-->
-<!--    <property>-->
-<!--      <name>fs.azure.shellkeyprovider.script</name>-->
-<!--      <value>/usr/lib/hdinsight-common/scripts/decrypt.sh</value>-->
-<!--    </property>-->
+    <property>
+      <name>fs.azure.account.auth.type.{%azure.storage.account}.{%storage.endpoint}.core.windows.net</name>
+      <value>{%auth.type}</value>
+      <description></description>
+    </property>
 </configuration>

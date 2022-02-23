@@ -1,5 +1,5 @@
 # A unique identifier for the head node and workers of this cluster.
-cluster_name: minimal-docker
+cluster_name: minimal
 
 # The maximum number of workers nodes to launch in addition to the head
 # node.
@@ -9,9 +9,15 @@ max_workers: 2
 provider:
     type: azure
     region: westus2
-    resource_group: azure-cluster
+    resource_group: intelML
+    subscription_id: b4e0c565-9d15-4b44-837a-cb04eba0d56d
     azure_cloud_storage:
-        azure.bucket: cloudtik-dev
+        # Choose cloud storage kind: wasb (Azure Blob Storage) or abfs (Azure Data Lake Storage Gen 2).
+        azure.storage.kind: abfs
+        azure.storage.account: intelmachinelearning
+        azure.container: azureml
+        azure.account.key: Cd4Q6tC0MiCQani4Ehpbqe52jGnA3KPCf8pzJilyXw6WTRKDYGIz8jLZPmsRoNZ1xIXfMJ7rkRIAHbVmXyxGEw==
+
 
 # How CloudTik will authenticate with newly launched nodes.
 auth:

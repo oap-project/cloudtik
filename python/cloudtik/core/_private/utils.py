@@ -1105,8 +1105,17 @@ def format_info_string(lm_summary, scaler_summary, time=None):
     else:
         failure_report += " (no failures)"
 
-    usage_report = get_usage_report(lm_summary)
-    demand_report = get_demand_report(lm_summary)
+    # TODO: temporarily remove usage and deman report. To restore in the future
+    #usage_report = get_usage_report(lm_summary)
+    #demand_report = get_demand_report(lm_summary)
+
+    #Resources
+    #{separator}
+    #Usage:
+    #{usage_report}
+
+    #Demands:
+    #{demand_report}
 
     formatted_output = f"""{header}
 Node status
@@ -1115,15 +1124,7 @@ Healthy:
 {available_node_report}
 Pending:
 {pending_report}
-{failure_report}
-
-Resources
-{separator}
-Usage:
-{usage_report}
-
-Demands:
-{demand_report}"""
+{failure_report}"""
     return formatted_output
 
 

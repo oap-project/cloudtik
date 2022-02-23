@@ -22,7 +22,7 @@ from cloudtik.core._private.node.node_services import NodeServicesStarter
 from cloudtik.core._private.cluster.cluster_operator import (
     attach_cluster, exec_cluster, create_or_update_cluster, monitor_cluster,
     rsync, teardown_cluster, get_head_node_ip, kill_node, get_worker_node_ips,
-    get_cluster_dump_archive, debug_cluster_status, get_local_dump_archive,
+    get_cluster_dump_archive, debug_status, get_local_dump_archive,
     show_cluster_info, show_cluster_status, RUN_ENV_TYPES)
 from cloudtik.core._private.constants import CLOUDTIK_PROCESSES, \
     CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
@@ -908,7 +908,7 @@ def debug_status(address, redis_password):
         CLOUDTIK_CLUSTER_SCALING_STATUS)
     error = kv_store.kv_get(
         CLOUDTIK_CLUSTER_SCALING_ERROR)
-    print(debug_cluster_status(status, error))
+    print(debug_status(status, error))
 
 
 @cli.command(hidden=True)

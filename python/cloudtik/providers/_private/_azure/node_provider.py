@@ -143,6 +143,9 @@ class AzureNodeProvider(NodeProvider):
             if not v["status"].startswith("deallocat")
         ]
 
+    def get_node_info(self, node_id):
+        return {}
+
     def is_running(self, node_id):
         """Return whether the specified node is running."""
         # always get current status

@@ -52,6 +52,27 @@ class NodeProvider:
         """
         raise NotImplementedError
 
+    def get_node_info(self, node_id: str) -> Dict[str, str]:
+        """Return the node detail information  of a instance by instance id .
+        Examples:
+            >>> provider.get_node_info("i-01206b67a0bf03dee")
+            {
+                "node_id": "i-01206b67a0bf03dee",
+                "instance_type": "m5.large",
+                "private_ip": "172.31.53.194",
+                "public_ip": "44.242.153.247",
+                "instance_status": "running",
+                "cloudtik-launch-config": "be65513f591bd85758abb1e3dc4e8c51e26bd69a",
+                "cloudtik-user-node-type": "worker.default",
+                "cloudtik-node-kind": "worker",
+                "cloudtik-node-status": "up-to-date",
+                "Name": "cloudtik-example-worker",
+                "cloudtik-cluster-name": "example",
+                "cloudtik-runtime-config": "63611285826253d8672bbc3a0bad3405ae8891d7"
+            }
+        """
+        raise NotImplementedError
+
     def is_running(self, node_id: str) -> bool:
         """Return whether the specified node is running."""
         raise NotImplementedError

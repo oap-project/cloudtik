@@ -48,6 +48,12 @@ def make_ec2_client(region, max_retries, aws_credentials=None):
     aws_credentials = aws_credentials or {}
     return resource_cache("ec2", region, max_retries, **aws_credentials)
 
+def tags_list_to_dict(tags:list):
+    tags_dict = {}
+    for item in tags:
+        tags_dict[item["Key"]] = item["Value"]
+    return tags_dict
+
 
 def list_ec2_instances(region: str, aws_credentials: Dict[str, Any] = None
                        ) -> List[Dict[str, Any]]:
@@ -156,6 +162,18 @@ class AWSNodeProvider(NodeProvider):
 
         self.cached_nodes = {node.id: node for node in nodes}
         return [node.id for node in nodes]
+
+    def get_node_info(self, node_id):
+
+        node = self._get_cached_node(node_id)
+        node_info = {"node_id": node.id,
+                  "instance_type": node.instance_type,
+                  "private_ip": node.private_ip_address,
+                  "public_ip": node.public_ip_address,
+                  "instance_status": node.state["Name"]}
+        node_info.update(tags_list_to_dict(node.tags))
+
+        return node_info
 
     def is_running(self, node_id):
         node = self._get_cached_node(node_id)

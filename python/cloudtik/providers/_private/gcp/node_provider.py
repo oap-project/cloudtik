@@ -110,6 +110,9 @@ class GCPNodeProvider(NodeProvider):
             self.cached_nodes = {i["name"]: i for i in instances}
             return [i["name"] for i in instances]
 
+    def get_node_info(self, node_id):
+        return {}
+
     def is_running(self, node_id: str):
         with self.lock:
             node = self._get_cached_node(node_id)

@@ -13,6 +13,7 @@ import tempfile
 import time
 from types import ModuleType
 from typing import Any, Dict, List, Optional, Tuple, Union
+import prettytable as pt
 
 import click
 import yaml
@@ -85,7 +86,7 @@ def try_reload_log_state(provider_config: Dict[str, Any],
         return reload_log_state(log_state)
 
 
-def debug_status(status, error) -> str:
+def debug_cluster_status(status, error) -> str:
     """Return a debug string for the cluster scaler."""
     if not status:
         status = "No cluster status."
@@ -1454,6 +1455,27 @@ def show_useful_commands(printable_config_file: str,
         cli_logger.print("Get a remote shell to the cluster manually:")
         cli_logger.print("  {}", remote_shell_str.strip())
 
+
+def show_cluster_status(config_file: str,
+                        override_cluster_name: Optional[str] = None
+                        ) -> None:
+    config = yaml.safe_load(open(config_file).read())
+    if override_cluster_name is not None:
+        config["cluster_name"] = override_cluster_name
+
+    config = _bootstrap_config(config, no_config_cache=False)
+
+    provider = _get_node_provider(config["provider"], config["cluster_name"])
+    nodes = provider.non_terminated_nodes({})
+    nodes_info = [provider.get_node_info(node) for node in nodes]
+    tb = pt.PrettyTable()
+    tb.field_names = ["node-id", "node-kind", "node-status", "instance-type", "public-ip-address",
+                      "private-ip-address", "instance-status"]
+    for node_info in nodes_info:
+        tb.add_row([node_info["node_id"], node_info["cloudtik-node-kind"], node_info["cloudtik-node-status"],
+                    node_info["instance_type"], node_info["public_ip"], node_info["private_ip"],
+                    node_info["instance_status"]])
+    print(tb)
 
 def confirm(msg: str, yes: bool) -> Optional[bool]:
     return None if yes else click.confirm(msg, abort=True)

@@ -22,8 +22,8 @@ from cloudtik.core._private.node.node_services import NodeServicesStarter
 from cloudtik.core._private.cluster.cluster_operator import (
     attach_cluster, exec_cluster, create_or_update_cluster, monitor_cluster,
     rsync, teardown_cluster, get_head_node_ip, kill_node, get_worker_node_ips,
-    get_cluster_dump_archive, debug_status, get_local_dump_archive,
-    show_cluster_info, RUN_ENV_TYPES)
+    get_cluster_dump_archive, debug_cluster_status, get_local_dump_archive,
+    show_cluster_info, show_cluster_status, RUN_ENV_TYPES)
 from cloudtik.core._private.constants import CLOUDTIK_PROCESSES, \
     CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
     CLOUDTIK_KV_NAMESPACE_HEALTHCHECK, \
@@ -866,6 +866,23 @@ def info(cluster_config_file, cluster_name):
         cluster_config_file,
         cluster_name)
 
+
+@cli.command()
+@click.argument("cluster_config_file", required=True, type=str)
+@click.option(
+    "--cluster-name",
+    "-n",
+    required=False,
+    type=str,
+    help="Override the configured cluster name.")
+@add_click_logging_options
+def status(cluster_config_file, cluster_name):
+    """Show cluster summary status."""
+    show_cluster_status(
+        cluster_config_file,
+        cluster_name)
+
+
 @cli.command()
 @click.option(
     "--address",
@@ -878,7 +895,7 @@ def info(cluster_config_file, cluster_name):
     type=str,
     default=CLOUDTIK_REDIS_DEFAULT_PASSWORD,
     help="Connect with redis_password.")
-def status(address, redis_password):
+def debug_status(address, redis_password):
     """Print cluster status, including autoscaling info."""
     if not address:
         address = services.get_address_to_use_or_die()
@@ -891,7 +908,7 @@ def status(address, redis_password):
         CLOUDTIK_CLUSTER_SCALING_STATUS)
     error = kv_store.kv_get(
         CLOUDTIK_CLUSTER_SCALING_ERROR)
-    print(debug_status(status, error))
+    print(debug_cluster_status(status, error))
 
 
 @cli.command(hidden=True)
@@ -1192,8 +1209,9 @@ cli.add_command(get_worker_ips)
 add_command_alias(get_worker_ips, name="get_worker_ips", hidden=True)
 
 cli.add_command(info)
-cli.add_command(monitor)
 cli.add_command(status)
+cli.add_command(monitor)
+cli.add_command(debug_status)
 
 cli.add_command(cluster_dump)
 add_command_alias(cluster_dump, name="cluster_dump", hidden=True)

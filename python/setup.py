@@ -168,6 +168,7 @@ if setup_spec.type == SetupType.CLOUDTIK:
         "redis >= 3.5.0",
         "requests",
         "smart_open",
+        "prettytable"
     ]
 
 

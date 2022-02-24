@@ -147,7 +147,15 @@ class AzureNodeProvider(NodeProvider):
         ]
 
     def get_node_info(self, node_id):
-        return {}
+        node = self._get_cached_node(node_id)
+        node_info = {"node_id": node["id"],
+                     "instance_type": node["type"],
+                     "private_ip": node.internal_ip(),
+                     "public_ip": node.external_ip(),
+                     "instance_status": node["status"]}
+        node_info.update(self.node_tags(node_id))
+
+        return node_info
 
     def is_running(self, node_id):
         """Return whether the specified node is running."""

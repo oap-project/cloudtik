@@ -127,11 +127,11 @@ class GCPNodeProvider(NodeProvider):
 
     def get_node_info(self, node_id):
         node = self._get_cached_node(node_id)
-        node_info = {"node_id": node_id,
-                     "instance_type": node.get("machineType").split("/")[-1],
+        node_info = {"node_id": node["id"],
+                     "instance_type": node["machineType"].split("/")[-1],
                      "private_ip": node.get_internal_ip(),
                      "public_ip": node.get_external_ip(),
-                     "instance_status": 'RUNNING' if node.is_running() else 'NOT READY'}
+                     "instance_status": node["status"]}
         node_info.update(self.node_tags(node_id))
         return node_info
 

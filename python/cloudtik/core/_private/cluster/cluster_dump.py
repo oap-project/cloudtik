@@ -403,7 +403,8 @@ def create_and_get_archive_from_remote_node(remote_node: Node,
         collect_cmd += ["--processes-verbose"] \
             if parameters.processes_verbose else ["--no-proccesses-verbose"]
 
-    cmd += ["/bin/bash", "-c", _wrap(collect_cmd, quotes="\"")]
+    # Specify --login and -i here to source bashrc and avoid command not found issue
+    cmd += ["/bin/bash", "--login", "-c", "-i", _wrap(collect_cmd, quotes="\"")]
 
     cat = "node" if not remote_node.is_head else "head"
 

@@ -133,7 +133,7 @@ setup_commands:
 # Custom commands that will be run on the head node after common setup.
 head_setup_commands:
     - pip install -U azure-cli-core==2.29.1 azure-identity==1.7.0 azure-mgmt-compute==23.1.0 azure-mgmt-network==19.0.0 azure-mgmt-resource==20.0.0 msrestazure==0.6.4
-    - cloudtik-spark configure --provider=azure  --resource_group=$RESOURCE_GROUP  --subscription_id=$SUBSCRIPTION_ID  --azure_storage_kind=$AZURE_STORAGE_KIND  --azure_storage_account=$AZURE_STORAGE_ACCOUNT --azure_container=$AZURE_CONTAINER --azure_account_key=$AZURE_ACCOUNT_KEY
+    - cloudtik-spark configure --provider=azure --azure_storage_kind=$AZURE_STORAGE_KIND --azure_storage_account=$AZURE_STORAGE_ACCOUNT --azure_container=$AZURE_CONTAINER --azure_account_key=$AZURE_ACCOUNT_KEY
 
 # Custom commands that will be run on worker nodes after common setup.
 worker_setup_commands: []
@@ -149,6 +149,6 @@ head_start_commands:
 worker_start_commands:
     - cloudtik stop
     - ulimit -n 65536; cloudtik start --address=$CLOUDTIK_HEAD_IP:6789
-    - cloudtik-spark configure --provider=azure --master=$CLOUDTIK_HEAD_IP --resource_group=$RESOURCE_GROUP  --subscription_id=$SUBSCRIPTION_ID  --azure_storage_kind=$AZURE_STORAGE_KIND  --azure_storage_account=$AZURE_STORAGE_ACCOUNT --azure_container=$AZURE_CONTAINER --azure_account_key=$AZURE_ACCOUNT_KEY
+    - cloudtik-spark configure --provider=azure --master=$CLOUDTIK_HEAD_IP  --azure_storage_kind=$AZURE_STORAGE_KIND  --azure_storage_account=$AZURE_STORAGE_ACCOUNT --azure_container=$AZURE_CONTAINER --azure_account_key=$AZURE_ACCOUNT_KEY
     - cloudtik-spark stop-worker
     - cloudtik-spark start-worker

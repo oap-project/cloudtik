@@ -106,18 +106,6 @@ def install():
     default="",
     help="google service account private key")
 @click.option(
-    '--resource_group',
-    required=False,
-    type=str,
-    default="",
-    help="azure resource group")
-@click.option(
-    '--subscription_id',
-    required=False,
-    type=str,
-    default="",
-    help="azure subscription id")
-@click.option(
     '--azure_storage_kind',
     required=False,
     type=str,
@@ -143,18 +131,17 @@ def install():
     help="azure storage account access key")
 def configure(provider, master, aws_s3a_bucket, s3a_access_key, s3a_secret_key, project_id, gcp_gcs_bucket,
               fs_gs_auth_service_account_email, fs_gs_auth_service_account_private_key_id,
-              fs_gs_auth_service_account_private_key, resource_group, subscription_id, azure_storage_kind, azure_storage_account,
-              azure_container, azure_account_key):
+              fs_gs_auth_service_account_private_key, azure_storage_kind, azure_storage_account, azure_container,
+              azure_account_key):
     shell_path = os.path.join(CLOUDTIK_RUNTIME_SCRIPTS_PATH, "configure.sh")
     os.system("bash {} -p {} --head_address={} --aws_s3a_bucket={} --s3a_access_key={} --s3a_secret_key={} "
               "--project_id={} --gcp_gcs_bucket={} --fs_gs_auth_service_account_email={} "
               "--fs_gs_auth_service_account_private_key_id={} --fs_gs_auth_service_account_private_key={} "
-              "--resource_group={}  --subscription_id={} --azure_storage_kind={} --azure_storage_account={} "
-              "--azure_container={} --azure_account_key={}".format(
+              "--azure_storage_kind={} --azure_storage_account={} --azure_container={} --azure_account_key={}".format(
                 shell_path, provider, master, aws_s3a_bucket, s3a_access_key, s3a_secret_key, project_id,
                 gcp_gcs_bucket, fs_gs_auth_service_account_email, fs_gs_auth_service_account_private_key_id,
-                quote(fs_gs_auth_service_account_private_key), resource_group, subscription_id, azure_storage_kind,
-                azure_storage_account, azure_container, azure_account_key))
+                quote(fs_gs_auth_service_account_private_key), azure_storage_kind, azure_storage_account,
+                azure_container, azure_account_key))
 
 
 @click.command()

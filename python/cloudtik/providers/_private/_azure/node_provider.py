@@ -68,8 +68,6 @@ class AzureNodeProvider(NodeProvider):
 
     def with_provider_environment_variables(self):
         config_dict = {
-            "RESOURCE_GROUP": self.provider_config.get("resource_group"),
-            "SUBSCRIPTION_ID": self.provider_config.get("subscription_id"),
             "AZURE_STORAGE_KIND": self.provider_config.get("azure_cloud_storage", {}).get("azure.storage.kind"),
             "AZURE_STORAGE_ACCOUNT": self.provider_config.get("azure_cloud_storage", {}).get("azure.storage.account"),
             "AZURE_CONTAINER": self.provider_config.get("azure_cloud_storage", {}).get(

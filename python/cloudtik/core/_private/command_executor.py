@@ -570,6 +570,7 @@ class SSHCommandExecutor(CommandExecutor):
         self._run_helper(command, silent=is_rsync_silent())
 
     def remote_shell_command_str(self):
+        self._set_ssh_ip_if_required()
         if self.ssh_private_key:
             return "ssh -o IdentitiesOnly=yes -i {} {}@{}\n".format(
                 self.ssh_private_key, self.ssh_user, self.ssh_ip)

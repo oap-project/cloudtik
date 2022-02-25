@@ -34,7 +34,7 @@ from cloudtik.core._private.utils import CLOUDTIK_CLUSTER_SCALING_ERROR, \
     CLOUDTIK_CLUSTER_SCALING_STATUS
 from cloudtik.core._private.cli_logger import (add_click_logging_options,
                                                 cli_logger, cf)
-
+from cloudtik.scripts.workspace import workspace
 
 logger = logging.getLogger(__name__)
 
@@ -1222,6 +1222,8 @@ cli.add_command(health_check)
 add_command_alias(health_check, name="health_check", hidden=True)
 cli.add_command(kill_random_node)
 add_command_alias(kill_random_node, name="kill_random_node", hidden=True)
+
+cli.add_command(workspace)
 
 
 def main():

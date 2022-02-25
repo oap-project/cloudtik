@@ -32,6 +32,8 @@ import psutil
 REQUIRED, OPTIONAL = True, False
 CLOUDTIK_CONFIG_SCHEMA_PATH = os.path.join(
     os.path.dirname(cloudtik.core.__file__), "config-schema.json")
+CLOUDTIK_WORKSPACE_SCHEMA_PATH = os.path.join(
+    os.path.dirname(cloudtik.core.__file__), "workspace-schema.json")
 
 # Internal kv keys for storing debug status.
 CLOUDTIK_CLUSTER_SCALING_ERROR = "__cluster_scaling_error"
@@ -713,7 +715,8 @@ def validate_config(config: Dict[str, Any]) -> None:
                 "sum of `min_workers` of all the available node types.")
 
     provider = _get_node_provider(config["provider"], config["cluster_name"])
-    provider.validate_provider_config(config["provider"])
+    provider.validate_config(config["provider"])
+
 
 def prepare_config(config: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -1157,3 +1160,26 @@ def format_no_node_type_string(node_type: dict):
         output_lines.append(output_line)
 
     return "\n  ".join(output_lines)
+
+
+def validate_workspace_config(config: Dict[str, Any]) -> None:
+    """Required Dicts indicate that no extra fields can be introduced."""
+    if not isinstance(config, dict):
+        raise ValueError("Config {} is not a dictionary".format(config))
+
+    with open(CLOUDTIK_WORKSPACE_SCHEMA_PATH) as f:
+        schema = json.load(f)
+
+    try:
+        import jsonschema
+    except (ModuleNotFoundError, ImportError) as e:
+        # Don't log a warning message here. Logging be handled by upstream.
+        raise e from None
+
+    try:
+        jsonschema.validate(config, schema)
+    except jsonschema.ValidationError as e:
+        raise e from None
+
+    provider = _get_workspace_provider(config["provider"], config["workspace_name"])
+    provider.validate_config(config["provider"])

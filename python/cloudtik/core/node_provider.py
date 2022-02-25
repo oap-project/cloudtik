@@ -257,6 +257,6 @@ class NodeProvider:
         return cluster_config
 
     @staticmethod
-    def validate_provider_config(
+    def validate_config(
             provider_config: Dict[str, Any]) -> None:
         return None

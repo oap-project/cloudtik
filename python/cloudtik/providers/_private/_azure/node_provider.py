@@ -334,7 +334,7 @@ class AzureNodeProvider(NodeProvider):
         return cluster_resource
 
     @staticmethod
-    def validate_provider_config(
+    def validate_config(
             provider_config: Dict[str, Any]) -> None:
         provider_config_failed = False
         dict = {

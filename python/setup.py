@@ -105,6 +105,12 @@ cloudtik_files += [
     "cloudtik/providers/kubernetes/defaults.yaml",
     "cloudtik/providers/_private/_kubernetes/kubectl-rsync.sh",
     "cloudtik/core/config-schema.json",
+    "cloudtik/core/workspace-schema.json",
+    "cloudtik/providers/aws/workspace-defaults.yaml",
+    "cloudtik/providers/azure/workspace-defaults.yaml",
+    "cloudtik/providers/gcp/workspace-defaults.yaml",
+    "cloudtik/providers/local/workspace-defaults.yaml",
+    "cloudtik/providers/kubernetes/workspace-defaults.yaml",
 
 ]
 

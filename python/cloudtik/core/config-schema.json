@@ -193,6 +193,10 @@
                     "description": "use azure cloud storage",
                     "additionalProperties": false,
                     "properties": {
+                      "azure.storage.kind": {
+                        "type": "string",
+                        "description": "azure cloud storage kind: wasb (Azure Blob Storage) or abfs (Azure Data Lake Storage Gen 2)."
+                      },
                       "azure.storage.account": {
                         "type": "string",
                         "description": "azure storage account name"

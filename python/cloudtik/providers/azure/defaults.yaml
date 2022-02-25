@@ -1,4 +1,4 @@
-# An unique identifier for the head node and workers of this cluster.
+# A unique identifier for the head node and workers of this cluster.
 cluster_name: default
 
 # The maximum number of workers nodes to launch in addition to the head
@@ -132,7 +132,6 @@ setup_commands:
 
 # Custom commands that will be run on the head node after common setup.
 head_setup_commands:
-    - pip install -U azure-cli-core==2.29.1 azure-identity==1.7.0 azure-mgmt-compute==23.1.0 azure-mgmt-network==19.0.0 azure-mgmt-resource==20.0.0 msrestazure==0.6.4
     - cloudtik-spark configure --provider=azure --azure_storage_kind=$AZURE_STORAGE_KIND --azure_storage_account=$AZURE_STORAGE_ACCOUNT --azure_container=$AZURE_CONTAINER --azure_account_key=$AZURE_ACCOUNT_KEY
 
 # Custom commands that will be run on worker nodes after common setup.

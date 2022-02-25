@@ -127,7 +127,7 @@ CLOUDTIK_UPDATE_INTERVAL_S = env_integer("CLOUDTIK_UPDATE_INTERVAL_S", 5)
 # in more than this interval.
 CLOUDTIK_HEARTBEAT_TIMEOUT_S = env_integer("CLOUDTIK_HEARTBEAT_TIMEOUT_S", 30)
 
-CLOUDTIK_HEARTBEAT_PERIOD_SECONDS = env_integer("CLOUDTIK_HEARTBEAT_PERIOD_SECONDS", 0.1)
+CLOUDTIK_HEARTBEAT_PERIOD_SECONDS = env_integer("CLOUDTIK_HEARTBEAT_PERIOD_SECONDS", 1)
 
 # The maximum number of nodes (including failed nodes) that the cluster scaler will
 # track for logging purposes.
@@ -165,12 +165,15 @@ CLOUDTIK_PROCESSES = [
     # about comm and args. This can help avoid killing non-cloudtik processes.
     # Format:
     # Keyword to filter, filter by command (True)/filter by args (False)
-    ["cloudtik_cluster_coordinator.py", False],
-    ["cloudtik_node_coordinator.py", False],
-    ["cloudtik_log_monitor.py", False],
-    ["cloudtik_process_reaper.py", False],
-    ["redis-server", False],
+    # The third element is the process name.
+    # The forth element, if node, the process should on all nodes,if head, the process should on head node.
+    ["cloudtik_cluster_coordinator.py", False, "ClusterCoordinator", "head"],
+    ["cloudtik_node_coordinator.py", False, "NodeCoordinator", "node"],
+    ["cloudtik_log_monitor.py", False, "LogMonitor", "node"],
+    ["cloudtik_process_reaper.py", False, "ProcessReaper", "none"],
+    ["redis-server", False, "RedisServer", "none"],
 ]
+
 
 # Max Concurrent SSH Calls to stop Docker
 MAX_PARALLEL_SHUTDOWN_WORKERS = env_integer("MAX_PARALLEL_SHUTDOWN_WORKERS",

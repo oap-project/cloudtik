@@ -321,7 +321,7 @@ def stop(force):
     total_found = 0
     total_stopped = 0
     stopped = []
-    for keyword, filter_by_cmd in processes_to_kill:
+    for keyword, filter_by_cmd, _, _ in processes_to_kill:
         if filter_by_cmd and is_linux and len(keyword) > 15:
             # getting here is an internal bug, so we do not use cli_logger
             msg = ("The filter string should not be more than {} "

@@ -10,11 +10,14 @@ import threading
 from multiprocessing.synchronize import Event
 from typing import Optional
 import json
+import psutil
+import subprocess
 
 import cloudtik
 from cloudtik.core._private import constants, services
 from cloudtik.core._private.logging_utils import setup_component_logger
 from cloudtik.core._private.state.control_state import ControlState
+from cloudtik.runtime.spark.utils import get_runtime_processes
 
 logger = logging.getLogger(__name__)
 
@@ -39,12 +42,17 @@ class NodeCoordinator:
             redis_address, password=redis_password)
         (ip, port) = address.split(":")
 
-        head_node_ip = redis_address.split(":")[0]
         self.redis_address = redis_address
         self.redis_password = redis_password
         self.coordinator_ip = coordinator_ip
+        self.node_type = 'head' if coordinator_ip == services.get_node_ip_address() else 'worker'
         self.static_resource_list = static_resource_list
-        self.node_resource_dict = self._parse_resource_list()
+        # node_detail store the resource, process and other details of the current node
+        self.node_detail = {}
+        resource_dict, node_id = self._parse_resource_list()
+        self.node_detail["resource"] = resource_dict
+        self.node_id = node_id
+        self.pre_processes = []
 
         # Can be used to signal graceful exit from coordinator loop.
         self.stop_event = stop_event  # type: Optional[Event]
@@ -65,6 +73,7 @@ class NodeCoordinator:
 
             # Wait for update interval before processing the next
             # round of messages.
+            self._check_process()
             time.sleep(constants.CLOUDTIK_UPDATE_INTERVAL_S)
 
     def _handle_failure(self, error):
@@ -87,11 +96,10 @@ class NodeCoordinator:
         while True:
             time.sleep(constants.CLOUDTIK_HEARTBEAT_PERIOD_SECONDS)
             now = time.time()
-            node_info = self.node_resource_dict.copy()
+            node_info = self.node_detail.copy()
             node_info.update({"last_heartbeat_time": now})
-            node_id = node_info.pop("node_id")
             as_json = json.dumps(node_info)
-            self.node_table.put(node_id, as_json)
+            self.node_table.put(self.node_id, as_json)
             pass
 
     def _parse_resource_list(self):
@@ -100,10 +108,47 @@ class NodeCoordinator:
         for i in range(int(len(resource_split) / 2)):
             if "node" in resource_split[2 * i]:
                 node_resource_dict["ip"] = resource_split[2 * i].split(":")[1]
-                node_resource_dict["node_id"] = resource_split[2 * i]
+                node_id = resource_split[2 * i].replace(":", "_")
             else:
                 node_resource_dict[resource_split[2 * i]] = float(resource_split[2 * i + 1])
-        return node_resource_dict
+        return node_resource_dict, node_id
+
+
+    def _check_process(self):
+        """check CloudTik runtime processes on the local machine."""
+        processes_to_check = constants.CLOUDTIK_PROCESSES
+        processes_to_check.extend(get_runtime_processes())
+
+        process_infos = []
+        for proc in psutil.process_iter(["name", "cmdline"]):
+            try:
+                process_infos.append((proc, proc.name(), proc.cmdline()))
+            except psutil.Error:
+                pass
+
+        found_process = {}
+        for keyword, filter_by_cmd, process_name, node_type in processes_to_check:
+            if filter_by_cmd and len(keyword) > 15:
+                # getting here is an internal bug, so we do not use cli_logger
+                msg = ("The filter string should not be more than {} "
+                       "characters. Actual length: {}. Filter: {}").format(
+                    15, len(keyword), keyword)
+                raise ValueError(msg)
+
+            for candidate in process_infos:
+                proc, proc_cmd, proc_args = candidate
+                corpus = (proc_cmd
+                          if filter_by_cmd else subprocess.list2cmdline(proc_args))
+                if keyword in corpus and (self.node_type == node_type or "node" == node_type):
+                    found_process[process_name] = proc.status()
+            if self.node_type == node_type or "node" == node_type:
+                found_process[process_name] = "not running"
+
+        if found_process != self.pre_processes:
+            logger.info("Cloudtik related processes status changed, current process information: {}".format(str(found_process)))
+        self.node_detail["process"] = found_process
+        self.pre_processes = found_process
+
 
     def run(self):
         # Register signal handlers for cluster scaler termination.

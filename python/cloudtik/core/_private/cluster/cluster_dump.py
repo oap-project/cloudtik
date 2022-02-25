@@ -281,7 +281,7 @@ def get_local_processes(archive: Archive,
 
     relevant_processes = {}
     for process_dict, cmdline in process_infos:
-        for keyword, filter_by_cmd in processes:
+        for keyword, filter_by_cmd, _, _ in processes:
             if filter_by_cmd:
                 corpus = process_dict["name"]
             else:

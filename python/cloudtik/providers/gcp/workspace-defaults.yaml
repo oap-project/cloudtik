@@ -1,0 +1,9 @@
+# A unique identifier for the workspace.
+workspace_name: default
+
+# Cloud-provider specific configuration.
+provider:
+    type: gcp
+    region: us-west1
+    availability_zone: us-west1-a
+    project_id: null # Globally unique project id

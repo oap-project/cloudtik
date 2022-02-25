@@ -1,0 +1,5 @@
+# This configuration file is used internally
+# to fill default settings for on-prem clusters
+# For annotated examples, see the example yamls in this directory.
+
+workspace_name: default

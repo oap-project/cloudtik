@@ -3,7 +3,7 @@
 export HADOOP_VERSION=3.2.0
 export SPARK_VERSION=3.1.1
 
-export USER_HOME=/home/ubuntu
+export USER_HOME=$HOME
 export RUNTIME_PATH=/home/ubuntu/runtime
 mkdir -p $RUNTIME_PATH
 

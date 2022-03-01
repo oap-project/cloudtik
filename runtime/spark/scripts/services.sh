@@ -8,9 +8,11 @@ fi
 case "$1" in
   start-head)
     $HADOOP_HOME/bin/yarn --daemon start resourcemanager
+    which jupyter && nohup jupyter lab > jupyterlab.log 2>&1 &
     ;;
   stop-head)
     $HADOOP_HOME/bin/yarn --daemon stop resourcemanager
+    ps -aux|grep jupyter|awk '{print $2}'|xargs kill
     ;;
   start-worker)
     $HADOOP_HOME/bin/yarn --daemon start nodemanager

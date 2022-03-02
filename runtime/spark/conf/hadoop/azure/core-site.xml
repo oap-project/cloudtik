@@ -22,10 +22,6 @@
       <value>{%azure.storage.kind%}://{%azure.container%}@{%azure.storage.account%}.{%storage.endpoint%}.core.windows.net</value>
     </property>
     <property>
-      <name>fs.AbstractFileSystem.wasb.impl</name>
-      <value>{%fs.AbstractFileSystem.wasb.impl%}</value>
-    </property>
-    <property>
       <name>fs.azure.account.key.{%azure.storage.account%}.{%storage.endpoint%}.core.windows.net</name>
       <value>{%azure.account.key%}</value>
     </property>

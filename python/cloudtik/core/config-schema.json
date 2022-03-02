@@ -195,7 +195,7 @@
                     "properties": {
                       "azure.storage.kind": {
                         "type": "string",
-                        "description": "azure cloud storage kind: wasb (Azure Blob Storage) or abfs (Azure Data Lake Storage Gen 2)."
+                        "description": "azure cloud storage kind: wasbs (Azure Blob Storage) or abfs (Azure Data Lake Storage Gen 2)."
                       },
                       "azure.storage.account": {
                         "type": "string",

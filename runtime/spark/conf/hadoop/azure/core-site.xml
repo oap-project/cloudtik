@@ -19,19 +19,19 @@
 <configuration>
     <property>
       <name>fs.defaultFS</name>
-      <value>{%azure.storage.kind}://{%azure.container%}@{%azure.storage.account}.{%storage.endpoint}.core.windows.net</value>
+      <value>{%azure.storage.kind%}://{%azure.container%}@{%azure.storage.account%}.{%storage.endpoint%}.core.windows.net</value>
     </property>
     <property>
       <name>fs.AbstractFileSystem.wasb.impl</name>
-      <value>{%fs.AbstractFileSystem.wasb.impl}</value>
+      <value>{%fs.AbstractFileSystem.wasb.impl%}</value>
     </property>
     <property>
-      <name>fs.azure.account.key.{%azure.storage.account}.{%storage.endpoint}.core.windows.net</name>
-      <value>{%azure.account.key}</value>
+      <name>fs.azure.account.key.{%azure.storage.account%}.{%storage.endpoint%}.core.windows.net</name>
+      <value>{%azure.account.key%}</value>
     </property>
     <property>
-      <name>fs.azure.account.auth.type.{%azure.storage.account}.{%storage.endpoint}.core.windows.net</name>
-      <value>{%auth.type}</value>
+      <name>fs.azure.account.auth.type.{%azure.storage.account%}.{%storage.endpoint%}.core.windows.net</name>
+      <value>{%auth.type%}</value>
       <description></description>
     </property>
 </configuration>

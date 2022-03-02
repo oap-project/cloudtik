@@ -141,15 +141,15 @@ function update_gcp_hadoop_config() {
 function update_azure_hadoop_config() {
     sed -i "s#{%azure.storage.account%}#${AZURE_STORAGE_ACCOUNT}#g" "$(grep "{%azure.storage.account%}" -rl ./)"
     sed -i "s#{%azure.container%}#${AZURE_CONTAINER}#g" "$(grep "{%azure.container%}" -rl ./)"
-    sed -i "s#{%azure.account.key}#${AZURE_ACCOUNT_KEY}#g" "$(grep "{%azure.account.key}" -rl ./)"
+    sed -i "s#{%azure.account.key%}#${AZURE_ACCOUNT_KEY}#g" "$(grep "{%azure.account.key%}" -rl ./)"
     if [ $AZURE_STORAGE_KIND == "wasb" ];then
-      sed -i "s#{%azure.storage.kind}#wasb#g" "$(grep "{%azure.storage.kind%}" -rl ./)"
-      sed -i "s#{%storage.endpoint}#blob#g" "$(grep "{%storage.endpoint}" -rl ./)"
-      sed -i "s#{%fs.AbstractFileSystem.wasb.impl}#org.apache.hadoop.fs.azure.Wasb#g" "$(grep "{%fs.AbstractFileSystem.wasb.impl}" -rl ./)"
+      sed -i "s#{%azure.storage.kind%}#wasb#g" "$(grep "{%azure.storage.kind%}" -rl ./)"
+      sed -i "s#{%storage.endpoint%}#blob#g" "$(grep "{%storage.endpoint%}" -rl ./)"
+      sed -i "s#{%fs.AbstractFileSystem.wasb.impl%}#org.apache.hadoop.fs.azure.Wasb#g" "$(grep "{%fs.AbstractFileSystem.wasb.impl%}" -rl ./)"
     elif [ $AZURE_STORAGE_KIND == "abfs" ];then
-      sed -i "s#{%azure.storage.kind}#abfs#g" "$(grep "{%azure.storage.kind%}" -rl ./)"
-      sed -i "s#{%storage.endpoint}#dfs#g" "$(grep "{%storage.endpoint}" -rl ./)"
-      sed -i "s#{%auth.type}#SharedKey#g" "$(grep "{%auth.type}" -rl ./)"
+      sed -i "s#{%azure.storage.kind%}#abfs#g" "$(grep "{%azure.storage.kind%}" -rl ./)"
+      sed -i "s#{%storage.endpoint%}#dfs#g" "$(grep "{%storage.endpoint%}" -rl ./)"
+      sed -i "s#{%auth.type%}#SharedKey#g" "$(grep "{%auth.type%}" -rl ./)"
     else
        echo "Azure storage kind must be wasb(Azure Blob storage) or abfs(Azure Data Lake Gen 2)"
     fi

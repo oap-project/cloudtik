@@ -465,7 +465,7 @@ class SSHCommandExecutor(CommandExecutor):
         if shutdown_after_run:
             cmd += "; sudo shutdown -h now"
         if ssh_options_override_ssh_key:
-            ssh_options = SSHOptions(ssh_options_override_ssh_key)
+            ssh_options = SSHOptions(ssh_options_override_ssh_key, ProxyCommand=self.ssh_proxy_command)
         else:
             ssh_options = self.ssh_options
 

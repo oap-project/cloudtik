@@ -53,6 +53,7 @@ class AzureNodeProvider(NodeProvider):
         NodeProvider.__init__(self, provider_config, cluster_name)
         subscription_id = provider_config["subscription_id"]
         credential = DefaultAzureCredential(
+            exclude_managed_identity_credential=True,
             exclude_shared_token_cache_credential=True)
         self.compute_client = ComputeManagementClient(credential,
                                                       subscription_id)

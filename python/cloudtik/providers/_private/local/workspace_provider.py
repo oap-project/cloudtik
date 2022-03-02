@@ -14,3 +14,7 @@ class LocalWorkspaceProvider(WorkspaceProvider):
     def validate_config(
             provider_config: Dict[str, Any]) -> None:
         return None
+
+    @staticmethod
+    def bootstrap_workspace_config(cluster_config):
+        return cluster_config

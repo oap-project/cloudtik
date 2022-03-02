@@ -199,6 +199,19 @@ def log_to_cli(config: Dict[str, Any]) -> None:
     cli_logger.newline()
 
 
+def bootstrap_workspace_aws(config):
+    # create a copy of the input config to modify
+    config = copy.deepcopy(config)
+    # create vpc according to use_internal_ip
+    config = _configure_vpc(config)
+
+    # Cluster workers should be in a security group that permits traffic within
+    # the group, and also SSH access from outside.
+    config = _configure_security_group(config)
+
+    return config
+
+
 def bootstrap_aws(config):
     # create a copy of the input config to modify
     config = copy.deepcopy(config)
@@ -395,6 +408,19 @@ def _configure_key_pair(config):
 def _key_assert_msg(node_type: str) -> str:
     return ("`KeyName` missing from the `node_config` of"
             f" node type `{node_type}`.")
+
+
+def _configure_vpc(config):
+    ec2 = _resource("ec2", config)
+    use_internal_ips = config["provider"].get("use_internal_ips", False)
+
+    # TODO: create customer vpc
+    if use_internal_ips:
+        vpc = ec2.create_vpc(CidrBlock='172.16.0.0/16')
+    else:
+        vpc = ec2.create_vpc(CidrBlock='172.16.0.0/16')
+
+    return config
 
 
 def _configure_subnet(config):

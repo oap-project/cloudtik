@@ -40,6 +40,11 @@ def bootstrap_azure(config):
     config = _configure_resource_group(config)
     return config
 
+def bootstrap_workspace_azure(config):
+    # TODO: create vpc and security group:
+    # config = _configure_key_pair(config)
+    # config = _configure_resource_group(config)
+    return config
 
 def _configure_resource_group(config):
     # TODO: look at availability sets

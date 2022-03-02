@@ -327,6 +327,7 @@ def _get_default_workspace_config(provider_config):
 
     This is an INTERNAL API. It is not allowed to call this from outside.
     """
+    # TODO: stiill not check with exterbal type
     if provider_config["type"] == "external":
         return copy.deepcopy(MINIMAL_EXTERNAL_CONFIG)
     load_config = _DEFAULT_WORKSPACE_CONFIGS.get(provider_config["type"])

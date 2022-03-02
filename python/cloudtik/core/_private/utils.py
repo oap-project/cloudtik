@@ -23,8 +23,9 @@ import cloudtik
 from cloudtik.core._private import constants, services
 from cloudtik.core._private.cluster.load_metrics import LoadMetricsSummary
 from cloudtik.providers._private.local.config import prepare_local
-from cloudtik.core._private.providers import _get_default_config, _get_node_provider
+from cloudtik.core._private.providers import _get_default_config, _get_node_provider, _get_default_workspace_config
 from cloudtik.core._private.docker import validate_docker_config
+from cloudtik.core._private.providers import _get_workspace_provider
 
 # Import psutil after others so the packaged version is used.
 import psutil
@@ -735,6 +736,33 @@ def prepare_config(config: Dict[str, Any]) -> Dict[str, Any]:
     validate_docker_config(with_defaults)
     fill_node_type_min_max_workers(with_defaults)
     return with_defaults
+
+def prepare_workspace_config(config: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    The returned config has the following properties:
+    - Uses the multi-node-type cluster scaler configuration.
+    - Merged with the appropriate defaults.yaml
+    - Has a valid Docker configuration if provided.
+    - Has max_worker set for each node type.
+    """
+    #To do
+    # is_local = config.get("provider", {}).get("type") == "local"
+    # if is_local:
+    #     config = prepare_local(config)
+
+    with_defaults = fillout_workspace_defaults(config)
+    return with_defaults
+
+def fillout_workspace_defaults(config: Dict[str, Any]) -> Dict[str, Any]:
+    defaults = _get_default_workspace_config(config["provider"])
+    defaults.update(config)
+
+    # Just for clarity:
+    merged_config = copy.deepcopy(defaults)
+
+    # Fill auth field to avoid key errors.
+    merged_config["auth"] = merged_config.get("auth", {})
+    return merged_config
 
 
 def fillout_defaults(config: Dict[str, Any]) -> Dict[str, Any]:

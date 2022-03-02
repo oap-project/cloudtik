@@ -249,6 +249,12 @@ def construct_clients_from_provider_config(provider_config):
         _create_compute(credentials), \
         tpu_resource
 
+def bootstrap_workspace_gcp(config):
+    config = copy.deepcopy(config)
+    # TODO: create vpc and security group
+
+    return config
+
 
 def bootstrap_gcp(config):
     config = copy.deepcopy(config)

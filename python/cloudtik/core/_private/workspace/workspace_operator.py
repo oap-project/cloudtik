@@ -13,7 +13,7 @@ except ImportError:  # py2
 
 
 from cloudtik.core._private.utils import validate_workspace_config, prepare_workspace_config
-from cloudtik.core._private.providers import _get_workspace_provider_cls, \
+from cloudtik.core._private.providers import _get_workspace_provider_cls, _get_workspace_provider, \
     _WORKSPACE_PROVIDERS, _PROVIDER_PRETTY_NAMES
 
 from cloudtik.core._private.cli_logger import cli_logger, cf
@@ -50,6 +50,23 @@ def try_reload_log_state(provider_config: Dict[str, Any],
     if provider_config["type"] == "aws":
         from cloudtik.providers._private.aws.config import reload_log_state
         return reload_log_state(log_state)
+
+
+def delete_workspace(
+        config_file: str, yes: bool,
+        override_workspace_name: Optional[str] = None) -> Dict[str, Any]:
+    """Destroys the workspace and associated Cloud resources."""
+    config = yaml.safe_load(open(config_file).read())
+    if override_workspace_name is not None:
+        config["workspace_name"] = override_workspace_name
+
+    config = _bootstrap_workspace_config(config)
+
+    cli_logger.confirm(yes, "Destroying cluster.", _abort=True)
+
+    provider = _get_workspace_provider(config["provider"], config["workspace_name"])
+
+    provider.delete_workspace(config)
 
 
 def create_or_update_workspace(
@@ -119,8 +136,6 @@ def create_or_update_workspace(
     config = _bootstrap_workspace_config(config, no_workspace_config_cache=no_workspace_config_cache)
 
     # try_logging_config(config)
-    # get_or_create_head_node(config, config_file, no_restart, restart_only, yes,
-    #                         override_cluster_name, no_coordinator_on_head)
     return config
 
 

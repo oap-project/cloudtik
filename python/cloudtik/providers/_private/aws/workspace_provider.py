@@ -1,10 +1,7 @@
 import logging
-import json
 from typing import Any, Dict
-from cloudtik.providers._private.aws.config import  bootstrap_workspace_aws
-from cloudtik.core._private.utils import CLOUDTIK_WORKSPACE_SCHEMA_PATH
+from cloudtik.providers._private.aws.config import  bootstrap_workspace_aws, delete_workspace_aws
 
-import botocore
 
 from cloudtik.core.workspace_provider import WorkspaceProvider
 
@@ -22,6 +19,12 @@ class AWSWorkspaceProvider(WorkspaceProvider):
         """Required Dicts indicate that no extra fields can be introduced."""
         return None
 
+
     @staticmethod
     def bootstrap_workspace_config(cluster_config):
         return bootstrap_workspace_aws(cluster_config)
+
+
+    @staticmethod
+    def delete_workspace(cluster_config):
+        return delete_workspace_aws(cluster_config)

@@ -1,11 +1,10 @@
 import click
 import logging
 import urllib
-import yaml
 
-from cloudtik.core._private.workspace.workspace_operator import create_or_update_workspace
-from cloudtik.core._private.cli_logger import (add_click_logging_options,
-                                                cli_logger, cf)
+from cloudtik.core._private.workspace.workspace_operator import (
+    create_or_update_workspace, delete_workspace)
+from cloudtik.core._private.cli_logger import (add_click_logging_options, cli_logger)
 
 logger = logging.getLogger(__name__)
 
@@ -57,14 +56,20 @@ def create(workspace_config_file, workspace_name, no_workspace_config_cache):
 @workspace.command()
 @click.argument("workspace_config_file", required=True, type=str)
 @click.option(
+    "--yes",
+    "-y",
+    is_flag=True,
+    default=False,
+    help="Don't ask for confirmation.")
+@click.option(
     "--workspace-name",
     "-n",
     required=False,
     type=str,
     help="Override the configured workspace name.")
 @add_click_logging_options
-def delete(workspace_config_file, workspace_name):
+def delete(workspace_config_file, yes, workspace_name):
     """Delete the workspace and associated Cloud resources."""
     # TODO: Implement deleting of workspace based on cloud provider.
-    pass
 
+    delete_workspace(workspace_config_file, yes, workspace_name)

@@ -19,3 +19,4 @@ class AzureWorkspaceProvider(WorkspaceProvider):
     @staticmethod
     def bootstrap_workspace_config(cluster_config):
         return bootstrap_workspace_azure(cluster_config)
+

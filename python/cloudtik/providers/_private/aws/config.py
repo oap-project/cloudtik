@@ -16,7 +16,8 @@ from cloudtik.core._private.providers import _PROVIDER_PRETTY_NAMES
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.event_system import (CreateClusterEvent,
                                                   global_event_system)
-                                                  
+from cloudtik.core._private.services import get_node_ip_address
+
 from cloudtik.providers._private.aws.utils import LazyDefaultDict, \
     handle_boto_error, resource_cache
 
@@ -197,6 +198,13 @@ def log_to_cli(config: Dict[str, Any]) -> None:
         print_info("EC2 AMI", "ImageId", "ami_src", allowed_tags=["dlami"])
 
     cli_logger.newline()
+
+
+def delete_workspace_aws(config):
+    delete_vpc(config)
+    # _delete_security_group(config)
+    return None
+
 
 
 def bootstrap_workspace_aws(config):
@@ -410,17 +418,251 @@ def _key_assert_msg(node_type: str) -> str:
             f" node type `{node_type}`.")
 
 
+def _delete_internet_gateway(ec2, vpcid):
+  """ Detach and delete the internet-gateway """
+  vpc_resource = ec2.Vpc(vpcid)
+  igws = vpc_resource.internet_gateways.all()
+  if igws:
+    for igw in igws:
+      try:
+        print("Detaching and Removing igw-id: ", igw.id)
+        igw.detach_from_vpc(
+          VpcId=vpcid
+        )
+        igw.delete(
+          # DryRun=True
+        )
+      except boto3.exceptions.Boto3Error as e:
+        print(e)
+
+
+def _delete_subnets(ec2, vpcid):
+    return
+
+
+def _delete_route_table(ec2, vpcid):
+    """ Delete the route-tables """
+    vpc_resource = ec2.Vpc(vpcid)
+    rtbs = vpc_resource.route_tables.all()
+    if rtbs:
+        try:
+            for rtb in rtbs:
+                assoc_attr = [rtb.associations_attribute for rtb in rtbs]
+                if [rtb_ass[0]['RouteTableId'] for rtb_ass in assoc_attr if rtb_ass[0]['Main'] == True]:
+                    print(rtb.id + " is the main route table, continue...")
+                    continue
+                print("Removing rtb-id: ", rtb.id)
+                table = ec2.RouteTable(rtb.id)
+                table.delete(
+                    # DryRun=True
+                )
+        except boto3.exceptions.Boto3Error as e:
+            print(e)
+
+    return
+
+def _del_security_group(ec2, vpcid):
+    return
+
+
+def _delete_vpc(ec2, vpcid):
+    return
+
+
+def delete_vpc(config):
+    ec2 = _resource("ec2", config)
+    ec2_client = _client("ec2", config)
+    use_internal_ips = config["provider"].get("use_internal_ips", False)
+    VpcId = config["provider"]["VpcId"]
+    """
+     Do the work - order of operation
+     1.) Delete the internet-gateway
+     2.) Delete subnets
+     3.) Delete route-tables
+     4.) Delete security-groups
+     5.) Delete the VPC 
+     """
+    _delete_internet_gateway(ec2, VpcId)
+    _delete_subnets(ec2, VpcId)
+    _delete_route_table(ec2, VpcId)
+    _del_security_group(ec2, VpcId)
+    _delete_vpc(ec2, VpcId)
+
+
+def _create_vpc(config,  ec2):
+    cli_logger.print("Start to create customer vpc...")
+    # create vpc
+    try:
+        vpc = ec2.create_vpc(CidrBlock='10.10.0.0/16')
+        vpc.modify_attribute(EnableDnsSupport={'Value': True})
+        vpc.modify_attribute(EnableDnsHostnames={'Value': True})
+        vpc.create_tags(Tags=[{'Key': 'Name', 'Value': 'cloudtik_{}_vpc'.format(config["workspace_name"])}])
+        cli_logger.print("Have successfully create vpc: cloudtik_{}_vpc ...".format(config["workspace_name"]))
+    except Exception as e:
+        # todo: add better exception info
+        cli_logger.verbose_error("{}", str(e))
+        cli_logger.abort(
+            "Cannot create vpc... please check weather you have reach the  maximum number of VPCs.")
+    return vpc
+
+
+def _create_subnet(config, cidr,  vpc):
+    cli_logger.print("Start to create subnet for the vpc: {} with CIDR: {} ...".format(vpc.id, cidr))
+    try:
+        subnet = vpc.create_subnet(CidrBlock=cidr)
+        cli_logger.print("Have successfully create subnet: cloudtik_{}_subnet ...".format(config["workspace_name"]))
+    except Exception as e:
+        cli_logger.verbose_error("{}", str(e))
+        cli_logger.abort(
+            "Cannot create subnet, please check whether the CIDR has conflict with other subnets...")
+    return subnet
+
+
+def _create_and_configure_subnets(config, vpc):
+    subnets = []
+    cidr_list = _configure_subnets_cidr(vpc.cidr_block)
+    for i in range(0, len(cidr_list)):
+        subnets.append(_create_subnet(config, cidr_list[i], vpc))
+
+    assert len(subnets) == 3, "We must create 3 subnets for VPC: {}!".format(vpc.id)
+
+    for i in range(0, len(cidr_list)):
+        # make the first subnet as public subnet and rename it
+        if i == 0:
+            subnets[0].meta.client.modify_subnet_attribute(SubnetId=subnets[0].id, MapPublicIpOnLaunch={"Value": True})
+            subnets[0].create_tags(Tags=[{'Key': 'Name',
+                                          'Value': 'cloudtik_{}_public_subnet'.format(config["workspace_name"])}])
+        else:
+            subnets[i].create_tags(Tags=[{'Key': 'Name',
+                                          'Value': 'cloudtik_{}_private_subnet_{}'.format(config["workspace_name"], i)}])
+    return subnets
+
+
+def _create_internet_gateway(config, ec2, vpc):
+    cli_logger.print("Start to create internet gateway for the vpc: {}...".format(vpc.id))
+    try:
+        igw = ec2.create_internet_gateway()
+        igw.create_tags(Tags=[{'Key': 'Name', 'Value': 'cloudtik_{}_internet_gateway'.format(config["workspace_name"])}])
+        igw.attach_to_vpc(VpcId=vpc.id)
+        cli_logger.print("Have successfully create internet gateway: cloudtik_{}_internet_gateway ...".format(config["workspace_name"]))
+    except Exception as e:
+        cli_logger.verbose_error("{}", str(e))
+        cli_logger.abort(
+            "Cannot create internet gateway... "
+            "please check weather you have reach the  maximum number of internet gateways...")
+    return igw
+
+
+def _create_elastic_ip(ec2_client):
+    # Allocate Elastic IP
+    eip_for_nat_gateway = ec2_client.allocate_address(Domain='vpc')
+    return eip_for_nat_gateway
+
+
+def _create_nat_gateway(config, ec2_client, subnet):
+    cli_logger.print("Start to create nat gateway for the subnet: {}...".format(subnet.id))
+    try:
+        eip_for_nat_gateway = _create_elastic_ip(ec2_client)
+        allocation_id = eip_for_nat_gateway['AllocationId']
+
+        # create NAT Gateway and associate with Elastic IP
+        nat_gw = ec2_client.create_nat_gateway(SubnetId=subnet.id, AllocationId=allocation_id)
+        nat_gw_id = nat_gw['NatGateway']['NatGatewayId']
+
+        nat_gw.create_tags(Tags=[{'Key': 'Name', 'Value': 'cloudtik_{}_nat_gateway'.format(config["workspace_name"])}])
+        cli_logger.print("Have successfully create nat gateway: cloudtik_{}_nat_gateway ...".format(config["workspace_name"]))
+    except Exception as e:
+        cli_logger.verbose_error("{}", str(e))
+        cli_logger.abort(
+            "Cannot create nat gateway... "
+            "please check weather you have reach the  maximum number of nat gateways...")
+    return nat_gw
+
+
+def _update_route_table_for_public_subnet(config, ec2_client, vpc, subnet, igw):
+    public_route_table = list(vpc.route_tables.all())[0]
+    public_route_table.create_tags(Tags=[{'Key': 'Name', 'Value': 'cloudtik_{}_public_route_table'.format(config["workspace_name"])}])
+    # add a default route, for Public Subnet, pointing to Internet Gateway
+    ec2_client.create_route(RouteTableId=public_route_table.id, DestinationCidrBlock='0.0.0.0/0', GatewayId=igw.id)
+    public_route_table.associate_with_subnet(SubnetId=subnet.id)
+
+
+def _create_route_table_for_private_subnet(config, ec2, vpc, subnets):
+    private_route_table = ec2.create_route_table(VpcId=vpc.id)
+    private_route_table.create_tags(
+        Tags=[{'Key': 'Name', 'Value': 'cloudtik_{}_private_route_table'.format(config["workspace_name"])}])
+    private_route_table.associate_with_subnet(SubnetId=subnets[1].id)
+    private_route_table.associate_with_subnet(SubnetId=subnets[2].id)
+
+
 def _configure_vpc(config):
     ec2 = _resource("ec2", config)
+    ec2_client = _client("ec2", config)
     use_internal_ips = config["provider"].get("use_internal_ips", False)
 
-    # TODO: create customer vpc
     if use_internal_ips:
-        vpc = ec2.create_vpc(CidrBlock='172.16.0.0/16')
+        # No need to create new vpc
+        VpcId = get_current_vpc(config)
+        vpc = ec2.Vpc(id=VpcId)
+        vpc.create_tags(Tags=[{'Key': 'Name', 'Value': 'cloudtik_{}_vpc'.format(config["workspace_name"])}])
     else:
-        vpc = ec2.create_vpc(CidrBlock='172.16.0.0/16')
+        # Need to create a new vpc
+        vpc = _create_vpc(config, ec2)
+
+    # create subnets
+    subnets = _create_and_configure_subnets(config, vpc)
+
+    # TODO check whether we need to create new internet gateway? Maybe existing vpc contains internet subnets
+    # create internet gateway for public subnets
+    internet_gateway = _create_internet_gateway(config, ec2, vpc)
+
+    # add internet_gateway into public route table
+    _update_route_table_for_public_subnet(config, ec2_client, vpc, subnets[0], internet_gateway)
+
+    # create private route table for private subnets
+    private_route_table = _create_route_table_for_private_subnet(config, ec2, vpc, subnets)
+
+    # create nate_gatway for private subnets
+    nat_gateway = _create_nat_gateway(config, ec2_client, subnets[0])
+
+    # Create a default route pointing to NAT Gateway for private subnets
+    ec2_client.create_route(RouteTableId=private_route_table.id, DestinationCidrBlock='0.0.0.0/0',
+                            NatGatewayId=nat_gateway['NatGateway']['NatGatewayId'])
+
+    # TODO: Maybe need to record these settings on AWS resource? Need to verify later.
+    for key, node_type in config["available_node_types"].items():
+        node_config = node_type["node_config"]
+        if key == config["head_node_type"]:
+            if use_internal_ips:
+                node_config["SubnetIds"] = [subnets[1], subnets[2]]
+            else:
+                node_config["SubnetIds"] = [subnets[0]]
+        else:
+            node_config["SubnetIds"] = [subnets[1], subnets[2]]
+
+    config["provider"]["VpcId"] = subnets[0].vpc_id
 
     return config
+
+
+def _configure_subnets_cidr(vpc_CidrBlock):
+    cidr_list = []
+    ip = vpc_CidrBlock.split("/")[0].split(".")
+    for i in range(0, 3):
+        cidr_list.append(ip[0] + "." + ip[1] + "." + str(i) + ".0/24")
+    return cidr_list
+
+
+def get_current_vpc(config):
+    client = _client("ec2", config)
+    ip_address = get_node_ip_address(address="8.8.8.8:53")
+    VpcId = ""
+    for  Reservation in  client.describe_instances().get("Reservations"):
+        for instance  in Reservation["Instances"]:
+            if instance["PrivateIpAddress"] == ip_address:
+                VpcId = instance["VpcId"]
+
+    return VpcId
 
 
 def _configure_subnet(config):

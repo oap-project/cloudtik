@@ -23,12 +23,20 @@ class WorkspaceProvider:
         self.provider_config = provider_config
         self.workspace_name = workspace_name
 
+
     @staticmethod
     def validate_config(
             provider_config: Dict[str, Any]) -> None:
         return None
 
+
     @staticmethod
     def bootstrap_workspace_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         """Bootstraps the cluster config by adding env defaults if needed."""
         return cluster_config
+
+
+    @staticmethod
+    def delete_workspace(
+            cluster_config: Dict[str, Any]) -> None:
+        return None

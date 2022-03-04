@@ -16,7 +16,7 @@ provider:
     resource_group: intelML
     subscription_id: b4e0c565-9d15-4b44-837a-cb04eba0d56d
     azure_cloud_storage:
-        # Choose cloud storage kind: wasb (Azure Blob Storage) or abfs (Azure Data Lake Storage Gen 2).
+        # Choose cloud storage kind: wasbs (Azure Blob Storage) or abfs (Azure Data Lake Storage Gen 2).
         azure.storage.kind: abfs
         azure.storage.account: intelmachinelearning
         azure.container: azureml

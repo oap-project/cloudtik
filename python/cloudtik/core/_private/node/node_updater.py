@@ -423,7 +423,6 @@ class NodeUpdater:
 
                                 try:
                                     # Runs in the container if docker is in use
-
                                     self.cmd_executor.run(cmd, environment_variables=provider_config, run_env="auto")
                                 except ProcessRunnerError as e:
                                     if e.msg_type == "ssh_command_failed":
@@ -458,6 +457,7 @@ class NodeUpdater:
                     else:
                         env_vars = {}
                     env_vars.update(provider_config)
+
                     try:
                         old_redirected = cmd_output_util.is_output_redirected()
                         cmd_output_util.set_output_redirected(False)

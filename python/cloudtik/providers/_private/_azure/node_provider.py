@@ -11,11 +11,13 @@ from azure.mgmt.compute import ComputeManagementClient
 from azure.mgmt.network import NetworkManagementClient
 from azure.mgmt.resource import ResourceManagementClient
 from azure.mgmt.resource.resources.models import DeploymentMode
+from azure.mgmt.msi import ManagedServiceIdentityClient
 
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_NAME
 
-from cloudtik.providers._private._azure.config import (bootstrap_azure,
+from cloudtik.providers._private._azure.azure_identity_credential_adapter import AzureIdentityCredentialAdapter
+from cloudtik.providers._private._azure.config import (bootstrap_azure, MSI_NAME,
                                                        get_azure_sdk_function)
 
 VM_NAME_MAX_LEN = 64
@@ -53,24 +55,24 @@ class AzureNodeProvider(NodeProvider):
     def __init__(self, provider_config, cluster_name):
         NodeProvider.__init__(self, provider_config, cluster_name)
         subscription_id = provider_config["subscription_id"]
-        managed_identity_client_id = provider_config["managed_identity_client_id"]
+        managed_identity_client_id = provider_config.get("managed_identity_client_id")
         if managed_identity_client_id is None:
             # No managed identity
-            credential = DefaultAzureCredential(
+            self.credential = DefaultAzureCredential(
                 exclude_managed_identity_credential=True,
                 exclude_shared_token_cache_credential=True)
         else:
-            credential = DefaultAzureCredential(
+            self.credential = DefaultAzureCredential(
                 exclude_shared_token_cache_credential=True,
                 managed_identity_client_id=managed_identity_client_id
             )
 
-        self.compute_client = ComputeManagementClient(credential,
+        self.compute_client = ComputeManagementClient(self.credential,
                                                       subscription_id)
-        self.network_client = NetworkManagementClient(credential,
+        self.network_client = NetworkManagementClient(self.credential,
                                                       subscription_id)
         self.resource_client = ResourceManagementClient(
-            credential, subscription_id)
+            self.credential, subscription_id)
 
         self.lock = RLock()
 
@@ -334,6 +336,15 @@ class AzureNodeProvider(NodeProvider):
     def bootstrap_config(cluster_config):
         return bootstrap_azure(cluster_config)
 
+    def prepare_for_head_node(
+            self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Returns a new cluster config with custom configs for head node."""
+        managed_identity_client_id = self._get_managed_identity_client_id()
+        if managed_identity_client_id:
+            cluster_config["provider"]["managed_identity_client_id"] = managed_identity_client_id
+
+        return cluster_config
+
     @staticmethod
     def get_cluster_resources(
             cluster_config: Dict[str, Any]) -> Dict[str, Any]:
@@ -366,3 +377,15 @@ class AzureNodeProvider(NodeProvider):
             raise RuntimeError("{} provider must be provided right storage config, "
                                "please refer to config-schema.json.".format(provider_config["type"]))
 
+    def _get_managed_identity_client_id(self):
+        try:
+            credential_adapter = AzureIdentityCredentialAdapter(self.credential)
+            msi_client = ManagedServiceIdentityClient(credential_adapter,
+                                                      self.provider_config["subscription_id"])
+            user_assigned_identity = msi_client.user_assigned_identities.get(
+                self.provider_config["resource_group"],
+                MSI_NAME)
+            return user_assigned_identity.client_id
+        except Exception as e:
+            logger.warning("Failed to get azure client id: {}".format(e))
+            return None

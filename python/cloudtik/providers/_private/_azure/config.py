@@ -9,8 +9,6 @@ from azure.identity import AzureCliCredential
 from azure.mgmt.resource import ResourceManagementClient
 from azure.mgmt.resource.resources.models import DeploymentMode
 
-from azure.mgmt.msi import ManagedServiceIdentityClient
-from cloudtik.providers._private._azure.azure_identity_credential_adapter import AzureIdentityCredentialAdapter
 
 RETRIES = 30
 MSI_NAME = "cloudtik-msi-user-identity"
@@ -105,12 +103,6 @@ def _configure_resource_group(config):
         deployment_name="cloudtik-config",
         parameters=parameters).wait()
 
-    managed_identity_client_id = _get_managed_identity_client_id(
-        credential, subscription_id, resource_group
-    )
-    if managed_identity_client_id:
-        config["provider"]["managed_identity_client_id"] = managed_identity_client_id
-
     return config
 
 
@@ -142,15 +134,3 @@ def _configure_key_pair(config):
     return config
 
 
-def _get_managed_identity_client_id(credential, subscription_id, resource_group):
-    try:
-        credential_adapter = AzureIdentityCredentialAdapter(credential)
-        msi_client = ManagedServiceIdentityClient(credential_adapter,
-                                                  subscription_id)
-        user_assigned_identity = msi_client.user_assigned_identities.get(
-            resource_group,
-            MSI_NAME)
-        return user_assigned_identity.client_id
-    except Exception as e:
-        logger.warning("Failed to get azure client id: {}".format(e))
-        return None

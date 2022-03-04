@@ -349,7 +349,7 @@ class NodeUpdater:
                 self.provider.set_node_tags(
                     self.node_id, {CLOUDTIK_TAG_NODE_STATUS: STATUS_SETTING_UP})
                 cli_logger.labeled_value("New status", STATUS_SETTING_UP)
-
+                provider_config = self.provider.with_provider_environment_variables()
                 if self.initialization_commands:
                     with cli_logger.group(
                             "Running initialization commands",
@@ -421,9 +421,9 @@ class NodeUpdater:
                                     cmd_to_print,
                                     _numbered=("()", i, total))
 
-                                provider_config = self.provider.with_provider_environment_variables()
                                 try:
                                     # Runs in the container if docker is in use
+
                                     self.cmd_executor.run(cmd, environment_variables=provider_config, run_env="auto")
                                 except ProcessRunnerError as e:
                                     if e.msg_type == "ssh_command_failed":
@@ -457,7 +457,7 @@ class NodeUpdater:
                         }
                     else:
                         env_vars = {}
-
+                    env_vars.update(provider_config)
                     try:
                         old_redirected = cmd_output_util.is_output_redirected()
                         cmd_output_util.set_output_redirected(False)

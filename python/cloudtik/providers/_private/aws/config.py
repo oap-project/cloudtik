@@ -217,23 +217,23 @@ def delete_workspace_aws(config):
      7.) Delete vpc
      """
     # delete private subnets
-    _delete_private_subnets(ec2, VpcId)
+    _delete_private_subnets(config, ec2, VpcId)
 
     # delete route tables for private sybnets
-    _delete_route_table(ec2, VpcId)
+    _delete_route_table(config, ec2, VpcId)
 
     # delete nat-gateway
     _delete_nat_gateway(config, ec2_client, VpcId)
 
     # delete public subnets
-    _delete_public_subnets(ec2, VpcId)
+    _delete_public_subnets(config, ec2, VpcId)
 
     # delete internat gateway
     if not use_internal_ips:
         _delete_internet_gateway(ec2, VpcId)
 
     # delete security group
-    _delete_security_group(ec2, VpcId)
+    # _delete_security_group(ec2, VpcId)
 
     # delete vpc
     if not use_internal_ips:
@@ -250,7 +250,7 @@ def bootstrap_workspace_aws(config):
 
     # Cluster workers should be in a security group that permits traffic within
     # the group, and also SSH access from outside.
-    config = _configure_security_group(config)
+    # config = _configure_security_group(config)
 
     return config
 
@@ -549,9 +549,9 @@ def _delete_nat_gateway(config, ec2_client, vpcid):
                 if tag['Key'] == 'Name' and tag['Value'] == "cloudtik_{}_nat_gateway".format(
                         config["workspace_name"]):
                     cli_logger.print("Removing nat-gateway: {} ...".format(nat["NatGatewayId"]))
-                    ec2_client.delete_nat_gateway(NatGatewayId=nat["NatGatewayId"])
-                    waiter = ec2_client.get_waiter('delete_nat_gateway')
+                    ec2_client.delete_nat_gateway(NatGatewayId=nat["NatGatewayId"], wait_for_delete_retries=5)
                     cli_logger.print("Removing elastic instance : {} ...".format(nat["NatGatewayAddresses"][0]["AllocationId"]))
+
                     ec2_client.release_address(AllocationId=nat["NatGatewayAddresses"][0]["AllocationId"])
     except boto3.exceptions.Boto3Error as e:
         cli_logger.verbose_error("{}", str(e))
@@ -677,6 +677,19 @@ def _create_elastic_ip(ec2_client):
     return eip_for_nat_gateway
 
 
+def wait_nat_creation(ec2_client, nat_gateway_id):
+    """
+    Check if successful state is reached every 15 seconds until a successful state is reached.
+    An error is returned after 40 failed checks.
+    """
+    try:
+        waiter = ec2_client.get_waiter('nat_gateway_available')
+        waiter.wait(NatGatewayIds=[nat_gateway_id])
+    except Exception as e:
+        cli_logger.abort('Could not create the NAT gateway.')
+        raise
+
+
 def _create_nat_gateway(config, ec2_client, vpc, subnet):
     cli_logger.print("Start to create nat gateway for the subnet: {}...".format(subnet.id))
     try:
@@ -688,6 +701,7 @@ def _create_nat_gateway(config, ec2_client, vpc, subnet):
         nat_gw_id = nat_gw['NatGatewayId']
         ec2_client.create_tags(Tags=[{'Key': 'Name', 'Value': 'cloudtik_{}_nat_gateway'.format(config["workspace_name"])}],
                         Resources=[nat_gw_id])
+        wait_nat_creation(ec2_client, nat_gw_id)
         cli_logger.print("Have successfully create nat gateway: cloudtik_{}_nat_gateway ...".format(config["workspace_name"]))
     except Exception as e:
         cli_logger.verbose_error("{}", str(e))
@@ -722,6 +736,7 @@ def _create_route_table_for_private_subnet(config, ec2, vpc, subnets):
         Tags=[{'Key': 'Name', 'Value': 'cloudtik_{}_private_route_table'.format(config["workspace_name"])}])
     private_route_table.associate_with_subnet(SubnetId=subnets[1].id)
     private_route_table.associate_with_subnet(SubnetId=subnets[2].id)
+    return private_route_table
 
 
 def _configure_vpc(config):
@@ -759,17 +774,17 @@ def _configure_vpc(config):
                             NatGatewayId=nat_gateway['NatGatewayId'])
 
     # TODO: Maybe need to record these settings on AWS resource? Need to verify later.
-    for key, node_type in config["available_node_types"].items():
-        node_config = node_type["node_config"]
-        if key == config["head_node_type"]:
-            if use_internal_ips:
-                node_config["SubnetIds"] = [subnets[1], subnets[2]]
-            else:
-                node_config["SubnetIds"] = [subnets[0]]
-        else:
-            node_config["SubnetIds"] = [subnets[1], subnets[2]]
-
-    config["provider"]["VpcId"] = subnets[0].vpc_id
+    # for key, node_type in config["available_node_types"].items():
+    #     node_config = node_type["node_config"]
+    #     if key == config["head_node_type"]:
+    #         if use_internal_ips:
+    #             node_config["SubnetIds"] = [subnets[1], subnets[2]]
+    #         else:
+    #             node_config["SubnetIds"] = [subnets[0]]
+    #     else:
+    #         node_config["SubnetIds"] = [subnets[1], subnets[2]]
+    #
+    # config["provider"]["VpcId"] = subnets[0].vpc_id
 
     return config
 

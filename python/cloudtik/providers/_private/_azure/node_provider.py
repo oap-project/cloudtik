@@ -40,6 +40,21 @@ def synchronized(f):
     return wrapper
 
 
+def get_credential(provider_config):
+    managed_identity_client_id = provider_config.get("managed_identity_client_id")
+    if managed_identity_client_id is None:
+        # No managed identity
+        credential = DefaultAzureCredential(
+            exclude_managed_identity_credential=True,
+            exclude_shared_token_cache_credential=True)
+    else:
+        credential = DefaultAzureCredential(
+            exclude_shared_token_cache_credential=True,
+            managed_identity_client_id=managed_identity_client_id
+        )
+    return credential
+
+
 class AzureNodeProvider(NodeProvider):
     """Node Provider for Azure
 
@@ -55,18 +70,7 @@ class AzureNodeProvider(NodeProvider):
     def __init__(self, provider_config, cluster_name):
         NodeProvider.__init__(self, provider_config, cluster_name)
         subscription_id = provider_config["subscription_id"]
-        managed_identity_client_id = provider_config.get("managed_identity_client_id")
-        if managed_identity_client_id is None:
-            # No managed identity
-            self.credential = DefaultAzureCredential(
-                exclude_managed_identity_credential=True,
-                exclude_shared_token_cache_credential=True)
-        else:
-            self.credential = DefaultAzureCredential(
-                exclude_shared_token_cache_credential=True,
-                managed_identity_client_id=managed_identity_client_id
-            )
-
+        self.credential = get_credential(provider_config)
         self.compute_client = ComputeManagementClient(self.credential,
                                                       subscription_id)
         self.network_client = NetworkManagementClient(self.credential,
@@ -348,11 +352,32 @@ class AzureNodeProvider(NodeProvider):
     @staticmethod
     def get_cluster_resources(
             cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-        # To be done
+        """Fills out spark executor resource for available_node_types."""
+        if "available_node_types" not in cluster_config:
+            return cluster_config
+        provider_config = cluster_config["provider"]
+        subscription_id = provider_config["subscription_id"]
+        vm_location = provider_config["location"]
+        credential = get_credential(provider_config)
+        compute_client = ComputeManagementClient(credential, subscription_id)
+        available_node_types = cluster_config["available_node_types"]
+        head_node_type = cluster_config["head_node_type"]
+        vmsizes = compute_client.virtual_machine_sizes.list(vm_location)
+        instances_dict = {
+            instance.name: {"memory": instance.memory_in_mb, "cpu": instance.number_of_cores}
+            for instance in vmsizes
+        }
         cluster_resource = {}
-        cluster_resource["head_memory"] = 512
-        cluster_resource["worker_memory"] = 512
-        cluster_resource["worker_cpu"] = 1
+        for node_type in available_node_types:
+            instance_type = available_node_types[node_type]["node_config"]["azure_arm_parameters"]["vmSize"]
+            if instance_type in instances_dict:
+                memory_total = instances_dict[instance_type]["memory"]
+                cpu_total = instances_dict[instance_type]["cpu"]
+                if node_type != head_node_type:
+                    cluster_resource["worker_memory"] = memory_total
+                    cluster_resource["worker_cpu"] = cpu_total
+                else:
+                    cluster_resource["head_memory"] = memory_total
         return cluster_resource
 
     @staticmethod

@@ -16,8 +16,8 @@ ENV HADOOP_YARN_HOME $RUNTIME_PATH/hadoop
 ENV HADOOP_CONF_DIR $HADOOP_HOME/etc/hadoop
 ENV YARN_CONF_DIR $HADOOP_HOME/etc/hadoop
 
-RUN wget --quiet http://archive.apache.org/dist/hadoop/common/hadoop-${HADOOP_VERSION}/hadoop-${HADOOP_VERSION}.tar.gz -O hadoop.tar.gz && \
-    tar -zxvf hadoop.tar.gz && \
+RUN wget http://archive.apache.org/dist/hadoop/common/hadoop-${HADOOP_VERSION}/hadoop-${HADOOP_VERSION}.tar.gz -O hadoop.tar.gz && \
+    tar -zxf hadoop.tar.gz && \
     mv hadoop-${HADOOP_VERSION} hadoop && \
     rm hadoop.tar.gz
 
@@ -37,7 +37,7 @@ ENV SPARK_HOME           $RUNTIME_PATH/spark
 ENV PATH                 $SPARK_HOME/bin:$PATH
 
 RUN wget https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop3.2.tgz && \
-    tar -zxvf spark-${SPARK_VERSION}-bin-hadoop3.2.tgz && \
+    tar -zxf spark-${SPARK_VERSION}-bin-hadoop3.2.tgz && \
     mv spark-${SPARK_VERSION}-bin-hadoop3.2 spark && \
     rm spark-${SPARK_VERSION}-bin-hadoop3.2.tgz
 

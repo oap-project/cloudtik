@@ -59,7 +59,7 @@ RUN sed -i  "1 ic.NotebookApp.ip = '*'" ~/.jupyter/jupyter_notebook_config.py &&
     sed -i  '1 ic.NotebookApp.open_browser = False' ~/.jupyter/jupyter_notebook_config.py && \
     sed -i  "1 ic.NotebookApp.notebook_dir = '/home/cloudtik/jupyter'" ~/.jupyter/jupyter_notebook_config.py && \
     # set default password(cloudtik) for jupyter lab
-    sed -i  "1 c.NotebookApp.password = 'argon2:$argon2id$v=19$m=10240,t=10,p=8$Y+sBd6UhAyKNsI+/mHsy9g$WzJsUujSzmotUkblSTpMwCFoOBVSwm7S5oOPzpC+tz8'" ~/.jupyter/jupyter_notebook_config.py && \
+    sed -i  "1 ic.NotebookApp.password = 'argon2:\$argon2id\$v=19\$m=10240,t=10,p=8\$Y+sBd6UhAyKNsI+/mHsy9g\$WzJsUujSzmotUkblSTpMwCFoOBVSwm7S5oOPzpC+tz8'" ~/.jupyter/jupyter_notebook_config.py && \
     sed -i  '1 ic.NotebookApp.allow_root = True'   ~/.jupyter/jupyter_notebook_config.py
 
 # jupyter kernel

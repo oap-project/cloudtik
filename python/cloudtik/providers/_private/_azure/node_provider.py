@@ -155,6 +155,8 @@ class AzureNodeProvider(NodeProvider):
             >>> provider.non_terminated_nodes({CLOUDTIK_TAG_NODE_KIND: "worker"})
             ["node-1", "node-2"]
         """
+        cluster_name_tag = {CLOUDTIK_TAG_CLUSTER_NAME: self.cluster_name}
+        tag_filters.update(cluster_name_tag)
         nodes = self._get_filtered_nodes(tag_filters=tag_filters)
         return [
             k for k, v in nodes.items()

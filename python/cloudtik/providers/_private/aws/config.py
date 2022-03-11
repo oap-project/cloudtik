@@ -200,27 +200,141 @@ def log_to_cli(config: Dict[str, Any]) -> None:
     cli_logger.newline()
 
 
+def get_workspace_vpc_id(workspace_name, ec2_client):
+    vpcs = [vpc for vpc in ec2_client.describe_vpcs()["Vpcs"] if vpc["Tags"]]
+    VpcIds = [vpc["VpcId"] for vpc in vpcs
+             for tag in vpc["Tags"]
+                if tag['Key'] == 'Name' and tag['Value'] == 'cloudtik_{}_vpc'.format(workspace_name)]
+
+    if len(VpcIds) == 0:
+        return None
+    elif len(VpcIds) == 1:
+        return VpcIds[0]
+    else:
+        cli_logger.abort("This workspace: {} should not contain More than one VPC!!".format(workspace_name))
+        return None
+
+
+def get_workspace_private_subnets(workspace_name, ec2, VpcId):
+    vpc_resource = ec2.Vpc(VpcId)
+    subnets = [subnet for subnet in vpc_resource.subnets.all() if subnet.tags]
+
+    workspace_private_subnets = [subnet for subnet in subnets
+                        for tag in subnet.tags
+                            if tag['Key'] == 'Name' and tag['Value'].startswith(
+                        "cloudtik_{}_private_subnet".format(workspace_name))]
+
+    return workspace_private_subnets
+
+
+def get_workspace_public_subnets(workspace_name, ec2, VpcId):
+    vpc_resource = ec2.Vpc(VpcId)
+    subnets = [subnet for subnet in vpc_resource.subnets.all() if subnet.tags]
+
+    workspace_public_subnets = [subnet for subnet in subnets
+                                for tag in subnet.tags
+                                    if tag['Key'] == 'Name' and tag['Value'].startswith(
+            "cloudtik_{}_public_subnet".format(workspace_name))]
+
+    return workspace_public_subnets
+
+
+def get_workspace_nat_gateways(workspace_name, ec2_client, VpcId):
+    nat_gateways = [nat for nat in ec2_client.describe_nat_gateways()['NatGateways']
+                    if nat["VpcId"] == VpcId and nat["State"] != 'deleted' and nat['Tags']]
+
+    workspace_nat_gateways = [nat for nat in nat_gateways
+                              for tag in nat['Tags']
+                                if tag['Key'] == 'Name' and tag['Value'] == "cloudtik_{}_nat_gateway".format(
+                                    workspace_name)]
+
+    return workspace_nat_gateways
+
+
+def get_workspace_route_tables(workspace_name, ec2, VpcId):
+    vpc_resource = ec2.Vpc(VpcId)
+    rtbs = [rtb for rtb in vpc_resource.route_tables.all() if rtb.tags]
+
+    workspace_rtbs = [rtb for rtb in rtbs
+                      for tag in rtb.tags
+                        if tag['Key'] == 'Name' and tag['Value'] == "cloudtik_{}_private_route_table".format(
+                         workspace_name)]
+
+    return workspace_rtbs
+
+
+def get_workspace_security_group(config, VpcId, workspace_name):
+    return _get_security_group(config, VpcId, SECURITY_GROUP_TEMPLATE.format(workspace_name))
+
+
+def get_workspace_internat_gateways(workspace_name, ec2, VpcId):
+    """ Detach and delete the internet-gateway """
+    vpc_resource = ec2.Vpc(VpcId)
+    igws = [igw for igw in vpc_resource.internet_gateways.all() if igw.tags]
+
+    workspace_igws = [igw for igw in igws
+                      for tag in igw.tags
+                        if tag['Key'] == 'Name' and tag['Value'] == "cloudtik_{}_internet_gateway".format(
+                            workspace_name)]
+
+    return workspace_igws
+
+def check_aws_workspace_resource(config):
+    ec2 = _resource("ec2", config)
+    ec2_client = _client("ec2", config)
+    workspace_name = config["workspace_name"]
+    VpcId = get_workspace_vpc_id(workspace_name, ec2_client)
+    """
+         Do the work - order of operation
+         1.) Check VPC 
+         2.) Check private subnets
+         3.) Check public subnets
+         4.) Check nat-gatways
+         5.) Check route-tables
+         6.) Check Internat-gateways
+    """
+    if VpcId is None:
+        return False
+    if len(get_workspace_private_subnets(workspace_name, ec2, VpcId)) == 0:
+        return False
+    if len(get_workspace_public_subnets(workspace_name, ec2, VpcId)) == 0:
+        return False
+    if len(get_workspace_nat_gateways(workspace_name, ec2_client, VpcId)) == 0:
+        return False
+    if len(get_workspace_route_tables(workspace_name, ec2, VpcId)) == 0:
+        return False
+    if len(get_workspace_internat_gateways(workspace_name, ec2, VpcId)) == 0:
+        return False
+    if get_workspace_security_group(config, VpcId, workspace_name) is None:
+        return False
+    return True
+
+
 def delete_workspace_aws(config):
-    # delete_vpc(config)
     ec2 = _resource("ec2", config)
     ec2_client = _client("ec2", config)
     use_internal_ips = config["provider"].get("use_internal_ips", False)
-    VpcId = config["provider"]["VpcId"]
+    workspace_name = config["workspace_name"]
+    VpcId = get_workspace_vpc_id(workspace_name, ec2_client)
     """
      Do the work - order of operation
      1.) Delete private subnets 
      2.) Delete route-tables for private subnets 
-     3.) Delete rnat-gateway for private subnets
+     3.) Delete nat-gateway for private subnets
      4.) Delete public subnets
      5.) Delete internat gateway
      6.) Delete security group
      7.) Delete vpc
      """
+    if VpcId is None:
+        cli_logger.print("The workspace: {} has been deleted.".format(config["workspace_name"]))
+        return
+
     # delete private subnets
     _delete_private_subnets(config, ec2, VpcId)
 
     # delete route tables for private sybnets
-    _delete_route_table(config, ec2, VpcId)
+    _delete_route_table(workspace_name, ec2, VpcId)
 
     # delete nat-gateway
     _delete_nat_gateway(config, ec2_client, VpcId)
@@ -230,14 +344,14 @@ def delete_workspace_aws(config):
 
     # delete internat gateway
     if not use_internal_ips:
-        _delete_internet_gateway(ec2, VpcId)
+        _delete_internet_gateway(workspace_name, ec2, VpcId)
 
     # delete security group
-    # _delete_security_group(ec2, VpcId)
+    _delete_security_group(config, VpcId)
 
     # delete vpc
     if not use_internal_ips:
-        _delete_vpc(ec2, VpcId)
+        _delete_vpc(ec2, ec2_client, VpcId)
 
     return None
 
@@ -247,10 +361,6 @@ def bootstrap_workspace_aws(config):
     config = copy.deepcopy(config)
     # create vpc according to use_internal_ip
     config = _configure_vpc(config)
-
-    # Cluster workers should be in a security group that permits traffic within
-    # the group, and also SSH access from outside.
-    # config = _configure_security_group(config)
 
     return config
 
@@ -286,6 +396,40 @@ def bootstrap_aws(config):
     # Cluster workers should be in a security group that permits traffic within
     # the group, and also SSH access from outside.
     config = _configure_security_group(config)
+
+    # Provide a helpful message for missing AMI.
+    _check_ami(config)
+
+    return config
+
+
+def workspace_bootstrap_aws(config):
+
+    if not check_aws_workspace_resource(config):
+        cli_logger.abort("Please check the resource of your workspace!")
+
+    # create a copy of the input config to modify
+    config = copy.deepcopy(config)
+
+    # Used internally to store head IAM role.
+    config["head_node"] = {}
+
+    # The head node needs to have an IAM role that allows it to create further
+    # EC2 instances.
+    config = _configure_iam_role(config)
+
+    # Configure SSH access, using an existing key pair if possible.
+    config = _configure_key_pair(config)
+    global_event_system.execute_callback(
+        CreateClusterEvent.ssh_keypair_downloaded,
+        {"ssh_key_path": config["auth"]["ssh_private_key"]})
+
+    # Pick a reasonable subnet if not specified by the user.
+    config = _configure_workspace_subnet(config)
+
+    # Cluster workers should be in a security group that permits traffic within
+    # the group, and also SSH access from outside.
+    config = _configure_workspace_security_group(config)
 
     # Provide a helpful message for missing AMI.
     _check_ami(config)
@@ -453,144 +597,129 @@ def _key_assert_msg(node_type: str) -> str:
             f" node type `{node_type}`.")
 
 
-def _delete_internet_gateway(ec2, vpcid):
+def _delete_internet_gateway(workspace_name, ec2, VpcId):
     """ Detach and delete the internet-gateway """
-    vpc_resource = ec2.Vpc(vpcid)
-    igws = [igw for igw in vpc_resource.internet_gateways.all()]
+    igws = get_workspace_internat_gateways(workspace_name, ec2, VpcId)
 
     if len(igws) == 0:
-        cli_logger.print("No internet_gateways were found under this VPC: {} ...".format(vpcid))
+        cli_logger.print("No internet_gateways for workspace were found under this VPC: {} ...".format(VpcId))
         return
     for igw in igws:
         try:
             cli_logger.print("Detaching and Removing internat-gateway-id: {} ...".format(igw.id))
-            print("Detaching and Removing igw-id: ", igw.id)
-            igw.detach_from_vpc(VpcId=vpcid)
+            igw.detach_from_vpc(VpcId=VpcId)
             igw.delete()
         except boto3.exceptions.Boto3Error as e:
             cli_logger.verbose_error("{}", str(e))
     return
 
 
-def _delete_private_subnets(config, ec2, vpcid):
+def _delete_private_subnets(config, ec2, VpcId):
     """ Delete custom private subnets """
-    vpc_resource = ec2.Vpc(vpcid)
-    subnets = [subnet for subnet in vpc_resource.subnets.all()]
+    subnets = get_workspace_private_subnets(config["workspace_name"], ec2, VpcId)
 
     if len(subnets) == 0:
-        cli_logger.print("No subnets were found under this VPC: {} ...".format(vpcid))
+        cli_logger.print("No subnets for workspace were found under this VPC: {} ...".format(VpcId))
         return
     try:
         for subnet in subnets:
-            if not subnet.tags:
-                continue
-            for tag in subnet.tags:
-                if tag['Key'] == 'Name' and tag['Value'].startswith("cloudtik_{}_private_subnet".format(config["workspace_name"])):
-                    cli_logger.print("Removing private subnet-id: {} ...".format(subnet.id))
-                    subnet.delete()
+            cli_logger.print("Removing private subnet-id: {} ...".format(subnet.id))
+            subnet.delete()
     except boto3.exceptions.Boto3Error as e:
         cli_logger.verbose_error("{}", str(e))
     return
 
 
-def _delete_public_subnets(config, ec2, vpcid):
+def _delete_public_subnets(config, ec2, VpcId):
     """ Delete custom public subnets """
-    vpc_resource = ec2.Vpc(vpcid)
-    subnets = [subnet for subnet in vpc_resource.subnets.all()]
+    subnets = get_workspace_public_subnets(config["workspace_name"], ec2, VpcId)
 
     if len(subnets) == 0:
-        cli_logger.print("No subnets were found under this VPC: {} ...".format(vpcid))
+        cli_logger.print("No subnets for workspace were found under this VPC: {} ...".format(VpcId))
         return
     try:
         for subnet in subnets:
-            if not subnet.tags:
-                continue
-            for tag in subnet.tags:
-                if tag['Key'] == 'Name' and tag['Value'].startswith(
-                        "cloudtik_{}_public_subnet".format(config["workspace_name"])):
-                    cli_logger.print("Removing public subnet-id: {} ...".format(subnet.id))
-                    subnet.delete()
+            cli_logger.print("Removing public subnet-id: {} ...".format(subnet.id))
+            subnet.delete()
     except boto3.exceptions.Boto3Error as e:
         cli_logger.verbose_error("{}", str(e))
     return
 
 
-def _delete_route_table(config, ec2, vpcid):
+def _delete_route_table(workspace_name, ec2, VpcId):
     """ Delete the route-tables for private subnets """
-    vpc_resource = ec2.Vpc(vpcid)
-    rtbs = [rtb for rtb in vpc_resource.route_tables.all()]
-
+    rtbs = get_workspace_route_tables(workspace_name, ec2, VpcId)
     if len(rtbs) == 0:
-        cli_logger.print("No route tables were found under this VPC: {} ...".format(vpcid))
+        cli_logger.print("No route tables for workspace were found under this VPC: {} ...".format(VpcId))
         return
     try:
         for rtb in rtbs:
-            if not rtb.tags:
-                continue
-            for tag in rtb.tags:
-                if tag['Key'] == 'Name' and tag['Value'] == "cloudtik_{}_private_route_table".format(config["workspace_name"]):
-                    cli_logger.print("Removing route-table-id: {} ...".format(rtb.id))
-                    table = ec2.RouteTable(rtb.id)
-                    table.delete()
+            cli_logger.print("Removing route-table-id: {} ...".format(rtb.id))
+            table = ec2.RouteTable(rtb.id)
+            table.delete()
     except boto3.exceptions.Boto3Error as e:
         cli_logger.verbose_error("{}", str(e))
     return
 
 
-def _delete_nat_gateway(config, ec2_client, vpcid):
+def release_elastic_ip_address(ec2_client, allocationId, retry=5):
+    while retry > 0:
+        try:
+            ec2_client.release_address(AllocationId=allocationId)
+            cli_logger.print("Have successfully released elastic_ip_address for nat-gateway...")
+            return
+        except botocore.exceptions.ClientError as e:
+            retry = retry -1
+            cli_logger.warning("remaining {} times to release elastic_ip_address for nat-gateway...".format(retry))
+            time.sleep(60)
+            cli_logger.verbose_error("{}", str(e))
+    cli_logger.error("Failed to release elastic_ip_address for nat-gateway, please release unassociated ip manually...")
+
+
+def _delete_nat_gateway(config, ec2_client, VpcId):
     """ Remove nat-gateway and release elastic IP """
-    nat_gateways = [nat for nat in ec2_client.describe_nat_gateways()['NatGateways'] if nat["VpcId"] == vpcid]
+    nat_gateways = get_workspace_nat_gateways(config, ec2_client, VpcId)
     if len(nat_gateways) == 0:
-        cli_logger.print("No nat gateways were found under this VPC: {} ...".format(vpcid))
+        cli_logger.print("No nat gateways for workspace were found under this VPC: {} ...".format(VpcId))
         return
     try:
         for nat in nat_gateways:
-            for tag in nat['Tags']:
-                if tag['Key'] == 'Name' and tag['Value'] == "cloudtik_{}_nat_gateway".format(
-                        config["workspace_name"]):
-                    cli_logger.print("Removing nat-gateway: {} ...".format(nat["NatGatewayId"]))
-                    ec2_client.delete_nat_gateway(NatGatewayId=nat["NatGatewayId"], wait_for_delete_retries=5)
-                    cli_logger.print("Removing elastic instance : {} ...".format(nat["NatGatewayAddresses"][0]["AllocationId"]))
-
-                    ec2_client.release_address(AllocationId=nat["NatGatewayAddresses"][0]["AllocationId"])
+            cli_logger.print("Removing nat-gateway: {} ...".format(nat["NatGatewayId"]))
+            ec2_client.delete_nat_gateway(NatGatewayId=nat["NatGatewayId"])
+            cli_logger.print("Removing elastic instance : {} ...".format(nat["NatGatewayAddresses"][0]["AllocationId"]))
+            release_elastic_ip_address(ec2_client, nat["NatGatewayAddresses"][0]["AllocationId"])
+            # ec2_client.release_address(AllocationId=nat["NatGatewayAddresses"][0]["AllocationId"])
     except boto3.exceptions.Boto3Error as e:
         cli_logger.verbose_error("{}", str(e))
     return
 
 
-def _delete_security_group(config, ec2, vpcid):
+def _delete_security_group(config, VpcId):
     """ Delete any security-groups """
-    vpc_resource = ec2.Vpc(vpcid)
-    sgps = [sgp.id for sgp in vpc_resource.security_groups.all()]
-    if len(sgps) == 0:
-        cli_logger.print("No security groups were found under this VPC: {} ...".format(vpcid))
+    sg = _get_security_group(config, VpcId, SECURITY_GROUP_TEMPLATE.format(config["workspace_name"]))
+    if sg is None:
+        cli_logger.print("No security groups for workspace were found under this VPC: {} ...".format(VpcId))
+        return
+    try:
+        cli_logger.print("Removing security-group-id: {}".format(sg.id))
+        sg.delete()
+    except boto3.exceptions.Boto3Error as e:
+        cli_logger.verbose_error("{}", str(e))
+    return
+
+
+def _delete_vpc(ec2, ec2_client, VpcId):
+    """ Delete the VPC """
+    VpcIds = [vpc["VpcId"] for vpc in ec2_client.describe_vpcs()["Vpcs"] if vpc["VpcId"] == VpcId]
+    if len(VpcIds) == 0:
+        cli_logger.print("This VPC: {} has not existed. No need to delete it...".format(VpcId))
         return
 
-    security_groups_id_to_delele = set()
-    for node_type_key in config["available_node_types"].keys():
-        node_config = config["available_node_types"][node_type_key][
-            "node_config"]
-        security_groups_id_to_delele.add(node_config["SecurityGroupIds"])
-
-    try:
-        for sg in security_groups_id_to_delele:
-            if sg not in sgps:
-                cli_logger.print("{} is not belongt to workspace security group, continue...".format(sg.id))
-                continue
-            cli_logger.print("Removing security-group-id: {}".format(sg.id))
-            sg.delete()
-    except boto3.exceptions.Boto3Error as e:
-        cli_logger.verbose_error("{}", str(e))
-    return
-
-
-def _delete_vpc(ec2, vpcid):
-    """ Delete the VPC """
-    vpc_resource = ec2.Vpc(vpcid)
+    vpc_resource = ec2.Vpc(VpcId)
     try:
         cli_logger.print("Removing vpc-id: {}".format(vpc_resource.id))
         vpc_resource.delete()
-    except boto3.exceptions.Boto3Error as e:
+    except Exception as e:
         cli_logger.verbose_error("{}", str(e))
         cli_logger.abort(
             "Please remove dependencies and delete VPC manually.")
@@ -750,8 +879,14 @@ def _configure_vpc(config):
         vpc = ec2.Vpc(id=VpcId)
         vpc.create_tags(Tags=[{'Key': 'Name', 'Value': 'cloudtik_{}_vpc'.format(config["workspace_name"])}])
     else:
+
         # Need to create a new vpc
-        vpc = _create_vpc(config, ec2)
+        if get_workspace_vpc_id(config["workspace_name"], ec2_client) is None:
+            vpc = _create_vpc(config, ec2)
+        else:
+            cli_logger.abort("There is a same name VPC for workspace: {}, "
+                             "if you want to create a new workspace with the same name, "
+                             "you need to execute workspace delete first!".format(config["workspace_name"]))
 
     # create subnets
     subnets = _create_and_configure_subnets(config, vpc)
@@ -773,18 +908,7 @@ def _configure_vpc(config):
     ec2_client.create_route(RouteTableId=private_route_table.id, DestinationCidrBlock='0.0.0.0/0',
                             NatGatewayId=nat_gateway['NatGatewayId'])
 
-    # TODO: Maybe need to record these settings on AWS resource? Need to verify later.
-    # for key, node_type in config["available_node_types"].items():
-    #     node_config = node_type["node_config"]
-    #     if key == config["head_node_type"]:
-    #         if use_internal_ips:
-    #             node_config["SubnetIds"] = [subnets[1], subnets[2]]
-    #         else:
-    #             node_config["SubnetIds"] = [subnets[0]]
-    #     else:
-    #         node_config["SubnetIds"] = [subnets[1], subnets[2]]
-    #
-    # config["provider"]["VpcId"] = subnets[0].vpc_id
+    _upsert_security_group(config, vpc.id)
 
     return config
 
@@ -884,6 +1008,34 @@ def _configure_subnet(config):
     return config
 
 
+def _configure_workspace_subnet(config):
+    ec2 = _resource("ec2", config)
+    ec2_client = _client("ec2", config)
+    workspace_name = config["workspace_name"]
+    use_internal_ips = config["provider"].get("use_internal_ips", False)
+
+    VpcId = get_workspace_vpc_id(workspace_name, ec2_client)
+    public_subnet_ids = [public_subnet.id for public_subnet in get_workspace_public_subnets(workspace_name, ec2, VpcId)]
+    private_subnet_ids = [private_subnet.id for private_subnet in get_workspace_private_subnets(workspace_name, ec2, VpcId)]
+
+    # map from node type key -> source of SubnetIds field
+    subnet_src_info = {}
+    _set_config_info(subnet_src=subnet_src_info)
+
+    for key, node_type in config["available_node_types"].items():
+        node_config = node_type["node_config"]
+        if key == config["head_node_type"]:
+            if use_internal_ips:
+                node_config["SubnetIds"] = private_subnet_ids
+            else:
+                node_config["SubnetIds"] = public_subnet_ids
+        else:
+            node_config["SubnetIds"] = private_subnet_ids
+        subnet_src_info[key] = "default"
+
+    return config
+
+
 def _get_vpc_id_of_sg(sg_ids: List[str], config: Dict[str, Any]) -> str:
     """Returns the VPC id of the security groups with the provided security
     group ids.
@@ -946,6 +1098,24 @@ def _configure_security_group(config):
     return config
 
 
+def _configure_workspace_security_group(config):
+    ec2_client = _client("ec2", config)
+    workspace_name = config["workspace_name"]
+    VpcId = get_workspace_vpc_id(workspace_name, ec2_client)
+    # map from node type key -> source of SecurityGroupIds field
+    security_group_info_src = {}
+    _set_config_info(security_group_src=security_group_info_src)
+    sg = get_workspace_security_group(config,  VpcId, workspace_name)
+
+    for node_type_key in config["available_node_types"].keys():
+        node_config = config["available_node_types"][node_type_key][
+            "node_config"]
+        node_config["SecurityGroupIds"] = [sg.id]
+        security_group_info_src[node_type_key] = "default"
+
+    return config
+
+
 def _check_ami(config):
     """Provide helpful message for missing ImageId for node configuration."""
 
@@ -972,6 +1142,14 @@ def _upsert_security_groups(config, node_types):
     _upsert_security_group_rules(config, security_groups)
 
     return security_groups
+
+
+def _upsert_security_group(config, VpcId):
+    security_group = _create_security_group(config, VpcId,
+                                            SECURITY_GROUP_TEMPLATE.format(config["workspace_name"]))
+    _add_security_group_rules(config, security_group)
+
+    return security_group
 
 
 def _get_or_create_vpc_security_groups(conf, node_types):
@@ -1050,13 +1228,13 @@ def _get_security_groups(config, vpc_ids, group_names):
     return filtered_groups
 
 
-def _create_security_group(config, vpc_id, group_name):
+def _create_security_group(config, VpcId, group_name):
     client = _client("ec2", config)
     client.create_security_group(
         Description="Auto-created security group for workers",
         GroupName=group_name,
-        VpcId=vpc_id)
-    security_group = _get_security_group(config, vpc_id, group_name)
+        VpcId=VpcId)
+    security_group = _get_security_group(config, VpcId, group_name)
     cli_logger.doassert(security_group,
                         "Failed to create security group")  # err msg
 
@@ -1086,6 +1264,10 @@ def _upsert_security_group_rules(conf, security_groups):
         sg = security_groups[node_type]
         if not sg.ip_permissions:
             _update_inbound_rules(sg, sgids, conf)
+
+
+def _add_security_group_rules(conf, security_group):
+    _update_inbound_rules(security_group, {security_group.id}, conf)
 
 
 def _update_inbound_rules(target_security_group, sgids, config):

@@ -1,6 +1,7 @@
 import logging
 from typing import Any, Dict
-from cloudtik.providers._private.aws.config import  bootstrap_workspace_aws, delete_workspace_aws
+from cloudtik.providers._private.aws.config import  bootstrap_workspace_aws, \
+    delete_workspace_aws, check_aws_workspace_resource
 
 
 from cloudtik.core.workspace_provider import WorkspaceProvider
@@ -23,6 +24,11 @@ class AWSWorkspaceProvider(WorkspaceProvider):
     @staticmethod
     def bootstrap_workspace_config(cluster_config):
         return bootstrap_workspace_aws(cluster_config)
+
+
+    @staticmethod
+    def check_workspace_resource(cluster_config):
+        return check_aws_workspace_resource(cluster_config)
 
 
     @staticmethod

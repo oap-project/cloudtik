@@ -62,7 +62,7 @@ def delete_workspace(
 
     config = _bootstrap_workspace_config(config)
 
-    cli_logger.confirm(yes, "Destroying cluster.", _abort=True)
+    cli_logger.confirm(yes, "Destroying workspace.", _abort=True)
 
     provider = _get_workspace_provider(config["provider"], config["workspace_name"])
 
@@ -133,7 +133,8 @@ def create_or_update_workspace(
     cli_logger.labeled_value("Workspace", config["workspace_name"])
 
     cli_logger.newline()
-    config = _bootstrap_workspace_config(config, no_workspace_config_cache=no_workspace_config_cache)
+    config = _bootstrap_workspace_config(config,
+        no_workspace_config_cache=no_workspace_config_cache, create_workspace=True)
 
     # try_logging_config(config)
     return config
@@ -143,37 +144,45 @@ CONFIG_CACHE_VERSION = 1
 
 
 def _bootstrap_workspace_config(config: Dict[str, Any],
-                                no_workspace_config_cache: bool = False) -> Dict[str, Any]:
+                                no_workspace_config_cache: bool = False,
+                                create_workspace: bool = False) -> Dict[str, Any]:
     config = prepare_workspace_config(config)
-    # NOTE: multi-node-type cluster scaler is guaranteed to be in use after this.
+    # Note: delete workspace only need to contain workspace_name
+    if not create_workspace:
+        return config
 
     hasher = hashlib.sha1()
     hasher.update(json.dumps([config], sort_keys=True).encode("utf-8"))
     cache_key = os.path.join(tempfile.gettempdir(),
                              "cloudtik-workspace-config-{}".format(hasher.hexdigest()))
 
+    provider_cls = _get_workspace_provider_cls(config["provider"])
+
     if os.path.exists(cache_key) and not no_workspace_config_cache:
         config_cache = json.loads(open(cache_key).read())
-        if config_cache.get("_version", -1) == CONFIG_CACHE_VERSION:
-            # todo: is it fine to re-resolve? afaik it should be.
-            # we can have migrations otherwise or something
-            # but this seems overcomplicated given that resolving is
-            # relatively cheap
-            try_reload_log_state(config_cache["config"]["provider"],
-                                 config_cache.get("provider_log_info"))
 
-            if log_once("_printed_cached_config_warning"):
-                cli_logger.verbose_warning(
-                    "Loaded cached provider configuration "
-                    "from " + cf.bold("{}"), cache_key)
-                if cli_logger.verbosity == 0:
-                    cli_logger.warning("Loaded cached provider configuration")
-                cli_logger.warning(
-                    "If you experience issues with "
-                    "the cloud provider, try re-running "
-                    "the command with {}.", cf.bold("--no-workspace-config-cache"))
-
-            return config_cache["config"]
+        if config_cache.get("_version", -1) == CONFIG_CACHE_VERSION :
+            if provider_cls.check_workspace_resource(config_cache["config"]):
+                cli_logger.print("workspace resource has existed, no need to recreate workspace")
+                # todo: is it fine to re-resolve? afaik it should be.
+                # we can have migrations otherwise or something
+                # but this seems overcomplicated given that resolving is
+                # relatively cheap
+                try_reload_log_state(config_cache["config"]["provider"],
+                                     config_cache.get("provider_log_info"))
+                if log_once("_printed_cached_config_warning"):
+                    cli_logger.verbose_warning(
+                        "Loaded cached provider configuration "
+                        "from " + cf.bold("{}"), cache_key)
+                    if cli_logger.verbosity == 0:
+                        cli_logger.warning("Loaded cached provider configuration")
+                    cli_logger.warning(
+                        "If you experience issues with "
+                        "the cloud provider, try re-running "
+                        "the command with {}.", cf.bold("--no-workspace-config-cache"))
+                return config_cache["config"]
+            else:
+                cli_logger.warning("Need to recreate workspace resource.")
         else:
             cli_logger.warning(
                 "Found cached workspace config "
@@ -182,8 +191,6 @@ def _bootstrap_workspace_config(config: Dict[str, Any],
                 "This is normal if cluster launcher was updated.\n"
                 "Config will be re-resolved.",
                 config_cache.get("_version", "none"), CONFIG_CACHE_VERSION)
-
-    provider_cls = _get_workspace_provider_cls(config["provider"])
 
     cli_logger.print("Checking {} environment settings",
                      _PROVIDER_PRETTY_NAMES.get(config["provider"]["type"]))
@@ -198,6 +205,7 @@ def _bootstrap_workspace_config(config: Dict[str, Any],
         cli_logger.abort(
             "Not all dependencies were found. Please "
             "update your install command.")
+
     resolved_config = provider_cls.bootstrap_workspace_config(config)
 
     if not no_workspace_config_cache:

@@ -23,6 +23,10 @@
             "description": "A unique identifier for the head node and workers of this cluster.",
             "type": "string"
         },
+        "workspace_name": {
+            "description": "The workspace resource for this cluster.",
+            "type": "string"
+        },
         "min_workers": {
             "description": "The minimum number of worker nodes to launch. Use the per node_type min_workers field instead.",
             "type": "integer",

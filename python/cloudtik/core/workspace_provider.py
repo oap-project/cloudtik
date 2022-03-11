@@ -35,6 +35,10 @@ class WorkspaceProvider:
         """Bootstraps the cluster config by adding env defaults if needed."""
         return cluster_config
 
+    @staticmethod
+    def check_workspace_resource(cluster_config: Dict[str, Any]) -> bool:
+        """Bootstraps the cluster config by adding env defaults if needed."""
+        return True
 
     @staticmethod
     def delete_workspace(

@@ -138,6 +138,7 @@ def create_or_update_cluster(
         restart_only: bool,
         yes: bool,
         override_cluster_name: Optional[str] = None,
+        override_workspace_name: Optional[str] = None,
         no_config_cache: bool = False,
         redirect_command_output: Optional[bool] = False,
         use_login_shells: bool = True,
@@ -209,6 +210,7 @@ def create_or_update_cluster(
     handle_cli_override("min_workers", override_min_workers)
     handle_cli_override("max_workers", override_max_workers)
     handle_cli_override("cluster_name", override_cluster_name)
+    handle_cli_override("workspace_name", override_workspace_name)
 
     if printed_overrides:
         cli_logger.newline()
@@ -299,8 +301,8 @@ def _bootstrap_config(config: Dict[str, Any],
         cli_logger.abort(
             "Not all dependencies were found. Please "
             "update your install command.")
-    resolved_config = provider_cls.bootstrap_config(config)
 
+    resolved_config = provider_cls.bootstrap_config(config)
     if not no_config_cache:
         with open(cache_key, "w") as f:
             config_cache = {

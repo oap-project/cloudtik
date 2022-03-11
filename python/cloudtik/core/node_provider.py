@@ -200,6 +200,7 @@ class NodeProvider:
         """Bootstraps the cluster config by adding env defaults if needed."""
         return cluster_config
 
+
     def get_command_executor(self,
                            log_prefix: str,
                            node_id: str,

@@ -172,7 +172,7 @@ class ClusterCoordinator:
             if use_node_id_as_ip:
                 ip = node_id.hex()
             else:
-                ip = resource_message.get("ip")
+                ip = resource_message["resource"].get("ip")
             self.load_metrics.update(ip, node_id, last_heartbeat_time, total_resources,
                                      available_resources, resource_load,
                                      waiting_bundles, infeasible_bundles,

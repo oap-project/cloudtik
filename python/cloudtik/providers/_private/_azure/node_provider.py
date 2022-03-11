@@ -110,7 +110,7 @@ class AzureNodeProvider(NodeProvider):
 
     def _extract_metadata(self, vm):
         # get tags
-        metadata = {"name": vm.name, "tags": vm.tags, "status": ""}
+        metadata = {"name": vm.name, "tags": vm.tags, "status": "", "vm_size": ""}
 
         # get status
         resource_group = self.provider_config["resource_group"]
@@ -141,6 +141,9 @@ class AzureNodeProvider(NodeProvider):
 
         metadata["internal_ip"] = ip_config.private_ip_address
 
+        # get vmSize
+        metadata["vm_size"] = vm.hardware_profile.vm_size
+
         return metadata
 
     def non_terminated_nodes(self, tag_filters):
@@ -166,7 +169,7 @@ class AzureNodeProvider(NodeProvider):
     def get_node_info(self, node_id):
         node = self._get_cached_node(node_id)
         node_info = {"node_id": node["name"].split("-")[-1],
-                     "instance_type": "",
+                     "instance_type": node["vm_size"],
                      "private_ip": node["internal_ip"],
                      "public_ip": node["external_ip"],
                      "instance_status": node["status"]}

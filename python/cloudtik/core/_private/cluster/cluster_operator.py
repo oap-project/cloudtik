@@ -31,7 +31,8 @@ from cloudtik.core._private.constants import \
 from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     hash_launch_conf, prepare_config, get_free_port, \
     kill_process_by_pid, \
-    get_proxy_info_file, get_safe_proxy_process_info
+    get_proxy_info_file, get_safe_proxy_process_info, \
+    get_node_working_ip, get_head_working_ip, get_node_cluster_ip, is_use_internal_ip
 
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
@@ -488,12 +489,7 @@ def kill_node(config_file: str, yes: bool, hard: bool,
 
     time.sleep(POLL_INTERVAL)
 
-    if config.get("provider", {}).get("use_internal_ips", False) is True:
-        node_ip = provider.internal_ip(node)
-    else:
-        node_ip = provider.external_ip(node)
-
-    return node_ip
+    return get_node_working_ip(config, provider, node)
 
 
 def monitor_cluster(cluster_config_file: str, num_lines: int,
@@ -721,8 +717,9 @@ def get_or_create_head_node(config: Dict[str, Any],
         CreateClusterEvent.cluster_booting_completed, {
             "head_node_id": head_node,
         })
-    if not config.get("provider", {}).get("use_internal_ips", False):
-        _start_proxy_process(provider.external_ip(head_node), config)
+    if not is_use_internal_ip(config):
+        _start_proxy_process(
+            get_head_working_ip(config, provider, head_node), config)
 
     show_useful_commands(printable_config_file,
                          config,
@@ -1147,12 +1144,7 @@ def _get_head_node_ip(config: Dict[str, Any],
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     head_node = _get_running_head_node(config, config_file,
                                        override_cluster_name)
-    if config.get("provider", {}).get("use_internal_ips", False):
-        head_node_ip = provider.internal_ip(head_node)
-    else:
-        head_node_ip = provider.external_ip(head_node)
-
-    return head_node_ip
+    return get_head_working_ip(config, provider, head_node)
 
 
 def _get_worker_node_ips(config: Dict[str, Any]) -> List[str]:
@@ -1160,11 +1152,7 @@ def _get_worker_node_ips(config: Dict[str, Any]) -> List[str]:
     nodes = provider.non_terminated_nodes({
         CLOUDTIK_TAG_NODE_KIND: NODE_KIND_WORKER
     })
-
-    if config.get("provider", {}).get("use_internal_ips", False) is True:
-        return [provider.internal_ip(node) for node in nodes]
-    else:
-        return [provider.external_ip(node) for node in nodes]
+    return [get_node_working_ip(config, provider, node) for node in nodes]
 
 
 def _get_worker_nodes(config: Dict[str, Any],
@@ -1456,11 +1444,7 @@ def show_cluster_info(config_file: str,
     try:
         head_node = _get_running_head_node(config, config_file,
                                            override_cluster_name)
-        head_internal_ip = provider.internal_ip(head_node)
-        if config.get("provider", {}).get("use_internal_ips", False):
-            head_node_ip = head_internal_ip
-        else:
-            head_node_ip = provider.external_ip(head_node)
+        head_node_ip = get_head_working_ip(config, provider, head_node)
     except Exception:
         head_node_ip = None
 
@@ -1540,11 +1524,11 @@ def show_useful_commands(printable_config_file: str,
             cli_logger.print(cf.bold(
                 "To access the cluster from local tools, please configure the SOCKS5 proxy with 127.0.0.1:{}."),
                 port)
-            head_node_internal_ip = provider.internal_ip(head_node)
+            head_node_cluster_ip = get_node_cluster_ip(head_node)
             cli_logger.print("Yarn Web UI: http://{}:8088",
-                             head_node_internal_ip)
+                             head_node_cluster_ip)
             cli_logger.print("Jupyter Lab Web UI: http://{}:8888, default password is \'cloudtik\'",
-                             head_node_internal_ip)
+                             head_node_cluster_ip)
 
 
 def show_cluster_status(config_file: str,
@@ -1581,7 +1565,7 @@ def start_proxy(config_file: str,
     if override_cluster_name is not None:
         config["cluster_name"] = override_cluster_name
 
-    if config.get("provider", {}).get("use_internal_ips", False):
+    if is_use_internal_ip(config):
         cli_logger.print(cf.bold(
             "With use_internal_ips is True, you can use internal IPs to access the cluster."),)
         return
@@ -1602,7 +1586,7 @@ def start_proxy(config_file: str,
     # Check whether the head node is running
     try:
         head_node = _get_running_head_node(config, config_file, cluster_name)
-        head_node_ip = provider.external_ip(head_node)
+        head_node_ip = get_head_working_ip(config, provider, head_node)
     except Exception:
         cli_logger.print(cf.bold("Cluster {} is not running."), cluster_name)
         return

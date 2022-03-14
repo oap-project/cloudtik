@@ -25,6 +25,7 @@ from contextlib import closing
 import cloudtik
 from cloudtik.core._private import constants, services
 from cloudtik.core._private.cluster.load_metrics import LoadMetricsSummary
+from cloudtik.core.node_provider import NodeProvider
 from cloudtik.providers._private.local.config import prepare_local
 from cloudtik.core._private.providers import _get_default_config, _get_node_provider, _get_default_workspace_config
 from cloudtik.core._private.docker import validate_docker_config
@@ -1274,3 +1275,26 @@ def get_safe_proxy_process_info(proxy_info_file: str):
         return None, None
 
     return pid, port
+
+
+def is_use_internal_ip(config: Dict[str, Any]) -> bool:
+    return config.get("provider", {}).get("use_internal_ips", False)
+
+
+def get_node_cluster_ip(config: Dict[str, Any],
+                        provider: NodeProvider, node: str) -> str:
+    return provider.internal_ip(node)
+
+
+def get_node_working_ip(config: Dict[str, Any],
+                        provider:NodeProvider, node:str) -> str:
+    if config.get("provider", {}).get("use_internal_ips", False) is True:
+        node_ip = provider.internal_ip(node)
+    else:
+        node_ip = provider.external_ip(node)
+    return node_ip
+
+
+def get_head_working_ip(config: Dict[str, Any],
+                        provider: NodeProvider, node: str) -> str:
+    return get_node_working_ip(config, provider, node)

@@ -13,6 +13,7 @@ import yaml
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 
+from cloudtik.core._private.utils import get_head_working_ip, get_node_cluster_ip
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, \
     NODE_KIND_WORKER
 from cloudtik.core._private.cli_logger import cli_logger
@@ -720,8 +721,8 @@ def get_info_from_cluster_config(
 
     head_node = head_nodes[0] if len(head_nodes) > 0 else None
     # TODO haifeng: check which ip address to use here
-    head_node_ip = provider.external_ip(head_node) if head_node else None
-    hosts = [provider.internal_ip(node) for node in head_nodes + worker_nodes]
+    head_node_ip = get_head_working_ip(config, provider, head_node) if head_node else None
+    hosts = [get_node_cluster_ip(config, provider, node) for node in head_nodes + worker_nodes]
     ssh_user = config["auth"]["ssh_user"]
     ssh_key = config["auth"]["ssh_private_key"]
 

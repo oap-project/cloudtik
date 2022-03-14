@@ -769,7 +769,7 @@ def _create_subnet(config, cidr,  vpc):
 
 def _create_and_configure_subnets(config, vpc):
     subnets = []
-    cidr_list = _configure_subnets_cidr(vpc.cidr_block)
+    cidr_list = _configure_subnets_cidr(vpc)
     for i in range(0, len(cidr_list)):
         subnets.append(_create_subnet(config, cidr_list[i], vpc))
 
@@ -941,15 +941,7 @@ def _configure_vpc(config):
     return config
 
 
-def _configure_subnets_cidr(vpc_CidrBlock):
-    cidr_list = []
-    ip = vpc_CidrBlock.split("/")[0].split(".")
-    for i in range(0, 2):
-        cidr_list.append(ip[0] + "." + ip[1] + "." + str(i) + ".0/24")
-    return cidr_list
-
-
-def _configure_subnets_cidrs(vpc):
+def _configure_subnets_cidr(vpc):
     cidr_list = []
     subnets = list(vpc.subnets.all())
     vpc_CidrBlock = vpc.cidr_block
@@ -979,7 +971,7 @@ def get_current_vpc(config):
     VpcId = ""
     for  Reservation in  client.describe_instances().get("Reservations"):
         for instance  in Reservation["Instances"]:
-            if instance["PrivateIpAddress"] == ip_address:
+            if instance.get("PrivateIpAddress", "") == ip_address:
                 VpcId = instance["VpcId"]
 
     return VpcId

@@ -17,7 +17,7 @@ from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.event_system import (CreateClusterEvent,
                                                   global_event_system)
 from cloudtik.core._private.services import get_node_ip_address
-
+from cloudtik.core._private.utils import check_cidr_conflict
 from cloudtik.providers._private.aws.utils import LazyDefaultDict, \
     handle_boto_error, resource_cache
 
@@ -251,16 +251,28 @@ def get_workspace_nat_gateways(workspace_name, ec2_client, VpcId):
     return workspace_nat_gateways
 
 
-def get_workspace_route_tables(workspace_name, ec2, VpcId):
+def get_workspace_private_route_tables(workspace_name, ec2, VpcId):
     vpc_resource = ec2.Vpc(VpcId)
     rtbs = [rtb for rtb in vpc_resource.route_tables.all() if rtb.tags]
 
-    workspace_rtbs = [rtb for rtb in rtbs
+    workspace_private_rtbs = [rtb for rtb in rtbs
                       for tag in rtb.tags
                         if tag['Key'] == 'Name' and tag['Value'] == "cloudtik_{}_private_route_table".format(
                          workspace_name)]
 
-    return workspace_rtbs
+    return workspace_private_rtbs
+
+
+def get_workspace_public_route_tables(workspace_name, ec2, VpcId):
+    vpc_resource = ec2.Vpc(VpcId)
+    rtbs = [rtb for rtb in vpc_resource.route_tables.all() if rtb.tags]
+
+    workspace_public_rtbs = [rtb for rtb in rtbs
+                      for tag in rtb.tags
+                        if tag['Key'] == 'Name' and tag['Value'] == "cloudtik_{}_public_route_table".format(
+                         workspace_name)]
+
+    return workspace_public_rtbs
 
 
 def get_workspace_security_group(config, VpcId, workspace_name):
@@ -301,7 +313,7 @@ def check_aws_workspace_resource(config):
         return False
     if len(get_workspace_nat_gateways(workspace_name, ec2_client, VpcId)) == 0:
         return False
-    if len(get_workspace_route_tables(workspace_name, ec2, VpcId)) == 0:
+    if len(get_workspace_private_route_tables(workspace_name, ec2, VpcId)) == 0:
         return False
     if len(get_workspace_internat_gateways(workspace_name, ec2, VpcId)) == 0:
         return False
@@ -648,7 +660,7 @@ def _delete_public_subnets(config, ec2, VpcId):
 
 def _delete_route_table(workspace_name, ec2, VpcId):
     """ Delete the route-tables for private subnets """
-    rtbs = get_workspace_route_tables(workspace_name, ec2, VpcId)
+    rtbs = get_workspace_private_route_tables(workspace_name, ec2, VpcId)
     if len(rtbs) == 0:
         cli_logger.print("No route tables for workspace were found under this VPC: {} ...".format(VpcId))
         return
@@ -761,7 +773,7 @@ def _create_and_configure_subnets(config, vpc):
     for i in range(0, len(cidr_list)):
         subnets.append(_create_subnet(config, cidr_list[i], vpc))
 
-    assert len(subnets) == 3, "We must create 3 subnets for VPC: {}!".format(vpc.id)
+    assert len(subnets) == 2, "We must create 2 subnets for VPC: {}!".format(vpc.id)
 
     for i in range(0, len(cidr_list)):
         # make the first subnet as public subnet and rename it
@@ -771,7 +783,7 @@ def _create_and_configure_subnets(config, vpc):
                                           'Value': 'cloudtik_{}_public_subnet'.format(config["workspace_name"])}])
         else:
             subnets[i].create_tags(Tags=[{'Key': 'Name',
-                                          'Value': 'cloudtik_{}_private_subnet_{}'.format(config["workspace_name"], i)}])
+                                          'Value': 'cloudtik_{}_private_subnet'.format(config["workspace_name"])}])
     return subnets
 
 
@@ -851,20 +863,36 @@ def _create_nat_gateway(config, ec2_client, vpc, subnet):
     return nat_gw
 
 
-def _update_route_table_for_public_subnet(config, ec2_client, vpc, subnet, igw):
-    public_route_table = list(vpc.route_tables.all())[0]
-    public_route_table.create_tags(Tags=[{'Key': 'Name', 'Value': 'cloudtik_{}_public_route_table'.format(config["workspace_name"])}])
+def _update_route_table_for_public_subnet(config, ec2, ec2_client, vpc, subnet, igw):
+    public_route_tables = get_workspace_public_route_tables(config["workspace_name"], ec2 , vpc.id)
+    if len(public_route_tables) > 0:
+        public_route_table = public_route_tables[0]
+    else:
+        public_route_table = list(vpc.route_tables.all())[0]
+        public_route_table.create_tags(Tags=[{'Key': 'Name', 'Value': 'cloudtik_{}_public_route_table'.format(config["workspace_name"])}])
+
     # add a default route, for Public Subnet, pointing to Internet Gateway
-    ec2_client.create_route(RouteTableId=public_route_table.id, DestinationCidrBlock='0.0.0.0/0', GatewayId=igw.id)
+    try:
+        ec2_client.create_route(RouteTableId=public_route_table.id, DestinationCidrBlock='0.0.0.0/0', GatewayId=igw.id)
+    except Exception as e:
+        cli_logger.verbose_error("{}", str(e))
+        cli_logger.print(
+            "Update the rules for RouteTable:{}.".format(public_route_table.id))
+        ec2_client.delete_route(RouteTableId=public_route_table.id, DestinationCidrBlock='0.0.0.0/0')
+        ec2_client.create_route(RouteTableId=public_route_table.id, DestinationCidrBlock='0.0.0.0/0', GatewayId=igw.id)
     public_route_table.associate_with_subnet(SubnetId=subnet.id)
 
 
-def _create_route_table_for_private_subnet(config, ec2, vpc, subnets):
-    private_route_table = ec2.create_route_table(VpcId=vpc.id)
-    private_route_table.create_tags(
-        Tags=[{'Key': 'Name', 'Value': 'cloudtik_{}_private_route_table'.format(config["workspace_name"])}])
-    private_route_table.associate_with_subnet(SubnetId=subnets[1].id)
-    private_route_table.associate_with_subnet(SubnetId=subnets[2].id)
+def _create_route_table_for_private_subnet(config, ec2, vpc, subnet):
+    private_route_tables = get_workspace_private_route_tables(config["workspace_name"], ec2, vpc.id)
+    if len(private_route_tables) > 0:
+        private_route_table = private_route_tables[0]
+    else:
+        private_route_table = ec2.create_route_table(VpcId=vpc.id)
+        private_route_table.create_tags(
+            Tags=[{'Key': 'Name', 'Value': 'cloudtik_{}_private_route_table'.format(config["workspace_name"])}])
+
+    private_route_table.associate_with_subnet(SubnetId=subnet.id)
     return private_route_table
 
 
@@ -896,10 +924,10 @@ def _configure_vpc(config):
     internet_gateway = _create_internet_gateway(config, ec2, vpc)
 
     # add internet_gateway into public route table
-    _update_route_table_for_public_subnet(config, ec2_client, vpc, subnets[0], internet_gateway)
+    _update_route_table_for_public_subnet(config, ec2, ec2_client, vpc, subnets[0], internet_gateway)
 
     # create private route table for private subnets
-    private_route_table = _create_route_table_for_private_subnet(config, ec2, vpc, subnets)
+    private_route_table = _create_route_table_for_private_subnet(config, ec2, vpc, subnets[-1])
 
     # create nate_gatway for private subnets
     nat_gateway = _create_nat_gateway(config, ec2_client, vpc, subnets[0])
@@ -916,8 +944,32 @@ def _configure_vpc(config):
 def _configure_subnets_cidr(vpc_CidrBlock):
     cidr_list = []
     ip = vpc_CidrBlock.split("/")[0].split(".")
-    for i in range(0, 3):
+    for i in range(0, 2):
         cidr_list.append(ip[0] + "." + ip[1] + "." + str(i) + ".0/24")
+    return cidr_list
+
+
+def _configure_subnets_cidrs(vpc):
+    cidr_list = []
+    subnets = list(vpc.subnets.all())
+    vpc_CidrBlock = vpc.cidr_block
+    ip = vpc_CidrBlock.split("/")[0].split(".")
+
+    if len(subnets) == 0:
+        for i in range(0, 2):
+            cidr_list.append(ip[0] + "." + ip[1] + "." + str(i) + ".0/24")
+    else:
+        cidr_blocks = [subnet.cidr_block for subnet in subnets]
+        for i in range(0, 256):
+            tmp_cidr_block = ip[0] + "." + ip[1] + "." + str(i) + ".0/24"
+
+            if check_cidr_conflict(tmp_cidr_block, cidr_blocks):
+                cidr_list.append(tmp_cidr_block)
+                print("Choose CIDR: {}".format(tmp_cidr_block))
+
+            if len(cidr_list) == 2:
+                break
+
     return cidr_list
 
 

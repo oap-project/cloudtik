@@ -18,6 +18,7 @@ import uuid
 import time
 import math
 import multiprocessing
+import ipaddr
 import socket
 from contextlib import closing
 
@@ -1213,6 +1214,17 @@ def validate_workspace_config(config: Dict[str, Any]) -> None:
 
     provider = _get_workspace_provider(config["provider"], config["workspace_name"])
     provider.validate_config(config["provider"])
+
+
+def check_cidr_conflict(cidr_block, cidr_blocks):
+    existed_nets = [ipaddr.IPNetwork(cidr_block) for cidr_block in cidr_blocks]
+    net = ipaddr.IPNetwork(cidr_block)
+
+    for existed_net in existed_nets:
+        if net.overlaps(existed_net):
+            return False
+
+    return True
 
 
 def get_free_port():

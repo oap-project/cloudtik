@@ -629,8 +629,8 @@ def attach(cluster_config_file, start, screen, tmux, cluster_name,
     type=str,
     help="Override the configured cluster name.")
 @add_click_logging_options
-def enable_web_access(cluster_config_file, no_config_cache, cluster_name):
-    """Create or attach to SH session to a cluster."""
+def enable_local_access(cluster_config_file, no_config_cache, cluster_name):
+    """Enable local socks5 proxy to the cluster through SSH tunnel forwarding to the head."""
     start_proxy(
         cluster_config_file,
         override_cluster_name=cluster_name,
@@ -645,8 +645,8 @@ def enable_web_access(cluster_config_file, no_config_cache, cluster_name):
     type=str,
     help="Override the configured cluster name.")
 @add_click_logging_options
-def disable_web_access(cluster_config_file,cluster_name):
-    """Create or attach to SH session to a cluster."""
+def disable_local_access(cluster_config_file,cluster_name):
+    """Disable the local socks5 proxy to the cluster."""
     stop_proxy(cluster_config_file,cluster_name)
 
 
@@ -1245,6 +1245,9 @@ add_command_alias(rsync_down, name="rsync_down", hidden=True)
 cli.add_command(rsync_up)
 add_command_alias(rsync_up, name="rsync_up", hidden=True)
 
+cli.add_command(enable_local_access)
+cli.add_command(disable_local_access)
+
 cli.add_command(get_head_ip)
 add_command_alias(get_head_ip, name="get_head_ip", hidden=True)
 cli.add_command(get_worker_ips)
@@ -1252,8 +1255,6 @@ add_command_alias(get_worker_ips, name="get_worker_ips", hidden=True)
 
 cli.add_command(info)
 cli.add_command(status)
-cli.add_command(enable_web_access)
-cli.add_command(disable_web_access)
 cli.add_command(monitor)
 cli.add_command(debug_status)
 

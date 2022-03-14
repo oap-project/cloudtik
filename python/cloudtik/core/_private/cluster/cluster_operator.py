@@ -29,7 +29,8 @@ from cloudtik.core._private.constants import \
     CLOUDTIK_RESOURCE_REQUEST_CHANNEL, \
     MAX_PARALLEL_SHUTDOWN_WORKERS
 from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
-    hash_launch_conf, prepare_config
+    hash_launch_conf, prepare_config, get_free_port, \
+    kill_process_by_pid, check_process_exists
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
 from cloudtik.core.tags import (
@@ -589,8 +590,8 @@ def get_or_create_head_node(config: Dict[str, Any],
                 _abort=True)
 
     cli_logger.newline()
-    
-    # The "head_node" config stores only the internal head node specific 
+
+    # The "head_node" config stores only the internal head node specific
     # configuration values generated in the runtime, for example IAM
     head_node_config = copy.deepcopy(config.get("head_node", {}))
     head_node_resources = None
@@ -718,7 +719,8 @@ def get_or_create_head_node(config: Dict[str, Any],
         CreateClusterEvent.cluster_booting_completed, {
             "head_node_id": head_node,
         })
-
+    if not config.get("provider", {}).get("use_internal_ips", False):
+        _start_proxy_process(provider.external_ip(head_node), config)
     show_useful_commands(printable_config_file, updater, override_cluster_name)
 
 
@@ -1288,7 +1290,6 @@ def get_cluster_dump_archive(cluster_config_file: Optional[str] = None,
                              processes: bool = True,
                              processes_verbose: bool = False,
                              tempfile: Optional[str] = None) -> Optional[str]:
-
     # Inform the user what kind of logs are collected (before actually
     # collecting, so they can abort)
     content_str = ""
@@ -1439,8 +1440,12 @@ def show_useful_commands(printable_config_file: str,
     coordinator_str = "tail -n 100 -f /tmp/cloudtik/session_latest/logs/cloudtik_cluster_coordinator*"
     if override_cluster_name:
         modifiers = " --cluster-name={}".format(quote(override_cluster_name))
+        proxy_info_file = _get_proxy_info_file(override_cluster_name)
     else:
         modifiers = ""
+        config = yaml.safe_load(open(printable_config_file).read())
+        proxy_info_file = _get_proxy_info_file(config["cluster_name"])
+
 
     cli_logger.newline()
     with cli_logger.group("Useful commands"):
@@ -1457,6 +1462,10 @@ def show_useful_commands(printable_config_file: str,
         remote_shell_str = updater.cmd_executor.remote_shell_command_str()
         cli_logger.print("Get a remote shell to the cluster manually:")
         cli_logger.print("  {}", remote_shell_str.strip())
+        _, port = _get_proxy_process_info(proxy_info_file)
+        if port:
+            cli_logger.print("Socks5 Proxy to the Web-UI on the cluster head:")
+            cli_logger.print("127.0.0.1:{}", port)
 
 
 def show_cluster_status(config_file: str,
@@ -1483,3 +1492,91 @@ def show_cluster_status(config_file: str,
 
 def confirm(msg: str, yes: bool) -> Optional[bool]:
     return None if yes else click.confirm(msg, abort=True)
+
+
+def start_proxy(config_file: str,
+                override_cluster_name: Optional[str] = None,
+                no_config_cache: bool = False):
+    config = yaml.safe_load(open(config_file).read())
+    config = _bootstrap_config(config, no_config_cache=no_config_cache)
+    if override_cluster_name is not None:
+        config["cluster_name"] = override_cluster_name
+    cluster_name = config["cluster_name"]
+
+    proxy_info_file = _get_proxy_info_file(cluster_name)
+
+    if config.get("provider", {}).get("use_internal_ips", False):
+        cli_logger.print(cf.bold(
+            "With use_internal_ips is True, you can use internal IP to access the web."),)
+        return
+    pid, proxy_port = _get_proxy_process_info(proxy_info_file)
+    if pid and check_process_exists(pid):
+        cli_logger.print(cf.bold(
+            "The proxy for  cluster {} is running, to access the Web-UI of the cluster,"
+            "please configure SOCKS5 proxy:127.0.0.1:{} in your browser."),
+                         cluster_name, proxy_port)
+        return
+
+    provider = _get_node_provider(config["provider"], config["cluster_name"])
+    # Check whether the head node is running
+    try:
+        head_node = _get_running_head_node(config, config_file, cluster_name)
+        head_node_ip = provider.external_ip(head_node)
+    except Exception:
+        cli_logger.print(cf.bold("Cluster {} is not running."), cluster_name)
+        return
+    pid, proxy_port = _start_proxy_process(head_node_ip, config)
+    cli_logger.print(cf.bold("To access Web-UI of the cluster, please configure SOCKS5 proxy:127.0.0.1:{} in your browser."), proxy_port)
+
+
+def _start_proxy_process(head_node_ip, config):
+    proxy_info_file = _get_proxy_info_file(config["cluster_name"])
+
+    auth_config = config["auth"]
+    ssh_proxy_command = auth_config.get("ssh_proxy_command", None)
+    ssh_private_key = auth_config.get("ssh_private_key")
+    proxy_port = get_free_port()
+    cmd = "ssh -i {} -o ProxyCommand=\'{}\'  -o \'StrictHostKeyChecking no\' -D {}  -C -N ubuntu@{}".format(ssh_private_key,
+                                                                                ssh_proxy_command, proxy_port, head_node_ip)
+    cli_logger.verbose("Running `{}`", cf.bold(cmd))
+    p = subprocess.Popen(cmd, shell=True)
+    if os.path.exists(proxy_info_file):
+        process_infos = json.loads(open(proxy_info_file).read())
+    else:
+        process_infos = {}
+    process_infos["proxy"] = {"pid": p.pid, "port": proxy_port}
+    with open(proxy_info_file, "w") as f:
+        f.write(json.dumps(process_infos))
+    return p.pid, proxy_port
+
+
+def stop_proxy(config_file: str,
+               override_cluster_name: Optional[str] = None):
+    config = yaml.safe_load(open(config_file).read())
+
+    if override_cluster_name is not None:
+        config["cluster_name"] = override_cluster_name
+    cluster_name = config["cluster_name"]
+    proxy_info_file = _get_proxy_info_file(cluster_name)
+    pid, proxy_port = _get_proxy_process_info(proxy_info_file)
+    if pid:
+        kill_process_by_pid(pid)
+        with open(proxy_info_file, "w") as f:
+            f.write(json.dumps({"proxy": {}}))
+        cli_logger.print(cf.bold("Disable the access to Web-UI of cluster {}."), cluster_name)
+        return
+    cli_logger.print(cf.bold("There is no proxy process of cluster {} to stop."), cluster_name)
+
+
+def _get_proxy_info_file(cluster_name: str):
+    proxy_info_file = os.path.join(tempfile.gettempdir(),
+                             "cloudtik-proxy-{}".format(cluster_name))
+    return proxy_info_file
+
+
+def _get_proxy_process_info(proxy_info_file: str):
+    if os.path.exists(proxy_info_file):
+        process_info = json.loads(open(proxy_info_file).read())
+        if process_info.get("proxy") and process_info["proxy"].get("pid"):
+            return process_info["proxy"]["pid"], process_info["proxy"]["port"]
+    return None, None

@@ -45,7 +45,7 @@ class NodeCoordinator:
         self.redis_address = redis_address
         self.redis_password = redis_password
         self.coordinator_ip = coordinator_ip
-        self.node_type = 'head' if coordinator_ip == services.get_node_ip_address() else 'worker'
+        self.node_type = 'head' if redis_address == services.get_node_ip_address() else 'worker'
         self.static_resource_list = static_resource_list
         # node_detail store the resource, process and other details of the current node
         self.node_detail = {}
@@ -135,15 +135,13 @@ class NodeCoordinator:
                        "characters. Actual length: {}. Filter: {}").format(
                     15, len(keyword), keyword)
                 raise ValueError(msg)
-
+            found_process[process_name] = "not running"
             for candidate in process_infos:
                 proc, proc_cmd, proc_args = candidate
                 corpus = (proc_cmd
                           if filter_by_cmd else subprocess.list2cmdline(proc_args))
                 if keyword in corpus and (self.node_type == node_type or "node" == node_type):
                     found_process[process_name] = proc.status()
-            if self.node_type == node_type or "node" == node_type:
-                found_process[process_name] = "not running"
 
         if found_process != self.pre_processes:
             logger.info("Cloudtik related processes status changed, current process information: {}".format(str(found_process)))

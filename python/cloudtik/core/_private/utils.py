@@ -18,6 +18,8 @@ import uuid
 import time
 import math
 import multiprocessing
+import socket
+from contextlib import closing
 
 import cloudtik
 from cloudtik.core._private import constants, services
@@ -1211,3 +1213,27 @@ def validate_workspace_config(config: Dict[str, Any]) -> None:
 
     provider = _get_workspace_provider(config["provider"], config["workspace_name"])
     provider.validate_config(config["provider"])
+
+
+def get_free_port():
+    """ Get free port"""
+    with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
+        test_port = constants.DEFAULT_PROXY_PORT
+        while True:
+            result = s.connect_ex(('127.0.0.1', test_port))
+            if result != 0:
+                return test_port
+            else:
+                test_port += 1
+
+
+def kill_process_by_pid(pid):
+    try:
+        os.kill(pid, signal.SIGKILL)
+        logger.info("The process with PID {} has been killed.".format(pid))
+    except OSError as e:
+        logger.info("There is no process with PID {}".format(pid))
+
+
+def check_process_exists(pid):
+    return  psutil.pid_exists(int(pid))

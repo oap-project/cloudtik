@@ -23,7 +23,7 @@ from cloudtik.core._private.cluster.cluster_operator import (
     attach_cluster, exec_cluster, create_or_update_cluster, monitor_cluster,
     rsync, teardown_cluster, get_head_node_ip, kill_node, get_worker_node_ips,
     get_cluster_dump_archive, debug_status, get_local_dump_archive,
-    show_cluster_info, show_cluster_status, RUN_ENV_TYPES)
+    show_cluster_info, show_cluster_status, RUN_ENV_TYPES, start_proxy, stop_proxy)
 from cloudtik.core._private.constants import CLOUDTIK_PROCESSES, \
     CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
     CLOUDTIK_KV_NAMESPACE_HEALTHCHECK, \
@@ -517,6 +517,7 @@ def up(cluster_config_file, min_workers, max_workers, no_restart, restart_only,
 def down(cluster_config_file, yes, workers_only, cluster_name,
          keep_min_workers):
     """Tear down a cluster."""
+    stop_proxy(cluster_config_file,cluster_name)
     teardown_cluster(cluster_config_file, yes, workers_only, cluster_name,
                      keep_min_workers)
 
@@ -612,6 +613,41 @@ def attach(cluster_config_file, start, screen, tmux, cluster_name,
         no_config_cache=no_config_cache,
         new=new,
         port_forward=port_forward)
+
+
+@cli.command()
+@click.argument("cluster_config_file", required=True, type=str)
+@click.option(
+    "--no-config-cache",
+    is_flag=True,
+    default=False,
+    help="Disable the local cluster config cache.")
+@click.option(
+    "--cluster-name",
+    "-n",
+    required=False,
+    type=str,
+    help="Override the configured cluster name.")
+@add_click_logging_options
+def enable_web_access(cluster_config_file, no_config_cache, cluster_name):
+    """Create or attach to SH session to a cluster."""
+    start_proxy(
+        cluster_config_file,
+        override_cluster_name=cluster_name,
+        no_config_cache=no_config_cache)
+
+@cli.command()
+@click.argument("cluster_config_file", required=True, type=str)
+@click.option(
+    "--cluster-name",
+    "-n",
+    required=False,
+    type=str,
+    help="Override the configured cluster name.")
+@add_click_logging_options
+def disable_web_access(cluster_config_file,cluster_name):
+    """Create or attach to SH session to a cluster."""
+    stop_proxy(cluster_config_file,cluster_name)
 
 
 @cli.command()
@@ -1216,6 +1252,8 @@ add_command_alias(get_worker_ips, name="get_worker_ips", hidden=True)
 
 cli.add_command(info)
 cli.add_command(status)
+cli.add_command(enable_web_access)
+cli.add_command(disable_web_access)
 cli.add_command(monitor)
 cli.add_command(debug_status)
 

@@ -208,6 +208,16 @@ function prepare_spark_jars() {
 }
 
 
+function prepare_jars_to_spark_classpath() {
+    # Copy cloud storage jars of different cloud providers to Spark classpath
+    cloud_storge_jars=('hadoop-aws-[0-9]*[0-9].jar' 'aws-java-sdk-bundle-[0-9]*[0-9].jar' 'hadoop-azure-[0-9]*[0-9].jar' 'azure-storage-[0-9]*[0-9].jar' 'wildfly-openssl-[0-9]*[0-9].Final.jar' 'jetty-util-ajax-[0-9]*[0-9].v[0-9]*[0-9].jar' 'jetty-util-[0-9]*[0-9].v[0-9]*[0-9].jar' 'gcs-connector-hadoop3-[0-9]*[0-9].jar')
+    for jar in ${cloud_storge_jars[@]};
+    do
+	    find "${HADOOP_HOME}"/share/hadoop/tools/lib/ -name $jar | xargs -i cp {} "${SPARK_HOME}"/jars;
+    done
+}
+
+
 function set_hadoop_classpath() {
     #Add share/hadoop/tools/lib/* into classpath
     echo "export HADOOP_CLASSPATH=$HADOOP_CLASSPATH:\$HADOOP_HOME/share/hadoop/tools/lib/*" >> ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh
@@ -221,4 +231,5 @@ caculate_worker_resources
 set_resources_for_spark
 update_spark_runtime_config
 prepare_spark_jars
+prepare_jars_to_spark_classpath
 set_hadoop_classpath

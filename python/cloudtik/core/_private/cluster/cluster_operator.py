@@ -321,7 +321,8 @@ def _bootstrap_config(config: Dict[str, Any],
 
 def teardown_cluster(config_file: str, yes: bool, workers_only: bool,
                      override_cluster_name: Optional[str],
-                     keep_min_workers: bool) -> None:
+                     keep_min_workers: bool,
+                     proxy_stop: bool = False) -> None:
     """Destroys all nodes of a cluster described by a config json."""
     config = yaml.safe_load(open(config_file).read())
     if override_cluster_name is not None:
@@ -330,6 +331,9 @@ def teardown_cluster(config_file: str, yes: bool, workers_only: bool,
     config = _bootstrap_config(config)
 
     cli_logger.confirm(yes, "Destroying cluster.", _abort=True)
+
+    if proxy_stop:
+        _stop_proxy(config)
 
     # TODO (haifeng): Check the correct way to teardown a cluster
     if not workers_only:
@@ -1627,6 +1631,11 @@ def stop_proxy(config_file: str,
 
     if override_cluster_name is not None:
         config["cluster_name"] = override_cluster_name
+
+    _stop_proxy(config)
+
+
+def _stop_proxy(config: Dict[str, Any]):
     cluster_name = config["cluster_name"]
 
     proxy_info_file = get_proxy_info_file(cluster_name)
@@ -1639,5 +1648,4 @@ def stop_proxy(config_file: str,
     with open(proxy_info_file, "w") as f:
         f.write(json.dumps({"proxy": {}}))
     cli_logger.print(cf.bold("Disable local SOCKS5 proxy of cluster {} successfully."), cluster_name)
-
 

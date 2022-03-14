@@ -517,9 +517,8 @@ def up(cluster_config_file, min_workers, max_workers, no_restart, restart_only,
 def down(cluster_config_file, yes, workers_only, cluster_name,
          keep_min_workers):
     """Tear down a cluster."""
-    stop_proxy(cluster_config_file,cluster_name)
     teardown_cluster(cluster_config_file, yes, workers_only, cluster_name,
-                     keep_min_workers)
+                     keep_min_workers, True)
 
 
 @cli.command(hidden=True)

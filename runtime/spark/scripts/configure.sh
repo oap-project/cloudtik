@@ -190,16 +190,11 @@ function update_spark_runtime_config() {
     fi
 }
 
-
-function prepare_spark_jars() {
+function prepare_yarn_with_spark_jars() {
+    # TODO: this should put at the installation step
     #cp spark jars to hadoop path
     jars=('spark-[0-9]*[0-9]-yarn-shuffle.jar' 'jackson-databind-[0-9]*[0-9].jar' 'jackson-core-[0-9]*[0-9].jar' 'jackson-annotations-[0-9]*[0-9].jar' 'metrics-core-[0-9]*[0-9].jar' 'netty-all-[0-9]*[0-9].Final.jar' 'commons-lang3-[0-9]*[0-9].jar')
     find ${HADOOP_HOME}/share/hadoop/yarn/lib -name netty-all-[0-9]*[0-9].Final.jar| xargs -i mv -f {} {}.old
-    # Download gcs-connector to ${HADOOP_HOME}/share/hadoop/tools/lib/* for gcp cloud storage support
-    wget -nc -P "${HADOOP_HOME}"/share/hadoop/tools/lib/  https://storage.googleapis.com/hadoop-lib/gcs/gcs-connector-hadoop3-2.2.0.jar
-    # Download jetty-util to ${HADOOP_HOME}/share/hadoop/tools/lib/* for Azure cloud storage support
-    wget -nc -P "${HADOOP_HOME}"/share/hadoop/tools/lib/  https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-util-ajax/9.3.24.v20180605/jetty-util-ajax-9.3.24.v20180605.jar
-    wget -nc -P "${HADOOP_HOME}"/share/hadoop/tools/lib/  https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-util/9.3.24.v20180605/jetty-util-9.3.24.v20180605.jar
     for jar in ${jars[@]};
     do
 	    find ${SPARK_HOME}/jars/ -name $jar | xargs -i cp {} ${HADOOP_HOME}/share/hadoop/yarn/lib;
@@ -207,8 +202,25 @@ function prepare_spark_jars() {
     done
 }
 
+function download_hadoop_cloud_jars() {
+    # Download gcs-connector to ${HADOOP_HOME}/share/hadoop/tools/lib/* for gcp cloud storage support
+    wget -nc -P "${HADOOP_HOME}"/share/hadoop/tools/lib/  https://storage.googleapis.com/hadoop-lib/gcs/gcs-connector-hadoop3-2.2.0.jar
+    # Download jetty-util to ${HADOOP_HOME}/share/hadoop/tools/lib/* for Azure cloud storage support
+    wget -nc -P "${HADOOP_HOME}"/share/hadoop/tools/lib/  https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-util-ajax/9.3.24.v20180605/jetty-util-ajax-9.3.24.v20180605.jar
+    wget -nc -P "${HADOOP_HOME}"/share/hadoop/tools/lib/  https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-util/9.3.24.v20180605/jetty-util-9.3.24.v20180605.jar
+}
 
-function prepare_jars_to_spark_classpath() {
+function configure_hadoop_with_cloud_jars() {
+    # TODO: this should put at the installation step
+    # Download jars are possible long running tasks and should be done on install step instead of configure step.
+    download_hadoop_cloud_jars
+
+    #Add share/hadoop/tools/lib/* into classpath
+    echo "export HADOOP_CLASSPATH=$HADOOP_CLASSPATH:\$HADOOP_HOME/share/hadoop/tools/lib/*" >> ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh
+}
+
+function prepare_spark_with_cloud_jars() {
+    # TODO: this should put at the installation step
     # Copy cloud storage jars of different cloud providers to Spark classpath
     cloud_storge_jars=('hadoop-aws-[0-9]*[0-9].jar' 'aws-java-sdk-bundle-[0-9]*[0-9].jar' 'hadoop-azure-[0-9]*[0-9].jar' 'azure-storage-[0-9]*[0-9].jar' 'wildfly-openssl-[0-9]*[0-9].Final.jar' 'jetty-util-ajax-[0-9]*[0-9].v[0-9]*[0-9].jar' 'jetty-util-[0-9]*[0-9].v[0-9]*[0-9].jar' 'gcs-connector-hadoop3-[0-9]*[0-9].jar')
     for jar in ${cloud_storge_jars[@]};
@@ -217,19 +229,12 @@ function prepare_jars_to_spark_classpath() {
     done
 }
 
-
-function set_hadoop_classpath() {
-    #Add share/hadoop/tools/lib/* into classpath
-    echo "export HADOOP_CLASSPATH=$HADOOP_CLASSPATH:\$HADOOP_HOME/share/hadoop/tools/lib/*" >> ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh
-}
-
-
 check_env
 prepare_base_conf
 check_head_or_worker
 caculate_worker_resources
 set_resources_for_spark
 update_spark_runtime_config
-prepare_spark_jars
-prepare_jars_to_spark_classpath
-set_hadoop_classpath
+prepare_yarn_with_spark_jars
+configure_hadoop_with_cloud_jars
+prepare_spark_with_cloud_jars

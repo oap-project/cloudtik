@@ -1248,4 +1248,29 @@ def kill_process_by_pid(pid):
 
 
 def check_process_exists(pid):
-    return  psutil.pid_exists(int(pid))
+    return psutil.pid_exists(int(pid))
+
+
+def get_proxy_info_file(cluster_name: str):
+    proxy_info_file = os.path.join(tempfile.gettempdir(),
+                                   "cloudtik-proxy-{}".format(cluster_name))
+    return proxy_info_file
+
+
+def _get_proxy_process_info(proxy_info_file: str):
+    if os.path.exists(proxy_info_file):
+        process_info = json.loads(open(proxy_info_file).read())
+        if process_info.get("proxy") and process_info["proxy"].get("pid"):
+            return process_info["proxy"]["pid"], process_info["proxy"]["port"]
+    return None, None
+
+
+def get_safe_proxy_process_info(proxy_info_file: str):
+    pid, port = _get_proxy_process_info(proxy_info_file)
+    if pid is None:
+        return None, None
+
+    if not check_process_exists(pid):
+        return None, None
+
+    return pid, port

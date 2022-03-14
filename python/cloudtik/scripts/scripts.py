@@ -630,11 +630,12 @@ def attach(cluster_config_file, start, screen, tmux, cluster_name,
     help="Override the configured cluster name.")
 @add_click_logging_options
 def enable_local_access(cluster_config_file, no_config_cache, cluster_name):
-    """Enable local socks5 proxy to the cluster through SSH tunnel forwarding to the head."""
+    """Enable local SOCKS5 proxy to the cluster through SSH tunnel forwarding to the head."""
     start_proxy(
         cluster_config_file,
         override_cluster_name=cluster_name,
         no_config_cache=no_config_cache)
+
 
 @cli.command()
 @click.argument("cluster_config_file", required=True, type=str)
@@ -646,7 +647,7 @@ def enable_local_access(cluster_config_file, no_config_cache, cluster_name):
     help="Override the configured cluster name.")
 @add_click_logging_options
 def disable_local_access(cluster_config_file,cluster_name):
-    """Disable the local socks5 proxy to the cluster."""
+    """Disable the local SOCKS5 proxy to the cluster."""
     stop_proxy(cluster_config_file,cluster_name)
 
 

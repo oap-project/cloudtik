@@ -721,7 +721,7 @@ def get_or_create_head_node(config: Dict[str, Any],
         })
     if not config.get("provider", {}).get("use_internal_ips", False):
         _start_proxy_process(provider.external_ip(head_node), config)
-    show_useful_commands(printable_config_file, updater, override_cluster_name)
+    show_useful_commands(printable_config_file, updater, provider.internal_ip(head_node), override_cluster_name)
 
 
 def _should_create_new_head(head_node_id: Optional[str], new_launch_hash: str,
@@ -1392,8 +1392,9 @@ def show_cluster_info(config_file: str,
     try:
         head_node = _get_running_head_node(config, config_file,
                                            override_cluster_name)
+        head_internal_ip = provider.internal_ip(head_node)
         if config.get("provider", {}).get("use_internal_ips", False):
-            head_node_ip = provider.internal_ip(head_node)
+            head_node_ip = head_internal_ip
         else:
             head_node_ip = provider.external_ip(head_node)
     except Exception:
@@ -1429,11 +1430,12 @@ def show_cluster_info(config_file: str,
         is_head_node=False,
         docker_config=config.get("docker"))
 
-    show_useful_commands(config_file, updater, override_cluster_name)
+    show_useful_commands(config_file, updater, head_internal_ip, override_cluster_name)
 
 
 def show_useful_commands(printable_config_file: str,
                          updater: NodeUpdaterThread,
+                         head_internal_ip: str,
                          override_cluster_name: Optional[str] = None
                          ) -> None:
     # TODO (haifeng) : check and set to the correct log path of the coordinator
@@ -1466,7 +1468,8 @@ def show_useful_commands(printable_config_file: str,
         if port:
             cli_logger.print("Socks5 Proxy to the Web-UI on the cluster head:")
             cli_logger.print("127.0.0.1:{}", port)
-
+        cli_logger.print("Yarn Web UI: http://{}:8088", head_internal_ip)
+        cli_logger.print("Jupyter Lab Web UI: http://{}:8888, default password is \'cloudtik\'", head_internal_ip)
 
 def show_cluster_status(config_file: str,
                         override_cluster_name: Optional[str] = None

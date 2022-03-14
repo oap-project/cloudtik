@@ -47,8 +47,8 @@ from cloudtik.core._private.event_system import (CreateClusterEvent, global_even
 from cloudtik.core._private.log_timer import LogTimer
 from cloudtik.core._private.cluster.cluster_dump import Archive, \
     GetParameters, Node, _info_from_params, \
-    create_archive_for_local_and_remote_nodes, \
-    create_archive_for_remote_nodes, get_all_local_data
+    create_archive_for_remote_nodes, get_all_local_data, \
+    create_archive_for_local_and_cluster_nodes, create_archive_for_cluster_nodes
 
 from cloudtik.core._private.debug import log_once
 
@@ -1285,6 +1285,68 @@ def get_local_dump_archive(stream: bool = False,
     return target
 
 
+def get_cluster_dump_archive_on_head(
+                             host: Optional[str] = None,
+                             stream: bool = False,
+                             output: Optional[str] = None,
+                             logs: bool = True,
+                             debug_state: bool = True,
+                             pip: bool = True,
+                             processes: bool = True,
+                             processes_verbose: bool = False,
+                             tempfile: Optional[str] = None) -> Optional[str]:
+    if stream and output:
+        raise ValueError(
+            "You can only use either `--output` or `--stream`, but not both.")
+
+    # Parse arguments (e.g. fetch info from cluster config)
+    cluster_config_file, head_node_ip, hosts, ssh_user, ssh_key, docker, cluster_name = \
+        _info_from_params(None, host, None, None, None)
+
+    nodes = [
+        Node(
+            host=h,
+            ssh_user=ssh_user,
+            ssh_key=ssh_key,
+            docker_container=docker) for h in hosts
+    ]
+
+    if not nodes:
+        cli_logger.error(
+            "No nodes found. Specify with `--host` or by passing a "
+            "cluster config to `--cluster`.")
+        return None
+
+    # TODO haifeng: improve the robustness for this code
+    if cluster_config_file:
+        nodes[0].is_head = True
+
+    parameters = GetParameters(
+        logs=logs,
+        debug_state=debug_state,
+        pip=pip,
+        processes=processes,
+        processes_verbose=processes_verbose)
+
+    with Archive(file=tempfile) as archive:
+        create_archive_for_remote_nodes(
+            archive, remote_nodes=nodes, parameters=parameters)
+
+    tmp = archive.file
+
+    if stream:
+        with open(tmp, "rb") as fp:
+            os.write(1, fp.read())
+        os.remove(tmp)
+        return None
+
+    target = output or os.path.join(os.getcwd(), os.path.basename(tmp))
+    shutil.move(tmp, target)
+    cli_logger.print(f"Created local data archive at {target}")
+
+    return target
+
+
 def get_cluster_dump_archive(cluster_config_file: Optional[str] = None,
                              host: Optional[str] = None,
                              ssh_user: Optional[str] = None,
@@ -1329,25 +1391,19 @@ def get_cluster_dump_archive(cluster_config_file: Optional[str] = None,
         f"anyone.")
 
     # Parse arguments (e.g. fetch info from cluster config)
-    cluster_config_file, hosts, ssh_user, ssh_key, docker, cluster_name = \
+    cluster_config_file, head_node_ip, hosts, ssh_user, ssh_key, docker, cluster_name = \
         _info_from_params(cluster_config_file, host, ssh_user, ssh_key, docker)
 
-    nodes = [
-        Node(
-            host=h,
+    head_node = Node(
+            host=head_node_ip,
             ssh_user=ssh_user,
             ssh_key=ssh_key,
-            docker_container=docker) for h in hosts
-    ]
+            docker_container=docker)
 
-    if not nodes:
+    if not head_node:
         cli_logger.error(
-            "No nodes found. Specify with `--host` or by passing a "
-            "cluster config to `--cluster`.")
+            "No head node found. Cluster may not be running. ")
         return None
-
-    if cluster_config_file:
-        nodes[0].is_head = True
 
     if local is None:
         # If called with a cluster config, this was probably started
@@ -1363,11 +1419,11 @@ def get_cluster_dump_archive(cluster_config_file: Optional[str] = None,
 
     with Archive(file=tempfile) as archive:
         if local:
-            create_archive_for_local_and_remote_nodes(
-                archive, remote_nodes=nodes, parameters=parameters)
+            create_archive_for_local_and_cluster_nodes(
+                archive, head_node=head_node, parameters=parameters)
         else:
-            create_archive_for_remote_nodes(
-                archive, remote_nodes=nodes, parameters=parameters)
+            create_archive_for_cluster_nodes(
+                archive, head_node=head_node, parameters=parameters)
 
     if not output:
         if cluster_name:

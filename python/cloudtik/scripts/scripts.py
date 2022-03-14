@@ -22,7 +22,7 @@ from cloudtik.core._private.node.node_services import NodeServicesStarter
 from cloudtik.core._private.cluster.cluster_operator import (
     attach_cluster, exec_cluster, create_or_update_cluster, monitor_cluster,
     rsync, teardown_cluster, get_head_node_ip, kill_node, get_worker_node_ips,
-    get_cluster_dump_archive, debug_status, get_local_dump_archive,
+    get_cluster_dump_archive, debug_status, get_local_dump_archive, get_cluster_dump_archive_on_head,
     show_cluster_info, show_cluster_status, RUN_ENV_TYPES, start_proxy, stop_proxy)
 from cloudtik.core._private.constants import CLOUDTIK_PROCESSES, \
     CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
@@ -1031,6 +1031,89 @@ def local_dump(stream: bool = False,
 
 
 @cli.command()
+@click.option(
+    "--host",
+    "-h",
+    required=False,
+    type=str,
+    help="Single or list of hosts, separated by comma.")
+@click.option(
+    "--stream",
+    "-S",
+    required=False,
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="If True, will stream the binary archive contents to stdout")
+@click.option(
+    "--output",
+    "-o",
+    required=False,
+    type=str,
+    default=None,
+    help="Output file.")
+@click.option(
+    "--logs/--no-logs",
+    is_flag=True,
+    default=True,
+    help="Collect logs from session dir")
+@click.option(
+    "--debug-state/--no-debug-state",
+    is_flag=True,
+    default=True,
+    help="Collect debug_state.txt from log dir")
+@click.option(
+    "--pip/--no-pip",
+    is_flag=True,
+    default=True,
+    help="Collect installed pip packages")
+@click.option(
+    "--processes/--no-processes",
+    is_flag=True,
+    default=True,
+    help="Collect info on running processes")
+@click.option(
+    "--processes-verbose/--no-processes-verbose",
+    is_flag=True,
+    default=True,
+    help="Increase process information verbosity")
+@click.option(
+    "--tempfile",
+    "-T",
+    required=False,
+    type=str,
+    default=None,
+    help="Temporary file to use")
+def cluster_dump_on_head(host: Optional[str] = None,
+                         stream: bool = False,
+                         output: Optional[str] = None,
+                         logs: bool = True,
+                         debug_state: bool = True,
+                         pip: bool = True,
+                         processes: bool = True,
+                         processes_verbose: bool = False,
+                         tempfile: Optional[str] = None):
+    """Collect cluster data and package into an archive on head.
+
+        Usage:
+
+            cloudtik local-dump [--stream/--output file]
+
+        This script is called on head node to fetch the cluster data.
+        """
+    get_cluster_dump_archive_on_head(
+        host=host,
+        stream=stream,
+        output=output,
+        logs=logs,
+        debug_state=debug_state,
+        pip=pip,
+        processes=processes,
+        processes_verbose=processes_verbose,
+        tempfile=tempfile)
+
+
+@cli.command()
 @click.argument("cluster_config_file", required=False, type=str)
 @click.option(
     "--host",
@@ -1263,6 +1346,7 @@ cli.add_command(cluster_dump)
 add_command_alias(cluster_dump, name="cluster_dump", hidden=True)
 cli.add_command(local_dump)
 add_command_alias(local_dump, name="local_dump", hidden=True)
+cli.add_command(cluster_dump_on_head)
 
 cli.add_command(health_check)
 add_command_alias(health_check, name="health_check", hidden=True)

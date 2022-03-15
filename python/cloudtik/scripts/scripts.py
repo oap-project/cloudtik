@@ -24,7 +24,7 @@ from cloudtik.core._private.cluster.cluster_operator import (
     rsync, teardown_cluster, get_head_node_ip, kill_node, get_worker_node_ips,
     get_cluster_dump_archive, debug_status, get_local_dump_archive, get_cluster_dump_archive_on_head,
     show_cluster_info, show_cluster_status, RUN_ENV_TYPES, start_proxy, stop_proxy, cluster_debug_status,
-    cluster_health_check)
+    cluster_health_check, teardown_cluster_on_head)
 from cloudtik.core._private.constants import CLOUDTIK_PROCESSES, \
     CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
     CLOUDTIK_KV_NAMESPACE_HEALTHCHECK, \
@@ -1336,6 +1336,18 @@ def health_check_on_head(address, redis_password, component):
         sys.exit(1)
 
 
+@cli.command(hidden=True)
+@click.option(
+    "--keep-min-workers",
+    is_flag=True,
+    default=False,
+    help="Retain the minimal amount of workers specified in the config.")
+@add_click_logging_options
+def teardown_on_head(keep_min_workers):
+    """Tear down a cluster."""
+    teardown_cluster_on_head(keep_min_workers)
+
+
 def add_command_alias(command, name, hidden):
     new_command = copy.deepcopy(command)
     new_command.hidden = hidden
@@ -1387,6 +1399,7 @@ cli.add_command(local_dump)
 add_command_alias(local_dump, name="local_dump", hidden=True)
 
 # utility commands running on head node
+cli.add_command(teardown_on_head)
 cli.add_command(cluster_dump_on_head)
 cli.add_command(debug_status_on_head)
 cli.add_command(health_check_on_head)

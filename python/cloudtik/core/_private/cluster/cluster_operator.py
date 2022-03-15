@@ -335,31 +335,45 @@ def teardown_cluster(config_file: str, yes: bool, workers_only: bool,
     if proxy_stop:
         _stop_proxy(config)
 
-    # TODO (haifeng): Check the correct way to teardown a cluster
-    if not workers_only:
-        try:
-            exec_cluster(
+    try:
+        if not workers_only:
+            exec_cmd_on_cluster(
                 config_file,
-                cmd="cloudtik stop",
-                run_env="auto",
-                screen=False,
-                tmux=False,
-                stop=False,
-                start=False,
-                override_cluster_name=override_cluster_name,
-                port_forward=None,
-                with_output=False)
-        except Exception as e:
-            # todo: add better exception info
-            cli_logger.verbose_error("{}", str(e))
-            cli_logger.warning(
-                "Exception occurred when stopping the cluster runtime "
-                "(use -v to dump teardown exceptions).")
-            cli_logger.warning(
-                "Ignoring the exception and "
-                "attempting to shut down the cluster nodes anyway.")
+                "cloudtik stop",
+                override_cluster_name)
+
+        # Running teardown cluster process on head first. But we allow this to fail.
+        # Since head node problem should not prevent cluster tear down
+        cmd = "cloudtik teardown-cluster-on-head"
+        if keep_min_workers:
+            cmd += " --keep_min_workers"
+        exec_cmd_on_cluster(config_file,
+                            cmd,
+                            override_cluster_name)
+    except Exception as e:
+        # todo: add better exception info
+        cli_logger.verbose_error("{}", str(e))
+        cli_logger.warning(
+            "Exception occurred when stopping the cluster runtime "
+            "(use -v to dump teardown exceptions).")
+        cli_logger.warning(
+            "Ignoring the exception and "
+            "attempting to shut down the cluster nodes anyway.")
 
     provider = _get_node_provider(config["provider"], config["cluster_name"])
+    # Since head node has down the workers shutdown
+    # We continue shutdown the head and remaining workers
+    teardown_cluster_nodes(config, provider,
+                           workers_only, keep_min_workers,
+                           False)
+
+
+def teardown_cluster_nodes(config: Dict[str, Any],
+                           provider: NodeProvider,
+                           workers_only: bool,
+                           keep_min_workers: bool,
+                           on_head: bool):
+    use_internal_ip = True if on_head else False
 
     def remaining_nodes():
         workers = provider.non_terminated_nodes({
@@ -387,7 +401,7 @@ def teardown_cluster(config_file: str, yes: bool, workers_only: bool,
             CLOUDTIK_TAG_NODE_KIND: NODE_KIND_HEAD
         })
 
-        return head + workers
+        return head, head + workers
 
     def run_docker_stop(node, container_name):
         try:
@@ -404,7 +418,8 @@ def teardown_cluster(config_file: str, yes: bool, workers_only: bool,
                 runtime_hash="",
                 file_mounts_contents_hash="",
                 is_head_node=False,
-                docker_config=config.get("docker"))
+                docker_config=config.get("docker"),
+                use_internal_ip=use_internal_ip)
 
             _exec(
                 updater,
@@ -416,11 +431,14 @@ def teardown_cluster(config_file: str, yes: bool, workers_only: bool,
 
     # Loop here to check that both the head and worker nodes are actually
     #   really gone
-    A = remaining_nodes()
+    head, A = remaining_nodes()
 
     container_name = config.get("docker", {}).get("container_name")
     if container_name:
-
+        if on_head:
+            container_nodes = A
+        else:
+            container_nodes = head
         # This is to ensure that the parallel SSH calls below do not mess with
         # the users terminal.
         output_redir = cmd_output_util.is_output_redirected()
@@ -430,7 +448,7 @@ def teardown_cluster(config_file: str, yes: bool, workers_only: bool,
 
         with ThreadPoolExecutor(
                 max_workers=MAX_PARALLEL_SHUTDOWN_WORKERS) as executor:
-            for node in A:
+            for node in container_nodes:
                 executor.submit(
                     run_docker_stop, node=node, container_name=container_name)
         cmd_output_util.set_output_redirected(output_redir)
@@ -445,7 +463,7 @@ def teardown_cluster(config_file: str, yes: bool, workers_only: bool,
                 _tags=dict(interval="1s"))
 
             time.sleep(POLL_INTERVAL)  # todo: interval should be a variable
-            A = remaining_nodes()
+            head, A = remaining_nodes()
             cli_logger.print("{} nodes remaining after {} second(s).",
                              cf.bold(len(A)), POLL_INTERVAL)
         cli_logger.success("No nodes remaining.")
@@ -1650,9 +1668,9 @@ def _stop_proxy(config: Dict[str, Any]):
     cli_logger.print(cf.bold("Disable local SOCKS5 proxy of cluster {} successfully."), cluster_name)
 
 
-def exec_cmd_on_head(cluster_config_file: str,
-                     cmd: str,
-                     override_cluster_name: Optional[str]):
+def exec_cmd_on_cluster(cluster_config_file: str,
+                        cmd: str,
+                        override_cluster_name: Optional[str]):
     exec_cluster(
         cluster_config_file,
         cmd=cmd,
@@ -1662,7 +1680,8 @@ def exec_cmd_on_head(cluster_config_file: str,
         stop=False,
         start=False,
         override_cluster_name=override_cluster_name,
-        port_forward=None)
+        port_forward=None,
+        with_output=False)
 
 
 def cluster_debug_status(cluster_config_file: str,
@@ -1670,7 +1689,7 @@ def cluster_debug_status(cluster_config_file: str,
     """Return the debug status of a cluster scaling from head node"""
 
     cmd = f"cloudtik debug-status-on-head"
-    exec_cmd_on_head(cluster_config_file, cmd, override_cluster_name)
+    exec_cmd_on_cluster(cluster_config_file, cmd, override_cluster_name)
 
 
 def cluster_health_check(cluster_config_file: str,
@@ -1678,4 +1697,18 @@ def cluster_health_check(cluster_config_file: str,
     """Do a health check on head node and return the results"""
 
     cmd = f"cloudtik health-check-on-head"
-    exec_cmd_on_head(cluster_config_file, cmd, override_cluster_name)
+    exec_cmd_on_cluster(cluster_config_file, cmd, override_cluster_name)
+
+
+def teardown_cluster_on_head(keep_min_workers: bool) -> None:
+    # Since this is running on head, the bootstrap config must exist
+    cluster_config_file = os.path.expanduser("~/cloudtik_bootstrap_config.yaml")
+    config = yaml.safe_load(open(cluster_config_file).read())
+
+    # TODO haifeng: Check whether we need bootstrap call on head
+    config = _bootstrap_config(config, no_config_cache=True)
+    provider = _get_node_provider(config["provider"], config["cluster_name"])
+
+    teardown_cluster_nodes(config, provider,
+                           True, keep_min_workers,
+                           True)

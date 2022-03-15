@@ -343,16 +343,16 @@ def delete_workspace_aws(config):
         return
 
     # delete private subnets
-    _delete_private_subnets(config, ec2, VpcId)
+    _delete_private_subnets(workspace_name, ec2, VpcId)
 
     # delete route tables for private sybnets
     _delete_route_table(workspace_name, ec2, VpcId)
 
     # delete nat-gateway
-    _delete_nat_gateway(config, ec2_client, VpcId)
+    _delete_nat_gateway(workspace_name, ec2_client, VpcId)
 
     # delete public subnets
-    _delete_public_subnets(config, ec2, VpcId)
+    _delete_public_subnets(workspace_name, ec2, VpcId)
 
     # delete internat gateway
     if not use_internal_ips:
@@ -626,9 +626,9 @@ def _delete_internet_gateway(workspace_name, ec2, VpcId):
     return
 
 
-def _delete_private_subnets(config, ec2, VpcId):
+def _delete_private_subnets(workspace_name, ec2, VpcId):
     """ Delete custom private subnets """
-    subnets = get_workspace_private_subnets(config["workspace_name"], ec2, VpcId)
+    subnets = get_workspace_private_subnets(workspace_name, ec2, VpcId)
 
     if len(subnets) == 0:
         cli_logger.print("No subnets for workspace were found under this VPC: {} ...".format(VpcId))
@@ -642,9 +642,9 @@ def _delete_private_subnets(config, ec2, VpcId):
     return
 
 
-def _delete_public_subnets(config, ec2, VpcId):
+def _delete_public_subnets(workspace_name, ec2, VpcId):
     """ Delete custom public subnets """
-    subnets = get_workspace_public_subnets(config["workspace_name"], ec2, VpcId)
+    subnets = get_workspace_public_subnets(workspace_name, ec2, VpcId)
 
     if len(subnets) == 0:
         cli_logger.print("No subnets for workspace were found under this VPC: {} ...".format(VpcId))
@@ -688,9 +688,9 @@ def release_elastic_ip_address(ec2_client, allocationId, retry=5):
     cli_logger.error("Failed to release elastic_ip_address for nat-gateway, please release unassociated ip manually...")
 
 
-def _delete_nat_gateway(config, ec2_client, VpcId):
+def _delete_nat_gateway(workspace_name, ec2_client, VpcId):
     """ Remove nat-gateway and release elastic IP """
-    nat_gateways = get_workspace_nat_gateways(config, ec2_client, VpcId)
+    nat_gateways = get_workspace_nat_gateways(workspace_name, ec2_client, VpcId)
     if len(nat_gateways) == 0:
         cli_logger.print("No nat gateways for workspace were found under this VPC: {} ...".format(VpcId))
         return

@@ -1528,7 +1528,7 @@ def show_useful_commands(printable_config_file: str,
             cli_logger.print(cf.bold(
                 "To access the cluster from local tools, please configure the SOCKS5 proxy with 127.0.0.1:{}."),
                 port)
-            head_node_cluster_ip = get_node_cluster_ip(head_node)
+            head_node_cluster_ip = get_node_cluster_ip(config, provider, head_node)
             cli_logger.print("Yarn Web UI: http://{}:8088",
                              head_node_cluster_ip)
             cli_logger.print("Jupyter Lab Web UI: http://{}:8888, default password is \'cloudtik\'",

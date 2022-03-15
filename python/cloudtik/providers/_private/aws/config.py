@@ -201,7 +201,7 @@ def log_to_cli(config: Dict[str, Any]) -> None:
 
 
 def get_workspace_vpc_id(workspace_name, ec2_client):
-    vpcs = [vpc for vpc in ec2_client.describe_vpcs()["Vpcs"] if vpc["Tags"]]
+    vpcs = [vpc for vpc in ec2_client.describe_vpcs()["Vpcs"] if not vpc.get("Tags") is None]
     VpcIds = [vpc["VpcId"] for vpc in vpcs
              for tag in vpc["Tags"]
                 if tag['Key'] == 'Name' and tag['Value'] == 'cloudtik_{}_vpc'.format(workspace_name)]

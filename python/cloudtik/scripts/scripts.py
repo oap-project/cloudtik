@@ -1057,7 +1057,7 @@ def local_dump(stream: bool = False,
         tempfile=tempfile)
 
 
-@cli.command()
+@cli.command(hidden=True)
 @click.option(
     "--host",
     "-h",

@@ -180,23 +180,12 @@ def stop_worker():
     os.system("bash {} stop-worker".format(SPARK_SERVICES_SCRIPT_PATH))
 
 
-@click.command()
-def start_jupyter():
-    os.system("nohup jupyter lab  --no-browser --ip=* --allow-root >/home/cloudtik/jupyter/jupyter.log 2>&1 &")
-    print("\tSuccessfully started JupyterLab on master ...... "
-          "\n\tPlease open `/home/jupyter/jupyter.log` to search the token,"
-          " add it to the Link: http://external_ip:8888/lab?<token> , then copy this link to a browser to use JupyterLab. "
-          + "\n\tKernels like Spark are ready to be used, you can choose kernels like "
-          + "Python 3 (for PySpark), Spark-Scala or spylon-kernel (for Scala Spark) to run Spark.")
-
-
 cli.add_command(install)
 cli.add_command(configure)
 cli.add_command(start_head)
 cli.add_command(start_worker)
 cli.add_command(stop_head)
 cli.add_command(stop_worker)
-cli.add_command(start_jupyter)
 
 
 def main():

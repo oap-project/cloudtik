@@ -1649,3 +1649,33 @@ def _stop_proxy(config: Dict[str, Any]):
         f.write(json.dumps({"proxy": {}}))
     cli_logger.print(cf.bold("Disable local SOCKS5 proxy of cluster {} successfully."), cluster_name)
 
+
+def exec_cmd_on_head(cluster_config_file: str,
+                     cmd: str,
+                     override_cluster_name: Optional[str]):
+    exec_cluster(
+        cluster_config_file,
+        cmd=cmd,
+        run_env="auto",
+        screen=False,
+        tmux=False,
+        stop=False,
+        start=False,
+        override_cluster_name=override_cluster_name,
+        port_forward=None)
+
+
+def cluster_debug_status(cluster_config_file: str,
+                         override_cluster_name: Optional[str]) -> None:
+    """Return the debug status of a cluster scaling from head node"""
+
+    cmd = f"cloudtik debug-status-on-head"
+    exec_cmd_on_head(cluster_config_file, cmd, override_cluster_name)
+
+
+def cluster_health_check(cluster_config_file: str,
+                         override_cluster_name: Optional[str]) -> None:
+    """Do a health check on head node and return the results"""
+
+    cmd = f"cloudtik health-check-on-head"
+    exec_cmd_on_head(cluster_config_file, cmd, override_cluster_name)

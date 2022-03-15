@@ -23,7 +23,8 @@ from cloudtik.core._private.cluster.cluster_operator import (
     attach_cluster, exec_cluster, create_or_update_cluster, monitor_cluster,
     rsync, teardown_cluster, get_head_node_ip, kill_node, get_worker_node_ips,
     get_cluster_dump_archive, debug_status, get_local_dump_archive, get_cluster_dump_archive_on_head,
-    show_cluster_info, show_cluster_status, RUN_ENV_TYPES, start_proxy, stop_proxy)
+    show_cluster_info, show_cluster_status, RUN_ENV_TYPES, start_proxy, stop_proxy, cluster_debug_status,
+    cluster_health_check)
 from cloudtik.core._private.constants import CLOUDTIK_PROCESSES, \
     CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
     CLOUDTIK_KV_NAMESPACE_HEALTHCHECK, \
@@ -926,6 +927,20 @@ def status(cluster_config_file, cluster_name):
 
 
 @cli.command()
+@click.argument("cluster_config_file", required=True, type=str)
+@click.option(
+    "--cluster-name",
+    "-n",
+    required=False,
+    type=str,
+    help="Override the configured cluster name.")
+@add_click_logging_options
+def debug_status(cluster_config_file, cluster_name):
+    """Show debug status of cluster scaling."""
+    cluster_debug_status(cluster_config_file, cluster_name)
+
+
+@cli.command(hidden=True)
 @click.option(
     "--address",
     required=False,
@@ -937,7 +952,7 @@ def status(cluster_config_file, cluster_name):
     type=str,
     default=CLOUDTIK_REDIS_DEFAULT_PASSWORD,
     help="Connect with redis_password.")
-def debug_status(address, redis_password):
+def debug_status_on_head(address, redis_password):
     """Print cluster status, including autoscaling info."""
     if not address:
         address = services.get_address_to_use_or_die()
@@ -1235,6 +1250,20 @@ def cluster_dump(cluster_config_file: Optional[str] = None,
         click.echo("Could not create archive.")
 
 
+@cli.command()
+@click.argument("cluster_config_file", required=True, type=str)
+@click.option(
+    "--cluster-name",
+    "-n",
+    required=False,
+    type=str,
+    help="Override the configured cluster name.")
+@add_click_logging_options
+def health_check(cluster_config_file, cluster_name):
+    """Do cluster health check."""
+    cluster_health_check(cluster_config_file, cluster_name)
+
+
 @cli.command(hidden=True)
 @click.option(
     "--address",
@@ -1253,7 +1282,7 @@ def cluster_dump(cluster_config_file: Optional[str] = None,
     type=str,
     help="Health check for a specific component. Currently supports: "
     "[None]")
-def health_check(address, redis_password, component):
+def health_check_on_head(address, redis_password, component):
     """
     This is NOT a public api.
 
@@ -1313,9 +1342,11 @@ def add_command_alias(command, name, hidden):
     cli.add_command(new_command, name=name)
 
 
+# core commands running on head and worker node
 cli.add_command(start)
 cli.add_command(stop)
 
+# commands running on working node for handling a cluster
 cli.add_command(up)
 cli.add_command(down)
 
@@ -1331,6 +1362,7 @@ add_command_alias(rsync_up, name="rsync_up", hidden=True)
 cli.add_command(enable_local_access)
 cli.add_command(disable_local_access)
 
+# commands running on working node for information and status
 cli.add_command(get_head_ip)
 add_command_alias(get_head_ip, name="get_head_ip", hidden=True)
 cli.add_command(get_worker_ips)
@@ -1339,19 +1371,27 @@ add_command_alias(get_worker_ips, name="get_worker_ips", hidden=True)
 cli.add_command(info)
 cli.add_command(status)
 cli.add_command(monitor)
-cli.add_command(debug_status)
 
+# commands running on working node for debug
 cli.add_command(cluster_dump)
 add_command_alias(cluster_dump, name="cluster_dump", hidden=True)
-cli.add_command(local_dump)
-add_command_alias(local_dump, name="local_dump", hidden=True)
-cli.add_command(cluster_dump_on_head)
 
-cli.add_command(health_check)
-add_command_alias(health_check, name="health_check", hidden=True)
 cli.add_command(kill_random_node)
 add_command_alias(kill_random_node, name="kill_random_node", hidden=True)
 
+cli.add_command(debug_status)
+cli.add_command(health_check)
+
+# utility commands running on head or worker node for dump local data
+cli.add_command(local_dump)
+add_command_alias(local_dump, name="local_dump", hidden=True)
+
+# utility commands running on head node
+cli.add_command(cluster_dump_on_head)
+cli.add_command(debug_status_on_head)
+cli.add_command(health_check_on_head)
+
+# workspace commands
 cli.add_command(workspace)
 
 

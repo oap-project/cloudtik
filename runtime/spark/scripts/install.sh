@@ -46,7 +46,7 @@ if [ ! -d "${SPARK_HOME}" ]; then
   echo "export PATH=$SPARK_HOME/bin:$PATH" >> ${USER_HOME}/.bashrc
 fi
 
-function prepare_yarn_with_spark_jars() {
+function install_yarn_with_spark_jars() {
     # Copy spark jars to hadoop path
     jars=('spark-[0-9]*[0-9]-yarn-shuffle.jar' 'jackson-databind-[0-9]*[0-9].jar' 'jackson-core-[0-9]*[0-9].jar' 'jackson-annotations-[0-9]*[0-9].jar' 'metrics-core-[0-9]*[0-9].jar' 'netty-all-[0-9]*[0-9].Final.jar' 'commons-lang3-[0-9]*[0-9].jar')
     find ${HADOOP_HOME}/share/hadoop/yarn/lib -name netty-all-[0-9]*[0-9].Final.jar| xargs -i mv -f {} {}.old
@@ -65,7 +65,7 @@ function download_hadoop_cloud_jars() {
     wget -nc -P "${HADOOP_HOME}"/share/hadoop/tools/lib/  https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-util/9.3.24.v20180605/jetty-util-9.3.24.v20180605.jar
 }
 
-function configure_hadoop_with_cloud_jars() {
+function install_hadoop_with_cloud_jars() {
     # Download jars are possible long running tasks and should be done on install step instead of configure step.
     download_hadoop_cloud_jars
 
@@ -73,7 +73,7 @@ function configure_hadoop_with_cloud_jars() {
     echo "export HADOOP_CLASSPATH=$HADOOP_CLASSPATH:\$HADOOP_HOME/share/hadoop/tools/lib/*" >> ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh
 }
 
-function prepare_spark_with_cloud_jars() {
+function install_spark_with_cloud_jars() {
     # Copy cloud storage jars of different cloud providers to Spark classpath
     cloud_storge_jars=('hadoop-aws-[0-9]*[0-9].jar' 'aws-java-sdk-bundle-[0-9]*[0-9].jar' 'hadoop-azure-[0-9]*[0-9].jar' 'azure-storage-[0-9]*[0-9].jar' 'wildfly-openssl-[0-9]*[0-9].Final.jar' 'jetty-util-ajax-[0-9]*[0-9].v[0-9]*[0-9].jar' 'jetty-util-[0-9]*[0-9].v[0-9]*[0-9].jar' 'gcs-connector-hadoop3-[0-9]*[0-9].jar')
     for jar in ${cloud_storge_jars[@]};
@@ -82,6 +82,6 @@ function prepare_spark_with_cloud_jars() {
     done
 }
 
-prepare_yarn_with_spark_jars
-configure_hadoop_with_cloud_jars
-prepare_spark_with_cloud_jars
+install_yarn_with_spark_jars
+install_hadoop_with_cloud_jars
+install_spark_with_cloud_jars

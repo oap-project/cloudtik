@@ -1,4 +1,5 @@
 import collections
+import collections.abc
 import copy
 from datetime import datetime
 import logging
@@ -771,7 +772,7 @@ def fillout_workspace_defaults(config: Dict[str, Any]) -> Dict[str, Any]:
 
 def fillout_defaults(config: Dict[str, Any]) -> Dict[str, Any]:
     defaults = _get_default_config(config["provider"])
-    defaults.update(config)
+    defaults = update_nested_dict(defaults, config)
 
     # Just for clarity:
     merged_config = copy.deepcopy(defaults)
@@ -1298,3 +1299,12 @@ def get_node_working_ip(config: Dict[str, Any],
 def get_head_working_ip(config: Dict[str, Any],
                         provider: NodeProvider, node: str) -> str:
     return get_node_working_ip(config, provider, node)
+
+
+def update_nested_dict(target_dict, new_dict):
+    for k, v in new_dict.items():
+        if isinstance(v, collections.abc.Mapping):
+            target_dict[k] = update_nested_dict(target_dict.get(k, {}), v)
+        else:
+            target_dict[k] = v
+    return target_dict

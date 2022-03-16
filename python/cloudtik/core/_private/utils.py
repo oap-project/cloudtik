@@ -1308,3 +1308,10 @@ def update_nested_dict(target_dict, new_dict):
         else:
             target_dict[k] = v
     return target_dict
+
+
+def find_name_in_command(cmdline, name_to_find) -> bool:
+    for arglist in cmdline:
+        if name_to_find in arglist:
+            return True
+    return False

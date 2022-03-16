@@ -176,7 +176,7 @@ def find_redis_address(address=None):
             # NOTE: To support Windows, we can't use
             # `os.path.basename(cmdline[0]) == "abc"` here.
             # TODO (haifeng): use the right way to detect the redis
-            if len(cmdline) > 0 and "cloudtik" in os.path.basename(cmdline[0]):
+            if utils.find_name_in_command(cmdline, "cloudtik_cluster_coordinator"):
                 for arglist in cmdline:
                     # Given we're merely seeking --redis-address, we just split
                     # every argument on spaces for now.

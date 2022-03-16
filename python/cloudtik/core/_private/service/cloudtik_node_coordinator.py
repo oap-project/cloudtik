@@ -52,6 +52,7 @@ class NodeCoordinator:
         resource_dict, node_id = self._parse_resource_list()
         self.node_detail["resource"] = resource_dict
         self.node_detail["node_id"] = node_id
+        self.node_detail["node_type"] = self.node_type
         self.node_id = node_id
         self.pre_processes = []
 

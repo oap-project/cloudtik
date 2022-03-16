@@ -27,12 +27,15 @@ from cloudtik.core._private.state.kv_store import kv_put
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core._private.constants import \
     CLOUDTIK_RESOURCE_REQUEST_CHANNEL, \
-    MAX_PARALLEL_SHUTDOWN_WORKERS
+    MAX_PARALLEL_SHUTDOWN_WORKERS, \
+    CLOUDTIK_DEFAULT_PORT, \
+    CLOUDTIK_REDIS_DEFAULT_PASSWORD
 from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     hash_launch_conf, prepare_config, get_free_port, \
     kill_process_by_pid, \
     get_proxy_info_file, get_safe_proxy_process_info, \
     get_node_working_ip, get_head_working_ip, get_node_cluster_ip, is_use_internal_ip
+
 
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
@@ -50,7 +53,7 @@ from cloudtik.core._private.cluster.cluster_dump import Archive, \
     GetParameters, Node, _info_from_params, \
     create_archive_for_remote_nodes, get_all_local_data, \
     create_archive_for_local_and_cluster_nodes, create_archive_for_cluster_nodes
-
+from cloudtik.core._private.state.control_state import ControlState
 from cloudtik.core._private.debug import log_once
 
 import cloudtik.core._private.subprocess_output_util as cmd_output_util
@@ -1572,7 +1575,7 @@ def show_cluster_status(config_file: str,
         tb.add_row([node_info["node_id"], node_info["cloudtik-node-kind"], node_info["cloudtik-node-status"],
                     node_info["instance_type"], node_info["public_ip"], node_info["private_ip"],
                     node_info["instance_status"]])
-    print(tb)
+    cli_logger.print(tb)
 
 
 def confirm(msg: str, yes: bool) -> Optional[bool]:
@@ -1712,3 +1715,27 @@ def teardown_cluster_on_head(keep_min_workers: bool) -> None:
     teardown_cluster_nodes(config, provider,
                            True, keep_min_workers,
                            True)
+
+
+def show_cluster_process_status_on_head(redis_address):
+    control_state = ControlState()
+    control_state.initialize_control_state(redis_address, CLOUDTIK_DEFAULT_PORT,
+                                           CLOUDTIK_REDIS_DEFAULT_PASSWORD)
+    node_table = control_state.get_node_table()
+
+    for value in node_table.get_all().values():
+        node_info = eval(value)
+        cli_logger.print("Process status of {}-node({}):".format(node_info["node_type"], node_info["resource"]["ip"]))
+        tb = pt.PrettyTable()
+        tb.field_names = ["process-name", "process-status"]
+        for k, v in node_info["process"].items():
+            tb.add_row([k, v])
+        cli_logger.print(tb)
+
+
+def cluster_process_status(cluster_config_file: str,
+                         override_cluster_name: Optional[str]) -> None:
+    """Do a health check on head node and return the results"""
+
+    cmd = f"cloudtik process_status_on_head"
+    exec_cmd_on_cluster(cluster_config_file, cmd, override_cluster_name)

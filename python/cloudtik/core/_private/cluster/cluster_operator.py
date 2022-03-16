@@ -1518,7 +1518,6 @@ def show_useful_commands(printable_config_file: str,
                          updater: NodeUpdaterThread,
                          override_cluster_name: Optional[str] = None
                          ) -> None:
-    coordinator_str = "tail -n 100 -f /tmp/cloudtik/session_latest/logs/cloudtik_cluster_coordinator*"
     if override_cluster_name:
         modifiers = " --cluster-name={}".format(quote(override_cluster_name))
         cluster_name = override_cluster_name
@@ -1529,14 +1528,22 @@ def show_useful_commands(printable_config_file: str,
     cli_logger.newline()
     with cli_logger.group("Useful commands"):
         printable_config_file = os.path.abspath(printable_config_file)
-        cli_logger.print("Monitor cluster with")
+
+        cli_logger.print("Check cluster status with:")
         cli_logger.print(
-            cf.bold("  cloudtik exec {}{} {}"), printable_config_file, modifiers,
-            quote(coordinator_str))
+            cf.bold("  cloudtik status {}{}"), printable_config_file, modifiers)
+
+        cli_logger.print("Execute command on cluster with:")
+        cli_logger.print(
+            cf.bold("  cloudtik exec {}{} [command]"), printable_config_file, modifiers)
 
         cli_logger.print("Connect to a terminal on the cluster head:")
         cli_logger.print(
             cf.bold("  cloudtik attach {}{}"), printable_config_file, modifiers)
+
+        cli_logger.print("Monitor cluster with:")
+        cli_logger.print(
+            cf.bold("  cloudtik monitor {}{}"), printable_config_file, modifiers)
 
         remote_shell_str = updater.cmd_executor.remote_shell_command_str()
         cli_logger.print("Get a remote shell to the cluster manually:")
@@ -1545,15 +1552,20 @@ def show_useful_commands(printable_config_file: str,
         proxy_info_file = get_proxy_info_file(cluster_name)
         pid, port = get_safe_proxy_process_info(proxy_info_file)
         if pid is not None:
-            cli_logger.print("The local SOCKS5 proxy to the cluster: 127.0.0.1:{}", port)
-            cli_logger.print(cf.bold(
-                "To access the cluster from local tools, please configure the SOCKS5 proxy with 127.0.0.1:{}."),
+            cli_logger.print("The local SOCKS5 proxy to the cluster:")
+            cli_logger.print(
+                cf.bold("  127.0.0.1:{}. To access the cluster from local tools, please configure the SOCKS5 proxy."),
                 port)
+
             head_node_cluster_ip = get_node_cluster_ip(config, provider, head_node)
-            cli_logger.print("Yarn Web UI: http://{}:8088",
-                             head_node_cluster_ip)
-            cli_logger.print("Jupyter Lab Web UI: http://{}:8888, default password is \'cloudtik\'",
-                             head_node_cluster_ip)
+
+            cli_logger.print("Yarn Web UI:")
+            cli_logger.print(
+                cf.bold("  http://{}:8088"), head_node_cluster_ip)
+
+            cli_logger.print("Jupyter Lab Web UI:")
+            cli_logger.print(
+                cf.bold("  http://{}:8888, default password is \'cloudtik\'"), head_node_cluster_ip)
 
 
 def show_cluster_status(config_file: str,

@@ -24,7 +24,7 @@ from cloudtik.core._private.cluster.cluster_operator import (
     rsync, teardown_cluster, get_head_node_ip, kill_node, get_worker_node_ips,
     get_cluster_dump_archive, debug_status, get_local_dump_archive, get_cluster_dump_archive_on_head,
     show_cluster_info, show_cluster_status, RUN_ENV_TYPES, start_proxy, stop_proxy, cluster_debug_status,
-    cluster_health_check, teardown_cluster_on_head, show_cluster_process_status_on_head, cluster_process_status)
+    cluster_health_check, teardown_cluster_on_head, cluster_process_status_on_head, cluster_process_status)
 from cloudtik.core._private.constants import CLOUDTIK_PROCESSES, \
     CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
     CLOUDTIK_KV_NAMESPACE_HEALTHCHECK, \
@@ -928,15 +928,15 @@ def status(cluster_config_file, cluster_name):
         cluster_config_file,
         cluster_name)
 
-@cli.command()
+
+@cli.command(hidden=True)
 @click.option(
     "--redis_address", required=True, type=str, help="the address to redis", default="127.0.0.1")
 @add_click_logging_options
 def process_status_on_head(redis_address):
     """Show cluster process status."""
-    show_cluster_process_status_on_head(
+    cluster_process_status_on_head(
         redis_address)
-
 
 
 @cli.command()

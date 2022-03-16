@@ -1717,7 +1717,7 @@ def teardown_cluster_on_head(keep_min_workers: bool) -> None:
                            True)
 
 
-def show_cluster_process_status_on_head(redis_address):
+def cluster_process_status_on_head(redis_address):
     control_state = ControlState()
     control_state.initialize_control_state(redis_address, CLOUDTIK_DEFAULT_PORT,
                                            CLOUDTIK_REDIS_DEFAULT_PASSWORD)
@@ -1734,8 +1734,8 @@ def show_cluster_process_status_on_head(redis_address):
 
 
 def cluster_process_status(cluster_config_file: str,
-                         override_cluster_name: Optional[str]) -> None:
+                           override_cluster_name: Optional[str]) -> None:
     """Do a health check on head node and return the results"""
 
-    cmd = f"cloudtik process_status_on_head"
+    cmd = f"cloudtik process-status-on-head"
     exec_cmd_on_cluster(cluster_config_file, cmd, override_cluster_name)

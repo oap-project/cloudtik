@@ -347,7 +347,7 @@ def teardown_cluster(config_file: str, yes: bool, workers_only: bool,
 
         # Running teardown cluster process on head first. But we allow this to fail.
         # Since head node problem should not prevent cluster tear down
-        cmd = "cloudtik teardown-cluster-on-head"
+        cmd = "cloudtik teardown-on-head"
         if keep_min_workers:
             cmd += " --keep_min_workers"
         exec_cmd_on_cluster(config_file,

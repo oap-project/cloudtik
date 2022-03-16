@@ -924,6 +924,19 @@ def status(cluster_config_file, cluster_name):
     show_cluster_status(
         cluster_config_file,
         cluster_name)
+
+
+@cli.command()
+@click.argument("cluster_config_file", required=True, type=str)
+@click.option(
+    "--cluster-name",
+    "-n",
+    required=False,
+    type=str,
+    help="Override the configured cluster name.")
+@add_click_logging_options
+def process_status(cluster_config_file, cluster_name):
+    """Show process status of cluster nodes."""
     cluster_process_status(
         cluster_config_file,
         cluster_name)
@@ -1395,6 +1408,7 @@ add_command_alias(get_worker_ips, name="get_worker_ips", hidden=True)
 
 cli.add_command(info)
 cli.add_command(status)
+cli.add_command(process_status)
 cli.add_command(monitor)
 
 # commands running on working node for debug

@@ -1314,7 +1314,7 @@ def get_cluster_dump_archive_on_head(
 
     # Parse arguments (e.g. fetch info from cluster config)
     cluster_config_file, head_node_ip, hosts, ssh_user, ssh_key, docker, cluster_name = \
-        _info_from_params(None, host, None, None, None)
+        _info_from_params(None, host, None, None, None, False)
 
     nodes = [
         Node(
@@ -1405,7 +1405,7 @@ def get_cluster_dump_archive(cluster_config_file: Optional[str] = None,
 
     # Parse arguments (e.g. fetch info from cluster config)
     cluster_config_file, head_node_ip, hosts, ssh_user, ssh_key, docker, cluster_name = \
-        _info_from_params(cluster_config_file, host, ssh_user, ssh_key, docker)
+        _info_from_params(cluster_config_file, host, ssh_user, ssh_key, docker, True)
 
     head_node = Node(
             host=head_node_ip,
@@ -1719,9 +1719,6 @@ def teardown_cluster_on_head(keep_min_workers: bool) -> None:
     # Since this is running on head, the bootstrap config must exist
     cluster_config_file = os.path.expanduser("~/cloudtik_bootstrap_config.yaml")
     config = yaml.safe_load(open(cluster_config_file).read())
-
-    # TODO haifeng: Check whether we need bootstrap call on head
-    config = _bootstrap_config(config, no_config_cache=True)
     provider = _get_node_provider(config["provider"], config["cluster_name"])
 
     teardown_cluster_nodes(config, provider,

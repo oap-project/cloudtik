@@ -687,7 +687,8 @@ def create_archive_for_local_and_cluster_nodes(archive: Archive,
 # cluster info
 ###
 def get_info_from_cluster_config(
-        cluster_config: str
+        cluster_config: str,
+        should_bootstrap: bool
 ) -> Tuple[str, List[str], str, str, Optional[str], Optional[str]]:
     """Get information from cluster config.
 
@@ -696,7 +697,7 @@ def get_info_from_cluster_config(
 
     Args:
         cluster_config (str): Path to cluster config.
-
+        should_bootstrap (bool): Specify if we need to bootstrap the config
     Returns:
         Tuple of list of host IPs, ssh user name, ssh key file path,
             optional docker container name, optional cluster name.
@@ -709,7 +710,8 @@ def get_info_from_cluster_config(
     cluster_config = os.path.expanduser(cluster_config)
 
     config = yaml.safe_load(open(cluster_config).read())
-    config = _bootstrap_config(config, no_config_cache=True)
+    if should_bootstrap:
+        config = _bootstrap_config(config, no_config_cache=True)
 
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     head_nodes = provider.non_terminated_nodes({
@@ -742,6 +744,7 @@ def _info_from_params(
         ssh_user: Optional[str] = None,
         ssh_key: Optional[str] = None,
         docker: Optional[str] = None,
+        should_bootstrap: bool = True
 ):
     """Parse command line arguments.
 
@@ -761,7 +764,7 @@ def _info_from_params(
     cluster_name = None
     head_node_ip = None
     if cluster:
-        head_node_ip, h, u, k, d, cluster_name = get_info_from_cluster_config(cluster)
+        head_node_ip, h, u, k, d, cluster_name = get_info_from_cluster_config(cluster, should_bootstrap)
 
         ssh_user = ssh_user or u
         ssh_key = ssh_key or k

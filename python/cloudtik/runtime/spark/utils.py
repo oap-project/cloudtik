@@ -11,6 +11,8 @@ SPARK_RUNTIME_PROCESSES = [
     ["proc_nodemanager", False, "NodeManager", "worker"],
 ]
 
+SPARK_EXECUTOR_MEMORY_RATIO = 0.8
+SPARK_DRIVER_MEMORY_RATIO = 0.25
 
 def config_spark_runtime_resources(
         cluster_config: Dict[str, Any], cluster_resource: Dict[str, Any]) -> Dict[str, Any]:
@@ -18,11 +20,12 @@ def config_spark_runtime_resources(
     spark_executor_resource = {}
     if int(cluster_resource["worker_cpu"]) < 4:
         spark_executor_resource["spark_executor_cores"] = cluster_resource["worker_cpu"]
-        spark_executor_resource["spark_executor_memory"] = 630
+        spark_executor_resource["spark_executor_memory"] = int(cluster_resource["worker_memory"] * SPARK_EXECUTOR_MEMORY_RATIO)
     else:
+        worker_per_core_memory_MB = cluster_resource["worker_memory"] /  cluster_resource["worker_cpu"]
         spark_executor_resource["spark_executor_cores"] = 4
-        spark_executor_resource["spark_executor_memory"] = 8096
-    spark_executor_resource["spark_driver_memory"] = int(cluster_resource["head_memory"] * 0.6)
+        spark_executor_resource["spark_executor_memory"] = int(worker_per_core_memory_MB * 4 * SPARK_EXECUTOR_MEMORY_RATIO)
+    spark_executor_resource["spark_driver_memory"] = min(int(cluster_resource["head_memory"] * SPARK_DRIVER_MEMORY_RATIO), 8192)
     cluster_config["spark_executor_resource"] = spark_executor_resource
     return cluster_config
 

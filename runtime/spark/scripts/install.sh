@@ -17,7 +17,7 @@ if [ ! -d "${JAVA_HOME}" ]; then
       rm jdk-8u192-linux-x64.tar && \
       mv jdk1.8.0_192 jdk)
   echo "export JAVA_HOME=$JAVA_HOME">> ${USER_HOME}/.bashrc
-  echo "export PATH=$JAVA_HOME/bin:$PATH" >> ${USER_HOME}/.bashrc
+  echo "export PATH=\$JAVA_HOME/bin:\$PATH" >> ${USER_HOME}/.bashrc
 fi
 
 # install Hadoop
@@ -31,11 +31,11 @@ if [ ! -d "${HADOOP_HOME}" ]; then
   echo "export HADOOP_HOME=$HADOOP_HOME">> ${USER_HOME}/.bashrc
   echo "export YARN_CONF_DIR=$HADOOP_HOME/etc/hadoop">> ${USER_HOME}/.bashrc
   echo "export JAVA_HOME=$JAVA_HOME" >> ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh
-  echo "export PATH=$HADOOP_HOME/bin:$PATH" >> ${USER_HOME}/.bashrc
+  echo "export PATH=\$HADOOP_HOME/bin:\$PATH" >> ${USER_HOME}/.bashrc
 fi
-  
+
 # install Spark
-export SPARK_HOME=$RUNTIME_PATH/spark 
+export SPARK_HOME=$RUNTIME_PATH/spark
 
 if [ ! -d "${SPARK_HOME}" ]; then
  (cd $RUNTIME_PATH && wget https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop3.2.tgz && \
@@ -43,7 +43,7 @@ if [ ! -d "${SPARK_HOME}" ]; then
     mv spark-${SPARK_VERSION}-bin-hadoop3.2 spark && \
     rm spark-${SPARK_VERSION}-bin-hadoop3.2.tgz)
   echo "export SPARK_HOME=$SPARK_HOME">> ${USER_HOME}/.bashrc
-  echo "export PATH=$SPARK_HOME/bin:$PATH" >> ${USER_HOME}/.bashrc
+  echo "export PATH=\$SPARK_HOME/bin:\$PATH" >> ${USER_HOME}/.bashrc
 fi
 
 function install_yarn_with_spark_jars() {

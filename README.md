@@ -57,14 +57,14 @@ More details, please refer to configure [gcs bucket guide](./doc/Configure-GCS-B
 
 ### 5. Use CloudTik to manage Spark clusters
 ```
-cloudtik up ./example/aws/example-minimal.yaml -y   # Create or up a  cluster.
-cloudtik get-head-ip ./example/aws/example-minimal.yaml    # Get the ip of head node.
-cloudtik get-worker-ips ./example/aws/example-minimal.yaml    # Get the ips of worker nodes.
-cloudtik exec ./example/aws/example-minimal.yaml [command]   # Exec a command via SSH on a cloudtik cluster.
-cloudtik rsync-down ./example/aws/example-minimal.yaml [source] [target]   # Download file from head node.
-cloudtik rsync-up ./example/aws/example-minimal.yaml [source] [target]   # Upload file to head node.
-cloudtik attach ./example/aws/example-minimal.yaml    # Create or attach to a SSH session to the cluster.
-cloudtik down ./example/aws/example-minimal.yaml -y # Tear down the cluster.
+cloudtik up ./example/cluster/aws/example-minimal.yaml -y   # Create or up a  cluster.
+cloudtik get-head-ip ./example/cluster/aws/example-minimal.yaml    # Get the ip of head node.
+cloudtik get-worker-ips ./example/cluster/aws/example-minimal.yaml    # Get the ips of worker nodes.
+cloudtik exec ./example/cluster/aws/example-minimal.yaml [command]   # Exec a command via SSH on a cloudtik cluster.
+cloudtik rsync-down ./example/cluster/aws/example-minimal.yaml [source] [target]   # Download file from head node.
+cloudtik rsync-up ./example/cluster/aws/example-minimal.yaml [source] [target]   # Upload file to head node.
+cloudtik attach ./example/cluster/aws/example-minimal.yaml    # Create or attach to a SSH session to the cluster.
+cloudtik down ./example/cluster/aws/example-minimal.yaml -y # Tear down the cluster.
 ```
 
 ## Building CloudTik

@@ -31,7 +31,7 @@ from cloudtik.core._private import constants, services
 from cloudtik.core._private.logging_utils import setup_component_logger
 from cloudtik.core._private.state.kv_store import kv_initialize, \
     kv_put, kv_initialized, kv_get, kv_del
-from cloudtik.core._private.state.control_state import ControlState, ResourceInfoClient
+from cloudtik.core._private.state.control_state import ControlState, ResourceInfoClient, StateClient
 from cloudtik.core._private.services import validate_redis_address
 
 logger = logging.getLogger(__name__)
@@ -92,6 +92,10 @@ class ClusterCoordinator:
         head_node_ip = redis_address.split(":")[0]
         self.redis_address = redis_address
         self.redis_password = redis_password
+
+        # initialize the global kv store client
+        state_client = StateClient.create_from_redis(self.redis)
+        kv_initialize(state_client)
 
         self.load_metrics = LoadMetrics()
         self.last_avail_resources = None

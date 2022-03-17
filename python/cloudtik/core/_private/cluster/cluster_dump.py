@@ -409,7 +409,7 @@ def create_and_get_archive_from_remote_node(remote_node: Node,
 
     cat = "node" if not remote_node.is_head else "head"
 
-    cli_logger.print(f"Collecting data from remote node: {remote_node.host}")
+    cli_logger.verbose(f"Collecting data from remote node: {remote_node.host}")
     tmp = tempfile.mktemp(
         prefix=f"cloudtik_{cat}_{remote_node.host}_", suffix=".tar.gz")
     with open(tmp, "wb") as fp:
@@ -704,8 +704,8 @@ def get_info_from_cluster_config(
     """
     from cloudtik.core._private.cluster.cluster_operator import _bootstrap_config
 
-    cli_logger.print(f"Retrieving cluster information from cluster file: "
-                     f"{cluster_config}")
+    cli_logger.verbose(f"Retrieving cluster information from cluster file: "
+                       f"{cluster_config}")
 
     cluster_config = os.path.expanduser(cluster_config)
 
@@ -755,7 +755,7 @@ def _info_from_params(
         bootstrap_config = os.path.expanduser("~/cloudtik_bootstrap_config.yaml")
         if os.path.exists(bootstrap_config):
             cluster = bootstrap_config
-            cli_logger.warning(f"Detected cluster config file at {cluster}. "
+            cli_logger.verbose(f"Detected cluster config file at {cluster}. "
                                f"If this is incorrect, specify with "
                                f"`cloudtik cluster-dump <config>`")
     elif cluster:

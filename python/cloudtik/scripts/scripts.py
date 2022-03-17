@@ -875,6 +875,7 @@ def exec(cluster_config_file, cmd, run_env, screen, tmux, stop, start,
     required=False,
     type=str,
     help="Override the configured cluster name.")
+@add_click_logging_options
 def get_head_ip(cluster_config_file, cluster_name):
     """Return the head node IP of a cluster."""
     click.echo(get_head_node_ip(cluster_config_file, cluster_name))
@@ -888,6 +889,7 @@ def get_head_ip(cluster_config_file, cluster_name):
     required=False,
     type=str,
     help="Override the configured cluster name.")
+@add_click_logging_options
 def get_worker_ips(cluster_config_file, cluster_name):
     """Return the list of worker IPs of a cluster."""
     worker_ips = get_worker_node_ips(cluster_config_file, cluster_name)
@@ -978,6 +980,7 @@ def debug_status(cluster_config_file, cluster_name):
     type=str,
     default=CLOUDTIK_REDIS_DEFAULT_PASSWORD,
     help="Connect with redis_password.")
+@add_click_logging_options
 def debug_status_on_head(address, redis_password):
     """Print cluster status, including autoscaling info."""
     if not address:
@@ -1042,6 +1045,7 @@ def debug_status_on_head(address, redis_password):
     type=str,
     default=None,
     help="Temporary file to use")
+@add_click_logging_options
 def local_dump(stream: bool = False,
                output: Optional[str] = None,
                logs: bool = True,
@@ -1124,6 +1128,7 @@ def local_dump(stream: bool = False,
     type=str,
     default=None,
     help="Temporary file to use")
+@add_click_logging_options
 def cluster_dump_on_head(host: Optional[str] = None,
                          stream: bool = False,
                          output: Optional[str] = None,
@@ -1229,6 +1234,7 @@ def cluster_dump_on_head(host: Optional[str] = None,
     type=str,
     default=None,
     help="Temporary file to use")
+@add_click_logging_options
 def cluster_dump(cluster_config_file: Optional[str] = None,
                  host: Optional[str] = None,
                  ssh_user: Optional[str] = None,
@@ -1308,6 +1314,7 @@ def health_check(cluster_config_file, cluster_name):
     type=str,
     help="Health check for a specific component. Currently supports: "
     "[None]")
+@add_click_logging_options
 def health_check_on_head(address, redis_password, component):
     """
     This is NOT a public api.

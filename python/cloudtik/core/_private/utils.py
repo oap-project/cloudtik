@@ -25,6 +25,7 @@ from contextlib import closing
 
 import cloudtik
 from cloudtik.core._private import constants, services
+from cloudtik.core._private.cluster.cluster_scaler import AutoscalerSummary
 from cloudtik.core._private.cluster.load_metrics import LoadMetricsSummary
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.providers._private.local.config import prepare_local
@@ -1105,6 +1106,22 @@ def get_demand_report(lm_summary: LoadMetricsSummary):
     return demand_report
 
 
+def decode_cluster_scaling_status(status):
+    status = status.decode("utf-8")
+    as_dict = json.loads(status)
+    time = datetime.datetime.fromtimestamp(as_dict["time"])
+    lm_summary = LoadMetricsSummary(**as_dict["load_metrics_report"])
+    scaler_summary = AutoscalerSummary(**as_dict["cluster_scaler_report"])
+    return time, lm_summary, scaler_summary
+
+
+def decode_cluster_scaling_time(status):
+    status = status.decode("utf-8")
+    as_dict = json.loads(status)
+    time = datetime.datetime.fromtimestamp(as_dict["time"])
+    return time
+
+
 def format_info_string(lm_summary, scaler_summary, time=None):
     if time is None:
         time = datetime.now()
@@ -1315,3 +1332,14 @@ def find_name_in_command(cmdline, name_to_find) -> bool:
         if name_to_find in arglist:
             return True
     return False
+
+
+def is_alive_time(report_time):
+    # TODO: We probably shouldn't rely on time here, but cloud providers
+    # have very well synchronized NTP servers, so this should be fine in
+    # practice.
+    cur_time = time.time()
+
+    # If the status is too old, the service has probably already died.
+    delta = cur_time - report_time
+    return delta < constants.HEALTHCHECK_EXPIRATION_S

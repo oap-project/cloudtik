@@ -7,7 +7,6 @@ import logging
 import os
 import subprocess
 import sys
-import time
 import urllib
 import urllib.parse
 from socket import socket
@@ -22,7 +21,7 @@ from cloudtik.core._private.node.node_services import NodeServicesStarter
 from cloudtik.core._private.cluster.cluster_operator import (
     attach_cluster, exec_cluster, create_or_update_cluster, monitor_cluster,
     rsync, teardown_cluster, get_head_node_ip, kill_node, get_worker_node_ips,
-    get_cluster_dump_archive, decode_debug_status, get_local_dump_archive, get_cluster_dump_archive_on_head,
+    get_cluster_dump_archive, debug_status_string, get_local_dump_archive, get_cluster_dump_archive_on_head,
     show_cluster_info, show_cluster_status, RUN_ENV_TYPES, start_proxy, stop_proxy, cluster_debug_status,
     cluster_health_check, teardown_cluster_on_head, cluster_process_status_on_head, cluster_process_status)
 from cloudtik.core._private.constants import CLOUDTIK_PROCESSES, \
@@ -30,9 +29,10 @@ from cloudtik.core._private.constants import CLOUDTIK_PROCESSES, \
     CLOUDTIK_KV_NAMESPACE_HEALTHCHECK, \
     CLOUDTIK_DEFAULT_PORT
 from cloudtik.core._private import constants
+from cloudtik.core._private.state.kv_store import kv_initialize_with_address
 
 from cloudtik.core._private.utils import CLOUDTIK_CLUSTER_SCALING_ERROR, \
-    CLOUDTIK_CLUSTER_SCALING_STATUS
+    CLOUDTIK_CLUSTER_SCALING_STATUS, decode_cluster_scaling_time, is_alive_time
 from cloudtik.core._private.cli_logger import (add_click_logging_options,
                                                 cli_logger, cf)
 from cloudtik.scripts.workspace import workspace
@@ -985,16 +985,12 @@ def debug_status_on_head(address, redis_password):
     """Print cluster status, including autoscaling info."""
     if not address:
         address = services.get_address_to_use_or_die()
-    redis_client = services.create_redis_client(
-        address, redis_password)
-    state_client = control_state.StateClient.create_from_redis(
-        redis_client)
-    kv_store.kv_initialize(state_client)
+    kv_initialize_with_address(address, redis_password)
     status = kv_store.kv_get(
         CLOUDTIK_CLUSTER_SCALING_STATUS)
     error = kv_store.kv_get(
         CLOUDTIK_CLUSTER_SCALING_ERROR)
-    print(decode_debug_status(status, error))
+    print(debug_status_string(status, error))
 
 
 @cli.command(hidden=True)
@@ -1326,25 +1322,27 @@ def health_check_on_head(address, redis_password, component):
         address = services.get_address_to_use_or_die()
     else:
         address = services.address_to_ip(address)
-    redis_client = services.create_redis_client(
-        address, redis_password)
+
+    redis_client = kv_initialize_with_address(address, redis_password)
 
     if not component:
         # If no component is specified, we are health checking the core. If
         # client creation or ping fails, we will still exit with a non-zero
         # exit code.
         redis_client.ping()
-        """
+
         try:
-            # TODO: check head and worker status through control state such as heartbeat
-            
+            # check cluster coordinator live status through scaling status time
+            status = kv_store.kv_get(CLOUDTIK_CLUSTER_SCALING_STATUS)
+            if status:
+                live_time = decode_cluster_scaling_time(status)
+                time_ok = is_alive_time(live_time)
+                if time_ok:
+                    sys.exit(0)
         except Exception:
             pass
-        """
         sys.exit(1)
-    state_client = control_state.StateClient.create_from_redis(
-        redis_client)
-    kv_store.kv_initialize(state_client)
+
     report_str = kv_store.kv_get(
         component, namespace=CLOUDTIK_KV_NAMESPACE_HEALTHCHECK)
     if not report_str:
@@ -1352,17 +1350,7 @@ def health_check_on_head(address, redis_password, component):
         sys.exit(1)
 
     report = json.loads(report_str)
-
-    # TODO: We probably shouldn't rely on time here, but cloud providers
-    # have very well synchronized NTP servers, so this should be fine in
-    # practice.
-    cur_time = time.time()
-    report_time = float(report["time"])
-
-    # If the status is too old, the service has probably already died.
-    delta = cur_time - report_time
-    time_ok = delta < constants.HEALTHCHECK_EXPIRATION_S
-
+    time_ok = is_alive_time(float(report["time"]))
     if time_ok:
         sys.exit(0)
     else:

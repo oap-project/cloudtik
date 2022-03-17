@@ -34,8 +34,8 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     hash_launch_conf, prepare_config, get_free_port, \
     kill_process_by_pid, \
     get_proxy_info_file, get_safe_proxy_process_info, \
-    get_node_working_ip, get_head_working_ip, get_node_cluster_ip, is_use_internal_ip
-
+    get_node_working_ip, get_head_working_ip, get_node_cluster_ip, is_use_internal_ip, \
+    decode_cluster_scaling_status
 
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
@@ -93,16 +93,12 @@ def try_reload_log_state(provider_config: Dict[str, Any],
         return reload_log_state(log_state)
 
 
-def decode_debug_status(status, error) -> str:
+def debug_status_string(status, error) -> str:
     """Return a debug string for the cluster scaler."""
     if not status:
         status = "No cluster status."
     else:
-        status = status.decode("utf-8")
-        as_dict = json.loads(status)
-        time = datetime.datetime.fromtimestamp(as_dict["time"])
-        lm_summary = LoadMetricsSummary(**as_dict["load_metrics_report"])
-        scaler_summary = AutoscalerSummary(**as_dict["cluster_scaler_report"])
+        time, lm_summary, scaler_summary = decode_cluster_scaling_status(status)
         status = format_info_string(lm_summary, scaler_summary, time=time)
     if error:
         status += "\n"

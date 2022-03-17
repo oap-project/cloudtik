@@ -179,9 +179,13 @@ class KubernetesCommandExecutor(CommandExecutor):
             except subprocess.CalledProcessError:
                 if exit_on_fail:
                     quoted_cmd = cmd_prefix + quote(" ".join(cmd))
+                    msg = self.log_prefix + "Command failed"
+                    if cli_logger.verbosity > 0:
+                        msg += ": \n\n  {}\n".format(quoted_cmd)
+                    else:
+                        msg += ". Use -v for more details."
                     logger.error(
-                        self.log_prefix +
-                        "Command failed: \n\n  {}\n".format(quoted_cmd))
+                        msg)
                     sys.exit(1)
                 else:
                     raise
@@ -442,8 +446,13 @@ class SSHCommandExecutor(CommandExecutor):
                     command=joined_cmd)
 
             if exit_on_fail:
+                msg = "Command failed"
+                if cli_logger.verbosity > 0:
+                    msg += ":\n\n  {}\n".format(joined_cmd)
+                else:
+                    msg += ". Use -v for more details.".format(joined_cmd)
                 raise click.ClickException(
-                    "Command failed:\n\n  {}\n".format(joined_cmd)) from None
+                    msg) from None
             else:
                 fail_msg = "SSH command failed."
                 if is_output_redirected():

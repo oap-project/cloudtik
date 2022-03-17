@@ -208,7 +208,7 @@ def get_local_debug_state(archive: Archive,
     debug_state_file = os.path.join(session_dir, "logs/debug_state.txt")
 
     if not os.path.exists(debug_state_file):
-        raise LocalCommandFailed("No `debug_state.txt` file found.")
+        return archive
 
     with archive.subdir("", root=session_dir) as sd:
         sd.add(debug_state_file)

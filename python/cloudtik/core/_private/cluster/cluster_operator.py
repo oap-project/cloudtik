@@ -260,9 +260,7 @@ def _bootstrap_config(config: Dict[str, Any],
                 cli_logger.verbose_warning(
                     "Loaded cached provider configuration "
                     "from " + cf.bold("{}"), cache_key)
-                if cli_logger.verbosity == 0:
-                    cli_logger.warning("Loaded cached provider configuration")
-                cli_logger.warning(
+                cli_logger.verbose_warning(
                     "If you experience issues with "
                     "the cloud provider, try re-running "
                     "the command with {}.", cf.bold("--no-config-cache"))
@@ -1481,7 +1479,7 @@ def show_cluster_info(config_file: str,
     head_count = 1
     worker_ips = _get_worker_node_ips(config)
     worker_count = len(worker_ips)
-    cli_logger.print(cf.bold("Cluster {} is running."), config["cluster_name"])
+    cli_logger.print(cf.bold("Cluster {}:"), config["cluster_name"])
     cli_logger.print(cf.bold("{} head and {} worker(s) are running"),
                      head_count, worker_count)
 
@@ -1587,6 +1585,7 @@ def show_cluster_status(config_file: str,
         tb.add_row([node_info["node_id"], node_info["cloudtik-node-kind"], node_info["cloudtik-node-status"],
                     node_info["instance_type"], node_info["public_ip"], node_info["private_ip"],
                     node_info["instance_status"]])
+    cli_logger.print(cf.bold("Total {} nodes."), len(nodes_info))
     cli_logger.print(tb)
 
 

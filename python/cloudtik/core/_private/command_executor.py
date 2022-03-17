@@ -358,7 +358,8 @@ class SSHCommandExecutor(CommandExecutor):
         # if we have IP do not print waiting info
         ip = self._get_node_ip()
         if ip is not None:
-            cli_logger.labeled_value("Fetched IP", ip)
+            if cli_logger.verbosity > 0:
+                cli_logger.labeled_value("Fetched IP", ip)
             return ip
 
         interval = CLOUDTIK_NODE_SSH_INTERVAL_S

@@ -390,17 +390,17 @@ def teardown_cluster_nodes(config: Dict[str, Any],
 
             workers = random.sample(workers, len(workers) - min_workers)
 
+        head = provider.non_terminated_nodes({
+            CLOUDTIK_TAG_NODE_KIND: NODE_KIND_HEAD
+        })
+
         # todo: it's weird to kill the head node but not all workers
         if workers_only:
             cli_logger.print(
                 "The head node will not be shut down. " +
                 cf.dimmed("(due to {})"), cf.bold("--workers-only"))
 
-            return workers
-
-        head = provider.non_terminated_nodes({
-            CLOUDTIK_TAG_NODE_KIND: NODE_KIND_HEAD
-        })
+            return head, workers
 
         return head, head + workers
 
@@ -435,7 +435,7 @@ def teardown_cluster_nodes(config: Dict[str, Any],
     head, A = remaining_nodes()
 
     container_name = config.get("docker", {}).get("container_name")
-    if container_name:
+    if container_name and (on_head or not workers_only):
         if on_head:
             container_nodes = A
         else:

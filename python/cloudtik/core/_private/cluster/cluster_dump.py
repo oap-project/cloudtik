@@ -406,6 +406,7 @@ def create_and_get_archive_from_remote_node(remote_node: Node,
 
     # Specify --login and -i here to source bashrc and avoid command not found issue
     cmd += ["/bin/bash", "--login", "-c", "-i", _wrap(collect_cmd, quotes="\"")]
+    cmd += ["2>/dev/null"]
 
     cat = "node" if not remote_node.is_head else "head"
 
@@ -586,6 +587,7 @@ def create_and_get_archive_from_head_node(head_node: Node,
 
     # Specify --login and -i here to source bashrc and avoid command not found issue
     cmd += ["/bin/bash", "--login", "-c", "-i", _wrap(collect_cmd, quotes="\"")]
+    cmd += ["2>/dev/null"]
 
     cat = "cluster"
 

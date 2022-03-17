@@ -25,7 +25,6 @@ from contextlib import closing
 
 import cloudtik
 from cloudtik.core._private import constants, services
-from cloudtik.core._private.cluster.cluster_scaler import AutoscalerSummary
 from cloudtik.core._private.cluster.load_metrics import LoadMetricsSummary
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.providers._private.local.config import prepare_local
@@ -1104,15 +1103,6 @@ def get_demand_report(lm_summary: LoadMetricsSummary):
     else:
         demand_report = " (no resource demands)"
     return demand_report
-
-
-def decode_cluster_scaling_status(status):
-    status = status.decode("utf-8")
-    as_dict = json.loads(status)
-    time = datetime.datetime.fromtimestamp(as_dict["time"])
-    lm_summary = LoadMetricsSummary(**as_dict["load_metrics_report"])
-    scaler_summary = AutoscalerSummary(**as_dict["cluster_scaler_report"])
-    return time, lm_summary, scaler_summary
 
 
 def decode_cluster_scaling_time(status):

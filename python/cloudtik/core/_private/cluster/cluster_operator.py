@@ -1749,14 +1749,17 @@ def cluster_process_status_on_head(redis_address):
                                            CLOUDTIK_REDIS_DEFAULT_PASSWORD)
     node_table = control_state.get_node_table()
 
+    tb = pt.PrettyTable()
+    tb.field_names = ["node-type", "node-ip", "n-controller", "n-manager", "l-monitor",
+                      "c-controller", "r-manager", "r-server"]
     for value in node_table.get_all().values():
         node_info = eval(value)
-        cli_logger.print("Process status of {}-node({}):".format(node_info["node_type"], node_info["resource"]["ip"]))
-        tb = pt.PrettyTable()
-        tb.field_names = ["process-name", "process-status"]
-        for k, v in node_info["process"].items():
-            tb.add_row([k, v])
-        cli_logger.print(tb)
+        process_info = node_info["process"]
+        tb.add_row([node_info["resource"]["ip"], node_info["node_type"],
+                    process_info["NodeCoordinator"], process_info["NodeManager"], process_info["LogMonitor"],
+                    process_info["ClusterCoordinator"], process_info["ResourceManager"], process_info["RedisServer"]
+                    ])
+    cli_logger.print(tb)
 
 
 def cluster_process_status(cluster_config_file: str,

@@ -150,7 +150,7 @@ def cli(logging_level, logging_format):
     default=False,
     help="do not redirect non-worker stdout and stderr to files")
 @add_click_logging_options
-def start(node_ip_address, address, port, head,
+def node_start(node_ip_address, address, port, head,
           redis_password, redis_shard_ports, redis_max_memory,
           memory, num_cpus, num_gpus, resources,
           cluster_scaling_config, temp_dir, metrics_export_port,
@@ -1389,7 +1389,7 @@ def add_command_alias(command, name, hidden):
 
 
 # core commands running on head and worker node
-cli.add_command(start)
+cli.add_command(node_start)
 cli.add_command(node_stop)
 
 # commands running on working node for handling a cluster

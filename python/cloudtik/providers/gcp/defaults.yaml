@@ -151,7 +151,7 @@ worker_setup_commands: []
 
 # Command to start cloudtik on the head node. You don't need to change this.
 head_start_commands:
-    - cloudtik stop
+    - cloudtik node-stop
     - >-
       ulimit -n 65536;
       cloudtik start
@@ -163,7 +163,7 @@ head_start_commands:
 
 # Command to start cloudtik on worker nodes. You don't need to change this.
 worker_start_commands:
-    - cloudtik stop
+    - cloudtik node-stop
     - >-
       ulimit -n 65536;
       cloudtik start

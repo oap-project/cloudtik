@@ -295,7 +295,7 @@ def start(node_ip_address, address, port, head,
     cli_logger.success("-" * len(startup_msg))
     cli_logger.newline()
     cli_logger.print("To terminate CloudTik runtime, run")
-    cli_logger.print(cf.bold("  cloudtik stop"))
+    cli_logger.print(cf.bold("  cloudtik node-stop"))
     cli_logger.flush()
 
 
@@ -306,7 +306,7 @@ def start(node_ip_address, address, port, head,
     is_flag=True,
     help="If set, will send SIGKILL instead of SIGTERM.")
 @add_click_logging_options
-def stop(force):
+def node_stop(force):
     """Stop CloudTik processes manually on the local machine."""
 
     is_linux = sys.platform.startswith("linux")
@@ -1390,7 +1390,7 @@ def add_command_alias(command, name, hidden):
 
 # core commands running on head and worker node
 cli.add_command(start)
-cli.add_command(stop)
+cli.add_command(node_stop)
 
 # commands running on working node for handling a cluster
 cli.add_command(up)

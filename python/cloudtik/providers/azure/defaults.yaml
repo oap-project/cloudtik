@@ -139,14 +139,14 @@ worker_setup_commands: []
 
 # Command to start cloudtik on the head node. You don't need to change this.
 head_start_commands:
-    - cloudtik stop
+    - cloudtik node-stop
     - ulimit -n 65536; cloudtik start --head --port=6789  --cluster-scaling-config=~/cloudtik_bootstrap_config.yaml
     - cloudtik-spark stop-head
     - cloudtik-spark start-head
 
 # Command to start cloudtik on worker nodes. You don't need to change this.
 worker_start_commands:
-    - cloudtik stop
+    - cloudtik node-stop
     - ulimit -n 65536; cloudtik start --address=$CLOUDTIK_HEAD_IP:6789
     - cloudtik-spark configure --provider=azure --master=$CLOUDTIK_HEAD_IP  --azure_storage_kind=$AZURE_STORAGE_KIND  --azure_storage_account=$AZURE_STORAGE_ACCOUNT --azure_container=$AZURE_CONTAINER --azure_account_key=$AZURE_ACCOUNT_KEY
     - cloudtik-spark stop-worker

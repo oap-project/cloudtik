@@ -181,12 +181,12 @@ available_node_types:
 # Command to start cloudtik on the head node. You don't need to change this.
 # Note dashboard-host is set to 0.0.0.0 so that kubernetes can port forward.
 head_start_commands:
-    - cloudtik stop
+    - cloudtik node-stop
     - ulimit -n 65536; cloudtik start --head --cluster-scaling-config=~/cloudtik_bootstrap_config.yaml --dashboard-host 0.0.0.0
 
 # Command to start cloudtik on worker nodes. You don't need to change this.
 worker_start_commands:
-    - cloudtik stop
+    - cloudtik node-stop
     - ulimit -n 65536; cloudtik start --address=$CLOUDTIK_HEAD_IP:6789
 
 # Files or directories to copy to the head and worker nodes. The format is a

@@ -345,7 +345,7 @@ def teardown_cluster(config_file: str, yes: bool, workers_only: bool,
             cli_logger.print("Requesting head node to stop head services.")
             exec_cmd_on_cluster(
                 config_file,
-                "cloudtik stop",
+                "cloudtik node-stop",
                 override_cluster_name)
 
         # Running teardown cluster process on head first. But we allow this to fail.
@@ -517,7 +517,7 @@ def kill_node(config_file: str, yes: bool, hard: bool,
             is_head_node=False,
             docker_config=config.get("docker"))
 
-        _exec(updater, "cloudtik stop", False, False)
+        _exec(updater, "cloudtik node-stop", False, False)
 
     time.sleep(POLL_INTERVAL)
 
@@ -984,7 +984,7 @@ def exec_cluster(config_file: str,
     shutdown_after_run = False
     if cmd and stop:
         cmd = "; ".join([
-            cmd, "cloudtik stop",
+            cmd, "cloudtik node-stop",
             "cloudtik down ~/cloudtik_bootstrap_config.yaml --yes --workers-only"
         ])
         shutdown_after_run = True

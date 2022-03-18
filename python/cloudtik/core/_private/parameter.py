@@ -16,7 +16,7 @@ class StartParams:
             head node but use external Redis server(s) instead.
         redis_address (str): The address of the Redis server to connect to. If
             this address is not provided, then this command will start Redis, a
-            cluster coordinator, and some workers.
+            cluster controller, and some workers.
             It will also kill these processes when Python exits.
         redis_port (int): The port that the primary Redis shard should listen
             to. If None, then it will fall back to constants.CLOUDTIK_DEFAULT_PORT,

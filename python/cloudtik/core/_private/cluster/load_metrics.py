@@ -142,7 +142,7 @@ class LoadMetrics:
 
     def prune_active_ips(self, active_ips: List[str]):
         """The ips stored by LoadMetrics are obtained by polling
-        the redis in ClusterCoordinator.update_load_metrics().
+        the redis in ClusterController.update_load_metrics().
 
         On the other hand, the scaler gets a list of node ips from
         its NodeProvider.
@@ -150,7 +150,7 @@ class LoadMetrics:
         This method removes from LoadMetrics the ips unknown to the scaler.
 
         Args:
-            active_ips (List[str]): The node ips known to the cluster coordinator.
+            active_ips (List[str]): The node ips known to the cluster controller.
         """
         active_ips = set(active_ips)
 

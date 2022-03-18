@@ -37,7 +37,7 @@ def setup_component_logger(*,
                            logger_name=""):
     """Configure the root logger that is used for CloudTik's python components.
 
-    For example, it should be used for coordinator, and log monitor.
+    For example, it should be used for controller, and log monitor.
     The only exception is workers. They use the different logging config.
 
     Args:

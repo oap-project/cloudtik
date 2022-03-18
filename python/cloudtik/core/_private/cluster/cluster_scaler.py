@@ -117,7 +117,7 @@ class StandardClusterScaler:
     You can use `cloudtik up /path/to/config.yaml` from your laptop, which will configure the right
     AWS/Cloud roles automatically. 
     StandardClusterScaler's `update` method is periodically called in
-    `cloudtik_cluster_coordinator.py`'s coordinating loop.
+    `cloudtik_cluster_controller.py`'s control loop.
 
     StandardClusterScaler is also used to bootstrap clusters (by adding workers
     until the cluster size that can handle the resource demand is met).

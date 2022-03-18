@@ -45,7 +45,7 @@ def prepare_coordinator(config: Dict[str, Any]) -> Dict[str, Any]:
         cli_logger.abort("The field `max_workers` is required when using an "
                          "automatically managed on-premise cluster.")
     node_type = config["available_node_types"][LOCAL_CLUSTER_NODE_TYPE]
-    # The cluster coordinator no longer uses global `min_workers`.
+    # The cluster controller no longer uses global `min_workers`.
     # Move `min_workers` to the node_type config.
     node_type["min_workers"] = config.pop("min_workers", 0)
     node_type["max_workers"] = config["max_workers"]
@@ -62,7 +62,7 @@ def prepare_manual(config: Dict[str, Any]) -> Dict[str, Any]:
     node_type = config["available_node_types"][LOCAL_CLUSTER_NODE_TYPE]
     # Default to keeping all provided ips in the cluster.
     config.setdefault("max_workers", num_ips)
-    # The cluster coordinator  no longer uses global `min_workers`.
+    # The cluster controller no longer uses global `min_workers`.
     # Move `min_workers` to the node_type config.
     node_type["min_workers"] = config.pop("min_workers", num_ips)
     node_type["max_workers"] = config["max_workers"]

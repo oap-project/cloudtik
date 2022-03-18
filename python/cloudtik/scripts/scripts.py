@@ -1332,7 +1332,7 @@ def health_check_on_head(address, redis_password, component):
         redis_client.ping()
 
         try:
-            # check cluster coordinator live status through scaling status time
+            # check cluster controller live status through scaling status time
             status = kv_store.kv_get(CLOUDTIK_CLUSTER_SCALING_STATUS)
             if not status:
                 cli_logger.print("Cluster is not healthy! No status reported.")

@@ -153,9 +153,9 @@ def create_or_update_cluster(
         no_config_cache: bool = False,
         redirect_command_output: Optional[bool] = False,
         use_login_shells: bool = True,
-        no_coordinator_on_head: bool = False) -> Dict[str, Any]:
+        no_controller_on_head: bool = False) -> Dict[str, Any]:
     """Creates or updates an scaling cluster from a config json."""
-    # no_coordinator_on_head is an internal flag used by the K8s operator.
+    # no_controller_on_head is an internal flag used by the K8s operator.
     # If True, prevents autoscaling config sync to the  head during cluster
     # creation. See pull #13720.
     set_using_login_shells(use_login_shells)
@@ -233,7 +233,7 @@ def create_or_update_cluster(
 
     try_logging_config(config)
     get_or_create_head_node(config, config_file, no_restart, restart_only, yes,
-                            override_cluster_name, no_coordinator_on_head)
+                            override_cluster_name, no_controller_on_head)
     return config
 
 
@@ -526,9 +526,9 @@ def kill_node(config_file: str, yes: bool, hard: bool,
 
 def monitor_cluster(cluster_config_file: str, num_lines: int,
                     override_cluster_name: Optional[str]) -> None:
-    """Tails the coordinator logs of a cluster."""
-    # TODO (haifeng) : the right coordinator log path
-    cmd = f"tail -n {num_lines} -f /tmp/cloudtik/session_latest/logs/cloudtik_cluster_coordinator*"
+    """Tails the controller logs of a cluster."""
+    # TODO (haifeng) : the right controller log path
+    cmd = f"tail -n {num_lines} -f /tmp/cloudtik/session_latest/logs/cloudtik_cluster_controller*"
     exec_cluster(
         cluster_config_file,
         cmd=cmd,
@@ -542,7 +542,7 @@ def monitor_cluster(cluster_config_file: str, num_lines: int,
 
 
 def warn_about_bad_start_commands(start_commands: List[str],
-                                 no_coordinator_on_head: bool = False) -> None:
+                                 no_controller_on_head: bool = False) -> None:
     start_cmds = list(filter(lambda x: "cloudtik node-start" in x, start_commands))
     if len(start_cmds) == 0:
         cli_logger.warning(
@@ -551,7 +551,7 @@ def warn_about_bad_start_commands(start_commands: List[str],
 
     cluster_scaling_config_in_start_cmd = any(
         "cluster-scaling-config" in x for x in start_cmds)
-    if not (cluster_scaling_config_in_start_cmd or no_coordinator_on_head):
+    if not (cluster_scaling_config_in_start_cmd or no_controller_on_head):
         cli_logger.warning(
             "The head node will not launch any workers because "
             "`{}` does not have `{}` set.\n"
@@ -567,7 +567,7 @@ def get_or_create_head_node(config: Dict[str, Any],
                             restart_only: bool,
                             yes: bool,
                             override_cluster_name: Optional[str],
-                            no_coordinator_on_head: bool = False,
+                            no_controller_on_head: bool = False,
                             _provider: Optional[NodeProvider] = None,
                             _runner: ModuleType = subprocess) -> None:
     """Create the cluster head node, which in turn creates the workers."""
@@ -686,7 +686,7 @@ def get_or_create_head_node(config: Dict[str, Any],
         (runtime_hash, file_mounts_contents_hash) = hash_runtime_conf(
             config["file_mounts"], None, config)
 
-        if not no_coordinator_on_head:
+        if not no_controller_on_head:
             # Return remote_config_file to avoid prematurely closing it.
             config, remote_config_file = _set_up_config_for_head_node(
                 config, provider, no_restart)
@@ -711,7 +711,7 @@ def get_or_create_head_node(config: Dict[str, Any],
 
         if not no_restart:
             warn_about_bad_start_commands(start_commands,
-                                         no_coordinator_on_head)
+                                         no_controller_on_head)
 
         updater = NodeUpdaterThread(
             node_id=head_node,
@@ -1756,8 +1756,8 @@ def cluster_process_status_on_head(redis_address):
         node_info = eval(value)
         process_info = node_info["process"]
         tb.add_row([node_info["resource"]["ip"], node_info["node_type"],
-                    process_info["NodeCoordinator"], process_info["NodeManager"], process_info["LogMonitor"],
-                    process_info["ClusterCoordinator"], process_info["ResourceManager"], process_info["RedisServer"]
+                    process_info["NodeController"], process_info["NodeManager"], process_info["LogMonitor"],
+                    process_info["ClusterController"], process_info["ResourceManager"], process_info["RedisServer"]
                     ])
     cli_logger.print(tb)
 

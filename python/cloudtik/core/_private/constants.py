@@ -140,9 +140,9 @@ CLOUDTIK_MAX_FAILURES_DISPLAYED = 20
 # to run.
 CLOUDTIK_MAX_RESOURCE_DEMAND_VECTOR_SIZE = 1000
 
-# Port that coordinator prometheus metrics will be exported to
+# Port that controller prometheus metrics will be exported to
 CLOUDTIK_METRIC_PORT = env_integer("CLOUDTIK_METRIC_PORT", 44217)
-CLOUDTIK_METRIC_ADDRESS_KEY = "CoordinatorMetricsAddress"
+CLOUDTIK_METRIC_ADDRESS_KEY = "ControllerMetricsAddress"
 
 CLOUDTIK_RESOURCE_REQUEST_CHANNEL = b"cloudtik_resource_request"
 
@@ -167,8 +167,8 @@ CLOUDTIK_PROCESSES = [
     # Keyword to filter, filter by command (True)/filter by args (False)
     # The third element is the process name.
     # The forth element, if node, the process should on all nodes,if head, the process should on head node.
-    ["cloudtik_cluster_coordinator.py", False, "ClusterCoordinator", "head"],
-    ["cloudtik_node_coordinator.py", False, "NodeCoordinator", "node"],
+    ["cloudtik_cluster_controller.py", False, "ClusterController", "head"],
+    ["cloudtik_node_controller.py", False, "NodeController", "node"],
     ["cloudtik_log_monitor.py", False, "LogMonitor", "node"],
     ["cloudtik_process_reaper.py", False, "ProcessReaper", "node"],
     ["redis-server", False, "RedisServer", "head"],
@@ -180,22 +180,22 @@ MAX_PARALLEL_SHUTDOWN_WORKERS = env_integer("MAX_PARALLEL_SHUTDOWN_WORKERS",
                                             50)
 
 # Constants used to define the different process types.
-PROCESS_TYPE_CLUSTER_COORDINATOR = "cloudtik_cluster_coordinator"
-PROCESS_TYPE_NODE_COORDINATOR = "cloudtik_node_coordinator"
+PROCESS_TYPE_CLUSTER_CONTROLLER = "cloudtik_cluster_controller"
+PROCESS_TYPE_NODE_CONTROLLER = "cloudtik_node_controller"
 PROCESS_TYPE_LOG_MONITOR = "cloudtik_log_monitor"
 PROCESS_TYPE_REAPER = "cloudtik_process_reaper"
 PROCESS_TYPE_REDIS_SERVER = "redis_server"
 
 # Log file names
-LOG_FILE_NAME_CLUSTER_COORDINATOR = f"{PROCESS_TYPE_CLUSTER_COORDINATOR}.log"
-LOG_FILE_NAME_NODE_COORDINATOR = f"{PROCESS_TYPE_NODE_COORDINATOR}.log"
+LOG_FILE_NAME_CLUSTER_CONTROLLER = f"{PROCESS_TYPE_CLUSTER_CONTROLLER}.log"
+LOG_FILE_NAME_NODE_CONTROLLER = f"{PROCESS_TYPE_NODE_CONTROLLER}.log"
 LOG_FILE_NAME_LOG_MONITOR = f"{PROCESS_TYPE_LOG_MONITOR}.log"
 
 # Autoscaler events are denoted by the ":event_summary:" magic token.
 LOG_PREFIX_EVENT_SUMMARY = ":event_summary:"
 
-ERROR_CLUSTER_COORDINATOR_DIED = "cluster_coordinator_died"
-ERROR_NODE_COORDINATOR_DIED = "node_coordinator_died"
+ERROR_CLUSTER_CONTROLLER_DIED = "cluster_controller_died"
+ERROR_NODE_CONTROLLER_DIED = "node_controller_died"
 ERROR_LOG_MONITOR_DIED = "log_monitor_died"
 
 # kv namespaces

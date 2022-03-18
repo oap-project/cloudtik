@@ -1,4 +1,4 @@
-"""Cluster coordinating loop daemon."""
+"""Cluster control loop daemon."""
 
 import argparse
 from dataclasses import asdict
@@ -54,8 +54,8 @@ def parse_resource_demands(resource_load):
     return waiting_bundles, infeasible_bundles
 
 
-class ClusterCoordinator:
-    """Cluster Coordinator for scaling  workers
+class ClusterController:
+    """Cluster Controller for scaling  workers
 
     This process periodically collects stats from the control state and triggers
     cluster scaler updates.
@@ -69,7 +69,7 @@ class ClusterCoordinator:
                  cluster_scaling_config,
                  redis_password=None,
                  prefix_cluster_info=False,
-                 coordinator_ip=None,
+                 controller_ip=None,
                  stop_event: Optional[Event] = None):
 
         # Initialize the Redis clients.
@@ -79,9 +79,9 @@ class ClusterCoordinator:
         (ip, port) = address.split(":")
 
         if prometheus_client:
-            coordinator_addr = f"{coordinator_ip}:{CLOUDTIK_METRIC_PORT}"
+            controller_addr = f"{controller_ip}:{CLOUDTIK_METRIC_PORT}"
             # TODO (haifeng): handle metrics
-            self.redis.set(constants.CLOUDTIK_METRIC_ADDRESS_KEY, coordinator_addr)
+            self.redis.set(constants.CLOUDTIK_METRIC_ADDRESS_KEY, controller_addr)
 
         control_state = ControlState()
         _, redis_ip_address, redis_port = validate_redis_address(redis_address)
@@ -101,7 +101,7 @@ class ClusterCoordinator:
         self.last_avail_resources = None
         self.event_summarizer = EventSummarizer()
         self.prefix_cluster_info = prefix_cluster_info
-        # Can be used to signal graceful exit from coordinator loop.
+        # Can be used to signal graceful exit from controller loop.
         self.stop_event = stop_event  # type: Optional[Event]
         self.cluster_scaling_config = cluster_scaling_config
         self.cluster_scaler = None
@@ -123,7 +123,7 @@ class ClusterCoordinator:
             logger.warning("`prometheus_client` not found, so metrics will "
                            "not be exported.")
 
-        logger.info("Coordinator: Started")
+        logger.info("Controller: Started")
 
     def _initialize_cluster_scaler(self):
         cluster_scaling_config = self.cluster_scaling_config
@@ -195,7 +195,7 @@ class ClusterCoordinator:
                 logger.exception("Error parsing resource requests")
 
     def _run(self):
-        """Run the coordinator loop."""
+        """Run the controller loop."""
         while True:
             if self.stop_event and self.stop_event.is_set():
                 break
@@ -205,7 +205,7 @@ class ClusterCoordinator:
             status = {
                 "load_metrics_report": asdict(self.load_metrics.summary()),
                 "time": time.time(),
-                "coordinator_pid": os.getpid()
+                "controller_pid": os.getpid()
             }
 
             # Process autoscaling actions
@@ -250,7 +250,7 @@ class ClusterCoordinator:
         """Cleanup the cluster scaler, in case of an exception in the run() method.
 
         We kill the worker nodes, but retain the head node in order to keep
-        logs around, keeping costs minimal. This coordinator process runs on the
+        logs around, keeping costs minimal. This controller process runs on the
         head node anyway, so this is more reliable."""
 
         if self.cluster_scaler is None:
@@ -259,10 +259,10 @@ class ClusterCoordinator:
         if self.cluster_scaling_config is None:
             # This is a logic error in the program. Can't do anything.
             logger.error(
-                "Coordinator: Cleanup failed due to lack of cluster config.")
+                "Controller: Cleanup failed due to lack of cluster config.")
             return
 
-        logger.info("Coordinator: Exception caught. Taking down workers...")
+        logger.info("Controller: Exception caught. Taking down workers...")
         clean = False
         while not clean:
             try:
@@ -274,13 +274,13 @@ class ClusterCoordinator:
                     keep_min_workers=True,  # Retain minimal amount of workers.
                 )
                 clean = True
-                logger.info("Coordinator: Workers taken down.")
+                logger.info("Controller: Workers taken down.")
             except Exception:
-                logger.error("Coordinator: Cleanup exception. Trying again...")
+                logger.error("Controller: Cleanup exception. Trying again...")
                 time.sleep(2)
 
     def _handle_failure(self, error):
-        logger.exception("Error in coordinator loop")
+        logger.exception("Error in controller loop")
         if self.cluster_scaler is not None and \
            os.environ.get("CLOUDTIK_FATESHARE_WORKERS", "") == "1":
             self.cluster_scaler.kill_workers()
@@ -288,7 +288,7 @@ class ClusterCoordinator:
             self.destroy_cluster_scaler_workers()
 
         # Something went wrong, so push an error
-        message = f"The cluster coordinator failed with the following error:\n{error}"
+        message = f"The cluster controller failed with the following error:\n{error}"
         if kv_initialized():
             kv_put(CLOUDTIK_CLUSTER_SCALING_ERROR, message, overwrite=True)
 
@@ -297,7 +297,7 @@ class ClusterCoordinator:
 
         from cloudtik.core._private.utils import publish_error
         publish_error(
-            constants.ERROR_CLUSTER_COORDINATOR_DIED,
+            constants.ERROR_CLUSTER_CONTROLLER_DIED,
             message,
             redis_client=redis_client)
 
@@ -324,7 +324,7 @@ class ClusterCoordinator:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description=("Parse Redis server for the "
-                     "coordinator to connect to."))
+                     "controller to connect to."))
     parser.add_argument(
         "--redis-address",
         required=True,
@@ -358,10 +358,10 @@ if __name__ == "__main__":
         "--logging-filename",
         required=False,
         type=str,
-        default=constants.LOG_FILE_NAME_CLUSTER_COORDINATOR,
+        default=constants.LOG_FILE_NAME_CLUSTER_CONTROLLER,
         help="Specify the name of log file, "
         "log to stdout if set empty, default is "
-        f"\"{constants.LOG_FILE_NAME_CLUSTER_COORDINATOR}\"")
+        f"\"{constants.LOG_FILE_NAME_CLUSTER_CONTROLLER}\"")
     parser.add_argument(
         "--logs-dir",
         required=True,
@@ -384,11 +384,11 @@ if __name__ == "__main__":
         help="Specify the backup count of rotated log file, default is "
         f"{constants.LOGGING_ROTATE_BACKUP_COUNT}.")
     parser.add_argument(
-        "--coordinator-ip",
+        "--controller-ip",
         required=False,
         type=str,
         default=None,
-        help="The IP address of the machine hosting the coordinator process.")
+        help="The IP address of the machine hosting the controller process.")
     args = parser.parse_args()
     setup_component_logger(
         logging_level=args.logging_level,
@@ -398,20 +398,20 @@ if __name__ == "__main__":
         max_bytes=args.logging_rotate_bytes,
         backup_count=args.logging_rotate_backup_count)
 
-    logger.info(f"Starting coordinator using CloudTik installation: {cloudtik.__file__}")
+    logger.info(f"Starting controller using CloudTik installation: {cloudtik.__file__}")
     logger.info(f"CloudTik version: {cloudtik.__version__}")
     logger.info(f"CloudTik commit: {cloudtik.__commit__}")
-    logger.info(f"Coordinator started with command: {sys.argv}")
+    logger.info(f"Controller started with command: {sys.argv}")
 
     if args.cluster_scaling_config:
         cluster_scaling_config = os.path.expanduser(args.cluster_scaling_config)
     else:
         cluster_scaling_config = None
 
-    coordinator = ClusterCoordinator(
+    controller = ClusterController(
         args.redis_address,
         cluster_scaling_config,
         redis_password=args.redis_password,
-        coordinator_ip=args.coordinator_ip)
+        controller_ip=args.controller_ip)
 
-    coordinator.run()
+    controller.run()

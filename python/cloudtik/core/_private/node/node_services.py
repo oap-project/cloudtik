@@ -60,7 +60,7 @@ class NodeServicesStarter:
             start_params (StartParams): The parameters to use to
                 configure the node.
             head (bool): True if this is the head node, which means it will
-                start additional processes like the Redis servers, coordinator
+                start additional processes like the Redis servers, controller
                 processes, and web UI.
             shutdown_at_exit (bool): If true, spawned processes will be cleaned
                 up if this process exits normally.
@@ -570,16 +570,16 @@ class NodeServicesStarter:
         self.all_processes[constants.PROCESS_TYPE_REDIS_SERVER] = (
             process_infos)
 
-    def start_cluster_coordinator(self):
-        """Start the cluster coordinator.
+    def start_cluster_controller(self):
+        """Start the cluster controller.
 
-        Coordinator output goes to these coordinator.err/out files, and
+        Controller output goes to these controller.err/out files, and
         any modification to these files may break existing
         cluster launching commands.
         """
         stdout_file, stderr_file = self.get_log_file_handles(
-            "cloudtik_cluster_coordinator", unique=True)
-        process_info = services.start_cluster_coordinator(
+            "cloudtik_cluster_controller", unique=True)
+        process_info = services.start_cluster_controller(
             self._redis_address,
             self._logs_dir,
             stdout_file=stdout_file,
@@ -589,20 +589,20 @@ class NodeServicesStarter:
             fate_share=self.kernel_fate_share,
             max_bytes=self.max_bytes,
             backup_count=self.backup_count,
-            coordinator_ip=self._node_ip_address)
-        assert constants.PROCESS_TYPE_CLUSTER_COORDINATOR not in self.all_processes
-        self.all_processes[constants.PROCESS_TYPE_CLUSTER_COORDINATOR] = [process_info]
+            controller_ip=self._node_ip_address)
+        assert constants.PROCESS_TYPE_CLUSTER_CONTROLLER not in self.all_processes
+        self.all_processes[constants.PROCESS_TYPE_CLUSTER_CONTROLLER] = [process_info]
 
-    def start_node_coordinator(self):
-        """Start the node coordinator.
+    def start_node_controller(self):
+        """Start the node controller.
 
-        Coordinator output goes to these coordinator.err/out files, and
+        Controller output goes to these controller.err/out files, and
         any modification to these files may break existing
         cluster launching commands.
         """
         stdout_file, stderr_file = self.get_log_file_handles(
-            "cloudtik_node_coordinator", unique=True)
-        process_info = services.start_node_coordinator(
+            "cloudtik_node_controller", unique=True)
+        process_info = services.start_node_controller(
             self.head,
             self._redis_address,
             self._logs_dir,
@@ -613,10 +613,10 @@ class NodeServicesStarter:
             fate_share=self.kernel_fate_share,
             max_bytes=self.max_bytes,
             backup_count=self.backup_count,
-            coordinator_ip=self._node_ip_address
+            controller_ip=self._node_ip_address
         )
-        assert constants.PROCESS_TYPE_NODE_COORDINATOR not in self.all_processes
-        self.all_processes[constants.PROCESS_TYPE_NODE_COORDINATOR] = [process_info]
+        assert constants.PROCESS_TYPE_NODE_CONTROLLER not in self.all_processes
+        self.all_processes[constants.PROCESS_TYPE_NODE_CONTROLLER] = [process_info]
 
     def start_head_processes(self):
         """Start head processes on the node."""
@@ -625,14 +625,14 @@ class NodeServicesStarter:
         assert self._redis_address is None
         # If this is the head node, start the relevant head node processes.
         self.start_redis()
-        self.start_cluster_coordinator()
+        self.start_cluster_controller()
 
     def start_node_processes(self):
         """Start all of the processes on the node."""
         logger.debug(f"Process STDOUT and STDERR is being "
                      f"redirected to {self._logs_dir}.")
         # TODO (haifeng): any service needs start on each worker node management
-        self.start_node_coordinator()
+        self.start_node_controller()
         if self._start_params.include_log_monitor:
             self.start_log_monitor()
 
@@ -748,15 +748,15 @@ class NodeServicesStarter:
         self._kill_process_type(
             constants.PROCESS_TYPE_REDIS_SERVER, check_alive=check_alive)
 
-    def kill_coordinator(self, check_alive=True):
-        """Kill the coordinator.
+    def kill_controller(self, check_alive=True):
+        """Kill the controller.
 
         Args:
             check_alive (bool): Raise an exception if the process was already
                 dead.
         """
         self._kill_process_type(
-            constants.PROCESS_TYPE_CLUSTER_COORDINATOR, check_alive=check_alive)
+            constants.PROCESS_TYPE_CLUSTER_CONTROLLER, check_alive=check_alive)
 
     def kill_reaper(self, check_alive=True):
         """Kill the reaper process.

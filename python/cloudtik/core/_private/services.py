@@ -177,7 +177,7 @@ def find_redis_address(address=None):
             # NOTE: To support Windows, we can't use
             # `os.path.basename(cmdline[0]) == "abc"` here.
             # TODO (haifeng): use the right way to detect the redis
-            if utils.find_name_in_command(cmdline, "cloudtik_cluster_coordinator"):
+            if utils.find_name_in_command(cmdline, "cloudtik_cluster_controller"):
                 for arglist in cmdline:
                     # Given we're merely seeking --redis-address, we just split
                     # every argument on spaces for now.
@@ -1118,7 +1118,7 @@ def start_log_monitor(redis_address,
     return process_info
 
 
-def start_cluster_coordinator(redis_address,
+def start_cluster_controller(redis_address,
                   logs_dir,
                   stdout_file=None,
                   stderr_file=None,
@@ -1127,8 +1127,8 @@ def start_cluster_coordinator(redis_address,
                   fate_share=None,
                   max_bytes=0,
                   backup_count=0,
-                  coordinator_ip=None):
-    """Run a process to coordinator the other processes.
+                  controller_ip=None):
+    """Run a process to control the cluster.
 
     Args:
         redis_address (str): The address that the Redis server is listening on.
@@ -1143,16 +1143,16 @@ def start_cluster_coordinator(redis_address,
             RotatingFileHandler's maxBytes.
         backup_count (int): Log rotation parameter. Corresponding to
             RotatingFileHandler's backupCount.
-        coordinator_ip (str): IP address of the machine that the coordinator will be
+        controller_ip (str): IP address of the machine that the controller will be
             run on. Can be excluded, but required for scaler metrics.
     Returns:
         ProcessInfo for the process that was started.
     """
-    coordinator_path = os.path.join(CLOUDTIK_PATH, CLOUDTIK_CORE_PRIVATE_SERVICE, "cloudtik_cluster_coordinator.py")
+    controller_path = os.path.join(CLOUDTIK_PATH, CLOUDTIK_CORE_PRIVATE_SERVICE, "cloudtik_cluster_controller.py")
     command = [
         sys.executable,
         "-u",
-        coordinator_path,
+        controller_path,
         f"--logs-dir={logs_dir}",
         f"--redis-address={redis_address}",
         f"--logging-rotate-bytes={max_bytes}",
@@ -1162,18 +1162,18 @@ def start_cluster_coordinator(redis_address,
         command.append("--cluster-scaling-config=" + str(cluster_scaling_config))
     if redis_password:
         command.append("--redis-password=" + redis_password)
-    if coordinator_ip:
-        command.append("--coordinator-ip=" + coordinator_ip)
+    if controller_ip:
+        command.append("--controller-ip=" + controller_ip)
     process_info = start_cloudtik_process(
         command,
-        constants.PROCESS_TYPE_CLUSTER_COORDINATOR,
+        constants.PROCESS_TYPE_CLUSTER_CONTROLLER,
         stdout_file=stdout_file,
         stderr_file=stderr_file,
         fate_share=fate_share)
     return process_info
 
 
-def start_node_coordinator(head, redis_address,
+def start_node_controller(head, redis_address,
                   logs_dir,
                   resource_spec,
                   stdout_file=None,
@@ -1182,8 +1182,8 @@ def start_node_coordinator(head, redis_address,
                   fate_share=None,
                   max_bytes=0,
                   backup_count=0,
-                  coordinator_ip=None):
-    """Run a process to coordinator the other processes.
+                  controller_ip=None):
+    """Run a process to controller the other processes.
 
     Args:
         head (bool): Whether to run this on head or worker
@@ -1199,16 +1199,16 @@ def start_node_coordinator(head, redis_address,
             RotatingFileHandler's maxBytes.
         backup_count (int): Log rotation parameter. Corresponding to
             RotatingFileHandler's backupCount.
-        coordinator_ip (str): IP address of the machine that the coordinator will be
+        controller_ip (str): IP address of the machine that the controller will be
             run on. Can be excluded, but required for scaler metrics.
     Returns:
         ProcessInfo for the process that was started.
     """
-    coordinator_path = os.path.join(CLOUDTIK_PATH, CLOUDTIK_CORE_PRIVATE_SERVICE, "cloudtik_node_coordinator.py")
+    controller_path = os.path.join(CLOUDTIK_PATH, CLOUDTIK_CORE_PRIVATE_SERVICE, "cloudtik_node_controller.py")
     command = [
         sys.executable,
         "-u",
-        coordinator_path,
+        controller_path,
         f"--logs-dir={logs_dir}",
         f"--redis-address={redis_address}",
         f"--logging-rotate-bytes={max_bytes}",
@@ -1220,8 +1220,8 @@ def start_node_coordinator(head, redis_address,
 
     if redis_password:
         command.append("--redis-password=" + redis_password)
-    if coordinator_ip:
-        command.append("--coordinator-ip=" + coordinator_ip)
+    if controller_ip:
+        command.append("--controller-ip=" + controller_ip)
 
     assert resource_spec.resolved()
     static_resources = resource_spec.to_resource_dict()
@@ -1234,7 +1234,7 @@ def start_node_coordinator(head, redis_address,
 
     process_info = start_cloudtik_process(
         command,
-        constants.PROCESS_TYPE_NODE_COORDINATOR,
+        constants.PROCESS_TYPE_NODE_CONTROLLER,
         stdout_file=stdout_file,
         stderr_file=stderr_file,
         fate_share=fate_share)

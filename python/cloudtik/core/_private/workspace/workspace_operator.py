@@ -74,9 +74,6 @@ def create_or_update_workspace(
         override_workspace_name: Optional[str] = None,
         no_workspace_config_cache: bool = False) -> Dict[str, Any]:
     """Creates or updates an scaling cluster from a config json."""
-    # no_coordinator_on_head is an internal flag used by the K8s operator.
-    # If True, prevents autoscaling config sync to the  head during cluster
-    # creation. See pull #13720.
 
     def handle_yaml_error(e):
         cli_logger.error("Workspace config invalid")

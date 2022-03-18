@@ -1,4 +1,4 @@
-"""Node coordinating loop daemon."""
+"""Node control loop daemon."""
 
 import argparse
 import logging.handlers
@@ -22,8 +22,8 @@ from cloudtik.runtime.spark.utils import get_runtime_processes
 logger = logging.getLogger(__name__)
 
 
-class NodeCoordinator:
-    """Node Coordinator for node management
+class NodeController:
+    """Node Controller for node management
 
     Attributes:
         redis: A connection to the Redis server.
@@ -33,7 +33,7 @@ class NodeCoordinator:
                  node_type,
                  address,
                  redis_password=None,
-                 coordinator_ip=None,
+                 controller_ip=None,
                  static_resource_list=None,
                  stop_event: Optional[Event] = None):
 
@@ -45,7 +45,7 @@ class NodeCoordinator:
 
         self.redis_address = redis_address
         self.redis_password = redis_password
-        self.coordinator_ip = coordinator_ip
+        self.controller_ip = controller_ip
         self.node_type = node_type
         self.static_resource_list = static_resource_list
         # node_detail store the resource, process and other details of the current node
@@ -57,22 +57,22 @@ class NodeCoordinator:
         self.node_id = node_id
         self.old_processes = []
 
-        # Can be used to signal graceful exit from coordinator loop.
+        # Can be used to signal graceful exit from controller loop.
         self.stop_event = stop_event  # type: Optional[Event]
 
         self.control_state = ControlState()
         self.control_state.initialize_control_state(ip, port, redis_password)
         self.node_table = self.control_state.get_node_table()
-        logger.info("Coordinator: Started")
+        logger.info("Controller: Started")
 
     def _run(self):
-        """Run the coordinator loop."""
+        """Run the controller loop."""
         self.create_heart_beat_thread()
         while True:
             if self.stop_event and self.stop_event.is_set():
                 break
 
-            # TODO (haifeng): implement the node coordinator functionality
+            # TODO (haifeng): implement the node controller functionality
 
             # Wait for update interval before processing the next
             # round of messages.
@@ -80,7 +80,7 @@ class NodeCoordinator:
             time.sleep(constants.CLOUDTIK_UPDATE_INTERVAL_S)
 
     def _handle_failure(self, error):
-        logger.exception("Error in coordinator loop")
+        logger.exception("Error in controller loop")
         # TODO (haifeng): improve to publish the error through redis
 
     def _signal_handler(self, sig, frame):
@@ -90,7 +90,7 @@ class NodeCoordinator:
 
     def create_heart_beat_thread(self):
         thread = threading.Thread(target=self.send_heart_beat)
-        # ensure when node_coordinator exits, the thread will stop automatically.
+        # ensure when node_controller exits, the thread will stop automatically.
         thread.setDaemon(True)
         thread.start()
 
@@ -162,7 +162,7 @@ class NodeCoordinator:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description=("Parse Redis server for the "
-                     "coordinator to connect to."))
+                     "controller to connect to."))
     parser.add_argument(
         "--node-type",
         required=True,
@@ -196,10 +196,10 @@ if __name__ == "__main__":
         "--logging-filename",
         required=False,
         type=str,
-        default=constants.LOG_FILE_NAME_NODE_COORDINATOR,
+        default=constants.LOG_FILE_NAME_NODE_CONTROLLER,
         help="Specify the name of log file, "
         "log to stdout if set empty, default is "
-        f"\"{constants.LOG_FILE_NAME_NODE_COORDINATOR}\"")
+        f"\"{constants.LOG_FILE_NAME_NODE_CONTROLLER}\"")
     parser.add_argument(
         "--logs-dir",
         required=True,
@@ -222,11 +222,11 @@ if __name__ == "__main__":
         help="Specify the backup count of rotated log file, default is "
         f"{constants.LOGGING_ROTATE_BACKUP_COUNT}.")
     parser.add_argument(
-        "--coordinator-ip",
+        "--controller-ip",
         required=False,
         type=str,
         default=None,
-        help="The IP address of the machine hosting the coordinator process.")
+        help="The IP address of the machine hosting the controller process.")
     parser.add_argument(
         "--static_resource_list",
         required=False,
@@ -242,16 +242,16 @@ if __name__ == "__main__":
         max_bytes=args.logging_rotate_bytes,
         backup_count=args.logging_rotate_backup_count)
 
-    logger.info(f"Starting Node Coordinator using CloudTik installation: {cloudtik.__file__}")
+    logger.info(f"Starting Node Controller using CloudTik installation: {cloudtik.__file__}")
     logger.info(f"CloudTik version: {cloudtik.__version__}")
     logger.info(f"CloudTik commit: {cloudtik.__commit__}")
-    logger.info(f"Node Coordinator started with command: {sys.argv}")
+    logger.info(f"Node Controller started with command: {sys.argv}")
 
-    coordinator = NodeCoordinator(
+    controller = NodeController(
         args.node_type,
         args.redis_address,
         redis_password=args.redis_password,
-        coordinator_ip=args.coordinator_ip,
+        controller_ip=args.controller_ip,
         static_resource_list=args.static_resource_list)
 
-    coordinator.run()
+    controller.run()

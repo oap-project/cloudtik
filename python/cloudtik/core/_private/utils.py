@@ -1108,8 +1108,8 @@ def get_demand_report(lm_summary: LoadMetricsSummary):
 def decode_cluster_scaling_time(status):
     status = status.decode("utf-8")
     as_dict = json.loads(status)
-    time = datetime.datetime.fromtimestamp(as_dict["time"])
-    return time
+    report_time = float(as_dict["time"])
+    return report_time
 
 
 def format_info_string(lm_summary, scaler_summary, time=None):
@@ -1332,4 +1332,5 @@ def is_alive_time(report_time):
 
     # If the status is too old, the service has probably already died.
     delta = cur_time - report_time
+
     return delta < constants.HEALTHCHECK_EXPIRATION_S

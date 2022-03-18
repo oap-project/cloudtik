@@ -1334,12 +1334,20 @@ def health_check_on_head(address, redis_password, component):
         try:
             # check cluster coordinator live status through scaling status time
             status = kv_store.kv_get(CLOUDTIK_CLUSTER_SCALING_STATUS)
-            if status:
-                live_time = decode_cluster_scaling_time(status)
-                time_ok = is_alive_time(live_time)
-                if time_ok:
-                    sys.exit(0)
-        except Exception:
+            if not status:
+                cli_logger.print("Cluster is not healthy! No status reported.")
+                sys.exit(1)
+
+            report_time = decode_cluster_scaling_time(status)
+            time_ok = is_alive_time(report_time)
+            if not time_ok:
+                cli_logger.print("Cluster is not healthy! Last status time {}", report_time)
+                sys.exit(1)
+
+            cli_logger.print("Cluster is healthy.")
+            sys.exit(0)
+        except Exception as e:
+            cli_logger.error("Health check failed." + str(e))
             pass
         sys.exit(1)
 
@@ -1347,14 +1355,19 @@ def health_check_on_head(address, redis_password, component):
         component, namespace=CLOUDTIK_KV_NAMESPACE_HEALTHCHECK)
     if not report_str:
         # Status was never updated
+        cli_logger.print("{} is not healthy! No status reported.", component)
         sys.exit(1)
 
     report = json.loads(report_str)
-    time_ok = is_alive_time(float(report["time"]))
-    if time_ok:
-        sys.exit(0)
-    else:
+    report_time = float(report["time"])
+    time_ok = is_alive_time(report_time)
+    if not time_ok:
+        cli_logger.print("{} is not healthy! Last status time {}",
+                         component, report_time)
         sys.exit(1)
+
+    cli_logger.print("{} is healthy.", component)
+    sys.exit(0)
 
 
 @cli.command(hidden=True)

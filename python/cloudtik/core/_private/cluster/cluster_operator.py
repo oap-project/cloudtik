@@ -543,11 +543,11 @@ def monitor_cluster(cluster_config_file: str, num_lines: int,
 
 def warn_about_bad_start_commands(start_commands: List[str],
                                  no_coordinator_on_head: bool = False) -> None:
-    start_cmds = list(filter(lambda x: "cloudtik start" in x, start_commands))
+    start_cmds = list(filter(lambda x: "cloudtik node-start" in x, start_commands))
     if len(start_cmds) == 0:
         cli_logger.warning(
             "CloudTik will not be started because `{}` is not in `{}`.",
-            cf.bold("cloudtik start"), cf.bold("head_start_commands"))
+            cf.bold("cloudtik node-start"), cf.bold("head_start_commands"))
 
     cluster_scaling_config_in_start_cmd = any(
         "cluster-scaling-config" in x for x in start_cmds)
@@ -556,9 +556,9 @@ def warn_about_bad_start_commands(start_commands: List[str],
             "The head node will not launch any workers because "
             "`{}` does not have `{}` set.\n"
             "Potential fix: add `{}` to the `{}` command under `{}`.",
-            cf.bold("cloudtik start"), cf.bold("--cluster-scaling-config"),
+            cf.bold("cloudtik node-start"), cf.bold("--cluster-scaling-config"),
             cf.bold("--cluster-scaling-config=~/cloudtik_bootstrap_config.yaml"),
-            cf.bold("cloudtik start"), cf.bold("head_start_commands"))
+            cf.bold("cloudtik node-start"), cf.bold("head_start_commands"))
 
 
 def get_or_create_head_node(config: Dict[str, Any],

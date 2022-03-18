@@ -224,7 +224,7 @@ def start(node_ip_address, address, port, head,
                 raise ConnectionError(
                     f"CloudTik is already running at {default_address}. "
                     f"Please specify a different port using the `--port`"
-                    f" command to `cloudtik start`.")
+                    f" command to `cloudtik node-start`.")
 
         node = NodeServicesStarter(
             start_params, head=True, shutdown_at_exit=False, spawn_reaper=False)

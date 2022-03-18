@@ -1594,7 +1594,16 @@ def show_cluster_status(config_file: str,
         tb.add_row([node_info["node_id"], node_info["cloudtik-node-kind"], node_info["cloudtik-node-status"],
                     node_info["instance_type"], node_info["public_ip"], node_info["private_ip"],
                     node_info["instance_status"]])
-    cli_logger.print(cf.bold("Total {} nodes."), len(nodes_info))
+
+    def get_nodes_ready(node_info_list):
+        nodes_ready = 0
+        for node_info in node_info_list:
+            if STATUS_UP_TO_DATE == node_info["cloudtik-node-status"]:
+                nodes_ready += 1
+        return nodes_ready
+
+    nodes_ready = get_nodes_ready(nodes_info)
+    cli_logger.print(cf.bold("Total {} nodes. {} nodes are ready"), len(nodes_info), nodes_ready)
     cli_logger.print(tb)
 
 

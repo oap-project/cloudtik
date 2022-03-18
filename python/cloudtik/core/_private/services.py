@@ -23,6 +23,7 @@ import psutil
 
 import cloudtik.core._private.constants as constants
 import cloudtik.core._private.utils as utils
+from cloudtik.core import tags
 from cloudtik.core._private.state.control_state import ControlState
 
 resource = None
@@ -1172,7 +1173,7 @@ def start_cluster_coordinator(redis_address,
     return process_info
 
 
-def start_node_coordinator(redis_address,
+def start_node_coordinator(head, redis_address,
                   logs_dir,
                   resource_spec,
                   stdout_file=None,
@@ -1185,6 +1186,7 @@ def start_node_coordinator(redis_address,
     """Run a process to coordinator the other processes.
 
     Args:
+        head (bool): Whether to run this on head or worker
         redis_address (str): The address that the Redis server is listening on.
         logs_dir(str): The path to the log directory.
         resource_spec (ResourceSpec): Resources for the node.
@@ -1212,6 +1214,10 @@ def start_node_coordinator(redis_address,
         f"--logging-rotate-bytes={max_bytes}",
         f"--logging-rotate-backup-count={backup_count}",
     ]
+
+    node_type = tags.NODE_KIND_HEAD if head else tags.NODE_KIND_WORKER
+    command.append("--node-type=" + node_type)
+
     if redis_password:
         command.append("--redis-password=" + redis_password)
     if coordinator_ip:

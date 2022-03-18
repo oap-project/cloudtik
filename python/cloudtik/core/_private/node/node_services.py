@@ -603,6 +603,7 @@ class NodeServicesStarter:
         stdout_file, stderr_file = self.get_log_file_handles(
             "cloudtik_node_coordinator", unique=True)
         process_info = services.start_node_coordinator(
+            self.head,
             self._redis_address,
             self._logs_dir,
             self.get_resource_spec(),

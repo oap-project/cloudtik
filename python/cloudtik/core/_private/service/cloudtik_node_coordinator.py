@@ -30,6 +30,7 @@ class NodeCoordinator:
     """
 
     def __init__(self,
+                 node_type,
                  address,
                  redis_password=None,
                  coordinator_ip=None,
@@ -45,7 +46,7 @@ class NodeCoordinator:
         self.redis_address = redis_address
         self.redis_password = redis_password
         self.coordinator_ip = coordinator_ip
-        self.node_type = 'head' if redis_address == services.get_node_ip_address() else 'worker'
+        self.node_type = node_type
         self.static_resource_list = static_resource_list
         # node_detail store the resource, process and other details of the current node
         self.node_detail = {}
@@ -54,7 +55,7 @@ class NodeCoordinator:
         self.node_detail["node_id"] = node_id
         self.node_detail["node_type"] = self.node_type
         self.node_id = node_id
-        self.pre_processes = []
+        self.old_processes = []
 
         # Can be used to signal graceful exit from coordinator loop.
         self.stop_event = stop_event  # type: Optional[Event]
@@ -87,7 +88,6 @@ class NodeCoordinator:
                              "".join(traceback.format_stack(frame)))
         sys.exit(sig + 128)
 
-
     def create_heart_beat_thread(self):
         thread = threading.Thread(target=self.send_heart_beat)
         # ensure when node_coordinator exits, the thread will stop automatically.
@@ -115,7 +115,6 @@ class NodeCoordinator:
                 node_resource_dict[resource_split[2 * i]] = float(resource_split[2 * i + 1])
         return node_resource_dict, node_id
 
-
     def _check_process(self):
         """check CloudTik runtime processes on the local machine."""
         processes_to_check = constants.CLOUDTIK_PROCESSES
@@ -136,7 +135,7 @@ class NodeCoordinator:
                        "characters. Actual length: {}. Filter: {}").format(
                     15, len(keyword), keyword)
                 raise ValueError(msg)
-            found_process[process_name] = "not running"
+            found_process[process_name] = "-"
             for candidate in process_infos:
                 proc, proc_cmd, proc_args = candidate
                 corpus = (proc_cmd
@@ -144,11 +143,10 @@ class NodeCoordinator:
                 if keyword in corpus and (self.node_type == node_type or "node" == node_type):
                     found_process[process_name] = proc.status()
 
-        if found_process != self.pre_processes:
-            logger.info("Cloudtik related processes status changed, current process information: {}".format(str(found_process)))
+        if found_process != self.old_processes:
+            logger.info("Cloudtik processes status changed, latest process information: {}".format(str(found_process)))
         self.node_detail["process"] = found_process
-        self.pre_processes = found_process
-
+        self.old_processes = found_process
 
     def run(self):
         # Register signal handlers for cluster scaler termination.
@@ -165,6 +163,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description=("Parse Redis server for the "
                      "coordinator to connect to."))
+    parser.add_argument(
+        "--node-type",
+        required=True,
+        type=str,
+        help="the node type of the current node")
     parser.add_argument(
         "--redis-address",
         required=True,
@@ -245,6 +248,7 @@ if __name__ == "__main__":
     logger.info(f"Node Coordinator started with command: {sys.argv}")
 
     coordinator = NodeCoordinator(
+        args.node_type,
         args.redis_address,
         redis_password=args.redis_password,
         coordinator_ip=args.coordinator_ip,

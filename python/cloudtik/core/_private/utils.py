@@ -1251,7 +1251,7 @@ def get_free_port():
 def kill_process_by_pid(pid):
     try:
         os.kill(pid, signal.SIGKILL)
-        logger.info("The process with PID {} has been killed.".format(pid))
+        logger.debug("The process with PID {} has been killed.".format(pid))
     except OSError as e:
         logger.info("There is no process with PID {}".format(pid))
 

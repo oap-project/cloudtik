@@ -342,6 +342,7 @@ def teardown_cluster(config_file: str, yes: bool, workers_only: bool,
 
     try:
         if not workers_only:
+            cli_logger.print("Requesting head node to stop head services.")
             exec_cmd_on_cluster(
                 config_file,
                 "cloudtik stop",
@@ -349,6 +350,7 @@ def teardown_cluster(config_file: str, yes: bool, workers_only: bool,
 
         # Running teardown cluster process on head first. But we allow this to fail.
         # Since head node problem should not prevent cluster tear down
+        cli_logger.print("Requesting head node to stop workers.")
         cmd = "cloudtik teardown-on-head"
         if keep_min_workers:
             cmd += " --keep_min_workers"
@@ -399,7 +401,7 @@ def teardown_cluster_nodes(config: Dict[str, Any],
         })
 
         # todo: it's weird to kill the head node but not all workers
-        if workers_only:
+        if workers_only and not on_head:
             cli_logger.print(
                 "The head node will not be shut down. " +
                 cf.dimmed("(due to {})"), cf.bold("--workers-only"))
@@ -441,8 +443,10 @@ def teardown_cluster_nodes(config: Dict[str, Any],
     container_name = config.get("docker", {}).get("container_name")
     if container_name and (on_head or not workers_only):
         if on_head:
+            cli_logger.print("Stopping docker containers on workers.")
             container_nodes = A
         else:
+            cli_logger.print("Stopping docker container on head.")
             container_nodes = head
         # This is to ensure that the parallel SSH calls below do not mess with
         # the users terminal.
@@ -458,20 +462,21 @@ def teardown_cluster_nodes(config: Dict[str, Any],
                     run_docker_stop, node=node, container_name=container_name)
         cmd_output_util.set_output_redirected(output_redir)
         cmd_output_util.set_allow_interactive(allow_interactive)
+    node_type = "workers" if workers_only else "nodes"
     with LogTimer("teardown_cluster: done."):
         while A:
             provider.terminate_nodes(A)
 
             cli_logger.print(
-                "Requested {} nodes to shut down.",
-                cf.bold(len(A)),
+                "Requested {} {} to shut down.",
+                cf.bold(len(A)), node_type,
                 _tags=dict(interval="1s"))
 
             time.sleep(POLL_INTERVAL)  # todo: interval should be a variable
             head, A = remaining_nodes()
-            cli_logger.print("{} nodes remaining after {} second(s).",
-                             cf.bold(len(A)), POLL_INTERVAL)
-        cli_logger.success("No nodes remaining.")
+            cli_logger.print("{} {} remaining after {} second(s).",
+                             cf.bold(len(A)), node_type, POLL_INTERVAL)
+        cli_logger.success("No {} remaining.", node_type)
 
 
 def kill_node(config_file: str, yes: bool, hard: bool,

@@ -316,6 +316,7 @@ class NodeUpdater:
 
         if self.restart_only:
             self.setup_commands = []
+        provider_config = self.provider.with_provider_environment_variables()
 
         # runtime_hash will only change whenever the user restarts
         # or updates their cluster with `get_or_create_head_node`
@@ -349,7 +350,6 @@ class NodeUpdater:
                 self.provider.set_node_tags(
                     self.node_id, {CLOUDTIK_TAG_NODE_STATUS: STATUS_SETTING_UP})
                 cli_logger.labeled_value("New status", STATUS_SETTING_UP)
-                provider_config = self.provider.with_provider_environment_variables()
                 if self.initialization_commands:
                     with cli_logger.group(
                             "Running initialization commands",

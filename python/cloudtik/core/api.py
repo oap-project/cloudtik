@@ -145,7 +145,6 @@ def rsync(cluster_config: Union[dict, str],
             ip_address=ip_address,
             use_internal_ip=use_internal_ip,
             no_config_cache=no_config_cache,
-            all_nodes=False,
             should_bootstrap=should_bootstrap)
 
 

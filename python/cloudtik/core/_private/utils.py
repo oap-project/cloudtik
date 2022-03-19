@@ -1334,3 +1334,7 @@ def is_alive_time(report_time):
     delta = cur_time - report_time
 
     return delta < constants.HEALTHCHECK_EXPIRATION_S
+
+
+def get_head_bootstrap_config():
+    return os.path.expanduser("~/cloudtik_bootstrap_config.yaml")

@@ -24,7 +24,8 @@ from cloudtik.core._private.cluster.cluster_operator import (
     rsync, teardown_cluster, get_head_node_ip, kill_node, get_worker_node_ips,
     get_cluster_dump_archive, debug_status_string, get_local_dump_archive, get_cluster_dump_archive_on_head,
     show_cluster_info, show_cluster_status, RUN_ENV_TYPES, start_proxy, stop_proxy, cluster_debug_status,
-    cluster_health_check, teardown_cluster_on_head, cluster_process_status_on_head, cluster_process_status)
+    cluster_health_check, teardown_cluster_on_head, cluster_process_status_on_head, cluster_process_status,
+    rsync_node_on_head)
 from cloudtik.core._private.constants import CLOUDTIK_PROCESSES, \
     CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
     CLOUDTIK_KV_NAMESPACE_HEALTHCHECK, \
@@ -699,30 +700,17 @@ def rsync_down(cluster_config_file, source, target, cluster_name):
     required=False,
     type=str,
     help="Override the configured cluster name.")
-@click.option(
-    "--all-nodes",
-    "-A",
-    is_flag=True,
-    required=False,
-    help="Upload to all nodes (workers and head).")
 @add_click_logging_options
-def rsync_up(cluster_config_file, source, target, cluster_name, all_nodes):
+def rsync_up(cluster_config_file, source, target, cluster_name):
     """Upload specific files to a cluster."""
-    if all_nodes:
-        cli_logger.warning(
-            "WARNING: the `all_nodes` option is deprecated and will be "
-            "removed in the future. "
-            "Rsync to worker nodes is not reliable since workers may be "
-            "added during autoscaling. Please use the `file_mounts` "
-            "feature instead for consistent file sync in autoscaling clusters")
+
     try:
         rsync(
             cluster_config_file,
             source,
             target,
             cluster_name,
-            down=False,
-            all_nodes=all_nodes)
+            down=False)
     except RuntimeError as re:
         cli_logger.error("Rsync up failed. " + str(re))
         if cli_logger.verbosity == 0:
@@ -1448,6 +1436,30 @@ def teardown_on_head(keep_min_workers):
     teardown_cluster_on_head(keep_min_workers)
 
 
+@cli.command()
+@click.argument("source", required=False, type=str)
+@click.argument("target", required=False, type=str)
+@click.option(
+    "--down",
+    is_flag=True,
+    default=False,
+    help="Rsync down or up.")
+@click.option(
+    "--node-ip",
+    "-n",
+    required=False,
+    type=str,
+    help="The worker node ip to rsync from or to.")
+@add_click_logging_options
+def rsync_on_head(source, target, node_ip, down):
+    """Rsync specific file from or to the worker node."""
+    rsync_node_on_head(
+        source,
+        target,
+        down=down,
+        node_ip=node_ip)
+
+
 def add_command_alias(command, name, hidden):
     new_command = copy.deepcopy(command)
     new_command.hidden = hidden
@@ -1501,6 +1513,7 @@ add_command_alias(local_dump, name="local_dump", hidden=True)
 
 # utility commands running on head node
 cli.add_command(teardown_on_head)
+cli.add_command(rsync_on_head)
 cli.add_command(cluster_dump_on_head)
 cli.add_command(debug_status_on_head)
 cli.add_command(process_status_on_head)

@@ -34,7 +34,7 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     hash_launch_conf, prepare_config, get_free_port, \
     kill_process_by_pid, \
     get_proxy_info_file, get_safe_proxy_process_info, \
-    get_node_working_ip, get_head_working_ip, get_node_cluster_ip, is_use_internal_ip
+    get_node_working_ip, get_head_working_ip, get_node_cluster_ip, is_use_internal_ip, get_head_bootstrap_config
 
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
@@ -1054,7 +1054,6 @@ def rsync(config_file: str,
           ip_address: Optional[str] = None,
           use_internal_ip: bool = False,
           no_config_cache: bool = False,
-          all_nodes: bool = False,
           should_bootstrap: bool = True,
           _runner: ModuleType = subprocess) -> None:
     """Rsyncs files.
@@ -1069,7 +1068,6 @@ def rsync(config_file: str,
             if both ip_address and 'all_nodes' are provided.
         use_internal_ip (bool): Whether the provided ip_address is
             public or private.
-        all_nodes: whether to sync worker nodes in addition to the head node
         should_bootstrap: whether to bootstrap cluster config before syncing
     """
     if bool(source) != bool(target):
@@ -1078,9 +1076,6 @@ def rsync(config_file: str,
 
     assert bool(source) == bool(target), (
         "Must either provide both or neither source and target.")
-
-    if ip_address and all_nodes:
-        cli_logger.abort("Cannot provide both ip_address and 'all_nodes'.")
 
     config = yaml.safe_load(open(config_file).read())
     if override_cluster_name is not None:
@@ -1097,7 +1092,7 @@ def rsync(config_file: str,
 
     provider = _get_node_provider(config["provider"], config["cluster_name"])
 
-    def rsync_to_node(node_id, is_head_node):
+    def rsync_to_node(node_id, source, target, is_head_node):
         updater = NodeUpdaterThread(
             node_id=node_id,
             provider_config=config["provider"],
@@ -1132,20 +1127,90 @@ def rsync(config_file: str,
         else:
             updater.sync_file_mounts(rsync)
 
-    nodes = []
     head_node = _get_running_head_node(
         config, config_file, override_cluster_name, create_if_needed=False)
-    if ip_address:
-        nodes = [
-            provider.get_node_id(ip_address, use_internal_ip=use_internal_ip)
-        ]
+    if not ip_address:
+        rsync_to_node(head_node, source, target, is_head_node=True)
     else:
-        nodes = [head_node]
-        if all_nodes:
-            nodes.extend(_get_worker_nodes(config, override_cluster_name))
+        target_on_head = tempfile.mktemp(prefix=f"{target}_")
+        if down:
+            # first run rsync on head
+            rsync_to_node_from_head(source, target_on_head, True, ip_address)
+            rsync_to_node(head_node, target_on_head, target, is_head_node=True)
+        else:
+            # First rsync with head
+            rsync_to_node(head_node, source, target_on_head, is_head_node=True)
+            rsync_to_node_from_head(target_on_head, target, False, ip_address)
 
-    for node_id in nodes:
-        rsync_to_node(node_id, is_head_node=(node_id == head_node))
+
+def rsync_to_node_from_head(cluster_config_file: str,
+                            override_cluster_name: Optional[str],
+                            source: str,
+                            target: str,
+                            down: bool,
+                            node_ip: str
+                            ) -> None:
+    """Exec the rsync on head command to do rsync with the target worker"""
+    cmd = [
+        "cloudtik",
+        "rsync-on-head",
+    ]
+    cmd += ["--source={}".format(quote(source))]
+    cmd += ["--target={}".format(quote(target))]
+    cmd += ["--node--ip={}".format(node_ip)]
+    if down:
+        cmd += ["--down"]
+    final_cmd = " ".join(cmd)
+    exec_cmd_on_cluster(cluster_config_file, final_cmd, override_cluster_name)
+
+
+def rsync_node_on_head(source: str,
+                       target: str,
+                       down: bool,
+                       node_ip: str):
+    # Since this is running on head, the bootstrap config must exist
+    cluster_config_file = get_head_bootstrap_config()
+    config = yaml.safe_load(open(cluster_config_file).read())
+    provider = _get_node_provider(config["provider"], config["cluster_name"])
+
+    def rsync_to_node(node_id, source, target):
+        updater = NodeUpdaterThread(
+            node_id=node_id,
+            provider_config=config["provider"],
+            provider=provider,
+            auth_config=config["auth"],
+            cluster_name=config["cluster_name"],
+            file_mounts=config["file_mounts"],
+            initialization_commands=[],
+            setup_commands=[],
+            start_commands=[],
+            runtime_hash="",
+            use_internal_ip=True,
+            process_runner=subprocess,
+            file_mounts_contents_hash="",
+            is_head_node=False,
+            rsync_options={
+                "rsync_exclude": config.get("rsync_exclude"),
+                "rsync_filter": config.get("rsync_filter")
+            },
+            docker_config=config.get("docker"))
+        if down:
+            rsync = updater.rsync_down
+        else:
+            rsync = updater.rsync_up
+
+        if source and target:
+            # print rsync progress for single file rsync
+            if cli_logger.verbosity > 0:
+                cmd_output_util.set_output_redirected(False)
+                set_rsync_silent(False)
+            rsync(source, target, False)
+        else:
+            # error
+            raise RuntimeError("No source or target specified for rsync.")
+
+    node_id = provider.get_node_id(node_ip, use_internal_ip=True)
+    rsync_to_node(node_id, source, target)
 
 
 def get_head_node_ip(config_file: str,
@@ -1735,7 +1800,7 @@ def cluster_health_check(cluster_config_file: str,
 
 def teardown_cluster_on_head(keep_min_workers: bool) -> None:
     # Since this is running on head, the bootstrap config must exist
-    cluster_config_file = os.path.expanduser("~/cloudtik_bootstrap_config.yaml")
+    cluster_config_file = get_head_bootstrap_config()
     config = yaml.safe_load(open(cluster_config_file).read())
     provider = _get_node_provider(config["provider"], config["cluster_name"])
 

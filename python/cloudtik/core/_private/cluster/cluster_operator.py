@@ -1750,15 +1750,17 @@ def cluster_process_status_on_head(redis_address):
     node_table = control_state.get_node_table()
 
     tb = pt.PrettyTable()
-    tb.field_names = ["node-type", "node-ip", "n-controller", "n-manager", "l-monitor",
+    tb.field_names = ["node-ip", "node-type", "n-controller", "n-manager", "l-monitor",
                       "c-controller", "r-manager", "r-server"]
-    for value in node_table.get_all().values():
+    all_nodes = node_table.get_all().values()
+    for value in all_nodes:
         node_info = eval(value)
         process_info = node_info["process"]
         tb.add_row([node_info["resource"]["ip"], node_info["node_type"],
                     process_info["NodeController"], process_info["NodeManager"], process_info["LogMonitor"],
                     process_info["ClusterController"], process_info["ResourceManager"], process_info["RedisServer"]
                     ])
+    cli_logger.print("Total {} nodes reported.", len(all_nodes))
     cli_logger.print(tb)
 
 

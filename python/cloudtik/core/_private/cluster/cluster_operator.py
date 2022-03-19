@@ -1415,16 +1415,16 @@ def get_cluster_dump_archive(cluster_config_file: Optional[str] = None,
     cluster_config_file, head_node_ip, hosts, ssh_user, ssh_key, docker, cluster_name = \
         _info_from_params(cluster_config_file, host, ssh_user, ssh_key, docker, True)
 
+    if not head_node_ip:
+        cli_logger.error(
+            "No head node found. Cluster may not be running. ")
+        return None
+
     head_node = Node(
             host=head_node_ip,
             ssh_user=ssh_user,
             ssh_key=ssh_key,
             docker_container=docker)
-
-    if not head_node:
-        cli_logger.error(
-            "No head node found. Cluster may not be running. ")
-        return None
 
     if local is None:
         # If called with a cluster config, this was probably started

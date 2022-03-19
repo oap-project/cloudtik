@@ -935,7 +935,10 @@ def get_head_ip(cluster_config_file, cluster_name):
 def get_worker_ips(cluster_config_file, cluster_name):
     """Return the list of worker IPs of a cluster."""
     worker_ips = get_worker_node_ips(cluster_config_file, cluster_name)
-    click.echo("\n".join(worker_ips))
+    if len(worker_ips) == 0:
+        click.echo("No worker found.")
+    else:
+        click.echo("\n".join(worker_ips))
 
 
 @cli.command()
@@ -1194,7 +1197,7 @@ def cluster_dump_on_head(host: Optional[str] = None,
 
         Usage:
 
-            cloudtik local-dump [--stream/--output file]
+            cloudtik cluster-dump-on-head [--stream/--output file]
 
         This script is called on head node to fetch the cluster data.
         """

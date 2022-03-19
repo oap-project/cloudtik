@@ -772,11 +772,6 @@ def _info_from_params(
         ssh_key = ssh_key or k
         docker = docker or d
         hosts = host.split(",") if host else h
-
-        if not hosts:
-            raise LocalCommandFailed(
-                f"Invalid cluster file or cluster has no running nodes: "
-                f"{cluster}")
     elif host:
         hosts = host.split(",")
     else:

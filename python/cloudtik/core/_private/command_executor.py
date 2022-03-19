@@ -305,7 +305,7 @@ class SSHOptions:
             "ServerAliveCountMax": 3
         }
         if cli_logger.verbosity == 0:
-            arg_dict["LogLevel"]="ERROR"
+            self.arg_dict["LogLevel"]="ERROR"
         if control_path:
             self.arg_dict.update({
                 "ControlMaster": "auto",

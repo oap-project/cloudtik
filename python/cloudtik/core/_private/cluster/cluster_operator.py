@@ -401,10 +401,11 @@ def teardown_cluster_nodes(config: Dict[str, Any],
         })
 
         # todo: it's weird to kill the head node but not all workers
-        if workers_only and not on_head:
-            cli_logger.print(
-                "The head node will not be shut down. " +
-                cf.dimmed("(due to {})"), cf.bold("--workers-only"))
+        if workers_only:
+            if not on_head:
+                cli_logger.print(
+                    "The head node will not be shut down. " +
+                    cf.dimmed("(due to {})"), cf.bold("--workers-only"))
 
             return head, workers
 

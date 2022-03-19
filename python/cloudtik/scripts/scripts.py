@@ -1,3 +1,4 @@
+import traceback
 from typing import Optional
 
 import click
@@ -565,7 +566,14 @@ def kill_random_node(cluster_config_file, yes, hard, cluster_name):
 @add_click_logging_options
 def monitor(cluster_config_file, lines, cluster_name):
     """Tails the monitor logs of a cluster."""
-    monitor_cluster(cluster_config_file, lines, cluster_name)
+    try:
+        monitor_cluster(cluster_config_file, lines, cluster_name)
+    except RuntimeError as re:
+        cli_logger.error("Monitor failed. " + str(re))
+        if cli_logger.verbosity == 0:
+            cli_logger.print("For more details, please run with -v flag.")
+        else:
+            traceback.print_exc()
 
 
 @cli.command()
@@ -604,15 +612,22 @@ def attach(cluster_config_file, start, screen, tmux, cluster_name,
            no_config_cache, new, port_forward):
     """Create or attach to SH session to a cluster."""
     port_forward = [(port, port) for port in list(port_forward)]
-    attach_cluster(
-        cluster_config_file,
-        start,
-        screen,
-        tmux,
-        cluster_name,
-        no_config_cache=no_config_cache,
-        new=new,
-        port_forward=port_forward)
+    try:
+        attach_cluster(
+            cluster_config_file,
+            start,
+            screen,
+            tmux,
+            cluster_name,
+            no_config_cache=no_config_cache,
+            new=new,
+            port_forward=port_forward)
+    except RuntimeError as re:
+        cli_logger.error("Attach failed. " + str(re))
+        if cli_logger.verbosity == 0:
+            cli_logger.print("For more details, please run with -v flag.")
+        else:
+            traceback.print_exc()
 
 
 @cli.command()
@@ -664,7 +679,14 @@ def disable_local_access(cluster_config_file,cluster_name):
 @add_click_logging_options
 def rsync_down(cluster_config_file, source, target, cluster_name):
     """Download specific files from a cluster."""
-    rsync(cluster_config_file, source, target, cluster_name, down=True)
+    try:
+        rsync(cluster_config_file, source, target, cluster_name, down=True)
+    except RuntimeError as re:
+        cli_logger.error("Rsync down failed. " + str(re))
+        if cli_logger.verbosity == 0:
+            cli_logger.print("For more details, please run with -v flag.")
+        else:
+            traceback.print_exc()
 
 
 @cli.command()
@@ -693,14 +715,20 @@ def rsync_up(cluster_config_file, source, target, cluster_name, all_nodes):
             "Rsync to worker nodes is not reliable since workers may be "
             "added during autoscaling. Please use the `file_mounts` "
             "feature instead for consistent file sync in autoscaling clusters")
-
-    rsync(
-        cluster_config_file,
-        source,
-        target,
-        cluster_name,
-        down=False,
-        all_nodes=all_nodes)
+    try:
+        rsync(
+            cluster_config_file,
+            source,
+            target,
+            cluster_name,
+            down=False,
+            all_nodes=all_nodes)
+    except RuntimeError as re:
+        cli_logger.error("Rsync up failed. " + str(re))
+        if cli_logger.verbosity == 0:
+            cli_logger.print("For more details, please run with -v flag.")
+        else:
+            traceback.print_exc()
 
 
 @cli.command(context_settings={"ignore_unknown_options": True})
@@ -853,18 +881,25 @@ def exec(cluster_config_file, cmd, run_env, screen, tmux, stop, start,
     """Execute a command via SSH on a cluster."""
     port_forward = [(port, port) for port in list(port_forward)]
 
-    exec_cluster(
-        cluster_config_file,
-        cmd=cmd,
-        run_env=run_env,
-        screen=screen,
-        tmux=tmux,
-        stop=stop,
-        start=start,
-        override_cluster_name=cluster_name,
-        no_config_cache=no_config_cache,
-        port_forward=port_forward,
-        _allow_uninitialized_state=True)
+    try:
+        exec_cluster(
+            cluster_config_file,
+            cmd=cmd,
+            run_env=run_env,
+            screen=screen,
+            tmux=tmux,
+            stop=stop,
+            start=start,
+            override_cluster_name=cluster_name,
+            no_config_cache=no_config_cache,
+            port_forward=port_forward,
+            _allow_uninitialized_state=True)
+    except RuntimeError as re:
+        cli_logger.error("Run exec failed. " + str(re))
+        if cli_logger.verbosity == 0:
+            cli_logger.print("For more details, please run with -v flag.")
+        else:
+            traceback.print_exc()
 
 
 @cli.command()
@@ -878,7 +913,14 @@ def exec(cluster_config_file, cmd, run_env, screen, tmux, stop, start,
 @add_click_logging_options
 def get_head_ip(cluster_config_file, cluster_name):
     """Return the head node IP of a cluster."""
-    click.echo(get_head_node_ip(cluster_config_file, cluster_name))
+    try:
+        click.echo(get_head_node_ip(cluster_config_file, cluster_name))
+    except RuntimeError as re:
+        cli_logger.error("Get head IP failed. " + str(re))
+        if cli_logger.verbosity == 0:
+            cli_logger.print("For more details, please run with -v flag.")
+        else:
+            traceback.print_exc()
 
 
 @cli.command()
@@ -939,9 +981,16 @@ def status(cluster_config_file, cluster_name):
 @add_click_logging_options
 def process_status(cluster_config_file, cluster_name):
     """Show process status of cluster nodes."""
-    cluster_process_status(
-        cluster_config_file,
-        cluster_name)
+    try:
+        cluster_process_status(
+            cluster_config_file,
+            cluster_name)
+    except RuntimeError as re:
+        cli_logger.error("Cluster process status failed. " + str(re))
+        if cli_logger.verbosity == 0:
+            cli_logger.print("For more details, please run with -v flag.")
+        else:
+            traceback.print_exc()
 
 
 @cli.command(hidden=True)
@@ -965,7 +1014,14 @@ def process_status_on_head(redis_address):
 @add_click_logging_options
 def debug_status(cluster_config_file, cluster_name):
     """Show debug status of cluster scaling."""
-    cluster_debug_status(cluster_config_file, cluster_name)
+    try:
+        cluster_debug_status(cluster_config_file, cluster_name)
+    except RuntimeError as re:
+        cli_logger.error("Cluster debug status failed. " + str(re))
+        if cli_logger.verbosity == 0:
+            cli_logger.print("For more details, please run with -v flag.")
+        else:
+            traceback.print_exc()
 
 
 @cli.command(hidden=True)
@@ -1289,7 +1345,14 @@ def cluster_dump(cluster_config_file: Optional[str] = None,
 @add_click_logging_options
 def health_check(cluster_config_file, cluster_name):
     """Do cluster health check."""
-    cluster_health_check(cluster_config_file, cluster_name)
+    try:
+        cluster_health_check(cluster_config_file, cluster_name)
+    except RuntimeError as re:
+        cli_logger.error("Cluster health check failed. " + str(re))
+        if cli_logger.verbosity == 0:
+            cli_logger.print("For more details, please run with -v flag.")
+        else:
+            traceback.print_exc()
 
 
 @cli.command(hidden=True)

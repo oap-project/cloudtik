@@ -132,9 +132,11 @@ class LoadMetrics:
         self.waiting_bundles = waiting_bundles
         self.infeasible_bundles = infeasible_bundles
 
-    def mark_active(self, ip, last_heartbeat_time=time.time()):
+    def mark_active(self, ip, last_heartbeat_time=None):
         assert ip is not None, "IP should be known at this time"
         logger.debug("Node {} is newly setup, treating as active".format(ip))
+        if not last_heartbeat_time:
+            last_heartbeat_time = time.time()
         self.last_heartbeat_time_by_ip[ip] = last_heartbeat_time
 
     def is_active(self, ip):

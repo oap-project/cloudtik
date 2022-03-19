@@ -61,7 +61,7 @@ UpdateInstructions = namedtuple(
 
 
 @dataclass
-class AutoscalerSummary:
+class ClusterScalerSummary:
     active_nodes: Dict[NodeType, int]
     pending_nodes: List[Tuple[NodeIP, NodeType, NodeStatus]]
     pending_launches: Dict[NodeType, int]
@@ -1065,7 +1065,7 @@ class StandardClusterScaler:
         If a node is not pending or active, it is failed.
 
         Returns:
-            AutoscalerSummary: The summary.
+            ClusterScalerSummary: The summary.
         """
         active_nodes = Counter()
         pending_nodes = []
@@ -1111,7 +1111,7 @@ class StandardClusterScaler:
             if count:
                 pending_launches[node_type] = count
 
-        return AutoscalerSummary(
+        return ClusterScalerSummary(
             # Convert active_nodes from counter to dict for later serialization
             active_nodes=dict(active_nodes),
             pending_nodes=pending_nodes,

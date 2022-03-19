@@ -5,7 +5,7 @@ from datetime import datetime
 from cloudtik.core.tags import CLOUDTIK_TAG_LAUNCH_CONFIG, CLOUDTIK_TAG_NODE_KIND, \
     NODE_KIND_HEAD, CLOUDTIK_TAG_USER_NODE_TYPE
 
-# Override global constants used in AWS autoscaler config artifact names.
+# Override global constants used in AWS cluster config artifact names.
 # This helps ensure that any unmocked test doesn't alter non-test artifacts.
 cloudtik.providers._private.aws.config.CLOUDTIK = \
     "cloudtik-aws-test"

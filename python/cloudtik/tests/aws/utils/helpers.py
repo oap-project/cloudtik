@@ -41,7 +41,7 @@ def node_provider_tags(config, type_name):
     name.
 
     Args:
-        config: autoscaler config
+        config: cluster config
         type_name: node type name
     Returns:
         tags: node provider tags
@@ -61,7 +61,7 @@ def apply_node_provider_config_updates(config, node_cfg, node_type_name,
     creation. This should only be used for testing purposes.
 
     Args:
-        config: autoscaler config
+        config: cluster config
         node_cfg: node config
         node_type_name: node type name
         max_count: max nodes of the given type to launch

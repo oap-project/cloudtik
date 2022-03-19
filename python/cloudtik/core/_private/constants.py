@@ -191,7 +191,7 @@ LOG_FILE_NAME_CLUSTER_CONTROLLER = f"{PROCESS_TYPE_CLUSTER_CONTROLLER}.log"
 LOG_FILE_NAME_NODE_CONTROLLER = f"{PROCESS_TYPE_NODE_CONTROLLER}.log"
 LOG_FILE_NAME_LOG_MONITOR = f"{PROCESS_TYPE_LOG_MONITOR}.log"
 
-# Autoscaler events are denoted by the ":event_summary:" magic token.
+# Cluster Scaler events are denoted by the ":event_summary:" magic token.
 LOG_PREFIX_EVENT_SUMMARY = ":event_summary:"
 
 ERROR_CLUSTER_CONTROLLER_DIED = "cluster_controller_died"

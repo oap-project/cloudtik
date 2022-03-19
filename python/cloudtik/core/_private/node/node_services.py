@@ -241,7 +241,7 @@ class NodeServicesStarter:
             for key in set(env_dict.keys()).intersection(
                     set(params_dict.keys())):
                 if params_dict[key] != env_dict[key]:
-                    logger.warning("Autoscaler is overriding your resource:"
+                    logger.warning("Cluster Scaler is overriding your resource:"
                                    "{}: {} with {}.".format(
                                        key, params_dict[key], env_dict[key]))
             return num_cpus, num_gpus, memory,  result
@@ -257,7 +257,7 @@ class NodeServicesStarter:
                     logger.exception("Failed to load {}".format(env_string))
                     raise
                 logger.debug(
-                    f"Autoscaler overriding resources: {env_resources}.")
+                    f"Cluster Scaler overriding resources: {env_resources}.")
             num_cpus, num_gpus, memory, resources = \
                 merge_resources(env_resources, self._start_params.resources)
             self._resource_spec = ResourceSpec(

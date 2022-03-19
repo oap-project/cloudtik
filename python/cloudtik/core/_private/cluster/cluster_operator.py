@@ -57,7 +57,7 @@ from cloudtik.core._private.debug import log_once
 
 import cloudtik.core._private.subprocess_output_util as cmd_output_util
 from cloudtik.core._private.cluster.load_metrics import LoadMetricsSummary
-from cloudtik.core._private.cluster.cluster_scaler import AutoscalerSummary
+from cloudtik.core._private.cluster.cluster_scaler import ClusterScalerSummary
 from cloudtik.core._private.utils import format_info_string
 from cloudtik.runtime.spark.utils import config_spark_runtime_resources
 
@@ -97,7 +97,7 @@ def decode_cluster_scaling_status(status):
     as_dict = json.loads(status)
     time = datetime.datetime.fromtimestamp(as_dict["time"])
     lm_summary = LoadMetricsSummary(**as_dict["load_metrics_report"])
-    scaler_summary = AutoscalerSummary(**as_dict["cluster_scaler_report"])
+    scaler_summary = ClusterScalerSummary(**as_dict["cluster_scaler_report"])
     return time, lm_summary, scaler_summary
 
 

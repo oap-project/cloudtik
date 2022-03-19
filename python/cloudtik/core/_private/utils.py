@@ -1115,7 +1115,7 @@ def decode_cluster_scaling_time(status):
 def format_info_string(lm_summary, scaler_summary, time=None):
     if time is None:
         time = datetime.now()
-    header = "=" * 8 + f" Autoscaler status: {time} " + "=" * 8
+    header = "=" * 8 + f" Cluster Scaler status: {time} " + "=" * 8
     separator = "-" * len(header)
     available_node_report_lines = []
     for node_type, count in scaler_summary.active_nodes.items():

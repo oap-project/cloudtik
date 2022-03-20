@@ -358,7 +358,7 @@ def teardown_cluster(config_file: str, yes: bool, workers_only: bool,
         cli_logger.print("Requesting head node to stop workers.")
         cmd = "cloudtik teardown-on-head"
         if keep_min_workers:
-            cmd += " --keep_min_workers"
+            cmd += " --keep-min-workers"
         exec_cmd_on_cluster(config_file,
                             cmd,
                             override_cluster_name)

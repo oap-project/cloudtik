@@ -35,7 +35,7 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     kill_process_by_pid, \
     get_proxy_info_file, get_safe_proxy_process_info, \
     get_node_working_ip, get_head_working_ip, get_node_cluster_ip, is_use_internal_ip, get_head_bootstrap_config, \
-    get_attach_command
+    get_attach_command, is_alive_time
 
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
@@ -1839,15 +1839,20 @@ def cluster_process_status_on_head(redis_address):
     tb = pt.PrettyTable()
     tb.field_names = ["node-ip", "node-type", "n-controller", "n-manager", "l-monitor",
                       "c-controller", "r-manager", "r-server"]
+    live_nodes = 0
     all_nodes = node_table.get_all().values()
     for value in all_nodes:
         node_info = eval(value)
+        if is_alive_time(node_info.get("last_heartbeat_time", 0)):
+            continue
+
+        live_nodes += 1
         process_info = node_info["process"]
         tb.add_row([node_info["resource"]["ip"], node_info["node_type"],
                     process_info["NodeController"], process_info["NodeManager"], process_info["LogMonitor"],
                     process_info["ClusterController"], process_info["ResourceManager"], process_info["RedisServer"]
                     ])
-    cli_logger.print("Total {} nodes reported.", len(all_nodes))
+    cli_logger.print("Total {} live nodes reported.", live_nodes)
     cli_logger.print(tb)
 
 

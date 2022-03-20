@@ -1,6 +1,7 @@
 import click
 import os
 import logging
+from typing import Any, Dict
 import yaml
 from cloudtik.core._private import constants
 
@@ -18,6 +19,18 @@ CLOUDTIK_RUNTIME_SCRIPTS_PATH = os.path.join(
 SPARK_SERVICES_SCRIPT_PATH = os.path.join(CLOUDTIK_RUNTIME_SCRIPTS_PATH, "services.sh")
 SPARK_OUT_CONF = os.path.join(CLOUDTIK_RUNTIME_PATH, "spark/conf/outconf/spark/spark-defaults.conf")
 logger = logging.getLogger(__name__)
+
+
+def _get_spark_config(config: Dict[str, Any]):
+    runtime = config.get("runtime")
+    if not runtime:
+        return None
+
+    spark = runtime.get("spark")
+    if not spark:
+        return None
+
+    return spark.get("config")
 
 
 @click.group()
@@ -143,18 +156,19 @@ def configure(provider, master, aws_s3a_bucket, s3a_access_key, s3a_secret_key, 
                 gcp_gcs_bucket, fs_gs_auth_service_account_email, fs_gs_auth_service_account_private_key_id,
                 quote(fs_gs_auth_service_account_private_key), azure_storage_kind, azure_storage_account,
                 azure_container, azure_account_key))
-    #Merge user specified configuration and default configuration
+    # Merge user specified configuration and default configuration
     bootstrap_config = os.path.expanduser("~/cloudtik_bootstrap_config.yaml")
     if os.path.exists(bootstrap_config):
         config = yaml.safe_load(open(bootstrap_config).read())
-        if config.get("runtime") and config["runtime"].get("spark"):
+        spark_config = _get_spark_config(config)
+        if spark_config:
             spark_conf = {}
             with open(SPARK_OUT_CONF, "r") as f:
                 for line in f.readlines():
                     if not line.startswith("#"):
                         key, value = line.split(" ")
                         spark_conf[key] = value
-            spark_conf.update(config["runtime"]["spark"])
+            spark_conf.update(spark_config)
             with open(os.path.join(os.getenv("SPARK_HOME"), "conf/spark-defaults.conf"), "w+") as f:
                 for key, value in spark_conf.items():
                     f.write("{}    {}\n".format(key, value))

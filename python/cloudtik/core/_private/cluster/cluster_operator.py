@@ -1052,6 +1052,7 @@ def rsync(config_file: str,
           override_cluster_name: Optional[str],
           down: bool,
           ip_address: Optional[str] = None,
+          all_nodes: bool = False,
           use_internal_ip: bool = False,
           no_config_cache: bool = False,
           should_bootstrap: bool = True,
@@ -1066,6 +1067,7 @@ def rsync(config_file: str,
         down: whether we're syncing remote -> local
         ip_address (str): Address of node. Raise Exception
             if both ip_address and 'all_nodes' are provided.
+        all_nodes (bool): Whether the rsync up the files to all nodes
         use_internal_ip (bool): Whether the provided ip_address is
             public or private.
         should_bootstrap: whether to bootstrap cluster config before syncing
@@ -1073,6 +1075,9 @@ def rsync(config_file: str,
     if bool(source) != bool(target):
         cli_logger.abort(
             "Expected either both a source and a target, or neither.")
+
+    if ip_address and all_nodes:
+        cli_logger.abort("Cannot provide both ip_address and 'all_nodes'.")
 
     assert bool(source) == bool(target), (
         "Must either provide both or neither source and target.")
@@ -1131,7 +1136,16 @@ def rsync(config_file: str,
         config, config_file, override_cluster_name, create_if_needed=False)
     if not ip_address:
         rsync_to_node(head_node, source, target, is_head_node=True)
+        if not down and all_nodes:
+            rsync_to_node_from_head(config_file, override_cluster_name,
+                                    target, target, False,
+                                    None, all_nodes)
     else:
+        # for the cases that specified sync up or down with specific node
+        # both source and target must be specified
+        if not source or not target:
+            cli_logger.abort("Need to specify both source and target when rsync with specific node")
+
         target_base = os.path.basename(target)
         target_on_head = tempfile.mktemp(prefix=f"{target_base}_")
         if down:
@@ -1153,7 +1167,8 @@ def rsync_to_node_from_head(cluster_config_file: str,
                             source: str,
                             target: str,
                             down: bool,
-                            node_ip: str
+                            node_ip: str = None,
+                            all_workers: bool = False
                             ) -> None:
     """Exec the rsync on head command to do rsync with the target worker"""
     cmd = [
@@ -1162,7 +1177,10 @@ def rsync_to_node_from_head(cluster_config_file: str,
     ]
     cmd += [quote(source)]
     cmd += [quote(target)]
-    cmd += ["--node-ip={}".format(node_ip)]
+    if node_ip:
+        cmd += ["--node-ip={}".format(node_ip)]
+    if all_workers:
+        cmd += ["--all-workers"]
     if down:
         cmd += ["--down"]
     final_cmd = " ".join(cmd)
@@ -1172,11 +1190,19 @@ def rsync_to_node_from_head(cluster_config_file: str,
 def rsync_node_on_head(source: str,
                        target: str,
                        down: bool,
-                       node_ip: str):
+                       node_ip: str = None,
+                       all_workers: bool = False):
     # Since this is running on head, the bootstrap config must exist
     cluster_config_file = get_head_bootstrap_config()
     config = yaml.safe_load(open(cluster_config_file).read())
     provider = _get_node_provider(config["provider"], config["cluster_name"])
+
+    is_file_mount = False
+    if source and target:
+        for remote_mount in config.get("file_mounts", {}).keys():
+            if (source if down else target).startswith(remote_mount):
+                is_file_mount = True
+                break
 
     def rsync_to_node(node_id, source, target):
         updater = NodeUpdaterThread(
@@ -1209,13 +1235,20 @@ def rsync_node_on_head(source: str,
             if cli_logger.verbosity > 0:
                 cmd_output_util.set_output_redirected(False)
                 set_rsync_silent(False)
-            rsync(source, target, False)
+            rsync(source, target, is_file_mount)
         else:
-            # error
-            raise RuntimeError("No source or target specified for rsync.")
+            updater.sync_file_mounts(rsync)
 
-    node_id = provider.get_node_id(node_ip, use_internal_ip=True)
-    rsync_to_node(node_id, source, target)
+    nodes = []
+    if node_ip:
+        nodes = [provider.get_node_id(node_ip, use_internal_ip=True)]
+    else:
+        # either node_ip or all_workers be set
+        if all_workers:
+            nodes.extend(_get_worker_nodes(config, None))
+
+    for node_id in nodes:
+        rsync_to_node(node_id, source, target)
 
 
 def get_head_node_ip(config_file: str,

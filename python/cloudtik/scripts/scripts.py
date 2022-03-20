@@ -711,8 +711,13 @@ def rsync_down(cluster_config_file, source, target, cluster_name, node_ip):
     required=False,
     type=str,
     help="The internal IP address of the node to rsync with")
+@click.option(
+    "--all-nodes",
+    is_flag=True,
+    default=False,
+    help="Whether to sync the file to all nodes.")
 @add_click_logging_options
-def rsync_up(cluster_config_file, source, target, cluster_name, node_ip):
+def rsync_up(cluster_config_file, source, target, cluster_name, node_ip, all_nodes):
     """Upload specific files to a cluster."""
 
     try:
@@ -722,7 +727,8 @@ def rsync_up(cluster_config_file, source, target, cluster_name, node_ip):
             target,
             cluster_name,
             down=False,
-            ip_address=node_ip)
+            ip_address=node_ip,
+            all_nodes=all_nodes)
     except RuntimeError as re:
         cli_logger.error("Rsync up failed. " + str(re))
         if cli_logger.verbosity == 0:
@@ -1462,14 +1468,20 @@ def teardown_on_head(keep_min_workers):
     required=False,
     type=str,
     help="The worker node internal ip to rsync from or to.")
+@click.option(
+    "--all-workers",
+    is_flag=True,
+    default=False,
+    help="Whether to sync the file to all workers.")
 @add_click_logging_options
-def rsync_on_head(source, target, node_ip, down):
+def rsync_on_head(source, target, node_ip, down, all_workers):
     """Rsync specific file from or to the worker node."""
     rsync_node_on_head(
         source,
         target,
         down=down,
-        node_ip=node_ip)
+        node_ip=node_ip,
+        all_workers=all_workers)
 
 
 def add_command_alias(command, name, hidden):

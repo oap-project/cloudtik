@@ -25,7 +25,7 @@ from cloudtik.core._private.cluster.cluster_operator import (
     get_cluster_dump_archive, debug_status_string, get_local_dump_archive, get_cluster_dump_archive_on_head,
     show_cluster_info, show_cluster_status, RUN_ENV_TYPES, start_proxy, stop_proxy, cluster_debug_status,
     cluster_health_check, teardown_cluster_on_head, cluster_process_status_on_head, cluster_process_status,
-    rsync_node_on_head, attach_worker, attach_node_on_head)
+    rsync_node_on_head, attach_worker, attach_node_on_head, exec_worker, exec_worker_on_head)
 from cloudtik.core._private.constants import CLOUDTIK_PROCESSES, \
     CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
     CLOUDTIK_KV_NAMESPACE_HEALTHCHECK, \
@@ -902,25 +902,43 @@ def submit(cluster_config_file, screen, tmux, stop, start, cluster_name,
     multiple=True,
     type=int,
     help="Port to forward. Use this multiple times to forward multiple ports.")
+@click.option(
+    "--node-ip",
+    required=False,
+    type=str,
+    default=None,
+    help="The internal IP address of the node to exec command on")
 @add_click_logging_options
 def exec(cluster_config_file, cmd, run_env, screen, tmux, stop, start,
-         cluster_name, no_config_cache, port_forward):
+         cluster_name, no_config_cache, port_forward, node_ip):
     """Execute a command via SSH on a cluster."""
     port_forward = [(port, port) for port in list(port_forward)]
 
     try:
-        exec_cluster(
-            cluster_config_file,
-            cmd=cmd,
-            run_env=run_env,
-            screen=screen,
-            tmux=tmux,
-            stop=stop,
-            start=start,
-            override_cluster_name=cluster_name,
-            no_config_cache=no_config_cache,
-            port_forward=port_forward,
-            _allow_uninitialized_state=True)
+        if not node_ip:
+            exec_cluster(
+                cluster_config_file,
+                cmd=cmd,
+                run_env=run_env,
+                screen=screen,
+                tmux=tmux,
+                stop=stop,
+                start=start,
+                override_cluster_name=cluster_name,
+                no_config_cache=no_config_cache,
+                port_forward=port_forward,
+                _allow_uninitialized_state=True)
+        else:
+            exec_worker(
+                cluster_config_file,
+                node_ip,
+                cmd=cmd,
+                run_env=run_env,
+                screen=screen,
+                tmux=tmux,
+                override_cluster_name=cluster_name,
+                no_config_cache=no_config_cache,
+                port_forward=port_forward)
     except RuntimeError as re:
         cli_logger.error("Run exec failed. " + str(re))
         if cli_logger.verbosity == 0:
@@ -1527,10 +1545,49 @@ def rsync_on_head(source, target, node_ip, down, all_workers):
 @add_click_logging_options
 def attach_on_head(node_ip, screen, tmux, new, port_forward):
     """Attach to worker node from head."""
+    port_forward = [(port, port) for port in list(port_forward)]
     attach_node_on_head(node_ip,
                         screen,
                         tmux,
                         new,
+                        port_forward)
+
+
+@cli.command(hidden=True)
+@click.argument("cmd", required=True, type=str)
+@click.option(
+    "--node-ip",
+    "-n",
+    required=True,
+    type=str,
+    help="The node internal ip to attach to.")
+@click.option(
+    "--run-env",
+    required=False,
+    type=click.Choice(RUN_ENV_TYPES),
+    default="auto",
+    help="Choose whether to execute this command in a container or directly on"
+    " the cluster head. Only applies when docker is configured in the YAML.")
+@click.option(
+    "--screen", is_flag=True, default=False, help="Run the command in screen.")
+@click.option(
+    "--tmux", is_flag=True, default=False, help="Run the command in tmux.")
+@click.option(
+    "--port-forward",
+    "-p",
+    required=False,
+    multiple=True,
+    type=int,
+    help="Port to forward. Use this multiple times to forward multiple ports.")
+@add_click_logging_options
+def exec_on_head(cmd, node_ip, run_env, screen, tmux, port_forward):
+    """Execute command on the worker node from head."""
+    port_forward = [(port, port) for port in list(port_forward)]
+    exec_worker_on_head(node_ip,
+                        cmd,
+                        run_env,
+                        screen,
+                        tmux,
                         port_forward)
 
 
@@ -1589,6 +1646,7 @@ add_command_alias(local_dump, name="local_dump", hidden=True)
 cli.add_command(teardown_on_head)
 cli.add_command(rsync_on_head)
 cli.add_command(attach_on_head)
+cli.add_command(exec_on_head)
 cli.add_command(cluster_dump_on_head)
 cli.add_command(debug_status_on_head)
 cli.add_command(process_status_on_head)

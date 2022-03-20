@@ -481,7 +481,7 @@ def teardown_cluster_nodes(config: Dict[str, Any],
         cli_logger.success("No {} remaining.", node_type)
 
 
-def kill_node(config_file: str, yes: bool, hard: bool,
+def kill_node(config_file: str, yes: bool, soft: bool,
               override_cluster_name: Optional[str]) -> Optional[str]:
     """Kills a random worker."""
     # TODO (haifeng): Check the correct way to kill a node
@@ -490,7 +490,7 @@ def kill_node(config_file: str, yes: bool, hard: bool,
         config["cluster_name"] = override_cluster_name
     config = _bootstrap_config(config)
 
-    cli_logger.confirm(yes, "A random node will be killed.")
+    cli_logger.confirm(yes, "A random node will be killed.", _abort=True)
 
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     nodes = provider.non_terminated_nodes({
@@ -501,7 +501,7 @@ def kill_node(config_file: str, yes: bool, hard: bool,
         return None
     node = random.choice(nodes)
     cli_logger.print("Shutdown " + cf.bold("{}"), node)
-    if hard:
+    if not soft:
         provider.terminate_node(node)
     else:
         updater = NodeUpdaterThread(

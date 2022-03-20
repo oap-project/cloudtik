@@ -520,8 +520,8 @@ class SSHCommandExecutor(CommandExecutor):
 
         cli_logger.verbose("Running `{}`", cf.bold(cmd))
         with cli_logger.indented():
-            cli_logger.very_verbose("Full command is `{}`",
-                                    cf.bold(" ".join(final_cmd)))
+            cli_logger.verbose("Full command is `{}`",
+                               cf.bold(" ".join(final_cmd)))
 
         if cli_logger.verbosity > 0:
             with cli_logger.indented():

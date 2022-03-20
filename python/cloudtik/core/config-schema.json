@@ -316,19 +316,13 @@
             "type": "string",
             "description": "If using multiple node types, specifies the head node type."
         },
+        "head_node": {
+            "type": "object",
+            "description": "Provider-specific config for the head node, e.g. instance type."
+        },
         "file_mounts": {
             "type": "object",
             "description": "Map of remote paths to local paths, e.g. {\"/tmp/data\": \"/my/local/data\"}"
-        },
-        "runtime": {
-            "type": "object",
-            "description": "Set the configurations of some runtime components",
-            "properties":{
-                "spark" : {
-                    "type": "object",
-                    "description": "Map of spark configurations, e.g. {\"spark.executor.cores\": \"45\"}"
-                }
-            }
         },
         "cluster_synced_files": {
             "type": "array",
@@ -432,6 +426,16 @@
                 }
             },
             "additionalProperties": false
+        },
+        "runtime": {
+            "type": "object",
+            "description": "Set the configurations of some runtime components",
+            "properties":{
+                "spark" : {
+                    "type": "object",
+                    "description": "Map of spark configurations, e.g. {\"spark.executor.cores\": \"45\"}"
+                }
+            }
         },
         "spark_executor_resource" : {
             "type": "object",

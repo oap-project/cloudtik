@@ -335,9 +335,6 @@ SMALL_CLUSTER = {
     "head_node": {
         "TestProp": 1,
     },
-    "worker_nodes": {
-        "TestProp": 2,
-    },
     "file_mounts": {},
     "cluster_synced_files": [],
     "initialization_commands": ["init_cmd"],
@@ -383,7 +380,6 @@ MOCK_DEFAULT_CONFIG = {
     },
     "head_node_type": "cloudtik.head.default",
     "head_node": {},
-    "worker_nodes": {},
     "file_mounts": {},
     "cluster_synced_files": [],
     "initialization_commands": [],

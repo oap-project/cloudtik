@@ -1132,15 +1132,20 @@ def rsync(config_file: str,
     if not ip_address:
         rsync_to_node(head_node, source, target, is_head_node=True)
     else:
-        target_on_head = tempfile.mktemp(prefix=f"{target}_")
+        target_base = os.path.basename(target)
+        target_on_head = tempfile.mktemp(prefix=f"{target_base}_")
         if down:
             # first run rsync on head
-            rsync_to_node_from_head(source, target_on_head, True, ip_address)
+            rsync_to_node_from_head(config_file, override_cluster_name,
+                                    source, target_on_head, True,
+                                    ip_address)
             rsync_to_node(head_node, target_on_head, target, is_head_node=True)
         else:
             # First rsync with head
             rsync_to_node(head_node, source, target_on_head, is_head_node=True)
-            rsync_to_node_from_head(target_on_head, target, False, ip_address)
+            rsync_to_node_from_head(config_file, override_cluster_name,
+                                    target_on_head, target, False,
+                                    ip_address)
 
 
 def rsync_to_node_from_head(cluster_config_file: str,
@@ -1155,9 +1160,9 @@ def rsync_to_node_from_head(cluster_config_file: str,
         "cloudtik",
         "rsync-on-head",
     ]
-    cmd += ["--source={}".format(quote(source))]
-    cmd += ["--target={}".format(quote(target))]
-    cmd += ["--node--ip={}".format(node_ip)]
+    cmd += [quote(source)]
+    cmd += [quote(target)]
+    cmd += ["--node-ip={}".format(node_ip)]
     if down:
         cmd += ["--down"]
     final_cmd = " ".join(cmd)

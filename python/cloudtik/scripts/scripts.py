@@ -677,11 +677,17 @@ def disable_local_access(cluster_config_file,cluster_name):
     required=False,
     type=str,
     help="Override the configured cluster name.")
+@click.option(
+    "--node-ip",
+    required=False,
+    type=str,
+    help="The internal IP address of the node to rsync with")
 @add_click_logging_options
-def rsync_down(cluster_config_file, source, target, cluster_name):
+def rsync_down(cluster_config_file, source, target, cluster_name, node_ip):
     """Download specific files from a cluster."""
     try:
-        rsync(cluster_config_file, source, target, cluster_name, down=True)
+        rsync(cluster_config_file, source, target, cluster_name,
+              down=True, ip_address=node_ip)
     except RuntimeError as re:
         cli_logger.error("Rsync down failed. " + str(re))
         if cli_logger.verbosity == 0:
@@ -700,8 +706,13 @@ def rsync_down(cluster_config_file, source, target, cluster_name):
     required=False,
     type=str,
     help="Override the configured cluster name.")
+@click.option(
+    "--node-ip",
+    required=False,
+    type=str,
+    help="The internal IP address of the node to rsync with")
 @add_click_logging_options
-def rsync_up(cluster_config_file, source, target, cluster_name):
+def rsync_up(cluster_config_file, source, target, cluster_name, node_ip):
     """Upload specific files to a cluster."""
 
     try:
@@ -710,7 +721,8 @@ def rsync_up(cluster_config_file, source, target, cluster_name):
             source,
             target,
             cluster_name,
-            down=False)
+            down=False,
+            ip_address=node_ip)
     except RuntimeError as re:
         cli_logger.error("Rsync up failed. " + str(re))
         if cli_logger.verbosity == 0:
@@ -1449,7 +1461,7 @@ def teardown_on_head(keep_min_workers):
     "-n",
     required=False,
     type=str,
-    help="The worker node ip to rsync from or to.")
+    help="The worker node internal ip to rsync from or to.")
 @add_click_logging_options
 def rsync_on_head(source, target, node_ip, down):
     """Rsync specific file from or to the worker node."""

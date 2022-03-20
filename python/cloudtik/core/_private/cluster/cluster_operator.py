@@ -949,6 +949,7 @@ def exec_cluster(config_file: str,
     if override_cluster_name is not None:
         config["cluster_name"] = override_cluster_name
     config = _bootstrap_config(config, no_config_cache=no_config_cache)
+    use_internal_ip = config.get("bootstrapped", False)
 
     head_node = _get_running_head_node(
         config,
@@ -971,6 +972,7 @@ def exec_cluster(config_file: str,
         runtime_hash="",
         file_mounts_contents_hash="",
         is_head_node=True,
+        use_internal_ip=use_internal_ip,
         rsync_options={
             "rsync_exclude": config.get("rsync_exclude"),
             "rsync_filter": config.get("rsync_filter")

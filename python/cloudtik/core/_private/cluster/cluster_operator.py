@@ -34,7 +34,8 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     hash_launch_conf, prepare_config, get_free_port, \
     kill_process_by_pid, \
     get_proxy_info_file, get_safe_proxy_process_info, \
-    get_node_working_ip, get_head_working_ip, get_node_cluster_ip, is_use_internal_ip, get_head_bootstrap_config
+    get_node_working_ip, get_head_working_ip, get_node_cluster_ip, is_use_internal_ip, get_head_bootstrap_config, \
+    get_attach_command
 
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
@@ -884,21 +885,7 @@ def attach_cluster(config_file: str,
         port_forward ( (int,int) or list[(int,int)] ): port(s) to forward
     """
 
-    if use_tmux:
-        if new:
-            cmd = "tmux new"
-        else:
-            cmd = "tmux attach || tmux new"
-    elif use_screen:
-        if new:
-            cmd = "screen -L"
-        else:
-            cmd = "screen -L -xRR"
-    else:
-        if new:
-            raise ValueError(
-                "--new only makes sense if passing --screen or --tmux")
-        cmd = "$SHELL"
+    cmd = get_attach_command(use_screen, use_tmux, new)
 
     exec_cluster(
         config_file,
@@ -1862,3 +1849,157 @@ def cluster_process_status(cluster_config_file: str,
 
     cmd = f"cloudtik process-status-on-head"
     exec_cmd_on_cluster(cluster_config_file, cmd, override_cluster_name)
+
+
+def attach_worker(config_file: str,
+                  node_ip: str,
+                  use_screen: bool,
+                  use_tmux: bool,
+                  override_cluster_name: Optional[str],
+                  no_config_cache: bool = False,
+                  new: bool = False,
+                  port_forward: Optional[Port_forward] = None) -> None:
+    """Attaches to a screen for the specified cluster.
+
+    Arguments:
+        config_file: path to the cluster yaml
+        node_ip: the node internal IP to attach
+        use_screen: whether to use screen as multiplexer
+        use_tmux: whether to use tmux as multiplexer
+        override_cluster_name: set the name of the cluster
+        new: whether to force a new screen
+        port_forward ( (int,int) or list[(int,int)] ): port(s) to forward
+    """
+
+    # execute attach-on-head
+    cmd = [
+        "cloudtik",
+        "attach-on-head",
+    ]
+    cmd += ["--node-ip={}".format(node_ip)]
+    if use_screen:
+        cmd += ["--screen"]
+    if use_tmux:
+        cmd += ["--tmux"]
+    if new:
+        cmd += ["--new"]
+
+    # TODO (haifeng): handle port forward for two state cases
+    final_cmd = " ".join(cmd)
+
+    exec_cluster(
+        config_file,
+        cmd=final_cmd,
+        run_env="auto",
+        screen=False,
+        tmux=False,
+        stop=False,
+        start=False,
+        override_cluster_name=override_cluster_name,
+        no_config_cache=no_config_cache,
+        port_forward=port_forward,
+        _allow_uninitialized_state=True)
+
+
+def exec_on_head(config_file: str,
+                 *,
+                 node_ip: str,
+                 cmd: str = None,
+                 run_env: str = "auto",
+                 screen: bool = False,
+                 tmux: bool = False,
+                 override_cluster_name: Optional[str] = None,
+                 port_forward: Optional[Port_forward] = None,
+                 with_output: bool = False,
+                 _allow_uninitialized_state: bool = False) -> str:
+    """Runs a command on the specified node from head.
+
+    Arguments:
+        config_file: path to the cluster yaml
+        node_ip: The internal node IP of the node to exec on
+        cmd: command to run
+        run_env: whether to run the command on the host or in a container.
+            Select between "auto", "host" and "docker"
+        screen: whether to run in a screen
+        tmux: whether to run in a tmux session
+        override_cluster_name: set the name of the cluster
+        port_forward ( (int, int) or list[(int, int)] ): port(s) to forward
+        with_output (bool): Whether needs output
+        _allow_uninitialized_state: whether to execute on an uninitialized head
+            node.
+    """
+    assert not (screen and tmux), "Can specify only one of `screen` or `tmux`."
+    assert run_env in RUN_ENV_TYPES, "--run_env must be in {}".format(
+        RUN_ENV_TYPES)
+
+    # TODO(rliaw): We default this to True to maintain backwards-compat.
+    # In the future we would want to support disabling login-shells
+    # and interactivity.
+    cmd_output_util.set_allow_interactive(True)
+
+    config = yaml.safe_load(open(config_file).read())
+    if override_cluster_name is not None:
+        config["cluster_name"] = override_cluster_name
+
+    provider = _get_node_provider(config["provider"], config["cluster_name"])
+    node_id = provider.get_node_id(node_ip, use_internal_ip=True)
+    if not node_id:
+        cli_logger.error("No node with the specified IP {} found.", node_ip)
+        return None
+
+    provider = _get_node_provider(config["provider"], config["cluster_name"])
+    updater = NodeUpdaterThread(
+        node_id=node_id,
+        provider_config=config["provider"],
+        provider=provider,
+        auth_config=config["auth"],
+        cluster_name=config["cluster_name"],
+        file_mounts=config["file_mounts"],
+        initialization_commands=[],
+        setup_commands=[],
+        start_commands=[],
+        runtime_hash="",
+        file_mounts_contents_hash="",
+        is_head_node=False,
+        use_internal_ip=True,
+        rsync_options={
+            "rsync_exclude": config.get("rsync_exclude"),
+            "rsync_filter": config.get("rsync_filter")
+        },
+        docker_config=config.get("docker"))
+
+    result = _exec(
+        updater,
+        cmd,
+        screen,
+        tmux,
+        port_forward=port_forward,
+        with_output=with_output,
+        run_env=run_env,
+        shutdown_after_run=False)
+
+    return result
+
+
+def attach_node_on_head(node_ip: str,
+                        use_screen: bool,
+                        use_tmux: bool,
+                        new: bool = False,
+                        port_forward: Optional[Port_forward] = None):
+    cluster_config_file = get_head_bootstrap_config()
+
+    if not node_ip:
+        cli_logger.error("Node IP must be specified to exec command!")
+        return
+
+    cmd = get_attach_command(use_screen, use_tmux, new)
+
+    exec_on_head(
+        cluster_config_file,
+        node_ip=node_ip,
+        cmd=cmd,
+        run_env="auto",
+        screen=False,
+        tmux=False,
+        port_forward=port_forward,
+        _allow_uninitialized_state=True)

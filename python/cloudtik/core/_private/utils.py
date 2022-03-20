@@ -1338,3 +1338,24 @@ def is_alive_time(report_time):
 
 def get_head_bootstrap_config():
     return os.path.expanduser("~/cloudtik_bootstrap_config.yaml")
+
+
+def get_attach_command(use_screen: bool,
+                       use_tmux: bool,
+                       new: bool = False):
+    if use_tmux:
+        if new:
+            cmd = "tmux new"
+        else:
+            cmd = "tmux attach || tmux new"
+    elif use_screen:
+        if new:
+            cmd = "screen -L"
+        else:
+            cmd = "screen -L -xRR"
+    else:
+        if new:
+            raise ValueError(
+                "--new only makes sense if passing --screen or --tmux")
+        cmd = "$SHELL"
+    return cmd

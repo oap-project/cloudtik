@@ -25,7 +25,7 @@ from cloudtik.core._private.cluster.cluster_operator import (
     get_cluster_dump_archive, debug_status_string, get_local_dump_archive, get_cluster_dump_archive_on_head,
     show_cluster_info, show_cluster_status, RUN_ENV_TYPES, start_proxy, stop_proxy, cluster_debug_status,
     cluster_health_check, teardown_cluster_on_head, cluster_process_status_on_head, cluster_process_status,
-    rsync_node_on_head)
+    rsync_node_on_head, attach_worker, attach_node_on_head)
 from cloudtik.core._private.constants import CLOUDTIK_PROCESSES, \
     CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
     CLOUDTIK_KV_NAMESPACE_HEALTHCHECK, \
@@ -608,21 +608,40 @@ def monitor(cluster_config_file, lines, cluster_name):
     multiple=True,
     type=int,
     help="Port to forward. Use this multiple times to forward multiple ports.")
+@click.option(
+    "--node-ip",
+    required=False,
+    type=str,
+    default=None,
+    help="The internal IP address of the node to attach to")
 @add_click_logging_options
 def attach(cluster_config_file, start, screen, tmux, cluster_name,
-           no_config_cache, new, port_forward):
-    """Create or attach to SH session to a cluster."""
+           no_config_cache, new, port_forward, node_ip):
+    """Create or attach to SH session to a cluster or a worker node."""
     port_forward = [(port, port) for port in list(port_forward)]
     try:
-        attach_cluster(
-            cluster_config_file,
-            start,
-            screen,
-            tmux,
-            cluster_name,
-            no_config_cache=no_config_cache,
-            new=new,
-            port_forward=port_forward)
+        if not node_ip:
+            # attach to the head
+            attach_cluster(
+                cluster_config_file,
+                start,
+                screen,
+                tmux,
+                cluster_name,
+                no_config_cache=no_config_cache,
+                new=new,
+                port_forward=port_forward)
+        else:
+            # attach to the worker node
+            attach_worker(
+                cluster_config_file,
+                node_ip,
+                screen,
+                tmux,
+                cluster_name,
+                no_config_cache=no_config_cache,
+                new=new,
+                port_forward=port_forward)
     except RuntimeError as re:
         cli_logger.error("Attach failed. " + str(re))
         if cli_logger.verbosity == 0:
@@ -681,6 +700,7 @@ def disable_local_access(cluster_config_file,cluster_name):
     "--node-ip",
     required=False,
     type=str,
+    default=None,
     help="The internal IP address of the node to rsync with")
 @add_click_logging_options
 def rsync_down(cluster_config_file, source, target, cluster_name, node_ip):
@@ -710,6 +730,7 @@ def rsync_down(cluster_config_file, source, target, cluster_name, node_ip):
     "--node-ip",
     required=False,
     type=str,
+    default=None,
     help="The internal IP address of the node to rsync with")
 @click.option(
     "--all-nodes",
@@ -1452,7 +1473,7 @@ def teardown_on_head(keep_min_workers):
     teardown_cluster_on_head(keep_min_workers)
 
 
-@cli.command()
+@cli.command(hidden=True)
 @click.argument("source", required=False, type=str)
 @click.argument("target", required=False, type=str)
 @click.option(
@@ -1465,6 +1486,7 @@ def teardown_on_head(keep_min_workers):
     "-n",
     required=False,
     type=str,
+    default=None,
     help="The worker node internal ip to rsync from or to.")
 @click.option(
     "--all-workers",
@@ -1480,6 +1502,36 @@ def rsync_on_head(source, target, node_ip, down, all_workers):
         down=down,
         node_ip=node_ip,
         all_workers=all_workers)
+
+
+@cli.command(hidden=True)
+@click.option(
+    "--node-ip",
+    "-n",
+    required=True,
+    type=str,
+    help="The node internal ip to attach to.")
+@click.option(
+    "--screen", is_flag=True, default=False, help="Run the command in screen.")
+@click.option(
+    "--tmux", is_flag=True, default=False, help="Run the command in tmux.")
+@click.option(
+    "--new", "-N", is_flag=True, help="Force creation of a new screen.")
+@click.option(
+    "--port-forward",
+    "-p",
+    required=False,
+    multiple=True,
+    type=int,
+    help="Port to forward. Use this multiple times to forward multiple ports.")
+@add_click_logging_options
+def attach_on_head(node_ip, screen, tmux, new, port_forward):
+    """Attach to worker node from head."""
+    attach_node_on_head(node_ip,
+                        screen,
+                        tmux,
+                        new,
+                        port_forward)
 
 
 def add_command_alias(command, name, hidden):
@@ -1536,6 +1588,7 @@ add_command_alias(local_dump, name="local_dump", hidden=True)
 # utility commands running on head node
 cli.add_command(teardown_on_head)
 cli.add_command(rsync_on_head)
+cli.add_command(attach_on_head)
 cli.add_command(cluster_dump_on_head)
 cli.add_command(debug_status_on_head)
 cli.add_command(process_status_on_head)

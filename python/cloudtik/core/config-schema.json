@@ -47,6 +47,11 @@
             "type": "number",
             "minimum": 0
         },
+        "bootstrapped": {
+            "type": "boolean",
+            "description": "Mark whether the config file is already bootstrapped or not",
+            "default": false
+        },
         "provider": {
             "type": "object",
             "description": "Cloud-provider specific configuration.",

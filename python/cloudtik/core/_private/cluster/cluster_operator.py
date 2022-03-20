@@ -243,6 +243,10 @@ CONFIG_CACHE_VERSION = 1
 
 def _bootstrap_config(config: Dict[str, Any],
                       no_config_cache: bool = False) -> Dict[str, Any]:
+    # Check if bootstrapped, return if it is the case
+    if config.get("bootstrapped", False):
+        return config
+
     config = prepare_config(config)
     # NOTE: multi-node-type cluster scaler is guaranteed to be in use after this.
 
@@ -831,6 +835,9 @@ def _set_up_config_for_head_node(config: Dict[str, Any],
     # node can update the workers
     remote_config = copy.deepcopy(config)
 
+    # Set bootstrapped mark
+    remote_config["bootstrapped"] = True
+    
     # drop proxy options if they exist, otherwise
     # head node won't be able to connect to workers
     remote_config["auth"].pop("ssh_proxy_command", None)
@@ -1660,7 +1667,6 @@ def show_cluster_status(config_file: str,
     config = yaml.safe_load(open(config_file).read())
     if override_cluster_name is not None:
         config["cluster_name"] = override_cluster_name
-
     config = _bootstrap_config(config, no_config_cache=False)
 
     provider = _get_node_provider(config["provider"], config["cluster_name"])
@@ -1694,9 +1700,9 @@ def start_proxy(config_file: str,
                 override_cluster_name: Optional[str] = None,
                 no_config_cache: bool = False):
     config = yaml.safe_load(open(config_file).read())
-    config = _bootstrap_config(config, no_config_cache=no_config_cache)
     if override_cluster_name is not None:
         config["cluster_name"] = override_cluster_name
+    config = _bootstrap_config(config, no_config_cache=no_config_cache)
 
     if is_use_internal_ip(config):
         cli_logger.print(cf.bold(

@@ -605,7 +605,7 @@ def create_and_get_archive_from_head_node(head_node: Node,
     return tmp
 
 
-def create_and_add_head_data_to_local_archive(
+def create_and_add_workers_data_to_local_archive(
         archive: Archive, head_node: Node, parameters: GetParameters):
     """Create and get data from remote node and add to local archive.
 
@@ -622,17 +622,18 @@ def create_and_add_head_data_to_local_archive(
     if not archive.is_open:
         archive.open()
 
-    cat = "cluster"
+    cat = "workers"
 
     with archive.subdir("", root=os.path.dirname(tmp)) as sd:
-        sd.add(tmp, arcname=f"cloudtik_{cat}_{head_node.host}.tar.gz")
+        sd.add(tmp, arcname=f"cloudtik_{cat}.tar.gz")
 
     return archive
 
 
 def create_archive_for_cluster_nodes(archive: Archive,
                                      head_node: Node,
-                                     parameters: GetParameters):
+                                     parameters: GetParameters,
+                                     head_only: bool = False):
     """Create an archive combining data from the remote nodes.
 
     This will parallelize calls to get data from remote nodes.
@@ -649,8 +650,14 @@ def create_archive_for_cluster_nodes(archive: Archive,
     if not archive.is_open:
         archive.open()
 
-    create_and_add_head_data_to_local_archive(
+    # head node dump
+    create_and_add_remote_data_to_local_archive(
         archive, head_node, parameters)
+
+    if not head_only:
+        # workers dump
+        create_and_add_workers_data_to_local_archive(
+            archive, head_node, parameters)
 
     return archive
 
@@ -726,7 +733,7 @@ def get_info_from_cluster_config(
     head_node = head_nodes[0] if len(head_nodes) > 0 else None
     # TODO haifeng: check which ip address to use here
     head_node_ip = get_head_working_ip(config, provider, head_node) if head_node else None
-    hosts = [get_node_cluster_ip(config, provider, node) for node in head_nodes + worker_nodes]
+    workers = [get_node_cluster_ip(config, provider, node) for node in worker_nodes]
     ssh_user = config["auth"]["ssh_user"]
     ssh_key = config["auth"]["ssh_private_key"]
 
@@ -737,7 +744,7 @@ def get_info_from_cluster_config(
 
     cluster_name = config.get("cluster_name", None)
 
-    return head_node_ip, hosts, ssh_user, ssh_key, docker, cluster_name
+    return head_node_ip, workers, ssh_user, ssh_key, docker, cluster_name
 
 
 def _info_from_params(
@@ -771,9 +778,9 @@ def _info_from_params(
         ssh_user = ssh_user or u
         ssh_key = ssh_key or k
         docker = docker or d
-        hosts = host.split(",") if host else h
+        workers = host.split(",") if host else h
     elif host:
-        hosts = host.split(",")
+        workers = host.split(",")
     else:
         raise LocalCommandFailed(
             "You need to either specify a `<cluster_config>` or `--host`.")
@@ -794,4 +801,4 @@ def _info_from_params(
                     f"If this is incorrect, specify with `--ssh-key <key>`")
                 break
 
-    return cluster, head_node_ip, hosts, ssh_user, ssh_key, docker, cluster_name
+    return cluster, head_node_ip, workers, ssh_user, ssh_key, docker, cluster_name

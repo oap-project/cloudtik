@@ -1249,13 +1249,12 @@ def cluster_dump_on_head(host: Optional[str] = None,
     default=None,
     help="Name of the docker container, if applicable.")
 @click.option(
-    "--local",
-    "-L",
+    "--head-only",
     required=False,
     type=bool,
     is_flag=True,
-    default=None,
-    help="Also include information about the local node.")
+    default=False,
+    help="Decide whether dump the head node only.")
 @click.option(
     "--output",
     "-o",
@@ -1301,7 +1300,7 @@ def cluster_dump(cluster_config_file: Optional[str] = None,
                  ssh_user: Optional[str] = None,
                  ssh_key: Optional[str] = None,
                  docker: Optional[str] = None,
-                 local: Optional[bool] = None,
+                 head_only: Optional[bool] = None,
                  output: Optional[str] = None,
                  logs: bool = True,
                  debug_state: bool = True,
@@ -1315,8 +1314,7 @@ def cluster_dump(cluster_config_file: Optional[str] = None,
 
         cloudtik cluster-dump [cluster.yaml]
 
-    Include the --local flag to also collect and include data from the
-    local node.
+    Include the --head-only flag to collect data from head node only.
 
     Missing fields will be tried to be auto-filled.
 
@@ -1329,7 +1327,7 @@ def cluster_dump(cluster_config_file: Optional[str] = None,
         ssh_user=ssh_user,
         ssh_key=ssh_key,
         docker=docker,
-        local=local,
+        head_only=head_only,
         output=output,
         logs=logs,
         debug_state=debug_state,

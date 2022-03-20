@@ -51,7 +51,7 @@ from cloudtik.core._private.log_timer import LogTimer
 from cloudtik.core._private.cluster.cluster_dump import Archive, \
     GetParameters, Node, _info_from_params, \
     create_archive_for_remote_nodes, get_all_local_data, \
-    create_archive_for_local_and_cluster_nodes, create_archive_for_cluster_nodes
+    create_archive_for_cluster_nodes
 from cloudtik.core._private.state.control_state import ControlState
 from cloudtik.core._private.debug import log_once
 
@@ -1424,7 +1424,7 @@ def get_cluster_dump_archive_on_head(
             "You can only use either `--output` or `--stream`, but not both.")
 
     # Parse arguments (e.g. fetch info from cluster config)
-    cluster_config_file, head_node_ip, hosts, ssh_user, ssh_key, docker, cluster_name = \
+    cluster_config_file, head_node_ip, workers, ssh_user, ssh_key, docker, cluster_name = \
         _info_from_params(None, host, None, None, None, False)
 
     nodes = [
@@ -1432,7 +1432,7 @@ def get_cluster_dump_archive_on_head(
             host=h,
             ssh_user=ssh_user,
             ssh_key=ssh_key,
-            docker_container=docker) for h in hosts
+            docker_container=docker) for h in workers
     ]
 
     if not nodes:
@@ -1440,10 +1440,6 @@ def get_cluster_dump_archive_on_head(
             "No nodes found. Specify with `--host` or by passing a "
             "cluster config to `--cluster`.")
         return None
-
-    # TODO haifeng: improve the robustness for this code
-    if cluster_config_file:
-        nodes[0].is_head = True
 
     parameters = GetParameters(
         logs=logs,
@@ -1476,7 +1472,7 @@ def get_cluster_dump_archive(cluster_config_file: Optional[str] = None,
                              ssh_user: Optional[str] = None,
                              ssh_key: Optional[str] = None,
                              docker: Optional[str] = None,
-                             local: Optional[bool] = None,
+                             head_only: Optional[str] = None,
                              output: Optional[str] = None,
                              logs: bool = True,
                              debug_state: bool = True,
@@ -1515,7 +1511,7 @@ def get_cluster_dump_archive(cluster_config_file: Optional[str] = None,
         f"anyone.")
 
     # Parse arguments (e.g. fetch info from cluster config)
-    cluster_config_file, head_node_ip, hosts, ssh_user, ssh_key, docker, cluster_name = \
+    cluster_config_file, head_node_ip, workers, ssh_user, ssh_key, docker, cluster_name = \
         _info_from_params(cluster_config_file, host, ssh_user, ssh_key, docker, True)
 
     if not head_node_ip:
@@ -1527,12 +1523,8 @@ def get_cluster_dump_archive(cluster_config_file: Optional[str] = None,
             host=head_node_ip,
             ssh_user=ssh_user,
             ssh_key=ssh_key,
-            docker_container=docker)
-
-    if local is None:
-        # If called with a cluster config, this was probably started
-        # from a laptop
-        local = not bool(cluster_config_file)
+            docker_container=docker,
+            is_head=True)
 
     parameters = GetParameters(
         logs=logs,
@@ -1542,12 +1534,8 @@ def get_cluster_dump_archive(cluster_config_file: Optional[str] = None,
         processes_verbose=processes_verbose)
 
     with Archive(file=tempfile) as archive:
-        if local:
-            create_archive_for_local_and_cluster_nodes(
-                archive, head_node=head_node, parameters=parameters)
-        else:
-            create_archive_for_cluster_nodes(
-                archive, head_node=head_node, parameters=parameters)
+        create_archive_for_cluster_nodes(
+            archive, head_node=head_node, parameters=parameters, head_only=head_only)
 
     if not output:
         if cluster_name:

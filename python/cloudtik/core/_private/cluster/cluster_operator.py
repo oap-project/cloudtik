@@ -356,7 +356,7 @@ def teardown_cluster(config_file: str, yes: bool, workers_only: bool,
         # Running teardown cluster process on head first. But we allow this to fail.
         # Since head node problem should not prevent cluster tear down
         cli_logger.print("Requesting head node to stop workers.")
-        cmd = "cloudtik teardown-on-head"
+        cmd = "cloudtik head teardown"
         if keep_min_workers:
             cmd += " --keep-min-workers"
         exec_cmd_on_cluster(config_file,
@@ -1169,7 +1169,8 @@ def rsync_to_node_from_head(cluster_config_file: str,
     """Exec the rsync on head command to do rsync with the target worker"""
     cmds = [
         "cloudtik",
-        "rsync-on-head",
+        "head",
+        "rsync",
     ]
     cmds += [quote(source)]
     cmds += [quote(target)]
@@ -1808,7 +1809,7 @@ def cluster_debug_status(cluster_config_file: str,
                          override_cluster_name: Optional[str]) -> None:
     """Return the debug status of a cluster scaling from head node"""
 
-    cmd = f"cloudtik debug-status-on-head"
+    cmd = f"cloudtik head debug-status"
     exec_cmd_on_cluster(cluster_config_file, cmd, override_cluster_name)
 
 
@@ -1816,7 +1817,7 @@ def cluster_health_check(cluster_config_file: str,
                          override_cluster_name: Optional[str]) -> None:
     """Do a health check on head node and return the results"""
 
-    cmd = f"cloudtik health-check-on-head"
+    cmd = f"cloudtik head health-check"
     exec_cmd_on_cluster(cluster_config_file, cmd, override_cluster_name)
 
 
@@ -1861,7 +1862,7 @@ def cluster_process_status(cluster_config_file: str,
                            override_cluster_name: Optional[str]) -> None:
     """Do a health check on head node and return the results"""
 
-    cmd = f"cloudtik process-status-on-head"
+    cmd = f"cloudtik head process-status"
     exec_cmd_on_cluster(cluster_config_file, cmd, override_cluster_name)
 
 
@@ -1888,10 +1889,11 @@ def exec_worker(config_file: str,
         port_forward ( (int,int) or list[(int,int)] ): port(s) to forward
     """
 
-    # execute exec-on-head with the cmd
+    # execute exec on head with the cmd
     cmds = [
         "cloudtik",
-        "exec-on-head",
+        "head",
+        "exec",
     ]
     cmds += [quote(cmd)]
     cmds += ["--node-ip={}".format(node_ip)]
@@ -1939,10 +1941,11 @@ def attach_worker(config_file: str,
         port_forward ( (int,int) or list[(int,int)] ): port(s) to forward
     """
 
-    # execute attach-on-head
+    # execute attach on head
     cmds = [
         "cloudtik",
-        "attach-on-head",
+        "head",
+        "attach",
     ]
     cmds += ["--node-ip={}".format(node_ip)]
     if use_screen:

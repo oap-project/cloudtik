@@ -12,9 +12,8 @@ logger = logging.getLogger(__name__)
 @click.group()
 def workspace():
     """
-    Commands for working with Workspace.
+    Commands for working with workspace.
     """
-    pass
 
 
 @workspace.command()
@@ -32,7 +31,7 @@ def workspace():
     help="Disable the local workspace config cache.")
 @add_click_logging_options
 def create(workspace_config_file, workspace_name, no_workspace_config_cache):
-    """Create a Workspace on Cloud based on the workspace configuration file."""
+    """Create a workspace on cloud using the workspace configuration file."""
     # TODO: Implement creating of workspace based on cloud provider.
     if urllib.parse.urlparse(workspace_config_file).scheme in ("http", "https"):
         try:
@@ -69,7 +68,12 @@ def create(workspace_config_file, workspace_name, no_workspace_config_cache):
     help="Override the configured workspace name.")
 @add_click_logging_options
 def delete(workspace_config_file, yes, workspace_name):
-    """Delete the workspace and associated Cloud resources."""
+    """Delete a workspace and the associated cloud resources."""
     # TODO: Implement deleting of workspace based on cloud provider.
 
     delete_workspace(workspace_config_file, yes, workspace_name)
+
+
+# core commands working on workspace
+workspace.add_command(create)
+workspace.add_command(delete)

@@ -1800,7 +1800,8 @@ def exec_cmd_on_cluster(cluster_config_file: str,
         start=False,
         override_cluster_name=override_cluster_name,
         port_forward=None,
-        with_output=False)
+        with_output=False,
+        _allow_uninitialized_state=False)
 
 
 def cluster_debug_status(cluster_config_file: str,
@@ -1915,7 +1916,7 @@ def exec_worker(config_file: str,
         override_cluster_name=override_cluster_name,
         no_config_cache=no_config_cache,
         port_forward=port_forward,
-        _allow_uninitialized_state=True)
+        _allow_uninitialized_state=False)
 
 
 def attach_worker(config_file: str,
@@ -1965,7 +1966,7 @@ def attach_worker(config_file: str,
         override_cluster_name=override_cluster_name,
         no_config_cache=no_config_cache,
         port_forward=port_forward,
-        _allow_uninitialized_state=True)
+        _allow_uninitialized_state=False)
 
 
 def exec_cmd_on_head(config_file: str,

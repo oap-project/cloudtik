@@ -1284,7 +1284,7 @@ def _get_worker_node_ips(config: Dict[str, Any]) -> List[str]:
     nodes = provider.non_terminated_nodes({
         CLOUDTIK_TAG_NODE_KIND: NODE_KIND_WORKER
     })
-    return [get_node_working_ip(config, provider, node) for node in nodes]
+    return [get_node_cluster_ip(config, provider, node) for node in nodes]
 
 
 def _get_worker_nodes(config: Dict[str, Any],

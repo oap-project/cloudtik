@@ -1287,7 +1287,9 @@ cli.add_command(node_stop)
 
 # commands running on working node for handling a cluster
 cli.add_command(up)
+add_command_alias(up, name="start", hidden=True)
 cli.add_command(down)
+add_command_alias(down, name="stop", hidden=True)
 
 cli.add_command(attach)
 cli.add_command(exec)

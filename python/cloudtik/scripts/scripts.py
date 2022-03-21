@@ -949,7 +949,7 @@ def exec(cluster_config_file, cmd, run_env, screen, tmux, stop, start,
     type=str,
     help="Override the configured cluster name.")
 @add_click_logging_options
-def get_head_ip(cluster_config_file, cluster_name):
+def head_ip(cluster_config_file, cluster_name):
     """Return the head node IP of a cluster."""
     try:
         click.echo(get_head_node_ip(cluster_config_file, cluster_name))
@@ -970,13 +970,13 @@ def get_head_ip(cluster_config_file, cluster_name):
     type=str,
     help="Override the configured cluster name.")
 @add_click_logging_options
-def get_worker_ips(cluster_config_file, cluster_name):
+def worker_ips(cluster_config_file, cluster_name):
     """Return the list of worker IPs of a cluster."""
-    worker_ips = get_worker_node_ips(cluster_config_file, cluster_name)
-    if len(worker_ips) == 0:
+    workers = get_worker_node_ips(cluster_config_file, cluster_name)
+    if len(workers) == 0:
         click.echo("No worker found.")
     else:
-        click.echo("\n".join(worker_ips))
+        click.echo("\n".join(workers))
 
 
 @cli.command()
@@ -1302,10 +1302,10 @@ cli.add_command(enable_local_access)
 cli.add_command(disable_local_access)
 
 # commands running on working node for information and status
-cli.add_command(get_head_ip)
-add_command_alias(get_head_ip, name="get_head_ip", hidden=True)
-cli.add_command(get_worker_ips)
-add_command_alias(get_worker_ips, name="get_worker_ips", hidden=True)
+cli.add_command(head_ip)
+add_command_alias(head_ip, name="head_ip", hidden=True)
+cli.add_command(worker_ips)
+add_command_alias(worker_ips, name="worker_ips", hidden=True)
 
 cli.add_command(info)
 cli.add_command(status)

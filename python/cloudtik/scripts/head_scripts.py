@@ -11,13 +11,13 @@ from cloudtik.core._private.cli_logger import (add_click_logging_options,
 from cloudtik.core._private.cluster.cluster_operator import (
     debug_status_string, get_cluster_dump_archive_on_head,
     RUN_ENV_TYPES, teardown_cluster_on_head, cluster_process_status_on_head, rsync_node_on_head, attach_node_on_head,
-    exec_worker_on_head)
+    exec_worker_on_head, show_cluster_info, show_cluster_status, monitor_cluster, get_worker_node_ips)
 from cloudtik.core._private.constants import CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
     CLOUDTIK_KV_NAMESPACE_HEALTHCHECK
 from cloudtik.core._private.state import kv_store
 from cloudtik.core._private.state.kv_store import kv_initialize_with_address
 from cloudtik.core._private.utils import CLOUDTIK_CLUSTER_SCALING_ERROR, \
-    CLOUDTIK_CLUSTER_SCALING_STATUS, decode_cluster_scaling_time, is_alive_time
+    CLOUDTIK_CLUSTER_SCALING_STATUS, decode_cluster_scaling_time, is_alive_time, get_head_bootstrap_config
 
 logger = logging.getLogger(__name__)
 
@@ -155,6 +155,48 @@ def exec(cmd, node_ip, run_env, screen, tmux, port_forward):
                         screen,
                         tmux,
                         port_forward)
+
+
+@head.command()
+@add_click_logging_options
+def worker_ips():
+    """Return the list of worker IPs of a cluster."""
+    cluster_config_file = get_head_bootstrap_config()
+    workers = get_worker_node_ips(cluster_config_file, None)
+    if len(workers) == 0:
+        click.echo("No worker found.")
+    else:
+        click.echo("\n".join(workers))
+
+
+@head.command()
+@add_click_logging_options
+def info():
+    """Show cluster summary information and useful links to use the cluster."""
+    cluster_config_file = get_head_bootstrap_config()
+    show_cluster_info(cluster_config_file, None)
+
+
+@head.command()
+@add_click_logging_options
+def status():
+    """Show cluster summary status."""
+    cluster_config_file = get_head_bootstrap_config()
+    show_cluster_status(cluster_config_file, None)
+
+
+@head.command()
+@click.option(
+    "--lines",
+    required=False,
+    default=100,
+    type=int,
+    help="Number of lines to tail.")
+@add_click_logging_options
+def monitor(lines):
+    """Tails the monitor logs of a cluster."""
+    cluster_config_file = get_head_bootstrap_config()
+    monitor_cluster(cluster_config_file, lines, None)
 
 
 @head.command()
@@ -354,10 +396,17 @@ def health_check(address, redis_password, component):
 
 # commands running on head node
 head.add_command(teardown)
+
 head.add_command(rsync_down)
 head.add_command(rsync_up)
 head.add_command(attach)
 head.add_command(exec)
+
+head.add_command(worker_ips)
+head.add_command(info)
+head.add_command(status)
+head.add_command(monitor)
+
 head.add_command(cluster_dump)
 head.add_command(debug_status)
 head.add_command(process_status)

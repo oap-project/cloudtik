@@ -1337,7 +1337,10 @@ def is_alive_time(report_time):
 
 
 def get_head_bootstrap_config():
-    return os.path.expanduser("~/cloudtik_bootstrap_config.yaml")
+    bootstrap_config_file = os.path.expanduser("~/cloudtik_bootstrap_config.yaml")
+    if os.path.exists(bootstrap_config_file):
+        return bootstrap_config_file
+    raise RuntimeError("Cluster boostrap config not found. Incorrect head environment!")
 
 
 def get_attach_command(use_screen: bool,

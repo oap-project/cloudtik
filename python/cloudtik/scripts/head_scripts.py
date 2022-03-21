@@ -46,10 +46,25 @@ def teardown(keep_min_workers):
 @click.argument("source", required=False, type=str)
 @click.argument("target", required=False, type=str)
 @click.option(
-    "--down",
-    is_flag=True,
-    default=False,
-    help="Rsync down or up.")
+    "--node-ip",
+    "-n",
+    required=True,
+    type=str,
+    help="The worker node internal ip to rsync from or to.")
+@add_click_logging_options
+def rsync_down(source, target, node_ip):
+    """Rsync down specific file from or to the worker node."""
+    rsync_node_on_head(
+        source,
+        target,
+        down=True,
+        node_ip=node_ip,
+        all_workers=False)
+
+
+@head.command()
+@click.argument("source", required=False, type=str)
+@click.argument("target", required=False, type=str)
 @click.option(
     "--node-ip",
     "-n",
@@ -63,12 +78,12 @@ def teardown(keep_min_workers):
     default=False,
     help="Whether to sync the file to all workers.")
 @add_click_logging_options
-def rsync(source, target, node_ip, down, all_workers):
-    """Rsync specific file from or to the worker node."""
+def rsync_up(source, target, node_ip, all_workers):
+    """Rsync up specific file from or to the worker node."""
     rsync_node_on_head(
         source,
         target,
-        down=down,
+        down=False,
         node_ip=node_ip,
         all_workers=all_workers)
 
@@ -339,7 +354,8 @@ def health_check(address, redis_password, component):
 
 # commands running on head node
 head.add_command(teardown)
-head.add_command(rsync)
+head.add_command(rsync_down)
+head.add_command(rsync_up)
 head.add_command(attach)
 head.add_command(exec)
 head.add_command(cluster_dump)

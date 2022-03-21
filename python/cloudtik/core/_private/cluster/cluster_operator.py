@@ -1170,16 +1170,19 @@ def rsync_to_node_from_head(cluster_config_file: str,
     cmds = [
         "cloudtik",
         "head",
-        "rsync",
     ]
-    cmds += [quote(source)]
-    cmds += [quote(target)]
+    if down:
+        cmds += ["rsync-down"]
+    else:
+        cmds += ["rsync-up"]
+    if source and target:
+        cmds += [quote(source)]
+        cmds += [quote(target)]
     if node_ip:
         cmds += ["--node-ip={}".format(node_ip)]
     if all_workers:
         cmds += ["--all-workers"]
-    if down:
-        cmds += ["--down"]
+
     final_cmd = " ".join(cmds)
     exec_cmd_on_cluster(cluster_config_file, final_cmd, override_cluster_name)
 

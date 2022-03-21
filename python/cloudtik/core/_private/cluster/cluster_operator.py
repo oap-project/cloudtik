@@ -1843,7 +1843,7 @@ def cluster_process_status_on_head(redis_address):
     all_nodes = node_table.get_all().values()
     for value in all_nodes:
         node_info = eval(value)
-        if is_alive_time(node_info.get("last_heartbeat_time", 0)):
+        if not is_alive_time(node_info.get("last_heartbeat_time", 0)):
             continue
 
         live_nodes += 1

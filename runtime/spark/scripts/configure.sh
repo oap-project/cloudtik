@@ -1,14 +1,19 @@
 #!/bin/bash
 
 echo original parameters=[$@]
-args=$(getopt -a -o h::p: -l head_address::,provider:,aws_s3a_bucket::,s3a_access_key::,s3a_secret_key::,project_id::,gcp_gcs_bucket::,fs_gs_auth_service_account_email::,fs_gs_auth_service_account_private_key_id::,fs_gs_auth_service_account_private_key::,azure_storage_kind::,azure_storage_account::,azure_container::,azure_account_key:: -- "$@")
+args=$(getopt -a -o h::p: -l head::,head_address::,provider:,aws_s3a_bucket::,s3a_access_key::,s3a_secret_key::,project_id::,gcp_gcs_bucket::,fs_gs_auth_service_account_email::,fs_gs_auth_service_account_private_key_id::,fs_gs_auth_service_account_private_key::,azure_storage_kind::,azure_storage_account::,azure_container::,azure_account_key:: -- "$@")
 echo ARGS=[$args]
 eval set -- "${args}"
 echo formatted parameters=[$@]
 
+IS_HEAD_NODE=false
+
 while true
 do
     case "$1" in
+    --head)
+        IS_HEAD_NODE=true
+        ;;
     -h|--head_address)
         HEAD_ADDRESS=$2
         shift
@@ -94,17 +99,6 @@ function check_env() {
     fi
 }
 
-
-function check_head_or_worker() {
-    if [ ! -n "${HEAD_ADDRESS}" ]; then
-	    HEAD_ADDRESS=$(hostname -I | awk '{print $1}')
-	    Is_head_node=true
-    else
-	    Is_head_node=false
-    fi
-}
-
-
 function caculate_worker_resources() {
     #For nodemanager
     total_memory=$(awk '($1 == "MemTotal:"){print $2/1024}' /proc/meminfo)
@@ -115,7 +109,7 @@ function caculate_worker_resources() {
 
 function set_resources_for_spark() {
     #For Head Node
-    if [ $Is_head_node == "true" ];then
+    if [ $IS_HEAD_NODE == "true" ];then
         spark_executor_cores=$(cat ~/cloudtik_bootstrap_config.yaml | jq '."runtime"."spark"."spark_executor_resource"."spark_executor_cores"')
         spark_executor_memory=$(cat ~/cloudtik_bootstrap_config.yaml | jq '."runtime"."spark"."spark_executor_resource"."spark_executor_memory"')M
         spark_driver_memory=$(cat ~/cloudtik_bootstrap_config.yaml | jq '."runtime"."spark"."spark_executor_resource"."spark_driver_memory"')M
@@ -164,7 +158,7 @@ function update_spark_runtime_config() {
     sed -i "s/{%yarn.nodemanager.resource.cpu-vcores%}/${total_vcores}/g" `grep "{%yarn.nodemanager.resource.cpu-vcores%}" -rl ./`
     sed -i "s/{%yarn.scheduler.maximum-allocation-vcores%}/${total_vcores}/g" `grep "{%yarn.scheduler.maximum-allocation-vcores%}" -rl ./`
 
-    if [ $Is_head_node == "true" ];then
+    if [ $IS_HEAD_NODE == "true" ];then
 	    sed -i "s/{%spark.executor.cores%}/${spark_executor_cores}/g" `grep "{%spark.executor.cores%}" -rl ./`
 	    sed -i "s/{%spark.executor.memory%}/${spark_executor_memory}/g" `grep "{%spark.executor.memory%}" -rl ./`
 	    sed -i "s/{%spark.driver.memory%}/${spark_driver_memory}/g" `grep "{%spark.driver.memory%}" -rl ./`
@@ -185,7 +179,7 @@ function update_spark_runtime_config() {
     cp -r ${output_dir}/hadoop/${provider}/core-site.xml  ${HADOOP_HOME}/etc/hadoop/
     cp -r ${output_dir}/hadoop/yarn-site.xml  ${HADOOP_HOME}/etc/hadoop/
 
-    if [ $Is_head_node == "true" ];then
+    if [ $IS_HEAD_NODE == "true" ];then
 	    cp -r ${output_dir}/spark/*  ${SPARK_HOME}/conf
     fi
 }
@@ -193,7 +187,6 @@ function update_spark_runtime_config() {
 
 check_env
 prepare_base_conf
-check_head_or_worker
 caculate_worker_resources
 set_resources_for_spark
 update_spark_runtime_config

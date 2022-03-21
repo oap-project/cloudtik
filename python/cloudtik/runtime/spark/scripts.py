@@ -61,16 +61,21 @@ def install():
 
 @click.command()
 @click.option(
+    "--head",
+    is_flag=True,
+    default=False,
+    help="provide this argument for the head node")
+@click.option(
     '--provider',
     required=True,
     type=str,
     help="the provider of cluster ")
 @click.option(
-    '--master',
+    '--head_address',
     required=False,
     type=str,
     default="",
-    help="the master name or ip ")
+    help="the head ip ")
 @click.option(
     '--aws_s3a_bucket',
     required=False,
@@ -143,19 +148,53 @@ def install():
     type=str,
     default="",
     help="azure storage account access key")
-def configure(provider, master, aws_s3a_bucket, s3a_access_key, s3a_secret_key, project_id, gcp_gcs_bucket,
+def configure(head, provider, head_address, aws_s3a_bucket, s3a_access_key, s3a_secret_key, project_id, gcp_gcs_bucket,
               fs_gs_auth_service_account_email, fs_gs_auth_service_account_private_key_id,
               fs_gs_auth_service_account_private_key, azure_storage_kind, azure_storage_account, azure_container,
               azure_account_key):
     shell_path = os.path.join(CLOUDTIK_RUNTIME_SCRIPTS_PATH, "configure.sh")
-    os.system("bash {} -p {} --head_address={} --aws_s3a_bucket={} --s3a_access_key={} --s3a_secret_key={} "
-              "--project_id={} --gcp_gcs_bucket={} --fs_gs_auth_service_account_email={} "
-              "--fs_gs_auth_service_account_private_key_id={} --fs_gs_auth_service_account_private_key={} "
-              "--azure_storage_kind={} --azure_storage_account={} --azure_container={} --azure_account_key={}".format(
-                shell_path, provider, master, aws_s3a_bucket, s3a_access_key, s3a_secret_key, project_id,
-                gcp_gcs_bucket, fs_gs_auth_service_account_email, fs_gs_auth_service_account_private_key_id,
-                quote(fs_gs_auth_service_account_private_key), azure_storage_kind, azure_storage_account,
-                azure_container, azure_account_key))
+    cmds = [
+        "bash",
+        shell_path,
+    ]
+
+    if head:
+        cmds += ["--head"]
+    if provider:
+        cmds += ["--provider={}".format(provider)]
+    if head_address:
+        cmds += ["--head_address={}".format(head_address)]
+
+    if aws_s3a_bucket:
+        cmds += ["--aws_s3a_bucket={}".format(aws_s3a_bucket)]
+    if s3a_access_key:
+        cmds += ["--s3a_access_key={}".format(s3a_access_key)]
+    if s3a_secret_key:
+        cmds += ["--s3a_secret_key={}".format(s3a_secret_key)]
+
+    if project_id:
+        cmds += ["--project_id={}".format(project_id)]
+    if gcp_gcs_bucket:
+        cmds += ["--gcp_gcs_bucket={}".format(gcp_gcs_bucket)]
+
+    if fs_gs_auth_service_account_email:
+        cmds += ["--fs_gs_auth_service_account_email={}".format(fs_gs_auth_service_account_email)]
+    if fs_gs_auth_service_account_private_key_id:
+        cmds += ["--fs_gs_auth_service_account_private_key_id={}".format(fs_gs_auth_service_account_private_key_id)]
+    if fs_gs_auth_service_account_private_key:
+        cmds += ["--fs_gs_auth_service_account_private_key={}".format(quote(fs_gs_auth_service_account_private_key))]
+
+    if azure_storage_kind:
+        cmds += ["--azure_storage_kind={}".format(azure_storage_kind)]
+    if azure_storage_account:
+        cmds += ["--azure_storage_account={}".format(azure_storage_account)]
+    if azure_container:
+        cmds += ["--azure_container={}".format(azure_container)]
+    if azure_account_key:
+        cmds += ["--azure_account_key={}".format(azure_account_key)]
+
+    final_cmd = " ".join(cmds)
+    os.system(final_cmd)
     # Merge user specified configuration and default configuration
     bootstrap_config = os.path.expanduser("~/cloudtik_bootstrap_config.yaml")
     if os.path.exists(bootstrap_config):

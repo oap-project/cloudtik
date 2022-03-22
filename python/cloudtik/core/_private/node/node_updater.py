@@ -316,7 +316,7 @@ class NodeUpdater:
 
         if self.restart_only:
             self.setup_commands = []
-        provider_config = self.provider.with_provider_environment_variables()
+        provider_envs = self.provider.with_provider_environment_variables()
 
         # runtime_hash will only change whenever the user restarts
         # or updates their cluster with `get_or_create_head_node`
@@ -423,7 +423,7 @@ class NodeUpdater:
 
                                 try:
                                     # Runs in the container if docker is in use
-                                    self.cmd_executor.run(cmd, environment_variables=provider_config, run_env="auto")
+                                    self.cmd_executor.run(cmd, environment_variables=provider_envs, run_env="auto")
                                 except ProcessRunnerError as e:
                                     if e.msg_type == "ssh_command_failed":
                                         cli_logger.error("Failed.")
@@ -456,7 +456,7 @@ class NodeUpdater:
                         }
                     else:
                         env_vars = {}
-                    env_vars.update(provider_config)
+                    env_vars.update(provider_envs)
 
                     try:
                         old_redirected = cmd_output_util.is_output_redirected()

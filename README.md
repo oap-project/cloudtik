@@ -55,19 +55,43 @@ Set the `GOOGLE_APPLICATION_CREDENTIALS` environment variable as described in [t
 If you do not already have a GCS bucket, create one and configure its permission for your service account.
 More details, please refer to configure [gcs bucket guide](./doc/Configure-GCS-Bucket.md).
 
-### 5. Use CloudTik to manage Spark clusters
+### 5. CloudTik Commands
 ```
+# commands running on working node for handling a cluster
 cloudtik up ./example/cluster/aws/example-minimal.yaml -y   # Create or up a  cluster.
+cloudtik down ./example/cluster/aws/example-minimal.yaml -y # Tear down the cluster.
+
+cloudtik attach ./example/cluster/aws/example-minimal.yaml    # Create or attach to a SSH session to the cluster.
+cloudtik exec ./example/cluster/aws/example-minimal.yaml [command]   # Exec a command via SSH on a cloudtik cluster.
+cloudtik submit ./example/cluster/aws/example-minimal.yaml  experiment.py  #  Uploads and runs a script on the specified cluster.
+
+cloudtik rsync-up ./example/cluster/aws/example-minimal.yaml [source] [target]   # Upload file to head node.
+cloudtik rsync-down ./example/cluster/aws/example-minimal.yaml [source] [target]   # Download file from head node.
+
+cloudtik enable-local-access ./example/cluster/aws/example-minimal.yaml # Enable local SOCKS5 proxy to the cluster through SSH
+cloudtik disable-local-access ./example/cluster/aws/example-minimal.yaml # Disable local SOCKS5 proxy to the cluster through SSH
+
+
+# commands running on working node for information and status
 cloudtik get-head-ip ./example/cluster/aws/example-minimal.yaml    # Get the ip of head node.
 cloudtik get-worker-ips ./example/cluster/aws/example-minimal.yaml    # Get the ips of worker nodes.
-cloudtik exec ./example/cluster/aws/example-minimal.yaml [command]   # Exec a command via SSH on a cloudtik cluster.
-cloudtik rsync-down ./example/cluster/aws/example-minimal.yaml [source] [target]   # Download file from head node.
-cloudtik rsync-up ./example/cluster/aws/example-minimal.yaml [source] [target]   # Upload file to head node.
-cloudtik attach ./example/cluster/aws/example-minimal.yaml    # Create or attach to a SSH session to the cluster.
-cloudtik down ./example/cluster/aws/example-minimal.yaml -y # Tear down the cluster.
-```
+cloudtik info ./example/cluster/aws/example-minimal.yaml # Show cluster summary information and useful links to use the cluster.
+cloudtik status ./example/cluster/aws/example-minimal.yaml # Show cluster summary status.
+cloudtik process-status ./example/cluster/aws/example-minimal.yaml # Show process status of cluster nodes.
+cloudtik monitor ./example/cluster/aws/example-minimal.yaml # Tails the monitor logs of a cluster.
 
-## Building CloudTik
+
+# commands running on working node for debug
+cloudtik health-check ./example/cluster/aws/example-minimal.yaml   # Do cluster health check.
+cloudtik debug-status ./example/cluster/aws/example-minimal.yaml   # Show debug status of cluster scaling.
+cloudtik cluster-dump ./example/cluster/aws/example-minimal.yaml   # Get log data from one or more nodes.
+cloudtik kill-random-node ./example/cluster/aws/example-minimal.yaml   # Kills a random node. For testing purposes only.
+
+
+# workspace commands
+cloudtik workspace   $workspace_config_file      # Create a Workspace on Cloud based on the workspace configuration file.
+```
+You can use the command `cloudtik --help` or `cloudtik up --help` to get detailed instructions.
 
 Usually you can install CloudTik package directly through pip as above and don't need to build it from source code. If you are contributing to CloudTik, you can follow the instrucitons in [Building CloudTik](./doc/Building.md) for building. 
 

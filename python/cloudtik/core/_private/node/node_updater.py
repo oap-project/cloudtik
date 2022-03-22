@@ -354,35 +354,7 @@ class NodeUpdater:
                     with cli_logger.group(
                             "Running initialization commands",
                             _numbered=("[]", 4, NUM_SETUP_STEPS)):
-                        global_event_system.execute_callback(
-                            CreateClusterEvent.run_initialization_cmd)
-                        with LogTimer(
-                                self.log_prefix + "Initialization commands",
-                                show_status=True):
-                            for cmd in self.initialization_commands:
-                                global_event_system.execute_callback(
-                                    CreateClusterEvent.run_initialization_cmd,
-                                    {"command": cmd})
-                                try:
-                                    # Overriding the existing SSHOptions class
-                                    # with a new SSHOptions class that uses
-                                    # this ssh_private_key as its only __init__
-                                    # argument.
-                                    # Run outside docker.
-                                    self.cmd_executor.run(
-                                        cmd,
-                                        ssh_options_override_ssh_key=self.
-                                        auth_config.get("ssh_private_key"),
-                                        run_env="host")
-                                except ProcessRunnerError as e:
-                                    if e.msg_type == "ssh_command_failed":
-                                        cli_logger.error("Failed.")
-                                        cli_logger.error(
-                                            "See above for stderr.")
-
-                                    raise click.ClickException(
-                                        "Initialization command failed."
-                                    ) from None
+                        self._exec_initialization_commands(provider_envs)
                 else:
                     cli_logger.print(
                         "No initialization commands to run.",
@@ -400,38 +372,7 @@ class NodeUpdater:
                             "Running setup commands",
                             # todo: fix command numbering
                             _numbered=("[]", 6, NUM_SETUP_STEPS)):
-                        global_event_system.execute_callback(
-                            CreateClusterEvent.run_setup_cmd)
-                        with LogTimer(
-                                self.log_prefix + "Setup commands",
-                                show_status=True):
-
-                            total = len(self.setup_commands)
-                            for i, cmd in enumerate(self.setup_commands):
-                                global_event_system.execute_callback(
-                                    CreateClusterEvent.run_setup_cmd,
-                                    {"command": cmd})
-                                if cli_logger.verbosity == 0 and len(cmd) > 30:
-                                    cmd_to_print = cf.bold(cmd[:30]) + "..."
-                                else:
-                                    cmd_to_print = cf.bold(cmd)
-
-                                cli_logger.print(
-                                    "{}",
-                                    cmd_to_print,
-                                    _numbered=("()", i, total))
-
-                                try:
-                                    # Runs in the container if docker is in use
-                                    self.cmd_executor.run(cmd, environment_variables=provider_envs, run_env="auto")
-                                except ProcessRunnerError as e:
-                                    if e.msg_type == "ssh_command_failed":
-                                        cli_logger.error("Failed.")
-                                        cli_logger.error(
-                                            "See above for stderr.")
-
-                                    raise click.ClickException(
-                                        "Setup command failed.")
+                        self._exec_setup_commands(provider_envs)
                 else:
                     cli_logger.print(
                         "No setup commands to run.",
@@ -440,41 +381,7 @@ class NodeUpdater:
         with cli_logger.group(
                 "Starting the CloudTik runtime", _numbered=("[]", 7,
                                                        NUM_SETUP_STEPS)):
-            global_event_system.execute_callback(
-                CreateClusterEvent.start_cloudtik_runtime)
-            with LogTimer(
-                    self.log_prefix + "Start commands", show_status=True):
-                for cmd in self.start_commands:
-
-                    # Add a resource override env variable if needed:
-                    if self.provider_type == "local":
-                        # Local NodeProvider doesn't need resource override.
-                        env_vars = {}
-                    elif self.node_resources:
-                        env_vars = {
-                            CLOUDTIK_RESOURCES_ENV: self.node_resources
-                        }
-                    else:
-                        env_vars = {}
-                    env_vars.update(provider_envs)
-
-                    try:
-                        old_redirected = cmd_output_util.is_output_redirected()
-                        cmd_output_util.set_output_redirected(False)
-                        # Runs in the container if docker is in use
-                        self.cmd_executor.run(
-                            cmd,
-                            environment_variables=env_vars,
-                            run_env="auto")
-                        cmd_output_util.set_output_redirected(old_redirected)
-                    except ProcessRunnerError as e:
-                        if e.msg_type == "ssh_command_failed":
-                            cli_logger.error("Failed.")
-                            cli_logger.error("See above for stderr.")
-
-                        raise click.ClickException("Start command failed.")
-            global_event_system.execute_callback(
-                CreateClusterEvent.start_cloudtik_runtime_completed)
+            self._exec_starts_commands(provider_envs)
 
     def rsync_up(self, source, target, docker_mount_if_possible=False):
         options = {}
@@ -493,6 +400,108 @@ class NodeUpdater:
         self.cmd_executor.run_rsync_down(source, target, options=options)
         cli_logger.verbose("`rsync`ed {} (remote) to {} (local)",
                            cf.bold(source), cf.bold(target))
+
+    def _exec_initialization_commands(self, provider_envs):
+        global_event_system.execute_callback(
+            CreateClusterEvent.run_initialization_cmd)
+        with LogTimer(
+                self.log_prefix + "Initialization commands",
+                show_status=True):
+            for cmd in self.initialization_commands:
+                global_event_system.execute_callback(
+                    CreateClusterEvent.run_initialization_cmd,
+                    {"command": cmd})
+                try:
+                    # Overriding the existing SSHOptions class
+                    # with a new SSHOptions class that uses
+                    # this ssh_private_key as its only __init__
+                    # argument.
+                    # Run outside docker.
+                    self.cmd_executor.run(
+                        cmd,
+                        ssh_options_override_ssh_key=self.
+                        auth_config.get("ssh_private_key"),
+                        run_env="host")
+                except ProcessRunnerError as e:
+                    if e.msg_type == "ssh_command_failed":
+                        cli_logger.error("Failed.")
+                        cli_logger.error(
+                            "See above for stderr.")
+
+                    raise click.ClickException(
+                        "Initialization command failed."
+                    ) from None
+
+    def _exec_setup_commands(self, provider_envs):
+        global_event_system.execute_callback(
+            CreateClusterEvent.run_setup_cmd)
+        with LogTimer(
+                self.log_prefix + "Setup commands",
+                show_status=True):
+
+            total = len(self.setup_commands)
+            for i, cmd in enumerate(self.setup_commands):
+                global_event_system.execute_callback(
+                    CreateClusterEvent.run_setup_cmd,
+                    {"command": cmd})
+                if cli_logger.verbosity == 0 and len(cmd) > 30:
+                    cmd_to_print = cf.bold(cmd[:30]) + "..."
+                else:
+                    cmd_to_print = cf.bold(cmd)
+
+                cli_logger.print(
+                    "{}",
+                    cmd_to_print,
+                    _numbered=("()", i, total))
+
+                try:
+                    # Runs in the container if docker is in use
+                    self.cmd_executor.run(cmd, environment_variables=provider_envs, run_env="auto")
+                except ProcessRunnerError as e:
+                    if e.msg_type == "ssh_command_failed":
+                        cli_logger.error("Failed.")
+                        cli_logger.error(
+                            "See above for stderr.")
+
+                    raise click.ClickException(
+                        "Setup command failed.")
+
+    def _exec_starts_commands(self, provider_envs):
+        global_event_system.execute_callback(
+            CreateClusterEvent.start_cloudtik_runtime)
+        with LogTimer(
+                self.log_prefix + "Start commands", show_status=True):
+            for cmd in self.start_commands:
+
+                # Add a resource override env variable if needed:
+                if self.provider_type == "local":
+                    # Local NodeProvider doesn't need resource override.
+                    env_vars = {}
+                elif self.node_resources:
+                    env_vars = {
+                        CLOUDTIK_RESOURCES_ENV: self.node_resources
+                    }
+                else:
+                    env_vars = {}
+                env_vars.update(provider_envs)
+
+                try:
+                    old_redirected = cmd_output_util.is_output_redirected()
+                    cmd_output_util.set_output_redirected(False)
+                    # Runs in the container if docker is in use
+                    self.cmd_executor.run(
+                        cmd,
+                        environment_variables=env_vars,
+                        run_env="auto")
+                    cmd_output_util.set_output_redirected(old_redirected)
+                except ProcessRunnerError as e:
+                    if e.msg_type == "ssh_command_failed":
+                        cli_logger.error("Failed.")
+                        cli_logger.error("See above for stderr.")
+
+                    raise click.ClickException("Start command failed.")
+        global_event_system.execute_callback(
+            CreateClusterEvent.start_cloudtik_runtime_completed)
 
 
 class NodeUpdaterThread(NodeUpdater, Thread):

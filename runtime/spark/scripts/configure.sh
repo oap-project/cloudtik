@@ -99,6 +99,12 @@ function check_env() {
     fi
 }
 
+function set_head_address() {
+    if [ ! -n "${HEAD_ADDRESS}" ]; then
+	    HEAD_ADDRESS=$(hostname -I | awk '{print $1}')
+	  fi
+}
+
 function caculate_worker_resources() {
     #For nodemanager
     total_memory=$(awk '($1 == "MemTotal:"){print $2/1024}' /proc/meminfo)
@@ -186,6 +192,7 @@ function update_spark_runtime_config() {
 
 
 check_env
+set_head_address
 prepare_base_conf
 caculate_worker_resources
 set_resources_for_spark

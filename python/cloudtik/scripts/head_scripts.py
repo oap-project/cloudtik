@@ -50,11 +50,16 @@ def teardown(keep_min_workers):
     required=True,
     type=str,
     help="The node internal ip on which to execute start commands.")
+@click.option(
+    "--all-nodes",
+    is_flag=True,
+    default=False,
+    help="Whether to execute start commands to all nodes.")
 @add_click_logging_options
-def start_node(node_ip):
+def start_node(node_ip, all_nodes):
     """Run start commands on the specific node."""
     start_node_on_head(
-        node_ip=node_ip)
+        node_ip=node_ip, all_nodes=all_nodes)
 
 
 @head.command()

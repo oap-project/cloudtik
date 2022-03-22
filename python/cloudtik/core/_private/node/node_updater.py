@@ -503,6 +503,30 @@ class NodeUpdater:
         global_event_system.execute_callback(
             CreateClusterEvent.start_cloudtik_runtime_completed)
 
+    def exec_commands(self, commands, envs):
+        with LogTimer(
+                self.log_prefix + "Exec commands", show_status=True):
+            for cmd in commands:
+                env_vars = {}
+                if envs:
+                    env_vars.update(envs)
+
+                try:
+                    old_redirected = cmd_output_util.is_output_redirected()
+                    cmd_output_util.set_output_redirected(False)
+                    # Runs in the container if docker is in use
+                    self.cmd_executor.run(
+                        cmd,
+                        environment_variables=env_vars,
+                        run_env="auto")
+                    cmd_output_util.set_output_redirected(old_redirected)
+                except ProcessRunnerError as e:
+                    if e.msg_type == "ssh_command_failed":
+                        cli_logger.error("Failed.")
+                        cli_logger.error("See above for stderr.")
+
+                    raise click.ClickException("Exec command failed.")
+
 
 class NodeUpdaterThread(NodeUpdater, Thread):
     def __init__(self, *args, **kwargs):

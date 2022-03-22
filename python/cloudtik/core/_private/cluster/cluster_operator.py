@@ -418,20 +418,12 @@ def teardown_cluster_nodes(config: Dict[str, Any],
 
     def run_docker_stop(node, container_name):
         try:
-            updater = NodeUpdaterThread(
+            updater = create_node_updater_for_exec(
+                config=config,
                 node_id=node,
-                provider_config=config["provider"],
                 provider=provider,
-                auth_config=config["auth"],
-                cluster_name=config["cluster_name"],
-                file_mounts=config["file_mounts"],
-                initialization_commands=[],
-                setup_commands=[],
                 start_commands=[],
-                runtime_hash="",
-                file_mounts_contents_hash="",
                 is_head_node=False,
-                docker_config=config.get("docker"),
                 use_internal_ip=use_internal_ip)
 
             _exec(
@@ -959,25 +951,13 @@ def exec_cluster(config_file: str,
         _allow_uninitialized_state=_allow_uninitialized_state)
 
     provider = _get_node_provider(config["provider"], config["cluster_name"])
-    updater = NodeUpdaterThread(
+    updater = create_node_updater_for_exec(
+        config=config,
         node_id=head_node,
-        provider_config=config["provider"],
         provider=provider,
-        auth_config=config["auth"],
-        cluster_name=config["cluster_name"],
-        file_mounts=config["file_mounts"],
-        initialization_commands=[],
-        setup_commands=[],
         start_commands=[],
-        runtime_hash="",
-        file_mounts_contents_hash="",
         is_head_node=True,
-        use_internal_ip=use_internal_ip,
-        rsync_options={
-            "rsync_exclude": config.get("rsync_exclude"),
-            "rsync_filter": config.get("rsync_filter")
-        },
-        docker_config=config.get("docker"))
+        use_internal_ip=use_internal_ip)
     shutdown_after_run = False
     if cmd and stop:
         cmd = "; ".join([
@@ -1094,26 +1074,14 @@ def rsync(config_file: str,
     provider = _get_node_provider(config["provider"], config["cluster_name"])
 
     def rsync_to_node(node_id, source, target, is_head_node):
-        updater = NodeUpdaterThread(
+        updater = create_node_updater_for_exec(
+            config=config,
             node_id=node_id,
-            provider_config=config["provider"],
             provider=provider,
-            auth_config=config["auth"],
-            cluster_name=config["cluster_name"],
-            file_mounts=config["file_mounts"],
-            initialization_commands=[],
-            setup_commands=[],
             start_commands=[],
-            runtime_hash="",
-            use_internal_ip=use_internal_ip,
-            process_runner=_runner,
-            file_mounts_contents_hash="",
             is_head_node=is_head_node,
-            rsync_options={
-                "rsync_exclude": config.get("rsync_exclude"),
-                "rsync_filter": config.get("rsync_filter")
-            },
-            docker_config=config.get("docker"))
+            process_runner=_runner,
+            use_internal_ip=use_internal_ip)
         if down:
             rsync = updater.rsync_down
         else:
@@ -1205,26 +1173,14 @@ def rsync_node_on_head(source: str,
                 break
 
     def rsync_to_node(node_id, source, target):
-        updater = NodeUpdaterThread(
+        updater = create_node_updater_for_exec(
+            config=config,
             node_id=node_id,
-            provider_config=config["provider"],
             provider=provider,
-            auth_config=config["auth"],
-            cluster_name=config["cluster_name"],
-            file_mounts=config["file_mounts"],
-            initialization_commands=[],
-            setup_commands=[],
             start_commands=[],
-            runtime_hash="",
-            use_internal_ip=True,
-            process_runner=subprocess,
-            file_mounts_contents_hash="",
             is_head_node=False,
-            rsync_options={
-                "rsync_exclude": config.get("rsync_exclude"),
-                "rsync_filter": config.get("rsync_filter")
-            },
-            docker_config=config.get("docker"))
+            process_runner=subprocess,
+            use_internal_ip=True)
         if down:
             rsync = updater.rsync_down
         else:
@@ -1587,20 +1543,13 @@ def show_cluster_info(config_file: str,
     if head_node is None:
         return
 
-    updater = NodeUpdaterThread(
+    updater = create_node_updater_for_exec(
+        config=config,
         node_id=head_node,
-        provider_config=config["provider"],
         provider=provider,
-        auth_config=config["auth"],
-        cluster_name=config["cluster_name"],
-        file_mounts=config["file_mounts"],
-        initialization_commands=[],
-        setup_commands=[],
         start_commands=[],
-        runtime_hash="",
-        file_mounts_contents_hash="",
         is_head_node=False,
-        docker_config=config.get("docker"))
+        use_internal_ip=False)
 
     show_useful_commands(config_file,
                          config,
@@ -1793,7 +1742,8 @@ def _stop_proxy(config: Dict[str, Any]):
 
 def exec_cmd_on_cluster(cluster_config_file: str,
                         cmd: str,
-                        override_cluster_name: Optional[str]):
+                        override_cluster_name: Optional[str],
+                        no_config_cache: bool = False):
     exec_cluster(
         cluster_config_file,
         cmd=cmd,
@@ -1803,6 +1753,7 @@ def exec_cmd_on_cluster(cluster_config_file: str,
         stop=False,
         start=False,
         override_cluster_name=override_cluster_name,
+        no_config_cache=no_config_cache,
         port_forward=None,
         with_output=False,
         _allow_uninitialized_state=False)
@@ -2013,25 +1964,13 @@ def exec_cmd_on_head(config_file: str,
         cli_logger.error("No node with the specified IP {} found.", node_ip)
         return None
 
-    updater = NodeUpdaterThread(
+    updater = create_node_updater_for_exec(
+        config=config,
         node_id=node_id,
-        provider_config=config["provider"],
         provider=provider,
-        auth_config=config["auth"],
-        cluster_name=config["cluster_name"],
-        file_mounts=config["file_mounts"],
-        initialization_commands=[],
-        setup_commands=[],
         start_commands=[],
-        runtime_hash="",
-        file_mounts_contents_hash="",
         is_head_node=False,
-        use_internal_ip=True,
-        rsync_options={
-            "rsync_exclude": config.get("rsync_exclude"),
-            "rsync_filter": config.get("rsync_filter")
-        },
-        docker_config=config.get("docker"))
+        use_internal_ip=True)
 
     result = _exec(
         updater,
@@ -2092,31 +2031,13 @@ def exec_worker_on_head(
         port_forward=port_forward)
 
 
-def start_node_on_head(node_ip: str = None):
-    # Since this is running on head, the bootstrap config must exist
-    cluster_config_file = get_head_bootstrap_config()
-    config = yaml.safe_load(open(cluster_config_file).read())
-    provider = _get_node_provider(config["provider"], config["cluster_name"])
-
-    head_node = _get_running_head_node(config, cluster_config_file,
-                                       None, _provider=provider)
-    is_head_node = False
-    if not node_ip:
-        node_id = head_node
-        is_head_node = True
-    else:
-        node_id = provider.get_node_id(node_ip, use_internal_ip=True)
-        if not node_id:
-            cli_logger.error("No node with the specified IP {} found.", node_ip)
-            return
-        if node_id == head_node:
-            is_head_node = True
-
-    if is_head_node:
-        start_commands = config["head_start_commands"]
-    else:
-        start_commands = config["worker_start_commands"]
-
+def create_node_updater_for_exec(config,
+                                 node_id,
+                                 provider,
+                                 start_commands,
+                                 is_head_node: bool = False,
+                                 use_internal_ip: bool = False,
+                                 process_runner: ModuleType = subprocess):
     updater = NodeUpdaterThread(
         node_id=node_id,
         provider_config=config["provider"],
@@ -2130,13 +2051,79 @@ def start_node_on_head(node_ip: str = None):
         runtime_hash="",
         file_mounts_contents_hash="",
         is_head_node=is_head_node,
-        use_internal_ip=True,
+        process_runner=process_runner,
+        use_internal_ip=use_internal_ip,
         rsync_options={
             "rsync_exclude": config.get("rsync_exclude"),
             "rsync_filter": config.get("rsync_filter")
         },
         docker_config=config.get("docker"))
+    return updater
 
+
+def start_node_on_head(node_ip: str = None,
+                       all_nodes: bool = False):
+    # Since this is running on head, the bootstrap config must exist
+    cluster_config_file = get_head_bootstrap_config()
+    config = yaml.safe_load(open(cluster_config_file).read())
+    provider = _get_node_provider(config["provider"], config["cluster_name"])
+    head_node = _get_running_head_node(config, cluster_config_file,
+                                       None, _provider=provider)
     provider_envs = provider.with_provider_environment_variables()
-    updater._exec_start_commands(provider_envs)
+    if not node_ip:
+        nodes = [head_node]
+        if all_nodes:
+            nodes.extend(_get_worker_nodes(config, None))
+    else:
+        node_id = provider.get_node_id(node_ip, use_internal_ip=True)
+        if not node_id:
+            cli_logger.error("No node with the specified IP {} found.", node_ip)
+            return
+        nodes = [node_id]
 
+    def start_single_node_on_head(node_id):
+        is_head_node = False
+        if node_id == head_node:
+            is_head_node = True
+
+        if is_head_node:
+            start_commands = config["head_start_commands"]
+        else:
+            start_commands = config["worker_start_commands"]
+
+        updater = create_node_updater_for_exec(
+            config=config,
+            node_id=node_id,
+            provider=provider,
+            start_commands=start_commands,
+            is_head_node=is_head_node,
+            use_internal_ip=True)
+
+        updater._exec_start_commands(provider_envs)
+
+    for node_id in nodes:
+        start_single_node_on_head(node_id)
+
+
+def start_node_from_head(config_file: str,
+                         node_ip: str,
+                         all_nodes: bool,
+                         override_cluster_name: Optional[str] = None,
+                         no_config_cache: bool = False) -> None:
+    """Execute start node command on head."""
+
+    # execute attach on head
+    cmds = [
+        "cloudtik",
+        "head",
+        "start-node",
+    ]
+    if node_ip:
+        cmds += ["--node-ip={}".format(node_ip)]
+    if all_nodes:
+        cmds += ["--all-nodes"]
+    final_cmd = " ".join(cmds)
+
+    exec_cmd_on_cluster(config_file, final_cmd,
+                        override_cluster_name,
+                        no_config_cache=no_config_cache)

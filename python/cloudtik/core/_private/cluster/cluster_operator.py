@@ -2013,7 +2013,6 @@ def exec_cmd_on_head(config_file: str,
         cli_logger.error("No node with the specified IP {} found.", node_ip)
         return None
 
-    provider = _get_node_provider(config["provider"], config["cluster_name"])
     updater = NodeUpdaterThread(
         node_id=node_id,
         provider_config=config["provider"],
@@ -2091,3 +2090,53 @@ def exec_worker_on_head(
         screen=screen,
         tmux=tmux,
         port_forward=port_forward)
+
+
+def start_node_on_head(node_ip: str = None):
+    # Since this is running on head, the bootstrap config must exist
+    cluster_config_file = get_head_bootstrap_config()
+    config = yaml.safe_load(open(cluster_config_file).read())
+    provider = _get_node_provider(config["provider"], config["cluster_name"])
+
+    head_node = _get_running_head_node(config, cluster_config_file,
+                                       None, _provider=provider)
+    is_head_node = False
+    if not node_ip:
+        node_id = head_node
+        is_head_node = True
+    else:
+        node_id = provider.get_node_id(node_ip, use_internal_ip=True)
+        if not node_id:
+            cli_logger.error("No node with the specified IP {} found.", node_ip)
+            return
+        if node_id == head_node:
+            is_head_node = True
+
+    if is_head_node:
+        start_commands = config["head_start_commands"]
+    else:
+        start_commands = config["worker_start_commands"]
+
+    updater = NodeUpdaterThread(
+        node_id=node_id,
+        provider_config=config["provider"],
+        provider=provider,
+        auth_config=config["auth"],
+        cluster_name=config["cluster_name"],
+        file_mounts=config["file_mounts"],
+        initialization_commands=[],
+        setup_commands=[],
+        start_commands=start_commands,
+        runtime_hash="",
+        file_mounts_contents_hash="",
+        is_head_node=is_head_node,
+        use_internal_ip=True,
+        rsync_options={
+            "rsync_exclude": config.get("rsync_exclude"),
+            "rsync_filter": config.get("rsync_filter")
+        },
+        docker_config=config.get("docker"))
+
+    provider_envs = provider.with_provider_environment_variables()
+    updater._exec_start_commands(provider_envs)
+

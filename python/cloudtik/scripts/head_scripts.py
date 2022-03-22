@@ -11,7 +11,8 @@ from cloudtik.core._private.cli_logger import (add_click_logging_options,
 from cloudtik.core._private.cluster.cluster_operator import (
     debug_status_string, get_cluster_dump_archive_on_head,
     RUN_ENV_TYPES, teardown_cluster_on_head, cluster_process_status_on_head, rsync_node_on_head, attach_node_on_head,
-    exec_worker_on_head, show_cluster_info, show_cluster_status, monitor_cluster, get_worker_node_ips)
+    exec_worker_on_head, show_cluster_info, show_cluster_status, monitor_cluster, get_worker_node_ips,
+    start_node_on_head)
 from cloudtik.core._private.constants import CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
     CLOUDTIK_KV_NAMESPACE_HEALTHCHECK
 from cloudtik.core._private.state import kv_store
@@ -40,6 +41,20 @@ def head():
 def teardown(keep_min_workers):
     """Tear down a cluster."""
     teardown_cluster_on_head(keep_min_workers)
+
+
+@head.command()
+@click.option(
+    "--node-ip",
+    "-n",
+    required=True,
+    type=str,
+    help="The node internal ip on which to execute start commands.")
+@add_click_logging_options
+def start_node(node_ip):
+    """Run start commands on the specific node."""
+    start_node_on_head(
+        node_ip=node_ip)
 
 
 @head.command()
@@ -396,6 +411,7 @@ def health_check(address, redis_password, component):
 
 # commands running on head node
 head.add_command(teardown)
+head.add_command(start_node)
 
 head.add_command(rsync_down)
 head.add_command(rsync_up)

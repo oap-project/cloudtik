@@ -381,7 +381,7 @@ class NodeUpdater:
         with cli_logger.group(
                 "Starting the CloudTik runtime", _numbered=("[]", 7,
                                                        NUM_SETUP_STEPS)):
-            self._exec_starts_commands(provider_envs)
+            self._exec_start_commands(provider_envs)
 
     def rsync_up(self, source, target, docker_mount_if_possible=False):
         options = {}
@@ -466,7 +466,7 @@ class NodeUpdater:
                     raise click.ClickException(
                         "Setup command failed.")
 
-    def _exec_starts_commands(self, provider_envs):
+    def _exec_start_commands(self, provider_envs):
         global_event_system.execute_callback(
             CreateClusterEvent.start_cloudtik_runtime)
         with LogTimer(

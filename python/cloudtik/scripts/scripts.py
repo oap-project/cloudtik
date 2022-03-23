@@ -23,7 +23,7 @@ from cloudtik.core._private.cluster.cluster_operator import (
     get_cluster_dump_archive, get_local_dump_archive, show_cluster_info, show_cluster_status, RUN_ENV_TYPES,
     start_proxy, stop_proxy, cluster_debug_status,
     cluster_health_check, cluster_process_status,
-    attach_worker, exec_node_from_head, start_stop_node_from_head)
+    attach_worker, exec_node_from_head, start_node_from_head, stop_node_from_head)
 from cloudtik.core._private.constants import CLOUDTIK_PROCESSES, \
     CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
     CLOUDTIK_DEFAULT_PORT
@@ -547,13 +547,12 @@ def start_node(cluster_config_file, cluster_name, no_config_cache,
     """Manual (re)start the node and runtime services on head or worker node."""
     try:
         # attach to the worker node
-        start_stop_node_from_head(
+        start_node_from_head(
             cluster_config_file,
             node_ip,
             all_nodes,
             cluster_name,
-            no_config_cache=no_config_cache,
-            start=True)
+            no_config_cache=no_config_cache)
     except RuntimeError as re:
         cli_logger.error("Start node failed. " + str(re))
         if cli_logger.verbosity == 0:
@@ -592,13 +591,12 @@ def stop_node(cluster_config_file, cluster_name, no_config_cache,
     """Manually run stop commands on head or worker nodes."""
     try:
         # attach to the worker node
-        start_stop_node_from_head(
+        stop_node_from_head(
             cluster_config_file,
             node_ip,
             all_nodes,
             cluster_name,
-            no_config_cache=no_config_cache,
-            start=False)
+            no_config_cache=no_config_cache)
     except RuntimeError as re:
         cli_logger.error("Stop node failed. " + str(re))
         if cli_logger.verbosity == 0:

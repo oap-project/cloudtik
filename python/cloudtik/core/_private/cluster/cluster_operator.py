@@ -348,10 +348,9 @@ def teardown_cluster(config_file: str, yes: bool, workers_only: bool,
     try:
         if not workers_only:
             cli_logger.print("Requesting head node to stop head services.")
-            exec_cmd_on_cluster(
-                config_file,
-                "cloudtik node-stop",
-                override_cluster_name)
+            stop_node_from_head(config_file,
+                                node_ip=None, all_nodes=False,
+                                override_cluster_name=override_cluster_name)
 
         # Running teardown cluster process on head first. But we allow this to fail.
         # Since head node problem should not prevent cluster tear down
@@ -991,7 +990,7 @@ def exec_cluster(config_file: str,
     shutdown_after_run = False
     if cmd and stop:
         cmd = "; ".join([
-            cmd, "cloudtik node-stop",
+            cmd, "cloudtik head stop-node",
             "cloudtik down ~/cloudtik_bootstrap_config.yaml --yes --workers-only"
         ])
         shutdown_after_run = True
@@ -2130,23 +2129,43 @@ def start_node_on_head(node_ip: str = None,
         start_single_node_on_head(node_id)
 
 
-def start_stop_node_from_head(config_file: str,
-                              node_ip: str,
-                              all_nodes: bool,
-                              override_cluster_name: Optional[str] = None,
-                              no_config_cache: bool = False,
-                              start: bool = True) -> None:
+def start_node_from_head(config_file: str,
+                         node_ip: str,
+                         all_nodes: bool,
+                         override_cluster_name: Optional[str] = None,
+                         no_config_cache: bool = False):
     """Execute start node command on head."""
 
     # execute attach on head
     cmds = [
         "cloudtik",
         "head",
+        "start-node",
     ]
-    if start:
-        cmds += ["start-node"]
-    else:
-        cmds += ["stop-node"]
+    if node_ip:
+        cmds += ["--node-ip={}".format(node_ip)]
+    if all_nodes:
+        cmds += ["--all-nodes"]
+    final_cmd = " ".join(cmds)
+
+    exec_cmd_on_cluster(config_file, final_cmd,
+                        override_cluster_name,
+                        no_config_cache=no_config_cache)
+
+
+def stop_node_from_head(config_file: str,
+                        node_ip: str,
+                        all_nodes: bool,
+                        override_cluster_name: Optional[str] = None,
+                        no_config_cache: bool = False):
+    """Execute stop node command on head."""
+
+    # execute attach on head
+    cmds = [
+        "cloudtik",
+        "head",
+        "stop-node",
+    ]
     if node_ip:
         cmds += ["--node-ip={}".format(node_ip)]
     if all_nodes:

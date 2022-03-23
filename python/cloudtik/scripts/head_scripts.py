@@ -11,7 +11,7 @@ from cloudtik.core._private.cli_logger import (add_click_logging_options,
 from cloudtik.core._private.cluster.cluster_operator import (
     debug_status_string, get_cluster_dump_archive_on_head,
     RUN_ENV_TYPES, teardown_cluster_on_head, cluster_process_status_on_head, rsync_node_on_head, attach_node_on_head,
-    exec_worker_on_head, show_cluster_info, show_cluster_status, monitor_cluster, get_worker_node_ips,
+    exec_node_on_head, show_cluster_info, show_cluster_status, monitor_cluster, get_worker_node_ips,
     start_node_on_head, stop_node_on_head)
 from cloudtik.core._private.constants import CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
     CLOUDTIK_KV_NAMESPACE_HEALTHCHECK
@@ -164,7 +164,12 @@ def attach(node_ip, screen, tmux, new, port_forward):
     "-n",
     required=True,
     type=str,
-    help="The node internal ip to attach to.")
+    help="The node internal ip to operate on.")
+@click.option(
+    "--all-nodes",
+    is_flag=True,
+    default=False,
+    help="Whether to execute on all nodes.")
 @click.option(
     "--run-env",
     required=False,
@@ -184,15 +189,16 @@ def attach(node_ip, screen, tmux, new, port_forward):
     type=int,
     help="Port to forward. Use this multiple times to forward multiple ports.")
 @add_click_logging_options
-def exec(cmd, node_ip, run_env, screen, tmux, port_forward):
+def exec(cmd, node_ip, all_nodes, run_env, screen, tmux, port_forward):
     """Execute command on the worker node from head."""
     port_forward = [(port, port) for port in list(port_forward)]
-    exec_worker_on_head(node_ip,
-                        cmd,
-                        run_env,
-                        screen,
-                        tmux,
-                        port_forward)
+    exec_node_on_head(node_ip,
+                      all_nodes,
+                      cmd,
+                      run_env,
+                      screen,
+                      tmux,
+                      port_forward)
 
 
 @head.command()

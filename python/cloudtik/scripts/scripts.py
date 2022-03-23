@@ -23,7 +23,7 @@ from cloudtik.core._private.cluster.cluster_operator import (
     get_cluster_dump_archive, get_local_dump_archive, show_cluster_info, show_cluster_status, RUN_ENV_TYPES,
     start_proxy, stop_proxy, cluster_debug_status,
     cluster_health_check, cluster_process_status,
-    attach_worker, exec_worker, start_stop_node_from_head)
+    attach_worker, exec_node_from_head, start_stop_node_from_head)
 from cloudtik.core._private.constants import CLOUDTIK_PROCESSES, \
     CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
     CLOUDTIK_DEFAULT_PORT
@@ -991,14 +991,19 @@ def submit(cluster_config_file, screen, tmux, stop, start, cluster_name,
     type=str,
     default=None,
     help="The internal IP address of the node to exec command on")
+@click.option(
+    "--all-nodes",
+    is_flag=True,
+    default=False,
+    help="Whether to execute commands on all nodes.")
 @add_click_logging_options
 def exec(cluster_config_file, cmd, run_env, screen, tmux, stop, start,
-         cluster_name, no_config_cache, port_forward, node_ip):
+         cluster_name, no_config_cache, port_forward, node_ip, all_nodes):
     """Execute a command via SSH on a cluster."""
     port_forward = [(port, port) for port in list(port_forward)]
 
     try:
-        if not node_ip:
+        if not node_ip and not all_nodes:
             exec_cluster(
                 cluster_config_file,
                 cmd=cmd,
@@ -1012,9 +1017,10 @@ def exec(cluster_config_file, cmd, run_env, screen, tmux, stop, start,
                 port_forward=port_forward,
                 _allow_uninitialized_state=True)
         else:
-            exec_worker(
+            exec_node_from_head(
                 cluster_config_file,
                 node_ip,
+                all_nodes=all_nodes,
                 cmd=cmd,
                 run_env=run_env,
                 screen=screen,

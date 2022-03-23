@@ -1820,20 +1820,22 @@ def cluster_process_status(cluster_config_file: str,
     exec_cmd_on_cluster(cluster_config_file, cmd, override_cluster_name)
 
 
-def exec_worker(config_file: str,
-                node_ip: str,
-                cmd: str = None,
-                run_env: str = "auto",
-                screen: bool = False,
-                tmux: bool = False,
-                override_cluster_name: Optional[str] = None,
-                no_config_cache: bool = False,
-                port_forward: Optional[Port_forward] = None) -> None:
+def exec_node_from_head(config_file: str,
+                        node_ip: str,
+                        all_nodes: bool = False,
+                        cmd: str = None,
+                        run_env: str = "auto",
+                        screen: bool = False,
+                        tmux: bool = False,
+                        override_cluster_name: Optional[str] = None,
+                        no_config_cache: bool = False,
+                        port_forward: Optional[Port_forward] = None) -> None:
     """Attaches to a screen for the specified cluster.
 
     Arguments:
         config_file: path to the cluster yaml
-        node_ip: the node internal IP to attach
+        node_ip: the node internal IP to operate
+        all_nodes: Run the operation on all the nodes
         cmd: command to run
         run_env: whether to run the command on the host or in a container.
             Select between "auto", "host" and "docker"
@@ -1850,7 +1852,10 @@ def exec_worker(config_file: str,
         "exec",
     ]
     cmds += [quote(cmd)]
-    cmds += ["--node-ip={}".format(node_ip)]
+    if node_ip:
+        cmds += ["--node-ip={}".format(node_ip)]
+    if all_nodes:
+        cmds += ["--all-nodes"]
     if run_env:
         cmds += ["--run-env={}".format(run_env)]
     if screen:
@@ -1926,28 +1931,17 @@ def attach_worker(config_file: str,
         _allow_uninitialized_state=False)
 
 
-def exec_cmd_on_head(config_file: str,
-                     node_ip: str,
+def exec_cmd_on_head(config,
+                     provider,
+                     node_id: str,
                      cmd: str = None,
                      run_env: str = "auto",
                      screen: bool = False,
                      tmux: bool = False,
                      port_forward: Optional[Port_forward] = None,
                      with_output: bool = False) -> str:
-    """Runs a command on the specified node from head.
+    """Runs a command on the specified node from head."""
 
-    Arguments:
-        config_file: path to the cluster yaml
-        node_ip: The internal node IP of the node to exec on
-        cmd: command to run
-        run_env: whether to run the command on the host or in a container.
-            Select between "auto", "host" and "docker"
-        screen: whether to run in a screen
-        tmux: whether to run in a tmux session
-        override_cluster_name: set the name of the cluster
-        port_forward ( (int, int) or list[(int, int)] ): port(s) to forward
-        with_output (bool): Whether needs output
-    """
     assert not (screen and tmux), "Can specify only one of `screen` or `tmux`."
     assert run_env in RUN_ENV_TYPES, "--run_env must be in {}".format(
         RUN_ENV_TYPES)
@@ -1956,13 +1950,6 @@ def exec_cmd_on_head(config_file: str,
     # In the future we would want to support disabling login-shells
     # and interactivity.
     cmd_output_util.set_allow_interactive(True)
-
-    config = yaml.safe_load(open(config_file).read())
-    provider = _get_node_provider(config["provider"], config["cluster_name"])
-    node_id = provider.get_node_id(node_ip, use_internal_ip=True)
-    if not node_id:
-        cli_logger.error("No node with the specified IP {} found.", node_ip)
-        return None
 
     updater = create_node_updater_for_exec(
         config=config,
@@ -1991,16 +1978,24 @@ def attach_node_on_head(node_ip: str,
                         new: bool = False,
                         port_forward: Optional[Port_forward] = None):
     cluster_config_file = get_head_bootstrap_config()
+    config = yaml.safe_load(open(cluster_config_file).read())
+    provider = _get_node_provider(config["provider"], config["cluster_name"])
 
     if not node_ip:
         cli_logger.error("Node IP must be specified to attach node!")
         return
 
+    node_id = provider.get_node_id(node_ip, use_internal_ip=True)
+    if not node_id:
+        cli_logger.error("No node with the specified IP {} found.", node_ip)
+        return
+
     cmd = get_attach_command(use_screen, use_tmux, new)
 
     exec_cmd_on_head(
-        cluster_config_file,
-        node_ip=node_ip,
+        config,
+        provider,
+        node_id=node_id,
         cmd=cmd,
         run_env="auto",
         screen=False,
@@ -2008,27 +2003,33 @@ def attach_node_on_head(node_ip: str,
         port_forward=port_forward)
 
 
-def exec_worker_on_head(
+def exec_node_on_head(
                      node_ip: str,
+                     all_nodes: bool = False,
                      cmd: str = None,
                      run_env: str = "auto",
                      screen: bool = False,
                      tmux: bool = False,
                      port_forward: Optional[Port_forward] = None):
     cluster_config_file = get_head_bootstrap_config()
+    config = yaml.safe_load(open(cluster_config_file).read())
+    provider = _get_node_provider(config["provider"], config["cluster_name"])
+    head_node = _get_running_head_node(config, cluster_config_file,
+                                       None, _provider=provider)
 
-    if not node_ip:
-        cli_logger.error("Node IP must be specified to exec on node!")
-        return
+    nodes = get_nodes_of(config, provider, head_node,
+                         node_ip, all_nodes)
 
-    exec_cmd_on_head(
-        cluster_config_file,
-        node_ip=node_ip,
-        cmd=cmd,
-        run_env=run_env,
-        screen=screen,
-        tmux=tmux,
-        port_forward=port_forward)
+    for node_id in nodes:
+        exec_cmd_on_head(
+            config,
+            provider,
+            node_id=node_id,
+            cmd=cmd,
+            run_env=run_env,
+            screen=screen,
+            tmux=tmux,
+            port_forward=port_forward)
 
 
 def create_node_updater_for_exec(config,

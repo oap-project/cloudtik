@@ -23,7 +23,7 @@ from cloudtik.core._private.cluster.cluster_operator import (
     get_cluster_dump_archive, get_local_dump_archive, show_cluster_info, show_cluster_status, RUN_ENV_TYPES,
     start_proxy, stop_proxy, cluster_debug_status,
     cluster_health_check, cluster_process_status,
-    attach_worker, exec_worker, start_node_from_head)
+    attach_worker, exec_worker, start_stop_node_from_head)
 from cloudtik.core._private.constants import CLOUDTIK_PROCESSES, \
     CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
     CLOUDTIK_DEFAULT_PORT
@@ -535,7 +535,7 @@ def down(cluster_config_file, yes, workers_only, cluster_name,
     required=False,
     type=str,
     default=None,
-    help="The internal IP address of the node to stop")
+    help="The internal IP address of the node to run start commands")
 @click.option(
     "--all-nodes",
     is_flag=True,
@@ -547,14 +547,60 @@ def start_node(cluster_config_file, cluster_name, no_config_cache,
     """Manual (re)start the node and runtime services on head or worker node."""
     try:
         # attach to the worker node
-        start_node_from_head(
+        start_stop_node_from_head(
             cluster_config_file,
             node_ip,
             all_nodes,
             cluster_name,
-            no_config_cache=no_config_cache)
+            no_config_cache=no_config_cache,
+            start=True)
     except RuntimeError as re:
         cli_logger.error("Start node failed. " + str(re))
+        if cli_logger.verbosity == 0:
+            cli_logger.print("For more details, please run with -v flag.")
+        else:
+            traceback.print_exc()
+
+
+@cli.command()
+@click.argument("cluster_config_file", required=True, type=str)
+@click.option(
+    "--cluster-name",
+    "-n",
+    required=False,
+    type=str,
+    help="Override the configured cluster name.")
+@click.option(
+    "--no-config-cache",
+    is_flag=True,
+    default=False,
+    help="Disable the local cluster config cache.")
+@click.option(
+    "--node-ip",
+    required=False,
+    type=str,
+    default=None,
+    help="The internal IP address of the node to stop")
+@click.option(
+    "--all-nodes",
+    is_flag=True,
+    default=False,
+    help="Whether to execute stop commands to all nodes.")
+@add_click_logging_options
+def stop_node(cluster_config_file, cluster_name, no_config_cache,
+              node_ip, all_nodes):
+    """Manually run stop commands on head or worker nodes."""
+    try:
+        # attach to the worker node
+        start_stop_node_from_head(
+            cluster_config_file,
+            node_ip,
+            all_nodes,
+            cluster_name,
+            no_config_cache=no_config_cache,
+            start=False)
+    except RuntimeError as re:
+        cli_logger.error("Stop node failed. " + str(re))
         if cli_logger.verbosity == 0:
             cli_logger.print("For more details, please run with -v flag.")
         else:
@@ -1363,6 +1409,7 @@ cli.add_command(cluster_dump)
 add_command_alias(cluster_dump, name="cluster_dump", hidden=True)
 
 cli.add_command(start_node)
+cli.add_command(stop_node)
 cli.add_command(kill_random_node)
 add_command_alias(kill_random_node, name="kill_random_node", hidden=True)
 

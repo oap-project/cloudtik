@@ -2071,16 +2071,9 @@ def start_node_on_head(node_ip: str = None,
                                        None, _provider=provider)
     head_node_ip = provider.internal_ip(head_node)
     provider_envs = provider.with_provider_environment_variables()
-    if not node_ip:
-        nodes = [head_node]
-        if all_nodes:
-            nodes.extend(_get_worker_nodes(config, None))
-    else:
-        node_id = provider.get_node_id(node_ip, use_internal_ip=True)
-        if not node_id:
-            cli_logger.error("No node with the specified IP {} found.", node_ip)
-            return
-        nodes = [node_id]
+
+    nodes = get_nodes_of(config, provider, head_node,
+                         node_ip, all_nodes)
 
     def start_single_node_on_head(node_id):
         is_head_node = False
@@ -2106,19 +2099,23 @@ def start_node_on_head(node_ip: str = None,
         start_single_node_on_head(node_id)
 
 
-def start_node_from_head(config_file: str,
-                         node_ip: str,
-                         all_nodes: bool,
-                         override_cluster_name: Optional[str] = None,
-                         no_config_cache: bool = False) -> None:
+def start_stop_node_from_head(config_file: str,
+                              node_ip: str,
+                              all_nodes: bool,
+                              override_cluster_name: Optional[str] = None,
+                              no_config_cache: bool = False,
+                              start: bool = True) -> None:
     """Execute start node command on head."""
 
     # execute attach on head
     cmds = [
         "cloudtik",
         "head",
-        "start-node",
     ]
+    if start:
+        cmds += ["start-node"]
+    else:
+        cmds += ["stop-node"]
     if node_ip:
         cmds += ["--node-ip={}".format(node_ip)]
     if all_nodes:
@@ -2128,3 +2125,66 @@ def start_node_from_head(config_file: str,
     exec_cmd_on_cluster(config_file, final_cmd,
                         override_cluster_name,
                         no_config_cache=no_config_cache)
+
+
+def get_nodes_of(config,
+                 provider,
+                 head_node,
+                 node_ip: str = None,
+                 all_nodes: bool = False):
+    if not node_ip:
+        if head_node:
+            nodes = [head_node]
+        else:
+            nodes = []
+        if all_nodes:
+            nodes.extend(_get_worker_nodes(config, None))
+    else:
+        node_id = provider.get_node_id(node_ip, use_internal_ip=True)
+        if not node_id:
+            cli_logger.error("No node with the specified IP {} found.", node_ip)
+            return
+        nodes = [node_id]
+    return nodes
+
+
+def stop_node_on_head(node_ip: str = None,
+                      all_nodes: bool = False):
+    # Since this is running on head, the bootstrap config must exist
+    cluster_config_file = get_head_bootstrap_config()
+    config = yaml.safe_load(open(cluster_config_file).read())
+    provider = _get_node_provider(config["provider"], config["cluster_name"])
+    head_node = _get_running_head_node(config, cluster_config_file,
+                                       None, _provider=provider)
+    head_node_ip = provider.internal_ip(head_node)
+    provider_envs = provider.with_provider_environment_variables()
+
+    nodes = get_nodes_of(config, provider, head_node,
+                         node_ip, all_nodes)
+
+    def stop_single_node_on_head(node_id):
+        is_head_node = False
+        if node_id == head_node:
+            is_head_node = True
+
+        if is_head_node:
+            stop_commands = config["head_stop_commands"]
+        else:
+            stop_commands = with_head_node_ip(config["worker_stop_commands"], head_node_ip)
+
+        if not stop_commands:
+            return
+
+        updater = create_node_updater_for_exec(
+            config=config,
+            node_id=node_id,
+            provider=provider,
+            start_commands=[],
+            is_head_node=is_head_node,
+            use_internal_ip=True)
+
+        updater.exec_commands(stop_commands, provider_envs)
+
+    for node_id in nodes:
+        stop_single_node_on_head(node_id)
+

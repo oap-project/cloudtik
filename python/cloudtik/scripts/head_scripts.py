@@ -12,7 +12,7 @@ from cloudtik.core._private.cluster.cluster_operator import (
     debug_status_string, get_cluster_dump_archive_on_head,
     RUN_ENV_TYPES, teardown_cluster_on_head, cluster_process_status_on_head, rsync_node_on_head, attach_node_on_head,
     exec_worker_on_head, show_cluster_info, show_cluster_status, monitor_cluster, get_worker_node_ips,
-    start_node_on_head)
+    start_node_on_head, stop_node_on_head)
 from cloudtik.core._private.constants import CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
     CLOUDTIK_KV_NAMESPACE_HEALTHCHECK
 from cloudtik.core._private.state import kv_store
@@ -57,10 +57,28 @@ def teardown(keep_min_workers):
     help="Whether to execute start commands to all nodes.")
 @add_click_logging_options
 def start_node(node_ip, all_nodes):
-    """Run start commands on the specific node."""
+    """Run start commands on the specific node or all nodes."""
     start_node_on_head(
         node_ip=node_ip, all_nodes=all_nodes)
 
+
+@head.command()
+@click.option(
+    "--node-ip",
+    "-n",
+    required=True,
+    type=str,
+    help="The node internal ip on which to execute start commands.")
+@click.option(
+    "--all-nodes",
+    is_flag=True,
+    default=False,
+    help="Whether to execute stop commands to all nodes.")
+@add_click_logging_options
+def stop_node(node_ip, all_nodes):
+    """Run stop commands on the specific node or all nodes."""
+    stop_node_on_head(
+        node_ip=node_ip, all_nodes=all_nodes)
 
 @head.command()
 @click.argument("source", required=False, type=str)
@@ -417,6 +435,7 @@ def health_check(address, redis_password, component):
 # commands running on head node
 head.add_command(teardown)
 head.add_command(start_node)
+head.add_command(stop_node)
 
 head.add_command(rsync_down)
 head.add_command(rsync_up)

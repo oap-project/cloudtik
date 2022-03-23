@@ -19,7 +19,7 @@ from cloudtik.core._private.cli_logger import (add_click_logging_options,
                                                cli_logger, cf)
 from cloudtik.core._private.cluster.cluster_operator import (
     attach_cluster, exec_cluster, create_or_update_cluster, monitor_cluster,
-    rsync, teardown_cluster, get_head_node_ip, kill_node, get_worker_node_ips,
+    rsync, teardown_cluster, get_head_node_ip, kill_node_from_head, get_worker_node_ips,
     get_cluster_dump_archive, get_local_dump_archive, show_cluster_info, show_cluster_status, RUN_ENV_TYPES,
     start_proxy, stop_proxy, cluster_debug_status,
     cluster_health_check, cluster_process_status,
@@ -607,7 +607,7 @@ def stop_node(cluster_config_file, cluster_name, no_config_cache,
             traceback.print_exc()
 
 
-@cli.command(hidden=True)
+@cli.command()
 @click.argument("cluster_config_file", required=True, type=str)
 @click.option(
     "--yes",
@@ -616,21 +616,30 @@ def stop_node(cluster_config_file, cluster_name, no_config_cache,
     default=False,
     help="Don't ask for confirmation.")
 @click.option(
-    "--soft",
+    "--hard",
     is_flag=True,
     default=False,
-    help="Terminates the system but does not actually delete the instances")
+    help="Terminates node by directly delete the instances")
 @click.option(
     "--cluster-name",
     "-n",
     required=False,
     type=str,
     help="Override the configured cluster name.")
+@click.option(
+    "--node-ip",
+    required=False,
+    type=str,
+    default=None,
+    help="The internal IP address of the node to kill")
 @add_click_logging_options
-def kill_random_node(cluster_config_file, yes, soft, cluster_name):
+def kill_node(cluster_config_file, yes, hard, cluster_name, node_ip):
     """Kills a random node. For testing purposes only."""
-    click.echo("Killed node with IP " +
-               kill_node(cluster_config_file, yes, soft, cluster_name))
+    killed_node_ip = kill_node_from_head(
+        cluster_config_file, yes, hard, cluster_name,
+        node_ip)
+    if killed_node_ip:
+        click.echo("Killed node with IP " + killed_node_ip)
 
 
 @cli.command()
@@ -1416,8 +1425,8 @@ add_command_alias(cluster_dump, name="cluster_dump", hidden=True)
 
 cli.add_command(start_node)
 cli.add_command(stop_node)
-cli.add_command(kill_random_node)
-add_command_alias(kill_random_node, name="kill_random_node", hidden=True)
+cli.add_command(kill_node)
+add_command_alias(kill_node, name="kill_node", hidden=True)
 
 cli.add_command(debug_status)
 cli.add_command(health_check)

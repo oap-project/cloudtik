@@ -34,7 +34,7 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     hash_launch_conf, prepare_config, get_free_port, \
     kill_process_by_pid, \
     get_proxy_info_file, get_safe_proxy_process_info, \
-    get_node_working_ip, get_head_working_ip, get_node_cluster_ip, is_use_internal_ip, get_head_bootstrap_config, \
+    get_head_working_ip, get_node_cluster_ip, is_use_internal_ip, get_head_bootstrap_config, \
     get_attach_command, is_alive_time, with_head_node_ip
 
 from cloudtik.core._private.providers import _get_node_provider, \
@@ -477,49 +477,79 @@ def teardown_cluster_nodes(config: Dict[str, Any],
         cli_logger.success("No {} remaining.", node_type)
 
 
-def kill_node(config_file: str, yes: bool, soft: bool,
-              override_cluster_name: Optional[str]) -> Optional[str]:
-    """Kills a random worker."""
-    # TODO (haifeng): Check the correct way to kill a node
+def kill_node_from_head(config_file: str, yes: bool, hard: bool,
+                        override_cluster_name: Optional[str],
+                        node_ip: str = None) -> Optional[str]:
+    """Kills a specified or a random worker."""
+
     config = yaml.safe_load(open(config_file).read())
     if override_cluster_name is not None:
         config["cluster_name"] = override_cluster_name
     config = _bootstrap_config(config)
 
-    cli_logger.confirm(yes, "A random node will be killed.", _abort=True)
-
-    provider = _get_node_provider(config["provider"], config["cluster_name"])
-    nodes = provider.non_terminated_nodes({
-        CLOUDTIK_TAG_NODE_KIND: NODE_KIND_WORKER
-    })
-    if not nodes:
-        cli_logger.print("No worker nodes detected.")
-        return None
-    node = random.choice(nodes)
-    cli_logger.print("Shutdown " + cf.bold("{}"), node)
-    if not soft:
-        provider.terminate_node(node)
+    if node_ip:
+        cli_logger.confirm(yes, "Node {} will be killed.", node_ip, _abort=True)
     else:
-        updater = NodeUpdaterThread(
-            node_id=node,
-            provider_config=config["provider"],
-            provider=provider,
-            auth_config=config["auth"],
-            cluster_name=config["cluster_name"],
-            file_mounts=config["file_mounts"],
-            initialization_commands=[],
-            setup_commands=[],
-            start_commands=[],
-            runtime_hash="",
-            file_mounts_contents_hash="",
-            is_head_node=False,
-            docker_config=config.get("docker"))
+        cli_logger.confirm(yes, "A random node will be killed.", _abort=True)
 
-        _exec(updater, "cloudtik node-stop", False, False)
+    if hard:
+        return _kill_node(config, True, hard, node_ip)
 
+    # soft kill, we need to do on head
+    cmds = [
+        "cloudtik",
+        "head",
+        "kill-node"
+        "--yes"
+    ]
+    if node_ip:
+        cmds += ["--node-ip={}".format(node_ip)]
+    final_cmd = " ".join(cmds)
+    exec_cmd_on_cluster(config_file, final_cmd,
+                        override_cluster_name)
+    return None
+
+
+def kill_node_on_head(yes, hard, node_ip: str = None):
+    # Since this is running on head, the bootstrap config must exist
+    cluster_config_file = get_head_bootstrap_config()
+    config = yaml.safe_load(open(cluster_config_file).read())
+    return _kill_node(config, yes, hard, node_ip)
+
+
+def _kill_node(config, yes, hard, node_ip: str = None):
+    provider = _get_node_provider(config["provider"], config["cluster_name"])
+
+    if node_ip:
+        cli_logger.confirm(yes, "Node {} will be killed.", node_ip, _abort=True)
+    else:
+        cli_logger.confirm(yes, "A random node will be killed.", _abort=True)
+
+    if node_ip:
+        node = provider.get_node_id(node_ip, use_internal_ip=True)
+        if not node:
+            cli_logger.error("No node with the specified IP {} found.", node_ip)
+            return None
+    else:
+        nodes = provider.non_terminated_nodes({
+            CLOUDTIK_TAG_NODE_KIND: NODE_KIND_WORKER
+        })
+        if not nodes:
+            cli_logger.print("No worker nodes detected.")
+            return None
+        node = random.choice(nodes)
+        node_ip = get_node_cluster_ip(config, provider, node)
+
+    if not hard:
+        # execute stop-node command
+        stop_node_on_head(node_ip, False)
+
+    # terminate the node
+    cli_logger.print("Shutdown " + cf.bold("{}:{}"), node, node_ip)
+    provider.terminate_node(node)
     time.sleep(POLL_INTERVAL)
 
-    return get_node_working_ip(config, provider, node)
+    return node_ip
 
 
 def monitor_cluster(cluster_config_file: str, num_lines: int,

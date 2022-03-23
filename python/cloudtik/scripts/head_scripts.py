@@ -12,7 +12,7 @@ from cloudtik.core._private.cluster.cluster_operator import (
     debug_status_string, get_cluster_dump_archive_on_head,
     RUN_ENV_TYPES, teardown_cluster_on_head, cluster_process_status_on_head, rsync_node_on_head, attach_node_on_head,
     exec_node_on_head, show_cluster_info, show_cluster_status, monitor_cluster, get_worker_node_ips,
-    start_node_on_head, stop_node_on_head)
+    start_node_on_head, stop_node_on_head, kill_node_on_head)
 from cloudtik.core._private.constants import CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
     CLOUDTIK_KV_NAMESPACE_HEALTHCHECK
 from cloudtik.core._private.state import kv_store
@@ -79,6 +79,34 @@ def stop_node(node_ip, all_nodes):
     """Run stop commands on the specific node or all nodes."""
     stop_node_on_head(
         node_ip=node_ip, all_nodes=all_nodes)
+
+
+@head.command()
+@click.option(
+    "--yes",
+    "-y",
+    is_flag=True,
+    default=False,
+    help="Don't ask for confirmation.")
+@click.option(
+    "--hard",
+    is_flag=True,
+    default=False,
+    help="Terminates node by directly delete the instances")
+@click.option(
+    "--node-ip",
+    required=False,
+    type=str,
+    default=None,
+    help="The internal IP address of the node to kill")
+@add_click_logging_options
+def kill_node(yes, hard, node_ip):
+    """Kills a random node. For testing purposes only."""
+    killed_node_ip = kill_node_on_head(
+        yes, hard, node_ip)
+    if killed_node_ip:
+        click.echo("Killed node with IP " + killed_node_ip)
+
 
 @head.command()
 @click.argument("source", required=False, type=str)
@@ -442,6 +470,7 @@ def health_check(address, redis_password, component):
 head.add_command(teardown)
 head.add_command(start_node)
 head.add_command(stop_node)
+head.add_command(kill_node)
 
 head.add_command(rsync_down)
 head.add_command(rsync_up)

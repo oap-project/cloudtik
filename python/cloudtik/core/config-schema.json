@@ -464,6 +464,21 @@
                                     "default": 512
                                 }
                             }
+                        },
+                        "yarn_container_resource" : {
+                            "type": "object",
+                            "description": "The max resource of one container.",
+                            "additionalProperties": false,
+                            "properties": {
+                                "yarn_container_maximum_vcores": {
+                                    "type": "integer",
+                                    "default": 1
+                                },
+                                "yarn_container_maximum_memory": {
+                                    "type": "integer",
+                                    "default": 1024
+                                }
+                            }
                         }
                     }
                 }

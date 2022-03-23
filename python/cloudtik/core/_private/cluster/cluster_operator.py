@@ -35,7 +35,7 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     kill_process_by_pid, \
     get_proxy_info_file, get_safe_proxy_process_info, \
     get_node_working_ip, get_head_working_ip, get_node_cluster_ip, is_use_internal_ip, get_head_bootstrap_config, \
-    get_attach_command, is_alive_time
+    get_attach_command, is_alive_time, with_head_node_ip
 
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
@@ -2069,6 +2069,7 @@ def start_node_on_head(node_ip: str = None,
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     head_node = _get_running_head_node(config, cluster_config_file,
                                        None, _provider=provider)
+    head_node_ip = provider.internal_ip(head_node)
     provider_envs = provider.with_provider_environment_variables()
     if not node_ip:
         nodes = [head_node]
@@ -2089,7 +2090,7 @@ def start_node_on_head(node_ip: str = None,
         if is_head_node:
             start_commands = config["head_start_commands"]
         else:
-            start_commands = config["worker_start_commands"]
+            start_commands = with_head_node_ip(config["worker_start_commands"], head_node_ip)
 
         updater = create_node_updater_for_exec(
             config=config,

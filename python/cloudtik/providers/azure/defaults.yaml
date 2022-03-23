@@ -151,3 +151,13 @@ worker_start_commands:
     - cloudtik-spark configure --provider=azure --head_address=$CLOUDTIK_HEAD_IP  --azure_storage_kind=$AZURE_STORAGE_KIND  --azure_storage_account=$AZURE_STORAGE_ACCOUNT --azure_container=$AZURE_CONTAINER --azure_account_key=$AZURE_ACCOUNT_KEY
     - cloudtik-spark stop-worker
     - cloudtik-spark start-worker
+
+# Command to start on the head node. You don't need to change this.
+head_stop_commands:
+    - cloudtik node-stop
+    - cloudtik-spark stop-head
+
+# Command to start on worker nodes. You don't need to change this.
+worker_stop_commands:
+    - cloudtik node-stop
+    - cloudtik-spark stop-worker

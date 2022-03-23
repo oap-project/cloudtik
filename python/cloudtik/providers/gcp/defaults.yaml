@@ -171,3 +171,13 @@ worker_start_commands:
     - cloudtik-spark configure --provider=gcp --head_address=$CLOUDTIK_HEAD_IP --project_id=$PROJECT_ID  --gcp_gcs_bucket=$GCP_GCS_BUCKET --fs_gs_auth_service_account_email=$FS_GS_AUTH_SERVICE_ACCOUNT_EMAIL --fs_gs_auth_service_account_private_key_id=$FS_GS_AUTH_SERVICE_ACCOUNT_PRIVATE_KEY_ID --fs_gs_auth_service_account_private_key="$FS_GS_AUTH_SERVICE_ACCOUNT_PRIVATE_KEY"
     - cloudtik-spark stop-worker
     - cloudtik-spark start-worker
+
+# Command to start on the head node. You don't need to change this.
+head_stop_commands:
+    - cloudtik node-stop
+    - cloudtik-spark stop-head
+
+# Command to start on worker nodes. You don't need to change this.
+worker_stop_commands:
+    - cloudtik node-stop
+    - cloudtik-spark stop-worker

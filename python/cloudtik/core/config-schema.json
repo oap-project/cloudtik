@@ -373,6 +373,14 @@
             "$ref": "#/definitions/commands",
             "description": "Command to start on worker nodes. You shouldn't need to modify this."
         },
+        "head_stop_commands": {
+            "$ref": "#/definitions/commands",
+            "description": "Command to stop on the head node. You shouldn't need to modify this."
+        },
+        "worker_stop_commands": {
+            "$ref": "#/definitions/commands",
+            "description": "Command to stop on worker nodes. You shouldn't need to modify this."
+        },
         "no_restart": {
             "description": "Whether to avoid restarting the cluster during updates. This field is controlled by the cloudtik --no-restart flag and cannot be set by the user."
         },

@@ -152,3 +152,12 @@ worker_start_commands:
     - cloudtik-spark stop-worker
     - cloudtik-spark start-worker
 
+# Command to start on the head node. You don't need to change this.
+head_stop_commands:
+    - cloudtik node-stop
+    - cloudtik-spark stop-head
+
+# Command to start on worker nodes. You don't need to change this.
+worker_stop_commands:
+    - cloudtik node-stop
+    - cloudtik-spark stop-worker

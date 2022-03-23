@@ -25,6 +25,12 @@ worker_start_commands:
     - cloudtik node-stop
     - cloudtik node-start --address=$CLOUDTIK_HEAD_IP:6789
 
+head_stop_commands:
+    - cloudtik node-stop
+
+worker_stop_commands:
+    - cloudtik node-stop
+
 file_mounts: {}
 cluster_synced_files: []
 file_mounts_sync_continuously: false

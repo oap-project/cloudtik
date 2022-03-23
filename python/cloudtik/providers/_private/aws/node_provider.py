@@ -18,7 +18,7 @@ from cloudtik.core._private.cli_logger import cli_logger, cf
 
 from cloudtik.providers._private.aws.config import bootstrap_aws, workspace_bootstrap_aws
 from cloudtik.providers._private.aws.utils import boto_exception_handler, \
-    resource_cache, client_cache
+    resource_cache, client_cache, get_aws_s3a_config
 
 logger = logging.getLogger(__name__)
 
@@ -121,11 +121,8 @@ class AWSNodeProvider(NodeProvider):
         self.cached_nodes = {}
 
     def with_provider_environment_variables(self):
-        dict = {}
-        dict["AWS_S3A_BUCKET"] = self.provider_config.get("aws_s3a_storage", {}).get("bucket")
-        dict["FS_S3A_ACCESS_KEY"] = self.provider_config.get("aws_s3a_storage", {}).get("fs.s3a.access.key")
-        dict["FS_S3A_SECRET_KEY"] = self.provider_config.get("aws_s3a_storage", {}).get("fs.s3a.secret.key")
-        return dict
+        return get_aws_s3a_config(self.provider_config)
+
 
     def non_terminated_nodes(self, tag_filters):
         # Note that these filters are acceptable because they are set on

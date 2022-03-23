@@ -20,6 +20,8 @@ from cloudtik.providers._private._azure.azure_identity_credential_adapter import
 from cloudtik.providers._private._azure.config import (bootstrap_azure, MSI_NAME,
                                                        get_azure_sdk_function)
 
+from cloudtik.providers._private._azure.utils import get_azure_config
+
 VM_NAME_MAX_LEN = 64
 VM_NAME_UUID_LEN = 8
 
@@ -84,14 +86,7 @@ class AzureNodeProvider(NodeProvider):
         self.cached_nodes = {}
 
     def with_provider_environment_variables(self):
-        config_dict = {
-            "AZURE_STORAGE_KIND": self.provider_config.get("azure_cloud_storage", {}).get("azure.storage.kind"),
-            "AZURE_STORAGE_ACCOUNT": self.provider_config.get("azure_cloud_storage", {}).get("azure.storage.account"),
-            "AZURE_CONTAINER": self.provider_config.get("azure_cloud_storage", {}).get(
-                "azure.container"),
-            "AZURE_ACCOUNT_KEY": self.provider_config.get("azure_cloud_storage", {}).get(
-                "azure.account.key")}
-        return config_dict
+        return get_azure_config(self.provider_config)
 
     @synchronized
     def _get_filtered_nodes(self, tag_filters):

@@ -1658,12 +1658,19 @@ def show_cluster_status(config_file: str,
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     nodes = provider.non_terminated_nodes({})
     nodes_info = [provider.get_node_info(node) for node in nodes]
+
+    # sort nodes info based on node type and then node ip for workers
+    def node_info_sort(node_info):
+        return node_info["cloudtik-node-kind"] + node_info["private_ip"]
+
+    nodes_info.sort(key=node_info_sort)
+
     tb = pt.PrettyTable()
-    tb.field_names = ["node-id", "node-kind", "node-status", "instance-type", "public-ip-address",
-                      "private-ip-address", "instance-status"]
+    tb.field_names = ["node-id", "node-type", "node-status", "instance-type", "node-ip",
+                      "public-ip", "instance-status"]
     for node_info in nodes_info:
         tb.add_row([node_info["node_id"], node_info["cloudtik-node-kind"], node_info["cloudtik-node-status"],
-                    node_info["instance_type"], node_info["public_ip"], node_info["private_ip"],
+                    node_info["instance_type"], node_info["private_ip"], node_info["public_ip"],
                     node_info["instance_status"]])
 
     def get_nodes_ready(node_info_list):

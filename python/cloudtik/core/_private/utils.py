@@ -23,6 +23,8 @@ import ipaddr
 import socket
 from contextlib import closing
 
+import yaml
+
 import cloudtik
 from cloudtik.core._private import constants, services
 from cloudtik.core._private.cluster.load_metrics import LoadMetricsSummary
@@ -742,6 +744,7 @@ def prepare_config(config: Dict[str, Any]) -> Dict[str, Any]:
     fill_node_type_min_max_workers(with_defaults)
     return with_defaults
 
+
 def prepare_workspace_config(config: Dict[str, Any]) -> Dict[str, Any]:
     """
     The returned config has the following properties:
@@ -758,6 +761,7 @@ def prepare_workspace_config(config: Dict[str, Any]) -> Dict[str, Any]:
     with_defaults = fillout_workspace_defaults(config)
     return with_defaults
 
+
 def fillout_workspace_defaults(config: Dict[str, Any]) -> Dict[str, Any]:
     defaults = _get_default_workspace_config(config["provider"])
     defaults.update(config)
@@ -770,12 +774,53 @@ def fillout_workspace_defaults(config: Dict[str, Any]) -> Dict[str, Any]:
     return merged_config
 
 
-def fillout_defaults(config: Dict[str, Any]) -> Dict[str, Any]:
-    defaults = _get_default_config(config["provider"])
-    defaults = update_nested_dict(defaults, config)
+def _get_template_config(template_name: str) -> Dict[str, Any]:
+    """Load the template config"""
+    import cloudtik as cloudtik_home
+    template_file = os.path.join(
+        os.path.dirname(cloudtik_home.__file__), "templates", template_name)
 
+    with open(template_file) as f:
+        template_config = yaml.safe_load(f)
+
+    return template_config
+
+
+def merge_config(config: Dict[str, Any], updates: Dict[str, Any]) -> Dict[str, Any]:
+    return update_nested_dict(config, updates)
+
+
+def get_merged_base_config(provider, base_config_name: str) -> Dict[str, Any]:
+    template_config = _get_template_config(base_config_name)
+
+    # if provider config exists, verify the provider.type are the same
+    template_provider_type = template_config.get("provider", {}).get("type", None)
+    if template_provider_type and template_provider_type != provider["type"]:
+        raise RuntimeError("Template provider type ({}) doesn't match ({})!".format(
+            template_provider_type, provider["type"]))
+
+    merged_config = merge_config_hierarchy(provider, template_config)
+    return merged_config
+
+
+def merge_config_hierarchy(provider, config: Dict[str, Any]) -> Dict[str, Any]:
+    base_config_name = config.get("from", None)
+    if base_config_name:
+        # base config is provided, we need to merge with base configuration
+        merged_base_config = get_merged_base_config(provider, base_config_name)
+        merged_config = merge_config(merged_base_config, config)
+    else:
+        # no base, use the system defaults for specific provider as base
+        defaults = _get_default_config(provider)
+        defaults = merge_config(defaults, config)
+        merged_config = copy.deepcopy(defaults)
+
+    return merged_config
+
+
+def fillout_defaults(config: Dict[str, Any]) -> Dict[str, Any]:
     # Just for clarity:
-    merged_config = copy.deepcopy(defaults)
+    merged_config = merge_config_hierarchy(config["provider"], config)
 
     # Fill auth field to avoid key errors.
     # This field is accessed when calling NodeUpdater but is not relevant to

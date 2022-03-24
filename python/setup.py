@@ -20,6 +20,7 @@ SUPPORTED_PYTHONS = [(3, 6), (3, 7), (3, 8), (3, 9)]
 ROOT_DIR = os.path.dirname(__file__)
 
 THIRDPARTY_SUBDIR = os.path.join("cloudtik", "thirdparty_files")
+TEMPLATES_SUBDIR = os.path.join("cloudtik", "templates")
 
 exe_suffix = ".exe" if sys.platform == "win32" else ""
 
@@ -254,8 +255,12 @@ def add_system_dlls(dlls, target_dir):
 def pip_run(build_ext):
     if setup_spec.type == SetupType.CLOUDTIK:
         setup_spec.files_to_include += cloudtik_files
+        # Include all the thirdparty files
         thirdparty_dir = os.path.join(ROOT_DIR, THIRDPARTY_SUBDIR)
         setup_spec.files_to_include += walk_directory(thirdparty_dir)
+        # Include all the configuration template files
+        templates_dir = os.path.join(ROOT_DIR, TEMPLATES_SUBDIR)
+        setup_spec.files_to_include += walk_directory(templates_dir)
 
     copied_files = 0
     for filename in setup_spec.files_to_include:

@@ -27,6 +27,10 @@
             "description": "The workspace resource for this cluster.",
             "type": "string"
         },
+        "from": {
+            "description": "Inherit configurations from another configuration in templates folder.",
+            "type": "string"
+        },
         "min_workers": {
             "description": "The minimum number of worker nodes to launch. Use the per node_type min_workers field instead.",
             "type": "integer",

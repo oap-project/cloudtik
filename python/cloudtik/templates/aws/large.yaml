@@ -1,0 +1,12 @@
+# Cloud-provider specific configuration.
+provider:
+    type: aws
+
+# The instance configuration for a large instances
+available_node_types:
+    head.default:
+        node_config:
+            InstanceType: m5.12xlarge
+    worker.default:
+        node_config:
+            InstanceType: m5.12xlarge

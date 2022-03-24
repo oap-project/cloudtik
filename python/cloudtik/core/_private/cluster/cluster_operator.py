@@ -498,8 +498,8 @@ def kill_node_from_head(config_file: str, yes: bool, hard: bool,
     cmds = [
         "cloudtik",
         "head",
-        "kill-node"
-        "--yes"
+        "kill-node",
+        "--yes",
     ]
     if node_ip:
         cmds += ["--node-ip={}".format(node_ip)]

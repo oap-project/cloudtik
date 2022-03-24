@@ -529,7 +529,7 @@ def _kill_node(config, hard, node_ip: str = None):
     if node_ip:
         node = provider.get_node_id(node_ip, use_internal_ip=True)
         if not node:
-            cli_logger.error("No node with the specified IP {} found.", node_ip)
+            cli_logger.error("No node with the specified node ip - {} found.", node_ip)
             return None
     else:
         nodes = provider.non_terminated_nodes({
@@ -2037,7 +2037,7 @@ def attach_node_on_head(node_ip: str,
 
     node_id = provider.get_node_id(node_ip, use_internal_ip=True)
     if not node_id:
-        cli_logger.error("No node with the specified IP {} found.", node_ip)
+        cli_logger.error("No node with the specified node ip - {} found.", node_ip)
         return
 
     cmd = get_attach_command(use_screen, use_tmux, new)
@@ -2213,7 +2213,7 @@ def get_nodes_of(config,
     else:
         node_id = provider.get_node_id(node_ip, use_internal_ip=True)
         if not node_id:
-            cli_logger.error("No node with the specified IP {} found.", node_ip)
+            cli_logger.error("No node with the specified node ip - {} found.", node_ip)
             return
         nodes = [node_id]
     return nodes

@@ -535,7 +535,7 @@ def down(cluster_config_file, yes, workers_only, cluster_name,
     required=False,
     type=str,
     default=None,
-    help="The cluster ip address of the node to run start commands")
+    help="The node ip address of the node to run start commands")
 @click.option(
     "--all-nodes",
     is_flag=True,
@@ -579,7 +579,7 @@ def start_node(cluster_config_file, cluster_name, no_config_cache,
     required=False,
     type=str,
     default=None,
-    help="The cluster ip address of the node to stop")
+    help="The node ip address of the node to stop")
 @click.option(
     "--all-nodes",
     is_flag=True,
@@ -629,7 +629,7 @@ def stop_node(cluster_config_file, cluster_name, no_config_cache,
     required=False,
     type=str,
     default=None,
-    help="The cluster ip address of the node to kill")
+    help="The node ip address of the node to kill")
 @add_click_logging_options
 def kill_node(cluster_config_file, yes, hard, cluster_name, node_ip):
     """Kills a random node. For testing purposes only."""
@@ -703,7 +703,7 @@ def monitor(cluster_config_file, lines, cluster_name):
     required=False,
     type=str,
     default=None,
-    help="The cluster ip address of the node to attach to")
+    help="The node ip address of the node to attach to")
 @add_click_logging_options
 def attach(cluster_config_file, start, screen, tmux, cluster_name,
            no_config_cache, new, port_forward, node_ip):
@@ -791,7 +791,7 @@ def disable_local_access(cluster_config_file,cluster_name):
     required=False,
     type=str,
     default=None,
-    help="The cluster ip address of the node to rsync with")
+    help="The node ip address of the node to rsync with")
 @add_click_logging_options
 def rsync_down(cluster_config_file, source, target, cluster_name, node_ip):
     """Download specific files from a cluster."""
@@ -821,7 +821,7 @@ def rsync_down(cluster_config_file, source, target, cluster_name, node_ip):
     required=False,
     type=str,
     default=None,
-    help="The cluster ip address of the node to rsync with")
+    help="The node ip address of the node to rsync with")
 @click.option(
     "--all-nodes",
     is_flag=True,
@@ -997,7 +997,7 @@ def submit(cluster_config_file, screen, tmux, stop, start, cluster_name,
     required=False,
     type=str,
     default=None,
-    help="The cluster ip address of the node to exec command on")
+    help="The node ip address of the node to exec command on")
 @click.option(
     "--all-nodes",
     is_flag=True,

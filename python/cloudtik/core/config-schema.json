@@ -18,7 +18,7 @@
         "provider"
     ],
     "additionalProperties": false,
-	"properties": {
+    "properties": {
         "cluster_name": {
             "description": "A unique identifier for the head node and workers of this cluster.",
             "type": "string"
@@ -153,10 +153,10 @@
                       }
                     }
                 },
-				"disable_node_updaters": {
-					"type": "boolean",
-					"description": "Disables node updaters if set to True. Default is False. (For Kubernetes operator usage.)"
-				},
+                "disable_node_updaters": {
+                    "type": "boolean",
+                    "description": "Disables node updaters if set to True. Default is False. (For Kubernetes operator usage.)"
+                },
                 "gcp_credentials": {
                     "type": "object",
                     "description": "Credentials for authenticating with the GCP client",
@@ -270,11 +270,11 @@
                 "image": {
                     "type": "string",
                     "description": "the docker image name",
-                    "default": "cloudtik/spark-ai:latest"
+                    "default": "cloudtik/spark-runtime:latest"
                 },
                 "container_name": {
                     "type": "string",
-                    "default": "cloudtik_spark_ai_docker"
+                    "default": "cloudtik_spark_container"
                 },
                 "pull_before_run": {
                     "type": "boolean",
@@ -392,48 +392,48 @@
                     "type": "object",
                     "required": [ "resources", "node_config" ],
                     "properties": {
-                       "node_config": {
-                           "type": "object",
-                           "description": "Provider-specific config for the node, e.g. instance type."
-                       },
-                       "min_workers": {"type": "integer"},
-                       "max_workers": {"type": "integer"},
-                       "resources": {
-						   "type": "object",
-						   "patternProperties": {
-							   ".*":{
-								   "type": "integer",
-								   "minimum": 0
-							   }
-						   }
-                       },
-                       "initialization_commands": {
-                           "$ref": "#/definitions/commands",
-                           "description": "List of commands that will be run before `setup_commands`. If docker is enabled, these commands will run outside the container and before docker is setup."
-                       },
-                       "worker_setup_commands": {
-                           "$ref": "#/definitions/commands",
-                           "description": "List of common shell commands to run to setup nodes. This node specfic list will override the global setup_commands and worker_setup_commands."
-                       },
-                       "docker": {
-                        "description": "Configuration of Worker nodes.",
-                        "type": "object",
-                        "properties": {
-                            "pull_before_run": {
-                                "type": "boolean",
-                                "description": "run `docker pull` first"
-                            },
-                            "worker_image": {
-                                "type": "string",
-                                "description": "analogous to head_image"
-                            },
-                            "worker_run_options": {
-                                "type": "array",
-                                "description": "analogous to head_run_options, merged with the global docker run_options."
+                        "node_config": {
+                            "type": "object",
+                            "description": "Provider-specific config for the node, e.g. instance type."
+                        },
+                        "min_workers": {"type": "integer"},
+                        "max_workers": {"type": "integer"},
+                        "resources": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*":{
+                                    "type": "integer",
+                                    "minimum": 0
+                                }
                             }
                         },
-                        "additionalProperties": false
-                    }
+                        "initialization_commands": {
+                            "$ref": "#/definitions/commands",
+                            "description": "List of commands that will be run before `setup_commands`. If docker is enabled, these commands will run outside the container and before docker is setup."
+                        },
+                        "worker_setup_commands": {
+                            "$ref": "#/definitions/commands",
+                            "description": "List of common shell commands to run to setup nodes. This node specfic list will override the global setup_commands and worker_setup_commands."
+                        },
+                        "docker": {
+                            "description": "Configuration of Worker nodes.",
+                            "type": "object",
+                            "properties": {
+                                "pull_before_run": {
+                                    "type": "boolean",
+                                    "description": "run `docker pull` first"
+                                },
+                                "worker_image": {
+                                    "type": "string",
+                                    "description": "analogous to head_image"
+                                },
+                                "worker_run_options": {
+                                    "type": "array",
+                                    "description": "analogous to head_run_options, merged with the global docker run_options."
+                                }
+                            },
+                            "additionalProperties": false
+                        }
                     },
                     "additionalProperties": false
                 }

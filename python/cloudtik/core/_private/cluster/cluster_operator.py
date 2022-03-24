@@ -1832,20 +1832,26 @@ def cluster_process_status_on_head(redis_address):
     tb = pt.PrettyTable()
     tb.field_names = ["node-ip", "node-type", "n-controller", "n-manager", "l-monitor",
                       "c-controller", "r-manager", "r-server"]
-    live_nodes = 0
     all_nodes = node_table.get_all().values()
+    nodes_info = []
     for value in all_nodes:
         node_info = eval(value)
         if not is_alive_time(node_info.get("last_heartbeat_time", 0)):
             continue
+        nodes_info.append(node_info)
 
-        live_nodes += 1
+    # sort nodes info based on node type and then node ip for workers
+    def node_info_sort(node_info):
+        return node_info["node_type"] + node_info["resource"]["ip"]
+    nodes_info.sort(key=node_info_sort)
+
+    for node_info in nodes_info:
         process_info = node_info["process"]
         tb.add_row([node_info["resource"]["ip"], node_info["node_type"],
                     process_info["NodeController"], process_info["NodeManager"], process_info["LogMonitor"],
                     process_info["ClusterController"], process_info["ResourceManager"], process_info["RedisServer"]
                     ])
-    cli_logger.print("Total {} live nodes reported.", live_nodes)
+    cli_logger.print("Total {} live nodes reported.", len(nodes_info))
     cli_logger.print(tb)
 
 

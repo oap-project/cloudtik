@@ -1728,10 +1728,16 @@ def _start_proxy_process(head_node_ip, config):
 
     auth_config = config["auth"]
     ssh_proxy_command = auth_config.get("ssh_proxy_command", None)
-    ssh_private_key = auth_config.get("ssh_private_key")
+    ssh_private_key = auth_config.get("ssh_private_key", None)
+    ssh_user = auth_config["ssh_user"]
     proxy_port = get_free_port()
-    cmd = "ssh -i {} -o ProxyCommand=\'{}\'  -o \'StrictHostKeyChecking no\' -D {}  -C -N ubuntu@{}".format(ssh_private_key,
-                                                                                ssh_proxy_command, proxy_port, head_node_ip)
+    cmd = "ssh -o \'StrictHostKeyChecking no\'"
+    if ssh_private_key:
+        cmd += " -i {}".format(ssh_private_key)
+    if ssh_proxy_command:
+        cmd += " -o ProxyCommand=\'{}\'".format(ssh_proxy_command)
+    cmd += " -D {} -C -N {}@{}".format(proxy_port, ssh_user, head_node_ip)
+
     cli_logger.verbose("Running `{}`", cf.bold(cmd))
     p = subprocess.Popen(cmd, shell=True)
     if os.path.exists(proxy_info_file):

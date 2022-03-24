@@ -583,12 +583,13 @@ class SSHCommandExecutor(CommandExecutor):
 
     def remote_shell_command_str(self):
         self._set_ssh_ip_if_required()
+        command = "ssh -o IdentitiesOnly=yes"
         if self.ssh_private_key:
-            return "ssh -o IdentitiesOnly=yes -i {} {}@{}\n".format(
-                self.ssh_private_key, self.ssh_user, self.ssh_ip)
-        else:
-            return "ssh -o IdentitiesOnly=yes {}@{}\n".format(
-                self.ssh_user, self.ssh_ip)
+            command += " -i {}".format(self.ssh_private_key)
+        if self.ssh_proxy_command:
+            command += " -o ProxyCommand='{}'".format(self.ssh_proxy_command)
+        return command + " {}@{}\n".format(
+            self.ssh_user, self.ssh_ip)
 
 
 class DockerCommandExecutor(CommandExecutor):

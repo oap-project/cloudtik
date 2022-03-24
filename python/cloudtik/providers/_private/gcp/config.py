@@ -16,6 +16,10 @@ from google.oauth2.credentials import Credentials as OAuthCredentials
 from cloudtik.providers._private.gcp.node import (GCPNodeType, MAX_POLLS,
                                               POLL_INTERVAL)
 
+from cloudtik.core._private.cli_logger import cli_logger, cf
+from cloudtik.core._private.services import get_node_ip_address
+from cloudtik.core._private.utils import check_cidr_conflict
+
 logger = logging.getLogger(__name__)
 
 VERSION = "v1"
@@ -249,11 +253,209 @@ def construct_clients_from_provider_config(provider_config):
         _create_compute(credentials), \
         tpu_resource
 
-def bootstrap_workspace_gcp(config):
+
+def create_gcp_workspace(config):
     config = copy.deepcopy(config)
     # TODO: create vpc and security group
+    crm, iam, compute, tpu = \
+        construct_clients_from_provider_config(config["provider"])
+
+    config = _configure_project(config, crm)
+
+    config = _configure_gcp_vpc(config)
 
     return config
+
+
+def get_gcp_vpc_id(config, compute):
+    project_id = config["provider"].get("project_id")
+    vpc_name = 'cloudtik-{}-vpc'.format(config["workspace_name"])
+    VpcIds = [vpc["id"] for vpc in compute.networks().list(project=project_id).execute().get("items")
+           if vpc["name"] == vpc_name]
+    if len(VpcIds) == 0:
+        cli_logger.print("This VPC: {} has not existed.".
+                         format(vpc_name))
+        return None
+    else:
+        cli_logger.print("This VPC: {} is existeing.".
+                         format(vpc_name))
+        return VpcIds[0]
+
+
+def _delete_gcp_vpc(config, compute):
+    VpcId = get_gcp_vpc_id(config, compute)
+    project_id = config["provider"].get("project_id")
+    vpc_name = 'cloudtik-{}-vpc'.format(config["workspace_name"])
+    """ Delete the VPC """
+    try:
+        cli_logger.print("Removing GCP network: {}".format(vpc_name))
+        compute.networks().delete(project=project_id, network=VpcId).execute()
+    except Exception as e:
+        cli_logger.verbose_error("{}", str(e))
+        cli_logger.abort(
+            "Please remove dependencies and delete VPC manually.")
+    return
+
+
+def _create_gcp_vpc(config, compute):
+    project_id = config["provider"].get("project_id")
+    network_body = {
+        "autoCreateSubnetworks": False,
+        "description": "Auto created network by cloudtik",
+        "name": 'cloudtik-{}-vpc'.format(config["workspace_name"]),
+        "routingConfig": {
+            "routingMode": "REGIONAL"
+        },
+        "mtu": 1460
+    }
+
+    cli_logger.print("Start to create customer vpc on GCP...")
+    # create vpc
+    try:
+        VpcId = compute.networks().insert(project=project_id, body=network_body).execute().get("id")
+        cli_logger.print("Have successfully create vpc: cloudtik-{}-vpc ...".format(config["workspace_name"]))
+    except Exception as e:
+        # todo: add better exception info
+        cli_logger.verbose_error("{}", str(e))
+        cli_logger.abort(
+            "Cannot create vpc... please check weather you have reach the  maximum number of VPCs.")
+    return VpcId
+
+
+def get_gcp_current_vpc(config, compute):
+    ip_address = get_node_ip_address(address="8.8.8.8:53")
+    project_id = config["provider"].get("project_id")
+    zone = config["provider"].get("availability_zone")
+    instances = compute.instances().list(project=project_id, zone=zone).execute()["items"]
+    network = None
+    for instance in instances:
+        for networkInterface in instance.get("networkInterfaces"):
+            if networkInterface.get("networkIP") == ip_address:
+                network = networkInterface.get("network").split("/")[-1]
+                break
+
+    if network is None:
+        cli_logger.abort("Working node is not an GCP instance!")
+
+    return compute.networks().get(project=project_id, network=network).execute()["id"]
+
+
+def _configure_gcp_subnets_cidr(config, compute, VpcId):
+    project_id = config["provider"].get("project_id")
+    region = config["provider"].get("region")
+    vpc_self_link = compute.networks().get(project=project_id, network=VpcId).execute()["selfLink"]
+    cidr_list = []
+    subnets = compute.subnetworks().list(project=project_id, region=region,
+                                         filter='((network = \"{}\"))'.format(vpc_self_link)).execute()["items"]
+
+    if len(subnets) == 0:
+        for i in range(0, 2):
+            cidr_list.append("10.0." + str(i) + ".0/24")
+    else:
+        cidr_blocks = [subnet["ipCidrRange"] for subnet in subnets]
+        ip = cidr_blocks[0].split("/")[0].split(".")
+        for i in range(0, 256):
+            tmp_cidr_block = ip[0] + "." + ip[1] + "." + str(i) + ".0/24"
+            if check_cidr_conflict(tmp_cidr_block, cidr_blocks):
+                cidr_list.append(tmp_cidr_block)
+                print("Choose CIDR: {}".format(tmp_cidr_block))
+
+            if len(cidr_list) == 2:
+                break
+
+    return cidr_list
+
+
+def _delete_private_subnets(config, compute, VpcId):
+    project_id = config["provider"].get("project_id")
+    region = config["provider"].get("region")
+    vpc_self_link = compute.networks().get(project=project_id, network=VpcId).execute()["selfLink"]
+    subnets = compute.subnetworks().list(project=project_id, region=region,
+                                         filter='((network = \"{}\"))'.format(vpc_self_link)).execute()["items"]
+
+    # """ Delete custom private subnets """
+    if len(subnets) == 0:
+        cli_logger.print("No subnets for workspace were found under this VPC: {} ...".format(VpcId))
+        return
+    try:
+        cli_logger.print("Removing private subnet ...")
+        compute.subnetworks().delete(project=project_id, region=region,
+                                         subnetwork="cloudtik-{}-private-subnet".format(config["workspace_name"])).execute()
+    except Exception as e:
+        cli_logger.verbose_error("{}", str(e))
+    return
+
+
+def _create_and_configure_gcp_subnets(config, compute, VpcId):
+    project_id = config["provider"]["project_id"]
+    region = config["provider"]["region"]
+
+    # subnets = []
+    cidr_list = _configure_gcp_subnets_cidr(config, compute, VpcId)
+    assert len(cidr_list) == 2, "We must create 2 subnets for VPC: {}!".format(VpcId)
+
+    public_network_body = {
+        "description": "Auto created public subnet for cloudtik",
+        "enableFlowLogs": False,
+        "ipCidrRange": cidr_list[0],
+        "name": "cloudtik-{}-public-subnet".format(config["workspace_name"]),
+        "network": "projects/{}/global/networks/{}".format(project_id, VpcId),
+        "stackType": "IPV4_ONLY",
+        "privateIpGoogleAccess": False,
+        "region": region
+    }
+
+    compute.subnetworks().insert(project=project_id, region=region, body=public_network_body).execute()
+
+    private_network_body = {
+        "description": "Auto created private subnet for cloudtik",
+        "enableFlowLogs": False,
+        "ipCidrRange": cidr_list[1],
+        "name": "cloudtik-{}-private-subnet".format(config["workspace_name"]),
+        "network": "projects/{}/global/networks/{}".format(project_id, VpcId),
+        "stackType": "IPV4_ONLY",
+        "privateIpGoogleAccess": False,
+        "region": region
+    }
+
+    compute.subnetworks().insert(project=project_id, region=region, body=private_network_body).execute()
+    return
+
+
+def _configure_gcp_vpc(config):
+    crm, iam, compute, tpu = \
+        construct_clients_from_provider_config(config["provider"])
+    use_internal_ips = config["provider"].get("use_internal_ips", False)
+    workspace_name = config["workspace_name"]
+    cli_logger.verbose(
+        "Starting to create workspace: {}!",
+        cf.bold(workspace_name))
+
+    try:
+        if use_internal_ips:
+            # No need to create new vpc
+            VpcId = get_gcp_current_vpc(config, compute)
+        else:
+
+            # Need to create a new vpc
+            if  get_gcp_vpc_id(config, compute) is None:
+                VpcId = _create_gcp_vpc(config, compute)
+            else:
+                cli_logger.abort("There is a same name VPC for workspace: {}, "
+                                 "if you want to create a new workspace with the same name, "
+                                 "you need to execute workspace delete first!".format(workspace_name))
+
+        # create subnets
+        _create_and_configure_gcp_subnets(config, compute, VpcId)
+
+    except Exception as e:
+        cli_logger.verbose_error("{}", str(e))
+        cli_logger.abort(
+            "Not successfully create workspace, please check the error message...")
+
+    cli_logger.verbose(
+        "Have successfully created workspace: {}!",
+        cf.bold(workspace_name))
 
 
 def bootstrap_gcp(config):

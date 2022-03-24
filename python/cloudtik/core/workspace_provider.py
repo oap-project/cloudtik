@@ -24,6 +24,22 @@ class WorkspaceProvider:
         self.workspace_name = workspace_name
 
 
+    def create_workspace(self,
+            cluster_config: Dict[str, Any]) -> None:
+        return None
+
+
+    def delete_workspace(self,
+            cluster_config: Dict[str, Any]) -> None:
+        return None
+
+
+    def check_workspace_resource(self,
+            cluster_config: Dict[str, Any]) -> bool:
+        """Bootstraps the cluster config by adding env defaults if needed."""
+        return True
+
+
     @staticmethod
     def validate_config(
             provider_config: Dict[str, Any]) -> None:
@@ -34,13 +50,3 @@ class WorkspaceProvider:
     def bootstrap_workspace_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         """Bootstraps the cluster config by adding env defaults if needed."""
         return cluster_config
-
-    @staticmethod
-    def check_workspace_resource(cluster_config: Dict[str, Any]) -> bool:
-        """Bootstraps the cluster config by adding env defaults if needed."""
-        return True
-
-    @staticmethod
-    def delete_workspace(
-            cluster_config: Dict[str, Any]) -> None:
-        return None

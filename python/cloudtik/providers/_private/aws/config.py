@@ -397,7 +397,7 @@ def delete_workspace_aws(config):
     return None
 
 
-def bootstrap_workspace_aws(config):
+def create_aws_workspace(config):
     # create a copy of the input config to modify
     config = copy.deepcopy(config)
     # create vpc according to use_internal_ip

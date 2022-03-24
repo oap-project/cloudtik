@@ -544,7 +544,7 @@ def down(cluster_config_file, yes, workers_only, cluster_name,
 @add_click_logging_options
 def start_node(cluster_config_file, cluster_name, no_config_cache,
                node_ip, all_nodes):
-    """Manual (re)start the node and runtime services on head or worker node."""
+    """Manually (re)start the node and runtime services on head or worker node."""
     try:
         # attach to the worker node
         start_node_from_head(
@@ -632,7 +632,7 @@ def stop_node(cluster_config_file, cluster_name, no_config_cache,
     help="The node ip address of the node to kill")
 @add_click_logging_options
 def kill_node(cluster_config_file, yes, hard, cluster_name, node_ip):
-    """Kills a random node. For testing purposes only."""
+    """Kills a specified node or a random node."""
     killed_node_ip = kill_node_from_head(
         cluster_config_file, yes, hard, cluster_name,
         node_ip)
@@ -754,7 +754,7 @@ def attach(cluster_config_file, start, screen, tmux, cluster_name,
     type=str,
     help="Override the configured cluster name.")
 @add_click_logging_options
-def enable_local_access(cluster_config_file, no_config_cache, cluster_name):
+def enable_proxy(cluster_config_file, no_config_cache, cluster_name):
     """Enable local SOCKS5 proxy to the cluster through SSH tunnel forwarding to the head."""
     start_proxy(
         cluster_config_file,
@@ -771,8 +771,8 @@ def enable_local_access(cluster_config_file, no_config_cache, cluster_name):
     type=str,
     help="Override the configured cluster name.")
 @add_click_logging_options
-def disable_local_access(cluster_config_file,cluster_name):
-    """Disable the local SOCKS5 proxy to the cluster."""
+def disable_proxy(cluster_config_file,cluster_name):
+    """Disable local SOCKS5 proxy to the cluster."""
     stop_proxy(cluster_config_file,cluster_name)
 
 
@@ -794,7 +794,7 @@ def disable_local_access(cluster_config_file,cluster_name):
     help="The node ip address of the node to rsync with")
 @add_click_logging_options
 def rsync_down(cluster_config_file, source, target, cluster_name, node_ip):
-    """Download specific files from a cluster."""
+    """Download specific files from a cluster or a specified node."""
     try:
         rsync(cluster_config_file, source, target, cluster_name,
               down=True, ip_address=node_ip)
@@ -829,7 +829,7 @@ def rsync_down(cluster_config_file, source, target, cluster_name, node_ip):
     help="Whether to sync the file to all nodes.")
 @add_click_logging_options
 def rsync_up(cluster_config_file, source, target, cluster_name, node_ip, all_nodes):
-    """Upload specific files to a cluster."""
+    """Upload specific files to a cluster or a specified node."""
 
     try:
         rsync(
@@ -1006,7 +1006,7 @@ def submit(cluster_config_file, screen, tmux, stop, start, cluster_name,
 @add_click_logging_options
 def exec(cluster_config_file, cmd, run_env, screen, tmux, stop, start,
          cluster_name, no_config_cache, port_forward, node_ip, all_nodes):
-    """Execute a command via SSH on a cluster."""
+    """Execute a command via SSH on a cluster or a specified node."""
     port_forward = [(port, port) for port in list(port_forward)]
 
     try:
@@ -1403,8 +1403,8 @@ add_command_alias(rsync_down, name="rsync_down", hidden=True)
 cli.add_command(rsync_up)
 add_command_alias(rsync_up, name="rsync_up", hidden=True)
 
-cli.add_command(enable_local_access)
-cli.add_command(disable_local_access)
+cli.add_command(enable_proxy)
+cli.add_command(disable_proxy)
 
 # commands running on working node for information and status
 cli.add_command(head_ip)

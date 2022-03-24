@@ -235,7 +235,7 @@ class NodeProvider:
             "process_runner": process_runner,
             "use_internal_ip": use_internal_ip
         }
-        if docker_config and docker_config["container_name"] != "":
+        if docker_config and docker_config.get("enabled", False):
             return DockerCommandExecutor(docker_config, **common_args)
         else:
             return SSHCommandExecutor(**common_args)

@@ -1349,3 +1349,7 @@ def get_attach_command(use_screen: bool,
                 "--new only makes sense if passing --screen or --tmux")
         cmd = "$SHELL"
     return cmd
+
+
+def is_docker_enabled(config: Dict[str, Any]) -> bool:
+    return config.get("docker", {}).get("enabled", False)

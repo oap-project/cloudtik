@@ -6,8 +6,7 @@ cluster_name: minimal-docker
 max_workers: 2
 
 docker:
-    image: "cloudtik/runtime:nightly"
-    container_name: "cloudtik_container"
+    enabled: True
 
 # Cloud-provider specific configuration.
 provider:

@@ -739,7 +739,7 @@ def get_info_from_cluster_config(
 
     docker = None
     docker_config = config.get("docker", None)
-    if docker_config:
+    if docker_config and docker_config.get("enabled", False):
         docker = docker_config.get("container_name", None)
 
     cluster_name = config.get("cluster_name", None)

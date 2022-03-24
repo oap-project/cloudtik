@@ -267,6 +267,11 @@
             "description": "Docker configuration. If this is specified, all setup and start commands will be executed in the container.",
             "additionalProperties": false,
             "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "Whether to run everything in docker container",
+                    "default": false
+                },
                 "image": {
                     "type": "string",
                     "description": "the docker image name",

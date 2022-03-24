@@ -35,7 +35,7 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     kill_process_by_pid, \
     get_proxy_info_file, get_safe_proxy_process_info, \
     get_head_working_ip, get_node_cluster_ip, is_use_internal_ip, get_head_bootstrap_config, \
-    get_attach_command, is_alive_time, with_head_node_ip
+    get_attach_command, is_alive_time, with_head_node_ip, is_docker_enabled
 
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
@@ -437,8 +437,9 @@ def teardown_cluster_nodes(config: Dict[str, Any],
     #   really gone
     head, A = remaining_nodes()
 
-    container_name = config.get("docker", {}).get("container_name")
-    if container_name and (on_head or not workers_only):
+    docker_enabled = is_docker_enabled(config)
+    if docker_enabled and (on_head or not workers_only):
+        container_name = config.get("docker", {}).get("container_name")
         if on_head:
             cli_logger.print("Stopping docker containers on workers.")
             container_nodes = A
@@ -724,7 +725,7 @@ def get_or_create_head_node(config: Dict[str, Any],
         if restart_only:
             # Docker may re-launch nodes, requiring setup
             # commands to be rerun.
-            if config.get("docker", {}).get("container_name"):
+            if is_docker_enabled(config):
                 setup_commands = config["head_setup_commands"]
             else:
                 setup_commands = []

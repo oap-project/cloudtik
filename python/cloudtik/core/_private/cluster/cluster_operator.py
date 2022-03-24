@@ -492,7 +492,7 @@ def kill_node_from_head(config_file: str, yes: bool, hard: bool,
         cli_logger.confirm(yes, "A random node will be killed.", _abort=True)
 
     if hard:
-        return _kill_node(config, True, hard, node_ip)
+        return _kill_node(config, hard, node_ip)
 
     # soft kill, we need to do on head
     cmds = [
@@ -513,16 +513,18 @@ def kill_node_on_head(yes, hard, node_ip: str = None):
     # Since this is running on head, the bootstrap config must exist
     cluster_config_file = get_head_bootstrap_config()
     config = yaml.safe_load(open(cluster_config_file).read())
-    return _kill_node(config, yes, hard, node_ip)
+
+    if not yes:
+        if node_ip:
+            cli_logger.confirm(yes, "Node {} will be killed.", node_ip, _abort=True)
+        else:
+            cli_logger.confirm(yes, "A random node will be killed.", _abort=True)
+
+    return _kill_node(config, hard, node_ip)
 
 
-def _kill_node(config, yes, hard, node_ip: str = None):
+def _kill_node(config, hard, node_ip: str = None):
     provider = _get_node_provider(config["provider"], config["cluster_name"])
-
-    if node_ip:
-        cli_logger.confirm(yes, "Node {} will be killed.", node_ip, _abort=True)
-    else:
-        cli_logger.confirm(yes, "A random node will be killed.", _abort=True)
 
     if node_ip:
         node = provider.get_node_id(node_ip, use_internal_ip=True)

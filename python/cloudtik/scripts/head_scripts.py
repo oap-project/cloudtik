@@ -47,9 +47,10 @@ def teardown(keep_min_workers):
 @click.option(
     "--node-ip",
     "-n",
-    required=True,
+    required=False,
     type=str,
-    help="The node internal ip on which to execute start commands.")
+    default=None,
+    help="The node cluster ip on which to execute start commands.")
 @click.option(
     "--all-nodes",
     is_flag=True,
@@ -66,9 +67,10 @@ def start_node(node_ip, all_nodes):
 @click.option(
     "--node-ip",
     "-n",
-    required=True,
+    required=False,
     type=str,
-    help="The node internal ip on which to execute start commands.")
+    default=None,
+    help="The node cluster ip on which to execute start commands.")
 @click.option(
     "--all-nodes",
     is_flag=True,
@@ -98,7 +100,7 @@ def stop_node(node_ip, all_nodes):
     required=False,
     type=str,
     default=None,
-    help="The internal IP address of the node to kill")
+    help="The node cluster ip address of the node to kill")
 @add_click_logging_options
 def kill_node(yes, hard, node_ip):
     """Kills a random node. For testing purposes only."""
@@ -116,7 +118,7 @@ def kill_node(yes, hard, node_ip):
     "-n",
     required=True,
     type=str,
-    help="The worker node internal ip to rsync from or to.")
+    help="The worker node cluster ip to rsync from.")
 @add_click_logging_options
 def rsync_down(source, target, node_ip):
     """Rsync down specific file from or to the worker node."""
@@ -137,7 +139,7 @@ def rsync_down(source, target, node_ip):
     required=False,
     type=str,
     default=None,
-    help="The worker node internal ip to rsync from or to.")
+    help="The worker node cluster ip to rsync up.")
 @click.option(
     "--all-workers",
     is_flag=True,
@@ -160,7 +162,7 @@ def rsync_up(source, target, node_ip, all_workers):
     "-n",
     required=True,
     type=str,
-    help="The node internal ip to attach to.")
+    help="The node cluster ip to attach to.")
 @click.option(
     "--screen", is_flag=True, default=False, help="Run the command in screen.")
 @click.option(
@@ -190,9 +192,10 @@ def attach(node_ip, screen, tmux, new, port_forward):
 @click.option(
     "--node-ip",
     "-n",
-    required=True,
+    required=False,
     type=str,
-    help="The node internal ip to operate on.")
+    default=None,
+    help="The node cluster ip to operate on.")
 @click.option(
     "--all-nodes",
     is_flag=True,

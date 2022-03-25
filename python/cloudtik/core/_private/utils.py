@@ -774,11 +774,20 @@ def fillout_workspace_defaults(config: Dict[str, Any]) -> Dict[str, Any]:
     return merged_config
 
 
-def _get_template_config(template_name: str) -> Dict[str, Any]:
+def _get_template_config(template_name: str, system: bool = False) -> Dict[str, Any]:
     """Load the template config"""
     import cloudtik as cloudtik_home
-    template_file = os.path.join(
-        os.path.dirname(cloudtik_home.__file__), "templates", template_name)
+
+    # Append .yaml extension if the name doesn't include
+    if not template_name.endswith(".yaml"):
+        template_name += ".yaml"
+
+    if system:
+        template_file = os.path.join(
+            os.path.dirname(cloudtik_home.__file__), "providers", template_name)
+    else:
+        template_file = os.path.join(
+            os.path.dirname(cloudtik_home.__file__), "templates", template_name)
 
     with open(template_file) as f:
         template_config = yaml.safe_load(f)
@@ -790,8 +799,9 @@ def merge_config(config: Dict[str, Any], updates: Dict[str, Any]) -> Dict[str, A
     return update_nested_dict(config, updates)
 
 
-def get_merged_base_config(provider, base_config_name: str) -> Dict[str, Any]:
-    template_config = _get_template_config(base_config_name)
+def get_merged_base_config(provider, base_config_name: str,
+                           system: bool = False) -> Dict[str, Any]:
+    template_config = _get_template_config(base_config_name, system=system)
 
     # if provider config exists, verify the provider.type are the same
     template_provider_type = template_config.get("provider", {}).get("type", None)
@@ -799,21 +809,29 @@ def get_merged_base_config(provider, base_config_name: str) -> Dict[str, Any]:
         raise RuntimeError("Template provider type ({}) doesn't match ({})!".format(
             template_provider_type, provider["type"]))
 
-    merged_config = merge_config_hierarchy(provider, template_config)
+    merged_config = merge_config_hierarchy(provider, template_config, system=system)
     return merged_config
 
 
-def merge_config_hierarchy(provider, config: Dict[str, Any]) -> Dict[str, Any]:
+def get_merged_default_config(provider) -> Dict[str, Any]:
+    defaults = _get_default_config(provider)
+    merge_config_hierarchy(provider, defaults, system=True)
+
+
+def merge_config_hierarchy(provider, config: Dict[str, Any],
+                           system: bool = False) -> Dict[str, Any]:
     base_config_name = config.get("from", None)
     if base_config_name:
         # base config is provided, we need to merge with base configuration
-        merged_base_config = get_merged_base_config(provider, base_config_name)
+        merged_base_config = get_merged_base_config(provider, base_config_name, system)
         merged_config = merge_config(merged_base_config, config)
+    elif system:
+        merged_config = config
     else:
         # no base, use the system defaults for specific provider as base
-        defaults = _get_default_config(provider)
-        defaults = merge_config(defaults, config)
-        merged_config = copy.deepcopy(defaults)
+        merged_defaults = get_merged_default_config(provider)
+        merged_defaults = merge_config(merged_defaults, config)
+        merged_config = copy.deepcopy(merged_defaults)
 
     return merged_config
 

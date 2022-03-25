@@ -1,26 +1,5 @@
-# An unique identifier for the head node and workers of this cluster.
-cluster_name: default
-
-# The maximum number of workers nodes to launch in addition to the head
-# node.
-max_workers: 2
-
-# The cluster scaler will scale up the cluster faster with higher upscaling speed.
-# E.g., if the task requires adding more nodes then cluster scaler will gradually
-# scale up the cluster in chunks of upscaling_speed*currently_running_nodes.
-# This number should be > 0.
-upscaling_speed: 1.0
-
-# This executes all commands on all nodes in the docker container,
-# and opens all the necessary ports to support the cluster.
-# Turn on or off container by set enabled to True or False.
-docker:
-    enabled: False
-    image: "cloudtik/spark-runtime:latest"
-    container_name: "cloudtik_spark"
-
-# If a node is idle for this many minutes, it will be removed.
-idle_timeout_minutes: 5
+# Include the common defaults
+from: defaults-shared
 
 # Cloud-provider specific configuration.
 provider:
@@ -94,36 +73,6 @@ available_node_types:
 # Specify the node type of the head node (as configured above).
 head_node_type: head.default
 
-# Files or directories to copy to the head and worker nodes. The format is a
-# dictionary from REMOTE_PATH: LOCAL_PATH, e.g.
-file_mounts: {
-#    "/path1/on/remote/machine": "/path1/on/local/machine",
-#    "/path2/on/remote/machine": "/path2/on/local/machine",
-}
-
-# Files or directories to copy from the head node to the worker nodes. The format is a
-# list of paths. The same path on the head node will be copied to the worker node.
-# This behavior is a subset of the file_mounts behavior. In the vast majority of cases
-# you should just use file_mounts. Only use this if you know what you're doing!
-cluster_synced_files: []
-
-# Whether changes to directories in file_mounts or cluster_synced_files in the head node
-# should sync to the worker node continuously
-file_mounts_sync_continuously: False
-
-# Patterns for files to exclude when running rsync up or rsync down
-rsync_exclude: []
-
-# Pattern files to use for filtering out files when running rsync up or rsync down. The file is searched for
-# in the source directory and recursively through all subdirectories. For example, if .gitignore is provided
-# as a value, the behavior will match git's behavior for finding and using .gitignore files.
-rsync_filter: []
-
-# List of commands that will be run before `setup_commands`. If docker is
-# enabled, these commands will run outside the container and before docker
-# is setup.
-initialization_commands: []
-
 # List of shell commands to run to set up nodes.
 setup_commands:
     - >-
@@ -140,27 +89,3 @@ head_setup_commands:
 # Custom commands that will be run on worker nodes after common setup.
 worker_setup_commands:
     - cloudtik-spark configure --provider=aws --head_address=$CLOUDTIK_HEAD_IP --aws_s3a_bucket=$AWS_S3A_BUCKET --s3a_access_key=$FS_S3A_ACCESS_KEY --s3a_secret_key=$FS_S3A_SECRET_KEY
-
-# Command to start on the head node. You don't need to change this.
-head_start_commands:
-    - cloudtik node-stop
-    - ulimit -n 65536; cloudtik node-start --head --port=6789 --cluster-scaling-config=~/cloudtik_bootstrap_config.yaml
-    - cloudtik-spark stop-head
-    - cloudtik-spark start-head
-
-# Command to start on worker nodes. You don't need to change this.
-worker_start_commands:
-    - cloudtik node-stop
-    - ulimit -n 65536; cloudtik node-start --address=$CLOUDTIK_HEAD_IP:6789
-    - cloudtik-spark stop-worker
-    - cloudtik-spark start-worker
-
-# Command to start on the head node. You don't need to change this.
-head_stop_commands:
-    - cloudtik node-stop
-    - cloudtik-spark stop-head
-
-# Command to start on worker nodes. You don't need to change this.
-worker_stop_commands:
-    - cloudtik node-stop
-    - cloudtik-spark stop-worker

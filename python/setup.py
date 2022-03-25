@@ -112,7 +112,7 @@ cloudtik_files += [
     "cloudtik/providers/gcp/workspace-defaults.yaml",
     "cloudtik/providers/local/workspace-defaults.yaml",
     "cloudtik/providers/kubernetes/workspace-defaults.yaml",
-
+    "cloudtik/providers/defaults-shared.yaml",
 ]
 
 # cloudtik runtime yaml files

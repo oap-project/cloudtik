@@ -41,6 +41,9 @@ CLOUDTIK_LOGGING_ROTATE_BACKUP_COUNT_ENV = "CLOUDTIK_LOGGING_ROTATE_BACKUP_COUNT
 # Env name for override resource spec
 CLOUDTIK_RESOURCES_ENV = "CLOUDTIK_OVERRIDE_RESOURCES"
 
+# Env name for user templates directory
+CLOUDTIK_USER_TEMPLATES = "CLOUDTIK_USER_TEMPLATES"
+
 LOGGER_FORMAT = (
     "%(asctime)s\t%(levelname)s %(filename)s:%(lineno)s -- %(message)s")
 LOGGER_FORMAT_HELP = f"The logging format. default='{LOGGER_FORMAT}'"

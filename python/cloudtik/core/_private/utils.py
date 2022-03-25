@@ -774,6 +774,17 @@ def fillout_workspace_defaults(config: Dict[str, Any]) -> Dict[str, Any]:
     return merged_config
 
 
+def _get_user_template_file(template_name: str):
+    if constants.CLOUDTIK_USER_TEMPLATES in os.environ:
+        user_template_dir = os.environ[constants.CLOUDTIK_USER_TEMPLATES]
+        if user_template_dir:
+            template_file = os.path.join(user_template_dir, template_name)
+            if os.path.exists(template_file):
+                return template_file
+
+    return None
+
+
 def _get_template_config(template_name: str, system: bool = False) -> Dict[str, Any]:
     """Load the template config"""
     import cloudtik as cloudtik_home
@@ -783,11 +794,16 @@ def _get_template_config(template_name: str, system: bool = False) -> Dict[str, 
         template_name += ".yaml"
 
     if system:
+        # System templates
         template_file = os.path.join(
             os.path.dirname(cloudtik_home.__file__), "providers", template_name)
     else:
-        template_file = os.path.join(
-            os.path.dirname(cloudtik_home.__file__), "templates", template_name)
+        # Check user templates
+        template_file = _get_user_template_file(template_name)
+        if not template_file:
+            # Check built templates
+            template_file = os.path.join(
+                os.path.dirname(cloudtik_home.__file__), "templates", template_name)
 
     with open(template_file) as f:
         template_config = yaml.safe_load(f)

@@ -831,7 +831,7 @@ def get_merged_base_config(provider, base_config_name: str,
 
 def get_merged_default_config(provider) -> Dict[str, Any]:
     defaults = _get_default_config(provider)
-    merge_config_hierarchy(provider, defaults, system=True)
+    return merge_config_hierarchy(provider, defaults, system=True)
 
 
 def merge_config_hierarchy(provider, config: Dict[str, Any],

@@ -12,7 +12,7 @@ case "$1" in
     ;;
   stop-head)
     $HADOOP_HOME/bin/yarn --daemon stop resourcemanager
-    ps -aux|grep jupyter|awk '{print $2}'|xargs kill
+    which jupyter && jupyter lab stop
     ;;
   start-worker)
     $HADOOP_HOME/bin/yarn --daemon start nodemanager

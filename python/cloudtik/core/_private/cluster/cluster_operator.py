@@ -779,9 +779,9 @@ def get_or_create_head_node(config: Dict[str, Any],
         CreateClusterEvent.cluster_booting_completed, {
             "head_node_id": head_node,
         })
-    if not is_use_internal_ip(config):
-        _start_proxy_process(
-            get_head_working_ip(config, provider, head_node), config)
+
+    # restart proxy
+    _start_proxy(printable_config_file, config, True)
 
     show_useful_commands(printable_config_file,
                          config,
@@ -1698,6 +1698,10 @@ def start_proxy(config_file: str,
         config["cluster_name"] = override_cluster_name
     config = _bootstrap_config(config, no_config_cache=no_config_cache)
 
+    _start_proxy(config_file, config)
+
+
+def _start_proxy(config_file: str, config: Dict[str, Any], restart: bool = False):
     if is_use_internal_ip(config):
         cli_logger.print(cf.bold(
             "With use_internal_ips is True, you can use internal IPs to access the cluster."),)
@@ -1707,13 +1711,17 @@ def start_proxy(config_file: str,
     proxy_info_file = get_proxy_info_file(cluster_name)
     pid, proxy_port = get_safe_proxy_process_info(proxy_info_file)
     if pid is not None:
-        cli_logger.print(cf.bold(
-            "The local SOCKS5 proxy to the cluster {} is already running."),
-            cluster_name)
-        cli_logger.print(cf.bold(
-            "To access the cluster from local tools, please configure the SOCKS5 proxy with 127.0.0.1:{}."),
-            proxy_port)
-        return
+        if restart:
+            # stop the proxy first
+            _stop_proxy(config)
+        else:
+            cli_logger.print(cf.bold(
+                "The local SOCKS5 proxy to the cluster {} is already running."),
+                cluster_name)
+            cli_logger.print(cf.bold(
+                "To access the cluster from local tools, please configure the SOCKS5 proxy with 127.0.0.1:{}."),
+                proxy_port)
+            return
 
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     # Check whether the head node is running

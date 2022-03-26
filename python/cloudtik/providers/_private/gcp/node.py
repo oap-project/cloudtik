@@ -292,7 +292,7 @@ class GCPCompute(GCPResource):
                            max_polls: int = MAX_POLLS,
                            poll_interval: int = POLL_INTERVAL) -> dict:
         """Poll for compute zone operation until finished."""
-        logger.info("wait_for_compute_zone_operation: "
+        logger.debug("wait_for_compute_zone_operation: "
                     f"Waiting for operation {operation['name']} to finish...")
 
         for _ in range(max_polls):
@@ -304,7 +304,7 @@ class GCPCompute(GCPResource):
                 raise Exception(result["error"])
 
             if result["status"] == "DONE":
-                logger.info("wait_for_compute_zone_operation: "
+                logger.debug("wait_for_compute_zone_operation: "
                             f"Operation {operation['name']} finished.")
                 break
 
@@ -496,7 +496,7 @@ class GCPTPU(GCPResource):
                            max_polls: int = MAX_POLLS_TPU,
                            poll_interval: int = POLL_INTERVAL) -> dict:
         """Poll for TPU operation until finished."""
-        logger.info("wait_for_tpu_operation: "
+        logger.debug("wait_for_tpu_operation: "
                     f"Waiting for operation {operation['name']} to finish...")
 
         for _ in range(max_polls):
@@ -506,7 +506,7 @@ class GCPTPU(GCPResource):
                 raise Exception(result["error"])
 
             if "response" in result:
-                logger.info("wait_for_tpu_operation: "
+                logger.debug("wait_for_tpu_operation: "
                             f"Operation {operation['name']} finished.")
                 break
 

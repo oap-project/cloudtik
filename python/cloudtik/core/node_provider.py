@@ -3,6 +3,7 @@ import logging
 from types import ModuleType
 from typing import Any, Dict, List, Optional
 
+from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core.command_executor import CommandExecutor
 from cloudtik.core._private.command_executor import \
     SSHCommandExecutor, DockerCommandExecutor
@@ -174,8 +175,8 @@ class NodeProvider:
         mapping from deleted node ids to node metadata.
         """
         for node_id in node_ids:
-            logger.info("NodeProvider: "
-                        "{}: Terminating node".format(node_id))
+            cli_logger.verbose("NodeProvider: "
+                               "{}: Terminating node".format(node_id))
             self.terminate_node(node_id)
         return None
 

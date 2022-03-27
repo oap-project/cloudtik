@@ -68,13 +68,13 @@ cloudtik submit ./example/cluster/aws/example-minimal.yaml  experiment.py  #  Up
 cloudtik rsync-up ./example/cluster/aws/example-minimal.yaml [source] [target]   # Upload file to head node.
 cloudtik rsync-down ./example/cluster/aws/example-minimal.yaml [source] [target]   # Download file from head node.
 
-cloudtik enable-local-access ./example/cluster/aws/example-minimal.yaml # Enable local SOCKS5 proxy to the cluster through SSH
-cloudtik disable-local-access ./example/cluster/aws/example-minimal.yaml # Disable local SOCKS5 proxy to the cluster through SSH
+cloudtik enable-proxy ./example/cluster/aws/example-minimal.yaml # Enable local SOCKS5 proxy to the cluster through SSH
+cloudtik disable-proxy ./example/cluster/aws/example-minimal.yaml # Disable local SOCKS5 proxy to the cluster through SSH
 
 
 # commands running on working node for information and status
-cloudtik get-head-ip ./example/cluster/aws/example-minimal.yaml    # Get the ip of head node.
-cloudtik get-worker-ips ./example/cluster/aws/example-minimal.yaml    # Get the ips of worker nodes.
+cloudtik head-ip ./example/cluster/aws/example-minimal.yaml    # Get the ip of head node.
+cloudtik worker-ips ./example/cluster/aws/example-minimal.yaml    # Get the ips of worker nodes.
 cloudtik info ./example/cluster/aws/example-minimal.yaml # Show cluster summary information and useful links to use the cluster.
 cloudtik status ./example/cluster/aws/example-minimal.yaml # Show cluster summary status.
 cloudtik process-status ./example/cluster/aws/example-minimal.yaml # Show process status of cluster nodes.
@@ -85,7 +85,7 @@ cloudtik monitor ./example/cluster/aws/example-minimal.yaml # Tails the monitor 
 cloudtik health-check ./example/cluster/aws/example-minimal.yaml   # Do cluster health check.
 cloudtik debug-status ./example/cluster/aws/example-minimal.yaml   # Show debug status of cluster scaling.
 cloudtik cluster-dump ./example/cluster/aws/example-minimal.yaml   # Get log data from one or more nodes.
-cloudtik kill-random-node ./example/cluster/aws/example-minimal.yaml   # Kills a random node. For testing purposes only.
+cloudtik kill-node ./example/cluster/aws/example-minimal.yaml   # Kills a random node. For testing purposes only.
 
 
 # workspace commands

@@ -388,12 +388,11 @@ def delete_workspace_aws(config):
     except Exception as e:
         cli_logger.verbose_error("{}", str(e))
         cli_logger.abort(
-            "Not successfully delete workspace, "
-            "please check whether you've added some resources manually "
-            "under this workspace: {}!".format(workspace_name))
+            "Failed to delete workspace {}, "
+            "Please check whether you added some resources manually.".format(workspace_name))
 
-    cli_logger.verbose(
-            "Have successfully deleted workspace: {}!",
+    cli_logger.print(
+            "Successfully deleted workspace: {}.",
             cf.bold(workspace_name))
     return None
 
@@ -644,11 +643,11 @@ def _delete_internet_gateway(workspace_name, ec2, VpcId):
     igws = get_workspace_internat_gateways(workspace_name, ec2, VpcId)
 
     if len(igws) == 0:
-        cli_logger.print("No internet_gateways for workspace were found under this VPC: {} ...".format(VpcId))
+        cli_logger.print("No Internet Gateways for workspace were found under this VPC: {} ...".format(VpcId))
         return
     for igw in igws:
         try:
-            cli_logger.print("Detaching and Removing internat-gateway-id: {} ...".format(igw.id))
+            cli_logger.print("Detaching and deleting Internet Gateway: {} ...".format(igw.id))
             igw.detach_from_vpc(VpcId=VpcId)
             igw.delete()
         except boto3.exceptions.Boto3Error as e:
@@ -665,7 +664,7 @@ def _delete_private_subnets(workspace_name, ec2, VpcId):
         return
     try:
         for subnet in subnets:
-            cli_logger.print("Removing private subnet-id: {} ...".format(subnet.id))
+            cli_logger.print("Deleting private subnet: {} ...".format(subnet.id))
             subnet.delete()
     except boto3.exceptions.Boto3Error as e:
         cli_logger.verbose_error("{}", str(e))
@@ -681,7 +680,7 @@ def _delete_public_subnets(workspace_name, ec2, VpcId):
         return
     try:
         for subnet in subnets:
-            cli_logger.print("Removing public subnet-id: {} ...".format(subnet.id))
+            cli_logger.print("Deleting public subnet: {} ...".format(subnet.id))
             subnet.delete()
     except boto3.exceptions.Boto3Error as e:
         cli_logger.verbose_error("{}", str(e))
@@ -696,7 +695,7 @@ def _delete_route_table(workspace_name, ec2, VpcId):
         return
     try:
         for rtb in rtbs:
-            cli_logger.print("Removing route-table-id: {} ...".format(rtb.id))
+            cli_logger.print("Deleting route table: {} ...".format(rtb.id))
             table = ec2.RouteTable(rtb.id)
             table.delete()
     except boto3.exceptions.Boto3Error as e:
@@ -708,27 +707,27 @@ def release_elastic_ip_address(ec2_client, allocationId, retry=5):
     while retry > 0:
         try:
             ec2_client.release_address(AllocationId=allocationId)
-            cli_logger.print("Have successfully released elastic_ip_address for nat-gateway...")
+            cli_logger.print("Successfully released elastic ip address for NAT Gateway.")
             return
         except botocore.exceptions.ClientError as e:
-            retry = retry -1
-            cli_logger.warning("remaining {} times to release elastic_ip_address for nat-gateway...".format(retry))
+            retry = retry - 1
+            cli_logger.warning("Remaining {} tries to release elastic ip address for NAT Gateway...".format(retry))
             time.sleep(60)
             cli_logger.verbose_error("{}", str(e))
-    cli_logger.error("Failed to release elastic_ip_address for nat-gateway, please release unassociated ip manually...")
+    cli_logger.error("Failed to release elastic ip address for NAT Gateway. Please release unassociated ip manually.")
 
 
 def _delete_nat_gateway(workspace_name, ec2_client, VpcId):
     """ Remove nat-gateway and release elastic IP """
     nat_gateways = get_workspace_nat_gateways(workspace_name, ec2_client, VpcId)
     if len(nat_gateways) == 0:
-        cli_logger.print("No nat gateways for workspace were found under this VPC: {} ...".format(VpcId))
+        cli_logger.print("No NAT Gateways for workspace were found under this VPC: {} ...".format(VpcId))
         return
     try:
         for nat in nat_gateways:
-            cli_logger.print("Removing nat-gateway: {} ...".format(nat["NatGatewayId"]))
+            cli_logger.print("Deleting NAT Gateway: {} ...".format(nat["NatGatewayId"]))
             ec2_client.delete_nat_gateway(NatGatewayId=nat["NatGatewayId"])
-            cli_logger.print("Removing elastic instance : {} ...".format(nat["NatGatewayAddresses"][0]["AllocationId"]))
+            cli_logger.print("Deleting elastic instance : {} ...".format(nat["NatGatewayAddresses"][0]["AllocationId"]))
             release_elastic_ip_address(ec2_client, nat["NatGatewayAddresses"][0]["AllocationId"])
     except boto3.exceptions.Boto3Error as e:
         cli_logger.verbose_error("{}", str(e))
@@ -742,7 +741,7 @@ def _delete_security_group(config, VpcId):
         cli_logger.print("No security groups for workspace were found under this VPC: {} ...".format(VpcId))
         return
     try:
-        cli_logger.print("Removing security-group-id: {}".format(sg.id))
+        cli_logger.print("Deleting security group: {}".format(sg.id))
         sg.delete()
     except boto3.exceptions.Boto3Error as e:
         cli_logger.verbose_error("{}", str(e))
@@ -753,17 +752,17 @@ def _delete_vpc(ec2, ec2_client, VpcId):
     """ Delete the VPC """
     VpcIds = [vpc["VpcId"] for vpc in ec2_client.describe_vpcs()["Vpcs"] if vpc["VpcId"] == VpcId]
     if len(VpcIds) == 0:
-        cli_logger.print("This VPC: {} has not existed. No need to delete it...".format(VpcId))
+        cli_logger.print("This VPC: {} doesn't exist. ".format(VpcId))
         return
 
     vpc_resource = ec2.Vpc(VpcId)
     try:
-        cli_logger.print("Removing vpc-id: {}".format(vpc_resource.id))
+        cli_logger.print("Deleting VPC: {}".format(vpc_resource.id))
         vpc_resource.delete()
     except Exception as e:
         cli_logger.verbose_error("{}", str(e))
         cli_logger.abort(
-            "Please remove dependencies and delete VPC manually.")
+            "Please remove its dependencies and delete the VPC manually.")
     return
 
 
@@ -973,7 +972,7 @@ def _configure_vpc(config):
         cli_logger.abort(
             "Failed to create workspace. Please check the error.")
 
-    cli_logger.verbose(
+    cli_logger.print(
         "Successfully created workspace: {}.",
         cf.bold(workspace_name))
 

@@ -62,7 +62,8 @@ def delete_workspace(
 
     config = _bootstrap_workspace_config(config)
 
-    cli_logger.confirm(yes, "Destroying workspace.", _abort=True)
+    cli_logger.confirm(yes, "Are you sure that you want to delete workspace {}?",
+                       config["workspace_name"], _abort=True)
 
     provider = _get_workspace_provider(config["provider"], config["workspace_name"])
 
@@ -169,9 +170,7 @@ def _bootstrap_workspace_config(config: Dict[str, Any],
                 cli_logger.verbose_warning(
                     "Loaded cached provider configuration "
                     "from " + cf.bold("{}"), cache_key)
-                if cli_logger.verbosity == 0:
-                    cli_logger.warning("Loaded cached provider configuration")
-                cli_logger.warning(
+                cli_logger.verbose_warning(
                     "If you experience issues with "
                     "the cloud provider, try re-running "
                     "the command with {}.", cf.bold("--no-workspace-config-cache"))

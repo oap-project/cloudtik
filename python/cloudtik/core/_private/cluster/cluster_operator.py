@@ -340,7 +340,8 @@ def teardown_cluster(config_file: str, yes: bool, workers_only: bool,
 
     config = _bootstrap_config(config)
 
-    cli_logger.confirm(yes, "Destroying cluster.", _abort=True)
+    cli_logger.confirm(yes, "Are you sure that you want to tear down cluster {}?",
+                       config["cluster_name"], _abort=True)
 
     if proxy_stop:
         _stop_proxy(config)

@@ -1,5 +1,5 @@
 # A unique identifier for the head node and workers of this cluster.
-cluster_name: minimal
+cluster_name: example-minimal
 
 # The maximum number of workers nodes to launch in addition to the head
 # node.
@@ -13,11 +13,11 @@ provider:
     security_group:
         GroupName: cloudtik-minimal
     aws_s3a_storage:
-        bucket: cloudtik-bucket-bpe
-        fs.s3a.access.key: AKIAVCPUOMTADCOOWIQO
-        fs.s3a.secret.key: pvXLgsO9iZJz0QB/wSlrcljSHIf8N4INZbgrte1V
+        bucket: your_s3_bucket
+        fs.s3a.access.key: your_s3_access_key
+        fs.s3a.secret.key: your_s3_secret_key
 
 auth:
     ssh_user: ubuntu
-    #Set proxy if you are in company network
-    ssh_proxy_command: "ncat --proxy-type socks5 --proxy proxy-shz.intel.com:1080 %h %p"
+    # Set proxy if you are in corporation network. For example,
+    # ssh_proxy_command: "ncat --proxy-type socks5 --proxy your_proxy_host:your_proxy_port %h %p"

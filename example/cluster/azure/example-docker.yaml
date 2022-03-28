@@ -1,10 +1,11 @@
 # A unique identifier for the head node and workers of this cluster.
-cluster_name: minimal-docker
+cluster_name: example-docker
 
 # The maximum number of workers nodes to launch in addition to the head
 # node.
 max_workers: 2
 
+# Enable container
 docker:
     enabled: True
 
@@ -12,15 +13,14 @@ docker:
 provider:
     type: azure
     location: westus
-    resource_group: intelML
-    subscription_id: b4e0c565-9d15-4b44-837a-cb04eba0d56d
+    resource_group: your_resource_group
+    subscription_id: your_subscription_id
     azure_cloud_storage:
         # Choose cloud storage kind: wasbs (Azure Blob Storage) or abfs (Azure Data Lake Storage Gen 2).
         azure.storage.kind: abfs
-        azure.storage.account: intelmachinelearning
-        azure.container: azureml
-        azure.account.key: Cd4Q6tC0MiCQani4Ehpbqe52jGnA3KPCf8pzJilyXw6WTRKDYGIz8jLZPmsRoNZ1xIXfMJ7rkRIAHbVmXyxGEw==
-
+        azure.storage.account: your_storage_account
+        azure.container: your_container
+        azure.account.key: your_account_key
 
 # How CloudTik will authenticate with newly launched nodes.
 auth:
@@ -30,5 +30,5 @@ auth:
     ssh_private_key: ~/.ssh/id_rsa
     # changes to this should match what is specified in file_mounts
     ssh_public_key: ~/.ssh/id_rsa.pub
-    #Set proxy if you are in company network
-    ssh_proxy_command: "ncat --proxy-type socks5 --proxy proxy-shz.intel.com:1080 %h %p"
+    # Set proxy if you are in corporation network. For example,
+    # ssh_proxy_command: "ncat --proxy-type socks5 --proxy your_proxy_host:your_proxy_port %h %p"

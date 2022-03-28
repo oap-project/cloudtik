@@ -229,9 +229,9 @@
                     "description": "use  s3a",
                     "additionalProperties": false,
                     "properties": {
-                      "bucket": {
+                      "s3.bucket": {
                         "type": "string",
-                        "description": "the bucket name"
+                        "description": "the s3 bucket name"
                       },
                       "fs.s3a.access.key": {
                         "type": "string",

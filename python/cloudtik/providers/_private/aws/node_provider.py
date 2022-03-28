@@ -668,7 +668,7 @@ class AWSNodeProvider(NodeProvider):
             provider_config: Dict[str, Any]) -> None:
         provider_config_failed = False
         dict = {}
-        dict["AWS_S3A_BUCKET"] = provider_config.get("aws_s3a_storage", {}).get("bucket")
+        dict["AWS_S3A_BUCKET"] = provider_config.get("aws_s3a_storage", {}).get("s3.bucket")
         dict["FS_S3A_ACCESS_KEY"] = provider_config.get("aws_s3a_storage", {}).get("fs.s3a.access.key")
         dict["FS_S3A_SECRET_KEY"] = provider_config.get("aws_s3a_storage", {}).get("fs.s3a.secret.key")
 

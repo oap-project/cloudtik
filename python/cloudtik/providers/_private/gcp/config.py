@@ -270,7 +270,7 @@ def create_gcp_workspace(config):
 def get_gcp_cloutik_vpc_id(config, compute):
     project_id = config["provider"].get("project_id")
     vpc_name = 'cloudtik-{}-vpc'.format(config["workspace_name"])
-    VpcIds = [vpc["id"] for vpc in compute.networks().list(project=project_id).execute().get("items")
+    VpcIds = [vpc["id"] for vpc in compute.networks().list(project=project_id).execute().get("items", "")
            if vpc["name"] == vpc_name]
     if len(VpcIds) == 0:
         cli_logger.print("This VPC: {} has not existed.".
@@ -302,7 +302,7 @@ def _delete_gcp_vpc(config, compute):
     return
 
 
-def _create_gcp_vpc(config, compute):
+def create_gcp_vpc(config, compute):
     project_id = config["provider"].get("project_id")
     network_body = {
         "autoCreateSubnetworks": False,
@@ -317,14 +317,14 @@ def _create_gcp_vpc(config, compute):
     cli_logger.print("Start to create customer vpc on GCP...")
     # create vpc
     try:
-        VpcId = compute.networks().insert(project=project_id, body=network_body).execute().get("id")
+        compute.networks().insert(project=project_id, body=network_body).execute().get("id")
+        time.sleep(10)
         cli_logger.print("Have successfully create vpc: cloudtik-{}-vpc ...".format(config["workspace_name"]))
     except Exception as e:
         # todo: add better exception info
         cli_logger.verbose_error("{}", str(e))
         cli_logger.abort(
             "Cannot create vpc... please check weather you have reach the  maximum number of VPCs.")
-    return VpcId
 
 
 def get_gcp_working_node_vpc(config, compute):
@@ -351,7 +351,7 @@ def _configure_gcp_subnets_cidr(config, compute, VpcId):
     region = config["provider"].get("region")
     vpc_self_link = compute.networks().get(project=project_id, network=VpcId).execute()["selfLink"]
     subnets = compute.subnetworks().list(project=project_id, region=region,
-                                         filter='((network = \"{}\"))'.format(vpc_self_link)).execute()["items"]
+                                         filter='((network = \"{}\"))'.format(vpc_self_link)).execute().get("items", [])
     cidr_list = []
 
     if len(subnets) == 0:
@@ -412,16 +412,17 @@ def _create_and_configure_gcp_subnets(config, compute, VpcId):
         network_body = {
             "description": "Auto created {} subnet for cloudtik".format(subnets_attribute[i]),
             "enableFlowLogs": False,
-            "ipCidrRange": cidr_list[0],
+            "ipCidrRange": cidr_list[i],
             "name": "cloudtik-{}-{}-subnet".format(config["workspace_name"], subnets_attribute[i]),
             "network": "projects/{}/global/networks/{}".format(project_id, VpcId),
             "stackType": "IPV4_ONLY",
-            "privateIpGoogleAccess": False,
+            "privateIpGoogleAccess": False if subnets_attribute[i] == "public"  else True,
             "region": region
         }
         try:
             compute.subnetworks().insert(project=project_id, region=region, body=network_body).execute()
-            cli_logger.print("Have successfully create subnet: cloudtik-{}-{}-subnet ...".
+            time.sleep(10)
+            cli_logger.print("Have successfully create the subnet: cloudtik-{}-{}-subnet ...".
                              format(config["workspace_name"], subnets_attribute[i]))
         except Exception as e:
             cli_logger.verbose_error("{}", str(e))
@@ -431,7 +432,7 @@ def _create_and_configure_gcp_subnets(config, compute, VpcId):
     return
 
 
-def _create_router_for_private_subnet(config, compute, VpcId):
+def _create_router(config, compute, VpcId):
     project_id = config["provider"]["project_id"]
     region = config["provider"]["region"]
     workspace_name = config["workspace_name"]
@@ -448,6 +449,7 @@ def _create_router_for_private_subnet(config, compute, VpcId):
                      "cloudtik-{}-private-subnet ...".format(workspace_name))
     try:
         compute.routers().insert(project=project_id, region=region, body=router_body).execute()
+        time.sleep(20)
         cli_logger.print("Have successfully create router for the private subnet: cloudtik-{}-subnet ...".
                      format(config["workspace_name"]))
     except Exception as e:
@@ -494,7 +496,7 @@ def _create_nat_for_router(config, compute):
             "Cannot add nat-gateway, please check whether existing the gateway with the same name...")
 
 
-def _delete_router_for_private_subnet(config, compute):
+def _delete_router(config, compute):
     project_id = config["provider"]["project_id"]
     region = config["provider"]["region"]
     workspace_name = config["workspace_name"]
@@ -720,13 +722,13 @@ def delete_workspace_gcp(config):
         _delete_subnet(config, compute, isPrivate=True)
 
         # delete router for private sybnets
-        _delete_router_for_private_subnet(config, compute)
+        _delete_router(config, compute)
 
         # delete public subnets
         _delete_subnet(config, compute, isPrivate=False)
 
         # delete firewalls
-        _delete_firewalls(config, VpcId)
+        _delete_firewalls(config, compute)
 
         # delete vpc
         if not use_internal_ips:
@@ -745,42 +747,51 @@ def delete_workspace_gcp(config):
     return None
 
 
+def _create_gcp_vpc(config, compute):
+    workspace_name = config["workspace_name"]
+    use_internal_ips = config["provider"].get("use_internal_ips", False)
+    if use_internal_ips:
+        # No need to create new vpc
+        VpcId = get_gcp_working_node_vpc(config, compute)
+        if VpcId is None:
+            cli_logger.abort("Only the working node is "
+                             "an GCP  instance can use use_internal_ips=True!")
+    else:
+
+        # Need to create a new vpc
+        if get_gcp_cloutik_vpc_id(config, compute) is None:
+            create_gcp_vpc(config, compute)
+            VpcId = get_gcp_cloutik_vpc_id(config, compute)
+        else:
+            cli_logger.abort("There is a same name VPC for workspace: {}, "
+                             "if you want to create a new workspace with the same name, "
+                             "you need to execute workspace delete first!".format(workspace_name))
+    return VpcId
+
+
 def _configure_gcp_vpc(config):
     crm, iam, compute, tpu = \
         construct_clients_from_provider_config(config["provider"])
-    use_internal_ips = config["provider"].get("use_internal_ips", False)
+
     workspace_name = config["workspace_name"]
     cli_logger.verbose(
         "Starting to create workspace: {}!",
         cf.bold(workspace_name))
 
     try:
-        if use_internal_ips:
-            # No need to create new vpc
-            VpcId = get_gcp_working_node_vpc(config, compute)
-            if VpcId is None:
-                cli_logger.abort("Only the working node is "
-                                 "an GCP  instance can use use_internal_ips=True!")
-        else:
-
-            # Need to create a new vpc
-            if  get_gcp_cloutik_vpc_id(config, compute) is None:
-                VpcId = _create_gcp_vpc(config, compute)
-            else:
-                cli_logger.abort("There is a same name VPC for workspace: {}, "
-                                 "if you want to create a new workspace with the same name, "
-                                 "you need to execute workspace delete first!".format(workspace_name))
+        # create vpc
+        VpcId = _create_gcp_vpc(config, compute)
 
         # create subnets
         _create_and_configure_gcp_subnets(config, compute, VpcId)
 
         # create router
-        _create_router_for_private_subnet(config, compute, VpcId)
+        _create_router(config, compute, VpcId)
 
         # create nat-gateway for router
         _create_nat_for_router(config, compute)
 
-        # create firewall
+        # create firewalls
         _create_firewalls(config, compute, VpcId)
 
     except Exception as e:
@@ -798,7 +809,7 @@ def check_gcp_workspace_resource(config):
         construct_clients_from_provider_config(config["provider"])
     use_internal_ips = config["provider"].get("use_internal_ips", False)
     workspace_name = config["workspace_name"]
-    VpcId = get_gcp_vpcId(config, compute, use_internal_ips)
+
     """
          Do the work - order of operation
          1.) Check VPC 
@@ -807,7 +818,7 @@ def check_gcp_workspace_resource(config):
          4.) Check router
          5.) Check firewalls
     """
-    if VpcId is None:
+    if get_gcp_vpcId(config, compute, use_internal_ips) is None:
         return False
     if get_gcp_subnet(config, "cloudtik-{}-private-subnet".format(workspace_name), compute) is None:
         return False
@@ -1097,15 +1108,16 @@ def get_gcp_subnet(config, subnetwork_name, compute):
 
 def get_gcp_router(config, router_name, compute):
     try:
-        subnet = compute.subnetworks().get(
+        router = compute.routers().get(
             project=config["provider"]["project_id"],
             region=config["provider"]["region"],
             router=router_name,
         ).execute()
-        return subnet
+        return router
     except Exception:
         cli_logger.error("This router \"{}\" not exists!".format(router_name))
         return None
+
 
 def _get_project(project_id, crm):
     try:

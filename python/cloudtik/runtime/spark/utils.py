@@ -19,6 +19,8 @@ SPARK_DRIVER_MEMORY_MINIMUM = 1024
 SPARK_DRIVER_MEMORY_MAXIMUM = 8192
 SPARK_EXECUTOR_CORES_DEFAULT = 4
 SPARK_ADDITIONAL_OVERHEAD = 1024
+SPARK_EXECUTOR_OVERHEAD_MINIMUM = 384
+SPARK_EXECUTOR_OVERHEAD_RATIO = 0.1
 
 
 def round_memory_size_to_gb(memory_size: int) -> int:
@@ -46,6 +48,11 @@ def get_spark_overhead(worker_memory_for_spark: int) -> int:
     # Calculate the spark overhead including one app master based on worker_memory_for_spark
     spark_app_master = get_spark_app_master_memory(worker_memory_for_spark)
     return spark_app_master + SPARK_ADDITIONAL_OVERHEAD
+
+
+def get_spark_executor_overhead(spark_executor_memory_all: int) -> int:
+    return max(spark_executor_memory_all * SPARK_EXECUTOR_OVERHEAD_RATIO,
+               SPARK_EXECUTOR_OVERHEAD_MINIMUM)
 
 
 def config_spark_runtime_resources(
@@ -82,8 +89,10 @@ def config_spark_runtime_resources(
     spark_overhead = round_memory_size_to_gb(
         get_spark_overhead(worker_memory_for_spark))
     worker_memory_for_executors = worker_memory_for_spark - spark_overhead
-    executor_resource["spark_executor_memory"] = round_memory_size_to_gb(
+    spark_executor_memory_all = round_memory_size_to_gb(
         int(worker_memory_for_executors / number_of_executors))
+    executor_resource["spark_executor_memory"] =\
+        spark_executor_memory_all - get_spark_executor_overhead(spark_executor_memory_all)
 
     if "runtime" not in cluster_config:
         cluster_config["runtime"] = {}

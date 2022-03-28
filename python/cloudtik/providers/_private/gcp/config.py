@@ -267,7 +267,7 @@ def create_gcp_workspace(config):
     return config
 
 
-def get_gcp_vpc_id(config, compute):
+def get_gcp_cloutik_vpc_id(config, compute):
     project_id = config["provider"].get("project_id")
     vpc_name = 'cloudtik-{}-vpc'.format(config["workspace_name"])
     VpcIds = [vpc["id"] for vpc in compute.networks().list(project=project_id).execute().get("items")
@@ -283,9 +283,14 @@ def get_gcp_vpc_id(config, compute):
 
 
 def _delete_gcp_vpc(config, compute):
-    VpcId = get_gcp_vpc_id(config, compute)
+    VpcId = get_gcp_cloutik_vpc_id(config, compute)
     project_id = config["provider"].get("project_id")
     vpc_name = 'cloudtik-{}-vpc'.format(config["workspace_name"])
+
+    if VpcId is None:
+        cli_logger.print("This  GCP network: \"{}\" not exists!".format(vpc_name))
+        return
+
     """ Delete the VPC """
     try:
         cli_logger.print("Removing GCP network: {}".format(vpc_name))
@@ -322,7 +327,7 @@ def _create_gcp_vpc(config, compute):
     return VpcId
 
 
-def get_gcp_current_vpc(config, compute):
+def get_gcp_working_node_vpc(config, compute):
     ip_address = get_node_ip_address(address="8.8.8.8:53")
     project_id = config["provider"].get("project_id")
     zone = config["provider"].get("availability_zone")
@@ -335,7 +340,8 @@ def get_gcp_current_vpc(config, compute):
                 break
 
     if network is None:
-        cli_logger.abort("Working node is not an GCP instance!")
+        cli_logger.error("Working node is not an GCP instance!")
+        return None
 
     return compute.networks().get(project=project_id, network=network).execute()["id"]
 
@@ -344,9 +350,9 @@ def _configure_gcp_subnets_cidr(config, compute, VpcId):
     project_id = config["provider"].get("project_id")
     region = config["provider"].get("region")
     vpc_self_link = compute.networks().get(project=project_id, network=VpcId).execute()["selfLink"]
-    cidr_list = []
     subnets = compute.subnetworks().list(project=project_id, region=region,
                                          filter='((network = \"{}\"))'.format(vpc_self_link)).execute()["items"]
+    cidr_list = []
 
     if len(subnets) == 0:
         for i in range(0, 2):
@@ -358,7 +364,7 @@ def _configure_gcp_subnets_cidr(config, compute, VpcId):
             tmp_cidr_block = ip[0] + "." + ip[1] + "." + str(i) + ".0/24"
             if check_cidr_conflict(tmp_cidr_block, cidr_blocks):
                 cidr_list.append(tmp_cidr_block)
-                print("Choose CIDR: {}".format(tmp_cidr_block))
+                cli_logger.print("Choose CIDR: {}".format(tmp_cidr_block))
 
             if len(cidr_list) == 2:
                 break
@@ -366,23 +372,30 @@ def _configure_gcp_subnets_cidr(config, compute, VpcId):
     return cidr_list
 
 
-def _delete_private_subnets(config, compute, VpcId):
+def _delete_subnet(config, compute, isPrivate=True):
+    if isPrivate:
+        subnet_attribute = "private"
+    else:
+        subnet_attribute = "public"
     project_id = config["provider"].get("project_id")
     region = config["provider"].get("region")
-    vpc_self_link = compute.networks().get(project=project_id, network=VpcId).execute()["selfLink"]
-    subnets = compute.subnetworks().list(project=project_id, region=region,
-                                         filter='((network = \"{}\"))'.format(vpc_self_link)).execute()["items"]
+    workspace_name = config["workspace_name"]
+    subnetwork_name = "cloudtik-{}-{}-subnet".format(workspace_name,
+                                                     subnet_attribute)
 
-    # """ Delete custom private subnets """
-    if len(subnets) == 0:
-        cli_logger.print("No subnets for workspace were found under this VPC: {} ...".format(VpcId))
+    if get_gcp_subnet(config, subnetwork_name, compute) is None:
+        cli_logger.print("No {} subnet exist...".format(subnet_attribute))
         return
+
+    # """ Delete custom subnet """
     try:
-        cli_logger.print("Removing private subnet ...")
+        cli_logger.print("Removing {} subnet ...".format(subnet_attribute))
         compute.subnetworks().delete(project=project_id, region=region,
-                                         subnetwork="cloudtik-{}-private-subnet".format(config["workspace_name"])).execute()
+                                         subnetwork=subnetwork_name).execute()
     except Exception as e:
         cli_logger.verbose_error("{}", str(e))
+        cli_logger.error("Not successfully delete the subnet: {} !".format(subnet_attribute))
+
     return
 
 
@@ -390,36 +403,346 @@ def _create_and_configure_gcp_subnets(config, compute, VpcId):
     project_id = config["provider"]["project_id"]
     region = config["provider"]["region"]
 
-    # subnets = []
     cidr_list = _configure_gcp_subnets_cidr(config, compute, VpcId)
     assert len(cidr_list) == 2, "We must create 2 subnets for VPC: {}!".format(VpcId)
 
-    public_network_body = {
-        "description": "Auto created public subnet for cloudtik",
-        "enableFlowLogs": False,
-        "ipCidrRange": cidr_list[0],
-        "name": "cloudtik-{}-public-subnet".format(config["workspace_name"]),
-        "network": "projects/{}/global/networks/{}".format(project_id, VpcId),
-        "stackType": "IPV4_ONLY",
-        "privateIpGoogleAccess": False,
-        "region": region
-    }
+    subnets_attribute = ["public", "private"]
+    for i in range(2):
+        cli_logger.print("Start to create subnet for the vpc: {} with CIDR: {} ...".format(VpcId, cidr_list[i]))
+        network_body = {
+            "description": "Auto created {} subnet for cloudtik".format(subnets_attribute[i]),
+            "enableFlowLogs": False,
+            "ipCidrRange": cidr_list[0],
+            "name": "cloudtik-{}-{}-subnet".format(config["workspace_name"], subnets_attribute[i]),
+            "network": "projects/{}/global/networks/{}".format(project_id, VpcId),
+            "stackType": "IPV4_ONLY",
+            "privateIpGoogleAccess": False,
+            "region": region
+        }
+        try:
+            compute.subnetworks().insert(project=project_id, region=region, body=network_body).execute()
+            cli_logger.print("Have successfully create subnet: cloudtik-{}-{}-subnet ...".
+                             format(config["workspace_name"], subnets_attribute[i]))
+        except Exception as e:
+            cli_logger.verbose_error("{}", str(e))
+            cli_logger.abort(
+                "Cannot create subnet, please check the error message clearly...")
 
-    compute.subnetworks().insert(project=project_id, region=region, body=public_network_body).execute()
-
-    private_network_body = {
-        "description": "Auto created private subnet for cloudtik",
-        "enableFlowLogs": False,
-        "ipCidrRange": cidr_list[1],
-        "name": "cloudtik-{}-private-subnet".format(config["workspace_name"]),
-        "network": "projects/{}/global/networks/{}".format(project_id, VpcId),
-        "stackType": "IPV4_ONLY",
-        "privateIpGoogleAccess": False,
-        "region": region
-    }
-
-    compute.subnetworks().insert(project=project_id, region=region, body=private_network_body).execute()
     return
+
+
+def _create_router_for_private_subnet(config, compute, VpcId):
+    project_id = config["provider"]["project_id"]
+    region = config["provider"]["region"]
+    workspace_name = config["workspace_name"]
+    router_body = {
+        "bgp": {
+            "advertiseMode": "CUSTOM"
+        },
+        "description": "auto created for the workspace: cloudtik-{}-vpc".format(workspace_name),
+        "name": "cloudtik-{}-private-router".format(workspace_name),
+        "network": "projects/{}/global/networks/{}".format(project_id, VpcId),
+        "region": "projects/{}/regions/{}".format(project_id, region)
+    }
+    cli_logger.print("Start to create router for the private subnet: "
+                     "cloudtik-{}-private-subnet ...".format(workspace_name))
+    try:
+        compute.routers().insert(project=project_id, region=region, body=router_body).execute()
+        cli_logger.print("Have successfully create router for the private subnet: cloudtik-{}-subnet ...".
+                     format(config["workspace_name"]))
+    except Exception as e:
+        cli_logger.verbose_error("{}", str(e))
+        cli_logger.abort(
+            "Cannot create subnet, please check the error message clearly...")
+
+    return
+
+
+def _create_nat_for_router(config, compute):
+    project_id = config["provider"]["project_id"]
+    region = config["provider"]["region"]
+    workspace_name = config["workspace_name"]
+    router = "cloudtik-{}-private-router".format(workspace_name)
+    subnetwork_name = "cloudtik-{}-private-subnet".format(workspace_name)
+    private_subnet = get_gcp_subnet(config, subnetwork_name, compute)
+    private_subnet_selfLink = private_subnet.get("selfLink")
+    nat_name = "cloutik-{}-nat".format(workspace_name)
+    router_body ={
+        "nats": [
+            {
+                "natIpAllocateOption": "AUTO_ONLY",
+                "name": nat_name,
+                "subnetworks": [
+                    {
+                        "sourceIpRangesToNat": [
+                            "ALL_IP_RANGES"
+                        ],
+                        "name": private_subnet_selfLink
+                    }
+                ],
+                "sourceSubnetworkIpRangesToNat": "LIST_OF_SUBNETWORKS"
+            }
+        ]
+    }
+
+    cli_logger.print("Start to add nat-gateway \"{}\"  for private router... ".format(nat_name))
+    try:
+        compute.routers().patch(project=project_id, region=region, router=router, body=router_body).execute()
+    except Exception as e:
+        cli_logger.verbose_error("{}", str(e))
+        cli_logger.abort(
+            "Cannot add nat-gateway, please check whether existing the gateway with the same name...")
+
+
+def _delete_router_for_private_subnet(config, compute):
+    project_id = config["provider"]["project_id"]
+    region = config["provider"]["region"]
+    workspace_name = config["workspace_name"]
+    router_name = "cloudtik-{}-private-router".format(workspace_name)
+
+    if get_gcp_router(config, router_name, compute) is None:
+        return
+
+    # """ Delete custom subnet """
+    try:
+        cli_logger.print("Removing {} router ...".format(router_name))
+        compute.routers().delete(project=project_id, region=region, router=router_name).execute()
+    except Exception as e:
+        cli_logger.verbose_error("{}", str(e))
+        cli_logger.error("Not successfully delete the router: {}!".format(router_name))
+    return
+
+
+def check_firewall_exsit(config, compute, firewall_name):
+    if get_firewall(config, compute, firewall_name) is None:
+        return False
+    else:
+        return True
+
+
+def get_firewall(config, compute, firewall_name):
+    project_id = config["provider"]["project_id"]
+    firewall = None
+    try:
+        compute.firewalls().get(project=project_id, firewall=firewall_name).execute()
+    except Exception:
+        cli_logger.error("The firewall \"{}\"not exsits".format(firewall_name))
+    return firewall
+
+
+def  create_firewall(compute, project_id, firewall_body):
+    cli_logger.print("Start to create firewall \"{}\"  ... ".format(firewall_body.get("name")))
+    try:
+        compute.firewalls().insert(project=project_id, body=firewall_body).execute()
+    except Exception as e:
+        cli_logger.verbose_error("{}", str(e))
+        cli_logger.abort(
+            "Cannot create firewall, please check the error message...")
+
+
+def enfored_create_firewall(config, compute, firewall_body):
+    firewall_name = firewall_body.get("name")
+    project_id = config["provider"]["project_id"]
+
+    if not check_firewall_exsit(config, compute, firewall_name):
+        create_firewall(compute, project_id, firewall_body)
+    else:
+        cli_logger.print("This  firewall \"{}\"  has existed, should be removed first ... ".format(firewall_name))
+        delete_firewall(compute, project_id, firewall_name)
+        create_firewall(compute, project_id, firewall_body)
+
+
+def _create_default_allow_ssh_firewall(config, compute, VpcId):
+    project_id = config["provider"]["project_id"]
+    workspace_name = config["workspace_name"]
+    firewall_name = "cloudtik-{}-default-allow-ssh-firewall".format(workspace_name)
+    firewall_body = {
+        "name": firewall_name,
+        "network": "projects/{}/global/networks/{}".format(project_id, VpcId),
+        "allowed": [
+          {
+            "IPProtocol": "tcp",
+            "ports": [
+              "22"
+            ]
+          }
+        ],
+        "sourceRanges": [
+          "0.0.0.0/0"
+        ]
+    }
+
+    enfored_create_firewall(config, compute, firewall_body)
+
+
+def get_subnetworks_ipCidrRange(config, compute, VpcId):
+    project_id = config["provider"]["project_id"]
+    subnetworks = compute.networks().get(project=project_id, network=VpcId).execute().get("subnetworks")
+    subnetwork_cidrs = []
+    for subnetwork in subnetworks:
+        info = subnetwork.split("projects/" + project_id + "/regions/")[-1].split("/")
+        subnetwork_region = info[0]
+        subnetwork_name = info[-1]
+        subnetwork_cidrs.append(compute.subnetworks().get(project=project_id,
+                                                          region=subnetwork_region, subnetwork=subnetwork_name)
+                                .execute().get("ipCidrRange"))
+    return subnetwork_cidrs
+
+
+def _create_default_allow_internal_firewall(config, compute, VpcId):
+    project_id = config["provider"]["project_id"]
+    workspace_name = config["workspace_name"]
+    subnetwork_cidrs = get_subnetworks_ipCidrRange(config, compute, VpcId)
+    firewall_name = "cloudtik-{}-default-allow-internal-firewall".format(workspace_name)
+    firewall_body = {
+        "name": firewall_name,
+        "network": "projects/{}/global/networks/{}".format(project_id, VpcId),
+        "allowed": [
+            {
+                "IPProtocol": "tcp",
+                "ports": [
+                    "0-65535"
+                ]
+            },
+            {
+                "IPProtocol": "udp",
+                "ports": [
+                    "0-65535"
+                ]
+            },
+            {
+                "IPProtocol": "icmp"
+            }
+        ],
+        "sourceRanges": subnetwork_cidrs
+    }
+
+    enfored_create_firewall(config, compute, firewall_body)
+
+
+def _create_custom_firewalls(config, compute, VpcId):
+    firewall_rules = config["provider"] \
+        .get("firewalls", {}) \
+        .get("firewall_rules", [])
+
+    project_id = config["provider"]["project_id"]
+    workspace_name = config["workspace_name"]
+
+    for i in range(len(firewall_rules)):
+        firewall_body = {
+            "name": "cloudtik-{}-custom-{}-firewall".format(workspace_name, i),
+            "network": "projects/{}/global/networks/{}".format(project_id, VpcId),
+            "allowed": firewall_rules[i]["allowed"],
+            "sourceRanges": firewall_rules[i]["sourceRanges"]
+        }
+        enfored_create_firewall(config, compute, firewall_body)
+
+
+def _create_firewalls(config, compute, VpcId):
+    _create_default_allow_ssh_firewall(config, compute, VpcId)
+    _create_default_allow_internal_firewall(config, compute, VpcId)
+    _create_custom_firewalls(config, compute, VpcId)
+
+
+def check_workspace_firewalls(config, compute):
+    workspace_name = config["workspace_name"]
+    firewall_names = ["cloudtik-{}-default-allow-internal-firewall".format(workspace_name),
+                      "cloudtik-{}-default-allow-ssh-firewall".format(workspace_name)]
+    custom_firewalls_num = len(config["provider"] \
+        .get("firewalls", {}) \
+        .get("firewall_rules", []))
+
+    for i in range(0, custom_firewalls_num):
+        firewall_names.append("cloudtik-{}-custom-{}-firewall".format(workspace_name, i))
+
+    for firewall_name in firewall_names:
+        if not check_firewall_exsit(config, compute, firewall_name):
+            return False
+
+    return True
+
+
+def delete_firewall(compute, project_id, firewall_name):
+    cli_logger.print("Start to delete firewall \"{}\"  ... ".format(firewall_name))
+    try:
+        compute.firewalls().delete(project=project_id, firewall=firewall_name).execute()
+    except Exception as e:
+        cli_logger.verbose_error("{}", str(e))
+        cli_logger.abort(
+            "Cannot delete firewall, please check the error message...")
+
+
+def _delete_firewalls(config, compute):
+    project_id = config["provider"]["project_id"]
+    workspace_name = config["workspace_name"]
+    cloudtik_firewalls = [ firewall.get("name")
+        for firewall in compute.firewalls().list(project=project_id).execute().get("items")
+            if "cloudtik-{}".format(workspace_name) in firewall.get("name")]
+
+    cli_logger.print("Start to delete all the firewalls ...")
+    for cloudtik_firewall in cloudtik_firewalls:
+        delete_firewall(compute, project_id, cloudtik_firewall)
+
+
+def get_gcp_vpcId(config, compute, use_internal_ips):
+    if use_internal_ips:
+        VpcId = get_gcp_working_node_vpc(config, compute)
+    else:
+        VpcId = get_gcp_cloutik_vpc_id(config, compute)
+    return VpcId
+
+
+def delete_workspace_gcp(config):
+    crm, iam, compute, tpu = \
+        construct_clients_from_provider_config(config["provider"])
+    use_internal_ips = config["provider"].get("use_internal_ips", False)
+    workspace_name = config["workspace_name"]
+    VpcId = get_gcp_vpcId(config, compute, use_internal_ips)
+    """
+     Do the work - order of operation
+     1.) Delete private subnets
+     2.) Delete router for private subnet 
+     3.) Delete public subnet
+     4.) Delete firewalls
+     5.) Delete vpc
+     """
+    if VpcId is None:
+        cli_logger.print("The workspace: {} doesn't exist!".format(config["workspace_name"]))
+        return
+
+    cli_logger.verbose(
+        "Starting to delete workspace: {}!",
+        cf.bold(workspace_name))
+
+    try:
+
+        # delete private subnets
+        _delete_subnet(config, compute, isPrivate=True)
+
+        # delete router for private sybnets
+        _delete_router_for_private_subnet(config, compute)
+
+        # delete public subnets
+        _delete_subnet(config, compute, isPrivate=False)
+
+        # delete firewalls
+        _delete_firewalls(config, VpcId)
+
+        # delete vpc
+        if not use_internal_ips:
+            _delete_gcp_vpc(config, compute)
+
+    except Exception as e:
+        cli_logger.verbose_error("{}", str(e))
+        cli_logger.abort(
+            "Not successfully delete workspace, "
+            "please check whether you've added some resources manually "
+            "under this workspace: {}!".format(workspace_name))
+
+    cli_logger.verbose(
+            "Have successfully deleted workspace: {}!",
+            cf.bold(workspace_name))
+    return None
 
 
 def _configure_gcp_vpc(config):
@@ -434,11 +757,14 @@ def _configure_gcp_vpc(config):
     try:
         if use_internal_ips:
             # No need to create new vpc
-            VpcId = get_gcp_current_vpc(config, compute)
+            VpcId = get_gcp_working_node_vpc(config, compute)
+            if VpcId is None:
+                cli_logger.abort("Only the working node is "
+                                 "an GCP  instance can use use_internal_ips=True!")
         else:
 
             # Need to create a new vpc
-            if  get_gcp_vpc_id(config, compute) is None:
+            if  get_gcp_cloutik_vpc_id(config, compute) is None:
                 VpcId = _create_gcp_vpc(config, compute)
             else:
                 cli_logger.abort("There is a same name VPC for workspace: {}, "
@@ -448,6 +774,15 @@ def _configure_gcp_vpc(config):
         # create subnets
         _create_and_configure_gcp_subnets(config, compute, VpcId)
 
+        # create router
+        _create_router_for_private_subnet(config, compute, VpcId)
+
+        # create nat-gateway for router
+        _create_nat_for_router(config, compute)
+
+        # create firewall
+        _create_firewalls(config, compute, VpcId)
+
     except Exception as e:
         cli_logger.verbose_error("{}", str(e))
         cli_logger.abort(
@@ -456,6 +791,33 @@ def _configure_gcp_vpc(config):
     cli_logger.verbose(
         "Have successfully created workspace: {}!",
         cf.bold(workspace_name))
+
+
+def check_gcp_workspace_resource(config):
+    crm, iam, compute, tpu = \
+        construct_clients_from_provider_config(config["provider"])
+    use_internal_ips = config["provider"].get("use_internal_ips", False)
+    workspace_name = config["workspace_name"]
+    VpcId = get_gcp_vpcId(config, compute, use_internal_ips)
+    """
+         Do the work - order of operation
+         1.) Check VPC 
+         2.) Check private subnet
+         3.) Check public subnet
+         4.) Check router
+         5.) Check firewalls
+    """
+    if VpcId is None:
+        return False
+    if get_gcp_subnet(config, "cloudtik-{}-private-subnet".format(workspace_name), compute) is None:
+        return False
+    if get_gcp_subnet(config, "cloudtik-{}-public-subnet".format(workspace_name), compute) is None:
+        return False
+    if get_gcp_router(config, "cloudtik-{}-private-router".format(workspace_name), compute) is None:
+        return False
+    if check_workspace_firewalls(config, compute):
+        return False
+    return True
 
 
 def bootstrap_gcp(config):
@@ -720,15 +1082,30 @@ def _list_subnets(config, compute):
     return response["items"]
 
 
-def _get_subnet(config, subnet_id, compute):
-    subnet = compute.subnetworks().get(
-        project=config["provider"]["project_id"],
-        region=config["provider"]["region"],
-        subnetwork=subnet_id,
-    ).execute()
+def get_gcp_subnet(config, subnetwork_name, compute):
+    try:
+        subnet = compute.subnetworks().get(
+            project=config["provider"]["project_id"],
+            region=config["provider"]["region"],
+            subnetwork=subnetwork_name,
+        ).execute()
+        return subnet
+    except Exception:
+        cli_logger.error("This subnetwork \"{}\" not exists!".format(subnetwork_name))
+        return None
 
-    return subnet
 
+def get_gcp_router(config, router_name, compute):
+    try:
+        subnet = compute.subnetworks().get(
+            project=config["provider"]["project_id"],
+            region=config["provider"]["region"],
+            router=router_name,
+        ).execute()
+        return subnet
+    except Exception:
+        cli_logger.error("This router \"{}\" not exists!".format(router_name))
+        return None
 
 def _get_project(project_id, crm):
     try:

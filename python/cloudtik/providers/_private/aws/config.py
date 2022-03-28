@@ -319,6 +319,7 @@ def check_aws_workspace_resource(config):
          4.) Check nat-gatways
          5.) Check route-tables
          6.) Check Internat-gateways
+         7.) Check security-group
     """
     if VpcId is None:
         return False

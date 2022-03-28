@@ -768,31 +768,31 @@ def _delete_vpc(ec2, ec2_client, VpcId):
 
 
 def _create_vpc(config,  ec2):
-    cli_logger.print("Start to create customer vpc...")
+    cli_logger.print("Creating workspace VPC...")
     # create vpc
     try:
         vpc = ec2.create_vpc(CidrBlock='10.10.0.0/16')
         vpc.modify_attribute(EnableDnsSupport={'Value': True})
         vpc.modify_attribute(EnableDnsHostnames={'Value': True})
         vpc.create_tags(Tags=[{'Key': 'Name', 'Value': 'cloudtik-{}-vpc'.format(config["workspace_name"])}])
-        cli_logger.print("Have successfully create vpc: cloudtik-{}-vpc ...".format(config["workspace_name"]))
+        cli_logger.print("Successfully created workspace VPC: cloudtik-{}-vpc ...".format(config["workspace_name"]))
     except Exception as e:
         # todo: add better exception info
         cli_logger.verbose_error("{}", str(e))
         cli_logger.abort(
-            "Cannot create vpc... please check weather you have reach the  maximum number of VPCs.")
+            "Failed to create workspace VPC. Please check weather you have reach the maximum number of VPCs.")
     return vpc
 
 
 def _create_subnet(config, cidr,  vpc):
-    cli_logger.print("Start to create subnet for the vpc: {} with CIDR: {} ...".format(vpc.id, cidr))
+    cli_logger.print("Creating subnet for VPC: {} with CIDR: {} ...".format(vpc.id, cidr))
     try:
         subnet = vpc.create_subnet(CidrBlock=cidr)
-        cli_logger.print("Have successfully create subnet: cloudtik-{}-subnet ...".format(config["workspace_name"]))
+        cli_logger.print("Successfully created subnet: cloudtik-{}-subnet ...".format(config["workspace_name"]))
     except Exception as e:
         cli_logger.verbose_error("{}", str(e))
         cli_logger.abort(
-            "Cannot create subnet, please check whether the CIDR has conflict with other subnets...")
+            "Failed to create subnet. Please check whether the CIDR has conflict with other subnets.")
     return subnet
 
 
@@ -817,24 +817,24 @@ def _create_and_configure_subnets(config, vpc):
 
 
 def _create_internet_gateway(config, ec2, vpc):
-    cli_logger.print("Start to create internet gateway for the vpc: {}...".format(vpc.id))
+    cli_logger.print("Creating Internet Gateway for the VPC: {}...".format(vpc.id))
     try:
         igw = ec2.create_internet_gateway()
         igw.create_tags(Tags=[{'Key': 'Name', 'Value': 'cloudtik-{}-internet-gateway'.format(config["workspace_name"])}])
         igw.attach_to_vpc(VpcId=vpc.id)
-        cli_logger.print("Have successfully create internet gateway: cloudtik-{}-internet-gateway ...".format(config["workspace_name"]))
+        cli_logger.print("Successfully created Internet Gateway: cloudtik-{}-internet-gateway ...".format(config["workspace_name"]))
     except Exception as e:
         cli_logger.verbose_error("{}", str(e))
         try:
-            cli_logger.print("Try to use the existing internet_gateway...")
+            cli_logger.print("Try to find the existing Internet Gateway...")
             igws = [igw for igw in vpc.internet_gateways.all()]
             igw = igws[0]
-            cli_logger.print("Have successfully used existing internet gateway...")
+            cli_logger.print("Existing internet gateway found. Will use this one.")
         except Exception as e:
             cli_logger.verbose_error("{}", str(e))
             cli_logger.abort(
-                "Cannot create internet gateway... "
-                "please check weather you have reach the  maximum number of internet gateways...")
+                "Failed to create Internet Gateway. "
+                "Please check whether you have reach the maximum number of Internet Gateway.")
     return igw
 
 
@@ -858,7 +858,7 @@ def wait_nat_creation(ec2_client, nat_gateway_id):
 
 
 def _create_nat_gateway(config, ec2_client, vpc, subnet):
-    cli_logger.print("Start to create nat gateway for the subnet: {}...".format(subnet.id))
+    cli_logger.print("Creating NAT Gateway for subnet: {}...".format(subnet.id))
     try:
         eip_for_nat_gateway = _create_elastic_ip(ec2_client)
         allocation_id = eip_for_nat_gateway['AllocationId']
@@ -869,25 +869,26 @@ def _create_nat_gateway(config, ec2_client, vpc, subnet):
         ec2_client.create_tags(Tags=[{'Key': 'Name', 'Value': 'cloudtik-{}-nat-gateway'.format(config["workspace_name"])}],
                         Resources=[nat_gw_id])
         wait_nat_creation(ec2_client, nat_gw_id)
-        cli_logger.print("Have successfully create nat gateway: cloudtik-{}-nat-gateway ...".format(config["workspace_name"]))
+        cli_logger.print("Successfully created NAT Gateway: cloudtik-{}-nat-gateway ...".format(config["workspace_name"]))
     except Exception as e:
         cli_logger.verbose_error("{}", str(e))
         try:
-            cli_logger.print("Try to use the existing Nat gateway...")
+            cli_logger.print("Try to find the existing NAT Gateway...")
             nat_gws = [nat for nat in ec2_client.describe_nat_gateways()['NatGateways'] if nat["VpcId"] == vpc.id]
             nat_gw = nat_gws[0]
             cli_logger.print(
-                "Have successfully used exsiting nat gateway...")
+                "Found an existing NAT Gateway. Will use this one")
         except Exception as e:
             cli_logger.verbose_error("{}", str(e))
             cli_logger.abort(
-                "Cannot create nat gateway... "
-                "please check weather you have reach the  maximum number of nat gateways...")
+                "Failed to create NAT Gateway. "
+                "Please check weather you have reach the maximum number of NAT Gateways.")
     return nat_gw
 
 
 def _update_route_table_for_public_subnet(config, ec2, ec2_client, vpc, subnet, igw):
-    public_route_tables = get_workspace_public_route_tables(config["workspace_name"], ec2 , vpc.id)
+    cli_logger.print("Updating public subnet route table: {}...".format(subnet.id))
+    public_route_tables = get_workspace_public_route_tables(config["workspace_name"], ec2, vpc.id)
     if len(public_route_tables) > 0:
         public_route_table = public_route_tables[0]
     else:
@@ -907,6 +908,7 @@ def _update_route_table_for_public_subnet(config, ec2, ec2_client, vpc, subnet, 
 
 
 def _create_route_table_for_private_subnet(config, ec2, vpc, subnet):
+    cli_logger.print("Updating private subnet route table: {}...".format(subnet.id))
     private_route_tables = get_workspace_private_route_tables(config["workspace_name"], ec2, vpc.id)
     if len(private_route_tables) > 0:
         private_route_table = private_route_tables[0]
@@ -969,10 +971,10 @@ def _configure_vpc(config):
     except Exception as e:
         cli_logger.verbose_error("{}", str(e))
         cli_logger.abort(
-            "Not successfully create workspace, please check the error message...")
+            "Failed to create workspace. Please check the error.")
 
     cli_logger.verbose(
-        "Have successfully created workspace: {}!",
+        "Successfully created workspace: {}.",
         cf.bold(workspace_name))
 
     return config
@@ -1226,6 +1228,7 @@ def _upsert_security_groups(config, node_types):
 
 
 def _upsert_security_group(config, VpcId):
+    cli_logger.print("Updating security group for VPC: {}...".format(VpcId))
     security_group = _create_security_group(config, VpcId,
                                             SECURITY_GROUP_TEMPLATE.format(config["workspace_name"]))
     _add_security_group_rules(config, security_group)

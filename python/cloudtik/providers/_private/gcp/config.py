@@ -857,6 +857,31 @@ def bootstrap_gcp(config):
     return config
 
 
+def workspace_bootstrap_gcp(config):
+    config = copy.deepcopy(config)
+
+    # Used internally to store head IAM role.
+    config["head_node"] = {}
+
+    # Check if we have any TPUs defined, and if so,
+    # insert that information into the provider config
+    if _has_tpus_in_node_configs(config):
+        config["provider"][HAS_TPU_PROVIDER_FIELD] = True
+
+        # We can't run autoscaling through a serviceAccount on TPUs (atm)
+        if _is_head_node_a_tpu(config):
+            raise RuntimeError("TPUs are not supported as head nodes.")
+
+    crm, iam, compute, tpu = \
+        construct_clients_from_provider_config(config["provider"])
+
+    config = _configure_iam_role(config, crm, iam)
+    config = _configure_key_pair(config, compute)
+    config = _configure_workspace_subnet(config, compute)
+
+    return config
+
+
 def _configure_project(config, crm):
     """Setup a Google Cloud Platform Project.
 
@@ -1081,6 +1106,55 @@ def _configure_subnet(config, compute):
         if "networkConfig" not in node_config:
             node_config["networkConfig"] = copy.deepcopy(default_interfaces)[0]
             node_config["networkConfig"].pop("accessConfigs")
+
+    return config
+
+
+def _configure_workspace_subnet(config, compute):
+    workspace_name = config["workspace_name"]
+    use_internal_ips = config["provider"].get("use_internal_ips", False)
+
+    """Pick a reasonable subnet if not specified by the config."""
+    config = copy.deepcopy(config)
+
+    # Rationale: avoid subnet lookup if the network is already
+    # completely manually configured
+
+    # networkInterfaces is compute, networkConfig is TPU
+    public_subnet = get_gcp_subnet(config, "cloudtik-{}-private-subnet".format(workspace_name), compute)
+    private_subnet = get_gcp_subnet(config, "cloudtik-{}-public-subnet".format(workspace_name), compute)
+
+    public_interfaces = [{
+        "subnetwork": public_subnet["selfLink"],
+        "accessConfigs": [{
+            "name": "External NAT",
+            "type": "ONE_TO_ONE_NAT",
+        }],
+    }]
+
+    private_interfaces = [{
+        "subnetwork": private_subnet["selfLink"],
+    }]
+
+    for key, node_type in config["available_node_types"].items():
+        node_config = node_type["node_config"]
+        if key == config["head_node_type"]:
+            if use_internal_ips:
+                # compute
+                node_config["networkInterfaces"] = copy.deepcopy(private_interfaces)
+                # TPU
+                node_config["networkConfig"] = copy.deepcopy(private_interfaces)[0]
+            else:
+                # compute
+                node_config["networkInterfaces"] = copy.deepcopy(public_interfaces)
+                # TPU
+                node_config["networkConfig"] = copy.deepcopy(public_interfaces)[0]
+                node_config["networkConfig"].pop("accessConfigs")
+        else:
+            # compute
+            node_config["networkInterfaces"] = copy.deepcopy(private_interfaces)
+            # TPU
+            node_config["networkConfig"] = copy.deepcopy(private_interfaces)[0]
 
     return config
 

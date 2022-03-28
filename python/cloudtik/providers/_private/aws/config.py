@@ -386,10 +386,9 @@ def delete_workspace_aws(config):
         if not use_internal_ips:
             _delete_vpc(ec2, ec2_client, VpcId)
     except Exception as e:
-        cli_logger.verbose_error("{}", str(e))
         cli_logger.abort(
-            "Failed to delete workspace {}, "
-            "Please check whether you added some resources manually.".format(workspace_name))
+            "Failed to delete workspace {}. {}".format(workspace_name, str(e)))
+        raise e
 
     cli_logger.print(
             "Successfully deleted workspace: {}.",
@@ -651,7 +650,8 @@ def _delete_internet_gateway(workspace_name, ec2, VpcId):
             igw.detach_from_vpc(VpcId=VpcId)
             igw.delete()
         except boto3.exceptions.Boto3Error as e:
-            cli_logger.verbose_error("{}", str(e))
+            cli_logger.error("Failed to detach or delete Internet Gateway. {}", str(e))
+            raise e
     return
 
 
@@ -667,7 +667,8 @@ def _delete_private_subnets(workspace_name, ec2, VpcId):
             cli_logger.print("Deleting private subnet: {} ...".format(subnet.id))
             subnet.delete()
     except boto3.exceptions.Boto3Error as e:
-        cli_logger.verbose_error("{}", str(e))
+        cli_logger.error("Failed to delete private subnet. {}", str(e))
+        raise e
     return
 
 
@@ -683,7 +684,8 @@ def _delete_public_subnets(workspace_name, ec2, VpcId):
             cli_logger.print("Deleting public subnet: {} ...".format(subnet.id))
             subnet.delete()
     except boto3.exceptions.Boto3Error as e:
-        cli_logger.verbose_error("{}", str(e))
+        cli_logger.error("Failed to delete public subnet. {}", str(e))
+        raise e
     return
 
 
@@ -699,7 +701,8 @@ def _delete_route_table(workspace_name, ec2, VpcId):
             table = ec2.RouteTable(rtb.id)
             table.delete()
     except boto3.exceptions.Boto3Error as e:
-        cli_logger.verbose_error("{}", str(e))
+        cli_logger.error("Failed to delete route table. {}", str(e))
+        raise e
     return
 
 
@@ -707,14 +710,16 @@ def release_elastic_ip_address(ec2_client, allocationId, retry=5):
     while retry > 0:
         try:
             ec2_client.release_address(AllocationId=allocationId)
-            cli_logger.print("Successfully released elastic ip address for NAT Gateway.")
-            return
         except botocore.exceptions.ClientError as e:
             retry = retry - 1
-            cli_logger.warning("Remaining {} tries to release elastic ip address for NAT Gateway...".format(retry))
-            time.sleep(60)
-            cli_logger.verbose_error("{}", str(e))
-    cli_logger.error("Failed to release elastic ip address for NAT Gateway. Please release unassociated ip manually.")
+            if retry > 0:
+                cli_logger.warning("Remaining {} tries to release elastic ip address for NAT Gateway...".format(retry))
+                time.sleep(60)
+            else:
+                cli_logger.error("Failed to release elastic ip address for NAT Gateway. {}", str(e))
+                raise e
+
+    cli_logger.print("Successfully released elastic ip address for NAT Gateway.")
 
 
 def _delete_nat_gateway(workspace_name, ec2_client, VpcId):
@@ -730,7 +735,8 @@ def _delete_nat_gateway(workspace_name, ec2_client, VpcId):
             cli_logger.print("Deleting elastic instance : {} ...".format(nat["NatGatewayAddresses"][0]["AllocationId"]))
             release_elastic_ip_address(ec2_client, nat["NatGatewayAddresses"][0]["AllocationId"])
     except boto3.exceptions.Boto3Error as e:
-        cli_logger.verbose_error("{}", str(e))
+        cli_logger.error("Failed to delete NAT Gateway. {}", str(e))
+        raise e
     return
 
 
@@ -744,7 +750,8 @@ def _delete_security_group(config, VpcId):
         cli_logger.print("Deleting security group: {}".format(sg.id))
         sg.delete()
     except boto3.exceptions.Boto3Error as e:
-        cli_logger.verbose_error("{}", str(e))
+        cli_logger.error("Failed to delete security group. {}", str(e))
+        raise e
     return
 
 
@@ -760,9 +767,8 @@ def _delete_vpc(ec2, ec2_client, VpcId):
         cli_logger.print("Deleting VPC: {}".format(vpc_resource.id))
         vpc_resource.delete()
     except Exception as e:
-        cli_logger.verbose_error("{}", str(e))
-        cli_logger.abort(
-            "Please remove its dependencies and delete the VPC manually.")
+        cli_logger.error("Failed to delete VPC. {}", str(e))
+        raise e
     return
 
 
@@ -776,10 +782,9 @@ def _create_vpc(config,  ec2):
         vpc.create_tags(Tags=[{'Key': 'Name', 'Value': 'cloudtik-{}-vpc'.format(config["workspace_name"])}])
         cli_logger.print("Successfully created workspace VPC: cloudtik-{}-vpc ...".format(config["workspace_name"]))
     except Exception as e:
-        # todo: add better exception info
-        cli_logger.verbose_error("{}", str(e))
-        cli_logger.abort(
-            "Failed to create workspace VPC. Please check weather you have reach the maximum number of VPCs.")
+        cli_logger.error("Failed to create workspace VPC. {}", str(e))
+        raise e
+
     return vpc
 
 
@@ -789,9 +794,8 @@ def _create_subnet(config, cidr,  vpc):
         subnet = vpc.create_subnet(CidrBlock=cidr)
         cli_logger.print("Successfully created subnet: cloudtik-{}-subnet ...".format(config["workspace_name"]))
     except Exception as e:
-        cli_logger.verbose_error("{}", str(e))
-        cli_logger.abort(
-            "Failed to create subnet. Please check whether the CIDR has conflict with other subnets.")
+        cli_logger.error("Failed to create subnet. {}", str(e))
+        raise e
     return subnet
 
 
@@ -823,17 +827,14 @@ def _create_internet_gateway(config, ec2, vpc):
         igw.attach_to_vpc(VpcId=vpc.id)
         cli_logger.print("Successfully created Internet Gateway: cloudtik-{}-internet-gateway ...".format(config["workspace_name"]))
     except Exception as e:
-        cli_logger.verbose_error("{}", str(e))
+        cli_logger.error("Failed to create Internet Gateway. {}", str(e))
         try:
             cli_logger.print("Try to find the existing Internet Gateway...")
             igws = [igw for igw in vpc.internet_gateways.all()]
             igw = igws[0]
             cli_logger.print("Existing internet gateway found. Will use this one.")
-        except Exception as e:
-            cli_logger.verbose_error("{}", str(e))
-            cli_logger.abort(
-                "Failed to create Internet Gateway. "
-                "Please check whether you have reach the maximum number of Internet Gateway.")
+        except Exception:
+            raise e
     return igw
 
 
@@ -870,18 +871,16 @@ def _create_nat_gateway(config, ec2_client, vpc, subnet):
         wait_nat_creation(ec2_client, nat_gw_id)
         cli_logger.print("Successfully created NAT Gateway: cloudtik-{}-nat-gateway ...".format(config["workspace_name"]))
     except Exception as e:
-        cli_logger.verbose_error("{}", str(e))
+        cli_logger.error("Failed to create NAT Gateway. {}", str(e))
         try:
             cli_logger.print("Try to find the existing NAT Gateway...")
             nat_gws = [nat for nat in ec2_client.describe_nat_gateways()['NatGateways'] if nat["VpcId"] == vpc.id]
             nat_gw = nat_gws[0]
             cli_logger.print(
                 "Found an existing NAT Gateway. Will use this one")
-        except Exception as e:
-            cli_logger.verbose_error("{}", str(e))
-            cli_logger.abort(
-                "Failed to create NAT Gateway. "
-                "Please check weather you have reach the maximum number of NAT Gateways.")
+        except Exception:
+            raise e
+
     return nat_gw
 
 
@@ -898,9 +897,9 @@ def _update_route_table_for_public_subnet(config, ec2, ec2_client, vpc, subnet, 
     try:
         ec2_client.create_route(RouteTableId=public_route_table.id, DestinationCidrBlock='0.0.0.0/0', GatewayId=igw.id)
     except Exception as e:
-        cli_logger.verbose_error("{}", str(e))
+        cli_logger.error("Failed to create route table. {}", str(e))
         cli_logger.print(
-            "Update the rules for RouteTable:{}.".format(public_route_table.id))
+            "Update the rules for route table:{}.".format(public_route_table.id))
         ec2_client.delete_route(RouteTableId=public_route_table.id, DestinationCidrBlock='0.0.0.0/0')
         ec2_client.create_route(RouteTableId=public_route_table.id, DestinationCidrBlock='0.0.0.0/0', GatewayId=igw.id)
     public_route_table.associate_with_subnet(SubnetId=subnet.id)
@@ -968,9 +967,8 @@ def _configure_vpc(config):
         _upsert_security_group(config, vpc.id)
 
     except Exception as e:
-        cli_logger.verbose_error("{}", str(e))
-        cli_logger.abort(
-            "Failed to create workspace. Please check the error.")
+        cli_logger.error("Failed to create workspace. {}", str(e))
+        raise e
 
     cli_logger.print(
         "Successfully created workspace: {}.",

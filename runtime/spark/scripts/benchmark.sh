@@ -2,8 +2,9 @@
 sudo apt-get install -y git
 export USER_HOME=/home/$(whoami)
 SOFTWARE_HOME=$USER_HOME/runtime/benchmark-tools
-sudo mkdir -p $SOFTWARE_HOME
+mkdir -p $SOFTWARE_HOME
 sudo chown $(whoami):$(whoami) $SOFTWARE_HOME
+sudo apt-get update
 
 function install_sbt() {
   sudo apt-get update

@@ -51,7 +51,7 @@ def get_spark_overhead(worker_memory_for_spark: int) -> int:
 
 
 def get_spark_executor_overhead(spark_executor_memory_all: int) -> int:
-    return max(int(spark_executor_memory_all * SPARK_EXECUTOR_OVERHEAD_RATIO),
+    return max(spark_executor_memory_all * SPARK_EXECUTOR_OVERHEAD_RATIO,
                SPARK_EXECUTOR_OVERHEAD_MINIMUM)
 
 

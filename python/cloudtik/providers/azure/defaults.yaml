@@ -29,11 +29,11 @@ auth:
 # The node config specifies the launch config and physical instance type.
 available_node_types:
     head.default:
-        resources: {"CPU": 2}
+        resources: {}
         # Provider-specific config, e.g. instance type.
         node_config:
             azure_arm_parameters:
-                vmSize: Standard_D2s_v3
+                vmSize: Standard_D4s_v3
                 # List images https://docs.microsoft.com/en-us/azure/virtual-machines/linux/cli-ps-findimage
                 imagePublisher: microsoft-dsvm
                 imageOffer: ubuntu-1804
@@ -45,11 +45,11 @@ available_node_types:
         # This number should be >= 0.
         min_workers: 1
         # The resources provided by this node type.
-        resources: {"CPU": 2}
+        resources: {}
         # Provider-specific config, e.g. instance type.
         node_config:
             azure_arm_parameters:
-                vmSize: Standard_D2s_v3
+                vmSize: Standard_D4s_v3
                 # List images https://docs.microsoft.com/en-us/azure/virtual-machines/linux/cli-ps-findimage
                 imagePublisher: microsoft-dsvm
                 imageOffer: ubuntu-1804

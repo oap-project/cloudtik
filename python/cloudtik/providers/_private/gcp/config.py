@@ -301,9 +301,9 @@ def _delete_vpc(config, compute):
         compute.networks().delete(project=project_id, network=VpcId).execute()
         cli_logger.print("Successfully deleted the VPC: {}.".format(vpc_name))
     except Exception as e:
-        cli_logger.verbose_error("{}", str(e))
-        cli_logger.abort("Failed to delete the VPC."
-            "Please remove dependencies and delete VPC manually.")
+        cli_logger.error("Failed to delete the VPC:{}. {}".format(vpc_name, str(e)))
+        raise e
+
     return
 
 
@@ -326,10 +326,9 @@ def create_vpc(config, compute):
         time.sleep(10)
         cli_logger.print("Successfully created workspace VPC: cloudtik-{}-vpc ...".format(config["workspace_name"]))
     except Exception as e:
-        # todo: add better exception info
-        cli_logger.verbose_error("{}", str(e))
-        cli_logger.abort(
-            "Failed to create workspace vpc. Please check weather you have reach the  maximum number of VPCs.")
+        cli_logger.error(
+            "Failed to create workspace VPC. {}", str(e))
+        raise e
 
 
 def get_working_node_vpc_id(config, compute):
@@ -348,6 +347,7 @@ def get_working_node_vpc_id(config, compute):
         cli_logger.error("Failed to get the VpcId of the working node. "
                          "Please check whether the working node is a GCP instance or not!")
         return None
+
     cli_logger.print("Successfully get the VpcId for working node.")
     return compute.networks().get(project=project_id, network=network).execute()["id"]
 
@@ -402,9 +402,9 @@ def _delete_subnet(config, compute, isPrivate=True):
         cli_logger.print("Successfully deleted {} subnet: {}..."
                          .format(subnet_attribute, subnetwork_name))
     except Exception as e:
-        cli_logger.verbose_error("{}", str(e))
-        cli_logger.error("Failed to delete the {} subnet: {} !"
-                         .format(subnet_attribute, subnetwork_name))
+        cli_logger.error("Failed to delete the {} subnet: {}! {}"
+                         .format(subnet_attribute, subnetwork_name, str(e)))
+        raise e
 
     return
 
@@ -435,9 +435,8 @@ def _create_and_configure_subnets(config, compute, VpcId):
             cli_logger.print("Successfully created subnet: cloudtik-{}-{}-subnet ...".
                              format(config["workspace_name"], subnets_attribute[i]))
         except Exception as e:
-            cli_logger.verbose_error("{}", str(e))
-            cli_logger.abort(
-                "Failed to create subnet, please check the error message clearly...")
+            cli_logger.error("Failed to create subnet. {}",  str(e))
+            raise e
 
     return
 
@@ -463,9 +462,8 @@ def _create_router(config, compute, VpcId):
         cli_logger.print("Successfully created router for the private subnet: cloudtik-{}-subnet ...".
                      format(config["workspace_name"]))
     except Exception as e:
-        cli_logger.verbose_error("{}", str(e))
-        cli_logger.abort(
-            "Failed to create subnet, please check the error message clearly...")
+        cli_logger.error("Failed to create router. {}", str(e))
+        raise e
 
     return
 
@@ -500,12 +498,13 @@ def _create_nat_for_router(config, compute):
     cli_logger.print("Creating nat-gateway \"{}\"  for private router... ".format(nat_name))
     try:
         compute.routers().patch(project=project_id, region=region, router=router, body=router_body).execute()
-        cli_logger.print("Successfully created nat-gateway for the private router: {} ...".
+        cli_logger.print("Successfully created nat-gateway for the private router: {}.".
                          format(nat_name))
     except Exception as e:
-        cli_logger.verbose_error("{}", str(e))
-        cli_logger.abort(
-            "Failed to create nat-gateway, please check whether existing the gateway with the same name...")
+        cli_logger.error("Failed to create nat-gateway. {}", str(e))
+        raise e
+
+    return
 
 
 def _delete_router(config, compute):
@@ -523,8 +522,9 @@ def _delete_router(config, compute):
         compute.routers().delete(project=project_id, region=region, router=router_name).execute()
         cli_logger.print("Successfully deleted the router: {}.".format(router_name))
     except Exception as e:
-        cli_logger.verbose_error("{}", str(e))
-        cli_logger.error("Failed to delete the router: {}.".format(router_name))
+        cli_logger.error("Failed to delete the router: {}. {}".format(router_name, str(e)))
+        raise e
+
     return
 
 
@@ -555,9 +555,8 @@ def  create_firewall(compute, project_id, firewall_body):
         compute.firewalls().insert(project=project_id, body=firewall_body).execute()
         cli_logger.print("Successfully created firewall \"{}\"  ... ".format(firewall_body.get("name")))
     except Exception as e:
-        cli_logger.verbose_error("{}", str(e))
-        cli_logger.abort(
-            "Failed to create firewall, please check the error message...")
+        cli_logger.error("Failed to create firewall. {}", str(e))
+        raise e
 
 
 def enfored_create_firewall(config, compute, firewall_body):
@@ -688,10 +687,9 @@ def delete_firewall(compute, project_id, firewall_name):
         compute.firewalls().delete(project=project_id, firewall=firewall_name).execute()
         cli_logger.print("Successfully delete the firewall {}.".format(firewall_name))
     except Exception as e:
-        cli_logger.verbose_error("{}", str(e))
-        cli_logger.abort(
-            "Failed to delete the firewall {}."
-            "Please check the error message...".format(firewall_name))
+        cli_logger.error(
+            "Failed to delete the firewall {}. {}".format(firewall_name, str(e)))
+        raise e
 
 
 def _delete_firewalls(config, compute):
@@ -755,11 +753,10 @@ def delete_workspace_gcp(config):
             _delete_vpc(config, compute)
 
     except Exception as e:
-        cli_logger.verbose_error("{}", str(e))
-        cli_logger.abort(
-            "Failed to delete workspace {}, "
-            "Please check whether you added some resources manually."
-                .format(workspace_name))
+        cli_logger.error(
+            "Failed to delete workspace {}. {} "
+                .format(workspace_name, str(e)))
+        raise e
 
     cli_logger.verbose(
             "Successfully deleted workspace: {}.",
@@ -815,9 +812,10 @@ def _configure_vpc(config):
         _create_firewalls(config, compute, VpcId)
 
     except Exception as e:
-        cli_logger.verbose_error("{}", str(e))
-        cli_logger.abort(
-            "Not successfully create workspace, please check the error message...")
+        cli_logger.error(
+            "Failed to create workspace: {}. {}".
+                format(workspace_name, str(e)))
+        raise e
 
     cli_logger.verbose(
         "Have successfully created workspace: {}!",

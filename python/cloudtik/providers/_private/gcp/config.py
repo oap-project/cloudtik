@@ -520,6 +520,7 @@ def _delete_router(config, compute):
     cli_logger.print("Deleting the router: {}...".format(router_name))
     try:
         compute.routers().delete(project=project_id, region=region, router=router_name).execute()
+        time.sleep(20)
         cli_logger.print("Successfully deleted the router: {}.".format(router_name))
     except Exception as e:
         cli_logger.error("Failed to delete the router: {}. {}".format(router_name, str(e)))
@@ -702,6 +703,8 @@ def _delete_firewalls(config, compute):
     cli_logger.print("Deleting all the firewalls...")
     for cloudtik_firewall in cloudtik_firewalls:
         delete_firewall(compute, project_id, cloudtik_firewall)
+    #Wait for all the firewalls have been deleted.
+    time.sleep(20)
 
 
 def get_gcp_vpcId(config, compute, use_internal_ips):
@@ -720,9 +723,9 @@ def delete_workspace_gcp(config):
     VpcId = get_gcp_vpcId(config, compute, use_internal_ips)
     """
      Do the work - order of operation
-     1.) Delete private subnets
+     1.) Delete public subnet
      2.) Delete router for private subnet 
-     3.) Delete public subnet
+     3.) Delete private subnets
      4.) Delete firewalls
      5.) Delete vpc
      """
@@ -737,13 +740,13 @@ def delete_workspace_gcp(config):
     try:
 
         # delete private subnets
-        _delete_subnet(config, compute, isPrivate=True)
+        _delete_subnet(config, compute, isPrivate=False)
 
         # delete router for private sybnets
         _delete_router(config, compute)
 
         # delete public subnets
-        _delete_subnet(config, compute, isPrivate=False)
+        _delete_subnet(config, compute, isPrivate=True)
 
         # delete firewalls
         _delete_firewalls(config, compute)

@@ -8,7 +8,8 @@ import logging
 from cloudtik.core.node_provider import NodeProvider
 
 from cloudtik.providers._private.gcp.config import (
-    bootstrap_gcp, construct_clients_from_provider_config, get_node_type)
+    bootstrap_gcp, workspace_bootstrap_gcp,
+    construct_clients_from_provider_config, get_node_type)
 
 # The logic has been abstracted away here to allow for different GCP resources
 # (API endpoints), which can differ widely, making it impossible to use
@@ -201,7 +202,11 @@ class GCPNodeProvider(NodeProvider):
 
     @staticmethod
     def bootstrap_config(cluster_config):
-        return bootstrap_gcp(cluster_config)
+        workspace_name = cluster_config.get("workspace_name", "")
+        if workspace_name == "":
+            return bootstrap_gcp(cluster_config)
+        else:
+            return workspace_bootstrap_gcp(cluster_config)
 
     @staticmethod
     def get_cluster_resources(

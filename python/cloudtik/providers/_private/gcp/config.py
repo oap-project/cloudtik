@@ -277,7 +277,7 @@ def get_gcp_cloutik_vpc_id(config, compute):
                          format(vpc_name))
         return None
     else:
-        cli_logger.print("This VPC: {} is existeing.".
+        cli_logger.print("This VPC: {}  existed.".
                          format(vpc_name))
         return VpcIds[0]
 
@@ -302,7 +302,7 @@ def _delete_gcp_vpc(config, compute):
     return
 
 
-def create_gcp_vpc(config, compute):
+def create_vpc(config, compute):
     project_id = config["provider"].get("project_id")
     network_body = {
         "autoCreateSubnetworks": False,
@@ -314,17 +314,17 @@ def create_gcp_vpc(config, compute):
         "mtu": 1460
     }
 
-    cli_logger.print("Start to create customer vpc on GCP...")
+    cli_logger.print("creating workspace vpc on GCP...")
     # create vpc
     try:
         compute.networks().insert(project=project_id, body=network_body).execute().get("id")
         time.sleep(10)
-        cli_logger.print("Have successfully create vpc: cloudtik-{}-vpc ...".format(config["workspace_name"]))
+        cli_logger.print("Successfully created workspace VPC: cloudtik-{}-vpc ...".format(config["workspace_name"]))
     except Exception as e:
         # todo: add better exception info
         cli_logger.verbose_error("{}", str(e))
         cli_logger.abort(
-            "Cannot create vpc... please check weather you have reach the  maximum number of VPCs.")
+            "Failed to create workspace vpc. Please check weather you have reach the  maximum number of VPCs.")
 
 
 def get_gcp_working_node_vpc(config, compute):
@@ -408,7 +408,7 @@ def _create_and_configure_gcp_subnets(config, compute, VpcId):
 
     subnets_attribute = ["public", "private"]
     for i in range(2):
-        cli_logger.print("Start to create subnet for the vpc: {} with CIDR: {} ...".format(VpcId, cidr_list[i]))
+        cli_logger.print("Creating subnet for the vpc: {} with CIDR: {} ...".format(VpcId, cidr_list[i]))
         network_body = {
             "description": "Auto created {} subnet for cloudtik".format(subnets_attribute[i]),
             "enableFlowLogs": False,
@@ -422,12 +422,12 @@ def _create_and_configure_gcp_subnets(config, compute, VpcId):
         try:
             compute.subnetworks().insert(project=project_id, region=region, body=network_body).execute()
             time.sleep(10)
-            cli_logger.print("Have successfully create the subnet: cloudtik-{}-{}-subnet ...".
+            cli_logger.print("Successfully created subnet: cloudtik-{}-{}-subnet ...".
                              format(config["workspace_name"], subnets_attribute[i]))
         except Exception as e:
             cli_logger.verbose_error("{}", str(e))
             cli_logger.abort(
-                "Cannot create subnet, please check the error message clearly...")
+                "Failed to create subnet, please check the error message clearly...")
 
     return
 
@@ -445,17 +445,17 @@ def _create_router(config, compute, VpcId):
         "network": "projects/{}/global/networks/{}".format(project_id, VpcId),
         "region": "projects/{}/regions/{}".format(project_id, region)
     }
-    cli_logger.print("Start to create router for the private subnet: "
+    cli_logger.print("Creating router for the private subnet: "
                      "cloudtik-{}-private-subnet ...".format(workspace_name))
     try:
         compute.routers().insert(project=project_id, region=region, body=router_body).execute()
         time.sleep(20)
-        cli_logger.print("Have successfully create router for the private subnet: cloudtik-{}-subnet ...".
+        cli_logger.print("Successfully created router for the private subnet: cloudtik-{}-subnet ...".
                      format(config["workspace_name"]))
     except Exception as e:
         cli_logger.verbose_error("{}", str(e))
         cli_logger.abort(
-            "Cannot create subnet, please check the error message clearly...")
+            "Failed to create subnet, please check the error message clearly...")
 
     return
 
@@ -487,13 +487,15 @@ def _create_nat_for_router(config, compute):
         ]
     }
 
-    cli_logger.print("Start to add nat-gateway \"{}\"  for private router... ".format(nat_name))
+    cli_logger.print("Creating nat-gateway \"{}\"  for private router... ".format(nat_name))
     try:
         compute.routers().patch(project=project_id, region=region, router=router, body=router_body).execute()
+        cli_logger.print("Successfully created nat-gateway for the private router: {} ...".
+                         format(nat_name))
     except Exception as e:
         cli_logger.verbose_error("{}", str(e))
         cli_logger.abort(
-            "Cannot add nat-gateway, please check whether existing the gateway with the same name...")
+            "Failed to create nat-gateway, please check whether existing the gateway with the same name...")
 
 
 def _delete_router(config, compute):
@@ -525,21 +527,24 @@ def check_firewall_exsit(config, compute, firewall_name):
 def get_firewall(config, compute, firewall_name):
     project_id = config["provider"]["project_id"]
     firewall = None
+    cli_logger.print("Try to find the existing firewall: {} ...".format(firewall_name))
     try:
-        compute.firewalls().get(project=project_id, firewall=firewall_name).execute()
+        firewall = compute.firewalls().get(project=project_id, firewall=firewall_name).execute()
+        cli_logger.print("Existing firewall found.")
     except Exception:
         cli_logger.error("The firewall \"{}\"not exsits".format(firewall_name))
     return firewall
 
 
 def  create_firewall(compute, project_id, firewall_body):
-    cli_logger.print("Start to create firewall \"{}\"  ... ".format(firewall_body.get("name")))
+    cli_logger.print("Creating firewall \"{}\"  ... ".format(firewall_body.get("name")))
     try:
         compute.firewalls().insert(project=project_id, body=firewall_body).execute()
+        cli_logger.print("Successfully created firewall \"{}\"  ... ".format(firewall_body.get("name")))
     except Exception as e:
         cli_logger.verbose_error("{}", str(e))
         cli_logger.abort(
-            "Cannot create firewall, please check the error message...")
+            "Failed to create firewall, please check the error message...")
 
 
 def enfored_create_firewall(config, compute, firewall_body):
@@ -747,23 +752,23 @@ def delete_workspace_gcp(config):
     return None
 
 
-def _create_gcp_vpc(config, compute):
+def _create_vpc(config, compute):
     workspace_name = config["workspace_name"]
     use_internal_ips = config["provider"].get("use_internal_ips", False)
     if use_internal_ips:
         # No need to create new vpc
         VpcId = get_gcp_working_node_vpc(config, compute)
         if VpcId is None:
-            cli_logger.abort("Only the working node is "
+            cli_logger.abort("Only when the  working node is "
                              "an GCP  instance can use use_internal_ips=True!")
     else:
 
         # Need to create a new vpc
         if get_gcp_cloutik_vpc_id(config, compute) is None:
-            create_gcp_vpc(config, compute)
+            create_vpc(config, compute)
             VpcId = get_gcp_cloutik_vpc_id(config, compute)
         else:
-            cli_logger.abort("There is a same name VPC for workspace: {}, "
+            cli_logger.abort("There is a existing VPC with the same name: {}, "
                              "if you want to create a new workspace with the same name, "
                              "you need to execute workspace delete first!".format(workspace_name))
     return VpcId
@@ -780,7 +785,7 @@ def _configure_gcp_vpc(config):
 
     try:
         # create vpc
-        VpcId = _create_gcp_vpc(config, compute)
+        VpcId = _create_vpc(config, compute)
 
         # create subnets
         _create_and_configure_gcp_subnets(config, compute, VpcId)

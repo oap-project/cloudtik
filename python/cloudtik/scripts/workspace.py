@@ -19,6 +19,12 @@ def workspace():
 @workspace.command()
 @click.argument("workspace_config_file", required=True, type=str)
 @click.option(
+    "--yes",
+    "-y",
+    is_flag=True,
+    default=False,
+    help="Don't ask for confirmation.")
+@click.option(
     "--workspace-name",
     "-n",
     required=False,
@@ -30,7 +36,7 @@ def workspace():
     default=False,
     help="Disable the local workspace config cache.")
 @add_click_logging_options
-def create(workspace_config_file, workspace_name, no_workspace_config_cache):
+def create(workspace_config_file, yes, workspace_name, no_workspace_config_cache):
     """Create a workspace on cloud using the workspace configuration file."""
     # TODO: Implement creating of workspace based on cloud provider.
     if urllib.parse.urlparse(workspace_config_file).scheme in ("http", "https"):
@@ -48,6 +54,7 @@ def create(workspace_config_file, workspace_name, no_workspace_config_cache):
 
     create_or_update_workspace(
         config_file=workspace_config_file,
+        yes=yes,
         override_workspace_name=workspace_name,
         no_workspace_config_cache=no_workspace_config_cache)
 

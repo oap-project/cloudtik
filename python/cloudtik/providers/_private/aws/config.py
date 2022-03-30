@@ -399,8 +399,9 @@ def delete_workspace_aws(config):
 def create_aws_workspace(config):
     # create a copy of the input config to modify
     config = copy.deepcopy(config)
-    # create vpc according to use_internal_ip
-    config = _configure_vpc(config)
+
+    # create workspace
+    config = _configure_workspace(config)
 
     return config
 
@@ -919,53 +920,14 @@ def _create_route_table_for_private_subnet(config, ec2, vpc, subnet):
     return private_route_table
 
 
-def _configure_vpc(config):
+def _configure_workspace(config):
     ec2 = _resource("ec2", config)
     ec2_client = _client("ec2", config)
-    use_internal_ips = config["provider"].get("use_internal_ips", False)
     workspace_name = config["workspace_name"]
-    cli_logger.verbose(
-        "Starting to create workspace: {}!",
-        cf.bold(workspace_name))
 
     try:
-        if use_internal_ips:
-            # No need to create new vpc
-            VpcId = get_current_vpc(config)
-            vpc = ec2.Vpc(id=VpcId)
-            vpc.create_tags(Tags=[{'Key': 'Name', 'Value': 'cloudtik-{}-vpc'.format(workspace_name)}])
-        else:
-
-            # Need to create a new vpc
-            if get_workspace_vpc_id(config["workspace_name"], ec2_client) is None:
-                vpc = _create_vpc(config, ec2)
-            else:
-                cli_logger.abort("There is a same name VPC for workspace: {}, "
-                                 "if you want to create a new workspace with the same name, "
-                                 "you need to execute workspace delete first!".format(workspace_name))
-
-        # create subnets
-        subnets = _create_and_configure_subnets(config, vpc)
-
-        # TODO check whether we need to create new internet gateway? Maybe existing vpc contains internet subnets
-        # create internet gateway for public subnets
-        internet_gateway = _create_internet_gateway(config, ec2, vpc)
-
-        # add internet_gateway into public route table
-        _update_route_table_for_public_subnet(config, ec2, ec2_client, vpc, subnets[0], internet_gateway)
-
-        # create private route table for private subnets
-        private_route_table = _create_route_table_for_private_subnet(config, ec2, vpc, subnets[-1])
-
-        # create nate_gatway for private subnets
-        nat_gateway = _create_nat_gateway(config, ec2_client, vpc, subnets[0])
-
-        # Create a default route pointing to NAT Gateway for private subnets
-        ec2_client.create_route(RouteTableId=private_route_table.id, DestinationCidrBlock='0.0.0.0/0',
-                                NatGatewayId=nat_gateway['NatGatewayId'])
-
-        _upsert_security_group(config, vpc.id)
-
+        with cli_logger.group("Creating workspace: {}", workspace_name):
+            _configure_vpc(config, ec2, ec2_client)
     except Exception as e:
         cli_logger.error("Failed to create workspace. {}", str(e))
         raise e
@@ -973,6 +935,50 @@ def _configure_vpc(config):
     cli_logger.print(
         "Successfully created workspace: {}.",
         cf.bold(workspace_name))
+
+    return config
+
+
+def _configure_vpc(config, ec2, ec2_client):
+    use_internal_ips = config["provider"].get("use_internal_ips", False)
+    workspace_name = config["workspace_name"]
+
+    if use_internal_ips:
+        # No need to create new vpc
+        VpcId = get_current_vpc(config)
+        vpc = ec2.Vpc(id=VpcId)
+        vpc.create_tags(Tags=[{'Key': 'Name', 'Value': 'cloudtik-{}-vpc'.format(workspace_name)}])
+    else:
+
+        # Need to create a new vpc
+        if get_workspace_vpc_id(config["workspace_name"], ec2_client) is None:
+            vpc = _create_vpc(config, ec2)
+        else:
+            cli_logger.abort("There is a same name VPC for workspace: {}, "
+                             "if you want to create a new workspace with the same name, "
+                             "you need to execute workspace delete first!".format(workspace_name))
+
+    # create subnets
+    subnets = _create_and_configure_subnets(config, vpc)
+
+    # TODO check whether we need to create new internet gateway? Maybe existing vpc contains internet subnets
+    # create internet gateway for public subnets
+    internet_gateway = _create_internet_gateway(config, ec2, vpc)
+
+    # add internet_gateway into public route table
+    _update_route_table_for_public_subnet(config, ec2, ec2_client, vpc, subnets[0], internet_gateway)
+
+    # create private route table for private subnets
+    private_route_table = _create_route_table_for_private_subnet(config, ec2, vpc, subnets[-1])
+
+    # create nate_gatway for private subnets
+    nat_gateway = _create_nat_gateway(config, ec2_client, vpc, subnets[0])
+
+    # Create a default route pointing to NAT Gateway for private subnets
+    ec2_client.create_route(RouteTableId=private_route_table.id, DestinationCidrBlock='0.0.0.0/0',
+                            NatGatewayId=nat_gateway['NatGatewayId'])
+
+    _upsert_security_group(config, vpc.id)
 
     return config
 

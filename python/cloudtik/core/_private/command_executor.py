@@ -301,7 +301,7 @@ class SSHOptions:
             "ExitOnForwardFailure": "yes",
             # Quickly kill the connection if network connection breaks (as
             # opposed to hanging/blocking).
-            "ServerAliveInterval": 5,
+            "ServerAliveInterval": 60,
             "ServerAliveCountMax": 3
         }
         if cli_logger.verbosity == 0:

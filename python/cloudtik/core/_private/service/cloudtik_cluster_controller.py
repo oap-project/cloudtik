@@ -37,6 +37,9 @@ from cloudtik.core._private.services import validate_redis_address
 logger = logging.getLogger(__name__)
 
 
+MAX_FAILURES_FOR_LOGGING = 16
+
+
 def parse_resource_demands(resource_load):
     """Handle the message.resource_load for the demand
     based cluster scaling.
@@ -105,6 +108,7 @@ class ClusterController:
         self.stop_event = stop_event  # type: Optional[Event]
         self.cluster_scaling_config = cluster_scaling_config
         self.cluster_scaler = None
+        self.load_metrics_failures = 0
 
         self.prometheus_metrics = ClusterPrometheusMetrics()
         if prometheus_client:
@@ -136,6 +140,26 @@ class ClusterController:
             prometheus_metrics=self.prometheus_metrics)
 
     def update_load_metrics(self):
+        try:
+            self._update_load_metrics()
+            # reset if there is a success
+            self.load_metrics_failures = 0
+        except Exception as e:
+            if self.load_metrics_failures == 0 or self.load_metrics_failures == MAX_FAILURES_FOR_LOGGING:
+                # detailed form
+                error = traceback.format_exc()
+                logger.exception(f"Load metrics update failed with the following error:\n{error}")
+            elif self.load_metrics_failures < MAX_FAILURES_FOR_LOGGING:
+                # short form
+                logger.exception(f"Load metrics update failed with the following error:{str(e)}")
+
+            if self.load_metrics_failures == MAX_FAILURES_FOR_LOGGING:
+                logger.exception(f"The above error has been showed consecutively"
+                                 f" for {self.load_metrics_failures} times. Stop showing.")
+
+            self.load_metrics_failures += 1
+
+    def _update_load_metrics(self):
         """Fetches resource usage data from control state and updates load metrics."""
         # TODO (haifeng): implement load metrics
 
@@ -159,7 +183,6 @@ class ClusterController:
             resource_load = {}
             total_resources = {}
             available_resources = {}
-
 
             use_node_id_as_ip = (self.cluster_scaler is not None
                                  and self.cluster_scaler.config["provider"].get(

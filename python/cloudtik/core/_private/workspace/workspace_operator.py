@@ -71,7 +71,7 @@ def delete_workspace(
 
 
 def create_or_update_workspace(
-        config_file: str,
+        config_file: str, yes: bool,
         override_workspace_name: Optional[str] = None,
         no_workspace_config_cache: bool = False) -> Dict[str, Any]:
     """Creates or updates an scaling cluster from a config json."""
@@ -129,16 +129,18 @@ def create_or_update_workspace(
         cli_logger.newline()
 
     cli_logger.labeled_value("Workspace", config["workspace_name"])
-
     cli_logger.newline()
+
     config = _bootstrap_workspace_config(config,
-        no_workspace_config_cache=no_workspace_config_cache)
+                                         no_workspace_config_cache=no_workspace_config_cache)
 
     provider = _get_workspace_provider(config["provider"], config["workspace_name"])
 
     if provider.check_workspace_resource(config):
         cli_logger.print("workspace resource has existed, no need to recreate workspace")
     else:
+        cli_logger.confirm(yes, "Are you sure that you want to create workspace {}?",
+                           config["workspace_name"], _abort=True)
         provider.create_workspace(config)
 
 

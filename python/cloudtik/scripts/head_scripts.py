@@ -176,15 +176,18 @@ def rsync_up(source, target, node_ip, all_workers):
     multiple=True,
     type=int,
     help="Port to forward. Use this multiple times to forward multiple ports.")
+@click.option(
+    "--host", is_flag=True, default=False, help="Attach to the host even running with docker.")
 @add_click_logging_options
-def attach(node_ip, screen, tmux, new, port_forward):
+def attach(node_ip, screen, tmux, new, port_forward, host):
     """Attach to worker node from head."""
     port_forward = [(port, port) for port in list(port_forward)]
     attach_node_on_head(node_ip,
                         screen,
                         tmux,
                         new,
-                        port_forward)
+                        port_forward,
+                        force_to_host=host)
 
 
 @head.command()

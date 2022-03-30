@@ -16,7 +16,7 @@ from cloudtik.core._private.constants import BOTO_MAX_RETRIES, \
 from cloudtik.core._private.log_timer import LogTimer
 from cloudtik.core._private.cli_logger import cli_logger, cf
 
-from cloudtik.providers._private.aws.config import bootstrap_aws, workspace_bootstrap_aws
+from cloudtik.providers._private.aws.config import bootstrap_aws, bootstrap_aws_from_workspace
 from cloudtik.providers._private.aws.utils import boto_exception_handler, \
     resource_cache, client_cache, get_aws_s3a_config
 
@@ -568,7 +568,7 @@ class AWSNodeProvider(NodeProvider):
         if workspace_name == "":
             return bootstrap_aws(cluster_config)
         else:
-            return workspace_bootstrap_aws(cluster_config)
+            return bootstrap_aws_from_workspace(cluster_config)
 
 
     @staticmethod

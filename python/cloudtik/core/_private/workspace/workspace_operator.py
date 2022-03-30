@@ -137,7 +137,8 @@ def create_or_update_workspace(
     provider = _get_workspace_provider(config["provider"], config["workspace_name"])
 
     if provider.check_workspace_resource(config):
-        cli_logger.print("workspace resource has existed, no need to recreate workspace")
+        cli_logger.print("Workspace with the same name already exists! "
+                         "If it failed in the previous creation, you can delete and try create again.")
     else:
         cli_logger.confirm(yes, "Are you sure that you want to create workspace {}?",
                            config["workspace_name"], _abort=True)

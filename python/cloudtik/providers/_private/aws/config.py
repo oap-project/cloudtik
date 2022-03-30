@@ -444,7 +444,7 @@ def bootstrap_aws(config):
     return config
 
 
-def workspace_bootstrap_aws(config):
+def bootstrap_aws_from_workspace(config):
 
     if not check_aws_workspace_resource(config):
         cli_logger.abort("Please check the resource of your workspace!")
@@ -466,11 +466,11 @@ def workspace_bootstrap_aws(config):
         {"ssh_key_path": config["auth"]["ssh_private_key"]})
 
     # Pick a reasonable subnet if not specified by the user.
-    config = _configure_workspace_subnet(config)
+    config = _configure_subnet_from_workspace(config)
 
     # Cluster workers should be in a security group that permits traffic within
     # the group, and also SSH access from outside.
-    config = _configure_workspace_security_group(config)
+    config = _configure_security_group_from_workspace(config)
 
     # Provide a helpful message for missing AMI.
     _check_ami(config)
@@ -1094,7 +1094,7 @@ def _configure_subnet(config):
     return config
 
 
-def _configure_workspace_subnet(config):
+def _configure_subnet_from_workspace(config):
     ec2 = _resource("ec2", config)
     ec2_client = _client("ec2", config)
     workspace_name = config["workspace_name"]
@@ -1184,7 +1184,7 @@ def _configure_security_group(config):
     return config
 
 
-def _configure_workspace_security_group(config):
+def _configure_security_group_from_workspace(config):
     ec2_client = _client("ec2", config)
     workspace_name = config["workspace_name"]
     VpcId = get_workspace_vpc_id(workspace_name, ec2_client)

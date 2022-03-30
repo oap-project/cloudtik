@@ -556,10 +556,15 @@ def _kill_node(config, hard, node_ip: str = None):
 
 
 def monitor_cluster(cluster_config_file: str, num_lines: int,
-                    override_cluster_name: Optional[str]) -> None:
+                    override_cluster_name: Optional[str] = None,
+                    file_type: str = None) -> None:
     """Tails the controller logs of a cluster."""
-    # TODO (haifeng) : the right controller log path
-    cmd = f"tail -n {num_lines} -f /tmp/cloudtik/session_latest/logs/cloudtik_cluster_controller*"
+    cmd = f"tail -n {num_lines} -f /tmp/cloudtik/session_latest/logs/cloudtik_cluster_controller"
+    if file_type and file_type != "":
+        cmd += f".{file_type}"
+    else:
+        cmd += "*"
+
     exec_cluster(
         cluster_config_file,
         cmd=cmd,

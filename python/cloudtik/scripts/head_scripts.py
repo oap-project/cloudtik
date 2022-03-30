@@ -270,11 +270,17 @@ def status():
     default=100,
     type=int,
     help="Number of lines to tail.")
+@click.option(
+    "--file-type",
+    required=False,
+    type=str,
+    default=None,
+    help="The type of information to check: log, out, err")
 @add_click_logging_options
-def monitor(lines):
+def monitor(lines, file_type):
     """Tails the monitor logs of a cluster."""
     cluster_config_file = get_head_bootstrap_config()
-    monitor_cluster(cluster_config_file, lines, None)
+    monitor_cluster(cluster_config_file, lines, file_type=file_type)
 
 
 @head.command()

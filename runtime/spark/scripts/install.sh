@@ -46,8 +46,13 @@ if [ ! -d "${SPARK_HOME}" ]; then
   echo "export PATH=\$SPARK_HOME/bin:\$PATH" >> ${USER_HOME}/.bashrc
 fi
 
-# Install Jupyter kernel for Spark
-export SPYLON_KERNEL=$USER_HOME/.local/share/jupyter/kernels
+# Install Jupyter and spylon-kernel for Spark
+if ! type jupyter >/dev/null 2>&1; then
+  echo "Install JupyterLab..."
+  pip install jupyterlab
+fi
+
+export SPYLON_KERNEL=$USER_HOME/.local/share/jupyter/kernels/spylon-kernel
 
 if  [ ! -d "${SPYLON_KERNEL}" ]; then
     pip install spylon-kernel;

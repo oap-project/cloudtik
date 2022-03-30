@@ -46,6 +46,20 @@ if [ ! -d "${SPARK_HOME}" ]; then
   echo "export PATH=\$SPARK_HOME/bin:\$PATH" >> ${USER_HOME}/.bashrc
 fi
 
+# Install Jupyter and spylon-kernel for Spark
+if ! type jupyter >/dev/null 2>&1; then
+  echo "Install JupyterLab..."
+  pip install jupyterlab
+fi
+
+export SPYLON_KERNEL=$USER_HOME/.local/share/jupyter/kernels/spylon-kernel
+
+if  [ ! -d "${SPYLON_KERNEL}" ]; then
+    pip install spylon-kernel;
+    python -m spylon_kernel install --user;
+fi
+
+
 function install_yarn_with_spark_jars() {
     # Copy spark jars to hadoop path
     jars=('spark-[0-9]*[0-9]-yarn-shuffle.jar' 'jackson-databind-[0-9]*[0-9].jar' 'jackson-core-[0-9]*[0-9].jar' 'jackson-annotations-[0-9]*[0-9].jar' 'metrics-core-[0-9]*[0-9].jar' 'netty-all-[0-9]*[0-9].Final.jar' 'commons-lang3-[0-9]*[0-9].jar')

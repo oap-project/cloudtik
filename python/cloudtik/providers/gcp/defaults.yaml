@@ -81,7 +81,8 @@ available_node_types:
 head_node_type: head-default
 
 initialization_commands:
-    - which docker || (curl -fsSL https://get.docker.com -o /tmp/get-docker.sh && sudo bash /tmp/get-docker.sh && sudo usermod -aG docker $USER && sudo systemctl restart docker -f)
+    - which docker || (curl -fsSL https://get.docker.com -o /tmp/get-docker.sh &&
+      sudo bash /tmp/get-docker.sh && sudo usermod -aG docker $USER && sudo systemctl restart docker -f)
 
 # List of shell commands to run to set up nodes.
 setup_commands:
@@ -92,8 +93,7 @@ setup_commands:
     # Install cloudtik if not present
     - >-
         which conda || (wget  "https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh" -O /tmp/miniconda.sh &&
-        /bin/bash /tmp/miniconda.sh -b -u -p ~/anaconda3  &&  ~/anaconda3/bin/conda init  &&
-        source ~/.bashrc && rm -rf /tmp/miniconda.sh)
+        /bin/bash /tmp/miniconda.sh -b -u -p ~/anaconda3  &&  ~/anaconda3/bin/conda init  && rm -rf /tmp/miniconda.sh)
     - conda create -n cloudtik_py37 -y python=3.7
     - (stat $HOME/anaconda3/envs/cloudtik_py37/ &> /dev/null &&
         echo 'export PATH="$HOME/anaconda3/envs/cloudtik_py37/bin:$PATH"' >> ~/.bashrc) || true

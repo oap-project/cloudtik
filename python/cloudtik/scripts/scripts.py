@@ -670,11 +670,6 @@ def monitor(cluster_config_file, lines, cluster_name):
 @cli.command()
 @click.argument("cluster_config_file", required=True, type=str)
 @click.option(
-    "--start",
-    is_flag=True,
-    default=False,
-    help="Start the cluster if needed.")
-@click.option(
     "--screen", is_flag=True, default=False, help="Run the command in screen.")
 @click.option(
     "--tmux", is_flag=True, default=False, help="Run the command in tmux.")
@@ -704,9 +699,11 @@ def monitor(cluster_config_file, lines, cluster_name):
     type=str,
     default=None,
     help="The node ip address of the node to attach to")
+@click.option(
+    "--host", is_flag=True, default=False, help="Attach to the host even running with docker.")
 @add_click_logging_options
-def attach(cluster_config_file, start, screen, tmux, cluster_name,
-           no_config_cache, new, port_forward, node_ip):
+def attach(cluster_config_file, screen, tmux, cluster_name,
+           no_config_cache, new, port_forward, node_ip, host):
     """Create or attach to SH session to a cluster or a worker node."""
     port_forward = [(port, port) for port in list(port_forward)]
     try:
@@ -714,13 +711,14 @@ def attach(cluster_config_file, start, screen, tmux, cluster_name,
             # attach to the head
             attach_cluster(
                 cluster_config_file,
-                start,
+                False,
                 screen,
                 tmux,
                 cluster_name,
                 no_config_cache=no_config_cache,
                 new=new,
-                port_forward=port_forward)
+                port_forward=port_forward,
+                force_to_host=host)
         else:
             # attach to the worker node
             attach_worker(
@@ -731,7 +729,8 @@ def attach(cluster_config_file, start, screen, tmux, cluster_name,
                 cluster_name,
                 no_config_cache=no_config_cache,
                 new=new,
-                port_forward=port_forward)
+                port_forward=port_forward,
+                force_to_host=host)
     except RuntimeError as re:
         cli_logger.error("Attach failed. " + str(re))
         if cli_logger.verbosity == 0:

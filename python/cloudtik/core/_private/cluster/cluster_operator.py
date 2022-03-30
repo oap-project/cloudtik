@@ -903,7 +903,8 @@ def attach_cluster(config_file: str,
                    override_cluster_name: Optional[str],
                    no_config_cache: bool = False,
                    new: bool = False,
-                   port_forward: Optional[Port_forward] = None) -> None:
+                   port_forward: Optional[Port_forward] = None,
+                   force_to_host: bool = False) -> None:
     """Attaches to a screen for the specified cluster.
 
     Arguments:
@@ -917,11 +918,14 @@ def attach_cluster(config_file: str,
     """
 
     cmd = get_attach_command(use_screen, use_tmux, new)
+    run_env = "auto"
+    if force_to_host:
+        run_env = "host"
 
     exec_cluster(
         config_file,
         cmd=cmd,
-        run_env="auto",
+        run_env=run_env,
         screen=False,
         tmux=False,
         stop=False,
@@ -1946,7 +1950,8 @@ def attach_worker(config_file: str,
                   override_cluster_name: Optional[str] = None,
                   no_config_cache: bool = False,
                   new: bool = False,
-                  port_forward: Optional[Port_forward] = None) -> None:
+                  port_forward: Optional[Port_forward] = None,
+                  force_to_host: bool = False) -> None:
     """Attaches to a screen for the specified cluster.
 
     Arguments:
@@ -1957,6 +1962,7 @@ def attach_worker(config_file: str,
         override_cluster_name: set the name of the cluster
         new: whether to force a new screen
         port_forward ( (int,int) or list[(int,int)] ): port(s) to forward
+        force_to_host: Whether attach to host even running with docker
     """
 
     # execute attach on head
@@ -1972,6 +1978,8 @@ def attach_worker(config_file: str,
         cmds += ["--tmux"]
     if new:
         cmds += ["--new"]
+    if force_to_host:
+        cmds += ["--host"]
 
     # TODO (haifeng): handle port forward for two state cases
     final_cmd = " ".join(cmds)
@@ -2035,7 +2043,8 @@ def attach_node_on_head(node_ip: str,
                         use_screen: bool,
                         use_tmux: bool,
                         new: bool = False,
-                        port_forward: Optional[Port_forward] = None):
+                        port_forward: Optional[Port_forward] = None,
+                        force_to_host: bool = False):
     cluster_config_file = get_head_bootstrap_config()
     config = yaml.safe_load(open(cluster_config_file).read())
     provider = _get_node_provider(config["provider"], config["cluster_name"])
@@ -2050,13 +2059,16 @@ def attach_node_on_head(node_ip: str,
         return
 
     cmd = get_attach_command(use_screen, use_tmux, new)
+    run_env = "auto"
+    if force_to_host:
+        run_env = "host"
 
     exec_cmd_on_head(
         config,
         provider,
         node_id=node_id,
         cmd=cmd,
-        run_env="auto",
+        run_env=run_env,
         screen=False,
         tmux=False,
         port_forward=port_forward)

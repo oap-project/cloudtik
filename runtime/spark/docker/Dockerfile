@@ -48,20 +48,6 @@ COPY requirements.txt /tmp/requirements.txt
 
 RUN pip install -r  /tmp/requirements.txt
 
-# jupyter config
-RUN echo 'export PYTHONPATH=${SPARK_HOME}/python:${SPARK_HOME}/python/lib/py4j-0.10.9-src.zip\
-export PYSPARK_PYTHON=${CONDA_PREFIX}/bin/python \
-export PYSPARK_DRIVER_PYTHON=${CONDA_PREFIX}/bin/python' >> $HOME/anaconda3/etc/jupyterrc
-
-#access jupyter server remotely
-RUN mkdir -p /home/cloudtik/jupyter && echo Y|jupyter notebook --generate-config
-RUN sed -i  "1 ic.NotebookApp.ip = '*'" ~/.jupyter/jupyter_notebook_config.py && \
-    sed -i  '1 ic.NotebookApp.open_browser = False' ~/.jupyter/jupyter_notebook_config.py && \
-    sed -i  "1 ic.NotebookApp.notebook_dir = '/home/cloudtik/jupyter'" ~/.jupyter/jupyter_notebook_config.py && \
-    # set default password(cloudtik) for jupyter lab
-    sed -i  "1 ic.NotebookApp.password = 'argon2:\$argon2id\$v=19\$m=10240,t=10,p=8\$Y+sBd6UhAyKNsI+/mHsy9g\$WzJsUujSzmotUkblSTpMwCFoOBVSwm7S5oOPzpC+tz8'" ~/.jupyter/jupyter_notebook_config.py && \
-    sed -i  '1 ic.NotebookApp.allow_root = True'   ~/.jupyter/jupyter_notebook_config.py
-
 # jupyter kernel
 RUN python -m spylon_kernel install --user
 

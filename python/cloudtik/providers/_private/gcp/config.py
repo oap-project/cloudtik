@@ -1074,7 +1074,7 @@ def _configure_key_pair(config, compute):
         "".format(private_key_path, ssh_user))
 
     logger.info("_configure_key_pair: "
-                "Private key not specified in config, using"
+                "Private key not specified in config, using "
                 "{}".format(private_key_path))
 
     config["auth"]["ssh_private_key"] = private_key_path

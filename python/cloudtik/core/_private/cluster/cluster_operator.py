@@ -227,6 +227,9 @@ def create_or_update_cluster(
     if printed_overrides:
         cli_logger.newline()
 
+    workspace_name = config.get("workspace_name")
+    if workspace_name:
+        cli_logger.labeled_value("Workspace", workspace_name)
     cli_logger.labeled_value("Cluster", config["cluster_name"])
 
     cli_logger.newline()

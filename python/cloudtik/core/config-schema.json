@@ -334,6 +334,10 @@
             "type": "object",
             "description": "Provider-specific config for the head node, e.g. instance type."
         },
+        "setup_scripts": {
+            "type": "array",
+            "description": "List of scripts which should sync to all nodes and be be executed when setup the cluster\n\n, e.g. [\"/some/scripts/somehwere\"]"
+        },
         "file_mounts": {
             "type": "object",
             "description": "Map of remote paths to local paths, e.g. {\"/tmp/data\": \"/my/local/data\"}"

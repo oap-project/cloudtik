@@ -654,11 +654,17 @@ def kill_node(cluster_config_file, yes, hard, cluster_name, node_ip):
     required=False,
     type=str,
     help="Override the configured cluster name.")
+@click.option(
+    "--file-type",
+    required=False,
+    type=str,
+    default=None,
+    help="The type of information to check: log, out, err")
 @add_click_logging_options
-def monitor(cluster_config_file, lines, cluster_name):
+def monitor(cluster_config_file, lines, cluster_name, file_type):
     """Tails the monitor logs of a cluster."""
     try:
-        monitor_cluster(cluster_config_file, lines, cluster_name)
+        monitor_cluster(cluster_config_file, lines, cluster_name, file_type=file_type)
     except RuntimeError as re:
         cli_logger.error("Monitor failed. " + str(re))
         if cli_logger.verbosity == 0:

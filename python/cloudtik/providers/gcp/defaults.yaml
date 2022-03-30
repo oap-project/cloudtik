@@ -21,7 +21,7 @@ auth:
 # The key is the name of the node type, which is just for debugging purposes.
 # The node config specifies the launch config and physical instance type.
 available_node_types:
-    head.default:
+    head-default:
         # The resources provided by this node type.
         resources: {}
         # Provider-specific config for this node type, e.g. instance type. By default
@@ -50,7 +50,7 @@ available_node_types:
             #   - kind: compute#networkInterface
             #     subnetwork: path/to/subnet
             #     aliasIpRanges: []
-    worker.default:
+    worker-default:
         # The minimum number of nodes of this type to launch.
         # This number should be >= 0.
         min_workers: 1
@@ -79,7 +79,7 @@ available_node_types:
     # https://cloud.google.com/compute/docs/reference/rest/v1/instances/insert
 
 # Specify the node type of the head node (as configured above).
-head_node_type: head.default
+head_node_type: head-default
 
 # List of shell commands to run to set up nodes.
 setup_commands:

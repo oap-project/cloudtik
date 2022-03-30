@@ -203,10 +203,19 @@ function update_spark_runtime_config() {
 }
 
 
+function set_jupyter_default_passwd() {
+  # Config JupyterLab for Spark
+  # Set default password(cloudtik) for JupyterLab
+  echo Y | jupyter notebook --generate-config;
+  sed -i  "1 ic.NotebookApp.password = 'argon2:\$argon2id\$v=19\$m=10240,t=10,p=8\$Y+sBd6UhAyKNsI+/mHsy9g\$WzJsUujSzmotUkblSTpMwCFoOBVSwm7S5oOPzpC+tz8'" ~/.jupyter/jupyter_notebook_config.py
+}
+
+
 check_env
 set_head_address
 prepare_base_conf
 caculate_worker_resources
 set_resources_for_spark
 update_spark_runtime_config
+set_jupyter_default_passwd
 

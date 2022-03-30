@@ -8,7 +8,7 @@ fi
 case "$1" in
   start-head)
     $HADOOP_HOME/bin/yarn --daemon start resourcemanager
-    which jupyter && nohup jupyter lab > jupyterlab.log 2>&1 &
+    which jupyter && nohup jupyter lab  --no-browser --ip=* > jupyterlab.log 2>&1 &
     ;;
   stop-head)
     $HADOOP_HOME/bin/yarn --daemon stop resourcemanager

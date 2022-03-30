@@ -1142,8 +1142,8 @@ def _configure_workspace_subnet(config, compute):
     # completely manually configured
 
     # networkInterfaces is compute, networkConfig is TPU
-    public_subnet = get_subnet(config, "cloudtik-{}-private-subnet".format(workspace_name), compute)
-    private_subnet = get_subnet(config, "cloudtik-{}-public-subnet".format(workspace_name), compute)
+    public_subnet = get_subnet(config, "cloudtik-{}-public-subnet".format(workspace_name), compute)
+    private_subnet = get_subnet(config, "cloudtik-{}-private-subnet".format(workspace_name), compute)
 
     public_interfaces = [{
         "subnetwork": public_subnet["selfLink"],

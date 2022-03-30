@@ -328,7 +328,7 @@ class NodeUpdater:
             # full setup might be cancelled here
             cli_logger.print(
                 "Configuration already up to date, "
-                "skipping file mounts, initalization and setup commands.",
+                "skipping file mounts, initialization and setup commands.",
                 _numbered=("[]", "2-6", NUM_SETUP_STEPS))
 
         else:
@@ -360,7 +360,7 @@ class NodeUpdater:
                         "No initialization commands to run.",
                         _numbered=("[]", 4, NUM_SETUP_STEPS))
                 with cli_logger.group(
-                        "Initalizing command runner",
+                        "Initializing command runner",
                         # todo: fix command numbering
                         _numbered=("[]", 5, NUM_SETUP_STEPS)):
                     self.cmd_executor.run_init(

@@ -323,7 +323,7 @@ def create_vpc(config, compute):
     # create vpc
     try:
         compute.networks().insert(project=project_id, body=network_body).execute().get("id")
-        time.sleep(10)
+        time.sleep(20)
         cli_logger.print("Successfully created workspace VPC: cloudtik-{}-vpc.".format(config["workspace_name"]))
     except Exception as e:
         cli_logger.error(

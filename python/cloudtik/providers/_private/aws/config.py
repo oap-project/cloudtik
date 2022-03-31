@@ -1462,15 +1462,18 @@ def _update_inbound_rules(target_security_group, sgids, config):
     extended_rules = config["provider"] \
         .get("security_group", {}) \
         .get("IpPermissions", [])
-    ip_permissions = _create_default_inbound_rules(sgids, extended_rules)
+    ip_permissions = _create_default_inbound_rules(config, sgids, extended_rules)
     target_security_group.authorize_ingress(IpPermissions=ip_permissions)
 
 
-def _create_default_inbound_rules(sgids, extended_rules=None):
+def _create_default_inbound_rules(config, sgids, extended_rules=None):
     if extended_rules is None:
         extended_rules = []
     intracluster_rules = _create_default_intracluster_inbound_rules(sgids)
-    ssh_rules = _create_default_ssh_inbound_rules()
+    vpc_id_of_sg = _get_vpc_id_of_sg(sgids, config)
+    ec2 = _resource("ec2", config)
+    vpc= ec2.vpc(vpc_id_of_sg)
+    ssh_rules = _create_default_ssh_inbound_rules(vpc.cidr_block)
     merged_rules = itertools.chain(
         intracluster_rules,
         ssh_rules,
@@ -1494,13 +1497,13 @@ def _create_default_intracluster_inbound_rules(intracluster_sgids):
     }]
 
 
-def _create_default_ssh_inbound_rules():
+def _create_default_ssh_inbound_rules(vpc_cidr):
     return [{
         "FromPort": 22,
         "ToPort": 22,
         "IpProtocol": "tcp",
         "IpRanges": [{
-            "CidrIp": "0.0.0.0/0"
+            "CidrIp": vpc_cidr
         }]
     }]
 

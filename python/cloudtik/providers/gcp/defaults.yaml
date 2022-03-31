@@ -94,6 +94,8 @@ setup_commands:
     - which cloudtik || pip install -U "cloudtik[gcp] @ http://23.95.96.95:8000/latest/cloudtik-0.9.0-cp37-cp37m-manylinux2014_x86_64.whl"
     - cloudtik-spark install
 
+bootstrap_commands: []
+
 # Custom commands that will be run on the head node after common setup.
 head_setup_commands:
     - cloudtik-spark configure --head --provider=gcp --project_id=$PROJECT_ID  --gcp_gcs_bucket=$GCP_GCS_BUCKET --fs_gs_auth_service_account_email=$FS_GS_AUTH_SERVICE_ACCOUNT_EMAIL --fs_gs_auth_service_account_private_key_id=$FS_GS_AUTH_SERVICE_ACCOUNT_PRIVATE_KEY_ID --fs_gs_auth_service_account_private_key="$FS_GS_AUTH_SERVICE_ACCOUNT_PRIVATE_KEY"

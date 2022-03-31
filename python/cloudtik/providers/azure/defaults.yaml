@@ -94,6 +94,8 @@ setup_commands:
     # - sudo dpkg --configure -a
     - cloudtik-spark install
 
+bootstrap_commands: []
+
 # Custom commands that will be run on the head node after common setup.
 head_setup_commands:
     - cloudtik-spark configure --head --provider=azure --azure_storage_kind=$AZURE_STORAGE_KIND --azure_storage_account=$AZURE_STORAGE_ACCOUNT --azure_container=$AZURE_CONTAINER --azure_account_key=$AZURE_ACCOUNT_KEY

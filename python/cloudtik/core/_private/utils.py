@@ -739,7 +739,6 @@ def prepare_config(config: Dict[str, Any]) -> Dict[str, Any]:
         config = prepare_local(config)
 
     with_defaults = fillout_defaults(config)
-    prepare_setup_scripts(with_defaults)
     merge_setup_commands(with_defaults)
     validate_docker_config(with_defaults)
     fill_node_type_min_max_workers(with_defaults)
@@ -871,6 +870,8 @@ def fillout_defaults(config: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def merge_setup_commands(config):
+    config["setup_commands"] = (
+        config["setup_commands"] + config["bootstrap_commands"])
     config["head_setup_commands"] = (
         config["setup_commands"] + config["head_setup_commands"])
     config["worker_setup_commands"] = (
@@ -878,14 +879,6 @@ def merge_setup_commands(config):
     return config
 
 
-def prepare_setup_scripts(config):
-    if len(config["setup_scripts"]):
-        for script in config["setup_scripts"]:
-            script_name = os.path.basename(script)
-            remote_script_path = "~/cloudtik_setup/{}".format(script_name)
-            config["file_mounts"][remote_script_path] = script
-            config["setup_commands"].append("bash {}".format(remote_script_path))
-    return config
 
 
 def fill_node_type_min_max_workers(config):

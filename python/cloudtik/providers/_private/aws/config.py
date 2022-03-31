@@ -1469,20 +1469,17 @@ def _update_inbound_rules(target_security_group, sgids, config):
 def _create_default_inbound_rules(config, sgids, extended_rules=None):
     if extended_rules is None:
         extended_rules = []
-    intracluster_rules = _create_default_intracluster_inbound_rules(sgids)
-    vpc_id_of_sg = _get_vpc_id_of_sg(sgids, config)
-    ec2 = _resource("ec2", config)
-    vpc= ec2.vpc(vpc_id_of_sg)
-    ssh_rules = _create_default_ssh_inbound_rules(vpc.cidr_block)
+    intra_cluster_rules = _create_default_intra_cluster_inbound_rules(sgids)
+    ssh_rules = _create_default_ssh_inbound_rules(sgids, config)
     merged_rules = itertools.chain(
-        intracluster_rules,
+        intra_cluster_rules,
         ssh_rules,
         extended_rules,
     )
     return list(merged_rules)
 
 
-def _create_default_intracluster_inbound_rules(intracluster_sgids):
+def _create_default_intra_cluster_inbound_rules(intra_cluster_sgids):
     return [{
         "FromPort": -1,
         "ToPort": -1,
@@ -1490,14 +1487,18 @@ def _create_default_intracluster_inbound_rules(intracluster_sgids):
         "UserIdGroupPairs": [
             {
                 "GroupId": security_group_id
-            } for security_group_id in sorted(intracluster_sgids)
+            } for security_group_id in sorted(intra_cluster_sgids)
             # sort security group IDs for deterministic IpPermission models
             # (mainly supports more precise stub-based boto3 unit testing)
         ]
     }]
 
 
-def _create_default_ssh_inbound_rules(vpc_cidr):
+def _create_default_ssh_inbound_rules(sgids, config):
+    vpc_id_of_sg = _get_vpc_id_of_sg(sgids, config)
+    ec2 = _resource("ec2", config)
+    vpc = ec2.vpc(vpc_id_of_sg)
+    vpc_cidr = vpc.cidr_block
     return [{
         "FromPort": 22,
         "ToPort": 22,

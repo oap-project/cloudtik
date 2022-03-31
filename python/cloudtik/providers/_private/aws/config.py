@@ -19,7 +19,7 @@ from cloudtik.core._private.event_system import (CreateClusterEvent,
 from cloudtik.core._private.services import get_node_ip_address
 from cloudtik.core._private.utils import check_cidr_conflict
 from cloudtik.providers._private.aws.utils import LazyDefaultDict, \
-    handle_boto_error, resource_cache
+    handle_boto_error, resource_cache, get_boto_error_code
 
 logger = logging.getLogger(__name__)
 
@@ -341,50 +341,18 @@ def check_aws_workspace_resource(config):
 def delete_workspace_aws(config):
     ec2 = _resource("ec2", config)
     ec2_client = _client("ec2", config)
-    use_internal_ips = config["provider"].get("use_internal_ips", False)
     workspace_name = config["workspace_name"]
-    VpcId = get_workspace_vpc_id(workspace_name, ec2_client)
-    """
-     Do the work - order of operation
-     1.) Delete private subnets 
-     2.) Delete route-tables for private subnets 
-     3.) Delete nat-gateway for private subnets
-     4.) Delete public subnets
-     5.) Delete internat gateway
-     6.) Delete security group
-     7.) Delete vpc
-     """
-    if VpcId is None:
+    vpcid = get_workspace_vpc_id(workspace_name, ec2_client)
+    if vpcid is None:
         cli_logger.print("The workspace: {} doesn't exist!".format(config["workspace_name"]))
         return
 
-    cli_logger.verbose(
-        "Starting to delete workspace: {}!",
-        cf.bold(workspace_name))
-
     try:
 
-        # delete private subnets
-        _delete_private_subnets(workspace_name, ec2, VpcId)
+        with cli_logger.group("Deleting workspace: {}", workspace_name):
+            _delete_network_resources(config, workspace_name,
+                                      ec2, ec2_client, vpcid)
 
-        # delete route tables for private sybnets
-        _delete_route_table(workspace_name, ec2, VpcId)
-
-        # delete nat-gateway
-        _delete_nat_gateway(workspace_name, ec2_client, VpcId)
-
-        # delete public subnets
-        _delete_public_subnets(workspace_name, ec2, VpcId)
-
-        # delete internat gateway
-        _delete_internet_gateway(workspace_name, ec2, VpcId)
-
-        # delete security group
-        _delete_security_group(config, VpcId)
-
-        # delete vpc
-        if not use_internal_ips:
-            _delete_vpc(ec2, ec2_client, VpcId)
     except Exception as e:
         cli_logger.abort(
             "Failed to delete workspace {}. {}".format(workspace_name, str(e)))
@@ -394,6 +362,44 @@ def delete_workspace_aws(config):
             "Successfully deleted workspace: {}.",
             cf.bold(workspace_name))
     return None
+
+
+def _delete_network_resources(config, workspace_name,
+                              ec2, ec2_client, vpcid):
+    use_internal_ips = config["provider"].get("use_internal_ips", False)
+
+    """
+         Do the work - order of operation
+         1.) Delete private subnets 
+         2.) Delete route-tables for private subnets 
+         3.) Delete nat-gateway for private subnets
+         4.) Delete public subnets
+         5.) Delete internat gateway
+         6.) Delete security group
+         7.) Delete vpc
+    """
+
+    # delete private subnets
+    _delete_private_subnets(workspace_name, ec2, vpcid)
+
+    # delete route tables for private sybnets
+    _delete_route_table(workspace_name, ec2, vpcid)
+
+    # delete nat-gateway
+    _delete_nat_gateway(workspace_name, ec2_client, vpcid)
+
+    # delete public subnets
+    _delete_public_subnets(workspace_name, ec2, vpcid)
+
+    # delete internat gateway
+    _delete_internet_gateway(workspace_name, ec2, vpcid)
+
+    # delete security group
+    _delete_security_group(config, vpcid)
+
+    # delete vpc
+    if not use_internal_ips:
+        _delete_vpc(ec2, ec2_client, vpcid)
 
 
 def create_aws_workspace(config):
@@ -712,6 +718,11 @@ def release_elastic_ip_address(ec2_client, allocationId, retry=5):
         try:
             ec2_client.release_address(AllocationId=allocationId)
         except botocore.exceptions.ClientError as e:
+            error_code = get_boto_error_code(e)
+            if error_code and error_code == "InvalidAllocationID.NotFound":
+                cli_logger.warning("Warning: {}", str(e))
+                return
+
             retry = retry - 1
             if retry > 0:
                 cli_logger.warning("Remaining {} tries to release elastic ip address for NAT Gateway...".format(retry))
@@ -927,7 +938,7 @@ def _configure_workspace(config):
 
     try:
         with cli_logger.group("Creating workspace: {}", workspace_name):
-            _configure_vpc(config, ec2, ec2_client)
+            _configure_network_resources(config, ec2, ec2_client)
     except Exception as e:
         cli_logger.error("Failed to create workspace. {}", str(e))
         raise e
@@ -939,7 +950,7 @@ def _configure_workspace(config):
     return config
 
 
-def _configure_vpc(config, ec2, ec2_client):
+def _configure_network_resources(config, ec2, ec2_client):
     use_internal_ips = config["provider"].get("use_internal_ips", False)
     workspace_name = config["workspace_name"]
 

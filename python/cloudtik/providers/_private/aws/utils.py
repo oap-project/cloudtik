@@ -31,6 +31,17 @@ class LazyDefaultDict(defaultdict):
         return self[key]
 
 
+def get_boto_error_code(exc):
+    error_code = None
+    error_info = None
+    if hasattr(exc, "response"):
+        error_info = exc.response.get("Error", None)
+    if error_info is not None:
+        error_code = error_info.get("Code", None)
+
+    return error_code
+
+
 def handle_boto_error(exc, msg, *args, **kwargs):
     error_code = None
     error_info = None

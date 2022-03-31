@@ -81,8 +81,6 @@ setup_commands:
     - which cloudtik || pip install -U "cloudtik[aws] @ http://23.95.96.95:8000/latest/cloudtik-0.9.0-cp37-cp37m-manylinux2014_x86_64.whl"
     - cloudtik-spark install
 
-bootstrap_commands: []
-
 # Custom commands that will be run on the head node after common setup.
 head_setup_commands:
     - pip install 'boto3>=1.4.8'  # 1.4.8 adds InstanceMarketOptions

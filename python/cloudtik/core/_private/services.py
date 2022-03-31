@@ -808,8 +808,6 @@ def start_redis(node_ip_address,
         redis_address = address(primary_redis_ip, port)
         primary_redis_client = create_redis_client(
             "%s:%s" % (primary_redis_ip, port), password=password)
-        # Deleting the key to avoid duplicated rpush.
-        primary_redis_client.delete("RedisShards")
     else:
         if len(redirect_files) != 1 + num_redis_shards:
             raise ValueError(
@@ -856,6 +854,9 @@ def start_redis(node_ip_address,
     # Register the number of Redis shards in the primary shard, so that clients
     # know how many redis shards to expect under RedisShards.
     primary_redis_client.set("NumRedisShards", str(num_redis_shards))
+
+    # Deleting the key to avoid duplicated rpush.
+    primary_redis_client.delete("RedisShards")
 
     # Put the redirect_worker_output bool in the Redis shard so that workers
     # can access it and know whether or not to redirect their output.

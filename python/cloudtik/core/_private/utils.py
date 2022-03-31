@@ -879,6 +879,17 @@ def merge_setup_commands(config):
     return config
 
 
+def fill_default_max_workers(config):
+    if "max_workers" not in config:
+        logger.debug("Global max workers not set. Will set to the sum of min workers")
+        sum_min_workers = 0
+        node_types = config["available_node_types"]
+        for node_type_name in node_types:
+            node_type_data = node_types[node_type_name]
+            sum_min_workers += node_type_data.get("min_workers", 0)
+        config["max_workers"] = sum_min_workers
+
+
 def fill_node_type_min_max_workers(config):
     """Sets default per-node max workers to global max_workers.
     This equivalent to setting the default per-node max workers to infinity,
@@ -886,7 +897,8 @@ def fill_node_type_min_max_workers(config):
     Sets default per-node min workers to zero.
     Also sets default max_workers for the head node to zero.
     """
-    assert "max_workers" in config, "Global max workers should be set."
+    fill_default_max_workers(config)
+
     node_types = config["available_node_types"]
     for node_type_name in node_types:
         node_type_data = node_types[node_type_name]

@@ -1,0 +1,16 @@
+# A unique identifier for the workspace.
+workspace_name: example-workspace
+
+# Cloud-provider specific configuration.
+provider:
+    type: aws
+    region: us-west-2
+    use_internal_ips: False
+    security_group:
+        # Use IpPermissions to allow SSH access from your working node
+        IpPermissions:
+        - FromPort: 22
+          ToPort: 22
+          IpProtocol: TCP
+          IpRanges:
+          - CidrIp: 0.0.0.0/0

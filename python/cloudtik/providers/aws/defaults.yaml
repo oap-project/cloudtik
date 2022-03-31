@@ -38,7 +38,7 @@ available_node_types:
         # http://boto3.readthedocs.io/en/latest/reference/services/ec2.html#EC2.ServiceResource.create_instances
         node_config:
             InstanceType: m5.xlarge
-            ImageId: ami-0a2363a9cff180a64 # Deep Learning AMI (Ubuntu) Version 30
+            ImageId: ami-0892d3c7ee96c0bf7 # ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-20211129
             # You can provision additional disk space with a conf as follows
             BlockDeviceMappings:
                 - DeviceName: /dev/sda1
@@ -61,7 +61,7 @@ available_node_types:
         # http://boto3.readthedocs.io/en/latest/reference/services/ec2.html#EC2.ServiceResource.create_instances
         node_config:
             InstanceType: m5.xlarge
-            ImageId: ami-0a2363a9cff180a64 # Deep Learning AMI (Ubuntu) Version 30
+            ImageId: ami-0892d3c7ee96c0bf7 # ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-20211129
             # Run workers on spot by default. Comment this out to use on-demand.
             InstanceMarketOptions:
                 MarketType: spot
@@ -73,11 +73,18 @@ available_node_types:
 # Specify the node type of the head node (as configured above).
 head_node_type: head.default
 
+initialization_commands:
+    - which docker || (curl -fsSL https://get.docker.com -o /tmp/get-docker.sh &&
+      sudo bash /tmp/get-docker.sh && sudo usermod -aG docker $USER && sudo systemctl restart docker -f)
+
 # List of shell commands to run to set up nodes.
 setup_commands:
     - >-
-        (stat $HOME/anaconda3/envs/tensorflow2_latest_p37/ &> /dev/null &&
-        echo 'export PATH="$HOME/anaconda3/envs/tensorflow2_latest_p37/bin:$PATH"' >> ~/.bashrc) || true
+        which conda || (wget  "https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh" -O /tmp/miniconda.sh &&
+        /bin/bash /tmp/miniconda.sh -b -u -p ~/anaconda3  &&  ~/anaconda3/bin/conda init  && rm -rf /tmp/miniconda.sh)
+    - conda activate cloudtik_py37 || conda create -n cloudtik_py37 -y python=3.7
+    - (stat $HOME/anaconda3/envs/cloudtik_py37/ &> /dev/null &&
+        echo 'export PATH="$HOME/anaconda3/envs/cloudtik_py37/bin:$PATH"' >> ~/.bashrc) || true
     - which cloudtik || pip install -U "cloudtik[aws] @ http://23.95.96.95:8000/latest/cloudtik-0.9.0-cp37-cp37m-manylinux2014_x86_64.whl"
     - cloudtik-spark install
 

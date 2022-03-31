@@ -302,7 +302,7 @@ class SSHOptions:
             # Quickly kill the connection if network connection breaks (as
             # opposed to hanging/blocking).
             "ServerAliveInterval": 5,
-            "ServerAliveCountMax": 3
+            "ServerAliveCountMax": 10
         }
         if cli_logger.verbosity == 0:
             self.arg_dict["LogLevel"]="ERROR"

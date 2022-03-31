@@ -431,11 +431,6 @@ def node_stop(force):
     type=str,
     help="Override the workspace which will provide network service.")
 @click.option(
-    "--no-config-cache",
-    is_flag=True,
-    default=False,
-    help="Disable the local cluster config cache.")
-@click.option(
     "--redirect-command-output",
     is_flag=True,
     default=False,
@@ -449,7 +444,7 @@ def node_stop(force):
           "this can be disabled for a better user experience."))
 @add_click_logging_options
 def up(cluster_config_file, min_workers, max_workers, no_restart, restart_only,
-       yes, cluster_name, workspace_name, no_config_cache, redirect_command_output,
+       yes, cluster_name, workspace_name, redirect_command_output,
        use_login_shells):
     """Create or update a cluster."""
     if restart_only or no_restart:
@@ -480,7 +475,7 @@ def up(cluster_config_file, min_workers, max_workers, no_restart, restart_only,
         yes=yes,
         override_cluster_name=cluster_name,
         override_workspace_name=workspace_name,
-        no_config_cache=no_config_cache,
+        no_config_cache=True,
         redirect_command_output=redirect_command_output,
         use_login_shells=use_login_shells)
 

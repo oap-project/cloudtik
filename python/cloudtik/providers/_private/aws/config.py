@@ -352,6 +352,7 @@ def delete_workspace_aws(config):
         with cli_logger.group("Deleting workspace: {}", workspace_name):
             _delete_network_resources(config, workspace_name,
                                       ec2, ec2_client, vpcid)
+            _delete_workspace_instance_profile(config, workspace_name)
 
     except Exception as e:
         cli_logger.abort(
@@ -362,6 +363,11 @@ def delete_workspace_aws(config):
             "Successfully deleted workspace: {}.",
             cf.bold(workspace_name))
     return None
+
+
+def _delete_workspace_instance_profile(config, workspace_name):
+    instance_profile_name = _get_workspace_instance_profile_name(workspace_name)
+    _delete_instance_profile(config, instance_profile_name)
 
 
 def _delete_network_resources(config, workspace_name,
@@ -463,7 +469,7 @@ def bootstrap_aws_from_workspace(config):
 
     # The head node needs to have an IAM role that allows it to create further
     # EC2 instances.
-    config = _configure_iam_role(config)
+    config = _configure_iam_role_from_workspace(config)
 
     # Configure SSH access, using an existing key pair if possible.
     config = _configure_key_pair(config)
@@ -493,7 +499,40 @@ def _configure_iam_role(config):
         return config
     _set_config_info(head_instance_profile_src="default")
 
-    instance_profile_name = CLOUDTIK_DEFAULT_INSTANCE_PROFILE
+    profile = _create_or_update_instance_profile(config,
+                                                 CLOUDTIK_DEFAULT_INSTANCE_PROFILE,
+                                                 CLOUDTIK_DEFAULT_IAM_ROLE)
+    # Add IAM role to "head_node" field so that it is applied only to
+    # the head node -- not to workers with the same node type as the head.
+    config["head_node"]["IamInstanceProfile"] = {"Arn": profile.arn}
+
+    return config
+
+
+def _configure_iam_role_from_workspace(config):
+    head_node_type = config["head_node_type"]
+    head_node_config = config["available_node_types"][head_node_type][
+        "node_config"]
+    if "IamInstanceProfile" in head_node_config:
+        _set_config_info(head_instance_profile_src="config")
+        return config
+    _set_config_info(head_instance_profile_src="workspace")
+
+    instance_profile_name = _get_workspace_instance_profile_name(
+        config["workspace_name"])
+    profile = _get_instance_profile(instance_profile_name, config)
+
+    if not profile:
+        raise RuntimeError("Workspace instance profile: {} not found!".format(instance_profile_name))
+
+    # Add IAM role to "head_node" field so that it is applied only to
+    # the head node -- not to workers with the same node type as the head.
+    config["head_node"]["IamInstanceProfile"] = {"Arn": profile.arn}
+
+    return config
+
+
+def _create_or_update_instance_profile(config, instance_profile_name, instance_role_name):
     profile = _get_instance_profile(instance_profile_name, config)
 
     if profile is None:
@@ -511,7 +550,7 @@ def _configure_iam_role(config):
     assert profile is not None, "Failed to create instance profile"
 
     if not profile.roles:
-        role_name = CLOUDTIK_DEFAULT_IAM_ROLE
+        role_name = instance_role_name
         role = _get_role(role_name, config)
         if role is None:
             cli_logger.verbose(
@@ -548,11 +587,46 @@ def _configure_iam_role(config):
 
         profile.add_role(RoleName=role.name)
         time.sleep(15)  # wait for propagation
-    # Add IAM role to "head_node" field so that it is applied only to
-    # the head node -- not to workers with the same node type as the head.
-    config["head_node"]["IamInstanceProfile"] = {"Arn": profile.arn}
 
-    return config
+    return profile
+
+
+def _delete_instance_profile(config, instance_profile_name, instance_profile_role):
+    cli_logger.print("Deleting instance profile: {}...".format(instance_profile_name))
+
+    profile = _get_instance_profile(instance_profile_name, config)
+    if profile is None:
+        cli_logger.warning("No instance profile with the name found.")
+        return
+
+    # Remove all roles from instance profile
+    if profile.roles:
+        for role in profile.roles.all():
+            profile.remove_role(role.name)
+
+    # first delete role and policy
+    _delete_instance_profile_role(config, instance_profile_role)
+
+    client = _client("iam", config)
+    # Deletes the specified instance profile. The instance profile must not have an associated role.
+    client.delete_instance_profile(
+        InstanceProfileName=instance_profile_name)
+
+    cli_logger.print("Successfully deleted instance profile.")
+
+
+def _delete_instance_profile_role(config, instance_profile_role):
+    role = _get_role(instance_profile_role, config)
+    if role is None:
+        cli_logger.print("IAM role {} doesn't exist", instance_profile_role)
+        return
+
+    # detach the policies
+    for policy in role.attached_policies.all():
+        role.detach_policy(policy.arn)
+
+    # delete the role
+    role.delete()
 
 
 def _configure_key_pair(config):
@@ -939,6 +1013,7 @@ def _configure_workspace(config):
     try:
         with cli_logger.group("Creating workspace: {}", workspace_name):
             _configure_network_resources(config, ec2, ec2_client)
+            _configure_workspace_instance_profile(config, workspace_name)
     except Exception as e:
         cli_logger.error("Failed to create workspace. {}", str(e))
         raise e
@@ -948,6 +1023,20 @@ def _configure_workspace(config):
         cf.bold(workspace_name))
 
     return config
+
+
+def _configure_workspace_instance_profile(config, workspace_name):
+    instance_profile_name = _get_workspace_instance_profile_name(workspace_name)
+    instance_role_name = "cloudtik-{}-role".format(workspace_name)
+
+    cli_logger.print("Creating instance profile: {}...".format(instance_profile_name))
+    _create_or_update_instance_profile(config, instance_profile_name,
+                                       instance_role_name)
+    cli_logger.print("Successfully created and configured instance profile.")
+
+
+def _get_workspace_instance_profile_name(workspace_name):
+    return "cloudtik-{}-profile".format(workspace_name)
 
 
 def _configure_network_resources(config, ec2, ec2_client):
@@ -1128,7 +1217,7 @@ def _configure_subnet_from_workspace(config):
                 node_config["SubnetIds"] = public_subnet_ids
         else:
             node_config["SubnetIds"] = private_subnet_ids
-        subnet_src_info[key] = "default"
+        subnet_src_info[key] = "workspace"
 
     return config
 
@@ -1208,7 +1297,7 @@ def _configure_security_group_from_workspace(config):
         node_config = config["available_node_types"][node_type_key][
             "node_config"]
         node_config["SecurityGroupIds"] = [sg.id]
-        security_group_info_src[node_type_key] = "default"
+        security_group_info_src[node_type_key] = "workspace"
 
     return config
 

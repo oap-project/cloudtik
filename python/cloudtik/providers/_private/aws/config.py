@@ -350,12 +350,12 @@ def delete_workspace_aws(config):
     try:
 
         with cli_logger.group("Deleting workspace: {}", workspace_name):
+            _delete_workspace_instance_profile(config, workspace_name)
             _delete_network_resources(config, workspace_name,
                                       ec2, ec2_client, vpcid)
-            _delete_workspace_instance_profile(config, workspace_name)
 
     except Exception as e:
-        cli_logger.abort(
+        cli_logger.error(
             "Failed to delete workspace {}. {}".format(workspace_name, str(e)))
         raise e
 
@@ -367,7 +367,8 @@ def delete_workspace_aws(config):
 
 def _delete_workspace_instance_profile(config, workspace_name):
     instance_profile_name = _get_workspace_instance_profile_name(workspace_name)
-    _delete_instance_profile(config, instance_profile_name)
+    instance_role_name = "cloudtik-{}-role".format(workspace_name)
+    _delete_instance_profile(config, instance_profile_name, instance_role_name)
 
 
 def _delete_network_resources(config, workspace_name,
@@ -601,8 +602,8 @@ def _delete_instance_profile(config, instance_profile_name, instance_profile_rol
 
     # Remove all roles from instance profile
     if profile.roles:
-        for role in profile.roles.all():
-            profile.remove_role(role.name)
+        for role in profile.roles:
+            profile.remove_role(RoleName=role.name)
 
     # first delete role and policy
     _delete_instance_profile_role(config, instance_profile_role)
@@ -623,7 +624,7 @@ def _delete_instance_profile_role(config, instance_profile_role):
 
     # detach the policies
     for policy in role.attached_policies.all():
-        role.detach_policy(policy.arn)
+        role.detach_policy(PolicyArn=policy.arn)
 
     # delete the role
     role.delete()
@@ -1054,9 +1055,9 @@ def _configure_network_resources(config, ec2, ec2_client):
         if get_workspace_vpc_id(config["workspace_name"], ec2_client) is None:
             vpc = _create_vpc(config, ec2)
         else:
-            cli_logger.abort("There is a same name VPC for workspace: {}, "
-                             "if you want to create a new workspace with the same name, "
-                             "you need to execute workspace delete first!".format(workspace_name))
+            raise RuntimeError("There is a same name VPC for workspace: {}, "
+                               "if you want to create a new workspace with the same name, "
+                               "you need to execute workspace delete first!".format(workspace_name))
 
     # create subnets
     subnets = _create_and_configure_subnets(config, vpc)

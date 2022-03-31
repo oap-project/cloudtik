@@ -374,6 +374,10 @@
             "$ref": "#/definitions/commands",
             "description": "Commands that will be run on worker nodes after common setup."
         },
+        "bootstrap_commands": {
+            "$ref": "#/definitions/commands",
+            "description": "List of user specified shell commands  to run to setup nodes."
+        },
         "head_start_commands": {
             "$ref": "#/definitions/commands",
             "description": "Command to start on the head node. You shouldn't need to modify this."

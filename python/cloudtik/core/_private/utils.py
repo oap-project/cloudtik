@@ -870,11 +870,15 @@ def fillout_defaults(config: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def merge_setup_commands(config):
+    config["setup_commands"] = (
+        config["setup_commands"] + config["bootstrap_commands"])
     config["head_setup_commands"] = (
         config["setup_commands"] + config["head_setup_commands"])
     config["worker_setup_commands"] = (
         config["setup_commands"] + config["worker_setup_commands"])
     return config
+
+
 
 
 def fill_node_type_min_max_workers(config):

@@ -52,6 +52,8 @@ rsync_filter: []
 # is setup.
 initialization_commands: []
 
+bootstrap_commands: []
+
 # Command to start on the head node. You don't need to change this.
 head_start_commands:
     - cloudtik node-stop

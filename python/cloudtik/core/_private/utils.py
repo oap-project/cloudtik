@@ -879,8 +879,6 @@ def merge_setup_commands(config):
     return config
 
 
-
-
 def fill_node_type_min_max_workers(config):
     """Sets default per-node max workers to global max_workers.
     This equivalent to setting the default per-node max workers to infinity,

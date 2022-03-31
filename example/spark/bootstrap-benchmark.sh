@@ -1,9 +1,9 @@
 #!/bin/bash
 sudo apt-get install -y git
 export USER_HOME=/home/$(whoami)
-SOFTWARE_HOME=$USER_HOME/runtime/benchmark-tools
-mkdir -p $SOFTWARE_HOME
-sudo chown $(whoami):$(whoami) $SOFTWARE_HOME
+BENCHMARK_TOOL_HOME=$USER_HOME/runtime/benchmark-tools
+mkdir -p $BENCHMARK_TOOL_HOME
+sudo chown $(whoami):$(whoami) $BENCHMARK_TOOL_HOME
 sudo apt-get update
 
 function install_sbt() {
@@ -23,7 +23,7 @@ function install_maven() {
 
 function install_spark_sql_perf() {
   install_sbt
-  cd ${SOFTWARE_HOME}
+  cd ${BENCHMARK_TOOL_HOME}
   if [ ! -d "spark-sql-perf" ]; then
     git clone https://github.com/databricks/spark-sql-perf.git && cd spark-sql-perf
   else
@@ -34,20 +34,20 @@ function install_spark_sql_perf() {
 
 function install_tpcds_kit() {
   sudo apt-get install -y gcc make flex bison byacc git
-  cd ${SOFTWARE_HOME} && git clone https://github.com/databricks/tpcds-kit.git
+  cd ${BENCHMARK_TOOL_HOME} && git clone https://github.com/databricks/tpcds-kit.git
   cd tpcds-kit/tools
   make OS=LINUX
 }
 
 function install_tpch_dbgen() {
   sudo apt-get install -y make patch unzip
-  cd ${SOFTWARE_HOME} && git clone https://github.com/databricks/tpch-dbgen
+  cd ${BENCHMARK_TOOL_HOME} && git clone https://github.com/databricks/tpch-dbgen
   cd tpch-dbgen && make clean && make;
 }
 
 function install_hibench() {
   install_maven
-  cd ${SOFTWARE_HOME}
+  cd ${BENCHMARK_TOOL_HOME}
   if [ ! -d "HiBench" ]; then
     git clone https://github.com/Intel-bigdata/HiBench.git && cd HiBench
   else

@@ -1,12 +1,12 @@
 # Cloud-provider specific configuration.
 provider:
-    type: aws
+    type: gcp
 
-# The instance configuration for a standard instance type
+# The instance configuration for a large instance type
 available_node_types:
     head.default:
         node_config:
-            InstanceType: r6i.2xlarge
+            machineType: n2-highmem-64
     worker.default:
         node_config:
-            InstanceType: r6i.2xlarge
+            machineType: n2-highmem-64

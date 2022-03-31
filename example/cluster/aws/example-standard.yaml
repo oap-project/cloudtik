@@ -5,11 +5,7 @@ from: aws/standard
 workspace_name: exmaple-workspace
 
 # A unique identifier for the cluster.
-cluster_name: example-docker
-
-# Enable container
-docker:
-    enabled: True
+cluster_name: example-standard
 
 # Cloud-provider specific configuration.
 provider:

@@ -1,0 +1,14 @@
+# Cloud-provider specific configuration.
+provider:
+    type: azure
+
+# The instance configuration for a small instance type
+available_node_types:
+    head.default:
+        node_config:
+            azure_arm_parameters:
+                vmSize: Standard_E4s_v5
+    worker.default:
+        node_config:
+            azure_arm_parameters:
+                vmSize: Standard_E4s_v5

@@ -52,6 +52,8 @@ rsync_filter: []
 # is setup.
 initialization_commands: []
 
+# Bootstrap commands for user to install and configure additional software and packages
+# The bootstrap commands will be executed after the common setup commands
 bootstrap_commands: []
 
 # Command to start on the head node. You don't need to change this.

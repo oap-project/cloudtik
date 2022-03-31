@@ -32,16 +32,28 @@ DEFAULT_AMI_NAME = "AWS Deep Learning AMI (Ubuntu 18.04) V30.0"
 
 # Obtained from https://aws.amazon.com/marketplace/pp/B07Y43P7X5 on 8/4/2020.
 DEFAULT_AMI = {
-    "us-east-1": "ami-029510cec6d69f121",  # US East (N. Virginia)
-    "us-east-2": "ami-08bf49c7b3a0c761e",  # US East (Ohio)
-    "us-west-1": "ami-0cc472544ce594a19",  # US West (N. California)
-    "us-west-2": "ami-0a2363a9cff180a64",  # US West (Oregon)
-    "ca-central-1": "ami-0a871851b2ab39f01",  # Canada (Central)
-    "eu-central-1": "ami-049fb1ea198d189d7",  # EU (Frankfurt)
-    "eu-west-1": "ami-0abcbc65f89fb220e",  # EU (Ireland)
-    "eu-west-2": "ami-0755b39fd4dab7cbe",  # EU (London)
-    "eu-west-3": "ami-020485d8df1d45530",  # EU (Paris)
-    "sa-east-1": "ami-058a6883cbdb4e599",  # SA (Sao Paulo)
+    "us-east-1": "ami-04505e74c0741db8d",  # US East (N. Virginia)
+    "us-east-2": "ami-0fb653ca2d3203ac1",  # US East (Ohio)
+    "us-west-1": "ami-01f87c43e618bf8f0",  # US West (N. California)
+    "us-west-2": "ami-0892d3c7ee96c0bf7",  # US West (Oregon)
+    "af-souce-1": "ami-030b8d2037063bab3", # Africa (Cape Town)
+    "ap-east-1": "ami-0b981d9ee99b28eba", # Asia Pacific (Hong Kong)
+    "ap-south-1": "ami-0851b76e8b1bce90b", # # Asia Pacific (Mumbai)
+    "ap-northeast-1": "ami-088da9557aae42f39", # Asia Pacific (Tokyo)
+    "ap-northeast-2": "ami-0454bb2fefc7de534", # Asia Pacific (Seoul),
+    "ap-northeast-3": "ami-096c4b6e0792d8c16", # Asia Pacific (Osaka),
+    "ap-southeast-1": "ami-055d15d9cfddf7bd3", # Asia Pacific (Singapore)
+    "ap-southeast-2": "ami-0b7dcd6e6fd797935", # Asia Pacific (Sydney),
+    "ap-southeast-3": "ami-0a9c8e0ccf1d85f67", # Asia Pacific (Jakarta)
+    "ca-central-1": "ami-0aee2d0182c9054ac",  # Canada (Central)
+    "eu-central-1": "ami-0d527b8c289b4af7f",  # EU (Frankfurt)
+    "eu-west-1": "ami-08ca3fed11864d6bb",  # EU (Ireland)
+    "eu-west-2": "ami-0015a39e4b7c0966f",  # EU (London)
+    "eu-west-3": "ami-0c6ebbd55ab05f070",  # EU (Paris)
+    "eu-south-1": "ami-0f8ce9c417115413d",  # EU (Milan)
+    "eu-north-1": "ami-092cce4a19b438926",  # EU (Stockholm)
+    "me-south-1": "ami-0b4946d7420c44be4",  # Middle East (Bahrain)
+    "sa-east-1": "ami-090006f29ecb2d79a",  # SA (Sao Paulo)
 }
 
 # todo: cli_logger should handle this assert properly
@@ -452,7 +464,7 @@ def bootstrap_aws(config):
     config = _configure_security_group(config)
 
     # Provide a helpful message for missing AMI.
-    _check_ami(config)
+    _configure_ami(config)
 
     return config
 
@@ -486,7 +498,7 @@ def bootstrap_aws_from_workspace(config):
     config = _configure_security_group_from_workspace(config)
 
     # Provide a helpful message for missing AMI.
-    _check_ami(config)
+    _configure_ami(config)
 
     return config
 
@@ -1303,7 +1315,7 @@ def _configure_security_group_from_workspace(config):
     return config
 
 
-def _check_ami(config):
+def _configure_ami(config):
     """Provide helpful message for missing ImageId for node configuration."""
 
     # map from node type key -> source of ImageId field
@@ -1313,15 +1325,12 @@ def _check_ami(config):
     region = config["provider"]["region"]
     default_ami = DEFAULT_AMI.get(region)
     if not default_ami:
-        # If we do not provide a default AMI for the given region, noop.
-        return
+        cli_logger.abort("Not support on this region: {}. Please use one of these regions {}".
+                         format(region, sorted(DEFAULT_AMI.keys())))
 
     for key, node_type in config["available_node_types"].items():
         node_config = node_type["node_config"]
-        node_ami = node_config.get("ImageId", "").lower()
-        if node_ami in ["", "latest_dlami"]:
-            node_config["ImageId"] = default_ami
-            ami_src_info[key] = "dlami"
+        node_config["ImageId"] = default_ami
 
 
 def _upsert_security_groups(config, node_types):

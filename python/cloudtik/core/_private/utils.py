@@ -27,6 +27,7 @@ import yaml
 
 import cloudtik
 from cloudtik.core._private import constants, services
+from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core._private.cluster.load_metrics import LoadMetricsSummary
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.providers._private.local.config import prepare_local
@@ -695,7 +696,13 @@ def validate_config(config: Dict[str, Any]) -> None:
     try:
         jsonschema.validate(config, schema)
     except jsonschema.ValidationError as e:
-        raise e from None
+        # The validate method show very long message of the schema
+        # and the instance data, we need show this only at verbose mode
+        if cli_logger.verbosity > 0:
+            raise e from None
+        else:
+            # For none verbose mode, show short message
+            raise RuntimeError("JSON schema validation error: {}.".format(e.message)) from None
 
     # Detect out of date defaults. This happens when the cluster scaler that filled
     # out the default values is older than the version of the cluster scaler that
@@ -1299,7 +1306,13 @@ def validate_workspace_config(config: Dict[str, Any]) -> None:
     try:
         jsonschema.validate(config, schema)
     except jsonschema.ValidationError as e:
-        raise e from None
+        # The validate method show very long message of the schema
+        # and the instance data, we need show this only at verbose mode
+        if cli_logger.verbosity > 0:
+            raise e from None
+        else:
+            # For none verbose mode, show short message
+            raise RuntimeError("JSON schema validation error: {}.".format(e.message)) from None
 
     provider = _get_workspace_provider(config["provider"], config["workspace_name"])
     provider.validate_config(config["provider"])

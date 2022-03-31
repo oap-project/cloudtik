@@ -880,10 +880,10 @@ def merge_setup_commands(config):
 
 
 def fill_default_max_workers(config):
-    node_types = config["available_node_types"]
     if "max_workers" not in config:
         logger.debug("Global max workers not set. Will set to the sum of min workers")
         sum_min_workers = 0
+        node_types = config["available_node_types"]
         for node_type_name in node_types:
             node_type_data = node_types[node_type_name]
             sum_min_workers += node_type_data.get("min_workers", 0)

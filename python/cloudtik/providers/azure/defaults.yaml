@@ -35,9 +35,9 @@ available_node_types:
             azure_arm_parameters:
                 vmSize: Standard_D4s_v3
                 # List images https://docs.microsoft.com/en-us/azure/virtual-machines/linux/cli-ps-findimage
-                imagePublisher: microsoft-dsvm
-                imageOffer: ubuntu-2004
-                imageSku: 2004-gen2
+                imagePublisher: canonical
+                imageOffer: 0001-com-ubuntu-server-focal
+                imageSku: 20_04-lts-gen2
                 imageVersion: latest
 
     worker.default:
@@ -51,9 +51,9 @@ available_node_types:
             azure_arm_parameters:
                 vmSize: Standard_D4s_v3
                 # List images https://docs.microsoft.com/en-us/azure/virtual-machines/linux/cli-ps-findimage
-                imagePublisher: microsoft-dsvm
-                imageOffer: ubuntu-2004
-                imageSku: 2004-gen2
+                imagePublisher: canonical
+                imageOffer: 0001-com-ubuntu-server-focal
+                imageSku: 20_04-lts-gen2
                 imageVersion: latest
                 # comment lines below to not use Spot instances
                 priority: Spot

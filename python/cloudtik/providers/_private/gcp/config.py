@@ -271,7 +271,7 @@ def _configure_workspace(config):
     workspace_name = config["workspace_name"]
 
     current_step = 1
-    total_steps = NUM_GCP_WORKSPACE_DELETION_STEPS
+    total_steps = NUM_GCP_WORKSPACE_CREATION_STEPS
     try:
         with cli_logger.group("Creating workspace: {}", workspace_name):
             with cli_logger.group(

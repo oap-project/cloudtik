@@ -5,7 +5,6 @@ workspace_name: example-workspace
 provider:
     type: aws
     region: us-west-2
-    use_internal_ips: False
     security_group:
         # Use IpPermissions to allow SSH access from your working node
         IpPermissions:

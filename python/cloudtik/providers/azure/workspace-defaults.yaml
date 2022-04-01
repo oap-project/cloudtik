@@ -9,3 +9,5 @@ provider:
     resource_group: cloudtik-cluster
     # set subscription id otherwise the default from az cli will be used
     # subscription_id: 00000000-0000-0000-0000-000000000000
+    # Whether to require Public IPs for head node. Default to False
+    use_internal_ips: False

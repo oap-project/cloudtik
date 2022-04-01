@@ -233,7 +233,8 @@ def create_or_update_cluster(
     cli_logger.labeled_value("Cluster", config["cluster_name"])
 
     cli_logger.newline()
-    config = _bootstrap_config(config, no_config_cache=no_config_cache)
+    config = _bootstrap_config(config, no_config_cache=no_config_cache,
+                               init_config_cache=True)
 
     try_logging_config(config)
     get_or_create_head_node(config, config_file, no_restart, restart_only, yes,
@@ -245,7 +246,8 @@ CONFIG_CACHE_VERSION = 1
 
 
 def _bootstrap_config(config: Dict[str, Any],
-                      no_config_cache: bool = False) -> Dict[str, Any]:
+                      no_config_cache: bool = False,
+                      init_config_cache: bool = False) -> Dict[str, Any]:
     # Check if bootstrapped, return if it is the case
     if config.get("bootstrapped", False):
         return config
@@ -320,7 +322,7 @@ def _bootstrap_config(config: Dict[str, Any],
             "update your install command.")
 
     resolved_config = provider_cls.bootstrap_config(config)
-    if not no_config_cache:
+    if not no_config_cache or init_config_cache:
         with open(cache_key, "w") as f:
             config_cache = {
                 "_version": CONFIG_CACHE_VERSION,

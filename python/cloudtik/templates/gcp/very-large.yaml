@@ -4,9 +4,9 @@ provider:
 
 # The instance configuration for a very large instance type
 available_node_types:
-    head.default:
+    head-default:
         node_config:
             machineType: n2-highmem-128
-    worker.default:
+    worker-default:
         node_config:
             machineType: n2-highmem-128

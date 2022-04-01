@@ -1,10 +1,6 @@
 # A unique identifier for the head node and workers of this cluster.
 cluster_name: default
 
-# The maximum number of workers nodes to launch in addition to the head
-# node.
-max_workers: 2
-
 # The cluster scaler will scale up the cluster faster with higher upscaling speed.
 # E.g., if the task requires adding more nodes then cluster scaler will gradually
 # scale up the cluster in chunks of upscaling_speed*currently_running_nodes.
@@ -18,6 +14,7 @@ docker:
     enabled: False
     image: "cloudtik/spark-runtime:latest"
     container_name: "cloudtik_spark"
+    disable_shm_size_detection: True
 
 # If a node is idle for this many minutes, it will be removed.
 idle_timeout_minutes: 5

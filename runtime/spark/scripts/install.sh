@@ -59,6 +59,9 @@ if  [ ! -d "${SPYLON_KERNEL}" ]; then
     python -m spylon_kernel install --user;
 fi
 
+function install_tools() {
+  which jq || sudo apt-get install jq -y
+}
 
 function install_yarn_with_spark_jars() {
     # Copy spark jars to hadoop path
@@ -96,6 +99,7 @@ function install_spark_with_cloud_jars() {
     done
 }
 
+install_tools
 install_yarn_with_spark_jars
 install_hadoop_with_cloud_jars
 install_spark_with_cloud_jars

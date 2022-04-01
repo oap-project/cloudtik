@@ -48,6 +48,8 @@ HAS_TPU_PROVIDER_FIELD = "_has_tpus"
 # NOTE: iam.serviceAccountUser allows the Head Node to create worker nodes
 # with ServiceAccounts.
 
+NUM_GCP_WORKSPACE_CREATION_STEPS = 6
+NUM_GCP_WORKSPACE_DELETION_STEPS = 4
 
 def get_node_type(node: dict) -> GCPNodeType:
     """Returns node type based on the keys in ``node``.
@@ -268,10 +270,16 @@ def _configure_workspace(config):
         construct_clients_from_provider_config(config["provider"])
     workspace_name = config["workspace_name"]
 
+    current_step = 1
+    total_steps = NUM_GCP_WORKSPACE_DELETION_STEPS
     try:
         with cli_logger.group("Creating workspace: {}", workspace_name):
-            config = _configure_project(config, crm)
-            config = _configure_network_resources(config)
+            with cli_logger.group(
+                    "Configuring project",
+                    _numbered=("[]", current_step, total_steps)):
+                current_step += 1
+                config = _configure_project(config, crm)
+            config = _configure_network_resources(config, current_step, total_steps)
     except Exception as e:
         cli_logger.error("Failed to create workspace. {}", str(e))
         raise e
@@ -547,10 +555,10 @@ def _delete_router(config, compute):
 
 def check_firewall_exsit(config, compute, firewall_name):
     if get_firewall(config, compute, firewall_name) is None:
-        cli_logger.print("The firewall \"{}\" doesn't exist.".format(firewall_name))
+        cli_logger.verbose("The firewall \"{}\" doesn't exist.".format(firewall_name))
         return False
     else:
-        cli_logger.print("The firewall \"{}\" exists.".format(firewall_name))
+        cli_logger.verbose("The firewall \"{}\" exists.".format(firewall_name))
         return True
 
 
@@ -742,10 +750,15 @@ def delete_workspace_gcp(config):
         cli_logger.print("Workspace: {} doesn't exist!".format(config["workspace_name"]))
         return
 
+    current_step = 1
+    total_steps = NUM_GCP_WORKSPACE_DELETION_STEPS
+    if not use_internal_ips:
+        total_steps += 1
+
     try:
 
         with cli_logger.group("Deleting workspace: {}", workspace_name):
-            _delete_network_resources(config, compute)
+            _delete_network_resources(config, compute, current_step, total_steps)
 
     except Exception as e:
         cli_logger.error(
@@ -758,7 +771,7 @@ def delete_workspace_gcp(config):
     return None
 
 
-def _delete_network_resources(config, compute):
+def _delete_network_resources(config, compute, current_step, total_steps):
     use_internal_ips = config["provider"].get("use_internal_ips", False)
 
     """
@@ -770,21 +783,41 @@ def _delete_network_resources(config, compute):
          5.) Delete vpc
     """
 
-    # delete private subnets
-    _delete_subnet(config, compute, isPrivate=False)
+    # delete public subnets
+    with cli_logger.group(
+            "Deleting public subnet",
+            _numbered=("[]", current_step, total_steps)):
+        current_step += 1
+        _delete_subnet(config, compute, isPrivate=False)
 
     # delete router for private subnets
-    _delete_router(config, compute)
+    with cli_logger.group(
+            "Deleting router",
+            _numbered=("[]", current_step, total_steps)):
+        current_step += 1
+        _delete_router(config, compute)
 
-    # delete public subnets
-    _delete_subnet(config, compute, isPrivate=True)
+    # delete private subnets
+    with cli_logger.group(
+            "Deleting private subnet",
+            _numbered=("[]", current_step, total_steps)):
+        current_step += 1
+        _delete_subnet(config, compute, isPrivate=True)
 
     # delete firewalls
-    _delete_firewalls(config, compute)
+    with cli_logger.group(
+            "Deleting firewall rules",
+            _numbered=("[]", current_step, total_steps)):
+        current_step += 1
+        _delete_firewalls(config, compute)
 
     # delete vpc
     if not use_internal_ips:
-        _delete_vpc(config, compute)
+        with cli_logger.group(
+                "Deleting VPC",
+                _numbered=("[]", current_step, total_steps)):
+            current_step += 1
+            _delete_vpc(config, compute)
 
 
 def _create_vpc(config, compute):
@@ -809,24 +842,44 @@ def _create_vpc(config, compute):
     return VpcId
 
 
-def _configure_network_resources(config):
+def _configure_network_resources(config, current_step, total_steps):
     crm, iam, compute, tpu = \
         construct_clients_from_provider_config(config["provider"])
 
     # create vpc
-    VpcId = _create_vpc(config, compute)
+    with cli_logger.group(
+            "Creating VPC",
+            _numbered=("[]", current_step, total_steps)):
+        current_step += 1
+        VpcId = _create_vpc(config, compute)
 
     # create subnets
-    _create_and_configure_subnets(config, compute, VpcId)
+    with cli_logger.group(
+            "Creating subnets",
+            _numbered=("[]", current_step, total_steps)):
+        current_step += 1
+        _create_and_configure_subnets(config, compute, VpcId)
 
     # create router
-    _create_router(config, compute, VpcId)
+    with cli_logger.group(
+            "Creating router",
+            _numbered=("[]", current_step, total_steps)):
+        current_step += 1
+        _create_router(config, compute, VpcId)
 
     # create nat-gateway for router
-    _create_nat_for_router(config, compute)
+    with cli_logger.group(
+            "Creating NAT for router",
+            _numbered=("[]", current_step, total_steps)):
+        current_step += 1
+        _create_nat_for_router(config, compute)
 
     # create firewalls
-    _create_firewalls(config, compute, VpcId)
+    with cli_logger.group(
+            "Creating firewall rules",
+            _numbered=("[]", current_step, total_steps)):
+        current_step += 1
+        _create_firewalls(config, compute, VpcId)
 
     return config
 

@@ -256,13 +256,29 @@ def construct_clients_from_provider_config(provider_config):
 
 def create_gcp_workspace(config):
     config = copy.deepcopy(config)
-    # TODO: create vpc and security group
+
+    # Steps of configuring the workspace
+    config = _configure_workspace(config)
+
+    return config
+
+
+def _configure_workspace(config):
     crm, iam, compute, tpu = \
         construct_clients_from_provider_config(config["provider"])
+    workspace_name = config["workspace_name"]
 
-    config = _configure_project(config, crm)
+    try:
+        with cli_logger.group("Creating workspace: {}", workspace_name):
+            config = _configure_project(config, crm)
+            config = _configure_network_resources(config)
+    except Exception as e:
+        cli_logger.error("Failed to create workspace. {}", str(e))
+        raise e
 
-    config = _configure_vpc(config)
+    cli_logger.print(
+        "Successfully created workspace: {}.",
+        cf.bold(workspace_name))
 
     return config
 
@@ -270,17 +286,17 @@ def create_gcp_workspace(config):
 def get_workspace_vpc_id(config, compute):
     project_id = config["provider"].get("project_id")
     vpc_name = 'cloudtik-{}-vpc'.format(config["workspace_name"])
-    cli_logger.print("Getting the VpcId for workspace...".
+    cli_logger.debug("Getting the VpcId for workspace: {}...".
                      format(vpc_name))
 
     VpcIds = [vpc["id"] for vpc in compute.networks().list(project=project_id).execute().get("items", "")
            if vpc["name"] == vpc_name]
     if len(VpcIds) == 0:
-        cli_logger.error("Failed to get theVpcId for workspace. This workspace doesn't contain a VPC.".
+        cli_logger.debug("The VPC for workspace is not found: {}.".
                          format(vpc_name))
         return None
     else:
-        cli_logger.print("Successfully get the VpcId of {} for workspace.".
+        cli_logger.debug("Successfully get the VpcId of {} for workspace.".
                          format(vpc_name))
         return VpcIds[0]
 
@@ -541,16 +557,16 @@ def check_firewall_exsit(config, compute, firewall_name):
 def get_firewall(config, compute, firewall_name):
     project_id = config["provider"]["project_id"]
     firewall = None
-    cli_logger.print("Getting the existing firewall: {}...".format(firewall_name))
+    cli_logger.debug("Getting the existing firewall: {}...".format(firewall_name))
     try:
         firewall = compute.firewalls().get(project=project_id, firewall=firewall_name).execute()
-        cli_logger.print("Successfully get the firewall: {}.".format(firewall_name))
+        cli_logger.debug("Successfully get the firewall: {}.".format(firewall_name))
     except Exception:
-        cli_logger.error("Failed to get the firewall: {}.".format(firewall_name))
+        cli_logger.debug("Failed to get the firewall: {}.".format(firewall_name))
     return firewall
 
 
-def  create_firewall(compute, project_id, firewall_body):
+def create_firewall(compute, project_id, firewall_body):
     cli_logger.print("Creating firewall \"{}\"... ".format(firewall_body.get("name")))
     try:
         compute.firewalls().insert(project=project_id, body=firewall_body).execute()
@@ -789,41 +805,26 @@ def _create_vpc(config, compute):
     return VpcId
 
 
-def _configure_vpc(config):
+def _configure_network_resources(config):
     crm, iam, compute, tpu = \
         construct_clients_from_provider_config(config["provider"])
 
-    workspace_name = config["workspace_name"]
-    cli_logger.verbose(
-        "Starting to create workspace: {}!",
-        cf.bold(workspace_name))
+    # create vpc
+    VpcId = _create_vpc(config, compute)
 
-    try:
-        # create vpc
-        VpcId = _create_vpc(config, compute)
+    # create subnets
+    _create_and_configure_subnets(config, compute, VpcId)
 
-        # create subnets
-        _create_and_configure_subnets(config, compute, VpcId)
+    # create router
+    _create_router(config, compute, VpcId)
 
-        # create router
-        _create_router(config, compute, VpcId)
+    # create nat-gateway for router
+    _create_nat_for_router(config, compute)
 
-        # create nat-gateway for router
-        _create_nat_for_router(config, compute)
+    # create firewalls
+    _create_firewalls(config, compute, VpcId)
 
-        # create firewalls
-        _create_firewalls(config, compute, VpcId)
-
-    except Exception as e:
-        cli_logger.error(
-            "Failed to create workspace: {}. {}".
-                format(workspace_name, str(e)))
-        raise e
-
-    cli_logger.verbose(
-        "Have successfully created workspace: {}!",
-        cf.bold(workspace_name))
-
+    return config
 
 def check_gcp_workspace_resource(config):
     crm, iam, compute, tpu = \

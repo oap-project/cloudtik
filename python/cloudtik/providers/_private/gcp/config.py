@@ -937,7 +937,7 @@ def bootstrap_gcp(config):
     return config
 
 
-def workspace_bootstrap_gcp(config):
+def bootstrap_gcp_from_workspace(config):
     config = copy.deepcopy(config)
 
     # Used internally to store head IAM role.
@@ -957,7 +957,7 @@ def workspace_bootstrap_gcp(config):
 
     config = _configure_iam_role(config, crm, iam)
     config = _configure_key_pair(config, compute)
-    config = _configure_workspace_subnet(config, compute)
+    config = _configure_subnet_from_workspace(config, compute)
 
     return config
 
@@ -1132,9 +1132,8 @@ def _configure_key_pair(config, compute):
         "Private key file {} not found for user {}"
         "".format(private_key_path, ssh_user))
 
-    logger.info("_configure_key_pair: "
-                "Private key not specified in config, using "
-                "{}".format(private_key_path))
+    cli_logger.print("Private key not specified in config, using "
+                     "{}".format(private_key_path))
 
     config["auth"]["ssh_private_key"] = private_key_path
 
@@ -1190,7 +1189,7 @@ def _configure_subnet(config, compute):
     return config
 
 
-def _configure_workspace_subnet(config, compute):
+def _configure_subnet_from_workspace(config, compute):
     workspace_name = config["workspace_name"]
     use_internal_ips = config["provider"].get("use_internal_ips", False)
 
@@ -1255,10 +1254,10 @@ def get_subnet(config, subnetwork_name, compute):
             region=config["provider"]["region"],
             subnetwork=subnetwork_name,
         ).execute()
-        cli_logger.verbose("Successfully get the subnetwork: {}.".format(subnetwork_name))
+        cli_logger.verbose("Successfully get the subnet: {}.".format(subnetwork_name))
         return subnet
     except Exception:
-        cli_logger.verbose_error("Failed to get the subnetwork: {}.".format(subnetwork_name))
+        cli_logger.verbose_error("Failed to get the subnet: {}.".format(subnetwork_name))
         return None
 
 

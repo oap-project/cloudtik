@@ -4,9 +4,9 @@ provider:
 
 # The instance configuration for a medium instance type
 available_node_types:
-    head.default:
+    head-default:
         node_config:
             machineType: n2-highmem-32
-    worker.default:
+    worker-default:
         node_config:
             machineType: n2-highmem-32

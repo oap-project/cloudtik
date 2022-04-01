@@ -1147,10 +1147,9 @@ def _configure_network_resources(config, ec2, ec2_client,
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
         nat_gateway = _create_nat_gateway(config, ec2_client, vpc, subnets[0])
-
-    # Create a default route pointing to NAT Gateway for private subnets
-    ec2_client.create_route(RouteTableId=private_route_table.id, DestinationCidrBlock='0.0.0.0/0',
-                            NatGatewayId=nat_gateway['NatGatewayId'])
+        # Create a default route pointing to NAT Gateway for private subnets
+        ec2_client.create_route(RouteTableId=private_route_table.id, DestinationCidrBlock='0.0.0.0/0',
+                                NatGatewayId=nat_gateway['NatGatewayId'])
 
     with cli_logger.group(
             "Creating security group",

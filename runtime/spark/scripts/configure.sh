@@ -1,10 +1,7 @@
 #!/bin/bash
 
-echo original parameters=[$@]
 args=$(getopt -a -o h::p: -l head::,head_address::,provider:,aws_s3a_bucket::,s3a_access_key::,s3a_secret_key::,project_id::,gcp_gcs_bucket::,fs_gs_auth_service_account_email::,fs_gs_auth_service_account_private_key_id::,fs_gs_auth_service_account_private_key::,azure_storage_kind::,azure_storage_account::,azure_container::,azure_account_key:: -- "$@")
-echo ARGS=[$args]
 eval set -- "${args}"
-echo formatted parameters=[$@]
 
 IS_HEAD_NODE=false
 

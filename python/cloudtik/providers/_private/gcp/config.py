@@ -286,17 +286,17 @@ def _configure_workspace(config):
 def get_workspace_vpc_id(config, compute):
     project_id = config["provider"].get("project_id")
     vpc_name = 'cloudtik-{}-vpc'.format(config["workspace_name"])
-    cli_logger.debug("Getting the VpcId for workspace: {}...".
+    cli_logger.verbose("Getting the VpcId for workspace: {}...".
                      format(vpc_name))
 
     VpcIds = [vpc["id"] for vpc in compute.networks().list(project=project_id).execute().get("items", "")
            if vpc["name"] == vpc_name]
     if len(VpcIds) == 0:
-        cli_logger.debug("The VPC for workspace is not found: {}.".
+        cli_logger.verbose("The VPC for workspace is not found: {}.".
                          format(vpc_name))
         return None
     else:
-        cli_logger.debug("Successfully get the VpcId of {} for workspace.".
+        cli_logger.verbose_error("Successfully get the VpcId of {} for workspace.".
                          format(vpc_name))
         return VpcIds[0]
 
@@ -557,12 +557,12 @@ def check_firewall_exsit(config, compute, firewall_name):
 def get_firewall(config, compute, firewall_name):
     project_id = config["provider"]["project_id"]
     firewall = None
-    cli_logger.debug("Getting the existing firewall: {}...".format(firewall_name))
+    cli_logger.verbose("Getting the existing firewall: {}...".format(firewall_name))
     try:
         firewall = compute.firewalls().get(project=project_id, firewall=firewall_name).execute()
-        cli_logger.debug("Successfully get the firewall: {}.".format(firewall_name))
+        cli_logger.verbose("Successfully get the firewall: {}.".format(firewall_name))
     except Exception:
-        cli_logger.debug("Failed to get the firewall: {}.".format(firewall_name))
+        cli_logger.verbose_error("Failed to get the firewall: {}.".format(firewall_name))
     return firewall
 
 
@@ -734,53 +734,57 @@ def get_gcp_vpcId(config, compute, use_internal_ips):
 def delete_workspace_gcp(config):
     crm, iam, compute, tpu = \
         construct_clients_from_provider_config(config["provider"])
-    use_internal_ips = config["provider"].get("use_internal_ips", False)
-    workspace_name = config["workspace_name"]
-    VpcId = get_gcp_vpcId(config, compute, use_internal_ips)
-    """
-     Do the work - order of operation
-     1.) Delete public subnet
-     2.) Delete router for private subnet 
-     3.) Delete private subnets
-     4.) Delete firewalls
-     5.) Delete vpc
-     """
-    if VpcId is None:
-        cli_logger.print("The workspace: {} doesn't exist!".format(config["workspace_name"]))
-        return
 
-    cli_logger.verbose(
-        "Deleting workspace: {}!",
-        cf.bold(workspace_name))
+    workspace_name = config["workspace_name"]
+    use_internal_ips = config["provider"].get("use_internal_ips", False)
+    VpcId = get_gcp_vpcId(config, compute, use_internal_ips)
+    if VpcId is None:
+        cli_logger.print("Workspace: {} doesn't exist!".format(config["workspace_name"]))
+        return
 
     try:
 
-        # delete private subnets
-        _delete_subnet(config, compute, isPrivate=False)
-
-        # delete router for private sybnets
-        _delete_router(config, compute)
-
-        # delete public subnets
-        _delete_subnet(config, compute, isPrivate=True)
-
-        # delete firewalls
-        _delete_firewalls(config, compute)
-
-        # delete vpc
-        if not use_internal_ips:
-            _delete_vpc(config, compute)
+        with cli_logger.group("Deleting workspace: {}", workspace_name):
+            _delete_network_resources(config, compute)
 
     except Exception as e:
         cli_logger.error(
-            "Failed to delete workspace {}. {} "
-                .format(workspace_name, str(e)))
+            "Failed to delete workspace {}. {}".format(workspace_name, str(e)))
         raise e
 
-    cli_logger.verbose(
+    cli_logger.print(
             "Successfully deleted workspace: {}.",
             cf.bold(workspace_name))
     return None
+
+
+def _delete_network_resources(config, compute):
+    use_internal_ips = config["provider"].get("use_internal_ips", False)
+
+    """
+         Do the work - order of operation
+         1.) Delete public subnet
+         2.) Delete router for private subnet 
+         3.) Delete private subnets
+         4.) Delete firewalls
+         5.) Delete vpc
+    """
+
+    # delete private subnets
+    _delete_subnet(config, compute, isPrivate=False)
+
+    # delete router for private subnets
+    _delete_router(config, compute)
+
+    # delete public subnets
+    _delete_subnet(config, compute, isPrivate=True)
+
+    # delete firewalls
+    _delete_firewalls(config, compute)
+
+    # delete vpc
+    if not use_internal_ips:
+        _delete_vpc(config, compute)
 
 
 def _create_vpc(config, compute):
@@ -825,6 +829,7 @@ def _configure_network_resources(config):
     _create_firewalls(config, compute, VpcId)
 
     return config
+
 
 def check_gcp_workspace_resource(config):
     crm, iam, compute, tpu = \
@@ -1190,32 +1195,32 @@ def _list_subnets(config, compute):
 
 
 def get_subnet(config, subnetwork_name, compute):
-    cli_logger.print("Getting the existing subnet: {}.".format(subnetwork_name))
+    cli_logger.verbose("Getting the existing subnet: {}.".format(subnetwork_name))
     try:
         subnet = compute.subnetworks().get(
             project=config["provider"]["project_id"],
             region=config["provider"]["region"],
             subnetwork=subnetwork_name,
         ).execute()
-        cli_logger.print("Successfully get the subnetwork: {}.".format(subnetwork_name))
+        cli_logger.verbose("Successfully get the subnetwork: {}.".format(subnetwork_name))
         return subnet
     except Exception:
-        cli_logger.error("Failed to get the subnetwork: {}.".format(subnetwork_name))
+        cli_logger.verbose_error("Failed to get the subnetwork: {}.".format(subnetwork_name))
         return None
 
 
 def get_router(config, router_name, compute):
-    cli_logger.print("Getting the existing router: {}.".format(router_name))
+    cli_logger.verbose("Getting the existing router: {}.".format(router_name))
     try:
         router = compute.routers().get(
             project=config["provider"]["project_id"],
             region=config["provider"]["region"],
             router=router_name,
         ).execute()
-        cli_logger.print("Successfully get the router: {}.".format(router_name))
+        cli_logger.verbose("Successfully get the router: {}.".format(router_name))
         return router
     except Exception:
-        cli_logger.error("Failed to get the router: {}.".format(router_name))
+        cli_logger.verbose_error("Failed to get the router: {}.".format(router_name))
         return None
 
 

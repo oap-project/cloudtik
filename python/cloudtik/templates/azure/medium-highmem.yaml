@@ -2,13 +2,13 @@
 provider:
     type: azure
 
-# The instance configuration for a small instance type
+# The instance configuration for a medium instance type
 available_node_types:
     head.default:
         node_config:
             azure_arm_parameters:
-                vmSize: Standard_D4s_v5
+                vmSize: Standard_E32s_v5
     worker.default:
         node_config:
             azure_arm_parameters:
-                vmSize: Standard_D4s_v5
+                vmSize: Standard_E32s_v5

@@ -7,8 +7,8 @@ available_node_types:
     head.default:
         node_config:
             azure_arm_parameters:
-                vmSize: Standard_D4s_v5
+                vmSize: Standard_E4s_v5
     worker.default:
         node_config:
             azure_arm_parameters:
-                vmSize: Standard_D4s_v5
+                vmSize: Standard_E4s_v5

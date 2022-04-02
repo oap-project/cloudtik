@@ -6,7 +6,7 @@ provider:
 available_node_types:
     head-default:
         node_config:
-            machineType: n2-highmem-64
+            machineType: n2-standard-64
     worker-default:
         node_config:
-            machineType: n2-highmem-64
+            machineType: n2-standard-64

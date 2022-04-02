@@ -6,7 +6,44 @@ provider:
 available_node_types:
     head.default:
         node_config:
-            InstanceType: m6i.16xlarge
+            InstanceType: m6i.4xlarge
+            BlockDeviceMappings:
+                - DeviceName: /dev/sda1
+                  Ebs:
+                      VolumeSize: 256
+                      VolumeType: gp3
+                      # gp3: 3,000-16,000 IOPS
+                      Iops: 3000
+                      DeleteOnTermination: True
     worker.default:
         node_config:
             InstanceType: m6i.16xlarge
+            BlockDeviceMappings:
+                - DeviceName: /dev/sda1
+                  Ebs:
+                      VolumeSize: 512
+                      VolumeType: gp3
+                      # gp3: 3,000-16,000 IOPS
+                      Iops: 8000
+                      DeleteOnTermination: True
+                - DeviceName: /dev/sda2
+                  Ebs:
+                      VolumeSize: 512
+                      VolumeType: gp3
+                      # gp3: 3,000-16,000 IOPS
+                      Iops: 8000
+                      DeleteOnTermination: True
+                - DeviceName: /dev/sda3
+                  Ebs:
+                      VolumeSize: 512
+                      VolumeType: gp3
+                      # gp3: 3,000-16,000 IOPS
+                      Iops: 8000
+                      DeleteOnTermination: True
+                - DeviceName: /dev/sda4
+                  Ebs:
+                      VolumeSize: 512
+                      VolumeType: gp3
+                      # gp3: 3,000-16,000 IOPS
+                      Iops: 8000
+                      DeleteOnTermination: True

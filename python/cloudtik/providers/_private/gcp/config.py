@@ -51,6 +51,7 @@ HAS_TPU_PROVIDER_FIELD = "_has_tpus"
 NUM_GCP_WORKSPACE_CREATION_STEPS = 6
 NUM_GCP_WORKSPACE_DELETION_STEPS = 4
 
+
 def get_node_type(node: dict) -> GCPNodeType:
     """Returns node type based on the keys in ``node``.
 
@@ -911,28 +912,48 @@ def check_gcp_workspace_resource(config):
     return True
 
 
-def _fix_boot_disk_source_image_for_node(node_config):
-    source_image = node_config.get("sourceImage", None)
-    if source_image is None:
+def _fix_disk_type_for_disk(zone, disk):
+    # fix disk type for all disks
+    initialize_params = disk.get("initializeParams")
+    if initialize_params is None:
         return
 
+    disk_type = initialize_params.get("diskType")
+    if disk_type is None or "diskTypes" in disk_type:
+        return
+
+    # Fix to format: zones/zone/diskTypes/diskType
+    fix_disk_type = "zones/{}/diskTypes/{}".format(zone, disk_type)
+    initialize_params["diskType"] = fix_disk_type
+
+
+def _fix_disk_info_for_disk(zone, disk, boot, source_image):
+    if boot:
+        # Need to fix source image for only boot disk
+        if "initializeParams" not in disk:
+            disk["initializeParams"] = {"sourceImage": source_image}
+        else:
+            disk["initializeParams"]["sourceImage"] = source_image
+
+    _fix_disk_type_for_disk(zone, disk)
+
+
+def _fix_disk_info_for_node(node_config, zone):
+    source_image = node_config.get("sourceImage", None)
     disks = node_config.get("disks", [])
     for disk in disks:
-        if disk.get("boot", False):
-            # Need to fix source image for only boot disk
-            if "initializeParams" not in disk:
-                disk["initializeParams"] = {"sourceImage": source_image}
-            else:
-                disk["initializeParams"]["sourceImage"] = source_image
+        boot = disk.get("boot", False)
+        _fix_disk_info_for_disk(zone, disk, boot, source_image)
 
     # Remove the sourceImage from node config
     node_config.pop("sourceImage")
 
 
-def _fix_boot_disk_source_image(config):
+def _fix_disk_info(config):
+    zone = config["provider"]["availability_zone"]
     for node_type in config["available_node_types"].values():
         node_config = node_type["node_config"]
-        _fix_boot_disk_source_image_for_node(node_config)
+        _fix_disk_info_for_node(node_config, zone)
 
     return config
 
@@ -955,7 +976,7 @@ def bootstrap_gcp(config):
     crm, iam, compute, tpu = \
         construct_clients_from_provider_config(config["provider"])
 
-    config = _fix_boot_disk_source_image(config)
+    config = _fix_disk_info(config)
     config = _configure_project(config, crm)
     config = _configure_iam_role(config, crm, iam)
     config = _configure_key_pair(config, compute)
@@ -982,7 +1003,7 @@ def bootstrap_gcp_from_workspace(config):
     crm, iam, compute, tpu = \
         construct_clients_from_provider_config(config["provider"])
 
-    config = _fix_boot_disk_source_image(config)
+    config = _fix_disk_info(config)
     config = _configure_iam_role(config, crm, iam)
     config = _configure_key_pair(config, compute)
     config = _configure_subnet_from_workspace(config, compute)

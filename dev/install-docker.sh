@@ -10,7 +10,7 @@ sudo apt-get install \
     gnupg \
     lsb-release
 
-# Add Docker¡¯s official GPG key:
+# Add Docker's official GPG key:
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
 
 #  Set up the stable repository

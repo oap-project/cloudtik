@@ -96,4 +96,4 @@ fi
 
 rm -rf "$WHEEL_DIR"
 
-docker build  --no-cache -t  cloudtik/runtime:nightly runtime/spark/docker
+docker build  --no-cache -t  cloudtik/spark-runtime:nightly runtime/spark/docker

@@ -7,60 +7,68 @@ export USER_HOME=/home/$(whoami)
 export RUNTIME_PATH=$USER_HOME/runtime
 mkdir -p $RUNTIME_PATH
 
-# install JDK
-export JAVA_HOME=$RUNTIME_PATH/jdk
+function install_jdk() {
+    # install JDK
+    export JAVA_HOME=$RUNTIME_PATH/jdk
 
-if [ ! -d "${JAVA_HOME}" ]; then
-  (cd $RUNTIME_PATH && wget https://devops.egov.org.in/Downloads/jdk/jdk-8u192-linux-x64.tar.gz  && \
-      gunzip jdk-8u192-linux-x64.tar.gz && \
-      tar -xf jdk-8u192-linux-x64.tar && \
-      rm jdk-8u192-linux-x64.tar && \
-      mv jdk1.8.0_192 jdk)
-  echo "export JAVA_HOME=$JAVA_HOME">> ${USER_HOME}/.bashrc
-  echo "export PATH=\$JAVA_HOME/bin:\$PATH" >> ${USER_HOME}/.bashrc
-fi
+    if [ ! -d "${JAVA_HOME}" ]; then
+      (cd $RUNTIME_PATH && wget https://devops.egov.org.in/Downloads/jdk/jdk-8u192-linux-x64.tar.gz  && \
+          gunzip jdk-8u192-linux-x64.tar.gz && \
+          tar -xf jdk-8u192-linux-x64.tar && \
+          rm jdk-8u192-linux-x64.tar && \
+          mv jdk1.8.0_192 jdk)
+      echo "export JAVA_HOME=$JAVA_HOME">> ${USER_HOME}/.bashrc
+      echo "export PATH=\$JAVA_HOME/bin:\$PATH" >> ${USER_HOME}/.bashrc
+    fi
+}
 
-# install Hadoop
-export HADOOP_HOME=$RUNTIME_PATH/hadoop
+function install_hadoop() {
+    # install Hadoop
+    export HADOOP_HOME=$RUNTIME_PATH/hadoop
 
-if [ ! -d "${HADOOP_HOME}" ]; then
-  (cd $RUNTIME_PATH && wget http://archive.apache.org/dist/hadoop/common/hadoop-${HADOOP_VERSION}/hadoop-${HADOOP_VERSION}.tar.gz -O hadoop-${HADOOP_VERSION}.tar.gz && \
-      tar -zxf hadoop-${HADOOP_VERSION}.tar.gz && \
-      mv hadoop-${HADOOP_VERSION} hadoop && \
-      rm hadoop-${HADOOP_VERSION}.tar.gz)
-  echo "export HADOOP_HOME=$HADOOP_HOME">> ${USER_HOME}/.bashrc
-  echo "export YARN_CONF_DIR=$HADOOP_HOME/etc/hadoop">> ${USER_HOME}/.bashrc
-  echo "export JAVA_HOME=$JAVA_HOME" >> ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh
-  echo "export PATH=\$HADOOP_HOME/bin:\$PATH" >> ${USER_HOME}/.bashrc
-fi
+    if [ ! -d "${HADOOP_HOME}" ]; then
+      (cd $RUNTIME_PATH && wget http://archive.apache.org/dist/hadoop/common/hadoop-${HADOOP_VERSION}/hadoop-${HADOOP_VERSION}.tar.gz -O hadoop-${HADOOP_VERSION}.tar.gz && \
+          tar -zxf hadoop-${HADOOP_VERSION}.tar.gz && \
+          mv hadoop-${HADOOP_VERSION} hadoop && \
+          rm hadoop-${HADOOP_VERSION}.tar.gz)
+      echo "export HADOOP_HOME=$HADOOP_HOME">> ${USER_HOME}/.bashrc
+      echo "export YARN_CONF_DIR=$HADOOP_HOME/etc/hadoop">> ${USER_HOME}/.bashrc
+      echo "export JAVA_HOME=$JAVA_HOME" >> ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh
+      echo "export PATH=\$HADOOP_HOME/bin:\$PATH" >> ${USER_HOME}/.bashrc
+    fi
+}
 
-# install Spark
-export SPARK_HOME=$RUNTIME_PATH/spark
+function install_spark() {
+    # install Spark
+    export SPARK_HOME=$RUNTIME_PATH/spark
 
-if [ ! -d "${SPARK_HOME}" ]; then
- (cd $RUNTIME_PATH && wget https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop3.2.tgz && \
-    tar -zxf spark-${SPARK_VERSION}-bin-hadoop3.2.tgz && \
-    mv spark-${SPARK_VERSION}-bin-hadoop3.2 spark && \
-    rm spark-${SPARK_VERSION}-bin-hadoop3.2.tgz)
-  echo "export SPARK_HOME=$SPARK_HOME">> ${USER_HOME}/.bashrc
-  echo "export PATH=\$SPARK_HOME/bin:\$PATH" >> ${USER_HOME}/.bashrc
-fi
+    if [ ! -d "${SPARK_HOME}" ]; then
+     (cd $RUNTIME_PATH && wget https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop3.2.tgz && \
+        tar -zxf spark-${SPARK_VERSION}-bin-hadoop3.2.tgz && \
+        mv spark-${SPARK_VERSION}-bin-hadoop3.2 spark && \
+        rm spark-${SPARK_VERSION}-bin-hadoop3.2.tgz)
+      echo "export SPARK_HOME=$SPARK_HOME">> ${USER_HOME}/.bashrc
+      echo "export PATH=\$SPARK_HOME/bin:\$PATH" >> ${USER_HOME}/.bashrc
+    fi
+}
 
-# Install Jupyter and spylon-kernel for Spark
-if ! type jupyter >/dev/null 2>&1; then
-  echo "Install JupyterLab..."
-  pip install jupyterlab
-fi
+function install_jupyter_for_spark() {
+    # Install Jupyter and spylon-kernel for Spark
+    if ! type jupyter >/dev/null 2>&1; then
+      echo "Install JupyterLab..."
+      pip install jupyterlab
+    fi
 
-export SPYLON_KERNEL=$USER_HOME/.local/share/jupyter/kernels/spylon-kernel
+    export SPYLON_KERNEL=$USER_HOME/.local/share/jupyter/kernels/spylon-kernel
 
-if  [ ! -d "${SPYLON_KERNEL}" ]; then
-    pip install spylon-kernel;
-    python -m spylon_kernel install --user;
-fi
+    if  [ ! -d "${SPYLON_KERNEL}" ]; then
+        pip install spylon-kernel;
+        python -m spylon_kernel install --user;
+    fi
+}
 
 function install_tools() {
-  which jq || sudo apt-get install jq -y
+    which jq || sudo apt-get install jq -y
 }
 
 function install_yarn_with_spark_jars() {
@@ -75,11 +83,24 @@ function install_yarn_with_spark_jars() {
 }
 
 function download_hadoop_cloud_jars() {
-    # Download gcs-connector to ${HADOOP_HOME}/share/hadoop/tools/lib/* for gcp cloud storage support
-    wget -nc -P "${HADOOP_HOME}"/share/hadoop/tools/lib/  https://storage.googleapis.com/hadoop-lib/gcs/gcs-connector-hadoop3-2.2.0.jar
-    # Download jetty-util to ${HADOOP_HOME}/share/hadoop/tools/lib/* for Azure cloud storage support
-    wget -nc -P "${HADOOP_HOME}"/share/hadoop/tools/lib/  https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-util-ajax/9.3.24.v20180605/jetty-util-ajax-9.3.24.v20180605.jar
-    wget -nc -P "${HADOOP_HOME}"/share/hadoop/tools/lib/  https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-util/9.3.24.v20180605/jetty-util-9.3.24.v20180605.jar
+    HADOOP_TOOLS_LIB=${HADOOP_HOME}/share/hadoop/tools/lib
+
+    GCS_HADOOP_CONNECTOR="gcs-connector-hadoop3-2.2.0.jar"
+    if [ ! -f "${HADOOP_TOOLS_LIB}/${GCS_HADOOP_CONNECTOR}" ]; then
+        # Download gcs-connector to ${HADOOP_HOME}/share/hadoop/tools/lib/* for gcp cloud storage support
+        wget -nc -P "${HADOOP_TOOLS_LIB}"  https://storage.googleapis.com/hadoop-lib/gcs/${GCS_HADOOP_CONNECTOR}
+    fi
+
+    JETTY_UTIL_AJAX="jetty-util-ajax-9.3.24.v20180605.jar"
+    if [ ! -f "${HADOOP_TOOLS_LIB}/${JETTY_UTIL_AJAX}" ]; then
+        # Download jetty-util to ${HADOOP_HOME}/share/hadoop/tools/lib/* for Azure cloud storage support
+        wget -nc -P "${HADOOP_TOOLS_LIB}"  https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-util-ajax/9.3.24.v20180605/${JETTY_UTIL_AJAX}
+    fi
+
+    JETTY_UTIL="jetty-util-9.3.24.v20180605.jar"
+    if [ ! -f "${HADOOP_TOOLS_LIB}/${JETTY_UTIL}" ]; then
+        wget -nc -P "${HADOOP_TOOLS_LIB}"  https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-util/9.3.24.v20180605/${JETTY_UTIL}
+    fi
 }
 
 function install_hadoop_with_cloud_jars() {
@@ -99,6 +120,10 @@ function install_spark_with_cloud_jars() {
     done
 }
 
+install_jdk
+install_hadoop
+install_spark
+install_jupyter_for_spark
 install_tools
 install_yarn_with_spark_jars
 install_hadoop_with_cloud_jars

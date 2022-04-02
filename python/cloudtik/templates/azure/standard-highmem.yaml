@@ -1,13 +1,11 @@
+from: azure/standard
+
 # Cloud-provider specific configuration.
 provider:
     type: azure
 
 # The instance configuration for a standard instance type
 available_node_types:
-    head.default:
-        node_config:
-            azure_arm_parameters:
-                vmSize: Standard_E8s_v5
     worker.default:
         node_config:
             azure_arm_parameters:

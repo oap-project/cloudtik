@@ -10,10 +10,8 @@ available_node_types:
             BlockDeviceMappings:
                 - DeviceName: /dev/sda1
                   Ebs:
-                      VolumeSize: 128
-                      VolumeType: gp3
-                      # gp3: 3,000-16,000 IOPS
-                      Iops: 3000
+                      VolumeSize: 100
+                      VolumeType: gp2
                       DeleteOnTermination: True
     worker.default:
         node_config:
@@ -21,15 +19,20 @@ available_node_types:
             BlockDeviceMappings:
                 - DeviceName: /dev/sda1
                   Ebs:
-                      VolumeSize: 256
-                      VolumeType: gp3
-                      # gp3: 3,000-16,000 IOPS
-                      Iops: 8000
+                      VolumeSize: 100
+                      VolumeType: gp2
                       DeleteOnTermination: True
-                - DeviceName: /dev/sda2
+                - DeviceName: /dev/sdb1
                   Ebs:
-                      VolumeSize: 256
+                      VolumeSize: 200
                       VolumeType: gp3
                       # gp3: 3,000-16,000 IOPS
-                      Iops: 8000
+                      Iops: 5000
+                      DeleteOnTermination: True
+                - DeviceName: /dev/sdb2
+                  Ebs:
+                      VolumeSize: 200
+                      VolumeType: gp3
+                      # gp3: 3,000-16,000 IOPS
+                      Iops: 5000
                       DeleteOnTermination: True

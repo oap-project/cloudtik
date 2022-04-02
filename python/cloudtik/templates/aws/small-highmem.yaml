@@ -1,3 +1,5 @@
+from: aws/small
+
 # Cloud-provider specific configuration.
 provider:
     type: aws
@@ -6,7 +8,7 @@ provider:
 available_node_types:
     head.default:
         node_config:
-            InstanceType: r6i.xlarge
+            InstanceType: m6i.xlarge
     worker.default:
         node_config:
             InstanceType: r6i.xlarge

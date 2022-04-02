@@ -1,12 +1,11 @@
+from: aws/standard
+
 # Cloud-provider specific configuration.
 provider:
     type: aws
 
 # The instance configuration for a standard instance type
 available_node_types:
-    head.default:
-        node_config:
-            InstanceType: r6i.2xlarge
     worker.default:
         node_config:
             InstanceType: r6i.2xlarge

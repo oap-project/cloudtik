@@ -1,12 +1,11 @@
+from: aws/large
+
 # Cloud-provider specific configuration.
 provider:
     type: aws
 
 # The instance configuration for a large instance type
 available_node_types:
-    head.default:
-        node_config:
-            InstanceType: r6i.16xlarge
     worker.default:
         node_config:
             InstanceType: r6i.16xlarge

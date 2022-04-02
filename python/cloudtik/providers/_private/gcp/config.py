@@ -911,6 +911,32 @@ def check_gcp_workspace_resource(config):
     return True
 
 
+def _fix_boot_disk_source_image_for_node(node_config):
+    source_image = node_config.get("sourceImage", None)
+    if source_image is None:
+        return
+
+    disks = node_config.get("disks", [])
+    for disk in disks:
+        if disk.get("boot", False):
+            # Need to fix source image for only boot disk
+            if "initializeParams" not in disk:
+                disk["initializeParams"] = {"sourceImage": source_image}
+            else:
+                disk["initializeParams"]["sourceImage"] = source_image
+
+    # Remove the sourceImage from node config
+    node_config.pop("sourceImage")
+
+
+def _fix_boot_disk_source_image(config):
+    for node_type in config["available_node_types"].values():
+        node_config = node_type["node_config"]
+        _fix_boot_disk_source_image_for_node(node_config)
+
+    return config
+
+
 def bootstrap_gcp(config):
     config = copy.deepcopy(config)
     
@@ -929,6 +955,7 @@ def bootstrap_gcp(config):
     crm, iam, compute, tpu = \
         construct_clients_from_provider_config(config["provider"])
 
+    config = _fix_boot_disk_source_image(config)
     config = _configure_project(config, crm)
     config = _configure_iam_role(config, crm, iam)
     config = _configure_key_pair(config, compute)
@@ -955,6 +982,7 @@ def bootstrap_gcp_from_workspace(config):
     crm, iam, compute, tpu = \
         construct_clients_from_provider_config(config["provider"])
 
+    config = _fix_boot_disk_source_image(config)
     config = _configure_iam_role(config, crm, iam)
     config = _configure_key_pair(config, compute)
     config = _configure_subnet_from_workspace(config, compute)

@@ -6,7 +6,7 @@ provider:
 available_node_types:
     head.default:
         node_config:
-            InstanceType: r6i.16xlarge
+            InstanceType: m6i.16xlarge
     worker.default:
         node_config:
-            InstanceType: r6i.16xlarge
+            InstanceType: m6i.16xlarge

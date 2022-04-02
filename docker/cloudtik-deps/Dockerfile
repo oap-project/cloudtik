@@ -4,8 +4,10 @@ ARG WHEEL_PATH
 # For Click
 ENV LC_ALL=C.UTF-8
 ENV LANG=C.UTF-8
+
 COPY $WHEEL_PATH .
-RUN $HOME/anaconda3/bin/pip --no-cache-dir install \
+RUN export PATH="$HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH" \
+    && pip --no-cache-dir install \
     $(basename $WHEEL_PATH)[all] \
     $(echo \
         "six==1.16.0" \
@@ -19,5 +21,6 @@ RUN $HOME/anaconda3/bin/pip --no-cache-dir install \
         "azure-mgmt-network==19.3.0" \
         "azure-mgmt-resource==20.0.0" \
         "msrestazure==0.6.4") \
-    $(if [ $($HOME/anaconda3/bin/python -c "import sys; print(sys.version_info.minor)") != 6 ]; then echo "kopf"; fi) \
-    && $HOME/anaconda3/bin/pip uninstall cloudtik -y && sudo rm $(basename $WHEEL_PATH)
+    $(if [ $(python -c "import sys; print(sys.version_info.minor)") != 6 ]; then echo "kopf"; fi) \
+    && pip uninstall cloudtik -y \
+    && sudo rm $(basename $WHEEL_PATH)

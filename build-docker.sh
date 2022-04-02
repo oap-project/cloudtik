@@ -8,6 +8,7 @@ GPU=""
 BASE_IMAGE="ubuntu:focal"
 WHEEL_URL="http://23.95.96.95:8000/latest/cloudtik-0.9.0-cp37-cp37m-manylinux2014_x86_64.whl"
 PYTHON_VERSION="3.7.7"
+CONDA_ENV_NAME="cloudtik_py37"
 
 while [[ $# -gt 0 ]]
 do
@@ -61,10 +62,10 @@ for IMAGE in "cloudtik-base"
 do
     cp "$WHEEL" "docker/$IMAGE/$(basename "$WHEEL")"
     if [ $OUTPUT_SHA ]; then
-        IMAGE_SHA=$(docker build $NO_CACHE --build-arg GPU="$GPU" --build-arg BASE_IMAGE="$BASE_IMAGE" --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_VERSION="$PYTHON_VERSION" -q -t cloudtik/$IMAGE:nightly$GPU docker/$IMAGE)
+        IMAGE_SHA=$(docker build $NO_CACHE --build-arg GPU="$GPU" --build-arg BASE_IMAGE="$BASE_IMAGE" --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_VERSION="$PYTHON_VERSION" --build-arg CONDA_ENV_NAME="$CONDA_ENV_NAME" -q -t cloudtik/$IMAGE:nightly$GPU docker/$IMAGE)
         echo "cloudtik/$IMAGE:nightly$GPU SHA:$IMAGE_SHA"
     else
-        docker build $NO_CACHE  --build-arg GPU="$GPU" --build-arg BASE_IMAGE="$BASE_IMAGE" --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_VERSION="$PYTHON_VERSION" -t cloudtik/$IMAGE:nightly$GPU docker/$IMAGE
+        docker build $NO_CACHE  --build-arg GPU="$GPU" --build-arg BASE_IMAGE="$BASE_IMAGE" --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_VERSION="$PYTHON_VERSION" --build-arg CONDA_ENV_NAME="$CONDA_ENV_NAME" -t cloudtik/$IMAGE:nightly$GPU docker/$IMAGE
     fi
     rm "docker/$IMAGE/$(basename "$WHEEL")"
 done 

@@ -346,7 +346,7 @@ def teardown_cluster(config_file: str, yes: bool, workers_only: bool,
 
     config = _bootstrap_config(config)
 
-    cli_logger.confirm(yes, "Are you sure that you want to tear down cluster {}?",
+    cli_logger.confirm(yes, "Are you sure that you want to shut down cluster {}?",
                        config["cluster_name"], _abort=True)
 
     current_step = 1
@@ -405,6 +405,8 @@ def teardown_cluster(config_file: str, yes: bool, workers_only: bool,
         teardown_cluster_nodes(config, provider,
                                workers_only, keep_min_workers,
                                False)
+
+    cli_logger.success("Successfully shut down cluster: {} .", config["cluster_name"])
 
 
 def teardown_cluster_nodes(config: Dict[str, Any],

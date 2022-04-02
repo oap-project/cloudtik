@@ -23,20 +23,15 @@ val storage = "s3a"                // support hdfs or s3
 var bucket_name = "$YOUR_BUCKET_NAME"   // when storage is "s3", this value will be use.
 val useDoubleForDecimal = false   // use double format instead of decimal format
 ```
-You can use the command `cloudtik rsync` or configure the **file_mounts** in YAML file to upload this script.
+You can use the command `cloudtik rsync` to upload the scala script.
 ```buildoutcfg
-cloudtik rsync-up $YOUR-CONFIGURATION-YAML  $SOMEWHERE/on/local/tpcds_datagen.scala ~/
+cloudtik rsync-up $YOUR-CONFIGURATION-YAML  $SOMEWHERE/on/local/tpcds_datagen.scala ~/benchmark/
 ```
-or
-```buildoutcfg
-file_mounts: {
-     "~/": "$SOMEWHERE/on/local/tpcds_datagen.scala"
-}
-```
+
 Then attach to the head node and execute the following command:
 ```buildoutcfg
 cloudtik attach $YOUR-CONFIGURATION-YAML
-spark-shell -i /home/cloudtik/tpcds_datagen.scala --jars /home/cloudtik/runtime/benchmark-tools/spark-sql-perf/target/scala-2.12/spark-sql-perf_2.12-0.5.1-SNAPSHOT.jar,/home/cloudtik/runtime/hadoop/share/hadoop/tools/lib/aws-java-sdk-bundle-1.11.375.jar,/home/cloudtik/runtime/hadoop/share/hadoop/tools/lib/hadoop-aws-3.2.0.jar
+spark-shell -i /home/cloudtik/benchmark/tpcds_datagen.scala --jars /home/cloudtik/runtime/benchmark-tools/spark-sql-perf/target/scala-2.12/spark-sql-perf_2.12-0.5.1-SNAPSHOT.jar
 ```
 ### 2.2 Use notebook to generate data
 We also provide the way that use jupyer notebook to generate data. Please upload **[tpcda_datagen-ipynb](./notebooks/tpcds_datagen.ipynb)** to the jupyter site and ***run all cells***.

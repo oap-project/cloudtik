@@ -69,6 +69,10 @@ available_node_types:
                 #   SpotOptions:
                 #       MaxPrice: MAX_HOURLY_PRICE
             # Additional options in the boto docs.
+            BlockDeviceMappings:
+                - DeviceName: /dev/sda1
+                  Ebs:
+                      VolumeSize: 100
 
 # Specify the node type of the head node (as configured above).
 head_node_type: head.default

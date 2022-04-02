@@ -7,6 +7,26 @@ available_node_types:
     head-default:
         node_config:
             machineType: n2-standard-4
+            disks:
+                - boot: true
+                  autoDelete: true
+                  type: PERSISTENT
+                  initializeParams:
+                      diskSizeGb: 100
+                      diskType: pd-balanced
     worker-default:
         node_config:
             machineType: n2-standard-4
+            disks:
+                - boot: true
+                  autoDelete: true
+                  type: PERSISTENT
+                  initializeParams:
+                      diskSizeGb: 100
+                      diskType: pd-balanced
+                - deviceName: sdb1
+                  autoDelete: true
+                  type: PERSISTENT
+                  initializeParams:
+                      diskSizeGb: 200
+                      diskType: pd-ssd

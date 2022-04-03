@@ -7,8 +7,27 @@ available_node_types:
     head.default:
         node_config:
             azure_arm_parameters:
-                vmSize: Standard_D96s_v5
+                vmSize: Standard_D16s_v5
+                osDiskSizeGB: 200
     worker.default:
         node_config:
             azure_arm_parameters:
                 vmSize: Standard_D96s_v5
+                osDiskSizeGB: 100
+                dataDisks:
+                    - lun: 0
+                      diskName: datadisk1
+                      storageAccountType: Premium_LRS
+                      diskSizeGB: 200
+                    - lun: 1
+                      diskName: datadisk2
+                      storageAccountType: Premium_LRS
+                      diskSizeGB: 200
+                    - lun: 2
+                      diskName: datadisk3
+                      storageAccountType: Premium_LRS
+                      diskSizeGB: 200
+                    - lun: 3
+                      diskName: datadisk4
+                      storageAccountType: Premium_LRS
+                      diskSizeGB: 200

@@ -209,3 +209,6 @@ LOG_MONITOR_MAX_OPEN_FILES = 200
 LOG_FILE_CHANNEL = "CLOUDKIT_LOG_CHANNEL"
 
 DEFAULT_PROXY_PORT = 6000
+
+# The mount point path of the data disks on both host and container
+CLOUDTIK_DATA_DISK_MOUNT_POINT = "/mnt/cloudtik"

@@ -9,7 +9,7 @@ from threading import Thread
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_STATUS, CLOUDTIK_TAG_RUNTIME_CONFIG, \
     CLOUDTIK_TAG_FILE_MOUNTS_CONTENTS, \
     STATUS_UP_TO_DATE, STATUS_UPDATE_FAILED, STATUS_WAITING_FOR_SSH, \
-    STATUS_SETTING_UP, STATUS_SYNCING_FILES
+    STATUS_SETTING_UP, STATUS_SYNCING_FILES, STATUS_BOOTSTRAPPING_DATA_DISKS
 from cloudtik.core._private.command_executor import \
     CLOUDTIK_NODE_START_WAIT_S, \
     ProcessRunnerError
@@ -22,7 +22,7 @@ from cloudtik.core._private.event_system import (CreateClusterEvent,
 
 logger = logging.getLogger(__name__)
 
-NUM_SETUP_STEPS = 7
+NUM_SETUP_STEPS = 8
 READY_CHECK_INTERVAL = 5
 
 
@@ -168,9 +168,9 @@ class NodeUpdater:
         self.update_time = time.time() - update_start_time
         self.exitcode = 0
 
-    def sync_file_mounts(self, sync_cmd, step_numbers=(0, 2)):
+    def sync_file_mounts(self, sync_cmd, step_numbers=(1, 2)):
         # step_numbers is (# of previous steps, total steps)
-        previous_steps, total_steps = step_numbers
+        current_step, total_steps = step_numbers
 
         nolog_paths = []
         if cli_logger.verbosity == 0:
@@ -215,24 +215,24 @@ class NodeUpdater:
         # Rsync file mounts
         with cli_logger.group(
                 "Processing file mounts",
-                _numbered=("[]", previous_steps + 1, total_steps)):
+                _numbered=("[]", current_step, total_steps)):
             for remote_path, local_path in self.file_mounts.items():
                 do_sync(remote_path, local_path)
-            previous_steps += 1
+            current_step += 1
 
         if self.cluster_synced_files:
             with cli_logger.group(
                     "Processing worker file mounts",
-                    _numbered=("[]", previous_steps + 1, total_steps)):
+                    _numbered=("[]", current_step, total_steps)):
                 cli_logger.print("synced files: {}",
                                  str(self.cluster_synced_files))
                 for path in self.cluster_synced_files:
                     do_sync(path, path, allow_non_existing_paths=True)
-                previous_steps += 1
+                current_step += 1
         else:
             cli_logger.print(
                 "No worker file mounts to sync",
-                _numbered=("[]", previous_steps + 1, total_steps))
+                _numbered=("[]", current_step, total_steps))
 
     def wait_ready(self, deadline):
         with cli_logger.group(
@@ -289,6 +289,13 @@ class NodeUpdater:
 
                         time.sleep(READY_CHECK_INTERVAL)
 
+    def bootstrap_data_disks(self, step_numbers=(1, 1)):
+        current_step, total_steps = step_numbers
+        with cli_logger.group(
+                "Preparing data disks",
+                _numbered=("[]", current_step, total_steps)):
+            self.cmd_executor.bootstrap_data_disks()
+
     def do_update(self):
         self.provider.set_node_tags(
             self.node_id, {CLOUDTIK_TAG_NODE_STATUS: STATUS_WAITING_FOR_SSH})
@@ -336,11 +343,17 @@ class NodeUpdater:
                 "Updating cluster configuration.",
                 _tags=dict(hash=self.runtime_hash))
 
+            # The first step is to format and mount the data disks on host machine
+            self.provider.set_node_tags(
+                self.node_id, {CLOUDTIK_TAG_NODE_STATUS: STATUS_BOOTSTRAPPING_DATA_DISKS})
+            cli_logger.labeled_value("New status", STATUS_BOOTSTRAPPING_DATA_DISKS)
+            self.bootstrap_data_disks(step_numbers=(2, NUM_SETUP_STEPS))
+
             self.provider.set_node_tags(
                 self.node_id, {CLOUDTIK_TAG_NODE_STATUS: STATUS_SYNCING_FILES})
             cli_logger.labeled_value("New status", STATUS_SYNCING_FILES)
             self.sync_file_mounts(
-                self.rsync_up, step_numbers=(1, NUM_SETUP_STEPS))
+                self.rsync_up, step_numbers=(3, NUM_SETUP_STEPS))
 
             # Only run setup commands if runtime_hash has changed because
             # we don't want to run setup_commands every time the head node
@@ -353,16 +366,16 @@ class NodeUpdater:
                 if self.initialization_commands:
                     with cli_logger.group(
                             "Running initialization commands",
-                            _numbered=("[]", 4, NUM_SETUP_STEPS)):
+                            _numbered=("[]", 5, NUM_SETUP_STEPS)):
                         self._exec_initialization_commands(provider_envs)
                 else:
                     cli_logger.print(
                         "No initialization commands to run.",
-                        _numbered=("[]", 4, NUM_SETUP_STEPS))
+                        _numbered=("[]", 5, NUM_SETUP_STEPS))
                 with cli_logger.group(
                         "Initializing command runner",
                         # todo: fix command numbering
-                        _numbered=("[]", 5, NUM_SETUP_STEPS)):
+                        _numbered=("[]", 6, NUM_SETUP_STEPS)):
                     self.cmd_executor.run_init(
                         as_head=self.is_head_node,
                         file_mounts=self.file_mounts,
@@ -371,12 +384,12 @@ class NodeUpdater:
                     with cli_logger.group(
                             "Running setup commands",
                             # todo: fix command numbering
-                            _numbered=("[]", 6, NUM_SETUP_STEPS)):
+                            _numbered=("[]", 7, NUM_SETUP_STEPS)):
                         self._exec_setup_commands(provider_envs)
                 else:
                     cli_logger.print(
                         "No setup commands to run.",
-                        _numbered=("[]", 6, NUM_SETUP_STEPS))
+                        _numbered=("[]", 7, NUM_SETUP_STEPS))
 
         with cli_logger.group(
                 "Starting the CloudTik runtime", _numbered=("[]", 7,

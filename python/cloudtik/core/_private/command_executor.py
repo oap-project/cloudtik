@@ -591,6 +591,60 @@ class SSHCommandExecutor(CommandExecutor):
         return command + " {}@{}\n".format(
             self.ssh_user, self.ssh_ip)
 
+    def bootstrap_data_disks(self) -> None:
+        """Used to format and mount data disks on host."""
+        block_devices = self._get_raw_block_devices()
+        data_disk_index = 1
+        for block_device in block_devices:
+            self._format_and_mount(block_device, data_disk_index)
+            data_disk_index += 1
+
+    def _is_raw_block_device(self, block_device):
+        # Read only or not a disk
+        if block_device["ro"] or block_device["type"] != "disk":
+            return False
+        mount_point = block_device.get("mountpoint", None)
+        if mount_point is not None and mount_point != "":
+            # Mounted
+            return False
+        # Has children
+        device_children = block_device.get("children", [])
+        if len(device_children) > 0:
+            return False
+
+        return True
+
+    def _get_raw_block_devices(self):
+        self.run("touch ~/.sudo_as_admin_successful")
+        lsblk_output = self.run(
+            "lsblk -o name,ro,type,size,mountpoint -p --json || true",
+            with_output=True).decode().strip()
+        cli_logger.verbose("List of all block devices:\n{}", lsblk_output)
+
+        block_devices_doc = json.loads(lsblk_output)
+        block_devices = block_devices_doc.get("blockdevices", [])
+        raw_block_devices = []
+        for block_device in block_devices:
+            if not self._is_raw_block_device(block_device):
+                continue;
+
+            cli_logger.verbose("Found raw block devices {}", block_device["name"])
+            raw_block_devices += [block_device]
+
+        return raw_block_devices
+
+    def _format_and_mount(self, block_device, data_disk_index):
+        device_name = block_device["name"]
+        mount_path = f"/mnt/cloudtik/data_disk_{data_disk_index}"
+
+        cli_logger.print("Formatting device {} and mount to {}...", device_name, mount_path)
+
+        # Execute the format commands on the block device
+        self.run(f"sudo mkfs -t xfs {device_name}")
+        self.run(f"sudo mkdir -p {mount_path}")
+        self.run(f"sudo mount {device_name} {mount_path}")
+        self.run(f"sudo chmod a+w {mount_path}")
+
 
 class DockerCommandExecutor(CommandExecutor):
     def __init__(self, docker_config, **common_args):
@@ -923,6 +977,11 @@ class DockerCommandExecutor(CommandExecutor):
                         "your `setup_commands`.")
         self.initialized = True
         return docker_run_executed
+
+    def bootstrap_data_disks(self) -> None:
+        """Used to format and mount data disks on host."""
+        # For docker command executor, call directly on host command executor
+        self.ssh_command_executor.bootstrap_data_disks()
 
     def _configure_runtime(self, run_options: List[str]) -> List[str]:
         if self.docker_config.get("disable_automatic_runtime_detection"):

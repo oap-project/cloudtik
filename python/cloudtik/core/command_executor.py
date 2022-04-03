@@ -88,3 +88,7 @@ class CommandExecutor:
             optional (bool): Whether initialization is necessary.
         """
         pass
+
+    def bootstrap_data_disks(self) -> None:
+        """Used to format and mount data disks on host."""
+        pass

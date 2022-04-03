@@ -71,9 +71,6 @@
         "dataDisks": {
             "type": "array"
         },
-        "dataDiskResources": {
-            "type": "array"
-        },
         "provisionPublicIp": {
             "type": "bool",
             "defaultValue": true,
@@ -186,20 +183,6 @@
             "condition": "[parameters('provisionPublicIp')]"
         },
         {
-            "name": "[parameters('dataDiskResources')[copyIndex()].name]",
-            "type": "Microsoft.Compute/disks",
-            "apiVersion": "2020-12-01",
-            "location": "[variables('location')]",
-            "properties": "[parameters('dataDiskResources')[copyIndex()].properties]",
-            "sku": {
-                "name": "[parameters('dataDiskResources')[copyIndex()].sku]"
-            },
-            "copy": {
-                "name": "managedDiskResources",
-                "count": "[length(parameters('dataDiskResources'))]"
-            }
-        },
-        {
             "type": "Microsoft.Compute/virtualMachines",
             "apiVersion": "2021-07-01",
             "name": "[concat(parameters('vmName'), copyIndex())]",
@@ -236,15 +219,15 @@
                             "count": "[length(parameters('dataDisks'))]",
                             "input": {
                                 "lun": "[parameters('dataDisks')[copyIndex('dataDisks')].lun]",
-                                "createOption": "[parameters('dataDisks')[copyIndex('dataDisks')].createOption]",
-                                "caching": "[parameters('dataDisks')[copyIndex('dataDisks')].caching]",
+                                "name": "[concat(parameters('vmName'), parameters('dataDisks')[copyIndex('dataDisks')].diskName)]",
+                                "createOption": "empty",
+                                "caching": "ReadOnly",
                                 "diskSizeGB": "[parameters('dataDisks')[copyIndex('dataDisks')].diskSizeGB]",
                                 "managedDisk": {
-                                    "id": "[coalesce(parameters('dataDisks')[copyIndex('dataDisks')].id, if(equals(parameters('dataDisks')[copyIndex('dataDisks')].name, json('null')), json('null'), resourceId('Microsoft.Compute/disks', parameters('dataDisks')[copyIndex('dataDisks')].name)))]",
                                     "storageAccountType": "[parameters('dataDisks')[copyIndex('dataDisks')].storageAccountType]"
                                 },
-                                "deleteOption": "[parameters('dataDisks')[copyIndex('dataDisks')].deleteOption]",
-                                "writeAcceleratorEnabled": "[parameters('dataDisks')[copyIndex('dataDisks')].writeAcceleratorEnabled]"
+                                "deleteOption": "Delete",
+                                "writeAcceleratorEnabled": false
                             }
                         }
                     ]

@@ -42,7 +42,6 @@ available_node_types:
                 osDiskType: StandardSSD_LRS
                 osDiskSizeGB: 100
                 dataDisks: []
-                dataDiskResources: []
 
     worker.default:
         # The minimum number of nodes of this type to launch.
@@ -62,7 +61,6 @@ available_node_types:
                 osDiskType: StandardSSD_LRS
                 osDiskSizeGB: 100
                 dataDisks: []
-                dataDiskResources: []
                 # comment lines below to not use Spot instances
                 priority: Spot
                 # set a maximum price for spot instances if desired

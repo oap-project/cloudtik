@@ -86,10 +86,6 @@ available_node_types:
 # Specify the node type of the head node (as configured above).
 head_node_type: head-default
 
-initialization_commands:
-    - which docker || (curl -fsSL https://get.docker.com -o /tmp/get-docker.sh &&
-      sudo bash /tmp/get-docker.sh && sudo usermod -aG docker $USER && sudo systemctl restart docker -f)
-
 # List of shell commands to run to set up nodes.
 setup_commands:
     # Note: if you're developing cloudtik, you probably want to create an AMI that

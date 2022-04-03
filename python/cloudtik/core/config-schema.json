@@ -319,10 +319,14 @@
                     "description": "disable automatically detecting /dev/shm size for the container",
                     "default": false
                 },
-              "use_podman"  :  {
-                "type": "boolean",
-                "description": "Use 'podman' command in place of 'docker'",
-                "default": false
+                "use_podman"  :  {
+                    "type": "boolean",
+                    "description": "Use 'podman' command in place of 'docker'",
+                    "default": false
+                },
+                "initialization_commands": {
+                    "$ref": "#/definitions/commands",
+                    "description": "List of commands that will be run before `setup_commands` on host for docker only"
                 }
             }
         },

@@ -15,6 +15,10 @@ docker:
     image: "cloudtik/spark-runtime:latest"
     container_name: "cloudtik_spark"
     disable_shm_size_detection: True
+    # Initialization commands running on host for only docker enabled
+    initialization_commands:
+        - which docker || (curl -fsSL https://get.docker.com -o /tmp/get-docker.sh &&
+          sudo bash /tmp/get-docker.sh && sudo usermod -aG docker $USER && sudo systemctl restart docker -f)
 
 # If a node is idle for this many minutes, it will be removed.
 idle_timeout_minutes: 5

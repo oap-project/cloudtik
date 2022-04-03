@@ -746,6 +746,7 @@ def prepare_config(config: Dict[str, Any]) -> Dict[str, Any]:
         config = prepare_local(config)
 
     with_defaults = fillout_defaults(config)
+    merge_initialization_commands(with_defaults)
     merge_setup_commands(with_defaults)
     validate_docker_config(with_defaults)
     fill_node_type_min_max_workers(with_defaults)
@@ -874,6 +875,16 @@ def fillout_defaults(config: Dict[str, Any]) -> Dict[str, Any]:
     merged_config.pop("min_workers", None)
 
     return merged_config
+
+
+def merge_initialization_commands(config):
+    # Check if docker enabled
+    if is_docker_enabled(config):
+        docker_initialization_commands = config.get("docker", {}).get("initialization_commands")
+        if docker_initialization_commands:
+            config["initialization_commands"] = (
+                    config["initialization_commands"] + docker_initialization_commands)
+    return config
 
 
 def merge_setup_commands(config):

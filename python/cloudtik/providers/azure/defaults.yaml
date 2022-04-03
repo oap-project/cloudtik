@@ -72,14 +72,12 @@ file_mounts: {
      "~/.ssh/id_rsa.pub": "~/.ssh/id_rsa.pub"
 }
 
-# List of commands that will be run before `setup_commands`. If docker is
-# enabled, these commands will run outside the container and before docker
-# is setup.
-initialization_commands:
-    # get rid of annoying Ubuntu message
-    - touch ~/.sudo_as_admin_successful
-    - which docker || (curl -fsSL https://get.docker.com -o /tmp/get-docker.sh &&
-        sudo bash /tmp/get-docker.sh && sudo usermod -aG docker $USER && sudo systemctl restart docker -f)
+docker:
+    initialization_commands:
+        # get rid of annoying Ubuntu message
+        - touch ~/.sudo_as_admin_successful
+        - which docker || (curl -fsSL https://get.docker.com -o /tmp/get-docker.sh &&
+            sudo bash /tmp/get-docker.sh && sudo usermod -aG docker $USER && sudo systemctl restart docker -f)
 
 # List of shell commands to run to set up nodes.
 setup_commands:

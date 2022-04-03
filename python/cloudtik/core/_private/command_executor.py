@@ -16,7 +16,8 @@ from cloudtik.core._private.constants import \
                                      CLOUDTIK_NODE_SSH_INTERVAL_S, \
                                      CLOUDTIK_DEFAULT_OBJECT_STORE_MAX_MEMORY_BYTES, \
                                      CLOUDTIK_DEFAULT_OBJECT_STORE_MEMORY_PROPORTION, \
-                                     CLOUDTIK_NODE_START_WAIT_S
+                                     CLOUDTIK_NODE_START_WAIT_S,\
+                                     CLOUDTIK_DATA_DISK_MOUNT_POINT
 from cloudtik.core._private.docker import check_bind_mounts_cmd, \
                                   check_docker_running_cmd, \
                                   check_docker_image, \
@@ -635,7 +636,8 @@ class SSHCommandExecutor(CommandExecutor):
 
     def _format_and_mount(self, block_device, data_disk_index):
         device_name = block_device["name"]
-        mount_path = f"/mnt/cloudtik/data_disk_{data_disk_index}"
+        mount_point = CLOUDTIK_DATA_DISK_MOUNT_POINT
+        mount_path = f"{mount_point}/data_disk_{data_disk_index}"
 
         cli_logger.print("Formatting device {} and mount to {}...", device_name, mount_path)
 
@@ -920,12 +922,13 @@ class DockerCommandExecutor(CommandExecutor):
                     home_directory = env_var.split("HOME=")[1]
                     break
 
+            host_data_disks = self._get_host_data_disks()
             user_docker_run_options = self.docker_config.get(
                 "run_options", []) + self.docker_config.get(
                     f"{'head' if as_head else 'worker'}_run_options", [])
             start_command = docker_start_cmds(
                 self.ssh_command_executor.ssh_user, specific_image,
-                cleaned_bind_mounts, self.container_name,
+                cleaned_bind_mounts, host_data_disks, self.container_name,
                 self._configure_runtime(
                     self._auto_configure_shm(user_docker_run_options)),
                 self.ssh_command_executor.cluster_name, home_directory,
@@ -1033,3 +1036,15 @@ class DockerCommandExecutor(CommandExecutor):
         # Imported here due to circular dependency in imports.
         from cloudtik.core.api import get_docker_host_mount_location
         return get_docker_host_mount_location(cluster_name)
+
+    def _get_host_data_disks(self):
+        mount_point = CLOUDTIK_DATA_DISK_MOUNT_POINT
+        data_disks_string = self.run(
+            "ls --color=no {}".format(mount_point),
+            with_output=True,
+            run_env="host").decode("utf-8").strip()
+        if data_disks_string is None or data_disks_string == "":
+            return []
+
+        data_disks = data_disks_string.split()
+        return ["{}/{}".format(mount_point, data_disks) for data_disks in data_disks]

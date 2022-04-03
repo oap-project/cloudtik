@@ -84,18 +84,26 @@ def check_docker_image(cname, docker_cmd):
     return _check_helper(cname, ".Config.Image", docker_cmd)
 
 
-def docker_start_cmds(user, image, mount_dict, container_name, user_options,
+def docker_start_cmds(user, image, mount_dict, data_disks, container_name, user_options,
                       cluster_name, home_directory, docker_cmd):
     # Imported here due to circular dependency.
     from cloudtik.core.api import get_docker_host_mount_location
     docker_mount_prefix = get_docker_host_mount_location(cluster_name)
     mount = {f"{docker_mount_prefix}/{dst}": dst for dst in mount_dict}
-
-    mount_flags = " ".join([
+    file_mounts = [
         "-v {src}:{dest}".format(
             src=k, dest=v.replace("~/", home_directory + "/"))
         for k, v in mount.items()
-    ])
+    ]
+    data_disk_mounts = [
+        "-v {src}:{dest}".format(
+            src=data_disk, dest=data_disk)
+        for data_disk in data_disks
+    ]
+
+    volume_mounts = file_mounts
+    volume_mounts += data_disk_mounts
+    mount_flags = " ".join(volume_mounts)
 
     # for click, used in cloudtik cli
     env_vars = {"LC_ALL": "C.UTF-8", "LANG": "C.UTF-8"}

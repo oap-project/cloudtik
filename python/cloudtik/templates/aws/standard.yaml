@@ -22,14 +22,14 @@ available_node_types:
                       VolumeSize: 100
                       VolumeType: gp2
                       DeleteOnTermination: True
-                - DeviceName: /dev/sdb1
+                - DeviceName: /dev/sdf
                   Ebs:
                       VolumeSize: 200
                       VolumeType: gp3
                       # gp3: 3,000-16,000 IOPS
                       Iops: 5000
                       DeleteOnTermination: True
-                - DeviceName: /dev/sdb2
+                - DeviceName: /dev/sdg
                   Ebs:
                       VolumeSize: 200
                       VolumeType: gp3

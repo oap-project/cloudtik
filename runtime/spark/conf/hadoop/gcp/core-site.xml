@@ -18,49 +18,49 @@
 
 <configuration>
     <property>
-      <name>fs.defaultFS</name>
-      <value>gs://{%gcp.gcs.bucket%}</value>
+        <name>fs.defaultFS</name>
+        <value>gs://{%gcp.gcs.bucket%}</value>
     </property>
     <property>
-      <name>fs.AbstractFileSystem.gs.impl</name>
-      <value>com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS</value>
-      <description>The AbstractFileSystem for 'gs:' URIs.</description>
+        <name>fs.AbstractFileSystem.gs.impl</name>
+        <value>com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS</value>
+        <description>The AbstractFileSystem for 'gs:' URIs.</description>
     </property>
     <property>
-      <name>fs.gs.project.id</name>
-      <value>{%project_id%}</value>
-      <description>
+        <name>fs.gs.project.id</name>
+        <value>{%project_id%}</value>
+        <description>
         Optional. Google Cloud Project ID with access to GCS buckets.
         Required only for list buckets and create bucket operations.
-      </description>
+        </description>
     </property>
     <property>
-      <name>google.cloud.auth.service.account.enable</name>
-      <value>true</value>
-      <description>
+        <name>google.cloud.auth.service.account.enable</name>
+        <value>true</value>
+        <description>
         Whether to use a service account for GCS authorization.
         Setting this property to `false` will disable use of service accounts for
         authentication.
-      </description>
+        </description>
     </property>
     <property>
-      <name>fs.gs.auth.service.account.email</name>
-      <value>{%fs.gs.auth.service.account.email%}</value>
+        <name>fs.gs.auth.service.account.email</name>
+        <value>{%fs.gs.auth.service.account.email%}</value>
     </property>
     <property>
-      <name>fs.gs.auth.service.account.private.key.id</name>
-      <value>{%fs.gs.auth.service.account.private.key.id%}</value>
+        <name>fs.gs.auth.service.account.private.key.id</name>
+        <value>{%fs.gs.auth.service.account.private.key.id%}</value>
     </property>
     <property>
-      <name>fs.gs.auth.service.account.private.key</name>
-      <value>{%fs.gs.auth.service.account.private.key%}</value>
+        <name>fs.gs.auth.service.account.private.key</name>
+        <value>{%fs.gs.auth.service.account.private.key%}</value>
     </property>
     <property>
-      <name>fs.gs.reported.permissions</name>
-      <value>777</value>
+        <name>fs.gs.reported.permissions</name>
+        <value>777</value>
     </property>
     <property>
-      <name>fs.gs.working.dir</name>
-      <value>/</value>
+        <name>fs.gs.working.dir</name>
+        <value>/</value>
     </property>
 </configuration>

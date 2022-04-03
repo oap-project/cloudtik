@@ -62,6 +62,15 @@
                 "description": "Number of VMs to deploy"
             }
         },
+        "osDiskType": {
+            "type": "string"
+        },
+        "osDiskSizeGB": {
+            "type": "int"
+        },
+        "dataDisks": {
+            "type": "array"
+        },
         "provisionPublicIp": {
             "type": "bool",
             "defaultValue": true,
@@ -90,7 +99,6 @@
         "networkInterfaceNamePublic": "[concat(parameters('vmName'),'-nic-public')]",
         "networkInterfaceName": "[if(parameters('provisionPublicIp'), variables('networkInterfaceNamePublic'), variables('networkInterfaceNamePrivate'))]",
         "networkIpConfig": "[guid(resourceGroup().id, parameters('vmName'))]",
-        "osDiskType": "Standard_LRS",
         "publicIpAddressName": "[concat(parameters('vmName'), '-ip' )]",
         "subnetRef": "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'cloudtik-vnet', 'cloudtik-subnet')]"
     },
@@ -176,7 +184,7 @@
         },
         {
             "type": "Microsoft.Compute/virtualMachines",
-            "apiVersion": "2019-03-01",
+            "apiVersion": "2021-07-01",
             "name": "[concat(parameters('vmName'), copyIndex())]",
             "location": "[variables('location')]",
             "dependsOn": [
@@ -195,15 +203,34 @@
                     "osDisk": {
                         "createOption": "fromImage",
                         "managedDisk": {
-                            "storageAccountType": "[variables('osDiskType')]"
-                        }
+                            "storageAccountType": "[parameters('osDiskType')]"
+                        },
+                        "diskSizeGB": "[parameters('osDiskSizeGB')]"
                     },
                     "imageReference": {
                         "publisher": "[parameters('imagePublisher')]",
                         "offer": "[parameters('imageOffer')]",
                         "sku": "[parameters('imageSku')]",
                         "version": "[parameters('imageVersion')]"
-                    }
+                    },
+                    "copy": [
+                        {
+                            "name": "dataDisks",
+                            "count": "[length(parameters('dataDisks'))]",
+                            "input": {
+                                "lun": "[parameters('dataDisks')[copyIndex('dataDisks')].lun]",
+                                "name": "[concat(parameters('vmName'), parameters('dataDisks')[copyIndex('dataDisks')].diskName)]",
+                                "createOption": "empty",
+                                "caching": "ReadOnly",
+                                "diskSizeGB": "[parameters('dataDisks')[copyIndex('dataDisks')].diskSizeGB]",
+                                "managedDisk": {
+                                    "storageAccountType": "[parameters('dataDisks')[copyIndex('dataDisks')].storageAccountType]"
+                                },
+                                "deleteOption": "Delete",
+                                "writeAcceleratorEnabled": false
+                            }
+                        }
+                    ]
                 },
                 "networkProfile": {
                     "networkInterfaces": [

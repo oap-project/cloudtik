@@ -39,6 +39,9 @@ available_node_types:
                 imageOffer: 0001-com-ubuntu-server-focal
                 imageSku: 20_04-lts-gen2
                 imageVersion: latest
+                osDiskType: StandardSSD_LRS
+                osDiskSizeGB: 100
+                dataDisks: []
 
     worker.default:
         # The minimum number of nodes of this type to launch.
@@ -55,6 +58,9 @@ available_node_types:
                 imageOffer: 0001-com-ubuntu-server-focal
                 imageSku: 20_04-lts-gen2
                 imageVersion: latest
+                osDiskType: StandardSSD_LRS
+                osDiskSizeGB: 100
+                dataDisks: []
                 # comment lines below to not use Spot instances
                 priority: Spot
                 # set a maximum price for spot instances if desired

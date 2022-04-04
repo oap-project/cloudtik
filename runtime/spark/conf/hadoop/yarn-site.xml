@@ -69,7 +69,7 @@
     </property>
     <property>
         <name>yarn.nodemanager.local-dirs</name>
-        <value>{%HADOOP_HOME%}/data/nm</value>
+        <value>{%yarn.nodemanager.local-dirs%}</value>
     </property>
     <property>
         <name>yarn.nodemanager.vmem-check-enabled</name>

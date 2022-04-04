@@ -126,7 +126,7 @@ function update_aws_hadoop_config() {
 
     # event log dir
     event_log_dir="s3a://${AWS_S3A_BUCKET}/shared/spark-events"
-    sed -i "s#{%spark.eventLog.dir%}#${event_log_dir}#g" `grep "{%spark.eventLog.dir%}" -rl ./`
+    sed -i "s!{%spark.eventLog.dir%}!${event_log_dir}!g" `grep "{%spark.eventLog.dir%}" -rl ./`
 }
 
 function update_gcp_hadoop_config() {
@@ -140,7 +140,7 @@ function update_gcp_hadoop_config() {
 
     # event log dir
     event_log_dir="gs://${GCP_GCS_BUCKET}/shared/spark-events"
-    sed -i "s#{%spark.eventLog.dir%}#${event_log_dir}#g" `grep "{%spark.eventLog.dir%}" -rl ./`
+    sed -i "s!{%spark.eventLog.dir%}!${event_log_dir}!g" `grep "{%spark.eventLog.dir%}" -rl ./`
 }
 
 function update_azure_hadoop_config() {
@@ -167,7 +167,7 @@ function update_azure_hadoop_config() {
     else
         event_log_dir="$AZURE_STORAGE_KIND://${AZURE_CONTAINER}@${AZURE_STORAGE_ACCOUNT}.{%storage.endpoint%}.core.windows.net/shared/spark-events"
     fi
-    sed -i "s#{%spark.eventLog.dir%}#${event_log_dir}#g" `grep "{%spark.eventLog.dir%}" -rl ./`
+    sed -i "s!{%spark.eventLog.dir%}!${event_log_dir}!g" `grep "{%spark.eventLog.dir%}" -rl ./`
 }
 
 function update_hadoop_config_for_cloud() {
@@ -215,16 +215,18 @@ function update_data_disks_config() {
     fi
 
     # set nodemanager.local-dirs
-    if [ -z "$local_dirs" ]; then
-        local_dirs="{%HADOOP_HOME%}/data/nodemanager/local-dir"
+    nodemanager_local_dirs=$local_dirs
+    if [ -z "$nodemanager_local_dirs" ]; then
+        nodemanager_local_dirs="{%HADOOP_HOME%}/data/nodemanager/local-dir"
     fi
-    sed -i "s/{%yarn.nodemanager.local-dirs%}/${local_dirs}/g" `grep "{%yarn.nodemanager.local-dirs%}" -rl ./`
+    sed -i "s!{%yarn.nodemanager.local-dirs%}!${nodemanager_local_dirs}!g" `grep "{%yarn.nodemanager.local-dirs%}" -rl ./`
 
     # set spark local dir
-    if [ -z "$local_dirs" ]; then
-        local_dirs="/tmp"
+    spark_local_dir=$local_dirs
+    if [ -z "$spark_local_dir" ]; then
+        spark_local_dir="/tmp"
     fi
-    sed -i "s/{%spark.local.dir%}/${local_dirs}/g" `grep "{%spark.local.dir%}" -rl ./`
+    sed -i "s!{%spark.local.dir%}!${spark_local_dir}!g" `grep "{%spark.local.dir%}" -rl ./`
 }
 
 function configure_hadoop_and_spark() {

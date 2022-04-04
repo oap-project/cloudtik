@@ -125,7 +125,11 @@ function update_aws_hadoop_config() {
     sed -i "s#{%fs.s3a.secret.key%}#${FS_S3A_SECRET_KEY}#g" `grep "{%fs.s3a.secret.key%}" -rl ./`
 
     # event log dir
-    event_log_dir="s3a://${AWS_S3A_BUCKET}/shared/spark-events"
+    if [ -z "${AWS_S3A_BUCKET}" ]; then
+        event_log_dir="file:///tmp/spark-events"
+    else
+        event_log_dir="s3a://${AWS_S3A_BUCKET}/shared/spark-events"
+    fi
     sed -i "s!{%spark.eventLog.dir%}!${event_log_dir}!g" `grep "{%spark.eventLog.dir%}" -rl ./`
 }
 
@@ -139,7 +143,11 @@ function update_gcp_hadoop_config() {
     sed -i "s#{%fs.gs.auth.service.account.private.key%}#${private_key}#g" `grep "{%fs.gs.auth.service.account.private.key%}" -rl ./`
 
     # event log dir
-    event_log_dir="gs://${GCP_GCS_BUCKET}/shared/spark-events"
+    if [ -z "${GCP_GCS_BUCKET}" ]; then
+        event_log_dir="file:///tmp/spark-events"
+    else
+        event_log_dir="gs://${GCP_GCS_BUCKET}/shared/spark-events"
+    fi
     sed -i "s!{%spark.eventLog.dir%}!${event_log_dir}!g" `grep "{%spark.eventLog.dir%}" -rl ./`
 }
 
@@ -162,7 +170,7 @@ function update_azure_hadoop_config() {
     fi
 
     # event log dir
-    if [ -z "$endpoint" ]; then
+    if [ -z "${AZURE_CONTAINER}" ] || [ -z "$endpoint" ]; then
         event_log_dir="file:///tmp/spark-events"
     else
         event_log_dir="$AZURE_STORAGE_KIND://${AZURE_CONTAINER}@${AZURE_STORAGE_ACCOUNT}.{%storage.endpoint%}.core.windows.net/shared/spark-events"
@@ -244,10 +252,13 @@ function configure_hadoop_and_spark() {
     cp -r ${output_dir}/hadoop/yarn-site.xml  ${HADOOP_HOME}/etc/hadoop/
 
     if [ $IS_HEAD_NODE == "true" ];then
-	    cp -r ${output_dir}/spark/*  ${SPARK_HOME}/conf
+	      cp -r ${output_dir}/spark/*  ${SPARK_HOME}/conf
+
+	      # Create event log dir on cloud storage if needed
+	      # This needs to be done after hadoop file system has been configured correctly
+	      ${HADOOP_HOME}/bin/hadoop fs -mkdir -p /shared/spark-events
     fi
 }
-
 
 function configure_jupyter_for_spark() {
   # Set default password(cloudtik) for JupyterLab

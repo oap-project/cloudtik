@@ -123,6 +123,10 @@ function update_aws_hadoop_config() {
     sed -i "s#{%aws.s3a.bucket%}#${AWS_S3A_BUCKET}#g" `grep "{%aws.s3a.bucket%}" -rl ./`
     sed -i "s#{%fs.s3a.access.key%}#${FS_S3A_ACCESS_KEY}#g" `grep "{%fs.s3a.access.key%}" -rl ./`
     sed -i "s#{%fs.s3a.secret.key%}#${FS_S3A_SECRET_KEY}#g" `grep "{%fs.s3a.secret.key%}" -rl ./`
+
+    # event log dir
+    event_log_dir="s3a://${AWS_S3A_BUCKET}/shared/spark-events"
+    sed -i "s#{%spark.eventLog.dir%}#${event_log_dir}#g" `grep "{%spark.eventLog.dir%}" -rl ./`
 }
 
 function update_gcp_hadoop_config() {
@@ -133,6 +137,10 @@ function update_gcp_hadoop_config() {
     private_key_has_open_quote=${FS_GS_AUTH_SERVICE_ACCOUNT_PRIVATE_KEY%\"}
     private_key=${private_key_has_open_quote#\"}
     sed -i "s#{%fs.gs.auth.service.account.private.key%}#${private_key}#g" `grep "{%fs.gs.auth.service.account.private.key%}" -rl ./`
+
+    # event log dir
+    event_log_dir="gs://${GCP_GCS_BUCKET}/shared/spark-events"
+    sed -i "s#{%spark.eventLog.dir%}#${event_log_dir}#g" `grep "{%spark.eventLog.dir%}" -rl ./`
 }
 
 function update_azure_hadoop_config() {
@@ -140,15 +148,26 @@ function update_azure_hadoop_config() {
     sed -i "s#{%azure.container%}#${AZURE_CONTAINER}#g" "$(grep "{%azure.container%}" -rl ./)"
     sed -i "s#{%azure.account.key%}#${AZURE_ACCOUNT_KEY}#g" "$(grep "{%azure.account.key%}" -rl ./)"
     if [ $AZURE_STORAGE_KIND == "wasbs" ];then
-      sed -i "s#{%azure.storage.kind%}#wasbs#g" "$(grep "{%azure.storage.kind%}" -rl ./)"
-      sed -i "s#{%storage.endpoint%}#blob#g" "$(grep "{%storage.endpoint%}" -rl ./)"
+        endpoint="blob"
+        sed -i "s#{%azure.storage.kind%}#wasbs#g" "$(grep "{%azure.storage.kind%}" -rl ./)"
+        sed -i "s#{%storage.endpoint%}#blob#g" "$(grep "{%storage.endpoint%}" -rl ./)"
     elif [ $AZURE_STORAGE_KIND == "abfs" ];then
-      sed -i "s#{%azure.storage.kind%}#abfs#g" "$(grep "{%azure.storage.kind%}" -rl ./)"
-      sed -i "s#{%storage.endpoint%}#dfs#g" "$(grep "{%storage.endpoint%}" -rl ./)"
-      sed -i "s#{%auth.type%}#SharedKey#g" "$(grep "{%auth.type%}" -rl ./)"
+        endpoint="dfs"
+        sed -i "s#{%azure.storage.kind%}#abfs#g" "$(grep "{%azure.storage.kind%}" -rl ./)"
+        sed -i "s#{%storage.endpoint%}#dfs#g" "$(grep "{%storage.endpoint%}" -rl ./)"
+        sed -i "s#{%auth.type%}#SharedKey#g" "$(grep "{%auth.type%}" -rl ./)"
     else
+        endpoint=""
        echo "Azure storage kind must be wasbs(Azure Blob storage) or abfs(Azure Data Lake Gen 2)"
     fi
+
+    # event log dir
+    if [ -z "$endpoint" ]; then
+        event_log_dir="file:///tmp/spark-events"
+    else
+        event_log_dir="$AZURE_STORAGE_KIND://${AZURE_CONTAINER}@${AZURE_STORAGE_ACCOUNT}.{%storage.endpoint%}.core.windows.net/shared/spark-events"
+    fi
+    sed -i "s#{%spark.eventLog.dir%}#${event_log_dir}#g" `grep "{%spark.eventLog.dir%}" -rl ./`
 }
 
 function update_hadoop_config_for_cloud() {

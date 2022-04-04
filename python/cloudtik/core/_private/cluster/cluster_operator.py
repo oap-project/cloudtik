@@ -386,7 +386,8 @@ def teardown_cluster(config_file: str, yes: bool, workers_only: bool,
                                 cmd,
                                 override_cluster_name)
     except Exception as e:
-        # todo: add better exception info
+        # Set to last step
+        current_step = total_steps
         cli_logger.verbose_error("{}", str(e))
         cli_logger.warning(
             "Exception occurred when stopping the cluster runtime "

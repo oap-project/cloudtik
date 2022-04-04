@@ -27,6 +27,7 @@ ENV CLOUDTIK_ENV=$CONDA_ENV_NAME
 
 RUN sudo apt-get update -y && sudo apt-get upgrade -y \
     && sudo apt-get install -y \
+        vim \
         git \
         wget \
         tmux \

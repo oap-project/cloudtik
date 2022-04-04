@@ -1,7 +1,7 @@
 #!/bin/bash
 
 function show_usage() {
-  echo "Usage: spark-sql.sh cluster-config-file [--help]"
+  echo "Usage: spark-sql.sh cluster-config-file [--help] [spark sql arguments]"
 }
 
 while [[ $# -gt 0 ]]
@@ -13,9 +13,11 @@ case $key in
     show_usage
     exit 1
     ;;
-    *)    # cluster config file
+    *)    # completed this shell arguments processing
+    # cluster config file
     cluster_config_file=$1
     shift 1 # past argument
+    break
     ;;
 esac
 done

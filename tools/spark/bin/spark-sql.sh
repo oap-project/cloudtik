@@ -27,5 +27,7 @@ then
       exit 1
 fi
 
-cloudtik exec $cluster_config_file  \
-  "spark-sql"
+# pass in the remaining arguments
+args="$*"
+cmd="spark-sql ${args}"
+cloudtik exec $cluster_config_file "$cmd"

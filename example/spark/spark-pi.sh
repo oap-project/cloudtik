@@ -35,4 +35,4 @@ then
 fi
 
 cloudtik exec $cluster_config_file  \
-  "spark-submit --master yarn --deploy-mode cluster --name spark-pi --class org.apache.spark.examples.SparkPi $SPARK_HOME/examples/jars/spark-examples_2.12-3.1.1.jar ${pi_digits}"
+  "spark-submit --master yarn --deploy-mode cluster --name spark-pi --class org.apache.spark.examples.SparkPi \$SPARK_HOME/examples/jars/spark-examples_2.12-3.1.1.jar ${pi_digits}"

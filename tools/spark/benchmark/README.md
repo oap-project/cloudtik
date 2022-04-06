@@ -39,16 +39,23 @@ val useDoubleForDecimal = false   // use double format instead of decimal format
 ## 3. Run TPC-DS power test
 
 There are a notebook, or a scala script for users to easily run TPC-DS power test with Cloudtik cluster.
-You need to update the following configurations according to your request on **[tpcds_power_test.ipynb](./notebooks/tpcds_power_test.ipynb)** and **[tpcds_power_test.scala](./scripts/tpcds_power_test.scala)**:
+The script and notebook can run in the same way as in the previous step.Replace the cluster configuration file, the paths, spark.driver.scale, spark.driver.fsdir, spark.driver.iterations values in the above command for your case.
+```buildoutcfg
+cloudtik exec your_cluster_config.yaml "spark-shell -i /home/cloudtik/benchmark/tpcds-power-test.scala --conf spark.driver.scale=1 --conf spark.driver.iterations=1 --conf spark.driver.fsdir="s3a://s3_bucket_name" --jars /home/cloudtik/runtime/benchmark-tools/spark-sql-perf/target/scala-2.12/spark-sql-perf_2.12-0.5.1-SNAPSHOT.jar"
+
 ```
-val scaleFactor = "1"             // data scale 1GB
-val iterations = 1                // how many times to run the whole set of queries.
-val format = "parquet"            // support parquer or orc
-val storage = "s3a"                // support hdfs or s3
-var bucket_name = "$YOUR_BUCKET_NAME"   // when storage is "s3", this value will be use.
-val partitionTables = true        // create partition tables
-val query_filter = Seq()          // Seq() == all queries
+If you use Jupyter notebook, you need to update the following configurations according to your request on **[tpcds_power_test.ipynb](./notebooks/tpcds_power_test.ipynb)**.
+```
+val scaleFactor = "1"           // data scale 1GB
+val iterations = 1              // how many times to run the whole set of queries.
+val format = "parquet"          // support parquer or orc
+// support s3a://s3_bucket, gs://gs_bucket
+// wasbs://container@storage_account.blob.core.windows.net
+// abfs://container@storage_account.dfs.core.windows.net
+val fsdir = "s3a://s3_bucket_name" 
+val partitionTables = true      // create partition tables
+val query_filter = Seq()        // Seq() == all queries
 //val query_filter = Seq("q1-v2.4", "q2-v2.4") // run subset of queries
-val randomizeQueries = false      // run queries in a random order. Recommended for parallel runs.
+val randomizeQueries = false    // run queries in a random order. Recommended for parallel runs.
 ```
-The script and notebook can run in the same way as in the previous step.
+

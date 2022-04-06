@@ -49,8 +49,10 @@ If you use Jupyter notebook, you need to update the following configurations acc
 val scaleFactor = "1"           // data scale 1GB
 val iterations = 1              // how many times to run the whole set of queries.
 val format = "parquet"          // support parquer or orc
-val storage = "s3a"              // support hdfs or s3
-var bucket_name = "$YOUR_BUCKET_NAME"   // when storage is "s3", this value will be use.
+// support s3a://s3_bucket, gs://gs_bucket
+// wasbs://container@storage_account.blob.core.windows.net
+// abfs://container@storage_account.dfs.core.windows.net
+val fsdir = "s3a://s3_bucket_name" 
 val partitionTables = true      // create partition tables
 val query_filter = Seq()        // Seq() == all queries
 //val query_filter = Seq("q1-v2.4", "q2-v2.4") // run subset of queries

@@ -19,7 +19,3 @@ available_node_types:
                       diskName: datadisk1
                       storageAccountType: Premium_LRS
                       diskSizeGB: 200
-                    - lun: 1
-                      diskName: datadisk2
-                      storageAccountType: Premium_LRS
-                      diskSizeGB: 200

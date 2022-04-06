@@ -19,13 +19,7 @@ available_node_types:
             BlockDeviceMappings:
                 - DeviceName: /dev/sda1
                   Ebs:
-                      VolumeSize: 100
-                      VolumeType: gp2
-                      DeleteOnTermination: True
-                - DeviceName: /dev/sdf
-                  Ebs:
                       VolumeSize: 200
                       VolumeType: gp3
-                      # gp3: 3,000-16,000 IOPS
-                      Iops: 3000
                       DeleteOnTermination: True
+

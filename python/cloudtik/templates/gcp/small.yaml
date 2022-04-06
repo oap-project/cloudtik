@@ -22,11 +22,5 @@ available_node_types:
                   autoDelete: true
                   type: PERSISTENT
                   initializeParams:
-                      diskSizeGb: 100
-                      diskType: pd-balanced
-                - deviceName: sdb1
-                  autoDelete: true
-                  type: PERSISTENT
-                  initializeParams:
                       diskSizeGb: 200
                       diskType: pd-ssd

@@ -29,6 +29,7 @@ from cloudtik.core._private.constants import CLOUDTIK_PROCESSES, \
     CLOUDTIK_DEFAULT_PORT
 from cloudtik.core._private.node.node_services import NodeServicesStarter
 from cloudtik.core._private.parameter import StartParams
+from cloudtik.runtime.spark.utils import is_spark_runtime_scripts, get_spark_runtime_command
 from cloudtik.scripts.workspace import workspace
 from cloudtik.scripts.head_scripts import head
 
@@ -918,8 +919,8 @@ def submit(cluster_config_file, screen, tmux, stop, start, cluster_name,
             no_config_cache=no_config_cache,
             redirect_command_output=False,
             use_login_shells=True)
-    target = os.path.basename(script)
-    target = os.path.join("~", target)
+    target_name = os.path.basename(script)
+    target = os.path.join("~", "jobs", target_name)
     rsync(
         cluster_config_file,
         script,
@@ -928,7 +929,16 @@ def submit(cluster_config_file, screen, tmux, stop, start, cluster_name,
         no_config_cache=no_config_cache,
         down=False)
 
-    command_parts = ["python", target]
+    if target_name.endswith(".py"):
+        command_parts = ["python", target]
+    elif target_name.endswith(".sh"):
+        command_parts = ["bash", target]
+    elif is_spark_runtime_scripts(target_name):
+        command_parts = get_spark_runtime_command(target)
+    else:
+        cli_logger.error("We don't how to execute your file: {}", script)
+        return
+
     if script_args:
         command_parts += list(script_args)
 
@@ -937,7 +947,6 @@ def submit(cluster_config_file, screen, tmux, stop, start, cluster_name,
     exec_cluster(
         cluster_config_file,
         cmd=cmd,
-        run_env="docker",
         screen=screen,
         tmux=tmux,
         stop=stop,

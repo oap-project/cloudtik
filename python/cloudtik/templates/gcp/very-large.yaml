@@ -12,7 +12,7 @@ available_node_types:
                   autoDelete: true
                   type: PERSISTENT
                   initializeParams:
-                      diskSizeGb: 200
+                      diskSizeGb: 100
                       diskType: pd-balanced
     worker-default:
         node_config:
@@ -24,27 +24,27 @@ available_node_types:
                   initializeParams:
                       diskSizeGb: 100
                       diskType: pd-balanced
-                - deviceName: sdb1
+                - deviceName: sdf
                   autoDelete: true
                   type: PERSISTENT
                   initializeParams:
-                      diskSizeGb: 500
+                      diskSizeGb: 200
                       diskType: pd-ssd
-                - deviceName: sdb2
+                - deviceName: sdg
                   autoDelete: true
                   type: PERSISTENT
                   initializeParams:
-                      diskSizeGb: 500
+                      diskSizeGb: 200
                       diskType: pd-ssd
-                - deviceName: sdb3
+                - deviceName: sdh
                   autoDelete: true
                   type: PERSISTENT
                   initializeParams:
-                      diskSizeGb: 500
+                      diskSizeGb: 200
                       diskType: pd-ssd
-                - deviceName: sdb4
+                - deviceName: sdi
                   autoDelete: true
                   type: PERSISTENT
                   initializeParams:
-                      diskSizeGb: 500
+                      diskSizeGb: 200
                       diskType: pd-ssd

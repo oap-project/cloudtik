@@ -109,3 +109,15 @@ def config_spark_runtime_resources(
 
 def get_runtime_processes():
     return SPARK_RUNTIME_PROCESSES
+
+
+def is_spark_runtime_scripts(script_file):
+    if script_file.endswith(".scala"):
+        return True
+
+    return False
+
+
+def get_spark_runtime_command(target):
+    command_parts = ["spark-shell", "-i", target]
+    return command_parts

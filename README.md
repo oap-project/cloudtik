@@ -4,9 +4,7 @@ CloudTik is a cloud scaling platform for scaling your distributed analytics and 
 on public Cloud environment including AWS, Azure, GCP and so on. The CloudTik target is enable any users can
 easily create and manage analytics and AI clusters, provide out of box optimized Spark runtime for
 your Analytics and AI needs, and go quickly to focus on your workload and business need instead
-of taking a lot of time constructing the cluster and platform.
-
-We target:
+of taking a lot of time constructing the cluster and platform. We target:
 - Support major public Cloud providers (AWS, Azure and GCP, ...)
 - Out of box and optimized Spark runtime for Analytics and AI
 - Easy and unified operation experiences across Cloud
@@ -67,8 +65,8 @@ Now you can start a cluster:
 ```
 cloudtik up your-cluster_config.yaml
 ```
+You need the cloud storage access information in Step 5 and only a few additional key settings in the configuration file to launch a cluster.
 Refer to example/cluster folder for example of typical cluster configurations.
-You only need a few key settings in the configuration file to launch a cluster.
 
 ### 7. Manage the cluster
 CloudTik provides very powerful capability to monitor and manage the cluster.
@@ -105,6 +103,6 @@ cloudtik rsync-down your-cluster_config.yaml [source] [target]
 ```
 #### Stop a cluster
 ```
-cloudtik down ./example/cluster/aws/example-minimal.yaml -y # Tear down the cluster.
+cloudtik down your-cluster_config.yaml
 ```
 For more information as to the commands, you can use `cloudtik --help` or `cloudtik [command] --help` to get detailed instructions.

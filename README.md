@@ -1,10 +1,18 @@
 # CloudTik
 
-CloudTik is a cloud scaling infrastructure for scaling your distributed analytics and AI cluster such as Spark easily
+CloudTik is a cloud scaling platform for scaling your distributed analytics and AI cluster such as Spark easily
 on public Cloud environment including AWS, Azure, GCP and so on. The CloudTik target is enable any users can
-easily create and manage analytics and AI clusters and go quickly to focus on workload and business need insteading
+easily create and manage analytics and AI clusters, provide out of box optimized Spark runtime for
+your Analytics and AI needs, and go quickly to focus on your workload and business need instead
 of taking a lot of time constructing the cluster and platform.
 
+We target:
+- Support major public Cloud providers (AWS, Azure and GCP, ...)
+- Out of box and optimized Spark runtime for Analytics and AI
+- Easy and unified operation experiences across Cloud
+- Open architecture and user full control
+- Runtime directly on VM or in Container
+- A full open-sourced solution
 
 ## Getting Started with CloudTik
 ### 1. Prepare Python environment
@@ -19,79 +27,84 @@ conda activate cloudtik;
 ```
 ### 2. Install CloudTik
 Installation of CloudTik is simple. Execute the below pip commands to install CloudTik to the working machine
-for specific cloud providers.
+for specific cloud providers. For AWS example,
 
 ```
 # if running CloudTik on aws
 pip install -U "cloudtik[aws] @ http://23.95.96.95:8000/latest/cloudtik-0.9.0-cp37-cp37m-manylinux2014_x86_64.whl"
-
-# if running CloudTik on azure
-pip install -U "cloudtik[azure] @ http://23.95.96.95:8000/latest/cloudtik-0.9.0-cp37-cp37m-manylinux2014_x86_64.whl"
-
-# if running CloudTik on gcp
-pip install -U "cloudtik[gcp] @ http://23.95.96.95:8000/latest/cloudtik-0.9.0-cp37-cp37m-manylinux2014_x86_64.whl"
-
-# if running CloudTik on k8s
-pip install -U "cloudtik[k8s] @ http://23.95.96.95:8000/latest/cloudtik-0.9.0-cp37-cp37m-manylinux2014_x86_64.whl"
-
-# if need support for all above
-pip install -U "cloudtik[all] @ http://23.95.96.95:8000/latest/cloudtik-0.9.0-cp37-cp37m-manylinux2014_x86_64.whl"
-
 ```
-for 
+Replace "cloudtik[aws]" with "clouditk[azure]" or "cloudtik[gcp]" if you want to use Azure or GCP.
+Use "cloudtik[all]" if you want to manage clusters with all supported Cloud providers.
+
 ### 3. Configure Credentials for Cloud Providers
-
-#### Configure for AWS
+You need to configure or log into your Cloud account to gain access to your cloud provider API.
+#### If you use AWS
 Please follow the instructions described in [the AWS docs](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html) for configuring AWS credentials needed to acccess AWS.
-
-#### Configure for GCP
-
+#### If you use Azure
+Use "az login" to log into your Azure cloud account at the machine.
+#### If you use GCP
 Set the `GOOGLE_APPLICATION_CREDENTIALS` environment variable as described in [the GCP docs](https://cloud.google.com/docs/authentication/getting-started).
 
-### 4. Configure Cloud Storage Bucket on Cloud Providers
+### 4 Create a workspace for your clusters.
+CloudTik uses Workspace concept to manage your Cloud network and other resources. In a Workspace, you can start one or more clusters.
+Use the following command to create and provision a Workspace:
 
-#### Configure GCS Bucket
+```
+cloudtik workspace create your-workspace-config.yaml
+```
+Check example/cluster folder for example Workspace configuration file examples.
 
+### 5. Configure Cloud Storage
+Running Spark on Cloud needs a Cloud storage to store staging and events data.
+#### If you use AWS
+#### If you use Azure
+#### If you use GCP
 If you do not already have a GCS bucket, create one and configure its permission for your service account.
 More details, please refer to configure [gcs bucket guide](./doc/Configure-GCS-Bucket.md).
 
-### 5. CloudTik Commands
+### 6. Start a cluster
+Now you can start a cluster:
 ```
-# commands running on working node for handling a cluster
-cloudtik up ./example/cluster/aws/example-minimal.yaml -y   # Create or up a  cluster.
+cloudtik up your-cluster_config.yaml
+```
+Refer to example/cluster folder for example of typical cluster configurations.
+You only need a few key settings in the configuration file to launch a cluster.
+
+### 7. Manage the cluster
+CloudTik provides very powerful capability to monitor and manage the cluster.
+
+#### Show cluster status and information
+Use the following commands to show various cluster information.
+```
+cloudtik status your-cluster_config.yaml
+cloudtik info your-cluster_config.yaml
+cloudtik head-ip your-cluster_config.yaml
+cloudtik worker-ips your-cluster_config.yaml
+cloudtik process-status your-cluster_config.yaml
+cloudtik monitor your-cluster_config.yaml
+```
+#### Attach to the cluster head (or specific node)
+```
+cloudtik attach your-cluster_config.yaml
+```
+#### Execute commands on cluster head (or specified node or on all nodes)
+```
+cloudtik exec your-cluster_config.yaml
+```
+#### Submit a job to the cluster to run
+```
+cloudtik exec your-cluster_config.yaml your-job-file.(py|sh|scala)
+```
+#### Copy local files to cluster head (or to all nodes)
+```
+cloudtik rsync-up your-cluster_config.yaml [source] [target]
+```
+#### Copy file from cluster to local
+```
+cloudtik rsync-down your-cluster_config.yaml [source] [target]
+```
+#### Stop a cluster
+```
 cloudtik down ./example/cluster/aws/example-minimal.yaml -y # Tear down the cluster.
-
-cloudtik attach ./example/cluster/aws/example-minimal.yaml    # Create or attach to a SSH session to the cluster.
-cloudtik exec ./example/cluster/aws/example-minimal.yaml [command]   # Exec a command via SSH on a cloudtik cluster.
-cloudtik submit ./example/cluster/aws/example-minimal.yaml  experiment.py  #  Uploads and runs a script on the specified cluster.
-
-cloudtik rsync-up ./example/cluster/aws/example-minimal.yaml [source] [target]   # Upload file to head node.
-cloudtik rsync-down ./example/cluster/aws/example-minimal.yaml [source] [target]   # Download file from head node.
-
-cloudtik enable-proxy ./example/cluster/aws/example-minimal.yaml # Enable local SOCKS5 proxy to the cluster through SSH
-cloudtik disable-proxy ./example/cluster/aws/example-minimal.yaml # Disable local SOCKS5 proxy to the cluster through SSH
-
-
-# commands running on working node for information and status
-cloudtik head-ip ./example/cluster/aws/example-minimal.yaml    # Get the ip of head node.
-cloudtik worker-ips ./example/cluster/aws/example-minimal.yaml    # Get the ips of worker nodes.
-cloudtik info ./example/cluster/aws/example-minimal.yaml # Show cluster summary information and useful links to use the cluster.
-cloudtik status ./example/cluster/aws/example-minimal.yaml # Show cluster summary status.
-cloudtik process-status ./example/cluster/aws/example-minimal.yaml # Show process status of cluster nodes.
-cloudtik monitor ./example/cluster/aws/example-minimal.yaml # Tails the monitor logs of a cluster.
-
-
-# commands running on working node for debug
-cloudtik health-check ./example/cluster/aws/example-minimal.yaml   # Do cluster health check.
-cloudtik debug-status ./example/cluster/aws/example-minimal.yaml   # Show debug status of cluster scaling.
-cloudtik cluster-dump ./example/cluster/aws/example-minimal.yaml   # Get log data from one or more nodes.
-cloudtik kill-node ./example/cluster/aws/example-minimal.yaml   # Kills a random node. For testing purposes only.
-
-
-# workspace commands
-cloudtik workspace   $workspace_config_file      # Create a Workspace on Cloud based on the workspace configuration file.
 ```
-You can use the command `cloudtik --help` or `cloudtik up --help` to get detailed instructions.
-
-Usually you can install CloudTik package directly through pip as above and don't need to build it from source code. If you are contributing to CloudTik, you can follow the instrucitons in [Building CloudTik](./doc/Building.md) for building. 
-
+For more information as to the commands, you can use `cloudtik --help` or `cloudtik [command] --help` to get detailed instructions.

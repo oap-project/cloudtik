@@ -1,8 +1,13 @@
+import copy
 import json
 import logging
+import subprocess
 from pathlib import Path
 import random
+import time
 from typing import Any, Callable
+
+from cloudtik.core._private.cli_logger import cli_logger, cf
 
 from azure.common.credentials import get_cli_profile
 from azure.identity import AzureCliCredential
@@ -15,6 +20,8 @@ MSI_NAME = "cloudtik-msi-user-identity"
 NSG_NAME = "cloudtik-nsg"
 SUBNET_NAME = "cloudtik-subnet"
 VNET_NAME = "cloudtik-vnet"
+NUM_AZURE_WORKSPACE_CREATION_STEPS = 6
+NUM_AZURE_WORKSPACE_DELETION_STEPS = 4
 
 logger = logging.getLogger(__name__)
 
@@ -36,16 +43,293 @@ def get_azure_sdk_function(client: Any, function_name: str) -> Callable:
     return func
 
 
+def get_resource_group_name(config, resource_client, use_internal_ips):
+    if use_internal_ips:
+        resource_group_name = get_working_node_resource_group_name()
+    else:
+        resource_group_name = get_workspace_resource_group_name(config, resource_client)
+    return resource_group_name
+
+
+def delete_workspace_azure(config):
+    resource_client = construct_resource_client(config)
+    workspace_name = config["workspace_name"]
+    use_internal_ips = config["provider"].get("use_internal_ips", False)
+    resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
+
+    if resource_group_name is None:
+        cli_logger.print("Workspace: {} doesn't exist!".format(config["workspace_name"]))
+        return
+
+    current_step = 1
+    total_steps = NUM_AZURE_WORKSPACE_DELETION_STEPS
+    if not use_internal_ips:
+        total_steps += 1
+
+    try:
+        with cli_logger.group("Deleting workspace: {}", workspace_name):
+            _delete_network_resources(config, resource_client, current_step, total_steps)
+
+    except Exception as e:
+        cli_logger.error(
+            "Failed to delete workspace {}. {}".format(workspace_name, str(e)))
+        raise e
+
+    cli_logger.print(
+        "Successfully deleted workspace: {}.",
+        cf.bold(workspace_name))
+    return None
+
+
+def _delete_network_resources(config, resource_client, current_step, total_steps):
+    use_internal_ips = config["provider"].get("use_internal_ips", False)
+
+    """
+         Do the work - order of operation
+         1.) Delete public subnet
+         2.) Delete router for private subnet 
+         3.) Delete private subnets
+         4.) Delete firewalls
+         5.) Delete vpc
+         6.) Delete resource group
+    """
+
+    # delete public subnets
+    # with cli_logger.group(
+    #         "Deleting public subnet",
+    #         _numbered=("[]", current_step, total_steps)):
+    #     current_step += 1
+    #     _delete_subnet(config, compute, isPrivate=False)
+
+    # delete router for private subnets
+    # with cli_logger.group(
+    #         "Deleting router",
+    #         _numbered=("[]", current_step, total_steps)):
+    #     current_step += 1
+    #     _delete_router(config, compute)
+
+    # delete private subnets
+    # with cli_logger.group(
+    #         "Deleting private subnet",
+    #         _numbered=("[]", current_step, total_steps)):
+    #     current_step += 1
+    #     _delete_subnet(config, compute, isPrivate=True)
+
+    # delete firewalls
+    # with cli_logger.group(
+    #         "Deleting firewall rules",
+    #         _numbered=("[]", current_step, total_steps)):
+    #     current_step += 1
+    #     _delete_firewalls(config, compute)
+
+    # delete vpc
+    # if not use_internal_ips:
+    #     with cli_logger.group(
+    #             "Deleting VPC",
+    #             _numbered=("[]", current_step, total_steps)):
+    #         current_step += 1
+    #         _delete_vpc(config, compute)
+
+    # delete resource group
+    if not use_internal_ips:
+        with cli_logger.group(
+                "Deleting Resource Group",
+                _numbered=("[]", current_step, total_steps)):
+            current_step += 1
+            _delete_resource_group(config, resource_client)
+
+
+def _delete_resource_group(config, resource_client):
+    resource_group_name = get_workspace_resource_group_name(config, resource_client)
+
+    if resource_group_name is None:
+        cli_logger.print("This Resource Group: {} has not existed. No need to delete it.".
+                         format(resource_group_name))
+        return
+
+    """ Delete the Resource Group """
+    cli_logger.print("Deleting the Resource Group: {}...".format(resource_group_name))
+
+    try:
+        resource_client.resource_groups.begin_delete(
+            resource_group_name
+        ).result()
+        cli_logger.print("Successfully deleted the Resource Group: {}.".format(resource_group_name))
+    except Exception as e:
+        cli_logger.error("Failed to delete the Resource Group:{}. {}".format(resource_group_name, str(e)))
+        raise e
+
+    return
+
+
+def create_azure_workspace(config):
+    config = copy.deepcopy(config)
+    # TODO: create vpc and security group
+
+    config = _configure_workspace(config)
+
+    return config
+
+
+def _configure_workspace(config):
+    workspace_name = config["workspace_name"]
+
+    current_step = 1
+    total_steps = NUM_AZURE_WORKSPACE_CREATION_STEPS
+    try:
+        with cli_logger.group("Creating workspace: {}", workspace_name):
+            config = _configure_network_resources(config, current_step, total_steps)
+    except Exception as e:
+        cli_logger.error("Failed to create workspace. {}", str(e))
+        raise e
+
+    cli_logger.print(
+        "Successfully created workspace: {}.",
+        cf.bold(workspace_name))
+
+    return config
+
+
+def _create_resource_group(config, resource_client):
+    workspace_name = config["workspace_name"]
+    use_internal_ips = config["provider"].get("use_internal_ips", False)
+
+    if use_internal_ips:
+        # No need to create new resource group
+        resource_group_name = get_working_node_resource_group_name()
+        if resource_group_name is None:
+            cli_logger.abort("Only when the working node is "
+                             "an Azure instance can use use_internal_ips=True.")
+    else:
+
+        # Need to create a new resource_group
+        if get_workspace_resource_group_name(config, resource_client) is None:
+            resource_group = create_resource_group(config, resource_client)
+            resource_group_name = resource_group.name
+        else:
+            cli_logger.abort("There is a existing Resource Group with the same name: {}, "
+                             "if you want to create a new workspace with the same name, "
+                             "you need to execute workspace delete first!".format(workspace_name))
+    return resource_group_name
+
+
+def get_azure_instance_metadata():
+    # This function only be used on Azure instances.
+    try:
+        subprocess.run(
+            "curl -sL -H \"metadata:true\" \"http://169.254.169.254/metadata/instance?api-version=2020-09-01\""
+            " > /tmp/azure_instance_metadata.json", shell=True)
+        with open('/tmp/azure_instance_metadata.json', 'r', encoding='utf8') as fp:
+            metadata = json.load(fp)
+        subprocess.run("rm -rf /tmp/azure_instance_metadata.json", shell=True)
+        return metadata
+    except Exception as e:
+        cli_logger.verbose_error(
+            "Failed to get instance metadata: {}", str(e))
+        return None
+
+def get_working_node_resource_group_name():
+    metadata = get_azure_instance_metadata()
+    if metadata is None:
+        cli_logger.error("Failed to get the ResourceGroupId of the working node. "
+                         "Please check whether the working node is a Azure instance or not!")
+    resource_group_name = metadata.get("compute", {}).get("name", "")
+    cli_logger.print("Successfully get the ResourceGroupName for working node.")
+
+    return resource_group_name
+
+
+def get_workspace_resource_group_name(config, resource_client):
+    resource_group_name = 'cloudtik-{}-resource-group'.format(config["workspace_name"])
+    cli_logger.verbose("Getting the ResourceGroupName for workspace: {}...".
+                       format(resource_group_name))
+
+    try:
+        resource_group = resource_client.resource_groups.get(
+            resource_group_name
+        )
+        cli_logger.verbose_error("Successfully get the ResourceGroupName of {} for workspace.".
+                                 format(resource_group_name))
+        return resource_group.name
+    except Exception as e:
+        cli_logger.verbose_error(
+            "The Resource Group for workspace is not found: {}", str(e))
+        return None
+
+
+def create_resource_group(config, resource_client):
+    resource_group = 'cloudtik-{}-resource-group'.format(config["workspace_name"])
+
+    assert "location" in config["provider"], (
+        "Provider config must include location field")
+    params = {"location": config["provider"]["location"]}
+    cli_logger.print("Creating workspace Resource Group: {} on Azure...", resource_group)
+    # create resource group
+    try:
+
+        resource_group = resource_client.resource_groups.create_or_update(
+            resource_group_name=resource_group, parameters=params)
+        time.sleep(20)
+        cli_logger.print("Successfully created workspace Resource Group: cloudtik-{}-resource_group.".
+                         format(config["workspace_name"]))
+        return resource_group
+    except Exception as e:
+        cli_logger.error(
+            "Failed to create workspace Resource Group. {}", str(e))
+        raise e
+
+def _configure_network_resources(config, current_step, total_steps):
+    resource_client = construct_resource_client(config)
+    # create resource_group
+    with cli_logger.group(
+            "Creating Resource Group",
+            _numbered=("[]", current_step, total_steps)):
+        current_step += 1
+        _create_resource_group(config, resource_client)
+
+    # create vpc
+    # with cli_logger.group(
+    #         "Creating VPC",
+    #         _numbered=("[]", current_step, total_steps)):
+    #     current_step += 1
+    #     VpcId = _create_vpc(config, compute)
+    #
+    # # create subnets
+    # with cli_logger.group(
+    #         "Creating subnets",
+    #         _numbered=("[]", current_step, total_steps)):
+    #     current_step += 1
+    #     _create_and_configure_subnets(config, compute, VpcId)
+    #
+    # # create router
+    # with cli_logger.group(
+    #         "Creating router",
+    #         _numbered=("[]", current_step, total_steps)):
+    #     current_step += 1
+    #     _create_router(config, compute, VpcId)
+    #
+    # # create nat-gateway for router
+    # with cli_logger.group(
+    #         "Creating NAT for router",
+    #         _numbered=("[]", current_step, total_steps)):
+    #     current_step += 1
+    #     _create_nat_for_router(config, compute)
+    #
+    # # create firewalls
+    # with cli_logger.group(
+    #         "Creating firewall rules",
+    #         _numbered=("[]", current_step, total_steps)):
+    #     current_step += 1
+    #     _create_firewalls(config, compute, VpcId)
+
+    return config
+
+
 def bootstrap_azure(config):
     config = _configure_key_pair(config)
     config = _configure_resource_group(config)
     return config
 
-def bootstrap_workspace_azure(config):
-    # TODO: create vpc and security group:
-    # config = _configure_key_pair(config)
-    # config = _configure_resource_group(config)
-    return config
 
 def _configure_resource_group(config):
     # TODO: look at availability sets
@@ -133,4 +417,14 @@ def _configure_key_pair(config):
 
     return config
 
+
+def construct_resource_client(config):
+    subscription_id = config["provider"].get("subscription_id")
+    if subscription_id is None:
+        subscription_id = get_cli_profile().get_subscription_id()
+    credential = AzureCliCredential()
+    resource_client = ResourceManagementClient(credential,
+                                               subscription_id)
+    logger.info("Using subscription id: %s", subscription_id)
+    return resource_client
 

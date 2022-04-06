@@ -19,141 +19,17 @@ from cloudtik.core._private.state import kv_store
 from cloudtik.core._private.state.kv_store import kv_initialize_with_address
 from cloudtik.core._private.utils import CLOUDTIK_CLUSTER_SCALING_ERROR, \
     CLOUDTIK_CLUSTER_SCALING_STATUS, decode_cluster_scaling_time, is_alive_time, get_head_bootstrap_config
+from cloudtik.scripts.utils import NaturalOrderGroup
 
 logger = logging.getLogger(__name__)
 
 
-@click.group()
+@click.group(cls=NaturalOrderGroup)
 def head():
     """
     Commands running on head node only.
     """
     pass
-
-
-@head.command()
-@click.option(
-    "--keep-min-workers",
-    is_flag=True,
-    default=False,
-    help="Retain the minimal amount of workers specified in the config.")
-@add_click_logging_options
-def teardown(keep_min_workers):
-    """Tear down a cluster."""
-    teardown_cluster_on_head(keep_min_workers)
-
-
-@head.command()
-@click.option(
-    "--node-ip",
-    "-n",
-    required=False,
-    type=str,
-    default=None,
-    help="The node ip on which to execute start commands.")
-@click.option(
-    "--all-nodes",
-    is_flag=True,
-    default=False,
-    help="Whether to execute start commands to all nodes.")
-@add_click_logging_options
-def start_node(node_ip, all_nodes):
-    """Run start commands on the specific node or all nodes."""
-    start_node_on_head(
-        node_ip=node_ip, all_nodes=all_nodes)
-
-
-@head.command()
-@click.option(
-    "--node-ip",
-    "-n",
-    required=False,
-    type=str,
-    default=None,
-    help="The node ip on which to execute start commands.")
-@click.option(
-    "--all-nodes",
-    is_flag=True,
-    default=False,
-    help="Whether to execute stop commands to all nodes.")
-@add_click_logging_options
-def stop_node(node_ip, all_nodes):
-    """Run stop commands on the specific node or all nodes."""
-    stop_node_on_head(
-        node_ip=node_ip, all_nodes=all_nodes)
-
-
-@head.command()
-@click.option(
-    "--yes",
-    "-y",
-    is_flag=True,
-    default=False,
-    help="Don't ask for confirmation.")
-@click.option(
-    "--hard",
-    is_flag=True,
-    default=False,
-    help="Terminates node by directly delete the instances")
-@click.option(
-    "--node-ip",
-    required=False,
-    type=str,
-    default=None,
-    help="The node ip address of the node to kill")
-@add_click_logging_options
-def kill_node(yes, hard, node_ip):
-    """Kills a random node. For testing purposes only."""
-    killed_node_ip = kill_node_on_head(
-        yes, hard, node_ip)
-    if killed_node_ip:
-        click.echo("Killed node with IP " + killed_node_ip)
-
-
-@head.command()
-@click.argument("source", required=False, type=str)
-@click.argument("target", required=False, type=str)
-@click.option(
-    "--node-ip",
-    "-n",
-    required=True,
-    type=str,
-    help="The worker node ip to rsync from.")
-@add_click_logging_options
-def rsync_down(source, target, node_ip):
-    """Rsync down specific file from or to the worker node."""
-    rsync_node_on_head(
-        source,
-        target,
-        down=True,
-        node_ip=node_ip,
-        all_workers=False)
-
-
-@head.command()
-@click.argument("source", required=False, type=str)
-@click.argument("target", required=False, type=str)
-@click.option(
-    "--node-ip",
-    "-n",
-    required=False,
-    type=str,
-    default=None,
-    help="The worker node ip to rsync up.")
-@click.option(
-    "--all-workers",
-    is_flag=True,
-    default=False,
-    help="Whether to sync the file to all workers.")
-@add_click_logging_options
-def rsync_up(source, target, node_ip, all_workers):
-    """Rsync up specific file from or to the worker node."""
-    rsync_node_on_head(
-        source,
-        target,
-        down=False,
-        node_ip=node_ip,
-        all_workers=all_workers)
 
 
 @head.command()
@@ -236,15 +112,57 @@ def exec(cmd, node_ip, all_nodes, run_env, screen, tmux, port_forward):
 
 
 @head.command()
+@click.argument("source", required=False, type=str)
+@click.argument("target", required=False, type=str)
+@click.option(
+    "--node-ip",
+    "-n",
+    required=False,
+    type=str,
+    default=None,
+    help="The worker node ip to rsync up.")
+@click.option(
+    "--all-workers",
+    is_flag=True,
+    default=False,
+    help="Whether to sync the file to all workers.")
 @add_click_logging_options
-def worker_ips():
-    """Return the list of worker IPs of a cluster."""
+def rsync_up(source, target, node_ip, all_workers):
+    """Rsync up specific file from or to the worker node."""
+    rsync_node_on_head(
+        source,
+        target,
+        down=False,
+        node_ip=node_ip,
+        all_workers=all_workers)
+
+
+@head.command()
+@click.argument("source", required=False, type=str)
+@click.argument("target", required=False, type=str)
+@click.option(
+    "--node-ip",
+    "-n",
+    required=True,
+    type=str,
+    help="The worker node ip to rsync from.")
+@add_click_logging_options
+def rsync_down(source, target, node_ip):
+    """Rsync down specific file from or to the worker node."""
+    rsync_node_on_head(
+        source,
+        target,
+        down=True,
+        node_ip=node_ip,
+        all_workers=False)
+
+
+@head.command()
+@add_click_logging_options
+def status():
+    """Show cluster summary status."""
     cluster_config_file = get_head_bootstrap_config()
-    workers = get_worker_node_ips(cluster_config_file, None)
-    if len(workers) == 0:
-        click.echo("No worker found.")
-    else:
-        click.echo("\n".join(workers))
+    show_cluster_status(cluster_config_file, None)
 
 
 @head.command()
@@ -257,10 +175,14 @@ def info():
 
 @head.command()
 @add_click_logging_options
-def status():
-    """Show cluster summary status."""
+def worker_ips():
+    """Return the list of worker IPs of a cluster."""
     cluster_config_file = get_head_bootstrap_config()
-    show_cluster_status(cluster_config_file, None)
+    workers = get_worker_node_ips(cluster_config_file, None)
+    if len(workers) == 0:
+        click.echo("No worker found.")
+    else:
+        click.echo("\n".join(workers))
 
 
 @head.command()
@@ -285,86 +207,81 @@ def monitor(lines, file_type):
 
 @head.command()
 @click.option(
-    "--host",
-    "-h",
-    required=False,
-    type=str,
-    help="Single or list of hosts, separated by comma.")
-@click.option(
-    "--stream",
-    "-S",
-    required=False,
-    type=bool,
+    "--keep-min-workers",
     is_flag=True,
     default=False,
-    help="If True, will stream the binary archive contents to stdout")
-@click.option(
-    "--output",
-    "-o",
-    required=False,
-    type=str,
-    default=None,
-    help="Output file.")
-@click.option(
-    "--logs/--no-logs",
-    is_flag=True,
-    default=True,
-    help="Collect logs from session dir")
-@click.option(
-    "--debug-state/--no-debug-state",
-    is_flag=True,
-    default=True,
-    help="Collect debug_state.txt from log dir")
-@click.option(
-    "--pip/--no-pip",
-    is_flag=True,
-    default=True,
-    help="Collect installed pip packages")
-@click.option(
-    "--processes/--no-processes",
-    is_flag=True,
-    default=True,
-    help="Collect info on running processes")
-@click.option(
-    "--processes-verbose/--no-processes-verbose",
-    is_flag=True,
-    default=True,
-    help="Increase process information verbosity")
-@click.option(
-    "--tempfile",
-    "-T",
-    required=False,
-    type=str,
-    default=None,
-    help="Temporary file to use")
+    help="Retain the minimal amount of workers specified in the config.")
 @add_click_logging_options
-def cluster_dump(host: Optional[str] = None,
-                 stream: bool = False,
-                 output: Optional[str] = None,
-                 logs: bool = True,
-                 debug_state: bool = True,
-                 pip: bool = True,
-                 processes: bool = True,
-                 processes_verbose: bool = False,
-                 tempfile: Optional[str] = None):
-    """Collect cluster data and package into an archive on head.
+def teardown(keep_min_workers):
+    """Tear down a cluster."""
+    teardown_cluster_on_head(keep_min_workers)
 
-        Usage:
 
-            cloudtik head cluster-dump[--stream/--output file]
+@head.command()
+@click.option(
+    "--node-ip",
+    "-n",
+    required=False,
+    type=str,
+    default=None,
+    help="The node ip on which to execute start commands.")
+@click.option(
+    "--all-nodes",
+    is_flag=True,
+    default=False,
+    help="Whether to execute start commands to all nodes.")
+@add_click_logging_options
+def start_node(node_ip, all_nodes):
+    """Run start commands on the specific node or all nodes."""
+    start_node_on_head(
+        node_ip=node_ip, all_nodes=all_nodes)
 
-        This script is called on head node to fetch the cluster data.
-        """
-    get_cluster_dump_archive_on_head(
-        host=host,
-        stream=stream,
-        output=output,
-        logs=logs,
-        debug_state=debug_state,
-        pip=pip,
-        processes=processes,
-        processes_verbose=processes_verbose,
-        tempfile=tempfile)
+
+@head.command()
+@click.option(
+    "--node-ip",
+    "-n",
+    required=False,
+    type=str,
+    default=None,
+    help="The node ip on which to execute start commands.")
+@click.option(
+    "--all-nodes",
+    is_flag=True,
+    default=False,
+    help="Whether to execute stop commands to all nodes.")
+@add_click_logging_options
+def stop_node(node_ip, all_nodes):
+    """Run stop commands on the specific node or all nodes."""
+    stop_node_on_head(
+        node_ip=node_ip, all_nodes=all_nodes)
+
+
+@head.command()
+@click.option(
+    "--yes",
+    "-y",
+    is_flag=True,
+    default=False,
+    help="Don't ask for confirmation.")
+@click.option(
+    "--hard",
+    is_flag=True,
+    default=False,
+    help="Terminates node by directly delete the instances")
+@click.option(
+    "--node-ip",
+    required=False,
+    type=str,
+    default=None,
+    help="The node ip address of the node to kill")
+@add_click_logging_options
+def kill_node(yes, hard, node_ip):
+    """Kills a specified worker node and a random worker node."""
+    killed_node_ip = kill_node_on_head(
+        yes, hard, node_ip)
+    if killed_node_ip:
+        click.echo("Killed node with IP " + killed_node_ip)
 
 
 @head.command()
@@ -477,24 +394,107 @@ def health_check(address, redis_password, component):
     cli_logger.print("{} is healthy.", component)
     sys.exit(0)
 
+@head.command()
+@click.option(
+    "--host",
+    "-h",
+    required=False,
+    type=str,
+    help="Single or list of hosts, separated by comma.")
+@click.option(
+    "--stream",
+    "-S",
+    required=False,
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="If True, will stream the binary archive contents to stdout")
+@click.option(
+    "--output",
+    "-o",
+    required=False,
+    type=str,
+    default=None,
+    help="Output file.")
+@click.option(
+    "--logs/--no-logs",
+    is_flag=True,
+    default=True,
+    help="Collect logs from session dir")
+@click.option(
+    "--debug-state/--no-debug-state",
+    is_flag=True,
+    default=True,
+    help="Collect debug_state.txt from log dir")
+@click.option(
+    "--pip/--no-pip",
+    is_flag=True,
+    default=True,
+    help="Collect installed pip packages")
+@click.option(
+    "--processes/--no-processes",
+    is_flag=True,
+    default=True,
+    help="Collect info on running processes")
+@click.option(
+    "--processes-verbose/--no-processes-verbose",
+    is_flag=True,
+    default=True,
+    help="Increase process information verbosity")
+@click.option(
+    "--tempfile",
+    "-T",
+    required=False,
+    type=str,
+    default=None,
+    help="Temporary file to use")
+@add_click_logging_options
+def cluster_dump(host: Optional[str] = None,
+                 stream: bool = False,
+                 output: Optional[str] = None,
+                 logs: bool = True,
+                 debug_state: bool = True,
+                 pip: bool = True,
+                 processes: bool = True,
+                 processes_verbose: bool = False,
+                 tempfile: Optional[str] = None):
+    """Collect cluster data and package into an archive on head.
+
+        Usage:
+
+            cloudtik head cluster-dump[--stream/--output file]
+
+        This script is called on head node to fetch the cluster data.
+        """
+    get_cluster_dump_archive_on_head(
+        host=host,
+        stream=stream,
+        output=output,
+        logs=logs,
+        debug_state=debug_state,
+        pip=pip,
+        processes=processes,
+        processes_verbose=processes_verbose,
+        tempfile=tempfile)
+
 
 # commands running on head node
+head.add_command(attach)
+head.add_command(exec)
+head.add_command(rsync_up)
+head.add_command(rsync_down)
+
+head.add_command(status)
+head.add_command(info)
+head.add_command(worker_ips)
+head.add_command(monitor)
+
 head.add_command(teardown)
 head.add_command(start_node)
 head.add_command(stop_node)
 head.add_command(kill_node)
 
-head.add_command(rsync_down)
-head.add_command(rsync_up)
-head.add_command(attach)
-head.add_command(exec)
-
-head.add_command(worker_ips)
-head.add_command(info)
-head.add_command(status)
-head.add_command(monitor)
-
-head.add_command(cluster_dump)
 head.add_command(debug_status)
 head.add_command(process_status)
 head.add_command(health_check)
+head.add_command(cluster_dump)

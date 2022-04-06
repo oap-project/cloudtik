@@ -30,13 +30,14 @@ from cloudtik.core._private.constants import CLOUDTIK_PROCESSES, \
 from cloudtik.core._private.node.node_services import NodeServicesStarter
 from cloudtik.core._private.parameter import StartParams
 from cloudtik.runtime.spark.utils import is_spark_runtime_scripts, get_spark_runtime_command
+from cloudtik.scripts.utils import NaturalOrderGroup
 from cloudtik.scripts.workspace import workspace
 from cloudtik.scripts.head_scripts import head
 
 logger = logging.getLogger(__name__)
 
 
-@click.group()
+@click.group(cls=NaturalOrderGroup)
 @click.option(
     "--logging-level",
     required=False,
@@ -516,6 +517,493 @@ def down(cluster_config_file, yes, workers_only, cluster_name,
 @cli.command()
 @click.argument("cluster_config_file", required=True, type=str)
 @click.option(
+    "--screen", is_flag=True, default=False, help="Run the command in screen.")
+@click.option(
+    "--tmux", is_flag=True, default=False, help="Run the command in tmux.")
+@click.option(
+    "--cluster-name",
+    "-n",
+    required=False,
+    type=str,
+    help="Override the configured cluster name.")
+@click.option(
+    "--no-config-cache",
+    is_flag=True,
+    default=False,
+    help="Disable the local cluster config cache.")
+@click.option(
+    "--new", "-N", is_flag=True, help="Force creation of a new screen.")
+@click.option(
+    "--port-forward",
+    "-p",
+    required=False,
+    multiple=True,
+    type=int,
+    help="Port to forward. Use this multiple times to forward multiple ports.")
+@click.option(
+    "--node-ip",
+    required=False,
+    type=str,
+    default=None,
+    help="The node ip address of the node to attach to")
+@click.option(
+    "--host", is_flag=True, default=False, help="Attach to the host even running with docker.")
+@add_click_logging_options
+def attach(cluster_config_file, screen, tmux, cluster_name,
+           no_config_cache, new, port_forward, node_ip, host):
+    """Create or attach to SH session to a cluster or a worker node."""
+    port_forward = [(port, port) for port in list(port_forward)]
+    try:
+        if not node_ip:
+            # attach to the head
+            attach_cluster(
+                cluster_config_file,
+                False,
+                screen,
+                tmux,
+                cluster_name,
+                no_config_cache=no_config_cache,
+                new=new,
+                port_forward=port_forward,
+                force_to_host=host)
+        else:
+            # attach to the worker node
+            attach_worker(
+                cluster_config_file,
+                node_ip,
+                screen,
+                tmux,
+                cluster_name,
+                no_config_cache=no_config_cache,
+                new=new,
+                port_forward=port_forward,
+                force_to_host=host)
+    except RuntimeError as re:
+        cli_logger.error("Attach failed. " + str(re))
+        if cli_logger.verbosity == 0:
+            cli_logger.print("For more details, please run with -v flag.")
+        else:
+            traceback.print_exc()
+
+
+@cli.command()
+@click.argument("cluster_config_file", required=True, type=str)
+@click.argument("cmd", required=True, type=str)
+@click.option(
+    "--run-env",
+    required=False,
+    type=click.Choice(RUN_ENV_TYPES),
+    default="auto",
+    help="Choose whether to execute this command in a container or directly on"
+    " the cluster head. Only applies when docker is configured in the YAML.")
+@click.option(
+    "--stop",
+    is_flag=True,
+    default=False,
+    help="Stop the cluster after the command finishes running.")
+@click.option(
+    "--start",
+    is_flag=True,
+    default=False,
+    help="Start the cluster if needed.")
+@click.option(
+    "--screen",
+    is_flag=True,
+    default=False,
+    help="Run the command in a screen.")
+@click.option(
+    "--tmux", is_flag=True, default=False, help="Run the command in tmux.")
+@click.option(
+    "--cluster-name",
+    "-n",
+    required=False,
+    type=str,
+    help="Override the configured cluster name.")
+@click.option(
+    "--no-config-cache",
+    is_flag=True,
+    default=False,
+    help="Disable the local cluster config cache.")
+@click.option(
+    "--port-forward",
+    "-p",
+    required=False,
+    multiple=True,
+    type=int,
+    help="Port to forward. Use this multiple times to forward multiple ports.")
+@click.option(
+    "--node-ip",
+    required=False,
+    type=str,
+    default=None,
+    help="The node ip address of the node to exec command on")
+@click.option(
+    "--all-nodes",
+    is_flag=True,
+    default=False,
+    help="Whether to execute commands on all nodes.")
+@add_click_logging_options
+def exec(cluster_config_file, cmd, run_env, screen, tmux, stop, start,
+         cluster_name, no_config_cache, port_forward, node_ip, all_nodes):
+    """Execute a command via SSH on a cluster or a specified node."""
+    port_forward = [(port, port) for port in list(port_forward)]
+
+    try:
+        if not node_ip and not all_nodes:
+            exec_cluster(
+                cluster_config_file,
+                cmd=cmd,
+                run_env=run_env,
+                screen=screen,
+                tmux=tmux,
+                stop=stop,
+                start=start,
+                override_cluster_name=cluster_name,
+                no_config_cache=no_config_cache,
+                port_forward=port_forward,
+                _allow_uninitialized_state=True)
+        else:
+            exec_node_from_head(
+                cluster_config_file,
+                node_ip,
+                all_nodes=all_nodes,
+                cmd=cmd,
+                run_env=run_env,
+                screen=screen,
+                tmux=tmux,
+                override_cluster_name=cluster_name,
+                no_config_cache=no_config_cache,
+                port_forward=port_forward)
+    except RuntimeError as re:
+        cli_logger.error("Run exec failed. " + str(re))
+        if cli_logger.verbosity == 0:
+            cli_logger.print("For more details, please run with -v flag.")
+        else:
+            traceback.print_exc()
+
+
+@cli.command(context_settings={"ignore_unknown_options": True})
+@click.argument("cluster_config_file", required=True, type=str)
+@click.option(
+    "--stop",
+    is_flag=True,
+    default=False,
+    help="Stop the cluster after the command finishes running.")
+@click.option(
+    "--start",
+    is_flag=True,
+    default=False,
+    help="Start the cluster if needed.")
+@click.option(
+    "--screen",
+    is_flag=True,
+    default=False,
+    help="Run the command in a screen.")
+@click.option(
+    "--tmux", is_flag=True, default=False, help="Run the command in tmux.")
+@click.option(
+    "--cluster-name",
+    "-n",
+    required=False,
+    type=str,
+    help="Override the configured cluster name.")
+@click.option(
+    "--no-config-cache",
+    is_flag=True,
+    default=False,
+    help="Disable the local cluster config cache.")
+@click.option(
+    "--port-forward",
+    "-p",
+    required=False,
+    multiple=True,
+    type=int,
+    help="Port to forward. Use this multiple times to forward multiple ports.")
+@click.argument("script", required=True, type=str)
+@click.argument("script_args", nargs=-1)
+@add_click_logging_options
+def submit(cluster_config_file, screen, tmux, stop, start, cluster_name,
+           no_config_cache, port_forward, script, script_args):
+    """Uploads and runs a script on the specified cluster.
+
+    The script is automatically synced to the following location:
+
+        os.path.join("~", os.path.basename(script))
+
+    Example:
+        >>> cloudtik submit [CLUSTER.YAML] experiment.py -- --smoke-test
+    """
+    cli_logger.doassert(not (screen and tmux),
+                        "`{}` and `{}` are incompatible.", cf.bold("--screen"),
+                        cf.bold("--tmux"))
+
+    assert not (screen and tmux), "Can specify only one of `screen` or `tmux`."
+    assert not script_args, "Use -- --arg1 --arg2 for script args."
+
+    if start:
+        create_or_update_cluster(
+            config_file=cluster_config_file,
+            override_min_workers=None,
+            override_max_workers=None,
+            no_restart=False,
+            restart_only=False,
+            yes=True,
+            override_cluster_name=cluster_name,
+            no_config_cache=no_config_cache,
+            redirect_command_output=False,
+            use_login_shells=True)
+    target_name = os.path.basename(script)
+    target = os.path.join("~", "jobs", target_name)
+    rsync(
+        cluster_config_file,
+        script,
+        target,
+        cluster_name,
+        no_config_cache=no_config_cache,
+        down=False)
+
+    if target_name.endswith(".py"):
+        command_parts = ["python", target]
+    elif target_name.endswith(".sh"):
+        command_parts = ["bash", target]
+    elif is_spark_runtime_scripts(target_name):
+        command_parts = get_spark_runtime_command(target)
+    else:
+        cli_logger.error("We don't how to execute your file: {}", script)
+        return
+
+    if script_args:
+        command_parts += list(script_args)
+
+    port_forward = [(port, port) for port in list(port_forward)]
+    cmd = " ".join(command_parts)
+    exec_cluster(
+        cluster_config_file,
+        cmd=cmd,
+        screen=screen,
+        tmux=tmux,
+        stop=stop,
+        start=False,
+        override_cluster_name=cluster_name,
+        no_config_cache=no_config_cache,
+        port_forward=port_forward)
+
+
+@cli.command()
+@click.argument("cluster_config_file", required=True, type=str)
+@click.argument("source", required=False, type=str)
+@click.argument("target", required=False, type=str)
+@click.option(
+    "--cluster-name",
+    "-n",
+    required=False,
+    type=str,
+    help="Override the configured cluster name.")
+@click.option(
+    "--node-ip",
+    required=False,
+    type=str,
+    default=None,
+    help="The node ip address of the node to rsync with")
+@click.option(
+    "--all-nodes",
+    is_flag=True,
+    default=False,
+    help="Whether to sync the file to all nodes.")
+@add_click_logging_options
+def rsync_up(cluster_config_file, source, target, cluster_name, node_ip, all_nodes):
+    """Upload specific files to a cluster or a specified node."""
+
+    try:
+        rsync(
+            cluster_config_file,
+            source,
+            target,
+            cluster_name,
+            down=False,
+            ip_address=node_ip,
+            all_nodes=all_nodes)
+    except RuntimeError as re:
+        cli_logger.error("Rsync up failed. " + str(re))
+        if cli_logger.verbosity == 0:
+            cli_logger.print("For more details, please run with -v flag.")
+        else:
+            traceback.print_exc()
+
+
+@cli.command()
+@click.argument("cluster_config_file", required=True, type=str)
+@click.argument("source", required=False, type=str)
+@click.argument("target", required=False, type=str)
+@click.option(
+    "--cluster-name",
+    "-n",
+    required=False,
+    type=str,
+    help="Override the configured cluster name.")
+@click.option(
+    "--node-ip",
+    required=False,
+    type=str,
+    default=None,
+    help="The node ip address of the node to rsync with")
+@add_click_logging_options
+def rsync_down(cluster_config_file, source, target, cluster_name, node_ip):
+    """Download specific files from a cluster or a specified node."""
+    try:
+        rsync(cluster_config_file, source, target, cluster_name,
+              down=True, ip_address=node_ip)
+    except RuntimeError as re:
+        cli_logger.error("Rsync down failed. " + str(re))
+        if cli_logger.verbosity == 0:
+            cli_logger.print("For more details, please run with -v flag.")
+        else:
+            traceback.print_exc()
+
+
+@cli.command()
+@click.argument("cluster_config_file", required=True, type=str)
+@click.option(
+    "--cluster-name",
+    "-n",
+    required=False,
+    type=str,
+    help="Override the configured cluster name.")
+@add_click_logging_options
+def status(cluster_config_file, cluster_name):
+    """Show cluster summary status."""
+    show_cluster_status(
+        cluster_config_file,
+        cluster_name)
+
+
+@cli.command()
+@click.argument("cluster_config_file", required=True, type=str)
+@click.option(
+    "--cluster-name",
+    "-n",
+    required=False,
+    type=str,
+    help="Override the configured cluster name.")
+@add_click_logging_options
+def info(cluster_config_file, cluster_name):
+    """Show cluster summary information and useful links to use the cluster."""
+    show_cluster_info(
+        cluster_config_file,
+        cluster_name)
+
+
+@cli.command()
+@click.argument("cluster_config_file", required=True, type=str)
+@click.option(
+    "--cluster-name",
+    "-n",
+    required=False,
+    type=str,
+    help="Override the configured cluster name.")
+@add_click_logging_options
+def head_ip(cluster_config_file, cluster_name):
+    """Return the head node IP of a cluster."""
+    try:
+        click.echo(get_head_node_ip(cluster_config_file, cluster_name))
+    except RuntimeError as re:
+        cli_logger.error("Get head IP failed. " + str(re))
+        if cli_logger.verbosity == 0:
+            cli_logger.print("For more details, please run with -v flag.")
+        else:
+            traceback.print_exc()
+
+
+@cli.command()
+@click.argument("cluster_config_file", required=True, type=str)
+@click.option(
+    "--cluster-name",
+    "-n",
+    required=False,
+    type=str,
+    help="Override the configured cluster name.")
+@add_click_logging_options
+def worker_ips(cluster_config_file, cluster_name):
+    """Return the list of worker IPs of a cluster."""
+    workers = get_worker_node_ips(cluster_config_file, cluster_name)
+    if len(workers) == 0:
+        click.echo("No worker found.")
+    else:
+        click.echo("\n".join(workers))
+
+
+@cli.command()
+@click.argument("cluster_config_file", required=True, type=str)
+@click.option(
+    "--lines",
+    required=False,
+    default=100,
+    type=int,
+    help="Number of lines to tail.")
+@click.option(
+    "--cluster-name",
+    "-n",
+    required=False,
+    type=str,
+    help="Override the configured cluster name.")
+@click.option(
+    "--file-type",
+    required=False,
+    type=str,
+    default=None,
+    help="The type of information to check: log, out, err")
+@add_click_logging_options
+def monitor(cluster_config_file, lines, cluster_name, file_type):
+    """Tails the monitor logs of a cluster."""
+    try:
+        monitor_cluster(cluster_config_file, lines, cluster_name, file_type=file_type)
+    except RuntimeError as re:
+        cli_logger.error("Monitor failed. " + str(re))
+        if cli_logger.verbosity == 0:
+            cli_logger.print("For more details, please run with -v flag.")
+        else:
+            traceback.print_exc()
+
+
+@cli.command()
+@click.argument("cluster_config_file", required=True, type=str)
+@click.option(
+    "--no-config-cache",
+    is_flag=True,
+    default=False,
+    help="Disable the local cluster config cache.")
+@click.option(
+    "--cluster-name",
+    "-n",
+    required=False,
+    type=str,
+    help="Override the configured cluster name.")
+@add_click_logging_options
+def enable_proxy(cluster_config_file, no_config_cache, cluster_name):
+    """Enable local SOCKS5 proxy to the cluster through SSH tunnel forwarding to the head."""
+    start_proxy(
+        cluster_config_file,
+        override_cluster_name=cluster_name,
+        no_config_cache=no_config_cache)
+
+
+@cli.command()
+@click.argument("cluster_config_file", required=True, type=str)
+@click.option(
+    "--cluster-name",
+    "-n",
+    required=False,
+    type=str,
+    help="Override the configured cluster name.")
+@add_click_logging_options
+def disable_proxy(cluster_config_file,cluster_name):
+    """Disable local SOCKS5 proxy to the cluster."""
+    stop_proxy(cluster_config_file,cluster_name)
+
+
+@cli.command()
+@click.argument("cluster_config_file", required=True, type=str)
+@click.option(
     "--cluster-name",
     "-n",
     required=False,
@@ -639,493 +1127,6 @@ def kill_node(cluster_config_file, yes, hard, cluster_name, node_ip):
 @cli.command()
 @click.argument("cluster_config_file", required=True, type=str)
 @click.option(
-    "--lines",
-    required=False,
-    default=100,
-    type=int,
-    help="Number of lines to tail.")
-@click.option(
-    "--cluster-name",
-    "-n",
-    required=False,
-    type=str,
-    help="Override the configured cluster name.")
-@click.option(
-    "--file-type",
-    required=False,
-    type=str,
-    default=None,
-    help="The type of information to check: log, out, err")
-@add_click_logging_options
-def monitor(cluster_config_file, lines, cluster_name, file_type):
-    """Tails the monitor logs of a cluster."""
-    try:
-        monitor_cluster(cluster_config_file, lines, cluster_name, file_type=file_type)
-    except RuntimeError as re:
-        cli_logger.error("Monitor failed. " + str(re))
-        if cli_logger.verbosity == 0:
-            cli_logger.print("For more details, please run with -v flag.")
-        else:
-            traceback.print_exc()
-
-
-@cli.command()
-@click.argument("cluster_config_file", required=True, type=str)
-@click.option(
-    "--screen", is_flag=True, default=False, help="Run the command in screen.")
-@click.option(
-    "--tmux", is_flag=True, default=False, help="Run the command in tmux.")
-@click.option(
-    "--cluster-name",
-    "-n",
-    required=False,
-    type=str,
-    help="Override the configured cluster name.")
-@click.option(
-    "--no-config-cache",
-    is_flag=True,
-    default=False,
-    help="Disable the local cluster config cache.")
-@click.option(
-    "--new", "-N", is_flag=True, help="Force creation of a new screen.")
-@click.option(
-    "--port-forward",
-    "-p",
-    required=False,
-    multiple=True,
-    type=int,
-    help="Port to forward. Use this multiple times to forward multiple ports.")
-@click.option(
-    "--node-ip",
-    required=False,
-    type=str,
-    default=None,
-    help="The node ip address of the node to attach to")
-@click.option(
-    "--host", is_flag=True, default=False, help="Attach to the host even running with docker.")
-@add_click_logging_options
-def attach(cluster_config_file, screen, tmux, cluster_name,
-           no_config_cache, new, port_forward, node_ip, host):
-    """Create or attach to SH session to a cluster or a worker node."""
-    port_forward = [(port, port) for port in list(port_forward)]
-    try:
-        if not node_ip:
-            # attach to the head
-            attach_cluster(
-                cluster_config_file,
-                False,
-                screen,
-                tmux,
-                cluster_name,
-                no_config_cache=no_config_cache,
-                new=new,
-                port_forward=port_forward,
-                force_to_host=host)
-        else:
-            # attach to the worker node
-            attach_worker(
-                cluster_config_file,
-                node_ip,
-                screen,
-                tmux,
-                cluster_name,
-                no_config_cache=no_config_cache,
-                new=new,
-                port_forward=port_forward,
-                force_to_host=host)
-    except RuntimeError as re:
-        cli_logger.error("Attach failed. " + str(re))
-        if cli_logger.verbosity == 0:
-            cli_logger.print("For more details, please run with -v flag.")
-        else:
-            traceback.print_exc()
-
-
-@cli.command()
-@click.argument("cluster_config_file", required=True, type=str)
-@click.option(
-    "--no-config-cache",
-    is_flag=True,
-    default=False,
-    help="Disable the local cluster config cache.")
-@click.option(
-    "--cluster-name",
-    "-n",
-    required=False,
-    type=str,
-    help="Override the configured cluster name.")
-@add_click_logging_options
-def enable_proxy(cluster_config_file, no_config_cache, cluster_name):
-    """Enable local SOCKS5 proxy to the cluster through SSH tunnel forwarding to the head."""
-    start_proxy(
-        cluster_config_file,
-        override_cluster_name=cluster_name,
-        no_config_cache=no_config_cache)
-
-
-@cli.command()
-@click.argument("cluster_config_file", required=True, type=str)
-@click.option(
-    "--cluster-name",
-    "-n",
-    required=False,
-    type=str,
-    help="Override the configured cluster name.")
-@add_click_logging_options
-def disable_proxy(cluster_config_file,cluster_name):
-    """Disable local SOCKS5 proxy to the cluster."""
-    stop_proxy(cluster_config_file,cluster_name)
-
-
-@cli.command()
-@click.argument("cluster_config_file", required=True, type=str)
-@click.argument("source", required=False, type=str)
-@click.argument("target", required=False, type=str)
-@click.option(
-    "--cluster-name",
-    "-n",
-    required=False,
-    type=str,
-    help="Override the configured cluster name.")
-@click.option(
-    "--node-ip",
-    required=False,
-    type=str,
-    default=None,
-    help="The node ip address of the node to rsync with")
-@add_click_logging_options
-def rsync_down(cluster_config_file, source, target, cluster_name, node_ip):
-    """Download specific files from a cluster or a specified node."""
-    try:
-        rsync(cluster_config_file, source, target, cluster_name,
-              down=True, ip_address=node_ip)
-    except RuntimeError as re:
-        cli_logger.error("Rsync down failed. " + str(re))
-        if cli_logger.verbosity == 0:
-            cli_logger.print("For more details, please run with -v flag.")
-        else:
-            traceback.print_exc()
-
-
-@cli.command()
-@click.argument("cluster_config_file", required=True, type=str)
-@click.argument("source", required=False, type=str)
-@click.argument("target", required=False, type=str)
-@click.option(
-    "--cluster-name",
-    "-n",
-    required=False,
-    type=str,
-    help="Override the configured cluster name.")
-@click.option(
-    "--node-ip",
-    required=False,
-    type=str,
-    default=None,
-    help="The node ip address of the node to rsync with")
-@click.option(
-    "--all-nodes",
-    is_flag=True,
-    default=False,
-    help="Whether to sync the file to all nodes.")
-@add_click_logging_options
-def rsync_up(cluster_config_file, source, target, cluster_name, node_ip, all_nodes):
-    """Upload specific files to a cluster or a specified node."""
-
-    try:
-        rsync(
-            cluster_config_file,
-            source,
-            target,
-            cluster_name,
-            down=False,
-            ip_address=node_ip,
-            all_nodes=all_nodes)
-    except RuntimeError as re:
-        cli_logger.error("Rsync up failed. " + str(re))
-        if cli_logger.verbosity == 0:
-            cli_logger.print("For more details, please run with -v flag.")
-        else:
-            traceback.print_exc()
-
-
-@cli.command(context_settings={"ignore_unknown_options": True})
-@click.argument("cluster_config_file", required=True, type=str)
-@click.option(
-    "--stop",
-    is_flag=True,
-    default=False,
-    help="Stop the cluster after the command finishes running.")
-@click.option(
-    "--start",
-    is_flag=True,
-    default=False,
-    help="Start the cluster if needed.")
-@click.option(
-    "--screen",
-    is_flag=True,
-    default=False,
-    help="Run the command in a screen.")
-@click.option(
-    "--tmux", is_flag=True, default=False, help="Run the command in tmux.")
-@click.option(
-    "--cluster-name",
-    "-n",
-    required=False,
-    type=str,
-    help="Override the configured cluster name.")
-@click.option(
-    "--no-config-cache",
-    is_flag=True,
-    default=False,
-    help="Disable the local cluster config cache.")
-@click.option(
-    "--port-forward",
-    "-p",
-    required=False,
-    multiple=True,
-    type=int,
-    help="Port to forward. Use this multiple times to forward multiple ports.")
-@click.argument("script", required=True, type=str)
-@click.argument("script_args", nargs=-1)
-@add_click_logging_options
-def submit(cluster_config_file, screen, tmux, stop, start, cluster_name,
-           no_config_cache, port_forward, script, script_args):
-    """Uploads and runs a script on the specified cluster.
-
-    The script is automatically synced to the following location:
-
-        os.path.join("~", os.path.basename(script))
-
-    Example:
-        >>> cloudtik submit [CLUSTER.YAML] experiment.py -- --smoke-test
-    """
-    cli_logger.doassert(not (screen and tmux),
-                        "`{}` and `{}` are incompatible.", cf.bold("--screen"),
-                        cf.bold("--tmux"))
-
-    assert not (screen and tmux), "Can specify only one of `screen` or `tmux`."
-    assert not script_args, "Use -- --arg1 --arg2 for script args."
-
-    if start:
-        create_or_update_cluster(
-            config_file=cluster_config_file,
-            override_min_workers=None,
-            override_max_workers=None,
-            no_restart=False,
-            restart_only=False,
-            yes=True,
-            override_cluster_name=cluster_name,
-            no_config_cache=no_config_cache,
-            redirect_command_output=False,
-            use_login_shells=True)
-    target_name = os.path.basename(script)
-    target = os.path.join("~", "jobs", target_name)
-    rsync(
-        cluster_config_file,
-        script,
-        target,
-        cluster_name,
-        no_config_cache=no_config_cache,
-        down=False)
-
-    if target_name.endswith(".py"):
-        command_parts = ["python", target]
-    elif target_name.endswith(".sh"):
-        command_parts = ["bash", target]
-    elif is_spark_runtime_scripts(target_name):
-        command_parts = get_spark_runtime_command(target)
-    else:
-        cli_logger.error("We don't how to execute your file: {}", script)
-        return
-
-    if script_args:
-        command_parts += list(script_args)
-
-    port_forward = [(port, port) for port in list(port_forward)]
-    cmd = " ".join(command_parts)
-    exec_cluster(
-        cluster_config_file,
-        cmd=cmd,
-        screen=screen,
-        tmux=tmux,
-        stop=stop,
-        start=False,
-        override_cluster_name=cluster_name,
-        no_config_cache=no_config_cache,
-        port_forward=port_forward)
-
-
-@cli.command()
-@click.argument("cluster_config_file", required=True, type=str)
-@click.argument("cmd", required=True, type=str)
-@click.option(
-    "--run-env",
-    required=False,
-    type=click.Choice(RUN_ENV_TYPES),
-    default="auto",
-    help="Choose whether to execute this command in a container or directly on"
-    " the cluster head. Only applies when docker is configured in the YAML.")
-@click.option(
-    "--stop",
-    is_flag=True,
-    default=False,
-    help="Stop the cluster after the command finishes running.")
-@click.option(
-    "--start",
-    is_flag=True,
-    default=False,
-    help="Start the cluster if needed.")
-@click.option(
-    "--screen",
-    is_flag=True,
-    default=False,
-    help="Run the command in a screen.")
-@click.option(
-    "--tmux", is_flag=True, default=False, help="Run the command in tmux.")
-@click.option(
-    "--cluster-name",
-    "-n",
-    required=False,
-    type=str,
-    help="Override the configured cluster name.")
-@click.option(
-    "--no-config-cache",
-    is_flag=True,
-    default=False,
-    help="Disable the local cluster config cache.")
-@click.option(
-    "--port-forward",
-    "-p",
-    required=False,
-    multiple=True,
-    type=int,
-    help="Port to forward. Use this multiple times to forward multiple ports.")
-@click.option(
-    "--node-ip",
-    required=False,
-    type=str,
-    default=None,
-    help="The node ip address of the node to exec command on")
-@click.option(
-    "--all-nodes",
-    is_flag=True,
-    default=False,
-    help="Whether to execute commands on all nodes.")
-@add_click_logging_options
-def exec(cluster_config_file, cmd, run_env, screen, tmux, stop, start,
-         cluster_name, no_config_cache, port_forward, node_ip, all_nodes):
-    """Execute a command via SSH on a cluster or a specified node."""
-    port_forward = [(port, port) for port in list(port_forward)]
-
-    try:
-        if not node_ip and not all_nodes:
-            exec_cluster(
-                cluster_config_file,
-                cmd=cmd,
-                run_env=run_env,
-                screen=screen,
-                tmux=tmux,
-                stop=stop,
-                start=start,
-                override_cluster_name=cluster_name,
-                no_config_cache=no_config_cache,
-                port_forward=port_forward,
-                _allow_uninitialized_state=True)
-        else:
-            exec_node_from_head(
-                cluster_config_file,
-                node_ip,
-                all_nodes=all_nodes,
-                cmd=cmd,
-                run_env=run_env,
-                screen=screen,
-                tmux=tmux,
-                override_cluster_name=cluster_name,
-                no_config_cache=no_config_cache,
-                port_forward=port_forward)
-    except RuntimeError as re:
-        cli_logger.error("Run exec failed. " + str(re))
-        if cli_logger.verbosity == 0:
-            cli_logger.print("For more details, please run with -v flag.")
-        else:
-            traceback.print_exc()
-
-
-@cli.command()
-@click.argument("cluster_config_file", required=True, type=str)
-@click.option(
-    "--cluster-name",
-    "-n",
-    required=False,
-    type=str,
-    help="Override the configured cluster name.")
-@add_click_logging_options
-def head_ip(cluster_config_file, cluster_name):
-    """Return the head node IP of a cluster."""
-    try:
-        click.echo(get_head_node_ip(cluster_config_file, cluster_name))
-    except RuntimeError as re:
-        cli_logger.error("Get head IP failed. " + str(re))
-        if cli_logger.verbosity == 0:
-            cli_logger.print("For more details, please run with -v flag.")
-        else:
-            traceback.print_exc()
-
-
-@cli.command()
-@click.argument("cluster_config_file", required=True, type=str)
-@click.option(
-    "--cluster-name",
-    "-n",
-    required=False,
-    type=str,
-    help="Override the configured cluster name.")
-@add_click_logging_options
-def worker_ips(cluster_config_file, cluster_name):
-    """Return the list of worker IPs of a cluster."""
-    workers = get_worker_node_ips(cluster_config_file, cluster_name)
-    if len(workers) == 0:
-        click.echo("No worker found.")
-    else:
-        click.echo("\n".join(workers))
-
-
-@cli.command()
-@click.argument("cluster_config_file", required=True, type=str)
-@click.option(
-    "--cluster-name",
-    "-n",
-    required=False,
-    type=str,
-    help="Override the configured cluster name.")
-@add_click_logging_options
-def info(cluster_config_file, cluster_name):
-    """Show cluster summary information and useful links to use the cluster."""
-    show_cluster_info(
-        cluster_config_file,
-        cluster_name)
-
-
-@cli.command()
-@click.argument("cluster_config_file", required=True, type=str)
-@click.option(
-    "--cluster-name",
-    "-n",
-    required=False,
-    type=str,
-    help="Override the configured cluster name.")
-@add_click_logging_options
-def status(cluster_config_file, cluster_name):
-    """Show cluster summary status."""
-    show_cluster_status(
-        cluster_config_file,
-        cluster_name)
-
-
-@cli.command()
-@click.argument("cluster_config_file", required=True, type=str)
-@click.option(
     "--cluster-name",
     "-n",
     required=False,
@@ -1167,81 +1168,25 @@ def debug_status(cluster_config_file, cluster_name):
             traceback.print_exc()
 
 
-@cli.command(hidden=True)
+@cli.command()
+@click.argument("cluster_config_file", required=True, type=str)
 @click.option(
-    "--stream",
-    "-S",
-    required=False,
-    type=bool,
-    is_flag=True,
-    default=False,
-    help="If True, will stream the binary archive contents to stdout")
-@click.option(
-    "--output",
-    "-o",
+    "--cluster-name",
+    "-n",
     required=False,
     type=str,
-    default=None,
-    help="Output file.")
-@click.option(
-    "--logs/--no-logs",
-    is_flag=True,
-    default=True,
-    help="Collect logs from session dir")
-@click.option(
-    "--debug-state/--no-debug-state",
-    is_flag=True,
-    default=True,
-    help="Collect debug_state.txt from session dir")
-@click.option(
-    "--pip/--no-pip",
-    is_flag=True,
-    default=True,
-    help="Collect installed pip packages")
-@click.option(
-    "--processes/--no-processes",
-    is_flag=True,
-    default=True,
-    help="Collect info on running processes")
-@click.option(
-    "--processes-verbose/--no-processes-verbose",
-    is_flag=True,
-    default=True,
-    help="Increase process information verbosity")
-@click.option(
-    "--tempfile",
-    "-T",
-    required=False,
-    type=str,
-    default=None,
-    help="Temporary file to use")
+    help="Override the configured cluster name.")
 @add_click_logging_options
-def local_dump(stream: bool = False,
-               output: Optional[str] = None,
-               logs: bool = True,
-               debug_state: bool = True,
-               pip: bool = True,
-               processes: bool = True,
-               processes_verbose: bool = False,
-               tempfile: Optional[str] = None):
-    """Collect local data and package into an archive.
-
-    Usage:
-
-        cloudtik local-dump [--stream/--output file]
-
-    This script is called on remote nodes to fetch their data.
-    """
-    # This may stream data to stdout, so no printing here
-    get_local_dump_archive(
-        stream=stream,
-        output=output,
-        logs=logs,
-        debug_state=debug_state,
-        pip=pip,
-        processes=processes,
-        processes_verbose=processes_verbose,
-        tempfile=tempfile)
+def health_check(cluster_config_file, cluster_name):
+    """Do cluster health check."""
+    try:
+        cluster_health_check(cluster_config_file, cluster_name)
+    except RuntimeError as re:
+        cli_logger.error("Cluster health check failed. " + str(re))
+        if cli_logger.verbosity == 0:
+            cli_logger.print("For more details, please run with -v flag.")
+        else:
+            traceback.print_exc()
 
 
 @cli.command()
@@ -1365,26 +1310,81 @@ def cluster_dump(cluster_config_file: Optional[str] = None,
     else:
         click.echo("Could not create archive.")
 
-
-@cli.command()
-@click.argument("cluster_config_file", required=True, type=str)
+@cli.command(hidden=True)
 @click.option(
-    "--cluster-name",
-    "-n",
+    "--stream",
+    "-S",
+    required=False,
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="If True, will stream the binary archive contents to stdout")
+@click.option(
+    "--output",
+    "-o",
     required=False,
     type=str,
-    help="Override the configured cluster name.")
+    default=None,
+    help="Output file.")
+@click.option(
+    "--logs/--no-logs",
+    is_flag=True,
+    default=True,
+    help="Collect logs from session dir")
+@click.option(
+    "--debug-state/--no-debug-state",
+    is_flag=True,
+    default=True,
+    help="Collect debug_state.txt from session dir")
+@click.option(
+    "--pip/--no-pip",
+    is_flag=True,
+    default=True,
+    help="Collect installed pip packages")
+@click.option(
+    "--processes/--no-processes",
+    is_flag=True,
+    default=True,
+    help="Collect info on running processes")
+@click.option(
+    "--processes-verbose/--no-processes-verbose",
+    is_flag=True,
+    default=True,
+    help="Increase process information verbosity")
+@click.option(
+    "--tempfile",
+    "-T",
+    required=False,
+    type=str,
+    default=None,
+    help="Temporary file to use")
 @add_click_logging_options
-def health_check(cluster_config_file, cluster_name):
-    """Do cluster health check."""
-    try:
-        cluster_health_check(cluster_config_file, cluster_name)
-    except RuntimeError as re:
-        cli_logger.error("Cluster health check failed. " + str(re))
-        if cli_logger.verbosity == 0:
-            cli_logger.print("For more details, please run with -v flag.")
-        else:
-            traceback.print_exc()
+def local_dump(stream: bool = False,
+               output: Optional[str] = None,
+               logs: bool = True,
+               debug_state: bool = True,
+               pip: bool = True,
+               processes: bool = True,
+               processes_verbose: bool = False,
+               tempfile: Optional[str] = None):
+    """Collect local data and package into an archive.
+
+    Usage:
+
+        cloudtik local-dump [--stream/--output file]
+
+    This script is called on remote nodes to fetch their data.
+    """
+    # This may stream data to stdout, so no printing here
+    get_local_dump_archive(
+        stream=stream,
+        output=output,
+        logs=logs,
+        debug_state=debug_state,
+        pip=pip,
+        processes=processes,
+        processes_verbose=processes_verbose,
+        tempfile=tempfile)
 
 
 def add_command_alias(command, name, hidden):
@@ -1407,36 +1407,37 @@ cli.add_command(attach)
 cli.add_command(exec)
 cli.add_command(submit)
 
-cli.add_command(rsync_down)
-add_command_alias(rsync_down, name="rsync_down", hidden=True)
 cli.add_command(rsync_up)
 add_command_alias(rsync_up, name="rsync_up", hidden=True)
-
-cli.add_command(enable_proxy)
-cli.add_command(disable_proxy)
+cli.add_command(rsync_down)
+add_command_alias(rsync_down, name="rsync_down", hidden=True)
 
 # commands running on working node for information and status
+cli.add_command(status)
+cli.add_command(info)
 cli.add_command(head_ip)
 add_command_alias(head_ip, name="head_ip", hidden=True)
 cli.add_command(worker_ips)
 add_command_alias(worker_ips, name="worker_ips", hidden=True)
 
-cli.add_command(info)
-cli.add_command(status)
-cli.add_command(process_status)
 cli.add_command(monitor)
 
-# commands running on working node for debug
-cli.add_command(cluster_dump)
-add_command_alias(cluster_dump, name="cluster_dump", hidden=True)
+# commands for advanced management
+cli.add_command(enable_proxy)
+cli.add_command(disable_proxy)
 
 cli.add_command(start_node)
 cli.add_command(stop_node)
 cli.add_command(kill_node)
 add_command_alias(kill_node, name="kill_node", hidden=True)
 
+# commands running on working node for debug
+cli.add_command(process_status)
 cli.add_command(debug_status)
 cli.add_command(health_check)
+
+cli.add_command(cluster_dump)
+add_command_alias(cluster_dump, name="cluster_dump", hidden=True)
 
 # utility commands running on head or worker node for dump local data
 cli.add_command(local_dump)

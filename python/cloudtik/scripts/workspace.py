@@ -5,11 +5,12 @@ import urllib
 from cloudtik.core._private.workspace.workspace_operator import (
     create_or_update_workspace, delete_workspace)
 from cloudtik.core._private.cli_logger import (add_click_logging_options, cli_logger)
+from cloudtik.scripts.utils import NaturalOrderGroup
 
 logger = logging.getLogger(__name__)
 
 
-@click.group()
+@click.group(cls=NaturalOrderGroup)
 def workspace():
     """
     Commands for working with workspace.
@@ -38,7 +39,6 @@ def workspace():
 @add_click_logging_options
 def create(workspace_config_file, yes, workspace_name, no_workspace_config_cache):
     """Create a workspace on cloud using the workspace configuration file."""
-    # TODO: Implement creating of workspace based on cloud provider.
     if urllib.parse.urlparse(workspace_config_file).scheme in ("http", "https"):
         try:
             response = urllib.request.urlopen(workspace_config_file, timeout=5)
@@ -76,8 +76,6 @@ def create(workspace_config_file, yes, workspace_name, no_workspace_config_cache
 @add_click_logging_options
 def delete(workspace_config_file, yes, workspace_name):
     """Delete a workspace and the associated cloud resources."""
-    # TODO: Implement deleting of workspace based on cloud provider.
-
     delete_workspace(workspace_config_file, yes, workspace_name)
 
 

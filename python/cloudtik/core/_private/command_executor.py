@@ -1040,7 +1040,7 @@ class DockerCommandExecutor(CommandExecutor):
     def _get_host_data_disks(self):
         mount_point = CLOUDTIK_DATA_DISK_MOUNT_POINT
         data_disks_string = self.run(
-            "ls --color=no {}".format(mount_point),
+            "([ -d {} ] && ls --color=no {}) || true".format(mount_point, mount_point),
             with_output=True,
             run_env="host").decode("utf-8").strip()
         if data_disks_string is None or data_disks_string == "":

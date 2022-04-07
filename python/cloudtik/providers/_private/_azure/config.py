@@ -630,7 +630,7 @@ def _configure_network_resources(config, resource_group_name, current_step, tota
             "Creating public-ip-address for nat-gateway",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
-        public_ip_address_name = _create_public_ip_address(config, network_client, resource_group_name, virtual_network_name)
+        public_ip_address_name = _create_public_ip_address(config, network_client, resource_group_name,)
 
     # create nat-gateway
     with cli_logger.group(

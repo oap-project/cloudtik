@@ -147,13 +147,13 @@ function install_spark_with_cloud_jars() {
 function install_ganglia_server() {
     # Simply do the install, if they are already installed, it doesn't take time
     sudo apt-get update -y
-    sudo apt-get install apache2 php libapache2-mod-php php-common php-mbstring php-gmp php-curl php-intl php-xmlrpc php-zip php-gd php-mysql php-xml -y
-    sudo DEBIAN_FRONTEND=noninteractive apt-get install ganglia-monitor rrdtool gmetad ganglia-webfrontend -y
+    sudo apt-get install -y apache2 php libapache2-mod-php php-common php-mbstring php-gmp php-curl php-intl php-xmlrpc php-zip php-gd php-mysql php-xml
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ganglia-monitor rrdtool gmetad ganglia-webfrontend
 }
 
 function install_ganglia_client() {
     sudo apt-get update -y
-    sudo apt-get install ganglia-monitor -y
+    sudo apt-get install -y ganglia-monitor
 }
 
 function install_ganglia() {

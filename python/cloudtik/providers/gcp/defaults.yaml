@@ -100,12 +100,13 @@ setup_commands:
     - (stat $HOME/anaconda3/envs/cloudtik_py37/ &> /dev/null &&
         echo 'export PATH="$HOME/anaconda3/envs/cloudtik_py37/bin:$PATH"' >> ~/.bashrc) || true
     - which cloudtik || pip install -U "cloudtik[gcp] @ http://23.95.96.95:8000/latest/cloudtik-0.9.0-cp37-cp37m-manylinux2014_x86_64.whl"
-    - cloudtik-spark install
 
 # Custom commands that will be run on the head node after common setup.
 head_setup_commands:
+    - cloudtik-spark install --head --provider=gcp
     - cloudtik-spark configure --head --provider=gcp --project_id=$PROJECT_ID  --gcp_gcs_bucket=$GCP_GCS_BUCKET --fs_gs_auth_service_account_email=$FS_GS_AUTH_SERVICE_ACCOUNT_EMAIL --fs_gs_auth_service_account_private_key_id=$FS_GS_AUTH_SERVICE_ACCOUNT_PRIVATE_KEY_ID --fs_gs_auth_service_account_private_key="$FS_GS_AUTH_SERVICE_ACCOUNT_PRIVATE_KEY"
 
 # Custom commands that will be run on worker nodes after common setup.
 worker_setup_commands:
+    - cloudtik-spark install --provider=gcp
     - cloudtik-spark configure --provider=gcp --head_address=$CLOUDTIK_HEAD_IP --project_id=$PROJECT_ID  --gcp_gcs_bucket=$GCP_GCS_BUCKET --fs_gs_auth_service_account_email=$FS_GS_AUTH_SERVICE_ACCOUNT_EMAIL --fs_gs_auth_service_account_private_key_id=$FS_GS_AUTH_SERVICE_ACCOUNT_PRIVATE_KEY_ID --fs_gs_auth_service_account_private_key="$FS_GS_AUTH_SERVICE_ACCOUNT_PRIVATE_KEY"

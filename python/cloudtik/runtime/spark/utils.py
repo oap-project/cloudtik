@@ -1,6 +1,7 @@
+import os
 import copy
 from typing import Any, Dict
-
+import yaml
 
 SPARK_RUNTIME_PROCESSES = [
     # The first element is the substring to filter.
@@ -10,6 +11,9 @@ SPARK_RUNTIME_PROCESSES = [
     ["proc_resourcemanager", False, "ResourceManager", "head"],
     ["proc_nodemanager", False, "NodeManager", "worker"],
 ]
+
+CLOUDTIK_SPARK_RUNTIME_PATH = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
+SPARK_OUT_CONF = os.path.join(CLOUDTIK_SPARK_RUNTIME_PATH, "spark/conf/outconf/spark/spark-defaults.conf")
 
 YARN_RESOURCE_MEMORY_RATIO = 0.8
 SPARK_EXECUTOR_MEMORY_RATIO = 1
@@ -121,3 +125,38 @@ def is_spark_runtime_scripts(script_file):
 def get_spark_runtime_command(target):
     command_parts = ["spark-shell", "-i", target]
     return command_parts
+
+
+def _get_spark_config(config: Dict[str, Any]):
+    runtime = config.get("runtime")
+    if not runtime:
+        return None
+
+    spark = runtime.get("spark")
+    if not spark:
+        return None
+
+    return spark.get("config")
+
+
+def update_spark_configurations():
+    # Merge user specified configuration and default configuration
+    bootstrap_config = os.path.expanduser("~/cloudtik_bootstrap_config.yaml")
+    if not os.path.exists(bootstrap_config):
+        return
+
+    config = yaml.safe_load(open(bootstrap_config).read())
+    spark_config = _get_spark_config(config)
+    if not spark_config:
+        return
+
+    spark_conf = {}
+    with open(SPARK_OUT_CONF, "r") as f:
+        for line in f.readlines():
+            if not line.startswith("#"):
+                key, value = line.split(" ")
+                spark_conf[key] = value
+    spark_conf.update(spark_config)
+    with open(os.path.join(os.getenv("SPARK_HOME"), "conf/spark-defaults.conf"), "w+") as f:
+        for key, value in spark_conf.items():
+            f.write("{}    {}\n".format(key, value))

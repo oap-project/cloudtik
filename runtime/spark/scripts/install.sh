@@ -1,5 +1,32 @@
 #!/bin/bash
 
+args=$(getopt -a -o h::p: -l head::,head_address::,provider: -- "$@")
+eval set -- "${args}"
+
+IS_HEAD_NODE=false
+
+while true
+do
+    case "$1" in
+    --head)
+        IS_HEAD_NODE=true
+        ;;
+    -h|--head_address)
+        HEAD_ADDRESS=$2
+        shift
+        ;;
+    -p|--provider)
+        provider=$2
+        shift
+        ;;
+    --)
+        shift
+        break
+        ;;
+    esac
+    shift
+done
+
 export HADOOP_VERSION=3.2.0
 export SPARK_VERSION=3.1.1
 

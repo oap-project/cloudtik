@@ -50,7 +50,26 @@ Use the following command to create and provision a Workspace:
 ```
 cloudtik workspace create your-workspace-config.yaml
 ```
-Check example/cluster folder for example Workspace configuration file examples.
+A typical workspace configuration file is usually very simple. Specific the unique workspace name, cloud provider type
+and a few cloud provider specific properties. Take AWS for example,
+```
+# A unique identifier for the workspace.
+workspace_name: example-workspace
+
+# Cloud-provider specific configuration.
+provider:
+    type: aws
+    region: us-west-2
+    security_group:
+        # Use IpPermissions to allow SSH access from your working node
+        IpPermissions:
+        - FromPort: 22
+          ToPort: 22
+          IpProtocol: TCP
+          IpRanges:
+          - CidrIp: 0.0.0.0/0
+```
+Check example/cluster folder for more Workspace configuration file examples.
 
 ### 5. Configure Cloud Storage
 Running Spark on Cloud needs a Cloud storage to store staging and events data.
@@ -63,10 +82,46 @@ More details, please refer to configure [gcs bucket guide](./doc/Configure-GCS-B
 ### 6. Start a cluster
 Now you can start a cluster:
 ```
-cloudtik up your-cluster_config.yaml
+cloudtik up your-cluster-config.yaml
+```
+A typical cluster configuration file is usually very simple thanks to CloudTik hierarchy templates design. Take AWS
+for example,
+```
+# An example of standard 1 + 3 nodes cluster with standard instance type
+from: aws/standard
+
+# Workspace into which to launch the cluster
+workspace_name: exmaple-workspace
+
+# A unique identifier for the cluster.
+cluster_name: example-docker
+
+# Enable container
+docker:
+    enabled: True
+
+# Cloud-provider specific configuration.
+provider:
+    type: aws
+    region: us-west-2
+    # S3 configurations for storage
+    aws_s3a_storage:
+        s3.bucket: your_s3_bucket
+        fs.s3a.access.key: your_s3_access_key
+        fs.s3a.secret.key: your_s3_secret_key
+
+auth:
+    ssh_user: ubuntu
+    # Set proxy if you are in corporation network. For example,
+    # ssh_proxy_command: "ncat --proxy-type socks5 --proxy your_proxy_host:your_proxy_port %h %p"
+
+available_node_types:
+    worker.default:
+        # The minimum number of worker nodes to launch.
+        min_workers: 3
 ```
 You need the cloud storage access information in Step 5 and only a few additional key settings in the configuration file to launch a cluster.
-Refer to example/cluster folder for example of typical cluster configurations.
+Refer to example/cluster folder for more cluster configurations examples.
 
 ### 7. Manage the cluster
 CloudTik provides very powerful capability to monitor and manage the cluster.
@@ -74,35 +129,35 @@ CloudTik provides very powerful capability to monitor and manage the cluster.
 #### Show cluster status and information
 Use the following commands to show various cluster information.
 ```
-cloudtik status your-cluster_config.yaml
-cloudtik info your-cluster_config.yaml
-cloudtik head-ip your-cluster_config.yaml
-cloudtik worker-ips your-cluster_config.yaml
-cloudtik process-status your-cluster_config.yaml
-cloudtik monitor your-cluster_config.yaml
+cloudtik status your-cluster-config.yaml
+cloudtik info your-cluster-config.yaml
+cloudtik head-ip your-cluster-config.yaml
+cloudtik worker-ips your-cluster-config.yaml
+cloudtik process-status your-cluster-config.yaml
+cloudtik monitor your-cluster-config.yaml
 ```
 #### Attach to the cluster head (or specific node)
 ```
-cloudtik attach your-cluster_config.yaml
+cloudtik attach your-cluster-config.yaml
 ```
 #### Execute commands on cluster head (or specified node or on all nodes)
 ```
-cloudtik exec your-cluster_config.yaml
+cloudtik exec your-cluster-config.yaml
 ```
 #### Submit a job to the cluster to run
 ```
-cloudtik exec your-cluster_config.yaml your-job-file.(py|sh|scala)
+cloudtik exec your-cluster-config.yaml your-job-file.(py|sh|scala)
 ```
 #### Copy local files to cluster head (or to all nodes)
 ```
-cloudtik rsync-up your-cluster_config.yaml [source] [target]
+cloudtik rsync-up your-cluster-config.yaml [source] [target]
 ```
 #### Copy file from cluster to local
 ```
-cloudtik rsync-down your-cluster_config.yaml [source] [target]
+cloudtik rsync-down your-cluster-config.yaml [source] [target]
 ```
 #### Stop a cluster
 ```
-cloudtik down your-cluster_config.yaml
+cloudtik down your-cluster-config.yaml
 ```
 For more information as to the commands, you can use `cloudtik --help` or `cloudtik [command] --help` to get detailed instructions.

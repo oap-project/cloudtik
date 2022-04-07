@@ -2,7 +2,6 @@ import click
 import os
 import logging
 from typing import Any, Dict
-import yaml
 from cloudtik.core._private import constants
 
 from cloudtik.core._private import logging_utils
@@ -11,26 +10,14 @@ from cloudtik.core._private.cli_logger import (cli_logger)
 
 from shlex import quote
 
-CLOUDTIK_RUNTIME_PATH = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
+from cloudtik.runtime.spark.utils import CLOUDTIK_SPARK_RUNTIME_PATH, update_spark_configurations
 
 CLOUDTIK_RUNTIME_SCRIPTS_PATH = os.path.join(
-    CLOUDTIK_RUNTIME_PATH, "spark/scripts/")
+    CLOUDTIK_SPARK_RUNTIME_PATH, "spark/scripts/")
 
 SPARK_SERVICES_SCRIPT_PATH = os.path.join(CLOUDTIK_RUNTIME_SCRIPTS_PATH, "services.sh")
-SPARK_OUT_CONF = os.path.join(CLOUDTIK_RUNTIME_PATH, "spark/conf/outconf/spark/spark-defaults.conf")
+
 logger = logging.getLogger(__name__)
-
-
-def _get_spark_config(config: Dict[str, Any]):
-    runtime = config.get("runtime")
-    if not runtime:
-        return None
-
-    spark = runtime.get("spark")
-    if not spark:
-        return None
-
-    return spark.get("config")
 
 
 @click.group()
@@ -54,9 +41,30 @@ def cli(logging_level, logging_format):
 
 
 @click.command()
-def install():
+@click.option(
+    "--head",
+    is_flag=True,
+    default=False,
+    help="provide this argument for the head node")
+@click.option(
+    '--provider',
+    required=True,
+    type=str,
+    help="the provider of cluster ")
+def install(head, provider):
     install_script_path = os.path.join(CLOUDTIK_RUNTIME_SCRIPTS_PATH, "install.sh")
-    os.system("bash {}".format(install_script_path))
+    cmds = [
+        "bash",
+        install_script_path,
+    ]
+
+    if head:
+        cmds += ["--head"]
+    if provider:
+        cmds += ["--provider={}".format(provider)]
+    final_cmd = " ".join(cmds)
+
+    os.system(final_cmd)
 
 
 @click.command()
@@ -195,22 +203,9 @@ def configure(head, provider, head_address, aws_s3a_bucket, s3a_access_key, s3a_
 
     final_cmd = " ".join(cmds)
     os.system(final_cmd)
-    # Merge user specified configuration and default configuration
-    bootstrap_config = os.path.expanduser("~/cloudtik_bootstrap_config.yaml")
-    if os.path.exists(bootstrap_config):
-        config = yaml.safe_load(open(bootstrap_config).read())
-        spark_config = _get_spark_config(config)
-        if spark_config:
-            spark_conf = {}
-            with open(SPARK_OUT_CONF, "r") as f:
-                for line in f.readlines():
-                    if not line.startswith("#"):
-                        key, value = line.split(" ")
-                        spark_conf[key] = value
-            spark_conf.update(spark_config)
-            with open(os.path.join(os.getenv("SPARK_HOME"), "conf/spark-defaults.conf"), "w+") as f:
-                for key, value in spark_conf.items():
-                    f.write("{}    {}\n".format(key, value))
+
+    # Update spark configuration from cluster config file
+    update_spark_configurations()
 
 
 @click.command()

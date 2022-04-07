@@ -92,7 +92,6 @@ function install_jupyter_for_spark() {
 
 function install_tools() {
     which jq || sudo apt-get install jq -y
-    install_ganglia
 }
 
 function install_yarn_with_spark_jars() {
@@ -163,6 +162,7 @@ function install_ganglia() {
         install_ganglia_client
     fi
 }
+
 install_jdk
 install_hadoop
 install_spark
@@ -171,3 +171,4 @@ install_tools
 install_yarn_with_spark_jars
 install_hadoop_with_cloud_jars
 install_spark_with_cloud_jars
+install_ganglia

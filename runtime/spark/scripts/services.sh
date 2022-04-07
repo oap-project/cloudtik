@@ -10,17 +10,25 @@ case "$1" in
     $HADOOP_HOME/bin/yarn --daemon start resourcemanager
     $SPARK_HOME/sbin/start-history-server.sh
     which jupyter && nohup jupyter lab  --no-browser --ip=* > jupyterlab.log 2>&1 &
+    sudo service apache2 start
+    sudo service gmetad start
+    sudo service ganglia-monitor start
     ;;
   stop-head)
     $HADOOP_HOME/bin/yarn --daemon stop resourcemanager
     $SPARK_HOME/sbin/stop-history-server.sh
     which jupyter && jupyter lab stop
+    sudo service ganglia-monitor stop
+    sudo service gmetad stop
+    sudo service apache2 stop
     ;;
   start-worker)
     $HADOOP_HOME/bin/yarn --daemon start nodemanager
+    sudo service ganglia-monitor start
     ;;
   stop-worker)
     $HADOOP_HOME/bin/yarn --daemon stop nodemanager
+    sudo service ganglia-monitor stop
     ;;
   -h|--help)
     echo "Usage: $0 start-head|stop-head|start-worker|stop-worker" >&2

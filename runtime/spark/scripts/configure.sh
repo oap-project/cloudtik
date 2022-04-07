@@ -277,10 +277,32 @@ function configure_jupyter_for_spark() {
 }
 
 
+function configure_ganglia() {
+    cluster_name="spark-cluster"
+    if [ $IS_HEAD_NODE == "true" ]; then
+        # configure ganglia gmetad
+        sudo sed -i "s/data_source \"my cluster\" localhost/data_source \"${cluster_name}\" ${HEAD_ADDRESS}/g" /etc/ganglia/gmetad.conf
+        # Configure ganglia monitor
+        sudo sed -i "s/name = \"unspecified\"/name = \"${cluster_name}\"/g" /etc/ganglia/gmond.conf
+        # replace the first occurrence of "mcast_join = 239.2.11.71" with "host = HEAD_IP"
+        sudo sed -i '0,/mcast_join = 239.2.11.71/s//host = ${HEAD_ADDRESS}/' /etc/ganglia/gmond.conf
+        # comment out the second occurrence
+        sudo sed -i "s/mcast_join = 239.2.11.71/\/*mcast_join = 239.2.11.71*\//g" /etc/ganglia/gmond.conf
+        sudo sed -i "s/bind = 239.2.11.71/\/*bind = 239.2.11.71*\//g" /etc/ganglia/gmond.conf
+        # Configure apache2 for ganglia
+        sudo cp /etc/ganglia-webfrontend/apache.conf /etc/apache2/sites-enabled/ganglia.conf
+    else
+        # Configure ganglia monitor
+        sudo sed -i "s/name = \"unspecified\"/name = \"${cluster_name}\"/g" /etc/ganglia/gmond.conf
+        # replace the first occurrence of "mcast_join = 239.2.11.71" with "host = HEAD_IP"
+        sudo sed -i '0,/mcast_join = 239.2.11.71/s//host = ${HEAD_ADDRESS}/' /etc/ganglia/gmond.conf
+    fi
+}
+
 check_env
 set_head_address
 caculate_worker_resources
 set_resources_for_spark
 configure_hadoop_and_spark
 configure_jupyter_for_spark
-
+configure_ganglia

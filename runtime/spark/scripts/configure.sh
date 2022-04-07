@@ -261,9 +261,15 @@ function configure_hadoop_and_spark() {
 }
 
 function configure_jupyter_for_spark() {
-  # Set default password(cloudtik) for JupyterLab
   echo Y | jupyter notebook --generate-config;
+  # Set default password(cloudtik) for JupyterLab
   sed -i  "1 ic.NotebookApp.password = 'argon2:\$argon2id\$v=19\$m=10240,t=10,p=8\$Y+sBd6UhAyKNsI+/mHsy9g\$WzJsUujSzmotUkblSTpMwCFoOBVSwm7S5oOPzpC+tz8'" ~/.jupyter/jupyter_notebook_config.py
+
+  # Set default notebook_dir for JupyterLab
+  export JUPYTER_WORKSPACE=/home/$(whoami)/jupyter
+  mkdir -p $JUPYTER_WORKSPACE
+  sed -i  "1 ic.NotebookApp.notebook_dir = '${JUPYTER_WORKSPACE}'" ~/.jupyter/jupyter_notebook_config.py
+
   # Config for PySpark
   echo "export PYTHONPATH=\${SPARK_HOME}/python:\${SPARK_HOME}/python/lib/py4j-0.10.9-src.zip \
         export PYSPARK_PYTHON=\${CONDA_PREFIX}/bin/python \

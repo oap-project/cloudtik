@@ -1,6 +1,6 @@
 #!/bin/bash
 
-args=$(getopt -a -o h::p: -l head::,head_address::,provider: -- "$@")
+args=$(getopt -a -o h::p: -l head::,provider: -- "$@")
 eval set -- "${args}"
 
 IS_HEAD_NODE=false
@@ -11,12 +11,8 @@ do
     --head)
         IS_HEAD_NODE=true
         ;;
-    -h|--head_address)
-        HEAD_ADDRESS=$2
-        shift
-        ;;
     -p|--provider)
-        provider=$2
+        PROVIDER=$2
         shift
         ;;
     --)
@@ -96,6 +92,7 @@ function install_jupyter_for_spark() {
 
 function install_tools() {
     which jq || sudo apt-get install jq -y
+    install_ganglia
 }
 
 function install_yarn_with_spark_jars() {
@@ -147,6 +144,25 @@ function install_spark_with_cloud_jars() {
     done
 }
 
+function install_ganglia_server() {
+    # Simply do the install, if they are already installed, it doesn't take time
+    sudo apt-get update -y
+    sudo apt-get install apache2 php libapache2-mod-php php-common php-mbstring php-gmp php-curl php-intl php-xmlrpc php-zip php-gd php-mysql php-xml -y
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install ganglia-monitor rrdtool gmetad ganglia-webfrontend -y
+}
+
+function install_ganglia_client() {
+    sudo apt-get update -y
+    sudo apt-get install ganglia-monitor -y
+}
+
+function install_ganglia() {
+    if [ $IS_HEAD_NODE == "true" ];then
+        install_ganglia_server
+    else
+        install_ganglia_client
+    fi
+}
 install_jdk
 install_hadoop
 install_spark

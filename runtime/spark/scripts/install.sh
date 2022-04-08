@@ -76,17 +76,19 @@ function install_spark() {
 }
 
 function install_jupyter_for_spark() {
-    # Install Jupyter and spylon-kernel for Spark
-    if ! type jupyter >/dev/null 2>&1; then
-      echo "Install JupyterLab..."
-      pip install jupyterlab
-    fi
+    if [ $IS_HEAD_NODE == "true" ];then
+        # Install Jupyter and spylon-kernel for Spark
+        if ! type jupyter >/dev/null 2>&1; then
+          echo "Install JupyterLab..."
+          pip install jupyterlab
+        fi
 
-    export SPYLON_KERNEL=$USER_HOME/.local/share/jupyter/kernels/spylon-kernel
+        export SPYLON_KERNEL=$USER_HOME/.local/share/jupyter/kernels/spylon-kernel
 
-    if  [ ! -d "${SPYLON_KERNEL}" ]; then
-        pip install spylon-kernel;
-        python -m spylon_kernel install --user;
+        if  [ ! -d "${SPYLON_KERNEL}" ]; then
+            pip install spylon-kernel;
+            python -m spylon_kernel install --user;
+        fi
     fi
 }
 

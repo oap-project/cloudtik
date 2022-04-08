@@ -4,7 +4,7 @@ import logging
 import subprocess
 from pathlib import Path
 import random
-import time
+
 from typing import Any, Callable
 
 from cloudtik.core._private.cli_logger import cli_logger, cf
@@ -152,12 +152,12 @@ def _delete_network_resources(config, resource_client, resource_group_name, curr
         _delete_public_ip_address(config, network_client, resource_group_name)
 
 
-    # delete firewalls
+    # delete network security group
     # with cli_logger.group(
-    #         "Deleting firewall rules",
+    #         "Deleting network security group",
     #         _numbered=("[]", current_step, total_steps)):
     #     current_step += 1
-    #     _delete_firewalls(config, compute)
+    #     _delete_network_security_group(config, network_client, resource_group_name)
 
     # delete virtual network
     if not use_internal_ips:
@@ -566,8 +566,6 @@ def _delete_subnet(config, network_client, resource_group_name, virtual_network_
                          .format(subnet_attribute, subnet_name, str(e)))
         raise e
 
-    return
-
 
 def _configure_azure_subnet_cidr(network_client, resource_group_name, virtual_network_name):
     virtual_network = network_client.virtual_networks.get(
@@ -596,14 +594,18 @@ def _create_and_configure_subnets(config, network_client, resource_group_name, v
     subscription_id = config["provider"].get("subscription_id")
     workspace_name = config["workspace_name"]
     nat_gateway_name = "cloudtik-{}-nat".format(workspace_name)
+    network_security_group_name = "cloudtik-{}-network-security-group".format(workspace_name)
     if isPrivate:
         subnet_attribute = "private"
         subnet_parameters = {
             "address_prefix": cidr_block,
             "nat_gateway": {
-                "id": "/subscriptions/" + subscription_id + "/resourceGroups/"
-                      + resource_group_name + "/providers/Microsoft.Network/natGateways/"
-                      + nat_gateway_name
+                "id": "/subscriptions/{}/resourceGroups/{}/providers/Microsoft.Network/natGateways/{}"
+                    .format(subscription_id, resource_group_name, nat_gateway_name)
+            },
+            "network_security_group":{
+                "id": "/subscriptions/{}/resourceGroups/{}/providers/Microsoft.Network/networkSecurityGroups/{}"
+                    .format(subscription_id, resource_group_name, network_security_group_name)
             }
 
         }
@@ -648,9 +650,8 @@ def _create_nat(config, network_client, resource_group_name, public_ip_address_n
                 },
                 "public_ip_addresses": [
                     {
-                            "id": "/subscriptions/" + subscription_id + "/resourceGroups/"
-                                  + resource_group_name + "/providers/Microsoft.Network/publicIPAddresses/"
-                                  + public_ip_address_name + ""
+                            "id": "/subscriptions/{}/resourceGroups/{}/providers/Microsoft.Network/publicIPAddresses/{}"
+                                .format(subscription_id, resource_group_name, public_ip_address_name)
                     }
                 ],
             }
@@ -691,16 +692,51 @@ def _create_public_ip_address(config, network_client, resource_group_name):
     return public_ip_address_name
 
 
+def _create_network_security_group(config, network_client, resource_group_name):
+    workspace_name = config["workspace_name"]
+    location = config["provider"]["location"]
+    securityRules = config["provider"].get("securityRules", [])
+    network_security_group_name = "cloudtik-{}-network-security-group".format(workspace_name)
+
+    for i in range(0, len(securityRules)):
+        securityRules[i]["name"] = "cloudtik-{}-security-rule-{}".format(workspace_name, i)
+
+    cli_logger.print("Creating network-security-group: {}... ".format(network_security_group_name))
+    try:
+        network_client.network_security_groups.begin_create_or_update(
+            resource_group_name=resource_group_name,
+            network_security_group_name=network_security_group_name,
+            parameters={
+                "location": location,
+                "securityRules": securityRules
+            }
+        ).result()
+        cli_logger.print("Successfully created network-security-group: {}.".
+                         format(network_security_group_name))
+    except Exception as e:
+        cli_logger.error("Failed to create network-security-group. {}", str(e))
+        raise e
+
+    return network_security_group_name
+
+
 def _configure_network_resources(config, resource_group_name, current_step, total_steps):
     network_client = construct_network_client(config)
     resource_client = construct_resource_client(config)
 
     # create virtual network
     with cli_logger.group(
-            "Creating Virtual Network",
+            "Creating virtual network",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
         virtual_network_name = _create_vnet(config, resource_client, network_client)
+
+    # create network security group
+    with cli_logger.group(
+            "Creating network security group",
+            _numbered=("[]", current_step, total_steps)):
+        current_step += 1
+        _create_network_security_group(config, network_client, resource_group_name)
 
     # create public subnet
     with cli_logger.group(
@@ -739,13 +775,6 @@ def _configure_network_resources(config, resource_group_name, current_step, tota
         current_step += 1
         _create_and_configure_subnets(
             config, network_client, resource_group_name, virtual_network_name, isPrivate=True)
-
-    # # create firewalls
-    # with cli_logger.group(
-    #         "Creating firewall rules",
-    #         _numbered=("[]", current_step, total_steps)):
-    #     current_step += 1
-    #     _create_firewalls(config, compute, VpcId)
 
     return config
 

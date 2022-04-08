@@ -1589,7 +1589,7 @@ def _create_default_intra_cluster_inbound_rules(intra_cluster_sgids):
 def _create_default_ssh_inbound_rules(sgids, config):
     vpc_id_of_sg = _get_vpc_id_of_sg(sgids, config)
     ec2 = _resource("ec2", config)
-    vpc = ec2.vpc(vpc_id_of_sg)
+    vpc = ec2.Vpc(vpc_id_of_sg)
     vpc_cidr = vpc.cidr_block
     return [{
         "FromPort": 22,

@@ -1,4 +1,3 @@
-
 val conf = spark.sparkContext.getConf
 
 // data scale in GB
@@ -18,15 +17,19 @@ val query_filter = Seq()        // Seq() == all queries
 // val query_filter = Seq("q1-v2.4", "q2-v2.4") // run subset of queries
 val randomizeQueries = false    // run queries in a random order. Recommended for parallel runs.
 
+if (fsdir == "") {
+    println("File system dir must be specified with --conf spark.driver.fsdir")
+    sys.exit(0)
+}
 
 // detailed results will be written as JSON to this location.
-var resultLocation = s"${fsdir}/results/tpcds_${format}/${scaleFactor}/"
+var resultLocation = s"${fsdir}/shared/data/results/tpcds_${format}/${scaleFactor}/"
 var databaseName = s"tpcds_${format}_scale_${scaleFactor}_db"
 val use_arrow = false            // when you want to use gazella_plugin to run TPC-DS, you need to set it true.
 
 if (use_arrow){
-    val data_path= s"${storage}://${bucket_name}/datagen/tpcds_${format}/${scaleFactor}"
-    resultLocation = s"${storage}://${bucket_name}/results/tpcds_arrow/${scaleFactor}/"
+    val data_path= s"${fsdir}/shared/data/tpcds/tpcds_${format}/${scaleFactor}"
+    resultLocation = s"${fsdir}/shared/data/results/tpcds_arrow/${scaleFactor}/"
     databaseName = s"tpcds_arrow_scale_${scaleFactor}_db"
     val tables = Seq("call_center", "catalog_page", "catalog_returns", "catalog_sales", "customer", "customer_address", "customer_demographics", "date_dim", "household_demographics", "income_band", "inventory", "item", "promotion", "reason", "ship_mode", "store", "store_returns", "store_sales", "time_dim", "warehouse", "web_page", "web_returns", "web_sales", "web_site")
     sql(s"DROP database $databaseName CASCADE")

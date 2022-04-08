@@ -23,7 +23,7 @@ NSG_NAME = "cloudtik-nsg"
 SUBNET_NAME = "cloudtik-subnet"
 VNET_NAME = "cloudtik-vnet"
 NUM_AZURE_WORKSPACE_CREATION_STEPS = 6
-NUM_AZURE_WORKSPACE_DELETION_STEPS = 4
+NUM_AZURE_WORKSPACE_DELETION_STEPS = 6
 
 logger = logging.getLogger(__name__)
 
@@ -153,11 +153,11 @@ def _delete_network_resources(config, resource_client, resource_group_name, curr
 
 
     # delete network security group
-    # with cli_logger.group(
-    #         "Deleting network security group",
-    #         _numbered=("[]", current_step, total_steps)):
-    #     current_step += 1
-    #     _delete_network_security_group(config, network_client, resource_group_name)
+    with cli_logger.group(
+            "Deleting network security group",
+            _numbered=("[]", current_step, total_steps)):
+        current_step += 1
+        _delete_network_security_group(config, network_client, resource_group_name)
 
     # delete virtual network
     if not use_internal_ips:
@@ -170,10 +170,45 @@ def _delete_network_resources(config, resource_client, resource_group_name, curr
     return current_step
 
 
+def get_network_security_group(config, network_client, resource_group_name):
+    network_security_group_name = "cloudtik-{}-network-security-group".format(config["workspace_name"])
+
+    cli_logger.verbose("Getting the existing network-security-group: {}.".format(network_security_group_name))
+    try:
+        network_client.network_security_groups.get(
+            resource_group_name,
+            network_security_group_name
+        )
+        cli_logger.verbose("Successfully get the network-security-group: {}.".format(network_security_group_name))
+        return network_security_group_name
+    except Exception as e:
+        cli_logger.verbose_error("Failed to get the network-security-group: {}. {}".format(network_security_group_name, e))
+        return None
+
+
+def _delete_network_security_group(config, network_client, resource_group_name):
+    network_security_group_name = get_network_security_group(config, network_client, resource_group_name)
+    if network_security_group_name is None:
+        cli_logger.print("This network security group has not existed. No need to delete it.")
+        return
+
+    """ Delete the network security group """
+    cli_logger.print("Deleting the network security group: {}...".format(network_security_group_name))
+    try:
+        network_client.network_security_groups.begin_delete(
+            resource_group_name=resource_group_name,
+            network_security_group_name=network_security_group_name
+        ).result()
+        cli_logger.print("Successfully deleted the network security group: {}.".format(network_security_group_name))
+    except Exception as e:
+        cli_logger.error("Failed to delete the network security group:{}. {}".format(network_security_group_name, str(e)))
+        raise e
+
+
 def get_public_ip_address(config, network_client, resource_group_name):
     public_ip_address_name = "cloudtik-{}-public-ip-address".format(config["workspace_name"])
 
-    cli_logger.verbose("Getting the existing nat-gateway: {}.".format(public_ip_address_name))
+    cli_logger.verbose("Getting the existing public-ip-address: {}.".format(public_ip_address_name))
     try:
         network_client.public_ip_addresses.get(
             resource_group_name,
@@ -182,7 +217,7 @@ def get_public_ip_address(config, network_client, resource_group_name):
         cli_logger.verbose("Successfully get the public-ip-address: {}.".format(public_ip_address_name))
         return public_ip_address_name
     except Exception as e:
-        cli_logger.verbose_error("Failed to get the nat-gateway: {}. {}".format(public_ip_address_name, e))
+        cli_logger.verbose_error("Failed to get the public-ip-address: {}. {}".format(public_ip_address_name, e))
         return None
 
 

@@ -1750,7 +1750,7 @@ def start_proxy(config_file: str,
 
     # Warning about bind_address
     if bind_address is None or bind_address == "":
-        cli_logger.warning("The SOCKS5 proxy will be bound on all interfaces of this node. "
+        cli_logger.warning("The SOCKS5 proxy will be bound on localhost of this node. "
                            "Use --bind-address to specify to bind on a specific address if you want.")
 
     _start_proxy(config_file, config,

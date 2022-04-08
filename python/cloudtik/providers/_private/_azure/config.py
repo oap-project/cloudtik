@@ -81,7 +81,7 @@ def delete_workspace_azure(config):
     try:
         # delete network resources
         with cli_logger.group("Deleting workspace: {}", workspace_name):
-            _delete_network_resources(config, resource_client, resource_group_name, current_step, total_steps)
+            current_step = _delete_network_resources(config, resource_client, resource_group_name, current_step, total_steps)
 
         # delete resource group
         if not use_internal_ips:
@@ -137,6 +137,21 @@ def _delete_network_resources(config, resource_client, resource_group_name, curr
         current_step += 1
         _delete_subnet(config, network_client, resource_group_name, virtual_network_name, isPrivate=True)
 
+    # delete nat-gateway
+    with cli_logger.group(
+            "Deleting nat-gateway",
+            _numbered=("[]", current_step, total_steps)):
+        current_step += 1
+        _delete_nat(config, network_client, resource_group_name)
+
+    # delete public-ip-address
+    with cli_logger.group(
+            "Deleting public-ip-address",
+            _numbered=("[]", current_step, total_steps)):
+        current_step += 1
+        _delete_public_ip_address(config, network_client, resource_group_name)
+
+
     # delete firewalls
     # with cli_logger.group(
     #         "Deleting firewall rules",
@@ -151,6 +166,78 @@ def _delete_network_resources(config, resource_client, resource_group_name, curr
                 _numbered=("[]", current_step, total_steps)):
             current_step += 1
             _delete_vnet(config, resource_client, network_client)
+
+    return current_step
+
+
+def get_public_ip_address(config, network_client, resource_group_name):
+    public_ip_address_name = "cloudtik-{}-public-ip-address".format(config["workspace_name"])
+
+    cli_logger.verbose("Getting the existing nat-gateway: {}.".format(public_ip_address_name))
+    try:
+        network_client.public_ip_addresses.get(
+            resource_group_name,
+            public_ip_address_name
+        )
+        cli_logger.verbose("Successfully get the public-ip-address: {}.".format(public_ip_address_name))
+        return public_ip_address_name
+    except Exception as e:
+        cli_logger.verbose_error("Failed to get the nat-gateway: {}. {}".format(public_ip_address_name, e))
+        return None
+
+
+def _delete_public_ip_address(config, network_client, resource_group_name):
+    public_ip_address_name = get_public_ip_address(config, network_client, resource_group_name)
+    if public_ip_address_name is None:
+        cli_logger.print("This Public Ip Address has not existed. No need to delete it.")
+        return
+
+    """ Delete the Public Ip Address """
+    cli_logger.print("Deleting the Public Ip Address: {}...".format(public_ip_address_name))
+    try:
+        network_client.public_ip_addresses.begin_delete(
+            resource_group_name=resource_group_name,
+            public_ip_address_name=public_ip_address_name
+        ).result()
+        cli_logger.print("Successfully deleted the Public Ip Address: {}.".format(public_ip_address_name))
+    except Exception as e:
+        cli_logger.error("Failed to delete the Public Ip Address:{}. {}".format(public_ip_address_name, str(e)))
+        raise e
+
+
+def get_nat_gateway(config, network_client, resource_group_name):
+    nat_gateway_name = "cloudtik-{}-nat".format(config["workspace_name"])
+
+    cli_logger.verbose("Getting the existing nat-gateway: {}.".format(nat_gateway_name))
+    try:
+        network_client.nat_gateways.get(
+            resource_group_name,
+            nat_gateway_name
+        )
+        cli_logger.verbose("Successfully get the nat-gateway: {}.".format(nat_gateway_name))
+        return nat_gateway_name
+    except Exception as e:
+        cli_logger.verbose_error("Failed to get the nat-gateway: {}. {}".format(nat_gateway_name, e))
+        return None
+
+
+def _delete_nat(config, network_client, resource_group_name):
+    nat_gateway_name = get_nat_gateway(config, network_client, resource_group_name)
+    if nat_gateway_name is None:
+        cli_logger.print("This Nat Gateway has not existed. No need to delete it.")
+        return
+
+    """ Delete the Nat Gateway """
+    cli_logger.print("Deleting the Nat Gateway: {}...".format(nat_gateway_name))
+    try:
+        network_client.nat_gateways.begin_delete(
+            resource_group_name=resource_group_name,
+            nat_gateway_name=nat_gateway_name
+        ).result()
+        cli_logger.print("Successfully deleted the Nat Gateway: {}.".format(nat_gateway_name))
+    except Exception as e:
+        cli_logger.error("Failed to delete the Nat Gateway:{}. {}".format(nat_gateway_name, str(e)))
+        raise e
 
 
 def _delete_vnet(config, resource_client, network_client):
@@ -174,8 +261,6 @@ def _delete_vnet(config, resource_client, network_client):
         cli_logger.error("Failed to delete the Virtual Network:{}. {}".format(virtual_network_name, str(e)))
         raise e
 
-    return
-
 
 def _delete_resource_group(config, resource_client):
     resource_group_name = get_workspace_resource_group_name(config, resource_client)
@@ -196,8 +281,6 @@ def _delete_resource_group(config, resource_client):
     except Exception as e:
         cli_logger.error("Failed to delete the Resource Group:{}. {}".format(resource_group_name, str(e)))
         raise e
-
-    return
 
 
 def create_azure_workspace(config):
@@ -486,57 +569,71 @@ def _delete_subnet(config, network_client, resource_group_name, virtual_network_
     return
 
 
-def _configure_azure_subnets_cidr(network_client, resource_group_name, virtual_network_name):
+def _configure_azure_subnet_cidr(network_client, resource_group_name, virtual_network_name):
     virtual_network = network_client.virtual_networks.get(
         resource_group_name=resource_group_name, virtual_network_name=virtual_network_name)
     ip = virtual_network.address_space.address_prefixes[0].split("/")[0].split(".")
     subnets = virtual_network.subnets
-    cidr_list = []
+    cidr_block = None
 
     if len(subnets) == 0:
         existed_cidr_blocks = []
     else:
-        existed_cidr_blocks = [subnet.address_prefx for subnet in subnets]
+        existed_cidr_blocks = [subnet.address_prefix for subnet in subnets]
 
     # choose a random subnet, skipping most common value of 0
     random.seed(virtual_network_name)
-    while len(cidr_list) != 2:
+    while cidr_block is None:
         tmp_cidr_block = ip[0] + "." + ip[1] + "." + str(random.randint(1, 254)) + ".0/24"
         if check_cidr_conflict(tmp_cidr_block, existed_cidr_blocks):
-            cidr_list.append(tmp_cidr_block)
-            existed_cidr_blocks.append(tmp_cidr_block)
+            cidr_block = tmp_cidr_block
 
-    return cidr_list
+    return cidr_block
 
 
-def _create_and_configure_subnets(config, network_client, resource_group_name, virtual_network_name):
-    subnets_attribute = ["public", "private"]
-    cidr_list = _configure_azure_subnets_cidr(network_client, resource_group_name, virtual_network_name)
+def _create_and_configure_subnets(config, network_client, resource_group_name, virtual_network_name, isPrivate=True):
+    cidr_block = _configure_azure_subnet_cidr(network_client, resource_group_name, virtual_network_name)
+    subscription_id = config["provider"].get("subscription_id")
+    workspace_name = config["workspace_name"]
+    nat_gateway_name = "cloudtik-{}-nat".format(workspace_name)
+    if isPrivate:
+        subnet_attribute = "private"
+        subnet_parameters = {
+            "address_prefix": cidr_block,
+            "nat_gateway": {
+                "id": "/subscriptions/" + subscription_id + "/resourceGroups/"
+                      + resource_group_name + "/providers/Microsoft.Network/natGateways/"
+                      + nat_gateway_name
+            }
+
+        }
+    else:
+        subnet_attribute = "public"
+        subnet_parameters = {
+                "address_prefix": cidr_block
+            }
+
     # Create subnet
-    for i in range(2):
-        cli_logger.print("Creating subnet for the virtual network: {} with CIDR: {}...".
-                         format(virtual_network_name, cidr_list[i]))
-        try:
-            network_client.subnets.begin_create_or_update(
-                resource_group_name,
-                virtual_network_name,
-                "cloudtik-{}-{}-subnet".format(config["workspace_name"], subnets_attribute[i]),
-                {
-                    "address_prefix": cidr_list[i]
-                }
-            ).result()
-            cli_logger.print("Successfully created {} subnet: cloudtik-{}-{}-subnet.".
-                             format(subnets_attribute[i], config["workspace_name"], subnets_attribute[i]))
-        except Exception as e:
-            cli_logger.error("Failed to create subnet. {}", str(e))
-            raise e
+    cli_logger.print("Creating subnet for the virtual network: {} with CIDR: {}...".
+                     format(virtual_network_name, cidr_block))
+    try:
+        network_client.subnets.begin_create_or_update(
+            resource_group_name=resource_group_name,
+            virtual_network_name=virtual_network_name,
+            subnet_name="cloudtik-{}-{}-subnet".format(config["workspace_name"], subnet_attribute),
+            subnet_parameters=subnet_parameters
+        ).result()
+        cli_logger.print("Successfully created {} subnet: cloudtik-{}-{}-subnet.".
+                         format(subnet_attribute, config["workspace_name"], subnet_attribute))
+    except Exception as e:
+        cli_logger.error("Failed to create subnet. {}", str(e))
+        raise e
     return
 
 
-def _create_nat(config, network_client, resource_group_name, virtual_network_name, public_ip_address_name):
+def _create_nat(config, network_client, resource_group_name, public_ip_address_name):
     subscription_id = config["provider"].get("subscription_id")
     workspace_name = config["workspace_name"]
-    private_subnet_name = "cloudtik-{}-private-subnet".format(workspace_name)
     nat_gateway_name = "cloudtik-{}-nat".format(workspace_name)
 
     cli_logger.print("Creating nat-gateway: {}... ".format(nat_gateway_name))
@@ -549,13 +646,6 @@ def _create_nat(config, network_client, resource_group_name, virtual_network_nam
                 "sku": {
                     "name": "Standard"
                 },
-                "subnets": [
-                    {
-                            "id": "/subscriptions/" + subscription_id + "/resourceGroups/"
-                                  + resource_group_name + "/providers/Microsoft.Network/virtualNetworks/"
-                                  + virtual_network_name + "/subnets/" + private_subnet_name + ""
-                    }
-                ],
                 "public_ip_addresses": [
                     {
                             "id": "/subscriptions/" + subscription_id + "/resourceGroups/"
@@ -612,12 +702,13 @@ def _configure_network_resources(config, resource_group_name, current_step, tota
         current_step += 1
         virtual_network_name = _create_vnet(config, resource_client, network_client)
 
-    # create subnets
+    # create public subnet
     with cli_logger.group(
-            "Creating subnets",
+            "Creating public subnet",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
-        _create_and_configure_subnets(config, network_client, resource_group_name, virtual_network_name)
+        _create_and_configure_subnets(
+            config, network_client, resource_group_name, virtual_network_name, isPrivate=False)
 
     # # create router
     # with cli_logger.group(
@@ -638,7 +729,16 @@ def _configure_network_resources(config, resource_group_name, current_step, tota
             "Creating nat-gateway",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
-        _create_nat(config, network_client, resource_group_name, virtual_network_name, public_ip_address_name)
+        _create_nat(config, network_client, resource_group_name, public_ip_address_name)
+
+
+    # create private subnet
+    with cli_logger.group(
+            "Creating private subnet",
+            _numbered=("[]", current_step, total_steps)):
+        current_step += 1
+        _create_and_configure_subnets(
+            config, network_client, resource_group_name, virtual_network_name, isPrivate=True)
 
     # # create firewalls
     # with cli_logger.group(

@@ -35,7 +35,7 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     kill_process_by_pid, \
     get_proxy_info_file, get_safe_proxy_process_info, \
     get_head_working_ip, get_node_cluster_ip, is_use_internal_ip, get_head_bootstrap_config, \
-    get_attach_command, is_alive_time, with_head_node_ip, is_docker_enabled
+    get_attach_command, is_alive_time, with_head_node_ip, is_docker_enabled, get_proxy_bind_address_to_show
 
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
@@ -816,8 +816,10 @@ def get_or_create_head_node(config: Dict[str, Any],
             "head_node_id": head_node,
         })
 
-    # restart proxy
-    _start_proxy(printable_config_file, config, True)
+    if not is_use_internal_ip(config):
+        # start proxy and bind to localhost
+        _start_proxy(printable_config_file, config,
+                     True, "localhost")
 
     show_useful_commands(printable_config_file,
                          config,
@@ -1670,12 +1672,13 @@ def show_useful_commands(printable_config_file: str,
         cli_logger.print("  {}", remote_shell_str.strip())
 
         proxy_info_file = get_proxy_info_file(cluster_name)
-        pid, port = get_safe_proxy_process_info(proxy_info_file)
+        pid, address, port = get_safe_proxy_process_info(proxy_info_file)
         if pid is not None:
-            cli_logger.print("The local SOCKS5 proxy to the cluster:")
+            bind_address_show = get_proxy_bind_address_to_show(address)
+            cli_logger.print("The SOCKS5 proxy to the cluster:")
             cli_logger.print(
-                cf.bold("  127.0.0.1:{}. To access the cluster from local tools, please configure the SOCKS5 proxy."),
-                port)
+                cf.bold("  {}:{}. To access the cluster from local tools, please configure the SOCKS5 proxy."),
+                bind_address_show, port)
 
             head_node_cluster_ip = get_node_cluster_ip(config, provider, head_node)
 
@@ -1732,35 +1735,45 @@ def confirm(msg: str, yes: bool) -> Optional[bool]:
 
 def start_proxy(config_file: str,
                 override_cluster_name: Optional[str] = None,
-                no_config_cache: bool = False):
+                no_config_cache: bool = False,
+                bind_address: str = None):
     config = yaml.safe_load(open(config_file).read())
     if override_cluster_name is not None:
         config["cluster_name"] = override_cluster_name
     config = _bootstrap_config(config, no_config_cache=no_config_cache)
 
-    _start_proxy(config_file, config)
-
-
-def _start_proxy(config_file: str, config: Dict[str, Any], restart: bool = False):
     if is_use_internal_ip(config):
         cli_logger.print(cf.bold(
-            "With use_internal_ips is True, you can use internal IPs to access the cluster."),)
+            "SOCKS5 proxy is not needed. With use_internal_ips is True, you can access the cluster directly."),)
         return
 
+    # Warning about bind_address
+    if bind_address is None or bind_address == "":
+        cli_logger.warning("The SOCKS5 proxy will be bound on all interfaces of this node. "
+                           "Use --bind-address to specify to bind on a specific address if you want.")
+
+    _start_proxy(config_file, config,
+                 restart=True, bind_address=bind_address)
+
+
+def _start_proxy(config_file: str, config: Dict[str, Any],
+                 restart: bool = False,
+                 bind_address: str = None):
     cluster_name = config["cluster_name"]
     proxy_info_file = get_proxy_info_file(cluster_name)
-    pid, proxy_port = get_safe_proxy_process_info(proxy_info_file)
+    pid, address, port = get_safe_proxy_process_info(proxy_info_file)
     if pid is not None:
         if restart:
             # stop the proxy first
             _stop_proxy(config)
         else:
             cli_logger.print(cf.bold(
-                "The local SOCKS5 proxy to the cluster {} is already running."),
+                "The SOCKS5 proxy to the cluster {} is already running."),
                 cluster_name)
+            bind_address_to_show = get_proxy_bind_address_to_show(address)
             cli_logger.print(cf.bold(
-                "To access the cluster from local tools, please configure the SOCKS5 proxy with 127.0.0.1:{}."),
-                proxy_port)
+                "To access the cluster from local tools, please configure the SOCKS5 proxy with {}:{}."),
+                bind_address_to_show, port)
             return
 
     provider = _get_node_provider(config["provider"], config["cluster_name"])
@@ -1772,16 +1785,18 @@ def _start_proxy(config_file: str, config: Dict[str, Any], restart: bool = False
         cli_logger.print(cf.bold("Cluster {} is not running."), cluster_name)
         return
 
-    pid, proxy_port = _start_proxy_process(head_node_ip, config)
+    pid, address, port = _start_proxy_process(head_node_ip, config, bind_address)
     cli_logger.print(cf.bold(
-        "The local SOCKS5 proxy to the cluster {} has been enabled."),
+        "The SOCKS5 proxy to the cluster {} has been started."),
         cluster_name)
+    bind_address_to_show = get_proxy_bind_address_to_show(bind_address)
     cli_logger.print(cf.bold(
-        "To access the cluster from local tools, please configure the SOCKS5 proxy with 127.0.0.1:{}."),
-        proxy_port)
+        "To access the cluster from local tools, please configure the SOCKS5 proxy with {}:{}."),
+        bind_address_to_show, port)
 
 
-def _start_proxy_process(head_node_ip, config):
+def _start_proxy_process(head_node_ip, config,
+                         bind_address: str = None):
     proxy_info_file = get_proxy_info_file(config["cluster_name"])
 
     auth_config = config["auth"]
@@ -1794,7 +1809,13 @@ def _start_proxy_process(head_node_ip, config):
         cmd += " -i {}".format(ssh_private_key)
     if ssh_proxy_command:
         cmd += " -o ProxyCommand=\'{}\'".format(ssh_proxy_command)
-    cmd += " -D {} -C -N {}@{}".format(proxy_port, ssh_user, head_node_ip)
+
+    if bind_address is None or bind_address == "":
+        bind_string = "{}".format(proxy_port)
+    else:
+        bind_string = "{}:{}".format(bind_address, proxy_port)
+
+    cmd += " -D {} -C -N {}@{}".format(bind_string, ssh_user, head_node_ip)
 
     cli_logger.verbose("Running `{}`", cf.bold(cmd))
     p = subprocess.Popen(cmd, shell=True)
@@ -1802,10 +1823,10 @@ def _start_proxy_process(head_node_ip, config):
         process_info = json.loads(open(proxy_info_file).read())
     else:
         process_info = {}
-    process_info["proxy"] = {"pid": p.pid, "port": proxy_port}
+    process_info["proxy"] = {"pid": p.pid, "bind_address": bind_address, "port": proxy_port}
     with open(proxy_info_file, "w") as f:
         f.write(json.dumps(process_info))
-    return p.pid, proxy_port
+    return p.pid, bind_address, proxy_port
 
 
 def stop_proxy(config_file: str,
@@ -1822,15 +1843,15 @@ def _stop_proxy(config: Dict[str, Any]):
     cluster_name = config["cluster_name"]
 
     proxy_info_file = get_proxy_info_file(cluster_name)
-    pid, proxy_port = get_safe_proxy_process_info(proxy_info_file)
+    pid, address, port = get_safe_proxy_process_info(proxy_info_file)
     if pid is None:
-        cli_logger.print(cf.bold("The local SOCKS5 proxy cluster {} was not enabled."), cluster_name)
+        cli_logger.print(cf.bold("The SOCKS5 proxy cluster {} was not started."), cluster_name)
         return
 
     kill_process_by_pid(pid)
     with open(proxy_info_file, "w") as f:
         f.write(json.dumps({"proxy": {}}))
-    cli_logger.print(cf.bold("Disable local SOCKS5 proxy of cluster {} successfully."), cluster_name)
+    cli_logger.print(cf.bold("Successfully stopped the SOCKS5 proxy of cluster {}."), cluster_name)
 
 
 def exec_cmd_on_cluster(cluster_config_file: str,

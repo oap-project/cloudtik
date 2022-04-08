@@ -285,7 +285,7 @@ function configure_ganglia() {
         # Configure ganglia monitor
         sudo sed -i "s/name = \"unspecified\"/name = \"${cluster_name}\"/g" /etc/ganglia/gmond.conf
         # replace the first occurrence of "mcast_join = 239.2.11.71" with "host = HEAD_IP"
-        sudo sed -i '0,/mcast_join = 239.2.11.71/s//host = ${HEAD_ADDRESS}/' /etc/ganglia/gmond.conf
+        sudo sed -i "0,/mcast_join = 239.2.11.71/s//host = ${HEAD_ADDRESS}/" /etc/ganglia/gmond.conf
         # comment out the second occurrence
         sudo sed -i "s/mcast_join = 239.2.11.71/\/*mcast_join = 239.2.11.71*\//g" /etc/ganglia/gmond.conf
         sudo sed -i "s/bind = 239.2.11.71/\/*bind = 239.2.11.71*\//g" /etc/ganglia/gmond.conf
@@ -295,7 +295,7 @@ function configure_ganglia() {
         # Configure ganglia monitor
         sudo sed -i "s/name = \"unspecified\"/name = \"${cluster_name}\"/g" /etc/ganglia/gmond.conf
         # replace the first occurrence of "mcast_join = 239.2.11.71" with "host = HEAD_IP"
-        sudo sed -i '0,/mcast_join = 239.2.11.71/s//host = ${HEAD_ADDRESS}/' /etc/ganglia/gmond.conf
+        sudo sed -i "0,/mcast_join = 239.2.11.71/s//host = ${HEAD_ADDRESS}/" /etc/ganglia/gmond.conf
     fi
 }
 

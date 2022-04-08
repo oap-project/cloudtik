@@ -1479,3 +1479,19 @@ def get_attach_command(use_screen: bool,
 
 def is_docker_enabled(config: Dict[str, Any]) -> bool:
     return config.get("docker", {}).get("enabled", False)
+
+
+def kill_process_tree(pid, include_parent=True):
+    try:
+        proc = psutil.Process(pid)
+    except psutil.NoSuchProcess:
+        return
+
+    children = proc.children(recursive=True)
+    if include_parent:
+        children.append(proc)
+    for p in children:
+        try:
+            p.kill()
+        except psutil.NoSuchProcess:  # pragma: no cover
+            pass

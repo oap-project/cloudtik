@@ -83,7 +83,7 @@ function prepare_base_conf() {
     cp -r $source_dir/* $output_dir
 }
 
-function check_env() {
+function check_spark_installed() {
     if [ ! -n "${HADOOP_HOME}" ]; then
         echo "HADOOP_HOME environment variable is not set."
         exit 1
@@ -101,15 +101,13 @@ function set_head_address() {
 	  fi
 }
 
-function caculate_worker_resources() {
-    #For nodemanager
+function set_resources_for_spark() {
+    # For nodemanager
     total_memory=$(awk '($1 == "MemTotal:"){print $2/1024*0.8}' /proc/meminfo)
     total_memory=${total_memory%.*}
     total_vcores=$(cat /proc/cpuinfo | grep processor | wc -l)
-}
 
-function set_resources_for_spark() {
-    #For Head Node
+    # For Head Node
     if [ $IS_HEAD_NODE == "true" ];then
         spark_executor_cores=$(cat ~/cloudtik_bootstrap_config.yaml | jq '."runtime"."spark"."spark_executor_resource"."spark_executor_cores"')
         spark_executor_memory=$(cat ~/cloudtik_bootstrap_config.yaml | jq '."runtime"."spark"."spark_executor_resource"."spark_executor_memory"')M
@@ -261,21 +259,22 @@ function configure_hadoop_and_spark() {
 }
 
 function configure_jupyter_for_spark() {
-  echo Y | jupyter notebook --generate-config;
-  # Set default password(cloudtik) for JupyterLab
-  sed -i  "1 ic.NotebookApp.password = 'argon2:\$argon2id\$v=19\$m=10240,t=10,p=8\$Y+sBd6UhAyKNsI+/mHsy9g\$WzJsUujSzmotUkblSTpMwCFoOBVSwm7S5oOPzpC+tz8'" ~/.jupyter/jupyter_notebook_config.py
+  if [ $IS_HEAD_NODE == "true" ]; then
+      echo Y | jupyter notebook --generate-config;
+      # Set default password(cloudtik) for JupyterLab
+      sed -i  "1 ic.NotebookApp.password = 'argon2:\$argon2id\$v=19\$m=10240,t=10,p=8\$Y+sBd6UhAyKNsI+/mHsy9g\$WzJsUujSzmotUkblSTpMwCFoOBVSwm7S5oOPzpC+tz8'" ~/.jupyter/jupyter_notebook_config.py
 
-  # Set default notebook_dir for JupyterLab
-  export JUPYTER_WORKSPACE=/home/$(whoami)/jupyter
-  mkdir -p $JUPYTER_WORKSPACE
-  sed -i  "1 ic.NotebookApp.notebook_dir = '${JUPYTER_WORKSPACE}'" ~/.jupyter/jupyter_notebook_config.py
+      # Set default notebook_dir for JupyterLab
+      export JUPYTER_WORKSPACE=/home/$(whoami)/jupyter
+      mkdir -p $JUPYTER_WORKSPACE
+      sed -i  "1 ic.NotebookApp.notebook_dir = '${JUPYTER_WORKSPACE}'" ~/.jupyter/jupyter_notebook_config.py
 
-  # Config for PySpark
-  echo "export PYTHONPATH=\${SPARK_HOME}/python:\${SPARK_HOME}/python/lib/py4j-0.10.9-src.zip \
-        export PYSPARK_PYTHON=\${CONDA_PREFIX}/bin/python \
-        export PYSPARK_DRIVER_PYTHON=\${CONDA_PREFIX}/bin/python" >> ~/.bashrc
+      # Config for PySpark
+      echo "export PYTHONPATH=\${SPARK_HOME}/python:\${SPARK_HOME}/python/lib/py4j-0.10.9-src.zip \
+            export PYSPARK_PYTHON=\${CONDA_PREFIX}/bin/python \
+            export PYSPARK_DRIVER_PYTHON=\${CONDA_PREFIX}/bin/python" >> ~/.bashrc
+  fi
 }
-
 
 function configure_ganglia() {
     cluster_name="spark-cluster"
@@ -299,9 +298,8 @@ function configure_ganglia() {
     fi
 }
 
-check_env
+check_spark_installed
 set_head_address
-caculate_worker_resources
 set_resources_for_spark
 configure_hadoop_and_spark
 configure_jupyter_for_spark

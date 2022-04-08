@@ -18,7 +18,7 @@ if (fsdir == "") {
 }
 
 val tools_path = "/home/cloudtik/runtime/benchmark-tools/tpcds-kit/tools"
-val data_path = s"${fsdir}/datagen/tpcds_${format}/${scale}"
+val data_path = s"${fsdir}/shared/data/tpcds/tpcds_${format}/${scale}"
 val database_name = s"tpcds_${format}_scale_${scale}_db"
 val codec = "snappy"
 val clusterByPartitionColumns = partitionTables

@@ -1374,19 +1374,28 @@ def _get_proxy_process_info(proxy_info_file: str):
     if os.path.exists(proxy_info_file):
         process_info = json.loads(open(proxy_info_file).read())
         if process_info.get("proxy") and process_info["proxy"].get("pid"):
-            return process_info["proxy"]["pid"], process_info["proxy"]["port"]
-    return None, None
+            proxy_info = process_info["proxy"]
+            return proxy_info["pid"], proxy_info.get("bind_address"), proxy_info["port"]
+    return None, None, None
 
 
 def get_safe_proxy_process_info(proxy_info_file: str):
-    pid, port = _get_proxy_process_info(proxy_info_file)
+    pid, bind_address, port = _get_proxy_process_info(proxy_info_file)
     if pid is None:
-        return None, None
+        return None, None, None
 
     if not check_process_exists(pid):
-        return None, None
+        return None, None, None
 
-    return pid, port
+    return pid, bind_address, port
+
+
+def get_proxy_bind_address_to_show(bind_address: str):
+    if bind_address is None or bind_address == "":
+        bind_address_to_show = "this-node-ip"
+    else:
+        bind_address_to_show = bind_address
+    return bind_address_to_show
 
 
 def is_use_internal_ip(config: Dict[str, Any]) -> bool:

@@ -978,13 +978,21 @@ def monitor(cluster_config_file, lines, cluster_name, file_type):
     required=False,
     type=str,
     help="Override the configured cluster name.")
+@click.option(
+    "--bind-address",
+    required=False,
+    type=str,
+    default=None,
+    help="The address to bind on local node.")
 @add_click_logging_options
-def enable_proxy(cluster_config_file, no_config_cache, cluster_name):
-    """Enable local SOCKS5 proxy to the cluster through SSH tunnel forwarding to the head."""
+def enable_proxy(cluster_config_file, no_config_cache, cluster_name,
+                 bind_address):
+    """Start the SOCKS5 proxy to the cluster through SSH tunnel forwarding to the head."""
     start_proxy(
         cluster_config_file,
         override_cluster_name=cluster_name,
-        no_config_cache=no_config_cache)
+        no_config_cache=no_config_cache,
+        bind_address=bind_address)
 
 
 @cli.command()
@@ -997,7 +1005,7 @@ def enable_proxy(cluster_config_file, no_config_cache, cluster_name):
     help="Override the configured cluster name.")
 @add_click_logging_options
 def disable_proxy(cluster_config_file,cluster_name):
-    """Disable local SOCKS5 proxy to the cluster."""
+    """Stop the SOCKS5 proxy to the cluster."""
     stop_proxy(cluster_config_file,cluster_name)
 
 

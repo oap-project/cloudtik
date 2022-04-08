@@ -35,7 +35,8 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     kill_process_by_pid, \
     get_proxy_info_file, get_safe_proxy_process_info, \
     get_head_working_ip, get_node_cluster_ip, is_use_internal_ip, get_head_bootstrap_config, \
-    get_attach_command, is_alive_time, with_head_node_ip, is_docker_enabled, get_proxy_bind_address_to_show
+    get_attach_command, is_alive_time, with_head_node_ip, is_docker_enabled, get_proxy_bind_address_to_show, \
+    kill_process_tree
 
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
@@ -1848,7 +1849,7 @@ def _stop_proxy(config: Dict[str, Any]):
         cli_logger.print(cf.bold("The SOCKS5 proxy cluster {} was not started."), cluster_name)
         return
 
-    kill_process_by_pid(pid)
+    kill_process_tree(pid)
     with open(proxy_info_file, "w") as f:
         f.write(json.dumps({"proxy": {}}))
     cli_logger.print(cf.bold("Successfully stopped the SOCKS5 proxy of cluster {}."), cluster_name)

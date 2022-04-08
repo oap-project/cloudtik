@@ -537,40 +537,37 @@ def _create_nat(config, network_client, resource_group_name, virtual_network_nam
     subscription_id = config["provider"].get("subscription_id")
     workspace_name = config["workspace_name"]
     private_subnet_name = "cloudtik-{}-private-subnet".format(workspace_name)
-    virtual_network_gateway_name = "cloudtik-{}-nat".format(workspace_name)
+    nat_gateway_name = "cloudtik-{}-nat".format(workspace_name)
 
-    cli_logger.print("Creating nat-gateway: {}... ".format(virtual_network_gateway_name))
+    cli_logger.print("Creating nat-gateway: {}... ".format(nat_gateway_name))
     try:
-        virtual_network_gateway = network_client.virtual_network_gateways.begin_create_or_update(
-            resource_group_name,
-            virtual_network_gateway_name,
-            {
-                "ip_configurations": [
-                    {
-                        "private_ip_allocation_method": "Dynamic",
-                        "subnet": {
-                            "id": "/subscriptions/" + subscription_id + "/resourceGroups/"
-                                  + resource_group_name + "/providers/Microsoft.Network/virtualNetworks/"
-                                  + virtual_network_name + "/subnets/" + private_subnet_name + ""
-                        },
-                        "public_ip_address": {
-                            "id": "/subscriptions/" + subscription_id + "/resourceGroups/"
-                                  + resource_group_name + "/providers/Microsoft.Network/publicIPAddresses/"
-                                  + public_ip_address_name + ""
-                        },
-                        "name": "cloudtik-{}-ip-configuration".format(workspace_name)
-                    }
-                ],
-                "gateway_type": "Microsoft.Network/natGateways",
+        nat_gateway = network_client.nat_gateways.begin_create_or_update(
+            resource_group_name=resource_group_name,
+            nat_gateway_name=nat_gateway_name,
+            parameters = {
                 "location": config["provider"]["location"],
                 "sku": {
                     "name": "Standard"
-                }
+                },
+                "subnets": [
+                    {
+                            "id": "/subscriptions/" + subscription_id + "/resourceGroups/"
+                                  + resource_group_name + "/providers/Microsoft.Network/virtualNetworks/"
+                                  + virtual_network_name + "/subnets/" + private_subnet_name + ""
+                    }
+                ],
+                "public_ip_addresses": [
+                    {
+                            "id": "/subscriptions/" + subscription_id + "/resourceGroups/"
+                                  + resource_group_name + "/providers/Microsoft.Network/publicIPAddresses/"
+                                  + public_ip_address_name + ""
+                    }
+                ],
             }
         ).result()
-        print("Create virtual network gateway:\n{}".format(virtual_network_gateway))
+        print("Create nat-gateway:\n{}".format(nat_gateway))
         cli_logger.print("Successfully created nat-gateway: {}.".
-                         format(virtual_network_gateway))
+                         format(nat_gateway_name))
     except Exception as e:
         cli_logger.error("Failed to create nat-gateway. {}", str(e))
         raise e
@@ -588,8 +585,11 @@ def _create_public_ip_address(config, network_client, resource_group_name):
             public_ip_address_name,
             {
                 'location': location,
-                'public_ip_allocation_method': 'Dynamic',
-                'idle_timeout_in_minutes': 4
+                'public_ip_allocation_method': 'Static',
+                'idle_timeout_in_minutes': 4,
+                "sku": {
+                    "name": "Standard"
+                }
             }
         )
         cli_logger.print("Successfully created public-ip-address: {}.".
@@ -604,6 +604,7 @@ def _create_public_ip_address(config, network_client, resource_group_name):
 def _configure_network_resources(config, resource_group_name, current_step, total_steps):
     network_client = construct_network_client(config)
     resource_client = construct_resource_client(config)
+
     # create virtual network
     with cli_logger.group(
             "Creating Virtual Network",
@@ -634,7 +635,7 @@ def _configure_network_resources(config, resource_group_name, current_step, tota
 
     # create nat-gateway
     with cli_logger.group(
-            "Creating NAT for router",
+            "Creating nat-gateway",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
         _create_nat(config, network_client, resource_group_name, virtual_network_name, public_ip_address_name)

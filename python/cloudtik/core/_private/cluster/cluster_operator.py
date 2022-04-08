@@ -1649,6 +1649,10 @@ def show_useful_commands(printable_config_file: str,
         cluster_name = config["cluster_name"]
 
     cli_logger.newline()
+    private_key_file = config["auth"].get("ssh_private_key", "")
+    cli_logger.print("Cluster private key file: {}", private_key_file)
+
+    cli_logger.newline()
     with cli_logger.group("Useful commands"):
         printable_config_file = os.path.abspath(printable_config_file)
 
@@ -1672,24 +1676,34 @@ def show_useful_commands(printable_config_file: str,
         cli_logger.print("Get a remote shell to the cluster manually:")
         cli_logger.print("  {}", remote_shell_str.strip())
 
+    cli_logger.newline()
+    with cli_logger.group("Useful links"):
         proxy_info_file = get_proxy_info_file(cluster_name)
         pid, address, port = get_safe_proxy_process_info(proxy_info_file)
         if pid is not None:
             bind_address_show = get_proxy_bind_address_to_show(address)
             cli_logger.print("The SOCKS5 proxy to the cluster:")
             cli_logger.print(
-                cf.bold("  {}:{}. To access the cluster from local tools, please configure the SOCKS5 proxy."),
+                cf.bold("  {}:{}. To access the cluster from local tools, configure it as the SOCKS5 proxy."),
                 bind_address_show, port)
 
-            head_node_cluster_ip = get_node_cluster_ip(config, provider, head_node)
+        head_node_cluster_ip = get_node_cluster_ip(config, provider, head_node)
 
-            cli_logger.print("Yarn Web UI:")
-            cli_logger.print(
-                cf.bold("  http://{}:8088"), head_node_cluster_ip)
+        cli_logger.print("Yarn Web UI:")
+        cli_logger.print(
+            cf.bold("  http://{}:8088"), head_node_cluster_ip)
 
-            cli_logger.print("Jupyter Lab Web UI:")
-            cli_logger.print(
-                cf.bold("  http://{}:8888, default password is \'cloudtik\'"), head_node_cluster_ip)
+        cli_logger.print("Jupyter Web UI:")
+        cli_logger.print(
+            cf.bold("  http://{}:8888, default password is \'cloudtik\'"), head_node_cluster_ip)
+
+        cli_logger.print("Spark History Server Web UI:")
+        cli_logger.print(
+            cf.bold("  http://{}:18080"), head_node_cluster_ip)
+
+        cli_logger.print("Ganglia Web UI:")
+        cli_logger.print(
+            cf.bold("  http://{}/ganglia"), head_node_cluster_ip)
 
 
 def show_cluster_status(config_file: str,

@@ -1393,6 +1393,8 @@ def get_safe_proxy_process_info(proxy_info_file: str):
 def get_proxy_bind_address_to_show(bind_address: str):
     if bind_address is None or bind_address == "":
         bind_address_to_show = "127.0.0.1"
+    elif bind_address == "*" or bind_address == "0.0.0.0":
+        bind_address_to_show = "this-node-ip"
     else:
         bind_address_to_show = bind_address
     return bind_address_to_show

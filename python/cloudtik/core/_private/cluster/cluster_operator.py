@@ -408,7 +408,7 @@ def teardown_cluster(config_file: str, yes: bool, workers_only: bool,
                                workers_only, keep_min_workers,
                                False)
 
-    cli_logger.success("Successfully shut down cluster: {} .", config["cluster_name"])
+    cli_logger.success("Successfully shut down cluster: {}.", config["cluster_name"])
 
 
 def teardown_cluster_nodes(config: Dict[str, Any],
@@ -1684,7 +1684,7 @@ def show_useful_commands(printable_config_file: str,
             bind_address_show = get_proxy_bind_address_to_show(address)
             cli_logger.print("The SOCKS5 proxy to the cluster:")
             cli_logger.print(
-                cf.bold("  {}:{}. To access the cluster from local tools, configure it as the SOCKS5 proxy."),
+                cf.bold("  To access the cluster Web UI from local browsers, configure {}:{} as the SOCKS5 proxy."),
                 bind_address_show, port)
 
         head_node_cluster_ip = get_node_cluster_ip(config, provider, head_node)

@@ -647,8 +647,12 @@ def _create_and_configure_subnets(config, network_client, resource_group_name, v
     else:
         subnet_attribute = "public"
         subnet_parameters = {
-                "address_prefix": cidr_block
+            "address_prefix": cidr_block,
+            "network_security_group": {
+                "id": "/subscriptions/{}/resourceGroups/{}/providers/Microsoft.Network/networkSecurityGroups/{}"
+                    .format(subscription_id, resource_group_name, network_security_group_name)
             }
+        }
 
     # Create subnet
     cli_logger.print("Creating subnet for the virtual network: {} with CIDR: {}...".

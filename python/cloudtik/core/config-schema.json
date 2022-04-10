@@ -56,6 +56,11 @@
             "description": "Mark whether the config file is already bootstrapped or not",
             "default": false
         },
+        "storage_mount_enabled": {
+            "type": "boolean",
+            "description": "If enabled, Cloudtik will mount storage as a file system with s3, blobfuse or gcs",
+            "default": false
+        },
         "provider": {
             "type": "object",
             "description": "Cloud-provider specific configuration.",

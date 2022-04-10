@@ -888,6 +888,11 @@ def merge_initialization_commands(config):
 
 
 def merge_setup_commands(config):
+    # Check if Cloudtik should mount storage as a file system with s3, blobfuse or gcs
+    if is_storage_mount_enabled(config):
+        CLOUDTIK_CORE_PATH = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        FUSH_SCRIPT = os.path.join(CLOUDTIK_CORE_PATH, "scripts/fuse.sh")
+        config["setup_commands"].append("bash {}".format(FUSH_SCRIPT))
     config["setup_commands"] = (
         config["setup_commands"] + config["bootstrap_commands"])
     config["head_setup_commands"] = (
@@ -1482,6 +1487,9 @@ def get_attach_command(use_screen: bool,
 def is_docker_enabled(config: Dict[str, Any]) -> bool:
     return config.get("docker", {}).get("enabled", False)
 
+
+def is_storage_mount_enabled(config: Dict[str, Any]) -> bool:
+    return config.get("storage_mount_enabled", False)
 
 def kill_process_tree(pid, include_parent=True):
     try:

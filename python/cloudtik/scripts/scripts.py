@@ -1317,6 +1317,7 @@ def cluster_dump(cluster_config_file: Optional[str] = None,
     else:
         click.echo("Could not create archive.")
 
+
 @cli.command(hidden=True)
 @click.option(
     "--stream",
@@ -1394,6 +1395,22 @@ def local_dump(stream: bool = False,
         tempfile=tempfile)
 
 
+@cli.command(hidden=True, context_settings={"ignore_unknown_options": True})
+@click.argument("script", required=True, type=str)
+@click.argument("script_args", nargs=-1)
+def run_script(script, script_args):
+    """Runs a bash script within this python package."""
+    root_path = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
+    target = os.path.join(root_path, script)
+    command_parts = ["bash", target]
+
+    if script_args:
+        command_parts += list(script_args)
+
+    final_cmd = " ".join(command_parts)
+    os.system(final_cmd)
+
+
 def add_command_alias(command, name, hidden):
     new_command = copy.deepcopy(command)
     new_command.hidden = hidden
@@ -1449,6 +1466,8 @@ add_command_alias(cluster_dump, name="cluster_dump", hidden=True)
 # utility commands running on head or worker node for dump local data
 cli.add_command(local_dump)
 add_command_alias(local_dump, name="local_dump", hidden=True)
+cli.add_command(run_script)
+
 
 # workspace commands
 cli.add_command(workspace)

@@ -10,12 +10,12 @@ from cloudtik.core._private.cli_logger import (cli_logger)
 
 from shlex import quote
 
-from cloudtik.runtime.spark.utils import CLOUDTIK_SPARK_RUNTIME_PATH, update_spark_configurations
+from cloudtik.runtime.spark.utils import CLOUDTIK_RUNTIME_SPARK_PATH, update_spark_configurations
 
-CLOUDTIK_RUNTIME_SCRIPTS_PATH = os.path.join(
-    CLOUDTIK_SPARK_RUNTIME_PATH, "spark/scripts/")
+RUNTIME_SPARK_SCRIPTS_PATH = os.path.join(
+    CLOUDTIK_RUNTIME_SPARK_PATH, "scripts")
 
-SPARK_SERVICES_SCRIPT_PATH = os.path.join(CLOUDTIK_RUNTIME_SCRIPTS_PATH, "services.sh")
+SPARK_SERVICES_SCRIPT_PATH = os.path.join(RUNTIME_SPARK_SCRIPTS_PATH, "services.sh")
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +52,7 @@ def cli(logging_level, logging_format):
     type=str,
     help="the provider of cluster ")
 def install(head, provider):
-    install_script_path = os.path.join(CLOUDTIK_RUNTIME_SCRIPTS_PATH, "install.sh")
+    install_script_path = os.path.join(RUNTIME_SPARK_SCRIPTS_PATH, "install.sh")
     cmds = [
         "bash",
         install_script_path,
@@ -160,7 +160,7 @@ def configure(head, provider, head_address, aws_s3a_bucket, s3a_access_key, s3a_
               fs_gs_auth_service_account_email, fs_gs_auth_service_account_private_key_id,
               fs_gs_auth_service_account_private_key, azure_storage_kind, azure_storage_account, azure_container,
               azure_account_key):
-    shell_path = os.path.join(CLOUDTIK_RUNTIME_SCRIPTS_PATH, "configure.sh")
+    shell_path = os.path.join(RUNTIME_SPARK_SCRIPTS_PATH, "configure.sh")
     cmds = [
         "bash",
         shell_path,

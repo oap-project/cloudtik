@@ -51,6 +51,58 @@ def get_azure_sdk_function(client: Any, function_name: str) -> Callable:
     return func
 
 
+def check_azure_workspace_resource(config):
+    use_internal_ips = config["provider"].get("use_internal_ips", False)
+    workspace_name = config["workspace_name"]
+    network_client = construct_network_client(config)
+    resource_client = construct_resource_client(config)
+
+    """
+         Do the work - order of operation
+         1). Check resource group
+         2.) Check vpc 
+         3.) Check network security group
+         4.) Check public-ip-address
+         5.) Check nat-gateway
+         6.) Check private subnet 
+         7.) Check public subnet
+         8.) Check role_assignments
+         9.) Check user_assigned_identities
+    """
+    resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
+    if resource_group_name is None:
+        return False
+    virtual_network_name = get_virtual_network_name(config, resource_client, network_client, use_internal_ips)
+
+    if virtual_network_name is None:
+        return False
+
+    if get_network_security_group(config, network_client, resource_group_name) is None:
+        return False
+
+    if get_public_ip_address(config, network_client, resource_group_name) is None:
+        return False
+
+    if get_nat_gateway(config, network_client, resource_group_name) is None:
+        return False
+
+    private_subnet_name = "cloudtik-private-{}-subnet".format(workspace_name)
+    if get_subnet(network_client, resource_group_name, virtual_network_name, private_subnet_name) is None:
+        return False
+
+    public_subnet_name = "cloudtik-public-{}-subnet".format(workspace_name)
+    if get_subnet(network_client, resource_group_name, virtual_network_name, public_subnet_name) is None:
+        return False
+
+    if get_role_assignments(config, resource_group_name) is None:
+        return False
+
+    if get_user_assigned_identities(config, resource_group_name) is None:
+        return False
+
+    return True
+
+
 def get_resource_group_name(config, resource_client, use_internal_ips):
     if use_internal_ips:
         resource_group_name = get_working_node_resource_group_name()
@@ -130,10 +182,11 @@ def _delete_network_resources(config, resource_client, resource_group_name, curr
     """
          Do the work - order of operation
          1.) Delete public subnet
-         2.) Delete router for private subnet 
-         3.) Delete private subnets
-         4.) Delete firewalls
-         5.) Delete virtual network
+         2.) Delete private subnet 
+         3.) Delete rnat-gateway
+         4.) Delete public-ip-address
+         5.) Delete network security group
+         6.) Delete vpc
     """
 
     # delete public subnets

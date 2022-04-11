@@ -738,7 +738,6 @@ def submit(cluster_config_file, screen, tmux, stop, start, cluster_name,
                         cf.bold("--tmux"))
 
     assert not (screen and tmux), "Can specify only one of `screen` or `tmux`."
-    assert not script_args, "Use -- --arg1 --arg2 for script args."
 
     if start:
         create_or_update_cluster(

@@ -279,7 +279,7 @@ def _delete_role_assignments(config, resource_group_name):
         authorization_client.role_assignments.delete(
             scope=scope,
             role_assignment_name=role_assignments_name
-        ).result()
+        )
         cli_logger.print("Successfully deleted the role_assignments: {}.".format(role_assignments_name))
     except Exception as e:
         cli_logger.error(

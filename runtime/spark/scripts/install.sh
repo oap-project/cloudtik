@@ -24,7 +24,7 @@ do
 done
 
 export HADOOP_VERSION=3.2.0
-export SPARK_VERSION=3.1.1
+export SPARK_VERSION=3.2.1
 
 export USER_HOME=/home/$(whoami)
 export RUNTIME_PATH=$USER_HOME/runtime

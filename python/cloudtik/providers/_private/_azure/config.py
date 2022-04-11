@@ -1,6 +1,8 @@
 import copy
 import json
 import logging
+import time
+import uuid
 import subprocess
 from pathlib import Path
 import random
@@ -9,11 +11,15 @@ from typing import Any, Callable
 
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.utils import check_cidr_conflict
+from cloudtik.providers._private._azure.cred_wrapper import CredentialWrapper
 
 from azure.common.credentials import get_cli_profile
 from azure.identity import AzureCliCredential
 from azure.mgmt.resource import ResourceManagementClient
 from azure.mgmt.network import NetworkManagementClient
+from azure.mgmt.compute import ComputeManagementClient
+from azure.mgmt.msi import ManagedServiceIdentityClient
+from azure.mgmt.authorization import AuthorizationManagementClient
 from azure.mgmt.resource.resources.models import DeploymentMode
 
 
@@ -22,8 +28,8 @@ MSI_NAME = "cloudtik-msi-user-identity"
 NSG_NAME = "cloudtik-nsg"
 SUBNET_NAME = "cloudtik-subnet"
 VNET_NAME = "cloudtik-vnet"
-NUM_AZURE_WORKSPACE_CREATION_STEPS = 6
-NUM_AZURE_WORKSPACE_DELETION_STEPS = 6
+NUM_AZURE_WORKSPACE_CREATION_STEPS = 9
+NUM_AZURE_WORKSPACE_DELETION_STEPS = 7
 
 logger = logging.getLogger(__name__)
 
@@ -76,12 +82,26 @@ def delete_workspace_azure(config):
     current_step = 1
     total_steps = NUM_AZURE_WORKSPACE_DELETION_STEPS
     if not use_internal_ips:
-        total_steps += 1
+        total_steps += 2
 
     try:
         # delete network resources
         with cli_logger.group("Deleting workspace: {}", workspace_name):
             current_step = _delete_network_resources(config, resource_client, resource_group_name, current_step, total_steps)
+
+        # delete role_assignments
+        with cli_logger.group(
+                "Deleting role assignments",
+                _numbered=("[]", current_step, total_steps)):
+            current_step += 1
+            _delete_role_assignments(config, resource_group_name)
+
+        # delete user_assigned_identities
+        with cli_logger.group(
+                "Deleting user_assigned_identities",
+                _numbered=("[]", current_step, total_steps)):
+            current_step += 1
+            _delete_user_assigned_identities(config, resource_group_name)
 
         # delete resource group
         if not use_internal_ips:
@@ -123,13 +143,6 @@ def _delete_network_resources(config, resource_client, resource_group_name, curr
         current_step += 1
         _delete_subnet(config, network_client, resource_group_name, virtual_network_name, isPrivate=False)
 
-    # delete router for private subnets
-    # with cli_logger.group(
-    #         "Deleting router",
-    #         _numbered=("[]", current_step, total_steps)):
-    #     current_step += 1
-    #     _delete_router(config, compute)
-
     # delete private subnets
     with cli_logger.group(
             "Deleting private subnet",
@@ -168,6 +181,95 @@ def _delete_network_resources(config, resource_client, resource_group_name, curr
             _delete_vnet(config, resource_client, network_client)
 
     return current_step
+
+
+def get_role_assignments(config, resource_group_name):
+    workspace_name = config["workspace_name"]
+    authorization_client = construct_authorization_client(config)
+    subscriptionId = config["provider"].get("subscription_id")
+    scope = "subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}".format(
+        subscriptionId=subscriptionId,
+        resourceGroupName=resource_group_name
+    )
+    role_assignment_name = str(uuid.uuid3(uuid.UUID(subscriptionId), workspace_name))
+    cli_logger.print("Getting the existing role-assignment: {}.", role_assignment_name)
+
+    try:
+        role_assignment = authorization_client.role_assignments.get(
+            scope=scope,
+            role_assignment_name=role_assignment_name,
+        )
+        cli_logger.print("Successfully get the role-assignment: {}.".
+                         format(role_assignment_name))
+        return role_assignment_name
+    except Exception as e:
+        cli_logger.error(
+            "Failed to get the role-assignment. {}", str(e))
+        return None
+
+
+def _delete_role_assignments(config, resource_group_name):
+    role_assignments_name = get_role_assignments(config, resource_group_name)
+    authorization_client = construct_authorization_client(config)
+    subscriptionId = config["provider"].get("subscription_id")
+    scope = "subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}".format(
+        subscriptionId=subscriptionId,
+        resourceGroupName=resource_group_name
+    )
+    if role_assignments_name is None:
+        cli_logger.print("This role_assignments has not existed. No need to delete it.")
+        return
+
+    """ Delete the role_assignments """
+    cli_logger.print("Deleting the role_assignments: {}...".format(role_assignments_name))
+    try:
+        authorization_client.role_assignments.delete(
+            scope=scope,
+            role_assignment_name=role_assignments_name
+        ).result()
+        cli_logger.print("Successfully deleted the role_assignments: {}.".format(role_assignments_name))
+    except Exception as e:
+        cli_logger.error(
+            "Failed to delete the role_assignments:{}. {}".format(role_assignments_name, str(e)))
+        raise e
+
+
+def get_user_assigned_identities(config, resource_group_name):
+    user_assigned_identity_name = "cloudtik-{}-user-assigned-identity".format(config["workspace_name"])
+    msi_client = construct_manage_server_identity_client(config)
+    cli_logger.verbose("Getting the existing user-assigned-identity: {}.".format(user_assigned_identity_name))
+    try:
+        user_assigned_identity = msi_client.user_assigned_identities.get(
+            resource_group_name,
+            user_assigned_identity_name
+        )
+        cli_logger.verbose("Successfully get the user-assigned-identity: {}.".format(user_assigned_identity_name))
+        return user_assigned_identity
+    except Exception as e:
+        cli_logger.verbose_error(
+            "Failed to get the user-assigned-identity: {}. {}".format(user_assigned_identity_name, e))
+        return None
+
+
+def _delete_user_assigned_identities(config, resource_group_name):
+    user_assigned_identity = get_user_assigned_identities(config, resource_group_name)
+    msi_client = construct_manage_server_identity_client(config)
+    if user_assigned_identity is None:
+        cli_logger.print("This user_assigned_identity has not existed. No need to delete it.")
+        return
+
+    """ Delete the user_assigned_identity """
+    cli_logger.print("Deleting the user_assigned_identity: {}...".format(user_assigned_identity.name))
+    try:
+        msi_client.user_assigned_identities.delete(
+            resource_group_name=resource_group_name,
+            resource_name=user_assigned_identity.name
+        )
+        cli_logger.print("Successfully deleted the user_assigned_identity: {}.".format(user_assigned_identity.name))
+    except Exception as e:
+        cli_logger.error(
+            "Failed to delete the user_assigned_identity:{}. {}".format(user_assigned_identity.name, str(e)))
+        raise e
 
 
 def get_network_security_group(config, network_client, resource_group_name):
@@ -344,8 +446,23 @@ def _configure_workspace(config):
             resource_group_name = _create_resource_group(config, resource_client)
 
         # create network resources
-        with cli_logger.group("Creating workspace: {}", workspace_name):
-            config = _configure_network_resources(config, resource_group_name, current_step, total_steps)
+        with cli_logger.group(
+                "Creating workspace: {}", workspace_name):
+            current_step = _configure_network_resources(config, resource_group_name, current_step, total_steps)
+
+        # create user_assigned_identities
+        with cli_logger.group(
+                "Creating user assigned identites",
+                _numbered=("[]", current_step, total_steps)):
+            current_step += 1
+            _create_user_assigned_identities(config, resource_group_name)
+
+        # create role_assignments
+        with cli_logger.group(
+                "Creating role assignments",
+                _numbered=("[]", current_step, total_steps)):
+            current_step += 1
+            _create_role_assignments(config, resource_group_name)
 
     except Exception as e:
         cli_logger.error("Failed to create workspace. {}", str(e))
@@ -498,6 +615,61 @@ def create_resource_group(config, resource_client):
     except Exception as e:
         cli_logger.error(
             "Failed to create workspace Resource Group. {}", str(e))
+        raise e
+
+
+def _create_role_assignments(config, resource_group_name):
+    workspace_name = config["workspace_name"]
+    authorization_client = construct_authorization_client(config)
+    subscriptionId = config["provider"].get("subscription_id")
+    scope = "subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}".format(
+        subscriptionId=subscriptionId,
+        resourceGroupName=resource_group_name
+    )
+    role_assignment_name = str(uuid.uuid3(uuid.UUID(subscriptionId), workspace_name))
+    user_assigned_identity = get_user_assigned_identities(config,resource_group_name)
+    cli_logger.print("Creating workspace role-assignment: {} on Azure...", role_assignment_name)
+
+    # Create role assignment
+    try:
+        role_assignment = authorization_client.role_assignments.create(
+            scope=scope,
+            role_assignment_name=role_assignment_name,
+            parameters={
+                "role_definition_id": "/subscriptions/{}/providers/Microsoft.Authorization/roleDefinitions/b24988ac-6180-42a0-ab88-20f7382dd24c".format(
+                    subscriptionId),
+                "principal_id": user_assigned_identity.principal_id,
+                "principalType": "ServicePrincipal"
+            }
+        )
+        time.sleep(20)
+        cli_logger.print("Successfully created workspace role-assignment: {}.".
+                         format(role_assignment_name))
+    except Exception as e:
+        cli_logger.error(
+            "Failed to create workspace role-assignment. {}", str(e))
+        raise e
+
+
+def _create_user_assigned_identities(config, resource_group_name):
+    workspace_name = config["workspace_name"]
+    location = config["provider"]["location"]
+    user_assigned_identiy_name = 'cloudtik-{}-user-assigned-identity'.format(workspace_name)
+    msi_client = construct_manage_server_identity_client(config)
+
+    cli_logger.print("Creating workspace user-assigned-identity: {} on Azure...", user_assigned_identiy_name)
+    # Create identity
+    try:
+        msi_client.user_assigned_identities.create_or_update(
+            resource_group_name,
+            user_assigned_identiy_name,
+            location,
+        )
+        cli_logger.print("Successfully created workspace user-assigned-identity: {}.".
+                         format(user_assigned_identiy_name))
+    except Exception as e:
+        cli_logger.error(
+            "Failed to create workspace user-assigned-identity. {}", str(e))
         raise e
 
 
@@ -695,7 +867,6 @@ def _create_nat(config, network_client, resource_group_name, public_ip_address_n
                 ],
             }
         ).result()
-        print("Create nat-gateway:\n{}".format(nat_gateway))
         cli_logger.print("Successfully created nat-gateway: {}.".
                          format(nat_gateway_name))
     except Exception as e:
@@ -785,13 +956,6 @@ def _configure_network_resources(config, resource_group_name, current_step, tota
         _create_and_configure_subnets(
             config, network_client, resource_group_name, virtual_network_name, isPrivate=False)
 
-    # # create router
-    # with cli_logger.group(
-    #         "Creating router",
-    #         _numbered=("[]", current_step, total_steps)):
-    #     current_step += 1
-    #     _create_router(config, compute, VpcId)
-
     # create public-ip-address
     with cli_logger.group(
             "Creating public-ip-address for nat-gateway",
@@ -806,7 +970,6 @@ def _configure_network_resources(config, resource_group_name, current_step, tota
         current_step += 1
         _create_nat(config, network_client, resource_group_name, public_ip_address_name)
 
-
     # create private subnet
     with cli_logger.group(
             "Creating private subnet",
@@ -815,7 +978,7 @@ def _configure_network_resources(config, resource_group_name, current_step, tota
         _create_and_configure_subnets(
             config, network_client, resource_group_name, virtual_network_name, isPrivate=True)
 
-    return config
+    return current_step
 
 
 def bootstrap_azure(config):
@@ -930,3 +1093,37 @@ def construct_network_client(config):
 
     return network_client
 
+
+def construct_compute_client(config):
+    subscription_id = config["provider"].get("subscription_id")
+    if subscription_id is None:
+        subscription_id = get_cli_profile().get_subscription_id()
+    credential = AzureCliCredential()
+    compute_client = ComputeManagementClient(credential, subscription_id)
+
+    return compute_client
+
+
+def construct_manage_server_identity_client(config):
+    subscription_id = config["provider"].get("subscription_id")
+    if subscription_id is None:
+        subscription_id = get_cli_profile().get_subscription_id()
+    credential = AzureCliCredential()
+    wrapped_credential = CredentialWrapper(credential)
+    msi_client = ManagedServiceIdentityClient(wrapped_credential, subscription_id)
+
+    return msi_client
+
+
+def construct_authorization_client(config):
+    subscription_id = config["provider"].get("subscription_id")
+    if subscription_id is None:
+        subscription_id = get_cli_profile().get_subscription_id()
+    credential = AzureCliCredential()
+    wrapped_credential = CredentialWrapper(credential)
+    authorization_client = AuthorizationManagementClient(
+        credentials=wrapped_credential,
+        subscription_id=subscription_id,
+        api_version="2018-01-01-preview"
+    )
+    return authorization_client

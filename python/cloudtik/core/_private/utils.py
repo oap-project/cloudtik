@@ -888,12 +888,10 @@ def merge_initialization_commands(config):
 
 
 def merge_setup_commands(config):
-    config["setup_commands"] = (
-        config["setup_commands"] + config["bootstrap_commands"])
     config["head_setup_commands"] = (
-        config["setup_commands"] + config["head_setup_commands"])
+        config["setup_commands"] + config["head_setup_commands"] + config["bootstrap_commands"])
     config["worker_setup_commands"] = (
-        config["setup_commands"] + config["worker_setup_commands"])
+        config["setup_commands"] + config["worker_setup_commands"] + config["bootstrap_commands"])
     return config
 
 

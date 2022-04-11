@@ -94,6 +94,7 @@ function install_jupyter_for_spark() {
 
 function install_tools() {
     which jq || sudo apt-get update -y; sudo apt-get install jq -y
+    which vim || sudo apt-get update -y; sudo apt-get install vim -y
 }
 
 function install_yarn_with_spark_jars() {

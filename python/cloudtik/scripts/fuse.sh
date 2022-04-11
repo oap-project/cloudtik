@@ -145,9 +145,18 @@ function blob_fuse() {
 
 
 function gcs_fuse()
-
+    if [ ! -n "${GCP_GCS_BUCKET}" ]; then
+        echo "GCP_GCS_BUCKET environment variable is not set."
+        exit 1
+    fi
+    sudo apt-get update
+    sudo apt-get install -y curl
+    echo "deb http://packages.cloud.google.com/apt gcsfuse-bionic main" |sudo tee /etc/apt/sources.list.d/gcsfuse.list
+    curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+    sudo apt-get update
+    sudo apt-get install gcsfuse -y
     mkdir -p ${MOUNT_PATH}
-
+    gcsfuse ${GCP_GCS_BUCKET} ${MOUNT_PATH}
 }
 
 

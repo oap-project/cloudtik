@@ -884,6 +884,8 @@ def merge_initialization_commands(config):
         if docker_initialization_commands:
             config["initialization_commands"] = (
                     config["initialization_commands"] + docker_initialization_commands)
+    config["initialization_commands"] = (
+        config["initialization_commands"] + config["user_initialization_commands"])
     return config
 
 

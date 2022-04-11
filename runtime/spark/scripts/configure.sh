@@ -223,7 +223,7 @@ function update_data_disks_config() {
     # set nodemanager.local-dirs
     nodemanager_local_dirs=$local_dirs
     if [ -z "$nodemanager_local_dirs" ]; then
-        nodemanager_local_dirs="{%HADOOP_HOME%}/data/nodemanager/local-dir"
+        nodemanager_local_dirs="${HADOOP_HOME}/data/nodemanager/local-dir"
     fi
     sed -i "s!{%yarn.nodemanager.local-dirs%}!${nodemanager_local_dirs}!g" `grep "{%yarn.nodemanager.local-dirs%}" -rl ./`
 

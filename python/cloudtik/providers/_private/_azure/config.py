@@ -718,6 +718,7 @@ def _create_user_assigned_identities(config, resource_group_name):
             user_assigned_identiy_name,
             location,
         )
+        time.sleep(20)
         cli_logger.print("Successfully created workspace user-assigned-identity: {}.".
                          format(user_assigned_identiy_name))
     except Exception as e:
@@ -1036,6 +1037,83 @@ def _configure_network_resources(config, resource_group_name, current_step, tota
 
 def bootstrap_azure_from_workspace(config):
     config = _configure_key_pair(config)
+    config = _configure_workspace_resource(config)
+    return config
+
+
+def _configure_workspace_resource(config):
+    config = _configure_resource_group_from_workspace(config)
+    config = _configure_virtual_network_from_workspace(config)
+    config = _configure_subnet_from_workspace(config)
+    config = _configure_network_security_group_from_workspace(config)
+    config = _configure_user_assigned_identities_from_workspace(config)
+    return config
+
+
+def _configure_user_assigned_identities_from_workspace(config):
+    workspace_name = config["workspace_name"]
+    user_assigned_identity_name = "cloudtik-{}-user-assigned-identity".format(workspace_name)
+
+    for node_type_key in config["available_node_types"].keys():
+        node_config = config["available_node_types"][node_type_key][
+            "node_config"]
+        node_config["userAssignedIdentities"] = user_assigned_identity_name
+
+    return config
+
+
+def _configure_subnet_from_workspace(config):
+    workspace_name = config["workspace_name"]
+    use_internal_ips = config["provider"].get("use_internal_ips", False)
+
+    public_subnet = "cloudtik-{}-public-subnet".format(workspace_name)
+    private_subnet = "cloudtik-{}-private-subnet".format(workspace_name)
+
+    for key, node_type in config["available_node_types"].items():
+        node_config = node_type["node_config"]
+        if key == config["head_node_type"]:
+            if use_internal_ips:
+                node_config["subnet"] = private_subnet
+            else:
+                node_config["subnet"] = public_subnet
+        else:
+            node_config["subnet"] = private_subnet
+
+    return config
+
+
+def _configure_network_security_group_from_workspace(config):
+    workspace_name = config["workspace_name"]
+    network_security_group_name = "cloudtik-{}-network-security-group".format(workspace_name)
+
+    for node_type_key in config["available_node_types"].keys():
+        node_config = config["available_node_types"][node_type_key][
+            "node_config"]
+        node_config["networkSecurityGroup"] = network_security_group_name
+
+    return config
+
+
+def _configure_virtual_network_from_workspace(config):
+    use_internal_ips = config["provider"].get("use_internal_ips", False)
+    resource_client = construct_resource_client(config)
+    network_client = construct_network_client(config)
+
+    virtual_network_name = get_virtual_network_name(config, resource_client, network_client, use_internal_ips)
+
+    for node_type_key in config["available_node_types"].keys():
+        node_config = config["available_node_types"][node_type_key][
+            "node_config"]
+        node_config["virtualNetwork"] = virtual_network_name
+
+    return config
+
+
+def _configure_resource_group_from_workspace(config):
+    use_internal_ips = config["provider"].get("use_internal_ips", False)
+    resource_client = construct_resource_client(config)
+    resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
+    config["provider"]["resource_group"] = resource_group_name
     return config
 
 

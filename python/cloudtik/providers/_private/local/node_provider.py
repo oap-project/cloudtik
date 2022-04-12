@@ -234,7 +234,7 @@ class LocalNodeProvider(NodeProvider):
             info["tags"].update(tags)
             self.state.put(node_id, info)
 
-    def create_node(self, node_config, tags, count,  isHead=False):
+    def create_node(self, node_config, tags, count):
         """Creates min(count, currently available) nodes."""
         node_type = tags[CLOUDTIK_TAG_NODE_KIND]
         with self.state.file_lock:

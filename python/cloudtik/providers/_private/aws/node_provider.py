@@ -255,7 +255,7 @@ class AWSNodeProvider(NodeProvider):
                     }],
                 )
 
-    def create_node(self, node_config, tags, count,  isHead=False) -> Dict[str, Any]:
+    def create_node(self, node_config, tags, count) -> Dict[str, Any]:
         """Creates instances.
 
         Returns dict mapping instance id to ec2.Instance object for the created

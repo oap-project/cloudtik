@@ -17,8 +17,8 @@ from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_NAME
 
 from cloudtik.providers._private._azure.azure_identity_credential_adapter import AzureIdentityCredentialAdapter
-from cloudtik.providers._private._azure.config import (bootstrap_azure, bootstrap_azure_from_workspace, MSI_NAME,
-                                                       get_azure_sdk_function)
+from cloudtik.providers._private._azure.config import (bootstrap_azure, bootstrap_azure_from_workspace,
+                                                       MSI_NAME, get_azure_sdk_function)
 
 from cloudtik.providers._private._azure.utils import get_azure_config
 
@@ -200,14 +200,14 @@ class AzureNodeProvider(NodeProvider):
               or self._get_node(node_id=node_id)["internal_ip"])
         return ip
 
-    def create_node_by_workspace(self, node_config, tags, count,  isHead=False):
+    def create_node(self, node_config, tags, count):
         """Creates a number of nodes within the namespace."""
         # TODO: restart deallocated nodes if possible
         resource_group = self.provider_config["resource_group"]
-        workspace_name = self.provider_config["workspace_name"]
+
         # load the template file
         current_path = Path(__file__).parent
-        template_path = current_path.joinpath("azure-workspace-vm-template.json")
+        template_path = current_path.joinpath("azure-vm-template.json")
         with open(template_path, "r") as template_fp:
             template = json.load(template_fp)
 
@@ -219,14 +219,16 @@ class AzureNodeProvider(NodeProvider):
         name_tag = config_tags.get(CLOUDTIK_TAG_NODE_NAME, "node")
         unique_id = uuid4().hex[:VM_NAME_UUID_LEN]
         vm_name = "{name}-{id}".format(name=name_tag, id=unique_id)
-        use_internal_ips = self.provider_config.get("use_internal_ips", False)
 
         template_params = node_config["azure_arm_parameters"].copy()
         template_params["vmName"] = vm_name
-        template_params["provisionPublicIp"] = (not use_internal_ips) and isHead
         template_params["vmTags"] = config_tags
         template_params["vmCount"] = count
-        template_params["workspace_name"] = workspace_name
+        template_params["provisionPublicIp"] = node_config["provisionPublicIp"]
+        template_params["virtualNetworkName"] = node_config["virtualNetwork"]
+        template_params["subnetName"] = node_config["subnet"]
+        template_params["networkSecurityGroupName"] = node_config["networkSecurityGroup"]
+        template_params["userAssignedIdentitiesName"] = node_config["userAssignedIdentities"]
 
         parameters = {
             "properties": {
@@ -249,61 +251,6 @@ class AzureNodeProvider(NodeProvider):
             resource_group_name=resource_group,
             deployment_name="cloudtik-vm-{}".format(name_tag),
             parameters=parameters).wait()
-
-        return
-
-    def create_node(self, node_config, tags, count,  isHead=False):
-        workspace_name = self.provider_config.get("workspace_name")
-        if workspace_name is None:
-            """Creates a number of nodes within the namespace."""
-            # TODO: restart deallocated nodes if possible
-            resource_group = self.provider_config["resource_group"]
-
-            # load the template file
-            current_path = Path(__file__).parent
-            template_path = current_path.joinpath("azure-vm-template.json")
-            with open(template_path, "r") as template_fp:
-                template = json.load(template_fp)
-
-            # get the tags
-            config_tags = node_config.get("tags", {}).copy()
-            config_tags.update(tags)
-            config_tags[CLOUDTIK_TAG_CLUSTER_NAME] = self.cluster_name
-
-            name_tag = config_tags.get(CLOUDTIK_TAG_NODE_NAME, "node")
-            unique_id = uuid4().hex[:VM_NAME_UUID_LEN]
-            vm_name = "{name}-{id}".format(name=name_tag, id=unique_id)
-            use_internal_ips = self.provider_config.get("use_internal_ips", False)
-
-            template_params = node_config["azure_arm_parameters"].copy()
-            template_params["vmName"] = vm_name
-            template_params["provisionPublicIp"] = not use_internal_ips
-            template_params["vmTags"] = config_tags
-            template_params["vmCount"] = count
-
-            parameters = {
-                "properties": {
-                    "mode": DeploymentMode.incremental,
-                    "template": template,
-                    "parameters": {
-                        key: {
-                            "value": value
-                        }
-                        for key, value in template_params.items()
-                    }
-                }
-            }
-
-            # TODO: we could get the private/public ips back directly
-            create_or_update = get_azure_sdk_function(
-                client=self.resource_client.deployments,
-                function_name="create_or_update")
-            create_or_update(
-                resource_group_name=resource_group,
-                deployment_name="cloudtik-vm-{}".format(name_tag),
-                parameters=parameters).wait()
-        else:
-            self.create_node_by_workspace(node_config, tags, count, isHead=False)
 
     @synchronized
     def set_node_tags(self, node_id, tags):

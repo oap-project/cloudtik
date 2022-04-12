@@ -227,7 +227,7 @@ function update_data_disks_config() {
     # set nodemanager.local-dirs
     nodemanager_local_dirs=$local_dirs
     if [ -z "$nodemanager_local_dirs" ]; then
-        nodemanager_local_dirs="{%HADOOP_HOME%}/data/nodemanager/local-dir"
+        nodemanager_local_dirs="${HADOOP_HOME}/data/nodemanager/local-dir"
     fi
     sed -i "s!{%yarn.nodemanager.local-dirs%}!${nodemanager_local_dirs}!g" `grep "{%yarn.nodemanager.local-dirs%}" -rl ./`
 
@@ -297,6 +297,9 @@ function configure_ganglia() {
         sudo sed -i "s/bind = 239.2.11.71/\/*bind = 239.2.11.71*\//g" /etc/ganglia/gmond.conf
         # Configure apache2 for ganglia
         sudo cp /etc/ganglia-webfrontend/apache.conf /etc/apache2/sites-enabled/ganglia.conf
+        # Fix the ganglia bug: https://github.com/ganglia/ganglia-web/issues/324
+        # mention here: https://bugs.launchpad.net/ubuntu/+source/ganglia-web/+bug/1822048
+        sudo sed -i "s/\$context_metrics = \"\";/\$context_metrics = array();/g" /usr/share/ganglia-webfrontend/cluster_view.php
     else
         # Configure ganglia monitor
         sudo sed -i "s/send_metadata_interval = 0/send_metadata_interval = 30/g" /etc/ganglia/gmond.conf

@@ -12,9 +12,11 @@ SPARK_RUNTIME_PROCESSES = [
     ["proc_nodemanager", False, "NodeManager", "worker"],
 ]
 
-CLOUDTIK_SPARK_RUNTIME_PATH = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
-SPARK_OUT_CONF = os.path.join(CLOUDTIK_SPARK_RUNTIME_PATH, "spark/conf/outconf/spark/spark-defaults.conf")
+
+CLOUDTIK_RUNTIME_SPARK_PATH = os.path.abspath(os.path.dirname(__file__))
+SPARK_OUT_CONF = os.path.join(CLOUDTIK_RUNTIME_SPARK_PATH, "conf/outconf/spark/spark-defaults.conf")
 CLOUDTIK_BOOTSTRAP_CONFIG_PATH = "~/cloudtik_bootstrap_config.yaml"
+
 
 YARN_RESOURCE_MEMORY_RATIO = 0.8
 SPARK_EXECUTOR_MEMORY_RATIO = 1

@@ -23,7 +23,7 @@ from cloudtik.core._private.cluster.cluster_operator import (
     get_cluster_dump_archive, get_local_dump_archive, show_cluster_info, show_cluster_status, RUN_ENV_TYPES,
     start_proxy, stop_proxy, cluster_debug_status,
     cluster_health_check, cluster_process_status,
-    attach_worker, exec_node_from_head, start_node_from_head, stop_node_from_head)
+    attach_worker, exec_node_from_head, start_node_from_head, stop_node_from_head, exec_cmd_on_cluster)
 from cloudtik.core._private.constants import CLOUDTIK_PROCESSES, \
     CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
     CLOUDTIK_DEFAULT_PORT
@@ -738,7 +738,6 @@ def submit(cluster_config_file, screen, tmux, stop, start, cluster_name,
                         cf.bold("--tmux"))
 
     assert not (screen and tmux), "Can specify only one of `screen` or `tmux`."
-    assert not script_args, "Use -- --arg1 --arg2 for script args."
 
     if start:
         create_or_update_cluster(
@@ -754,6 +753,17 @@ def submit(cluster_config_file, screen, tmux, stop, start, cluster_name,
             use_login_shells=True)
     target_name = os.path.basename(script)
     target = os.path.join("~", "jobs", target_name)
+
+    # Create the "jobs" folder before do upload
+    cmd_mkdir = "mkdir -p ~/jobs"
+    exec_cmd_on_cluster(
+        cluster_config_file,
+        cmd_mkdir,
+        cluster_name,
+        no_config_cache=no_config_cache
+    )
+
+    # upload the script to cluster
     rsync(
         cluster_config_file,
         script,
@@ -1318,6 +1328,7 @@ def cluster_dump(cluster_config_file: Optional[str] = None,
     else:
         click.echo("Could not create archive.")
 
+
 @cli.command(hidden=True)
 @click.option(
     "--stream",
@@ -1395,6 +1406,22 @@ def local_dump(stream: bool = False,
         tempfile=tempfile)
 
 
+@cli.command(hidden=True, context_settings={"ignore_unknown_options": True})
+@click.argument("script", required=True, type=str)
+@click.argument("script_args", nargs=-1)
+def run_script(script, script_args):
+    """Runs a bash script within this python package."""
+    root_path = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
+    target = os.path.join(root_path, script)
+    command_parts = ["bash", target]
+
+    if script_args:
+        command_parts += list(script_args)
+
+    final_cmd = " ".join(command_parts)
+    os.system(final_cmd)
+
+
 def add_command_alias(command, name, hidden):
     new_command = copy.deepcopy(command)
     new_command.hidden = hidden
@@ -1450,6 +1477,8 @@ add_command_alias(cluster_dump, name="cluster_dump", hidden=True)
 # utility commands running on head or worker node for dump local data
 cli.add_command(local_dump)
 add_command_alias(local_dump, name="local_dump", hidden=True)
+cli.add_command(run_script)
+
 
 # workspace commands
 cli.add_command(workspace)

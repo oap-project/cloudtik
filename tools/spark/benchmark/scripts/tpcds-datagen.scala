@@ -36,7 +36,7 @@ import com.databricks.spark.sql.perf.tpcds.TPCDSTables
 val sc = spark.sqlContext
 sc.setConf(s"spark.sql.$format.compression.codec", codec)
 
-val tables = new TPCDSTables(spark.sqlContext, tools_path, scale, useDoubleForDecimal)
+val tables = new TPCDSTables(spark.sqlContext, tools_path, s"${scale}", useDoubleForDecimal)
 tables.genData(data_path, format, true, partitionTables, clusterByPartitionColumns, false, "call_center", 1)
 tables.genData(data_path, format, true, partitionTables, clusterByPartitionColumns, false, "catalog_page", 1)
 tables.genData(data_path, format, true, partitionTables, clusterByPartitionColumns, false, "customer", 6)

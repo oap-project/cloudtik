@@ -81,7 +81,7 @@ val experiment = tpcds.runExperiment(
   queries,
   iterations = iterations,
   resultLocation = resultLocation,
-  tags = Map("runtype" -> "benchmark", "database" -> databaseName, "scale_factor" -> scaleFactor))
+  tags = Map("runtype" -> "benchmark", "database" -> databaseName, "scale_factor" -> s"${scaleFactor}"))
 
 println(experiment.toString)
 experiment.waitForFinish(timeout*60*60)

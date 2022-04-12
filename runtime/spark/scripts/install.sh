@@ -23,8 +23,8 @@ do
     shift
 done
 
-export HADOOP_VERSION=3.2.0
-export SPARK_VERSION=3.1.1
+export HADOOP_VERSION=3.3.1
+export SPARK_VERSION=3.2.1
 
 export USER_HOME=/home/$(whoami)
 export RUNTIME_PATH=$USER_HOME/runtime
@@ -94,6 +94,7 @@ function install_jupyter_for_spark() {
 
 function install_tools() {
     which jq || sudo apt-get update -y; sudo apt-get install jq -y
+    which vim || sudo apt-get update -y; sudo apt-get install vim -y
 }
 
 function install_yarn_with_spark_jars() {

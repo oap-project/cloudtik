@@ -1,15 +1,19 @@
 #!/bin/bash
 
-args=$(getopt -a -o h::p: -l head::,head_address::,provider:,aws_s3a_bucket::,s3a_access_key::,s3a_secret_key::,project_id::,gcp_gcs_bucket::,fs_gs_auth_service_account_email::,fs_gs_auth_service_account_private_key_id::,fs_gs_auth_service_account_private_key::,azure_storage_kind::,azure_storage_account::,azure_container::,azure_account_key:: -- "$@")
+args=$(getopt -a -o h::p: -l head::,fuse_flag::,head_address::,provider:,aws_s3a_bucket::,s3a_access_key::,s3a_secret_key::,project_id::,gcp_gcs_bucket::,fs_gs_auth_service_account_email::,fs_gs_auth_service_account_private_key_id::,fs_gs_auth_service_account_private_key::,azure_storage_kind::,azure_storage_account::,azure_container::,azure_account_key:: -- "$@")
 eval set -- "${args}"
 
 IS_HEAD_NODE=false
+FUSE_FLAG=false
 
 while true
 do
     case "$1" in
     --head)
         IS_HEAD_NODE=true
+        ;;
+    --fuse_flag)
+        FUSE_FLAG=true
         ;;
     -h|--head_address)
         HEAD_ADDRESS=$2
@@ -302,9 +306,109 @@ function configure_ganglia() {
     fi
 }
 
+
+function s3_fuse() {
+    if [ ! -n "${AWS_S3A_BUCKET}" ]; then
+        echo "AWS_S3A_BUCKET environment variable is not set."
+        exit 1
+    fi
+
+    if [ ! -n "${FS_S3A_ACCESS_KEY}" ]; then
+        echo "FS_S3A_ACCESS_KEY environment variable is not set."
+        exit 1
+    fi
+
+    if [ ! -n "${FS_S3A_SECRET_KEY}" ]; then
+        echo "FS_S3A_SECRET_KEY environment variable is not set."
+        exit 1
+    fi
+
+    sudo apt-get update
+    sudo apt-get install s3fs -y
+
+    echo "${FS_S3A_ACCESS_KEY}:${FS_S3A_SECRET_KEY}" > ${$USER_HOME}/.passwd-s3fs
+    chmod 600 ${$USER_HOME}/.passwd-s3fs
+
+    mkdir -p ${MOUNT_PATH}
+    s3fs ${AWS_S3A_BUCKET} -o use_cache=/tmp -o mp_umask=002 -o multireq_max=5 ${MOUNT_PATH}
+}
+
+
+function blob_fuse() {
+    if [ ! -n "${AZURE_CONTAINER}" ]; then
+        echo "AZURE_CONTAINER environment variable is not set."
+        exit 1
+    fi
+
+    if [ ! -n "${AZURE_ACCOUNT_KEY}" ]; then
+        echo "AZURE_ACCOUNT_KEY environment variable is not set."
+        exit 1
+    fi
+
+    if [ ! -n "${AZURE_STORAGE_ACCOUNT}" ]; then
+        echo "AZURE_STORAGE_ACCOUNT environment variable is not set."
+        exit 1
+    fi
+
+    #Install blobfuse
+    wget https://packages.microsoft.com/config/ubuntu/20.04/packages-microsoft-prod.deb
+    sudo dpkg -i packages-microsoft-prod.deb
+    sudo apt-get update
+    sudo apt-get install blobfuse
+    #Use a ramdisk for the temporary path
+    sudo mkdir /mnt/ramdisk
+    sudo mount -t tmpfs -o size=16g tmpfs /mnt/ramdisk
+    sudo mkdir /mnt/ramdisk/blobfusetmp
+    sudo chown ubuntu /mnt/ramdisk/blobfusetmp
+
+
+    echo "accountName ${AZURE_STORAGE_ACCOUNT}" > ${$USER_HOME}/fuse_connection.cfg
+    echo "accountKey ${AZURE_ACCOUNT_KEY}" >> ${$USER_HOME}/fuse_connection.cfg
+    echo "containerName ${AZURE_CONTAINER}" >> ${$USER_HOME}/fuse_connection.
+    chmod 600 ${$USER_HOME}/fuse_connection.cfg
+    mkdir -p ${MOUNT_PATH}
+    blobfuse ${MOUNT_PATH} --tmp-path=/mnt/ramdisk/blobfusetmp  --config-file=${$USER_HOME}/fuse_connection.cfg  -o attr_timeout=240 -o entry_timeout=240 -o negative_timeout=120
+
+}
+
+
+function gcs_fuse()
+    if [ ! -n "${GCP_GCS_BUCKET}" ]; then
+        echo "GCP_GCS_BUCKET environment variable is not set."
+        exit 1
+    fi
+    sudo apt-get update
+    sudo apt-get install -y curl
+    echo "deb http://packages.cloud.google.com/apt gcsfuse-bionic main" |sudo tee /etc/apt/sources.list.d/gcsfuse.list
+    curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+    sudo apt-get update
+    sudo apt-get install gcsfuse -y
+    mkdir -p ${MOUNT_PATH}
+    gcsfuse ${GCP_GCS_BUCKET} ${MOUNT_PATH}
+}
+
+
+function mount_cloud_storage_for_cloudtik() {
+    if [ $FUSE_FLAG == "true" ];then
+        if [ "$provider" == "aws" ]; then
+          s3_fuse
+        fi
+
+        if [ "$provider" == "gcp" ]; then
+          gcs_fuse
+        fi
+
+        if [ "$provider" == "azure" ]; then
+          blob_fuse
+        fi
+    fi
+}
+
+
 check_spark_installed
 set_head_address
 set_resources_for_spark
 configure_hadoop_and_spark
 configure_jupyter_for_spark
 configure_ganglia
+mount_cloud_storage_for_cloudtik

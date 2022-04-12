@@ -10,7 +10,8 @@ from cloudtik.core._private.cli_logger import (cli_logger)
 
 from shlex import quote
 
-from cloudtik.runtime.spark.utils import CLOUDTIK_SPARK_RUNTIME_PATH, update_spark_configurations
+from cloudtik.runtime.spark.utils import CLOUDTIK_SPARK_RUNTIME_PATH, update_spark_configurations, is_cloud_storage_mount_enabled
+
 
 CLOUDTIK_RUNTIME_SCRIPTS_PATH = os.path.join(
     CLOUDTIK_SPARK_RUNTIME_PATH, "spark/scripts/")
@@ -200,6 +201,8 @@ def configure(head, provider, head_address, aws_s3a_bucket, s3a_access_key, s3a_
         cmds += ["--azure_container={}".format(azure_container)]
     if azure_account_key:
         cmds += ["--azure_account_key={}".format(azure_account_key)]
+    if is_cloud_storage_mount_enabled():
+        cmds += ["--fuse_flag"]
 
     final_cmd = " ".join(cmds)
     os.system(final_cmd)

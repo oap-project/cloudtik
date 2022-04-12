@@ -14,6 +14,7 @@ SPARK_RUNTIME_PROCESSES = [
 
 CLOUDTIK_SPARK_RUNTIME_PATH = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 SPARK_OUT_CONF = os.path.join(CLOUDTIK_SPARK_RUNTIME_PATH, "spark/conf/outconf/spark/spark-defaults.conf")
+CLOUDTIK_BOOTSTRAP_CONFIG_PATH = "~/cloudtik_bootstrap_config.yaml"
 
 YARN_RESOURCE_MEMORY_RATIO = 0.8
 SPARK_EXECUTOR_MEMORY_RATIO = 1
@@ -141,7 +142,7 @@ def _get_spark_config(config: Dict[str, Any]):
 
 def update_spark_configurations():
     # Merge user specified configuration and default configuration
-    bootstrap_config = os.path.expanduser("~/cloudtik_bootstrap_config.yaml")
+    bootstrap_config = os.path.expanduser(CLOUDTIK_BOOTSTRAP_CONFIG_PATH)
     if not os.path.exists(bootstrap_config):
         return
 
@@ -160,3 +161,13 @@ def update_spark_configurations():
     with open(os.path.join(os.getenv("SPARK_HOME"), "conf/spark-defaults.conf"), "w+") as f:
         for key, value in spark_conf.items():
             f.write("{}    {}\n".format(key, value))
+
+
+def is_cloud_storage_mount_enabled() -> bool:
+    bootstrap_config = os.path.expanduser(CLOUDTIK_BOOTSTRAP_CONFIG_PATH)
+
+    if not os.path.exists(bootstrap_config):
+        return False
+
+    config = yaml.safe_load(open(bootstrap_config).read())
+    return config.get("cloud_storage_mount_enabled", False)

@@ -17,7 +17,8 @@ if (fsdir == "") {
     sys.exit(0)
 }
 
-val tools_path = "/home/cloudtik/runtime/benchmark-tools/tpcds-kit/tools"
+val user_home = System.getProperty("user.home")
+val tools_path = s"${user_home}/runtime/benchmark-tools/tpcds-kit/tools"
 val data_path = s"${fsdir}/shared/data/tpcds/tpcds_${format}/${scale}"
 val database_name = s"tpcds_${format}_scale_${scale}_db"
 val codec = "snappy"

@@ -23,7 +23,7 @@ from cloudtik.core._private.cluster.cluster_operator import (
     get_cluster_dump_archive, get_local_dump_archive, show_cluster_info, show_cluster_status, RUN_ENV_TYPES,
     start_proxy, stop_proxy, cluster_debug_status,
     cluster_health_check, cluster_process_status,
-    attach_worker, exec_node_from_head, start_node_from_head, stop_node_from_head)
+    attach_worker, exec_node_from_head, start_node_from_head, stop_node_from_head, exec_cmd_on_cluster)
 from cloudtik.core._private.constants import CLOUDTIK_PROCESSES, \
     CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
     CLOUDTIK_DEFAULT_PORT
@@ -753,6 +753,17 @@ def submit(cluster_config_file, screen, tmux, stop, start, cluster_name,
             use_login_shells=True)
     target_name = os.path.basename(script)
     target = os.path.join("~", "jobs", target_name)
+
+    # Create the "jobs" folder before do upload
+    cmd_mkdir = "mkdir -p ~/jobs"
+    exec_cmd_on_cluster(
+        cluster_config_file,
+        cmd_mkdir,
+        cluster_name,
+        no_config_cache=no_config_cache
+    )
+
+    # upload the script to cluster
     rsync(
         cluster_config_file,
         script,

@@ -129,6 +129,14 @@ function download_hadoop_cloud_jars() {
     fi
 }
 
+function download_spark_cloud_jars() {
+    SPARK_JARS=${SPARK_HOME}/jars
+    SPARK_HADOOP_CLOUD_JAR="spark-hadoop-cloud_2.12-${SPARK_VERSION}.jar"
+    if [ ! -f "${SPARK_JARS}/${SPARK_HADOOP_CLOUD_JAR}" ]; then
+        wget -nc -P "${SPARK_JARS}"  https://repo1.maven.org/maven2/org/apache/spark/spark-hadoop-cloud_2.12/${SPARK_VERSION}/${SPARK_HADOOP_CLOUD_JAR}
+    fi
+}
+
 function install_hadoop_with_cloud_jars() {
     # Download jars are possible long running tasks and should be done on install step instead of configure step.
     download_hadoop_cloud_jars
@@ -138,6 +146,8 @@ function install_hadoop_with_cloud_jars() {
 }
 
 function install_spark_with_cloud_jars() {
+    download_spark_cloud_jars
+
     # Copy cloud storage jars of different cloud providers to Spark classpath
     cloud_storge_jars=('hadoop-aws-[0-9]*[0-9].jar' 'aws-java-sdk-bundle-[0-9]*[0-9].jar' 'hadoop-azure-[0-9]*[0-9].jar' 'azure-storage-[0-9]*[0-9].jar' 'wildfly-openssl-[0-9]*[0-9].Final.jar' 'jetty-util-ajax-[0-9]*[0-9].v[0-9]*[0-9].jar' 'jetty-util-[0-9]*[0-9].v[0-9]*[0-9].jar' 'gcs-connector-hadoop3-[0-9]*[0-9].jar')
     for jar in ${cloud_storge_jars[@]};

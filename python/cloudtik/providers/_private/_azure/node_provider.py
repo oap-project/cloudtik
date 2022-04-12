@@ -17,7 +17,7 @@ from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_NAME
 
 from cloudtik.providers._private._azure.azure_identity_credential_adapter import AzureIdentityCredentialAdapter
-from cloudtik.providers._private._azure.config import (bootstrap_azure, MSI_NAME,
+from cloudtik.providers._private._azure.config import (bootstrap_azure, bootstrap_azure_from_workspace, MSI_NAME,
                                                        get_azure_sdk_function)
 
 from cloudtik.providers._private._azure.utils import get_azure_config
@@ -394,7 +394,11 @@ class AzureNodeProvider(NodeProvider):
 
     @staticmethod
     def bootstrap_config(cluster_config):
-        return bootstrap_azure(cluster_config)
+        workspace_name = cluster_config.get("workspace_name", "")
+        if workspace_name == "":
+            return bootstrap_azure(cluster_config)
+        else:
+            return bootstrap_azure_from_workspace(cluster_config)
 
     def prepare_for_head_node(
             self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:

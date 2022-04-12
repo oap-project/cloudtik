@@ -1034,6 +1034,11 @@ def _configure_network_resources(config, resource_group_name, current_step, tota
     return current_step
 
 
+def bootstrap_azure_from_workspace(config):
+    config = _configure_key_pair(config)
+    return config
+
+
 def bootstrap_azure(config):
     config = _configure_key_pair(config)
     config = _configure_resource_group(config)

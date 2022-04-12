@@ -165,7 +165,7 @@ class GCPNodeProvider(NodeProvider):
             return ip
 
     @_retry
-    def create_node(self, base_config: dict, tags: dict, count: int) -> None:
+    def create_node(self, base_config: dict, tags: dict, count: int, isHead=False) -> None:
         with self.lock:
             labels = tags  # gcp uses "labels" instead of aws "tags"
 

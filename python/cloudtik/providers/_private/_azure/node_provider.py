@@ -204,7 +204,7 @@ class AzureNodeProvider(NodeProvider):
         """Creates a number of nodes within the namespace."""
         # TODO: restart deallocated nodes if possible
         resource_group = self.provider_config["resource_group"]
-
+        use_internal_ips = self.provider_config.get("use_internal_ips", False)
         # load the template file
         current_path = Path(__file__).parent
         template_path = current_path.joinpath("azure-vm-template.json")
@@ -224,11 +224,19 @@ class AzureNodeProvider(NodeProvider):
         template_params["vmName"] = vm_name
         template_params["vmTags"] = config_tags
         template_params["vmCount"] = count
-        template_params["provisionPublicIp"] = node_config["provisionPublicIp"]
-        template_params["virtualNetworkName"] = node_config["virtualNetwork"]
-        template_params["subnetName"] = node_config["subnet"]
-        template_params["networkSecurityGroupName"] = node_config["networkSecurityGroup"]
-        template_params["userAssignedIdentitiesName"] = node_config["userAssignedIdentities"]
+
+        if self.provider_config.get("workspace_name") is None:
+            template_params["provisionPublicIp"] = node_config["provisionPublicIp"]
+            template_params["virtualNetworkName"] = node_config["virtualNetwork"]
+            template_params["subnetName"] = node_config["subnet"]
+            template_params["networkSecurityGroupName"] = node_config["networkSecurityGroup"]
+            template_params["userAssignedIdentitiesName"] = node_config["userAssignedIdentities"]
+        else:
+            template_params["provisionPublicIp"] = not use_internal_ips
+            template_params["virtualNetworkName"] = 'cloudtik-vnet'
+            template_params["subnetName"] = 'cloudtik-subnet'
+            template_params["networkSecurityGroupName"] = 'cloudtik-nsg'
+            template_params["userAssignedIdentitiesName"] = 'cloudtik-msi-user-identity'
 
         parameters = {
             "properties": {

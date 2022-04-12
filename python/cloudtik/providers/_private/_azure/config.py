@@ -1074,10 +1074,13 @@ def _configure_subnet_from_workspace(config):
         if key == config["head_node_type"]:
             if use_internal_ips:
                 node_config["subnet"] = private_subnet
+                node_config["provisionPublicIp"] = False
             else:
                 node_config["subnet"] = public_subnet
+                node_config["provisionPublicIp"] = True
         else:
             node_config["subnet"] = private_subnet
+            node_config["provisionPublicIp"] = False
 
     return config
 

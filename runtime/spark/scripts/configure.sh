@@ -117,7 +117,7 @@ function set_resources_for_spark() {
     fi
 }
 
-function update_aws_hadoop_config() {
+function update_config_for_aws() {
     sed -i "s#{%aws.s3a.bucket%}#${AWS_S3A_BUCKET}#g" `grep "{%aws.s3a.bucket%}" -rl ./`
     sed -i "s#{%fs.s3a.access.key%}#${FS_S3A_ACCESS_KEY}#g" `grep "{%fs.s3a.access.key%}" -rl ./`
     sed -i "s#{%fs.s3a.secret.key%}#${FS_S3A_SECRET_KEY}#g" `grep "{%fs.s3a.secret.key%}" -rl ./`
@@ -131,7 +131,7 @@ function update_aws_hadoop_config() {
     sed -i "s!{%spark.eventLog.dir%}!${event_log_dir}!g" `grep "{%spark.eventLog.dir%}" -rl ./`
 }
 
-function update_gcp_hadoop_config() {
+function update_config_for_gcp() {
     sed -i "s#{%project_id%}#${PROJECT_ID}#g" `grep "{%project_id%}" -rl ./`
     sed -i "s#{%gcp.gcs.bucket%}#${GCP_GCS_BUCKET}#g" `grep "{%gcp.gcs.bucket%}" -rl ./`
     sed -i "s#{%fs.gs.auth.service.account.email%}#${FS_GS_AUTH_SERVICE_ACCOUNT_EMAIL}#g" `grep "{%fs.gs.auth.service.account.email%}" -rl ./`
@@ -149,7 +149,7 @@ function update_gcp_hadoop_config() {
     sed -i "s!{%spark.eventLog.dir%}!${event_log_dir}!g" `grep "{%spark.eventLog.dir%}" -rl ./`
 }
 
-function update_azure_hadoop_config() {
+function update_config_for_azure() {
     sed -i "s#{%azure.storage.account%}#${AZURE_STORAGE_ACCOUNT}#g" "$(grep "{%azure.storage.account%}" -rl ./)"
     sed -i "s#{%azure.container%}#${AZURE_CONTAINER}#g" "$(grep "{%azure.container%}" -rl ./)"
     sed -i "s#{%azure.account.key%}#${AZURE_ACCOUNT_KEY}#g" "$(grep "{%azure.account.key%}" -rl ./)"
@@ -176,17 +176,17 @@ function update_azure_hadoop_config() {
     sed -i "s!{%spark.eventLog.dir%}!${event_log_dir}!g" `grep "{%spark.eventLog.dir%}" -rl ./`
 }
 
-function update_hadoop_config_for_cloud() {
+function update_config_for_cloud() {
     if [ "$provider" == "aws" ]; then
-      update_aws_hadoop_config
+      update_config_for_aws
     fi
 
     if [ "$provider" == "gcp" ]; then
-      update_gcp_hadoop_config
+      update_config_for_gcp
     fi
 
     if [ "$provider" == "azure" ]; then
-      update_azure_hadoop_config
+      update_config_for_azure
     fi
 }
 
@@ -243,7 +243,7 @@ function configure_hadoop_and_spark() {
     sed -i "s!{%HADOOP_HOME%}!${HADOOP_HOME}!g" `grep "{%HADOOP_HOME%}" -rl ./`
 
     update_spark_runtime_config
-    update_hadoop_config_for_cloud
+    update_config_for_cloud
     update_data_disks_config
 
     cp -r ${output_dir}/hadoop/${provider}/core-site.xml  ${HADOOP_HOME}/etc/hadoop/

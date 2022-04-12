@@ -11,7 +11,7 @@ from typing import Any, Callable
 
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.utils import check_cidr_conflict
-from cloudtik.providers._private._azure.cred_wrapper import CredentialWrapper
+from cloudtik.providers._private._azure.azure_identity_credential_adapter import AzureIdentityCredentialAdapter
 
 from azure.common.credentials import get_cli_profile
 from azure.identity import AzureCliCredential
@@ -1245,7 +1245,7 @@ def construct_manage_server_identity_client(config):
     if subscription_id is None:
         subscription_id = get_cli_profile().get_subscription_id()
     credential = AzureCliCredential()
-    wrapped_credential = CredentialWrapper(credential)
+    wrapped_credential = AzureIdentityCredentialAdapter(credential)
     msi_client = ManagedServiceIdentityClient(wrapped_credential, subscription_id)
 
     return msi_client
@@ -1256,7 +1256,7 @@ def construct_authorization_client(config):
     if subscription_id is None:
         subscription_id = get_cli_profile().get_subscription_id()
     credential = AzureCliCredential()
-    wrapped_credential = CredentialWrapper(credential)
+    wrapped_credential = AzureIdentityCredentialAdapter(credential)
     authorization_client = AuthorizationManagementClient(
         credentials=wrapped_credential,
         subscription_id=subscription_id,

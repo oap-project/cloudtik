@@ -137,7 +137,7 @@ class NodeProvider:
         return find_node_id()
 
     def create_node(self, node_config: Dict[str, Any], tags: Dict[str, str],
-                    count: int, isHead: bool) -> Optional[Dict[str, Any]]:
+                    count: int) -> Optional[Dict[str, Any]]:
         """Creates a number of nodes within the namespace.
 
         Optionally returns a mapping from created node ids to node metadata.

@@ -719,7 +719,7 @@ def get_or_create_head_node(config: Dict[str, Any],
             head_node_tags[CLOUDTIK_TAG_NODE_NAME] = "cloudtik-{}-head".format(
                 config["cluster_name"])
             head_node_tags[CLOUDTIK_TAG_NODE_STATUS] = STATUS_UNINITIALIZED
-            provider.create_node(head_node_config, head_node_tags, 1, isHead=True)
+            provider.create_node(head_node_config, head_node_tags, 1)
             cli_logger.print("Launched a new head node")
 
             start = time.time()

@@ -1,12 +1,11 @@
-from: azure/very-large
+from: aws/large
 
 # Cloud-provider specific configuration.
 provider:
-    type: azure
+    type: aws
 
 # The instance configuration for a large instance type
 available_node_types:
     worker.default:
         node_config:
-            azure_arm_parameters:
-                vmSize: Standard_E96s_v4
+            InstanceType: m6i.16xlarge

@@ -1,11 +1,11 @@
-from: aws/medium
+from: aws/standard
 
 # Cloud-provider specific configuration.
 provider:
     type: aws
 
-# The instance configuration for a medium instance type
+# The instance configuration for a standard instance type
 available_node_types:
     worker.default:
         node_config:
-            InstanceType: r5..8xlarge
+            InstanceType: m6i.2xlarge

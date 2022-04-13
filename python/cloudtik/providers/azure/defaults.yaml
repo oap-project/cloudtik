@@ -33,7 +33,7 @@ available_node_types:
         # Provider-specific config, e.g. instance type.
         node_config:
             azure_arm_parameters:
-                vmSize: Standard_D4s_v3
+                vmSize: Standard_D4s_v4
                 # List images https://docs.microsoft.com/en-us/azure/virtual-machines/linux/cli-ps-findimage
                 imagePublisher: canonical
                 imageOffer: 0001-com-ubuntu-server-focal
@@ -52,7 +52,7 @@ available_node_types:
         # Provider-specific config, e.g. instance type.
         node_config:
             azure_arm_parameters:
-                vmSize: Standard_D4s_v3
+                vmSize: Standard_D4s_v4
                 # List images https://docs.microsoft.com/en-us/azure/virtual-machines/linux/cli-ps-findimage
                 imagePublisher: canonical
                 imageOffer: 0001-com-ubuntu-server-focal

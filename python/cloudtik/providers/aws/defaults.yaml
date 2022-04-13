@@ -5,10 +5,6 @@ from: defaults-shared
 provider:
     type: aws
     region: us-west-2
-    # Availability zone(s), comma-separated, that nodes may be launched in.
-    # Nodes are currently spread between zones by a round-robin approach,
-    # however this implementation detail should not be relied upon.
-    availability_zone: us-west-2a,us-west-2b
     # Whether to allow node reuse. If set to False, nodes will be terminated
     # instead of stopped.
     cache_stopped_nodes: False # If not present, the default is False.
@@ -37,7 +33,7 @@ available_node_types:
         # For more documentation on available fields, see:
         # http://boto3.readthedocs.io/en/latest/reference/services/ec2.html#EC2.ServiceResource.create_instances
         node_config:
-            InstanceType: m6i.xlarge
+            InstanceType: m5.xlarge
             ImageId: ami-0892d3c7ee96c0bf7 # ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-20211129
             # You can provision additional disk space with a conf as follows
             BlockDeviceMappings:
@@ -60,7 +56,7 @@ available_node_types:
         # For more documentation on available fields, see:
         # http://boto3.readthedocs.io/en/latest/reference/services/ec2.html#EC2.ServiceResource.create_instances
         node_config:
-            InstanceType: m6i.xlarge
+            InstanceType: m5.xlarge
             ImageId: ami-0892d3c7ee96c0bf7 # ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-20211129
             # Run workers on spot by default. Comment this out to use on-demand.
             InstanceMarketOptions:

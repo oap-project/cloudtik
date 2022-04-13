@@ -1,12 +1,12 @@
-from: azure/very-large
+from: azure/latest/standard
 
 # Cloud-provider specific configuration.
 provider:
     type: azure
 
-# The instance configuration for a large instance type
+# The instance configuration for a standard instance type
 available_node_types:
     worker.default:
         node_config:
             azure_arm_parameters:
-                vmSize: Standard_E96s_v4
+                vmSize: Standard_E8s_v5

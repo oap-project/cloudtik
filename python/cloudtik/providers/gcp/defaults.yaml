@@ -29,7 +29,7 @@ available_node_types:
         # For more documentation on available fields, see:
         # https://cloud.google.com/compute/docs/reference/rest/v1/instances/insert
         node_config:
-            machineType: n1-standard-4
+            machineType: n2-standard-4
             # The sourceImage should under boot initializeParams
             # We will put here better inheritance handling and will fix to the place at runtime
             # See https://cloud.google.com/compute/docs/images for more images
@@ -63,7 +63,7 @@ available_node_types:
         # For more documentation on available fields, see:
         # https://cloud.google.com/compute/docs/reference/rest/v1/instances/insert
         node_config:
-            machineType: n1-standard-4
+            machineType: n2-standard-4
             # The sourceImage should under boot initializeParams
             # We will put here better inheritance handling and will fix to the place at runtime
             # See https://cloud.google.com/compute/docs/images for more images

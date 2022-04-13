@@ -7,7 +7,7 @@ val format = conf.get("spark.driver.format", "parquet")
 // create partitioned table
 val partitionTables = conf.getBoolean("spark.driver.partitioned", true)
 // how many times to run the whole set of queries.
-val iterations = conf.getBoolean("spark.driver.iterations", 1)
+val iterations = conf.getInt("spark.driver.iterations", 1)
 // support s3a://s3_bucket, gs://gs_bucket
 // wasbs://container@storage_account.blob.core.windows.net
 // abfs://container@storage_account.dfs.core.windows.net

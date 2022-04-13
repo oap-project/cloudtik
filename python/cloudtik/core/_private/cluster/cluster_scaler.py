@@ -910,6 +910,7 @@ class StandardClusterScaler:
             start_commands=with_head_node_ip(
                 self.config["worker_start_commands"], head_node_ip),
             runtime_hash=self.runtime_hash,
+            runtime_config=self.config.get("runtime", {}),
             file_mounts_contents_hash=self.file_mounts_contents_hash,
             process_runner=self.process_runner,
             use_internal_ip=True,
@@ -1001,6 +1002,7 @@ class StandardClusterScaler:
             start_commands=with_head_node_ip(
                 start_commands, head_node_ip),
             runtime_hash=self.runtime_hash,
+            runtime_config=self.config.get("runtime", {}),
             file_mounts_contents_hash=self.file_mounts_contents_hash,
             is_head_node=False,
             cluster_synced_files=self.config["cluster_synced_files"],

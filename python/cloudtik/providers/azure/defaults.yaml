@@ -98,9 +98,9 @@ setup_commands:
 # Custom commands that will be run on the head node after common setup.
 head_setup_commands:
     - cloudtik-spark install --head --provider=azure
-    - cloudtik-spark configure --head --provider=azure --azure_storage_kind=$AZURE_STORAGE_KIND --azure_storage_account=$AZURE_STORAGE_ACCOUNT --azure_container=$AZURE_CONTAINER --azure_account_key=$AZURE_ACCOUNT_KEY
+    - cloudtik-spark configure --enable-hdfs=$ENABLE_HDFS --head --provider=azure --azure_storage_kind=$AZURE_STORAGE_KIND --azure_storage_account=$AZURE_STORAGE_ACCOUNT --azure_container=$AZURE_CONTAINER --azure_account_key=$AZURE_ACCOUNT_KEY
 
 # Custom commands that will be run on worker nodes after common setup.
 worker_setup_commands:
     - cloudtik-spark install --provider=azure
-    - cloudtik-spark configure --provider=azure --head_address=$CLOUDTIK_HEAD_IP  --azure_storage_kind=$AZURE_STORAGE_KIND  --azure_storage_account=$AZURE_STORAGE_ACCOUNT --azure_container=$AZURE_CONTAINER --azure_account_key=$AZURE_ACCOUNT_KEY
+    - cloudtik-spark configure --enable-hdfs=$ENABLE_HDFS --provider=azure --head_address=$CLOUDTIK_HEAD_IP  --azure_storage_kind=$AZURE_STORAGE_KIND  --azure_storage_account=$AZURE_STORAGE_ACCOUNT --azure_container=$AZURE_CONTAINER --azure_account_key=$AZURE_ACCOUNT_KEY

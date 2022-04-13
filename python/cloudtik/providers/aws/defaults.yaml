@@ -87,9 +87,9 @@ setup_commands:
 head_setup_commands:
     - pip install 'boto3>=1.4.8'  # 1.4.8 adds InstanceMarketOptions
     - cloudtik-spark install --head --provider=aws
-    - cloudtik-spark configure --head --provider=aws --aws_s3a_bucket=$AWS_S3A_BUCKET --s3a_access_key=$FS_S3A_ACCESS_KEY --s3a_secret_key=$FS_S3A_SECRET_KEY
+    - cloudtik-spark configure --enable-hdfs=$ENABLE_HDFS --head --provider=aws --aws_s3a_bucket=$AWS_S3A_BUCKET --s3a_access_key=$FS_S3A_ACCESS_KEY --s3a_secret_key=$FS_S3A_SECRET_KEY
 
 # Custom commands that will be run on worker nodes after common setup.
 worker_setup_commands:
     - cloudtik-spark install --provider=aws
-    - cloudtik-spark configure --provider=aws --head_address=$CLOUDTIK_HEAD_IP --aws_s3a_bucket=$AWS_S3A_BUCKET --s3a_access_key=$FS_S3A_ACCESS_KEY --s3a_secret_key=$FS_S3A_SECRET_KEY
+    - cloudtik-spark configure --enable-hdfs=$ENABLE_HDFS --provider=aws --head_address=$CLOUDTIK_HEAD_IP --aws_s3a_bucket=$AWS_S3A_BUCKET --s3a_access_key=$FS_S3A_ACCESS_KEY --s3a_secret_key=$FS_S3A_SECRET_KEY

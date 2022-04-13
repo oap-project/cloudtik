@@ -64,6 +64,7 @@ class NodeUpdater:
                  setup_commands,
                  start_commands,
                  runtime_hash,
+                 runtime_config,
                  file_mounts_contents_hash,
                  is_head_node,
                  node_resources=None,
@@ -115,6 +116,7 @@ class NodeUpdater:
         self.restart_only = restart_only
         self.update_time = None
         self.for_recovery = for_recovery
+        self.runtime_config = runtime_config or {}
 
     def run(self):
         update_start_time = time.time()
@@ -324,6 +326,9 @@ class NodeUpdater:
         if self.restart_only:
             self.setup_commands = []
         provider_envs = self.provider.with_provider_environment_variables()
+        
+        if self.runtime_config.get("spark", {}).get("enable_hdfs", False):
+            provider_envs["ENABLE_HDFS"] = True
 
         # runtime_hash will only change whenever the user restarts
         # or updates their cluster with `get_or_create_head_node`

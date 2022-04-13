@@ -5,6 +5,8 @@ eval set -- "${args}"
 
 IS_HEAD_NODE=false
 FUSE_FLAG=false
+export USER_HOME=/home/$(whoami)
+export MOUNT_PATH=$USER_HOME/share
 
 while true
 do
@@ -329,8 +331,8 @@ function s3_fuse() {
     sudo apt-get update
     sudo apt-get install s3fs -y
 
-    echo "${FS_S3A_ACCESS_KEY}:${FS_S3A_SECRET_KEY}" > ${$USER_HOME}/.passwd-s3fs
-    chmod 600 ${$USER_HOME}/.passwd-s3fs
+    echo "${FS_S3A_ACCESS_KEY}:${FS_S3A_SECRET_KEY}" > ${USER_HOME}/.passwd-s3fs
+    chmod 600 ${USER_HOME}${USER_HOME}/.passwd-s3fs
 
     mkdir -p ${MOUNT_PATH}
     s3fs ${AWS_S3A_BUCKET} -o use_cache=/tmp -o mp_umask=002 -o multireq_max=5 ${MOUNT_PATH}
@@ -365,17 +367,17 @@ function blob_fuse() {
     sudo chown ubuntu /mnt/ramdisk/blobfusetmp
 
 
-    echo "accountName ${AZURE_STORAGE_ACCOUNT}" > ${$USER_HOME}/fuse_connection.cfg
-    echo "accountKey ${AZURE_ACCOUNT_KEY}" >> ${$USER_HOME}/fuse_connection.cfg
-    echo "containerName ${AZURE_CONTAINER}" >> ${$USER_HOME}/fuse_connection.
-    chmod 600 ${$USER_HOME}/fuse_connection.cfg
+    echo "accountName ${AZURE_STORAGE_ACCOUNT}" > ${USER_HOME}/fuse_connection.cfg
+    echo "accountKey ${AZURE_ACCOUNT_KEY}" >> ${USER_HOME}/fuse_connection.cfg
+    echo "containerName ${AZURE_CONTAINER}" >> ${USER_HOME}/fuse_connection.
+    chmod 600 ${USER_HOME}/fuse_connection.cfg
     mkdir -p ${MOUNT_PATH}
-    blobfuse ${MOUNT_PATH} --tmp-path=/mnt/ramdisk/blobfusetmp  --config-file=${$USER_HOME}/fuse_connection.cfg  -o attr_timeout=240 -o entry_timeout=240 -o negative_timeout=120
+    blobfuse ${MOUNT_PATH} --tmp-path=/mnt/ramdisk/blobfusetmp  --config-file=${USER_HOME}/fuse_connection.cfg  -o attr_timeout=240 -o entry_timeout=240 -o negative_timeout=120
 
 }
 
 
-function gcs_fuse()
+function gcs_fuse() {
     if [ ! -n "${GCP_GCS_BUCKET}" ]; then
         echo "GCP_GCS_BUCKET environment variable is not set."
         exit 1

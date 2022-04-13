@@ -10,7 +10,7 @@ from cloudtik.core._private.cli_logger import (cli_logger)
 
 from shlex import quote
 
-from cloudtik.runtime.spark.utils import CLOUDTIK_SPARK_RUNTIME_PATH, update_spark_configurations, is_cloud_storage_mount_enabled
+from cloudtik.runtime.spark.utils import CLOUDTIK_RUNTIME_SPARK_PATH, update_spark_configurations, is_cloud_storage_mount_enabled
 
 
 RUNTIME_SPARK_SCRIPTS_PATH = os.path.join(

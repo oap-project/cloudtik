@@ -14,7 +14,7 @@ from azure.mgmt.resource.resources.models import DeploymentMode
 from azure.mgmt.msi import ManagedServiceIdentityClient
 
 from cloudtik.core.node_provider import NodeProvider
-from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_NAME
+from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_NAME, CLOUDTIK_TAG_USE_PUBLIC_IP
 
 from cloudtik.providers._private._azure.azure_identity_credential_adapter import AzureIdentityCredentialAdapter
 from cloudtik.providers._private._azure.config import (bootstrap_azure, bootstrap_azure_from_workspace,
@@ -126,7 +126,7 @@ class AzureNodeProvider(NodeProvider):
             network_interface_name=metadata["nic_name"])
         ip_config = nic.ip_configurations[0]
 
-        if not self.provider_config.get("use_internal_ips", False):
+        if  vm.tags[CLOUDTIK_TAG_USE_PUBLIC_IP]:
             public_ip_id = ip_config.public_ip_address.id
             metadata["public_ip_name"] = public_ip_id.split("/")[-1]
             public_ip = self.network_client.public_ip_addresses.get(

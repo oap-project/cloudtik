@@ -36,3 +36,5 @@ CLOUDTIK_TAG_RUNTIME_CONFIG = "cloudtik-runtime-config"
 # if the node is a worker, this also hashes content of the directories
 # specified by the cluster_synced_files config
 CLOUDTIK_TAG_FILE_MOUNTS_CONTENTS = "cloudtik-file-mounts-contents"
+
+CLOUDTIK_TAG_USE_PUBLIC_IP = "cloudtik-use-public-ip"

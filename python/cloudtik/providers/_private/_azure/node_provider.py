@@ -126,7 +126,7 @@ class AzureNodeProvider(NodeProvider):
             network_interface_name=metadata["nic_name"])
         ip_config = nic.ip_configurations[0]
 
-        if  vm.tags[CLOUDTIK_TAG_USE_PUBLIC_IP]:
+        if  vm.tags[CLOUDTIK_TAG_USE_PUBLIC_IP] == "True":
             public_ip_id = ip_config.public_ip_address.id
             metadata["public_ip_name"] = public_ip_id.split("/")[-1]
             public_ip = self.network_client.public_ip_addresses.get(

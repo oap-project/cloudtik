@@ -1115,6 +1115,7 @@ def _configure_virtual_network_from_workspace(config):
 def _configure_resource_group_from_workspace(config):
     use_internal_ips = config["provider"].get("use_internal_ips", False)
     resource_client = construct_resource_client(config)
+    config["provider"]["workspace"] = config["workspace_name"]
     resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
     config["provider"]["resource_group"] = resource_group_name
     return config

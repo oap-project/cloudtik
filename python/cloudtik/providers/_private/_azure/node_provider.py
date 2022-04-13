@@ -358,7 +358,7 @@ class AzureNodeProvider(NodeProvider):
     def prepare_for_head_node(
             self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         """Returns a new cluster config with custom configs for head node."""
-        managed_identity_client_id = self._get_managed_identity_client_id()
+        managed_identity_client_id = self._get_managed_identity_client_id(cluster_config)
         if managed_identity_client_id:
             cluster_config["provider"]["managed_identity_client_id"] = managed_identity_client_id
 
@@ -417,14 +417,17 @@ class AzureNodeProvider(NodeProvider):
             raise RuntimeError("{} provider must be provided right storage config, "
                                "please refer to config-schema.json.".format(provider_config["type"]))
 
-    def _get_managed_identity_client_id(self):
+    def _get_managed_identity_client_id(self, cluster_config):
         try:
             credential_adapter = AzureIdentityCredentialAdapter(self.credential)
             msi_client = ManagedServiceIdentityClient(credential_adapter,
                                                       self.provider_config["subscription_id"])
+            workspace = cluster_config.get("workspace_name", "")
+
+            user_assigned_identity_name = MSI_NAME if workspace == "" else "cloudtik-{}-user-assigned-identity".format(workspace)
             user_assigned_identity = msi_client.user_assigned_identities.get(
                 self.provider_config["resource_group"],
-                MSI_NAME)
+                user_assigned_identity_name)
             return user_assigned_identity.client_id
         except Exception as e:
             logger.warning("Failed to get azure client id: {}".format(e))

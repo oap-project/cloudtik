@@ -57,7 +57,7 @@ class NodeLauncher(threading.Thread):
             CLOUDTIK_TAG_NODE_KIND: NODE_KIND_WORKER,
             CLOUDTIK_TAG_NODE_STATUS: STATUS_UNINITIALIZED,
             CLOUDTIK_TAG_LAUNCH_CONFIG: launch_hash,
-            CLOUDTIK_TAG_USE_PUBLIC_IP : True
+            CLOUDTIK_TAG_USE_PUBLIC_IP : False
 
         }
         # A custom node type is specified; set the tag in this case, and also

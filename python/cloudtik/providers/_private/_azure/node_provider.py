@@ -225,7 +225,7 @@ class AzureNodeProvider(NodeProvider):
         template_params["vmTags"] = config_tags
         template_params["vmCount"] = count
 
-        if self.provider_config.get("workspace_name") is None:
+        if self.provider_config.get("workspace_name", "") != "":
             template_params["provisionPublicIp"] = node_config["provisionPublicIp"]
             template_params["virtualNetworkName"] = node_config["virtualNetwork"]
             template_params["subnetName"] = node_config["subnet"]

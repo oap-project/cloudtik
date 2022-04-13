@@ -9,4 +9,4 @@ available_node_types:
     worker.default:
         node_config:
             azure_arm_parameters:
-                vmSize: Standard_E32s_v5
+                vmSize: Standard_E32s_v4

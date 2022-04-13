@@ -6,7 +6,7 @@ provider:
 available_node_types:
     head.default:
         node_config:
-            InstanceType: m6i.4xlarge
+            InstanceType: m5.4xlarge
             BlockDeviceMappings:
                 - DeviceName: /dev/sda1
                   Ebs:
@@ -15,7 +15,7 @@ available_node_types:
                       DeleteOnTermination: True
     worker.default:
         node_config:
-            InstanceType: m6i.8xlarge
+            InstanceType: m5.8xlarge
             BlockDeviceMappings:
                 - DeviceName: /dev/sda1
                   Ebs:

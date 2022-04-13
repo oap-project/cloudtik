@@ -1,4 +1,4 @@
-from: aws/medium
+from: aws/latest/medium
 
 # Cloud-provider specific configuration.
 provider:
@@ -8,4 +8,4 @@ provider:
 available_node_types:
     worker.default:
         node_config:
-            InstanceType: r5..8xlarge
+            InstanceType: r6i.8xlarge

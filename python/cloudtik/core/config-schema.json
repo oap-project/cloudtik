@@ -508,6 +508,11 @@
                                     "default": 1024
                                 }
                             }
+                        },
+                        "enable_hdfs": {
+                            "type": "boolean",
+                            "description": "Whether to start HDFS cluster for temporary use. The HDFS should not be used for production data.",
+                            "default": false
                         }
                     }
                 }

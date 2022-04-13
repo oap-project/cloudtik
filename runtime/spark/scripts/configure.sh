@@ -83,7 +83,7 @@ function prepare_base_conf() {
     cp -r $source_dir/* $output_dir
 }
 
-function check_env() {
+function check_spark_installed() {
     if [ ! -n "${HADOOP_HOME}" ]; then
         echo "HADOOP_HOME environment variable is not set."
         exit 1
@@ -101,15 +101,13 @@ function set_head_address() {
 	  fi
 }
 
-function caculate_worker_resources() {
-    #For nodemanager
+function set_resources_for_spark() {
+    # For nodemanager
     total_memory=$(awk '($1 == "MemTotal:"){print $2/1024*0.8}' /proc/meminfo)
     total_memory=${total_memory%.*}
     total_vcores=$(cat /proc/cpuinfo | grep processor | wc -l)
-}
 
-function set_resources_for_spark() {
-    #For Head Node
+    # For Head Node
     if [ $IS_HEAD_NODE == "true" ];then
         spark_executor_cores=$(cat ~/cloudtik_bootstrap_config.yaml | jq '."runtime"."spark"."spark_executor_resource"."spark_executor_cores"')
         spark_executor_memory=$(cat ~/cloudtik_bootstrap_config.yaml | jq '."runtime"."spark"."spark_executor_resource"."spark_executor_memory"')M
@@ -119,7 +117,7 @@ function set_resources_for_spark() {
     fi
 }
 
-function update_aws_hadoop_config() {
+function update_config_for_aws() {
     sed -i "s#{%aws.s3a.bucket%}#${AWS_S3A_BUCKET}#g" `grep "{%aws.s3a.bucket%}" -rl ./`
     sed -i "s#{%fs.s3a.access.key%}#${FS_S3A_ACCESS_KEY}#g" `grep "{%fs.s3a.access.key%}" -rl ./`
     sed -i "s#{%fs.s3a.secret.key%}#${FS_S3A_SECRET_KEY}#g" `grep "{%fs.s3a.secret.key%}" -rl ./`
@@ -133,7 +131,7 @@ function update_aws_hadoop_config() {
     sed -i "s!{%spark.eventLog.dir%}!${event_log_dir}!g" `grep "{%spark.eventLog.dir%}" -rl ./`
 }
 
-function update_gcp_hadoop_config() {
+function update_config_for_gcp() {
     sed -i "s#{%project_id%}#${PROJECT_ID}#g" `grep "{%project_id%}" -rl ./`
     sed -i "s#{%gcp.gcs.bucket%}#${GCP_GCS_BUCKET}#g" `grep "{%gcp.gcs.bucket%}" -rl ./`
     sed -i "s#{%fs.gs.auth.service.account.email%}#${FS_GS_AUTH_SERVICE_ACCOUNT_EMAIL}#g" `grep "{%fs.gs.auth.service.account.email%}" -rl ./`
@@ -151,7 +149,7 @@ function update_gcp_hadoop_config() {
     sed -i "s!{%spark.eventLog.dir%}!${event_log_dir}!g" `grep "{%spark.eventLog.dir%}" -rl ./`
 }
 
-function update_azure_hadoop_config() {
+function update_config_for_azure() {
     sed -i "s#{%azure.storage.account%}#${AZURE_STORAGE_ACCOUNT}#g" "$(grep "{%azure.storage.account%}" -rl ./)"
     sed -i "s#{%azure.container%}#${AZURE_CONTAINER}#g" "$(grep "{%azure.container%}" -rl ./)"
     sed -i "s#{%azure.account.key%}#${AZURE_ACCOUNT_KEY}#g" "$(grep "{%azure.account.key%}" -rl ./)"
@@ -173,22 +171,22 @@ function update_azure_hadoop_config() {
     if [ -z "${AZURE_CONTAINER}" ] || [ -z "$endpoint" ]; then
         event_log_dir="file:///tmp/spark-events"
     else
-        event_log_dir="$AZURE_STORAGE_KIND://${AZURE_CONTAINER}@${AZURE_STORAGE_ACCOUNT}.{%storage.endpoint%}.core.windows.net/shared/spark-events"
+        event_log_dir="$AZURE_STORAGE_KIND://${AZURE_CONTAINER}@${AZURE_STORAGE_ACCOUNT}.${endpoint}.core.windows.net/shared/spark-events"
     fi
     sed -i "s!{%spark.eventLog.dir%}!${event_log_dir}!g" `grep "{%spark.eventLog.dir%}" -rl ./`
 }
 
-function update_hadoop_config_for_cloud() {
+function update_config_for_cloud() {
     if [ "$provider" == "aws" ]; then
-      update_aws_hadoop_config
+      update_config_for_aws
     fi
 
     if [ "$provider" == "gcp" ]; then
-      update_gcp_hadoop_config
+      update_config_for_gcp
     fi
 
     if [ "$provider" == "azure" ]; then
-      update_azure_hadoop_config
+      update_config_for_azure
     fi
 }
 
@@ -225,7 +223,7 @@ function update_data_disks_config() {
     # set nodemanager.local-dirs
     nodemanager_local_dirs=$local_dirs
     if [ -z "$nodemanager_local_dirs" ]; then
-        nodemanager_local_dirs="{%HADOOP_HOME%}/data/nodemanager/local-dir"
+        nodemanager_local_dirs="${HADOOP_HOME}/data/nodemanager/local-dir"
     fi
     sed -i "s!{%yarn.nodemanager.local-dirs%}!${nodemanager_local_dirs}!g" `grep "{%yarn.nodemanager.local-dirs%}" -rl ./`
 
@@ -245,7 +243,7 @@ function configure_hadoop_and_spark() {
     sed -i "s!{%HADOOP_HOME%}!${HADOOP_HOME}!g" `grep "{%HADOOP_HOME%}" -rl ./`
 
     update_spark_runtime_config
-    update_hadoop_config_for_cloud
+    update_config_for_cloud
     update_data_disks_config
 
     cp -r ${output_dir}/hadoop/${provider}/core-site.xml  ${HADOOP_HOME}/etc/hadoop/
@@ -261,20 +259,55 @@ function configure_hadoop_and_spark() {
 }
 
 function configure_jupyter_for_spark() {
-  # Set default password(cloudtik) for JupyterLab
-  echo Y | jupyter notebook --generate-config;
-  sed -i  "1 ic.NotebookApp.password = 'argon2:\$argon2id\$v=19\$m=10240,t=10,p=8\$Y+sBd6UhAyKNsI+/mHsy9g\$WzJsUujSzmotUkblSTpMwCFoOBVSwm7S5oOPzpC+tz8'" ~/.jupyter/jupyter_notebook_config.py
-  # Config for PySpark
-  echo "export PYTHONPATH=\${SPARK_HOME}/python:\${SPARK_HOME}/python/lib/py4j-0.10.9-src.zip \
-        export PYSPARK_PYTHON=\${CONDA_PREFIX}/bin/python \
-        export PYSPARK_DRIVER_PYTHON=\${CONDA_PREFIX}/bin/python" >> ~/.bashrc
+  if [ $IS_HEAD_NODE == "true" ]; then
+      echo Y | jupyter notebook --generate-config;
+      # Set default password(cloudtik) for JupyterLab
+      sed -i  "1 ic.NotebookApp.password = 'argon2:\$argon2id\$v=19\$m=10240,t=10,p=8\$Y+sBd6UhAyKNsI+/mHsy9g\$WzJsUujSzmotUkblSTpMwCFoOBVSwm7S5oOPzpC+tz8'" ~/.jupyter/jupyter_notebook_config.py
+
+      # Set default notebook_dir for JupyterLab
+      export JUPYTER_WORKSPACE=/home/$(whoami)/jupyter
+      mkdir -p $JUPYTER_WORKSPACE
+      sed -i  "1 ic.NotebookApp.notebook_dir = '${JUPYTER_WORKSPACE}'" ~/.jupyter/jupyter_notebook_config.py
+
+      # Config for PySpark
+      echo "export PYTHONPATH=\${SPARK_HOME}/python:\${SPARK_HOME}/python/lib/py4j-0.10.9-src.zip \
+            export PYSPARK_PYTHON=\${CONDA_PREFIX}/bin/python \
+            export PYSPARK_DRIVER_PYTHON=\${CONDA_PREFIX}/bin/python" >> ~/.bashrc
+  fi
 }
 
+function configure_ganglia() {
+    cluster_name="spark-cluster"
+    if [ $IS_HEAD_NODE == "true" ]; then
+        # configure ganglia gmetad
+        sudo sed -i "s/data_source \"my cluster\" localhost/data_source \"${cluster_name}\" ${HEAD_ADDRESS}/g" /etc/ganglia/gmetad.conf
+        sudo sed -i "s/# gridname \"MyGrid\"/gridname \"CloudTik\"/g" /etc/ganglia/gmetad.conf
+        # Configure ganglia monitor
 
-check_env
+        sudo sed -i "s/send_metadata_interval = 0/send_metadata_interval = 30/g" /etc/ganglia/gmond.conf
+        sudo sed -i "s/name = \"unspecified\"/name = \"${cluster_name}\"/g" /etc/ganglia/gmond.conf
+        # replace the first occurrence of "mcast_join = 239.2.11.71" with "host = HEAD_IP"
+        sudo sed -i "0,/mcast_join = 239.2.11.71/s//host = ${HEAD_ADDRESS}/" /etc/ganglia/gmond.conf
+        # comment out the second occurrence
+        sudo sed -i "s/mcast_join = 239.2.11.71/\/*mcast_join = 239.2.11.71*\//g" /etc/ganglia/gmond.conf
+        sudo sed -i "s/bind = 239.2.11.71/\/*bind = 239.2.11.71*\//g" /etc/ganglia/gmond.conf
+        # Configure apache2 for ganglia
+        sudo cp /etc/ganglia-webfrontend/apache.conf /etc/apache2/sites-enabled/ganglia.conf
+        # Fix the ganglia bug: https://github.com/ganglia/ganglia-web/issues/324
+        # mention here: https://bugs.launchpad.net/ubuntu/+source/ganglia-web/+bug/1822048
+        sudo sed -i "s/\$context_metrics = \"\";/\$context_metrics = array();/g" /usr/share/ganglia-webfrontend/cluster_view.php
+    else
+        # Configure ganglia monitor
+        sudo sed -i "s/send_metadata_interval = 0/send_metadata_interval = 30/g" /etc/ganglia/gmond.conf
+        sudo sed -i "s/name = \"unspecified\"/name = \"${cluster_name}\"/g" /etc/ganglia/gmond.conf
+        # replace the first occurrence of "mcast_join = 239.2.11.71" with "host = HEAD_IP"
+        sudo sed -i "0,/mcast_join = 239.2.11.71/s//host = ${HEAD_ADDRESS}/" /etc/ganglia/gmond.conf
+    fi
+}
+
+check_spark_installed
 set_head_address
-caculate_worker_resources
 set_resources_for_spark
 configure_hadoop_and_spark
 configure_jupyter_for_spark
-
+configure_ganglia

@@ -884,16 +884,16 @@ def merge_initialization_commands(config):
         if docker_initialization_commands:
             config["initialization_commands"] = (
                     config["initialization_commands"] + docker_initialization_commands)
+    config["initialization_commands"] = (
+        config["initialization_commands"] + config["user_initialization_commands"])
     return config
 
 
 def merge_setup_commands(config):
-    config["setup_commands"] = (
-        config["setup_commands"] + config["bootstrap_commands"])
     config["head_setup_commands"] = (
-        config["setup_commands"] + config["head_setup_commands"])
+        config["setup_commands"] + config["head_setup_commands"] + config["bootstrap_commands"])
     config["worker_setup_commands"] = (
-        config["setup_commands"] + config["worker_setup_commands"])
+        config["setup_commands"] + config["worker_setup_commands"] + config["bootstrap_commands"])
     return config
 
 
@@ -1374,19 +1374,30 @@ def _get_proxy_process_info(proxy_info_file: str):
     if os.path.exists(proxy_info_file):
         process_info = json.loads(open(proxy_info_file).read())
         if process_info.get("proxy") and process_info["proxy"].get("pid"):
-            return process_info["proxy"]["pid"], process_info["proxy"]["port"]
-    return None, None
+            proxy_info = process_info["proxy"]
+            return proxy_info["pid"], proxy_info.get("bind_address"), proxy_info["port"]
+    return None, None, None
 
 
 def get_safe_proxy_process_info(proxy_info_file: str):
-    pid, port = _get_proxy_process_info(proxy_info_file)
+    pid, bind_address, port = _get_proxy_process_info(proxy_info_file)
     if pid is None:
-        return None, None
+        return None, None, None
 
     if not check_process_exists(pid):
-        return None, None
+        return None, None, None
 
-    return pid, port
+    return pid, bind_address, port
+
+
+def get_proxy_bind_address_to_show(bind_address: str):
+    if bind_address is None or bind_address == "":
+        bind_address_to_show = "127.0.0.1"
+    elif bind_address == "*" or bind_address == "0.0.0.0":
+        bind_address_to_show = "this-node-ip"
+    else:
+        bind_address_to_show = bind_address
+    return bind_address_to_show
 
 
 def is_use_internal_ip(config: Dict[str, Any]) -> bool:
@@ -1470,3 +1481,19 @@ def get_attach_command(use_screen: bool,
 
 def is_docker_enabled(config: Dict[str, Any]) -> bool:
     return config.get("docker", {}).get("enabled", False)
+
+
+def kill_process_tree(pid, include_parent=True):
+    try:
+        proc = psutil.Process(pid)
+    except psutil.NoSuchProcess:
+        return
+
+    children = proc.children(recursive=True)
+    if include_parent:
+        children.append(proc)
+    for p in children:
+        try:
+            p.kill()
+        except psutil.NoSuchProcess:  # pragma: no cover
+            pass

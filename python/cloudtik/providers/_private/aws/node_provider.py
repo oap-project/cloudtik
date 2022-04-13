@@ -18,7 +18,7 @@ from cloudtik.core._private.cli_logger import cli_logger, cf
 
 from cloudtik.providers._private.aws.config import bootstrap_aws, bootstrap_aws_from_workspace
 from cloudtik.providers._private.aws.utils import boto_exception_handler, \
-    resource_cache, client_cache, get_aws_s3a_config
+    resource_cache, client_cache, get_aws_s3a_config, get_boto_error_code
 
 logger = logging.getLogger(__name__)
 
@@ -452,6 +452,13 @@ class AWSNodeProvider(NodeProvider):
                     cli_logger.warning(
                         "create_instances: Attempt failed with {}, retrying.",
                         exc)
+
+                error_code = get_boto_error_code(exc)
+                if error_code and error_code == "InsufficientInstanceCapacity":
+                    # If failed with insufficient capacity, we request on-demand if it requested spot
+                    if "InstanceMarketOptions" in conf:
+                        cli_logger.warning("Retrying request for on-demand instance instead of spot.")
+                        conf.pop("InstanceMarketOptions")
 
                 # Launch failure may be due to instance type availability in
                 # the given AZ

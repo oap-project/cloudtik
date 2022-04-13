@@ -17,8 +17,9 @@ if (fsdir == "") {
     sys.exit(0)
 }
 
-val tools_path = "/home/cloudtik/runtime/benchmark-tools/tpcds-kit/tools"
-val data_path = s"${fsdir}/datagen/tpcds_${format}/${scale}"
+val user_home = System.getProperty("user.home")
+val tools_path = s"${user_home}/runtime/benchmark-tools/tpcds-kit/tools"
+val data_path = s"${fsdir}/shared/data/tpcds/tpcds_${format}/${scale}"
 val database_name = s"tpcds_${format}_scale_${scale}_db"
 val codec = "snappy"
 val clusterByPartitionColumns = partitionTables
@@ -36,7 +37,7 @@ import com.databricks.spark.sql.perf.tpcds.TPCDSTables
 val sc = spark.sqlContext
 sc.setConf(s"spark.sql.$format.compression.codec", codec)
 
-val tables = new TPCDSTables(spark.sqlContext, tools_path, scale, useDoubleForDecimal)
+val tables = new TPCDSTables(spark.sqlContext, tools_path, s"${scale}", useDoubleForDecimal)
 tables.genData(data_path, format, true, partitionTables, clusterByPartitionColumns, false, "call_center", 1)
 tables.genData(data_path, format, true, partitionTables, clusterByPartitionColumns, false, "catalog_page", 1)
 tables.genData(data_path, format, true, partitionTables, clusterByPartitionColumns, false, "customer", 6)

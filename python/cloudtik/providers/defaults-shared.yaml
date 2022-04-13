@@ -53,8 +53,11 @@ rsync_filter: []
 # is setup.
 initialization_commands: []
 
+# List of user commands that will be run on host before `setup_commands`.
+user_initialization_commands: []
+
 # Bootstrap commands for user to install and configure additional software and packages
-# The bootstrap commands will be executed after the common setup commands
+# The bootstrap commands will be executed after the setup commands
 bootstrap_commands: []
 
 # Command to start on the head node. You don't need to change this.

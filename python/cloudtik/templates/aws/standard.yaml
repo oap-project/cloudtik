@@ -29,10 +29,4 @@ available_node_types:
                       # gp3: 3,000-16,000 IOPS
                       Iops: 5000
                       DeleteOnTermination: True
-                - DeviceName: /dev/sdg
-                  Ebs:
-                      VolumeSize: 200
-                      VolumeType: gp3
-                      # gp3: 3,000-16,000 IOPS
-                      Iops: 5000
-                      DeleteOnTermination: True
+

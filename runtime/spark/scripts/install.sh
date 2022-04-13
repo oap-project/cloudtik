@@ -1,7 +1,30 @@
 #!/bin/bash
 
-export HADOOP_VERSION=3.2.0
-export SPARK_VERSION=3.1.1
+args=$(getopt -a -o h::p: -l head::,provider: -- "$@")
+eval set -- "${args}"
+
+IS_HEAD_NODE=false
+
+while true
+do
+    case "$1" in
+    --head)
+        IS_HEAD_NODE=true
+        ;;
+    -p|--provider)
+        PROVIDER=$2
+        shift
+        ;;
+    --)
+        shift
+        break
+        ;;
+    esac
+    shift
+done
+
+export HADOOP_VERSION=3.3.1
+export SPARK_VERSION=3.2.1
 
 export USER_HOME=/home/$(whoami)
 export RUNTIME_PATH=$USER_HOME/runtime
@@ -53,22 +76,25 @@ function install_spark() {
 }
 
 function install_jupyter_for_spark() {
-    # Install Jupyter and spylon-kernel for Spark
-    if ! type jupyter >/dev/null 2>&1; then
-      echo "Install JupyterLab..."
-      pip install jupyterlab
-    fi
+    if [ $IS_HEAD_NODE == "true" ];then
+        # Install Jupyter and spylon-kernel for Spark
+        if ! type jupyter >/dev/null 2>&1; then
+          echo "Install JupyterLab..."
+          pip install jupyterlab
+        fi
 
-    export SPYLON_KERNEL=$USER_HOME/.local/share/jupyter/kernels/spylon-kernel
+        export SPYLON_KERNEL=$USER_HOME/.local/share/jupyter/kernels/spylon-kernel
 
-    if  [ ! -d "${SPYLON_KERNEL}" ]; then
-        pip install spylon-kernel;
-        python -m spylon_kernel install --user;
+        if  [ ! -d "${SPYLON_KERNEL}" ]; then
+            pip install spylon-kernel;
+            python -m spylon_kernel install --user;
+        fi
     fi
 }
 
 function install_tools() {
-    which jq || sudo apt-get install jq -y
+    which jq || sudo apt-get update -y; sudo apt-get install jq -y
+    which vim || sudo apt-get update -y; sudo apt-get install vim -y
 }
 
 function install_yarn_with_spark_jars() {
@@ -103,6 +129,14 @@ function download_hadoop_cloud_jars() {
     fi
 }
 
+function download_spark_cloud_jars() {
+    SPARK_JARS=${SPARK_HOME}/jars
+    SPARK_HADOOP_CLOUD_JAR="spark-hadoop-cloud_2.12-${SPARK_VERSION}.jar"
+    if [ ! -f "${SPARK_JARS}/${SPARK_HADOOP_CLOUD_JAR}" ]; then
+        wget -nc -P "${SPARK_JARS}"  https://repo1.maven.org/maven2/org/apache/spark/spark-hadoop-cloud_2.12/${SPARK_VERSION}/${SPARK_HADOOP_CLOUD_JAR}
+    fi
+}
+
 function install_hadoop_with_cloud_jars() {
     # Download jars are possible long running tasks and should be done on install step instead of configure step.
     download_hadoop_cloud_jars
@@ -112,12 +146,34 @@ function install_hadoop_with_cloud_jars() {
 }
 
 function install_spark_with_cloud_jars() {
+    download_spark_cloud_jars
+
     # Copy cloud storage jars of different cloud providers to Spark classpath
     cloud_storge_jars=('hadoop-aws-[0-9]*[0-9].jar' 'aws-java-sdk-bundle-[0-9]*[0-9].jar' 'hadoop-azure-[0-9]*[0-9].jar' 'azure-storage-[0-9]*[0-9].jar' 'wildfly-openssl-[0-9]*[0-9].Final.jar' 'jetty-util-ajax-[0-9]*[0-9].v[0-9]*[0-9].jar' 'jetty-util-[0-9]*[0-9].v[0-9]*[0-9].jar' 'gcs-connector-hadoop3-[0-9]*[0-9].jar')
     for jar in ${cloud_storge_jars[@]};
     do
 	    find "${HADOOP_HOME}"/share/hadoop/tools/lib/ -name $jar | xargs -i cp {} "${SPARK_HOME}"/jars;
     done
+}
+
+function install_ganglia_server() {
+    # Simply do the install, if they are already installed, it doesn't take time
+    sudo apt-get update -y
+    sudo apt-get install -y apache2 php libapache2-mod-php php-common php-mbstring php-gmp php-curl php-intl php-xmlrpc php-zip php-gd php-mysql php-xml
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ganglia-monitor rrdtool gmetad ganglia-webfrontend
+}
+
+function install_ganglia_client() {
+    sudo apt-get update -y
+    sudo apt-get install -y ganglia-monitor
+}
+
+function install_ganglia() {
+    if [ $IS_HEAD_NODE == "true" ];then
+        install_ganglia_server
+    else
+        install_ganglia_client
+    fi
 }
 
 install_jdk
@@ -128,3 +184,4 @@ install_tools
 install_yarn_with_spark_jars
 install_hadoop_with_cloud_jars
 install_spark_with_cloud_jars
+install_ganglia

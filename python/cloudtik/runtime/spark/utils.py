@@ -160,3 +160,8 @@ def update_spark_configurations():
     with open(os.path.join(os.getenv("SPARK_HOME"), "conf/spark-defaults.conf"), "w+") as f:
         for key, value in spark_conf.items():
             f.write("{}    {}\n".format(key, value))
+
+
+def with_spark_runtime_environment_variables(runtime_config):
+    envs = {}
+    return envs

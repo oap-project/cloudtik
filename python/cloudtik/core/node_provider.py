@@ -36,7 +36,7 @@ class NodeProvider:
         self._external_ip_cache: Dict[str, str] = {}
 
     def with_provider_environment_variables(self):
-        """Export necessary envrionment variables for head node"""
+        """Export necessary environment variables for running node commands"""
         raise NotImplementedError
 
     def non_terminated_nodes(self, tag_filters: Dict[str, str]) -> List[str]:

@@ -916,7 +916,8 @@ class StandardClusterScaler:
             is_head_node=False,
             docker_config=self.config.get("docker"),
             node_resources=self._node_resources(node_id),
-            for_recovery=True)
+            for_recovery=True,
+            runtime_config=self.config.get("runtime"))
         updater.start()
         self.updaters[node_id] = updater
 
@@ -1011,7 +1012,8 @@ class StandardClusterScaler:
             process_runner=self.process_runner,
             use_internal_ip=True,
             docker_config=docker_config,
-            node_resources=node_resources)
+            node_resources=node_resources,
+            runtime_config=self.config.get("runtime"))
         updater.start()
         self.updaters[node_id] = updater
 

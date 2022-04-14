@@ -9,7 +9,7 @@ import time
 from cloudtik.core.tags import (CLOUDTIK_TAG_LAUNCH_CONFIG, CLOUDTIK_TAG_NODE_STATUS,
                                 CLOUDTIK_TAG_NODE_KIND, CLOUDTIK_TAG_NODE_NAME,
                                 CLOUDTIK_TAG_USER_NODE_TYPE, STATUS_UNINITIALIZED,
-                                CLOUDTIK_TAG_USE_PUBLIC_IP, NODE_KIND_WORKER)
+                                NODE_KIND_WORKER)
 from cloudtik.core._private.prometheus_metrics import ClusterPrometheusMetrics
 from cloudtik.core._private.utils import hash_launch_conf
 
@@ -57,8 +57,6 @@ class NodeLauncher(threading.Thread):
             CLOUDTIK_TAG_NODE_KIND: NODE_KIND_WORKER,
             CLOUDTIK_TAG_NODE_STATUS: STATUS_UNINITIALIZED,
             CLOUDTIK_TAG_LAUNCH_CONFIG: launch_hash,
-            CLOUDTIK_TAG_USE_PUBLIC_IP : False
-
         }
         # A custom node type is specified; set the tag in this case, and also
         # merge the configs. We merge the configs instead of overriding, so

@@ -1869,7 +1869,7 @@ def _stop_proxy(config: Dict[str, Any]):
     proxy_info_file = get_proxy_info_file(cluster_name)
     pid, address, port = get_safe_proxy_process_info(proxy_info_file)
     if pid is None:
-        cli_logger.print(cf.bold("The SOCKS5 proxy cluster {} was not started."), cluster_name)
+        cli_logger.print(cf.bold("The SOCKS5 proxy of cluster {} was not started."), cluster_name)
         return
 
     kill_process_tree(pid)

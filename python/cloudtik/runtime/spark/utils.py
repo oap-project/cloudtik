@@ -165,5 +165,5 @@ def update_spark_configurations():
 def with_spark_runtime_environment_variables(runtime_config):
     envs = {}
     if runtime_config and runtime_config.get("spark", {}).get("enable_hdfs", False):
-        envs["ENABLE_HDFS"] = "true"
+        envs["ENABLE_HDFS"] = True
     return envs

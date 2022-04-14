@@ -110,23 +110,20 @@ function install_yarn_with_spark_jars() {
 
 function download_hadoop_cloud_jars() {
     HADOOP_TOOLS_LIB=${HADOOP_HOME}/share/hadoop/tools/lib
+    HADOOP_HDFS_LIB=${HADOOP_HOME}/share/hadoop/hdfs/lib
 
-    GCS_HADOOP_CONNECTOR="gcs-connector-hadoop3-2.2.0.jar"
+    GCS_HADOOP_CONNECTOR="gcs-connector-hadoop3-latest.jar"
     if [ ! -f "${HADOOP_TOOLS_LIB}/${GCS_HADOOP_CONNECTOR}" ]; then
         # Download gcs-connector to ${HADOOP_HOME}/share/hadoop/tools/lib/* for gcp cloud storage support
         wget -nc -P "${HADOOP_TOOLS_LIB}"  https://storage.googleapis.com/hadoop-lib/gcs/${GCS_HADOOP_CONNECTOR}
     fi
 
-    JETTY_UTIL_AJAX="jetty-util-ajax-9.3.24.v20180605.jar"
-    if [ ! -f "${HADOOP_TOOLS_LIB}/${JETTY_UTIL_AJAX}" ]; then
-        # Download jetty-util to ${HADOOP_HOME}/share/hadoop/tools/lib/* for Azure cloud storage support
-        wget -nc -P "${HADOOP_TOOLS_LIB}"  https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-util-ajax/9.3.24.v20180605/${JETTY_UTIL_AJAX}
-    fi
-
-    JETTY_UTIL="jetty-util-9.3.24.v20180605.jar"
-    if [ ! -f "${HADOOP_TOOLS_LIB}/${JETTY_UTIL}" ]; then
-        wget -nc -P "${HADOOP_TOOLS_LIB}"  https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-util/9.3.24.v20180605/${JETTY_UTIL}
-    fi
+    # Copy Jetty Utility jars from HADOOP_HDFS_LIB to HADOOP_TOOLS_LIB for Azure cloud storage support
+    JETTY_UTIL_JARS=('jetty-util-ajax-[0-9]*[0-9].v[0-9]*[0-9].jar' 'jetty-util-[0-9]*[0-9].v[0-9]*[0-9].jar')
+    for jar in ${JETTY_UTIL_JARS[@]};
+    do
+	    find "${HADOOP_HDFS_LIB}" -name $jar | xargs -i cp {} "${HADOOP_TOOLS_LIB}";
+    done
 }
 
 function download_spark_cloud_jars() {
@@ -149,7 +146,7 @@ function install_spark_with_cloud_jars() {
     download_spark_cloud_jars
 
     # Copy cloud storage jars of different cloud providers to Spark classpath
-    cloud_storge_jars=('hadoop-aws-[0-9]*[0-9].jar' 'aws-java-sdk-bundle-[0-9]*[0-9].jar' 'hadoop-azure-[0-9]*[0-9].jar' 'azure-storage-[0-9]*[0-9].jar' 'wildfly-openssl-[0-9]*[0-9].Final.jar' 'jetty-util-ajax-[0-9]*[0-9].v[0-9]*[0-9].jar' 'jetty-util-[0-9]*[0-9].v[0-9]*[0-9].jar' 'gcs-connector-hadoop3-[0-9]*[0-9].jar')
+    cloud_storge_jars=('hadoop-aws-[0-9]*[0-9].jar' 'aws-java-sdk-bundle-[0-9]*[0-9].jar' 'hadoop-azure-[0-9]*[0-9].jar' 'azure-storage-[0-9]*[0-9].jar' 'wildfly-openssl-[0-9]*[0-9].Final.jar' 'jetty-util-ajax-[0-9]*[0-9].v[0-9]*[0-9].jar' 'jetty-util-[0-9]*[0-9].v[0-9]*[0-9].jar' 'gcs-connector-hadoop3-*.jar')
     for jar in ${cloud_storge_jars[@]};
     do
 	    find "${HADOOP_HOME}"/share/hadoop/tools/lib/ -name $jar | xargs -i cp {} "${SPARK_HOME}"/jars;

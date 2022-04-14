@@ -268,12 +268,11 @@ function configure_jupyter_for_spark() {
       export JUPYTER_WORKSPACE=/home/$(whoami)/jupyter
       mkdir -p $JUPYTER_WORKSPACE
       sed -i  "1 ic.NotebookApp.notebook_dir = '${JUPYTER_WORKSPACE}'" ~/.jupyter/jupyter_notebook_config.py
-
-      # Config for PySpark
-      echo "export PYTHONPATH=\${SPARK_HOME}/python:\${SPARK_HOME}/python/lib/py4j-0.10.9-src.zip \
-            export PYSPARK_PYTHON=\${CONDA_PREFIX}/bin/python \
-            export PYSPARK_DRIVER_PYTHON=\${CONDA_PREFIX}/bin/python" >> ~/.bashrc
   fi
+  # Config for PySpark
+  echo "export PYTHONPATH=\${SPARK_HOME}/python:\${SPARK_HOME}/python/lib/py4j-0.10.9-src.zip" >> ~/.bashrc
+  echo "export PYSPARK_PYTHON=\${CONDA_PREFIX}/envs/cloudtik_py37/bin/python" >> ~/.bashrc
+  echo "export PYSPARK_DRIVER_PYTHON=\${CONDA_PREFIX}/envs/cloudtik_py37/bin/python" >> ~/.bashrc
 }
 
 function configure_ganglia() {

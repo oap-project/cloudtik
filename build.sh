@@ -2,7 +2,7 @@
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 if [ "${OSTYPE}" = msys ]; then
-  echo "WARNING: ${0##*/} is not recommended on MSYS2, as MSYS2 alters the build environment."
+    echo "WARNING: ${0##*/} is not recommended on MSYS2, as MSYS2 alters the build environment."
 fi
 
 # and copy the binary to python/cloudtik/core/thirdparty/redis/redis-server

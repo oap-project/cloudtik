@@ -1,6 +1,6 @@
 #!/bin/bash
 
-args=$(getopt -a -o h::p: -l head::,head_address::,provider:,aws_s3a_bucket::,s3a_access_key::,s3a_secret_key::,project_id::,gcp_gcs_bucket::,fs_gs_auth_service_account_email::,fs_gs_auth_service_account_private_key_id::,fs_gs_auth_service_account_private_key::,azure_storage_kind::,azure_storage_account::,azure_container::,azure_account_key:: -- "$@")
+args=$(getopt -a -o h::p: -l head::,head_address::,enable_hdfs::,provider:,aws_s3a_bucket::,s3a_access_key::,s3a_secret_key::,project_id::,gcp_gcs_bucket::,fs_gs_auth_service_account_email::,fs_gs_auth_service_account_private_key_id::,fs_gs_auth_service_account_private_key::,azure_storage_kind::,azure_storage_account::,azure_container::,azure_account_key:: -- "$@")
 eval set -- "${args}"
 
 IS_HEAD_NODE=false
@@ -13,6 +13,10 @@ do
         ;;
     -h|--head_address)
         HEAD_ADDRESS=$2
+        shift
+        ;;
+    --enable_hdfs)
+        ENABLE_HDFS=$2
         shift
         ;;
     -p|--provider)
@@ -196,15 +200,41 @@ function update_spark_runtime_config() {
         sed -i "s/{%yarn.nodemanager.resource.memory-mb%}/${yarn_container_maximum_memory}/g" `grep "{%yarn.nodemanager.resource.memory-mb%}" -rl ./`
         sed -i "s/{%yarn.nodemanager.resource.cpu-vcores%}/${yarn_container_maximum_vcores}/g" `grep "{%yarn.nodemanager.resource.cpu-vcores%}" -rl ./`
         sed -i "s/{%yarn.scheduler.maximum-allocation-vcores%}/${yarn_container_maximum_vcores}/g" `grep "{%yarn.scheduler.maximum-allocation-vcores%}" -rl ./`
-	      sed -i "s/{%spark.executor.cores%}/${spark_executor_cores}/g" `grep "{%spark.executor.cores%}" -rl ./`
-	      sed -i "s/{%spark.executor.memory%}/${spark_executor_memory}/g" `grep "{%spark.executor.memory%}" -rl ./`
-	      sed -i "s/{%spark.driver.memory%}/${spark_driver_memory}/g" `grep "{%spark.driver.memory%}" -rl ./`
+	    sed -i "s/{%spark.executor.cores%}/${spark_executor_cores}/g" `grep "{%spark.executor.cores%}" -rl ./`
+	    sed -i "s/{%spark.executor.memory%}/${spark_executor_memory}/g" `grep "{%spark.executor.memory%}" -rl ./`
+	    sed -i "s/{%spark.driver.memory%}/${spark_driver_memory}/g" `grep "{%spark.driver.memory%}" -rl ./`
     else
         sed -i "s/{%yarn.scheduler.maximum-allocation-mb%}/${total_memory}/g" `grep "{%yarn.scheduler.maximum-allocation-mb%}" -rl ./`
         sed -i "s/{%yarn.nodemanager.resource.memory-mb%}/${total_memory}/g" `grep "{%yarn.nodemanager.resource.memory-mb%}" -rl ./`
         sed -i "s/{%yarn.nodemanager.resource.cpu-vcores%}/${total_vcores}/g" `grep "{%yarn.nodemanager.resource.cpu-vcores%}" -rl ./`
         sed -i "s/{%yarn.scheduler.maximum-allocation-vcores%}/${total_vcores}/g" `grep "{%yarn.scheduler.maximum-allocation-vcores%}" -rl ./`
     fi
+}
+
+function update_hdfs_data_disks_config() {
+    hdfs_nn_dirs="${HADOOP_HOME}/data/dfs/nn"
+    hdfs_dn_dirs=""
+    if [ -d "/mnt/cloudtik" ]; then
+        for data_disk in /mnt/cloudtik/*; do
+            [ -d "$data_disk" ] || continue
+            if [ -z "$hdfs_dn_dirs" ]; then
+                hdfs_dn_dirs=$data_disk/dfs/dn
+            else
+                hdfs_dn_dirs="$hdfs_dn_dirs,$data_disk/dfs/dn"
+            fi
+        done
+    fi
+
+    # if no disks mounted on /mnt/cloudtik
+    if [ -z "$hdfs_dn_dirs" ]; then
+        hdfs_dn_dirs="${HADOOP_HOME}/data/dfs/dn"
+    fi
+    sed -i "s!{%dfs.namenode.name.dir%}!${hdfs_nn_dirs}!g" `grep "{%dfs.namenode.name.dir%}" -rl ./`
+    sed -i "s!{%dfs.datanode.data.dir%}!${hdfs_dn_dirs}!g" `grep "{%dfs.datanode.data.dir%}" -rl ./`
+
+    # event log dir
+    event_log_dir="hdfs://HEAD_ADDRESS:9000/spark-events"
+    sed -i "s!{%spark.eventLog.dir%}!${event_log_dir}!g" `grep "{%spark.eventLog.dir%}" -rl ./`
 }
 
 function update_data_disks_config() {
@@ -243,14 +273,31 @@ function configure_hadoop_and_spark() {
     sed -i "s!{%HADOOP_HOME%}!${HADOOP_HOME}!g" `grep "{%HADOOP_HOME%}" -rl ./`
 
     update_spark_runtime_config
-    update_config_for_cloud
     update_data_disks_config
 
-    cp -r ${output_dir}/hadoop/${provider}/core-site.xml  ${HADOOP_HOME}/etc/hadoop/
+    if [ $ENABLE_HDFS == "true" ];then
+        update_hdfs_data_disks_config
+        cp -r ${output_dir}/hadoop/core-site.xml  ${HADOOP_HOME}/etc/hadoop/
+        cp -r ${output_dir}/hadoop/hdfs-site.xml  ${HADOOP_HOME}/etc/hadoop/
+    else
+        update_config_for_cloud
+        cp -r ${output_dir}/hadoop/${provider}/core-site.xml  ${HADOOP_HOME}/etc/hadoop/
+    fi
     cp -r ${output_dir}/hadoop/yarn-site.xml  ${HADOOP_HOME}/etc/hadoop/
 
     if [ $IS_HEAD_NODE == "true" ];then
 	      cp -r ${output_dir}/spark/*  ${SPARK_HOME}/conf
+
+          if [ $ENABLE_HDFS == "true" ]; then
+              # Format hdfs once
+              ${HADOOP_HOME}/bin/hdfs namenode -format
+              # Create event log dir on hdfs
+              ${HADOOP_HOME}/bin/hadoop fs -mkdir -p /spark-events
+          else
+              # Create event log dir on cloud storage if needed
+	          # This needs to be done after hadoop file system has been configured correctly
+	          ${HADOOP_HOME}/bin/hadoop fs -mkdir -p /shared/spark-events
+          fi
 
 	      # Create event log dir on cloud storage if needed
 	      # This needs to be done after hadoop file system has been configured correctly

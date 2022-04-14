@@ -1,11 +1,9 @@
 import click
 import os
 import logging
-from typing import Any, Dict
+
 from cloudtik.core._private import constants
-
 from cloudtik.core._private import logging_utils
-
 from cloudtik.core._private.cli_logger import (cli_logger)
 
 from shlex import quote

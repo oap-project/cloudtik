@@ -12,46 +12,46 @@ CONDA_ENV_NAME="cloudtik_py37"
 
 while [[ $# -gt 0 ]]
 do
-key="$1"
-case $key in
+    key="$1"
+    case $key in
     --gpu)
-    GPU="-gpu"
-    BASE_IMAGE="nvidia/cuda:11.2.0-cudnn8-devel-ubuntu18.04"
-    ;;
+        GPU="-gpu"
+        BASE_IMAGE="nvidia/cuda:11.2.0-cudnn8-devel-ubuntu18.04"
+        ;;
     --base-image)
-    # Override for the base image.
-    shift
-    BASE_IMAGE=$1
-    ;;
+        # Override for the base image.
+        shift
+        BASE_IMAGE=$1
+        ;;
     --no-cache-build)
-    NO_CACHE="--no-cache"
-    ;;
+        NO_CACHE="--no-cache"
+        ;;
     --build-dev)
-    BUILD_DEV=YES
-    ;;
+        BUILD_DEV=YES
+        ;;
     --shas-only)
-    # output the SHA sum of each build. This is useful for scripting tests, 
-    # especially when builds of different versions are running on the same machine. 
-    # It also can facilitate cleanup.
-    OUTPUT_SHA=YES
-    ;;
+        # output the SHA sum of each build. This is useful for scripting tests,
+        # especially when builds of different versions are running on the same machine.
+        # It also can facilitate cleanup.
+        OUTPUT_SHA=YES
+        ;;
     --wheel-to-use)
-    # Which wheel to use. This defaults to the latest nightly on python 3.7
-    echo "not implemented, just hardcode me :'("
-    exit 1
-    ;;
+        # Which wheel to use. This defaults to the latest nightly on python 3.7
+        echo "not implemented, just hardcode me :'("
+        exit 1
+        ;;
     --python-version)
-    # Python version to install. e.g. 3.7.7.
-    # Changing python versions may require a different wheel.
-    # If not provided defaults to 3.7.7
-    shift
-    PYTHON_VERSION=$1
-    ;;
+        # Python version to install. e.g. 3.7.7.
+        # Changing python versions may require a different wheel.
+        # If not provided defaults to 3.7.7
+        shift
+        PYTHON_VERSION=$1
+        ;;
     *)
-    echo "Usage: build-docker.sh [ --gpu ] [ --base-image ] [ --no-cache-build ] [ --shas-only ] [ --build-dev ] [ --wheel-to-use ] [ --python-version ]"
-    exit 1
-esac
-shift
+        echo "Usage: build-docker.sh [ --gpu ] [ --base-image ] [ --no-cache-build ] [ --shas-only ] [ --build-dev ] [ --wheel-to-use ] [ --python-version ]"
+        exit 1
+    esac
+    shift
 done
 
 WHEEL_DIR=$(mktemp -d)

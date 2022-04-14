@@ -32,7 +32,6 @@ from cloudtik.core._private.constants import \
     CLOUDTIK_REDIS_DEFAULT_PASSWORD
 from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     hash_launch_conf, prepare_config, get_free_port, \
-    kill_process_by_pid, \
     get_proxy_info_file, get_safe_proxy_process_info, \
     get_head_working_ip, get_node_cluster_ip, is_use_internal_ip, get_head_bootstrap_config, \
     get_attach_command, is_alive_time, with_head_node_ip, is_docker_enabled, get_proxy_bind_address_to_show, \
@@ -72,6 +71,7 @@ POLL_INTERVAL = 5
 Port_forward = Union[Tuple[int, int], List[Tuple[int, int]]]
 
 NUM_TEARDOWN_CLUSTER_STEPS_BASE = 2
+
 
 def try_logging_config(config: Dict[str, Any]) -> None:
     if config["provider"]["type"] == "aws":

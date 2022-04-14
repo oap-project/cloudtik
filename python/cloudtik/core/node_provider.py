@@ -1,4 +1,3 @@
-import copy
 import logging
 from types import ModuleType
 from typing import Any, Dict, List, Optional

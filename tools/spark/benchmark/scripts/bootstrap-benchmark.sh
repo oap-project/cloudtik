@@ -72,40 +72,40 @@ function usage() {
 
 while [[ $# -ge 0 ]]
 do
-key="$1"
-case $key in
-"")
-    shift 1
-    echo "Start to deploy all benchmark for Spark Runtime ..."
-    install_hibench
-    install_tpcds
-    install_tpch
-    exit 0
-    ;;
---tpcds)
-    shift 1
-    install_tpcds
-    exit 0
-    ;;
---tpch)
-    shift 1
-    install_tpch
-    exit 0
-    ;;
---hibench)
-    shift 1
-    install_hibench
-    exit 0
-    ;;
+    key="$1"
+    case $key in
+    "")
+        shift 1
+        echo "Start to deploy all benchmark for Spark Runtime ..."
+        install_hibench
+        install_tpcds
+        install_tpch
+        exit 0
+        ;;
+    --tpcds)
+        shift 1
+        install_tpcds
+        exit 0
+        ;;
+    --tpch)
+        shift 1
+        install_tpch
+        exit 0
+        ;;
+    --hibench)
+        shift 1
+        install_hibench
+        exit 0
+        ;;
     -h|--help)
-    shift 1
-    usage
-    exit 0
-    ;;
-*)    # unknown option
-    echo "Unknown option"
-    usage
-    exit 1
-    ;;
-esac
+        shift 1
+        usage
+        exit 0
+        ;;
+    *)    # unknown option
+        echo "Unknown option"
+        usage
+        exit 1
+        ;;
+    esac
 done

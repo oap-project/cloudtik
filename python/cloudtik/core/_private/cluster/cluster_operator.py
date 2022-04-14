@@ -36,7 +36,7 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     get_proxy_info_file, get_safe_proxy_process_info, \
     get_head_working_ip, get_node_cluster_ip, is_use_internal_ip, get_head_bootstrap_config, \
     get_attach_command, is_alive_time, with_head_node_ip, is_docker_enabled, get_proxy_bind_address_to_show, \
-    kill_process_tree
+    kill_process_tree, with_runtime_environment_variables
 
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
@@ -800,7 +800,8 @@ def get_or_create_head_node(config: Dict[str, Any],
                 "rsync_filter": config.get("rsync_filter")
             },
             docker_config=config.get("docker"),
-            restart_only=restart_only)
+            restart_only=restart_only,
+            runtime_config=config.get("runtime"))
         updater.start()
         updater.join()
 
@@ -2201,7 +2202,8 @@ def create_node_updater_for_exec(config,
             "rsync_exclude": config.get("rsync_exclude"),
             "rsync_filter": config.get("rsync_filter")
         },
-        docker_config=config.get("docker"))
+        docker_config=config.get("docker"),
+        runtime_config=config.get("runtime"))
     return updater
 
 
@@ -2214,7 +2216,8 @@ def start_node_on_head(node_ip: str = None,
     head_node = _get_running_head_node(config, cluster_config_file,
                                        None, _provider=provider)
     head_node_ip = provider.internal_ip(head_node)
-    provider_envs = provider.with_provider_environment_variables()
+    runtime_envs = with_runtime_environment_variables(
+        config.get("runtime"), provider)
 
     nodes = get_nodes_of(config, provider, head_node,
                          node_ip, all_nodes)
@@ -2237,7 +2240,7 @@ def start_node_on_head(node_ip: str = None,
             is_head_node=is_head_node,
             use_internal_ip=True)
 
-        updater._exec_start_commands(provider_envs)
+        updater._exec_start_commands(runtime_envs)
 
     for node_id in nodes:
         start_single_node_on_head(node_id)
@@ -2321,7 +2324,8 @@ def stop_node_on_head(node_ip: str = None,
     head_node = _get_running_head_node(config, cluster_config_file,
                                        None, _provider=provider)
     head_node_ip = provider.internal_ip(head_node)
-    provider_envs = provider.with_provider_environment_variables()
+    runtime_envs = with_runtime_environment_variables(
+        config.get("runtime"), provider)
 
     nodes = get_nodes_of(config, provider, head_node,
                          node_ip, all_nodes)
@@ -2347,7 +2351,7 @@ def stop_node_on_head(node_ip: str = None,
             is_head_node=is_head_node,
             use_internal_ip=True)
 
-        updater.exec_commands(stop_commands, provider_envs)
+        updater.exec_commands(stop_commands, runtime_envs)
 
     for node_id in nodes:
         stop_single_node_on_head(node_id)

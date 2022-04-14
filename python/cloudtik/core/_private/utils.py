@@ -38,6 +38,8 @@ from cloudtik.core._private.providers import _get_workspace_provider
 # Import psutil after others so the packaged version is used.
 import psutil
 
+from cloudtik.runtime.spark.utils import with_spark_runtime_environment_variables
+
 REQUIRED, OPTIONAL = True, False
 CLOUDTIK_CONFIG_SCHEMA_PATH = os.path.join(
     os.path.dirname(cloudtik.core.__file__), "config-schema.json")
@@ -1497,3 +1499,10 @@ def kill_process_tree(pid, include_parent=True):
             p.kill()
         except psutil.NoSuchProcess:  # pragma: no cover
             pass
+
+
+def with_runtime_environment_variables(runtime_config, provider):
+    runtime_envs = with_spark_runtime_environment_variables(runtime_config)
+    provider_envs = provider.with_provider_environment_variables()
+    runtime_envs.update(provider_envs)
+    return runtime_envs

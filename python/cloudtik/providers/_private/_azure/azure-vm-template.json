@@ -91,6 +91,34 @@
             "metadata": {
                 "description": "Specifies the maximum price to pay for Azure Spot VM."
             }
+        },
+        "virtualNetworkName": {
+            "type": "string",
+            "defaultValue": "cloudtik-vnet",
+            "metadata": {
+                "description": "The name of you virtual network name."
+            }
+        },
+        "subnetName": {
+            "type": "string",
+            "defaultValue": "cloudtik-subnet",
+            "metadata": {
+                "description": "The name of you subnet."
+            }
+        },
+        "networkSecurityGroupName": {
+            "type": "string",
+            "defaultValue": "cloudtik-nsg",
+            "metadata": {
+                "description": "The name of you network security group."
+            }
+        },
+        "userAssignedIdentitiesName": {
+            "type": "string",
+            "defaultValue": "cloudtik-msi-user-identity",
+            "metadata": {
+                "description": "The name of you user assigned identities."
+            }
         }
     },
     "variables": {
@@ -100,7 +128,7 @@
         "networkInterfaceName": "[if(parameters('provisionPublicIp'), variables('networkInterfaceNamePublic'), variables('networkInterfaceNamePrivate'))]",
         "networkIpConfig": "[guid(resourceGroup().id, parameters('vmName'))]",
         "publicIpAddressName": "[concat(parameters('vmName'), '-ip' )]",
-        "subnetRef": "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'cloudtik-vnet', 'cloudtik-subnet')]"
+        "subnetRef": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('virtualNetworkName'), parameters('subnetName'))]"
     },
     "resources": [
         {
@@ -131,7 +159,7 @@
                     }
                 ],
                 "networkSecurityGroup": {
-                    "id": "[resourceId('Microsoft.Network/networkSecurityGroups','cloudtik-nsg')]"
+                    "id": "[resourceId('Microsoft.Network/networkSecurityGroups',parameters('networkSecurityGroupName'))]"
                 }
             },
             "condition": "[parameters('provisionPublicIp')]"
@@ -158,7 +186,7 @@
                     }
                 ],
                 "networkSecurityGroup": {
-                    "id": "[resourceId('Microsoft.Network/networkSecurityGroups','cloudtik-nsg')]"
+                    "id": "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('networkSecurityGroupName'))]"
                 }
             },
             "condition": "[not(parameters('provisionPublicIp'))]"
@@ -261,7 +289,7 @@
             "identity": {
                 "type": "UserAssigned",
                 "userAssignedIdentities": {
-                    "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'cloudtik-msi-user-identity')]": {
+                    "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('userAssignedIdentitiesName'))]": {
                     }
                 }
             }

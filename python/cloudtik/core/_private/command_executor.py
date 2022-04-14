@@ -93,7 +93,10 @@ def _with_environment_variables(cmd: str,
 
     as_strings = []
     for key, val in environment_variables.items():
-        val = json.dumps(val, separators=(",", ":"))
+        # json.dumps will add an extra quote to string value
+        # since we use quote to make sure value is safe for shell, we don't need the quote for string
+        if not isinstance(val, str):
+            val = json.dumps(val, separators=(",", ":"))
         s = "export {}={};".format(key, quote(val))
         as_strings.append(s)
     all_vars = "".join(as_strings)

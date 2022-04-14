@@ -276,8 +276,8 @@ function configure_jupyter_for_spark() {
 }
 
 function configure_ganglia() {
-    cluster_name_head="Spark Head"
-    cluster_name="Spark Workers"
+    cluster_name_head="Spark-Head"
+    cluster_name="Spark-Workers"
     if [ $IS_HEAD_NODE == "true" ]; then
         # configure ganglia gmetad
         sudo sed -i "s/# default: There is no default value/data_source \"${cluster_name_head}\" ${HEAD_ADDRESS}:8650/g" /etc/ganglia/gmetad.conf

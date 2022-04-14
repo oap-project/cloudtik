@@ -283,7 +283,7 @@ function configure_ganglia() {
         # configure ganglia gmetad
         sudo sed -i "s/# default: There is no default value/data_source \"${cluster_name_head}\" ${HEAD_ADDRESS}:8650/g" /etc/ganglia/gmetad.conf
         sudo sed -i "s/data_source \"my cluster\" localhost/data_source \"${cluster_name}\" ${HEAD_ADDRESS}/g" /etc/ganglia/gmetad.conf
-        sudo sed -i "s/# gridname \"MyGrid\"/gridname \"Spark\"/g" /etc/ganglia/gmetad.conf
+        sudo sed -i "s/# gridname \"MyGrid\"/gridname \"CloudTik\"/g" /etc/ganglia/gmetad.conf
 
         # Configure ganglia monitor
         sudo sed -i "s/send_metadata_interval = 0/send_metadata_interval = 30/g" /etc/ganglia/gmond.conf

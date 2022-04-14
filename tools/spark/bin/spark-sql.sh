@@ -6,20 +6,20 @@ function show_usage() {
 
 while [[ $# -gt 0 ]]
 do
-key="$1"
-case $key in
--h|--help)
-    shift 1 # past argument
-    show_usage
-    exit 1
-    ;;
-*)    # completed this shell arguments processing
-    # cluster config file
-    cluster_config_file=$1
-    shift 1 # past argument
-    break
-    ;;
-esac
+    key="$1"
+    case $key in
+    -h|--help)
+        shift 1 # past argument
+        show_usage
+        exit 1
+        ;;
+    *)    # completed this shell arguments processing
+        # cluster config file
+        cluster_config_file=$1
+        shift 1 # past argument
+        break
+        ;;
+    esac
 done
 
 if [ -z "$cluster_config_file" ]

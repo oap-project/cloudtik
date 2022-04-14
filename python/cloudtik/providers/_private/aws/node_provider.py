@@ -48,6 +48,7 @@ def make_ec2_client(region, max_retries, aws_credentials=None):
     aws_credentials = aws_credentials or {}
     return resource_cache("ec2", region, max_retries, **aws_credentials)
 
+
 def tags_list_to_dict(tags:list):
     tags_dict = {}
     for item in tags:
@@ -122,7 +123,6 @@ class AWSNodeProvider(NodeProvider):
 
     def with_provider_environment_variables(self):
         return get_aws_s3a_config(self.provider_config)
-
 
     def non_terminated_nodes(self, tag_filters):
         # Note that these filters are acceptable because they are set on
@@ -492,7 +492,6 @@ class AWSNodeProvider(NodeProvider):
         # the node cache is updated.
         pass
 
-
     def terminate_nodes(self, node_ids):
         if not node_ids:
             return
@@ -576,7 +575,6 @@ class AWSNodeProvider(NodeProvider):
             return bootstrap_aws(cluster_config)
         else:
             return bootstrap_aws_from_workspace(cluster_config)
-
 
     @staticmethod
     def fillout_available_node_types_resources(

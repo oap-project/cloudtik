@@ -1057,7 +1057,7 @@ def _configure_user_assigned_identities_from_workspace(config):
     for node_type_key in config["available_node_types"].keys():
         node_config = config["available_node_types"][node_type_key][
             "node_config"]
-        node_config["userAssignedIdentities"] = user_assigned_identity_name
+        node_config["azure_arm_parameters"]["userAssignedIdentitiesName"] = user_assigned_identity_name
 
     return config
 
@@ -1073,14 +1073,14 @@ def _configure_subnet_from_workspace(config):
         node_config = node_type["node_config"]
         if key == config["head_node_type"]:
             if use_internal_ips:
-                node_config["subnet"] = private_subnet
-                node_config["provisionPublicIp"] = False
+                node_config["azure_arm_parameters"]["subnetName"] = private_subnet
+                node_config["azure_arm_parameters"]["provisionPublicIp"] = False
             else:
-                node_config["subnet"] = public_subnet
-                node_config["provisionPublicIp"] = True
+                node_config["azure_arm_parameters"]["subnetName"] = public_subnet
+                node_config["azure_arm_parameters"]["provisionPublicIp"] = True
         else:
-            node_config["subnet"] = private_subnet
-            node_config["provisionPublicIp"] = False
+            node_config["azure_arm_parameters"]["subnetName"] = private_subnet
+            node_config["azure_arm_parameters"]["provisionPublicIp"] = False
 
     return config
 
@@ -1092,7 +1092,7 @@ def _configure_network_security_group_from_workspace(config):
     for node_type_key in config["available_node_types"].keys():
         node_config = config["available_node_types"][node_type_key][
             "node_config"]
-        node_config["networkSecurityGroup"] = network_security_group_name
+        node_config["azure_arm_parameters"]["networkSecurityGroupName"] = network_security_group_name
 
     return config
 
@@ -1107,7 +1107,7 @@ def _configure_virtual_network_from_workspace(config):
     for node_type_key in config["available_node_types"].keys():
         node_config = config["available_node_types"][node_type_key][
             "node_config"]
-        node_config["virtualNetwork"] = virtual_network_name
+        node_config["azure_arm_parameters"]["virtualNetworkName"] = virtual_network_name
 
     return config
 
@@ -1124,6 +1124,17 @@ def _configure_resource_group_from_workspace(config):
 def bootstrap_azure(config):
     config = _configure_key_pair(config)
     config = _configure_resource_group(config)
+    config = _configure_provision_public_ip(config)
+    return config
+
+
+def _configure_provision_public_ip(config):
+    use_internal_ips = config["provider"].get("use_internal_ips", False)
+
+    for key, node_type in config["available_node_types"].items():
+        node_config = node_type["node_config"]
+        node_config["azure_arm_parameters"]["provisionPublicIp"] = False if use_internal_ips else True
+
     return config
 
 

@@ -94,24 +94,28 @@
         },
         "virtualNetworkName": {
             "type": "string",
+            "defaultValue": "cloudtik-vnet",
             "metadata": {
                 "description": "The name of you virtual network name."
             }
         },
         "subnetName": {
             "type": "string",
+            "defaultValue": "cloudtik-subnet",
             "metadata": {
                 "description": "The name of you subnet."
             }
         },
         "networkSecurityGroupName": {
             "type": "string",
+            "defaultValue": "cloudtik-nsg",
             "metadata": {
                 "description": "The name of you network security group."
             }
         },
         "userAssignedIdentitiesName": {
             "type": "string",
+            "defaultValue": "cloudtik-msi-user-identity",
             "metadata": {
                 "description": "The name of you user assigned identities."
             }

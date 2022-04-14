@@ -364,38 +364,46 @@ def teardown_cluster(config_file: str, yes: bool, workers_only: bool,
             current_step += 1
             _stop_proxy(config)
 
-    try:
-        if not workers_only:
-            with cli_logger.group(
-                    "Requesting head to stop head services",
-                    _numbered=("[]", current_step, total_steps)):
-                current_step += 1
+    if not workers_only:
+        with cli_logger.group(
+                "Requesting head to stop head services",
+                _numbered=("[]", current_step, total_steps)):
+            current_step += 1
+            try:
                 stop_node_from_head(config_file,
                                     node_ip=None, all_nodes=False,
                                     override_cluster_name=override_cluster_name)
+            except Exception as e:
+                cli_logger.verbose_error("{}", str(e))
+                cli_logger.warning(
+                    "Exception occurred when stopping head services "
+                    "(use -v to show details).")
+                cli_logger.warning(
+                    "Ignoring the exception and "
+                    "attempting to shut down the cluster nodes anyway.")
 
-        # Running teardown cluster process on head first. But we allow this to fail.
-        # Since head node problem should not prevent cluster tear down
-        with cli_logger.group(
-                "Requesting head to stop workers",
-                _numbered=("[]", current_step, total_steps)):
-            current_step += 1
-            cmd = "cloudtik head teardown"
-            if keep_min_workers:
-                cmd += " --keep-min-workers"
+    # Running teardown cluster process on head first. But we allow this to fail.
+    # Since head node problem should not prevent cluster tear down
+    with cli_logger.group(
+            "Requesting head to stop workers",
+            _numbered=("[]", current_step, total_steps)):
+        current_step += 1
+        cmd = "cloudtik head teardown"
+        if keep_min_workers:
+            cmd += " --keep-min-workers"
+
+        try:
             exec_cmd_on_cluster(config_file,
                                 cmd,
                                 override_cluster_name)
-    except Exception as e:
-        # Set to last step
-        current_step = total_steps
-        cli_logger.verbose_error("{}", str(e))
-        cli_logger.warning(
-            "Exception occurred when stopping the cluster runtime "
-            "(use -v to dump teardown exceptions).")
-        cli_logger.warning(
-            "Ignoring the exception and "
-            "attempting to shut down the cluster nodes anyway.")
+        except Exception as e:
+            cli_logger.verbose_error("{}", str(e))
+            cli_logger.warning(
+                "Exception occurred when requesting head to stop the workers "
+                "(use -v to show details).")
+            cli_logger.warning(
+                "Ignoring the exception and "
+                "attempting to shut down the cluster nodes anyway.")
 
     with cli_logger.group(
             "Stopping head and remaining nodes",

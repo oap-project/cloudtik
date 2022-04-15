@@ -95,6 +95,11 @@ function check_spark_installed() {
     fi
 }
 
+function configure_system_folders() {
+    # Create logs in tmp for any application logs to include
+    mkdir -p /tmp/logs
+}
+
 function set_head_address() {
     if [ ! -n "${HEAD_ADDRESS}" ]; then
 	    HEAD_ADDRESS=$(hostname -I | awk '{print $1}')
@@ -366,6 +371,7 @@ function configure_ganglia() {
 check_spark_installed
 set_head_address
 set_resources_for_spark
+configure_system_folders
 configure_hadoop_and_spark
 configure_jupyter_for_spark
 configure_ganglia

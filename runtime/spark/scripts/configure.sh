@@ -77,7 +77,7 @@ done
 
 function prepare_base_conf() {
     source_dir=$(cd $(dirname ${BASH_SOURCE[0]})/..;pwd)/conf
-    output_dir=$(dirname ${source_dir})/outconf
+    output_dir=/tmp/spark/conf
     rm -rf  $output_dir
     mkdir -p $output_dir
     cp -r $source_dir/* $output_dir
@@ -297,7 +297,6 @@ function configure_hadoop_and_spark() {
             # This needs to be done after hadoop file system has been configured correctly
             ${HADOOP_HOME}/bin/hadoop fs -mkdir -p /shared/spark-events
         fi
-
     fi
 }
 

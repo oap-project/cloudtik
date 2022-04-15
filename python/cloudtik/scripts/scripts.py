@@ -1377,6 +1377,12 @@ def cluster_dump(cluster_config_file: Optional[str] = None,
     type=str,
     default=None,
     help="Temporary file to use")
+@click.option(
+    "--verbosity",
+    required=False,
+    default=None,
+    type=int,
+    help="The integer verbosity to set.")
 @add_click_logging_options
 def local_dump(stream: bool = False,
                output: Optional[str] = None,
@@ -1385,7 +1391,8 @@ def local_dump(stream: bool = False,
                pip: bool = True,
                processes: bool = True,
                processes_verbose: bool = False,
-               tempfile: Optional[str] = None):
+               tempfile: Optional[str] = None,
+               verbosity: int = None):
     """Collect local data and package into an archive.
 
     Usage:
@@ -1395,6 +1402,9 @@ def local_dump(stream: bool = False,
     This script is called on remote nodes to fetch their data.
     """
     # This may stream data to stdout, so no printing here
+    if verbosity is not None:
+        cli_logger.set_verbosity(verbosity)
+
     get_local_dump_archive(
         stream=stream,
         output=output,

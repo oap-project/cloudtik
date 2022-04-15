@@ -418,7 +418,7 @@ def create_and_get_archive_from_remote_node(remote_node: Node,
             remote_node.docker_container,
         ]
 
-    collect_cmd = [script_path, "local-dump", "--stream"]
+    collect_cmd = [script_path, "local-dump", "--verbosity=0", "--stream"]
     collect_cmd += ["--logs"] if parameters.logs else ["--no-logs"]
     collect_cmd += ["--debug-state"] if parameters.debug_state else [
         "--no-debug-state"
@@ -599,7 +599,7 @@ def create_and_get_archive_from_head_node(head_node: Node,
             head_node.docker_container,
         ]
 
-    collect_cmd = [script_path, "cluster-dump-on-head", "--stream"]
+    collect_cmd = [script_path, "head", "cluster-dump", "--verbosity=0", "--stream"]
     collect_cmd += ["--logs"] if parameters.logs else ["--no-logs"]
     collect_cmd += ["--debug-state"] if parameters.debug_state else [
         "--no-debug-state"
@@ -623,6 +623,8 @@ def create_and_get_archive_from_head_node(head_node: Node,
         prefix=f"cloudtik_{cat}_{head_node.host}_", suffix=".tar.gz")
     with open(tmp, "wb") as fp:
         try:
+            cli_logger.verbose("Running `{}`", " ".join(collect_cmd))
+            cli_logger.verbose("Full command is `{}`", " ".join(cmd))
             subprocess.check_call(cmd, stdout=fp, stderr=sys.stderr)
         except subprocess.CalledProcessError as exc:
             raise RemoteCommandFailed(

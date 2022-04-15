@@ -327,7 +327,7 @@ class _CliLogger():
             self._set_color_mode(color_mode)
 
         if verbosity is not None:
-            self._set_verbosity(verbosity)
+            self.set_verbosity(verbosity)
 
         self.detect_colors()
 
@@ -364,7 +364,7 @@ class _CliLogger():
             return 999
         return self._verbosity
 
-    def _set_verbosity(self, x):
+    def set_verbosity(self, x):
         self._verbosity = x
         self._verbosity_overriden = True
 

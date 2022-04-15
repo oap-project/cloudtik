@@ -18,6 +18,12 @@ SPARK_SERVICES_SCRIPT_PATH = os.path.join(RUNTIME_SPARK_SCRIPTS_PATH, "services.
 logger = logging.getLogger(__name__)
 
 
+def run_system_command(cmd: str):
+    result = os.system(cmd)
+    if result != 0:
+        raise RuntimeError(f"Error happened in running: {cmd}")
+
+
 @click.group()
 @click.option(
     "--logging-level",
@@ -65,7 +71,7 @@ def install(head, provider, script_args):
         cmds += list(script_args)
     final_cmd = " ".join(cmds)
 
-    os.system(final_cmd)
+    run_system_command(final_cmd)
 
 
 @click.command(context_settings={"ignore_unknown_options": True})
@@ -207,7 +213,7 @@ def configure(head, provider, head_address, aws_s3a_bucket, s3a_access_key, s3a_
         cmds += list(script_args)
 
     final_cmd = " ".join(cmds)
-    os.system(final_cmd)
+    run_system_command(final_cmd)
 
     # Update spark configuration from cluster config file
     update_spark_configurations()
@@ -227,27 +233,31 @@ def services(command, script_args):
         cmds += list(script_args)
     final_cmd = " ".join(cmds)
 
-    os.system(final_cmd)
+    run_system_command(final_cmd)
 
 
 @click.command()
 def start_head():
-    os.system("bash {} start-head".format(SPARK_SERVICES_SCRIPT_PATH))
+    final_cmd = "bash {} start-head".format(SPARK_SERVICES_SCRIPT_PATH)
+    run_system_command(final_cmd)
 
 
 @click.command()
 def start_worker():
-    os.system("bash {} start-worker".format(SPARK_SERVICES_SCRIPT_PATH))
+    final_cmd = "bash {} start-worker".format(SPARK_SERVICES_SCRIPT_PATH)
+    run_system_command(final_cmd)
 
 
 @click.command()
 def stop_head():
-    os.system("bash {} stop-head".format(SPARK_SERVICES_SCRIPT_PATH))
+    final_cmd = "bash {} stop-head".format(SPARK_SERVICES_SCRIPT_PATH)
+    run_system_command(final_cmd)
 
 
 @click.command()
 def stop_worker():
-    os.system("bash {} stop-worker".format(SPARK_SERVICES_SCRIPT_PATH))
+    final_cmd = "bash {} stop-worker".format(SPARK_SERVICES_SCRIPT_PATH)
+    run_system_command(final_cmd)
 
 
 cli.add_command(install)

@@ -445,10 +445,10 @@ def node_stop(force):
           "by default. If your workflow is compatible with normal shells, "
           "this can be disabled for a better user experience."))
 @add_click_logging_options
-def up(cluster_config_file, min_workers, max_workers, no_restart, restart_only,
+def start(cluster_config_file, min_workers, max_workers, no_restart, restart_only,
        yes, cluster_name, workspace_name, redirect_command_output,
        use_login_shells):
-    """Create or update a cluster."""
+    """Start or update a cluster."""
     if restart_only or no_restart:
         cli_logger.doassert(restart_only != no_restart,
                             "`{}` is incompatible with `{}`.",
@@ -507,9 +507,9 @@ def up(cluster_config_file, min_workers, max_workers, no_restart, restart_only,
     default=False,
     help="Retain the minimal amount of workers specified in the config.")
 @add_click_logging_options
-def down(cluster_config_file, yes, workers_only, cluster_name,
+def stop(cluster_config_file, yes, workers_only, cluster_name,
          keep_min_workers):
-    """Tear down a cluster."""
+    """Stop a cluster."""
     teardown_cluster(cluster_config_file, yes, workers_only, cluster_name,
                      keep_min_workers, True)
 
@@ -1433,10 +1433,10 @@ cli.add_command(node_start)
 cli.add_command(node_stop)
 
 # commands running on working node for handling a cluster
-cli.add_command(up)
-add_command_alias(up, name="start", hidden=True)
-cli.add_command(down)
-add_command_alias(down, name="stop", hidden=True)
+cli.add_command(start)
+add_command_alias(start, name="up", hidden=True)
+cli.add_command(stop)
+add_command_alias(stop, name="down", hidden=True)
 
 cli.add_command(attach)
 cli.add_command(exec)

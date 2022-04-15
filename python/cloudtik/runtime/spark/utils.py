@@ -13,7 +13,7 @@ SPARK_RUNTIME_PROCESSES = [
 ]
 
 CLOUDTIK_RUNTIME_SPARK_PATH = os.path.abspath(os.path.dirname(__file__))
-SPARK_OUT_CONF = os.path.join(CLOUDTIK_RUNTIME_SPARK_PATH, "conf/outconf/spark/spark-defaults.conf")
+SPARK_OUT_CONF = os.path.join(CLOUDTIK_RUNTIME_SPARK_PATH, "outconf/spark/spark-defaults.conf")
 
 YARN_RESOURCE_MEMORY_RATIO = 0.8
 SPARK_EXECUTOR_MEMORY_RATIO = 1
@@ -153,8 +153,12 @@ def update_spark_configurations():
     spark_conf = {}
     with open(SPARK_OUT_CONF, "r") as f:
         for line in f.readlines():
-            if not line.startswith("#"):
-                key, value = line.split(" ")
+            # Strip all the spaces and tabs
+            line = line.strip()
+            if line != "" and not line.startswith("#"):
+                # Filtering out the empty and comment lines
+                # Use split() instead of split(" ") to split value with multiple spaces
+                key, value = line.split()
                 spark_conf[key] = value
     spark_conf.update(spark_config)
     with open(os.path.join(os.getenv("SPARK_HOME"), "conf/spark-defaults.conf"), "w+") as f:

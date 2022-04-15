@@ -22,6 +22,8 @@ from cloudtik.core._private.providers import _get_node_provider
 # Import psutil after cloudtik so the packaged version is used.
 import psutil
 
+from cloudtik.runtime.spark.utils import get_spark_runtime_logs
+
 MAX_PARALLEL_SSH_WORKERS = 8
 DEFAULT_SSH_USER = "ubuntu"
 DEFAULT_SSH_KEYS = [
@@ -148,37 +150,62 @@ class Archive:
 ###
 # Functions to gather logs and information on the local node
 ###
-
-
 def get_local_logs(
+        archive: Archive,
+        exclude: Optional[Sequence[str]] = None) -> Archive:
+    """Copy local log files into an archive.
+        Args:
+            archive (Archive): Archive object to add log files to.
+            exclude (Sequence[str]): Sequence of regex patterns. Files that match
+                any of these patterns will not be included in the archive.
+        Returns:
+            Open archive object.
+    """
+    get_cloudtik_local_logs(archive, exclude)
+    get_runtime_local_logs(archive, exclude)
+
+
+def get_cloudtik_local_logs(
         archive: Archive,
         exclude: Optional[Sequence[str]] = None,
         session_log_dir: str = "/tmp/cloudtik/session_latest") -> Archive:
+    log_dir = os.path.join(session_log_dir, "logs")
+    get_local_logs_for(archive, "cloudtik", log_dir, exclude)
+
+
+def get_runtime_local_logs(
+        archive: Archive,
+        exclude: Optional[Sequence[str]] = None) -> Archive:
+    runtime_logs = get_spark_runtime_logs()
+    for category, log_dir in runtime_logs:
+        get_local_logs_for(archive, category, log_dir, exclude)
+
+
+def get_local_logs_for(
+        archive: Archive,
+        category:str,
+        log_dir: str,
+        exclude: Optional[Sequence[str]] = None) -> Archive:
     """Copy local log files into an archive.
-
-    Args:
-        archive (Archive): Archive object to add log files to.
-        exclude (Sequence[str]): Sequence of regex patterns. Files that match
-            any of these patterns will not be included in the archive.
-        session_dir (str): Path to the session files. Defaults to
-            ``/tmp/cloudtik/session_latest``
-
     Returns:
         Open archive object.
 
     """
+    if not os.path.isdir(log_dir):
+        return archive
+
     if not archive.is_open:
         archive.open()
 
     exclude = exclude or []
 
-    session_log_dir = os.path.join(os.path.expanduser(session_log_dir), "logs")
+    final_log_dir = os.path.expanduser(log_dir)
 
-    with archive.subdir("logs", root=session_log_dir) as sd:
-        for root, dirs, files in os.walk(session_log_dir):
+    with archive.subdir(category, root=final_log_dir) as sd:
+        for root, dirs, files in os.walk(final_log_dir):
             for file in files:
                 file_path = os.path.join(root, file)
-                rel_path = os.path.relpath(file_path, start=session_log_dir)
+                rel_path = os.path.relpath(file_path, start=final_log_dir)
                 # Skip file if it matches any pattern in `exclude`
                 if any(re.match(pattern, rel_path) for pattern in exclude):
                     continue

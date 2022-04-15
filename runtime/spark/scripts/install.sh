@@ -55,7 +55,7 @@ function install_hadoop() {
           mv hadoop-${HADOOP_VERSION} hadoop && \
           rm hadoop-${HADOOP_VERSION}.tar.gz)
       echo "export HADOOP_HOME=$HADOOP_HOME">> ${USER_HOME}/.bashrc
-      echo "export YARN_CONF_DIR=$HADOOP_HOME/etc/hadoop">> ${USER_HOME}/.bashrc
+      echo "export HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop">> ${USER_HOME}/.bashrc
       echo "export JAVA_HOME=$JAVA_HOME" >> ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh
       echo "export PATH=\$HADOOP_HOME/bin:\$PATH" >> ${USER_HOME}/.bashrc
     fi

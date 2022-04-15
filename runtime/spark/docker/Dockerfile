@@ -21,9 +21,7 @@ RUN wget https://devops.egov.org.in/Downloads/jdk/jdk-8u192-linux-x64.tar.gz  &&
 
 # Install Hadoop
 ENV HADOOP_HOME $RUNTIME_PATH/hadoop
-ENV HADOOP_YARN_HOME $RUNTIME_PATH/hadoop
 ENV HADOOP_CONF_DIR $HADOOP_HOME/etc/hadoop
-ENV YARN_CONF_DIR $HADOOP_HOME/etc/hadoop
 ENV PATH $HADOOP_HOME/bin:$PATH
 
 RUN wget http://archive.apache.org/dist/hadoop/common/hadoop-${HADOOP_VERSION}/hadoop-${HADOOP_VERSION}.tar.gz -O hadoop.tar.gz && \

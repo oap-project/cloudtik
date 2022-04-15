@@ -46,5 +46,5 @@ WORKDIR /home/cloudtik/
 COPY requirements.txt /tmp/requirements.txt
 RUN export PATH="$HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH" \
     && pip install -r  /tmp/requirements.txt \
-    # jupyter kernel
+    && rm /tmp/requirements.txt \
     && python -m spylon_kernel install --user

@@ -12,7 +12,7 @@ start-head)
     fi
     $HADOOP_HOME/bin/yarn --daemon start resourcemanager
     $SPARK_HOME/sbin/start-history-server.sh
-    which jupyter && nohup jupyter lab  --no-browser --ip=* > jupyterlab.log 2>&1 &
+    which jupyter && nohup jupyter lab  --no-browser --ip=* > /tmp/logs/jupyterlab.log 2>&1 &
     sudo service apache2 start
     sudo service gmetad start
     sudo service ganglia-monitor start

@@ -10,9 +10,9 @@ provider:
     firewalls:
         # Use firewall_rules to allow SSH access from your working node
         firewall_rules:
-        - allowed:
-          - IPProtocol: tcp
-            ports:
-            - 22
-          sourceRanges:
-          - 0.0.0.0/0
+          - allowed:
+              - IPProtocol: tcp
+                ports:
+                  - 22
+            sourceRanges:
+              - 0.0.0.0/0

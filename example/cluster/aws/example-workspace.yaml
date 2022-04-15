@@ -8,8 +8,8 @@ provider:
     security_group:
         # Use IpPermissions to allow SSH access from your working node
         IpPermissions:
-        - FromPort: 22
-          ToPort: 22
-          IpProtocol: TCP
-          IpRanges:
-          - CidrIp: 0.0.0.0/0
+          - FromPort: 22
+            ToPort: 22
+            IpProtocol: TCP
+            IpRanges:
+              - CidrIp: 0.0.0.0/0

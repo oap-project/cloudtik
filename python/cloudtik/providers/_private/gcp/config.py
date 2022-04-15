@@ -403,8 +403,8 @@ def _configure_gcp_subnets_cidr(config, compute, VpcId):
     return cidr_list
 
 
-def _delete_subnet(config, compute, isPrivate=True):
-    if isPrivate:
+def _delete_subnet(config, compute, is_private=True):
+    if is_private:
         subnet_attribute = "private"
     else:
         subnet_attribute = "public"
@@ -789,7 +789,7 @@ def _delete_network_resources(config, compute, current_step, total_steps):
             "Deleting public subnet",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
-        _delete_subnet(config, compute, isPrivate=False)
+        _delete_subnet(config, compute, is_private=False)
 
     # delete router for private subnets
     with cli_logger.group(
@@ -803,7 +803,7 @@ def _delete_network_resources(config, compute, current_step, total_steps):
             "Deleting private subnet",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
-        _delete_subnet(config, compute, isPrivate=True)
+        _delete_subnet(config, compute, is_private=True)
 
     # delete firewalls
     with cli_logger.group(

@@ -1,6 +1,9 @@
 # An example of standard 1 + 3 nodes cluster with standard instance type
 from: azure/standard
 
+# Workspace into which to launch the cluster
+workspace_name: exmaple-workspace
+
 # A unique identifier for the head node and workers of this cluster.
 cluster_name: example-docker
 
@@ -12,7 +15,6 @@ docker:
 provider:
     type: azure
     location: westus
-    resource_group: your_resource_group
     subscription_id: your_subscription_id
     azure_cloud_storage:
         # Choose cloud storage kind: wasbs (Azure Blob Storage) or abfs (Azure Data Lake Storage Gen 2).

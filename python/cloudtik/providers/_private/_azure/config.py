@@ -194,14 +194,14 @@ def _delete_network_resources(config, resource_client, resource_group_name, curr
             "Deleting public subnet",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
-        _delete_subnet(config, network_client, resource_group_name, virtual_network_name, isPrivate=False)
+        _delete_subnet(config, network_client, resource_group_name, virtual_network_name, is_private=False)
 
     # delete private subnets
     with cli_logger.group(
             "Deleting private subnet",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
-        _delete_subnet(config, network_client, resource_group_name, virtual_network_name, isPrivate=True)
+        _delete_subnet(config, network_client, resource_group_name, virtual_network_name, is_private=True)
 
     # delete nat-gateway
     with cli_logger.group(
@@ -216,7 +216,6 @@ def _delete_network_resources(config, resource_client, resource_group_name, curr
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
         _delete_public_ip_address(config, network_client, resource_group_name)
-
 
     # delete network security group
     with cli_logger.group(
@@ -239,12 +238,12 @@ def _delete_network_resources(config, resource_client, resource_group_name, curr
 def get_role_assignments(config, resource_group_name):
     workspace_name = config["workspace_name"]
     authorization_client = construct_authorization_client(config)
-    subscriptionId = config["provider"].get("subscription_id")
+    subscription_id = config["provider"].get("subscription_id")
     scope = "subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}".format(
-        subscriptionId=subscriptionId,
+        subscriptionId=subscription_id,
         resourceGroupName=resource_group_name
     )
-    role_assignment_name = str(uuid.uuid3(uuid.UUID(subscriptionId), workspace_name))
+    role_assignment_name = str(uuid.uuid3(uuid.UUID(subscription_id), workspace_name))
     cli_logger.print("Getting the existing role-assignment: {}.", role_assignment_name)
 
     try:
@@ -264,9 +263,9 @@ def get_role_assignments(config, resource_group_name):
 def _delete_role_assignments(config, resource_group_name):
     role_assignments_name = get_role_assignments(config, resource_group_name)
     authorization_client = construct_authorization_client(config)
-    subscriptionId = config["provider"].get("subscription_id")
+    subscription_id = config["provider"].get("subscription_id")
     scope = "subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}".format(
-        subscriptionId=subscriptionId,
+        subscriptionId=subscription_id,
         resourceGroupName=resource_group_name
     )
     if role_assignments_name is None:
@@ -347,7 +346,7 @@ def _delete_network_security_group(config, network_client, resource_group_name):
         cli_logger.print("This network security group has not existed. No need to delete it.")
         return
 
-    """ Delete the network security group """
+    # Delete the network security group
     cli_logger.print("Deleting the network security group: {}...".format(network_security_group_name))
     try:
         network_client.network_security_groups.begin_delete(
@@ -460,7 +459,7 @@ def _delete_resource_group(config, resource_client):
                          format(resource_group_name))
         return
 
-    """ Delete the Resource Group """
+    # Delete the Resource Group
     cli_logger.print("Deleting the Resource Group: {}...".format(resource_group_name))
 
     try:
@@ -475,10 +474,7 @@ def _delete_resource_group(config, resource_client):
 
 def create_azure_workspace(config):
     config = copy.deepcopy(config)
-    # TODO: create vpc and security group
-
     config = _configure_workspace(config)
-
     return config
 
 
@@ -505,7 +501,7 @@ def _configure_workspace(config):
 
         # create user_assigned_identities
         with cli_logger.group(
-                "Creating user assigned identites",
+                "Creating user assigned identities",
                 _numbered=("[]", current_step, total_steps)):
             current_step += 1
             _create_user_assigned_identities(config, resource_group_name)
@@ -674,13 +670,13 @@ def create_resource_group(config, resource_client):
 def _create_role_assignments(config, resource_group_name):
     workspace_name = config["workspace_name"]
     authorization_client = construct_authorization_client(config)
-    subscriptionId = config["provider"].get("subscription_id")
+    subscription_id = config["provider"].get("subscription_id")
     scope = "subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}".format(
-        subscriptionId=subscriptionId,
+        subscriptionId=subscription_id,
         resourceGroupName=resource_group_name
     )
-    role_assignment_name = str(uuid.uuid3(uuid.UUID(subscriptionId), workspace_name))
-    user_assigned_identity = get_user_assigned_identities(config,resource_group_name)
+    role_assignment_name = str(uuid.uuid3(uuid.UUID(subscription_id), workspace_name))
+    user_assigned_identity = get_user_assigned_identities(config, resource_group_name)
     cli_logger.print("Creating workspace role-assignment: {} on Azure...", role_assignment_name)
 
     # Create role assignment
@@ -690,7 +686,7 @@ def _create_role_assignments(config, resource_group_name):
             role_assignment_name=role_assignment_name,
             parameters={
                 "role_definition_id": "/subscriptions/{}/providers/Microsoft.Authorization/roleDefinitions/b24988ac-6180-42a0-ab88-20f7382dd24c".format(
-                    subscriptionId),
+                    subscription_id),
                 "principal_id": user_assigned_identity.principal_id,
                 "principalType": "ServicePrincipal"
             }
@@ -707,20 +703,20 @@ def _create_role_assignments(config, resource_group_name):
 def _create_user_assigned_identities(config, resource_group_name):
     workspace_name = config["workspace_name"]
     location = config["provider"]["location"]
-    user_assigned_identiy_name = 'cloudtik-{}-user-assigned-identity'.format(workspace_name)
+    user_assigned_identity_name = 'cloudtik-{}-user-assigned-identity'.format(workspace_name)
     msi_client = construct_manage_server_identity_client(config)
 
-    cli_logger.print("Creating workspace user-assigned-identity: {} on Azure...", user_assigned_identiy_name)
+    cli_logger.print("Creating workspace user-assigned-identity: {} on Azure...", user_assigned_identity_name)
     # Create identity
     try:
         msi_client.user_assigned_identities.create_or_update(
             resource_group_name,
-            user_assigned_identiy_name,
+            user_assigned_identity_name,
             location,
         )
         time.sleep(20)
         cli_logger.print("Successfully created workspace user-assigned-identity: {}.".
-                         format(user_assigned_identiy_name))
+                         format(user_assigned_identity_name))
     except Exception as e:
         cli_logger.error(
             "Failed to create workspace user-assigned-identity. {}", str(e))
@@ -798,8 +794,8 @@ def get_subnet(network_client, resource_group_name, virtual_network_name, subnet
         return None
 
 
-def _delete_subnet(config, network_client, resource_group_name, virtual_network_name, isPrivate=True):
-    if isPrivate:
+def _delete_subnet(config, network_client, resource_group_name, virtual_network_name, is_private=True):
+    if is_private:
         subnet_attribute = "private"
     else:
         subnet_attribute = "public"
@@ -850,13 +846,13 @@ def _configure_azure_subnet_cidr(network_client, resource_group_name, virtual_ne
     return cidr_block
 
 
-def _create_and_configure_subnets(config, network_client, resource_group_name, virtual_network_name, isPrivate=True):
+def _create_and_configure_subnets(config, network_client, resource_group_name, virtual_network_name, is_private=True):
     cidr_block = _configure_azure_subnet_cidr(network_client, resource_group_name, virtual_network_name)
     subscription_id = config["provider"].get("subscription_id")
     workspace_name = config["workspace_name"]
     nat_gateway_name = "cloudtik-{}-nat".format(workspace_name)
     network_security_group_name = "cloudtik-{}-network-security-group".format(workspace_name)
-    if isPrivate:
+    if is_private:
         subnet_attribute = "private"
         subnet_parameters = {
             "address_prefix": cidr_block,
@@ -864,7 +860,7 @@ def _create_and_configure_subnets(config, network_client, resource_group_name, v
                 "id": "/subscriptions/{}/resourceGroups/{}/providers/Microsoft.Network/natGateways/{}"
                     .format(subscription_id, resource_group_name, nat_gateway_name)
             },
-            "network_security_group":{
+            "network_security_group": {
                 "id": "/subscriptions/{}/resourceGroups/{}/providers/Microsoft.Network/networkSecurityGroups/{}"
                     .format(subscription_id, resource_group_name, network_security_group_name)
             }
@@ -908,15 +904,15 @@ def _create_nat(config, network_client, resource_group_name, public_ip_address_n
         nat_gateway = network_client.nat_gateways.begin_create_or_update(
             resource_group_name=resource_group_name,
             nat_gateway_name=nat_gateway_name,
-            parameters = {
+            parameters={
                 "location": config["provider"]["location"],
                 "sku": {
                     "name": "Standard"
                 },
                 "public_ip_addresses": [
                     {
-                            "id": "/subscriptions/{}/resourceGroups/{}/providers/Microsoft.Network/publicIPAddresses/{}"
-                                .format(subscription_id, resource_group_name, public_ip_address_name)
+                        "id": "/subscriptions/{}/resourceGroups/{}/providers/Microsoft.Network/publicIPAddresses/{}"
+                            .format(subscription_id, resource_group_name, public_ip_address_name)
                     }
                 ],
             }
@@ -959,11 +955,11 @@ def _create_public_ip_address(config, network_client, resource_group_name):
 def _create_network_security_group(config, network_client, resource_group_name):
     workspace_name = config["workspace_name"]
     location = config["provider"]["location"]
-    securityRules = config["provider"].get("securityRules", [])
+    security_rules = config["provider"].get("securityRules", [])
     network_security_group_name = "cloudtik-{}-network-security-group".format(workspace_name)
 
-    for i in range(0, len(securityRules)):
-        securityRules[i]["name"] = "cloudtik-{}-security-rule-{}".format(workspace_name, i)
+    for i in range(0, len(security_rules)):
+        security_rules[i]["name"] = "cloudtik-{}-security-rule-{}".format(workspace_name, i)
 
     cli_logger.print("Creating network-security-group: {}... ".format(network_security_group_name))
     try:
@@ -972,7 +968,7 @@ def _create_network_security_group(config, network_client, resource_group_name):
             network_security_group_name=network_security_group_name,
             parameters={
                 "location": location,
-                "securityRules": securityRules
+                "securityRules": security_rules
             }
         ).result()
         cli_logger.print("Successfully created network-security-group: {}.".
@@ -1008,7 +1004,7 @@ def _configure_network_resources(config, resource_group_name, current_step, tota
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
         _create_and_configure_subnets(
-            config, network_client, resource_group_name, virtual_network_name, isPrivate=False)
+            config, network_client, resource_group_name, virtual_network_name, is_private=False)
 
     # create public-ip-address
     with cli_logger.group(
@@ -1030,7 +1026,7 @@ def _configure_network_resources(config, resource_group_name, current_step, tota
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
         _create_and_configure_subnets(
-            config, network_client, resource_group_name, virtual_network_name, isPrivate=True)
+            config, network_client, resource_group_name, virtual_network_name, is_private=True)
 
     return current_step
 

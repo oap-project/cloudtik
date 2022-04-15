@@ -64,7 +64,7 @@ if (use_arrow){
 
         println(s"$databaseName doesn't exist. Creating...")
         val tables = new TPCDSTables(spark.sqlContext, "", s"${scaleFactor}", false)
-        tables.createExternalTables(data_path, format, database_name, overwrite = true, discoverPartitions = partitionTables)
+        tables.createExternalTables(data_path, format, databaseName, overwrite = true, discoverPartitions = partitionTables)
     }
 }
 

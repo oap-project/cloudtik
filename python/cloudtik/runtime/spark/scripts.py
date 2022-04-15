@@ -38,7 +38,7 @@ def cli(logging_level, logging_format):
     cli_logger.set_format(format_tmpl=logging_format)
 
 
-@click.command()
+@click.command(context_settings={"ignore_unknown_options": True})
 @click.option(
     "--head",
     is_flag=True,
@@ -49,7 +49,8 @@ def cli(logging_level, logging_format):
     required=True,
     type=str,
     help="the provider of cluster ")
-def install(head, provider):
+@click.argument("script_args", nargs=-1)
+def install(head, provider, script_args):
     install_script_path = os.path.join(RUNTIME_SPARK_SCRIPTS_PATH, "install.sh")
     cmds = [
         "bash",
@@ -60,12 +61,14 @@ def install(head, provider):
         cmds += ["--head"]
     if provider:
         cmds += ["--provider={}".format(provider)]
+    if script_args:
+        cmds += list(script_args)
     final_cmd = " ".join(cmds)
 
     os.system(final_cmd)
 
 
-@click.command()
+@click.command(context_settings={"ignore_unknown_options": True})
 @click.option(
     "--head",
     is_flag=True,
@@ -154,10 +157,11 @@ def install(head, provider):
     type=str,
     default="",
     help="azure storage account access key")
+@click.argument("script_args", nargs=-1)
 def configure(head, provider, head_address, aws_s3a_bucket, s3a_access_key, s3a_secret_key, project_id, gcp_gcs_bucket,
               fs_gs_auth_service_account_email, fs_gs_auth_service_account_private_key_id,
               fs_gs_auth_service_account_private_key, azure_storage_kind, azure_storage_account, azure_container,
-              azure_account_key):
+              azure_account_key, script_args):
     shell_path = os.path.join(RUNTIME_SPARK_SCRIPTS_PATH, "configure.sh")
     cmds = [
         "bash",
@@ -199,11 +203,31 @@ def configure(head, provider, head_address, aws_s3a_bucket, s3a_access_key, s3a_
     if azure_account_key:
         cmds += ["--azure_account_key={}".format(azure_account_key)]
 
+    if script_args:
+        cmds += list(script_args)
+
     final_cmd = " ".join(cmds)
     os.system(final_cmd)
 
     # Update spark configuration from cluster config file
     update_spark_configurations()
+
+
+@click.command(context_settings={"ignore_unknown_options": True})
+@click.argument("command", required=True, type=str)
+@click.argument("script_args", nargs=-1)
+def services(command, script_args):
+    cmds = [
+        "bash",
+        SPARK_SERVICES_SCRIPT_PATH,
+    ]
+
+    cmds += [command]
+    if script_args:
+        cmds += list(script_args)
+    final_cmd = " ".join(cmds)
+
+    os.system(final_cmd)
 
 
 @click.command()
@@ -228,6 +252,7 @@ def stop_worker():
 
 cli.add_command(install)
 cli.add_command(configure)
+cli.add_command(services)
 cli.add_command(start_head)
 cli.add_command(start_worker)
 cli.add_command(stop_head)

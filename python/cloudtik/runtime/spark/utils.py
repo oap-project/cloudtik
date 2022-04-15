@@ -177,3 +177,12 @@ def with_spark_runtime_environment_variables(runtime_config):
     if runtime_config and runtime_config.get("spark", {}).get("enable_hdfs", False):
         envs["ENABLE_HDFS"] = True
     return envs
+
+
+def get_spark_runtime_logs():
+    hadoop_logs_dir = os.path.join(os.getenv("HADOOP_HOME"), "logs")
+    spark_logs_dir = os.path.join(os.getenv("SPARK_HOME"), "logs")
+    all_logs = [("hadoop", hadoop_logs_dir),
+                ("spark", spark_logs_dir),
+                ("other", "/tmp/logs")]
+    return all_logs

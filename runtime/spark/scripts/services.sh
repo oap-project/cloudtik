@@ -8,7 +8,7 @@ fi
 case "$1" in
 start-head)
     if [ $ENABLE_HDFS == "true" ]; then
-        $HADOOP_HOME/sbin/hadoop-daemon.sh start namenode
+        $HADOOP_HOME/bin/hdfs --daemon start namenode
     fi
     $HADOOP_HOME/bin/yarn --daemon start resourcemanager
     $SPARK_HOME/sbin/start-history-server.sh
@@ -21,7 +21,7 @@ stop-head)
     $HADOOP_HOME/bin/yarn --daemon stop resourcemanager
     $SPARK_HOME/sbin/stop-history-server.sh
     if [ $ENABLE_HDFS == "true" ]; then
-        $HADOOP_HOME/sbin/hadoop-daemon.sh stop namenode
+        $HADOOP_HOME/bin/hdfs --daemon stop namenode
     fi
     which jupyter && jupyter lab stop
     sudo service ganglia-monitor stop

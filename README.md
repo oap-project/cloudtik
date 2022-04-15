@@ -82,7 +82,7 @@ More details, please refer to configure [gcs bucket guide](./doc/Configure-GCS-B
 ### 6. Start a cluster
 Now you can start a cluster:
 ```
-cloudtik up your-cluster-config.yaml
+cloudtik start your-cluster-config.yaml
 ```
 A typical cluster configuration file is usually very simple thanks to CloudTik hierarchy templates design. Take AWS
 for example,
@@ -158,6 +158,6 @@ cloudtik rsync-down your-cluster-config.yaml [source] [target]
 ```
 #### Stop a cluster
 ```
-cloudtik down your-cluster-config.yaml
+cloudtik stop your-cluster-config.yaml
 ```
 For more information as to the commands, you can use `cloudtik --help` or `cloudtik [command] --help` to get detailed instructions.

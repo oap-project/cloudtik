@@ -18,7 +18,7 @@ from cloudtik.core._private.cli_logger import cli_logger, cf
 
 from cloudtik.providers._private.aws.config import bootstrap_aws, bootstrap_aws_from_workspace
 from cloudtik.providers._private.aws.utils import boto_exception_handler, \
-    resource_cache, client_cache, get_aws_s3a_config, get_boto_error_code
+    resource_cache, client_cache, get_aws_s3a_config, get_boto_error_code, verify_s3_storage
 from cloudtik.providers._private.utils import validate_config_dict
 
 logger = logging.getLogger(__name__)
@@ -687,3 +687,9 @@ class AWSNodeProvider(NodeProvider):
         }
 
         validate_config_dict(provider_config["type"], config_dict)
+
+        verify_cloud_storage = provider_config.get("verify_cloud_storage", True)
+        if verify_cloud_storage:
+            cli_logger.verbose("Verifying S3 storage configurations...")
+            verify_s3_storage(provider_config)
+            cli_logger.verbose("Successfully verified S3 storage configurations.")

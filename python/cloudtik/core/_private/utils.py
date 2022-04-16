@@ -778,9 +778,6 @@ def fillout_workspace_defaults(config: Dict[str, Any]) -> Dict[str, Any]:
 
     # Just for clarity:
     merged_config = copy.deepcopy(defaults)
-
-    # Fill auth field to avoid key errors.
-    merged_config["auth"] = merged_config.get("auth", {})
     return merged_config
 
 

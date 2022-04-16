@@ -26,7 +26,7 @@ from cloudtik.core.tags import (
     CLOUDTIK_TAG_USER_NODE_TYPE, STATUS_UP_TO_DATE, STATUS_UPDATE_FAILED,
     NODE_KIND_WORKER, NODE_KIND_UNMANAGED, NODE_KIND_HEAD)
 from cloudtik.core._private.cluster.event_summarizer import EventSummarizer
-from cloudtik.core._private.cluster.load_metrics import LoadMetrics
+from cloudtik.core._private.cluster.cluster_metrics import ClusterMetrics
 from cloudtik.core._private.prometheus_metrics import ClusterPrometheusMetrics
 from cloudtik.core._private.providers import _get_node_provider
 from cloudtik.core._private.node.node_updater import NodeUpdaterThread
@@ -126,7 +126,7 @@ class StandardClusterScaler:
             self,
             # TODO: require config reader to be a callable always.
             config_reader: Union[str, Callable[[], dict]],
-            load_metrics: LoadMetrics,
+            cluster_metrics: ClusterMetrics,
             max_launch_batch: int = CLOUDTIK_MAX_LAUNCH_BATCH,
             max_concurrent_launches: int = CLOUDTIK_MAX_CONCURRENT_LAUNCHES,
             max_failures: int = CLOUDTIK_MAX_NUM_FAILURES,
@@ -141,7 +141,7 @@ class StandardClusterScaler:
         Args:
             config_reader: Path to a cluster config yaml, or a function to read
                 and return the latest config.
-            load_metrics: Provides metrics for the cluster.
+            cluster_metrics: Provides metrics for the cluster.
             max_launch_batch: Max number of nodes to launch in one request.
             max_concurrent_launches: Max number of nodes that can be
                 concurrently launched. This value and `max_launch_batch`
@@ -178,7 +178,7 @@ class StandardClusterScaler:
                             ClusterPrometheusMetrics()
         self.resource_demand_scheduler = None
         self.reset(errors_fatal=True)
-        self.load_metrics = load_metrics
+        self.cluster_metrics = cluster_metrics
 
         self.max_failures = max_failures
         self.max_launch_batch = max_launch_batch
@@ -282,7 +282,7 @@ class StandardClusterScaler:
         self.prometheus_metrics.running_workers.set(num_workers)
 
         # Remove from LoadMetrics the ips unknown to the NodeProvider.
-        self.load_metrics.prune_active_ips(active_ips=[
+        self.cluster_metrics.prune_active_ips(active_ips=[
             self.provider.internal_ip(node_id)
             for node_id in self.non_terminated_nodes.all_node_ids
         ])
@@ -305,10 +305,10 @@ class StandardClusterScaler:
             self.resource_demand_scheduler.get_nodes_to_launch(
                 self.non_terminated_nodes.all_node_ids,
                 self.pending_launches.breakdown(),
-                self.load_metrics.get_resource_demands(),
-                self.load_metrics.get_resource_utilization(),
-                self.load_metrics.get_static_node_resources_by_ip(),
-                ensure_min_cluster_size=self.load_metrics.
+                self.cluster_metrics.get_resource_demands(),
+                self.cluster_metrics.get_resource_utilization(),
+                self.cluster_metrics.get_static_node_resources_by_ip(),
+                ensure_min_cluster_size=self.cluster_metrics.
                 get_resource_requests()))
         self._report_pending_infeasible(unfulfilled)
 
@@ -332,7 +332,7 @@ class StandardClusterScaler:
         Avoids terminating non-outdated nodes required by
         cloudtik.core.api.request_resources().
         """
-        last_used = self.load_metrics.last_used_time_by_ip
+        last_used = self.cluster_metrics.last_used_time_by_ip
         horizon = now - (60 * self.config["idle_timeout_minutes"])
 
         # Sort based on last used to make sure to keep min_workers that
@@ -343,7 +343,7 @@ class StandardClusterScaler:
 
         # Don't terminate nodes needed by request_resources()
         nodes_not_allowed_to_terminate: FrozenSet[NodeID] = {}
-        if self.load_metrics.get_resource_requests():
+        if self.cluster_metrics.get_resource_requests():
             nodes_not_allowed_to_terminate = \
                 self._get_nodes_needed_for_request_resources(sorted_node_ids)
 
@@ -506,7 +506,7 @@ class StandardClusterScaler:
                             updater.update_time)
                     # Mark the node as active to prevent the node recovery
                     # logic immediately trying to restart the services on the new node.
-                    self.load_metrics.mark_active(
+                    self.cluster_metrics.mark_active(
                         self.provider.internal_ip(node_id))
                 else:
                     failed_nodes.append(node_id)
@@ -566,7 +566,7 @@ class StandardClusterScaler:
             else:
                 infeasible.append(bundle)
         if pending:
-            if self.load_metrics.cluster_full_of_actors_detected:
+            if self.cluster_metrics.cluster_full_of_actors_detected:
                 for request in pending:
                     self.event_summarizer.add_once_per_interval(
                         "Warning: The following resource request cannot be "
@@ -629,7 +629,7 @@ class StandardClusterScaler:
             static_nodes: Dict[
                 NodeIP,
                 ResourceDict] = \
-                self.load_metrics.get_static_node_resources_by_ip()
+                self.cluster_metrics.get_static_node_resources_by_ip()
             head_node_ip = self.provider.internal_ip(
                 self.non_terminated_nodes.head_id)
             head_node_resources = static_nodes.get(head_node_ip, {})
@@ -648,7 +648,7 @@ class StandardClusterScaler:
                     static_nodes: Dict[
                         NodeIP,
                         ResourceDict] = \
-                            self.load_metrics.get_static_node_resources_by_ip()
+                            self.cluster_metrics.get_static_node_resources_by_ip()
                     node_ip = self.provider.internal_ip(node_id)
                     node_resources = static_nodes.get(node_ip, {})
                 max_node_resources.append(node_resources)
@@ -659,7 +659,7 @@ class StandardClusterScaler:
         used_resource_requests: List[ResourceDict]
         _, used_resource_requests = \
             get_bin_pack_residual(max_node_resources,
-                                  self.load_metrics.get_resource_requests())
+                                  self.cluster_metrics.get_resource_requests())
         # Remove the first entry (the head node).
         max_node_resources.pop(0)
         # Remove the first entry (the head node).
@@ -847,8 +847,8 @@ class StandardClusterScaler:
         """
         key = self.provider.internal_ip(node_id)
 
-        if key in self.load_metrics.last_heartbeat_time_by_ip:
-            last_heartbeat_time = self.load_metrics.last_heartbeat_time_by_ip[
+        if key in self.cluster_metrics.last_heartbeat_time_by_ip:
+            last_heartbeat_time = self.cluster_metrics.last_heartbeat_time_by_ip[
                 key]
             delta = now - last_heartbeat_time
             if delta < CLOUDTIK_HEARTBEAT_TIMEOUT_S:
@@ -869,8 +869,8 @@ class StandardClusterScaler:
             # a heartbeat, fake the heartbeat now (see logic for completed node
             # updaters).
             ip = self.provider.internal_ip(node_id)
-            if ip not in self.load_metrics.last_heartbeat_time_by_ip:
-                self.load_metrics.mark_active(ip)
+            if ip not in self.cluster_metrics.last_heartbeat_time_by_ip:
+                self.cluster_metrics.mark_active(ip)
             # Heartbeat indicates node is healthy:
             if self.heartbeat_on_time(node_id, now):
                 continue
@@ -1091,7 +1091,7 @@ class StandardClusterScaler:
 
             # TODO: If a node's core process has died, it shouldn't be marked
             # as active.
-            is_active = self.load_metrics.is_active(ip)
+            is_active = self.cluster_metrics.is_active(ip)
             if is_active:
                 active_nodes[node_type] += 1
                 non_failed.add(node_id)
@@ -1120,6 +1120,6 @@ class StandardClusterScaler:
             failed_nodes=failed_nodes)
 
     def info_string(self):
-        lm_summary = self.load_metrics.summary()
+        cluster_metrics_summary = self.cluster_metrics.summary()
         scaler_summary = self.summary()
-        return "\n" + format_info_string(lm_summary, scaler_summary)
+        return "\n" + format_info_string(cluster_metrics_summary, scaler_summary)

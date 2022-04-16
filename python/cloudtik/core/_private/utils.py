@@ -28,7 +28,7 @@ import yaml
 import cloudtik
 from cloudtik.core._private import constants, services
 from cloudtik.core._private.cli_logger import cli_logger
-from cloudtik.core._private.cluster.load_metrics import LoadMetricsSummary
+from cloudtik.core._private.cluster.cluster_metrics import ClusterMetricsSummary
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.providers._private.local.config import prepare_local
 from cloudtik.core._private.providers import _get_default_config, _get_node_provider, _get_default_workspace_config
@@ -1089,11 +1089,11 @@ def parse_placement_group_resource_str(
     return (placement_group_resource_str, None, True)
 
 
-def get_usage_report(lm_summary: LoadMetricsSummary) -> str:
+def get_usage_report(cluster_metrics_summary: ClusterMetricsSummary) -> str:
     # first collect resources used in placement groups
     placement_group_resource_usage = {}
     placement_group_resource_total = collections.defaultdict(float)
-    for resource, (used, total) in lm_summary.usage.items():
+    for resource, (used, total) in cluster_metrics_summary.usage.items():
         (pg_resource_name, pg_name,
          is_countable) = parse_placement_group_resource_str(resource)
         if pg_name:
@@ -1105,7 +1105,7 @@ def get_usage_report(lm_summary: LoadMetricsSummary) -> str:
             continue
 
     usage_lines = []
-    for resource, (used, total) in sorted(lm_summary.usage.items()):
+    for resource, (used, total) in sorted(cluster_metrics_summary.usage.items()):
         if "node:" in resource:
             continue  # Skip the auto-added per-node "node:<ip>" resource.
 
@@ -1190,7 +1190,7 @@ def format_resource_demand_summary(
     return demand_lines
 
 
-def get_demand_report(lm_summary: LoadMetricsSummary):
+def get_demand_report(lm_summary: ClusterMetricsSummary):
     demand_lines = []
     if lm_summary.resource_demand:
         demand_lines.extend(

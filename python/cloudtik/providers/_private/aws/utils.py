@@ -140,11 +140,20 @@ def boto_exception_handler(msg, *args, **kwargs):
 
 
 def get_aws_s3a_config(provider_config):
-    dict = {}
-    dict["AWS_S3A_BUCKET"] = provider_config.get("aws_s3a_storage", {}).get("s3.bucket")
-    dict["FS_S3A_ACCESS_KEY"] = provider_config.get("aws_s3a_storage", {}).get("fs.s3a.access.key")
-    dict["FS_S3A_SECRET_KEY"] = provider_config.get("aws_s3a_storage", {}).get("fs.s3a.secret.key")
-    return dict
+    config_dict = {}
+    s3_bucket = provider_config.get("aws_s3a_storage", {}).get("s3.bucket")
+    if s3_bucket:
+        config_dict["AWS_S3A_BUCKET"] = s3_bucket
+
+    s3_access_key = provider_config.get("aws_s3a_storage", {}).get("fs.s3a.access.key")
+    if s3_access_key:
+        config_dict["FS_S3A_ACCESS_KEY"] = s3_access_key
+
+    s3_secret_key = provider_config.get("aws_s3a_storage", {}).get("fs.s3a.secret.key")
+    if s3_secret_key:
+        config_dict["FS_S3A_SECRET_KEY"] = s3_secret_key
+
+    return config_dict
 
 
 @lru_cache()

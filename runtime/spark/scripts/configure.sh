@@ -234,7 +234,7 @@ function update_hdfs_data_disks_config() {
     sed -i "s!{%dfs.datanode.data.dir%}!${hdfs_dn_dirs}!g" `grep "{%dfs.datanode.data.dir%}" -rl ./`
 
     # event log dir
-    event_log_dir="hdfs://HEAD_ADDRESS:9000/shared/spark-events"
+    event_log_dir="hdfs://${HEAD_ADDRESS}:9000/shared/spark-events"
     sed -i "s!{%spark.eventLog.dir%}!${event_log_dir}!g" `grep "{%spark.eventLog.dir%}" -rl ./`
 }
 

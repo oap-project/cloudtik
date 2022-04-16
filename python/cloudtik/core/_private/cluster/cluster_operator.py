@@ -349,7 +349,22 @@ def teardown_cluster(config_file: str, yes: bool, workers_only: bool,
 
     cli_logger.confirm(yes, "Are you sure that you want to shut down cluster {}?",
                        config["cluster_name"], _abort=True)
+    cli_logger.newline()
+    with cli_logger.group("Shutting down cluster: {}", config["cluster_name"]):
+        _teardown_cluster(config_file, config,
+                          workers_only=workers_only,
+                          override_cluster_name=override_cluster_name,
+                          keep_min_workers=keep_min_workers,
+                          proxy_stop=proxy_stop)
 
+    cli_logger.success("Successfully shut down cluster: {}.", config["cluster_name"])
+
+
+def _teardown_cluster(config_file: str, config: Dict[str, Any],
+                      workers_only: bool,
+                      override_cluster_name: Optional[str],
+                      keep_min_workers: bool,
+                      proxy_stop: bool = False) -> None:
     current_step = 1
     total_steps = NUM_TEARDOWN_CLUSTER_STEPS_BASE
     if proxy_stop:
@@ -415,8 +430,6 @@ def teardown_cluster(config_file: str, yes: bool, workers_only: bool,
         teardown_cluster_nodes(config, provider,
                                workers_only, keep_min_workers,
                                False)
-
-    cli_logger.success("Successfully shut down cluster: {}.", config["cluster_name"])
 
 
 def teardown_cluster_nodes(config: Dict[str, Any],

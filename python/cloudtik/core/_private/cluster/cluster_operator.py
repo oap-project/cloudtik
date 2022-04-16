@@ -57,7 +57,7 @@ from cloudtik.core._private.state.control_state import ControlState
 from cloudtik.core._private.debug import log_once
 
 import cloudtik.core._private.subprocess_output_util as cmd_output_util
-from cloudtik.core._private.cluster.load_metrics import LoadMetricsSummary
+from cloudtik.core._private.cluster.cluster_metrics import ClusterMetricsSummary
 from cloudtik.core._private.cluster.cluster_scaler import ClusterScalerSummary
 from cloudtik.core._private.utils import format_info_string
 from cloudtik.runtime.spark.utils import config_spark_runtime_resources
@@ -99,9 +99,9 @@ def decode_cluster_scaling_status(status):
     status = status.decode("utf-8")
     as_dict = json.loads(status)
     time = datetime.datetime.fromtimestamp(as_dict["time"])
-    lm_summary = LoadMetricsSummary(**as_dict["load_metrics_report"])
+    cluster_metrics_summary = ClusterMetricsSummary(**as_dict["cluster_metrics_report"])
     scaler_summary = ClusterScalerSummary(**as_dict["cluster_scaler_report"])
-    return time, lm_summary, scaler_summary
+    return time, cluster_metrics_summary, scaler_summary
 
 
 def debug_status_string(status, error) -> str:
@@ -109,8 +109,8 @@ def debug_status_string(status, error) -> str:
     if not status:
         status = "No cluster status."
     else:
-        time, lm_summary, scaler_summary = decode_cluster_scaling_status(status)
-        status = format_info_string(lm_summary, scaler_summary, time=time)
+        time, cluster_metrics_summary, scaler_summary = decode_cluster_scaling_status(status)
+        status = format_info_string(cluster_metrics_summary, scaler_summary, time=time)
     if error:
         status += "\n"
         status += error.decode("utf-8")

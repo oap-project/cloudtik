@@ -407,8 +407,9 @@ class AzureNodeProvider(NodeProvider):
 
     def _get_managed_identity_client_id(self, cluster_config):
         try:
-            credential_adapter = AzureIdentityCredentialAdapter(self.credential)
-            msi_client = ManagedServiceIdentityClient(credential_adapter,
+            # The latest version doesn't require credential wrapper any longer
+            # credential_adapter = AzureIdentityCredentialAdapter(self.credential)
+            msi_client = ManagedServiceIdentityClient(self.credential,
                                                       self.provider_config["subscription_id"])
             workspace = cluster_config.get("workspace_name", "")
 

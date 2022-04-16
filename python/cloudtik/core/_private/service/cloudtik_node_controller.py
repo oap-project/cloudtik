@@ -72,8 +72,6 @@ class NodeController:
             if self.stop_event and self.stop_event.is_set():
                 break
 
-            # TODO (haifeng): implement the node controller functionality
-
             # Wait for update interval before processing the next
             # round of messages.
             self._check_process()
@@ -81,7 +79,6 @@ class NodeController:
 
     def _handle_failure(self, error):
         logger.exception("Error in controller loop")
-        # TODO (haifeng): improve to publish the error through redis
 
     def _signal_handler(self, sig, frame):
         self._handle_failure(f"Terminated with signal {sig}\n" +
@@ -101,8 +98,11 @@ class NodeController:
             node_info = self.node_detail.copy()
             node_info.update({"last_heartbeat_time": now})
             as_json = json.dumps(node_info)
-            self.node_table.put(self.node_id, as_json)
-            pass
+            try:
+                self.node_table.put(self.node_id, as_json)
+            except Exception as e:
+                logger.exception("Failed sending heartbeat: " + str(e))
+                logger.exception(traceback.format_exc())
 
     def _parse_resource_list(self):
         node_resource_dict = {}

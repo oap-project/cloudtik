@@ -243,7 +243,7 @@ class StandardClusterScaler:
 
         for local_path in self.config["file_mounts"].values():
             assert os.path.exists(local_path)
-        logger.info("StandardClusterScaler: {}".format(self.config))
+        logger.info("Cluster Controller: {}".format(self.config))
 
     def update(self):
         try:
@@ -251,7 +251,7 @@ class StandardClusterScaler:
             self._update()
         except Exception as e:
             self.prometheus_metrics.update_loop_exceptions.inc()
-            logger.exception("StandardClusterScaler: "
+            logger.exception("Cluster Controller: "
                              "Error during autoscaling.")
             # Don't abort the cluster scaler if the K8s API server is down.
             # issue #12255
@@ -261,7 +261,7 @@ class StandardClusterScaler:
             if not is_k8s_connection_error:
                 self.num_failures += 1
             if self.num_failures > self.max_failures:
-                logger.critical("StandardClusterScaler: "
+                logger.critical("Cluster Controller: "
                                 "Too many errors, abort.")
                 raise e
 
@@ -392,7 +392,7 @@ class StandardClusterScaler:
 
         if num_extra_nodes_to_terminate > len(nodes_we_could_terminate):
             logger.warning(
-                "StandardClusterScaler: trying to terminate "
+                "Cluster Controller: trying to terminate "
                 f"{num_extra_nodes_to_terminate} nodes, while only "
                 f"{len(nodes_we_could_terminate)} are safe to terminate."
                 " Inconsistent config is likely.")
@@ -418,7 +418,7 @@ class StandardClusterScaler:
         reason: str = reason_opt
         node_ip = self.provider.internal_ip(node_id)
         # Log, record an event, and add node_id to nodes_to_terminate.
-        logger_method("StandardClusterScaler: "
+        logger_method("Cluster Controller: "
                       f"Terminating the node with id {node_id}"
                       f" and ip {node_ip}."
                       f" ({reason})")
@@ -528,7 +528,7 @@ class StandardClusterScaler:
                         self.schedule_node_termination(
                             node_id, "launch failed", logger.error)
                     else:
-                        logger.warning(f"StandardClusterScaler: {node_id}:"
+                        logger.warning(f"Cluster Controller: {node_id}:"
                                        " Failed to update node."
                                        " Node has already been terminated.")
                 self.terminate_scheduled_nodes()
@@ -799,7 +799,7 @@ class StandardClusterScaler:
             if errors_fatal:
                 raise e
             else:
-                logger.exception("StandardClusterScaler: "
+                logger.exception("Cluster Controller: "
                                  "Error parsing config.")
 
     def launch_config_ok(self, node_id):
@@ -833,7 +833,7 @@ class StandardClusterScaler:
                 or (self.file_mounts_contents_hash is not None
                     and self.file_mounts_contents_hash !=
                     applied_file_mounts_contents_hash)):
-            logger.info("StandardClusterScaler: "
+            logger.info("Cluster Controller: "
                         "{}: Runtime state is ({},{}), want ({},{})".format(
                             node_id, applied_config_hash,
                             applied_file_mounts_contents_hash,
@@ -888,7 +888,7 @@ class StandardClusterScaler:
         if self.heartbeat_on_time(node_id, now):
             return
 
-        logger.warning("StandardClusterScaler: "
+        logger.warning("Cluster Controller: "
                        "{}: No recent heartbeat, "
                        "restarting to recover...".format(node_id))
         self.event_summarizer.add(
@@ -1032,7 +1032,7 @@ class StandardClusterScaler:
 
     def launch_new_node(self, count: int, node_type: Optional[str]) -> None:
         logger.info(
-            "StandardClusterScaler: Queue {} new nodes for launch".format(count))
+            "Cluster Controller: Queue {} new nodes for launch".format(count))
         self.event_summarizer.add(
             "Adding {} nodes of type " + str(node_type) + ".",
             quantity=count,
@@ -1047,14 +1047,14 @@ class StandardClusterScaler:
             count -= self.max_launch_batch
 
     def kill_workers(self):
-        logger.error("StandardClusterScaler: kill_workers triggered")
+        logger.error("Cluster Controller: kill_workers triggered")
         nodes = self.workers()
         if nodes:
             self.provider.terminate_nodes(nodes)
             for node in nodes:
                 self.node_tracker.untrack(node)
                 self.prometheus_metrics.stopped_nodes.inc()
-        logger.error("StandardClusterScaler: terminated {} node(s)".format(
+        logger.error("Cluster Controller: terminated {} node(s)".format(
             len(nodes)))
 
     def summary(self):

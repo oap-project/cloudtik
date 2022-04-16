@@ -692,4 +692,4 @@ class AWSNodeProvider(NodeProvider):
         if verify_cloud_storage:
             cli_logger.verbose("Verifying S3 storage configurations...")
             verify_s3_storage(provider_config)
-            cli_logger.verbose("Successfully verified S3 storage configurations...")
+            cli_logger.verbose("Successfully verified S3 storage configurations.")

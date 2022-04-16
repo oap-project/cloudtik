@@ -276,7 +276,7 @@ function configure_hadoop_and_spark() {
     update_spark_runtime_config
     update_data_disks_config
 
-    if [ $ENABLE_HDFS == "true" ];then
+    if [ "$ENABLE_HDFS" == "true" ];then
         update_hdfs_data_disks_config
         cp -r ${output_dir}/hadoop/core-site.xml  ${HADOOP_HOME}/etc/hadoop/
         cp -r ${output_dir}/hadoop/hdfs-site.xml  ${HADOOP_HOME}/etc/hadoop/
@@ -290,7 +290,7 @@ function configure_hadoop_and_spark() {
     if [ $IS_HEAD_NODE == "true" ];then
         cp -r ${output_dir}/spark/*  ${SPARK_HOME}/conf
 
-        if [ $ENABLE_HDFS == "true" ]; then
+        if [ "$ENABLE_HDFS" == "true" ]; then
             # Format hdfs once
             ${HADOOP_HOME}/bin/hdfs namenode -format
             # Create event log dir on hdfs

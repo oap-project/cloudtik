@@ -1503,6 +1503,4 @@ def kill_process_tree(pid, include_parent=True):
 
 def with_runtime_environment_variables(runtime_config, provider):
     runtime_envs = with_spark_runtime_environment_variables(runtime_config, provider)
-    provider_envs = provider.with_provider_environment_variables()
-    runtime_envs.update(provider_envs)
     return runtime_envs

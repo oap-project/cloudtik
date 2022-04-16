@@ -21,6 +21,7 @@ from cloudtik.providers._private._azure.config import (bootstrap_azure, bootstra
                                                        MSI_NAME, get_azure_sdk_function)
 
 from cloudtik.providers._private._azure.utils import get_azure_config
+from cloudtik.providers._private.utils import validate_config_dict
 
 VM_NAME_MAX_LEN = 64
 VM_NAME_UUID_LEN = 8
@@ -388,24 +389,22 @@ class AzureNodeProvider(NodeProvider):
     @staticmethod
     def validate_config(
             provider_config: Dict[str, Any]) -> None:
-        provider_config_failed = False
-        dict = {
-            "RESOURCE_GROUP": provider_config.get("resource_group"),
-            "SUBSCRIPTION_ID": provider_config.get("subscription_id"),
-            "AZURE_STORAGE_KIND": provider_config.get("azure_cloud_storage", {}).get("azure.storage.kind"),
-            "AZURE_STORAGE_ACCOUNT": provider_config.get("azure_cloud_storage", {}).get("azure.storage.account"),
-            "AZURE_CONTAINER": provider_config.get("azure_cloud_storage", {}).get(
-                "azure.container"),
-            "AZURE_ACCOUNT_KEY": provider_config.get("azure_cloud_storage", {}).get(
-                "azure.account.key")}
+        config_dict = {
+            "subscription_id": provider_config.get("subscription_id"),
+            "resource_group": provider_config.get("resource_group")}
 
-        for key, value in dict.items():
-            if value is None:
-                provider_config_failed = True
-                logger.info("{} must be define in your yaml, please refer to config-schema.json.".format(key))
-        if provider_config_failed:
-            raise RuntimeError("{} provider must be provided right storage config, "
-                               "please refer to config-schema.json.".format(provider_config["type"]))
+        validate_config_dict(provider_config["type"], config_dict)
+
+    @staticmethod
+    def validate_storage_config(
+            provider_config: Dict[str, Any]) -> None:
+        config_dict = {
+            "azure.storage.kind": provider_config.get("azure_cloud_storage", {}).get("azure.storage.kind"),
+            "azure.storage.account": provider_config.get("azure_cloud_storage", {}).get("azure.storage.account"),
+            "azure.container": provider_config.get("azure_cloud_storage", {}).get("azure.container"),
+            "azure.account.key": provider_config.get("azure_cloud_storage", {}).get("azure.account.key")}
+
+        validate_config_dict(provider_config["type"], config_dict)
 
     def _get_managed_identity_client_id(self, cluster_config):
         try:

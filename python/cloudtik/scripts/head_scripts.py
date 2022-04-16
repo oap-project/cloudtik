@@ -394,6 +394,7 @@ def health_check(address, redis_password, component):
     cli_logger.print("{} is healthy.", component)
     sys.exit(0)
 
+
 @head.command()
 @click.option(
     "--host",

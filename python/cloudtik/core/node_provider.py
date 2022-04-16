@@ -200,7 +200,6 @@ class NodeProvider:
         """Bootstraps the cluster config by adding env defaults if needed."""
         return cluster_config
 
-
     def get_command_executor(self,
                            log_prefix: str,
                            node_id: str,
@@ -259,5 +258,10 @@ class NodeProvider:
 
     @staticmethod
     def validate_config(
+            provider_config: Dict[str, Any]) -> None:
+        return None
+
+    @staticmethod
+    def validate_storage_config(
             provider_config: Dict[str, Any]) -> None:
         return None

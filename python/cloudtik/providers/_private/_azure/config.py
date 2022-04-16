@@ -1227,7 +1227,7 @@ def construct_resource_client(config):
         subscription_id = get_cli_profile().get_subscription_id()
     credential = AzureCliCredential()
     resource_client = ResourceManagementClient(credential, subscription_id)
-    logger.info("Using subscription id: %s", subscription_id)
+    logger.debug("Using subscription id: %s", subscription_id)
     return resource_client
 
 

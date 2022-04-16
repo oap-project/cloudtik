@@ -176,8 +176,11 @@ def with_spark_runtime_environment_variables(runtime_config, provider):
     runtime_envs = {}
     if runtime_config and runtime_config.get("spark", {}).get("enable_hdfs", False):
         runtime_envs["ENABLE_HDFS"] = True
+    else:
+        # Whether we need to expert the cloud storage for HDFS case
+        provider_envs = provider.with_provider_environment_variables()
+        runtime_envs.update(provider_envs)
 
-    # Whether we need to expert the cloud storage for HDFS case
     return runtime_envs
 
 
@@ -192,5 +195,5 @@ def get_spark_runtime_logs():
 
 def spark_runtime_validate_config(config: Dict[str, Any], provider):
     # if HDFS enabled, we ignore the cloud storage configurations
-    if config.get("runtime", {}).get("spark", {}).get("enable_hdfs", False):
-        return
+    if not config.get("runtime", {}).get("spark", {}).get("enable_hdfs", False):
+        provider.validate_storage_config(config["provider"])

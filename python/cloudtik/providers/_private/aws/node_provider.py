@@ -19,6 +19,7 @@ from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.providers._private.aws.config import bootstrap_aws, bootstrap_aws_from_workspace
 from cloudtik.providers._private.aws.utils import boto_exception_handler, \
     resource_cache, client_cache, get_aws_s3a_config, get_boto_error_code
+from cloudtik.providers._private.utils import validate_config_dict
 
 logger = logging.getLogger(__name__)
 
@@ -671,16 +672,18 @@ class AWSNodeProvider(NodeProvider):
     @staticmethod
     def validate_config(
             provider_config: Dict[str, Any]) -> None:
-        provider_config_failed = False
-        dict = {}
-        dict["AWS_S3A_BUCKET"] = provider_config.get("aws_s3a_storage", {}).get("s3.bucket")
-        dict["FS_S3A_ACCESS_KEY"] = provider_config.get("aws_s3a_storage", {}).get("fs.s3a.access.key")
-        dict["FS_S3A_SECRET_KEY"] = provider_config.get("aws_s3a_storage", {}).get("fs.s3a.secret.key")
+        config_dict = {
+            "region": provider_config.get("region")}
 
-        for key, value in dict.items():
-            if value is None:
-                provider_config_failed = True
-                logger.info("{} must be define in your yaml, please refer to config-schema.json.".format(key))
-        if provider_config_failed:
-            raise RuntimeError("{} provider must be provided right storage config, "
-                               "please refer to config-schema.json.".format(provider_config["type"]))
+        validate_config_dict(provider_config["type"], config_dict)
+
+    @staticmethod
+    def validate_storage_config(
+            provider_config: Dict[str, Any]) -> None:
+        config_dict = {
+            "s3.bucket": provider_config.get("aws_s3a_storage", {}).get("s3.bucket"),
+            "fs.s3a.access.key": provider_config.get("aws_s3a_storage", {}).get("fs.s3a.access.key"),
+            "fs.s3a.secret.key": provider_config.get("aws_s3a_storage", {}).get("fs.s3a.secret.key")
+        }
+
+        validate_config_dict(provider_config["type"], config_dict)

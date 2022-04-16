@@ -62,12 +62,12 @@ def check_azure_workspace_resource(config):
          1). Check resource group
          2.) Check vpc 
          3.) Check network security group
-         4.) Check public-ip-address
-         5.) Check nat-gateway
+         4.) Check public IP address
+         5.) Check NAT gateway
          6.) Check private subnet 
          7.) Check public subnet
-         8.) Check role_assignments
-         9.) Check user_assigned_identities
+         8.) Check role assignments
+         9.) Check user assigned identities
     """
     resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
     if resource_group_name is None:
@@ -141,28 +141,27 @@ def delete_workspace_azure(config):
         with cli_logger.group("Deleting workspace: {}", workspace_name):
             current_step = _delete_network_resources(config, resource_client, resource_group_name, current_step, total_steps)
 
-        # delete role_assignments
-        with cli_logger.group(
-                "Deleting role assignments",
-                _numbered=("[]", current_step, total_steps)):
-            current_step += 1
-            _delete_role_assignments(config, resource_group_name)
-
-        # delete user_assigned_identities
-        with cli_logger.group(
-                "Deleting user_assigned_identities",
-                _numbered=("[]", current_step, total_steps)):
-            current_step += 1
-            _delete_user_assigned_identities(config, resource_group_name)
-
-        # delete resource group
-        if not use_internal_ips:
+            # delete role_assignments
             with cli_logger.group(
-                    "Deleting Resource Group",
+                    "Deleting role assignments",
                     _numbered=("[]", current_step, total_steps)):
                 current_step += 1
-                _delete_resource_group(config, resource_client)
+                _delete_role_assignments(config, resource_group_name)
 
+            # delete user_assigned_identities
+            with cli_logger.group(
+                    "Deleting user_assigned_identities",
+                    _numbered=("[]", current_step, total_steps)):
+                current_step += 1
+                _delete_user_assigned_identities(config, resource_group_name)
+
+            # delete resource group
+            if not use_internal_ips:
+                with cli_logger.group(
+                        "Deleting resource group",
+                        _numbered=("[]", current_step, total_steps)):
+                    current_step += 1
+                    _delete_resource_group(config, resource_client)
     except Exception as e:
         cli_logger.error(
             "Failed to delete workspace {}. {}".format(workspace_name, str(e)))
@@ -183,8 +182,8 @@ def _delete_network_resources(config, resource_client, resource_group_name, curr
          Do the work - order of operation
          1.) Delete public subnet
          2.) Delete private subnet 
-         3.) Delete rnat-gateway
-         4.) Delete public-ip-address
+         3.) Delete NAT gateway
+         4.) Delete public IP address
          5.) Delete network security group
          6.) Delete vpc
     """
@@ -203,16 +202,16 @@ def _delete_network_resources(config, resource_client, resource_group_name, curr
         current_step += 1
         _delete_subnet(config, network_client, resource_group_name, virtual_network_name, is_private=True)
 
-    # delete nat-gateway
+    # delete NAT gateway
     with cli_logger.group(
-            "Deleting nat-gateway",
+            "Deleting NAT gateway",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
         _delete_nat(config, network_client, resource_group_name)
 
-    # delete public-ip-address
+    # delete public IP address
     with cli_logger.group(
-            "Deleting public-ip-address",
+            "Deleting public IP address",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
         _delete_public_ip_address(config, network_client, resource_group_name)
@@ -244,19 +243,19 @@ def get_role_assignments(config, resource_group_name):
         resourceGroupName=resource_group_name
     )
     role_assignment_name = str(uuid.uuid3(uuid.UUID(subscription_id), workspace_name))
-    cli_logger.print("Getting the existing role-assignment: {}.", role_assignment_name)
+    cli_logger.print("Getting the existing role assignment: {}.", role_assignment_name)
 
     try:
         role_assignment = authorization_client.role_assignments.get(
             scope=scope,
             role_assignment_name=role_assignment_name,
         )
-        cli_logger.print("Successfully get the role-assignment: {}.".
+        cli_logger.print("Successfully get the role assignment: {}.".
                          format(role_assignment_name))
         return role_assignment_name
     except Exception as e:
         cli_logger.error(
-            "Failed to get the role-assignment. {}", str(e))
+            "Failed to get the role assignment. {}", str(e))
         return None
 
 
@@ -289,17 +288,17 @@ def _delete_role_assignments(config, resource_group_name):
 def get_user_assigned_identities(config, resource_group_name):
     user_assigned_identity_name = "cloudtik-{}-user-assigned-identity".format(config["workspace_name"])
     msi_client = construct_manage_server_identity_client(config)
-    cli_logger.verbose("Getting the existing user-assigned-identity: {}.".format(user_assigned_identity_name))
+    cli_logger.verbose("Getting the existing user assigned identity: {}.".format(user_assigned_identity_name))
     try:
         user_assigned_identity = msi_client.user_assigned_identities.get(
             resource_group_name,
             user_assigned_identity_name
         )
-        cli_logger.verbose("Successfully get the user-assigned-identity: {}.".format(user_assigned_identity_name))
+        cli_logger.verbose("Successfully get the user assigned identity: {}.".format(user_assigned_identity_name))
         return user_assigned_identity
     except Exception as e:
         cli_logger.verbose_error(
-            "Failed to get the user-assigned-identity: {}. {}".format(user_assigned_identity_name, e))
+            "Failed to get the user assigned identity: {}. {}".format(user_assigned_identity_name, e))
         return None
 
 
@@ -307,36 +306,36 @@ def _delete_user_assigned_identities(config, resource_group_name):
     user_assigned_identity = get_user_assigned_identities(config, resource_group_name)
     msi_client = construct_manage_server_identity_client(config)
     if user_assigned_identity is None:
-        cli_logger.print("This user_assigned_identity has not existed. No need to delete it.")
+        cli_logger.print("This user assigned identity has not existed. No need to delete it.")
         return
 
     """ Delete the user_assigned_identity """
-    cli_logger.print("Deleting the user_assigned_identity: {}...".format(user_assigned_identity.name))
+    cli_logger.print("Deleting the user assigned identity: {}...".format(user_assigned_identity.name))
     try:
         msi_client.user_assigned_identities.delete(
             resource_group_name=resource_group_name,
             resource_name=user_assigned_identity.name
         )
-        cli_logger.print("Successfully deleted the user_assigned_identity: {}.".format(user_assigned_identity.name))
+        cli_logger.print("Successfully deleted the user assigned identity: {}.".format(user_assigned_identity.name))
     except Exception as e:
         cli_logger.error(
-            "Failed to delete the user_assigned_identity:{}. {}".format(user_assigned_identity.name, str(e)))
+            "Failed to delete the user assigned identity:{}. {}".format(user_assigned_identity.name, str(e)))
         raise e
 
 
 def get_network_security_group(config, network_client, resource_group_name):
     network_security_group_name = "cloudtik-{}-network-security-group".format(config["workspace_name"])
 
-    cli_logger.verbose("Getting the existing network-security-group: {}.".format(network_security_group_name))
+    cli_logger.verbose("Getting the existing network security group: {}.".format(network_security_group_name))
     try:
         network_client.network_security_groups.get(
             resource_group_name,
             network_security_group_name
         )
-        cli_logger.verbose("Successfully get the network-security-group: {}.".format(network_security_group_name))
+        cli_logger.verbose("Successfully get the network security group: {}.".format(network_security_group_name))
         return network_security_group_name
     except Exception as e:
-        cli_logger.verbose_error("Failed to get the network-security-group: {}. {}".format(network_security_group_name, e))
+        cli_logger.verbose_error("Failed to get the network security group: {}. {}".format(network_security_group_name, e))
         return None
 
 
@@ -362,51 +361,51 @@ def _delete_network_security_group(config, network_client, resource_group_name):
 def get_public_ip_address(config, network_client, resource_group_name):
     public_ip_address_name = "cloudtik-{}-public-ip-address".format(config["workspace_name"])
 
-    cli_logger.verbose("Getting the existing public-ip-address: {}.".format(public_ip_address_name))
+    cli_logger.verbose("Getting the existing public IP address: {}.".format(public_ip_address_name))
     try:
         network_client.public_ip_addresses.get(
             resource_group_name,
             public_ip_address_name
         )
-        cli_logger.verbose("Successfully get the public-ip-address: {}.".format(public_ip_address_name))
+        cli_logger.verbose("Successfully get the public IP address: {}.".format(public_ip_address_name))
         return public_ip_address_name
     except Exception as e:
-        cli_logger.verbose_error("Failed to get the public-ip-address: {}. {}".format(public_ip_address_name, e))
+        cli_logger.verbose_error("Failed to get the public IP address: {}. {}".format(public_ip_address_name, e))
         return None
 
 
 def _delete_public_ip_address(config, network_client, resource_group_name):
     public_ip_address_name = get_public_ip_address(config, network_client, resource_group_name)
     if public_ip_address_name is None:
-        cli_logger.print("This Public Ip Address has not existed. No need to delete it.")
+        cli_logger.print("This public IP address has not existed. No need to delete it.")
         return
 
-    """ Delete the Public Ip Address """
-    cli_logger.print("Deleting the Public Ip Address: {}...".format(public_ip_address_name))
+    # Delete the public IP address
+    cli_logger.print("Deleting the public IP address: {}...".format(public_ip_address_name))
     try:
         network_client.public_ip_addresses.begin_delete(
             resource_group_name=resource_group_name,
             public_ip_address_name=public_ip_address_name
         ).result()
-        cli_logger.print("Successfully deleted the Public Ip Address: {}.".format(public_ip_address_name))
+        cli_logger.print("Successfully deleted the public IP address: {}.".format(public_ip_address_name))
     except Exception as e:
-        cli_logger.error("Failed to delete the Public Ip Address:{}. {}".format(public_ip_address_name, str(e)))
+        cli_logger.error("Failed to delete the public IP address:{}. {}".format(public_ip_address_name, str(e)))
         raise e
 
 
 def get_nat_gateway(config, network_client, resource_group_name):
     nat_gateway_name = "cloudtik-{}-nat".format(config["workspace_name"])
 
-    cli_logger.verbose("Getting the existing nat-gateway: {}.".format(nat_gateway_name))
+    cli_logger.verbose("Getting the existing NAT gateway: {}.".format(nat_gateway_name))
     try:
         network_client.nat_gateways.get(
             resource_group_name,
             nat_gateway_name
         )
-        cli_logger.verbose("Successfully get the nat-gateway: {}.".format(nat_gateway_name))
+        cli_logger.verbose("Successfully get the NAT gateway: {}.".format(nat_gateway_name))
         return nat_gateway_name
     except Exception as e:
-        cli_logger.verbose_error("Failed to get the nat-gateway: {}. {}".format(nat_gateway_name, e))
+        cli_logger.verbose_error("Failed to get the NAT gateway: {}. {}".format(nat_gateway_name, e))
         return None
 
 
@@ -434,20 +433,20 @@ def _delete_vnet(config, resource_client, network_client):
     resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
     virtual_network_name = get_virtual_network_name(config, resource_client, network_client, use_internal_ips)
     if virtual_network_name is None:
-        cli_logger.print("This Virtual Network: {} has not existed. No need to delete it.".
+        cli_logger.print("This virtual network: {} has not existed. No need to delete it.".
                          format(virtual_network_name))
         return
 
-    """ Delete the Virtual Network """
-    cli_logger.print("Deleting the Virtual Network: {}...".format(virtual_network_name))
+    # Delete the virtual network
+    cli_logger.print("Deleting the virtual network: {}...".format(virtual_network_name))
     try:
         network_client.virtual_networks.begin_delete(
             resource_group_name=resource_group_name,
             virtual_network_name=virtual_network_name
         ).result()
-        cli_logger.print("Successfully deleted the Virtual Network: {}.".format(virtual_network_name))
+        cli_logger.print("Successfully deleted the virtual network: {}.".format(virtual_network_name))
     except Exception as e:
-        cli_logger.error("Failed to delete the Virtual Network:{}. {}".format(virtual_network_name, str(e)))
+        cli_logger.error("Failed to delete the virtual network:{}. {}".format(virtual_network_name, str(e)))
         raise e
 
 
@@ -455,20 +454,20 @@ def _delete_resource_group(config, resource_client):
     resource_group_name = get_workspace_resource_group_name(config, resource_client)
 
     if resource_group_name is None:
-        cli_logger.print("This Resource Group: {} has not existed. No need to delete it.".
+        cli_logger.print("This resource group: {} has not existed. No need to delete it.".
                          format(resource_group_name))
         return
 
-    # Delete the Resource Group
-    cli_logger.print("Deleting the Resource Group: {}...".format(resource_group_name))
+    # Delete the resource group
+    cli_logger.print("Deleting the resource group: {}...".format(resource_group_name))
 
     try:
         resource_client.resource_groups.begin_delete(
             resource_group_name
         ).result()
-        cli_logger.print("Successfully deleted the Resource Group: {}.".format(resource_group_name))
+        cli_logger.print("Successfully deleted the resource group: {}.".format(resource_group_name))
     except Exception as e:
-        cli_logger.error("Failed to delete the Resource Group:{}. {}".format(resource_group_name, str(e)))
+        cli_logger.error("Failed to delete the resource group:{}. {}".format(resource_group_name, str(e)))
         raise e
 
 
@@ -487,32 +486,30 @@ def _configure_workspace(config):
     resource_client = construct_resource_client(config)
 
     try:
-        # create resource group
-        with cli_logger.group(
-                "Creating Resource Group",
-                _numbered=("[]", current_step, total_steps)):
-            current_step += 1
-            resource_group_name = _create_resource_group(config, resource_client)
+        with cli_logger.group("Creating workspace: {}", workspace_name):
+            # create resource group
+            with cli_logger.group(
+                    "Creating resource group",
+                    _numbered=("[]", current_step, total_steps)):
+                current_step += 1
+                resource_group_name = _create_resource_group(config, resource_client)
 
-        # create network resources
-        with cli_logger.group(
-                "Creating workspace: {}", workspace_name):
+            # create network resources
             current_step = _configure_network_resources(config, resource_group_name, current_step, total_steps)
 
-        # create user_assigned_identities
-        with cli_logger.group(
-                "Creating user assigned identities",
-                _numbered=("[]", current_step, total_steps)):
-            current_step += 1
-            _create_user_assigned_identities(config, resource_group_name)
+            # create user_assigned_identities
+            with cli_logger.group(
+                    "Creating user assigned identities",
+                    _numbered=("[]", current_step, total_steps)):
+                current_step += 1
+                _create_user_assigned_identities(config, resource_group_name)
 
-        # create role_assignments
-        with cli_logger.group(
-                "Creating role assignments",
-                _numbered=("[]", current_step, total_steps)):
-            current_step += 1
-            _create_role_assignments(config, resource_group_name)
-
+            # create role_assignments
+            with cli_logger.group(
+                    "Creating role assignments",
+                    _numbered=("[]", current_step, total_steps)):
+                current_step += 1
+                _create_role_assignments(config, resource_group_name)
     except Exception as e:
         cli_logger.error("Failed to create workspace. {}", str(e))
         raise e
@@ -541,7 +538,7 @@ def _create_resource_group(config, resource_client):
             resource_group = create_resource_group(config, resource_client)
             resource_group_name = resource_group.name
         else:
-            cli_logger.abort("There is a existing Resource Group with the same name: {}, "
+            cli_logger.abort("There is a existing resource group with the same name: {}, "
                              "if you want to create a new workspace with the same name, "
                              "you need to execute workspace delete first!".format(workspace_name))
     return resource_group_name
@@ -623,13 +620,13 @@ def get_workspace_virtual_network_name(config, network_client):
         return virtual_network.name
     except Exception as e:
         cli_logger.verbose_error(
-            "The Virtual Network for workspace is not found: {}", str(e))
+            "The virtual network for workspace is not found: {}", str(e))
         return None
 
 
 def get_workspace_resource_group_name(config, resource_client):
     resource_group_name = 'cloudtik-{}-resource-group'.format(config["workspace_name"])
-    cli_logger.verbose("Getting the ResourceGroupName for workspace: {}...".
+    cli_logger.verbose("Getting the resource group name for workspace: {}...".
                        format(resource_group_name))
 
     try:
@@ -637,11 +634,11 @@ def get_workspace_resource_group_name(config, resource_client):
             resource_group_name
         )
         cli_logger.verbose(
-            "Successfully get the ResourceGroupName: {} for workspace.".format(resource_group_name))
+            "Successfully get the resource group name: {} for workspace.".format(resource_group_name))
         return resource_group.name
     except Exception as e:
         cli_logger.verbose_error(
-            "The Resource Group for workspace is not found: {}", str(e))
+            "The resource group for workspace is not found: {}", str(e))
         return None
 
 
@@ -651,19 +648,19 @@ def create_resource_group(config, resource_client):
     assert "location" in config["provider"], (
         "Provider config must include location field")
     params = {"location": config["provider"]["location"]}
-    cli_logger.print("Creating workspace Resource Group: {} on Azure...", resource_group_name)
+    cli_logger.print("Creating workspace resource group: {} on Azure...", resource_group_name)
     # create resource group
     try:
 
         resource_group = resource_client.resource_groups.create_or_update(
             resource_group_name=resource_group_name, parameters=params)
         # time.sleep(20)
-        cli_logger.print("Successfully created workspace Resource Group: cloudtik-{}-resource_group.".
+        cli_logger.print("Successfully created workspace resource group: cloudtik-{}-resource_group.".
                          format(config["workspace_name"]))
         return resource_group
     except Exception as e:
         cli_logger.error(
-            "Failed to create workspace Resource Group. {}", str(e))
+            "Failed to create workspace resource group. {}", str(e))
         raise e
 
 
@@ -677,7 +674,7 @@ def _create_role_assignments(config, resource_group_name):
     )
     role_assignment_name = str(uuid.uuid3(uuid.UUID(subscription_id), workspace_name))
     user_assigned_identity = get_user_assigned_identities(config, resource_group_name)
-    cli_logger.print("Creating workspace role-assignment: {} on Azure...", role_assignment_name)
+    cli_logger.print("Creating workspace role assignment: {} on Azure...", role_assignment_name)
 
     # Create role assignment
     try:
@@ -692,11 +689,11 @@ def _create_role_assignments(config, resource_group_name):
             }
         )
         time.sleep(20)
-        cli_logger.print("Successfully created workspace role-assignment: {}.".
+        cli_logger.print("Successfully created workspace role assignment: {}.".
                          format(role_assignment_name))
     except Exception as e:
         cli_logger.error(
-            "Failed to create workspace role-assignment. {}", str(e))
+            "Failed to create workspace role assignment. {}", str(e))
         raise e
 
 
@@ -706,7 +703,7 @@ def _create_user_assigned_identities(config, resource_group_name):
     user_assigned_identity_name = 'cloudtik-{}-user-assigned-identity'.format(workspace_name)
     msi_client = construct_manage_server_identity_client(config)
 
-    cli_logger.print("Creating workspace user-assigned-identity: {} on Azure...", user_assigned_identity_name)
+    cli_logger.print("Creating workspace user assigned identity: {} on Azure...", user_assigned_identity_name)
     # Create identity
     try:
         msi_client.user_assigned_identities.create_or_update(
@@ -715,11 +712,11 @@ def _create_user_assigned_identities(config, resource_group_name):
             location,
         )
         time.sleep(20)
-        cli_logger.print("Successfully created workspace user-assigned-identity: {}.".
+        cli_logger.print("Successfully created workspace user assigned identity: {}.".
                          format(user_assigned_identity_name))
     except Exception as e:
         cli_logger.error(
-            "Failed to create workspace user-assigned-identity. {}", str(e))
+            "Failed to create workspace user assigned identity. {}", str(e))
         raise e
 
 
@@ -740,7 +737,7 @@ def _create_vnet(config, resource_client, network_client):
             virtual_network = create_virtual_network(config, resource_client, network_client)
             virtual_network_name = virtual_network.name
         else:
-            cli_logger.abort("There is a existing Virtual Network with the same name: {}, "
+            cli_logger.abort("There is a existing virtual network with the same name: {}, "
                              "if you want to create a new workspace with the same name, "
                              "you need to execute workspace delete first!".format(workspace_name))
     return virtual_network_name
@@ -764,18 +761,18 @@ def create_virtual_network(config, resource_client, network_client):
         },
         "location": config["provider"]["location"]
     }
-    cli_logger.print("Creating workspace Virtual Network: {} on Azure...", virtual_network_name)
+    cli_logger.print("Creating workspace virtual network: {} on Azure...", virtual_network_name)
     # create virtual network
     try:
         virtual_network = network_client.virtual_networks.begin_create_or_update(
             resource_group_name=resource_group_name,
             virtual_network_name=virtual_network_name, parameters=params).result()
-        cli_logger.print("Successfully created workspace Virtual Network: cloudtik-{}-vnet.".
+        cli_logger.print("Successfully created workspace virtual network: cloudtik-{}-vnet.".
                          format(config["workspace_name"]))
         return virtual_network
     except Exception as e:
         cli_logger.error(
-            "Failed to create workspace Virtual Network. {}", str(e))
+            "Failed to create workspace virtual network. {}", str(e))
         raise e
 
 
@@ -899,7 +896,7 @@ def _create_nat(config, network_client, resource_group_name, public_ip_address_n
     workspace_name = config["workspace_name"]
     nat_gateway_name = "cloudtik-{}-nat".format(workspace_name)
 
-    cli_logger.print("Creating nat-gateway: {}... ".format(nat_gateway_name))
+    cli_logger.print("Creating NAT gateway: {}... ".format(nat_gateway_name))
     try:
         nat_gateway = network_client.nat_gateways.begin_create_or_update(
             resource_group_name=resource_group_name,
@@ -917,10 +914,10 @@ def _create_nat(config, network_client, resource_group_name, public_ip_address_n
                 ],
             }
         ).result()
-        cli_logger.print("Successfully created nat-gateway: {}.".
+        cli_logger.print("Successfully created NAT gateway: {}.".
                          format(nat_gateway_name))
     except Exception as e:
-        cli_logger.error("Failed to create nat-gateway. {}", str(e))
+        cli_logger.error("Failed to create NAT gateway. {}", str(e))
         raise e
 
 
@@ -929,7 +926,7 @@ def _create_public_ip_address(config, network_client, resource_group_name):
     public_ip_address_name = "cloudtik-{}-public-ip-address".format(workspace_name)
     location = config["provider"]["location"]
 
-    cli_logger.print("Creating public-ip-address: {}... ".format(public_ip_address_name))
+    cli_logger.print("Creating public IP address: {}... ".format(public_ip_address_name))
     try:
         network_client.public_ip_addresses.begin_create_or_update(
             resource_group_name,
@@ -943,10 +940,10 @@ def _create_public_ip_address(config, network_client, resource_group_name):
                 }
             }
         )
-        cli_logger.print("Successfully created public-ip-address: {}.".
+        cli_logger.print("Successfully created public IP address: {}.".
                          format(public_ip_address_name))
     except Exception as e:
-        cli_logger.error("Failed to create public-ip-address. {}", str(e))
+        cli_logger.error("Failed to create public IP address. {}", str(e))
         raise e
 
     return public_ip_address_name
@@ -961,7 +958,7 @@ def _create_network_security_group(config, network_client, resource_group_name):
     for i in range(0, len(security_rules)):
         security_rules[i]["name"] = "cloudtik-{}-security-rule-{}".format(workspace_name, i)
 
-    cli_logger.print("Creating network-security-group: {}... ".format(network_security_group_name))
+    cli_logger.print("Creating network security group: {}... ".format(network_security_group_name))
     try:
         network_client.network_security_groups.begin_create_or_update(
             resource_group_name=resource_group_name,
@@ -971,10 +968,10 @@ def _create_network_security_group(config, network_client, resource_group_name):
                 "securityRules": security_rules
             }
         ).result()
-        cli_logger.print("Successfully created network-security-group: {}.".
+        cli_logger.print("Successfully created network security group: {}.".
                          format(network_security_group_name))
     except Exception as e:
-        cli_logger.error("Failed to create network-security-group. {}", str(e))
+        cli_logger.error("Failed to create network security group. {}", str(e))
         raise e
 
     return network_security_group_name
@@ -1006,16 +1003,16 @@ def _configure_network_resources(config, resource_group_name, current_step, tota
         _create_and_configure_subnets(
             config, network_client, resource_group_name, virtual_network_name, is_private=False)
 
-    # create public-ip-address
+    # create public IP address
     with cli_logger.group(
-            "Creating public-ip-address for nat-gateway",
+            "Creating public IP address for NAT gateway",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
         public_ip_address_name = _create_public_ip_address(config, network_client, resource_group_name,)
 
-    # create nat-gateway
+    # create NAT gateway
     with cli_logger.group(
-            "Creating nat-gateway",
+            "Creating NAT gateway",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
         _create_nat(config, network_client, resource_group_name, public_ip_address_name)
@@ -1157,7 +1154,7 @@ def _configure_resource_group(config):
     if "tags" in config["provider"]:
         params["tags"] = config["provider"]["tags"]
 
-    logger.info("Creating/Updating Resource Group: %s", resource_group)
+    logger.info("Creating/Updating resource group: %s", resource_group)
     resource_client.resource_groups.create_or_update(
         resource_group_name=resource_group, parameters=params)
 

@@ -242,6 +242,11 @@
                         "description": "secret key of s3a"
                       }
                     }
+                },
+                "verify_cloud_storage": {
+                    "type": "boolean",
+                    "description": "Whether to verify the cloud storage configurations.",
+                    "default": true
                 }
             }
         },

@@ -4,6 +4,10 @@ from typing import Any, Dict
 logger = logging.getLogger(__name__)
 
 
+class StorageTestingError(RuntimeError):
+    pass
+
+
 def validate_config_dict(provider_type, config_dict: Dict[str, Any]) -> None:
     provider_config_failed = False
     for key, value in config_dict.items():

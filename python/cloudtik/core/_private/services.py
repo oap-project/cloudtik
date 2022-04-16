@@ -982,6 +982,7 @@ def _start_redis_instance(executable,
                 raise ValueError("Spaces not permitted in redis password.")
             command += ["--requirepass", password]
         command += (["--port", str(port), "--loglevel", "warning"])
+        command += (["--dir", session_dir_path])
         if listen_to_localhost_only:
             command += ["--bind", "127.0.0.1"]
         pidfile = os.path.join(session_dir_path,

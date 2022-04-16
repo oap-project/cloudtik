@@ -709,7 +709,9 @@ def _create_user_assigned_identities(config, resource_group_name):
         msi_client.user_assigned_identities.create_or_update(
             resource_group_name,
             user_assigned_identity_name,
-            location,
+            parameters={
+                "location": location
+            }
         )
         time.sleep(20)
         cli_logger.print("Successfully created workspace user assigned identity: {}.".
@@ -1253,8 +1255,9 @@ def construct_manage_server_identity_client(config):
     if subscription_id is None:
         subscription_id = get_cli_profile().get_subscription_id()
     credential = AzureCliCredential()
-    wrapped_credential = AzureIdentityCredentialAdapter(credential)
-    msi_client = ManagedServiceIdentityClient(wrapped_credential, subscription_id)
+    # It showed that we no longer need to wrapper. Will fail with wrapper: no attribute get_token
+    # wrapped_credential = AzureIdentityCredentialAdapter(credential)
+    msi_client = ManagedServiceIdentityClient(credential, subscription_id)
 
     return msi_client
 

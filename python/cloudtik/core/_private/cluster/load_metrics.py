@@ -160,11 +160,11 @@ class LoadMetrics:
             unwanted_ips = set(mapping) - active_ips
             for unwanted_ip in unwanted_ips:
                 if should_log:
-                    logger.info("LoadMetrics: " f"Removed ip: {unwanted_ip}.")
+                    logger.info("Cluster Metrics: " f"Removed ip: {unwanted_ip}.")
                 del mapping[unwanted_ip]
             if unwanted_ips and should_log:
                 logger.info(
-                    "LoadMetrics: "
+                    "Cluster Metrics: "
                     "Removed {} stale ip mappings: {} not in {}".format(
                         len(unwanted_ips), unwanted_ips, active_ips))
             assert not (unwanted_ips & set(mapping))

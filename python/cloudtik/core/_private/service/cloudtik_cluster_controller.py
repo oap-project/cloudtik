@@ -162,10 +162,7 @@ class ClusterController:
     def _update_load_metrics(self):
         """Fetches resource usage data from control state and updates load metrics."""
         # TODO (haifeng): implement load metrics
-
         resources_usage_batch = self.resource_info_client.get_cluster_resource_usage(timeout=60)
-
-        # TODO (haifeng): original code put this in the for loop, it should put outside
         waiting_bundles, infeasible_bundles = parse_resource_demands(
             resources_usage_batch.resource_demands)
 
@@ -185,8 +182,7 @@ class ClusterController:
             available_resources = {}
 
             use_node_id_as_ip = (self.cluster_scaler is not None
-                                 and self.cluster_scaler.config["provider"].get(
-                        "use_node_id_as_ip", False))
+                                 and self.cluster_scaler.config["provider"].get("use_node_id_as_ip", False))
 
             # "use_node_id_as_ip" is a hack meant to address situations in
             # which there's more than one service node residing at a given ip.

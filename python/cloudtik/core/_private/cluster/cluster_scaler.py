@@ -110,15 +110,15 @@ class NonTerminatedNodes:
 KeepOrTerminate = Enum("KeepOrTerminate", "keep terminate decide_later")
 
 
-class StandardClusterScaler:
+class ClusterScaler:
     """The autoscaling control loop for a cluster.
 
     You can use `cloudtik up /path/to/config.yaml` from your laptop, which will configure the right
     AWS/Cloud roles automatically. 
-    StandardClusterScaler's `update` method is periodically called in
+    ClusterScaler's `update` method is periodically called in
     `cloudtik_cluster_controller.py`'s control loop.
 
-    StandardClusterScaler is also used to bootstrap clusters (by adding workers
+    ClusterScaler is also used to bootstrap clusters (by adding workers
     until the cluster size that can handle the resource demand is met).
     """
 
@@ -136,7 +136,7 @@ class StandardClusterScaler:
             event_summarizer: Optional[EventSummarizer] = None,
             prometheus_metrics: Optional[ClusterPrometheusMetrics] = None,
     ):
-        """Create a StandardClusterScaler.
+        """Create a ClusterScaler.
 
         Args:
             config_reader: Path to a cluster config yaml, or a function to read

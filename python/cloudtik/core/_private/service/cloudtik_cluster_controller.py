@@ -18,7 +18,7 @@ except ImportError:
     prometheus_client = None
 
 import cloudtik
-from cloudtik.core._private.cluster.cluster_scaler import StandardClusterScaler
+from cloudtik.core._private.cluster.cluster_scaler import ClusterScaler
 from cloudtik.core._private.cluster.cluster_operator import teardown_cluster
 from cloudtik.core._private.constants import CLOUDTIK_UPDATE_INTERVAL_S, \
     CLOUDTIK_METRIC_PORT, CLOUDTIK_RESOURCE_REQUEST_CHANNEL
@@ -132,7 +132,7 @@ class ClusterController:
     def _initialize_cluster_scaler(self):
         cluster_scaling_config = self.cluster_scaling_config
 
-        self.cluster_scaler = StandardClusterScaler(
+        self.cluster_scaler = ClusterScaler(
             cluster_scaling_config,
             self.cluster_metrics,
             prefix_cluster_info=self.prefix_cluster_info,

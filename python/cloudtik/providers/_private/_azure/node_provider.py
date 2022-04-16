@@ -127,13 +127,15 @@ class AzureNodeProvider(NodeProvider):
         ip_config = nic.ip_configurations[0]
 
         public_ip_address = ip_config.public_ip_address
-        if  public_ip_address is not None:
+        if public_ip_address is not None:
             public_ip_id = public_ip_address.id
             metadata["public_ip_name"] = public_ip_id.split("/")[-1]
             public_ip = self.network_client.public_ip_addresses.get(
                 resource_group_name=resource_group,
                 public_ip_address_name=metadata["public_ip_name"])
             metadata["external_ip"] = public_ip.ip_address
+        else:
+            metadata["external_ip"] = None
 
         metadata["internal_ip"] = ip_config.private_ip_address
 

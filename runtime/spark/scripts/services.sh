@@ -7,7 +7,7 @@ fi
 
 case "$1" in
 start-head)
-    if [ $ENABLE_HDFS == "true" ]; then
+    if [ "$ENABLE_HDFS" == "true" ]; then
         $HADOOP_HOME/bin/hdfs --daemon start namenode
     fi
     $HADOOP_HOME/bin/yarn --daemon start resourcemanager
@@ -20,7 +20,7 @@ start-head)
 stop-head)
     $HADOOP_HOME/bin/yarn --daemon stop resourcemanager
     $SPARK_HOME/sbin/stop-history-server.sh
-    if [ $ENABLE_HDFS == "true" ]; then
+    if [ "$ENABLE_HDFS" == "true" ]; then
         $HADOOP_HOME/bin/hdfs --daemon stop namenode
     fi
     which jupyter && jupyter lab stop
@@ -29,7 +29,7 @@ stop-head)
     sudo service apache2 stop
     ;;
 start-worker)
-    if [ $ENABLE_HDFS == "true" ]; then
+    if [ "$ENABLE_HDFS" == "true" ]; then
         $HADOOP_HOME/sbin/hadoop-daemon.sh start datanode
     fi
     $HADOOP_HOME/bin/yarn --daemon start nodemanager
@@ -37,7 +37,7 @@ start-worker)
     ;;
 stop-worker)
     $HADOOP_HOME/bin/yarn --daemon stop nodemanager
-    if [ $ENABLE_HDFS == "true" ]; then
+    if [ "$ENABLE_HDFS" == "true" ]; then
         $HADOOP_HOME/sbin/hadoop-daemon.sh stop datanode
     fi
     sudo service ganglia-monitor stop

@@ -1,15 +1,12 @@
 from collections import defaultdict
 from functools import lru_cache
-from typing import Any, Dict
 
 from boto3.exceptions import ResourceNotExistsError
 from botocore.config import Config
 import boto3
-import botocore
 
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.constants import BOTO_MAX_RETRIES
-from cloudtik.providers._private.utils import StorageTestingError
 
 
 class LazyDefaultDict(defaultdict):
@@ -192,20 +189,3 @@ def client_cache(name, region, max_retries=BOTO_MAX_RETRIES, **kwargs):
             region,
             **kwargs,
         )
-
-
-def verify_s3_storage(provider_config: Dict[str, Any]):
-    s3_storage = provider_config["aws_s3a_storage"]
-    s3 = boto3.client(
-        's3',
-        aws_access_key_id=s3_storage["fs.s3a.access.key"],
-        aws_secret_access_key=s3_storage["fs.s3a.secret.key"]
-    )
-
-    try:
-        s3.list_objects(Bucket=s3_storage["s3.bucket"], Delimiter='/')
-    except botocore.exceptions.ClientError as e:
-        raise StorageTestingError("Error happens when verifying S3 storage configurations. "
-                                  "If you want to go without passing the verification, "
-                                  "set 'verify_cloud_storage' to False under provider config. "
-                                  "Error: {}.".format(e.message)) from None

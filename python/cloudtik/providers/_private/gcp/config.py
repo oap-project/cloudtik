@@ -4,6 +4,7 @@ import json
 import os
 import logging
 import time
+from typing import Any, Dict
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -19,6 +20,7 @@ from cloudtik.providers._private.gcp.node import (GCPNodeType, MAX_POLLS,
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.services import get_node_ip_address
 from cloudtik.core._private.utils import check_cidr_conflict
+from cloudtik.providers._private.utils import StorageTestingError
 
 logger = logging.getLogger(__name__)
 
@@ -192,6 +194,11 @@ def _create_iam(gcp_credentials=None):
 def _create_compute(gcp_credentials=None):
     return discovery.build(
         "compute", "v1", credentials=gcp_credentials, cache_discovery=False)
+
+
+def _create_storage(gcp_credentials=None):
+    return discovery.build(
+        "storage", "v1", credentials=gcp_credentials, cache_discovery=False)
 
 
 def _create_tpu(gcp_credentials=None):
@@ -1448,3 +1455,25 @@ def _create_project_ssh_key_pair(project, public_key, ssh_user, compute):
                                                  compute)
 
     return response
+
+
+def verify_gcs_storage(provider_config: Dict[str, Any]):
+    gcs_storage = provider_config["gcp_cloud_storage"]
+    credentials_field = {
+        "project_id": provider_config.get("project_id"),
+        "private_key_id": gcs_storage["fs.gs.auth.service.account.private.key.id"],
+        "private_key": gcs_storage["fs.gs.auth.service.account.private.key"],
+        "client_email": gcs_storage["fs.gs.auth.service.account.email"],
+        "token_uri": "https://oauth2.googleapis.com/token"
+    }
+
+    try:
+        credentials = service_account.Credentials.from_service_account_info(
+            credentials_field)
+        storage = _create_storage(credentials)
+        storage.buckets().get(bucket=gcs_storage["gcp.gcs.bucket"]).execute()
+    except Exception as e:
+        raise StorageTestingError("Error happens when verifying GCS storage configurations. "
+                                  "If you want to go without passing the verification, "
+                                  "set 'verify_cloud_storage' to False under provider config. "
+                                  "Error: {}.".format(e.message)) from None

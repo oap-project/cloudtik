@@ -5,11 +5,12 @@ from threading import RLock
 import time
 import logging
 
+from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core.node_provider import NodeProvider
 
 from cloudtik.providers._private.gcp.config import (
     bootstrap_gcp, bootstrap_gcp_from_workspace,
-    construct_clients_from_provider_config, get_node_type)
+    construct_clients_from_provider_config, get_node_type, verify_gcs_storage)
 
 # The logic has been abstracted away here to allow for different GCP resources
 # (API endpoints), which can differ widely, making it impossible to use
@@ -264,3 +265,9 @@ class GCPNodeProvider(NodeProvider):
                            "fs.gs.auth.service.account.private.key")}
 
         validate_config_dict(provider_config["type"], config_dict)
+
+        verify_cloud_storage = provider_config.get("verify_cloud_storage", True)
+        if verify_cloud_storage:
+            cli_logger.verbose("Verifying GCS storage configurations...")
+            verify_gcs_storage(provider_config)
+            cli_logger.verbose("Successfully verified GCS storage configurations.")

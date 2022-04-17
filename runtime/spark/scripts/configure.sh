@@ -1,6 +1,6 @@
 #!/bin/bash
 
-args=$(getopt -a -o h::p: -l head::,head_address::,provider:,aws_s3_bucket::,aws_s3_access_key_id::,aws_s3_secret_access_key::,project_id::,gcp_gcs_bucket::,fs_gs_auth_service_account_email::,fs_gs_auth_service_account_private_key_id::,fs_gs_auth_service_account_private_key::,azure_storage_kind::,azure_storage_account::,azure_container::,azure_account_key:: -- "$@")
+args=$(getopt -a -o h::p: -l head::,head_address::,provider:,aws_s3_bucket::,aws_s3_access_key_id::,aws_s3_secret_access_key::,project_id::,gcs_bucket::,gcs_service_account_client_email::,gcs_service_account_private_key_id::,gcs_service_account_private_key::,azure_storage_kind::,azure_storage_account::,azure_container::,azure_account_key:: -- "$@")
 eval set -- "${args}"
 
 IS_HEAD_NODE=false
@@ -35,20 +35,20 @@ do
         PROJECT_ID=$2
         shift
         ;;
-    --gcp_gcs_bucket)
-        GCP_GCS_BUCKET=$2
+    --gcs_bucket)
+        GCS_BUCKET=$2
         shift
         ;;
-    --fs_gs_auth_service_account_email)
-        FS_GS_AUTH_SERVICE_ACCOUNT_EMAIL=$2
+    --gcs_service_account_client_email)
+        GCS_SERVICE_ACCOUNT_CLIENT_EMAIL=$2
         shift
         ;;
-    --fs_gs_auth_service_account_private_key_id)
-        FS_GS_AUTH_SERVICE_ACCOUNT_PRIVATE_KEY_ID=$2
+    --gcs_service_account_private_key_id)
+        GCS_SERVICE_ACCOUNT_PRIVATE_KEY_ID=$2
         shift
         ;;
-    --fs_gs_auth_service_account_private_key)
-        FS_GS_AUTH_SERVICE_ACCOUNT_PRIVATE_KEY=$2
+    --gcs_service_account_private_key)
+        GCS_SERVICE_ACCOUNT_PRIVATE_KEY=$2
         shift
         ;;
     --azure_storage_kind)
@@ -138,16 +138,16 @@ function update_config_for_aws() {
 
 function update_config_for_gcp() {
     sed -i "s#{%project_id%}#${PROJECT_ID}#g" `grep "{%project_id%}" -rl ./`
-    sed -i "s#{%gcp.gcs.bucket%}#${GCP_GCS_BUCKET}#g" `grep "{%gcp.gcs.bucket%}" -rl ./`
-    sed -i "s#{%fs.gs.auth.service.account.email%}#${FS_GS_AUTH_SERVICE_ACCOUNT_EMAIL}#g" `grep "{%fs.gs.auth.service.account.email%}" -rl ./`
-    sed -i "s#{%fs.gs.auth.service.account.private.key.id%}#${FS_GS_AUTH_SERVICE_ACCOUNT_PRIVATE_KEY_ID}#g" `grep "{%fs.gs.auth.service.account.private.key.id%}" -rl ./`
-    sed -i "s#{%fs.gs.auth.service.account.private.key%}#${FS_GS_AUTH_SERVICE_ACCOUNT_PRIVATE_KEY}#g" `grep "{%fs.gs.auth.service.account.private.key%}" -rl ./`
+    sed -i "s#{%gcs.bucket%}#${GCS_BUCKET}#g" `grep "{%gcs.bucket%}" -rl ./`
+    sed -i "s#{%fs.gs.auth.service.account.email%}#${GCS_SERVICE_ACCOUNT_CLIENT_EMAIL}#g" `grep "{%fs.gs.auth.service.account.email%}" -rl ./`
+    sed -i "s#{%fs.gs.auth.service.account.private.key.id%}#${GCS_SERVICE_ACCOUNT_PRIVATE_KEY_ID}#g" `grep "{%fs.gs.auth.service.account.private.key.id%}" -rl ./`
+    sed -i "s#{%fs.gs.auth.service.account.private.key%}#${GCS_SERVICE_ACCOUNT_PRIVATE_KEY}#g" `grep "{%fs.gs.auth.service.account.private.key%}" -rl ./`
 
     # event log dir
-    if [ -z "${GCP_GCS_BUCKET}" ]; then
+    if [ -z "${GCS_BUCKET}" ]; then
         event_log_dir="file:///tmp/spark-events"
     else
-        event_log_dir="gs://${GCP_GCS_BUCKET}/shared/spark-events"
+        event_log_dir="gs://${GCS_BUCKET}/shared/spark-events"
     fi
     sed -i "s!{%spark.eventLog.dir%}!${event_log_dir}!g" `grep "{%spark.eventLog.dir%}" -rl ./`
 }

@@ -256,13 +256,13 @@ class GCPNodeProvider(NodeProvider):
     @staticmethod
     def validate_storage_config(
             provider_config: Dict[str, Any]) -> None:
-        config_dict = {"gcp.gcs.bucket": provider_config.get("gcp_cloud_storage", {}).get("gcp.gcs.bucket"),
-                       "fs.gs.auth.service.account.email": provider_config.get("gcp_cloud_storage", {}).get(
-                           "fs.gs.auth.service.account.email"),
-                       "fs.gs.auth.service.account.private.key.id": provider_config.get("gcp_cloud_storage", {}).get(
-                           "fs.gs.auth.service.account.private.key.id"),
-                       "fs.gs.auth.service.account.private.key": provider_config.get("gcp_cloud_storage", {}).get(
-                           "fs.gs.auth.service.account.private.key")}
+        config_dict = {"gcs.bucket": provider_config.get("gcp_cloud_storage", {}).get("gcs.bucket"),
+                       "gcs.service.account.client.email": provider_config.get("gcp_cloud_storage", {}).get(
+                           "gcs.service.account.client.email"),
+                       "gcs.service.account.private.key.id": provider_config.get("gcp_cloud_storage", {}).get(
+                           "gcs.service.account.private.key.id"),
+                       "gcs.service.account.private.key": provider_config.get("gcp_cloud_storage", {}).get(
+                           "gcs.service.account.private.key")}
 
         validate_config_dict(provider_config["type"], config_dict)
 

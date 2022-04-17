@@ -1460,14 +1460,14 @@ def _create_project_ssh_key_pair(project, public_key, ssh_user, compute):
 def verify_gcs_storage(provider_config: Dict[str, Any]):
     gcs_storage = provider_config["gcp_cloud_storage"]
 
-    private_key = gcs_storage["fs.gs.auth.service.account.private.key"]
+    private_key = gcs_storage["gcs.service.account.private.key"]
     private_key = unescape_private_key(private_key)
 
     credentials_field = {
         "project_id": provider_config.get("project_id"),
-        "private_key_id": gcs_storage["fs.gs.auth.service.account.private.key.id"],
+        "private_key_id": gcs_storage["gcs.service.account.private.key.id"],
         "private_key": private_key,
-        "client_email": gcs_storage["fs.gs.auth.service.account.email"],
+        "client_email": gcs_storage["gcs.service.account.client.email"],
         "token_uri": "https://oauth2.googleapis.com/token"
     }
 
@@ -1475,7 +1475,7 @@ def verify_gcs_storage(provider_config: Dict[str, Any]):
         credentials = service_account.Credentials.from_service_account_info(
             credentials_field)
         storage = _create_storage(credentials)
-        storage.buckets().get(bucket=gcs_storage["gcp.gcs.bucket"]).execute()
+        storage.buckets().get(bucket=gcs_storage["gcs.bucket"]).execute()
     except Exception as e:
         raise StorageTestingError("Error happens when verifying GCS storage configurations. "
                                   "If you want to go without passing the verification, "

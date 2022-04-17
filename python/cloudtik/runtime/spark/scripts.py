@@ -116,25 +116,25 @@ def install(head, provider, script_args):
     default="",
     help="gcp project id")
 @click.option(
-    '--gcp_gcs_bucket',
+    '--gcs_bucket',
     required=False,
     type=str,
     default="",
     help="gcp cloud storage bucket name")
 @click.option(
-    '--fs_gs_auth_service_account_email',
+    '--gcs_service_account_client_email',
     required=False,
     type=str,
     default="",
     help="google service account email")
 @click.option(
-    '--fs_gs_auth_service_account_private_key_id',
+    '--gcs_service_account_private_key_id',
     required=False,
     type=str,
     default="",
     help="google service account private key id")
 @click.option(
-    '--fs_gs_auth_service_account_private_key',
+    '--gcs_service_account_private_key',
     required=False,
     type=str,
     default="",
@@ -164,9 +164,9 @@ def install(head, provider, script_args):
     default="",
     help="azure storage account access key")
 @click.argument("script_args", nargs=-1)
-def configure(head, provider, head_address, aws_s3_bucket, aws_s3_access_key_id, aws_s3_secret_access_key, project_id, gcp_gcs_bucket,
-              fs_gs_auth_service_account_email, fs_gs_auth_service_account_private_key_id,
-              fs_gs_auth_service_account_private_key, azure_storage_kind, azure_storage_account, azure_container,
+def configure(head, provider, head_address, aws_s3_bucket, aws_s3_access_key_id, aws_s3_secret_access_key, project_id, gcs_bucket,
+              gcs_service_account_client_email, gcs_service_account_private_key_id,
+              gcs_service_account_private_key, azure_storage_kind, azure_storage_account, azure_container,
               azure_account_key, script_args):
     shell_path = os.path.join(RUNTIME_SPARK_SCRIPTS_PATH, "configure.sh")
     cmds = [
@@ -190,15 +190,15 @@ def configure(head, provider, head_address, aws_s3_bucket, aws_s3_access_key_id,
 
     if project_id:
         cmds += ["--project_id={}".format(project_id)]
-    if gcp_gcs_bucket:
-        cmds += ["--gcp_gcs_bucket={}".format(gcp_gcs_bucket)]
+    if gcs_bucket:
+        cmds += ["--gcs_bucket={}".format(gcs_bucket)]
 
-    if fs_gs_auth_service_account_email:
-        cmds += ["--fs_gs_auth_service_account_email={}".format(fs_gs_auth_service_account_email)]
-    if fs_gs_auth_service_account_private_key_id:
-        cmds += ["--fs_gs_auth_service_account_private_key_id={}".format(fs_gs_auth_service_account_private_key_id)]
-    if fs_gs_auth_service_account_private_key:
-        cmds += ["--fs_gs_auth_service_account_private_key={}".format(quote(fs_gs_auth_service_account_private_key))]
+    if gcs_service_account_client_email:
+        cmds += ["--gcs_service_account_client_email={}".format(gcs_service_account_client_email)]
+    if gcs_service_account_private_key_id:
+        cmds += ["--gcs_service_account_private_key_id={}".format(gcs_service_account_private_key_id)]
+    if gcs_service_account_private_key:
+        cmds += ["--gcs_service_account_private_key={}".format(quote(gcs_service_account_private_key))]
 
     if azure_storage_kind:
         cmds += ["--azure_storage_kind={}".format(azure_storage_kind)]

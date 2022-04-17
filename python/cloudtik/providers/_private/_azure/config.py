@@ -7,7 +7,7 @@ import subprocess
 from pathlib import Path
 import random
 
-from typing import Any, Callable
+from typing import Any, Callable, Dict
 
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.utils import check_cidr_conflict
@@ -22,6 +22,10 @@ from azure.mgmt.msi import ManagedServiceIdentityClient
 from azure.mgmt.authorization import AuthorizationManagementClient
 from azure.mgmt.resource.resources.models import DeploymentMode
 
+from azure.storage.blob import BlobServiceClient
+from azure.storage.filedatalake import DataLakeServiceClient
+
+from cloudtik.providers._private.utils import StorageTestingError
 
 RETRIES = 30
 MSI_NAME = "cloudtik-msi-user-identity"
@@ -1218,6 +1222,62 @@ def _configure_key_pair(config):
         azure_arm_parameters["publicKey"] = public_key
 
     return config
+
+
+def verify_azure_blob_storage(provider_config: Dict[str, Any]):
+    azure_cloud_storage = provider_config["azure_cloud_storage"]
+    azure_storage_account = azure_cloud_storage["azure.storage.account"]
+    azure_account_key = azure_cloud_storage["azure.account.key"]
+    azure_container = azure_cloud_storage["azure.container"]
+
+    # Create the connection string
+    connection_string = "DefaultEndpointsProtocol=https;"
+    connection_string += f"AccountName={azure_storage_account};"
+    connection_string += f"AccountKey={azure_account_key};"
+    connection_string += "EndpointSuffix=core.windows.net"
+
+    blob_service_client = BlobServiceClient.from_connection_string(connection_string)
+
+    # Instantiate a ContainerClient
+    container_client = blob_service_client.get_container_client(azure_container)
+
+    exists = container_client.exists()
+    if not exists:
+        raise RuntimeError(f"Container {azure_container} doesn't exist in Azure Blob Storage.")
+
+
+def verify_azure_datalake_storage(provider_config: Dict[str, Any]):
+    azure_cloud_storage = provider_config["azure_cloud_storage"]
+    azure_storage_account = azure_cloud_storage["azure.storage.account"]
+    azure_account_key = azure_cloud_storage["azure.account.key"]
+    azure_container = azure_cloud_storage["azure.container"]
+
+    service_client = DataLakeServiceClient(account_url="{}://{}.dfs.core.windows.net".format(
+        "https", azure_storage_account), credential=azure_account_key)
+
+    file_system_client = service_client.get_file_system_client(file_system=azure_container)
+
+    exists = file_system_client.exists()
+    if not exists:
+        raise RuntimeError(f"Container {azure_container} doesn't exist in Azure Data Lake Storage Gen 2.")
+
+
+def verify_azure_cloud_storage(provider_config: Dict[str, Any]):
+    azure_cloud_storage = provider_config.get("azure_cloud_storage")
+    if azure_cloud_storage is None:
+        return
+
+    try:
+        storage_type = azure_cloud_storage["azure.storage.type"]
+        if storage_type == "blob":
+            verify_azure_blob_storage(provider_config)
+        else:
+            verify_azure_datalake_storage(provider_config)
+    except Exception as e:
+        raise StorageTestingError("Error happens when verifying Azure cloud storage configurations. "
+                                  "If you want to go without passing the verification, "
+                                  "set 'verify_cloud_storage' to False under provider config. "
+                                  "Error: {}.".format(str(e))) from None
 
 
 def construct_resource_client(config):

@@ -131,6 +131,8 @@ if setup_spec.type == SetupType.CLOUDTIK:
         "azure": [
             "azure-cli",
             "azure-core",
+            "azure-storage-blob",
+            "azure-storage-file-datalake",
         ],
         "gcp": [
             "google-api-python-client",

@@ -97,7 +97,7 @@ def _with_environment_variables(cmd: str,
         # since we use quote to make sure value is safe for shell, we don't need the quote for string
         escaped_val = json.dumps(val, separators=(",", ":"))
         if isinstance(val, str):
-            escaped_val.strip("\"\'")
+            escaped_val = escaped_val.strip("\"\'")
 
         s = "export {}={};".format(key, quote(escaped_val))
         as_strings.append(s)

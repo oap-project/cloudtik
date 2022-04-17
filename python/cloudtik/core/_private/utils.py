@@ -1529,5 +1529,5 @@ def escape_private_key(private_key: str):
     # Escape the real newline characters
     # Use json dumps to do the work
     escaped_private_key = json.dumps(private_key)
-    escaped_private_key.strip("\"\'")
+    escaped_private_key = escaped_private_key.strip("\"\'")
     return escaped_private_key

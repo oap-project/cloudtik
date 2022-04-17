@@ -19,7 +19,7 @@ from cloudtik.providers._private.gcp.node import (GCPNodeType, MAX_POLLS,
 
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.services import get_node_ip_address
-from cloudtik.core._private.utils import check_cidr_conflict
+from cloudtik.core._private.utils import check_cidr_conflict, unescape_private_key
 from cloudtik.providers._private.utils import StorageTestingError
 
 logger = logging.getLogger(__name__)
@@ -1459,10 +1459,14 @@ def _create_project_ssh_key_pair(project, public_key, ssh_user, compute):
 
 def verify_gcs_storage(provider_config: Dict[str, Any]):
     gcs_storage = provider_config["gcp_cloud_storage"]
+
+    private_key = gcs_storage["fs.gs.auth.service.account.private.key"]
+    private_key = unescape_private_key(private_key)
+
     credentials_field = {
         "project_id": provider_config.get("project_id"),
         "private_key_id": gcs_storage["fs.gs.auth.service.account.private.key.id"],
-        "private_key": gcs_storage["fs.gs.auth.service.account.private.key"],
+        "private_key": private_key,
         "client_email": gcs_storage["fs.gs.auth.service.account.email"],
         "token_uri": "https://oauth2.googleapis.com/token"
     }

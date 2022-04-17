@@ -146,7 +146,7 @@ cloudtik exec your-cluster-config.yaml
 ```
 #### Submit a job to the cluster to run
 ```
-cloudtik exec your-cluster-config.yaml your-job-file.(py|sh|scala)
+cloudtik submit your-cluster-config.yaml your-job-file.(py|sh|scala)
 ```
 #### Copy local files to cluster head (or to all nodes)
 ```

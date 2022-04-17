@@ -19,7 +19,6 @@ provider:
         azure.container: your_container
         azure.account.key: your_account_key
 
-
 # How CloudTik will authenticate with newly launched nodes.
 auth:
     ssh_user: ubuntu

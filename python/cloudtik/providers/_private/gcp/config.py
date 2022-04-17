@@ -1476,4 +1476,4 @@ def verify_gcs_storage(provider_config: Dict[str, Any]):
         raise StorageTestingError("Error happens when verifying GCS storage configurations. "
                                   "If you want to go without passing the verification, "
                                   "set 'verify_cloud_storage' to False under provider config. "
-                                  "Error: {}.".format(e.message)) from None
+                                  "Error: {}.".format(str(e))) from None

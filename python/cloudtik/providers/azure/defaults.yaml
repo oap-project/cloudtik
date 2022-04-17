@@ -83,7 +83,7 @@ docker:
         # get rid of annoying Ubuntu message
         - touch ~/.sudo_as_admin_successful
         - which docker || (curl -fsSL https://get.docker.com -o /tmp/get-docker.sh &&
-            sudo bash /tmp/get-docker.sh && sudo usermod -aG docker $USER && sudo systemctl restart docker -f)
+            sudo bash /tmp/get-docker.sh > /dev/null && sudo usermod -aG docker $USER && sudo systemctl restart docker -f)
 
 # List of shell commands to run to set up nodes.
 setup_commands:

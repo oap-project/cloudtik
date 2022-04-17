@@ -19,7 +19,7 @@
 <configuration>
     <property>
         <name>fs.defaultFS</name>
-        <value>{%azure.storage.kind%}://{%azure.container%}@{%azure.storage.account%}.{%storage.endpoint%}.core.windows.net</value>
+        <value>{%azure.storage.scheme%}://{%azure.container%}@{%azure.storage.account%}.{%storage.endpoint%}.core.windows.net</value>
     </property>
     <property>
         <name>fs.azure.account.key.{%azure.storage.account%}.{%storage.endpoint%}.core.windows.net</name>

@@ -1458,7 +1458,9 @@ def _create_project_ssh_key_pair(project, public_key, ssh_user, compute):
 
 
 def verify_gcs_storage(provider_config: Dict[str, Any]):
-    gcs_storage = provider_config["gcp_cloud_storage"]
+    gcs_storage = provider_config.get("gcp_cloud_storage")
+    if gcs_storage is None:
+        return
 
     private_key = gcs_storage["gcs.service.account.private.key"]
     private_key = unescape_private_key(private_key)

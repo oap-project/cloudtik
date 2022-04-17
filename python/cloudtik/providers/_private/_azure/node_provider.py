@@ -13,12 +13,13 @@ from azure.mgmt.resource import ResourceManagementClient
 from azure.mgmt.resource.resources.models import DeploymentMode
 from azure.mgmt.msi import ManagedServiceIdentityClient
 
+from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_NAME
 
 from cloudtik.providers._private._azure.azure_identity_credential_adapter import AzureIdentityCredentialAdapter
 from cloudtik.providers._private._azure.config import (bootstrap_azure, bootstrap_azure_from_workspace,
-                                                       MSI_NAME, get_azure_sdk_function)
+                                                       MSI_NAME, get_azure_sdk_function, verify_azure_cloud_storage)
 
 from cloudtik.providers._private._azure.utils import get_azure_config
 from cloudtik.providers._private.utils import validate_config_dict
@@ -405,6 +406,12 @@ class AzureNodeProvider(NodeProvider):
             "azure.account.key": provider_config.get("azure_cloud_storage", {}).get("azure.account.key")}
 
         validate_config_dict(provider_config["type"], config_dict)
+
+        verify_cloud_storage = provider_config.get("verify_cloud_storage", True)
+        if verify_cloud_storage:
+            cli_logger.verbose("Verifying Azure cloud storage configurations...")
+            verify_azure_cloud_storage(provider_config)
+            cli_logger.verbose("Successfully verified Azure cloud storage configurations.")
 
     def _get_managed_identity_client_id(self, cluster_config):
         try:

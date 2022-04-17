@@ -1902,7 +1902,10 @@ def _security_groups_in_network_config(config: Dict[str, Any]) \
 
 
 def verify_s3_storage(provider_config: Dict[str, Any]):
-    s3_storage = provider_config["aws_s3_storage"]
+    s3_storage = provider_config.get("aws_s3_storage")
+    if s3_storage is None:
+        return
+
     s3 = boto3.client(
         's3',
         aws_access_key_id=s3_storage["s3.access.key.id"],

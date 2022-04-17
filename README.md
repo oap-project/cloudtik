@@ -105,10 +105,10 @@ provider:
     type: aws
     region: us-west-2
     # S3 configurations for storage
-    aws_s3a_storage:
+    aws_s3_storage:
         s3.bucket: your_s3_bucket
-        fs.s3a.access.key: your_s3_access_key
-        fs.s3a.secret.key: your_s3_secret_key
+        s3.access.key.id: your_s3_access_key_id
+        s3.secret.access.key: your_s3_secret_access_key
 
 auth:
     ssh_user: ubuntu

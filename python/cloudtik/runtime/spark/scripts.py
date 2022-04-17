@@ -92,23 +92,23 @@ def install(head, provider, script_args):
     default="",
     help="the head ip ")
 @click.option(
-    '--aws_s3a_bucket',
+    '--aws_s3_bucket',
     required=False,
     type=str,
     default="",
-    help="the bucket name of s3a")
+    help="the bucket name of s3")
 @click.option(
-    '--s3a_access_key',
+    '--aws_s3_access_key_id',
     required=False,
     type=str,
     default="",
-    help="the access key of s3a")
+    help="the access key id of s3")
 @click.option(
-    '--s3a_secret_key',
+    '--aws_s3_secret_access_key',
     required=False,
     type=str,
     default="",
-    help="the secret key of s3a")
+    help="the secret access key of s3")
 @click.option(
     '--project_id',
     required=False,
@@ -164,7 +164,7 @@ def install(head, provider, script_args):
     default="",
     help="azure storage account access key")
 @click.argument("script_args", nargs=-1)
-def configure(head, provider, head_address, aws_s3a_bucket, s3a_access_key, s3a_secret_key, project_id, gcp_gcs_bucket,
+def configure(head, provider, head_address, aws_s3_bucket, aws_s3_access_key_id, aws_s3_secret_access_key, project_id, gcp_gcs_bucket,
               fs_gs_auth_service_account_email, fs_gs_auth_service_account_private_key_id,
               fs_gs_auth_service_account_private_key, azure_storage_kind, azure_storage_account, azure_container,
               azure_account_key, script_args):
@@ -181,12 +181,12 @@ def configure(head, provider, head_address, aws_s3a_bucket, s3a_access_key, s3a_
     if head_address:
         cmds += ["--head_address={}".format(head_address)]
 
-    if aws_s3a_bucket:
-        cmds += ["--aws_s3a_bucket={}".format(aws_s3a_bucket)]
-    if s3a_access_key:
-        cmds += ["--s3a_access_key={}".format(s3a_access_key)]
-    if s3a_secret_key:
-        cmds += ["--s3a_secret_key={}".format(s3a_secret_key)]
+    if aws_s3_bucket:
+        cmds += ["--aws_s3_bucket={}".format(aws_s3_bucket)]
+    if aws_s3_access_key_id:
+        cmds += ["--aws_s3_access_key_id={}".format(aws_s3_access_key_id)]
+    if aws_s3_secret_access_key:
+        cmds += ["--aws_s3_secret_access_key={}".format(aws_s3_secret_access_key)]
 
     if project_id:
         cmds += ["--project_id={}".format(project_id)]

@@ -80,21 +80,21 @@ function install_jupyter_for_spark() {
         # Install Jupyter and spylon-kernel for Spark
         if ! type jupyter >/dev/null 2>&1; then
           echo "Install JupyterLab..."
-          pip install jupyterlab
+          pip install jupyterlab > /dev/null
         fi
 
         export SPYLON_KERNEL=$USER_HOME/.local/share/jupyter/kernels/spylon-kernel
 
         if  [ ! -d "${SPYLON_KERNEL}" ]; then
-            pip install spylon-kernel;
+            pip install spylon-kernel > /dev/null;
             python -m spylon_kernel install --user;
         fi
     fi
 }
 
 function install_tools() {
-    which jq || sudo apt-get update -y; sudo apt-get install jq -y
-    which vim || sudo apt-get update -y; sudo apt-get install vim -y
+    which jq || sudo apt-get update -y > /dev/null; sudo apt-get install jq -y > /dev/null
+    which vim || sudo apt-get update -y > /dev/null; sudo apt-get install vim -y > /dev/null
 }
 
 function install_yarn_with_spark_jars() {
@@ -155,14 +155,14 @@ function install_spark_with_cloud_jars() {
 
 function install_ganglia_server() {
     # Simply do the install, if they are already installed, it doesn't take time
-    sudo apt-get update -y
-    sudo apt-get install -y apache2 php libapache2-mod-php php-common php-mbstring php-gmp php-curl php-intl php-xmlrpc php-zip php-gd php-mysql php-xml
-    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ganglia-monitor rrdtool gmetad ganglia-webfrontend
+    sudo apt-get update -y > /dev/null
+    sudo apt-get install -y apache2 php libapache2-mod-php php-common php-mbstring php-gmp php-curl php-intl php-xmlrpc php-zip php-gd php-mysql php-xml > /dev/null
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ganglia-monitor rrdtool gmetad ganglia-webfrontend > /dev/null
 }
 
 function install_ganglia_client() {
-    sudo apt-get update -y
-    sudo apt-get install -y ganglia-monitor
+    sudo apt-get update -y > /dev/null
+    sudo apt-get install -y ganglia-monitor > /dev/null
 }
 
 function install_ganglia() {

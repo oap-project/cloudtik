@@ -841,8 +841,13 @@ def get_or_create_head_node(config: Dict[str, Any],
 
     if not is_use_internal_ip(config):
         # start proxy and bind to localhost
-        _start_proxy(printable_config_file, config,
-                     True, "localhost")
+        cli_logger.newline()
+        with cli_logger.group("Starting SOCKS5 proxy..."):
+            _start_proxy(printable_config_file, config,
+                         True, "localhost")
+
+    cli_logger.newline()
+    cli_logger.print("Successfully started cluster: {}.", config["cluster_name"])
 
     show_useful_commands(printable_config_file,
                          config,
@@ -1671,61 +1676,71 @@ def show_useful_commands(printable_config_file: str,
         cluster_name = config["cluster_name"]
 
     cli_logger.newline()
-    private_key_file = config["auth"].get("ssh_private_key", "")
-    cli_logger.print("Cluster private key file: {}", private_key_file)
+    with cli_logger.group("Key information:"):
+        private_key_file = config["auth"].get("ssh_private_key", "")
+        cli_logger.print("Cluster private key file: {}", private_key_file)
+        cli_logger.print("Please keep the cluster private key file safe.")
 
     cli_logger.newline()
-    with cli_logger.group("Useful commands"):
+    with cli_logger.group("Useful commands:"):
         printable_config_file = os.path.abspath(printable_config_file)
 
-        cli_logger.print("Check cluster status with:")
-        cli_logger.print(
-            cf.bold("  cloudtik status {}{}"), printable_config_file, modifiers)
+        with cli_logger.group("Check cluster status with:"):
+            cli_logger.print(
+                cf.bold("cloudtik status {}{}"), printable_config_file, modifiers)
 
-        cli_logger.print("Execute command on cluster with:")
-        cli_logger.print(
-            cf.bold("  cloudtik exec {}{} [command]"), printable_config_file, modifiers)
+        with cli_logger.group("Execute command on cluster with:"):
+            cli_logger.print(
+                cf.bold("cloudtik exec {}{} [command]"), printable_config_file, modifiers)
 
-        cli_logger.print("Connect to a terminal on the cluster head:")
-        cli_logger.print(
-            cf.bold("  cloudtik attach {}{}"), printable_config_file, modifiers)
+        with cli_logger.group("Connect to a terminal on the cluster head:"):
+            cli_logger.print(
+                cf.bold("cloudtik attach {}{}"), printable_config_file, modifiers)
 
-        cli_logger.print("Monitor cluster with:")
-        cli_logger.print(
-            cf.bold("  cloudtik monitor {}{}"), printable_config_file, modifiers)
+        with cli_logger.group("Upload files or folders to cluster:"):
+            cli_logger.print(
+                cf.bold("cloudtik rsync-up {}{} [source] [target]"), printable_config_file, modifiers)
 
-        remote_shell_str = updater.cmd_executor.remote_shell_command_str()
-        cli_logger.print("Get a remote shell to the cluster manually:")
-        cli_logger.print("  {}", remote_shell_str.strip())
+        with cli_logger.group("Download files or folders from cluster:"):
+            cli_logger.print(
+                cf.bold("cloudtik rsync-down {}{} [source] [target]"), printable_config_file, modifiers)
+
+        with cli_logger.group("Submit job to cluster to run with:"):
+            cli_logger.print(
+                cf.bold("cloudtik submit {}{} [job-file.(py|sh|scala)] "), printable_config_file, modifiers)
+
+        with cli_logger.group("Monitor cluster with:"):
+            cli_logger.print(
+                cf.bold("cloudtik monitor {}{}"), printable_config_file, modifiers)
 
     cli_logger.newline()
-    with cli_logger.group("Useful links"):
+    with cli_logger.group("Useful addresses:"):
         proxy_info_file = get_proxy_info_file(cluster_name)
         pid, address, port = get_safe_proxy_process_info(proxy_info_file)
         if pid is not None:
             bind_address_show = get_proxy_bind_address_to_show(address)
-            cli_logger.print("The SOCKS5 proxy to the cluster:")
-            cli_logger.print(
-                cf.bold("  To access the cluster Web UI from local browsers, configure {}:{} as the SOCKS5 proxy."),
-                bind_address_show, port)
+            with cli_logger.group("The SOCKS5 proxy to access the cluster Web UI from local browsers:"):
+                cli_logger.print(
+                    cf.bold("{}:{}"),
+                    bind_address_show, port)
 
         head_node_cluster_ip = get_node_cluster_ip(config, provider, head_node)
 
-        cli_logger.print("Yarn Web UI:")
-        cli_logger.print(
-            cf.bold("  http://{}:8088"), head_node_cluster_ip)
+        with cli_logger.group("Yarn Web UI:"):
+            cli_logger.print(
+                cf.bold("http://{}:8088"), head_node_cluster_ip)
 
-        cli_logger.print("Jupyter Web UI:")
-        cli_logger.print(
-            cf.bold("  http://{}:8888, default password is \'cloudtik\'"), head_node_cluster_ip)
+        with cli_logger.group("Jupyter Web UI:"):
+            cli_logger.print(
+                cf.bold("http://{}:8888, default password is \'cloudtik\'"), head_node_cluster_ip)
 
-        cli_logger.print("Spark History Server Web UI:")
-        cli_logger.print(
-            cf.bold("  http://{}:18080"), head_node_cluster_ip)
+        with cli_logger.group("Spark History Server Web UI:"):
+            cli_logger.print(
+                cf.bold("http://{}:18080"), head_node_cluster_ip)
 
-        cli_logger.print("Ganglia Web UI:")
-        cli_logger.print(
-            cf.bold("  http://{}/ganglia"), head_node_cluster_ip)
+        with cli_logger.group("Ganglia Web UI:"):
+            cli_logger.print(
+                cf.bold("http://{}/ganglia"), head_node_cluster_ip)
 
 
 def show_cluster_status(config_file: str,

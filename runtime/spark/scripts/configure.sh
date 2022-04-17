@@ -1,6 +1,6 @@
 #!/bin/bash
 
-args=$(getopt -a -o h::p: -l head::,head_address::,provider:,aws_s3_bucket::,aws_s3_access_key_id::,aws_s3_secret_access_key::,project_id::,gcs_bucket::,gcs_service_account_client_email::,gcs_service_account_private_key_id::,gcs_service_account_private_key::,azure_storage_kind::,azure_storage_account::,azure_container::,azure_account_key:: -- "$@")
+args=$(getopt -a -o h::p: -l head::,head_address::,provider:,aws_s3_bucket::,aws_s3_access_key_id::,aws_s3_secret_access_key::,project_id::,gcs_bucket::,gcs_service_account_client_email::,gcs_service_account_private_key_id::,gcs_service_account_private_key::,azure_storage_type::,azure_storage_account::,azure_container::,azure_account_key:: -- "$@")
 eval set -- "${args}"
 
 IS_HEAD_NODE=false
@@ -51,8 +51,8 @@ do
         GCS_SERVICE_ACCOUNT_PRIVATE_KEY=$2
         shift
         ;;
-    --azure_storage_kind)
-        AZURE_STORAGE_KIND=$2
+    --azure_storage_type)
+        AZURE_STORAGE_TYPE=$2
         shift
         ;;
     --azure_storage_account)
@@ -156,25 +156,27 @@ function update_config_for_azure() {
     sed -i "s#{%azure.storage.account%}#${AZURE_STORAGE_ACCOUNT}#g" "$(grep "{%azure.storage.account%}" -rl ./)"
     sed -i "s#{%azure.container%}#${AZURE_CONTAINER}#g" "$(grep "{%azure.container%}" -rl ./)"
     sed -i "s#{%azure.account.key%}#${AZURE_ACCOUNT_KEY}#g" "$(grep "{%azure.account.key%}" -rl ./)"
-    if [ $AZURE_STORAGE_KIND == "wasbs" ];then
+    if [ $AZURE_STORAGE_TYPE == "blob" ];then
+        scheme="wasbs"
         endpoint="blob"
-        sed -i "s#{%azure.storage.kind%}#wasbs#g" "$(grep "{%azure.storage.kind%}" -rl ./)"
-        sed -i "s#{%storage.endpoint%}#blob#g" "$(grep "{%storage.endpoint%}" -rl ./)"
-    elif [ $AZURE_STORAGE_KIND == "abfs" ];then
+        sed -i "s#{%azure.storage.scheme%}#${scheme}#g" "$(grep "{%azure.storage.scheme%}" -rl ./)"
+        sed -i "s#{%storage.endpoint%}#${endpoint}#g" "$(grep "{%storage.endpoint%}" -rl ./)"
+    elif [ $AZURE_STORAGE_TYPE == "datalake" ];then
+        scheme="abfs"
         endpoint="dfs"
-        sed -i "s#{%azure.storage.kind%}#abfs#g" "$(grep "{%azure.storage.kind%}" -rl ./)"
-        sed -i "s#{%storage.endpoint%}#dfs#g" "$(grep "{%storage.endpoint%}" -rl ./)"
+        sed -i "s#{%azure.storage.scheme%}#${scheme}#g" "$(grep "{%azure.storage.scheme%}" -rl ./)"
+        sed -i "s#{%storage.endpoint%}#${endpoint}#g" "$(grep "{%storage.endpoint%}" -rl ./)"
         sed -i "s#{%auth.type%}#SharedKey#g" "$(grep "{%auth.type%}" -rl ./)"
     else
         endpoint=""
-       echo "Azure storage kind must be wasbs(Azure Blob storage) or abfs(Azure Data Lake Gen 2)"
+        echo "Error: Azure storage kind must be blob (Azure Blob Storage) or datalake (Azure Data Lake Storage Gen 2)"
     fi
 
     # event log dir
     if [ -z "${AZURE_CONTAINER}" ] || [ -z "$endpoint" ]; then
         event_log_dir="file:///tmp/spark-events"
     else
-        event_log_dir="$AZURE_STORAGE_KIND://${AZURE_CONTAINER}@${AZURE_STORAGE_ACCOUNT}.${endpoint}.core.windows.net/shared/spark-events"
+        event_log_dir="${scheme}://${AZURE_CONTAINER}@${AZURE_STORAGE_ACCOUNT}.${endpoint}.core.windows.net/shared/spark-events"
     fi
     sed -i "s!{%spark.eventLog.dir%}!${event_log_dir}!g" `grep "{%spark.eventLog.dir%}" -rl ./`
 }

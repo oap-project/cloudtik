@@ -203,12 +203,12 @@
                 },
                 "azure_cloud_storage": {
                     "type": "object",
-                    "description": "use azure cloud storage",
+                    "description": "Azure cloud storage configurations",
                     "additionalProperties": false,
                     "properties": {
-                      "azure.storage.kind": {
+                      "azure.storage.type": {
                         "type": "string",
-                        "description": "azure cloud storage kind: wasbs (Azure Blob Storage) or abfs (Azure Data Lake Storage Gen 2)."
+                        "description": "Azure cloud storage type: blob (Azure Blob Storage) or datalake (Azure Data Lake Storage Gen 2)."
                       },
                       "azure.storage.account": {
                         "type": "string",

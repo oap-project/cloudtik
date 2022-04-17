@@ -13,12 +13,11 @@ provider:
     location: westus
     subscription_id: your_subscription_id
     azure_cloud_storage:
-        # Choose cloud storage kind: wasbs (Azure Blob Storage) or abfs (Azure Data Lake Storage Gen 2).
-        azure.storage.kind: abfs
+        # Choose cloud storage type: blob (Azure Blob Storage) or datalake (Azure Data Lake Storage Gen 2).
+        azure.storage.type: datalake
         azure.storage.account: your_storage_account
         azure.container: your_container
         azure.account.key: your_account_key
-
 
 # How CloudTik will authenticate with newly launched nodes.
 auth:

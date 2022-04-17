@@ -399,7 +399,7 @@ class AzureNodeProvider(NodeProvider):
     def validate_storage_config(
             provider_config: Dict[str, Any]) -> None:
         config_dict = {
-            "azure.storage.kind": provider_config.get("azure_cloud_storage", {}).get("azure.storage.kind"),
+            "azure.storage.type": provider_config.get("azure_cloud_storage", {}).get("azure.storage.type"),
             "azure.storage.account": provider_config.get("azure_cloud_storage", {}).get("azure.storage.account"),
             "azure.container": provider_config.get("azure_cloud_storage", {}).get("azure.container"),
             "azure.account.key": provider_config.get("azure_cloud_storage", {}).get("azure.account.key")}

@@ -1,9 +1,9 @@
 def get_azure_config(provider_config):
     config_dict = {}
 
-    azure_storage_kind = provider_config.get("azure_cloud_storage", {}).get("azure.storage.kind")
-    if azure_storage_kind:
-        config_dict["AZURE_STORAGE_KIND"] = azure_storage_kind
+    azure_storage_type = provider_config.get("azure_cloud_storage", {}).get("azure.storage.type")
+    if azure_storage_type:
+        config_dict["AZURE_STORAGE_TYPE"] = azure_storage_type
 
     azure_storage_account = provider_config.get("azure_cloud_storage", {}).get("azure.storage.account")
     if azure_storage_account:

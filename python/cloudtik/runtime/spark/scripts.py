@@ -140,7 +140,7 @@ def install(head, provider, script_args):
     default="",
     help="google service account private key")
 @click.option(
-    '--azure_storage_kind',
+    '--azure_storage_type',
     required=False,
     type=str,
     default="",
@@ -166,7 +166,7 @@ def install(head, provider, script_args):
 @click.argument("script_args", nargs=-1)
 def configure(head, provider, head_address, aws_s3_bucket, aws_s3_access_key_id, aws_s3_secret_access_key, project_id, gcs_bucket,
               gcs_service_account_client_email, gcs_service_account_private_key_id,
-              gcs_service_account_private_key, azure_storage_kind, azure_storage_account, azure_container,
+              gcs_service_account_private_key, azure_storage_type, azure_storage_account, azure_container,
               azure_account_key, script_args):
     shell_path = os.path.join(RUNTIME_SPARK_SCRIPTS_PATH, "configure.sh")
     cmds = [
@@ -200,8 +200,8 @@ def configure(head, provider, head_address, aws_s3_bucket, aws_s3_access_key_id,
     if gcs_service_account_private_key:
         cmds += ["--gcs_service_account_private_key={}".format(quote(gcs_service_account_private_key))]
 
-    if azure_storage_kind:
-        cmds += ["--azure_storage_kind={}".format(azure_storage_kind)]
+    if azure_storage_type:
+        cmds += ["--azure_storage_type={}".format(azure_storage_type)]
     if azure_storage_account:
         cmds += ["--azure_storage_account={}".format(azure_storage_account)]
     if azure_container:

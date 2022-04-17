@@ -18,7 +18,7 @@ from cloudtik.core._private.cli_logger import cli_logger, cf
 
 from cloudtik.providers._private.aws.config import bootstrap_aws, bootstrap_aws_from_workspace, verify_s3_storage
 from cloudtik.providers._private.aws.utils import boto_exception_handler, \
-    resource_cache, client_cache, get_aws_s3a_config, get_boto_error_code
+    resource_cache, client_cache, get_aws_s3_config, get_boto_error_code
 from cloudtik.providers._private.utils import validate_config_dict
 
 logger = logging.getLogger(__name__)
@@ -123,7 +123,7 @@ class AWSNodeProvider(NodeProvider):
         self.cached_nodes = {}
 
     def with_provider_environment_variables(self):
-        return get_aws_s3a_config(self.provider_config)
+        return get_aws_s3_config(self.provider_config)
 
     def non_terminated_nodes(self, tag_filters):
         # Note that these filters are acceptable because they are set on
@@ -681,9 +681,9 @@ class AWSNodeProvider(NodeProvider):
     def validate_storage_config(
             provider_config: Dict[str, Any]) -> None:
         config_dict = {
-            "s3.bucket": provider_config.get("aws_s3a_storage", {}).get("s3.bucket"),
-            "fs.s3a.access.key": provider_config.get("aws_s3a_storage", {}).get("fs.s3a.access.key"),
-            "fs.s3a.secret.key": provider_config.get("aws_s3a_storage", {}).get("fs.s3a.secret.key")
+            "s3.bucket": provider_config.get("aws_s3_storage", {}).get("s3.bucket"),
+            "s3.access.key.id": provider_config.get("aws_s3_storage", {}).get("s3.access.key.id"),
+            "s3.secret.access.key": provider_config.get("aws_s3_storage", {}).get("s3.secret.access.key")
         }
 
         validate_config_dict(provider_config["type"], config_dict)

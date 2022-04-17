@@ -224,22 +224,22 @@
                       }
                     }
                 },
-                "aws_s3a_storage": {
+                "aws_s3_storage": {
                     "type": "object",
-                    "description": "use  s3a",
+                    "description": "AWS S3 storage configurations",
                     "additionalProperties": false,
                     "properties": {
                       "s3.bucket": {
                         "type": "string",
                         "description": "the s3 bucket name"
                       },
-                      "fs.s3a.access.key": {
+                      "s3.access.key.id": {
                         "type": "string",
-                        "description": "access key of s3a"
+                        "description": "access key id of s3"
                       },
-                      "fs.s3a.secret.key": {
+                      "s3.secret.access.key": {
                         "type": "string",
-                        "description": "secret key of s3a"
+                        "description": "secret access key of s3"
                       }
                     }
                 },

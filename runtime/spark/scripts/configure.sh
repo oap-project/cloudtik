@@ -1,6 +1,6 @@
 #!/bin/bash
 
-args=$(getopt -a -o h::p: -l head::,head_address::,provider:,aws_s3a_bucket::,s3a_access_key::,s3a_secret_key::,project_id::,gcp_gcs_bucket::,fs_gs_auth_service_account_email::,fs_gs_auth_service_account_private_key_id::,fs_gs_auth_service_account_private_key::,azure_storage_kind::,azure_storage_account::,azure_container::,azure_account_key:: -- "$@")
+args=$(getopt -a -o h::p: -l head::,head_address::,provider:,aws_s3_bucket::,aws_s3_access_key_id::,aws_s3_secret_access_key::,project_id::,gcp_gcs_bucket::,fs_gs_auth_service_account_email::,fs_gs_auth_service_account_private_key_id::,fs_gs_auth_service_account_private_key::,azure_storage_kind::,azure_storage_account::,azure_container::,azure_account_key:: -- "$@")
 eval set -- "${args}"
 
 IS_HEAD_NODE=false
@@ -19,16 +19,16 @@ do
         provider=$2
         shift
         ;;
-    --aws_s3a_bucket)
-        AWS_S3A_BUCKET=$2
+    --aws_s3_bucket)
+        AWS_S3_BUCKET=$2
         shift
         ;;
-    --s3a_access_key)
-        FS_S3A_ACCESS_KEY=$2
+    --aws_s3_access_key_id)
+        AWS_S3_ACCESS_KEY_ID=$2
         shift
         ;;
-    --s3a_secret_key)
-        FS_S3A_SECRET_KEY=$2
+    --aws_s3_secret_access_key)
+        AWS_S3_SECRET_ACCESS_KEY=$2
         shift
         ;;
     --project_id)
@@ -123,15 +123,15 @@ function set_resources_for_spark() {
 }
 
 function update_config_for_aws() {
-    sed -i "s#{%aws.s3a.bucket%}#${AWS_S3A_BUCKET}#g" `grep "{%aws.s3a.bucket%}" -rl ./`
-    sed -i "s#{%fs.s3a.access.key%}#${FS_S3A_ACCESS_KEY}#g" `grep "{%fs.s3a.access.key%}" -rl ./`
-    sed -i "s#{%fs.s3a.secret.key%}#${FS_S3A_SECRET_KEY}#g" `grep "{%fs.s3a.secret.key%}" -rl ./`
+    sed -i "s#{%aws.s3a.bucket%}#${AWS_S3_BUCKET}#g" `grep "{%aws.s3a.bucket%}" -rl ./`
+    sed -i "s#{%fs.s3a.access.key%}#${AWS_S3_ACCESS_KEY_ID}#g" `grep "{%fs.s3a.access.key%}" -rl ./`
+    sed -i "s#{%fs.s3a.secret.key%}#${AWS_S3_SECRET_ACCESS_KEY}#g" `grep "{%fs.s3a.secret.key%}" -rl ./`
 
     # event log dir
-    if [ -z "${AWS_S3A_BUCKET}" ]; then
+    if [ -z "${AWS_S3_BUCKET}" ]; then
         event_log_dir="file:///tmp/spark-events"
     else
-        event_log_dir="s3a://${AWS_S3A_BUCKET}/shared/spark-events"
+        event_log_dir="s3a://${AWS_S3_BUCKET}/shared/spark-events"
     fi
     sed -i "s!{%spark.eventLog.dir%}!${event_log_dir}!g" `grep "{%spark.eventLog.dir%}" -rl ./`
 }

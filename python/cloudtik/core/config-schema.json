@@ -183,19 +183,19 @@
                     "description": "use google cloud storage",
                     "additionalProperties": false,
                     "properties": {
-                        "gcp.gcs.bucket": {
+                        "gcs.bucket": {
                             "type": "string",
                             "description": "gcp cloud storage bucket name"
                         },
-                        "fs.gs.auth.service.account.email": {
+                        "gcs.service.account.client.email": {
                             "type": "string",
-                            "description": "gcp service account email"
+                            "description": "gcp service account client email"
                         },
-                        "fs.gs.auth.service.account.private.key.id": {
+                        "gcs.service.account.private.key.id": {
                             "type": "string",
                             "description": "gcp service account private key id"
                         },
-                        "fs.gs.auth.service.account.private.key": {
+                        "gcs.service.account.private.key": {
                             "type": "string",
                             "description": "gcp service account private key"
                         }

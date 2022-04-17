@@ -19,10 +19,10 @@ provider:
     project_id: your_project_id
     # GCS configurations for storage
     gcp_cloud_storage:
-        gcp.gcs.bucket: your_gcs_bucket
-        fs.gs.auth.service.account.email: your_service_account_email
-        fs.gs.auth.service.account.private.key.id: your_service_account_private_key_id
-        fs.gs.auth.service.account.private.key: your_service_account_private_key
+        gcs.bucket: your_gcs_bucket
+        gcs.service.account.client.email: your_service_account_client_email
+        gcs.service.account.private.key.id: your_service_account_private_key_id
+        gcs.service.account.private.key: your_service_account_private_key
 
 # How CloudTik will authenticate with newly launched nodes.
 auth:

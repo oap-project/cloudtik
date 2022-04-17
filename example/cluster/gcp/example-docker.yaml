@@ -31,6 +31,6 @@ auth:
     # ssh_proxy_command: "ncat --proxy-type socks5 --proxy your_proxy_host:your_proxy_port %h %p"
 
 available_node_types:
-    worker.default:
+    worker-default:
         # The minimum number of worker nodes to launch.
         min_workers: 3

@@ -1504,3 +1504,30 @@ def kill_process_tree(pid, include_parent=True):
 def with_runtime_environment_variables(runtime_config, provider):
     runtime_envs = with_spark_runtime_environment_variables(runtime_config, provider)
     return runtime_envs
+
+
+def unescape_private_key(private_key: str):
+    if private_key is None:
+        return private_key
+
+    if not private_key.startswith("-----BEGIN PRIVATE KEY-----\\n"):
+        return private_key
+
+    # Unescape "/n" to the real newline characters
+    # use json load to do the work
+    unescaped_private_key = json.loads("\"" + private_key + "\"")
+    return unescaped_private_key
+
+
+def escape_private_key(private_key: str):
+    if private_key is None:
+        return private_key
+
+    if not private_key.startswith("-----BEGIN PRIVATE KEY-----\n"):
+        return private_key
+
+    # Escape the real newline characters
+    # Use json dumps to do the work
+    escaped_private_key = json.dumps(private_key)
+    escaped_private_key.strip("\"\'")
+    return escaped_private_key

@@ -6,7 +6,7 @@ provider:
     type: azure
     # https://azure.microsoft.com/en-us/global-infrastructure/locations
     location: westus2
-    resource_group: cloudtik-cluster
+    resource_group: cloudtik-resource-group
     # set subscription id otherwise the default from az cli will be used
     # subscription_id: 00000000-0000-0000-0000-000000000000
 

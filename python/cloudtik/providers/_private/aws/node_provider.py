@@ -16,9 +16,9 @@ from cloudtik.core._private.constants import BOTO_MAX_RETRIES, \
 from cloudtik.core._private.log_timer import LogTimer
 from cloudtik.core._private.cli_logger import cli_logger, cf
 
-from cloudtik.providers._private.aws.config import bootstrap_aws, bootstrap_aws_from_workspace
+from cloudtik.providers._private.aws.config import bootstrap_aws, bootstrap_aws_from_workspace, verify_s3_storage
 from cloudtik.providers._private.aws.utils import boto_exception_handler, \
-    resource_cache, client_cache, get_aws_s3a_config, get_boto_error_code, verify_s3_storage
+    resource_cache, client_cache, get_aws_s3a_config, get_boto_error_code
 from cloudtik.providers._private.utils import validate_config_dict
 
 logger = logging.getLogger(__name__)

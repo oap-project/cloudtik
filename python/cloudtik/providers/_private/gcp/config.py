@@ -708,12 +708,6 @@ def check_workspace_firewalls(config, compute):
     workspace_name = config["workspace_name"]
     firewall_names = ["cloudtik-{}-default-allow-internal-firewall".format(workspace_name),
                       "cloudtik-{}-default-allow-ssh-firewall".format(workspace_name)]
-    # custom_firewalls_num = len(config["provider"] \
-    #     .get("firewalls", {}) \
-    #     .get("firewall_rules", []))
-
-    # for i in range(0, custom_firewalls_num):
-    #     firewall_names.append("cloudtik-{}-custom-{}-firewall".format(workspace_name, i))
 
     for firewall_name in firewall_names:
         if not check_firewall_exsit(config, compute, firewall_name):

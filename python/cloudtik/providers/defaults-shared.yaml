@@ -63,16 +63,16 @@ bootstrap_commands: []
 # Command to start on the head node. You don't need to change this.
 head_start_commands:
     - cloudtik node-stop
-    - ulimit -n 65536; cloudtik node-start --head --port=6789 --cluster-scaling-config=~/cloudtik_bootstrap_config.yaml
     - cloudtik-spark stop-head
     - cloudtik-spark start-head
+    - ulimit -n 65536; cloudtik node-start --head --port=6789 --cluster-scaling-config=~/cloudtik_bootstrap_config.yaml
 
 # Command to start on worker nodes. You don't need to change this.
 worker_start_commands:
     - cloudtik node-stop
-    - ulimit -n 65536; cloudtik node-start --address=$CLOUDTIK_HEAD_IP:6789
     - cloudtik-spark stop-worker
     - cloudtik-spark start-worker
+    - ulimit -n 65536; cloudtik node-start --address=$CLOUDTIK_HEAD_IP:6789
 
 # Command to start on the head node. You don't need to change this.
 head_stop_commands:

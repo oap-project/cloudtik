@@ -113,7 +113,7 @@
                 "description": "The name of you network security group."
             }
         },
-        "userAssignedIdentitiesName": {
+        "userAssignedIdentity": {
             "type": "string",
             "defaultValue": "cloudtik-msi-user-identity",
             "metadata": {
@@ -289,7 +289,7 @@
             "identity": {
                 "type": "UserAssigned",
                 "userAssignedIdentities": {
-                    "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('userAssignedIdentitiesName'))]": {
+                    "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('userAssignedIdentity'))]": {
                     }
                 }
             }

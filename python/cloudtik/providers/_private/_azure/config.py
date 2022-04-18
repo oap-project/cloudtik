@@ -158,7 +158,7 @@ def delete_workspace_azure(config):
                     "Deleting user_assigned_identities",
                     _numbered=("[]", current_step, total_steps)):
                 current_step += 1
-                _delete_user_assigned_identities(config, resource_group_name)
+                _delete_user_assigned_identity(config, resource_group_name)
 
             # delete resource group
             if not use_internal_ips:
@@ -307,7 +307,7 @@ def get_user_assigned_identities(config, resource_group_name):
         return None
 
 
-def _delete_user_assigned_identities(config, resource_group_name):
+def _delete_user_assigned_identity(config, resource_group_name):
     user_assigned_identity = get_user_assigned_identities(config, resource_group_name)
     msi_client = construct_manage_server_identity_client(config)
     if user_assigned_identity is None:
@@ -507,7 +507,7 @@ def _configure_workspace(config):
                     "Creating user assigned identities",
                     _numbered=("[]", current_step, total_steps)):
                 current_step += 1
-                _create_user_assigned_identities(config, resource_group_name)
+                _create_user_assigned_identity(config, resource_group_name)
 
             # create role_assignments
             with cli_logger.group(
@@ -702,7 +702,7 @@ def _create_role_assignments(config, resource_group_name):
         raise e
 
 
-def _create_user_assigned_identities(config, resource_group_name):
+def _create_user_assigned_identity(config, resource_group_name):
     workspace_name = config["workspace_name"]
     location = config["provider"]["location"]
     user_assigned_identity_name = 'cloudtik-{}-user-assigned-identity'.format(workspace_name)
@@ -1046,18 +1046,19 @@ def _configure_workspace_resource(config):
     config = _configure_virtual_network_from_workspace(config)
     config = _configure_subnet_from_workspace(config)
     config = _configure_network_security_group_from_workspace(config)
-    config = _configure_user_assigned_identities_from_workspace(config)
+    config = _configure_user_assigned_identity_from_workspace(config)
     return config
 
 
-def _configure_user_assigned_identities_from_workspace(config):
+def _configure_user_assigned_identity_from_workspace(config):
     workspace_name = config["workspace_name"]
     user_assigned_identity_name = "cloudtik-{}-user-assigned-identity".format(workspace_name)
 
+    config["provider"]["userAssignedIdentity"] = user_assigned_identity_name
     for node_type_key in config["available_node_types"].keys():
         node_config = config["available_node_types"][node_type_key][
             "node_config"]
-        node_config["azure_arm_parameters"]["userAssignedIdentitiesName"] = user_assigned_identity_name
+        node_config["azure_arm_parameters"]["userAssignedIdentity"] = user_assigned_identity_name
 
     return config
 

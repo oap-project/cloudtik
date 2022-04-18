@@ -419,9 +419,8 @@ class AzureNodeProvider(NodeProvider):
             # credential_adapter = AzureIdentityCredentialAdapter(self.credential)
             msi_client = ManagedServiceIdentityClient(self.credential,
                                                       self.provider_config["subscription_id"])
-            workspace = cluster_config.get("workspace_name", "")
 
-            user_assigned_identity_name = AZURE_MSI_NAME if workspace == "" else "cloudtik-{}-user-assigned-identity".format(workspace)
+            user_assigned_identity_name = self.provider_config.get("userAssignedIdentity", AZURE_MSI_NAME)
             user_assigned_identity = msi_client.user_assigned_identities.get(
                 self.provider_config["resource_group"],
                 user_assigned_identity_name)

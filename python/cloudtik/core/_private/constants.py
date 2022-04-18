@@ -153,11 +153,6 @@ CLOUDTIK_RESOURCE_REQUEST_CHANNEL = b"cloudtik_resource_request"
 # `services.py:wait_for_redis_to_start`.
 CLOUDTIK_START_REDIS_WAIT_RETRIES = env_integer("CLOUDTIK_START_REDIS_WAIT_RETRIES", 16)
 
-# Max number of retries to AWS (default is 5, time increases exponentially)
-BOTO_MAX_RETRIES = env_integer("BOTO_MAX_RETRIES", 12)
-# Max number of retries to create an EC2 node (retry different subnet)
-BOTO_CREATE_MAX_RETRIES = env_integer("BOTO_CREATE_MAX_RETRIES", 5)
-
 CLOUDTIK_PROCESSES = [
     # The first element is the substring to filter.
     # The second element, if True, is to filter ps results by command name

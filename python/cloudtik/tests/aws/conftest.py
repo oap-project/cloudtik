@@ -1,7 +1,6 @@
 import pytest
 
-from cloudtik.core._private.constants import BOTO_MAX_RETRIES
-from cloudtik.providers._private.aws.utils import resource_cache
+from cloudtik.providers._private.aws.utils import resource_cache, BOTO_MAX_RETRIES
 
 from botocore.stub import Stubber
 

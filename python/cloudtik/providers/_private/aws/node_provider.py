@@ -11,14 +11,13 @@ from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_NAME, \
     CLOUDTIK_TAG_LAUNCH_CONFIG, CLOUDTIK_TAG_NODE_KIND, CLOUDTIK_TAG_USER_NODE_TYPE
 
-from cloudtik.core._private.constants import BOTO_MAX_RETRIES, \
-    BOTO_CREATE_MAX_RETRIES, CLOUDTIK_DEFAULT_OBJECT_STORE_MEMORY_PROPORTION
+from cloudtik.core._private.constants import CLOUDTIK_DEFAULT_OBJECT_STORE_MEMORY_PROPORTION
 from cloudtik.core._private.log_timer import LogTimer
 from cloudtik.core._private.cli_logger import cli_logger, cf
 
 from cloudtik.providers._private.aws.config import bootstrap_aws, bootstrap_aws_from_workspace, verify_s3_storage
 from cloudtik.providers._private.aws.utils import boto_exception_handler, \
-    resource_cache, client_cache, get_aws_s3_config, get_boto_error_code
+    resource_cache, client_cache, get_aws_s3_config, get_boto_error_code, BOTO_MAX_RETRIES, BOTO_CREATE_MAX_RETRIES
 from cloudtik.providers._private.utils import validate_config_dict
 
 logger = logging.getLogger(__name__)

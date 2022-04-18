@@ -291,8 +291,6 @@ def node_start(node_ip_address, address, port, head,
     cli_logger.success(startup_msg)
     cli_logger.success("-" * len(startup_msg))
     cli_logger.newline()
-    cli_logger.print("To terminate CloudTik runtime, run")
-    cli_logger.print(cf.bold("  cloudtik node-stop"))
     cli_logger.flush()
 
 

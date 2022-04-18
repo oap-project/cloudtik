@@ -363,21 +363,15 @@ def update_aws_workspace_firewalls(config):
         return
 
     current_step = 1
-    total_steps = 2
+    total_steps = 1
 
     try:
-        
-        with cli_logger.group(
-                "Deleting workspace firewalls",
-                _numbered=("[]", current_step, total_steps)):
-            current_step += 1
-            _delete_security_group(config, vpcid)
 
         with cli_logger.group(
                 "Updating workspace firewalls",
                 _numbered=("[]", current_step, total_steps)):
             current_step += 1
-            _upsert_security_group(config, vpcid)
+            _update_security_group(config, vpcid)
 
     except Exception as e:
         cli_logger.error(
@@ -1469,6 +1463,15 @@ def _upsert_security_group(config, VpcId):
     return security_group
 
 
+def _update_security_group(config, VpcId):
+    cli_logger.print("Updating security group for VPC: {}...".format(VpcId))
+    security_group = get_workspace_security_group(config, VpcId,
+                                 SECURITY_GROUP_TEMPLATE.format(config["workspace_name"]))
+    _add_security_group_rules(config, security_group)
+
+    return security_group
+
+
 def _get_or_create_vpc_security_groups(conf, node_types):
     # Figure out which VPC each node_type is in...
     ec2 = _resource("ec2", conf)
@@ -1592,6 +1595,7 @@ def _update_inbound_rules(target_security_group, sgids, config):
         .get("security_group", {}) \
         .get("IpPermissions", [])
     ip_permissions = _create_default_inbound_rules(config, sgids, extended_rules)
+    target_security_group.revoke_ingress(IpPermissions=target_security_group.ip_permissions)
     target_security_group.authorize_ingress(IpPermissions=ip_permissions)
 
 

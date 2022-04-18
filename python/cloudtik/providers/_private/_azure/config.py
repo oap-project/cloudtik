@@ -90,11 +90,11 @@ def check_azure_workspace_resource(config):
     if get_nat_gateway(config, network_client, resource_group_name) is None:
         return False
 
-    private_subnet_name = "cloudtik-private-{}-subnet".format(workspace_name)
+    private_subnet_name = "cloudtik-{}-private-subnet".format(workspace_name)
     if get_subnet(network_client, resource_group_name, virtual_network_name, private_subnet_name) is None:
         return False
 
-    public_subnet_name = "cloudtik-public-{}-subnet".format(workspace_name)
+    public_subnet_name = "cloudtik-{}-public-subnet".format(workspace_name)
     if get_subnet(network_client, resource_group_name, virtual_network_name, public_subnet_name) is None:
         return False
 
@@ -126,6 +126,35 @@ def get_virtual_network_name(config, resource_client, network_client, use_intern
 
 
 def update_azure_workspace_firewalls(config):
+    resource_client = construct_resource_client(config)
+    network_client = construct_network_client(config)
+    workspace_name = config["workspace_name"]
+    use_internal_ips = config["provider"].get("use_internal_ips", False)
+    resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
+
+    if resource_group_name is None:
+        cli_logger.print("Workspace: {} doesn't exist!".format(config["workspace_name"]))
+        return
+
+    current_step = 1
+    total_steps = 1
+
+    try:
+
+        with cli_logger.group(
+                "Updating workspace firewalls",
+                _numbered=("[]", current_step, total_steps)):
+            current_step += 1
+            _create_or_update_network_security_group(config, network_client, resource_group_name)
+            
+    except Exception as e:
+        cli_logger.error(
+            "Failed to update the firewalls of workspace {}. {}".format(workspace_name, str(e)))
+        raise e
+
+    cli_logger.print(
+        "Successfully update the firewalls of workspace: {}.",
+        cf.bold(workspace_name))
     return None
 
 
@@ -959,7 +988,7 @@ def _create_public_ip_address(config, network_client, resource_group_name):
     return public_ip_address_name
 
 
-def _create_network_security_group(config, network_client, resource_group_name):
+def _create_or_update_network_security_group(config, network_client, resource_group_name):
     workspace_name = config["workspace_name"]
     location = config["provider"]["location"]
     security_rules = config["provider"].get("securityRules", [])
@@ -968,20 +997,20 @@ def _create_network_security_group(config, network_client, resource_group_name):
     for i in range(0, len(security_rules)):
         security_rules[i]["name"] = "cloudtik-{}-security-rule-{}".format(workspace_name, i)
 
-    cli_logger.print("Creating network security group: {}... ".format(network_security_group_name))
+    cli_logger.print("Creating or updating network security group: {}... ".format(network_security_group_name))
     try:
-        network_client.network_security_groups.begin_create_or_update(
+        network_client.network_security_groups._create_or_update_initial(
             resource_group_name=resource_group_name,
             network_security_group_name=network_security_group_name,
             parameters={
                 "location": location,
                 "securityRules": security_rules
             }
-        ).result()
-        cli_logger.print("Successfully created network security group: {}.".
+        )
+        cli_logger.print("Successfully created or updated network security group: {}.".
                          format(network_security_group_name))
     except Exception as e:
-        cli_logger.error("Failed to create network security group. {}", str(e))
+        cli_logger.error("Failed to create or updated network security group. {}", str(e))
         raise e
 
     return network_security_group_name
@@ -1003,7 +1032,7 @@ def _configure_network_resources(config, resource_group_name, current_step, tota
             "Creating network security group",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
-        _create_network_security_group(config, network_client, resource_group_name)
+        _create_or_update_network_security_group(config, network_client, resource_group_name)
 
     # create public subnet
     with cli_logger.group(

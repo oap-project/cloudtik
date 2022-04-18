@@ -292,15 +292,15 @@ function configure_hadoop_and_spark() {
 
         if [ "$ENABLE_HDFS" == "true" ]; then
             # Format hdfs once
-            ${HADOOP_HOME}/bin/hdfs namenode -format
+            ${HADOOP_HOME}/bin/hdfs --loglevel WARN namenode -format -force
             # Create event log dir on hdfs
-            ${HADOOP_HOME}/bin/hdfs --daemon start namenode
-            ${HADOOP_HOME}/bin/hadoop fs -mkdir -p /shared/spark-events
-            ${HADOOP_HOME}/bin/hdfs --daemon stop namenode
+            ${HADOOP_HOME}/bin/hdfs --loglevel WARN --daemon start namenode
+            ${HADOOP_HOME}/bin/hadoop --loglevel WARN fs -mkdir -p /shared/spark-events
+            ${HADOOP_HOME}/bin/hdfs --loglevel WARN --daemon stop namenode
         else
             # Create event log dir on cloud storage if needed
             # This needs to be done after hadoop file system has been configured correctly
-            ${HADOOP_HOME}/bin/hadoop fs -mkdir -p /shared/spark-events
+            ${HADOOP_HOME}/bin/hadoop --loglevel WARN fs -mkdir -p /shared/spark-events
         fi
     fi
 }

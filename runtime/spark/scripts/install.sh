@@ -35,7 +35,7 @@ function install_jdk() {
     export JAVA_HOME=$RUNTIME_PATH/jdk
 
     if [ ! -d "${JAVA_HOME}" ]; then
-      (cd $RUNTIME_PATH && wget https://devops.egov.org.in/Downloads/jdk/jdk-8u192-linux-x64.tar.gz  && \
+      (cd $RUNTIME_PATH && wget -q --show-progress https://devops.egov.org.in/Downloads/jdk/jdk-8u192-linux-x64.tar.gz  && \
           gunzip jdk-8u192-linux-x64.tar.gz && \
           tar -xf jdk-8u192-linux-x64.tar && \
           rm jdk-8u192-linux-x64.tar && \
@@ -50,7 +50,7 @@ function install_hadoop() {
     export HADOOP_HOME=$RUNTIME_PATH/hadoop
 
     if [ ! -d "${HADOOP_HOME}" ]; then
-      (cd $RUNTIME_PATH && wget http://archive.apache.org/dist/hadoop/common/hadoop-${HADOOP_VERSION}/hadoop-${HADOOP_VERSION}.tar.gz -O hadoop-${HADOOP_VERSION}.tar.gz && \
+      (cd $RUNTIME_PATH && wget -q --show-progress http://archive.apache.org/dist/hadoop/common/hadoop-${HADOOP_VERSION}/hadoop-${HADOOP_VERSION}.tar.gz -O hadoop-${HADOOP_VERSION}.tar.gz && \
           tar -zxf hadoop-${HADOOP_VERSION}.tar.gz && \
           mv hadoop-${HADOOP_VERSION} hadoop && \
           rm hadoop-${HADOOP_VERSION}.tar.gz)
@@ -66,7 +66,7 @@ function install_spark() {
     export SPARK_HOME=$RUNTIME_PATH/spark
 
     if [ ! -d "${SPARK_HOME}" ]; then
-     (cd $RUNTIME_PATH && wget https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop3.2.tgz && \
+     (cd $RUNTIME_PATH && wget -q --show-progress https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop3.2.tgz && \
         tar -zxf spark-${SPARK_VERSION}-bin-hadoop3.2.tgz && \
         mv spark-${SPARK_VERSION}-bin-hadoop3.2 spark && \
         rm spark-${SPARK_VERSION}-bin-hadoop3.2.tgz)
@@ -115,7 +115,7 @@ function download_hadoop_cloud_jars() {
     GCS_HADOOP_CONNECTOR="gcs-connector-hadoop3-latest.jar"
     if [ ! -f "${HADOOP_TOOLS_LIB}/${GCS_HADOOP_CONNECTOR}" ]; then
         # Download gcs-connector to ${HADOOP_HOME}/share/hadoop/tools/lib/* for gcp cloud storage support
-        wget -nc -P "${HADOOP_TOOLS_LIB}"  https://storage.googleapis.com/hadoop-lib/gcs/${GCS_HADOOP_CONNECTOR}
+        wget -q --show-progress -nc -P "${HADOOP_TOOLS_LIB}"  https://storage.googleapis.com/hadoop-lib/gcs/${GCS_HADOOP_CONNECTOR}
     fi
 
     # Copy Jetty Utility jars from HADOOP_HDFS_LIB to HADOOP_TOOLS_LIB for Azure cloud storage support
@@ -130,7 +130,7 @@ function download_spark_cloud_jars() {
     SPARK_JARS=${SPARK_HOME}/jars
     SPARK_HADOOP_CLOUD_JAR="spark-hadoop-cloud_2.12-${SPARK_VERSION}.jar"
     if [ ! -f "${SPARK_JARS}/${SPARK_HADOOP_CLOUD_JAR}" ]; then
-        wget -nc -P "${SPARK_JARS}"  https://repo1.maven.org/maven2/org/apache/spark/spark-hadoop-cloud_2.12/${SPARK_VERSION}/${SPARK_HADOOP_CLOUD_JAR}
+        wget -q --show-progress -nc -P "${SPARK_JARS}"  https://repo1.maven.org/maven2/org/apache/spark/spark-hadoop-cloud_2.12/${SPARK_VERSION}/${SPARK_HADOOP_CLOUD_JAR}
     fi
 }
 
@@ -156,15 +156,15 @@ function install_spark_with_cloud_jars() {
 function install_ganglia_server() {
     # Simply do the install, if they are already installed, it doesn't take time
     echo "Installing ganglia server..."
-    sudo apt-get -qq update -y
-    sudo apt-get -qq install -y apache2 php libapache2-mod-php php-common php-mbstring php-gmp php-curl php-intl php-xmlrpc php-zip php-gd php-mysql php-xml
-    sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install -y ganglia-monitor rrdtool gmetad ganglia-webfrontend
+    sudo apt-get -qq update -y > /dev/null
+    sudo apt-get -qq install -y apache2 php libapache2-mod-php php-common php-mbstring php-gmp php-curl php-intl php-xmlrpc php-zip php-gd php-mysql php-xml > /dev/null
+    sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install -y ganglia-monitor rrdtool gmetad ganglia-webfrontend > /dev/null
 }
 
 function install_ganglia_client() {
     echo "Installing ganglia client..."
-    sudo apt-get -qq update -y
-    sudo apt-get -qq install -y ganglia-monitor
+    sudo apt-get -qq update -y > /dev/null
+    sudo apt-get -qq install -y ganglia-monitor > /dev/null
 }
 
 function install_ganglia() {

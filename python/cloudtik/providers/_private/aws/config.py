@@ -1595,7 +1595,9 @@ def _update_inbound_rules(target_security_group, sgids, config):
         .get("security_group", {}) \
         .get("IpPermissions", [])
     ip_permissions = _create_default_inbound_rules(config, sgids, extended_rules)
-    target_security_group.revoke_ingress(IpPermissions=target_security_group.ip_permissions)
+    old_ip_permisssions = target_security_group.ip_permissions
+    if len(old_ip_permisssions) != 0:
+        target_security_group.revoke_ingress(IpPermissions=old_ip_permisssions)
     target_security_group.authorize_ingress(IpPermissions=ip_permissions)
 
 

@@ -19,7 +19,7 @@ from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_NAME
 
 from cloudtik.providers._private._azure.azure_identity_credential_adapter import AzureIdentityCredentialAdapter
 from cloudtik.providers._private._azure.config import (bootstrap_azure, bootstrap_azure_from_workspace,
-                                                       MSI_NAME, get_azure_sdk_function, verify_azure_cloud_storage)
+                                                       AZURE_MSI_NAME, get_azure_sdk_function, verify_azure_cloud_storage)
 
 from cloudtik.providers._private._azure.utils import get_azure_config
 from cloudtik.providers._private.utils import validate_config_dict
@@ -421,7 +421,7 @@ class AzureNodeProvider(NodeProvider):
                                                       self.provider_config["subscription_id"])
             workspace = cluster_config.get("workspace_name", "")
 
-            user_assigned_identity_name = MSI_NAME if workspace == "" else "cloudtik-{}-user-assigned-identity".format(workspace)
+            user_assigned_identity_name = AZURE_MSI_NAME if workspace == "" else "cloudtik-{}-user-assigned-identity".format(workspace)
             user_assigned_identity = msi_client.user_assigned_identities.get(
                 self.provider_config["resource_group"],
                 user_assigned_identity_name)

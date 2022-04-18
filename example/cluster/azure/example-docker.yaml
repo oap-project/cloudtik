@@ -1,11 +1,11 @@
 # An example of standard 1 + 3 nodes cluster with standard instance type
 from: azure/standard
 
-# Workspace into which to launch the cluster
-workspace_name: exmaple-workspace
-
 # A unique identifier for the head node and workers of this cluster.
 cluster_name: example-docker
+
+# Workspace into which to launch the cluster
+workspace_name: exmaple-workspace
 
 # Enable container
 docker:

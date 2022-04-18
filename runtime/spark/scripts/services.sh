@@ -11,8 +11,8 @@ start-head)
         $HADOOP_HOME/bin/hdfs --daemon start namenode
     fi
     $HADOOP_HOME/bin/yarn --daemon start resourcemanager
-    $SPARK_HOME/sbin/start-history-server.sh
-    which jupyter && nohup jupyter lab  --no-browser --ip=* > /tmp/logs/jupyterlab.log 2>&1 &
+    export SPARK_LOCAL_IP=${CLOUDTIK_HEAD_IP}; $SPARK_HOME/sbin/start-history-server.sh
+    nohup jupyter lab --no-browser > /tmp/logs/jupyterlab.log 2>&1 &
     sudo service apache2 start
     sudo service gmetad start
     sudo service ganglia-monitor start
@@ -23,7 +23,7 @@ stop-head)
     if [ "$ENABLE_HDFS" == "true" ]; then
         $HADOOP_HOME/bin/hdfs --daemon stop namenode
     fi
-    which jupyter && jupyter lab stop
+    jupyter lab stop
     sudo service ganglia-monitor stop
     sudo service gmetad stop
     sudo service apache2 stop

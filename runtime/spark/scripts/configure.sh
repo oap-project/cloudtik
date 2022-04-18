@@ -4,6 +4,7 @@ args=$(getopt -a -o h::p: -l head::,head_address::,provider:,aws_s3_bucket::,aws
 eval set -- "${args}"
 
 IS_HEAD_NODE=false
+USER_HOME=/home/$(whoami)
 
 while true
 do
@@ -102,8 +103,10 @@ function configure_system_folders() {
 
 function set_head_address() {
     if [ ! -n "${HEAD_ADDRESS}" ]; then
-	    HEAD_ADDRESS=$(hostname -I | awk '{print $1}')
-	  fi
+        HEAD_ADDRESS=$(hostname -I | awk '{print $1}')
+    fi
+
+    echo "export CLOUDTIK_HEAD_IP=$HEAD_ADDRESS">> ${USER_HOME}/.bashrc
 }
 
 function set_resources_for_spark() {
@@ -315,6 +318,7 @@ function configure_jupyter_for_spark() {
       export JUPYTER_WORKSPACE=/home/$(whoami)/jupyter
       mkdir -p $JUPYTER_WORKSPACE
       sed -i  "1 ic.NotebookApp.notebook_dir = '${JUPYTER_WORKSPACE}'" ~/.jupyter/jupyter_notebook_config.py
+      sed -i  "1 ic.NotebookApp.ip = '${HEAD_ADDRESS}'" ~/.jupyter/jupyter_notebook_config.py
   fi
   # Config for PySpark
   echo "export PYTHONPATH=\${SPARK_HOME}/python:\${SPARK_HOME}/python/lib/py4j-0.10.9-src.zip" >> ~/.bashrc

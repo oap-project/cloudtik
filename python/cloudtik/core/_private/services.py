@@ -990,7 +990,7 @@ def _start_redis_instance(executable,
         if listen_to_localhost_only:
             command += ["--bind", "127.0.0.1"]
         elif bind_address is not None:
-            command += ["--bind", bind_address]
+            command += ["--bind", "127.0.0.1", bind_address]
 
         pidfile = os.path.join(session_dir_path,
                                "redis-" + uuid.uuid4().hex + ".pid")

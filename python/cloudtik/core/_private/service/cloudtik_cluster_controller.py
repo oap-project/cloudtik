@@ -118,7 +118,7 @@ class ClusterController:
                         CLOUDTIK_METRIC_PORT))
                 prometheus_client.start_http_server(
                     port=CLOUDTIK_METRIC_PORT,
-                    addr="127.0.0.1" if head_node_ip == "127.0.0.1" else "",
+                    addr=controller_ip,
                     registry=self.prometheus_metrics.registry)
             except Exception:
                 logger.exception(

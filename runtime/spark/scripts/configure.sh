@@ -327,7 +327,7 @@ function configure_ganglia() {
     cluster_name="Spark-Workers"
     if [ $IS_HEAD_NODE == "true" ]; then
         # configure ganglia gmetad
-        sudo sed -i "s/# default: There is no default value/data_source \"${cluster_name_head}\" ${HEAD_ADDRESS}:8650/g" /etc/ganglia/gmetad.conf
+        sudo sed -i "0,/# default: There is no default value/s//data_source \"${cluster_name_head}\" ${HEAD_ADDRESS}:8650/" /etc/ganglia/gmetad.conf
         sudo sed -i "s/data_source \"my cluster\" localhost/data_source \"${cluster_name}\" ${HEAD_ADDRESS}/g" /etc/ganglia/gmetad.conf
         sudo sed -i "s/# gridname \"MyGrid\"/gridname \"CloudTik\"/g" /etc/ganglia/gmetad.conf
 
@@ -337,7 +337,8 @@ function configure_ganglia() {
         sudo sed -i "0,/mcast_join = 239.2.11.71/s//host = ${HEAD_ADDRESS}/" /etc/ganglia/gmond.conf
         # comment out the second occurrence
         sudo sed -i "s/mcast_join = 239.2.11.71/\/*mcast_join = 239.2.11.71*\//g" /etc/ganglia/gmond.conf
-        sudo sed -i "s/bind = 239.2.11.71/\/*bind = 239.2.11.71*\//g" /etc/ganglia/gmond.conf
+        sudo sed -i "s/bind = 239.2.11.71/bind = ${HEAD_ADDRESS}/g" /etc/ganglia/gmond.conf
+        sudo sed -i "/tcp_accept_channel {/ a \ \ bind = ${HEAD_ADDRESS}" /etc/ganglia/gmond.conf
 
         # Make a copy for head cluster after common modifications
         sudo cp /etc/ganglia/gmond.conf /etc/ganglia/gmond.head.conf

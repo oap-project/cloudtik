@@ -153,14 +153,25 @@ def update_spark_configurations():
     if not spark_config:
         return
 
+    spark_conf_file = os.path.join(os.getenv("SPARK_HOME"), "conf/spark-defaults.conf")
+
+    # Read in the existing configurations
     spark_conf = {}
-    with open(SPARK_OUT_CONF, "r") as f:
+    with open(spark_conf_file, "r") as f:
         for line in f.readlines():
-            if not line.startswith("#"):
-                key, value = line.split(" ")
+            # Strip all the spaces and tabs
+            line = line.strip()
+            if line != "" and not line.startswith("#"):
+                # Filtering out the empty and comment lines
+                # Use split() instead of split(" ") to split value with multiple spaces
+                key, value = line.split()
                 spark_conf[key] = value
+
+    # Merge with the user configurations
     spark_conf.update(spark_config)
-    with open(os.path.join(os.getenv("SPARK_HOME"), "conf/spark-defaults.conf"), "w+") as f:
+
+    # Write back the configuration file
+    with open(spark_conf_file, "w+") as f:
         for key, value in spark_conf.items():
             f.write("{}    {}\n".format(key, value))
 
@@ -173,3 +184,30 @@ def is_cloud_storage_mount_enabled() -> bool:
 
     config = yaml.safe_load(open(bootstrap_config).read())
     return config.get("cloud_storage_mount_enabled", False)
+
+  
+def with_spark_runtime_environment_variables(runtime_config, provider):
+    runtime_envs = {}
+    if runtime_config and runtime_config.get("spark", {}).get("enable_hdfs", False):
+        runtime_envs["ENABLE_HDFS"] = True
+    else:
+        # Whether we need to expert the cloud storage for HDFS case
+        provider_envs = provider.with_provider_environment_variables()
+        runtime_envs.update(provider_envs)
+
+    return runtime_envs
+
+
+def get_spark_runtime_logs():
+    hadoop_logs_dir = os.path.join(os.getenv("HADOOP_HOME"), "logs")
+    spark_logs_dir = os.path.join(os.getenv("SPARK_HOME"), "logs")
+    all_logs = [("hadoop", hadoop_logs_dir),
+                ("spark", spark_logs_dir),
+                ("other", "/tmp/logs")]
+    return all_logs
+
+
+def spark_runtime_validate_config(config: Dict[str, Any], provider):
+    # if HDFS enabled, we ignore the cloud storage configurations
+    if not config.get("runtime", {}).get("spark", {}).get("enable_hdfs", False):
+        provider.validate_storage_config(config["provider"])

@@ -1,7 +1,7 @@
 val conf = spark.sparkContext.getConf
 
 // data scale in GB
-val scale = conf.getInt("spark.driver.scale", 1)
+val scaleFactor = conf.getInt("spark.driver.scaleFactor", 1)
 // support parquet or orc
 val format = conf.get("spark.driver.format", "parquet")
 // create partitioned table
@@ -17,13 +17,14 @@ if (fsdir == "") {
     sys.exit(0)
 }
 
-val tools_path = "/home/cloudtik/runtime/benchmark-tools/tpcds-kit/tools"
-val data_path = s"${fsdir}/shared/data/tpcds/tpcds_${format}/${scale}"
-val database_name = s"tpcds_${format}_scale_${scale}_db"
+val user_home = System.getProperty("user.home")
+val tools_path = s"${user_home}/runtime/benchmark-tools/tpcds-kit/tools"
+val data_path = s"${fsdir}/shared/data/tpcds/tpcds_${format}/${scaleFactor}"
+val database_name = s"tpcds_${format}_scale_${scaleFactor}_db"
 val codec = "snappy"
 val clusterByPartitionColumns = partitionTables
 
-val p = scale / 2048.0
+val p = scaleFactor / 2048.0
 val catalog_returns_p = (263 * p + 1).toInt
 val catalog_sales_p = (2285 * p * 0.5 * 0.5 + 1).toInt
 val store_returns_p = (429 * p + 1).toInt
@@ -36,7 +37,7 @@ import com.databricks.spark.sql.perf.tpcds.TPCDSTables
 val sc = spark.sqlContext
 sc.setConf(s"spark.sql.$format.compression.codec", codec)
 
-val tables = new TPCDSTables(spark.sqlContext, tools_path, s"${scale}", useDoubleForDecimal)
+val tables = new TPCDSTables(spark.sqlContext, tools_path, s"${scaleFactor}", useDoubleForDecimal)
 tables.genData(data_path, format, true, partitionTables, clusterByPartitionColumns, false, "call_center", 1)
 tables.genData(data_path, format, true, partitionTables, clusterByPartitionColumns, false, "catalog_page", 1)
 tables.genData(data_path, format, true, partitionTables, clusterByPartitionColumns, false, "customer", 6)

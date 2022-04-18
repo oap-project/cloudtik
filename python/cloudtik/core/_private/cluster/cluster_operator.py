@@ -32,11 +32,10 @@ from cloudtik.core._private.constants import \
     CLOUDTIK_REDIS_DEFAULT_PASSWORD
 from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     hash_launch_conf, prepare_config, get_free_port, \
-    kill_process_by_pid, \
     get_proxy_info_file, get_safe_proxy_process_info, \
     get_head_working_ip, get_node_cluster_ip, is_use_internal_ip, get_head_bootstrap_config, \
     get_attach_command, is_alive_time, with_head_node_ip, is_docker_enabled, get_proxy_bind_address_to_show, \
-    kill_process_tree
+    kill_process_tree, with_runtime_environment_variables
 
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
@@ -58,7 +57,7 @@ from cloudtik.core._private.state.control_state import ControlState
 from cloudtik.core._private.debug import log_once
 
 import cloudtik.core._private.subprocess_output_util as cmd_output_util
-from cloudtik.core._private.cluster.load_metrics import LoadMetricsSummary
+from cloudtik.core._private.cluster.cluster_metrics import ClusterMetricsSummary
 from cloudtik.core._private.cluster.cluster_scaler import ClusterScalerSummary
 from cloudtik.core._private.utils import format_info_string
 from cloudtik.runtime.spark.utils import config_spark_runtime_resources
@@ -72,6 +71,7 @@ POLL_INTERVAL = 5
 Port_forward = Union[Tuple[int, int], List[Tuple[int, int]]]
 
 NUM_TEARDOWN_CLUSTER_STEPS_BASE = 2
+
 
 def try_logging_config(config: Dict[str, Any]) -> None:
     if config["provider"]["type"] == "aws":
@@ -99,9 +99,9 @@ def decode_cluster_scaling_status(status):
     status = status.decode("utf-8")
     as_dict = json.loads(status)
     time = datetime.datetime.fromtimestamp(as_dict["time"])
-    lm_summary = LoadMetricsSummary(**as_dict["load_metrics_report"])
+    cluster_metrics_summary = ClusterMetricsSummary(**as_dict["cluster_metrics_report"])
     scaler_summary = ClusterScalerSummary(**as_dict["cluster_scaler_report"])
-    return time, lm_summary, scaler_summary
+    return time, cluster_metrics_summary, scaler_summary
 
 
 def debug_status_string(status, error) -> str:
@@ -109,8 +109,8 @@ def debug_status_string(status, error) -> str:
     if not status:
         status = "No cluster status."
     else:
-        time, lm_summary, scaler_summary = decode_cluster_scaling_status(status)
-        status = format_info_string(lm_summary, scaler_summary, time=time)
+        time, cluster_metrics_summary, scaler_summary = decode_cluster_scaling_status(status)
+        status = format_info_string(cluster_metrics_summary, scaler_summary, time=time)
     if error:
         status += "\n"
         status += error.decode("utf-8")
@@ -349,7 +349,22 @@ def teardown_cluster(config_file: str, yes: bool, workers_only: bool,
 
     cli_logger.confirm(yes, "Are you sure that you want to shut down cluster {}?",
                        config["cluster_name"], _abort=True)
+    cli_logger.newline()
+    with cli_logger.group("Shutting down cluster: {}", config["cluster_name"]):
+        _teardown_cluster(config_file, config,
+                          workers_only=workers_only,
+                          override_cluster_name=override_cluster_name,
+                          keep_min_workers=keep_min_workers,
+                          proxy_stop=proxy_stop)
 
+    cli_logger.success("Successfully shut down cluster: {}.", config["cluster_name"])
+
+
+def _teardown_cluster(config_file: str, config: Dict[str, Any],
+                      workers_only: bool,
+                      override_cluster_name: Optional[str],
+                      keep_min_workers: bool,
+                      proxy_stop: bool = False) -> None:
     current_step = 1
     total_steps = NUM_TEARDOWN_CLUSTER_STEPS_BASE
     if proxy_stop:
@@ -364,38 +379,46 @@ def teardown_cluster(config_file: str, yes: bool, workers_only: bool,
             current_step += 1
             _stop_proxy(config)
 
-    try:
-        if not workers_only:
-            with cli_logger.group(
-                    "Requesting head to stop head services",
-                    _numbered=("[]", current_step, total_steps)):
-                current_step += 1
+    if not workers_only:
+        with cli_logger.group(
+                "Requesting head to stop head services",
+                _numbered=("[]", current_step, total_steps)):
+            current_step += 1
+            try:
                 stop_node_from_head(config_file,
                                     node_ip=None, all_nodes=False,
                                     override_cluster_name=override_cluster_name)
+            except Exception as e:
+                cli_logger.verbose_error("{}", str(e))
+                cli_logger.warning(
+                    "Exception occurred when stopping head services "
+                    "(use -v to show details).")
+                cli_logger.warning(
+                    "Ignoring the exception and "
+                    "attempting to shut down the cluster nodes anyway.")
 
-        # Running teardown cluster process on head first. But we allow this to fail.
-        # Since head node problem should not prevent cluster tear down
-        with cli_logger.group(
-                "Requesting head to stop workers",
-                _numbered=("[]", current_step, total_steps)):
-            current_step += 1
-            cmd = "cloudtik head teardown"
-            if keep_min_workers:
-                cmd += " --keep-min-workers"
+    # Running teardown cluster process on head first. But we allow this to fail.
+    # Since head node problem should not prevent cluster tear down
+    with cli_logger.group(
+            "Requesting head to stop workers",
+            _numbered=("[]", current_step, total_steps)):
+        current_step += 1
+        cmd = "cloudtik head teardown"
+        if keep_min_workers:
+            cmd += " --keep-min-workers"
+
+        try:
             exec_cmd_on_cluster(config_file,
                                 cmd,
                                 override_cluster_name)
-    except Exception as e:
-        # Set to last step
-        current_step = total_steps
-        cli_logger.verbose_error("{}", str(e))
-        cli_logger.warning(
-            "Exception occurred when stopping the cluster runtime "
-            "(use -v to dump teardown exceptions).")
-        cli_logger.warning(
-            "Ignoring the exception and "
-            "attempting to shut down the cluster nodes anyway.")
+        except Exception as e:
+            cli_logger.verbose_error("{}", str(e))
+            cli_logger.warning(
+                "Exception occurred when requesting head to stop the workers "
+                "(use -v to show details).")
+            cli_logger.warning(
+                "Ignoring the exception and "
+                "attempting to shut down the cluster nodes anyway.")
 
     with cli_logger.group(
             "Stopping head and remaining nodes",
@@ -407,8 +430,6 @@ def teardown_cluster(config_file: str, yes: bool, workers_only: bool,
         teardown_cluster_nodes(config, provider,
                                workers_only, keep_min_workers,
                                False)
-
-    cli_logger.success("Successfully shut down cluster: {}.", config["cluster_name"])
 
 
 def teardown_cluster_nodes(config: Dict[str, Any],
@@ -800,7 +821,8 @@ def get_or_create_head_node(config: Dict[str, Any],
                 "rsync_filter": config.get("rsync_filter")
             },
             docker_config=config.get("docker"),
-            restart_only=restart_only)
+            restart_only=restart_only,
+            runtime_config=config.get("runtime"))
         updater.start()
         updater.join()
 
@@ -819,8 +841,13 @@ def get_or_create_head_node(config: Dict[str, Any],
 
     if not is_use_internal_ip(config):
         # start proxy and bind to localhost
-        _start_proxy(printable_config_file, config,
-                     True, "localhost")
+        cli_logger.newline()
+        with cli_logger.group("Starting SOCKS5 proxy..."):
+            _start_proxy(printable_config_file, config,
+                         True, "localhost")
+
+    cli_logger.newline()
+    cli_logger.print("Successfully started cluster: {}.", config["cluster_name"])
 
     show_useful_commands(printable_config_file,
                          config,
@@ -1649,61 +1676,71 @@ def show_useful_commands(printable_config_file: str,
         cluster_name = config["cluster_name"]
 
     cli_logger.newline()
-    private_key_file = config["auth"].get("ssh_private_key", "")
-    cli_logger.print("Cluster private key file: {}", private_key_file)
+    with cli_logger.group("Key information:"):
+        private_key_file = config["auth"].get("ssh_private_key", "")
+        cli_logger.print("Cluster private key file: {}", private_key_file)
+        cli_logger.print("Please keep the cluster private key file safe.")
 
     cli_logger.newline()
-    with cli_logger.group("Useful commands"):
+    with cli_logger.group("Useful commands:"):
         printable_config_file = os.path.abspath(printable_config_file)
 
-        cli_logger.print("Check cluster status with:")
-        cli_logger.print(
-            cf.bold("  cloudtik status {}{}"), printable_config_file, modifiers)
+        with cli_logger.group("Check cluster status with:"):
+            cli_logger.print(
+                cf.bold("cloudtik status {}{}"), printable_config_file, modifiers)
 
-        cli_logger.print("Execute command on cluster with:")
-        cli_logger.print(
-            cf.bold("  cloudtik exec {}{} [command]"), printable_config_file, modifiers)
+        with cli_logger.group("Execute command on cluster with:"):
+            cli_logger.print(
+                cf.bold("cloudtik exec {}{} [command]"), printable_config_file, modifiers)
 
-        cli_logger.print("Connect to a terminal on the cluster head:")
-        cli_logger.print(
-            cf.bold("  cloudtik attach {}{}"), printable_config_file, modifiers)
+        with cli_logger.group("Connect to a terminal on the cluster head:"):
+            cli_logger.print(
+                cf.bold("cloudtik attach {}{}"), printable_config_file, modifiers)
 
-        cli_logger.print("Monitor cluster with:")
-        cli_logger.print(
-            cf.bold("  cloudtik monitor {}{}"), printable_config_file, modifiers)
+        with cli_logger.group("Upload files or folders to cluster:"):
+            cli_logger.print(
+                cf.bold("cloudtik rsync-up {}{} [source] [target]"), printable_config_file, modifiers)
 
-        remote_shell_str = updater.cmd_executor.remote_shell_command_str()
-        cli_logger.print("Get a remote shell to the cluster manually:")
-        cli_logger.print("  {}", remote_shell_str.strip())
+        with cli_logger.group("Download files or folders from cluster:"):
+            cli_logger.print(
+                cf.bold("cloudtik rsync-down {}{} [source] [target]"), printable_config_file, modifiers)
+
+        with cli_logger.group("Submit job to cluster to run with:"):
+            cli_logger.print(
+                cf.bold("cloudtik submit {}{} [job-file.(py|sh|scala)] "), printable_config_file, modifiers)
+
+        with cli_logger.group("Monitor cluster with:"):
+            cli_logger.print(
+                cf.bold("cloudtik monitor {}{}"), printable_config_file, modifiers)
 
     cli_logger.newline()
-    with cli_logger.group("Useful links"):
+    with cli_logger.group("Useful addresses:"):
         proxy_info_file = get_proxy_info_file(cluster_name)
         pid, address, port = get_safe_proxy_process_info(proxy_info_file)
         if pid is not None:
             bind_address_show = get_proxy_bind_address_to_show(address)
-            cli_logger.print("The SOCKS5 proxy to the cluster:")
-            cli_logger.print(
-                cf.bold("  To access the cluster Web UI from local browsers, configure {}:{} as the SOCKS5 proxy."),
-                bind_address_show, port)
+            with cli_logger.group("The SOCKS5 proxy to access the cluster Web UI from local browsers:"):
+                cli_logger.print(
+                    cf.bold("{}:{}"),
+                    bind_address_show, port)
 
         head_node_cluster_ip = get_node_cluster_ip(config, provider, head_node)
 
-        cli_logger.print("Yarn Web UI:")
-        cli_logger.print(
-            cf.bold("  http://{}:8088"), head_node_cluster_ip)
+        with cli_logger.group("Yarn Web UI:"):
+            cli_logger.print(
+                cf.bold("http://{}:8088"), head_node_cluster_ip)
 
-        cli_logger.print("Jupyter Web UI:")
-        cli_logger.print(
-            cf.bold("  http://{}:8888, default password is \'cloudtik\'"), head_node_cluster_ip)
+        with cli_logger.group("Jupyter Web UI:"):
+            cli_logger.print(
+                cf.bold("http://{}:8888, default password is \'cloudtik\'"), head_node_cluster_ip)
 
-        cli_logger.print("Spark History Server Web UI:")
-        cli_logger.print(
-            cf.bold("  http://{}:18080"), head_node_cluster_ip)
+        with cli_logger.group("Spark History Server Web UI:"):
+            cli_logger.print(
+                cf.bold("http://{}:18080"), head_node_cluster_ip)
 
-        cli_logger.print("Ganglia Web UI:")
-        cli_logger.print(
-            cf.bold("  http://{}/ganglia"), head_node_cluster_ip)
+        with cli_logger.group("Ganglia Web UI:"):
+            cli_logger.print(
+                cf.bold("http://{}/ganglia"), head_node_cluster_ip)
 
 
 def show_cluster_status(config_file: str,
@@ -1725,10 +1762,10 @@ def show_cluster_status(config_file: str,
     nodes_info.sort(key=node_info_sort)
 
     tb = pt.PrettyTable()
-    tb.field_names = ["node-id", "node-type", "node-ip", "node-status", "instance-type",
+    tb.field_names = ["node-id", "node-ip", "node-type", "node-status", "instance-type",
                       "public-ip", "instance-status"]
     for node_info in nodes_info:
-        tb.add_row([node_info["node_id"], node_info["cloudtik-node-kind"], node_info["private_ip"],
+        tb.add_row([node_info["node_id"], node_info["private_ip"], node_info["cloudtik-node-kind"],
                     node_info["cloudtik-node-status"], node_info["instance_type"], node_info["public_ip"],
                     node_info["instance_status"]])
 
@@ -1860,7 +1897,7 @@ def _stop_proxy(config: Dict[str, Any]):
     proxy_info_file = get_proxy_info_file(cluster_name)
     pid, address, port = get_safe_proxy_process_info(proxy_info_file)
     if pid is None:
-        cli_logger.print(cf.bold("The SOCKS5 proxy cluster {} was not started."), cluster_name)
+        cli_logger.print(cf.bold("The SOCKS5 proxy of cluster {} was not started."), cluster_name)
         return
 
     kill_process_tree(pid)
@@ -2201,7 +2238,8 @@ def create_node_updater_for_exec(config,
             "rsync_exclude": config.get("rsync_exclude"),
             "rsync_filter": config.get("rsync_filter")
         },
-        docker_config=config.get("docker"))
+        docker_config=config.get("docker"),
+        runtime_config=config.get("runtime"))
     return updater
 
 
@@ -2214,7 +2252,8 @@ def start_node_on_head(node_ip: str = None,
     head_node = _get_running_head_node(config, cluster_config_file,
                                        None, _provider=provider)
     head_node_ip = provider.internal_ip(head_node)
-    provider_envs = provider.with_provider_environment_variables()
+    runtime_envs = with_runtime_environment_variables(
+        config.get("runtime"), provider)
 
     nodes = get_nodes_of(config, provider, head_node,
                          node_ip, all_nodes)
@@ -2237,7 +2276,7 @@ def start_node_on_head(node_ip: str = None,
             is_head_node=is_head_node,
             use_internal_ip=True)
 
-        updater._exec_start_commands(provider_envs)
+        updater._exec_start_commands(runtime_envs)
 
     for node_id in nodes:
         start_single_node_on_head(node_id)
@@ -2321,7 +2360,8 @@ def stop_node_on_head(node_ip: str = None,
     head_node = _get_running_head_node(config, cluster_config_file,
                                        None, _provider=provider)
     head_node_ip = provider.internal_ip(head_node)
-    provider_envs = provider.with_provider_environment_variables()
+    runtime_envs = with_runtime_environment_variables(
+        config.get("runtime"), provider)
 
     nodes = get_nodes_of(config, provider, head_node,
                          node_ip, all_nodes)
@@ -2347,7 +2387,7 @@ def stop_node_on_head(node_ip: str = None,
             is_head_node=is_head_node,
             use_internal_ip=True)
 
-        updater.exec_commands(stop_commands, provider_envs)
+        updater.exec_commands(stop_commands, runtime_envs)
 
     for node_id in nodes:
         stop_single_node_on_head(node_id)

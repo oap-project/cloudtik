@@ -21,7 +21,7 @@ DictCount = Tuple[Dict, Number]
 
 
 @dataclass
-class LoadMetricsSummary:
+class ClusterMetricsSummary:
     # Map of resource name (e.g. "memory") to pair of (Used, Available) numbers
     usage: Dict[str, Tuple[Number, Number]]
     # Counts of demand bundles from task/actor demand.
@@ -73,7 +73,7 @@ def freq_of_dicts(dicts: List[Dict],
     return as_list
 
 
-class LoadMetrics:
+class ClusterMetrics:
     """Container for cluster load metrics.
 
     Metrics here are updated from heartbeats. The scaler
@@ -144,7 +144,7 @@ class LoadMetrics:
 
     def prune_active_ips(self, active_ips: List[str]):
         """The ips stored by LoadMetrics are obtained by polling
-        the redis in ClusterController.update_load_metrics().
+        the redis in ClusterController.update_cluster_metrics().
 
         On the other hand, the scaler gets a list of node ips from
         its NodeProvider.
@@ -160,11 +160,11 @@ class LoadMetrics:
             unwanted_ips = set(mapping) - active_ips
             for unwanted_ip in unwanted_ips:
                 if should_log:
-                    logger.info("LoadMetrics: " f"Removed ip: {unwanted_ip}.")
+                    logger.info("Cluster Metrics: " f"Removed ip: {unwanted_ip}.")
                 del mapping[unwanted_ip]
             if unwanted_ips and should_log:
                 logger.info(
-                    "LoadMetrics: "
+                    "Cluster Metrics: "
                     "Removed {} stale ip mappings: {} not in {}".format(
                         len(unwanted_ips), unwanted_ips, active_ips))
             assert not (unwanted_ips & set(mapping))
@@ -287,7 +287,7 @@ class LoadMetrics:
 
         nodes_summary = freq_of_dicts(self.static_resources_by_ip.values())
 
-        return LoadMetricsSummary(
+        return ClusterMetricsSummary(
             usage=usage_dict,
             resource_demand=summarized_resource_demands,
             request_demand=summarized_resource_requests,

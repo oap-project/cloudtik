@@ -20,6 +20,7 @@ from cloudtik.core._private.services import get_node_ip_address
 from cloudtik.core._private.utils import check_cidr_conflict
 from cloudtik.providers._private.aws.utils import LazyDefaultDict, \
     handle_boto_error, resource_cache, get_boto_error_code
+from cloudtik.providers._private.utils import StorageTestingError
 
 logger = logging.getLogger(__name__)
 
@@ -1898,6 +1899,26 @@ def _security_groups_in_network_config(config: Dict[str, Any]) \
         interface security group list.
     """
     return [ni.get("Groups", []) for ni in config.get("NetworkInterfaces", [])]
+
+
+def verify_s3_storage(provider_config: Dict[str, Any]):
+    s3_storage = provider_config.get("aws_s3_storage")
+    if s3_storage is None:
+        return
+
+    s3 = boto3.client(
+        's3',
+        aws_access_key_id=s3_storage["s3.access.key.id"],
+        aws_secret_access_key=s3_storage["s3.secret.access.key"]
+    )
+
+    try:
+        s3.list_objects(Bucket=s3_storage["s3.bucket"], Delimiter='/')
+    except botocore.exceptions.ClientError as e:
+        raise StorageTestingError("Error happens when verifying S3 storage configurations. "
+                                  "If you want to go without passing the verification, "
+                                  "set 'verify_cloud_storage' to False under provider config. "
+                                  "Error: {}.".format(e.message)) from None
 
 
 def _client(name, config):

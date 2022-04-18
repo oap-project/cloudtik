@@ -1,4 +1,3 @@
-import copy
 import logging
 from types import ModuleType
 from typing import Any, Dict, List, Optional
@@ -36,7 +35,7 @@ class NodeProvider:
         self._external_ip_cache: Dict[str, str] = {}
 
     def with_provider_environment_variables(self):
-        """Export necessary envrionment variables for head node"""
+        """Export necessary environment variables for running node commands"""
         raise NotImplementedError
 
     def non_terminated_nodes(self, tag_filters: Dict[str, str]) -> List[str]:
@@ -201,7 +200,6 @@ class NodeProvider:
         """Bootstraps the cluster config by adding env defaults if needed."""
         return cluster_config
 
-
     def get_command_executor(self,
                            log_prefix: str,
                            node_id: str,
@@ -260,5 +258,10 @@ class NodeProvider:
 
     @staticmethod
     def validate_config(
+            provider_config: Dict[str, Any]) -> None:
+        return None
+
+    @staticmethod
+    def validate_storage_config(
             provider_config: Dict[str, Any]) -> None:
         return None

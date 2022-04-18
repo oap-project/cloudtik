@@ -8,5 +8,6 @@ provider:
     availability_zone: us-west1-a
     # Globally unique project id
     project_id: null
-    # Whether to require Public IPs for head node. Default to False
+    # Decide whether to require public IP for head node.
+    # When setting to False, Head node will require a public IP. Default to False
     use_internal_ips: False

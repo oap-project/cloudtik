@@ -14,7 +14,7 @@
         "location": "[resourceGroup().location]"
     },
     "resources": [
-       {
+        {
             "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
             "apiVersion": "2018-11-30",
             "location": "[variables('location')]",

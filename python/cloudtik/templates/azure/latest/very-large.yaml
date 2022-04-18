@@ -1,0 +1,12 @@
+from: azure/very-large
+
+# Cloud-provider specific configuration.
+provider:
+    type: azure
+
+# The instance configuration for a large instance type
+available_node_types:
+    worker.default:
+        node_config:
+            azure_arm_parameters:
+                vmSize: Standard_D96s_v5

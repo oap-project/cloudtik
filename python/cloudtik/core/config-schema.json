@@ -188,19 +188,19 @@
                     "description": "use google cloud storage",
                     "additionalProperties": false,
                     "properties": {
-                        "gcp.gcs.bucket": {
+                        "gcs.bucket": {
                             "type": "string",
                             "description": "gcp cloud storage bucket name"
                         },
-                        "fs.gs.auth.service.account.email": {
+                        "gcs.service.account.client.email": {
                             "type": "string",
-                            "description": "gcp service account email"
+                            "description": "gcp service account client email"
                         },
-                        "fs.gs.auth.service.account.private.key.id": {
+                        "gcs.service.account.private.key.id": {
                             "type": "string",
                             "description": "gcp service account private key id"
                         },
-                        "fs.gs.auth.service.account.private.key": {
+                        "gcs.service.account.private.key": {
                             "type": "string",
                             "description": "gcp service account private key"
                         }
@@ -208,12 +208,12 @@
                 },
                 "azure_cloud_storage": {
                     "type": "object",
-                    "description": "use azure cloud storage",
+                    "description": "Azure cloud storage configurations",
                     "additionalProperties": false,
                     "properties": {
-                      "azure.storage.kind": {
+                      "azure.storage.type": {
                         "type": "string",
-                        "description": "azure cloud storage kind: wasbs (Azure Blob Storage) or abfs (Azure Data Lake Storage Gen 2)."
+                        "description": "Azure cloud storage type: blob (Azure Blob Storage) or datalake (Azure Data Lake Storage Gen 2)."
                       },
                       "azure.storage.account": {
                         "type": "string",
@@ -229,24 +229,29 @@
                       }
                     }
                 },
-                "aws_s3a_storage": {
+                "aws_s3_storage": {
                     "type": "object",
-                    "description": "use  s3a",
+                    "description": "AWS S3 storage configurations",
                     "additionalProperties": false,
                     "properties": {
                       "s3.bucket": {
                         "type": "string",
                         "description": "the s3 bucket name"
                       },
-                      "fs.s3a.access.key": {
+                      "s3.access.key.id": {
                         "type": "string",
-                        "description": "access key of s3a"
+                        "description": "access key id of s3"
                       },
-                      "fs.s3a.secret.key": {
+                      "s3.secret.access.key": {
                         "type": "string",
-                        "description": "secret key of s3a"
+                        "description": "secret access key of s3"
                       }
                     }
+                },
+                "verify_cloud_storage": {
+                    "type": "boolean",
+                    "description": "Whether to verify the cloud storage configurations.",
+                    "default": true
                 }
             }
         },
@@ -513,6 +518,11 @@
                                     "default": 1024
                                 }
                             }
+                        },
+                        "enable_hdfs": {
+                            "type": "boolean",
+                            "description": "Whether to start HDFS cluster for temporary use. The HDFS should not be used for production data.",
+                            "default": false
                         }
                     }
                 }

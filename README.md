@@ -82,7 +82,7 @@ More details, please refer to configure [gcs bucket guide](./doc/Configure-GCS-B
 ### 6. Start a cluster
 Now you can start a cluster:
 ```
-cloudtik up your-cluster-config.yaml
+cloudtik start your-cluster-config.yaml
 ```
 A typical cluster configuration file is usually very simple thanks to CloudTik hierarchy templates design. Take AWS
 for example,
@@ -105,10 +105,10 @@ provider:
     type: aws
     region: us-west-2
     # S3 configurations for storage
-    aws_s3a_storage:
+    aws_s3_storage:
         s3.bucket: your_s3_bucket
-        fs.s3a.access.key: your_s3_access_key
-        fs.s3a.secret.key: your_s3_secret_key
+        s3.access.key.id: your_s3_access_key_id
+        s3.secret.access.key: your_s3_secret_access_key
 
 auth:
     ssh_user: ubuntu
@@ -146,7 +146,7 @@ cloudtik exec your-cluster-config.yaml
 ```
 #### Submit a job to the cluster to run
 ```
-cloudtik exec your-cluster-config.yaml your-job-file.(py|sh|scala)
+cloudtik submit your-cluster-config.yaml your-job-file.(py|sh|scala)
 ```
 #### Copy local files to cluster head (or to all nodes)
 ```
@@ -158,6 +158,6 @@ cloudtik rsync-down your-cluster-config.yaml [source] [target]
 ```
 #### Stop a cluster
 ```
-cloudtik down your-cluster-config.yaml
+cloudtik stop your-cluster-config.yaml
 ```
 For more information as to the commands, you can use `cloudtik --help` or `cloudtik [command] --help` to get detailed instructions.

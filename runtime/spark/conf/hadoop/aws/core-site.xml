@@ -17,13 +17,13 @@
 <!-- Put site-specific property overrides in this file. -->
 
 <configuration>
-	<property>
-        <name>fs.s3a.aws.credentials.provider</name>
-        <value>org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider,com.amazonaws.auth.EnvironmentVariableCredentialsProvider,com.amazonaws.auth.InstanceProfileCredentialsProvider</value>
-    </property>
     <property>
         <name>fs.default.name</name>
         <value>s3a://{%aws.s3a.bucket%}</value>
+    </property>
+	<property>
+        <name>fs.s3a.aws.credentials.provider</name>
+        <value>org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider,com.amazonaws.auth.EnvironmentVariableCredentialsProvider,com.amazonaws.auth.InstanceProfileCredentialsProvider</value>
     </property>
     <property>
         <name>fs.s3a.endpoint</name>
@@ -39,7 +39,7 @@
     </property>
     <property>
         <name>fs.s3a.access.key</name>
-	<value>{%fs.s3a.access.key%}</value>
+        <value>{%fs.s3a.access.key%}</value>
     </property>
     <property>
         <name>fs.s3a.secret.key</name>

@@ -6,7 +6,7 @@ provider:
     type: azure
     # https://azure.microsoft.com/en-us/global-infrastructure/locations
     location: westus2
-    resource_group: cloudtik-cluster
+    resource_group: cloudtik-resource-group
     # set subscription id otherwise the default from az cli will be used
     # subscription_id: 00000000-0000-0000-0000-000000000000
 
@@ -33,7 +33,7 @@ available_node_types:
         # Provider-specific config, e.g. instance type.
         node_config:
             azure_arm_parameters:
-                vmSize: Standard_D4s_v3
+                vmSize: Standard_D4s_v4
                 # List images https://docs.microsoft.com/en-us/azure/virtual-machines/linux/cli-ps-findimage
                 imagePublisher: canonical
                 imageOffer: 0001-com-ubuntu-server-focal
@@ -52,7 +52,7 @@ available_node_types:
         # Provider-specific config, e.g. instance type.
         node_config:
             azure_arm_parameters:
-                vmSize: Standard_D4s_v3
+                vmSize: Standard_D4s_v4
                 # List images https://docs.microsoft.com/en-us/azure/virtual-machines/linux/cli-ps-findimage
                 imagePublisher: canonical
                 imageOffer: 0001-com-ubuntu-server-focal
@@ -83,7 +83,7 @@ docker:
         # get rid of annoying Ubuntu message
         - touch ~/.sudo_as_admin_successful
         - which docker || (curl -fsSL https://get.docker.com -o /tmp/get-docker.sh &&
-            sudo bash /tmp/get-docker.sh && sudo usermod -aG docker $USER && sudo systemctl restart docker -f)
+            sudo bash /tmp/get-docker.sh > /dev/null && sudo usermod -aG docker $USER && sudo systemctl restart docker -f)
 
 # List of shell commands to run to set up nodes.
 setup_commands:
@@ -93,14 +93,14 @@ setup_commands:
     - conda activate cloudtik_py37 || conda create -n cloudtik_py37 -y python=3.7
     - (stat $HOME/anaconda3/envs/cloudtik_py37/ &> /dev/null &&
         echo 'export PATH="$HOME/anaconda3/envs/cloudtik_py37/bin:$PATH"' >> ~/.bashrc) || true
-    - which cloudtik || pip install -U "cloudtik[azure] @ http://23.95.96.95:8000/latest/cloudtik-0.9.0-cp37-cp37m-manylinux2014_x86_64.whl"
+    - which cloudtik || pip -qq install -U "cloudtik[azure] @ http://23.95.96.95:8000/latest/cloudtik-0.9.0-cp37-cp37m-manylinux2014_x86_64.whl"
 
 # Custom commands that will be run on the head node after common setup.
 head_setup_commands:
     - cloudtik-spark install --head --provider=azure
-    - cloudtik-spark configure --head --provider=azure --azure_storage_kind=$AZURE_STORAGE_KIND --azure_storage_account=$AZURE_STORAGE_ACCOUNT --azure_container=$AZURE_CONTAINER --azure_account_key=$AZURE_ACCOUNT_KEY
+    - cloudtik-spark configure --head --provider=azure --azure_storage_type=$AZURE_STORAGE_TYPE --azure_storage_account=$AZURE_STORAGE_ACCOUNT --azure_container=$AZURE_CONTAINER --azure_account_key=$AZURE_ACCOUNT_KEY
 
 # Custom commands that will be run on worker nodes after common setup.
 worker_setup_commands:
     - cloudtik-spark install --provider=azure
-    - cloudtik-spark configure --provider=azure --head_address=$CLOUDTIK_HEAD_IP  --azure_storage_kind=$AZURE_STORAGE_KIND  --azure_storage_account=$AZURE_STORAGE_ACCOUNT --azure_container=$AZURE_CONTAINER --azure_account_key=$AZURE_ACCOUNT_KEY
+    - cloudtik-spark configure --provider=azure --head_address=$CLOUDTIK_HEAD_IP  --azure_storage_type=$AZURE_STORAGE_TYPE  --azure_storage_account=$AZURE_STORAGE_ACCOUNT --azure_container=$AZURE_CONTAINER --azure_account_key=$AZURE_ACCOUNT_KEY

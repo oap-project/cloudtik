@@ -1,0 +1,11 @@
+from: aws/medium
+
+# Cloud-provider specific configuration.
+provider:
+    type: aws
+
+# The instance configuration for a medium instance type
+available_node_types:
+    worker.default:
+        node_config:
+            InstanceType: m6i.8xlarge

@@ -1,31 +1,21 @@
 from enum import Enum
-import json
-import jsonschema
 import os
 import re
-import shutil
 from subprocess import CalledProcessError
 import tempfile
 import threading
 import time
 import unittest
-from unittest.mock import Mock
 import yaml
 import copy
-from collections import defaultdict
-from cloudtik.core._private.cluster.cluster_operator import get_or_create_head_node
 from jsonschema.exceptions import ValidationError
 from typing import Dict, Callable, List, Optional
 
-import cloudtik
 from cloudtik.core._private.utils import prepare_config, validate_config
 from cloudtik.core._private.cluster import cluster_operator
-from cloudtik.core.api import get_docker_host_mount_location
-from cloudtik.core._private.cluster.load_metrics import LoadMetrics
-from cloudtik.core._private.cluster.cluster_scaler import StandardClusterScaler
-from cloudtik.core._private.prometheus_metrics import ClusterPrometheusMetrics
+from cloudtik.core._private.cluster.cluster_metrics import ClusterMetrics
 from cloudtik.core._private.providers import (
-    _NODE_PROVIDERS, _clear_provider_cache, _DEFAULT_CONFIGS)
+    _NODE_PROVIDERS, _DEFAULT_CONFIGS)
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, CLOUDTIK_TAG_NODE_STATUS, \
      CLOUDTIK_TAG_USER_NODE_TYPE, CLOUDTIK_TAG_CLUSTER_NAME
 from cloudtik.core.node_provider import NodeProvider
@@ -325,6 +315,7 @@ SMALL_CLUSTER = {
         "availability_zone": "us-east-1a",
     },
     "docker": {
+        "enabled": True,
         "image": "example",
         "container_name": "mock",
     },
@@ -355,6 +346,7 @@ MOCK_DEFAULT_CONFIG = {
         "availability_zone": "us-east-1a",
     },
     "docker": {
+        "enabled": True,
         "image": "example",
         "container_name": "mock",
     },
@@ -444,14 +436,14 @@ MULTI_WORKER_CLUSTER = dict(
     })
 
 
-class LoadMetricsTest(unittest.TestCase):
+class ClusterMetricsTest(unittest.TestCase):
     def testHeartbeat(self):
-        lm = LoadMetrics()
-        lm.update("1.1.1.1", b'\xb6\x80\xbdw\xbd\x1c\xee\xf6@\x11', {"CPU": 2}, {"CPU": 1}, {})
-        lm.mark_active("2.2.2.2")
-        assert "1.1.1.1" in lm.last_heartbeat_time_by_ip
-        assert "2.2.2.2" in lm.last_heartbeat_time_by_ip
-        assert "3.3.3.3" not in lm.last_heartbeat_time_by_ip
+        cluster_metrics = ClusterMetrics()
+        cluster_metrics.update("1.1.1.1", b'\xb6\x80\xbdw\xbd\x1c\xee\xf6@\x11', {"CPU": 2}, {"CPU": 1}, {})
+        cluster_metrics.mark_active("2.2.2.2")
+        assert "1.1.1.1" in cluster_metrics.last_heartbeat_time_by_ip
+        assert "2.2.2.2" in cluster_metrics.last_heartbeat_time_by_ip
+        assert "3.3.3.3" not in cluster_metrics.last_heartbeat_time_by_ip
 
 
 class CloudTikTest(unittest.TestCase):

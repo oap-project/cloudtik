@@ -18,13 +18,13 @@ except ImportError:
     prometheus_client = None
 
 import cloudtik
-from cloudtik.core._private.cluster.cluster_scaler import StandardClusterScaler
+from cloudtik.core._private.cluster.cluster_scaler import ClusterScaler
 from cloudtik.core._private.cluster.cluster_operator import teardown_cluster
 from cloudtik.core._private.constants import CLOUDTIK_UPDATE_INTERVAL_S, \
     CLOUDTIK_METRIC_PORT, CLOUDTIK_RESOURCE_REQUEST_CHANNEL
 from cloudtik.core._private.cluster.event_summarizer import EventSummarizer
 from cloudtik.core._private.prometheus_metrics import ClusterPrometheusMetrics
-from cloudtik.core._private.cluster.load_metrics import LoadMetrics
+from cloudtik.core._private.cluster.cluster_metrics import ClusterMetrics
 from cloudtik.core._private.utils import CLOUDTIK_CLUSTER_SCALING_ERROR, \
     CLOUDTIK_CLUSTER_SCALING_STATUS
 from cloudtik.core._private import constants, services
@@ -100,7 +100,7 @@ class ClusterController:
         state_client = StateClient.create_from_redis(self.redis)
         kv_initialize(state_client)
 
-        self.load_metrics = LoadMetrics()
+        self.cluster_metrics = ClusterMetrics()
         self.last_avail_resources = None
         self.event_summarizer = EventSummarizer()
         self.prefix_cluster_info = prefix_cluster_info
@@ -108,7 +108,7 @@ class ClusterController:
         self.stop_event = stop_event  # type: Optional[Event]
         self.cluster_scaling_config = cluster_scaling_config
         self.cluster_scaler = None
-        self.load_metrics_failures = 0
+        self.cluster_metrics_failures = 0
 
         self.prometheus_metrics = ClusterPrometheusMetrics()
         if prometheus_client:
@@ -132,40 +132,37 @@ class ClusterController:
     def _initialize_cluster_scaler(self):
         cluster_scaling_config = self.cluster_scaling_config
 
-        self.cluster_scaler = StandardClusterScaler(
+        self.cluster_scaler = ClusterScaler(
             cluster_scaling_config,
-            self.load_metrics,
+            self.cluster_metrics,
             prefix_cluster_info=self.prefix_cluster_info,
             event_summarizer=self.event_summarizer,
             prometheus_metrics=self.prometheus_metrics)
 
-    def update_load_metrics(self):
+    def update_cluster_metrics(self):
         try:
-            self._update_load_metrics()
+            self._update_cluster_metrics()
             # reset if there is a success
-            self.load_metrics_failures = 0
+            self.cluster_metrics_failures = 0
         except Exception as e:
-            if self.load_metrics_failures == 0 or self.load_metrics_failures == MAX_FAILURES_FOR_LOGGING:
+            if self.cluster_metrics_failures == 0 or self.cluster_metrics_failures == MAX_FAILURES_FOR_LOGGING:
                 # detailed form
                 error = traceback.format_exc()
                 logger.exception(f"Load metrics update failed with the following error:\n{error}")
-            elif self.load_metrics_failures < MAX_FAILURES_FOR_LOGGING:
+            elif self.cluster_metrics_failures < MAX_FAILURES_FOR_LOGGING:
                 # short form
                 logger.exception(f"Load metrics update failed with the following error:{str(e)}")
 
-            if self.load_metrics_failures == MAX_FAILURES_FOR_LOGGING:
+            if self.cluster_metrics_failures == MAX_FAILURES_FOR_LOGGING:
                 logger.exception(f"The above error has been showed consecutively"
-                                 f" for {self.load_metrics_failures} times. Stop showing.")
+                                 f" for {self.cluster_metrics_failures} times. Stop showing.")
 
-            self.load_metrics_failures += 1
+            self.cluster_metrics_failures += 1
 
-    def _update_load_metrics(self):
+    def _update_cluster_metrics(self):
         """Fetches resource usage data from control state and updates load metrics."""
         # TODO (haifeng): implement load metrics
-
         resources_usage_batch = self.resource_info_client.get_cluster_resource_usage(timeout=60)
-
-        # TODO (haifeng): original code put this in the for loop, it should put outside
         waiting_bundles, infeasible_bundles = parse_resource_demands(
             resources_usage_batch.resource_demands)
 
@@ -185,8 +182,7 @@ class ClusterController:
             available_resources = {}
 
             use_node_id_as_ip = (self.cluster_scaler is not None
-                                 and self.cluster_scaler.config["provider"].get(
-                        "use_node_id_as_ip", False))
+                                 and self.cluster_scaler.config["provider"].get("use_node_id_as_ip", False))
 
             # "use_node_id_as_ip" is a hack meant to address situations in
             # which there's more than one service node residing at a given ip.
@@ -200,10 +196,10 @@ class ClusterController:
                 ip = node_id.hex()
             else:
                 ip = resource_message["resource"].get("ip")
-            self.load_metrics.update(ip, node_id, last_heartbeat_time, total_resources,
-                                     available_resources, resource_load,
-                                     waiting_bundles, infeasible_bundles,
-                                     cluster_full)
+            self.cluster_metrics.update(ip, node_id, last_heartbeat_time, total_resources,
+                                        available_resources, resource_load,
+                                        waiting_bundles, infeasible_bundles,
+                                        cluster_full)
 
     def update_resource_requests(self):
         """Fetches resource requests from the internal KV and updates load."""
@@ -213,7 +209,7 @@ class ClusterController:
         if data:
             try:
                 resource_request = json.loads(data)
-                self.load_metrics.set_resource_requests(resource_request)
+                self.cluster_metrics.set_resource_requests(resource_request)
             except Exception:
                 logger.exception("Error parsing resource requests")
 
@@ -222,11 +218,11 @@ class ClusterController:
         while True:
             if self.stop_event and self.stop_event.is_set():
                 break
-            self.update_load_metrics()
+            self.update_cluster_metrics()
             # self.update_resource_requests()
             # self.update_event_summary()
             status = {
-                "load_metrics_report": asdict(self.load_metrics.summary()),
+                "cluster_metrics_report": asdict(self.cluster_metrics.summary()),
                 "time": time.time(),
                 "controller_pid": os.getpid()
             }
@@ -261,7 +257,7 @@ class ClusterController:
         are reported to the event summarizer. The event summarizer will report
         only the latest cluster size per batch.
         """
-        avail_resources = self.load_metrics.resources_avail_summary()
+        avail_resources = self.cluster_metrics.resources_avail_summary()
         if avail_resources != self.last_avail_resources:
             self.event_summarizer.add(
                 "Resized to {}.",  # e.g., Resized to 100 CPUs, 4 GPUs.

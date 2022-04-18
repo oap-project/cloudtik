@@ -263,7 +263,7 @@ class LocalNodeProvider(NodeProvider):
 
 def record_local_head_state_if_needed(
         local_provider: LocalNodeProvider) -> None:
-    """This function is called on the head from StandardClusterScaler.reset
+    """This function is called on the head from ClusterScaler.reset
     to record the head node's own existence in the cluster state file.
 
     This is necessary because `provider.create_node` in

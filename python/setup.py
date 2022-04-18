@@ -22,6 +22,10 @@ ROOT_DIR = os.path.dirname(__file__)
 THIRDPARTY_SUBDIR = os.path.join("cloudtik", "thirdparty_files")
 TEMPLATES_SUBDIR = os.path.join("cloudtik", "templates")
 
+RUNTIME_SPARK_SUBDIR = os.path.join("cloudtik", "runtime", "spark")
+SPARK_CONF_SUBDIR = os.path.join(RUNTIME_SPARK_SUBDIR, "conf")
+SPARK_SCRIPTS_SUBDIR = os.path.join(RUNTIME_SPARK_SUBDIR, "scripts")
+
 exe_suffix = ".exe" if sys.platform == "win32" else ""
 
 
@@ -115,18 +119,6 @@ cloudtik_files += [
     "cloudtik/providers/defaults-shared.yaml",
 ]
 
-# cloudtik runtime yaml files
-cloudtik_files += [
-    "cloudtik/runtime/spark/conf/hadoop/aws/core-site.xml",
-    "cloudtik/runtime/spark/conf/hadoop/azure/core-site.xml",
-    "cloudtik/runtime/spark/conf/hadoop/gcp/core-site.xml",
-    "cloudtik/runtime/spark/conf/hadoop/yarn-site.xml",
-    "cloudtik/runtime/spark/conf/spark/spark-defaults.conf",
-    "cloudtik/runtime/spark/scripts/install.sh",
-    "cloudtik/runtime/spark/scripts/services.sh",
-    "cloudtik/runtime/spark/scripts/configure.sh",
-]
-
 # If you're adding dependencies for cloudtik extras, please
 # also update the matching section of requirements.txt.
 
@@ -139,6 +131,8 @@ if setup_spec.type == SetupType.CLOUDTIK:
         "azure": [
             "azure-cli",
             "azure-core",
+            "azure-storage-blob",
+            "azure-storage-file-datalake",
         ],
         "gcp": [
             "google-api-python-client",
@@ -261,6 +255,11 @@ def pip_run(build_ext):
         # Include all the configuration template files
         templates_dir = os.path.join(ROOT_DIR, TEMPLATES_SUBDIR)
         setup_spec.files_to_include += walk_directory(templates_dir)
+        # Include all the runtime conf and scripts files for Spark
+        spark_conf_dir = os.path.join(ROOT_DIR, SPARK_CONF_SUBDIR)
+        setup_spec.files_to_include += walk_directory(spark_conf_dir)
+        spark_scripts_dir = os.path.join(ROOT_DIR, SPARK_SCRIPTS_SUBDIR)
+        setup_spec.files_to_include += walk_directory(spark_scripts_dir)
 
     copied_files = 0
     for filename in setup_spec.files_to_include:

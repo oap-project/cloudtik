@@ -4,6 +4,7 @@ import json
 import os
 import logging
 import time
+from typing import Any, Dict
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -18,7 +19,8 @@ from cloudtik.providers._private.gcp.node import (GCPNodeType, MAX_POLLS,
 
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.services import get_node_ip_address
-from cloudtik.core._private.utils import check_cidr_conflict
+from cloudtik.core._private.utils import check_cidr_conflict, unescape_private_key
+from cloudtik.providers._private.utils import StorageTestingError
 
 logger = logging.getLogger(__name__)
 
@@ -192,6 +194,11 @@ def _create_iam(gcp_credentials=None):
 def _create_compute(gcp_credentials=None):
     return discovery.build(
         "compute", "v1", credentials=gcp_credentials, cache_discovery=False)
+
+
+def _create_storage(gcp_credentials=None):
+    return discovery.build(
+        "storage", "v1", credentials=gcp_credentials, cache_discovery=False)
 
 
 def _create_tpu(gcp_credentials=None):
@@ -403,8 +410,8 @@ def _configure_gcp_subnets_cidr(config, compute, VpcId):
     return cidr_list
 
 
-def _delete_subnet(config, compute, isPrivate=True):
-    if isPrivate:
+def _delete_subnet(config, compute, is_private=True):
+    if is_private:
         subnet_attribute = "private"
     else:
         subnet_attribute = "public"
@@ -789,7 +796,7 @@ def _delete_network_resources(config, compute, current_step, total_steps):
             "Deleting public subnet",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
-        _delete_subnet(config, compute, isPrivate=False)
+        _delete_subnet(config, compute, is_private=False)
 
     # delete router for private subnets
     with cli_logger.group(
@@ -803,7 +810,7 @@ def _delete_network_resources(config, compute, current_step, total_steps):
             "Deleting private subnet",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
-        _delete_subnet(config, compute, isPrivate=True)
+        _delete_subnet(config, compute, is_private=True)
 
     # delete firewalls
     with cli_logger.group(
@@ -1448,3 +1455,31 @@ def _create_project_ssh_key_pair(project, public_key, ssh_user, compute):
                                                  compute)
 
     return response
+
+
+def verify_gcs_storage(provider_config: Dict[str, Any]):
+    gcs_storage = provider_config.get("gcp_cloud_storage")
+    if gcs_storage is None:
+        return
+
+    private_key = gcs_storage["gcs.service.account.private.key"]
+    private_key = unescape_private_key(private_key)
+
+    credentials_field = {
+        "project_id": provider_config.get("project_id"),
+        "private_key_id": gcs_storage["gcs.service.account.private.key.id"],
+        "private_key": private_key,
+        "client_email": gcs_storage["gcs.service.account.client.email"],
+        "token_uri": "https://oauth2.googleapis.com/token"
+    }
+
+    try:
+        credentials = service_account.Credentials.from_service_account_info(
+            credentials_field)
+        storage = _create_storage(credentials)
+        storage.buckets().get(bucket=gcs_storage["gcs.bucket"]).execute()
+    except Exception as e:
+        raise StorageTestingError("Error happens when verifying GCS storage configurations. "
+                                  "If you want to go without passing the verification, "
+                                  "set 'verify_cloud_storage' to False under provider config. "
+                                  "Error: {}.".format(str(e))) from None

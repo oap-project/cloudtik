@@ -29,7 +29,7 @@ available_node_types:
         # For more documentation on available fields, see:
         # https://cloud.google.com/compute/docs/reference/rest/v1/instances/insert
         node_config:
-            machineType: n1-standard-4
+            machineType: n2-standard-4
             # The sourceImage should under boot initializeParams
             # We will put here better inheritance handling and will fix to the place at runtime
             # See https://cloud.google.com/compute/docs/images for more images
@@ -63,7 +63,7 @@ available_node_types:
         # For more documentation on available fields, see:
         # https://cloud.google.com/compute/docs/reference/rest/v1/instances/insert
         node_config:
-            machineType: n1-standard-4
+            machineType: n2-standard-4
             # The sourceImage should under boot initializeParams
             # We will put here better inheritance handling and will fix to the place at runtime
             # See https://cloud.google.com/compute/docs/images for more images
@@ -99,14 +99,14 @@ setup_commands:
     - conda activate cloudtik_py37 || conda create -n cloudtik_py37 -y python=3.7
     - (stat $HOME/anaconda3/envs/cloudtik_py37/ &> /dev/null &&
         echo 'export PATH="$HOME/anaconda3/envs/cloudtik_py37/bin:$PATH"' >> ~/.bashrc) || true
-    - which cloudtik || pip install -U "cloudtik[gcp] @ http://23.95.96.95:8000/latest/cloudtik-0.9.0-cp37-cp37m-manylinux2014_x86_64.whl"
+    - which cloudtik || pip -qq install -U "cloudtik[gcp] @ http://23.95.96.95:8000/latest/cloudtik-0.9.0-cp37-cp37m-manylinux2014_x86_64.whl"
 
 # Custom commands that will be run on the head node after common setup.
 head_setup_commands:
     - cloudtik-spark install --head --provider=gcp
-    - cloudtik-spark configure --head --provider=gcp --project_id=$PROJECT_ID  --gcp_gcs_bucket=$GCP_GCS_BUCKET --fs_gs_auth_service_account_email=$FS_GS_AUTH_SERVICE_ACCOUNT_EMAIL --fs_gs_auth_service_account_private_key_id=$FS_GS_AUTH_SERVICE_ACCOUNT_PRIVATE_KEY_ID --fs_gs_auth_service_account_private_key="$FS_GS_AUTH_SERVICE_ACCOUNT_PRIVATE_KEY"
+    - cloudtik-spark configure --head --provider=gcp --project_id=$PROJECT_ID  --gcs_bucket=$GCS_BUCKET --gcs_service_account_client_email=$GCS_SERVICE_ACCOUNT_CLIENT_EMAIL --gcs_service_account_private_key_id=$GCS_SERVICE_ACCOUNT_PRIVATE_KEY_ID --gcs_service_account_private_key="$GCS_SERVICE_ACCOUNT_PRIVATE_KEY"
 
 # Custom commands that will be run on worker nodes after common setup.
 worker_setup_commands:
     - cloudtik-spark install --provider=gcp
-    - cloudtik-spark configure --provider=gcp --head_address=$CLOUDTIK_HEAD_IP --project_id=$PROJECT_ID  --gcp_gcs_bucket=$GCP_GCS_BUCKET --fs_gs_auth_service_account_email=$FS_GS_AUTH_SERVICE_ACCOUNT_EMAIL --fs_gs_auth_service_account_private_key_id=$FS_GS_AUTH_SERVICE_ACCOUNT_PRIVATE_KEY_ID --fs_gs_auth_service_account_private_key="$FS_GS_AUTH_SERVICE_ACCOUNT_PRIVATE_KEY"
+    - cloudtik-spark configure --provider=gcp --head_address=$CLOUDTIK_HEAD_IP --project_id=$PROJECT_ID  --gcs_bucket=$GCS_BUCKET --gcs_service_account_client_email=$GCS_SERVICE_ACCOUNT_CLIENT_EMAIL --gcs_service_account_private_key_id=$GCS_SERVICE_ACCOUNT_PRIVATE_KEY_ID --gcs_service_account_private_key="$GCS_SERVICE_ACCOUNT_PRIVATE_KEY"

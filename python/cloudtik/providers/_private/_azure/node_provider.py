@@ -13,14 +13,16 @@ from azure.mgmt.resource import ResourceManagementClient
 from azure.mgmt.resource.resources.models import DeploymentMode
 from azure.mgmt.msi import ManagedServiceIdentityClient
 
+from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_NAME
 
 from cloudtik.providers._private._azure.azure_identity_credential_adapter import AzureIdentityCredentialAdapter
-from cloudtik.providers._private._azure.config import (bootstrap_azure, MSI_NAME,
-                                                       get_azure_sdk_function)
+from cloudtik.providers._private._azure.config import (bootstrap_azure, bootstrap_azure_from_workspace,
+                                                       MSI_NAME, get_azure_sdk_function, verify_azure_cloud_storage)
 
 from cloudtik.providers._private._azure.utils import get_azure_config
+from cloudtik.providers._private.utils import validate_config_dict
 
 VM_NAME_MAX_LEN = 64
 VM_NAME_UUID_LEN = 8
@@ -126,13 +128,16 @@ class AzureNodeProvider(NodeProvider):
             network_interface_name=metadata["nic_name"])
         ip_config = nic.ip_configurations[0]
 
-        if not self.provider_config.get("use_internal_ips", False):
-            public_ip_id = ip_config.public_ip_address.id
+        public_ip_address = ip_config.public_ip_address
+        if public_ip_address is not None:
+            public_ip_id = public_ip_address.id
             metadata["public_ip_name"] = public_ip_id.split("/")[-1]
             public_ip = self.network_client.public_ip_addresses.get(
                 resource_group_name=resource_group,
                 public_ip_address_name=metadata["public_ip_name"])
             metadata["external_ip"] = public_ip.ip_address
+        else:
+            metadata["external_ip"] = None
 
         metadata["internal_ip"] = ip_config.private_ip_address
 
@@ -204,7 +209,7 @@ class AzureNodeProvider(NodeProvider):
         """Creates a number of nodes within the namespace."""
         # TODO: restart deallocated nodes if possible
         resource_group = self.provider_config["resource_group"]
-
+        use_internal_ips = self.provider_config.get("use_internal_ips", False)
         # load the template file
         current_path = Path(__file__).parent
         template_path = current_path.joinpath("azure-vm-template.json")
@@ -219,11 +224,9 @@ class AzureNodeProvider(NodeProvider):
         name_tag = config_tags.get(CLOUDTIK_TAG_NODE_NAME, "node")
         unique_id = uuid4().hex[:VM_NAME_UUID_LEN]
         vm_name = "{name}-{id}".format(name=name_tag, id=unique_id)
-        use_internal_ips = self.provider_config.get("use_internal_ips", False)
 
         template_params = node_config["azure_arm_parameters"].copy()
         template_params["vmName"] = vm_name
-        template_params["provisionPublicIp"] = not use_internal_ips
         template_params["vmTags"] = config_tags
         template_params["vmCount"] = count
 
@@ -338,12 +341,16 @@ class AzureNodeProvider(NodeProvider):
 
     @staticmethod
     def bootstrap_config(cluster_config):
-        return bootstrap_azure(cluster_config)
+        workspace_name = cluster_config.get("workspace_name", "")
+        if workspace_name == "":
+            return bootstrap_azure(cluster_config)
+        else:
+            return bootstrap_azure_from_workspace(cluster_config)
 
     def prepare_for_head_node(
             self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         """Returns a new cluster config with custom configs for head node."""
-        managed_identity_client_id = self._get_managed_identity_client_id()
+        managed_identity_client_id = self._get_managed_identity_client_id(cluster_config)
         if managed_identity_client_id:
             cluster_config["provider"]["managed_identity_client_id"] = managed_identity_client_id
 
@@ -383,33 +390,41 @@ class AzureNodeProvider(NodeProvider):
     @staticmethod
     def validate_config(
             provider_config: Dict[str, Any]) -> None:
-        provider_config_failed = False
-        dict = {
-            "RESOURCE_GROUP": provider_config.get("resource_group"),
-            "SUBSCRIPTION_ID": provider_config.get("subscription_id"),
-            "AZURE_STORAGE_KIND": provider_config.get("azure_cloud_storage", {}).get("azure.storage.kind"),
-            "AZURE_STORAGE_ACCOUNT": provider_config.get("azure_cloud_storage", {}).get("azure.storage.account"),
-            "AZURE_CONTAINER": provider_config.get("azure_cloud_storage", {}).get(
-                "azure.container"),
-            "AZURE_ACCOUNT_KEY": provider_config.get("azure_cloud_storage", {}).get(
-                "azure.account.key")}
+        config_dict = {
+            "subscription_id": provider_config.get("subscription_id"),
+            "resource_group": provider_config.get("resource_group")}
 
-        for key, value in dict.items():
-            if value is None:
-                provider_config_failed = True
-                logger.info("{} must be define in your yaml, please refer to config-schema.json.".format(key))
-        if provider_config_failed:
-            raise RuntimeError("{} provider must be provided right storage config, "
-                               "please refer to config-schema.json.".format(provider_config["type"]))
+        validate_config_dict(provider_config["type"], config_dict)
 
-    def _get_managed_identity_client_id(self):
+    @staticmethod
+    def validate_storage_config(
+            provider_config: Dict[str, Any]) -> None:
+        config_dict = {
+            "azure.storage.type": provider_config.get("azure_cloud_storage", {}).get("azure.storage.type"),
+            "azure.storage.account": provider_config.get("azure_cloud_storage", {}).get("azure.storage.account"),
+            "azure.container": provider_config.get("azure_cloud_storage", {}).get("azure.container"),
+            "azure.account.key": provider_config.get("azure_cloud_storage", {}).get("azure.account.key")}
+
+        validate_config_dict(provider_config["type"], config_dict)
+
+        verify_cloud_storage = provider_config.get("verify_cloud_storage", True)
+        if verify_cloud_storage:
+            cli_logger.verbose("Verifying Azure cloud storage configurations...")
+            verify_azure_cloud_storage(provider_config)
+            cli_logger.verbose("Successfully verified Azure cloud storage configurations.")
+
+    def _get_managed_identity_client_id(self, cluster_config):
         try:
-            credential_adapter = AzureIdentityCredentialAdapter(self.credential)
-            msi_client = ManagedServiceIdentityClient(credential_adapter,
+            # The latest version doesn't require credential wrapper any longer
+            # credential_adapter = AzureIdentityCredentialAdapter(self.credential)
+            msi_client = ManagedServiceIdentityClient(self.credential,
                                                       self.provider_config["subscription_id"])
+            workspace = cluster_config.get("workspace_name", "")
+
+            user_assigned_identity_name = MSI_NAME if workspace == "" else "cloudtik-{}-user-assigned-identity".format(workspace)
             user_assigned_identity = msi_client.user_assigned_identities.get(
                 self.provider_config["resource_group"],
-                MSI_NAME)
+                user_assigned_identity_name)
             return user_assigned_identity.client_id
         except Exception as e:
             logger.warning("Failed to get azure client id: {}".format(e))

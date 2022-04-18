@@ -6,6 +6,7 @@ import time
 
 from threading import Thread
 
+from cloudtik.core._private.utils import with_runtime_environment_variables
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_STATUS, CLOUDTIK_TAG_RUNTIME_CONFIG, \
     CLOUDTIK_TAG_FILE_MOUNTS_CONTENTS, \
     STATUS_UP_TO_DATE, STATUS_UPDATE_FAILED, STATUS_WAITING_FOR_SSH, \
@@ -51,6 +52,7 @@ class NodeUpdater:
         restart_only: Whether to skip setup commands & just restart 
         for_recovery: True if updater is for a recovering node. Only used for
             metric tracking.
+        runtime_config: The runtime configuration may be needed for running node commands
     """
 
     def __init__(self,
@@ -73,7 +75,8 @@ class NodeUpdater:
                  use_internal_ip=False,
                  docker_config=None,
                  restart_only=False,
-                 for_recovery=False):
+                 for_recovery=False,
+                 runtime_config=None):
 
         self.log_prefix = "NodeUpdater: {}: ".format(node_id)
         use_internal_ip = (use_internal_ip
@@ -115,6 +118,7 @@ class NodeUpdater:
         self.restart_only = restart_only
         self.update_time = None
         self.for_recovery = for_recovery
+        self.runtime_config = runtime_config
 
     def run(self):
         update_start_time = time.time()
@@ -323,7 +327,8 @@ class NodeUpdater:
 
         if self.restart_only:
             self.setup_commands = []
-        provider_envs = self.provider.with_provider_environment_variables()
+        runtime_envs = with_runtime_environment_variables(
+            self.runtime_config, self.provider)
 
         # runtime_hash will only change whenever the user restarts
         # or updates their cluster with `get_or_create_head_node`
@@ -367,7 +372,7 @@ class NodeUpdater:
                     with cli_logger.group(
                             "Running initialization commands",
                             _numbered=("[]", 5, NUM_SETUP_STEPS)):
-                        self._exec_initialization_commands(provider_envs)
+                        self._exec_initialization_commands(runtime_envs)
                 else:
                     cli_logger.print(
                         "No initialization commands to run.",
@@ -385,7 +390,7 @@ class NodeUpdater:
                             "Running setup commands",
                             # todo: fix command numbering
                             _numbered=("[]", 7, NUM_SETUP_STEPS)):
-                        self._exec_setup_commands(provider_envs)
+                        self._exec_setup_commands(runtime_envs)
                 else:
                     cli_logger.print(
                         "No setup commands to run.",
@@ -394,7 +399,7 @@ class NodeUpdater:
         with cli_logger.group(
                 "Starting the CloudTik runtime", _numbered=("[]", 7,
                                                        NUM_SETUP_STEPS)):
-            self._exec_start_commands(provider_envs)
+            self._exec_start_commands(runtime_envs)
 
     def rsync_up(self, source, target, docker_mount_if_possible=False):
         options = {}
@@ -414,7 +419,7 @@ class NodeUpdater:
         cli_logger.verbose("`rsync`ed {} (remote) to {} (local)",
                            cf.bold(source), cf.bold(target))
 
-    def _exec_initialization_commands(self, provider_envs):
+    def _exec_initialization_commands(self, runtime_envs):
         global_event_system.execute_callback(
             CreateClusterEvent.run_initialization_cmd)
         with LogTimer(
@@ -432,7 +437,7 @@ class NodeUpdater:
                     # Run outside docker.
                     self.cmd_executor.run(
                         cmd,
-                        environment_variables=provider_envs,
+                        environment_variables=runtime_envs,
                         ssh_options_override_ssh_key=self.
                         auth_config.get("ssh_private_key"),
                         run_env="host")
@@ -446,7 +451,7 @@ class NodeUpdater:
                         "Initialization command failed."
                     ) from None
 
-    def _exec_setup_commands(self, provider_envs):
+    def _exec_setup_commands(self, runtime_envs):
         global_event_system.execute_callback(
             CreateClusterEvent.run_setup_cmd)
         with LogTimer(
@@ -470,7 +475,7 @@ class NodeUpdater:
 
                 try:
                     # Runs in the container if docker is in use
-                    self.cmd_executor.run(cmd, environment_variables=provider_envs, run_env="auto")
+                    self.cmd_executor.run(cmd, environment_variables=runtime_envs, run_env="auto")
                 except ProcessRunnerError as e:
                     if e.msg_type == "ssh_command_failed":
                         cli_logger.error("Failed.")
@@ -480,7 +485,7 @@ class NodeUpdater:
                     raise click.ClickException(
                         "Setup command failed.")
 
-    def _exec_start_commands(self, provider_envs):
+    def _exec_start_commands(self, runtime_envs):
         global_event_system.execute_callback(
             CreateClusterEvent.start_cloudtik_runtime)
         with LogTimer(
@@ -497,7 +502,7 @@ class NodeUpdater:
                     }
                 else:
                     env_vars = {}
-                env_vars.update(provider_envs)
+                env_vars.update(runtime_envs)
 
                 try:
                     old_redirected = cmd_output_util.is_output_redirected()

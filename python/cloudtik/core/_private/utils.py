@@ -28,7 +28,7 @@ import yaml
 import cloudtik
 from cloudtik.core._private import constants, services
 from cloudtik.core._private.cli_logger import cli_logger
-from cloudtik.core._private.cluster.load_metrics import LoadMetricsSummary
+from cloudtik.core._private.cluster.cluster_metrics import ClusterMetricsSummary
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.providers._private.local.config import prepare_local
 from cloudtik.core._private.providers import _get_default_config, _get_node_provider, _get_default_workspace_config
@@ -37,6 +37,8 @@ from cloudtik.core._private.providers import _get_workspace_provider
 
 # Import psutil after others so the packaged version is used.
 import psutil
+
+from cloudtik.runtime.spark.utils import with_spark_runtime_environment_variables, spark_runtime_validate_config
 
 REQUIRED, OPTIONAL = True, False
 CLOUDTIK_CONFIG_SCHEMA_PATH = os.path.join(
@@ -732,6 +734,9 @@ def validate_config(config: Dict[str, Any]) -> None:
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     provider.validate_config(config["provider"])
 
+    # add runtime config validate and testing
+    spark_runtime_validate_config(config, provider)
+
 
 def prepare_config(config: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -776,9 +781,6 @@ def fillout_workspace_defaults(config: Dict[str, Any]) -> Dict[str, Any]:
 
     # Just for clarity:
     merged_config = copy.deepcopy(defaults)
-
-    # Fill auth field to avoid key errors.
-    merged_config["auth"] = merged_config.get("auth", {})
     return merged_config
 
 
@@ -1087,11 +1089,11 @@ def parse_placement_group_resource_str(
     return (placement_group_resource_str, None, True)
 
 
-def get_usage_report(lm_summary: LoadMetricsSummary) -> str:
+def get_usage_report(cluster_metrics_summary: ClusterMetricsSummary) -> str:
     # first collect resources used in placement groups
     placement_group_resource_usage = {}
     placement_group_resource_total = collections.defaultdict(float)
-    for resource, (used, total) in lm_summary.usage.items():
+    for resource, (used, total) in cluster_metrics_summary.usage.items():
         (pg_resource_name, pg_name,
          is_countable) = parse_placement_group_resource_str(resource)
         if pg_name:
@@ -1103,7 +1105,7 @@ def get_usage_report(lm_summary: LoadMetricsSummary) -> str:
             continue
 
     usage_lines = []
-    for resource, (used, total) in sorted(lm_summary.usage.items()):
+    for resource, (used, total) in sorted(cluster_metrics_summary.usage.items()):
         if "node:" in resource:
             continue  # Skip the auto-added per-node "node:<ip>" resource.
 
@@ -1188,7 +1190,7 @@ def format_resource_demand_summary(
     return demand_lines
 
 
-def get_demand_report(lm_summary: LoadMetricsSummary):
+def get_demand_report(lm_summary: ClusterMetricsSummary):
     demand_lines = []
     if lm_summary.resource_demand:
         demand_lines.extend(
@@ -1497,3 +1499,35 @@ def kill_process_tree(pid, include_parent=True):
             p.kill()
         except psutil.NoSuchProcess:  # pragma: no cover
             pass
+
+
+def with_runtime_environment_variables(runtime_config, provider):
+    runtime_envs = with_spark_runtime_environment_variables(runtime_config, provider)
+    return runtime_envs
+
+
+def unescape_private_key(private_key: str):
+    if private_key is None:
+        return private_key
+
+    if not private_key.startswith("-----BEGIN PRIVATE KEY-----\\n"):
+        return private_key
+
+    # Unescape "/n" to the real newline characters
+    # use json load to do the work
+    unescaped_private_key = json.loads("\"" + private_key + "\"")
+    return unescaped_private_key
+
+
+def escape_private_key(private_key: str):
+    if private_key is None:
+        return private_key
+
+    if not private_key.startswith("-----BEGIN PRIVATE KEY-----\n"):
+        return private_key
+
+    # Escape the real newline characters
+    # Use json dumps to do the work
+    escaped_private_key = json.dumps(private_key)
+    escaped_private_key = escaped_private_key.strip("\"\'")
+    return escaped_private_key

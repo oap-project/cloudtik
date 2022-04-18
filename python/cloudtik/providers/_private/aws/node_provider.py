@@ -16,9 +16,10 @@ from cloudtik.core._private.constants import BOTO_MAX_RETRIES, \
 from cloudtik.core._private.log_timer import LogTimer
 from cloudtik.core._private.cli_logger import cli_logger, cf
 
-from cloudtik.providers._private.aws.config import bootstrap_aws, bootstrap_aws_from_workspace
+from cloudtik.providers._private.aws.config import bootstrap_aws, bootstrap_aws_from_workspace, verify_s3_storage
 from cloudtik.providers._private.aws.utils import boto_exception_handler, \
-    resource_cache, client_cache, get_aws_s3a_config, get_boto_error_code
+    resource_cache, client_cache, get_aws_s3_config, get_boto_error_code
+from cloudtik.providers._private.utils import validate_config_dict
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +48,7 @@ def make_ec2_client(region, max_retries, aws_credentials=None):
     """Make client, retrying requests up to `max_retries`."""
     aws_credentials = aws_credentials or {}
     return resource_cache("ec2", region, max_retries, **aws_credentials)
+
 
 def tags_list_to_dict(tags:list):
     tags_dict = {}
@@ -121,8 +123,7 @@ class AWSNodeProvider(NodeProvider):
         self.cached_nodes = {}
 
     def with_provider_environment_variables(self):
-        return get_aws_s3a_config(self.provider_config)
-
+        return get_aws_s3_config(self.provider_config)
 
     def non_terminated_nodes(self, tag_filters):
         # Note that these filters are acceptable because they are set on
@@ -492,7 +493,6 @@ class AWSNodeProvider(NodeProvider):
         # the node cache is updated.
         pass
 
-
     def terminate_nodes(self, node_ids):
         if not node_ids:
             return
@@ -576,7 +576,6 @@ class AWSNodeProvider(NodeProvider):
             return bootstrap_aws(cluster_config)
         else:
             return bootstrap_aws_from_workspace(cluster_config)
-
 
     @staticmethod
     def fillout_available_node_types_resources(
@@ -673,16 +672,24 @@ class AWSNodeProvider(NodeProvider):
     @staticmethod
     def validate_config(
             provider_config: Dict[str, Any]) -> None:
-        provider_config_failed = False
-        dict = {}
-        dict["AWS_S3A_BUCKET"] = provider_config.get("aws_s3a_storage", {}).get("s3.bucket")
-        dict["FS_S3A_ACCESS_KEY"] = provider_config.get("aws_s3a_storage", {}).get("fs.s3a.access.key")
-        dict["FS_S3A_SECRET_KEY"] = provider_config.get("aws_s3a_storage", {}).get("fs.s3a.secret.key")
+        config_dict = {
+            "region": provider_config.get("region")}
 
-        for key, value in dict.items():
-            if value is None:
-                provider_config_failed = True
-                logger.info("{} must be define in your yaml, please refer to config-schema.json.".format(key))
-        if provider_config_failed:
-            raise RuntimeError("{} provider must be provided right storage config, "
-                               "please refer to config-schema.json.".format(provider_config["type"]))
+        validate_config_dict(provider_config["type"], config_dict)
+
+    @staticmethod
+    def validate_storage_config(
+            provider_config: Dict[str, Any]) -> None:
+        config_dict = {
+            "s3.bucket": provider_config.get("aws_s3_storage", {}).get("s3.bucket"),
+            "s3.access.key.id": provider_config.get("aws_s3_storage", {}).get("s3.access.key.id"),
+            "s3.secret.access.key": provider_config.get("aws_s3_storage", {}).get("s3.secret.access.key")
+        }
+
+        validate_config_dict(provider_config["type"], config_dict)
+
+        verify_cloud_storage = provider_config.get("verify_cloud_storage", True)
+        if verify_cloud_storage:
+            cli_logger.verbose("Verifying S3 storage configurations...")
+            verify_s3_storage(provider_config)
+            cli_logger.verbose("Successfully verified S3 storage configurations.")

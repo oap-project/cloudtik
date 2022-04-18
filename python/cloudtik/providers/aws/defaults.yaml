@@ -5,10 +5,6 @@ from: defaults-shared
 provider:
     type: aws
     region: us-west-2
-    # Availability zone(s), comma-separated, that nodes may be launched in.
-    # Nodes are currently spread between zones by a round-robin approach,
-    # however this implementation detail should not be relied upon.
-    availability_zone: us-west-2a,us-west-2b
     # Whether to allow node reuse. If set to False, nodes will be terminated
     # instead of stopped.
     cache_stopped_nodes: False # If not present, the default is False.
@@ -37,7 +33,7 @@ available_node_types:
         # For more documentation on available fields, see:
         # http://boto3.readthedocs.io/en/latest/reference/services/ec2.html#EC2.ServiceResource.create_instances
         node_config:
-            InstanceType: m6i.xlarge
+            InstanceType: m5.xlarge
             ImageId: ami-0892d3c7ee96c0bf7 # ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-20211129
             # You can provision additional disk space with a conf as follows
             BlockDeviceMappings:
@@ -60,7 +56,7 @@ available_node_types:
         # For more documentation on available fields, see:
         # http://boto3.readthedocs.io/en/latest/reference/services/ec2.html#EC2.ServiceResource.create_instances
         node_config:
-            InstanceType: m6i.xlarge
+            InstanceType: m5.xlarge
             ImageId: ami-0892d3c7ee96c0bf7 # ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-20211129
             # Run workers on spot by default. Comment this out to use on-demand.
             InstanceMarketOptions:
@@ -85,15 +81,15 @@ setup_commands:
     - conda activate cloudtik_py37 || conda create -n cloudtik_py37 -y python=3.7
     - (stat $HOME/anaconda3/envs/cloudtik_py37/ &> /dev/null &&
         echo 'export PATH="$HOME/anaconda3/envs/cloudtik_py37/bin:$PATH"' >> ~/.bashrc) || true
-    - which cloudtik || pip install -U "cloudtik[aws] @ http://23.95.96.95:8000/latest/cloudtik-0.9.0-cp37-cp37m-manylinux2014_x86_64.whl"
+    - which cloudtik || pip -qq install -U "cloudtik[aws] @ http://23.95.96.95:8000/latest/cloudtik-0.9.0-cp37-cp37m-manylinux2014_x86_64.whl"
 
 # Custom commands that will be run on the head node after common setup.
 head_setup_commands:
     - pip install 'boto3>=1.4.8'  # 1.4.8 adds InstanceMarketOptions
     - cloudtik-spark install --head --provider=aws
-    - cloudtik-spark configure --head --provider=aws --aws_s3a_bucket=$AWS_S3A_BUCKET --s3a_access_key=$FS_S3A_ACCESS_KEY --s3a_secret_key=$FS_S3A_SECRET_KEY
+    - cloudtik-spark configure --head --provider=aws --aws_s3_bucket=$AWS_S3_BUCKET --aws_s3_access_key_id=$AWS_S3_ACCESS_KEY_ID --aws_s3_secret_access_key=$AWS_S3_SECRET_ACCESS_KEY
 
 # Custom commands that will be run on worker nodes after common setup.
 worker_setup_commands:
     - cloudtik-spark install --provider=aws
-    - cloudtik-spark configure --provider=aws --head_address=$CLOUDTIK_HEAD_IP --aws_s3a_bucket=$AWS_S3A_BUCKET --s3a_access_key=$FS_S3A_ACCESS_KEY --s3a_secret_key=$FS_S3A_SECRET_KEY
+    - cloudtik-spark configure --provider=aws --head_address=$CLOUDTIK_HEAD_IP --aws_s3_bucket=$AWS_S3_BUCKET --aws_s3_access_key_id=$AWS_S3_ACCESS_KEY_ID --aws_s3_secret_access_key=$AWS_S3_SECRET_ACCESS_KEY

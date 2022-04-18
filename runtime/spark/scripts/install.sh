@@ -55,7 +55,7 @@ function install_hadoop() {
           mv hadoop-${HADOOP_VERSION} hadoop && \
           rm hadoop-${HADOOP_VERSION}.tar.gz)
       echo "export HADOOP_HOME=$HADOOP_HOME">> ${USER_HOME}/.bashrc
-      echo "export YARN_CONF_DIR=$HADOOP_HOME/etc/hadoop">> ${USER_HOME}/.bashrc
+      echo "export HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop">> ${USER_HOME}/.bashrc
       echo "export JAVA_HOME=$JAVA_HOME" >> ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh
       echo "export PATH=\$HADOOP_HOME/bin:\$PATH" >> ${USER_HOME}/.bashrc
     fi
@@ -80,21 +80,21 @@ function install_jupyter_for_spark() {
         # Install Jupyter and spylon-kernel for Spark
         if ! type jupyter >/dev/null 2>&1; then
           echo "Install JupyterLab..."
-          pip install jupyterlab
+          pip -qq install jupyterlab
         fi
 
         export SPYLON_KERNEL=$USER_HOME/.local/share/jupyter/kernels/spylon-kernel
 
         if  [ ! -d "${SPYLON_KERNEL}" ]; then
-            pip install spylon-kernel;
+            pip -qq install spylon-kernel;
             python -m spylon_kernel install --user;
         fi
     fi
 }
 
 function install_tools() {
-    which jq || sudo apt-get update -y; sudo apt-get install jq -y
-    which vim || sudo apt-get update -y; sudo apt-get install vim -y
+    which jq || sudo apt-get -qq update -y; sudo apt-get -qq install jq -y
+    which vim || sudo apt-get -qq update -y; sudo apt-get -qq install vim -y
 }
 
 function install_yarn_with_spark_jars() {
@@ -110,22 +110,27 @@ function install_yarn_with_spark_jars() {
 
 function download_hadoop_cloud_jars() {
     HADOOP_TOOLS_LIB=${HADOOP_HOME}/share/hadoop/tools/lib
+    HADOOP_HDFS_LIB=${HADOOP_HOME}/share/hadoop/hdfs/lib
 
-    GCS_HADOOP_CONNECTOR="gcs-connector-hadoop3-2.2.0.jar"
+    GCS_HADOOP_CONNECTOR="gcs-connector-hadoop3-latest.jar"
     if [ ! -f "${HADOOP_TOOLS_LIB}/${GCS_HADOOP_CONNECTOR}" ]; then
         # Download gcs-connector to ${HADOOP_HOME}/share/hadoop/tools/lib/* for gcp cloud storage support
         wget -nc -P "${HADOOP_TOOLS_LIB}"  https://storage.googleapis.com/hadoop-lib/gcs/${GCS_HADOOP_CONNECTOR}
     fi
 
-    JETTY_UTIL_AJAX="jetty-util-ajax-9.3.24.v20180605.jar"
-    if [ ! -f "${HADOOP_TOOLS_LIB}/${JETTY_UTIL_AJAX}" ]; then
-        # Download jetty-util to ${HADOOP_HOME}/share/hadoop/tools/lib/* for Azure cloud storage support
-        wget -nc -P "${HADOOP_TOOLS_LIB}"  https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-util-ajax/9.3.24.v20180605/${JETTY_UTIL_AJAX}
-    fi
+    # Copy Jetty Utility jars from HADOOP_HDFS_LIB to HADOOP_TOOLS_LIB for Azure cloud storage support
+    JETTY_UTIL_JARS=('jetty-util-ajax-[0-9]*[0-9].v[0-9]*[0-9].jar' 'jetty-util-[0-9]*[0-9].v[0-9]*[0-9].jar')
+    for jar in ${JETTY_UTIL_JARS[@]};
+    do
+	    find "${HADOOP_HDFS_LIB}" -name $jar | xargs -i cp {} "${HADOOP_TOOLS_LIB}";
+    done
+}
 
-    JETTY_UTIL="jetty-util-9.3.24.v20180605.jar"
-    if [ ! -f "${HADOOP_TOOLS_LIB}/${JETTY_UTIL}" ]; then
-        wget -nc -P "${HADOOP_TOOLS_LIB}"  https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-util/9.3.24.v20180605/${JETTY_UTIL}
+function download_spark_cloud_jars() {
+    SPARK_JARS=${SPARK_HOME}/jars
+    SPARK_HADOOP_CLOUD_JAR="spark-hadoop-cloud_2.12-${SPARK_VERSION}.jar"
+    if [ ! -f "${SPARK_JARS}/${SPARK_HADOOP_CLOUD_JAR}" ]; then
+        wget -nc -P "${SPARK_JARS}"  https://repo1.maven.org/maven2/org/apache/spark/spark-hadoop-cloud_2.12/${SPARK_VERSION}/${SPARK_HADOOP_CLOUD_JAR}
     fi
 }
 
@@ -138,8 +143,10 @@ function install_hadoop_with_cloud_jars() {
 }
 
 function install_spark_with_cloud_jars() {
+    download_spark_cloud_jars
+
     # Copy cloud storage jars of different cloud providers to Spark classpath
-    cloud_storge_jars=('hadoop-aws-[0-9]*[0-9].jar' 'aws-java-sdk-bundle-[0-9]*[0-9].jar' 'hadoop-azure-[0-9]*[0-9].jar' 'azure-storage-[0-9]*[0-9].jar' 'wildfly-openssl-[0-9]*[0-9].Final.jar' 'jetty-util-ajax-[0-9]*[0-9].v[0-9]*[0-9].jar' 'jetty-util-[0-9]*[0-9].v[0-9]*[0-9].jar' 'gcs-connector-hadoop3-[0-9]*[0-9].jar')
+    cloud_storge_jars=('hadoop-aws-[0-9]*[0-9].jar' 'aws-java-sdk-bundle-[0-9]*[0-9].jar' 'hadoop-azure-[0-9]*[0-9].jar' 'azure-storage-[0-9]*[0-9].jar' 'wildfly-openssl-[0-9]*[0-9].Final.jar' 'jetty-util-ajax-[0-9]*[0-9].v[0-9]*[0-9].jar' 'jetty-util-[0-9]*[0-9].v[0-9]*[0-9].jar' 'gcs-connector-hadoop3-*.jar')
     for jar in ${cloud_storge_jars[@]};
     do
 	    find "${HADOOP_HOME}"/share/hadoop/tools/lib/ -name $jar | xargs -i cp {} "${SPARK_HOME}"/jars;
@@ -148,14 +155,16 @@ function install_spark_with_cloud_jars() {
 
 function install_ganglia_server() {
     # Simply do the install, if they are already installed, it doesn't take time
-    sudo apt-get update -y
-    sudo apt-get install -y apache2 php libapache2-mod-php php-common php-mbstring php-gmp php-curl php-intl php-xmlrpc php-zip php-gd php-mysql php-xml
-    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ganglia-monitor rrdtool gmetad ganglia-webfrontend
+    echo "Installing ganglia server..."
+    sudo apt-get -qq update -y
+    sudo apt-get -qq install -y apache2 php libapache2-mod-php php-common php-mbstring php-gmp php-curl php-intl php-xmlrpc php-zip php-gd php-mysql php-xml
+    sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install -y ganglia-monitor rrdtool gmetad ganglia-webfrontend
 }
 
 function install_ganglia_client() {
-    sudo apt-get update -y
-    sudo apt-get install -y ganglia-monitor
+    echo "Installing ganglia client..."
+    sudo apt-get -qq update -y
+    sudo apt-get -qq install -y ganglia-monitor
 }
 
 function install_ganglia() {

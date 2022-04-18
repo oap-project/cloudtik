@@ -1,11 +1,9 @@
 import click
 import os
 import logging
-from typing import Any, Dict
+
 from cloudtik.core._private import constants
-
 from cloudtik.core._private import logging_utils
-
 from cloudtik.core._private.cli_logger import (cli_logger)
 
 from shlex import quote
@@ -19,6 +17,12 @@ RUNTIME_SPARK_SCRIPTS_PATH = os.path.join(
 SPARK_SERVICES_SCRIPT_PATH = os.path.join(RUNTIME_SPARK_SCRIPTS_PATH, "services.sh")
 
 logger = logging.getLogger(__name__)
+
+
+def run_system_command(cmd: str):
+    result = os.system(cmd)
+    if result != 0:
+        raise RuntimeError(f"Error happened in running: {cmd}")
 
 
 @click.group()
@@ -41,7 +45,7 @@ def cli(logging_level, logging_format):
     cli_logger.set_format(format_tmpl=logging_format)
 
 
-@click.command()
+@click.command(context_settings={"ignore_unknown_options": True})
 @click.option(
     "--head",
     is_flag=True,
@@ -52,7 +56,8 @@ def cli(logging_level, logging_format):
     required=True,
     type=str,
     help="the provider of cluster ")
-def install(head, provider):
+@click.argument("script_args", nargs=-1)
+def install(head, provider, script_args):
     install_script_path = os.path.join(RUNTIME_SPARK_SCRIPTS_PATH, "install.sh")
     cmds = [
         "bash",
@@ -63,12 +68,14 @@ def install(head, provider):
         cmds += ["--head"]
     if provider:
         cmds += ["--provider={}".format(provider)]
+    if script_args:
+        cmds += list(script_args)
     final_cmd = " ".join(cmds)
 
-    os.system(final_cmd)
+    run_system_command(final_cmd)
 
 
-@click.command()
+@click.command(context_settings={"ignore_unknown_options": True})
 @click.option(
     "--head",
     is_flag=True,
@@ -86,23 +93,23 @@ def install(head, provider):
     default="",
     help="the head ip ")
 @click.option(
-    '--aws_s3a_bucket',
+    '--aws_s3_bucket',
     required=False,
     type=str,
     default="",
-    help="the bucket name of s3a")
+    help="the bucket name of s3")
 @click.option(
-    '--s3a_access_key',
+    '--aws_s3_access_key_id',
     required=False,
     type=str,
     default="",
-    help="the access key of s3a")
+    help="the access key id of s3")
 @click.option(
-    '--s3a_secret_key',
+    '--aws_s3_secret_access_key',
     required=False,
     type=str,
     default="",
-    help="the secret key of s3a")
+    help="the secret access key of s3")
 @click.option(
     '--project_id',
     required=False,
@@ -110,31 +117,31 @@ def install(head, provider):
     default="",
     help="gcp project id")
 @click.option(
-    '--gcp_gcs_bucket',
+    '--gcs_bucket',
     required=False,
     type=str,
     default="",
     help="gcp cloud storage bucket name")
 @click.option(
-    '--fs_gs_auth_service_account_email',
+    '--gcs_service_account_client_email',
     required=False,
     type=str,
     default="",
     help="google service account email")
 @click.option(
-    '--fs_gs_auth_service_account_private_key_id',
+    '--gcs_service_account_private_key_id',
     required=False,
     type=str,
     default="",
     help="google service account private key id")
 @click.option(
-    '--fs_gs_auth_service_account_private_key',
+    '--gcs_service_account_private_key',
     required=False,
     type=str,
     default="",
     help="google service account private key")
 @click.option(
-    '--azure_storage_kind',
+    '--azure_storage_type',
     required=False,
     type=str,
     default="",
@@ -157,10 +164,11 @@ def install(head, provider):
     type=str,
     default="",
     help="azure storage account access key")
-def configure(head, provider, head_address, aws_s3a_bucket, s3a_access_key, s3a_secret_key, project_id, gcp_gcs_bucket,
-              fs_gs_auth_service_account_email, fs_gs_auth_service_account_private_key_id,
-              fs_gs_auth_service_account_private_key, azure_storage_kind, azure_storage_account, azure_container,
-              azure_account_key):
+@click.argument("script_args", nargs=-1)
+def configure(head, provider, head_address, aws_s3_bucket, aws_s3_access_key_id, aws_s3_secret_access_key, project_id, gcs_bucket,
+              gcs_service_account_client_email, gcs_service_account_private_key_id,
+              gcs_service_account_private_key, azure_storage_type, azure_storage_account, azure_container,
+              azure_account_key, script_args):
     shell_path = os.path.join(RUNTIME_SPARK_SCRIPTS_PATH, "configure.sh")
     cmds = [
         "bash",
@@ -174,27 +182,27 @@ def configure(head, provider, head_address, aws_s3a_bucket, s3a_access_key, s3a_
     if head_address:
         cmds += ["--head_address={}".format(head_address)]
 
-    if aws_s3a_bucket:
-        cmds += ["--aws_s3a_bucket={}".format(aws_s3a_bucket)]
-    if s3a_access_key:
-        cmds += ["--s3a_access_key={}".format(s3a_access_key)]
-    if s3a_secret_key:
-        cmds += ["--s3a_secret_key={}".format(s3a_secret_key)]
+    if aws_s3_bucket:
+        cmds += ["--aws_s3_bucket={}".format(aws_s3_bucket)]
+    if aws_s3_access_key_id:
+        cmds += ["--aws_s3_access_key_id={}".format(aws_s3_access_key_id)]
+    if aws_s3_secret_access_key:
+        cmds += ["--aws_s3_secret_access_key={}".format(aws_s3_secret_access_key)]
 
     if project_id:
         cmds += ["--project_id={}".format(project_id)]
-    if gcp_gcs_bucket:
-        cmds += ["--gcp_gcs_bucket={}".format(gcp_gcs_bucket)]
+    if gcs_bucket:
+        cmds += ["--gcs_bucket={}".format(gcs_bucket)]
 
-    if fs_gs_auth_service_account_email:
-        cmds += ["--fs_gs_auth_service_account_email={}".format(fs_gs_auth_service_account_email)]
-    if fs_gs_auth_service_account_private_key_id:
-        cmds += ["--fs_gs_auth_service_account_private_key_id={}".format(fs_gs_auth_service_account_private_key_id)]
-    if fs_gs_auth_service_account_private_key:
-        cmds += ["--fs_gs_auth_service_account_private_key={}".format(quote(fs_gs_auth_service_account_private_key))]
+    if gcs_service_account_client_email:
+        cmds += ["--gcs_service_account_client_email={}".format(gcs_service_account_client_email)]
+    if gcs_service_account_private_key_id:
+        cmds += ["--gcs_service_account_private_key_id={}".format(gcs_service_account_private_key_id)]
+    if gcs_service_account_private_key:
+        cmds += ["--gcs_service_account_private_key={}".format(quote(gcs_service_account_private_key))]
 
-    if azure_storage_kind:
-        cmds += ["--azure_storage_kind={}".format(azure_storage_kind)]
+    if azure_storage_type:
+        cmds += ["--azure_storage_type={}".format(azure_storage_type)]
     if azure_storage_account:
         cmds += ["--azure_storage_account={}".format(azure_storage_account)]
     if azure_container:
@@ -204,35 +212,60 @@ def configure(head, provider, head_address, aws_s3a_bucket, s3a_access_key, s3a_
     if is_cloud_storage_mount_enabled():
         cmds += ["--fuse_flag"]
 
+    if script_args:
+        cmds += list(script_args)
+
     final_cmd = " ".join(cmds)
-    os.system(final_cmd)
+    run_system_command(final_cmd)
 
     # Update spark configuration from cluster config file
     update_spark_configurations()
 
 
+@click.command(context_settings={"ignore_unknown_options": True})
+@click.argument("command", required=True, type=str)
+@click.argument("script_args", nargs=-1)
+def services(command, script_args):
+    cmds = [
+        "bash",
+        SPARK_SERVICES_SCRIPT_PATH,
+    ]
+
+    cmds += [command]
+    if script_args:
+        cmds += list(script_args)
+    final_cmd = " ".join(cmds)
+
+    run_system_command(final_cmd)
+
+
 @click.command()
 def start_head():
-    os.system("bash {} start-head".format(SPARK_SERVICES_SCRIPT_PATH))
+    final_cmd = "bash {} start-head".format(SPARK_SERVICES_SCRIPT_PATH)
+    run_system_command(final_cmd)
 
 
 @click.command()
 def start_worker():
-    os.system("bash {} start-worker".format(SPARK_SERVICES_SCRIPT_PATH))
+    final_cmd = "bash {} start-worker".format(SPARK_SERVICES_SCRIPT_PATH)
+    run_system_command(final_cmd)
 
 
 @click.command()
 def stop_head():
-    os.system("bash {} stop-head".format(SPARK_SERVICES_SCRIPT_PATH))
+    final_cmd = "bash {} stop-head".format(SPARK_SERVICES_SCRIPT_PATH)
+    run_system_command(final_cmd)
 
 
 @click.command()
 def stop_worker():
-    os.system("bash {} stop-worker".format(SPARK_SERVICES_SCRIPT_PATH))
+    final_cmd = "bash {} stop-worker".format(SPARK_SERVICES_SCRIPT_PATH)
+    run_system_command(final_cmd)
 
 
 cli.add_command(install)
 cli.add_command(configure)
+cli.add_command(services)
 cli.add_command(start_head)
 cli.add_command(start_worker)
 cli.add_command(stop_head)

@@ -1,13 +1,13 @@
 val conf = spark.sparkContext.getConf
 
 // data scale in GB
-val scaleFactor = conf.getInt("spark.driver.scale", 1)
+val scaleFactor = conf.getInt("spark.driver.scaleFactor", 1)
 // support parquet or orc
 val format = conf.get("spark.driver.format", "parquet")
 // create partitioned table
 val partitionTables = conf.getBoolean("spark.driver.partitioned", true)
 // how many times to run the whole set of queries.
-val iterations = conf.getBoolean("spark.driver.iterations", 1)
+val iterations = conf.getInt("spark.driver.iterations", 1)
 // support s3a://s3_bucket, gs://gs_bucket
 // wasbs://container@storage_account.blob.core.windows.net
 // abfs://container@storage_account.dfs.core.windows.net
@@ -24,11 +24,11 @@ if (fsdir == "") {
 
 // detailed results will be written as JSON to this location.
 var resultLocation = s"${fsdir}/shared/data/results/tpcds_${format}/${scaleFactor}/"
+val data_path = s"${fsdir}/shared/data/tpcds/tpcds_${format}/${scaleFactor}"
 var databaseName = s"tpcds_${format}_scale_${scaleFactor}_db"
 val use_arrow = false            // when you want to use gazella_plugin to run TPC-DS, you need to set it true.
 
 if (use_arrow){
-    val data_path= s"${fsdir}/shared/data/tpcds/tpcds_${format}/${scaleFactor}"
     resultLocation = s"${fsdir}/shared/data/results/tpcds_arrow/${scaleFactor}/"
     databaseName = s"tpcds_arrow_scale_${scaleFactor}_db"
     val tables = Seq("call_center", "catalog_page", "catalog_returns", "catalog_sales", "customer", "customer_address", "customer_demographics", "date_dim", "household_demographics", "income_band", "inventory", "item", "promotion", "reason", "ship_mode", "store", "store_returns", "store_sales", "time_dim", "warehouse", "web_page", "web_returns", "web_sales", "web_site")
@@ -54,6 +54,17 @@ if (use_arrow){
                 }
             }
         }
+    }
+} else {
+    // Check whether the database is created, we create external tables if not
+    if (spark.catalog.databaseExists(s"$databaseName")) {
+        println(s"Using existing $databaseName")
+    } else {
+        import com.databricks.spark.sql.perf.tpcds.TPCDSTables
+
+        println(s"$databaseName doesn't exist. Creating...")
+        val tables = new TPCDSTables(spark.sqlContext, "", s"${scaleFactor}", false)
+        tables.createExternalTables(data_path, format, databaseName, overwrite = true, discoverPartitions = partitionTables)
     }
 }
 

@@ -7,12 +7,12 @@ available_node_types:
     head.default:
         node_config:
             azure_arm_parameters:
-                vmSize: Standard_D16s_v5
+                vmSize: Standard_D16s_v4
                 osDiskSizeGB: 100
     worker.default:
         node_config:
             azure_arm_parameters:
-                vmSize: Standard_D32s_v5
+                vmSize: Standard_D32s_v4
                 osDiskSizeGB: 100
                 dataDisks:
                     - lun: 0

@@ -5,12 +5,6 @@ workspace_name: default
 provider:
     type: aws
     region: us-west-2
-    # Availability zone(s), comma-separated, that nodes may be launched in.
-    # Nodes are currently spread between zones by a round-robin approach,
-    # however this implementation detail should not be relied upon.
-    availability_zone: us-west-2a,us-west-2b
-    # Whether to allow node reuse. If set to False, nodes will be terminated
-    # instead of stopped.
-    cache_stopped_nodes: True # If not present, the default is True.
-    # Whether to require Public IPs for head node. Default to False
+    # Decide whether to require public IP for head node.
+    # When setting to False, Head node will require a public IP. Default to False
     use_internal_ips: False

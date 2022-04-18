@@ -5,11 +5,12 @@ from threading import RLock
 import time
 import logging
 
+from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core.node_provider import NodeProvider
 
 from cloudtik.providers._private.gcp.config import (
     bootstrap_gcp, bootstrap_gcp_from_workspace,
-    construct_clients_from_provider_config, get_node_type)
+    construct_clients_from_provider_config, get_node_type, verify_gcs_storage)
 
 # The logic has been abstracted away here to allow for different GCP resources
 # (API endpoints), which can differ widely, making it impossible to use
@@ -19,6 +20,7 @@ from cloudtik.providers._private.gcp.node import (
     INSTANCE_NAME_MAX_LEN, INSTANCE_NAME_UUID_LEN)
 
 from cloudtik.providers._private.gcp.utils import get_gcs_config
+from cloudtik.providers._private.utils import validate_config_dict
 
 logger = logging.getLogger(__name__)
 
@@ -246,20 +248,26 @@ class GCPNodeProvider(NodeProvider):
     @staticmethod
     def validate_config(
             provider_config: Dict[str, Any]) -> None:
-        provider_config_failed = False
-        dict = {"PROJECT_ID": provider_config.get("project_id"),
-                       "GCP_GCS_BUCKET": provider_config.get("gcp_cloud_storage", {}).get("gcp.gcs.bucket"),
-                       "FS_GS_AUTH_SERVICE_ACCOUNT_EMAIL": provider_config.get("gcp_cloud_storage", {}).get(
-                           "fs.gs.auth.service.account.email"),
-                       "FS_GS_AUTH_SERVICE_ACCOUNT_PRIVATE_KEY_ID": provider_config.get(
-                           "gcp_cloud_storage", {}).get("fs.gs.auth.service.account.private.key.id"),
-                       "FS_GS_AUTH_SERVICE_ACCOUNT_PRIVATE_KEY": provider_config.get("gcp_cloud_storage", {}).get(
-                           "fs.gs.auth.service.account.private.key")}
+        config_dict = {"project_id": provider_config.get("project_id"),
+                       "availability_zone": provider_config.get("availability_zone")}
 
-        for key, value in dict.items():
-            if value is None:
-                provider_config_failed = True
-                logger.info("{} must be define in your yaml, please refer to config-schema.json.".format(key))
-        if provider_config_failed:
-            raise RuntimeError("{} provider must be provided right storage config, "
-                               "please refer to config-schema.json.".format(provider_config["type"]))
+        validate_config_dict(provider_config["type"], config_dict)
+
+    @staticmethod
+    def validate_storage_config(
+            provider_config: Dict[str, Any]) -> None:
+        config_dict = {"gcs.bucket": provider_config.get("gcp_cloud_storage", {}).get("gcs.bucket"),
+                       "gcs.service.account.client.email": provider_config.get("gcp_cloud_storage", {}).get(
+                           "gcs.service.account.client.email"),
+                       "gcs.service.account.private.key.id": provider_config.get("gcp_cloud_storage", {}).get(
+                           "gcs.service.account.private.key.id"),
+                       "gcs.service.account.private.key": provider_config.get("gcp_cloud_storage", {}).get(
+                           "gcs.service.account.private.key")}
+
+        validate_config_dict(provider_config["type"], config_dict)
+
+        verify_cloud_storage = provider_config.get("verify_cloud_storage", True)
+        if verify_cloud_storage:
+            cli_logger.verbose("Verifying GCS storage configurations...")
+            verify_gcs_storage(provider_config)
+            cli_logger.verbose("Successfully verified GCS storage configurations.")

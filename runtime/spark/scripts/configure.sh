@@ -1,6 +1,7 @@
 #!/bin/bash
 
-args=$(getopt -a -o h::p: -l head::,fuse_flag::,head_address::,provider:,aws_s3a_bucket::,s3a_access_key::,s3a_secret_key::,project_id::,gcp_gcs_bucket::,fs_gs_auth_service_account_email::,fs_gs_auth_service_account_private_key_id::,fs_gs_auth_service_account_private_key::,azure_storage_kind::,azure_storage_account::,azure_container::,azure_account_key:: -- "$@")
+
+args=$(getopt -a -o h::p: -l head::,fuse_flag::,head_address::,provider:,aws_s3_bucket::,aws_s3_access_key_id::,aws_s3_secret_access_key::,project_id::,gcs_bucket::,gcs_service_account_client_email::,gcs_service_account_private_key_id::,gcs_service_account_private_key::,azure_storage_type::,azure_storage_account::,azure_container::,azure_account_key:: -- "$@")
 eval set -- "${args}"
 
 IS_HEAD_NODE=false
@@ -25,40 +26,40 @@ do
         provider=$2
         shift
         ;;
-    --aws_s3a_bucket)
-        AWS_S3A_BUCKET=$2
+    --aws_s3_bucket)
+        AWS_S3_BUCKET=$2
         shift
         ;;
-    --s3a_access_key)
-        FS_S3A_ACCESS_KEY=$2
+    --aws_s3_access_key_id)
+        AWS_S3_ACCESS_KEY_ID=$2
         shift
         ;;
-    --s3a_secret_key)
-        FS_S3A_SECRET_KEY=$2
+    --aws_s3_secret_access_key)
+        AWS_S3_SECRET_ACCESS_KEY=$2
         shift
         ;;
     --project_id)
         PROJECT_ID=$2
         shift
         ;;
-    --gcp_gcs_bucket)
-        GCP_GCS_BUCKET=$2
+    --gcs_bucket)
+        GCS_BUCKET=$2
         shift
         ;;
-    --fs_gs_auth_service_account_email)
-        FS_GS_AUTH_SERVICE_ACCOUNT_EMAIL=$2
+    --gcs_service_account_client_email)
+        GCS_SERVICE_ACCOUNT_CLIENT_EMAIL=$2
         shift
         ;;
-    --fs_gs_auth_service_account_private_key_id)
-        FS_GS_AUTH_SERVICE_ACCOUNT_PRIVATE_KEY_ID=$2
+    --gcs_service_account_private_key_id)
+        GCS_SERVICE_ACCOUNT_PRIVATE_KEY_ID=$2
         shift
         ;;
-    --fs_gs_auth_service_account_private_key)
-        FS_GS_AUTH_SERVICE_ACCOUNT_PRIVATE_KEY=$2
+    --gcs_service_account_private_key)
+        GCS_SERVICE_ACCOUNT_PRIVATE_KEY=$2
         shift
         ;;
-    --azure_storage_kind)
-        AZURE_STORAGE_KIND=$2
+    --azure_storage_type)
+        AZURE_STORAGE_TYPE=$2
         shift
         ;;
     --azure_storage_account)
@@ -83,7 +84,7 @@ done
 
 function prepare_base_conf() {
     source_dir=$(cd $(dirname ${BASH_SOURCE[0]})/..;pwd)/conf
-    output_dir=$(dirname ${source_dir})/outconf
+    output_dir=/tmp/spark/conf
     rm -rf  $output_dir
     mkdir -p $output_dir
     cp -r $source_dir/* $output_dir
@@ -99,6 +100,11 @@ function check_spark_installed() {
         echo "SPARK_HOME environment variable is not set."
         exit 1
     fi
+}
+
+function configure_system_folders() {
+    # Create logs in tmp for any application logs to include
+    mkdir -p /tmp/logs
 }
 
 function set_head_address() {
@@ -123,76 +129,76 @@ function set_resources_for_spark() {
     fi
 }
 
-function update_aws_hadoop_config() {
-    sed -i "s#{%aws.s3a.bucket%}#${AWS_S3A_BUCKET}#g" `grep "{%aws.s3a.bucket%}" -rl ./`
-    sed -i "s#{%fs.s3a.access.key%}#${FS_S3A_ACCESS_KEY}#g" `grep "{%fs.s3a.access.key%}" -rl ./`
-    sed -i "s#{%fs.s3a.secret.key%}#${FS_S3A_SECRET_KEY}#g" `grep "{%fs.s3a.secret.key%}" -rl ./`
+function update_config_for_aws() {
+    sed -i "s#{%aws.s3a.bucket%}#${AWS_S3_BUCKET}#g" `grep "{%aws.s3a.bucket%}" -rl ./`
+    sed -i "s#{%fs.s3a.access.key%}#${AWS_S3_ACCESS_KEY_ID}#g" `grep "{%fs.s3a.access.key%}" -rl ./`
+    sed -i "s#{%fs.s3a.secret.key%}#${AWS_S3_SECRET_ACCESS_KEY}#g" `grep "{%fs.s3a.secret.key%}" -rl ./`
 
     # event log dir
-    if [ -z "${AWS_S3A_BUCKET}" ]; then
+    if [ -z "${AWS_S3_BUCKET}" ]; then
         event_log_dir="file:///tmp/spark-events"
     else
-        event_log_dir="s3a://${AWS_S3A_BUCKET}/shared/spark-events"
+        event_log_dir="s3a://${AWS_S3_BUCKET}/shared/spark-events"
     fi
     sed -i "s!{%spark.eventLog.dir%}!${event_log_dir}!g" `grep "{%spark.eventLog.dir%}" -rl ./`
 }
 
-function update_gcp_hadoop_config() {
+function update_config_for_gcp() {
     sed -i "s#{%project_id%}#${PROJECT_ID}#g" `grep "{%project_id%}" -rl ./`
-    sed -i "s#{%gcp.gcs.bucket%}#${GCP_GCS_BUCKET}#g" `grep "{%gcp.gcs.bucket%}" -rl ./`
-    sed -i "s#{%fs.gs.auth.service.account.email%}#${FS_GS_AUTH_SERVICE_ACCOUNT_EMAIL}#g" `grep "{%fs.gs.auth.service.account.email%}" -rl ./`
-    sed -i "s#{%fs.gs.auth.service.account.private.key.id%}#${FS_GS_AUTH_SERVICE_ACCOUNT_PRIVATE_KEY_ID}#g" `grep "{%fs.gs.auth.service.account.private.key.id%}" -rl ./`
-    private_key_has_open_quote=${FS_GS_AUTH_SERVICE_ACCOUNT_PRIVATE_KEY%\"}
-    private_key=${private_key_has_open_quote#\"}
-    sed -i "s#{%fs.gs.auth.service.account.private.key%}#${private_key}#g" `grep "{%fs.gs.auth.service.account.private.key%}" -rl ./`
+    sed -i "s#{%gcs.bucket%}#${GCS_BUCKET}#g" `grep "{%gcs.bucket%}" -rl ./`
+    sed -i "s#{%fs.gs.auth.service.account.email%}#${GCS_SERVICE_ACCOUNT_CLIENT_EMAIL}#g" `grep "{%fs.gs.auth.service.account.email%}" -rl ./`
+    sed -i "s#{%fs.gs.auth.service.account.private.key.id%}#${GCS_SERVICE_ACCOUNT_PRIVATE_KEY_ID}#g" `grep "{%fs.gs.auth.service.account.private.key.id%}" -rl ./`
+    sed -i "s#{%fs.gs.auth.service.account.private.key%}#${GCS_SERVICE_ACCOUNT_PRIVATE_KEY}#g" `grep "{%fs.gs.auth.service.account.private.key%}" -rl ./`
 
     # event log dir
-    if [ -z "${GCP_GCS_BUCKET}" ]; then
+    if [ -z "${GCS_BUCKET}" ]; then
         event_log_dir="file:///tmp/spark-events"
     else
-        event_log_dir="gs://${GCP_GCS_BUCKET}/shared/spark-events"
+        event_log_dir="gs://${GCS_BUCKET}/shared/spark-events"
     fi
     sed -i "s!{%spark.eventLog.dir%}!${event_log_dir}!g" `grep "{%spark.eventLog.dir%}" -rl ./`
 }
 
-function update_azure_hadoop_config() {
+function update_config_for_azure() {
     sed -i "s#{%azure.storage.account%}#${AZURE_STORAGE_ACCOUNT}#g" "$(grep "{%azure.storage.account%}" -rl ./)"
     sed -i "s#{%azure.container%}#${AZURE_CONTAINER}#g" "$(grep "{%azure.container%}" -rl ./)"
     sed -i "s#{%azure.account.key%}#${AZURE_ACCOUNT_KEY}#g" "$(grep "{%azure.account.key%}" -rl ./)"
-    if [ $AZURE_STORAGE_KIND == "wasbs" ];then
+    if [ $AZURE_STORAGE_TYPE == "blob" ];then
+        scheme="wasbs"
         endpoint="blob"
-        sed -i "s#{%azure.storage.kind%}#wasbs#g" "$(grep "{%azure.storage.kind%}" -rl ./)"
-        sed -i "s#{%storage.endpoint%}#blob#g" "$(grep "{%storage.endpoint%}" -rl ./)"
-    elif [ $AZURE_STORAGE_KIND == "abfs" ];then
+        sed -i "s#{%azure.storage.scheme%}#${scheme}#g" "$(grep "{%azure.storage.scheme%}" -rl ./)"
+        sed -i "s#{%storage.endpoint%}#${endpoint}#g" "$(grep "{%storage.endpoint%}" -rl ./)"
+    elif [ $AZURE_STORAGE_TYPE == "datalake" ];then
+        scheme="abfs"
         endpoint="dfs"
-        sed -i "s#{%azure.storage.kind%}#abfs#g" "$(grep "{%azure.storage.kind%}" -rl ./)"
-        sed -i "s#{%storage.endpoint%}#dfs#g" "$(grep "{%storage.endpoint%}" -rl ./)"
+        sed -i "s#{%azure.storage.scheme%}#${scheme}#g" "$(grep "{%azure.storage.scheme%}" -rl ./)"
+        sed -i "s#{%storage.endpoint%}#${endpoint}#g" "$(grep "{%storage.endpoint%}" -rl ./)"
         sed -i "s#{%auth.type%}#SharedKey#g" "$(grep "{%auth.type%}" -rl ./)"
     else
         endpoint=""
-       echo "Azure storage kind must be wasbs(Azure Blob storage) or abfs(Azure Data Lake Gen 2)"
+        echo "Error: Azure storage kind must be blob (Azure Blob Storage) or datalake (Azure Data Lake Storage Gen 2)"
     fi
 
     # event log dir
     if [ -z "${AZURE_CONTAINER}" ] || [ -z "$endpoint" ]; then
         event_log_dir="file:///tmp/spark-events"
     else
-        event_log_dir="$AZURE_STORAGE_KIND://${AZURE_CONTAINER}@${AZURE_STORAGE_ACCOUNT}.{%storage.endpoint%}.core.windows.net/shared/spark-events"
+        event_log_dir="${scheme}://${AZURE_CONTAINER}@${AZURE_STORAGE_ACCOUNT}.${endpoint}.core.windows.net/shared/spark-events"
     fi
     sed -i "s!{%spark.eventLog.dir%}!${event_log_dir}!g" `grep "{%spark.eventLog.dir%}" -rl ./`
 }
 
-function update_hadoop_config_for_cloud() {
+function update_config_for_cloud() {
     if [ "$provider" == "aws" ]; then
-      update_aws_hadoop_config
+      update_config_for_aws
     fi
 
     if [ "$provider" == "gcp" ]; then
-      update_gcp_hadoop_config
+      update_config_for_gcp
     fi
 
     if [ "$provider" == "azure" ]; then
-      update_azure_hadoop_config
+      update_config_for_azure
     fi
 }
 
@@ -202,15 +208,41 @@ function update_spark_runtime_config() {
         sed -i "s/{%yarn.nodemanager.resource.memory-mb%}/${yarn_container_maximum_memory}/g" `grep "{%yarn.nodemanager.resource.memory-mb%}" -rl ./`
         sed -i "s/{%yarn.nodemanager.resource.cpu-vcores%}/${yarn_container_maximum_vcores}/g" `grep "{%yarn.nodemanager.resource.cpu-vcores%}" -rl ./`
         sed -i "s/{%yarn.scheduler.maximum-allocation-vcores%}/${yarn_container_maximum_vcores}/g" `grep "{%yarn.scheduler.maximum-allocation-vcores%}" -rl ./`
-	      sed -i "s/{%spark.executor.cores%}/${spark_executor_cores}/g" `grep "{%spark.executor.cores%}" -rl ./`
-	      sed -i "s/{%spark.executor.memory%}/${spark_executor_memory}/g" `grep "{%spark.executor.memory%}" -rl ./`
-	      sed -i "s/{%spark.driver.memory%}/${spark_driver_memory}/g" `grep "{%spark.driver.memory%}" -rl ./`
+        sed -i "s/{%spark.executor.cores%}/${spark_executor_cores}/g" `grep "{%spark.executor.cores%}" -rl ./`
+        sed -i "s/{%spark.executor.memory%}/${spark_executor_memory}/g" `grep "{%spark.executor.memory%}" -rl ./`
+        sed -i "s/{%spark.driver.memory%}/${spark_driver_memory}/g" `grep "{%spark.driver.memory%}" -rl ./`
     else
         sed -i "s/{%yarn.scheduler.maximum-allocation-mb%}/${total_memory}/g" `grep "{%yarn.scheduler.maximum-allocation-mb%}" -rl ./`
         sed -i "s/{%yarn.nodemanager.resource.memory-mb%}/${total_memory}/g" `grep "{%yarn.nodemanager.resource.memory-mb%}" -rl ./`
         sed -i "s/{%yarn.nodemanager.resource.cpu-vcores%}/${total_vcores}/g" `grep "{%yarn.nodemanager.resource.cpu-vcores%}" -rl ./`
         sed -i "s/{%yarn.scheduler.maximum-allocation-vcores%}/${total_vcores}/g" `grep "{%yarn.scheduler.maximum-allocation-vcores%}" -rl ./`
     fi
+}
+
+function update_hdfs_data_disks_config() {
+    hdfs_nn_dirs="${HADOOP_HOME}/data/dfs/nn"
+    hdfs_dn_dirs=""
+    if [ -d "/mnt/cloudtik" ]; then
+        for data_disk in /mnt/cloudtik/*; do
+            [ -d "$data_disk" ] || continue
+            if [ -z "$hdfs_dn_dirs" ]; then
+                hdfs_dn_dirs=$data_disk/dfs/dn
+            else
+                hdfs_dn_dirs="$hdfs_dn_dirs,$data_disk/dfs/dn"
+            fi
+        done
+    fi
+
+    # if no disks mounted on /mnt/cloudtik
+    if [ -z "$hdfs_dn_dirs" ]; then
+        hdfs_dn_dirs="${HADOOP_HOME}/data/dfs/dn"
+    fi
+    sed -i "s!{%dfs.namenode.name.dir%}!${hdfs_nn_dirs}!g" `grep "{%dfs.namenode.name.dir%}" -rl ./`
+    sed -i "s!{%dfs.datanode.data.dir%}!${hdfs_dn_dirs}!g" `grep "{%dfs.datanode.data.dir%}" -rl ./`
+
+    # event log dir
+    event_log_dir="hdfs://${HEAD_ADDRESS}:9000/shared/spark-events"
+    sed -i "s!{%spark.eventLog.dir%}!${event_log_dir}!g" `grep "{%spark.eventLog.dir%}" -rl ./`
 }
 
 function update_data_disks_config() {
@@ -249,18 +281,34 @@ function configure_hadoop_and_spark() {
     sed -i "s!{%HADOOP_HOME%}!${HADOOP_HOME}!g" `grep "{%HADOOP_HOME%}" -rl ./`
 
     update_spark_runtime_config
-    update_hadoop_config_for_cloud
     update_data_disks_config
 
-    cp -r ${output_dir}/hadoop/${provider}/core-site.xml  ${HADOOP_HOME}/etc/hadoop/
+    if [ "$ENABLE_HDFS" == "true" ];then
+        update_hdfs_data_disks_config
+        cp -r ${output_dir}/hadoop/core-site.xml  ${HADOOP_HOME}/etc/hadoop/
+        cp -r ${output_dir}/hadoop/hdfs-site.xml  ${HADOOP_HOME}/etc/hadoop/
+    else
+        update_config_for_cloud
+        cp -r ${output_dir}/hadoop/${provider}/core-site.xml  ${HADOOP_HOME}/etc/hadoop/
+    fi
+
     cp -r ${output_dir}/hadoop/yarn-site.xml  ${HADOOP_HOME}/etc/hadoop/
 
     if [ $IS_HEAD_NODE == "true" ];then
-	      cp -r ${output_dir}/spark/*  ${SPARK_HOME}/conf
+        cp -r ${output_dir}/spark/*  ${SPARK_HOME}/conf
 
-	      # Create event log dir on cloud storage if needed
-	      # This needs to be done after hadoop file system has been configured correctly
-	      ${HADOOP_HOME}/bin/hadoop fs -mkdir -p /shared/spark-events
+        if [ "$ENABLE_HDFS" == "true" ]; then
+            # Format hdfs once
+            ${HADOOP_HOME}/bin/hdfs namenode -format
+            # Create event log dir on hdfs
+            ${HADOOP_HOME}/bin/hdfs --daemon start namenode
+            ${HADOOP_HOME}/bin/hadoop fs -mkdir -p /shared/spark-events
+            ${HADOOP_HOME}/bin/hdfs --daemon stop namenode
+        else
+            # Create event log dir on cloud storage if needed
+            # This needs to be done after hadoop file system has been configured correctly
+            ${HADOOP_HOME}/bin/hadoop fs -mkdir -p /shared/spark-events
+        fi
     fi
 }
 
@@ -274,34 +322,50 @@ function configure_jupyter_for_spark() {
       export JUPYTER_WORKSPACE=/home/$(whoami)/jupyter
       mkdir -p $JUPYTER_WORKSPACE
       sed -i  "1 ic.NotebookApp.notebook_dir = '${JUPYTER_WORKSPACE}'" ~/.jupyter/jupyter_notebook_config.py
-
-      # Config for PySpark
-      echo "export PYTHONPATH=\${SPARK_HOME}/python:\${SPARK_HOME}/python/lib/py4j-0.10.9-src.zip \
-            export PYSPARK_PYTHON=\${CONDA_PREFIX}/bin/python \
-            export PYSPARK_DRIVER_PYTHON=\${CONDA_PREFIX}/bin/python" >> ~/.bashrc
   fi
+  # Config for PySpark
+  echo "export PYTHONPATH=\${SPARK_HOME}/python:\${SPARK_HOME}/python/lib/py4j-0.10.9-src.zip" >> ~/.bashrc
+  echo "export PYSPARK_PYTHON=\${CONDA_PREFIX}/envs/cloudtik_py37/bin/python" >> ~/.bashrc
+  echo "export PYSPARK_DRIVER_PYTHON=\${CONDA_PREFIX}/envs/cloudtik_py37/bin/python" >> ~/.bashrc
 }
 
 function configure_ganglia() {
-    cluster_name="spark-cluster"
+    cluster_name_head="Spark-Head"
+    cluster_name="Spark-Workers"
     if [ $IS_HEAD_NODE == "true" ]; then
         # configure ganglia gmetad
+        sudo sed -i "s/# default: There is no default value/data_source \"${cluster_name_head}\" ${HEAD_ADDRESS}:8650/g" /etc/ganglia/gmetad.conf
         sudo sed -i "s/data_source \"my cluster\" localhost/data_source \"${cluster_name}\" ${HEAD_ADDRESS}/g" /etc/ganglia/gmetad.conf
         sudo sed -i "s/# gridname \"MyGrid\"/gridname \"CloudTik\"/g" /etc/ganglia/gmetad.conf
-        # Configure ganglia monitor
 
+        # Configure ganglia monitor
         sudo sed -i "s/send_metadata_interval = 0/send_metadata_interval = 30/g" /etc/ganglia/gmond.conf
-        sudo sed -i "s/name = \"unspecified\"/name = \"${cluster_name}\"/g" /etc/ganglia/gmond.conf
         # replace the first occurrence of "mcast_join = 239.2.11.71" with "host = HEAD_IP"
         sudo sed -i "0,/mcast_join = 239.2.11.71/s//host = ${HEAD_ADDRESS}/" /etc/ganglia/gmond.conf
         # comment out the second occurrence
         sudo sed -i "s/mcast_join = 239.2.11.71/\/*mcast_join = 239.2.11.71*\//g" /etc/ganglia/gmond.conf
         sudo sed -i "s/bind = 239.2.11.71/\/*bind = 239.2.11.71*\//g" /etc/ganglia/gmond.conf
+
+        # Make a copy for head cluster after common modifications
+        sudo cp /etc/ganglia/gmond.conf /etc/ganglia/gmond.head.conf
+
+        sudo sed -i "s/name = \"unspecified\"/name = \"${cluster_name}\"/g" /etc/ganglia/gmond.conf
+        # Disable udp_send_channel
+        sudo sed -i "s/udp_send_channel/\/*udp_send_channel/g" /etc/ganglia/gmond.conf
+        sudo sed -i "s/\/\* You can specify as many udp_recv_channels/\*\/\/\* You can specify as many udp_recv_channels/g" /etc/ganglia/gmond.conf
+
+        # Modifications for head cluster
+        sudo sed -i "s/name = \"unspecified\"/name = \"${cluster_name_head}\"/g" /etc/ganglia/gmond.head.conf
+        sudo sed -i "s/port = 8649/port = 8650/g" /etc/ganglia/gmond.head.conf
+
         # Configure apache2 for ganglia
         sudo cp /etc/ganglia-webfrontend/apache.conf /etc/apache2/sites-enabled/ganglia.conf
         # Fix the ganglia bug: https://github.com/ganglia/ganglia-web/issues/324
         # mention here: https://bugs.launchpad.net/ubuntu/+source/ganglia-web/+bug/1822048
         sudo sed -i "s/\$context_metrics = \"\";/\$context_metrics = array();/g" /usr/share/ganglia-webfrontend/cluster_view.php
+
+        # Add gmond start command for head in service
+        sudo sed -i '/\.pid/ a start-stop-daemon --start --quiet --startas $DAEMON --name $NAME.head -- --conf /etc/ganglia/gmond.head.conf --pid-file /var/run/$NAME.head.pid' /etc/init.d/ganglia-monitor
     else
         # Configure ganglia monitor
         sudo sed -i "s/send_metadata_interval = 0/send_metadata_interval = 30/g" /etc/ganglia/gmond.conf
@@ -413,6 +477,7 @@ function mount_cloud_storage_for_cloudtik() {
 check_spark_installed
 set_head_address
 set_resources_for_spark
+configure_system_folders
 configure_hadoop_and_spark
 configure_jupyter_for_spark
 configure_ganglia

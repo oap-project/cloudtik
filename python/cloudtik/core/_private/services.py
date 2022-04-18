@@ -834,6 +834,7 @@ def start_redis(node_ip_address,
         port, p = _start_redis_instance(
             redis_executable,
             session_dir_path,
+            bind_address=node_ip_address,
             port=port,
             password=password,
             redis_max_clients=redis_max_clients,
@@ -898,6 +899,7 @@ def start_redis(node_ip_address,
             redis_shard_port, p = _start_redis_instance(
                 redis_executable,
                 session_dir_path,
+                bind_address=node_ip_address,
                 port=redis_shard_port,
                 password=password,
                 redis_max_clients=redis_max_clients,
@@ -922,6 +924,7 @@ def start_redis(node_ip_address,
 
 def _start_redis_instance(executable,
                           session_dir_path,
+                          bind_address,
                           port,
                           redis_max_clients=None,
                           num_retries=20,
@@ -943,6 +946,7 @@ def _start_redis_instance(executable,
         executable (str): Full path of the redis-server executable.
         session_dir_path (str): Path to the session directory of
             this cluster.
+        bind_address: The address to bind. None to bind all
         port (int): Try to start a Redis server at this port.
         redis_max_clients: If this is provided, we will attempt to configure
             Redis with this maxclients number.
@@ -985,6 +989,9 @@ def _start_redis_instance(executable,
         command += (["--dir", session_dir_path])
         if listen_to_localhost_only:
             command += ["--bind", "127.0.0.1"]
+        elif bind_address is not None:
+            command += ["--bind", bind_address]
+
         pidfile = os.path.join(session_dir_path,
                                "redis-" + uuid.uuid4().hex + ".pid")
         command += ["--pidfile", pidfile]

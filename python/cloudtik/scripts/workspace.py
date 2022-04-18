@@ -95,7 +95,7 @@ def delete(workspace_config_file, yes, workspace_name):
     help="Override the configured workspace name.")
 @add_click_logging_options
 def update_firewalls(workspace_config_file, yes, workspace_name):
-    """Delete a workspace and the associated cloud resources."""
+    """Update the firewalls for workspace."""
     update_workspace_firewalls(workspace_config_file, yes, workspace_name)
 
 

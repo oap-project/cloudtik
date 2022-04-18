@@ -354,6 +354,42 @@ def check_aws_workspace_resource(config):
     return True
 
 
+def update_aws_workspace_firewalls(config):
+    ec2_client = _client("ec2", config)
+    workspace_name = config["workspace_name"]
+    vpcid = get_workspace_vpc_id(workspace_name, ec2_client)
+    if vpcid is None:
+        cli_logger.print("The workspace: {} doesn't exist!".format(config["workspace_name"]))
+        return
+
+    current_step = 1
+    total_steps = 2
+
+    try:
+        
+        with cli_logger.group(
+                "Deleting workspace firewalls",
+                _numbered=("[]", current_step, total_steps)):
+            current_step += 1
+            _delete_security_group(config, vpcid)
+
+        with cli_logger.group(
+                "Updating workspace firewalls",
+                _numbered=("[]", current_step, total_steps)):
+            current_step += 1
+            _upsert_security_group(config, vpcid)
+
+    except Exception as e:
+        cli_logger.error(
+            "Failed to update the firewalls of workspace {}. {}".format(workspace_name, str(e)))
+        raise e
+
+    cli_logger.print(
+        "Successfully update the firewalls of workspace: {}.",
+        cf.bold(workspace_name))
+    return None
+
+
 def delete_workspace_aws(config):
     ec2 = _resource("ec2", config)
     ec2_client = _client("ec2", config)

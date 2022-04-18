@@ -3,7 +3,7 @@ import logging
 import urllib
 
 from cloudtik.core._private.workspace.workspace_operator import (
-    create_or_update_workspace, delete_workspace)
+    create_or_update_workspace, delete_workspace, update_workspace_firewalls)
 from cloudtik.core._private.cli_logger import (add_click_logging_options, cli_logger)
 from cloudtik.scripts.utils import NaturalOrderGroup
 
@@ -79,6 +79,28 @@ def delete(workspace_config_file, yes, workspace_name):
     delete_workspace(workspace_config_file, yes, workspace_name)
 
 
+@workspace.command()
+@click.argument("workspace_config_file", required=True, type=str)
+@click.option(
+    "--yes",
+    "-y",
+    is_flag=True,
+    default=False,
+    help="Don't ask for confirmation.")
+@click.option(
+    "--workspace-name",
+    "-n",
+    required=False,
+    type=str,
+    help="Override the configured workspace name.")
+@add_click_logging_options
+def update_firewalls(workspace_config_file, yes, workspace_name):
+    """Delete a workspace and the associated cloud resources."""
+    update_workspace_firewalls(workspace_config_file, yes, workspace_name)
+
+
+
 # core commands working on workspace
 workspace.add_command(create)
 workspace.add_command(delete)
+workspace.add_command(update_firewalls)

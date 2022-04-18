@@ -747,6 +747,45 @@ def get_gcp_vpcId(config, compute, use_internal_ips):
     return VpcId
 
 
+def update_gcp_workspace_firewalls(config):
+    crm, iam, compute, tpu = \
+        construct_clients_from_provider_config(config["provider"])
+
+    workspace_name = config["workspace_name"]
+    use_internal_ips = config["provider"].get("use_internal_ips", False)
+    VpcId = get_gcp_vpcId(config, compute, use_internal_ips)
+    if VpcId is None:
+        cli_logger.print("Workspace: {} doesn't exist!".format(config["workspace_name"]))
+        return
+
+    current_step = 1
+    total_steps = 2
+
+    try:
+        
+        with cli_logger.group(
+                "Deleting workspace firewalls",
+                _numbered=("[]", current_step, total_steps)):
+            current_step += 1
+            _delete_firewalls(config, compute)
+
+        with cli_logger.group(
+                "Updating workspace firewalls",
+                _numbered=("[]", current_step, total_steps)):
+            current_step += 1
+            _create_firewalls(config, compute, VpcId)
+
+    except Exception as e:
+        cli_logger.error(
+            "Failed to update the firewalls of workspace {}. {}".format(workspace_name, str(e)))
+        raise e
+
+    cli_logger.print(
+        "Successfully update the firewalls of workspace: {}.",
+        cf.bold(workspace_name))
+    return None
+
+
 def delete_workspace_gcp(config):
     crm, iam, compute, tpu = \
         construct_clients_from_provider_config(config["provider"])

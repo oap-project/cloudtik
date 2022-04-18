@@ -125,6 +125,10 @@ def get_virtual_network_name(config, resource_client, network_client, use_intern
     return virtual_network_name
 
 
+def update_azure_workspace_firewalls(config):
+    return None
+
+
 def delete_workspace_azure(config):
     resource_client = construct_resource_client(config)
     workspace_name = config["workspace_name"]

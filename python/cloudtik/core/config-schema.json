@@ -208,6 +208,7 @@
                     "properties": {
                       "azure.storage.type": {
                         "type": "string",
+                        "enum": ["blob", "datalake"],
                         "description": "Azure cloud storage type: blob (Azure Blob Storage) or datalake (Azure Data Lake Storage Gen 2)."
                       },
                       "azure.storage.account": {

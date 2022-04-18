@@ -27,8 +27,9 @@ logger = logging.getLogger(__name__)
 VERSION = "v1"
 TPU_VERSION = "v2alpha"  # change once v2 is stable
 
-CLOUDTIK = "cloudtik"
-CLOUDTIK_DEFAULT_SERVICE_ACCOUNT_ID = CLOUDTIK + "-sa-" + VERSION
+GCP_RESOURCE_NAME_PREFIX = "cloudtik"
+GCP_DEFAULT_SERVICE_ACCOUNT_ID = GCP_RESOURCE_NAME_PREFIX + "-sa-" + VERSION
+
 SERVICE_ACCOUNT_EMAIL_TEMPLATE = (
     "{account_id}@{project_id}.iam.gserviceaccount.com")
 DEFAULT_SERVICE_ACCOUNT_CONFIG = {
@@ -129,7 +130,7 @@ def wait_for_compute_global_operation(project_name, operation, compute):
 
 def key_pair_name(i, region, project_id, ssh_user):
     """Returns the ith default gcp_key_pair_name."""
-    key_name = "{}_gcp_{}_{}_{}_{}".format(CLOUDTIK, region, project_id, ssh_user,
+    key_name = "{}_gcp_{}_{}_{}_{}".format(GCP_RESOURCE_NAME_PREFIX, region, project_id, ssh_user,
                                            i)
     return key_name
 
@@ -1061,17 +1062,17 @@ def _configure_iam_role(config, crm, iam):
     config = copy.deepcopy(config)
 
     email = SERVICE_ACCOUNT_EMAIL_TEMPLATE.format(
-        account_id=CLOUDTIK_DEFAULT_SERVICE_ACCOUNT_ID,
+        account_id=GCP_DEFAULT_SERVICE_ACCOUNT_ID,
         project_id=config["provider"]["project_id"])
     service_account = _get_service_account(email, config, iam)
 
     if service_account is None:
         logger.info("_configure_iam_role: "
                     "Creating new service account {}".format(
-                        CLOUDTIK_DEFAULT_SERVICE_ACCOUNT_ID))
+                        GCP_DEFAULT_SERVICE_ACCOUNT_ID))
 
         service_account = _create_service_account(
-            CLOUDTIK_DEFAULT_SERVICE_ACCOUNT_ID, DEFAULT_SERVICE_ACCOUNT_CONFIG, config,
+            GCP_DEFAULT_SERVICE_ACCOUNT_ID, DEFAULT_SERVICE_ACCOUNT_CONFIG, config,
             iam)
 
     assert service_account is not None, "Failed to create service account"

@@ -24,12 +24,13 @@ from cloudtik.providers._private.utils import StorageTestingError
 
 logger = logging.getLogger(__name__)
 
-CLOUDTIK = "cloudtik"
-CLOUDTIK_DEFAULT_INSTANCE_PROFILE = CLOUDTIK + "-v1"
-CLOUDTIK_DEFAULT_IAM_ROLE = CLOUDTIK + "-v1"
-SECURITY_GROUP_TEMPLATE = CLOUDTIK + "-{}"
+AWS_RESOURCE_NAME_PREFIX = "cloudtik"
+AWS_DEFAULT_INSTANCE_PROFILE = AWS_RESOURCE_NAME_PREFIX + "-v1"
+AWS_DEFAULT_IAM_ROLE = AWS_RESOURCE_NAME_PREFIX + "-v1"
 
-DEFAULT_AMI_NAME = "AWS Deep Learning AMI (Ubuntu 18.04) V30.0"
+SECURITY_GROUP_TEMPLATE = AWS_RESOURCE_NAME_PREFIX + "-{}"
+
+DEFAULT_AMI_NAME = "Ubuntu Server 20.04 LTS (HVM), SSD Volume Type"
 
 # Obtained from https://aws.amazon.com/marketplace/pp/B07Y43P7X5 on 8/4/2020.
 DEFAULT_AMI = {
@@ -72,12 +73,12 @@ def key_pair(i, region, key_name):
     Returns the ith default (aws_key_pair_name, key_pair_path).
     """
     if i == 0:
-        key_pair_name = ("{}_{}".format(CLOUDTIK, region)
+        key_pair_name = ("{}_{}".format(AWS_RESOURCE_NAME_PREFIX, region)
                          if key_name is None else key_name)
         return (key_pair_name,
                 os.path.expanduser("~/.ssh/{}.pem".format(key_pair_name)))
 
-    key_pair_name = ("{}_{}_{}".format(CLOUDTIK, i, region)
+    key_pair_name = ("{}_{}_{}".format(AWS_RESOURCE_NAME_PREFIX, i, region)
                      if key_name is None else key_name + "_key-{}".format(i))
     return (key_pair_name,
             os.path.expanduser("~/.ssh/{}.pem".format(key_pair_name)))
@@ -558,8 +559,8 @@ def _configure_iam_role(config):
     _set_config_info(head_instance_profile_src="default")
 
     profile = _create_or_update_instance_profile(config,
-                                                 CLOUDTIK_DEFAULT_INSTANCE_PROFILE,
-                                                 CLOUDTIK_DEFAULT_IAM_ROLE)
+                                                 AWS_DEFAULT_INSTANCE_PROFILE,
+                                                 AWS_DEFAULT_IAM_ROLE)
     # Add IAM role to "head_node" field so that it is applied only to
     # the head node -- not to workers with the same node type as the head.
     config["head_node"]["IamInstanceProfile"] = {"Arn": profile.arn}

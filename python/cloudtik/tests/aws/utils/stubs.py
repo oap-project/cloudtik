@@ -17,7 +17,7 @@ def configure_iam_role_default(iam_client_stub):
         "get_instance_profile",
         expected_params={
             "InstanceProfileName": cloudtik.providers._private.aws.config.
-            CLOUDTIK_DEFAULT_INSTANCE_PROFILE
+            AWS_DEFAULT_INSTANCE_PROFILE
         },
         service_response={"InstanceProfile": DEFAULT_INSTANCE_PROFILE})
 

@@ -27,11 +27,12 @@ from azure.storage.filedatalake import DataLakeServiceClient
 
 from cloudtik.providers._private.utils import StorageTestingError
 
-RETRIES = 30
-MSI_NAME = "cloudtik-msi-user-identity"
-NSG_NAME = "cloudtik-nsg"
-SUBNET_NAME = "cloudtik-subnet"
-VNET_NAME = "cloudtik-vnet"
+AZURE_RESOURCE_NAME_PREFIX = "cloudtik"
+AZURE_MSI_NAME = AZURE_RESOURCE_NAME_PREFIX + "-msi-user-identity"
+AZURE_NSG_NAME = AZURE_RESOURCE_NAME_PREFIX + "-nsg"
+AZURE_SUBNET_NAME = AZURE_RESOURCE_NAME_PREFIX + "-subnet"
+AZURE_VNET_NAME = AZURE_RESOURCE_NAME_PREFIX + "-vnet"
+
 NUM_AZURE_WORKSPACE_CREATION_STEPS = 9
 NUM_AZURE_WORKSPACE_DELETION_STEPS = 7
 

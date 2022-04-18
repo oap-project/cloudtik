@@ -7,14 +7,14 @@ from cloudtik.core.tags import CLOUDTIK_TAG_LAUNCH_CONFIG, CLOUDTIK_TAG_NODE_KIN
 
 # Override global constants used in AWS cluster config artifact names.
 # This helps ensure that any unmocked test doesn't alter non-test artifacts.
-cloudtik.providers._private.aws.config.CLOUDTIK = \
+cloudtik.providers._private.aws.config.AWS_RESOURCE_NAME_PREFIX = \
     "cloudtik-aws-test"
-cloudtik.providers._private.aws.config.CLOUDTIK_DEFAULT_INSTANCE_PROFILE = \
-    cloudtik.providers._private.aws.config.CLOUDTIK + "-v1"
-cloudtik.providers._private.aws.config.CLOUDTIK_DEFAULT_IAM_ROLE = \
-    cloudtik.providers._private.aws.config.CLOUDTIK + "-v1"
+cloudtik.providers._private.aws.config.AWS_DEFAULT_INSTANCE_PROFILE = \
+    cloudtik.providers._private.aws.config.AWS_RESOURCE_NAME_PREFIX + "-v1"
+cloudtik.providers._private.aws.config.AWS_DEFAULT_IAM_ROLE = \
+    cloudtik.providers._private.aws.config.AWS_RESOURCE_NAME_PREFIX + "-v1"
 cloudtik.providers._private.aws.config.SECURITY_GROUP_TEMPLATE = \
-    cloudtik.providers._private.aws.config.CLOUDTIK + "-{}"
+    cloudtik.providers._private.aws.config.AWS_RESOURCE_NAME_PREFIX + "-{}"
 
 # Default IAM instance profile to expose to tests.
 DEFAULT_INSTANCE_PROFILE = {
@@ -38,7 +38,7 @@ DEFAULT_INSTANCE_PROFILE = {
 # Default EC2 key pair to expose to tests.
 DEFAULT_KEY_PAIR = {
     "KeyFingerprint": "00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00",
-    "KeyName": cloudtik.providers._private.aws.config.CLOUDTIK + "_us-west-2",
+    "KeyName": cloudtik.providers._private.aws.config.AWS_RESOURCE_NAME_PREFIX + "_us-west-2",
 }
 
 # Primary EC2 subnet to expose to tests.
@@ -96,8 +96,8 @@ DEFAULT_CLUSTER_NAME = "test-cluster-name"
 # (prior to inbound rule configuration).
 DEFAULT_SG = {
     "Description": "Auto-created security group for CloudTik workers",
-    "GroupName": cloudtik.providers._private.aws.config.CLOUDTIK + "-" +
-    DEFAULT_CLUSTER_NAME,
+    "GroupName": cloudtik.providers._private.aws.config.AWS_RESOURCE_NAME_PREFIX + "-" +
+                 DEFAULT_CLUSTER_NAME,
     "OwnerId": "test-owner",
     "GroupId": "sg-1234abcd",
     "VpcId": DEFAULT_SUBNET["VpcId"],

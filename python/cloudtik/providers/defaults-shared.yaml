@@ -13,7 +13,7 @@ upscaling_speed: 1.0
 docker:
     enabled: False
     image: "cloudtik/spark-runtime:latest"
-    container_name: "cloudtik_spark"
+    container_name: "cloudtik-spark"
     disable_shm_size_detection: True
     # Initialization commands running on host for only docker enabled
     initialization_commands:

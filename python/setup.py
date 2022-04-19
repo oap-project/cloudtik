@@ -129,10 +129,9 @@ if setup_spec.type == SetupType.CLOUDTIK:
             "botocore",
         ],
         "azure": [
-            "azure-cli",
-            "azure-core",
-            "azure-storage-blob",
-            "azure-storage-file-datalake",
+            "azure-cli==2.35.0",
+            "azure-storage-blob==12.11.0",
+            "azure-storage-file-datalake==12.6.0",
         ],
         "gcp": [
             "google-api-python-client",

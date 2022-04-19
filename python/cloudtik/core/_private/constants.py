@@ -207,3 +207,9 @@ DEFAULT_PROXY_PORT = 6000
 
 # The mount point path of the data disks on both host and container
 CLOUDTIK_DATA_DISK_MOUNT_POINT = "/mnt/cloudtik"
+
+# The default location of downloading cloudtik wheels
+CLOUDTIK_WHEELS = "https://s3-us-west-2.amazonaws.com/cloudtik/downloads/wheels"
+
+# The installed python version installed for head and workers
+CLOUDTIK_CLUSTER_PYTHON_VERSION = "3.7"

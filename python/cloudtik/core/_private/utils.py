@@ -29,6 +29,7 @@ import cloudtik
 from cloudtik.core._private import constants, services
 from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core._private.cluster.cluster_metrics import ClusterMetricsSummary
+from cloudtik.core._private.constants import CLOUDTIK_WHEELS, CLOUDTIK_CLUSTER_PYTHON_VERSION
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.providers._private.local.config import prepare_local
 from cloudtik.core._private.providers import _get_default_config, _get_node_provider, _get_default_workspace_config
@@ -881,21 +882,63 @@ def fillout_defaults(config: Dict[str, Any]) -> Dict[str, Any]:
 
 def merge_initialization_commands(config):
     # Check if docker enabled
+    initialization_commands = config["initialization_commands"]
     if is_docker_enabled(config):
         docker_initialization_commands = config.get("docker", {}).get("initialization_commands")
         if docker_initialization_commands:
-            config["initialization_commands"] = (
-                    config["initialization_commands"] + docker_initialization_commands)
-    config["initialization_commands"] = (
-        config["initialization_commands"] + config["user_initialization_commands"])
+            initialization_commands += docker_initialization_commands
+
+    initialization_commands += config.get("user_initialization_commands", [])
+    config["initialization_commands"] = initialization_commands
     return config
 
 
+def get_default_cloudtik_wheel_url() -> str:
+    wheel_url = CLOUDTIK_WHEELS
+    wheel_url += "/cloudtik-"
+    wheel_url += cloudtik.__version__
+
+    if CLOUDTIK_CLUSTER_PYTHON_VERSION == "3.8":
+        wheel_url += "-cp38-cp38"
+    elif CLOUDTIK_CLUSTER_PYTHON_VERSION == "3.9":
+        wheel_url += "-cp39-cp39"
+    else:
+        # Default python 3.7
+        wheel_url += "-cp37-cp37m"
+
+    wheel_url += "-manylinux2014_x86_64.whl"
+    return wheel_url
+
+
+def get_cloudtik_setup_command(config) -> str:
+    provider_type = config["provider"]["type"]
+    setup_command = "which cloudtik || pip -qq install -U \"cloudtik["
+    setup_command += provider_type
+    setup_command += "] @ "
+    setup_command += config.get("cloudtik_wheel_url", get_default_cloudtik_wheel_url())
+    setup_command += "\""
+    return setup_command
+
+
 def merge_setup_commands(config):
-    config["head_setup_commands"] = (
-        config["setup_commands"] + config["head_setup_commands"] + config["bootstrap_commands"])
-    config["worker_setup_commands"] = (
-        config["setup_commands"] + config["worker_setup_commands"] + config["bootstrap_commands"])
+    setup_commands = config["setup_commands"]
+
+    cloudtik_setup_command = get_cloudtik_setup_command(config)
+    setup_commands += [cloudtik_setup_command]
+
+    head_setup_commands = setup_commands
+    head_setup_commands += config["head_setup_commands"]
+    head_setup_commands += config.get("bootstrap_commands", [])
+    head_setup_commands += config.get("head_bootstrap_commands", [])
+
+    config["head_setup_commands"] = head_setup_commands
+
+    worker_setup_commands = setup_commands
+    worker_setup_commands += config["worker_setup_commands"]
+    worker_setup_commands += config.get("bootstrap_commands", [])
+    worker_setup_commands += config.get("worker_bootstrap_commands", [])
+
+    config["worker_setup_commands"] = worker_setup_commands
     return config
 
 

@@ -81,7 +81,6 @@ setup_commands:
     - conda activate cloudtik_py37 || conda create -n cloudtik_py37 -y python=3.7
     - (stat $HOME/anaconda3/envs/cloudtik_py37/ &> /dev/null &&
         echo 'export PATH="$HOME/anaconda3/envs/cloudtik_py37/bin:$PATH"' >> ~/.bashrc) || true
-    - which cloudtik || pip -qq install -U "cloudtik[aws] @ https://s3-us-west-2.amazonaws.com/cloudtik/downloads/wheels/cloudtik-0.9.0-cp37-cp37m-manylinux2014_x86_64.whl"
 
 # Custom commands that will be run on the head node after common setup.
 head_setup_commands:

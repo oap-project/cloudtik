@@ -56,6 +56,10 @@
             "description": "Mark whether the config file is already bootstrapped or not",
             "default": false
         },
+        "cloudtik_wheel_url": {
+            "type": "string",
+            "description": "The CloudTik wheel URL from which to download and install when needed"
+        },
         "provider": {
             "type": "object",
             "description": "Cloud-provider specific configuration.",
@@ -391,6 +395,14 @@
         "bootstrap_commands": {
             "$ref": "#/definitions/commands",
             "description": "List of user specified shell commands  to run to setup nodes."
+        },
+        "head_bootstrap_commands": {
+            "$ref": "#/definitions/commands",
+            "description": "List of user specified shell commands  to run to setup head node."
+        },
+        "worker_bootstrap_commands": {
+            "$ref": "#/definitions/commands",
+            "description": "List of user specified shell commands  to run to setup worker nodes."
         },
         "head_start_commands": {
             "$ref": "#/definitions/commands",

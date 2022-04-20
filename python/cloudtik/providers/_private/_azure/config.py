@@ -1160,6 +1160,14 @@ def _configure_resource_group_from_workspace(config):
 
 
 def bootstrap_azure(config):
+    workspace_name = config.get("workspace_name", "")
+    if workspace_name == "":
+        return bootstrap_azure_default(config)
+    else:
+        return bootstrap_azure_from_workspace(config)
+
+
+def bootstrap_azure_default(config):
     config = _configure_key_pair(config)
     config = _configure_resource_group(config)
     config = _configure_provision_public_ip(config)

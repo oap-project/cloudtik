@@ -1002,6 +1002,14 @@ def _fix_disk_info(config):
 
 
 def bootstrap_gcp(config):
+    workspace_name = config.get("workspace_name", "")
+    if workspace_name == "":
+        return bootstrap_gcp_default(config)
+    else:
+        return bootstrap_gcp_from_workspace(config)
+
+
+def bootstrap_gcp_default(config):
     config = copy.deepcopy(config)
     
     # Used internally to store head IAM role.

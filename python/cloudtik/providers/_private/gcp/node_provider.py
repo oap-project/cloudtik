@@ -203,7 +203,7 @@ class GCPNodeProvider(NodeProvider):
 
     @staticmethod
     def bootstrap_config(cluster_config):
-        bootstrap_gcp(cluster_config)
+        return bootstrap_gcp(cluster_config)
 
     @staticmethod
     def get_cluster_resources(

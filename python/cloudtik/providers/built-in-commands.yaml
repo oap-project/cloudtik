@@ -7,7 +7,7 @@ initialization_commands: []
 docker:
     # Initialization commands running on host for only docker enabled
     initialization_commands:
-        - which docker || (curl -fsSL https://get.docker.com -o /tmp/get-docker.sh &&
+        - which docker || (curl -fsSL https://get.docker.com -o /tmp/get-docker.sh && sed -i "s/set -x/set +x/g" /tmp/get-docker.sh &&
           sudo bash /tmp/get-docker.sh > /dev/null && sudo usermod -aG docker $USER && sudo systemctl restart docker -f)
 
 # List of shell commands to run to set up nodes.

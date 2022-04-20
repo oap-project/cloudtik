@@ -1,5 +1,5 @@
 # Include the common defaults
-from: defaults-shared
+from: defaults
 
 # Cloud-provider specific configuration.
 provider:

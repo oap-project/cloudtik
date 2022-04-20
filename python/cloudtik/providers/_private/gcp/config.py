@@ -778,7 +778,7 @@ def update_gcp_workspace_firewalls(config):
         raise e
 
     cli_logger.print(
-        "Successfully update the firewalls of workspace: {}.",
+        "Successfully updated the firewalls of workspace: {}.",
         cf.bold(workspace_name))
     return None
 
@@ -1030,7 +1030,8 @@ def bootstrap_gcp(config):
 
 def bootstrap_gcp_from_workspace(config):
     if not check_gcp_workspace_resource(config):
-        cli_logger.abort("Please check the resource of your workspace!")
+        workspace_name = config["workspace_name"]
+        cli_logger.abort("GCP workspace {} doesn't exist or is in wrong state!", workspace_name)
 
     config = copy.deepcopy(config)
 

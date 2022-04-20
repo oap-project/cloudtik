@@ -753,8 +753,7 @@ def prepare_config(config: Dict[str, Any]) -> Dict[str, Any]:
         config = prepare_local(config)
 
     with_defaults = fillout_defaults(config)
-    merge_initialization_commands(with_defaults)
-    merge_setup_commands(with_defaults)
+    merge_commands(with_defaults)
     validate_docker_config(with_defaults)
     fill_node_type_min_max_workers(with_defaults)
     return with_defaults
@@ -886,7 +885,62 @@ def fillout_defaults(config: Dict[str, Any]) -> Dict[str, Any]:
     return merged_config
 
 
-def merge_initialization_commands(config):
+def prepare_internal_commands(config, built_in_commands):
+    setup_commands = built_in_commands.get("setup_commands", [])
+    cloudtik_setup_command = get_cloudtik_setup_command(config)
+    setup_commands += [cloudtik_setup_command]
+    built_in_commands["setup_commands"] = setup_commands
+
+
+def merge_command_key(config, from_config, command_key):
+    commands = from_config.get(command_key, [])
+    commands += config.get(command_key, [])
+    config[command_key] = commands
+
+
+def merge_built_in_commands(config):
+    # Load the built-in commands and merge with defaults
+    built_in_commands = merge_config_hierarchy(config["provider"], {},
+                                               False, "built-in-commands")
+    # Populate some internal command which is generated on the fly
+    prepare_internal_commands(config, built_in_commands)
+
+    command_keys = ["initialization_commands",
+                    "setup_commands",
+                    "head_setup_commands",
+                    "worker_setup_commands",
+                    "head_start_commands",
+                    "worker_start_commands",
+                    "head_stop_commands",
+                    "worker_stop_commands"]
+
+    for command_key in command_keys:
+        merge_command_key(config, built_in_commands, command_key)
+
+    merge_docker_initialization_commands(config, built_in_commands)
+
+
+def merge_docker_initialization_commands(config, built_in_commands):
+    # Merge docker initialization commands
+    command_key = "initialization_commands"
+    if "docker" not in config:
+        config["docker"] = {}
+
+    commands = built_in_commands.get("docker", {}).get(command_key, [])
+    commands += config.get("docker", {}).get(command_key, [])
+    config["docker"][command_key] = commands
+
+
+def merge_commands(config):
+    merge_built_in_commands(config)
+
+    # Combine commands
+    combine_initialization_commands(config)
+    combine_setup_commands(config)
+    return config
+
+
+def combine_initialization_commands(config):
     # Check if docker enabled
     initialization_commands = config["initialization_commands"]
     if is_docker_enabled(config):
@@ -894,7 +948,6 @@ def merge_initialization_commands(config):
         if docker_initialization_commands:
             initialization_commands += docker_initialization_commands
 
-    initialization_commands += config.get("user_initialization_commands", [])
     config["initialization_commands"] = initialization_commands
     return config
 
@@ -926,25 +979,10 @@ def get_cloudtik_setup_command(config) -> str:
     return setup_command
 
 
-def merge_setup_commands(config):
+def combine_setup_commands(config):
     setup_commands = config["setup_commands"]
-
-    cloudtik_setup_command = get_cloudtik_setup_command(config)
-    setup_commands += [cloudtik_setup_command]
-
-    head_setup_commands = setup_commands
-    head_setup_commands += config["head_setup_commands"]
-    head_setup_commands += config.get("bootstrap_commands", [])
-    head_setup_commands += config.get("head_bootstrap_commands", [])
-
-    config["head_setup_commands"] = head_setup_commands
-
-    worker_setup_commands = setup_commands
-    worker_setup_commands += config["worker_setup_commands"]
-    worker_setup_commands += config.get("bootstrap_commands", [])
-    worker_setup_commands += config.get("worker_bootstrap_commands", [])
-
-    config["worker_setup_commands"] = worker_setup_commands
+    config["head_setup_commands"] = (setup_commands + config["head_setup_commands"])
+    config["worker_setup_commands"] = (setup_commands + config["worker_setup_commands"])
     return config
 
 

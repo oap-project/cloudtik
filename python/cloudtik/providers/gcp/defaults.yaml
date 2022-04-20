@@ -85,27 +85,3 @@ available_node_types:
 
 # Specify the node type of the head node (as configured above).
 head_node_type: head-default
-
-# List of shell commands to run to set up nodes.
-setup_commands:
-    # Note: if you're developing cloudtik, you probably want to create an AMI that
-    # has your cloudtik repo pre-cloned. Then, you can replace the pip installs
-    # below with a git checkout <your_sha> (and possibly a recompile).
-    # - echo 'export PATH="$HOME/anaconda3/envs/tensorflow_p36/bin:$PATH"' >> ~/.bashrc
-    # Install cloudtik if not present
-    - >-
-        which conda || (wget -q --show-progress "https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh" -O /tmp/miniconda.sh &&
-        /bin/bash /tmp/miniconda.sh -b -u -p ~/anaconda3  &&  ~/anaconda3/bin/conda init  && rm -rf /tmp/miniconda.sh)
-    - conda activate cloudtik_py37 || conda create -n cloudtik_py37 -y python=3.7
-    - (stat $HOME/anaconda3/envs/cloudtik_py37/ &> /dev/null &&
-        echo 'export PATH="$HOME/anaconda3/envs/cloudtik_py37/bin:$PATH"' >> ~/.bashrc) || true
-
-# Custom commands that will be run on the head node after common setup.
-head_setup_commands:
-    - cloudtik-spark install --head --provider=gcp
-    - cloudtik-spark configure --head --provider=gcp --project_id=$PROJECT_ID  --gcs_bucket=$GCS_BUCKET --gcs_service_account_client_email=$GCS_SERVICE_ACCOUNT_CLIENT_EMAIL --gcs_service_account_private_key_id=$GCS_SERVICE_ACCOUNT_PRIVATE_KEY_ID --gcs_service_account_private_key="$GCS_SERVICE_ACCOUNT_PRIVATE_KEY"
-
-# Custom commands that will be run on worker nodes after common setup.
-worker_setup_commands:
-    - cloudtik-spark install --provider=gcp
-    - cloudtik-spark configure --provider=gcp --head_address=$CLOUDTIK_HEAD_IP --project_id=$PROJECT_ID --gcs_bucket=$GCS_BUCKET --gcs_service_account_client_email=$GCS_SERVICE_ACCOUNT_CLIENT_EMAIL --gcs_service_account_private_key_id=$GCS_SERVICE_ACCOUNT_PRIVATE_KEY_ID --gcs_service_account_private_key="$GCS_SERVICE_ACCOUNT_PRIVATE_KEY"

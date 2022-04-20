@@ -49,30 +49,49 @@ def _import_kubernetes(provider_config):
     return KubernetesNodeProvider
 
 
-def _load_local_defaults_config():
+def _load_local_provider_home():
     import cloudtik.providers.local as local_provider
     return os.path.join(os.path.dirname(local_provider.__file__), "defaults.yaml")
 
 
-def _load_kubernetes_defaults_config():
+def _load_kubernetes_provider_home():
     import cloudtik.providers.kubernetes as kubernetes_provider
-    return os.path.join(
-        os.path.dirname(kubernetes_provider.__file__), "defaults.yaml")
+    return os.path.dirname(kubernetes_provider.__file__)
+
+
+def _load_aws_provider_home():
+    import cloudtik.providers.aws as aws_provider
+    return os.path.dirname(aws_provider.__file__)
+
+
+def _load_gcp_provider_home():
+    import cloudtik.providers.gcp as gcp_provider
+    return os.path.dirname(gcp_provider.__file__)
+
+
+def _load_azure_provider_home():
+    import cloudtik.providers.azure as azure_provider
+    return os.path.dirname(azure_provider.__file__)
+
+
+def _load_local_defaults_config():
+    return os.path.join(_load_local_provider_home(), "defaults.yaml")
+
+
+def _load_kubernetes_defaults_config():
+    return os.path.join(_load_kubernetes_provider_home(), "defaults.yaml")
 
 
 def _load_aws_defaults_config():
-    import cloudtik.providers.aws as aws_provider
-    return os.path.join(os.path.dirname(aws_provider.__file__), "defaults.yaml")
+    return os.path.join(_load_aws_provider_home(), "defaults.yaml")
 
 
 def _load_gcp_defaults_config():
-    import cloudtik.providers.gcp as gcp_provider
-    return os.path.join(os.path.dirname(gcp_provider.__file__), "defaults.yaml")
+    return os.path.join(_load_gcp_provider_home(), "defaults.yaml")
 
 
 def _load_azure_defaults_config():
-    import cloudtik.providers.azure as azure_provider
-    return os.path.join(os.path.dirname(azure_provider.__file__), "defaults.yaml")
+    return os.path.join(_load_azure_provider_home(), "defaults.yaml")
 
 
 def _import_external(provider_config):
@@ -96,6 +115,14 @@ _PROVIDER_PRETTY_NAMES = {
     "azure": "Azure",
     "kubernetes": "Kubernetes",
     "external": "External"
+}
+
+_PROVIDER_HOMES = {
+    "local": _load_local_provider_home,
+    "aws": _load_aws_provider_home,
+    "gcp": _load_gcp_provider_home,
+    "azure": _load_azure_provider_home,
+    "kubernetes": _load_kubernetes_provider_home,
 }
 
 _DEFAULT_CONFIGS = {
@@ -137,32 +164,6 @@ def _import_kubernetes_workspace(provider_config):
     return KubernetesWorkspaceProvider
 
 
-def _load_local_workspace_defaults_config():
-    import cloudtik.providers.local as local_provider
-    return os.path.join(os.path.dirname(local_provider.__file__), "workspace-defaults.yaml")
-
-
-def _load_kubernetes_workspace_defaults_config():
-    import cloudtik.providers.kubernetes as kubernetes_provider
-    return os.path.join(
-        os.path.dirname(kubernetes_provider.__file__), "workspace-defaults.yaml")
-
-
-def _load_aws_workspace_defaults_config():
-    import cloudtik.providers.aws as aws_provider
-    return os.path.join(os.path.dirname(aws_provider.__file__), "workspace-defaults.yaml")
-
-
-def _load_gcp_workspace_defaults_config():
-    import cloudtik.providers.gcp as gcp_provider
-    return os.path.join(os.path.dirname(gcp_provider.__file__), "workspace-defaults.yaml")
-
-
-def _load_azure_workspace_defaults_config():
-    import cloudtik.providers.azure as azure_provider
-    return os.path.join(os.path.dirname(azure_provider.__file__), "workspace-defaults.yaml")
-
-
 _WORKSPACE_PROVIDERS = {
     "local": _import_local_workspace,
     "aws": _import_aws_workspace,
@@ -170,14 +171,6 @@ _WORKSPACE_PROVIDERS = {
     "azure": _import_azure_workspace,
     "kubernetes": _import_kubernetes_workspace,
     "external": _import_external  # Import an external module
-}
-
-_DEFAULT_WORKSPACE_CONFIGS = {
-    "local": _load_local_workspace_defaults_config,
-    "aws": _load_aws_workspace_defaults_config,
-    "gcp": _load_gcp_workspace_defaults_config,
-    "azure": _load_azure_workspace_defaults_config,
-    "kubernetes": _load_kubernetes_workspace_defaults_config,
 }
 
 
@@ -323,19 +316,24 @@ def _clear_workspace_provider_cache():
 
 
 def _get_default_workspace_config(provider_config):
-    """Retrieve the default workspace config.
+    return _get_provider_config_object(provider_config, "workspace-defaults")
 
-    This is an INTERNAL API. It is not allowed to call this from outside.
-    """
-    # TODO: stiill not check with exterbal type
+
+def _get_provider_config_object(provider_config, object_name: str):
+    # For external provider, from the shared config object it there is one
     if provider_config["type"] == "external":
-        return copy.deepcopy(MINIMAL_EXTERNAL_CONFIG)
-    load_config = _DEFAULT_WORKSPACE_CONFIGS.get(provider_config["type"])
-    if load_config is None:
-        raise NotImplementedError("Unsupported workspace provider: {}".format(
-            provider_config["type"]))
-    path_to_default = load_config()
-    with open(path_to_default) as f:
-        defaults = yaml.safe_load(f)
+        return {"from": object_name}
 
-    return defaults
+    if not object_name.endswith(".yaml"):
+        object_name += ".yaml"
+
+    load_config_home = _PROVIDER_HOMES.get(provider_config["type"])
+    if load_config_home is None:
+        raise NotImplementedError("Unsupported provider: {}".format(
+            provider_config["type"]))
+    path_to_home = load_config_home()
+    path_to_config_file = os.path.join(path_to_home, object_name)
+    with open(path_to_config_file) as f:
+        config_object = yaml.safe_load(f)
+
+    return config_object

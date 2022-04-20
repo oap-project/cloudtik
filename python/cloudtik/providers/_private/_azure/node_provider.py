@@ -403,43 +403,6 @@ class AzureNodeProvider(NodeProvider):
         return cluster_config
 
     @staticmethod
-    def get_cluster_resources(
-            cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-        """Fills out spark executor resource for available_node_types."""
-        if "available_node_types" not in cluster_config:
-            return cluster_config
-
-        # Get instance information from cloud provider
-        provider_config = cluster_config["provider"]
-        subscription_id = provider_config["subscription_id"]
-        vm_location = provider_config["location"]
-
-        credential = get_credential(provider_config)
-        compute_client = ComputeManagementClient(credential, subscription_id)
-
-        vmsizes = compute_client.virtual_machine_sizes.list(vm_location)
-        instances_dict = {
-            instance.name: {"memory": instance.memory_in_mb, "cpu": instance.number_of_cores}
-            for instance in vmsizes
-        }
-
-        # Update the instance information to node type
-        available_node_types = cluster_config["available_node_types"]
-        head_node_type = cluster_config["head_node_type"]
-        cluster_resource = {}
-        for node_type in available_node_types:
-            instance_type = available_node_types[node_type]["node_config"]["azure_arm_parameters"]["vmSize"]
-            if instance_type in instances_dict:
-                memory_total = instances_dict[instance_type]["memory"]
-                cpu_total = instances_dict[instance_type]["cpu"]
-                if node_type != head_node_type:
-                    cluster_resource["worker_memory"] = memory_total
-                    cluster_resource["worker_cpu"] = cpu_total
-                else:
-                    cluster_resource["head_memory"] = memory_total
-        return cluster_resource
-
-    @staticmethod
     def validate_config(
             provider_config: Dict[str, Any]) -> None:
         config_dict = {

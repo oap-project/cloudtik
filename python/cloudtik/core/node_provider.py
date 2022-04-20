@@ -253,8 +253,28 @@ class NodeProvider:
     @staticmethod
     def get_cluster_resources(
             cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-        """Fills out missing "resources" field for available_node_types."""
-        return cluster_config
+        """Fills out spark executor resource for available_node_types."""
+        cluster_resource = {}
+        if "available_node_types" not in cluster_config:
+            return cluster_resource
+
+        # Since we have filled the resources for node types
+        # We simply don't retrieve it from cloud provider again
+        available_node_types = cluster_config["available_node_types"]
+        head_node_type = cluster_config["head_node_type"]
+        for node_type in available_node_types:
+            resources = available_node_types[node_type].get("resources", {})
+            memory_total_in_mb = int(resources.get("memory", 0)/(1024 * 1024))
+            cpu_total = resources.get("CPU", 0)
+            if node_type != head_node_type:
+                if memory_total_in_mb > 0:
+                    cluster_resource["worker_memory"] = memory_total_in_mb
+                if cpu_total > 0:
+                    cluster_resource["worker_cpu"] = cpu_total
+            else:
+                if memory_total_in_mb > 0:
+                    cluster_resource["head_memory"] = memory_total_in_mb
+        return cluster_resource
 
     @staticmethod
     def validate_config(

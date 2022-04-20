@@ -114,7 +114,9 @@ class AzureNodeProvider(NodeProvider):
         instance = self.compute_client.virtual_machines.instance_view(
             resource_group_name=resource_group, vm_name=vm.name).as_dict()
         for status in instance["statuses"]:
-            code, state = status["code"].split("/")
+            status_list = status["code"].split("/")
+            code = status_list[0]
+            state = status_list[1]
             # skip provisioning status
             if code == "PowerState":
                 metadata["status"] = state

@@ -570,7 +570,7 @@ class AWSNodeProvider(NodeProvider):
 
     @staticmethod
     def bootstrap_config(cluster_config):
-        bootstrap_aws(cluster_config)
+        return bootstrap_aws(cluster_config)
 
     @staticmethod
     def fillout_available_node_types_resources(

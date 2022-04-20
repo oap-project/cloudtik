@@ -342,7 +342,7 @@ class AzureNodeProvider(NodeProvider):
 
     @staticmethod
     def bootstrap_config(cluster_config):
-        bootstrap_azure(cluster_config)
+        return bootstrap_azure(cluster_config)
 
     def prepare_for_head_node(
             self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:

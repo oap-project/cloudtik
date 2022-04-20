@@ -3,7 +3,7 @@
 set -x
 
 # Cause the script to exit if a single command fails.
-set -euo pipefail
+set -eo +u pipefail
 
 # Prerequisites:
 # Make sure you have the latest version of pip installed:

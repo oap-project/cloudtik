@@ -12,7 +12,7 @@ python -m pip install --upgrade pip
 python -m pip install --upgrade build
 
 # Update the commit sha
-if [ -n "$TRAVIS_COMMIT" ]; then
+if [ ! -n "${TRAVIS_COMMIT}" ]; then
     CLOUDTIK_COMMIT_SHA=$TRAVIS_COMMIT
 fi
 

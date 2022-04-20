@@ -1036,6 +1036,9 @@ def _configure_network_resources(config, resource_group_name, current_step, tota
 
 
 def bootstrap_azure_from_workspace(config):
+    if not check_azure_workspace_resource(config):
+        cli_logger.abort("Please check the resource of your workspace!")
+
     config = _configure_key_pair(config)
     config = _configure_workspace_resource(config)
     return config

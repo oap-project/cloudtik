@@ -1,0 +1,10 @@
+# Custom commands that will be run on the head node after common setup.
+head_setup_commands:
+    - pip -qq install 'boto3>=1.4.8'  # 1.4.8 adds InstanceMarketOptions
+    - cloudtik-spark install --head --provider=aws
+    - cloudtik-spark configure --head --provider=aws --aws_s3_bucket=$AWS_S3_BUCKET --aws_s3_access_key_id=$AWS_S3_ACCESS_KEY_ID --aws_s3_secret_access_key=$AWS_S3_SECRET_ACCESS_KEY
+
+# Custom commands that will be run on worker nodes after common setup.
+worker_setup_commands:
+    - cloudtik-spark install --provider=aws
+    - cloudtik-spark configure --provider=aws --head_address=$CLOUDTIK_HEAD_IP --aws_s3_bucket=$AWS_S3_BUCKET --aws_s3_access_key_id=$AWS_S3_ACCESS_KEY_ID --aws_s3_secret_access_key=$AWS_S3_SECRET_ACCESS_KEY

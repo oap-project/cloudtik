@@ -33,6 +33,9 @@ class WorkspaceProvider:
             cluster_config: Dict[str, Any]) -> None:
         return None
 
+    def update_workspace_firewalls(self,
+            cluster_config: Dict[str, Any]) -> None:
+        return None
 
     def check_workspace_resource(self,
             cluster_config: Dict[str, Any]) -> bool:

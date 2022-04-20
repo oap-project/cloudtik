@@ -52,6 +52,29 @@ def try_reload_log_state(provider_config: Dict[str, Any],
         return reload_log_state(log_state)
 
 
+def update_workspace_firewalls(
+        config_file: str, yes: bool,
+        override_workspace_name: Optional[str] = None) -> Dict[str, Any]:
+    """Destroys the workspace and associated Cloud resources."""
+    config = yaml.safe_load(open(config_file).read())
+    if override_workspace_name is not None:
+        config["workspace_name"] = override_workspace_name
+
+    config = _bootstrap_workspace_config(config)
+
+    provider = _get_workspace_provider(config["provider"], config["workspace_name"])
+
+    if provider.check_workspace_resource(config):
+        cli_logger.print("Workspace with the same name already exists! "
+                         "If it failed in the previous creation, you can delete and try create again.")
+        cli_logger.confirm(yes, "Are you sure that you want to update the firewalls of  workspace {}?",
+                           config["workspace_name"], _abort=True)
+        provider.update_workspace_firewalls(config)
+    else:
+        cli_logger.print("Workspace with the same name not exists! "
+                         "You need to create the workspace first!")
+
+
 def delete_workspace(
         config_file: str, yes: bool,
         override_workspace_name: Optional[str] = None) -> Dict[str, Any]:

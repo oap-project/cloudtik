@@ -593,16 +593,25 @@ def create_firewall(compute, project_id, firewall_body):
         raise e
 
 
-def enfored_create_firewall(config, compute, firewall_body):
+def update_firewall(compute, project_id, firewall_body):
+    cli_logger.print("Updating firewall \"{}\"... ".format(firewall_body.get("name")))
+    try:
+        compute.firewalls().update(project=project_id, firewall = firewall_body.get("name"), body=firewall_body).execute()
+        cli_logger.print("Successfully updated firewall \"{}\". ".format(firewall_body.get("name")))
+    except Exception as e:
+        cli_logger.error("Failed to update firewall. {}", str(e))
+        raise e
+
+
+def create_or_update_firewall(config, compute, firewall_body):
     firewall_name = firewall_body.get("name")
     project_id = config["provider"]["project_id"]
 
     if not check_firewall_exsit(config, compute, firewall_name):
         create_firewall(compute, project_id, firewall_body)
     else:
-        cli_logger.print("This  firewall \"{}\"  has existed, should be removed first. ".format(firewall_name))
-        delete_firewall(compute, project_id, firewall_name)
-        create_firewall(compute, project_id, firewall_body)
+        cli_logger.print("This  firewall \"{}\"  has existed. Will update the rules... ".format(firewall_name))
+        update_firewall(compute, project_id, firewall_body)
 
 
 def _create_default_allow_ssh_firewall(config, compute, VpcId):
@@ -625,7 +634,7 @@ def _create_default_allow_ssh_firewall(config, compute, VpcId):
         ]
     }
 
-    enfored_create_firewall(config, compute, firewall_body)
+    create_or_update_firewall(config, compute, firewall_body)
 
 
 def get_subnetworks_ipCidrRange(config, compute, VpcId):
@@ -670,17 +679,16 @@ def _create_default_allow_internal_firewall(config, compute, VpcId):
         "sourceRanges": subnetwork_cidrs
     }
 
-    enfored_create_firewall(config, compute, firewall_body)
+    create_or_update_firewall(config, compute, firewall_body)
 
 
-def _create_custom_firewalls(config, compute, VpcId):
+def _create_or_update_custom_firewalls(config, compute, VpcId):
     firewall_rules = config["provider"] \
         .get("firewalls", {}) \
         .get("firewall_rules", [])
 
     project_id = config["provider"]["project_id"]
     workspace_name = config["workspace_name"]
-
     for i in range(len(firewall_rules)):
         firewall_body = {
             "name": "cloudtik-{}-custom-{}-firewall".format(workspace_name, i),
@@ -688,25 +696,19 @@ def _create_custom_firewalls(config, compute, VpcId):
             "allowed": firewall_rules[i]["allowed"],
             "sourceRanges": firewall_rules[i]["sourceRanges"]
         }
-        enfored_create_firewall(config, compute, firewall_body)
+        create_or_update_firewall(config, compute, firewall_body)
 
 
-def _create_firewalls(config, compute, VpcId):
+def _create_or_update_firewalls(config, compute, VpcId):
     _create_default_allow_ssh_firewall(config, compute, VpcId)
     _create_default_allow_internal_firewall(config, compute, VpcId)
-    _create_custom_firewalls(config, compute, VpcId)
+    _create_or_update_custom_firewalls(config, compute, VpcId)
 
 
 def check_workspace_firewalls(config, compute):
     workspace_name = config["workspace_name"]
     firewall_names = ["cloudtik-{}-default-allow-internal-firewall".format(workspace_name),
                       "cloudtik-{}-default-allow-ssh-firewall".format(workspace_name)]
-    custom_firewalls_num = len(config["provider"] \
-        .get("firewalls", {}) \
-        .get("firewall_rules", []))
-
-    for i in range(0, custom_firewalls_num):
-        firewall_names.append("cloudtik-{}-custom-{}-firewall".format(workspace_name, i))
 
     for firewall_name in firewall_names:
         if not check_firewall_exsit(config, compute, firewall_name):
@@ -746,6 +748,39 @@ def get_gcp_vpcId(config, compute, use_internal_ips):
     else:
         VpcId = get_workspace_vpc_id(config, compute)
     return VpcId
+
+
+def update_gcp_workspace_firewalls(config):
+    crm, iam, compute, tpu = \
+        construct_clients_from_provider_config(config["provider"])
+
+    workspace_name = config["workspace_name"]
+    use_internal_ips = config["provider"].get("use_internal_ips", False)
+    VpcId = get_gcp_vpcId(config, compute, use_internal_ips)
+    if VpcId is None:
+        cli_logger.print("Workspace: {} doesn't exist!".format(config["workspace_name"]))
+        return
+
+    current_step = 1
+    total_steps = 1
+
+    try:
+
+        with cli_logger.group(
+                "Updating workspace firewalls",
+                _numbered=("[]", current_step, total_steps)):
+            current_step += 1
+            _create_or_update_firewalls(config, compute, VpcId)
+
+    except Exception as e:
+        cli_logger.error(
+            "Failed to update the firewalls of workspace {}. {}".format(workspace_name, str(e)))
+        raise e
+
+    cli_logger.print(
+        "Successfully update the firewalls of workspace: {}.",
+        cf.bold(workspace_name))
+    return None
 
 
 def delete_workspace_gcp(config):
@@ -888,7 +923,7 @@ def _configure_network_resources(config, current_step, total_steps):
             "Creating firewall rules",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
-        _create_firewalls(config, compute, VpcId)
+        _create_or_update_firewalls(config, compute, VpcId)
 
     return config
 
@@ -915,7 +950,7 @@ def check_gcp_workspace_resource(config):
         return False
     if get_router(config, "cloudtik-{}-private-router".format(workspace_name), compute) is None:
         return False
-    if check_workspace_firewalls(config, compute):
+    if not check_workspace_firewalls(config, compute):
         return False
     return True
 

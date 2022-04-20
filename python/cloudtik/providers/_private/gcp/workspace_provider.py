@@ -2,7 +2,7 @@ import logging
 from typing import Any, Dict
 
 from cloudtik.providers._private.gcp.config import create_gcp_workspace, \
-    delete_workspace_gcp, check_gcp_workspace_resource
+    delete_workspace_gcp, check_gcp_workspace_resource, update_gcp_workspace_firewalls
 from cloudtik.core.workspace_provider import WorkspaceProvider
 
 logger = logging.getLogger(__name__)
@@ -17,7 +17,10 @@ class GCPWorkspaceProvider(WorkspaceProvider):
 
     def delete_workspace(self, cluster_config):
         return delete_workspace_gcp(cluster_config)
-
+    
+    def update_workspace_firewalls(self, cluster_config):
+        return update_gcp_workspace_firewalls(cluster_config)
+    
     def check_workspace_resource(self, cluster_config):
         return check_gcp_workspace_resource(cluster_config)
 

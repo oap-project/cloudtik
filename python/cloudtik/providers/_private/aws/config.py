@@ -355,6 +355,36 @@ def check_aws_workspace_resource(config):
     return True
 
 
+def update_aws_workspace_firewalls(config):
+    ec2_client = _client("ec2", config)
+    workspace_name = config["workspace_name"]
+    vpcid = get_workspace_vpc_id(workspace_name, ec2_client)
+    if vpcid is None:
+        cli_logger.print("The workspace: {} doesn't exist!".format(config["workspace_name"]))
+        return
+
+    current_step = 1
+    total_steps = 1
+
+    try:
+
+        with cli_logger.group(
+                "Updating workspace firewalls",
+                _numbered=("[]", current_step, total_steps)):
+            current_step += 1
+            _update_security_group(config, vpcid)
+
+    except Exception as e:
+        cli_logger.error(
+            "Failed to update the firewalls of workspace {}. {}".format(workspace_name, str(e)))
+        raise e
+
+    cli_logger.print(
+        "Successfully update the firewalls of workspace: {}.",
+        cf.bold(workspace_name))
+    return None
+
+
 def delete_workspace_aws(config):
     ec2 = _resource("ec2", config)
     ec2_client = _client("ec2", config)
@@ -1434,6 +1464,15 @@ def _upsert_security_group(config, VpcId):
     return security_group
 
 
+def _update_security_group(config, VpcId):
+    cli_logger.print("Updating security group for VPC: {}...".format(VpcId))
+    security_group = get_workspace_security_group(config, VpcId,
+                                 SECURITY_GROUP_TEMPLATE.format(config["workspace_name"]))
+    _add_security_group_rules(config, security_group)
+
+    return security_group
+
+
 def _get_or_create_vpc_security_groups(conf, node_types):
     # Figure out which VPC each node_type is in...
     ec2 = _resource("ec2", conf)
@@ -1557,6 +1596,9 @@ def _update_inbound_rules(target_security_group, sgids, config):
         .get("security_group", {}) \
         .get("IpPermissions", [])
     ip_permissions = _create_default_inbound_rules(config, sgids, extended_rules)
+    old_ip_permisssions = target_security_group.ip_permissions
+    if len(old_ip_permisssions) != 0:
+        target_security_group.revoke_ingress(IpPermissions=old_ip_permisssions)
     target_security_group.authorize_ingress(IpPermissions=ip_permissions)
 
 

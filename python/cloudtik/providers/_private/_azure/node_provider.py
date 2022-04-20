@@ -19,14 +19,14 @@ from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_NAME
 
 from cloudtik.providers._private._azure.azure_identity_credential_adapter import AzureIdentityCredentialAdapter
 from cloudtik.providers._private._azure.config import (bootstrap_azure, bootstrap_azure_from_workspace,
-                                                       AZURE_MSI_NAME, get_azure_sdk_function, verify_azure_cloud_storage)
+                                                       AZURE_MSI_NAME, get_azure_sdk_function, verify_azure_cloud_storage,
+                                                       check_public_ip_address_dependency)
 
 from cloudtik.providers._private._azure.utils import get_azure_config
 from cloudtik.providers._private.utils import validate_config_dict
 
 VM_NAME_MAX_LEN = 64
 VM_NAME_UUID_LEN = 8
-RESOURCE_CHECK_TIME= 10
 
 logger = logging.getLogger(__name__)
 azure_logger = logging.getLogger(
@@ -314,35 +314,20 @@ class AzureNodeProvider(NodeProvider):
 
         # delete ip address
         if "public_ip_name" in metadata:
-            check_time = RESOURCE_CHECK_TIME
-            cli_logger.print(
-                "Checking the  dependency of public ip address...")
-            while check_time > 0:
-                public_ip_address =self.network_client.public_ip_addresses.get(
-                    resource_group_name=resource_group,
-                    public_ip_address_name=metadata["public_ip_name"])
-                if public_ip_address.ip_configuration is not None:
-                    if check_time > 0:
-                        check_time = check_time - 1
-                        cli_logger.warning("The dependency of public ip address still exists. "
-                                           "Remaining {} tries to check the dependency...".format(check_time))
-                        time.sleep(10)
-                else:
-                    cli_logger.print(
-                        "The dependency of public ip address has been removed.")
-                    break
-
-            try:
-                cli_logger.print("Deleting public ip address...")
-                delete = get_azure_sdk_function(
-                    client=self.network_client.public_ip_addresses,
-                    function_name="delete")
-                delete(
-                    resource_group_name=resource_group,
-                    public_ip_address_name=metadata["public_ip_name"])
-                cli_logger.print("Successfully deleted public ip address...")
-            except Exception as e:
+            if check_public_ip_address_dependency(self.network_client, resource_group, metadata["public_ip_name"]):
+                try:
+                    cli_logger.print("Deleting public ip address...")
+                    delete = get_azure_sdk_function(
+                        client=self.network_client.public_ip_addresses,
+                        function_name="delete")
+                    delete(
+                        resource_group_name=resource_group,
+                        public_ip_address_name=metadata["public_ip_name"])
+                    cli_logger.print("Successfully deleted public ip address...")
+                except Exception as e:
                     cli_logger.error("Failed to delete public ip address. {}", str(e))
+            else:
+                cli_logger.error("Cannot delete public ip address because the dependency has not been removed")
 
         # delete disks
         for disk in disks:

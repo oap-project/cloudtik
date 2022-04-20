@@ -35,6 +35,7 @@ AZURE_VNET_NAME = AZURE_RESOURCE_NAME_PREFIX + "-vnet"
 
 NUM_AZURE_WORKSPACE_CREATION_STEPS = 9
 NUM_AZURE_WORKSPACE_DELETION_STEPS = 7
+RESOURCE_CHECK_TIME= 10
 
 logger = logging.getLogger(__name__)
 
@@ -1173,6 +1174,27 @@ def _configure_provision_public_ip(config):
         node_config["azure_arm_parameters"]["provisionPublicIp"] = False if use_internal_ips else True
 
     return config
+
+def check_public_ip_address_dependency(network_client, resource_group_name, public_ip_address_name):
+    check_time = RESOURCE_CHECK_TIME
+    cli_logger.print(
+        "Checking the  dependency of public ip address...")
+    while check_time > 0:
+        public_ip_address = network_client.public_ip_addresses.get(
+            resource_group_name=resource_group_name,
+            public_ip_address_name=public_ip_address_name)
+        if public_ip_address.ip_configuration is not None:
+            if check_time > 0:
+                check_time = check_time - 1
+                cli_logger.warning("The dependency of public ip address still exists. "
+                                   "Remaining {} tries to check the dependency...".format(check_time))
+                time.sleep(10)
+        else:
+            cli_logger.print(
+                "The dependency of public ip address has been removed.")
+            return True
+
+    return False
 
 
 def _configure_resource_group(config):

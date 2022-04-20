@@ -33,4 +33,18 @@ cp -r ${SCRIPT_DIR}/runtime/spark/scripts ${SCRIPT_DIR}/python/cloudtik/runtime/
 
 # build pip wheel
 cd ${SCRIPT_DIR}/python
+
+# Update the commit sha
+if [ -n "${TRAVIS_COMMIT}" ]; then
+    CLOUDTIK_COMMIT_SHA=$TRAVIS_COMMIT
+fi
+
+if [ ! -n "$CLOUDTIK_COMMIT_SHA" ]; then
+    CLOUDTIK_COMMIT_SHA=$(which git >/dev/null && git rev-parse HEAD)
+fi
+
+if [ ! -z "$CLOUDTIK_COMMIT_SHA" ]; then
+    sed -i.bak "s/__commit__ = \".*\"/__commit__ = \"$CLOUDTIK_COMMIT_SHA\"/g" ./cloudtik/__init__.py && rm ./cloudtik/__init__.py.bak
+fi
+
 bash ./build-wheel-manylinux2014.sh

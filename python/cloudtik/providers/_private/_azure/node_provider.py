@@ -1,3 +1,4 @@
+import copy
 import json
 import logging
 import os
@@ -354,23 +355,77 @@ class AzureNodeProvider(NodeProvider):
         return cluster_config
 
     @staticmethod
-    def get_cluster_resources(
+    def fillout_available_node_types_resources(
             cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-        """Fills out spark executor resource for available_node_types."""
+        """Fills out missing "resources" field for available_node_types."""
         if "available_node_types" not in cluster_config:
             return cluster_config
+        cluster_config = copy.deepcopy(cluster_config)
+
+        # Get instance information from cloud provider
         provider_config = cluster_config["provider"]
         subscription_id = provider_config["subscription_id"]
         vm_location = provider_config["location"]
+
         credential = get_credential(provider_config)
         compute_client = ComputeManagementClient(credential, subscription_id)
-        available_node_types = cluster_config["available_node_types"]
-        head_node_type = cluster_config["head_node_type"]
+
         vmsizes = compute_client.virtual_machine_sizes.list(vm_location)
         instances_dict = {
             instance.name: {"memory": instance.memory_in_mb, "cpu": instance.number_of_cores}
             for instance in vmsizes
         }
+
+        # Update the instance information to node type
+        available_node_types = cluster_config["available_node_types"]
+        for node_type in available_node_types:
+            instance_type = available_node_types[node_type]["node_config"]["azure_arm_parameters"]["vmSize"]
+            if instance_type in instances_dict:
+                cpus = instances_dict[instance_type]["cpu"]
+                detected_resources = {"CPU": cpus}
+
+                memory_total = instances_dict[instance_type]["memory"]
+                memory_total_in_bytes = int(memory_total) * 1024 * 1024
+                detected_resources["memory"] = memory_total_in_bytes
+
+                detected_resources.update(
+                    available_node_types[node_type].get("resources", {}))
+                if detected_resources != \
+                        available_node_types[node_type].get("resources", {}):
+                    available_node_types[node_type][
+                        "resources"] = detected_resources
+                    logger.debug("Updating the resources of {} to {}.".format(
+                        node_type, detected_resources))
+            else:
+                raise ValueError("Instance type " + instance_type +
+                                 " is not available in Azure location: " +
+                                 vm_location + ".")
+        return cluster_config
+
+    @staticmethod
+    def get_cluster_resources(
+            cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Fills out spark executor resource for available_node_types."""
+        if "available_node_types" not in cluster_config:
+            return cluster_config
+
+        # Get instance information from cloud provider
+        provider_config = cluster_config["provider"]
+        subscription_id = provider_config["subscription_id"]
+        vm_location = provider_config["location"]
+
+        credential = get_credential(provider_config)
+        compute_client = ComputeManagementClient(credential, subscription_id)
+
+        vmsizes = compute_client.virtual_machine_sizes.list(vm_location)
+        instances_dict = {
+            instance.name: {"memory": instance.memory_in_mb, "cpu": instance.number_of_cores}
+            for instance in vmsizes
+        }
+
+        # Update the instance information to node type
+        available_node_types = cluster_config["available_node_types"]
+        head_node_type = cluster_config["head_node_type"]
         cluster_resource = {}
         for node_type in available_node_types:
             instance_type = available_node_types[node_type]["node_config"]["azure_arm_parameters"]["vmSize"]

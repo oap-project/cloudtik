@@ -1027,9 +1027,12 @@ class DockerCommandExecutor(CommandExecutor):
             ][0].split()[1])
             available_memory_bytes = available_memory * 1024
             # Overestimate SHM size by 10%
-            shm_size = min((available_memory_bytes *
+            shm_size = int(min((available_memory_bytes *
                             CLOUDTIK_DEFAULT_OBJECT_STORE_MEMORY_PROPORTION * 1.1),
-                           CLOUDTIK_DEFAULT_OBJECT_STORE_MAX_MEMORY_BYTES)
+                           CLOUDTIK_DEFAULT_OBJECT_STORE_MAX_MEMORY_BYTES))
+            if shm_size <= 0:
+                return run_options
+
             return run_options + [f"--shm-size='{shm_size}b'"]
         except Exception as e:
             logger.warning(

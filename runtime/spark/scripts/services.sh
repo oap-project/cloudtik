@@ -10,8 +10,10 @@ start-head)
     if [ "$ENABLE_HDFS" == "true" ]; then
         $HADOOP_HOME/bin/hdfs --daemon start namenode
     fi
+    echo "Starting Resource Manager..."
     $HADOOP_HOME/bin/yarn --daemon start resourcemanager
-    export SPARK_LOCAL_IP=${CLOUDTIK_HEAD_IP}; $SPARK_HOME/sbin/start-history-server.sh
+    echo "Starting Spark History Server..."
+    export SPARK_LOCAL_IP=${CLOUDTIK_HEAD_IP}; $SPARK_HOME/sbin/start-history-server.sh > /dev/null
     nohup jupyter lab --no-browser > /tmp/logs/jupyterlab.log 2>&1 &
     sudo service apache2 start
     sudo service gmetad start

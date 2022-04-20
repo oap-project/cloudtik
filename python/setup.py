@@ -19,6 +19,7 @@ SUPPORTED_PYTHONS = [(3, 6), (3, 7), (3, 8), (3, 9)]
 
 ROOT_DIR = os.path.dirname(__file__)
 
+PROVIDER_SUBDIR = os.path.join("cloudtik", "providers")
 THIRDPARTY_SUBDIR = os.path.join("cloudtik", "thirdparty_files")
 TEMPLATES_SUBDIR = os.path.join("cloudtik", "templates")
 
@@ -101,22 +102,8 @@ cloudtik_files = [
 
 # cloudtik default yaml files
 cloudtik_files += [
-    "cloudtik/providers/aws/defaults.yaml",
-    "cloudtik/providers/azure/defaults.yaml",
-    "cloudtik/providers/_private/_azure/azure-vm-template.json",
-    "cloudtik/providers/_private/_azure/azure-config-template.json",
-    "cloudtik/providers/gcp/defaults.yaml",
-    "cloudtik/providers/local/defaults.yaml",
-    "cloudtik/providers/kubernetes/defaults.yaml",
-    "cloudtik/providers/_private/_kubernetes/kubectl-rsync.sh",
     "cloudtik/core/config-schema.json",
     "cloudtik/core/workspace-schema.json",
-    "cloudtik/providers/aws/workspace-defaults.yaml",
-    "cloudtik/providers/azure/workspace-defaults.yaml",
-    "cloudtik/providers/gcp/workspace-defaults.yaml",
-    "cloudtik/providers/local/workspace-defaults.yaml",
-    "cloudtik/providers/kubernetes/workspace-defaults.yaml",
-    "cloudtik/providers/defaults-shared.yaml",
 ]
 
 # If you're adding dependencies for cloudtik extras, please
@@ -204,11 +191,12 @@ def build(build_python):
             env=dict(os.environ, CC="gcc"))
 
 
-def walk_directory(directory):
+def walk_directory(directory, exclude_python: bool = False):
     file_list = []
     for (root, dirs, filenames) in os.walk(directory):
         for name in filenames:
-            file_list.append(os.path.join(root, name))
+            if not exclude_python or not name.endswith(".py"):
+                file_list.append(os.path.join(root, name))
     return file_list
 
 
@@ -248,6 +236,9 @@ def add_system_dlls(dlls, target_dir):
 def pip_run(build_ext):
     if setup_spec.type == SetupType.CLOUDTIK:
         setup_spec.files_to_include += cloudtik_files
+        # Include all non-python files in provider directory
+        provider_dir = os.path.join(ROOT_DIR, PROVIDER_SUBDIR)
+        setup_spec.files_to_include += walk_directory(provider_dir, True)
         # Include all the thirdparty files
         thirdparty_dir = os.path.join(ROOT_DIR, THIRDPARTY_SUBDIR)
         setup_spec.files_to_include += walk_directory(thirdparty_dir)

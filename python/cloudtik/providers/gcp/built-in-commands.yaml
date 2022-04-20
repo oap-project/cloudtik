@@ -1,0 +1,9 @@
+# Custom commands that will be run on the head node after common setup.
+head_setup_commands:
+    - cloudtik-spark install --head --provider=gcp
+    - cloudtik-spark configure --head --provider=gcp --project_id=$PROJECT_ID  --gcs_bucket=$GCS_BUCKET --gcs_service_account_client_email=$GCS_SERVICE_ACCOUNT_CLIENT_EMAIL --gcs_service_account_private_key_id=$GCS_SERVICE_ACCOUNT_PRIVATE_KEY_ID --gcs_service_account_private_key="$GCS_SERVICE_ACCOUNT_PRIVATE_KEY"
+
+# Custom commands that will be run on worker nodes after common setup.
+worker_setup_commands:
+    - cloudtik-spark install --provider=gcp
+    - cloudtik-spark configure --provider=gcp --head_address=$CLOUDTIK_HEAD_IP --project_id=$PROJECT_ID --gcs_bucket=$GCS_BUCKET --gcs_service_account_client_email=$GCS_SERVICE_ACCOUNT_CLIENT_EMAIL --gcs_service_account_private_key_id=$GCS_SERVICE_ACCOUNT_PRIVATE_KEY_ID --gcs_service_account_private_key="$GCS_SERVICE_ACCOUNT_PRIVATE_KEY"

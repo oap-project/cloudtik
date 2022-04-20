@@ -380,7 +380,7 @@ def update_aws_workspace_firewalls(config):
         raise e
 
     cli_logger.print(
-        "Successfully update the firewalls of workspace: {}.",
+        "Successfully updated the firewalls of workspace: {}.",
         cf.bold(workspace_name))
     return None
 
@@ -546,9 +546,9 @@ def bootstrap_aws(config):
 
 
 def bootstrap_aws_from_workspace(config):
-
     if not check_aws_workspace_resource(config):
-        cli_logger.abort("Please check the resource of your workspace!")
+        workspace_name = config["workspace_name"]
+        cli_logger.abort("AWS workspace {} doesn't exist or is in wrong state!", workspace_name)
 
     # create a copy of the input config to modify
     config = copy.deepcopy(config)

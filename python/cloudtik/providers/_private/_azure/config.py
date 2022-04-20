@@ -154,7 +154,7 @@ def update_azure_workspace_firewalls(config):
         raise e
 
     cli_logger.print(
-        "Successfully update the firewalls of workspace: {}.",
+        "Successfully updated the firewalls of workspace: {}.",
         cf.bold(workspace_name))
     return None
 
@@ -1070,7 +1070,8 @@ def _configure_network_resources(config, resource_group_name, current_step, tota
 
 def bootstrap_azure_from_workspace(config):
     if not check_azure_workspace_resource(config):
-        cli_logger.abort("Please check the resource of your workspace!")
+        workspace_name = config["workspace_name"]
+        cli_logger.abort("Azure workspace {} doesn't exist or is in wrong state!", workspace_name)
 
     config = _configure_key_pair(config)
     config = _configure_workspace_resource(config)

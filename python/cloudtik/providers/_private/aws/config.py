@@ -508,6 +508,14 @@ def create_aws_workspace(config):
 
 
 def bootstrap_aws(config):
+    workspace_name = config.get("workspace_name", "")
+    if workspace_name == "":
+        return bootstrap_aws_default(config)
+    else:
+        return bootstrap_aws_from_workspace(config)
+
+
+def bootstrap_aws_default(config):
     # create a copy of the input config to modify
     config = copy.deepcopy(config)
 

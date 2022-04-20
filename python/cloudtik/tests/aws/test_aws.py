@@ -4,7 +4,7 @@ import pytest
 from unittest.mock import Mock, patch
 
 from cloudtik.providers._private.aws.config import _configure_subnet, \
-    _get_vpc_id_or_die, bootstrap_aws, log_to_cli, \
+    _get_vpc_id_or_die, bootstrap_aws_default, log_to_cli, \
     DEFAULT_AMI
 from cloudtik.providers._private.aws.node_provider import AWSNodeProvider
 from cloudtik.core._private.providers import _get_node_provider

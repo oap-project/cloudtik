@@ -15,7 +15,7 @@ from cloudtik.core._private.constants import CLOUDTIK_DEFAULT_OBJECT_STORE_MEMOR
 from cloudtik.core._private.log_timer import LogTimer
 from cloudtik.core._private.cli_logger import cli_logger, cf
 
-from cloudtik.providers._private.aws.config import bootstrap_aws, bootstrap_aws_from_workspace, verify_s3_storage
+from cloudtik.providers._private.aws.config import verify_s3_storage, bootstrap_aws
 from cloudtik.providers._private.aws.utils import boto_exception_handler, \
     resource_cache, client_cache, get_aws_s3_config, get_boto_error_code, BOTO_MAX_RETRIES, BOTO_CREATE_MAX_RETRIES
 from cloudtik.providers._private.utils import validate_config_dict
@@ -570,11 +570,7 @@ class AWSNodeProvider(NodeProvider):
 
     @staticmethod
     def bootstrap_config(cluster_config):
-        workspace_name = cluster_config.get("workspace_name", "")
-        if workspace_name == "":
-            return bootstrap_aws(cluster_config)
-        else:
-            return bootstrap_aws_from_workspace(cluster_config)
+        bootstrap_aws(cluster_config)
 
     @staticmethod
     def fillout_available_node_types_resources(

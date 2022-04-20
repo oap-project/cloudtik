@@ -1,3 +1,6 @@
+# Include the common built-in commands
+from: built-in-commands
+
 # Custom commands that will be run on the head node after common setup.
 head_setup_commands:
     - cloudtik-spark install --head --provider=gcp

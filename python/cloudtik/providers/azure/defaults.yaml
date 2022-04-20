@@ -77,29 +77,3 @@ file_mounts: {
 #    "/path2/on/remote/machine": "/path2/on/local/machine",
      "~/.ssh/id_rsa.pub": "~/.ssh/id_rsa.pub"
 }
-
-docker:
-    initialization_commands:
-        # get rid of annoying Ubuntu message
-        - touch ~/.sudo_as_admin_successful
-        - which docker || (curl -fsSL https://get.docker.com -o /tmp/get-docker.sh &&
-            sudo bash /tmp/get-docker.sh > /dev/null && sudo usermod -aG docker $USER && sudo systemctl restart docker -f)
-
-# List of shell commands to run to set up nodes.
-setup_commands:
-    - >-
-        which conda || (wget -q --show-progress "https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh" -O /tmp/miniconda.sh &&
-        /bin/bash /tmp/miniconda.sh -b -u -p ~/anaconda3  &&  ~/anaconda3/bin/conda init  && rm -rf /tmp/miniconda.sh)
-    - conda activate cloudtik_py37 || conda create -n cloudtik_py37 -y python=3.7
-    - (stat $HOME/anaconda3/envs/cloudtik_py37/ &> /dev/null &&
-        echo 'export PATH="$HOME/anaconda3/envs/cloudtik_py37/bin:$PATH"' >> ~/.bashrc) || true
-
-# Custom commands that will be run on the head node after common setup.
-head_setup_commands:
-    - cloudtik-spark install --head --provider=azure
-    - cloudtik-spark configure --head --provider=azure --azure_storage_type=$AZURE_STORAGE_TYPE --azure_storage_account=$AZURE_STORAGE_ACCOUNT --azure_container=$AZURE_CONTAINER --azure_account_key=$AZURE_ACCOUNT_KEY
-
-# Custom commands that will be run on worker nodes after common setup.
-worker_setup_commands:
-    - cloudtik-spark install --provider=azure
-    - cloudtik-spark configure --provider=azure --head_address=$CLOUDTIK_HEAD_IP --azure_storage_type=$AZURE_STORAGE_TYPE --azure_storage_account=$AZURE_STORAGE_ACCOUNT --azure_container=$AZURE_CONTAINER --azure_account_key=$AZURE_ACCOUNT_KEY

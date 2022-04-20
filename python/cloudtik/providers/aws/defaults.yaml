@@ -72,23 +72,3 @@ available_node_types:
 
 # Specify the node type of the head node (as configured above).
 head_node_type: head.default
-
-# List of shell commands to run to set up nodes.
-setup_commands:
-    - >-
-        which conda || (wget -q --show-progress "https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh" -O /tmp/miniconda.sh &&
-        /bin/bash /tmp/miniconda.sh -b -u -p ~/anaconda3  &&  ~/anaconda3/bin/conda init  && rm -rf /tmp/miniconda.sh)
-    - conda activate cloudtik_py37 || conda create -n cloudtik_py37 -y python=3.7
-    - (stat $HOME/anaconda3/envs/cloudtik_py37/ &> /dev/null &&
-        echo 'export PATH="$HOME/anaconda3/envs/cloudtik_py37/bin:$PATH"' >> ~/.bashrc) || true
-
-# Custom commands that will be run on the head node after common setup.
-head_setup_commands:
-    - pip -qq install 'boto3>=1.4.8'  # 1.4.8 adds InstanceMarketOptions
-    - cloudtik-spark install --head --provider=aws
-    - cloudtik-spark configure --head --provider=aws --aws_s3_bucket=$AWS_S3_BUCKET --aws_s3_access_key_id=$AWS_S3_ACCESS_KEY_ID --aws_s3_secret_access_key=$AWS_S3_SECRET_ACCESS_KEY
-
-# Custom commands that will be run on worker nodes after common setup.
-worker_setup_commands:
-    - cloudtik-spark install --provider=aws
-    - cloudtik-spark configure --provider=aws --head_address=$CLOUDTIK_HEAD_IP --aws_s3_bucket=$AWS_S3_BUCKET --aws_s3_access_key_id=$AWS_S3_ACCESS_KEY_ID --aws_s3_secret_access_key=$AWS_S3_SECRET_ACCESS_KEY

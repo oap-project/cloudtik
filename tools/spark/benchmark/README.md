@@ -2,10 +2,10 @@
 
 ## 1. Create a new Cloudtik cluster
 To generate data and run TPC-DS benchmark on Cloudtik cluster, some tools must be installed in advance.
-We provide an installation script to simplify the installation of these dependencies. You only need to add the following bootstrap_commands in the cluster configuration file.
+We provide an installation script to simplify the installation of these dependencies. You only need to add the following setup_commands in the cluster configuration file.
 ```buildoutcfg
 
-bootstrap_commands:
+setup_commands:
     - wget -P ~/ https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/spark/benchmark/scripts/bootstrap-benchmark.sh &&
         bash ~/bootstrap-benchmark.sh  --tpcds
 ```

@@ -380,7 +380,7 @@ def update_aws_workspace_firewalls(config):
         raise e
 
     cli_logger.print(
-        "Successfully update the firewalls of workspace: {}.",
+        "Successfully updated the firewalls of workspace: {}.",
         cf.bold(workspace_name))
     return None
 
@@ -507,7 +507,52 @@ def create_aws_workspace(config):
     return config
 
 
+def _configure_spot_for_node_type(node_type_config,
+                                  prefer_spot_node):
+    # To be improved if scheduling has other configurations
+    # InstanceMarketOptions:
+    #   MarketType: spot
+    node_config = node_type_config["node_config"]
+    if prefer_spot_node:
+        # Add spot instruction
+        node_config.pop("InstanceMarketOptions", None)
+        node_config["InstanceMarketOptions"] = {"MarketType": "spot"}
+    else:
+        # Remove spot instruction
+        node_config.pop("InstanceMarketOptions", None)
+
+
+def _configure_prefer_spot_node(config):
+    prefer_spot_node = config["provider"].get("prefer_spot_node")
+
+    # if no such key, we consider user don't want to override
+    if prefer_spot_node is None:
+        return
+
+    # User override, set or remove spot settings for worker node types
+    node_types = config["available_node_types"]
+    for node_type_name in node_types:
+        if node_type_name == config["head_node_type"]:
+            continue
+
+        # worker node type
+        node_type_data = node_types[node_type_name]
+        _configure_spot_for_node_type(
+            node_type_data, prefer_spot_node)
+
+
 def bootstrap_aws(config):
+    workspace_name = config.get("workspace_name", "")
+    if workspace_name == "":
+        config = bootstrap_aws_default(config)
+    else:
+        config = bootstrap_aws_from_workspace(config)
+
+    _configure_prefer_spot_node(config)
+    return config
+
+
+def bootstrap_aws_default(config):
     # create a copy of the input config to modify
     config = copy.deepcopy(config)
 
@@ -546,9 +591,9 @@ def bootstrap_aws(config):
 
 
 def bootstrap_aws_from_workspace(config):
-
     if not check_aws_workspace_resource(config):
-        cli_logger.abort("Please check the resource of your workspace!")
+        workspace_name = config["workspace_name"]
+        cli_logger.abort("AWS workspace {} doesn't exist or is in wrong state!", workspace_name)
 
     # create a copy of the input config to modify
     config = copy.deepcopy(config)

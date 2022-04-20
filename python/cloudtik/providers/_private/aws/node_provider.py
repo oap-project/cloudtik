@@ -15,7 +15,7 @@ from cloudtik.core._private.constants import CLOUDTIK_DEFAULT_OBJECT_STORE_MEMOR
 from cloudtik.core._private.log_timer import LogTimer
 from cloudtik.core._private.cli_logger import cli_logger, cf
 
-from cloudtik.providers._private.aws.config import bootstrap_aws, bootstrap_aws_from_workspace, verify_s3_storage
+from cloudtik.providers._private.aws.config import verify_s3_storage, bootstrap_aws
 from cloudtik.providers._private.aws.utils import boto_exception_handler, \
     resource_cache, client_cache, get_aws_s3_config, get_boto_error_code, BOTO_MAX_RETRIES, BOTO_CREATE_MAX_RETRIES
 from cloudtik.providers._private.utils import validate_config_dict
@@ -570,11 +570,7 @@ class AWSNodeProvider(NodeProvider):
 
     @staticmethod
     def bootstrap_config(cluster_config):
-        workspace_name = cluster_config.get("workspace_name", "")
-        if workspace_name == "":
-            return bootstrap_aws(cluster_config)
-        else:
-            return bootstrap_aws_from_workspace(cluster_config)
+        return bootstrap_aws(cluster_config)
 
     @staticmethod
     def fillout_available_node_types_resources(
@@ -584,6 +580,7 @@ class AWSNodeProvider(NodeProvider):
             return cluster_config
         cluster_config = copy.deepcopy(cluster_config)
 
+        # Get instance information from cloud provider
         instances_list = list_ec2_instances(
             cluster_config["provider"]["region"],
             cluster_config["provider"].get("aws_credentials"))
@@ -591,82 +588,45 @@ class AWSNodeProvider(NodeProvider):
             instance["InstanceType"]: instance
             for instance in instances_list
         }
+
+        # Update the instance information to node type
         available_node_types = cluster_config["available_node_types"]
-        head_node_type = cluster_config["head_node_type"]
         for node_type in available_node_types:
             instance_type = available_node_types[node_type]["node_config"][
                 "InstanceType"]
             if instance_type in instances_dict:
                 cpus = instances_dict[instance_type]["VCpuInfo"][
                     "DefaultVCpus"]
+                detected_resources = {"CPU": cpus}
 
-                autodetected_resources = {"CPU": cpus}
-                if node_type != head_node_type:
-                    # we only autodetect worker node type memory resource
-                    memory_total = instances_dict[instance_type]["MemoryInfo"][
-                        "SizeInMiB"]
-                    memory_total = int(memory_total) * 1024 * 1024
-                    prop = (
-                        1 -
-                        CLOUDTIK_DEFAULT_OBJECT_STORE_MEMORY_PROPORTION)
-                    memory_resources = int(memory_total * prop)
-                    autodetected_resources["memory"] = memory_resources
+                memory_total = instances_dict[instance_type]["MemoryInfo"][
+                    "SizeInMiB"]
+                memory_total_in_bytes = int(memory_total) * 1024 * 1024
+                detected_resources["memory"] = memory_total_in_bytes
 
                 gpus = instances_dict[instance_type].get("GpuInfo",
                                                          {}).get("Gpus")
                 if gpus is not None:
-                    # TODO(ameer): currently we support one gpu type per node.
                     assert len(gpus) == 1
                     gpu_name = gpus[0]["Name"]
-                    autodetected_resources.update({
+                    detected_resources.update({
                         "GPU": gpus[0]["Count"],
                         f"accelerator_type:{gpu_name}": 1
                     })
-                autodetected_resources.update(
+
+                detected_resources.update(
                     available_node_types[node_type].get("resources", {}))
-                if autodetected_resources != \
+                if detected_resources != \
                         available_node_types[node_type].get("resources", {}):
                     available_node_types[node_type][
-                        "resources"] = autodetected_resources
+                        "resources"] = detected_resources
                     logger.debug("Updating the resources of {} to {}.".format(
-                        node_type, autodetected_resources))
+                        node_type, detected_resources))
             else:
                 raise ValueError("Instance type " + instance_type +
                                  " is not available in AWS region: " +
                                  cluster_config["provider"]["region"] + ".")
         return cluster_config
-
-    @staticmethod
-    def get_cluster_resources(
-            cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-        """Fills out spark executor resource for available_node_types."""
-        if "available_node_types" not in cluster_config:
-            return cluster_config
-
-        instances_list = list_ec2_instances(
-            cluster_config["provider"]["region"],
-            cluster_config["provider"].get("aws_credentials"))
-        instances_dict = {
-            instance["InstanceType"]: instance
-            for instance in instances_list
-        }
-        available_node_types = cluster_config["available_node_types"]
-        head_node_type = cluster_config["head_node_type"]
-        cluster_resource = {}
-        for node_type in available_node_types:
-            instance_type = available_node_types[node_type]["node_config"][
-                "InstanceType"]
-            if instance_type in instances_dict:
-                memory_total = instances_dict[instance_type]["MemoryInfo"][
-                    "SizeInMiB"]
-                if node_type != head_node_type:
-                    cluster_resource["worker_memory"] = memory_total
-                    cluster_resource["worker_cpu"] = instances_dict[instance_type]["VCpuInfo"][
-                        "DefaultVCpus"]
-                else:
-                    cluster_resource["head_memory"] = memory_total
-
-        return cluster_resource
 
     @staticmethod
     def validate_config(

@@ -26,7 +26,7 @@ def bootstrap_aws_config(config):
     config = prepare_config(config)
     validate_config(config)
     config["cluster_name"] = DEFAULT_CLUSTER_NAME
-    return cloudtik.providers._private.aws.config.bootstrap_aws(config)
+    return cloudtik.providers._private.aws.config.bootstrap_aws_default(config)
 
 
 def bootstrap_aws_example_config_file(file_name):

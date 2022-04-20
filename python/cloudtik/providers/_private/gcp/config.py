@@ -778,7 +778,7 @@ def update_gcp_workspace_firewalls(config):
         raise e
 
     cli_logger.print(
-        "Successfully update the firewalls of workspace: {}.",
+        "Successfully updated the firewalls of workspace: {}.",
         cf.bold(workspace_name))
     return None
 
@@ -989,7 +989,7 @@ def _fix_disk_info_for_node(node_config, zone):
         _fix_disk_info_for_disk(zone, disk, boot, source_image)
 
     # Remove the sourceImage from node config
-    node_config.pop("sourceImage")
+    node_config.pop("sourceImage", None)
 
 
 def _fix_disk_info(config):
@@ -1001,7 +1001,52 @@ def _fix_disk_info(config):
     return config
 
 
+def _configure_spot_for_node_type(node_type_config,
+                                  prefer_spot_node):
+    # To be improved if scheduling has other configurations
+    # scheduling:
+    #   - preemptible: true
+    node_config = node_type_config["node_config"]
+    if prefer_spot_node:
+        # Add spot instruction
+        node_config.pop("scheduling", None)
+        node_config["scheduling"] = [{"preemptible": True}]
+    else:
+        # Remove spot instruction
+        node_config.pop("scheduling", None)
+
+
+def _configure_prefer_spot_node(config):
+    prefer_spot_node = config["provider"].get("prefer_spot_node")
+
+    # if no such key, we consider user don't want to override
+    if prefer_spot_node is None:
+        return
+
+    # User override, set or remove spot settings for worker node types
+    node_types = config["available_node_types"]
+    for node_type_name in node_types:
+        if node_type_name == config["head_node_type"]:
+            continue
+
+        # worker node type
+        node_type_data = node_types[node_type_name]
+        _configure_spot_for_node_type(
+            node_type_data, prefer_spot_node)
+
+
 def bootstrap_gcp(config):
+    workspace_name = config.get("workspace_name", "")
+    if workspace_name == "":
+        config = bootstrap_gcp_default(config)
+    else:
+        config = bootstrap_gcp_from_workspace(config)
+
+    _configure_prefer_spot_node(config)
+    return config
+
+
+def bootstrap_gcp_default(config):
     config = copy.deepcopy(config)
     
     # Used internally to store head IAM role.
@@ -1030,7 +1075,8 @@ def bootstrap_gcp(config):
 
 def bootstrap_gcp_from_workspace(config):
     if not check_gcp_workspace_resource(config):
-        cli_logger.abort("Please check the resource of your workspace!")
+        workspace_name = config["workspace_name"]
+        cli_logger.abort("GCP workspace {} doesn't exist or is in wrong state!", workspace_name)
 
     config = copy.deepcopy(config)
 

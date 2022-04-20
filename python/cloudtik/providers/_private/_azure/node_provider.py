@@ -1,3 +1,4 @@
+import copy
 import json
 import logging
 import time
@@ -17,9 +18,8 @@ from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_NAME
 
-from cloudtik.providers._private._azure.azure_identity_credential_adapter import AzureIdentityCredentialAdapter
-from cloudtik.providers._private._azure.config import (bootstrap_azure, bootstrap_azure_from_workspace,
-                                                       AZURE_MSI_NAME, get_azure_sdk_function, verify_azure_cloud_storage,
+from cloudtik.providers._private._azure.config import (AZURE_MSI_NAME, get_azure_sdk_function,
+                                                       verify_azure_cloud_storage, bootstrap_azure,
                                                        check_public_ip_address_dependency)
 
 from cloudtik.providers._private._azure.utils import get_azure_config
@@ -349,11 +349,7 @@ class AzureNodeProvider(NodeProvider):
 
     @staticmethod
     def bootstrap_config(cluster_config):
-        workspace_name = cluster_config.get("workspace_name", "")
-        if workspace_name == "":
-            return bootstrap_azure(cluster_config)
-        else:
-            return bootstrap_azure_from_workspace(cluster_config)
+        return bootstrap_azure(cluster_config)
 
     def prepare_for_head_node(
             self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
@@ -365,35 +361,52 @@ class AzureNodeProvider(NodeProvider):
         return cluster_config
 
     @staticmethod
-    def get_cluster_resources(
+    def fillout_available_node_types_resources(
             cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-        """Fills out spark executor resource for available_node_types."""
+        """Fills out missing "resources" field for available_node_types."""
         if "available_node_types" not in cluster_config:
             return cluster_config
+        cluster_config = copy.deepcopy(cluster_config)
+
+        # Get instance information from cloud provider
         provider_config = cluster_config["provider"]
         subscription_id = provider_config["subscription_id"]
         vm_location = provider_config["location"]
+
         credential = get_credential(provider_config)
         compute_client = ComputeManagementClient(credential, subscription_id)
-        available_node_types = cluster_config["available_node_types"]
-        head_node_type = cluster_config["head_node_type"]
+
         vmsizes = compute_client.virtual_machine_sizes.list(vm_location)
         instances_dict = {
             instance.name: {"memory": instance.memory_in_mb, "cpu": instance.number_of_cores}
             for instance in vmsizes
         }
-        cluster_resource = {}
+
+        # Update the instance information to node type
+        available_node_types = cluster_config["available_node_types"]
         for node_type in available_node_types:
             instance_type = available_node_types[node_type]["node_config"]["azure_arm_parameters"]["vmSize"]
             if instance_type in instances_dict:
+                cpus = instances_dict[instance_type]["cpu"]
+                detected_resources = {"CPU": cpus}
+
                 memory_total = instances_dict[instance_type]["memory"]
-                cpu_total = instances_dict[instance_type]["cpu"]
-                if node_type != head_node_type:
-                    cluster_resource["worker_memory"] = memory_total
-                    cluster_resource["worker_cpu"] = cpu_total
-                else:
-                    cluster_resource["head_memory"] = memory_total
-        return cluster_resource
+                memory_total_in_bytes = int(memory_total) * 1024 * 1024
+                detected_resources["memory"] = memory_total_in_bytes
+
+                detected_resources.update(
+                    available_node_types[node_type].get("resources", {}))
+                if detected_resources != \
+                        available_node_types[node_type].get("resources", {}):
+                    available_node_types[node_type][
+                        "resources"] = detected_resources
+                    logger.debug("Updating the resources of {} to {}.".format(
+                        node_type, detected_resources))
+            else:
+                raise ValueError("Instance type " + instance_type +
+                                 " is not available in Azure location: " +
+                                 vm_location + ".")
+        return cluster_config
 
     @staticmethod
     def validate_config(

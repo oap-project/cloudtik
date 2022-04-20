@@ -9,8 +9,7 @@ from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core.node_provider import NodeProvider
 
 from cloudtik.providers._private.gcp.config import (
-    bootstrap_gcp, bootstrap_gcp_from_workspace,
-    construct_clients_from_provider_config, get_node_type, verify_gcs_storage)
+    construct_clients_from_provider_config, get_node_type, verify_gcs_storage, bootstrap_gcp)
 
 # The logic has been abstracted away here to allow for different GCP resources
 # (API endpoints), which can differ widely, making it impossible to use
@@ -204,19 +203,17 @@ class GCPNodeProvider(NodeProvider):
 
     @staticmethod
     def bootstrap_config(cluster_config):
-        workspace_name = cluster_config.get("workspace_name", "")
-        if workspace_name == "":
-            return bootstrap_gcp(cluster_config)
-        else:
-            return bootstrap_gcp_from_workspace(cluster_config)
+        return bootstrap_gcp(cluster_config)
 
     @staticmethod
-    def get_cluster_resources(
+    def fillout_available_node_types_resources(
             cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-        """Fills out spark executor resource for available_node_types."""
+        """Fills out missing "resources" field for available_node_types."""
         if "available_node_types" not in cluster_config:
             return cluster_config
+        cluster_config = copy.deepcopy(cluster_config)
 
+        # Get instance information from cloud provider
         _, _, compute, tpu = construct_clients_from_provider_config(
             cluster_config)
 
@@ -230,20 +227,33 @@ class GCPNodeProvider(NodeProvider):
             instance["name"]: instance
             for instance in instances_list
         }
+
+        # Update the instance information to node type
         available_node_types = cluster_config["available_node_types"]
-        head_node_type = cluster_config["head_node_type"]
-        cluster_resource = {}
         for node_type in available_node_types:
             instance_type = available_node_types[node_type]["node_config"][
                 "machineType"]
             if instance_type in instances_dict:
+                cpus = instances_dict[instance_type]["guestCpus"]
+                detected_resources = {"CPU": cpus}
+
                 memory_total = instances_dict[instance_type]["memoryMb"]
-                if node_type != head_node_type:
-                    cluster_resource["worker_memory"] = memory_total
-                    cluster_resource["worker_cpu"] = instances_dict[instance_type]["guestCpus"]
-                else:
-                    cluster_resource["head_memory"] = memory_total
-        return cluster_resource
+                memory_total_in_bytes = int(memory_total) * 1024 * 1024
+                detected_resources["memory"] = memory_total_in_bytes
+
+                detected_resources.update(
+                    available_node_types[node_type].get("resources", {}))
+                if detected_resources != \
+                        available_node_types[node_type].get("resources", {}):
+                    available_node_types[node_type][
+                        "resources"] = detected_resources
+                    logger.debug("Updating the resources of {} to {}.".format(
+                        node_type, detected_resources))
+            else:
+                raise ValueError("Instance type " + instance_type +
+                                 " is not available in GCP zone: " +
+                                 cluster_config["provider"]["availability_zone"] + ".")
+        return cluster_config
 
     @staticmethod
     def validate_config(

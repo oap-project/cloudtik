@@ -155,7 +155,7 @@ def update_azure_workspace_firewalls(config):
         raise e
 
     cli_logger.print(
-        "Successfully update the firewalls of workspace: {}.",
+        "Successfully updated the firewalls of workspace: {}.",
         cf.bold(workspace_name))
     return None
 
@@ -1071,7 +1071,8 @@ def _configure_network_resources(config, resource_group_name, current_step, tota
 
 def bootstrap_azure_from_workspace(config):
     if not check_azure_workspace_resource(config):
-        cli_logger.abort("Please check the resource of your workspace!")
+        workspace_name = config["workspace_name"]
+        cli_logger.abort("Azure workspace {} doesn't exist or is in wrong state!", workspace_name)
 
     config = _configure_key_pair(config)
     config = _configure_workspace_resource(config)
@@ -1159,7 +1160,51 @@ def _configure_resource_group_from_workspace(config):
     return config
 
 
+def _configure_spot_for_node_type(node_type_config,
+                                  prefer_spot_node):
+    # azure_arm_parameters
+    #   priority: Spot
+    node_config = node_type_config["node_config"]
+    azure_arm_parameters = node_config["azure_arm_parameters"]
+    if prefer_spot_node:
+        # Add spot instruction
+        azure_arm_parameters["priority"] = "Spot"
+    else:
+        # Remove spot instruction
+        azure_arm_parameters.pop("priority", None)
+
+
+def _configure_prefer_spot_node(config):
+    prefer_spot_node = config["provider"].get("prefer_spot_node")
+
+    # if no such key, we consider user don't want to override
+    if prefer_spot_node is None:
+        return
+
+    # User override, set or remove spot settings for worker node types
+    node_types = config["available_node_types"]
+    for node_type_name in node_types:
+        if node_type_name == config["head_node_type"]:
+            continue
+
+        # worker node type
+        node_type_data = node_types[node_type_name]
+        _configure_spot_for_node_type(
+            node_type_data, prefer_spot_node)
+
+
 def bootstrap_azure(config):
+    workspace_name = config.get("workspace_name", "")
+    if workspace_name == "":
+        config = bootstrap_azure_default(config)
+    else:
+        config = bootstrap_azure_from_workspace(config)
+
+    _configure_prefer_spot_node(config)
+    return config
+
+
+def bootstrap_azure_default(config):
     config = _configure_key_pair(config)
     config = _configure_resource_group(config)
     config = _configure_provision_public_ip(config)

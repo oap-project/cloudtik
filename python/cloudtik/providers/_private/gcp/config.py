@@ -1029,6 +1029,9 @@ def bootstrap_gcp(config):
 
 
 def bootstrap_gcp_from_workspace(config):
+    if not check_gcp_workspace_resource(config):
+        cli_logger.abort("Please check the resource of your workspace!")
+
     config = copy.deepcopy(config)
 
     # Used internally to store head IAM role.

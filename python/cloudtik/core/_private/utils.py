@@ -36,6 +36,7 @@ from cloudtik.core._private.providers import _get_default_config, _get_node_prov
     _get_provider_config_object
 from cloudtik.core._private.docker import validate_docker_config
 from cloudtik.core._private.providers import _get_workspace_provider
+from cloudtik.core.tags import CLOUDTIK_TAG_USER_NODE_TYPE
 
 # Import psutil after others so the packaged version is used.
 import psutil
@@ -1591,6 +1592,20 @@ def kill_process_tree(pid, include_parent=True):
 def with_runtime_environment_variables(runtime_config, provider):
     runtime_envs = with_spark_runtime_environment_variables(runtime_config, provider)
     return runtime_envs
+
+
+def get_node_info_with_config(available_node_types_config, provider, node):
+    node_info = get_node_info_with_resource(available_node_types_config, provider, node)
+    return node_info
+
+
+def get_node_info_with_resource(available_node_types_config, provider, node):
+    node_info = provider.get_node_info(node)
+    node_info["total-vcores"] = available_node_types_config[
+        node_info[CLOUDTIK_TAG_USER_NODE_TYPE]]["resources"]["CPU"]
+    node_info["total-memory-GB"] = int(available_node_types_config[
+        node_info[CLOUDTIK_TAG_USER_NODE_TYPE]]["resources"]["memory"] / pow(1024, 3))
+    return node_info
 
 
 def unescape_private_key(private_key: str):

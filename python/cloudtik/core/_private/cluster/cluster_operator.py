@@ -59,7 +59,7 @@ from cloudtik.core._private.debug import log_once
 import cloudtik.core._private.subprocess_output_util as cmd_output_util
 from cloudtik.core._private.cluster.cluster_metrics import ClusterMetricsSummary
 from cloudtik.core._private.cluster.cluster_scaler import ClusterScalerSummary
-from cloudtik.core._private.utils import format_info_string
+from cloudtik.core._private.utils import format_info_string, get_node_info_with_config
 from cloudtik.runtime.spark.utils import config_spark_runtime_resources
 
 logger = logging.getLogger(__name__)
@@ -1753,7 +1753,7 @@ def show_cluster_status(config_file: str,
 
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     nodes = provider.non_terminated_nodes({})
-    nodes_info = [provider.get_node_info(node) for node in nodes]
+    nodes_info = [get_node_info_with_config(config["available_node_types"], provider, node) for node in nodes]
 
     # sort nodes info based on node type and then node ip for workers
     def node_info_sort(node_info):
@@ -1763,11 +1763,11 @@ def show_cluster_status(config_file: str,
 
     tb = pt.PrettyTable()
     tb.field_names = ["node-id", "node-ip", "node-type", "node-status", "instance-type",
-                      "public-ip", "instance-status"]
+                      "total-vcores", "total-memory-GB", ", ""public-ip", "instance-status"]
     for node_info in nodes_info:
         tb.add_row([node_info["node_id"], node_info["private_ip"], node_info["cloudtik-node-kind"],
-                    node_info["cloudtik-node-status"], node_info["instance_type"], node_info["public_ip"],
-                    node_info["instance_status"]])
+                    node_info["cloudtik-node-status"], node_info["instance_type"], node_info["total-vcores"],
+                    node_info["total-memory-GB"], node_info["public_ip"], node_info["instance_status"]])
 
     def get_nodes_ready(node_info_list):
         nodes_ready = 0

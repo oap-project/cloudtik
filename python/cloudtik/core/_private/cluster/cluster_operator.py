@@ -1432,7 +1432,7 @@ def _get_running_head_node(
                 cf.bold(f"  cloudtik down  {printable_config_file}"))
 
             return _backup_head_node
-        raise RuntimeError("Head node of cluster ({}) not found!".format(
+        raise RuntimeError("Head node of cluster {} not found!".format(
             config["cluster_name"]))
 
 

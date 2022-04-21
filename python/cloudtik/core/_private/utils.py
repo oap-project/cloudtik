@@ -40,7 +40,8 @@ from cloudtik.core._private.providers import _get_workspace_provider
 # Import psutil after others so the packaged version is used.
 import psutil
 
-from cloudtik.runtime.spark.utils import with_spark_runtime_environment_variables, spark_runtime_validate_config
+from cloudtik.runtime.spark.utils import with_spark_runtime_environment_variables, spark_runtime_validate_config, \
+    spark_runtime_verify_config
 
 REQUIRED, OPTIONAL = True, False
 CLOUDTIK_CONFIG_SCHEMA_PATH = os.path.join(
@@ -738,6 +739,14 @@ def validate_config(config: Dict[str, Any]) -> None:
 
     # add runtime config validate and testing
     spark_runtime_validate_config(config, provider)
+
+
+def verify_config(config: Dict[str, Any]) :
+    """Verify the configurations. Usually verify may mean to involve slow process"""
+    provider = _get_node_provider(config["provider"], config["cluster_name"])
+
+    # add runtime config validate and testing
+    spark_runtime_verify_config(config, provider)
 
 
 def prepare_config(config: Dict[str, Any]) -> Dict[str, Any]:

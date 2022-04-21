@@ -5,6 +5,8 @@ from threading import RLock
 import time
 import logging
 
+import googleapiclient
+
 from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core.node_provider import NodeProvider
 
@@ -179,7 +181,18 @@ class GCPNodeProvider(NodeProvider):
     def terminate_node(self, node_id: str):
         with self.lock:
             resource = self._get_resource_depending_on_node_name(node_id)
-            result = resource.delete_instance(node_id=node_id, )
+            try:
+                result = resource.delete_instance(
+                    node_id=node_id,
+                )
+            except googleapiclient.errors.HttpError as http_error:
+                if http_error.resp.status == 404:
+                    logger.warning(
+                        f"Tried to delete the node with id {node_id} "
+                        "but it was already gone."
+                    )
+                else:
+                    raise http_error from None
             return result
 
     @_retry

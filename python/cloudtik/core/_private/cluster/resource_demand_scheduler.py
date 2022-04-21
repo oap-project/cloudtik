@@ -90,7 +90,6 @@ class ResourceDemandScheduler:
         self.head_node_type = head_node_type
         self.upscaling_speed = upscaling_speed
 
-
     def is_feasible(self, bundle: ResourceDict) -> bool:
         for node_type, config in self.node_types.items():
             max_of_type = config.get("max_workers", 0)

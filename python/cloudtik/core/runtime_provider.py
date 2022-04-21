@@ -19,6 +19,14 @@ class RuntimeProvider:
     def __init__(self, runtime_config: Dict[str, Any]) -> None:
         self.runtime_config = runtime_config
 
+    def prepare_config(self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Prepare runtime specific configurations"""
+        return cluster_config
+
+    def validate_config(self, cluster_config: Dict[str, Any], provider: NodeProvider):
+        """Validate cluster configuration from runtime perspective."""
+        pass
+
     def with_environment_variables(
             self, runtime_config: Dict[str, Any], provider: NodeProvider) -> Dict[str, Any]:
         """Export necessary runtime environment variables for running node commands.
@@ -26,19 +34,11 @@ class RuntimeProvider:
         """
         return {}
 
-    def validate_config(self, cluster_config: Dict[str, Any], provider: NodeProvider):
-        """Validate cluster configuration from runtime perspective."""
-        pass
-
     def get_logs(self) -> Dict[str, str]:
         """Return a dictionary of name to log paths.
         For example {"server-a": "/tmp/server-a/logs"}
         """
         return {}
-
-    def prepare_config(self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-        """Prepare runtime specific configurations"""
-        return cluster_config
 
     def get_processes(self):
         """Return a list of processes for this runtime.

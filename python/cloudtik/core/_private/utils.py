@@ -29,7 +29,8 @@ import cloudtik
 from cloudtik.core._private import constants, services
 from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core._private.cluster.cluster_metrics import ClusterMetricsSummary
-from cloudtik.core._private.constants import CLOUDTIK_WHEELS, CLOUDTIK_CLUSTER_PYTHON_VERSION
+from cloudtik.core._private.constants import CLOUDTIK_WHEELS, CLOUDTIK_CLUSTER_PYTHON_VERSION, \
+    CLOUDTIK_DEFAULT_MAX_WORKERS
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.providers._private.local.config import prepare_local
 from cloudtik.core._private.providers import _get_default_config, _get_node_provider, _get_default_workspace_config, \
@@ -988,13 +989,14 @@ def combine_setup_commands(config):
 
 def fill_default_max_workers(config):
     if "max_workers" not in config:
-        logger.debug("Global max workers not set. Will set to the sum of min workers")
+        logger.debug("Global max workers not set. "
+                     "Will set to the sum of min workers or {} which is larger.", CLOUDTIK_DEFAULT_MAX_WORKERS)
         sum_min_workers = 0
         node_types = config["available_node_types"]
         for node_type_name in node_types:
             node_type_data = node_types[node_type_name]
             sum_min_workers += node_type_data.get("min_workers", 0)
-        config["max_workers"] = sum_min_workers
+        config["max_workers"] = max(sum_min_workers, CLOUDTIK_DEFAULT_MAX_WORKERS)
 
 
 def fill_node_type_min_max_workers(config):

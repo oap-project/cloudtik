@@ -213,3 +213,6 @@ CLOUDTIK_WHEELS = "https://s3-us-west-2.amazonaws.com/cloudtik/downloads/wheels"
 
 # The installed python version installed for head and workers
 CLOUDTIK_CLUSTER_PYTHON_VERSION = "3.7"
+
+# The default global max workers if not set
+CLOUDTIK_DEFAULT_MAX_WORKERS = env_integer("CLOUDTIK_DEFAULT_MAX_WORKERS", 32)

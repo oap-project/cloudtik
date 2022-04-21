@@ -501,6 +501,9 @@ def get_nodes_for(node_types: Dict[NodeType, NodeTypeConfigDict],
                 max_workers_of_node_type = max_workers_of_node_type + 1
             if (existing_nodes.get(node_type, 0) + nodes_to_add.get(
                     node_type, 0) >= max_workers_of_node_type):
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(f"Will not launch node of {node_type} type as it already "
+                                 f"exceeds the max number ({max_workers_of_node_type})")
                 continue
             node_resources = node_types[node_type]["resources"]
             if strict_spread:

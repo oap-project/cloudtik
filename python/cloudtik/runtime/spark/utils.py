@@ -216,6 +216,10 @@ def get_spark_runtime_logs():
 
 
 def spark_runtime_validate_config(config: Dict[str, Any], provider):
+    pass
+
+
+def spark_runtime_verify_config(config: Dict[str, Any], provider):
     # if HDFS enabled, we ignore the cloud storage configurations
     if not config.get("runtime", {}).get("spark", {}).get("enable_hdfs", False):
         provider.validate_storage_config(config["provider"])

@@ -38,7 +38,7 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     get_proxy_info_file, get_safe_proxy_process_info, \
     get_head_working_ip, get_node_cluster_ip, is_use_internal_ip, get_head_bootstrap_config, \
     get_attach_command, is_alive_time, with_head_node_ip, is_docker_enabled, get_proxy_bind_address_to_show, \
-    kill_process_tree, with_runtime_environment_variables
+    kill_process_tree, with_runtime_environment_variables, verify_config
 
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
@@ -326,6 +326,10 @@ def _bootstrap_config(config: Dict[str, Any],
             "update your install command.")
 
     resolved_config = provider_cls.bootstrap_config(config)
+
+    # add a verify step
+    verify_config(resolved_config)
+
     if not no_config_cache or init_config_cache:
         with open(cache_key, "w") as f:
             config_cache = {

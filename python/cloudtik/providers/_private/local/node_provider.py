@@ -267,7 +267,7 @@ class LocalNodeProvider(NodeProvider):
         node_info.update(self.node_tags(node_id))
         return node_info
 
-    def with_provider_environment_variables(self):
+    def with_environment_variables(self):
         return {}
 
     @staticmethod

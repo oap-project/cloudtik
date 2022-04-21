@@ -64,7 +64,7 @@ class GCPNodeProvider(NodeProvider):
         # excessive DescribeInstances requests.
         self.cached_nodes: Dict[str, GCPNode] = {}
 
-    def with_provider_environment_variables(self):
+    def with_environment_variables(self):
         return get_gcs_config(self.provider_config)
 
     def _construct_clients(self):

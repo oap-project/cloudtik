@@ -87,7 +87,7 @@ class AzureNodeProvider(NodeProvider):
         # cache node objects
         self.cached_nodes = {}
 
-    def with_provider_environment_variables(self):
+    def with_environment_variables(self):
         return get_azure_config(self.provider_config)
 
     @synchronized

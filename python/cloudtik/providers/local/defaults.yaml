@@ -1,38 +1,22 @@
-# This configuration file is used internally
-# to fill default settings for on-prem clusters
-# For annotated examples, see the example yamls in this directory.
+# Include the common defaults
+from: defaults
 
-cluster_name: default
+provider:
+    type: local
+    head_ip: your_head_ip
+    # You may need to supply a public ip for the head node if you need
+    # to start cluster from outside of the cluster's network
+    # (e.g. the cluster is in an AWS VPC and you're starting the cluster from your laptop)
+    # This is useful when debugging the local node provider with cloud VMs.
+    # external_head_ip: your_head_public_ip
+    worker_ips: [work_node_1_ip, work_node_2_ip, ... ]
+    # Optional when running automatic cluster management on prem. If you use a cloud simulator,
+    # then you can launch multiple clusters on the same set of machines, and the cloud simulator
+    # will assign individual nodes to clusters as needed.
+    # cloud_simulator_address: "<host>:<port>"
 
-auth: {}
-
-upscaling_speed: 1.0
-idle_timeout_minutes: 5
-
-docker: {}
-
-# Defaults are empty to avoid any surprise changes to on-prem cluster's state.
-# Refer to example yamls for examples of installation in setup commands.
-initialization_commands: []
-setup_commands: []
-head_setup_commands: []
-worker_setup_commands: []
-
-head_start_commands:
-    - cloudtik node-stop
-    - ulimit -c unlimited; cloudtik node-start --head --port=6789 --cluster-scaling-config=~/cloudtik_bootstrap_config.yaml
-worker_start_commands:
-    - cloudtik node-stop
-    - cloudtik node-start --address=$CLOUDTIK_HEAD_IP:6789
-
-head_stop_commands:
-    - cloudtik node-stop
-
-worker_stop_commands:
-    - cloudtik node-stop
-
-file_mounts: {}
-cluster_synced_files: []
-file_mounts_sync_continuously: false
-rsync_exclude: []
-rsync_filter: []
+# How will authenticate with newly launched nodes.
+auth:
+    ssh_user: ubuntu
+    # Optional if an ssh private key is necessary to ssh to the cluster.
+    # ssh_private_key: ~/.ssh/id_rsa

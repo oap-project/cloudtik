@@ -761,28 +761,14 @@ def prepare_config(config: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def prepare_workspace_config(config: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    The returned config has the following properties:
-    - Uses the multi-node-type cluster scaler configuration.
-    - Merged with the appropriate defaults.yaml
-    - Has a valid Docker configuration if provided.
-    - Has max_worker set for each node type.
-    """
-    #To do
-    # is_local = config.get("provider", {}).get("type") == "local"
-    # if is_local:
-    #     config = prepare_local(config)
-
     with_defaults = fillout_workspace_defaults(config)
     return with_defaults
 
 
 def fillout_workspace_defaults(config: Dict[str, Any]) -> Dict[str, Any]:
-    defaults = _get_default_workspace_config(config["provider"])
-    defaults.update(config)
-
-    # Just for clarity:
-    merged_config = copy.deepcopy(defaults)
+    # Merge the config with user inheritance hierarchy and system defaults hierarchy
+    merged_config = merge_config_hierarchy(
+        config["provider"], config, False, "workspace-defaults")
     return merged_config
 
 
@@ -870,7 +856,7 @@ def merge_config_hierarchy(provider, config: Dict[str, Any],
 
 
 def fillout_defaults(config: Dict[str, Any]) -> Dict[str, Any]:
-    # Just for clarity:
+    # Merge the config with user inheritance hierarchy and system defaults hierarchy
     merged_config = merge_config_hierarchy(config["provider"], config)
 
     # Fill auth field to avoid key errors.

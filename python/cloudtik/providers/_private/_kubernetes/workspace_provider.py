@@ -13,8 +13,8 @@ class KubernetesWorkspaceProvider(WorkspaceProvider):
 
     @staticmethod
     def validate_config(
-            provider_config: Dict[str, Any]) -> None:
-        return None
+            provider_config: Dict[str, Any]):
+        pass
 
     @staticmethod
     def bootstrap_workspace_config(cluster_config):

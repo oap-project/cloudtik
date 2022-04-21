@@ -200,7 +200,7 @@ def with_spark_runtime_environment_variables(runtime_config, provider):
         runtime_envs["ENABLE_HDFS"] = True
     else:
         # Whether we need to expert the cloud storage for HDFS case
-        provider_envs = provider.with_provider_environment_variables()
+        provider_envs = provider.with_environment_variables()
         runtime_envs.update(provider_envs)
 
     return runtime_envs

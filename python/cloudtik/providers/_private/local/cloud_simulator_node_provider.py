@@ -1,9 +1,11 @@
 import json
 import logging
 from http.client import RemoteDisconnected
+from typing import Any, Dict
 
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME
+from cloudtik.providers._private.local.config import prepare_local
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +44,7 @@ class CloudSimulatorNodeProvider(NodeProvider):
         except (RemoteDisconnected, ConnectionError):
             logger.exception("Could not connect to: " +
                              cloud_simulator_endpoint +
-                             ". Did you launched the Cloud Simulator by running python cloud_simulator.py" +
+                             ". Did you launched the Cloud Simulator by running python cloudtik_cloud_simulator.py" +
                              " --ips <list_of_node_ips> --port <PORT>?")
             raise
         except ImportError:
@@ -103,3 +105,15 @@ class CloudSimulatorNodeProvider(NodeProvider):
     def terminate_nodes(self, node_ids):
         request = {"type": "terminate_nodes", "args": (node_ids, )}
         self._get_http_response(request)
+
+    def get_node_info(self, node_id):
+        request = {"type": "get_node_info", "args": (node_id,)}
+        self._get_http_response(request)
+
+    def with_environment_variables(self):
+        request = {"type": "with_environment_variables", "args": ()}
+        self._get_http_response(request)
+
+    @staticmethod
+    def prepare_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+        return prepare_local(cluster_config)

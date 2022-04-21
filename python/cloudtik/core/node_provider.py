@@ -34,7 +34,7 @@ class NodeProvider:
         self._internal_ip_cache: Dict[str, str] = {}
         self._external_ip_cache: Dict[str, str] = {}
 
-    def with_provider_environment_variables(self):
+    def with_environment_variables(self):
         """Export necessary environment variables for running node commands"""
         raise NotImplementedError
 

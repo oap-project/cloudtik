@@ -12,7 +12,7 @@ from cloudtik.core._private.cluster.cluster_operator import (
     debug_status_string, get_cluster_dump_archive_on_head,
     RUN_ENV_TYPES, teardown_cluster_on_head, cluster_process_status_on_head, rsync_node_on_head, attach_node_on_head,
     exec_node_on_head, show_cluster_info, show_cluster_status, monitor_cluster, get_worker_node_ips,
-    start_node_on_head, stop_node_on_head, kill_node_on_head)
+    start_node_on_head, stop_node_on_head, kill_node_on_head, scale_cluster_on_head)
 from cloudtik.core._private.constants import CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
     CLOUDTIK_KV_NAMESPACE_HEALTHCHECK
 from cloudtik.core._private.state import kv_store
@@ -109,6 +109,29 @@ def exec(cmd, node_ip, all_nodes, run_env, screen, tmux, port_forward):
                       screen,
                       tmux,
                       port_forward)
+
+
+@head.command()
+@click.option(
+    "--yes",
+    "-y",
+    is_flag=True,
+    default=False,
+    help="Don't ask for confirmation.")
+@click.option(
+    "--cpus",
+    required=False,
+    type=int,
+    help="Specify the number of cpus of the cluster.")
+@click.option(
+    "--nodes",
+    required=False,
+    type=int,
+    help="Specify the number of nodes of the cluster.")
+@add_click_logging_options
+def scale(yes, cpus, nodes):
+    """Scale the cluster with a specific number cpus or nodes."""
+    scale_cluster_on_head(yes, cpus, nodes)
 
 
 @head.command()
@@ -492,6 +515,8 @@ def cluster_dump(host: Optional[str] = None,
 # commands running on head node
 head.add_command(attach)
 head.add_command(exec)
+head.add_command(scale)
+
 head.add_command(rsync_up)
 head.add_command(rsync_down)
 

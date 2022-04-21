@@ -17,12 +17,15 @@ import prettytable as pt
 
 import click
 import yaml
+
+from cloudtik.core._private import services
+
 try:  # py3
     from shlex import quote
 except ImportError:  # py2
     from pipes import quote
 
-from cloudtik.core._private.state.kv_store import kv_put
+from cloudtik.core._private.state.kv_store import kv_put, kv_initialize_with_address
 
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core._private.constants import \
@@ -2392,3 +2395,82 @@ def stop_node_on_head(node_ip: str = None,
     for node_id in nodes:
         stop_single_node_on_head(node_id)
 
+
+def scale_cluster(config_file: str, yes: bool, override_cluster_name: Optional[str],
+                  cpus: int, nodes: int):
+    assert not (cpus and nodes), "Can specify only one of `cpus` or `nodes`."
+    assert (cpus or nodes), "Need specify either `cpus` or `nodes`."
+
+    config = yaml.safe_load(open(config_file).read())
+    if override_cluster_name is not None:
+        config["cluster_name"] = override_cluster_name
+    config = _bootstrap_config(config)
+
+    resource_string = f"{cpus} CPUs" if cpus else f"{nodes} nodes"
+    cli_logger.confirm(yes, "Are you sure that you want to scale cluster {} to {}?",
+                       config["cluster_name"], resource_string, _abort=True)
+    cli_logger.newline()
+
+    # send the head the resource request
+    scale_cluster_from_head(config_file, override_cluster_name,
+                            cpus, nodes)
+
+
+def scale_cluster_from_head(config_file: str, override_cluster_name: Optional[str],
+                            cpus: int, nodes: int):
+    # Make a request to head to scale the cluster
+    cmds = [
+        "cloudtik",
+        "head",
+        "scale",
+        "--yes",
+    ]
+    if cpus:
+        cmds += ["--cpus={}".format(cpus)]
+    if nodes:
+        cmds += ["--nodes={}".format(nodes)]
+
+    final_cmd = " ".join(cmds)
+    exec_cmd_on_cluster(config_file, final_cmd,
+                        override_cluster_name)
+
+
+def scale_cluster_on_head(yes: bool, cpus: int, nodes: int):
+    assert not (cpus and nodes), "Can specify only one of `cpus` or `nodes`."
+    assert (cpus or nodes), "Need specify either `cpus` or `nodes`."
+
+    cluster_config_file = get_head_bootstrap_config()
+    config = yaml.safe_load(open(cluster_config_file).read())
+
+    if not yes:
+        resource_string = f"{cpus} CPUs" if cpus else f"{nodes} nodes"
+        cli_logger.confirm(yes, "Are you sure that you want to scale cluster {} to {}?",
+                           config["cluster_name"], resource_string, _abort=True)
+        cli_logger.newline()
+
+    # Calculate nodes request to the number of cpus
+    if nodes:
+        cpus = convert_nodes_to_cpus(config, nodes)
+        if cpus == 0:
+            cli_logger.abort("Unknown to convert number of nodes to number of CPUs.")
+
+    try:
+        address = services.get_address_to_use_or_die()
+        kv_initialize_with_address(address, CLOUDTIK_REDIS_DEFAULT_PASSWORD)
+
+        request_resources(num_cpus=cpus)
+    except Exception as e:
+        cli_logger.abort("Error happened when making the scale cluster request.", exc=e)
+
+
+def convert_nodes_to_cpus(config: Dict[str, Any], nodes: int) -> int:
+    available_node_types = config["available_node_types"]
+    head_node_type = config["head_node_type"]
+    for node_type in available_node_types:
+        if node_type != head_node_type:
+            resources = available_node_types[node_type].get("resources", {})
+            cpu_total = resources.get("CPU", 0)
+            if cpu_total > 0:
+                return nodes * cpu_total
+
+    return 0

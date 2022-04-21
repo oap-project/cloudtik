@@ -305,8 +305,7 @@ def _bootstrap_config(config: Dict[str, Any],
                      _PROVIDER_PRETTY_NAMES.get(config["provider"]["type"]))
     try:
         config = provider_cls.fillout_available_node_types_resources(config)
-        cluster_resource = provider_cls.get_cluster_resources(config)
-        config = config_spark_runtime_resources(config, cluster_resource)
+        config = config_spark_runtime_resources(config)
     except Exception as exc:
         if cli_logger.verbosity > 2:
             logger.exception("Failed to autodetect node resources.")

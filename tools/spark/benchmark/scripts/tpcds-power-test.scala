@@ -97,13 +97,10 @@ val experiment = tpcds.runExperiment(
 println(experiment.toString)
 experiment.waitForFinish(timeout*60*60)
 
-val res=experiment.getCurrentResults // or: spark.read.json(resultLocation).filter("timestamp = 1429132621024")
-  .withColumn("Name", substring(col("name"), 2, 100))
-  .withColumn("Runtime", (col("parsingTime") + col("analysisTime") + col("optimizationTime") + col("planningTime") + col("executionTime")) / 1000.0)
-  .select('Name, 'Runtime)
-res.show(104)
-
-val sumRuntime: Double = res.agg(sum("Runtime").cast("double")).first.getDouble(0)
+experiment.getCurrentResults.createOrReplaceTempView("result")
+sql("select substring(name,1,100) as Name, bround((parsingTime+analysisTime+optimizationTime+planningTime+executionTime)/1000.0,2) as Runtime_sec from result").show()
+val runtimeDF = sql("select bround((parsingTime+analysisTime+optimizationTime+planningTime+executionTime)/1000.0,2) as Runtime_sec from result")
+val sumRuntime = runtimeDF.map(_(0).asInstanceOf[Double]).reduce(_+_).formatted("%.2f")
 println(s"Total time: ${sumRuntime}s")
 
 sys.exit(0)

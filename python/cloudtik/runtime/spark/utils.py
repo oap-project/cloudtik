@@ -58,19 +58,41 @@ def get_spark_executor_overhead(spark_executor_memory_all: int) -> int:
                SPARK_EXECUTOR_OVERHEAD_MINIMUM)
 
 
-def config_spark_runtime_resources(
-        cluster_config: Dict[str, Any], cluster_resource: Dict[str, Any]) -> Dict[str, Any]:
-    cluster_config = copy.deepcopy(cluster_config)
+def _get_cluster_resources(
+        cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+    """Fills out spark executor resource for available_node_types."""
+    cluster_resource = {}
+    if "available_node_types" not in cluster_config:
+        return cluster_resource
 
-    container_resource = {}
-    container_resource["yarn_container_maximum_vcores"] = cluster_resource["worker_cpu"]
+    # Since we have filled the resources for node types
+    # We simply don't retrieve it from cloud provider again
+    available_node_types = cluster_config["available_node_types"]
+    head_node_type = cluster_config["head_node_type"]
+    for node_type in available_node_types:
+        resources = available_node_types[node_type].get("resources", {})
+        memory_total_in_mb = int(resources.get("memory", 0) / (1024 * 1024))
+        cpu_total = resources.get("CPU", 0)
+        if node_type != head_node_type:
+            if memory_total_in_mb > 0:
+                cluster_resource["worker_memory"] = memory_total_in_mb
+            if cpu_total > 0:
+                cluster_resource["worker_cpu"] = cpu_total
+        else:
+            if memory_total_in_mb > 0:
+                cluster_resource["head_memory"] = memory_total_in_mb
+    return cluster_resource
+
+
+def config_spark_runtime_resources(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+    cluster_resource = _get_cluster_resources(cluster_config)
+    container_resource = {"yarn_container_maximum_vcores": cluster_resource["worker_cpu"]}
 
     worker_memory_for_yarn = round_memory_size_to_gb(
         int(cluster_resource["worker_memory"] * YARN_RESOURCE_MEMORY_RATIO))
     container_resource["yarn_container_maximum_memory"] = worker_memory_for_yarn
 
-    executor_resource = {}
-    executor_resource["spark_driver_memory"] = get_spark_driver_memory(cluster_resource)
+    executor_resource = {"spark_driver_memory": get_spark_driver_memory(cluster_resource)}
 
     # Calculate Spark executor cores
     spark_executor_cores = SPARK_EXECUTOR_CORES_DEFAULT

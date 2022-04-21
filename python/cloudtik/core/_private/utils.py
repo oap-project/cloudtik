@@ -32,9 +32,8 @@ from cloudtik.core._private.cluster.cluster_metrics import ClusterMetricsSummary
 from cloudtik.core._private.constants import CLOUDTIK_WHEELS, CLOUDTIK_CLUSTER_PYTHON_VERSION, \
     CLOUDTIK_DEFAULT_MAX_WORKERS
 from cloudtik.core.node_provider import NodeProvider
-from cloudtik.providers._private.local.config import prepare_local
-from cloudtik.core._private.providers import _get_default_config, _get_node_provider, _get_default_workspace_config, \
-    _get_provider_config_object
+from cloudtik.core._private.providers import _get_default_config, _get_node_provider, _get_provider_config_object, \
+    _NODE_PROVIDERS
 from cloudtik.core._private.docker import validate_docker_config
 from cloudtik.core._private.providers import _get_workspace_provider
 
@@ -749,9 +748,13 @@ def prepare_config(config: Dict[str, Any]) -> Dict[str, Any]:
     - Has a valid Docker configuration if provided.
     - Has max_worker set for each node type.
     """
-    is_local = config.get("provider", {}).get("type") == "local"
-    if is_local:
-        config = prepare_local(config)
+    importer = _NODE_PROVIDERS.get(config["provider"]["type"])
+    if not importer:
+        raise NotImplementedError("Unsupported provider {}".format(
+            config["provider"]))
+
+    provider_cls = importer(config["provider"])
+    config = provider_cls.prepare_config(config)
 
     with_defaults = fillout_defaults(config)
     merge_commands(with_defaults)

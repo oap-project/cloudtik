@@ -9,7 +9,7 @@ import cloudtik.core._private.utils as utils
 unsupported_field_message = ("The field {} is not supported "
                              "for on-premise clusters.")
 
-LOCAL_CLUSTER_NODE_TYPE = "local.cluster.node"
+LOCAL_CLUSTER_NODE_TYPE = "local.node"
 
 
 def prepare_local(config: Dict[str, Any]) -> Dict[str, Any]:
@@ -30,16 +30,16 @@ def prepare_local(config: Dict[str, Any]) -> Dict[str, Any]:
         }
     }
     config["head_node_type"] = LOCAL_CLUSTER_NODE_TYPE
-    if "coordinator_address" in config["provider"]:
-        config = prepare_coordinator(config)
+    if "cloud_simulator_address" in config["provider"]:
+        config = prepare_cloud_simulator(config)
     else:
         config = prepare_manual(config)
     return config
 
 
-def prepare_coordinator(config: Dict[str, Any]) -> Dict[str, Any]:
+def prepare_cloud_simulator(config: Dict[str, Any]) -> Dict[str, Any]:
     config = copy.deepcopy(config)
-    # User should explicitly set the max number of workers for the coordinator
+    # User should explicitly set the max number of workers for the cloud simulator
     # to allocate.
     if "max_workers" not in config:
         cli_logger.abort("The field `max_workers` is required when using an "
@@ -57,7 +57,7 @@ def prepare_manual(config: Dict[str, Any]) -> Dict[str, Any]:
     if ("worker_ips" not in config["provider"]) or (
             "head_ip" not in config["provider"]):
         cli_logger.abort("Please supply a `head_ip` and list of `worker_ips`. "
-                         "Alternatively, supply a `coordinator_address`.")
+                         "Alternatively, supply a `cloud_simulator_address`.")
     num_ips = len(config["provider"]["worker_ips"])
     node_type = config["available_node_types"][LOCAL_CLUSTER_NODE_TYPE]
     # Default to keeping all provided ips in the cluster.
@@ -71,12 +71,12 @@ def prepare_manual(config: Dict[str, Any]) -> Dict[str, Any]:
 
 def get_lock_path(cluster_name: str) -> str:
     return os.path.join(utils.get_cloudtik_temp_dir(),
-                        "cluster-{}.lock".format(cluster_name))
+                        "cloudtik-local-{}.lock".format(cluster_name))
 
 
 def get_state_path(cluster_name: str) -> str:
     return os.path.join(utils.get_cloudtik_temp_dir(),
-                        "cluster-{}.state".format(cluster_name))
+                        "cloudtik-local-{}.state".format(cluster_name))
 
 
 def bootstrap_local(config: Dict[str, Any]) -> Dict[str, Any]:

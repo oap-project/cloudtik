@@ -42,9 +42,10 @@ class NodeProvider:
         """Return a list of node ids filtered by the specified tags dict.
 
         This list must not include terminated nodes. For performance reasons,
-        providers are allowed to cache the result of a call to nodes() to
-        serve single-node queries (e.g. is_running(node_id)). This means that
-        nodes() must be called again to refresh results.
+        providers are allowed to cache the result of a call to
+        non_terminated_nodes() to serve single-node queries
+        (e.g. is_running(node_id)). This means that non_terminate_nodes() must
+        be called again to refresh results.
 
         Examples:
             >>> provider.non_terminated_nodes({CLOUDTIK_TAG_NODE_KIND: "worker"})
@@ -116,13 +117,10 @@ class NodeProvider:
 
         if not find_node_id():
             all_nodes = self.non_terminated_nodes({})
+            get_ip = self.internal_ip if use_internal_ip else self.external_ip
+            ip_cache = self._internal_ip_cache if use_internal_ip else self._external_ip_cache
             for node_id in all_nodes:
-                if use_internal_ip:
-                    int_ip = self.internal_ip(node_id)
-                    self._internal_ip_cache[int_ip] = node_id
-                else:
-                    ext_ip = self.external_ip(node_id)
-                    self._external_ip_cache[ext_ip] = node_id
+                ip_cache[get_ip(node_id)] = node_id
 
         if not find_node_id():
             if use_internal_ip:

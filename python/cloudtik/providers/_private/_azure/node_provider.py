@@ -19,14 +19,14 @@ from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_NAME
 
 from cloudtik.providers._private._azure.config import (AZURE_MSI_NAME, get_azure_sdk_function,
-                                                       verify_azure_cloud_storage, bootstrap_azure,
-                                                       check_public_ip_address_dependency)
+                                                       verify_azure_cloud_storage, bootstrap_azure)
 
 from cloudtik.providers._private._azure.utils import get_azure_config
 from cloudtik.providers._private.utils import validate_config_dict
 
 VM_NAME_MAX_LEN = 64
 VM_NAME_UUID_LEN = 8
+RESOURCE_CHECK_TIME= 10
 
 logger = logging.getLogger(__name__)
 azure_logger = logging.getLogger(
@@ -314,20 +314,27 @@ class AzureNodeProvider(NodeProvider):
 
         # delete ip address
         if "public_ip_name" in metadata:
-            if check_public_ip_address_dependency(self.network_client, resource_group, metadata["public_ip_name"]):
+            retry_time = RESOURCE_CHECK_TIME
+            delete = get_azure_sdk_function(
+                client=self.network_client.public_ip_addresses,
+                function_name="delete")
+            cli_logger.print("Deleting public ip address...")
+            while retry_time > 0:
                 try:
-                    cli_logger.print("Deleting public ip address...")
-                    delete = get_azure_sdk_function(
-                        client=self.network_client.public_ip_addresses,
-                        function_name="delete")
                     delete(
                         resource_group_name=resource_group,
                         public_ip_address_name=metadata["public_ip_name"])
-                    cli_logger.print("Successfully deleted public ip address...")
+                    cli_logger.print("Successfully deleted public ip address.")
+                    break
                 except Exception as e:
-                    cli_logger.error("Failed to delete public ip address. {}", str(e))
-            else:
-                cli_logger.error("Cannot delete public ip address because the dependency has not been removed")
+                    retry_time = retry_time - 1
+                    if retry_time > 0:
+                        cli_logger.warning(
+                            "Failed to delete public ip address. "
+                            "Remaining {} tries to delete public ip address...".format(retry_time))
+                        time.sleep(1)
+                    else:
+                        cli_logger.error("Failed to delete public ip address. {}", str(e))
 
         # delete disks
         for disk in disks:

@@ -194,6 +194,11 @@ class NodeProvider:
         return None
 
     @staticmethod
+    def prepare_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Prepare the necessary configs for user before merge with system defaults and validation"""
+        return cluster_config
+
+    @staticmethod
     def bootstrap_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         """Bootstraps the cluster config by adding env defaults if needed."""
         return cluster_config

@@ -1759,7 +1759,11 @@ def show_cluster_status(config_file: str,
 
     # sort nodes info based on node type and then node ip for workers
     def node_info_sort(node_info):
-        return node_info["cloudtik-node-kind"] + node_info["private_ip"]
+        node_ip = node_info["private_ip"]
+        if node_ip is None:
+            node_ip = ""
+
+        return node_info["cloudtik-node-kind"] + node_ip
 
     nodes_info.sort(key=node_info_sort)
 

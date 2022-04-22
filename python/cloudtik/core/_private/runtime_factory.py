@@ -16,6 +16,7 @@ _runtime_instances = {}
 
 RUNTIME_MINIMAL_EXTERNAL_CONFIG = {}
 
+
 def _import_spark(runtime_config):
     from cloudtik.runtime.spark.runtime import SparkRuntime
     return SparkRuntime
@@ -107,12 +108,12 @@ def _clear_runtime_cache():
     _runtime_instances = {}
 
 
-def _get_default_config(runtime_type: str, runtime_config):
+def _get_runtime_default_config(runtime_type: str, runtime_config):
     """Retrieve a runtime.
 
     This is an INTERNAL API. It is not allowed to call this from outside.
     """
-    if runtime_config["type"] == "external":
+    if runtime_type == "external":
         return copy.deepcopy(RUNTIME_MINIMAL_EXTERNAL_CONFIG)
     load_config = _RUNTIME_DEFAULT_CONFIGS.get(runtime_type)
     if load_config is None:

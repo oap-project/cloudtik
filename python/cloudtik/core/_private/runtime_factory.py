@@ -17,14 +17,9 @@ _runtime_instances = {}
 RUNTIME_MINIMAL_EXTERNAL_CONFIG = {}
 
 
-def _import_spark(runtime_config):
+def _import_spark():
     from cloudtik.runtime.spark.runtime import SparkRuntime
     return SparkRuntime
-
-
-def _import_runtime_external(runtime_config):
-    runtime_cls = _load_class(path=runtime_config["module"])
-    return runtime_cls
 
 
 def _load_spark_runtime_home():
@@ -38,12 +33,10 @@ def _load_spark_defaults_config():
 
 _RUNTIMES = {
     "spark": _import_spark,
-    "external": _import_runtime_external  # Import an external module
 }
 
 _RUNTIME_PRETTY_NAMES = {
     "spark": "Spark",
-    "external": "External"
 }
 
 _RUNTIME_HOMES = {
@@ -55,14 +48,11 @@ _RUNTIME_DEFAULT_CONFIGS = {
 }
 
 
-def _get_runtime_cls(runtime_type: str, runtime_config: Dict[str, Any]):
+def _get_runtime_cls(runtime_type: str):
     """Get the runtime class for a given runtime config.
 
     Note that this may be used by private runtimes that proxy methods to
     built-in runtimes, so we should maintain backwards compatibility.
-
-    Args:
-        runtime_config: runtime section of the cluster config.
 
     Returns:
         Runtime class
@@ -71,7 +61,7 @@ def _get_runtime_cls(runtime_type: str, runtime_config: Dict[str, Any]):
     if importer is None:
         raise NotImplementedError("Unsupported runtime: {}".format(
             runtime_type))
-    return importer(runtime_config)
+    return importer()
 
 
 def _get_runtime(runtime_type: str, runtime_config: Dict[str, Any],
@@ -94,7 +84,7 @@ def _get_runtime(runtime_type: str, runtime_config: Dict[str, Any],
     if use_cache and runtime_key in _runtime_instances:
         return _runtime_instances[runtime_key]
 
-    runtime_cls = _get_runtime_cls(runtime_type, runtime_config)
+    runtime_cls = _get_runtime_cls(runtime_type)
     new_runtime = runtime_cls(runtime_config)
 
     if use_cache:

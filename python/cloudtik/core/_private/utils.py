@@ -31,6 +31,7 @@ from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core._private.cluster.cluster_metrics import ClusterMetricsSummary
 from cloudtik.core._private.constants import CLOUDTIK_WHEELS, CLOUDTIK_CLUSTER_PYTHON_VERSION, \
     CLOUDTIK_DEFAULT_MAX_WORKERS
+from cloudtik.core._private.runtime_factory import _get_runtime
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core._private.providers import _get_default_config, _get_node_provider, _get_provider_config_object, \
     _get_node_provider_cls
@@ -39,9 +40,6 @@ from cloudtik.core._private.providers import _get_workspace_provider
 
 # Import psutil after others so the packaged version is used.
 import psutil
-
-from cloudtik.runtime.spark.utils import with_spark_runtime_environment_variables, spark_runtime_validate_config, \
-    spark_runtime_verify_config
 
 REQUIRED, OPTIONAL = True, False
 CLOUDTIK_CONFIG_SCHEMA_PATH = os.path.join(
@@ -738,15 +736,15 @@ def validate_config(config: Dict[str, Any]) -> None:
     provider.validate_config(config["provider"])
 
     # add runtime config validate and testing
-    spark_runtime_validate_config(config, provider)
+    runtime_validate_config(config.get("runtime"), config, provider)
 
 
-def verify_config(config: Dict[str, Any]) :
+def verify_config(config: Dict[str, Any]):
     """Verify the configurations. Usually verify may mean to involve slow process"""
     provider = _get_node_provider(config["provider"], config["cluster_name"])
 
     # add runtime config validate and testing
-    spark_runtime_verify_config(config, provider)
+    runtime_verify_config(config.get("runtime"), config, provider)
 
 
 def prepare_config(config: Dict[str, Any]) -> Dict[str, Any]:
@@ -1583,11 +1581,6 @@ def kill_process_tree(pid, include_parent=True):
             pass
 
 
-def with_runtime_environment_variables(runtime_config, provider):
-    runtime_envs = with_spark_runtime_environment_variables(runtime_config, provider)
-    return runtime_envs
-
-
 def unescape_private_key(private_key: str):
     if private_key is None:
         return private_key
@@ -1613,3 +1606,70 @@ def escape_private_key(private_key: str):
     escaped_private_key = json.dumps(private_key)
     escaped_private_key = escaped_private_key.strip("\"\'")
     return escaped_private_key
+
+
+def with_runtime_environment_variables(runtime_config, provider):
+    all_runtime_envs = {}
+    if runtime_config is None:
+        return all_runtime_envs
+
+    # Iterate through all the runtimes
+    runtime_types = runtime_config.get("types", [])
+    for runtime_type in runtime_types:
+        runtime = _get_runtime(runtime_type, runtime_config)
+        runtime_envs = runtime.with_environment_variables(runtime_config, provider)
+        all_runtime_envs.update(runtime_envs)
+
+    return all_runtime_envs
+
+
+def runtime_validate_config(runtime_config, config, provider):
+    if runtime_config is None:
+        return
+
+    # Iterate through all the runtimes
+    runtime_types = runtime_config.get("types", [])
+    for runtime_type in runtime_types:
+        runtime = _get_runtime(runtime_type, runtime_config)
+        runtime.validate_config(config, provider)
+
+
+def runtime_prepare_config(
+        runtime_config: Dict[str, Any],
+        config: Dict[str, Any]) -> Dict[str, Any]:
+    if runtime_config is None:
+        return config
+
+    # Iterate through all the runtimes
+    runtime_types = runtime_config.get("types", [])
+    for runtime_type in runtime_types:
+        runtime = _get_runtime(runtime_type, runtime_config)
+        config = runtime.prepare_config(config)
+
+    return config
+
+
+def runtime_verify_config(runtime_config, config, provider):
+    if runtime_config is None:
+        return
+
+    # Iterate through all the runtimes
+    runtime_types = runtime_config.get("types", [])
+    for runtime_type in runtime_types:
+        runtime = _get_runtime(runtime_type, runtime_config)
+        runtime.verify_config(config, provider)
+
+
+def get_runtime_command(runtime_config, target):
+    if runtime_config is None:
+        return None
+
+    # Iterate through all the runtimes
+    runtime_types = runtime_config.get("types", [])
+    for runtime_type in runtime_types:
+        runtime = _get_runtime(runtime_type, runtime_config)
+        commands = runtime.get_runnable_command(target)
+        if commands:
+            return commands
+
+    return None

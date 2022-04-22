@@ -38,7 +38,7 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     get_proxy_info_file, get_safe_proxy_process_info, \
     get_head_working_ip, get_node_cluster_ip, is_use_internal_ip, get_head_bootstrap_config, \
     get_attach_command, is_alive_time, with_head_node_ip, is_docker_enabled, get_proxy_bind_address_to_show, \
-    kill_process_tree, with_runtime_environment_variables, verify_config
+    kill_process_tree, with_runtime_environment_variables, verify_config, runtime_prepare_config
 
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
@@ -63,7 +63,6 @@ import cloudtik.core._private.subprocess_output_util as cmd_output_util
 from cloudtik.core._private.cluster.cluster_metrics import ClusterMetricsSummary
 from cloudtik.core._private.cluster.cluster_scaler import ClusterScalerSummary
 from cloudtik.core._private.utils import format_info_string
-from cloudtik.runtime.spark.utils import config_spark_runtime_resources
 
 logger = logging.getLogger(__name__)
 
@@ -305,13 +304,13 @@ def _bootstrap_config(config: Dict[str, Any],
                      _PROVIDER_PRETTY_NAMES.get(config["provider"]["type"]))
     try:
         config = provider_cls.fillout_available_node_types_resources(config)
-        config = config_spark_runtime_resources(config)
+        config = runtime_prepare_config(config.get("runtime"), config)
     except Exception as exc:
         if cli_logger.verbosity > 2:
-            logger.exception("Failed to autodetect node resources.")
+            logger.exception("Failed to detect node resources.")
         else:
             cli_logger.warning(
-                f"Failed to autodetect node resources: {str(exc)}. "
+                f"Failed to detect node resources: {str(exc)}. "
                 "You can see full stack trace with higher verbosity.")
 
     try:
@@ -340,6 +339,18 @@ def _bootstrap_config(config: Dict[str, Any],
             }
             f.write(json.dumps(config_cache))
     return resolved_config
+
+
+def _load_cluster_config(config_file: str,
+                         override_cluster_name: Optional[str] = None,
+                         need_bootstrap: bool = True,
+                         no_config_cache: bool = False) -> Dict[str, Any]:
+    config = yaml.safe_load(open(config_file).read())
+    if override_cluster_name is not None:
+        config["cluster_name"] = override_cluster_name
+    if need_bootstrap:
+        config = _bootstrap_config(config, no_config_cache=no_config_cache)
+    return config
 
 
 def teardown_cluster(config_file: str, yes: bool, workers_only: bool,

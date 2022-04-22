@@ -1611,8 +1611,8 @@ def get_cluster_dump_archive(cluster_config_file: Optional[str] = None,
 
 
 def show_cluster_info(config_file: str,
-                      override_cluster_name: Optional[str] = None
-                      ) -> None:
+                      override_cluster_name: Optional[str] = None,
+                      num_worker_cpus: Optional[str] = False) -> None:
     """Shows the cluster information for given configuration file."""
     config = yaml.safe_load(open(config_file).read())
     if override_cluster_name is not None:
@@ -1636,11 +1636,21 @@ def show_cluster_info(config_file: str,
 
     # Check the running worker nodes
     head_count = 1
-    worker_ips = _get_worker_node_ips(config)
-    worker_count = len(worker_ips)
+    workers = _get_worker_nodes(config, None)
+    worker_count = len(workers)
     cli_logger.print(cf.bold("Cluster {}:"), config["cluster_name"])
     cli_logger.print(cf.bold("{} head and {} worker(s) are running"),
                      head_count, worker_count)
+
+    # Calcaulate the total number of vcores for all workers
+    if num_worker_cpus:
+        workers_info = [get_node_info_with_config(
+            config["available_node_types"], provider, worker) for worker in workers]
+        total_vcores = 0
+        for worker_info in workers_info:
+            total_vcores += worker_info["total-vcores"]
+        cli_logger.print(cf.bold("The total number of vcores of all workers is {}."), total_vcores)
+        return
 
     if head_node is None:
         return
@@ -1753,7 +1763,8 @@ def show_cluster_status(config_file: str,
 
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     nodes = provider.non_terminated_nodes({})
-    nodes_info = [get_node_info_with_config(config["available_node_types"], provider, node) for node in nodes]
+    nodes_info = [get_node_info_with_config(
+        config["available_node_types"], provider, node) for node in nodes]
 
     # sort nodes info based on node type and then node ip for workers
     def node_info_sort(node_info):

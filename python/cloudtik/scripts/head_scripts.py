@@ -166,11 +166,16 @@ def status():
 
 
 @head.command()
+@click.option(
+    "--num-worker-cpus",
+    is_flag=True,
+    default=False,
+    help="Get the total number of cpus for workers.")
 @add_click_logging_options
-def info():
+def info(num_worker_cpus):
     """Show cluster summary information and useful links to use the cluster."""
     cluster_config_file = get_head_bootstrap_config()
-    show_cluster_info(cluster_config_file, None)
+    show_cluster_info(cluster_config_file, None, num_worker_cpus)
 
 
 @head.command()

@@ -12,7 +12,7 @@ from cloudtik.core._private.cluster.cluster_operator import (
     debug_status_string, get_cluster_dump_archive_on_head,
     RUN_ENV_TYPES, teardown_cluster_on_head, cluster_process_status_on_head, rsync_node_on_head, attach_node_on_head,
     exec_node_on_head, show_cluster_info, show_cluster_status, monitor_cluster, get_worker_node_ips,
-    start_node_on_head, stop_node_on_head, kill_node_on_head)
+    start_node_on_head, stop_node_on_head, kill_node_on_head, show_worker_cpus, show_worker_memory)
 from cloudtik.core._private.constants import CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
     CLOUDTIK_KV_NAMESPACE_HEALTHCHECK
 from cloudtik.core._private.state import kv_store
@@ -180,7 +180,14 @@ def status():
 def info(num_worker_cpus, num_worker_memory):
     """Show cluster summary information and useful links to use the cluster."""
     cluster_config_file = get_head_bootstrap_config()
-    show_cluster_info(cluster_config_file, None, num_worker_cpus, num_worker_memory)
+
+    if num_worker_cpus:
+        return show_worker_cpus(cluster_config_file, None)
+
+    if num_worker_memory:
+        return show_worker_memory(cluster_config_file, None)
+
+    show_cluster_info(cluster_config_file, None)
 
 
 @head.command()

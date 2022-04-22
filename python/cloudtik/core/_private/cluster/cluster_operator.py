@@ -1309,6 +1309,26 @@ def rsync_node_on_head(source: str,
         rsync_to_node(node_id, source, target)
 
 
+def get_worker_cpus(config, provider):
+    workers = _get_worker_nodes(config, None)
+    workers_info = [get_node_info_with_config(
+        config["available_node_types"], provider, worker) for worker in workers]
+    total_vcores = 0
+    for worker_info in workers_info:
+        total_vcores += worker_info["total-vcores"]
+    return total_vcores
+
+
+def get_worker_memory(config, provider):
+    workers = _get_worker_nodes(config, None)
+    workers_info = [get_node_info_with_config(
+        config["available_node_types"], provider, worker) for worker in workers]
+    total_memory_GB = 0
+    for worker_info in workers_info:
+        total_memory_GB += worker_info["total-memory-GB"]
+    return total_memory_GB
+
+
 def get_head_node_ip(config_file: str,
                      override_cluster_name: Optional[str] = None) -> str:
     """Returns head node IP for given configuration file if exists."""
@@ -1610,10 +1630,32 @@ def get_cluster_dump_archive(cluster_config_file: Optional[str] = None,
     return output
 
 
+def show_worker_cpus(config_file: str,
+                      override_cluster_name: Optional[str] = None) -> None:
+    config = yaml.safe_load(open(config_file).read())
+    if override_cluster_name is not None:
+        config["cluster_name"] = override_cluster_name
+
+    config = _bootstrap_config(config, no_config_cache=False)
+    provider = _get_node_provider(config["provider"], config["cluster_name"])
+    worker_cpus = get_worker_cpus(config, provider)
+    cli_logger.print(cf.bold(worker_cpus))
+
+
+def show_worker_memory(config_file: str,
+                      override_cluster_name: Optional[str] = None) -> None:
+    config = yaml.safe_load(open(config_file).read())
+    if override_cluster_name is not None:
+        config["cluster_name"] = override_cluster_name
+
+    config = _bootstrap_config(config, no_config_cache=False)
+    provider = _get_node_provider(config["provider"], config["cluster_name"])
+    total_memory_GB = int(get_worker_memory(config, provider))
+    cli_logger.print(cf.bold("{}GB"), total_memory_GB)
+
+
 def show_cluster_info(config_file: str,
-                      override_cluster_name: Optional[str] = None,
-                      num_worker_cpus: Optional[str] = False,
-                      num_worker_memory: Optional[str] = False) -> None:
+                      override_cluster_name: Optional[str] = None) -> None:
     """Shows the cluster information for given configuration file."""
     config = yaml.safe_load(open(config_file).read())
     if override_cluster_name is not None:
@@ -1639,9 +1681,13 @@ def show_cluster_info(config_file: str,
     head_count = 1
     workers = _get_worker_nodes(config, None)
     worker_count = len(workers)
+    worker_cpus = get_worker_cpus(config, provider)
+    worker_memory = get_worker_memory(config, provider)
     cli_logger.print(cf.bold("Cluster {}:"), config["cluster_name"])
     cli_logger.print(cf.bold("{} head and {} worker(s) are running"),
                      head_count, worker_count)
+    cli_logger.print(cf.bold("The total number of vcores of all workers is {}."), worker_cpus)
+    cli_logger.print(cf.bold("The total memory of all workers is {}GB."), worker_memory)
 
     if head_node is None:
         return
@@ -1660,22 +1706,6 @@ def show_cluster_info(config_file: str,
                          head_node,
                          updater,
                          override_cluster_name)
-
-    workers_info = [get_node_info_with_config(
-        config["available_node_types"], provider, worker) for worker in workers]
-    # Calcaulate the total number of vcores for all workers
-    if num_worker_cpus:
-        total_vcores = 0
-        for worker_info in workers_info:
-            total_vcores += worker_info["total-vcores"]
-        cli_logger.print(cf.bold("The total number of vcores of all workers is {}."), total_vcores)
-
-    # Calcaulate the total memory for all workers
-    if num_worker_memory:
-        total_memory_GB = 0
-        for worker_info in workers_info:
-            total_memory_GB += worker_info["total-memory-GB"]
-        cli_logger.print(cf.bold("The total memory of all workers is {}GB."), total_memory_GB)
 
 
 def show_useful_commands(printable_config_file: str,

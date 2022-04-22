@@ -901,8 +901,11 @@ def merge_built_in_commands(config):
                     "setup_commands",
                     "head_setup_commands",
                     "worker_setup_commands",
+                    "bootstrap_commands"
+                    "start_commands"
                     "head_start_commands",
                     "worker_start_commands",
+                    "stop_commands"
                     "head_stop_commands",
                     "worker_stop_commands"]
 
@@ -929,6 +932,8 @@ def merge_commands(config):
     # Combine commands
     combine_initialization_commands(config)
     combine_setup_commands(config)
+    combine_start_commands(config)
+    combine_stop_commands(config)
     return config
 
 
@@ -973,8 +978,27 @@ def get_cloudtik_setup_command(config) -> str:
 
 def combine_setup_commands(config):
     setup_commands = config["setup_commands"]
-    config["head_setup_commands"] = (setup_commands + config["head_setup_commands"])
-    config["worker_setup_commands"] = (setup_commands + config["worker_setup_commands"])
+    bootstrap_commands = config["bootstrap_commands"]
+
+    config["head_setup_commands"] = (
+            setup_commands + config["head_setup_commands"] + bootstrap_commands)
+    config["worker_setup_commands"] = (
+            setup_commands + config["worker_setup_commands"] + bootstrap_commands)
+
+    return config
+
+
+def combine_start_commands(config):
+    start_commands = config["start_commands"]
+    config["head_start_commands"] = (start_commands + config["head_start_commands"])
+    config["worker_start_commands"] = (start_commands + config["worker_start_commands"])
+    return config
+
+
+def combine_stop_commands(config):
+    stop_commands = config["stop_commands"]
+    config["head_stop_commands"] = (stop_commands + config["head_stop_commands"])
+    config["worker_stop_commands"] = (stop_commands + config["worker_stop_commands"])
     return config
 
 

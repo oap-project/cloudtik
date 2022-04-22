@@ -38,7 +38,8 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     get_proxy_info_file, get_safe_proxy_process_info, \
     get_head_working_ip, get_node_cluster_ip, is_use_internal_ip, get_head_bootstrap_config, \
     get_attach_command, is_alive_time, with_head_node_ip, is_docker_enabled, get_proxy_bind_address_to_show, \
-    kill_process_tree, with_runtime_environment_variables, verify_config, runtime_prepare_config
+    kill_process_tree, with_runtime_environment_variables, verify_config, runtime_prepare_config, get_nodes_info, \
+    sum_worker_cpus, sum_worker_memory
 
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
@@ -62,7 +63,7 @@ from cloudtik.core._private.debug import log_once
 import cloudtik.core._private.subprocess_output_util as cmd_output_util
 from cloudtik.core._private.cluster.cluster_metrics import ClusterMetricsSummary
 from cloudtik.core._private.cluster.cluster_scaler import ClusterScalerSummary
-from cloudtik.core._private.utils import format_info_string, get_node_info_with_config
+from cloudtik.core._private.utils import format_info_string
 
 logger = logging.getLogger(__name__)
 
@@ -1328,22 +1329,14 @@ def rsync_node_on_head(source: str,
 
 def get_worker_cpus(config, provider):
     workers = _get_worker_nodes(config, None)
-    workers_info = [get_node_info_with_config(
-        config["available_node_types"], provider, worker) for worker in workers]
-    total_vcores = 0
-    for worker_info in workers_info:
-        total_vcores += worker_info["total-vcores"]
-    return total_vcores
+    workers_info = get_nodes_info(provider, workers, True, config["available_node_types"])
+    return sum_worker_cpus(workers_info)
 
 
 def get_worker_memory(config, provider):
     workers = _get_worker_nodes(config, None)
-    workers_info = [get_node_info_with_config(
-        config["available_node_types"], provider, worker) for worker in workers]
-    total_memory_GB = 0
-    for worker_info in workers_info:
-        total_memory_GB += worker_info["total-memory-GB"]
-    return total_memory_GB
+    workers_info = get_nodes_info(provider, workers, True, config["available_node_types"])
+    return sum_worker_memory(workers_info)
 
 
 def get_head_node_ip(config_file: str,
@@ -1690,13 +1683,18 @@ def show_cluster_info(config_file: str,
     head_count = 1
     workers = _get_worker_nodes(config, None)
     worker_count = len(workers)
-    worker_cpus = get_worker_cpus(config, provider)
-    worker_memory = get_worker_memory(config, provider)
+
     cli_logger.print(cf.bold("Cluster {}:"), config["cluster_name"])
     cli_logger.print(cf.bold("{} head and {} worker(s) are running"),
                      head_count, worker_count)
-    cli_logger.print(cf.bold("The total number of vcores of all workers is {}."), worker_cpus)
-    cli_logger.print(cf.bold("The total memory of all workers is {}GB."), worker_memory)
+
+    workers_info = get_nodes_info(provider, workers,
+                                  True, config["available_node_types"])
+    worker_cpus = sum_worker_cpus(workers_info)
+    worker_memory = sum_worker_memory(workers_info)
+    cli_logger.newline()
+    cli_logger.print(cf.bold("The total worker CPUs: {}."), worker_cpus)
+    cli_logger.print(cf.bold("The total worker memory: {}GB."), worker_memory)
 
     if head_node is None:
         return
@@ -1809,8 +1807,7 @@ def show_cluster_status(config_file: str,
 
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     nodes = provider.non_terminated_nodes({})
-    nodes_info = [get_node_info_with_config(
-        config["available_node_types"], provider, node) for node in nodes]
+    nodes_info = get_nodes_info(provider, nodes)
 
     # sort nodes info based on node type and then node ip for workers
     def node_info_sort(node_info):
@@ -1824,12 +1821,12 @@ def show_cluster_status(config_file: str,
 
     tb = pt.PrettyTable()
     tb.field_names = ["node-id", "node-ip", "node-type", "node-status", "instance-type",
-                      "public-ip", "instance-status", "vcores", "memory"]
+                      "public-ip", "instance-status"]
     for node_info in nodes_info:
         tb.add_row([node_info["node_id"], node_info["private_ip"], node_info["cloudtik-node-kind"],
                     node_info["cloudtik-node-status"], node_info["instance_type"], node_info["public_ip"],
-                    node_info["instance_status"], node_info["total-vcores"],
-                    str(node_info["total-memory-GB"]) + "GB"])
+                    node_info["instance_status"]
+                    ])
 
     def get_nodes_ready(node_info_list):
         nodes_ready = 0

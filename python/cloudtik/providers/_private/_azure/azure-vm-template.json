@@ -247,7 +247,7 @@
                             "count": "[length(parameters('dataDisks'))]",
                             "input": {
                                 "lun": "[parameters('dataDisks')[copyIndex('dataDisks')].lun]",
-                                "name": "[concat(parameters('vmName'), parameters('dataDisks')[copyIndex('dataDisks')].diskName)]",
+                                "name": "[concat(parameters('vmName'), copyIndex(), parameters('dataDisks')[copyIndex('dataDisks')].diskName)]",
                                 "createOption": "empty",
                                 "caching": "ReadOnly",
                                 "diskSizeGB": "[parameters('dataDisks')[copyIndex('dataDisks')].diskSizeGB]",

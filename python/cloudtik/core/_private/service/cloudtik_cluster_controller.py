@@ -219,8 +219,8 @@ class ClusterController:
             if self.stop_event and self.stop_event.is_set():
                 break
             self.update_cluster_metrics()
-            # self.update_resource_requests()
-            # self.update_event_summary()
+            self.update_resource_requests()
+            self.update_event_summary()
             status = {
                 "cluster_metrics_report": asdict(self.cluster_metrics.summary()),
                 "time": time.time(),

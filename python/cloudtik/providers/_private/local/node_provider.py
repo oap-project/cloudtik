@@ -4,6 +4,7 @@ import json
 import os
 import socket
 import logging
+from typing import Any, Dict
 
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.tags import (CLOUDTIK_TAG_NODE_KIND, NODE_KIND_WORKER,
@@ -11,7 +12,7 @@ from cloudtik.core.tags import (CLOUDTIK_TAG_NODE_KIND, NODE_KIND_WORKER,
                                  CLOUDTIK_TAG_NODE_NAME, CLOUDTIK_TAG_NODE_STATUS,
                                  STATUS_UP_TO_DATE)
 
-from cloudtik.providers._private.local.config import bootstrap_local
+from cloudtik.providers._private.local.config import bootstrap_local, prepare_local
 from cloudtik.providers._private.local.config import get_lock_path
 from cloudtik.providers._private.local.config import get_state_path
 from cloudtik.providers._private.local.config import LOCAL_CLUSTER_NODE_TYPE
@@ -105,7 +106,7 @@ class ClusterState:
                     f.write(json.dumps(workers))
 
 
-class OnPremCoordinatorState(ClusterState):
+class CloudSimulatorState(ClusterState):
     """Generates & updates the state file of CoordinatorSenderNodeProvider.
 
     Unlike ClusterState, which generates a cluster specific file with
@@ -126,8 +127,8 @@ class OnPremCoordinatorState(ClusterState):
                 else:
                     nodes = {}
                 logger.info(
-                    "OnPremCoordinatorState: "
-                    "Loaded on prem coordinator state: {}".format(nodes))
+                    "CloudSimulatorState: "
+                    "Loaded Cloud Simulator state: {}".format(nodes))
 
                 # Filter removed node ips.
                 for node_ip in list(nodes):
@@ -143,8 +144,8 @@ class OnPremCoordinatorState(ClusterState):
                 assert len(nodes) == len(list_of_node_ips)
                 with open(self.save_path, "w") as f:
                     logger.info(
-                        "OnPremCoordinatorState: "
-                        "Writing on prem coordinator state: {}".format(nodes))
+                        "CloudSimulatorState: "
+                        "Writing Cloud Simulator state: {}".format(nodes))
                     f.write(json.dumps(nodes))
 
 
@@ -176,13 +177,13 @@ class LocalNodeProvider(NodeProvider):
                 state_path,
                 provider_config,
             )
-            self.use_coordinator = False
+            self.use_cloud_simulator = False
         else:
-            # LocalNodeProvider with a coordinator server.
-            self.state = OnPremCoordinatorState(
-                "/tmp/coordinator.lock", "/tmp/coordinator.state",
+            # LocalNodeProvider with a Cloud Simulator.
+            self.state = CloudSimulatorState(
+                "/tmp/cloudtik-cloud-simulator.lock", "/tmp/cloudtik-cloud-simulator.state",
                 provider_config["list_of_node_ips"])
-            self.use_coordinator = True
+            self.use_cloud_simulator = True
 
     def non_terminated_nodes(self, tag_filters):
         workers = self.state.get()
@@ -241,7 +242,7 @@ class LocalNodeProvider(NodeProvider):
             workers = self.state.get()
             for node_id, info in workers.items():
                 if (info["state"] == "terminated"
-                        and (self.use_coordinator
+                        and (self.use_cloud_simulator
                              or info["tags"][CLOUDTIK_TAG_NODE_KIND] == node_type)):
                     info["tags"] = tags
                     info["state"] = "running"
@@ -255,6 +256,23 @@ class LocalNodeProvider(NodeProvider):
         info = workers[node_id]
         info["state"] = "terminated"
         self.state.put(node_id, info)
+
+    def get_node_info(self, node_id):
+        node = self.state.get()[node_id]
+        node_info = {"node_id": node_id,
+                     "instance_type": None,
+                     "private_ip": self.internal_ip(node_id),
+                     "public_ip": self.external_ip(node_id),
+                     "instance_status": node["state"]}
+        node_info.update(self.node_tags(node_id))
+        return node_info
+
+    def with_environment_variables(self):
+        return {}
+
+    @staticmethod
+    def prepare_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+        return prepare_local(cluster_config)
 
     @staticmethod
     def bootstrap_config(cluster_config):

@@ -34,7 +34,7 @@ class NodeProvider:
         self._internal_ip_cache: Dict[str, str] = {}
         self._external_ip_cache: Dict[str, str] = {}
 
-    def with_provider_environment_variables(self):
+    def with_environment_variables(self):
         """Export necessary environment variables for running node commands"""
         raise NotImplementedError
 
@@ -42,9 +42,10 @@ class NodeProvider:
         """Return a list of node ids filtered by the specified tags dict.
 
         This list must not include terminated nodes. For performance reasons,
-        providers are allowed to cache the result of a call to nodes() to
-        serve single-node queries (e.g. is_running(node_id)). This means that
-        nodes() must be called again to refresh results.
+        providers are allowed to cache the result of a call to
+        non_terminated_nodes() to serve single-node queries
+        (e.g. is_running(node_id)). This means that non_terminate_nodes() must
+        be called again to refresh results.
 
         Examples:
             >>> provider.non_terminated_nodes({CLOUDTIK_TAG_NODE_KIND: "worker"})
@@ -116,13 +117,10 @@ class NodeProvider:
 
         if not find_node_id():
             all_nodes = self.non_terminated_nodes({})
+            get_ip = self.internal_ip if use_internal_ip else self.external_ip
+            ip_cache = self._internal_ip_cache if use_internal_ip else self._external_ip_cache
             for node_id in all_nodes:
-                if use_internal_ip:
-                    int_ip = self.internal_ip(node_id)
-                    self._internal_ip_cache[int_ip] = node_id
-                else:
-                    ext_ip = self.external_ip(node_id)
-                    self._external_ip_cache[ext_ip] = node_id
+                ip_cache[get_ip(node_id)] = node_id
 
         if not find_node_id():
             if use_internal_ip:
@@ -196,6 +194,11 @@ class NodeProvider:
         return None
 
     @staticmethod
+    def prepare_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Prepare the necessary configs for user before merge with system defaults and validation"""
+        return cluster_config
+
+    @staticmethod
     def bootstrap_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         """Bootstraps the cluster config by adding env defaults if needed."""
         return cluster_config
@@ -249,32 +252,6 @@ class NodeProvider:
             cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         """Fills out missing "resources" field for available_node_types."""
         return cluster_config
-
-    @staticmethod
-    def get_cluster_resources(
-            cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-        """Fills out spark executor resource for available_node_types."""
-        cluster_resource = {}
-        if "available_node_types" not in cluster_config:
-            return cluster_resource
-
-        # Since we have filled the resources for node types
-        # We simply don't retrieve it from cloud provider again
-        available_node_types = cluster_config["available_node_types"]
-        head_node_type = cluster_config["head_node_type"]
-        for node_type in available_node_types:
-            resources = available_node_types[node_type].get("resources", {})
-            memory_total_in_mb = int(resources.get("memory", 0)/(1024 * 1024))
-            cpu_total = resources.get("CPU", 0)
-            if node_type != head_node_type:
-                if memory_total_in_mb > 0:
-                    cluster_resource["worker_memory"] = memory_total_in_mb
-                if cpu_total > 0:
-                    cluster_resource["worker_cpu"] = cpu_total
-            else:
-                if memory_total_in_mb > 0:
-                    cluster_resource["head_memory"] = memory_total_in_mb
-        return cluster_resource
 
     @staticmethod
     def validate_config(

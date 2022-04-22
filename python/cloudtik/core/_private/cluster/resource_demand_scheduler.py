@@ -90,7 +90,6 @@ class ResourceDemandScheduler:
         self.head_node_type = head_node_type
         self.upscaling_speed = upscaling_speed
 
-
     def is_feasible(self, bundle: ResourceDict) -> bool:
         for node_type, config in self.node_types.items():
             max_of_type = config.get("max_workers", 0)
@@ -244,7 +243,7 @@ class ResourceDemandScheduler:
             2) Calculates the pending nodes and gets the launching nodes.
             3) Limits the total number of pending + currently-launching +
                to-be-launched nodes to:
-               max(5, self.upscaling_speed * running_nodes[node_type]).
+               max(5, self.upscaling_speed * max(running_nodes[node_type], 1)).
 
         Args:
             to_launch: List of number of nodes to launch based on resource
@@ -270,7 +269,7 @@ class ResourceDemandScheduler:
             # running nodes.
             max_allowed_pending_nodes = max(
                 UPSCALING_INITIAL_NUM_NODES,
-                int(self.upscaling_speed * running_nodes[node_type]))
+                int(self.upscaling_speed * max(running_nodes[node_type], 1)))
             total_pending_nodes = pending_launches_nodes.get(
                 node_type, 0) + pending_nodes[node_type]
 
@@ -502,6 +501,9 @@ def get_nodes_for(node_types: Dict[NodeType, NodeTypeConfigDict],
                 max_workers_of_node_type = max_workers_of_node_type + 1
             if (existing_nodes.get(node_type, 0) + nodes_to_add.get(
                     node_type, 0) >= max_workers_of_node_type):
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(f"Will not launch node of {node_type} type as it already "
+                                 f"exceeds the max number ({max_workers_of_node_type})")
                 continue
             node_resources = node_types[node_type]["resources"]
             if strict_spread:

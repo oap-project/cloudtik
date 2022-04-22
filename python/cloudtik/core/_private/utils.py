@@ -29,11 +29,11 @@ import cloudtik
 from cloudtik.core._private import constants, services
 from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core._private.cluster.cluster_metrics import ClusterMetricsSummary
-from cloudtik.core._private.constants import CLOUDTIK_WHEELS, CLOUDTIK_CLUSTER_PYTHON_VERSION
+from cloudtik.core._private.constants import CLOUDTIK_WHEELS, CLOUDTIK_CLUSTER_PYTHON_VERSION, \
+    CLOUDTIK_DEFAULT_MAX_WORKERS
 from cloudtik.core.node_provider import NodeProvider
-from cloudtik.providers._private.local.config import prepare_local
-from cloudtik.core._private.providers import _get_default_config, _get_node_provider, _get_default_workspace_config, \
-    _get_provider_config_object
+from cloudtik.core._private.providers import _get_default_config, _get_node_provider, _get_provider_config_object, \
+    _get_node_provider_cls
 from cloudtik.core._private.docker import validate_docker_config
 from cloudtik.core._private.providers import _get_workspace_provider
 from cloudtik.core.tags import CLOUDTIK_TAG_USER_NODE_TYPE
@@ -41,7 +41,8 @@ from cloudtik.core.tags import CLOUDTIK_TAG_USER_NODE_TYPE
 # Import psutil after others so the packaged version is used.
 import psutil
 
-from cloudtik.runtime.spark.utils import with_spark_runtime_environment_variables, spark_runtime_validate_config
+from cloudtik.runtime.spark.utils import with_spark_runtime_environment_variables, spark_runtime_validate_config, \
+    spark_runtime_verify_config
 
 REQUIRED, OPTIONAL = True, False
 CLOUDTIK_CONFIG_SCHEMA_PATH = os.path.join(
@@ -741,6 +742,14 @@ def validate_config(config: Dict[str, Any]) -> None:
     spark_runtime_validate_config(config, provider)
 
 
+def verify_config(config: Dict[str, Any]) :
+    """Verify the configurations. Usually verify may mean to involve slow process"""
+    provider = _get_node_provider(config["provider"], config["cluster_name"])
+
+    # add runtime config validate and testing
+    spark_runtime_verify_config(config, provider)
+
+
 def prepare_config(config: Dict[str, Any]) -> Dict[str, Any]:
     """
     The returned config has the following properties:
@@ -749,9 +758,8 @@ def prepare_config(config: Dict[str, Any]) -> Dict[str, Any]:
     - Has a valid Docker configuration if provided.
     - Has max_worker set for each node type.
     """
-    is_local = config.get("provider", {}).get("type") == "local"
-    if is_local:
-        config = prepare_local(config)
+    provider_cls = _get_node_provider_cls(config["provider"])
+    config = provider_cls.prepare_config(config)
 
     with_defaults = fillout_defaults(config)
     merge_commands(with_defaults)
@@ -761,28 +769,14 @@ def prepare_config(config: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def prepare_workspace_config(config: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    The returned config has the following properties:
-    - Uses the multi-node-type cluster scaler configuration.
-    - Merged with the appropriate defaults.yaml
-    - Has a valid Docker configuration if provided.
-    - Has max_worker set for each node type.
-    """
-    #To do
-    # is_local = config.get("provider", {}).get("type") == "local"
-    # if is_local:
-    #     config = prepare_local(config)
-
     with_defaults = fillout_workspace_defaults(config)
     return with_defaults
 
 
 def fillout_workspace_defaults(config: Dict[str, Any]) -> Dict[str, Any]:
-    defaults = _get_default_workspace_config(config["provider"])
-    defaults.update(config)
-
-    # Just for clarity:
-    merged_config = copy.deepcopy(defaults)
+    # Merge the config with user inheritance hierarchy and system defaults hierarchy
+    merged_config = merge_config_hierarchy(
+        config["provider"], config, False, "workspace-defaults")
     return merged_config
 
 
@@ -870,7 +864,7 @@ def merge_config_hierarchy(provider, config: Dict[str, Any],
 
 
 def fillout_defaults(config: Dict[str, Any]) -> Dict[str, Any]:
-    # Just for clarity:
+    # Merge the config with user inheritance hierarchy and system defaults hierarchy
     merged_config = merge_config_hierarchy(config["provider"], config)
 
     # Fill auth field to avoid key errors.
@@ -989,13 +983,14 @@ def combine_setup_commands(config):
 
 def fill_default_max_workers(config):
     if "max_workers" not in config:
-        logger.debug("Global max workers not set. Will set to the sum of min workers")
+        logger.debug("Global max workers not set. "
+                     "Will set to the sum of min workers or {} which is larger.", CLOUDTIK_DEFAULT_MAX_WORKERS)
         sum_min_workers = 0
         node_types = config["available_node_types"]
         for node_type_name in node_types:
             node_type_data = node_types[node_type_name]
             sum_min_workers += node_type_data.get("min_workers", 0)
-        config["max_workers"] = sum_min_workers
+        config["max_workers"] = max(sum_min_workers, CLOUDTIK_DEFAULT_MAX_WORKERS)
 
 
 def fill_node_type_min_max_workers(config):

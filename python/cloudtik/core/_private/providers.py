@@ -38,9 +38,14 @@ def _import_azure(provider_config):
 
 
 def _import_local(provider_config):
-    from cloudtik.providers._private.local.node_provider import \
-        LocalNodeProvider
-    return LocalNodeProvider
+    if "cloud_simulator_address" in provider_config:
+        from cloudtik.providers._private.local.cloud_simulator_node_provider import (
+            CloudSimulatorNodeProvider)
+        return CloudSimulatorNodeProvider
+    else:
+        from cloudtik.providers._private.local.node_provider import \
+            LocalNodeProvider
+        return LocalNodeProvider
 
 
 def _import_kubernetes(provider_config):

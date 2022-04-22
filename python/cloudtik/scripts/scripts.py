@@ -24,7 +24,7 @@ from cloudtik.core._private.cluster.cluster_operator import (
     show_worker_cpus, show_worker_memory, show_cluster_info, show_cluster_status,
     start_proxy, stop_proxy, cluster_debug_status,
     cluster_health_check, cluster_process_status,
-    attach_worker, exec_node_from_head, start_node_from_head, stop_node_from_head, exec_cmd_on_cluster)
+    attach_worker, exec_node_from_head, start_node_from_head, stop_node_from_head, exec_cmd_on_cluster, scale_cluster)
 from cloudtik.core._private.constants import CLOUDTIK_PROCESSES, \
     CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
     CLOUDTIK_DEFAULT_PORT
@@ -800,6 +800,36 @@ def submit(cluster_config_file, screen, tmux, stop, start, cluster_name,
 
 @cli.command()
 @click.argument("cluster_config_file", required=True, type=str)
+@click.option(
+    "--yes",
+    "-y",
+    is_flag=True,
+    default=False,
+    help="Don't ask for confirmation.")
+@click.option(
+    "--cluster-name",
+    "-n",
+    required=False,
+    type=str,
+    help="Override the configured cluster name.")
+@click.option(
+    "--cpus",
+    required=False,
+    type=int,
+    help="Specify the number of cpus of the cluster.")
+@click.option(
+    "--nodes",
+    required=False,
+    type=int,
+    help="Specify the number of nodes of the cluster.")
+@add_click_logging_options
+def scale(cluster_config_file, yes, cluster_name, cpus, nodes):
+    """Scale the cluster with a specific number cpus or nodes."""
+    scale_cluster(cluster_config_file, yes, cluster_name, cpus, nodes)
+
+
+@cli.command()
+@click.argument("cluster_config_file", required=True, type=str)
 @click.argument("source", required=False, type=str)
 @click.argument("target", required=False, type=str)
 @click.option(
@@ -1467,6 +1497,7 @@ add_command_alias(stop, name="down", hidden=True)
 cli.add_command(attach)
 cli.add_command(exec)
 cli.add_command(submit)
+cli.add_command(scale)
 
 cli.add_command(rsync_up)
 add_command_alias(rsync_up, name="rsync_up", hidden=True)

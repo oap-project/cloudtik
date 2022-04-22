@@ -990,7 +990,6 @@ def merge_docker_initialization_commands(config, built_in_commands):
 def merge_cluster_config(config):
     merge_commands(config)
     merge_runtime_config(config)
-    print(json.dumps(config))
 
 
 def merge_runtime_config(config):

@@ -1606,18 +1606,38 @@ def kill_process_tree(pid, include_parent=True):
             pass
 
 
-def get_node_info_with_config(available_node_types_config, provider, node):
-    node_info = get_node_info_with_resource(available_node_types_config, provider, node)
-    return node_info
+def get_nodes_info(provider, nodes, extras: bool = False,
+                   available_node_types: Dict[str, Any] = None):
+    return [get_node_info(provider, node,
+                          extras, available_node_types) for node in nodes]
 
 
-def get_node_info_with_resource(available_node_types_config, provider, node):
+def get_node_info(provider, node, extras: bool = False,
+                  available_node_types: Dict[str, Any] = None):
     node_info = provider.get_node_info(node)
-    node_info["total-vcores"] = available_node_types_config.get(
-        node_info.get(CLOUDTIK_TAG_USER_NODE_TYPE, ""), {}).get("resources", {}).get("CPU", 0)
-    node_info["total-memory-GB"] = int(available_node_types_config.get(
-        node_info.get(CLOUDTIK_TAG_USER_NODE_TYPE, ""), {}).get("resources", {}).get("memory", 0) / pow(1024, 3))
+
+    if extras:
+        node_type = node_info.get(CLOUDTIK_TAG_USER_NODE_TYPE)
+        if node_type is not None and node_type in available_node_types:
+            resources = available_node_types[node_type].get("resources", {})
+            node_info["CPU"] = resources.get("CPU", 0)
+            node_info["memory-GB"] = resources.get("memory", 0) / pow(1024, 3)
+
     return node_info
+
+
+def sum_worker_cpus(workers_info):
+    total_cpus = 0
+    for worker_info in workers_info:
+        total_cpus += worker_info["CPU"]
+    return total_cpus
+
+
+def sum_worker_memory(workers_info):
+    total_memory = 0
+    for worker_info in workers_info:
+        total_memory += worker_info["memory-GB"]
+    return total_memory
 
 
 def unescape_private_key(private_key: str):

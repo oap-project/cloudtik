@@ -902,11 +902,11 @@ def merge_built_in_commands(config):
                     "setup_commands",
                     "head_setup_commands",
                     "worker_setup_commands",
-                    "bootstrap_commands"
-                    "start_commands"
+                    "bootstrap_commands",
+                    "start_commands",
                     "head_start_commands",
                     "worker_start_commands",
-                    "stop_commands"
+                    "stop_commands",
                     "head_stop_commands",
                     "worker_stop_commands"]
 

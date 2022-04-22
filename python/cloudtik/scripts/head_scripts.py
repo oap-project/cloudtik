@@ -190,24 +190,24 @@ def status():
 
 @head.command()
 @click.option(
-    "--num-worker-cpus",
+    "--worker-cpus",
     is_flag=True,
     default=False,
     help="Get the total number of cpus for workers.")
 @click.option(
-    "--num-worker-memory",
+    "--worker-memory",
     is_flag=True,
     default=False,
     help="Get the total memory for workers.")
 @add_click_logging_options
-def info(num_worker_cpus, num_worker_memory):
+def info(worker_cpus, worker_memory):
     """Show cluster summary information and useful links to use the cluster."""
     cluster_config_file = get_head_bootstrap_config()
 
-    if num_worker_cpus:
+    if worker_cpus:
         return show_worker_cpus(cluster_config_file, None)
 
-    if num_worker_memory:
+    if worker_memory:
         return show_worker_memory(cluster_config_file, None)
 
     show_cluster_info(cluster_config_file, None)

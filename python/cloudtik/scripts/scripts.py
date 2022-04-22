@@ -898,13 +898,19 @@ def status(cluster_config_file, cluster_name):
     is_flag=True,
     default=False,
     help="Get the total number of cpus for workers.")
+@click.option(
+    "--num-worker-memory",
+    is_flag=True,
+    default=False,
+    help="Get the total memory for workers.")
 @add_click_logging_options
-def info(cluster_config_file, cluster_name, num_worker_cpus):
+def info(cluster_config_file, cluster_name, num_worker_cpus, num_worker_memory):
     """Show cluster summary information and useful links to use the cluster."""
     show_cluster_info(
         cluster_config_file,
         cluster_name,
         num_worker_cpus,
+        num_worker_memory
     )
 
 

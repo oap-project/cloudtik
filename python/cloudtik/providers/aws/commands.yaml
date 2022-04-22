@@ -1,5 +1,5 @@
 # Include the common built-in commands
-from: built-in-commands
+from: commands
 
 # Custom commands that will be run on the head node after common setup.
 head_setup_commands:

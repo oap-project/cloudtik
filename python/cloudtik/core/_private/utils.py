@@ -1601,10 +1601,10 @@ def get_node_info_with_config(available_node_types_config, provider, node):
 
 def get_node_info_with_resource(available_node_types_config, provider, node):
     node_info = provider.get_node_info(node)
-    node_info["total-vcores"] = available_node_types_config[
-        node_info[CLOUDTIK_TAG_USER_NODE_TYPE]]["resources"]["CPU"]
-    node_info["total-memory-GB"] = int(available_node_types_config[
-        node_info[CLOUDTIK_TAG_USER_NODE_TYPE]]["resources"]["memory"] / pow(1024, 3))
+    node_info["total-vcores"] = available_node_types_config.get(
+        node_info.get(CLOUDTIK_TAG_USER_NODE_TYPE, ""), {}).get("resources", {}).get("CPU", 0)
+    node_info["total-memory-GB"] = int(available_node_types_config.get(
+        node_info.get(CLOUDTIK_TAG_USER_NODE_TYPE, ""), {}).get("resources", {}).get("memory", 0) / pow(1024, 3))
     return node_info
 
 

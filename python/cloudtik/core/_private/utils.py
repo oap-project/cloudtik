@@ -946,7 +946,7 @@ def merge_runtime_commands(config, built_in_commands):
 def merge_built_in_commands(config):
     # Load the built-in commands and merge with defaults
     built_in_commands = merge_config_hierarchy(config["provider"], {},
-                                               False, "built-in-commands")
+                                               False, "commands")
     # Populate some internal command which is generated on the fly
     prepare_internal_commands(config, built_in_commands)
 

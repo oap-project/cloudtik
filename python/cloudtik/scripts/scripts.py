@@ -23,13 +23,14 @@ from cloudtik.core._private.cluster.cluster_operator import (
     get_cluster_dump_archive, get_local_dump_archive, show_cluster_info, show_cluster_status, RUN_ENV_TYPES,
     start_proxy, stop_proxy, cluster_debug_status,
     cluster_health_check, cluster_process_status,
-    attach_worker, exec_node_from_head, start_node_from_head, stop_node_from_head, exec_cmd_on_cluster, scale_cluster)
+    attach_worker, exec_node_from_head, start_node_from_head, stop_node_from_head, exec_cmd_on_cluster, scale_cluster,
+    _load_cluster_config)
 from cloudtik.core._private.constants import CLOUDTIK_PROCESSES, \
     CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
     CLOUDTIK_DEFAULT_PORT
 from cloudtik.core._private.node.node_services import NodeServicesStarter
 from cloudtik.core._private.parameter import StartParams
-from cloudtik.runtime.spark.utils import is_spark_runtime_scripts, get_spark_runtime_command
+from cloudtik.core._private.utils import get_runtime_command
 from cloudtik.scripts.utils import NaturalOrderGroup
 from cloudtik.scripts.workspace import workspace
 from cloudtik.scripts.head_scripts import head
@@ -774,11 +775,13 @@ def submit(cluster_config_file, screen, tmux, stop, start, cluster_name,
         command_parts = ["python", target]
     elif target_name.endswith(".sh"):
         command_parts = ["bash", target]
-    elif is_spark_runtime_scripts(target_name):
-        command_parts = get_spark_runtime_command(target)
     else:
-        cli_logger.error("We don't how to execute your file: {}", script)
-        return
+        config = _load_cluster_config(
+            cluster_config_file, cluster_name, True, no_config_cache)
+        command_parts = get_runtime_command(config.get("runtime"), target)
+        if command_parts is None:
+            cli_logger.error("We don't how to execute your file: {}", script)
+            return
 
     if script_args:
         command_parts += list(script_args)

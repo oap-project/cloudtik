@@ -39,12 +39,20 @@ class Runtime:
         """
         return {}
 
+    def get_runnable_command(self, target: str):
+        """Return the runnable command for the target script.
+        For example: ["bash", target]
+        """
+        return None
+
+    @staticmethod
     def get_logs(self) -> Dict[str, str]:
         """Return a dictionary of name to log paths.
         For example {"server-a": "/tmp/server-a/logs"}
         """
         return {}
 
+    @staticmethod
     def get_processes(self):
         """Return a list of processes for this runtime.
         Format:
@@ -54,15 +62,5 @@ class Runtime:
         #4 The forth element, if node, the process should on all nodes, if head, the process should on head node.
         For example
         ["cloudtik_cluster_controller.py", False, "ClusterController", "head"],
-        """
-        return []
-
-    def is_runnable_scripts(self, script_file: str) -> bool:
-        """Returns whether the script file is runnable by this runtime"""
-        return False
-
-    def get_runnable_command(self, target: str):
-        """Return the runnable command for the target script.
-        For example: ["bash", target]
         """
         return []

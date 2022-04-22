@@ -27,10 +27,6 @@ chmod +x ${SCRIPT_DIR}/python/cloudtik/core/thirdparty/redis/redis-server
 # clear up the build directory
 rm -r -f -- ${REDIS_BUILD_DIR}
 
-mkdir -p ${SCRIPT_DIR}/python/cloudtik/runtime/spark/conf
-cp -r ${SCRIPT_DIR}/runtime/spark/conf ${SCRIPT_DIR}/python/cloudtik/runtime/spark/
-cp -r ${SCRIPT_DIR}/runtime/spark/scripts ${SCRIPT_DIR}/python/cloudtik/runtime/spark/
-
 # build pip wheel
 cd ${SCRIPT_DIR}/python
 

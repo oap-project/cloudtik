@@ -928,28 +928,27 @@ def status(cluster_config_file, cluster_name):
     type=str,
     help="Override the configured cluster name.")
 @click.option(
-    "--num-worker-cpus",
+    "--worker-cpus",
     is_flag=True,
     default=False,
     help="Get the total number of cpus for workers.")
 @click.option(
-    "--num-worker-memory",
+    "--worker-memory",
     is_flag=True,
     default=False,
     help="Get the total memory for workers.")
 @add_click_logging_options
-def info(cluster_config_file, cluster_name, num_worker_cpus, num_worker_memory):
+def info(cluster_config_file, cluster_name, worker_cpus, worker_memory):
     """Show cluster summary information and useful links to use the cluster."""
-    if num_worker_cpus:
+    if worker_cpus:
         return show_worker_cpus(cluster_config_file, cluster_name)
 
-    if num_worker_memory:
+    if worker_memory:
         return show_worker_memory(cluster_config_file, cluster_name)
 
     show_cluster_info(
         cluster_config_file,
-        cluster_name,
-    )
+        cluster_name)
 
 
 @cli.command()

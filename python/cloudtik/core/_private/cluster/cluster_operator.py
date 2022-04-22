@@ -1648,27 +1648,19 @@ def get_cluster_dump_archive(cluster_config_file: Optional[str] = None,
 
 
 def show_worker_cpus(config_file: str,
-                      override_cluster_name: Optional[str] = None) -> None:
-    config = yaml.safe_load(open(config_file).read())
-    if override_cluster_name is not None:
-        config["cluster_name"] = override_cluster_name
-
-    config = _bootstrap_config(config, no_config_cache=False)
+                     override_cluster_name: Optional[str] = None) -> None:
+    config = _load_cluster_config(config_file, override_cluster_name)
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     worker_cpus = get_worker_cpus(config, provider)
     cli_logger.print(cf.bold(worker_cpus))
 
 
 def show_worker_memory(config_file: str,
-                      override_cluster_name: Optional[str] = None) -> None:
-    config = yaml.safe_load(open(config_file).read())
-    if override_cluster_name is not None:
-        config["cluster_name"] = override_cluster_name
-
-    config = _bootstrap_config(config, no_config_cache=False)
+                       override_cluster_name: Optional[str] = None) -> None:
+    config = _load_cluster_config(config_file, override_cluster_name)
     provider = _get_node_provider(config["provider"], config["cluster_name"])
-    total_memory_GB = int(get_worker_memory(config, provider))
-    cli_logger.print(cf.bold("{}GB"), total_memory_GB)
+    memory_in_gb = int(get_worker_memory(config, provider))
+    cli_logger.print(cf.bold("{}GB"), memory_in_gb)
 
 
 def show_cluster_info(config_file: str,

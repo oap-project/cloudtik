@@ -1,5 +1,3 @@
-import copy
-import importlib
 import logging
 import json
 import os
@@ -7,7 +5,7 @@ from typing import Any, Dict
 
 import yaml
 
-from cloudtik.core._private.providers import _load_class
+from cloudtik.core.runtime import Runtime
 
 logger = logging.getLogger(__name__)
 
@@ -27,10 +25,6 @@ def _load_spark_runtime_home():
     return os.path.dirname(spark.__file__)
 
 
-def _load_spark_defaults_config():
-    return os.path.join(_load_spark_runtime_home(), "defaults.yaml")
-
-
 _RUNTIMES = {
     "spark": _import_spark,
 }
@@ -41,10 +35,6 @@ _RUNTIME_PRETTY_NAMES = {
 
 _RUNTIME_HOMES = {
     "spark": _load_spark_runtime_home,
-}
-
-_RUNTIME_DEFAULT_CONFIGS = {
-    "spark": _load_spark_defaults_config,
 }
 
 
@@ -65,7 +55,7 @@ def _get_runtime_cls(runtime_type: str):
 
 
 def _get_runtime(runtime_type: str, runtime_config: Dict[str, Any],
-                 use_cache: bool = True) -> Any:
+                 use_cache: bool = True) -> Runtime:
     """Get the instantiated runtime for a given runtime config.
 
     Note that this may be used by private runtimes that proxy methods to
@@ -80,7 +70,8 @@ def _get_runtime(runtime_type: str, runtime_config: Dict[str, Any],
     Returns:
         Runtime
     """
-    runtime_key = (runtime_type, json.dumps(runtime_config, sort_keys=True))
+    runtime_section = runtime_config.get(runtime_type, {})
+    runtime_key = (runtime_type, json.dumps(runtime_section, sort_keys=True))
     if use_cache and runtime_key in _runtime_instances:
         return _runtime_instances[runtime_key]
 
@@ -98,28 +89,10 @@ def _clear_runtime_cache():
     _runtime_instances = {}
 
 
-def _get_runtime_default_config(runtime_type: str, runtime_config):
-    """Retrieve a runtime.
-
-    This is an INTERNAL API. It is not allowed to call this from outside.
-    """
-    if runtime_type == "external":
-        return copy.deepcopy(RUNTIME_MINIMAL_EXTERNAL_CONFIG)
-    load_config = _RUNTIME_DEFAULT_CONFIGS.get(runtime_type)
-    if load_config is None:
-        raise NotImplementedError("Unsupported runtime: {}".format(
-            runtime_type))
-    path_to_default = load_config()
-    with open(path_to_default) as f:
-        defaults = yaml.safe_load(f)
-
-    return defaults
-
-
-def _get_runtime_config_object(runtime_type: str, runtime_config, object_name: str):
+def _get_runtime_config_object(runtime_type: str, provider_config, object_name: str):
     # For external runtime, from the shared config object it there is one
     if runtime_type == "external":
-        return {"from": object_name}
+        return {}
 
     if not object_name.endswith(".yaml"):
         object_name += ".yaml"
@@ -129,8 +102,14 @@ def _get_runtime_config_object(runtime_type: str, runtime_config, object_name: s
         raise NotImplementedError("Unsupported runtime: {}".format(
             runtime_type))
     path_to_home = load_config_home()
-    path_to_config_file = os.path.join(path_to_home, object_name)
+    path_to_config = os.path.join(path_to_home, "config")
+    provider_type = provider_config["type"]
+
+    path_to_config_file = os.path.join(path_to_config, provider_type, object_name)
+    if not os.path.exists(path_to_config_file):
+        path_to_config_file = os.path.join(path_to_config, object_name)
+
     with open(path_to_config_file) as f:
-        config_object = yaml.safe_load(f)
+        config_object = yaml.safe_load(f) or {}
 
     return config_object

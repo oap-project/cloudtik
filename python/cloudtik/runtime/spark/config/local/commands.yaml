@@ -1,0 +1,12 @@
+# Include the common built-in commands
+from: commands
+
+# Custom commands that will be run on the head node after common setup.
+head_setup_commands:
+    - cloudtik-spark install --head --provider=local
+    - cloudtik-spark configure --head --provider=local
+
+# Custom commands that will be run on worker nodes after common setup.
+worker_setup_commands:
+    - cloudtik-spark install --provider=local
+    - cloudtik-spark configure --provider=local --head_address=$CLOUDTIK_HEAD_IP

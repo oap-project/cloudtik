@@ -261,7 +261,7 @@ def _get_default_config(provider_config):
             provider_config["type"]))
     path_to_default = load_config()
     with open(path_to_default) as f:
-        defaults = yaml.safe_load(f)
+        defaults = yaml.safe_load(f) or {}
 
     return defaults
 
@@ -339,6 +339,6 @@ def _get_provider_config_object(provider_config, object_name: str):
     path_to_home = load_config_home()
     path_to_config_file = os.path.join(path_to_home, object_name)
     with open(path_to_config_file) as f:
-        config_object = yaml.safe_load(f)
+        config_object = yaml.safe_load(f) or {}
 
     return config_object

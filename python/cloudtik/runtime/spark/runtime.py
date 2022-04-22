@@ -4,8 +4,9 @@ from typing import Any, Dict
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.runtime import Runtime
 from cloudtik.runtime.spark.utils import config_spark_runtime_resources, with_spark_runtime_environment_variables, \
-    is_spark_runtime_scripts, get_spark_runtime_command, get_spark_runtime_processes, spark_runtime_validate_config, \
-    spark_runtime_verify_config, get_spark_runtime_logs
+    is_spark_runtime_scripts, get_spark_runnable_command, get_spark_runtime_processes, spark_runtime_validate_config, \
+    spark_runtime_verify_config, get_spark_runtime_logs, get_spark_runtime_commands, \
+    get_spark_defaults_config
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +44,15 @@ class SparkRuntime(Runtime):
         if not is_spark_runtime_scripts(target):
             return None
 
-        return get_spark_runtime_command(target)
+        return get_spark_runnable_command(target)
+
+    def get_runtime_commands(self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Returns a copy of runtime commands to run at different stages"""
+        return get_spark_runtime_commands(cluster_config)
+
+    def get_defaults_config(self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Returns a copy of runtime config"""
+        return get_spark_defaults_config(cluster_config)
 
     @staticmethod
     def get_logs(self) -> Dict[str, str]:

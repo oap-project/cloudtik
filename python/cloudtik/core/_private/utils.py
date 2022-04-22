@@ -760,7 +760,7 @@ def prepare_config(config: Dict[str, Any]) -> Dict[str, Any]:
     config = provider_cls.prepare_config(config)
 
     with_defaults = fillout_defaults(config)
-    merge_commands(with_defaults)
+    merge_cluster_config(with_defaults)
     validate_docker_config(with_defaults)
     fill_node_type_min_max_workers(with_defaults)
     return with_defaults
@@ -861,6 +861,41 @@ def merge_config_hierarchy(provider, config: Dict[str, Any],
     return merged_config
 
 
+def _get_rooted_template_config(root: str, template_name: str) -> Dict[str, Any]:
+    """Load the template config from root"""
+    # Append .yaml extension if the name doesn't include
+    if not template_name.endswith(".yaml"):
+        template_name += ".yaml"
+
+    template_file = os.path.join(root, template_name)
+    with open(template_file) as f:
+        template_config = yaml.safe_load(f)
+
+    return template_config
+
+
+def get_rooted_merged_base_config(root: str, base_config_name: str,
+                                  object_name: str = None) -> Dict[str, Any]:
+    template_config = _get_rooted_template_config(root, base_config_name)
+    merged_config = merge_rooted_config_hierarchy(
+        root, template_config, object_name=object_name)
+    return merged_config
+
+
+def merge_rooted_config_hierarchy(root: str, config: Dict[str, Any],
+                                  object_name: str = None) -> Dict[str, Any]:
+    base_config_name = config.get("from", None)
+    if base_config_name:
+        # base config is provided, we need to merge with base configuration
+        merged_base_config = get_rooted_merged_base_config(
+            root, base_config_name, object_name)
+        merged_config = merge_config(merged_base_config, config)
+    else:
+        merged_config = config
+
+    return merged_config
+
+
 def fillout_defaults(config: Dict[str, Any]) -> Dict[str, Any]:
     # Merge the config with user inheritance hierarchy and system defaults hierarchy
     merged_config = merge_config_hierarchy(config["provider"], config)
@@ -891,6 +926,23 @@ def merge_command_key(config, from_config, command_key):
     config[command_key] = commands
 
 
+def merge_runtime_commands(config, built_in_commands):
+    runtime_config = config.get("runtime")
+    if runtime_config is None:
+        return built_in_commands
+
+    final_commands = built_in_commands
+    runtime_types = runtime_config.get("types", [])
+    for runtime_type in runtime_types:
+        runtime = _get_runtime(runtime_type, runtime_config)
+        runtime_commands = runtime.get_runtime_commands(config)
+        if runtime_commands:
+            merge_commands_from(runtime_commands, final_commands)
+            final_commands = runtime_commands
+
+    return final_commands
+
+
 def merge_built_in_commands(config):
     # Load the built-in commands and merge with defaults
     built_in_commands = merge_config_hierarchy(config["provider"], {},
@@ -898,6 +950,14 @@ def merge_built_in_commands(config):
     # Populate some internal command which is generated on the fly
     prepare_internal_commands(config, built_in_commands)
 
+    # Merge runtime commands with built-in: runtime after built-in
+    built_in_commands = merge_runtime_commands(config, built_in_commands)
+
+    # Merge built-in commands: user commands after built-in
+    merge_commands_from(config, built_in_commands)
+
+
+def merge_commands_from(config, from_config):
     command_keys = ["initialization_commands",
                     "setup_commands",
                     "head_setup_commands",
@@ -911,9 +971,9 @@ def merge_built_in_commands(config):
                     "worker_stop_commands"]
 
     for command_key in command_keys:
-        merge_command_key(config, built_in_commands, command_key)
+        merge_command_key(config, from_config, command_key)
 
-    merge_docker_initialization_commands(config, built_in_commands)
+    merge_docker_initialization_commands(config, from_config)
 
 
 def merge_docker_initialization_commands(config, built_in_commands):
@@ -925,6 +985,31 @@ def merge_docker_initialization_commands(config, built_in_commands):
     commands = built_in_commands.get("docker", {}).get(command_key, [])
     commands += config.get("docker", {}).get(command_key, [])
     config["docker"][command_key] = commands
+
+
+def merge_cluster_config(config):
+    merge_commands(config)
+    merge_runtime_config(config)
+    print(json.dumps(config))
+
+
+def merge_runtime_config(config):
+    runtime_config = config.get("runtime")
+    if runtime_config is None:
+        return
+
+    runtime_types = runtime_config.get("types", [])
+    for runtime_type in runtime_types:
+        runtime = _get_runtime(runtime_type, runtime_config)
+        defaults_config = runtime.get_defaults_config(config)
+        if defaults_config is None:
+            continue
+
+        if runtime_type not in runtime_config:
+            runtime_config[runtime_type] = {}
+        user_config = runtime_config[runtime_type]
+        merged_config = merge_config(defaults_config, user_config)
+        runtime_config[runtime_type] = merged_config
 
 
 def merge_commands(config):
@@ -1719,7 +1804,7 @@ def runtime_verify_config(runtime_config, config, provider):
         runtime.verify_config(config, provider)
 
 
-def get_runtime_command(runtime_config, target):
+def get_runnable_command(runtime_config, target):
     if runtime_config is None:
         return None
 

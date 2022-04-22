@@ -3,6 +3,9 @@ import copy
 from typing import Any, Dict
 import yaml
 
+from cloudtik.core._private.runtime_factory import _get_runtime_config_object
+from cloudtik.core._private.utils import merge_rooted_config_hierarchy
+
 SPARK_RUNTIME_PROCESSES = [
     # The first element is the substring to filter.
     # The second element, if True, is to filter ps results by command name.
@@ -143,7 +146,7 @@ def is_spark_runtime_scripts(script_file):
     return False
 
 
-def get_spark_runtime_command(target):
+def get_spark_runnable_command(target):
     command_parts = ["spark-shell", "-i", target]
     return command_parts
 
@@ -223,3 +226,17 @@ def spark_runtime_verify_config(config: Dict[str, Any], provider):
     # if HDFS enabled, we ignore the cloud storage configurations
     if not config.get("runtime", {}).get("spark", {}).get("enable_hdfs", False):
         provider.validate_storage_config(config["provider"])
+
+
+def get_spark_runtime_commands(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+    config_root = os.path.join(CLOUDTIK_RUNTIME_SPARK_PATH, "config")
+    object_name = "commands"
+    runtime_commands = _get_runtime_config_object("spark", cluster_config["provider"], object_name)
+    return merge_rooted_config_hierarchy(config_root, runtime_commands, object_name)
+
+
+def get_spark_defaults_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+    config_root = os.path.join(CLOUDTIK_RUNTIME_SPARK_PATH, "config")
+    object_name = "defaults"
+    defaults_config = _get_runtime_config_object("spark", cluster_config["provider"], object_name)
+    return merge_rooted_config_hierarchy(config_root, defaults_config, object_name)

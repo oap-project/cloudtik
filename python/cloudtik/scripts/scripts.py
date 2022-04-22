@@ -31,7 +31,7 @@ from cloudtik.core._private.constants import CLOUDTIK_PROCESSES, \
     CLOUDTIK_DEFAULT_PORT
 from cloudtik.core._private.node.node_services import NodeServicesStarter
 from cloudtik.core._private.parameter import StartParams
-from cloudtik.core._private.utils import get_runtime_command
+from cloudtik.core._private.utils import get_runnable_command
 from cloudtik.scripts.utils import NaturalOrderGroup
 from cloudtik.scripts.workspace import workspace
 from cloudtik.scripts.head_scripts import head
@@ -779,7 +779,7 @@ def submit(cluster_config_file, screen, tmux, stop, start, cluster_name,
     else:
         config = _load_cluster_config(
             cluster_config_file, cluster_name, True, no_config_cache)
-        command_parts = get_runtime_command(config.get("runtime"), target)
+        command_parts = get_runnable_command(config.get("runtime"), target)
         if command_parts is None:
             cli_logger.error("We don't how to execute your file: {}", script)
             return

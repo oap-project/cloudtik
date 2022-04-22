@@ -45,6 +45,14 @@ class Runtime:
         """
         return None
 
+    def get_runtime_commands(self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Returns a copy of runtime commands to run at different stages"""
+        return None
+
+    def get_defaults_config(self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Returns a copy of runtime config"""
+        return None
+
     @staticmethod
     def get_logs(self) -> Dict[str, str]:
         """Return a dictionary of name to log paths.

@@ -766,6 +766,7 @@ def prepare_config(config: Dict[str, Any]) -> Dict[str, Any]:
     config = provider_cls.prepare_config(config)
 
     with_defaults = fillout_defaults(config)
+    prepare_environment_variables(with_defaults)
     merge_commands(with_defaults)
     validate_docker_config(with_defaults)
     fill_node_type_min_max_workers(with_defaults)
@@ -976,6 +977,24 @@ def get_cloudtik_setup_command(config) -> str:
     setup_command += config.get("cloudtik_wheel_url", get_default_cloudtik_wheel_url())
     setup_command += "\""
     return setup_command
+
+
+def prepare_environment_variables(config):
+    if "environment_variables" in config:
+        user_env_path = "~/cloudtik_user.profile"
+        hasher = hashlib.sha1()
+        hasher.update(json.dumps([config['environment_variables']], sort_keys=True).encode("utf-8"))
+        cache_user_env = os.path.join(tempfile.gettempdir(),
+                                 "cloudtik-user-env-{}".format(hasher.hexdigest()))
+        with open(cache_user_env, "w") as f:
+            for item in config['environment_variables']:
+                f.write("export {}".format(item))
+        config["file_mounts"].update({
+            user_env_path: cache_user_env
+        })
+        source_env_command = "echo 'source {}' >> ~/.bashrc".format(user_env_path)
+        config["setup_commands"].append(source_env_command)
+        return config
 
 
 def combine_setup_commands(config):

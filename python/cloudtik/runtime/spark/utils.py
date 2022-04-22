@@ -132,7 +132,7 @@ def config_spark_runtime_resources(cluster_config: Dict[str, Any]) -> Dict[str, 
     return cluster_config
 
 
-def get_runtime_processes():
+def get_spark_runtime_processes():
     return SPARK_RUNTIME_PROCESSES
 
 

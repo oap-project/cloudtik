@@ -17,7 +17,7 @@ import cloudtik
 from cloudtik.core._private import constants, services
 from cloudtik.core._private.logging_utils import setup_component_logger
 from cloudtik.core._private.state.control_state import ControlState
-from cloudtik.runtime.spark.utils import get_runtime_processes
+from cloudtik.runtime.spark.utils import get_spark_runtime_processes
 
 logger = logging.getLogger(__name__)
 
@@ -118,7 +118,7 @@ class NodeController:
     def _check_process(self):
         """check CloudTik runtime processes on the local machine."""
         processes_to_check = constants.CLOUDTIK_PROCESSES
-        processes_to_check.extend(get_runtime_processes())
+        processes_to_check.extend(get_spark_runtime_processes())
 
         process_infos = []
         for proc in psutil.process_iter(["name", "cmdline"]):

@@ -6,7 +6,7 @@ from cloudtik.core.node_provider import NodeProvider
 logger = logging.getLogger(__name__)
 
 
-class RuntimeProvider:
+class Runtime:
     """Interface for runtime abstraction.
 
     **Important**: This is an INTERNAL API that is only exposed for the purpose

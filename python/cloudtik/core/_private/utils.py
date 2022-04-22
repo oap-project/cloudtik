@@ -33,7 +33,7 @@ from cloudtik.core._private.constants import CLOUDTIK_WHEELS, CLOUDTIK_CLUSTER_P
     CLOUDTIK_DEFAULT_MAX_WORKERS
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core._private.providers import _get_default_config, _get_node_provider, _get_provider_config_object, \
-    _NODE_PROVIDERS
+    _get_node_provider_cls
 from cloudtik.core._private.docker import validate_docker_config
 from cloudtik.core._private.providers import _get_workspace_provider
 
@@ -757,12 +757,7 @@ def prepare_config(config: Dict[str, Any]) -> Dict[str, Any]:
     - Has a valid Docker configuration if provided.
     - Has max_worker set for each node type.
     """
-    importer = _NODE_PROVIDERS.get(config["provider"]["type"])
-    if not importer:
-        raise NotImplementedError("Unsupported provider {}".format(
-            config["provider"]))
-
-    provider_cls = importer(config["provider"])
+    provider_cls = _get_node_provider_cls(config["provider"])
     config = provider_cls.prepare_config(config)
 
     with_defaults = fillout_defaults(config)

@@ -43,3 +43,7 @@ rsync_exclude: []
 # in the source directory and recursively through all subdirectories. For example, if .gitignore is provided
 # as a value, the behavior will match git's behavior for finding and using .gitignore files.
 rsync_filter: []
+
+runtime:
+    types:
+        - spark

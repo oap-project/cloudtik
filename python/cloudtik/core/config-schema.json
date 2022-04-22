@@ -392,6 +392,14 @@
             "$ref": "#/definitions/commands",
             "description": "Commands that will be run on worker nodes after common setup."
         },
+        "bootstrap_commands": {
+            "$ref": "#/definitions/commands",
+            "description": "Common setup commands running after all the setup commands"
+        },
+        "start_commands": {
+            "$ref": "#/definitions/commands",
+            "description": "Common start commands for nodes"
+        },
         "head_start_commands": {
             "$ref": "#/definitions/commands",
             "description": "Command to start on the head node. You shouldn't need to modify this."
@@ -399,6 +407,10 @@
         "worker_start_commands": {
             "$ref": "#/definitions/commands",
             "description": "Command to start on worker nodes. You shouldn't need to modify this."
+        },
+        "stop_commands": {
+            "$ref": "#/definitions/commands",
+            "description": "Common stop commands for nodes"
         },
         "head_stop_commands": {
             "$ref": "#/definitions/commands",

@@ -98,8 +98,8 @@ println(experiment.toString)
 experiment.waitForFinish(timeout*60*60)
 
 val res=experiment.getCurrentResults // or: spark.read.json(resultLocation).filter("timestamp = 1429132621024")
-  .withColumn("Name", substring(col("name"), 2, 100))
-  .withColumn("Runtime", (col("parsingTime") + col("analysisTime") + col("optimizationTime") + col("planningTime") + col("executionTime")) / 1000.0)
+  .withColumn("Name", substring(col("name"), 1, 100))
+  .withColumn("Runtime", round(((col("parsingTime") + col("analysisTime") + col("optimizationTime") + col("planningTime") + col("executionTime")) / 1000.0), 2))
   .select('Name, 'Runtime)
 res.show(104)
 

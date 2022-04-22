@@ -1811,11 +1811,12 @@ def show_cluster_status(config_file: str,
 
     tb = pt.PrettyTable()
     tb.field_names = ["node-id", "node-ip", "node-type", "node-status", "instance-type",
-                      "total-vcores", "total-memory-GB", ", ""public-ip", "instance-status"]
+                      "public-ip", "instance-status", "vcores", "memory"]
     for node_info in nodes_info:
         tb.add_row([node_info["node_id"], node_info["private_ip"], node_info["cloudtik-node-kind"],
-                    node_info["cloudtik-node-status"], node_info["instance_type"], node_info["total-vcores"],
-                    node_info["total-memory-GB"], node_info["public_ip"], node_info["instance_status"]])
+                    node_info["cloudtik-node-status"], node_info["instance_type"], node_info["public_ip"],
+                    node_info["instance_status"], node_info["total-vcores"],
+                    str(node_info["total-memory-GB"]) + "GB"])
 
     def get_nodes_ready(node_info_list):
         nodes_ready = 0

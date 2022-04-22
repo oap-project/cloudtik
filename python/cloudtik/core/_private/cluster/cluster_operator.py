@@ -62,7 +62,7 @@ from cloudtik.core._private.debug import log_once
 import cloudtik.core._private.subprocess_output_util as cmd_output_util
 from cloudtik.core._private.cluster.cluster_metrics import ClusterMetricsSummary
 from cloudtik.core._private.cluster.cluster_scaler import ClusterScalerSummary
-from cloudtik.core._private.utils import format_info_string
+from cloudtik.core._private.utils import format_info_string, get_node_info_with_config
 
 logger = logging.getLogger(__name__)
 
@@ -1326,6 +1326,26 @@ def rsync_node_on_head(source: str,
         rsync_to_node(node_id, source, target)
 
 
+def get_worker_cpus(config, provider):
+    workers = _get_worker_nodes(config, None)
+    workers_info = [get_node_info_with_config(
+        config["available_node_types"], provider, worker) for worker in workers]
+    total_vcores = 0
+    for worker_info in workers_info:
+        total_vcores += worker_info["total-vcores"]
+    return total_vcores
+
+
+def get_worker_memory(config, provider):
+    workers = _get_worker_nodes(config, None)
+    workers_info = [get_node_info_with_config(
+        config["available_node_types"], provider, worker) for worker in workers]
+    total_memory_GB = 0
+    for worker_info in workers_info:
+        total_memory_GB += worker_info["total-memory-GB"]
+    return total_memory_GB
+
+
 def get_head_node_ip(config_file: str,
                      override_cluster_name: Optional[str] = None) -> str:
     """Returns head node IP for given configuration file if exists."""
@@ -1627,9 +1647,32 @@ def get_cluster_dump_archive(cluster_config_file: Optional[str] = None,
     return output
 
 
+def show_worker_cpus(config_file: str,
+                      override_cluster_name: Optional[str] = None) -> None:
+    config = yaml.safe_load(open(config_file).read())
+    if override_cluster_name is not None:
+        config["cluster_name"] = override_cluster_name
+
+    config = _bootstrap_config(config, no_config_cache=False)
+    provider = _get_node_provider(config["provider"], config["cluster_name"])
+    worker_cpus = get_worker_cpus(config, provider)
+    cli_logger.print(cf.bold(worker_cpus))
+
+
+def show_worker_memory(config_file: str,
+                      override_cluster_name: Optional[str] = None) -> None:
+    config = yaml.safe_load(open(config_file).read())
+    if override_cluster_name is not None:
+        config["cluster_name"] = override_cluster_name
+
+    config = _bootstrap_config(config, no_config_cache=False)
+    provider = _get_node_provider(config["provider"], config["cluster_name"])
+    total_memory_GB = int(get_worker_memory(config, provider))
+    cli_logger.print(cf.bold("{}GB"), total_memory_GB)
+
+
 def show_cluster_info(config_file: str,
-                      override_cluster_name: Optional[str] = None
-                      ) -> None:
+                      override_cluster_name: Optional[str] = None) -> None:
     """Shows the cluster information for given configuration file."""
     config = yaml.safe_load(open(config_file).read())
     if override_cluster_name is not None:
@@ -1653,11 +1696,15 @@ def show_cluster_info(config_file: str,
 
     # Check the running worker nodes
     head_count = 1
-    worker_ips = _get_worker_node_ips(config)
-    worker_count = len(worker_ips)
+    workers = _get_worker_nodes(config, None)
+    worker_count = len(workers)
+    worker_cpus = get_worker_cpus(config, provider)
+    worker_memory = get_worker_memory(config, provider)
     cli_logger.print(cf.bold("Cluster {}:"), config["cluster_name"])
     cli_logger.print(cf.bold("{} head and {} worker(s) are running"),
                      head_count, worker_count)
+    cli_logger.print(cf.bold("The total number of vcores of all workers is {}."), worker_cpus)
+    cli_logger.print(cf.bold("The total memory of all workers is {}GB."), worker_memory)
 
     if head_node is None:
         return
@@ -1770,7 +1817,8 @@ def show_cluster_status(config_file: str,
 
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     nodes = provider.non_terminated_nodes({})
-    nodes_info = [provider.get_node_info(node) for node in nodes]
+    nodes_info = [get_node_info_with_config(
+        config["available_node_types"], provider, node) for node in nodes]
 
     # sort nodes info based on node type and then node ip for workers
     def node_info_sort(node_info):
@@ -1784,11 +1832,12 @@ def show_cluster_status(config_file: str,
 
     tb = pt.PrettyTable()
     tb.field_names = ["node-id", "node-ip", "node-type", "node-status", "instance-type",
-                      "public-ip", "instance-status"]
+                      "public-ip", "instance-status", "vcores", "memory"]
     for node_info in nodes_info:
         tb.add_row([node_info["node_id"], node_info["private_ip"], node_info["cloudtik-node-kind"],
                     node_info["cloudtik-node-status"], node_info["instance_type"], node_info["public_ip"],
-                    node_info["instance_status"]])
+                    node_info["instance_status"], node_info["total-vcores"],
+                    str(node_info["total-memory-GB"]) + "GB"])
 
     def get_nodes_ready(node_info_list):
         nodes_ready = 0

@@ -20,7 +20,8 @@ from cloudtik.core._private.cli_logger import (add_click_logging_options,
 from cloudtik.core._private.cluster.cluster_operator import (
     attach_cluster, exec_cluster, create_or_update_cluster, monitor_cluster,
     rsync, teardown_cluster, get_head_node_ip, kill_node_from_head, get_worker_node_ips,
-    get_cluster_dump_archive, get_local_dump_archive, show_cluster_info, show_cluster_status, RUN_ENV_TYPES,
+    get_cluster_dump_archive, get_local_dump_archive, RUN_ENV_TYPES,
+    show_worker_cpus, show_worker_memory, show_cluster_info, show_cluster_status,
     start_proxy, stop_proxy, cluster_debug_status,
     cluster_health_check, cluster_process_status,
     attach_worker, exec_node_from_head, start_node_from_head, stop_node_from_head, exec_cmd_on_cluster, scale_cluster,
@@ -926,12 +927,29 @@ def status(cluster_config_file, cluster_name):
     required=False,
     type=str,
     help="Override the configured cluster name.")
+@click.option(
+    "--num-worker-cpus",
+    is_flag=True,
+    default=False,
+    help="Get the total number of cpus for workers.")
+@click.option(
+    "--num-worker-memory",
+    is_flag=True,
+    default=False,
+    help="Get the total memory for workers.")
 @add_click_logging_options
-def info(cluster_config_file, cluster_name):
+def info(cluster_config_file, cluster_name, num_worker_cpus, num_worker_memory):
     """Show cluster summary information and useful links to use the cluster."""
+    if num_worker_cpus:
+        return show_worker_cpus(cluster_config_file, cluster_name)
+
+    if num_worker_memory:
+        return show_worker_memory(cluster_config_file, cluster_name)
+
     show_cluster_info(
         cluster_config_file,
-        cluster_name)
+        cluster_name,
+    )
 
 
 @cli.command()

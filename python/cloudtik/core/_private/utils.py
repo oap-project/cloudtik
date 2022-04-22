@@ -37,6 +37,7 @@ from cloudtik.core._private.providers import _get_default_config, _get_node_prov
     _get_node_provider_cls
 from cloudtik.core._private.docker import validate_docker_config
 from cloudtik.core._private.providers import _get_workspace_provider
+from cloudtik.core.tags import CLOUDTIK_TAG_USER_NODE_TYPE
 
 # Import psutil after others so the packaged version is used.
 import psutil
@@ -1603,6 +1604,20 @@ def kill_process_tree(pid, include_parent=True):
             p.kill()
         except psutil.NoSuchProcess:  # pragma: no cover
             pass
+
+
+def get_node_info_with_config(available_node_types_config, provider, node):
+    node_info = get_node_info_with_resource(available_node_types_config, provider, node)
+    return node_info
+
+
+def get_node_info_with_resource(available_node_types_config, provider, node):
+    node_info = provider.get_node_info(node)
+    node_info["total-vcores"] = available_node_types_config.get(
+        node_info.get(CLOUDTIK_TAG_USER_NODE_TYPE, ""), {}).get("resources", {}).get("CPU", 0)
+    node_info["total-memory-GB"] = int(available_node_types_config.get(
+        node_info.get(CLOUDTIK_TAG_USER_NODE_TYPE, ""), {}).get("resources", {}).get("memory", 0) / pow(1024, 3))
+    return node_info
 
 
 def unescape_private_key(private_key: str):

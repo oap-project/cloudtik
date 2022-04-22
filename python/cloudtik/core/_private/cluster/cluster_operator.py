@@ -949,6 +949,25 @@ def _set_up_config_for_head_node(config: Dict[str, Any],
     remote_config["file_mounts"] = new_mounts
     remote_config["no_restart"] = no_restart
 
+    if "environment_variables" in config:
+        user_env_path = "~/cloudtik_user.profile"
+        hasher = hashlib.sha1()
+        hasher.update(json.dumps([config['environment_variables']], sort_keys=True).encode("utf-8"))
+        cache_user_env = os.path.join(tempfile.gettempdir(),
+                                 "cloudtik-user-env-{}".format(hasher.hexdigest()))
+        with open(cache_user_env, "w") as f:
+            for item in config['environment_variables']:
+                f.write("export {}".format(item))
+        config["file_mounts"].update({
+            user_env_path: cache_user_env
+        })
+        remote_config["file_mounts"].update({
+            user_env_path: user_env_path
+        })
+        source_env_command = "echo 'source {}' >> ~/.bashrc".format(user_env_path)
+        config["head_setup_commands"].append(source_env_command)
+        remote_config["worker_setup_commands"].append(source_env_command)
+
     remote_config = provider.prepare_for_head_node(remote_config)
 
     # Now inject the rewritten config and SSH key into the head node

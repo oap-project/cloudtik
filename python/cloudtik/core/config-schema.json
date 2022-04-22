@@ -523,6 +523,10 @@
                     }
                 }
             }
+        },
+        "environment_variables": {
+            "type": "array",
+            "description": "List of environment variables on the cluster nodes, e.g. [\"PYSPARK_PYTHON=/root/miniconda2/envs/python3/bin/python3\"]"
         }
     }
 }

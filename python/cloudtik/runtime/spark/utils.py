@@ -2,7 +2,7 @@ import os
 from typing import Any, Dict
 import yaml
 
-from cloudtik.core._private.utils import merge_rooted_config_hierarchy, _get_runtime_config_object
+from cloudtik.core._private.utils import merge_rooted_config_hierarchy, _get_runtime_config_object, is_runtime_enabled
 
 SPARK_RUNTIME_PROCESSES = [
     # The first element is the substring to filter.
@@ -197,8 +197,8 @@ def update_spark_configurations():
 
 def _with_runtime_environment_variables(runtime_config, provider):
     runtime_envs = {}
-    if runtime_config and runtime_config.get("spark", {}).get("enable_hdfs", False):
-        runtime_envs["ENABLE_HDFS"] = True
+    if is_runtime_enabled(runtime_config, "hdfs"):
+        runtime_envs["HDFS_ENABLED"] = True
     else:
         # Whether we need to expert the cloud storage for HDFS case
         provider_envs = provider.with_environment_variables()
@@ -223,7 +223,7 @@ def _validate_config(config: Dict[str, Any], provider):
 
 def _verify_config(config: Dict[str, Any], provider):
     # if HDFS enabled, we ignore the cloud storage configurations
-    if not config.get("runtime", {}).get("spark", {}).get("enable_hdfs", False):
+    if not is_runtime_enabled(config.get("runtime"), "hdfs"):
         provider.validate_storage_config(config["provider"])
 
 

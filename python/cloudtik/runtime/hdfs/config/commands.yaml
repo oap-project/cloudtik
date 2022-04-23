@@ -8,7 +8,6 @@ worker_setup_commands:
     - cloudtik-hdfs install
     - cloudtik-hdfs configure --head_address=$CLOUDTIK_HEAD_IP
 
-
 # Command to start on the head node. You don't need to change this.
 head_start_commands:
     - cloudtik-hdfs stop-head

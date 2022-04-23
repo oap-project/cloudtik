@@ -177,7 +177,8 @@ def get_runtime_local_logs(
         archive: Archive,
         exclude: Optional[Sequence[str]] = None) -> Archive:
     runtime_logs = get_spark_runtime_logs()
-    for category, log_dir in runtime_logs:
+    for category in runtime_logs:
+        log_dir = runtime_logs[category]
         get_local_logs_for(archive, category, log_dir, exclude)
 
 

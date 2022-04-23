@@ -33,14 +33,26 @@ def _load_spark_runtime_home():
     return os.path.dirname(spark.__file__)
 
 
+def _import_hdfs():
+    from cloudtik.runtime.hdfs.runtime import HDFSRuntime
+    return HDFSRuntime
+
+
+def _load_hdfs_runtime_home():
+    import cloudtik.runtime.hdfs as hdfs
+    return os.path.dirname(hdfs.__file__)
+
+
 _RUNTIMES = {
     "ganglia": _import_ganglia,
     "spark": _import_spark,
+    "hdfs": _import_hdfs,
 }
 
 _RUNTIME_HOMES = {
     "ganglia": _load_ganglia_runtime_home,
     "spark": _load_spark_runtime_home,
+    "hdfs": _load_hdfs_runtime_home,
 }
 
 

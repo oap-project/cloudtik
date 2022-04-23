@@ -8,8 +8,8 @@ RUNTIME_PROCESSES = [
     # The second element, if True, is to filter ps results by command name.
     # The third element is the process name.
     # The forth element, if node, the process should on all nodes,if head, the process should on head node.
-    ["gmetad", True, "GangliaMeta", "head"],
-    ["gmond", True, "GangliaMonitor", "node"],
+    ["proc_namenode", False, "NameNode", "head"],
+    ["proc_datanode", False, "DataNode", "worker"],
 ]
 
 RUNTIME_ROOT_PATH = os.path.abspath(os.path.dirname(__file__))
@@ -32,11 +32,14 @@ def _get_runnable_command(target):
 
 
 def _with_runtime_environment_variables(runtime_config, provider):
-    return {}
+    runtime_envs = {"ENABLE_HDFS": True}
+    return runtime_envs
 
 
 def _get_runtime_logs():
-    return {}
+    hadoop_logs_dir = os.path.join(os.getenv("HADOOP_HOME"), "logs")
+    all_logs = {"hadoop": hadoop_logs_dir}
+    return all_logs
 
 
 def _validate_config(config: Dict[str, Any], provider):
@@ -63,6 +66,6 @@ def _get_defaults_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
 
 def _get_useful_urls(cluster_head_ip):
     urls = [
-        {"name": "Ganglia Web UI", "url": "http://{}/ganglia".format(cluster_head_ip)},
+        {"name": "HDFS Web UI", "url": "http://{}:50070".format(cluster_head_ip)},
     ]
     return urls

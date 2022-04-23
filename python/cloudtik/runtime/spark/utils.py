@@ -210,9 +210,10 @@ def _with_runtime_environment_variables(runtime_config, provider):
 def get_spark_runtime_logs():
     hadoop_logs_dir = os.path.join(os.getenv("HADOOP_HOME"), "logs")
     spark_logs_dir = os.path.join(os.getenv("SPARK_HOME"), "logs")
-    all_logs = [("hadoop", hadoop_logs_dir),
-                ("spark", spark_logs_dir),
-                ("other", "/tmp/logs")]
+    all_logs = {"hadoop": hadoop_logs_dir,
+                "spark": spark_logs_dir,
+                "other": "/tmp/logs"
+                }
     return all_logs
 
 

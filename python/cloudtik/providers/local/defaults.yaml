@@ -6,7 +6,7 @@ provider:
     head_node:
         ip: your_head_ip
 
-        # You need to specify the resources of the node. We assume all the worker node
+        # Specify the resources of the node. We assume all the worker node
         # are the same with head node
         # resources:
         #    CPU: number-of-cores

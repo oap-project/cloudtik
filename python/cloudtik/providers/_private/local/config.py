@@ -66,19 +66,6 @@ def prepare_manual(config: Dict[str, Any]) -> Dict[str, Any]:
     # Move `min_workers` to the node_type config.
     node_type["min_workers"] = config.pop("min_workers", num_workers)
     node_type["max_workers"] = config["max_workers"]
-
-    # Set node type resource from head node
-    head_node = get_head_node(config["provider"])
-    if "resources" not in head_node:
-        cli_logger.warning("Node resources not provided. "
-                           "Please supply the resources (CPU and memory) information in head node.")
-
-    resources = head_node.get("resources", {})
-    # default to a conservative 4 cpu and 8GB if not defined
-    cpus = resources.get("CPU", 4)
-    memory = resources.get("memory", 1024 * 8)
-    node_type["resources"]["CPU"] = cpus
-    node_type["resources"]["memory"] = int(memory) * 1024 * 1024
     return config
 
 
@@ -125,3 +112,37 @@ def get_worker_nodes(provider_config: Dict[str, Any]):
 def get_worker_node_ips(provider_config: Dict[str, Any]):
     worker_nodes = get_worker_nodes(provider_config)
     return [worker_node["ip"] for worker_node in worker_nodes]
+
+
+def get_list_of_node_ips(provider_config: Dict[str, Any]):
+    node_ips = get_worker_node_ips(provider_config)
+    head_ip = get_head_node_ip(provider_config)
+    node_ips.append(head_ip)
+    return node_ips
+
+
+def fillout_node_types_resources(
+            config: Dict[str, Any]) -> Dict[str, Any]:
+    resources = _get_node_type_resources(config["provider"])
+    set_node_types_resources(config, resources)
+    return config
+
+
+def set_node_types_resources(
+            config: Dict[str, Any], resources):
+    node_type = config["available_node_types"][LOCAL_CLUSTER_NODE_TYPE]
+    node_type["resources"]["CPU"] = resources["CPU"]
+    node_type["resources"]["memory"] = int(resources["memory"]) * 1024 * 1024
+
+
+def _get_node_type_resources(provider_config: Dict[str, Any]) -> Dict[str, Any]:
+    head_node = get_head_node(provider_config)
+    if "resources" not in head_node:
+        cli_logger.warning("Node resources not provided. "
+                           "Please supply the resources (CPU and memory) information in head node.")
+
+    resources = head_node.get("resources", {})
+    # default to a conservative 4 cpu and 8GB if not defined
+    cpus = resources.get("CPU", 4)
+    memory = resources.get("memory", 1024 * 8)
+    return {"CPU": cpus, "memory": memory}

@@ -10,10 +10,19 @@ from http.server import SimpleHTTPRequestHandler, HTTPServer
 import json
 import socket
 
+import yaml
+
 from cloudtik.providers._private.local.node_provider import LocalNodeProvider
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
+
+
+def load_provider_config(config_file):
+    with open(config_file) as f:
+        config_object = yaml.safe_load(f) or {}
+
+    return config_object
 
 
 def runner_handler(node_provider):
@@ -70,19 +79,20 @@ class CloudSimulator(threading.Thread):
     requests are forwarded to LocalNodeProvider function calls.
     """
 
-    def __init__(self, list_of_node_ips, host, port):
+    def __init__(self, config, host, port):
         """Initialize HTTPServer and serve forever by invoking self.run()."""
 
         logger.info("Running Cloud Simulator on address " + host +
                     ":" + str(port))
         threading.Thread.__init__(self)
         self._port = port
-        self._list_of_node_ips = list_of_node_ips
+        self._config = config
         address = (host, self._port)
-        config = {"list_of_node_ips": list_of_node_ips}
+
+        provider_config = load_provider_config(config)
         self._server = HTTPServer(
             address,
-            runner_handler(LocalNodeProvider(config, cluster_name=None)),
+            runner_handler(LocalNodeProvider(provider_config, cluster_name=None)),
         )
         self.start()
 
@@ -97,19 +107,26 @@ class CloudSimulator(threading.Thread):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Please provide a list of node ips and port.")
+        description="Please provide a config file and port.")
     parser.add_argument(
-        "--ips", required=True, help="Comma separated list of node ips.")
+        "--config", required=True, help="A config file the same format of local provider section at top level.")
     parser.add_argument(
         "--port",
         type=int,
         required=True,
         help="The port on which the Cloud Simulator listens.")
+    parser.add_argument(
+        "--bind-address",
+        type=str,
+        required=False,
+        help="The address to bind. Bind to the address resolved from hostname if not specified.")
     args = parser.parse_args()
-    list_of_node_ips = args.ips.split(",")
+    bind_address = args.bind_address
+    if bind_address is None:
+        bind_address = socket.gethostbyname(socket.gethostname())
     CloudSimulator(
-        list_of_node_ips=list_of_node_ips,
-        host=socket.gethostbyname(socket.gethostname()),
+        config=args.config,
+        host=bind_address,
         port=args.port,
     )
 

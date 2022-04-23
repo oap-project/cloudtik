@@ -1816,3 +1816,19 @@ def get_runnable_command(runtime_config, target):
             return commands
 
     return None
+
+
+def _get_runtime_config_object(config_home: str, provider_config, object_name: str):
+    if not object_name.endswith(".yaml"):
+        object_name += ".yaml"
+
+    provider_type = provider_config["type"]
+
+    path_to_config_file = os.path.join(config_home, provider_type, object_name)
+    if not os.path.exists(path_to_config_file):
+        path_to_config_file = os.path.join(config_home, object_name)
+
+    with open(path_to_config_file) as f:
+        config_object = yaml.safe_load(f) or {}
+
+    return config_object

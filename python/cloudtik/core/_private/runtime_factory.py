@@ -29,10 +29,6 @@ _RUNTIMES = {
     "spark": _import_spark,
 }
 
-_RUNTIME_PRETTY_NAMES = {
-    "spark": "Spark",
-}
-
 _RUNTIME_HOMES = {
     "spark": _load_spark_runtime_home,
 }
@@ -89,27 +85,11 @@ def _clear_runtime_cache():
     _runtime_instances = {}
 
 
-def _get_runtime_config_object(runtime_type: str, provider_config, object_name: str):
-    # For external runtime, from the shared config object it there is one
-    if runtime_type == "external":
-        return {}
-
-    if not object_name.endswith(".yaml"):
-        object_name += ".yaml"
-
+def _get_runtime_home(runtime_type: str):
     load_config_home = _RUNTIME_HOMES.get(runtime_type)
     if load_config_home is None:
         raise NotImplementedError("Unsupported runtime: {}".format(
             runtime_type))
     path_to_home = load_config_home()
-    path_to_config = os.path.join(path_to_home, "config")
-    provider_type = provider_config["type"]
+    return path_to_home
 
-    path_to_config_file = os.path.join(path_to_config, provider_type, object_name)
-    if not os.path.exists(path_to_config_file):
-        path_to_config_file = os.path.join(path_to_config, object_name)
-
-    with open(path_to_config_file) as f:
-        config_object = yaml.safe_load(f) or {}
-
-    return config_object

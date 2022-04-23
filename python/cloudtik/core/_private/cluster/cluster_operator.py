@@ -2410,7 +2410,8 @@ def stop_node_on_head(node_ip: str = None,
     config = yaml.safe_load(open(cluster_config_file).read())
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     head_node = _get_running_head_node(config, cluster_config_file,
-                                       None, _provider=provider)
+                                       None, _provider=provider,
+                                       _allow_uninitialized_state=True)
     head_node_ip = provider.internal_ip(head_node)
     runtime_envs = with_runtime_environment_variables(
         config.get("runtime"), provider)

@@ -45,5 +45,4 @@ rsync_exclude: []
 rsync_filter: []
 
 runtime:
-    types:
-        - spark
+    types: [ganglia, spark]

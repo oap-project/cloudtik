@@ -1828,6 +1828,9 @@ def _get_runtime_config_object(config_home: str, provider_config, object_name: s
     if not os.path.exists(path_to_config_file):
         path_to_config_file = os.path.join(config_home, object_name)
 
+    if not os.path.exists(path_to_config_file):
+        return {}
+
     with open(path_to_config_file) as f:
         config_object = yaml.safe_load(f) or {}
 

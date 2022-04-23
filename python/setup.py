@@ -347,7 +347,8 @@ setuptools.setup(
         "console_scripts": [
             "cloudtik=cloudtik.scripts.scripts:main",
             "cloudtik-ganglia=cloudtik.runtime.ganglia.scripts:main",
-            "cloudtik-spark=cloudtik.runtime.spark.scripts:main"
+            "cloudtik-spark=cloudtik.runtime.spark.scripts:main",
+            "cloudtik-hdfs=cloudtik.runtime.hdfs.scripts:main"
         ]
     },
     include_package_data=True,

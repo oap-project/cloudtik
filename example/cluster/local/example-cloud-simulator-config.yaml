@@ -1,0 +1,16 @@
+head_node:
+    ip: your_head_ip
+
+    # Specify the resources of the node.
+    # We assume all the worker nodes are the same with head node
+    CPU: number-of-cores
+    memory: size-in-mb
+
+    # You may need to supply a public ip for the head node if you need
+    # to start cluster from outside of the cluster's network
+    # (e.g. the cluster is in an AWS VPC and you're starting the cluster from your laptop)
+    # This is useful when debugging the local node provider with cloud VMs.
+    # external_ip: your_head_public_ip
+worker_nodes:
+    - ip: work_node_1_ip
+    - ip: work_node_2_ip

@@ -6,11 +6,10 @@ provider:
     head_node:
         ip: your_head_ip
 
-        # Specify the resources of the node. We assume all the worker node
-        # are the same with head node
-        # resources:
-        #    CPU: number-of-cores
-        #    memory: size-in-mb
+        # Specify the resources of the node.
+        # We assume all the worker nodes are the same with head node
+        # CPU: number-of-cores
+        # memory: size-in-mb
 
         # You may need to supply a public ip for the head node if you need
         # to start cluster from outside of the cluster's network

@@ -13,7 +13,7 @@ SPARK_RUNTIME_PROCESSES = [
     ["proc_nodemanager", False, "NodeManager", "worker"],
 ]
 
-CLOUDTIK_RUNTIME_SPARK_PATH = os.path.abspath(os.path.dirname(__file__))
+RUNTIME_ROOT_PATH = os.path.abspath(os.path.dirname(__file__))
 
 YARN_RESOURCE_MEMORY_RATIO = 0.8
 SPARK_EXECUTOR_MEMORY_RATIO = 1
@@ -227,7 +227,7 @@ def _verify_config(config: Dict[str, Any], provider):
 
 
 def _get_config_object(cluster_config: Dict[str, Any], object_name: str) -> Dict[str, Any]:
-    config_root = os.path.join(CLOUDTIK_RUNTIME_SPARK_PATH, "config")
+    config_root = os.path.join(RUNTIME_ROOT_PATH, "config")
     runtime_commands = _get_runtime_config_object(config_root, cluster_config["provider"], object_name)
     return merge_rooted_config_hierarchy(config_root, runtime_commands, object_name)
 

@@ -3,8 +3,6 @@ import json
 import os
 from typing import Any, Dict
 
-import yaml
-
 from cloudtik.core.runtime import Runtime
 
 logger = logging.getLogger(__name__)
@@ -13,6 +11,16 @@ logger = logging.getLogger(__name__)
 _runtime_instances = {}
 
 RUNTIME_MINIMAL_EXTERNAL_CONFIG = {}
+
+
+def _import_ganglia():
+    from cloudtik.runtime.ganglia.runtime import GangliaRuntime
+    return GangliaRuntime
+
+
+def _load_ganglia_runtime_home():
+    import cloudtik.runtime.ganglia as ganglia
+    return os.path.dirname(ganglia.__file__)
 
 
 def _import_spark():
@@ -26,10 +34,12 @@ def _load_spark_runtime_home():
 
 
 _RUNTIMES = {
+    "ganglia": _import_ganglia,
     "spark": _import_spark,
 }
 
 _RUNTIME_HOMES = {
+    "ganglia": _load_ganglia_runtime_home,
     "spark": _load_spark_runtime_home,
 }
 

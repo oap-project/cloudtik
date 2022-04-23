@@ -346,6 +346,7 @@ setuptools.setup(
     entry_points={
         "console_scripts": [
             "cloudtik=cloudtik.scripts.scripts:main",
+            "cloudtik-ganglia=cloudtik.runtime.ganglia.scripts:main",
             "cloudtik-spark=cloudtik.runtime.spark.scripts:main"
         ]
     },

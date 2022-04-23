@@ -8,8 +8,8 @@ RUNTIME_PROCESSES = [
     # The second element, if True, is to filter ps results by command name.
     # The third element is the process name.
     # The forth element, if node, the process should on all nodes,if head, the process should on head node.
-    ["gmetad", False, "GangliaMeta", "head"],
-    ["gmond", False, "GangliaMonitor", "node"],
+    ["gmetad", True, "GangliaMeta", "head"],
+    ["gmond", True, "GangliaMonitor", "node"],
 ]
 
 RUNTIME_ROOT_PATH = os.path.abspath(os.path.dirname(__file__))
@@ -62,7 +62,7 @@ def _get_defaults_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _get_useful_urls(cluster_head_ip):
-    urls =[
-        {"name": "Yarn Web UI", "url": "http://{}:8088".format(cluster_head_ip)},
+    urls = [
+        {"name": "Ganglia Web UI", "url": "http://{}/ganglia".format(cluster_head_ip)},
     ]
     return urls

@@ -241,7 +241,7 @@ def _get_defaults_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _get_useful_urls(cluster_head_ip):
-    urls =[
+    urls = [
         {"name": "Yarn Web UI", "url": "http://{}:8088".format(cluster_head_ip)},
         {"name": "Jupyter Web UI", "url": "http://{}:8888, default password is \'cloudtik\'".format(cluster_head_ip)},
         {"name": "Spark History Server Web UI", "url": "http://{}:18080".format(cluster_head_ip)},

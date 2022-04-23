@@ -1851,3 +1851,7 @@ def get_useful_runtime_urls(runtime_config, head_cluster_ip):
             runtime_urls += urls
 
     return runtime_urls
+
+
+def get_runtime_enabled(config):
+    return config.get("runtime", {}).get("types", [])

@@ -53,6 +53,17 @@ class Runtime:
         """Returns a copy of runtime config"""
         return None
 
+    def get_useful_urls(self, cluster_head_ip: str):
+        """Return the useful urls to show when cluster started.
+        It's an array of dictionary
+        For example:
+        [
+            {"name": "app web", "url": "http://localhost/app"},
+        ]
+        """
+        return None
+
+
     @staticmethod
     def get_logs(self) -> Dict[str, str]:
         """Return a dictionary of name to log paths.

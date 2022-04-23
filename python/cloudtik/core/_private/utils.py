@@ -1832,3 +1832,19 @@ def _get_runtime_config_object(config_home: str, provider_config, object_name: s
         config_object = yaml.safe_load(f) or {}
 
     return config_object
+
+
+def get_useful_runtime_urls(runtime_config, head_cluster_ip):
+    runtime_urls = []
+    if runtime_config is None:
+        return runtime_urls
+
+    # Iterate through all the runtimes
+    runtime_types = runtime_config.get("types", [])
+    for runtime_type in runtime_types:
+        runtime = _get_runtime(runtime_type, runtime_config)
+        urls = runtime.get_useful_urls(head_cluster_ip)
+        if urls:
+            runtime_urls += urls
+
+    return runtime_urls

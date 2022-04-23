@@ -70,13 +70,21 @@ def prepare_manual(config: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def get_lock_path(cluster_name: str) -> str:
-    return os.path.join(utils.get_cloudtik_temp_dir(),
+    return os.path.join(utils.get_user_temp_dir(),
                         "cloudtik-local-{}.lock".format(cluster_name))
 
 
 def get_state_path(cluster_name: str) -> str:
-    return os.path.join(utils.get_cloudtik_temp_dir(),
+    return os.path.join(utils.get_user_temp_dir(),
                         "cloudtik-local-{}.state".format(cluster_name))
+
+
+def get_cloud_simulator_lock_path() -> str:
+    return os.path.join(utils.get_user_temp_dir(), "cloudtik-cloud-simulator.lock")
+
+
+def get_cloud_simulator_state_path() -> str:
+    return os.path.join(utils.get_user_temp_dir(), "cloudtik-cloud-simulator.state")
 
 
 def bootstrap_local(config: Dict[str, Any]) -> Dict[str, Any]:

@@ -44,8 +44,8 @@ class ClusterState:
                         logger.info("Head IP changed - recreating cluster.")
                 else:
                     workers = {}
-                logger.info("ClusterState: "
-                            "Loaded cluster state: {}".format(list(workers)))
+                logger.debug("ClusterState: "
+                             "Loaded cluster state: {}".format(list(workers)))
                 for worker_ip in worker_ips:
                     if worker_ip not in workers:
                         workers[worker_ip] = {
@@ -130,7 +130,7 @@ class CloudSimulatorState(ClusterState):
                 else:
                     nodes = {}
                 logger.info(
-                    "CloudSimulatorState: "
+                    "Cloud Simulator State: "
                     "Loaded Cloud Simulator state: {}".format(nodes))
 
                 # Filter removed node ips.
@@ -147,7 +147,7 @@ class CloudSimulatorState(ClusterState):
                 assert len(nodes) == len(list_of_node_ips)
                 with open(self.save_path, "w") as f:
                     logger.info(
-                        "CloudSimulatorState: "
+                        "Cloud Simulator State: "
                         "Writing Cloud Simulator state: {}".format(nodes))
                     f.write(json.dumps(nodes))
 

@@ -69,11 +69,11 @@ def prepare_manual(config: Dict[str, Any]) -> Dict[str, Any]:
 
     # Set node type resource from head node
     head_node = get_head_node(config["provider"])
-    resources = head_node.get("resources")
-    if resources is None:
+    if "resources" not in head_node:
         cli_logger.warning("Node resources not provided. "
                            "Please supply the resources (CPU and memory) information in head node.")
 
+    resources = head_node.get("resources", {})
     # default to a conservative 4 cpu and 8GB if not defined
     cpus = resources.get("CPU", 4)
     memory = resources.get("memory", 1024 * 8)

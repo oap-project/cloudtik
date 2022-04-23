@@ -7,9 +7,6 @@ fi
 
 case "$1" in
 start-head)
-    if [ "$ENABLE_HDFS" == "true" ]; then
-        $HADOOP_HOME/bin/hdfs --daemon start namenode
-    fi
     echo "Starting Resource Manager..."
     $HADOOP_HOME/bin/yarn --daemon start resourcemanager
     echo "Starting Spark History Server..."
@@ -19,22 +16,13 @@ start-head)
 stop-head)
     $HADOOP_HOME/bin/yarn --daemon stop resourcemanager
     $SPARK_HOME/sbin/stop-history-server.sh
-    if [ "$ENABLE_HDFS" == "true" ]; then
-        $HADOOP_HOME/bin/hdfs --daemon stop namenode
-    fi
     jupyter lab stop
     ;;
 start-worker)
-    if [ "$ENABLE_HDFS" == "true" ]; then
-        $HADOOP_HOME/sbin/hadoop-daemon.sh start datanode
-    fi
     $HADOOP_HOME/bin/yarn --daemon start nodemanager
     ;;
 stop-worker)
     $HADOOP_HOME/bin/yarn --daemon stop nodemanager
-    if [ "$ENABLE_HDFS" == "true" ]; then
-        $HADOOP_HOME/sbin/hadoop-daemon.sh stop datanode
-    fi
     ;;
 -h|--help)
     echo "Usage: $0 start-head|stop-head|start-worker|stop-worker" >&2
@@ -43,3 +31,5 @@ stop-worker)
     echo "Usage: $0 start-head|stop-head|start-worker|stop-worker" >&2
     ;;
 esac
+
+exit 0

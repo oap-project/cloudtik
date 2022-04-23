@@ -81,10 +81,6 @@ function configure_hdfs() {
     if [ $IS_HEAD_NODE == "true" ];then
         # Format hdfs once
         ${HADOOP_HOME}/bin/hdfs --loglevel WARN namenode -format -force
-        # TODO: Create event log dir on hdfs (This is for specific application)
-        #${HADOOP_HOME}/bin/hdfs --loglevel WARN --daemon start namenode
-        #${HADOOP_HOME}/bin/hadoop --loglevel WARN fs -mkdir -p /shared/events
-        #${HADOOP_HOME}/bin/hdfs --loglevel WARN --daemon stop namenode
     fi
 }
 

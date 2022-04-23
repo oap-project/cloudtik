@@ -24,3 +24,5 @@ stop-worker)
     echo "Usage: $0 start-head|stop-head|start-worker|stop-worker" >&2
     ;;
 esac
+
+exit 0

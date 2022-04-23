@@ -32,7 +32,7 @@ def _get_runnable_command(target):
 
 
 def _with_runtime_environment_variables(runtime_config, provider):
-    runtime_envs = {"ENABLE_HDFS": True}
+    runtime_envs = {"HDFS_ENABLED": True}
     return runtime_envs
 
 

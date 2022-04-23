@@ -39,7 +39,7 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     get_head_working_ip, get_node_cluster_ip, is_use_internal_ip, get_head_bootstrap_config, \
     get_attach_command, is_alive_time, with_head_node_ip, is_docker_enabled, get_proxy_bind_address_to_show, \
     kill_process_tree, with_runtime_environment_variables, verify_config, runtime_prepare_config, get_nodes_info, \
-    sum_worker_cpus, sum_worker_memory, get_useful_runtime_urls, get_runtime_enabled
+    sum_worker_cpus, sum_worker_memory, get_useful_runtime_urls, get_enabled_runtimes
 
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
@@ -236,7 +236,7 @@ def create_or_update_cluster(
     workspace_name = config.get("workspace_name")
     if workspace_name:
         cli_logger.labeled_value("Workspace", workspace_name)
-    cli_logger.labeled_value("Runtimes", " ".join(get_runtime_enabled(config)))
+    cli_logger.labeled_value("Runtimes", ", ".join(get_enabled_runtimes(config)))
 
     cli_logger.newline()
     config = _bootstrap_config(config, no_config_cache=no_config_cache,
@@ -1690,7 +1690,7 @@ def show_cluster_info(config_file: str,
                      head_count, worker_count)
 
     cli_logger.newline()
-    cli_logger.print(cf.bold("Runtimes: {}"), " ".join(get_runtime_enabled(config)))
+    cli_logger.print(cf.bold("Runtimes: {}"), ", ".join(get_enabled_runtimes(config)))
 
     workers_info = get_nodes_info(provider, workers,
                                   True, config["available_node_types"])

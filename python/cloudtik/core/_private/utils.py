@@ -1853,5 +1853,18 @@ def get_useful_runtime_urls(runtime_config, head_cluster_ip):
     return runtime_urls
 
 
-def get_runtime_enabled(config):
+def get_enabled_runtimes(config):
     return config.get("runtime", {}).get("types", [])
+
+
+def is_runtime_enabled(runtime_config, runtime_type:str):
+    if runtime_config is None:
+        return False
+
+    runtime_types = runtime_config.get("types", [])
+    if runtime_type in runtime_types:
+        return True
+
+    return False
+
+

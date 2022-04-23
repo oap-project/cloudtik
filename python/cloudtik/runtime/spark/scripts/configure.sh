@@ -215,27 +215,7 @@ function update_spark_runtime_config() {
     fi
 }
 
-function update_hdfs_data_disks_config() {
-    hdfs_nn_dirs="${HADOOP_HOME}/data/dfs/nn"
-    hdfs_dn_dirs=""
-    if [ -d "/mnt/cloudtik" ]; then
-        for data_disk in /mnt/cloudtik/*; do
-            [ -d "$data_disk" ] || continue
-            if [ -z "$hdfs_dn_dirs" ]; then
-                hdfs_dn_dirs=$data_disk/dfs/dn
-            else
-                hdfs_dn_dirs="$hdfs_dn_dirs,$data_disk/dfs/dn"
-            fi
-        done
-    fi
-
-    # if no disks mounted on /mnt/cloudtik
-    if [ -z "$hdfs_dn_dirs" ]; then
-        hdfs_dn_dirs="${HADOOP_HOME}/data/dfs/dn"
-    fi
-    sed -i "s!{%dfs.namenode.name.dir%}!${hdfs_nn_dirs}!g" `grep "{%dfs.namenode.name.dir%}" -rl ./`
-    sed -i "s!{%dfs.datanode.data.dir%}!${hdfs_dn_dirs}!g" `grep "{%dfs.datanode.data.dir%}" -rl ./`
-
+function update_config_for_hdfs() {
     # event log dir
     event_log_dir="hdfs://${HEAD_ADDRESS}:9000/shared/spark-events"
     sed -i "s!{%spark.eventLog.dir%}!${event_log_dir}!g" `grep "{%spark.eventLog.dir%}" -rl ./`
@@ -279,10 +259,8 @@ function configure_hadoop_and_spark() {
     update_spark_runtime_config
     update_data_disks_config
 
-    if [ "$ENABLE_HDFS" == "true" ];then
-        update_hdfs_data_disks_config
-        cp -r ${output_dir}/hadoop/core-site.xml  ${HADOOP_HOME}/etc/hadoop/
-        cp -r ${output_dir}/hadoop/hdfs-site.xml  ${HADOOP_HOME}/etc/hadoop/
+    if [ "$HDFS_ENABLED" == "true" ];then
+        update_config_for_hdfs
     else
         update_config_for_cloud
         cp -r ${output_dir}/hadoop/${provider}/core-site.xml  ${HADOOP_HOME}/etc/hadoop/
@@ -293,9 +271,7 @@ function configure_hadoop_and_spark() {
     if [ $IS_HEAD_NODE == "true" ];then
         cp -r ${output_dir}/spark/*  ${SPARK_HOME}/conf
 
-        if [ "$ENABLE_HDFS" == "true" ]; then
-            # Format hdfs once
-            ${HADOOP_HOME}/bin/hdfs --loglevel WARN namenode -format -force
+        if [ "$HDFS_ENABLED" == "true" ]; then
             # Create event log dir on hdfs
             ${HADOOP_HOME}/bin/hdfs --loglevel WARN --daemon start namenode
             ${HADOOP_HOME}/bin/hadoop --loglevel WARN fs -mkdir -p /shared/spark-events

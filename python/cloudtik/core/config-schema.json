@@ -78,13 +78,24 @@
                     "type": "string",
                     "description": "module, if using external node provider"
                 },
-                "head_ip": {
-                    "type": "string",
-                    "description": "head ip for local mode"
+                "head_node": {
+                    "type": "object",
+                    "description": "head node for local mode",
+                    "additionalProperties": true,
+                    "properties": {
+                      "ip": {
+                        "type": "string",
+                        "description": "The cluster ip address of head node"
+                      },
+                      "external_ip": {
+                        "type": "string",
+                        "description": "The public ip of head node"
+                      }
+                    }
                 },
-                "worker_ips": {
+                "worker_nodes": {
                     "type": "array",
-                    "description": "worker ips for local mode"
+                    "description": "worker nodes for local mode"
                 },
                 "use_internal_ips": {
                     "type": "boolean",

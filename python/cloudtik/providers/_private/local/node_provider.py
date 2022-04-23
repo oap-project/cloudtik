@@ -13,7 +13,7 @@ from cloudtik.core.tags import (CLOUDTIK_TAG_NODE_KIND, NODE_KIND_WORKER,
                                  STATUS_UP_TO_DATE)
 
 from cloudtik.providers._private.local.config import bootstrap_local, prepare_local, get_cloud_simulator_lock_path, \
-    get_cloud_simulator_state_path
+    get_cloud_simulator_state_path, get_head_node_ip, get_head_node_external_ip, get_worker_node_ips
 from cloudtik.providers._private.local.config import get_lock_path
 from cloudtik.providers._private.local.config import get_state_path
 from cloudtik.providers._private.local.config import LOCAL_CLUSTER_NODE_TYPE
@@ -32,9 +32,11 @@ class ClusterState:
 
         with self.lock:
             with self.file_lock:
+                head_ip = get_head_node_ip(provider_config)
+                worker_ips = get_worker_node_ips(provider_config)
                 if os.path.exists(self.save_path):
                     workers = json.loads(open(self.save_path).read())
-                    head_config = workers.get(provider_config["head_ip"])
+                    head_config = workers.get(head_ip)
                     if (not head_config or
                             head_config.get("tags", {}).get(CLOUDTIK_TAG_NODE_KIND)
                             != NODE_KIND_HEAD):
@@ -44,7 +46,7 @@ class ClusterState:
                     workers = {}
                 logger.info("ClusterState: "
                             "Loaded cluster state: {}".format(list(workers)))
-                for worker_ip in provider_config["worker_ips"]:
+                for worker_ip in worker_ips:
                     if worker_ip not in workers:
                         workers[worker_ip] = {
                             "tags": {
@@ -55,20 +57,20 @@ class ClusterState:
                     else:
                         assert (workers[worker_ip]["tags"][CLOUDTIK_TAG_NODE_KIND]
                                 == NODE_KIND_WORKER)
-                if provider_config["head_ip"] not in workers:
-                    workers[provider_config["head_ip"]] = {
+                if head_ip not in workers:
+                    workers[head_ip] = {
                         "tags": {
                             CLOUDTIK_TAG_NODE_KIND: NODE_KIND_HEAD
                         },
                         "state": "terminated",
                     }
                 else:
-                    assert (workers[provider_config["head_ip"]]["tags"][
+                    assert (workers[head_ip]["tags"][
                         CLOUDTIK_TAG_NODE_KIND] == NODE_KIND_HEAD)
                 # Relevant when a user reduces the number of workers
                 # without changing the headnode.
-                list_of_node_ips = list(provider_config["worker_ips"])
-                list_of_node_ips.append(provider_config["head_ip"])
+                list_of_node_ips = list(worker_ips)
+                list_of_node_ips.append(head_ip)
                 for worker_ip in list(workers):
                     if worker_ip not in list_of_node_ips:
                         del workers[worker_ip]
@@ -76,12 +78,12 @@ class ClusterState:
                 # Set external head ip, if provided by user.
                 # Necessary if calling `cloudtik up` from outside the network.
                 # Refer to LocalNodeProvider.external_ip function.
-                external_head_ip = provider_config.get("external_head_ip")
+                external_head_ip = get_head_node_external_ip(provider_config)
                 if external_head_ip:
-                    head = workers[provider_config["head_ip"]]
+                    head = workers[head_ip]
                     head["external_ip"] = external_head_ip
 
-                assert len(workers) == len(provider_config["worker_ips"]) + 1
+                assert len(workers) == len(worker_ips) + 1
                 with open(self.save_path, "w") as f:
                     logger.debug("ClusterState: "
                                  "Writing cluster state: {}".format(workers))
@@ -289,7 +291,7 @@ def record_local_head_state_if_needed(
     `cluster_operator.get_or_create_head_node` records the head state on the
     cluster-launching machine but not on the head.
     """
-    head_ip = local_provider.provider_config["head_ip"]
+    head_ip = get_head_node_ip(local_provider.provider_config)
     cluster_name = local_provider.cluster_name
     # If the head node is not marked as created in the cluster state file,
     if head_ip not in local_provider.non_terminated_nodes({}):

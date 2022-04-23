@@ -54,17 +54,17 @@ def prepare_cloud_simulator(config: Dict[str, Any]) -> Dict[str, Any]:
 
 def prepare_manual(config: Dict[str, Any]) -> Dict[str, Any]:
     config = copy.deepcopy(config)
-    if ("worker_ips" not in config["provider"]) or (
-            "head_ip" not in config["provider"]):
-        cli_logger.abort("Please supply a `head_ip` and list of `worker_ips`. "
+    if ("worker_nodes" not in config["provider"]) or (
+            "head_node" not in config["provider"]):
+        cli_logger.abort("Please supply a `head_node` and list of `worker_nodes`. "
                          "Alternatively, supply a `cloud_simulator_address`.")
-    num_ips = len(config["provider"]["worker_ips"])
+    num_workers = len(get_worker_nodes(config["provider"]))
     node_type = config["available_node_types"][LOCAL_CLUSTER_NODE_TYPE]
     # Default to keeping all provided ips in the cluster.
-    config.setdefault("max_workers", num_ips)
+    config.setdefault("max_workers", num_workers)
     # The cluster controller no longer uses global `min_workers`.
     # Move `min_workers` to the node_type config.
-    node_type["min_workers"] = config.pop("min_workers", num_ips)
+    node_type["min_workers"] = config.pop("min_workers", num_workers)
     node_type["max_workers"] = config["max_workers"]
     return config
 
@@ -89,3 +89,23 @@ def get_cloud_simulator_state_path() -> str:
 
 def bootstrap_local(config: Dict[str, Any]) -> Dict[str, Any]:
     return config
+
+
+def get_head_node_ip(provider_config: Dict[str, Any]):
+    head_node = provider_config["head_node"]
+    return head_node["ip"]
+
+
+def get_head_node_external_ip(provider_config: Dict[str, Any]):
+    head_node = provider_config["head_node"]
+    return head_node.get("external_ip")
+
+
+def get_worker_nodes(provider_config: Dict[str, Any]):
+    return provider_config.get("worker_nodes", [])
+
+
+def get_worker_node_ips(provider_config: Dict[str, Any]):
+    worker_nodes = get_worker_nodes(provider_config)
+    return [worker_node["ip"] for worker_node in worker_nodes]
+

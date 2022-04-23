@@ -56,7 +56,7 @@ def _import_kubernetes(provider_config):
 
 def _load_local_provider_home():
     import cloudtik.providers.local as local_provider
-    return os.path.join(os.path.dirname(local_provider.__file__), "defaults.yaml")
+    return os.path.dirname(local_provider.__file__)
 
 
 def _load_kubernetes_provider_home():

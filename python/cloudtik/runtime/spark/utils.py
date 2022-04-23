@@ -3,8 +3,7 @@ import copy
 from typing import Any, Dict
 import yaml
 
-from cloudtik.core._private.runtime_factory import _get_runtime_config_object
-from cloudtik.core._private.utils import merge_rooted_config_hierarchy
+from cloudtik.core._private.utils import merge_rooted_config_hierarchy, _get_runtime_config_object
 
 SPARK_RUNTIME_PROCESSES = [
     # The first element is the substring to filter.
@@ -228,15 +227,15 @@ def spark_runtime_verify_config(config: Dict[str, Any], provider):
         provider.validate_storage_config(config["provider"])
 
 
-def get_spark_runtime_commands(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+def get_spark_runtime_config_object(cluster_config: Dict[str, Any], object_name: str) -> Dict[str, Any]:
     config_root = os.path.join(CLOUDTIK_RUNTIME_SPARK_PATH, "config")
-    object_name = "commands"
-    runtime_commands = _get_runtime_config_object("spark", cluster_config["provider"], object_name)
+    runtime_commands = _get_runtime_config_object(config_root, cluster_config["provider"], object_name)
     return merge_rooted_config_hierarchy(config_root, runtime_commands, object_name)
 
 
+def get_spark_runtime_commands(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+    return get_spark_runtime_config_object(cluster_config, "commands")
+
+
 def get_spark_defaults_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-    config_root = os.path.join(CLOUDTIK_RUNTIME_SPARK_PATH, "config")
-    object_name = "defaults"
-    defaults_config = _get_runtime_config_object("spark", cluster_config["provider"], object_name)
-    return merge_rooted_config_hierarchy(config_root, defaults_config, object_name)
+    return get_spark_runtime_config_object(cluster_config, "defaults")

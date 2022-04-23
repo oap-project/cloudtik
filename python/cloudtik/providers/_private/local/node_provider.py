@@ -12,7 +12,8 @@ from cloudtik.core.tags import (CLOUDTIK_TAG_NODE_KIND, NODE_KIND_WORKER,
                                  CLOUDTIK_TAG_NODE_NAME, CLOUDTIK_TAG_NODE_STATUS,
                                  STATUS_UP_TO_DATE)
 
-from cloudtik.providers._private.local.config import bootstrap_local, prepare_local
+from cloudtik.providers._private.local.config import bootstrap_local, prepare_local, get_cloud_simulator_lock_path, \
+    get_cloud_simulator_state_path
 from cloudtik.providers._private.local.config import get_lock_path
 from cloudtik.providers._private.local.config import get_state_path
 from cloudtik.providers._private.local.config import LOCAL_CLUSTER_NODE_TYPE
@@ -100,8 +101,8 @@ class ClusterState:
                 workers = self.get()
                 workers[worker_id] = info
                 with open(self.save_path, "w") as f:
-                    logger.info("ClusterState: "
-                                "Writing cluster state: {}".format(
+                    logger.debug("ClusterState: "
+                                 "Writing cluster state: {}".format(
                                     list(workers)))
                     f.write(json.dumps(workers))
 
@@ -181,7 +182,7 @@ class LocalNodeProvider(NodeProvider):
         else:
             # LocalNodeProvider with a Cloud Simulator.
             self.state = CloudSimulatorState(
-                "/tmp/cloudtik-cloud-simulator.lock", "/tmp/cloudtik-cloud-simulator.state",
+                get_cloud_simulator_lock_path(), get_cloud_simulator_state_path(),
                 provider_config["list_of_node_ips"])
             self.use_cloud_simulator = True
 

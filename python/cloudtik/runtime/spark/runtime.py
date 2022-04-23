@@ -3,10 +3,10 @@ from typing import Any, Dict
 
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.runtime import Runtime
-from cloudtik.runtime.spark.utils import config_spark_runtime_resources, with_spark_runtime_environment_variables, \
-    is_spark_runtime_scripts, get_spark_runnable_command, get_spark_runtime_processes, spark_runtime_validate_config, \
-    spark_runtime_verify_config, get_spark_runtime_logs, get_spark_runtime_commands, \
-    get_spark_defaults_config
+from cloudtik.runtime.spark.utils import _config_runtime_resources, _with_runtime_environment_variables, \
+    _is_runtime_scripts, _get_runnable_command, get_spark_runtime_processes, _validate_config, \
+    _verify_config, get_spark_runtime_logs, _get_runtime_commands, \
+    _get_defaults_config, _get_useful_urls
 
 logger = logging.getLogger(__name__)
 
@@ -19,43 +19,43 @@ class SparkRuntime(Runtime):
 
     def prepare_config(self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         """Prepare runtime specific configurations"""
-        return config_spark_runtime_resources(cluster_config)
+        return _config_runtime_resources(cluster_config)
 
     def validate_config(self, cluster_config: Dict[str, Any], provider: NodeProvider):
         """Validate cluster configuration from runtime perspective."""
-        spark_runtime_validate_config(cluster_config, provider)
+        _validate_config(cluster_config, provider)
 
     def verify_config(self, cluster_config: Dict[str, Any], provider: NodeProvider):
         """Verify cluster configuration at the last stage of bootstrap.
         The verification may mean a slow process to check with a server"""
-        spark_runtime_verify_config(cluster_config, provider)
+        _verify_config(cluster_config, provider)
 
     def with_environment_variables(
             self, runtime_config: Dict[str, Any], provider: NodeProvider) -> Dict[str, Any]:
         """Export necessary runtime environment variables for running node commands.
         For example: {"ENV_NAME": value}
         """
-        return with_spark_runtime_environment_variables(runtime_config, provider)
+        return _with_runtime_environment_variables(runtime_config, provider)
 
     def get_runnable_command(self, target: str):
         """Return the runnable command for the target script.
         For example: ["bash", target]
         """
-        if not is_spark_runtime_scripts(target):
+        if not _is_runtime_scripts(target):
             return None
 
-        return get_spark_runnable_command(target)
+        return _get_runnable_command(target)
 
     def get_runtime_commands(self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         """Returns a copy of runtime commands to run at different stages"""
-        return get_spark_runtime_commands(cluster_config)
+        return _get_runtime_commands(cluster_config)
 
     def get_defaults_config(self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         """Returns a copy of runtime config"""
-        return get_spark_defaults_config(cluster_config)
+        return _get_defaults_config(cluster_config)
 
     def get_useful_urls(self, cluster_head_ip: str):
-        return get_spark_useful_urls(cluster_head_ip)
+        return _get_useful_urls(cluster_head_ip)
 
     @staticmethod
     def get_logs(self) -> Dict[str, str]:

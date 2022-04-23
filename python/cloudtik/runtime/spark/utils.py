@@ -1,5 +1,4 @@
 import os
-import copy
 from typing import Any, Dict
 import yaml
 
@@ -86,7 +85,7 @@ def _get_cluster_resources(
     return cluster_resource
 
 
-def config_spark_runtime_resources(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+def _config_runtime_resources(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
     cluster_resource = _get_cluster_resources(cluster_config)
     container_resource = {"yarn_container_maximum_vcores": cluster_resource["worker_cpu"]}
 
@@ -138,14 +137,14 @@ def get_spark_runtime_processes():
     return SPARK_RUNTIME_PROCESSES
 
 
-def is_spark_runtime_scripts(script_file):
+def _is_runtime_scripts(script_file):
     if script_file.endswith(".scala"):
         return True
 
     return False
 
 
-def get_spark_runnable_command(target):
+def _get_runnable_command(target):
     command_parts = ["spark-shell", "-i", target]
     return command_parts
 
@@ -196,7 +195,7 @@ def update_spark_configurations():
             f.write("{}    {}\n".format(key, value))
 
 
-def with_spark_runtime_environment_variables(runtime_config, provider):
+def _with_runtime_environment_variables(runtime_config, provider):
     runtime_envs = {}
     if runtime_config and runtime_config.get("spark", {}).get("enable_hdfs", False):
         runtime_envs["ENABLE_HDFS"] = True
@@ -217,31 +216,31 @@ def get_spark_runtime_logs():
     return all_logs
 
 
-def spark_runtime_validate_config(config: Dict[str, Any], provider):
+def _validate_config(config: Dict[str, Any], provider):
     pass
 
 
-def spark_runtime_verify_config(config: Dict[str, Any], provider):
+def _verify_config(config: Dict[str, Any], provider):
     # if HDFS enabled, we ignore the cloud storage configurations
     if not config.get("runtime", {}).get("spark", {}).get("enable_hdfs", False):
         provider.validate_storage_config(config["provider"])
 
 
-def get_spark_runtime_config_object(cluster_config: Dict[str, Any], object_name: str) -> Dict[str, Any]:
+def _get_config_object(cluster_config: Dict[str, Any], object_name: str) -> Dict[str, Any]:
     config_root = os.path.join(CLOUDTIK_RUNTIME_SPARK_PATH, "config")
     runtime_commands = _get_runtime_config_object(config_root, cluster_config["provider"], object_name)
     return merge_rooted_config_hierarchy(config_root, runtime_commands, object_name)
 
 
-def get_spark_runtime_commands(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-    return get_spark_runtime_config_object(cluster_config, "commands")
+def _get_runtime_commands(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+    return _get_config_object(cluster_config, "commands")
 
 
-def get_spark_defaults_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-    return get_spark_runtime_config_object(cluster_config, "defaults")
+def _get_defaults_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+    return _get_config_object(cluster_config, "defaults")
 
 
-def get_spark_useful_urls(cluster_head_ip):
+def _get_useful_urls(cluster_head_ip):
     urls =[
         {"name": "Yarn Web UI", "url": "http://{}:8088".format(cluster_head_ip)},
         {"name": "Jupyter Web UI", "url": "http://{}:8888, default password is \'cloudtik\'".format(cluster_head_ip)},

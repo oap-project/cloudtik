@@ -66,6 +66,19 @@ def prepare_manual(config: Dict[str, Any]) -> Dict[str, Any]:
     # Move `min_workers` to the node_type config.
     node_type["min_workers"] = config.pop("min_workers", num_workers)
     node_type["max_workers"] = config["max_workers"]
+
+    # Set node type resource from head node
+    head_node = get_head_node(config["provider"])
+    resources = head_node.get("resources")
+    if resources is None:
+        cli_logger.warning("Node resources not provided. "
+                           "Please supply the resources (CPU and memory) information in head node.")
+
+    # default to a conservative 4 cpu and 8GB if not defined
+    cpus = resources.get("CPU", 4)
+    memory = resources.get("memory", 1024 * 8)
+    node_type["resources"]["CPU"] = cpus
+    node_type["resources"]["memory"] = int(memory) * 1024 * 1024
     return config
 
 
@@ -91,13 +104,17 @@ def bootstrap_local(config: Dict[str, Any]) -> Dict[str, Any]:
     return config
 
 
+def get_head_node(provider_config: Dict[str, Any]):
+    return provider_config["head_node"]
+
+
 def get_head_node_ip(provider_config: Dict[str, Any]):
-    head_node = provider_config["head_node"]
+    head_node = get_head_node(provider_config)
     return head_node["ip"]
 
 
 def get_head_node_external_ip(provider_config: Dict[str, Any]):
-    head_node = provider_config["head_node"]
+    head_node = get_head_node(provider_config)
     return head_node.get("external_ip")
 
 
@@ -108,4 +125,3 @@ def get_worker_nodes(provider_config: Dict[str, Any]):
 def get_worker_node_ips(provider_config: Dict[str, Any]):
     worker_nodes = get_worker_nodes(provider_config)
     return [worker_node["ip"] for worker_node in worker_nodes]
-

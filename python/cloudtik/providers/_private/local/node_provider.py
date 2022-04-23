@@ -13,7 +13,8 @@ from cloudtik.core.tags import (CLOUDTIK_TAG_NODE_KIND, NODE_KIND_WORKER,
                                  STATUS_UP_TO_DATE)
 
 from cloudtik.providers._private.local.config import bootstrap_local, prepare_local, get_cloud_simulator_lock_path, \
-    get_cloud_simulator_state_path, get_head_node_ip, get_head_node_external_ip, get_worker_node_ips
+    get_cloud_simulator_state_path, get_head_node_ip, get_head_node_external_ip, get_worker_node_ips, \
+    fillout_node_types_resources, _get_node_type_resources, get_list_of_node_ips
 from cloudtik.providers._private.local.config import get_lock_path
 from cloudtik.providers._private.local.config import get_state_path
 from cloudtik.providers._private.local.config import LOCAL_CLUSTER_NODE_TYPE
@@ -183,9 +184,10 @@ class LocalNodeProvider(NodeProvider):
             self.use_cloud_simulator = False
         else:
             # LocalNodeProvider with a Cloud Simulator.
+            list_of_node_ips = get_list_of_node_ips(provider_config)
             self.state = CloudSimulatorState(
                 get_cloud_simulator_lock_path(), get_cloud_simulator_state_path(),
-                provider_config["list_of_node_ips"])
+                list_of_node_ips)
             self.use_cloud_simulator = True
 
     def non_terminated_nodes(self, tag_filters):
@@ -273,6 +275,10 @@ class LocalNodeProvider(NodeProvider):
     def with_environment_variables(self):
         return {}
 
+    def get_node_type_resources(self):
+        """Return the node type resources information"""
+        return _get_node_type_resources(self.provider_config)
+
     @staticmethod
     def prepare_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         return prepare_local(cluster_config)
@@ -280,6 +286,12 @@ class LocalNodeProvider(NodeProvider):
     @staticmethod
     def bootstrap_config(cluster_config):
         return bootstrap_local(cluster_config)
+
+    @staticmethod
+    def fillout_available_node_types_resources(
+            cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Fills out missing "resources" field for available_node_types."""
+        return fillout_node_types_resources(cluster_config)
 
 
 def record_local_head_state_if_needed(

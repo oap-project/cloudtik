@@ -5,9 +5,42 @@ from typing import Any, Dict
 
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME
-from cloudtik.providers._private.local.config import prepare_local
+from cloudtik.providers._private.local.config import prepare_local, set_node_types_resources
 
 logger = logging.getLogger(__name__)
+
+
+def _get_http_response_from_simulator(cloud_simulator_address, request):
+    headers = {
+        "Content-Type": "application/json",
+    }
+    request_message = json.dumps(request).encode()
+    cloud_simulator_endpoint = "http://" + cloud_simulator_address
+
+    try:
+        import requests  # `requests` is not part of stdlib.
+        from requests.exceptions import ConnectionError
+
+        r = requests.get(
+            cloud_simulator_endpoint,
+            data=request_message,
+            headers=headers,
+            timeout=None,
+        )
+    except (RemoteDisconnected, ConnectionError):
+        logger.exception("Could not connect to: " +
+                         cloud_simulator_endpoint +
+                         ". Did you launched the Cloud Simulator by running cloudtik-simulator " +
+                         " --config nodes-config-file --port <PORT>?")
+        raise
+    except ImportError:
+        logger.exception(
+            "Not all dependencies were found. Please "
+            "update your install command.")
+        raise
+
+    response = r.json()
+    return response
 
 
 class CloudSimulatorNodeProvider(NodeProvider):
@@ -25,36 +58,7 @@ class CloudSimulatorNodeProvider(NodeProvider):
         self.cloud_simulator_address = provider_config["cloud_simulator_address"]
 
     def _get_http_response(self, request):
-        headers = {
-            "Content-Type": "application/json",
-        }
-        request_message = json.dumps(request).encode()
-        cloud_simulator_endpoint = "http://" + self.cloud_simulator_address
-
-        try:
-            import requests  # `requests` is not part of stdlib.
-            from requests.exceptions import ConnectionError
-
-            r = requests.get(
-                cloud_simulator_endpoint,
-                data=request_message,
-                headers=headers,
-                timeout=None,
-            )
-        except (RemoteDisconnected, ConnectionError):
-            logger.exception("Could not connect to: " +
-                             cloud_simulator_endpoint +
-                             ". Did you launched the Cloud Simulator by running python cloudtik_cloud_simulator.py" +
-                             " --ips <list_of_node_ips> --port <PORT>?")
-            raise
-        except ImportError:
-            logger.exception(
-                "Not all dependencies were found. Please "
-                "update your install command.")
-            raise
-
-        response = r.json()
-        return response
+        return _get_http_response_from_simulator(self.cloud_simulator_address, request)
 
     def non_terminated_nodes(self, tag_filters):
         # Only get the non terminated nodes associated with this cluster name.
@@ -108,12 +112,24 @@ class CloudSimulatorNodeProvider(NodeProvider):
 
     def get_node_info(self, node_id):
         request = {"type": "get_node_info", "args": (node_id,)}
-        self._get_http_response(request)
+        response =  self._get_http_response(request)
+        return response
 
     def with_environment_variables(self):
         request = {"type": "with_environment_variables", "args": ()}
-        self._get_http_response(request)
+        response = self._get_http_response(request)
+        return response
 
     @staticmethod
     def prepare_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         return prepare_local(cluster_config)
+
+    @staticmethod
+    def fillout_available_node_types_resources(
+            cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Fills out missing "resources" field for available_node_types."""
+        request = {"type": "get_node_type_resources", "args": ()}
+        cloud_simulator_address = cluster_config["provider"]["cloud_simulator_address"]
+        resources = _get_http_response_from_simulator(cloud_simulator_address, request)
+        set_node_types_resources(cluster_config, resources)
+        return cluster_config

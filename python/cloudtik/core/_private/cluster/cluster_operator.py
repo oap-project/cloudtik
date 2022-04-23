@@ -236,6 +236,7 @@ def create_or_update_cluster(
     workspace_name = config.get("workspace_name")
     if workspace_name:
         cli_logger.labeled_value("Workspace", workspace_name)
+    cli_logger.labeled_value("Runtimes", " ".join(get_runtime_enabled(config)))
 
     cli_logger.newline()
     config = _bootstrap_config(config, no_config_cache=no_config_cache,
@@ -1689,8 +1690,7 @@ def show_cluster_info(config_file: str,
                      head_count, worker_count)
 
     cli_logger.newline()
-    runtime_types = get_runtime_enabled(config)
-    cli_logger.print(cf.bold("Runtime enabled: {}"), " ".join(runtime_types))
+    cli_logger.print(cf.bold("Runtimes: {}"), " ".join(get_runtime_enabled(config)))
 
     workers_info = get_nodes_info(provider, workers,
                                   True, config["available_node_types"])

@@ -54,6 +54,9 @@ class SparkRuntime(Runtime):
         """Returns a copy of runtime config"""
         return get_spark_defaults_config(cluster_config)
 
+    def get_useful_urls(self, cluster_head_ip: str):
+        return get_spark_useful_urls(cluster_head_ip)
+
     @staticmethod
     def get_logs(self) -> Dict[str, str]:
         """Return a dictionary of name to log paths.

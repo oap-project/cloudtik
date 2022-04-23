@@ -239,3 +239,12 @@ def get_spark_runtime_commands(cluster_config: Dict[str, Any]) -> Dict[str, Any]
 
 def get_spark_defaults_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
     return get_spark_runtime_config_object(cluster_config, "defaults")
+
+
+def get_spark_useful_urls(cluster_head_ip):
+    urls =[
+        {"name": "Yarn Web UI", "url": "http://{}:8088".format(cluster_head_ip)},
+        {"name": "Jupyter Web UI", "url": "http://{}:8888, default password is \'cloudtik\'".format(cluster_head_ip)},
+        {"name": "Spark History Server Web UI", "url": "http://{}:18080".format(cluster_head_ip)},
+    ]
+    return urls

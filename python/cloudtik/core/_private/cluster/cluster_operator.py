@@ -1780,17 +1780,10 @@ def show_useful_commands(printable_config_file: str,
 
         head_node_cluster_ip = get_node_cluster_ip(config, provider, head_node)
 
-        with cli_logger.group("Yarn Web UI:"):
-            cli_logger.print(
-                cf.bold("http://{}:8088"), head_node_cluster_ip)
-
-        with cli_logger.group("Jupyter Web UI:"):
-            cli_logger.print(
-                cf.bold("http://{}:8888, default password is \'cloudtik\'"), head_node_cluster_ip)
-
-        with cli_logger.group("Spark History Server Web UI:"):
-            cli_logger.print(
-                cf.bold("http://{}:18080"), head_node_cluster_ip)
+        runtime_urls = get_useful_runtime_urls(config.get("runtime"), head_node_cluster_ip)
+        for runtime_url in runtime_urls:
+            with cli_logger.group(runtime_url["name"] + ":"):
+                cli_logger.print(runtime_url["url"])
 
         with cli_logger.group("Ganglia Web UI:"):
             cli_logger.print(

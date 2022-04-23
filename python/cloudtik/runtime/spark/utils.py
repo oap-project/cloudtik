@@ -82,6 +82,15 @@ def _get_cluster_resources(
         else:
             if memory_total_in_mb > 0:
                 cluster_resource["head_memory"] = memory_total_in_mb
+            if cpu_total > 0:
+                cluster_resource["head_cpu"] = cpu_total
+
+    # If there is only one node type, worker type uses the head type
+    if ("worker_memory" not in cluster_resource) and ("head_memory" in cluster_resource):
+        cluster_resource["worker_memory"] = cluster_resource["head_memory"]
+    if ("worker_cpu" not in cluster_resource) and ("head_cpu" in cluster_resource):
+        cluster_resource["worker_cpu"] = cluster_resource["head_cpu"]
+
     return cluster_resource
 
 

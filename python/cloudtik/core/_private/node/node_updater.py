@@ -541,10 +541,21 @@ class NodeUpdater:
     def exec_commands(self, commands, envs):
         with LogTimer(
                 self.log_prefix + "Exec commands", show_status=True):
-            for cmd in commands:
+            total = len(commands)
+            for i, cmd in enumerate(commands):
                 env_vars = {}
                 if envs:
                     env_vars.update(envs)
+
+                if cli_logger.verbosity == 0 and len(cmd) > 30:
+                    cmd_to_print = cf.bold(cmd[:30]) + "..."
+                else:
+                    cmd_to_print = cf.bold(cmd)
+
+                cli_logger.print(
+                    "{}",
+                    cmd_to_print,
+                    _numbered=("()", i, total))
 
                 try:
                     old_redirected = cmd_output_util.is_output_redirected()

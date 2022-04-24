@@ -68,7 +68,7 @@ function configure_ganglia() {
         sudo sed -i "s/\$context_metrics = \"\";/\$context_metrics = array();/g" /usr/share/ganglia-webfrontend/cluster_view.php
 
         # Add gmond start command for head in service
-        sudo sed -i '/\.pid/ a start-stop-daemon --start --quiet --startas $DAEMON --name $NAME.head -- --conf /etc/ganglia/gmond.head.conf --pid-file /var/run/$NAME.head.pid' /etc/init.d/ganglia-monitor
+        sudo sed -i '/\NAME.pid/ a start-stop-daemon --start --quiet --startas $DAEMON --name $NAME.head -- --conf /etc/ganglia/gmond.head.conf --pid-file /var/run/$NAME.head.pid' /etc/init.d/ganglia-monitor
     else
         # Configure ganglia monitor
         sudo sed -i "s/send_metadata_interval = 0/send_metadata_interval = 30/g" /etc/ganglia/gmond.conf

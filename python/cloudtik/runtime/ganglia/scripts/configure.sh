@@ -1,6 +1,6 @@
 #!/bin/bash
 
-args=$(getopt -a -o h::p: -l head::,head_address:: -- "$@")
+args=$(getopt -a -o h::p: -l head::,node_ip_address::,head_address:: -- "$@")
 eval set -- "${args}"
 
 IS_HEAD_NODE=false
@@ -11,6 +11,10 @@ do
     case "$1" in
     --head)
         IS_HEAD_NODE=true
+        ;;
+    --node_ip_address)
+        NODE_IP_ADDRESS=$2
+        shift
         ;;
     -h|--head_address)
         HEAD_ADDRESS=$2
@@ -26,8 +30,18 @@ done
 
 
 function set_head_address() {
-    if [ ! -n "${HEAD_ADDRESS}" ]; then
-        HEAD_ADDRESS=$(hostname -I | awk '{print $1}')
+    if [ $IS_HEAD_NODE == "true" ]; then
+        if [ ! -n "${NODE_IP_ADDRESS}" ]; then
+            HEAD_ADDRESS=$(hostname -I | awk '{print $1}')
+        else
+            HEAD_ADDRESS=${NODE_IP_ADDRESS}
+        fi
+    else
+        if [ ! -n "${HEAD_ADDRESS}" ]; then
+            # Error: no head address passed
+            echo "Error: head ip address should be passed."
+            exit 1
+        fi
     fi
 }
 

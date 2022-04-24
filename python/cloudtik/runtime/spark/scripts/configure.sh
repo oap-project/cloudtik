@@ -1,6 +1,6 @@
 #!/bin/bash
 
-args=$(getopt -a -o h::p: -l head::,head_address::,provider:,aws_s3_bucket::,aws_s3_access_key_id::,aws_s3_secret_access_key::,project_id::,gcs_bucket::,gcs_service_account_client_email::,gcs_service_account_private_key_id::,gcs_service_account_private_key::,azure_storage_type::,azure_storage_account::,azure_container::,azure_account_key:: -- "$@")
+args=$(getopt -a -o h::p: -l head::,node_ip_address::,head_address::,provider:,aws_s3_bucket::,aws_s3_access_key_id::,aws_s3_secret_access_key::,project_id::,gcs_bucket::,gcs_service_account_client_email::,gcs_service_account_private_key_id::,gcs_service_account_private_key::,azure_storage_type::,azure_storage_account::,azure_container::,azure_account_key:: -- "$@")
 eval set -- "${args}"
 
 IS_HEAD_NODE=false
@@ -11,6 +11,10 @@ do
     case "$1" in
     --head)
         IS_HEAD_NODE=true
+        ;;
+    --node_ip_address)
+        NODE_IP_ADDRESS=$2
+        shift
         ;;
     -h|--head_address)
         HEAD_ADDRESS=$2
@@ -102,10 +106,19 @@ function configure_system_folders() {
 }
 
 function set_head_address() {
-    if [ ! -n "${HEAD_ADDRESS}" ]; then
-        HEAD_ADDRESS=$(hostname -I | awk '{print $1}')
+    if [ $IS_HEAD_NODE == "true" ]; then
+        if [ ! -n "${NODE_IP_ADDRESS}" ]; then
+            HEAD_ADDRESS=$(hostname -I | awk '{print $1}')
+        else
+            HEAD_ADDRESS=${NODE_IP_ADDRESS}
+        fi
+    else
+        if [ ! -n "${HEAD_ADDRESS}" ]; then
+            # Error: no head address passed
+            echo "Error: head ip address should be passed."
+            exit 1
+        fi
     fi
-
     echo "export CLOUDTIK_HEAD_IP=$HEAD_ADDRESS">> ${USER_HOME}/.bashrc
 }
 

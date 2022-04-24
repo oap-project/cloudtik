@@ -763,7 +763,7 @@ def get_info_from_cluster_config(
     head_node = head_nodes[0] if len(head_nodes) > 0 else None
     # TODO haifeng: check which ip address to use here
     head_node_ip = get_head_working_ip(config, provider, head_node) if head_node else None
-    workers = [get_node_cluster_ip(config, provider, node) for node in worker_nodes]
+    workers = [get_node_cluster_ip(provider, node) for node in worker_nodes]
     ssh_user = config["auth"]["ssh_user"]
     ssh_key = config["auth"]["ssh_private_key"]
 

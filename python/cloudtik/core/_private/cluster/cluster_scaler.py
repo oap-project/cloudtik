@@ -36,8 +36,8 @@ from cloudtik.core._private.cluster.resource_demand_scheduler import \
     get_bin_pack_residual, ResourceDemandScheduler, NodeType, NodeID, NodeIP, \
     ResourceDict
 from cloudtik.core._private.utils import ConcurrentCounter, validate_config, \
-    with_head_node_ip, hash_launch_conf, hash_runtime_conf, \
-    format_info_string
+    hash_launch_conf, hash_runtime_conf, \
+    format_info_string, with_ip_addresses_for_worker
 from cloudtik.core._private.constants import CLOUDTIK_MAX_NUM_FAILURES, \
     CLOUDTIK_MAX_LAUNCH_BATCH, CLOUDTIK_MAX_CONCURRENT_LAUNCHES, \
     CLOUDTIK_UPDATE_INTERVAL_S, CLOUDTIK_HEARTBEAT_TIMEOUT_S
@@ -891,6 +891,11 @@ class ClusterScaler:
             aggregate=operator.add)
         head_node_ip = self.provider.internal_ip(
             self.non_terminated_nodes.head_id)
+
+        start_commands = with_ip_addresses_for_worker(
+            self.config["worker_start_commands"], head_node_ip,
+            None, self.provider, node_id)
+
         updater = NodeUpdaterThread(
             node_id=node_id,
             provider_config=self.config["provider"],
@@ -900,8 +905,7 @@ class ClusterScaler:
             file_mounts={},
             initialization_commands=[],
             setup_commands=[],
-            start_commands=with_head_node_ip(
-                self.config["worker_start_commands"], head_node_ip),
+            start_commands=start_commands,
             runtime_hash=self.runtime_hash,
             file_mounts_contents_hash=self.file_mounts_contents_hash,
             process_runner=self.process_runner,
@@ -980,6 +984,19 @@ class ClusterScaler:
         self.node_tracker.track(node_id, ip, node_type)
         head_node_ip = self.provider.internal_ip(
             self.non_terminated_nodes.head_id)
+
+        initialization_commands = self._get_node_type_specific_fields(
+            node_id, "initialization_commands")
+        initialization_commands = with_ip_addresses_for_worker(
+            initialization_commands, head_node_ip,
+            ip, self.provider, node_id)
+        setup_commands = with_ip_addresses_for_worker(
+            setup_commands, head_node_ip,
+            ip, self.provider, node_id)
+        start_commands = with_ip_addresses_for_worker(
+            start_commands, head_node_ip,
+            ip, self.provider, node_id)
+
         updater = NodeUpdaterThread(
             node_id=node_id,
             provider_config=self.config["provider"],
@@ -987,13 +1004,9 @@ class ClusterScaler:
             auth_config=self.config["auth"],
             cluster_name=self.config["cluster_name"],
             file_mounts=self.config["file_mounts"],
-            initialization_commands=with_head_node_ip(
-                self._get_node_type_specific_fields(
-                    node_id, "initialization_commands"), head_node_ip),
-            setup_commands=with_head_node_ip(
-                setup_commands, head_node_ip),
-            start_commands=with_head_node_ip(
-                start_commands, head_node_ip),
+            initialization_commands=initialization_commands,
+            setup_commands=setup_commands,
+            start_commands=start_commands,
             runtime_hash=self.runtime_hash,
             file_mounts_contents_hash=self.file_mounts_contents_hash,
             is_head_node=False,

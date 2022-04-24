@@ -30,7 +30,7 @@ from cloudtik.core._private import constants, services
 from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core._private.cluster.cluster_metrics import ClusterMetricsSummary
 from cloudtik.core._private.constants import CLOUDTIK_WHEELS, CLOUDTIK_CLUSTER_PYTHON_VERSION, \
-    CLOUDTIK_DEFAULT_MAX_WORKERS
+    CLOUDTIK_DEFAULT_MAX_WORKERS, CLOUDTIK_NODE_SSH_INTERVAL_S, CLOUDTIK_NODE_START_WAIT_S
 from cloudtik.core._private.runtime_factory import _get_runtime
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core._private.providers import _get_default_config, _get_node_provider, _get_provider_config_object, \
@@ -1124,12 +1124,38 @@ def fill_node_type_min_max_workers(config):
                 node_type_data.setdefault("max_workers", global_max_workers)
 
 
+def with_ip_addresses_for_worker(cmds, head_node_ip,
+                               node_ip, provider, node_id):
+    cmds = with_head_node_ip(
+        cmds, head_node_ip)
+    cmds = with_node_ip_address(
+        cmds, node_ip, provider, node_id)
+    return cmds
+
+
 def with_head_node_ip(cmds, head_ip=None):
     if head_ip is None:
         head_ip = services.get_node_ip_address()
     out = []
     for cmd in cmds:
         out.append("export CLOUDTIK_HEAD_IP={}; {}".format(head_ip, cmd))
+    return out
+
+
+def with_node_ip_address(cmds, node_ip=None, provider=None, node_id=None):
+    if node_ip is None:
+        # Waiting for node internal ip for node
+        if (provider is None) or (node_id is None):
+            raise RuntimeError("Missing provider or node id for retrieving node ip.")
+
+        deadline = time.time() + CLOUDTIK_NODE_START_WAIT_S
+        node_ip = wait_for_cluster_ip(provider, node_id, deadline)
+        if node_ip is None:
+            raise RuntimeError("Failed to get node ip for node {}.".format(node_id))
+
+    out = []
+    for cmd in cmds:
+        out.append("export CLOUDTIK_NODE_IP={}; {}".format(node_ip, cmd))
     return out
 
 
@@ -1595,9 +1621,29 @@ def is_use_internal_ip(config: Dict[str, Any]) -> bool:
     return config.get("provider", {}).get("use_internal_ips", False)
 
 
-def get_node_cluster_ip(config: Dict[str, Any],
-                        provider: NodeProvider, node: str) -> str:
+def get_node_cluster_ip(provider: NodeProvider, node: str) -> str:
     return provider.internal_ip(node)
+
+
+def wait_for_cluster_ip(provider, node_id, deadline):
+    # if we have IP do not print waiting info
+    ip = get_node_cluster_ip(provider, node_id)
+    if ip is not None:
+        return ip
+
+    interval = CLOUDTIK_NODE_SSH_INTERVAL_S
+    with cli_logger.group("Waiting for IP"):
+        while time.time() < deadline and \
+                not provider.is_terminated(node_id):
+            ip = get_node_cluster_ip(provider, node_id)
+            if ip is not None:
+                cli_logger.labeled_value("Received", ip)
+                return ip
+            cli_logger.print("Not yet available, retrying in {} seconds",
+                             str(interval))
+            time.sleep(interval)
+
+    return None
 
 
 def get_node_working_ip(config: Dict[str, Any],

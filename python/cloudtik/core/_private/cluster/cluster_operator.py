@@ -37,9 +37,10 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     hash_launch_conf, prepare_config, get_free_port, \
     get_proxy_info_file, get_safe_proxy_process_info, \
     get_head_working_ip, get_node_cluster_ip, is_use_internal_ip, get_head_bootstrap_config, \
-    get_attach_command, is_alive_time, with_head_node_ip, is_docker_enabled, get_proxy_bind_address_to_show, \
+    get_attach_command, is_alive_time, is_docker_enabled, get_proxy_bind_address_to_show, \
     kill_process_tree, with_runtime_environment_variables, verify_config, runtime_prepare_config, get_nodes_info, \
-    sum_worker_cpus, sum_worker_memory, get_useful_runtime_urls, get_enabled_runtimes
+    sum_worker_cpus, sum_worker_memory, get_useful_runtime_urls, get_enabled_runtimes, with_node_ip_address, \
+    with_ip_addresses_for_worker
 
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
@@ -612,7 +613,7 @@ def _kill_node(config, hard, node_ip: str = None):
             cli_logger.print("No worker nodes detected.")
             return None
         node = random.choice(nodes)
-        node_ip = get_node_cluster_ip(config, provider, node)
+        node_ip = get_node_cluster_ip(provider, node)
 
     if not hard:
         # execute stop-node command
@@ -820,6 +821,13 @@ def get_or_create_head_node(config: Dict[str, Any],
             warn_about_bad_start_commands(start_commands,
                                          no_controller_on_head)
 
+        initialization_commands = with_node_ip_address(
+            config["initialization_commands"], None, provider, head_node)
+        setup_commands = with_node_ip_address(
+            setup_commands, None, provider, head_node)
+        start_commands = with_node_ip_address(
+            start_commands, None, provider, head_node)
+
         updater = NodeUpdaterThread(
             node_id=head_node,
             provider_config=config["provider"],
@@ -827,7 +835,7 @@ def get_or_create_head_node(config: Dict[str, Any],
             auth_config=config["auth"],
             cluster_name=config["cluster_name"],
             file_mounts=config["file_mounts"],
-            initialization_commands=config["initialization_commands"],
+            initialization_commands=initialization_commands,
             setup_commands=setup_commands,
             start_commands=start_commands,
             process_runner=_runner,
@@ -1377,7 +1385,7 @@ def _get_worker_node_ips(config: Dict[str, Any]) -> List[str]:
     nodes = provider.non_terminated_nodes({
         CLOUDTIK_TAG_NODE_KIND: NODE_KIND_WORKER
     })
-    return [get_node_cluster_ip(config, provider, node) for node in nodes]
+    return [get_node_cluster_ip(provider, node) for node in nodes]
 
 
 def _get_worker_nodes(config: Dict[str, Any],
@@ -1782,7 +1790,7 @@ def show_useful_commands(printable_config_file: str,
                     cf.bold("{}:{}"),
                     bind_address_show, port)
 
-        head_node_cluster_ip = get_node_cluster_ip(config, provider, head_node)
+        head_node_cluster_ip = get_node_cluster_ip(provider, head_node)
 
         runtime_urls = get_useful_runtime_urls(config.get("runtime"), head_node_cluster_ip)
         for runtime_url in runtime_urls:
@@ -2316,9 +2324,12 @@ def start_node_on_head(node_ip: str = None,
             is_head_node = True
 
         if is_head_node:
-            start_commands = config["head_start_commands"]
+            start_commands = with_node_ip_address(
+                config["head_start_commands"], head_node_ip, provider, node_id)
         else:
-            start_commands = with_head_node_ip(config["worker_start_commands"], head_node_ip)
+            start_commands = with_ip_addresses_for_worker(
+                config["worker_start_commands"], head_node_ip,
+                None, provider, node_id)
 
         updater = create_node_updater_for_exec(
             config=config,
@@ -2425,9 +2436,12 @@ def stop_node_on_head(node_ip: str = None,
             is_head_node = True
 
         if is_head_node:
-            stop_commands = config["head_stop_commands"]
+            stop_commands = with_node_ip_address(
+                config["head_stop_commands"], head_node_ip, provider, node_id)
         else:
-            stop_commands = with_head_node_ip(config["worker_stop_commands"], head_node_ip)
+            stop_commands = with_ip_addresses_for_worker(
+                config["worker_stop_commands"], head_node_ip,
+                None, provider, node_id)
 
         if not stop_commands:
             return

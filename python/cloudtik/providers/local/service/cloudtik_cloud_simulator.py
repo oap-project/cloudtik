@@ -120,7 +120,7 @@ def main():
         "--port",
         type=int,
         required=False,
-        help="The port on which the Cloud Simulator listens. Default: " + DEFAULT_CLOUD_SIMULATOR_PORT)
+        help="The port on which the Cloud Simulator listens. Default: {}".format(DEFAULT_CLOUD_SIMULATOR_PORT))
     args = parser.parse_args()
     bind_address = args.bind_address
     port = args.port

@@ -135,7 +135,7 @@ class LocalNodeProvider(NodeProvider):
         if ext_ip:
             return ext_ip
         else:
-            return None
+            return socket.gethostbyname(node_id)
 
     def internal_ip(self, node_id):
         return socket.gethostbyname(node_id)

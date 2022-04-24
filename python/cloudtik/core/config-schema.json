@@ -440,7 +440,7 @@
             "patternProperties": {
                 ".*": {
                     "type": "object",
-                    "required": [ "resources", "node_config" ],
+                    "required": [ "node_config" ],
                     "properties": {
                         "node_config": {
                             "type": "object",

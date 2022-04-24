@@ -130,12 +130,12 @@ class LocalNodeProvider(NodeProvider):
 
         Useful for debugging the local node provider with cloud VMs."""
 
-        node_state = self.state.get()[node_id]
-        ext_ip = node_state.get("external_ip")
+        node = self.node_id_mapping[node_id]
+        ext_ip = node.get("external_ip")
         if ext_ip:
             return ext_ip
         else:
-            return socket.gethostbyname(node_id)
+            return None
 
     def internal_ip(self, node_id):
         return socket.gethostbyname(node_id)
@@ -155,8 +155,7 @@ class LocalNodeProvider(NodeProvider):
                 if info["state"] != "terminated":
                     continue
 
-                node_instance_type = _get_node_instance_type(
-                    self.node_id_mapping, node_id)
+                node_instance_type = self.get_node_instance_type(node_id)
                 if instance_type != node_instance_type:
                     continue
 
@@ -175,8 +174,9 @@ class LocalNodeProvider(NodeProvider):
 
     def get_node_info(self, node_id):
         node = self.state.get()[node_id]
+        node_instance_type = self.get_node_instance_type(node_id)
         node_info = {"node_id": node_id,
-                     "instance_type": None,
+                     "instance_type": node_instance_type,
                      "private_ip": self.internal_ip(node_id),
                      "public_ip": self.external_ip(node_id),
                      "instance_status": node["state"]}
@@ -190,3 +190,5 @@ class LocalNodeProvider(NodeProvider):
         """Return the all instance types information"""
         return _get_instance_types(self.provider_config)
 
+    def get_node_instance_type(self, node_id):
+        return _get_node_instance_type(self.node_id_mapping, node_id)

@@ -45,35 +45,45 @@ function set_head_address() {
     fi
 }
 
+function prepare_base_conf() {
+    source_dir=$(cd $(dirname ${BASH_SOURCE[0]})/..;pwd)/conf
+    output_dir=/tmp/ganglia/conf
+    rm -rf  $output_dir
+    mkdir -p $output_dir
+    cp -r $source_dir/* $output_dir
+}
+
 function configure_ganglia() {
-    cluster_name_head="CloudTik-Head"
-    cluster_name="CloudTik-Workers"
+    prepare_base_conf
+
+    cluster_name_worker="CloudTik-Workers"
     if [ $IS_HEAD_NODE == "true" ]; then
+        cloudtik_grid_name="CloudTik"
+        cluster_name_head="CloudTik-Head"
+        head_data_source_address=${HEAD_ADDRESS}:8650
+        worker_data_source_address=${HEAD_ADDRESS}:8649
+
         # configure ganglia gmetad
-        sudo sed -i "0,/# default: There is no default value/s//data_source \"${cluster_name_head}\" ${HEAD_ADDRESS}:8650/" /etc/ganglia/gmetad.conf
-        sudo sed -i "s/data_source \"my cluster\" localhost/data_source \"${cluster_name}\" ${HEAD_ADDRESS}/g" /etc/ganglia/gmetad.conf
-        sudo sed -i "s/# gridname \"MyGrid\"/gridname \"CloudTik\"/g" /etc/ganglia/gmetad.conf
+        sed -i "s/{cloudtik-grid-name}/${cloudtik_grid_name}/g" $output_dir/gmetad.conf
+        sed -i "s/{cloudtik-head-data-source-name}/${cluster_name_head}/g" $output_dir/gmetad.conf
+        sed -i "s/{cloudtik-worker-data-source-name}/${cluster_name_worker}/g" $output_dir/gmetad.conf
+        sed -i "s/{cloudtik-head-data-source-address}/${head_data_source_address}/g" $output_dir/gmetad.conf
+        sed -i "s/{cloudtik-worker-data-source-address}/${worker_data_source_address}/g" $output_dir/gmetad.conf
+        sudo cp $output_dir/gmetad.conf /etc/ganglia/gmetad.conf
 
-        # Configure ganglia monitor
-        sudo sed -i "s/send_metadata_interval = 0/send_metadata_interval = 30/g" /etc/ganglia/gmond.conf
-        # replace the first occurrence of "mcast_join = 239.2.11.71" with "host = HEAD_IP"
-        sudo sed -i "0,/mcast_join = 239.2.11.71/s//host = ${HEAD_ADDRESS}/" /etc/ganglia/gmond.conf
-        # comment out the second occurrence
-        sudo sed -i "s/mcast_join = 239.2.11.71/\/*mcast_join = 239.2.11.71*\//g" /etc/ganglia/gmond.conf
-        sudo sed -i "s/bind = 239.2.11.71/bind = ${HEAD_ADDRESS}/g" /etc/ganglia/gmond.conf
-        sudo sed -i "/tcp_accept_channel {/ a \ \ bind = ${HEAD_ADDRESS}" /etc/ganglia/gmond.conf
+        # configure gmond for head cluster
+        cp $output_dir/gmond.node.conf $output_dir/gmond.head.conf
+        sed -i "s/{cloudtik-cluster-name}/${cluster_name_head}/g" $output_dir/gmond.head.conf
+        sed -i "s/{cloudtik-head-address}/${HEAD_ADDRESS}/g" $output_dir/gmond.head.conf
+        sed -i "s/{cloudtik-bind-address}/${NODE_IP_ADDRESS}/g" $output_dir/gmond.head.conf
+        sed -i "s/{cloudtik-port}/8650/g" $output_dir/gmond.head.conf
+        sudo cp $output_dir/gmond.head.conf /etc/ganglia/gmond.head.conf
 
-        # Make a copy for head cluster after common modifications
-        sudo cp /etc/ganglia/gmond.conf /etc/ganglia/gmond.head.conf
-
-        sudo sed -i "s/name = \"unspecified\"/name = \"${cluster_name}\"/g" /etc/ganglia/gmond.conf
-        # Disable udp_send_channel
-        sudo sed -i "s/^udp_send_channel {/\/*udp_send_channel {/g" /etc/ganglia/gmond.conf
-        sudo sed -i "s/^\/\* You can specify as many udp_recv_channels/\*\/\/\* You can specify as many udp_recv_channels/g" /etc/ganglia/gmond.conf
-
-        # Modifications for head cluster
-        sudo sed -i "s/name = \"unspecified\"/name = \"${cluster_name_head}\"/g" /etc/ganglia/gmond.head.conf
-        sudo sed -i "s/port = 8649/port = 8650/g" /etc/ganglia/gmond.head.conf
+        # configure gmond for worker cluster
+        sed -i "s/{cloudtik-cluster-name}/${cluster_name_worker}/g" $output_dir/gmond.conf
+        sed -i "s/{cloudtik-bind-address}/${NODE_IP_ADDRESS}/g" $output_dir/gmond.conf
+        sed -i "s/{cloudtik-port}/8649/g" $output_dir/gmond.conf
+        sudo cp $output_dir/gmond.conf /etc/ganglia/gmond.conf
 
         # Configure apache2 for ganglia
         sudo cp /etc/ganglia-webfrontend/apache.conf /etc/apache2/sites-enabled/ganglia.conf
@@ -84,14 +94,14 @@ function configure_ganglia() {
         # Add gmond start command for head in service
         sudo sed -i '/\NAME.pid/ a start-stop-daemon --start --quiet --startas $DAEMON --name $NAME.head -- --conf /etc/ganglia/gmond.head.conf --pid-file /var/run/$NAME.head.pid' /etc/init.d/ganglia-monitor
     else
-        # Configure ganglia monitor
-        sudo sed -i "s/send_metadata_interval = 0/send_metadata_interval = 30/g" /etc/ganglia/gmond.conf
-        sudo sed -i "s/name = \"unspecified\"/name = \"${cluster_name}\"/g" /etc/ganglia/gmond.conf
-        # replace the first occurrence of "mcast_join = 239.2.11.71" with "host = HEAD_IP"
-        sudo sed -i "0,/mcast_join = 239.2.11.71/s//host = ${HEAD_ADDRESS}/" /etc/ganglia/gmond.conf
+        # Configure ganglia monitor for woker
+        sed -i "s/{cloudtik-cluster-name}/${cluster_name_worker}/g" $output_dir/gmond.node.conf
+        sed -i "s/{cloudtik-head-address}/${HEAD_ADDRESS}/g" $output_dir/gmond.node.conf
+        sed -i "s/{cloudtik-bind-address}/${NODE_IP_ADDRESS}/g" $output_dir/gmond.node.conf
+        sed -i "s/{cloudtik-port}/8649/g" $output_dir/gmond.node.conf
+        sudo cp $output_dir/gmond.node.conf /etc/ganglia/gmond.conf
     fi
 }
-
 
 set_head_address
 configure_ganglia

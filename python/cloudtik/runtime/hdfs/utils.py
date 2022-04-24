@@ -66,6 +66,6 @@ def _get_defaults_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
 
 def _get_useful_urls(cluster_head_ip):
     urls = [
-        {"name": "HDFS Web UI", "url": "http://{}:50070".format(cluster_head_ip)},
+        {"name": "HDFS Web UI", "url": "http://{}:9870".format(cluster_head_ip)},
     ]
     return urls

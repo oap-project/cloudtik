@@ -13,6 +13,7 @@ import socket
 import yaml
 
 from cloudtik.providers._private.local.local_node_provider import LocalNodeProvider
+from cloudtik.providers._private.local.node_provider import DEFAULT_CLOUD_SIMULATOR_PORT
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -111,23 +112,26 @@ def main():
     parser.add_argument(
         "--config", required=True, help="A config file the same format of local provider section at top level.")
     parser.add_argument(
-        "--port",
-        type=int,
-        required=True,
-        help="The port on which the Cloud Simulator listens.")
-    parser.add_argument(
         "--bind-address",
         type=str,
         required=False,
         help="The address to bind. Bind to the address resolved from hostname if not specified.")
+    parser.add_argument(
+        "--port",
+        type=int,
+        required=False,
+        help="The port on which the Cloud Simulator listens. Default: " + DEFAULT_CLOUD_SIMULATOR_PORT)
     args = parser.parse_args()
     bind_address = args.bind_address
+    port = args.port
     if bind_address is None:
         bind_address = socket.gethostbyname(socket.gethostname())
+    if port is None:
+        port = DEFAULT_CLOUD_SIMULATOR_PORT
     CloudSimulator(
         config=args.config,
         host=bind_address,
-        port=args.port,
+        port=port,
     )
 
 

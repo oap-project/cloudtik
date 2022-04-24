@@ -9,6 +9,16 @@ from cloudtik.providers._private.local.config import prepare_local, set_node_typ
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_CLOUD_SIMULATOR_PORT = 8080
+
+
+def _get_cloud_simulator_address(provider_config):
+    cloud_simulator_address = provider_config["cloud_simulator_address"]
+    # Add the default port if not specified
+    if ":" not in cloud_simulator_address:
+        cloud_simulator_address += (":{}".format(DEFAULT_CLOUD_SIMULATOR_PORT))
+    return cloud_simulator_address
+
 
 def _get_http_response_from_simulator(cloud_simulator_address, request):
     headers = {
@@ -55,7 +65,7 @@ class CloudSimulatorNodeProvider(NodeProvider):
 
     def __init__(self, provider_config, cluster_name):
         NodeProvider.__init__(self, provider_config, cluster_name)
-        self.cloud_simulator_address = provider_config["cloud_simulator_address"]
+        self.cloud_simulator_address = _get_cloud_simulator_address(provider_config)
 
     def _get_http_response(self, request):
         return _get_http_response_from_simulator(self.cloud_simulator_address, request)
@@ -129,7 +139,7 @@ class CloudSimulatorNodeProvider(NodeProvider):
             cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         """Fills out missing "resources" field for available_node_types."""
         request = {"type": "get_instance_types", "args": ()}
-        cloud_simulator_address = cluster_config["provider"]["cloud_simulator_address"]
+        cloud_simulator_address = _get_cloud_simulator_address(cluster_config["provider"])
         instance_types = _get_http_response_from_simulator(cloud_simulator_address, request)
         set_node_types_resources(cluster_config, instance_types)
         return cluster_config

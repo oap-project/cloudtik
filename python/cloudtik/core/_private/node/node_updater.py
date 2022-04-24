@@ -496,8 +496,8 @@ class NodeUpdater:
             CreateClusterEvent.start_cloudtik_runtime)
         with LogTimer(
                 self.log_prefix + "Start commands", show_status=True):
-            for cmd in self.start_commands:
-
+            total = len(self.start_commands)
+            for i, cmd in enumerate(self.start_commands):
                 # Add a resource override env variable if needed:
                 if self.provider_type == "local":
                     # Local NodeProvider doesn't need resource override.
@@ -509,6 +509,16 @@ class NodeUpdater:
                 else:
                     env_vars = {}
                 env_vars.update(runtime_envs)
+
+                if cli_logger.verbosity == 0 and len(cmd) > 30:
+                    cmd_to_print = cf.bold(cmd[:30]) + "..."
+                else:
+                    cmd_to_print = cf.bold(cmd)
+
+                cli_logger.print(
+                    "{}",
+                    cmd_to_print,
+                    _numbered=("()", i, total))
 
                 try:
                     old_redirected = cmd_output_util.is_output_redirected()

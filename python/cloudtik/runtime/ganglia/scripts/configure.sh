@@ -54,8 +54,8 @@ function configure_ganglia() {
 
         sudo sed -i "s/name = \"unspecified\"/name = \"${cluster_name}\"/g" /etc/ganglia/gmond.conf
         # Disable udp_send_channel
-        sudo sed -i "s/udp_send_channel/\/*udp_send_channel/g" /etc/ganglia/gmond.conf
-        sudo sed -i "s/\/\* You can specify as many udp_recv_channels/\*\/\/\* You can specify as many udp_recv_channels/g" /etc/ganglia/gmond.conf
+        sudo sed -i "s/^udp_send_channel {/\/*udp_send_channel {/g" /etc/ganglia/gmond.conf
+        sudo sed -i "s/^\/\* You can specify as many udp_recv_channels/\*\/\/\* You can specify as many udp_recv_channels/g" /etc/ganglia/gmond.conf
 
         # Modifications for head cluster
         sudo sed -i "s/name = \"unspecified\"/name = \"${cluster_name_head}\"/g" /etc/ganglia/gmond.head.conf

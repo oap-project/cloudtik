@@ -12,7 +12,7 @@ import socket
 
 import yaml
 
-from cloudtik.providers._private.local.node_provider import LocalNodeProvider
+from cloudtik.providers._private.local.local_node_provider import LocalNodeProvider
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)

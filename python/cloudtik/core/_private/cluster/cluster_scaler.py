@@ -41,11 +41,6 @@ from cloudtik.core._private.utils import ConcurrentCounter, validate_config, \
 from cloudtik.core._private.constants import CLOUDTIK_MAX_NUM_FAILURES, \
     CLOUDTIK_MAX_LAUNCH_BATCH, CLOUDTIK_MAX_CONCURRENT_LAUNCHES, \
     CLOUDTIK_UPDATE_INTERVAL_S, CLOUDTIK_HEARTBEAT_TIMEOUT_S
-
-# To be refactored for handling special things for local provider type
-from cloudtik.providers._private.local.node_provider import LocalNodeProvider
-from cloudtik.providers._private.local.node_provider import \
-    record_local_head_state_if_needed
     
 logger = logging.getLogger(__name__)
 
@@ -770,11 +765,6 @@ class ClusterScaler:
             if not self.provider:
                 self.provider = _get_node_provider(self.config["provider"],
                                                    self.config["cluster_name"])
-
-            # If using the LocalNodeProvider, make sure the head node is marked
-            # non-terminated.
-            if isinstance(self.provider, LocalNodeProvider):
-                record_local_head_state_if_needed(self.provider)
 
             self.available_node_types = self.config["available_node_types"]
             upscaling_speed = self.config.get("upscaling_speed")

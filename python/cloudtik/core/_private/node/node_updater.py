@@ -6,7 +6,7 @@ import time
 
 from threading import Thread
 
-from cloudtik.core._private.utils import with_runtime_environment_variables
+from cloudtik.core._private.utils import with_runtime_environment_variables, with_node_ip_environment_variables
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_STATUS, CLOUDTIK_TAG_RUNTIME_CONFIG, \
     CLOUDTIK_TAG_FILE_MOUNTS_CONTENTS, \
     STATUS_UP_TO_DATE, STATUS_UPDATE_FAILED, STATUS_WAITING_FOR_SSH, \
@@ -327,8 +327,14 @@ class NodeUpdater:
 
         if self.restart_only:
             self.setup_commands = []
+
         runtime_envs = with_runtime_environment_variables(
             self.runtime_config, self.provider)
+
+        # Add node ip address environment variables
+        ip_envs = with_node_ip_environment_variables(
+            None, self.provider, self.node_id)
+        runtime_envs.update(ip_envs)
 
         # runtime_hash will only change whenever the user restarts
         # or updates their cluster with `get_or_create_head_node`

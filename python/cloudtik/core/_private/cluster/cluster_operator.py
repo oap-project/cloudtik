@@ -868,7 +868,10 @@ def get_or_create_head_node(config: Dict[str, Any],
                          True, "localhost")
 
     cli_logger.newline()
-    cli_logger.print("Successfully started cluster: {}.", config["cluster_name"])
+    successful_msg = "Successfully started cluster: {}.".format(config["cluster_name"])
+    cli_logger.success("-" * len(successful_msg))
+    cli_logger.success(successful_msg)
+    cli_logger.success("-" * len(successful_msg))
 
     show_useful_commands(printable_config_file,
                          config,

@@ -287,12 +287,8 @@ def node_start(node_ip_address, address, port, head,
         node = NodeServicesStarter(
             start_params, head=False, shutdown_at_exit=False, spawn_reaper=False)
 
-    cli_logger.newline()
     startup_msg = "CloudTik runtime started."
-    cli_logger.success("-" * len(startup_msg))
     cli_logger.success(startup_msg)
-    cli_logger.success("-" * len(startup_msg))
-    cli_logger.newline()
     cli_logger.flush()
 
 

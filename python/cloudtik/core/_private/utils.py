@@ -1124,15 +1124,6 @@ def fill_node_type_min_max_workers(config):
                 node_type_data.setdefault("max_workers", global_max_workers)
 
 
-def with_ip_addresses_for_worker(cmds, head_node_ip,
-                               node_ip, provider, node_id):
-    cmds = with_head_node_ip(
-        cmds, head_node_ip)
-    cmds = with_node_ip_address(
-        cmds, node_ip, provider, node_id)
-    return cmds
-
-
 def with_head_node_ip(cmds, head_ip=None):
     if head_ip is None:
         head_ip = services.get_node_ip_address()
@@ -1142,7 +1133,7 @@ def with_head_node_ip(cmds, head_ip=None):
     return out
 
 
-def with_node_ip_address(cmds, node_ip=None, provider=None, node_id=None):
+def with_node_ip_environment_variables(node_ip, provider, node_id):
     if node_ip is None:
         # Waiting for node internal ip for node
         if (provider is None) or (node_id is None):
@@ -1153,10 +1144,8 @@ def with_node_ip_address(cmds, node_ip=None, provider=None, node_id=None):
         if node_ip is None:
             raise RuntimeError("Failed to get node ip for node {}.".format(node_id))
 
-    out = []
-    for cmd in cmds:
-        out.append("export CLOUDTIK_NODE_IP={}; {}".format(node_ip, cmd))
-    return out
+    ip_envs = {"CLOUDTIK_NODE_IP": node_ip}
+    return ip_envs
 
 
 def hash_launch_conf(node_conf, auth):

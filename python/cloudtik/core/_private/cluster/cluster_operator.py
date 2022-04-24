@@ -39,8 +39,8 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     get_head_working_ip, get_node_cluster_ip, is_use_internal_ip, get_head_bootstrap_config, \
     get_attach_command, is_alive_time, is_docker_enabled, get_proxy_bind_address_to_show, \
     kill_process_tree, with_runtime_environment_variables, verify_config, runtime_prepare_config, get_nodes_info, \
-    sum_worker_cpus, sum_worker_memory, get_useful_runtime_urls, get_enabled_runtimes, with_node_ip_address, \
-    with_ip_addresses_for_worker
+    sum_worker_cpus, sum_worker_memory, get_useful_runtime_urls, get_enabled_runtimes, \
+    with_head_node_ip, with_node_ip_environment_variables
 
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
@@ -821,13 +821,7 @@ def get_or_create_head_node(config: Dict[str, Any],
             warn_about_bad_start_commands(start_commands,
                                          no_controller_on_head)
 
-        initialization_commands = with_node_ip_address(
-            config["initialization_commands"], None, provider, head_node)
-        setup_commands = with_node_ip_address(
-            setup_commands, None, provider, head_node)
-        start_commands = with_node_ip_address(
-            start_commands, None, provider, head_node)
-
+        initialization_commands = config["initialization_commands"]
         updater = NodeUpdaterThread(
             node_id=head_node,
             provider_config=config["provider"],
@@ -2324,12 +2318,11 @@ def start_node_on_head(node_ip: str = None,
             is_head_node = True
 
         if is_head_node:
-            start_commands = with_node_ip_address(
-                config["head_start_commands"], head_node_ip, provider, node_id)
+            start_commands = config["head_start_commands"]
+            node_runtime_envs = with_node_ip_environment_variables(head_node_ip, provider, node_id)
         else:
-            start_commands = with_ip_addresses_for_worker(
-                config["worker_start_commands"], head_node_ip,
-                None, provider, node_id)
+            start_commands = with_head_node_ip(config["worker_start_commands"], head_node_ip)
+            node_runtime_envs = with_node_ip_environment_variables(None, provider, node_id)
 
         updater = create_node_updater_for_exec(
             config=config,
@@ -2339,7 +2332,8 @@ def start_node_on_head(node_ip: str = None,
             is_head_node=is_head_node,
             use_internal_ip=True)
 
-        updater._exec_start_commands(runtime_envs)
+        node_runtime_envs.update(runtime_envs)
+        updater._exec_start_commands(node_runtime_envs)
 
     for node_id in nodes:
         start_single_node_on_head(node_id)
@@ -2436,12 +2430,11 @@ def stop_node_on_head(node_ip: str = None,
             is_head_node = True
 
         if is_head_node:
-            stop_commands = with_node_ip_address(
-                config["head_stop_commands"], head_node_ip, provider, node_id)
+            stop_commands = config["head_stop_commands"]
+            node_runtime_envs = with_node_ip_environment_variables(head_node_ip, provider, node_id)
         else:
-            stop_commands = with_ip_addresses_for_worker(
-                config["worker_stop_commands"], head_node_ip,
-                None, provider, node_id)
+            stop_commands = with_head_node_ip(config["worker_stop_commands"], head_node_ip)
+            node_runtime_envs = with_node_ip_environment_variables(None, provider, node_id)
 
         if not stop_commands:
             return
@@ -2454,7 +2447,8 @@ def stop_node_on_head(node_ip: str = None,
             is_head_node=is_head_node,
             use_internal_ip=True)
 
-        updater.exec_commands(stop_commands, runtime_envs)
+        node_runtime_envs.update(runtime_envs)
+        updater.exec_commands(stop_commands, node_runtime_envs)
 
     for node_id in nodes:
         stop_single_node_on_head(node_id)

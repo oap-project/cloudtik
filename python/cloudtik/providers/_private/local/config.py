@@ -39,12 +39,14 @@ def _get_request_instance_type(node_config):
     if "instance_type" not in node_config:
         raise ValueError("Invalid node request. 'instance_type' is required.")
 
+    return node_config["instance_type"]
+
 
 def _get_node_id_mapping(provider_config: Dict[str, Any]):
     nodes = get_local_nodes(provider_config)
     node_id_mapping = {}
     for node in nodes:
-        node_id_mapping[node.ip] = node
+        node_id_mapping[node["ip"]] = node
     return node_id_mapping
 
 
@@ -57,7 +59,7 @@ def _get_node_instance_type(node_id_mapping, node_ip):
 
 def get_list_of_node_ips(provider_config: Dict[str, Any]):
     nodes = get_local_nodes(provider_config)
-    node_ips = [node.ip for node in nodes]
+    node_ips = [node["ip"] for node in nodes]
     return node_ips
 
 

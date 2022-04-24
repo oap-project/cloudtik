@@ -1,82 +1,23 @@
 import os
-import copy
 from typing import Any
 from typing import Dict
+import logging
 
 from cloudtik.core._private.cli_logger import cli_logger
 import cloudtik.core._private.utils as utils
 
-unsupported_field_message = ("The field {} is not supported "
-                             "for on-premise clusters.")
-
-LOCAL_CLUSTER_NODE_TYPE = "local.node"
+logger = logging.getLogger(__name__)
 
 
 def prepare_local(config: Dict[str, Any]) -> Dict[str, Any]:
     """
     Prepare local cluster config for ingestion by cluster launcher and scaler.
     """
-    config = copy.deepcopy(config)
-    for field in "head_node", "available_node_types":
-        if config.get(field):
-            err_msg = unsupported_field_message.format(field)
-            cli_logger.abort(err_msg)
-    # We use a config with a single node type for on-prem clusters.
-    # Resources internally detected are not overridden
-    config["available_node_types"] = {
-        LOCAL_CLUSTER_NODE_TYPE: {
-            "node_config": {},
-            "resources": {}
-        }
-    }
-    config["head_node_type"] = LOCAL_CLUSTER_NODE_TYPE
-    if "cloud_simulator_address" in config["provider"]:
-        config = prepare_cloud_simulator(config)
-    else:
-        config = prepare_manual(config)
+    if "cloud_simulator_address" not in config["provider"]:
+        cli_logger.abort("No Cloud Simulator address specified. "
+                         "You must specify use cloud_simulator_address.")
+
     return config
-
-
-def prepare_cloud_simulator(config: Dict[str, Any]) -> Dict[str, Any]:
-    config = copy.deepcopy(config)
-    # User should explicitly set the max number of workers for the cloud simulator
-    # to allocate.
-    if "max_workers" not in config:
-        cli_logger.abort("The field `max_workers` is required when using an "
-                         "automatically managed on-premise cluster.")
-    node_type = config["available_node_types"][LOCAL_CLUSTER_NODE_TYPE]
-    # The cluster controller no longer uses global `min_workers`.
-    # Move `min_workers` to the node_type config.
-    node_type["min_workers"] = config.pop("min_workers", 0)
-    node_type["max_workers"] = config["max_workers"]
-    return config
-
-
-def prepare_manual(config: Dict[str, Any]) -> Dict[str, Any]:
-    config = copy.deepcopy(config)
-    if ("worker_nodes" not in config["provider"]) or (
-            "head_node" not in config["provider"]):
-        cli_logger.abort("Please supply a `head_node` and list of `worker_nodes`. "
-                         "Alternatively, supply a `cloud_simulator_address`.")
-    num_workers = len(get_worker_nodes(config["provider"]))
-    node_type = config["available_node_types"][LOCAL_CLUSTER_NODE_TYPE]
-    # Default to keeping all provided ips in the cluster.
-    config.setdefault("max_workers", num_workers)
-    # The cluster controller no longer uses global `min_workers`.
-    # Move `min_workers` to the node_type config.
-    node_type["min_workers"] = config.pop("min_workers", num_workers)
-    node_type["max_workers"] = config["max_workers"]
-    return config
-
-
-def get_lock_path(cluster_name: str) -> str:
-    return os.path.join(utils.get_user_temp_dir(),
-                        "cloudtik-local-{}.lock".format(cluster_name))
-
-
-def get_state_path(cluster_name: str) -> str:
-    return os.path.join(utils.get_user_temp_dir(),
-                        "cloudtik-local-{}.state".format(cluster_name))
 
 
 def get_cloud_simulator_lock_path() -> str:
@@ -87,61 +28,79 @@ def get_cloud_simulator_state_path() -> str:
     return os.path.join(utils.get_user_temp_dir(), "cloudtik-cloud-simulator.state")
 
 
-def bootstrap_local(config: Dict[str, Any]) -> Dict[str, Any]:
-    return config
+def get_local_nodes(provider_config: Dict[str, Any]):
+    if "nodes" not in provider_config:
+        raise RuntimeError("No 'nodes' defined in local provider configuration.")
+
+    return provider_config["nodes"]
 
 
-def get_head_node(provider_config: Dict[str, Any]):
-    return provider_config["head_node"]
+def _get_request_instance_type(node_config):
+    if "instance_type" not in node_config:
+        raise ValueError("Invalid node request. 'instance_type' is required.")
 
 
-def get_head_node_ip(provider_config: Dict[str, Any]):
-    head_node = get_head_node(provider_config)
-    return head_node["ip"]
+def _get_node_id_mapping(provider_config: Dict[str, Any]):
+    nodes = get_local_nodes(provider_config)
+    node_id_mapping = {}
+    for node in nodes:
+        node_id_mapping[node.ip] = node
+    return node_id_mapping
 
 
-def get_head_node_external_ip(provider_config: Dict[str, Any]):
-    head_node = get_head_node(provider_config)
-    return head_node.get("external_ip")
-
-
-def get_worker_nodes(provider_config: Dict[str, Any]):
-    return provider_config.get("worker_nodes", [])
-
-
-def get_worker_node_ips(provider_config: Dict[str, Any]):
-    worker_nodes = get_worker_nodes(provider_config)
-    return [worker_node["ip"] for worker_node in worker_nodes]
+def _get_node_instance_type(node_id_mapping, node_ip):
+    node = node_id_mapping.get(node_ip)
+    if node is None:
+        raise RuntimeError(f"Node with node ip {node_ip} is not found in the original node list.")
+    return node["instance_type"]
 
 
 def get_list_of_node_ips(provider_config: Dict[str, Any]):
-    node_ips = get_worker_node_ips(provider_config)
-    head_ip = get_head_node_ip(provider_config)
-    node_ips.append(head_ip)
+    nodes = get_local_nodes(provider_config)
+    node_ips = [node.ip for node in nodes]
     return node_ips
 
 
-def fillout_node_types_resources(
-            config: Dict[str, Any]) -> Dict[str, Any]:
-    resources = _get_node_type_resources(config["provider"])
-    set_node_types_resources(config, resources)
-    return config
+def _get_num_node_of_instance_type(provider_config: Dict[str, Any], instance_type) -> int:
+    nodes = get_local_nodes(provider_config)
+    num_node_of_instance_type = 0
+    for node in nodes:
+        if instance_type == node[instance_type]:
+            num_node_of_instance_type += 1
+    return num_node_of_instance_type
 
 
 def set_node_types_resources(
-            config: Dict[str, Any], resources):
-    node_type = config["available_node_types"][LOCAL_CLUSTER_NODE_TYPE]
-    node_type["resources"]["CPU"] = resources["CPU"]
-    node_type["resources"]["memory"] = int(resources["memory"]) * 1024 * 1024
+            config: Dict[str, Any], instance_types):
+    # Update the instance information to node type
+    available_node_types = config["available_node_types"]
+    for node_type in available_node_types:
+        instance_type = available_node_types[node_type]["node_config"][
+            "instance_type"]
+        if instance_type in instance_types:
+            resources = instance_types[instance_type]["resources"]
+            detected_resources = {"CPU": resources["CPU"]}
+
+            memory_total = resources["memoryMb"]
+            memory_total_in_bytes = int(memory_total) * 1024 * 1024
+            detected_resources["memory"] = memory_total_in_bytes
+
+            detected_resources.update(
+                available_node_types[node_type].get("resources", {}))
+            if detected_resources != \
+                    available_node_types[node_type].get("resources", {}):
+                available_node_types[node_type][
+                    "resources"] = detected_resources
+                logger.debug("Updating the resources of {} to {}.".format(
+                    node_type, detected_resources))
+        else:
+            raise ValueError("Instance type " + instance_type +
+                             " is not available in local configuration.")
 
 
-def _get_node_type_resources(provider_config: Dict[str, Any]) -> Dict[str, Any]:
-    head_node = get_head_node(provider_config)
-    if "resources" not in head_node:
-        cli_logger.warning("Node resources not provided. "
-                           "Please supply the resources (CPU and memory) information in head node.")
-
-    # default to a conservative 4 cpu and 8GB if not defined
-    cpus = head_node.get("CPU", 4)
-    memory = head_node.get("memory", 1024 * 8)
-    return {"CPU": cpus, "memory": memory}
+def _get_instance_types(provider_config: Dict[str, Any]) -> Dict[str, Any]:
+    if "instance_types" not in provider_config:
+        cli_logger.warning("No instance types definition found. No node can be created!"
+                           "Please supply the instance types definition in the config.")
+    instance_types = provider_config.get("instance_types", {})
+    return instance_types

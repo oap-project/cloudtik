@@ -1,9 +1,9 @@
 # A unique identifier for the cluster.
-cluster_name: example-cloud-simulator
+cluster_name: example
 
 # Enable container
 docker:
-    enabled: True
+    enabled: False
 
 # Cloud-provider specific configuration.
 provider:
@@ -18,3 +18,11 @@ auth:
     ssh_private_key: ~/.ssh/your-private-key.pem
     # Set proxy if you are in corporation network. For example,
     # ssh_proxy_command: "ncat --proxy-type socks5 --proxy your_proxy_host:your_proxy_port %h %p"
+
+available_node_types:
+    head.default:
+        node_config:
+            instance_type: your_instance_type
+    worker.default:
+        node_config:
+            instance_type: your_instance_type

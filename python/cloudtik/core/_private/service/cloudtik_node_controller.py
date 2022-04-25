@@ -17,7 +17,7 @@ import cloudtik
 from cloudtik.core._private import constants, services
 from cloudtik.core._private.logging_utils import setup_component_logger
 from cloudtik.core._private.state.control_state import ControlState
-from cloudtik.runtime.spark.utils import get_runtime_processes
+from cloudtik.runtime.spark.utils import get_spark_runtime_processes
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +63,8 @@ class NodeController:
         self.control_state = ControlState()
         self.control_state.initialize_control_state(ip, port, redis_password)
         self.node_table = self.control_state.get_node_table()
+        self.processes_to_check = constants.CLOUDTIK_PROCESSES
+        self.processes_to_check.extend(get_spark_runtime_processes())
         logger.info("Controller: Started")
 
     def _run(self):
@@ -117,9 +119,6 @@ class NodeController:
 
     def _check_process(self):
         """check CloudTik runtime processes on the local machine."""
-        processes_to_check = constants.CLOUDTIK_PROCESSES
-        processes_to_check.extend(get_runtime_processes())
-
         process_infos = []
         for proc in psutil.process_iter(["name", "cmdline"]):
             try:
@@ -128,7 +127,7 @@ class NodeController:
                 pass
 
         found_process = {}
-        for keyword, filter_by_cmd, process_name, node_type in processes_to_check:
+        for keyword, filter_by_cmd, process_name, node_type in self.processes_to_check:
             if filter_by_cmd and len(keyword) > 15:
                 # getting here is an internal bug, so we do not use cli_logger
                 msg = ("The filter string should not be more than {} "

@@ -1,0 +1,27 @@
+# Custom commands that will be run on the head node after common setup.
+head_setup_commands:
+    - cloudtik-ganglia install --head
+    - cloudtik-ganglia configure --head --node_ip_address=$CLOUDTIK_NODE_IP
+
+# Custom commands that will be run on worker nodes after common setup.
+worker_setup_commands:
+    - cloudtik-ganglia install
+    - cloudtik-ganglia configure --node_ip_address=$CLOUDTIK_NODE_IP --head_address=$CLOUDTIK_HEAD_IP
+
+# Command to start on the head node. You don't need to change this.
+head_start_commands:
+    - cloudtik-ganglia stop-head
+    - cloudtik-ganglia start-head
+
+# Command to start on worker nodes. You don't need to change this.
+worker_start_commands:
+    - cloudtik-ganglia stop-worker
+    - cloudtik-ganglia start-worker
+
+# Command to start on the head node. You don't need to change this.
+head_stop_commands:
+    - cloudtik-ganglia stop-head
+
+# Command to start on worker nodes. You don't need to change this.
+worker_stop_commands:
+    - cloudtik-ganglia stop-worker

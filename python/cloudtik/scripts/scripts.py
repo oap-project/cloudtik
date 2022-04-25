@@ -20,16 +20,18 @@ from cloudtik.core._private.cli_logger import (add_click_logging_options,
 from cloudtik.core._private.cluster.cluster_operator import (
     attach_cluster, exec_cluster, create_or_update_cluster, monitor_cluster,
     rsync, teardown_cluster, get_head_node_ip, kill_node_from_head, get_worker_node_ips,
-    get_cluster_dump_archive, get_local_dump_archive, show_cluster_info, show_cluster_status, RUN_ENV_TYPES,
+    get_cluster_dump_archive, get_local_dump_archive, RUN_ENV_TYPES,
+    show_worker_cpus, show_worker_memory, show_cluster_info, show_cluster_status,
     start_proxy, stop_proxy, cluster_debug_status,
     cluster_health_check, cluster_process_status,
-    attach_worker, exec_node_from_head, start_node_from_head, stop_node_from_head, exec_cmd_on_cluster, scale_cluster)
+    attach_worker, exec_node_from_head, start_node_from_head, stop_node_from_head, exec_cmd_on_cluster, scale_cluster,
+    _load_cluster_config)
 from cloudtik.core._private.constants import CLOUDTIK_PROCESSES, \
     CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
     CLOUDTIK_DEFAULT_PORT
 from cloudtik.core._private.node.node_services import NodeServicesStarter
 from cloudtik.core._private.parameter import StartParams
-from cloudtik.runtime.spark.utils import is_spark_runtime_scripts, get_spark_runtime_command
+from cloudtik.core._private.utils import get_runnable_command
 from cloudtik.scripts.utils import NaturalOrderGroup
 from cloudtik.scripts.workspace import workspace
 from cloudtik.scripts.head_scripts import head
@@ -285,12 +287,8 @@ def node_start(node_ip_address, address, port, head,
         node = NodeServicesStarter(
             start_params, head=False, shutdown_at_exit=False, spawn_reaper=False)
 
-    cli_logger.newline()
     startup_msg = "CloudTik runtime started."
-    cli_logger.success("-" * len(startup_msg))
     cli_logger.success(startup_msg)
-    cli_logger.success("-" * len(startup_msg))
-    cli_logger.newline()
     cli_logger.flush()
 
 
@@ -774,11 +772,13 @@ def submit(cluster_config_file, screen, tmux, stop, start, cluster_name,
         command_parts = ["python", target]
     elif target_name.endswith(".sh"):
         command_parts = ["bash", target]
-    elif is_spark_runtime_scripts(target_name):
-        command_parts = get_spark_runtime_command(target)
     else:
-        cli_logger.error("We don't how to execute your file: {}", script)
-        return
+        config = _load_cluster_config(
+            cluster_config_file, cluster_name, True, no_config_cache)
+        command_parts = get_runnable_command(config.get("runtime"), target)
+        if command_parts is None:
+            cli_logger.error("We don't how to execute your file: {}", script)
+            return
 
     if script_args:
         command_parts += list(script_args)
@@ -923,9 +923,25 @@ def status(cluster_config_file, cluster_name):
     required=False,
     type=str,
     help="Override the configured cluster name.")
+@click.option(
+    "--worker-cpus",
+    is_flag=True,
+    default=False,
+    help="Get the total number of cpus for workers.")
+@click.option(
+    "--worker-memory",
+    is_flag=True,
+    default=False,
+    help="Get the total memory for workers.")
 @add_click_logging_options
-def info(cluster_config_file, cluster_name):
+def info(cluster_config_file, cluster_name, worker_cpus, worker_memory):
     """Show cluster summary information and useful links to use the cluster."""
+    if worker_cpus:
+        return show_worker_cpus(cluster_config_file, cluster_name)
+
+    if worker_memory:
+        return show_worker_memory(cluster_config_file, cluster_name)
+
     show_cluster_info(
         cluster_config_file,
         cluster_name)

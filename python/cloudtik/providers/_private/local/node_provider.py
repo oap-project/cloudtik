@@ -1,306 +1,145 @@
-from filelock import FileLock
-from threading import RLock
 import json
-import os
-import socket
 import logging
+from http.client import RemoteDisconnected
 from typing import Any, Dict
 
 from cloudtik.core.node_provider import NodeProvider
-from cloudtik.core.tags import (CLOUDTIK_TAG_NODE_KIND, NODE_KIND_WORKER,
-                                 NODE_KIND_HEAD, CLOUDTIK_TAG_USER_NODE_TYPE,
-                                 CLOUDTIK_TAG_NODE_NAME, CLOUDTIK_TAG_NODE_STATUS,
-                                 STATUS_UP_TO_DATE)
-
-from cloudtik.providers._private.local.config import bootstrap_local, prepare_local
-from cloudtik.providers._private.local.config import get_lock_path
-from cloudtik.providers._private.local.config import get_state_path
-from cloudtik.providers._private.local.config import LOCAL_CLUSTER_NODE_TYPE
+from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME
+from cloudtik.providers._private.local.config import prepare_local, set_node_types_resources
 
 logger = logging.getLogger(__name__)
 
-filelock_logger = logging.getLogger("filelock")
-filelock_logger.setLevel(logging.WARNING)
+DEFAULT_CLOUD_SIMULATOR_PORT = 8080
 
 
-class ClusterState:
-    def __init__(self, lock_path, save_path, provider_config):
-        self.lock = RLock()
-        self.file_lock = FileLock(lock_path)
-        self.save_path = save_path
-
-        with self.lock:
-            with self.file_lock:
-                if os.path.exists(self.save_path):
-                    workers = json.loads(open(self.save_path).read())
-                    head_config = workers.get(provider_config["head_ip"])
-                    if (not head_config or
-                            head_config.get("tags", {}).get(CLOUDTIK_TAG_NODE_KIND)
-                            != NODE_KIND_HEAD):
-                        workers = {}
-                        logger.info("Head IP changed - recreating cluster.")
-                else:
-                    workers = {}
-                logger.info("ClusterState: "
-                            "Loaded cluster state: {}".format(list(workers)))
-                for worker_ip in provider_config["worker_ips"]:
-                    if worker_ip not in workers:
-                        workers[worker_ip] = {
-                            "tags": {
-                                CLOUDTIK_TAG_NODE_KIND: NODE_KIND_WORKER
-                            },
-                            "state": "terminated",
-                        }
-                    else:
-                        assert (workers[worker_ip]["tags"][CLOUDTIK_TAG_NODE_KIND]
-                                == NODE_KIND_WORKER)
-                if provider_config["head_ip"] not in workers:
-                    workers[provider_config["head_ip"]] = {
-                        "tags": {
-                            CLOUDTIK_TAG_NODE_KIND: NODE_KIND_HEAD
-                        },
-                        "state": "terminated",
-                    }
-                else:
-                    assert (workers[provider_config["head_ip"]]["tags"][
-                        CLOUDTIK_TAG_NODE_KIND] == NODE_KIND_HEAD)
-                # Relevant when a user reduces the number of workers
-                # without changing the headnode.
-                list_of_node_ips = list(provider_config["worker_ips"])
-                list_of_node_ips.append(provider_config["head_ip"])
-                for worker_ip in list(workers):
-                    if worker_ip not in list_of_node_ips:
-                        del workers[worker_ip]
-
-                # Set external head ip, if provided by user.
-                # Necessary if calling `cloudtik up` from outside the network.
-                # Refer to LocalNodeProvider.external_ip function.
-                external_head_ip = provider_config.get("external_head_ip")
-                if external_head_ip:
-                    head = workers[provider_config["head_ip"]]
-                    head["external_ip"] = external_head_ip
-
-                assert len(workers) == len(provider_config["worker_ips"]) + 1
-                with open(self.save_path, "w") as f:
-                    logger.debug("ClusterState: "
-                                 "Writing cluster state: {}".format(workers))
-                    f.write(json.dumps(workers))
-
-    def get(self):
-        with self.lock:
-            with self.file_lock:
-                workers = json.loads(open(self.save_path).read())
-                return workers
-
-    def put(self, worker_id, info):
-        assert "tags" in info
-        assert "state" in info
-        with self.lock:
-            with self.file_lock:
-                workers = self.get()
-                workers[worker_id] = info
-                with open(self.save_path, "w") as f:
-                    logger.info("ClusterState: "
-                                "Writing cluster state: {}".format(
-                                    list(workers)))
-                    f.write(json.dumps(workers))
+def _get_cloud_simulator_address(provider_config):
+    cloud_simulator_address = provider_config["cloud_simulator_address"]
+    # Add the default port if not specified
+    if ":" not in cloud_simulator_address:
+        cloud_simulator_address += (":{}".format(DEFAULT_CLOUD_SIMULATOR_PORT))
+    return cloud_simulator_address
 
 
-class CloudSimulatorState(ClusterState):
-    """Generates & updates the state file of CoordinatorSenderNodeProvider.
+def _get_http_response_from_simulator(cloud_simulator_address, request):
+    headers = {
+        "Content-Type": "application/json",
+    }
+    request_message = json.dumps(request).encode()
+    cloud_simulator_endpoint = "http://" + cloud_simulator_address
 
-    Unlike ClusterState, which generates a cluster specific file with
-    predefined head and worker ips, OnPremCoordinatorState overwrites
-    ClusterState's __init__ function to generate and manage a unified
-    file of the status of all the nodes for multiple clusters.
-    """
+    try:
+        import requests  # `requests` is not part of stdlib.
+        from requests.exceptions import ConnectionError
 
-    def __init__(self, lock_path, save_path, list_of_node_ips):
-        self.lock = RLock()
-        self.file_lock = FileLock(lock_path)
-        self.save_path = save_path
+        r = requests.get(
+            cloud_simulator_endpoint,
+            data=request_message,
+            headers=headers,
+            timeout=None,
+        )
+    except (RemoteDisconnected, ConnectionError):
+        logger.exception("Could not connect to: " +
+                         cloud_simulator_endpoint +
+                         ". Did you launched the Cloud Simulator by running cloudtik-simulator " +
+                         " --config nodes-config-file --port <PORT>?")
+        raise
+    except ImportError:
+        logger.exception(
+            "Not all dependencies were found. Please "
+            "update your install command.")
+        raise
 
-        with self.lock:
-            with self.file_lock:
-                if os.path.exists(self.save_path):
-                    nodes = json.loads(open(self.save_path).read())
-                else:
-                    nodes = {}
-                logger.info(
-                    "CloudSimulatorState: "
-                    "Loaded Cloud Simulator state: {}".format(nodes))
-
-                # Filter removed node ips.
-                for node_ip in list(nodes):
-                    if node_ip not in list_of_node_ips:
-                        del nodes[node_ip]
-
-                for node_ip in list_of_node_ips:
-                    if node_ip not in nodes:
-                        nodes[node_ip] = {
-                            "tags": {},
-                            "state": "terminated",
-                        }
-                assert len(nodes) == len(list_of_node_ips)
-                with open(self.save_path, "w") as f:
-                    logger.info(
-                        "CloudSimulatorState: "
-                        "Writing Cloud Simulator state: {}".format(nodes))
-                    f.write(json.dumps(nodes))
+    response = r.json()
+    return response
 
 
-class LocalNodeProvider(NodeProvider):
-    """NodeProvider for private/local clusters.
+class CloudSimulatorNodeProvider(NodeProvider):
+    """NodeProvider for automatically managed private/local clusters.
 
-    `node_id` is overloaded to also be `node_ip` in this class.
-
-    When `cluster_name` is provided, it manages a single cluster in a cluster
-    specific state file. But when `cluster_name` is None, it manages multiple
-    clusters in a unified state file that requires each node to be tagged with
-    CLOUDTIK_TAG_CLUSTER_NAME in create and non_terminated_nodes function calls to
-    associate each node with the right cluster.
-
-    The current use case of managing multiple clusters is by
-    OnPremCoordinatorServer which receives node provider HTTP requests
-    from CoordinatorSenderNodeProvider and uses LocalNodeProvider to get
-    the responses.
+    The cluster management is handled by a remote Cloud Simulator.
+    The server listens on <cloud_simulator_address>, therefore, the address
+    should be provided in the provider section in the cluster config.
+    The server receives HTTP requests from this class and uses
+    LocalNodeProvider to get their responses.
     """
 
     def __init__(self, provider_config, cluster_name):
         NodeProvider.__init__(self, provider_config, cluster_name)
+        self.cloud_simulator_address = _get_cloud_simulator_address(provider_config)
 
-        if cluster_name:
-            lock_path = get_lock_path(cluster_name)
-            state_path = get_state_path(cluster_name)
-            self.state = ClusterState(
-                lock_path,
-                state_path,
-                provider_config,
-            )
-            self.use_cloud_simulator = False
-        else:
-            # LocalNodeProvider with a Cloud Simulator.
-            self.state = CloudSimulatorState(
-                "/tmp/cloudtik-cloud-simulator.lock", "/tmp/cloudtik-cloud-simulator.state",
-                provider_config["list_of_node_ips"])
-            self.use_cloud_simulator = True
+    def _get_http_response(self, request):
+        return _get_http_response_from_simulator(self.cloud_simulator_address, request)
 
     def non_terminated_nodes(self, tag_filters):
-        workers = self.state.get()
-        matching_ips = []
-        for worker_ip, info in workers.items():
-            if info["state"] == "terminated":
-                continue
-            ok = True
-            for k, v in tag_filters.items():
-                if info["tags"].get(k) != v:
-                    ok = False
-                    break
-            if ok:
-                matching_ips.append(worker_ip)
-        return matching_ips
+        # Only get the non terminated nodes associated with this cluster name.
+        tag_filters[CLOUDTIK_TAG_CLUSTER_NAME] = self.cluster_name
+        request = {"type": "non_terminated_nodes", "args": (tag_filters, )}
+        return self._get_http_response(request)
 
     def is_running(self, node_id):
-        return self.state.get()[node_id]["state"] == "running"
+        request = {"type": "is_running", "args": (node_id, )}
+        return self._get_http_response(request)
 
     def is_terminated(self, node_id):
-        return not self.is_running(node_id)
+        request = {"type": "is_terminated", "args": (node_id, )}
+        return self._get_http_response(request)
 
     def node_tags(self, node_id):
-        return self.state.get()[node_id]["tags"]
+        request = {"type": "node_tags", "args": (node_id, )}
+        return self._get_http_response(request)
 
     def external_ip(self, node_id):
-        """Returns an external ip if the user has supplied one.
-        Otherwise, use the same logic as internal_ip below.
-
-        This can be used to call cloudtik up from outside the network, for example
-        if the cluster exists in an AWS VPC and we're interacting with
-        the cluster from a laptop (where using an internal_ip will not work).
-
-        Useful for debugging the local node provider with cloud VMs."""
-
-        node_state = self.state.get()[node_id]
-        ext_ip = node_state.get("external_ip")
-        if ext_ip:
-            return ext_ip
-        else:
-            return socket.gethostbyname(node_id)
+        request = {"type": "external_ip", "args": (node_id, )}
+        response = self._get_http_response(request)
+        return response
 
     def internal_ip(self, node_id):
-        return socket.gethostbyname(node_id)
-
-    def set_node_tags(self, node_id, tags):
-        with self.state.file_lock:
-            info = self.state.get()[node_id]
-            info["tags"].update(tags)
-            self.state.put(node_id, info)
+        request = {"type": "internal_ip", "args": (node_id, )}
+        response = self._get_http_response(request)
+        return response
 
     def create_node(self, node_config, tags, count):
-        """Creates min(count, currently available) nodes."""
-        node_type = tags[CLOUDTIK_TAG_NODE_KIND]
-        with self.state.file_lock:
-            workers = self.state.get()
-            for node_id, info in workers.items():
-                if (info["state"] == "terminated"
-                        and (self.use_cloud_simulator
-                             or info["tags"][CLOUDTIK_TAG_NODE_KIND] == node_type)):
-                    info["tags"] = tags
-                    info["state"] = "running"
-                    self.state.put(node_id, info)
-                    count = count - 1
-                    if count == 0:
-                        return
+        # Tag the newly created node with this cluster name. Helps to get
+        # the right nodes when calling non_terminated_nodes.
+        tags[CLOUDTIK_TAG_CLUSTER_NAME] = self.cluster_name
+        request = {
+            "type": "create_node",
+            "args": (node_config, tags, count),
+        }
+        self._get_http_response(request)
+
+    def set_node_tags(self, node_id, tags):
+        request = {"type": "set_node_tags", "args": (node_id, tags)}
+        self._get_http_response(request)
 
     def terminate_node(self, node_id):
-        workers = self.state.get()
-        info = workers[node_id]
-        info["state"] = "terminated"
-        self.state.put(node_id, info)
+        request = {"type": "terminate_node", "args": (node_id, )}
+        self._get_http_response(request)
+
+    def terminate_nodes(self, node_ids):
+        request = {"type": "terminate_nodes", "args": (node_ids, )}
+        self._get_http_response(request)
 
     def get_node_info(self, node_id):
-        node = self.state.get()[node_id]
-        node_info = {"node_id": node_id,
-                     "instance_type": None,
-                     "private_ip": self.internal_ip(node_id),
-                     "public_ip": self.external_ip(node_id),
-                     "instance_status": node["state"]}
-        node_info.update(self.node_tags(node_id))
-        return node_info
+        request = {"type": "get_node_info", "args": (node_id,)}
+        response = self._get_http_response(request)
+        return response
 
     def with_environment_variables(self):
-        return {}
+        request = {"type": "with_environment_variables", "args": ()}
+        response = self._get_http_response(request)
+        return response
 
     @staticmethod
     def prepare_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         return prepare_local(cluster_config)
 
     @staticmethod
-    def bootstrap_config(cluster_config):
-        return bootstrap_local(cluster_config)
-
-
-def record_local_head_state_if_needed(
-        local_provider: LocalNodeProvider) -> None:
-    """This function is called on the head from ClusterScaler.reset
-    to record the head node's own existence in the cluster state file.
-
-    This is necessary because `provider.create_node` in
-    `cluster_operator.get_or_create_head_node` records the head state on the
-    cluster-launching machine but not on the head.
-    """
-    head_ip = local_provider.provider_config["head_ip"]
-    cluster_name = local_provider.cluster_name
-    # If the head node is not marked as created in the cluster state file,
-    if head_ip not in local_provider.non_terminated_nodes({}):
-        # These tags are based on the ones in cluster_operator.get_or_create_head_node;
-        # keep in sync.
-        head_tags = {
-            CLOUDTIK_TAG_NODE_KIND: NODE_KIND_HEAD,
-            CLOUDTIK_TAG_USER_NODE_TYPE: LOCAL_CLUSTER_NODE_TYPE,
-            CLOUDTIK_TAG_NODE_NAME: "cloudtik-{}-head".format(cluster_name),
-            CLOUDTIK_TAG_NODE_STATUS: STATUS_UP_TO_DATE
-        }
-        # Mark the head node as created in the cluster state file.
-        local_provider.create_node(node_config={}, tags=head_tags, count=1)
-
-        assert head_ip in local_provider.non_terminated_nodes({})
+    def fillout_available_node_types_resources(
+            cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Fills out missing "resources" field for available_node_types."""
+        request = {"type": "get_instance_types", "args": ()}
+        cloud_simulator_address = _get_cloud_simulator_address(cluster_config["provider"])
+        instance_types = _get_http_response_from_simulator(cloud_simulator_address, request)
+        set_node_types_resources(cluster_config, instance_types)
+        return cluster_config

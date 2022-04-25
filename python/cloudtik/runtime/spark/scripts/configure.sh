@@ -1,6 +1,6 @@
 #!/bin/bash
 
-args=$(getopt -a -o h::p: -l head::,head_address::,provider:,aws_s3_bucket::,aws_s3_access_key_id::,aws_s3_secret_access_key::,project_id::,gcs_bucket::,gcs_service_account_client_email::,gcs_service_account_private_key_id::,gcs_service_account_private_key::,azure_storage_type::,azure_storage_account::,azure_container::,azure_account_key:: -- "$@")
+args=$(getopt -a -o h::p: -l head::,node_ip_address::,head_address::,provider:,aws_s3_bucket::,aws_s3_access_key_id::,aws_s3_secret_access_key::,project_id::,gcs_bucket::,gcs_service_account_client_email::,gcs_service_account_private_key_id::,gcs_service_account_private_key::,azure_storage_type::,azure_storage_account::,azure_container::,azure_account_key:: -- "$@")
 eval set -- "${args}"
 
 IS_HEAD_NODE=false
@@ -11,6 +11,10 @@ do
     case "$1" in
     --head)
         IS_HEAD_NODE=true
+        ;;
+    --node_ip_address)
+        NODE_IP_ADDRESS=$2
+        shift
         ;;
     -h|--head_address)
         HEAD_ADDRESS=$2
@@ -102,10 +106,19 @@ function configure_system_folders() {
 }
 
 function set_head_address() {
-    if [ ! -n "${HEAD_ADDRESS}" ]; then
-        HEAD_ADDRESS=$(hostname -I | awk '{print $1}')
+    if [ $IS_HEAD_NODE == "true" ]; then
+        if [ ! -n "${NODE_IP_ADDRESS}" ]; then
+            HEAD_ADDRESS=$(hostname -I | awk '{print $1}')
+        else
+            HEAD_ADDRESS=${NODE_IP_ADDRESS}
+        fi
+    else
+        if [ ! -n "${HEAD_ADDRESS}" ]; then
+            # Error: no head address passed
+            echo "Error: head ip address should be passed."
+            exit 1
+        fi
     fi
-
     echo "export CLOUDTIK_HEAD_IP=$HEAD_ADDRESS">> ${USER_HOME}/.bashrc
 }
 
@@ -215,27 +228,7 @@ function update_spark_runtime_config() {
     fi
 }
 
-function update_hdfs_data_disks_config() {
-    hdfs_nn_dirs="${HADOOP_HOME}/data/dfs/nn"
-    hdfs_dn_dirs=""
-    if [ -d "/mnt/cloudtik" ]; then
-        for data_disk in /mnt/cloudtik/*; do
-            [ -d "$data_disk" ] || continue
-            if [ -z "$hdfs_dn_dirs" ]; then
-                hdfs_dn_dirs=$data_disk/dfs/dn
-            else
-                hdfs_dn_dirs="$hdfs_dn_dirs,$data_disk/dfs/dn"
-            fi
-        done
-    fi
-
-    # if no disks mounted on /mnt/cloudtik
-    if [ -z "$hdfs_dn_dirs" ]; then
-        hdfs_dn_dirs="${HADOOP_HOME}/data/dfs/dn"
-    fi
-    sed -i "s!{%dfs.namenode.name.dir%}!${hdfs_nn_dirs}!g" `grep "{%dfs.namenode.name.dir%}" -rl ./`
-    sed -i "s!{%dfs.datanode.data.dir%}!${hdfs_dn_dirs}!g" `grep "{%dfs.datanode.data.dir%}" -rl ./`
-
+function update_config_for_hdfs() {
     # event log dir
     event_log_dir="hdfs://${HEAD_ADDRESS}:9000/shared/spark-events"
     sed -i "s!{%spark.eventLog.dir%}!${event_log_dir}!g" `grep "{%spark.eventLog.dir%}" -rl ./`
@@ -279,10 +272,8 @@ function configure_hadoop_and_spark() {
     update_spark_runtime_config
     update_data_disks_config
 
-    if [ "$ENABLE_HDFS" == "true" ];then
-        update_hdfs_data_disks_config
-        cp -r ${output_dir}/hadoop/core-site.xml  ${HADOOP_HOME}/etc/hadoop/
-        cp -r ${output_dir}/hadoop/hdfs-site.xml  ${HADOOP_HOME}/etc/hadoop/
+    if [ "$HDFS_ENABLED" == "true" ];then
+        update_config_for_hdfs
     else
         update_config_for_cloud
         cp -r ${output_dir}/hadoop/${provider}/core-site.xml  ${HADOOP_HOME}/etc/hadoop/
@@ -293,9 +284,7 @@ function configure_hadoop_and_spark() {
     if [ $IS_HEAD_NODE == "true" ];then
         cp -r ${output_dir}/spark/*  ${SPARK_HOME}/conf
 
-        if [ "$ENABLE_HDFS" == "true" ]; then
-            # Format hdfs once
-            ${HADOOP_HOME}/bin/hdfs --loglevel WARN namenode -format -force
+        if [ "$HDFS_ENABLED" == "true" ]; then
             # Create event log dir on hdfs
             ${HADOOP_HOME}/bin/hdfs --loglevel WARN --daemon start namenode
             ${HADOOP_HOME}/bin/hadoop --loglevel WARN fs -mkdir -p /shared/spark-events
@@ -326,57 +315,9 @@ function configure_jupyter_for_spark() {
   echo "export PYSPARK_DRIVER_PYTHON=\${CONDA_PREFIX}/envs/cloudtik_py37/bin/python" >> ~/.bashrc
 }
 
-function configure_ganglia() {
-    cluster_name_head="Spark-Head"
-    cluster_name="Spark-Workers"
-    if [ $IS_HEAD_NODE == "true" ]; then
-        # configure ganglia gmetad
-        sudo sed -i "0,/# default: There is no default value/s//data_source \"${cluster_name_head}\" ${HEAD_ADDRESS}:8650/" /etc/ganglia/gmetad.conf
-        sudo sed -i "s/data_source \"my cluster\" localhost/data_source \"${cluster_name}\" ${HEAD_ADDRESS}/g" /etc/ganglia/gmetad.conf
-        sudo sed -i "s/# gridname \"MyGrid\"/gridname \"CloudTik\"/g" /etc/ganglia/gmetad.conf
-
-        # Configure ganglia monitor
-        sudo sed -i "s/send_metadata_interval = 0/send_metadata_interval = 30/g" /etc/ganglia/gmond.conf
-        # replace the first occurrence of "mcast_join = 239.2.11.71" with "host = HEAD_IP"
-        sudo sed -i "0,/mcast_join = 239.2.11.71/s//host = ${HEAD_ADDRESS}/" /etc/ganglia/gmond.conf
-        # comment out the second occurrence
-        sudo sed -i "s/mcast_join = 239.2.11.71/\/*mcast_join = 239.2.11.71*\//g" /etc/ganglia/gmond.conf
-        sudo sed -i "s/bind = 239.2.11.71/bind = ${HEAD_ADDRESS}/g" /etc/ganglia/gmond.conf
-        sudo sed -i "/tcp_accept_channel {/ a \ \ bind = ${HEAD_ADDRESS}" /etc/ganglia/gmond.conf
-
-        # Make a copy for head cluster after common modifications
-        sudo cp /etc/ganglia/gmond.conf /etc/ganglia/gmond.head.conf
-
-        sudo sed -i "s/name = \"unspecified\"/name = \"${cluster_name}\"/g" /etc/ganglia/gmond.conf
-        # Disable udp_send_channel
-        sudo sed -i "s/udp_send_channel/\/*udp_send_channel/g" /etc/ganglia/gmond.conf
-        sudo sed -i "s/\/\* You can specify as many udp_recv_channels/\*\/\/\* You can specify as many udp_recv_channels/g" /etc/ganglia/gmond.conf
-
-        # Modifications for head cluster
-        sudo sed -i "s/name = \"unspecified\"/name = \"${cluster_name_head}\"/g" /etc/ganglia/gmond.head.conf
-        sudo sed -i "s/port = 8649/port = 8650/g" /etc/ganglia/gmond.head.conf
-
-        # Configure apache2 for ganglia
-        sudo cp /etc/ganglia-webfrontend/apache.conf /etc/apache2/sites-enabled/ganglia.conf
-        # Fix the ganglia bug: https://github.com/ganglia/ganglia-web/issues/324
-        # mention here: https://bugs.launchpad.net/ubuntu/+source/ganglia-web/+bug/1822048
-        sudo sed -i "s/\$context_metrics = \"\";/\$context_metrics = array();/g" /usr/share/ganglia-webfrontend/cluster_view.php
-
-        # Add gmond start command for head in service
-        sudo sed -i '/\.pid/ a start-stop-daemon --start --quiet --startas $DAEMON --name $NAME.head -- --conf /etc/ganglia/gmond.head.conf --pid-file /var/run/$NAME.head.pid' /etc/init.d/ganglia-monitor
-    else
-        # Configure ganglia monitor
-        sudo sed -i "s/send_metadata_interval = 0/send_metadata_interval = 30/g" /etc/ganglia/gmond.conf
-        sudo sed -i "s/name = \"unspecified\"/name = \"${cluster_name}\"/g" /etc/ganglia/gmond.conf
-        # replace the first occurrence of "mcast_join = 239.2.11.71" with "host = HEAD_IP"
-        sudo sed -i "0,/mcast_join = 239.2.11.71/s//host = ${HEAD_ADDRESS}/" /etc/ganglia/gmond.conf
-    fi
-}
-
 check_spark_installed
 set_head_address
 set_resources_for_spark
 configure_system_folders
 configure_hadoop_and_spark
 configure_jupyter_for_spark
-configure_ganglia

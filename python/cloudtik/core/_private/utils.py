@@ -30,18 +30,17 @@ from cloudtik.core._private import constants, services
 from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core._private.cluster.cluster_metrics import ClusterMetricsSummary
 from cloudtik.core._private.constants import CLOUDTIK_WHEELS, CLOUDTIK_CLUSTER_PYTHON_VERSION, \
-    CLOUDTIK_DEFAULT_MAX_WORKERS
+    CLOUDTIK_DEFAULT_MAX_WORKERS, CLOUDTIK_NODE_SSH_INTERVAL_S, CLOUDTIK_NODE_START_WAIT_S
+from cloudtik.core._private.runtime_factory import _get_runtime
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core._private.providers import _get_default_config, _get_node_provider, _get_provider_config_object, \
-    _NODE_PROVIDERS
+    _get_node_provider_cls
 from cloudtik.core._private.docker import validate_docker_config
 from cloudtik.core._private.providers import _get_workspace_provider
+from cloudtik.core.tags import CLOUDTIK_TAG_USER_NODE_TYPE
 
 # Import psutil after others so the packaged version is used.
 import psutil
-
-from cloudtik.runtime.spark.utils import with_spark_runtime_environment_variables, spark_runtime_validate_config, \
-    spark_runtime_verify_config
 
 REQUIRED, OPTIONAL = True, False
 CLOUDTIK_CONFIG_SCHEMA_PATH = os.path.join(
@@ -738,15 +737,15 @@ def validate_config(config: Dict[str, Any]) -> None:
     provider.validate_config(config["provider"])
 
     # add runtime config validate and testing
-    spark_runtime_validate_config(config, provider)
+    runtime_validate_config(config.get("runtime"), config, provider)
 
 
-def verify_config(config: Dict[str, Any]) :
+def verify_config(config: Dict[str, Any]):
     """Verify the configurations. Usually verify may mean to involve slow process"""
     provider = _get_node_provider(config["provider"], config["cluster_name"])
 
     # add runtime config validate and testing
-    spark_runtime_verify_config(config, provider)
+    runtime_verify_config(config.get("runtime"), config, provider)
 
 
 def prepare_config(config: Dict[str, Any]) -> Dict[str, Any]:
@@ -757,17 +756,12 @@ def prepare_config(config: Dict[str, Any]) -> Dict[str, Any]:
     - Has a valid Docker configuration if provided.
     - Has max_worker set for each node type.
     """
-    importer = _NODE_PROVIDERS.get(config["provider"]["type"])
-    if not importer:
-        raise NotImplementedError("Unsupported provider {}".format(
-            config["provider"]))
-
-    provider_cls = importer(config["provider"])
+    provider_cls = _get_node_provider_cls(config["provider"])
     config = provider_cls.prepare_config(config)
 
     with_defaults = fillout_defaults(config)
     prepare_environment_variables(with_defaults)
-    merge_commands(with_defaults)
+    merge_cluster_config(with_defaults)
     validate_docker_config(with_defaults)
     fill_node_type_min_max_workers(with_defaults)
     return with_defaults
@@ -868,6 +862,41 @@ def merge_config_hierarchy(provider, config: Dict[str, Any],
     return merged_config
 
 
+def _get_rooted_template_config(root: str, template_name: str) -> Dict[str, Any]:
+    """Load the template config from root"""
+    # Append .yaml extension if the name doesn't include
+    if not template_name.endswith(".yaml"):
+        template_name += ".yaml"
+
+    template_file = os.path.join(root, template_name)
+    with open(template_file) as f:
+        template_config = yaml.safe_load(f)
+
+    return template_config
+
+
+def get_rooted_merged_base_config(root: str, base_config_name: str,
+                                  object_name: str = None) -> Dict[str, Any]:
+    template_config = _get_rooted_template_config(root, base_config_name)
+    merged_config = merge_rooted_config_hierarchy(
+        root, template_config, object_name=object_name)
+    return merged_config
+
+
+def merge_rooted_config_hierarchy(root: str, config: Dict[str, Any],
+                                  object_name: str = None) -> Dict[str, Any]:
+    base_config_name = config.get("from", None)
+    if base_config_name:
+        # base config is provided, we need to merge with base configuration
+        merged_base_config = get_rooted_merged_base_config(
+            root, base_config_name, object_name)
+        merged_config = merge_config(merged_base_config, config)
+    else:
+        merged_config = config
+
+    return merged_config
+
+
 def fillout_defaults(config: Dict[str, Any]) -> Dict[str, Any]:
     # Merge the config with user inheritance hierarchy and system defaults hierarchy
     merged_config = merge_config_hierarchy(config["provider"], config)
@@ -898,26 +927,54 @@ def merge_command_key(config, from_config, command_key):
     config[command_key] = commands
 
 
+def merge_runtime_commands(config, built_in_commands):
+    runtime_config = config.get("runtime")
+    if runtime_config is None:
+        return built_in_commands
+
+    final_commands = built_in_commands
+    runtime_types = runtime_config.get("types", [])
+    for runtime_type in runtime_types:
+        runtime = _get_runtime(runtime_type, runtime_config)
+        runtime_commands = runtime.get_runtime_commands(config)
+        if runtime_commands:
+            merge_commands_from(runtime_commands, final_commands)
+            final_commands = runtime_commands
+
+    return final_commands
+
+
 def merge_built_in_commands(config):
     # Load the built-in commands and merge with defaults
     built_in_commands = merge_config_hierarchy(config["provider"], {},
-                                               False, "built-in-commands")
+                                               False, "commands")
     # Populate some internal command which is generated on the fly
     prepare_internal_commands(config, built_in_commands)
 
+    # Merge runtime commands with built-in: runtime after built-in
+    built_in_commands = merge_runtime_commands(config, built_in_commands)
+
+    # Merge built-in commands: user commands after built-in
+    merge_commands_from(config, built_in_commands)
+
+
+def merge_commands_from(config, from_config):
     command_keys = ["initialization_commands",
                     "setup_commands",
                     "head_setup_commands",
                     "worker_setup_commands",
+                    "bootstrap_commands",
+                    "start_commands",
                     "head_start_commands",
                     "worker_start_commands",
+                    "stop_commands",
                     "head_stop_commands",
                     "worker_stop_commands"]
 
     for command_key in command_keys:
-        merge_command_key(config, built_in_commands, command_key)
+        merge_command_key(config, from_config, command_key)
 
-    merge_docker_initialization_commands(config, built_in_commands)
+    merge_docker_initialization_commands(config, from_config)
 
 
 def merge_docker_initialization_commands(config, built_in_commands):
@@ -931,12 +988,38 @@ def merge_docker_initialization_commands(config, built_in_commands):
     config["docker"][command_key] = commands
 
 
+def merge_cluster_config(config):
+    merge_commands(config)
+    merge_runtime_config(config)
+
+
+def merge_runtime_config(config):
+    runtime_config = config.get("runtime")
+    if runtime_config is None:
+        return
+
+    runtime_types = runtime_config.get("types", [])
+    for runtime_type in runtime_types:
+        runtime = _get_runtime(runtime_type, runtime_config)
+        defaults_config = runtime.get_defaults_config(config)
+        if defaults_config is None:
+            continue
+
+        if runtime_type not in runtime_config:
+            runtime_config[runtime_type] = {}
+        user_config = runtime_config[runtime_type]
+        merged_config = merge_config(defaults_config, user_config)
+        runtime_config[runtime_type] = merged_config
+
+
 def merge_commands(config):
     merge_built_in_commands(config)
 
     # Combine commands
     combine_initialization_commands(config)
     combine_setup_commands(config)
+    combine_start_commands(config)
+    combine_stop_commands(config)
     return config
 
 
@@ -999,8 +1082,27 @@ def prepare_environment_variables(config):
 
 def combine_setup_commands(config):
     setup_commands = config["setup_commands"]
-    config["head_setup_commands"] = (setup_commands + config["head_setup_commands"])
-    config["worker_setup_commands"] = (setup_commands + config["worker_setup_commands"])
+    bootstrap_commands = config["bootstrap_commands"]
+
+    config["head_setup_commands"] = (
+            setup_commands + config["head_setup_commands"] + bootstrap_commands)
+    config["worker_setup_commands"] = (
+            setup_commands + config["worker_setup_commands"] + bootstrap_commands)
+
+    return config
+
+
+def combine_start_commands(config):
+    start_commands = config["start_commands"]
+    config["head_start_commands"] = (start_commands + config["head_start_commands"])
+    config["worker_start_commands"] = (start_commands + config["worker_start_commands"])
+    return config
+
+
+def combine_stop_commands(config):
+    stop_commands = config["stop_commands"]
+    config["head_stop_commands"] = (stop_commands + config["head_stop_commands"])
+    config["worker_stop_commands"] = (stop_commands + config["worker_stop_commands"])
     return config
 
 
@@ -1048,6 +1150,21 @@ def with_head_node_ip(cmds, head_ip=None):
     for cmd in cmds:
         out.append("export CLOUDTIK_HEAD_IP={}; {}".format(head_ip, cmd))
     return out
+
+
+def with_node_ip_environment_variables(node_ip, provider, node_id):
+    if node_ip is None:
+        # Waiting for node internal ip for node
+        if (provider is None) or (node_id is None):
+            raise RuntimeError("Missing provider or node id for retrieving node ip.")
+
+        deadline = time.time() + CLOUDTIK_NODE_START_WAIT_S
+        node_ip = wait_for_cluster_ip(provider, node_id, deadline)
+        if node_ip is None:
+            raise RuntimeError("Failed to get node ip for node {}.".format(node_id))
+
+    ip_envs = {"CLOUDTIK_NODE_IP": node_ip}
+    return ip_envs
 
 
 def hash_launch_conf(node_conf, auth):
@@ -1512,9 +1629,29 @@ def is_use_internal_ip(config: Dict[str, Any]) -> bool:
     return config.get("provider", {}).get("use_internal_ips", False)
 
 
-def get_node_cluster_ip(config: Dict[str, Any],
-                        provider: NodeProvider, node: str) -> str:
+def get_node_cluster_ip(provider: NodeProvider, node: str) -> str:
     return provider.internal_ip(node)
+
+
+def wait_for_cluster_ip(provider, node_id, deadline):
+    # if we have IP do not print waiting info
+    ip = get_node_cluster_ip(provider, node_id)
+    if ip is not None:
+        return ip
+
+    interval = CLOUDTIK_NODE_SSH_INTERVAL_S
+    with cli_logger.group("Waiting for IP"):
+        while time.time() < deadline and \
+                not provider.is_terminated(node_id):
+            ip = get_node_cluster_ip(provider, node_id)
+            if ip is not None:
+                cli_logger.labeled_value("Received", ip)
+                return ip
+            cli_logger.print("Not yet available, retrying in {} seconds",
+                             str(interval))
+            time.sleep(interval)
+
+    return None
 
 
 def get_node_working_ip(config: Dict[str, Any],
@@ -1607,9 +1744,38 @@ def kill_process_tree(pid, include_parent=True):
             pass
 
 
-def with_runtime_environment_variables(runtime_config, provider):
-    runtime_envs = with_spark_runtime_environment_variables(runtime_config, provider)
-    return runtime_envs
+def get_nodes_info(provider, nodes, extras: bool = False,
+                   available_node_types: Dict[str, Any] = None):
+    return [get_node_info(provider, node,
+                          extras, available_node_types) for node in nodes]
+
+
+def get_node_info(provider, node, extras: bool = False,
+                  available_node_types: Dict[str, Any] = None):
+    node_info = provider.get_node_info(node)
+
+    if extras:
+        node_type = node_info.get(CLOUDTIK_TAG_USER_NODE_TYPE)
+        if node_type is not None and node_type in available_node_types:
+            resources = available_node_types[node_type].get("resources", {})
+            node_info["CPU"] = resources.get("CPU", 0)
+            node_info["memory-GB"] = resources.get("memory", 0) / pow(1024, 3)
+
+    return node_info
+
+
+def sum_worker_cpus(workers_info):
+    total_cpus = 0
+    for worker_info in workers_info:
+        total_cpus += worker_info["CPU"]
+    return total_cpus
+
+
+def sum_worker_memory(workers_info):
+    total_memory = 0
+    for worker_info in workers_info:
+        total_memory += worker_info["memory-GB"]
+    return total_memory
 
 
 def unescape_private_key(private_key: str):
@@ -1637,3 +1803,122 @@ def escape_private_key(private_key: str):
     escaped_private_key = json.dumps(private_key)
     escaped_private_key = escaped_private_key.strip("\"\'")
     return escaped_private_key
+
+
+def with_runtime_environment_variables(runtime_config, provider):
+    all_runtime_envs = {}
+    if runtime_config is None:
+        return all_runtime_envs
+
+    # Iterate through all the runtimes
+    runtime_types = runtime_config.get("types", [])
+    for runtime_type in runtime_types:
+        runtime = _get_runtime(runtime_type, runtime_config)
+        runtime_envs = runtime.with_environment_variables(runtime_config, provider)
+        all_runtime_envs.update(runtime_envs)
+
+    return all_runtime_envs
+
+
+def runtime_validate_config(runtime_config, config, provider):
+    if runtime_config is None:
+        return
+
+    # Iterate through all the runtimes
+    runtime_types = runtime_config.get("types", [])
+    for runtime_type in runtime_types:
+        runtime = _get_runtime(runtime_type, runtime_config)
+        runtime.validate_config(config, provider)
+
+
+def runtime_prepare_config(
+        runtime_config: Dict[str, Any],
+        config: Dict[str, Any]) -> Dict[str, Any]:
+    if runtime_config is None:
+        return config
+
+    # Iterate through all the runtimes
+    runtime_types = runtime_config.get("types", [])
+    for runtime_type in runtime_types:
+        runtime = _get_runtime(runtime_type, runtime_config)
+        config = runtime.prepare_config(config)
+
+    return config
+
+
+def runtime_verify_config(runtime_config, config, provider):
+    if runtime_config is None:
+        return
+
+    # Iterate through all the runtimes
+    runtime_types = runtime_config.get("types", [])
+    for runtime_type in runtime_types:
+        runtime = _get_runtime(runtime_type, runtime_config)
+        runtime.verify_config(config, provider)
+
+
+def get_runnable_command(runtime_config, target):
+    if runtime_config is None:
+        return None
+
+    # Iterate through all the runtimes
+    runtime_types = runtime_config.get("types", [])
+    for runtime_type in runtime_types:
+        runtime = _get_runtime(runtime_type, runtime_config)
+        commands = runtime.get_runnable_command(target)
+        if commands:
+            return commands
+
+    return None
+
+
+def _get_runtime_config_object(config_home: str, provider_config, object_name: str):
+    if not object_name.endswith(".yaml"):
+        object_name += ".yaml"
+
+    provider_type = provider_config["type"]
+
+    path_to_config_file = os.path.join(config_home, provider_type, object_name)
+    if not os.path.exists(path_to_config_file):
+        path_to_config_file = os.path.join(config_home, object_name)
+
+    if not os.path.exists(path_to_config_file):
+        return {}
+
+    with open(path_to_config_file) as f:
+        config_object = yaml.safe_load(f) or {}
+
+    return config_object
+
+
+def get_useful_runtime_urls(runtime_config, head_cluster_ip):
+    runtime_urls = []
+    if runtime_config is None:
+        return runtime_urls
+
+    # Iterate through all the runtimes
+    runtime_types = runtime_config.get("types", [])
+    for runtime_type in runtime_types:
+        runtime = _get_runtime(runtime_type, runtime_config)
+        urls = runtime.get_useful_urls(head_cluster_ip)
+        if urls:
+            runtime_urls += urls
+
+    return runtime_urls
+
+
+def get_enabled_runtimes(config):
+    return config.get("runtime", {}).get("types", [])
+
+
+def is_runtime_enabled(runtime_config, runtime_type:str):
+    if runtime_config is None:
+        return False
+
+    runtime_types = runtime_config.get("types", [])
+    if runtime_type in runtime_types:
+        return True
+
+    return False
+
+

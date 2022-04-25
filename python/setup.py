@@ -23,9 +23,7 @@ PROVIDER_SUBDIR = os.path.join("cloudtik", "providers")
 THIRDPARTY_SUBDIR = os.path.join("cloudtik", "thirdparty_files")
 TEMPLATES_SUBDIR = os.path.join("cloudtik", "templates")
 
-RUNTIME_SPARK_SUBDIR = os.path.join("cloudtik", "runtime", "spark")
-SPARK_CONF_SUBDIR = os.path.join(RUNTIME_SPARK_SUBDIR, "conf")
-SPARK_SCRIPTS_SUBDIR = os.path.join(RUNTIME_SPARK_SUBDIR, "scripts")
+RUNTIME_SUBDIR = os.path.join("cloudtik", "runtime")
 
 exe_suffix = ".exe" if sys.platform == "win32" else ""
 
@@ -245,11 +243,9 @@ def pip_run(build_ext):
         # Include all the configuration template files
         templates_dir = os.path.join(ROOT_DIR, TEMPLATES_SUBDIR)
         setup_spec.files_to_include += walk_directory(templates_dir)
-        # Include all the runtime conf and scripts files for Spark
-        spark_conf_dir = os.path.join(ROOT_DIR, SPARK_CONF_SUBDIR)
-        setup_spec.files_to_include += walk_directory(spark_conf_dir)
-        spark_scripts_dir = os.path.join(ROOT_DIR, SPARK_SCRIPTS_SUBDIR)
-        setup_spec.files_to_include += walk_directory(spark_scripts_dir)
+        # Include all the runtime conf and scripts files
+        runtime_dir = os.path.join(ROOT_DIR, RUNTIME_SUBDIR)
+        setup_spec.files_to_include += walk_directory(runtime_dir, True)
 
     copied_files = 0
     for filename in setup_spec.files_to_include:
@@ -350,7 +346,11 @@ setuptools.setup(
     entry_points={
         "console_scripts": [
             "cloudtik=cloudtik.scripts.scripts:main",
-            "cloudtik-spark=cloudtik.runtime.spark.scripts:main"
+            "cloudtik-simulator=cloudtik.providers.local.service.cloudtik_cloud_simulator:main",
+            "cloudtik-ganglia=cloudtik.runtime.ganglia.scripts:main",
+            "cloudtik-spark=cloudtik.runtime.spark.scripts:main",
+            "cloudtik-hdfs=cloudtik.runtime.hdfs.scripts:main"
+
         ]
     },
     include_package_data=True,

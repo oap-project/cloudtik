@@ -38,14 +38,9 @@ def _import_azure(provider_config):
 
 
 def _import_local(provider_config):
-    if "cloud_simulator_address" in provider_config:
-        from cloudtik.providers._private.local.cloud_simulator_node_provider import (
-            CloudSimulatorNodeProvider)
-        return CloudSimulatorNodeProvider
-    else:
-        from cloudtik.providers._private.local.node_provider import \
-            LocalNodeProvider
-        return LocalNodeProvider
+    from cloudtik.providers._private.local.node_provider import (
+        CloudSimulatorNodeProvider)
+    return CloudSimulatorNodeProvider
 
 
 def _import_kubernetes(provider_config):
@@ -56,7 +51,7 @@ def _import_kubernetes(provider_config):
 
 def _load_local_provider_home():
     import cloudtik.providers.local as local_provider
-    return os.path.join(os.path.dirname(local_provider.__file__), "defaults.yaml")
+    return os.path.dirname(local_provider.__file__)
 
 
 def _load_kubernetes_provider_home():
@@ -261,7 +256,7 @@ def _get_default_config(provider_config):
             provider_config["type"]))
     path_to_default = load_config()
     with open(path_to_default) as f:
-        defaults = yaml.safe_load(f)
+        defaults = yaml.safe_load(f) or {}
 
     return defaults
 
@@ -339,6 +334,6 @@ def _get_provider_config_object(provider_config, object_name: str):
     path_to_home = load_config_home()
     path_to_config_file = os.path.join(path_to_home, object_name)
     with open(path_to_config_file) as f:
-        config_object = yaml.safe_load(f)
+        config_object = yaml.safe_load(f) or {}
 
     return config_object

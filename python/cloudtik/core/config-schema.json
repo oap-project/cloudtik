@@ -78,13 +78,24 @@
                     "type": "string",
                     "description": "module, if using external node provider"
                 },
-                "head_ip": {
-                    "type": "string",
-                    "description": "head ip for local mode"
+                "head_node": {
+                    "type": "object",
+                    "description": "head node for local mode",
+                    "additionalProperties": true,
+                    "properties": {
+                      "ip": {
+                        "type": "string",
+                        "description": "The cluster ip address of head node"
+                      },
+                      "external_ip": {
+                        "type": "string",
+                        "description": "The public ip of head node"
+                      }
+                    }
                 },
-                "worker_ips": {
+                "worker_nodes": {
                     "type": "array",
-                    "description": "worker ips for local mode"
+                    "description": "worker nodes for local mode"
                 },
                 "use_internal_ips": {
                     "type": "boolean",
@@ -392,6 +403,14 @@
             "$ref": "#/definitions/commands",
             "description": "Commands that will be run on worker nodes after common setup."
         },
+        "bootstrap_commands": {
+            "$ref": "#/definitions/commands",
+            "description": "Common setup commands running after all the setup commands"
+        },
+        "start_commands": {
+            "$ref": "#/definitions/commands",
+            "description": "Common start commands for nodes"
+        },
         "head_start_commands": {
             "$ref": "#/definitions/commands",
             "description": "Command to start on the head node. You shouldn't need to modify this."
@@ -399,6 +418,10 @@
         "worker_start_commands": {
             "$ref": "#/definitions/commands",
             "description": "Command to start on worker nodes. You shouldn't need to modify this."
+        },
+        "stop_commands": {
+            "$ref": "#/definitions/commands",
+            "description": "Common stop commands for nodes"
         },
         "head_stop_commands": {
             "$ref": "#/definitions/commands",
@@ -417,7 +440,7 @@
             "patternProperties": {
                 ".*": {
                     "type": "object",
-                    "required": [ "resources", "node_config" ],
+                    "required": [ "node_config" ],
                     "properties": {
                         "node_config": {
                             "type": "object",
@@ -514,11 +537,6 @@
                                     "default": 1024
                                 }
                             }
-                        },
-                        "enable_hdfs": {
-                            "type": "boolean",
-                            "description": "Whether to start HDFS cluster for temporary use. The HDFS should not be used for production data.",
-                            "default": false
                         }
                     }
                 }

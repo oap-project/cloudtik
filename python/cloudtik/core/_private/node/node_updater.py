@@ -6,7 +6,7 @@ import time
 
 from threading import Thread
 
-from cloudtik.core._private.utils import with_runtime_environment_variables
+from cloudtik.core._private.utils import with_runtime_environment_variables, with_node_ip_environment_variables
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_STATUS, CLOUDTIK_TAG_RUNTIME_CONFIG, \
     CLOUDTIK_TAG_FILE_MOUNTS_CONTENTS, \
     STATUS_UP_TO_DATE, STATUS_UPDATE_FAILED, STATUS_WAITING_FOR_SSH, \
@@ -327,8 +327,14 @@ class NodeUpdater:
 
         if self.restart_only:
             self.setup_commands = []
+
         runtime_envs = with_runtime_environment_variables(
             self.runtime_config, self.provider)
+
+        # Add node ip address environment variables
+        ip_envs = with_node_ip_environment_variables(
+            None, self.provider, self.node_id)
+        runtime_envs.update(ip_envs)
 
         # runtime_hash will only change whenever the user restarts
         # or updates their cluster with `get_or_create_head_node`
@@ -490,8 +496,8 @@ class NodeUpdater:
             CreateClusterEvent.start_cloudtik_runtime)
         with LogTimer(
                 self.log_prefix + "Start commands", show_status=True):
-            for cmd in self.start_commands:
-
+            total = len(self.start_commands)
+            for i, cmd in enumerate(self.start_commands):
                 # Add a resource override env variable if needed:
                 if self.provider_type == "local":
                     # Local NodeProvider doesn't need resource override.
@@ -503,6 +509,16 @@ class NodeUpdater:
                 else:
                     env_vars = {}
                 env_vars.update(runtime_envs)
+
+                if cli_logger.verbosity == 0 and len(cmd) > 30:
+                    cmd_to_print = cf.bold(cmd[:30]) + "..."
+                else:
+                    cmd_to_print = cf.bold(cmd)
+
+                cli_logger.print(
+                    "{}",
+                    cmd_to_print,
+                    _numbered=("()", i, total))
 
                 try:
                     old_redirected = cmd_output_util.is_output_redirected()
@@ -525,10 +541,21 @@ class NodeUpdater:
     def exec_commands(self, commands, envs):
         with LogTimer(
                 self.log_prefix + "Exec commands", show_status=True):
-            for cmd in commands:
+            total = len(commands)
+            for i, cmd in enumerate(commands):
                 env_vars = {}
                 if envs:
                     env_vars.update(envs)
+
+                if cli_logger.verbosity == 0 and len(cmd) > 30:
+                    cmd_to_print = cf.bold(cmd[:30]) + "..."
+                else:
+                    cmd_to_print = cf.bold(cmd)
+
+                cli_logger.print(
+                    "{}",
+                    cmd_to_print,
+                    _numbered=("()", i, total))
 
                 try:
                     old_redirected = cmd_output_util.is_output_redirected()

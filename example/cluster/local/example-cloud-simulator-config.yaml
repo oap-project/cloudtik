@@ -1,0 +1,19 @@
+# Define one or more instance types with the information of its hardware resources
+# Then you specify the instance type for each node in the node list
+instance_types:
+    your_instance_type:
+        # Specify the resources of this instance type.
+        resources:
+            CPU: number-of-cores
+            memoryMb: size-in-mb
+
+# List of nodes with the ip and its node type defined in the above list
+nodes:
+    - ip: node_1_ip
+      # Should be one of the instance types defined in instance_types
+      instance_type: your_instance_type
+      # You may need to supply a public ip for the head node if you need
+      # to start cluster from outside of the cluster's network
+      # external_ip: your_head_public_ip
+    - ip: node_2_ip
+      instance_type: your_instance_type

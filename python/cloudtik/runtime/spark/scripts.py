@@ -8,12 +8,12 @@ from cloudtik.core._private.cli_logger import (cli_logger)
 
 from shlex import quote
 
-from cloudtik.runtime.spark.utils import CLOUDTIK_RUNTIME_SPARK_PATH, update_spark_configurations
+from cloudtik.runtime.spark.utils import RUNTIME_ROOT_PATH, update_spark_configurations
 
-RUNTIME_SPARK_SCRIPTS_PATH = os.path.join(
-    CLOUDTIK_RUNTIME_SPARK_PATH, "scripts")
+RUNTIME_SCRIPTS_PATH = os.path.join(
+    RUNTIME_ROOT_PATH, "scripts")
 
-SPARK_SERVICES_SCRIPT_PATH = os.path.join(RUNTIME_SPARK_SCRIPTS_PATH, "services.sh")
+SERVICES_SCRIPT_PATH = os.path.join(RUNTIME_SCRIPTS_PATH, "services.sh")
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +22,20 @@ def run_system_command(cmd: str):
     result = os.system(cmd)
     if result != 0:
         raise RuntimeError(f"Error happened in running: {cmd}")
+
+
+def run_services_command(command: str, script_args):
+    cmds = [
+        "bash",
+        SERVICES_SCRIPT_PATH,
+    ]
+
+    cmds += [command]
+    if script_args:
+        cmds += list(script_args)
+    final_cmd = " ".join(cmds)
+
+    run_system_command(final_cmd)
 
 
 @click.group()
@@ -57,7 +71,7 @@ def cli(logging_level, logging_format):
     help="the provider of cluster ")
 @click.argument("script_args", nargs=-1)
 def install(head, provider, script_args):
-    install_script_path = os.path.join(RUNTIME_SPARK_SCRIPTS_PATH, "install.sh")
+    install_script_path = os.path.join(RUNTIME_SCRIPTS_PATH, "install.sh")
     cmds = [
         "bash",
         install_script_path,
@@ -168,7 +182,7 @@ def configure(head, provider, head_address, aws_s3_bucket, aws_s3_access_key_id,
               gcs_service_account_client_email, gcs_service_account_private_key_id,
               gcs_service_account_private_key, azure_storage_type, azure_storage_account, azure_container,
               azure_account_key, script_args):
-    shell_path = os.path.join(RUNTIME_SPARK_SCRIPTS_PATH, "configure.sh")
+    shell_path = os.path.join(RUNTIME_SCRIPTS_PATH, "configure.sh")
     cmds = [
         "bash",
         shell_path,
@@ -223,41 +237,31 @@ def configure(head, provider, head_address, aws_s3_bucket, aws_s3_access_key_id,
 @click.argument("command", required=True, type=str)
 @click.argument("script_args", nargs=-1)
 def services(command, script_args):
-    cmds = [
-        "bash",
-        SPARK_SERVICES_SCRIPT_PATH,
-    ]
-
-    cmds += [command]
-    if script_args:
-        cmds += list(script_args)
-    final_cmd = " ".join(cmds)
-
-    run_system_command(final_cmd)
+    run_services_command(command, script_args)
 
 
-@click.command()
-def start_head():
-    final_cmd = "bash {} start-head".format(SPARK_SERVICES_SCRIPT_PATH)
-    run_system_command(final_cmd)
+@click.command(context_settings={"ignore_unknown_options": True})
+@click.argument("script_args", nargs=-1)
+def start_head(script_args):
+    run_services_command("start-head", script_args)
 
 
-@click.command()
-def start_worker():
-    final_cmd = "bash {} start-worker".format(SPARK_SERVICES_SCRIPT_PATH)
-    run_system_command(final_cmd)
+@click.command(context_settings={"ignore_unknown_options": True})
+@click.argument("script_args", nargs=-1)
+def start_worker(script_args):
+    run_services_command("start-worker", script_args)
 
 
-@click.command()
-def stop_head():
-    final_cmd = "bash {} stop-head".format(SPARK_SERVICES_SCRIPT_PATH)
-    run_system_command(final_cmd)
+@click.command(context_settings={"ignore_unknown_options": True})
+@click.argument("script_args", nargs=-1)
+def stop_head(script_args):
+    run_services_command("stop-head", script_args)
 
 
-@click.command()
-def stop_worker():
-    final_cmd = "bash {} stop-worker".format(SPARK_SERVICES_SCRIPT_PATH)
-    run_system_command(final_cmd)
+@click.command(context_settings={"ignore_unknown_options": True})
+@click.argument("script_args", nargs=-1)
+def stop_worker(script_args):
+    run_services_command("stop-worker", script_args)
 
 
 cli.add_command(install)

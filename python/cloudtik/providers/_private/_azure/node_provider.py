@@ -1,7 +1,7 @@
 import copy
 import json
 import logging
-import os
+import time
 from pathlib import Path
 from threading import RLock
 from uuid import uuid4
@@ -26,6 +26,7 @@ from cloudtik.providers._private.utils import validate_config_dict
 
 VM_NAME_MAX_LEN = 64
 VM_NAME_UUID_LEN = 8
+RESOURCE_CHECK_TIME= 10
 
 logger = logging.getLogger(__name__)
 azure_logger = logging.getLogger(
@@ -313,15 +314,27 @@ class AzureNodeProvider(NodeProvider):
 
         # delete ip address
         if "public_ip_name" in metadata:
-            try:
-                delete = get_azure_sdk_function(
-                    client=self.network_client.public_ip_addresses,
-                    function_name="delete")
-                delete(
-                    resource_group_name=resource_group,
-                    public_ip_address_name=metadata["public_ip_name"])
-            except Exception as e:
-                logger.warning("Failed to delete public ip: {}".format(e))
+            retry_time = RESOURCE_CHECK_TIME
+            delete = get_azure_sdk_function(
+                client=self.network_client.public_ip_addresses,
+                function_name="delete")
+            cli_logger.print("Deleting public ip address...")
+            while retry_time > 0:
+                try:
+                    delete(
+                        resource_group_name=resource_group,
+                        public_ip_address_name=metadata["public_ip_name"])
+                    cli_logger.print("Successfully deleted public ip address.")
+                    break
+                except Exception as e:
+                    retry_time = retry_time - 1
+                    if retry_time > 0:
+                        cli_logger.warning(
+                            "Failed to delete public ip address. "
+                            "Remaining {} tries to delete public ip address...".format(retry_time))
+                        time.sleep(1)
+                    else:
+                        cli_logger.error("Failed to delete public ip address. {}", str(e))
 
         # delete disks
         for disk in disks:

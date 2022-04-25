@@ -37,8 +37,10 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     hash_launch_conf, prepare_config, get_free_port, \
     get_proxy_info_file, get_safe_proxy_process_info, \
     get_head_working_ip, get_node_cluster_ip, is_use_internal_ip, get_head_bootstrap_config, \
-    get_attach_command, is_alive_time, with_head_node_ip, is_docker_enabled, get_proxy_bind_address_to_show, \
-    kill_process_tree, with_runtime_environment_variables, verify_config
+    get_attach_command, is_alive_time, is_docker_enabled, get_proxy_bind_address_to_show, \
+    kill_process_tree, with_runtime_environment_variables, verify_config, runtime_prepare_config, get_nodes_info, \
+    sum_worker_cpus, sum_worker_memory, get_useful_runtime_urls, get_enabled_runtimes, \
+    with_head_node_ip, with_node_ip_environment_variables
 
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
@@ -63,7 +65,6 @@ import cloudtik.core._private.subprocess_output_util as cmd_output_util
 from cloudtik.core._private.cluster.cluster_metrics import ClusterMetricsSummary
 from cloudtik.core._private.cluster.cluster_scaler import ClusterScalerSummary
 from cloudtik.core._private.utils import format_info_string
-from cloudtik.runtime.spark.utils import config_spark_runtime_resources
 
 logger = logging.getLogger(__name__)
 
@@ -236,6 +237,7 @@ def create_or_update_cluster(
     workspace_name = config.get("workspace_name")
     if workspace_name:
         cli_logger.labeled_value("Workspace", workspace_name)
+    cli_logger.labeled_value("Runtimes", ", ".join(get_enabled_runtimes(config)))
 
     cli_logger.newline()
     config = _bootstrap_config(config, no_config_cache=no_config_cache,
@@ -305,13 +307,13 @@ def _bootstrap_config(config: Dict[str, Any],
                      _PROVIDER_PRETTY_NAMES.get(config["provider"]["type"]))
     try:
         config = provider_cls.fillout_available_node_types_resources(config)
-        config = config_spark_runtime_resources(config)
+        config = runtime_prepare_config(config.get("runtime"), config)
     except Exception as exc:
         if cli_logger.verbosity > 2:
-            logger.exception("Failed to autodetect node resources.")
+            logger.exception("Failed to detect node resources.")
         else:
             cli_logger.warning(
-                f"Failed to autodetect node resources: {str(exc)}. "
+                f"Failed to detect node resources: {str(exc)}. "
                 "You can see full stack trace with higher verbosity.")
 
     try:
@@ -340,6 +342,18 @@ def _bootstrap_config(config: Dict[str, Any],
             }
             f.write(json.dumps(config_cache))
     return resolved_config
+
+
+def _load_cluster_config(config_file: str,
+                         override_cluster_name: Optional[str] = None,
+                         need_bootstrap: bool = True,
+                         no_config_cache: bool = False) -> Dict[str, Any]:
+    config = yaml.safe_load(open(config_file).read())
+    if override_cluster_name is not None:
+        config["cluster_name"] = override_cluster_name
+    if need_bootstrap:
+        config = _bootstrap_config(config, no_config_cache=no_config_cache)
+    return config
 
 
 def teardown_cluster(config_file: str, yes: bool, workers_only: bool,
@@ -599,7 +613,7 @@ def _kill_node(config, hard, node_ip: str = None):
             cli_logger.print("No worker nodes detected.")
             return None
         node = random.choice(nodes)
-        node_ip = get_node_cluster_ip(config, provider, node)
+        node_ip = get_node_cluster_ip(provider, node)
 
     if not hard:
         # execute stop-node command
@@ -807,6 +821,7 @@ def get_or_create_head_node(config: Dict[str, Any],
             warn_about_bad_start_commands(start_commands,
                                          no_controller_on_head)
 
+        initialization_commands = config["initialization_commands"]
         updater = NodeUpdaterThread(
             node_id=head_node,
             provider_config=config["provider"],
@@ -814,7 +829,7 @@ def get_or_create_head_node(config: Dict[str, Any],
             auth_config=config["auth"],
             cluster_name=config["cluster_name"],
             file_mounts=config["file_mounts"],
-            initialization_commands=config["initialization_commands"],
+            initialization_commands=initialization_commands,
             setup_commands=setup_commands,
             start_commands=start_commands,
             process_runner=_runner,
@@ -853,7 +868,10 @@ def get_or_create_head_node(config: Dict[str, Any],
                          True, "localhost")
 
     cli_logger.newline()
-    cli_logger.print("Successfully started cluster: {}.", config["cluster_name"])
+    successful_msg = "Successfully started cluster: {}.".format(config["cluster_name"])
+    cli_logger.success("-" * len(successful_msg))
+    cli_logger.success(successful_msg)
+    cli_logger.success("-" * len(successful_msg))
 
     show_useful_commands(printable_config_file,
                          config,
@@ -1315,6 +1333,18 @@ def rsync_node_on_head(source: str,
         rsync_to_node(node_id, source, target)
 
 
+def get_worker_cpus(config, provider):
+    workers = _get_worker_nodes(config, None)
+    workers_info = get_nodes_info(provider, workers, True, config["available_node_types"])
+    return sum_worker_cpus(workers_info)
+
+
+def get_worker_memory(config, provider):
+    workers = _get_worker_nodes(config, None)
+    workers_info = get_nodes_info(provider, workers, True, config["available_node_types"])
+    return sum_worker_memory(workers_info)
+
+
 def get_head_node_ip(config_file: str,
                      override_cluster_name: Optional[str] = None) -> str:
     """Returns head node IP for given configuration file if exists."""
@@ -1352,7 +1382,7 @@ def _get_worker_node_ips(config: Dict[str, Any]) -> List[str]:
     nodes = provider.non_terminated_nodes({
         CLOUDTIK_TAG_NODE_KIND: NODE_KIND_WORKER
     })
-    return [get_node_cluster_ip(config, provider, node) for node in nodes]
+    return [get_node_cluster_ip(provider, node) for node in nodes]
 
 
 def _get_worker_nodes(config: Dict[str, Any],
@@ -1616,9 +1646,24 @@ def get_cluster_dump_archive(cluster_config_file: Optional[str] = None,
     return output
 
 
+def show_worker_cpus(config_file: str,
+                     override_cluster_name: Optional[str] = None) -> None:
+    config = _load_cluster_config(config_file, override_cluster_name)
+    provider = _get_node_provider(config["provider"], config["cluster_name"])
+    worker_cpus = get_worker_cpus(config, provider)
+    cli_logger.print(cf.bold(worker_cpus))
+
+
+def show_worker_memory(config_file: str,
+                       override_cluster_name: Optional[str] = None) -> None:
+    config = _load_cluster_config(config_file, override_cluster_name)
+    provider = _get_node_provider(config["provider"], config["cluster_name"])
+    memory_in_gb = int(get_worker_memory(config, provider))
+    cli_logger.print(cf.bold("{}GB"), memory_in_gb)
+
+
 def show_cluster_info(config_file: str,
-                      override_cluster_name: Optional[str] = None
-                      ) -> None:
+                      override_cluster_name: Optional[str] = None) -> None:
     """Shows the cluster information for given configuration file."""
     config = yaml.safe_load(open(config_file).read())
     if override_cluster_name is not None:
@@ -1642,11 +1687,23 @@ def show_cluster_info(config_file: str,
 
     # Check the running worker nodes
     head_count = 1
-    worker_ips = _get_worker_node_ips(config)
-    worker_count = len(worker_ips)
+    workers = _get_worker_nodes(config, None)
+    worker_count = len(workers)
+
     cli_logger.print(cf.bold("Cluster {}:"), config["cluster_name"])
     cli_logger.print(cf.bold("{} head and {} worker(s) are running"),
                      head_count, worker_count)
+
+    cli_logger.newline()
+    cli_logger.print(cf.bold("Runtimes: {}"), ", ".join(get_enabled_runtimes(config)))
+
+    workers_info = get_nodes_info(provider, workers,
+                                  True, config["available_node_types"])
+    worker_cpus = sum_worker_cpus(workers_info)
+    worker_memory = sum_worker_memory(workers_info)
+    cli_logger.newline()
+    cli_logger.print(cf.bold("The total worker CPUs: {}."), worker_cpus)
+    cli_logger.print(cf.bold("The total worker memory: {}GB."), worker_memory)
 
     if head_node is None:
         return
@@ -1730,23 +1787,12 @@ def show_useful_commands(printable_config_file: str,
                     cf.bold("{}:{}"),
                     bind_address_show, port)
 
-        head_node_cluster_ip = get_node_cluster_ip(config, provider, head_node)
+        head_node_cluster_ip = get_node_cluster_ip(provider, head_node)
 
-        with cli_logger.group("Yarn Web UI:"):
-            cli_logger.print(
-                cf.bold("http://{}:8088"), head_node_cluster_ip)
-
-        with cli_logger.group("Jupyter Web UI:"):
-            cli_logger.print(
-                cf.bold("http://{}:8888, default password is \'cloudtik\'"), head_node_cluster_ip)
-
-        with cli_logger.group("Spark History Server Web UI:"):
-            cli_logger.print(
-                cf.bold("http://{}:18080"), head_node_cluster_ip)
-
-        with cli_logger.group("Ganglia Web UI:"):
-            cli_logger.print(
-                cf.bold("http://{}/ganglia"), head_node_cluster_ip)
+        runtime_urls = get_useful_runtime_urls(config.get("runtime"), head_node_cluster_ip)
+        for runtime_url in runtime_urls:
+            with cli_logger.group(runtime_url["name"] + ":"):
+                cli_logger.print(runtime_url["url"])
 
 
 def show_cluster_status(config_file: str,
@@ -1759,7 +1805,7 @@ def show_cluster_status(config_file: str,
 
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     nodes = provider.non_terminated_nodes({})
-    nodes_info = [provider.get_node_info(node) for node in nodes]
+    nodes_info = get_nodes_info(provider, nodes)
 
     # sort nodes info based on node type and then node ip for workers
     def node_info_sort(node_info):
@@ -1777,7 +1823,8 @@ def show_cluster_status(config_file: str,
     for node_info in nodes_info:
         tb.add_row([node_info["node_id"], node_info["private_ip"], node_info["cloudtik-node-kind"],
                     node_info["cloudtik-node-status"], node_info["instance_type"], node_info["public_ip"],
-                    node_info["instance_status"]])
+                    node_info["instance_status"]
+                    ])
 
     def get_nodes_ready(node_info_list):
         nodes_ready = 0
@@ -2275,8 +2322,10 @@ def start_node_on_head(node_ip: str = None,
 
         if is_head_node:
             start_commands = config["head_start_commands"]
+            node_runtime_envs = with_node_ip_environment_variables(head_node_ip, provider, node_id)
         else:
             start_commands = with_head_node_ip(config["worker_start_commands"], head_node_ip)
+            node_runtime_envs = with_node_ip_environment_variables(None, provider, node_id)
 
         updater = create_node_updater_for_exec(
             config=config,
@@ -2286,7 +2335,8 @@ def start_node_on_head(node_ip: str = None,
             is_head_node=is_head_node,
             use_internal_ip=True)
 
-        updater._exec_start_commands(runtime_envs)
+        node_runtime_envs.update(runtime_envs)
+        updater._exec_start_commands(node_runtime_envs)
 
     for node_id in nodes:
         start_single_node_on_head(node_id)
@@ -2368,7 +2418,8 @@ def stop_node_on_head(node_ip: str = None,
     config = yaml.safe_load(open(cluster_config_file).read())
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     head_node = _get_running_head_node(config, cluster_config_file,
-                                       None, _provider=provider)
+                                       None, _provider=provider,
+                                       _allow_uninitialized_state=True)
     head_node_ip = provider.internal_ip(head_node)
     runtime_envs = with_runtime_environment_variables(
         config.get("runtime"), provider)
@@ -2383,8 +2434,10 @@ def stop_node_on_head(node_ip: str = None,
 
         if is_head_node:
             stop_commands = config["head_stop_commands"]
+            node_runtime_envs = with_node_ip_environment_variables(head_node_ip, provider, node_id)
         else:
             stop_commands = with_head_node_ip(config["worker_stop_commands"], head_node_ip)
+            node_runtime_envs = with_node_ip_environment_variables(None, provider, node_id)
 
         if not stop_commands:
             return
@@ -2397,7 +2450,8 @@ def stop_node_on_head(node_ip: str = None,
             is_head_node=is_head_node,
             use_internal_ip=True)
 
-        updater.exec_commands(stop_commands, runtime_envs)
+        node_runtime_envs.update(runtime_envs)
+        updater.exec_commands(stop_commands, node_runtime_envs)
 
     for node_id in nodes:
         stop_single_node_on_head(node_id)

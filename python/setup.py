@@ -350,7 +350,8 @@ setuptools.setup(
             "cloudtik-ganglia=cloudtik.runtime.ganglia.scripts:main",
             "cloudtik-spark=cloudtik.runtime.spark.scripts:main",
             "cloudtik-hdfs=cloudtik.runtime.hdfs.scripts:main",
-            "cloudtik-metastore=cloudtik.runtime.metastore.scripts:main"
+            "cloudtik-metastore=cloudtik.runtime.metastore.scripts:main",
+            "cloudtik-presto=cloudtik.runtime.presto.scripts:main",
         ]
     },
     include_package_data=True,

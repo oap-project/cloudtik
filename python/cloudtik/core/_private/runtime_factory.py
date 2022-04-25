@@ -53,11 +53,22 @@ def _load_metastore_runtime_home():
     return os.path.dirname(metastore.__file__)
 
 
+def _import_presto():
+    from cloudtik.runtime.presto.runtime import PrestoRuntime
+    return PrestoRuntime
+
+
+def _load_presto_runtime_home():
+    import cloudtik.runtime.presto as presto
+    return os.path.dirname(presto.__file__)
+
+
 _RUNTIMES = {
     "ganglia": _import_ganglia,
     "spark": _import_spark,
     "hdfs": _import_hdfs,
     "metastore": _import_metastore,
+    "presto": _import_presto,
 }
 
 _RUNTIME_HOMES = {
@@ -65,6 +76,7 @@ _RUNTIME_HOMES = {
     "spark": _load_spark_runtime_home,
     "hdfs": _load_hdfs_runtime_home,
     "metastore": _load_metastore_runtime_home,
+    "presto": _load_presto_runtime_home,
 }
 
 

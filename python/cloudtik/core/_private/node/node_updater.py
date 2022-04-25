@@ -477,7 +477,7 @@ class NodeUpdater:
                 cli_logger.print(
                     "{}",
                     cmd_to_print,
-                    _numbered=("()", i, total))
+                    _numbered=("()", i + 1, total))
 
                 try:
                     # Runs in the container if docker is in use
@@ -518,7 +518,7 @@ class NodeUpdater:
                 cli_logger.print(
                     "{}",
                     cmd_to_print,
-                    _numbered=("()", i, total))
+                    _numbered=("()", i + 1, total))
 
                 try:
                     old_redirected = cmd_output_util.is_output_redirected()
@@ -555,7 +555,7 @@ class NodeUpdater:
                 cli_logger.print(
                     "{}",
                     cmd_to_print,
-                    _numbered=("()", i, total))
+                    _numbered=("()", i + 1, total))
 
                 try:
                     old_redirected = cmd_output_util.is_output_redirected()

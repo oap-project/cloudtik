@@ -43,16 +43,28 @@ def _load_hdfs_runtime_home():
     return os.path.dirname(hdfs.__file__)
 
 
+def _import_metastore():
+    from cloudtik.runtime.metastore.runtime import MetastoreRuntime
+    return MetastoreRuntime
+
+
+def _load_metastore_runtime_home():
+    import cloudtik.runtime.metastore as metastore
+    return os.path.dirname(metastore.__file__)
+
+
 _RUNTIMES = {
     "ganglia": _import_ganglia,
     "spark": _import_spark,
     "hdfs": _import_hdfs,
+    "metastore": _import_metastore,
 }
 
 _RUNTIME_HOMES = {
     "ganglia": _load_ganglia_runtime_home,
     "spark": _load_spark_runtime_home,
     "hdfs": _load_hdfs_runtime_home,
+    "metastore": _load_metastore_runtime_home,
 }
 
 

@@ -1,0 +1,23 @@
+# Custom commands that will be run on the head node after common setup.
+head_setup_commands:
+    - cloudtik-metastore install --head
+    - cloudtik-metastore configure --head --node_ip_address=$CLOUDTIK_NODE_IP
+
+# Custom commands that will be run on worker nodes after common setup.
+worker_setup_commands: []
+
+# Command to start on the head node. You don't need to change this.
+head_start_commands:
+    - cloudtik-metastore stop-head
+    - cloudtik-metastore start-head
+
+# Command to start on worker nodes. You don't need to change this.
+worker_start_commands: []
+
+# Command to start on the head node. You don't need to change this.
+head_stop_commands:
+    - cloudtik-metastore stop-head
+
+# Command to start on worker nodes. You don't need to change this.
+worker_stop_commands: []
+

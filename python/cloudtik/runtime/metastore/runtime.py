@@ -3,7 +3,7 @@ from typing import Any, Dict
 
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.runtime import Runtime
-from cloudtik.runtime.hdfs.utils import _config_runtime_resources, _with_runtime_environment_variables, \
+from cloudtik.runtime.metastore.utils import _config_runtime_resources, _with_runtime_environment_variables, \
     _is_runtime_scripts, _get_runnable_command, _get_runtime_processes, _validate_config, \
     _verify_config, _get_runtime_logs, _get_runtime_commands, \
     _get_defaults_config, _get_useful_urls
@@ -11,8 +11,8 @@ from cloudtik.runtime.hdfs.utils import _config_runtime_resources, _with_runtime
 logger = logging.getLogger(__name__)
 
 
-class HDFSRuntime(Runtime):
-    """Implementation for HDFS Runtime"""
+class MetastoreRuntime(Runtime):
+    """Implementation for Hive Metastore Runtime"""
 
     def __init__(self, runtime_config: Dict[str, Any]) -> None:
         Runtime.__init__(self, runtime_config)

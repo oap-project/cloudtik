@@ -8,7 +8,7 @@ RUNTIME_PROCESSES = [
     # The second element, if True, is to filter ps results by command name.
     # The third element is the process name.
     # The forth element, if node, the process should on all nodes,if head, the process should on head node.
-    ["presto-server", False, "PrestoServer", "node"],
+    ["com.facebook.presto.server.PrestoServer", False, "PrestoServer", "node"],
 ]
 
 RUNTIME_ROOT_PATH = os.path.abspath(os.path.dirname(__file__))
@@ -23,11 +23,15 @@ def _get_runtime_processes():
 
 
 def _is_runtime_scripts(script_file):
+    if script_file.endswith(".presto.sql"):
+        return True
+
     return False
 
 
 def _get_runnable_command(target):
-    return None
+    command_parts = ["presto", "-f", target]
+    return command_parts
 
 
 def _with_runtime_environment_variables(runtime_config, provider):

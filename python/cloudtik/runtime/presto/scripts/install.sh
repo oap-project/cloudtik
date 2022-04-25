@@ -44,18 +44,27 @@ function install_tools() {
     which uuid > /dev/null || sudo apt-get -qq update -y; sudo apt-get -qq install uuid -y
 }
 
-sudo apt-get install uuid
-
 function install_presto() {
     # install Presto
     export PRESTO_HOME=$RUNTIME_PATH/presto
 
     if [ ! -d "${PRESTO_HOME}" ]; then
-      (cd $RUNTIME_PATH && wget -q --show-progress https://repo1.maven.org/maven2/com/facebook/presto/presto-server/${PRESTO_VERSION}/presto-server-${PRESTO_VERSION}.tar.gz && \
-          tar -zxf presto-server-${PRESTO_VERSION}.tar.gz && \
-          mv presto-server-${PRESTO_VERSION} presto && \
-          rm presto-server-${PRESTO_VERSION}.tar.gz)
-      echo "export PRESTO_HOME=$PRESTO_HOME">> ${USER_HOME}/.bashrc
+        (cd $RUNTIME_PATH && wget -q --show-progress https://repo1.maven.org/maven2/com/facebook/presto/presto-server/${PRESTO_VERSION}/presto-server-${PRESTO_VERSION}.tar.gz && \
+            tar -zxf presto-server-${PRESTO_VERSION}.tar.gz && \
+            mv presto-server-${PRESTO_VERSION} presto && \
+            rm presto-server-${PRESTO_VERSION}.tar.gz)
+
+        if [ $IS_HEAD_NODE == "true" ]; then
+            # Download presto cli on head
+            (cd $RUNTIME_PATH && wget -q --show-progress https://repo1.maven.org/maven2/com/facebook/presto/presto-cli/${PRESTO_VERSION}/presto-cli-${PRESTO_VERSION}-executable.jar && \
+            mv presto-cli-${PRESTO_VERSION}-executable.jar $PRESTO_HOME/bin/presto && \
+            chmod +x $PRESTO_HOME/bin/presto)
+
+            echo "export PRESTO_HOME=$PRESTO_HOME">> ${USER_HOME}/.bashrc
+            echo "export PATH=\$PRESTO_HOME/bin:\$PATH" >> ${USER_HOME}/.bashrc
+        else
+            echo "export PRESTO_HOME=$PRESTO_HOME">> ${USER_HOME}/.bashrc
+        fi
     fi
 }
 

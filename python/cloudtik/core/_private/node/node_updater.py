@@ -403,7 +403,7 @@ class NodeUpdater:
                         _numbered=("[]", 7, NUM_SETUP_STEPS))
 
         with cli_logger.group(
-                "Starting the CloudTik runtime", _numbered=("[]", 7,
+                "Starting the cluster services", _numbered=("[]", 7,
                                                        NUM_SETUP_STEPS)):
             self._exec_start_commands(runtime_envs)
 

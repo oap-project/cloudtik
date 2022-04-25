@@ -19,7 +19,7 @@ do
     shift
 done
 
-if [ not $IS_HEAD_NODE == "true" ]; then
+if [ $IS_HEAD_NODE != "true" ]; then
     # Do nothing for workers
     exit 0
 fi
@@ -76,6 +76,7 @@ function install_hive_metastore() {
           tar -zxf hive-standalone-metastore-${HIVE_VERSION}-bin.tar.gz && \
           mv apache-hive-metastore-${HIVE_VERSION}-bin hive-metastore && \
           rm hive-standalone-metastore-${HIVE_VERSION}-bin.tar.gz)
+      wget --no-check-certificate https://repo1.maven.org/maven2/mysql/mysql-connector-java/5.1.38/mysql-connector-java-5.1.38.jar -P $METASTORE_HOME/lib/
       echo "export METASTORE_HOME=$METASTORE_HOME">> ${USER_HOME}/.bashrc
     fi
 }

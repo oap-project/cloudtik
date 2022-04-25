@@ -28,7 +28,7 @@ do
     shift
 done
 
-if [ not $IS_HEAD_NODE == "true" ]; then
+if [ $IS_HEAD_NODE != "true" ]; then
     # Do nothing for workers
     exit 0
 fi
@@ -67,6 +67,11 @@ function set_head_address() {
 function configure_hive_metastore() {
     prepare_base_conf
     cd $output_dir
+
+    DATABASE_NAME=hive_metastore
+    DATABASE_USER=hive
+    DATABASE_PASSWORD=hive
+
     sed -i "s/{%HEAD_ADDRESS%}/${HEAD_ADDRESS}/g" `grep "{%HEAD_ADDRESS%}" -rl ./`
     sed -i "s/{%DATABASE_NAME%}/${DATABASE_NAME}/g" `grep "{%DATABASE_NAME%}" -rl ./`
     sed -i "s/{%DATABASE_USER%}/${DATABASE_USER}/g" `grep "{%DATABASE_USER%}" -rl ./`
@@ -74,13 +79,9 @@ function configure_hive_metastore() {
 
     # TODO: set metastore warehouse dir according to the storage options: HDFS, S3, GCS, Azure
     METASTORE_WAREHOUSE_DIR=$USER_HOME/shared/data/warehouse
-    sed -i "s/{%METASTORE_WAREHOUSE_DIR%}/${METASTORE_WAREHOUSE_DIR}/g" `grep "{%METASTORE_WAREHOUSE_DIR%}" -rl ./`
+    sed -i "s|{%METASTORE_WAREHOUSE_DIR%}|${METASTORE_WAREHOUSE_DIR}|g" `grep "{%METASTORE_WAREHOUSE_DIR%}" -rl ./`
 
     cp -r ${output_dir}/hive/metastore-site.xml  ${METASTORE_HOME}/conf/metastore-site.xml
-
-    DATABASE_NAME=hive_metastore
-    DATABASE_USER=hive
-    DATABASE_PASSWORD=hive
 
     # Start mariadb
     sudo service mysql start

@@ -90,14 +90,15 @@ function configure_presto() {
     sed -i "s/{%HEAD_ADDRESS%}/${HEAD_ADDRESS}/g" `grep "{%HEAD_ADDRESS%}" -rl ./`
     sed -i "s/{%node.environment%}/presto/g" $output_dir/presto/node.properties
     sed -i "s/{%node.id%}/${node_id}/g" $output_dir/presto/node.properties
-    sed -i "s/{%node.log-dir%}${presto_log_dir}/g" $output_dir/presto/node.properties
+    sed -i "s!{%node.log-dir%}!${presto_log_dir}!g" $output_dir/presto/node.properties
 
     update_presto_data_disks_config
 
+    mkdir -p ${PRESTO_HOME}/etc
     if [ $IS_HEAD_NODE == "true" ]; then
-        cp ${output_dir}/presto/config.properties  ${HADOOP_HOME}/etc/config.properties
+        cp ${output_dir}/presto/config.properties  ${PRESTO_HOME}/etc/config.properties
     else
-        cp ${output_dir}/presto/config.worker.properties  ${HADOOP_HOME}/etc/config.properties
+        cp ${output_dir}/presto/config.worker.properties  ${PRESTO_HOME}/etc/config.properties
     fi
 
     cp ${output_dir}/presto/jvm.config  ${PRESTO_HOME}/etc/jvm.config

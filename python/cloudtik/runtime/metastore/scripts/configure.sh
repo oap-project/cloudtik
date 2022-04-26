@@ -96,10 +96,10 @@ function configure_hive_metastore() {
         CREATE DATABASE ${DATABASE_NAME};
         CREATE USER '${DATABASE_USER}'@localhost IDENTIFIED BY '${DATABASE_PASSWORD}';
         GRANT ALL PRIVILEGES ON *.* TO '${DATABASE_USER}'@'localhost';
-        FLUSH PRIVILEGES;"
+        FLUSH PRIVILEGES;" > ${METASTORE_HOME}/logs/configure.log
 
     # initialize the metastore database schema
-    ${METASTORE_HOME}/bin/schematool -initSchema -dbType mysql
+    ${METASTORE_HOME}/bin/schematool -initSchema -dbType mysql > ${METASTORE_HOME}/logs/configure.log
 
     # Stop mariadb after configured
     sudo service mysql stop

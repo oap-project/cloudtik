@@ -139,7 +139,7 @@ function install_hadoop_with_cloud_jars() {
     download_hadoop_cloud_jars
 
     #Add share/hadoop/tools/lib/* into classpath
-    echo "export HADOOP_CLASSPATH=$HADOOP_CLASSPATH:\$HADOOP_HOME/share/hadoop/tools/lib/*" >> ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh
+    echo "export HADOOP_CLASSPATH=\$HADOOP_CLASSPATH:\$HADOOP_HOME/share/hadoop/tools/lib/*" >> ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh
 }
 
 function install_spark_with_cloud_jars() {

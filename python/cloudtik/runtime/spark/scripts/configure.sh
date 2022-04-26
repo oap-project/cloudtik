@@ -146,10 +146,13 @@ function update_config_for_aws() {
     # event log dir
     if [ -z "${AWS_S3_BUCKET}" ]; then
         event_log_dir="file:///tmp/spark-events"
+        sql_warehouse_dir="$USER_HOME/shared/data/spark-warehouse"
     else
         event_log_dir="s3a://${AWS_S3_BUCKET}/shared/spark-events"
+        sql_warehouse_dir="s3a://${AWS_S3_BUCKET}/shared/data/spark-warehouse"
     fi
     sed -i "s!{%spark.eventLog.dir%}!${event_log_dir}!g" `grep "{%spark.eventLog.dir%}" -rl ./`
+    sed -i "s!{%spark.sql.warehouse.dir%}!${sql_warehouse_dir}!g" `grep "{%spark.sql.warehouse.dir%}" -rl ./`
 }
 
 function update_config_for_gcp() {
@@ -162,10 +165,13 @@ function update_config_for_gcp() {
     # event log dir
     if [ -z "${GCS_BUCKET}" ]; then
         event_log_dir="file:///tmp/spark-events"
+        sql_warehouse_dir="$USER_HOME/shared/data/spark-warehouse"
     else
         event_log_dir="gs://${GCS_BUCKET}/shared/spark-events"
+        sql_warehouse_dir="gs://${GCS_BUCKET}/shared/data/spark-warehouse"
     fi
     sed -i "s!{%spark.eventLog.dir%}!${event_log_dir}!g" `grep "{%spark.eventLog.dir%}" -rl ./`
+    sed -i "s!{%spark.sql.warehouse.dir%}!${sql_warehouse_dir}!g" `grep "{%spark.sql.warehouse.dir%}" -rl ./`
 }
 
 function update_config_for_azure() {
@@ -191,23 +197,31 @@ function update_config_for_azure() {
     # event log dir
     if [ -z "${AZURE_CONTAINER}" ] || [ -z "$endpoint" ]; then
         event_log_dir="file:///tmp/spark-events"
+        sql_warehouse_dir="$USER_HOME/shared/data/spark-warehouse"
     else
         event_log_dir="${scheme}://${AZURE_CONTAINER}@${AZURE_STORAGE_ACCOUNT}.${endpoint}.core.windows.net/shared/spark-events"
+        sql_warehouse_dir="${scheme}://${AZURE_CONTAINER}@${AZURE_STORAGE_ACCOUNT}.${endpoint}.core.windows.net/shared/data/spark-warehouse"
     fi
     sed -i "s!{%spark.eventLog.dir%}!${event_log_dir}!g" `grep "{%spark.eventLog.dir%}" -rl ./`
+    sed -i "s!{%spark.sql.warehouse.dir%}!${sql_warehouse_dir}!g" `grep "{%spark.sql.warehouse.dir%}" -rl ./`
 }
 
-function update_config_for_cloud() {
+function update_config_for_remote_storage() {
     if [ "$provider" == "aws" ]; then
-      update_config_for_aws
+        update_config_for_aws
+    elif [ "$provider" == "gcp" ]; then
+        update_config_for_gcp
+    elif [ "$provider" == "azure" ]; then
+        update_config_for_azure
     fi
+}
 
-    if [ "$provider" == "gcp" ]; then
-      update_config_for_gcp
-    fi
-
-    if [ "$provider" == "azure" ]; then
-      update_config_for_azure
+function update_config_for_storage() {
+    if [ "$HDFS_ENABLED" == "true" ];then
+        update_config_for_hdfs
+    else
+        update_config_for_remote_storage
+        cp -r ${output_dir}/hadoop/${provider}/core-site.xml  ${HADOOP_HOME}/etc/hadoop/
     fi
 }
 
@@ -232,6 +246,9 @@ function update_config_for_hdfs() {
     # event log dir
     event_log_dir="hdfs://${HEAD_ADDRESS}:9000/shared/spark-events"
     sed -i "s!{%spark.eventLog.dir%}!${event_log_dir}!g" `grep "{%spark.eventLog.dir%}" -rl ./`
+
+    sql_warehouse_dir="hdfs://${HEAD_ADDRESS}:9000/shared/data/spark-warehouse"
+    sed -i "s!{%spark.sql.warehouse.dir%}!${sql_warehouse_dir}!g" `grep "{%spark.sql.warehouse.dir%}" -rl ./`
 }
 
 function update_data_disks_config() {
@@ -295,13 +312,7 @@ function configure_hadoop_and_spark() {
 
     update_spark_runtime_config
     update_data_disks_config
-
-    if [ "$HDFS_ENABLED" == "true" ];then
-        update_config_for_hdfs
-    else
-        update_config_for_cloud
-        cp -r ${output_dir}/hadoop/${provider}/core-site.xml  ${HADOOP_HOME}/etc/hadoop/
-    fi
+    update_config_for_storage
 
     cp -r ${output_dir}/hadoop/yarn-site.xml  ${HADOOP_HOME}/etc/hadoop/
 

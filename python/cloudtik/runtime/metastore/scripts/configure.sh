@@ -79,8 +79,9 @@ function configure_hive_metastore() {
     sed -i "s/{%DATABASE_USER%}/${DATABASE_USER}/g" `grep "{%DATABASE_USER%}" -rl ./`
     sed -i "s/{%DATABASE_PASSWORD%}/${DATABASE_PASSWORD}/g" `grep "{%DATABASE_PASSWORD%}" -rl ./`
 
-    # TODO: set metastore warehouse dir according to the storage options: HDFS, S3, GCS, Azure
-    METASTORE_WAREHOUSE_DIR=$USER_HOME/shared/data/warehouse
+    # set metastore warehouse dir according to the storage options: HDFS, S3, GCS, Azure
+    # The full path will be decided on the default.fs of hadoop core-site.xml
+    METASTORE_WAREHOUSE_DIR=/shared/data/warehouse
     sed -i "s|{%METASTORE_WAREHOUSE_DIR%}|${METASTORE_WAREHOUSE_DIR}|g" `grep "{%METASTORE_WAREHOUSE_DIR%}" -rl ./`
 
     cp -r ${output_dir}/hive/metastore-site.xml  ${METASTORE_HOME}/conf/metastore-site.xml

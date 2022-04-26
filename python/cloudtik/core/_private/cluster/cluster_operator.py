@@ -860,6 +860,11 @@ def get_or_create_head_node(config: Dict[str, Any],
             "head_node_id": head_node,
         })
 
+    # Set runtime tags for head node
+    runtime_tags = update_head_runtime_tags(
+        config.get("runtime", {}).get("tags", {}), provider.internal_ip(head_node))
+    provider.set_node_tags(head_node, runtime_tags)
+
     if not is_use_internal_ip(config):
         # start proxy and bind to localhost
         cli_logger.newline()
@@ -879,6 +884,13 @@ def get_or_create_head_node(config: Dict[str, Any],
                          head_node,
                          updater,
                          override_cluster_name)
+
+
+def update_head_runtime_tags(tags: Dict[str, Any], head_internal_ip: str) -> Dict[str, Any]:
+    for key, value in tags.items():
+        if value == "HEAD_ADDRESS":
+            tags[key] = head_internal_ip
+    return tags
 
 
 def _should_create_new_head(head_node_id: Optional[str], new_launch_hash: str,

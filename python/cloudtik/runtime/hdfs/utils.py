@@ -19,6 +19,13 @@ def _config_runtime_resources(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
     return cluster_config
 
 
+def _config_runtime_tags(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+    cluster_runtime_tag = cluster_config.get("runtime").get("tags", {})
+    cluster_runtime_tag["NAMENODE_ADDRESS"] = "HEAD_ADDRESS"
+    cluster_config["runtime"]["tags"] = cluster_runtime_tag
+    return cluster_config
+
+
 def _get_runtime_processes():
     return RUNTIME_PROCESSES
 

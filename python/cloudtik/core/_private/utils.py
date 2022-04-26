@@ -1823,6 +1823,7 @@ def runtime_prepare_config(
     for runtime_type in runtime_types:
         runtime = _get_runtime(runtime_type, runtime_config)
         config = runtime.prepare_config(config)
+        config = runtime.with_runtime_tags(config)
 
     return config
 

@@ -292,6 +292,7 @@ function update_metastore_config() {
             hive_metastore_jars=maven
         else
             hive_metastore_jars="${HIVE_HOME}/lib/*"
+        fi
 
         sed -i "s!{%spark.hadoop.hive.metastore.uris%}!spark.hadoop.hive.metastore.uris ${hive_metastore_uris}!g" ${SPARK_DEFAULTS}
         sed -i "s!{%spark.sql.hive.metastore.version%}!spark.sql.hive.metastore.version ${hive_metastore_version}!g" ${SPARK_DEFAULTS}

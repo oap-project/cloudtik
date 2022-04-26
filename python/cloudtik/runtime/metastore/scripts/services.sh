@@ -12,7 +12,7 @@ start-head)
     ;;
 stop-head)
     sudo service mysql stop
-    ps -aux|grep HiveMetaStore|grep -v grep|awk '{print $2}'|xargs kill
+    pkill -f 'HiveMetaStore'
     ;;
 start-worker)
     # No need to run anything for worker node

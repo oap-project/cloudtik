@@ -80,9 +80,23 @@ function update_presto_data_disks_config() {
     sed -i "s!{%node.data-dir%}!${presto_data_dir}!g" $output_dir/presto/node.properties
 }
 
+function update_hive_metastore_config() {
+    # To be improved for external metastore cluster
+    HIVE_PROPERTIES=${output_dir}/presto/catalog/hive.properties
+    if [ "$METASTORE_ENABLED" == "true" ];then
+        METASTORE_IP=${HEAD_ADDRESS}
+        hive_metastore_uris="thrift://${METASTORE_IP}:9083"
+        sed -i "s!{%HIVE_METASTORE_URI%}!${hive_metastore_uris}!g" ${HIVE_PROPERTIES}
+        cp ${HIVE_PROPERTIES}  ${PRESTO_HOME}/etc/catalog/hive.properties
+    fi
+}
+
+function update_metastore_config() {
+    update_hive_metastore_config
+}
 function configure_presto() {
     prepare_base_conf
-
+    update_metastore_config
     cd $output_dir
     node_id=$(uuid)
     presto_log_dir=${PRESTO_HOME}/logs

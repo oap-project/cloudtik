@@ -73,6 +73,24 @@ function install_spark() {
       echo "export SPARK_HOME=$SPARK_HOME">> ${USER_HOME}/.bashrc
       echo "export PATH=\$SPARK_HOME/bin:\$PATH" >> ${USER_HOME}/.bashrc
     fi
+
+    if [ "$METASTORE_ENABLED" == "true" ] && [ "$HIVE_FOR_METASTORE_JARS" == "true" ];then
+        # To be improved: we may need to install Hive anyway
+        # Spark Hive Metastore nees quit some Hive dependencies
+        # "hive-metastore", "hive-exec", "hive-common", "hive-serde"
+        # org.apache.hadoop:hadoop-client
+        # com.google.guava:guava
+        # So we download Hive instead
+        export HIVE_HOME=$RUNTIME_PATH/hive
+        export HIVE_VERSION=3.1.2
+        if [ ! -d "${HIVE_HOME}" ]; then
+         (cd $RUNTIME_PATH && wget -q --show-progress https://downloads.apache.org/hive/hive-${HIVE_VERSION}/apache-hive-${HIVE_VERSION}-bin.tar.gz && \
+            tar -zxf apache-hive-${HIVE_VERSION}-bin.tar.gz && \
+            mv apache-hive-${HIVE_VERSION}-bin hive && \
+            rm apache-hive-${HIVE_VERSION}-bin.tar.gz)
+          echo "export HIVE_HOME=$HIVE_HOME">> ${USER_HOME}/.bashrc
+        fi
+    fi
 }
 
 function install_jupyter_for_spark() {

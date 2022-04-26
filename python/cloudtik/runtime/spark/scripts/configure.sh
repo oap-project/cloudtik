@@ -262,6 +262,25 @@ function update_data_disks_config() {
     sed -i "s!{%spark.local.dir%}!${spark_local_dir}!g" `grep "{%spark.local.dir%}" -rl ./`
 }
 
+function update_metastore_config() {
+    # To be improved for external metastore cluster
+    SPARK_DEFAULTS=${output_dir}/spark/spark-defaults.conf
+    if [ "$METASTORE_ENABLED" == "true" ];then
+        METASTORE_IP=${HEAD_ADDRESS}
+        hive_metastore_uris="thrift://${METASTORE_IP}:9083"
+        hive_metastore_version="3.1.2"
+        hive_metastore_jars="${METASTORE_HOME}/lib/*"
+        sed -i "s!{%spark.hadoop.hive.metastore.uris%}!spark.hadoop.hive.metastore.uris ${hive_metastore_uris}!g" ${SPARK_DEFAULTS}
+        sed -i "s!{%spark.sql.hive.metastore.version%}!spark.sql.hive.metastore.version ${hive_metastore_version}!g" ${SPARK_DEFAULTS}
+        sed -i "s!{%spark.sql.hive.metastore.jars%}!spark.sql.hive.metastore.jars ${hive_metastore_jars}!g" ${SPARK_DEFAULTS}
+    else
+        # replace with empty
+        sed -i "s/{%spark.hadoop.hive.metastore.uris%}//g" ${SPARK_DEFAULTS}
+        sed -i "s/{%spark.sql.hive.metastore.version%}//g" ${SPARK_DEFAULTS}
+        sed -i "s/{%spark.sql.hive.metastore.jars%}//g" ${SPARK_DEFAULTS}
+    fi
+}
+
 function configure_hadoop_and_spark() {
     prepare_base_conf
 
@@ -270,6 +289,7 @@ function configure_hadoop_and_spark() {
 
     update_spark_runtime_config
     update_data_disks_config
+    update_metastore_config
 
     if [ "$HDFS_ENABLED" == "true" ];then
         update_config_for_hdfs

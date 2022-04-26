@@ -105,3 +105,5 @@ function configure_ganglia() {
 
 set_head_address
 configure_ganglia
+
+exit 0

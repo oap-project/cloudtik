@@ -92,6 +92,8 @@ function configure_hdfs() {
     cp -r ${output_dir}/hadoop/hdfs-site.xml  ${HADOOP_HOME}/etc/hadoop/
 
     if [ $IS_HEAD_NODE == "true" ];then
+        # Stop namenode in case it was running left from last try
+        ${HADOOP_HOME}/bin/hdfs --daemon stop namenode > /dev/null 2 > &1
         # Format hdfs once
         ${HADOOP_HOME}/bin/hdfs --loglevel WARN namenode -format -force
     fi
@@ -101,3 +103,4 @@ check_hadoop_installed
 set_head_address
 configure_hdfs
 
+exit 0

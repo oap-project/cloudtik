@@ -68,6 +68,8 @@ function configure_hive_metastore() {
     prepare_base_conf
     cd $output_dir
 
+    mkdir -p ${METASTORE_HOME}/logs
+
     DATABASE_NAME=hive_metastore
     DATABASE_USER=hive
     DATABASE_PASSWORD=hive
@@ -106,3 +108,5 @@ function configure_hive_metastore() {
 check_hive_metastore_installed
 set_head_address
 configure_hive_metastore
+
+exit 0

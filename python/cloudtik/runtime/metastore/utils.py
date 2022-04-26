@@ -37,8 +37,8 @@ def _with_runtime_environment_variables(runtime_config, provider):
 
 
 def _get_runtime_logs():
-    hive_logs_dir = os.path.join(os.getenv("HIVE_HOME"), "logs")
-    all_logs = {"hive": hive_logs_dir}
+    hive_logs_dir = os.path.join(os.getenv("METASTORE_HOME"), "logs")
+    all_logs = {"metastore": hive_logs_dir}
     return all_logs
 
 

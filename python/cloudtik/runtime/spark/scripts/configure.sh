@@ -119,7 +119,6 @@ function set_head_address() {
             exit 1
         fi
     fi
-    echo "export CLOUDTIK_HEAD_IP=$HEAD_ADDRESS">> ${USER_HOME}/.bashrc
 }
 
 function set_resources_for_spark() {

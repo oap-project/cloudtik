@@ -295,7 +295,6 @@ function configure_hadoop_and_spark() {
 
     update_spark_runtime_config
     update_data_disks_config
-    update_metastore_config
 
     if [ "$HDFS_ENABLED" == "true" ];then
         update_config_for_hdfs
@@ -307,6 +306,8 @@ function configure_hadoop_and_spark() {
     cp -r ${output_dir}/hadoop/yarn-site.xml  ${HADOOP_HOME}/etc/hadoop/
 
     if [ $IS_HEAD_NODE == "true" ];then
+        update_metastore_config
+
         cp -r ${output_dir}/spark/*  ${SPARK_HOME}/conf
 
         if [ "$HDFS_ENABLED" == "true" ]; then

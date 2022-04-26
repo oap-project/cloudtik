@@ -74,7 +74,7 @@ function install_spark() {
       echo "export PATH=\$SPARK_HOME/bin:\$PATH" >> ${USER_HOME}/.bashrc
     fi
 
-    if [ "$METASTORE_ENABLED" == "true" ] && [ "$HIVE_FOR_METASTORE_JARS" == "true" ];then
+    if [ "$METASTORE_ENABLED" == "true" ] && [ "$HIVE_FOR_METASTORE_JARS" == "true" ] && [ $IS_HEAD_NODE == "true" ]; then
         # To be improved: we may need to install Hive anyway
         # Spark Hive Metastore nees quit some Hive dependencies
         # "hive-metastore", "hive-exec", "hive-common", "hive-serde"

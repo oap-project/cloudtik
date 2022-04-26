@@ -35,8 +35,8 @@ function install_jdk() {
           tar -xf jdk-8u192-linux-x64.tar && \
           rm jdk-8u192-linux-x64.tar && \
           mv jdk1.8.0_192 jdk)
-      echo "export JAVA_HOME=$JAVA_HOME">> ${USER_HOME}/.bashrc
-      echo "export PATH=\$JAVA_HOME/bin:\$PATH" >> ${USER_HOME}/.bashrc
+        echo "export JAVA_HOME=$JAVA_HOME">> ${USER_HOME}/.bashrc
+        echo "export PATH=\$JAVA_HOME/bin:\$PATH" >> ${USER_HOME}/.bashrc
     fi
 }
 
@@ -49,10 +49,12 @@ function install_hadoop() {
           tar -zxf hadoop-${HADOOP_VERSION}.tar.gz && \
           mv hadoop-${HADOOP_VERSION} hadoop && \
           rm hadoop-${HADOOP_VERSION}.tar.gz)
-      echo "export HADOOP_HOME=$HADOOP_HOME">> ${USER_HOME}/.bashrc
-      echo "export HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop">> ${USER_HOME}/.bashrc
-      echo "export JAVA_HOME=$JAVA_HOME" >> ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh
-      echo "export PATH=\$HADOOP_HOME/bin:\$PATH" >> ${USER_HOME}/.bashrc
+        echo "export HADOOP_HOME=$HADOOP_HOME">> ${USER_HOME}/.bashrc
+        echo "export HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop">> ${USER_HOME}/.bashrc
+        echo "export PATH=\$HADOOP_HOME/bin:\$PATH" >> ${USER_HOME}/.bashrc
+        echo "export JAVA_HOME=$JAVA_HOME" >> ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh
+        #Add share/hadoop/tools/lib/* into classpath
+        echo "export HADOOP_CLASSPATH=\$HADOOP_CLASSPATH:\$HADOOP_HOME/share/hadoop/tools/lib/*" >> ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh
     fi
 }
 

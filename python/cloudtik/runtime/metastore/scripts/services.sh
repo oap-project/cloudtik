@@ -8,7 +8,7 @@ fi
 case "$1" in
 start-head)
     sudo service mysql start
-    nohup $METASTORE_HOME/bin/start-metastore >./${METASTORE_HOME}/logs/start-metastore.log 2>&1 &
+    nohup $METASTORE_HOME/bin/start-metastore >${METASTORE_HOME}/logs/start-metastore.log 2>&1 &
     ;;
 stop-head)
     sudo service mysql stop

@@ -109,3 +109,4 @@ check_presto_installed
 set_head_address
 configure_presto
 
+exit 0

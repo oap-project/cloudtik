@@ -320,3 +320,5 @@ set_resources_for_spark
 configure_system_folders
 configure_hadoop_and_spark
 configure_jupyter_for_spark
+
+exit 0

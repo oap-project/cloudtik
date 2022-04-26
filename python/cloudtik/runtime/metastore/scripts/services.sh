@@ -13,7 +13,7 @@ start-head)
 stop-head)
     sudo service mysql stop
     #TODO: design a way to stop hive metastore
-    ps -aux|grep metastore|awk '{print $2}'|xargs kill
+    ps -aux|grep HiveMetaStore|grep -v grep|awk '{print $2}'|xargs kill
     ;;
 start-worker)
     # No need to run anything for worker node

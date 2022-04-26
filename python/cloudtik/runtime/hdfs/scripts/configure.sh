@@ -93,7 +93,7 @@ function configure_hdfs() {
 
     if [ $IS_HEAD_NODE == "true" ];then
         # Stop namenode in case it was running left from last try
-        ${HADOOP_HOME}/bin/hdfs --daemon stop namenode > /dev/null 2 > &1
+        ${HADOOP_HOME}/bin/hdfs --daemon stop namenode > /dev/null 2>&1
         # Format hdfs once
         ${HADOOP_HOME}/bin/hdfs --loglevel WARN namenode -format -force
     fi

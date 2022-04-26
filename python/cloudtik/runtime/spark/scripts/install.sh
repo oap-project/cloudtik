@@ -40,8 +40,8 @@ function install_jdk() {
           tar -xf jdk-8u192-linux-x64.tar && \
           rm jdk-8u192-linux-x64.tar && \
           mv jdk1.8.0_192 jdk)
-      echo "export JAVA_HOME=$JAVA_HOME">> ${USER_HOME}/.bashrc
-      echo "export PATH=\$JAVA_HOME/bin:\$PATH" >> ${USER_HOME}/.bashrc
+        echo "export JAVA_HOME=$JAVA_HOME">> ${USER_HOME}/.bashrc
+        echo "export PATH=\$JAVA_HOME/bin:\$PATH" >> ${USER_HOME}/.bashrc
     fi
 }
 
@@ -54,10 +54,12 @@ function install_hadoop() {
           tar -zxf hadoop-${HADOOP_VERSION}.tar.gz && \
           mv hadoop-${HADOOP_VERSION} hadoop && \
           rm hadoop-${HADOOP_VERSION}.tar.gz)
-      echo "export HADOOP_HOME=$HADOOP_HOME">> ${USER_HOME}/.bashrc
-      echo "export HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop">> ${USER_HOME}/.bashrc
-      echo "export JAVA_HOME=$JAVA_HOME" >> ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh
-      echo "export PATH=\$HADOOP_HOME/bin:\$PATH" >> ${USER_HOME}/.bashrc
+        echo "export HADOOP_HOME=$HADOOP_HOME">> ${USER_HOME}/.bashrc
+        echo "export HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop">> ${USER_HOME}/.bashrc
+        echo "export PATH=\$HADOOP_HOME/bin:\$PATH" >> ${USER_HOME}/.bashrc
+        echo "export JAVA_HOME=$JAVA_HOME" >> ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh
+        #Add share/hadoop/tools/lib/* into classpath
+        echo "export HADOOP_CLASSPATH=\$HADOOP_CLASSPATH:\$HADOOP_HOME/share/hadoop/tools/lib/*" >> ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh
     fi
 }
 
@@ -70,8 +72,12 @@ function install_spark() {
         tar -zxf spark-${SPARK_VERSION}-bin-hadoop3.2.tgz && \
         mv spark-${SPARK_VERSION}-bin-hadoop3.2 spark && \
         rm spark-${SPARK_VERSION}-bin-hadoop3.2.tgz)
-      echo "export SPARK_HOME=$SPARK_HOME">> ${USER_HOME}/.bashrc
-      echo "export PATH=\$SPARK_HOME/bin:\$PATH" >> ${USER_HOME}/.bashrc
+        echo "export SPARK_HOME=$SPARK_HOME">> ${USER_HOME}/.bashrc
+        echo "export PATH=\$SPARK_HOME/bin:\$PATH" >> ${USER_HOME}/.bashrc
+        # Config for PySpark when Spark installed
+        echo "export PYTHONPATH=\${SPARK_HOME}/python:\${SPARK_HOME}/python/lib/py4j-0.10.9-src.zip" >> ~/.bashrc
+        echo "export PYSPARK_PYTHON=\${CONDA_PREFIX}/envs/cloudtik_py37/bin/python" >> ~/.bashrc
+        echo "export PYSPARK_DRIVER_PYTHON=\${CONDA_PREFIX}/envs/cloudtik_py37/bin/python" >> ~/.bashrc
     fi
 
     if [ "$METASTORE_ENABLED" == "true" ] && [ "$HIVE_FOR_METASTORE_JARS" == "true" ] && [ $IS_HEAD_NODE == "true" ]; then
@@ -88,7 +94,7 @@ function install_spark() {
             tar -zxf apache-hive-${HIVE_VERSION}-bin.tar.gz && \
             mv apache-hive-${HIVE_VERSION}-bin hive && \
             rm apache-hive-${HIVE_VERSION}-bin.tar.gz)
-          echo "export HIVE_HOME=$HIVE_HOME">> ${USER_HOME}/.bashrc
+            echo "export HIVE_HOME=$HIVE_HOME">> ${USER_HOME}/.bashrc
         fi
     fi
 }
@@ -155,9 +161,6 @@ function download_spark_cloud_jars() {
 function install_hadoop_with_cloud_jars() {
     # Download jars are possible long running tasks and should be done on install step instead of configure step.
     download_hadoop_cloud_jars
-
-    #Add share/hadoop/tools/lib/* into classpath
-    echo "export HADOOP_CLASSPATH=\$HADOOP_CLASSPATH:\$HADOOP_HOME/share/hadoop/tools/lib/*" >> ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh
 }
 
 function install_spark_with_cloud_jars() {

@@ -8,11 +8,10 @@ fi
 case "$1" in
 start-head)
     sudo service mysql start
-    $METASTORE_HOME/bin/start-metastore &
+    nohup $METASTORE_HOME/bin/start-metastore >./${METASTORE_HOME}/logs/start-metastore.log 2>&1 &
     ;;
 stop-head)
     sudo service mysql stop
-    #TODO: design a way to stop hive metastore
     ps -aux|grep HiveMetaStore|grep -v grep|awk '{print $2}'|xargs kill
     ;;
 start-worker)

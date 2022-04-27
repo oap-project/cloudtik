@@ -649,9 +649,9 @@ def get_workspace_head_nodes(ec2, tag_filters):
     return nodes
 
 
-def _configure_hdfs_from_workspace(ec2):
+def _subscribe_hdfs_config(ec2):
     tag_filters = {
-        "NAMENODE_ADDRESS": "*"
+        "namenode_address": "*"
     }
     namenode_nodes = get_workspace_head_nodes(ec2, tag_filters)
     if len(namenode_nodes) == 0:
@@ -660,15 +660,15 @@ def _configure_hdfs_from_workspace(ec2):
         namenode = namenode_nodes[0]
         namenode_address = ""
         for tag in namenode.tags:
-            if tag.get("Key") == "NAMENODE_ADDRESS":
+            if tag.get("Key") == "namenode_address":
                 namenode_address = tag.get("Value")
-        return {"NAMENODE_ADDRESS": namenode_address}
+        return {"namenode_address": namenode_address}
 
 
-def _configure_runtime_from_workspace(runtime_type, config):
+def subscribe_runtime_config(runtime_type, config):
     ec2 = _resource("ec2", config)
     if runtime_type == "hdfs":
-        return _configure_hdfs_from_workspace(ec2)
+        return _subscribe_hdfs_config(ec2)
 
     return None
 
@@ -676,23 +676,23 @@ def _configure_runtime_from_workspace(runtime_type, config):
 def _configure_runtime(config):
     runtime_config = config.get("runtime", {})
     for runtime_type in runtime_config.keys():
-        if runtime_type in ["tags", "types"] or runtime_type in runtime_config.get("types", []):
+        # Skip types; if runtime_type deploy locally, user or workspace no need to configure runtime
+        if runtime_type =="types" or runtime_type in runtime_config.get("types", []):
             continue
-        if not runtime_config[runtime_type].get("enabled", False):
+        # If runtype not enable, skip configuration
+        if not runtime_config[runtime_type].get("{}_enabled".format(runtime_type), False):
             continue
         runtime = _get_runtime(runtime_type, runtime_config)
 
-        # user defined runtime configuration has the highest priority.
-        runtime_custom_config = runtime.get_custom_config(config)
-        if runtime_custom_config is not None:
-            runtime_config[runtime_type].update(runtime_custom_config)
+        # Try to use the defined runtime configuration from user configuration.
+        custom_runtime_config = runtime.get_custom_runtime_config(config)
+        if custom_runtime_config is not None:
             continue
 
-        # workspace will try to provide runtime config if user doesn't provide.
-        runtime_workspace_config = _configure_runtime_from_workspace(runtime_type, config)
-        if runtime_workspace_config is not None:
-            runtime_config[runtime_type].update(runtime_workspace_config)
-            continue
+        # workspace will try to provide runtime configuration if user doesn't provide.
+        subscribed_runtime_config = subscribe_runtime_config(runtime_type, config)
+        if subscribed_runtime_config is not None:
+            runtime_config[runtime_type].update(subscribed_runtime_config)
 
     return config
 

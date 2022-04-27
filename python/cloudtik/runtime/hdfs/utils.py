@@ -78,7 +78,7 @@ def _get_defaults_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
     return _get_config_object(cluster_config, "defaults")
 
 
-def _get_custom_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+def _get_custom_runtime_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
     hdfs_config = cluster_config.get("runtime", {}).get("hdfs", {})
     namenode_address = hdfs_config.get("namenode_address")
     if namenode_address is None:

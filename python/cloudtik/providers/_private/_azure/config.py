@@ -653,7 +653,7 @@ def get_workspace_virtual_network_name(config, network_client):
             resource_group_name=resource_group_name,
             virtual_network_name=virtual_network_name
         )
-        cli_logger.verbose_error("Successfully get the VirtualNetworkName: {} for workspace.".
+        cli_logger.verbose("Successfully get the VirtualNetworkName: {} for workspace.".
                                  format(virtual_network_name))
         return virtual_network.name
     except Exception as e:

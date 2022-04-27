@@ -58,6 +58,9 @@ class Runtime:
         """Returns a copy of runtime config"""
         return None
 
+    def get_custom_config(self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+        return None
+
     def get_useful_urls(self, cluster_head_ip: str):
         """Return the useful urls to show when cluster started.
         It's an array of dictionary

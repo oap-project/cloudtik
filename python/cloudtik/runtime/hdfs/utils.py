@@ -71,6 +71,15 @@ def _get_defaults_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
     return _get_config_object(cluster_config, "defaults")
 
 
+def _get_custom_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+    hdfs_config = cluster_config.get("runtime", {}).get("hdfs", {})
+    namenode_address = hdfs_config.get("namenode_address")
+    if namenode_address is None:
+        return None
+    else:
+        return {"namenode_address": namenode_address}
+
+
 def _get_useful_urls(cluster_head_ip):
     urls = [
         {"name": "HDFS Web UI", "url": "http://{}:9870".format(cluster_head_ip)},

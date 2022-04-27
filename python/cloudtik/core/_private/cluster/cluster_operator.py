@@ -40,7 +40,7 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     get_attach_command, is_alive_time, is_docker_enabled, get_proxy_bind_address_to_show, \
     kill_process_tree, with_runtime_environment_variables, verify_config, runtime_prepare_config, get_nodes_info, \
     sum_worker_cpus, sum_worker_memory, get_useful_runtime_urls, get_enabled_runtimes, \
-    with_head_node_ip, with_node_ip_environment_variables
+    with_head_node_ip, with_node_ip_environment_variables, head_boot_complete
 
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
@@ -861,9 +861,7 @@ def get_or_create_head_node(config: Dict[str, Any],
         })
 
     # Set runtime tags for head node
-    runtime_tags = update_head_runtime_tags(
-        config.get("runtime", {}).get("tags", {}), provider.internal_ip(head_node))
-    provider.set_node_tags(head_node, runtime_tags)
+    head_boot_complete(config, head_node)
 
     if not is_use_internal_ip(config):
         # start proxy and bind to localhost
@@ -884,13 +882,6 @@ def get_or_create_head_node(config: Dict[str, Any],
                          head_node,
                          updater,
                          override_cluster_name)
-
-
-def update_head_runtime_tags(tags: Dict[str, Any], head_internal_ip: str) -> Dict[str, Any]:
-    for key, value in tags.items():
-        if value == "HEAD_ADDRESS":
-            tags[key] = head_internal_ip
-    return tags
 
 
 def _should_create_new_head(head_node_id: Optional[str], new_launch_hash: str,

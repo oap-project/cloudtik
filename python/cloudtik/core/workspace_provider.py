@@ -36,6 +36,10 @@ class WorkspaceProvider:
         """Bootstraps the cluster config by adding env defaults if needed."""
         return True
 
+    def publish_runtime_config(self, cluster_config: Dict[str, Any],
+            head_node_id: str,  runtime_tags: Dict[str, Any]):
+        pass
+
     @staticmethod
     def validate_config(provider_config: Dict[str, Any]):
         pass

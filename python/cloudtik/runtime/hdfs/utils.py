@@ -2,6 +2,8 @@ import os
 from typing import Any, Dict
 
 from cloudtik.core._private.utils import merge_rooted_config_hierarchy, _get_runtime_config_object
+from cloudtik.core._private.workspace.workspace_operator import _get_workspace_provider
+from cloudtik.core._private.providers import _get_node_provider
 
 RUNTIME_PROCESSES = [
     # The first element is the substring to filter.
@@ -19,11 +21,16 @@ def _config_runtime_resources(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
     return cluster_config
 
 
-def _config_runtime_tags(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-    cluster_runtime_tag = cluster_config.get("runtime").get("tags", {})
-    cluster_runtime_tag["NAMENODE_ADDRESS"] = "HEAD_ADDRESS"
-    cluster_config["runtime"]["tags"] = cluster_runtime_tag
-    return cluster_config
+def publish_runtime_config(cluster_config: Dict[str, Any], head_node_id: str) -> None:
+    provider = _get_node_provider(cluster_config["provider"], cluster_config["cluster_name"])
+    head_internal_ip = provider.internal_ip(head_node_id)
+    hdfs_tags  = {"namenode_address": head_internal_ip + ":9000"}
+
+    workspace_name = cluster_config["workspace_name"]
+    if workspace_name is None:
+        return
+    workspace_provder = _get_workspace_provider(cluster_config["provider"], workspace_name)
+    workspace_provder.publish_runtime_config(cluster_config, head_node_id, hdfs_tags)
 
 
 def _get_runtime_processes():

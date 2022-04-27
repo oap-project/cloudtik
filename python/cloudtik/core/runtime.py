@@ -39,10 +39,9 @@ class Runtime:
         """
         return {}
 
-    def with_runtime_tags(
-            self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-        """Provide tag setting for runtime"""
-        return cluster_config
+    def head_boot_complete(
+            self, cluster_config: Dict[str, Any], head_node_id: str) -> None:
+        pass
 
     def get_runnable_command(self, target: str):
         """Return the runnable command for the target script.

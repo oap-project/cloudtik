@@ -270,11 +270,18 @@ def teardown(keep_min_workers):
     is_flag=True,
     default=False,
     help="Whether to execute start commands to all nodes.")
+@click.option(
+    "--indent-level",
+    required=False,
+    default=None,
+    type=int,
+    hidden=True,
+    help="The indent level for showing messages during this command.")
 @add_click_logging_options
-def start_node(node_ip, all_nodes):
+def start_node(node_ip, all_nodes, indent_level):
     """Run start commands on the specific node or all nodes."""
     start_node_on_head(
-        node_ip=node_ip, all_nodes=all_nodes)
+        node_ip=node_ip, all_nodes=all_nodes, indent_level=indent_level)
 
 
 @head.command()
@@ -290,11 +297,18 @@ def start_node(node_ip, all_nodes):
     is_flag=True,
     default=False,
     help="Whether to execute stop commands to all nodes.")
+@click.option(
+    "--indent-level",
+    required=False,
+    default=None,
+    type=int,
+    hidden=True,
+    help="The indent level for showing messages during this command.")
 @add_click_logging_options
-def stop_node(node_ip, all_nodes):
+def stop_node(node_ip, all_nodes, indent_level):
     """Run stop commands on the specific node or all nodes."""
     stop_node_on_head(
-        node_ip=node_ip, all_nodes=all_nodes)
+        node_ip=node_ip, all_nodes=all_nodes, indent_level=indent_level)
 
 
 @head.command()

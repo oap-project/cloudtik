@@ -468,6 +468,20 @@ class _CliLogger():
 
         return self.indented()
 
+    def indented_by(self, level):
+        """Context manager that starts an indented block of output by a level
+        """
+        cli_logger = self
+
+        class IndentedContextManager():
+            def __enter__(self):
+                cli_logger.indent_level += level
+
+            def __exit__(self, type, value, tb):
+                cli_logger.indent_level -= level
+
+        return IndentedContextManager()
+
     def verbatim_error_ctx(self, msg: str, *args: Any, **kwargs: Any):
         """Context manager for printing multi-line error messages.
 

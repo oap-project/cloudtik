@@ -427,6 +427,7 @@ def _teardown_cluster(config_file: str, config: Dict[str, Any],
         cmd = "cloudtik head teardown"
         if keep_min_workers:
             cmd += " --keep-min-workers"
+        cmd += " --indent-level={}".format(2)
 
         try:
             exec_cmd_on_cluster(config_file,

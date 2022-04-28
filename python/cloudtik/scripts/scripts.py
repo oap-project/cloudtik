@@ -1090,9 +1090,11 @@ def disable_proxy(cluster_config_file,cluster_name):
     is_flag=True,
     default=False,
     help="Whether to execute start commands to all nodes.")
+@click.option(
+    "--parallel/--no-parallel", is_flag=True, default=True, help="Whether the run the commands on nodes in parallel.")
 @add_click_logging_options
 def start_node(cluster_config_file, cluster_name, no_config_cache,
-               node_ip, all_nodes):
+               node_ip, all_nodes, parallel):
     """Manually (re)start the node and runtime services on head or worker node."""
     try:
         # attach to the worker node
@@ -1101,7 +1103,8 @@ def start_node(cluster_config_file, cluster_name, no_config_cache,
             node_ip,
             all_nodes,
             cluster_name,
-            no_config_cache=no_config_cache)
+            no_config_cache=no_config_cache,
+            parallel=parallel)
     except RuntimeError as re:
         cli_logger.error("Start node failed. " + str(re))
         if cli_logger.verbosity == 0:
@@ -1134,9 +1137,11 @@ def start_node(cluster_config_file, cluster_name, no_config_cache,
     is_flag=True,
     default=False,
     help="Whether to execute stop commands to all nodes.")
+@click.option(
+    "--parallel/--no-parallel", is_flag=True, default=True, help="Whether the run the commands on nodes in parallel.")
 @add_click_logging_options
 def stop_node(cluster_config_file, cluster_name, no_config_cache,
-              node_ip, all_nodes):
+              node_ip, all_nodes, parallel):
     """Manually run stop commands on head or worker nodes."""
     try:
         # attach to the worker node
@@ -1145,7 +1150,8 @@ def stop_node(cluster_config_file, cluster_name, no_config_cache,
             node_ip,
             all_nodes,
             cluster_name,
-            no_config_cache=no_config_cache)
+            no_config_cache=no_config_cache,
+            parallel=parallel)
     except RuntimeError as re:
         cli_logger.error("Stop node failed. " + str(re))
         if cli_logger.verbosity == 0:

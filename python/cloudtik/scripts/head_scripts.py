@@ -280,11 +280,16 @@ def teardown(keep_min_workers):
     type=int,
     hidden=True,
     help="The indent level for showing messages during this command.")
+@click.option(
+    "--parallel/--no-parallel", is_flag=True, default=True, help="Whether the run the commands on nodes in parallel.")
 @add_click_logging_options
-def start_node(node_ip, all_nodes, indent_level):
+def start_node(node_ip, all_nodes, indent_level, parallel):
     """Run start commands on the specific node or all nodes."""
-    start_node_on_head(
-        node_ip=node_ip, all_nodes=all_nodes, indent_level=indent_level)
+    if indent_level is not None:
+        with cli_logger.indented_by(indent_level):
+            start_node_on_head(node_ip=node_ip, all_nodes=all_nodes, parallel=parallel)
+    else:
+        start_node_on_head(node_ip=node_ip, all_nodes=all_nodes, parallel=parallel)
 
 
 @head.command()
@@ -307,11 +312,16 @@ def start_node(node_ip, all_nodes, indent_level):
     type=int,
     hidden=True,
     help="The indent level for showing messages during this command.")
+@click.option(
+    "--parallel/--no-parallel", is_flag=True, default=True, help="Whether the run the commands on nodes in parallel.")
 @add_click_logging_options
-def stop_node(node_ip, all_nodes, indent_level):
+def stop_node(node_ip, all_nodes, indent_level, parallel):
     """Run stop commands on the specific node or all nodes."""
-    stop_node_on_head(
-        node_ip=node_ip, all_nodes=all_nodes, indent_level=indent_level)
+    if indent_level is not None:
+        with cli_logger.indented_by(indent_level):
+            stop_node_on_head(node_ip=node_ip, all_nodes=all_nodes, parallel=parallel)
+    else:
+        stop_node_on_head(node_ip=node_ip, all_nodes=all_nodes, parallel=parallel)
 
 
 @head.command()

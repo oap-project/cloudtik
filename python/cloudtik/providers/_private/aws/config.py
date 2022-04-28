@@ -19,7 +19,6 @@ from cloudtik.core._private.event_system import (CreateClusterEvent,
                                                   global_event_system)
 from cloudtik.core._private.services import get_node_ip_address
 from cloudtik.core._private.utils import check_cidr_conflict
-from cloudtik.core._private.runtime_factory import _get_runtime
 from cloudtik.providers._private.aws.utils import LazyDefaultDict, \
     handle_boto_error, resource_cache, get_boto_error_code
 from cloudtik.providers._private.utils import StorageTestingError
@@ -628,7 +627,15 @@ def bootstrap_aws_from_workspace(config):
 
 def get_workspace_head_nodes(cluster_config, tag_filters):
     ec2 = _resource("ec2", cluster_config)
+    ec2_client = _client("ec2", cluster_config)
+    workspace_name = cluster_config["workspace_name"]
+    VpcId = get_workspace_vpc_id(workspace_name, ec2_client)
+
     filters = [
+        {
+           "Name": "vpc-id",
+            "Value": [VpcId]
+        },
         {
             "Name": "instance-state-name",
             "Values": ["running"],

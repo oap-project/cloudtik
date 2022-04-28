@@ -40,7 +40,7 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     get_attach_command, is_alive_time, is_docker_enabled, get_proxy_bind_address_to_show, \
     kill_process_tree, with_runtime_environment_variables, verify_config, runtime_prepare_config, get_nodes_info, \
     sum_worker_cpus, sum_worker_memory, get_useful_runtime_urls, get_enabled_runtimes, \
-    with_head_node_ip, with_node_ip_environment_variables, cluster_booting_completed
+    with_head_node_ip, with_node_ip_environment_variables, run_in_paralell_on_nodes, cluster_booting_completed
 
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
@@ -407,7 +407,8 @@ def _teardown_cluster(config_file: str, config: Dict[str, Any],
             try:
                 stop_node_from_head(config_file,
                                     node_ip=None, all_nodes=False,
-                                    override_cluster_name=override_cluster_name)
+                                    override_cluster_name=override_cluster_name,
+                                    indent_level=1)
             except Exception as e:
                 cli_logger.verbose_error("{}", str(e))
                 cli_logger.warning(
@@ -2060,7 +2061,8 @@ def exec_node_from_head(config_file: str,
                         tmux: bool = False,
                         override_cluster_name: Optional[str] = None,
                         no_config_cache: bool = False,
-                        port_forward: Optional[Port_forward] = None) -> None:
+                        port_forward: Optional[Port_forward] = None,
+                        parallel: bool = True) -> None:
     """Attaches to a screen for the specified cluster.
 
     Arguments:
@@ -2074,6 +2076,7 @@ def exec_node_from_head(config_file: str,
         tmux: whether to use tmux as multiplexer
         override_cluster_name: set the name of the cluster
         port_forward ( (int,int) or list[(int,int)] ): port(s) to forward
+        parallel: Whether to run on nodes in parallel
     """
 
     # execute exec on head with the cmd
@@ -2093,6 +2096,10 @@ def exec_node_from_head(config_file: str,
         cmds += ["--screen"]
     if tmux:
         cmds += ["--tmux"]
+    if parallel:
+        cmds += ["--parallel"]
+    else:
+        cmds += ["--no-parallel"]
 
     # TODO (haifeng): handle port forward for two state cases
     final_cmd = " ".join(cmds)
@@ -2249,7 +2256,8 @@ def exec_node_on_head(
                      run_env: str = "auto",
                      screen: bool = False,
                      tmux: bool = False,
-                     port_forward: Optional[Port_forward] = None):
+                     port_forward: Optional[Port_forward] = None,
+                     parallel: bool = True):
     cluster_config_file = get_head_bootstrap_config()
     config = yaml.safe_load(open(cluster_config_file).read())
     provider = _get_node_provider(config["provider"], config["cluster_name"])
@@ -2259,16 +2267,19 @@ def exec_node_on_head(
     nodes = get_nodes_of(config, provider, head_node,
                          node_ip, all_nodes)
 
-    for node_id in nodes:
+    def run_exec_cmd_on_head(node_id):
         exec_cmd_on_head(
-            config,
-            provider,
-            node_id=node_id,
-            cmd=cmd,
+            config, provider,
+            node_id=node_id, cmd=cmd,
             run_env=run_env,
-            screen=screen,
-            tmux=tmux,
+            screen=screen, tmux=tmux,
             port_forward=port_forward)
+
+    if parallel and len(nodes) > 1:
+        run_in_paralell_on_nodes(run_exec_cmd_on_head, nodes)
+    else:
+        for node_id in nodes:
+            run_exec_cmd_on_head(node_id=node_id)
 
 
 def create_node_updater_for_exec(config,
@@ -2303,7 +2314,8 @@ def create_node_updater_for_exec(config,
 
 
 def start_node_on_head(node_ip: str = None,
-                       all_nodes: bool = False):
+                       all_nodes: bool = False,
+                       parallel: bool = True):
     # Since this is running on head, the bootstrap config must exist
     cluster_config_file = get_head_bootstrap_config()
     config = yaml.safe_load(open(cluster_config_file).read())
@@ -2340,15 +2352,20 @@ def start_node_on_head(node_ip: str = None,
         node_runtime_envs.update(runtime_envs)
         updater._exec_start_commands(node_runtime_envs)
 
-    for node_id in nodes:
-        start_single_node_on_head(node_id)
+    if parallel and len(nodes) > 1:
+        run_in_paralell_on_nodes(start_single_node_on_head, nodes)
+    else:
+        for node_id in nodes:
+            start_single_node_on_head(node_id)
 
 
 def start_node_from_head(config_file: str,
                          node_ip: str,
                          all_nodes: bool,
                          override_cluster_name: Optional[str] = None,
-                         no_config_cache: bool = False):
+                         no_config_cache: bool = False,
+                         indent_level: int = None,
+                         parallel: bool = True):
     """Execute start node command on head."""
 
     # execute attach on head
@@ -2361,6 +2378,12 @@ def start_node_from_head(config_file: str,
         cmds += ["--node-ip={}".format(node_ip)]
     if all_nodes:
         cmds += ["--all-nodes"]
+    if indent_level:
+        cmds += ["--indent-level={}".format(indent_level)]
+    if parallel:
+        cmds += ["--parallel"]
+    else:
+        cmds += ["--no-parallel"]
     final_cmd = " ".join(cmds)
 
     exec_cmd_on_cluster(config_file, final_cmd,
@@ -2372,7 +2395,9 @@ def stop_node_from_head(config_file: str,
                         node_ip: str,
                         all_nodes: bool,
                         override_cluster_name: Optional[str] = None,
-                        no_config_cache: bool = False):
+                        no_config_cache: bool = False,
+                        indent_level: int = None,
+                        parallel: bool = True):
     """Execute stop node command on head."""
 
     # execute attach on head
@@ -2385,6 +2410,12 @@ def stop_node_from_head(config_file: str,
         cmds += ["--node-ip={}".format(node_ip)]
     if all_nodes:
         cmds += ["--all-nodes"]
+    if indent_level:
+        cmds += ["--indent-level={}".format(indent_level)]
+    if parallel:
+        cmds += ["--parallel"]
+    else:
+        cmds += ["--no-parallel"]
     final_cmd = " ".join(cmds)
 
     exec_cmd_on_cluster(config_file, final_cmd,
@@ -2414,7 +2445,8 @@ def get_nodes_of(config,
 
 
 def stop_node_on_head(node_ip: str = None,
-                      all_nodes: bool = False):
+                      all_nodes: bool = False,
+                      parallel: bool = True):
     # Since this is running on head, the bootstrap config must exist
     cluster_config_file = get_head_bootstrap_config()
     config = yaml.safe_load(open(cluster_config_file).read())
@@ -2455,8 +2487,11 @@ def stop_node_on_head(node_ip: str = None,
         node_runtime_envs.update(runtime_envs)
         updater.exec_commands(stop_commands, node_runtime_envs)
 
-    for node_id in nodes:
-        stop_single_node_on_head(node_id)
+    if parallel and len(nodes) > 1:
+        run_in_paralell_on_nodes(stop_single_node_on_head, nodes)
+    else:
+        for node_id in nodes:
+            stop_single_node_on_head(node_id)
 
 
 def scale_cluster(config_file: str, yes: bool, override_cluster_name: Optional[str],

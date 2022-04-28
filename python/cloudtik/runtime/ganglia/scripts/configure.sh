@@ -92,7 +92,10 @@ function configure_ganglia() {
         sudo sed -i "s/\$context_metrics = \"\";/\$context_metrics = array();/g" /usr/share/ganglia-webfrontend/cluster_view.php
 
         # Add gmond start command for head in service
-        sudo sed -i '/\NAME.pid/ a start-stop-daemon --start --quiet --startas $DAEMON --name $NAME.head -- --conf /etc/ganglia/gmond.head.conf --pid-file /var/run/$NAME.head.pid' /etc/init.d/ganglia-monitor
+        if (! grep -Fq 'gmond.head.conf' /etc/init.d/ganglia-monitor)
+        then
+            sudo sed -i '/\NAME.pid/ a \ \ start-stop-daemon --start --quiet --startas $DAEMON --name $NAME.head -- --conf /etc/ganglia/gmond.head.conf --pid-file /var/run/$NAME.head.pid' /etc/init.d/ganglia-monitor
+        fi
     else
         # Configure ganglia monitor for woker
         sed -i "s/{cloudtik-cluster-name}/${cluster_name_worker}/g" $output_dir/gmond.node.conf

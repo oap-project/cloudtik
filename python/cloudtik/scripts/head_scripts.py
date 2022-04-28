@@ -98,8 +98,10 @@ def attach(node_ip, screen, tmux, new, port_forward, host):
     multiple=True,
     type=int,
     help="Port to forward. Use this multiple times to forward multiple ports.")
+@click.option(
+    "--parallel/--no-parallel", is_flag=True, default=True, help="Whether the run the commands on nodes in parallel.")
 @add_click_logging_options
-def exec(cmd, node_ip, all_nodes, run_env, screen, tmux, port_forward):
+def exec(cmd, node_ip, all_nodes, run_env, screen, tmux, port_forward, parallel):
     """Execute command on the worker node from head."""
     port_forward = [(port, port) for port in list(port_forward)]
     exec_node_on_head(node_ip,
@@ -108,7 +110,8 @@ def exec(cmd, node_ip, all_nodes, run_env, screen, tmux, port_forward):
                       run_env,
                       screen,
                       tmux,
-                      port_forward)
+                      port_forward,
+                      parallel=parallel)
 
 
 @head.command()
@@ -270,11 +273,23 @@ def teardown(keep_min_workers):
     is_flag=True,
     default=False,
     help="Whether to execute start commands to all nodes.")
+@click.option(
+    "--indent-level",
+    required=False,
+    default=None,
+    type=int,
+    hidden=True,
+    help="The indent level for showing messages during this command.")
+@click.option(
+    "--parallel/--no-parallel", is_flag=True, default=True, help="Whether the run the commands on nodes in parallel.")
 @add_click_logging_options
-def start_node(node_ip, all_nodes):
+def start_node(node_ip, all_nodes, indent_level, parallel):
     """Run start commands on the specific node or all nodes."""
-    start_node_on_head(
-        node_ip=node_ip, all_nodes=all_nodes)
+    if indent_level is not None:
+        with cli_logger.indented_by(indent_level):
+            start_node_on_head(node_ip=node_ip, all_nodes=all_nodes, parallel=parallel)
+    else:
+        start_node_on_head(node_ip=node_ip, all_nodes=all_nodes, parallel=parallel)
 
 
 @head.command()
@@ -290,11 +305,23 @@ def start_node(node_ip, all_nodes):
     is_flag=True,
     default=False,
     help="Whether to execute stop commands to all nodes.")
+@click.option(
+    "--indent-level",
+    required=False,
+    default=None,
+    type=int,
+    hidden=True,
+    help="The indent level for showing messages during this command.")
+@click.option(
+    "--parallel/--no-parallel", is_flag=True, default=True, help="Whether the run the commands on nodes in parallel.")
 @add_click_logging_options
-def stop_node(node_ip, all_nodes):
+def stop_node(node_ip, all_nodes, indent_level, parallel):
     """Run stop commands on the specific node or all nodes."""
-    stop_node_on_head(
-        node_ip=node_ip, all_nodes=all_nodes)
+    if indent_level is not None:
+        with cli_logger.indented_by(indent_level):
+            stop_node_on_head(node_ip=node_ip, all_nodes=all_nodes, parallel=parallel)
+    else:
+        stop_node_on_head(node_ip=node_ip, all_nodes=all_nodes, parallel=parallel)
 
 
 @head.command()

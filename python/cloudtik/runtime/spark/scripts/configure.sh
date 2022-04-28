@@ -119,7 +119,6 @@ function set_head_address() {
             exit 1
         fi
     fi
-    echo "export CLOUDTIK_HEAD_IP=$HEAD_ADDRESS">> ${USER_HOME}/.bashrc
 }
 
 function set_resources_for_spark() {
@@ -146,10 +145,13 @@ function update_config_for_aws() {
     # event log dir
     if [ -z "${AWS_S3_BUCKET}" ]; then
         event_log_dir="file:///tmp/spark-events"
+        sql_warehouse_dir="$USER_HOME/shared/data/spark-warehouse"
     else
         event_log_dir="s3a://${AWS_S3_BUCKET}/shared/spark-events"
+        sql_warehouse_dir="s3a://${AWS_S3_BUCKET}/shared/data/spark-warehouse"
     fi
     sed -i "s!{%spark.eventLog.dir%}!${event_log_dir}!g" `grep "{%spark.eventLog.dir%}" -rl ./`
+    sed -i "s!{%spark.sql.warehouse.dir%}!${sql_warehouse_dir}!g" `grep "{%spark.sql.warehouse.dir%}" -rl ./`
 }
 
 function update_config_for_gcp() {
@@ -162,10 +164,13 @@ function update_config_for_gcp() {
     # event log dir
     if [ -z "${GCS_BUCKET}" ]; then
         event_log_dir="file:///tmp/spark-events"
+        sql_warehouse_dir="$USER_HOME/shared/data/spark-warehouse"
     else
         event_log_dir="gs://${GCS_BUCKET}/shared/spark-events"
+        sql_warehouse_dir="gs://${GCS_BUCKET}/shared/data/spark-warehouse"
     fi
     sed -i "s!{%spark.eventLog.dir%}!${event_log_dir}!g" `grep "{%spark.eventLog.dir%}" -rl ./`
+    sed -i "s!{%spark.sql.warehouse.dir%}!${sql_warehouse_dir}!g" `grep "{%spark.sql.warehouse.dir%}" -rl ./`
 }
 
 function update_config_for_azure() {
@@ -191,23 +196,31 @@ function update_config_for_azure() {
     # event log dir
     if [ -z "${AZURE_CONTAINER}" ] || [ -z "$endpoint" ]; then
         event_log_dir="file:///tmp/spark-events"
+        sql_warehouse_dir="$USER_HOME/shared/data/spark-warehouse"
     else
         event_log_dir="${scheme}://${AZURE_CONTAINER}@${AZURE_STORAGE_ACCOUNT}.${endpoint}.core.windows.net/shared/spark-events"
+        sql_warehouse_dir="${scheme}://${AZURE_CONTAINER}@${AZURE_STORAGE_ACCOUNT}.${endpoint}.core.windows.net/shared/data/spark-warehouse"
     fi
     sed -i "s!{%spark.eventLog.dir%}!${event_log_dir}!g" `grep "{%spark.eventLog.dir%}" -rl ./`
+    sed -i "s!{%spark.sql.warehouse.dir%}!${sql_warehouse_dir}!g" `grep "{%spark.sql.warehouse.dir%}" -rl ./`
 }
 
-function update_config_for_cloud() {
+function update_config_for_remote_storage() {
     if [ "$provider" == "aws" ]; then
-      update_config_for_aws
+        update_config_for_aws
+    elif [ "$provider" == "gcp" ]; then
+        update_config_for_gcp
+    elif [ "$provider" == "azure" ]; then
+        update_config_for_azure
     fi
+}
 
-    if [ "$provider" == "gcp" ]; then
-      update_config_for_gcp
-    fi
-
-    if [ "$provider" == "azure" ]; then
-      update_config_for_azure
+function update_config_for_storage() {
+    if [ "$HDFS_ENABLED" == "true" ];then
+        update_config_for_hdfs
+    else
+        update_config_for_remote_storage
+        cp -r ${output_dir}/hadoop/${provider}/core-site.xml  ${HADOOP_HOME}/etc/hadoop/
     fi
 }
 
@@ -232,6 +245,9 @@ function update_config_for_hdfs() {
     # event log dir
     event_log_dir="hdfs://${HEAD_ADDRESS}:9000/shared/spark-events"
     sed -i "s!{%spark.eventLog.dir%}!${event_log_dir}!g" `grep "{%spark.eventLog.dir%}" -rl ./`
+
+    sql_warehouse_dir="hdfs://${HEAD_ADDRESS}:9000/shared/data/spark-warehouse"
+    sed -i "s!{%spark.sql.warehouse.dir%}!${sql_warehouse_dir}!g" `grep "{%spark.sql.warehouse.dir%}" -rl ./`
 }
 
 function update_data_disks_config() {
@@ -275,6 +291,7 @@ function update_metastore_config() {
             hive_metastore_jars=maven
         else
             hive_metastore_jars="${HIVE_HOME}/lib/*"
+        fi
 
         sed -i "s!{%spark.hadoop.hive.metastore.uris%}!spark.hadoop.hive.metastore.uris ${hive_metastore_uris}!g" ${SPARK_DEFAULTS}
         sed -i "s!{%spark.sql.hive.metastore.version%}!spark.sql.hive.metastore.version ${hive_metastore_version}!g" ${SPARK_DEFAULTS}
@@ -295,13 +312,7 @@ function configure_hadoop_and_spark() {
 
     update_spark_runtime_config
     update_data_disks_config
-
-    if [ "$HDFS_ENABLED" == "true" ];then
-        update_config_for_hdfs
-    else
-        update_config_for_cloud
-        cp -r ${output_dir}/hadoop/${provider}/core-site.xml  ${HADOOP_HOME}/etc/hadoop/
-    fi
+    update_config_for_storage
 
     cp -r ${output_dir}/hadoop/yarn-site.xml  ${HADOOP_HOME}/etc/hadoop/
 
@@ -335,10 +346,6 @@ function configure_jupyter_for_spark() {
       sed -i  "1 ic.NotebookApp.notebook_dir = '${JUPYTER_WORKSPACE}'" ~/.jupyter/jupyter_notebook_config.py
       sed -i  "1 ic.NotebookApp.ip = '${HEAD_ADDRESS}'" ~/.jupyter/jupyter_notebook_config.py
   fi
-  # Config for PySpark
-  echo "export PYTHONPATH=\${SPARK_HOME}/python:\${SPARK_HOME}/python/lib/py4j-0.10.9-src.zip" >> ~/.bashrc
-  echo "export PYSPARK_PYTHON=\${CONDA_PREFIX}/envs/cloudtik_py37/bin/python" >> ~/.bashrc
-  echo "export PYSPARK_DRIVER_PYTHON=\${CONDA_PREFIX}/envs/cloudtik_py37/bin/python" >> ~/.bashrc
 }
 
 check_spark_installed

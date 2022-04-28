@@ -85,8 +85,11 @@ function update_hive_metastore_config() {
     HIVE_PROPERTIES=${output_dir}/presto/catalog/hive.properties
     if [ "$METASTORE_ENABLED" == "true" ];then
         METASTORE_IP=${HEAD_ADDRESS}
+
         hive_metastore_uris="thrift://${METASTORE_IP}:9083"
         sed -i "s!{%HIVE_METASTORE_URI%}!${hive_metastore_uris}!g" ${HIVE_PROPERTIES}
+
+        mkdir -p ${PRESTO_HOME}/etc/catalog
         cp ${HIVE_PROPERTIES}  ${PRESTO_HOME}/etc/catalog/hive.properties
     fi
 }

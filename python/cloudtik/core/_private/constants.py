@@ -175,7 +175,9 @@ CLOUDTIK_PROCESSES = [
 
 # Max Concurrent SSH Calls to stop Docker
 MAX_PARALLEL_SHUTDOWN_WORKERS = env_integer("MAX_PARALLEL_SHUTDOWN_WORKERS",
-                                            50)
+                                         50)
+# Max Concurrent SSH Calls to run on nodes
+MAX_PARALLEL_EXEC_NODES = env_integer("MAX_PARALLEL_EXEC_NODES", 50)
 
 # Constants used to define the different process types.
 PROCESS_TYPE_CLUSTER_CONTROLLER = "cloudtik_cluster_controller"

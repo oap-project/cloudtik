@@ -40,7 +40,7 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     get_attach_command, is_alive_time, is_docker_enabled, get_proxy_bind_address_to_show, \
     kill_process_tree, with_runtime_environment_variables, verify_config, runtime_prepare_config, get_nodes_info, \
     sum_worker_cpus, sum_worker_memory, get_useful_runtime_urls, get_enabled_runtimes, \
-    with_head_node_ip, with_node_ip_environment_variables, run_in_paralell_on_nodes
+    with_head_node_ip, with_node_ip_environment_variables, run_in_paralell_on_nodes, get_commands_to_run
 
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
@@ -650,26 +650,6 @@ def monitor_cluster(cluster_config_file: str, num_lines: int,
         port_forward=None)
 
 
-def warn_about_bad_start_commands(start_commands: List[str],
-                                 no_controller_on_head: bool = False) -> None:
-    start_cmds = list(filter(lambda x: "cloudtik node-start" in x, start_commands))
-    if len(start_cmds) == 0:
-        cli_logger.warning(
-            "CloudTik will not be started because `{}` is not in `{}`.",
-            cf.bold("cloudtik node-start"), cf.bold("head_start_commands"))
-
-    cluster_scaling_config_in_start_cmd = any(
-        "cluster-scaling-config" in x for x in start_cmds)
-    if not (cluster_scaling_config_in_start_cmd or no_controller_on_head):
-        cli_logger.warning(
-            "The head node will not launch any workers because "
-            "`{}` does not have `{}` set.\n"
-            "Potential fix: add `{}` to the `{}` command under `{}`.",
-            cf.bold("cloudtik node-start"), cf.bold("--cluster-scaling-config"),
-            cf.bold("--cluster-scaling-config=~/cloudtik_bootstrap_config.yaml"),
-            cf.bold("cloudtik node-start"), cf.bold("head_start_commands"))
-
-
 def get_or_create_head_node(config: Dict[str, Any],
                             printable_config_file: str,
                             no_restart: bool,
@@ -805,24 +785,20 @@ def get_or_create_head_node(config: Dict[str, Any],
             # Docker may re-launch nodes, requiring setup
             # commands to be rerun.
             if is_docker_enabled(config):
-                setup_commands = config["head_setup_commands"]
+                setup_commands = get_commands_to_run(config, "head_setup_commands")
             else:
                 setup_commands = []
-            start_commands = config["head_start_commands"]
+            start_commands = get_commands_to_run(config, "head_start_commands")
         # If user passed in --no-restart and we're not creating a new head,
         # omit start commands.
         elif no_restart and not creating_new_head:
-            setup_commands = config["head_setup_commands"]
+            setup_commands = get_commands_to_run(config, "head_setup_commands")
             start_commands = []
         else:
-            setup_commands = config["head_setup_commands"]
-            start_commands = config["head_start_commands"]
+            setup_commands = get_commands_to_run(config, "head_setup_commands")
+            start_commands = get_commands_to_run(config, "head_start_commands")
 
-        if not no_restart:
-            warn_about_bad_start_commands(start_commands,
-                                         no_controller_on_head)
-
-        initialization_commands = config["initialization_commands"]
+        initialization_commands = get_commands_to_run(config, "initialization_commands")
         updater = NodeUpdaterThread(
             node_id=head_node,
             provider_config=config["provider"],
@@ -2333,10 +2309,11 @@ def start_node_on_head(node_ip: str = None,
             is_head_node = True
 
         if is_head_node:
-            start_commands = config["head_start_commands"]
+            start_commands = get_commands_to_run(config, "head_start_commands")
             node_runtime_envs = with_node_ip_environment_variables(head_node_ip, provider, node_id)
         else:
-            start_commands = with_head_node_ip(config["worker_start_commands"], head_node_ip)
+            start_commands = with_head_node_ip(
+                get_commands_to_run(config, "worker_start_commands"), head_node_ip)
             node_runtime_envs = with_node_ip_environment_variables(None, provider, node_id)
 
         updater = create_node_updater_for_exec(
@@ -2465,10 +2442,11 @@ def stop_node_on_head(node_ip: str = None,
             is_head_node = True
 
         if is_head_node:
-            stop_commands = config["head_stop_commands"]
+            stop_commands = get_commands_to_run(config, "head_stop_commands")
             node_runtime_envs = with_node_ip_environment_variables(head_node_ip, provider, node_id)
         else:
-            stop_commands = with_head_node_ip(config["worker_stop_commands"], head_node_ip)
+            stop_commands = with_head_node_ip(
+                get_commands_to_run(config, "worker_stop_commands"), head_node_ip)
             node_runtime_envs = with_node_ip_environment_variables(None, provider, node_id)
 
         if not stop_commands:

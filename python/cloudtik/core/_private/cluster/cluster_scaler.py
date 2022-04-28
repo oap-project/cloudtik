@@ -37,7 +37,7 @@ from cloudtik.core._private.cluster.resource_demand_scheduler import \
     ResourceDict
 from cloudtik.core._private.utils import ConcurrentCounter, validate_config, \
     hash_launch_conf, hash_runtime_conf, \
-    format_info_string, with_head_node_ip
+    format_info_string, with_head_node_ip, get_commands_to_run
 from cloudtik.core._private.constants import CLOUDTIK_MAX_NUM_FAILURES, \
     CLOUDTIK_MAX_LAUNCH_BATCH, CLOUDTIK_MAX_CONCURRENT_LAUNCHES, \
     CLOUDTIK_UPDATE_INTERVAL_S, CLOUDTIK_HEARTBEAT_TIMEOUT_S
@@ -754,8 +754,8 @@ class ClusterScaler:
                  new_config["file_mounts"],
                  new_config["cluster_synced_files"],
                  [
-                     new_config["worker_setup_commands"],
-                     new_config["worker_start_commands"],
+                     get_commands_to_run(new_config, "worker_setup_commands"),
+                     get_commands_to_run(new_config, "worker_start_commands"),
                  ],
                  generate_file_mounts_contents_hash=sync_continuously,
              )
@@ -893,7 +893,7 @@ class ClusterScaler:
             self.non_terminated_nodes.head_id)
 
         start_commands = with_head_node_ip(
-            self.config["worker_start_commands"], head_node_ip)
+            get_commands_to_run(self.config, "worker_start_commands"), head_node_ip)
 
         updater = NodeUpdaterThread(
             node_id=node_id,
@@ -926,7 +926,7 @@ class ClusterScaler:
 
     def _get_node_type_specific_fields(self, node_id: str,
                                        fields_key: str) -> Any:
-        fields = self.config[fields_key]
+        fields = get_commands_to_run(self.config, fields_key)
         node_tags = self.provider.node_tags(node_id)
         if CLOUDTIK_TAG_USER_NODE_TYPE in node_tags:
             node_type = node_tags[CLOUDTIK_TAG_USER_NODE_TYPE]
@@ -934,6 +934,7 @@ class ClusterScaler:
                 raise ValueError(f"Unknown node type tag: {node_type}.")
             node_specific_config = self.available_node_types[node_type]
             if fields_key in node_specific_config:
+                # TODO (haifeng): Current design of built-in and runtime commands merge doesn't consider this
                 fields = node_specific_config[fields_key]
         return fields
 
@@ -957,7 +958,7 @@ class ClusterScaler:
         successful_updated = self.num_successful_updates.get(node_id, 0) > 0
         if successful_updated and self.config.get("restart_only", False):
             setup_commands = []
-            start_commands = self.config["worker_start_commands"]
+            start_commands = get_commands_to_run(self.config, "worker_start_commands")
         elif successful_updated and self.config.get("no_restart", False):
             setup_commands = self._get_node_type_specific_fields(
                 node_id, "worker_setup_commands")
@@ -965,7 +966,7 @@ class ClusterScaler:
         else:
             setup_commands = self._get_node_type_specific_fields(
                 node_id, "worker_setup_commands")
-            start_commands = self.config["worker_start_commands"]
+            start_commands = get_commands_to_run(self.config, "worker_start_commands")
 
         docker_config = self._get_node_specific_docker_config(node_id)
         return UpdateInstructions(

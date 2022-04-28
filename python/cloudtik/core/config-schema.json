@@ -434,6 +434,10 @@
         "no_restart": {
             "description": "Whether to avoid restarting the cluster during updates. This field is controlled by the cloudtik --no-restart flag and cannot be set by the user."
         },
+        "merged_commands": {
+            "type": "object",
+            "description": "The merged commands used internally. Don't override."
+        },
         "available_node_types": {
             "type": "object",
             "description": "A list of node types for multi-node-type autoscaling.",

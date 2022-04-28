@@ -408,7 +408,7 @@ def _teardown_cluster(config_file: str, config: Dict[str, Any],
                 stop_node_from_head(config_file,
                                     node_ip=None, all_nodes=False,
                                     override_cluster_name=override_cluster_name,
-                                    indent_level=1)
+                                    indent_level=2)
             except Exception as e:
                 cli_logger.verbose_error("{}", str(e))
                 cli_logger.warning(
@@ -2461,7 +2461,7 @@ def stop_node_on_head(node_ip: str = None,
             use_internal_ip=True)
 
         node_runtime_envs.update(runtime_envs)
-        updater.exec_commands(stop_commands, node_runtime_envs)
+        updater.exec_commands("Stopping", stop_commands, node_runtime_envs)
 
     if parallel and len(nodes) > 1:
         run_in_paralell_on_nodes(stop_single_node_on_head, nodes)

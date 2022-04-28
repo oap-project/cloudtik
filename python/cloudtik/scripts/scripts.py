@@ -638,9 +638,11 @@ def attach(cluster_config_file, screen, tmux, cluster_name,
     is_flag=True,
     default=False,
     help="Whether to execute commands on all nodes.")
+@click.option(
+    "--parallel/--no-parallel", is_flag=True, default=True, help="Whether the run the commands on nodes in parallel.")
 @add_click_logging_options
 def exec(cluster_config_file, cmd, run_env, screen, tmux, stop, start,
-         cluster_name, no_config_cache, port_forward, node_ip, all_nodes):
+         cluster_name, no_config_cache, port_forward, node_ip, all_nodes, parallel):
     """Execute a command via SSH on a cluster or a specified node."""
     port_forward = [(port, port) for port in list(port_forward)]
 
@@ -669,7 +671,8 @@ def exec(cluster_config_file, cmd, run_env, screen, tmux, stop, start,
                 tmux=tmux,
                 override_cluster_name=cluster_name,
                 no_config_cache=no_config_cache,
-                port_forward=port_forward)
+                port_forward=port_forward,
+                parallel=parallel)
     except RuntimeError as re:
         cli_logger.error("Run exec failed. " + str(re))
         if cli_logger.verbosity == 0:

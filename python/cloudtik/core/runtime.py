@@ -39,7 +39,7 @@ class Runtime:
         """
         return {}
 
-    def head_boot_complete(
+    def cluster_booting_completed(
             self, cluster_config: Dict[str, Any], head_node_id: str) -> None:
         pass
 
@@ -58,6 +58,9 @@ class Runtime:
         return None
 
     def get_custom_runtime_config(self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+        return None
+
+    def get_global_runtime_config(self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         return None
 
     def get_useful_urls(self, cluster_head_ip: str):

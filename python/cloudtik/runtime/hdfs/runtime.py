@@ -6,7 +6,8 @@ from cloudtik.core.runtime import Runtime
 from cloudtik.runtime.hdfs.utils import _config_runtime_resources, _with_runtime_environment_variables, \
     _is_runtime_scripts, _get_runnable_command, _get_runtime_processes, _validate_config, \
     _verify_config, _get_runtime_logs, _get_runtime_commands, \
-    _get_defaults_config, _get_custom_runtime_config, _get_useful_urls, publish_runtime_config
+    _get_defaults_config, _get_custom_runtime_config, _get_global_runtime_config,\
+    _get_useful_urls, publish_runtime_config
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +38,7 @@ class HDFSRuntime(Runtime):
         """
         return _with_runtime_environment_variables(runtime_config, provider)
 
-    def head_boot_complete(
+    def cluster_booting_completed(
             self, cluster_config: Dict[str, Any], head_node_id: str) -> None:
         publish_runtime_config(cluster_config, head_node_id)
 
@@ -60,6 +61,9 @@ class HDFSRuntime(Runtime):
 
     def get_custom_runtime_config(self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         return _get_custom_runtime_config(cluster_config)
+
+    def get_global_runtime_config(self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+        return _get_global_runtime_config(cluster_config)
 
     def get_useful_urls(self, cluster_head_ip: str):
         return _get_useful_urls(cluster_head_ip)

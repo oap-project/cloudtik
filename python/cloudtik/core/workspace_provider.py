@@ -36,9 +36,15 @@ class WorkspaceProvider:
         """Bootstraps the cluster config by adding env defaults if needed."""
         return True
 
-    def publish_runtime_config(self, cluster_config: Dict[str, Any],
-            head_node_id: str,  runtime_tags: Dict[str, Any]):
+    def publish_global_variables(self, cluster_config: Dict[str, Any],
+                                 head_node_id: str, runtime_tags: Dict[str, Any]):
+        """Workspace provide a way to publish global variables and can be subscribed anybody"""
         pass
+
+    def subscribe_global_variables(self, cluster_config: Dict[str, Any],
+                                 runtime_tags: Dict[str, Any]):
+        """Workspace provide a way to subscribe global variables and can be subscribed anybody"""
+        return None
 
     @staticmethod
     def validate_config(provider_config: Dict[str, Any]):

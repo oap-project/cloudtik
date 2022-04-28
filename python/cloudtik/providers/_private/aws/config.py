@@ -623,12 +623,11 @@ def bootstrap_aws_from_workspace(config):
     # Provide a helpful message for missing AMI.
     config = _configure_ami(config)
 
-    config = _configure_runtime(config)
-
     return config
 
 
-def get_workspace_head_nodes(ec2, tag_filters):
+def get_workspace_head_nodes(cluster_config, tag_filters):
+    ec2 = _resource("ec2", cluster_config)
     filters = [
         {
             "Name": "instance-state-name",
@@ -647,54 +646,6 @@ def get_workspace_head_nodes(ec2, tag_filters):
 
     nodes = list(ec2.instances.filter(Filters=filters))
     return nodes
-
-
-def _subscribe_hdfs_config(ec2):
-    tag_filters = {
-        "namenode_address": "*"
-    }
-    namenode_nodes = get_workspace_head_nodes(ec2, tag_filters)
-    if len(namenode_nodes) == 0:
-        return None
-    else:
-        namenode = namenode_nodes[0]
-        namenode_address = ""
-        for tag in namenode.tags:
-            if tag.get("Key") == "namenode_address":
-                namenode_address = tag.get("Value")
-        return {"namenode_address": namenode_address}
-
-
-def subscribe_runtime_config(runtime_type, config):
-    ec2 = _resource("ec2", config)
-    if runtime_type == "hdfs":
-        return _subscribe_hdfs_config(ec2)
-
-    return None
-
-
-def _configure_runtime(config):
-    runtime_config = config.get("runtime", {})
-    for runtime_type in runtime_config.keys():
-        # Skip types; if runtime_type deploy locally, user or workspace no need to configure runtime
-        if runtime_type =="types" or runtime_type in runtime_config.get("types", []):
-            continue
-        # If runtype not enable, skip configuration
-        if not runtime_config[runtime_type].get("{}_enabled".format(runtime_type), False):
-            continue
-        runtime = _get_runtime(runtime_type, runtime_config)
-
-        # Try to use the defined runtime configuration from user configuration.
-        custom_runtime_config = runtime.get_custom_runtime_config(config)
-        if custom_runtime_config is not None:
-            continue
-
-        # workspace will try to provide runtime configuration if user doesn't provide.
-        subscribed_runtime_config = subscribe_runtime_config(runtime_type, config)
-        if subscribed_runtime_config is not None:
-            runtime_config[runtime_type].update(subscribed_runtime_config)
-
-    return config
 
 
 def _configure_iam_role(config):

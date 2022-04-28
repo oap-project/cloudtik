@@ -2,7 +2,8 @@ import os
 from typing import Any, Dict
 import yaml
 
-from cloudtik.core._private.utils import merge_rooted_config_hierarchy, _get_runtime_config_object, is_runtime_enabled
+from cloudtik.core._private.utils import merge_rooted_config_hierarchy, \
+    _get_runtime_config_object, is_runtime_enabled, get_remote_runtime_config
 
 SPARK_RUNTIME_PROCESSES = [
     # The first element is the substring to filter.
@@ -92,6 +93,12 @@ def _get_cluster_resources(
         cluster_resource["worker_cpu"] = cluster_resource["head_cpu"]
 
     return cluster_resource
+
+
+def _config_dependent_runtimes(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+    cluster_config = get_remote_runtime_config(cluster_config, "hdfs")
+
+    return cluster_config
 
 
 def _config_runtime_resources(cluster_config: Dict[str, Any]) -> Dict[str, Any]:

@@ -1853,14 +1853,30 @@ def get_runnable_command(runtime_config, target):
     return None
 
 
-def head_boot_complete(config, head_node_id):
+def cluster_booting_completed(config, head_node_id):
     runtime_config = config.get("runtime")
     if runtime_config is not  None:
         # Iterate through all the runtimes
         runtime_types = runtime_config.get("types", [])
         for runtime_type in runtime_types:
             runtime = _get_runtime(runtime_type, runtime_config)
-            runtime.head_boot_complete(config, head_node_id)
+            runtime.cluster_booting_completed(config, head_node_id)
+
+
+def get_remote_runtime_config(cluster_config, runtime_type):
+    runtime_config = cluster_config.get("runtime")
+    runtime_type_config = runtime_config.get(runtime_type, {})
+    if runtime_type_config.get("enabled", False):
+        runtime = _get_runtime(runtime_type, runtime_config)
+        # Try to use the defined runtime configuration from user configuration.
+        custom_config = runtime.get_custom_runtime_config(cluster_config)
+        if custom_config is None:
+            # Try to subscribe runtime varaibles if user doesn't provide.
+            subscribed_runtime_config = runtime.get_global_runtime_config(cluster_config)
+            if subscribed_runtime_config is not None:
+                runtime_config[runtime_type].update(subscribed_runtime_config)
+        cluster_config["runtime"] = runtime_config
+    return cluster_config
 
 
 def _get_runtime_config_object(config_home: str, provider_config, object_name: str):

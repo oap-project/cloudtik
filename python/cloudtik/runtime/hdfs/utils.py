@@ -30,7 +30,7 @@ def publish_runtime_config(cluster_config: Dict[str, Any], head_node_id: str) ->
     if workspace_name is None:
         return
     workspace_provder = _get_workspace_provider(cluster_config["provider"], workspace_name)
-    workspace_provder.publish_runtime_config(cluster_config, head_node_id, hdfs_tags)
+    workspace_provder.publish_global_variables(cluster_config, head_node_id, hdfs_tags)
 
 
 def _get_custom_runtime_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
@@ -40,6 +40,16 @@ def _get_custom_runtime_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]
         return None
     else:
         return {"namenode_address": namenode_address}
+
+
+def _get_global_runtime_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+    hdfs_global_variables = {"namenode_address": "*"}
+    workspace_name = cluster_config["workspace_name"]
+    if workspace_name is None:
+        return None
+    workspace_provder = _get_workspace_provider(cluster_config["provider"], workspace_name)
+    return workspace_provder.subscribe_global_variables(cluster_config, hdfs_global_variables)
+
 
 
 def _get_runtime_processes():

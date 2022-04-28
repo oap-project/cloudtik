@@ -1868,7 +1868,7 @@ def get_remote_runtime_config(cluster_config, runtime_type):
     runtime_type_config = runtime_config.get(runtime_type, {})
     if runtime_type_config.get("enabled", False):
         runtime = _get_runtime(runtime_type, runtime_config)
-        # Try to use the defined runtime configuration from user configuration.
+        # Check defined configuration for remote runtime from user configuration.
         custom_config = runtime.get_custom_runtime_config(cluster_config)
         if custom_config is None:
             # Try to subscribe runtime varaibles if user doesn't provide.

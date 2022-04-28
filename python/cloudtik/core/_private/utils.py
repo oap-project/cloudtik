@@ -1882,22 +1882,6 @@ def cluster_booting_completed(config, head_node_id):
             runtime.cluster_booting_completed(config, head_node_id)
 
 
-def get_remote_runtime_config(cluster_config, runtime_type):
-    runtime_config = cluster_config.get("runtime")
-    runtime_type_config = runtime_config.get(runtime_type, {})
-    if runtime_type_config.get("enabled", False):
-        runtime = _get_runtime(runtime_type, runtime_config)
-        # Check defined configuration for remote runtime from user configuration.
-        custom_config = runtime.get_custom_runtime_config(cluster_config)
-        if custom_config is None:
-            # Try to subscribe runtime varaibles if user doesn't provide.
-            subscribed_runtime_config = runtime.get_global_runtime_config(cluster_config)
-            if subscribed_runtime_config is not None:
-                runtime_config[runtime_type].update(subscribed_runtime_config)
-        cluster_config["runtime"] = runtime_config
-    return cluster_config
-
-
 def _get_runtime_config_object(config_home: str, provider_config, object_name: str):
     if not object_name.endswith(".yaml"):
         object_name += ".yaml"

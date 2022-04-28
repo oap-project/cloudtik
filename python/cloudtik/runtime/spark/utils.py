@@ -2,8 +2,10 @@ import os
 from typing import Any, Dict
 import yaml
 
+from cloudtik.core.tags import CLOUDTIK_GLOBAL_VARIABLE_KEY
 from cloudtik.core._private.utils import merge_rooted_config_hierarchy, \
-    _get_runtime_config_object, is_runtime_enabled, get_remote_runtime_config
+    _get_runtime_config_object, is_runtime_enabled
+from cloudtik.core._private.workspace.workspace_operator import _get_workspace_provider
 
 SPARK_RUNTIME_PROCESSES = [
     # The first element is the substring to filter.
@@ -96,7 +98,20 @@ def _get_cluster_resources(
 
 
 def _config_dependent_runtimes(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-    cluster_config = get_remote_runtime_config(cluster_config, "hdfs")
+    runtime_config = cluster_config.get("runtime")
+    if "spark" not in runtime_config:
+        runtime_config["spark"] = {}
+    spark_config = runtime_config.get("spark")
+
+    workspace_name = cluster_config.get("workspace_name", "")
+    workspace_provder = _get_workspace_provider(cluster_config["provider"], workspace_name)
+    global_variables = workspace_provder.subscribe_global_variables(cluster_config)
+
+    if spark_config.get("NAMENODE_URL") is None:
+        if not is_runtime_enabled(runtime_config, "hdfs"):
+            namenode_url = global_variables.get(CLOUDTIK_GLOBAL_VARIABLE_KEY.format("namenode-url"))
+            if namenode_url is not None:
+                spark_config["NAMENODE_URL"] = namenode_url
 
     return cluster_config
 

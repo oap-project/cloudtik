@@ -41,8 +41,7 @@ class WorkspaceProvider:
         """Workspace provide a way to publish global variables and can be subscribed anybody"""
         pass
 
-    def subscribe_global_variables(self, cluster_config: Dict[str, Any],
-                                 runtime_tags: Dict[str, Any]):
+    def subscribe_global_variables(self, cluster_config: Dict[str, Any]):
         """Workspace provide a way to subscribe global variables and can be subscribed anybody"""
         return None
 

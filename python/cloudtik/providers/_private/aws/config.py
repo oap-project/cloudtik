@@ -625,7 +625,7 @@ def bootstrap_aws_from_workspace(config):
     return config
 
 
-def get_workspace_head_nodes(cluster_config, tag_filters):
+def get_workspace_head_nodes(cluster_config):
     ec2 = _resource("ec2", cluster_config)
     ec2_client = _client("ec2", cluster_config)
     workspace_name = cluster_config["workspace_name"]
@@ -634,7 +634,7 @@ def get_workspace_head_nodes(cluster_config, tag_filters):
     filters = [
         {
            "Name": "vpc-id",
-            "Value": [VpcId]
+            "Values": [VpcId]
         },
         {
             "Name": "instance-state-name",
@@ -645,11 +645,6 @@ def get_workspace_head_nodes(cluster_config, tag_filters):
             "Values": [NODE_KIND_HEAD],
         },
     ]
-    for k, v in tag_filters.items():
-        filters.append({
-            "Name": "tag:{}".format(k),
-            "Values": [v],
-        })
 
     nodes = list(ec2.instances.filter(Filters=filters))
     return nodes

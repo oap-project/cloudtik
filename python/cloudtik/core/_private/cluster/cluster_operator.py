@@ -32,7 +32,7 @@ from cloudtik.core._private.constants import \
     CLOUDTIK_RESOURCE_REQUEST_CHANNEL, \
     MAX_PARALLEL_SHUTDOWN_WORKERS, \
     CLOUDTIK_DEFAULT_PORT, \
-    CLOUDTIK_REDIS_DEFAULT_PASSWORD, MAX_PARALLEL_EXEC_NODES
+    CLOUDTIK_REDIS_DEFAULT_PASSWORD
 from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     hash_launch_conf, prepare_config, get_free_port, \
     get_proxy_info_file, get_safe_proxy_process_info, \
@@ -40,7 +40,7 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     get_attach_command, is_alive_time, is_docker_enabled, get_proxy_bind_address_to_show, \
     kill_process_tree, with_runtime_environment_variables, verify_config, runtime_prepare_config, get_nodes_info, \
     sum_worker_cpus, sum_worker_memory, get_useful_runtime_urls, get_enabled_runtimes, \
-    with_head_node_ip, with_node_ip_environment_variables
+    with_head_node_ip, with_node_ip_environment_variables, run_in_paralell_on_nodes
 
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
@@ -2274,20 +2274,7 @@ def exec_node_on_head(
             port_forward=port_forward)
 
     if parallel and len(nodes) > 1:
-        # This is to ensure that the parallel SSH calls below do not mess with
-        # the users terminal.
-        output_redir = cmd_output_util.is_output_redirected()
-        cmd_output_util.set_output_redirected(True)
-        allow_interactive = cmd_output_util.does_allow_interactive()
-        cmd_output_util.set_allow_interactive(False)
-
-        with ThreadPoolExecutor(
-                max_workers=MAX_PARALLEL_EXEC_NODES) as executor:
-            for node_id in nodes:
-                executor.submit(
-                    run_exec_cmd_on_head, node_id=node_id)
-        cmd_output_util.set_output_redirected(output_redir)
-        cmd_output_util.set_allow_interactive(allow_interactive)
+        run_in_paralell_on_nodes(run_exec_cmd_on_head, nodes)
     else:
         for node_id in nodes:
             run_exec_cmd_on_head(node_id=node_id)
@@ -2326,7 +2313,7 @@ def create_node_updater_for_exec(config,
 
 def start_node_on_head(node_ip: str = None,
                        all_nodes: bool = False,
-                       indent_level: int = None):
+                       parallel: bool = True):
     # Since this is running on head, the bootstrap config must exist
     cluster_config_file = get_head_bootstrap_config()
     config = yaml.safe_load(open(cluster_config_file).read())
@@ -2363,10 +2350,8 @@ def start_node_on_head(node_ip: str = None,
         node_runtime_envs.update(runtime_envs)
         updater._exec_start_commands(node_runtime_envs)
 
-    if indent_level is not None:
-        with cli_logger.indented_by(indent_level):
-            for node_id in nodes:
-                start_single_node_on_head(node_id)
+    if parallel and len(nodes) > 1:
+        run_in_paralell_on_nodes(start_single_node_on_head, nodes)
     else:
         for node_id in nodes:
             start_single_node_on_head(node_id)
@@ -2377,7 +2362,8 @@ def start_node_from_head(config_file: str,
                          all_nodes: bool,
                          override_cluster_name: Optional[str] = None,
                          no_config_cache: bool = False,
-                         indent_level: int = None):
+                         indent_level: int = None,
+                         parallel: bool = True):
     """Execute start node command on head."""
 
     # execute attach on head
@@ -2392,6 +2378,10 @@ def start_node_from_head(config_file: str,
         cmds += ["--all-nodes"]
     if indent_level:
         cmds += ["--indent-level={}".format(indent_level)]
+    if parallel:
+        cmds += ["--parallel"]
+    else:
+        cmds += ["--no-parallel"]
     final_cmd = " ".join(cmds)
 
     exec_cmd_on_cluster(config_file, final_cmd,
@@ -2404,7 +2394,8 @@ def stop_node_from_head(config_file: str,
                         all_nodes: bool,
                         override_cluster_name: Optional[str] = None,
                         no_config_cache: bool = False,
-                        indent_level: int = None):
+                        indent_level: int = None,
+                        parallel: bool = True):
     """Execute stop node command on head."""
 
     # execute attach on head
@@ -2419,6 +2410,10 @@ def stop_node_from_head(config_file: str,
         cmds += ["--all-nodes"]
     if indent_level:
         cmds += ["--indent-level={}".format(indent_level)]
+    if parallel:
+        cmds += ["--parallel"]
+    else:
+        cmds += ["--no-parallel"]
     final_cmd = " ".join(cmds)
 
     exec_cmd_on_cluster(config_file, final_cmd,
@@ -2449,7 +2444,7 @@ def get_nodes_of(config,
 
 def stop_node_on_head(node_ip: str = None,
                       all_nodes: bool = False,
-                      indent_level: int = None):
+                      parallel: bool = True):
     # Since this is running on head, the bootstrap config must exist
     cluster_config_file = get_head_bootstrap_config()
     config = yaml.safe_load(open(cluster_config_file).read())
@@ -2490,10 +2485,8 @@ def stop_node_on_head(node_ip: str = None,
         node_runtime_envs.update(runtime_envs)
         updater.exec_commands(stop_commands, node_runtime_envs)
 
-    if indent_level is not None:
-        with cli_logger.indented_by(indent_level):
-            for node_id in nodes:
-                stop_single_node_on_head(node_id)
+    if parallel and len(nodes) > 1:
+        run_in_paralell_on_nodes(stop_single_node_on_head, nodes)
     else:
         for node_id in nodes:
             stop_single_node_on_head(node_id)

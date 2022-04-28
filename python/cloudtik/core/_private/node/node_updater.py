@@ -431,31 +431,33 @@ class NodeUpdater:
         with LogTimer(
                 self.log_prefix + "Initialization commands",
                 show_status=True):
-            for cmd in self.initialization_commands:
-                global_event_system.execute_callback(
-                    CreateClusterEvent.run_initialization_cmd,
-                    {"command": cmd})
-                try:
-                    # Overriding the existing SSHOptions class
-                    # with a new SSHOptions class that uses
-                    # this ssh_private_key as its only __init__
-                    # argument.
-                    # Run outside docker.
-                    self.cmd_executor.run(
-                        cmd,
-                        environment_variables=runtime_envs,
-                        ssh_options_override_ssh_key=self.
-                        auth_config.get("ssh_private_key"),
-                        run_env="host")
-                except ProcessRunnerError as e:
-                    if e.msg_type == "ssh_command_failed":
-                        cli_logger.error("Failed.")
-                        cli_logger.error(
-                            "See above for stderr.")
+            for command_group in self.initialization_commands:
+                commands = command_group.get("commands", [])
+                for cmd in commands:
+                    global_event_system.execute_callback(
+                        CreateClusterEvent.run_initialization_cmd,
+                        {"command": cmd})
+                    try:
+                        # Overriding the existing SSHOptions class
+                        # with a new SSHOptions class that uses
+                        # this ssh_private_key as its only __init__
+                        # argument.
+                        # Run outside docker.
+                        self.cmd_executor.run(
+                            cmd,
+                            environment_variables=runtime_envs,
+                            ssh_options_override_ssh_key=self.
+                            auth_config.get("ssh_private_key"),
+                            run_env="host")
+                    except ProcessRunnerError as e:
+                        if e.msg_type == "ssh_command_failed":
+                            cli_logger.error("Failed.")
+                            cli_logger.error(
+                                "See above for stderr.")
 
-                    raise click.ClickException(
-                        "Initialization command failed."
-                    ) from None
+                        raise click.ClickException(
+                            "Initialization command failed."
+                        ) from None
 
     def _exec_setup_commands(self, runtime_envs):
         global_event_system.execute_callback(
@@ -465,31 +467,36 @@ class NodeUpdater:
                 show_status=True):
 
             total = len(self.setup_commands)
-            for i, cmd in enumerate(self.setup_commands):
-                global_event_system.execute_callback(
-                    CreateClusterEvent.run_setup_cmd,
-                    {"command": cmd})
-                if cli_logger.verbosity == 0 and len(cmd) > 30:
-                    cmd_to_print = cf.bold(cmd[:30]) + "..."
-                else:
-                    cmd_to_print = cf.bold(cmd)
-
+            for i, command_group in enumerate(self.setup_commands):
+                command_group_name = command_group.get("group_name", "")
+                group_to_print = "Setting up: {}".format(command_group_name)
                 cli_logger.print(
                     "{}",
-                    cmd_to_print,
+                    group_to_print,
                     _numbered=("()", i + 1, total))
+                commands = command_group.get("commands", [])
+                for cmd in commands:
+                    global_event_system.execute_callback(
+                        CreateClusterEvent.run_setup_cmd,
+                        {"command": cmd})
+                    if cli_logger.verbosity == 0 and len(cmd) > 30:
+                        cmd_to_print = cf.bold(cmd[:30]) + "..."
+                    else:
+                        cmd_to_print = cf.bold(cmd)
 
-                try:
-                    # Runs in the container if docker is in use
-                    self.cmd_executor.run(cmd, environment_variables=runtime_envs, run_env="auto")
-                except ProcessRunnerError as e:
-                    if e.msg_type == "ssh_command_failed":
-                        cli_logger.error("Failed.")
-                        cli_logger.error(
-                            "See above for stderr.")
+                    cli_logger.print("- {}", cmd_to_print)
 
-                    raise click.ClickException(
-                        "Setup command failed.")
+                    try:
+                        # Runs in the container if docker is in use
+                        self.cmd_executor.run(cmd, environment_variables=runtime_envs, run_env="auto")
+                    except ProcessRunnerError as e:
+                        if e.msg_type == "ssh_command_failed":
+                            cli_logger.error("Failed.")
+                            cli_logger.error(
+                                "See above for stderr.")
+
+                        raise click.ClickException(
+                            "Setup command failed.")
 
     def _exec_start_commands(self, runtime_envs):
         global_event_system.execute_callback(
@@ -497,44 +504,49 @@ class NodeUpdater:
         with LogTimer(
                 self.log_prefix + "Start commands", show_status=True):
             total = len(self.start_commands)
-            for i, cmd in enumerate(self.start_commands):
-                # Add a resource override env variable if needed:
-                if self.provider_type == "local":
-                    # Local NodeProvider doesn't need resource override.
-                    env_vars = {}
-                elif self.node_resources:
-                    env_vars = {
-                        CLOUDTIK_RESOURCES_ENV: self.node_resources
-                    }
-                else:
-                    env_vars = {}
-                env_vars.update(runtime_envs)
-
-                if cli_logger.verbosity == 0 and len(cmd) > 30:
-                    cmd_to_print = cf.bold(cmd[:30]) + "..."
-                else:
-                    cmd_to_print = cf.bold(cmd)
-
+            for i, command_group in enumerate(self.start_commands):
+                command_group_name = command_group.get("group_name", "")
+                group_to_print = "Starting: {}".format(command_group_name)
                 cli_logger.print(
                     "{}",
-                    cmd_to_print,
+                    group_to_print,
                     _numbered=("()", i + 1, total))
+                commands = command_group.get("commands", [])
+                for cmd in commands:
+                    # Add a resource override env variable if needed:
+                    if self.provider_type == "local":
+                        # Local NodeProvider doesn't need resource override.
+                        env_vars = {}
+                    elif self.node_resources:
+                        env_vars = {
+                            CLOUDTIK_RESOURCES_ENV: self.node_resources
+                        }
+                    else:
+                        env_vars = {}
+                    env_vars.update(runtime_envs)
 
-                try:
-                    old_redirected = cmd_output_util.is_output_redirected()
-                    cmd_output_util.set_output_redirected(False)
-                    # Runs in the container if docker is in use
-                    self.cmd_executor.run(
-                        cmd,
-                        environment_variables=env_vars,
-                        run_env="auto")
-                    cmd_output_util.set_output_redirected(old_redirected)
-                except ProcessRunnerError as e:
-                    if e.msg_type == "ssh_command_failed":
-                        cli_logger.error("Failed.")
-                        cli_logger.error("See above for stderr.")
+                    if cli_logger.verbosity == 0 and len(cmd) > 30:
+                        cmd_to_print = cf.bold(cmd[:30]) + "..."
+                    else:
+                        cmd_to_print = cf.bold(cmd)
 
-                    raise click.ClickException("Start command failed.")
+                    cli_logger.print("- {}", cmd_to_print)
+
+                    try:
+                        old_redirected = cmd_output_util.is_output_redirected()
+                        cmd_output_util.set_output_redirected(False)
+                        # Runs in the container if docker is in use
+                        self.cmd_executor.run(
+                            cmd,
+                            environment_variables=env_vars,
+                            run_env="auto")
+                        cmd_output_util.set_output_redirected(old_redirected)
+                    except ProcessRunnerError as e:
+                        if e.msg_type == "ssh_command_failed":
+                            cli_logger.error("Failed.")
+                            cli_logger.error("See above for stderr.")
+
+                        raise click.ClickException("Start command failed.")
         global_event_system.execute_callback(
             CreateClusterEvent.start_cloudtik_runtime_completed)
 
@@ -542,36 +554,41 @@ class NodeUpdater:
         with LogTimer(
                 self.log_prefix + "Exec commands", show_status=True):
             total = len(commands)
-            for i, cmd in enumerate(commands):
-                env_vars = {}
-                if envs:
-                    env_vars.update(envs)
-
-                if cli_logger.verbosity == 0 and len(cmd) > 30:
-                    cmd_to_print = cf.bold(cmd[:30]) + "..."
-                else:
-                    cmd_to_print = cf.bold(cmd)
-
+            for i, command_group in enumerate(commands):
+                command_group_name = command_group.get("group_name", "")
+                group_to_print = "Starting: {}".format(command_group_name)
                 cli_logger.print(
                     "{}",
-                    cmd_to_print,
+                    group_to_print,
                     _numbered=("()", i + 1, total))
+                commands = command_group.get("commands", [])
+                for cmd in commands:
+                    env_vars = {}
+                    if envs:
+                        env_vars.update(envs)
 
-                try:
-                    old_redirected = cmd_output_util.is_output_redirected()
-                    cmd_output_util.set_output_redirected(False)
-                    # Runs in the container if docker is in use
-                    self.cmd_executor.run(
-                        cmd,
-                        environment_variables=env_vars,
-                        run_env="auto")
-                    cmd_output_util.set_output_redirected(old_redirected)
-                except ProcessRunnerError as e:
-                    if e.msg_type == "ssh_command_failed":
-                        cli_logger.error("Failed.")
-                        cli_logger.error("See above for stderr.")
+                    if cli_logger.verbosity == 0 and len(cmd) > 30:
+                        cmd_to_print = cf.bold(cmd[:30]) + "..."
+                    else:
+                        cmd_to_print = cf.bold(cmd)
 
-                    raise click.ClickException("Exec command failed.")
+                    cli_logger.print("- {}", cmd_to_print)
+
+                    try:
+                        old_redirected = cmd_output_util.is_output_redirected()
+                        cmd_output_util.set_output_redirected(False)
+                        # Runs in the container if docker is in use
+                        self.cmd_executor.run(
+                            cmd,
+                            environment_variables=env_vars,
+                            run_env="auto")
+                        cmd_output_util.set_output_redirected(old_redirected)
+                    except ProcessRunnerError as e:
+                        if e.msg_type == "ssh_command_failed":
+                            cli_logger.error("Failed.")
+                            cli_logger.error("See above for stderr.")
+
+                        raise click.ClickException("Exec command failed.")
 
 
 class NodeUpdaterThread(NodeUpdater, Thread):

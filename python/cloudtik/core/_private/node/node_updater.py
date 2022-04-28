@@ -403,8 +403,8 @@ class NodeUpdater:
                         _numbered=("[]", 7, NUM_SETUP_STEPS))
 
         with cli_logger.group(
-                "Starting the cluster services", _numbered=("[]", 7,
-                                                       NUM_SETUP_STEPS)):
+                "Starting the cluster services",
+                _numbered=("[]", 8, NUM_SETUP_STEPS)):
             self._exec_start_commands(runtime_envs)
 
     def rsync_up(self, source, target, docker_mount_if_possible=False):

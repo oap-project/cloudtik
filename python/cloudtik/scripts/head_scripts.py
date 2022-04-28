@@ -254,10 +254,21 @@ def monitor(lines, file_type):
     is_flag=True,
     default=False,
     help="Retain the minimal amount of workers specified in the config.")
+@click.option(
+    "--indent-level",
+    required=False,
+    default=None,
+    type=int,
+    hidden=True,
+    help="The indent level for showing messages during this command.")
 @add_click_logging_options
-def teardown(keep_min_workers):
+def teardown(keep_min_workers, indent_level):
     """Tear down a cluster."""
-    teardown_cluster_on_head(keep_min_workers)
+    if indent_level is not None:
+        with cli_logger.indented_by(indent_level):
+            teardown_cluster_on_head(keep_min_workers)
+    else:
+        teardown_cluster_on_head(keep_min_workers)
 
 
 @head.command()
@@ -285,11 +296,14 @@ def teardown(keep_min_workers):
 @add_click_logging_options
 def start_node(node_ip, all_nodes, indent_level, parallel):
     """Run start commands on the specific node or all nodes."""
+    def do_start_node():
+        start_node_on_head(node_ip=node_ip, all_nodes=all_nodes, parallel=parallel)
+
     if indent_level is not None:
         with cli_logger.indented_by(indent_level):
-            start_node_on_head(node_ip=node_ip, all_nodes=all_nodes, parallel=parallel)
+            do_start_node()
     else:
-        start_node_on_head(node_ip=node_ip, all_nodes=all_nodes, parallel=parallel)
+        do_start_node()
 
 
 @head.command()
@@ -317,11 +331,14 @@ def start_node(node_ip, all_nodes, indent_level, parallel):
 @add_click_logging_options
 def stop_node(node_ip, all_nodes, indent_level, parallel):
     """Run stop commands on the specific node or all nodes."""
+    def do_stop_node():
+        stop_node_on_head(node_ip=node_ip, all_nodes=all_nodes, parallel=parallel)
+
     if indent_level is not None:
         with cli_logger.indented_by(indent_level):
-            stop_node_on_head(node_ip=node_ip, all_nodes=all_nodes, parallel=parallel)
+            do_stop_node()
     else:
-        stop_node_on_head(node_ip=node_ip, all_nodes=all_nodes, parallel=parallel)
+        do_stop_node()
 
 
 @head.command()
@@ -342,13 +359,28 @@ def stop_node(node_ip, all_nodes, indent_level, parallel):
     type=str,
     default=None,
     help="The node ip address of the node to kill")
+@click.option(
+    "--indent-level",
+    required=False,
+    default=None,
+    type=int,
+    hidden=True,
+    help="The indent level for showing messages during this command.")
 @add_click_logging_options
-def kill_node(yes, hard, node_ip):
+def kill_node(yes, hard, node_ip, indent_level):
     """Kills a specified worker node and a random worker node."""
-    killed_node_ip = kill_node_on_head(
-        yes, hard, node_ip)
-    if killed_node_ip:
-        click.echo("Killed node with IP " + killed_node_ip)
+
+    def do_kill_node():
+        killed_node_ip = kill_node_on_head(
+            yes, hard, node_ip)
+        if killed_node_ip:
+            click.echo("Killed node with IP " + killed_node_ip)
+
+    if indent_level is not None:
+        with cli_logger.indented_by(indent_level):
+            do_kill_node()
+    else:
+        do_kill_node()
 
 
 @head.command()

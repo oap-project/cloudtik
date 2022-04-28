@@ -939,27 +939,32 @@ def prepare_internal_commands(config, built_in_commands):
     built_in_commands["setup_commands"] = setup_commands
 
 
-def merge_command_key(config, from_config, command_key):
+def merge_command_key(merged_commands, group_name, from_config, command_key):
+    if command_key not in merged_commands:
+        merged_commands[command_key] = []
+
     commands = from_config.get(command_key, [])
-    commands += config.get(command_key, [])
-    config[command_key] = commands
+    # Commands for this group, don't add the group
+    if len(commands) == 0:
+        return
+
+    # Append a command group to the command key groups
+    command_groups = merged_commands[command_key]
+    command_group = {"group_name": group_name, "commands": commands}
+    command_groups += [command_group]
 
 
-def merge_runtime_commands(config, built_in_commands):
+def merge_runtime_commands(config):
     runtime_config = config.get("runtime")
     if runtime_config is None:
-        return built_in_commands
+        return
 
-    final_commands = built_in_commands
     runtime_types = runtime_config.get("types", [])
     for runtime_type in runtime_types:
         runtime = _get_runtime(runtime_type, runtime_config)
         runtime_commands = runtime.get_runtime_commands(config)
         if runtime_commands:
-            merge_commands_from(runtime_commands, final_commands)
-            final_commands = runtime_commands
-
-    return final_commands
+            merge_commands_from(config, runtime_type, runtime_commands)
 
 
 def merge_built_in_commands(config):
@@ -970,13 +975,11 @@ def merge_built_in_commands(config):
     prepare_internal_commands(config, built_in_commands)
 
     # Merge runtime commands with built-in: runtime after built-in
-    built_in_commands = merge_runtime_commands(config, built_in_commands)
-
-    # Merge built-in commands: user commands after built-in
-    merge_commands_from(config, built_in_commands)
+    merge_commands_from(config, "cloudtik", built_in_commands)
+    merge_runtime_commands(config)
 
 
-def merge_commands_from(config, from_config):
+def merge_commands_from(config, group_name, from_config):
     command_keys = ["initialization_commands",
                     "setup_commands",
                     "head_setup_commands",
@@ -989,21 +992,24 @@ def merge_commands_from(config, from_config):
                     "head_stop_commands",
                     "worker_stop_commands"]
 
+    if "merged_commands" not in config:
+        config["merged_commands"] = {}
+    merged_commands = config["merged_commands"]
+
     for command_key in command_keys:
-        merge_command_key(config, from_config, command_key)
+        merge_command_key(merged_commands, group_name, from_config, command_key)
 
-    merge_docker_initialization_commands(config, from_config)
+    merge_docker_initialization_commands(merged_commands, group_name, from_config)
 
 
-def merge_docker_initialization_commands(config, built_in_commands):
-    # Merge docker initialization commands
+def merge_docker_initialization_commands(merged_commands, group_name, from_config):
+    if "docker" not in merged_commands:
+        merged_commands["docker"] = {}
+
+    docker = merged_commands["docker"]
     command_key = "initialization_commands"
-    if "docker" not in config:
-        config["docker"] = {}
-
-    commands = built_in_commands.get("docker", {}).get(command_key, [])
-    commands += config.get("docker", {}).get(command_key, [])
-    config["docker"][command_key] = commands
+    from_docker = from_config.get("docker", {})
+    merge_command_key(docker, group_name, from_docker, command_key)
 
 
 def merge_cluster_config(config):
@@ -1030,27 +1036,38 @@ def merge_runtime_config(config):
         runtime_config[runtime_type] = merged_config
 
 
+def merge_user_commands(config):
+    merge_commands_from(config, "user", config)
+
+
 def merge_commands(config):
     merge_built_in_commands(config)
+    # Merge user commands after built-in
+    merge_user_commands(config)
 
     # Combine commands
-    combine_initialization_commands(config)
-    combine_setup_commands(config)
-    combine_start_commands(config)
-    combine_stop_commands(config)
+    merged_commands = config["merged_commands"]
+    combine_initialization_commands(config, merged_commands)
+    combine_setup_commands(merged_commands)
+    combine_start_commands(merged_commands)
+    combine_stop_commands(merged_commands)
     return config
 
 
-def combine_initialization_commands(config):
+def combine_initialization_commands(config, merged_commands):
     # Check if docker enabled
-    initialization_commands = config["initialization_commands"]
+    initialization_commands = merged_commands["initialization_commands"]
     if is_docker_enabled(config):
-        docker_initialization_commands = config.get("docker", {}).get("initialization_commands")
+        docker_initialization_commands = merged_commands.get("docker", {}).get("initialization_commands")
         if docker_initialization_commands:
             initialization_commands += docker_initialization_commands
 
-    config["initialization_commands"] = initialization_commands
-    return config
+    merged_commands["initialization_commands"] = initialization_commands
+
+
+def get_commands_to_run(config, commands_key):
+    merged_commands = config["merged_commands"]
+    return merged_commands.get(commands_key, [])
 
 
 def get_default_cloudtik_wheel_url() -> str:
@@ -1089,21 +1106,17 @@ def combine_setup_commands(config):
     config["worker_setup_commands"] = (
             setup_commands + config["worker_setup_commands"] + bootstrap_commands)
 
-    return config
-
 
 def combine_start_commands(config):
     start_commands = config["start_commands"]
     config["head_start_commands"] = (start_commands + config["head_start_commands"])
     config["worker_start_commands"] = (start_commands + config["worker_start_commands"])
-    return config
 
 
 def combine_stop_commands(config):
     stop_commands = config["stop_commands"]
     config["head_stop_commands"] = (stop_commands + config["head_stop_commands"])
     config["worker_stop_commands"] = (stop_commands + config["worker_stop_commands"])
-    return config
 
 
 def fill_default_max_workers(config):
@@ -1143,12 +1156,19 @@ def fill_node_type_min_max_workers(config):
                 node_type_data.setdefault("max_workers", global_max_workers)
 
 
-def with_head_node_ip(cmds, head_ip=None):
+def with_head_node_ip(command_groups, head_ip=None):
     if head_ip is None:
         head_ip = services.get_node_ip_address()
     out = []
-    for cmd in cmds:
-        out.append("export CLOUDTIK_HEAD_IP={}; {}".format(head_ip, cmd))
+    for command_group in command_groups:
+        cmds = command_group.get("commands", [])
+        new_cmds = []
+        for cmd in cmds:
+            new_cmds.append("export CLOUDTIK_HEAD_IP={}; {}".format(head_ip, cmd))
+
+        new_command_group = copy.deepcopy(command_group)
+        new_command_group["commands"] = new_cmds
+        out.append(new_command_group)
     return out
 
 

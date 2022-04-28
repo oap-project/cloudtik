@@ -332,8 +332,8 @@ SMALL_CLUSTER = {
     "setup_commands": ["setup_cmd"],
     "head_setup_commands": ["head_setup_cmd"],
     "worker_setup_commands": ["worker_setup_cmd"],
-    "head_start_cloudtik_commands": ["start_cloudtik_head"],
-    "worker_start_cloudtik_commands": ["start_cloudtik_worker"],
+    "head_start_commands": ["head_start_cmd"],
+    "worker_start_commands": ["worker_start_cmd"],
 }
 
 MOCK_DEFAULT_CONFIG = {
@@ -378,8 +378,8 @@ MOCK_DEFAULT_CONFIG = {
     "setup_commands": [],
     "head_setup_commands": [],
     "worker_setup_commands": [],
-    "head_start_cloudtik_commands": [],
-    "worker_start_cloudtik_commands": [],
+    "head_start_commands": [],
+    "worker_start_commands": [],
 }
 
 TYPES_A = {

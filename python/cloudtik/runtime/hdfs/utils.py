@@ -24,13 +24,22 @@ def _config_runtime_resources(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
 def publish_runtime_config(cluster_config: Dict[str, Any], head_node_id: str) -> None:
     provider = _get_node_provider(cluster_config["provider"], cluster_config["cluster_name"])
     head_internal_ip = provider.internal_ip(head_node_id)
-    hdfs_tags  = {"namenode_address": head_internal_ip + ":9000"}
+    hdfs_tags  = {"namenode_address": head_internal_ip}
 
     workspace_name = cluster_config["workspace_name"]
     if workspace_name is None:
         return
     workspace_provder = _get_workspace_provider(cluster_config["provider"], workspace_name)
     workspace_provder.publish_runtime_config(cluster_config, head_node_id, hdfs_tags)
+
+
+def _get_custom_runtime_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+    hdfs_config = cluster_config.get("runtime", {}).get("hdfs", {})
+    namenode_address = hdfs_config.get("namenode_address")
+    if namenode_address is None:
+        return None
+    else:
+        return {"namenode_address": namenode_address}
 
 
 def _get_runtime_processes():
@@ -76,15 +85,6 @@ def _get_runtime_commands(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
 
 def _get_defaults_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
     return _get_config_object(cluster_config, "defaults")
-
-
-def _get_custom_runtime_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-    hdfs_config = cluster_config.get("runtime", {}).get("hdfs", {})
-    namenode_address = hdfs_config.get("namenode_address")
-    if namenode_address is None:
-        return None
-    else:
-        return {"namenode_address": namenode_address}
 
 
 def _get_useful_urls(cluster_head_ip):

@@ -98,8 +98,10 @@ def attach(node_ip, screen, tmux, new, port_forward, host):
     multiple=True,
     type=int,
     help="Port to forward. Use this multiple times to forward multiple ports.")
+@click.option(
+    "--parallel/--no-parallel", is_flag=True, default=True, help="Whether the run the commands on nodes in parallel.")
 @add_click_logging_options
-def exec(cmd, node_ip, all_nodes, run_env, screen, tmux, port_forward):
+def exec(cmd, node_ip, all_nodes, run_env, screen, tmux, port_forward, parallel):
     """Execute command on the worker node from head."""
     port_forward = [(port, port) for port in list(port_forward)]
     exec_node_on_head(node_ip,
@@ -108,7 +110,8 @@ def exec(cmd, node_ip, all_nodes, run_env, screen, tmux, port_forward):
                       run_env,
                       screen,
                       tmux,
-                      port_forward)
+                      port_forward,
+                      parallel=parallel)
 
 
 @head.command()

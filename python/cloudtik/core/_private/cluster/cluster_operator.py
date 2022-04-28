@@ -32,7 +32,7 @@ from cloudtik.core._private.constants import \
     CLOUDTIK_RESOURCE_REQUEST_CHANNEL, \
     MAX_PARALLEL_SHUTDOWN_WORKERS, \
     CLOUDTIK_DEFAULT_PORT, \
-    CLOUDTIK_REDIS_DEFAULT_PASSWORD
+    CLOUDTIK_REDIS_DEFAULT_PASSWORD, MAX_PARALLEL_EXEC_NODES
 from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     hash_launch_conf, prepare_config, get_free_port, \
     get_proxy_info_file, get_safe_proxy_process_info, \
@@ -2059,7 +2059,8 @@ def exec_node_from_head(config_file: str,
                         tmux: bool = False,
                         override_cluster_name: Optional[str] = None,
                         no_config_cache: bool = False,
-                        port_forward: Optional[Port_forward] = None) -> None:
+                        port_forward: Optional[Port_forward] = None,
+                        parallel: bool = True) -> None:
     """Attaches to a screen for the specified cluster.
 
     Arguments:
@@ -2073,6 +2074,7 @@ def exec_node_from_head(config_file: str,
         tmux: whether to use tmux as multiplexer
         override_cluster_name: set the name of the cluster
         port_forward ( (int,int) or list[(int,int)] ): port(s) to forward
+        parallel: Whether to run on nodes in parallel
     """
 
     # execute exec on head with the cmd
@@ -2092,6 +2094,10 @@ def exec_node_from_head(config_file: str,
         cmds += ["--screen"]
     if tmux:
         cmds += ["--tmux"]
+    if parallel:
+        cmds += ["--parallel"]
+    else:
+        cmds += ["--no-parallel"]
 
     # TODO (haifeng): handle port forward for two state cases
     final_cmd = " ".join(cmds)
@@ -2248,7 +2254,8 @@ def exec_node_on_head(
                      run_env: str = "auto",
                      screen: bool = False,
                      tmux: bool = False,
-                     port_forward: Optional[Port_forward] = None):
+                     port_forward: Optional[Port_forward] = None,
+                     parallel: bool = True):
     cluster_config_file = get_head_bootstrap_config()
     config = yaml.safe_load(open(cluster_config_file).read())
     provider = _get_node_provider(config["provider"], config["cluster_name"])
@@ -2258,16 +2265,32 @@ def exec_node_on_head(
     nodes = get_nodes_of(config, provider, head_node,
                          node_ip, all_nodes)
 
-    for node_id in nodes:
+    def run_exec_cmd_on_head(node_id):
         exec_cmd_on_head(
-            config,
-            provider,
-            node_id=node_id,
-            cmd=cmd,
+            config, provider,
+            node_id=node_id, cmd=cmd,
             run_env=run_env,
-            screen=screen,
-            tmux=tmux,
+            screen=screen, tmux=tmux,
             port_forward=port_forward)
+
+    if parallel and len(nodes) > 1:
+        # This is to ensure that the parallel SSH calls below do not mess with
+        # the users terminal.
+        output_redir = cmd_output_util.is_output_redirected()
+        cmd_output_util.set_output_redirected(True)
+        allow_interactive = cmd_output_util.does_allow_interactive()
+        cmd_output_util.set_allow_interactive(False)
+
+        with ThreadPoolExecutor(
+                max_workers=MAX_PARALLEL_EXEC_NODES) as executor:
+            for node_id in nodes:
+                executor.submit(
+                    run_exec_cmd_on_head, node_id=node_id)
+        cmd_output_util.set_output_redirected(output_redir)
+        cmd_output_util.set_allow_interactive(allow_interactive)
+    else:
+        for node_id in nodes:
+            run_exec_cmd_on_head(node_id=node_id)
 
 
 def create_node_updater_for_exec(config,

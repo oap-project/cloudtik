@@ -10,17 +10,6 @@ bootstrap_commands:
         bash ~/bootstrap-benchmark.sh  --tpcds
 ```
 
-In addition, if you also want to install OAP packages by Conda on CloudTik clusters, please also add the following to `bootstrap_commands` section of cluster yaml file as above.
-
-```buildoutcfg
-
-bootstrap_commands:
-    - wget -P ~/ https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/spark/benchmark/scripts/bootstrap_oap.sh &&
-        bash ~/bootstrap_oap.sh
-```
-
-
-
 ## 2. Generate data
 
 We provided the datagen scala script **[tpcds-datagen.scala](./scripts/tpcds-datagen.scala)** for you to generate data in different scales.

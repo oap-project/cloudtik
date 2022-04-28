@@ -107,8 +107,11 @@ def _config_dependent_runtimes(cluster_config: Dict[str, Any]) -> Dict[str, Any]
     workspace_provder = _get_workspace_provider(cluster_config["provider"], workspace_name)
     global_variables = workspace_provder.subscribe_global_variables(cluster_config)
 
-    if spark_config.get("NAMENODE_URL") is None:
-        if not is_runtime_enabled(runtime_config, "hdfs"):
+    # 1) Try to use local hdfs first;
+    # 2) Try to use defined NAMENODE_URL;
+    # 3) Try to subscribe global variables to find exsiting NAMENODE_URL;
+    if not is_runtime_enabled(runtime_config, "hdfs"):
+        if spark_config.get("NAMENODE_URL") is None:
             namenode_url = global_variables.get(CLOUDTIK_GLOBAL_VARIABLE_KEY.format("namenode-url"))
             if namenode_url is not None:
                 spark_config["NAMENODE_URL"] = namenode_url
@@ -228,8 +231,14 @@ def update_spark_configurations():
 
 def _with_runtime_environment_variables(runtime_config, provider):
     runtime_envs = {}
+
+    # 1) Try to use local hdfs first;
+    # 2) Try to use defined NAMENODE_URL;
+    # 3) Try to use provider storage;
     if is_runtime_enabled(runtime_config, "hdfs"):
         runtime_envs["HDFS_ENABLED"] = True
+    elif runtime_config.get("NAMENODE_URL") is not None:
+        runtime_envs["NAMENODE_URL"] = runtime_config.get("NAMENODE_URL")
     else:
         # Whether we need to expert the cloud storage for HDFS case
         provider_envs = provider.with_environment_variables()

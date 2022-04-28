@@ -27,9 +27,8 @@ ENV PATH $HADOOP_HOME/bin:$PATH
 RUN wget http://archive.apache.org/dist/hadoop/common/hadoop-${HADOOP_VERSION}/hadoop-${HADOOP_VERSION}.tar.gz -O hadoop.tar.gz && \
     tar -zxf hadoop.tar.gz && \
     mv hadoop-${HADOOP_VERSION} hadoop && \
-    rm hadoop.tar.gz
-
-RUN echo "export HADOOP_CLASSPATH=\$HADOOP_CLASSPATH:\$HADOOP_HOME/share/hadoop/tools/lib/*" >> ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh
+    rm hadoop.tar.gz && \
+    echo "export HADOOP_CLASSPATH=\$HADOOP_CLASSPATH:\$HADOOP_HOME/share/hadoop/tools/lib/*" >> ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh
 
 # Install Spark
 ENV SPARK_VERSION        ${SPARK_VERSION}
@@ -39,7 +38,10 @@ ENV PATH                 $SPARK_HOME/bin:$PATH
 RUN wget https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop3.2.tgz && \
     tar -zxf spark-${SPARK_VERSION}-bin-hadoop3.2.tgz && \
     mv spark-${SPARK_VERSION}-bin-hadoop3.2 spark && \
-    rm spark-${SPARK_VERSION}-bin-hadoop3.2.tgz
+    rm spark-${SPARK_VERSION}-bin-hadoop3.2.tgz && \
+    echo "export PYTHONPATH=\${SPARK_HOME}/python:\${SPARK_HOME}/python/lib/py4j-0.10.9-src.zip" >> ~/.bashrc && \
+    echo "export PYSPARK_PYTHON=\${CONDA_PREFIX}/envs/cloudtik_py37/bin/python" >> ~/.bashrc && \
+    echo "export PYSPARK_DRIVER_PYTHON=\${CONDA_PREFIX}/envs/cloudtik_py37/bin/python" >> ~/.bashrc
 
 # Install python packages
 WORKDIR /home/cloudtik/

@@ -407,7 +407,8 @@ def _teardown_cluster(config_file: str, config: Dict[str, Any],
             try:
                 stop_node_from_head(config_file,
                                     node_ip=None, all_nodes=False,
-                                    override_cluster_name=override_cluster_name)
+                                    override_cluster_name=override_cluster_name,
+                                    indent_level=1)
             except Exception as e:
                 cli_logger.verbose_error("{}", str(e))
                 cli_logger.warning(
@@ -2301,7 +2302,8 @@ def create_node_updater_for_exec(config,
 
 
 def start_node_on_head(node_ip: str = None,
-                       all_nodes: bool = False):
+                       all_nodes: bool = False,
+                       indent_level: int = None):
     # Since this is running on head, the bootstrap config must exist
     cluster_config_file = get_head_bootstrap_config()
     config = yaml.safe_load(open(cluster_config_file).read())
@@ -2338,15 +2340,21 @@ def start_node_on_head(node_ip: str = None,
         node_runtime_envs.update(runtime_envs)
         updater._exec_start_commands(node_runtime_envs)
 
-    for node_id in nodes:
-        start_single_node_on_head(node_id)
+    if indent_level is not None:
+        with cli_logger.indented_by(indent_level):
+            for node_id in nodes:
+                start_single_node_on_head(node_id)
+    else:
+        for node_id in nodes:
+            start_single_node_on_head(node_id)
 
 
 def start_node_from_head(config_file: str,
                          node_ip: str,
                          all_nodes: bool,
                          override_cluster_name: Optional[str] = None,
-                         no_config_cache: bool = False):
+                         no_config_cache: bool = False,
+                         indent_level: int = None):
     """Execute start node command on head."""
 
     # execute attach on head
@@ -2359,6 +2367,8 @@ def start_node_from_head(config_file: str,
         cmds += ["--node-ip={}".format(node_ip)]
     if all_nodes:
         cmds += ["--all-nodes"]
+    if indent_level:
+        cmds += ["--indent-level={}".format(indent_level)]
     final_cmd = " ".join(cmds)
 
     exec_cmd_on_cluster(config_file, final_cmd,
@@ -2370,7 +2380,8 @@ def stop_node_from_head(config_file: str,
                         node_ip: str,
                         all_nodes: bool,
                         override_cluster_name: Optional[str] = None,
-                        no_config_cache: bool = False):
+                        no_config_cache: bool = False,
+                        indent_level: int = None):
     """Execute stop node command on head."""
 
     # execute attach on head
@@ -2383,6 +2394,8 @@ def stop_node_from_head(config_file: str,
         cmds += ["--node-ip={}".format(node_ip)]
     if all_nodes:
         cmds += ["--all-nodes"]
+    if indent_level:
+        cmds += ["--indent-level={}".format(indent_level)]
     final_cmd = " ".join(cmds)
 
     exec_cmd_on_cluster(config_file, final_cmd,
@@ -2412,7 +2425,8 @@ def get_nodes_of(config,
 
 
 def stop_node_on_head(node_ip: str = None,
-                      all_nodes: bool = False):
+                      all_nodes: bool = False,
+                      indent_level: int = None):
     # Since this is running on head, the bootstrap config must exist
     cluster_config_file = get_head_bootstrap_config()
     config = yaml.safe_load(open(cluster_config_file).read())
@@ -2453,8 +2467,13 @@ def stop_node_on_head(node_ip: str = None,
         node_runtime_envs.update(runtime_envs)
         updater.exec_commands(stop_commands, node_runtime_envs)
 
-    for node_id in nodes:
-        stop_single_node_on_head(node_id)
+    if indent_level is not None:
+        with cli_logger.indented_by(indent_level):
+            for node_id in nodes:
+                stop_single_node_on_head(node_id)
+    else:
+        for node_id in nodes:
+            stop_single_node_on_head(node_id)
 
 
 def scale_cluster(config_file: str, yes: bool, override_cluster_name: Optional[str],

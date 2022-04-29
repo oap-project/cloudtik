@@ -138,7 +138,7 @@ function set_resources_for_spark() {
 }
 
 function check_hdfs_storage() {
-    if [ ! -n  "${HDFS_NAMENODE_URI}" ];then
+    if [ -n  "${HDFS_NAMENODE_URI}" ];then
         HDFS_STORAGE="true"
     else
         HDFS_STORAGE="false"
@@ -146,7 +146,7 @@ function check_hdfs_storage() {
 }
 
 function update_config_for_hdfs() {
-    # configure namenode url for core-site.xml
+    # configure namenode uri for core-site.xml
     sed -i "s!{%namenode.uri%}!${HDFS_NAMENODE_URI}!g" `grep "{%namenode.uri%}" -rl ./`
 
     # event log dir
@@ -245,7 +245,7 @@ function update_config_for_storage() {
         update_config_for_remote_storage
         if [ "$HDFS_STORAGE" == "true" ];then
             cp -r ${output_dir}/hadoop/hdfs/core-site.xml  ${HADOOP_HOME}/etc/hadoop/
-        else:
+        else
             cp -r ${output_dir}/hadoop/${provider}/core-site.xml  ${HADOOP_HOME}/etc/hadoop/
         fi
     fi

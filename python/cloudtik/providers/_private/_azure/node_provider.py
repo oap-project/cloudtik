@@ -26,7 +26,7 @@ from cloudtik.providers._private.utils import validate_config_dict
 
 VM_NAME_MAX_LEN = 64
 VM_NAME_UUID_LEN = 8
-RESOURCE_CHECK_TIME= 10
+RESOURCE_CHECK_TIME = 20
 
 logger = logging.getLogger(__name__)
 azure_logger = logging.getLogger(

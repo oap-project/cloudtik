@@ -37,6 +37,6 @@ CLOUDTIK_TAG_RUNTIME_CONFIG = "cloudtik-runtime-config"
 # specified by the cluster_synced_files config
 CLOUDTIK_TAG_FILE_MOUNTS_CONTENTS = "cloudtik-file-mounts-contents"
 
-CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX = "cloudtik-global-variable-key"
-
-CLOUDTIK_GLOBAL_VARIABLE_KEY = CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX + "-{}"
+# The prefix used for global variables published to workspace
+CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX = "cloudtik-global-variable-key-"
+CLOUDTIK_GLOBAL_VARIABLE_KEY = CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX + "{}"

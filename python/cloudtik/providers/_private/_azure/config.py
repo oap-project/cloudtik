@@ -9,6 +9,7 @@ import random
 
 from typing import Any, Callable, Dict
 
+from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.utils import check_cidr_conflict
 from cloudtik.providers._private._azure.azure_identity_credential_adapter import AzureIdentityCredentialAdapter
@@ -1305,6 +1306,28 @@ def _configure_key_pair(config):
         azure_arm_parameters["publicKey"] = public_key
 
     return config
+
+
+def get_workspace_head_nodes(config):
+    compute_client = construct_compute_client(config)
+    resource_client = construct_resource_client(config)
+    use_internal_ips = config["provider"].get("use_internal_ips", False)
+    resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
+    all_heads = [node for node in list(
+        compute_client.virtual_machines.list(resource_group_name=resource_group_name))
+            if node.tags is not None and node.tags.get(CLOUDTIK_TAG_NODE_KIND, "") == NODE_KIND_HEAD]
+
+    for head in all_heads:
+        instance = compute_client.virtual_machines.instance_view(
+            resource_group_name=resource_group_name, vm_name=head.name).as_dict()
+        for status in instance["statuses"]:
+            status_list = status["code"].split("/")
+            code = status_list[0]
+            state = status_list[1]
+            if code == "PowerState" and state != "running":
+                all_heads.remove(head)
+
+    return all_heads
 
 
 def verify_azure_blob_storage(provider_config: Dict[str, Any]):

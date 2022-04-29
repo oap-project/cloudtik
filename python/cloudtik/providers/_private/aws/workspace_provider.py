@@ -40,8 +40,8 @@ class AWSWorkspaceProvider(WorkspaceProvider):
     def subscribe_global_variables(self, cluster_config: Dict[str, Any]):
         global_variables = {}
         head_nodes = get_workspace_head_nodes(cluster_config)
-        for node in head_nodes:
-            for tag in node.tags:
+        for head in head_nodes:
+            for tag in head.tags:
                 tag_key = tag.get("Key")
                 if tag_key.startswith(CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX):
                     global_variable_name = tag_key[len(CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX):]

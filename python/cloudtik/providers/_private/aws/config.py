@@ -625,10 +625,10 @@ def bootstrap_aws_from_workspace(config):
     return config
 
 
-def get_workspace_head_nodes(cluster_config):
-    ec2 = _resource("ec2", cluster_config)
-    ec2_client = _client("ec2", cluster_config)
-    workspace_name = cluster_config["workspace_name"]
+def get_workspace_head_nodes(config):
+    ec2 = _resource("ec2", config)
+    ec2_client = _client("ec2", config)
+    workspace_name = config["workspace_name"]
     VpcId = get_workspace_vpc_id(workspace_name, ec2_client)
 
     filters = [

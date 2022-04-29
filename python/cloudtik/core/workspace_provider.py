@@ -23,16 +23,16 @@ class WorkspaceProvider:
         self.provider_config = provider_config
         self.workspace_name = workspace_name
 
-    def create_workspace(self, cluster_config: Dict[str, Any]):
+    def create_workspace(self, config: Dict[str, Any]):
         pass
 
-    def delete_workspace(self, cluster_config: Dict[str, Any]):
+    def delete_workspace(self, config: Dict[str, Any]):
         pass
 
-    def update_workspace_firewalls(self, cluster_config: Dict[str, Any]):
+    def update_workspace_firewalls(self, config: Dict[str, Any]):
         pass
 
-    def check_workspace_resource(self, cluster_config: Dict[str, Any]) -> bool:
+    def check_workspace_resource(self, config: Dict[str, Any]) -> bool:
         """Bootstraps the cluster config by adding env defaults if needed."""
         return True
 

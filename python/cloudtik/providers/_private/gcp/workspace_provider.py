@@ -12,17 +12,17 @@ class GCPWorkspaceProvider(WorkspaceProvider):
     def __init__(self, provider_config, workspace_name):
         WorkspaceProvider.__init__(self, provider_config, workspace_name)
 
-    def create_workspace(self, cluster_config):
-        create_gcp_workspace(cluster_config)
+    def create_workspace(self, config):
+        create_gcp_workspace(config)
 
-    def delete_workspace(self, cluster_config):
-        delete_workspace_gcp(cluster_config)
+    def delete_workspace(self, config):
+        delete_workspace_gcp(config)
     
-    def update_workspace_firewalls(self, cluster_config):
-        update_gcp_workspace_firewalls(cluster_config)
+    def update_workspace_firewalls(self, config):
+        update_gcp_workspace_firewalls(config)
     
-    def check_workspace_resource(self, cluster_config):
-        return check_gcp_workspace_resource(cluster_config)
+    def check_workspace_resource(self, config):
+        return check_gcp_workspace_resource(config)
 
     @staticmethod
     def validate_config(

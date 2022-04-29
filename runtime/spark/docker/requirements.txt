@@ -2,6 +2,7 @@ mxnet
 mlflow
 pyarrow
 hyperopt
+jupyter_server==1.16.0
 jupyterlab
 spylon-kernel
 # horovod==0.21.*

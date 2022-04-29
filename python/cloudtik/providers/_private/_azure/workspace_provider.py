@@ -2,7 +2,10 @@ import logging
 from typing import Any, Dict
 
 from cloudtik.providers._private._azure.config import create_azure_workspace, \
-    delete_workspace_azure, check_azure_workspace_resource, update_azure_workspace_firewalls
+    delete_workspace_azure, check_azure_workspace_resource, update_azure_workspace_firewalls, \
+    get_workspace_head_nodes
+from cloudtik.core._private.providers import _get_node_provider
+from cloudtik.core.tags import CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX, CLOUDTIK_GLOBAL_VARIABLE_KEY
 from cloudtik.core.workspace_provider import WorkspaceProvider
 
 logger = logging.getLogger(__name__)
@@ -23,6 +26,29 @@ class AzureWorkspaceProvider(WorkspaceProvider):
     
     def check_workspace_resource(self, config):
         return check_azure_workspace_resource(config)
+
+    def publish_global_variables(self, cluster_config: Dict[str, Any],
+                                 head_node_id: str, global_variables: Dict[str, Any]):
+        # Add prefix to the variables
+        global_variables_prefixed = {}
+        for name in global_variables:
+            prefixed_name = CLOUDTIK_GLOBAL_VARIABLE_KEY.format(name)
+            global_variables_prefixed[prefixed_name] = global_variables[name]
+
+        provider = _get_node_provider(cluster_config["provider"], cluster_config["cluster_name"])
+        provider.set_node_tags(head_node_id, global_variables_prefixed)
+
+    def subscribe_global_variables(self, cluster_config: Dict[str, Any]):
+        global_variables = {}
+        head_nodes = get_workspace_head_nodes(cluster_config)
+        for head in head_nodes:
+            for tag in head.tags:
+                tag_key = tag.get("Key")
+                if tag_key.startswith(CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX):
+                    global_variable_name = tag_key[len(CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX):]
+                    global_variables[global_variable_name] = tag.get("Value")
+
+        return global_variables
 
     @staticmethod
     def validate_config(

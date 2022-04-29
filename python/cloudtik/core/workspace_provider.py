@@ -43,7 +43,7 @@ class WorkspaceProvider:
 
     def subscribe_global_variables(self, cluster_config: Dict[str, Any]):
         """Workspace provide a way to subscribe global variables and can be subscribed anybody"""
-        return None
+        return {}
 
     @staticmethod
     def validate_config(provider_config: Dict[str, Any]):

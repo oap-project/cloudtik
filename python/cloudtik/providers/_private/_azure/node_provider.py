@@ -95,7 +95,7 @@ class AzureNodeProvider(NodeProvider):
     def _get_filtered_nodes(self, tag_filters):
         def match_tags(vm):
             for k, v in tag_filters.items():
-                if vm.tags.get(k) != v:
+                if vm.tags is None or vm.tags.get(k) != v:
                     return False
             return True
 

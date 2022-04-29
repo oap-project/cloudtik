@@ -40,7 +40,7 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     get_attach_command, is_alive_time, is_docker_enabled, get_proxy_bind_address_to_show, \
     kill_process_tree, with_runtime_environment_variables, verify_config, runtime_prepare_config, get_nodes_info, \
     sum_worker_cpus, sum_worker_memory, get_useful_runtime_urls, get_enabled_runtimes, \
-    with_head_node_ip, with_node_ip_environment_variables, run_in_paralell_on_nodes, get_commands_to_run
+    with_head_node_ip, with_node_ip_environment_variables, run_in_paralell_on_nodes, get_commands_to_run, cluster_booting_completed
 
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
@@ -837,6 +837,8 @@ def get_or_create_head_node(config: Dict[str, Any],
         CreateClusterEvent.cluster_booting_completed, {
             "head_node_id": head_node,
         })
+
+    cluster_booting_completed(config, head_node)
 
     if not is_use_internal_ip(config):
         # start proxy and bind to localhost

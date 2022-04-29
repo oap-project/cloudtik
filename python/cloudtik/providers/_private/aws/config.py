@@ -12,6 +12,7 @@ import logging
 import boto3
 import botocore
 
+from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD
 from cloudtik.core._private.providers import _PROVIDER_PRETTY_NAMES
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.event_system import (CreateClusterEvent,
@@ -619,9 +620,34 @@ def bootstrap_aws_from_workspace(config):
     config = _configure_security_group_from_workspace(config)
 
     # Provide a helpful message for missing AMI.
-    _configure_ami(config)
+    config = _configure_ami(config)
 
     return config
+
+
+def get_workspace_head_nodes(cluster_config):
+    ec2 = _resource("ec2", cluster_config)
+    ec2_client = _client("ec2", cluster_config)
+    workspace_name = cluster_config["workspace_name"]
+    VpcId = get_workspace_vpc_id(workspace_name, ec2_client)
+
+    filters = [
+        {
+           "Name": "vpc-id",
+            "Values": [VpcId]
+        },
+        {
+            "Name": "instance-state-name",
+            "Values": ["running"],
+        },
+        {
+            "Name": "tag:{}".format(CLOUDTIK_TAG_NODE_KIND),
+            "Values": [NODE_KIND_HEAD],
+        },
+    ]
+
+    nodes = list(ec2.instances.filter(Filters=filters))
+    return nodes
 
 
 def _configure_iam_role(config):
@@ -1491,6 +1517,8 @@ def _configure_ami(config):
     for key, node_type in config["available_node_types"].items():
         node_config = node_type["node_config"]
         node_config["ImageId"] = default_ami
+
+    return config
 
 
 def _upsert_security_groups(config, node_types):

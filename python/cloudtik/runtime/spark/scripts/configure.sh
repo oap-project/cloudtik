@@ -137,6 +137,26 @@ function set_resources_for_spark() {
     fi
 }
 
+function check_remote_hdfs() {
+    if [ ! -n  "${NAMENODE_URL}" ];then
+        REMOTE_HDFS="true"
+    else
+        REMOTE_HDFS="false"
+    fi
+}
+
+function update_config_for_remote_hdfs() {
+    # configure namenode url for core-site.xml
+    sed -i "s!NAMENODE_URL!${NAMENODE_URL}!g" `grep "NAMENODE_URL" -rl ./`
+
+    # event log dir
+    event_log_dir="${NAMENODE_URL}/shared/spark-events"
+    sed -i "s!{%spark.eventLog.dir%}!${event_log_dir}!g" `grep "{%spark.eventLog.dir%}" -rl ./`
+
+    sql_warehouse_dir="${NAMENODE_URL}/shared/data/spark-warehouse"
+    sed -i "s!{%spark.sql.warehouse.dir%}!${sql_warehouse_dir}!g" `grep "{%spark.sql.warehouse.dir%}" -rl ./`
+}
+
 function update_config_for_aws() {
     sed -i "s#{%aws.s3a.bucket%}#${AWS_S3_BUCKET}#g" `grep "{%aws.s3a.bucket%}" -rl ./`
     sed -i "s#{%fs.s3a.access.key%}#${AWS_S3_ACCESS_KEY_ID}#g" `grep "{%fs.s3a.access.key%}" -rl ./`
@@ -206,7 +226,9 @@ function update_config_for_azure() {
 }
 
 function update_config_for_remote_storage() {
-    if [ "$provider" == "aws" ]; then
+    if [ "$REMOTE_HDFS" == "true" ]; then
+        update_config_for_remote_hdfs
+    elif [ "$provider" == "aws" ]; then
         update_config_for_aws
     elif [ "$provider" == "gcp" ]; then
         update_config_for_gcp
@@ -220,7 +242,11 @@ function update_config_for_storage() {
         update_config_for_hdfs
     else
         update_config_for_remote_storage
-        cp -r ${output_dir}/hadoop/${provider}/core-site.xml  ${HADOOP_HOME}/etc/hadoop/
+        if [ "$REMOTE_HDFS" == "true" ];then
+            cp -r ${output_dir}/hadoop/hdfs/core-site.xml  ${HADOOP_HOME}/etc/hadoop/
+        else:
+            cp -r ${output_dir}/hadoop/${provider}/core-site.xml  ${HADOOP_HOME}/etc/hadoop/
+        fi
     fi
 }
 
@@ -351,6 +377,7 @@ function configure_jupyter_for_spark() {
 check_spark_installed
 set_head_address
 set_resources_for_spark
+check_remote_hdfs
 configure_system_folders
 configure_hadoop_and_spark
 configure_jupyter_for_spark

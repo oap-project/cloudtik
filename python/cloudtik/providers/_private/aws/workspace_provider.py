@@ -1,9 +1,10 @@
 import logging
 from typing import Any, Dict
 from cloudtik.providers._private.aws.config import  create_aws_workspace, \
-    delete_workspace_aws, check_aws_workspace_resource, update_aws_workspace_firewalls
-
-
+    delete_workspace_aws, check_aws_workspace_resource, update_aws_workspace_firewalls, \
+    get_workspace_head_nodes
+from cloudtik.core._private.providers import _get_node_provider
+from cloudtik.core.tags import CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX
 from cloudtik.core.workspace_provider import WorkspaceProvider
 
 logger = logging.getLogger(__name__)
@@ -24,6 +25,22 @@ class AWSWorkspaceProvider(WorkspaceProvider):
 
     def check_workspace_resource(self, cluster_config):
         return check_aws_workspace_resource(cluster_config)
+
+    def publish_global_variables(self, cluster_config: Dict[str, Any],
+                                 head_node_id: str, runtime_tags: Dict[str, Any]):
+
+        provider = _get_node_provider(cluster_config["provider"], cluster_config["cluster_name"])
+        provider.set_node_tags(head_node_id, runtime_tags)
+
+    def subscribe_global_variables(self, cluster_config: Dict[str, Any]):
+        global_variables = {}
+        head_nodes = get_workspace_head_nodes(cluster_config)
+        for node in head_nodes:
+            for tag in node.tags:
+                if CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX in tag.get("Key"):
+                    global_variables[tag.get("Key")] = tag.get("Value")
+
+        return global_variables
 
     @staticmethod
     def validate_config(

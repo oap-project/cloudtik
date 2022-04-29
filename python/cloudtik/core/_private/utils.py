@@ -1892,6 +1892,16 @@ def get_runnable_command(runtime_config, target):
     return None
 
 
+def cluster_booting_completed(config, head_node_id):
+    runtime_config = config.get("runtime")
+    if runtime_config is not  None:
+        # Iterate through all the runtimes
+        runtime_types = runtime_config.get("types", [])
+        for runtime_type in runtime_types:
+            runtime = _get_runtime(runtime_type, runtime_config)
+            runtime.cluster_booting_completed(config, head_node_id)
+
+
 def _get_runtime_config_object(config_home: str, provider_config, object_name: str):
     if not object_name.endswith(".yaml"):
         object_name += ".yaml"

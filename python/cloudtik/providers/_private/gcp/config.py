@@ -17,6 +17,7 @@ from google.oauth2.credentials import Credentials as OAuthCredentials
 from cloudtik.providers._private.gcp.node import (GCPNodeType, MAX_POLLS,
                                               POLL_INTERVAL)
 
+from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.services import get_node_ip_address
 from cloudtik.core._private.utils import check_cidr_conflict, unescape_private_key
@@ -263,6 +264,37 @@ def construct_clients_from_provider_config(provider_config):
         _create_iam(credentials), \
         _create_compute(credentials), \
         tpu_resource
+
+
+def get_workspace_head_nodes(config):
+    _, _, compute, tpu = \
+        construct_clients_from_provider_config(config["provider"])
+    use_internal_ips = config["provider"].get("use_internal_ips", False)
+    project_id = config["provider"].get("project_id")
+    availability_zone = config["provider"].get("availability_zone")
+    vpcId = get_gcp_vpcId(config, compute, use_internal_ips)
+    vpc_self_link = compute.networks().get(project=project_id, network=vpcId).execute()["selfLink"]
+
+    filter_expr = '(labels.{key} = {value}) AND (status = RUNNING)'.\
+        format(key=CLOUDTIK_TAG_NODE_KIND, value=NODE_KIND_HEAD)
+
+    response = compute.instances().list(
+        project=project_id,
+        zone=availability_zone,
+        filter=filter_expr,
+    ).execute()
+
+    all_heads = response.get("items", [])
+
+    for head in all_heads:
+        filtered = True
+        for networkInterface in head.get("networkInterfaces", []):
+            if networkInterface.get("network") == vpc_self_link:
+                filtered = False
+        if filtered:
+            all_heads.remove(head)
+
+    return all_heads
 
 
 def create_gcp_workspace(config):

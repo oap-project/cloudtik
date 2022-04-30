@@ -42,11 +42,10 @@ class AzureWorkspaceProvider(WorkspaceProvider):
         global_variables = {}
         head_nodes = get_workspace_head_nodes(cluster_config)
         for head in head_nodes:
-            for tag in head.tags:
-                tag_key = tag.get("Key")
-                if tag_key.startswith(CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX):
-                    global_variable_name = tag_key[len(CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX):]
-                    global_variables[global_variable_name] = tag.get("Value")
+            for key, value in head.tags.items():
+                if key.startswith(CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX):
+                    global_variable_name = key[len(CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX):]
+                    global_variables[global_variable_name] = value
 
         return global_variables
 

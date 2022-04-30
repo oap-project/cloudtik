@@ -4,7 +4,6 @@ from typing import Any, Callable, Dict, List, Optional, Union
 import os
 
 from cloudtik.core._private.cluster import cluster_operator
-from cloudtik.core._private.cluster.cluster_operator import _load_cluster_config
 from cloudtik.core._private.event_system import (
     global_event_system)
 from cloudtik.core._private.cli_logger import cli_logger
@@ -20,11 +19,13 @@ class Cluster:
         """
         self.cluster_config = cluster_config
         if isinstance(cluster_config, dict):
-            self.config = cluster_config
+            self.config = \
+                cluster_operator._bootstrap_config(cluster_config, no_config_cache=True)
         else:
             if not os.path.exists(cluster_config):
                 raise ValueError("Cluster config file not found: {}".format(cluster_config))
-            self.config = _load_cluster_config(cluster_config)
+            self.config = \
+                cluster_operator._load_cluster_config(cluster_config, no_config_cache=True)
 
     def start(self,
               no_restart: bool = False,

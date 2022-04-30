@@ -1061,9 +1061,9 @@ def enable_proxy(cluster_config_file, no_config_cache, cluster_name,
     type=str,
     help="Override the configured cluster name.")
 @add_click_logging_options
-def disable_proxy(cluster_config_file,cluster_name):
+def disable_proxy(cluster_config_file, cluster_name):
     """Stop the SOCKS5 proxy to the cluster."""
-    stop_proxy(cluster_config_file,cluster_name)
+    stop_proxy(cluster_config_file, cluster_name)
 
 
 @cli.command()

@@ -741,17 +741,15 @@ def get_info_from_cluster_config(
         Tuple of list of host IPs, ssh user name, ssh key file path,
             optional docker container name, optional cluster name.
     """
-    from cloudtik.core._private.cluster.cluster_operator import _bootstrap_config
+    from cloudtik.core._private.cluster.cluster_operator import _load_cluster_config
 
     cli_logger.verbose(f"Retrieving cluster information from cluster file: "
                        f"{cluster_config}")
 
     cluster_config = os.path.expanduser(cluster_config)
 
-    config = yaml.safe_load(open(cluster_config).read())
-    if should_bootstrap:
-        config = _bootstrap_config(config, no_config_cache=True)
-
+    config = _load_cluster_config(
+      cluster_config, None, should_bootstrap=should_bootstrap, no_config_cache=True)
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     head_nodes = provider.non_terminated_nodes({
         CLOUDTIK_TAG_NODE_KIND: NODE_KIND_HEAD

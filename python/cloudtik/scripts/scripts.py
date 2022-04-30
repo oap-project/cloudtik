@@ -24,14 +24,13 @@ from cloudtik.core._private.cluster.cluster_operator import (
     show_worker_cpus, show_worker_memory, show_cluster_info, show_cluster_status,
     start_proxy, stop_proxy, cluster_debug_status,
     cluster_health_check, cluster_process_status,
-    attach_worker, exec_node_from_head, start_node_from_head, stop_node_from_head, exec_cmd_on_cluster, scale_cluster,
-    _load_cluster_config)
+    attach_worker, start_node_from_head, stop_node_from_head, scale_cluster,
+    _load_cluster_config, exec_on_nodes, submit_and_exec)
 from cloudtik.core._private.constants import CLOUDTIK_PROCESSES, \
     CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
     CLOUDTIK_DEFAULT_PORT
 from cloudtik.core._private.node.node_services import NodeServicesStarter
 from cloudtik.core._private.parameter import StartParams
-from cloudtik.core._private.utils import get_runnable_command
 from cloudtik.scripts.utils import NaturalOrderGroup
 from cloudtik.scripts.workspace import workspace
 from cloudtik.scripts.head_scripts import head
@@ -647,32 +646,20 @@ def exec(cluster_config_file, cmd, run_env, screen, tmux, stop, start,
     port_forward = [(port, port) for port in list(port_forward)]
 
     try:
-        if not node_ip and not all_nodes:
-            exec_cluster(
-                cluster_config_file,
-                cmd=cmd,
-                run_env=run_env,
-                screen=screen,
-                tmux=tmux,
-                stop=stop,
-                start=start,
-                override_cluster_name=cluster_name,
-                no_config_cache=no_config_cache,
-                port_forward=port_forward,
-                _allow_uninitialized_state=True)
-        else:
-            exec_node_from_head(
-                cluster_config_file,
-                node_ip,
-                all_nodes=all_nodes,
-                cmd=cmd,
-                run_env=run_env,
-                screen=screen,
-                tmux=tmux,
-                override_cluster_name=cluster_name,
-                no_config_cache=no_config_cache,
-                port_forward=port_forward,
-                parallel=parallel)
+        config = _load_cluster_config(cluster_config_file, cluster_name,
+                                      no_config_cache=no_config_cache)
+        exec_on_nodes(
+            config,
+            node_ip=node_ip,
+            all_nodes=all_nodes,
+            cmd=cmd,
+            run_env=run_env,
+            screen=screen,
+            tmux=tmux,
+            stop=stop,
+            start=start,
+            port_forward=port_forward,
+            parallel=parallel)
     except RuntimeError as re:
         cli_logger.error("Run exec failed. " + str(re))
         if cli_logger.verbosity == 0:
@@ -732,71 +719,16 @@ def submit(cluster_config_file, screen, tmux, stop, start, cluster_name,
     Example:
         >>> cloudtik submit [CLUSTER.YAML] experiment.py -- --smoke-test
     """
-    cli_logger.doassert(not (screen and tmux),
-                        "`{}` and `{}` are incompatible.", cf.bold("--screen"),
-                        cf.bold("--tmux"))
-
-    assert not (screen and tmux), "Can specify only one of `screen` or `tmux`."
-
-    if start:
-        create_or_update_cluster(
-            config_file=cluster_config_file,
-            override_min_workers=None,
-            override_max_workers=None,
-            no_restart=False,
-            restart_only=False,
-            yes=True,
-            override_cluster_name=cluster_name,
-            no_config_cache=no_config_cache,
-            redirect_command_output=False,
-            use_login_shells=True)
-    target_name = os.path.basename(script)
-    target = os.path.join("~", "jobs", target_name)
-
-    # Create the "jobs" folder before do upload
-    cmd_mkdir = "mkdir -p ~/jobs"
-    exec_cmd_on_cluster(
-        cluster_config_file,
-        cmd_mkdir,
-        cluster_name,
-        no_config_cache=no_config_cache
-    )
-
-    # upload the script to cluster
-    rsync(
-        cluster_config_file,
+    config = _load_cluster_config(
+        cluster_config_file, cluster_name, no_config_cache=no_config_cache)
+    submit_and_exec(
+        config,
         script,
-        target,
-        cluster_name,
-        no_config_cache=no_config_cache,
-        down=False)
-
-    if target_name.endswith(".py"):
-        command_parts = ["python", target]
-    elif target_name.endswith(".sh"):
-        command_parts = ["bash", target]
-    else:
-        config = _load_cluster_config(
-            cluster_config_file, cluster_name, True, no_config_cache)
-        command_parts = get_runnable_command(config.get("runtime"), target)
-        if command_parts is None:
-            cli_logger.error("We don't how to execute your file: {}", script)
-            return
-
-    if script_args:
-        command_parts += list(script_args)
-
-    port_forward = [(port, port) for port in list(port_forward)]
-    cmd = " ".join(command_parts)
-    exec_cluster(
-        cluster_config_file,
-        cmd=cmd,
+        script_args,
         screen=screen,
         tmux=tmux,
         stop=stop,
-        start=False,
-        override_cluster_name=cluster_name,
-        no_config_cache=no_config_cache,
+        start=start,
         port_forward=port_forward)
 
 
@@ -862,7 +794,7 @@ def rsync_up(cluster_config_file, source, target, cluster_name, node_ip, all_nod
             target,
             cluster_name,
             down=False,
-            ip_address=node_ip,
+            node_ip=node_ip,
             all_nodes=all_nodes)
     except RuntimeError as re:
         cli_logger.error("Rsync up failed. " + str(re))
@@ -893,7 +825,7 @@ def rsync_down(cluster_config_file, source, target, cluster_name, node_ip):
     """Download specific files from a cluster or a specified node."""
     try:
         rsync(cluster_config_file, source, target, cluster_name,
-              down=True, ip_address=node_ip)
+              down=True, node_ip=node_ip)
     except RuntimeError as re:
         cli_logger.error("Rsync down failed. " + str(re))
         if cli_logger.verbosity == 0:

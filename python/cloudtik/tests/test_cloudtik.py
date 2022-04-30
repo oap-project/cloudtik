@@ -521,8 +521,6 @@ class CloudTikTest(unittest.TestCase):
         # in the `update-failed` state.
         allow_failed = cluster_operator._get_running_head_node(
             config,
-            "/fake/path",
-            override_cluster_name=None,
             create_if_needed=False,
             _provider=self.provider,
             _allow_uninitialized_state=True)
@@ -538,8 +536,6 @@ class CloudTikTest(unittest.TestCase):
 
         node = cluster_operator._get_running_head_node(
             config,
-            "/fake/path",
-            override_cluster_name=None,
             create_if_needed=False,
             _provider=self.provider)
 
@@ -549,8 +545,6 @@ class CloudTikTest(unittest.TestCase):
         # if it is present.
         optionally_failed = cluster_operator._get_running_head_node(
             config,
-            "/fake/path",
-            override_cluster_name=None,
             create_if_needed=False,
             _provider=self.provider,
             _allow_uninitialized_state=True)

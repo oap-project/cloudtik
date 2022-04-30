@@ -244,8 +244,22 @@ def create_or_update_cluster(
                                init_config_cache=True)
 
     try_logging_config(config)
-    get_or_create_head_node(config, config_file, no_restart, restart_only, yes,
-                            override_cluster_name, no_controller_on_head)
+    get_or_create_head_node(config, no_restart, restart_only, yes,
+                            no_controller_on_head)
+
+    if not is_use_internal_ip(config):
+        # start proxy and bind to localhost
+        cli_logger.newline()
+        with cli_logger.group("Starting SOCKS5 proxy..."):
+            _start_proxy(config, True, "localhost")
+
+    provider = _get_node_provider(config["provider"], config["cluster_name"])
+    head_node = _get_running_head_node(config)
+    show_useful_commands(config_file,
+                         config,
+                         provider,
+                         head_node,
+                         override_cluster_name)
     return config
 
 
@@ -652,11 +666,9 @@ def monitor_cluster(cluster_config_file: str, num_lines: int,
 
 
 def get_or_create_head_node(config: Dict[str, Any],
-                            printable_config_file: str,
                             no_restart: bool,
                             restart_only: bool,
                             yes: bool,
-                            override_cluster_name: Optional[str],
                             no_controller_on_head: bool = False,
                             _provider: Optional[NodeProvider] = None,
                             _runner: ModuleType = subprocess) -> None:
@@ -840,25 +852,11 @@ def get_or_create_head_node(config: Dict[str, Any],
 
     cluster_booting_completed(config, head_node)
 
-    if not is_use_internal_ip(config):
-        # start proxy and bind to localhost
-        cli_logger.newline()
-        with cli_logger.group("Starting SOCKS5 proxy..."):
-            _start_proxy(printable_config_file, config,
-                         True, "localhost")
-
     cli_logger.newline()
     successful_msg = "Successfully started cluster: {}.".format(config["cluster_name"])
     cli_logger.success("-" * len(successful_msg))
     cli_logger.success(successful_msg)
     cli_logger.success("-" * len(successful_msg))
-
-    show_useful_commands(printable_config_file,
-                         config,
-                         provider,
-                         head_node,
-                         updater,
-                         override_cluster_name)
 
 
 def _should_create_new_head(head_node_id: Optional[str], new_launch_hash: str,
@@ -1051,8 +1049,6 @@ def exec_cluster(config_file: str,
 
     head_node = _get_running_head_node(
         config,
-        config_file,
-        override_cluster_name,
         create_if_needed=start,
         _allow_uninitialized_state=_allow_uninitialized_state)
 
@@ -1202,8 +1198,7 @@ def rsync(config_file: str,
         else:
             updater.sync_file_mounts(rsync)
 
-    head_node = _get_running_head_node(
-        config, config_file, override_cluster_name, create_if_needed=False)
+    head_node = _get_running_head_node(config, create_if_needed=False)
     if not ip_address:
         rsync_to_node(head_node, source, target, is_head_node=True)
         if not down and all_nodes:
@@ -1333,7 +1328,7 @@ def get_head_node_ip(config_file: str,
     if override_cluster_name is not None:
         config["cluster_name"] = override_cluster_name
 
-    return _get_head_node_ip(config, config_file, override_cluster_name)
+    return _get_head_node_ip(config)
 
 
 def get_worker_node_ips(config_file: str,
@@ -1348,12 +1343,9 @@ def get_worker_node_ips(config_file: str,
     return _get_worker_node_ips(config)
 
 
-def _get_head_node_ip(config: Dict[str, Any],
-                      config_file: str,
-                      override_cluster_name: Optional[str] = None) -> str:
+def _get_head_node_ip(config: Dict[str, Any]) -> str:
     provider = _get_node_provider(config["provider"], config["cluster_name"])
-    head_node = _get_running_head_node(config, config_file,
-                                       override_cluster_name)
+    head_node = _get_running_head_node(config)
     return get_head_working_ip(config, provider, head_node)
 
 
@@ -1378,8 +1370,6 @@ def _get_worker_nodes(config: Dict[str, Any],
 
 def _get_running_head_node(
         config: Dict[str, Any],
-        printable_config_file: str,
-        override_cluster_name: Optional[str],
         create_if_needed: bool = False,
         _provider: Optional[NodeProvider] = None,
         _allow_uninitialized_state: bool = False,
@@ -1387,9 +1377,6 @@ def _get_running_head_node(
     """Get a valid, running head node.
     Args:
         config (Dict[str, Any]): Cluster Config dictionary
-        printable_config_file (str): Used for printing formatted CLI commands.
-        override_cluster_name (str): Passed to `get_or_create_head_node` to
-            override the cluster name present in `config`.
         create_if_needed (bool): Create a head node if one is not present.
         _provider (NodeProvider): [For testing], a Node Provider to use.
         _allow_uninitialized_state (bool): Whether to return a head node that
@@ -1418,19 +1405,15 @@ def _get_running_head_node(
     elif create_if_needed:
         get_or_create_head_node(
             config,
-            printable_config_file=printable_config_file,
             restart_only=False,
             no_restart=False,
-            yes=True,
-            override_cluster_name=override_cluster_name)
+            yes=True)
         # NOTE: `_allow_uninitialized_state` is forced to False if
         # `create_if_needed` is set to True. This is to ensure that the
         # commands executed after creation occur on an actually running
         # cluster.
         return _get_running_head_node(
             config,
-            printable_config_file,
-            override_cluster_name,
             create_if_needed=False,
             _allow_uninitialized_state=False)
     else:
@@ -1438,8 +1421,7 @@ def _get_running_head_node(
             cli_logger.warning(
                 f"The head node being returned: {_backup_head_node} is not "
                 "`up-to-date`. If you are not debugging a startup issue "
-                "it is recommended to restart this head node with: {}",
-                cf.bold(f"  cloudtik down  {printable_config_file}"))
+                "it is recommended to restart this cluster.")
 
             return _backup_head_node
         raise RuntimeError("Head node of cluster {} not found!".format(
@@ -1655,8 +1637,7 @@ def show_cluster_info(config_file: str,
     head_node = None
     # Check whether the head node is running
     try:
-        head_node = _get_running_head_node(config, config_file,
-                                           override_cluster_name)
+        head_node = _get_running_head_node(config)
         head_node_ip = get_head_working_ip(config, provider, head_node)
     except Exception:
         head_node_ip = None
@@ -1688,27 +1669,17 @@ def show_cluster_info(config_file: str,
     if head_node is None:
         return
 
-    updater = create_node_updater_for_exec(
-        config=config,
-        node_id=head_node,
-        provider=provider,
-        start_commands=[],
-        is_head_node=False,
-        use_internal_ip=False)
-
     show_useful_commands(config_file,
                          config,
                          provider,
                          head_node,
-                         updater,
                          override_cluster_name)
 
 
-def show_useful_commands(printable_config_file: str,
+def show_useful_commands(config_file: str,
                          config: Dict[str, Any],
                          provider: NodeProvider,
                          head_node: str,
-                         updater: NodeUpdaterThread,
                          override_cluster_name: Optional[str] = None
                          ) -> None:
     if override_cluster_name:
@@ -1726,35 +1697,35 @@ def show_useful_commands(printable_config_file: str,
 
     cli_logger.newline()
     with cli_logger.group("Useful commands:"):
-        printable_config_file = os.path.abspath(printable_config_file)
+        config_file = os.path.abspath(config_file)
 
         with cli_logger.group("Check cluster status with:"):
             cli_logger.print(
-                cf.bold("cloudtik status {}{}"), printable_config_file, modifiers)
+                cf.bold("cloudtik status {}{}"), config_file, modifiers)
 
         with cli_logger.group("Execute command on cluster with:"):
             cli_logger.print(
-                cf.bold("cloudtik exec {}{} [command]"), printable_config_file, modifiers)
+                cf.bold("cloudtik exec {}{} [command]"), config_file, modifiers)
 
         with cli_logger.group("Connect to a terminal on the cluster head:"):
             cli_logger.print(
-                cf.bold("cloudtik attach {}{}"), printable_config_file, modifiers)
+                cf.bold("cloudtik attach {}{}"), config_file, modifiers)
 
         with cli_logger.group("Upload files or folders to cluster:"):
             cli_logger.print(
-                cf.bold("cloudtik rsync-up {}{} [source] [target]"), printable_config_file, modifiers)
+                cf.bold("cloudtik rsync-up {}{} [source] [target]"), config_file, modifiers)
 
         with cli_logger.group("Download files or folders from cluster:"):
             cli_logger.print(
-                cf.bold("cloudtik rsync-down {}{} [source] [target]"), printable_config_file, modifiers)
+                cf.bold("cloudtik rsync-down {}{} [source] [target]"), config_file, modifiers)
 
         with cli_logger.group("Submit job to cluster to run with:"):
             cli_logger.print(
-                cf.bold("cloudtik submit {}{} [job-file.(py|sh|scala)] "), printable_config_file, modifiers)
+                cf.bold("cloudtik submit {}{} [job-file.(py|sh|scala)] "), config_file, modifiers)
 
         with cli_logger.group("Monitor cluster with:"):
             cli_logger.print(
-                cf.bold("cloudtik monitor {}{}"), printable_config_file, modifiers)
+                cf.bold("cloudtik monitor {}{}"), config_file, modifiers)
 
     cli_logger.newline()
     with cli_logger.group("Useful addresses:"):
@@ -1841,11 +1812,10 @@ def start_proxy(config_file: str,
         cli_logger.warning("The SOCKS5 proxy will be bound on localhost of this node. "
                            "Use --bind-address to specify to bind on a specific address if you want.")
 
-    _start_proxy(config_file, config,
-                 restart=True, bind_address=bind_address)
+    _start_proxy(config, restart=True, bind_address=bind_address)
 
 
-def _start_proxy(config_file: str, config: Dict[str, Any],
+def _start_proxy(config: Dict[str, Any],
                  restart: bool = False,
                  bind_address: str = None):
     cluster_name = config["cluster_name"]
@@ -1868,7 +1838,7 @@ def _start_proxy(config_file: str, config: Dict[str, Any],
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     # Check whether the head node is running
     try:
-        head_node = _get_running_head_node(config, config_file, cluster_name)
+        head_node = _get_running_head_node(config)
         head_node_ip = get_head_working_ip(config, provider, head_node)
     except Exception:
         cli_logger.print(cf.bold("Cluster {} is not running."), cluster_name)
@@ -2238,8 +2208,7 @@ def exec_node_on_head(
     cluster_config_file = get_head_bootstrap_config()
     config = yaml.safe_load(open(cluster_config_file).read())
     provider = _get_node_provider(config["provider"], config["cluster_name"])
-    head_node = _get_running_head_node(config, cluster_config_file,
-                                       None, _provider=provider)
+    head_node = _get_running_head_node(config, _provider=provider)
 
     nodes = get_nodes_of(config, provider, head_node,
                          node_ip, all_nodes)
@@ -2297,8 +2266,7 @@ def start_node_on_head(node_ip: str = None,
     cluster_config_file = get_head_bootstrap_config()
     config = yaml.safe_load(open(cluster_config_file).read())
     provider = _get_node_provider(config["provider"], config["cluster_name"])
-    head_node = _get_running_head_node(config, cluster_config_file,
-                                       None, _provider=provider)
+    head_node = _get_running_head_node(config, _provider=provider)
     head_node_ip = provider.internal_ip(head_node)
     runtime_envs = with_runtime_environment_variables(
         config.get("runtime"), provider)
@@ -2429,8 +2397,7 @@ def stop_node_on_head(node_ip: str = None,
     cluster_config_file = get_head_bootstrap_config()
     config = yaml.safe_load(open(cluster_config_file).read())
     provider = _get_node_provider(config["provider"], config["cluster_name"])
-    head_node = _get_running_head_node(config, cluster_config_file,
-                                       None, _provider=provider,
+    head_node = _get_running_head_node(config, _provider=provider,
                                        _allow_uninitialized_state=True)
     head_node_ip = provider.internal_ip(head_node)
     runtime_envs = with_runtime_environment_variables(

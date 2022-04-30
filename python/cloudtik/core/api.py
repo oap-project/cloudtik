@@ -232,6 +232,17 @@ class Cluster:
         """
         return cluster_operator._get_cluster_info(config=self.config)
 
+    def wait_for_ready(self, min_workers: int = None,
+                       timeout: int = None) -> None:
+        """Wait for to the min_workers to be ready.
+        Args:
+            min_workers (int): If min_workers is not specified, the min_workers of cluster will be used.
+            timeout (int): The maximum time to wait
+        """
+        return cluster_operator._wait_for_ready(config=self.config,
+                                                min_workers=min_workers,
+                                                timeout=timeout)
+
 
 def configure_logging(log_style: Optional[str] = None,
                       color_mode: Optional[str] = None,

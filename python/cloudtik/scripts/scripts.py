@@ -25,7 +25,7 @@ from cloudtik.core._private.cluster.cluster_operator import (
     start_proxy, stop_proxy, cluster_debug_status,
     cluster_health_check, cluster_process_status,
     attach_worker, start_node_from_head, stop_node_from_head, scale_cluster,
-    _load_cluster_config, exec_on_nodes, submit_and_exec)
+    _load_cluster_config, exec_on_nodes, submit_and_exec, _wait_for_ready)
 from cloudtik.core._private.constants import CLOUDTIK_PROCESSES, \
     CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
     CLOUDTIK_DEFAULT_PORT
@@ -1135,6 +1135,40 @@ def kill_node(cluster_config_file, yes, hard, cluster_name, node_ip):
     required=False,
     type=str,
     help="Override the configured cluster name.")
+@click.option(
+    "--no-config-cache",
+    is_flag=True,
+    default=False,
+    help="Disable the local cluster config cache.")
+@click.option(
+    "--min-workers",
+    required=False,
+    default=None,
+    type=int,
+    help="The min workers to wait for being ready.")
+@click.option(
+    "--timeout",
+    required=False,
+    default=None,
+    type=int,
+    help="The maximum number of seconds to wait.")
+@add_click_logging_options
+def wait_for_ready(cluster_config_file, cluster_name, no_config_cache,
+                   min_workers, timeout):
+    """Wait for the minimum number of workers to be ready."""
+    config = _load_cluster_config(cluster_config_file, cluster_name,
+                                  no_config_cache=no_config_cache)
+    _wait_for_ready(config, min_workers, timeout)
+
+
+@cli.command()
+@click.argument("cluster_config_file", required=True, type=str)
+@click.option(
+    "--cluster-name",
+    "-n",
+    required=False,
+    type=str,
+    help="Override the configured cluster name.")
 @add_click_logging_options
 def process_status(cluster_config_file, cluster_name):
     """Show process status of cluster nodes."""
@@ -1461,6 +1495,7 @@ cli.add_command(start_node)
 cli.add_command(stop_node)
 cli.add_command(kill_node)
 add_command_alias(kill_node, name="kill_node", hidden=True)
+cli.add_command(wait_for_ready)
 
 # commands running on working node for debug
 cli.add_command(process_status)

@@ -218,6 +218,21 @@ class Cluster:
         """
         return cluster_operator._get_worker_node_ips(config=self.config)
 
+    def get_nodes(self) -> List[Dict[str, Any]]:
+        """Returns a list of info for each cluster node
+        Returns:
+            A list of Dict object for each node with the informaition
+        """
+        return cluster_operator._get_cluster_nodes_info(config=self.config)
+
+    def get_info(self) -> Dict[str, Any]:
+        """Returns the general information of the cluster
+        Returns:
+            A Dict object for cluster properties
+        """
+        return cluster_operator._get_cluster_info(config=self.config)
+
+
 def configure_logging(log_style: Optional[str] = None,
                       color_mode: Optional[str] = None,
                       verbosity: Optional[int] = None):

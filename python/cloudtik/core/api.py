@@ -30,7 +30,7 @@ class Cluster:
     def start(self,
               no_restart: bool = False,
               restart_only: bool = False) -> None:
-        """Create or updates an autoscaling cluster from a config json.
+        """Create or updates an autoscaling cluster.
 
         Args:
             no_restart (bool): Whether to skip restarting services during the
@@ -50,7 +50,7 @@ class Cluster:
     def stop(self,
              workers_only: bool = False,
              keep_min_workers: bool = False) -> None:
-        """Destroys all nodes of a cluster described by a config json.
+        """Destroys all nodes of a cluster.
 
         Args:
             workers_only (bool): Whether to keep the head node running and only
@@ -66,27 +66,35 @@ class Cluster:
     def exec(self,
              *,
              cmd: Optional[str] = None,
+             node_ip: str = None,
+             all_nodes: bool = False,
              run_env: str = "auto",
              tmux: bool = False,
              stop: bool = False,
              port_forward: Optional[cluster_operator.Port_forward] = None,
-             with_output: bool = False) -> Optional[str]:
+             with_output: bool = False,
+             parallel: bool = True) -> Optional[str]:
         """Runs a command on the specified cluster.
 
         Args:
             cmd (str): the command to run, or None for a no-op command.
+            node_ip (str): node ip on which to run the command
+            all_nodes (bool): whether to run the command on all nodes
             run_env (str): whether to run the command on the host or in a
                 container. Select between "auto", "host" and "docker".
             tmux (bool): whether to run in a tmux session
             stop (bool): whether to stop the cluster after command run
             port_forward ( (int,int) or list[(int,int)]): port(s) to forward.
             with_output (bool): Whether to capture command output.
+            parallel (bool): Whether to run the commands on nodes in parallel
 
         Returns:
             The output of the command as a string.
         """
-        return cluster_operator._exec_cluster(
+        return cluster_operator.exec_on_nodes(
             config=self.config,
+            node_ip=node_ip,
+            all_nodes=all_nodes,
             cmd=cmd,
             run_env=run_env,
             screen=False,
@@ -94,14 +102,42 @@ class Cluster:
             stop=stop,
             start=False,
             port_forward=port_forward,
-            with_output=with_output)
+            with_output=with_output,
+            parallel=parallel)
+
+    def submit(self,
+               script_file: str,
+               script_args,
+               tmux: bool = False,
+               stop: bool = False,
+               port_forward: Optional[cluster_operator.Port_forward] = None) -> Optional[str]:
+        """Submit a script file to cluster and run.
+
+        Args:
+            script_file (str): The script file to submit and run.
+            script_args (array): An array of arguments for the script file.
+            tmux (bool): whether to run in a tmux session
+            stop (bool): whether to stop the cluster after command run
+            port_forward ( (int,int) or list[(int,int)]): port(s) to forward.
+
+        Returns:
+            The output of the command as a string.
+        """
+        return cluster_operator.submit_and_exec(
+            config=self.config,
+            script=script_file,
+            script_args=script_args,
+            tmux=tmux,
+            stop=stop,
+            port_forward=port_forward)
 
     def rsync(self,
               *,
               source: Optional[str],
               target: Optional[str],
               down: bool,
-              ip_address: str = None,
+              node_ip: str = None,
+              all_nodes: bool = False,
               use_internal_ip: bool = False):
         """Rsyncs files to or from the cluster.
 
@@ -109,7 +145,8 @@ class Cluster:
             source (str): rsync source argument.
             target (str): rsync target argument.
             down (bool): whether we're syncing remote -> local.
-            ip_address (str): Address of node.
+            node_ip (str): Address of node to rsync
+            all_nodes (bool): For rsync-up, whether to rsync uup to all nodes
             use_internal_ip (bool): Whether the provided ip_address is
                 public or private.
 
@@ -121,30 +158,9 @@ class Cluster:
             source=source,
             target=target,
             down=down,
-            ip_address=ip_address,
-            use_internal_ip=use_internal_ip,
-            all_nodes=False)
-
-    def get_head_node_ip(self) -> str:
-        """Returns head node IP for given configuration file if exists.
-
-        Returns:
-            The ip address of the cluster head node.
-
-        Raises:
-            RuntimeError if the cluster is not found.
-        """
-        return cluster_operator._get_head_node_ip(config=self.config)
-
-    def get_worker_node_ips(self) -> List[str]:
-        """Returns worker node IPs for given configuration file.
-        Returns:
-            List of worker node ip addresses.
-
-        Raises:
-            RuntimeError if the cluster is not found.
-        """
-        return cluster_operator._get_worker_node_ips(config=self.config)
+            node_ip=node_ip,
+            all_nodes=all_nodes,
+            use_internal_ip=use_internal_ip)
 
     def scale(self, num_cpus: Optional[int] = None,
               bundles: Optional[List[dict]] = None) -> None:
@@ -179,8 +195,28 @@ class Cluster:
             >>> # Same as requesting num_cpus=3.
             >>> scale(bundles=[{"CPU": 1}, {"CPU": 1}, {"CPU": 1}])
         """
-        return cluster_operator._scale_cluster(config=self.config, num_cpus=num_cpus)
+        return cluster_operator._scale_cluster(config=self.config, cpus=num_cpus)
 
+    def get_head_node_ip(self) -> str:
+        """Returns head node IP for given configuration file if exists.
+
+        Returns:
+            The ip address of the cluster head node.
+
+        Raises:
+            RuntimeError if the cluster is not found.
+        """
+        return cluster_operator._get_head_node_ip(config=self.config)
+
+    def get_worker_node_ips(self) -> List[str]:
+        """Returns worker node IPs for given configuration file.
+        Returns:
+            List of worker node ip addresses.
+
+        Raises:
+            RuntimeError if the cluster is not found.
+        """
+        return cluster_operator._get_worker_node_ips(config=self.config)
 
 def configure_logging(log_style: Optional[str] = None,
                       color_mode: Optional[str] = None,

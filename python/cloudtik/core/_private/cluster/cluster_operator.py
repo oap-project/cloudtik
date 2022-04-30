@@ -41,7 +41,7 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     kill_process_tree, with_runtime_environment_variables, verify_config, runtime_prepare_config, get_nodes_info, \
     sum_worker_cpus, sum_worker_memory, get_useful_runtime_urls, get_enabled_runtimes, \
     with_head_node_ip, with_node_ip_environment_variables, run_in_paralell_on_nodes, get_commands_to_run, \
-    cluster_booting_completed, load_head_cluster_config
+    cluster_booting_completed, load_head_cluster_config, get_runnable_command
 
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
@@ -1172,7 +1172,7 @@ def rsync(config_file: str,
           target: Optional[str],
           override_cluster_name: Optional[str],
           down: bool,
-          ip_address: Optional[str] = None,
+          node_ip: Optional[str] = None,
           all_nodes: bool = False,
           use_internal_ip: bool = False,
           no_config_cache: bool = False,
@@ -1186,10 +1186,10 @@ def rsync(config_file: str,
         target: target dir
         override_cluster_name: set the name of the cluster
         down: whether we're syncing remote -> local
-        ip_address (str): Address of node. Raise Exception
-            if both ip_address and 'all_nodes' are provided.
+        node_ip (str): Address of node. Raise Exception
+            if both node_ip and 'all_nodes' are provided.
         all_nodes (bool): Whether the rsync up the files to all nodes
-        use_internal_ip (bool): Whether the provided ip_address is
+        use_internal_ip (bool): Whether the provided node_ip is
             public or private.
         should_bootstrap: whether to bootstrap cluster config before syncing
     """
@@ -1202,7 +1202,7 @@ def rsync(config_file: str,
         source=source,
         target=target,
         down=down,
-        ip_address=ip_address,
+        node_ip=node_ip,
         all_nodes=all_nodes,
         use_internal_ip=use_internal_ip,
         _runner=_runner
@@ -1213,7 +1213,7 @@ def _rsync(config: Dict[str, Any],
            source: Optional[str],
            target: Optional[str],
            down: bool,
-           ip_address: Optional[str] = None,
+           node_ip: Optional[str] = None,
            all_nodes: bool = False,
            use_internal_ip: bool = False,
            _runner: ModuleType = subprocess) -> None:
@@ -1221,8 +1221,8 @@ def _rsync(config: Dict[str, Any],
         cli_logger.abort(
             "Expected either both a source and a target, or neither.")
 
-    if ip_address and all_nodes:
-        cli_logger.abort("Cannot provide both ip_address and 'all_nodes'.")
+    if node_ip and all_nodes:
+        cli_logger.abort("Cannot provide both node_ip and 'all_nodes'.")
 
     assert bool(source) == bool(target), (
         "Must either provide both or neither source and target.")
@@ -1260,7 +1260,7 @@ def _rsync(config: Dict[str, Any],
             updater.sync_file_mounts(rsync)
 
     head_node = _get_running_head_node(config, create_if_needed=False)
-    if not ip_address:
+    if not node_ip:
         rsync_to_node(head_node, source, target, is_head_node=True)
         if not down and all_nodes:
             rsync_to_node_from_head(config,
@@ -1278,14 +1278,14 @@ def _rsync(config: Dict[str, Any],
             # first run rsync on head
             rsync_to_node_from_head(config,
                                     source, target_on_head, True,
-                                    ip_address)
+                                    node_ip)
             rsync_to_node(head_node, target_on_head, target, is_head_node=True)
         else:
             # First rsync with head
             rsync_to_node(head_node, source, target_on_head, is_head_node=True)
             rsync_to_node_from_head(config,
                                     target_on_head, target, False,
-                                    ip_address)
+                                    node_ip)
 
 
 def rsync_to_node_from_head(config: Dict[str, Any],
@@ -2045,32 +2045,54 @@ def cluster_process_status(cluster_config_file: str,
     exec_cmd_on_cluster(cluster_config_file, cmd, override_cluster_name)
 
 
-def exec_node_from_head(config_file: str,
-                        node_ip: str,
-                        all_nodes: bool = False,
-                        cmd: str = None,
-                        run_env: str = "auto",
-                        screen: bool = False,
-                        tmux: bool = False,
-                        override_cluster_name: Optional[str] = None,
-                        no_config_cache: bool = False,
-                        port_forward: Optional[Port_forward] = None,
-                        parallel: bool = True) -> None:
-    """Attaches to a screen for the specified cluster.
+def exec_on_nodes(config: Dict[str, Any],
+                  node_ip: str,
+                  all_nodes: bool = False,
+                  cmd: str = None,
+                  run_env: str = "auto",
+                  screen: bool = False,
+                  tmux: bool = False,
+                  stop: bool = False,
+                  start: bool = False,
+                  port_forward: Optional[Port_forward] = None,
+                  with_output: bool = False,
+                  parallel: bool = True) -> None:
+    if not node_ip and not all_nodes:
+        _exec_cluster(
+            config,
+            cmd=cmd,
+            run_env=run_env,
+            screen=screen,
+            tmux=tmux,
+            stop=stop,
+            start=start,
+            port_forward=port_forward,
+            with_output=with_output,
+            _allow_uninitialized_state=True)
+    else:
+        _exec_node_from_head(
+            config,
+            node_ip=node_ip,
+            all_nodes=all_nodes,
+            cmd=cmd,
+            run_env=run_env,
+            screen=screen,
+            tmux=tmux,
+            port_forward=port_forward,
+            with_output=with_output,
+            parallel=parallel)
 
-    Arguments:
-        config_file: path to the cluster yaml
-        node_ip: the node internal IP to operate
-        all_nodes: Run the operation on all the nodes
-        cmd: command to run
-        run_env: whether to run the command on the host or in a container.
-            Select between "auto", "host" and "docker"
-        screen: whether to use screen as multiplexer
-        tmux: whether to use tmux as multiplexer
-        override_cluster_name: set the name of the cluster
-        port_forward ( (int,int) or list[(int,int)] ): port(s) to forward
-        parallel: Whether to run on nodes in parallel
-    """
+
+def _exec_node_from_head(config: Dict[str, Any],
+                         node_ip: str,
+                         all_nodes: bool = False,
+                         cmd: str = None,
+                         run_env: str = "auto",
+                         screen: bool = False,
+                         tmux: bool = False,
+                         port_forward: Optional[Port_forward] = None,
+                         with_output: bool = False,
+                         parallel: bool = True) -> None:
 
     # execute exec on head with the cmd
     cmds = [
@@ -2089,6 +2111,8 @@ def exec_node_from_head(config_file: str,
         cmds += ["--screen"]
     if tmux:
         cmds += ["--tmux"]
+    if with_output:
+        cmds += ["--with-output"]
     if parallel:
         cmds += ["--parallel"]
     else:
@@ -2097,17 +2121,16 @@ def exec_node_from_head(config_file: str,
     # TODO (haifeng): handle port forward for two state cases
     final_cmd = " ".join(cmds)
 
-    exec_cluster(
-        config_file,
+    _exec_cluster(
+        config,
         cmd=final_cmd,
         run_env="auto",
         screen=False,
         tmux=False,
         stop=False,
         start=False,
-        override_cluster_name=override_cluster_name,
-        no_config_cache=no_config_cache,
         port_forward=port_forward,
+        with_output=with_output,
         _allow_uninitialized_state=False)
 
 
@@ -2242,14 +2265,15 @@ def attach_node_on_head(node_ip: str,
 
 
 def exec_node_on_head(
-                     node_ip: str,
-                     all_nodes: bool = False,
-                     cmd: str = None,
-                     run_env: str = "auto",
-                     screen: bool = False,
-                     tmux: bool = False,
-                     port_forward: Optional[Port_forward] = None,
-                     parallel: bool = True):
+        node_ip: str,
+        all_nodes: bool = False,
+        cmd: str = None,
+        run_env: str = "auto",
+        screen: bool = False,
+        tmux: bool = False,
+        port_forward: Optional[Port_forward] = None,
+        with_output: bool = False,
+        parallel: bool = True):
     config = load_head_cluster_config()
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     head_node = _get_running_head_node(config, _provider=provider)
@@ -2263,7 +2287,8 @@ def exec_node_on_head(
             node_id=node_id, cmd=cmd,
             run_env=run_env,
             screen=screen, tmux=tmux,
-            port_forward=port_forward)
+            port_forward=port_forward,
+            with_output=with_output)
 
     if parallel and len(nodes) > 1:
         run_in_paralell_on_nodes(run_exec_cmd_on_head, nodes)
@@ -2575,3 +2600,69 @@ def convert_nodes_to_cpus(config: Dict[str, Any], nodes: int) -> int:
                 return nodes * cpu_total
 
     return 0
+
+
+def submit_and_exec(config: Dict[str, Any],
+                    script: str,
+                    script_args,
+                    screen: bool = False,
+                    tmux: bool = False,
+                    stop: bool = False,
+                    start: bool = False,
+                    port_forward: Optional[Port_forward] = None,
+                    ):
+    cli_logger.doassert(not (screen and tmux),
+                        "`{}` and `{}` are incompatible.", cf.bold("--screen"),
+                        cf.bold("--tmux"))
+
+    assert not (screen and tmux), "Can specify only one of `screen` or `tmux`."
+
+    if start:
+        _create_or_update_cluster(
+            config=config,
+            no_restart=False,
+            restart_only=False,
+            yes=True,
+            redirect_command_output=False,
+            use_login_shells=True)
+    target_name = os.path.basename(script)
+    target = os.path.join("~", "jobs", target_name)
+
+    # Create the "jobs" folder before do upload
+    cmd_mkdir = "mkdir -p ~/jobs"
+    _exec_cmd_on_cluster(
+        config,
+        cmd_mkdir
+    )
+
+    # upload the script to cluster
+    _rsync(
+        config,
+        source=script,
+        target=target,
+        down=False)
+
+    if target_name.endswith(".py"):
+        command_parts = ["python", target]
+    elif target_name.endswith(".sh"):
+        command_parts = ["bash", target]
+    else:
+
+        command_parts = get_runnable_command(config.get("runtime"), target)
+        if command_parts is None:
+            cli_logger.error("We don't how to execute your file: {}", script)
+            return
+
+    if script_args:
+        command_parts += list(script_args)
+
+    port_forward = [(port, port) for port in list(port_forward)]
+    cmd = " ".join(command_parts)
+    _exec_cluster(
+        config,
+        cmd=cmd,
+        screen=screen,
+        tmux=tmux,
+        stop=stop,
+        start=False,
+        port_forward=port_forward)

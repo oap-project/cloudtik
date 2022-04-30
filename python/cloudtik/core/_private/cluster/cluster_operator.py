@@ -32,7 +32,7 @@ from cloudtik.core._private.constants import \
     CLOUDTIK_RESOURCE_REQUEST_CHANNEL, \
     MAX_PARALLEL_SHUTDOWN_WORKERS, \
     CLOUDTIK_DEFAULT_PORT, \
-    CLOUDTIK_REDIS_DEFAULT_PASSWORD
+    CLOUDTIK_REDIS_DEFAULT_PASSWORD, CLOUDTIK_CLUSTER_STATUS_STOPPED, CLOUDTIK_CLUSTER_STATUS_RUNNING
 from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     hash_launch_conf, prepare_config, get_free_port, \
     get_proxy_info_file, get_safe_proxy_process_info, \
@@ -48,7 +48,7 @@ from cloudtik.core._private.providers import _get_node_provider, \
 from cloudtik.core.tags import (
     CLOUDTIK_TAG_NODE_KIND, CLOUDTIK_TAG_LAUNCH_CONFIG, CLOUDTIK_TAG_NODE_NAME,
     NODE_KIND_WORKER, NODE_KIND_HEAD, CLOUDTIK_TAG_USER_NODE_TYPE,
-    STATUS_UNINITIALIZED, STATUS_UP_TO_DATE, CLOUDTIK_TAG_NODE_STATUS)
+    STATUS_UNINITIALIZED, STATUS_UP_TO_DATE, CLOUDTIK_TAG_NODE_STATUS, STATUS_UPDATE_FAILED)
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.node.node_updater import NodeUpdaterThread
 from cloudtik.core._private.command_executor import set_using_login_shells, \
@@ -1677,41 +1677,24 @@ def show_cluster_info(config_file: str,
     config = _load_cluster_config(config_file, override_cluster_name)
     provider = _get_node_provider(config["provider"], config["cluster_name"])
 
-    head_node = None
-    # Check whether the head node is running
-    try:
-        head_node = _get_running_head_node(config)
-        head_node_ip = get_head_working_ip(config, provider, head_node)
-    except Exception:
-        head_node_ip = None
+    cluster_info = _get_cluster_info(config, provider)
 
-    if head_node_ip is None:
-        cli_logger.print(cf.bold("Cluster {} is not running."), config["cluster_name"])
+    cli_logger.print(cf.bold("Cluster {} is: {}"), config["cluster_name"], cluster_info["status"])
+    if cluster_info["status"] == CLOUDTIK_CLUSTER_STATUS_STOPPED:
         return
 
     # Check the running worker nodes
-    head_count = 1
-    workers = _get_worker_nodes(config)
-    worker_count = len(workers)
-
-    cli_logger.print(cf.bold("Cluster {}:"), config["cluster_name"])
-    cli_logger.print(cf.bold("{} head and {} worker(s) are running"),
-                     head_count, worker_count)
+    worker_count = cluster_info["total-workers"]
+    cli_logger.print(cf.bold("{} worker(s) are running"), worker_count)
 
     cli_logger.newline()
     cli_logger.print(cf.bold("Runtimes: {}"), ", ".join(get_enabled_runtimes(config)))
 
-    workers_info = get_nodes_info(provider, workers,
-                                  True, config["available_node_types"])
-    worker_cpus = sum_worker_cpus(workers_info)
-    worker_memory = sum_worker_memory(workers_info)
     cli_logger.newline()
-    cli_logger.print(cf.bold("The total worker CPUs: {}."), worker_cpus)
-    cli_logger.print(cf.bold("The total worker memory: {}GB."), worker_memory)
+    cli_logger.print(cf.bold("The total worker CPUs: {}."), cluster_info["total-worker-cpus"])
+    cli_logger.print(cf.bold("The total worker memory: {}GB."), cluster_info["total-worker-memory"])
 
-    if head_node is None:
-        return
-
+    head_node = cluster_info["head-id"]
     show_useful_commands(config_file,
                          config,
                          provider,
@@ -1793,6 +1776,31 @@ def show_cluster_status(config_file: str,
                         override_cluster_name: Optional[str] = None
                         ) -> None:
     config = _load_cluster_config(config_file, override_cluster_name)
+    nodes_info = _get_cluster_nodes_info(config)
+
+    tb = pt.PrettyTable()
+    tb.field_names = ["node-id", "node-ip", "node-type", "node-status", "instance-type",
+                      "public-ip", "instance-status"]
+    for node_info in nodes_info:
+        tb.add_row([node_info["node_id"], node_info["private_ip"], node_info["cloudtik-node-kind"],
+                    node_info["cloudtik-node-status"], node_info["instance_type"], node_info["public_ip"],
+                    node_info["instance_status"]
+                    ])
+
+    nodes_ready = _get_nodes_in_status(nodes_info, STATUS_UP_TO_DATE)
+    cli_logger.print(cf.bold("Total {} nodes. {} nodes are ready"), len(nodes_info), nodes_ready)
+    cli_logger.print(tb)
+
+
+def _get_nodes_in_status(node_info_list, status):
+    num_nodes = 0
+    for node_info in node_info_list:
+        if status == node_info["cloudtik-node-status"]:
+            num_nodes += 1
+    return num_nodes
+
+
+def _get_cluster_nodes_info(config: Dict[str, Any]):
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     nodes = provider.non_terminated_nodes({})
     nodes_info = get_nodes_info(provider, nodes)
@@ -1806,26 +1814,51 @@ def show_cluster_status(config_file: str,
         return node_info["cloudtik-node-kind"] + node_ip
 
     nodes_info.sort(key=node_info_sort)
+    return nodes_info
 
-    tb = pt.PrettyTable()
-    tb.field_names = ["node-id", "node-ip", "node-type", "node-status", "instance-type",
-                      "public-ip", "instance-status"]
-    for node_info in nodes_info:
-        tb.add_row([node_info["node_id"], node_info["private_ip"], node_info["cloudtik-node-kind"],
-                    node_info["cloudtik-node-status"], node_info["instance_type"], node_info["public_ip"],
-                    node_info["instance_status"]
-                    ])
 
-    def get_nodes_ready(node_info_list):
-        nodes_ready = 0
-        for node_info in node_info_list:
-            if STATUS_UP_TO_DATE == node_info["cloudtik-node-status"]:
-                nodes_ready += 1
-        return nodes_ready
+def _get_cluster_info(config: Dict[str, Any],
+                      provider: NodeProvider = None) -> Dict[str, Any]:
+    if provider is None:
+        provider = _get_node_provider(config["provider"], config["cluster_name"])
 
-    nodes_ready = get_nodes_ready(nodes_info)
-    cli_logger.print(cf.bold("Total {} nodes. {} nodes are ready"), len(nodes_info), nodes_ready)
-    cli_logger.print(tb)
+    cluster_info = {"name": config["cluster_name"]}
+
+    # Check whether the head node is running
+    try:
+        head_node = _get_running_head_node(config)
+    except Exception:
+        head_node = None
+
+    if head_node is None:
+        cluster_info["status"] = CLOUDTIK_CLUSTER_STATUS_STOPPED
+        return cluster_info
+
+    cluster_info["status"] = CLOUDTIK_CLUSTER_STATUS_RUNNING
+    cluster_info["head-id"] = head_node
+
+    head_ssh_ip = get_head_working_ip(config, provider, head_node)
+    cluster_info["head-ssh-ip"] = head_ssh_ip
+
+    # Check the running worker nodes
+    workers = _get_worker_nodes(config)
+    worker_count = len(workers)
+
+    workers_info = get_nodes_info(provider, workers,
+                                  True, config["available_node_types"])
+
+    # get working nodes which are ready
+    workers_ready = _get_nodes_in_status(workers_info, STATUS_UP_TO_DATE)
+    workers_failed = _get_nodes_in_status(workers_info, STATUS_UPDATE_FAILED)
+    worker_cpus = sum_worker_cpus(workers_info)
+    worker_memory = sum_worker_memory(workers_info)
+
+    cluster_info["total-workers"] = worker_count
+    cluster_info["total-workers-ready"] = workers_ready
+    cluster_info["total-workers-failed"] = workers_failed
+    cluster_info["total-worker-cpus"] = worker_cpus
+    cluster_info["total-worker-memory"] = worker_memory
+    return cluster_info
 
 
 def confirm(msg: str, yes: bool) -> Optional[bool]:

@@ -18,14 +18,14 @@ from cloudtik.core._private import services, utils, logging_utils
 from cloudtik.core._private.cli_logger import (add_click_logging_options,
                                                cli_logger, cf)
 from cloudtik.core._private.cluster.cluster_operator import (
-    attach_cluster, exec_cluster, create_or_update_cluster, monitor_cluster,
-    rsync, teardown_cluster, get_head_node_ip, kill_node_from_head, get_worker_node_ips,
+    attach_cluster, create_or_update_cluster, monitor_cluster,
+    teardown_cluster, get_head_node_ip, kill_node_from_head, get_worker_node_ips,
     get_cluster_dump_archive, get_local_dump_archive, RUN_ENV_TYPES,
     show_worker_cpus, show_worker_memory, show_cluster_info, show_cluster_status,
     start_proxy, stop_proxy, cluster_debug_status,
     cluster_health_check, cluster_process_status,
     attach_worker, start_node_from_head, stop_node_from_head, scale_cluster,
-    _load_cluster_config, exec_on_nodes, submit_and_exec, _wait_for_ready)
+    _load_cluster_config, exec_on_nodes, submit_and_exec, _wait_for_ready, _rsync)
 from cloudtik.core._private.constants import CLOUDTIK_PROCESSES, \
     CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
     CLOUDTIK_DEFAULT_PORT
@@ -788,11 +788,12 @@ def rsync_up(cluster_config_file, source, target, cluster_name, node_ip, all_nod
     """Upload specific files to a cluster or a specified node."""
 
     try:
-        rsync(
-            cluster_config_file,
+        config = _load_cluster_config(
+            cluster_config_file, cluster_name)
+        _rsync(
+            config,
             source,
             target,
-            cluster_name,
             down=False,
             node_ip=node_ip,
             all_nodes=all_nodes)
@@ -824,8 +825,10 @@ def rsync_up(cluster_config_file, source, target, cluster_name, node_ip, all_nod
 def rsync_down(cluster_config_file, source, target, cluster_name, node_ip):
     """Download specific files from a cluster or a specified node."""
     try:
-        rsync(cluster_config_file, source, target, cluster_name,
-              down=True, node_ip=node_ip)
+        config = _load_cluster_config(
+            cluster_config_file, cluster_name)
+        _rsync(config, source, target,
+               down=True, node_ip=node_ip)
     except RuntimeError as re:
         cli_logger.error("Rsync down failed. " + str(re))
         if cli_logger.verbosity == 0:
@@ -1329,7 +1332,7 @@ def cluster_dump(cluster_config_file: Optional[str] = None,
     ``--host <host1,host2,...>`` parameter.
     """
     archive_path = get_cluster_dump_archive(
-        cluster_config_file=cluster_config_file,
+        config_file=cluster_config_file,
         host=host,
         ssh_user=ssh_user,
         ssh_key=ssh_key,

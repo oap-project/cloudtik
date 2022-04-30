@@ -12,13 +12,15 @@ from cloudtik.core._private.cluster.cluster_operator import (
     debug_status_string, get_cluster_dump_archive_on_head,
     RUN_ENV_TYPES, teardown_cluster_on_head, cluster_process_status_on_head, rsync_node_on_head, attach_node_on_head,
     exec_node_on_head, show_cluster_info, show_cluster_status, monitor_cluster, get_worker_node_ips,
-    start_node_on_head, stop_node_on_head, kill_node_on_head, scale_cluster_on_head, show_worker_cpus, show_worker_memory)
+    start_node_on_head, stop_node_on_head, kill_node_on_head, scale_cluster_on_head, show_worker_cpus,
+    show_worker_memory, _wait_for_ready)
 from cloudtik.core._private.constants import CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
     CLOUDTIK_KV_NAMESPACE_HEALTHCHECK
 from cloudtik.core._private.state import kv_store
 from cloudtik.core._private.state.kv_store import kv_initialize_with_address
 from cloudtik.core._private.utils import CLOUDTIK_CLUSTER_SCALING_ERROR, \
-    CLOUDTIK_CLUSTER_SCALING_STATUS, decode_cluster_scaling_time, is_alive_time, get_head_bootstrap_config
+    CLOUDTIK_CLUSTER_SCALING_STATUS, decode_cluster_scaling_time, is_alive_time, get_head_bootstrap_config, \
+    load_head_cluster_config
 from cloudtik.scripts.utils import NaturalOrderGroup
 
 logger = logging.getLogger(__name__)
@@ -388,6 +390,26 @@ def kill_node(yes, hard, node_ip, indent_level):
             do_kill_node()
     else:
         do_kill_node()
+
+
+@head.command()
+@click.option(
+    "--min-workers",
+    required=False,
+    default=None,
+    type=int,
+    help="The min workers to wait for being ready.")
+@click.option(
+    "--timeout",
+    required=False,
+    default=None,
+    type=int,
+    help="The maximum number of seconds to wait.")
+@add_click_logging_options
+def wait_for_ready(min_workers, timeout):
+    """Wait for the minimum number of workers to be ready."""
+    config = load_head_cluster_config()
+    _wait_for_ready(config, min_workers, timeout)
 
 
 @head.command()

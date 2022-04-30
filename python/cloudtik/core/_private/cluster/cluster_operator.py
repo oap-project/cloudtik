@@ -18,7 +18,7 @@ import prettytable as pt
 import click
 import yaml
 
-from cloudtik.core._private import services
+from cloudtik.core._private import services, constants
 
 try:  # py3
     from shlex import quote
@@ -1688,7 +1688,7 @@ def show_cluster_info(config_file: str,
     cli_logger.print(cf.bold("{} worker(s) are running"), worker_count)
 
     cli_logger.newline()
-    cli_logger.print(cf.bold("Runtimes: {}"), ", ".join(get_enabled_runtimes(config)))
+    cli_logger.print(cf.bold("Runtimes: {}"), ", ".join(cluster_info["runtimes"]))
 
     cli_logger.newline()
     cli_logger.print(cf.bold("The total worker CPUs: {}."), cluster_info["total-worker-cpus"])
@@ -1822,7 +1822,10 @@ def _get_cluster_info(config: Dict[str, Any],
     if provider is None:
         provider = _get_node_provider(config["provider"], config["cluster_name"])
 
-    cluster_info = {"name": config["cluster_name"]}
+    cluster_info = {
+        "name": config["cluster_name"],
+        "runtimes": get_enabled_runtimes(config)
+    }
 
     # Check whether the head node is running
     try:
@@ -2699,3 +2702,47 @@ def submit_and_exec(config: Dict[str, Any],
         stop=stop,
         start=False,
         port_forward=port_forward)
+
+
+def _sum_min_workers(config: Dict[str, Any]):
+    sum_min_workers = 0
+    if "available_node_types" in config:
+        sum_min_workers = sum(
+            config["available_node_types"][node_type].get("min_workers", 0)
+            for node_type in config["available_node_types"])
+    return sum_min_workers
+
+
+def _get_workers_ready(config: Dict[str, Any], provider):
+    workers = _get_worker_nodes(config)
+    workers_info = get_nodes_info(provider, workers)
+
+    # get working nodes which are ready
+    workers_ready = _get_nodes_in_status(workers_info, STATUS_UP_TO_DATE)
+    return workers_ready
+
+
+def _wait_for_ready(config: Dict[str, Any],
+                    min_workers: int = None,
+                    timeout: int = None) -> None:
+    if min_workers is None:
+        min_workers = _sum_min_workers(config)
+
+    if timeout is None:
+        timeout = constants.CLOUDTIK_WAIT_FOR_CLUSTER_READY_TIMEOUT_S
+
+    provider = _get_node_provider(config["provider"], config["cluster_name"])
+    workers_ready = _get_workers_ready(config, provider)
+    if workers_ready >= min_workers:
+        return
+
+    interval = constants.CLOUDTIK_WAIT_FOR_CLUSTER_READY_INTERVAL_S
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        workers_ready = _get_workers_ready(config, provider)
+        if workers_ready >= min_workers:
+            return
+        else:
+            cli_logger.verbose("Waiting for workers to be ready: {}/{}", workers_ready, min_workers)
+            time.sleep(interval)
+    raise TimeoutError("Timed out while waiting for workers to be ready: {}/{}".format(workers_ready, min_workers))

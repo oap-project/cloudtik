@@ -36,11 +36,12 @@ from cloudtik.core._private.constants import \
 from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     hash_launch_conf, prepare_config, get_free_port, \
     get_proxy_info_file, get_safe_proxy_process_info, \
-    get_head_working_ip, get_node_cluster_ip, is_use_internal_ip, get_head_bootstrap_config, \
+    get_head_working_ip, get_node_cluster_ip, is_use_internal_ip, \
     get_attach_command, is_alive_time, is_docker_enabled, get_proxy_bind_address_to_show, \
     kill_process_tree, with_runtime_environment_variables, verify_config, runtime_prepare_config, get_nodes_info, \
     sum_worker_cpus, sum_worker_memory, get_useful_runtime_urls, get_enabled_runtimes, \
-    with_head_node_ip, with_node_ip_environment_variables, run_in_paralell_on_nodes, get_commands_to_run, cluster_booting_completed
+    with_head_node_ip, with_node_ip_environment_variables, run_in_paralell_on_nodes, get_commands_to_run, \
+    cluster_booting_completed, load_head_cluster_config
 
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
@@ -360,12 +361,12 @@ def _bootstrap_config(config: Dict[str, Any],
 
 def _load_cluster_config(config_file: str,
                          override_cluster_name: Optional[str] = None,
-                         need_bootstrap: bool = True,
+                         should_bootstrap: bool = True,
                          no_config_cache: bool = False) -> Dict[str, Any]:
     config = yaml.safe_load(open(config_file).read())
     if override_cluster_name is not None:
         config["cluster_name"] = override_cluster_name
-    if need_bootstrap:
+    if should_bootstrap:
         config = _bootstrap_config(config, no_config_cache=no_config_cache)
     return config
 
@@ -375,28 +376,22 @@ def teardown_cluster(config_file: str, yes: bool, workers_only: bool,
                      keep_min_workers: bool,
                      proxy_stop: bool = False) -> None:
     """Destroys all nodes of a cluster described by a config json."""
-    config = yaml.safe_load(open(config_file).read())
-    if override_cluster_name is not None:
-        config["cluster_name"] = override_cluster_name
-
-    config = _bootstrap_config(config)
+    config = _load_cluster_config(config_file, override_cluster_name)
 
     cli_logger.confirm(yes, "Are you sure that you want to shut down cluster {}?",
                        config["cluster_name"], _abort=True)
     cli_logger.newline()
     with cli_logger.group("Shutting down cluster: {}", config["cluster_name"]):
-        _teardown_cluster(config_file, config,
+        _teardown_cluster(config,
                           workers_only=workers_only,
-                          override_cluster_name=override_cluster_name,
                           keep_min_workers=keep_min_workers,
                           proxy_stop=proxy_stop)
 
     cli_logger.success("Successfully shut down cluster: {}.", config["cluster_name"])
 
 
-def _teardown_cluster(config_file: str, config: Dict[str, Any],
+def _teardown_cluster(config: Dict[str, Any],
                       workers_only: bool,
-                      override_cluster_name: Optional[str],
                       keep_min_workers: bool,
                       proxy_stop: bool = False) -> None:
     current_step = 1
@@ -419,10 +414,10 @@ def _teardown_cluster(config_file: str, config: Dict[str, Any],
                 _numbered=("[]", current_step, total_steps)):
             current_step += 1
             try:
-                stop_node_from_head(config_file,
-                                    node_ip=None, all_nodes=False,
-                                    override_cluster_name=override_cluster_name,
-                                    indent_level=2)
+                _stop_node_from_head(
+                    config,
+                    node_ip=None, all_nodes=False,
+                    indent_level=2)
             except Exception as e:
                 cli_logger.verbose_error("{}", str(e))
                 cli_logger.warning(
@@ -444,9 +439,7 @@ def _teardown_cluster(config_file: str, config: Dict[str, Any],
         cmd += " --indent-level={}".format(2)
 
         try:
-            exec_cmd_on_cluster(config_file,
-                                cmd,
-                                override_cluster_name)
+            _exec_cmd_on_cluster(config, cmd)
         except Exception as e:
             cli_logger.verbose_error("{}", str(e))
             cli_logger.warning(
@@ -570,11 +563,7 @@ def kill_node_from_head(config_file: str, yes: bool, hard: bool,
                         override_cluster_name: Optional[str],
                         node_ip: str = None) -> Optional[str]:
     """Kills a specified or a random worker."""
-
-    config = yaml.safe_load(open(config_file).read())
-    if override_cluster_name is not None:
-        config["cluster_name"] = override_cluster_name
-    config = _bootstrap_config(config)
+    config = _load_cluster_config(config_file, override_cluster_name)
 
     if node_ip:
         cli_logger.confirm(yes, "Node {} will be killed.", node_ip, _abort=True)
@@ -594,15 +583,13 @@ def kill_node_from_head(config_file: str, yes: bool, hard: bool,
     if node_ip:
         cmds += ["--node-ip={}".format(node_ip)]
     final_cmd = " ".join(cmds)
-    exec_cmd_on_cluster(config_file, final_cmd,
-                        override_cluster_name)
+    _exec_cmd_on_cluster(config, final_cmd)
     return None
 
 
 def kill_node_on_head(yes, hard, node_ip: str = None):
     # Since this is running on head, the bootstrap config must exist
-    cluster_config_file = get_head_bootstrap_config()
-    config = yaml.safe_load(open(cluster_config_file).read())
+    config = load_head_cluster_config()
 
     if not yes:
         if node_ip:
@@ -1033,20 +1020,70 @@ def exec_cluster(config_file: str,
         _allow_uninitialized_state: whether to execute on an uninitialized head
             node.
     """
+    config = _load_cluster_config(
+        config_file, override_cluster_name, no_config_cache=no_config_cache)
+
+    result = _exec_cluster(
+        config,
+        cmd=cmd,
+        run_env=run_env,
+        screen=screen,
+        tmux=tmux,
+        stop=stop,
+        start=start,
+        port_forward=port_forward,
+        with_output=with_output,
+        _allow_uninitialized_state=_allow_uninitialized_state)
+    if tmux or screen:
+        attach_command_parts = ["cloudtik attach", config_file]
+        if override_cluster_name is not None:
+            attach_command_parts.append(
+                "--cluster-name={}".format(override_cluster_name))
+        if tmux:
+            attach_command_parts.append("--tmux")
+        elif screen:
+            attach_command_parts.append("--screen")
+
+        attach_command = " ".join(attach_command_parts)
+        cli_logger.print("Run `{}` to check command status.",
+                         cf.bold(attach_command))
+    return result
+
+
+def _exec_cluster(config: Dict[str, Any],
+                  *,
+                  cmd: str = None,
+                  run_env: str = "auto",
+                  screen: bool = False,
+                  tmux: bool = False,
+                  stop: bool = False,
+                  start: bool = False,
+                  port_forward: Optional[Port_forward] = None,
+                  with_output: bool = False,
+                  _allow_uninitialized_state: bool = False) -> str:
+    """Runs a command on the specified cluster.
+
+    Arguments:
+        cmd: command to run
+        run_env: whether to run the command on the host or in a container.
+            Select between "auto", "host" and "docker"
+        screen: whether to run in a screen
+        tmux: whether to run in a tmux session
+        stop: whether to stop the cluster after command run
+        start: whether to start the cluster if it isn't up
+        port_forward ( (int, int) or list[(int, int)] ): port(s) to forward
+        _allow_uninitialized_state: whether to execute on an uninitialized head
+            node.
+    """
     assert not (screen and tmux), "Can specify only one of `screen` or `tmux`."
     assert run_env in RUN_ENV_TYPES, "--run_env must be in {}".format(
         RUN_ENV_TYPES)
-    # TODO(rliaw): We default this to True to maintain backwards-compat.
+    # We default this to True to maintain backwards-compatibility
     # In the future we would want to support disabling login-shells
     # and interactivity.
     cmd_output_util.set_allow_interactive(True)
 
-    config = yaml.safe_load(open(config_file).read())
-    if override_cluster_name is not None:
-        config["cluster_name"] = override_cluster_name
-    config = _bootstrap_config(config, no_config_cache=no_config_cache)
     use_internal_ip = config.get("bootstrapped", False)
-
     head_node = _get_running_head_node(
         config,
         create_if_needed=start,
@@ -1077,19 +1114,6 @@ def exec_cluster(config_file: str,
         with_output=with_output,
         run_env=run_env,
         shutdown_after_run=shutdown_after_run)
-    if tmux or screen:
-        attach_command_parts = ["cloudtik attach", config_file]
-        if override_cluster_name is not None:
-            attach_command_parts.append(
-                "--cluster-name={}".format(override_cluster_name))
-        if tmux:
-            attach_command_parts.append("--tmux")
-        elif screen:
-            attach_command_parts.append("--screen")
-
-        attach_command = " ".join(attach_command_parts)
-        cli_logger.print("Run `{}` to check command status.",
-                         cf.bold(attach_command))
     return result
 
 
@@ -1160,11 +1184,9 @@ def rsync(config_file: str,
     assert bool(source) == bool(target), (
         "Must either provide both or neither source and target.")
 
-    config = yaml.safe_load(open(config_file).read())
-    if override_cluster_name is not None:
-        config["cluster_name"] = override_cluster_name
-    if should_bootstrap:
-        config = _bootstrap_config(config, no_config_cache=no_config_cache)
+    config = _load_cluster_config(
+        config_file, override_cluster_name,
+        should_bootstrap=should_bootstrap, no_config_cache=no_config_cache)
 
     is_file_mount = False
     if source and target:
@@ -1262,8 +1284,7 @@ def rsync_node_on_head(source: str,
                        node_ip: str = None,
                        all_workers: bool = False):
     # Since this is running on head, the bootstrap config must exist
-    cluster_config_file = get_head_bootstrap_config()
-    config = yaml.safe_load(open(cluster_config_file).read())
+    config = load_head_cluster_config()
     provider = _get_node_provider(config["provider"], config["cluster_name"])
 
     is_file_mount = False
@@ -1302,20 +1323,20 @@ def rsync_node_on_head(source: str,
     else:
         # either node_ip or all_workers be set
         if all_workers:
-            nodes.extend(_get_worker_nodes(config, None))
+            nodes.extend(_get_worker_nodes(config))
 
     for node_id in nodes:
         rsync_to_node(node_id, source, target)
 
 
 def get_worker_cpus(config, provider):
-    workers = _get_worker_nodes(config, None)
+    workers = _get_worker_nodes(config)
     workers_info = get_nodes_info(provider, workers, True, config["available_node_types"])
     return sum_worker_cpus(workers_info)
 
 
 def get_worker_memory(config, provider):
-    workers = _get_worker_nodes(config, None)
+    workers = _get_worker_nodes(config)
     workers_info = get_nodes_info(provider, workers, True, config["available_node_types"])
     return sum_worker_memory(workers_info)
 
@@ -1323,11 +1344,7 @@ def get_worker_memory(config, provider):
 def get_head_node_ip(config_file: str,
                      override_cluster_name: Optional[str] = None) -> str:
     """Returns head node IP for given configuration file if exists."""
-
-    config = yaml.safe_load(open(config_file).read())
-    if override_cluster_name is not None:
-        config["cluster_name"] = override_cluster_name
-
+    config = _load_cluster_config(config_file, override_cluster_name)
     return _get_head_node_ip(config)
 
 
@@ -1335,11 +1352,7 @@ def get_worker_node_ips(config_file: str,
                         override_cluster_name: Optional[str] = None
                         ) -> List[str]:
     """Returns worker node IPs for given configuration file."""
-
-    config = yaml.safe_load(open(config_file).read())
-    if override_cluster_name is not None:
-        config["cluster_name"] = override_cluster_name
-
+    config = _load_cluster_config(config_file, override_cluster_name)
     return _get_worker_node_ips(config)
 
 
@@ -1357,13 +1370,9 @@ def _get_worker_node_ips(config: Dict[str, Any]) -> List[str]:
     return [get_node_cluster_ip(provider, node) for node in nodes]
 
 
-def _get_worker_nodes(config: Dict[str, Any],
-                      override_cluster_name: Optional[str]) -> List[str]:
+def _get_worker_nodes(config: Dict[str, Any]) -> List[str]:
     """Returns worker node ids for given configuration."""
-    # todo: technically could be reused in get_worker_node_ips
-    if override_cluster_name is not None:
-        config["cluster_name"] = override_cluster_name
-
+    # Technically could be reused in get_worker_node_ips
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     return provider.non_terminated_nodes({CLOUDTIK_TAG_NODE_KIND: NODE_KIND_WORKER})
 
@@ -1627,11 +1636,7 @@ def show_worker_memory(config_file: str,
 def show_cluster_info(config_file: str,
                       override_cluster_name: Optional[str] = None) -> None:
     """Shows the cluster information for given configuration file."""
-    config = yaml.safe_load(open(config_file).read())
-    if override_cluster_name is not None:
-        config["cluster_name"] = override_cluster_name
-
-    config = _bootstrap_config(config, no_config_cache=False)
+    config = _load_cluster_config(config_file, override_cluster_name)
     provider = _get_node_provider(config["provider"], config["cluster_name"])
 
     head_node = None
@@ -1648,7 +1653,7 @@ def show_cluster_info(config_file: str,
 
     # Check the running worker nodes
     head_count = 1
-    workers = _get_worker_nodes(config, None)
+    workers = _get_worker_nodes(config)
     worker_count = len(workers)
 
     cli_logger.print(cf.bold("Cluster {}:"), config["cluster_name"])
@@ -1749,11 +1754,7 @@ def show_useful_commands(config_file: str,
 def show_cluster_status(config_file: str,
                         override_cluster_name: Optional[str] = None
                         ) -> None:
-    config = yaml.safe_load(open(config_file).read())
-    if override_cluster_name is not None:
-        config["cluster_name"] = override_cluster_name
-    config = _bootstrap_config(config, no_config_cache=False)
-
+    config = _load_cluster_config(config_file, override_cluster_name)
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     nodes = provider.non_terminated_nodes({})
     nodes_info = get_nodes_info(provider, nodes)
@@ -1797,10 +1798,8 @@ def start_proxy(config_file: str,
                 override_cluster_name: Optional[str] = None,
                 no_config_cache: bool = False,
                 bind_address: str = None):
-    config = yaml.safe_load(open(config_file).read())
-    if override_cluster_name is not None:
-        config["cluster_name"] = override_cluster_name
-    config = _bootstrap_config(config, no_config_cache=no_config_cache)
+    config = _load_cluster_config(config_file, override_cluster_name,
+                                  no_config_cache=no_config_cache)
 
     if is_use_internal_ip(config):
         cli_logger.print(cf.bold(
@@ -1890,11 +1889,7 @@ def _start_proxy_process(head_node_ip, config,
 
 def stop_proxy(config_file: str,
                override_cluster_name: Optional[str] = None):
-    config = yaml.safe_load(open(config_file).read())
-
-    if override_cluster_name is not None:
-        config["cluster_name"] = override_cluster_name
-
+    config = _load_cluster_config(config_file, override_cluster_name)
     _stop_proxy(config)
 
 
@@ -1932,6 +1927,20 @@ def exec_cmd_on_cluster(cluster_config_file: str,
         _allow_uninitialized_state=False)
 
 
+def _exec_cmd_on_cluster(config: Dict[str, Any], cmd: str):
+    _exec_cluster(
+        config,
+        cmd=cmd,
+        run_env="auto",
+        screen=False,
+        tmux=False,
+        stop=False,
+        start=False,
+        port_forward=None,
+        with_output=False,
+        _allow_uninitialized_state=False)
+
+
 def cluster_debug_status(cluster_config_file: str,
                          override_cluster_name: Optional[str]) -> None:
     """Return the debug status of a cluster scaling from head node"""
@@ -1950,8 +1959,7 @@ def cluster_health_check(cluster_config_file: str,
 
 def teardown_cluster_on_head(keep_min_workers: bool) -> None:
     # Since this is running on head, the bootstrap config must exist
-    cluster_config_file = get_head_bootstrap_config()
-    config = yaml.safe_load(open(cluster_config_file).read())
+    config = load_head_cluster_config()
     provider = _get_node_provider(config["provider"], config["cluster_name"])
 
     teardown_cluster_nodes(config, provider,
@@ -2167,8 +2175,7 @@ def attach_node_on_head(node_ip: str,
                         new: bool = False,
                         port_forward: Optional[Port_forward] = None,
                         force_to_host: bool = False):
-    cluster_config_file = get_head_bootstrap_config()
-    config = yaml.safe_load(open(cluster_config_file).read())
+    config = load_head_cluster_config()
     provider = _get_node_provider(config["provider"], config["cluster_name"])
 
     if not node_ip:
@@ -2205,8 +2212,7 @@ def exec_node_on_head(
                      tmux: bool = False,
                      port_forward: Optional[Port_forward] = None,
                      parallel: bool = True):
-    cluster_config_file = get_head_bootstrap_config()
-    config = yaml.safe_load(open(cluster_config_file).read())
+    config = load_head_cluster_config()
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     head_node = _get_running_head_node(config, _provider=provider)
 
@@ -2263,8 +2269,7 @@ def start_node_on_head(node_ip: str = None,
                        all_nodes: bool = False,
                        parallel: bool = True):
     # Since this is running on head, the bootstrap config must exist
-    cluster_config_file = get_head_bootstrap_config()
-    config = yaml.safe_load(open(cluster_config_file).read())
+    config = load_head_cluster_config()
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     head_node = _get_running_head_node(config, _provider=provider)
     head_node_ip = provider.internal_ip(head_node)
@@ -2313,8 +2318,18 @@ def start_node_from_head(config_file: str,
                          indent_level: int = None,
                          parallel: bool = True):
     """Execute start node command on head."""
+    config = _load_cluster_config(config_file, override_cluster_name,
+                                  no_config_cache=no_config_cache)
+    _start_node_from_head(
+        config, node_ip=node_ip, all_nodes=all_nodes,
+        indent_level=indent_level, parallel=parallel)
 
-    # execute attach on head
+
+def _start_node_from_head(config: Dict[str, Any],
+                          node_ip: str,
+                          all_nodes: bool,
+                          indent_level: int = None,
+                          parallel: bool = True):
     cmds = [
         "cloudtik",
         "head",
@@ -2332,9 +2347,7 @@ def start_node_from_head(config_file: str,
         cmds += ["--no-parallel"]
     final_cmd = " ".join(cmds)
 
-    exec_cmd_on_cluster(config_file, final_cmd,
-                        override_cluster_name,
-                        no_config_cache=no_config_cache)
+    _exec_cmd_on_cluster(config, final_cmd)
 
 
 def stop_node_from_head(config_file: str,
@@ -2346,7 +2359,18 @@ def stop_node_from_head(config_file: str,
                         parallel: bool = True):
     """Execute stop node command on head."""
 
-    # execute attach on head
+    config = _load_cluster_config(config_file, override_cluster_name,
+                                  no_config_cache=no_config_cache)
+    _stop_node_from_head(
+        config, node_ip=node_ip, all_nodes=all_nodes,
+        indent_level=indent_level, parallel=parallel)
+
+
+def _stop_node_from_head(config: Dict[str, Any],
+                         node_ip: str,
+                         all_nodes: bool,
+                         indent_level: int = None,
+                         parallel: bool = True):
     cmds = [
         "cloudtik",
         "head",
@@ -2364,9 +2388,7 @@ def stop_node_from_head(config_file: str,
         cmds += ["--no-parallel"]
     final_cmd = " ".join(cmds)
 
-    exec_cmd_on_cluster(config_file, final_cmd,
-                        override_cluster_name,
-                        no_config_cache=no_config_cache)
+    _exec_cmd_on_cluster(config, final_cmd)
 
 
 def get_nodes_of(config,
@@ -2380,7 +2402,7 @@ def get_nodes_of(config,
         else:
             nodes = []
         if all_nodes:
-            nodes.extend(_get_worker_nodes(config, None))
+            nodes.extend(_get_worker_nodes(config))
     else:
         node_id = provider.get_node_id(node_ip, use_internal_ip=True)
         if not node_id:
@@ -2394,8 +2416,7 @@ def stop_node_on_head(node_ip: str = None,
                       all_nodes: bool = False,
                       parallel: bool = True):
     # Since this is running on head, the bootstrap config must exist
-    cluster_config_file = get_head_bootstrap_config()
-    config = yaml.safe_load(open(cluster_config_file).read())
+    config = load_head_cluster_config()
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     head_node = _get_running_head_node(config, _provider=provider,
                                        _allow_uninitialized_state=True)
@@ -2445,10 +2466,7 @@ def scale_cluster(config_file: str, yes: bool, override_cluster_name: Optional[s
     assert not (cpus and nodes), "Can specify only one of `cpus` or `nodes`."
     assert (cpus or nodes), "Need specify either `cpus` or `nodes`."
 
-    config = yaml.safe_load(open(config_file).read())
-    if override_cluster_name is not None:
-        config["cluster_name"] = override_cluster_name
-    config = _bootstrap_config(config)
+    config = _load_cluster_config(config_file, override_cluster_name)
 
     resource_string = f"{cpus} CPUs" if cpus else f"{nodes} nodes"
     cli_logger.confirm(yes, "Are you sure that you want to scale cluster {} to {}?",
@@ -2483,8 +2501,7 @@ def scale_cluster_on_head(yes: bool, cpus: int, nodes: int):
     assert not (cpus and nodes), "Can specify only one of `cpus` or `nodes`."
     assert (cpus or nodes), "Need specify either `cpus` or `nodes`."
 
-    cluster_config_file = get_head_bootstrap_config()
-    config = yaml.safe_load(open(cluster_config_file).read())
+    config = load_head_cluster_config()
 
     if not yes:
         resource_string = f"{cpus} CPUs" if cpus else f"{nodes} nodes"

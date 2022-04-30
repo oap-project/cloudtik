@@ -1723,6 +1723,12 @@ def get_head_bootstrap_config():
     raise RuntimeError("Cluster boostrap config not found. Incorrect head environment!")
 
 
+def load_head_cluster_config() -> Dict[str, Any]:
+    cluster_config_file = get_head_bootstrap_config()
+    config = yaml.safe_load(open(cluster_config_file).read())
+    return config
+
+
 def get_attach_command(use_screen: bool,
                        use_tmux: bool,
                        new: bool = False):

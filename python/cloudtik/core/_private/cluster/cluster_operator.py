@@ -649,25 +649,26 @@ def _kill_node(config, hard, node_ip: str = None):
     return node_ip
 
 
-def monitor_cluster(cluster_config_file: str, num_lines: int,
+def monitor_cluster(config_file: str, num_lines: int,
                     override_cluster_name: Optional[str] = None,
                     file_type: str = None) -> None:
     """Tails the controller logs of a cluster."""
+    config = _load_cluster_config(config_file, override_cluster_name)
+
     cmd = f"tail -n {num_lines} -f /tmp/cloudtik/session_latest/logs/cloudtik_cluster_controller"
     if file_type and file_type != "":
         cmd += f".{file_type}"
     else:
         cmd += "*"
 
-    exec_cluster(
-        cluster_config_file,
+    _exec_cluster(
+        config,
         cmd=cmd,
         run_env="auto",
         screen=False,
         tmux=False,
         stop=False,
         start=False,
-        override_cluster_name=override_cluster_name,
         port_forward=None)
 
 
@@ -990,83 +991,23 @@ def attach_cluster(config_file: str,
         new: whether to force a new screen
         port_forward ( (int,int) or list[(int,int)] ): port(s) to forward
     """
-
+    config = _load_cluster_config(config_file, override_cluster_name,
+                                  no_config_cache=no_config_cache)
     cmd = get_attach_command(use_screen, use_tmux, new)
     run_env = "auto"
     if force_to_host:
         run_env = "host"
 
-    exec_cluster(
-        config_file,
+    _exec_cluster(
+        config,
         cmd=cmd,
         run_env=run_env,
         screen=False,
         tmux=False,
         stop=False,
         start=start,
-        override_cluster_name=override_cluster_name,
-        no_config_cache=no_config_cache,
         port_forward=port_forward,
         _allow_uninitialized_state=True)
-
-
-def exec_cluster(config_file: str,
-                 *,
-                 cmd: str = None,
-                 run_env: str = "auto",
-                 screen: bool = False,
-                 tmux: bool = False,
-                 stop: bool = False,
-                 start: bool = False,
-                 override_cluster_name: Optional[str] = None,
-                 no_config_cache: bool = False,
-                 port_forward: Optional[Port_forward] = None,
-                 with_output: bool = False,
-                 _allow_uninitialized_state: bool = False) -> str:
-    """Runs a command on the specified cluster.
-
-    Arguments:
-        config_file: path to the cluster yaml
-        cmd: command to run
-        run_env: whether to run the command on the host or in a container.
-            Select between "auto", "host" and "docker"
-        screen: whether to run in a screen
-        tmux: whether to run in a tmux session
-        stop: whether to stop the cluster after command run
-        start: whether to start the cluster if it isn't up
-        override_cluster_name: set the name of the cluster
-        port_forward ( (int, int) or list[(int, int)] ): port(s) to forward
-        _allow_uninitialized_state: whether to execute on an uninitialized head
-            node.
-    """
-    config = _load_cluster_config(
-        config_file, override_cluster_name, no_config_cache=no_config_cache)
-
-    result = _exec_cluster(
-        config,
-        cmd=cmd,
-        run_env=run_env,
-        screen=screen,
-        tmux=tmux,
-        stop=stop,
-        start=start,
-        port_forward=port_forward,
-        with_output=with_output,
-        _allow_uninitialized_state=_allow_uninitialized_state)
-    if tmux or screen:
-        attach_command_parts = ["cloudtik attach", config_file]
-        if override_cluster_name is not None:
-            attach_command_parts.append(
-                "--cluster-name={}".format(override_cluster_name))
-        if tmux:
-            attach_command_parts.append("--tmux")
-        elif screen:
-            attach_command_parts.append("--screen")
-
-        attach_command = " ".join(attach_command_parts)
-        cli_logger.print("Run `{}` to check command status.",
-                         cf.bold(attach_command))
-    return result
 
 
 def _exec_cluster(config: Dict[str, Any],
@@ -1165,48 +1106,6 @@ def _exec(updater: NodeUpdaterThread,
         with_output=with_output,
         run_env=run_env,
         shutdown_after_run=shutdown_after_run)
-
-
-def rsync(config_file: str,
-          source: Optional[str],
-          target: Optional[str],
-          override_cluster_name: Optional[str],
-          down: bool,
-          node_ip: Optional[str] = None,
-          all_nodes: bool = False,
-          use_internal_ip: bool = False,
-          no_config_cache: bool = False,
-          should_bootstrap: bool = True,
-          _runner: ModuleType = subprocess) -> None:
-    """Rsyncs files.
-
-    Arguments:
-        config_file: path to the cluster yaml
-        source: source dir
-        target: target dir
-        override_cluster_name: set the name of the cluster
-        down: whether we're syncing remote -> local
-        node_ip (str): Address of node. Raise Exception
-            if both node_ip and 'all_nodes' are provided.
-        all_nodes (bool): Whether the rsync up the files to all nodes
-        use_internal_ip (bool): Whether the provided node_ip is
-            public or private.
-        should_bootstrap: whether to bootstrap cluster config before syncing
-    """
-    config = _load_cluster_config(
-        config_file, override_cluster_name,
-        should_bootstrap=should_bootstrap, no_config_cache=no_config_cache)
-
-    _rsync(
-        config,
-        source=source,
-        target=target,
-        down=down,
-        node_ip=node_ip,
-        all_nodes=all_nodes,
-        use_internal_ip=use_internal_ip,
-        _runner=_runner
-    )
 
 
 def _rsync(config: Dict[str, Any],
@@ -1986,16 +1885,16 @@ def exec_cmd_on_cluster(cluster_config_file: str,
                         cmd: str,
                         override_cluster_name: Optional[str],
                         no_config_cache: bool = False):
-    exec_cluster(
-        cluster_config_file,
+    config = _load_cluster_config(cluster_config_file, override_cluster_name,
+                                  no_config_cache=no_config_cache)
+    _exec_cluster(
+        config,
         cmd=cmd,
         run_env="auto",
         screen=False,
         tmux=False,
         stop=False,
         start=False,
-        override_cluster_name=override_cluster_name,
-        no_config_cache=no_config_cache,
         port_forward=None,
         with_output=False,
         _allow_uninitialized_state=False)
@@ -2191,6 +2090,8 @@ def attach_worker(config_file: str,
         port_forward ( (int,int) or list[(int,int)] ): port(s) to forward
         force_to_host: Whether attach to host even running with docker
     """
+    config = _load_cluster_config(config_file, override_cluster_name,
+                                  no_config_cache=no_config_cache)
 
     # execute attach on head
     cmds = [
@@ -2211,16 +2112,14 @@ def attach_worker(config_file: str,
     # TODO (haifeng): handle port forward for two state cases
     final_cmd = " ".join(cmds)
 
-    exec_cluster(
-        config_file,
+    _exec_cluster(
+        config,
         cmd=final_cmd,
         run_env="auto",
         screen=False,
         tmux=False,
         stop=False,
         start=False,
-        override_cluster_name=override_cluster_name,
-        no_config_cache=no_config_cache,
         port_forward=port_forward,
         _allow_uninitialized_state=False)
 

@@ -166,15 +166,6 @@ def create_or_update_cluster(
     # no_controller_on_head is an internal flag used by the K8s operator.
     # If True, prevents autoscaling config sync to the  head during cluster
     # creation. See pull #13720.
-    set_using_login_shells(use_login_shells)
-    if not use_login_shells:
-        cmd_output_util.set_allow_interactive(False)
-    if redirect_command_output is None:
-        # Do not redirect by default.
-        cmd_output_util.set_output_redirected(False)
-    else:
-        cmd_output_util.set_output_redirected(redirect_command_output)
-
     def handle_yaml_error(e):
         cli_logger.error("Cluster config invalid")
         cli_logger.newline()
@@ -197,11 +188,8 @@ def create_or_update_cluster(
     except yaml.scanner.ScannerError as e:
         handle_yaml_error(e)
         raise
-    global_event_system.execute_callback(CreateClusterEvent.up_started,
-                                         {"cluster_config": config})
 
-    # todo: validate file_mounts, ssh keys, etc.
-
+    # TODO: validate file_mounts, ssh keys, etc.
     importer = _NODE_PROVIDERS.get(config["provider"]["type"])
     if not importer:
         cli_logger.abort(
@@ -244,9 +232,15 @@ def create_or_update_cluster(
     config = _bootstrap_config(config, no_config_cache=no_config_cache,
                                init_config_cache=True)
 
-    try_logging_config(config)
-    get_or_create_head_node(config, no_restart, restart_only, yes,
-                            no_controller_on_head)
+    _create_or_update_cluster(
+        config,
+        no_restart=no_restart,
+        restart_only=restart_only,
+        yes=yes,
+        redirect_command_output=redirect_command_output,
+        use_login_shells=use_login_shells,
+        no_controller_on_head=no_controller_on_head
+    )
 
     if not is_use_internal_ip(config):
         # start proxy and bind to localhost
@@ -262,6 +256,31 @@ def create_or_update_cluster(
                          head_node,
                          override_cluster_name)
     return config
+
+
+def _create_or_update_cluster(
+        config: Dict[str, Any],
+        no_restart: bool,
+        restart_only: bool,
+        yes: bool,
+        redirect_command_output: Optional[bool] = False,
+        use_login_shells: bool = True,
+        no_controller_on_head: bool = False):
+    global_event_system.execute_callback(CreateClusterEvent.up_started,
+                                         {"cluster_config": config})
+
+    set_using_login_shells(use_login_shells)
+    if not use_login_shells:
+        cmd_output_util.set_allow_interactive(False)
+    if redirect_command_output is None:
+        # Do not redirect by default.
+        cmd_output_util.set_output_redirected(False)
+    else:
+        cmd_output_util.set_output_redirected(redirect_command_output)
+
+    try_logging_config(config)
+    get_or_create_head_node(config, no_restart, restart_only,
+                            yes, no_controller_on_head)
 
 
 CONFIG_CACHE_VERSION = 1
@@ -1174,6 +1193,30 @@ def rsync(config_file: str,
             public or private.
         should_bootstrap: whether to bootstrap cluster config before syncing
     """
+    config = _load_cluster_config(
+        config_file, override_cluster_name,
+        should_bootstrap=should_bootstrap, no_config_cache=no_config_cache)
+
+    _rsync(
+        config,
+        source=source,
+        target=target,
+        down=down,
+        ip_address=ip_address,
+        all_nodes=all_nodes,
+        use_internal_ip=use_internal_ip,
+        _runner=_runner
+    )
+
+
+def _rsync(config: Dict[str, Any],
+           source: Optional[str],
+           target: Optional[str],
+           down: bool,
+           ip_address: Optional[str] = None,
+           all_nodes: bool = False,
+           use_internal_ip: bool = False,
+           _runner: ModuleType = subprocess) -> None:
     if bool(source) != bool(target):
         cli_logger.abort(
             "Expected either both a source and a target, or neither.")
@@ -1183,10 +1226,6 @@ def rsync(config_file: str,
 
     assert bool(source) == bool(target), (
         "Must either provide both or neither source and target.")
-
-    config = _load_cluster_config(
-        config_file, override_cluster_name,
-        should_bootstrap=should_bootstrap, no_config_cache=no_config_cache)
 
     is_file_mount = False
     if source and target:
@@ -1224,7 +1263,7 @@ def rsync(config_file: str,
     if not ip_address:
         rsync_to_node(head_node, source, target, is_head_node=True)
         if not down and all_nodes:
-            rsync_to_node_from_head(config_file, override_cluster_name,
+            rsync_to_node_from_head(config,
                                     target, target, False,
                                     None, all_nodes)
     else:
@@ -1237,20 +1276,19 @@ def rsync(config_file: str,
         target_on_head = tempfile.mktemp(prefix=f"{target_base}_")
         if down:
             # first run rsync on head
-            rsync_to_node_from_head(config_file, override_cluster_name,
+            rsync_to_node_from_head(config,
                                     source, target_on_head, True,
                                     ip_address)
             rsync_to_node(head_node, target_on_head, target, is_head_node=True)
         else:
             # First rsync with head
             rsync_to_node(head_node, source, target_on_head, is_head_node=True)
-            rsync_to_node_from_head(config_file, override_cluster_name,
+            rsync_to_node_from_head(config,
                                     target_on_head, target, False,
                                     ip_address)
 
 
-def rsync_to_node_from_head(cluster_config_file: str,
-                            override_cluster_name: Optional[str],
+def rsync_to_node_from_head(config: Dict[str, Any],
                             source: str,
                             target: str,
                             down: bool,
@@ -1275,7 +1313,7 @@ def rsync_to_node_from_head(cluster_config_file: str,
         cmds += ["--all-workers"]
 
     final_cmd = " ".join(cmds)
-    exec_cmd_on_cluster(cluster_config_file, final_cmd, override_cluster_name)
+    _exec_cmd_on_cluster(config, final_cmd)
 
 
 def rsync_node_on_head(source: str,
@@ -2463,9 +2501,6 @@ def stop_node_on_head(node_ip: str = None,
 
 def scale_cluster(config_file: str, yes: bool, override_cluster_name: Optional[str],
                   cpus: int, nodes: int):
-    assert not (cpus and nodes), "Can specify only one of `cpus` or `nodes`."
-    assert (cpus or nodes), "Need specify either `cpus` or `nodes`."
-
     config = _load_cluster_config(config_file, override_cluster_name)
 
     resource_string = f"{cpus} CPUs" if cpus else f"{nodes} nodes"
@@ -2473,13 +2508,19 @@ def scale_cluster(config_file: str, yes: bool, override_cluster_name: Optional[s
                        config["cluster_name"], resource_string, _abort=True)
     cli_logger.newline()
 
+    _scale_cluster(config, cpus, nodes)
+
+
+def _scale_cluster(config: Dict[str, Any], cpus: int, nodes: int = None):
+    assert not (cpus and nodes), "Can specify only one of `cpus` or `nodes`."
+    assert (cpus or nodes), "Need specify either `cpus` or `nodes`."
+
     # send the head the resource request
-    scale_cluster_from_head(config_file, override_cluster_name,
-                            cpus, nodes)
+    scale_cluster_from_head(config, cpus, nodes)
 
 
-def scale_cluster_from_head(config_file: str, override_cluster_name: Optional[str],
-                            cpus: int, nodes: int):
+def scale_cluster_from_head(config: Dict[str, Any],
+                            cpus: int, nodes: int = None):
     # Make a request to head to scale the cluster
     cmds = [
         "cloudtik",
@@ -2493,8 +2534,7 @@ def scale_cluster_from_head(config_file: str, override_cluster_name: Optional[st
         cmds += ["--nodes={}".format(nodes)]
 
     final_cmd = " ".join(cmds)
-    exec_cmd_on_cluster(config_file, final_cmd,
-                        override_cluster_name)
+    _exec_cmd_on_cluster(config, final_cmd)
 
 
 def scale_cluster_on_head(yes: bool, cpus: int, nodes: int):

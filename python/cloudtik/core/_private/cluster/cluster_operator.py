@@ -1426,7 +1426,7 @@ def get_cluster_dump_archive_on_head(
             "You can only use either `--output` or `--stream`, but not both.")
 
     # Parse arguments (e.g. fetch info from cluster config)
-    cluster_config_file, head_node_ip, workers, ssh_user, ssh_key, docker, cluster_name = \
+    config_file, head_node_ip, workers, ssh_user, ssh_key, docker, cluster_name = \
         _info_from_params(None, host, None, None, None, False)
 
     nodes = [
@@ -1469,12 +1469,12 @@ def get_cluster_dump_archive_on_head(
     return target
 
 
-def get_cluster_dump_archive(cluster_config_file: Optional[str] = None,
+def get_cluster_dump_archive(config_file: Optional[str] = None,
                              host: Optional[str] = None,
                              ssh_user: Optional[str] = None,
                              ssh_key: Optional[str] = None,
                              docker: Optional[str] = None,
-                             head_only: Optional[str] = None,
+                             head_only: Optional[bool] = None,
                              output: Optional[str] = None,
                              logs: bool = True,
                              debug_state: bool = True,
@@ -1513,8 +1513,8 @@ def get_cluster_dump_archive(cluster_config_file: Optional[str] = None,
         f"anyone.")
 
     # Parse arguments (e.g. fetch info from cluster config)
-    cluster_config_file, head_node_ip, workers, ssh_user, ssh_key, docker, cluster_name = \
-        _info_from_params(cluster_config_file, host, ssh_user, ssh_key, docker, True)
+    config_file, head_node_ip, workers, ssh_user, ssh_key, docker, cluster_name = \
+        _info_from_params(config_file, host, ssh_user, ssh_key, docker, True)
 
     if not head_node_ip:
         cli_logger.error(
@@ -1881,11 +1881,11 @@ def _stop_proxy(config: Dict[str, Any]):
     cli_logger.print(cf.bold("Successfully stopped the SOCKS5 proxy of cluster {}."), cluster_name)
 
 
-def exec_cmd_on_cluster(cluster_config_file: str,
+def exec_cmd_on_cluster(config_file: str,
                         cmd: str,
                         override_cluster_name: Optional[str],
                         no_config_cache: bool = False):
-    config = _load_cluster_config(cluster_config_file, override_cluster_name,
+    config = _load_cluster_config(config_file, override_cluster_name,
                                   no_config_cache=no_config_cache)
     _exec_cluster(
         config,
@@ -1914,20 +1914,20 @@ def _exec_cmd_on_cluster(config: Dict[str, Any], cmd: str):
         _allow_uninitialized_state=False)
 
 
-def cluster_debug_status(cluster_config_file: str,
+def cluster_debug_status(config_file: str,
                          override_cluster_name: Optional[str]) -> None:
     """Return the debug status of a cluster scaling from head node"""
 
     cmd = f"cloudtik head debug-status"
-    exec_cmd_on_cluster(cluster_config_file, cmd, override_cluster_name)
+    exec_cmd_on_cluster(config_file, cmd, override_cluster_name)
 
 
-def cluster_health_check(cluster_config_file: str,
+def cluster_health_check(config_file: str,
                          override_cluster_name: Optional[str]) -> None:
     """Do a health check on head node and return the results"""
 
     cmd = f"cloudtik head health-check"
-    exec_cmd_on_cluster(cluster_config_file, cmd, override_cluster_name)
+    exec_cmd_on_cluster(config_file, cmd, override_cluster_name)
 
 
 def teardown_cluster_on_head(keep_min_workers: bool) -> None:
@@ -1972,12 +1972,12 @@ def cluster_process_status_on_head(redis_address):
     cli_logger.print(tb)
 
 
-def cluster_process_status(cluster_config_file: str,
+def cluster_process_status(config_file: str,
                            override_cluster_name: Optional[str]) -> None:
     """Do a health check on head node and return the results"""
 
     cmd = f"cloudtik head process-status"
-    exec_cmd_on_cluster(cluster_config_file, cmd, override_cluster_name)
+    exec_cmd_on_cluster(config_file, cmd, override_cluster_name)
 
 
 def exec_on_nodes(config: Dict[str, Any],

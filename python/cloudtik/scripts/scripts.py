@@ -1332,7 +1332,7 @@ def cluster_dump(cluster_config_file: Optional[str] = None,
     ``--host <host1,host2,...>`` parameter.
     """
     archive_path = get_cluster_dump_archive(
-        cluster_config_file=cluster_config_file,
+        config_file=cluster_config_file,
         host=host,
         ssh_user=ssh_user,
         ssh_key=ssh_key,

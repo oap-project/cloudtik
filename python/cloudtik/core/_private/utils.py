@@ -1724,8 +1724,8 @@ def get_head_bootstrap_config():
 
 
 def load_head_cluster_config() -> Dict[str, Any]:
-    cluster_config_file = get_head_bootstrap_config()
-    config = yaml.safe_load(open(cluster_config_file).read())
+    config_file = get_head_bootstrap_config()
+    config = yaml.safe_load(open(config_file).read())
     return config
 
 

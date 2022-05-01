@@ -4,8 +4,8 @@ from typing import Any, Dict
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.runtime import Runtime
 from cloudtik.runtime.spark.utils import _config_runtime_resources, _with_runtime_environment_variables, \
-    _is_runtime_scripts, _get_runnable_command, get_spark_runtime_processes, _validate_config, \
-    _verify_config, get_spark_runtime_logs, _get_runtime_commands, \
+    _is_runtime_scripts, _get_runnable_command, get_runtime_processes, _validate_config, \
+    _verify_config, get_runtime_logs, _get_runtime_commands, \
     _get_defaults_config, _get_useful_urls, _config_depended_services
 
 logger = logging.getLogger(__name__)
@@ -64,7 +64,7 @@ class SparkRuntime(Runtime):
         """Return a dictionary of name to log paths.
         For example {"server-a": "/tmp/server-a/logs"}
         """
-        return get_spark_runtime_logs()
+        return get_runtime_logs()
 
     @staticmethod
     def get_processes(self):
@@ -77,4 +77,4 @@ class SparkRuntime(Runtime):
         For example
         ["cloudtik_cluster_controller.py", False, "ClusterController", "head"],
         """
-        return get_spark_runtime_processes()
+        return get_runtime_processes()

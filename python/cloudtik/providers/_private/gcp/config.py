@@ -614,29 +614,6 @@ def create_or_update_firewall(config, compute, firewall_body):
         update_firewall(compute, project_id, firewall_body)
 
 
-def _create_default_allow_ssh_firewall(config, compute, VpcId):
-    project_id = config["provider"]["project_id"]
-    workspace_name = config["workspace_name"]
-    firewall_name = "cloudtik-{}-default-allow-ssh-firewall".format(workspace_name)
-    firewall_body = {
-        "name": firewall_name,
-        "network": "projects/{}/global/networks/{}".format(project_id, VpcId),
-        "allowed": [
-          {
-            "IPProtocol": "tcp",
-            "ports": [
-              "22"
-            ]
-          }
-        ],
-        "sourceRanges": [
-          "0.0.0.0/0"
-        ]
-    }
-
-    create_or_update_firewall(config, compute, firewall_body)
-
-
 def get_subnetworks_ipCidrRange(config, compute, VpcId):
     project_id = config["provider"]["project_id"]
     subnetworks = compute.networks().get(project=project_id, network=VpcId).execute().get("subnetworks")
@@ -700,7 +677,6 @@ def _create_or_update_custom_firewalls(config, compute, VpcId):
 
 
 def _create_or_update_firewalls(config, compute, VpcId):
-    _create_default_allow_ssh_firewall(config, compute, VpcId)
     _create_default_allow_internal_firewall(config, compute, VpcId)
     _create_or_update_custom_firewalls(config, compute, VpcId)
 

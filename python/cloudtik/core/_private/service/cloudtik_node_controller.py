@@ -65,7 +65,7 @@ class NodeController:
         self.control_state.initialize_control_state(ip, port, redis_password)
         self.node_table = self.control_state.get_node_table()
         self.processes_to_check = constants.CLOUDTIK_PROCESSES
-        runtime_list = runtimes.split() if runtimes else None
+        runtime_list = runtimes.split(",") if runtimes and len(runtimes) > 0 else None
         self.processes_to_check.extend(get_runtime_processes(runtime_list))
         logger.info("Controller: Started")
 

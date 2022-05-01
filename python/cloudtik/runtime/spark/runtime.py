@@ -60,14 +60,14 @@ class SparkRuntime(Runtime):
         return _get_useful_urls(cluster_head_ip)
 
     @staticmethod
-    def get_logs(self) -> Dict[str, str]:
+    def get_logs() -> Dict[str, str]:
         """Return a dictionary of name to log paths.
         For example {"server-a": "/tmp/server-a/logs"}
         """
         return get_runtime_logs()
 
     @staticmethod
-    def get_processes(self):
+    def get_processes():
         """Return a list of processes for this runtime.
         Format:
         #1 Keyword to filter,

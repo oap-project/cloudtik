@@ -80,7 +80,8 @@ class StartParams:
                  num_cpus=None,
                  num_gpus=None,
                  memory=None,
-                 redirect_output=None
+                 redirect_output=None,
+                 runtimes=None
                  ):
         self.external_addresses = external_addresses
         self.redis_address = redis_address
@@ -103,6 +104,7 @@ class StartParams:
         self.memory = memory
         self.redirect_output = redirect_output
         self.resources = resources
+        self.runtimes = runtimes
         self._check_usage()
 
     def update(self, **kwargs):

@@ -1975,8 +1975,9 @@ def cluster_process_status_on_head(redis_address):
     for node_info in nodes_info:
         process_info = node_info["process"]
         tb.add_row([node_info["resource"]["ip"], node_info["node_type"],
-                    process_info["NodeController"], process_info["NodeManager"], process_info["LogMonitor"],
-                    process_info["ClusterController"], process_info["ResourceManager"], process_info["RedisServer"]
+                    process_info.get("NodeController", "-"), process_info.get("NodeManager", "-"),
+                    process_info.get("LogMonitor", "-"), process_info.get("ClusterController", "-"),
+                    process_info.get("ResourceManager", "-"), process_info.get("RedisServer", "-")
                     ])
     cli_logger.print("Total {} live nodes reported.", len(nodes_info))
     cli_logger.print(tb)

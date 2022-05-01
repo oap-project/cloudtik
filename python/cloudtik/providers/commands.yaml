@@ -23,12 +23,12 @@ setup_commands:
 # Command to start on the head node. You don't need to change this.
 head_start_commands:
     - cloudtik node-stop
-    - ulimit -n 65536; cloudtik node-start --head --node-ip-address=$CLOUDTIK_NODE_IP --port=6789 --cluster-scaling-config=~/cloudtik_bootstrap_config.yaml
+    - ulimit -n 65536; cloudtik node-start --head --node-ip-address=$CLOUDTIK_NODE_IP --port=6789 --cluster-scaling-config=~/cloudtik_bootstrap_config.yaml --runtimes=$CLOUDTIK_RUNTIMES
 
 # Command to start on worker nodes. You don't need to change this.
 worker_start_commands:
     - cloudtik node-stop
-    - ulimit -n 65536; cloudtik node-start --node-ip-address=$CLOUDTIK_NODE_IP --address=$CLOUDTIK_HEAD_IP:6789
+    - ulimit -n 65536; cloudtik node-start --node-ip-address=$CLOUDTIK_NODE_IP --address=$CLOUDTIK_HEAD_IP:6789 --runtimes=$CLOUDTIK_RUNTIMES
 
 # Command to start on the head node. You don't need to change this.
 head_stop_commands:

@@ -1836,8 +1836,12 @@ def with_runtime_environment_variables(runtime_config, provider):
     if runtime_config is None:
         return all_runtime_envs
 
-    # Iterate through all the runtimes
     runtime_types = runtime_config.get("types", [])
+
+    if len(runtime_types) > 0:
+        all_runtime_envs[constants.CLOUDTIK_RUNTIMES_ENV] = ",".join(runtime_types)
+
+    # Iterate through all the runtimes
     for runtime_type in runtime_types:
         runtime = _get_runtime(runtime_type, runtime_config)
         runtime_envs = runtime.with_environment_variables(runtime_config, provider)
@@ -1971,3 +1975,18 @@ def get_runtime_logs(runtimes: List[str]):
             runtime_logs.update(logs)
 
     return runtime_logs
+
+
+def get_runtime_processes(runtimes: List[str]):
+    runtime_processes = []
+    if runtimes is None:
+        return runtime_processes
+
+    # Iterate through all the runtimes
+    for runtime_type in runtimes:
+        runtime_cls = _get_runtime_cls(runtime_type)
+        processes = runtime_cls.get_processes()
+        if processes:
+            runtime_processes += processes
+
+    return runtime_processes

@@ -13,7 +13,7 @@ import sys
 import time
 from typing import List
 import uuid
-
+from shlex import quote
 import redis
 
 import cloudtik
@@ -1183,15 +1183,16 @@ def start_cluster_controller(redis_address,
 
 
 def start_node_controller(head, redis_address,
-                  logs_dir,
-                  resource_spec,
-                  stdout_file=None,
-                  stderr_file=None,
-                  redis_password=None,
-                  fate_share=None,
-                  max_bytes=0,
-                  backup_count=0,
-                  controller_ip=None):
+                          logs_dir,
+                          resource_spec,
+                          stdout_file=None,
+                          stderr_file=None,
+                          redis_password=None,
+                          fate_share=None,
+                          max_bytes=0,
+                          backup_count=0,
+                          controller_ip=None,
+                          runtimes=None):
     """Run a process to controller the other processes.
 
     Args:
@@ -1210,6 +1211,7 @@ def start_node_controller(head, redis_address,
             RotatingFileHandler's backupCount.
         controller_ip (str): IP address of the machine that the controller will be
             run on. Can be excluded, but required for scaler metrics.
+        runtimes (str): List of runtimes to pass to node controller
     Returns:
         ProcessInfo for the process that was started.
     """
@@ -1240,6 +1242,9 @@ def start_node_controller(head, redis_address,
         ["{},{}".format(*kv) for kv in static_resources.items()])
 
     command.append(f"--static_resource_list={resource_argument}")
+
+    if runtimes and len(runtimes) > 0:
+        command.append("--runtimes=" + quote(runtimes))
 
     process_info = start_cloudtik_process(
         command,

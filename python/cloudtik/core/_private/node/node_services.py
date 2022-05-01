@@ -613,7 +613,8 @@ class NodeServicesStarter:
             fate_share=self.kernel_fate_share,
             max_bytes=self.max_bytes,
             backup_count=self.backup_count,
-            controller_ip=self._node_ip_address
+            controller_ip=self._node_ip_address,
+            runtimes=self._start_params.runtimes
         )
         assert constants.PROCESS_TYPE_NODE_CONTROLLER not in self.all_processes
         self.all_processes[constants.PROCESS_TYPE_NODE_CONTROLLER] = [process_info]

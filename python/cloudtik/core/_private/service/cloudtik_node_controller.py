@@ -17,7 +17,7 @@ import cloudtik
 from cloudtik.core._private import constants, services
 from cloudtik.core._private.logging_utils import setup_component_logger
 from cloudtik.core._private.state.control_state import ControlState
-from cloudtik.runtime.spark.utils import get_spark_runtime_processes
+from cloudtik.core._private.utils import get_runtime_processes
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,8 @@ class NodeController:
                  redis_password=None,
                  controller_ip=None,
                  static_resource_list=None,
-                 stop_event: Optional[Event] = None):
+                 stop_event: Optional[Event] = None,
+                 runtimes: str = None):
 
         # Initialize the Redis clients.
         redis_address = address
@@ -64,7 +65,8 @@ class NodeController:
         self.control_state.initialize_control_state(ip, port, redis_password)
         self.node_table = self.control_state.get_node_table()
         self.processes_to_check = constants.CLOUDTIK_PROCESSES
-        self.processes_to_check.extend(get_spark_runtime_processes())
+        runtime_list = runtimes.split() if runtimes else None
+        self.processes_to_check.extend(get_runtime_processes(runtime_list))
         logger.info("Controller: Started")
 
     def _run(self):
@@ -128,6 +130,9 @@ class NodeController:
 
         found_process = {}
         for keyword, filter_by_cmd, process_name, node_type in self.processes_to_check:
+            if (self.node_type != node_type) and ("node" != node_type):
+                continue
+
             if filter_by_cmd and len(keyword) > 15:
                 # getting here is an internal bug, so we do not use cli_logger
                 msg = ("The filter string should not be more than {} "
@@ -139,7 +144,7 @@ class NodeController:
                 proc, proc_cmd, proc_args = candidate
                 corpus = (proc_cmd
                           if filter_by_cmd else subprocess.list2cmdline(proc_args))
-                if keyword in corpus and (self.node_type == node_type or "node" == node_type):
+                if keyword in corpus:
                     found_process[process_name] = proc.status()
 
         if found_process != self.old_processes:
@@ -232,6 +237,12 @@ if __name__ == "__main__":
         type=str,
         default="",
         help="The static resource list of this node.")
+    parser.add_argument(
+        "--runtimes",
+        required=False,
+        type=str,
+        default=None,
+        help="The runtimes enabled for this cluster.")
     args = parser.parse_args()
     setup_component_logger(
         logging_level=args.logging_level,
@@ -251,6 +262,7 @@ if __name__ == "__main__":
         args.redis_address,
         redis_password=args.redis_password,
         controller_ip=args.controller_ip,
-        static_resource_list=args.static_resource_list)
+        static_resource_list=args.static_resource_list,
+        runtimes=args.runtimes)
 
     controller.run()

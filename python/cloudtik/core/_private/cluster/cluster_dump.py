@@ -13,7 +13,8 @@ import yaml
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 
-from cloudtik.core._private.utils import get_head_working_ip, get_node_cluster_ip, get_runtime_logs
+from cloudtik.core._private.utils import get_head_working_ip, get_node_cluster_ip, get_runtime_logs, \
+    get_runtime_processes
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, \
     NODE_KIND_WORKER
 from cloudtik.core._private.cli_logger import cli_logger
@@ -21,8 +22,6 @@ from cloudtik.core._private.providers import _get_node_provider
 
 # Import psutil after cloudtik so the packaged version is used.
 import psutil
-
-from cloudtik.runtime.spark.utils import get_spark_runtime_logs
 
 MAX_PARALLEL_SSH_WORKERS = 8
 DEFAULT_SSH_USER = "ubuntu"
@@ -50,7 +49,7 @@ class GetParameters:
                  pip: bool = True,
                  processes: bool = True,
                  processes_verbose: bool = True,
-                 processes_list: Optional[List[Tuple[str, bool]]] = None,
+                 processes_list: Optional[List[Tuple[str, bool, str, str]]] = None,
                  runtimes: List[str] = None):
         self.logs = logs
         self.debug_state = debug_state
@@ -278,25 +277,29 @@ def get_local_pip_packages(archive: Archive):
 
 
 def get_local_processes(archive: Archive,
-                            processes: Optional[List[Tuple[str, bool]]] = None,
-                            verbose: bool = False):
+                        processes: Optional[List[Tuple[str, bool, str, str]]] = None,
+                        verbose: bool = False,
+                        runtimes: List[str] = None):
     """Get the status of all the relevant processes.
     Args:
         archive (Archive): Archive object to add process info files to.
         processes (list): List of processes to get information on. The first
             element of the tuple is a string to filter by, and the second
             element is a boolean indicating if we should filter by command
-            name (True) or command line including parameters (False)
+            name (True) or command line including parameters (False). The third
+            element is meaningful name for the process. The fourth element is the
+            node type on which the process should be (head, worker, node)
         verbose (bool): If True, show entire executable command line.
             If False, show just the first term.
+        runtimes (List[str]): The list of runtimes
     Returns:
         Open archive object.
     """
     if not processes:
         # local import to avoid circular dependencies
-        # TO BE IMPROVED: for different runtime has different processes
         from cloudtik.core._private.constants import CLOUDTIK_PROCESSES
         processes = CLOUDTIK_PROCESSES
+        processes.extend(get_runtime_processes(runtimes))
 
     process_infos = []
     for process in psutil.process_iter(["pid", "name", "cmdline", "status"]):
@@ -372,7 +375,8 @@ def get_all_local_data(archive: Archive, parameters: GetParameters):
             get_local_processes(
                 archive=archive,
                 processes=parameters.processes_list,
-                verbose=parameters.processes_verbose)
+                verbose=parameters.processes_verbose,
+                runtimes=parameters.runtimes)
         except LocalCommandFailed as exc:
             cli_logger.error(exc)
 
@@ -438,7 +442,7 @@ def create_and_get_archive_from_remote_node(remote_node: Node,
             if parameters.processes_verbose else ["--no-proccesses-verbose"]
 
     if parameters.runtimes and len(parameters.runtimes) > 0:
-        runtime_arg = ", ".join(parameters.runtimes)
+        runtime_arg = ",".join(parameters.runtimes)
         collect_cmd += ["--runtimes={}".format(quote(runtime_arg))]
 
     # Specify --login and -i here to source bashrc and avoid command not found issue

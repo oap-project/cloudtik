@@ -147,12 +147,19 @@ def cli(logging_level, logging_format):
     is_flag=True,
     default=False,
     help="do not redirect non-worker stdout and stderr to files")
+@click.option(
+    "--runtimes",
+    required=False,
+    type=str,
+    default=None,
+    hidden=True,
+    help="Runtimes enabled for process monitoring purposes")
 @add_click_logging_options
 def node_start(node_ip_address, address, port, head,
           redis_password, redis_shard_ports, redis_max_memory,
           memory, num_cpus, num_gpus, resources,
           cluster_scaling_config, temp_dir, metrics_export_port,
-          no_redirect_output):
+          no_redirect_output, runtimes):
     """Start the main daemon processes on the local machine."""
     # Convert hostnames to numerical IP address.
     if node_ip_address is not None:
@@ -182,7 +189,8 @@ def node_start(node_ip_address, address, port, head,
         resources=resources,
         temp_dir=temp_dir,
         metrics_export_port=metrics_export_port,
-        redirect_output=redirect_output)
+        redirect_output=redirect_output,
+        runtimes=runtimes)
     if head:
         # Use default if port is none, allocate an available port if port is 0
         if port is None:

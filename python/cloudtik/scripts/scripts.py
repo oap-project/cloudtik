@@ -1230,7 +1230,13 @@ def health_check(cluster_config_file, cluster_name):
 
 
 @cli.command()
-@click.argument("cluster_config_file", required=False, type=str)
+@click.argument("cluster_config_file", required=True, type=str)
+@click.option(
+    "--cluster-name",
+    "-n",
+    required=False,
+    type=str,
+    help="Override the configured cluster name.")
 @click.option(
     "--host",
     "-h",
@@ -1306,6 +1312,7 @@ def health_check(cluster_config_file, cluster_name):
     help="Temporary file to use")
 @add_click_logging_options
 def cluster_dump(cluster_config_file: Optional[str] = None,
+                 cluster_name: str = None,
                  host: Optional[str] = None,
                  ssh_user: Optional[str] = None,
                  ssh_key: Optional[str] = None,
@@ -1333,6 +1340,7 @@ def cluster_dump(cluster_config_file: Optional[str] = None,
     """
     archive_path = get_cluster_dump_archive(
         config_file=cluster_config_file,
+        override_cluster_name=cluster_name,
         host=host,
         ssh_user=ssh_user,
         ssh_key=ssh_key,
@@ -1404,7 +1412,13 @@ def cluster_dump(cluster_config_file: Optional[str] = None,
     required=False,
     default=None,
     type=int,
-    help="The integer verbosity to set.")
+    help="The integer verbosity to set")
+@click.option(
+    "--runtimes",
+    required=False,
+    type=str,
+    default=None,
+    help="The list of runtimes to collect logs from")
 @add_click_logging_options
 def local_dump(stream: bool = False,
                output: Optional[str] = None,
@@ -1414,7 +1428,8 @@ def local_dump(stream: bool = False,
                processes: bool = True,
                processes_verbose: bool = False,
                tempfile: Optional[str] = None,
-               verbosity: int = None):
+               verbosity: int = None,
+               runtimes: str = None):
     """Collect local data and package into an archive.
 
     Usage:
@@ -1435,7 +1450,8 @@ def local_dump(stream: bool = False,
         pip=pip,
         processes=processes,
         processes_verbose=processes_verbose,
-        tempfile=tempfile)
+        tempfile=tempfile,
+        runtimes=runtimes)
 
 
 @cli.command(hidden=True, context_settings={"ignore_unknown_options": True})

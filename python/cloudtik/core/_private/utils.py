@@ -32,7 +32,7 @@ from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core._private.cluster.cluster_metrics import ClusterMetricsSummary
 from cloudtik.core._private.constants import CLOUDTIK_WHEELS, CLOUDTIK_CLUSTER_PYTHON_VERSION, \
     CLOUDTIK_DEFAULT_MAX_WORKERS, CLOUDTIK_NODE_SSH_INTERVAL_S, CLOUDTIK_NODE_START_WAIT_S, MAX_PARALLEL_EXEC_NODES
-from cloudtik.core._private.runtime_factory import _get_runtime
+from cloudtik.core._private.runtime_factory import _get_runtime, _get_runtime_cls
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core._private.providers import _get_default_config, _get_node_provider, _get_provider_config_object, \
     _get_node_provider_cls
@@ -1958,3 +1958,16 @@ def is_runtime_enabled(runtime_config, runtime_type:str):
     return False
 
 
+def get_runtime_logs(runtimes: List[str]):
+    runtime_logs = {}
+    if runtimes is None:
+        return runtime_logs
+
+    # Iterate through all the runtimes
+    for runtime_type in runtimes:
+        runtime_cls = _get_runtime_cls(runtime_type)
+        logs = runtime_cls.get_logs()
+        if logs:
+            runtime_logs.update(logs)
+
+    return runtime_logs

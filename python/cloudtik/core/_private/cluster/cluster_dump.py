@@ -1,5 +1,5 @@
-from typing import Optional, List, Sequence, Tuple
-
+from typing import Any, Dict, Optional, List, Sequence, Tuple
+from shlex import quote
 import os
 
 import re
@@ -13,7 +13,7 @@ import yaml
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 
-from cloudtik.core._private.utils import get_head_working_ip, get_node_cluster_ip
+from cloudtik.core._private.utils import get_head_working_ip, get_node_cluster_ip, get_runtime_logs
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, \
     NODE_KIND_WORKER
 from cloudtik.core._private.cli_logger import cli_logger
@@ -50,13 +50,15 @@ class GetParameters:
                  pip: bool = True,
                  processes: bool = True,
                  processes_verbose: bool = True,
-                 processes_list: Optional[List[Tuple[str, bool]]] = None):
+                 processes_list: Optional[List[Tuple[str, bool]]] = None,
+                 runtimes: List[str] = None):
         self.logs = logs
         self.debug_state = debug_state
         self.pip = pip
         self.processes = processes
         self.processes_verbose = processes_verbose
         self.processes_list = processes_list
+        self.runtimes = runtimes
 
 
 class Node:
@@ -152,17 +154,19 @@ class Archive:
 ###
 def get_local_logs(
         archive: Archive,
-        exclude: Optional[Sequence[str]] = None) -> Archive:
+        exclude: Optional[Sequence[str]] = None,
+        runtimes: List[str] = None) -> Archive:
     """Copy local log files into an archive.
         Args:
             archive (Archive): Archive object to add log files to.
             exclude (Sequence[str]): Sequence of regex patterns. Files that match
                 any of these patterns will not be included in the archive.
+            runtimes: List of runtimes for collect logs from
         Returns:
             Open archive object.
     """
     get_cloudtik_local_logs(archive, exclude)
-    get_runtime_local_logs(archive, exclude)
+    get_runtime_local_logs(archive, exclude, runtimes=runtimes)
 
 
 def get_cloudtik_local_logs(
@@ -175,8 +179,9 @@ def get_cloudtik_local_logs(
 
 def get_runtime_local_logs(
         archive: Archive,
-        exclude: Optional[Sequence[str]] = None) -> Archive:
-    runtime_logs = get_spark_runtime_logs()
+        exclude: Optional[Sequence[str]] = None,
+        runtimes: List[str] = None) -> Archive:
+    runtime_logs = get_runtime_logs(runtimes)
     for category in runtime_logs:
         log_dir = runtime_logs[category]
         get_local_logs_for(archive, category, log_dir, exclude)
@@ -349,7 +354,7 @@ def get_all_local_data(archive: Archive, parameters: GetParameters):
 
     if parameters.logs:
         try:
-            get_local_logs(archive=archive)
+            get_local_logs(archive=archive, runtimes=parameters.runtimes)
         except LocalCommandFailed as exc:
             cli_logger.error(exc)
     if parameters.debug_state:
@@ -431,6 +436,10 @@ def create_and_get_archive_from_remote_node(remote_node: Node,
     if parameters.processes:
         collect_cmd += ["--processes-verbose"] \
             if parameters.processes_verbose else ["--no-proccesses-verbose"]
+
+    if parameters.runtimes and len(parameters.runtimes) > 0:
+        runtime_arg = ", ".join(parameters.runtimes)
+        collect_cmd += ["--runtimes={}".format(quote(runtime_arg))]
 
     # Specify --login and -i here to source bashrc and avoid command not found issue
     cmd += ["/bin/bash", "--login", "-c", "-i", _wrap(collect_cmd, quotes="\"")]
@@ -725,31 +734,19 @@ def create_archive_for_local_and_cluster_nodes(archive: Archive,
 ###
 # cluster info
 ###
-def get_info_from_cluster_config(
-        cluster_config: str,
-        should_bootstrap: bool
-) -> Tuple[str, List[str], str, str, Optional[str], Optional[str]]:
+def get_info_from_cluster_config(config: Dict[str, Any]
+                                 ) -> Tuple[str, List[str], str, str, Optional[str], Optional[str]]:
     """Get information from cluster config.
 
     Return head ip, list of host IPs, ssh user, ssh key file, and optional docker
     container.
 
     Args:
-        cluster_config (str): Path to cluster config.
-        should_bootstrap (bool): Specify if we need to bootstrap the config
+        config (dict): The config object
     Returns:
         Tuple of list of host IPs, ssh user name, ssh key file path,
             optional docker container name, optional cluster name.
     """
-    from cloudtik.core._private.cluster.cluster_operator import _load_cluster_config
-
-    cli_logger.verbose(f"Retrieving cluster information from cluster file: "
-                       f"{cluster_config}")
-
-    cluster_config = os.path.expanduser(cluster_config)
-
-    config = _load_cluster_config(
-      cluster_config, None, should_bootstrap=should_bootstrap, no_config_cache=True)
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     head_nodes = provider.non_terminated_nodes({
         CLOUDTIK_TAG_NODE_KIND: NODE_KIND_HEAD
@@ -776,42 +773,23 @@ def get_info_from_cluster_config(
 
 
 def _info_from_params(
-        cluster: Optional[str] = None,
+        config: Dict[str, Any],
         host: Optional[str] = None,
         ssh_user: Optional[str] = None,
         ssh_key: Optional[str] = None,
         docker: Optional[str] = None,
-        should_bootstrap: bool = True
 ):
     """Parse command line arguments.
 
     Note: This returns a list of hosts, not a comma separated string!
     """
-    # TODO haifeng: check this condition if host list is specified for a cluster (running on head)
-    if not host and not cluster:
-        bootstrap_config = os.path.expanduser("~/cloudtik_bootstrap_config.yaml")
-        if os.path.exists(bootstrap_config):
-            cluster = bootstrap_config
-            cli_logger.verbose(f"Detected cluster config file at {cluster}. "
-                               f"If this is incorrect, specify with "
-                               f"`cloudtik cluster-dump <config>`")
-    elif cluster:
-        cluster = os.path.expanduser(cluster)
+    head_node_ip, h, u, k, d, cluster_name = \
+        get_info_from_cluster_config(config)
 
-    cluster_name = None
-    head_node_ip = None
-    if cluster:
-        head_node_ip, h, u, k, d, cluster_name = get_info_from_cluster_config(cluster, should_bootstrap)
-
-        ssh_user = ssh_user or u
-        ssh_key = ssh_key or k
-        docker = docker or d
-        workers = host.split(",") if host else h
-    elif host:
-        workers = host.split(",")
-    else:
-        raise LocalCommandFailed(
-            "You need to either specify a `<cluster_config>` or `--host`.")
+    ssh_user = ssh_user or u
+    ssh_key = ssh_key or k
+    docker = docker or d
+    workers = host.split(",") if host else h
 
     if not ssh_user:
         ssh_user = DEFAULT_SSH_USER
@@ -829,4 +807,4 @@ def _info_from_params(
                     f"If this is incorrect, specify with `--ssh-key <key>`")
                 break
 
-    return cluster, head_node_ip, workers, ssh_user, ssh_key, docker, cluster_name
+    return head_node_ip, workers, ssh_user, ssh_key, docker, cluster_name

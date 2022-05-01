@@ -1386,7 +1386,7 @@ def get_local_dump_archive(stream: bool = False,
     if stream and output:
         raise ValueError(
             "You can only use either `--output` or `--stream`, but not both.")
-    runtime_list = runtimes.split() if runtimes else None
+    runtime_list = runtimes.split(",") if runtimes and len(runtimes) > 0 else None
     parameters = GetParameters(
         logs=logs,
         debug_state=debug_state,

@@ -1381,17 +1381,19 @@ def get_local_dump_archive(stream: bool = False,
                            pip: bool = True,
                            processes: bool = True,
                            processes_verbose: bool = False,
-                           tempfile: Optional[str] = None) -> Optional[str]:
+                           tempfile: Optional[str] = None,
+                           runtimes: str = None) -> Optional[str]:
     if stream and output:
         raise ValueError(
             "You can only use either `--output` or `--stream`, but not both.")
-
+    runtime_list = runtimes.split() if runtimes else None
     parameters = GetParameters(
         logs=logs,
         debug_state=debug_state,
         pip=pip,
         processes=processes,
-        processes_verbose=processes_verbose)
+        processes_verbose=processes_verbose,
+        runtimes=runtime_list)
 
     with Archive(file=tempfile) as archive:
         get_all_local_data(archive, parameters)
@@ -1426,8 +1428,9 @@ def get_cluster_dump_archive_on_head(
             "You can only use either `--output` or `--stream`, but not both.")
 
     # Parse arguments (e.g. fetch info from cluster config)
-    config_file, head_node_ip, workers, ssh_user, ssh_key, docker, cluster_name = \
-        _info_from_params(None, host, None, None, None, False)
+    config = load_head_cluster_config()
+    head_node_ip, workers, ssh_user, ssh_key, docker, cluster_name = \
+        _info_from_params(config, host, None, None, None)
 
     nodes = [
         Node(
@@ -1448,7 +1451,8 @@ def get_cluster_dump_archive_on_head(
         debug_state=debug_state,
         pip=pip,
         processes=processes,
-        processes_verbose=processes_verbose)
+        processes_verbose=processes_verbose,
+        runtimes=get_enabled_runtimes(config))
 
     with Archive(file=tempfile) as archive:
         create_archive_for_remote_nodes(
@@ -1470,6 +1474,7 @@ def get_cluster_dump_archive_on_head(
 
 
 def get_cluster_dump_archive(config_file: Optional[str] = None,
+                             override_cluster_name: str = None,
                              host: Optional[str] = None,
                              ssh_user: Optional[str] = None,
                              ssh_key: Optional[str] = None,
@@ -1512,9 +1517,13 @@ def get_cluster_dump_archive(config_file: Optional[str] = None,
         f"the archive and inspect its contents before sharing it with "
         f"anyone.")
 
+    config_file = os.path.expanduser(config_file)
+    config = _load_cluster_config(
+        config_file, override_cluster_name, no_config_cache=True)
+
     # Parse arguments (e.g. fetch info from cluster config)
-    config_file, head_node_ip, workers, ssh_user, ssh_key, docker, cluster_name = \
-        _info_from_params(config_file, host, ssh_user, ssh_key, docker, True)
+    head_node_ip, workers, ssh_user, ssh_key, docker, cluster_name = \
+        _info_from_params(config, host, ssh_user, ssh_key, docker)
 
     if not head_node_ip:
         cli_logger.error(
@@ -1533,7 +1542,8 @@ def get_cluster_dump_archive(config_file: Optional[str] = None,
         debug_state=debug_state,
         pip=pip,
         processes=processes,
-        processes_verbose=processes_verbose)
+        processes_verbose=processes_verbose,
+        runtimes=get_enabled_runtimes(config))
 
     with Archive(file=tempfile) as archive:
         create_archive_for_cluster_nodes(

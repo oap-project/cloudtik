@@ -6,7 +6,7 @@ from cloudtik.core._private.utils import merge_rooted_config_hierarchy, \
     _get_runtime_config_object, is_runtime_enabled
 from cloudtik.core._private.workspace.workspace_operator import _get_workspace_provider
 
-SPARK_RUNTIME_PROCESSES = [
+RUNTIME_PROCESSES = [
     # The first element is the substring to filter.
     # The second element, if True, is to filter ps results by command name.
     # The third element is the process name.
@@ -166,8 +166,8 @@ def _config_runtime_resources(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
     return cluster_config
 
 
-def get_spark_runtime_processes():
-    return SPARK_RUNTIME_PROCESSES
+def get_runtime_processes():
+    return RUNTIME_PROCESSES
 
 
 def _is_runtime_scripts(script_file):
@@ -247,7 +247,7 @@ def _with_runtime_environment_variables(runtime_config, provider):
     return runtime_envs
 
 
-def get_spark_runtime_logs():
+def get_runtime_logs():
     hadoop_logs_dir = os.path.join(os.getenv("HADOOP_HOME"), "logs")
     spark_logs_dir = os.path.join(os.getenv("SPARK_HOME"), "logs")
     all_logs = {"hadoop": hadoop_logs_dir,

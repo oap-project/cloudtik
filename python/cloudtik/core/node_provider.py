@@ -2,6 +2,7 @@ import logging
 from types import ModuleType
 from typing import Any, Dict, List, Optional
 
+from cloudtik.core._private.call_context import CallContext
 from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core.command_executor import CommandExecutor
 from cloudtik.core._private.command_executor import \
@@ -204,17 +205,19 @@ class NodeProvider:
         return cluster_config
 
     def get_command_executor(self,
-                           log_prefix: str,
-                           node_id: str,
-                           auth_config: Dict[str, Any],
-                           cluster_name: str,
-                           process_runner: ModuleType,
-                           use_internal_ip: bool,
-                           docker_config: Optional[Dict[str, Any]] = None
-                           ) -> CommandExecutor:
+                             call_context: CallContext,
+                             log_prefix: str,
+                             node_id: str,
+                             auth_config: Dict[str, Any],
+                             cluster_name: str,
+                             process_runner: ModuleType,
+                             use_internal_ip: bool,
+                             docker_config: Optional[Dict[str, Any]] = None
+                             ) -> CommandExecutor:
         """Returns the CommandRunner class used to perform SSH commands.
 
         Args:
+        call_context: The call context.
         log_prefix(str): stores "NodeUpdater: {}: ".format(<node_id>). Used
             to print progress in the CommandRunner.
         node_id(str): the node ID.
@@ -238,9 +241,9 @@ class NodeProvider:
             "use_internal_ip": use_internal_ip
         }
         if docker_config and docker_config.get("enabled", False):
-            return DockerCommandExecutor(docker_config, **common_args)
+            return DockerCommandExecutor(call_context, docker_config, **common_args)
         else:
-            return SSHCommandExecutor(**common_args)
+            return SSHCommandExecutor(call_context, **common_args)
 
     def prepare_for_head_node(
             self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:

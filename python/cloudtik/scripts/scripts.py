@@ -1136,11 +1136,9 @@ def stop_node(cluster_config_file, cluster_name, no_config_cache,
 @add_click_logging_options
 def kill_node(cluster_config_file, yes, hard, cluster_name, node_ip):
     """Kills a specified node or a random node."""
-    killed_node_ip = kill_node_from_head(
+    kill_node_from_head(
         cluster_config_file, yes, hard, cluster_name,
         node_ip)
-    if killed_node_ip:
-        click.echo("Killed node with IP " + killed_node_ip)
 
 
 @cli.command()

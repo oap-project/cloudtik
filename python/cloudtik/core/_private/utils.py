@@ -28,6 +28,7 @@ import yaml
 
 import cloudtik
 from cloudtik.core._private import constants, services
+from cloudtik.core._private.call_context import CallContext
 from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core._private.cluster.cluster_metrics import ClusterMetricsSummary
 from cloudtik.core._private.constants import CLOUDTIK_WHEELS, CLOUDTIK_CLUSTER_PYTHON_VERSION, \
@@ -39,7 +40,6 @@ from cloudtik.core._private.providers import _get_default_config, _get_node_prov
 from cloudtik.core._private.docker import validate_docker_config
 from cloudtik.core._private.providers import _get_workspace_provider
 from cloudtik.core.tags import CLOUDTIK_TAG_USER_NODE_TYPE
-import cloudtik.core._private.subprocess_output_util as cmd_output_util
 
 # Import psutil after others so the packaged version is used.
 import psutil
@@ -685,21 +685,23 @@ class ConcurrentCounter:
             return sum(self._counter.values())
 
 
-def run_in_paralell_on_nodes(run_exec, nodes):
+def run_in_paralell_on_nodes(run_exec,
+                             call_context: CallContext,
+                             nodes):
     # This is to ensure that the parallel SSH calls below do not mess with
     # the users terminal.
-    output_redir = cmd_output_util.is_output_redirected()
-    cmd_output_util.set_output_redirected(True)
-    allow_interactive = cmd_output_util.does_allow_interactive()
-    cmd_output_util.set_allow_interactive(False)
+    output_redir = call_context.is_output_redirected()
+    call_context.set_output_redirected(True)
+    allow_interactive = call_context.does_allow_interactive()
+    call_context.set_allow_interactive(False)
 
     with ThreadPoolExecutor(
             max_workers=MAX_PARALLEL_EXEC_NODES) as executor:
         for node_id in nodes:
             executor.submit(
                 run_exec, node_id=node_id)
-    cmd_output_util.set_output_redirected(output_redir)
-    cmd_output_util.set_allow_interactive(allow_interactive)
+    call_context.set_output_redirected(output_redir)
+    call_context.set_allow_interactive(allow_interactive)
 
 
 def validate_config(config: Dict[str, Any]) -> None:

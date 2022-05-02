@@ -6,6 +6,7 @@ from uuid import uuid4
 
 from kubernetes.client.rest import ApiException
 
+from cloudtik.core._private.call_context import CallContext
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.tags import NODE_KIND_HEAD
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME
@@ -197,15 +198,16 @@ class KubernetesNodeProvider(NodeProvider):
             self.terminate_node(node_id)
 
     def get_command_executor(self,
-                           log_prefix,
-                           node_id,
-                           auth_config,
-                           cluster_name,
-                           process_runner,
-                           use_internal_ip,
-                           docker_config=None):
-        return KubernetesCommandExecutor(log_prefix, self.namespace, node_id,
-                                         auth_config, process_runner)
+                             call_context: CallContext,
+                             log_prefix,
+                             node_id,
+                             auth_config,
+                             cluster_name,
+                             process_runner,
+                             use_internal_ip,
+                             docker_config=None):
+        return KubernetesCommandExecutor(call_context, log_prefix, self.namespace,
+                                         node_id, auth_config, process_runner)
 
     @staticmethod
     def bootstrap_config(cluster_config):

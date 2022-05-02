@@ -31,6 +31,7 @@ class NodeUpdater:
     """A process for syncing files and running init commands on a node.
 
     Arguments:
+        call_context: the CallContext of this updater.
         node_id: the Node ID
         provider_config: Provider section of cluster config yaml
         provider: NodeProvider Class
@@ -56,6 +57,7 @@ class NodeUpdater:
     """
 
     def __init__(self,
+                 call_context,
                  node_id,
                  provider_config,
                  provider,
@@ -78,10 +80,12 @@ class NodeUpdater:
                  for_recovery=False,
                  runtime_config=None):
 
+        self.call_context = call_context
         self.log_prefix = "NodeUpdater: {}: ".format(node_id)
         use_internal_ip = (use_internal_ip
                            or provider_config.get("use_internal_ips", False))
         self.cmd_executor = provider.get_command_executor(
+            self.call_context,
             self.log_prefix, node_id, auth_config, cluster_name,
             process_runner, use_internal_ip, docker_config)
 
@@ -122,8 +126,8 @@ class NodeUpdater:
 
     def run(self):
         update_start_time = time.time()
-        if cmd_output_util.does_allow_interactive(
-        ) and cmd_output_util.is_output_redirected():
+        if self.call_context.does_allow_interactive(
+        ) and self.call_context.is_output_redirected():
             # this is most probably a bug since the user has no control
             # over these settings
             msg = ("Output was redirected for an interactive command. "
@@ -542,14 +546,14 @@ class NodeUpdater:
         cli_logger.print("- {}", cmd_to_print)
 
         try:
-            old_redirected = cmd_output_util.is_output_redirected()
-            cmd_output_util.set_output_redirected(False)
+            old_redirected = self.call_context.is_output_redirected()
+            self.call_context.set_output_redirected(False)
             # Runs in the container if docker is in use
             self.cmd_executor.run(
                 cmd,
                 environment_variables=env_vars,
                 run_env="auto")
-            cmd_output_util.set_output_redirected(old_redirected)
+            self.call_context.set_output_redirected(old_redirected)
         except ProcessRunnerError as e:
             if e.msg_type == "ssh_command_failed":
                 cli_logger.error("Failed.")
@@ -585,14 +589,14 @@ class NodeUpdater:
         cli_logger.print("- {}", cmd_to_print)
 
         try:
-            old_redirected = cmd_output_util.is_output_redirected()
-            cmd_output_util.set_output_redirected(False)
+            old_redirected = self.call_context.is_output_redirected()
+            self.call_context.set_output_redirected(False)
             # Runs in the container if docker is in use
             self.cmd_executor.run(
                 cmd,
                 environment_variables=env_vars,
                 run_env="auto")
-            cmd_output_util.set_output_redirected(old_redirected)
+            self.call_context.set_output_redirected(old_redirected)
         except ProcessRunnerError as e:
             if e.msg_type == "ssh_command_failed":
                 cli_logger.error("Failed.")

@@ -3,6 +3,7 @@
 from typing import Any, Callable, Dict, List, Optional, Union
 import os
 
+from cloudtik.core._private.call_context import CallContext
 from cloudtik.core._private.cluster import cluster_operator
 from cloudtik.core._private.event_system import (
     global_event_system)
@@ -27,6 +28,9 @@ class Cluster:
             self.config = \
                 cluster_operator._load_cluster_config(cluster_config, no_config_cache=True)
 
+        # TODO: Each call may need its own call context
+        self.call_context = CallContext()
+
     def start(self,
               no_restart: bool = False,
               restart_only: bool = False) -> None:
@@ -41,6 +45,7 @@ class Cluster:
         """
         return cluster_operator._create_or_update_cluster(
             config=self.config,
+            call_context=self.call_context,
             no_restart=no_restart,
             restart_only=restart_only,
             yes=True,
@@ -60,6 +65,7 @@ class Cluster:
         """
         return cluster_operator._teardown_cluster(
             config=self.config,
+            call_context=self.call_context,
             workers_only=workers_only,
             keep_min_workers=keep_min_workers)
 
@@ -93,6 +99,7 @@ class Cluster:
         """
         return cluster_operator.exec_on_nodes(
             config=self.config,
+            call_context=self.call_context,
             node_ip=node_ip,
             all_nodes=all_nodes,
             cmd=cmd,
@@ -125,6 +132,7 @@ class Cluster:
         """
         return cluster_operator.submit_and_exec(
             config=self.config,
+            call_context=self.call_context,
             script=script_file,
             script_args=script_args,
             tmux=tmux,
@@ -155,6 +163,7 @@ class Cluster:
         """
         return cluster_operator._rsync(
             config=self.config,
+            call_context=self.call_context,
             source=source,
             target=target,
             down=down,
@@ -195,7 +204,10 @@ class Cluster:
             >>> # Same as requesting num_cpus=3.
             >>> scale(bundles=[{"CPU": 1}, {"CPU": 1}, {"CPU": 1}])
         """
-        return cluster_operator._scale_cluster(config=self.config, cpus=num_cpus)
+        return cluster_operator._scale_cluster(
+            config=self.config,
+            call_context=self.call_context,
+            cpus=num_cpus)
 
     def get_head_node_ip(self) -> str:
         """Returns head node IP for given configuration file if exists.

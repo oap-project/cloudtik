@@ -26,7 +26,7 @@ from cloudtik.core._private.docker import check_bind_mounts_cmd, \
 from cloudtik.core._private.log_timer import LogTimer
 
 from cloudtik.core._private.subprocess_output_util import (
-    run_cmd_redirected, ProcessRunnerError, is_output_redirected)
+    run_cmd_redirected, ProcessRunnerError)
 
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.debug import log_once
@@ -39,45 +39,6 @@ KUBECTL_RSYNC = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "_kubernetes/kubectl-rsync.sh")
 MAX_HOME_RETRIES = 3
 HOME_RETRY_DELAY_S = 5
-
-_config = {"use_login_shells": True, "silent_rsync": True}
-
-
-def is_rsync_silent():
-    return _config["silent_rsync"]
-
-
-def set_rsync_silent(val):
-    """Choose whether to silence rsync output.
-
-    Most commands will want to list rsync'd files themselves rather than
-    print the default rsync spew.
-    """
-    _config["silent_rsync"] = val
-
-
-def is_using_login_shells():
-    return _config["use_login_shells"]
-
-
-def set_using_login_shells(val):
-    """Choose between login and non-interactive shells.
-
-    Non-interactive shells have the benefit of receiving less output from
-    subcommands (since progress bars and TTY control codes are not printed).
-    Sometimes this can be significant since e.g. `pip install` prints
-    hundreds of progress bar lines when downloading.
-
-    Login shells have the benefit of working very close to how a proper bash
-    session does, regarding how scripts execute and how the environment is
-    setup. This is also how all commands were ran in the past. The only reason
-    to use login shells over non-interactive shells is if you need some weird
-    and non-robust tool to work.
-
-    Args:
-        val (bool): If true, login shells will be used to run all commands.
-    """
-    _config["use_login_shells"] = val
 
 
 def _with_environment_variables(cmd: str,
@@ -113,9 +74,9 @@ def _with_interactive(cmd):
 
 
 class KubernetesCommandExecutor(CommandExecutor):
-    def __init__(self, log_prefix, namespace, node_id, auth_config,
+    def __init__(self, call_context, log_prefix, namespace, node_id, auth_config,
                  process_runner):
-
+        CommandExecutor.__init__(self, call_context)
         self.log_prefix = log_prefix
         self.process_runner = process_runner
         self.node_id = str(node_id)
@@ -210,7 +171,7 @@ class KubernetesCommandExecutor(CommandExecutor):
             target = self._home + target[1:]
 
         try:
-            flags = "-aqz" if is_rsync_silent() else "-avz"
+            flags = "-aqz" if self.call_context.is_rsync_silent() else "-avz"
             self.process_runner.check_call([
                 KUBECTL_RSYNC,
                 flags,
@@ -235,7 +196,7 @@ class KubernetesCommandExecutor(CommandExecutor):
             source = self._home + source[1:]
 
         try:
-            flags = "-aqz" if is_rsync_silent() else "-avz"
+            flags = "-aqz" if self.call_context.is_rsync_silent() else "-avz"
             self.process_runner.check_call([
                 KUBECTL_RSYNC,
                 flags,
@@ -331,9 +292,9 @@ class SSHOptions:
 
 
 class SSHCommandExecutor(CommandExecutor):
-    def __init__(self, log_prefix, node_id, provider, auth_config,
+    def __init__(self, call_context, log_prefix, node_id, provider, auth_config,
                  cluster_name, process_runner, use_internal_ip):
-
+        CommandExecutor.__init__(self, call_context)
         ssh_control_hash = hashlib.md5(cluster_name.encode()).hexdigest()
         ssh_user_hash = hashlib.md5(getuser().encode()).hexdigest()
         ssh_control_path = "/tmp/cloudtik_ssh_{}/{}".format(
@@ -440,14 +401,17 @@ class SSHCommandExecutor(CommandExecutor):
                     final_cmd,
                     process_runner=self.process_runner,
                     silent=silent,
-                    use_login_shells=is_using_login_shells())
+                    use_login_shells=self.call_context.is_using_login_shells(),
+                    allow_interactive=self.call_context.does_allow_interactive(),
+                    output_redirected=self.call_context.is_output_redirected()
+                )
             if with_output:
                 return self.process_runner.check_output(final_cmd)
             else:
                 return self.process_runner.check_call(final_cmd)
         except subprocess.CalledProcessError as e:
             joined_cmd = " ".join(final_cmd)
-            if not is_using_login_shells():
+            if not self.call_context.is_using_login_shells():
                 raise ProcessRunnerError(
                     "Command failed",
                     "ssh_command_failed",
@@ -464,7 +428,7 @@ class SSHCommandExecutor(CommandExecutor):
                     msg) from None
             else:
                 fail_msg = "SSH command failed."
-                if is_output_redirected():
+                if self.call_context.is_output_redirected():
                     fail_msg += " See above for the output from the failure."
                 raise click.ClickException(fail_msg) from None
 
@@ -494,7 +458,7 @@ class SSHCommandExecutor(CommandExecutor):
 
         self._set_ssh_ip_if_required()
 
-        if is_using_login_shells():
+        if self.call_context.is_using_login_shells():
             ssh = ["ssh", "-tt"]
         else:
             ssh = ["ssh"]
@@ -515,7 +479,7 @@ class SSHCommandExecutor(CommandExecutor):
         if cmd:
             if environment_variables:
                 cmd = _with_environment_variables(cmd, environment_variables)
-            if is_using_login_shells():
+            if self.call_context.is_using_login_shells():
                 final_cmd += _with_interactive(cmd)
             else:
                 final_cmd += [cmd]
@@ -568,7 +532,7 @@ class SSHCommandExecutor(CommandExecutor):
             source, "{}@{}:{}".format(self.ssh_user, self.ssh_ip, target)
         ]
         cli_logger.verbose("Running `{}`", cf.bold(" ".join(command)))
-        self._run_helper(command, silent=is_rsync_silent())
+        self._run_helper(command, silent=self.call_context.is_rsync_silent())
 
     def run_rsync_down(self, source, target, options=None):
         self._set_ssh_ip_if_required()
@@ -585,7 +549,7 @@ class SSHCommandExecutor(CommandExecutor):
             "{}@{}:{}".format(self.ssh_user, self.ssh_ip, source), target
         ]
         cli_logger.verbose("Running `{}`", cf.bold(" ".join(command)))
-        self._run_helper(command, silent=is_rsync_silent())
+        self._run_helper(command, silent=self.call_context.is_rsync_silent())
 
     def remote_shell_command_str(self):
         self._set_ssh_ip_if_required()
@@ -654,8 +618,9 @@ class SSHCommandExecutor(CommandExecutor):
 
 
 class DockerCommandExecutor(CommandExecutor):
-    def __init__(self, docker_config, **common_args):
-        self.ssh_command_executor = SSHCommandExecutor(**common_args)
+    def __init__(self, call_context, docker_config, **common_args):
+        CommandExecutor.__init__(self, call_context)
+        self.ssh_command_executor = SSHCommandExecutor(call_context, **common_args)
         self.container_name = docker_config["container_name"]
         self.docker_config = docker_config
         self.home_dir = None
@@ -685,12 +650,12 @@ class DockerCommandExecutor(CommandExecutor):
 
         if run_env == "docker":
             cmd = self._docker_expand_user(cmd, any_char=True)
-            if is_using_login_shells():
+            if self.call_context.is_using_login_shells():
                 cmd = " ".join(_with_interactive(cmd))
             cmd = with_docker_exec(
                 [cmd],
                 container_name=self.container_name,
-                with_interactive=is_using_login_shells(),
+                with_interactive=self.call_context.is_using_login_shells(),
                 docker_cmd=self.docker_cmd)[0]
 
         if shutdown_after_run:
@@ -716,7 +681,7 @@ class DockerCommandExecutor(CommandExecutor):
         self.ssh_command_executor.run(
             f"mkdir -p {host_mount_location} && chown -R "
             f"{self.ssh_command_executor.ssh_user} {host_mount_location}",
-            silent=is_rsync_silent())
+            silent=self.call_context.is_rsync_silent())
 
         self.ssh_command_executor.run_rsync_up(
             source, host_destination, options=options)
@@ -735,14 +700,14 @@ class DockerCommandExecutor(CommandExecutor):
                         os.path.dirname(self._docker_expand_user(target)))
                 ],
                 container_name=self.container_name,
-                with_interactive=is_using_login_shells(),
+                with_interactive=self.call_context.is_using_login_shells(),
                 docker_cmd=self.docker_cmd)[0]
 
             self.ssh_command_executor.run(
                 "{} && rsync -e '{} exec -i' -avz {} {}:{}".format(
                     prefix, self.docker_cmd, host_destination,
                     self.container_name, self._docker_expand_user(target)),
-                silent=is_rsync_silent())
+                silent=self.call_context.is_rsync_silent())
 
     def run_rsync_down(self, source, target, options=None):
         options = options or {}
@@ -753,7 +718,7 @@ class DockerCommandExecutor(CommandExecutor):
         self.ssh_command_executor.run(
             f"mkdir -p {host_mount_location} && chown -R "
             f"{self.ssh_command_executor.ssh_user} {host_mount_location}",
-            silent=is_rsync_silent())
+            silent=self.call_context.is_rsync_silent())
         if source[-1] == "/":
             source += "."
             # Adding a "." means that docker copies the *contents*
@@ -765,7 +730,7 @@ class DockerCommandExecutor(CommandExecutor):
                 "rsync -e '{} exec -i' -avz --delete {}:{} {}".format(
                     self.docker_cmd, self.container_name,
                     self._docker_expand_user(source), host_source),
-                silent=is_rsync_silent())
+                silent=self.call_context.is_rsync_silent())
         self.ssh_command_executor.run_rsync_down(
             host_source, target, options=options)
 

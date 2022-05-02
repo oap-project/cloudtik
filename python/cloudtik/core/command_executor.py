@@ -1,5 +1,7 @@
 from typing import Any, List, Tuple, Dict, Optional
 
+from cloudtik.core._private.call_context import CallContext
+
 
 class CommandExecutor:
     """Interface to run commands on a remote cluster node.
@@ -11,6 +13,8 @@ class CommandExecutor:
     option.
 
     Command executor instances are returned by provider.get_command_executor()."""
+    def __init__(self, call_context: CallContext) -> None:
+        self.call_context = call_context
 
     def run(
             self,

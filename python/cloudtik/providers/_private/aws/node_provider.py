@@ -11,7 +11,6 @@ from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_NAME, \
     CLOUDTIK_TAG_LAUNCH_CONFIG, CLOUDTIK_TAG_NODE_KIND, CLOUDTIK_TAG_USER_NODE_TYPE
 
-from cloudtik.core._private.constants import CLOUDTIK_DEFAULT_OBJECT_STORE_MEMORY_PROPORTION
 from cloudtik.core._private.log_timer import LogTimer
 from cloudtik.core._private.cli_logger import cli_logger, cf
 

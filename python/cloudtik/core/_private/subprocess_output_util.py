@@ -9,42 +9,6 @@ from cloudtik.core._private.cli_logger import cli_logger, cf
 
 CONN_REFUSED_PATIENCE = 30  # how long to wait for sshd to run
 
-_redirect_output = False  # Whether to log command output to a temporary file
-_allow_interactive = True  # whether to pass on stdin to running commands.
-
-
-def is_output_redirected():
-    return _redirect_output
-
-
-def set_output_redirected(val: bool):
-    """Choose between logging to a temporary file and to `sys.stdout`.
-
-    The default is to log to a file.
-
-    Args:
-        val (bool): If true, subprocess output will be redirected to
-                    a temporary file.
-    """
-    global _redirect_output
-    _redirect_output = val
-
-
-def does_allow_interactive():
-    return _allow_interactive
-
-
-def set_allow_interactive(val: bool):
-    """Choose whether to pass on stdin to running commands.
-
-    The default is to pipe stdin and close it immediately.
-
-    Args:
-        val (bool): If true, stdin will be passed to commands.
-    """
-    global _allow_interactive
-    _allow_interactive = val
-
 
 class ProcessRunnerError(Exception):
     def __init__(self,
@@ -174,7 +138,10 @@ def _run_and_process_output(cmd,
                             stdout_file,
                             process_runner=subprocess,
                             stderr_file=None,
-                            use_login_shells=False):
+                            use_login_shells=False,
+                            allow_interactive=True,
+                            output_redirected=False
+                            ):
     """Run a command and process its output for special cases.
 
     Calls a standard 'check_call' if process_runner is not subprocess.
@@ -229,10 +196,10 @@ def _run_and_process_output(cmd,
     """
     stdin_overwrite = subprocess.PIPE
     # This already should be validated in a higher place of the stack.
-    assert not (does_allow_interactive() and is_output_redirected()), (
+    assert not (allow_interactive and output_redirected), (
         "Cannot redirect output while in interactive mode.")
-    if process_runner != subprocess or (does_allow_interactive()
-                                        and not is_output_redirected()):
+    if process_runner != subprocess or (allow_interactive
+                                        and not output_redirected):
         stdin_overwrite = None
 
     # See implementation note #1
@@ -314,7 +281,10 @@ def _run_and_process_output(cmd,
 def run_cmd_redirected(cmd,
                        process_runner=subprocess,
                        silent=False,
-                       use_login_shells=False):
+                       use_login_shells=False,
+                       allow_interactive=True,
+                       output_redirected=False
+                       ):
     """Run a command and optionally redirect output to a file.
 
     Args:
@@ -331,18 +301,22 @@ def run_cmd_redirected(cmd,
             process_runner=process_runner,
             stdout_file=process_runner.DEVNULL,
             stderr_file=process_runner.DEVNULL,
-            use_login_shells=use_login_shells)
+            use_login_shells=use_login_shells,
+            allow_interactive=allow_interactive,
+            output_redirected=output_redirected)
 
-    if not is_output_redirected():
+    if not output_redirected:
         return _run_and_process_output(
             cmd,
             process_runner=process_runner,
             stdout_file=sys.stdout,
             stderr_file=sys.stderr,
-            use_login_shells=use_login_shells)
+            use_login_shells=use_login_shells,
+            allow_interactive=allow_interactive,
+            output_redirected=output_redirected)
     else:
         tmpfile_path = os.path.join(
-            tempfile.gettempdir(), "cloudtik-up-{}-{}.txt".format(
+            tempfile.gettempdir(), "cloudtik-out-{}-{}.txt".format(
                 cmd[0], time.time()))
         with open(
                 tmpfile_path,
@@ -357,7 +331,9 @@ def run_cmd_redirected(cmd,
                 process_runner=process_runner,
                 stdout_file=tmp,
                 stderr_file=tmp,
-                use_login_shells=use_login_shells)
+                use_login_shells=use_login_shells,
+                allow_interactive=allow_interactive,
+                output_redirected=output_redirected)
 
 
 def handle_ssh_fails(e, first_conn_refused_time, retry_interval):

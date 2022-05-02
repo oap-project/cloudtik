@@ -14,6 +14,8 @@ import yaml
 from enum import Enum
 from six.moves import queue
 
+from cloudtik.core._private.call_context import CallContext
+
 try:
     from urllib3.exceptions import MaxRetryError
 except ImportError:
@@ -161,6 +163,9 @@ class ClusterScaler:
         else:
             self.config_reader = config_reader
 
+        # TODO: Each node updater may need its own CallContext
+        # The call context for node updater
+        self.call_context = CallContext()
         # Prefix each line of info string with cluster name if True
         self.prefix_cluster_info = prefix_cluster_info
         # Keep this before self.reset (self.provider needs to be created
@@ -896,6 +901,7 @@ class ClusterScaler:
             get_commands_to_run(self.config, "worker_start_commands"), head_node_ip)
 
         updater = NodeUpdaterThread(
+            call_context=self.call_context,
             node_id=node_id,
             provider_config=self.config["provider"],
             provider=self.provider,
@@ -995,6 +1001,7 @@ class ClusterScaler:
             start_commands, head_node_ip)
 
         updater = NodeUpdaterThread(
+            call_context=self.call_context,
             node_id=node_id,
             provider_config=self.config["provider"],
             provider=self.provider,

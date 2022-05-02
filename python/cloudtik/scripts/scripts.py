@@ -25,7 +25,7 @@ from cloudtik.core._private.cluster.cluster_operator import (
     start_proxy, stop_proxy, cluster_debug_status,
     cluster_health_check, cluster_process_status,
     attach_worker, start_node_from_head, stop_node_from_head, scale_cluster,
-    _load_cluster_config, exec_on_nodes, submit_and_exec, _wait_for_ready, _rsync)
+    _load_cluster_config, exec_on_nodes, submit_and_exec, _wait_for_ready, _rsync, cli_call_context)
 from cloudtik.core._private.constants import CLOUDTIK_PROCESSES, \
     CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
     CLOUDTIK_DEFAULT_PORT
@@ -658,6 +658,7 @@ def exec(cluster_config_file, cmd, run_env, screen, tmux, stop, start,
                                       no_config_cache=no_config_cache)
         exec_on_nodes(
             config,
+            call_context=cli_call_context(),
             node_ip=node_ip,
             all_nodes=all_nodes,
             cmd=cmd,
@@ -731,8 +732,9 @@ def submit(cluster_config_file, screen, tmux, stop, start, cluster_name,
         cluster_config_file, cluster_name, no_config_cache=no_config_cache)
     submit_and_exec(
         config,
-        script,
-        script_args,
+        call_context=cli_call_context(),
+        script=script,
+        script_args=script_args,
         screen=screen,
         tmux=tmux,
         stop=stop,
@@ -800,8 +802,9 @@ def rsync_up(cluster_config_file, source, target, cluster_name, node_ip, all_nod
             cluster_config_file, cluster_name)
         _rsync(
             config,
-            source,
-            target,
+            call_context=cli_call_context(),
+            source=source,
+            target=target,
             down=False,
             node_ip=node_ip,
             all_nodes=all_nodes)
@@ -835,7 +838,9 @@ def rsync_down(cluster_config_file, source, target, cluster_name, node_ip):
     try:
         config = _load_cluster_config(
             cluster_config_file, cluster_name)
-        _rsync(config, source, target,
+        _rsync(config,
+               call_context=cli_call_context(),
+               source=source, target=target,
                down=True, node_ip=node_ip)
     except RuntimeError as re:
         cli_logger.error("Rsync down failed. " + str(re))

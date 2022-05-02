@@ -32,7 +32,8 @@ from cloudtik.core._private.call_context import CallContext
 from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core._private.cluster.cluster_metrics import ClusterMetricsSummary
 from cloudtik.core._private.constants import CLOUDTIK_WHEELS, CLOUDTIK_CLUSTER_PYTHON_VERSION, \
-    CLOUDTIK_DEFAULT_MAX_WORKERS, CLOUDTIK_NODE_SSH_INTERVAL_S, CLOUDTIK_NODE_START_WAIT_S, MAX_PARALLEL_EXEC_NODES
+    CLOUDTIK_DEFAULT_MAX_WORKERS, CLOUDTIK_NODE_SSH_INTERVAL_S, CLOUDTIK_NODE_START_WAIT_S, MAX_PARALLEL_EXEC_NODES, \
+    CLOUDTIK_CLUSTER_URI_TEMPLATE
 from cloudtik.core._private.runtime_factory import _get_runtime, _get_runtime_cls
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core._private.providers import _get_default_config, _get_node_provider, _get_provider_config_object, \
@@ -1992,3 +1993,12 @@ def get_runtime_processes(runtimes: List[str]):
             runtime_processes += processes
 
     return runtime_processes
+
+
+def get_cluster_uri(config: Dict[str, Any],) -> str:
+    return _get_cluster_uri(config["provider"]["type"], config["cluster_name"])
+
+
+def _get_cluster_uri(provider_type: str, cluster_name: str) -> str:
+    return CLOUDTIK_CLUSTER_URI_TEMPLATE.format(
+        provider_type, cluster_name)

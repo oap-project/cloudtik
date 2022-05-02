@@ -333,19 +333,22 @@ def configure_logging(log_style: Optional[str] = None,
 
 
 def register_callback_handler(
+        cluster_uri:str,
         event_name: str,
         callback: Union[Callable[[Dict], None], List[Callable[[Dict], None]]],
 ) -> None:
     """Registers a callback handler for scaling  events.
 
     Args:
+        cluster_uri (str): The unique identifier of a cluster which is
+                a combination of provider:cluster_name
         event_name (str): Event that callback should be called on. See
             CreateClusterEvent for details on the events available to be
             registered against.
         callback (Callable): Callable object that is invoked
             when specified event occurs.
     """
-    global_event_system.add_callback_handler(event_name, callback)
+    global_event_system.add_callback_handler(cluster_uri, event_name, callback)
 
 
 def get_docker_host_mount_location(cluster_name: str) -> str:

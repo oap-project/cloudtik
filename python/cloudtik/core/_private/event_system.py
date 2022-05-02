@@ -1,3 +1,4 @@
+import threading
 from enum import Enum, auto
 from typing import Any, Callable, Dict, List, Optional, Union
 
@@ -42,22 +43,26 @@ class _EventSystem:
     """Event system that handles storing and calling callbacks for events.
 
     Attributes:
-        callback_map (Dict[str, List[Callable]]) : Stores list of callbacks
-            for events when registered.
+        callback_map (Dict[str, Dict[str, List[Callable]]]) : Stores list of callbacks
+            for events when registered for unique cluster.
     """
 
     def __init__(self):
         self.callback_map = {}
+        self._lock = threading.Lock()
 
     def add_callback_handler(
             self,
+            cluster_uri: str,
             event: str,
             callback: Union[Callable[[Dict], None], List[Callable[[Dict],
                                                                   None]]],
     ):
-        """Stores callback handler for event.
+        """Stores callback handler for event of the uri
 
         Args:
+            cluster_uri (str): The unique identifier of a cluster which is
+                a combination of provider:cluster_name
             event (str): Event that callback should be called on. See
                 CreateClusterEvent for details on the events available to be
                 registered against.
@@ -67,17 +72,22 @@ class _EventSystem:
         if event not in CreateClusterEvent.__members__.values():
             cli_logger.warning(f"{event} is not currently tracked, and this"
                                " callback will not be invoked.")
-
-        self.callback_map.setdefault(
-            event,
-            []).extend([callback] if type(callback) is not list else callback)
+        with self._lock:
+            self.callback_map.setdefault(
+                cluster_uri,
+                {}).setdefault(
+                event,
+                []).extend([callback] if type(callback) is not list else callback)
 
     def execute_callback(self,
+                         cluster_uri: str,
                          event: CreateClusterEvent,
                          event_data: Optional[Dict[str, Any]] = None):
-        """Executes all callbacks for event.
+        """Executes all callbacks for event of the uri
 
         Args:
+            cluster_uri (str): The unique identifier of a cluster which is
+                a combination of provider:cluster_name
             event (str): Event that is invoked. See CreateClusterEvent
                 for details on the available events.
             event_data (Dict[str, Any]): Argument that is passed to each
@@ -87,19 +97,43 @@ class _EventSystem:
             event_data = {}
 
         event_data["event_name"] = event
-        if event in self.callback_map:
-            for callback in self.callback_map[event]:
-                callback(event_data)
 
-    def clear_callbacks_for_event(self, event: str):
+        with self._lock:
+            if cluster_uri in self.callback_map:
+                event_callback_map = self.callback_map[cluster_uri]
+                if event in event_callback_map:
+                    # TODO: Improve with make a copy of the callback and call outside of the lock
+                    for callback in event_callback_map[event]:
+                        callback(event_data)
+
+    def clear_callbacks_for_event(self,
+                                  cluster_uri: str,
+                                  event: str):
         """Clears stored callable objects for event.
 
         Args:
+            cluster_uri (str): The unique identifier of a cluster which is
+                a combination of provider:cluster_name
             event (str): Event that has callable objects stored in map.
                 See CreateClusterEvent for details on the available events.
         """
-        if event in self.callback_map:
-            del self.callback_map[event]
+        with self._lock:
+            if cluster_uri in self.callback_map:
+                event_callback_map = self.callback_map[cluster_uri]
+                if event in event_callback_map:
+                    del event_callback_map[event]
+
+    def clear_callbacks_for_cluster(self,
+                                    cluster_uri: str):
+        """Clears stored callable objects for cluster.
+
+        Args:
+            cluster_uri (str): The unique identifier of a cluster which is
+                a combination of provider:cluster_name
+        """
+        with self._lock:
+            if cluster_uri in self.callback_map:
+                del self.callback_map[cluster_uri]
 
 
 global_event_system = _EventSystem()

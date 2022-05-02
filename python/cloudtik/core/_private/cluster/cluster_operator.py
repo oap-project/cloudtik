@@ -42,7 +42,7 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     kill_process_tree, with_runtime_environment_variables, verify_config, runtime_prepare_config, get_nodes_info, \
     sum_worker_cpus, sum_worker_memory, get_useful_runtime_urls, get_enabled_runtimes, \
     with_head_node_ip, with_node_ip_environment_variables, run_in_paralell_on_nodes, get_commands_to_run, \
-    cluster_booting_completed, load_head_cluster_config, get_runnable_command
+    cluster_booting_completed, load_head_cluster_config, get_runnable_command, get_cluster_uri
 
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
@@ -274,8 +274,10 @@ def _create_or_update_cluster(
         redirect_command_output: Optional[bool] = False,
         use_login_shells: bool = True,
         no_controller_on_head: bool = False):
-    global_event_system.execute_callback(CreateClusterEvent.up_started,
-                                         {"cluster_config": config})
+    global_event_system.execute_callback(
+        get_cluster_uri(config),
+        CreateClusterEvent.up_started,
+        {"cluster_config": config})
 
     call_context.set_using_login_shells(use_login_shells)
     if not use_login_shells:
@@ -728,6 +730,7 @@ def get_or_create_head_node(config: Dict[str, Any],
                             _runner: ModuleType = subprocess) -> None:
     """Create the cluster head node, which in turn creates the workers."""
     global_event_system.execute_callback(
+        get_cluster_uri(config),
         CreateClusterEvent.cluster_booting_started)
     provider = (_provider or _get_node_provider(config["provider"],
                                                 config["cluster_name"]))
@@ -797,6 +800,7 @@ def get_or_create_head_node(config: Dict[str, Any],
     if creating_new_head:
         with cli_logger.group("Acquiring an up-to-date head node"):
             global_event_system.execute_callback(
+                get_cluster_uri(config),
                 CreateClusterEvent.acquiring_new_head_node)
             if head_node is not None:
                 cli_logger.confirm(
@@ -826,7 +830,9 @@ def get_or_create_head_node(config: Dict[str, Any],
                     time.sleep(POLL_INTERVAL)
             cli_logger.newline()
 
-    global_event_system.execute_callback(CreateClusterEvent.head_node_acquired)
+    global_event_system.execute_callback(
+        get_cluster_uri(config),
+        CreateClusterEvent.head_node_acquired)
 
     with cli_logger.group(
             "Setting up head node",
@@ -901,6 +907,7 @@ def get_or_create_head_node(config: Dict[str, Any],
             sys.exit(1)
 
     global_event_system.execute_callback(
+        get_cluster_uri(config),
         CreateClusterEvent.cluster_booting_completed, {
             "head_node_id": head_node,
         })

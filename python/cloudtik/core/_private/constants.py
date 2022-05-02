@@ -229,3 +229,6 @@ CLOUDTIK_WAIT_FOR_CLUSTER_READY_INTERVAL_S = env_integer("CLOUDTIK_WAIT_FOR_CLUS
 
 # Cloudtik env exported for running commands
 CLOUDTIK_RUNTIMES_ENV = "CLOUDTIK_RUNTIMES"
+
+# Template for cluster uri
+CLOUDTIK_CLUSTER_URI_TEMPLATE = "{}:{}"

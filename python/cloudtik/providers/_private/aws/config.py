@@ -18,7 +18,7 @@ from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.event_system import (CreateClusterEvent,
                                                   global_event_system)
 from cloudtik.core._private.services import get_node_ip_address
-from cloudtik.core._private.utils import check_cidr_conflict
+from cloudtik.core._private.utils import check_cidr_conflict, get_cluster_uri
 from cloudtik.providers._private.aws.utils import LazyDefaultDict, \
     handle_boto_error, resource_cache, get_boto_error_code
 from cloudtik.providers._private.utils import StorageTestingError
@@ -575,6 +575,7 @@ def bootstrap_aws_default(config):
     # Configure SSH access, using an existing key pair if possible.
     config = _configure_key_pair(config)
     global_event_system.execute_callback(
+        get_cluster_uri(config),
         CreateClusterEvent.ssh_keypair_downloaded,
         {"ssh_key_path": config["auth"]["ssh_private_key"]})
 
@@ -609,6 +610,7 @@ def bootstrap_aws_from_workspace(config):
     # Configure SSH access, using an existing key pair if possible.
     config = _configure_key_pair(config)
     global_event_system.execute_callback(
+        get_cluster_uri(config),
         CreateClusterEvent.ssh_keypair_downloaded,
         {"ssh_key_path": config["auth"]["ssh_private_key"]})
 

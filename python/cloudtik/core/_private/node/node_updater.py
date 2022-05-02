@@ -6,7 +6,8 @@ import time
 
 from threading import Thread
 
-from cloudtik.core._private.utils import with_runtime_environment_variables, with_node_ip_environment_variables
+from cloudtik.core._private.utils import with_runtime_environment_variables, with_node_ip_environment_variables, \
+    _get_cluster_uri
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_STATUS, CLOUDTIK_TAG_RUNTIME_CONFIG, \
     CLOUDTIK_TAG_FILE_MOUNTS_CONTENTS, \
     STATUS_UP_TO_DATE, STATUS_UPDATE_FAILED, STATUS_WAITING_FOR_SSH, \
@@ -123,6 +124,7 @@ class NodeUpdater:
         self.update_time = None
         self.for_recovery = for_recovery
         self.runtime_config = runtime_config
+        self.cluster_uri = _get_cluster_uri(self.provider_type, cluster_name)
 
     def run(self):
         update_start_time = time.time()
@@ -312,6 +314,7 @@ class NodeUpdater:
         deadline = time.time() + CLOUDTIK_NODE_START_WAIT_S
         self.wait_ready(deadline)
         global_event_system.execute_callback(
+            self.cluster_uri,
             CreateClusterEvent.ssh_control_acquired)
 
         node_tags = self.provider.node_tags(self.node_id)
@@ -431,6 +434,7 @@ class NodeUpdater:
 
     def _exec_initialization_commands(self, runtime_envs):
         global_event_system.execute_callback(
+            self.cluster_uri,
             CreateClusterEvent.run_initialization_cmd)
         with LogTimer(
                 self.log_prefix + "Initialization commands",
@@ -442,6 +446,7 @@ class NodeUpdater:
 
     def _exec_initialization_command(self, cmd, runtime_envs):
         global_event_system.execute_callback(
+            self.cluster_uri,
             CreateClusterEvent.run_initialization_cmd,
             {"command": cmd})
         try:
@@ -468,6 +473,7 @@ class NodeUpdater:
 
     def _exec_setup_commands(self, runtime_envs):
         global_event_system.execute_callback(
+            self.cluster_uri,
             CreateClusterEvent.run_setup_cmd)
         with LogTimer(
                 self.log_prefix + "Setup commands",
@@ -486,6 +492,7 @@ class NodeUpdater:
 
     def _exec_setup_command(self, cmd, runtime_envs):
         global_event_system.execute_callback(
+            self.cluster_uri,
             CreateClusterEvent.run_setup_cmd,
             {"command": cmd})
         if cli_logger.verbosity == 0 and len(cmd) > 30:
@@ -509,6 +516,7 @@ class NodeUpdater:
 
     def _exec_start_commands(self, runtime_envs):
         global_event_system.execute_callback(
+            self.cluster_uri,
             CreateClusterEvent.start_cloudtik_runtime)
         with LogTimer(
                 self.log_prefix + "Start commands", show_status=True):
@@ -523,6 +531,7 @@ class NodeUpdater:
                     for cmd in commands:
                         self._exec_start_command(cmd, runtime_envs)
         global_event_system.execute_callback(
+            self.cluster_uri,
             CreateClusterEvent.start_cloudtik_runtime_completed)
 
     def _exec_start_command(self, cmd, runtime_envs):

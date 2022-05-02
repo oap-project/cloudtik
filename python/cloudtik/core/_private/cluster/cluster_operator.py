@@ -1430,8 +1430,8 @@ def _get_running_head_node(
             `cloudtik exec` to debug a cluster in a bad state.
 
     """
-    _get_running_head_node_ex(config=config, _provider=_provider,
-                              _allow_uninitialized_state=_allow_uninitialized_state)
+    return _get_running_head_node_ex(config=config, _provider=_provider,
+                                     _allow_uninitialized_state=_allow_uninitialized_state)
 
 
 def get_local_dump_archive(stream: bool = False,

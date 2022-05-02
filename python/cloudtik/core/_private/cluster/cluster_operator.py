@@ -598,7 +598,7 @@ def teardown_cluster_nodes(config: Dict[str, Any],
 
 def kill_node_from_head(config_file: str, yes: bool, hard: bool,
                         override_cluster_name: Optional[str],
-                        node_ip: str = None) -> Optional[str]:
+                        node_ip: str = None):
     """Kills a specified or a random worker."""
     config = _load_cluster_config(config_file, override_cluster_name)
     call_context = cli_call_context()
@@ -607,8 +607,32 @@ def kill_node_from_head(config_file: str, yes: bool, hard: bool,
     else:
         cli_logger.confirm(yes, "A random node will be killed.", _abort=True)
 
+    killed_node_ip = _kill_node_from_head(
+        config,
+        call_context=call_context,
+        node_ip=node_ip,
+        hard=hard)
+    if killed_node_ip and hard:
+        click.echo("Killed node with IP " + killed_node_ip)
+
+
+def _kill_node_from_head(config: Dict[str, Any],
+                         call_context: CallContext,
+                         node_ip: str = None,
+                         hard: bool = False) -> Optional[str]:
+    if node_ip is None:
+        provider = _get_node_provider(config["provider"], config["cluster_name"])
+        nodes = provider.non_terminated_nodes({
+            CLOUDTIK_TAG_NODE_KIND: NODE_KIND_WORKER
+        })
+        if not nodes:
+            cli_logger.print("No worker nodes launched.")
+            return None
+        node = random.choice(nodes)
+        node_ip = get_node_cluster_ip(provider, node)
+
     if hard:
-        return _kill_node(config, hard, node_ip)
+        return _kill_node(config, node_ip=node_ip, hard=hard)
 
     # soft kill, we need to do on head
     cmds = [
@@ -617,13 +641,12 @@ def kill_node_from_head(config_file: str, yes: bool, hard: bool,
         "kill-node",
         "--yes",
     ]
-    if node_ip:
-        cmds += ["--node-ip={}".format(node_ip)]
+    cmds += ["--node-ip={}".format(node_ip)]
     final_cmd = " ".join(cmds)
     _exec_cmd_on_cluster(config,
                          call_context=call_context,
                          cmd=final_cmd)
-    return None
+    return node_ip
 
 
 def kill_node_on_head(yes, hard, node_ip: str = None):
@@ -636,10 +659,12 @@ def kill_node_on_head(yes, hard, node_ip: str = None):
         else:
             cli_logger.confirm(yes, "A random node will be killed.", _abort=True)
 
-    return _kill_node(config, hard, node_ip)
+    return _kill_node(config, node_ip=node_ip, hard=hard)
 
 
-def _kill_node(config, hard, node_ip: str = None):
+def _kill_node(config: Dict[str, Any],
+               hard: bool,
+               node_ip: str = None):
     provider = _get_node_provider(config["provider"], config["cluster_name"])
 
     if node_ip:
@@ -652,7 +677,7 @@ def _kill_node(config, hard, node_ip: str = None):
             CLOUDTIK_TAG_NODE_KIND: NODE_KIND_WORKER
         })
         if not nodes:
-            cli_logger.print("No worker nodes detected.")
+            cli_logger.print("No worker nodes found.")
             return None
         node = random.choice(nodes)
         node_ip = get_node_cluster_ip(provider, node)

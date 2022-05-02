@@ -209,6 +209,56 @@ class Cluster:
             call_context=self.call_context,
             cpus=num_cpus)
 
+    def start_node(self,
+                   node_ip: str = None,
+                   all_nodes: bool = False,
+                   parallel: bool = True) -> None:
+        """Start services on a node.
+        Args:
+            node_ip (str): The node_ip to run on
+            all_nodes(bool): Run on all nodes
+            parallel (bool): Run the command in parallel if there are more than one node
+        """
+        return cluster_operator._start_node_from_head(
+            config=self.config,
+            call_context=self.call_context,
+            node_ip=node_ip,
+            all_nodes=all_nodes,
+            parallel=parallel
+            )
+
+    def stop_node(self,
+                  node_ip: str = None,
+                  all_nodes: bool = False,
+                  parallel: bool = True) -> None:
+        """Run stop commands on a node.
+        Args:
+            node_ip (str): The node_ip to run on
+            all_nodes(bool): Run on all nodes
+            parallel (bool): Run the command in parallel if there are more than one node
+        """
+        return cluster_operator._stop_node_from_head(
+            config=self.config,
+            call_context=self.call_context,
+            node_ip=node_ip,
+            all_nodes=all_nodes,
+            parallel=parallel
+            )
+
+    def kill_node(self,
+                  node_ip: str = None,
+                  hard: bool = False) -> str:
+        """Kill a node or a random node
+        Args:
+            node_ip (str): The node_ip to run on
+            hard(bool): Terminate the node by force
+        """
+        return cluster_operator._kill_node_from_head(
+            config=self.config,
+            call_context=self.call_context,
+            node_ip=node_ip,
+            hard=hard)
+
     def get_head_node_ip(self) -> str:
         """Returns head node IP for given configuration file if exists.
 

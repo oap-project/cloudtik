@@ -3,12 +3,13 @@ import json
 import os
 from typing import Any, Dict
 
+from cloudtik.core._private.concurrent_cache import ConcurrentObjectCache
 from cloudtik.core.runtime import Runtime
 
 logger = logging.getLogger(__name__)
 
 # For caching runtime instantiations across API calls of one python session
-_runtime_instances = {}
+_runtime_instances = ConcurrentObjectCache()
 
 RUNTIME_MINIMAL_EXTERNAL_CONFIG = {}
 
@@ -112,23 +113,22 @@ def _get_runtime(runtime_type: str, runtime_config: Dict[str, Any],
     Returns:
         Runtime
     """
+    def load_runtime(runtime_type: str, runtime_config: Dict[str, Any]):
+        runtime_cls = _get_runtime_cls(runtime_type)
+        return runtime_cls(runtime_config)
+
+    if not use_cache:
+        return load_runtime(runtime_type, runtime_config)
+
     runtime_section = runtime_config.get(runtime_type, {})
     runtime_key = (runtime_type, json.dumps(runtime_section, sort_keys=True))
-    if use_cache and runtime_key in _runtime_instances:
-        return _runtime_instances[runtime_key]
-
-    runtime_cls = _get_runtime_cls(runtime_type)
-    new_runtime = runtime_cls(runtime_config)
-
-    if use_cache:
-        _runtime_instances[runtime_key] = new_runtime
-
-    return new_runtime
+    return _runtime_instances.get(
+        runtime_key, load_runtime,
+        runtime_type=runtime_type, runtime_config=runtime_config)
 
 
 def _clear_runtime_cache():
-    global _runtime_instances
-    _runtime_instances = {}
+    _runtime_instances.clear()
 
 
 def _get_runtime_home(runtime_type: str):

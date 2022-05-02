@@ -7,10 +7,12 @@ from typing import Any, Dict
 
 import yaml
 
+from cloudtik.core._private.concurrent_cache import ConcurrentObjectCache
+
 logger = logging.getLogger(__name__)
 
 # For caching provider instantiations across API calls of one python session
-_provider_instances = {}
+_node_provider_instances = ConcurrentObjectCache()
 
 # Minimal config for compatibility with legacy-style external configs.
 MINIMAL_EXTERNAL_CONFIG = {
@@ -134,7 +136,7 @@ _DEFAULT_CONFIGS = {
 }
 
 # For caching workspace provider instantiations across API calls of one python session
-_workspace_provider_instances = {}
+_workspace_provider_instances = ConcurrentObjectCache()
 
 
 def _import_aws_workspace(provider_config):
@@ -225,22 +227,21 @@ def _get_node_provider(provider_config: Dict[str, Any],
     Returns:
         NodeProvider
     """
+    def load_node_provider(provider_config: Dict[str, Any], cluster_name: str):
+        provider_cls = _get_node_provider_cls(provider_config)
+        return provider_cls(provider_config, cluster_name)
+
+    if not use_cache:
+        return load_node_provider(provider_config, cluster_name)
+
     provider_key = (json.dumps(provider_config, sort_keys=True), cluster_name)
-    if use_cache and provider_key in _provider_instances:
-        return _provider_instances[provider_key]
-
-    provider_cls = _get_node_provider_cls(provider_config)
-    new_provider = provider_cls(provider_config, cluster_name)
-
-    if use_cache:
-        _provider_instances[provider_key] = new_provider
-
-    return new_provider
+    return _node_provider_instances.get(
+        provider_key, load_node_provider,
+        provider_config=provider_config, cluster_name=cluster_name)
 
 
 def _clear_provider_cache():
-    global _provider_instances
-    _provider_instances = {}
+    _node_provider_instances.clear()
 
 
 def _get_default_config(provider_config):
@@ -297,22 +298,21 @@ def _get_workspace_provider(provider_config: Dict[str, Any],
     Returns:
         WorkspaceProvider
     """
+    def load_workspace_provider(provider_config: Dict[str, Any], workspace_name: str):
+        provider_cls = _get_workspace_provider_cls(provider_config)
+        return provider_cls(provider_config, workspace_name)
+
+    if not use_cache:
+        return load_workspace_provider(provider_config, workspace_name)
+
     provider_key = (json.dumps(provider_config, sort_keys=True), workspace_name)
-    if use_cache and provider_key in _workspace_provider_instances:
-        return _workspace_provider_instances[provider_key]
-
-    provider_cls = _get_workspace_provider_cls(provider_config)
-    new_provider = provider_cls(provider_config, workspace_name)
-
-    if use_cache:
-        _workspace_provider_instances[provider_key] = new_provider
-
-    return new_provider
+    return _workspace_provider_instances.get(
+        provider_key, load_workspace_provider,
+        provider_config=provider_config, workspace_name=workspace_name)
 
 
 def _clear_workspace_provider_cache():
-    global _workspace_provider_instances
-    _workspace_provider_instances = {}
+    _workspace_provider_instances.clear()
 
 
 def _get_default_workspace_config(provider_config):

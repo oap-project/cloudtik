@@ -8,6 +8,7 @@ from cloudtik.core._private.cluster import cluster_operator
 from cloudtik.core._private.event_system import (
     global_event_system)
 from cloudtik.core._private.cli_logger import cli_logger
+from cloudtik.core._private.utils import get_cluster_uri
 
 
 class Cluster:
@@ -308,6 +309,22 @@ class Cluster:
                                                 min_workers=min_workers,
                                                 timeout=timeout)
 
+    def register_callback(self,
+                          event_name: str,
+                          callback: Union[Callable[[Dict], None], List[Callable[[Dict], None]]],
+    ) -> None:
+        """Registers a callback handler for scaling events.
+
+        Args:
+            event_name (str): Event that callback should be called on. See
+                CreateClusterEvent for details on the events available to be
+                registered against.
+            callback (Callable): Callable object that is invoked
+                when specified event occurs.
+        """
+        cluster_uri = get_cluster_uri(self.config)
+        global_event_system.add_callback_handler(cluster_uri, event_name, callback)
+
 
 def configure_logging(log_style: Optional[str] = None,
                       color_mode: Optional[str] = None,
@@ -335,23 +352,7 @@ def configure_logging(log_style: Optional[str] = None,
         log_style=log_style, color_mode=color_mode, verbosity=verbosity)
 
 
-def register_callback_handler(
-        cluster_uri:str,
-        event_name: str,
-        callback: Union[Callable[[Dict], None], List[Callable[[Dict], None]]],
-) -> None:
-    """Registers a callback handler for scaling  events.
 
-    Args:
-        cluster_uri (str): The unique identifier of a cluster which is
-                a combination of provider:cluster_name
-        event_name (str): Event that callback should be called on. See
-            CreateClusterEvent for details on the events available to be
-            registered against.
-        callback (Callable): Callable object that is invoked
-            when specified event occurs.
-    """
-    global_event_system.add_callback_handler(cluster_uri, event_name, callback)
 
 
 def get_docker_host_mount_location(cluster_name: str) -> str:

@@ -1175,6 +1175,11 @@ def with_head_node_ip(command_groups, head_ip=None):
     return out
 
 
+def with_head_node_ip_environment_variables(envs: Dict[str, Any], head_ip) -> Dict[str, Any]:
+    envs["CLOUDTIK_HEAD_IP"] = head_ip
+    return envs
+
+
 def with_node_ip_environment_variables(node_ip, provider, node_id):
     if node_ip is None:
         # Waiting for node internal ip for node

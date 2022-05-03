@@ -41,8 +41,9 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     get_attach_command, is_alive_time, is_docker_enabled, get_proxy_bind_address_to_show, \
     kill_process_tree, with_runtime_environment_variables, verify_config, runtime_prepare_config, get_nodes_info, \
     sum_worker_cpus, sum_worker_memory, get_useful_runtime_urls, get_enabled_runtimes, \
-    with_head_node_ip, with_node_ip_environment_variables, run_in_paralell_on_nodes, get_commands_to_run, \
-    cluster_booting_completed, load_head_cluster_config, get_runnable_command, get_cluster_uri
+    with_node_ip_environment_variables, run_in_paralell_on_nodes, get_commands_to_run, \
+    cluster_booting_completed, load_head_cluster_config, get_runnable_command, get_cluster_uri, \
+    with_head_node_ip_environment_variables
 
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
@@ -2458,9 +2459,10 @@ def start_node_on_head(node_ip: str = None,
             start_commands = get_commands_to_run(config, "head_start_commands")
             node_runtime_envs = with_node_ip_environment_variables(head_node_ip, provider, node_id)
         else:
-            start_commands = with_head_node_ip(
-                get_commands_to_run(config, "worker_start_commands"), head_node_ip)
+            start_commands = get_commands_to_run(config, "worker_start_commands")
             node_runtime_envs = with_node_ip_environment_variables(None, provider, node_id)
+            node_runtime_envs = with_head_node_ip_environment_variables(
+                node_runtime_envs, head_node_ip)
 
         updater = create_node_updater_for_exec(
             config=config,
@@ -2638,9 +2640,10 @@ def _stop_node_on_head(
             stop_commands = get_commands_to_run(config, "head_stop_commands")
             node_runtime_envs = with_node_ip_environment_variables(head_node_ip, provider, node_id)
         else:
-            stop_commands = with_head_node_ip(
-                get_commands_to_run(config, "worker_stop_commands"), head_node_ip)
+            stop_commands = get_commands_to_run(config, "worker_stop_commands")
             node_runtime_envs = with_node_ip_environment_variables(None, provider, node_id)
+            node_runtime_envs = with_head_node_ip_environment_variables(
+                node_runtime_envs, head_node_ip)
 
         if not stop_commands:
             return

@@ -1,3 +1,6 @@
+from cloudtik.providers._private.gcp.node import GCPNode
+
+
 def get_gcs_config(provider_config):
     config_dict = {}
 
@@ -25,3 +28,13 @@ def get_gcs_config(provider_config):
         config_dict["GCS_SERVICE_ACCOUNT_PRIVATE_KEY"] = gs_private_key
 
     return config_dict
+
+
+def _get_node_info(node: GCPNode):
+    node_info = {"node_id": node["id"],
+                 "instance_type": node["machineType"].split("/")[-1],
+                 "private_ip": node.get_internal_ip(),
+                 "public_ip": node.get_external_ip(),
+                 "instance_status": node["status"]}
+    node_info.update(node.get_labels())
+    return node_info

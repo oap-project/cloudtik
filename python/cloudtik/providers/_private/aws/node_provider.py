@@ -16,7 +16,8 @@ from cloudtik.core._private.cli_logger import cli_logger, cf
 
 from cloudtik.providers._private.aws.config import verify_s3_storage, bootstrap_aws
 from cloudtik.providers._private.aws.utils import boto_exception_handler, \
-    resource_cache, client_cache, get_aws_s3_config, get_boto_error_code, BOTO_MAX_RETRIES, BOTO_CREATE_MAX_RETRIES
+    resource_cache, client_cache, get_aws_s3_config, get_boto_error_code, BOTO_MAX_RETRIES, BOTO_CREATE_MAX_RETRIES, \
+    _get_node_info
 from cloudtik.providers._private.utils import validate_config_dict
 
 logger = logging.getLogger(__name__)
@@ -46,13 +47,6 @@ def make_ec2_client(region, max_retries, aws_credentials=None):
     """Make client, retrying requests up to `max_retries`."""
     aws_credentials = aws_credentials or {}
     return resource_cache("ec2", region, max_retries, **aws_credentials)
-
-
-def tags_list_to_dict(tags:list):
-    tags_dict = {}
-    for item in tags:
-        tags_dict[item["Key"]] = item["Value"]
-    return tags_dict
 
 
 def list_ec2_instances(region: str, aws_credentials: Dict[str, Any] = None
@@ -160,16 +154,8 @@ class AWSNodeProvider(NodeProvider):
         return [node.id for node in nodes]
 
     def get_node_info(self, node_id):
-
         node = self._get_cached_node(node_id)
-        node_info = {"node_id": node.id,
-                  "instance_type": node.instance_type,
-                  "private_ip": node.private_ip_address,
-                  "public_ip": node.public_ip_address,
-                  "instance_status": node.state["Name"]}
-        node_info.update(tags_list_to_dict(node.tags))
-
-        return node_info
+        return _get_node_info(node)
 
     def is_running(self, node_id):
         node = self._get_cached_node(node_id)

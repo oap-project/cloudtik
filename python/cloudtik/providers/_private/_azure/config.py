@@ -7,9 +7,9 @@ import subprocess
 from pathlib import Path
 import random
 
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, Optional
 
-from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD
+from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, CLOUDTIK_TAG_CLUSTER_NAME
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.utils import check_cidr_conflict
 from cloudtik.providers._private._azure.azure_identity_credential_adapter import AzureIdentityCredentialAdapter
@@ -26,6 +26,7 @@ from azure.mgmt.resource.resources.models import DeploymentMode
 from azure.storage.blob import BlobServiceClient
 from azure.storage.filedatalake import DataLakeServiceClient
 
+from cloudtik.providers._private._azure.utils import _get_node_info
 from cloudtik.providers._private.utils import StorageTestingError
 
 AZURE_RESOURCE_NAME_PREFIX = "cloudtik"
@@ -1308,6 +1309,49 @@ def _configure_key_pair(config):
     return config
 
 
+def _extract_metadata_for_node(vm, resource_group, compute_client, network_client):
+    # get tags
+    metadata = {"name": vm.name, "tags": vm.tags, "status": "", "vm_size": ""}
+
+    # get status
+    instance = compute_client.virtual_machines.instance_view(
+        resource_group_name=resource_group, vm_name=vm.name).as_dict()
+    for status in instance["statuses"]:
+        status_list = status["code"].split("/")
+        code = status_list[0]
+        state = status_list[1]
+        # skip provisioning status
+        if code == "PowerState":
+            metadata["status"] = state
+            break
+
+    # get ip data
+    nic_id = vm.network_profile.network_interfaces[0].id
+    metadata["nic_name"] = nic_id.split("/")[-1]
+    nic = network_client.network_interfaces.get(
+        resource_group_name=resource_group,
+        network_interface_name=metadata["nic_name"])
+    ip_config = nic.ip_configurations[0]
+
+    public_ip_address = ip_config.public_ip_address
+    if public_ip_address is not None:
+        public_ip_id = public_ip_address.id
+        metadata["public_ip_name"] = public_ip_id.split("/")[-1]
+        public_ip = network_client.public_ip_addresses.get(
+            resource_group_name=resource_group,
+            public_ip_address_name=metadata["public_ip_name"])
+        metadata["external_ip"] = public_ip.ip_address
+    else:
+        metadata["external_ip"] = None
+
+    metadata["internal_ip"] = ip_config.private_ip_address
+
+    # get vmSize
+    metadata["vm_size"] = vm.hardware_profile.vm_size
+
+    return metadata
+
+
 def get_workspace_head_nodes(config):
     compute_client = construct_compute_client(config)
     resource_client = construct_resource_client(config)
@@ -1317,17 +1361,21 @@ def get_workspace_head_nodes(config):
         compute_client.virtual_machines.list(resource_group_name=resource_group_name))
             if node.tags is not None and node.tags.get(CLOUDTIK_TAG_NODE_KIND, "") == NODE_KIND_HEAD]
 
+    workspace_heads = []
     for head in all_heads:
         instance = compute_client.virtual_machines.instance_view(
             resource_group_name=resource_group_name, vm_name=head.name).as_dict()
+        in_running = True
         for status in instance["statuses"]:
             status_list = status["code"].split("/")
             code = status_list[0]
             state = status_list[1]
             if code == "PowerState" and state != "running":
-                all_heads.remove(head)
+                in_running = False
+        if in_running:
+            workspace_heads.append(head)
 
-    return all_heads
+    return workspace_heads
 
 
 def verify_azure_blob_storage(provider_config: Dict[str, Any]):
@@ -1384,6 +1432,35 @@ def verify_azure_cloud_storage(provider_config: Dict[str, Any]):
                                   "If you want to go without passing the verification, "
                                   "set 'verify_cloud_storage' to False under provider config. "
                                   "Error: {}.".format(str(e))) from None
+
+
+def get_cluster_name_from_head(head_node) -> Optional[str]:
+    for key, value in head_node.tags.items():
+        if key == CLOUDTIK_TAG_CLUSTER_NAME:
+            return value
+    return None
+
+
+def list_azure_clusters(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    head_nodes = get_workspace_head_nodes(config)
+
+    compute_client = construct_compute_client(config)
+    resource_client = construct_resource_client(config)
+    network_client = construct_network_client(config)
+    use_internal_ips = config["provider"].get("use_internal_ips", False)
+    resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
+
+    clusters = {}
+    for head_node in head_nodes:
+        cluster_name = get_cluster_name_from_head(head_node)
+        if cluster_name:
+            head_node_meta = _extract_metadata_for_node(
+                head_node,
+                resource_group=resource_group_name,
+                compute_client=compute_client,
+                network_client=network_client)
+            clusters[cluster_name] = _get_node_info(head_node_meta)
+    return clusters
 
 
 def construct_resource_client(config):

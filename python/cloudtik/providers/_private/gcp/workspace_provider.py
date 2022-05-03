@@ -1,9 +1,9 @@
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from cloudtik.providers._private.gcp.config import create_gcp_workspace, \
     delete_workspace_gcp, check_gcp_workspace_resource, update_gcp_workspace_firewalls, \
-    get_workspace_head_nodes
+    get_workspace_head_nodes, list_gcp_clusters
 from cloudtik.core._private.providers import _get_node_provider
 from cloudtik.core._private.utils import binary_to_hex, hex_to_binary
 from cloudtik.core.tags import CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX, CLOUDTIK_GLOBAL_VARIABLE_KEY
@@ -28,6 +28,9 @@ class GCPWorkspaceProvider(WorkspaceProvider):
     def check_workspace_resource(self, config):
         return check_gcp_workspace_resource(config)
 
+    def list_clusters(self, config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        return list_gcp_clusters(config)
+
     def publish_global_variables(self, cluster_config: Dict[str, Any],
                                  head_node_id: str, global_variables: Dict[str, Any]):
         # Add prefix to the variables
@@ -46,7 +49,7 @@ class GCPWorkspaceProvider(WorkspaceProvider):
         global_variables = {}
         head_nodes = get_workspace_head_nodes(cluster_config)
         for head in head_nodes:
-            for  key, value in head.get("labels", {}).items():
+            for key, value in head.get("labels", {}).items():
                 if key.startswith(CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX):
                     # For gcp labels, only hyphens (-), underscores (_), lowercase characters, and numbers are allowed.
                     # Keys must start with a lowercase character. International characters are allowed.

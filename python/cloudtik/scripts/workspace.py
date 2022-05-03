@@ -3,7 +3,7 @@ import logging
 import urllib
 
 from cloudtik.core._private.workspace.workspace_operator import (
-    create_workspace, delete_workspace, update_workspace_firewalls)
+    create_workspace, delete_workspace, update_workspace_firewalls, list_workspace_clusters)
 from cloudtik.core._private.cli_logger import (add_click_logging_options, cli_logger)
 from cloudtik.scripts.utils import NaturalOrderGroup
 
@@ -99,7 +99,24 @@ def update_firewalls(workspace_config_file, yes, workspace_name):
     update_workspace_firewalls(workspace_config_file, yes, workspace_name)
 
 
+@workspace.command()
+@click.argument("workspace_config_file", required=True, type=str)
+@click.option(
+    "--workspace-name",
+    "-n",
+    required=False,
+    type=str,
+    help="Override the configured workspace name.")
+@add_click_logging_options
+def show_clusters(workspace_config_file, workspace_name):
+    """List clusters running in this workspace."""
+    list_workspace_clusters(workspace_config_file, workspace_name)
+
+
 # core commands working on workspace
 workspace.add_command(create)
 workspace.add_command(delete)
 workspace.add_command(update_firewalls)
+
+# commands for workspace info
+workspace.add_command(show_clusters)

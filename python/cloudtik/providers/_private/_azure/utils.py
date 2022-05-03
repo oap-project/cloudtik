@@ -20,3 +20,14 @@ def get_azure_config(provider_config):
         config_dict["AZURE_ACCOUNT_KEY"] = azure_account_key
 
     return config_dict
+
+
+def _get_node_info(node):
+    node_info = {"node_id": node["name"].split("-")[-1],
+                 "instance_type": node["vm_size"],
+                 "private_ip": node["internal_ip"],
+                 "public_ip": node["external_ip"],
+                 "instance_status": node["status"]}
+    node_info.update(node["tags"])
+
+    return node_info

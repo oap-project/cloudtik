@@ -1,6 +1,5 @@
 import logging
-from typing import Any, Dict
-
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -33,8 +32,11 @@ class WorkspaceProvider:
         pass
 
     def check_workspace_resource(self, config: Dict[str, Any]) -> bool:
-        """Bootstraps the cluster config by adding env defaults if needed."""
-        return True
+        """Check whether the workspace is correctly configured"""
+        return False
+
+    def list_clusters(self, config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        return None
 
     def publish_global_variables(self, cluster_config: Dict[str, Any],
                                  head_node_id: str, global_variables: Dict[str, Any]):

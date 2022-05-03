@@ -163,6 +163,23 @@ def get_aws_s3_config(provider_config):
     return config_dict
 
 
+def tags_list_to_dict(tags: list):
+    tags_dict = {}
+    for item in tags:
+        tags_dict[item["Key"]] = item["Value"]
+    return tags_dict
+
+
+def _get_node_info(node):
+    node_info = {"node_id": node.id,
+                 "instance_type": node.instance_type,
+                 "private_ip": node.private_ip_address,
+                 "public_ip": node.public_ip_address,
+                 "instance_status": node.state["Name"]}
+    node_info.update(tags_list_to_dict(node.tags))
+    return node_info
+
+
 @lru_cache()
 def resource_cache(name, region, max_retries=BOTO_MAX_RETRIES, **kwargs):
     cli_logger.verbose("Creating AWS resource `{}` in `{}`", cf.bold(name),

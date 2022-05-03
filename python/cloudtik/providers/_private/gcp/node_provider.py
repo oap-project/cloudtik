@@ -20,7 +20,7 @@ from cloudtik.providers._private.gcp.node import (
     GCPResource, GCPNode, GCPCompute, GCPTPU, GCPNodeType,
     INSTANCE_NAME_MAX_LEN, INSTANCE_NAME_UUID_LEN)
 
-from cloudtik.providers._private.gcp.utils import get_gcs_config
+from cloudtik.providers._private.gcp.utils import get_gcs_config, _get_node_info
 from cloudtik.providers._private.utils import validate_config_dict
 
 logger = logging.getLogger(__name__)
@@ -124,14 +124,9 @@ class GCPNodeProvider(NodeProvider):
             return node.get_labels()
 
     def get_node_info(self, node_id):
-        node = self._get_cached_node(node_id)
-        node_info = {"node_id": node["id"],
-                     "instance_type": node["machineType"].split("/")[-1],
-                     "private_ip": node.get_internal_ip(),
-                     "public_ip": node.get_external_ip(),
-                     "instance_status": node["status"]}
-        node_info.update(self.node_tags(node_id))
-        return node_info
+        with self.lock:
+            node = self._get_cached_node(node_id)
+            return _get_node_info(node)
 
     @_retry
     def set_node_tags(self, node_id: str, tags: dict):

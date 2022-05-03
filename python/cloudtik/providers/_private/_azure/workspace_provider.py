@@ -1,9 +1,9 @@
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from cloudtik.providers._private._azure.config import create_azure_workspace, \
     delete_workspace_azure, check_azure_workspace_resource, update_azure_workspace_firewalls, \
-    get_workspace_head_nodes
+    get_workspace_head_nodes, list_azure_clusters
 from cloudtik.core._private.providers import _get_node_provider
 from cloudtik.core.tags import CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX, CLOUDTIK_GLOBAL_VARIABLE_KEY
 from cloudtik.core.workspace_provider import WorkspaceProvider
@@ -26,6 +26,9 @@ class AzureWorkspaceProvider(WorkspaceProvider):
     
     def check_workspace_resource(self, config):
         return check_azure_workspace_resource(config)
+
+    def list_clusters(self, config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        return list_azure_clusters(config)
 
     def publish_global_variables(self, cluster_config: Dict[str, Any],
                                  head_node_id: str, global_variables: Dict[str, Any]):

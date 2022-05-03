@@ -4,7 +4,7 @@ import json
 import os
 import logging
 import time
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -17,10 +17,11 @@ from google.oauth2.credentials import Credentials as OAuthCredentials
 from cloudtik.providers._private.gcp.node import (GCPNodeType, MAX_POLLS,
                                               POLL_INTERVAL)
 
-from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD
+from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, CLOUDTIK_TAG_CLUSTER_NAME
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.services import get_node_ip_address
 from cloudtik.core._private.utils import check_cidr_conflict, unescape_private_key
+from cloudtik.providers._private.gcp.utils import _get_node_info
 from cloudtik.providers._private.utils import StorageTestingError
 
 logger = logging.getLogger(__name__)
@@ -285,16 +286,16 @@ def get_workspace_head_nodes(config):
     ).execute()
 
     all_heads = response.get("items", [])
-
+    workspace_heads = []
     for head in all_heads:
-        filtered = True
+        in_workspace = False
         for networkInterface in head.get("networkInterfaces", []):
             if networkInterface.get("network") == vpc_self_link:
-                filtered = False
-        if filtered:
-            all_heads.remove(head)
+                in_workspace = True
+        if in_workspace:
+            workspace_heads.append(head)
 
-    return all_heads
+    return workspace_heads
 
 
 def create_gcp_workspace(config):
@@ -1576,3 +1577,21 @@ def verify_gcs_storage(provider_config: Dict[str, Any]):
                                   "If you want to go without passing the verification, "
                                   "set 'verify_cloud_storage' to False under provider config. "
                                   "Error: {}.".format(str(e))) from None
+
+
+def get_cluster_name_from_head(head_node) -> Optional[str]:
+    for key, value in head_node.get("labels", {}).items():
+        if key == CLOUDTIK_TAG_CLUSTER_NAME:
+            return value
+    return None
+
+
+def list_gcp_clusters(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    head_nodes = get_workspace_head_nodes(config)
+    clusters = {}
+    for head_node in head_nodes:
+        cluster_name = get_cluster_name_from_head(head_node)
+        if cluster_name:
+            # TODO: convert node to GCPComputeNode
+            clusters[cluster_name] = _get_node_info(head_node)
+    return clusters

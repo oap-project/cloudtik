@@ -42,6 +42,10 @@ class Workspace:
         """Update the firewall rules for the workspace."""
         workspace_operator._update_workspace_firewalls(self.config)
 
+    def list_clusters(self) -> Optional[Dict[str, Any]]:
+        """Get a list of cluster information running in the workspace"""
+        return workspace_operator._list_workspace_clusters(self.config)
+
 
 class Cluster:
     def __init__(self, cluster_config: Union[dict, str]) -> None:

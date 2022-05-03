@@ -283,6 +283,11 @@ class GCPResource(metaclass=abc.ABCMeta):
         """Deletes an instance and returns result."""
         return
 
+    @abc.abstractmethod
+    def from_instance(self, instance) -> "GCPNode":
+        """Construct an instance."""
+        return
+
 
 class GCPCompute(GCPResource):
     """Abstraction around GCP compute resource"""
@@ -481,6 +486,9 @@ class GCPCompute(GCPResource):
 
         return result
 
+    def from_instance(self, instance) -> GCPComputeNode:
+        return GCPComputeNode(instance, self)
+
 
 class GCPTPU(GCPResource):
     """Abstraction around GCP TPU resource"""
@@ -626,3 +634,6 @@ class GCPTPU(GCPResource):
             result = operation
 
         return result
+
+    def from_instance(self, instance) -> GCPTPUNode:
+        return GCPTPUNode(instance, self)

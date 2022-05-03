@@ -403,7 +403,8 @@ def _load_cluster_config(config_file: str,
 def teardown_cluster(config_file: str, yes: bool, workers_only: bool,
                      override_cluster_name: Optional[str],
                      keep_min_workers: bool,
-                     proxy_stop: bool = False) -> None:
+                     proxy_stop: bool = False,
+                     hard: bool = False) -> None:
     """Destroys all nodes of a cluster described by a config json."""
     config = _load_cluster_config(config_file, override_cluster_name)
 
@@ -415,7 +416,8 @@ def teardown_cluster(config_file: str, yes: bool, workers_only: bool,
                           call_context=cli_call_context(),
                           workers_only=workers_only,
                           keep_min_workers=keep_min_workers,
-                          proxy_stop=proxy_stop)
+                          proxy_stop=proxy_stop,
+                          hard=hard)
 
     cli_logger.success("Successfully shut down cluster: {}.", config["cluster_name"])
 
@@ -424,7 +426,8 @@ def _teardown_cluster(config: Dict[str, Any],
                       call_context: CallContext,
                       workers_only: bool,
                       keep_min_workers: bool,
-                      proxy_stop: bool = False) -> None:
+                      proxy_stop: bool = False,
+                      hard: bool = False) -> None:
     current_step = 1
     total_steps = NUM_TEARDOWN_CLUSTER_STEPS_BASE
     if proxy_stop:
@@ -495,7 +498,8 @@ def _teardown_cluster(config: Dict[str, Any],
                                provider=provider,
                                workers_only=workers_only,
                                keep_min_workers=keep_min_workers,
-                               on_head=False)
+                               on_head=False,
+                               hard=hard)
 
 
 def teardown_cluster_nodes(config: Dict[str, Any],
@@ -503,9 +507,8 @@ def teardown_cluster_nodes(config: Dict[str, Any],
                            provider: NodeProvider,
                            workers_only: bool,
                            keep_min_workers: bool,
-                           on_head: bool):
-    use_internal_ip = True if on_head else False
-
+                           on_head: bool,
+                           hard: bool = False):
     def remaining_nodes():
         workers = provider.non_terminated_nodes({
             CLOUDTIK_TAG_NODE_KIND: NODE_KIND_WORKER
@@ -535,6 +538,62 @@ def teardown_cluster_nodes(config: Dict[str, Any],
 
         return head, head + workers
 
+    # Loop here to check that both the head and worker nodes are actually
+    #   really gone
+    head, A = remaining_nodes()
+
+    if not hard:
+        # first stop the services on the nodes
+        if on_head and len(head) > 0:
+            # Only do this for workers on head
+            head_node = head[0]
+            _stop_node_on_head(
+                config=config,
+                call_context=call_context,
+                provider=provider,
+                head_node=head_node,
+                nodes=A,
+                parallel=True
+            )
+
+        # stop docker containers
+        _stop_docker_on_nodes(
+            config=config,
+            call_context=call_context,
+            provider=provider,
+            workers_only=workers_only,
+            on_head=on_head,
+            head=head,
+            nodes=A
+        )
+
+    node_type = "workers" if workers_only else "nodes"
+    with LogTimer("teardown_cluster: done."):
+        while A:
+            provider.terminate_nodes(A)
+
+            cli_logger.print(
+                "Requested {} {} to shut down.",
+                cf.bold(len(A)), node_type,
+                _tags=dict(interval="1s"))
+
+            time.sleep(POLL_INTERVAL)  # todo: interval should be a variable
+            head, A = remaining_nodes()
+            cli_logger.print("{} {} remaining after {} second(s).",
+                             cf.bold(len(A)), node_type, POLL_INTERVAL)
+        cli_logger.success("No {} remaining.", node_type)
+
+
+def _stop_docker_on_nodes(
+        config: Dict[str, Any],
+        call_context: CallContext,
+        provider: NodeProvider,
+        workers_only: bool,
+        on_head: bool,
+        head: List[str],
+        nodes: List[str]):
+    use_internal_ip = True if on_head else False
+
     def run_docker_stop(node, container_name):
         try:
             updater = create_node_updater_for_exec(
@@ -554,16 +613,12 @@ def teardown_cluster_nodes(config: Dict[str, Any],
         except Exception:
             cli_logger.warning(f"Docker stop failed on {node}")
 
-    # Loop here to check that both the head and worker nodes are actually
-    #   really gone
-    head, A = remaining_nodes()
-
     docker_enabled = is_docker_enabled(config)
     if docker_enabled and (on_head or not workers_only):
         container_name = config.get("docker", {}).get("container_name")
         if on_head:
             cli_logger.print("Stopping docker containers on workers.")
-            container_nodes = A
+            container_nodes = nodes
         else:
             cli_logger.print("Stopping docker container on head.")
             container_nodes = head
@@ -581,21 +636,6 @@ def teardown_cluster_nodes(config: Dict[str, Any],
                     run_docker_stop, node=node, container_name=container_name)
         call_context.set_output_redirected(output_redir)
         call_context.set_allow_interactive(allow_interactive)
-    node_type = "workers" if workers_only else "nodes"
-    with LogTimer("teardown_cluster: done."):
-        while A:
-            provider.terminate_nodes(A)
-
-            cli_logger.print(
-                "Requested {} {} to shut down.",
-                cf.bold(len(A)), node_type,
-                _tags=dict(interval="1s"))
-
-            time.sleep(POLL_INTERVAL)  # todo: interval should be a variable
-            head, A = remaining_nodes()
-            cli_logger.print("{} {} remaining after {} second(s).",
-                             cf.bold(len(A)), node_type, POLL_INTERVAL)
-        cli_logger.success("No {} remaining.", node_type)
 
 
 def kill_node_from_head(config_file: str, yes: bool, hard: bool,
@@ -2037,7 +2077,8 @@ def cluster_health_check(config_file: str,
     exec_cmd_on_cluster(config_file, cmd, override_cluster_name)
 
 
-def teardown_cluster_on_head(keep_min_workers: bool) -> None:
+def teardown_cluster_on_head(keep_min_workers: bool,
+                             hard: bool = False) -> None:
     # Since this is running on head, the bootstrap config must exist
     config = load_head_cluster_config()
     call_context = cli_call_context()
@@ -2048,7 +2089,8 @@ def teardown_cluster_on_head(keep_min_workers: bool) -> None:
                            provider=provider,
                            workers_only=True,
                            keep_min_workers=keep_min_workers,
-                           on_head=True)
+                           on_head=True,
+                           hard=hard)
 
 
 def cluster_process_status_on_head(redis_address):
@@ -2558,16 +2600,34 @@ def stop_node_on_head(node_ip: str = None,
                       parallel: bool = True):
     # Since this is running on head, the bootstrap config must exist
     config = load_head_cluster_config()
-    call_context= cli_call_context()
+    call_context = cli_call_context()
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     head_node = _get_running_head_node(config, _provider=provider,
                                        _allow_uninitialized_state=True)
-    head_node_ip = provider.internal_ip(head_node)
-    runtime_envs = with_runtime_environment_variables(
-        config.get("runtime"), provider)
 
     nodes = get_nodes_of(config, provider, head_node,
                          node_ip, all_nodes)
+
+    _stop_node_on_head(
+        config=config,
+        call_context=call_context,
+        provider=provider,
+        head_node=head_node,
+        nodes=nodes,
+        parallel=parallel
+    )
+
+
+def _stop_node_on_head(
+        config: Dict[str, Any],
+        call_context: CallContext,
+        provider: NodeProvider,
+        head_node: str,
+        nodes: List[str],
+        parallel: bool = True):
+    head_node_ip = provider.internal_ip(head_node)
+    runtime_envs = with_runtime_environment_variables(
+        config.get("runtime"), provider)
 
     def stop_single_node_on_head(node_id):
         is_head_node = False

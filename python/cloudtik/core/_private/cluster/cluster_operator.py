@@ -2462,7 +2462,7 @@ def start_node_on_head(node_ip: str = None,
             start_commands = get_commands_to_run(config, "worker_start_commands")
             node_runtime_envs = with_node_ip_environment_variables(None, provider, node_id)
             node_runtime_envs = with_head_node_ip_environment_variables(
-                node_runtime_envs, head_node_ip)
+                head_node_ip, node_runtime_envs)
 
         updater = create_node_updater_for_exec(
             config=config,
@@ -2643,7 +2643,7 @@ def _stop_node_on_head(
             stop_commands = get_commands_to_run(config, "worker_stop_commands")
             node_runtime_envs = with_node_ip_environment_variables(None, provider, node_id)
             node_runtime_envs = with_head_node_ip_environment_variables(
-                node_runtime_envs, head_node_ip)
+                head_node_ip, node_runtime_envs)
 
         if not stop_commands:
             return

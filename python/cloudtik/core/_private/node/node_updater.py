@@ -3,7 +3,7 @@ import logging
 import os
 import subprocess
 import time
-
+from typing import Dict
 from threading import Thread
 
 from cloudtik.core._private.utils import with_runtime_environment_variables, with_node_ip_environment_variables, \
@@ -79,7 +79,8 @@ class NodeUpdater:
                  docker_config=None,
                  restart_only=False,
                  for_recovery=False,
-                 runtime_config=None):
+                 runtime_config=None,
+                 environment_variables: Dict[str, object] = None):
 
         self.call_context = call_context
         self.log_prefix = "NodeUpdater: {}: ".format(node_id)
@@ -125,6 +126,7 @@ class NodeUpdater:
         self.for_recovery = for_recovery
         self.runtime_config = runtime_config
         self.cluster_uri = _get_cluster_uri(self.provider_type, cluster_name)
+        self.environment_variables = environment_variables
 
     def run(self):
         update_start_time = time.time()
@@ -344,6 +346,9 @@ class NodeUpdater:
         ip_envs = with_node_ip_environment_variables(
             None, self.provider, self.node_id)
         runtime_envs.update(ip_envs)
+
+        if self.environment_variables is not None:
+            runtime_envs.update(self.environment_variables)
 
         # runtime_hash will only change whenever the user restarts
         # or updates their cluster with `get_or_create_head_node`

@@ -1159,23 +1159,11 @@ def fill_node_type_min_max_workers(config):
                 node_type_data.setdefault("max_workers", global_max_workers)
 
 
-def with_head_node_ip(command_groups, head_ip=None):
+def with_head_node_ip_environment_variables(head_ip, envs: Dict[str, Any]) -> Dict[str, Any]:
     if head_ip is None:
         head_ip = services.get_node_ip_address()
-    out = []
-    for command_group in command_groups:
-        cmds = command_group.get("commands", [])
-        new_cmds = []
-        for cmd in cmds:
-            new_cmds.append("export CLOUDTIK_HEAD_IP={}; {}".format(head_ip, cmd))
-
-        new_command_group = copy.deepcopy(command_group)
-        new_command_group["commands"] = new_cmds
-        out.append(new_command_group)
-    return out
-
-
-def with_head_node_ip_environment_variables(envs: Dict[str, Any], head_ip) -> Dict[str, Any]:
+    if envs is None:
+        envs = {}
     envs["CLOUDTIK_HEAD_IP"] = head_ip
     return envs
 

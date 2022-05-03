@@ -264,6 +264,11 @@ def monitor(lines, file_type):
     default=False,
     help="Retain the minimal amount of workers specified in the config.")
 @click.option(
+    "--hard",
+    is_flag=True,
+    default=False,
+    help="Stop the cluster nodes by without running stop commands.")
+@click.option(
     "--indent-level",
     required=False,
     default=None,
@@ -271,13 +276,13 @@ def monitor(lines, file_type):
     hidden=True,
     help="The indent level for showing messages during this command.")
 @add_click_logging_options
-def teardown(keep_min_workers, indent_level):
+def teardown(keep_min_workers, hard, indent_level):
     """Tear down a cluster."""
     if indent_level is not None:
         with cli_logger.indented_by(indent_level):
-            teardown_cluster_on_head(keep_min_workers)
+            teardown_cluster_on_head(keep_min_workers, hard=hard)
     else:
-        teardown_cluster_on_head(keep_min_workers)
+        teardown_cluster_on_head(keep_min_workers, hard=hard)
 
 
 @head.command()

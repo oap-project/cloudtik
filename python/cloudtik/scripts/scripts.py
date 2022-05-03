@@ -509,12 +509,17 @@ def start(cluster_config_file, min_workers, max_workers, no_restart, restart_onl
     is_flag=True,
     default=False,
     help="Retain the minimal amount of workers specified in the config.")
+@click.option(
+    "--hard",
+    is_flag=True,
+    default=False,
+    help="Stop the cluster nodes by without running stop commands.")
 @add_click_logging_options
 def stop(cluster_config_file, yes, workers_only, cluster_name,
-         keep_min_workers):
+         keep_min_workers, hard):
     """Stop a cluster."""
     teardown_cluster(cluster_config_file, yes, workers_only, cluster_name,
-                     keep_min_workers, True)
+                     keep_min_workers, proxy_stop=True, hard=hard)
 
 
 @cli.command()

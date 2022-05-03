@@ -39,11 +39,7 @@ class Workspace:
         workspace_operator._delete_workspace(self.config)
 
     def update_firewalls(self) -> None:
-        """Create and provision the workspace resources.
-
-        Args:
-            no_restart (bool): Whether to skip restarting services during the
-        """
+        """Update the firewall rules for the workspace."""
         workspace_operator._update_workspace_firewalls(self.config)
 
 

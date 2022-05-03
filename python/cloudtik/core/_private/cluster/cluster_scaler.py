@@ -39,7 +39,7 @@ from cloudtik.core._private.cluster.resource_demand_scheduler import \
     ResourceDict
 from cloudtik.core._private.utils import ConcurrentCounter, validate_config, \
     hash_launch_conf, hash_runtime_conf, \
-    format_info_string, with_head_node_ip, get_commands_to_run
+    format_info_string, get_commands_to_run, with_head_node_ip_environment_variables
 from cloudtik.core._private.constants import CLOUDTIK_MAX_NUM_FAILURES, \
     CLOUDTIK_MAX_LAUNCH_BATCH, CLOUDTIK_MAX_CONCURRENT_LAUNCHES, \
     CLOUDTIK_UPDATE_INTERVAL_S, CLOUDTIK_HEARTBEAT_TIMEOUT_S
@@ -897,8 +897,9 @@ class ClusterScaler:
         head_node_ip = self.provider.internal_ip(
             self.non_terminated_nodes.head_id)
 
-        start_commands = with_head_node_ip(
-            get_commands_to_run(self.config, "worker_start_commands"), head_node_ip)
+        start_commands = get_commands_to_run(self.config, "worker_start_commands")
+        environment_variables = with_head_node_ip_environment_variables(
+            head_node_ip)
 
         updater = NodeUpdaterThread(
             call_context=self.call_context,
@@ -919,7 +920,8 @@ class ClusterScaler:
             docker_config=self.config.get("docker"),
             node_resources=self._node_resources(node_id),
             for_recovery=True,
-            runtime_config=self.config.get("runtime"))
+            runtime_config=self.config.get("runtime"),
+            environment_variables=environment_variables)
         updater.start()
         self.updaters[node_id] = updater
 
@@ -993,12 +995,8 @@ class ClusterScaler:
 
         initialization_commands = self._get_node_type_specific_fields(
             node_id, "initialization_commands")
-        initialization_commands = with_head_node_ip(
-            initialization_commands, head_node_ip)
-        setup_commands = with_head_node_ip(
-            setup_commands, head_node_ip)
-        start_commands = with_head_node_ip(
-            start_commands, head_node_ip)
+        environment_variables = with_head_node_ip_environment_variables(
+            head_node_ip)
 
         updater = NodeUpdaterThread(
             call_context=self.call_context,
@@ -1023,7 +1021,8 @@ class ClusterScaler:
             use_internal_ip=True,
             docker_config=docker_config,
             node_resources=node_resources,
-            runtime_config=self.config.get("runtime"))
+            runtime_config=self.config.get("runtime"),
+            environment_variables=environment_variables)
         updater.start()
         self.updaters[node_id] = updater
 

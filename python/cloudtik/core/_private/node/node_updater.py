@@ -315,7 +315,9 @@ class NodeUpdater:
         self.wait_ready(deadline)
         global_event_system.execute_callback(
             self.cluster_uri,
-            CreateClusterEvent.ssh_control_acquired)
+            CreateClusterEvent.ssh_control_acquired,
+            {"node_id": self.node_id}
+        )
 
         node_tags = self.provider.node_tags(self.node_id)
         logger.debug("Node tags: {}".format(str(node_tags)))
@@ -435,7 +437,8 @@ class NodeUpdater:
     def _exec_initialization_commands(self, runtime_envs):
         global_event_system.execute_callback(
             self.cluster_uri,
-            CreateClusterEvent.run_initialization_cmd)
+            CreateClusterEvent.run_initialization_cmd,
+            {"node_id": self.node_id})
         with LogTimer(
                 self.log_prefix + "Initialization commands",
                 show_status=True):
@@ -448,7 +451,7 @@ class NodeUpdater:
         global_event_system.execute_callback(
             self.cluster_uri,
             CreateClusterEvent.run_initialization_cmd,
-            {"command": cmd})
+            {"node_id": self.node_id, "command": cmd})
         try:
             # Overriding the existing SSHOptions class
             # with a new SSHOptions class that uses
@@ -474,7 +477,8 @@ class NodeUpdater:
     def _exec_setup_commands(self, runtime_envs):
         global_event_system.execute_callback(
             self.cluster_uri,
-            CreateClusterEvent.run_setup_cmd)
+            CreateClusterEvent.run_setup_cmd,
+            {"node_id": self.node_id})
         with LogTimer(
                 self.log_prefix + "Setup commands",
                 show_status=True):
@@ -494,7 +498,7 @@ class NodeUpdater:
         global_event_system.execute_callback(
             self.cluster_uri,
             CreateClusterEvent.run_setup_cmd,
-            {"command": cmd})
+            {"node_id": self.node_id, "command": cmd})
         if cli_logger.verbosity == 0 and len(cmd) > 30:
             cmd_to_print = cf.bold(cmd[:30]) + "..."
         else:
@@ -517,7 +521,8 @@ class NodeUpdater:
     def _exec_start_commands(self, runtime_envs):
         global_event_system.execute_callback(
             self.cluster_uri,
-            CreateClusterEvent.start_cloudtik_runtime)
+            CreateClusterEvent.start_cloudtik_runtime,
+            {"node_id": self.node_id})
         with LogTimer(
                 self.log_prefix + "Start commands", show_status=True):
             total = len(self.start_commands)
@@ -532,7 +537,8 @@ class NodeUpdater:
                         self._exec_start_command(cmd, runtime_envs)
         global_event_system.execute_callback(
             self.cluster_uri,
-            CreateClusterEvent.start_cloudtik_runtime_completed)
+            CreateClusterEvent.start_cloudtik_runtime_completed,
+            {"node_id": self.node_id})
 
     def _exec_start_command(self, cmd, runtime_envs):
         # Add a resource override env variable if needed:

@@ -1159,7 +1159,7 @@ def fill_node_type_min_max_workers(config):
                 node_type_data.setdefault("max_workers", global_max_workers)
 
 
-def with_head_node_ip_environment_variables(head_ip, envs: Dict[str, Any]) -> Dict[str, Any]:
+def with_head_node_ip_environment_variables(head_ip, envs: Dict[str, Any] = None) -> Dict[str, Any]:
     if head_ip is None:
         head_ip = services.get_node_ip_address()
     if envs is None:

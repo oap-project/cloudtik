@@ -12,7 +12,7 @@ import logging
 import boto3
 import botocore
 
-from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD
+from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, CLOUDTIK_TAG_CLUSTER_NAME
 from cloudtik.core._private.providers import _PROVIDER_PRETTY_NAMES
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.event_system import (CreateClusterEvent,
@@ -20,7 +20,7 @@ from cloudtik.core._private.event_system import (CreateClusterEvent,
 from cloudtik.core._private.services import get_node_ip_address
 from cloudtik.core._private.utils import check_cidr_conflict, get_cluster_uri
 from cloudtik.providers._private.aws.utils import LazyDefaultDict, \
-    handle_boto_error, resource_cache, get_boto_error_code
+    handle_boto_error, resource_cache, get_boto_error_code, _get_node_info
 from cloudtik.providers._private.utils import StorageTestingError
 
 logger = logging.getLogger(__name__)
@@ -631,12 +631,14 @@ def get_workspace_head_nodes(config):
     ec2 = _resource("ec2", config)
     ec2_client = _client("ec2", config)
     workspace_name = config["workspace_name"]
-    VpcId = get_workspace_vpc_id(workspace_name, ec2_client)
+    vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
+    if vpc_id is None:
+        raise RuntimeError(f"Failed to get VPC for workspace: {workspace_name}")
 
     filters = [
         {
            "Name": "vpc-id",
-            "Values": [VpcId]
+            "Values": [vpc_id]
         },
         {
             "Name": "instance-state-name",
@@ -2037,6 +2039,24 @@ def verify_s3_storage(provider_config: Dict[str, Any]):
                                   "If you want to go without passing the verification, "
                                   "set 'verify_cloud_storage' to False under provider config. "
                                   "Error: {}.".format(e.message)) from None
+
+
+def get_cluster_name_from_head(head_node) -> Optional[str]:
+    for tag in head_node.tags:
+        tag_key = tag.get("Key")
+        if tag_key == CLOUDTIK_TAG_CLUSTER_NAME:
+            return tag.get("Value")
+    return None
+
+
+def list_aws_clusters(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    head_nodes = get_workspace_head_nodes(config)
+    clusters = {}
+    for head_node in head_nodes:
+        cluster_name = get_cluster_name_from_head(head_node)
+        if cluster_name:
+            clusters[cluster_name] = _get_node_info(head_node)
+    return clusters
 
 
 def _client(name, config):

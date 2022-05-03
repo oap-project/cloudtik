@@ -19,9 +19,10 @@ from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_NAME
 
 from cloudtik.providers._private._azure.config import (AZURE_MSI_NAME, get_azure_sdk_function,
-                                                       verify_azure_cloud_storage, bootstrap_azure)
+                                                       verify_azure_cloud_storage, bootstrap_azure,
+                                                       _extract_metadata_for_node)
 
-from cloudtik.providers._private._azure.utils import get_azure_config
+from cloudtik.providers._private._azure.utils import get_azure_config, _get_node_info
 from cloudtik.providers._private.utils import validate_config_dict
 
 VM_NAME_MAX_LEN = 64
@@ -107,47 +108,12 @@ class AzureNodeProvider(NodeProvider):
         return self.cached_nodes
 
     def _extract_metadata(self, vm):
-        # get tags
-        metadata = {"name": vm.name, "tags": vm.tags, "status": "", "vm_size": ""}
-
-        # get status
-        resource_group = self.provider_config["resource_group"]
-        instance = self.compute_client.virtual_machines.instance_view(
-            resource_group_name=resource_group, vm_name=vm.name).as_dict()
-        for status in instance["statuses"]:
-            status_list = status["code"].split("/")
-            code = status_list[0]
-            state = status_list[1]
-            # skip provisioning status
-            if code == "PowerState":
-                metadata["status"] = state
-                break
-
-        # get ip data
-        nic_id = vm.network_profile.network_interfaces[0].id
-        metadata["nic_name"] = nic_id.split("/")[-1]
-        nic = self.network_client.network_interfaces.get(
-            resource_group_name=resource_group,
-            network_interface_name=metadata["nic_name"])
-        ip_config = nic.ip_configurations[0]
-
-        public_ip_address = ip_config.public_ip_address
-        if public_ip_address is not None:
-            public_ip_id = public_ip_address.id
-            metadata["public_ip_name"] = public_ip_id.split("/")[-1]
-            public_ip = self.network_client.public_ip_addresses.get(
-                resource_group_name=resource_group,
-                public_ip_address_name=metadata["public_ip_name"])
-            metadata["external_ip"] = public_ip.ip_address
-        else:
-            metadata["external_ip"] = None
-
-        metadata["internal_ip"] = ip_config.private_ip_address
-
-        # get vmSize
-        metadata["vm_size"] = vm.hardware_profile.vm_size
-
-        return metadata
+        return _extract_metadata_for_node(
+            vm,
+            resource_group=self.provider_config["resource_group"],
+            compute_client=self.compute_client,
+            network_client=self.network_client
+        )
 
     def non_terminated_nodes(self, tag_filters):
         """Return a list of node ids filtered by the specified tags dict.
@@ -171,14 +137,7 @@ class AzureNodeProvider(NodeProvider):
 
     def get_node_info(self, node_id):
         node = self._get_cached_node(node_id)
-        node_info = {"node_id": node["name"].split("-")[-1],
-                     "instance_type": node["vm_size"],
-                     "private_ip": node["internal_ip"],
-                     "public_ip": node["external_ip"],
-                     "instance_status": node["status"]}
-        node_info.update(self.node_tags(node_id))
-
-        return node_info
+        return _get_node_info(node)
 
     def is_running(self, node_id):
         """Return whether the specified node is running."""

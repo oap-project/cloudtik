@@ -5,6 +5,8 @@ import os
 import tempfile
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+import prettytable as pt
+
 import yaml
 try:  # py3
     from shlex import quote
@@ -55,7 +57,7 @@ def try_reload_log_state(provider_config: Dict[str, Any],
 def update_workspace_firewalls(
         config_file: str, yes: bool,
         override_workspace_name: Optional[str] = None):
-    """Destroys the workspace and associated Cloud resources."""
+    """Update the firewall rules of the workspace."""
     config = _load_workspace_config(config_file, override_workspace_name)
 
     cli_logger.confirm(yes, "Are you sure that you want to update the firewalls of  workspace {}?",
@@ -162,10 +164,63 @@ def create_workspace(
 def _create_workspace(config: Dict[str, Any]):
     provider = _get_workspace_provider(config["provider"], config["workspace_name"])
     if provider.check_workspace_resource(config):
-        raise RuntimeError("Workspace with the same name already exists! "
-                           "If it failed in the previous creation, you need delete and try create again.")
+        workspace_name = config["workspace_name"]
+        raise RuntimeError(f"Workspace with the name {workspace_name} already exists! "
+                           f"If it failed in the previous creation, you need delete and try create again.")
     else:
         provider.create_workspace(config)
+
+
+def list_workspace_clusters(
+        config_file: str,
+        override_workspace_name: Optional[str] = None):
+    """List clusters of the workspace name."""
+    config = _load_workspace_config(config_file, override_workspace_name)
+    clusters = _list_workspace_clusters(config)
+    if clusters is None:
+        cli_logger.print("Workspace {} is not correctly configured.", config["workspace_name"])
+    elif len(clusters) == 0:
+        cli_logger.print("Workspace {} has no cluster in running.", config["workspace_name"])
+    else:
+        # TODO: show clusters in table
+        # Get cluster info by the cluster name
+        clusters_info = _get_clusters_info(clusters)
+        _show_clusters(clusters_info)
+
+
+def _get_clusters_info(clusters):
+    clusters_info = []
+    for cluster_name in clusters:
+        cluster_info = {"cluster_name": cluster_name,
+                        "head_node": clusters[cluster_name]}
+        clusters_info.append(cluster_info)
+
+    # sort cluster info based cluster name
+    def cluster_info_sort(cluster_info):
+        return cluster_info["cluster_name"]
+
+    clusters_info.sort(key=cluster_info_sort)
+    return clusters_info
+
+
+def _show_clusters(clusters_info):
+    tb = pt.PrettyTable()
+    tb.field_names = ["cluster-name", "head-node-ip", "head-status", "workers", "head-public-ip", ]
+    for cluster_info in clusters_info:
+        tb.add_row([cluster_info["cluster_name"], cluster_info["head_node"]["private_ip"],
+                    cluster_info["head_node"]["cloudtik-node-status"], 0, cluster_info["head_node"]["public_ip"]
+                    ])
+
+    cli_logger.print("{} cluster(s) are running.", len(clusters_info))
+    cli_logger.print(tb)
+
+
+def _list_workspace_clusters(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    provider = _get_workspace_provider(config["provider"], config["workspace_name"])
+    if not provider.check_workspace_resource(config):
+        return None
+
+    return provider.list_clusters(config)
 
 
 CONFIG_CACHE_VERSION = 1

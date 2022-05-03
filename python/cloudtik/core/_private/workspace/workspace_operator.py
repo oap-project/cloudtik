@@ -54,49 +54,46 @@ def try_reload_log_state(provider_config: Dict[str, Any],
 
 def update_workspace_firewalls(
         config_file: str, yes: bool,
-        override_workspace_name: Optional[str] = None) -> Dict[str, Any]:
+        override_workspace_name: Optional[str] = None):
     """Destroys the workspace and associated Cloud resources."""
-    config = yaml.safe_load(open(config_file).read())
-    if override_workspace_name is not None:
-        config["workspace_name"] = override_workspace_name
+    config = _load_workspace_config(config_file, override_workspace_name)
 
-    config = _bootstrap_workspace_config(config)
+    cli_logger.confirm(yes, "Are you sure that you want to update the firewalls of  workspace {}?",
+                       config["workspace_name"], _abort=True)
 
+    _update_workspace_firewalls(config)
+
+
+def _update_workspace_firewalls(config: Dict[str, Any]):
     provider = _get_workspace_provider(config["provider"], config["workspace_name"])
 
     if provider.check_workspace_resource(config):
-        cli_logger.print("Workspace with the same name already exists! "
-                         "If it failed in the previous creation, you can delete and try create again.")
-        cli_logger.confirm(yes, "Are you sure that you want to update the firewalls of  workspace {}?",
-                           config["workspace_name"], _abort=True)
         provider.update_workspace_firewalls(config)
     else:
-        cli_logger.print("Workspace with the same name not exists! "
-                         "You need to create the workspace first!")
+        raise RuntimeError(
+            "Workspace with the name '{}' doesn't exist! ".format(config["workspace_name"]))
 
 
 def delete_workspace(
         config_file: str, yes: bool,
-        override_workspace_name: Optional[str] = None) -> Dict[str, Any]:
+        override_workspace_name: Optional[str] = None):
     """Destroys the workspace and associated Cloud resources."""
-    config = yaml.safe_load(open(config_file).read())
-    if override_workspace_name is not None:
-        config["workspace_name"] = override_workspace_name
-
-    config = _bootstrap_workspace_config(config)
+    config = _load_workspace_config(config_file, override_workspace_name)
 
     cli_logger.confirm(yes, "Are you sure that you want to delete workspace {}?",
                        config["workspace_name"], _abort=True)
+    _delete_workspace(config)
 
+
+def _delete_workspace(config: Dict[str, Any]):
     provider = _get_workspace_provider(config["provider"], config["workspace_name"])
-
     provider.delete_workspace(config)
 
 
-def create_or_update_workspace(
+def create_workspace(
         config_file: str, yes: bool,
         override_workspace_name: Optional[str] = None,
-        no_workspace_config_cache: bool = False) -> Dict[str, Any]:
+        no_config_cache: bool = False):
     """Creates or updates an scaling cluster from a config json."""
 
     def handle_yaml_error(e):
@@ -155,16 +152,19 @@ def create_or_update_workspace(
     cli_logger.newline()
 
     config = _bootstrap_workspace_config(config,
-                                         no_workspace_config_cache=no_workspace_config_cache)
+                                         no_config_cache=no_config_cache)
 
+    cli_logger.confirm(yes, "Are you sure that you want to create workspace {}?",
+                       config["workspace_name"], _abort=True)
+    _create_workspace(config)
+
+
+def _create_workspace(config: Dict[str, Any]):
     provider = _get_workspace_provider(config["provider"], config["workspace_name"])
-
     if provider.check_workspace_resource(config):
-        cli_logger.print("Workspace with the same name already exists! "
-                         "If it failed in the previous creation, you can delete and try create again.")
+        raise RuntimeError("Workspace with the same name already exists! "
+                           "If it failed in the previous creation, you need delete and try create again.")
     else:
-        cli_logger.confirm(yes, "Are you sure that you want to create workspace {}?",
-                           config["workspace_name"], _abort=True)
         provider.create_workspace(config)
 
 
@@ -172,7 +172,7 @@ CONFIG_CACHE_VERSION = 1
 
 
 def _bootstrap_workspace_config(config: Dict[str, Any],
-                                no_workspace_config_cache: bool = False) -> Dict[str, Any]:
+                                no_config_cache: bool = False) -> Dict[str, Any]:
     config = prepare_workspace_config(config)
     # Note: delete workspace only need to contain workspace_name
 
@@ -183,7 +183,7 @@ def _bootstrap_workspace_config(config: Dict[str, Any],
 
     provider_cls = _get_workspace_provider_cls(config["provider"])
 
-    if os.path.exists(cache_key) and not no_workspace_config_cache:
+    if os.path.exists(cache_key) and not no_config_cache:
         config_cache = json.loads(open(cache_key).read())
         if config_cache.get("_version", -1) == CONFIG_CACHE_VERSION :
             # todo: is it fine to re-resolve? afaik it should be.
@@ -199,7 +199,7 @@ def _bootstrap_workspace_config(config: Dict[str, Any],
                 cli_logger.verbose_warning(
                     "If you experience issues with "
                     "the cloud provider, try re-running "
-                    "the command with {}.", cf.bold("--no-workspace-config-cache"))
+                    "the command with {}.", cf.bold("--no-config-cache"))
             return config_cache["config"]
         else:
             cli_logger.warning(
@@ -226,7 +226,7 @@ def _bootstrap_workspace_config(config: Dict[str, Any],
 
     resolved_config = provider_cls.bootstrap_workspace_config(config)
 
-    if not no_workspace_config_cache:
+    if not no_config_cache:
         with open(cache_key, "w") as f:
             config_cache = {
                 "_version": CONFIG_CACHE_VERSION,
@@ -236,3 +236,15 @@ def _bootstrap_workspace_config(config: Dict[str, Any],
             }
             f.write(json.dumps(config_cache))
     return resolved_config
+
+
+def _load_workspace_config(config_file: str,
+                           override_workspace_name: Optional[str] = None,
+                           should_bootstrap: bool = True,
+                           no_config_cache: bool = False) -> Dict[str, Any]:
+    config = yaml.safe_load(open(config_file).read())
+    if override_workspace_name is not None:
+        config["workspace_name"] = override_workspace_name
+    if should_bootstrap:
+        config = _bootstrap_workspace_config(config, no_config_cache=no_config_cache)
+    return config

@@ -4,11 +4,43 @@ from typing import Any, Callable, Dict, List, Optional, Union
 import os
 
 from cloudtik.core._private.call_context import CallContext
+from cloudtik.core._private.workspace import workspace_operator
 from cloudtik.core._private.cluster import cluster_operator
 from cloudtik.core._private.event_system import (
     global_event_system)
 from cloudtik.core._private.cli_logger import cli_logger
-from cloudtik.core._private.utils import get_cluster_uri
+from cloudtik.core._private import utils
+
+
+class Workspace:
+    def __init__(self, workspace_config: Union[dict, str]) -> None:
+        """Create a workspace object to operator on workspace.
+
+        Args:
+            workspace_config (Union[str, dict]): Either the config dict of the
+                workspace, or a path pointing to a file containing the config.
+        """
+        self.workspace_config = workspace_config
+        if isinstance(workspace_config, dict):
+            self.config = \
+                workspace_operator._bootstrap_workspace_config(workspace_config, no_config_cache=True)
+        else:
+            if not os.path.exists(workspace_config):
+                raise ValueError("Workspace config file not found: {}".format(workspace_config))
+            self.config = \
+                workspace_operator._load_workspace_config(workspace_config, no_config_cache=True)
+
+    def create(self) -> None:
+        """Create and provision the workspace resources."""
+        workspace_operator._create_workspace(self.config)
+
+    def delete(self) -> None:
+        """Delete the workspace and corresponding resources."""
+        workspace_operator._delete_workspace(self.config)
+
+    def update_firewalls(self) -> None:
+        """Update the firewall rules for the workspace."""
+        workspace_operator._update_workspace_firewalls(self.config)
 
 
 class Cluster:
@@ -322,7 +354,7 @@ class Cluster:
             callback (Callable): Callable object that is invoked
                 when specified event occurs.
         """
-        cluster_uri = get_cluster_uri(self.config)
+        cluster_uri = utils.get_cluster_uri(self.config)
         global_event_system.add_callback_handler(cluster_uri, event_name, callback)
 
 
@@ -350,9 +382,6 @@ def configure_logging(log_style: Optional[str] = None,
     """
     cli_logger.configure(
         log_style=log_style, color_mode=color_mode, verbosity=verbosity)
-
-
-
 
 
 def get_docker_host_mount_location(cluster_name: str) -> str:

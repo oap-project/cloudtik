@@ -98,13 +98,10 @@ class _EventSystem:
 
         event_data["event_name"] = event
 
-        with self._lock:
-            if cluster_uri in self.callback_map:
-                event_callback_map = self.callback_map[cluster_uri]
-                if event in event_callback_map:
-                    # TODO: Improve with make a copy of the callback and call outside of the lock
-                    for callback in event_callback_map[event]:
-                        callback(event_data)
+        # Return a copy and call in the caller's thread context
+        callbacks = self._get_callbacks_to_call(cluster_uri, event)
+        for callback in callbacks:
+            callback(event_data)
 
     def clear_callbacks_for_event(self,
                                   cluster_uri: str,
@@ -134,6 +131,16 @@ class _EventSystem:
         with self._lock:
             if cluster_uri in self.callback_map:
                 del self.callback_map[cluster_uri]
+
+    def _get_callbacks_to_call(self,
+                               cluster_uri: str,
+                               event: CreateClusterEvent) -> List[Callable[[Dict], None]]:
+        with self._lock:
+            if cluster_uri in self.callback_map:
+                event_callback_map = self.callback_map[cluster_uri]
+                if event in event_callback_map:
+                    return [callback for callback in event_callback_map[event]]
+        return []
 
 
 global_event_system = _EventSystem()

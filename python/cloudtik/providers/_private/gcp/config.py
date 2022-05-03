@@ -720,8 +720,7 @@ def _create_or_update_firewalls(config, compute, VpcId):
 
 def check_workspace_firewalls(config, compute):
     workspace_name = config["workspace_name"]
-    firewall_names = ["cloudtik-{}-default-allow-internal-firewall".format(workspace_name),
-                      "cloudtik-{}-default-allow-ssh-firewall".format(workspace_name)]
+    firewall_names = ["cloudtik-{}-default-allow-internal-firewall".format(workspace_name)]
 
     for firewall_name in firewall_names:
         if not check_firewall_exsit(config, compute, firewall_name):

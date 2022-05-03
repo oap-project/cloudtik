@@ -15,7 +15,7 @@ from google.oauth2 import service_account
 from google.oauth2.credentials import Credentials as OAuthCredentials
 
 from cloudtik.providers._private.gcp.node import (GCPNodeType, MAX_POLLS,
-                                              POLL_INTERVAL)
+                                                  POLL_INTERVAL, GCPCompute)
 
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, CLOUDTIK_TAG_CLUSTER_NAME
 from cloudtik.core._private.cli_logger import cli_logger, cf
@@ -270,11 +270,15 @@ def construct_clients_from_provider_config(provider_config):
 def get_workspace_head_nodes(config):
     _, _, compute, tpu = \
         construct_clients_from_provider_config(config["provider"])
+    return _get_workspace_head_nodes(config, compute=compute)
+
+
+def _get_workspace_head_nodes(config, compute):
     use_internal_ips = config["provider"].get("use_internal_ips", False)
     project_id = config["provider"].get("project_id")
     availability_zone = config["provider"].get("availability_zone")
-    vpcId = get_gcp_vpcId(config, compute, use_internal_ips)
-    vpc_self_link = compute.networks().get(project=project_id, network=vpcId).execute()["selfLink"]
+    vpc_id = get_gcp_vpcId(config, compute, use_internal_ips)
+    vpc_self_link = compute.networks().get(project=project_id, network=vpc_id).execute()["selfLink"]
 
     filter_expr = '(labels.{key} = {value}) AND (status = RUNNING)'.\
         format(key=CLOUDTIK_TAG_NODE_KIND, value=NODE_KIND_HEAD)
@@ -1587,11 +1591,17 @@ def get_cluster_name_from_head(head_node) -> Optional[str]:
 
 
 def list_gcp_clusters(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    head_nodes = get_workspace_head_nodes(config)
+    _, _, compute, tpu = \
+        construct_clients_from_provider_config(config["provider"])
+    head_nodes = _get_workspace_head_nodes(config, compute=compute)
+
     clusters = {}
     for head_node in head_nodes:
         cluster_name = get_cluster_name_from_head(head_node)
         if cluster_name:
-            # TODO: convert node to GCPComputeNode
-            clusters[cluster_name] = _get_node_info(head_node)
+            gcp_resource = GCPCompute(
+                compute, config["provider"]["project_id"],
+                config["provider"]["availability_zone"], cluster_name)
+            gcp_node = gcp_resource.from_instance(head_node)
+            clusters[cluster_name] = _get_node_info(gcp_node)
     return clusters

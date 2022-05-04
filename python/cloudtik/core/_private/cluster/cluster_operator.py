@@ -2510,7 +2510,7 @@ def _start_node_on_head(
         config.get("runtime"), provider)
 
     def start_single_node_on_head(node_id):
-        if not is_node_in_completed_status(node_id):
+        if not is_node_in_completed_status(provider, node_id):
             node_ip = provider.internal_ip(node_id)
             cli_logger.print("Skip starting node {} as it is in setting up.", node_ip)
             return
@@ -2756,7 +2756,7 @@ def _stop_node_on_head(
         config.get("runtime"), provider)
 
     def stop_single_node_on_head(node_id):
-        if not is_node_in_completed_status(node_id):
+        if not is_node_in_completed_status(provider, node_id):
             node_ip = provider.internal_ip(node_id)
             cli_logger.print("Skip stopping node {} as it is in setting up.", node_ip)
             return

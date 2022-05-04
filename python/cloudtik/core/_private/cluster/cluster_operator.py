@@ -553,7 +553,8 @@ def teardown_cluster_nodes(config: Dict[str, Any],
                 call_context=call_context,
                 provider=provider,
                 head_node=head_node,
-                nodes=A,
+                node_head=None,
+                node_workers=A,
                 parallel=True
             )
 
@@ -2393,8 +2394,10 @@ def exec_node_on_head(
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     head_node = _get_running_head_node(config, _provider=provider)
 
-    nodes = get_nodes_of(config, provider, head_node,
-                         node_ip, all_nodes)
+    node_head, node_workers = get_nodes_of(config, provider, head_node,
+                                           node_ip, all_nodes)
+    nodes = [node_head] if node_head else []
+    nodes += node_workers
 
     def run_exec_cmd_on_head(node_id):
         exec_cmd_on_head(
@@ -2407,13 +2410,19 @@ def exec_node_on_head(
             port_forward=port_forward,
             with_output=with_output)
 
-    if parallel and len(nodes) > 1:
+    total_nodes = len(nodes)
+    if parallel and total_nodes > 1:
+        cli_logger.print("Executing on {} nodes in parallel...", total_nodes)
         run_in_paralell_on_nodes(run_exec_cmd_on_head,
                                  call_context=call_context,
                                  nodes=nodes)
     else:
-        for node_id in nodes:
-            run_exec_cmd_on_head(node_id=node_id)
+        for i, node_id in enumerate(nodes):
+            node_ip = provider.internal_ip(node_id)
+            with cli_logger.group(
+                    "Executing on node: {}", node_ip,
+                    _numbered=("()", i + 1, total_nodes)):
+                run_exec_cmd_on_head(node_id=node_id)
 
 
 def create_node_updater_for_exec(config,
@@ -2465,15 +2474,17 @@ def start_node_on_head(node_ip: str = None,
         cli_logger.newline()
 
     head_node = _get_running_head_node(config, _provider=provider)
-    nodes = get_nodes_of(config, provider, head_node,
-                         node_ip, all_nodes)
+    node_head, node_workers = get_nodes_of(
+        config, provider, head_node,
+        node_ip, all_nodes)
 
     _start_node_on_head(
         config=config,
         call_context=call_context,
         provider=provider,
         head_node=head_node,
-        nodes=nodes,
+        node_head=node_head,
+        node_workers=node_workers,
         runtimes=runtime_list,
         parallel=parallel
     )
@@ -2484,7 +2495,8 @@ def _start_node_on_head(
         call_context: CallContext,
         provider: NodeProvider,
         head_node: str,
-        nodes: List[str],
+        node_head: Optional[str],
+        node_workers: List[str],
         runtimes: Optional[List[str]] = None,
         parallel: bool = True):
     head_node_ip = provider.internal_ip(head_node)
@@ -2519,13 +2531,25 @@ def _start_node_on_head(
         node_runtime_envs.update(runtime_envs)
         updater.exec_commands("Starting", start_commands, node_runtime_envs)
 
-    if parallel and len(nodes) > 1:
+    # First start on head if needed
+    if node_head:
+        with cli_logger.group(
+                "Starting on head: {}", head_node_ip):
+            start_single_node_on_head(node_head)
+
+    total_workers = len(node_workers)
+    if parallel and total_workers > 1:
+        cli_logger.print("Starting on {} workers in parallel...", total_workers)
         run_in_paralell_on_nodes(start_single_node_on_head,
                                  call_context=call_context,
-                                 nodes=nodes)
+                                 nodes=node_workers)
     else:
-        for node_id in nodes:
-            start_single_node_on_head(node_id)
+        for i, node_id in enumerate(node_workers):
+            node_ip = provider.internal_ip(node_id)
+            with cli_logger.group(
+                    "Starting on worker: {}", node_ip,
+                    _numbered=("()", i + 1, total_workers)):
+                start_single_node_on_head(node_id)
 
 
 def start_node_from_head(config_file: str,
@@ -2554,7 +2578,7 @@ def start_node_from_head(config_file: str,
 
 def _start_node_from_head(config: Dict[str, Any],
                           call_context: CallContext,
-                          node_ip: str,
+                          node_ip: Optional[str],
                           all_nodes: bool,
                           runtimes: Optional[List[str]] = None,
                           indent_level: int = None,
@@ -2612,7 +2636,7 @@ def stop_node_from_head(config_file: str,
 
 def _stop_node_from_head(config: Dict[str, Any],
                          call_context: CallContext,
-                         node_ip: str,
+                         node_ip: Optional[str],
                          all_nodes: bool,
                          runtimes: Optional[List[str]] = None,
                          indent_level: int = None,
@@ -2648,20 +2672,24 @@ def get_nodes_of(config,
                  head_node,
                  node_ip: str = None,
                  all_nodes: bool = False):
+    node_head = None
+    node_workers = []
     if not node_ip:
         if head_node:
-            nodes = [head_node]
-        else:
-            nodes = []
+            node_head = head_node
+
         if all_nodes:
-            nodes.extend(_get_worker_nodes(config))
+            node_workers.extend(_get_worker_nodes(config))
     else:
         node_id = provider.get_node_id(node_ip, use_internal_ip=True)
         if not node_id:
             cli_logger.error("No node with the specified node ip - {} found.", node_ip)
             return
-        nodes = [node_id]
-    return nodes
+        if head_node == node_id:
+            node_head = node_id
+        else:
+            node_workers = [node_id]
+    return node_head, node_workers
 
 
 def stop_node_on_head(node_ip: str = None,
@@ -2681,15 +2709,17 @@ def stop_node_on_head(node_ip: str = None,
 
     head_node = _get_running_head_node(config, _provider=provider,
                                        _allow_uninitialized_state=True)
-    nodes = get_nodes_of(config, provider, head_node,
-                         node_ip, all_nodes)
+    node_head, node_workers = get_nodes_of(
+        config, provider, head_node,
+        node_ip, all_nodes)
 
     _stop_node_on_head(
         config=config,
         call_context=call_context,
         provider=provider,
         head_node=head_node,
-        nodes=nodes,
+        node_head=node_head,
+        node_workers=node_workers,
         runtimes=runtime_list,
         parallel=parallel
     )
@@ -2700,7 +2730,8 @@ def _stop_node_on_head(
         call_context: CallContext,
         provider: NodeProvider,
         head_node: str,
-        nodes: List[str],
+        node_head: Optional[str],
+        node_workers: List[str],
         runtimes: Optional[List[str]] = None,
         parallel: bool = True):
     head_node_ip = provider.internal_ip(head_node)
@@ -2738,13 +2769,25 @@ def _stop_node_on_head(
         node_runtime_envs.update(runtime_envs)
         updater.exec_commands("Stopping", stop_commands, node_runtime_envs)
 
-    if parallel and len(nodes) > 1:
+    # First stop the head service
+    if node_head:
+        with cli_logger.group(
+                "Stopping on head: {}", head_node_ip):
+            stop_single_node_on_head(node_head)
+
+    total_workers = len(node_workers)
+    if parallel and total_workers > 1:
+        cli_logger.print("Stopping on {} workers in parallel...", total_workers)
         run_in_paralell_on_nodes(stop_single_node_on_head,
                                  call_context=call_context,
-                                 nodes=nodes)
+                                 nodes=node_workers)
     else:
-        for node_id in nodes:
-            stop_single_node_on_head(node_id)
+        for i, node_id in enumerate(node_workers):
+            node_ip = provider.internal_ip(node_id)
+            with cli_logger.group(
+                    "Stopping on worker: {}", node_ip,
+                    _numbered=("()", i + 1, total_workers)):
+                stop_single_node_on_head(node_id)
 
 
 def scale_cluster(config_file: str, yes: bool, override_cluster_name: Optional[str],

@@ -726,7 +726,7 @@ def _kill_node(config: Dict[str, Any],
         node_ip = get_node_cluster_ip(provider, node)
 
     if not hard:
-        # execute stop-node command
+        # execute runtime stop command
         stop_node_on_head(node_ip, False)
 
     # terminate the node
@@ -1161,7 +1161,7 @@ def _exec_cluster(config: Dict[str, Any],
     shutdown_after_run = False
     if cmd and stop:
         cmd = "; ".join([
-            cmd, "cloudtik head stop-node",
+            cmd, "cloudtik head runtime stop",
             "cloudtik down ~/cloudtik_bootstrap_config.yaml --yes --workers-only"
         ])
         shutdown_after_run = True
@@ -2525,7 +2525,8 @@ def _start_node_from_head(config: Dict[str, Any],
     cmds = [
         "cloudtik",
         "head",
-        "start-node",
+        "runtime"
+        "start",
     ]
     if node_ip:
         cmds += ["--node-ip={}".format(node_ip)]
@@ -2571,7 +2572,8 @@ def _stop_node_from_head(config: Dict[str, Any],
     cmds = [
         "cloudtik",
         "head",
-        "stop-node",
+        "runtime",
+        "stop",
     ]
     if node_ip:
         cmds += ["--node-ip={}".format(node_ip)]

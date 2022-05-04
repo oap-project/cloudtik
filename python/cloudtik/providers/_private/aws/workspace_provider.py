@@ -1,8 +1,8 @@
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 from cloudtik.providers._private.aws.config import create_aws_workspace, \
     delete_workspace_aws, check_aws_workspace_resource, update_aws_workspace_firewalls, \
-    get_workspace_head_nodes, list_aws_clusters
+    list_aws_clusters, _get_workspace_head_nodes
 from cloudtik.core._private.providers import _get_node_provider
 from cloudtik.core.tags import CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX, CLOUDTIK_GLOBAL_VARIABLE_KEY
 from cloudtik.core.workspace_provider import WorkspaceProvider
@@ -42,7 +42,8 @@ class AWSWorkspaceProvider(WorkspaceProvider):
 
     def subscribe_global_variables(self, cluster_config: Dict[str, Any]):
         global_variables = {}
-        head_nodes = get_workspace_head_nodes(cluster_config)
+        head_nodes = _get_workspace_head_nodes(
+            self.provider_config, self.workspace_name)
         for head in head_nodes:
             for tag in head.tags:
                 tag_key = tag.get("Key")

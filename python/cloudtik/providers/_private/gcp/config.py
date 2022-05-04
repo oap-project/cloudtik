@@ -267,17 +267,19 @@ def construct_clients_from_provider_config(provider_config):
         tpu_resource
 
 
-def get_workspace_head_nodes(config):
+def get_workspace_head_nodes(provider_config, workspace_name):
     _, _, compute, tpu = \
-        construct_clients_from_provider_config(config["provider"])
-    return _get_workspace_head_nodes(config, compute=compute)
+        construct_clients_from_provider_config(provider_config)
+    return _get_workspace_head_nodes(
+        provider_config, workspace_name, compute=compute)
 
 
-def _get_workspace_head_nodes(config, compute):
-    use_internal_ips = config["provider"].get("use_internal_ips", False)
-    project_id = config["provider"].get("project_id")
-    availability_zone = config["provider"].get("availability_zone")
-    vpc_id = get_gcp_vpcId(config, compute, use_internal_ips)
+def _get_workspace_head_nodes(provider_config, workspace_name, compute):
+    use_internal_ips = provider_config.get("use_internal_ips", False)
+    project_id = provider_config.get("project_id")
+    availability_zone = provider_config.get("availability_zone")
+    vpc_id = _get_gcp_vpcId(
+        provider_config, workspace_name, compute, use_internal_ips)
     vpc_self_link = compute.networks().get(project=project_id, network=vpc_id).execute()["selfLink"]
 
     filter_expr = '(labels.{key} = {value}) AND (status = RUNNING)'.\
@@ -338,8 +340,13 @@ def _configure_workspace(config):
 
 
 def get_workspace_vpc_id(config, compute):
-    project_id = config["provider"].get("project_id")
-    vpc_name = 'cloudtik-{}-vpc'.format(config["workspace_name"])
+    return _get_workspace_vpc_id(
+        config["provider"], config["workspace_name"], compute)
+
+
+def _get_workspace_vpc_id(provider_config, workspace_name, compute):
+    project_id = provider_config.get("project_id")
+    vpc_name = 'cloudtik-{}-vpc'.format(workspace_name)
     cli_logger.verbose("Getting the VpcId for workspace: {}...".
                      format(vpc_name))
 
@@ -402,9 +409,13 @@ def create_vpc(config, compute):
 
 
 def get_working_node_vpc_id(config, compute):
+    return _get_working_node_vpc_id(config["provider"], compute)
+
+
+def _get_working_node_vpc_id(provider_config, compute):
     ip_address = get_node_ip_address(address="8.8.8.8:53")
-    project_id = config["provider"].get("project_id")
-    zone = config["provider"].get("availability_zone")
+    project_id = provider_config.get("project_id")
+    zone = provider_config.get("availability_zone")
     instances = compute.instances().list(project=project_id, zone=zone).execute()["items"]
     network = None
     for instance in instances:
@@ -755,10 +766,15 @@ def _delete_firewalls(config, compute):
 
 
 def get_gcp_vpcId(config, compute, use_internal_ips):
+    return _get_gcp_vpcId(
+        config["provider"], config.get("workspace_name"), compute, use_internal_ips)
+
+
+def _get_gcp_vpcId(provider_config, workspace_name, compute, use_internal_ips):
     if use_internal_ips:
-        VpcId = get_working_node_vpc_id(config, compute)
+        VpcId = _get_working_node_vpc_id(provider_config, compute)
     else:
-        VpcId = get_workspace_vpc_id(config, compute)
+        VpcId = _get_workspace_vpc_id(provider_config, workspace_name, compute)
     return VpcId
 
 
@@ -1592,7 +1608,8 @@ def get_cluster_name_from_head(head_node) -> Optional[str]:
 def list_gcp_clusters(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     _, _, compute, tpu = \
         construct_clients_from_provider_config(config["provider"])
-    head_nodes = _get_workspace_head_nodes(config, compute=compute)
+    head_nodes = _get_workspace_head_nodes(
+        config["provider"], config["workspace_name"], compute=compute)
 
     clusters = {}
     for head_node in head_nodes:

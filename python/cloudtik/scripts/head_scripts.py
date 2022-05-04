@@ -78,7 +78,7 @@ def attach(node_ip, screen, tmux, new, port_forward, host):
     default=None,
     help="The node ip to operate on.")
 @click.option(
-    "--all-nodes",
+    "--all-nodes/--no-all-nodes",
     is_flag=True,
     default=False,
     help="Whether to execute on all nodes.")
@@ -157,7 +157,7 @@ def scale(yes, cpus, nodes):
     default=None,
     help="The worker node ip to rsync up.")
 @click.option(
-    "--all-workers",
+    "--all-workers/--no-all-workers",
     is_flag=True,
     default=False,
     help="Whether to sync the file to all workers.")

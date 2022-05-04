@@ -1318,6 +1318,8 @@ def rsync_to_node_from_head(config: Dict[str, Any],
         cmds += ["--node-ip={}".format(node_ip)]
     if all_workers:
         cmds += ["--all-workers"]
+    else:
+        cmds += ["--no-all-workers"]
 
     final_cmd = " ".join(cmds)
     _exec_cmd_on_cluster(config,
@@ -2214,6 +2216,8 @@ def _exec_node_from_head(config: Dict[str, Any],
         cmds += ["--node-ip={}".format(node_ip)]
     if all_nodes:
         cmds += ["--all-nodes"]
+    else:
+        cmds += ["--no-all-nodes"]
     if run_env:
         cmds += ["--run-env={}".format(run_env)]
     if screen:
@@ -2594,6 +2598,8 @@ def _start_node_from_head(config: Dict[str, Any],
         cmds += ["--node-ip={}".format(node_ip)]
     if all_nodes:
         cmds += ["--all-nodes"]
+    else:
+        cmds += ["--no-all-nodes"]
     if runtimes:
         runtime_arg = ",".join(runtimes)
         cmds += ["--runtimes={}".format(quote(runtime_arg))]
@@ -2653,6 +2659,8 @@ def _stop_node_from_head(config: Dict[str, Any],
         cmds += ["--node-ip={}".format(node_ip)]
     if all_nodes:
         cmds += ["--all-nodes"]
+    else:
+        cmds += ["--no-all-nodes"]
     if runtimes:
         runtime_arg = ",".join(runtimes)
         cmds += ["--runtimes={}".format(quote(runtime_arg))]

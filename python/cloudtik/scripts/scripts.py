@@ -647,7 +647,7 @@ def attach(cluster_config_file, screen, tmux, cluster_name,
     default=None,
     help="The node ip address of the node to exec command on")
 @click.option(
-    "--all-nodes",
+    "--all-nodes/--no-all-nodes",
     is_flag=True,
     default=False,
     help="Whether to execute commands on all nodes.")
@@ -795,7 +795,7 @@ def scale(cluster_config_file, yes, cluster_name, cpus, nodes):
     default=None,
     help="The node ip address of the node to rsync with")
 @click.option(
-    "--all-nodes",
+    "--all-nodes/--no-all-nodes",
     is_flag=True,
     default=False,
     help="Whether to sync the file to all nodes.")

@@ -13,10 +13,10 @@ stop-head)
     $HADOOP_HOME/bin/hdfs --daemon stop namenode
     ;;
 start-worker)
-    $HADOOP_HOME/sbin/hadoop-daemon.sh start datanode
+    $HADOOP_HOME/bin/hdfs --daemon start datanode
     ;;
 stop-worker)
-    $HADOOP_HOME/sbin/hadoop-daemon.sh stop datanode
+    $HADOOP_HOME/bin/hdfs --daemon stop datanode
     ;;
 -h|--help)
     echo "Usage: $0 start-head|stop-head|start-worker|stop-worker" >&2

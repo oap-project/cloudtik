@@ -2588,6 +2588,7 @@ def _start_node_from_head(config: Dict[str, Any],
         "head",
         "runtime",
         "start",
+        "--yes",
     ]
     if node_ip:
         cmds += ["--node-ip={}".format(node_ip)]
@@ -2646,6 +2647,7 @@ def _stop_node_from_head(config: Dict[str, Any],
         "head",
         "runtime",
         "stop",
+        "--yes",
     ]
     if node_ip:
         cmds += ["--node-ip={}".format(node_ip)]

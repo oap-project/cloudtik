@@ -43,7 +43,8 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     sum_worker_cpus, sum_worker_memory, get_useful_runtime_urls, get_enabled_runtimes, \
     with_node_ip_environment_variables, run_in_paralell_on_nodes, get_commands_to_run, \
     cluster_booting_completed, load_head_cluster_config, get_runnable_command, get_cluster_uri, \
-    with_head_node_ip_environment_variables, get_verified_runtime_list, get_commands_for_runtimes
+    with_head_node_ip_environment_variables, get_verified_runtime_list, get_commands_for_runtimes, \
+    is_node_in_completed_status
 
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
@@ -2398,8 +2399,9 @@ def exec_node_on_head(
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     head_node = _get_running_head_node(config, _provider=provider)
 
-    node_head, node_workers = get_nodes_of(config, provider, head_node,
-                                           node_ip, all_nodes)
+    node_head, node_workers = get_nodes_of(
+        config, provider=provider, head_node=head_node,
+        node_ip=node_ip, all_nodes=all_nodes)
     nodes = [node_head] if node_head else []
     nodes += node_workers
 
@@ -2479,8 +2481,8 @@ def start_node_on_head(node_ip: str = None,
 
     head_node = _get_running_head_node(config, _provider=provider)
     node_head, node_workers = get_nodes_of(
-        config, provider, head_node,
-        node_ip, all_nodes)
+        config, provider=provider, head_node=head_node,
+        node_ip=node_ip, all_nodes=all_nodes)
 
     _start_node_on_head(
         config=config,
@@ -2508,6 +2510,11 @@ def _start_node_on_head(
         config.get("runtime"), provider)
 
     def start_single_node_on_head(node_id):
+        if not is_node_in_completed_status(node_id):
+            node_ip = provider.internal_ip(node_id)
+            cli_logger.print("Skip starting node {} as it is in setting up.", node_ip)
+            return
+
         is_head_node = False
         if node_id == head_node:
             is_head_node = True
@@ -2720,8 +2727,8 @@ def stop_node_on_head(node_ip: str = None,
     head_node = _get_running_head_node(config, _provider=provider,
                                        _allow_uninitialized_state=True)
     node_head, node_workers = get_nodes_of(
-        config, provider, head_node,
-        node_ip, all_nodes)
+        config, provider=provider, head_node=head_node,
+        node_ip=node_ip, all_nodes=all_nodes)
 
     _stop_node_on_head(
         config=config,
@@ -2749,6 +2756,11 @@ def _stop_node_on_head(
         config.get("runtime"), provider)
 
     def stop_single_node_on_head(node_id):
+        if not is_node_in_completed_status(node_id):
+            node_ip = provider.internal_ip(node_id)
+            cli_logger.print("Skip stopping node {} as it is in setting up.", node_ip)
+            return
+
         is_head_node = False
         if node_id == head_node:
             is_head_node = True

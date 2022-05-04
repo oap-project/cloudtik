@@ -23,8 +23,7 @@ from cloudtik.core._private.cluster.cluster_operator import (
     get_cluster_dump_archive, get_local_dump_archive, RUN_ENV_TYPES,
     show_worker_cpus, show_worker_memory, show_cluster_info, show_cluster_status,
     start_proxy, stop_proxy, cluster_debug_status,
-    cluster_health_check, cluster_process_status,
-    attach_worker, start_node_from_head, stop_node_from_head, scale_cluster,
+    cluster_health_check, cluster_process_status, attach_worker, scale_cluster,
     _load_cluster_config, exec_on_nodes, submit_and_exec, _wait_for_ready, _rsync, cli_call_context)
 from cloudtik.core._private.constants import CLOUDTIK_PROCESSES, \
     CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
@@ -33,7 +32,9 @@ from cloudtik.core._private.node.node_services import NodeServicesStarter
 from cloudtik.core._private.parameter import StartParams
 from cloudtik.scripts.utils import NaturalOrderGroup
 from cloudtik.scripts.workspace import workspace
+from cloudtik.scripts.runtime_scripts import runtime
 from cloudtik.scripts.head_scripts import head
+
 
 logger = logging.getLogger(__name__)
 
@@ -1027,100 +1028,6 @@ def disable_proxy(cluster_config_file, cluster_name):
 @cli.command()
 @click.argument("cluster_config_file", required=True, type=str)
 @click.option(
-    "--cluster-name",
-    "-n",
-    required=False,
-    type=str,
-    help="Override the configured cluster name.")
-@click.option(
-    "--no-config-cache",
-    is_flag=True,
-    default=False,
-    help="Disable the local cluster config cache.")
-@click.option(
-    "--node-ip",
-    required=False,
-    type=str,
-    default=None,
-    help="The node ip address of the node to run start commands")
-@click.option(
-    "--all-nodes",
-    is_flag=True,
-    default=False,
-    help="Whether to execute start commands to all nodes.")
-@click.option(
-    "--parallel/--no-parallel", is_flag=True, default=True, help="Whether the run the commands on nodes in parallel.")
-@add_click_logging_options
-def start_node(cluster_config_file, cluster_name, no_config_cache,
-               node_ip, all_nodes, parallel):
-    """Manually (re)start the node and runtime services on head or worker node."""
-    try:
-        # attach to the worker node
-        start_node_from_head(
-            cluster_config_file,
-            node_ip,
-            all_nodes,
-            cluster_name,
-            no_config_cache=no_config_cache,
-            parallel=parallel)
-    except RuntimeError as re:
-        cli_logger.error("Start node failed. " + str(re))
-        if cli_logger.verbosity == 0:
-            cli_logger.print("For more details, please run with -v flag.")
-        else:
-            traceback.print_exc()
-
-
-@cli.command()
-@click.argument("cluster_config_file", required=True, type=str)
-@click.option(
-    "--cluster-name",
-    "-n",
-    required=False,
-    type=str,
-    help="Override the configured cluster name.")
-@click.option(
-    "--no-config-cache",
-    is_flag=True,
-    default=False,
-    help="Disable the local cluster config cache.")
-@click.option(
-    "--node-ip",
-    required=False,
-    type=str,
-    default=None,
-    help="The node ip address of the node to stop")
-@click.option(
-    "--all-nodes",
-    is_flag=True,
-    default=False,
-    help="Whether to execute stop commands to all nodes.")
-@click.option(
-    "--parallel/--no-parallel", is_flag=True, default=True, help="Whether the run the commands on nodes in parallel.")
-@add_click_logging_options
-def stop_node(cluster_config_file, cluster_name, no_config_cache,
-              node_ip, all_nodes, parallel):
-    """Manually run stop commands on head or worker nodes."""
-    try:
-        # attach to the worker node
-        stop_node_from_head(
-            cluster_config_file,
-            node_ip,
-            all_nodes,
-            cluster_name,
-            no_config_cache=no_config_cache,
-            parallel=parallel)
-    except RuntimeError as re:
-        cli_logger.error("Stop node failed. " + str(re))
-        if cli_logger.verbosity == 0:
-            cli_logger.print("For more details, please run with -v flag.")
-        else:
-            traceback.print_exc()
-
-
-@cli.command()
-@click.argument("cluster_config_file", required=True, type=str)
-@click.option(
     "--yes",
     "-y",
     is_flag=True,
@@ -1531,8 +1438,6 @@ cli.add_command(monitor)
 cli.add_command(enable_proxy)
 cli.add_command(disable_proxy)
 
-cli.add_command(start_node)
-cli.add_command(stop_node)
 cli.add_command(kill_node)
 add_command_alias(kill_node, name="kill_node", hidden=True)
 cli.add_command(wait_for_ready)
@@ -1550,9 +1455,11 @@ cli.add_command(local_dump)
 add_command_alias(local_dump, name="local_dump", hidden=True)
 cli.add_command(run_script)
 
-
 # workspace commands
 cli.add_command(workspace)
+
+# runtime commands
+cli.add_command(runtime)
 
 # head commands
 cli.add_command(head)

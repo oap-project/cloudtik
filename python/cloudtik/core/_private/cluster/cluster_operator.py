@@ -2552,7 +2552,7 @@ def _start_node_from_head(config: Dict[str, Any],
     cmds = [
         "cloudtik",
         "head",
-        "runtime"
+        "runtime",
         "start",
     ]
     if node_ip:

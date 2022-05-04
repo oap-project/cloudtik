@@ -34,19 +34,13 @@ def runtime():
     default=False,
     help="Disable the local cluster config cache.")
 @click.option(
-    "--head",
-    required=False,
-    type=str,
-    default=None,
-    help="Start runtime for head node")
-@click.option(
     "--node-ip",
     required=False,
     type=str,
     default=None,
     help="The node ip address of the node to run start commands")
 @click.option(
-    "--all-nodes",
+    "--all-nodes/--no-all-nodes",
     is_flag=True,
     default=True,
     help="Whether to execute start commands to all nodes.")
@@ -100,9 +94,9 @@ def start(cluster_config_file, cluster_name, no_config_cache,
     default=None,
     help="The node ip address of the node to stop")
 @click.option(
-    "--all-nodes",
+    "--all-nodes/--no-all-nodes",
     is_flag=True,
-    default=False,
+    default=True,
     help="Whether to execute stop commands to all nodes.")
 @click.option(
     "--runtimes",

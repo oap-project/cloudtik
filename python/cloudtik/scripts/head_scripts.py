@@ -588,12 +588,18 @@ def runtime():
     help="The indent level for showing messages during this command.")
 @click.option(
     "--parallel/--no-parallel", is_flag=True, default=True, help="Whether the run the commands on nodes in parallel.")
+@click.option(
+    "--yes",
+    "-y",
+    is_flag=True,
+    default=False,
+    help="Don't ask for confirmation.")
 @add_click_logging_options
-def start(node_ip, all_nodes, runtimes, indent_level, parallel):
+def start(node_ip, all_nodes, runtimes, indent_level, parallel, yes):
     """Run start commands on the specific node or all nodes."""
     def do_start_node():
         start_node_on_head(node_ip=node_ip, all_nodes=all_nodes,
-                           runtimes=runtimes, parallel=parallel)
+                           runtimes=runtimes, parallel=parallel, yes=yes)
 
     if indent_level is not None:
         with cli_logger.indented_by(indent_level):
@@ -630,12 +636,18 @@ def start(node_ip, all_nodes, runtimes, indent_level, parallel):
     help="The indent level for showing messages during this command.")
 @click.option(
     "--parallel/--no-parallel", is_flag=True, default=True, help="Whether the run the commands on nodes in parallel.")
+@click.option(
+    "--yes",
+    "-y",
+    is_flag=True,
+    default=False,
+    help="Don't ask for confirmation.")
 @add_click_logging_options
-def stop(node_ip, all_nodes, runtimes, indent_level, parallel):
+def stop(node_ip, all_nodes, runtimes, indent_level, parallel, yes):
     """Run stop commands on the specific node or all nodes."""
     def do_stop_node():
         stop_node_on_head(node_ip=node_ip, all_nodes=all_nodes,
-                          runtimes=runtimes, parallel=parallel)
+                          runtimes=runtimes, parallel=parallel, yes=yes)
 
     if indent_level is not None:
         with cli_logger.indented_by(indent_level):

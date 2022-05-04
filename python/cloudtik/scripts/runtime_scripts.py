@@ -52,9 +52,15 @@ def runtime():
     help="The runtimes to start. Comma separated list.")
 @click.option(
     "--parallel/--no-parallel", is_flag=True, default=True, help="Whether the run the commands on nodes in parallel.")
+@click.option(
+    "--yes",
+    "-y",
+    is_flag=True,
+    default=False,
+    help="Don't ask for confirmation.")
 @add_click_logging_options
 def start(cluster_config_file, cluster_name, no_config_cache,
-          node_ip, all_nodes, runtimes, parallel):
+          node_ip, all_nodes, runtimes, parallel, yes):
     """Manually start the node and runtime services on head or worker node."""
     try:
         # attach to the worker node
@@ -65,7 +71,8 @@ def start(cluster_config_file, cluster_name, no_config_cache,
             runtimes=runtimes,
             override_cluster_name=cluster_name,
             no_config_cache=no_config_cache,
-            parallel=parallel)
+            parallel=parallel,
+            yes=yes)
     except RuntimeError as re:
         cli_logger.error("Start node failed. " + str(re))
         if cli_logger.verbosity == 0:
@@ -106,9 +113,15 @@ def start(cluster_config_file, cluster_name, no_config_cache,
     help="The runtimes to start. Comma separated list.")
 @click.option(
     "--parallel/--no-parallel", is_flag=True, default=True, help="Whether the run the commands on nodes in parallel.")
+@click.option(
+    "--yes",
+    "-y",
+    is_flag=True,
+    default=False,
+    help="Don't ask for confirmation.")
 @add_click_logging_options
 def stop(cluster_config_file, cluster_name, no_config_cache,
-         node_ip, all_nodes, runtimes, parallel):
+         node_ip, all_nodes, runtimes, parallel, yes):
     """Manually run stop commands on head or worker nodes."""
     try:
         # attach to the worker node
@@ -119,7 +132,8 @@ def stop(cluster_config_file, cluster_name, no_config_cache,
             runtimes=runtimes,
             override_cluster_name=cluster_name,
             no_config_cache=no_config_cache,
-            parallel=parallel)
+            parallel=parallel,
+            yes=yes)
     except RuntimeError as re:
         cli_logger.error("Stop node failed. " + str(re))
         if cli_logger.verbosity == 0:

@@ -1,56 +1,12 @@
-import json
 import logging
-from http.client import RemoteDisconnected
 from typing import Any, Dict
 
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME
-from cloudtik.providers._private.local.config import prepare_local, set_node_types_resources
+from cloudtik.providers._private.local.config import prepare_local, set_node_types_resources, \
+    _get_cloud_simulator_address, _get_http_response_from_simulator
 
 logger = logging.getLogger(__name__)
-
-DEFAULT_CLOUD_SIMULATOR_PORT = 8080
-
-
-def _get_cloud_simulator_address(provider_config):
-    cloud_simulator_address = provider_config["cloud_simulator_address"]
-    # Add the default port if not specified
-    if ":" not in cloud_simulator_address:
-        cloud_simulator_address += (":{}".format(DEFAULT_CLOUD_SIMULATOR_PORT))
-    return cloud_simulator_address
-
-
-def _get_http_response_from_simulator(cloud_simulator_address, request):
-    headers = {
-        "Content-Type": "application/json",
-    }
-    request_message = json.dumps(request).encode()
-    cloud_simulator_endpoint = "http://" + cloud_simulator_address
-
-    try:
-        import requests  # `requests` is not part of stdlib.
-        from requests.exceptions import ConnectionError
-
-        r = requests.get(
-            cloud_simulator_endpoint,
-            data=request_message,
-            headers=headers,
-            timeout=None,
-        )
-    except (RemoteDisconnected, ConnectionError):
-        logger.exception("Could not connect to: " +
-                         cloud_simulator_endpoint +
-                         ". Did you launched the Cloud Simulator by running cloudtik-simulator " +
-                         " --config nodes-config-file --port <PORT>?")
-        raise
-    except ImportError:
-        logger.exception(
-            "Not all dependencies were found. Please "
-            "update your install command.")
-        raise
-
-    response = r.json()
-    return response
 
 
 class CloudSimulatorNodeProvider(NodeProvider):

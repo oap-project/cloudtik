@@ -180,7 +180,7 @@ class LocalNodeProvider(NodeProvider):
                      "private_ip": self.internal_ip(node_id),
                      "public_ip": self.external_ip(node_id),
                      "instance_status": node["state"]}
-        node_info.update(self.node_tags(node_id))
+        node_info.update(node["tags"])
         return node_info
 
     def with_environment_variables(self):

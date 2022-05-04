@@ -40,7 +40,8 @@ from cloudtik.core._private.providers import _get_default_config, _get_node_prov
     _get_node_provider_cls
 from cloudtik.core._private.docker import validate_docker_config
 from cloudtik.core._private.providers import _get_workspace_provider
-from cloudtik.core.tags import CLOUDTIK_TAG_USER_NODE_TYPE
+from cloudtik.core.tags import CLOUDTIK_TAG_USER_NODE_TYPE, CLOUDTIK_TAG_NODE_STATUS, STATUS_UP_TO_DATE, \
+    STATUS_UPDATE_FAILED
 
 # Import psutil after others so the packaged version is used.
 import psutil
@@ -2037,3 +2038,15 @@ def get_verified_runtime_list(config: Dict[str, Any], runtimes: str):
     runtime_list = _parse_runtime_list(runtimes)
     verify_runtime_list(config, runtime_list)
     return runtime_list
+
+
+def is_node_in_completed_status(provider, node_id) -> bool:
+    node_tags = provider.node_tags(node_id)
+    status = node_tags.get(CLOUDTIK_TAG_NODE_STATUS)
+    if status is None:
+        return False
+
+    completed_states = [STATUS_UP_TO_DATE, STATUS_UPDATE_FAILED]
+    if status in completed_states:
+        return True
+    return False

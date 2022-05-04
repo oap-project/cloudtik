@@ -727,7 +727,7 @@ def _kill_node(config: Dict[str, Any],
 
     if not hard:
         # execute runtime stop command
-        stop_node_on_head(node_ip, False)
+        stop_node_on_head(node_ip=node_ip, all_nodes=False, yes=True)
 
     # terminate the node
     cli_logger.print("Shutdown " + cf.bold("{}:{}"), node, node_ip)
@@ -2452,14 +2452,19 @@ def create_node_updater_for_exec(config,
 def start_node_on_head(node_ip: str = None,
                        all_nodes: bool = False,
                        runtimes: str = None,
-                       parallel: bool = True):
+                       parallel: bool = True,
+                       yes: bool = False):
     # Since this is running on head, the bootstrap config must exist
     config = load_head_cluster_config()
     call_context = cli_call_context()
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     runtime_list = get_verified_runtime_list(config, runtimes) if runtimes else None
-    head_node = _get_running_head_node(config, _provider=provider)
 
+    if not yes:
+        cli_logger.confirm(yes, "Are you sure that you want to perform the start operation?", _abort=True)
+        cli_logger.newline()
+
+    head_node = _get_running_head_node(config, _provider=provider)
     nodes = get_nodes_of(config, provider, head_node,
                          node_ip, all_nodes)
 
@@ -2507,12 +2512,12 @@ def _start_node_on_head(
             call_context=call_context,
             node_id=node_id,
             provider=provider,
-            start_commands=start_commands,
+            start_commands=[],
             is_head_node=is_head_node,
             use_internal_ip=True)
 
         node_runtime_envs.update(runtime_envs)
-        updater._exec_start_commands(node_runtime_envs)
+        updater.exec_commands("Starting", start_commands, node_runtime_envs)
 
     if parallel and len(nodes) > 1:
         run_in_paralell_on_nodes(start_single_node_on_head,
@@ -2530,12 +2535,17 @@ def start_node_from_head(config_file: str,
                          override_cluster_name: Optional[str] = None,
                          no_config_cache: bool = False,
                          indent_level: int = None,
-                         parallel: bool = True):
+                         parallel: bool = True,
+                         yes: bool = False):
     """Execute start node command on head."""
     config = _load_cluster_config(config_file, override_cluster_name,
                                   no_config_cache=no_config_cache)
     call_context = cli_call_context()
     runtime_list = get_verified_runtime_list(config, runtimes) if runtimes else None
+
+    cli_logger.confirm(yes, "Are you sure that you want to perform the start operation?", _abort=True)
+    cli_logger.newline()
+
     _start_node_from_head(
         config, call_context=call_context,
         node_ip=node_ip, all_nodes=all_nodes, runtimes=runtime_list,
@@ -2582,13 +2592,18 @@ def stop_node_from_head(config_file: str,
                         override_cluster_name: Optional[str] = None,
                         no_config_cache: bool = False,
                         indent_level: int = None,
-                        parallel: bool = True):
+                        parallel: bool = True,
+                        yes: bool = False):
     """Execute stop node command on head."""
 
     config = _load_cluster_config(config_file, override_cluster_name,
                                   no_config_cache=no_config_cache)
     call_context = cli_call_context()
     runtime_list = get_verified_runtime_list(config, runtimes) if runtimes else None
+
+    cli_logger.confirm(yes, "Are you sure that you want to perform the stop operation?", _abort=True)
+    cli_logger.newline()
+
     _stop_node_from_head(
         config, call_context=call_context,
         node_ip=node_ip, all_nodes=all_nodes, runtimes=runtime_list,
@@ -2652,15 +2667,20 @@ def get_nodes_of(config,
 def stop_node_on_head(node_ip: str = None,
                       all_nodes: bool = False,
                       runtimes: Optional[str] = None,
-                      parallel: bool = True):
+                      parallel: bool = True,
+                      yes: bool = False):
     # Since this is running on head, the bootstrap config must exist
     config = load_head_cluster_config()
     call_context = cli_call_context()
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     runtime_list = get_verified_runtime_list(config, runtimes) if runtimes else None
+
+    if not yes:
+        cli_logger.confirm(yes, "Are you sure that you want to perform the stop operation?", _abort=True)
+        cli_logger.newline()
+
     head_node = _get_running_head_node(config, _provider=provider,
                                        _allow_uninitialized_state=True)
-
     nodes = get_nodes_of(config, provider, head_node,
                          node_ip, all_nodes)
 

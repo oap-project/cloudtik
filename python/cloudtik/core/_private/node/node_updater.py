@@ -609,14 +609,11 @@ class NodeUpdater:
         cli_logger.print("- {}", cmd_to_print)
 
         try:
-            old_redirected = self.call_context.is_output_redirected()
-            self.call_context.set_output_redirected(False)
             # Runs in the container if docker is in use
             self.cmd_executor.run(
                 cmd,
                 environment_variables=env_vars,
                 run_env="auto")
-            self.call_context.set_output_redirected(old_redirected)
         except ProcessRunnerError as e:
             if e.msg_type == "ssh_command_failed":
                 cli_logger.error("Failed.")

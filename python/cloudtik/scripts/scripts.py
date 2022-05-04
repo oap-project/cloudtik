@@ -911,11 +911,16 @@ def info(cluster_config_file, cluster_name, worker_cpus, worker_memory):
     required=False,
     type=str,
     help="Override the configured cluster name.")
+@click.option(
+    "--public",
+    is_flag=True,
+    default=False,
+    help="Return public ip if there is one")
 @add_click_logging_options
-def head_ip(cluster_config_file, cluster_name):
+def head_ip(cluster_config_file, cluster_name, public):
     """Return the head node IP of a cluster."""
     try:
-        click.echo(get_head_node_ip(cluster_config_file, cluster_name))
+        click.echo(get_head_node_ip(cluster_config_file, cluster_name, public))
     except RuntimeError as re:
         cli_logger.error("Get head IP failed. " + str(re))
         if cli_logger.verbosity == 0:

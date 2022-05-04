@@ -22,13 +22,13 @@ class Workspace:
         """
         self.workspace_config = workspace_config
         if isinstance(workspace_config, dict):
-            self.config = \
-                workspace_operator._bootstrap_workspace_config(workspace_config, no_config_cache=True)
+            self.config = workspace_operator._bootstrap_workspace_config(
+                workspace_config, no_config_cache=True)
         else:
             if not os.path.exists(workspace_config):
                 raise ValueError("Workspace config file not found: {}".format(workspace_config))
-            self.config = \
-                workspace_operator._load_workspace_config(workspace_config, no_config_cache=True)
+            self.config =workspace_operator._load_workspace_config(
+                workspace_config, no_config_cache=True)
 
     def create(self) -> None:
         """Create and provision the workspace resources."""
@@ -48,7 +48,7 @@ class Workspace:
 
 
 class Cluster:
-    def __init__(self, cluster_config: Union[dict, str]) -> None:
+    def __init__(self, cluster_config: Union[dict, str], should_bootstrap: bool = True) -> None:
         """Create a cluster object to operate on with this API.
 
         Args:
@@ -57,13 +57,16 @@ class Cluster:
         """
         self.cluster_config = cluster_config
         if isinstance(cluster_config, dict):
-            self.config = \
-                cluster_operator._bootstrap_config(cluster_config, no_config_cache=True)
+            if should_bootstrap:
+                self.config = cluster_operator._bootstrap_config(
+                    cluster_config, no_config_cache=True)
+            else:
+                self.config = cluster_config
         else:
             if not os.path.exists(cluster_config):
                 raise ValueError("Cluster config file not found: {}".format(cluster_config))
-            self.config = \
-                cluster_operator._load_cluster_config(cluster_config, no_config_cache=True)
+            self.config = cluster_operator._load_cluster_config(
+                cluster_config, should_bootstrap=should_bootstrap, no_config_cache=True)
 
         # TODO: Each call may need its own call context
         self.call_context = CallContext()
@@ -299,16 +302,17 @@ class Cluster:
             node_ip=node_ip,
             hard=hard)
 
-    def get_head_node_ip(self) -> str:
+    def get_head_node_ip(self, public: bool = False) -> str:
         """Returns head node IP for given configuration file if exists.
-
+        Args:
+            public (bool): Whether to return the public ip if there is one
         Returns:
             The ip address of the cluster head node.
 
         Raises:
             RuntimeError if the cluster is not found.
         """
-        return cluster_operator._get_head_node_ip(config=self.config)
+        return cluster_operator._get_head_node_ip(config=self.config, public=public)
 
     def get_worker_node_ips(self) -> List[str]:
         """Returns worker node IPs for given configuration file.
@@ -347,8 +351,7 @@ class Cluster:
 
     def register_callback(self,
                           event_name: str,
-                          callback: Union[Callable[[Dict], None], List[Callable[[Dict], None]]],
-    ) -> None:
+                          callback: Union[Callable[[Dict], None], List[Callable[[Dict], None]]]) -> None:
         """Registers a callback handler for scaling events.
 
         Args:

@@ -1390,10 +1390,12 @@ def get_worker_memory(config, provider):
 
 
 def get_head_node_ip(config_file: str,
-                     override_cluster_name: Optional[str] = None) -> str:
+                     override_cluster_name: Optional[str] = None,
+                     public: bool = False) -> str:
     """Returns head node IP for given configuration file if exists."""
     config = _load_cluster_config(config_file, override_cluster_name)
-    return _get_head_node_ip(config=config)
+    return _get_head_node_ip(config=config,
+                             public=public)
 
 
 def get_worker_node_ips(config_file: str,
@@ -1404,10 +1406,13 @@ def get_worker_node_ips(config_file: str,
     return _get_worker_node_ips(config)
 
 
-def _get_head_node_ip(config: Dict[str, Any]) -> str:
+def _get_head_node_ip(config: Dict[str, Any], public: bool = False) -> str:
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     head_node = _get_running_head_node(config)
-    return get_head_working_ip(config, provider, head_node)
+    if public:
+        return get_head_working_ip(config, provider, head_node)
+    else:
+        return get_node_cluster_ip(provider, head_node)
 
 
 def _get_worker_node_ips(config: Dict[str, Any]) -> List[str]:
@@ -1860,14 +1865,17 @@ def _get_cluster_nodes_info(config: Dict[str, Any]):
 
 
 def _get_cluster_info(config: Dict[str, Any],
-                      provider: NodeProvider = None) -> Dict[str, Any]:
+                      provider: NodeProvider = None,
+                      simple_config: bool = False) -> Dict[str, Any]:
     if provider is None:
         provider = _get_node_provider(config["provider"], config["cluster_name"])
 
     cluster_info = {
-        "name": config["cluster_name"],
-        "runtimes": get_enabled_runtimes(config)
+        "name": config["cluster_name"]
     }
+
+    if not simple_config:
+        cluster_info["runtimes"] = get_enabled_runtimes(config)
 
     # Check whether the head node is running
     try:
@@ -1889,20 +1897,26 @@ def _get_cluster_info(config: Dict[str, Any],
     workers = _get_worker_nodes(config)
     worker_count = len(workers)
 
-    workers_info = get_nodes_info(provider, workers,
-                                  True, config["available_node_types"])
+    if not simple_config:
+        workers_info = get_nodes_info(provider, workers,
+                                      True, config["available_node_types"])
+    else:
+        workers_info = get_nodes_info(provider, workers)
 
     # get working nodes which are ready
     workers_ready = _get_nodes_in_status(workers_info, STATUS_UP_TO_DATE)
     workers_failed = _get_nodes_in_status(workers_info, STATUS_UPDATE_FAILED)
-    worker_cpus = sum_worker_cpus(workers_info)
-    worker_memory = sum_worker_memory(workers_info)
 
     cluster_info["total-workers"] = worker_count
     cluster_info["total-workers-ready"] = workers_ready
     cluster_info["total-workers-failed"] = workers_failed
-    cluster_info["total-worker-cpus"] = worker_cpus
-    cluster_info["total-worker-memory"] = worker_memory
+
+    if not simple_config:
+        worker_cpus = sum_worker_cpus(workers_info)
+        worker_memory = sum_worker_memory(workers_info)
+        cluster_info["total-worker-cpus"] = worker_cpus
+        cluster_info["total-worker-memory"] = worker_memory
+
     return cluster_info
 
 

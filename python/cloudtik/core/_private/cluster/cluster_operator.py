@@ -43,7 +43,7 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     sum_worker_cpus, sum_worker_memory, get_useful_runtime_urls, get_enabled_runtimes, \
     with_node_ip_environment_variables, run_in_paralell_on_nodes, get_commands_to_run, \
     cluster_booting_completed, load_head_cluster_config, get_runnable_command, get_cluster_uri, \
-    with_head_node_ip_environment_variables
+    with_head_node_ip_environment_variables, get_verified_runtime_list, get_commands_for_runtimes
 
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
@@ -2451,18 +2451,40 @@ def create_node_updater_for_exec(config,
 
 def start_node_on_head(node_ip: str = None,
                        all_nodes: bool = False,
+                       runtimes: str = None,
                        parallel: bool = True):
     # Since this is running on head, the bootstrap config must exist
     config = load_head_cluster_config()
     call_context = cli_call_context()
     provider = _get_node_provider(config["provider"], config["cluster_name"])
+    runtime_list = get_verified_runtime_list(config, runtimes) if runtimes else None
     head_node = _get_running_head_node(config, _provider=provider)
-    head_node_ip = provider.internal_ip(head_node)
-    runtime_envs = with_runtime_environment_variables(
-        config.get("runtime"), provider)
 
     nodes = get_nodes_of(config, provider, head_node,
                          node_ip, all_nodes)
+
+    _start_node_on_head(
+        config=config,
+        call_context=call_context,
+        provider=provider,
+        head_node=head_node,
+        nodes=nodes,
+        runtimes=runtime_list,
+        parallel=parallel
+    )
+
+
+def _start_node_on_head(
+        config: Dict[str, Any],
+        call_context: CallContext,
+        provider: NodeProvider,
+        head_node: str,
+        nodes: List[str],
+        runtimes: Optional[List[str]] = None,
+        parallel: bool = True):
+    head_node_ip = provider.internal_ip(head_node)
+    runtime_envs = with_runtime_environment_variables(
+        config.get("runtime"), provider)
 
     def start_single_node_on_head(node_id):
         is_head_node = False
@@ -2470,10 +2492,12 @@ def start_node_on_head(node_ip: str = None,
             is_head_node = True
 
         if is_head_node:
-            start_commands = get_commands_to_run(config, "head_start_commands")
+            start_commands = get_commands_for_runtimes(config, "head_start_commands",
+                                                       runtimes=runtimes)
             node_runtime_envs = with_node_ip_environment_variables(head_node_ip, provider, node_id)
         else:
-            start_commands = get_commands_to_run(config, "worker_start_commands")
+            start_commands = get_commands_for_runtimes(config, "worker_start_commands",
+                                                       runtimes=runtimes)
             node_runtime_envs = with_node_ip_environment_variables(None, provider, node_id)
             node_runtime_envs = with_head_node_ip_environment_variables(
                 head_node_ip, node_runtime_envs)
@@ -2502,6 +2526,7 @@ def start_node_on_head(node_ip: str = None,
 def start_node_from_head(config_file: str,
                          node_ip: str,
                          all_nodes: bool,
+                         runtimes: Optional[str] = None,
                          override_cluster_name: Optional[str] = None,
                          no_config_cache: bool = False,
                          indent_level: int = None,
@@ -2510,9 +2535,10 @@ def start_node_from_head(config_file: str,
     config = _load_cluster_config(config_file, override_cluster_name,
                                   no_config_cache=no_config_cache)
     call_context = cli_call_context()
+    runtime_list = get_verified_runtime_list(config, runtimes) if runtimes else None
     _start_node_from_head(
         config, call_context=call_context,
-        node_ip=node_ip, all_nodes=all_nodes,
+        node_ip=node_ip, all_nodes=all_nodes, runtimes=runtime_list,
         indent_level=indent_level, parallel=parallel)
 
 
@@ -2520,6 +2546,7 @@ def _start_node_from_head(config: Dict[str, Any],
                           call_context: CallContext,
                           node_ip: str,
                           all_nodes: bool,
+                          runtimes: Optional[List[str]] = None,
                           indent_level: int = None,
                           parallel: bool = True):
     cmds = [
@@ -2532,6 +2559,9 @@ def _start_node_from_head(config: Dict[str, Any],
         cmds += ["--node-ip={}".format(node_ip)]
     if all_nodes:
         cmds += ["--all-nodes"]
+    if runtimes:
+        runtime_arg = ",".join(runtimes)
+        cmds += ["--runtimes={}".format(quote(runtime_arg))]
     if indent_level:
         cmds += ["--indent-level={}".format(indent_level)]
     if parallel:
@@ -2548,6 +2578,7 @@ def _start_node_from_head(config: Dict[str, Any],
 def stop_node_from_head(config_file: str,
                         node_ip: str,
                         all_nodes: bool,
+                        runtimes: Optional[str] = None,
                         override_cluster_name: Optional[str] = None,
                         no_config_cache: bool = False,
                         indent_level: int = None,
@@ -2557,9 +2588,10 @@ def stop_node_from_head(config_file: str,
     config = _load_cluster_config(config_file, override_cluster_name,
                                   no_config_cache=no_config_cache)
     call_context = cli_call_context()
+    runtime_list = get_verified_runtime_list(config, runtimes) if runtimes else None
     _stop_node_from_head(
         config, call_context=call_context,
-        node_ip=node_ip, all_nodes=all_nodes,
+        node_ip=node_ip, all_nodes=all_nodes, runtimes=runtime_list,
         indent_level=indent_level, parallel=parallel)
 
 
@@ -2567,6 +2599,7 @@ def _stop_node_from_head(config: Dict[str, Any],
                          call_context: CallContext,
                          node_ip: str,
                          all_nodes: bool,
+                         runtimes: Optional[List[str]] = None,
                          indent_level: int = None,
                          parallel: bool = True):
     cmds = [
@@ -2579,6 +2612,9 @@ def _stop_node_from_head(config: Dict[str, Any],
         cmds += ["--node-ip={}".format(node_ip)]
     if all_nodes:
         cmds += ["--all-nodes"]
+    if runtimes:
+        runtime_arg = ",".join(runtimes)
+        cmds += ["--runtimes={}".format(quote(runtime_arg))]
     if indent_level:
         cmds += ["--indent-level={}".format(indent_level)]
     if parallel:
@@ -2615,11 +2651,13 @@ def get_nodes_of(config,
 
 def stop_node_on_head(node_ip: str = None,
                       all_nodes: bool = False,
+                      runtimes: Optional[str] = None,
                       parallel: bool = True):
     # Since this is running on head, the bootstrap config must exist
     config = load_head_cluster_config()
     call_context = cli_call_context()
     provider = _get_node_provider(config["provider"], config["cluster_name"])
+    runtime_list = get_verified_runtime_list(config, runtimes) if runtimes else None
     head_node = _get_running_head_node(config, _provider=provider,
                                        _allow_uninitialized_state=True)
 
@@ -2632,6 +2670,7 @@ def stop_node_on_head(node_ip: str = None,
         provider=provider,
         head_node=head_node,
         nodes=nodes,
+        runtimes=runtime_list,
         parallel=parallel
     )
 
@@ -2642,6 +2681,7 @@ def _stop_node_on_head(
         provider: NodeProvider,
         head_node: str,
         nodes: List[str],
+        runtimes: Optional[List[str]] = None,
         parallel: bool = True):
     head_node_ip = provider.internal_ip(head_node)
     runtime_envs = with_runtime_environment_variables(
@@ -2653,10 +2693,12 @@ def _stop_node_on_head(
             is_head_node = True
 
         if is_head_node:
-            stop_commands = get_commands_to_run(config, "head_stop_commands")
+            stop_commands = get_commands_for_runtimes(config, "head_stop_commands",
+                                                      runtimes=runtimes)
             node_runtime_envs = with_node_ip_environment_variables(head_node_ip, provider, node_id)
         else:
-            stop_commands = get_commands_to_run(config, "worker_stop_commands")
+            stop_commands = get_commands_for_runtimes(config, "worker_stop_commands",
+                                                      runtimes=runtimes)
             node_runtime_envs = with_node_ip_environment_variables(None, provider, node_id)
             node_runtime_envs = with_head_node_ip_environment_variables(
                 head_node_ip, node_runtime_envs)

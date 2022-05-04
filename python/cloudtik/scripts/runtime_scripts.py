@@ -51,18 +51,25 @@ def runtime():
     default=True,
     help="Whether to execute start commands to all nodes.")
 @click.option(
+    "--runtimes",
+    required=False,
+    type=str,
+    default=None,
+    help="The runtimes to start. Comma separated list.")
+@click.option(
     "--parallel/--no-parallel", is_flag=True, default=True, help="Whether the run the commands on nodes in parallel.")
 @add_click_logging_options
 def start(cluster_config_file, cluster_name, no_config_cache,
-          node_ip, all_nodes, parallel):
+          node_ip, all_nodes, runtimes, parallel):
     """Manually start the node and runtime services on head or worker node."""
     try:
         # attach to the worker node
         start_node_from_head(
             cluster_config_file,
-            node_ip,
-            all_nodes,
-            cluster_name,
+            node_ip=node_ip,
+            all_nodes=all_nodes,
+            runtimes=runtimes,
+            override_cluster_name=cluster_name,
             no_config_cache=no_config_cache,
             parallel=parallel)
     except RuntimeError as re:
@@ -98,18 +105,25 @@ def start(cluster_config_file, cluster_name, no_config_cache,
     default=False,
     help="Whether to execute stop commands to all nodes.")
 @click.option(
+    "--runtimes",
+    required=False,
+    type=str,
+    default=None,
+    help="The runtimes to start. Comma separated list.")
+@click.option(
     "--parallel/--no-parallel", is_flag=True, default=True, help="Whether the run the commands on nodes in parallel.")
 @add_click_logging_options
 def stop(cluster_config_file, cluster_name, no_config_cache,
-         node_ip, all_nodes, parallel):
+         node_ip, all_nodes, runtimes, parallel):
     """Manually run stop commands on head or worker nodes."""
     try:
         # attach to the worker node
         stop_node_from_head(
             cluster_config_file,
-            node_ip,
-            all_nodes,
-            cluster_name,
+            node_ip=node_ip,
+            all_nodes=all_nodes,
+            runtimes=runtimes,
+            override_cluster_name=cluster_name,
             no_config_cache=no_config_cache,
             parallel=parallel)
     except RuntimeError as re:

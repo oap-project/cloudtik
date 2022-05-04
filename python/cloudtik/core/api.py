@@ -4,6 +4,7 @@ from typing import Any, Callable, Dict, List, Optional, Union
 import os
 
 from cloudtik.core._private.call_context import CallContext
+from cloudtik.core._private.utils import verify_runtime_list
 from cloudtik.core._private.workspace import workspace_operator
 from cloudtik.core._private.cluster import cluster_operator
 from cloudtik.core._private.event_system import (
@@ -255,36 +256,44 @@ class Cluster:
     def start_node(self,
                    node_ip: str = None,
                    all_nodes: bool = False,
+                   runtimes: Optional[List[str]] = None,
                    parallel: bool = True) -> None:
         """Start services on a node.
         Args:
             node_ip (str): The node_ip to run on
-            all_nodes(bool): Run on all nodes
+            all_nodes (bool): Run on all nodes
+            runtimes (Optional[List[str]]): Optional list of runtime services to start
             parallel (bool): Run the command in parallel if there are more than one node
         """
+        verify_runtime_list(self.config, runtimes)
         return cluster_operator._start_node_from_head(
             config=self.config,
             call_context=self.call_context,
             node_ip=node_ip,
             all_nodes=all_nodes,
+            runtimes=runtimes,
             parallel=parallel
             )
 
     def stop_node(self,
                   node_ip: str = None,
                   all_nodes: bool = False,
+                  runtimes: Optional[List[str]] = None,
                   parallel: bool = True) -> None:
         """Run stop commands on a node.
         Args:
             node_ip (str): The node_ip to run on
             all_nodes(bool): Run on all nodes
+            runtimes (Optional[List[str]]): Optional list of runtime services to start
             parallel (bool): Run the command in parallel if there are more than one node
         """
+        verify_runtime_list(self.config, runtimes)
         return cluster_operator._stop_node_from_head(
             config=self.config,
             call_context=self.call_context,
             node_ip=node_ip,
             all_nodes=all_nodes,
+            runtimes=runtimes,
             parallel=parallel
             )
 

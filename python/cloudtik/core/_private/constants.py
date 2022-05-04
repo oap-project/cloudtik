@@ -232,3 +232,6 @@ CLOUDTIK_RUNTIMES_ENV = "CLOUDTIK_RUNTIMES"
 
 # Template for cluster uri
 CLOUDTIK_CLUSTER_URI_TEMPLATE = "{}:{}"
+
+# The CloudTik runtime name
+CLOUDTIK_RUNTIME_NAME = "cloudtik"

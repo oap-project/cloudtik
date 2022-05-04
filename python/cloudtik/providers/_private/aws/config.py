@@ -229,7 +229,7 @@ def get_workspace_vpc_id(workspace_name, ec2_client):
     elif len(vpc_ids) == 1:
         return vpc_ids[0]
     else:
-        cli_logger.abort("This workspace: {} should not contain More than one VPC!!".format(workspace_name))
+        cli_logger.abort("The workspace {} should not have more than one VPC!".format(workspace_name))
         return None
 
 
@@ -628,9 +628,13 @@ def bootstrap_aws_from_workspace(config):
 
 
 def get_workspace_head_nodes(config):
-    ec2 = _resource("ec2", config)
-    ec2_client = _client("ec2", config)
-    workspace_name = config["workspace_name"]
+    return _get_workspace_head_nodes(
+        config["provider"], config["workspace_name"])
+
+
+def _get_workspace_head_nodes(provider_config, workspace_name):
+    ec2 = _make_resource("ec2", provider_config)
+    ec2_client = _make_client("ec2", provider_config)
     vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
     if vpc_id is None:
         raise RuntimeError(f"Failed to get VPC for workspace: {workspace_name}")
@@ -2060,10 +2064,18 @@ def list_aws_clusters(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 
 
 def _client(name, config):
-    return _resource(name, config).meta.client
+    return _make_client(name, config["provider"])
 
 
 def _resource(name, config):
-    region = config["provider"]["region"]
-    aws_credentials = config["provider"].get("aws_credentials", {})
+    return _make_resource(name, config["provider"])
+
+
+def _make_client(name, provider_config):
+    return _make_resource(name, provider_config).meta.client
+
+
+def _make_resource(name, provider_config):
+    region = provider_config["region"]
+    aws_credentials = provider_config.get("aws_credentials", {})
     return resource_cache(name, region, **aws_credentials)

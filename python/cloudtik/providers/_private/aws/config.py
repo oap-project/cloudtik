@@ -359,8 +359,8 @@ def check_aws_workspace_resource(config):
 def update_aws_workspace_firewalls(config):
     ec2_client = _client("ec2", config)
     workspace_name = config["workspace_name"]
-    vpcid = get_workspace_vpc_id(workspace_name, ec2_client)
-    if vpcid is None:
+    vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
+    if vpc_id is None:
         cli_logger.print("The workspace: {} doesn't exist!".format(config["workspace_name"]))
         return
 
@@ -373,7 +373,7 @@ def update_aws_workspace_firewalls(config):
                 "Updating workspace firewalls",
                 _numbered=("[]", current_step, total_steps)):
             current_step += 1
-            _update_security_group(config, vpcid)
+            _update_security_group(config, vpc_id)
 
     except Exception as e:
         cli_logger.error(

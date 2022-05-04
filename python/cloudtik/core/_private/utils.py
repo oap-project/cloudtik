@@ -33,7 +33,7 @@ from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core._private.cluster.cluster_metrics import ClusterMetricsSummary
 from cloudtik.core._private.constants import CLOUDTIK_WHEELS, CLOUDTIK_CLUSTER_PYTHON_VERSION, \
     CLOUDTIK_DEFAULT_MAX_WORKERS, CLOUDTIK_NODE_SSH_INTERVAL_S, CLOUDTIK_NODE_START_WAIT_S, MAX_PARALLEL_EXEC_NODES, \
-    CLOUDTIK_CLUSTER_URI_TEMPLATE
+    CLOUDTIK_CLUSTER_URI_TEMPLATE, CLOUDTIK_RUNTIME_NAME
 from cloudtik.core._private.runtime_factory import _get_runtime, _get_runtime_cls
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core._private.providers import _get_default_config, _get_node_provider, _get_provider_config_object, \
@@ -978,7 +978,7 @@ def merge_built_in_commands(config):
     prepare_internal_commands(config, built_in_commands)
 
     # Merge runtime commands with built-in: runtime after built-in
-    merge_commands_from(config, "cloudtik", built_in_commands)
+    merge_commands_from(config, CLOUDTIK_RUNTIME_NAME, built_in_commands)
     merge_runtime_commands(config)
 
 
@@ -1071,6 +1071,21 @@ def combine_initialization_commands(config, merged_commands):
 def get_commands_to_run(config, commands_key):
     merged_commands = config["merged_commands"]
     return merged_commands.get(commands_key, [])
+
+
+def get_commands_for_runtimes(config, commands_key,
+                              runtimes: Optional[List[str]] = None):
+    commands_to_run = get_commands_to_run(config, commands_key)
+    if runtimes is None:
+        return commands_to_run
+
+    runtime_commands = []
+    for command_group in commands_to_run:
+        group_name = command_group.get("group_name", "")
+        if group_name in runtimes:
+            runtime_commands += [command_group]
+
+    return runtime_commands
 
 
 def get_default_cloudtik_wheel_url() -> str:
@@ -1988,10 +2003,37 @@ def get_runtime_processes(runtimes: List[str]):
     return runtime_processes
 
 
-def get_cluster_uri(config: Dict[str, Any],) -> str:
+def get_cluster_uri(config: Dict[str, Any]) -> str:
     return _get_cluster_uri(config["provider"]["type"], config["cluster_name"])
 
 
 def _get_cluster_uri(provider_type: str, cluster_name: str) -> str:
     return CLOUDTIK_CLUSTER_URI_TEMPLATE.format(
         provider_type, cluster_name)
+
+
+def _parse_runtime_list(runtimes: str):
+    if runtimes is None or len(runtimes) == 0:
+        return []
+
+    runtime_list = []
+    items = runtimes.split(",")
+    for item in items:
+        striped_item = item.strip()
+        if len(striped_item) > 0:
+            runtime_list.append(striped_item)
+    return runtime_list
+
+
+def verify_runtime_list(config: Dict[str, Any], runtimes: List[str]):
+    runtime_types = config.get("runtime", {}).get("types", [])
+    for runtime in runtimes:
+        if runtime in runtime_types or runtime == CLOUDTIK_RUNTIME_NAME:
+            continue
+        raise ValueError(f"Runtime {runtime} is not enabled in config.")
+
+
+def get_verified_runtime_list(config: Dict[str, Any], runtimes: str):
+    runtime_list = _parse_runtime_list(runtimes)
+    verify_runtime_list(config, runtime_list)
+    return runtime_list

@@ -569,9 +569,9 @@ def runtime():
     default=None,
     help="The node ip on which to execute start commands.")
 @click.option(
-    "--all-nodes",
+    "--all-nodes/--no-all-nodes",
     is_flag=True,
-    default=False,
+    default=True,
     help="Whether to execute start commands to all nodes.")
 @click.option(
     "--runtimes",
@@ -611,9 +611,9 @@ def start(node_ip, all_nodes, runtimes, indent_level, parallel):
     default=None,
     help="The node ip on which to execute start commands.")
 @click.option(
-    "--all-nodes",
+    "--all-nodes/--no-all-nodes",
     is_flag=True,
-    default=False,
+    default=True,
     help="Whether to execute stop commands to all nodes.")
 @click.option(
     "--runtimes",

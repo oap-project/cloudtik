@@ -661,7 +661,7 @@ def get_workspace_virtual_network_name(config, network_client):
 
 
 def get_workspace_resource_group_name(config, resource_client):
-    return get_workspace_resource_group_name(
+    return _get_workspace_resource_group_name(
         config["workspace_name"], resource_client)
 
 

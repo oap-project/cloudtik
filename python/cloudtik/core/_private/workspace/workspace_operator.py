@@ -20,7 +20,7 @@ except ImportError:  # py2
 
 from cloudtik.core._private.utils import validate_workspace_config, prepare_workspace_config
 from cloudtik.core._private.providers import _get_workspace_provider_cls, _get_workspace_provider, \
-    _WORKSPACE_PROVIDERS, _PROVIDER_PRETTY_NAMES
+    _WORKSPACE_PROVIDERS, _PROVIDER_PRETTY_NAMES, _get_node_provider_cls
 
 from cloudtik.core._private.cli_logger import cli_logger, cf
 
@@ -200,6 +200,11 @@ def _get_clusters_info(config: Dict[str, Any], clusters):
         # Retrieve other information through cluster operator
         cluster_config = copy.deepcopy(config)
         cluster_config["cluster_name"] = cluster_name
+
+        # Needs to do a provider bootstrap of the config for fill the missing configurations
+        provider_cls = _get_node_provider_cls(cluster_config["provider"])
+        cluster_config = provider_cls.bootstrap_config_for_read(cluster_config)
+
         info = _get_cluster_info(cluster_config, simple_config=True)
         cluster_info["total-workers"] = info.get("total-workers", 0)
         cluster_info["total-workers-ready"] = info.get("total-workers-ready", 0)

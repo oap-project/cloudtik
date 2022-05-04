@@ -1,12 +1,59 @@
+import json
+from http.client import RemoteDisconnected
 import os
-from typing import Any
+from typing import Any, Optional
 from typing import Dict
 import logging
 
 from cloudtik.core._private.cli_logger import cli_logger
 import cloudtik.core._private.utils as utils
+from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, CLOUDTIK_TAG_CLUSTER_NAME
 
 logger = logging.getLogger(__name__)
+
+
+DEFAULT_CLOUD_SIMULATOR_PORT = 8080
+
+
+def _get_cloud_simulator_address(provider_config):
+    cloud_simulator_address = provider_config["cloud_simulator_address"]
+    # Add the default port if not specified
+    if ":" not in cloud_simulator_address:
+        cloud_simulator_address += (":{}".format(DEFAULT_CLOUD_SIMULATOR_PORT))
+    return cloud_simulator_address
+
+
+def _get_http_response_from_simulator(cloud_simulator_address, request):
+    headers = {
+        "Content-Type": "application/json",
+    }
+    request_message = json.dumps(request).encode()
+    cloud_simulator_endpoint = "http://" + cloud_simulator_address
+
+    try:
+        import requests  # `requests` is not part of stdlib.
+        from requests.exceptions import ConnectionError
+
+        r = requests.get(
+            cloud_simulator_endpoint,
+            data=request_message,
+            headers=headers,
+            timeout=None,
+        )
+    except (RemoteDisconnected, ConnectionError):
+        logger.exception("Could not connect to: " +
+                         cloud_simulator_endpoint +
+                         ". Did you launched the Cloud Simulator by running cloudtik-simulator " +
+                         " --config nodes-config-file --port <PORT>?")
+        raise
+    except ImportError:
+        logger.exception(
+            "Not all dependencies were found. Please "
+            "update your install command.")
+        raise
+
+    response = r.json()
+    return response
 
 
 def prepare_local(config: Dict[str, Any]) -> Dict[str, Any]:
@@ -106,3 +153,43 @@ def _get_instance_types(provider_config: Dict[str, Any]) -> Dict[str, Any]:
                            "Please supply the instance types definition in the config.")
     instance_types = provider_config.get("instance_types", {})
     return instance_types
+
+
+def get_workspace_head_nodes(provider_config: Dict[str, Any]):
+    tag_filters = {CLOUDTIK_TAG_NODE_KIND: NODE_KIND_HEAD}
+    request = {"type": "non_terminated_nodes", "args": (tag_filters,)}
+    cloud_simulator_address = _get_cloud_simulator_address(provider_config)
+    all_heads = _get_http_response_from_simulator(cloud_simulator_address, request)
+    return all_heads
+
+
+def _get_node_info(provider_config: Dict[str, Any], node_id):
+    request = {"type": "get_node_info", "args": (node_id,)}
+    cloud_simulator_address = _get_cloud_simulator_address(provider_config)
+    node_info = _get_http_response_from_simulator(cloud_simulator_address, request)
+    return node_info
+
+
+def _get_node_tags(provider_config: Dict[str, Any], node_id):
+    request = {"type": "node_tags", "args": (node_id, )}
+    cloud_simulator_address = _get_cloud_simulator_address(provider_config)
+    node_tags = _get_http_response_from_simulator(cloud_simulator_address, request)
+    return node_tags
+
+
+def get_cluster_name_from_head(node_info) -> Optional[str]:
+    for key, value in node_info.items():
+        if key == CLOUDTIK_TAG_CLUSTER_NAME:
+            return value
+    return None
+
+
+def list_local_clusters(provider_config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    head_nodes = get_workspace_head_nodes(provider_config)
+    clusters = {}
+    for head_node in head_nodes:
+        node_info = _get_node_info(provider_config, head_node)
+        cluster_name = get_cluster_name_from_head(node_info)
+        if cluster_name:
+            clusters[cluster_name] = node_info
+    return clusters

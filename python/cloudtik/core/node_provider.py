@@ -204,6 +204,13 @@ class NodeProvider:
         """Bootstraps the cluster config by adding env defaults if needed."""
         return cluster_config
 
+    @staticmethod
+    def bootstrap_config_for_read(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Bootstraps the cluster config for reading purposes for simple cases.
+        Needs only enable the basic node provider access.
+        """
+        return cluster_config
+
     def get_command_executor(self,
                              call_context: CallContext,
                              log_prefix: str,

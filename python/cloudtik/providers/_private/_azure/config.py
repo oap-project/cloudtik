@@ -279,15 +279,15 @@ def get_role_assignments(config, resource_group_name):
         resourceGroupName=resource_group_name
     )
     role_assignment_name = str(uuid.uuid3(uuid.UUID(subscription_id), workspace_name))
-    cli_logger.print("Getting the existing role assignment: {}.", role_assignment_name)
+    cli_logger.verbose("Getting the existing role assignment: {}.", role_assignment_name)
 
     try:
         role_assignment = authorization_client.role_assignments.get(
             scope=scope,
             role_assignment_name=role_assignment_name,
         )
-        cli_logger.print("Successfully get the role assignment: {}.".
-                         format(role_assignment_name))
+        cli_logger.verbose("Successfully get the role assignment: {}.".
+                           format(role_assignment_name))
         return role_assignment_name
     except Exception as e:
         cli_logger.error(
@@ -1167,7 +1167,6 @@ def _configure_virtual_network_from_workspace(config):
 def _configure_resource_group_from_workspace(config):
     use_internal_ips = config["provider"].get("use_internal_ips", False)
     resource_client = construct_resource_client(config)
-    config["provider"]["workspace"] = config["workspace_name"]
     resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
     config["provider"]["resource_group"] = resource_group_name
     return config
@@ -1222,6 +1221,14 @@ def bootstrap_azure_default(config):
     config = _configure_resource_group(config)
     config = _configure_provision_public_ip(config)
     return config
+
+
+def bootstrap_azure_for_read(config):
+    workspace_name = config.get("workspace_name", "")
+    if workspace_name == "":
+        raise ValueError(f"Workspace name is not specified.")
+
+    return _configure_resource_group_from_workspace(config)
 
 
 def _configure_provision_public_ip(config):

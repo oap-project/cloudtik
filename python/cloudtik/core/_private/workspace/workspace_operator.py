@@ -1,3 +1,4 @@
+import copy
 import hashlib
 import json
 import logging
@@ -8,6 +9,9 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import prettytable as pt
 
 import yaml
+
+from cloudtik.core._private.cluster.cluster_operator import _get_cluster_info
+
 try:  # py3
     from shlex import quote
 except ImportError:  # py2
@@ -182,17 +186,25 @@ def list_workspace_clusters(
     elif len(clusters) == 0:
         cli_logger.print("Workspace {} has no cluster in running.", config["workspace_name"])
     else:
-        # TODO: show clusters in table
         # Get cluster info by the cluster name
-        clusters_info = _get_clusters_info(clusters)
+        clusters_info = _get_clusters_info(config, clusters)
         _show_clusters(clusters_info)
 
 
-def _get_clusters_info(clusters):
+def _get_clusters_info(config: Dict[str, Any], clusters):
     clusters_info = []
     for cluster_name in clusters:
         cluster_info = {"cluster_name": cluster_name,
                         "head_node": clusters[cluster_name]}
+
+        # Retrieve other information through cluster operator
+        cluster_config = copy.deepcopy(config)
+        cluster_config["cluster_name"] = cluster_name
+        info = _get_cluster_info(cluster_config, simple_config=True)
+        cluster_info["total-workers"] = info.get("total-workers", 0)
+        cluster_info["total-workers-ready"] = info.get("total-workers-ready", 0)
+        cluster_info["total-workers-failed"] = info.get("total-workers-failed", 0)
+
         clusters_info.append(cluster_info)
 
     # sort cluster info based cluster name
@@ -205,10 +217,13 @@ def _get_clusters_info(clusters):
 
 def _show_clusters(clusters_info):
     tb = pt.PrettyTable()
-    tb.field_names = ["cluster-name", "head-node-ip", "head-status", "workers", "head-public-ip", ]
+    tb.field_names = ["cluster-name", "head-node-ip", "head-status", "head-public-ip",
+                      "total-workers", "workers-ready", "workers-failed"]
     for cluster_info in clusters_info:
         tb.add_row([cluster_info["cluster_name"], cluster_info["head_node"]["private_ip"],
-                    cluster_info["head_node"]["cloudtik-node-status"], 0, cluster_info["head_node"]["public_ip"]
+                    cluster_info["head_node"]["cloudtik-node-status"], cluster_info["head_node"]["public_ip"],
+                    cluster_info["total-workers"], cluster_info["total-workers-ready"],
+                    cluster_info["total-workers-failed"]
                     ])
 
     cli_logger.print("{} cluster(s) are running.", len(clusters_info))

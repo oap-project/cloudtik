@@ -111,12 +111,8 @@ def check_azure_workspace_resource(config):
 
 
 def get_resource_group_name(config, resource_client, use_internal_ips):
-    if use_internal_ips:
-        resource_group_name = get_working_node_resource_group_name()
-    else:
-        resource_group_name = get_workspace_resource_group_name(config, resource_client)
-
-    return resource_group_name
+    return _get_resource_group_name(
+        config.get("workspace_name"), resource_client, use_internal_ips)
 
 
 def get_virtual_network_name(config, resource_client, network_client, use_internal_ips):
@@ -665,7 +661,23 @@ def get_workspace_virtual_network_name(config, network_client):
 
 
 def get_workspace_resource_group_name(config, resource_client):
-    resource_group_name = 'cloudtik-{}-resource-group'.format(config["workspace_name"])
+    return get_workspace_resource_group_name(
+        config["workspace_name"], resource_client)
+
+
+def _get_resource_group_name(
+        workspace_name, resource_client, use_internal_ips):
+    if use_internal_ips:
+        resource_group_name = get_working_node_resource_group_name()
+    else:
+        resource_group_name = _get_workspace_resource_group_name(
+            workspace_name, resource_client)
+
+    return resource_group_name
+
+
+def _get_workspace_resource_group_name(workspace_name, resource_client):
+    resource_group_name = 'cloudtik-{}-resource-group'.format(workspace_name)
     cli_logger.verbose("Getting the resource group name for workspace: {}...".
                        format(resource_group_name))
 
@@ -1352,11 +1364,12 @@ def _extract_metadata_for_node(vm, resource_group, compute_client, network_clien
     return metadata
 
 
-def get_workspace_head_nodes(config):
-    compute_client = construct_compute_client(config)
-    resource_client = construct_resource_client(config)
-    use_internal_ips = config["provider"].get("use_internal_ips", False)
-    resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
+def get_workspace_head_nodes(provider_config, workspace_name):
+    compute_client = _construct_compute_client(provider_config)
+    resource_client = _construct_resource_client(provider_config)
+    use_internal_ips = provider_config.get("use_internal_ips", False)
+    resource_group_name = _get_resource_group_name(
+        workspace_name, resource_client, use_internal_ips)
     return _get_workspace_head_nodes(
         resource_group_name=resource_group_name,
         compute_client=compute_client
@@ -1476,7 +1489,11 @@ def list_azure_clusters(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 
 
 def construct_resource_client(config):
-    subscription_id = config["provider"].get("subscription_id")
+    return _construct_resource_client(config["provider"])
+
+
+def _construct_resource_client(provider_config):
+    subscription_id = provider_config.get("subscription_id")
     if subscription_id is None:
         subscription_id = get_cli_profile().get_subscription_id()
     credential = AzureCliCredential()
@@ -1486,7 +1503,11 @@ def construct_resource_client(config):
 
 
 def construct_network_client(config):
-    subscription_id = config["provider"].get("subscription_id")
+    return _construct_network_client(config["provider"])
+
+
+def _construct_network_client(provider_config):
+    subscription_id = provider_config.get("subscription_id")
     if subscription_id is None:
         subscription_id = get_cli_profile().get_subscription_id()
     credential = AzureCliCredential()
@@ -1496,7 +1517,11 @@ def construct_network_client(config):
 
 
 def construct_compute_client(config):
-    subscription_id = config["provider"].get("subscription_id")
+    return _construct_compute_client(config["provider"])
+
+
+def _construct_compute_client(provider_config):
+    subscription_id = provider_config.get("subscription_id")
     if subscription_id is None:
         subscription_id = get_cli_profile().get_subscription_id()
     credential = AzureCliCredential()
@@ -1506,7 +1531,11 @@ def construct_compute_client(config):
 
 
 def construct_manage_server_identity_client(config):
-    subscription_id = config["provider"].get("subscription_id")
+    return _construct_manage_server_identity_client(config["provider"])
+
+
+def _construct_manage_server_identity_client(provider_config):
+    subscription_id = provider_config.get("subscription_id")
     if subscription_id is None:
         subscription_id = get_cli_profile().get_subscription_id()
     credential = AzureCliCredential()
@@ -1518,7 +1547,11 @@ def construct_manage_server_identity_client(config):
 
 
 def construct_authorization_client(config):
-    subscription_id = config["provider"].get("subscription_id")
+    return _construct_authorization_client(config["provider"])
+
+
+def _construct_authorization_client(provider_config):
+    subscription_id = provider_config.get("subscription_id")
     if subscription_id is None:
         subscription_id = get_cli_profile().get_subscription_id()
     credential = AzureCliCredential()

@@ -43,7 +43,8 @@ class AzureWorkspaceProvider(WorkspaceProvider):
 
     def subscribe_global_variables(self, cluster_config: Dict[str, Any]):
         global_variables = {}
-        head_nodes = get_workspace_head_nodes(cluster_config)
+        head_nodes = get_workspace_head_nodes(
+            self.provider_config, self.workspace_name)
         for head in head_nodes:
             for key, value in head.tags.items():
                 if key.startswith(CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX):

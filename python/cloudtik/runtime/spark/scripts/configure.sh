@@ -308,10 +308,14 @@ function update_data_disks_config() {
 function update_metastore_config() {
     # To be improved for external metastore cluster
     SPARK_DEFAULTS=${output_dir}/spark/spark-defaults.conf
-    if [ "$METASTORE_ENABLED" == "true" ];then
-        METASTORE_IP=${HEAD_ADDRESS}
+    if [ "$METASTORE_ENABLED" == "true" ] || [ ! -z "$HIVE_METASTORE_URI" ]; then
+        if [ "$METASTORE_ENABLED" == "true" ]; then
+            METASTORE_IP=${HEAD_ADDRESS}
+            hive_metastore_uris="thrift://${METASTORE_IP}:9083"
+        else
+            hive_metastore_uris="$HIVE_METASTORE_URI"
+        fi
 
-        hive_metastore_uris="thrift://${METASTORE_IP}:9083"
         hive_metastore_version="3.1.2"
 
         if [ ! -n "${HIVE_HOME}" ]; then

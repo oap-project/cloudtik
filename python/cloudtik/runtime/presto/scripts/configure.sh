@@ -83,10 +83,14 @@ function update_presto_data_disks_config() {
 function update_hive_metastore_config() {
     # To be improved for external metastore cluster
     HIVE_PROPERTIES=${output_dir}/presto/catalog/hive.properties
-    if [ "$METASTORE_ENABLED" == "true" ];then
-        METASTORE_IP=${HEAD_ADDRESS}
+    if [ "$METASTORE_ENABLED" == "true" ] || [ ! -z "$HIVE_METASTORE_URI" ]; then
+        if [ "$METASTORE_ENABLED" == "true" ]; then
+            METASTORE_IP=${HEAD_ADDRESS}
+            hive_metastore_uris="thrift://${METASTORE_IP}:9083"
+        else
+            hive_metastore_uris="$HIVE_METASTORE_URI"
+        fi
 
-        hive_metastore_uris="thrift://${METASTORE_IP}:9083"
         sed -i "s!{%HIVE_METASTORE_URI%}!${hive_metastore_uris}!g" ${HIVE_PROPERTIES}
 
         mkdir -p ${PRESTO_HOME}/etc/catalog
@@ -97,6 +101,7 @@ function update_hive_metastore_config() {
 function update_metastore_config() {
     update_hive_metastore_config
 }
+
 function configure_presto() {
     prepare_base_conf
     update_metastore_config

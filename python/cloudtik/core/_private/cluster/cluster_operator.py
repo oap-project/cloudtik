@@ -44,7 +44,7 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     with_node_ip_environment_variables, run_in_paralell_on_nodes, get_commands_to_run, \
     cluster_booting_completed, load_head_cluster_config, get_runnable_command, get_cluster_uri, \
     with_head_node_ip_environment_variables, get_verified_runtime_list, get_commands_for_runtimes, \
-    is_node_in_completed_status
+    is_node_in_completed_status, check_for_single_worker_type, get_preferred_cpu_bundle_size
 
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
@@ -131,24 +131,48 @@ def debug_status_string(status, error) -> str:
 
 
 def request_resources(num_cpus: Optional[int] = None,
-                      bundles: Optional[List[dict]] = None) -> None:
+                      bundles: Optional[List[dict]] = None,
+                      config: Dict[str, Any] = None) -> None:
+    cpus_to_request = None
+    if num_cpus:
+        remaining = num_cpus
+        cpus_to_request = []
+        if config:
+            # convert the num cpus based on the largest common factor of the node types
+            cpu_bundle_size = get_preferred_cpu_bundle_size(config)
+            if cpu_bundle_size and cpu_bundle_size > 0:
+                count = int(num_cpus / cpu_bundle_size)
+                remaining = num_cpus % cpu_bundle_size
+                if count > 0:
+                    cpus_to_request += [{"CPU": cpu_bundle_size}] * count
+                if remaining > 0:
+                    cpus_to_request += [{"CPU": remaining}]
+                remaining = 0
+
+        if remaining > 0:
+            cpus_to_request += [{"CPU": 1}] * remaining
+
+    _request_resources(cpus=cpus_to_request, bundles=bundles)
+
+
+def _request_resources(cpus: Optional[List[dict]] = None,
+                       bundles: Optional[List[dict]] = None) -> None:
     """Remotely request some CPU or GPU resources from the cluster scaler.
 
     This function is to be called e.g. on a node before submitting a bunch of
     jobs to ensure that resources rapidly become available.
 
     Args:
-        num_cpus (int): Scale the cluster to ensure this number of CPUs are
+        cpus (List[ResourceDict]): Scale the cluster to ensure this number of CPUs are
             available. This request is persistent until another call to
             request_resources() is made.
         bundles (List[ResourceDict]): Scale the cluster to ensure this set of
             resource shapes can fit. This request is persistent until another
             call to request_resources() is made.
     """
-    # TODO (haifeng): handle resource request
     to_request = []
-    if num_cpus:
-        to_request += [{"CPU": 1}] * num_cpus
+    if cpus:
+        to_request += cpus
     if bundles:
         to_request += bundles
     kv_put(
@@ -2873,6 +2897,9 @@ def scale_cluster_on_head(yes: bool, cpus: int, nodes: int):
 
     # Calculate nodes request to the number of cpus
     if nodes:
+        # if nodes specified, we need to check there is only one worker type defined
+        check_for_single_worker_type(config)
+
         cpus = convert_nodes_to_cpus(config, nodes)
         if cpus == 0:
             cli_logger.abort("Unknown to convert number of nodes to number of CPUs.")
@@ -2881,7 +2908,7 @@ def scale_cluster_on_head(yes: bool, cpus: int, nodes: int):
         address = services.get_address_to_use_or_die()
         kv_initialize_with_address(address, CLOUDTIK_REDIS_DEFAULT_PASSWORD)
 
-        request_resources(num_cpus=cpus)
+        request_resources(num_cpus=cpus, config=config)
     except Exception as e:
         cli_logger.abort("Error happened when making the scale cluster request.", exc=e)
 

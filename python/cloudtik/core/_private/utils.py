@@ -2054,3 +2054,49 @@ def is_node_in_completed_status(provider, node_id) -> bool:
     if status in completed_states:
         return True
     return False
+
+
+def check_for_single_worker_type(config: Dict[str, Any]):
+    available_node_types = config["available_node_types"]
+    head_node_type = config["head_node_type"]
+    num_worker_type = 0
+    for node_type in available_node_types:
+        if node_type != head_node_type:
+            num_worker_type += 1
+
+    if num_worker_type > 1:
+        raise ValueError("There are more than one worker types defined.")
+
+
+def _gcd_of_numbers(numbers):
+    num1 = numbers[0]
+    num2 = numbers[1]
+    gcd = math.gcd(num1, num2)
+    for i in range(2, len(numbers)):
+        gcd = math.gcd(gcd, numbers[i])
+    return gcd
+
+
+def get_preferred_cpu_bundle_size(config: Dict[str, Any]) -> Optional[int]:
+    available_node_types = config.get("available_node_types")
+    if available_node_types is None:
+        return None
+
+    cpu_sizes = []
+    head_node_type = config["head_node_type"]
+    for node_type in available_node_types:
+        if node_type == head_node_type:
+            continue
+
+        resources = available_node_types[node_type].get("resources", {})
+        cpu_total = resources.get("CPU", 0)
+        if cpu_total > 0:
+            cpu_sizes += [cpu_total]
+
+    num_types = len(cpu_sizes)
+    if num_types == 0:
+        return None
+    elif num_types == 1:
+        return cpu_sizes[0]
+    else:
+        return _gcd_of_numbers(cpu_sizes)

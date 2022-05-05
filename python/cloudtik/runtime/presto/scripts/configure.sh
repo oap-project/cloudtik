@@ -137,6 +137,7 @@ function configure_presto() {
     sed -i "s/{%node.id%}/${node_id}/g" $output_dir/presto/node.properties
     sed -i "s!{%node.log-dir%}!${presto_log_dir}!g" $output_dir/presto/node.properties
 
+    update_presto_memory_config
     update_presto_data_disks_config
 
     mkdir -p ${PRESTO_HOME}/etc

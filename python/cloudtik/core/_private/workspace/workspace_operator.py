@@ -203,7 +203,7 @@ def _get_clusters_info(config: Dict[str, Any], clusters):
 
         # Needs to do a provider bootstrap of the config for fill the missing configurations
         provider_cls = _get_node_provider_cls(cluster_config["provider"])
-        cluster_config = provider_cls.bootstrap_config_for_read(cluster_config)
+        cluster_config = provider_cls.bootstrap_config_for_api(cluster_config)
 
         info = _get_cluster_info(cluster_config, simple_config=True)
         cluster_info["total-workers"] = info.get("total-workers", 0)

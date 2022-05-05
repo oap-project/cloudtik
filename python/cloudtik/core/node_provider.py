@@ -205,10 +205,8 @@ class NodeProvider:
         return cluster_config
 
     @staticmethod
-    def bootstrap_config_for_read(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-        """Bootstraps the cluster config for reading purposes for simple cases.
-        Needs only enable the basic node provider access.
-        """
+    def bootstrap_config_for_api(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Bootstraps the cluster config for node provider api access."""
         return cluster_config
 
     def get_command_executor(self,

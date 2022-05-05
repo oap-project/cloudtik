@@ -171,7 +171,6 @@ class AzureNodeProvider(NodeProvider):
         """Creates a number of nodes within the namespace."""
         # TODO: restart deallocated nodes if possible
         resource_group = self.provider_config["resource_group"]
-        use_internal_ips = self.provider_config.get("use_internal_ips", False)
         # load the template file
         current_path = Path(__file__).parent
         template_path = current_path.joinpath("azure-vm-template.json")

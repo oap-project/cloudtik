@@ -6,6 +6,7 @@ import re
 from kubernetes import client
 from kubernetes.client.rest import ApiException
 
+from cloudtik.core._private.utils import is_use_internal_ip
 from cloudtik.providers._private._kubernetes import auth_api, core_api, log_prefix
 from cloudtik.core._private.constants import CLOUDTIK_DEFAULT_OBJECT_STORE_MEMORY_PROPORTION
 
@@ -60,7 +61,7 @@ def bootstrap_workspace_kubernetes(cluster_config):
 
 
 def bootstrap_kubernetes(config):
-    if not config["provider"]["use_internal_ips"]:
+    if not is_use_internal_ip(config):
         return ValueError(
             "Exposing external IP addresses for containers isn't "
             "currently supported. Please set "

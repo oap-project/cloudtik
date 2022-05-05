@@ -1658,7 +1658,11 @@ def get_proxy_bind_address_to_show(bind_address: str):
 
 
 def is_use_internal_ip(config: Dict[str, Any]) -> bool:
-    return config.get("provider", {}).get("use_internal_ips", False)
+    return _is_use_internal_ip(config.get("provider", {}))
+
+
+def _is_use_internal_ip(provider_config: Dict[str, Any]) -> bool:
+    return provider_config.get("use_internal_ips", False)
 
 
 def get_node_cluster_ip(provider: NodeProvider, node: str) -> str:
@@ -1688,7 +1692,7 @@ def wait_for_cluster_ip(provider, node_id, deadline):
 
 def get_node_working_ip(config: Dict[str, Any],
                         provider:NodeProvider, node:str) -> str:
-    if config.get("provider", {}).get("use_internal_ips", False) is True:
+    if is_use_internal_ip(config):
         node_ip = provider.internal_ip(node)
     else:
         node_ip = provider.external_ip(node)

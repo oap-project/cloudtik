@@ -318,7 +318,7 @@ class AzureNodeProvider(NodeProvider):
         return bootstrap_azure(cluster_config)
 
     @staticmethod
-    def bootstrap_config_for_read(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+    def bootstrap_config_for_api(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         return bootstrap_azure_for_read(cluster_config)
 
     def prepare_for_head_node(

@@ -1847,7 +1847,7 @@ def escape_private_key(private_key: str):
     return escaped_private_key
 
 
-def with_runtime_environment_variables(runtime_config, provider):
+def with_runtime_environment_variables(runtime_config, provider, node_id: str):
     all_runtime_envs = {}
     if runtime_config is None:
         return all_runtime_envs
@@ -1860,7 +1860,8 @@ def with_runtime_environment_variables(runtime_config, provider):
     # Iterate through all the runtimes
     for runtime_type in runtime_types:
         runtime = _get_runtime(runtime_type, runtime_config)
-        runtime_envs = runtime.with_environment_variables(runtime_config, provider)
+        runtime_envs = runtime.with_environment_variables(
+            runtime_config, provider=provider, node_id=node_id)
         all_runtime_envs.update(runtime_envs)
 
     return all_runtime_envs

@@ -55,7 +55,7 @@ def _get_runnable_command(target):
     return command_parts
 
 
-def _with_runtime_environment_variables(runtime_config, provider):
+def _with_runtime_environment_variables(runtime_config, provider, node_id: str):
     runtime_envs = {"PRESTO_ENABLED": True}
     presto_config = runtime_config.get("presto", {})
 

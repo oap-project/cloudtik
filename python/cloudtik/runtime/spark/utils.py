@@ -235,7 +235,7 @@ def update_spark_configurations():
             f.write("{}    {}\n".format(key, value))
 
 
-def _with_runtime_environment_variables(runtime_config, provider):
+def _with_runtime_environment_variables(runtime_config, provider, node_id: str):
     runtime_envs = {}
     spark_config = runtime_config.get("spark", {})
 

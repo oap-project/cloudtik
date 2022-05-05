@@ -46,7 +46,7 @@ def _get_runnable_command(target):
     return None
 
 
-def _with_runtime_environment_variables(runtime_config, provider):
+def _with_runtime_environment_variables(runtime_config, provider, node_id: str):
     runtime_envs = {"HDFS_ENABLED": True}
     return runtime_envs
 

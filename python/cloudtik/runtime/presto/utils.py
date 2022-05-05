@@ -84,7 +84,8 @@ def _with_runtime_environment_variables(runtime_config, config, provider, node_i
         runtime_envs["HIVE_METASTORE_URI"] = presto_config.get("hive_metastore_uri")
 
     _with_memory_configurations(
-        runtime_envs, config=config, provider=provider, node_id=node_id)
+        runtime_envs, presto_config=presto_config,
+        config=config, provider=provider, node_id=node_id)
 
     return runtime_envs
 
@@ -125,8 +126,12 @@ def _get_useful_urls(cluster_head_ip):
 
 
 def _with_memory_configurations(
-        runtime_envs: Dict[str, Any], config: Dict[str, Any],
-        provider, node_id: str):
+        runtime_envs: Dict[str, Any], presto_config: Dict[str, Any],
+        config: Dict[str, Any], provider, node_id: str):
+    # Set query_max_memory
+    query_max_memory = presto_config.get("query_max_memory", "50GB")
+    runtime_envs["PRESTO_QUERY_MAX_MEMORY"] = query_max_memory
+
     node_type = get_node_type(provider, node_id)
     if node_type is None:
         return

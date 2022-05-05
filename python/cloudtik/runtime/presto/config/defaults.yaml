@@ -1,1 +1,4 @@
 # Configuration defaults
+
+# The distributed max memory query can use in total
+query_max_memory: 50GB

@@ -12,8 +12,9 @@ import socket
 
 import yaml
 
+from cloudtik.providers._private.local.config import DEFAULT_CLOUD_SIMULATOR_PORT
 from cloudtik.providers._private.local.local_node_provider import LocalNodeProvider
-from cloudtik.providers._private.local.node_provider import DEFAULT_CLOUD_SIMULATOR_PORT
+
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -110,7 +111,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="Please provide a config file and port.")
     parser.add_argument(
-        "--config", required=True, help="A config file the same format of local provider section at top level.")
+        "config", help="A config file for nodes. The same format of local provider section at top level.")
     parser.add_argument(
         "--bind-address",
         type=str,

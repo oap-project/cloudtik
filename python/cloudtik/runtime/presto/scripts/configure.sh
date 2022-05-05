@@ -60,6 +60,16 @@ function set_head_address() {
     fi
 }
 
+
+function retrieve_resources() {
+    jvm_max_memory=$(awk '($1 == "MemTotal:"){print $2/1024*0.8}' /proc/meminfo)
+    jvm_max_memory=${jvm_max_memory%.*}
+    query_max_memory_per_node=$(echo $jvm_max_memory | awk '{print $1*0.5}')
+    query_max_memory_per_node=${query_max_memory_per_node%.*}
+    query_max_total_memory_per_node=$(echo $jvm_max_memory | awk '{print $1*0.9}')
+    query_max_total_memory_per_node=${query_max_total_memory_per_node%.*}
+}
+
 function update_presto_data_disks_config() {
     presto_data_dir=""
     if [ -d "/mnt/cloudtik" ]; then
@@ -102,6 +112,19 @@ function update_metastore_config() {
     update_hive_metastore_config
 }
 
+function update_presto_memory_config() {
+    if [ ! -z "$PRESTO_JVM_MAX_MEMORY" ]; then
+        jvm_max_memory=$PRESTO_JVM_MAX_MEMORY
+    if [ ! -z "$PRESTO_MAX_MEMORY_PER_NODE" ]; then
+        query_max_memory_per_node=$PRESTO_MAX_MEMORY_PER_NODE
+    if [ ! -z "$PRESTO_MAX_TOTAL_MEMORY_PER_NODE" ]; then
+        query_max_total_memory_per_node=$PRESTO_MAX_TOTAL_MEMORY_PER_NODE
+
+    sed -i "s/{%jvm.max-memory%}/${jvm_max_memory}m/g" `grep "{%jvm.max-memory%}" -rl ./`
+    sed -i "s/{%query.max-memory-per-node%}/${query_max_memory_per_node}MB/g" `grep "{%query.max-memory-per-node%}" -rl ./`
+    sed -i "s/{%query.max-total-memory-per-node%}/${query_max_total_memory_per_node}MB/g" `grep "{%query.max-total-memory-per-node%}" -rl ./`
+}
+
 function configure_presto() {
     prepare_base_conf
     update_metastore_config
@@ -129,6 +152,7 @@ function configure_presto() {
 
 check_presto_installed
 set_head_address
+retrieve_resources
 configure_presto
 
 exit 0

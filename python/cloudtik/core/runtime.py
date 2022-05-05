@@ -33,7 +33,7 @@ class Runtime:
         pass
 
     def with_environment_variables(
-            self, runtime_config: Dict[str, Any], provider: NodeProvider,
+            self, config: Dict[str, Any], provider: NodeProvider,
             node_id: str) -> Dict[str, Any]:
         """Export necessary runtime environment variables for running node commands.
         For example: {"ENV_NAME": value}

@@ -3,7 +3,7 @@ from typing import Any, Dict
 import yaml
 
 from cloudtik.core._private.utils import merge_rooted_config_hierarchy, \
-    _get_runtime_config_object, is_runtime_enabled
+    _get_runtime_config_object, is_runtime_enabled, round_memory_size_to_gb
 from cloudtik.core._private.workspace.workspace_operator import _get_workspace_provider
 
 RUNTIME_PROCESSES = [
@@ -27,13 +27,6 @@ SPARK_EXECUTOR_CORES_DEFAULT = 4
 SPARK_ADDITIONAL_OVERHEAD = 1024
 SPARK_EXECUTOR_OVERHEAD_MINIMUM = 384
 SPARK_EXECUTOR_OVERHEAD_RATIO = 0.1
-
-
-def round_memory_size_to_gb(memory_size: int) -> int:
-    gb = int(memory_size / 1024)
-    if gb < 1:
-        gb = 1
-    return gb * 1024
 
 
 def get_spark_driver_memory(cluster_resource: Dict[str, Any]) -> int:
@@ -235,7 +228,7 @@ def update_spark_configurations():
             f.write("{}    {}\n".format(key, value))
 
 
-def _with_runtime_environment_variables(runtime_config, provider, node_id: str):
+def _with_runtime_environment_variables(runtime_config, config, provider, node_id: str):
     runtime_envs = {}
     spark_config = runtime_config.get("spark", {})
 

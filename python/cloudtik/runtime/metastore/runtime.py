@@ -31,13 +31,13 @@ class MetastoreRuntime(Runtime):
         _verify_config(cluster_config, provider)
 
     def with_environment_variables(
-            self, runtime_config: Dict[str, Any], provider: NodeProvider,
+            self, config: Dict[str, Any], provider: NodeProvider,
             node_id: str) -> Dict[str, Any]:
         """Export necessary runtime environment variables for running node commands.
         For example: {"ENV_NAME": value}
         """
         return _with_runtime_environment_variables(
-            runtime_config, provider=provider, node_id=node_id)
+            self.runtime_config, config=config, provider=provider, node_id=node_id)
 
     def cluster_booting_completed(
             self, cluster_config: Dict[str, Any], head_node_id: str) -> None:

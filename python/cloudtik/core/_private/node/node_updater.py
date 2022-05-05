@@ -340,7 +340,7 @@ class NodeUpdater:
             self.setup_commands = []
 
         runtime_envs = with_runtime_environment_variables(
-            self.runtime_config, self.provider)
+            self.runtime_config, provider=self.provider, node_id=self.node_id)
 
         # Add node ip address environment variables
         ip_envs = with_node_ip_environment_variables(

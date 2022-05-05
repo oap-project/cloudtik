@@ -115,10 +115,13 @@ function update_metastore_config() {
 function update_presto_memory_config() {
     if [ ! -z "$PRESTO_JVM_MAX_MEMORY" ]; then
         jvm_max_memory=$PRESTO_JVM_MAX_MEMORY
+    fi
     if [ ! -z "$PRESTO_MAX_MEMORY_PER_NODE" ]; then
         query_max_memory_per_node=$PRESTO_MAX_MEMORY_PER_NODE
+    fi
     if [ ! -z "$PRESTO_MAX_TOTAL_MEMORY_PER_NODE" ]; then
         query_max_total_memory_per_node=$PRESTO_MAX_TOTAL_MEMORY_PER_NODE
+    fi
 
     sed -i "s/{%jvm.max-memory%}/${jvm_max_memory}m/g" `grep "{%jvm.max-memory%}" -rl ./`
     sed -i "s/{%query.max-memory-per-node%}/${query_max_memory_per_node}MB/g" `grep "{%query.max-memory-per-node%}" -rl ./`

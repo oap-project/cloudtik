@@ -11,7 +11,7 @@ from typing import Any, Callable, Dict, Optional
 
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, CLOUDTIK_TAG_CLUSTER_NAME
 from cloudtik.core._private.cli_logger import cli_logger, cf
-from cloudtik.core._private.utils import check_cidr_conflict
+from cloudtik.core._private.utils import check_cidr_conflict, is_use_internal_ip, _is_use_internal_ip
 from cloudtik.providers._private._azure.azure_identity_credential_adapter import AzureIdentityCredentialAdapter
 
 from azure.common.credentials import get_cli_profile
@@ -59,7 +59,7 @@ def get_azure_sdk_function(client: Any, function_name: str) -> Callable:
 
 
 def check_azure_workspace_resource(config):
-    use_internal_ips = config["provider"].get("use_internal_ips", False)
+    use_internal_ips = is_use_internal_ip(config)
     workspace_name = config["workspace_name"]
     network_client = construct_network_client(config)
     resource_client = construct_resource_client(config)
@@ -128,7 +128,7 @@ def update_azure_workspace_firewalls(config):
     resource_client = construct_resource_client(config)
     network_client = construct_network_client(config)
     workspace_name = config["workspace_name"]
-    use_internal_ips = config["provider"].get("use_internal_ips", False)
+    use_internal_ips = is_use_internal_ip(config)
     resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
 
     if resource_group_name is None:
@@ -160,7 +160,7 @@ def update_azure_workspace_firewalls(config):
 def delete_workspace_azure(config):
     resource_client = construct_resource_client(config)
     workspace_name = config["workspace_name"]
-    use_internal_ips = config["provider"].get("use_internal_ips", False)
+    use_internal_ips = is_use_internal_ip(config)
     resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
 
     if resource_group_name is None:
@@ -210,7 +210,7 @@ def delete_workspace_azure(config):
 
 
 def _delete_network_resources(config, resource_client, resource_group_name, current_step, total_steps):
-    use_internal_ips = config["provider"].get("use_internal_ips", False)
+    use_internal_ips = is_use_internal_ip(config)
     network_client = construct_network_client(config)
     virtual_network_name = get_virtual_network_name(config, resource_client, network_client, use_internal_ips)
 
@@ -465,7 +465,7 @@ def _delete_nat(config, network_client, resource_group_name):
 
 
 def _delete_vnet(config, resource_client, network_client):
-    use_internal_ips = config["provider"].get("use_internal_ips", False)
+    use_internal_ips = is_use_internal_ip(config)
     resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
     virtual_network_name = get_virtual_network_name(config, resource_client, network_client, use_internal_ips)
     if virtual_network_name is None:
@@ -559,7 +559,7 @@ def _configure_workspace(config):
 
 def _create_resource_group(config, resource_client):
     workspace_name = config["workspace_name"]
-    use_internal_ips = config["provider"].get("use_internal_ips", False)
+    use_internal_ips = is_use_internal_ip(config)
 
     if use_internal_ips:
         # No need to create new resource group
@@ -776,7 +776,7 @@ def _create_user_assigned_identity(config, resource_group_name):
 
 def _create_vnet(config, resource_client, network_client):
     workspace_name = config["workspace_name"]
-    use_internal_ips = config["provider"].get("use_internal_ips", False)
+    use_internal_ips = is_use_internal_ip(config)
 
     if use_internal_ips:
         # No need to create new virtual network
@@ -799,7 +799,7 @@ def _create_vnet(config, resource_client, network_client):
 
 def create_virtual_network(config, resource_client, network_client):
     virtual_network_name = 'cloudtik-{}-vnet'.format(config["workspace_name"])
-    use_internal_ips = config["provider"].get("use_internal_ips", False)
+    use_internal_ips = is_use_internal_ip(config)
     resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
     assert "location" in config["provider"], (
         "Provider config must include location field")
@@ -1116,7 +1116,7 @@ def _configure_user_assigned_identity_from_workspace(config):
 
 def _configure_subnet_from_workspace(config):
     workspace_name = config["workspace_name"]
-    use_internal_ips = config["provider"].get("use_internal_ips", False)
+    use_internal_ips = is_use_internal_ip(config)
 
     public_subnet = "cloudtik-{}-public-subnet".format(workspace_name)
     private_subnet = "cloudtik-{}-private-subnet".format(workspace_name)
@@ -1150,7 +1150,7 @@ def _configure_network_security_group_from_workspace(config):
 
 
 def _configure_virtual_network_from_workspace(config):
-    use_internal_ips = config["provider"].get("use_internal_ips", False)
+    use_internal_ips = is_use_internal_ip(config)
     resource_client = construct_resource_client(config)
     network_client = construct_network_client(config)
 
@@ -1165,7 +1165,7 @@ def _configure_virtual_network_from_workspace(config):
 
 
 def _configure_resource_group_from_workspace(config):
-    use_internal_ips = config["provider"].get("use_internal_ips", False)
+    use_internal_ips = is_use_internal_ip(config)
     resource_client = construct_resource_client(config)
     resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
     config["provider"]["resource_group"] = resource_group_name
@@ -1232,7 +1232,7 @@ def bootstrap_azure_for_read(config):
 
 
 def _configure_provision_public_ip(config):
-    use_internal_ips = config["provider"].get("use_internal_ips", False)
+    use_internal_ips = is_use_internal_ip(config)
 
     for key, node_type in config["available_node_types"].items():
         node_config = node_type["node_config"]
@@ -1374,7 +1374,7 @@ def _extract_metadata_for_node(vm, resource_group, compute_client, network_clien
 def get_workspace_head_nodes(provider_config, workspace_name):
     compute_client = _construct_compute_client(provider_config)
     resource_client = _construct_resource_client(provider_config)
-    use_internal_ips = provider_config.get("use_internal_ips", False)
+    use_internal_ips = _is_use_internal_ip(provider_config)
     resource_group_name = _get_resource_group_name(
         workspace_name, resource_client, use_internal_ips)
     return _get_workspace_head_nodes(
@@ -1474,7 +1474,7 @@ def list_azure_clusters(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     compute_client = construct_compute_client(config)
     resource_client = construct_resource_client(config)
     network_client = construct_network_client(config)
-    use_internal_ips = config["provider"].get("use_internal_ips", False)
+    use_internal_ips = is_use_internal_ip(config)
     resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
 
     head_nodes = _get_workspace_head_nodes(

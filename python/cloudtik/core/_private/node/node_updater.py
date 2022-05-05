@@ -7,7 +7,7 @@ from typing import Dict
 from threading import Thread
 
 from cloudtik.core._private.utils import with_runtime_environment_variables, with_node_ip_environment_variables, \
-    _get_cluster_uri
+    _get_cluster_uri, _is_use_internal_ip
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_STATUS, CLOUDTIK_TAG_RUNTIME_CONFIG, \
     CLOUDTIK_TAG_FILE_MOUNTS_CONTENTS, \
     STATUS_UP_TO_DATE, STATUS_UPDATE_FAILED, STATUS_WAITING_FOR_SSH, \
@@ -85,7 +85,7 @@ class NodeUpdater:
         self.call_context = call_context
         self.log_prefix = "NodeUpdater: {}: ".format(node_id)
         use_internal_ip = (use_internal_ip
-                           or provider_config.get("use_internal_ips", False))
+                           or _is_use_internal_ip(provider_config))
         self.cmd_executor = provider.get_command_executor(
             self.call_context,
             self.log_prefix, node_id, auth_config, cluster_name,

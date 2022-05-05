@@ -20,7 +20,8 @@ from cloudtik.providers._private.gcp.node import (GCPNodeType, MAX_POLLS,
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, CLOUDTIK_TAG_CLUSTER_NAME
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.services import get_node_ip_address
-from cloudtik.core._private.utils import check_cidr_conflict, unescape_private_key
+from cloudtik.core._private.utils import check_cidr_conflict, unescape_private_key, is_use_internal_ip, \
+    _is_use_internal_ip
 from cloudtik.providers._private.gcp.utils import _get_node_info
 from cloudtik.providers._private.utils import StorageTestingError
 
@@ -275,7 +276,7 @@ def get_workspace_head_nodes(provider_config, workspace_name):
 
 
 def _get_workspace_head_nodes(provider_config, workspace_name, compute):
-    use_internal_ips = provider_config.get("use_internal_ips", False)
+    use_internal_ips = _is_use_internal_ip(provider_config)
     project_id = provider_config.get("project_id")
     availability_zone = provider_config.get("availability_zone")
     vpc_id = _get_gcp_vpcId(
@@ -783,7 +784,7 @@ def update_gcp_workspace_firewalls(config):
         construct_clients_from_provider_config(config["provider"])
 
     workspace_name = config["workspace_name"]
-    use_internal_ips = config["provider"].get("use_internal_ips", False)
+    use_internal_ips = is_use_internal_ip(config)
     VpcId = get_gcp_vpcId(config, compute, use_internal_ips)
     if VpcId is None:
         cli_logger.print("Workspace: {} doesn't exist!".format(config["workspace_name"]))
@@ -816,7 +817,7 @@ def delete_workspace_gcp(config):
         construct_clients_from_provider_config(config["provider"])
 
     workspace_name = config["workspace_name"]
-    use_internal_ips = config["provider"].get("use_internal_ips", False)
+    use_internal_ips = is_use_internal_ip(config)
     VpcId = get_gcp_vpcId(config, compute, use_internal_ips)
     if VpcId is None:
         cli_logger.print("Workspace: {} doesn't exist!".format(config["workspace_name"]))
@@ -844,7 +845,7 @@ def delete_workspace_gcp(config):
 
 
 def _delete_network_resources(config, compute, current_step, total_steps):
-    use_internal_ips = config["provider"].get("use_internal_ips", False)
+    use_internal_ips = is_use_internal_ip(config)
 
     """
          Do the work - order of operation
@@ -894,7 +895,7 @@ def _delete_network_resources(config, compute, current_step, total_steps):
 
 def _create_vpc(config, compute):
     workspace_name = config["workspace_name"]
-    use_internal_ips = config["provider"].get("use_internal_ips", False)
+    use_internal_ips = is_use_internal_ip(config)
     if use_internal_ips:
         # No need to create new vpc
         VpcId = get_working_node_vpc_id(config, compute)
@@ -959,7 +960,7 @@ def _configure_network_resources(config, current_step, total_steps):
 def check_gcp_workspace_resource(config):
     crm, iam, compute, tpu = \
         construct_clients_from_provider_config(config["provider"])
-    use_internal_ips = config["provider"].get("use_internal_ips", False)
+    use_internal_ips = is_use_internal_ip(config)
     workspace_name = config["workspace_name"]
 
     """
@@ -1360,7 +1361,7 @@ def _configure_subnet(config, compute):
 
 def _configure_subnet_from_workspace(config, compute):
     workspace_name = config["workspace_name"]
-    use_internal_ips = config["provider"].get("use_internal_ips", False)
+    use_internal_ips = is_use_internal_ip(config)
 
     """Pick a reasonable subnet if not specified by the config."""
     config = copy.deepcopy(config)

@@ -18,7 +18,7 @@ from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.event_system import (CreateClusterEvent,
                                                   global_event_system)
 from cloudtik.core._private.services import get_node_ip_address
-from cloudtik.core._private.utils import check_cidr_conflict, get_cluster_uri
+from cloudtik.core._private.utils import check_cidr_conflict, get_cluster_uri, is_use_internal_ip
 from cloudtik.providers._private.aws.utils import LazyDefaultDict, \
     handle_boto_error, resource_cache, get_boto_error_code, _get_node_info
 from cloudtik.providers._private.utils import StorageTestingError
@@ -390,7 +390,7 @@ def delete_workspace_aws(config):
     ec2 = _resource("ec2", config)
     ec2_client = _client("ec2", config)
     workspace_name = config["workspace_name"]
-    use_internal_ips = config["provider"].get("use_internal_ips", False)
+    use_internal_ips = is_use_internal_ip(config)
     vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
     if vpc_id is None:
         cli_logger.print("The workspace: {} doesn't exist!".format(config["workspace_name"]))
@@ -434,7 +434,7 @@ def _delete_workspace_instance_profile(config, workspace_name):
 def _delete_network_resources(config, workspace_name,
                               ec2, ec2_client, vpc_id,
                               current_step, total_steps):
-    use_internal_ips = config["provider"].get("use_internal_ips", False)
+    use_internal_ips = is_use_internal_ip(config)
 
     """
          Do the work - order of operation
@@ -1177,7 +1177,6 @@ def _configure_workspace(config):
     ec2 = _resource("ec2", config)
     ec2_client = _client("ec2", config)
     workspace_name = config["workspace_name"]
-    use_internal_ips = config["provider"].get("use_internal_ips", False)
 
     current_step = 1
     total_steps = NUM_AWS_WORKSPACE_CREATION_STEPS
@@ -1272,7 +1271,7 @@ def _configure_network_resources(config, ec2, ec2_client,
 
 
 def _configure_vpc(config, workspace_name, ec2, ec2_client):
-    use_internal_ips = config["provider"].get("use_internal_ips", False)
+    use_internal_ips = is_use_internal_ip(config)
     if use_internal_ips:
         # No need to create new vpc
         vpc_id = get_current_vpc(config)
@@ -1328,7 +1327,7 @@ def get_current_vpc(config):
 
 def _configure_subnet(config):
     ec2 = _resource("ec2", config)
-    use_internal_ips = config["provider"].get("use_internal_ips", False)
+    use_internal_ips = is_use_internal_ip(config)
 
     # If head or worker security group is specified, filter down to subnets
     # belonging to the same VPC as the security group.
@@ -1405,7 +1404,7 @@ def _configure_subnet_from_workspace(config):
     ec2 = _resource("ec2", config)
     ec2_client = _client("ec2", config)
     workspace_name = config["workspace_name"]
-    use_internal_ips = config["provider"].get("use_internal_ips", False)
+    use_internal_ips = is_use_internal_ip(config)
 
     vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
     public_subnet_ids = [public_subnet.id for public_subnet in get_workspace_public_subnets(workspace_name, ec2, vpc_id)]

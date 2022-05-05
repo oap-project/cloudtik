@@ -12,7 +12,7 @@ from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, CLOUDTIK_
 logger = logging.getLogger(__name__)
 
 
-DEFAULT_CLOUD_SIMULATOR_PORT = 8080
+DEFAULT_CLOUD_SIMULATOR_PORT = 8282
 
 
 def _get_cloud_simulator_address(provider_config):

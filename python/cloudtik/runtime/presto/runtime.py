@@ -6,7 +6,7 @@ from cloudtik.core.runtime import Runtime
 from cloudtik.runtime.presto.utils import _config_runtime_resources, _with_runtime_environment_variables, \
     _is_runtime_scripts, _get_runnable_command, _get_runtime_processes, _validate_config, \
     _verify_config, _get_runtime_logs, _get_runtime_commands, \
-    _get_defaults_config, _get_useful_urls
+    _get_defaults_config, _get_useful_urls, _config_depended_services
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +19,9 @@ class PrestoRuntime(Runtime):
 
     def prepare_config(self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         """Prepare runtime specific configurations"""
-        return _config_runtime_resources(cluster_config)
+        cluster_config = _config_runtime_resources(cluster_config)
+        cluster_config = _config_depended_services(cluster_config)
+        return cluster_config
 
     def validate_config(self, cluster_config: Dict[str, Any], provider: NodeProvider):
         """Validate cluster configuration from runtime perspective."""

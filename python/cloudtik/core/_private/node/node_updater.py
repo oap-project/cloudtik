@@ -32,6 +32,7 @@ class NodeUpdater:
     """A process for syncing files and running init commands on a node.
 
     Arguments:
+        config: The cluster config for which the updator is running for
         call_context: the CallContext of this updater.
         node_id: the Node ID
         provider_config: Provider section of cluster config yaml
@@ -58,6 +59,7 @@ class NodeUpdater:
     """
 
     def __init__(self,
+                 config,
                  call_context,
                  node_id,
                  provider_config,
@@ -81,7 +83,7 @@ class NodeUpdater:
                  for_recovery=False,
                  runtime_config=None,
                  environment_variables: Dict[str, object] = None):
-
+        self.config = config
         self.call_context = call_context
         self.log_prefix = "NodeUpdater: {}: ".format(node_id)
         use_internal_ip = (use_internal_ip
@@ -340,7 +342,7 @@ class NodeUpdater:
             self.setup_commands = []
 
         runtime_envs = with_runtime_environment_variables(
-            self.runtime_config, provider=self.provider, node_id=self.node_id)
+            self.runtime_config, config=self.config, provider=self.provider, node_id=self.node_id)
 
         # Add node ip address environment variables
         ip_envs = with_node_ip_environment_variables(

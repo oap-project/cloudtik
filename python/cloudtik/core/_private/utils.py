@@ -78,6 +78,13 @@ win32_job = None
 win32_AssignProcessToJobObject = None
 
 
+def round_memory_size_to_gb(memory_size: int) -> int:
+    gb = int(memory_size / 1024)
+    if gb < 1:
+        gb = 1
+    return gb * 1024
+
+
 def get_user_temp_dir():
     if "CLOUDTIK_TMPDIR" in os.environ:
         return os.environ["CLOUDTIK_TMPDIR"]
@@ -1847,7 +1854,7 @@ def escape_private_key(private_key: str):
     return escaped_private_key
 
 
-def with_runtime_environment_variables(runtime_config, provider, node_id: str):
+def with_runtime_environment_variables(runtime_config, config, provider, node_id: str):
     all_runtime_envs = {}
     if runtime_config is None:
         return all_runtime_envs
@@ -1861,7 +1868,7 @@ def with_runtime_environment_variables(runtime_config, provider, node_id: str):
     for runtime_type in runtime_types:
         runtime = _get_runtime(runtime_type, runtime_config)
         runtime_envs = runtime.with_environment_variables(
-            runtime_config, provider=provider, node_id=node_id)
+            config, provider=provider, node_id=node_id)
         all_runtime_envs.update(runtime_envs)
 
     return all_runtime_envs
@@ -2101,3 +2108,18 @@ def get_preferred_cpu_bundle_size(config: Dict[str, Any]) -> Optional[int]:
         return cpu_sizes[0]
     else:
         return _gcd_of_numbers(cpu_sizes)
+
+
+def get_node_type(provider, node_id: str):
+    node_tags = provider.node_tags(node_id)
+    node_type = node_tags.get(CLOUDTIK_TAG_USER_NODE_TYPE)
+    return node_type
+
+
+def get_resource_of_node_type(config, node_type: str):
+    available_node_types = config.get("available_node_types")
+    if (available_node_types is None) or (node_type not in available_node_types):
+        return None
+
+    return available_node_types[node_type].get("resources", {})
+

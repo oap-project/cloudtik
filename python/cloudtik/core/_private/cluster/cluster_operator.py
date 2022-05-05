@@ -940,6 +940,7 @@ def get_or_create_head_node(config: Dict[str, Any],
 
         initialization_commands = get_commands_to_run(config, "initialization_commands")
         updater = NodeUpdaterThread(
+            config=config,
             call_context=call_context,
             node_id=head_node,
             provider_config=config["provider"],
@@ -2464,6 +2465,7 @@ def create_node_updater_for_exec(config,
                                  use_internal_ip: bool = False,
                                  process_runner: ModuleType = subprocess):
     updater = NodeUpdaterThread(
+        config=config,
         call_context=call_context,
         node_id=node_id,
         provider_config=config["provider"],
@@ -2538,7 +2540,7 @@ def _start_node_on_head(
             return
 
         runtime_envs = with_runtime_environment_variables(
-            config.get("runtime"), provider, node_id)
+            config.get("runtime"), config=config, provider=provider, node_id=node_id)
 
         is_head_node = False
         if node_id == head_node:
@@ -2785,7 +2787,7 @@ def _stop_node_on_head(
             return
 
         runtime_envs = with_runtime_environment_variables(
-            config.get("runtime"), provider=provider, node_id=node_id)
+            config.get("runtime"), config=config, provider=provider, node_id=node_id)
 
         is_head_node = False
         if node_id == head_node:

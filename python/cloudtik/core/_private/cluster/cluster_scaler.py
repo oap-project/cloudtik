@@ -902,6 +902,7 @@ class ClusterScaler:
             head_node_ip)
 
         updater = NodeUpdaterThread(
+            config=self.config,
             call_context=self.call_context,
             node_id=node_id,
             provider_config=self.config["provider"],
@@ -999,6 +1000,7 @@ class ClusterScaler:
             head_node_ip)
 
         updater = NodeUpdaterThread(
+            config=self.config,
             call_context=self.call_context,
             node_id=node_id,
             provider_config=self.config["provider"],

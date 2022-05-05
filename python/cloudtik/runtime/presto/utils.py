@@ -2,7 +2,8 @@ import os
 from typing import Any, Dict
 
 from cloudtik.core._private.providers import _get_workspace_provider
-from cloudtik.core._private.utils import merge_rooted_config_hierarchy, _get_runtime_config_object, is_runtime_enabled
+from cloudtik.core._private.utils import merge_rooted_config_hierarchy, _get_runtime_config_object, is_runtime_enabled, \
+    get_node_type, get_resource_of_node_type, round_memory_size_to_gb
 
 RUNTIME_PROCESSES = [
     # The first element is the substring to filter.
@@ -13,6 +14,22 @@ RUNTIME_PROCESSES = [
 ]
 
 RUNTIME_ROOT_PATH = os.path.abspath(os.path.dirname(__file__))
+
+JVM_MAX_MEMORY_RATIO = 0.8
+QUERY_MAX_MEMORY_PER_NODE_RATIO = 0.5
+QUERY_MAX_TOTAL_MEMORY_PER_NODE_RATIO = 0.9
+
+
+def get_jvm_max_memory(total_memory):
+    return int(total_memory * JVM_MAX_MEMORY_RATIO)
+
+
+def get_query_max_memory_per_node(jvm_max_memory):
+    return int(jvm_max_memory * QUERY_MAX_MEMORY_PER_NODE_RATIO)
+
+
+def get_query_max_total_memory_per_node(jvm_max_memory):
+    return int(jvm_max_memory * QUERY_MAX_TOTAL_MEMORY_PER_NODE_RATIO)
 
 
 def _config_runtime_resources(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
@@ -55,7 +72,7 @@ def _get_runnable_command(target):
     return command_parts
 
 
-def _with_runtime_environment_variables(runtime_config, provider, node_id: str):
+def _with_runtime_environment_variables(runtime_config, config, provider, node_id: str):
     runtime_envs = {"PRESTO_ENABLED": True}
     presto_config = runtime_config.get("presto", {})
 
@@ -65,6 +82,10 @@ def _with_runtime_environment_variables(runtime_config, provider, node_id: str):
         runtime_envs["METASTORE_ENABLED"] = True
     elif presto_config.get("hive_metastore_uri") is not None:
         runtime_envs["HIVE_METASTORE_URI"] = presto_config.get("hive_metastore_uri")
+
+    _with_memory_configurations(
+        runtime_envs, config=config, provider=provider, node_id=node_id)
+
     return runtime_envs
 
 
@@ -101,3 +122,28 @@ def _get_useful_urls(cluster_head_ip):
         {"name": "Presto Web UI", "url": "http://{}:8080".format(cluster_head_ip)},
     ]
     return urls
+
+
+def _with_memory_configurations(
+        runtime_envs: Dict[str, Any], config: Dict[str, Any],
+        provider, node_id: str):
+    node_type = get_node_type(provider, node_id)
+    if node_type is None:
+        return
+
+    # Get memory of node type
+    resources = get_resource_of_node_type(config, node_type)
+    if resources is None:
+        return
+
+    memory_in_mb = int(resources.get("memory", 0) / (1024 * 1024))
+    if memory_in_mb == 0:
+        return
+
+    jvm_max_memory = get_jvm_max_memory(memory_in_mb)
+    query_max_memory_per_node = get_query_max_memory_per_node(jvm_max_memory)
+    query_max_total_memory_per_node = get_query_max_total_memory_per_node(jvm_max_memory)
+
+    runtime_envs["PRESTO_JVM_MAX_MEMORY"] = jvm_max_memory
+    runtime_envs["PRESTO_MAX_MEMORY_PER_NODE"] = query_max_memory_per_node
+    runtime_envs["PRESTO_MAX_TOTAL_MEMORY_PER_NODE"] = query_max_total_memory_per_node

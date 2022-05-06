@@ -26,7 +26,7 @@ if (fsdir == "") {
 var resultLocation = s"${fsdir}/shared/data/results/tpcds_${format}/${scaleFactor}/"
 val data_path = s"${fsdir}/shared/data/tpcds/tpcds_${format}/${scaleFactor}"
 var databaseName = s"tpcds_${format}_scale_${scaleFactor}_db"
-val use_arrow = false            // when you want to use gazella_plugin to run TPC-DS, you need to set it true.
+val use_arrow = conf.getBoolean("spark.driver.useArrow", false) // when you want to use gazella_plugin to run TPC-DS, you need to set it true.
 
 if (use_arrow){
     resultLocation = s"${fsdir}/shared/data/results/tpcds_arrow/${scaleFactor}/"

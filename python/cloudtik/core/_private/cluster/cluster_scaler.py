@@ -1,3 +1,5 @@
+import hashlib
+import json
 from collections import defaultdict, namedtuple, Counter
 from typing import Any, Optional, Dict, List, Set, FrozenSet, Tuple, Union, \
     Callable
@@ -15,6 +17,8 @@ from enum import Enum
 from six.moves import queue
 
 from cloudtik.core._private.call_context import CallContext
+from cloudtik.core._private.crypto import AESCipher
+from cloudtik.core._private.state.kv_store import kv_put
 
 try:
     from urllib3.exceptions import MaxRetryError
@@ -39,11 +43,12 @@ from cloudtik.core._private.cluster.resource_demand_scheduler import \
     ResourceDict
 from cloudtik.core._private.utils import ConcurrentCounter, validate_config, \
     hash_launch_conf, hash_runtime_conf, \
-    format_info_string, get_commands_to_run, with_head_node_ip_environment_variables
+    format_info_string, get_commands_to_run, with_head_node_ip_environment_variables, CLOUDTIK_CLUSTER_RUNTIME_CONFIG, \
+    encode_cluster_secrets
 from cloudtik.core._private.constants import CLOUDTIK_MAX_NUM_FAILURES, \
     CLOUDTIK_MAX_LAUNCH_BATCH, CLOUDTIK_MAX_CONCURRENT_LAUNCHES, \
-    CLOUDTIK_UPDATE_INTERVAL_S, CLOUDTIK_HEARTBEAT_TIMEOUT_S
-    
+    CLOUDTIK_UPDATE_INTERVAL_S, CLOUDTIK_HEARTBEAT_TIMEOUT_S, CLOUDTIK_RUNTIME_ENV_SECRETS
+
 logger = logging.getLogger(__name__)
 
 # Status of a node e.g. "up-to-date", see cloudtik/core/tags.py
@@ -177,6 +182,9 @@ class ClusterScaler:
         self.prometheus_metrics = prometheus_metrics or \
                             ClusterPrometheusMetrics()
         self.resource_demand_scheduler = None
+        # The secrets shared between the workers and the head
+        self.secrets = AESCipher.generate_key()
+        self.runtime_config_hash = None
         self.reset(errors_fatal=True)
         self.cluster_metrics = cluster_metrics
 
@@ -754,6 +762,7 @@ class ClusterScaler:
                     logger.debug(
                         "Cluster config validation failed. ",
                         exc_info=e)
+
             (new_runtime_hash,
              new_file_mounts_contents_hash) = hash_runtime_conf(
                  new_config["file_mounts"],
@@ -764,6 +773,7 @@ class ClusterScaler:
                  ],
                  generate_file_mounts_contents_hash=sync_continuously,
              )
+
             self.config = new_config
             self.runtime_hash = new_runtime_hash
             self.file_mounts_contents_hash = new_file_mounts_contents_hash
@@ -772,6 +782,7 @@ class ClusterScaler:
                                                    self.config["cluster_name"])
 
             self.available_node_types = self.config["available_node_types"]
+
             upscaling_speed = self.config.get("upscaling_speed")
             target_utilization_fraction = self.config.get(
                 "target_utilization_fraction")
@@ -781,6 +792,7 @@ class ClusterScaler:
                 # initial_upscaling_num_workers.
             else:
                 upscaling_speed = 1.0
+
             if self.resource_demand_scheduler:
                 self.resource_demand_scheduler.reset_config(
                     self.provider, self.available_node_types,
@@ -792,6 +804,9 @@ class ClusterScaler:
                     self.config["max_workers"], self.config["head_node_type"],
                     upscaling_speed)
 
+            # Push the runtime config to redis encrypted with secrets
+            self._push_runtime_config(self.config.get("runtime"))
+
         except Exception as e:
             self.prometheus_metrics.reset_exceptions.inc()
             if errors_fatal:
@@ -799,6 +814,33 @@ class ClusterScaler:
             else:
                 logger.exception("Cluster Controller: "
                                  "Error parsing config.")
+
+    def _push_runtime_config(self, runtime_config: Dict[str, Any]):
+        hasher = hashlib.sha1()
+        if runtime_config:
+            runtime_config_str = json.dumps(runtime_config, sort_keys=True)
+        else:
+            runtime_config_str = ""
+
+        hasher.update(runtime_config_str.encode("utf-8"))
+        new_runtime_config_hash = hasher.hexdigest()
+        if new_runtime_config_hash == self.runtime_config_hash:
+            return
+        self.runtime_config_hash = new_runtime_config_hash
+
+        # Encrypt and put
+        cipher = AESCipher(self.secrets)
+        encrypted_runtime_config = cipher.encrypt(runtime_config_str)
+        kv_put(CLOUDTIK_CLUSTER_RUNTIME_CONFIG,
+               encrypted_runtime_config, overwrite=True)
+
+        logger.debug(
+            f"Runtime config updated with hash digest: {new_runtime_config_hash}")
+
+    def _with_cluster_secrets(self, environment_variables: Dict[str, Any]):
+        encoded_secrets = encode_cluster_secrets(self.secrets)
+        environment_variables[CLOUDTIK_RUNTIME_ENV_SECRETS] = encoded_secrets
+        return environment_variables
 
     def launch_config_ok(self, node_id):
         if self.disable_launch_config_check:
@@ -900,6 +942,7 @@ class ClusterScaler:
         start_commands = get_commands_to_run(self.config, "worker_start_commands")
         environment_variables = with_head_node_ip_environment_variables(
             head_node_ip)
+        environment_variables = self._with_cluster_secrets(environment_variables)
 
         updater = NodeUpdaterThread(
             config=self.config,
@@ -998,6 +1041,7 @@ class ClusterScaler:
             node_id, "initialization_commands")
         environment_variables = with_head_node_ip_environment_variables(
             head_node_ip)
+        environment_variables = self._with_cluster_secrets(environment_variables)
 
         updater = NodeUpdaterThread(
             config=self.config,

@@ -38,7 +38,6 @@ from cloudtik.core._private.constants import CLOUDTIK_WHEELS, CLOUDTIK_CLUSTER_P
     CLOUDTIK_RUNTIME_ENV_SECRETS, CLOUDTIK_DEFAULT_PORT, CLOUDTIK_REDIS_DEFAULT_PASSWORD
 from cloudtik.core._private.crypto import AESCipher
 from cloudtik.core._private.runtime_factory import _get_runtime, _get_runtime_cls
-from cloudtik.core._private.state.kv_store import kv_get, kv_initialize_with_address
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core._private.providers import _get_default_config, _get_node_provider, _get_provider_config_object, \
     _get_node_provider_cls
@@ -2143,6 +2142,8 @@ def decode_cluster_secrets(encoded_secrets):
 
 
 def pull_runtime_config():
+    from cloudtik.core._private.state.kv_store import kv_get, kv_initialize_with_address
+
     if CLOUDTIK_RUNTIME_ENV_HEAD_IP not in os.environ:
         raise RuntimeError("Not able to pull runtime config in lack of head ip.")
 

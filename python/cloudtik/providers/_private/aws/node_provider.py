@@ -621,19 +621,21 @@ class AWSNodeProvider(NodeProvider):
 
         validate_config_dict(provider_config["type"], config_dict)
 
+        if "aws_s3_storage" in provider_config:
+            storage_config = provider_config["aws_s3_storage"]
+            config_dict = {
+                "s3.bucket": storage_config.get("s3.bucket"),
+                "s3.access.key.id": storage_config.get("s3.access.key.id"),
+                "s3.secret.access.key": storage_config.get("s3.secret.access.key")
+            }
+
+            validate_config_dict(provider_config["type"], config_dict)
+
     @staticmethod
-    def validate_storage_config(
+    def verify_config(
             provider_config: Dict[str, Any]) -> None:
-        config_dict = {
-            "s3.bucket": provider_config.get("aws_s3_storage", {}).get("s3.bucket"),
-            "s3.access.key.id": provider_config.get("aws_s3_storage", {}).get("s3.access.key.id"),
-            "s3.secret.access.key": provider_config.get("aws_s3_storage", {}).get("s3.secret.access.key")
-        }
-
-        validate_config_dict(provider_config["type"], config_dict)
-
         verify_cloud_storage = provider_config.get("verify_cloud_storage", True)
-        if verify_cloud_storage:
+        if ("aws_s3_storage" in provider_config) and verify_cloud_storage:
             cli_logger.verbose("Verifying S3 storage configurations...")
             verify_s3_storage(provider_config)
             cli_logger.verbose("Successfully verified S3 storage configurations.")

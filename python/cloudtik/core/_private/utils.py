@@ -772,7 +772,10 @@ def validate_config(config: Dict[str, Any]) -> None:
 
 def verify_config(config: Dict[str, Any]):
     """Verify the configurations. Usually verify may mean to involve slow process"""
-    provider = _get_node_provider(config["provider"], config["cluster_name"])
+    provider_config = config["provider"]
+    provider = _get_node_provider(provider_config, config["cluster_name"])
+
+    provider.verify_config(provider_config)
 
     # add runtime config validate and testing
     runtime_verify_config(config.get("runtime"), config, provider)

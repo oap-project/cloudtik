@@ -93,6 +93,56 @@ function update_presto_data_disks_config() {
     sed -i "s!{%node.data-dir%}!${presto_data_dir}!g" $output_dir/presto/node.properties
 }
 
+function update_storage_config_for_aws() {
+    # AWS_S3_ACCESS_KEY_ID
+    # AWS_S3_SECRET_ACCESS_KEY
+    if [ ! -z "$AWS_S3_ACCESS_KEY_ID" ]; then
+        sed -i "s#{%s3.aws-access-key%}#${AWS_S3_ACCESS_KEY_ID}#g" $output_dir/catalog/hive.s3.properties
+        sed -i "s#{%s3.aws-secret-key%}#${AWS_S3_SECRET_ACCESS_KEY}#g" $output_dir/catalog/hive.s3.properties
+        cat $output_dir/catalog/hive.s3.properties >> $output_dir/catalog/hive.properties
+    fi
+}
+
+function update_storage_config_for_azure() {
+    # AZURE_STORAGE_TYPE
+    # AZURE_STORAGE_ACCOUNT
+    # AZURE_ACCOUNT_KEY
+
+    if [ $AZURE_STORAGE_TYPE == "blob" ];then
+        sed -i "s#{%azure.wasb-storage-account%}#${AZURE_STORAGE_ACCOUNT}#g" $output_dir/catalog/hive.wasb.properties
+        sed -i "s#{%azure.wasb-access-key%}#${AZURE_ACCOUNT_KEY}#g" $output_dir/catalog/hive.wasb.properties
+        cat $output_dir/catalog/hive.wasb.properties >> $output_dir/catalog/hive.properties
+    elif [ $AZURE_STORAGE_TYPE == "datalake" ];then
+        sed -i "s#{%azure.abfs-storage-account%}#${AZURE_STORAGE_ACCOUNT}#g" $output_dir/catalog/hive.abfs.properties
+        sed -i "s#{%azure.abfs-access-key%}#${AZURE_ACCOUNT_KEY}#g" $output_dir/catalog/hive.abfs.properties
+        cat $output_dir/catalog/hive.abfs.properties >> $output_dir/catalog/hive.properties
+    fi
+}
+
+function update_storage_config_for_gcp() {
+    # PROJECT_ID
+    # GCS_SERVICE_ACCOUNT_CLIENT_EMAIL
+    # GCS_SERVICE_ACCOUNT_PRIVATE_KEY_ID
+    # GCS_SERVICE_ACCOUNT_PRIVATE_KEY
+    if [ ! -z "$GCS_SERVICE_ACCOUNT_PRIVATE_KEY_ID" ]; then
+        sed -i "s#{%project_id%}#${PROJECT_ID}#g" $output_dir/catalog/gcs.key-file.json
+        sed -i "s#{%private_key_id%}#${GCS_SERVICE_ACCOUNT_CLIENT_EMAIL}#g" $output_dir/catalog/gcs.key-file.json
+        sed -i "s#{%private_key%}#${GCS_SERVICE_ACCOUNT_PRIVATE_KEY_ID}#g" $output_dir/catalog/gcs.key-file.json
+        sed -i "s#{%client_email%}#${GCS_SERVICE_ACCOUNT_PRIVATE_KEY}#g" $output_dir/catalog/gcs.key-file.json
+
+        cp $output_dir/catalog/gcs.key-file.json ${PRESTO_HOME}/etc/catalog/gcs.key-file.json
+
+        sed -i "s!{%gcs.json-key-file-path%}!${PRESTO_HOME}/etc/catalog/gcs.key-file.json!g" $output_dir/catalog/hive.gcs.properties
+        cat $output_dir/catalog/hive.gcs.properties >> $output_dir/catalog/hive.properties
+    fi
+}
+
+function update_storage_config() {
+    update_storage_config_for_aws
+    update_storage_config_for_azure
+    update_storage_config_for_gcp
+}
+
 function update_hive_metastore_config() {
     # To be improved for external metastore cluster
     HIVE_PROPERTIES=${output_dir}/presto/catalog/hive.properties
@@ -107,6 +157,9 @@ function update_hive_metastore_config() {
         sed -i "s!{%HIVE_METASTORE_URI%}!${hive_metastore_uris}!g" ${HIVE_PROPERTIES}
 
         mkdir -p ${PRESTO_HOME}/etc/catalog
+
+        update_storage_config
+
         cp ${HIVE_PROPERTIES}  ${PRESTO_HOME}/etc/catalog/hive.properties
     fi
 }
@@ -146,6 +199,7 @@ function update_presto_memory_config() {
 function configure_presto() {
     prepare_base_conf
     update_metastore_config
+
     cd $output_dir
     node_id=$(uuid)
     presto_log_dir=${PRESTO_HOME}/logs

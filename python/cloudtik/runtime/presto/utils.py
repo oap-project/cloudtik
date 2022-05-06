@@ -92,6 +92,10 @@ def _with_runtime_environment_variables(runtime_config, config, provider, node_i
         runtime_envs, presto_config=presto_config,
         config=config, provider=provider, node_id=node_id)
 
+    # We need export the cloud storage
+    provider_envs = provider.with_environment_variables()
+    runtime_envs.update(provider_envs)
+
     return runtime_envs
 
 

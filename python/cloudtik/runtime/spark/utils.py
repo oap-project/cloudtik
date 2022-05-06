@@ -101,19 +101,22 @@ def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
 
     # 1) Try to use local hdfs first;
     # 2) Try to use defined hdfs_namenode_uri;
-    # 3) Try to subscribe global variables to find hdfs_namenode_uri;
+    # 3) If subscribed_hdfs_namenode_uri=true,try to subscribe global variables to find remote hdfs_namenode_uri
+
     if not is_runtime_enabled(runtime_config, "hdfs"):
         if spark_config.get("hdfs_namenode_uri") is None:
-            hdfs_namenode_uri = global_variables.get("hdfs-namenode-uri")
-            if hdfs_namenode_uri is not None:
-                spark_config["hdfs_namenode_uri"] = hdfs_namenode_uri
+            if spark_config.get("subscribe_hdfs_namenode_uri", False):
+                hdfs_namenode_uri = global_variables.get("hdfs-namenode-uri")
+                if hdfs_namenode_uri is not None:
+                    spark_config["hdfs_namenode_uri"] = hdfs_namenode_uri
 
     # Check metastore
     if not is_runtime_enabled(runtime_config, "metastore"):
         if spark_config.get("hive_metastore_uri") is None:
-            hive_metastore_uri = global_variables.get("hive-metastore-uri")
-            if hive_metastore_uri is not None:
-                spark_config["hive_metastore_uri"] = hive_metastore_uri
+            if spark_config.get("subscribe_hive_metastore_uri", True):
+                hive_metastore_uri = global_variables.get("hive-metastore-uri")
+                if hive_metastore_uri is not None:
+                    spark_config["hive_metastore_uri"] = hive_metastore_uri
 
     return cluster_config
 

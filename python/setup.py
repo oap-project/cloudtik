@@ -154,7 +154,8 @@ if setup_spec.type == SetupType.CLOUDTIK:
         "requests",
         "smart_open",
         "prettytable",
-        "ipaddr"
+        "ipaddr",
+        "pycryptodome"
     ]
 
 

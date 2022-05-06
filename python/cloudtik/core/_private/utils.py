@@ -1,3 +1,4 @@
+import base64
 import collections
 import collections.abc
 import copy
@@ -33,8 +34,11 @@ from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core._private.cluster.cluster_metrics import ClusterMetricsSummary
 from cloudtik.core._private.constants import CLOUDTIK_WHEELS, CLOUDTIK_CLUSTER_PYTHON_VERSION, \
     CLOUDTIK_DEFAULT_MAX_WORKERS, CLOUDTIK_NODE_SSH_INTERVAL_S, CLOUDTIK_NODE_START_WAIT_S, MAX_PARALLEL_EXEC_NODES, \
-    CLOUDTIK_CLUSTER_URI_TEMPLATE, CLOUDTIK_RUNTIME_NAME
+    CLOUDTIK_CLUSTER_URI_TEMPLATE, CLOUDTIK_RUNTIME_NAME, CLOUDTIK_RUNTIME_ENV_NODE_IP, CLOUDTIK_RUNTIME_ENV_HEAD_IP, \
+    CLOUDTIK_RUNTIME_ENV_SECRETS, CLOUDTIK_DEFAULT_PORT, CLOUDTIK_REDIS_DEFAULT_PASSWORD
+from cloudtik.core._private.crypto import AESCipher
 from cloudtik.core._private.runtime_factory import _get_runtime, _get_runtime_cls
+from cloudtik.core._private.state.kv_store import kv_get, kv_initialize_with_address
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core._private.providers import _get_default_config, _get_node_provider, _get_provider_config_object, \
     _get_node_provider_cls
@@ -55,6 +59,9 @@ CLOUDTIK_WORKSPACE_SCHEMA_PATH = os.path.join(
 # Internal kv keys for storing debug status.
 CLOUDTIK_CLUSTER_SCALING_ERROR = "__cluster_scaling_error"
 CLOUDTIK_CLUSTER_SCALING_STATUS = "__cluster_scaling_status"
+
+# Internal kv key for publish runtime config.
+CLOUDTIK_CLUSTER_RUNTIME_CONFIG = "__cluster_runtime_config"
 
 PLACEMENT_GROUP_RESOURCE_BUNDLED_PATTERN = re.compile(
     r"(.+)_group_(\d+)_([0-9a-zA-Z]+)")
@@ -1190,7 +1197,7 @@ def with_head_node_ip_environment_variables(head_ip, envs: Dict[str, Any] = None
         head_ip = services.get_node_ip_address()
     if envs is None:
         envs = {}
-    envs["CLOUDTIK_HEAD_IP"] = head_ip
+    envs[CLOUDTIK_RUNTIME_ENV_HEAD_IP] = head_ip
     return envs
 
 
@@ -1205,7 +1212,7 @@ def with_node_ip_environment_variables(node_ip, provider, node_id):
         if node_ip is None:
             raise RuntimeError("Failed to get node ip for node {}.".format(node_id))
 
-    ip_envs = {"CLOUDTIK_NODE_IP": node_ip}
+    ip_envs = {CLOUDTIK_RUNTIME_ENV_NODE_IP: node_ip}
     return ip_envs
 
 
@@ -1865,7 +1872,7 @@ def with_runtime_environment_variables(runtime_config, config, provider, node_id
     runtime_types = runtime_config.get("types", [])
 
     if len(runtime_types) > 0:
-        all_runtime_envs[constants.CLOUDTIK_RUNTIMES_ENV] = ",".join(runtime_types)
+        all_runtime_envs[constants.CLOUDTIK_RUNTIME_ENV_RUNTIMES] = ",".join(runtime_types)
 
     # Iterate through all the runtimes
     for runtime_type in runtime_types:
@@ -2126,3 +2133,38 @@ def get_resource_of_node_type(config, node_type: str):
 
     return available_node_types[node_type].get("resources", {})
 
+
+def encode_cluster_secrets(secrets):
+    return base64.b64encode(secrets).decode('utf-8')
+
+
+def decode_cluster_secrets(encoded_secrets):
+    return base64.b64decode(encoded_secrets.encode('utf-8'))
+
+
+def pull_runtime_config():
+    if CLOUDTIK_RUNTIME_ENV_HEAD_IP not in os.environ:
+        raise RuntimeError("Not able to pull runtime config in lack of head ip.")
+
+    if CLOUDTIK_RUNTIME_ENV_SECRETS not in os.environ:
+        raise RuntimeError("Not able to pull runtime config in lack of secrets.")
+
+    # Retrieve the runtime config
+    head_ip = os.environ[CLOUDTIK_RUNTIME_ENV_HEAD_IP]
+    redis_address = "{}:{}".format(head_ip, CLOUDTIK_DEFAULT_PORT)
+    kv_initialize_with_address(redis_address, CLOUDTIK_REDIS_DEFAULT_PASSWORD)
+    encrypted_runtime_config = kv_get(CLOUDTIK_CLUSTER_RUNTIME_CONFIG)
+    if encrypted_runtime_config is None:
+        return {}
+
+    # Decrypt
+    encoded_secrets = os.environ[CLOUDTIK_RUNTIME_ENV_SECRETS]
+    secrets = decode_cluster_secrets(encoded_secrets)
+    cipher = AESCipher(secrets)
+    runtime_config_str = cipher.decrypt(encrypted_runtime_config)
+
+    # To json object
+    if runtime_config_str == "":
+        return {}
+
+    return json.loads(runtime_config_str)

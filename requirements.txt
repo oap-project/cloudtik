@@ -21,6 +21,7 @@ pyyaml
 redis >= 3.5.0
 requests
 smart_open
+pycryptodome
 
 
 # setup.py extras

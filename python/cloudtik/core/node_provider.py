@@ -264,9 +264,11 @@ class NodeProvider:
     @staticmethod
     def validate_config(
             provider_config: Dict[str, Any]) -> None:
+        """Check the provider configuration validation."""
         return None
 
     @staticmethod
-    def validate_storage_config(
+    def verify_config(
             provider_config: Dict[str, Any]) -> None:
+        """Verify provider configuration. Verification usually means to check it is working."""
         return None

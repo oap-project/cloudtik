@@ -271,21 +271,23 @@ class GCPNodeProvider(NodeProvider):
 
         validate_config_dict(provider_config["type"], config_dict)
 
+        if "gcp_cloud_storage" in provider_config:
+            storage_config = provider_config["gcp_cloud_storage"]
+            config_dict = {"gcs.bucket": storage_config.get("gcs.bucket"),
+                           "gcs.service.account.client.email": storage_config.get(
+                               "gcs.service.account.client.email"),
+                           "gcs.service.account.private.key.id": storage_config.get(
+                               "gcs.service.account.private.key.id"),
+                           "gcs.service.account.private.key": storage_config.get(
+                               "gcs.service.account.private.key")}
+
+            validate_config_dict(provider_config["type"], config_dict)
+
     @staticmethod
-    def validate_storage_config(
+    def verify_config(
             provider_config: Dict[str, Any]) -> None:
-        config_dict = {"gcs.bucket": provider_config.get("gcp_cloud_storage", {}).get("gcs.bucket"),
-                       "gcs.service.account.client.email": provider_config.get("gcp_cloud_storage", {}).get(
-                           "gcs.service.account.client.email"),
-                       "gcs.service.account.private.key.id": provider_config.get("gcp_cloud_storage", {}).get(
-                           "gcs.service.account.private.key.id"),
-                       "gcs.service.account.private.key": provider_config.get("gcp_cloud_storage", {}).get(
-                           "gcs.service.account.private.key")}
-
-        validate_config_dict(provider_config["type"], config_dict)
-
         verify_cloud_storage = provider_config.get("verify_cloud_storage", True)
-        if verify_cloud_storage:
+        if ("gcp_cloud_storage" in provider_config) and verify_cloud_storage:
             cli_logger.verbose("Verifying GCS storage configurations...")
             verify_gcs_storage(provider_config)
             cli_logger.verbose("Successfully verified GCS storage configurations.")

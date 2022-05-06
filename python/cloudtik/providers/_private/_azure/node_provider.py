@@ -386,19 +386,21 @@ class AzureNodeProvider(NodeProvider):
 
         validate_config_dict(provider_config["type"], config_dict)
 
+        if "azure_cloud_storage" in provider_config:
+            cloud_storage = provider_config["azure_cloud_storage"]
+            config_dict = {
+                "azure.storage.type": cloud_storage.get("azure.storage.type"),
+                "azure.storage.account": cloud_storage.get("azure.storage.account"),
+                "azure.container": cloud_storage.get("azure.container"),
+                "azure.account.key": cloud_storage.get("azure.account.key")}
+
+            validate_config_dict(provider_config["type"], config_dict)
+
     @staticmethod
-    def validate_storage_config(
+    def verify_config(
             provider_config: Dict[str, Any]) -> None:
-        config_dict = {
-            "azure.storage.type": provider_config.get("azure_cloud_storage", {}).get("azure.storage.type"),
-            "azure.storage.account": provider_config.get("azure_cloud_storage", {}).get("azure.storage.account"),
-            "azure.container": provider_config.get("azure_cloud_storage", {}).get("azure.container"),
-            "azure.account.key": provider_config.get("azure_cloud_storage", {}).get("azure.account.key")}
-
-        validate_config_dict(provider_config["type"], config_dict)
-
         verify_cloud_storage = provider_config.get("verify_cloud_storage", True)
-        if verify_cloud_storage:
+        if ("azure_cloud_storage" in provider_config) and verify_cloud_storage:
             cli_logger.verbose("Verifying Azure cloud storage configurations...")
             verify_azure_cloud_storage(provider_config)
             cli_logger.verbose("Successfully verified Azure cloud storage configurations.")

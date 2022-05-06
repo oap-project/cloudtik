@@ -264,13 +264,18 @@ def get_runtime_logs():
 
 
 def _validate_config(config: Dict[str, Any], provider):
-    pass
+    # if HDFS enabled, we ignore the cloud storage configurations
+    if not is_runtime_enabled(config.get("runtime"), "hdfs"):
+        # Check any cloud storage is configured
+        provider_config = config["provider"]
+        if ("azure_cloud_storage" not in provider_config) and (
+                "aws_s3_storage" not in provider_config) and (
+                "gcp_cloud_storage" not in provider_config):
+            raise ValueError("No storage configuration found for Spark.")
 
 
 def _verify_config(config: Dict[str, Any], provider):
-    # if HDFS enabled, we ignore the cloud storage configurations
-    if not is_runtime_enabled(config.get("runtime"), "hdfs"):
-        provider.validate_storage_config(config["provider"])
+    pass
 
 
 def _get_config_object(cluster_config: Dict[str, Any], object_name: str) -> Dict[str, Any]:

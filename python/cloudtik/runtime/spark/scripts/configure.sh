@@ -197,12 +197,12 @@ function update_config_for_azure() {
     sed -i "s#{%azure.storage.account%}#${AZURE_STORAGE_ACCOUNT}#g" "$(grep "{%azure.storage.account%}" -rl ./)"
     sed -i "s#{%azure.container%}#${AZURE_CONTAINER}#g" "$(grep "{%azure.container%}" -rl ./)"
     sed -i "s#{%azure.account.key%}#${AZURE_ACCOUNT_KEY}#g" "$(grep "{%azure.account.key%}" -rl ./)"
-    if [ $AZURE_STORAGE_TYPE == "blob" ];then
+    if [ "$AZURE_STORAGE_TYPE" == "blob" ];then
         scheme="wasbs"
         endpoint="blob"
         sed -i "s#{%azure.storage.scheme%}#${scheme}#g" "$(grep "{%azure.storage.scheme%}" -rl ./)"
         sed -i "s#{%storage.endpoint%}#${endpoint}#g" "$(grep "{%storage.endpoint%}" -rl ./)"
-    elif [ $AZURE_STORAGE_TYPE == "datalake" ];then
+    elif [ "$AZURE_STORAGE_TYPE" == "datalake" ];then
         scheme="abfs"
         endpoint="dfs"
         sed -i "s#{%azure.storage.scheme%}#${scheme}#g" "$(grep "{%azure.storage.scheme%}" -rl ./)"

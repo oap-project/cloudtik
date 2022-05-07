@@ -214,8 +214,9 @@ def configure(head, provider, head_address, aws_s3_bucket, aws_s3_access_key_id,
     final_cmd = " ".join(cmds)
     run_system_command(final_cmd)
 
-    # Update spark configuration from cluster config file
-    update_spark_configurations()
+    if head:
+        # Update spark configuration from cluster config file
+        update_spark_configurations()
 
 
 @click.command(context_settings={"ignore_unknown_options": True})

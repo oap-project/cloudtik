@@ -107,11 +107,11 @@ function update_storage_config_for_azure() {
     # AZURE_STORAGE_ACCOUNT
     # AZURE_ACCOUNT_KEY
 
-    if [ $AZURE_STORAGE_TYPE == "blob" ];then
+    if [ "$AZURE_STORAGE_TYPE" == "blob" ];then
         sed -i "s#{%azure.wasb-storage-account%}#${AZURE_STORAGE_ACCOUNT}#g" $catalog_dir/hive.wasb.properties
         sed -i "s#{%azure.wasb-access-key%}#${AZURE_ACCOUNT_KEY}#g" $catalog_dir/hive.wasb.properties
         cat $catalog_dir/hive.wasb.properties >> $catalog_dir/hive.properties
-    elif [ $AZURE_STORAGE_TYPE == "datalake" ];then
+    elif [ "$AZURE_STORAGE_TYPE" == "datalake" ];then
         sed -i "s#{%azure.abfs-storage-account%}#${AZURE_STORAGE_ACCOUNT}#g" $catalog_dir/hive.abfs.properties
         sed -i "s#{%azure.abfs-access-key%}#${AZURE_ACCOUNT_KEY}#g" $catalog_dir/hive.abfs.properties
         cat $catalog_dir/hive.abfs.properties >> $catalog_dir/hive.properties
@@ -144,7 +144,7 @@ function update_storage_config() {
 
 function update_hive_metastore_config() {
     # To be improved for external metastore cluster
-    catolog_dir=$output_dir/presto/catalog
+    catalog_dir=$output_dir/presto/catalog
     hive_properties=${catolog_dir}/hive.properties
     if [ "$METASTORE_ENABLED" == "true" ] || [ ! -z "$HIVE_METASTORE_URI" ]; then
         if [ "$METASTORE_ENABLED" == "true" ]; then

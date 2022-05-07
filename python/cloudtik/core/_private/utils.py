@@ -91,6 +91,26 @@ def round_memory_size_to_gb(memory_size: int) -> int:
     return gb * 1024
 
 
+def run_system_command(cmd: str):
+    result = os.system(cmd)
+    if result != 0:
+        raise RuntimeError(f"Error happened in running: {cmd}")
+
+
+def run_bash_scripts(command: str, script_path, script_args):
+    cmds = [
+        "bash",
+        script_path,
+    ]
+
+    cmds += [command]
+    if script_args:
+        cmds += list(script_args)
+    final_cmd = " ".join(cmds)
+
+    run_system_command(final_cmd)
+
+
 def get_user_temp_dir():
     if "CLOUDTIK_TMPDIR" in os.environ:
         return os.environ["CLOUDTIK_TMPDIR"]

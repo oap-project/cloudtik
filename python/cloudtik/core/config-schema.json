@@ -83,25 +83,6 @@
                     "type": "string",
                     "description": "module, if using external node provider"
                 },
-                "head_node": {
-                    "type": "object",
-                    "description": "head node for local mode",
-                    "additionalProperties": true,
-                    "properties": {
-                      "ip": {
-                        "type": "string",
-                        "description": "The cluster ip address of head node"
-                      },
-                      "external_ip": {
-                        "type": "string",
-                        "description": "The public ip of head node"
-                      }
-                    }
-                },
-                "worker_nodes": {
-                    "type": "array",
-                    "description": "worker nodes for local mode"
-                },
                 "use_internal_ips": {
                     "type": "boolean",
                     "description": "don't require public ips"
@@ -319,7 +300,7 @@
                     "type": "boolean",
                     "description": "run `docker pull` first"
                 },
-                "run_options": { 
+                "run_options": {
                     "type": "array",
                     "description": "shared options for starting head/worker docker"
                 },
@@ -398,7 +379,7 @@
         },
         "setup_commands": {
             "$ref": "#/definitions/commands",
-            "description": "List of common shell commands to run to setup nodes."
+            "description": "List of common commands to run to setup nodes."
         },
         "head_setup_commands": {
             "$ref": "#/definitions/commands",
@@ -410,31 +391,31 @@
         },
         "bootstrap_commands": {
             "$ref": "#/definitions/commands",
-            "description": "Common setup commands running after all the setup commands"
+            "description": "Common setup commands running after all the setup commands."
         },
         "start_commands": {
             "$ref": "#/definitions/commands",
-            "description": "Common start commands for nodes"
+            "description": "Common start commands for nodes."
         },
         "head_start_commands": {
             "$ref": "#/definitions/commands",
-            "description": "Command to start on the head node. You shouldn't need to modify this."
+            "description": "Command to start on the head node."
         },
         "worker_start_commands": {
             "$ref": "#/definitions/commands",
-            "description": "Command to start on worker nodes. You shouldn't need to modify this."
+            "description": "Command to start on worker nodes."
         },
         "stop_commands": {
             "$ref": "#/definitions/commands",
-            "description": "Common stop commands for nodes"
+            "description": "Common stop commands for nodes."
         },
         "head_stop_commands": {
             "$ref": "#/definitions/commands",
-            "description": "Command to stop on the head node. You shouldn't need to modify this."
+            "description": "Command to stop on the head node."
         },
         "worker_stop_commands": {
             "$ref": "#/definitions/commands",
-            "description": "Command to stop on worker nodes. You shouldn't need to modify this."
+            "description": "Command to stop on worker nodes."
         },
         "no_restart": {
             "description": "Whether to avoid restarting the cluster during updates. This field is controlled by the cloudtik --no-restart flag and cannot be set by the user."
@@ -472,7 +453,37 @@
                         },
                         "worker_setup_commands": {
                             "$ref": "#/definitions/commands",
-                            "description": "List of common shell commands to run to setup nodes. This node specfic list will override the global setup_commands and worker_setup_commands."
+                            "description": "List of common commands to run to setup on this specific node type."
+                        },
+                        "bootstrap_commands": {
+                            "$ref": "#/definitions/commands",
+                            "description": "Common setup commands running after all the setup commands on this specific node type."
+                        },
+                        "worker_start_commands": {
+                            "$ref": "#/definitions/commands",
+                            "description": "Command to start on this specific node type."
+                        },
+                        "worker_stop_commands": {
+                            "$ref": "#/definitions/commands",
+                            "description": "Command to stop on this specific node type."
+                        },
+                        "merged_commands": {
+                            "type": "object",
+                            "description": "The merged commands used internally. Don't override."
+                        },
+                        "runtime": {
+                            "type": "object",
+                            "description": "Set the configurations for runtime components",
+                            "additionalProperties": true,
+                            "properties": {
+                                "types": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    },
+                                    "description": "The list of runtimes to enable for this cluster"
+                                }
+                            }
                         },
                         "docker": {
                             "description": "Configuration of Worker nodes.",
@@ -501,9 +512,16 @@
         },
         "runtime": {
             "type": "object",
-            "description": "Set the configurations of some runtime components",
+            "description": "Set the configurations for runtime components",
             "additionalProperties": true,
             "properties": {
+                "types": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "The list of runtimes to enable for this cluster"
+                },
                 "spark": {
                     "type": "object",
                     "description": "Spark runtime related configurations",

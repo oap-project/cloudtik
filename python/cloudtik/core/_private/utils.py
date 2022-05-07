@@ -68,6 +68,32 @@ PLACEMENT_GROUP_RESOURCE_PATTERN = re.compile(r"(.+)_group_([0-9a-zA-Z]+)")
 
 ResourceBundle = Dict[str, Union[int, float]]
 
+COMMAND_KEYS = ["initialization_commands",
+                "setup_commands",
+                "head_setup_commands",
+                "worker_setup_commands",
+                "bootstrap_commands",
+                "start_commands",
+                "head_start_commands",
+                "worker_start_commands",
+                "stop_commands",
+                "head_stop_commands",
+                "worker_stop_commands"]
+
+NODE_TYPE_COMMAND_KEYS = ["initialization_commands",
+                          "worker_setup_commands",
+                          "bootstrap_commands",
+                          "worker_start_commands",
+                          "worker_stop_commands"]
+
+TEMPORARY_COMMAND_KEYS = [
+                "setup_commands",
+                "start_commands",
+                "bootstrap_commands",
+                "stop_commands"]
+
+MERGED_COMMAND_KEY = "merged_commands"
+
 pwd = None
 if sys.platform != "win32":
     pass
@@ -994,8 +1020,8 @@ def merge_command_key(merged_commands, group_name, from_config, command_key):
     command_groups += [command_group]
 
 
-def merge_runtime_commands(config):
-    runtime_config = config.get("runtime")
+def merge_runtime_commands(config, commands_root):
+    runtime_config = commands_root.get("runtime")
     if runtime_config is None:
         return
 
@@ -1004,39 +1030,21 @@ def merge_runtime_commands(config):
         runtime = _get_runtime(runtime_type, runtime_config)
         runtime_commands = runtime.get_runtime_commands(config)
         if runtime_commands:
-            merge_commands_from(config, runtime_type, runtime_commands)
+            merge_commands_from(commands_root, runtime_type, runtime_commands)
 
 
-def merge_built_in_commands(config):
-    # Load the built-in commands and merge with defaults
-    built_in_commands = merge_config_hierarchy(config["provider"], {},
-                                               False, "commands")
-    # Populate some internal command which is generated on the fly
-    prepare_internal_commands(config, built_in_commands)
-
+def merge_built_in_commands(config, commands_root, built_in_commands):
     # Merge runtime commands with built-in: runtime after built-in
-    merge_commands_from(config, CLOUDTIK_RUNTIME_NAME, built_in_commands)
-    merge_runtime_commands(config)
+    merge_commands_from(commands_root, CLOUDTIK_RUNTIME_NAME, built_in_commands)
+    merge_runtime_commands(config, commands_root)
 
 
 def merge_commands_from(config, group_name, from_config):
-    command_keys = ["initialization_commands",
-                    "setup_commands",
-                    "head_setup_commands",
-                    "worker_setup_commands",
-                    "bootstrap_commands",
-                    "start_commands",
-                    "head_start_commands",
-                    "worker_start_commands",
-                    "stop_commands",
-                    "head_stop_commands",
-                    "worker_stop_commands"]
+    if MERGED_COMMAND_KEY not in config:
+        config[MERGED_COMMAND_KEY] = {}
+    merged_commands = config[MERGED_COMMAND_KEY]
 
-    if "merged_commands" not in config:
-        config["merged_commands"] = {}
-    merged_commands = config["merged_commands"]
-
-    for command_key in command_keys:
+    for command_key in COMMAND_KEYS:
         merge_command_key(merged_commands, group_name, from_config, command_key)
 
     merge_docker_initialization_commands(merged_commands, group_name, from_config)
@@ -1117,17 +1125,115 @@ def merge_user_commands(config):
 
 
 def merge_commands(config):
-    merge_built_in_commands(config)
+    # Load the built-in commands and merge with defaults
+    built_in_commands = merge_config_hierarchy(config["provider"], {},
+                                               False, "commands")
+    # Populate some internal command which is generated on the fly
+    prepare_internal_commands(config, built_in_commands)
+
+    merge_global_commands(config, built_in_commands=built_in_commands)
+
+    # Merge commands for node types if needed
+    merge_commands_for_node_types(config, built_in_commands=built_in_commands)
+
+
+def merge_global_commands(config, built_in_commands):
+    merge_commands_for(config, config, built_in_commands=built_in_commands)
+
+
+def merge_commands_for_node_types(config, built_in_commands):
+    node_types = config["available_node_types"]
+    head_node_type = config["head_node_type"]
+    for node_type in node_types:
+        # No need for head
+        if node_type == head_node_type:
+            continue
+
+        node_type_config = node_types[node_type]
+        if not is_commands_merge_needed(config, node_type_config):
+            continue
+
+        # Special care needs to take here
+        # For a command that if we don't have an override, we need copy it from global
+        # If we don't specify the runtime types, we need copy it from global
+        new_node_type_config = copy.deepcopy(node_type_config)
+        inherit_commands_from(new_node_type_config, config)
+        inherit_runtime_types_from(new_node_type_config, config)
+        merge_commands_for(config, new_node_type_config,
+                           built_in_commands=built_in_commands)
+
+        node_type_config[MERGED_COMMAND_KEY] = new_node_type_config[MERGED_COMMAND_KEY]
+
+
+def inherit_commands_from(target_config, from_config):
+    for command_key in COMMAND_KEYS:
+        inherit_key_from(target_config, from_config, command_key)
+
+
+def inherit_runtime_types_from(target_config, from_config):
+    if "runtime" in from_config:
+        if "runtime" not in target_config:
+            target_config["runtime"] = {}
+
+        inherit_key_from(target_config["runtime"],
+                         from_config["runtime"], "types")
+
+
+def inherit_key_from(target_config, from_config, config_key):
+    if config_key not in target_config:
+        if config_key in from_config:
+            target_config[config_key] = from_config[config_key]
+
+
+def is_commands_merge_needed(config, node_type_config) -> bool:
+    # Check whether commands merge is needed
+    # 1. If any of these commands override, we need merge
+    for command_key in NODE_TYPE_COMMAND_KEYS:
+        if command_key in node_type_config:
+            return True
+
+    # 2. Check whether the runtime types is customized for this node
+    if ("runtime" in node_type_config) and (
+            "types" in node_type_config["runtime"]):
+        types = node_type_config["runtime"]["types"]
+        # Check whether this types list is identical with global setting
+        # It must be set if node specific is set
+        global_types = config["runtime"]["types"]
+
+        types_set = set(types)
+        global_types_set = set(global_types)
+        if types_set != global_types_set:
+            return True
+
+    return False
+
+
+def merge_commands_for(config, commands_root, built_in_commands):
+    merge_built_in_commands(config, commands_root,
+                            built_in_commands=built_in_commands)
+
     # Merge user commands after built-in
-    merge_user_commands(config)
+    merge_user_commands(commands_root)
 
     # Combine commands
-    merged_commands = config["merged_commands"]
+    merged_commands = commands_root[MERGED_COMMAND_KEY]
     combine_initialization_commands(config, merged_commands)
     combine_setup_commands(merged_commands)
     combine_start_commands(merged_commands)
     combine_stop_commands(merged_commands)
-    return config
+
+    clean_temporary_commands(merged_commands)
+    return commands_root
+
+
+def clean_temporary_commands(merged_commands):
+    for command_key in TEMPORARY_COMMAND_KEYS:
+        if command_key in merged_commands:
+            merged_commands.pop(command_key, None)
+
+    # docker / initialization commands
+    if "docker" in merged_commands:
+        merged_commands.pop("docker", None)
 
 
 def combine_initialization_commands(config, merged_commands):
@@ -1142,7 +1248,7 @@ def combine_initialization_commands(config, merged_commands):
 
 
 def get_commands_to_run(config, commands_key):
-    merged_commands = config["merged_commands"]
+    merged_commands = config[MERGED_COMMAND_KEY]
     return merged_commands.get(commands_key, [])
 
 

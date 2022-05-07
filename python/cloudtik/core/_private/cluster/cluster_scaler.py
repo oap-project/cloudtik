@@ -992,9 +992,15 @@ class ClusterScaler:
         else:
             return "unknown_node_type"
 
+    def _get_node_type_specific_commands(self, node_id: str,
+                                         fields_key: str) -> Any:
+        commands = get_commands_to_run(self.config, fields_key)
+        return self._get_node_type_specific_fields(
+            node_id, fields_key, commands)
+
     def _get_node_type_specific_fields(self, node_id: str,
-                                       fields_key: str) -> Any:
-        fields = get_commands_to_run(self.config, fields_key)
+                                       fields_key: str, global_fields) -> Any:
+        fields = global_fields
         node_tags = self.provider.node_tags(node_id)
         if CLOUDTIK_TAG_USER_NODE_TYPE in node_tags:
             node_type = node_tags[CLOUDTIK_TAG_USER_NODE_TYPE]
@@ -1010,8 +1016,9 @@ class ClusterScaler:
         if "docker" not in self.config:
             return {}
         docker_config = copy.deepcopy(self.config.get("docker", {}))
+        global_docker = self.config["docker"]
         node_specific_docker = self._get_node_type_specific_fields(
-            node_id, "docker")
+            node_id, "docker", global_docker)
         docker_config.update(node_specific_docker)
         return docker_config
 
@@ -1028,11 +1035,11 @@ class ClusterScaler:
             setup_commands = []
             start_commands = get_commands_to_run(self.config, "worker_start_commands")
         elif successful_updated and self.config.get("no_restart", False):
-            setup_commands = self._get_node_type_specific_fields(
+            setup_commands = self._get_node_type_specific_commands(
                 node_id, "worker_setup_commands")
             start_commands = []
         else:
-            setup_commands = self._get_node_type_specific_fields(
+            setup_commands = self._get_node_type_specific_commands(
                 node_id, "worker_setup_commands")
             start_commands = get_commands_to_run(self.config, "worker_start_commands")
 
@@ -1053,7 +1060,7 @@ class ClusterScaler:
         head_node_ip = self.provider.internal_ip(
             self.non_terminated_nodes.head_id)
 
-        initialization_commands = self._get_node_type_specific_fields(
+        initialization_commands = self._get_node_type_specific_commands(
             node_id, "initialization_commands")
         environment_variables = with_head_node_ip_environment_variables(
             head_node_ip)
@@ -1116,6 +1123,9 @@ class ClusterScaler:
             self.launch_queue.put((config, min(count, self.max_launch_batch),
                                    node_type))
             count -= self.max_launch_batch
+
+    def workers(self):
+        return self.non_terminated_nodes.worker_ids
 
     def kill_workers(self):
         logger.error("Cluster Controller: kill_workers triggered")

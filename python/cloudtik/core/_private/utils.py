@@ -1082,13 +1082,13 @@ def reorder_runtimes_for_dependency(config):
     for runtime_type in runtime_types:
         runtime_cls = _get_runtime_cls(runtime_type)
         dependencies = runtime_cls.get_dependencies()
-        if reordered_runtimes is None:
+        if dependencies is None:
             continue
 
         # For each dependency, if it is appeared behind the current runtime, move it ahead
         for dependency in dependencies:
             make_sure_dependency_order(
-                runtime=runtime_type, dependency=dependency)
+                reordered_runtimes, runtime=runtime_type, dependency=dependency)
 
     runtime_config["types"] = reordered_runtimes
 

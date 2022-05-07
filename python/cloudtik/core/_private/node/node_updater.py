@@ -11,14 +11,14 @@ from cloudtik.core._private.utils import with_runtime_environment_variables, wit
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_STATUS, CLOUDTIK_TAG_RUNTIME_CONFIG, \
     CLOUDTIK_TAG_FILE_MOUNTS_CONTENTS, \
     STATUS_UP_TO_DATE, STATUS_UPDATE_FAILED, STATUS_WAITING_FOR_SSH, \
-    STATUS_SETTING_UP, STATUS_SYNCING_FILES, STATUS_BOOTSTRAPPING_DATA_DISKS
+    STATUS_SETTING_UP, STATUS_SYNCING_FILES, STATUS_BOOTSTRAPPING_DATA_DISKS, CLOUDTIK_TAG_NODE_NUMBER
 from cloudtik.core._private.command_executor import \
     CLOUDTIK_NODE_START_WAIT_S, \
     ProcessRunnerError
 from cloudtik.core._private.log_timer import LogTimer
 from cloudtik.core._private.cli_logger import cli_logger, cf
 import cloudtik.core._private.subprocess_output_util as cmd_output_util
-from cloudtik.core._private.constants import CLOUDTIK_RESOURCES_ENV
+from cloudtik.core._private.constants import CLOUDTIK_RESOURCES_ENV, CLOUDTIK_RUNTIME_ENV_NODE_NUMBER
 from cloudtik.core._private.event_system import (CreateClusterEvent,
                                                   global_event_system)
 
@@ -310,6 +310,25 @@ class NodeUpdater:
                 _numbered=("[]", current_step, total_steps)):
             self.cmd_executor.bootstrap_data_disks()
 
+    def get_update_environment_variables(self):
+        runtime_envs = with_runtime_environment_variables(
+            self.runtime_config, config=self.config, provider=self.provider, node_id=self.node_id)
+
+        # Add node ip address environment variables
+        ip_envs = with_node_ip_environment_variables(
+            None, self.provider, self.node_id)
+        runtime_envs.update(ip_envs)
+
+        if self.environment_variables is not None:
+            runtime_envs.update(self.environment_variables)
+
+        # Set node number if there is one
+        node_number = self.provider.node_tags(
+            self.node_id).get(CLOUDTIK_TAG_NODE_NUMBER)
+        if node_number is not None:
+            runtime_envs[CLOUDTIK_RUNTIME_ENV_NODE_NUMBER] = node_number
+        return runtime_envs
+
     def do_update(self):
         self.provider.set_node_tags(
             self.node_id, {CLOUDTIK_TAG_NODE_STATUS: STATUS_WAITING_FOR_SSH})
@@ -341,16 +360,7 @@ class NodeUpdater:
         if self.restart_only:
             self.setup_commands = []
 
-        runtime_envs = with_runtime_environment_variables(
-            self.runtime_config, config=self.config, provider=self.provider, node_id=self.node_id)
-
-        # Add node ip address environment variables
-        ip_envs = with_node_ip_environment_variables(
-            None, self.provider, self.node_id)
-        runtime_envs.update(ip_envs)
-
-        if self.environment_variables is not None:
-            runtime_envs.update(self.environment_variables)
+        runtime_envs = self.get_update_environment_variables()
 
         # runtime_hash will only change whenever the user restarts
         # or updates their cluster with `get_or_create_head_node`

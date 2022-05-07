@@ -51,7 +51,8 @@ from cloudtik.core._private.providers import _get_node_provider, \
 from cloudtik.core.tags import (
     CLOUDTIK_TAG_NODE_KIND, CLOUDTIK_TAG_LAUNCH_CONFIG, CLOUDTIK_TAG_NODE_NAME,
     NODE_KIND_WORKER, NODE_KIND_HEAD, CLOUDTIK_TAG_USER_NODE_TYPE,
-    STATUS_UNINITIALIZED, STATUS_UP_TO_DATE, CLOUDTIK_TAG_NODE_STATUS, STATUS_UPDATE_FAILED)
+    STATUS_UNINITIALIZED, STATUS_UP_TO_DATE, CLOUDTIK_TAG_NODE_STATUS, STATUS_UPDATE_FAILED, CLOUDTIK_TAG_NODE_NUMBER,
+    CLOUDTIK_TAG_HEAD_NODE_NUMBER)
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.node.node_updater import NodeUpdaterThread
 from cloudtik.core._private.event_system import (CreateClusterEvent, global_event_system)
@@ -880,6 +881,7 @@ def get_or_create_head_node(config: Dict[str, Any],
             head_node_tags[CLOUDTIK_TAG_NODE_NAME] = "cloudtik-{}-head".format(
                 config["cluster_name"])
             head_node_tags[CLOUDTIK_TAG_NODE_STATUS] = STATUS_UNINITIALIZED
+            head_node_tags[CLOUDTIK_TAG_NODE_NUMBER] = str(CLOUDTIK_TAG_HEAD_NODE_NUMBER)
             provider.create_node(head_node_config, head_node_tags, 1)
             cli_logger.print("Launched a new head node")
 

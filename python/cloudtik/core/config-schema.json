@@ -53,12 +53,17 @@
         },
         "bootstrapped": {
             "type": "boolean",
-            "description": "Mark whether the config file is already bootstrapped or not",
+            "description": "Mark whether the config file is already bootstrapped or not (Internal use. Don't set)",
             "default": false
         },
         "cloudtik_wheel_url": {
             "type": "string",
             "description": "The CloudTik wheel URL from which to download and install when needed"
+        },
+        "disable_node_number": {
+            "type": "boolean",
+            "description": "Whether disable the feature of assigning node number to each node",
+            "default": false
         },
         "provider": {
             "type": "object",

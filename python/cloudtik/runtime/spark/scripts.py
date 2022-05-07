@@ -8,6 +8,7 @@ from cloudtik.core._private.cli_logger import (cli_logger)
 
 from shlex import quote
 
+from cloudtik.core._private.utils import run_bash_scripts, run_system_command
 from cloudtik.runtime.spark.utils import RUNTIME_ROOT_PATH, update_spark_configurations
 
 RUNTIME_SCRIPTS_PATH = os.path.join(
@@ -18,24 +19,8 @@ SERVICES_SCRIPT_PATH = os.path.join(RUNTIME_SCRIPTS_PATH, "services.sh")
 logger = logging.getLogger(__name__)
 
 
-def run_system_command(cmd: str):
-    result = os.system(cmd)
-    if result != 0:
-        raise RuntimeError(f"Error happened in running: {cmd}")
-
-
 def run_services_command(command: str, script_args):
-    cmds = [
-        "bash",
-        SERVICES_SCRIPT_PATH,
-    ]
-
-    cmds += [command]
-    if script_args:
-        cmds += list(script_args)
-    final_cmd = " ".join(cmds)
-
-    run_system_command(final_cmd)
+    run_bash_scripts(command, SERVICES_SCRIPT_PATH, script_args)
 
 
 @click.group()

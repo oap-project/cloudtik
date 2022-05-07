@@ -98,7 +98,7 @@ def configure(head, head_address, script_args):
 
     # Configure other connectors
     runtime_config = load_head_cluster_config().get(
-        "runtimes") if head else pull_runtime_config()
+        "runtime") if head else pull_runtime_config()
     configure_connectors(runtime_config)
 
 

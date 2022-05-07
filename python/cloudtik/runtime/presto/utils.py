@@ -167,10 +167,17 @@ def _with_memory_configurations(
 
 
 def configure_connectors(runtime_config: Dict[str, Any]):
-    if (runtime_config is None) or ("catalogs" not in runtime_config):
+    if runtime_config is None:
         return
 
-    catalogs = runtime_config["catalogs"]
+    presto_config = runtime_config.get("presto")
+    if presto_config is None:
+        return
+
+    catalogs = presto_config.get("catalogs")
+    if catalogs is None:
+        return
+
     for catalog in catalogs:
         catalog_config = catalogs[catalog]
         configure_connector(catalog, catalog_config)

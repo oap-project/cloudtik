@@ -2,6 +2,7 @@ import os
 from typing import Any, Dict
 
 from cloudtik.core._private.providers import _get_workspace_provider
+from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_METASTORE
 from cloudtik.core._private.utils import merge_rooted_config_hierarchy, _get_runtime_config_object, is_runtime_enabled, \
     get_node_type, get_resource_of_node_type, round_memory_size_to_gb
 
@@ -83,7 +84,7 @@ def _with_runtime_environment_variables(runtime_config, config, provider, node_i
 
     # 1) Try to use local metastore if there is one started;
     # 2) Try to use defined metastore_uri;
-    if is_runtime_enabled(runtime_config, "metastore"):
+    if is_runtime_enabled(runtime_config, BUILT_IN_RUNTIME_METASTORE):
         runtime_envs["METASTORE_ENABLED"] = True
     elif presto_config.get("hive_metastore_uri") is not None:
         runtime_envs["HIVE_METASTORE_URI"] = presto_config.get("hive_metastore_uri")

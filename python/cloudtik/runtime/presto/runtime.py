@@ -1,6 +1,7 @@
 import logging
 from typing import Any, Dict
 
+from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_HDFS, BUILT_IN_RUNTIME_METASTORE
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.runtime import Runtime
 from cloudtik.runtime.presto.utils import _config_runtime_resources, _with_runtime_environment_variables, \
@@ -80,3 +81,7 @@ class PrestoRuntime(Runtime):
         ["cloudtik_cluster_controller.py", False, "ClusterController", "head"],
         """
         return _get_runtime_processes()
+
+    @staticmethod
+    def get_dependencies():
+        return [BUILT_IN_RUNTIME_HDFS, BUILT_IN_RUNTIME_METASTORE]

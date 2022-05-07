@@ -164,3 +164,24 @@ def _with_memory_configurations(
     runtime_envs["PRESTO_MAX_TOTAL_MEMORY_PER_NODE"] = query_max_total_memory_per_node
     runtime_envs["PRESTO_HEAP_HEADROOM_PER_NODE"] = \
         get_memory_heap_headroom_per_node(jvm_max_memory)
+
+
+def configure_connectors(runtime_config: Dict[str, Any]):
+    if (runtime_config is None) or ("catalogs" not in runtime_config):
+        return
+
+    catalogs = runtime_config["catalogs"]
+    for catalog in catalogs:
+        catalog_config = catalogs[catalog]
+        configure_connector(catalog, catalog_config)
+
+
+def configure_connector(catalog: str, catalog_config: Dict[str, Any]):
+    catalog_filename = f"{catalog}.properties"
+    catalog_properties_file = os.path.join(
+        os.getenv("PRESTO_HOME"), "etc/catalog", catalog_filename)
+
+    mode = 'a' if os.path.exists(catalog_properties_file) else 'w'
+    with open(catalog_properties_file, mode) as f:
+        for key, value in catalog_config.items():
+            f.write("{}={}\n".format(key, value))

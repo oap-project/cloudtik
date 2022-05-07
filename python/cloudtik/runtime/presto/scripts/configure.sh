@@ -145,7 +145,7 @@ function update_storage_config() {
 function update_hive_metastore_config() {
     # To be improved for external metastore cluster
     catalog_dir=$output_dir/presto/catalog
-    hive_properties=${catolog_dir}/hive.properties
+    hive_properties=${catalog_dir}/hive.properties
     if [ "$METASTORE_ENABLED" == "true" ] || [ ! -z "$HIVE_METASTORE_URI" ]; then
         if [ "$METASTORE_ENABLED" == "true" ]; then
             METASTORE_IP=${HEAD_ADDRESS}

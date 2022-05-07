@@ -5,8 +5,9 @@ import logging
 from cloudtik.core._private import constants
 from cloudtik.core._private import logging_utils
 from cloudtik.core._private.cli_logger import (cli_logger)
+from cloudtik.core._private.utils import pull_runtime_config
 
-from cloudtik.runtime.presto.utils import RUNTIME_ROOT_PATH
+from cloudtik.runtime.presto.utils import RUNTIME_ROOT_PATH, configure_connectors
 
 RUNTIME_SCRIPTS_PATH = os.path.join(
     RUNTIME_ROOT_PATH, "scripts")
@@ -34,6 +35,7 @@ def run_services_command(command: str, script_args):
     final_cmd = " ".join(cmds)
 
     run_system_command(final_cmd)
+
 
 @click.group()
 @click.option(
@@ -108,6 +110,10 @@ def configure(head, head_address, script_args):
 
     final_cmd = " ".join(cmds)
     run_system_command(final_cmd)
+
+    # Configure other connectors
+    runtime_config = pull_runtime_config()
+    configure_connectors(runtime_config)
 
 
 @click.command(context_settings={"ignore_unknown_options": True})

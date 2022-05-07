@@ -763,14 +763,16 @@ class ClusterScaler:
                         "Cluster config validation failed. ",
                         exc_info=e)
 
+            runtime_conf = {
+                "worker_setup_commands": get_commands_to_run(new_config, "worker_setup_commands"),
+                "worker_start_commands": get_commands_to_run(new_config, "worker_start_commands"),
+                "runtime": new_config.get("runtime", {})
+            }
             (new_runtime_hash,
              new_file_mounts_contents_hash) = hash_runtime_conf(
                  new_config["file_mounts"],
                  new_config["cluster_synced_files"],
-                 [
-                     get_commands_to_run(new_config, "worker_setup_commands"),
-                     get_commands_to_run(new_config, "worker_start_commands"),
-                 ],
+                 runtime_conf,
                  generate_file_mounts_contents_hash=sync_continuously,
              )
 

@@ -1033,8 +1033,44 @@ def merge_docker_initialization_commands(merged_commands, group_name, from_confi
 
 
 def merge_cluster_config(config):
+    reorder_runtimes_for_dependency(config)
     merge_commands(config)
     merge_runtime_config(config)
+
+
+def make_sure_dependency_order(
+        reordered_runtimes: List[str],
+        runtime: str, dependency: str):
+    runtime_index = reordered_runtimes.index(runtime)
+    dependency_index = reordered_runtimes.index(dependency)
+    if dependency_index > runtime_index:
+        # Needs to move dependency ahead
+        reordered_runtimes.pop(dependency_index)
+        reordered_runtimes.insert(runtime_index, dependency)
+
+
+def reorder_runtimes_for_dependency(config):
+    runtime_config = config.get("runtime")
+    if runtime_config is None:
+        return
+
+    runtime_types = runtime_config.get("types", [])
+    if len(runtime_types) == 0:
+        return
+
+    reordered_runtimes = copy.deepcopy(runtime_types)
+    for runtime_type in runtime_types:
+        runtime_cls = _get_runtime_cls(runtime_type)
+        dependencies = runtime_cls.get_dependencies()
+        if reordered_runtimes is None:
+            continue
+
+        # For each dependency, if it is appeared behind the current runtime, move it ahead
+        for dependency in dependencies:
+            make_sure_dependency_order(
+                runtime=runtime_type, dependency=dependency)
+
+    runtime_config["types"] = reordered_runtimes
 
 
 def merge_runtime_config(config):

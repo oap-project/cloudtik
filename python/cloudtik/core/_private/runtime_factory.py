@@ -13,6 +13,12 @@ _runtime_instances = ConcurrentObjectCache()
 
 RUNTIME_MINIMAL_EXTERNAL_CONFIG = {}
 
+BUILT_IN_RUNTIME_GANGLIA = "ganglia"
+BUILT_IN_RUNTIME_HDFS = "hdfs"
+BUILT_IN_RUNTIME_METASTORE = "metastore"
+BUILT_IN_RUNTIME_SPARK = "spark"
+BUILT_IN_RUNTIME_PRESTO = "presto"
+
 
 def _import_ganglia():
     from cloudtik.runtime.ganglia.runtime import GangliaRuntime

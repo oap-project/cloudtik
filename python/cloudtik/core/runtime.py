@@ -87,3 +87,11 @@ class Runtime:
         ["cloudtik_cluster_controller.py", False, "ClusterController", "head"],
         """
         return []
+
+    @staticmethod
+    def get_dependencies():
+        """Return a list of runtimes which can be used by this runtime.
+        This is for the purposes of reorder the installing, configuring and starting of the runtimes.
+        If there is no such information, the runtime will installed and started in the user order
+        """
+        return []

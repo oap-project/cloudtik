@@ -1163,7 +1163,6 @@ def merge_commands_for_node_types(config, built_in_commands):
                            built_in_commands=built_in_commands)
 
         node_type_config[MERGED_COMMAND_KEY] = new_node_type_config[MERGED_COMMAND_KEY]
-        print("{}".format(node_type_config))
 
 
 def inherit_commands_from(target_config, from_config):

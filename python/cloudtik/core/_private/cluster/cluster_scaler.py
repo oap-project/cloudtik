@@ -30,7 +30,7 @@ from cloudtik.core.tags import (
     CLOUDTIK_TAG_LAUNCH_CONFIG, CLOUDTIK_TAG_RUNTIME_CONFIG,
     CLOUDTIK_TAG_FILE_MOUNTS_CONTENTS, CLOUDTIK_TAG_NODE_STATUS, CLOUDTIK_TAG_NODE_KIND,
     CLOUDTIK_TAG_USER_NODE_TYPE, STATUS_UP_TO_DATE, STATUS_UPDATE_FAILED,
-    NODE_KIND_WORKER, NODE_KIND_UNMANAGED, NODE_KIND_HEAD)
+    NODE_KIND_WORKER, NODE_KIND_UNMANAGED, NODE_KIND_HEAD, CLOUDTIK_TAG_NODE_NUMBER, CLOUDTIK_TAG_HEAD_NODE_NUMBER)
 from cloudtik.core._private.cluster.event_summarizer import EventSummarizer
 from cloudtik.core._private.cluster.cluster_metrics import ClusterMetrics
 from cloudtik.core._private.prometheus_metrics import ClusterPrometheusMetrics
@@ -182,9 +182,15 @@ class ClusterScaler:
         self.prometheus_metrics = prometheus_metrics or \
                             ClusterPrometheusMetrics()
         self.resource_demand_scheduler = None
+
         # The secrets shared between the workers and the head
         self.secrets = AESCipher.generate_key()
         self.runtime_config_hash = None
+
+        # The next node number to assign
+        # will be initialized by the max node number from the existing nodes
+        self.next_node_number = None
+
         self.reset(errors_fatal=True)
         self.cluster_metrics = cluster_metrics
 
@@ -219,6 +225,10 @@ class ClusterScaler:
         # meaningful node "type" to enforce.
         self.disable_launch_config_check = self.config["provider"].get(
             "disable_launch_config_check", False)
+
+        # Disable the feature to assign each node with a unique number
+        self.disable_node_number = self.config.get(
+            "disable_node_number", False)
 
         # Node launchers
         self.launch_queue = queue.Queue()
@@ -302,6 +312,10 @@ class ClusterScaler:
         logger.info(self.info_string())
 
         self.terminate_nodes_to_enforce_config_constraints(now)
+
+        if not self.disable_node_number:
+            # Assign node number to new nodes
+            self.assign_node_number_to_new_nodes()
 
         if self.disable_node_updaters:
             self.terminate_unhealthy_nodes(now)
@@ -476,7 +490,7 @@ class ClusterScaler:
         and/or start services.
         """
         # Update nodes with out-of-date files.
-        # TODO(edoakes): Spawning these threads directly seems to cause
+        # Spawning these threads directly seems to cause
         # problems. They should at a minimum be spawned as daemon threads.
         # See pull #5903 for more info.
         T = []
@@ -1081,7 +1095,7 @@ class ClusterScaler:
             return False
         if not self.launch_config_ok(node_id):
             return False
-        if self.num_failed_updates.get(node_id, 0) > 0:  # TODO(ekl) retry?
+        if self.num_failed_updates.get(node_id, 0) > 0:  # TODO: retry?
             return False
         logger.debug(f"{node_id} is not being updated and "
                      "passes config check (can_update=True).")
@@ -1180,3 +1194,26 @@ class ClusterScaler:
         cluster_metrics_summary = self.cluster_metrics.summary()
         scaler_summary = self.summary()
         return "\n" + format_info_string(cluster_metrics_summary, scaler_summary)
+
+    def _init_next_node_number(self):
+        self.next_node_number = CLOUDTIK_TAG_HEAD_NODE_NUMBER + 1
+        for node_id in self.non_terminated_nodes.worker_ids:
+            node_number_tag = self.provider.node_tags(node_id).get(CLOUDTIK_TAG_NODE_NUMBER)
+            if node_number_tag is None:
+                continue
+
+            node_number = int(node_number_tag)
+            if node_number > self.next_node_number:
+                self.next_node_number = node_number
+
+    def assign_node_number_to_new_nodes(self):
+        if self.next_node_number is None:
+            self._init_next_node_number()
+
+        for node_id in self.non_terminated_nodes.worker_ids:
+            node_number_tag = self.provider.node_tags(node_id).get(CLOUDTIK_TAG_NODE_NUMBER)
+            if node_number_tag is None:
+                # New node, assign the node number
+                self.provider.set_node_tags(
+                    node_id, {CLOUDTIK_TAG_NODE_NUMBER: str(self.next_node_number)})
+                self.next_node_number += 1

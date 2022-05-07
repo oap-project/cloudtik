@@ -40,3 +40,8 @@ CLOUDTIK_TAG_FILE_MOUNTS_CONTENTS = "cloudtik-file-mounts-contents"
 # The prefix used for global variables published to workspace
 CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX = "cloudtik-global-"
 CLOUDTIK_GLOBAL_VARIABLE_KEY = CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX + "{}"
+
+# The cluster wide unique numeric id for the node
+CLOUDTIK_TAG_NODE_NUMBER = "cloudtik-node-number"
+# The head node will always be assigned with number 1
+CLOUDTIK_TAG_HEAD_NODE_NUMBER = 1

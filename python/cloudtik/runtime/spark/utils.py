@@ -4,7 +4,7 @@ import yaml
 
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_HDFS, BUILT_IN_RUNTIME_METASTORE
 from cloudtik.core._private.utils import merge_rooted_config_hierarchy, \
-    _get_runtime_config_object, is_runtime_enabled, round_memory_size_to_gb
+    _get_runtime_config_object, is_runtime_enabled, round_memory_size_to_gb, load_head_cluster_config
 from cloudtik.core._private.workspace.workspace_operator import _get_workspace_provider
 
 RUNTIME_PROCESSES = [
@@ -197,11 +197,7 @@ def _get_spark_config(config: Dict[str, Any]):
 
 def update_spark_configurations():
     # Merge user specified configuration and default configuration
-    bootstrap_config = os.path.expanduser("~/cloudtik_bootstrap_config.yaml")
-    if not os.path.exists(bootstrap_config):
-        return
-
-    config = yaml.safe_load(open(bootstrap_config).read())
+    config = load_head_cluster_config()
     spark_config = _get_spark_config(config)
     if not spark_config:
         return

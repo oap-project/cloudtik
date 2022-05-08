@@ -140,7 +140,8 @@ def _run_and_process_output(cmd,
                             stderr_file=None,
                             use_login_shells=False,
                             allow_interactive=True,
-                            output_redirected=False
+                            output_redirected=False,
+                            cmd_to_print=None,
                             ):
     """Run a command and process its output for special cases.
 
@@ -154,7 +155,7 @@ def _run_and_process_output(cmd,
     Args:
         cmd (List[str]): Command to run.
         process_runner: Used for command execution. Assumed to have
-            'check_call' and 'check_output' inplemented.
+            'check_call' and 'check_output' implemented.
         stdout_file: File to redirect stdout to.
         stderr_file: File to redirect stderr to.
 
@@ -263,7 +264,7 @@ def _run_and_process_output(cmd,
                     "Command failed",
                     "ssh_command_failed",
                     code=p.returncode,
-                    command=cmd,
+                    command=cmd if cmd_to_print is None else cmd_to_print,
                     special_case=detected_special_case)
             elif p.returncode < 0:
                 # Process failed due to a signal, since signals
@@ -272,7 +273,7 @@ def _run_and_process_output(cmd,
                     "Command failed",
                     "ssh_command_failed",
                     code=p.returncode,
-                    command=cmd,
+                    command=cmd if cmd_to_print is None else cmd_to_print,
                     special_case="died_to_signal")
 
             return p.returncode
@@ -283,7 +284,8 @@ def run_cmd_redirected(cmd,
                        silent=False,
                        use_login_shells=False,
                        allow_interactive=True,
-                       output_redirected=False
+                       output_redirected=False,
+                       cmd_to_print=None,
                        ):
     """Run a command and optionally redirect output to a file.
 
@@ -294,6 +296,7 @@ def run_cmd_redirected(cmd,
                        (redirected to /dev/null), unless verbose logging
                        is enabled. Use this for runnign utility commands like
                        rsync.
+        cmd_to_print (List[str]): Command to print for error cases.
     """
     if silent and cli_logger.verbosity < 1:
         return _run_and_process_output(
@@ -303,7 +306,8 @@ def run_cmd_redirected(cmd,
             stderr_file=process_runner.DEVNULL,
             use_login_shells=use_login_shells,
             allow_interactive=allow_interactive,
-            output_redirected=output_redirected)
+            output_redirected=output_redirected,
+            cmd_to_print=cmd_to_print)
 
     if not output_redirected:
         return _run_and_process_output(
@@ -313,7 +317,8 @@ def run_cmd_redirected(cmd,
             stderr_file=sys.stderr,
             use_login_shells=use_login_shells,
             allow_interactive=allow_interactive,
-            output_redirected=output_redirected)
+            output_redirected=output_redirected,
+            cmd_to_print=cmd_to_print)
     else:
         tmpfile_path = os.path.join(
             tempfile.gettempdir(), "cloudtik-out-{}-{}.txt".format(
@@ -333,7 +338,8 @@ def run_cmd_redirected(cmd,
                 stderr_file=tmp,
                 use_login_shells=use_login_shells,
                 allow_interactive=allow_interactive,
-                output_redirected=output_redirected)
+                output_redirected=output_redirected,
+                cmd_to_print=cmd_to_print)
 
 
 def handle_ssh_fails(e, first_conn_refused_time, retry_interval):

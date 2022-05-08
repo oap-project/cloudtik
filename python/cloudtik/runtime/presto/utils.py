@@ -4,7 +4,7 @@ from typing import Any, Dict
 from cloudtik.core._private.providers import _get_workspace_provider
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_METASTORE
 from cloudtik.core._private.utils import merge_rooted_config_hierarchy, _get_runtime_config_object, is_runtime_enabled, \
-    get_node_type, get_resource_of_node_type, round_memory_size_to_gb
+    get_node_type, get_resource_of_node_type, round_memory_size_to_gb, RUNTIME_CONFIG_KEY
 
 RUNTIME_PROCESSES = [
     # The first element is the substring to filter.
@@ -43,7 +43,7 @@ def _config_runtime_resources(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-    runtime_config = cluster_config.get("runtime")
+    runtime_config = cluster_config.get(RUNTIME_CONFIG_KEY)
     if "presto" not in runtime_config:
         runtime_config["presto"] = {}
     presto_config = runtime_config["presto"]
@@ -81,7 +81,7 @@ def _get_runnable_command(target):
 def _with_runtime_environment_variables(runtime_config, config, provider, node_id: str):
     runtime_envs = {"PRESTO_ENABLED": True}
     presto_config = runtime_config.get("presto", {})
-    cluster_runtime_config = config.get("runtime")
+    cluster_runtime_config = config.get(RUNTIME_CONFIG_KEY)
 
     # 1) Try to use local metastore if there is one started;
     # 2) Try to use defined metastore_uri;

@@ -46,7 +46,7 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     with_head_node_ip_environment_variables, get_verified_runtime_list, get_commands_of_runtimes, \
     is_node_in_completed_status, check_for_single_worker_type, get_preferred_cpu_bundle_size, \
     _get_node_specific_commands, get_node_specific_commands_of_runtimes, _get_node_specific_runtime_config, \
-    _get_node_specific_docker_config
+    _get_node_specific_docker_config, RUNTIME_CONFIG_KEY
 
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
@@ -380,7 +380,7 @@ def _bootstrap_config(config: Dict[str, Any],
                      _PROVIDER_PRETTY_NAMES.get(config["provider"]["type"]))
     try:
         config = provider_cls.fillout_available_node_types_resources(config)
-        config = runtime_prepare_config(config.get("runtime"), config)
+        config = runtime_prepare_config(config.get(RUNTIME_CONFIG_KEY), config)
     except Exception as exc:
         if cli_logger.verbosity > 2:
             logger.exception("Failed to detect node resources.")
@@ -967,7 +967,7 @@ def get_or_create_head_node(config: Dict[str, Any],
             },
             docker_config=config.get("docker"),
             restart_only=restart_only,
-            runtime_config=config.get("runtime"))
+            runtime_config=config.get(RUNTIME_CONFIG_KEY))
         updater.start()
         updater.join()
 
@@ -1849,7 +1849,7 @@ def show_useful_commands(config_file: str,
 
         head_node_cluster_ip = get_node_cluster_ip(provider, head_node)
 
-        runtime_urls = get_useful_runtime_urls(config.get("runtime"), head_node_cluster_ip)
+        runtime_urls = get_useful_runtime_urls(config.get(RUNTIME_CONFIG_KEY), head_node_cluster_ip)
         for runtime_url in runtime_urls:
             with cli_logger.group(runtime_url["name"] + ":"):
                 cli_logger.print(runtime_url["url"])
@@ -3001,7 +3001,7 @@ def submit_and_exec(config: Dict[str, Any],
         command_parts = ["bash", target]
     else:
 
-        command_parts = get_runnable_command(config.get("runtime"), target)
+        command_parts = get_runnable_command(config.get(RUNTIME_CONFIG_KEY), target)
         if command_parts is None:
             cli_logger.error("We don't how to execute your file: {}", script)
             return

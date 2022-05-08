@@ -94,6 +94,7 @@ TEMPORARY_COMMAND_KEYS = [
                 "stop_commands"]
 
 MERGED_COMMAND_KEY = "merged_commands"
+RUNTIME_CONFIG_KEY = "runtime"
 
 pwd = None
 if sys.platform != "win32":
@@ -820,7 +821,7 @@ def validate_config(config: Dict[str, Any]) -> None:
     provider.validate_config(config["provider"])
 
     # add runtime config validate and testing
-    runtime_validate_config(config.get("runtime"), config, provider)
+    runtime_validate_config(config.get(RUNTIME_CONFIG_KEY), config, provider)
 
 
 def verify_config(config: Dict[str, Any]):
@@ -831,7 +832,7 @@ def verify_config(config: Dict[str, Any]):
     provider.verify_config(provider_config)
 
     # add runtime config validate and testing
-    runtime_verify_config(config.get("runtime"), config, provider)
+    runtime_verify_config(config.get(RUNTIME_CONFIG_KEY), config, provider)
 
 
 def prepare_config(config: Dict[str, Any]) -> Dict[str, Any]:
@@ -1022,7 +1023,7 @@ def merge_command_key(merged_commands, group_name, from_config, command_key):
 
 
 def merge_runtime_commands(config, commands_root):
-    runtime_config = commands_root.get("runtime")
+    runtime_config = commands_root.get(RUNTIME_CONFIG_KEY)
     if runtime_config is None:
         return
 
@@ -1096,9 +1097,9 @@ def _reorder_runtimes_for_dependency_of_node_types(config):
     node_types = config["available_node_types"]
     for node_type in node_types:
         node_type_config = node_types[node_type]
-        if "runtime" not in node_type_config:
+        if RUNTIME_CONFIG_KEY not in node_type_config:
             continue
-        node_type_runtime_config = node_type_config["runtime"]
+        node_type_runtime_config = node_type_config[RUNTIME_CONFIG_KEY]
         if "types" not in node_type_runtime_config:
             continue
 
@@ -1115,7 +1116,7 @@ def _reorder_runtimes_for_dependency_of_node_types(config):
 
 
 def _reorder_runtimes_for_dependency(config):
-    runtime_config = config.get("runtime")
+    runtime_config = config.get(RUNTIME_CONFIG_KEY)
     if runtime_config is None:
         return
 
@@ -1139,7 +1140,7 @@ def _reorder_runtimes_for_dependency(config):
 
 
 def merge_runtime_config(config):
-    runtime_config = config.get("runtime")
+    runtime_config = config.get(RUNTIME_CONFIG_KEY)
     if runtime_config is None:
         return
 
@@ -1208,12 +1209,12 @@ def inherit_commands_from(target_config, from_config):
 
 
 def inherit_runtime_types_from(target_config, from_config):
-    if "runtime" in from_config:
-        if "runtime" not in target_config:
-            target_config["runtime"] = {}
+    if RUNTIME_CONFIG_KEY in from_config:
+        if RUNTIME_CONFIG_KEY not in target_config:
+            target_config[RUNTIME_CONFIG_KEY] = {}
 
-        inherit_key_from(target_config["runtime"],
-                         from_config["runtime"], "types")
+        inherit_key_from(target_config[RUNTIME_CONFIG_KEY],
+                         from_config[RUNTIME_CONFIG_KEY], "types")
 
 
 def inherit_key_from(target_config, from_config, config_key):
@@ -1230,14 +1231,14 @@ def is_commands_merge_needed(config, node_type_config) -> bool:
             return True
 
     # 2. Check whether the runtime types is customized for this node
-    if ("runtime" in node_type_config) and (
-            "types" in node_type_config["runtime"]) and (
-            "runtime" in config) and (
-            "types" in config["runtime"]):
-        types = node_type_config["runtime"]["types"]
+    if (RUNTIME_CONFIG_KEY in node_type_config) and (
+            "types" in node_type_config[RUNTIME_CONFIG_KEY]) and (
+            RUNTIME_CONFIG_KEY in config) and (
+            "types" in config[RUNTIME_CONFIG_KEY]):
+        types = node_type_config[RUNTIME_CONFIG_KEY]["types"]
         # Check whether this types list is identical with global setting
         # It must be set if node specific is set
-        global_types = config["runtime"]["types"]
+        global_types = config[RUNTIME_CONFIG_KEY]["types"]
 
         types_set = set(types)
         global_types_set = set(global_types)
@@ -1290,9 +1291,9 @@ def _get_node_specific_runtime_types(config, node_id: str):
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     node_type_config = _get_node_specific_config(config, provider, node_id)
     if (node_type_config is not None) and (
-            "runtime" in node_type_config) and (
-            "types" in node_type_config["runtime"]):
-        return node_type_config["runtime"]["types"]
+            RUNTIME_CONFIG_KEY in node_type_config) and (
+            "types" in node_type_config[RUNTIME_CONFIG_KEY]):
+        return node_type_config[RUNTIME_CONFIG_KEY]["types"]
 
     return get_enabled_runtimes(config)
 
@@ -1387,15 +1388,15 @@ def _has_node_type_specific_config(config, node_type: str, config_key: str):
 
 
 def _has_node_type_specific_runtime_config(config, node_type: str):
-    return _has_node_type_specific_config(config, node_type, "runtime")
+    return _has_node_type_specific_config(config, node_type, RUNTIME_CONFIG_KEY)
 
 
 def _get_node_type_specific_runtime_config(config, node_type: str):
-    if "runtime" not in config:
+    if RUNTIME_CONFIG_KEY not in config:
         return None
-    runtime_config = config["runtime"]
+    runtime_config = config[RUNTIME_CONFIG_KEY]
     node_specific_runtime = _get_node_type_specific_fields(
-        config, node_type, "runtime")
+        config, node_type, RUNTIME_CONFIG_KEY)
     if node_specific_runtime is not None:
         runtime_config = copy.deepcopy(runtime_config)
         update_nested_dict(runtime_config, node_specific_runtime)
@@ -2326,7 +2327,7 @@ def get_runnable_command(runtime_config, target):
 
 
 def cluster_booting_completed(config, head_node_id):
-    runtime_config = config.get("runtime")
+    runtime_config = config.get(RUNTIME_CONFIG_KEY)
     if runtime_config is not  None:
         # Iterate through all the runtimes
         runtime_types = runtime_config.get("types", [])
@@ -2371,7 +2372,7 @@ def get_useful_runtime_urls(runtime_config, head_cluster_ip):
 
 
 def get_enabled_runtimes(config):
-    return config.get("runtime", {}).get("types", [])
+    return config.get(RUNTIME_CONFIG_KEY, {}).get("types", [])
 
 
 def is_runtime_enabled(runtime_config, runtime_type:str):
@@ -2438,7 +2439,7 @@ def _parse_runtime_list(runtimes: str):
 
 
 def verify_runtime_list(config: Dict[str, Any], runtimes: List[str]):
-    runtime_types = config.get("runtime", {}).get("types", [])
+    runtime_types = config.get(RUNTIME_CONFIG_KEY, {}).get("types", [])
     for runtime in runtimes:
         if runtime in runtime_types or runtime == CLOUDTIK_RUNTIME_NAME:
             continue

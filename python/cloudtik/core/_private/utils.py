@@ -61,6 +61,7 @@ CLOUDTIK_CLUSTER_SCALING_STATUS = "__cluster_scaling_status"
 
 # Internal kv key for publish runtime config.
 CLOUDTIK_CLUSTER_RUNTIME_CONFIG = "__cluster_runtime_config"
+CLOUDTIK_CLUSTER_RUNTIME_CONFIG_NODE_TYPE = "__cluster_runtime_config_{}"
 
 PLACEMENT_GROUP_RESOURCE_BUNDLED_PATTERN = re.compile(
     r"(.+)_group_(\d+)_([0-9a-zA-Z]+)")
@@ -1285,9 +1286,9 @@ def combine_initialization_commands(config, merged_commands):
     merged_commands["initialization_commands"] = initialization_commands
 
 
-def _get_node_type_specific_runtime_types(config, node_id: str):
+def _get_node_specific_runtime_types(config, node_id: str):
     provider = _get_node_provider(config["provider"], config["cluster_name"])
-    node_type_config = _get_node_type_specific_config(config, provider, node_id)
+    node_type_config = _get_node_specific_config(config, provider, node_id)
     if (node_type_config is not None) and (
             "runtime" in node_type_config) and (
             "types" in node_type_config["runtime"]):
@@ -1296,17 +1297,48 @@ def _get_node_type_specific_runtime_types(config, node_id: str):
     return get_enabled_runtimes(config)
 
 
-def _get_node_type_specific_commands(config, provider, node_id: str,
+def _get_node_specific_commands(config, provider, node_id: str,
+                                command_key: str) -> Any:
+    node_type = get_node_type(provider, node_id)
+    return _get_node_type_specific_commands(config, node_type, command_key)
+
+
+def _get_node_type_config(config, node_type: str) -> Any:
+    if node_type is None:
+        return None
+
+    available_node_types = config["available_node_types"]
+    if node_type not in available_node_types:
+        raise ValueError(f"Unknown node type: {node_type}.")
+    return available_node_types[node_type]
+
+
+def _get_node_type_specific_fields(config, node_type: str,
+                                   fields_key: str) -> Any:
+    fields = None
+    node_specific_config = _get_node_type_config(config, node_type)
+    if (node_specific_config is not None) and (
+            fields_key in node_specific_config):
+        fields = node_specific_config[fields_key]
+
+    return fields
+
+
+def _has_node_type_specific_commands(config, node_type: str):
+    return _has_node_type_specific_config(config, node_type, MERGED_COMMAND_KEY)
+
+
+def _get_node_type_specific_commands(config, node_type: str,
                                      command_key: str) -> Any:
     commands = get_commands_to_run(config, command_key)
-    node_specific_config = _get_node_type_specific_config(config, provider, node_id)
-    if (node_specific_config is not None) and (
-            MERGED_COMMAND_KEY in node_specific_config):
-        commands = get_commands_to_run(node_specific_config, command_key)
+    node_type_config = _get_node_type_config(config, node_type)
+    if (node_type_config is not None) and (
+            MERGED_COMMAND_KEY in node_type_config):
+        commands = get_commands_to_run(node_type_config, command_key)
     return commands
 
 
-def _get_node_type_specific_config(config, provider, node_id: str) -> Any:
+def _get_node_specific_config(config, provider, node_id: str) -> Any:
     node_tags = provider.node_tags(node_id)
     if CLOUDTIK_TAG_USER_NODE_TYPE in node_tags:
         node_type = node_tags[CLOUDTIK_TAG_USER_NODE_TYPE]
@@ -1318,10 +1350,10 @@ def _get_node_type_specific_config(config, provider, node_id: str) -> Any:
     return None
 
 
-def _get_node_type_specific_fields(config, provider, node_id: str,
-                                   fields_key: str) -> Any:
+def _get_node_specific_fields(config, provider, node_id: str,
+                              fields_key: str) -> Any:
     fields = None
-    node_specific_config = _get_node_type_specific_config(config, provider, node_id)
+    node_specific_config = _get_node_specific_config(config, provider, node_id)
     if (node_specific_config is not None) and (
             fields_key in node_specific_config):
         fields = node_specific_config[fields_key]
@@ -1333,7 +1365,7 @@ def _get_node_specific_docker_config(config, provider, node_id):
     if "docker" not in config:
         return {}
     docker_config = config["docker"]
-    node_specific_docker = _get_node_type_specific_fields(
+    node_specific_docker = _get_node_specific_fields(
         config, provider, node_id, "docker")
     if node_specific_docker is not None:
         docker_config = copy.deepcopy(docker_config)
@@ -1342,11 +1374,28 @@ def _get_node_specific_docker_config(config, provider, node_id):
 
 
 def _get_node_specific_runtime_config(config, provider, node_id):
+    node_type = get_node_type(provider, node_id)
+    return _get_node_type_specific_runtime_config(config, node_type)
+
+
+def _has_node_type_specific_config(config, node_type: str, config_key: str):
+    node_type_config = _get_node_type_config(config, node_type)
+    if (node_type_config is not None) and (
+            config_key in node_type_config):
+        return True
+    return False
+
+
+def _has_node_type_specific_runtime_config(config, node_type: str):
+    return _has_node_type_specific_config(config, node_type, "runtime")
+
+
+def _get_node_type_specific_runtime_config(config, node_type: str):
     if "runtime" not in config:
         return None
     runtime_config = config["runtime"]
     node_specific_runtime = _get_node_type_specific_fields(
-        config, provider, node_id, "runtime")
+        config, node_type, "runtime")
     if node_specific_runtime is not None:
         runtime_config = copy.deepcopy(runtime_config)
         update_nested_dict(runtime_config, node_specific_runtime)
@@ -1358,10 +1407,10 @@ def get_commands_to_run(config, commands_key):
     return merged_commands.get(commands_key, [])
 
 
-def get_node_type_specific_commands_of_runtimes(
+def get_node_specific_commands_of_runtimes(
         config, provider, node_id: str,
         command_key: str, runtimes: Optional[List[str]] = None) -> Any:
-    commands_to_run = _get_node_type_specific_commands(
+    commands_to_run = _get_node_specific_commands(
         config, provider, node_id=node_id, command_key=command_key)
     return filter_commands_of_runtimes(commands_to_run, runtimes)
 
@@ -1518,10 +1567,35 @@ def hash_launch_conf(node_conf, auth):
 _hash_cache = {}
 
 
+def add_content_hashes(hasher, path, allow_non_existing_paths: bool = False):
+    def add_hash_of_file(fpath):
+        with open(fpath, "rb") as f:
+            for chunk in iter(lambda: f.read(2 ** 20), b""):
+                hasher.update(chunk)
+
+    path = os.path.expanduser(path)
+    if allow_non_existing_paths and not os.path.exists(path):
+        return
+    if os.path.isdir(path):
+        dirs = []
+        for dirpath, _, filenames in os.walk(path):
+            dirs.append((dirpath, sorted(filenames)))
+        for dirpath, filenames in sorted(dirs):
+            hasher.update(dirpath.encode("utf-8"))
+            for name in filenames:
+                hasher.update(name.encode("utf-8"))
+                fpath = os.path.join(dirpath, name)
+                add_hash_of_file(fpath)
+    else:
+        add_hash_of_file(path)
+
+
 def hash_runtime_conf(file_mounts,
                       cluster_synced_files,
                       extra_objs,
-                      generate_file_mounts_contents_hash=False):
+                      generate_file_mounts_contents_hash=False,
+                      generate_node_types_runtime_hash=False,
+                      config: Dict[str, Any] = None):
     """Returns two hashes, a runtime hash and file_mounts_content hash.
 
     The runtime hash is used to determine if the configuration or file_mounts
@@ -1535,37 +1609,18 @@ def hash_runtime_conf(file_mounts,
     runtime_hasher = hashlib.sha1()
     contents_hasher = hashlib.sha1()
 
-    def add_content_hashes(path, allow_non_existing_paths: bool = False):
-        def add_hash_of_file(fpath):
-            with open(fpath, "rb") as f:
-                for chunk in iter(lambda: f.read(2**20), b""):
-                    contents_hasher.update(chunk)
-
-        path = os.path.expanduser(path)
-        if allow_non_existing_paths and not os.path.exists(path):
-            return
-        if os.path.isdir(path):
-            dirs = []
-            for dirpath, _, filenames in os.walk(path):
-                dirs.append((dirpath, sorted(filenames)))
-            for dirpath, filenames in sorted(dirs):
-                contents_hasher.update(dirpath.encode("utf-8"))
-                for name in filenames:
-                    contents_hasher.update(name.encode("utf-8"))
-                    fpath = os.path.join(dirpath, name)
-                    add_hash_of_file(fpath)
-        else:
-            add_hash_of_file(path)
-
-    conf_str = (json.dumps(file_mounts, sort_keys=True).encode("utf-8") +
+    file_mounts_str = json.dumps(file_mounts, sort_keys=True).encode("utf-8")
+    conf_str = (file_mounts_str +
                 json.dumps(extra_objs, sort_keys=True).encode("utf-8"))
+
+    runtime_hash_for_node_types = None
+    head_node_contents_hash = None
 
     # Only generate a contents hash if generate_contents_hash is true or
     # if we need to generate the runtime_hash
     if conf_str not in _hash_cache or generate_file_mounts_contents_hash:
-        for local_path in sorted(file_mounts.values()):
-            add_content_hashes(local_path)
-        head_node_contents_hash = contents_hasher.hexdigest()
+        head_node_contents_hash = hash_contents(
+            contents_hasher, file_mounts)
 
         # Generate a new runtime_hash if its not cached
         # The runtime hash does not depend on the cluster_synced_files hash
@@ -1582,14 +1637,68 @@ def hash_runtime_conf(file_mounts,
                 # For cluster_synced_files, we let the path be non-existant
                 # because its possible that the source directory gets set up
                 # anytime over the life of the head node.
-                add_content_hashes(local_path, allow_non_existing_paths=True)
+                add_content_hashes(contents_hasher, local_path, allow_non_existing_paths=True)
 
         file_mounts_contents_hash = contents_hasher.hexdigest()
-
     else:
         file_mounts_contents_hash = None
 
-    return (_hash_cache[conf_str], file_mounts_contents_hash)
+    if generate_node_types_runtime_hash:
+        runtime_hash_for_node_types = hash_runtime_conf_for_node_types(
+            config, file_mounts, file_mounts_str, head_node_contents_hash)
+
+    return _hash_cache[conf_str], file_mounts_contents_hash, runtime_hash_for_node_types
+
+
+def hash_contents(hasher, file_mounts):
+    for local_path in sorted(file_mounts.values()):
+        add_content_hashes(hasher, local_path)
+    return hasher.hexdigest()
+
+
+def hash_runtime_conf_for_node_types(
+        config, file_mounts, file_mounts_str, head_node_contents_hash):
+    runtime_hash_for_node_types = {}
+    available_node_types = config["available_node_types"]
+    head_node_type = config["head_node_type"]
+    for node_type in available_node_types:
+        if node_type == head_node_type:
+            continue
+
+        # Check whether we have node type specific commands
+        # And runtime config, otherwise, we don't need
+        if (not _has_node_type_specific_commands(config, node_type)) and (
+                not _has_node_type_specific_runtime_config(config, node_type)):
+            continue
+
+        node_type_runtime_conf = {
+            "worker_setup_commands": _get_node_type_specific_commands(
+                config, node_type, "worker_setup_commands"),
+            "worker_start_commands": _get_node_type_specific_commands(
+                config, node_type, "worker_start_commands"),
+            "runtime": _get_node_type_specific_runtime_config(
+                config, node_type)
+        }
+
+        node_type_conf_str = (file_mounts_str +
+                              json.dumps(node_type_runtime_conf, sort_keys=True).encode("utf-8"))
+        if node_type_conf_str not in _hash_cache:
+            if head_node_contents_hash is None:
+                contents_hasher = hashlib.sha1()
+                head_node_contents_hash = hash_contents(
+                    contents_hasher, file_mounts)
+
+            node_type_runtime_hasher = hashlib.sha1()
+            node_type_runtime_hasher.update(node_type_conf_str)
+            node_type_runtime_hasher.update(head_node_contents_hash.encode("utf-8"))
+
+            node_type_runtime_hash = node_type_runtime_hasher.hexdigest()
+            _hash_cache[node_type_conf_str] = node_type_runtime_hash
+            runtime_hash_for_node_types[node_type] = node_type_runtime_hash
+        else:
+            runtime_hash_for_node_types[node_type] = _hash_cache[node_type_conf_str]
+
+    return runtime_hash_for_node_types
 
 
 def add_prefix(info_string, prefix):

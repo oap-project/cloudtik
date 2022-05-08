@@ -45,7 +45,7 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     cluster_booting_completed, load_head_cluster_config, get_runnable_command, get_cluster_uri, \
     with_head_node_ip_environment_variables, get_verified_runtime_list, get_commands_of_runtimes, \
     is_node_in_completed_status, check_for_single_worker_type, get_preferred_cpu_bundle_size, \
-    _get_node_type_specific_commands, get_node_type_specific_commands_of_runtimes, _get_node_specific_runtime_config, \
+    _get_node_specific_commands, get_node_specific_commands_of_runtimes, _get_node_specific_runtime_config, \
     _get_node_specific_docker_config
 
 from cloudtik.core._private.providers import _get_node_provider, \
@@ -916,9 +916,10 @@ def get_or_create_head_node(config: Dict[str, Any],
         # We could prompt the user for what they want to do here.
         # No need to pass in cluster_sync_files because we use this
         # hash to set up the head node
-        (runtime_hash, file_mounts_contents_hash) = hash_runtime_conf(
+        (runtime_hash,
+         file_mounts_contents_hash,
+         runtime_hash_for_node_types) = hash_runtime_conf(
             config["file_mounts"], None, config)
-
         if not no_controller_on_head:
             # Return remote_config_file to avoid prematurely closing it.
             config, remote_config_file = _set_up_config_for_head_node(
@@ -2565,7 +2566,7 @@ def _start_node_on_head(
                                                       runtimes=runtimes)
             node_runtime_envs = with_node_ip_environment_variables(head_node_ip, provider, node_id)
         else:
-            start_commands = get_node_type_specific_commands_of_runtimes(
+            start_commands = get_node_specific_commands_of_runtimes(
                 config, provider, node_id=node_id,
                 command_key="worker_start_commands", runtimes=runtimes)
             node_runtime_envs = with_node_ip_environment_variables(None, provider, node_id)
@@ -2816,7 +2817,7 @@ def _stop_node_on_head(
                                                      runtimes=runtimes)
             node_runtime_envs = with_node_ip_environment_variables(head_node_ip, provider, node_id)
         else:
-            stop_commands = get_node_type_specific_commands_of_runtimes(
+            stop_commands = get_node_specific_commands_of_runtimes(
                 config, provider, node_id=node_id,
                 command_key="worker_stop_commands", runtimes=runtimes)
             node_runtime_envs = with_node_ip_environment_variables(None, provider, node_id)

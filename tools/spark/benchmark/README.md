@@ -24,6 +24,6 @@ Replace the cluster configuration file, the paths, spark.driver.scale, spark.dri
 We provided the power test scala script **[tpcds-power-test.scala](./scripts/tpcds-power-test.scala)** for users to run TPC-DS power test with Cloudtik cluster.
 Execute the following command to submit and run the power test script on the cluster,
 ```buildoutcfg
-cloudtik submit your-cluster-config.yaml $CLOUTIK_HOME/tools/spark/benchmark/scripts/tpcds-power-test.scala --conf spark.driver.scaleFactor=1 --conf spark.driver.fsdir="s3a://s3_bucket_name" --conf spark.sql.shuffle.partitions=\$(cloudtik head info --worker-cpus) --conf spark.driver.iterations=1 --jars \$HOME/runtime/benchmark-tools/spark-sql-perf/target/scala-2.12/spark-sql-perf_2.12-0.5.1-SNAPSHOT.jar
+cloudtik submit your-cluster-config.yaml $CLOUTIK_HOME/tools/spark/benchmark/scripts/tpcds-power-test.scala --conf spark.driver.scaleFactor=1 --conf spark.driver.fsdir="s3a://s3_bucket_name" --conf spark.sql.shuffle.partitions="\$[\$(cloudtik head info --worker-cpus)*2]" --conf spark.driver.iterations=1 --jars \$HOME/runtime/benchmark-tools/spark-sql-perf/target/scala-2.12/spark-sql-perf_2.12-0.5.1-SNAPSHOT.jar
 ```
 Replace the cluster configuration file, the paths, spark.driver.scale, spark.driver.fsdir, spark.driver.iterations values in the above command for your case. 

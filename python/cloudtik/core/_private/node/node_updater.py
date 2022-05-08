@@ -7,7 +7,7 @@ from typing import Dict
 from threading import Thread
 
 from cloudtik.core._private.utils import with_runtime_environment_variables, with_node_ip_environment_variables, \
-    _get_cluster_uri, _is_use_internal_ip
+    _get_cluster_uri, _is_use_internal_ip, get_node_type
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_STATUS, CLOUDTIK_TAG_RUNTIME_CONFIG, \
     CLOUDTIK_TAG_FILE_MOUNTS_CONTENTS, \
     STATUS_UP_TO_DATE, STATUS_UPDATE_FAILED, STATUS_WAITING_FOR_SSH, \
@@ -18,7 +18,8 @@ from cloudtik.core._private.command_executor import \
 from cloudtik.core._private.log_timer import LogTimer
 from cloudtik.core._private.cli_logger import cli_logger, cf
 import cloudtik.core._private.subprocess_output_util as cmd_output_util
-from cloudtik.core._private.constants import CLOUDTIK_RESOURCES_ENV, CLOUDTIK_RUNTIME_ENV_NODE_NUMBER
+from cloudtik.core._private.constants import CLOUDTIK_RESOURCES_ENV, CLOUDTIK_RUNTIME_ENV_NODE_NUMBER, \
+    CLOUDTIK_RUNTIME_ENV_NODE_TYPE
 from cloudtik.core._private.event_system import (CreateClusterEvent,
                                                   global_event_system)
 
@@ -327,6 +328,11 @@ class NodeUpdater:
             self.node_id).get(CLOUDTIK_TAG_NODE_NUMBER)
         if node_number is not None:
             runtime_envs[CLOUDTIK_RUNTIME_ENV_NODE_NUMBER] = node_number
+
+        # With node type in the environment variables
+        node_type = get_node_type(self.provider, self.node_id)
+        if node_type is not None:
+            runtime_envs[CLOUDTIK_RUNTIME_ENV_NODE_TYPE] = node_type
         return runtime_envs
 
     def do_update(self):

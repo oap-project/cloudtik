@@ -15,7 +15,7 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 
 from cloudtik.core._private.utils import get_head_working_ip, get_node_cluster_ip, get_runtime_logs, \
-    get_runtime_processes, _get_node_specific_runtime_types
+    get_runtime_processes, _get_node_specific_runtime_types, DOCKER_CONFIG_KEY
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, \
     NODE_KIND_WORKER
 from cloudtik.core._private.cli_logger import cli_logger
@@ -782,7 +782,7 @@ def get_info_from_cluster_config(config: Dict[str, Any]) \
     ssh_key = config["auth"]["ssh_private_key"]
 
     docker = None
-    docker_config = config.get("docker", None)
+    docker_config = config.get(DOCKER_CONFIG_KEY, None)
     if docker_config and docker_config.get("enabled", False):
         docker = docker_config.get("container_name", None)
 

@@ -18,7 +18,7 @@ from six.moves import queue
 
 from cloudtik.core._private.call_context import CallContext
 from cloudtik.core._private.crypto import AESCipher
-from cloudtik.core._private.state.kv_store import kv_put
+from cloudtik.core._private.state.kv_store import kv_put, kv_del
 
 try:
     from urllib3.exceptions import MaxRetryError
@@ -44,8 +44,9 @@ from cloudtik.core._private.cluster.resource_demand_scheduler import \
 from cloudtik.core._private.utils import ConcurrentCounter, validate_config, \
     hash_launch_conf, hash_runtime_conf, \
     format_info_string, get_commands_to_run, with_head_node_ip_environment_variables, CLOUDTIK_CLUSTER_RUNTIME_CONFIG, \
-    encode_cluster_secrets, MERGED_COMMAND_KEY, _get_node_type_specific_commands, _get_node_type_specific_config, \
-    _get_node_specific_docker_config, _get_node_specific_runtime_config
+    encode_cluster_secrets, MERGED_COMMAND_KEY, _get_node_specific_commands, _get_node_specific_config, \
+    _get_node_specific_docker_config, _get_node_specific_runtime_config, CLOUDTIK_CLUSTER_RUNTIME_CONFIG_NODE_TYPE, \
+    _has_node_type_specific_runtime_config
 from cloudtik.core._private.constants import CLOUDTIK_MAX_NUM_FAILURES, \
     CLOUDTIK_MAX_LAUNCH_BATCH, CLOUDTIK_MAX_CONCURRENT_LAUNCHES, \
     CLOUDTIK_UPDATE_INTERVAL_S, CLOUDTIK_HEARTBEAT_TIMEOUT_S, CLOUDTIK_RUNTIME_ENV_SECRETS
@@ -186,7 +187,7 @@ class ClusterScaler:
 
         # The secrets shared between the workers and the head
         self.secrets = AESCipher.generate_key()
-        self.runtime_config_hash = None
+        self.pushed_runtime_config_hashes = {}
         self.runtime_hash_for_node_types = {}
 
         # The next node number to assign
@@ -779,21 +780,25 @@ class ClusterScaler:
                         "Cluster config validation failed. ",
                         exc_info=e)
 
-            runtime_conf = {
+            global_runtime_conf = {
                 "worker_setup_commands": get_commands_to_run(new_config, "worker_setup_commands"),
                 "worker_start_commands": get_commands_to_run(new_config, "worker_start_commands"),
                 "runtime": new_config.get("runtime", {})
             }
             (new_runtime_hash,
-             new_file_mounts_contents_hash) = hash_runtime_conf(
+             new_file_mounts_contents_hash,
+             new_runtime_hash_for_node_types) = hash_runtime_conf(
                  new_config["file_mounts"],
                  new_config["cluster_synced_files"],
-                 runtime_conf,
+                 global_runtime_conf,
                  generate_file_mounts_contents_hash=sync_continuously,
+                 generate_node_types_runtime_hash=True,
+                 config=new_config
              )
 
             self.config = new_config
             self.runtime_hash = new_runtime_hash
+            self.runtime_hash_for_node_types = new_runtime_hash_for_node_types
             self.file_mounts_contents_hash = new_file_mounts_contents_hash
             if not self.provider:
                 self.provider = _get_node_provider(self.config["provider"],
@@ -823,7 +828,7 @@ class ClusterScaler:
                     upscaling_speed)
 
             # Push the runtime config to redis encrypted with secrets
-            self._push_runtime_config(self.config.get("runtime"))
+            self._push_runtime_configs()
 
         except Exception as e:
             self.prometheus_metrics.reset_exceptions.inc()
@@ -833,7 +838,22 @@ class ClusterScaler:
                 logger.exception("Cluster Controller: "
                                  "Error parsing config.")
 
-    def _push_runtime_config(self, runtime_config: Dict[str, Any]):
+    def _push_runtime_configs(self):
+        # Push global runtime config
+        self._push_runtime_config(self.config.get("runtime"))
+
+        # For node types:
+        for node_type in self.available_node_types:
+            if _has_node_type_specific_runtime_config(self.config, node_type):
+                self._push_runtime_config(
+                    self.available_node_types[node_type].get("runtime"), node_type)
+            else:
+                self._delete_runtime_config(node_type)
+
+    def _push_runtime_config(self, runtime_config: Dict[str, Any], node_type: Optional[str] = None):
+        if node_type is None:
+            node_type = ""
+
         hasher = hashlib.sha1()
         if runtime_config:
             runtime_config_str = json.dumps(runtime_config, sort_keys=True)
@@ -842,18 +862,37 @@ class ClusterScaler:
 
         hasher.update(runtime_config_str.encode("utf-8"))
         new_runtime_config_hash = hasher.hexdigest()
-        if new_runtime_config_hash == self.runtime_config_hash:
+
+        pushed_runtime_config_hash = self.pushed_runtime_config_hashes.get(node_type)
+        if pushed_runtime_config_hash and new_runtime_config_hash == pushed_runtime_config_hash:
             return
-        self.runtime_config_hash = new_runtime_config_hash
+        self.pushed_runtime_config_hashes["node_type"] = new_runtime_config_hash
 
         # Encrypt and put
         cipher = AESCipher(self.secrets)
         encrypted_runtime_config = cipher.encrypt(runtime_config_str)
-        kv_put(CLOUDTIK_CLUSTER_RUNTIME_CONFIG,
+
+        if len(node_type) > 0:
+            runtime_config_key = CLOUDTIK_CLUSTER_RUNTIME_CONFIG_NODE_TYPE.format(node_type)
+        else:
+            runtime_config_key = CLOUDTIK_CLUSTER_RUNTIME_CONFIG
+        kv_put(runtime_config_key,
                encrypted_runtime_config, overwrite=True)
 
         logger.debug(
             f"Runtime config updated with hash digest: {new_runtime_config_hash}")
+
+    def _delete_runtime_config(self, node_type: Optional[str]):
+        if node_type is None:
+            node_type = ""
+
+        if len(node_type) > 0:
+            runtime_config_key = CLOUDTIK_CLUSTER_RUNTIME_CONFIG_NODE_TYPE.format(node_type)
+        else:
+            runtime_config_key = CLOUDTIK_CLUSTER_RUNTIME_CONFIG
+
+        kv_del(runtime_config_key)
+        self.pushed_runtime_config_hashes.pop("node_type", None)
 
     def _with_cluster_secrets(self, environment_variables: Dict[str, Any]):
         encoded_secrets = encode_cluster_secrets(self.secrets)
@@ -882,7 +921,7 @@ class ClusterScaler:
             return False
         return True
 
-    def get_node_runtime_hash(self, node_id, node_tags: None):
+    def get_node_runtime_hash(self, node_id, node_tags = None):
         if node_tags is None:
             node_tags = self.provider.node_tags(node_id)
         if CLOUDTIK_TAG_USER_NODE_TYPE in node_tags:
@@ -972,7 +1011,7 @@ class ClusterScaler:
         docker_config = self._get_node_specific_docker_config(node_id)
         runtime_config = self._get_node_specific_runtime_config(node_id)
 
-        start_commands = self._get_node_type_specific_commands(
+        start_commands = self._get_node_specific_commands(
                 node_id, "worker_start_commands")
         environment_variables = with_head_node_ip_environment_variables(
             head_node_ip)
@@ -1010,13 +1049,13 @@ class ClusterScaler:
         else:
             return "unknown_node_type"
 
-    def _get_node_type_specific_commands(self, node_id: str,
-                                         command_key: str) -> Any:
-        return _get_node_type_specific_commands(
+    def _get_node_specific_commands(self, node_id: str,
+                                    command_key: str) -> Any:
+        return _get_node_specific_commands(
             self.config, self.provider, node_id, command_key)
 
-    def _get_node_type_specific_config(self, node_id: str) -> Any:
-        return _get_node_type_specific_config(
+    def _get_node_specific_config(self, node_id: str) -> Any:
+        return _get_node_specific_config(
             self.config, self.provider, node_id)
 
     def _get_node_specific_docker_config(self, node_id):
@@ -1038,16 +1077,16 @@ class ClusterScaler:
         successful_updated = self.num_successful_updates.get(node_id, 0) > 0
         if successful_updated and self.config.get("restart_only", False):
             setup_commands = []
-            start_commands = self._get_node_type_specific_commands(
+            start_commands = self._get_node_specific_commands(
                 node_id, "worker_start_commands")
         elif successful_updated and self.config.get("no_restart", False):
-            setup_commands = self._get_node_type_specific_commands(
+            setup_commands = self._get_node_specific_commands(
                 node_id, "worker_setup_commands")
             start_commands = []
         else:
-            setup_commands = self._get_node_type_specific_commands(
+            setup_commands = self._get_node_specific_commands(
                 node_id, "worker_setup_commands")
-            start_commands = self._get_node_type_specific_commands(
+            start_commands = self._get_node_specific_commands(
                 node_id, "worker_start_commands")
 
         docker_config = self._get_node_specific_docker_config(node_id)
@@ -1069,7 +1108,7 @@ class ClusterScaler:
         runtime_hash = self.get_node_runtime_hash(node_id)
         runtime_config = self._get_node_specific_runtime_config(node_id)
 
-        initialization_commands = self._get_node_type_specific_commands(
+        initialization_commands = self._get_node_specific_commands(
             node_id, "initialization_commands")
         environment_variables = with_head_node_ip_environment_variables(
             head_node_ip)

@@ -15,7 +15,7 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 
 from cloudtik.core._private.utils import get_head_working_ip, get_node_cluster_ip, get_runtime_logs, \
-    get_runtime_processes, _get_node_type_specific_runtime_types
+    get_runtime_processes, _get_node_specific_runtime_types
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, \
     NODE_KIND_WORKER
 from cloudtik.core._private.cli_logger import cli_logger
@@ -547,7 +547,7 @@ def create_archive_for_remote_nodes(config: Dict[str, Any],
         for remote_node in remote_nodes:
             # get node type specific runtimes
             node_parameters = copy.deepcopy(parameters)
-            node_runtimes = _get_node_type_specific_runtime_types(config, remote_node.node_id)
+            node_runtimes = _get_node_specific_runtime_types(config, remote_node.node_id)
             node_parameters.set_runtimes(node_runtimes)
             executor.submit(
                 create_and_add_remote_data_to_local_archive,

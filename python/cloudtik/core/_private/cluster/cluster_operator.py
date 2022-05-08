@@ -43,9 +43,10 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     sum_worker_cpus, sum_worker_memory, get_useful_runtime_urls, get_enabled_runtimes, \
     with_node_ip_environment_variables, run_in_paralell_on_nodes, get_commands_to_run, \
     cluster_booting_completed, load_head_cluster_config, get_runnable_command, get_cluster_uri, \
-    with_head_node_ip_environment_variables, get_verified_runtime_list, get_commands_for_runtimes, \
+    with_head_node_ip_environment_variables, get_verified_runtime_list, get_commands_of_runtimes, \
     is_node_in_completed_status, check_for_single_worker_type, get_preferred_cpu_bundle_size, \
-    _get_node_type_specific_commands, get_node_type_specific_commands_of_runtimes, _get_node_specific_runtime_config
+    _get_node_type_specific_commands, get_node_type_specific_commands_of_runtimes, _get_node_specific_runtime_config, \
+    _get_node_specific_docker_config
 
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
@@ -1599,15 +1600,16 @@ def get_cluster_dump_archive_on_head(
 
     # Parse arguments (e.g. fetch info from cluster config)
     config = load_head_cluster_config()
-    head_node_ip, workers, ssh_user, ssh_key, docker, cluster_name = \
+    head, workers, ssh_user, ssh_key, docker, cluster_name = \
         _info_from_params(config, host, None, None, None)
 
     nodes = [
         Node(
-            host=h,
+            node_id=worker[0],
+            host=worker[1],
             ssh_user=ssh_user,
             ssh_key=ssh_key,
-            docker_container=docker) for h in workers
+            docker_container=docker) for worker in workers
     ]
 
     if not nodes:
@@ -1626,7 +1628,7 @@ def get_cluster_dump_archive_on_head(
 
     with Archive(file=tempfile) as archive:
         create_archive_for_remote_nodes(
-            archive, remote_nodes=nodes, parameters=parameters)
+            config, archive, remote_nodes=nodes, parameters=parameters)
 
     tmp = archive.file
 
@@ -1692,16 +1694,17 @@ def get_cluster_dump_archive(config_file: Optional[str] = None,
         config_file, override_cluster_name, no_config_cache=True)
 
     # Parse arguments (e.g. fetch info from cluster config)
-    head_node_ip, workers, ssh_user, ssh_key, docker, cluster_name = \
+    head, workers, ssh_user, ssh_key, docker, cluster_name = \
         _info_from_params(config, host, ssh_user, ssh_key, docker)
 
-    if not head_node_ip:
+    if not head[0]:
         cli_logger.error(
             "No head node found. Cluster may not be running. ")
         return None
 
     head_node = Node(
-            host=head_node_ip,
+            node_id=head[0],
+            host=head[1],
             ssh_user=ssh_user,
             ssh_key=ssh_key,
             docker_container=docker,
@@ -2466,9 +2469,13 @@ def create_node_updater_for_exec(config,
                                  start_commands,
                                  is_head_node: bool = False,
                                  use_internal_ip: bool = False,
+                                 runtime_config: Dict[str, Any] = None,
                                  process_runner: ModuleType = subprocess):
-    runtime_config = _get_node_specific_runtime_config(
-        config, provider, node_id)
+    if runtime_config is None:
+        runtime_config = _get_node_specific_runtime_config(
+            config, provider, node_id)
+    docker_config = _get_node_specific_docker_config(
+            config, provider, node_id)
     updater = NodeUpdaterThread(
         config=config,
         call_context=call_context,
@@ -2490,7 +2497,7 @@ def create_node_updater_for_exec(config,
             "rsync_exclude": config.get("rsync_exclude"),
             "rsync_filter": config.get("rsync_filter")
         },
-        docker_config=config.get("docker"),
+        docker_config=docker_config,
         runtime_config=runtime_config)
     return updater
 
@@ -2544,16 +2551,18 @@ def _start_node_on_head(
             cli_logger.print("Skip starting node {} as it is in setting up.", node_ip)
             return
 
+        runtime_config = _get_node_specific_runtime_config(
+            config, provider, node_id)
         runtime_envs = with_runtime_environment_variables(
-            config.get("runtime"), config=config, provider=provider, node_id=node_id)
+            runtime_config, config=config, provider=provider, node_id=node_id)
 
         is_head_node = False
         if node_id == head_node:
             is_head_node = True
 
         if is_head_node:
-            start_commands = get_commands_for_runtimes(config, "head_start_commands",
-                                                       runtimes=runtimes)
+            start_commands = get_commands_of_runtimes(config, "head_start_commands",
+                                                      runtimes=runtimes)
             node_runtime_envs = with_node_ip_environment_variables(head_node_ip, provider, node_id)
         else:
             start_commands = get_node_type_specific_commands_of_runtimes(
@@ -2570,7 +2579,8 @@ def _start_node_on_head(
             provider=provider,
             start_commands=[],
             is_head_node=is_head_node,
-            use_internal_ip=True)
+            use_internal_ip=True,
+            runtime_config=runtime_config)
 
         node_runtime_envs.update(runtime_envs)
         updater.exec_commands("Starting", start_commands, node_runtime_envs)
@@ -2792,16 +2802,18 @@ def _stop_node_on_head(
             cli_logger.print("Skip stopping node {} as it is in setting up.", node_ip)
             return
 
+        runtime_config = _get_node_specific_runtime_config(
+            config, provider, node_id)
         runtime_envs = with_runtime_environment_variables(
-            config.get("runtime"), config=config, provider=provider, node_id=node_id)
+            runtime_config, config=config, provider=provider, node_id=node_id)
 
         is_head_node = False
         if node_id == head_node:
             is_head_node = True
 
         if is_head_node:
-            stop_commands = get_commands_for_runtimes(config, "head_stop_commands",
-                                                      runtimes=runtimes)
+            stop_commands = get_commands_of_runtimes(config, "head_stop_commands",
+                                                     runtimes=runtimes)
             node_runtime_envs = with_node_ip_environment_variables(head_node_ip, provider, node_id)
         else:
             stop_commands = get_node_type_specific_commands_of_runtimes(
@@ -2821,7 +2833,8 @@ def _stop_node_on_head(
             provider=provider,
             start_commands=[],
             is_head_node=is_head_node,
-            use_internal_ip=True)
+            use_internal_ip=True,
+            runtime_config=runtime_config)
 
         node_runtime_envs.update(runtime_envs)
         updater.exec_commands("Stopping", stop_commands, node_runtime_envs)

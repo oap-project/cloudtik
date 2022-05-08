@@ -1,3 +1,4 @@
+import copy
 from typing import Any, Dict, Optional, List, Sequence, Tuple
 from shlex import quote
 import os
@@ -14,7 +15,7 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 
 from cloudtik.core._private.utils import get_head_working_ip, get_node_cluster_ip, get_runtime_logs, \
-    get_runtime_processes
+    get_runtime_processes, _get_node_type_specific_runtime_types
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, \
     NODE_KIND_WORKER
 from cloudtik.core._private.cli_logger import cli_logger
@@ -59,16 +60,21 @@ class GetParameters:
         self.processes_list = processes_list
         self.runtimes = runtimes
 
+    def set_runtimes(self, runtimes):
+        self.runtimes = runtimes
+
 
 class Node:
     """Node (as in "machine")"""
 
     def __init__(self,
+                 node_id: str,
                  host: str,
                  ssh_user: str = "ubuntu",
                  ssh_key: str = "~/cloudtik_bootstrap_key.pem",
                  docker_container: Optional[str] = None,
                  is_head: bool = False):
+        self.node_id = node_id
         self.host = host
         self.ssh_user = ssh_user
         self.ssh_key = ssh_key
@@ -516,7 +522,8 @@ def create_and_add_local_data_to_local_archive(archive: Archive,
     return archive
 
 
-def create_archive_for_remote_nodes(archive: Archive,
+def create_archive_for_remote_nodes(config: Dict[str, Any],
+                                    archive: Archive,
                                     remote_nodes: Sequence[Node],
                                     parameters: GetParameters):
     """Create an archive combining data from the remote nodes.
@@ -524,6 +531,7 @@ def create_archive_for_remote_nodes(archive: Archive,
     This will parallelize calls to get data from remote nodes.
 
     Args:
+        config (Dict[str, Any]): The cluster config
         archive (Archive): Archive object to add remote data to.
         remote_nodes (Sequence[Node]): Sequence of remote nodes.
         parameters (GetParameters): Parameters (settings) for getting data.
@@ -537,16 +545,21 @@ def create_archive_for_remote_nodes(archive: Archive,
 
     with ThreadPoolExecutor(max_workers=MAX_PARALLEL_SSH_WORKERS) as executor:
         for remote_node in remote_nodes:
+            # get node type specific runtimes
+            node_parameters = copy.deepcopy(parameters)
+            node_runtimes = _get_node_type_specific_runtime_types(config, remote_node.node_id)
+            node_parameters.set_runtimes(node_runtimes)
             executor.submit(
                 create_and_add_remote_data_to_local_archive,
                 archive=archive,
                 remote_node=remote_node,
-                parameters=parameters)
+                parameters=node_parameters)
 
     return archive
 
 
-def create_archive_for_local_and_remote_nodes(archive: Archive,
+def create_archive_for_local_and_remote_nodes(config: Dict[str, Any],
+                                              archive: Archive,
                                               remote_nodes: Sequence[Node],
                                               parameters: GetParameters):
     """Create an archive combining data from the local and remote nodes.
@@ -554,6 +567,7 @@ def create_archive_for_local_and_remote_nodes(archive: Archive,
     This will parallelize calls to get data from remote nodes.
 
     Args:
+        config (Dict[str, Any]): The cluster config
         archive (Archive): Archive object to add data to.
         remote_nodes (Sequence[Node]): Sequence of remote nodes.
         parameters (GetParameters): Parameters (settings) for getting data.
@@ -570,7 +584,8 @@ def create_archive_for_local_and_remote_nodes(archive: Archive,
     except CommandFailed as exc:
         cli_logger.error(exc)
 
-    create_archive_for_remote_nodes(archive, remote_nodes, parameters)
+    create_archive_for_remote_nodes(
+        config, archive, remote_nodes, parameters)
 
     cli_logger.print(f"Collected data from local node and {len(remote_nodes)} "
                      f"remote nodes.")
@@ -738,8 +753,8 @@ def create_archive_for_local_and_cluster_nodes(archive: Archive,
 ###
 # cluster info
 ###
-def get_info_from_cluster_config(config: Dict[str, Any]
-                                 ) -> Tuple[str, List[str], str, str, Optional[str], Optional[str]]:
+def get_info_from_cluster_config(config: Dict[str, Any]) \
+        -> Tuple[Tuple[str, str], List[Tuple[str, str]], str, str, Optional[str], Optional[str]]:
     """Get information from cluster config.
 
     Return head ip, list of host IPs, ssh user, ssh key file, and optional docker
@@ -760,9 +775,9 @@ def get_info_from_cluster_config(config: Dict[str, Any]
     })
 
     head_node = head_nodes[0] if len(head_nodes) > 0 else None
-    # TODO haifeng: check which ip address to use here
+    # TODO: check which ip address to use here
     head_node_ip = get_head_working_ip(config, provider, head_node) if head_node else None
-    workers = [get_node_cluster_ip(provider, node) for node in worker_nodes]
+    workers = [(node, get_node_cluster_ip(provider, node)) for node in worker_nodes]
     ssh_user = config["auth"]["ssh_user"]
     ssh_key = config["auth"]["ssh_private_key"]
 
@@ -773,7 +788,7 @@ def get_info_from_cluster_config(config: Dict[str, Any]
 
     cluster_name = config.get("cluster_name", None)
 
-    return head_node_ip, workers, ssh_user, ssh_key, docker, cluster_name
+    return (head_node, head_node_ip), workers, ssh_user, ssh_key, docker, cluster_name
 
 
 def _info_from_params(
@@ -787,13 +802,23 @@ def _info_from_params(
 
     Note: This returns a list of hosts, not a comma separated string!
     """
-    head_node_ip, h, u, k, d, cluster_name = \
+    head, workers, u, k, d, cluster_name = \
         get_info_from_cluster_config(config)
 
     ssh_user = ssh_user or u
     ssh_key = ssh_key or k
     docker = docker or d
-    workers = host.split(",") if host else h
+    target_workers = workers
+    if host:
+        host_ips = host.split(",")
+        target_workers = []
+        # build a set
+        workers_set = {}
+        for worker in workers:
+            workers_set[worker[1]] = worker
+        for host_ip in host_ips:
+            if host_ip in workers_set:
+                target_workers.append(workers_set[host_ip])
 
     if not ssh_user:
         ssh_user = DEFAULT_SSH_USER
@@ -811,4 +836,4 @@ def _info_from_params(
                     f"If this is incorrect, specify with `--ssh-key <key>`")
                 break
 
-    return head_node_ip, workers, ssh_user, ssh_key, docker, cluster_name
+    return head, target_workers, ssh_user, ssh_key, docker, cluster_name

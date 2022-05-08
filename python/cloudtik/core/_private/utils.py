@@ -1069,8 +1069,13 @@ def merge_cluster_config(config):
 def make_sure_dependency_order(
         reordered_runtimes: List[str],
         runtime: str, dependency: str):
+    try:
+        dependency_index = reordered_runtimes.index(dependency)
+    except ValueError:
+        # dependency not found
+        return
+
     runtime_index = reordered_runtimes.index(runtime)
-    dependency_index = reordered_runtimes.index(dependency)
     if dependency_index > runtime_index:
         # Needs to move dependency ahead
         reordered_runtimes.pop(dependency_index)
@@ -1078,6 +1083,37 @@ def make_sure_dependency_order(
 
 
 def reorder_runtimes_for_dependency(config):
+    _reorder_runtimes_for_dependency(config)
+    _reorder_runtimes_for_dependency_of_node_types(config)
+
+
+def _reorder_runtimes_for_dependency_of_node_types(config):
+    global_runtime_types = get_enabled_runtimes(config)
+    global_runtime_types_set = set(global_runtime_types)
+
+    # Check and reorder node type specific runtime types
+    node_types = config["available_node_types"]
+    for node_type in node_types:
+        node_type_config = node_types[node_type]
+        if "runtime" not in node_type_config:
+            continue
+        node_type_runtime_config = node_type_config["runtime"]
+        if "types" not in node_type_runtime_config:
+            continue
+
+        node_type_runtime_types = node_type_runtime_config.get("types", [])
+        # Make sure it is a subset of the global runtime types
+        node_type_runtime_types_set = set(node_type_runtime_types)
+
+        if not node_type_runtime_types_set.issubset(global_runtime_types_set):
+            raise ValueError(
+                "Node type {} runtime types {} is not a subset of global runtime types {}.".format(
+                    node_type, node_type_runtime_types, global_runtime_types))
+
+        _reorder_runtimes_for_dependency(node_type_config)
+
+
+def _reorder_runtimes_for_dependency(config):
     runtime_config = config.get("runtime")
     if runtime_config is None:
         return
@@ -1194,7 +1230,9 @@ def is_commands_merge_needed(config, node_type_config) -> bool:
 
     # 2. Check whether the runtime types is customized for this node
     if ("runtime" in node_type_config) and (
-            "types" in node_type_config["runtime"]):
+            "types" in node_type_config["runtime"]) and (
+            "runtime" in config) and (
+            "types" in config["runtime"]):
         types = node_type_config["runtime"]["types"]
         # Check whether this types list is identical with global setting
         # It must be set if node specific is set
@@ -1247,6 +1285,17 @@ def combine_initialization_commands(config, merged_commands):
     merged_commands["initialization_commands"] = initialization_commands
 
 
+def _get_node_type_specific_runtime_types(config, node_id: str):
+    provider = _get_node_provider(config["provider"], config["cluster_name"])
+    node_type_config = _get_node_type_specific_config(config, provider, node_id)
+    if (node_type_config is not None) and (
+            "runtime" in node_type_config) and (
+            "types" in node_type_config["runtime"]):
+        return node_type_config["runtime"]["types"]
+
+    return get_enabled_runtimes(config)
+
+
 def _get_node_type_specific_commands(config, provider, node_id: str,
                                      command_key: str) -> Any:
     commands = get_commands_to_run(config, command_key)
@@ -1283,10 +1332,11 @@ def _get_node_type_specific_fields(config, provider, node_id: str,
 def _get_node_specific_docker_config(config, provider, node_id):
     if "docker" not in config:
         return {}
-    docker_config = copy.deepcopy(config.get("docker", {}))
+    docker_config = config["docker"]
     node_specific_docker = _get_node_type_specific_fields(
         config, provider, node_id, "docker")
     if node_specific_docker is not None:
+        docker_config = copy.deepcopy(docker_config)
         update_nested_dict(docker_config, node_specific_docker)
     return docker_config
 
@@ -1300,7 +1350,6 @@ def _get_node_specific_runtime_config(config, provider, node_id):
     if node_specific_runtime is not None:
         runtime_config = copy.deepcopy(runtime_config)
         update_nested_dict(runtime_config, node_specific_runtime)
-
     return runtime_config
 
 
@@ -1314,16 +1363,16 @@ def get_node_type_specific_commands_of_runtimes(
         command_key: str, runtimes: Optional[List[str]] = None) -> Any:
     commands_to_run = _get_node_type_specific_commands(
         config, provider, node_id=node_id, command_key=command_key)
-    return filter_commands_for_runtimes(commands_to_run, runtimes)
+    return filter_commands_of_runtimes(commands_to_run, runtimes)
 
 
-def get_commands_for_runtimes(config, command_key,
-                              runtimes: Optional[List[str]] = None):
+def get_commands_of_runtimes(config, command_key,
+                             runtimes: Optional[List[str]] = None):
     commands_to_run = get_commands_to_run(config, command_key)
-    return filter_commands_for_runtimes(commands_to_run, runtimes)
+    return filter_commands_of_runtimes(commands_to_run, runtimes)
 
 
-def filter_commands_for_runtimes(commands_to_run, runtimes: Optional[List[str]] = None):
+def filter_commands_of_runtimes(commands_to_run, runtimes: Optional[List[str]] = None):
     if runtimes is None:
         return commands_to_run
 

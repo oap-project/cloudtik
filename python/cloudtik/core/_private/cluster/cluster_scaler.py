@@ -43,10 +43,10 @@ from cloudtik.core._private.cluster.resource_demand_scheduler import \
     ResourceDict
 from cloudtik.core._private.utils import ConcurrentCounter, validate_config, \
     hash_launch_conf, hash_runtime_conf, \
-    format_info_string, get_commands_to_run, with_head_node_ip_environment_variables, CLOUDTIK_CLUSTER_RUNTIME_CONFIG, \
-    encode_cluster_secrets, MERGED_COMMAND_KEY, _get_node_specific_commands, _get_node_specific_config, \
-    _get_node_specific_docker_config, _get_node_specific_runtime_config, CLOUDTIK_CLUSTER_RUNTIME_CONFIG_NODE_TYPE, \
-    _has_node_type_specific_runtime_config
+    format_info_string, get_commands_to_run, with_head_node_ip_environment_variables, \
+    encode_cluster_secrets, _get_node_specific_commands, _get_node_specific_config, \
+    _get_node_specific_docker_config, _get_node_specific_runtime_config, \
+    _has_node_type_specific_runtime_config, get_runtime_config_key
 from cloudtik.core._private.constants import CLOUDTIK_MAX_NUM_FAILURES, \
     CLOUDTIK_MAX_LAUNCH_BATCH, CLOUDTIK_MAX_CONCURRENT_LAUNCHES, \
     CLOUDTIK_UPDATE_INTERVAL_S, CLOUDTIK_HEARTBEAT_TIMEOUT_S, CLOUDTIK_RUNTIME_ENV_SECRETS
@@ -871,11 +871,7 @@ class ClusterScaler:
         # Encrypt and put
         cipher = AESCipher(self.secrets)
         encrypted_runtime_config = cipher.encrypt(runtime_config_str)
-
-        if len(node_type) > 0:
-            runtime_config_key = CLOUDTIK_CLUSTER_RUNTIME_CONFIG_NODE_TYPE.format(node_type)
-        else:
-            runtime_config_key = CLOUDTIK_CLUSTER_RUNTIME_CONFIG
+        runtime_config_key = get_runtime_config_key(node_type)
         kv_put(runtime_config_key,
                encrypted_runtime_config, overwrite=True)
 
@@ -886,13 +882,9 @@ class ClusterScaler:
         if node_type is None:
             node_type = ""
 
-        if len(node_type) > 0:
-            runtime_config_key = CLOUDTIK_CLUSTER_RUNTIME_CONFIG_NODE_TYPE.format(node_type)
-        else:
-            runtime_config_key = CLOUDTIK_CLUSTER_RUNTIME_CONFIG
-
+        runtime_config_key = get_runtime_config_key(node_type)
         kv_del(runtime_config_key)
-        self.pushed_runtime_config_hashes.pop("node_type", None)
+        self.pushed_runtime_config_hashes.pop(node_type, None)
 
     def _with_cluster_secrets(self, environment_variables: Dict[str, Any]):
         encoded_secrets = encode_cluster_secrets(self.secrets)

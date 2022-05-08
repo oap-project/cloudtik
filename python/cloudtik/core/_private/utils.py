@@ -35,7 +35,7 @@ from cloudtik.core._private.cluster.cluster_metrics import ClusterMetricsSummary
 from cloudtik.core._private.constants import CLOUDTIK_WHEELS, CLOUDTIK_CLUSTER_PYTHON_VERSION, \
     CLOUDTIK_DEFAULT_MAX_WORKERS, CLOUDTIK_NODE_SSH_INTERVAL_S, CLOUDTIK_NODE_START_WAIT_S, MAX_PARALLEL_EXEC_NODES, \
     CLOUDTIK_CLUSTER_URI_TEMPLATE, CLOUDTIK_RUNTIME_NAME, CLOUDTIK_RUNTIME_ENV_NODE_IP, CLOUDTIK_RUNTIME_ENV_HEAD_IP, \
-    CLOUDTIK_RUNTIME_ENV_SECRETS, CLOUDTIK_DEFAULT_PORT, CLOUDTIK_REDIS_DEFAULT_PASSWORD
+    CLOUDTIK_RUNTIME_ENV_SECRETS, CLOUDTIK_DEFAULT_PORT, CLOUDTIK_REDIS_DEFAULT_PASSWORD, CLOUDTIK_RUNTIME_ENV_NODE_TYPE
 from cloudtik.core._private.crypto import AESCipher
 from cloudtik.core._private.runtime_factory import _get_runtime, _get_runtime_cls
 from cloudtik.core.node_provider import NodeProvider
@@ -2532,21 +2532,42 @@ def decode_cluster_secrets(encoded_secrets):
 
 
 def pull_runtime_config():
-    from cloudtik.core._private.state.kv_store import kv_get, kv_initialize_with_address
-
     if CLOUDTIK_RUNTIME_ENV_HEAD_IP not in os.environ:
         raise RuntimeError("Not able to pull runtime config in lack of head ip.")
 
     if CLOUDTIK_RUNTIME_ENV_SECRETS not in os.environ:
         raise RuntimeError("Not able to pull runtime config in lack of secrets.")
 
+    node_type = os.environ.get(CLOUDTIK_RUNTIME_ENV_NODE_TYPE)
+    if node_type:
+        # Try getting node type specific runtime config
+        runtime_config = retrieve_runtime_config(node_type)
+        if runtime_config is not None:
+            return runtime_config
+
+    return retrieve_runtime_config()
+
+
+def get_runtime_config_key(node_type: str):
+    if node_type and len(node_type) > 0:
+        runtime_config_key = CLOUDTIK_CLUSTER_RUNTIME_CONFIG_NODE_TYPE.format(node_type)
+    else:
+        runtime_config_key = CLOUDTIK_CLUSTER_RUNTIME_CONFIG
+    return runtime_config_key
+
+
+def retrieve_runtime_config(node_type: str = None):
+    from cloudtik.core._private.state.kv_store import kv_get, kv_initialize_with_address
+
     # Retrieve the runtime config
     head_ip = os.environ[CLOUDTIK_RUNTIME_ENV_HEAD_IP]
     redis_address = "{}:{}".format(head_ip, CLOUDTIK_DEFAULT_PORT)
     kv_initialize_with_address(redis_address, CLOUDTIK_REDIS_DEFAULT_PASSWORD)
-    encrypted_runtime_config = kv_get(CLOUDTIK_CLUSTER_RUNTIME_CONFIG)
+
+    runtime_config_key = get_runtime_config_key(node_type)
+    encrypted_runtime_config = kv_get(runtime_config_key)
     if encrypted_runtime_config is None:
-        return {}
+        return None
 
     # Decrypt
     encoded_secrets = os.environ[CLOUDTIK_RUNTIME_ENV_SECRETS]

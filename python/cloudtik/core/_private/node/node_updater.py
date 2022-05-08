@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 NUM_SETUP_STEPS = 8
 READY_CHECK_INTERVAL = 5
+MAX_COMMAND_LENGTH_TO_PRINT = 64
 
 
 class NodeUpdater:
@@ -522,8 +523,8 @@ class NodeUpdater:
             self.cluster_uri,
             CreateClusterEvent.run_setup_cmd,
             {"node_id": self.node_id, "command": cmd})
-        if cli_logger.verbosity == 0 and len(cmd) > 30:
-            cmd_to_print = cf.bold(cmd[:30]) + "..."
+        if cli_logger.verbosity == 0 and len(cmd) > MAX_COMMAND_LENGTH_TO_PRINT:
+            cmd_to_print = cf.bold(cmd[:MAX_COMMAND_LENGTH_TO_PRINT]) + "..."
         else:
             cmd_to_print = cf.bold(cmd)
 
@@ -576,8 +577,8 @@ class NodeUpdater:
             env_vars = {}
         env_vars.update(runtime_envs)
 
-        if cli_logger.verbosity == 0 and len(cmd) > 30:
-            cmd_to_print = cf.bold(cmd[:30]) + "..."
+        if cli_logger.verbosity == 0 and len(cmd) > MAX_COMMAND_LENGTH_TO_PRINT:
+            cmd_to_print = cf.bold(cmd[:MAX_COMMAND_LENGTH_TO_PRINT]) + "..."
         else:
             cmd_to_print = cf.bold(cmd)
 
@@ -619,8 +620,8 @@ class NodeUpdater:
         if envs:
             env_vars.update(envs)
 
-        if cli_logger.verbosity == 0 and len(cmd) > 30:
-            cmd_to_print = cf.bold(cmd[:30]) + "..."
+        if cli_logger.verbosity == 0 and len(cmd) > MAX_COMMAND_LENGTH_TO_PRINT:
+            cmd_to_print = cf.bold(cmd[:MAX_COMMAND_LENGTH_TO_PRINT]) + "..."
         else:
             cmd_to_print = cf.bold(cmd)
 

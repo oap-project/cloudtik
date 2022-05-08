@@ -1,3 +1,4 @@
+import copy
 from getpass import getuser
 from shlex import quote
 from typing import Dict, List
@@ -40,6 +41,17 @@ KUBECTL_RSYNC = os.path.join(
 MAX_HOME_RETRIES = 3
 HOME_RETRY_DELAY_S = 5
 
+PRIVACY_KEYWORDS = ["PASSWORD", "ACCOUNT_KEY", "ACCESS_KEY", "PRIVATE_KEY"]
+
+PRIVACY_REPLACEMENT = "VALUE-PROTECTED"
+PRIVACY_REPLACEMENT_TEMPLATE = "VALUE-{}PROTECTED"
+
+def is_key_with_privacy(key: str):
+    for keyword in PRIVACY_KEYWORDS:
+        if keyword in key:
+            return True
+    return False
+
 
 def _with_environment_variables(cmd: str,
                                 environment_variables: Dict[str, object]):
@@ -59,6 +71,39 @@ def _with_environment_variables(cmd: str,
         escaped_val = json.dumps(val, separators=(",", ":"))
         if isinstance(val, str):
             escaped_val = escaped_val.strip("\"\'")
+
+        s = "export {}={};".format(key, quote(escaped_val))
+        as_strings.append(s)
+    all_vars = "".join(as_strings)
+    return all_vars + cmd
+
+
+def _with_environment_variables_protected(cmd: str,
+                                          environment_variables: Dict[str, object]):
+    """Prepend environment variables to a shell command for print purposes
+
+    Args:
+        cmd (str): The base command.
+        environment_variables (Dict[str, object]): The set of environment
+            variables. If an environment variable value is a dict, it will
+            automatically be converted to a one line yaml string.
+    """
+
+    as_strings = []
+    for key, val in environment_variables.items():
+        # json.dumps will add an extra quote to string value
+        # since we use quote to make sure value is safe for shell, we don't need the quote for string
+        escaped_val = json.dumps(val, separators=(",", ":"))
+        if isinstance(val, str):
+            escaped_val = escaped_val.strip("\"\'")
+
+        if is_key_with_privacy(key):
+            val_len = len(escaped_val)
+            replacement_len = len(PRIVACY_REPLACEMENT)
+            if val_len > replacement_len:
+                escaped_val = PRIVACY_REPLACEMENT_TEMPLATE.format("-" * (val_len - replacement_len))
+            else:
+                escaped_val = PRIVACY_REPLACEMENT
 
         s = "export {}={};".format(key, quote(escaped_val))
         as_strings.append(s)
@@ -373,11 +418,12 @@ class SSHCommandExecutor(CommandExecutor):
                     final_cmd,
                     with_output=False,
                     exit_on_fail=False,
-                    silent=False):
+                    silent=False,
+                    cmd_to_print=None):
         """Run a command that was already setup with SSH and `bash` settings.
 
         Args:
-            cmd (List[str]):
+            final_cmd (List[str]):
                 Full command to run. Should include SSH options and other
                 processing that we do.
             with_output (bool):
@@ -386,7 +432,8 @@ class SSHCommandExecutor(CommandExecutor):
             exit_on_fail (bool):
                 If `exit_on_fail` is `True`, the process will exit
                 if the command fails (exits with a code other than 0).
-
+            cmd_to_print (Optional[List[str]]):
+                Command to print out for any error cases.
         Raises:
             ProcessRunnerError if using new log style and disabled
                 login shells.
@@ -403,14 +450,15 @@ class SSHCommandExecutor(CommandExecutor):
                     silent=silent,
                     use_login_shells=self.call_context.is_using_login_shells(),
                     allow_interactive=self.call_context.does_allow_interactive(),
-                    output_redirected=self.call_context.is_output_redirected()
+                    output_redirected=self.call_context.is_output_redirected(),
+                    cmd_to_print=cmd_to_print
                 )
             if with_output:
                 return self.process_runner.check_output(final_cmd)
             else:
                 return self.process_runner.check_call(final_cmd)
         except subprocess.CalledProcessError as e:
-            joined_cmd = " ".join(final_cmd)
+            joined_cmd = " ".join(final_cmd if cmd_to_print is None else cmd_to_print)
             if not self.call_context.is_using_login_shells():
                 raise ProcessRunnerError(
                     "Command failed",
@@ -476,30 +524,39 @@ class SSHCommandExecutor(CommandExecutor):
         final_cmd = ssh + ssh_options.to_ssh_options_list(timeout=timeout) + [
             "{}@{}".format(self.ssh_user, self.ssh_ip)
         ]
+        final_cmd_to_print = None
+        cmd_to_print = None
         if cmd:
+            final_cmd_to_print = copy.deepcopy(final_cmd)
+            cmd_to_print = cmd
             if environment_variables:
                 cmd = _with_environment_variables(cmd, environment_variables)
+                cmd_to_print = _with_environment_variables_protected(cmd, environment_variables)
             if self.call_context.is_using_login_shells():
                 final_cmd += _with_interactive(cmd)
+                final_cmd_to_print += _with_interactive(cmd_to_print)
             else:
                 final_cmd += [cmd]
+                final_cmd_to_print += [cmd_to_print]
         else:
             # We do this because `-o ControlMaster` causes the `-N` flag to
             # still create an interactive shell in some ssh versions.
             final_cmd.append("while true; do sleep 86400; done")
 
-        cli_logger.verbose("Running `{}`", cf.bold(cmd))
+        cli_logger.verbose("Running `{}`", cf.bold(cmd if cmd_to_print is None else cmd_to_print))
         with cli_logger.indented():
             cli_logger.verbose("Full command is `{}`",
-                               cf.bold(" ".join(final_cmd)))
+                               cf.bold(" ".join(final_cmd if final_cmd_to_print is None else final_cmd_to_print)))
 
         if cli_logger.verbosity > 0:
             with cli_logger.indented():
                 return self._run_helper(
-                    final_cmd, with_output, exit_on_fail, silent=silent)
+                    final_cmd, with_output, exit_on_fail,
+                    silent=silent, cmd_to_print=final_cmd_to_print)
         else:
             return self._run_helper(
-                final_cmd, with_output, exit_on_fail, silent=silent)
+                final_cmd, with_output, exit_on_fail,
+                silent=silent, cmd_to_print=final_cmd_to_print)
 
     def _create_rsync_filter_args(self, options):
         rsync_excludes = options.get("rsync_exclude") or []

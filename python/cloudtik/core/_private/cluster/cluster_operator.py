@@ -44,7 +44,8 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     with_node_ip_environment_variables, run_in_paralell_on_nodes, get_commands_to_run, \
     cluster_booting_completed, load_head_cluster_config, get_runnable_command, get_cluster_uri, \
     with_head_node_ip_environment_variables, get_verified_runtime_list, get_commands_for_runtimes, \
-    is_node_in_completed_status, check_for_single_worker_type, get_preferred_cpu_bundle_size
+    is_node_in_completed_status, check_for_single_worker_type, get_preferred_cpu_bundle_size, \
+    _get_node_type_specific_commands, get_node_type_specific_commands_of_runtimes, _get_node_specific_runtime_config
 
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
@@ -909,7 +910,7 @@ def get_or_create_head_node(config: Dict[str, Any],
             # cf.bold(provider.node_tags(head_node)[CLOUDTIK_TAG_NODE_NAME]),
             _tags=dict()):  # add id, ARN to tags?
 
-        # TODO(ekl) right now we always update the head node even if the
+        # TODO: right now we always update the head node even if the
         # hash matches.
         # We could prompt the user for what they want to do here.
         # No need to pass in cluster_sync_files because we use this
@@ -2466,6 +2467,8 @@ def create_node_updater_for_exec(config,
                                  is_head_node: bool = False,
                                  use_internal_ip: bool = False,
                                  process_runner: ModuleType = subprocess):
+    runtime_config = _get_node_specific_runtime_config(
+        config, provider, node_id)
     updater = NodeUpdaterThread(
         config=config,
         call_context=call_context,
@@ -2488,7 +2491,7 @@ def create_node_updater_for_exec(config,
             "rsync_filter": config.get("rsync_filter")
         },
         docker_config=config.get("docker"),
-        runtime_config=config.get("runtime"))
+        runtime_config=runtime_config)
     return updater
 
 
@@ -2553,8 +2556,9 @@ def _start_node_on_head(
                                                        runtimes=runtimes)
             node_runtime_envs = with_node_ip_environment_variables(head_node_ip, provider, node_id)
         else:
-            start_commands = get_commands_for_runtimes(config, "worker_start_commands",
-                                                       runtimes=runtimes)
+            start_commands = get_node_type_specific_commands_of_runtimes(
+                config, provider, node_id=node_id,
+                command_key="worker_start_commands", runtimes=runtimes)
             node_runtime_envs = with_node_ip_environment_variables(None, provider, node_id)
             node_runtime_envs = with_head_node_ip_environment_variables(
                 head_node_ip, node_runtime_envs)
@@ -2800,8 +2804,9 @@ def _stop_node_on_head(
                                                       runtimes=runtimes)
             node_runtime_envs = with_node_ip_environment_variables(head_node_ip, provider, node_id)
         else:
-            stop_commands = get_commands_for_runtimes(config, "worker_stop_commands",
-                                                      runtimes=runtimes)
+            stop_commands = get_node_type_specific_commands_of_runtimes(
+                config, provider, node_id=node_id,
+                command_key="worker_stop_commands", runtimes=runtimes)
             node_runtime_envs = with_node_ip_environment_variables(None, provider, node_id)
             node_runtime_envs = with_head_node_ip_environment_variables(
                 head_node_ip, node_runtime_envs)

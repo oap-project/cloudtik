@@ -53,11 +53,11 @@ class PrestoRuntime(Runtime):
 
     def get_runtime_commands(self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         """Returns a copy of runtime commands to run at different stages"""
-        return _get_runtime_commands(cluster_config)
+        return _get_runtime_commands(self.runtime_config, cluster_config)
 
     def get_defaults_config(self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         """Returns a copy of runtime config"""
-        return _get_defaults_config(cluster_config)
+        return _get_defaults_config(self.runtime_config, cluster_config)
 
     def get_useful_urls(self, cluster_head_ip: str):
         return _get_useful_urls(cluster_head_ip)

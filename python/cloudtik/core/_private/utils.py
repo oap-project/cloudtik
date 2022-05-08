@@ -1146,6 +1146,14 @@ def merge_runtime_config(config):
     if runtime_config is None:
         return
 
+    merge_global_runtime_config(config)
+
+    # Handle node type specific runtime config defaults (based on roles)
+    merge_runtime_config_for_node_types(config)
+
+
+def merge_global_runtime_config(config):
+    runtime_config = config[RUNTIME_CONFIG_KEY]
     runtime_types = runtime_config.get(RUNTIME_TYPES_CONFIG_KEY, [])
     for runtime_type in runtime_types:
         runtime = _get_runtime(runtime_type, runtime_config)
@@ -1155,6 +1163,36 @@ def merge_runtime_config(config):
 
         if runtime_type not in runtime_config:
             runtime_config[runtime_type] = {}
+        user_config = runtime_config[runtime_type]
+        merged_config = merge_config(defaults_config, user_config)
+        runtime_config[runtime_type] = merged_config
+
+
+def merge_runtime_config_for_node_types(config):
+    node_types = config["available_node_types"]
+    for node_type in node_types:
+        node_type_config = node_types[node_type]
+        if RUNTIME_CONFIG_KEY not in node_type_config:
+            continue
+
+        runtime_config = node_type_config[RUNTIME_CONFIG_KEY]
+        merge_runtime_config_for_node_type(config, runtime_config)
+
+
+def merge_runtime_config_for_node_type(config, runtime_config):
+    global_runtime_config = copy.deepcopy(config[RUNTIME_CONFIG_KEY])
+    runtime_config_merged = merge_config(global_runtime_config, runtime_config)
+
+    runtime_types = runtime_config_merged.get(RUNTIME_TYPES_CONFIG_KEY, [])
+    for runtime_type in runtime_types:
+        if runtime_type not in runtime_config:
+            continue
+
+        runtime = _get_runtime(runtime_type, runtime_config_merged)
+        defaults_config = runtime.get_defaults_config(config)
+        if defaults_config is None:
+            continue
+
         user_config = runtime_config[runtime_type]
         merged_config = merge_config(defaults_config, user_config)
         runtime_config[runtime_type] = merged_config
@@ -1198,7 +1236,10 @@ def merge_commands_for_node_types(config, built_in_commands):
         # If we don't specify the runtime types, we need copy it from global
         new_node_type_config = copy.deepcopy(node_type_config)
         inherit_commands_from(new_node_type_config, config)
-        inherit_runtime_types_from(new_node_type_config, config)
+
+        # inherit runtime config
+        inherit_runtime_config_from(new_node_type_config, config)
+
         merge_commands_for(config, new_node_type_config,
                            built_in_commands=built_in_commands)
 
@@ -1210,13 +1251,15 @@ def inherit_commands_from(target_config, from_config):
         inherit_key_from(target_config, from_config, command_key)
 
 
-def inherit_runtime_types_from(target_config, from_config):
+def inherit_runtime_config_from(target_config, from_config):
     if RUNTIME_CONFIG_KEY in from_config:
-        if RUNTIME_CONFIG_KEY not in target_config:
-            target_config[RUNTIME_CONFIG_KEY] = {}
-
-        inherit_key_from(target_config[RUNTIME_CONFIG_KEY],
-                         from_config[RUNTIME_CONFIG_KEY], RUNTIME_TYPES_CONFIG_KEY)
+        if RUNTIME_CONFIG_KEY in target_config:
+            runtime_config = target_config[RUNTIME_CONFIG_KEY]
+        else:
+            runtime_config = {}
+        base_runtime_config = copy.deepcopy(from_config[RUNTIME_CONFIG_KEY])
+        target_config[RUNTIME_CONFIG_KEY] = merge_config(
+            base_runtime_config, runtime_config)
 
 
 def inherit_key_from(target_config, from_config, config_key):
@@ -1232,20 +1275,10 @@ def is_commands_merge_needed(config, node_type_config) -> bool:
         if command_key in node_type_config:
             return True
 
-    # 2. Check whether the runtime types is customized for this node
-    if (RUNTIME_CONFIG_KEY in node_type_config) and (
-            RUNTIME_TYPES_CONFIG_KEY in node_type_config[RUNTIME_CONFIG_KEY]) and (
-            RUNTIME_CONFIG_KEY in config) and (
-            RUNTIME_TYPES_CONFIG_KEY in config[RUNTIME_CONFIG_KEY]):
-        types = node_type_config[RUNTIME_CONFIG_KEY][RUNTIME_TYPES_CONFIG_KEY]
-        # Check whether this types list is identical with global setting
-        # It must be set if node specific is set
-        global_types = config[RUNTIME_CONFIG_KEY][RUNTIME_TYPES_CONFIG_KEY]
-
-        types_set = set(types)
-        global_types_set = set(global_types)
-        if types_set != global_types_set:
-            return True
+    # 2. If there is node type specific runtime config
+    # Which may means to generate a different runtime commands for this node type
+    if RUNTIME_CONFIG_KEY in node_type_config:
+        return True
 
     return False
 
@@ -1372,7 +1405,7 @@ def _get_node_specific_docker_config(config, provider, node_id):
         config, provider, node_id, DOCKER_CONFIG_KEY)
     if node_specific_docker is not None:
         docker_config = copy.deepcopy(docker_config)
-        update_nested_dict(docker_config, node_specific_docker)
+        return merge_config(docker_config, node_specific_docker)
     return docker_config
 
 
@@ -1401,7 +1434,7 @@ def _get_node_type_specific_runtime_config(config, node_type: str):
         config, node_type, RUNTIME_CONFIG_KEY)
     if node_specific_runtime is not None:
         runtime_config = copy.deepcopy(runtime_config)
-        update_nested_dict(runtime_config, node_specific_runtime)
+        return merge_config(runtime_config, node_specific_runtime)
     return runtime_config
 
 

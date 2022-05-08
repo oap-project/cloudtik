@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 NUM_SETUP_STEPS = 8
 READY_CHECK_INTERVAL = 5
-MAX_COMMAND_LENGTH_TO_PRINT = 64
+MAX_COMMAND_LENGTH_TO_PRINT = 48
 
 
 class NodeUpdater:

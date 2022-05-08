@@ -107,7 +107,7 @@ def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
 
     if not is_runtime_enabled(runtime_config, "hdfs"):
         if spark_config.get("hdfs_namenode_uri") is None:
-            if spark_config.get("subscribe_hdfs_namenode_uri", False):
+            if spark_config.get("auto_detect_hdfs", False):
                 hdfs_namenode_uri = global_variables.get("hdfs-namenode-uri")
                 if hdfs_namenode_uri is not None:
                     spark_config["hdfs_namenode_uri"] = hdfs_namenode_uri
@@ -115,7 +115,7 @@ def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
     # Check metastore
     if not is_runtime_enabled(runtime_config, "metastore"):
         if spark_config.get("hive_metastore_uri") is None:
-            if spark_config.get("subscribe_hive_metastore_uri", True):
+            if spark_config.get("auto_detect_metastore", True):
                 hive_metastore_uri = global_variables.get("hive-metastore-uri")
                 if hive_metastore_uri is not None:
                     spark_config["hive_metastore_uri"] = hive_metastore_uri

@@ -46,7 +46,7 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     with_head_node_ip_environment_variables, get_verified_runtime_list, get_commands_of_runtimes, \
     is_node_in_completed_status, check_for_single_worker_type, get_preferred_cpu_bundle_size, \
     _get_node_specific_commands, get_node_specific_commands_of_runtimes, _get_node_specific_runtime_config, \
-    _get_node_specific_docker_config, RUNTIME_CONFIG_KEY
+    _get_node_specific_docker_config, RUNTIME_CONFIG_KEY, DOCKER_CONFIG_KEY
 
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
@@ -645,7 +645,7 @@ def _stop_docker_on_nodes(
 
     docker_enabled = is_docker_enabled(config)
     if docker_enabled and (on_head or not workers_only):
-        container_name = config.get("docker", {}).get("container_name")
+        container_name = config.get(DOCKER_CONFIG_KEY, {}).get("container_name")
         if on_head:
             cli_logger.print("Stopping docker containers on workers.")
             container_nodes = nodes
@@ -965,7 +965,7 @@ def get_or_create_head_node(config: Dict[str, Any],
                 "rsync_exclude": config.get("rsync_exclude"),
                 "rsync_filter": config.get("rsync_filter")
             },
-            docker_config=config.get("docker"),
+            docker_config=config.get(DOCKER_CONFIG_KEY),
             restart_only=restart_only,
             runtime_config=config.get(RUNTIME_CONFIG_KEY))
         updater.start()

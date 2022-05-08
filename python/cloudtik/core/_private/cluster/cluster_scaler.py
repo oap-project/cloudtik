@@ -46,7 +46,7 @@ from cloudtik.core._private.utils import ConcurrentCounter, validate_config, \
     format_info_string, get_commands_to_run, with_head_node_ip_environment_variables, \
     encode_cluster_secrets, _get_node_specific_commands, _get_node_specific_config, \
     _get_node_specific_docker_config, _get_node_specific_runtime_config, \
-    _has_node_type_specific_runtime_config, get_runtime_config_key
+    _has_node_type_specific_runtime_config, get_runtime_config_key, RUNTIME_CONFIG_KEY
 from cloudtik.core._private.constants import CLOUDTIK_MAX_NUM_FAILURES, \
     CLOUDTIK_MAX_LAUNCH_BATCH, CLOUDTIK_MAX_CONCURRENT_LAUNCHES, \
     CLOUDTIK_UPDATE_INTERVAL_S, CLOUDTIK_HEARTBEAT_TIMEOUT_S, CLOUDTIK_RUNTIME_ENV_SECRETS
@@ -783,7 +783,7 @@ class ClusterScaler:
             global_runtime_conf = {
                 "worker_setup_commands": get_commands_to_run(new_config, "worker_setup_commands"),
                 "worker_start_commands": get_commands_to_run(new_config, "worker_start_commands"),
-                "runtime": new_config.get("runtime", {})
+                "runtime": new_config.get(RUNTIME_CONFIG_KEY, {})
             }
             (new_runtime_hash,
              new_file_mounts_contents_hash,
@@ -840,13 +840,13 @@ class ClusterScaler:
 
     def _push_runtime_configs(self):
         # Push global runtime config
-        self._push_runtime_config(self.config.get("runtime"))
+        self._push_runtime_config(self.config.get(RUNTIME_CONFIG_KEY))
 
         # For node types:
         for node_type in self.available_node_types:
             if _has_node_type_specific_runtime_config(self.config, node_type):
                 self._push_runtime_config(
-                    self.available_node_types[node_type].get("runtime"), node_type)
+                    self.available_node_types[node_type].get(RUNTIME_CONFIG_KEY), node_type)
             else:
                 self._delete_runtime_config(node_type)
 

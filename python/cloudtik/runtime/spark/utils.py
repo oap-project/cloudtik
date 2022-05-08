@@ -4,7 +4,8 @@ import yaml
 
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_HDFS, BUILT_IN_RUNTIME_METASTORE
 from cloudtik.core._private.utils import merge_rooted_config_hierarchy, \
-    _get_runtime_config_object, is_runtime_enabled, round_memory_size_to_gb, load_head_cluster_config
+    _get_runtime_config_object, is_runtime_enabled, round_memory_size_to_gb, load_head_cluster_config, \
+    RUNTIME_CONFIG_KEY
 from cloudtik.core._private.workspace.workspace_operator import _get_workspace_provider
 
 RUNTIME_PROCESSES = [
@@ -91,7 +92,7 @@ def _get_cluster_resources(
 
 
 def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-    runtime_config = cluster_config.get("runtime")
+    runtime_config = cluster_config.get(RUNTIME_CONFIG_KEY)
     if "spark" not in runtime_config:
         runtime_config["spark"] = {}
     spark_config = runtime_config["spark"]
@@ -154,9 +155,9 @@ def _config_runtime_resources(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
     executor_resource["spark_executor_memory"] =\
         spark_executor_memory_all - get_spark_executor_overhead(spark_executor_memory_all)
 
-    if "runtime" not in cluster_config:
-        cluster_config["runtime"] = {}
-    runtime_config = cluster_config["runtime"]
+    if RUNTIME_CONFIG_KEY not in cluster_config:
+        cluster_config[RUNTIME_CONFIG_KEY] = {}
+    runtime_config = cluster_config[RUNTIME_CONFIG_KEY]
 
     if "spark" not in runtime_config:
         runtime_config["spark"] = {}
@@ -184,7 +185,7 @@ def _get_runnable_command(target):
 
 
 def _get_spark_config(config: Dict[str, Any]):
-    runtime = config.get("runtime")
+    runtime = config.get(RUNTIME_CONFIG_KEY)
     if not runtime:
         return None
 
@@ -228,7 +229,7 @@ def update_spark_configurations():
 def _with_runtime_environment_variables(runtime_config, config, provider, node_id: str):
     runtime_envs = {}
     spark_config = runtime_config.get("spark", {})
-    cluster_runtime_config = config.get("runtime")
+    cluster_runtime_config = config.get(RUNTIME_CONFIG_KEY)
 
     # 1) Try to use local hdfs first;
     # 2) Try to use defined hdfs_namenode_uri;
@@ -263,7 +264,7 @@ def get_runtime_logs():
 
 def _validate_config(config: Dict[str, Any], provider):
     # if HDFS enabled, we ignore the cloud storage configurations
-    if not is_runtime_enabled(config.get("runtime"), "hdfs"):
+    if not is_runtime_enabled(config.get(RUNTIME_CONFIG_KEY), "hdfs"):
         # Check any cloud storage is configured
         provider_config = config["provider"]
         if ("azure_cloud_storage" not in provider_config) and (

@@ -44,7 +44,8 @@ from cloudtik.core._private.cluster.resource_demand_scheduler import \
 from cloudtik.core._private.utils import ConcurrentCounter, validate_config, \
     hash_launch_conf, hash_runtime_conf, \
     format_info_string, get_commands_to_run, with_head_node_ip_environment_variables, CLOUDTIK_CLUSTER_RUNTIME_CONFIG, \
-    encode_cluster_secrets
+    encode_cluster_secrets, MERGED_COMMAND_KEY, _get_node_type_specific_commands, _get_node_type_specific_config, \
+    _get_node_specific_docker_config, _get_node_specific_runtime_config
 from cloudtik.core._private.constants import CLOUDTIK_MAX_NUM_FAILURES, \
     CLOUDTIK_MAX_LAUNCH_BATCH, CLOUDTIK_MAX_CONCURRENT_LAUNCHES, \
     CLOUDTIK_UPDATE_INTERVAL_S, CLOUDTIK_HEARTBEAT_TIMEOUT_S, CLOUDTIK_RUNTIME_ENV_SECRETS
@@ -186,6 +187,7 @@ class ClusterScaler:
         # The secrets shared between the workers and the head
         self.secrets = AESCipher.generate_key()
         self.runtime_config_hash = None
+        self.runtime_hash_for_node_types = {}
 
         # The next node number to assign
         # will be initialized by the max node number from the existing nodes
@@ -880,12 +882,24 @@ class ClusterScaler:
             return False
         return True
 
+    def get_node_runtime_hash(self, node_id, node_tags: None):
+        if node_tags is None:
+            node_tags = self.provider.node_tags(node_id)
+        if CLOUDTIK_TAG_USER_NODE_TYPE in node_tags:
+            node_type = node_tags[CLOUDTIK_TAG_USER_NODE_TYPE]
+            if node_type in self.runtime_hash_for_node_types:
+                return self.runtime_hash_for_node_types[node_type]
+
+        # If there is no node specific, use global runtime hash
+        return self.runtime_hash
+
     def files_up_to_date(self, node_id):
         node_tags = self.provider.node_tags(node_id)
         applied_config_hash = node_tags.get(CLOUDTIK_TAG_RUNTIME_CONFIG)
         applied_file_mounts_contents_hash = node_tags.get(
             CLOUDTIK_TAG_FILE_MOUNTS_CONTENTS)
-        if (applied_config_hash != self.runtime_hash
+        runtime_hash = self.get_node_runtime_hash(node_id, node_tags)
+        if (applied_config_hash != runtime_hash
                 or (self.file_mounts_contents_hash is not None
                     and self.file_mounts_contents_hash !=
                     applied_file_mounts_contents_hash)):
@@ -893,7 +907,7 @@ class ClusterScaler:
                         "{}: Runtime state is ({},{}), want ({},{})".format(
                             node_id, applied_config_hash,
                             applied_file_mounts_contents_hash,
-                            self.runtime_hash, self.file_mounts_contents_hash))
+                            runtime_hash, self.file_mounts_contents_hash))
             return False
         return True
 
@@ -954,8 +968,11 @@ class ClusterScaler:
             aggregate=operator.add)
         head_node_ip = self.provider.internal_ip(
             self.non_terminated_nodes.head_id)
+        runtime_hash = self.get_node_runtime_hash(node_id)
+        runtime_config = self._get_node_specific_runtime_config(node_id)
 
-        start_commands = get_commands_to_run(self.config, "worker_start_commands")
+        start_commands = self._get_node_type_specific_commands(
+                node_id, "worker_start_commands")
         environment_variables = with_head_node_ip_environment_variables(
             head_node_ip)
         environment_variables = self._with_cluster_secrets(environment_variables)
@@ -972,7 +989,7 @@ class ClusterScaler:
             initialization_commands=[],
             setup_commands=[],
             start_commands=start_commands,
-            runtime_hash=self.runtime_hash,
+            runtime_hash=runtime_hash,
             file_mounts_contents_hash=self.file_mounts_contents_hash,
             process_runner=self.process_runner,
             use_internal_ip=True,
@@ -980,7 +997,7 @@ class ClusterScaler:
             docker_config=self.config.get("docker"),
             node_resources=self._node_resources(node_id),
             for_recovery=True,
-            runtime_config=self.config.get("runtime"),
+            runtime_config=runtime_config,
             environment_variables=environment_variables)
         updater.start()
         self.updaters[node_id] = updater
@@ -993,34 +1010,21 @@ class ClusterScaler:
             return "unknown_node_type"
 
     def _get_node_type_specific_commands(self, node_id: str,
-                                         fields_key: str) -> Any:
-        commands = get_commands_to_run(self.config, fields_key)
-        return self._get_node_type_specific_fields(
-            node_id, fields_key, commands)
+                                         command_key: str) -> Any:
+        return _get_node_type_specific_commands(
+            self.config, self.provider, node_id, command_key)
 
-    def _get_node_type_specific_fields(self, node_id: str,
-                                       fields_key: str, global_fields) -> Any:
-        fields = global_fields
-        node_tags = self.provider.node_tags(node_id)
-        if CLOUDTIK_TAG_USER_NODE_TYPE in node_tags:
-            node_type = node_tags[CLOUDTIK_TAG_USER_NODE_TYPE]
-            if node_type not in self.available_node_types:
-                raise ValueError(f"Unknown node type tag: {node_type}.")
-            node_specific_config = self.available_node_types[node_type]
-            if fields_key in node_specific_config:
-                # TODO (haifeng): Current design of built-in and runtime commands merge doesn't consider this
-                fields = node_specific_config[fields_key]
-        return fields
+    def _get_node_type_specific_config(self, node_id: str) -> Any:
+        return _get_node_type_specific_config(
+            self.config, self.provider, node_id)
 
     def _get_node_specific_docker_config(self, node_id):
-        if "docker" not in self.config:
-            return {}
-        docker_config = copy.deepcopy(self.config.get("docker", {}))
-        global_docker = self.config["docker"]
-        node_specific_docker = self._get_node_type_specific_fields(
-            node_id, "docker", global_docker)
-        docker_config.update(node_specific_docker)
-        return docker_config
+        return _get_node_specific_docker_config(
+            self.config, self.provider, node_id)
+
+    def _get_node_specific_runtime_config(self, node_id):
+        return _get_node_specific_runtime_config(
+            self.config, self.provider, node_id)
 
     def should_update(self, node_id):
         if not self.can_update(node_id):
@@ -1033,7 +1037,8 @@ class ClusterScaler:
         successful_updated = self.num_successful_updates.get(node_id, 0) > 0
         if successful_updated and self.config.get("restart_only", False):
             setup_commands = []
-            start_commands = get_commands_to_run(self.config, "worker_start_commands")
+            start_commands = self._get_node_type_specific_commands(
+                node_id, "worker_start_commands")
         elif successful_updated and self.config.get("no_restart", False):
             setup_commands = self._get_node_type_specific_commands(
                 node_id, "worker_setup_commands")
@@ -1041,7 +1046,8 @@ class ClusterScaler:
         else:
             setup_commands = self._get_node_type_specific_commands(
                 node_id, "worker_setup_commands")
-            start_commands = get_commands_to_run(self.config, "worker_start_commands")
+            start_commands = self._get_node_type_specific_commands(
+                node_id, "worker_start_commands")
 
         docker_config = self._get_node_specific_docker_config(node_id)
         return UpdateInstructions(
@@ -1059,6 +1065,8 @@ class ClusterScaler:
         self.node_tracker.track(node_id, ip, node_type)
         head_node_ip = self.provider.internal_ip(
             self.non_terminated_nodes.head_id)
+        runtime_hash = self.get_node_runtime_hash(node_id)
+        runtime_config = self._get_node_specific_runtime_config(node_id)
 
         initialization_commands = self._get_node_type_specific_commands(
             node_id, "initialization_commands")
@@ -1078,7 +1086,7 @@ class ClusterScaler:
             initialization_commands=initialization_commands,
             setup_commands=setup_commands,
             start_commands=start_commands,
-            runtime_hash=self.runtime_hash,
+            runtime_hash=runtime_hash,
             file_mounts_contents_hash=self.file_mounts_contents_hash,
             is_head_node=False,
             cluster_synced_files=self.config["cluster_synced_files"],
@@ -1090,7 +1098,7 @@ class ClusterScaler:
             use_internal_ip=True,
             docker_config=docker_config,
             node_resources=node_resources,
-            runtime_config=self.config.get("runtime"),
+            runtime_config=runtime_config,
             environment_variables=environment_variables)
         updater.start()
         self.updaters[node_id] = updater

@@ -1247,14 +1247,83 @@ def combine_initialization_commands(config, merged_commands):
     merged_commands["initialization_commands"] = initialization_commands
 
 
+def _get_node_type_specific_commands(config, provider, node_id: str,
+                                     command_key: str) -> Any:
+    commands = get_commands_to_run(config, command_key)
+    node_specific_config = _get_node_type_specific_config(config, provider, node_id)
+    if (node_specific_config is not None) and (
+            MERGED_COMMAND_KEY in node_specific_config):
+        commands = get_commands_to_run(node_specific_config, command_key)
+    return commands
+
+
+def _get_node_type_specific_config(config, provider, node_id: str) -> Any:
+    node_tags = provider.node_tags(node_id)
+    if CLOUDTIK_TAG_USER_NODE_TYPE in node_tags:
+        node_type = node_tags[CLOUDTIK_TAG_USER_NODE_TYPE]
+        available_node_types = config["available_node_types"]
+        if node_type not in available_node_types:
+            raise ValueError(f"Unknown node type tag: {node_type}.")
+        return available_node_types[node_type]
+
+    return None
+
+
+def _get_node_type_specific_fields(config, provider, node_id: str,
+                                   fields_key: str) -> Any:
+    fields = None
+    node_specific_config = _get_node_type_specific_config(config, provider, node_id)
+    if (node_specific_config is not None) and (
+            fields_key in node_specific_config):
+        fields = node_specific_config[fields_key]
+
+    return fields
+
+
+def _get_node_specific_docker_config(config, provider, node_id):
+    if "docker" not in config:
+        return {}
+    docker_config = copy.deepcopy(config.get("docker", {}))
+    node_specific_docker = _get_node_type_specific_fields(
+        config, provider, node_id, "docker")
+    if node_specific_docker is not None:
+        update_nested_dict(docker_config, node_specific_docker)
+    return docker_config
+
+
+def _get_node_specific_runtime_config(config, provider, node_id):
+    if "runtime" not in config:
+        return None
+    runtime_config = config["runtime"]
+    node_specific_runtime = _get_node_type_specific_fields(
+        config, provider, node_id, "runtime")
+    if node_specific_runtime is not None:
+        runtime_config = copy.deepcopy(runtime_config)
+        update_nested_dict(runtime_config, node_specific_runtime)
+
+    return runtime_config
+
+
 def get_commands_to_run(config, commands_key):
     merged_commands = config[MERGED_COMMAND_KEY]
     return merged_commands.get(commands_key, [])
 
 
-def get_commands_for_runtimes(config, commands_key,
+def get_node_type_specific_commands_of_runtimes(
+        config, provider, node_id: str,
+        command_key: str, runtimes: Optional[List[str]] = None) -> Any:
+    commands_to_run = _get_node_type_specific_commands(
+        config, provider, node_id=node_id, command_key=command_key)
+    return filter_commands_for_runtimes(commands_to_run, runtimes)
+
+
+def get_commands_for_runtimes(config, command_key,
                               runtimes: Optional[List[str]] = None):
-    commands_to_run = get_commands_to_run(config, commands_key)
+    commands_to_run = get_commands_to_run(config, command_key)
+    return filter_commands_for_runtimes(commands_to_run, runtimes)
+
+
+def filter_commands_for_runtimes(commands_to_run, runtimes: Optional[List[str]] = None):
     if runtimes is None:
         return commands_to_run
 
@@ -1396,6 +1465,7 @@ def hash_launch_conf(node_conf, auth):
 # Cache the file hashes to avoid rescanning it each time. Also, this avoids
 # inadvertently restarting workers if the file mount content is mutated on the
 # head node.
+# TODO: This global cache needs to be protected for thread concurrency for future cases
 _hash_cache = {}
 
 

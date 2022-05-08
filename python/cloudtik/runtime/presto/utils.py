@@ -122,11 +122,13 @@ def _get_config_object(cluster_config: Dict[str, Any], object_name: str) -> Dict
     return merge_rooted_config_hierarchy(config_root, runtime_commands, object_name)
 
 
-def _get_runtime_commands(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+def _get_runtime_commands(runtime_config: Dict[str, Any],
+                          cluster_config: Dict[str, Any]) -> Dict[str, Any]:
     return _get_config_object(cluster_config, "commands")
 
 
-def _get_defaults_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+def _get_defaults_config(runtime_config: Dict[str, Any],
+                         cluster_config: Dict[str, Any]) -> Dict[str, Any]:
     return _get_config_object(cluster_config, "defaults")
 
 

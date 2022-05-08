@@ -228,11 +228,12 @@ def update_spark_configurations():
 def _with_runtime_environment_variables(runtime_config, config, provider, node_id: str):
     runtime_envs = {}
     spark_config = runtime_config.get("spark", {})
+    cluster_runtime_config = config.get("runtime")
 
     # 1) Try to use local hdfs first;
     # 2) Try to use defined hdfs_namenode_uri;
     # 3) Try to use provider storage;
-    if is_runtime_enabled(runtime_config, BUILT_IN_RUNTIME_HDFS):
+    if is_runtime_enabled(cluster_runtime_config, BUILT_IN_RUNTIME_HDFS):
         runtime_envs["HDFS_ENABLED"] = True
     elif spark_config.get("hdfs_namenode_uri") is not None:
         runtime_envs["HDFS_NAMENODE_URI"] = spark_config.get("hdfs_namenode_uri")
@@ -243,7 +244,7 @@ def _with_runtime_environment_variables(runtime_config, config, provider, node_i
 
     # 1) Try to use local metastore if there is one started;
     # 2) Try to use defined metastore_uri;
-    if is_runtime_enabled(runtime_config, BUILT_IN_RUNTIME_METASTORE):
+    if is_runtime_enabled(cluster_runtime_config, BUILT_IN_RUNTIME_METASTORE):
         runtime_envs["METASTORE_ENABLED"] = True
     elif spark_config.get("hive_metastore_uri") is not None:
         runtime_envs["HIVE_METASTORE_URI"] = spark_config.get("hive_metastore_uri")

@@ -969,6 +969,7 @@ class ClusterScaler:
         head_node_ip = self.provider.internal_ip(
             self.non_terminated_nodes.head_id)
         runtime_hash = self.get_node_runtime_hash(node_id)
+        docker_config = self._get_node_specific_docker_config(node_id)
         runtime_config = self._get_node_specific_runtime_config(node_id)
 
         start_commands = self._get_node_type_specific_commands(
@@ -994,7 +995,7 @@ class ClusterScaler:
             process_runner=self.process_runner,
             use_internal_ip=True,
             is_head_node=False,
-            docker_config=self.config.get("docker"),
+            docker_config=docker_config,
             node_resources=self._node_resources(node_id),
             for_recovery=True,
             runtime_config=runtime_config,

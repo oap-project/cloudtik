@@ -81,10 +81,11 @@ def _get_runnable_command(target):
 def _with_runtime_environment_variables(runtime_config, config, provider, node_id: str):
     runtime_envs = {"PRESTO_ENABLED": True}
     presto_config = runtime_config.get("presto", {})
+    cluster_runtime_config = config.get("runtime")
 
     # 1) Try to use local metastore if there is one started;
     # 2) Try to use defined metastore_uri;
-    if is_runtime_enabled(runtime_config, BUILT_IN_RUNTIME_METASTORE):
+    if is_runtime_enabled(cluster_runtime_config, BUILT_IN_RUNTIME_METASTORE):
         runtime_envs["METASTORE_ENABLED"] = True
     elif presto_config.get("hive_metastore_uri") is not None:
         runtime_envs["HIVE_METASTORE_URI"] = presto_config.get("hive_metastore_uri")

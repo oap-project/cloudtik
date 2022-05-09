@@ -5,7 +5,7 @@ from cloudtik.core._private.cli_logger import cli_logger
 
 class CallContext:
     def __init__(self, _cli_logger=cli_logger) -> None:
-        """Create a cluster object to operate on with this API.
+        """The call context object for controlling the context shared data.
         """
         self._redirect_output = False  # Whether to log command output to a temporary file
         self._allow_interactive = True  # whether to pass on stdin to running commands.

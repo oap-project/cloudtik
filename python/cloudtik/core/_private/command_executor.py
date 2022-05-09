@@ -41,10 +41,11 @@ KUBECTL_RSYNC = os.path.join(
 MAX_HOME_RETRIES = 3
 HOME_RETRY_DELAY_S = 5
 
-PRIVACY_KEYWORDS = ["PASSWORD", "ACCOUNT_KEY", "ACCESS_KEY", "PRIVATE_KEY"]
+PRIVACY_KEYWORDS = ["PASSWORD", "ACCOUNT", "SECRET", "ACCESS_KEY", "PRIVATE_KEY", "PROJECT_ID"]
 
 PRIVACY_REPLACEMENT = "VALUE-PROTECTED"
 PRIVACY_REPLACEMENT_TEMPLATE = "VALUE-{}PROTECTED"
+
 
 def is_key_with_privacy(key: str):
     for keyword in PRIVACY_KEYWORDS:
@@ -54,7 +55,8 @@ def is_key_with_privacy(key: str):
 
 
 def _with_environment_variables(cmd: str,
-                                environment_variables: Dict[str, object]):
+                                environment_variables: Dict[str, object],
+                                cmd_to_print: str = None):
     """Prepend environment variables to a shell command.
 
     Args:
@@ -62,9 +64,12 @@ def _with_environment_variables(cmd: str,
         environment_variables (Dict[str, object]): The set of environment
             variables. If an environment variable value is a dict, it will
             automatically be converted to a one line yaml string.
+        cmd_to_print (str): The command to print for base command if there is one
     """
 
     as_strings = []
+    as_strings_to_print = []
+    with_privacy = False
     for key, val in environment_variables.items():
         # json.dumps will add an extra quote to string value
         # since we use quote to make sure value is safe for shell, we don't need the quote for string
@@ -74,41 +79,34 @@ def _with_environment_variables(cmd: str,
 
         s = "export {}={};".format(key, quote(escaped_val))
         as_strings.append(s)
-    all_vars = "".join(as_strings)
-    return all_vars + cmd
-
-
-def _with_environment_variables_protected(cmd: str,
-                                          environment_variables: Dict[str, object]):
-    """Prepend environment variables to a shell command for print purposes
-
-    Args:
-        cmd (str): The base command.
-        environment_variables (Dict[str, object]): The set of environment
-            variables. If an environment variable value is a dict, it will
-            automatically be converted to a one line yaml string.
-    """
-
-    as_strings = []
-    for key, val in environment_variables.items():
-        # json.dumps will add an extra quote to string value
-        # since we use quote to make sure value is safe for shell, we don't need the quote for string
-        escaped_val = json.dumps(val, separators=(",", ":"))
-        if isinstance(val, str):
-            escaped_val = escaped_val.strip("\"\'")
 
         if is_key_with_privacy(key):
+            with_privacy = True
             val_len = len(escaped_val)
             replacement_len = len(PRIVACY_REPLACEMENT)
             if val_len > replacement_len:
                 escaped_val = PRIVACY_REPLACEMENT_TEMPLATE.format("-" * (val_len - replacement_len))
             else:
                 escaped_val = PRIVACY_REPLACEMENT
+            s = "export {}={};".format(key, quote(escaped_val))
 
-        s = "export {}={};".format(key, quote(escaped_val))
-        as_strings.append(s)
+        as_strings_to_print.append(s)
+
     all_vars = "".join(as_strings)
-    return all_vars + cmd
+    cmd_with_vars = all_vars + cmd
+
+    cmd_with_vars_to_print = None
+    if cmd_to_print or with_privacy:
+        all_vars_to_print = "".join(as_strings_to_print)
+        cmd_with_vars_to_print = all_vars_to_print + (cmd if cmd_to_print is None else cmd_to_print)
+    return cmd_with_vars, cmd_with_vars_to_print
+
+
+def _with_shutdown(cmd, cmd_to_print=None):
+    cmd += "; sudo shutdown -h now"
+    if cmd_to_print:
+        cmd_to_print += "; sudo shutdown -h now"
+    return cmd, cmd_to_print
 
 
 def _with_interactive(cmd):
@@ -140,9 +138,10 @@ class KubernetesCommandExecutor(CommandExecutor):
             run_env="auto",  # Unused argument.
             ssh_options_override_ssh_key="",  # Unused argument.
             shutdown_after_run=False,
+            cmd_to_print=None
     ):
         if shutdown_after_run:
-            cmd += "; sudo shutdown -h now"
+            cmd, cmd_to_print = _with_shutdown(cmd, cmd_to_print)
         if cmd and port_forward:
             raise Exception(
                 "exec with Kubernetes can't forward ports and execute"
@@ -174,14 +173,25 @@ class KubernetesCommandExecutor(CommandExecutor):
                 "--",
             ]
             if environment_variables:
-                cmd = _with_environment_variables(cmd, environment_variables)
+                cmd, cmd_to_print = _with_environment_variables(
+                    cmd, environment_variables, cmd_to_print=cmd_to_print)
             cmd = _with_interactive(cmd)
+            cmd_to_print = _with_interactive(cmd_to_print) if cmd_to_print else None
             cmd_prefix = " ".join(final_cmd)
             final_cmd += cmd
+            final_cmd_to_print = None
+            if cmd_to_print:
+                final_cmd_to_print = copy.deepcopy(final_cmd)
+                final_cmd_to_print += cmd_to_print
             # `kubectl exec` + subprocess w/ list of args has unexpected
             # side-effects.
             final_cmd = " ".join(final_cmd)
-            logger.info(self.log_prefix + "Running {}".format(final_cmd))
+            final_cmd_to_print = " ".join(final_cmd_to_print) if final_cmd_to_print else None
+
+            cli_logger.verbose("Running `{}`", cf.bold(" ".join(cmd if cmd_to_print is None else cmd_to_print)))
+            with cli_logger.indented():
+                cli_logger.verbose("Full command is `{}`",
+                                   cf.bold(final_cmd if final_cmd_to_print is None else final_cmd_to_print))
             try:
                 if with_output:
                     return self.process_runner.check_output(
@@ -190,7 +200,7 @@ class KubernetesCommandExecutor(CommandExecutor):
                     self.process_runner.check_call(final_cmd, shell=True)
             except subprocess.CalledProcessError:
                 if exit_on_fail:
-                    quoted_cmd = cmd_prefix + quote(" ".join(cmd))
+                    quoted_cmd = cmd_prefix + quote(" ".join(cmd if cmd_to_print is None else cmd_to_print))
                     msg = self.log_prefix + "Command failed"
                     if cli_logger.verbosity > 0:
                         msg += ": \n\n  {}\n".format(quoted_cmd)
@@ -491,9 +501,10 @@ class SSHCommandExecutor(CommandExecutor):
             run_env="auto",  # Unused argument.
             ssh_options_override_ssh_key="",
             shutdown_after_run=False,
-            silent=False):
+            silent=False,
+            cmd_to_print=None):
         if shutdown_after_run:
-            cmd += "; sudo shutdown -h now"
+            cmd, cmd_to_print = _with_shutdown(cmd, cmd_to_print)
         if ssh_options_override_ssh_key:
             ssh_options = SSHOptions(ssh_options_override_ssh_key, ProxyCommand=self.ssh_proxy_command)
         else:
@@ -525,19 +536,20 @@ class SSHCommandExecutor(CommandExecutor):
             "{}@{}".format(self.ssh_user, self.ssh_ip)
         ]
         final_cmd_to_print = None
-        cmd_to_print = None
         if cmd:
-            final_cmd_to_print = copy.deepcopy(final_cmd)
-            cmd_to_print = cmd
             if environment_variables:
-                cmd = _with_environment_variables(cmd, environment_variables)
-                cmd_to_print = _with_environment_variables_protected(cmd, environment_variables)
+                cmd, cmd_to_print = _with_environment_variables(
+                    cmd, environment_variables, cmd_to_print=cmd_to_print)
+            if cmd_to_print:
+                final_cmd_to_print = copy.deepcopy(final_cmd)
             if self.call_context.is_using_login_shells():
                 final_cmd += _with_interactive(cmd)
-                final_cmd_to_print += _with_interactive(cmd_to_print)
+                if cmd_to_print:
+                    final_cmd_to_print += _with_interactive(cmd_to_print)
             else:
                 final_cmd += [cmd]
-                final_cmd_to_print += [cmd_to_print]
+                if cmd_to_print:
+                    final_cmd_to_print += [cmd_to_print]
         else:
             # We do this because `-o ControlMaster` causes the `-N` flag to
             # still create an interactive shell in some ssh versions.
@@ -697,27 +709,28 @@ class DockerCommandExecutor(CommandExecutor):
             run_env="auto",
             ssh_options_override_ssh_key="",
             shutdown_after_run=False,
+            cmd_to_print=None
     ):
         if run_env == "auto":
             run_env = "host" if (not bool(cmd) or cmd.find(
                 self.docker_cmd) == 0) else self.docker_cmd
 
         if environment_variables:
-            cmd = _with_environment_variables(cmd, environment_variables)
+            cmd, cmd_to_print = _with_environment_variables(
+                cmd, environment_variables, cmd_to_print=cmd_to_print)
 
         if run_env == "docker":
             cmd = self._docker_expand_user(cmd, any_char=True)
+            cmd_to_print = self._docker_expand_user(cmd_to_print, any_char=True) if cmd_to_print else None
             if self.call_context.is_using_login_shells():
                 cmd = " ".join(_with_interactive(cmd))
-            cmd = with_docker_exec(
-                [cmd],
-                container_name=self.container_name,
-                with_interactive=self.call_context.is_using_login_shells(),
-                docker_cmd=self.docker_cmd)[0]
+                cmd_to_print = " ".join(_with_interactive(cmd_to_print)) if cmd_to_print else None
+            cmd, cmd_to_print = self._with_docker_exec(cmd, cmd_to_print)
 
         if shutdown_after_run:
-            # sudo shutdown should run after `with_docker_exec` command above
-            cmd += "; sudo shutdown -h now"
+            # shutdown should run after `with_docker_exec` command above
+            cmd, cmd_to_print = _with_shutdown(cmd, cmd_to_print)
+
         # Do not pass shutdown_after_run argument to ssh_command_runner.run()
         # since it is handled above.
         return self.ssh_command_executor.run(
@@ -726,7 +739,8 @@ class DockerCommandExecutor(CommandExecutor):
             exit_on_fail=exit_on_fail,
             port_forward=port_forward,
             with_output=with_output,
-            ssh_options_override_ssh_key=ssh_options_override_ssh_key)
+            ssh_options_override_ssh_key=ssh_options_override_ssh_key,
+            cmd_to_print=cmd_to_print)
 
     def run_rsync_up(self, source, target, options=None):
         options = options or {}
@@ -1085,3 +1099,16 @@ class DockerCommandExecutor(CommandExecutor):
 
         data_disks = data_disks_string.split()
         return ["{}/{}".format(mount_point, data_disks) for data_disks in data_disks]
+
+    def _with_docker_exec(self, cmd, cmd_to_print=None):
+        cmd = with_docker_exec(
+            [cmd],
+            container_name=self.container_name,
+            with_interactive=self.call_context.is_using_login_shells(),
+            docker_cmd=self.docker_cmd)[0]
+        cmd_to_print = with_docker_exec(
+            [cmd_to_print],
+            container_name=self.container_name,
+            with_interactive=self.call_context.is_using_login_shells(),
+            docker_cmd=self.docker_cmd)[0] if cmd_to_print else None
+        return cmd, cmd_to_print

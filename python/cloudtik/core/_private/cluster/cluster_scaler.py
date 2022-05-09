@@ -507,12 +507,13 @@ class ClusterScaler:
                 for node_id in self.non_terminated_nodes.worker_ids):
             if node_id is not None:
                 resources = self._node_resources(node_id)
+                call_context = self.call_context.new_call_context()
                 logger.debug(f"{node_id}: Starting new thread runner.")
                 T.append(
                     threading.Thread(
                         target=self.spawn_updater,
                         args=(node_id, setup_commands, start_commands,
-                              resources, docker_config)))
+                              resources, docker_config, call_context)))
         for t in T:
             t.start()
         for t in T:
@@ -1027,9 +1028,10 @@ class ClusterScaler:
             head_node_ip)
         environment_variables = self._with_cluster_secrets(environment_variables)
 
+        call_context = self.call_context.new_call_context()
         updater = NodeUpdaterThread(
             config=self.config,
-            call_context=self.call_context,
+            call_context=call_context,
             node_id=node_id,
             provider_config=self.config["provider"],
             provider=self.provider,
@@ -1107,7 +1109,7 @@ class ClusterScaler:
             docker_config=docker_config)
 
     def spawn_updater(self, node_id, setup_commands, start_commands,
-                      node_resources, docker_config):
+                      node_resources, docker_config, call_context):
         logger.info(f"Creating new (spawn_updater) updater thread for node"
                     f" {node_id}.")
         ip = self.provider.internal_ip(node_id)
@@ -1126,7 +1128,7 @@ class ClusterScaler:
 
         updater = NodeUpdaterThread(
             config=self.config,
-            call_context=self.call_context,
+            call_context=call_context,
             node_id=node_id,
             provider_config=self.config["provider"],
             provider=self.provider,

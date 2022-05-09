@@ -624,7 +624,7 @@ def _stop_docker_on_nodes(
         nodes: List[str]):
     use_internal_ip = True if on_head else False
 
-    def run_docker_stop(node, container_name):
+    def run_docker_stop(node, container_name, call_context):
         try:
             updater = create_node_updater_for_exec(
                 config=config,
@@ -663,7 +663,8 @@ def _stop_docker_on_nodes(
                 max_workers=MAX_PARALLEL_SHUTDOWN_WORKERS) as executor:
             for node in container_nodes:
                 executor.submit(
-                    run_docker_stop, node=node, container_name=container_name)
+                    run_docker_stop, node=node, container_name=container_name,
+                    call_context=call_context.new_call_context())
         call_context.set_output_redirected(output_redir)
         call_context.set_allow_interactive(allow_interactive)
 
@@ -2437,7 +2438,7 @@ def exec_node_on_head(
     nodes = [node_head] if node_head else []
     nodes += node_workers
 
-    def run_exec_cmd_on_head(node_id):
+    def run_exec_cmd_on_head(node_id, call_context):
         exec_cmd_on_head(
             config,
             call_context=call_context,
@@ -2460,7 +2461,7 @@ def exec_node_on_head(
             with cli_logger.group(
                     "Executing on node: {}", node_ip,
                     _numbered=("()", i + 1, total_nodes)):
-                run_exec_cmd_on_head(node_id=node_id)
+                run_exec_cmd_on_head(node_id=node_id, call_context=call_context)
 
 
 def create_node_updater_for_exec(config,
@@ -2546,7 +2547,7 @@ def _start_node_on_head(
         parallel: bool = True):
     head_node_ip = provider.internal_ip(head_node)
 
-    def start_single_node_on_head(node_id):
+    def start_single_node_on_head(node_id, call_context):
         if not is_node_in_completed_status(provider, node_id):
             node_ip = provider.internal_ip(node_id)
             cli_logger.print("Skip starting node {} as it is in setting up.", node_ip)
@@ -2604,7 +2605,7 @@ def _start_node_on_head(
             with cli_logger.group(
                     "Starting on worker: {}", node_ip,
                     _numbered=("()", i + 1, total_workers)):
-                start_single_node_on_head(node_id)
+                start_single_node_on_head(node_id, call_context=call_context)
 
 
 def start_node_from_head(config_file: str,
@@ -2797,7 +2798,7 @@ def _stop_node_on_head(
         parallel: bool = True):
     head_node_ip = provider.internal_ip(head_node)
 
-    def stop_single_node_on_head(node_id):
+    def stop_single_node_on_head(node_id, call_context):
         if not is_node_in_completed_status(provider, node_id):
             node_ip = provider.internal_ip(node_id)
             cli_logger.print("Skip stopping node {} as it is in setting up.", node_ip)
@@ -2858,7 +2859,7 @@ def _stop_node_on_head(
             with cli_logger.group(
                     "Stopping on worker: {}", node_ip,
                     _numbered=("()", i + 1, total_workers)):
-                stop_single_node_on_head(node_id)
+                stop_single_node_on_head(node_id, call_context=call_context)
 
 
 def scale_cluster(config_file: str, yes: bool, override_cluster_name: Optional[str],

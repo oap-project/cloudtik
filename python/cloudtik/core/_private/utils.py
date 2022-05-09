@@ -2616,3 +2616,25 @@ def retrieve_runtime_config(node_type: str = None):
         return {}
 
     return json.loads(runtime_config_str)
+
+
+def _get_minimal_nodes_before_update(node_type_config: Dict[str, Any], node_type: str,
+                                     config: Dict[str, Any]):
+    # Check the runtimes of the node type whether it needs to wait minimal before update
+    runtime_config = _get_node_type_specific_runtime_config(config, node_type)
+    if not runtime_config:
+        return None
+
+    # For each
+    runtimes_require_minimal_nodes = []
+    runtime_types = runtime_config.get(RUNTIME_TYPES_CONFIG_KEY, [])
+    for runtime_type in runtime_types:
+        runtime = _get_runtime(runtime_type, runtime_config)
+        if runtime.require_minimal_nodes_before_setup(config):
+            runtimes_require_minimal_nodes += [runtime_type]
+
+    if len(runtimes_require_minimal_nodes) > 0:
+        min_workers = config.get("min_workers", 0)
+        if min_workers > 0:
+            return {"minimal": min_workers, "runtimes": runtimes_require_minimal_nodes}
+    return None

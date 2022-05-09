@@ -68,6 +68,12 @@ class Runtime:
         """
         return None
 
+    def require_minimal_nodes_before_setup(self, cluster_config: Dict[str, Any]) -> bool:
+        """Whether the runtime nodes need minimal nodes launch before going to setup.
+        Usually this is because the setup of the nodes need to know each other.
+        """
+        return False
+
     @staticmethod
     def get_logs() -> Dict[str, str]:
         """Return a dictionary of name to log paths.

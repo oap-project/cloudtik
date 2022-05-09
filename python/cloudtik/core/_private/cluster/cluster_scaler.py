@@ -46,7 +46,7 @@ from cloudtik.core._private.utils import ConcurrentCounter, validate_config, \
     format_info_string, get_commands_to_run, with_head_node_ip_environment_variables, \
     encode_cluster_secrets, _get_node_specific_commands, _get_node_specific_config, \
     _get_node_specific_docker_config, _get_node_specific_runtime_config, \
-    _has_node_type_specific_runtime_config, get_runtime_config_key, RUNTIME_CONFIG_KEY
+    _has_node_type_specific_runtime_config, get_runtime_config_key, RUNTIME_CONFIG_KEY, _get_minimal_nodes_before_update
 from cloudtik.core._private.constants import CLOUDTIK_MAX_NUM_FAILURES, \
     CLOUDTIK_MAX_LAUNCH_BATCH, CLOUDTIK_MAX_CONCURRENT_LAUNCHES, \
     CLOUDTIK_UPDATE_INTERVAL_S, CLOUDTIK_HEARTBEAT_TIMEOUT_S, CLOUDTIK_RUNTIME_ENV_SECRETS
@@ -189,6 +189,7 @@ class ClusterScaler:
         self.secrets = AESCipher.generate_key()
         self.pushed_runtime_config_hashes = {}
         self.runtime_hash_for_node_types = {}
+        self.minimal_nodes_before_update = {}
 
         # The next node number to assign
         # will be initialized by the max node number from the existing nodes
@@ -320,13 +321,15 @@ class ClusterScaler:
             # Assign node number to new nodes
             self.assign_node_number_to_new_nodes()
 
-        if self.disable_node_updaters:
-            self.terminate_unhealthy_nodes(now)
-        else:
-            self.process_completed_updates()
-            self.update_nodes()
-            self.attempt_to_recover_unhealthy_nodes(now)
-            self.set_prometheus_updater_data()
+        wait_for_update = self.wait_for_minimal_nodes_before_update()
+        if not wait_for_update:
+            if self.disable_node_updaters:
+                self.terminate_unhealthy_nodes(now)
+            else:
+                self.process_completed_updates()
+                self.update_nodes()
+                self.attempt_to_recover_unhealthy_nodes(now)
+                self.set_prometheus_updater_data()
 
         # Dict[NodeType, int], List[ResourceDict]
         to_launch, unfulfilled = (
@@ -830,6 +833,9 @@ class ClusterScaler:
             # Push the runtime config to redis encrypted with secrets
             self._push_runtime_configs()
 
+            # Collect the minimal nodes before update requirements
+            self._collect_minimal_nodes_before_update()
+
         except Exception as e:
             self.prometheus_metrics.reset_exceptions.inc()
             if errors_fatal:
@@ -885,6 +891,16 @@ class ClusterScaler:
         runtime_config_key = get_runtime_config_key(node_type)
         kv_del(runtime_config_key)
         self.pushed_runtime_config_hashes.pop(node_type, None)
+
+    def _collect_minimal_nodes_before_update(self):
+        # Push global runtime config
+        minimal_nodes_before_update = {}
+        for node_type in self.available_node_types:
+            minimal_nodes_for_node_type = _get_minimal_nodes_before_update(
+                self.available_node_types[node_type], node_type, config=self.config)
+            if minimal_nodes_for_node_type:
+                minimal_nodes_before_update[node_type] = minimal_nodes_for_node_type
+        self.minimal_nodes_before_update = minimal_nodes_before_update
 
     def _with_cluster_secrets(self, environment_variables: Dict[str, Any]):
         encoded_secrets = encode_cluster_secrets(self.secrets)
@@ -1267,3 +1283,41 @@ class ClusterScaler:
                 self.provider.set_node_tags(
                     node_id, {CLOUDTIK_TAG_NODE_NUMBER: str(self.next_node_number)})
                 self.next_node_number += 1
+
+    def _collect_nodes_of_node_types(self):
+        node_type_counts = defaultdict(int)
+        for node_id in self.non_terminated_nodes.all_node_ids:
+            # Update per-type counts.
+            tags = self.provider.node_tags(node_id)
+            if CLOUDTIK_TAG_USER_NODE_TYPE in tags:
+                node_type = tags[CLOUDTIK_TAG_USER_NODE_TYPE]
+                node_type_counts[node_type] += 1
+
+        return node_type_counts
+
+    def wait_for_minimal_nodes_before_update(self):
+        if not bool(self.minimal_nodes_before_update):
+            # No need to wait
+            return False
+
+        # Make sure only minimal requirement > 0 will appear in self.minimal_nodes_before_update
+        nodes_of_node_types = self._collect_nodes_of_node_types()
+        for node_type in self.minimal_nodes_before_update:
+            minimal_nodes_info = self.minimal_nodes_before_update[node_type]
+            if node_type not in nodes_of_node_types:
+                self._print_info_waiting_for_minimal(minimal_nodes_info, 0)
+                return True
+
+            nodes_number = nodes_of_node_types[node_type]
+            if minimal_nodes_info["minimal"] > nodes_number:
+                self._print_info_waiting_for_minimal(minimal_nodes_info, nodes_number)
+                return True
+
+        # All satisfied if come to here
+        # TODO: See what we need to do here
+        return False
+
+    @staticmethod
+    def _print_info_waiting_for_minimal(minimal_nodes_info, nodes_number):
+        logger.info("Cluster Controller: waiting for minimal of {}/{} nodes required by runtimes: {}".format(
+            nodes_number, minimal_nodes_info["minimal"], minimal_nodes_info["runtimes"]))

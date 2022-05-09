@@ -765,7 +765,7 @@ def run_in_paralell_on_nodes(run_exec,
             max_workers=MAX_PARALLEL_EXEC_NODES) as executor:
         for node_id in nodes:
             executor.submit(
-                run_exec, node_id=node_id)
+                run_exec, node_id=node_id, call_context=call_context.new_call_context())
     call_context.set_output_redirected(output_redir)
     call_context.set_allow_interactive(allow_interactive)
 

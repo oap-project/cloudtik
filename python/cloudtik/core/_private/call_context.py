@@ -1,11 +1,23 @@
+import copy
+
+from cloudtik.core._private.cli_logger import cli_logger
+
 
 class CallContext:
-    def __init__(self) -> None:
+    def __init__(self, _cli_logger=cli_logger) -> None:
         """Create a cluster object to operate on with this API.
         """
         self._redirect_output = False  # Whether to log command output to a temporary file
         self._allow_interactive = True  # whether to pass on stdin to running commands.
         self._config = {"use_login_shells": True, "silent_rsync": True}
+        self._cli_logger = _cli_logger
+
+    def new_call_context(self):
+        new_context = CallContext(_cli_logger=self._cli_logger.new_logger())
+        new_context._redirect_output = self._redirect_output
+        new_context._allow_interactive = self._allow_interactive
+        new_context._config = copy.deepcopy(self._config)
+        return new_context
 
     def is_output_redirected(self):
         return self._redirect_output

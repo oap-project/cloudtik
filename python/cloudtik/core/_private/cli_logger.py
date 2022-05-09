@@ -266,7 +266,7 @@ def _isatty():
         return False
 
 
-class _CliLogger():
+class CliLogger():
     """Singleton class for CLI logging.
 
     Without calling 'cli_logger.configure', the CLILogger will default
@@ -311,6 +311,19 @@ class _CliLogger():
         # so it has some non-trivial logic to determine this)
         self._autodetected_cf_colormode = cf.colorful.colormode
         self.set_format()
+
+    def new_logger(self):
+        logger = CliLogger()
+        logger.indent_level = self.indent_level
+        logger._verbosity = self._verbosity
+        logger._verbosity_overriden=  self._verbosity_overriden
+        logger._color_mode = self._color_mode
+        logger._log_style = self._log_style
+        logger.pretty = self.pretty
+        logger.interactive = self.interactive
+        logger._autodetected_cf_colormode = self._autodetected_cf_colormode
+        logger._formatter = self._formatter
+        return logger
 
     def set_format(self, format_tmpl=None):
         if not format_tmpl:
@@ -788,7 +801,7 @@ class SilentClickException(click.ClickException):
         pass
 
 
-cli_logger = _CliLogger()
+cli_logger = CliLogger()
 
 CLICK_LOGGING_OPTIONS = [
     click.option(

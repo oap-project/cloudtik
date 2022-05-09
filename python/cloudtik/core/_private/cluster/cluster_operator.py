@@ -2565,12 +2565,14 @@ def _start_node_on_head(
         if is_head_node:
             start_commands = get_commands_of_runtimes(config, "head_start_commands",
                                                       runtimes=runtimes)
-            node_runtime_envs = with_node_ip_environment_variables(head_node_ip, provider, node_id)
+            node_runtime_envs = with_node_ip_environment_variables(
+                call_context, head_node_ip, provider, node_id)
         else:
             start_commands = get_node_specific_commands_of_runtimes(
                 config, provider, node_id=node_id,
                 command_key="worker_start_commands", runtimes=runtimes)
-            node_runtime_envs = with_node_ip_environment_variables(None, provider, node_id)
+            node_runtime_envs = with_node_ip_environment_variables(
+                call_context, None, provider, node_id)
             node_runtime_envs = with_head_node_ip_environment_variables(
                 head_node_ip, node_runtime_envs)
 
@@ -2816,12 +2818,14 @@ def _stop_node_on_head(
         if is_head_node:
             stop_commands = get_commands_of_runtimes(config, "head_stop_commands",
                                                      runtimes=runtimes)
-            node_runtime_envs = with_node_ip_environment_variables(head_node_ip, provider, node_id)
+            node_runtime_envs = with_node_ip_environment_variables(
+                call_context, head_node_ip, provider, node_id)
         else:
             stop_commands = get_node_specific_commands_of_runtimes(
                 config, provider, node_id=node_id,
                 command_key="worker_stop_commands", runtimes=runtimes)
-            node_runtime_envs = with_node_ip_environment_variables(None, provider, node_id)
+            node_runtime_envs = with_node_ip_environment_variables(
+                call_context, None, provider, node_id)
             node_runtime_envs = with_head_node_ip_environment_variables(
                 head_node_ip, node_runtime_envs)
 

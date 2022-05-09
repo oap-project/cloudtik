@@ -305,7 +305,8 @@ class KubernetesCommandExecutor(CommandExecutor):
 
 
 class SSHOptions:
-    def __init__(self, ssh_key, control_path=None, **kwargs):
+    def __init__(self, call_context, ssh_key, control_path=None, **kwargs):
+        self.call_context = call_context
         self.ssh_key = ssh_key
         self.arg_dict = {
             # Supresses initial fingerprint verification.
@@ -326,8 +327,8 @@ class SSHOptions:
             "ServerAliveInterval": 5,
             "ServerAliveCountMax": 10
         }
-        if self.cli_logger.verbosity == 0:
-            self.arg_dict["LogLevel"]="ERROR"
+        if self.call_context.cli_logger.verbosity == 0:
+            self.arg_dict["LogLevel"] = "ERROR"
         if control_path:
             self.arg_dict.update({
                 "ControlMaster": "auto",
@@ -368,6 +369,7 @@ class SSHCommandExecutor(CommandExecutor):
         self.ssh_ip = None
         self.ssh_proxy_command = auth_config.get("ssh_proxy_command", None)
         self.ssh_options = SSHOptions(
+            self.call_context,
             self.ssh_private_key,
             self.ssh_control_path,
             ProxyCommand=self.ssh_proxy_command)
@@ -506,7 +508,8 @@ class SSHCommandExecutor(CommandExecutor):
         if shutdown_after_run:
             cmd, cmd_to_print = _with_shutdown(cmd, cmd_to_print)
         if ssh_options_override_ssh_key:
-            ssh_options = SSHOptions(ssh_options_override_ssh_key, ProxyCommand=self.ssh_proxy_command)
+            ssh_options = SSHOptions(
+                self.call_context, ssh_options_override_ssh_key, ProxyCommand=self.ssh_proxy_command)
         else:
             ssh_options = self.ssh_options
 

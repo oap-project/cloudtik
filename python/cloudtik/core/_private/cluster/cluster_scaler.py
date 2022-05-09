@@ -46,7 +46,8 @@ from cloudtik.core._private.utils import ConcurrentCounter, validate_config, \
     format_info_string, get_commands_to_run, with_head_node_ip_environment_variables, \
     encode_cluster_secrets, _get_node_specific_commands, _get_node_specific_config, \
     _get_node_specific_docker_config, _get_node_specific_runtime_config, \
-    _has_node_type_specific_runtime_config, get_runtime_config_key, RUNTIME_CONFIG_KEY, _get_minimal_nodes_before_update
+    _has_node_type_specific_runtime_config, get_runtime_config_key, RUNTIME_CONFIG_KEY, \
+    _get_minimal_nodes_before_update, CLOUDTIK_CLUSTER_NODES_INFO_NODE_TYPE
 from cloudtik.core._private.constants import CLOUDTIK_MAX_NUM_FAILURES, \
     CLOUDTIK_MAX_LAUNCH_BATCH, CLOUDTIK_MAX_CONCURRENT_LAUNCHES, \
     CLOUDTIK_UPDATE_INTERVAL_S, CLOUDTIK_HEARTBEAT_TIMEOUT_S, CLOUDTIK_RUNTIME_ENV_SECRETS
@@ -187,9 +188,10 @@ class ClusterScaler:
 
         # The secrets shared between the workers and the head
         self.secrets = AESCipher.generate_key()
-        self.pushed_runtime_config_hashes = {}
+        self.published_runtime_config_hashes = {}
         self.runtime_hash_for_node_types = {}
         self.minimal_nodes_before_update = {}
+        self.published_nodes_info_hashes = {}
 
         # The next node number to assign
         # will be initialized by the max node number from the existing nodes
@@ -831,7 +833,7 @@ class ClusterScaler:
                     upscaling_speed)
 
             # Push the runtime config to redis encrypted with secrets
-            self._push_runtime_configs()
+            self._publish_runtime_configs()
 
             # Collect the minimal nodes before update requirements
             self._collect_minimal_nodes_before_update()
@@ -844,19 +846,19 @@ class ClusterScaler:
                 logger.exception("Cluster Controller: "
                                  "Error parsing config.")
 
-    def _push_runtime_configs(self):
+    def _publish_runtime_configs(self):
         # Push global runtime config
-        self._push_runtime_config(self.config.get(RUNTIME_CONFIG_KEY))
+        self._publish_runtime_config(self.config.get(RUNTIME_CONFIG_KEY))
 
         # For node types:
         for node_type in self.available_node_types:
             if _has_node_type_specific_runtime_config(self.config, node_type):
-                self._push_runtime_config(
+                self._publish_runtime_config(
                     self.available_node_types[node_type].get(RUNTIME_CONFIG_KEY), node_type)
             else:
                 self._delete_runtime_config(node_type)
 
-    def _push_runtime_config(self, runtime_config: Dict[str, Any], node_type: Optional[str] = None):
+    def _publish_runtime_config(self, runtime_config: Dict[str, Any], node_type: Optional[str] = None):
         if node_type is None:
             node_type = ""
 
@@ -869,10 +871,10 @@ class ClusterScaler:
         hasher.update(runtime_config_str.encode("utf-8"))
         new_runtime_config_hash = hasher.hexdigest()
 
-        pushed_runtime_config_hash = self.pushed_runtime_config_hashes.get(node_type)
-        if pushed_runtime_config_hash and new_runtime_config_hash == pushed_runtime_config_hash:
+        published_runtime_config_hash = self.published_runtime_config_hashes.get(node_type)
+        if published_runtime_config_hash and new_runtime_config_hash == published_runtime_config_hash:
             return
-        self.pushed_runtime_config_hashes["node_type"] = new_runtime_config_hash
+        self.published_runtime_config_hashes[node_type] = new_runtime_config_hash
 
         # Encrypt and put
         cipher = AESCipher(self.secrets)
@@ -890,7 +892,7 @@ class ClusterScaler:
 
         runtime_config_key = get_runtime_config_key(node_type)
         kv_del(runtime_config_key)
-        self.pushed_runtime_config_hashes.pop(node_type, None)
+        self.published_runtime_config_hashes.pop(node_type, None)
 
     def _collect_minimal_nodes_before_update(self):
         # Push global runtime config
@@ -1284,16 +1286,22 @@ class ClusterScaler:
                     node_id, {CLOUDTIK_TAG_NODE_NUMBER: str(self.next_node_number)})
                 self.next_node_number += 1
 
-    def _collect_nodes_of_node_types(self):
-        node_type_counts = defaultdict(int)
+    def _collect_nodes_info(self):
+        nodes_info_map = {}
         for node_id in self.non_terminated_nodes.all_node_ids:
-            # Update per-type counts.
             tags = self.provider.node_tags(node_id)
             if CLOUDTIK_TAG_USER_NODE_TYPE in tags:
                 node_type = tags[CLOUDTIK_TAG_USER_NODE_TYPE]
-                node_type_counts[node_type] += 1
+                if node_type not in nodes_info_map:
+                    nodes_info_map[node_type] = {}
+                nodes_info = nodes_info_map[node_type]
 
-        return node_type_counts
+                node_info = {"node_ip": self.provider.internal_ip(node_id)}
+                if CLOUDTIK_TAG_NODE_NUMBER in tags:
+                    node_info = {"node_number": int(tags[CLOUDTIK_TAG_NODE_NUMBER])}
+                nodes_info[node_id] = node_info
+
+        return nodes_info_map
 
     def wait_for_minimal_nodes_before_update(self):
         if not bool(self.minimal_nodes_before_update):
@@ -1301,23 +1309,47 @@ class ClusterScaler:
             return False
 
         # Make sure only minimal requirement > 0 will appear in self.minimal_nodes_before_update
-        nodes_of_node_types = self._collect_nodes_of_node_types()
+        nodes_info_map = self._collect_nodes_info()
         for node_type in self.minimal_nodes_before_update:
             minimal_nodes_info = self.minimal_nodes_before_update[node_type]
-            if node_type not in nodes_of_node_types:
-                self._print_info_waiting_for_minimal(minimal_nodes_info, 0)
+            if node_type not in nodes_info_map:
+                self._print_info_waiting_for(minimal_nodes_info, 0, "minimal")
                 return True
 
-            nodes_number = nodes_of_node_types[node_type]
+            nodes_info = nodes_info_map[node_type]
+            nodes_number = len(nodes_info)
             if minimal_nodes_info["minimal"] > nodes_number:
-                self._print_info_waiting_for_minimal(minimal_nodes_info, nodes_number)
+                self._print_info_waiting_for(minimal_nodes_info, nodes_number, "minimal")
                 return True
+
+            # Check whether the internal ip are all available
+            for node_id, node_info in nodes_info.items():
+                if node_info.get("node_ip") is None:
+                    self._print_info_waiting_for(minimal_nodes_info, nodes_number, "IP available")
+                    return True
+
+            # publish nodes will check whether it has changed since last publish
+            self._publish_nodes_info(node_type, nodes_info)
 
         # All satisfied if come to here
-        # TODO: See what we need to do here
         return False
 
+    def _publish_nodes_info(self, node_type: str, nodes_info):
+        nodes_info_str = json.dumps(nodes_info, sort_keys=True)
+
+        hasher = hashlib.sha1()
+        hasher.update(nodes_info_str.encode("utf-8"))
+        new_nodes_info_hash = hasher.hexdigest()
+
+        published_nodes_info_hash = self.published_nodes_info_hashes.get(node_type)
+        if published_nodes_info_hash and new_nodes_info_hash == published_nodes_info_hash:
+            return
+        self.published_nodes_info_hashes[node_type] = new_nodes_info_hash
+
+        nodes_info_key = CLOUDTIK_CLUSTER_NODES_INFO_NODE_TYPE.format(node_type)
+        kv_put(nodes_info_key, nodes_info_str, overwrite=True)
+
     @staticmethod
-    def _print_info_waiting_for_minimal(minimal_nodes_info, nodes_number):
-        logger.info("Cluster Controller: waiting for minimal of {}/{} nodes required by runtimes: {}".format(
-            nodes_number, minimal_nodes_info["minimal"], minimal_nodes_info["runtimes"]))
+    def _print_info_waiting_for(minimal_nodes_info, nodes_number, for_what):
+        logger.info("Cluster Controller: waiting for {} of {}/{} nodes required by runtimes: {}".format(
+            for_what, nodes_number, minimal_nodes_info["minimal"], minimal_nodes_info["runtimes"]))

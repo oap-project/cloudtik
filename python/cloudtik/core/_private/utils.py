@@ -62,6 +62,7 @@ CLOUDTIK_CLUSTER_SCALING_STATUS = "__cluster_scaling_status"
 # Internal kv key for publish runtime config.
 CLOUDTIK_CLUSTER_RUNTIME_CONFIG = "__cluster_runtime_config"
 CLOUDTIK_CLUSTER_RUNTIME_CONFIG_NODE_TYPE = "__cluster_runtime_config_{}"
+CLOUDTIK_CLUSTER_NODES_INFO_NODE_TYPE = "__cluster_nodes_info_{}"
 
 PLACEMENT_GROUP_RESOURCE_BUNDLED_PATTERN = re.compile(
     r"(.+)_group_(\d+)_([0-9a-zA-Z]+)")
@@ -2567,12 +2568,12 @@ def decode_cluster_secrets(encoded_secrets):
     return base64.b64decode(encoded_secrets.encode('utf-8'))
 
 
-def pull_runtime_config():
+def subscribe_runtime_config():
     if CLOUDTIK_RUNTIME_ENV_HEAD_IP not in os.environ:
-        raise RuntimeError("Not able to pull runtime config in lack of head ip.")
+        raise RuntimeError("Not able to subscribe runtime config in lack of head ip.")
 
     if CLOUDTIK_RUNTIME_ENV_SECRETS not in os.environ:
-        raise RuntimeError("Not able to pull runtime config in lack of secrets.")
+        raise RuntimeError("Not able to subscribe runtime config in lack of secrets.")
 
     node_type = os.environ.get(CLOUDTIK_RUNTIME_ENV_NODE_TYPE)
     if node_type:
@@ -2638,3 +2639,29 @@ def _get_minimal_nodes_before_update(node_type_config: Dict[str, Any], node_type
         if min_workers > 0:
             return {"minimal": min_workers, "runtimes": runtimes_require_minimal_nodes}
     return None
+
+
+def subscribe_nodes_info():
+    if CLOUDTIK_RUNTIME_ENV_HEAD_IP not in os.environ:
+        raise RuntimeError("Not able to subscribe nodes info in lack of head ip.")
+
+    if CLOUDTIK_RUNTIME_ENV_NODE_TYPE not in os.environ:
+        raise RuntimeError("Not able to subscribe nodes info in lack of node type.")
+
+    head_ip = os.environ[CLOUDTIK_RUNTIME_ENV_HEAD_IP]
+    node_type = os.environ[CLOUDTIK_RUNTIME_ENV_NODE_TYPE]
+    return _retrieve_nodes_info(head_ip, node_type)
+
+
+def _retrieve_nodes_info(head_ip, node_type):
+    from cloudtik.core._private.state.kv_store import kv_get, kv_initialize_with_address
+
+    redis_address = "{}:{}".format(head_ip, CLOUDTIK_DEFAULT_PORT)
+    kv_initialize_with_address(redis_address, CLOUDTIK_REDIS_DEFAULT_PASSWORD)
+
+    nodes_info_key = CLOUDTIK_CLUSTER_NODES_INFO_NODE_TYPE.format(node_type)
+    nodes_info_str = kv_get(nodes_info_key)
+    if nodes_info_str is None:
+        return None
+
+    return json.loads(nodes_info_str)

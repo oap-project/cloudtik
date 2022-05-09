@@ -5,7 +5,7 @@ import logging
 from cloudtik.core._private import constants
 from cloudtik.core._private import logging_utils
 from cloudtik.core._private.cli_logger import (cli_logger)
-from cloudtik.core._private.utils import pull_runtime_config, run_bash_scripts, run_system_command, \
+from cloudtik.core._private.utils import subscribe_runtime_config, run_bash_scripts, run_system_command, \
     load_head_cluster_config, RUNTIME_CONFIG_KEY
 
 from cloudtik.runtime.presto.utils import RUNTIME_ROOT_PATH, configure_connectors
@@ -98,7 +98,7 @@ def configure(head, head_address, script_args):
 
     # Configure other connectors
     runtime_config = load_head_cluster_config().get(
-        RUNTIME_CONFIG_KEY) if head else pull_runtime_config()
+        RUNTIME_CONFIG_KEY) if head else subscribe_runtime_config()
     configure_connectors(runtime_config)
 
 

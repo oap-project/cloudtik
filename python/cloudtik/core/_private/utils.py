@@ -1566,14 +1566,15 @@ def with_head_node_ip_environment_variables(head_ip, envs: Dict[str, Any] = None
     return envs
 
 
-def with_node_ip_environment_variables(node_ip, provider, node_id):
+def with_node_ip_environment_variables(
+        call_context, node_ip, provider, node_id):
     if node_ip is None:
         # Waiting for node internal ip for node
         if (provider is None) or (node_id is None):
             raise RuntimeError("Missing provider or node id for retrieving node ip.")
 
         deadline = time.time() + CLOUDTIK_NODE_START_WAIT_S
-        node_ip = wait_for_cluster_ip(provider, node_id, deadline)
+        node_ip = wait_for_cluster_ip(call_context, provider, node_id, deadline)
         if node_ip is None:
             raise RuntimeError("Failed to get node ip for node {}.".format(node_id))
 
@@ -2112,22 +2113,22 @@ def get_node_cluster_ip(provider: NodeProvider, node: str) -> str:
     return provider.internal_ip(node)
 
 
-def wait_for_cluster_ip(provider, node_id, deadline):
+def wait_for_cluster_ip(call_context, provider, node_id, deadline):
     # if we have IP do not print waiting info
     ip = get_node_cluster_ip(provider, node_id)
     if ip is not None:
         return ip
 
     interval = CLOUDTIK_NODE_SSH_INTERVAL_S
-    with cli_logger.group("Waiting for IP"):
+    with call_context.cli_logger.group("Waiting for IP"):
         while time.time() < deadline and \
                 not provider.is_terminated(node_id):
             ip = get_node_cluster_ip(provider, node_id)
             if ip is not None:
-                cli_logger.labeled_value("Received", ip)
+                call_context.cli_logger.labeled_value("Received", ip)
                 return ip
-            cli_logger.print("Not yet available, retrying in {} seconds",
-                             str(interval))
+            call_context.cli_logger.print(
+                "Not yet available, retrying in {} seconds", str(interval))
             time.sleep(interval)
 
     return None

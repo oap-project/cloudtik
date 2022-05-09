@@ -16,6 +16,10 @@ class CommandExecutor:
     def __init__(self, call_context: CallContext) -> None:
         self.call_context = call_context
 
+    @property
+    def cli_logger(self):
+        return self.call_context.cli_logger
+
     def run(
             self,
             cmd: str = None,

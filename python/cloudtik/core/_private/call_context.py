@@ -19,6 +19,10 @@ class CallContext:
         new_context._config = copy.deepcopy(self._config)
         return new_context
 
+    @property
+    def cli_logger(self):
+        return self._cli_logger
+
     def is_output_redirected(self):
         return self._redirect_output
 

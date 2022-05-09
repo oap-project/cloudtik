@@ -16,7 +16,7 @@ from cloudtik.core._private.command_executor import \
     CLOUDTIK_NODE_START_WAIT_S, \
     ProcessRunnerError
 from cloudtik.core._private.log_timer import LogTimer
-from cloudtik.core._private.cli_logger import cli_logger, cf
+from cloudtik.core._private.cli_logger import cf, CliLogger
 import cloudtik.core._private.subprocess_output_util as cmd_output_util
 from cloudtik.core._private.constants import CLOUDTIK_RESOURCES_ENV, CLOUDTIK_RUNTIME_ENV_NODE_NUMBER, \
     CLOUDTIK_RUNTIME_ENV_NODE_TYPE
@@ -132,6 +132,10 @@ class NodeUpdater:
         self.cluster_uri = _get_cluster_uri(self.provider_type, cluster_name)
         self.environment_variables = environment_variables
 
+    @property
+    def cli_logger(self) -> CliLogger:
+        return self.call_context.cli_logger
+
     def run(self):
         update_start_time = time.time()
         if self.call_context.does_allow_interactive(
@@ -141,7 +145,7 @@ class NodeUpdater:
             msg = ("Output was redirected for an interactive command. "
                    "Either do not pass `--redirect-command-output` "
                    "or also pass in `--use-normal-shells`.")
-            cli_logger.abort(msg)
+            self.cli_logger.abort(msg)
 
         try:
             with LogTimer(self.log_prefix +
@@ -150,20 +154,20 @@ class NodeUpdater:
         except Exception as e:
             self.provider.set_node_tags(
                 self.node_id, {CLOUDTIK_TAG_NODE_STATUS: STATUS_UPDATE_FAILED})
-            cli_logger.error("New status: {}", cf.bold(STATUS_UPDATE_FAILED))
+            self.cli_logger.error("New status: {}", cf.bold(STATUS_UPDATE_FAILED))
 
-            cli_logger.error("!!!")
+            self.cli_logger.error("!!!")
             if hasattr(e, "cmd"):
-                cli_logger.error(
+                self.cli_logger.error(
                     "Setup command `{}` failed with exit code {}. stderr:",
                     cf.bold(e.cmd), e.returncode)
             else:
-                cli_logger.verbose_error("{}", str(vars(e)))
+                self.cli_logger.verbose_error("{}", str(vars(e)))
                 # todo: handle this better somehow?
-                cli_logger.error("{}", str(e))
+                self.cli_logger.error("{}", str(e))
             # todo: print stderr here
-            cli_logger.error("!!!")
-            cli_logger.newline()
+            self.cli_logger.error("!!!")
+            self.cli_logger.newline()
 
             if isinstance(e, click.ClickException):
                 # todo: why do we ignore this here
@@ -179,7 +183,7 @@ class NodeUpdater:
                 CLOUDTIK_TAG_FILE_MOUNTS_CONTENTS] = self.file_mounts_contents_hash
 
         self.provider.set_node_tags(self.node_id, tags_to_set)
-        cli_logger.labeled_value("New status", STATUS_UP_TO_DATE)
+        self.cli_logger.labeled_value("New status", STATUS_UP_TO_DATE)
 
         self.update_time = time.time() - update_start_time
         self.exitcode = 0
@@ -189,14 +193,14 @@ class NodeUpdater:
         current_step, total_steps = step_numbers
 
         nolog_paths = []
-        if cli_logger.verbosity == 0:
+        if self.cli_logger.verbosity == 0:
             nolog_paths = [
                 "~/cloudtik_bootstrap_key.pem", "~/cloudtik_bootstrap_config.yaml"
             ]
 
         def do_sync(remote_path, local_path, allow_non_existing_paths=False):
             if allow_non_existing_paths and not os.path.exists(local_path):
-                cli_logger.print("sync: {} does not exist. Skipping.",
+                self.cli_logger.print("sync: {} does not exist. Skipping.",
                                  local_path)
                 # Ignore missing source files. In the future we should support
                 # the --delete-missing-args command to delete files that have
@@ -225,11 +229,11 @@ class NodeUpdater:
 
                 if remote_path not in nolog_paths:
                     # todo: timed here?
-                    cli_logger.print("{} from {}", cf.bold(remote_path),
+                    self.cli_logger.print("{} from {}", cf.bold(remote_path),
                                      cf.bold(local_path))
 
         # Rsync file mounts
-        with cli_logger.group(
+        with self.cli_logger.group(
                 "Processing file mounts",
                 _numbered=("[]", current_step, total_steps)):
             for remote_path, local_path in self.file_mounts.items():
@@ -237,26 +241,26 @@ class NodeUpdater:
             current_step += 1
 
         if self.cluster_synced_files:
-            with cli_logger.group(
+            with self.cli_logger.group(
                     "Processing worker file mounts",
                     _numbered=("[]", current_step, total_steps)):
-                cli_logger.print("synced files: {}",
+                self.cli_logger.print("synced files: {}",
                                  str(self.cluster_synced_files))
                 for path in self.cluster_synced_files:
                     do_sync(path, path, allow_non_existing_paths=True)
                 current_step += 1
         else:
-            cli_logger.print(
+            self.cli_logger.print(
                 "No worker file mounts to sync",
                 _numbered=("[]", current_step, total_steps))
 
     def wait_ready(self, deadline):
-        with cli_logger.group(
+        with self.cli_logger.group(
                 "Waiting for SSH to become available",
                 _numbered=("[]", 1, NUM_SETUP_STEPS)):
             with LogTimer(self.log_prefix + "Got remote shell"):
 
-                cli_logger.print("Running `{}` as a test.", cf.bold("uptime"))
+                self.cli_logger.print("Running `{}` as a test.", cf.bold("uptime"))
                 first_conn_refused_time = None
                 while True:
                     if time.time() > deadline:
@@ -269,7 +273,7 @@ class NodeUpdater:
                         # Run outside of the container
                         self.cmd_executor.run(
                             "uptime", timeout=5, run_env="host")
-                        cli_logger.success("Success.")
+                        self.cli_logger.success("Success.")
                         return True
                     except ProcessRunnerError as e:
                         first_conn_refused_time = \
@@ -298,7 +302,7 @@ class NodeUpdater:
                             retry_str = "(Exit Status {}): {}".format(
                                 e.returncode, cmd_)
 
-                        cli_logger.print(
+                        self.cli_logger.print(
                             "SSH still not available {}, "
                             "retrying in {} seconds.", cf.dimmed(retry_str),
                             cf.bold(str(READY_CHECK_INTERVAL)))
@@ -307,7 +311,7 @@ class NodeUpdater:
 
     def bootstrap_data_disks(self, step_numbers=(1, 1)):
         current_step, total_steps = step_numbers
-        with cli_logger.group(
+        with self.cli_logger.group(
                 "Preparing data disks",
                 _numbered=("[]", current_step, total_steps)):
             self.cmd_executor.bootstrap_data_disks()
@@ -318,7 +322,7 @@ class NodeUpdater:
 
         # Add node ip address environment variables
         ip_envs = with_node_ip_environment_variables(
-            None, self.provider, self.node_id)
+            self.call_context, None, self.provider, self.node_id)
         runtime_envs.update(ip_envs)
 
         if self.environment_variables is not None:
@@ -339,7 +343,7 @@ class NodeUpdater:
     def do_update(self):
         self.provider.set_node_tags(
             self.node_id, {CLOUDTIK_TAG_NODE_STATUS: STATUS_WAITING_FOR_SSH})
-        cli_logger.labeled_value("New status", STATUS_WAITING_FOR_SSH)
+        self.cli_logger.labeled_value("New status", STATUS_WAITING_FOR_SSH)
 
         deadline = time.time() + CLOUDTIK_NODE_START_WAIT_S
         self.wait_ready(deadline)
@@ -377,25 +381,25 @@ class NodeUpdater:
                 self.file_mounts_contents_hash):
             # todo: we lie in the confirmation message since
             # full setup might be cancelled here
-            cli_logger.print(
+            self.cli_logger.print(
                 "Configuration already up to date, "
                 "skipping file mounts, initialization and setup commands.",
                 _numbered=("[]", "2-6", NUM_SETUP_STEPS))
 
         else:
-            cli_logger.print(
+            self.cli_logger.print(
                 "Updating cluster configuration.",
                 _tags=dict(hash=self.runtime_hash))
 
             # The first step is to format and mount the data disks on host machine
             self.provider.set_node_tags(
                 self.node_id, {CLOUDTIK_TAG_NODE_STATUS: STATUS_BOOTSTRAPPING_DATA_DISKS})
-            cli_logger.labeled_value("New status", STATUS_BOOTSTRAPPING_DATA_DISKS)
+            self.cli_logger.labeled_value("New status", STATUS_BOOTSTRAPPING_DATA_DISKS)
             self.bootstrap_data_disks(step_numbers=(2, NUM_SETUP_STEPS))
 
             self.provider.set_node_tags(
                 self.node_id, {CLOUDTIK_TAG_NODE_STATUS: STATUS_SYNCING_FILES})
-            cli_logger.labeled_value("New status", STATUS_SYNCING_FILES)
+            self.cli_logger.labeled_value("New status", STATUS_SYNCING_FILES)
             self.sync_file_mounts(
                 self.rsync_up, step_numbers=(3, NUM_SETUP_STEPS))
 
@@ -406,17 +410,17 @@ class NodeUpdater:
                 # Run init commands
                 self.provider.set_node_tags(
                     self.node_id, {CLOUDTIK_TAG_NODE_STATUS: STATUS_SETTING_UP})
-                cli_logger.labeled_value("New status", STATUS_SETTING_UP)
+                self.cli_logger.labeled_value("New status", STATUS_SETTING_UP)
                 if self.initialization_commands:
-                    with cli_logger.group(
+                    with self.cli_logger.group(
                             "Running initialization commands",
                             _numbered=("[]", 5, NUM_SETUP_STEPS)):
                         self._exec_initialization_commands(runtime_envs)
                 else:
-                    cli_logger.print(
+                    self.cli_logger.print(
                         "No initialization commands to run.",
                         _numbered=("[]", 5, NUM_SETUP_STEPS))
-                with cli_logger.group(
+                with self.cli_logger.group(
                         "Initializing command runner",
                         # todo: fix command numbering
                         _numbered=("[]", 6, NUM_SETUP_STEPS)):
@@ -425,17 +429,17 @@ class NodeUpdater:
                         file_mounts=self.file_mounts,
                         sync_run_yet=True)
                 if self.setup_commands:
-                    with cli_logger.group(
+                    with self.cli_logger.group(
                             "Running setup commands",
                             # todo: fix command numbering
                             _numbered=("[]", 7, NUM_SETUP_STEPS)):
                         self._exec_setup_commands(runtime_envs)
                 else:
-                    cli_logger.print(
+                    self.cli_logger.print(
                         "No setup commands to run.",
                         _numbered=("[]", 7, NUM_SETUP_STEPS))
 
-        with cli_logger.group(
+        with self.cli_logger.group(
                 "Starting the cluster services",
                 _numbered=("[]", 8, NUM_SETUP_STEPS)):
             self._exec_start_commands(runtime_envs)
@@ -446,7 +450,7 @@ class NodeUpdater:
         options["rsync_exclude"] = self.rsync_options.get("rsync_exclude")
         options["rsync_filter"] = self.rsync_options.get("rsync_filter")
         self.cmd_executor.run_rsync_up(source, target, options=options)
-        cli_logger.verbose("`rsync`ed {} (local) to {} (remote)",
+        self.cli_logger.verbose("`rsync`ed {} (local) to {} (remote)",
                            cf.bold(source), cf.bold(target))
 
     def rsync_down(self, source, target, docker_mount_if_possible=False):
@@ -455,7 +459,7 @@ class NodeUpdater:
         options["rsync_exclude"] = self.rsync_options.get("rsync_exclude")
         options["rsync_filter"] = self.rsync_options.get("rsync_filter")
         self.cmd_executor.run_rsync_down(source, target, options=options)
-        cli_logger.verbose("`rsync`ed {} (remote) to {} (local)",
+        self.cli_logger.verbose("`rsync`ed {} (remote) to {} (local)",
                            cf.bold(source), cf.bold(target))
 
     def _exec_initialization_commands(self, runtime_envs):
@@ -490,8 +494,8 @@ class NodeUpdater:
                 run_env="host")
         except ProcessRunnerError as e:
             if e.msg_type == "ssh_command_failed":
-                cli_logger.error("Failed.")
-                cli_logger.error(
+                self.cli_logger.error("Failed.")
+                self.cli_logger.error(
                     "See above for stderr.")
 
             raise click.ClickException(
@@ -510,7 +514,7 @@ class NodeUpdater:
             total = len(self.setup_commands)
             for i, command_group in enumerate(self.setup_commands):
                 command_group_name = command_group.get("group_name", "")
-                with cli_logger.group(
+                with self.cli_logger.group(
                         "Setting up: {}",
                         command_group_name,
                         _numbered=("()", i + 1, total)):
@@ -523,20 +527,20 @@ class NodeUpdater:
             self.cluster_uri,
             CreateClusterEvent.run_setup_cmd,
             {"node_id": self.node_id, "command": cmd})
-        if cli_logger.verbosity == 0 and len(cmd) > MAX_COMMAND_LENGTH_TO_PRINT:
+        if self.cli_logger.verbosity == 0 and len(cmd) > MAX_COMMAND_LENGTH_TO_PRINT:
             cmd_to_print = cf.bold(cmd[:MAX_COMMAND_LENGTH_TO_PRINT]) + "..."
         else:
             cmd_to_print = cf.bold(cmd)
 
-        cli_logger.print("- {}", cmd_to_print)
+        self.cli_logger.print("- {}", cmd_to_print)
 
         try:
             # Runs in the container if docker is in use
             self.cmd_executor.run(cmd, environment_variables=runtime_envs, run_env="auto")
         except ProcessRunnerError as e:
             if e.msg_type == "ssh_command_failed":
-                cli_logger.error("Failed.")
-                cli_logger.error(
+                self.cli_logger.error("Failed.")
+                self.cli_logger.error(
                     "See above for stderr.")
 
             raise click.ClickException(
@@ -552,7 +556,7 @@ class NodeUpdater:
             total = len(self.start_commands)
             for i, command_group in enumerate(self.start_commands):
                 command_group_name = command_group.get("group_name", "")
-                with cli_logger.group(
+                with self.cli_logger.group(
                         "Starting: {}",
                         command_group_name,
                         _numbered=("()", i + 1, total)):
@@ -577,12 +581,12 @@ class NodeUpdater:
             env_vars = {}
         env_vars.update(runtime_envs)
 
-        if cli_logger.verbosity == 0 and len(cmd) > MAX_COMMAND_LENGTH_TO_PRINT:
+        if self.cli_logger.verbosity == 0 and len(cmd) > MAX_COMMAND_LENGTH_TO_PRINT:
             cmd_to_print = cf.bold(cmd[:MAX_COMMAND_LENGTH_TO_PRINT]) + "..."
         else:
             cmd_to_print = cf.bold(cmd)
 
-        cli_logger.print("- {}", cmd_to_print)
+        self.cli_logger.print("- {}", cmd_to_print)
 
         try:
             old_redirected = self.call_context.is_output_redirected()
@@ -595,8 +599,8 @@ class NodeUpdater:
             self.call_context.set_output_redirected(old_redirected)
         except ProcessRunnerError as e:
             if e.msg_type == "ssh_command_failed":
-                cli_logger.error("Failed.")
-                cli_logger.error("See above for stderr.")
+                self.cli_logger.error("Failed.")
+                self.cli_logger.error("See above for stderr.")
 
             raise click.ClickException("Start command failed.")
 
@@ -606,7 +610,7 @@ class NodeUpdater:
             total = len(commands)
             for i, command_group in enumerate(commands):
                 command_group_name = command_group.get("group_name", "")
-                with cli_logger.group(
+                with self.cli_logger.group(
                         "{}: {}",
                         action_name,
                         command_group_name,
@@ -620,12 +624,12 @@ class NodeUpdater:
         if envs:
             env_vars.update(envs)
 
-        if cli_logger.verbosity == 0 and len(cmd) > MAX_COMMAND_LENGTH_TO_PRINT:
+        if self.cli_logger.verbosity == 0 and len(cmd) > MAX_COMMAND_LENGTH_TO_PRINT:
             cmd_to_print = cf.bold(cmd[:MAX_COMMAND_LENGTH_TO_PRINT]) + "..."
         else:
             cmd_to_print = cf.bold(cmd)
 
-        cli_logger.print("- {}", cmd_to_print)
+        self.cli_logger.print("- {}", cmd_to_print)
 
         try:
             # Runs in the container if docker is in use
@@ -635,8 +639,8 @@ class NodeUpdater:
                 run_env="auto")
         except ProcessRunnerError as e:
             if e.msg_type == "ssh_command_failed":
-                cli_logger.error("Failed.")
-                cli_logger.error("See above for stderr.")
+                self.cli_logger.error("Failed.")
+                self.cli_logger.error("See above for stderr.")
 
             raise click.ClickException("Exec command failed.")
 

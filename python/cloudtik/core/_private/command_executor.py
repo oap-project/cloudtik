@@ -29,7 +29,7 @@ from cloudtik.core._private.log_timer import LogTimer
 from cloudtik.core._private.subprocess_output_util import (
     run_cmd_redirected, ProcessRunnerError)
 
-from cloudtik.core._private.cli_logger import cli_logger, cf
+from cloudtik.core._private.cli_logger import cf
 from cloudtik.core._private.debug import log_once
 
 logger = logging.getLogger(__name__)
@@ -188,9 +188,9 @@ class KubernetesCommandExecutor(CommandExecutor):
             final_cmd = " ".join(final_cmd)
             final_cmd_to_print = " ".join(final_cmd_to_print) if final_cmd_to_print else None
 
-            cli_logger.verbose("Running `{}`", cf.bold(" ".join(cmd if cmd_to_print is None else cmd_to_print)))
-            with cli_logger.indented():
-                cli_logger.verbose("Full command is `{}`",
+            self.cli_logger.verbose("Running `{}`", cf.bold(" ".join(cmd if cmd_to_print is None else cmd_to_print)))
+            with self.cli_logger.indented():
+                self.cli_logger.verbose("Full command is `{}`",
                                    cf.bold(final_cmd if final_cmd_to_print is None else final_cmd_to_print))
             try:
                 if with_output:
@@ -202,7 +202,7 @@ class KubernetesCommandExecutor(CommandExecutor):
                 if exit_on_fail:
                     quoted_cmd = cmd_prefix + quote(" ".join(cmd if cmd_to_print is None else cmd_to_print))
                     msg = self.log_prefix + "Command failed"
-                    if cli_logger.verbosity > 0:
+                    if self.cli_logger.verbosity > 0:
                         msg += ": \n\n  {}\n".format(quoted_cmd)
                     else:
                         msg += ". Use -v for more details."
@@ -326,7 +326,7 @@ class SSHOptions:
             "ServerAliveInterval": 5,
             "ServerAliveCountMax": 10
         }
-        if cli_logger.verbosity == 0:
+        if self.cli_logger.verbosity == 0:
             self.arg_dict["LogLevel"]="ERROR"
         if control_path:
             self.arg_dict.update({
@@ -382,19 +382,19 @@ class SSHCommandExecutor(CommandExecutor):
         # if we have IP do not print waiting info
         ip = self._get_node_ip()
         if ip is not None:
-            if cli_logger.verbosity > 0:
-                cli_logger.labeled_value("Fetched IP", ip)
+            if self.cli_logger.verbosity > 0:
+                self.cli_logger.labeled_value("Fetched IP", ip)
             return ip
 
         interval = CLOUDTIK_NODE_SSH_INTERVAL_S
-        with cli_logger.group("Waiting for IP"):
+        with self.cli_logger.group("Waiting for IP"):
             while time.time() < deadline and \
                     not self.provider.is_terminated(self.node_id):
                 ip = self._get_node_ip()
                 if ip is not None:
-                    cli_logger.labeled_value("Received", ip)
+                    self.cli_logger.labeled_value("Received", ip)
                     return ip
-                cli_logger.print("Not yet available, retrying in {} seconds",
+                self.cli_logger.print("Not yet available, retrying in {} seconds",
                                  cf.bold(str(interval)))
                 time.sleep(interval)
 
@@ -410,7 +410,7 @@ class SSHCommandExecutor(CommandExecutor):
         with LogTimer(self.log_prefix + "Got IP"):
             ip = self._wait_for_ip(deadline)
 
-            cli_logger.doassert(ip is not None,
+            self.cli_logger.doassert(ip is not None,
                                 "Could not get node IP.")  # todo: msg
             assert ip is not None, "Unable to find IP of node"
 
@@ -422,7 +422,7 @@ class SSHCommandExecutor(CommandExecutor):
         try:
             os.makedirs(self.ssh_control_path, mode=0o700, exist_ok=True)
         except OSError as e:
-            cli_logger.warning("{}", str(e))  # todo: msg
+            self.cli_logger.warning("{}", str(e))  # todo: msg
 
     def _run_helper(self,
                     final_cmd,
@@ -478,7 +478,7 @@ class SSHCommandExecutor(CommandExecutor):
 
             if exit_on_fail:
                 msg = "Command failed"
-                if cli_logger.verbosity > 0:
+                if self.cli_logger.verbosity > 0:
                     msg += ":\n\n  {}\n".format(joined_cmd)
                 else:
                     msg += ". Use -v for more details.".format(joined_cmd)
@@ -523,11 +523,11 @@ class SSHCommandExecutor(CommandExecutor):
             ssh = ["ssh"]
 
         if port_forward:
-            with cli_logger.group("Forwarding ports"):
+            with self.cli_logger.group("Forwarding ports"):
                 if not isinstance(port_forward, list):
                     port_forward = [port_forward]
                 for local, remote in port_forward:
-                    cli_logger.verbose(
+                    self.cli_logger.verbose(
                         "Forwarding port {} to port {} on localhost.",
                         cf.bold(local), cf.bold(remote))  # todo: msg
                     ssh += ["-L", "{}:localhost:{}".format(remote, local)]
@@ -555,13 +555,13 @@ class SSHCommandExecutor(CommandExecutor):
             # still create an interactive shell in some ssh versions.
             final_cmd.append("while true; do sleep 86400; done")
 
-        cli_logger.verbose("Running `{}`", cf.bold(cmd if cmd_to_print is None else cmd_to_print))
-        with cli_logger.indented():
-            cli_logger.verbose("Full command is `{}`",
+        self.cli_logger.verbose("Running `{}`", cf.bold(cmd if cmd_to_print is None else cmd_to_print))
+        with self.cli_logger.indented():
+            self.cli_logger.verbose("Full command is `{}`",
                                cf.bold(" ".join(final_cmd if final_cmd_to_print is None else final_cmd_to_print)))
 
-        if cli_logger.verbosity > 0:
-            with cli_logger.indented():
+        if self.cli_logger.verbosity > 0:
+            with self.cli_logger.indented():
                 return self._run_helper(
                     final_cmd, with_output, exit_on_fail,
                     silent=silent, cmd_to_print=final_cmd_to_print)
@@ -600,7 +600,7 @@ class SSHCommandExecutor(CommandExecutor):
         command += [
             source, "{}@{}:{}".format(self.ssh_user, self.ssh_ip, target)
         ]
-        cli_logger.verbose("Running `{}`", cf.bold(" ".join(command)))
+        self.cli_logger.verbose("Running `{}`", cf.bold(" ".join(command)))
         self._run_helper(command, silent=self.call_context.is_rsync_silent())
 
     def run_rsync_down(self, source, target, options=None):
@@ -617,7 +617,7 @@ class SSHCommandExecutor(CommandExecutor):
         command += [
             "{}@{}:{}".format(self.ssh_user, self.ssh_ip, source), target
         ]
-        cli_logger.verbose("Running `{}`", cf.bold(" ".join(command)))
+        self.cli_logger.verbose("Running `{}`", cf.bold(" ".join(command)))
         self._run_helper(command, silent=self.call_context.is_rsync_silent())
 
     def remote_shell_command_str(self):
@@ -658,7 +658,7 @@ class SSHCommandExecutor(CommandExecutor):
         lsblk_output = self.run(
             "lsblk -o name,ro,type,size,mountpoint -p --json || true",
             with_output=True).decode().strip()
-        cli_logger.verbose("List of all block devices:\n{}", lsblk_output)
+        self.cli_logger.verbose("List of all block devices:\n{}", lsblk_output)
 
         block_devices_doc = json.loads(lsblk_output)
         block_devices = block_devices_doc.get("blockdevices", [])
@@ -667,7 +667,7 @@ class SSHCommandExecutor(CommandExecutor):
             if not self._is_raw_block_device(block_device):
                 continue;
 
-            cli_logger.verbose("Found raw block devices {}", block_device["name"])
+            self.cli_logger.verbose("Found raw block devices {}", block_device["name"])
             raw_block_devices += [block_device]
 
         return raw_block_devices
@@ -677,7 +677,7 @@ class SSHCommandExecutor(CommandExecutor):
         mount_point = CLOUDTIK_DATA_DISK_MOUNT_POINT
         mount_path = f"{mount_point}/data_disk_{data_disk_index}"
 
-        cli_logger.print("Formatting device {} and mount to {}...", device_name, mount_path)
+        self.cli_logger.print("Formatting device {} and mount to {}...", device_name, mount_path)
 
         # Execute the format commands on the block device
         self.run(f"sudo mkfs -t xfs {device_name}")
@@ -870,7 +870,7 @@ class DockerCommandExecutor(CommandExecutor):
             with_output=True,
             run_env="host").decode("utf-8").strip()
         if running_image != image:
-            cli_logger.error(
+            self.cli_logger.error(
                 "A container with name {} is running image {} instead " +
                 "of {} (which was provided in the YAML)", self.container_name,
                 running_image, image)
@@ -893,13 +893,13 @@ class DockerCommandExecutor(CommandExecutor):
                 requested_remote_mounts - active_remote_mounts)
             if unfulfilled_mounts:
                 re_init_required = True
-                cli_logger.warning(
+                self.cli_logger.warning(
                     "This Docker Container is already running. "
                     "Restarting the Docker container on "
                     "this node to pick up the following file_mounts {}",
                     unfulfilled_mounts)
         except json.JSONDecodeError:
-            cli_logger.verbose(
+            self.cli_logger.verbose(
                 "Unable to check if file_mounts specified in the YAML "
                 "differ from those on the running container.")
         return re_init_required
@@ -964,7 +964,7 @@ class DockerCommandExecutor(CommandExecutor):
                         home_directory = env_var.split("HOME=")[1]
                         break
             except json.JSONDecodeError as e:
-                cli_logger.error(
+                self.cli_logger.error(
                     "Unable to deserialize `image_env` to Python object. "
                     f"The `image_env` is:\n{image_env}"
                 )
@@ -1017,7 +1017,7 @@ class DockerCommandExecutor(CommandExecutor):
                     group = lsl_string.split(" ")[3]
                     current_user = self.run(
                         "whoami", with_output=True).decode("utf-8").strip()
-                    cli_logger.warning(
+                    self.cli_logger.warning(
                         f"File ({mount}) is owned by user:{owner} and group:"
                         f"{group} with permissions ({permissions}). The "
                         f"current user ({current_user}) does not have "

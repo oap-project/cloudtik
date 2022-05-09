@@ -2593,7 +2593,7 @@ def _start_node_on_head(
     if node_head:
         with cli_logger.group(
                 "Starting on head: {}", head_node_ip):
-            start_single_node_on_head(node_head)
+            start_single_node_on_head(node_head, call_context=call_context)
 
     total_workers = len(node_workers)
     if parallel and total_workers > 1:
@@ -2849,7 +2849,7 @@ def _stop_node_on_head(
     if node_head:
         with cli_logger.group(
                 "Stopping on head: {}", head_node_ip):
-            stop_single_node_on_head(node_head)
+            stop_single_node_on_head(node_head, call_context=call_context)
 
     total_workers = len(node_workers)
     if parallel and total_workers > 1:

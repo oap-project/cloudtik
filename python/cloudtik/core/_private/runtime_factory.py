@@ -18,6 +18,7 @@ BUILT_IN_RUNTIME_HDFS = "hdfs"
 BUILT_IN_RUNTIME_METASTORE = "metastore"
 BUILT_IN_RUNTIME_SPARK = "spark"
 BUILT_IN_RUNTIME_PRESTO = "presto"
+BUILT_IN_RUNTIME_ZOOKEEPER = "zookeeper"
 
 
 def _import_ganglia():
@@ -70,12 +71,23 @@ def _load_presto_runtime_home():
     return os.path.dirname(presto.__file__)
 
 
+def _import_zookeeper():
+    from cloudtik.runtime.zookeeper.runtime import ZooKeeperRuntime
+    return ZooKeeperRuntime
+
+
+def _load_zookeeper_runtime_home():
+    import cloudtik.runtime.zookeeper as zookeeper
+    return os.path.dirname(zookeeper.__file__)
+
+
 _RUNTIMES = {
     "ganglia": _import_ganglia,
     "spark": _import_spark,
     "hdfs": _import_hdfs,
     "metastore": _import_metastore,
     "presto": _import_presto,
+    "zookeeper": _import_zookeeper,
 }
 
 _RUNTIME_HOMES = {
@@ -84,6 +96,7 @@ _RUNTIME_HOMES = {
     "hdfs": _load_hdfs_runtime_home,
     "metastore": _load_metastore_runtime_home,
     "presto": _load_presto_runtime_home,
+    "zookeeper": _load_zookeeper_runtime_home,
 }
 
 

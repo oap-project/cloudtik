@@ -2,35 +2,33 @@ import logging
 from typing import Any, Dict
 
 from cloudtik.core.node_provider import NodeProvider
+from cloudtik.core.runtime import Runtime
+from cloudtik.runtime.zookeeper.utils import _config_runtime_resources, _with_runtime_environment_variables, \
+    _is_runtime_scripts, _get_runnable_command, _get_runtime_processes, _validate_config, \
+    _verify_config, _get_runtime_logs, _get_runtime_commands, \
+    _get_defaults_config, _get_useful_urls, publish_service_uri, _handle_minimal_nodes_reached
 
 logger = logging.getLogger(__name__)
 
 
-class Runtime:
-    """Interface for runtime abstraction.
-
-    **Important**: This is an INTERNAL API that is only exposed for the purpose
-    of implementing custom runtime. It is not allowed to call into
-    RuntimeProvider methods from any package outside, only to
-    define new implementations of RuntimeProvider for use with the "external" runtime
-    provider option.
-    """
+class ZooKeeperRuntime(Runtime):
+    """Implementation for ZooKeeper Runtime"""
 
     def __init__(self, runtime_config: Dict[str, Any]) -> None:
-        self.runtime_config = runtime_config
+        Runtime.__init__(self, runtime_config)
 
     def prepare_config(self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         """Prepare runtime specific configurations"""
-        return cluster_config
+        return _config_runtime_resources(cluster_config)
 
     def validate_config(self, cluster_config: Dict[str, Any], provider: NodeProvider):
         """Validate cluster configuration from runtime perspective."""
-        pass
+        _validate_config(cluster_config, provider)
 
     def verify_config(self, cluster_config: Dict[str, Any], provider: NodeProvider):
         """Verify cluster configuration at the last stage of bootstrap.
         The verification may mean a slow process to check with a server"""
-        pass
+        _verify_config(cluster_config, provider)
 
     def with_environment_variables(
             self, config: Dict[str, Any], provider: NodeProvider,
@@ -38,54 +36,52 @@ class Runtime:
         """Export necessary runtime environment variables for running node commands.
         For example: {"ENV_NAME": value}
         """
-        return {}
+        return _with_runtime_environment_variables(
+            self.runtime_config, config=config, provider=provider, node_id=node_id)
 
     def cluster_booting_completed(
             self, cluster_config: Dict[str, Any], head_node_id: str) -> None:
+        # Do nothing here. service uri will only be published when minimal node reached.
         pass
 
     def get_runnable_command(self, target: str):
         """Return the runnable command for the target script.
         For example: ["bash", target]
         """
-        return None
+        if not _is_runtime_scripts(target):
+            return None
+
+        return _get_runnable_command(target)
 
     def get_runtime_commands(self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         """Returns a copy of runtime commands to run at different stages"""
-        return None
+        return _get_runtime_commands(self.runtime_config, cluster_config)
 
     def get_defaults_config(self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         """Returns a copy of runtime config"""
-        return None
+        return _get_defaults_config(self.runtime_config, cluster_config)
 
     def get_useful_urls(self, cluster_head_ip: str):
-        """Return the useful urls to show when cluster started.
-        It's an array of dictionary
-        For example:
-        [
-            {"name": "app web", "url": "http://localhost/app"},
-        ]
-        """
-        return None
+        return _get_useful_urls(cluster_head_ip)
 
     def require_minimal_nodes(self, cluster_config: Dict[str, Any]) -> bool:
         """Whether the runtime nodes need minimal nodes launch before going to setup.
         Usually this is because the setup of the nodes need to know each other.
         """
-        return False
+        return True
 
     def minimal_nodes_reached(self, cluster_config: Dict[str, Any], nodes_info: Dict[str, Any]):
-        """If the require_minimal_nodes_before_setup method returns True and runtime will be notified on head
+        """If the require_minimal_nodes method returns True and runtime will be notified on head
         When the minimal nodes are reached. Please note this may call multiple times (for example server down and up)
         """
-        pass
+        _handle_minimal_nodes_reached(self.runtime_config, cluster_config, nodes_info)
 
     @staticmethod
     def get_logs() -> Dict[str, str]:
         """Return a dictionary of name to log paths.
         For example {"server-a": "/tmp/server-a/logs"}
         """
-        return {}
+        return _get_runtime_logs()
 
     @staticmethod
     def get_processes():
@@ -98,12 +94,4 @@ class Runtime:
         For example
         ["cloudtik_cluster_controller.py", False, "ClusterController", "head"],
         """
-        return []
-
-    @staticmethod
-    def get_dependencies():
-        """Return a list of runtimes which can be used by this runtime.
-        This is for the purposes of reorder the installing, configuring and starting of the runtimes.
-        If there is no such information, the runtime will installed and started in the user order
-        """
-        return []
+        return _get_runtime_processes()

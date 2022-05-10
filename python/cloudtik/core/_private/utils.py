@@ -44,7 +44,7 @@ from cloudtik.core._private.providers import _get_default_config, _get_node_prov
 from cloudtik.core._private.docker import validate_docker_config
 from cloudtik.core._private.providers import _get_workspace_provider
 from cloudtik.core.tags import CLOUDTIK_TAG_USER_NODE_TYPE, CLOUDTIK_TAG_NODE_STATUS, STATUS_UP_TO_DATE, \
-    STATUS_UPDATE_FAILED
+    STATUS_UPDATE_FAILED, CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD
 
 # Import psutil after others so the packaged version is used.
 import psutil
@@ -2620,8 +2620,7 @@ def retrieve_runtime_config(node_type: str = None):
     return json.loads(runtime_config_str)
 
 
-def _get_minimal_nodes_before_update(node_type_config: Dict[str, Any], node_type: str,
-                                     config: Dict[str, Any]):
+def _get_minimal_nodes_before_update(config: Dict[str, Any], node_type: str):
     # Check the runtimes of the node type whether it needs to wait minimal before update
     runtime_config = _get_node_type_specific_runtime_config(config, node_type)
     if not runtime_config:
@@ -2632,7 +2631,7 @@ def _get_minimal_nodes_before_update(node_type_config: Dict[str, Any], node_type
     runtime_types = runtime_config.get(RUNTIME_TYPES_CONFIG_KEY, [])
     for runtime_type in runtime_types:
         runtime = _get_runtime(runtime_type, runtime_config)
-        if runtime.require_minimal_nodes_before_setup(config):
+        if runtime.require_minimal_nodes(config):
             runtimes_require_minimal_nodes += [runtime_type]
 
     if len(runtimes_require_minimal_nodes) > 0:
@@ -2640,6 +2639,18 @@ def _get_minimal_nodes_before_update(node_type_config: Dict[str, Any], node_type
         if min_workers > 0:
             return {"minimal": min_workers, "runtimes": runtimes_require_minimal_nodes}
     return None
+
+
+def _notify_minimal_nodes_reached(
+        config: Dict[str, Any], node_type: str, nodes_info, minimal_nodes_info):
+    runtime_config = _get_node_type_specific_runtime_config(config, node_type)
+    if not runtime_config:
+        return
+
+    runtime_types = minimal_nodes_info["runtimes"]
+    for runtime_type in runtime_types:
+        runtime = _get_runtime(runtime_type, runtime_config)
+        runtime.minimal_nodes_reached(config, nodes_info)
 
 
 def subscribe_nodes_info():
@@ -2666,3 +2677,39 @@ def _retrieve_nodes_info(head_ip, node_type):
         return None
 
     return json.loads(nodes_info_str)
+
+
+def get_running_head_node(
+        config: Dict[str, Any],
+        _provider: Optional[NodeProvider] = None,
+        _allow_uninitialized_state: bool = False,
+) -> str:
+    """Get a valid, running head node."""
+    provider = _provider or _get_node_provider(config["provider"],
+                                               config["cluster_name"])
+    head_node_tags = {
+        CLOUDTIK_TAG_NODE_KIND: NODE_KIND_HEAD,
+    }
+    nodes = provider.non_terminated_nodes(head_node_tags)
+    head_node = None
+    _backup_head_node = None
+    for node in nodes:
+        node_state = provider.node_tags(node).get(CLOUDTIK_TAG_NODE_STATUS)
+        if node_state == STATUS_UP_TO_DATE:
+            head_node = node
+        else:
+            _backup_head_node = node
+            cli_logger.warning(f"Head node ({node}) is in state {node_state}.")
+
+    if head_node is not None:
+        return head_node
+    else:
+        if _allow_uninitialized_state and _backup_head_node is not None:
+            cli_logger.warning(
+                f"The head node being returned: {_backup_head_node} is not "
+                "`up-to-date`. If you are not debugging a startup issue "
+                "it is recommended to restart this cluster.")
+
+            return _backup_head_node
+        raise RuntimeError("Head node of cluster {} not found!".format(
+            config["cluster_name"]))

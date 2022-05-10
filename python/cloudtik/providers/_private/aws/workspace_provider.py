@@ -1,5 +1,7 @@
 import logging
 from typing import Any, Dict, Optional
+
+from cloudtik.core._private.utils import get_running_head_node
 from cloudtik.providers._private.aws.config import create_aws_workspace, \
     delete_workspace_aws, check_aws_workspace_resource, update_aws_workspace_firewalls, \
     list_aws_clusters, _get_workspace_head_nodes
@@ -30,7 +32,7 @@ class AWSWorkspaceProvider(WorkspaceProvider):
         return list_aws_clusters(config)
 
     def publish_global_variables(self, cluster_config: Dict[str, Any],
-                                 head_node_id: str, global_variables: Dict[str, Any]):
+                                 global_variables: Dict[str, Any]):
         # Add prefix to the variables
         global_variables_prefixed = {}
         for name in global_variables:
@@ -38,6 +40,7 @@ class AWSWorkspaceProvider(WorkspaceProvider):
             global_variables_prefixed[prefixed_name] = global_variables[name]
 
         provider = _get_node_provider(cluster_config["provider"], cluster_config["cluster_name"])
+        head_node_id = get_running_head_node(cluster_config, provider)
         provider.set_node_tags(head_node_id, global_variables_prefixed)
 
     def subscribe_global_variables(self, cluster_config: Dict[str, Any]):

@@ -47,7 +47,7 @@ from cloudtik.core._private.utils import ConcurrentCounter, validate_config, \
     encode_cluster_secrets, _get_node_specific_commands, _get_node_specific_config, \
     _get_node_specific_docker_config, _get_node_specific_runtime_config, \
     _has_node_type_specific_runtime_config, get_runtime_config_key, RUNTIME_CONFIG_KEY, \
-    _get_minimal_nodes_before_update, CLOUDTIK_CLUSTER_NODES_INFO_NODE_TYPE
+    _get_minimal_nodes_before_update, CLOUDTIK_CLUSTER_NODES_INFO_NODE_TYPE, _notify_minimal_nodes_reached
 from cloudtik.core._private.constants import CLOUDTIK_MAX_NUM_FAILURES, \
     CLOUDTIK_MAX_LAUNCH_BATCH, CLOUDTIK_MAX_CONCURRENT_LAUNCHES, \
     CLOUDTIK_UPDATE_INTERVAL_S, CLOUDTIK_HEARTBEAT_TIMEOUT_S, CLOUDTIK_RUNTIME_ENV_SECRETS
@@ -186,12 +186,16 @@ class ClusterScaler:
                             ClusterPrometheusMetrics()
         self.resource_demand_scheduler = None
 
+        # These are records of publish for performance
+        # If the controller restarted, it will republish (with new secrets)
         # The secrets shared between the workers and the head
         self.secrets = AESCipher.generate_key()
         self.published_runtime_config_hashes = {}
+        self.published_nodes_info_hashes = {}
+
+        # These are initialized for each config change
         self.runtime_hash_for_node_types = {}
         self.minimal_nodes_before_update = {}
-        self.published_nodes_info_hashes = {}
 
         # The next node number to assign
         # will be initialized by the max node number from the existing nodes
@@ -897,13 +901,13 @@ class ClusterScaler:
 
     def _collect_minimal_nodes_before_update(self):
         # Push global runtime config
-        minimal_nodes_before_update = {}
+        minimal_nodes = {}
         for node_type in self.available_node_types:
             minimal_nodes_for_node_type = _get_minimal_nodes_before_update(
-                self.available_node_types[node_type], node_type, config=self.config)
+                self.config, node_type)
             if minimal_nodes_for_node_type:
-                minimal_nodes_before_update[node_type] = minimal_nodes_for_node_type
-        self.minimal_nodes_before_update = minimal_nodes_before_update
+                minimal_nodes[node_type] = minimal_nodes_for_node_type
+        self.minimal_nodes_before_update = minimal_nodes
 
     def _with_cluster_secrets(self, environment_variables: Dict[str, Any]):
         encoded_secrets = encode_cluster_secrets(self.secrets)
@@ -1330,13 +1334,16 @@ class ClusterScaler:
                     self._print_info_waiting_for(minimal_nodes_info, nodes_number, "IP available")
                     return True
 
+            logger.info(
+                "Cluster Controller: Minimal nodes requirement satisfied for {}: {}.".format(
+                    node_type, minimal_nodes_info["minimal"]))
             # publish nodes will check whether it has changed since last publish
-            self._publish_nodes_info(node_type, nodes_info)
+            self._publish_nodes_info(node_type, nodes_info, minimal_nodes_info)
 
         # All satisfied if come to here
         return False
 
-    def _publish_nodes_info(self, node_type: str, nodes_info):
+    def _publish_nodes_info(self, node_type: str, nodes_info, minimal_nodes_info):
         nodes_info_str = json.dumps(nodes_info, sort_keys=True)
 
         hasher = hashlib.sha1()
@@ -1348,8 +1355,19 @@ class ClusterScaler:
             return
         self.published_nodes_info_hashes[node_type] = new_nodes_info_hash
 
+        logger.info(
+            "Cluster Controller: Publish and notify nodes info for {}".format(
+                node_type))
+
         nodes_info_key = CLOUDTIK_CLUSTER_NODES_INFO_NODE_TYPE.format(node_type)
         kv_put(nodes_info_key, nodes_info_str, overwrite=True)
+
+        # Notify runtime of these
+        self._notify_minimal_nodes_reached(node_type, nodes_info, minimal_nodes_info)
+
+    def _notify_minimal_nodes_reached(self, node_type: str, nodes_info, minimal_nodes_info):
+        _notify_minimal_nodes_reached(
+            self.config, node_type, nodes_info, minimal_nodes_info)
 
     @staticmethod
     def _print_info_waiting_for(minimal_nodes_info, nodes_number, for_what):

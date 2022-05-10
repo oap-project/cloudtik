@@ -353,6 +353,7 @@ setuptools.setup(
             "cloudtik-hdfs=cloudtik.runtime.hdfs.scripts:main",
             "cloudtik-metastore=cloudtik.runtime.metastore.scripts:main",
             "cloudtik-presto=cloudtik.runtime.presto.scripts:main",
+            "cloudtik-zookeeper=cloudtik.runtime.zookeeper.scripts:main",
         ]
     },
     include_package_data=True,

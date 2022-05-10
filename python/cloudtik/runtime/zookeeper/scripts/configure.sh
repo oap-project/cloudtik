@@ -5,6 +5,7 @@ eval set -- "${args}"
 
 IS_HEAD_NODE=false
 USER_HOME=/home/$(whoami)
+RUNTIME_PATH=$USER_HOME/runtime
 
 while true
 do
@@ -82,12 +83,12 @@ function update_zookeeper_data_disks_config() {
 
 function update_myid() {
     # Configure my id file
-    if [ ! -n "${CLOUDTIK_RUNTIME_ENV_NODE_NUMBER}" ]; then
+    if [ ! -n "${CLOUDTIK_NODE_NUMBER}" ]; then
         echo "No node number allocated for current node!"
         exit 1
     fi
 
-    sed -i "s!{%zookeeper.myid%}!${CLOUDTIK_RUNTIME_ENV_NODE_NUMBER}!g" $output_dir/zookeeper/myid
+    sed -i "s!{%zookeeper.myid%}!${CLOUDTIK_NODE_NUMBER}!g" $output_dir/zookeeper/myid
 }
 
 function configure_zookeeper() {

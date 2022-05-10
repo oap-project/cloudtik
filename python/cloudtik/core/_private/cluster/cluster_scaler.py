@@ -1304,7 +1304,7 @@ class ClusterScaler:
 
                 node_info = {"node_ip": self.provider.internal_ip(node_id)}
                 if CLOUDTIK_TAG_NODE_NUMBER in tags:
-                    node_info = {"node_number": int(tags[CLOUDTIK_TAG_NODE_NUMBER])}
+                    node_info["node_number"] = int(tags[CLOUDTIK_TAG_NODE_NUMBER])
                 nodes_info[node_id] = node_info
 
         return nodes_info_map

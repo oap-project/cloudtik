@@ -2635,7 +2635,8 @@ def _get_minimal_nodes_before_update(config: Dict[str, Any], node_type: str):
             runtimes_require_minimal_nodes += [runtime_type]
 
     if len(runtimes_require_minimal_nodes) > 0:
-        min_workers = config.get("min_workers", 0)
+        node_type_config = config["available_node_types"][node_type]
+        min_workers = node_type_config.get("min_workers", 0)
         if min_workers > 0:
             return {"minimal": min_workers, "runtimes": runtimes_require_minimal_nodes}
     return None

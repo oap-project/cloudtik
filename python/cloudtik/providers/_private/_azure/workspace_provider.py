@@ -1,6 +1,7 @@
 import logging
 from typing import Any, Dict, Optional
 
+from cloudtik.core._private.utils import get_running_head_node
 from cloudtik.providers._private._azure.config import create_azure_workspace, \
     delete_workspace_azure, check_azure_workspace_resource, update_azure_workspace_firewalls, \
     get_workspace_head_nodes, list_azure_clusters
@@ -31,7 +32,7 @@ class AzureWorkspaceProvider(WorkspaceProvider):
         return list_azure_clusters(config)
 
     def publish_global_variables(self, cluster_config: Dict[str, Any],
-                                 head_node_id: str, global_variables: Dict[str, Any]):
+                                 global_variables: Dict[str, Any]):
         # Add prefix to the variables
         global_variables_prefixed = {}
         for name in global_variables:
@@ -39,6 +40,7 @@ class AzureWorkspaceProvider(WorkspaceProvider):
             global_variables_prefixed[prefixed_name] = global_variables[name]
 
         provider = _get_node_provider(cluster_config["provider"], cluster_config["cluster_name"])
+        head_node_id = get_running_head_node(cluster_config, provider)
         provider.set_node_tags(head_node_id, global_variables_prefixed)
 
     def subscribe_global_variables(self, cluster_config: Dict[str, Any]):

@@ -39,7 +39,7 @@ class WorkspaceProvider:
         return None
 
     def publish_global_variables(self, cluster_config: Dict[str, Any],
-                                 head_node_id: str, global_variables: Dict[str, Any]):
+                                 global_variables: Dict[str, Any]):
         """Workspace provide a way to publish global variables and can be subscribed anybody"""
         pass
 

@@ -31,7 +31,7 @@ def publish_service_uri(cluster_config: Dict[str, Any], head_node_id: str) -> No
     service_uris = {"hdfs-namenode-uri": "hdfs://{}:9000".format(head_internal_ip)}
 
     workspace_provider = _get_workspace_provider(cluster_config["provider"], workspace_name)
-    workspace_provider.publish_global_variables(cluster_config, head_node_id, service_uris)
+    workspace_provider.publish_global_variables(cluster_config, service_uris)
 
 
 def _get_runtime_processes():

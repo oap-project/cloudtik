@@ -5,7 +5,7 @@ from cloudtik.providers._private.gcp.config import create_gcp_workspace, \
     delete_workspace_gcp, check_gcp_workspace_resource, update_gcp_workspace_firewalls, \
     get_workspace_head_nodes, list_gcp_clusters
 from cloudtik.core._private.providers import _get_node_provider
-from cloudtik.core._private.utils import binary_to_hex, hex_to_binary
+from cloudtik.core._private.utils import binary_to_hex, hex_to_binary, get_running_head_node
 from cloudtik.core.tags import CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX, CLOUDTIK_GLOBAL_VARIABLE_KEY
 from cloudtik.core.workspace_provider import WorkspaceProvider
 
@@ -32,7 +32,7 @@ class GCPWorkspaceProvider(WorkspaceProvider):
         return list_gcp_clusters(config)
 
     def publish_global_variables(self, cluster_config: Dict[str, Any],
-                                 head_node_id: str, global_variables: Dict[str, Any]):
+                                 global_variables: Dict[str, Any]):
         # Add prefix to the variables
         global_variables_prefixed = {}
         for name in global_variables:
@@ -43,6 +43,7 @@ class GCPWorkspaceProvider(WorkspaceProvider):
             global_variables_prefixed[prefixed_name] = binary_to_hex(global_variables[name].encode())
 
         provider = _get_node_provider(cluster_config["provider"], cluster_config["cluster_name"])
+        head_node_id = get_running_head_node(cluster_config, provider)
         provider.set_node_tags(head_node_id, global_variables_prefixed)
 
     def subscribe_global_variables(self, cluster_config: Dict[str, Any]):

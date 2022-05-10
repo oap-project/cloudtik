@@ -6,7 +6,7 @@ from cloudtik.core.runtime import Runtime
 from cloudtik.runtime.zookeeper.utils import _config_runtime_resources, _with_runtime_environment_variables, \
     _is_runtime_scripts, _get_runnable_command, _get_runtime_processes, _validate_config, \
     _verify_config, _get_runtime_logs, _get_runtime_commands, \
-    _get_defaults_config, _get_useful_urls, publish_service_uri, _handle_minimal_nodes_reached
+    _get_defaults_config, _get_useful_urls, _handle_minimal_nodes_reached
 
 logger = logging.getLogger(__name__)
 

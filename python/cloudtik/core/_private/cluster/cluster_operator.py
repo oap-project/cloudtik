@@ -46,7 +46,7 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     with_head_node_ip_environment_variables, get_verified_runtime_list, get_commands_of_runtimes, \
     is_node_in_completed_status, check_for_single_worker_type, get_preferred_cpu_bundle_size, \
     _get_node_specific_commands, get_node_specific_commands_of_runtimes, _get_node_specific_runtime_config, \
-    _get_node_specific_docker_config, RUNTIME_CONFIG_KEY, DOCKER_CONFIG_KEY
+    _get_node_specific_docker_config, RUNTIME_CONFIG_KEY, DOCKER_CONFIG_KEY, get_running_head_node
 
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
@@ -1543,8 +1543,8 @@ def _get_running_head_node(
             `cloudtik exec` to debug a cluster in a bad state.
 
     """
-    return _get_running_head_node_ex(config=config, _provider=_provider,
-                                     _allow_uninitialized_state=_allow_uninitialized_state)
+    return get_running_head_node(config=config, _provider=_provider,
+                                 _allow_uninitialized_state=_allow_uninitialized_state)
 
 
 def get_local_dump_archive(stream: bool = False,

@@ -19,7 +19,8 @@ do
     shift
 done
 
-export ZOOKEEPER_VERSION=3.7.0
+export KAFKA_VERSION=3.1.0
+export KAFKA_SCALA_VERSION=2.13
 
 export USER_HOME=/home/$(whoami)
 export RUNTIME_PATH=$USER_HOME/runtime
@@ -40,19 +41,19 @@ function install_jdk() {
     fi
 }
 
-function install_zookeeper() {
-    # install zookeeper
-    export ZOOKEEPER_HOME=$RUNTIME_PATH/zookeeper
+function install_kafka() {
+    # install kafka
+    export KAFKA_HOME=$RUNTIME_PATH/kafka
 
-    if [ ! -d "${ZOOKEEPER_HOME}" ]; then
-      (cd $RUNTIME_PATH && wget -q --show-progress https://downloads.apache.org/zookeeper/zookeeper-${ZOOKEEPER_VERSION}/apache-zookeeper-${ZOOKEEPER_VERSION}-bin.tar.gz -O zookeeper-${ZOOKEEPER_VERSION}.tar.gz && \
-          tar -zxf zookeeper-${ZOOKEEPER_VERSION}.tar.gz && \
-          mv apache-zookeeper-${ZOOKEEPER_VERSION}-bin zookeeper && \
-          rm zookeeper-${ZOOKEEPER_VERSION}.tar.gz)
-        echo "export ZOOKEEPER_HOME=$ZOOKEEPER_HOME">> ${USER_HOME}/.bashrc
-        echo "export PATH=\$ZOOKEEPER_HOME/bin:\$PATH" >> ${USER_HOME}/.bashrc
+    if [ ! -d "${KAFKA_HOME}" ]; then
+      (cd $RUNTIME_PATH && wget -q --show-progress https://downloads.apache.org/kafka/${KAFKA_VERSION}/kafka_${KAFKA_SCALA_VERSION}-${KAFKA_VERSION}.tgz -O kafka-${KAFKA_VERSION}.tgz && \
+          tar -zxf kafka-${KAFKA_VERSION}.tgz && \
+          mv kafka_${KAFKA_SCALA_VERSION}-${KAFKA_VERSION} kafka && \
+          rm kafka-${KAFKA_VERSION}.tgz)
+        echo "export KAFKA_HOME=$KAFKA_HOME">> ${USER_HOME}/.bashrc
+        echo "export PATH=\$KAFKA_HOME/bin:\$PATH" >> ${USER_HOME}/.bashrc
     fi
 }
 
 install_jdk
-install_zookeeper
+install_kafka

@@ -1,9 +1,9 @@
 import os
 from typing import Any, Dict, List
 
-from cloudtik.core._private.utils import merge_rooted_config_hierarchy, _get_runtime_config_object
+from cloudtik.core._private.utils import merge_rooted_config_hierarchy, _get_runtime_config_object, \
+    publish_cluster_variable
 from cloudtik.core._private.workspace.workspace_operator import _get_workspace_provider
-from cloudtik.core._private.providers import _get_node_provider
 
 RUNTIME_PROCESSES = [
     # The first element is the substring to filter.
@@ -109,6 +109,7 @@ def _write_server_ensemble(server_ensemble: List[Dict[str, Any]]):
 
 def _handle_minimal_nodes_reached(
         runtime_config: Dict[str, Any], cluster_config: Dict[str, Any], nodes_info: Dict[str, Any]):
+    # We know this is called in the cluster scaler context
     server_ensemble = _server_ensemble_from_nodes_info(nodes_info)
     service_uri = ""
 
@@ -118,10 +119,15 @@ def _handle_minimal_nodes_reached(
             service_uri += ","
         service_uri += node_address
 
-    _publish_service_uri(cluster_config, service_uri)
+    _publish_service_uri_to_cluster(service_uri)
+    _publish_service_uri_to_workspace(cluster_config, service_uri)
 
 
-def _publish_service_uri(cluster_config: Dict[str, Any], service_uri: str) -> None:
+def _publish_service_uri_to_cluster(service_uri: str) -> None:
+    publish_cluster_variable("zookeeper-uri", service_uri)
+
+
+def _publish_service_uri_to_workspace(cluster_config: Dict[str, Any], service_uri: str) -> None:
     workspace_name = cluster_config["workspace_name"]
     if workspace_name is None:
         return

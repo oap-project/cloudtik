@@ -63,6 +63,7 @@ CLOUDTIK_CLUSTER_SCALING_STATUS = "__cluster_scaling_status"
 CLOUDTIK_CLUSTER_RUNTIME_CONFIG = "__cluster_runtime_config"
 CLOUDTIK_CLUSTER_RUNTIME_CONFIG_NODE_TYPE = "__cluster_runtime_config_{}"
 CLOUDTIK_CLUSTER_NODES_INFO_NODE_TYPE = "__cluster_nodes_info_{}"
+CLOUDTIK_CLUSTER_VARIABLE = "__cluster_variable_{}"
 
 PLACEMENT_GROUP_RESOURCE_BUNDLED_PATTERN = re.compile(
     r"(.+)_group_(\d+)_([0-9a-zA-Z]+)")
@@ -2570,9 +2571,6 @@ def decode_cluster_secrets(encoded_secrets):
 
 
 def subscribe_runtime_config():
-    if CLOUDTIK_RUNTIME_ENV_HEAD_IP not in os.environ:
-        raise RuntimeError("Not able to subscribe runtime config in lack of head ip.")
-
     if CLOUDTIK_RUNTIME_ENV_SECRETS not in os.environ:
         raise RuntimeError("Not able to subscribe runtime config in lack of secrets.")
 
@@ -2595,15 +2593,9 @@ def get_runtime_config_key(node_type: str):
 
 
 def retrieve_runtime_config(node_type: str = None):
-    from cloudtik.core._private.state.kv_store import kv_get, kv_initialize_with_address
-
     # Retrieve the runtime config
-    head_ip = os.environ[CLOUDTIK_RUNTIME_ENV_HEAD_IP]
-    redis_address = "{}:{}".format(head_ip, CLOUDTIK_DEFAULT_PORT)
-    kv_initialize_with_address(redis_address, CLOUDTIK_REDIS_DEFAULT_PASSWORD)
-
     runtime_config_key = get_runtime_config_key(node_type)
-    encrypted_runtime_config = kv_get(runtime_config_key)
+    encrypted_runtime_config = _get_key_from_kv( runtime_config_key)
     if encrypted_runtime_config is None:
         return None
 
@@ -2655,25 +2647,15 @@ def _notify_minimal_nodes_reached(
 
 
 def subscribe_nodes_info():
-    if CLOUDTIK_RUNTIME_ENV_HEAD_IP not in os.environ:
-        raise RuntimeError("Not able to subscribe nodes info in lack of head ip.")
-
     if CLOUDTIK_RUNTIME_ENV_NODE_TYPE not in os.environ:
         raise RuntimeError("Not able to subscribe nodes info in lack of node type.")
-
-    head_ip = os.environ[CLOUDTIK_RUNTIME_ENV_HEAD_IP]
     node_type = os.environ[CLOUDTIK_RUNTIME_ENV_NODE_TYPE]
-    return _retrieve_nodes_info(head_ip, node_type)
+    return _retrieve_nodes_info(node_type)
 
 
-def _retrieve_nodes_info(head_ip, node_type):
-    from cloudtik.core._private.state.kv_store import kv_get, kv_initialize_with_address
-
-    redis_address = "{}:{}".format(head_ip, CLOUDTIK_DEFAULT_PORT)
-    kv_initialize_with_address(redis_address, CLOUDTIK_REDIS_DEFAULT_PASSWORD)
-
+def _retrieve_nodes_info(node_type):
     nodes_info_key = CLOUDTIK_CLUSTER_NODES_INFO_NODE_TYPE.format(node_type)
-    nodes_info_str = kv_get(nodes_info_key)
+    nodes_info_str = _get_key_from_kv(nodes_info_key)
     if nodes_info_str is None:
         return None
 
@@ -2714,3 +2696,37 @@ def get_running_head_node(
             return _backup_head_node
         raise RuntimeError("Head node of cluster {} not found!".format(
             config["cluster_name"]))
+
+
+def publish_cluster_variable(cluster_variable_name, cluster_variable_value):
+    cluster_variable_key = CLOUDTIK_CLUSTER_VARIABLE.format(cluster_variable_name)
+    return _put_key_to_kv(cluster_variable_key, cluster_variable_value)
+
+
+def subscribe_cluster_variable(cluster_variable_name):
+    cluster_variable_key = CLOUDTIK_CLUSTER_VARIABLE.format(cluster_variable_name)
+    return _get_key_from_kv(cluster_variable_key)
+
+
+def _get_key_from_kv(key):
+    from cloudtik.core._private.state.kv_store import kv_get, kv_initialized, kv_initialize_with_address
+    if not kv_initialized():
+        if CLOUDTIK_RUNTIME_ENV_HEAD_IP not in os.environ:
+            raise RuntimeError("Not able to cluster kv store in lack of head ip.")
+        head_ip = os.environ[CLOUDTIK_RUNTIME_ENV_HEAD_IP]
+        redis_address = "{}:{}".format(head_ip, CLOUDTIK_DEFAULT_PORT)
+        kv_initialize_with_address(redis_address, CLOUDTIK_REDIS_DEFAULT_PASSWORD)
+
+    return kv_get(key)
+
+
+def _put_key_to_kv(key, value):
+    from cloudtik.core._private.state.kv_store import kv_put, kv_initialized, kv_initialize_with_address
+    if not kv_initialized():
+        if CLOUDTIK_RUNTIME_ENV_HEAD_IP not in os.environ:
+            raise RuntimeError("Not able to cluster kv store in lack of head ip.")
+        head_ip = os.environ[CLOUDTIK_RUNTIME_ENV_HEAD_IP]
+        redis_address = "{}:{}".format(head_ip, CLOUDTIK_DEFAULT_PORT)
+        kv_initialize_with_address(redis_address, CLOUDTIK_REDIS_DEFAULT_PASSWORD)
+
+    return kv_put(key, value)

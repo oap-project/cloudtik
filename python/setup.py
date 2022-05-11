@@ -354,6 +354,7 @@ setuptools.setup(
             "cloudtik-metastore=cloudtik.runtime.metastore.scripts:main",
             "cloudtik-presto=cloudtik.runtime.presto.scripts:main",
             "cloudtik-zookeeper=cloudtik.runtime.zookeeper.scripts:main",
+            "cloudtik-kafka=cloudtik.runtime.kafka.scripts:main",
         ]
     },
     include_package_data=True,

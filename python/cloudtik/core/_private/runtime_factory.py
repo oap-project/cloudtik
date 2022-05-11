@@ -19,6 +19,7 @@ BUILT_IN_RUNTIME_METASTORE = "metastore"
 BUILT_IN_RUNTIME_SPARK = "spark"
 BUILT_IN_RUNTIME_PRESTO = "presto"
 BUILT_IN_RUNTIME_ZOOKEEPER = "zookeeper"
+BUILT_IN_RUNTIME_KAFKA = "kafka"
 
 
 def _import_ganglia():
@@ -81,6 +82,16 @@ def _load_zookeeper_runtime_home():
     return os.path.dirname(zookeeper.__file__)
 
 
+def _import_kafka():
+    from cloudtik.runtime.kafka.runtime import KafkaRuntime
+    return KafkaRuntime
+
+
+def _load_kafka_runtime_home():
+    import cloudtik.runtime.kafka as kafka
+    return os.path.dirname(kafka.__file__)
+
+
 _RUNTIMES = {
     "ganglia": _import_ganglia,
     "spark": _import_spark,
@@ -88,6 +99,7 @@ _RUNTIMES = {
     "metastore": _import_metastore,
     "presto": _import_presto,
     "zookeeper": _import_zookeeper,
+    "kafka": _import_kafka,
 }
 
 _RUNTIME_HOMES = {
@@ -97,6 +109,7 @@ _RUNTIME_HOMES = {
     "metastore": _load_metastore_runtime_home,
     "presto": _load_presto_runtime_home,
     "zookeeper": _load_zookeeper_runtime_home,
+    "kafka": _load_kafka_runtime_home,
 }
 
 

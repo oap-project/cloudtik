@@ -2665,7 +2665,7 @@ def _retrieve_nodes_info(node_type):
 def get_running_head_node(
         config: Dict[str, Any],
         _provider: Optional[NodeProvider] = None,
-        _allow_uninitialized_state: bool = False,
+        _allow_uninitialized_state: bool = True,
 ) -> str:
     """Get a valid, running head node."""
     provider = _provider or _get_node_provider(config["provider"],

@@ -2705,7 +2705,10 @@ def publish_cluster_variable(cluster_variable_name, cluster_variable_value):
 
 def subscribe_cluster_variable(cluster_variable_name):
     cluster_variable_key = CLOUDTIK_CLUSTER_VARIABLE.format(cluster_variable_name)
-    return _get_key_from_kv(cluster_variable_key)
+    cluster_variable_value = _get_key_from_kv(cluster_variable_key)
+    if cluster_variable_value is None:
+        return None
+    return cluster_variable_value.decode("utf-8")
 
 
 def _get_key_from_kv(key):

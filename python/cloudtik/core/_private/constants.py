@@ -211,7 +211,7 @@ DEFAULT_PROXY_PORT = 6000
 CLOUDTIK_DATA_DISK_MOUNT_POINT = "/mnt/cloudtik"
 
 # The default location of downloading cloudtik wheels
-CLOUDTIK_WHEELS = "https://s3-us-west-2.amazonaws.com/cloudtik/downloads/wheels"
+CLOUDTIK_WHEELS = "https://d30257nes7d4fq.cloudfront.net/downloads/cloudtik"
 
 # The installed python version installed for head and workers
 CLOUDTIK_CLUSTER_PYTHON_VERSION = "3.7"

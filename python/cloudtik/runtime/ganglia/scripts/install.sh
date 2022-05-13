@@ -21,12 +21,9 @@ done
 
 
 function install_ganglia_monitor_python() {
-    rm -rf /tmp/monitor-core && git clone https://github.com/ganglia/monitor-core.git /tmp/monitor-core &&  cd /tmp/monitor-core && git checkout release/3.6
-    sudo -E apt-get -yq --no-install-suggests --no-install-recommends install \
-        libapr1-dev libaprutil1-dev libconfuse-dev libexpat1-dev libpcre3-dev libssl-dev librrd-dev libperl-dev libtool m4 gperf zlib1g-dev pkg-config libtool python-dev-is-python2 automake make > /dev/null
-    ./bootstrap && ./configure --with-gmetad --enable-status --with-python=/usr/bin/python2 && make  > /dev/null
-    sudo cp ./gmond/modules/python/.libs/modpython.so /usr/lib/ganglia/ && sudo chmod 644 /usr/lib/ganglia/modpython.so
-    sudo apt-get install -y  ganglia-monitor-python > /dev/null
+    wget -q --show-progress -P /tmp https://d30257nes7d4fq.cloudfront.net/downloads/cloudtik/ganglia/modpython.so
+    sudo cp /tmp/modpython.so /usr/lib/ganglia/ && sudo chmod 644 /usr/lib/ganglia/modpython.so
+    sudo apt-get install -y  ganglia-monitor-python python2.7-dev > /dev/null
 }
 
 function install_ganglia_server() {

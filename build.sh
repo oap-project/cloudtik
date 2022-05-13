@@ -40,8 +40,10 @@ function compile_ganglia_for_python() {
     # compile ganglia-monitor-core
     ./bootstrap && ./configure --with-gmetad --enable-status --with-python=/usr/bin/python2.7 && make
 
-    # upload binary to remote repository
-    # curl -X PUT --upload-file ./gmond/modules/python/.libs/modpython.so  https://d30257nes7d4fq.cloudfront.net/downloads/cloudtik/ganglia/modpython.so
+    # copy binary to target folder
+    mkdir -p ${SCRIPT_DIR}/python/dist
+    cp ./gmond/modules/python/.libs/modpython.so ${SCRIPT_DIR}/python/dist/
+    sudo chmod 644 ${SCRIPT_DIR}/python/dist/modpython.so
 }
 
 compile_redis_server

@@ -38,7 +38,7 @@ function compile_ganglia_for_python() {
         libapr1-dev libaprutil1-dev libconfuse-dev libexpat1-dev libpcre3-dev libssl-dev librrd-dev libperl-dev libtool m4 gperf zlib1g-dev pkg-config libtool python2.7-dev automake make
 
     # compile ganglia-monitor-core
-    ./bootstrap && ./configure --with-gmetad --enable-status --with-python=/usr/bin/python2 && make
+    ./bootstrap && ./configure --with-gmetad --enable-status --with-python=/usr/bin/python2.7 && make
 
     # upload binary to remote repository
     # curl -X PUT --upload-file ./gmond/modules/python/.libs/modpython.so  https://d30257nes7d4fq.cloudfront.net/downloads/cloudtik/ganglia/modpython.so

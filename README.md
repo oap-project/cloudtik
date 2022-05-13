@@ -29,7 +29,7 @@ for specific cloud providers. For AWS example,
 
 ```
 # if running CloudTik on aws
-pip install -U "cloudtik[aws] @ https://s3-us-west-2.amazonaws.com/cloudtik/downloads/wheels/cloudtik-0.9.0-cp37-cp37m-manylinux2014_x86_64.whl"
+pip install -U "cloudtik[aws] @ https://d30257nes7d4fq.cloudfront.net/downloads/cloudtik/cloudtik-0.9.0-cp37-cp37m-manylinux2014_x86_64.whl"
 ```
 Replace "cloudtik[aws]" with "clouditk[azure]" or "cloudtik[gcp]" if you want to use Azure or GCP.
 Use "cloudtik[all]" if you want to manage clusters with all supported Cloud providers.

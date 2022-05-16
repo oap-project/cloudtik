@@ -9,6 +9,13 @@ docker:
     initialization_commands:
         - which docker || (curl -fsSL https://get.docker.com -o /tmp/get-docker.sh && sed -i "s/set -x/set +x/g" /tmp/get-docker.sh &&
           sudo bash /tmp/get-docker.sh > /dev/null && sudo usermod -aG docker $USER && sudo systemctl restart docker -f)
+    head_initialization_commands:
+        - sudo docker pull registry:2
+        - "(stat /etc/docker/daemon.json &> /dev/null) || (printf \"{\n  \\\"registry-mirrors\\\": [\\\"http://${CLOUDTIK_HEAD_IP}:5000\\\"]\n}\" | sudo tee -a /etc/docker/daemon.json &> /dev/null && sudo systemctl restart docker -f)"
+        - (sudo docker container stop cloudtik-registry &> /dev/null && sudo docker container rm -v cloudtik-registry) || true
+        - (sudo docker run -d -e REGISTRY_PROXY_REMOTEURL="https://registry-1.docker.io" -p 5000:5000 --restart=always --name cloudtik-registry registry:2) || true
+    worker_initialization_commands:
+        - "(stat /etc/docker/daemon.json &> /dev/null) || (printf \"{\n  \\\"registry-mirrors\\\": [\\\"http://${CLOUDTIK_HEAD_IP}:5000\\\"]\n}\" | sudo tee -a /etc/docker/daemon.json &> /dev/null && sudo systemctl restart docker -f)"
 
 # List of shell commands to run to set up nodes.
 setup_commands:

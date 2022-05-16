@@ -72,6 +72,8 @@ PLACEMENT_GROUP_RESOURCE_PATTERN = re.compile(r"(.+)_group_([0-9a-zA-Z]+)")
 ResourceBundle = Dict[str, Union[int, float]]
 
 COMMAND_KEYS = ["initialization_commands",
+                "head_initialization_commands",
+                "worker_initialization_commands",
                 "setup_commands",
                 "head_setup_commands",
                 "worker_setup_commands",
@@ -83,13 +85,19 @@ COMMAND_KEYS = ["initialization_commands",
                 "head_stop_commands",
                 "worker_stop_commands"]
 
-NODE_TYPE_COMMAND_KEYS = ["initialization_commands",
+NODE_TYPE_COMMAND_KEYS = ["worker_initialization_commands",
                           "worker_setup_commands",
                           "bootstrap_commands",
                           "worker_start_commands",
                           "worker_stop_commands"]
 
+DOCKER_COMMAND_KEYS = [
+                "initialization_commands",
+                "head_initialization_commands",
+                "worker_initialization_commands"]
+
 TEMPORARY_COMMAND_KEYS = [
+                "initialization_commands",
                 "setup_commands",
                 "start_commands",
                 "bootstrap_commands",
@@ -1061,9 +1069,10 @@ def merge_docker_initialization_commands(merged_commands, group_name, from_confi
         merged_commands[DOCKER_CONFIG_KEY] = {}
 
     docker = merged_commands[DOCKER_CONFIG_KEY]
-    command_key = "initialization_commands"
     from_docker = from_config.get(DOCKER_CONFIG_KEY, {})
-    merge_command_key(docker, group_name, from_docker, command_key)
+
+    for command_key in DOCKER_COMMAND_KEYS:
+      merge_command_key(docker, group_name, from_docker, command_key)
 
 
 def merge_cluster_config(config):
@@ -1294,7 +1303,9 @@ def merge_commands_for(config, commands_root, built_in_commands):
 
     # Combine commands
     merged_commands = commands_root[MERGED_COMMAND_KEY]
-    combine_initialization_commands(config, merged_commands)
+    combine_initialization_commands_from_docker(config, merged_commands)
+
+    combine_initialization_commands(merged_commands)
     combine_setup_commands(merged_commands)
     combine_start_commands(merged_commands)
     combine_stop_commands(merged_commands)
@@ -1313,15 +1324,20 @@ def clean_temporary_commands(merged_commands):
         merged_commands.pop(DOCKER_CONFIG_KEY, None)
 
 
-def combine_initialization_commands(config, merged_commands):
-    # Check if docker enabled
-    initialization_commands = merged_commands["initialization_commands"]
-    if is_docker_enabled(config):
-        docker_initialization_commands = merged_commands.get(DOCKER_CONFIG_KEY, {}).get("initialization_commands")
-        if docker_initialization_commands:
-            initialization_commands += docker_initialization_commands
+def combine_initialization_commands_from_docker(config, merged_commands):
+    for command_key in DOCKER_COMMAND_KEYS:
+        combine_commands_from_docker(config, merged_commands, command_key)
 
-    merged_commands["initialization_commands"] = initialization_commands
+
+def combine_commands_from_docker(config, merged_commands, command_key):
+    # Check if docker enabled
+    commands = merged_commands[command_key]
+    if is_docker_enabled(config):
+        docker_commands = merged_commands.get(DOCKER_CONFIG_KEY, {}).get(command_key)
+        if docker_commands:
+            commands += docker_commands
+
+    merged_commands[command_key] = commands
 
 
 def _get_node_specific_runtime_types(config, node_id: str):
@@ -1497,6 +1513,12 @@ def get_cloudtik_setup_command(config) -> str:
     setup_command += config.get("cloudtik_wheel_url", get_default_cloudtik_wheel_url())
     setup_command += "\""
     return setup_command
+
+
+def combine_initialization_commands(config):
+    initialization_commands = config["initialization_commands"]
+    config["head_initialization_commands"] = (initialization_commands + config["head_initialization_commands"])
+    config["worker_initialization_commands"] = (initialization_commands + config["worker_initialization_commands"])
 
 
 def combine_setup_commands(config):

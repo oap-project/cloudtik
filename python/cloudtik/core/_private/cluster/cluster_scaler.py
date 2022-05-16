@@ -1125,7 +1125,7 @@ class ClusterScaler:
         runtime_config = self._get_node_specific_runtime_config(node_id)
 
         initialization_commands = self._get_node_specific_commands(
-            node_id, "initialization_commands")
+            node_id, "worker_initialization_commands")
         environment_variables = with_head_node_ip_environment_variables(
             head_node_ip)
         environment_variables = self._with_cluster_secrets(environment_variables)

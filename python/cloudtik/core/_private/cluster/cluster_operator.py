@@ -944,7 +944,7 @@ def get_or_create_head_node(config: Dict[str, Any],
             setup_commands = get_commands_to_run(config, "head_setup_commands")
             start_commands = get_commands_to_run(config, "head_start_commands")
 
-        initialization_commands = get_commands_to_run(config, "initialization_commands")
+        initialization_commands = get_commands_to_run(config, "head_initialization_commands")
         updater = NodeUpdaterThread(
             config=config,
             call_context=call_context,

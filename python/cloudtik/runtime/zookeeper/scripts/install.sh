@@ -19,7 +19,7 @@ do
     shift
 done
 
-export ZOOKEEPER_VERSION=3.7.0
+export ZOOKEEPER_VERSION=3.7.1
 
 export USER_HOME=/home/$(whoami)
 export RUNTIME_PATH=$USER_HOME/runtime

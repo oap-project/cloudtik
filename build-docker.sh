@@ -6,7 +6,7 @@ set -x
 
 GPU=""
 BASE_IMAGE="ubuntu:focal"
-WHEEL_URL="https://s3-us-west-2.amazonaws.com/cloudtik/downloads/wheels/cloudtik-0.9.0-cp37-cp37m-manylinux2014_x86_64.whl"
+WHEEL_URL="https://d30257nes7d4fq.cloudfront.net/downloads/cloudtik/cloudtik-0.9.0-cp37-cp37m-manylinux2014_x86_64.whl"
 PYTHON_VERSION="3.7.7"
 CONDA_ENV_NAME="cloudtik_py37"
 
@@ -97,4 +97,5 @@ fi
 
 rm -rf "$WHEEL_DIR"
 
-docker build  --no-cache -t  cloudtik/spark-runtime:nightly runtime/spark/docker
+docker build  $NO_CACHE -t cloudtik/spark-runtime:nightly runtime/spark/docker
+docker build  $NO_CACHE -t cloudtik/universe-runtime:nightly runtime/universe/docker

@@ -1,10 +1,12 @@
 ARG BASE_IMAGE="nightly"
 FROM cloudtik/spark-runtime:"$BASE_IMAGE"
 
-ARG ZOOKEEPER_VERSION=3.7.0
+ARG ZOOKEEPER_VERSION=3.7.1
 ARG KAFKA_VERSION=3.1.0
 ARG KAFKA_SCALA_VERSION=2.13
 ARG PRESTO_VERSION=0.271.1
+
+WORKDIR /home/cloudtik/runtime
 
 # ZooKeeper
 ENV ZOOKEEPER_VERSION    ${ZOOKEEPER_VERSION}
@@ -25,7 +27,7 @@ RUN wget https://downloads.apache.org/zookeeper/zookeeper-${ZOOKEEPER_VERSION}/a
     && mv apache-zookeeper-${ZOOKEEPER_VERSION}-bin zookeeper \
     && rm zookeeper-${ZOOKEEPER_VERSION}.tar.gz \
     # Install Kafka
-    && https://downloads.apache.org/kafka/${KAFKA_VERSION}/kafka_${KAFKA_SCALA_VERSION}-${KAFKA_VERSION}.tgz -O kafka-${KAFKA_VERSION}.tgz \
+    && wget https://downloads.apache.org/kafka/${KAFKA_VERSION}/kafka_${KAFKA_SCALA_VERSION}-${KAFKA_VERSION}.tgz -O kafka-${KAFKA_VERSION}.tgz \
     && tar -zxf kafka-${KAFKA_VERSION}.tgz \
     && mv kafka_${KAFKA_SCALA_VERSION}-${KAFKA_VERSION} kafka \
     && rm kafka-${KAFKA_VERSION}.tgz \
@@ -36,9 +38,9 @@ RUN wget https://downloads.apache.org/zookeeper/zookeeper-${ZOOKEEPER_VERSION}/a
     && rm presto-server-${PRESTO_VERSION}.tar.gz \
     && wget https://repo1.maven.org/maven2/com/facebook/presto/presto-cli/${PRESTO_VERSION}/presto-cli-${PRESTO_VERSION}-executable.jar \
     && mv presto-cli-${PRESTO_VERSION}-executable.jar $PRESTO_HOME/bin/presto \
-    && chmod +x $PRESTO_HOME/bin/presto \
-    # Install ganglia-monitor
-    && sudo apt-get update -y \
+    && chmod +x $PRESTO_HOME/bin/presto
+
+RUN sudo apt-get update -y \
     && sudo apt-get install -y \
         apache2 php libapache2-mod-php php-common php-mbstring php-gmp php-curl php-intl php-xmlrpc php-zip php-gd php-mysql php-xml \
     && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ganglia-monitor rrdtool gmetad ganglia-webfrontend \

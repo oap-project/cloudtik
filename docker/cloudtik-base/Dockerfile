@@ -37,6 +37,7 @@ RUN sudo apt-get update -y && sudo apt-get upgrade -y \
         gnupg \
         jq \
         dnsutils \
+        uuid \
     # Install Conda
     && wget \
         --quiet "https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh" \

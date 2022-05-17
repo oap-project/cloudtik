@@ -22,6 +22,11 @@ ENV PRESTO_HOME           $RUNTIME_PATH/presto
 
 ENV PATH                  $PRESTO_HOME/bin:$KAFKA_HOME/bin:$ZOOKEEPER_HOME/bin:$PATH
 
+RUN sudo apt-get update -y \
+    && sudo apt-get install -y ganglia-monitor \
+    && sudo rm -rf /var/lib/apt/lists/* \
+    && sudo apt-get clean
+
 RUN wget https://downloads.apache.org/zookeeper/zookeeper-${ZOOKEEPER_VERSION}/apache-zookeeper-${ZOOKEEPER_VERSION}-bin.tar.gz -O zookeeper-${ZOOKEEPER_VERSION}.tar.gz \
     && tar -zxf zookeeper-${ZOOKEEPER_VERSION}.tar.gz \
     && mv apache-zookeeper-${ZOOKEEPER_VERSION}-bin zookeeper \
@@ -39,14 +44,6 @@ RUN wget https://downloads.apache.org/zookeeper/zookeeper-${ZOOKEEPER_VERSION}/a
     && wget https://repo1.maven.org/maven2/com/facebook/presto/presto-cli/${PRESTO_VERSION}/presto-cli-${PRESTO_VERSION}-executable.jar \
     && mv presto-cli-${PRESTO_VERSION}-executable.jar $PRESTO_HOME/bin/presto \
     && chmod +x $PRESTO_HOME/bin/presto
-
-RUN sudo apt-get update -y \
-    && sudo apt-get install -y \
-        apache2 php libapache2-mod-php php-common php-mbstring php-gmp php-curl php-intl php-xmlrpc php-zip php-gd php-mysql php-xml \
-    && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ganglia-monitor rrdtool gmetad ganglia-webfrontend \
-    && sudo apt-get install -y mariadb-server \
-    && sudo rm -rf /var/lib/apt/lists/* \
-    && sudo apt-get clean
 
 # Install python packages
 WORKDIR /home/cloudtik/

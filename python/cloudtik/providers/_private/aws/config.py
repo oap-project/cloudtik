@@ -678,12 +678,6 @@ def _configure_iam_role(config):
 
 
 def _configure_iam_role_from_workspace(config):
-    head_node_type = config["head_node_type"]
-    head_node_config = config["available_node_types"][head_node_type][
-        "node_config"]
-    if "IamInstanceProfile" in head_node_config:
-        _set_config_info(head_instance_profile_src="config")
-        return config
     _set_config_info(head_instance_profile_src="workspace")
 
     instance_profile_name = _get_workspace_instance_profile_name(
@@ -693,9 +687,9 @@ def _configure_iam_role_from_workspace(config):
     if not profile:
         raise RuntimeError("Workspace instance profile: {} not found!".format(instance_profile_name))
 
-    # Add IAM role to "head_node" field so that it is applied only to
-    # the head node -- not to workers with the same node type as the head.
-    config["head_node"]["IamInstanceProfile"] = {"Arn": profile.arn}
+    for key, node_type in config["available_node_types"].items():
+        node_config = node_type["node_config"]
+        node_config["IamInstanceProfile"] = {"Arn": profile.arn}
 
     return config
 
@@ -738,7 +732,8 @@ def _create_or_update_instance_profile(config, instance_profile_name, instance_r
             }
             attach_policy_arns =  [
                     "arn:aws:iam::aws:policy/AmazonEC2FullAccess",
-                    "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+                    "arn:aws:iam::aws:policy/AmazonS3FullAccess",
+                    "arn:aws:iam::aws:policy/IAMFullAccess"
                 ]
 
             iam.create_role(

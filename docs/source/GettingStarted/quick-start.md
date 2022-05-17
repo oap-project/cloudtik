@@ -2,7 +2,7 @@
 
 ### 1. Preparing Python environment
 
-CloudTik requires a Python environment to run. We recommend using Conda to manage Python environments and packages.
+CloudTik requires a Python environment on Linux, we recommend using Conda to manage Python environments and packages.
 
 If you don't have Conda installed, please refer to `dev/install-conda.sh` to install Conda on Linux.
 
@@ -12,17 +12,18 @@ bash dev/install-conda.sh
 ```
 
 Once Conda is installed, create an environment with a specific Python version as below.
-CloudTik currently supports Python 3.6, 3.7, 3.8, 3.9. Here we take Python 3.7 as example.
+CloudTik currently supports Python 3.7, 3.8, 3.9. Here we take Python 3.7 as an example.
 
 ```
 conda create -n cloudtik -y python=3.7
 conda activate cloudtik
 ```
+
 ### 2. Installing CloudTik
 
 Execute the following `pip` commands to install CloudTik on your working machine for specific cloud providers. 
 
-Here we take AWS for example.
+Here we take AWS as an example.
 
 ```
 # if running CloudTik on aws
@@ -39,32 +40,45 @@ You can install the latest CloudTik wheels via the following links. These daily 
 | Python 3.9 | `pip install -U "cloudtik[aws] @ https://d30257nes7d4fq.cloudfront.net/downloads/cloudtik/cloudtik-0.9.0-cp39-cp39-manylinux2014_x86_64.whl" `     |
 | Python 3.8 | `pip install -U "cloudtik[aws] @ https://d30257nes7d4fq.cloudfront.net/downloads/cloudtik/cloudtik-0.9.0-cp38-cp38-manylinux2014_x86_64.whl" `     |
 | Python 3.7 | `pip install -U "cloudtik[aws] @ https://d30257nes7d4fq.cloudfront.net/downloads/cloudtik/cloudtik-0.9.0-cp37-cp37m-manylinux2014_x86_64.whl" `    |
-| Python 3.6 | `pip install -U "cloudtik[aws] @ https://d30257nes7d4fq.cloudfront.net/downloads/cloudtik/cloudtik-0.9.0-cp36-cp36m-manylinux2014_x86_64.whl" `    |
 
 
 ### 3. Authentication to Cloud Providers API
 
-You need to configure or log into your Cloud account to gain access to your cloud provider API for your working machine.
+After CloudTik is installed on your working machine, then you need to configure or log into your Cloud account to 
+gain access to cloud provider API on this machine.
 
 #### AWS
 
-First, install boto (`pip install boto3`) and configure your AWS credentials in `~/.aws/credentials` as described in 
-the [boto docs](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html).
+Follow these steps from the command line to install the AWS CLI on your working Linux machine.
+
+```
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
+aws configure
+```
+After you enter this command `aws configure`, the AWS CLI prompts you for four pieces of information: *AWS Access Key ID*,
+*AWS Secret Access Key*,  *Default region name* and *Default output format* to the command prompt.
+Fill them out then AWS CLI will be installed and authenticated.
+
+[AWS CLI Installation Guide](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) 
+and [CLI Configure Guide](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html) provide more details. 
 
 #### Azure
 
-First, install the Azure CLI (`pip install azure-cli azure-identity`) then login using (`az login`).
-Then set the subscription to use from the command line (`az account set -s <subscription_id>`) on your working machine.
-
-Once the Azure CLI is configured to manage resources on your Azure account, then you can use cluster config yaml to
-launch cluster with CloudTik.
+Login to Azure on your working machine using `az login`, then set the subscription to use from the command 
+line (`az account set -s <subscription_id>`). Then the Azure CLI is configured to manage resources on your Azure account.
 
 #### GCP
 
-Set the `GOOGLE_APPLICATION_CREDENTIALS` environment variable as described in
-[the GCP docs](https://cloud.google.com/docs/authentication/getting-started) on your working machine.
+First, follow the [Google Cloud docs](https://cloud.google.com/docs/authentication/getting-started#creating_a_service_account) 
+to create a service account on Google Cloud, A JSON file should be safely downloaded and kept by you after the
+service account created.
 
-After created a service account key, A JSON file should be safely downloaded and kept by you.
+Then set the `GOOGLE_APPLICATION_CREDENTIALS` environment variable as described in
+[GCP docs](https://cloud.google.com/docs/authentication/getting-started#setting_the_environment_variable) on your working machine.
+
+
 
 ### 4. Creating a Workspace for Clusters.
 
@@ -74,13 +88,13 @@ firewall or security groups. In a Workspace, you can start one or more clusters.
 Use the following command to create and provision a Workspace:
 
 ```
-cloudtik workspace create your-workspace-config.yaml
+cloudtik workspace create /path/to/your-workspace-config.yaml
 ```
 
 A typical workspace configuration file is usually very simple. Specify the unique workspace name, cloud provider type
 and a few cloud provider specific properties. 
 
-Take AWS as example.
+Take AWS as an example.
 
 ```
 # A unique identifier for the workspace.
@@ -186,7 +200,7 @@ cloudtik start your-cluster-config.yaml
 
 A typical cluster configuration file is usually very simple thanks to CloudTik hierarchy templates design.
 
-Take AWS for example, this example can be found from CloudTik's `example/cluster/aws/example-standard.yaml`,
+Take AWS as an example, this example can be found from CloudTik's `example/cluster/aws/example-standard.yaml`,
 inheriting AWS standard template which locates in `python/cloudtik/templates/aws/standard.yaml`
 
 ```

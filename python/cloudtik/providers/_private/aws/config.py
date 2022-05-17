@@ -277,6 +277,18 @@ def get_vpc_nat_gateways(ec2_client, vpc_id):
     return nat_gateways
 
 
+def _get_workspace_route_table_ids(workspace_name, ec2, vpc_id):
+    vpc_resource = ec2.Vpc(vpc_id)
+    rtbs = [rtb for rtb in vpc_resource.route_tables.all() if rtb.tags]
+
+    workspace_rtb_ids = [rtb.id for rtb in rtbs
+                         for tag in rtb.tags
+                         if tag['Key'] == 'Name' and
+                         "cloudtik-{}".format(workspace_name) in tag['Value']]
+
+    return workspace_rtb_ids
+
+
 def get_workspace_private_route_tables(workspace_name, ec2, vpc_id):
     vpc_resource = ec2.Vpc(vpc_id)
     rtbs = [rtb for rtb in vpc_resource.route_tables.all() if rtb.tags]
@@ -1138,6 +1150,31 @@ def _create_nat_gateway(config, ec2_client, vpc, subnet):
     return nat_gw
 
 
+def _create_vpc_endpoint_for_s3(config, ec2, ec2_client, vpc):
+    try:
+        region = config["provider"]["region"]
+        route_table_ids = _get_workspace_route_table_ids(config["workspace_name"], ec2, vpc.id)
+
+        vpc_endpoint = ec2_client.create_vpc_endpoint(
+            VpcEndpointType='Gateway',
+            VpcId=vpc.id,
+            ServiceName='com.amazonaws.{}.s3'.format(region),
+            RouteTableIds=route_table_ids,
+            Tags=[{'Key': 'Name', 'Value': 'cloudtik-{}-vpc-endpoint'.format(config["workspace_name"])}],
+        )
+
+    except Exception as e:
+        cli_logger.error("Failed to create  Vpc Endpoint. {}", str(e))
+        try:
+            cli_logger.print("Try to find the existing Vpc Endpoint...")
+            vpc_endpoint = ec2_client.describe_vpc_endpoints()['VpcEndpoints'][0]
+            cli_logger.print(
+                "Found an existing Vpc Endpoint for s3. Will use this one")
+        except Exception:
+            raise e
+    return vpc_endpoint
+
+
 def _update_route_table_for_public_subnet(config, ec2, ec2_client, vpc, subnet, igw):
     cli_logger.print("Updating public subnet route table: {}...".format(subnet.id))
     public_route_tables = get_workspace_public_route_tables(config["workspace_name"], ec2, vpc.id)
@@ -1260,6 +1297,14 @@ def _configure_network_resources(config, ec2, ec2_client,
         # Create a default route pointing to NAT Gateway for private subnets
         ec2_client.create_route(RouteTableId=private_route_table.id, DestinationCidrBlock='0.0.0.0/0',
                                 NatGatewayId=nat_gateway['NatGatewayId'])
+
+    # create VPC endpoint for S3
+    with cli_logger.group(
+            "Creating VPC endpoint",
+            _numbered=("[]", current_step, total_steps)):
+        current_step += 1
+        vpc_endpoint = _create_vpc_endpoint_for_s3(config, ec2, ec2_client, vpc)
+
 
     with cli_logger.group(
             "Creating security group",

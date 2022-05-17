@@ -28,6 +28,7 @@ available_node_types:
                       VolumeType: gp3
                       # gp3: 3,000-16,000 IOPS
                       Iops: 8000
+                      Throughput: 400
                       DeleteOnTermination: True
                 - DeviceName: /dev/sdg
                   Ebs:
@@ -35,6 +36,7 @@ available_node_types:
                       VolumeType: gp3
                       # gp3: 3,000-16,000 IOPS
                       Iops: 8000
+                      Throughput: 400
                       DeleteOnTermination: True
                 - DeviceName: /dev/sdh
                   Ebs:
@@ -42,6 +44,7 @@ available_node_types:
                       VolumeType: gp3
                       # gp3: 3,000-16,000 IOPS
                       Iops: 8000
+                      Throughput: 400
                       DeleteOnTermination: True
                 - DeviceName: /dev/sdi
                   Ebs:
@@ -49,4 +52,5 @@ available_node_types:
                       VolumeType: gp3
                       # gp3: 3,000-16,000 IOPS
                       Iops: 8000
+                      Throughput: 400
                       DeleteOnTermination: True

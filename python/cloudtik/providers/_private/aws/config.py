@@ -678,6 +678,36 @@ def _configure_iam_role(config):
 
 
 def _configure_iam_role_from_workspace(config):
+    use_workspace_cloud_storage = config.get("provider").get("use_workspace_cloud_storage", False)
+    if use_workspace_cloud_storage:
+       return _configure_iam_role_for_cluster(config)
+    else:
+       return _configure_iam_role_for_head(config)
+
+
+def _configure_iam_role_for_head(config):
+    head_node_type = config["head_node_type"]
+    head_node_config = config["available_node_types"][head_node_type][
+        "node_config"]
+    if "IamInstanceProfile" in head_node_config and "":
+        _set_config_info(head_instance_profile_src="config")
+        return config
+    _set_config_info(head_instance_profile_src="workspace")
+
+    instance_profile_name = _get_workspace_instance_profile_name(
+        config["workspace_name"])
+    profile = _get_instance_profile(instance_profile_name, config)
+    if not profile:
+        raise RuntimeError("Workspace instance profile: {} not found!".format(instance_profile_name))
+
+    # Add IAM role to "head_node" field so that it is applied only to
+    # the head node -- not to workers with the same node type as the head.
+    config["head_node"]["IamInstanceProfile"] = {"Arn": profile.arn}
+
+    return config
+
+
+def _configure_iam_role_for_cluster(config):
     _set_config_info(head_instance_profile_src="workspace")
 
     instance_profile_name = _get_workspace_instance_profile_name(

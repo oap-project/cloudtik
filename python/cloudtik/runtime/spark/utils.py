@@ -5,7 +5,7 @@ import yaml
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_HDFS, BUILT_IN_RUNTIME_METASTORE
 from cloudtik.core._private.utils import merge_rooted_config_hierarchy, \
     _get_runtime_config_object, is_runtime_enabled, round_memory_size_to_gb, load_head_cluster_config, \
-    RUNTIME_CONFIG_KEY
+    RUNTIME_CONFIG_KEY, load_properties_file, save_properties_file
 from cloudtik.core._private.workspace.workspace_operator import _get_workspace_provider
 
 RUNTIME_PROCESSES = [
@@ -209,24 +209,13 @@ def update_spark_configurations():
     spark_conf_file = os.path.join(os.getenv("SPARK_HOME"), "conf/spark-defaults.conf")
 
     # Read in the existing configurations
-    spark_conf = {}
-    with open(spark_conf_file, "r") as f:
-        for line in f.readlines():
-            # Strip all the spaces and tabs
-            line = line.strip()
-            if line != "" and not line.startswith("#"):
-                # Filtering out the empty and comment lines
-                # Use split() instead of split(" ") to split value with multiple spaces
-                key, value = line.split()
-                spark_conf[key] = value
+    spark_conf = load_properties_file(spark_conf_file, ' ')
 
     # Merge with the user configurations
     spark_conf.update(spark_config)
 
     # Write back the configuration file
-    with open(spark_conf_file, "w+") as f:
-        for key, value in spark_conf.items():
-            f.write("{}    {}\n".format(key, value))
+    save_properties_file(spark_conf_file, spark_conf, ' ')
 
 
 def _with_runtime_environment_variables(runtime_config, config, provider, node_id: str):

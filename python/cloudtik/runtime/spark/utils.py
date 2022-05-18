@@ -209,13 +209,13 @@ def update_spark_configurations():
     spark_conf_file = os.path.join(os.getenv("SPARK_HOME"), "conf/spark-defaults.conf")
 
     # Read in the existing configurations
-    spark_conf = load_properties_file(spark_conf_file, ' ')
+    spark_conf, comments = load_properties_file(spark_conf_file, ' ')
 
     # Merge with the user configurations
     spark_conf.update(spark_config)
 
     # Write back the configuration file
-    save_properties_file(spark_conf_file, spark_conf, ' ')
+    save_properties_file(spark_conf_file, spark_conf, separator=' ', comments=comments)
 
 
 def _with_runtime_environment_variables(runtime_config, config, provider, node_id: str):

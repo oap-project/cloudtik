@@ -7,7 +7,7 @@ from cloudtik.core._private import logging_utils
 from cloudtik.core._private.cli_logger import (cli_logger)
 from cloudtik.core._private.utils import run_bash_scripts, run_system_command, subscribe_nodes_info
 
-from cloudtik.runtime.zookeeper.utils import RUNTIME_ROOT_PATH, _configure_server_ensemble
+from cloudtik.runtime.zookeeper.utils import RUNTIME_ROOT_PATH, _configure_server_ensemble, update_configurations
 
 RUNTIME_SCRIPTS_PATH = os.path.join(
     RUNTIME_ROOT_PATH, "scripts")
@@ -97,6 +97,9 @@ def configure(head, head_address, script_args):
 
     # Configure the server ensemble
     if not head:
+        # Update configuration from runtime config
+        update_configurations()
+
         nodes_info = subscribe_nodes_info()
         _configure_server_ensemble(nodes_info)
 

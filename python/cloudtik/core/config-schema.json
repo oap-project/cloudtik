@@ -547,7 +547,7 @@
                             "type": "object",
                             "description": "Map of spark configurations, e.g. {\"spark.executor.cores\": \"45\"}"
                         },
-                        "spark_executor_resource" : {
+                        "spark_executor_resource": {
                             "type": "object",
                             "description": "The resource of one executor.",
                             "additionalProperties": false,
@@ -566,7 +566,7 @@
                                 }
                             }
                         },
-                        "yarn_container_resource" : {
+                        "yarn_container_resource": {
                             "type": "object",
                             "description": "The max resource of one container.",
                             "additionalProperties": false,
@@ -580,6 +580,59 @@
                                     "default": 1024
                                 }
                             }
+                        },
+                        "hdfs_namenode_uri": {
+                            "type": "string",
+                            "description": "HDFS service endpoint if Spark need to access HDFS."
+                        },
+                        "hive_metastore_uri": {
+                            "type": "string",
+                            "description": "Metastore service endpoint for Spark to use."
+                        }
+                    }
+                },
+                "kafka": {
+                    "type": "object",
+                    "description": "Kafka runtime related configurations",
+                    "additionalProperties": true,
+                    "properties": {
+                        "config": {
+                            "type": "object",
+                            "description": "Map of Kafka server properties."
+                        },
+                        "zookeeper.connect": {
+                            "type": "string",
+                            "description": "Zookeeper servers to use for Kafka."
+                        }
+                    }
+                },
+                "zookeeper": {
+                    "type": "object",
+                    "description": "Zookeeper runtime related configurations",
+                    "additionalProperties": true,
+                    "properties": {
+                        "config": {
+                            "type": "object",
+                            "description": "Map of Zookeeper server properties."
+                        }
+                    }
+                },
+                "presto": {
+                    "type": "object",
+                    "description": "Presto runtime related configurations",
+                    "additionalProperties": true,
+                    "properties": {
+                        "config": {
+                            "type": "object",
+                            "description": "Map of Presto server properties."
+                        },
+                        "catalogs": {
+                            "type": "object",
+                            "description": "Presto catalogs to be configured."
+                        },
+                        "hive_metastore_uri": {
+                            "type": "string",
+                            "description": "Metastore service endpoint for Presto to use."
                         }
                     }
                 }

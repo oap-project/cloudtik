@@ -46,28 +46,37 @@ You can install the latest CloudTik wheels via the following links. These daily 
 
 After CloudTik is installed on your working machine, then you need to configure or log into your Cloud account to 
 gain access to cloud provider API on this machine.
+then you need 
 
 #### AWS
 
-Follow these steps from the command line to install the AWS CLI on your working Linux machine.
-
-```
-curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-unzip awscliv2.zip
-sudo ./aws/install
-aws configure
-```
-After you enter this command `aws configure`, the AWS CLI prompts you for four pieces of information: *AWS Access Key ID*,
-*AWS Secret Access Key*,  *Default region name* and *Default output format* to the command prompt.
-Fill them out then AWS CLI will be installed and authenticated.
-
+First, install AWS CLI(command line interface). Please refer to
 [AWS CLI Installation Guide](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) 
-and [CLI Configure Guide](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html) provide more details. 
+for detailed instructions.
+
+After AWS CLI is installed, then you need configure AWS CLI about credentials. Please refer to 
+[Configuring the AWS CLI](https://github.com/aws/aws-cli/tree/v2#getting-started) for detailed instructions.
+
+The quickest way to configure is to run `aws configure` command as below, fill these items out then AWS CLI will 
+be configured and authenticated. *AWS Access Key ID* and *AWS Secret Access Key* can be found from the AWS guide of
+[managing access keys](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html).
+
+```
+$ aws configure
+AWS Access Key ID [None]: ...
+AWS Secret Access Key [None]: ...
+Default region name [None]: ...
+Default output format [None]:
+```
 
 #### Azure
 
-Login to Azure on your working machine using `az login`, then set the subscription to use from the command 
-line (`az account set -s <subscription_id>`). Then the Azure CLI is configured to manage resources on your Azure account.
+After CloudTik is installed on your working machine, login to Azure using `az login` and set the subscription to use 
+from the command line (`az account set -s <subscription_id>`). You can follow the
+[Azure guide](https://docs.microsoft.com/en-us/azure/azure-portal/get-subscription-tenant-id#find-your-azure-subscription)
+to find your Azure subscription id.
+
+Then the Azure CLI is configured to manage resources on your Azure account.
 
 #### GCP
 
@@ -128,7 +137,7 @@ of your cluster configuration yaml.
 #### AWS
 
 Every object in Amazon S3 is stored in a bucket. Before you can store data in Amazon S3, you must create a bucket.
-Please refer to S3 [guides](https://docs.aws.amazon.com/AmazonS3/latest/userguide/creating-bucket.html) for instructions.
+Please refer to the S3 [guide](https://docs.aws.amazon.com/AmazonS3/latest/userguide/creating-bucket.html) for instructions.
 
 Then fill out the `aws_s3_storage` field.
 
@@ -144,6 +153,13 @@ provider:
         s3.secret.access.key: your_s3_secret_access_key
 
 ```
+
+`s3.access.key.id`:  your AWS Access Key ID.
+
+`s3.secret.access.key`:  your AWS Secret Access Key.
+
+ *AWS Access Key ID* and *AWS Secret Access Key* can be found from the AWS guide of
+[managing access keys](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html).
 
 #### Azure
 
@@ -169,6 +185,13 @@ provider:
 
 ```
 
+`azure.storage.account`: Azure Storage Account name that you want CloudTik help to create.
+
+`azure.container`: Azure Storage Container name that you have created.
+
+`azure.account.key`: your [Azure account access keys](https://docs.microsoft.com/en-us/azure/storage/common/storage-account-keys-manage?tabs=azure-portal#view-account-access-keys).
+
+
 #### GCP
 
 If you do not already have a GCS bucket, create one and configure its permission for your service account.
@@ -191,6 +214,15 @@ provider:
         gcs.service.account.private.key: your_service_account_private_key
 
 ```
+A JSON file should be safely downloaded and kept after Step 3.
+
+`project_id`: "project_id" in the JSON file.
+
+`gcs.service.account.client.email `: "client_email" in the JSON file.
+
+`gcs.service.account.private.key.id`: "private_key_id" in the JSON file.
+
+`gcs.service.account.private.key`: "private_key" in the JSON file, in the format of `-----BEGIN PRIVATE KEY-----\n......\n-----END PRIVATE KEY-----\n`
 
 ### 6. Starting a cluster
 
@@ -202,12 +234,10 @@ cloudtik start your-cluster-config.yaml
 
 A typical cluster configuration file is usually very simple thanks to CloudTik hierarchy templates design.
 
-Take AWS as an example, this example can be found from CloudTik's `example/cluster/aws/example-standard.yaml`,
-inheriting AWS standard template which locates in `python/cloudtik/templates/aws/standard.yaml`
+Take AWS as an example, this example can be found from CloudTik's `example/cluster/aws/example-standard.yaml`.
 
 ```
 # An example of standard 1 + 3 nodes cluster with standard instance type
-# Inherits AWS standard template which locates in CloudTik's "python/cloudtik/templates/aws/standard.yaml"
 from: aws/standard
 
 # Workspace into which to launch the cluster
@@ -241,17 +271,7 @@ available_node_types:
         min_workers: 3
 ```
 
-CloudTik supports to run services with two execution modes: host mode and container mode. If enabling container,
-set `enabled` to True as above. If all the services running on (VM) host, then set 'False' to use host mode. 
-Default value is `False`.
-
-```
-docker:
-    enabled: False
-```
-
 You need the cloud storage access information in Step 5 and only a few additional key settings in the configuration file to launch a cluster.
-
 
 Refer to `example/cluster` for more cluster configurations examples.
 
@@ -294,13 +314,13 @@ cloudtik attach --node-ip x.x.x.x /path/to/your-cluster-config.yaml
 Execute a command via SSH on cluster head node or a specified node.
 
 ```
-cloudtik exec /path/to/your-cluster-config.yaml
+cloudtik exec /path/to/your-cluster-config.yaml [command]
 ```
 
 Execute commands on specified worker node 
 
 ```
-cloudtik exec your-cluster-config.yaml --node-ip=x.x.x.x 
+cloudtik exec your-cluster-config.yaml --node-ip=x.x.x.x [command]
 ```
 
 

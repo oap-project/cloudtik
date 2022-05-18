@@ -3,7 +3,8 @@ from typing import Any, Dict, List
 
 from cloudtik.core._private.providers import _get_workspace_provider
 from cloudtik.core._private.utils import merge_rooted_config_hierarchy, _get_runtime_config_object, \
-    subscribe_cluster_variable, is_runtime_enabled, RUNTIME_CONFIG_KEY
+    subscribe_cluster_variable, is_runtime_enabled, RUNTIME_CONFIG_KEY, subscribe_runtime_config, load_properties_file, \
+    save_properties_file
 
 RUNTIME_PROCESSES = [
     # The first element is the substring to filter.
@@ -116,3 +117,30 @@ def _get_zookeeper_connect(runtime_config):
     # check redis endpoint publish
     zookeeper_connect = subscribe_cluster_variable("zookeeper-uri")
     return zookeeper_connect
+
+
+def _get_server_config(runtime_config: Dict[str, Any]):
+    kafka_config = runtime_config.get("kafka")
+    if not kafka_config:
+        return None
+
+    return kafka_config.get("config")
+
+
+def update_configurations():
+    # Merge user specified configuration and default configuration
+    runtime_config = subscribe_runtime_config()
+    server_config = _get_server_config(runtime_config)
+    if not server_config:
+        return
+
+    server_properties_file = os.path.join(os.getenv("KAFKA_HOME"), "config/server.properties")
+
+    # Read in the existing configurations
+    server_properties, comments = load_properties_file(server_properties_file)
+
+    # Merge with the user configurations
+    server_properties.update(server_config)
+
+    # Write back the configuration file
+    save_properties_file(server_properties_file, server_properties, comments=comments)

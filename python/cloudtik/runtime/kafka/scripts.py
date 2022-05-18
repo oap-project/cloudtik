@@ -9,7 +9,7 @@ from cloudtik.core._private.cli_logger import (cli_logger)
 from cloudtik.core._private.utils import run_bash_scripts, run_system_command, \
      subscribe_runtime_config
 
-from cloudtik.runtime.kafka.utils import RUNTIME_ROOT_PATH, _get_zookeeper_connect
+from cloudtik.runtime.kafka.utils import RUNTIME_ROOT_PATH, _get_zookeeper_connect, update_configurations
 
 RUNTIME_SCRIPTS_PATH = os.path.join(
     RUNTIME_ROOT_PATH, "scripts")
@@ -106,6 +106,10 @@ def configure(head, head_address, script_args):
 
     final_cmd = " ".join(cmds)
     run_system_command(final_cmd)
+
+    if not head:
+        # Update kafka configuration from runtime config
+        update_configurations()
 
 
 @click.command(context_settings={"ignore_unknown_options": True})

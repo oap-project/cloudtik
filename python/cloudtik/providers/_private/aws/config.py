@@ -59,7 +59,7 @@ DEFAULT_AMI = {
     "sa-east-1": "ami-090006f29ecb2d79a",  # SA (Sao Paulo)
 }
 
-NUM_AWS_WORKSPACE_CREATION_STEPS = 7
+NUM_AWS_WORKSPACE_CREATION_STEPS = 8
 NUM_AWS_WORKSPACE_DELETION_STEPS = 7
 
 # todo: cli_logger should handle this assert properly
@@ -1160,16 +1160,17 @@ def _create_vpc_endpoint_for_s3(config, ec2, ec2_client, vpc):
             VpcId=vpc.id,
             ServiceName='com.amazonaws.{}.s3'.format(region),
             RouteTableIds=route_table_ids,
-            Tags=[{'Key': 'Name', 'Value': 'cloudtik-{}-vpc-endpoint'.format(config["workspace_name"])}],
+            Tags=[{'Key': 'Name', 'Value': 'cloudtik-{}-vpc-endpoint-s3'.format(config["workspace_name"])}],
         )
 
     except Exception as e:
-        cli_logger.error("Failed to create  Vpc Endpoint. {}", str(e))
+        cli_logger.error("Failed to create  Vpc Endpoint for S3. {}", str(e))
         try:
-            cli_logger.print("Try to find the existing Vpc Endpoint...")
-            vpc_endpoint = ec2_client.describe_vpc_endpoints()['VpcEndpoints'][0]
+            cli_logger.print("Try to find the existing Vpc Endpoint for S3...")
+            vpc_endpoint = ec2_client.describe_vpc_endpoints(Filters=[
+                                                                {'Name': 'tag:Name', 'Values': 'cloudtik-{}-vpc-endpoint-s3'.format(config["workspace_name"])}])
             cli_logger.print(
-                "Found an existing Vpc Endpoint for s3. Will use this one")
+                "Found an existing Vpc Endpoint for S3. Will use this one")
         except Exception:
             raise e
     return vpc_endpoint
@@ -1300,7 +1301,7 @@ def _configure_network_resources(config, ec2, ec2_client,
 
     # create VPC endpoint for S3
     with cli_logger.group(
-            "Creating VPC endpoint",
+            "Creating VPC endpoint for S3",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
         vpc_endpoint = _create_vpc_endpoint_for_s3(config, ec2, ec2_client, vpc)

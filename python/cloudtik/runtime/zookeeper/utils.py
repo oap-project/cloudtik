@@ -2,7 +2,7 @@ import os
 from typing import Any, Dict, List
 
 from cloudtik.core._private.utils import merge_rooted_config_hierarchy, _get_runtime_config_object, \
-    publish_cluster_variable
+    publish_cluster_variable, load_properties_file, save_properties_file, subscribe_runtime_config
 from cloudtik.core._private.workspace.workspace_operator import _get_workspace_provider
 
 RUNTIME_PROCESSES = [
@@ -135,3 +135,29 @@ def _publish_service_uri_to_workspace(cluster_config: Dict[str, Any], service_ur
     service_uris = {"zookeeper-uri": service_uri}
     workspace_provider = _get_workspace_provider(cluster_config["provider"], workspace_name)
     workspace_provider.publish_global_variables(cluster_config, service_uris)
+
+
+def _get_server_config(runtime_config: Dict[str, Any]):
+    zookeeper_config = runtime_config.get("zookeeper")
+    if not zookeeper_config:
+        return None
+
+    return zookeeper_config.get("config")
+
+
+def update_configurations():
+    # Merge user specified configuration and default configuration
+    runtime_config = subscribe_runtime_config()
+    server_config = _get_server_config(runtime_config)
+    if not server_config:
+        return
+
+    # Read in the existing configurations
+    server_properties_file = os.path.join(os.getenv("ZOOKEEPER_HOME"), "conf/zoo.cfg")
+    server_properties, comments = load_properties_file(server_properties_file)
+
+    # Merge with the user configurations
+    server_properties.update(server_config)
+
+    # Write back the configuration file
+    save_properties_file(server_properties_file, server_properties, comments=comments)

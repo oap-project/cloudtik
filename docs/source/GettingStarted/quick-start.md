@@ -85,14 +85,8 @@ Then set the `GOOGLE_APPLICATION_CREDENTIALS` environment variable as described 
 CloudTik uses **Workspace** concept to easily manage shared Cloud resources such as VPC, network, identity resources, 
 firewall or security groups. In a Workspace, you can start one or more clusters.
 
-Use the following command to create and provision a Workspace:
-
-```
-cloudtik workspace create /path/to/your-workspace-config.yaml
-```
-
-A typical workspace configuration file is usually very simple. Specify the unique workspace name, cloud provider type
-and a few cloud provider specific properties. 
+Create a configuration workspace yaml file to specify the unique workspace name, cloud provider type and a few cloud 
+provider properties. 
 
 Take AWS as an example.
 
@@ -114,6 +108,14 @@ provider:
           IpRanges:
           - CidrIp: 0.0.0.0/0
 ```
+*NOTE:* Remember to change `CidrIp` from `0.0.0.0/0` to restricted IpRanges for TCP port 22 security
+
+Use the following command to create and provision a Workspace:
+
+```
+cloudtik workspace create /path/to/your-workspace-config.yaml
+```
+
 Check `example/cluster` folder for more Workspace configuration file examples.
 
 ### 5. Configuring Cloud Storage
@@ -239,7 +241,17 @@ available_node_types:
         min_workers: 3
 ```
 
+CloudTik supports to run services with two execution modes: host mode and container mode. If enabling container,
+set `enabled` to True as above. If all the services running on (VM) host, then set 'False' to use host mode. 
+Default value is `False`.
+
+```
+docker:
+    enabled: False
+```
+
 You need the cloud storage access information in Step 5 and only a few additional key settings in the configuration file to launch a cluster.
+
 
 Refer to `example/cluster` for more cluster configurations examples.
 
@@ -271,13 +283,26 @@ Connect to a terminal of cluster head node.
 cloudtik attach /path/to/your-cluster-config.yaml
 ```
 
+Log in to worker node with `--node-ip` as below.
+
+```
+cloudtik attach --node-ip x.x.x.x /path/to/your-cluster-config.yaml
+```
+
 #### Execute and Submit Jobs
 
-Execute a command via SSH on a cluster or a specified node.
+Execute a command via SSH on cluster head node or a specified node.
 
 ```
 cloudtik exec /path/to/your-cluster-config.yaml
 ```
+
+Execute commands on specified worker node 
+
+```
+cloudtik exec your-cluster-config.yaml --node-ip=x.x.x.x 
+```
+
 
 #### Manage Files
 

@@ -1197,14 +1197,21 @@ def _configure_iam_role(config, crm, iam):
 
     _add_iam_policy_binding(service_account, roles, crm)
 
-    config["head_node"]["serviceAccounts"] = [{
-        "email": service_account["email"],
-        # NOTE: The amount of access is determined by the scope + IAM
-        # role of the service account. Even if the cloud-platform scope
-        # gives (scope) access to the whole cloud-platform, the service
-        # account is limited by the IAM rights specified below.
-        "scopes": ["https://www.googleapis.com/auth/cloud-platform"]
-    }]
+    use_workspace_cloud_storage = config.get("provider").get("use_workspace_cloud_storage", False)
+    serviceAccounts =  [{
+            "email": service_account["email"],
+            # NOTE: The amount of access is determined by the scope + IAM
+            # role of the service account. Even if the cloud-platform scope
+            # gives (scope) access to the whole cloud-platform, the service
+            # account is limited by the IAM rights specified below.
+            "scopes": ["https://www.googleapis.com/auth/cloud-platform"]
+        }]
+    if use_workspace_cloud_storage:
+        for key, node_type in config["available_node_types"].items():
+            node_config = node_type["node_config"]
+            node_config["serviceAccounts"] = serviceAccounts
+    else:
+        config["head_node"]["serviceAccounts"] = serviceAccounts
 
     return config
 

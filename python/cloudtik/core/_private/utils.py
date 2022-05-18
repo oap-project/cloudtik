@@ -2755,3 +2755,25 @@ def _put_key_to_kv(key, value):
         kv_initialize_with_address(redis_address, CLOUDTIK_REDIS_DEFAULT_PASSWORD)
 
     return kv_put(key, value)
+
+
+def load_properties_file(properties_file, separator='=') -> Dict[str, str]:
+    properties = {}
+    with open(properties_file, "r") as f:
+        for line in f.readlines():
+            # Strip all the spaces and tabs
+            line = line.strip()
+            if line != "" and not line.startswith("#") and not line.startswith("!"):
+                # Filtering out the empty and comment lines
+                # Use split() instead of split(" ") to split value with multiple spaces
+                key_value = line.split(separator)
+                key = key_value[0].strip()
+                value = separator.join(key_value[1:]).strip()
+                properties[key] = value
+    return properties
+
+
+def save_properties_file(properties_file,  properties: Dict[str, str], separator='='):
+    with open(properties_file, "w+") as f:
+        for key, value in properties.items():
+            f.write("{}{}{}\n".format(key, separator, value))

@@ -1339,17 +1339,19 @@ def _configure_workspace_instance_profile(config, workspace_name):
 
 def _configure_workspace_cloud_storage(config, workspace_name):
     bucket_name = "cloudtik-{}-bucket".format(workspace_name)
-    location = config["provider"]["region"]
-    s3 = _resource("s3", config["provider"])
+    region = config["provider"]["region"]
+    s3 = _resource("s3", config)
 
     cli_logger.print("Creating S3 bucket for the workspace: {}...".format(workspace_name))
     try:
-        s3.create_bucket(Bucket=bucket_name, CreateBucketConfiguration={
-            'LocationConstraint': location})
+        if region == 'us-east-1':
+            s3.create_bucket(Bucket=bucket_name)
+        else:
+            s3.create_bucket(Bucket=bucket_name, CreateBucketConfiguration={'LocationConstraint': region})
         cli_logger.print(
             "Successfully created S3 bucket: {} ...".format(bucket_name))
     except Exception as e:
-        cli_logger.error("Failed to create S3 bucket. {}", str(e))
+        cli_logger.abort("Failed to create S3 bucket. {}", str(e))
     return
 
 
@@ -1910,7 +1912,7 @@ def _get_instance_profile(profile_name, config):
 
 def get_workspace_s3_bucket(config, workspace_name):
     bucket_name = "cloudtik-{}-bucket".format(workspace_name)
-    s3 = _make_resource("s3", config["provider"])
+    s3 = _resource("s3", config)
     bucket = s3.Bucket(bucket_name)
     if bucket in s3.buckets.all():
         return bucket

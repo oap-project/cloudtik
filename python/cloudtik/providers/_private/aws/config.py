@@ -1192,13 +1192,15 @@ def _create_vpc_endpoint_for_s3(config, ec2, ec2_client, vpc):
             VpcId=vpc.id,
             ServiceName='com.amazonaws.{}.s3'.format(region),
             RouteTableIds=route_table_ids,
-            TagSpecifications=[{'ResourceType': "vpc-endpoint", "Tags": [{'Key': 'Name',
-                                                                          'Value': 'cloudtik-{}-vpc-endpoint-s3'.format(config["workspace_name"])
-                                                                          }]}],
+            TagSpecifications=[{'ResourceType': "vpc-endpoint",
+                                "Tags": [{'Key': 'Name',
+                                          'Value': 'cloudtik-{}-vpc-endpoint-s3'.format(
+                                              config["workspace_name"])
+                                          }]}],
         )
 
     except Exception as e:
-        cli_logger.error("Failed to create  Vpc Endpoint for S3. {}", str(e))
+        cli_logger.error("Failed to create Vpc Endpoint for S3. {}", str(e))
         raise e
 
 

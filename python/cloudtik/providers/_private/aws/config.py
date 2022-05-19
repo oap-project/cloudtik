@@ -664,6 +664,9 @@ def bootstrap_aws_from_workspace(config):
     # EC2 instances.
     config = _configure_iam_role_from_workspace(config)
 
+    # Set s3.bucket if use_workspace_cloud_storage=False
+    config = _configure_cloud_storage_from_workspace(config)
+
     # Configure SSH access, using an existing key pair if possible.
     config = _configure_key_pair(config)
     global_event_system.execute_callback(
@@ -730,6 +733,18 @@ def _configure_iam_role(config):
     # Add IAM role to "head_node" field so that it is applied only to
     # the head node -- not to workers with the same node type as the head.
     config["head_node"]["IamInstanceProfile"] = {"Arn": profile.arn}
+
+    return config
+
+
+def _configure_cloud_storage_from_workspace(config):
+    use_workspace_cloud_storage = config.get("provider").get("use_workspace_cloud_storage", False)
+    workspace_name = config["workspace_name"]
+    if use_workspace_cloud_storage:
+        s3_bucket = get_workspace_s3_bucket(config, workspace_name)
+        if "aws_s3_storage" not in config["provider"]:
+            config["provider"]["aws_s3_storage"] = {}
+        config["provider"]["aws_s3_storage"]["s3.bucket"] = s3_bucket.name
 
     return config
 
@@ -2193,8 +2208,8 @@ def verify_s3_storage(provider_config: Dict[str, Any]):
 
     s3 = boto3.client(
         's3',
-        aws_access_key_id=s3_storage["s3.access.key.id"],
-        aws_secret_access_key=s3_storage["s3.secret.access.key"]
+        aws_access_key_id=s3_storage.get("s3.access.key.id"),
+        aws_secret_access_key=s3_storage.get("s3.secret.access.key")
     )
 
     try:

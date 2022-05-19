@@ -59,8 +59,8 @@ DEFAULT_AMI = {
     "sa-east-1": "ami-090006f29ecb2d79a",  # SA (Sao Paulo)
 }
 
-NUM_AWS_WORKSPACE_CREATION_STEPS = 7
-NUM_AWS_WORKSPACE_DELETION_STEPS = 7
+NUM_AWS_WORKSPACE_CREATION_STEPS = 8
+NUM_AWS_WORKSPACE_DELETION_STEPS = 8
 
 # todo: cli_logger should handle this assert properly
 # this should probably also happens somewhere else
@@ -277,6 +277,18 @@ def get_vpc_nat_gateways(ec2_client, vpc_id):
     return nat_gateways
 
 
+def _get_workspace_route_table_ids(workspace_name, ec2, vpc_id):
+    vpc_resource = ec2.Vpc(vpc_id)
+    rtbs = [rtb for rtb in vpc_resource.route_tables.all() if rtb.tags]
+
+    workspace_rtb_ids = [rtb.id for rtb in rtbs
+                         for tag in rtb.tags
+                         if tag['Key'] == 'Name' and
+                         "cloudtik-{}".format(workspace_name) in tag['Value']]
+
+    return workspace_rtb_ids
+
+
 def get_workspace_private_route_tables(workspace_name, ec2, vpc_id):
     vpc_resource = ec2.Vpc(vpc_id)
     rtbs = [rtb for rtb in vpc_resource.route_tables.all() if rtb.tags]
@@ -324,6 +336,12 @@ def get_vpc_internat_gateways(ec2, vpc_id):
     return igws
 
 
+def get_vpc_endpoint_for_s3(ec2_client, workspace_name):
+    vpc_endpoint = ec2_client.describe_vpc_endpoints(Filters=[
+        {'Name': 'tag:Name', 'Values': ['cloudtik-{}-vpc-endpoint-s3'.format(workspace_name)]}])
+    return vpc_endpoint['VpcEndpoints']
+
+
 def check_aws_workspace_resource(config):
     ec2 = _resource("ec2", config)
     ec2_client = _client("ec2", config)
@@ -338,6 +356,7 @@ def check_aws_workspace_resource(config):
          5.) Check route-tables
          6.) Check Internat-gateways
          7.) Check security-group
+         8.) Check VPC endpoint for s3
     """
     if vpc_id is None:
         return False
@@ -352,6 +371,8 @@ def check_aws_workspace_resource(config):
     if len(get_vpc_internat_gateways(ec2, vpc_id)) == 0:
         return False
     if get_workspace_security_group(config, vpc_id, workspace_name) is None:
+        return False
+    if len(get_vpc_endpoint_for_s3(ec2_client, workspace_name)) == 0:
         return False
     return True
 
@@ -444,7 +465,8 @@ def _delete_network_resources(config, workspace_name,
          4.) Delete public subnets
          5.) Delete internet gateway
          6.) Delete security group
-         7.) Delete vpc
+         7.) Delete VPC endpoint for S3"
+         8.) Delete vpc
     """
 
     # delete private subnets
@@ -488,6 +510,13 @@ def _delete_network_resources(config, workspace_name,
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
         _delete_security_group(config, vpc_id)
+
+    # delete vpc endpoint for s3
+    with cli_logger.group(
+            "Deleting VPC endpoint for S3",
+            _numbered=("[]", current_step, total_steps)):
+        current_step += 1
+        _delete_vpc_endpoint_for_s3(ec2_client, workspace_name)
 
     # delete vpc
     if not use_internal_ips:
@@ -1026,6 +1055,21 @@ def _delete_vpc(ec2, ec2_client, vpc_id):
     return
 
 
+def _delete_vpc_endpoint_for_s3(ec2_client, workspace_name):
+    endpoint_ids = [endpoint['VpcEndpointId'] for endpoint in get_vpc_endpoint_for_s3(ec2_client, workspace_name)]
+    if len(endpoint_ids) == 0:
+        cli_logger.print("This VPC endpoint for S3 doesn't exist. ")
+        return
+    try:
+        cli_logger.print("Deleting VPC endpoint for S3.")
+        ec2_client.delete_vpc_endpoints(
+                        VpcEndpointIds=endpoint_ids
+                        )
+    except Exception as e:
+        cli_logger.error("Failed to delete VPC endpoint for S3. {}", str(e))
+        raise e
+    return
+
 def _create_vpc(config,  ec2):
     cli_logger.print("Creating workspace VPC...")
     # create vpc
@@ -1136,6 +1180,28 @@ def _create_nat_gateway(config, ec2_client, vpc, subnet):
             raise e
 
     return nat_gw
+
+
+def _create_vpc_endpoint_for_s3(config, ec2, ec2_client, vpc):
+    try:
+        region = config["provider"]["region"]
+        route_table_ids = _get_workspace_route_table_ids(config["workspace_name"], ec2, vpc.id)
+
+        vpc_endpoint = ec2_client.create_vpc_endpoint(
+            VpcEndpointType='Gateway',
+            VpcId=vpc.id,
+            ServiceName='com.amazonaws.{}.s3'.format(region),
+            RouteTableIds=route_table_ids,
+            TagSpecifications=[{'ResourceType': "vpc-endpoint",
+                                "Tags": [{'Key': 'Name',
+                                          'Value': 'cloudtik-{}-vpc-endpoint-s3'.format(
+                                              config["workspace_name"])
+                                          }]}],
+        )
+
+    except Exception as e:
+        cli_logger.error("Failed to create Vpc Endpoint for S3. {}", str(e))
+        raise e
 
 
 def _update_route_table_for_public_subnet(config, ec2, ec2_client, vpc, subnet, igw):
@@ -1260,6 +1326,14 @@ def _configure_network_resources(config, ec2, ec2_client,
         # Create a default route pointing to NAT Gateway for private subnets
         ec2_client.create_route(RouteTableId=private_route_table.id, DestinationCidrBlock='0.0.0.0/0',
                                 NatGatewayId=nat_gateway['NatGatewayId'])
+
+    # create VPC endpoint for S3
+    with cli_logger.group(
+            "Creating VPC endpoint for S3",
+            _numbered=("[]", current_step, total_steps)):
+        current_step += 1
+        vpc_endpoint = _create_vpc_endpoint_for_s3(config, ec2, ec2_client, vpc)
+
 
     with cli_logger.group(
             "Creating security group",

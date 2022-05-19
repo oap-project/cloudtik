@@ -465,7 +465,8 @@ def _delete_network_resources(config, workspace_name,
          4.) Delete public subnets
          5.) Delete internet gateway
          6.) Delete security group
-         7.) Delete vpc
+         7.) Delete VPC endpoint for S3"
+         8.) Delete vpc
     """
 
     # delete private subnets

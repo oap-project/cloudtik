@@ -59,8 +59,8 @@ DEFAULT_AMI = {
     "sa-east-1": "ami-090006f29ecb2d79a",  # SA (Sao Paulo)
 }
 
-NUM_AWS_WORKSPACE_CREATION_STEPS = 8
-NUM_AWS_WORKSPACE_DELETION_STEPS = 8
+NUM_AWS_WORKSPACE_CREATION_STEPS = 9
+NUM_AWS_WORKSPACE_DELETION_STEPS = 9
 
 # todo: cli_logger should handle this assert properly
 # this should probably also happens somewhere else
@@ -357,6 +357,7 @@ def check_aws_workspace_resource(config):
          6.) Check Internat-gateways
          7.) Check security-group
          8.) Check VPC endpoint for s3
+         9.) Check S3 bucket
     """
     if vpc_id is None:
         return False
@@ -373,6 +374,8 @@ def check_aws_workspace_resource(config):
     if get_workspace_security_group(config, vpc_id, workspace_name) is None:
         return False
     if len(get_vpc_endpoint_for_s3(ec2_client, workspace_name)) == 0:
+        return False
+    if get_workspace_s3_bucket(config, workspace_name) is None:
         return False
     return True
 
@@ -431,6 +434,12 @@ def delete_workspace_aws(config):
                 current_step += 1
                 _delete_workspace_instance_profile(config, workspace_name)
 
+            with cli_logger.group(
+                    "Deleting S3 bucket",
+                    _numbered=("[]", current_step, total_steps)):
+                current_step += 1
+                _delete_workspace_cloud_storage(config, workspace_name)
+
             _delete_network_resources(config, workspace_name,
                                       ec2, ec2_client, vpc_id,
                                       current_step, total_steps)
@@ -450,6 +459,25 @@ def _delete_workspace_instance_profile(config, workspace_name):
     instance_profile_name = _get_workspace_instance_profile_name(workspace_name)
     instance_role_name = "cloudtik-{}-role".format(workspace_name)
     _delete_instance_profile(config, instance_profile_name, instance_role_name)
+
+
+def _delete_workspace_cloud_storage(config, workspace_name):
+    bucket_name = "cloudtik-{}-bucket".format(workspace_name)
+    cli_logger.print("Deleting S3 bucket: {}...".format(bucket_name))
+    bucket = get_workspace_s3_bucket(config, workspace_name)
+    if bucket is None:
+        cli_logger.warning("No S3 bucket with the name found.")
+        return
+
+    try:
+        cli_logger.print("Deleting S3 bucket: {} ...".format(bucket.name))
+        bucket.objects.all().delete()
+        bucket.delete()
+
+    except boto3.exceptions.Boto3Error as e:
+        cli_logger.error("Failed to delete S3 bucket. {}", str(e))
+        raise e
+    return
 
 
 def _delete_network_resources(config, workspace_name,
@@ -1280,8 +1308,14 @@ def _configure_workspace(config):
                 current_step += 1
                 _configure_workspace_instance_profile(config, workspace_name)
 
-            _configure_network_resources(config, ec2, ec2_client,
+            current_step = _configure_network_resources(config, ec2, ec2_client,
                                          current_step, total_steps)
+            with cli_logger.group(
+                    "Creating S3 bucket",
+                    _numbered=("[]", current_step, total_steps)):
+                current_step += 1
+                _configure_workspace_cloud_storage(config, workspace_name)
+
     except Exception as e:
         cli_logger.error("Failed to create workspace. {}", str(e))
         raise e
@@ -1301,6 +1335,22 @@ def _configure_workspace_instance_profile(config, workspace_name):
     _create_or_update_instance_profile(config, instance_profile_name,
                                        instance_role_name)
     cli_logger.print("Successfully created and configured instance profile.")
+
+
+def _configure_workspace_cloud_storage(config, workspace_name):
+    bucket_name = "cloudtik-{}-bucket".format(workspace_name)
+    location = config["provider"]["region"]
+    s3 = _resource("s3", config["provider"])
+
+    cli_logger.print("Creating S3 bucket for the workspace: {}...".format(workspace_name))
+    try:
+        s3.create_bucket(Bucket=bucket_name, CreateBucketConfiguration={
+            'LocationConstraint': location})
+        cli_logger.print(
+            "Successfully created S3 bucket: {} ...".format(bucket_name))
+    except Exception as e:
+        cli_logger.error("Failed to create S3 bucket. {}", str(e))
+    return
 
 
 def _get_workspace_instance_profile_name(workspace_name):
@@ -1366,7 +1416,8 @@ def _configure_network_resources(config, ec2, ec2_client,
         current_step += 1
         _upsert_security_group(config, vpc.id)
 
-    return config
+
+    return current_step
 
 
 def _configure_vpc(config, workspace_name, ec2, ec2_client):
@@ -1855,6 +1906,16 @@ def _get_instance_profile(profile_name, config):
                 "Failed to fetch IAM instance profile data for {} from AWS.",
                 cf.bold(profile_name))
             raise exc
+
+
+def get_workspace_s3_bucket(config, workspace_name):
+    bucket_name = "cloudtik-{}-bucket".format(workspace_name)
+    s3 = _make_resource("s3", config["provider"])
+    bucket = s3.Bucket(bucket_name)
+    if bucket in s3.buckets.all():
+        return bucket
+    else:
+        return None
 
 
 def _get_key(key_name, config):

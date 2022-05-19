@@ -8,6 +8,6 @@ a column will show up in the left of this page, then click **ADD PRINCIPLE** as 
 
 ![gcs-bucket](../../image/gcs-bucket.png)
 
-Fill the first item with your service account email and select a role: Storage Admin.
+Fill out the first item with your service account email and select a role: Storage Admin.
 
 ![gcs-bucket-principle](../../image/gcs-bucket-principle.png)

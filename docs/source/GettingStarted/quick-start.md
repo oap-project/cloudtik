@@ -2,7 +2,7 @@
 
 ### 1. Preparing Python environment
 
-CloudTik requires a Python environment on Linux, we recommend using Conda to manage Python environments and packages.
+CloudTik requires a Python environment on Linux. We recommend using Conda to manage Python environments and packages.
 
 If you don't have Conda installed, please refer to `dev/install-conda.sh` to install Conda on Linux.
 
@@ -44,17 +44,17 @@ You can install the latest CloudTik wheels via the following links. These daily 
 
 ### 3. Authentication to Cloud Providers API
 
-After CloudTik is installed on your working machine, then you need to configure or log into your Cloud account to 
-gain access to cloud provider API on this machine.
+After CloudTik is installed on your working machine, you need to configure or log into your Cloud account to 
+authenticate the cloud provider CLI on this machine.
 
 #### AWS
 
-First, install AWS CLI(command line interface), please refer to
+First, install AWS CLI(command line interface) on your working machine. Please refer to
 [installing AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) 
 for detailed instructions.
 
-After AWS CLI is installed, then you need configure AWS CLI about credentials, the quickest way to configure 
-is to run `aws configure` command, you can refer to
+After AWS CLI is installed, you need to configure AWS CLI about credentials. The quickest way to configure it 
+is to run `aws configure` command, and you can refer to
 [managing access keys](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html#Using_CreateAccessKey) 
 to get *AWS Access Key ID* and *AWS Secret Access Key*.
 
@@ -67,16 +67,14 @@ from the command line (`az account set -s <subscription_id>`). You can follow th
 [Azure guide](https://docs.microsoft.com/en-us/azure/azure-portal/get-subscription-tenant-id#find-your-azure-subscription)
 to find your Azure subscription id.
 
-Then the Azure CLI is configured to manage resources on your Azure account.
-
 #### GCP
 
 First, follow the [guide](https://cloud.google.com/docs/authentication/getting-started#creating_a_service_account) 
-to create a service account on Google Cloud, A JSON file should be safely downloaded and kept by you after the
-service account created.
+to create a service account on Google Cloud. 
 
-Then set the `GOOGLE_APPLICATION_CREDENTIALS` environment variable as described in the
-[guide](https://cloud.google.com/docs/authentication/getting-started#setting_the_environment_variable) on your working machine.
+A JSON file should be safely downloaded and kept by you, and then set the `GOOGLE_APPLICATION_CREDENTIALS` environment 
+variable as described in the [guide](https://cloud.google.com/docs/authentication/getting-started#setting_the_environment_variable)
+on your working machine.
 
 ### 4. Creating a Workspace for Clusters.
 
@@ -118,31 +116,31 @@ Check `example/cluster` folder for more Workspace configuration file examples.
 
 ### 5. Configuring Cloud Storage
 
-If you choose cloud storage as file system or to store stage and event data, cloud storage account is needed.
+If you choose cloud storage as file system or to store stage and event data, a cloud storage account is needed.
 
 #### AWS
 
 Every object in Amazon S3 is stored in a bucket. Before you can store data in Amazon S3, you must create a bucket.
 
 Please refer to the S3 [guide](https://docs.aws.amazon.com/AmazonS3/latest/userguide/creating-bucket.html) for instructions.
-The name of S3 bucket will be used in next step.
+The name of S3 bucket will be used in the next step.
 
 #### Azure
 
-Create an Azure storage account, and a storage container within this storage account,
+Create an Azure storage account and a storage container within this storage account.
 Please refer to Azure related [guide](https://docs.microsoft.com/en-us/azure/storage/common/storage-account-create?tabs=azure-portal)
 for instructions.
 
-Azure **Blob storage** or **Data Lake Storage Gen2** are both supported by CloudTik, the name of storage account 
-and storage container will be used when configuring Azure cluster yaml.
+Azure **Blob storage** or **Data Lake Storage Gen2** are both supported by CloudTik. Storage account name
+and storage container name will be used when configuring Azure cluster yaml.
 
 #### GCP
 
 If you do not already have a GCS bucket, create one by following the 
 [guide](https://cloud.google.com/storage/docs/creating-buckets#create_a_new_bucket).
 
-Then set its permission for this bucket, please refer to [gcs bucket guide](gcs-bucket.md) for more details. 
-the name of bucket will be used when configuring GCP cluster yaml.
+To control access to the bucket, please refer to [gcs bucket guide](gcs-bucket.md) for instructions. 
+The name of bucket will be used when configuring GCP cluster yaml.
 
 ### 6. Starting a cluster
 
@@ -152,9 +150,9 @@ Now you can start a cluster:
 cloudtik start /path/to/your-cluster-config.yaml
 ```
 
-A typical cluster configuration file is usually very simple thanks to CloudTik hierarchy templates design.
+A typical cluster configuration file is usually very simple thanks to design of CloudTik's templates with inheritance.
 
-Take AWS as an example, this example can be found from CloudTik's `example/cluster/aws/example-standard.yaml`.
+Here we take AWS as an example. This example can be found from CloudTik's `example/cluster/aws/example-standard.yaml`.
 
 ```
 # An example of standard 1 + 3 nodes cluster with standard instance type
@@ -193,7 +191,7 @@ available_node_types:
 
 You need the cloud storage access information in Step 5 and only a few additional key settings in the configuration file to launch a cluster.
 
-As for `aws_s3_storage` above: 
+As for `aws_s3_storage` above.
 
 > `s3.bucket`: name of S3 bucket that you created.
 > 
@@ -204,7 +202,7 @@ As for `aws_s3_storage` above:
  *AWS Access Key ID* and *AWS Secret Access Key* can be found from the AWS guide of
 [managing access keys](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html#Using_CreateAccessKey).
 
-As for `auth` above, if your working node is using corporation network, please set proxy as below.
+As for `auth` above, please set proxy if your working node is using corporation network.
 
 ```
 auth:
@@ -212,7 +210,7 @@ auth:
     ssh_proxy_command: "ncat --proxy-type socks5 --proxy <your_proxy_host>:<your_proxy_port> %h %p"
 ```
 
-Refer to `example/cluster` for more cluster configurations examples.
+Refer to `example/cluster` directory for more cluster configurations examples.
 
 ### 7. Managing clusters
 
@@ -256,7 +254,7 @@ Execute a command via SSH on cluster head node or a specified node.
 cloudtik exec /path/to/your-cluster-config.yaml [command]
 ```
 
-Execute commands on specified worker node 
+Execute commands on specified worker node. 
 
 ```
 cloudtik exec your-cluster-config.yaml --node-ip=x.x.x.x [command]
@@ -265,13 +263,13 @@ cloudtik exec your-cluster-config.yaml --node-ip=x.x.x.x [command]
 
 #### Manage Files
 
-Upload files or directories to cluster:
+Upload files or directories to cluster.
 
 ``` 
 cloudtik rsync-up /path/to/your-cluster-config.yaml [source] [target]
 ```
   
-Download files or directories from cluster
+Download files or directories from cluster.
 
 ```
 cloudtik rsync-down /path/to/your-cluster-config.yaml [source] [target]

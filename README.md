@@ -60,28 +60,19 @@ You can install the latest CloudTik wheels via the following links. These daily 
 
 After CloudTik is installed on your working machine, then you need to configure or log into your Cloud account to 
 gain access to cloud provider API on this machine.
-then you need 
 
 #### AWS
 
-First, install AWS CLI(command line interface). Please refer to
-[AWS CLI Installation Guide](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) 
+First, install AWS CLI(command line interface), please refer to
+[installing AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) 
 for detailed instructions.
 
-After AWS CLI is installed, then you need configure AWS CLI about credentials. Please refer to 
-[Configuring the AWS CLI](https://github.com/aws/aws-cli/tree/v2#getting-started) for detailed instructions.
+After AWS CLI is installed, then you need configure AWS CLI about credentials, the quickest way to configure 
+is to run `aws configure` command, you can refer to
+[managing access keys](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html#Using_CreateAccessKey) 
+to get *AWS Access Key ID* and *AWS Secret Access Key*.
 
-The quickest way to configure is to run `aws configure` command as below, fill these items out then AWS CLI will 
-be configured and authenticated. *AWS Access Key ID* and *AWS Secret Access Key* can be found from the AWS guide of
-[managing access keys](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html).
-
-```
-$ aws configure
-AWS Access Key ID [None]: ...
-AWS Secret Access Key [None]: ...
-Default region name [None]: ...
-Default output format [None]:
-```
+More ways to configure AWS CLI can be found from the [guide](https://github.com/aws/aws-cli/tree/v2#getting-started).
 
 #### Azure
 
@@ -94,14 +85,12 @@ Then the Azure CLI is configured to manage resources on your Azure account.
 
 #### GCP
 
-First, follow the [Google Cloud docs](https://cloud.google.com/docs/authentication/getting-started#creating_a_service_account) 
+First, follow the [guide](https://cloud.google.com/docs/authentication/getting-started#creating_a_service_account) 
 to create a service account on Google Cloud, A JSON file should be safely downloaded and kept by you after the
 service account created.
 
-Then set the `GOOGLE_APPLICATION_CREDENTIALS` environment variable as described in
-[GCP docs](https://cloud.google.com/docs/authentication/getting-started#setting_the_environment_variable) on your working machine.
-
-
+Then set the `GOOGLE_APPLICATION_CREDENTIALS` environment variable as described in the
+[guide](https://cloud.google.com/docs/authentication/getting-started#setting_the_environment_variable) on your working machine.
 
 ### 4. Creating a Workspace for Clusters.
 
@@ -131,7 +120,7 @@ provider:
           IpRanges:
           - CidrIp: 0.0.0.0/0
 ```
-*NOTE:* Remember to change `CidrIp` from `0.0.0.0/0` to restricted IpRanges for TCP port 22 security
+*NOTE:* Remember to change `CidrIp` from `0.0.0.0/0` to restricted IpRanges for TCP port 22 security.
 
 Use the following command to create and provision a Workspace:
 
@@ -145,105 +134,36 @@ Check `example/cluster` folder for more Workspace configuration file examples.
 
 If you choose cloud storage as file system or to store stage and event data, cloud storage account is needed.
 
-After follow the guides below for specific cloud provider, you will be able to fill out the corresponding storage filed 
-of your cluster configuration yaml. 
-
 #### AWS
 
 Every object in Amazon S3 is stored in a bucket. Before you can store data in Amazon S3, you must create a bucket.
+
 Please refer to the S3 [guide](https://docs.aws.amazon.com/AmazonS3/latest/userguide/creating-bucket.html) for instructions.
-
-Then fill out the `aws_s3_storage` field.
-
-```
-# Cloud-provider specific configuration.
-provider:
-    type: aws
-    region: us-west-2
-    # S3 configurations for storage
-    aws_s3_storage:
-        s3.bucket: your_s3_bucket
-        s3.access.key.id: your_s3_access_key_id
-        s3.secret.access.key: your_s3_secret_access_key
-
-```
-
-`s3.access.key.id`:  your AWS Access Key ID.
-
-`s3.secret.access.key`:  your AWS Secret Access Key.
-
- *AWS Access Key ID* and *AWS Secret Access Key* can be found from the AWS guide of
-[managing access keys](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html).
+The name of S3 bucket will be used in next step.
 
 #### Azure
 
-Create an Azure Storage Account if you don't have one.
+Create an Azure storage account, and a storage container within this storage account,
+Please refer to Azure related [guide](https://docs.microsoft.com/en-us/azure/storage/common/storage-account-create?tabs=azure-portal)
+for instructions.
 
-Azure **Blob storage** or **Data Lake Storage Gen2** are both supported by CloudTik. Please refer to Azure related 
-[guides](https://docs.microsoft.com/en-us/azure/storage/common/storage-account-create?tabs=azure-portal) for details.
-
-Then fill out the `azure_cloud_storage` field.
-
-```
-# Cloud-provider specific configuration.
-provider:
-    type: azure
-    location: westus
-    subscription_id: your_subscription_id
-    azure_cloud_storage:
-        # Choose cloud storage type: blob (Azure Blob Storage) or datalake (Azure Data Lake Storage Gen 2).
-        azure.storage.type: datalake
-        azure.storage.account: your_storage_account
-        azure.container: your_container
-        azure.account.key: your_account_key
-
-```
-
-`azure.storage.account`: Azure Storage Account name that you want CloudTik help to create.
-
-`azure.container`: Azure Storage Container name that you have created.
-
-`azure.account.key`: your [Azure account access keys](https://docs.microsoft.com/en-us/azure/storage/common/storage-account-keys-manage?tabs=azure-portal#view-account-access-keys).
-
+Azure **Blob storage** or **Data Lake Storage Gen2** are both supported by CloudTik, the name of storage account 
+and storage container will be used when configuring Azure cluster yaml.
 
 #### GCP
 
-If you do not already have a GCS bucket, create one and configure its permission for your service account.
-Please refer to [gcs bucket guide](gcs-bucket.md) for more details.
+If you do not already have a GCS bucket, create one by following the 
+[guide](https://cloud.google.com/storage/docs/creating-buckets#create_a_new_bucket).
 
-Then fill out the `gcp_cloud_storage` field.
-
-```
-# Cloud-provider specific configuration.
-provider:
-    type: gcp
-    region: us-central1
-    availability_zone: us-central1-a
-    project_id: your_project_id
-    # GCS configurations for storage
-    gcp_cloud_storage:
-        gcs.bucket: your_gcs_bucket
-        gcs.service.account.client.email: your_service_account_client_email
-        gcs.service.account.private.key.id: your_service_account_private_key_id
-        gcs.service.account.private.key: your_service_account_private_key
-
-```
-A JSON file should be safely downloaded and kept after Step 3.
-
-`project_id`: "project_id" in the JSON file.
-
-`gcs.service.account.client.email `: "client_email" in the JSON file.
-
-`gcs.service.account.private.key.id`: "private_key_id" in the JSON file.
-
-`gcs.service.account.private.key`: "private_key" in the JSON file, in the format of `-----BEGIN PRIVATE KEY-----\n......\n-----END PRIVATE KEY-----\n`
+Then set its permission for this bucket, please refer to [gcs bucket guide](gcs-bucket.md) for more details. 
+the name of bucket will be used when configuring GCP cluster yaml.
 
 ### 6. Starting a cluster
 
 Now you can start a cluster:
 
 ```
-cloudtik start your-cluster-config.yaml
+cloudtik start /path/to/your-cluster-config.yaml
 ```
 
 A typical cluster configuration file is usually very simple thanks to CloudTik hierarchy templates design.
@@ -286,6 +206,25 @@ available_node_types:
 ```
 
 You need the cloud storage access information in Step 5 and only a few additional key settings in the configuration file to launch a cluster.
+
+As for `aws_s3_storage` above: 
+
+> `s3.bucket`: name of S3 bucket that you created.
+> 
+> `s3.access.key.id`:  your AWS Access Key ID.
+> 
+> `s3.secret.access.key`:  your AWS Secret Access Key.
+
+ *AWS Access Key ID* and *AWS Secret Access Key* can be found from the AWS guide of
+[managing access keys](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html#Using_CreateAccessKey).
+
+As for `auth` above, if your working node is using corporation network, please set proxy as below.
+
+```
+auth:
+    ssh_user: ubuntu
+    ssh_proxy_command: "ncat --proxy-type socks5 --proxy <your_proxy_host>:<your_proxy_port> %h %p"
+```
 
 Refer to `example/cluster` for more cluster configurations examples.
 

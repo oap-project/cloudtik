@@ -1,8 +1,10 @@
 ### Configuring GCS Bucket
 
-If you do not already have a GCS bucket, create one and configure its permission for your [service account](https://cloud.google.com/docs/authentication/getting-started#creating_a_service_account).
+If you do not already have a GCS bucket, create one by following the 
+[guide](https://cloud.google.com/storage/docs/creating-buckets#create_a_new_bucket).
 
-Select your bucket, then click **ADD PRINCIPLE**.
+Then login to [Google storage page](https://console.cloud.google.com/storage), once you select your bucket, 
+a column will show up in the left of this page, then click **ADD PRINCIPLE** as below.
 
 ![gcs-bucket](../../image/gcs-bucket.png)
 

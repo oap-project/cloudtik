@@ -2755,3 +2755,44 @@ def _put_key_to_kv(key, value):
         kv_initialize_with_address(redis_address, CLOUDTIK_REDIS_DEFAULT_PASSWORD)
 
     return kv_put(key, value)
+
+
+def load_properties_file(properties_file, separator='=') -> Tuple[Dict[str, str], Dict[str, List[str]]]:
+    properties = {}
+    comments = {}
+    comments_for_key = []
+    with open(properties_file, "r") as f:
+        for line in f.readlines():
+            # Strip all the spaces and tabs
+            line = line.strip()
+            if line == "":
+                # Empty line, reset comments for key
+                comments_for_key = []
+            elif line.startswith("#") or line.startswith("!"):
+                # Consider a comment for current key
+                comments_for_key += [line[1:]]
+            else:
+                # Filtering out the empty and comment lines
+                # Use split() instead of split(" ") to split value with multiple spaces
+                key_value = line.split(separator)
+                key = key_value[0].strip()
+                value = separator.join(key_value[1:]).strip()
+                properties[key] = value
+                if len(comments_for_key) > 0:
+                    comments[key] = comments_for_key
+                    comments_for_key = []
+
+    return properties, comments
+
+
+def save_properties_file(properties_file,  properties: Dict[str, str], separator='=',
+                         comments: Dict[str, List[str]] = None):
+    with open(properties_file, "w+") as f:
+        for key, value in properties.items():
+            if comments and key in comments:
+                comments_for_key = comments[key]
+                f.write("\n")
+                for comment in comments_for_key:
+                    f.write("#{}\n".format(comment))
+
+            f.write("{}{}{}\n".format(key, separator, value))

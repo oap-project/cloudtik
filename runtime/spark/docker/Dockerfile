@@ -10,7 +10,7 @@ RUN mkdir -p $RUNTIME_PATH
 WORKDIR /home/cloudtik/runtime
 
 #Install JDK
-ENV JAVA_HOME            /home/cloudtik/runtime/jdk
+ENV JAVA_HOME            $RUNTIME_PATH/jdk
 ENV PATH                 $JAVA_HOME/bin:$PATH
 
 RUN wget https://devops.egov.org.in/Downloads/jdk/jdk-8u192-linux-x64.tar.gz  && \

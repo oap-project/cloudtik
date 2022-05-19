@@ -53,6 +53,14 @@ function prepare_base_conf() {
     cp -r $source_dir/* $output_dir
 }
 
+function configure_diskstat() {
+    which hwinfo || sudo apt-get update && sudo apt-get install -y hwinfo > /dev/null
+    node_disks=$(echo $(sudo hwinfo --disk --short | grep dev | awk '{print $1}' | cut -d "/" -f 3))
+    sed -i "s/{cloudtik-node-disks}/${node_disks}/g" $output_dir/conf.d/diskstat.pyconf
+    sudo cp $output_dir/conf.d/diskstat.pyconf /etc/ganglia/conf.d/diskstat.pyconf
+}
+
+
 function configure_ganglia() {
     prepare_base_conf
 
@@ -96,13 +104,19 @@ function configure_ganglia() {
         then
             sudo sed -i '/\NAME.pid/ a \ \ start-stop-daemon --start --quiet --startas $DAEMON --name $NAME.head -- --conf /etc/ganglia/gmond.head.conf --pid-file /var/run/$NAME.head.pid' /etc/init.d/ganglia-monitor
         fi
+
+        # Configure ganlia monitor python for worker
+        configure_diskstat
     else
-        # Configure ganglia monitor for woker
+        # Configure ganglia monitor for worker
         sed -i "s/{cloudtik-cluster-name}/${cluster_name_worker}/g" $output_dir/gmond.node.conf
         sed -i "s/{cloudtik-head-address}/${HEAD_ADDRESS}/g" $output_dir/gmond.node.conf
         sed -i "s/{cloudtik-bind-address}/${NODE_IP_ADDRESS}/g" $output_dir/gmond.node.conf
         sed -i "s/{cloudtik-port}/8649/g" $output_dir/gmond.node.conf
         sudo cp $output_dir/gmond.node.conf /etc/ganglia/gmond.conf
+
+        # Configure ganlia monitor python for worker
+        configure_diskstat
     fi
 }
 

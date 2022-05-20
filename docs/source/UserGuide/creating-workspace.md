@@ -79,16 +79,16 @@ provider:
     subscription_id: your_subscription_id
     # Use securityRules to allow SSH access from your working node
     securityRules:
-      - properties:
-        protocol: TCP
-        priority: 1000
-        access: Allow
-        direction: Inbound
-        source_address_prefixes:
-          - 0.0.0.0/0
-        source_port_range: "*"
-        destination_address_prefix: "*"
-        destination_port_range: 22
+        - properties:
+            protocol: TCP
+            priority: 1000
+            access: Allow
+            direction: Inbound
+            source_address_prefixes:
+              - 0.0.0.0/0
+            source_port_range: "*"
+            destination_address_prefix: "*"
+            destination_port_range: 22
 
 ```
 
@@ -96,18 +96,18 @@ provider:
 `x.x.x.x/x` with your specific working node IPs.
 
 ```
-securityRules:
-      - properties:
-        protocol: TCP
-        priority: 1000
-        access: Allow
-        direction: Inbound
-        source_address_prefixes:
-          - x.x.x.x/x
-          - x.x.x.x/x
-        source_port_range: "*"
-        destination_address_prefix: "*"
-        destination_port_range: 22
+    securityRules:
+        - properties:
+            protocol: TCP
+            priority: 1000
+            access: Allow
+            direction: Inbound
+            source_address_prefixes:
+              - x.x.x.x/x
+              - x.x.x.x/x
+            source_port_range: "*"
+            destination_address_prefix: "*"
+            destination_port_range: 22
 ```
 
 ### GCP

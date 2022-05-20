@@ -120,6 +120,7 @@ if setup_spec.type == SetupType.CLOUDTIK:
         ],
         "gcp": [
             "google-api-python-client",
+            "google-cloud-storage",
         ],
         "k8s": [
             "kubernetes",

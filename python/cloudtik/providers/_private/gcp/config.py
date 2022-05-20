@@ -11,6 +11,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.backends import default_backend
 
 from googleapiclient import discovery, errors
+from google.cloud import storage
 from google.oauth2 import service_account
 from google.oauth2.credentials import Credentials as OAuthCredentials
 
@@ -24,6 +25,8 @@ from cloudtik.core._private.utils import check_cidr_conflict, unescape_private_k
     _is_use_internal_ip
 from cloudtik.providers._private.gcp.utils import _get_node_info
 from cloudtik.providers._private.utils import StorageTestingError
+
+import google
 
 logger = logging.getLogger(__name__)
 
@@ -54,8 +57,8 @@ HAS_TPU_PROVIDER_FIELD = "_has_tpus"
 # NOTE: iam.serviceAccountUser allows the Head Node to create worker nodes
 # with ServiceAccounts.
 
-NUM_GCP_WORKSPACE_CREATION_STEPS = 6
-NUM_GCP_WORKSPACE_DELETION_STEPS = 4
+NUM_GCP_WORKSPACE_CREATION_STEPS = 7
+NUM_GCP_WORKSPACE_DELETION_STEPS = 5
 
 
 def get_node_type(node: dict) -> GCPNodeType:
@@ -214,6 +217,9 @@ def _create_tpu(gcp_credentials=None):
         discoveryServiceUrl="https://tpu.googleapis.com/$discovery/rest")
 
 
+def _create_storage_client(gcp_credentials=None):
+    return storage.Client(credentials=gcp_credentials)
+
 def construct_clients_from_provider_config(provider_config):
     """
     Attempt to fetch and parse the JSON GCP credentials from the provider
@@ -328,7 +334,14 @@ def _configure_workspace(config):
                     _numbered=("[]", current_step, total_steps)):
                 current_step += 1
                 config = _configure_project(config, crm)
-            config = _configure_network_resources(config, current_step, total_steps)
+            current_step = _configure_network_resources(config, current_step, total_steps)
+
+            with cli_logger.group(
+                    "Creating GCS bucket",
+                    _numbered=("[]", current_step, total_steps)):
+                current_step += 1
+                config = _configure_workspace_cloud_storage(config)
+
     except Exception as e:
         cli_logger.error("Failed to create workspace. {}", str(e))
         raise e
@@ -829,9 +842,14 @@ def delete_workspace_gcp(config):
         total_steps += 1
 
     try:
-
         with cli_logger.group("Deleting workspace: {}", workspace_name):
-            _delete_network_resources(config, compute, current_step, total_steps)
+            with cli_logger.group(
+                    "Deleting GCS bucket",
+                    _numbered=("[]", current_step, total_steps)):
+                current_step += 1
+                _delete_workspace_cloud_storage(config, workspace_name)
+            with cli_logger.group("Deleting workspace: {}", workspace_name):
+                _delete_network_resources(config, compute, current_step, total_steps)
 
     except Exception as e:
         cli_logger.error(
@@ -842,6 +860,22 @@ def delete_workspace_gcp(config):
             "Successfully deleted workspace: {}.",
             cf.bold(workspace_name))
     return None
+
+
+def _delete_workspace_cloud_storage(config, workspace_name):
+    bucket_name = "cloudtik-{}-bucket".format(workspace_name)
+    cli_logger.print("Deleting GCS bucket: {}...".format(bucket_name))
+    bucket = get_workspace_gcs_bucket(config, workspace_name)
+    if bucket is None:
+        cli_logger.warning("No GCS bucket with the name found.")
+        return
+    try:
+        cli_logger.print("Deleting GCS bucket: {} ...".format(bucket.name))
+        bucket.delete(force=True)
+    except Exception as e:
+        cli_logger.error("Failed to delete GCS bucket. {}", str(e))
+        raise e
+    return
 
 
 def _delete_network_resources(config, compute, current_step, total_steps):
@@ -915,6 +949,21 @@ def _create_vpc(config, compute):
     return VpcId
 
 
+def _configure_workspace_cloud_storage(config):
+    workspace_name = config["workspace_name"]
+    bucket_name = "cloudtik-{}-bucket".format(workspace_name)
+    region = config["provider"]["region"]
+    storage_client = _create_storage_client()
+    cli_logger.print("Creating GCS bucket for the workspace: {}".format(workspace_name))
+    try:
+        storage_client.create_bucket(bucket_or_name=bucket_name, location=region)
+        cli_logger.print("Successfully created GCS bucket: {}.".format(workspace_name))
+    except Exception as e:
+        cli_logger.error("Failed to create GCS bucket. {}", str(e))
+        raise e
+    return config
+
+
 def _configure_network_resources(config, current_step, total_steps):
     crm, iam, compute, tpu = \
         construct_clients_from_provider_config(config["provider"])
@@ -954,7 +1003,7 @@ def _configure_network_resources(config, current_step, total_steps):
         current_step += 1
         _create_or_update_firewalls(config, compute, VpcId)
 
-    return config
+    return current_step
 
 
 def check_gcp_workspace_resource(config):
@@ -970,6 +1019,7 @@ def check_gcp_workspace_resource(config):
          3.) Check public subnet
          4.) Check router
          5.) Check firewalls
+         6.) Check GCS bucket
     """
     if get_gcp_vpcId(config, compute, use_internal_ips) is None:
         return False
@@ -980,6 +1030,8 @@ def check_gcp_workspace_resource(config):
     if get_router(config, "cloudtik-{}-private-router".format(workspace_name), compute) is None:
         return False
     if not check_workspace_firewalls(config, compute):
+        return False
+    if not get_workspace_gcs_bucket(config, workspace_name) is None:
         return False
     return True
 
@@ -1462,6 +1514,17 @@ def _get_project(project_id, crm):
         project = None
 
     return project
+
+
+def get_workspace_gcs_bucket(config, workspace_name):
+    bucket_name = "cloudtik-{}-bucket".format(workspace_name)
+    gcs = _create_storage_client()
+    try:
+        bucket = gcs.get_bucket(bucket_name)
+        return bucket
+    except Exception as e:
+        cli_logger.error("The workspace not contains bucket. {}".format(e))
+        return None
 
 
 def _create_project(project_id, crm):

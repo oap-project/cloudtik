@@ -26,8 +26,6 @@ from cloudtik.core._private.utils import check_cidr_conflict, unescape_private_k
 from cloudtik.providers._private.gcp.utils import _get_node_info
 from cloudtik.providers._private.utils import StorageTestingError
 
-import google
-
 logger = logging.getLogger(__name__)
 
 VERSION = "v1"
@@ -1223,6 +1221,10 @@ def _configure_cloud_storage_from_workspace(config):
         if "gcp_cloud_storage" not in config["provider"]:
             config["provider"]["gcp_cloud_storage"] = {}
         config["provider"]["gcp_cloud_storage"]["gcs.bucket"] = gcs_bucket.name
+        config["provider"]["gcp_cloud_storage"]["gcs.service.account.client.email"] = \
+            SERVICE_ACCOUNT_EMAIL_TEMPLATE.format(
+                account_id=GCP_DEFAULT_SERVICE_ACCOUNT_ID,
+                project_id=config["provider"]["project_id"])
 
     return config
 
@@ -1657,22 +1659,25 @@ def verify_gcs_storage(provider_config: Dict[str, Any]):
     gcs_storage = provider_config.get("gcp_cloud_storage")
     if gcs_storage is None:
         return
-
-    private_key = gcs_storage["gcs.service.account.private.key"]
+    use_workspace_cloud_storage = provider_config.get("use_workspace_cloud_storage", False)
+    private_key = gcs_storage.get("gcs.service.account.private.key")
     private_key = unescape_private_key(private_key)
 
     credentials_field = {
         "project_id": provider_config.get("project_id"),
-        "private_key_id": gcs_storage["gcs.service.account.private.key.id"],
+        "private_key_id": gcs_storage.get("gcs.service.account.private.key.id"),
         "private_key": private_key,
-        "client_email": gcs_storage["gcs.service.account.client.email"],
+        "client_email": gcs_storage.get("gcs.service.account.client.email"),
         "token_uri": "https://oauth2.googleapis.com/token"
     }
 
     try:
-        credentials = service_account.Credentials.from_service_account_info(
-            credentials_field)
-        storage = _create_storage(credentials)
+        if use_workspace_cloud_storage:
+            storage = _create_storage()
+        else:
+            credentials = service_account.Credentials.from_service_account_info(
+                credentials_field)
+            storage = _create_storage(credentials)
         storage.buckets().get(bucket=gcs_storage["gcs.bucket"]).execute()
     except Exception as e:
         raise StorageTestingError("Error happens when verifying GCS storage configurations. "

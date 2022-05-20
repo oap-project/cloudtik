@@ -15,31 +15,25 @@ for instructions.
 
 ### Authentication to AWS CLI
 
-First, install AWS CLI(command line interface). Please refer to
-[AWS CLI Installation Guide](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) 
+First, install AWS CLI(command line interface) on your working machine. Please refer to
+[installing AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) 
 for detailed instructions.
 
-After AWS CLI is installed, then you need configure AWS CLI about credentials. Please refer to 
-[Configuring the AWS CLI](https://github.com/aws/aws-cli/tree/v2#getting-started) for detailed instructions.
+After AWS CLI is installed, you need to configure AWS CLI about credentials. The quickest way to configure it 
+is to run `aws configure` command, and you can refer to
+[managing access keys](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html#Using_CreateAccessKey) 
+to get *AWS Access Key ID* and *AWS Secret Access Key*.
 
-The quickest way to configure is to run `aws configure` command as below, fill these items out then AWS CLI will 
-be configured and authenticated. *AWS Access Key ID* and *AWS Secret Access Key* can be found from the AWS guide of
-[managing access keys](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html).
+More ways to configure AWS CLI can be found from the [guide](https://github.com/aws/aws-cli/tree/v2#getting-started).
 
-```
-$ aws configure
-AWS Access Key ID [None]: ...
-AWS Secret Access Key [None]: ...
-Default region name [None]: ...
-Default output format [None]:
-```
-
-### Creating a bucket
+### Creating a S3 bucket
 
 Every object in Amazon S3 is stored in a bucket. Before you can store data in Amazon S3, you must create a bucket.
+
 Please refer to the S3 [guide](https://docs.aws.amazon.com/AmazonS3/latest/userguide/creating-bucket.html) for instructions.
 
-Then you will be able to fill out the `aws_s3_storage` field for your cluster configuration yaml file.
+You will be able to fill out the `aws_s3_storage` for your AWS cluster configuration yaml file, which is introduced
+at Step 6 start a cluster of [quick start](../GettingStarted/quick-start.md).
 
 ```
 # Cloud-provider specific configuration.
@@ -74,21 +68,20 @@ for instructions.
 
 ### Authentication to Azure CLI
 
-First, install the Azure CLI (`pip install azure-cli azure-identity`) then login using (`az login`).
-
-Then set the subscription to use from the command line (`az account set -s <subscription_id>`) on your working machine.
-
-Then the Azure CLI is configured to manage resources on your Azure account.
-
+After CloudTik is installed on your working machine, login to Azure using `az login` and set the subscription to use 
+from the command line (`az account set -s <subscription_id>`). 
 
 ### Configuring Cloud Storage
 
-Create an Azure Storage Account if you don't have one.
+Create an Azure storage account and a storage container within this storage account.
+Please refer to Azure related [guide](https://docs.microsoft.com/en-us/azure/storage/common/storage-account-create?tabs=azure-portal)
+for instructions.
 
-Azure **Blob storage** or **Data Lake Storage Gen2** are both supported by CloudTik. Please refer to Azure related 
-[guides](https://docs.microsoft.com/en-us/azure/storage/common/storage-account-create?tabs=azure-portal) for details.
+Azure **Blob storage** or **Data Lake Storage Gen2** are both supported by CloudTik. Storage account name
+and storage container name will be used when configuring Azure cluster yaml.
 
-Then you will be able to fill out the `azure_cloud_storage` for your cluster configuration yaml file.
+You will be able to fill out the `azure_cloud_storage` for your cluster configuration yaml file, which is introduced
+at Step 6 start a cluster of [quick start](../GettingStarted/quick-start.md).
 
 ```
 # Cloud-provider specific configuration.
@@ -126,24 +119,27 @@ for instructions.
 Google Cloud projects form the basis for creating, enabling, and using all Google Cloud services.
 Create a project within your Google Cloud account. 
 
-Please refer to 
-[Google Cloud Guide](https://cloud.google.com/resource-manager/docs/creating-managing-projects) for instructions.
+Please refer to [Google Cloud Guide](https://cloud.google.com/resource-manager/docs/creating-managing-projects) for instructions.
 
 ### Authentication calls to Google Cloud APIs.
 
-First, follow the [Google Cloud docs](https://cloud.google.com/docs/authentication/getting-started#creating_a_service_account) 
-to create a service account on Google Cloud, A JSON file should be safely downloaded and kept by you after the
-service account created.
+First, follow the [guide](https://cloud.google.com/docs/authentication/getting-started#creating_a_service_account) 
+to create a service account on Google Cloud. 
 
-Then set the `GOOGLE_APPLICATION_CREDENTIALS` environment variable as described in
-[GCP docs](https://cloud.google.com/docs/authentication/getting-started#setting_the_environment_variable) on your working machine.
+A JSON file should be safely downloaded and kept by you, and then set the `GOOGLE_APPLICATION_CREDENTIALS` environment 
+variable as described in the [guide](https://cloud.google.com/docs/authentication/getting-started#setting_the_environment_variable)
+on your working machine.
 
 ### Configuring Cloud Storage
 
-If you do not already have a GCS bucket, create one and configure its permission for your service account.
-More details, please refer to [gcs bucket guide](../GettingStarted/gcs-bucket.md).
+If you do not already have a GCS bucket, create one by following the 
+[guide](https://cloud.google.com/storage/docs/creating-buckets#create_a_new_bucket).
 
-Then you will be able to fill out the `gcp_cloud_storage` for your cluster configuration yaml file.
+To control access to the bucket, please refer to [gcs bucket guide](../GettingStarted/gcs-bucket.md) for instructions. 
+The name of bucket will be used when configuring GCP cluster yaml.
+
+You will be able to fill out the `gcp_cloud_storage` for your cluster configuration yaml file, which is introduced
+at Step 6 start a cluster of [quick start](../GettingStarted/quick-start.md).
 
 ```
 # Cloud-provider specific configuration.

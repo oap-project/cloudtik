@@ -957,7 +957,7 @@ def _configure_workspace_cloud_storage(config):
     cli_logger.print("Creating GCS bucket for the workspace: {}".format(workspace_name))
     try:
         storage_client.create_bucket(bucket_or_name=bucket_name, location=region)
-        cli_logger.print("Successfully created GCS bucket: {}.".format(workspace_name))
+        cli_logger.print("Successfully created GCS bucket: {}.".format(bucket_name))
     except Exception as e:
         cli_logger.error("Failed to create GCS bucket. {}", str(e))
         raise e
@@ -1031,7 +1031,7 @@ def check_gcp_workspace_resource(config):
         return False
     if not check_workspace_firewalls(config, compute):
         return False
-    if not get_workspace_gcs_bucket(config, workspace_name) is None:
+    if get_workspace_gcs_bucket(config, workspace_name) is None:
         return False
     return True
 
@@ -1178,6 +1178,7 @@ def bootstrap_gcp_from_workspace(config):
 
     config = _fix_disk_info(config)
     config = _configure_iam_role(config, crm, iam)
+    config = _configure_cloud_storage_from_workspace(config)
     config = _configure_key_pair(config, compute)
     config = _configure_subnet_from_workspace(config, compute)
 
@@ -1213,6 +1214,17 @@ def _configure_project(config, crm):
 
     return config
 
+
+def _configure_cloud_storage_from_workspace(config):
+    use_workspace_cloud_storage = config.get("provider").get("use_workspace_cloud_storage", False)
+    workspace_name = config["workspace_name"]
+    if use_workspace_cloud_storage:
+        gcs_bucket = get_workspace_gcs_bucket(config, workspace_name)
+        if "gcp_cloud_storage" not in config["provider"]:
+            config["provider"]["gcp_cloud_storage"] = {}
+        config["provider"]["gcp_cloud_storage"]["gcs.bucket"] = gcs_bucket.name
+
+    return config
 
 def _configure_iam_role(config, crm, iam):
     """Setup a gcp service account with IAM roles.

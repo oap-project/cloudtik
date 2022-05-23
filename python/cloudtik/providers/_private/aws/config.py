@@ -347,6 +347,8 @@ def check_aws_workspace_resource(config):
     ec2_client = _client("ec2", config)
     workspace_name = config["workspace_name"]
     vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
+    workspace_managed_cloud_storage = config["provider"].get("workspace_managed_cloud_storage", False)
+
     """
          Do the work - order of operation
          1.) Check VPC 
@@ -375,8 +377,9 @@ def check_aws_workspace_resource(config):
         return False
     if len(get_vpc_endpoint_for_s3(ec2_client, workspace_name)) == 0:
         return False
-    if get_workspace_s3_bucket(config, workspace_name) is None:
-        return False
+    if workspace_managed_cloud_storage:
+        if get_workspace_s3_bucket(config, workspace_name) is None:
+            return False
     return True
 
 
@@ -750,6 +753,9 @@ def _configure_cloud_storage_from_workspace(config):
     workspace_name = config["workspace_name"]
     if use_workspace_cloud_storage:
         s3_bucket = get_workspace_s3_bucket(config, workspace_name)
+        if s3_bucket is None:
+            cli_logger.abort("No managed s3 bucket was found. If you want to use managed s3 bucket, "
+                             "you should set workspace_managed_cloud_storage equal to True when you creating workspace.")
         if "aws_s3_storage" not in config["provider"]:
             config["provider"]["aws_s3_storage"] = {}
         config["provider"]["aws_s3_storage"]["s3.bucket"] = s3_bucket.name

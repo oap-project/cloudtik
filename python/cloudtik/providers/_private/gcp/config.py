@@ -1018,6 +1018,7 @@ def check_gcp_workspace_resource(config):
         construct_clients_from_provider_config(config["provider"])
     use_internal_ips = is_use_internal_ip(config)
     workspace_name = config["workspace_name"]
+    workspace_managed_cloud_storage = config["provider"].get("workspace_managed_cloud_storage", False)
 
     """
          Do the work - order of operation
@@ -1038,8 +1039,9 @@ def check_gcp_workspace_resource(config):
         return False
     if not check_workspace_firewalls(config, compute):
         return False
-    if get_workspace_gcs_bucket(config, workspace_name) is None:
-        return False
+    if workspace_managed_cloud_storage:
+        if get_workspace_gcs_bucket(config, workspace_name) is None:
+            return False
     return True
 
 
@@ -1227,6 +1229,9 @@ def _configure_cloud_storage_from_workspace(config):
     workspace_name = config["workspace_name"]
     if use_workspace_cloud_storage:
         gcs_bucket = get_workspace_gcs_bucket(config, workspace_name)
+        if gcs_bucket is None:
+            cli_logger.abort("No managed s3 bucket was found. If you want to use managed s3 bucket, "
+                             "you should set workspace_managed_cloud_storage equal to True when you creating workspace.")
         if "gcp_cloud_storage" not in config["provider"]:
             config["provider"]["gcp_cloud_storage"] = {}
         config["provider"]["gcp_cloud_storage"]["gcs.bucket"] = gcs_bucket.name
@@ -1236,6 +1241,7 @@ def _configure_cloud_storage_from_workspace(config):
                 project_id=config["provider"]["project_id"])
 
     return config
+
 
 def _configure_iam_role(config, crm, iam):
     """Setup a gcp service account with IAM roles.

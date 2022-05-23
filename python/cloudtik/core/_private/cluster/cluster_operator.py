@@ -2043,7 +2043,7 @@ def _start_proxy_process(head_node_ip, config,
     cmd += " -D {} -C -N {}@{}".format(bind_string, ssh_user, head_node_ip)
 
     cli_logger.verbose("Running `{}`", cf.bold(cmd))
-    p = subprocess.Popen(cmd, shell=True)
+    p = subprocess.Popen(cmd, shell=True, stderr=subprocess.DEVNULL)
     if os.path.exists(proxy_info_file):
         process_info = json.loads(open(proxy_info_file).read())
     else:

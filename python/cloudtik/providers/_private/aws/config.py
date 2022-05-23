@@ -1070,6 +1070,7 @@ def _delete_vpc_endpoint_for_s3(ec2_client, workspace_name):
         raise e
     return
 
+
 def _create_vpc(config,  ec2):
     cli_logger.print("Creating workspace VPC...")
     # create vpc
@@ -1183,6 +1184,7 @@ def _create_nat_gateway(config, ec2_client, vpc, subnet):
 
 
 def _create_vpc_endpoint_for_s3(config, ec2, ec2_client, vpc):
+    cli_logger.print("Creating VPC endpoint for S3: {}...".format(vpc.id))
     try:
         region = config["provider"]["region"]
         route_table_ids = _get_workspace_route_table_ids(config["workspace_name"], ec2, vpc.id)
@@ -1198,7 +1200,8 @@ def _create_vpc_endpoint_for_s3(config, ec2, ec2_client, vpc):
                                               config["workspace_name"])
                                           }]}],
         )
-
+        cli_logger.print(
+            "Successfully created VPC endpoint for S3: cloudtik-{}-vpc-endpoint-s3 ...".format(config["workspace_name"]))
     except Exception as e:
         cli_logger.error("Failed to create Vpc Endpoint for S3. {}", str(e))
         raise e

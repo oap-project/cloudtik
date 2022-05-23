@@ -144,19 +144,25 @@ details.
 #### Azure
 
 Create an Azure storage account and a storage container within this storage account.
-Please refer to Azure related [guide](https://docs.microsoft.com/en-us/azure/storage/common/storage-account-create?tabs=azure-portal)
+Please refer to [Creating Azure Storage Account](https://docs.microsoft.com/en-us/azure/storage/common/storage-account-create?tabs=azure-portal)
 for instructions.
 
 Azure **Blob storage** or **Data Lake Storage Gen2** are both supported by CloudTik. Storage account name
 and storage container name will be used when configuring Azure cluster yaml.
 
+You will also need [Azure account access key](https://docs.microsoft.com/en-us/azure/storage/common/storage-account-keys-manage?tabs=azure-portal#view-account-access-keys)
+in the next step when configuring an Azure configuration yaml file, which grants the access to the created Azure storage.
+
 #### GCP
 
 If you do not already have a GCS bucket, create one by following the 
-[guide](https://cloud.google.com/storage/docs/creating-buckets#create_a_new_bucket).
+[Creating buckets](https://cloud.google.com/storage/docs/creating-buckets#create_a_new_bucket).
 
-To control access to the bucket, please refer to [gcs bucket guide](gcs-bucket.md) for instructions. 
+To control access to the bucket, please refer to [Google cloud bucket](./docs/source/GettingStarted/gcs-bucket.md) for instructions. 
 The name of bucket will be used when configuring GCP cluster yaml.
+
+You will also need the previously downloaded Json file's `project_id`, `client_email`, `private_key_id` and 
+`gcs.service.account.private.key` for the next step when configuring a GCP cluster yaml, which grants the access to the created GCP bucket.
 
 ### 6. Starting a cluster
 
@@ -232,10 +238,6 @@ cloudtik status /path/to/your-cluster-config.yaml
 cloudtik info /path/to/your-cluster-config.yaml
 cloudtik head-ip /path/to/your-cluster-config.yaml
 cloudtik worker-ips /path/to/your-cluster-config.yaml
-cloudtik process-status /path/to/your-cluster-config.yaml
-cloudtik monitor /path/to/your-cluster-config.yaml
-cloudtik debug-status /path/to/your-cluster-config.yaml
-cloudtik health-check  /path/to/your-cluster-config.yaml
 ```
 #### Attach to the cluster head (or specific node)
 
@@ -245,12 +247,6 @@ Connect to a terminal of cluster head node.
 cloudtik attach /path/to/your-cluster-config.yaml
 ```
 
-Log in to worker node with `--node-ip` as below.
-
-```
-cloudtik attach --node-ip x.x.x.x /path/to/your-cluster-config.yaml
-```
-
 #### Execute and Submit Jobs
 
 Execute a command via SSH on cluster head node or a specified node.
@@ -258,13 +254,6 @@ Execute a command via SSH on cluster head node or a specified node.
 ```
 cloudtik exec /path/to/your-cluster-config.yaml [command]
 ```
-
-Execute commands on specified worker node. 
-
-```
-cloudtik exec your-cluster-config.yaml --node-ip=x.x.x.x [command]
-```
-
 
 #### Manage Files
 
@@ -280,22 +269,20 @@ Download files or directories from cluster.
 cloudtik rsync-down /path/to/your-cluster-config.yaml [source] [target]
 ```
 
-#### Start or Stop Runtime Services
+#### Terminate a Cluster
+
+Stop and delete the cluster.
 
 ```
-cloudtik runtime start /path/to/your-cluster-config.yaml
-cloudtik runtime stop /path/to/your-cluster-config.yaml
+cloudtik stop /path/to/your-cluster-config.yaml
 ```
 
-#### Scale Up or Scale Down Cluster
+#### Delete a Workspace
 
-Scale up the cluster with a specific number cpus or nodes.
-
-Try with `--cpus` or `--nodes`.
+Delete the workspace and all the network resources within it.
 
 ```
-cloudtik scale --cpus xx /path/to/your-cluster-config.yaml
-cloudtik scale --nodes x /path/to/your-cluster-config.yaml
+cloudtik workspace delete /path/to/your-workspace-config.yaml
 ```
 
 For more information as to the commands, you can use `cloudtik --help` or `cloudtik [command] --help` to get detailed instructions.

@@ -55,8 +55,8 @@ HAS_TPU_PROVIDER_FIELD = "_has_tpus"
 # NOTE: iam.serviceAccountUser allows the Head Node to create worker nodes
 # with ServiceAccounts.
 
-NUM_GCP_WORKSPACE_CREATION_STEPS = 7
-NUM_GCP_WORKSPACE_DELETION_STEPS = 5
+NUM_GCP_WORKSPACE_CREATION_STEPS = 6
+NUM_GCP_WORKSPACE_DELETION_STEPS = 4
 
 
 def get_node_type(node: dict) -> GCPNodeType:
@@ -322,9 +322,13 @@ def _configure_workspace(config):
     crm, iam, compute, tpu = \
         construct_clients_from_provider_config(config["provider"])
     workspace_name = config["workspace_name"]
+    workspace_managed_cloud_storage = config["provider"].get("workspace_managed_cloud_storage", False)
 
     current_step = 1
     total_steps = NUM_GCP_WORKSPACE_CREATION_STEPS
+    if workspace_managed_cloud_storage:
+        total_steps += 1
+
     try:
         with cli_logger.group("Creating workspace: {}", workspace_name):
             with cli_logger.group(
@@ -334,11 +338,12 @@ def _configure_workspace(config):
                 config = _configure_project(config, crm)
             current_step = _configure_network_resources(config, current_step, total_steps)
 
-            with cli_logger.group(
-                    "Creating GCS bucket",
-                    _numbered=("[]", current_step, total_steps)):
-                current_step += 1
-                config = _configure_workspace_cloud_storage(config)
+            if workspace_managed_cloud_storage:
+                with cli_logger.group(
+                        "Creating GCS bucket",
+                        _numbered=("[]", current_step, total_steps)):
+                    current_step += 1
+                    config = _configure_workspace_cloud_storage(config)
 
     except Exception as e:
         cli_logger.error("Failed to create workspace. {}", str(e))
@@ -829,6 +834,7 @@ def delete_workspace_gcp(config):
 
     workspace_name = config["workspace_name"]
     use_internal_ips = is_use_internal_ip(config)
+    workspace_managed_cloud_storage = config["provider"].get("workspace_managed_cloud_storage", False)
     VpcId = get_gcp_vpcId(config, compute, use_internal_ips)
     if VpcId is None:
         cli_logger.print("Workspace: {} doesn't exist!".format(config["workspace_name"]))
@@ -838,14 +844,17 @@ def delete_workspace_gcp(config):
     total_steps = NUM_GCP_WORKSPACE_DELETION_STEPS
     if not use_internal_ips:
         total_steps += 1
+    if workspace_managed_cloud_storage:
+        total_steps += 1
 
     try:
         with cli_logger.group("Deleting workspace: {}", workspace_name):
-            with cli_logger.group(
-                    "Deleting GCS bucket",
-                    _numbered=("[]", current_step, total_steps)):
-                current_step += 1
-                _delete_workspace_cloud_storage(config, workspace_name)
+            if workspace_managed_cloud_storage:
+                with cli_logger.group(
+                        "Deleting GCS bucket",
+                        _numbered=("[]", current_step, total_steps)):
+                    current_step += 1
+                    _delete_workspace_cloud_storage(config, workspace_name)
             with cli_logger.group("Deleting workspace: {}", workspace_name):
                 _delete_network_resources(config, compute, current_step, total_steps)
 

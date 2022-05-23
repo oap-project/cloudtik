@@ -59,8 +59,8 @@ DEFAULT_AMI = {
     "sa-east-1": "ami-090006f29ecb2d79a",  # SA (Sao Paulo)
 }
 
-NUM_AWS_WORKSPACE_CREATION_STEPS = 9
-NUM_AWS_WORKSPACE_DELETION_STEPS = 9
+NUM_AWS_WORKSPACE_CREATION_STEPS = 8
+NUM_AWS_WORKSPACE_DELETION_STEPS = 8
 
 # todo: cli_logger should handle this assert properly
 # this should probably also happens somewhere else
@@ -415,6 +415,7 @@ def delete_workspace_aws(config):
     ec2_client = _client("ec2", config)
     workspace_name = config["workspace_name"]
     use_internal_ips = is_use_internal_ip(config)
+    workspace_managed_cloud_storage = config["provider"].get("workspace_managed_cloud_storage", False)
     vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
     if vpc_id is None:
         cli_logger.print("The workspace: {} doesn't exist!".format(config["workspace_name"]))
@@ -423,6 +424,8 @@ def delete_workspace_aws(config):
     current_step = 1
     total_steps = NUM_AWS_WORKSPACE_DELETION_STEPS
     if not use_internal_ips:
+        total_steps += 1
+    if workspace_managed_cloud_storage:
         total_steps += 1
 
     try:
@@ -434,11 +437,12 @@ def delete_workspace_aws(config):
                 current_step += 1
                 _delete_workspace_instance_profile(config, workspace_name)
 
-            with cli_logger.group(
-                    "Deleting S3 bucket",
-                    _numbered=("[]", current_step, total_steps)):
-                current_step += 1
-                _delete_workspace_cloud_storage(config, workspace_name)
+            if workspace_managed_cloud_storage:
+                with cli_logger.group(
+                        "Deleting S3 bucket",
+                        _numbered=("[]", current_step, total_steps)):
+                    current_step += 1
+                    _delete_workspace_cloud_storage(config, workspace_name)
 
             _delete_network_resources(config, workspace_name,
                                       ec2, ec2_client, vpc_id,
@@ -1311,9 +1315,12 @@ def _configure_workspace(config):
     ec2 = _resource("ec2", config)
     ec2_client = _client("ec2", config)
     workspace_name = config["workspace_name"]
+    workspace_managed_cloud_storage = config["provider"].get("workspace_managed_cloud_storage", False)
 
     current_step = 1
     total_steps = NUM_AWS_WORKSPACE_CREATION_STEPS
+    if workspace_managed_cloud_storage:
+        total_steps += 1
 
     try:
         with cli_logger.group("Creating workspace: {}", workspace_name):
@@ -1325,11 +1332,13 @@ def _configure_workspace(config):
 
             current_step = _configure_network_resources(config, ec2, ec2_client,
                                          current_step, total_steps)
-            with cli_logger.group(
-                    "Creating S3 bucket",
-                    _numbered=("[]", current_step, total_steps)):
-                current_step += 1
-                _configure_workspace_cloud_storage(config, workspace_name)
+
+            if workspace_managed_cloud_storage:
+                with cli_logger.group(
+                        "Creating S3 bucket",
+                        _numbered=("[]", current_step, total_steps)):
+                    current_step += 1
+                    _configure_workspace_cloud_storage(config, workspace_name)
 
     except Exception as e:
         cli_logger.error("Failed to create workspace. {}", str(e))

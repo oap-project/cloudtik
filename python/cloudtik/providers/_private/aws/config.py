@@ -460,7 +460,7 @@ def delete_workspace_aws(config):
 
 
 def _delete_workspace_instance_profile(config, workspace_name):
-    instance_profile_name = _get_workspace_instance_profile_name(workspace_name)
+    instance_profile_name = _get_workspace_head_instance_profile_name(workspace_name)
     instance_role_name = "cloudtik-{}-role".format(workspace_name)
     _delete_instance_profile(config, instance_profile_name, instance_role_name)
 
@@ -770,7 +770,7 @@ def _configure_iam_role_for_head(config):
         return config
     _set_config_info(head_instance_profile_src="workspace")
 
-    instance_profile_name = _get_workspace_instance_profile_name(
+    instance_profile_name = _get_workspace_head_instance_profile_name(
         config["workspace_name"])
     profile = _get_instance_profile(instance_profile_name, config)
     if not profile:
@@ -786,21 +786,30 @@ def _configure_iam_role_for_head(config):
 def _configure_iam_role_for_cluster(config):
     _set_config_info(head_instance_profile_src="workspace")
 
-    instance_profile_name = _get_workspace_instance_profile_name(
+    head_instance_profile_name = _get_workspace_head_instance_profile_name(
         config["workspace_name"])
-    profile = _get_instance_profile(instance_profile_name, config)
+    head_profile = _get_instance_profile(head_instance_profile_name, config)
 
-    if not profile:
-        raise RuntimeError("Workspace instance profile: {} not found!".format(instance_profile_name))
+    worker_instance_profile_name = _get_workspace_worker_instance_profile_name(
+        config["workspace_name"])
+    worker_profile = _get_instance_profile(worker_instance_profile_name, config)
+
+    if not head_profile:
+        raise RuntimeError("Workspace head instance profile: {} not found!".format(head_instance_profile_name))
+    if not worker_profile:
+        raise RuntimeError("Workspace worker instance profile: {} not found!".format(worker_instance_profile_name))
 
     for key, node_type in config["available_node_types"].items():
         node_config = node_type["node_config"]
-        node_config["IamInstanceProfile"] = {"Arn": profile.arn}
+        if key == config["head_node_type"]:
+            node_config["IamInstanceProfile"] = {"Arn": head_profile.arn}
+        else:
+            node_config["IamInstanceProfile"] = {"Arn": worker_profile.arn}
 
     return config
 
 
-def _create_or_update_instance_profile(config, instance_profile_name, instance_role_name):
+def _create_or_update_instance_profile(config, instance_profile_name, instance_role_name, isHead=True):
     profile = _get_instance_profile(instance_profile_name, config)
 
     if profile is None:
@@ -836,10 +845,15 @@ def _create_or_update_instance_profile(config, instance_profile_name, instance_r
                     },
                 ]
             }
-            attach_policy_arns =  [
+            if isHead:
+                attach_policy_arns = [
                     "arn:aws:iam::aws:policy/AmazonEC2FullAccess",
                     "arn:aws:iam::aws:policy/AmazonS3FullAccess",
                     "arn:aws:iam::aws:policy/IAMFullAccess"
+                ]
+            else:
+                attach_policy_arns = [
+                    "arn:aws:iam::aws:policy/AmazonS3FullAccess"
                 ]
 
             iam.create_role(
@@ -1352,12 +1366,14 @@ def _configure_workspace(config):
 
 
 def _configure_workspace_instance_profile(config, workspace_name):
-    instance_profile_name = _get_workspace_instance_profile_name(workspace_name)
+    instance_profile_name = _get_workspace_head_instance_profile_name(workspace_name)
     instance_role_name = "cloudtik-{}-role".format(workspace_name)
 
     cli_logger.print("Creating instance profile: {}...".format(instance_profile_name))
     _create_or_update_instance_profile(config, instance_profile_name,
                                        instance_role_name)
+    _create_or_update_instance_profile(config, instance_profile_name,
+                                       instance_role_name, isHead=False)
     cli_logger.print("Successfully created and configured instance profile.")
 
 
@@ -1379,8 +1395,12 @@ def _configure_workspace_cloud_storage(config, workspace_name):
     return
 
 
-def _get_workspace_instance_profile_name(workspace_name):
-    return "cloudtik-{}-profile".format(workspace_name)
+def _get_workspace_head_instance_profile_name(workspace_name):
+    return "cloudtik-{}-head-profile".format(workspace_name)
+
+
+def _get_workspace_worker_instance_profile_name(workspace_name):
+    return "cloudtik-{}-worker-profile".format(workspace_name)
 
 
 def _configure_network_resources(config, ec2, ec2_client,

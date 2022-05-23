@@ -1,17 +1,16 @@
 # CloudTik
 
-CloudTik is a cloud scaling platform to scale your distributed analytics and AI cluster on public cloud providers including AWS, Azure, GCP, and so on.
+CloudTik is a cloud scale platform for distributed analytics and AI on public cloud providers including AWS, Azure, GCP, and so on.
+CloudTik enables any users or enterprises to easily create and manage analytics and AI platform on public clouds,
+with out-of-box optimized functionalities and performance, and to go quickly to focus on running the business workloads in minutes or hours
+instead of spending months to construct and optimize the platform.
+We target to:
 
-- Built upon Cloud compute engines and Cloud storages
-
-- Support major public Cloud providers (AWS, Azure, GCP, and more to come)
-
-- Powerful and Optimized: Out of box and optimized runtimes for Analytics and AI
-
-- Simplified and Unified: Easy to use and unified operate experiences on all Clouds
-
-- Open and Flexible: Open architecture and user in full control, fully open-source and user transparent.
-
+- Support major public Cloud providers (AWS, Azure and GCP, ...)
+- Out of box and optimized runtime for Analytics and AI (Spark, Presto, ...)
+- Easy and unified operation experiences across all clouds
+- Open architecture and user in full control
+- A full open-sourced solution
 
 ## Getting Started with CloudTik
 
@@ -64,31 +63,29 @@ authenticate the cloud provider CLI on this machine.
 
 #### AWS
 
-First, install AWS CLI(command line interface) on your working machine. Please refer to
-[installing AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) 
+First, install AWS CLI (command line interface) on your working machine. Please refer to
+[Installing AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
 for detailed instructions.
 
 After AWS CLI is installed, you need to configure AWS CLI about credentials. The quickest way to configure it 
 is to run `aws configure` command, and you can refer to
-[managing access keys](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html#Using_CreateAccessKey) 
+[Managing access keys](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html#Using_CreateAccessKey)
 to get *AWS Access Key ID* and *AWS Secret Access Key*.
 
-More ways to configure AWS CLI can be found from the [guide](https://github.com/aws/aws-cli/tree/v2#getting-started).
+More details for AWS CLI can be found in [AWS CLI Getting Started](https://github.com/aws/aws-cli/tree/v2#getting-started).
 
 #### Azure
 
-After CloudTik is installed on your working machine, login to Azure using `az login` and set the subscription to use 
-from the command line (`az account set -s <subscription_id>`). You can follow the
-[Azure guide](https://docs.microsoft.com/en-us/azure/azure-portal/get-subscription-tenant-id#find-your-azure-subscription)
-to find your Azure subscription id.
+After CloudTik is installed on your working machine, login to Azure using `az login`.
+Refer to [Sign in with Azure CLI](https://docs.microsoft.com/en-us/cli/azure/authenticate-azure-cli) for more details.
 
 #### GCP
 
-First, follow the [guide](https://cloud.google.com/docs/authentication/getting-started#creating_a_service_account) 
+First, follow [Creating a service account](https://cloud.google.com/docs/authentication/getting-started#creating_a_service_account)
 to create a service account on Google Cloud. 
 
-A JSON file should be safely downloaded and kept by you, and then set the `GOOGLE_APPLICATION_CREDENTIALS` environment 
-variable as described in the [guide](https://cloud.google.com/docs/authentication/getting-started#setting_the_environment_variable)
+A JSON file should be safely downloaded to your local computer, and then set the `GOOGLE_APPLICATION_CREDENTIALS` environment
+variable as described in the [Setting the environment variable](https://cloud.google.com/docs/authentication/getting-started#setting_the_environment_variable)
 on your working machine.
 
 ### 4. Creating a Workspace for Clusters.
@@ -137,8 +134,12 @@ If you choose cloud storage as file system or to store stage and event data, a c
 
 Every object in Amazon S3 is stored in a bucket. Before you can store data in Amazon S3, you must create a bucket.
 
-Please refer to the S3 [guide](https://docs.aws.amazon.com/AmazonS3/latest/userguide/creating-bucket.html) for instructions.
+Please refer to the S3 User Guide [Creating bucket](https://docs.aws.amazon.com/AmazonS3/latest/userguide/creating-bucket.html) for instructions.
 The name of S3 bucket will be used in the next step.
+
+You will also need *AWS Access Key ID* and *AWS Secret Access Key* in the next step which allow the access to the created S3 bucket.
+Refer to [Managing access keys](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html#Using_CreateAccessKey) for the
+details.
 
 #### Azure
 
@@ -205,17 +206,6 @@ available_node_types:
 ```
 
 You need the cloud storage access information in Step 5 and only a few additional key settings in the configuration file to launch a cluster.
-
-As for `aws_s3_storage` above.
-
-> `s3.bucket`: name of S3 bucket that you created.
-> 
-> `s3.access.key.id`:  your AWS Access Key ID.
-> 
-> `s3.secret.access.key`:  your AWS Secret Access Key.
-
- *AWS Access Key ID* and *AWS Secret Access Key* can be found from the AWS guide of
-[managing access keys](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html#Using_CreateAccessKey).
 
 As for `auth` above, please set proxy if your working node is using corporation network.
 

@@ -460,9 +460,13 @@ def delete_workspace_aws(config):
 
 
 def _delete_workspace_instance_profile(config, workspace_name):
-    instance_profile_name = _get_workspace_head_instance_profile_name(workspace_name)
-    instance_role_name = "cloudtik-{}-role".format(workspace_name)
-    _delete_instance_profile(config, instance_profile_name, instance_role_name)
+    head_instance_profile_name = _get_workspace_head_instance_profile_name(workspace_name)
+    head_instance_role_name = "cloudtik-{}-head-role".format(workspace_name)
+    _delete_instance_profile(config, head_instance_profile_name, head_instance_role_name)
+
+    worker_instance_profile_name = _get_workspace_worker_instance_profile_name(workspace_name)
+    worker_instance_role_name = "cloudtik-{}-worker-role".format(workspace_name)
+    _delete_instance_profile(config, worker_instance_profile_name, worker_instance_role_name)
 
 
 def _delete_workspace_cloud_storage(config, workspace_name):
@@ -1366,14 +1370,18 @@ def _configure_workspace(config):
 
 
 def _configure_workspace_instance_profile(config, workspace_name):
-    instance_profile_name = _get_workspace_head_instance_profile_name(workspace_name)
-    instance_role_name = "cloudtik-{}-role".format(workspace_name)
+    head_instance_profile_name = _get_workspace_head_instance_profile_name(workspace_name)
+    head_instance_role_name = "cloudtik-{}-head-role".format(workspace_name)
+    cli_logger.print("Creating head instance profile: {}...".format(head_instance_role_name))
+    _create_or_update_instance_profile(config, head_instance_profile_name,
+                                       head_instance_role_name)
 
-    cli_logger.print("Creating instance profile: {}...".format(instance_profile_name))
-    _create_or_update_instance_profile(config, instance_profile_name,
-                                       instance_role_name)
-    _create_or_update_instance_profile(config, instance_profile_name,
-                                       instance_role_name, isHead=False)
+    worker_instance_profile_name = _get_workspace_worker_instance_profile_name(workspace_name)
+    worker_instance_role_name = "cloudtik-{}-worker-role".format(workspace_name)
+    cli_logger.print("Creating worker instance profile: {}...".format(head_instance_role_name))
+    _create_or_update_instance_profile(config, worker_instance_profile_name,
+                                       worker_instance_role_name, isHead=False)
+
     cli_logger.print("Successfully created and configured instance profile.")
 
 

@@ -104,10 +104,10 @@ $ cloudtik attach --node-ip 10.0.x.x /path/to/your-cluster-config.yaml
 
 ### Execute and Submit Jobs
 
-Execute a command via SSH on a cluster or a specified node.
+Execute a command via SSH on head node.
 
 ```
-cloudtik exec /path/to/your-cluster-config.yaml
+cloudtik exec /path/to/your-cluster-config.yaml [CMD]
 ```
 
 For example, list the items under $USER directory as below.  
@@ -120,19 +120,19 @@ anaconda3  cloudtik_bootstrap_config.yaml  cloudtik_bootstrap_key.pem  jupyter  
 Execute commands on specified worker node 
 
 ```
-cloudtik exec your-cluster-config.yaml --node-ip=x.x.x.x 
+cloudtik exec --node-ip x.x.x.x /path/to/your-cluster-config.yaml [CMD]
 ```
 
 Execute commands on all nodes
 
 ```
-cloudtik exec your-cluster-config.yaml --all-nodes
+cloudtik exec --all-nodes /path/to/your-cluster-config.yaml [CMD]
 ```
 
 Submit job to cluster to run.
 
 ```
-cloudtik submit /path/to/your-cluster-config.yaml [job-file (py|sh|scala)]
+cloudtik submit [OPTIONS] /path/to/your-cluster-config.yaml SCRIPT [SCRIPT_ARGS]
 ```
 
 ##### Run TPC-DS on Spark cluster

@@ -1075,10 +1075,22 @@ def _create_vpc(config,  ec2):
     cli_logger.print("Creating workspace VPC...")
     # create vpc
     try:
-        vpc = ec2.create_vpc(CidrBlock='10.10.0.0/16')
+        vpc = ec2.create_vpc(
+            CidrBlock='10.10.0.0/16',
+            TagSpecifications=[
+                {
+                    'ResourceType': 'vpc',
+                    'Tags': [
+                        {
+                            'Key': 'Name',
+                            'Value': 'cloudtik-{}-vpc'.format(config["workspace_name"])
+                        },
+                    ]
+                },
+            ]
+         )
         vpc.modify_attribute(EnableDnsSupport={'Value': True})
         vpc.modify_attribute(EnableDnsHostnames={'Value': True})
-        vpc.create_tags(Tags=[{'Key': 'Name', 'Value': 'cloudtik-{}-vpc'.format(config["workspace_name"])}])
         cli_logger.print("Successfully created workspace VPC: cloudtik-{}-vpc ...".format(config["workspace_name"]))
     except Exception as e:
         cli_logger.error("Failed to create workspace VPC. {}", str(e))
@@ -1087,42 +1099,72 @@ def _create_vpc(config,  ec2):
     return vpc
 
 
-def _create_subnet(config, cidr,  vpc):
-    cli_logger.print("Creating subnet for VPC: {} with CIDR: {} ...".format(vpc.id, cidr))
-    try:
-        subnet = vpc.create_subnet(CidrBlock=cidr)
-        cli_logger.print("Successfully created subnet: cloudtik-{}-subnet ...".format(config["workspace_name"]))
-    except Exception as e:
-        cli_logger.error("Failed to create subnet. {}", str(e))
-        raise e
-    return subnet
-
-
 def _create_and_configure_subnets(config, vpc):
     subnets = []
     cidr_list = _configure_subnets_cidr(vpc)
     for i in range(0, len(cidr_list)):
-        subnets.append(_create_subnet(config, cidr_list[i], vpc))
+        cli_logger.print("Creating subnet for VPC: {} with CIDR: {} ...".format(vpc.id, cidr_list[i]))
+        try:
+            if i == 0:
+                subnet = vpc.create_subnet(
+                    CidrBlock=cidr_list[i],
+                    TagSpecifications=[
+                        {
+                            'ResourceType': 'subnet',
+                            'Tags': [
+                                {
+                                    'Key': 'Name',
+                                    'Value': 'cloudtik-{}-public-subnet'.format(config["workspace_name"])
+                                },
+                            ]
+                        },
+                    ]
+                )
+                subnet.meta.client.modify_subnet_attribute(SubnetId=subnet.id,
+                                                               MapPublicIpOnLaunch={"Value": True})
+                cli_logger.print("Successfully created public subnet: cloudtik-{}-public-subnet ...".format(config["workspace_name"]))
+            else:
+                subnet = vpc.create_subnet(
+                    CidrBlock=cidr_list[i],
+                    TagSpecifications=[
+                        {
+                            'ResourceType': 'subnet',
+                            'Tags': [
+                                {
+                                    'Key': 'Name',
+                                    'Value': 'cloudtik-{}-private-subnet'.format(config["workspace_name"])
+                                },
+                            ]
+                        },
+                    ]
+                )
+                cli_logger.print("Successfully created private subnet: cloudtik-{}-private-subnet ...".format(
+                    config["workspace_name"]))
+        except Exception as e:
+            cli_logger.error("Failed to create subnet. {}", str(e))
+            raise e
+        subnets.append(subnet)
 
     assert len(subnets) == 2, "We must create 2 subnets for VPC: {}!".format(vpc.id)
-
-    for i in range(0, len(cidr_list)):
-        # make the first subnet as public subnet and rename it
-        if i == 0:
-            subnets[0].meta.client.modify_subnet_attribute(SubnetId=subnets[0].id, MapPublicIpOnLaunch={"Value": True})
-            subnets[0].create_tags(Tags=[{'Key': 'Name',
-                                          'Value': 'cloudtik-{}-public-subnet'.format(config["workspace_name"])}])
-        else:
-            subnets[i].create_tags(Tags=[{'Key': 'Name',
-                                          'Value': 'cloudtik-{}-private-subnet'.format(config["workspace_name"])}])
     return subnets
 
 
 def _create_internet_gateway(config, ec2, vpc):
     cli_logger.print("Creating Internet Gateway for the VPC: {}...".format(vpc.id))
     try:
-        igw = ec2.create_internet_gateway()
-        igw.create_tags(Tags=[{'Key': 'Name', 'Value': 'cloudtik-{}-internet-gateway'.format(config["workspace_name"])}])
+        igw = ec2.create_internet_gateway(
+            TagSpecifications=[
+                {
+                    'ResourceType': 'internet-gateway',
+                    'Tags': [
+                        {
+                            'Key': 'Name',
+                            'Value': 'cloudtik-{}-internet-gateway'.format(config["workspace_name"])
+                        },
+                    ]
+                },
+            ]
+        )
         igw.attach_to_vpc(VpcId=vpc.id)
         cli_logger.print("Successfully created Internet Gateway: cloudtik-{}-internet-gateway ...".format(config["workspace_name"]))
     except Exception as e:
@@ -1163,10 +1205,22 @@ def _create_nat_gateway(config, ec2_client, vpc, subnet):
         allocation_id = eip_for_nat_gateway['AllocationId']
 
         # create NAT Gateway and associate with Elastic IP
-        nat_gw = ec2_client.create_nat_gateway(SubnetId=subnet.id, AllocationId=allocation_id)['NatGateway']
+        nat_gw = ec2_client.create_nat_gateway(
+            SubnetId=subnet.id,
+            AllocationId=allocation_id,
+            TagSpecifications=[
+                {
+                    'ResourceType': 'natgateway',
+                    'Tags': [
+                        {
+                            'Key': 'Name',
+                            'Value': 'cloudtik-{}-nat-gateway'.format(config["workspace_name"])
+                        },
+                    ]
+                },
+            ]
+        )['NatGateway']
         nat_gw_id = nat_gw['NatGatewayId']
-        ec2_client.create_tags(Tags=[{'Key': 'Name', 'Value': 'cloudtik-{}-nat-gateway'.format(config["workspace_name"])}],
-                        Resources=[nat_gw_id])
         wait_nat_creation(ec2_client, nat_gw_id)
         cli_logger.print("Successfully created NAT Gateway: cloudtik-{}-nat-gateway ...".format(config["workspace_name"]))
     except Exception as e:
@@ -1234,10 +1288,20 @@ def _create_route_table_for_private_subnet(config, ec2, vpc, subnet):
     if len(private_route_tables) > 0:
         private_route_table = private_route_tables[0]
     else:
-        private_route_table = ec2.create_route_table(VpcId=vpc.id)
-        private_route_table.create_tags(
-            Tags=[{'Key': 'Name', 'Value': 'cloudtik-{}-private-route-table'.format(config["workspace_name"])}])
-
+        private_route_table = ec2.create_route_table(
+            VpcId=vpc.id,
+            TagSpecifications=[
+                {
+                    'ResourceType': 'route-table',
+                    'Tags': [
+                        {
+                            'Key': 'Name',
+                            'Value': 'cloudtik-{}-private-route-table'.format(config["workspace_name"])
+                        },
+                    ]
+                },
+            ]
+        )
     private_route_table.associate_with_subnet(SubnetId=subnet.id)
     return private_route_table
 

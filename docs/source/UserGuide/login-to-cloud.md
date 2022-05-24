@@ -10,7 +10,7 @@
 
 Create an AWS account if you don't have one, then login to [AWS](https://console.aws.amazon.com/).
 
-Please refer to related [AWS documentation](https://aws.amazon.com/premiumsupport/knowledge-center/create-and-activate-aws-account/)
+Please refer to [Creating an AWS account](https://aws.amazon.com/premiumsupport/knowledge-center/create-and-activate-aws-account/)
 for instructions.
 
 ### Authentication to AWS CLI
@@ -24,17 +24,17 @@ is to run `aws configure` command, and you can refer to
 [Managing access keys](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html#Using_CreateAccessKey)
 to get *AWS Access Key ID* and *AWS Secret Access Key*.
 
-More details for AWS CLI can be found in [AWS CLI Getting Started](https://github.com/aws/aws-cli/tree/v2#getting-started).
+More details for AWS CLI can be found in [AWS CLI getting started](https://github.com/aws/aws-cli/tree/v2#getting-started).
 
 ### Creating a S3 bucket
 
 Every object in Amazon S3 is stored in a bucket. Before you can store data in Amazon S3, you must create a bucket.
 
-Please refer to the S3 User Guide [Creating bucket](https://docs.aws.amazon.com/AmazonS3/latest/userguide/creating-bucket.html) for instructions.
+Please refer to the S3 [Creating buckets](https://docs.aws.amazon.com/AmazonS3/latest/userguide/creating-bucket.html) for instructions.
 The name of S3 bucket will be used in the next step.
 
 You will be able to fill out the `aws_s3_storage` for your AWS cluster configuration yaml file, which is introduced
-at [Quick Start](../GettingStarted/quick-start.md) **step 6. Starting a cluster**.
+at [Quick start](../GettingStarted/quick-start.md) **step 6. Starting a cluster**.
 
 ```
 # Cloud-provider specific configuration.
@@ -64,7 +64,7 @@ Create an Azure account if you don't have one, then login to [Microsoft Azure po
 [Subscription ID](https://docs.microsoft.com/en-us/azure/azure-portal/get-subscription-tenant-id#find-your-azure-subscription)
 of your account.
 
-Please refer to related [Azure documentation](https://docs.microsoft.com/en-us/learn/modules/create-an-azure-account/)
+Please refer to [Creating an Azure account](https://docs.microsoft.com/en-us/learn/modules/create-an-azure-account/)
 for instructions.
 
 ### Authentication to Azure CLI
@@ -75,13 +75,13 @@ Refer to [Signing in with Azure CLI](https://docs.microsoft.com/en-us/cli/azure/
 ### Configuring Cloud Storage
 
 Create an Azure storage account and a storage container within this storage account.
-Please refer to [Creating Azure storage account](https://docs.microsoft.com/en-us/azure/storage/common/storage-account-create?tabs=azure-portal)
+Please refer to [Creating an Azure storage account](https://docs.microsoft.com/en-us/azure/storage/common/storage-account-create?tabs=azure-portal)
 for instructions.
 
 Azure **Blob storage** or **Data Lake Storage Gen2** are both supported by CloudTik. Storage account name
 and storage container name will be used when configuring Azure cluster yaml.
 
-You will also need [Azure account access key](https://docs.microsoft.com/en-us/azure/storage/common/storage-account-keys-manage?tabs=azure-portal#view-account-access-keys)
+You will also need [Azure account access keys](https://docs.microsoft.com/en-us/azure/storage/common/storage-account-keys-manage?tabs=azure-portal#view-account-access-keys)
 when configuring an Azure configuration yaml file, which grants the access to the created Azure storage.
 
 You will be able to fill out the `azure_cloud_storage` for your cluster configuration yaml file.
@@ -117,7 +117,7 @@ of your Azure account.
 
 Created a Google Cloud account if you don't have one, then login to [GCP](https://console.cloud.google.com/).
 
-Please refer to related [GCP account](https://cloud.google.com/apigee/docs/hybrid/v1.3/precog-gcpaccount)
+Please refer to [Creating a GCP account](https://cloud.google.com/apigee/docs/hybrid/v1.3/precog-gcpaccount)
 for instructions.
 
 ### Creating a Google Cloud Project
@@ -125,7 +125,7 @@ for instructions.
 Google Cloud projects form the basis for creating, enabling, and using all Google Cloud services.
 Create a project within your Google Cloud account. 
 
-Please refer to [Google Cloud Guide](https://cloud.google.com/resource-manager/docs/creating-managing-projects) for instructions.
+Please refer to [Creating projects](https://cloud.google.com/resource-manager/docs/creating-managing-projects) for instructions.
 
 ### Authentication calls to Google Cloud APIs.
 
@@ -141,7 +141,7 @@ on your working machine.
 If you do not already have a GCS bucket, create one by following the 
 [Creating buckets](https://cloud.google.com/storage/docs/creating-buckets#create_a_new_bucket).
 
-To control access to the bucket, please refer to [Google cloud bucket](gcs-bucket.md) for instructions. 
+To control access to the bucket, please refer to [Google cloud buckets](../GettingStarted/gcs-bucket.md) for instructions. 
 The name of bucket will be used when configuring GCP cluster yaml.
 
 You will also need the previously downloaded Json file's `project_id`, `client_email`, `private_key_id` and 

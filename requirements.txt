@@ -26,11 +26,13 @@ pycryptodome
 
 # setup.py extras
 ## for aws
-boto3
+boto3 == 1.22.13
 botocore
 ## for azure
-azure-cli
+azure-cli == 2.35.0
 azure-core
+azure-storage-blob == 12.11.0
+azure-storage-file-datalake == 12.6.0
 ## for gcp
 google-api-python-client
 ## for kubernetes

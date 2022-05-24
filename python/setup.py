@@ -110,7 +110,7 @@ cloudtik_files += [
 if setup_spec.type == SetupType.CLOUDTIK:
     setup_spec.extras = {
         "aws": [
-            "boto3",
+            "boto3==1.22.13",
             "botocore",
         ],
         "azure": [

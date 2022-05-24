@@ -21,7 +21,7 @@ Host mode is set as below
 ```
 # This executes all commands on all nodes in the docker container,
 # and opens all the necessary ports to support the cluster.
-# Turn on or off container by set enabled to True or False.
+# Turn on or off container by setting "enabled" to True or False.
 docker:
     enabled: False
 
@@ -44,9 +44,17 @@ docker:
 The minimum number of worker nodes to launch, and the default number is 1. You can change it according to your use case
 to overwrite default value as below, which sets minimum number of worker nodes to 3.
 
+On AWS or Azure:
 ```
 available_node_types:
     worker.default:
+        min_workers: 3
+```
+
+On GCP:
+```
+available_node_types:
+    worker-default:
         min_workers: 3
 ```
 

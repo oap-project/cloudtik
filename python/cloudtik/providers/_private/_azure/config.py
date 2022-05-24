@@ -304,20 +304,20 @@ def _delete_role_assignments(config, resource_group_name):
         resourceGroupName=resource_group_name
     )
     if role_assignments_name is None:
-        cli_logger.print("This role_assignments has not existed. No need to delete it.")
+        cli_logger.print("The role assignments doesn't exist.")
         return
 
     """ Delete the role_assignments """
-    cli_logger.print("Deleting the role_assignments: {}...".format(role_assignments_name))
+    cli_logger.print("Deleting the role assignments: {}...".format(role_assignments_name))
     try:
         authorization_client.role_assignments.delete(
             scope=scope,
             role_assignment_name=role_assignments_name
         )
-        cli_logger.print("Successfully deleted the role_assignments: {}.".format(role_assignments_name))
+        cli_logger.print("Successfully deleted the role assignments: {}.".format(role_assignments_name))
     except Exception as e:
         cli_logger.error(
-            "Failed to delete the role_assignments:{}. {}".format(role_assignments_name, str(e)))
+            "Failed to delete the role assignments: {}. {}".format(role_assignments_name, str(e)))
         raise e
 
 
@@ -342,7 +342,7 @@ def _delete_user_assigned_identity(config, resource_group_name):
     user_assigned_identity = get_user_assigned_identities(config, resource_group_name)
     msi_client = construct_manage_server_identity_client(config)
     if user_assigned_identity is None:
-        cli_logger.print("This user assigned identity has not existed. No need to delete it.")
+        cli_logger.print("The user assigned identity doesn't exist.")
         return
 
     """ Delete the user_assigned_identity """
@@ -355,7 +355,7 @@ def _delete_user_assigned_identity(config, resource_group_name):
         cli_logger.print("Successfully deleted the user assigned identity: {}.".format(user_assigned_identity.name))
     except Exception as e:
         cli_logger.error(
-            "Failed to delete the user assigned identity:{}. {}".format(user_assigned_identity.name, str(e)))
+            "Failed to delete the user assigned identity: {}. {}".format(user_assigned_identity.name, str(e)))
         raise e
 
 
@@ -378,7 +378,7 @@ def get_network_security_group(config, network_client, resource_group_name):
 def _delete_network_security_group(config, network_client, resource_group_name):
     network_security_group_name = get_network_security_group(config, network_client, resource_group_name)
     if network_security_group_name is None:
-        cli_logger.print("This network security group has not existed. No need to delete it.")
+        cli_logger.print("The network security group doesn't exist.")
         return
 
     # Delete the network security group
@@ -390,7 +390,7 @@ def _delete_network_security_group(config, network_client, resource_group_name):
         ).result()
         cli_logger.print("Successfully deleted the network security group: {}.".format(network_security_group_name))
     except Exception as e:
-        cli_logger.error("Failed to delete the network security group:{}. {}".format(network_security_group_name, str(e)))
+        cli_logger.error("Failed to delete the network security group: {}. {}".format(network_security_group_name, str(e)))
         raise e
 
 
@@ -413,7 +413,7 @@ def get_public_ip_address(config, network_client, resource_group_name):
 def _delete_public_ip_address(config, network_client, resource_group_name):
     public_ip_address_name = get_public_ip_address(config, network_client, resource_group_name)
     if public_ip_address_name is None:
-        cli_logger.print("This public IP address has not existed. No need to delete it.")
+        cli_logger.print("The public IP address doesn't exist.")
         return
 
     # Delete the public IP address
@@ -425,7 +425,7 @@ def _delete_public_ip_address(config, network_client, resource_group_name):
         ).result()
         cli_logger.print("Successfully deleted the public IP address: {}.".format(public_ip_address_name))
     except Exception as e:
-        cli_logger.error("Failed to delete the public IP address:{}. {}".format(public_ip_address_name, str(e)))
+        cli_logger.error("Failed to delete the public IP address: {}. {}".format(public_ip_address_name, str(e)))
         raise e
 
 
@@ -448,7 +448,7 @@ def get_nat_gateway(config, network_client, resource_group_name):
 def _delete_nat(config, network_client, resource_group_name):
     nat_gateway_name = get_nat_gateway(config, network_client, resource_group_name)
     if nat_gateway_name is None:
-        cli_logger.print("This Nat Gateway has not existed. No need to delete it.")
+        cli_logger.print("The Nat Gateway doesn't exist.")
         return
 
     """ Delete the Nat Gateway """
@@ -460,7 +460,7 @@ def _delete_nat(config, network_client, resource_group_name):
         ).result()
         cli_logger.print("Successfully deleted the Nat Gateway: {}.".format(nat_gateway_name))
     except Exception as e:
-        cli_logger.error("Failed to delete the Nat Gateway:{}. {}".format(nat_gateway_name, str(e)))
+        cli_logger.error("Failed to delete the Nat Gateway: {}. {}".format(nat_gateway_name, str(e)))
         raise e
 
 
@@ -469,7 +469,7 @@ def _delete_vnet(config, resource_client, network_client):
     resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
     virtual_network_name = get_virtual_network_name(config, resource_client, network_client, use_internal_ips)
     if virtual_network_name is None:
-        cli_logger.print("This virtual network: {} has not existed. No need to delete it.".
+        cli_logger.print("The virtual network: {} doesn't exist.".
                          format(virtual_network_name))
         return
 
@@ -482,7 +482,7 @@ def _delete_vnet(config, resource_client, network_client):
         ).result()
         cli_logger.print("Successfully deleted the virtual network: {}.".format(virtual_network_name))
     except Exception as e:
-        cli_logger.error("Failed to delete the virtual network:{}. {}".format(virtual_network_name, str(e)))
+        cli_logger.error("Failed to delete the virtual network: {}. {}".format(virtual_network_name, str(e)))
         raise e
 
 
@@ -490,7 +490,7 @@ def _delete_resource_group(config, resource_client):
     resource_group_name = get_workspace_resource_group_name(config, resource_client)
 
     if resource_group_name is None:
-        cli_logger.print("This resource group: {} has not existed. No need to delete it.".
+        cli_logger.print("The resource group: {} doesn't exist.".
                          format(resource_group_name))
         return
 
@@ -503,7 +503,7 @@ def _delete_resource_group(config, resource_client):
         ).result()
         cli_logger.print("Successfully deleted the resource group: {}.".format(resource_group_name))
     except Exception as e:
-        cli_logger.error("Failed to delete the resource group:{}. {}".format(resource_group_name, str(e)))
+        cli_logger.error("Failed to delete the resource group: {}. {}".format(resource_group_name, str(e)))
         raise e
 
 

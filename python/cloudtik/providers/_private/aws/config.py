@@ -1030,7 +1030,7 @@ def _delete_security_group(config, vpc_id):
         cli_logger.print("No security groups for workspace were found under this VPC: {} ...".format(vpc_id))
         return
     try:
-        cli_logger.print("Deleting security group: {}".format(sg.id))
+        cli_logger.print("Deleting security group: {} ...".format(sg.id))
         sg.delete()
     except boto3.exceptions.Boto3Error as e:
         cli_logger.error("Failed to delete security group. {}", str(e))
@@ -1042,12 +1042,12 @@ def _delete_vpc(ec2, ec2_client, vpc_id):
     """ Delete the VPC """
     vpc_ids = [vpc["VpcId"] for vpc in ec2_client.describe_vpcs()["Vpcs"] if vpc["VpcId"] == vpc_id]
     if len(vpc_ids) == 0:
-        cli_logger.print("This VPC: {} doesn't exist. ".format(vpc_id))
+        cli_logger.print("The VPC: {} doesn't exist.".format(vpc_id))
         return
 
     vpc_resource = ec2.Vpc(vpc_id)
     try:
-        cli_logger.print("Deleting VPC: {}".format(vpc_resource.id))
+        cli_logger.print("Deleting VPC: {} ...".format(vpc_resource.id))
         vpc_resource.delete()
     except Exception as e:
         cli_logger.error("Failed to delete VPC. {}", str(e))
@@ -1058,10 +1058,10 @@ def _delete_vpc(ec2, ec2_client, vpc_id):
 def _delete_vpc_endpoint_for_s3(ec2_client, workspace_name):
     endpoint_ids = [endpoint['VpcEndpointId'] for endpoint in get_vpc_endpoint_for_s3(ec2_client, workspace_name)]
     if len(endpoint_ids) == 0:
-        cli_logger.print("This VPC endpoint for S3 doesn't exist. ")
+        cli_logger.print("No VPC endpoint for S3 was found in workspace.")
         return
     try:
-        cli_logger.print("Deleting VPC endpoint for S3.")
+        cli_logger.print("Deleting VPC endpoint for S3 ...")
         ec2_client.delete_vpc_endpoints(
                         VpcEndpointIds=endpoint_ids
                         )
@@ -1276,7 +1276,7 @@ def _update_route_table_for_public_subnet(config, ec2, ec2_client, vpc, subnet, 
     except Exception as e:
         cli_logger.error("Failed to create route table. {}", str(e))
         cli_logger.print(
-            "Update the rules for route table:{}.".format(public_route_table.id))
+            "Update the rules for route table: {}.".format(public_route_table.id))
         ec2_client.delete_route(RouteTableId=public_route_table.id, DestinationCidrBlock='0.0.0.0/0')
         ec2_client.create_route(RouteTableId=public_route_table.id, DestinationCidrBlock='0.0.0.0/0', GatewayId=igw.id)
     public_route_table.associate_with_subnet(SubnetId=subnet.id)

@@ -2,7 +2,6 @@ import pytest
 import os
 
 
-WORKSPACE_CONFIG_FILES = ["/home/qyao/gitspace/gazelle_aws/cloudtik_conf/workspace-defaults-intel-proxy.yaml"]
 EXAMPLE_PATH = os.path.abspath(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))))
 AWS_CLUSTER_EXAMPLE_PATH = os.path.join(

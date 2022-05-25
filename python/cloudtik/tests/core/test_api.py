@@ -50,7 +50,7 @@ class TestCluster:
         res = self.cluster.exec(cmd="uptime", all_nodes=True)
 
     def test_rsync_up(self):
-        res = self.cluster.rsync(source=self.config_file, target="~/test.yaml")
+        res = self.cluster.rsync(source=self.config_file, target="~/test.yaml", down=False)
 
     def test_rsync_down(self):
         tmp_file = "/tmp/cloudtik_bootstrap_config.yaml"

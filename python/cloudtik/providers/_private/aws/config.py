@@ -473,7 +473,13 @@ def _delete_workspace_instance_profile(config, workspace_name):
 
 
 def _delete_workspace_cloud_storage(config, workspace_name):
-    bucket_name = "cloudtik-{}-bucket".format(workspace_name)
+    ec2_client = _client("ec2", config)
+    vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
+    bucket_name = "cloudtik-{workspace_name}-bucket-{vpc_id}".format(
+        workspace_name=workspace_name.lower(),
+        vpc_id=vpc_id
+    )
+
     cli_logger.print("Deleting S3 bucket: {}...".format(bucket_name))
     bucket = get_workspace_s3_bucket(config, workspace_name)
     if bucket is None:
@@ -1384,7 +1390,7 @@ def _configure_workspace_instance_profile(config, workspace_name):
 
     worker_instance_profile_name = _get_workspace_worker_instance_profile_name(workspace_name)
     worker_instance_role_name = "cloudtik-{}-worker-role".format(workspace_name)
-    cli_logger.print("Creating worker instance profile: {}...".format(head_instance_role_name))
+    cli_logger.print("Creating worker instance profile: {}...".format(worker_instance_profile_name))
     _create_or_update_instance_profile(config, worker_instance_profile_name,
                                        worker_instance_role_name, isHead=False)
 
@@ -1392,9 +1398,14 @@ def _configure_workspace_instance_profile(config, workspace_name):
 
 
 def _configure_workspace_cloud_storage(config, workspace_name):
-    bucket_name = "cloudtik-{}-bucket".format(workspace_name)
-    region = config["provider"]["region"]
     s3 = _resource("s3", config)
+    ec2_client = _client("ec2", config)
+    region = config["provider"]["region"]
+    vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
+    bucket_name = "cloudtik-{workspace_name}-bucket-{vpc_id}".format(
+        workspace_name=workspace_name.lower(),
+        vpc_id=vpc_id
+    )
 
     cli_logger.print("Creating S3 bucket for the workspace: {}...".format(workspace_name))
     try:
@@ -1969,8 +1980,13 @@ def _get_instance_profile(profile_name, config):
 
 
 def get_workspace_s3_bucket(config, workspace_name):
-    bucket_name = "cloudtik-{}-bucket".format(workspace_name)
     s3 = _resource("s3", config)
+    ec2_client = _client("ec2", config)
+    vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
+    bucket_name = "cloudtik-{workspace_name}-bucket-{vpc_id}".format(
+        workspace_name=workspace_name.lower(),
+        vpc_id=vpc_id
+    )
     bucket = s3.Bucket(bucket_name)
     if bucket in s3.buckets.all():
         return bucket

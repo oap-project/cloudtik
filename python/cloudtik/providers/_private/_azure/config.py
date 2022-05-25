@@ -611,7 +611,7 @@ def _delete_vnet(config, resource_client, network_client):
 
 
 def _delete_resource_group(config, resource_client):
-    resource_group_name = get_workspace_resource_group_name(config, resource_client)
+    resource_group_name = get_workspace_resource_group_name(config["workspace_name"], resource_client)
 
     if resource_group_name is None:
         cli_logger.print("This resource group: {} has not existed. No need to delete it.".
@@ -711,14 +711,14 @@ def _create_resource_group(config, resource_client):
 
     if use_internal_ips:
         # No need to create new resource group
-        resource_group_name = get_working_node_resource_group_name()
+        resource_group_name = get_working_node_resource_group_name(resource_client)
         if resource_group_name is None:
             cli_logger.abort("Only when the working node is "
                              "an Azure instance can use use_internal_ips=True.")
     else:
 
         # Need to create a new resource_group
-        if get_workspace_resource_group_name(config, resource_client) is None:
+        if get_workspace_resource_group_name(workspace_name, resource_client) is None:
             resource_group = create_resource_group(config, resource_client)
             resource_group_name = resource_group.name
         else:
@@ -744,15 +744,28 @@ def get_azure_instance_metadata():
         return None
 
 
-def get_working_node_resource_group_name():
+def get_working_node_resource_group_name(resource_client):
+    resource_group = get_working_node_resource_group(resource_client)
+    return None if resource_group is None else resource_group.name
+
+
+def get_working_node_resource_group(resource_client):
     metadata = get_azure_instance_metadata()
     if metadata is None:
         cli_logger.error("Failed to get the metadata of the working node. "
                          "Please check whether the working node is a Azure instance or not!")
     resource_group_name = metadata.get("compute", {}).get("name", "")
-    cli_logger.print("Successfully get the ResourceGroupName for working node.")
-
-    return resource_group_name
+    try:
+        resource_group = resource_client.resource_groups.get(
+            resource_group_name
+        )
+        cli_logger.verbose(
+            "Successfully get the resource group: {} for working node.".format(resource_group_name))
+        return resource_group
+    except Exception as e:
+        cli_logger.verbose_error(
+            "The resource group for working node is not found: {}", str(e))
+        return None
 
 
 def get_virtual_network_name_by_subnet(resource_client, network_client, resource_group_name, subnet):
@@ -808,23 +821,28 @@ def get_workspace_virtual_network_name(config, network_client):
         return None
 
 
-def get_workspace_resource_group_name(config, resource_client):
-    return _get_workspace_resource_group_name(
-        config["workspace_name"], resource_client)
+def get_workspace_resource_group_name(workspace_name, resource_client):
+    resource_group = _get_workspace_resource_group(workspace_name, resource_client)
+    return None if resource_group is None else resource_group.name
 
 
 def _get_resource_group_name(
         workspace_name, resource_client, use_internal_ips):
+    resource_group = _get_resource_group(workspace_name, resource_client, use_internal_ips)
+    return None if resource_group is None else resource_group.name
+
+
+def _get_resource_group(
+        workspace_name, resource_client, use_internal_ips):
     if use_internal_ips:
-        resource_group_name = get_working_node_resource_group_name()
+        resource_group = get_working_node_resource_group(resource_client)
     else:
-        resource_group_name = _get_workspace_resource_group_name(
-            workspace_name, resource_client)
+        resource_group =  _get_workspace_resource_group(workspace_name, resource_client)
 
-    return resource_group_name
+    return resource_group
 
 
-def _get_workspace_resource_group_name(workspace_name, resource_client):
+def _get_workspace_resource_group(workspace_name, resource_client):
     resource_group_name = 'cloudtik-{}-resource-group'.format(workspace_name)
     cli_logger.verbose("Getting the resource group name for workspace: {}...".
                        format(resource_group_name))
@@ -835,7 +853,7 @@ def _get_workspace_resource_group_name(workspace_name, resource_client):
         )
         cli_logger.verbose(
             "Successfully get the resource group name: {} for workspace.".format(resource_group_name))
-        return resource_group.name
+        return resource_group
     except Exception as e:
         cli_logger.verbose_error(
             "The resource group for workspace is not found: {}", str(e))
@@ -960,8 +978,13 @@ def _create_container_for_storage_account(config, resource_group_name):
 def _create_storage_account(config, resource_group_name):
     workspace_name = config["workspace_name"]
     location = config["provider"]["location"]
-    # To be optimized
-    account_name = 'cloudtikstorage{}'.format(random.randint(0,10000000))
+    subscription_id = config["provider"].get("subscription_id")
+    use_internal_ips = is_use_internal_ip(config)
+    resource_client = construct_resource_client(config)
+    resource_group = _get_resource_group(workspace_name, resource_client, use_internal_ips)
+
+    storage_suffix = str(uuid.uuid3(uuid.UUID(subscription_id), resource_group.id))[-12:]
+    account_name = 'storage{}'.format(storage_suffix)
     storage_client = construct_storage_client(config)
 
     cli_logger.print("Creating workspace storage account: {} on Azure...", account_name)
@@ -1378,7 +1401,6 @@ def _configure_cloud_storage_from_workspace(config):
         config["provider"]["azure_cloud_storage"]["azure.user.assigned.identity.tenant.id"] = user_assigned_identity.tenant_id
 
     return config
-
 
 
 def _configure_user_assigned_identity_from_workspace(config):

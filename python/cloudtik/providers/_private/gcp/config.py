@@ -42,7 +42,7 @@ DEFAULT_SERVICE_ACCOUNT_CONFIG = {
 
 # Those roles will be always added.
 DEFAULT_SERVICE_ACCOUNT_ROLES = [
-    "roles/storage.objectAdmin", "roles/compute.admin",
+    "roles/storage.admin", "roles/compute.admin",
     "roles/iam.serviceAccountUser"
 ]
 # Those roles will only be added if there are TPU nodes defined in config.
@@ -855,7 +855,7 @@ def delete_workspace_gcp(config):
                         _numbered=("[]", current_step, total_steps)):
                     current_step += 1
                     _delete_workspace_cloud_storage(config, workspace_name)
-            with cli_logger.group("Deleting workspace: {}", workspace_name):
+            with cli_logger.group("Deleting network resources: {}", workspace_name):
                 _delete_network_resources(config, compute, current_step, total_steps)
 
     except Exception as e:
@@ -870,7 +870,14 @@ def delete_workspace_gcp(config):
 
 
 def _delete_workspace_cloud_storage(config, workspace_name):
-    bucket_name = "cloudtik-{}-bucket".format(workspace_name)
+    use_internal_ips = is_use_internal_ip(config)
+    _, _, compute, _ = construct_clients_from_provider_config(config["provider"])
+    vpcId = get_gcp_vpcId(config, compute, use_internal_ips)
+    bucket_name = "cloudtik-{workspace_name}-bucket-{vpcId}".format(
+        workspace_name=workspace_name.lower(),
+        vpcId=vpcId
+    )
+
     cli_logger.print("Deleting GCS bucket: {}...".format(bucket_name))
     bucket = get_workspace_gcs_bucket(config, workspace_name)
     if bucket is None:
@@ -958,7 +965,13 @@ def _create_vpc(config, compute):
 
 def _configure_workspace_cloud_storage(config):
     workspace_name = config["workspace_name"]
-    bucket_name = "cloudtik-{}-bucket".format(workspace_name)
+    use_internal_ips = is_use_internal_ip(config)
+    _,_,compute,_ = construct_clients_from_provider_config(config["provider"])
+    vpcId = get_gcp_vpcId(config, compute, use_internal_ips)
+    bucket_name = "cloudtik-{workspace_name}-bucket-{vpcId}".format(
+        workspace_name=workspace_name.lower(),
+        vpcId=vpcId
+    )
     region = config["provider"]["region"]
     storage_client = _create_storage_client()
     cli_logger.print("Creating GCS bucket for the workspace: {}".format(workspace_name))
@@ -1235,10 +1248,6 @@ def _configure_cloud_storage_from_workspace(config):
         if "gcp_cloud_storage" not in config["provider"]:
             config["provider"]["gcp_cloud_storage"] = {}
         config["provider"]["gcp_cloud_storage"]["gcs.bucket"] = gcs_bucket.name
-        config["provider"]["gcp_cloud_storage"]["gcs.service.account.client.email"] = \
-            SERVICE_ACCOUNT_EMAIL_TEMPLATE.format(
-                account_id=GCP_DEFAULT_SERVICE_ACCOUNT_ID,
-                project_id=config["provider"]["project_id"])
 
     return config
 
@@ -1546,7 +1555,13 @@ def _get_project(project_id, crm):
 
 
 def get_workspace_gcs_bucket(config, workspace_name):
-    bucket_name = "cloudtik-{}-bucket".format(workspace_name)
+    use_internal_ips = is_use_internal_ip(config)
+    _, _, compute, _ = construct_clients_from_provider_config(config["provider"])
+    vpcId = get_gcp_vpcId(config, compute, use_internal_ips)
+    bucket_name = "cloudtik-{workspace_name}-bucket-{vpcId}".format(
+        workspace_name=workspace_name.lower(),
+        vpcId=vpcId
+    )
     gcs = _create_storage_client()
     try:
         bucket = gcs.get_bucket(bucket_name)

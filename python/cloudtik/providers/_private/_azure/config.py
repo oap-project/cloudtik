@@ -107,7 +107,7 @@ def check_azure_workspace_resource(config):
     if get_role_assignment_for_contributor(config, resource_group_name) is None:
         return False
 
-    if get_user_assigned_identities(config, resource_group_name) is None:
+    if get_user_assigned_identity(config, resource_group_name) is None:
         return False
 
     if workspace_managed_cloud_storage:
@@ -445,7 +445,7 @@ def _delete_role_assignment_for_contributor(config, resource_group_name):
         raise e
 
 
-def get_user_assigned_identities(config, resource_group_name):
+def get_user_assigned_identity(config, resource_group_name):
     user_assigned_identity_name = "cloudtik-{}-user-assigned-identity".format(config["workspace_name"])
     msi_client = construct_manage_server_identity_client(config)
     cli_logger.verbose("Getting the existing user assigned identity: {}.".format(user_assigned_identity_name))
@@ -463,7 +463,7 @@ def get_user_assigned_identities(config, resource_group_name):
 
 
 def _delete_user_assigned_identity(config, resource_group_name):
-    user_assigned_identity = get_user_assigned_identities(config, resource_group_name)
+    user_assigned_identity = get_user_assigned_identity(config, resource_group_name)
     msi_client = construct_manage_server_identity_client(config)
     if user_assigned_identity is None:
         cli_logger.print("This user assigned identity has not existed. No need to delete it.")
@@ -875,7 +875,7 @@ def _create_role_assignment_for_storage_blob_data_contributor(config, resource_g
     if storage_account is None:
         cli_logger.abort("No storage account is found. You need to make sure storage account has been created.")
     role_assignment_name = str(uuid.uuid3(uuid.UUID(subscription_id), storage_account.id))
-    user_assigned_identity = get_user_assigned_identities(config, resource_group_name)
+    user_assigned_identity = get_user_assigned_identity(config, resource_group_name)
     cli_logger.print("Creating workspace role assignment for Storage Blob Data Contributor: {} on Azure...", role_assignment_name)
 
     # Create role assignment for Storage Blob Data Contributor
@@ -907,7 +907,7 @@ def _create_role_assignment_for_contributor(config, resource_group_name):
         resourceGroupName=resource_group_name
     )
     role_assignment_name = str(uuid.uuid3(uuid.UUID(subscription_id), workspace_name))
-    user_assigned_identity = get_user_assigned_identities(config, resource_group_name)
+    user_assigned_identity = get_user_assigned_identity(config, resource_group_name)
     cli_logger.print("Creating workspace role assignment: {} on Azure...", role_assignment_name)
 
     # Create role assignment
@@ -1353,7 +1353,32 @@ def _configure_workspace_resource(config):
     config = _configure_subnet_from_workspace(config)
     config = _configure_network_security_group_from_workspace(config)
     config = _configure_user_assigned_identity_from_workspace(config)
+    config = _configure_cloud_storage_from_workspace(config)
     return config
+
+
+def _configure_cloud_storage_from_workspace(config):
+    use_workspace_cloud_storage = config.get("provider").get("use_workspace_cloud_storage", False)
+    use_internal_ips = is_use_internal_ip(config)
+    if use_workspace_cloud_storage:
+        resource_client = construct_resource_client(config)
+        resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
+        storage_account = get_storage_account(config)
+        container = get_container_for_storage_account(config, resource_group_name)
+        user_assigned_identity = get_user_assigned_identity(config, resource_group_name)
+        if container is None:
+            cli_logger.abort("No managed azure storage containor was found. If you want to use managed azure storage, "
+                             "you should set workspace_managed_cloud_storage equal to True when you creating workspace.")
+        if "azure_cloud_storage" not in config["provider"]:
+            config["provider"]["azure_cloud_storage"] = {}
+        config["provider"]["azure_cloud_storage"]["azure.storage.type"] = "datalake"
+        config["provider"]["azure_cloud_storage"]["azure.storage.account"] = storage_account.name
+        config["provider"]["azure_cloud_storage"]["azure.container"] = container.name
+        config["provider"]["azure_cloud_storage"]["azure.user.assigned.identity.client.id"] = user_assigned_identity.client_id
+        config["provider"]["azure_cloud_storage"]["azure.user.assigned.identity.tenant.id"] = user_assigned_identity.tenant_id
+
+    return config
+
 
 
 def _configure_user_assigned_identity_from_workspace(config):

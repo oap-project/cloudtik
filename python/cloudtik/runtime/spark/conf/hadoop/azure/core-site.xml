@@ -30,6 +30,22 @@
         <value>{%auth.type%}</value>
     </property>
     <property>
+        <name>fs.azure.account.oauth.provider.type</name>
+        <value>org.apache.hadoop.fs.azurebfs.oauth2.MsiTokenProvider</value>
+    </property>
+    <property>
+        <name>fs.azure.account.auth.type</name>
+        <value>OAuth</value>
+    </property>
+    <property>
+        <name>fs.azure.account.oauth2.msi.tenant</name>
+        <value>{%fs.azure.account.oauth2.msi.tenant%}</value>
+    </property>
+    <property>
+        <name>fs.azure.account.oauth2.client.id</name>
+        <value>{%fs.azure.account.oauth2.client.id%}</value>
+    </property>
+    <property>
         <name>hadoop.proxyuser.root.groups</name>
         <value>*</value>
     </property>

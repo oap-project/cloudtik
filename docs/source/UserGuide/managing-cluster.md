@@ -73,7 +73,7 @@ Recent failures:
  (no failures)
 ```
 
-Check cluster is whether healthy.
+Check if this cluster is healthy.
 
 ```
 $ cloudtik health-check  /path/to/your-cluster-config.yaml
@@ -205,7 +205,7 @@ cloudtik runtime stop /path/to/your-cluster-config.yaml
 
 Scale up the cluster with a specific number cpus or nodes.
 
-Try with `--cpus`
+Scale up the cluster by specifying `--cpus` as below.
 
 ```
 $ cloudtik scale  --cpus 12 /path/to/your-cluster-config.yaml
@@ -225,7 +225,7 @@ The total worker memory: 32.0GB.
 
 ```
 
-Try to specify with `--nodes`.
+Scale up the cluster by specifying `--nodes` as below.
 
 ```
 $ cloudtik scale --nodes 4  /path/to/your-cluster-config.yaml

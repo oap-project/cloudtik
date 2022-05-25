@@ -30,7 +30,7 @@ azure-cli == 2.35.0
 azure-storage-blob == 12.11.0
 azure-storage-file-datalake == 12.6.0
 ## for gcp
-google-api-python-client
+google-api-python-client == 2.48.0
 ## for kubernetes
 kubernetes
 urllib3

@@ -107,7 +107,7 @@
                 "workspace_managed_cloud_storage": {
                     "type": "boolean",
                     "description": "Whether to create cloud storage of workspace.",
-                    "default": true
+                    "default": false
                 }
             }
         }

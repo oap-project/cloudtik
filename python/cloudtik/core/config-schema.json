@@ -257,7 +257,7 @@
                 "use_workspace_cloud_storage": {
                     "type": "boolean",
                     "description": "Whether to use cloud storage of workspace.",
-                    "default": true
+                    "default": false
                 }
             }
         },

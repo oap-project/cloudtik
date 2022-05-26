@@ -1000,10 +1000,9 @@ def _create_storage_account(config, resource_group_name):
                 },
                 "kind": "BlockBlobStorage",
                 "location": location,
-                "minimumTlsVersion": "TLS1_2",
                 "allowBlobPublicAccess": False,
                 "allowSharedKeyAccess": True,
-                "isHnsEnabled": True,
+                "isHnsEnabled": False,
                 "encryption": {
                     "services": {
                         "file": {
@@ -1712,6 +1711,8 @@ def _get_workspace_head_nodes(resource_group_name,
 
 
 def verify_azure_blob_storage(provider_config: Dict[str, Any]):
+    if provider_config.get("use_workspace_cloud_storage", False):
+        return
     azure_cloud_storage = provider_config["azure_cloud_storage"]
     azure_storage_account = azure_cloud_storage["azure.storage.account"]
     azure_account_key = azure_cloud_storage["azure.account.key"]

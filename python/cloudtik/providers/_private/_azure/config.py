@@ -1714,8 +1714,6 @@ def _get_workspace_head_nodes(resource_group_name,
 
 
 def verify_azure_blob_storage(provider_config: Dict[str, Any]):
-    if provider_config.get("use_managed_cloud_storage", False):
-        return
     azure_cloud_storage = provider_config["azure_cloud_storage"]
     azure_storage_account = azure_cloud_storage["azure.storage.account"]
     azure_account_key = azure_cloud_storage["azure.account.key"]
@@ -1754,6 +1752,8 @@ def verify_azure_datalake_storage(provider_config: Dict[str, Any]):
 
 
 def verify_azure_cloud_storage(provider_config: Dict[str, Any]):
+    if provider_config.get("use_managed_cloud_storage", False):
+        return
     azure_cloud_storage = provider_config.get("azure_cloud_storage")
     if azure_cloud_storage is None:
         return

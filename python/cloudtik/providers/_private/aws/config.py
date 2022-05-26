@@ -480,7 +480,6 @@ def _delete_workspace_cloud_storage(config, workspace_name):
         vpc_id=vpc_id
     )
 
-    cli_logger.print("Deleting S3 bucket: {}...".format(bucket_name))
     bucket = get_workspace_s3_bucket(config, workspace_name)
     if bucket is None:
         cli_logger.warning("No S3 bucket with the name found.")
@@ -490,7 +489,7 @@ def _delete_workspace_cloud_storage(config, workspace_name):
         cli_logger.print("Deleting S3 bucket: {} ...".format(bucket.name))
         bucket.objects.all().delete()
         bucket.delete()
-
+        cli_logger.print("Successfully deleted S3 bucket: {}.".format(bucket.name))
     except boto3.exceptions.Boto3Error as e:
         cli_logger.error("Failed to delete S3 bucket. {}", str(e))
         raise e
@@ -891,7 +890,7 @@ def _create_or_update_instance_profile(config, instance_profile_name, instance_r
 
 
 def _delete_instance_profile(config, instance_profile_name, instance_profile_role):
-    cli_logger.print("Deleting instance profile: {}...".format(instance_profile_name))
+    cli_logger.print("Deleting instance profile: {} ...".format(instance_profile_name))
 
     profile = _get_instance_profile(instance_profile_name, config)
     if profile is None:
@@ -1046,6 +1045,7 @@ def _delete_private_subnets(workspace_name, ec2, vpc_id):
         for subnet in subnets:
             cli_logger.print("Deleting private subnet: {} ...".format(subnet.id))
             subnet.delete()
+            cli_logger.print("Successfully deleted private subnet: {}.".format(subnet.id))
     except boto3.exceptions.Boto3Error as e:
         cli_logger.error("Failed to delete private subnet. {}", str(e))
         raise e
@@ -1063,6 +1063,7 @@ def _delete_public_subnets(workspace_name, ec2, vpc_id):
         for subnet in subnets:
             cli_logger.print("Deleting public subnet: {} ...".format(subnet.id))
             subnet.delete()
+            cli_logger.print("Successfully deleted public subnet: {}.".format(subnet.id))
     except boto3.exceptions.Boto3Error as e:
         cli_logger.error("Failed to delete public subnet. {}", str(e))
         raise e
@@ -1080,6 +1081,7 @@ def _delete_route_table(workspace_name, ec2, vpc_id):
             cli_logger.print("Deleting route table: {} ...".format(rtb.id))
             table = ec2.RouteTable(rtb.id)
             table.delete()
+            cli_logger.print("Successfully deleted route table: {}.".format(rtb.id))
     except boto3.exceptions.Boto3Error as e:
         cli_logger.error("Failed to delete route table. {}", str(e))
         raise e
@@ -1117,8 +1119,11 @@ def _delete_nat_gateway(workspace_name, ec2_client, vpc_id):
         for nat in nat_gateways:
             cli_logger.print("Deleting NAT Gateway: {} ...".format(nat["NatGatewayId"]))
             ec2_client.delete_nat_gateway(NatGatewayId=nat["NatGatewayId"])
+            cli_logger.print("Successfully deleted NAT Gateway: {}.".format(nat["NatGatewayId"]))
+
             cli_logger.print("Deleting elastic instance : {} ...".format(nat["NatGatewayAddresses"][0]["AllocationId"]))
             release_elastic_ip_address(ec2_client, nat["NatGatewayAddresses"][0]["AllocationId"])
+            cli_logger.print("Successfully deleted elastic instance.")
     except boto3.exceptions.Boto3Error as e:
         cli_logger.error("Failed to delete NAT Gateway. {}", str(e))
         raise e
@@ -1134,6 +1139,7 @@ def _delete_security_group(config, vpc_id):
     try:
         cli_logger.print("Deleting security group: {} ...".format(sg.id))
         sg.delete()
+        cli_logger.print("Successfully deleted security group: {}.".format(sg.id))
     except boto3.exceptions.Boto3Error as e:
         cli_logger.error("Failed to delete security group. {}", str(e))
         raise e
@@ -1151,6 +1157,7 @@ def _delete_vpc(ec2, ec2_client, vpc_id):
     try:
         cli_logger.print("Deleting VPC: {} ...".format(vpc_resource.id))
         vpc_resource.delete()
+        cli_logger.print("Successfully deleted VPC: {}.".format(vpc_resource.id))
     except Exception as e:
         cli_logger.error("Failed to delete VPC. {}", str(e))
         raise e
@@ -1163,10 +1170,11 @@ def _delete_vpc_endpoint_for_s3(ec2_client, workspace_name):
         cli_logger.print("No VPC endpoint for S3 was found in workspace.")
         return
     try:
-        cli_logger.print("Deleting VPC endpoint for S3 ...")
+        cli_logger.print("Deleting VPC endpoint for S3: {} ...".format(endpoint_ids))
         ec2_client.delete_vpc_endpoints(
                         VpcEndpointIds=endpoint_ids
                         )
+        cli_logger.print("Successfully deleted VPC endpoint for S3: {}.".format(endpoint_ids))
     except Exception as e:
         cli_logger.error("Failed to delete VPC endpoint for S3. {}", str(e))
         raise e
@@ -1193,7 +1201,7 @@ def _create_vpc(config,  ec2):
          )
         vpc.modify_attribute(EnableDnsSupport={'Value': True})
         vpc.modify_attribute(EnableDnsHostnames={'Value': True})
-        cli_logger.print("Successfully created workspace VPC: cloudtik-{}-vpc ...".format(config["workspace_name"]))
+        cli_logger.print("Successfully created workspace VPC: cloudtik-{}-vpc.".format(config["workspace_name"]))
     except Exception as e:
         cli_logger.error("Failed to create workspace VPC. {}", str(e))
         raise e
@@ -1224,7 +1232,7 @@ def _create_and_configure_subnets(config, vpc):
                 )
                 subnet.meta.client.modify_subnet_attribute(SubnetId=subnet.id,
                                                                MapPublicIpOnLaunch={"Value": True})
-                cli_logger.print("Successfully created public subnet: cloudtik-{}-public-subnet ...".format(config["workspace_name"]))
+                cli_logger.print("Successfully created public subnet: cloudtik-{}-public-subnet.".format(config["workspace_name"]))
             else:
                 subnet = vpc.create_subnet(
                     CidrBlock=cidr_list[i],
@@ -1240,7 +1248,7 @@ def _create_and_configure_subnets(config, vpc):
                         },
                     ]
                 )
-                cli_logger.print("Successfully created private subnet: cloudtik-{}-private-subnet ...".format(
+                cli_logger.print("Successfully created private subnet: cloudtik-{}-private-subnet.".format(
                     config["workspace_name"]))
         except Exception as e:
             cli_logger.error("Failed to create subnet. {}", str(e))
@@ -1252,7 +1260,7 @@ def _create_and_configure_subnets(config, vpc):
 
 
 def _create_internet_gateway(config, ec2, vpc):
-    cli_logger.print("Creating Internet Gateway for the VPC: {}...".format(vpc.id))
+    cli_logger.print("Creating Internet Gateway for the VPC: {} ...".format(vpc.id))
     try:
         igw = ec2.create_internet_gateway(
             TagSpecifications=[
@@ -1268,7 +1276,7 @@ def _create_internet_gateway(config, ec2, vpc):
             ]
         )
         igw.attach_to_vpc(VpcId=vpc.id)
-        cli_logger.print("Successfully created Internet Gateway: cloudtik-{}-internet-gateway ...".format(config["workspace_name"]))
+        cli_logger.print("Successfully created Internet Gateway: cloudtik-{}-internet-gateway.".format(config["workspace_name"]))
     except Exception as e:
         cli_logger.error("Failed to create Internet Gateway. {}", str(e))
         try:
@@ -1301,7 +1309,7 @@ def wait_nat_creation(ec2_client, nat_gateway_id):
 
 
 def _create_nat_gateway(config, ec2_client, vpc, subnet):
-    cli_logger.print("Creating NAT Gateway for subnet: {}...".format(subnet.id))
+    cli_logger.print("Creating NAT Gateway for subnet: {} ...".format(subnet.id))
     try:
         eip_for_nat_gateway = _create_elastic_ip(ec2_client)
         allocation_id = eip_for_nat_gateway['AllocationId']
@@ -1324,7 +1332,7 @@ def _create_nat_gateway(config, ec2_client, vpc, subnet):
         )['NatGateway']
         nat_gw_id = nat_gw['NatGatewayId']
         wait_nat_creation(ec2_client, nat_gw_id)
-        cli_logger.print("Successfully created NAT Gateway: cloudtik-{}-nat-gateway ...".format(config["workspace_name"]))
+        cli_logger.print("Successfully created NAT Gateway: cloudtik-{}-nat-gateway.".format(config["workspace_name"]))
     except Exception as e:
         cli_logger.error("Failed to create NAT Gateway. {}", str(e))
         try:
@@ -1340,7 +1348,7 @@ def _create_nat_gateway(config, ec2_client, vpc, subnet):
 
 
 def _create_vpc_endpoint_for_s3(config, ec2, ec2_client, vpc):
-    cli_logger.print("Creating VPC endpoint for S3: {}...".format(vpc.id))
+    cli_logger.print("Creating VPC endpoint for S3: {} ...".format(vpc.id))
     try:
         region = config["provider"]["region"]
         route_table_ids = _get_workspace_route_table_ids(config["workspace_name"], ec2, vpc.id)
@@ -1357,14 +1365,14 @@ def _create_vpc_endpoint_for_s3(config, ec2, ec2_client, vpc):
                                           }]}],
         )
         cli_logger.print(
-            "Successfully created VPC endpoint for S3: cloudtik-{}-vpc-endpoint-s3 ...".format(config["workspace_name"]))
+            "Successfully created VPC endpoint for S3: cloudtik-{}-vpc-endpoint-s3.".format(config["workspace_name"]))
     except Exception as e:
         cli_logger.error("Failed to create Vpc Endpoint for S3. {}", str(e))
         raise e
 
 
 def _update_route_table_for_public_subnet(config, ec2, ec2_client, vpc, subnet, igw):
-    cli_logger.print("Updating public subnet route table: {}...".format(subnet.id))
+    cli_logger.print("Updating public subnet route table: {} ...".format(subnet.id))
     public_route_tables = get_workspace_public_route_tables(config["workspace_name"], ec2, vpc.id)
     if len(public_route_tables) > 0:
         public_route_table = public_route_tables[0]
@@ -1385,7 +1393,7 @@ def _update_route_table_for_public_subnet(config, ec2, ec2_client, vpc, subnet, 
 
 
 def _create_route_table_for_private_subnet(config, ec2, vpc, subnet):
-    cli_logger.print("Updating private subnet route table: {}...".format(subnet.id))
+    cli_logger.print("Updating private subnet route table: {} ...".format(subnet.id))
     private_route_tables = get_workspace_private_route_tables(config["workspace_name"], ec2, vpc.id)
     if len(private_route_tables) > 0:
         private_route_table = private_route_tables[0]
@@ -1451,13 +1459,13 @@ def _configure_workspace(config):
 def _configure_workspace_instance_profile(config, workspace_name):
     head_instance_profile_name = _get_workspace_head_instance_profile_name(workspace_name)
     head_instance_role_name = "cloudtik-{}-head-role".format(workspace_name)
-    cli_logger.print("Creating head instance profile: {}...".format(head_instance_role_name))
+    cli_logger.print("Creating head instance profile: {} ...".format(head_instance_role_name))
     _create_or_update_instance_profile(config, head_instance_profile_name,
                                        head_instance_role_name)
 
     worker_instance_profile_name = _get_workspace_worker_instance_profile_name(workspace_name)
     worker_instance_role_name = "cloudtik-{}-worker-role".format(workspace_name)
-    cli_logger.print("Creating worker instance profile: {}...".format(worker_instance_profile_name))
+    cli_logger.print("Creating worker instance profile: {} ...".format(worker_instance_profile_name))
     _create_or_update_instance_profile(config, worker_instance_profile_name,
                                        worker_instance_role_name, isHead=False)
 
@@ -1474,14 +1482,14 @@ def _configure_workspace_cloud_storage(config, workspace_name):
         vpc_id=vpc_id
     )
 
-    cli_logger.print("Creating S3 bucket for the workspace: {}...".format(workspace_name))
+    cli_logger.print("Creating S3 bucket for the workspace: {} ...".format(workspace_name))
     try:
         if region == 'us-east-1':
             s3.create_bucket(Bucket=bucket_name)
         else:
             s3.create_bucket(Bucket=bucket_name, CreateBucketConfiguration={'LocationConstraint': region})
         cli_logger.print(
-            "Successfully created S3 bucket: {} ...".format(bucket_name))
+            "Successfully created S3 bucket: {}.".format(bucket_name))
     except Exception as e:
         cli_logger.abort("Failed to create S3 bucket. {}", str(e))
     return
@@ -1824,7 +1832,7 @@ def _upsert_security_groups(config, node_types):
 
 
 def _upsert_security_group(config, vpc_id):
-    cli_logger.print("Updating security group for VPC: {}...".format(vpc_id))
+    cli_logger.print("Updating security group for VPC: {} ...".format(vpc_id))
     security_group = _create_security_group(config, vpc_id,
                                             SECURITY_GROUP_TEMPLATE.format(config["workspace_name"]))
     _add_security_group_rules(config, security_group)
@@ -1833,7 +1841,7 @@ def _upsert_security_group(config, vpc_id):
 
 
 def _update_security_group(config, vpc_id):
-    cli_logger.print("Updating security group for VPC: {}...".format(vpc_id))
+    cli_logger.print("Updating security group for VPC: {} ...".format(vpc_id))
     security_group = get_workspace_security_group(config, vpc_id,
                                                   SECURITY_GROUP_TEMPLATE.format(config["workspace_name"]))
     _add_security_group_rules(config, security_group)

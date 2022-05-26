@@ -322,11 +322,11 @@ def _configure_workspace(config):
     crm, iam, compute, tpu = \
         construct_clients_from_provider_config(config["provider"])
     workspace_name = config["workspace_name"]
-    workspace_managed_cloud_storage = config["provider"].get("workspace_managed_cloud_storage", False)
+    managed_cloud_storage = config["provider"].get("managed_cloud_storage", False)
 
     current_step = 1
     total_steps = NUM_GCP_WORKSPACE_CREATION_STEPS
-    if workspace_managed_cloud_storage:
+    if managed_cloud_storage:
         total_steps += 1
 
     try:
@@ -338,7 +338,7 @@ def _configure_workspace(config):
                 config = _configure_project(config, crm)
             current_step = _configure_network_resources(config, current_step, total_steps)
 
-            if workspace_managed_cloud_storage:
+            if managed_cloud_storage:
                 with cli_logger.group(
                         "Creating GCS bucket",
                         _numbered=("[]", current_step, total_steps)):
@@ -834,7 +834,7 @@ def delete_workspace_gcp(config):
 
     workspace_name = config["workspace_name"]
     use_internal_ips = is_use_internal_ip(config)
-    workspace_managed_cloud_storage = config["provider"].get("workspace_managed_cloud_storage", False)
+    managed_cloud_storage = config["provider"].get("managed_cloud_storage", False)
     VpcId = get_gcp_vpcId(config, compute, use_internal_ips)
     if VpcId is None:
         cli_logger.print("Workspace: {} doesn't exist!".format(config["workspace_name"]))
@@ -844,12 +844,12 @@ def delete_workspace_gcp(config):
     total_steps = NUM_GCP_WORKSPACE_DELETION_STEPS
     if not use_internal_ips:
         total_steps += 1
-    if workspace_managed_cloud_storage:
+    if managed_cloud_storage:
         total_steps += 1
 
     try:
         with cli_logger.group("Deleting workspace: {}", workspace_name):
-            if workspace_managed_cloud_storage:
+            if managed_cloud_storage:
                 with cli_logger.group(
                         "Deleting GCS bucket",
                         _numbered=("[]", current_step, total_steps)):
@@ -1031,7 +1031,7 @@ def check_gcp_workspace_resource(config):
         construct_clients_from_provider_config(config["provider"])
     use_internal_ips = is_use_internal_ip(config)
     workspace_name = config["workspace_name"]
-    workspace_managed_cloud_storage = config["provider"].get("workspace_managed_cloud_storage", False)
+    managed_cloud_storage = config["provider"].get("managed_cloud_storage", False)
 
     """
          Do the work - order of operation
@@ -1052,7 +1052,7 @@ def check_gcp_workspace_resource(config):
         return False
     if not check_workspace_firewalls(config, compute):
         return False
-    if workspace_managed_cloud_storage:
+    if managed_cloud_storage:
         if get_workspace_gcs_bucket(config, workspace_name) is None:
             return False
     return True
@@ -1238,13 +1238,13 @@ def _configure_project(config, crm):
 
 
 def _configure_cloud_storage_from_workspace(config):
-    use_workspace_cloud_storage = config.get("provider").get("use_workspace_cloud_storage", False)
+    use_managed_cloud_storage = config.get("provider").get("use_managed_cloud_storage", False)
     workspace_name = config["workspace_name"]
-    if use_workspace_cloud_storage:
+    if use_managed_cloud_storage:
         gcs_bucket = get_workspace_gcs_bucket(config, workspace_name)
         if gcs_bucket is None:
             cli_logger.abort("No managed s3 bucket was found. If you want to use managed s3 bucket, "
-                             "you should set workspace_managed_cloud_storage equal to True when you creating workspace.")
+                             "you should set managed_cloud_storage equal to True when you creating workspace.")
         if "gcp_cloud_storage" not in config["provider"]:
             config["provider"]["gcp_cloud_storage"] = {}
         config["provider"]["gcp_cloud_storage"]["gcs.bucket"] = gcs_bucket.name
@@ -1287,7 +1287,7 @@ def _configure_iam_role(config, crm, iam):
 
     _add_iam_policy_binding(service_account, roles, crm)
 
-    use_workspace_cloud_storage = config.get("provider").get("use_workspace_cloud_storage", False)
+    use_managed_cloud_storage = config.get("provider").get("use_managed_cloud_storage", False)
     serviceAccounts =  [{
             "email": service_account["email"],
             # NOTE: The amount of access is determined by the scope + IAM
@@ -1296,7 +1296,7 @@ def _configure_iam_role(config, crm, iam):
             # account is limited by the IAM rights specified below.
             "scopes": ["https://www.googleapis.com/auth/cloud-platform"]
         }]
-    if use_workspace_cloud_storage:
+    if use_managed_cloud_storage:
         for key, node_type in config["available_node_types"].items():
             node_config = node_type["node_config"]
             node_config["serviceAccounts"] = serviceAccounts
@@ -1689,7 +1689,7 @@ def verify_gcs_storage(provider_config: Dict[str, Any]):
     gcs_storage = provider_config.get("gcp_cloud_storage")
     if gcs_storage is None:
         return
-    use_workspace_cloud_storage = provider_config.get("use_workspace_cloud_storage", False)
+    use_managed_cloud_storage = provider_config.get("use_managed_cloud_storage", False)
     private_key = gcs_storage.get("gcs.service.account.private.key")
     private_key = unescape_private_key(private_key)
 
@@ -1702,7 +1702,7 @@ def verify_gcs_storage(provider_config: Dict[str, Any]):
     }
 
     try:
-        if use_workspace_cloud_storage:
+        if use_managed_cloud_storage:
             storage = _create_storage()
         else:
             credentials = service_account.Credentials.from_service_account_info(

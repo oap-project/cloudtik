@@ -62,7 +62,7 @@ def get_azure_sdk_function(client: Any, function_name: str) -> Callable:
 def check_azure_workspace_resource(config):
     use_internal_ips = is_use_internal_ip(config)
     workspace_name = config["workspace_name"]
-    workspace_managed_cloud_storage = config["provider"].get("workspace_managed_cloud_storage", False)
+    managed_cloud_storage = config["provider"].get("managed_cloud_storage", False)
     network_client = construct_network_client(config)
     resource_client = construct_resource_client(config)
 
@@ -110,7 +110,7 @@ def check_azure_workspace_resource(config):
     if get_user_assigned_identity(config, resource_group_name) is None:
         return False
 
-    if workspace_managed_cloud_storage:
+    if managed_cloud_storage:
         if get_container_for_storage_account(config, resource_group_name) is None:
             return False
         if get_role_assignment_for_storage_blob_data_contributor(config, resource_group_name) is None:
@@ -170,7 +170,7 @@ def delete_workspace_azure(config):
     resource_client = construct_resource_client(config)
     workspace_name = config["workspace_name"]
     use_internal_ips = is_use_internal_ip(config)
-    workspace_managed_cloud_storage = config["provider"].get("workspace_managed_cloud_storage", False)
+    managed_cloud_storage = config["provider"].get("managed_cloud_storage", False)
     resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
 
     if resource_group_name is None:
@@ -181,7 +181,7 @@ def delete_workspace_azure(config):
     total_steps = NUM_AZURE_WORKSPACE_DELETION_STEPS
     if not use_internal_ips:
         total_steps += 2
-    if workspace_managed_cloud_storage:
+    if managed_cloud_storage:
         total_steps += 2
 
     try:
@@ -196,7 +196,7 @@ def delete_workspace_azure(config):
                 current_step += 1
                 _delete_role_assignment_for_contributor(config, resource_group_name)
 
-            if workspace_managed_cloud_storage:
+            if managed_cloud_storage:
                 with cli_logger.group(
                         "Deleting Azure storage account",
                         _numbered=("[]", current_step, total_steps)):
@@ -639,11 +639,11 @@ def create_azure_workspace(config):
 
 def _configure_workspace(config):
     workspace_name = config["workspace_name"]
-    workspace_managed_cloud_storage = config["provider"].get("workspace_managed_cloud_storage", False)
+    managed_cloud_storage = config["provider"].get("managed_cloud_storage", False)
 
     current_step = 1
     total_steps = NUM_AZURE_WORKSPACE_CREATION_STEPS
-    if workspace_managed_cloud_storage:
+    if managed_cloud_storage:
         total_steps += 3
 
     resource_client = construct_resource_client(config)
@@ -674,7 +674,7 @@ def _configure_workspace(config):
                 current_step += 1
                 _create_role_assignment_for_contributor(config, resource_group_name)
 
-            if workspace_managed_cloud_storage:
+            if managed_cloud_storage:
                 with cli_logger.group(
                         "Creating storage account",
                         _numbered=("[]", current_step, total_steps)):
@@ -1382,9 +1382,9 @@ def _configure_workspace_resource(config):
 
 
 def _configure_cloud_storage_from_workspace(config):
-    use_workspace_cloud_storage = config.get("provider").get("use_workspace_cloud_storage", False)
+    use_managed_cloud_storage = config.get("provider").get("use_managed_cloud_storage", False)
     use_internal_ips = is_use_internal_ip(config)
-    if use_workspace_cloud_storage:
+    if use_managed_cloud_storage:
         resource_client = construct_resource_client(config)
         resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
         storage_account = get_storage_account(config)
@@ -1392,7 +1392,7 @@ def _configure_cloud_storage_from_workspace(config):
         user_assigned_identity = get_user_assigned_identity(config, resource_group_name)
         if container is None:
             cli_logger.abort("No managed azure storage containor was found. If you want to use managed azure storage, "
-                             "you should set workspace_managed_cloud_storage equal to True when you creating workspace.")
+                             "you should set managed_cloud_storage equal to True when you creating workspace.")
         if "azure_cloud_storage" not in config["provider"]:
             config["provider"]["azure_cloud_storage"] = {}
         config["provider"]["azure_cloud_storage"]["azure.storage.type"] = "datalake"
@@ -1711,7 +1711,7 @@ def _get_workspace_head_nodes(resource_group_name,
 
 
 def verify_azure_blob_storage(provider_config: Dict[str, Any]):
-    if provider_config.get("use_workspace_cloud_storage", False):
+    if provider_config.get("use_managed_cloud_storage", False):
         return
     azure_cloud_storage = provider_config["azure_cloud_storage"]
     azure_storage_account = azure_cloud_storage["azure.storage.account"]

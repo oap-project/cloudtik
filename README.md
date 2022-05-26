@@ -164,7 +164,7 @@ The name of bucket will be used when configuring GCP cluster yaml.
 You will also need the previously downloaded Json file's `project_id`, `client_email`, `private_key_id` and 
 `gcs.service.account.private.key` for the next step when configuring a GCP cluster yaml, which grants the access to the created GCP bucket.
 
-### 6. Starting a cluster
+### 6. Starting a cluster with default runtimes
 
 Now you can start a cluster:
 

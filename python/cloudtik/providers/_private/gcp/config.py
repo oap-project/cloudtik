@@ -364,7 +364,7 @@ def get_workspace_vpc_id(config, compute):
 def _get_workspace_vpc_id(provider_config, workspace_name, compute):
     project_id = provider_config.get("project_id")
     vpc_name = 'cloudtik-{}-vpc'.format(workspace_name)
-    cli_logger.verbose("Getting the VpcId for workspace: {}...".
+    cli_logger.verbose("Getting the VpcId for workspace: {} ...".
                      format(vpc_name))
 
     VpcIds = [vpc["id"] for vpc in compute.networks().list(project=project_id).execute().get("items", "")
@@ -389,7 +389,7 @@ def _delete_vpc(config, compute):
         return
 
     """ Delete the VPC """
-    cli_logger.print("Deleting the VPC: {}...".format(vpc_name))
+    cli_logger.print("Deleting the VPC: {} ...".format(vpc_name))
 
     try:
         compute.networks().delete(project=project_id, network=VpcId).execute()
@@ -493,7 +493,7 @@ def _delete_subnet(config, compute, is_private=True):
         return
 
     # """ Delete custom subnet """
-    cli_logger.print("Deleting {} subnet: {}...".format(subnet_attribute, subnetwork_name))
+    cli_logger.print("Deleting {} subnet: {} ...".format(subnet_attribute, subnetwork_name))
     try:
         compute.subnetworks().delete(project=project_id, region=region,
                                          subnetwork=subnetwork_name).execute()
@@ -516,7 +516,7 @@ def _create_and_configure_subnets(config, compute, VpcId):
 
     subnets_attribute = ["public", "private"]
     for i in range(2):
-        cli_logger.print("Creating subnet for the vpc: {} with CIDR: {}...".format(VpcId, cidr_list[i]))
+        cli_logger.print("Creating subnet for the vpc: {} with CIDR: {} ...".format(VpcId, cidr_list[i]))
         network_body = {
             "description": "Auto created {} subnet for cloudtik".format(subnets_attribute[i]),
             "enableFlowLogs": False,
@@ -615,7 +615,7 @@ def _delete_router(config, compute):
         return
 
     # """ Delete custom subnet """
-    cli_logger.print("Deleting the router: {}...".format(router_name))
+    cli_logger.print("Deleting the router: {} ...".format(router_name))
     try:
         compute.routers().delete(project=project_id, region=region, router=router_name).execute()
         time.sleep(20)
@@ -639,7 +639,7 @@ def check_firewall_exsit(config, compute, firewall_name):
 def get_firewall(config, compute, firewall_name):
     project_id = config["provider"]["project_id"]
     firewall = None
-    cli_logger.verbose("Getting the existing firewall: {}...".format(firewall_name))
+    cli_logger.verbose("Getting the existing firewall: {} ...".format(firewall_name))
     try:
         firewall = compute.firewalls().get(project=project_id, firewall=firewall_name).execute()
         cli_logger.verbose("Successfully get the firewall: {}.".format(firewall_name))
@@ -758,7 +758,7 @@ def check_workspace_firewalls(config, compute):
 
 
 def delete_firewall(compute, project_id, firewall_name):
-    cli_logger.print("Deleting the firewall {}... ".format(firewall_name))
+    cli_logger.print("Deleting the firewall {} ... ".format(firewall_name))
     try:
         compute.firewalls().delete(project=project_id, firewall=firewall_name).execute()
         cli_logger.print("Successfully delete the firewall {}.".format(firewall_name))
@@ -778,8 +778,10 @@ def _delete_firewalls(config, compute):
     cli_logger.print("Deleting all the firewalls...")
     for cloudtik_firewall in cloudtik_firewalls:
         delete_firewall(compute, project_id, cloudtik_firewall)
-    #Wait for all the firewalls have been deleted.
+
+    # Wait for all the firewalls have been deleted.
     time.sleep(20)
+    cli_logger.print("Successfully deleted all the firewalls.")
 
 
 def get_gcp_vpcId(config, compute, use_internal_ips):
@@ -878,7 +880,7 @@ def _delete_workspace_cloud_storage(config, workspace_name):
         vpcId=vpcId
     )
 
-    cli_logger.print("Deleting GCS bucket: {}...".format(bucket_name))
+    cli_logger.print("Deleting GCS bucket: {} ...".format(bucket_name))
     bucket = get_workspace_gcs_bucket(config, workspace_name)
     if bucket is None:
         cli_logger.warning("No GCS bucket with the name found.")

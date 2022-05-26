@@ -1000,8 +1000,10 @@ def _create_storage_account(config, resource_group_name):
                 },
                 "kind": "BlockBlobStorage",
                 "location": location,
+                "minimumTlsVersion": "TLS1_2",
                 "allowBlobPublicAccess": False,
                 "allowSharedKeyAccess": True,
+                "isHnsEnabled": True,
                 "encryption": {
                     "services": {
                         "file": {

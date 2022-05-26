@@ -7,15 +7,12 @@ click >= 7.0
 cryptography>=3.0.0
 dataclasses; python_version < '3.7'
 filelock
-grpcio >= 1.28.1
 ipaddr
 jsonschema
-msgpack >= 1.0.0, < 2.0.0
 numpy >= 1.16; python_version < '3.9'
 numpy >= 1.19.3; python_version >= '3.9'
 prettytable
 prometheus_client >= 0.7.1
-protobuf >= 3.15.3
 psutil
 pyyaml
 redis >= 3.5.0
@@ -26,13 +23,14 @@ pycryptodome
 
 # setup.py extras
 ## for aws
-boto3
+boto3 == 1.22.13
 botocore
 ## for azure
-azure-cli
-azure-core
+azure-cli == 2.35.0
+azure-storage-blob == 12.11.0
+azure-storage-file-datalake == 12.6.0
 ## for gcp
-google-api-python-client
+google-api-python-client == 2.48.0
 ## for kubernetes
 kubernetes
 urllib3

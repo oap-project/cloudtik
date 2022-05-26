@@ -110,7 +110,7 @@ cloudtik_files += [
 if setup_spec.type == SetupType.CLOUDTIK:
     setup_spec.extras = {
         "aws": [
-            "boto3",
+            "boto3==1.22.13",
             "botocore",
         ],
         "azure": [
@@ -119,8 +119,8 @@ if setup_spec.type == SetupType.CLOUDTIK:
             "azure-storage-file-datalake==12.6.0",
         ],
         "gcp": [
-            "google-api-python-client",
-            "google-cloud-storage",
+            "google-cloud-storage==2.3.0",
+            "google-api-python-client==2.48.0",
         ],
         "k8s": [
             "kubernetes",
@@ -142,13 +142,10 @@ if setup_spec.type == SetupType.CLOUDTIK:
         "cryptography>=3.0.0",
         "dataclasses; python_version < '3.7'",
         "filelock",
-        "grpcio >= 1.28.1",
         "jsonschema",
-        "msgpack >= 1.0.0, < 2.0.0",
         "numpy >= 1.16; python_version < '3.9'",
         "numpy >= 1.19.3; python_version >= '3.9'",
         "prometheus_client >= 0.7.1",
-        "protobuf >= 3.15.3",
         "psutil",
         "pyyaml",
         "redis >= 3.5.0",

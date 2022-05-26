@@ -385,7 +385,7 @@ def _delete_vpc(config, compute):
     vpc_name = 'cloudtik-{}-vpc'.format(config["workspace_name"])
 
     if VpcId is None:
-        cli_logger.print("This VPC: {} has not existed. No need to delete it.".format(vpc_name))
+        cli_logger.print("The VPC: {} doesn't exist.".format(vpc_name))
         return
 
     """ Delete the VPC """
@@ -395,7 +395,7 @@ def _delete_vpc(config, compute):
         compute.networks().delete(project=project_id, network=VpcId).execute()
         cli_logger.print("Successfully deleted the VPC: {}.".format(vpc_name))
     except Exception as e:
-        cli_logger.error("Failed to delete the VPC:{}. {}".format(vpc_name, str(e)))
+        cli_logger.error("Failed to delete the VPC: {}. {}".format(vpc_name, str(e)))
         raise e
 
     return
@@ -488,7 +488,7 @@ def _delete_subnet(config, compute, is_private=True):
                                                      subnet_attribute)
 
     if get_subnet(config, subnetwork_name, compute) is None:
-        cli_logger.print("The {} subnet \"{}\"  is found for workspace."
+        cli_logger.print("The {} subnet \"{}\"  isn't found in workspace."
                          .format(subnet_attribute, subnetwork_name))
         return
 
@@ -675,7 +675,7 @@ def create_or_update_firewall(config, compute, firewall_body):
     if not check_firewall_exsit(config, compute, firewall_name):
         create_firewall(compute, project_id, firewall_body)
     else:
-        cli_logger.print("This  firewall \"{}\"  has existed. Will update the rules... ".format(firewall_name))
+        cli_logger.print("The firewall \"{}\" already exists. Will update the rules... ".format(firewall_name))
         update_firewall(compute, project_id, firewall_body)
 
 

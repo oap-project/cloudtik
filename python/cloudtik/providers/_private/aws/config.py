@@ -347,6 +347,8 @@ def check_aws_workspace_resource(config):
     ec2_client = _client("ec2", config)
     workspace_name = config["workspace_name"]
     vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
+    workspace_managed_cloud_storage = config["provider"].get("workspace_managed_cloud_storage", False)
+
     """
          Do the work - order of operation
          1.) Check VPC 
@@ -357,6 +359,7 @@ def check_aws_workspace_resource(config):
          6.) Check Internat-gateways
          7.) Check security-group
          8.) Check VPC endpoint for s3
+         9.) Check S3 bucket
     """
     if vpc_id is None:
         return False
@@ -374,6 +377,9 @@ def check_aws_workspace_resource(config):
         return False
     if len(get_vpc_endpoint_for_s3(ec2_client, workspace_name)) == 0:
         return False
+    if workspace_managed_cloud_storage:
+        if get_workspace_s3_bucket(config, workspace_name) is None:
+            return False
     return True
 
 
@@ -412,6 +418,7 @@ def delete_workspace_aws(config):
     ec2_client = _client("ec2", config)
     workspace_name = config["workspace_name"]
     use_internal_ips = is_use_internal_ip(config)
+    workspace_managed_cloud_storage = config["provider"].get("workspace_managed_cloud_storage", False)
     vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
     if vpc_id is None:
         cli_logger.print("The workspace: {} doesn't exist!".format(config["workspace_name"]))
@@ -420,6 +427,8 @@ def delete_workspace_aws(config):
     current_step = 1
     total_steps = NUM_AWS_WORKSPACE_DELETION_STEPS
     if not use_internal_ips:
+        total_steps += 1
+    if workspace_managed_cloud_storage:
         total_steps += 1
 
     try:
@@ -430,6 +439,13 @@ def delete_workspace_aws(config):
                     _numbered=("[]", current_step, total_steps)):
                 current_step += 1
                 _delete_workspace_instance_profile(config, workspace_name)
+
+            if workspace_managed_cloud_storage:
+                with cli_logger.group(
+                        "Deleting S3 bucket",
+                        _numbered=("[]", current_step, total_steps)):
+                    current_step += 1
+                    _delete_workspace_cloud_storage(config, workspace_name)
 
             _delete_network_resources(config, workspace_name,
                                       ec2, ec2_client, vpc_id,
@@ -447,9 +463,38 @@ def delete_workspace_aws(config):
 
 
 def _delete_workspace_instance_profile(config, workspace_name):
-    instance_profile_name = _get_workspace_instance_profile_name(workspace_name)
-    instance_role_name = "cloudtik-{}-role".format(workspace_name)
-    _delete_instance_profile(config, instance_profile_name, instance_role_name)
+    head_instance_profile_name = _get_workspace_head_instance_profile_name(workspace_name)
+    head_instance_role_name = "cloudtik-{}-head-role".format(workspace_name)
+    _delete_instance_profile(config, head_instance_profile_name, head_instance_role_name)
+
+    worker_instance_profile_name = _get_workspace_worker_instance_profile_name(workspace_name)
+    worker_instance_role_name = "cloudtik-{}-worker-role".format(workspace_name)
+    _delete_instance_profile(config, worker_instance_profile_name, worker_instance_role_name)
+
+
+def _delete_workspace_cloud_storage(config, workspace_name):
+    ec2_client = _client("ec2", config)
+    vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
+    bucket_name = "cloudtik-{workspace_name}-bucket-{vpc_id}".format(
+        workspace_name=workspace_name.lower(),
+        vpc_id=vpc_id
+    )
+
+    cli_logger.print("Deleting S3 bucket: {}...".format(bucket_name))
+    bucket = get_workspace_s3_bucket(config, workspace_name)
+    if bucket is None:
+        cli_logger.warning("No S3 bucket with the name found.")
+        return
+
+    try:
+        cli_logger.print("Deleting S3 bucket: {} ...".format(bucket.name))
+        bucket.objects.all().delete()
+        bucket.delete()
+
+    except boto3.exceptions.Boto3Error as e:
+        cli_logger.error("Failed to delete S3 bucket. {}", str(e))
+        raise e
+    return
 
 
 def _delete_network_resources(config, workspace_name,
@@ -636,6 +681,9 @@ def bootstrap_aws_from_workspace(config):
     # EC2 instances.
     config = _configure_iam_role_from_workspace(config)
 
+    # Set s3.bucket if use_workspace_cloud_storage=False
+    config = _configure_cloud_storage_from_workspace(config)
+
     # Configure SSH access, using an existing key pair if possible.
     config = _configure_key_pair(config)
     global_event_system.execute_callback(
@@ -706,19 +754,41 @@ def _configure_iam_role(config):
     return config
 
 
+def _configure_cloud_storage_from_workspace(config):
+    use_workspace_cloud_storage = config.get("provider").get("use_workspace_cloud_storage", False)
+    workspace_name = config["workspace_name"]
+    if use_workspace_cloud_storage:
+        s3_bucket = get_workspace_s3_bucket(config, workspace_name)
+        if s3_bucket is None:
+            cli_logger.abort("No managed s3 bucket was found. If you want to use managed s3 bucket, "
+                             "you should set workspace_managed_cloud_storage equal to True when you creating workspace.")
+        if "aws_s3_storage" not in config["provider"]:
+            config["provider"]["aws_s3_storage"] = {}
+        config["provider"]["aws_s3_storage"]["s3.bucket"] = s3_bucket.name
+
+    return config
+
+
 def _configure_iam_role_from_workspace(config):
+    use_workspace_cloud_storage = config.get("provider").get("use_workspace_cloud_storage", False)
+    if use_workspace_cloud_storage:
+       return _configure_iam_role_for_cluster(config)
+    else:
+       return _configure_iam_role_for_head(config)
+
+
+def _configure_iam_role_for_head(config):
     head_node_type = config["head_node_type"]
     head_node_config = config["available_node_types"][head_node_type][
         "node_config"]
-    if "IamInstanceProfile" in head_node_config:
+    if "IamInstanceProfile" in head_node_config and "":
         _set_config_info(head_instance_profile_src="config")
         return config
     _set_config_info(head_instance_profile_src="workspace")
 
-    instance_profile_name = _get_workspace_instance_profile_name(
+    instance_profile_name = _get_workspace_head_instance_profile_name(
         config["workspace_name"])
     profile = _get_instance_profile(instance_profile_name, config)
-
     if not profile:
         raise RuntimeError("Workspace instance profile: {} not found!".format(instance_profile_name))
 
@@ -729,7 +799,33 @@ def _configure_iam_role_from_workspace(config):
     return config
 
 
-def _create_or_update_instance_profile(config, instance_profile_name, instance_role_name):
+def _configure_iam_role_for_cluster(config):
+    _set_config_info(head_instance_profile_src="workspace")
+
+    head_instance_profile_name = _get_workspace_head_instance_profile_name(
+        config["workspace_name"])
+    head_profile = _get_instance_profile(head_instance_profile_name, config)
+
+    worker_instance_profile_name = _get_workspace_worker_instance_profile_name(
+        config["workspace_name"])
+    worker_profile = _get_instance_profile(worker_instance_profile_name, config)
+
+    if not head_profile:
+        raise RuntimeError("Workspace head instance profile: {} not found!".format(head_instance_profile_name))
+    if not worker_profile:
+        raise RuntimeError("Workspace worker instance profile: {} not found!".format(worker_instance_profile_name))
+
+    for key, node_type in config["available_node_types"].items():
+        node_config = node_type["node_config"]
+        if key == config["head_node_type"]:
+            node_config["IamInstanceProfile"] = {"Arn": head_profile.arn}
+        else:
+            node_config["IamInstanceProfile"] = {"Arn": worker_profile.arn}
+
+    return config
+
+
+def _create_or_update_instance_profile(config, instance_profile_name, instance_role_name, isHead=True):
     profile = _get_instance_profile(instance_profile_name, config)
 
     if profile is None:
@@ -765,8 +861,14 @@ def _create_or_update_instance_profile(config, instance_profile_name, instance_r
                     },
                 ]
             }
-            attach_policy_arns =  [
+            if isHead:
+                attach_policy_arns = [
                     "arn:aws:iam::aws:policy/AmazonEC2FullAccess",
+                    "arn:aws:iam::aws:policy/AmazonS3FullAccess",
+                    "arn:aws:iam::aws:policy/IAMFullAccess"
+                ]
+            else:
+                attach_policy_arns = [
                     "arn:aws:iam::aws:policy/AmazonS3FullAccess"
                 ]
 
@@ -1310,9 +1412,12 @@ def _configure_workspace(config):
     ec2 = _resource("ec2", config)
     ec2_client = _client("ec2", config)
     workspace_name = config["workspace_name"]
+    workspace_managed_cloud_storage = config["provider"].get("workspace_managed_cloud_storage", False)
 
     current_step = 1
     total_steps = NUM_AWS_WORKSPACE_CREATION_STEPS
+    if workspace_managed_cloud_storage:
+        total_steps += 1
 
     try:
         with cli_logger.group("Creating workspace: {}", workspace_name):
@@ -1322,8 +1427,16 @@ def _configure_workspace(config):
                 current_step += 1
                 _configure_workspace_instance_profile(config, workspace_name)
 
-            _configure_network_resources(config, ec2, ec2_client,
+            current_step = _configure_network_resources(config, ec2, ec2_client,
                                          current_step, total_steps)
+
+            if workspace_managed_cloud_storage:
+                with cli_logger.group(
+                        "Creating S3 bucket",
+                        _numbered=("[]", current_step, total_steps)):
+                    current_step += 1
+                    _configure_workspace_cloud_storage(config, workspace_name)
+
     except Exception as e:
         cli_logger.error("Failed to create workspace. {}", str(e))
         raise e
@@ -1336,17 +1449,50 @@ def _configure_workspace(config):
 
 
 def _configure_workspace_instance_profile(config, workspace_name):
-    instance_profile_name = _get_workspace_instance_profile_name(workspace_name)
-    instance_role_name = "cloudtik-{}-role".format(workspace_name)
+    head_instance_profile_name = _get_workspace_head_instance_profile_name(workspace_name)
+    head_instance_role_name = "cloudtik-{}-head-role".format(workspace_name)
+    cli_logger.print("Creating head instance profile: {}...".format(head_instance_role_name))
+    _create_or_update_instance_profile(config, head_instance_profile_name,
+                                       head_instance_role_name)
 
-    cli_logger.print("Creating instance profile: {}...".format(instance_profile_name))
-    _create_or_update_instance_profile(config, instance_profile_name,
-                                       instance_role_name)
+    worker_instance_profile_name = _get_workspace_worker_instance_profile_name(workspace_name)
+    worker_instance_role_name = "cloudtik-{}-worker-role".format(workspace_name)
+    cli_logger.print("Creating worker instance profile: {}...".format(worker_instance_profile_name))
+    _create_or_update_instance_profile(config, worker_instance_profile_name,
+                                       worker_instance_role_name, isHead=False)
+
     cli_logger.print("Successfully created and configured instance profile.")
 
 
-def _get_workspace_instance_profile_name(workspace_name):
-    return "cloudtik-{}-profile".format(workspace_name)
+def _configure_workspace_cloud_storage(config, workspace_name):
+    s3 = _resource("s3", config)
+    ec2_client = _client("ec2", config)
+    region = config["provider"]["region"]
+    vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
+    bucket_name = "cloudtik-{workspace_name}-bucket-{vpc_id}".format(
+        workspace_name=workspace_name.lower(),
+        vpc_id=vpc_id
+    )
+
+    cli_logger.print("Creating S3 bucket for the workspace: {}...".format(workspace_name))
+    try:
+        if region == 'us-east-1':
+            s3.create_bucket(Bucket=bucket_name)
+        else:
+            s3.create_bucket(Bucket=bucket_name, CreateBucketConfiguration={'LocationConstraint': region})
+        cli_logger.print(
+            "Successfully created S3 bucket: {} ...".format(bucket_name))
+    except Exception as e:
+        cli_logger.abort("Failed to create S3 bucket. {}", str(e))
+    return
+
+
+def _get_workspace_head_instance_profile_name(workspace_name):
+    return "cloudtik-{}-head-profile".format(workspace_name)
+
+
+def _get_workspace_worker_instance_profile_name(workspace_name):
+    return "cloudtik-{}-worker-profile".format(workspace_name)
 
 
 def _configure_network_resources(config, ec2, ec2_client,
@@ -1408,7 +1554,8 @@ def _configure_network_resources(config, ec2, ec2_client,
         current_step += 1
         _upsert_security_group(config, vpc.id)
 
-    return config
+
+    return current_step
 
 
 def _configure_vpc(config, workspace_name, ec2, ec2_client):
@@ -1899,6 +2046,21 @@ def _get_instance_profile(profile_name, config):
             raise exc
 
 
+def get_workspace_s3_bucket(config, workspace_name):
+    s3 = _resource("s3", config)
+    ec2_client = _client("ec2", config)
+    vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
+    bucket_name = "cloudtik-{workspace_name}-bucket-{vpc_id}".format(
+        workspace_name=workspace_name.lower(),
+        vpc_id=vpc_id
+    )
+    bucket = s3.Bucket(bucket_name)
+    if bucket in s3.buckets.all():
+        return bucket
+    else:
+        return None
+
+
 def _get_key(key_name, config):
     ec2 = _resource("ec2", config)
     try:
@@ -2172,8 +2334,8 @@ def verify_s3_storage(provider_config: Dict[str, Any]):
 
     s3 = boto3.client(
         's3',
-        aws_access_key_id=s3_storage["s3.access.key.id"],
-        aws_secret_access_key=s3_storage["s3.secret.access.key"]
+        aws_access_key_id=s3_storage.get("s3.access.key.id"),
+        aws_secret_access_key=s3_storage.get("s3.secret.access.key")
     )
 
     try:

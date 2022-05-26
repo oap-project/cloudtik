@@ -261,7 +261,8 @@ def _validate_config(config: Dict[str, Any], provider):
         provider_config = config["provider"]
         if ("azure_cloud_storage" not in provider_config) and (
                 "aws_s3_storage" not in provider_config) and (
-                "gcp_cloud_storage" not in provider_config):
+                "gcp_cloud_storage" not in provider_config) and \
+                not provider_config.get("use_workspace_cloud_storage", False):
             raise ValueError("No storage configuration found for Spark.")
 
 

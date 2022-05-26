@@ -103,6 +103,11 @@
                             "description": "Oauth token or JSON string constituting service account credentials"
                         }
                     }
+                },
+                "workspace_managed_cloud_storage": {
+                    "type": "boolean",
+                    "description": "Whether to create cloud storage of workspace.",
+                    "default": false
                 }
             }
         }

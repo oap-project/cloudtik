@@ -17,6 +17,7 @@ from cloudtik.providers._private._azure.azure_identity_credential_adapter import
 from azure.common.credentials import get_cli_profile
 from azure.identity import AzureCliCredential
 from azure.mgmt.resource import ResourceManagementClient
+from azure.mgmt.storage import StorageManagementClient
 from azure.mgmt.network import NetworkManagementClient
 from azure.mgmt.compute import ComputeManagementClient
 from azure.mgmt.msi import ManagedServiceIdentityClient
@@ -61,6 +62,7 @@ def get_azure_sdk_function(client: Any, function_name: str) -> Callable:
 def check_azure_workspace_resource(config):
     use_internal_ips = is_use_internal_ip(config)
     workspace_name = config["workspace_name"]
+    workspace_managed_cloud_storage = config["provider"].get("workspace_managed_cloud_storage", False)
     network_client = construct_network_client(config)
     resource_client = construct_resource_client(config)
 
@@ -75,6 +77,7 @@ def check_azure_workspace_resource(config):
          7.) Check public subnet
          8.) Check role assignments
          9.) Check user assigned identities
+         10.) Check cloud storage if need
     """
     resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
     if resource_group_name is None:
@@ -101,11 +104,17 @@ def check_azure_workspace_resource(config):
     if get_subnet(network_client, resource_group_name, virtual_network_name, public_subnet_name) is None:
         return False
 
-    if get_role_assignments(config, resource_group_name) is None:
+    if get_role_assignment_for_contributor(config, resource_group_name) is None:
         return False
 
-    if get_user_assigned_identities(config, resource_group_name) is None:
+    if get_user_assigned_identity(config, resource_group_name) is None:
         return False
+
+    if workspace_managed_cloud_storage:
+        if get_container_for_storage_account(config, resource_group_name) is None:
+            return False
+        if get_role_assignment_for_storage_blob_data_contributor(config, resource_group_name) is None:
+            return False
 
     return True
 
@@ -161,6 +170,7 @@ def delete_workspace_azure(config):
     resource_client = construct_resource_client(config)
     workspace_name = config["workspace_name"]
     use_internal_ips = is_use_internal_ip(config)
+    workspace_managed_cloud_storage = config["provider"].get("workspace_managed_cloud_storage", False)
     resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
 
     if resource_group_name is None:
@@ -171,6 +181,8 @@ def delete_workspace_azure(config):
     total_steps = NUM_AZURE_WORKSPACE_DELETION_STEPS
     if not use_internal_ips:
         total_steps += 2
+    if workspace_managed_cloud_storage:
+        total_steps += 2
 
     try:
         # delete network resources
@@ -179,10 +191,23 @@ def delete_workspace_azure(config):
 
             # delete role_assignments
             with cli_logger.group(
-                    "Deleting role assignments",
+                    "Deleting role assignment for Contributor",
                     _numbered=("[]", current_step, total_steps)):
                 current_step += 1
-                _delete_role_assignments(config, resource_group_name)
+                _delete_role_assignment_for_contributor(config, resource_group_name)
+
+            if workspace_managed_cloud_storage:
+                with cli_logger.group(
+                        "Deleting Azure storage account",
+                        _numbered=("[]", current_step, total_steps)):
+                    current_step += 1
+                    _delete_workspace_cloud_storage(config, resource_group_name)
+
+                with cli_logger.group(
+                        "Deleting role assignment for Storage Blob Data Contributor",
+                        _numbered=("[]", current_step, total_steps)):
+                    current_step += 1
+                    _delete_role_assignment_for_storage_blob_data_contributor(config, resource_group_name)
 
             # delete user_assigned_identities
             with cli_logger.group(
@@ -270,23 +295,71 @@ def _delete_network_resources(config, resource_client, resource_group_name, curr
     return current_step
 
 
-def get_role_assignments(config, resource_group_name):
+def get_container_for_storage_account(config, resource_group_name):
     workspace_name = config["workspace_name"]
+    container_name = "cloudtik-{}-storage-container".format(workspace_name)
+    storage_client = construct_storage_client(config)
+    strorage_account = get_storage_account(config)
+    if strorage_account is None:
+        return None
+    containers = list(storage_client.blob_containers.list(
+        resource_group_name=resource_group_name, account_name=strorage_account.name))
+    workspace_containers = [container for container in containers
+                                  if container.name == container_name]
+    return None if len(workspace_containers) == 0 else workspace_containers[0]
+
+
+def get_storage_account(config):
+    workspace_name = config["workspace_name"]
+    storage_client = construct_storage_client(config)
+    strorage_account_name = "cloudtik-{}-storage-account".format(workspace_name)
+    storage_accounts = list(storage_client.storage_accounts.list())
+
+    workspace_storage_accounts = [storage_account for storage_account in storage_accounts
+                                 for key, value in storage_account.tags.items()
+                                 if key == "Name" and value == strorage_account_name]
+    return None if len(workspace_storage_accounts) == 0 else workspace_storage_accounts[0]
+
+
+def _delete_workspace_cloud_storage(config, resource_group_name):
+    storage_client = construct_storage_client(config)
+    storage_account = get_storage_account(config)
+    if storage_account is None:
+        cli_logger.print("This storage account has not existed. No need to delete it.")
+        return
+
+    """ Delete storage account """
+    cli_logger.print("Deleting the storage account: {}...".format(storage_account.name))
+    try:
+        storage_client.storage_accounts.delete(
+            resource_group_name=resource_group_name,
+            account_name=storage_account.name)
+        cli_logger.print("Successfully deleted the storage account: {}.".format(storage_account.name))
+    except Exception as e:
+        cli_logger.error(
+            "Failed to delete the role_assignments:{}. {}".format(storage_account.name, str(e)))
+        raise e
+
+
+def get_role_assignment_for_storage_blob_data_contributor(config, resource_group_name):
     authorization_client = construct_authorization_client(config)
     subscription_id = config["provider"].get("subscription_id")
     scope = "subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}".format(
         subscriptionId=subscription_id,
         resourceGroupName=resource_group_name
     )
-    role_assignment_name = str(uuid.uuid3(uuid.UUID(subscription_id), workspace_name))
-    cli_logger.verbose("Getting the existing role assignment: {}.", role_assignment_name)
+    storage_account = get_storage_account(config)
+    if storage_account is None:
+        return None
+    role_assignment_name = str(uuid.uuid3(uuid.UUID(subscription_id), storage_account.name))
+    cli_logger.verbose("Getting the existing role assignment for Storage Blob Data Contributor: {}.", role_assignment_name)
 
     try:
         role_assignment = authorization_client.role_assignments.get(
             scope=scope,
             role_assignment_name=role_assignment_name,
         )
-        cli_logger.verbose("Successfully get the role assignment: {}.".
+        cli_logger.verbose("Successfully get the role assignment for Storage Blob Data Contributor: {}.".
                            format(role_assignment_name))
         return role_assignment_name
     except Exception as e:
@@ -295,33 +368,84 @@ def get_role_assignments(config, resource_group_name):
         return None
 
 
-def _delete_role_assignments(config, resource_group_name):
-    role_assignments_name = get_role_assignments(config, resource_group_name)
+def get_role_assignment_for_contributor(config, resource_group_name):
+    workspace_name = config["workspace_name"]
     authorization_client = construct_authorization_client(config)
     subscription_id = config["provider"].get("subscription_id")
     scope = "subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}".format(
         subscriptionId=subscription_id,
         resourceGroupName=resource_group_name
     )
-    if role_assignments_name is None:
-        cli_logger.print("The role assignments doesn't exist.")
+    role_assignment_name = str(uuid.uuid3(uuid.UUID(subscription_id), workspace_name))
+    cli_logger.verbose("Getting the existing role assignment for Contributor: {}.", role_assignment_name)
+
+    try:
+        role_assignment = authorization_client.role_assignments.get(
+            scope=scope,
+            role_assignment_name=role_assignment_name,
+        )
+        cli_logger.verbose("Successfully get the role assignment for Contributor: {}.".
+                           format(role_assignment_name))
+        return role_assignment_name
+    except Exception as e:
+        cli_logger.error(
+            "Failed to get the role assignment for Contributor. {}", str(e))
+        return None
+
+
+def _delete_role_assignment_for_storage_blob_data_contributor(config, resource_group_name):
+    role_assignment_name = get_role_assignment_for_storage_blob_data_contributor(config, resource_group_name)
+    authorization_client = construct_authorization_client(config)
+    subscription_id = config["provider"].get("subscription_id")
+    scope = "subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}".format(
+        subscriptionId=subscription_id,
+        resourceGroupName=resource_group_name
+    )
+    if role_assignment_name is None:
+        cli_logger.print("This role_assignments has not existed. No need to delete it.")
         return
 
-    """ Delete the role_assignments """
-    cli_logger.print("Deleting the role assignments: {}...".format(role_assignments_name))
+    """ Delete the role_assignments for """
+    cli_logger.print("Deleting the role_assignment for Storage Blob Data Contributor: {}...".format(role_assignment_name))
     try:
         authorization_client.role_assignments.delete(
             scope=scope,
-            role_assignment_name=role_assignments_name
+            role_assignment_name=role_assignment_name
         )
-        cli_logger.print("Successfully deleted the role assignments: {}.".format(role_assignments_name))
+        cli_logger.print("Successfully deleted the role_assignment for Storage Blob Data Contributor: {}.".format(role_assignment_name))
     except Exception as e:
         cli_logger.error(
-            "Failed to delete the role assignments: {}. {}".format(role_assignments_name, str(e)))
+            "Failed to delete the role_assignment for Storage Blob Data Contributor:{}. {}".format(role_assignment_name, str(e)))
         raise e
 
 
-def get_user_assigned_identities(config, resource_group_name):
+def _delete_role_assignment_for_contributor(config, resource_group_name):
+    role_assignment_name = get_role_assignment_for_contributor(config, resource_group_name)
+    authorization_client = construct_authorization_client(config)
+    subscription_id = config["provider"].get("subscription_id")
+    scope = "subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}".format(
+        subscriptionId=subscription_id,
+        resourceGroupName=resource_group_name
+    )
+    if role_assignment_name is None:
+        cli_logger.print("The role assignments has not existed. No need to delete it.")
+        return
+
+    """ Delete the role_assignments """
+    cli_logger.print("Deleting the role assignment for Contributor: {}...".format(role_assignment_name))
+    try:
+        authorization_client.role_assignments.delete(
+            scope=scope,
+            role_assignment_name=role_assignment_name
+        )
+        cli_logger.print("Successfully deleted the role assignment for Contributor: {}.".format(role_assignment_name))
+    except Exception as e:
+        cli_logger.error(
+            "Failed to delete the role assignment for Contributor:{}. {}".format(role_assignment_name, str(e)))
+        raise e
+
+
+def get_user_assigned_identity(config, resource_group_name):
     user_assigned_identity_name = "cloudtik-{}-user-assigned-identity".format(config["workspace_name"])
     msi_client = construct_manage_server_identity_client(config)
     cli_logger.verbose("Getting the existing user assigned identity: {}.".format(user_assigned_identity_name))
@@ -339,7 +463,7 @@ def get_user_assigned_identities(config, resource_group_name):
 
 
 def _delete_user_assigned_identity(config, resource_group_name):
-    user_assigned_identity = get_user_assigned_identities(config, resource_group_name)
+    user_assigned_identity = get_user_assigned_identity(config, resource_group_name)
     msi_client = construct_manage_server_identity_client(config)
     if user_assigned_identity is None:
         cli_logger.print("The user assigned identity doesn't exist.")
@@ -487,7 +611,7 @@ def _delete_vnet(config, resource_client, network_client):
 
 
 def _delete_resource_group(config, resource_client):
-    resource_group_name = get_workspace_resource_group_name(config, resource_client)
+    resource_group_name = get_workspace_resource_group_name(config["workspace_name"], resource_client)
 
     if resource_group_name is None:
         cli_logger.print("The resource group: {} doesn't exist.".
@@ -515,9 +639,12 @@ def create_azure_workspace(config):
 
 def _configure_workspace(config):
     workspace_name = config["workspace_name"]
+    workspace_managed_cloud_storage = config["provider"].get("workspace_managed_cloud_storage", False)
 
     current_step = 1
     total_steps = NUM_AZURE_WORKSPACE_CREATION_STEPS
+    if workspace_managed_cloud_storage:
+        total_steps += 3
 
     resource_client = construct_resource_client(config)
 
@@ -540,12 +667,33 @@ def _configure_workspace(config):
                 current_step += 1
                 _create_user_assigned_identity(config, resource_group_name)
 
-            # create role_assignments
+            # create role_assignment for Contributor
             with cli_logger.group(
-                    "Creating role assignments",
+                    "Creating role assignment for Contributor",
                     _numbered=("[]", current_step, total_steps)):
                 current_step += 1
-                _create_role_assignments(config, resource_group_name)
+                _create_role_assignment_for_contributor(config, resource_group_name)
+
+            if workspace_managed_cloud_storage:
+                with cli_logger.group(
+                        "Creating storage account",
+                        _numbered=("[]", current_step, total_steps)):
+                    current_step += 1
+                    _create_storage_account(config, resource_group_name)
+
+                with cli_logger.group(
+                        "Creating container for storage account",
+                        _numbered=("[]", current_step, total_steps)):
+                    current_step += 1
+                    _create_container_for_storage_account(config, resource_group_name)
+
+                # create role_assignment for Storage Blob Data Contributor
+                with cli_logger.group(
+                        "Creating role assignment for Storage Blob Data Contributor",
+                        _numbered=("[]", current_step, total_steps)):
+                    current_step += 1
+                    _create_role_assignment_for_storage_blob_data_contributor(config, resource_group_name)
+
     except Exception as e:
         cli_logger.error("Failed to create workspace. {}", str(e))
         raise e
@@ -563,14 +711,14 @@ def _create_resource_group(config, resource_client):
 
     if use_internal_ips:
         # No need to create new resource group
-        resource_group_name = get_working_node_resource_group_name()
+        resource_group_name = get_working_node_resource_group_name(resource_client)
         if resource_group_name is None:
             cli_logger.abort("Only when the working node is "
                              "an Azure instance can use use_internal_ips=True.")
     else:
 
         # Need to create a new resource_group
-        if get_workspace_resource_group_name(config, resource_client) is None:
+        if get_workspace_resource_group_name(workspace_name, resource_client) is None:
             resource_group = create_resource_group(config, resource_client)
             resource_group_name = resource_group.name
         else:
@@ -596,15 +744,28 @@ def get_azure_instance_metadata():
         return None
 
 
-def get_working_node_resource_group_name():
+def get_working_node_resource_group_name(resource_client):
+    resource_group = get_working_node_resource_group(resource_client)
+    return None if resource_group is None else resource_group.name
+
+
+def get_working_node_resource_group(resource_client):
     metadata = get_azure_instance_metadata()
     if metadata is None:
         cli_logger.error("Failed to get the metadata of the working node. "
                          "Please check whether the working node is a Azure instance or not!")
     resource_group_name = metadata.get("compute", {}).get("name", "")
-    cli_logger.print("Successfully get the ResourceGroupName for working node.")
-
-    return resource_group_name
+    try:
+        resource_group = resource_client.resource_groups.get(
+            resource_group_name
+        )
+        cli_logger.verbose(
+            "Successfully get the resource group: {} for working node.".format(resource_group_name))
+        return resource_group
+    except Exception as e:
+        cli_logger.verbose_error(
+            "The resource group for working node is not found: {}", str(e))
+        return None
 
 
 def get_virtual_network_name_by_subnet(resource_client, network_client, resource_group_name, subnet):
@@ -660,23 +821,28 @@ def get_workspace_virtual_network_name(config, network_client):
         return None
 
 
-def get_workspace_resource_group_name(config, resource_client):
-    return _get_workspace_resource_group_name(
-        config["workspace_name"], resource_client)
+def get_workspace_resource_group_name(workspace_name, resource_client):
+    resource_group = _get_workspace_resource_group(workspace_name, resource_client)
+    return None if resource_group is None else resource_group.name
 
 
 def _get_resource_group_name(
         workspace_name, resource_client, use_internal_ips):
+    resource_group = _get_resource_group(workspace_name, resource_client, use_internal_ips)
+    return None if resource_group is None else resource_group.name
+
+
+def _get_resource_group(
+        workspace_name, resource_client, use_internal_ips):
     if use_internal_ips:
-        resource_group_name = get_working_node_resource_group_name()
+        resource_group = get_working_node_resource_group(resource_client)
     else:
-        resource_group_name = _get_workspace_resource_group_name(
-            workspace_name, resource_client)
+        resource_group =  _get_workspace_resource_group(workspace_name, resource_client)
 
-    return resource_group_name
+    return resource_group
 
 
-def _get_workspace_resource_group_name(workspace_name, resource_client):
+def _get_workspace_resource_group(workspace_name, resource_client):
     resource_group_name = 'cloudtik-{}-resource-group'.format(workspace_name)
     cli_logger.verbose("Getting the resource group name for workspace: {}...".
                        format(resource_group_name))
@@ -687,7 +853,7 @@ def _get_workspace_resource_group_name(workspace_name, resource_client):
         )
         cli_logger.verbose(
             "Successfully get the resource group name: {} for workspace.".format(resource_group_name))
-        return resource_group.name
+        return resource_group
     except Exception as e:
         cli_logger.verbose_error(
             "The resource group for workspace is not found: {}", str(e))
@@ -716,7 +882,41 @@ def create_resource_group(config, resource_client):
         raise e
 
 
-def _create_role_assignments(config, resource_group_name):
+def _create_role_assignment_for_storage_blob_data_contributor(config, resource_group_name):
+    authorization_client = construct_authorization_client(config)
+    subscription_id = config["provider"].get("subscription_id")
+    scope = "subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}".format(
+        subscriptionId=subscription_id,
+        resourceGroupName=resource_group_name
+    )
+    storage_account = get_storage_account(config)
+    if storage_account is None:
+        cli_logger.abort("No storage account is found. You need to make sure storage account has been created.")
+    role_assignment_name = str(uuid.uuid3(uuid.UUID(subscription_id), storage_account.id))
+    user_assigned_identity = get_user_assigned_identity(config, resource_group_name)
+    cli_logger.print("Creating workspace role assignment for Storage Blob Data Contributor: {} on Azure...", role_assignment_name)
+
+    # Create role assignment for Storage Blob Data Contributor
+    try:
+        role_assignment = authorization_client.role_assignments.create(
+            scope=scope,
+            role_assignment_name=role_assignment_name,
+            parameters={
+                "role_definition_id": "/providers/Microsoft.Authorization/roleDefinitions/ba92f5b4-2d11-453d-a403-e96b0029c9fe",
+                "principal_id": user_assigned_identity.principal_id,
+                "principalType": "ServicePrincipal"
+            }
+        )
+        time.sleep(20)
+        cli_logger.print("Successfully created workspace role assignment for Storage Blob Data Contributor: {}.".
+                         format(role_assignment_name))
+    except Exception as e:
+        cli_logger.error(
+            "Failed to create workspace role assignment for Storage Blob Data Contributor. {}", str(e))
+        raise e
+
+
+def _create_role_assignment_for_contributor(config, resource_group_name):
     workspace_name = config["workspace_name"]
     authorization_client = construct_authorization_client(config)
     subscription_id = config["provider"].get("subscription_id")
@@ -725,7 +925,7 @@ def _create_role_assignments(config, resource_group_name):
         resourceGroupName=resource_group_name
     )
     role_assignment_name = str(uuid.uuid3(uuid.UUID(subscription_id), workspace_name))
-    user_assigned_identity = get_user_assigned_identities(config, resource_group_name)
+    user_assigned_identity = get_user_assigned_identity(config, resource_group_name)
     cli_logger.print("Creating workspace role assignment: {} on Azure...", role_assignment_name)
 
     # Create role assignment
@@ -746,6 +946,85 @@ def _create_role_assignments(config, resource_group_name):
     except Exception as e:
         cli_logger.error(
             "Failed to create workspace role assignment. {}", str(e))
+        raise e
+
+
+def _create_container_for_storage_account(config, resource_group_name):
+    workspace_name = config["workspace_name"]
+    container_name = "cloudtik-{}-storage-container".format(workspace_name)
+    storage_account = get_storage_account(config)
+    if storage_account is None:
+        cli_logger.abort("No storage account is found. You need to make sure storage account has been created.")
+    account_name = storage_account.name
+    storage_client = construct_storage_client(config)
+
+    cli_logger.print("Creating contianer for storage account: {} on Azure...", account_name)
+    # Create container for storage account
+    try:
+        blob_container = storage_client.blob_containers.create(
+            resource_group_name=resource_group_name,
+            account_name=account_name,
+            container_name=container_name,
+            blob_container= {},
+        )
+        cli_logger.print("Successfully created container for storage account: {}.".
+                         format(account_name))
+    except Exception as e:
+        cli_logger.error(
+            "Failed to create container for storage account. {}", str(e))
+        raise e
+
+
+def _create_storage_account(config, resource_group_name):
+    workspace_name = config["workspace_name"]
+    location = config["provider"]["location"]
+    subscription_id = config["provider"].get("subscription_id")
+    use_internal_ips = is_use_internal_ip(config)
+    resource_client = construct_resource_client(config)
+    resource_group = _get_resource_group(workspace_name, resource_client, use_internal_ips)
+
+    storage_suffix = str(uuid.uuid3(uuid.UUID(subscription_id), resource_group.id))[-12:]
+    account_name = 'storage{}'.format(storage_suffix)
+    storage_client = construct_storage_client(config)
+
+    cli_logger.print("Creating workspace storage account: {} on Azure...", account_name)
+    # Create storage account
+    try:
+        storage_client.storage_accounts.begin_create(
+            resource_group_name=resource_group_name,
+            account_name=account_name,
+            parameters={
+                "sku": {
+                    "name": "Premium_LRS",
+                    "tier": "Premium"
+                },
+                "kind": "BlockBlobStorage",
+                "location": location,
+                "allowBlobPublicAccess": False,
+                "allowSharedKeyAccess": True,
+                "isHnsEnabled": False,
+                "encryption": {
+                    "services": {
+                        "file": {
+                            "enabled": True
+                        },
+                        "blob": {
+                             "enabled": True
+                        }
+                    },
+                    "key_source": "Microsoft.Storage"
+                },
+                "tags": {
+                    "Name": 'cloudtik-{}-storage-account'.format(workspace_name)
+                }
+            }
+        )
+        time.sleep(20)
+        cli_logger.print("Successfully created stroage account: {}.".
+                         format(account_name))
+    except Exception as e:
+        cli_logger.error(
+            "Failed to create storage account. {}", str(e))
         raise e
 
 
@@ -1098,6 +1377,30 @@ def _configure_workspace_resource(config):
     config = _configure_subnet_from_workspace(config)
     config = _configure_network_security_group_from_workspace(config)
     config = _configure_user_assigned_identity_from_workspace(config)
+    config = _configure_cloud_storage_from_workspace(config)
+    return config
+
+
+def _configure_cloud_storage_from_workspace(config):
+    use_workspace_cloud_storage = config.get("provider").get("use_workspace_cloud_storage", False)
+    use_internal_ips = is_use_internal_ip(config)
+    if use_workspace_cloud_storage:
+        resource_client = construct_resource_client(config)
+        resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
+        storage_account = get_storage_account(config)
+        container = get_container_for_storage_account(config, resource_group_name)
+        user_assigned_identity = get_user_assigned_identity(config, resource_group_name)
+        if container is None:
+            cli_logger.abort("No managed azure storage containor was found. If you want to use managed azure storage, "
+                             "you should set workspace_managed_cloud_storage equal to True when you creating workspace.")
+        if "azure_cloud_storage" not in config["provider"]:
+            config["provider"]["azure_cloud_storage"] = {}
+        config["provider"]["azure_cloud_storage"]["azure.storage.type"] = "datalake"
+        config["provider"]["azure_cloud_storage"]["azure.storage.account"] = storage_account.name
+        config["provider"]["azure_cloud_storage"]["azure.container"] = container.name
+        config["provider"]["azure_cloud_storage"]["azure.user.assigned.identity.client.id"] = user_assigned_identity.client_id
+        config["provider"]["azure_cloud_storage"]["azure.user.assigned.identity.tenant.id"] = user_assigned_identity.tenant_id
+
     return config
 
 
@@ -1408,6 +1711,8 @@ def _get_workspace_head_nodes(resource_group_name,
 
 
 def verify_azure_blob_storage(provider_config: Dict[str, Any]):
+    if provider_config.get("use_workspace_cloud_storage", False):
+        return
     azure_cloud_storage = provider_config["azure_cloud_storage"]
     azure_storage_account = azure_cloud_storage["azure.storage.account"]
     azure_account_key = azure_cloud_storage["azure.account.key"]
@@ -1507,6 +1812,19 @@ def _construct_resource_client(provider_config):
     resource_client = ResourceManagementClient(credential, subscription_id)
     logger.debug("Using subscription id: %s", subscription_id)
     return resource_client
+
+
+def construct_storage_client(config):
+    return _construct_storage_client(config["provider"])
+
+
+def _construct_storage_client(provider_config):
+    subscription_id = provider_config.get("subscription_id")
+    if subscription_id is None:
+        subscription_id = get_cli_profile().get_subscription_id()
+    credential = AzureCliCredential()
+    storage_client = StorageManagementClient(credential, subscription_id)
+    return storage_client
 
 
 def construct_network_client(config):

@@ -119,6 +119,7 @@ if setup_spec.type == SetupType.CLOUDTIK:
             "azure-storage-file-datalake==12.6.0",
         ],
         "gcp": [
+            "google-cloud-storage==2.3.0",
             "google-api-python-client==2.48.0",
         ],
         "k8s": [

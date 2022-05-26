@@ -11,6 +11,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.backends import default_backend
 
 from googleapiclient import discovery, errors
+from google.cloud import storage
 from google.oauth2 import service_account
 from google.oauth2.credentials import Credentials as OAuthCredentials
 
@@ -41,7 +42,7 @@ DEFAULT_SERVICE_ACCOUNT_CONFIG = {
 
 # Those roles will be always added.
 DEFAULT_SERVICE_ACCOUNT_ROLES = [
-    "roles/storage.objectAdmin", "roles/compute.admin",
+    "roles/storage.admin", "roles/compute.admin",
     "roles/iam.serviceAccountUser"
 ]
 # Those roles will only be added if there are TPU nodes defined in config.
@@ -214,6 +215,9 @@ def _create_tpu(gcp_credentials=None):
         discoveryServiceUrl="https://tpu.googleapis.com/$discovery/rest")
 
 
+def _create_storage_client(gcp_credentials=None):
+    return storage.Client(credentials=gcp_credentials)
+
 def construct_clients_from_provider_config(provider_config):
     """
     Attempt to fetch and parse the JSON GCP credentials from the provider
@@ -318,9 +322,13 @@ def _configure_workspace(config):
     crm, iam, compute, tpu = \
         construct_clients_from_provider_config(config["provider"])
     workspace_name = config["workspace_name"]
+    workspace_managed_cloud_storage = config["provider"].get("workspace_managed_cloud_storage", False)
 
     current_step = 1
     total_steps = NUM_GCP_WORKSPACE_CREATION_STEPS
+    if workspace_managed_cloud_storage:
+        total_steps += 1
+
     try:
         with cli_logger.group("Creating workspace: {}", workspace_name):
             with cli_logger.group(
@@ -328,7 +336,15 @@ def _configure_workspace(config):
                     _numbered=("[]", current_step, total_steps)):
                 current_step += 1
                 config = _configure_project(config, crm)
-            config = _configure_network_resources(config, current_step, total_steps)
+            current_step = _configure_network_resources(config, current_step, total_steps)
+
+            if workspace_managed_cloud_storage:
+                with cli_logger.group(
+                        "Creating GCS bucket",
+                        _numbered=("[]", current_step, total_steps)):
+                    current_step += 1
+                    config = _configure_workspace_cloud_storage(config)
+
     except Exception as e:
         cli_logger.error("Failed to create workspace. {}", str(e))
         raise e
@@ -818,6 +834,7 @@ def delete_workspace_gcp(config):
 
     workspace_name = config["workspace_name"]
     use_internal_ips = is_use_internal_ip(config)
+    workspace_managed_cloud_storage = config["provider"].get("workspace_managed_cloud_storage", False)
     VpcId = get_gcp_vpcId(config, compute, use_internal_ips)
     if VpcId is None:
         cli_logger.print("Workspace: {} doesn't exist!".format(config["workspace_name"]))
@@ -827,11 +844,19 @@ def delete_workspace_gcp(config):
     total_steps = NUM_GCP_WORKSPACE_DELETION_STEPS
     if not use_internal_ips:
         total_steps += 1
+    if workspace_managed_cloud_storage:
+        total_steps += 1
 
     try:
-
         with cli_logger.group("Deleting workspace: {}", workspace_name):
-            _delete_network_resources(config, compute, current_step, total_steps)
+            if workspace_managed_cloud_storage:
+                with cli_logger.group(
+                        "Deleting GCS bucket",
+                        _numbered=("[]", current_step, total_steps)):
+                    current_step += 1
+                    _delete_workspace_cloud_storage(config, workspace_name)
+            with cli_logger.group("Deleting network resources: {}", workspace_name):
+                _delete_network_resources(config, compute, current_step, total_steps)
 
     except Exception as e:
         cli_logger.error(
@@ -842,6 +867,29 @@ def delete_workspace_gcp(config):
             "Successfully deleted workspace: {}.",
             cf.bold(workspace_name))
     return None
+
+
+def _delete_workspace_cloud_storage(config, workspace_name):
+    use_internal_ips = is_use_internal_ip(config)
+    _, _, compute, _ = construct_clients_from_provider_config(config["provider"])
+    vpcId = get_gcp_vpcId(config, compute, use_internal_ips)
+    bucket_name = "cloudtik-{workspace_name}-bucket-{vpcId}".format(
+        workspace_name=workspace_name.lower(),
+        vpcId=vpcId
+    )
+
+    cli_logger.print("Deleting GCS bucket: {}...".format(bucket_name))
+    bucket = get_workspace_gcs_bucket(config, workspace_name)
+    if bucket is None:
+        cli_logger.warning("No GCS bucket with the name found.")
+        return
+    try:
+        cli_logger.print("Deleting GCS bucket: {} ...".format(bucket.name))
+        bucket.delete(force=True)
+    except Exception as e:
+        cli_logger.error("Failed to delete GCS bucket. {}", str(e))
+        raise e
+    return
 
 
 def _delete_network_resources(config, compute, current_step, total_steps):
@@ -915,6 +963,27 @@ def _create_vpc(config, compute):
     return VpcId
 
 
+def _configure_workspace_cloud_storage(config):
+    workspace_name = config["workspace_name"]
+    use_internal_ips = is_use_internal_ip(config)
+    _,_,compute,_ = construct_clients_from_provider_config(config["provider"])
+    vpcId = get_gcp_vpcId(config, compute, use_internal_ips)
+    bucket_name = "cloudtik-{workspace_name}-bucket-{vpcId}".format(
+        workspace_name=workspace_name.lower(),
+        vpcId=vpcId
+    )
+    region = config["provider"]["region"]
+    storage_client = _create_storage_client()
+    cli_logger.print("Creating GCS bucket for the workspace: {}".format(workspace_name))
+    try:
+        storage_client.create_bucket(bucket_or_name=bucket_name, location=region)
+        cli_logger.print("Successfully created GCS bucket: {}.".format(bucket_name))
+    except Exception as e:
+        cli_logger.error("Failed to create GCS bucket. {}", str(e))
+        raise e
+    return config
+
+
 def _configure_network_resources(config, current_step, total_steps):
     crm, iam, compute, tpu = \
         construct_clients_from_provider_config(config["provider"])
@@ -954,7 +1023,7 @@ def _configure_network_resources(config, current_step, total_steps):
         current_step += 1
         _create_or_update_firewalls(config, compute, VpcId)
 
-    return config
+    return current_step
 
 
 def check_gcp_workspace_resource(config):
@@ -962,6 +1031,7 @@ def check_gcp_workspace_resource(config):
         construct_clients_from_provider_config(config["provider"])
     use_internal_ips = is_use_internal_ip(config)
     workspace_name = config["workspace_name"]
+    workspace_managed_cloud_storage = config["provider"].get("workspace_managed_cloud_storage", False)
 
     """
          Do the work - order of operation
@@ -970,6 +1040,7 @@ def check_gcp_workspace_resource(config):
          3.) Check public subnet
          4.) Check router
          5.) Check firewalls
+         6.) Check GCS bucket
     """
     if get_gcp_vpcId(config, compute, use_internal_ips) is None:
         return False
@@ -981,6 +1052,9 @@ def check_gcp_workspace_resource(config):
         return False
     if not check_workspace_firewalls(config, compute):
         return False
+    if workspace_managed_cloud_storage:
+        if get_workspace_gcs_bucket(config, workspace_name) is None:
+            return False
     return True
 
 
@@ -1126,6 +1200,7 @@ def bootstrap_gcp_from_workspace(config):
 
     config = _fix_disk_info(config)
     config = _configure_iam_role(config, crm, iam)
+    config = _configure_cloud_storage_from_workspace(config)
     config = _configure_key_pair(config, compute)
     config = _configure_subnet_from_workspace(config, compute)
 
@@ -1158,6 +1233,21 @@ def _configure_project(config, crm):
             project["lifecycleState"]))
 
     config["provider"]["project_id"] = project["projectId"]
+
+    return config
+
+
+def _configure_cloud_storage_from_workspace(config):
+    use_workspace_cloud_storage = config.get("provider").get("use_workspace_cloud_storage", False)
+    workspace_name = config["workspace_name"]
+    if use_workspace_cloud_storage:
+        gcs_bucket = get_workspace_gcs_bucket(config, workspace_name)
+        if gcs_bucket is None:
+            cli_logger.abort("No managed s3 bucket was found. If you want to use managed s3 bucket, "
+                             "you should set workspace_managed_cloud_storage equal to True when you creating workspace.")
+        if "gcp_cloud_storage" not in config["provider"]:
+            config["provider"]["gcp_cloud_storage"] = {}
+        config["provider"]["gcp_cloud_storage"]["gcs.bucket"] = gcs_bucket.name
 
     return config
 
@@ -1197,14 +1287,21 @@ def _configure_iam_role(config, crm, iam):
 
     _add_iam_policy_binding(service_account, roles, crm)
 
-    config["head_node"]["serviceAccounts"] = [{
-        "email": service_account["email"],
-        # NOTE: The amount of access is determined by the scope + IAM
-        # role of the service account. Even if the cloud-platform scope
-        # gives (scope) access to the whole cloud-platform, the service
-        # account is limited by the IAM rights specified below.
-        "scopes": ["https://www.googleapis.com/auth/cloud-platform"]
-    }]
+    use_workspace_cloud_storage = config.get("provider").get("use_workspace_cloud_storage", False)
+    serviceAccounts =  [{
+            "email": service_account["email"],
+            # NOTE: The amount of access is determined by the scope + IAM
+            # role of the service account. Even if the cloud-platform scope
+            # gives (scope) access to the whole cloud-platform, the service
+            # account is limited by the IAM rights specified below.
+            "scopes": ["https://www.googleapis.com/auth/cloud-platform"]
+        }]
+    if use_workspace_cloud_storage:
+        for key, node_type in config["available_node_types"].items():
+            node_config = node_type["node_config"]
+            node_config["serviceAccounts"] = serviceAccounts
+    else:
+        config["head_node"]["serviceAccounts"] = serviceAccounts
 
     return config
 
@@ -1457,6 +1554,23 @@ def _get_project(project_id, crm):
     return project
 
 
+def get_workspace_gcs_bucket(config, workspace_name):
+    use_internal_ips = is_use_internal_ip(config)
+    _, _, compute, _ = construct_clients_from_provider_config(config["provider"])
+    vpcId = get_gcp_vpcId(config, compute, use_internal_ips)
+    bucket_name = "cloudtik-{workspace_name}-bucket-{vpcId}".format(
+        workspace_name=workspace_name.lower(),
+        vpcId=vpcId
+    )
+    gcs = _create_storage_client()
+    try:
+        bucket = gcs.get_bucket(bucket_name)
+        return bucket
+    except Exception as e:
+        cli_logger.error("The workspace not contains bucket. {}".format(e))
+        return None
+
+
 def _create_project(project_id, crm):
     operation = crm.projects().create(body={
         "projectId": project_id,
@@ -1575,22 +1689,25 @@ def verify_gcs_storage(provider_config: Dict[str, Any]):
     gcs_storage = provider_config.get("gcp_cloud_storage")
     if gcs_storage is None:
         return
-
-    private_key = gcs_storage["gcs.service.account.private.key"]
+    use_workspace_cloud_storage = provider_config.get("use_workspace_cloud_storage", False)
+    private_key = gcs_storage.get("gcs.service.account.private.key")
     private_key = unescape_private_key(private_key)
 
     credentials_field = {
         "project_id": provider_config.get("project_id"),
-        "private_key_id": gcs_storage["gcs.service.account.private.key.id"],
+        "private_key_id": gcs_storage.get("gcs.service.account.private.key.id"),
         "private_key": private_key,
-        "client_email": gcs_storage["gcs.service.account.client.email"],
+        "client_email": gcs_storage.get("gcs.service.account.client.email"),
         "token_uri": "https://oauth2.googleapis.com/token"
     }
 
     try:
-        credentials = service_account.Credentials.from_service_account_info(
-            credentials_field)
-        storage = _create_storage(credentials)
+        if use_workspace_cloud_storage:
+            storage = _create_storage()
+        else:
+            credentials = service_account.Credentials.from_service_account_info(
+                credentials_field)
+            storage = _create_storage(credentials)
         storage.buckets().get(bucket=gcs_storage["gcs.bucket"]).execute()
     except Exception as e:
         raise StorageTestingError("Error happens when verifying GCS storage configurations. "

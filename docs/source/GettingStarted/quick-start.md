@@ -150,7 +150,7 @@ The name of bucket will be used when configuring GCP cluster yaml.
 You will also need the previously downloaded Json file's `project_id`, `client_email`, `private_key_id` and 
 `gcs.service.account.private.key` for the next step when configuring a GCP cluster yaml, which grants the access to the created GCP bucket.
 
-### 6. Starting a cluster
+### 6. Starting a cluster with default runtimes
 
 Now you can start a cluster:
 
@@ -161,6 +161,8 @@ cloudtik start /path/to/your-cluster-config.yaml
 A typical cluster configuration file is usually very simple thanks to design of CloudTik's templates with inheritance.
 
 Here we take AWS as an example. This example can be found from CloudTik's `example/cluster/aws/example-standard.yaml`.
+It will start a cluster named "example-docker" in workspace "example-workspace" with minimal of 3 worker nodes running
+Ganglia and Spark runtime services by default.
 
 ```
 # An example of standard 1 + 3 nodes cluster with standard instance type

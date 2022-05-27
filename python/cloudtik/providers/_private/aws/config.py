@@ -1459,7 +1459,7 @@ def _configure_workspace(config):
 def _configure_workspace_instance_profile(config, workspace_name):
     head_instance_profile_name = _get_workspace_head_instance_profile_name(workspace_name)
     head_instance_role_name = "cloudtik-{}-head-role".format(workspace_name)
-    cli_logger.print("Creating head instance profile: {} ...".format(head_instance_role_name))
+    cli_logger.print("Creating head instance profile: {} ...".format(head_instance_profile_name))
     _create_or_update_instance_profile(config, head_instance_profile_name,
                                        head_instance_role_name)
 
@@ -1845,7 +1845,7 @@ def _update_security_group(config, vpc_id):
     security_group = get_workspace_security_group(config, vpc_id,
                                                   SECURITY_GROUP_TEMPLATE.format(config["workspace_name"]))
     _add_security_group_rules(config, security_group)
-
+    cli_logger.print("Successfully updated security group.")
     return security_group
 
 

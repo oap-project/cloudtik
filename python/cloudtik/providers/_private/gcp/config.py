@@ -775,13 +775,13 @@ def _delete_firewalls(config, compute):
         for firewall in compute.firewalls().list(project=project_id).execute().get("items")
             if "cloudtik-{}".format(workspace_name) in firewall.get("name")]
 
-    cli_logger.print("Deleting all the firewalls...")
+    cli_logger.print("Deleting the firewalls...")
     for cloudtik_firewall in cloudtik_firewalls:
         delete_firewall(compute, project_id, cloudtik_firewall)
 
-    # Wait for all the firewalls have been deleted.
+    # Wait for the firewalls have been deleted.
     time.sleep(20)
-    cli_logger.print("Successfully deleted all the firewalls.")
+    cli_logger.print("Successfully deleted the firewalls.")
 
 
 def get_gcp_vpcId(config, compute, use_internal_ips):

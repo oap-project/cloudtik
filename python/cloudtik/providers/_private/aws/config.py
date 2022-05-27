@@ -1476,6 +1476,13 @@ def _configure_workspace_instance_profile(config, workspace_name):
 
 
 def _configure_workspace_cloud_storage(config, workspace_name):
+    # If the managed cloud storage for the workspace already exists
+    # Skip the creation step
+    bucket = get_workspace_s3_bucket(config, workspace_name)
+    if bucket is not None:
+        cli_logger.print("S3 bucket for the workspace already exists. Skip creation.")
+        return
+
     s3 = _resource("s3", config)
     region = config["provider"]["region"]
     suffix = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(8))

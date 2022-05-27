@@ -274,12 +274,14 @@ class GCPNodeProvider(NodeProvider):
         if "gcp_cloud_storage" in provider_config:
             storage_config = provider_config["gcp_cloud_storage"]
             config_dict = {"gcs.bucket": storage_config.get("gcs.bucket"),
-                           "gcs.service.account.client.email": storage_config.get(
-                               "gcs.service.account.client.email"),
-                           "gcs.service.account.private.key.id": storage_config.get(
-                               "gcs.service.account.private.key.id"),
-                           "gcs.service.account.private.key": storage_config.get(
-                               "gcs.service.account.private.key")}
+                           # The private key is no longer a must since we have role access
+                           # "gcs.service.account.client.email": storage_config.get(
+                           #    "gcs.service.account.client.email"),
+                           # "gcs.service.account.private.key.id": storage_config.get(
+                           #    "gcs.service.account.private.key.id"),
+                           # "gcs.service.account.private.key": storage_config.get(
+                           #    "gcs.service.account.private.key")
+                           }
 
             validate_config_dict(provider_config["type"], config_dict)
 

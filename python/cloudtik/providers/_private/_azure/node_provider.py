@@ -392,7 +392,9 @@ class AzureNodeProvider(NodeProvider):
                 "azure.storage.type": cloud_storage.get("azure.storage.type"),
                 "azure.storage.account": cloud_storage.get("azure.storage.account"),
                 "azure.container": cloud_storage.get("azure.container"),
-                "azure.account.key": cloud_storage.get("azure.account.key")}
+                # The account key is no longer a must since we have role access
+                # "azure.account.key": cloud_storage.get("azure.account.key")
+            }
 
             validate_config_dict(provider_config["type"], config_dict)
 

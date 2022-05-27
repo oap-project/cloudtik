@@ -625,8 +625,9 @@ class AWSNodeProvider(NodeProvider):
             storage_config = provider_config["aws_s3_storage"]
             config_dict = {
                 "s3.bucket": storage_config.get("s3.bucket"),
-                "s3.access.key.id": storage_config.get("s3.access.key.id"),
-                "s3.secret.access.key": storage_config.get("s3.secret.access.key")
+                # The access key is no longer a must since we have role access
+                # "s3.access.key.id": storage_config.get("s3.access.key.id"),
+                # "s3.secret.access.key": storage_config.get("s3.secret.access.key")
             }
 
             validate_config_dict(provider_config["type"], config_dict)

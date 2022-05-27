@@ -258,6 +258,11 @@
                     "type": "boolean",
                     "description": "Whether to use managed cloud storage of workspace.",
                     "default": true
+                },
+                "worker_role_for_cloud_storage": {
+                    "type": "boolean",
+                    "description": "Whether to assign worker with the role to access cloud storage.",
+                    "default": true
                 }
             }
         },

@@ -12,7 +12,7 @@ from typing import Any, Callable, Dict, Optional
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, CLOUDTIK_TAG_CLUSTER_NAME
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.utils import check_cidr_conflict, is_use_internal_ip, _is_use_internal_ip, \
-    is_managed_cloud_storage
+    is_managed_cloud_storage, is_use_managed_cloud_storage, _is_use_managed_cloud_storage
 from cloudtik.providers._private._azure.azure_identity_credential_adapter import AzureIdentityCredentialAdapter
 
 from azure.common.credentials import get_cli_profile
@@ -1395,7 +1395,7 @@ def _configure_workspace_resource(config):
 
 
 def _configure_cloud_storage_from_workspace(config):
-    use_managed_cloud_storage = use_managed_cloud_storage(config)
+    use_managed_cloud_storage = is_use_managed_cloud_storage(config)
     use_internal_ips = is_use_internal_ip(config)
     if use_managed_cloud_storage:
         resource_client = construct_resource_client(config)
@@ -1762,8 +1762,11 @@ def verify_azure_datalake_storage(provider_config: Dict[str, Any]):
 
 
 def verify_azure_cloud_storage(provider_config: Dict[str, Any]):
-    if provider_config.get("use_managed_cloud_storage", False):
+    # TO IMPROVE: if we use managed cloud storage or storage with role access
+    # we verify only the existence of container
+    if _is_use_managed_cloud_storage(provider_config):
         return
+
     azure_cloud_storage = provider_config.get("azure_cloud_storage")
     if azure_cloud_storage is None:
         return

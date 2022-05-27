@@ -302,11 +302,11 @@ def get_container_for_storage_account(config, resource_group_name):
     workspace_name = config["workspace_name"]
     container_name = "cloudtik-{}-storage-container".format(workspace_name)
     storage_client = construct_storage_client(config)
-    strorage_account = get_storage_account(config)
-    if strorage_account is None:
+    storage_account = get_storage_account(config)
+    if storage_account is None:
         return None
     containers = list(storage_client.blob_containers.list(
-        resource_group_name=resource_group_name, account_name=strorage_account.name))
+        resource_group_name=resource_group_name, account_name=storage_account.name))
     workspace_containers = [container for container in containers
                                   if container.name == container_name]
     return None if len(workspace_containers) == 0 else workspace_containers[0]
@@ -315,12 +315,12 @@ def get_container_for_storage_account(config, resource_group_name):
 def get_storage_account(config):
     workspace_name = config["workspace_name"]
     storage_client = construct_storage_client(config)
-    strorage_account_name = "cloudtik-{}-storage-account".format(workspace_name)
+    storage_account_name = "cloudtik-{}-storage-account".format(workspace_name)
     storage_accounts = list(storage_client.storage_accounts.list())
 
     workspace_storage_accounts = [storage_account for storage_account in storage_accounts
                                  for key, value in storage_account.tags.items()
-                                 if key == "Name" and value == strorage_account_name]
+                                 if key == "Name" and value == storage_account_name]
     return None if len(workspace_storage_accounts) == 0 else workspace_storage_accounts[0]
 
 
@@ -960,16 +960,22 @@ def _create_container_for_storage_account(config, resource_group_name):
     if storage_account is None:
         cli_logger.abort("No storage account is found. You need to make sure storage account has been created.")
     account_name = storage_account.name
+
+    container = get_container_for_storage_account(config, resource_group_name)
+    if container is not None:
+        cli_logger.print("Storage container for the workspace already exists. Skip creation.")
+        return
+
     storage_client = construct_storage_client(config)
 
-    cli_logger.print("Creating contianer for storage account: {} on Azure...", account_name)
+    cli_logger.print("Creating container for storage account: {} on Azure...", account_name)
     # Create container for storage account
     try:
         blob_container = storage_client.blob_containers.create(
             resource_group_name=resource_group_name,
             account_name=account_name,
             container_name=container_name,
-            blob_container= {},
+            blob_container={},
         )
         cli_logger.print("Successfully created container for storage account: {}.".
                          format(account_name))
@@ -980,6 +986,11 @@ def _create_container_for_storage_account(config, resource_group_name):
 
 
 def _create_storage_account(config, resource_group_name):
+    storage_account = get_storage_account(config)
+    if storage_account is not None:
+        cli_logger.print("Storage account for the workspace already exists. Skip creation.")
+        return
+
     workspace_name = config["workspace_name"]
     location = config["provider"]["location"]
     subscription_id = config["provider"].get("subscription_id")
@@ -1395,7 +1406,7 @@ def _configure_cloud_storage_from_workspace(config):
         container = get_container_for_storage_account(config, resource_group_name)
         user_assigned_identity = get_user_assigned_identity(config, resource_group_name)
         if container is None:
-            cli_logger.abort("No managed azure storage containor was found. If you want to use managed azure storage, "
+            cli_logger.abort("No managed azure storage container was found. If you want to use managed azure storage, "
                              "you should set managed_cloud_storage equal to True when you creating workspace.")
         if "azure_cloud_storage" not in config["provider"]:
             config["provider"]["azure_cloud_storage"] = {}

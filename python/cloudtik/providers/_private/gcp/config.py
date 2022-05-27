@@ -3,6 +3,8 @@ from functools import partial
 import json
 import os
 import logging
+import random
+import string
 import time
 from typing import Any, Dict, Optional
 
@@ -967,15 +969,15 @@ def _create_vpc(config, compute):
 
 def _configure_workspace_cloud_storage(config):
     workspace_name = config["workspace_name"]
-    use_internal_ips = is_use_internal_ip(config)
-    _,_,compute,_ = construct_clients_from_provider_config(config["provider"])
-    vpcId = get_gcp_vpcId(config, compute, use_internal_ips)
-    bucket_name = "cloudtik-{workspace_name}-bucket-{vpcId}".format(
-        workspace_name=workspace_name.lower(),
-        vpcId=vpcId
-    )
     region = config["provider"]["region"]
     storage_client = _create_storage_client()
+    suffix = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(8))
+    bucket_name = "cloudtik-{workspace_name}-bucket-{region}-{suffix}".format(
+        workspace_name=workspace_name.lower(),
+        region=region,
+        suffix=suffix
+    )
+
     cli_logger.print("Creating GCS bucket for the workspace: {}".format(workspace_name))
     try:
         storage_client.create_bucket(bucket_or_name=bucket_name, location=region)
@@ -1245,7 +1247,7 @@ def _configure_cloud_storage_from_workspace(config):
     if use_managed_cloud_storage:
         gcs_bucket = get_workspace_gcs_bucket(config, workspace_name)
         if gcs_bucket is None:
-            cli_logger.abort("No managed s3 bucket was found. If you want to use managed s3 bucket, "
+            cli_logger.abort("No managed gcs bucket was found. If you want to use managed gcs bucket, "
                              "you should set managed_cloud_storage equal to True when you creating workspace.")
         if "gcp_cloud_storage" not in config["provider"]:
             config["provider"]["gcp_cloud_storage"] = {}
@@ -1557,20 +1559,20 @@ def _get_project(project_id, crm):
 
 
 def get_workspace_gcs_bucket(config, workspace_name):
-    use_internal_ips = is_use_internal_ip(config)
-    _, _, compute, _ = construct_clients_from_provider_config(config["provider"])
-    vpcId = get_gcp_vpcId(config, compute, use_internal_ips)
-    bucket_name = "cloudtik-{workspace_name}-bucket-{vpcId}".format(
-        workspace_name=workspace_name.lower(),
-        vpcId=vpcId
-    )
     gcs = _create_storage_client()
-    try:
-        bucket = gcs.get_bucket(bucket_name)
-        return bucket
-    except Exception as e:
-        cli_logger.error("The workspace not contains bucket. {}".format(e))
-        return None
+    region = config["provider"]["region"]
+    project_id = config["provider"]["project_id"]
+    bucket_name_prefix = "cloudtik-{workspace_name}-bucket-{region}-".format(
+        workspace_name=workspace_name.lower(),
+        region=region
+    )
+    for bucket in gcs.list_buckets(project=project_id):
+        if bucket_name_prefix in bucket.name:
+            cli_logger.verbose("Successfully get the gcs bucket: {}.".format(bucket.name))
+            return bucket
+
+    cli_logger.verbose("Failed to get the gcs bucket for workspace.")
+    return None
 
 
 def _create_project(project_id, crm):

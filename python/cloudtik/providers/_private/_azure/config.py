@@ -724,13 +724,11 @@ def _create_resource_group(config, resource_client):
     else:
 
         # Need to create a new resource_group
-        if get_workspace_resource_group_name(workspace_name, resource_client) is None:
+        resource_group_name = get_workspace_resource_group_name(workspace_name, resource_client)
+        if resource_group_name is None:
             resource_group = create_resource_group(config, resource_client)
             resource_group_name = resource_group.name
-        else:
-            cli_logger.abort("There is a existing resource group with the same name: {}, "
-                             "if you want to create a new workspace with the same name, "
-                             "you need to execute workspace delete first!".format(workspace_name))
+
     return resource_group_name
 
 
@@ -1717,8 +1715,6 @@ def _get_workspace_head_nodes(resource_group_name,
 
 
 def verify_azure_blob_storage(provider_config: Dict[str, Any]):
-    if provider_config.get("use_managed_cloud_storage", False):
-        return
     azure_cloud_storage = provider_config["azure_cloud_storage"]
     azure_storage_account = azure_cloud_storage["azure.storage.account"]
     azure_account_key = azure_cloud_storage["azure.account.key"]
@@ -1757,6 +1753,8 @@ def verify_azure_datalake_storage(provider_config: Dict[str, Any]):
 
 
 def verify_azure_cloud_storage(provider_config: Dict[str, Any]):
+    if provider_config.get("use_managed_cloud_storage", False):
+        return
     azure_cloud_storage = provider_config.get("azure_cloud_storage")
     if azure_cloud_storage is None:
         return

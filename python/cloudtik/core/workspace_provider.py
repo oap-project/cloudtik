@@ -25,7 +25,8 @@ class WorkspaceProvider:
     def create_workspace(self, config: Dict[str, Any]):
         pass
 
-    def delete_workspace(self, config: Dict[str, Any]):
+    def delete_workspace(self, config: Dict[str, Any],
+                         delete_managed_storage: bool = False):
         pass
 
     def update_workspace_firewalls(self, config: Dict[str, Any]):

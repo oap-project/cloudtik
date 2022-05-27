@@ -19,8 +19,9 @@ class GCPWorkspaceProvider(WorkspaceProvider):
     def create_workspace(self, config):
         create_gcp_workspace(config)
 
-    def delete_workspace(self, config):
-        delete_workspace_gcp(config)
+    def delete_workspace(self, config,
+                         delete_managed_storage: bool = False):
+        delete_workspace_gcp(config, delete_managed_storage)
     
     def update_workspace_firewalls(self, config):
         update_gcp_workspace_firewalls(config)

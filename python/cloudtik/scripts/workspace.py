@@ -73,10 +73,15 @@ def create(workspace_config_file, yes, workspace_name, no_config_cache):
     required=False,
     type=str,
     help="Override the configured workspace name.")
+@click.option(
+    "--delete-managed-storage/--no-delete-managed-storage",
+    is_flag=True,
+    default=False,
+    help="Whether to delete the managed cloud storage")
 @add_click_logging_options
-def delete(workspace_config_file, yes, workspace_name):
+def delete(workspace_config_file, yes, workspace_name, delete_managed_storage):
     """Delete a workspace and the associated cloud resources."""
-    delete_workspace(workspace_config_file, yes, workspace_name)
+    delete_workspace(workspace_config_file, yes, workspace_name, delete_managed_storage)
 
 
 @workspace.command()

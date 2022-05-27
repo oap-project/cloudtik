@@ -721,13 +721,11 @@ def _create_resource_group(config, resource_client):
     else:
 
         # Need to create a new resource_group
-        if get_workspace_resource_group_name(workspace_name, resource_client) is None:
+        resource_group_name = get_workspace_resource_group_name(workspace_name, resource_client)
+        if resource_group_name is None:
             resource_group = create_resource_group(config, resource_client)
             resource_group_name = resource_group.name
-        else:
-            cli_logger.abort("There is a existing resource group with the same name: {}, "
-                             "if you want to create a new workspace with the same name, "
-                             "you need to execute workspace delete first!".format(workspace_name))
+
     return resource_group_name
 
 

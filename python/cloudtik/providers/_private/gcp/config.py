@@ -874,19 +874,12 @@ def delete_workspace_gcp(config, delete_managed_storage: bool = False):
 
 
 def _delete_workspace_cloud_storage(config, workspace_name):
-    use_internal_ips = is_use_internal_ip(config)
-    _, _, compute, _ = construct_clients_from_provider_config(config["provider"])
-    vpcId = get_gcp_vpcId(config, compute, use_internal_ips)
-    bucket_name = "cloudtik-{workspace_name}-bucket-{vpcId}".format(
-        workspace_name=workspace_name.lower(),
-        vpcId=vpcId
-    )
-
-    cli_logger.print("Deleting GCS bucket: {} ...".format(bucket_name))
     bucket = get_workspace_gcs_bucket(config, workspace_name)
     if bucket is None:
         cli_logger.warning("No GCS bucket with the name found.")
         return
+
+    cli_logger.print("Deleting GCS bucket: {} ...".format(bucket.name))
     try:
         cli_logger.print("Deleting GCS bucket: {} ...".format(bucket.name))
         bucket.delete(force=True)
@@ -972,7 +965,7 @@ def _configure_workspace_cloud_storage(config):
     region = config["provider"]["region"]
     storage_client = _create_storage_client()
     suffix = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(8))
-    bucket_name = "cloudtik-{workspace_name}-bucket-{region}-{suffix}".format(
+    bucket_name = "cloudtik-{workspace_name}-{region}-{suffix}".format(
         workspace_name=workspace_name.lower(),
         region=region,
         suffix=suffix
@@ -1562,7 +1555,7 @@ def get_workspace_gcs_bucket(config, workspace_name):
     gcs = _create_storage_client()
     region = config["provider"]["region"]
     project_id = config["provider"]["project_id"]
-    bucket_name_prefix = "cloudtik-{workspace_name}-bucket-{region}-".format(
+    bucket_name_prefix = "cloudtik-{workspace_name}-{region}-".format(
         workspace_name=workspace_name.lower(),
         region=region
     )

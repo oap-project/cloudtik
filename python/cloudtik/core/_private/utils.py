@@ -2796,3 +2796,11 @@ def save_properties_file(properties_file,  properties: Dict[str, str], separator
                     f.write("#{}\n".format(comment))
 
             f.write("{}{}{}\n".format(key, separator, value))
+
+
+def is_managed_cloud_storage(workspace_config: Dict[str, Any]) -> bool:
+    return workspace_config["provider"].get("managed_cloud_storage", False)
+
+
+def use_managed_cloud_storage(config: Dict[str, Any]) -> bool:
+    return config.get("provider").get("use_managed_cloud_storage", False)

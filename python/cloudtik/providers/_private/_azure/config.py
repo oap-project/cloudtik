@@ -11,7 +11,8 @@ from typing import Any, Callable, Dict, Optional
 
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, CLOUDTIK_TAG_CLUSTER_NAME
 from cloudtik.core._private.cli_logger import cli_logger, cf
-from cloudtik.core._private.utils import check_cidr_conflict, is_use_internal_ip, _is_use_internal_ip
+from cloudtik.core._private.utils import check_cidr_conflict, is_use_internal_ip, _is_use_internal_ip, \
+    is_managed_cloud_storage
 from cloudtik.providers._private._azure.azure_identity_credential_adapter import AzureIdentityCredentialAdapter
 
 from azure.common.credentials import get_cli_profile
@@ -62,7 +63,7 @@ def get_azure_sdk_function(client: Any, function_name: str) -> Callable:
 def check_azure_workspace_resource(config):
     use_internal_ips = is_use_internal_ip(config)
     workspace_name = config["workspace_name"]
-    managed_cloud_storage = config["provider"].get("managed_cloud_storage", False)
+    managed_cloud_storage = is_managed_cloud_storage(config)
     network_client = construct_network_client(config)
     resource_client = construct_resource_client(config)
 
@@ -170,7 +171,7 @@ def delete_workspace_azure(config, delete_managed_storage: bool = False):
     resource_client = construct_resource_client(config)
     workspace_name = config["workspace_name"]
     use_internal_ips = is_use_internal_ip(config)
-    managed_cloud_storage = config["provider"].get("managed_cloud_storage", False)
+    managed_cloud_storage = is_managed_cloud_storage(config)
     resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
 
     if resource_group_name is None:
@@ -642,7 +643,7 @@ def create_azure_workspace(config):
 
 def _configure_workspace(config):
     workspace_name = config["workspace_name"]
-    managed_cloud_storage = config["provider"].get("managed_cloud_storage", False)
+    managed_cloud_storage = is_managed_cloud_storage(config)
 
     current_step = 1
     total_steps = NUM_AZURE_WORKSPACE_CREATION_STEPS
@@ -1394,7 +1395,7 @@ def _configure_workspace_resource(config):
 
 
 def _configure_cloud_storage_from_workspace(config):
-    use_managed_cloud_storage = config.get("provider").get("use_managed_cloud_storage", False)
+    use_managed_cloud_storage = use_managed_cloud_storage(config)
     use_internal_ips = is_use_internal_ip(config)
     if use_managed_cloud_storage:
         resource_client = construct_resource_client(config)

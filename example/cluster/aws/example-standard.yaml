@@ -11,11 +11,6 @@ workspace_name: exmaple-workspace
 provider:
     type: aws
     region: us-west-2
-    # S3 configurations for storage
-    aws_s3_storage:
-        s3.bucket: your_s3_bucket
-        s3.access.key.id: your_s3_access_key_id
-        s3.secret.access.key: your_s3_secret_access_key
 
 auth:
     ssh_user: ubuntu

@@ -2,14 +2,10 @@
 from: gcp/standard
 
 # A unique identifier for the cluster.
-cluster_name: example-docker
+cluster_name: example-gcs
 
 # Workspace into which to launch the cluster
 workspace_name: exmaple-workspace
-
-# Enable container
-docker:
-    enabled: True
 
 # Cloud-provider specific configuration.
 provider:
@@ -17,9 +13,11 @@ provider:
     region: us-central1
     availability_zone: us-central1-a
     project_id: your_project_id
+    use_managed_cloud_storage: False
     # GCS configurations for storage
     gcp_cloud_storage:
         gcs.bucket: your_gcs_bucket
+        # Optional email, key ID and private key
         gcs.service.account.client.email: your_service_account_client_email
         gcs.service.account.private.key.id: your_service_account_private_key_id
         gcs.service.account.private.key: your_service_account_private_key

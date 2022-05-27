@@ -11,7 +11,7 @@ upscaling_speed: 1.0
 # and opens all the necessary ports to support the cluster.
 # Turn on or off container by set enabled to True or False.
 docker:
-    enabled: False
+    enabled: True
     image: "cloudtik/spark-runtime:latest"
     container_name: "cloudtik-spark"
     disable_shm_size_detection: True

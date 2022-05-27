@@ -2,25 +2,23 @@
 from: azure/standard
 
 # A unique identifier for the head node and workers of this cluster.
-cluster_name: example-docker
+cluster_name: example-datalake
 
 # Workspace into which to launch the cluster
 workspace_name: exmaple-workspace
-
-# Enable container
-docker:
-    enabled: True
 
 # Cloud-provider specific configuration.
 provider:
     type: azure
     location: westus
     subscription_id: your_subscription_id
+    use_managed_cloud_storage: False
     azure_cloud_storage:
         # Choose cloud storage kind: blob (Azure Blob Storage) or datalake (Azure Data Lake Storage Gen 2).
         azure.storage.type: datalake
         azure.storage.account: your_storage_account
         azure.container: your_container
+        # Optional account key
         azure.account.key: your_account_key
 
 # How CloudTik will authenticate with newly launched nodes.

@@ -36,8 +36,8 @@ AZURE_NSG_NAME = AZURE_RESOURCE_NAME_PREFIX + "-nsg"
 AZURE_SUBNET_NAME = AZURE_RESOURCE_NAME_PREFIX + "-subnet"
 AZURE_VNET_NAME = AZURE_RESOURCE_NAME_PREFIX + "-vnet"
 
-NUM_AZURE_WORKSPACE_CREATION_STEPS = 9
-NUM_AZURE_WORKSPACE_DELETION_STEPS = 7
+NUM_AZURE_WORKSPACE_CREATION_STEPS = 10
+NUM_AZURE_WORKSPACE_DELETION_STEPS = 8
 
 logger = logging.getLogger(__name__)
 
@@ -181,10 +181,8 @@ def delete_workspace_azure(config, delete_managed_storage: bool = False):
     total_steps = NUM_AZURE_WORKSPACE_DELETION_STEPS
     if not use_internal_ips:
         total_steps += 2
-    if managed_cloud_storage:
+    if managed_cloud_storage and delete_managed_storage:
         total_steps += 1
-        if delete_managed_storage:
-            total_steps += 1
 
     try:
         # delete network resources
@@ -198,19 +196,18 @@ def delete_workspace_azure(config, delete_managed_storage: bool = False):
                 current_step += 1
                 _delete_role_assignment_for_contributor(config, resource_group_name)
 
-            if managed_cloud_storage:
-                if delete_managed_storage:
-                    with cli_logger.group(
-                            "Deleting Azure storage account",
-                            _numbered=("[]", current_step, total_steps)):
-                        current_step += 1
-                        _delete_workspace_cloud_storage(config, resource_group_name)
-
+            if managed_cloud_storage and delete_managed_storage:
                 with cli_logger.group(
-                        "Deleting role assignment for Storage Blob Data Contributor",
+                        "Deleting Azure storage account",
                         _numbered=("[]", current_step, total_steps)):
                     current_step += 1
-                    _delete_role_assignment_for_storage_blob_data_contributor(config, resource_group_name)
+                    _delete_workspace_cloud_storage(config, resource_group_name)
+
+            with cli_logger.group(
+                    "Deleting role assignment for Storage Blob Data Contributor",
+                    _numbered=("[]", current_step, total_steps)):
+                current_step += 1
+                _delete_role_assignment_for_storage_blob_data_contributor(config, resource_group_name)
 
             # delete user_assigned_identities
             with cli_logger.group(
@@ -650,7 +647,7 @@ def _configure_workspace(config):
     current_step = 1
     total_steps = NUM_AZURE_WORKSPACE_CREATION_STEPS
     if managed_cloud_storage:
-        total_steps += 3
+        total_steps += 2
 
     resource_client = construct_resource_client(config)
 
@@ -693,12 +690,12 @@ def _configure_workspace(config):
                     current_step += 1
                     _create_container_for_storage_account(config, resource_group_name)
 
-                # create role_assignment for Storage Blob Data Contributor
-                with cli_logger.group(
-                        "Creating role assignment for Storage Blob Data Contributor",
-                        _numbered=("[]", current_step, total_steps)):
-                    current_step += 1
-                    _create_role_assignment_for_storage_blob_data_contributor(config, resource_group_name)
+            # create role_assignment for Storage Blob Data Contributor
+            with cli_logger.group(
+                    "Creating role assignment for Storage Blob Data Contributor",
+                    _numbered=("[]", current_step, total_steps)):
+                current_step += 1
+                _create_role_assignment_for_storage_blob_data_contributor(config, resource_group_name)
 
     except Exception as e:
         cli_logger.error("Failed to create workspace. {}", str(e))

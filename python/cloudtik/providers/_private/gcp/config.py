@@ -962,6 +962,14 @@ def _create_vpc(config, compute):
 
 def _configure_workspace_cloud_storage(config):
     workspace_name = config["workspace_name"]
+
+    # If the managed cloud storage for the workspace already exists
+    # Skip the creation step
+    bucket = get_workspace_gcs_bucket(config, workspace_name)
+    if bucket is not None:
+        cli_logger.print("GCS bucket for the workspace already exists. Skip creation.")
+        return
+
     region = config["provider"]["region"]
     storage_client = _create_storage_client()
     suffix = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(8))
@@ -1240,7 +1248,7 @@ def _configure_cloud_storage_from_workspace(config):
     if use_managed_cloud_storage:
         gcs_bucket = get_workspace_gcs_bucket(config, workspace_name)
         if gcs_bucket is None:
-            cli_logger.abort("No managed gcs bucket was found. If you want to use managed gcs bucket, "
+            cli_logger.abort("No managed GCS bucket was found. If you want to use managed GCS bucket, "
                              "you should set managed_cloud_storage equal to True when you creating workspace.")
         if "gcp_cloud_storage" not in config["provider"]:
             config["provider"]["gcp_cloud_storage"] = {}
@@ -1561,10 +1569,10 @@ def get_workspace_gcs_bucket(config, workspace_name):
     )
     for bucket in gcs.list_buckets(project=project_id):
         if bucket_name_prefix in bucket.name:
-            cli_logger.verbose("Successfully get the gcs bucket: {}.".format(bucket.name))
+            cli_logger.verbose("Successfully get the GCS bucket: {}.".format(bucket.name))
             return bucket
 
-    cli_logger.verbose("Failed to get the gcs bucket for workspace.")
+    cli_logger.verbose("Failed to get the GCS bucket for workspace.")
     return None
 
 

@@ -1181,7 +1181,7 @@ def _delete_vpc_endpoint_for_s3(ec2_client, workspace_name):
     return
 
 
-def _create_vpc(config,  ec2):
+def _create_vpc(config, ec2):
     cli_logger.print("Creating workspace VPC...")
     # create vpc
     try:
@@ -1198,7 +1198,7 @@ def _create_vpc(config,  ec2):
                     ]
                 },
             ]
-         )
+        )
         vpc.modify_attribute(EnableDnsSupport={'Value': True})
         vpc.modify_attribute(EnableDnsHostnames={'Value': True})
         cli_logger.print("Successfully created workspace VPC: cloudtik-{}-vpc.".format(config["workspace_name"]))
@@ -1555,13 +1555,11 @@ def _configure_network_resources(config, ec2, ec2_client,
         current_step += 1
         vpc_endpoint = _create_vpc_endpoint_for_s3(config, ec2, ec2_client, vpc)
 
-
     with cli_logger.group(
             "Creating security group",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
         _upsert_security_group(config, vpc.id)
-
 
     return current_step
 
@@ -1925,23 +1923,38 @@ def _get_security_groups(config, vpc_ids, group_names):
     return filtered_groups
 
 
+def wait_security_group_creation(ec2_client, vpc_id, group_name):
+    waiter = ec2_client.get_waiter('security_group_exists')
+    waiter.wait(Filters=[
+        {
+            'Name': 'vpc-id',
+            'Values': [vpc_id]
+        },
+        {
+            'Name': 'group-name',
+            'Values': [group_name]
+        }
+    ])
+
+
 def _create_security_group(config, vpc_id, group_name):
     client = _client("ec2", config)
     client.create_security_group(
         Description="Auto-created security group for workers",
         GroupName=group_name,
         VpcId=vpc_id)
+
+    # Wait for creation
+    wait_security_group_creation(client, vpc_id, group_name)
+
     security_group = _get_security_group(config, vpc_id, group_name)
     cli_logger.doassert(security_group,
-                        "Failed to create security group")  # err msg
+                        "Failed to create security group")
 
     cli_logger.verbose(
         "Created new security group {}",
         cf.bold(security_group.group_name),
         _tags=dict(id=security_group.id))
-    cli_logger.doassert(security_group,
-                        "Failed to create security group")  # err msg
-    assert security_group, "Failed to create security group"
     return security_group
 
 

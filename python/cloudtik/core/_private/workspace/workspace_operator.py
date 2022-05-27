@@ -88,9 +88,12 @@ def delete_workspace(
     config = _load_workspace_config(config_file, override_workspace_name)
 
     managed_cloud_storage = config["provider"].get("managed_cloud_storage", False)
-    if managed_cloud_storage and delete_managed_storage:
-        cli_logger.warning("WARNING: The managed cloud storage associated for this workspace "
-                           "and the data in it will all be deleted!")
+    if managed_cloud_storage:
+        if delete_managed_storage:
+            cli_logger.warning("WARNING: The managed cloud storage associated with this workspace "
+                               "and the data in it will all be deleted!")
+        else:
+            cli_logger.print("The managed cloud storage associated with this workspace will not be deleted.")
 
     cli_logger.confirm(yes, "Are you sure that you want to delete workspace {}?",
                        config["workspace_name"], _abort=True)

@@ -413,7 +413,7 @@ def update_aws_workspace_firewalls(config):
     return None
 
 
-def delete_workspace_aws(config):
+def delete_workspace_aws(config, delete_managed_storage: bool = False):
     ec2 = _resource("ec2", config)
     ec2_client = _client("ec2", config)
     workspace_name = config["workspace_name"]
@@ -428,7 +428,7 @@ def delete_workspace_aws(config):
     total_steps = NUM_AWS_WORKSPACE_DELETION_STEPS
     if not use_internal_ips:
         total_steps += 1
-    if managed_cloud_storage:
+    if managed_cloud_storage and delete_managed_storage:
         total_steps += 1
 
     try:
@@ -440,7 +440,7 @@ def delete_workspace_aws(config):
                 current_step += 1
                 _delete_workspace_instance_profile(config, workspace_name)
 
-            if managed_cloud_storage:
+            if managed_cloud_storage and delete_managed_storage:
                 with cli_logger.group(
                         "Deleting S3 bucket",
                         _numbered=("[]", current_step, total_steps)):

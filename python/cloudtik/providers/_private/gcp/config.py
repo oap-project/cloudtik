@@ -830,7 +830,7 @@ def update_gcp_workspace_firewalls(config):
     return None
 
 
-def delete_workspace_gcp(config):
+def delete_workspace_gcp(config, delete_managed_storage: bool = False):
     crm, iam, compute, tpu = \
         construct_clients_from_provider_config(config["provider"])
 
@@ -846,12 +846,12 @@ def delete_workspace_gcp(config):
     total_steps = NUM_GCP_WORKSPACE_DELETION_STEPS
     if not use_internal_ips:
         total_steps += 1
-    if managed_cloud_storage:
+    if managed_cloud_storage and delete_managed_storage:
         total_steps += 1
 
     try:
         with cli_logger.group("Deleting workspace: {}", workspace_name):
-            if managed_cloud_storage:
+            if managed_cloud_storage and delete_managed_storage:
                 with cli_logger.group(
                         "Deleting GCS bucket",
                         _numbered=("[]", current_step, total_steps)):

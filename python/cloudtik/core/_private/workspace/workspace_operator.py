@@ -82,16 +82,23 @@ def _update_workspace_firewalls(config: Dict[str, Any]):
 
 def delete_workspace(
         config_file: str, yes: bool,
-        override_workspace_name: Optional[str] = None):
+        override_workspace_name: Optional[str] = None,
+        delete_managed_storage: bool = False):
     """Destroys the workspace and associated Cloud resources."""
     config = _load_workspace_config(config_file, override_workspace_name)
 
+    managed_cloud_storage = config["provider"].get("managed_cloud_storage", False)
+    if managed_cloud_storage and delete_managed_storage:
+        cli_logger.warning("WARNING: The managed cloud storage associated for this workspace "
+                           "and the data in it will all be deleted!")
+
     cli_logger.confirm(yes, "Are you sure that you want to delete workspace {}?",
                        config["workspace_name"], _abort=True)
-    _delete_workspace(config)
+    _delete_workspace(config, delete_managed_storage)
 
 
-def _delete_workspace(config: Dict[str, Any]):
+def _delete_workspace(config: Dict[str, Any],
+                      delete_managed_storage: bool = False):
     provider = _get_workspace_provider(config["provider"], config["workspace_name"])
     provider.delete_workspace(config)
 

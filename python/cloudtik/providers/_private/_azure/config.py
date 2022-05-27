@@ -166,7 +166,7 @@ def update_azure_workspace_firewalls(config):
     return None
 
 
-def delete_workspace_azure(config):
+def delete_workspace_azure(config, delete_managed_storage: bool = False):
     resource_client = construct_resource_client(config)
     workspace_name = config["workspace_name"]
     use_internal_ips = is_use_internal_ip(config)
@@ -182,7 +182,9 @@ def delete_workspace_azure(config):
     if not use_internal_ips:
         total_steps += 2
     if managed_cloud_storage:
-        total_steps += 2
+        total_steps += 1
+        if delete_managed_storage:
+            total_steps += 1
 
     try:
         # delete network resources
@@ -197,11 +199,12 @@ def delete_workspace_azure(config):
                 _delete_role_assignment_for_contributor(config, resource_group_name)
 
             if managed_cloud_storage:
-                with cli_logger.group(
-                        "Deleting Azure storage account",
-                        _numbered=("[]", current_step, total_steps)):
-                    current_step += 1
-                    _delete_workspace_cloud_storage(config, resource_group_name)
+                if delete_managed_storage:
+                    with cli_logger.group(
+                            "Deleting Azure storage account",
+                            _numbered=("[]", current_step, total_steps)):
+                        current_step += 1
+                        _delete_workspace_cloud_storage(config, resource_group_name)
 
                 with cli_logger.group(
                         "Deleting role assignment for Storage Blob Data Contributor",

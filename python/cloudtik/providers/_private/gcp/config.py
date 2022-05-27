@@ -24,7 +24,8 @@ from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, CLOUDTIK_
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.services import get_node_ip_address
 from cloudtik.core._private.utils import check_cidr_conflict, unescape_private_key, is_use_internal_ip, \
-    _is_use_internal_ip, is_managed_cloud_storage
+    _is_use_internal_ip, is_managed_cloud_storage, is_use_managed_cloud_storage, is_worker_role_for_cloud_storage, \
+    _is_use_managed_cloud_storage
 from cloudtik.providers._private.gcp.utils import _get_node_info
 from cloudtik.providers._private.utils import StorageTestingError
 
@@ -1243,9 +1244,9 @@ def _configure_project(config, crm):
 
 
 def _configure_cloud_storage_from_workspace(config):
-    use_managed_cloud_storage = use_managed_cloud_storage(config)
-    workspace_name = config["workspace_name"]
+    use_managed_cloud_storage = is_use_managed_cloud_storage(config)
     if use_managed_cloud_storage:
+        workspace_name = config["workspace_name"]
         gcs_bucket = get_workspace_gcs_bucket(config, workspace_name)
         if gcs_bucket is None:
             cli_logger.abort("No managed GCS bucket was found. If you want to use managed GCS bucket, "
@@ -1292,8 +1293,7 @@ def _configure_iam_role(config, crm, iam):
 
     _add_iam_policy_binding(service_account, roles, crm)
 
-    use_managed_cloud_storage = use_managed_cloud_storage(config)
-    serviceAccounts =  [{
+    serviceAccounts = [{
             "email": service_account["email"],
             # NOTE: The amount of access is determined by the scope + IAM
             # role of the service account. Even if the cloud-platform scope
@@ -1301,7 +1301,8 @@ def _configure_iam_role(config, crm, iam):
             # account is limited by the IAM rights specified below.
             "scopes": ["https://www.googleapis.com/auth/cloud-platform"]
         }]
-    if use_managed_cloud_storage:
+    worker_role_for_cloud_storage = is_worker_role_for_cloud_storage(config)
+    if worker_role_for_cloud_storage:
         for key, node_type in config["available_node_types"].items():
             node_config = node_type["node_config"]
             node_config["serviceAccounts"] = serviceAccounts
@@ -1694,26 +1695,27 @@ def verify_gcs_storage(provider_config: Dict[str, Any]):
     gcs_storage = provider_config.get("gcp_cloud_storage")
     if gcs_storage is None:
         return
-    use_managed_cloud_storage = provider_config.get("use_managed_cloud_storage", False)
-    private_key = gcs_storage.get("gcs.service.account.private.key")
-    private_key = unescape_private_key(private_key)
-
-    credentials_field = {
-        "project_id": provider_config.get("project_id"),
-        "private_key_id": gcs_storage.get("gcs.service.account.private.key.id"),
-        "private_key": private_key,
-        "client_email": gcs_storage.get("gcs.service.account.client.email"),
-        "token_uri": "https://oauth2.googleapis.com/token"
-    }
 
     try:
+        use_managed_cloud_storage = _is_use_managed_cloud_storage(provider_config)
         if use_managed_cloud_storage:
-            storage = _create_storage()
+            storage_gcs = _create_storage()
         else:
+            private_key = gcs_storage.get("gcs.service.account.private.key")
+            private_key = unescape_private_key(private_key)
+
+            credentials_field = {
+                "project_id": provider_config.get("project_id"),
+                "private_key_id": gcs_storage.get("gcs.service.account.private.key.id"),
+                "private_key": private_key,
+                "client_email": gcs_storage.get("gcs.service.account.client.email"),
+                "token_uri": "https://oauth2.googleapis.com/token"
+            }
+
             credentials = service_account.Credentials.from_service_account_info(
                 credentials_field)
-            storage = _create_storage(credentials)
-        storage.buckets().get(bucket=gcs_storage["gcs.bucket"]).execute()
+            storage_gcs = _create_storage(credentials)
+        storage_gcs.buckets().get(bucket=gcs_storage["gcs.bucket"]).execute()
     except Exception as e:
         raise StorageTestingError("Error happens when verifying GCS storage configurations. "
                                   "If you want to go without passing the verification, "

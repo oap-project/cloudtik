@@ -21,7 +21,7 @@ from cloudtik.core._private.event_system import (CreateClusterEvent,
                                                   global_event_system)
 from cloudtik.core._private.services import get_node_ip_address
 from cloudtik.core._private.utils import check_cidr_conflict, get_cluster_uri, is_use_internal_ip, \
-    is_managed_cloud_storage
+    is_managed_cloud_storage, is_use_managed_cloud_storage, is_worker_role_for_cloud_storage
 from cloudtik.providers._private.aws.utils import LazyDefaultDict, \
     handle_boto_error, resource_cache, get_boto_error_code, _get_node_info
 from cloudtik.providers._private.utils import StorageTestingError
@@ -750,9 +750,9 @@ def _configure_iam_role(config):
 
 
 def _configure_cloud_storage_from_workspace(config):
-    use_managed_cloud_storage = use_managed_cloud_storage(config)
-    workspace_name = config["workspace_name"]
+    use_managed_cloud_storage = is_use_managed_cloud_storage(config)
     if use_managed_cloud_storage:
+        workspace_name = config["workspace_name"]
         s3_bucket = get_workspace_s3_bucket(config, workspace_name)
         if s3_bucket is None:
             cli_logger.abort("No managed s3 bucket was found. If you want to use managed s3 bucket, "
@@ -765,11 +765,11 @@ def _configure_cloud_storage_from_workspace(config):
 
 
 def _configure_iam_role_from_workspace(config):
-    use_managed_cloud_storage = use_managed_cloud_storage(config)
-    if use_managed_cloud_storage:
-       return _configure_iam_role_for_cluster(config)
+    worker_role_for_cloud_storage = is_worker_role_for_cloud_storage(config)
+    if worker_role_for_cloud_storage:
+        return _configure_iam_role_for_cluster(config)
     else:
-       return _configure_iam_role_for_head(config)
+        return _configure_iam_role_for_head(config)
 
 
 def _configure_iam_role_for_head(config):

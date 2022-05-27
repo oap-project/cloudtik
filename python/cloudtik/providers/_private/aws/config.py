@@ -8,6 +8,8 @@ import os
 import time
 from typing import Any, Dict, List, Optional
 import logging
+import random
+import string
 
 import boto3
 import botocore
@@ -1474,12 +1476,12 @@ def _configure_workspace_instance_profile(config, workspace_name):
 
 def _configure_workspace_cloud_storage(config, workspace_name):
     s3 = _resource("s3", config)
-    ec2_client = _client("ec2", config)
     region = config["provider"]["region"]
-    vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
-    bucket_name = "cloudtik-{workspace_name}-bucket-{vpc_id}".format(
+    suffix = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(8))
+    bucket_name = "cloudtik-{workspace_name}-bucket-{region}-{suffix}".format(
         workspace_name=workspace_name.lower(),
-        vpc_id=vpc_id
+        region=region,
+        suffix=suffix
     )
 
     cli_logger.print("Creating S3 bucket for the workspace: {} ...".format(workspace_name))
@@ -2056,17 +2058,16 @@ def _get_instance_profile(profile_name, config):
 
 def get_workspace_s3_bucket(config, workspace_name):
     s3 = _resource("s3", config)
-    ec2_client = _client("ec2", config)
-    vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
-    bucket_name = "cloudtik-{workspace_name}-bucket-{vpc_id}".format(
+    region = config["provider"]["region"]
+    bucket_name_prefix = "cloudtik-{workspace_name}-bucket-{region}-".format(
         workspace_name=workspace_name.lower(),
-        vpc_id=vpc_id
+        region=region,
     )
-    bucket = s3.Bucket(bucket_name)
-    if bucket in s3.buckets.all():
-        return bucket
-    else:
-        return None
+    for bucket in s3.buckets.all():
+        if bucket_name_prefix in bucket.name:
+            return bucket
+
+    return None
 
 
 def _get_key(key_name, config):

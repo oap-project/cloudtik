@@ -1176,7 +1176,7 @@ def _delete_vpc_endpoint_for_s3(ec2_client, workspace_name):
     return
 
 
-def _create_vpc(config, ec2):
+def _create_vpc(config, ec2, ec2_client):
     cli_logger.print("Creating workspace VPC...")
     # create vpc
     try:
@@ -1194,6 +1194,10 @@ def _create_vpc(config, ec2):
                 },
             ]
         )
+
+        waiter = ec2_client.get_waiter('vpc_exists')
+        waiter.wait(VpcIds=[vpc.id])
+
         vpc.modify_attribute(EnableDnsSupport={'Value': True})
         vpc.modify_attribute(EnableDnsHostnames={'Value': True})
         cli_logger.print("Successfully created workspace VPC: cloudtik-{}-vpc.".format(config["workspace_name"]))
@@ -1254,7 +1258,7 @@ def _create_and_configure_subnets(config, vpc):
     return subnets
 
 
-def _create_internet_gateway(config, ec2, vpc):
+def _create_internet_gateway(config, ec2, ec2_client, vpc):
     cli_logger.print("Creating Internet Gateway for the VPC: {} ...".format(vpc.id))
     try:
         igw = ec2.create_internet_gateway(
@@ -1270,6 +1274,10 @@ def _create_internet_gateway(config, ec2, vpc):
                 },
             ]
         )
+
+        waiter = ec2_client.get_waiter('internet_gateway_exists')
+        waiter.wait(InternetGatewayIds=[igw.id])
+
         igw.attach_to_vpc(VpcId=vpc.id)
         cli_logger.print("Successfully created Internet Gateway: cloudtik-{}-internet-gateway.".format(config["workspace_name"]))
     except Exception as e:
@@ -1522,7 +1530,7 @@ def _configure_network_resources(config, ec2, ec2_client,
             "Creating Internet gateway",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
-        internet_gateway = _create_internet_gateway(config, ec2, vpc)
+        internet_gateway = _create_internet_gateway(config, ec2, ec2_client, vpc)
 
     # add internet_gateway into public route table
     with cli_logger.group(
@@ -1548,7 +1556,7 @@ def _configure_network_resources(config, ec2, ec2_client,
             "Creating VPC endpoint for S3",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
-        vpc_endpoint = _create_vpc_endpoint_for_s3(config, ec2, ec2_client, vpc)
+        _create_vpc_endpoint_for_s3(config, ec2, ec2_client, vpc)
 
     with cli_logger.group(
             "Creating security group",
@@ -1570,7 +1578,7 @@ def _configure_vpc(config, workspace_name, ec2, ec2_client):
 
         # Need to create a new vpc
         if get_workspace_vpc_id(config["workspace_name"], ec2_client) is None:
-            vpc = _create_vpc(config, ec2)
+            vpc = _create_vpc(config, ec2, ec2_client)
         else:
             raise RuntimeError("There is a same name VPC for workspace: {}, "
                                "if you want to create a new workspace with the same name, "

@@ -2065,8 +2065,10 @@ def get_workspace_s3_bucket(config, workspace_name):
     )
     for bucket in s3.buckets.all():
         if bucket_name_prefix in bucket.name:
+            cli_logger.verbose("Successfully get the s3 bucket: {}.".format(bucket.name))
             return bucket
 
+    cli_logger.verbose("Failed to get the s3 bucket for workspace.")
     return None
 
 

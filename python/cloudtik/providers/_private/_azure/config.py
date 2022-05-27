@@ -114,8 +114,9 @@ def check_azure_workspace_resource(config):
     if managed_cloud_storage:
         if get_container_for_storage_account(config, resource_group_name) is None:
             return False
-        if get_role_assignment_for_storage_blob_data_contributor(config, resource_group_name) is None:
-            return False
+
+    if get_role_assignment_for_storage_blob_data_contributor(config, resource_group_name) is None:
+        return False
 
     return True
 

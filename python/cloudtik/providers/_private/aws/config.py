@@ -20,7 +20,8 @@ from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.event_system import (CreateClusterEvent,
                                                   global_event_system)
 from cloudtik.core._private.services import get_node_ip_address
-from cloudtik.core._private.utils import check_cidr_conflict, get_cluster_uri, is_use_internal_ip
+from cloudtik.core._private.utils import check_cidr_conflict, get_cluster_uri, is_use_internal_ip, \
+    is_managed_cloud_storage
 from cloudtik.providers._private.aws.utils import LazyDefaultDict, \
     handle_boto_error, resource_cache, get_boto_error_code, _get_node_info
 from cloudtik.providers._private.utils import StorageTestingError
@@ -349,7 +350,7 @@ def check_aws_workspace_resource(config):
     ec2_client = _client("ec2", config)
     workspace_name = config["workspace_name"]
     vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
-    managed_cloud_storage = config["provider"].get("managed_cloud_storage", False)
+    managed_cloud_storage = is_managed_cloud_storage(config)
 
     """
          Do the work - order of operation
@@ -420,7 +421,7 @@ def delete_workspace_aws(config, delete_managed_storage: bool = False):
     ec2_client = _client("ec2", config)
     workspace_name = config["workspace_name"]
     use_internal_ips = is_use_internal_ip(config)
-    managed_cloud_storage = config["provider"].get("managed_cloud_storage", False)
+    managed_cloud_storage = is_managed_cloud_storage(config)
     vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
     if vpc_id is None:
         cli_logger.print("The workspace: {} doesn't exist!".format(config["workspace_name"]))
@@ -749,7 +750,7 @@ def _configure_iam_role(config):
 
 
 def _configure_cloud_storage_from_workspace(config):
-    use_managed_cloud_storage = config.get("provider").get("use_managed_cloud_storage", False)
+    use_managed_cloud_storage = use_managed_cloud_storage(config)
     workspace_name = config["workspace_name"]
     if use_managed_cloud_storage:
         s3_bucket = get_workspace_s3_bucket(config, workspace_name)
@@ -764,7 +765,7 @@ def _configure_cloud_storage_from_workspace(config):
 
 
 def _configure_iam_role_from_workspace(config):
-    use_managed_cloud_storage = config.get("provider").get("use_managed_cloud_storage", False)
+    use_managed_cloud_storage = use_managed_cloud_storage(config)
     if use_managed_cloud_storage:
        return _configure_iam_role_for_cluster(config)
     else:
@@ -1423,7 +1424,7 @@ def _configure_workspace(config):
     ec2 = _resource("ec2", config)
     ec2_client = _client("ec2", config)
     workspace_name = config["workspace_name"]
-    managed_cloud_storage = config["provider"].get("managed_cloud_storage", False)
+    managed_cloud_storage = is_managed_cloud_storage(config)
 
     current_step = 1
     total_steps = NUM_AWS_WORKSPACE_CREATION_STEPS

@@ -2,22 +2,20 @@
 from: aws/standard
 
 # A unique identifier for the cluster.
-cluster_name: example-docker
+cluster_name: example-s3
 
 # Workspace into which to launch the cluster
 workspace_name: exmaple-workspace
-
-# Enable container
-docker:
-    enabled: True
 
 # Cloud-provider specific configuration.
 provider:
     type: aws
     region: us-west-2
+    use_managed_cloud_storage: False
     # S3 configurations for storage
     aws_s3_storage:
         s3.bucket: your_s3_bucket
+        # Optional access key ID and secret access key
         s3.access.key.id: your_s3_access_key_id
         s3.secret.access.key: your_s3_secret_access_key
 

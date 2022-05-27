@@ -18,7 +18,7 @@ except ImportError:  # py2
     from pipes import quote
 
 
-from cloudtik.core._private.utils import validate_workspace_config, prepare_workspace_config
+from cloudtik.core._private.utils import validate_workspace_config, prepare_workspace_config, is_managed_cloud_storage
 from cloudtik.core._private.providers import _get_workspace_provider_cls, _get_workspace_provider, \
     _WORKSPACE_PROVIDERS, _PROVIDER_PRETTY_NAMES, _get_node_provider_cls
 
@@ -87,7 +87,7 @@ def delete_workspace(
     """Destroys the workspace and associated Cloud resources."""
     config = _load_workspace_config(config_file, override_workspace_name)
 
-    managed_cloud_storage = config["provider"].get("managed_cloud_storage", False)
+    managed_cloud_storage = is_managed_cloud_storage(config)
     if managed_cloud_storage:
         if delete_managed_storage:
             cli_logger.warning("WARNING: The managed cloud storage associated with this workspace "

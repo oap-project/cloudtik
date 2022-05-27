@@ -24,7 +24,7 @@ from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, CLOUDTIK_
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.services import get_node_ip_address
 from cloudtik.core._private.utils import check_cidr_conflict, unescape_private_key, is_use_internal_ip, \
-    _is_use_internal_ip
+    _is_use_internal_ip, is_managed_cloud_storage
 from cloudtik.providers._private.gcp.utils import _get_node_info
 from cloudtik.providers._private.utils import StorageTestingError
 
@@ -324,7 +324,7 @@ def _configure_workspace(config):
     crm, iam, compute, tpu = \
         construct_clients_from_provider_config(config["provider"])
     workspace_name = config["workspace_name"]
-    managed_cloud_storage = config["provider"].get("managed_cloud_storage", False)
+    managed_cloud_storage = is_managed_cloud_storage(config)
 
     current_step = 1
     total_steps = NUM_GCP_WORKSPACE_CREATION_STEPS
@@ -838,7 +838,7 @@ def delete_workspace_gcp(config, delete_managed_storage: bool = False):
 
     workspace_name = config["workspace_name"]
     use_internal_ips = is_use_internal_ip(config)
-    managed_cloud_storage = config["provider"].get("managed_cloud_storage", False)
+    managed_cloud_storage = is_managed_cloud_storage(config)
     VpcId = get_gcp_vpcId(config, compute, use_internal_ips)
     if VpcId is None:
         cli_logger.print("Workspace: {} doesn't exist!".format(config["workspace_name"]))
@@ -1036,7 +1036,7 @@ def check_gcp_workspace_resource(config):
         construct_clients_from_provider_config(config["provider"])
     use_internal_ips = is_use_internal_ip(config)
     workspace_name = config["workspace_name"]
-    managed_cloud_storage = config["provider"].get("managed_cloud_storage", False)
+    managed_cloud_storage = is_managed_cloud_storage(config)
 
     """
          Do the work - order of operation
@@ -1243,7 +1243,7 @@ def _configure_project(config, crm):
 
 
 def _configure_cloud_storage_from_workspace(config):
-    use_managed_cloud_storage = config.get("provider").get("use_managed_cloud_storage", False)
+    use_managed_cloud_storage = use_managed_cloud_storage(config)
     workspace_name = config["workspace_name"]
     if use_managed_cloud_storage:
         gcs_bucket = get_workspace_gcs_bucket(config, workspace_name)
@@ -1292,7 +1292,7 @@ def _configure_iam_role(config, crm, iam):
 
     _add_iam_policy_binding(service_account, roles, crm)
 
-    use_managed_cloud_storage = config.get("provider").get("use_managed_cloud_storage", False)
+    use_managed_cloud_storage = use_managed_cloud_storage(config)
     serviceAccounts =  [{
             "email": service_account["email"],
             # NOTE: The amount of access is determined by the scope + IAM

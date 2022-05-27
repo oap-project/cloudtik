@@ -106,8 +106,8 @@
                 },
                 "managed_cloud_storage": {
                     "type": "boolean",
-                    "description": "Whether to create managegd cloud storage of workspace.",
-                    "default": false
+                    "description": "Whether to create managed cloud storage of workspace.",
+                    "default": true
                 }
             }
         }

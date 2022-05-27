@@ -475,13 +475,6 @@ def _delete_workspace_instance_profile(config, workspace_name):
 
 
 def _delete_workspace_cloud_storage(config, workspace_name):
-    ec2_client = _client("ec2", config)
-    vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
-    bucket_name = "cloudtik-{workspace_name}-bucket-{vpc_id}".format(
-        workspace_name=workspace_name.lower(),
-        vpc_id=vpc_id
-    )
-
     bucket = get_workspace_s3_bucket(config, workspace_name)
     if bucket is None:
         cli_logger.warning("No S3 bucket with the name found.")
@@ -1478,7 +1471,7 @@ def _configure_workspace_cloud_storage(config, workspace_name):
     s3 = _resource("s3", config)
     region = config["provider"]["region"]
     suffix = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(8))
-    bucket_name = "cloudtik-{workspace_name}-bucket-{region}-{suffix}".format(
+    bucket_name = "cloudtik-{workspace_name}-{region}-{suffix}".format(
         workspace_name=workspace_name.lower(),
         region=region,
         suffix=suffix
@@ -2072,7 +2065,7 @@ def _get_instance_profile(profile_name, config):
 def get_workspace_s3_bucket(config, workspace_name):
     s3 = _resource("s3", config)
     region = config["provider"]["region"]
-    bucket_name_prefix = "cloudtik-{workspace_name}-bucket-{region}-".format(
+    bucket_name_prefix = "cloudtik-{workspace_name}-{region}-".format(
         workspace_name=workspace_name.lower(),
         region=region,
     )

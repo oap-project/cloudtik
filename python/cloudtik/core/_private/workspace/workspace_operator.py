@@ -103,7 +103,7 @@ def delete_workspace(
 def _delete_workspace(config: Dict[str, Any],
                       delete_managed_storage: bool = False):
     provider = _get_workspace_provider(config["provider"], config["workspace_name"])
-    provider.delete_workspace(config)
+    provider.delete_workspace(config, delete_managed_storage)
 
 
 def create_workspace(

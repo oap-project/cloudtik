@@ -110,6 +110,31 @@ def wait_for_crm_operation(operation, crm):
     return result
 
 
+def wait_for_compute_region_operation(project_name, region, operation, compute):
+    """Poll for global compute operation until finished."""
+    logger.info("wait_for_compute_region_operation: "
+                "Waiting for operation {} to finish...".format(
+        operation["name"]))
+
+    for _ in range(MAX_POLLS):
+        result = compute.regionOperations().get(
+            project=project_name,
+            region=region,
+            operation=operation["name"],
+        ).execute()
+        if "error" in result:
+            raise Exception(result["error"])
+
+        if result["status"] == "DONE":
+            logger.info("wait_for_compute_region_operation: "
+                        "Operation done.")
+            break
+
+        time.sleep(POLL_INTERVAL)
+
+    return result
+ 
+ 
 def wait_for_compute_global_operation(project_name, operation, compute):
     """Poll for global compute operation until finished."""
     logger.info("wait_for_compute_global_operation: "
@@ -394,7 +419,8 @@ def _delete_vpc(config, compute):
     cli_logger.print("Deleting the VPC: {} ...".format(vpc_name))
 
     try:
-        compute.networks().delete(project=project_id, network=VpcId).execute()
+        operation = compute.networks().delete(project=project_id, network=VpcId).execute()
+        wait_for_compute_global_operation(project_id, operation, compute)
         cli_logger.print("Successfully deleted the VPC: {}.".format(vpc_name))
     except Exception as e:
         cli_logger.error("Failed to delete the VPC: {}. {}".format(vpc_name, str(e)))
@@ -418,8 +444,8 @@ def create_vpc(config, compute):
     cli_logger.print("Creating workspace vpc on GCP...")
     # create vpc
     try:
-        compute.networks().insert(project=project_id, body=network_body).execute().get("id")
-        time.sleep(20)
+        operation = compute.networks().insert(project=project_id, body=network_body).execute()
+        wait_for_compute_global_operation(project_id, operation, compute)
         cli_logger.print("Successfully created workspace VPC: cloudtik-{}-vpc.".format(config["workspace_name"]))
     except Exception as e:
         cli_logger.error(
@@ -497,8 +523,9 @@ def _delete_subnet(config, compute, is_private=True):
     # """ Delete custom subnet """
     cli_logger.print("Deleting {} subnet: {} ...".format(subnet_attribute, subnetwork_name))
     try:
-        compute.subnetworks().delete(project=project_id, region=region,
+        operation = compute.subnetworks().delete(project=project_id, region=region,
                                          subnetwork=subnetwork_name).execute()
+        wait_for_compute_region_operation(project_id, region, operation, compute)
         cli_logger.print("Successfully deleted {} subnet: {}."
                          .format(subnet_attribute, subnetwork_name))
     except Exception as e:
@@ -530,8 +557,8 @@ def _create_and_configure_subnets(config, compute, VpcId):
             "region": region
         }
         try:
-            compute.subnetworks().insert(project=project_id, region=region, body=network_body).execute()
-            time.sleep(10)
+            operation = compute.subnetworks().insert(project=project_id, region=region, body=network_body).execute()
+            wait_for_compute_region_operation(project_id, region, operation, compute)
             cli_logger.print("Successfully created subnet: cloudtik-{}-{}-subnet.".
                              format(config["workspace_name"], subnets_attribute[i]))
         except Exception as e:
@@ -557,8 +584,8 @@ def _create_router(config, compute, VpcId):
     cli_logger.print("Creating router for the private subnet: "
                      "cloudtik-{}-private-subnet...".format(workspace_name))
     try:
-        compute.routers().insert(project=project_id, region=region, body=router_body).execute()
-        time.sleep(20)
+        operation = compute.routers().insert(project=project_id, region=region, body=router_body).execute()
+        wait_for_compute_region_operation(project_id, region, operation, compute)
         cli_logger.print("Successfully created router for the private subnet: cloudtik-{}-subnet.".
                      format(config["workspace_name"]))
     except Exception as e:
@@ -597,7 +624,8 @@ def _create_nat_for_router(config, compute):
 
     cli_logger.print("Creating nat-gateway \"{}\"  for private router... ".format(nat_name))
     try:
-        compute.routers().patch(project=project_id, region=region, router=router, body=router_body).execute()
+        operation =  compute.routers().patch(project=project_id, region=region, router=router, body=router_body).execute()
+        wait_for_compute_region_operation(project_id, region, operation, compute)
         cli_logger.print("Successfully created nat-gateway for the private router: {}.".
                          format(nat_name))
     except Exception as e:
@@ -619,8 +647,8 @@ def _delete_router(config, compute):
     # """ Delete custom subnet """
     cli_logger.print("Deleting the router: {} ...".format(router_name))
     try:
-        compute.routers().delete(project=project_id, region=region, router=router_name).execute()
-        time.sleep(20)
+        operation = compute.routers().delete(project=project_id, region=region, router=router_name).execute()
+        wait_for_compute_region_operation(project_id, region, operation, compute)
         cli_logger.print("Successfully deleted the router: {}.".format(router_name))
     except Exception as e:
         cli_logger.error("Failed to delete the router: {}. {}".format(router_name, str(e)))
@@ -653,7 +681,8 @@ def get_firewall(config, compute, firewall_name):
 def create_firewall(compute, project_id, firewall_body):
     cli_logger.print("Creating firewall \"{}\"... ".format(firewall_body.get("name")))
     try:
-        compute.firewalls().insert(project=project_id, body=firewall_body).execute()
+        operation =  compute.firewalls().insert(project=project_id, body=firewall_body).execute()
+        wait_for_compute_global_operation(project_id, operation, compute)
         cli_logger.print("Successfully created firewall \"{}\". ".format(firewall_body.get("name")))
     except Exception as e:
         cli_logger.error("Failed to create firewall. {}", str(e))
@@ -663,7 +692,8 @@ def create_firewall(compute, project_id, firewall_body):
 def update_firewall(compute, project_id, firewall_body):
     cli_logger.print("Updating firewall \"{}\"... ".format(firewall_body.get("name")))
     try:
-        compute.firewalls().update(project=project_id, firewall = firewall_body.get("name"), body=firewall_body).execute()
+        operation =  compute.firewalls().update(project=project_id, firewall = firewall_body.get("name"), body=firewall_body).execute()
+        wait_for_compute_global_operation(project_id, operation, compute)
         cli_logger.print("Successfully updated firewall \"{}\". ".format(firewall_body.get("name")))
     except Exception as e:
         cli_logger.error("Failed to update firewall. {}", str(e))
@@ -762,7 +792,8 @@ def check_workspace_firewalls(config, compute):
 def delete_firewall(compute, project_id, firewall_name):
     cli_logger.print("Deleting the firewall {} ... ".format(firewall_name))
     try:
-        compute.firewalls().delete(project=project_id, firewall=firewall_name).execute()
+        operation = compute.firewalls().delete(project=project_id, firewall=firewall_name).execute()
+        wait_for_compute_global_operation(project_id, operation, compute)
         cli_logger.print("Successfully delete the firewall {}.".format(firewall_name))
     except Exception as e:
         cli_logger.error(
@@ -781,8 +812,6 @@ def _delete_firewalls(config, compute):
     for cloudtik_firewall in cloudtik_firewalls:
         delete_firewall(compute, project_id, cloudtik_firewall)
 
-    # Wait for the firewalls have been deleted.
-    time.sleep(20)
     cli_logger.print("Successfully deleted the firewalls.")
 
 
@@ -1676,10 +1705,10 @@ def _create_project_ssh_key_pair(project, public_key, ssh_user, compute):
     operation = compute.projects().setCommonInstanceMetadata(
         project=project["name"], body=common_instance_metadata).execute()
 
-    response = wait_for_compute_global_operation(project["name"], operation,
+    wait_for_compute_global_operation(project["name"], operation,
                                                  compute)
 
-    return response
+    return 
 
 
 def verify_gcs_storage(provider_config: Dict[str, Any]):

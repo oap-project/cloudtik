@@ -353,7 +353,7 @@ def get_role_assignment_for_storage_blob_data_contributor(config, resource_group
     storage_account = get_storage_account(config)
     if storage_account is None:
         return None
-    role_assignment_name = str(uuid.uuid3(uuid.UUID(subscription_id), storage_account.name))
+    role_assignment_name = str(uuid.uuid3(uuid.UUID(subscription_id), storage_account.id))
     cli_logger.verbose("Getting the existing role assignment for Storage Blob Data Contributor: {}.", role_assignment_name)
 
     try:

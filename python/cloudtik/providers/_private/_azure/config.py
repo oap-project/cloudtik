@@ -1073,6 +1073,11 @@ def _create_user_assigned_identity(config, resource_group_name):
                 "location": location
             }
         )
+        """
+        Sleep 20s. 
+        If you are creating this principal and then immediately assigning a role, it will fail and related to a replication delay. 
+        """
+        time.sleep(20)
         cli_logger.print("Successfully created workspace user assigned identity: {}.".
                          format(user_assigned_identity_name))
     except Exception as e:

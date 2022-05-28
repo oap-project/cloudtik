@@ -94,8 +94,8 @@ def get_node_type(node: dict) -> GCPNodeType:
 
 def wait_for_crm_operation(operation, crm):
     """Poll for cloud resource manager operation until finished."""
-    logger.info("wait_for_crm_operation: "
-                "Waiting for operation {} to finish...".format(operation))
+    cli_logger.verbose("wait_for_crm_operation: "
+                       "Waiting for operation {} to finish...".format(operation))
 
     for _ in range(MAX_POLLS):
         result = crm.operations().get(name=operation["name"]).execute()
@@ -103,7 +103,7 @@ def wait_for_crm_operation(operation, crm):
             raise Exception(result["error"])
 
         if "done" in result and result["done"]:
-            logger.info("wait_for_crm_operation: Operation done.")
+            cli_logger.verbose("wait_for_crm_operation: Operation done.")
             break
 
         time.sleep(POLL_INTERVAL)
@@ -113,9 +113,8 @@ def wait_for_crm_operation(operation, crm):
 
 def wait_for_compute_region_operation(project_name, region, operation, compute):
     """Poll for global compute operation until finished."""
-    logger.info("wait_for_compute_region_operation: "
-                "Waiting for operation {} to finish...".format(
-        operation["name"]))
+    cli_logger.verbose("wait_for_compute_region_operation: "
+                       "Waiting for operation {} to finish...".format(operation["name"]))
 
     for _ in range(MAX_POLLS):
         result = compute.regionOperations().get(
@@ -127,8 +126,8 @@ def wait_for_compute_region_operation(project_name, region, operation, compute):
             raise Exception(result["error"])
 
         if result["status"] == "DONE":
-            logger.info("wait_for_compute_region_operation: "
-                        "Operation done.")
+            cli_logger.verbose("wait_for_compute_region_operation: "
+                               "Operation done.")
             break
 
         time.sleep(POLL_INTERVAL)
@@ -138,9 +137,8 @@ def wait_for_compute_region_operation(project_name, region, operation, compute):
  
 def wait_for_compute_global_operation(project_name, operation, compute):
     """Poll for global compute operation until finished."""
-    logger.info("wait_for_compute_global_operation: "
-                "Waiting for operation {} to finish...".format(
-                    operation["name"]))
+    cli_logger.verbose("wait_for_compute_global_operation: "
+                       "Waiting for operation {} to finish...".format(operation["name"]))
 
     for _ in range(MAX_POLLS):
         result = compute.globalOperations().get(
@@ -151,8 +149,8 @@ def wait_for_compute_global_operation(project_name, operation, compute):
             raise Exception(result["error"])
 
         if result["status"] == "DONE":
-            logger.info("wait_for_compute_global_operation: "
-                        "Operation done.")
+            cli_logger.verbose("wait_for_compute_global_operation: "
+                               "Operation done.")
             break
 
         time.sleep(POLL_INTERVAL)
@@ -909,10 +907,10 @@ def _delete_workspace_cloud_storage(config, workspace_name):
         cli_logger.warning("No GCS bucket with the name found.")
         return
 
-    cli_logger.print("Deleting GCS bucket: {} ...".format(bucket.name))
     try:
         cli_logger.print("Deleting GCS bucket: {} ...".format(bucket.name))
         bucket.delete(force=True)
+        cli_logger.print("Successfully deleted GCS bucket.")
     except Exception as e:
         cli_logger.error("Failed to delete GCS bucket. {}", str(e))
         raise e
@@ -1305,9 +1303,7 @@ def _configure_iam_role(config, crm, iam):
     service_account = _get_service_account(email, config, iam)
 
     if service_account is None:
-        logger.info("_configure_iam_role: "
-                    "Creating new service account {}".format(
-                        GCP_DEFAULT_SERVICE_ACCOUNT_ID))
+        cli_logger.print("Creating new service account: {}".format(GCP_DEFAULT_SERVICE_ACCOUNT_ID))
 
         service_account = _create_service_account(
             GCP_DEFAULT_SERVICE_ACCOUNT_ID, DEFAULT_SERVICE_ACCOUNT_CONFIG, config,
@@ -1397,8 +1393,7 @@ def _configure_key_pair(config, compute):
 
         # Create a key since it doesn't exist locally or in GCP
         if not key_found and not os.path.exists(private_key_path):
-            logger.info("_configure_key_pair: "
-                        "Creating new key pair {}".format(key_name))
+            cli_logger.print("Creating new key pair: {}".format(key_name))
             public_key, private_key = generate_rsa_key_pair()
 
             _create_project_ssh_key_pair(project, public_key, ssh_user,

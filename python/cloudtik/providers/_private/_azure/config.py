@@ -40,7 +40,7 @@ AZURE_VNET_NAME = AZURE_RESOURCE_NAME_PREFIX + "-vnet"
 NUM_AZURE_WORKSPACE_CREATION_STEPS = 10
 NUM_AZURE_WORKSPACE_DELETION_STEPS = 8
 
-MAX_CHECK_RESOURCE_TIMES = 20
+MAX_CHECK_RESOURCE_TIMES = 40
 CHECK_RESOURCE_INTERVAL = 5
 
 logger = logging.getLogger(__name__)
@@ -186,6 +186,9 @@ def delete_workspace_azure(config, delete_managed_storage: bool = False):
     total_steps = NUM_AZURE_WORKSPACE_DELETION_STEPS
     if not use_internal_ips:
         total_steps += 2
+        # If workspace enable cloud storage and not delete storage, we will skip remove resource group
+        if managed_cloud_storage and not delete_managed_storage:
+            total_steps -= 1
     if managed_cloud_storage and delete_managed_storage:
         total_steps += 1
 
@@ -222,7 +225,7 @@ def delete_workspace_azure(config, delete_managed_storage: bool = False):
                 _delete_user_assigned_identity(config, resource_group_name)
 
             # delete resource group
-            if not use_internal_ips:
+            if not use_internal_ips and delete_managed_storage:
                 with cli_logger.group(
                         "Deleting resource group",
                         _numbered=("[]", current_step, total_steps)):
@@ -323,10 +326,12 @@ def wait_for_storage_account_ready(config):
         if storage_account.provisioning_state == "Succeeded":
             cli_logger.verbose("The storage account is ready.")
             return
-
+        cli_logger.verbose("The provisioning state storage_account is {}. "
+                           "Waiting for another {}s...".format(storage_account.provisioning_state,
+                                                               CHECK_RESOURCE_INTERVAL))
         time.sleep(CHECK_RESOURCE_INTERVAL)
 
-    cli_logger.abort("The storage account is not been successfully created.")
+    cli_logger.abort("The storage account is not ready.")
 
 
 def get_storage_account(config):

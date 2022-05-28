@@ -186,9 +186,6 @@ def delete_workspace_azure(config, delete_managed_storage: bool = False):
     total_steps = NUM_AZURE_WORKSPACE_DELETION_STEPS
     if not use_internal_ips:
         total_steps += 2
-        # If workspace enable cloud storage and not delete storage, we will skip remove resource group
-        if managed_cloud_storage and not delete_managed_storage:
-            total_steps -= 1
     if managed_cloud_storage and delete_managed_storage:
         total_steps += 1
 
@@ -225,7 +222,7 @@ def delete_workspace_azure(config, delete_managed_storage: bool = False):
                 _delete_user_assigned_identity(config, resource_group_name)
 
             # delete resource group
-            if not use_internal_ips and delete_managed_storage:
+            if not use_internal_ips:
                 with cli_logger.group(
                         "Deleting resource group",
                         _numbered=("[]", current_step, total_steps)):

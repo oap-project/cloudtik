@@ -323,6 +323,16 @@ def get_storage_account(config):
     return None if len(workspace_storage_accounts) == 0 else workspace_storage_accounts[0]
 
 
+def has_storage_account(config, resource_group_name) -> bool:
+    storage_client = construct_storage_client(config)
+    storage_accounts = list(storage_client.storage_accounts.list_by_resource_group(
+        resource_group_name=resource_group_name))
+    if len(storage_accounts) > 0:
+        return True
+
+    return False
+
+
 def _get_container(provider_config, resource_group_name, storage_account_name, container_name):
     storage_client = _construct_storage_client(provider_config)
     container = storage_client.blob_containers.get(
@@ -629,6 +639,11 @@ def _delete_resource_group(config, resource_client):
 
     if resource_group_name is None:
         cli_logger.print("The resource group: {} doesn't exist.".
+                         format(resource_group_name))
+        return
+
+    if has_storage_account(config, resource_group_name):
+        cli_logger.print("The resource group {} has remaining storage accounts. Will not be deleted.".
                          format(resource_group_name))
         return
 

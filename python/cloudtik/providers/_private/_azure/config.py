@@ -1016,7 +1016,7 @@ def _create_storage_account(config, resource_group_name):
                 "location": location,
                 "allowBlobPublicAccess": False,
                 "allowSharedKeyAccess": True,
-                "isHnsEnabled": False,
+                "isHnsEnabled": True,
                 "encryption": {
                     "services": {
                         "file": {

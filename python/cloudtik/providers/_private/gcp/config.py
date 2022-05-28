@@ -621,7 +621,7 @@ def _create_nat_for_router(config, compute):
         ]
     }
 
-    cli_logger.print("Creating nat-gateway \"{}\"  for private router... ".format(nat_name))
+    cli_logger.print("Creating nat-gateway \"{}\" for private router... ".format(nat_name))
     try:
         operation =  compute.routers().patch(project=project_id, region=region, router=router, body=router_body).execute()
         wait_for_compute_region_operation(project_id, region, operation, compute)

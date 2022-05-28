@@ -18,7 +18,7 @@
 # -- Project information -----------------------------------------------------
 
 project = 'CloudTik'
-copyright = '2022, CloudTik Developers'
+copyright = '2022, Intel Corporation'
 author = 'CloudTik Developers'
 
 # The full version, including alpha/beta/rc tags

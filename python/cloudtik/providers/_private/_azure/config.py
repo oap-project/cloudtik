@@ -40,6 +40,9 @@ AZURE_VNET_NAME = AZURE_RESOURCE_NAME_PREFIX + "-vnet"
 NUM_AZURE_WORKSPACE_CREATION_STEPS = 10
 NUM_AZURE_WORKSPACE_DELETION_STEPS = 8
 
+MAX_CHECK_RESOURCE_TIMES = 20
+CHECK_RESOURCE_INTERVAL = 5
+
 logger = logging.getLogger(__name__)
 
 
@@ -309,6 +312,21 @@ def get_container_for_storage_account(config, resource_group_name):
     workspace_containers = [container for container in containers
                                   if container.name == container_name]
     return None if len(workspace_containers) == 0 else workspace_containers[0]
+
+
+def wait_for_storage_account_ready(config):
+    """Poll for global compute operation until finished."""
+    cli_logger.verbose("Waiting for storage account ready...")
+
+    for _ in range(MAX_CHECK_RESOURCE_TIMES):
+        storage_account = get_storage_account(config)
+        if storage_account.provisioning_state == "Succeeded":
+            cli_logger.verbose("The storage account is ready.")
+            return
+
+        time.sleep(CHECK_RESOURCE_INTERVAL)
+
+    cli_logger.abort("The storage account is not been successfully created.")
 
 
 def get_storage_account(config):
@@ -875,7 +893,6 @@ def create_resource_group(config, resource_client):
 
         resource_group = resource_client.resource_groups.create_or_update(
             resource_group_name=resource_group_name, parameters=params)
-        # time.sleep(20)
         cli_logger.print("Successfully created workspace resource group: cloudtik-{}-resource_group.".
                          format(config["workspace_name"]))
         return resource_group
@@ -910,7 +927,6 @@ def _create_role_assignment_for_storage_blob_data_contributor(config, resource_g
                 "principalType": "ServicePrincipal"
             }
         )
-        time.sleep(20)
         cli_logger.print("Successfully created workspace role assignment for Storage Blob Data Contributor: {}.".
                          format(role_assignment_name))
     except Exception as e:
@@ -943,7 +959,6 @@ def _create_role_assignment_for_contributor(config, resource_group_name):
                 "principalType": "ServicePrincipal"
             }
         )
-        time.sleep(20)
         cli_logger.print("Successfully created workspace role assignment: {}.".
                          format(role_assignment_name))
     except Exception as e:
@@ -1033,7 +1048,7 @@ def _create_storage_account(config, resource_group_name):
                 }
             }
         )
-        time.sleep(20)
+        wait_for_storage_account_ready(config)
         cli_logger.print("Successfully created storage account: {}.".
                          format(account_name))
     except Exception as e:
@@ -1058,7 +1073,6 @@ def _create_user_assigned_identity(config, resource_group_name):
                 "location": location
             }
         )
-        time.sleep(20)
         cli_logger.print("Successfully created workspace user assigned identity: {}.".
                          format(user_assigned_identity_name))
     except Exception as e:

@@ -18,7 +18,8 @@ from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_NAME
 
-from cloudtik.providers._private._azure.config import (AZURE_MSI_NAME, get_azure_sdk_function,
+from cloudtik.providers._private._azure.config import (MAX_CHECK_RESOURCE_TIMES, 
+                                                       AZURE_MSI_NAME, get_azure_sdk_function,
                                                        verify_azure_cloud_storage, bootstrap_azure,
                                                        _extract_metadata_for_node, bootstrap_azure_for_read)
 
@@ -27,7 +28,6 @@ from cloudtik.providers._private.utils import validate_config_dict
 
 VM_NAME_MAX_LEN = 64
 VM_NAME_UUID_LEN = 8
-RESOURCE_CHECK_TIME = 20
 
 logger = logging.getLogger(__name__)
 azure_logger = logging.getLogger(
@@ -272,7 +272,7 @@ class AzureNodeProvider(NodeProvider):
 
         # delete ip address
         if "public_ip_name" in metadata:
-            retry_time = RESOURCE_CHECK_TIME
+            retry_time = MAX_CHECK_RESOURCE_TIMES
             delete = get_azure_sdk_function(
                 client=self.network_client.public_ip_addresses,
                 function_name="delete")

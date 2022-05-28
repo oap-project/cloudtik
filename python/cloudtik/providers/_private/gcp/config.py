@@ -1725,20 +1725,27 @@ def verify_gcs_storage(provider_config: Dict[str, Any]):
         if use_managed_cloud_storage:
             storage_gcs = _create_storage()
         else:
-            private_key = gcs_storage.get("gcs.service.account.private.key")
-            private_key = unescape_private_key(private_key)
+            private_key_id = gcs_storage.get("gcs.service.account.private.key.id")
+            if private_key_id is None:
+                # The bucket may be able to accessible from roles
+                # Verify through the client credential
+                storage_gcs = _create_storage()
+            else:
+                private_key = gcs_storage.get("gcs.service.account.private.key")
+                private_key = unescape_private_key(private_key)
 
-            credentials_field = {
-                "project_id": provider_config.get("project_id"),
-                "private_key_id": gcs_storage.get("gcs.service.account.private.key.id"),
-                "private_key": private_key,
-                "client_email": gcs_storage.get("gcs.service.account.client.email"),
-                "token_uri": "https://oauth2.googleapis.com/token"
-            }
+                credentials_field = {
+                    "project_id": provider_config.get("project_id"),
+                    "private_key_id": private_key_id,
+                    "private_key": private_key,
+                    "client_email": gcs_storage.get("gcs.service.account.client.email"),
+                    "token_uri": "https://oauth2.googleapis.com/token"
+                }
 
-            credentials = service_account.Credentials.from_service_account_info(
-                credentials_field)
-            storage_gcs = _create_storage(credentials)
+                credentials = service_account.Credentials.from_service_account_info(
+                    credentials_field)
+                storage_gcs = _create_storage(credentials)
+
         storage_gcs.buckets().get(bucket=gcs_storage["gcs.bucket"]).execute()
     except Exception as e:
         raise StorageTestingError("Error happens when verifying GCS storage configurations. "

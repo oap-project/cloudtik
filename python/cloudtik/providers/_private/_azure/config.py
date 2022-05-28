@@ -331,7 +331,7 @@ def _delete_workspace_cloud_storage(config, resource_group_name):
         return
 
     """ Delete storage account """
-    cli_logger.print("Deleting the storage account: {} ...".format(storage_account.name))
+    cli_logger.print("Deleting the storage account: {}...".format(storage_account.name))
     try:
         storage_client.storage_accounts.delete(
             resource_group_name=resource_group_name,
@@ -408,7 +408,7 @@ def _delete_role_assignment_for_storage_blob_data_contributor(config, resource_g
         return
 
     """ Delete the role_assignments for """
-    cli_logger.print("Deleting the role assignment for Storage Blob Data Contributor: {} ...".format(
+    cli_logger.print("Deleting the role assignment for Storage Blob Data Contributor: {}...".format(
         role_assignment_name))
     try:
         authorization_client.role_assignments.delete(
@@ -437,7 +437,7 @@ def _delete_role_assignment_for_contributor(config, resource_group_name):
         return
 
     """ Delete the role_assignments """
-    cli_logger.print("Deleting the role assignment for Contributor: {} ...".format(role_assignment_name))
+    cli_logger.print("Deleting the role assignment for Contributor: {}...".format(role_assignment_name))
     try:
         authorization_client.role_assignments.delete(
             scope=scope,
@@ -475,7 +475,7 @@ def _delete_user_assigned_identity(config, resource_group_name):
         return
 
     """ Delete the user_assigned_identity """
-    cli_logger.print("Deleting the user assigned identity: {} ...".format(user_assigned_identity.name))
+    cli_logger.print("Deleting the user assigned identity: {}...".format(user_assigned_identity.name))
     try:
         msi_client.user_assigned_identities.delete(
             resource_group_name=resource_group_name,
@@ -511,7 +511,7 @@ def _delete_network_security_group(config, network_client, resource_group_name):
         return
 
     # Delete the network security group
-    cli_logger.print("Deleting the network security group: {} ...".format(network_security_group_name))
+    cli_logger.print("Deleting the network security group: {}...".format(network_security_group_name))
     try:
         network_client.network_security_groups.begin_delete(
             resource_group_name=resource_group_name,
@@ -546,7 +546,7 @@ def _delete_public_ip_address(config, network_client, resource_group_name):
         return
 
     # Delete the public IP address
-    cli_logger.print("Deleting the public IP address: {} ...".format(public_ip_address_name))
+    cli_logger.print("Deleting the public IP address: {}...".format(public_ip_address_name))
     try:
         network_client.public_ip_addresses.begin_delete(
             resource_group_name=resource_group_name,
@@ -581,7 +581,7 @@ def _delete_nat(config, network_client, resource_group_name):
         return
 
     """ Delete the Nat Gateway """
-    cli_logger.print("Deleting the Nat Gateway: {} ...".format(nat_gateway_name))
+    cli_logger.print("Deleting the Nat Gateway: {}...".format(nat_gateway_name))
     try:
         network_client.nat_gateways.begin_delete(
             resource_group_name=resource_group_name,
@@ -603,7 +603,7 @@ def _delete_vnet(config, resource_client, network_client):
         return
 
     # Delete the virtual network
-    cli_logger.print("Deleting the virtual network: {} ...".format(virtual_network_name))
+    cli_logger.print("Deleting the virtual network: {}...".format(virtual_network_name))
     try:
         network_client.virtual_networks.begin_delete(
             resource_group_name=resource_group_name,
@@ -624,7 +624,7 @@ def _delete_resource_group(config, resource_client):
         return
 
     # Delete the resource group
-    cli_logger.print("Deleting the resource group: {} ...".format(resource_group_name))
+    cli_logger.print("Deleting the resource group: {}...".format(resource_group_name))
 
     try:
         resource_client.resource_groups.begin_delete(
@@ -807,7 +807,7 @@ def get_working_node_virtual_network_name(resource_client, network_client):
 def get_workspace_virtual_network_name(config, network_client):
     resource_group_name = 'cloudtik-{}-resource-group'.format(config["workspace_name"])
     virtual_network_name = 'cloudtik-{}-vnet'.format(config["workspace_name"])
-    cli_logger.verbose("Getting the VirtualNetworkName for workspace: {} ...".
+    cli_logger.verbose("Getting the VirtualNetworkName for workspace: {}...".
                        format(virtual_network_name))
 
     try:
@@ -847,7 +847,7 @@ def _get_resource_group(
 
 def _get_workspace_resource_group(workspace_name, resource_client):
     resource_group_name = 'cloudtik-{}-resource-group'.format(workspace_name)
-    cli_logger.verbose("Getting the resource group name for workspace: {} ...".
+    cli_logger.verbose("Getting the resource group name for workspace: {}...".
                        format(resource_group_name))
 
     try:
@@ -1153,7 +1153,7 @@ def _delete_subnet(config, network_client, resource_group_name, virtual_network_
         return
 
     """ Delete custom subnet """
-    cli_logger.print("Deleting {} subnet: {} ...".format(subnet_attribute, subnet_name))
+    cli_logger.print("Deleting {} subnet: {}...".format(subnet_attribute, subnet_name))
     try:
         network_client.subnets.begin_delete(
             resource_group_name=resource_group_name,
@@ -1221,7 +1221,7 @@ def _create_and_configure_subnets(config, network_client, resource_group_name, v
         }
 
     # Create subnet
-    cli_logger.print("Creating subnet for the virtual network: {} with CIDR: {} ...".
+    cli_logger.print("Creating subnet for the virtual network: {} with CIDR: {}...".
                      format(virtual_network_name, cidr_block))
     try:
         network_client.subnets.begin_create_or_update(
@@ -1243,7 +1243,7 @@ def _create_nat(config, network_client, resource_group_name, public_ip_address_n
     workspace_name = config["workspace_name"]
     nat_gateway_name = "cloudtik-{}-nat".format(workspace_name)
 
-    cli_logger.print("Creating NAT gateway: {} ... ".format(nat_gateway_name))
+    cli_logger.print("Creating NAT gateway: {}... ".format(nat_gateway_name))
     try:
         nat_gateway = network_client.nat_gateways.begin_create_or_update(
             resource_group_name=resource_group_name,
@@ -1273,7 +1273,7 @@ def _create_public_ip_address(config, network_client, resource_group_name):
     public_ip_address_name = "cloudtik-{}-public-ip-address".format(workspace_name)
     location = config["provider"]["location"]
 
-    cli_logger.print("Creating public IP address: {} ... ".format(public_ip_address_name))
+    cli_logger.print("Creating public IP address: {}... ".format(public_ip_address_name))
     try:
         network_client.public_ip_addresses.begin_create_or_update(
             resource_group_name,
@@ -1305,7 +1305,7 @@ def _create_or_update_network_security_group(config, network_client, resource_gr
     for i in range(0, len(security_rules)):
         security_rules[i]["name"] = "cloudtik-{}-security-rule-{}".format(workspace_name, i)
 
-    cli_logger.print("Creating or updating network security group: {} ... ".format(network_security_group_name))
+    cli_logger.print("Creating or updating network security group: {}... ".format(network_security_group_name))
     try:
         network_client.network_security_groups._create_or_update_initial(
             resource_group_name=resource_group_name,

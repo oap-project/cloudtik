@@ -37,8 +37,8 @@ AZURE_NSG_NAME = AZURE_RESOURCE_NAME_PREFIX + "-nsg"
 AZURE_SUBNET_NAME = AZURE_RESOURCE_NAME_PREFIX + "-subnet"
 AZURE_VNET_NAME = AZURE_RESOURCE_NAME_PREFIX + "-vnet"
 
-NUM_AZURE_WORKSPACE_CREATION_STEPS = 10
-NUM_AZURE_WORKSPACE_DELETION_STEPS = 8
+NUM_AZURE_WORKSPACE_CREATION_STEPS = 9
+NUM_AZURE_WORKSPACE_DELETION_STEPS = 7
 
 logger = logging.getLogger(__name__)
 
@@ -696,12 +696,12 @@ def _configure_workspace(config):
                 current_step += 1
                 _create_user_assigned_identity(config, resource_group_name)
 
-            # create role_assignment for Contributor
+            # create user_assigned_identities
             with cli_logger.group(
-                    "Creating role assignment for Contributor",
+                    "Creating role assignment for managed Identity",
                     _numbered=("[]", current_step, total_steps)):
                 current_step += 1
-                _create_role_assignment_for_contributor(config, resource_group_name)
+                _create_role_assignment(config, resource_group_name)
 
             if managed_cloud_storage:
                 with cli_logger.group(
@@ -715,13 +715,6 @@ def _configure_workspace(config):
                         _numbered=("[]", current_step, total_steps)):
                     current_step += 1
                     _create_container_for_storage_account(config, resource_group_name)
-
-            # create role_assignment for Storage Blob Data Contributor
-            with cli_logger.group(
-                    "Creating role assignment for Storage Blob Data Contributor",
-                    _numbered=("[]", current_step, total_steps)):
-                current_step += 1
-                _create_role_assignment_for_storage_blob_data_contributor(config, resource_group_name)
 
     except Exception as e:
         cli_logger.error("Failed to create workspace. {}", str(e))
@@ -909,6 +902,40 @@ def create_resource_group(config, resource_client):
         raise e
 
 
+def _create_role_assignment_for_storage_blob_data_owner(config, resource_group_name):
+    authorization_client = construct_authorization_client(config)
+    subscription_id = config["provider"].get("subscription_id")
+    scope = "subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}".format(
+        subscriptionId=subscription_id,
+        resourceGroupName=resource_group_name
+    )
+    storage_account = get_storage_account(config)
+    if storage_account is None:
+        cli_logger.abort("No storage account is found. You need to make sure storage account has been created.")
+    role_assignment_name = str(uuid.uuid3(uuid.UUID(subscription_id), storage_account.id + 'owner'))
+    user_assigned_identity = get_user_assigned_identity(config, resource_group_name)
+    cli_logger.print("Creating workspace role assignment for Storage Blob Data Owner: {} on Azure...",
+                     role_assignment_name)
+
+    # Create role assignment for Storage Blob Data Owner
+    try:
+        role_assignment = authorization_client.role_assignments.create(
+            scope=scope,
+            role_assignment_name=role_assignment_name,
+            parameters={
+                "role_definition_id": "/providers/Microsoft.Authorization/roleDefinitions/b7e6dc6d-f1e8-4753-8033-0f276bb0955b",
+                "principal_id": user_assigned_identity.principal_id,
+                "principalType": "ServicePrincipal"
+            }
+        )
+        cli_logger.print("Successfully created workspace role assignment for Storage Blob Data Owner: {}.".
+                         format(role_assignment_name))
+    except Exception as e:
+        cli_logger.error(
+            "Failed to create workspace role assignment for Storage Blob Data Owner. {}", str(e))
+        raise e
+    
+
 def _create_role_assignment_for_storage_blob_data_contributor(config, resource_group_name):
     authorization_client = construct_authorization_client(config)
     subscription_id = config["provider"].get("subscription_id")
@@ -919,7 +946,7 @@ def _create_role_assignment_for_storage_blob_data_contributor(config, resource_g
     storage_account = get_storage_account(config)
     if storage_account is None:
         cli_logger.abort("No storage account is found. You need to make sure storage account has been created.")
-    role_assignment_name = str(uuid.uuid3(uuid.UUID(subscription_id), storage_account.id))
+    role_assignment_name = str(uuid.uuid3(uuid.UUID(subscription_id), storage_account.id + 'contributor'))
     user_assigned_identity = get_user_assigned_identity(config, resource_group_name)
     cli_logger.print("Creating workspace role assignment for Storage Blob Data Contributor: {} on Azure...", role_assignment_name)
 
@@ -974,6 +1001,32 @@ def _create_role_assignment_for_contributor(config, resource_group_name):
         cli_logger.error(
             "Failed to create workspace role assignment. {}", str(e))
         raise e
+
+
+def _create_role_assignment(config, resource_group_name):
+    current_step = 1
+    total_steps = 3
+    with cli_logger.group("Creating role assignment: "):
+        # create role_assignment for Contributor
+        with cli_logger.group(
+                "Creating role assignment for Contributor",
+                _numbered=("[]", current_step, total_steps)):
+            current_step += 1
+            _create_role_assignment_for_contributor(config, resource_group_name)
+
+        # create role_assignment for Storage Blob Data Contributor
+        with cli_logger.group(
+                "Creating role assignment for Storage Blob Data Contributor",
+                _numbered=("[]", current_step, total_steps)):
+            current_step += 1
+            _create_role_assignment_for_storage_blob_data_contributor(config, resource_group_name)
+
+        # create role_assignment for Storage Blob Data Owner
+        with cli_logger.group(
+                "Creating role assignment for Storage Blob Data Owner",
+                _numbered=("[]", current_step, total_steps)):
+            current_step += 1
+            _create_role_assignment_for_storage_blob_data_owner(config, resource_group_name)
 
 
 def _create_container_for_storage_account(config, resource_group_name):

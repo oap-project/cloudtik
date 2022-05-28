@@ -9,6 +9,8 @@ provider:
     resource_group: cloudtik-resource-group
     # set subscription id otherwise the default from az cli will be used
     # subscription_id: 00000000-0000-0000-0000-000000000000
+    # Whether to use managed cloud storage of workspace.
+    use_managed_cloud_storage: True
 
 # How will authenticate with newly launched nodes.
 auth:

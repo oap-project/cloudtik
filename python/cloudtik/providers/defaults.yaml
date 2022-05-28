@@ -16,6 +16,10 @@ docker:
     container_name: "cloudtik-spark"
     disable_shm_size_detection: True
 
+# How CloudTik will authenticate with newly launched nodes.
+auth:
+    ssh_user: ubuntu
+
 # If a node is idle for this many minutes, it will be removed.
 idle_timeout_minutes: 5
 

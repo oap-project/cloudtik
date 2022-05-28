@@ -76,8 +76,11 @@ on your working machine.
 
 ### 4. Creating a Workspace for Clusters.
 
-CloudTik uses **Workspace** concept to easily manage shared Cloud resources such as VPC, network, identity resources, 
-firewall or security groups. In a Workspace, you can start one or more clusters.
+CloudTik uses **Workspace** concept to easily manage shared Cloud resources such as VPC network resources,
+identity and role resources, firewall or security groups, and cloud storage resources.
+By default, CloudTik will create a workspace managed cloud storage
+(S3 for AWS, Data Lake Storage Gen 2 for Azure, GCS for GCP) for use without any user configurations.
+Within a workspace, you can start one or more clusters with different combination of runtime services.
 
 Create a configuration workspace yaml file to specify the unique workspace name, cloud provider type and a few cloud 
 provider properties. 
@@ -112,47 +115,9 @@ cloudtik workspace create /path/to/your-workspace-config.yaml
 
 Check `example/cluster` folder for more Workspace configuration file examples.
 
-### 5. Configuring Cloud Storage
+### 5. Starting a cluster with default runtimes
 
-If you choose cloud storage as file system or to store stage and event data, a cloud storage account is needed.
-
-#### AWS
-
-Every object in Amazon S3 is stored in a bucket. Before you can store data in Amazon S3, you must create a bucket.
-
-Please refer to the S3 User Guide [Creating bucket](https://docs.aws.amazon.com/AmazonS3/latest/userguide/creating-bucket.html) for instructions.
-The name of S3 bucket will be used in the next step.
-
-You will also need *AWS Access Key ID* and *AWS Secret Access Key* in the next step which allow the access to the created S3 bucket.
-Refer to [Managing access keys](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html#Using_CreateAccessKey) for the
-details.
-
-#### Azure
-
-Create an Azure storage account and a storage container within this storage account.
-Please refer to [Creating Azure Storage Account](https://docs.microsoft.com/en-us/azure/storage/common/storage-account-create?tabs=azure-portal)
-for instructions.
-
-Azure **Blob storage** or **Data Lake Storage Gen2** are both supported by CloudTik. Storage account name
-and storage container name will be used when configuring Azure cluster yaml.
-
-You will also need [Azure account access key](https://docs.microsoft.com/en-us/azure/storage/common/storage-account-keys-manage?tabs=azure-portal#view-account-access-keys)
-in the next step when configuring an Azure configuration yaml file, which grants the access to the created Azure storage.
-
-#### GCP
-
-If you do not already have a GCS bucket, create one by following the 
-[Creating buckets](https://cloud.google.com/storage/docs/creating-buckets#create_a_new_bucket).
-
-To control access to the bucket, please refer to [Google cloud bucket](gcs-bucket.md) for instructions. 
-The name of bucket will be used when configuring GCP cluster yaml.
-
-You will also need the previously downloaded Json file's `project_id`, `client_email`, `private_key_id` and 
-`gcs.service.account.private.key` for the next step when configuring a GCP cluster yaml, which grants the access to the created GCP bucket.
-
-### 6. Starting a cluster with default runtimes
-
-Now you can start a cluster:
+Now you can start a cluster running Spark by default:
 
 ```
 cloudtik start /path/to/your-cluster-config.yaml
@@ -172,21 +137,12 @@ from: aws/standard
 workspace_name: example-workspace
 
 # A unique identifier for the cluster.
-cluster_name: example-docker
-
-# Enable container
-docker:
-    enabled: True
+cluster_name: example
 
 # Cloud-provider specific configuration.
 provider:
     type: aws
     region: us-west-2
-    # S3 configurations for storage
-    aws_s3_storage:
-        s3.bucket: your_s3_bucket
-        s3.access.key.id: your_s3_access_key_id
-        s3.secret.access.key: your_s3_secret_access_key
 
 auth:
     ssh_user: ubuntu
@@ -199,7 +155,7 @@ available_node_types:
         min_workers: 3
 ```
 
-You need the cloud storage access information in Step 5 and only a few additional key settings in the configuration file to launch a cluster.
+You need only a few key settings in the configuration file to launch a Spark cluster.
 
 As for `auth` above, please set proxy if your working node is using corporation network.
 
@@ -211,7 +167,7 @@ auth:
 
 Refer to `example/cluster` directory for more cluster configurations examples.
 
-### 7. Managing clusters
+### 6. Managing clusters
 
 CloudTik provides very powerful capability to monitor and manage the cluster.
 

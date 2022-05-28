@@ -323,6 +323,15 @@ def get_storage_account(config):
     return None if len(workspace_storage_accounts) == 0 else workspace_storage_accounts[0]
 
 
+def _get_container(provider_config, resource_group_name, storage_account_name, container_name):
+    storage_client = _construct_storage_client(provider_config)
+    container = storage_client.blob_containers.get(
+        resource_group_name=resource_group_name,
+        account_name=storage_account_name,
+        container_name=container_name)
+    return container
+
+
 def _delete_workspace_cloud_storage(config, resource_group_name):
     storage_client = construct_storage_client(config)
     storage_account = get_storage_account(config)
@@ -1398,12 +1407,11 @@ def _configure_workspace_resource(config):
 def _configure_cloud_storage_from_workspace(config):
     use_managed_cloud_storage = is_use_managed_cloud_storage(config)
     use_internal_ips = is_use_internal_ip(config)
+    resource_client = construct_resource_client(config)
+    resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
     if use_managed_cloud_storage:
-        resource_client = construct_resource_client(config)
-        resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
         storage_account = get_storage_account(config)
         container = get_container_for_storage_account(config, resource_group_name)
-        user_assigned_identity = get_user_assigned_identity(config, resource_group_name)
         if container is None:
             cli_logger.abort("No managed azure storage container was found. If you want to use managed azure storage, "
                              "you should set managed_cloud_storage equal to True when you creating workspace.")
@@ -1412,8 +1420,13 @@ def _configure_cloud_storage_from_workspace(config):
         config["provider"]["azure_cloud_storage"]["azure.storage.type"] = "datalake"
         config["provider"]["azure_cloud_storage"]["azure.storage.account"] = storage_account.name
         config["provider"]["azure_cloud_storage"]["azure.container"] = container.name
-        config["provider"]["azure_cloud_storage"]["azure.user.assigned.identity.client.id"] = user_assigned_identity.client_id
-        config["provider"]["azure_cloud_storage"]["azure.user.assigned.identity.tenant.id"] = user_assigned_identity.tenant_id
+
+    if "azure_cloud_storage" in config["provider"]:
+        user_assigned_identity = get_user_assigned_identity(config, resource_group_name)
+        config["provider"]["azure_cloud_storage"][
+            "azure.user.assigned.identity.client.id"] = user_assigned_identity.client_id
+        config["provider"]["azure_cloud_storage"][
+            "azure.user.assigned.identity.tenant.id"] = user_assigned_identity.tenant_id
 
     return config
 
@@ -1749,17 +1762,25 @@ def verify_azure_blob_storage(provider_config: Dict[str, Any]):
 def verify_azure_datalake_storage(provider_config: Dict[str, Any]):
     azure_cloud_storage = provider_config["azure_cloud_storage"]
     azure_storage_account = azure_cloud_storage["azure.storage.account"]
-    azure_account_key = azure_cloud_storage["azure.account.key"]
     azure_container = azure_cloud_storage["azure.container"]
+    azure_account_key = azure_cloud_storage.get("azure.account.key")
+    if azure_account_key is None:
+        # Check whether its existence by storage management client
+        resource_group_name = provider_config["resource_group"]
+        container = _get_container(
+            provider_config,
+            resource_group_name=resource_group_name,
+            storage_account_name=azure_storage_account,
+            container_name=azure_container)
+    else:
+        service_client = DataLakeServiceClient(account_url="{}://{}.dfs.core.windows.net".format(
+            "https", azure_storage_account), credential=azure_account_key)
 
-    service_client = DataLakeServiceClient(account_url="{}://{}.dfs.core.windows.net".format(
-        "https", azure_storage_account), credential=azure_account_key)
+        file_system_client = service_client.get_file_system_client(file_system=azure_container)
 
-    file_system_client = service_client.get_file_system_client(file_system=azure_container)
-
-    exists = file_system_client.exists()
-    if not exists:
-        raise RuntimeError(f"Container {azure_container} doesn't exist in Azure Data Lake Storage Gen 2.")
+        exists = file_system_client.exists()
+        if not exists:
+            raise RuntimeError(f"Container {azure_container} doesn't exist in Azure Data Lake Storage Gen 2.")
 
 
 def verify_azure_cloud_storage(provider_config: Dict[str, Any]):

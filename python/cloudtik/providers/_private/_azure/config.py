@@ -773,7 +773,7 @@ def _configure_workspace(config):
                 current_step += 1
                 _create_user_assigned_identity(config, resource_group_name)
 
-            # create user_assigned_identities
+            # create role assignments
             with cli_logger.group(
                     "Creating role assignments for managed Identity",
                     _numbered=("[]", current_step, total_steps)):

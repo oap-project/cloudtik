@@ -896,10 +896,8 @@ def create_resource_group(config, resource_client):
     cli_logger.print("Creating workspace resource group: {} on Azure...", resource_group_name)
     # create resource group
     try:
-
         resource_group = resource_client.resource_groups.create_or_update(
             resource_group_name=resource_group_name, parameters=params)
-        # time.sleep(20)
         cli_logger.print("Successfully created workspace resource group: cloudtik-{}-resource_group.".
                          format(config["workspace_name"]))
         return resource_group
@@ -1028,7 +1026,7 @@ def _create_storage_account(config, resource_group_name):
     cli_logger.print("Creating workspace storage account: {} on Azure...", account_name)
     # Create storage account
     try:
-        storage_client.storage_accounts.begin_create(
+        poller = storage_client.storage_accounts.begin_create(
             resource_group_name=resource_group_name,
             account_name=account_name,
             parameters={
@@ -1057,9 +1055,11 @@ def _create_storage_account(config, resource_group_name):
                 }
             }
         )
-        time.sleep(20)
+        # Long-running operations return a poller object; calling poller.result()
+        # waits for completion.
+        account_result = poller.result()
         cli_logger.print("Successfully created storage account: {}.".
-                         format(account_name))
+                         format(account_result.name))
     except Exception as e:
         cli_logger.error(
             "Failed to create storage account. {}", str(e))
@@ -1310,7 +1310,7 @@ def _create_public_ip_address(config, network_client, resource_group_name):
                     "name": "Standard"
                 }
             }
-        )
+        ).result()
         cli_logger.print("Successfully created public IP address: {}.".
                          format(public_ip_address_name))
     except Exception as e:

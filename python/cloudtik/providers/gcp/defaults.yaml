@@ -7,6 +7,8 @@ provider:
     region: us-west1
     availability_zone: us-west1-a
     project_id: null # Globally unique project id
+    # Whether to use managed cloud storage of workspace.
+    use_managed_cloud_storage: True
 
 # How will authenticate with newly launched nodes.
 auth:

@@ -8,6 +8,8 @@ provider:
     # Whether to allow node reuse. If set to False, nodes will be terminated
     # instead of stopped.
     cache_stopped_nodes: False # If not present, the default is False.
+    # Whether to use managed cloud storage of workspace.
+    use_managed_cloud_storage: True
 
 # How we will authenticate with newly launched nodes.
 auth:

@@ -43,11 +43,24 @@ DEFAULT_SERVICE_ACCOUNT_CONFIG = {
     "displayName": "CloudTik Service Account ({})".format(VERSION),
 }
 
-# Those roles will be always added.
+# Those roles will always be added.
 DEFAULT_SERVICE_ACCOUNT_ROLES = [
     "roles/storage.admin", "roles/compute.admin",
     "roles/iam.serviceAccountUser"
 ]
+
+GCP_HEAD_SERVICE_ACCOUNT_ID = GCP_RESOURCE_NAME_PREFIX + "-{}"
+GCP_HEAD_SERVICE_ACCOUNT_DISPLAY_NAME = "CloudTik Head Service Account - {}"
+
+GCP_WORKER_SERVICE_ACCOUNT_ID = GCP_RESOURCE_NAME_PREFIX + "-w-{}"
+GCP_WORKER_SERVICE_ACCOUNT_DISPLAY_NAME = "CloudTik Worker Service Account - {}"
+
+# Those roles will always be added.
+WORKER_SERVICE_ACCOUNT_ROLES = [
+    "roles/storage.admin",
+    "roles/iam.serviceAccountUser"
+]
+
 # Those roles will only be added if there are TPU nodes defined in config.
 TPU_SERVICE_ACCOUNT_ROLES = ["roles/tpu.admin"]
 
@@ -58,8 +71,8 @@ HAS_TPU_PROVIDER_FIELD = "_has_tpus"
 # NOTE: iam.serviceAccountUser allows the Head Node to create worker nodes
 # with ServiceAccounts.
 
-NUM_GCP_WORKSPACE_CREATION_STEPS = 6
-NUM_GCP_WORKSPACE_DELETION_STEPS = 4
+NUM_GCP_WORKSPACE_CREATION_STEPS = 7
+NUM_GCP_WORKSPACE_DELETION_STEPS = 5
 
 
 def get_node_type(node: dict) -> GCPNodeType:
@@ -362,7 +375,14 @@ def _create_workspace(config):
                     _numbered=("[]", current_step, total_steps)):
                 current_step += 1
                 config = _configure_project(config, crm)
+
             current_step = _create_network_resources(config, current_step, total_steps)
+
+            with cli_logger.group(
+                    "Creating service accounts",
+                    _numbered=("[]", current_step, total_steps)):
+                current_step += 1
+                config = _create_workspace_service_accounts(config, crm, iam)
 
             if managed_cloud_storage:
                 with cli_logger.group(
@@ -515,7 +535,7 @@ def _delete_subnet(config, compute, is_private=True):
                                                      subnet_attribute)
 
     if get_subnet(config, subnetwork_name, compute) is None:
-        cli_logger.print("The {} subnet \"{}\"  isn't found in workspace."
+        cli_logger.print("The {} subnet {} isn't found in workspace."
                          .format(subnet_attribute, subnetwork_name))
         return
 
@@ -621,7 +641,7 @@ def _create_nat_for_router(config, compute):
         ]
     }
 
-    cli_logger.print("Creating nat-gateway \"{}\" for private router... ".format(nat_name))
+    cli_logger.print("Creating nat-gateway for private router: {}... ".format(nat_name))
     try:
         operation =  compute.routers().patch(project=project_id, region=region, router=router, body=router_body).execute()
         wait_for_compute_region_operation(project_id, region, operation, compute)
@@ -658,10 +678,10 @@ def _delete_router(config, compute):
 
 def check_firewall_exsit(config, compute, firewall_name):
     if get_firewall(config, compute, firewall_name) is None:
-        cli_logger.verbose("The firewall \"{}\" doesn't exist.".format(firewall_name))
+        cli_logger.verbose("The firewall {} doesn't exist.".format(firewall_name))
         return False
     else:
-        cli_logger.verbose("The firewall \"{}\" exists.".format(firewall_name))
+        cli_logger.verbose("The firewall {} exists.".format(firewall_name))
         return True
 
 
@@ -678,22 +698,23 @@ def get_firewall(config, compute, firewall_name):
 
 
 def create_firewall(compute, project_id, firewall_body):
-    cli_logger.print("Creating firewall \"{}\"... ".format(firewall_body.get("name")))
+    cli_logger.print("Creating firewall: {}... ".format(firewall_body.get("name")))
     try:
         operation =  compute.firewalls().insert(project=project_id, body=firewall_body).execute()
         wait_for_compute_global_operation(project_id, operation, compute)
-        cli_logger.print("Successfully created firewall \"{}\". ".format(firewall_body.get("name")))
+        cli_logger.print("Successfully created firewall: {}.".format(firewall_body.get("name")))
     except Exception as e:
         cli_logger.error("Failed to create firewall. {}", str(e))
         raise e
 
 
 def update_firewall(compute, project_id, firewall_body):
-    cli_logger.print("Updating firewall \"{}\"... ".format(firewall_body.get("name")))
+    cli_logger.print("Updating firewall: {}... ".format(firewall_body.get("name")))
     try:
-        operation =  compute.firewalls().update(project=project_id, firewall = firewall_body.get("name"), body=firewall_body).execute()
+        operation =  compute.firewalls().update(
+            project=project_id, firewall=firewall_body.get("name"), body=firewall_body).execute()
         wait_for_compute_global_operation(project_id, operation, compute)
-        cli_logger.print("Successfully updated firewall \"{}\". ".format(firewall_body.get("name")))
+        cli_logger.print("Successfully updated firewall: {}.".format(firewall_body.get("name")))
     except Exception as e:
         cli_logger.error("Failed to update firewall. {}", str(e))
         raise e
@@ -706,7 +727,7 @@ def create_or_update_firewall(config, compute, firewall_body):
     if not check_firewall_exsit(config, compute, firewall_name):
         create_firewall(compute, project_id, firewall_body)
     else:
-        cli_logger.print("The firewall \"{}\" already exists. Will update the rules... ".format(firewall_name))
+        cli_logger.print("The firewall {} already exists. Will update the rules... ".format(firewall_name))
         update_firewall(compute, project_id, firewall_body)
 
 
@@ -887,8 +908,14 @@ def delete_workspace_gcp(config, delete_managed_storage: bool = False):
                         _numbered=("[]", current_step, total_steps)):
                     current_step += 1
                     _delete_workspace_cloud_storage(config, workspace_name)
-            with cli_logger.group("Deleting network resources: {}", workspace_name):
-                _delete_network_resources(config, compute, current_step, total_steps)
+
+            with cli_logger.group(
+                    "Deleting service accounts",
+                    _numbered=("[]", current_step, total_steps)):
+                current_step += 1
+                _delete_workspace_service_accounts(config, crm, iam)
+
+            _delete_network_resources(config, compute, current_step, total_steps)
 
     except Exception as e:
         cli_logger.error(
@@ -899,6 +926,37 @@ def delete_workspace_gcp(config, delete_managed_storage: bool = False):
             "Successfully deleted workspace: {}.",
             cf.bold(workspace_name))
     return None
+
+
+def _delete_workspace_service_accounts(config, crm, iam):
+    workspace_name = config["workspace_name"]
+    head_service_account_id = GCP_HEAD_SERVICE_ACCOUNT_ID.format(workspace_name)
+    _delete_service_account(config, iam, head_service_account_id)
+
+    worker_service_account_id = GCP_WORKER_SERVICE_ACCOUNT_ID.format(workspace_name)
+    _delete_service_account(config, iam, worker_service_account_id)
+
+
+def _delete_service_account(config, iam, service_account_id):
+    project_id = config["provider"]["project_id"]
+    email = SERVICE_ACCOUNT_EMAIL_TEMPLATE.format(
+        account_id=service_account_id,
+        project_id=project_id)
+    service_account = _get_service_account(email, config, iam)
+    if service_account is None:
+        cli_logger.warning("No service account with id {} found.".format(service_account_id))
+        return
+
+    try:
+        cli_logger.print("Deleting service account: {}...".format(service_account_id))
+        full_name = ("projects/{project_id}/serviceAccounts/{account}"
+                     "".format(project_id=project_id, account=email))
+        iam.projects().serviceAccounts().delete(name=full_name).execute()
+        cli_logger.print("Successfully deleted the service account.")
+    except Exception as e:
+        cli_logger.error("Failed to delete the service account. {}", str(e))
+        raise e
+    return
 
 
 def _delete_workspace_cloud_storage(config, workspace_name):
@@ -988,6 +1046,62 @@ def _create_vpc(config, compute):
     return VpcId
 
 
+def _create_head_service_account(config, crm, iam):
+    workspace_name = config["workspace_name"]
+    service_account_id = GCP_HEAD_SERVICE_ACCOUNT_ID.format(workspace_name)
+    cli_logger.print("Creating head service account: {}...".format(service_account_id))
+
+    try:
+        service_account_config = {
+            "displayName": GCP_HEAD_SERVICE_ACCOUNT_DISPLAY_NAME.format(workspace_name),
+        }
+
+        service_account = _create_service_account(
+            service_account_id, service_account_config, config,
+            iam)
+
+        assert service_account is not None, "Failed to create head service account."
+
+        if config["provider"].get(HAS_TPU_PROVIDER_FIELD, False):
+            roles = DEFAULT_SERVICE_ACCOUNT_ROLES + TPU_SERVICE_ACCOUNT_ROLES
+        else:
+            roles = DEFAULT_SERVICE_ACCOUNT_ROLES
+
+        _add_iam_policy_binding(service_account, roles, crm)
+        cli_logger.print("Successfully created head service account and configured with roles.")
+    except Exception as e:
+        cli_logger.error("Failed to create head service account. {}", str(e))
+        raise e
+
+
+def _create_worker_service_account(config, crm, iam):
+    workspace_name = config["workspace_name"]
+    service_account_id = GCP_WORKER_SERVICE_ACCOUNT_ID.format(workspace_name)
+    cli_logger.print("Creating worker service account: {}...".format(service_account_id))
+
+    try:
+        service_account_config = {
+            "displayName": GCP_WORKER_SERVICE_ACCOUNT_DISPLAY_NAME.format(workspace_name),
+        }
+        service_account = _create_service_account(
+            service_account_id, service_account_config, config,
+            iam)
+
+        assert service_account is not None, "Failed to create worker service account."
+
+        _add_iam_policy_binding(service_account, WORKER_SERVICE_ACCOUNT_ROLES, crm)
+        cli_logger.print("Successfully created worker service account and configured with roles.")
+    except Exception as e:
+        cli_logger.error("Failed to create worker service account. {}", str(e))
+        raise e
+
+
+def _create_workspace_service_accounts(config, crm, iam):
+    _create_head_service_account(config, crm, iam)
+    _create_worker_service_account(config, crm, iam)
+    return config
+
+
 def _create_workspace_cloud_storage(config):
     workspace_name = config["workspace_name"]
 
@@ -1074,6 +1188,7 @@ def check_gcp_workspace_resource(config):
          4.) Check router
          5.) Check firewalls
          6.) Check GCS bucket
+         7.) Check service accounts
     """
     if get_gcp_vpcId(config, compute, use_internal_ips) is None:
         return False
@@ -1088,6 +1203,10 @@ def check_gcp_workspace_resource(config):
     if managed_cloud_storage:
         if get_workspace_gcs_bucket(config, workspace_name) is None:
             return False
+    if _get_workspace_service_account(config, iam, GCP_HEAD_SERVICE_ACCOUNT_ID) is None:
+        return False
+    if _get_workspace_service_account(config, iam, GCP_WORKER_SERVICE_ACCOUNT_ID) is None:
+        return False
     return True
 
 
@@ -1232,7 +1351,7 @@ def bootstrap_gcp_from_workspace(config):
         construct_clients_from_provider_config(config["provider"])
 
     config = _fix_disk_info(config)
-    config = _configure_iam_role(config, crm, iam)
+    config = _configure_iam_role_from_workspace(config, iam)
     config = _configure_cloud_storage_from_workspace(config)
     config = _configure_key_pair(config, compute)
     config = _configure_subnet_from_workspace(config, compute)
@@ -1333,6 +1452,63 @@ def _configure_iam_role(config, crm, iam):
             node_config["serviceAccounts"] = serviceAccounts
     else:
         config["head_node"]["serviceAccounts"] = serviceAccounts
+
+    return config
+
+
+def _get_workspace_service_account(config, iam, service_account_id_template):
+    workspace_name = config["workspace_name"]
+    service_account_id = service_account_id_template.format(workspace_name)
+    email = SERVICE_ACCOUNT_EMAIL_TEMPLATE.format(
+        account_id=service_account_id,
+        project_id=config["provider"]["project_id"])
+    service_account = _get_service_account(email, config, iam)
+    return service_account
+
+
+def _configure_iam_role_for_head(config, iam):
+    head_service_account = _get_workspace_service_account(
+        config, iam, GCP_HEAD_SERVICE_ACCOUNT_ID)
+    if head_service_account is None:
+        cli_logger.abort("Head service account not found for workspace.")
+
+    head_service_accounts = [{
+        "email": head_service_account["email"],
+        # NOTE: The amount of access is determined by the scope + IAM
+        # role of the service account. Even if the cloud-platform scope
+        # gives (scope) access to the whole cloud-platform, the service
+        # account is limited by the IAM rights specified below.
+        "scopes": ["https://www.googleapis.com/auth/cloud-platform"]
+    }]
+    config["head_node"]["serviceAccounts"] = head_service_accounts
+
+
+def _configure_iam_role_for_worker(config, iam):
+    # worker service account
+    worker_service_account = _get_workspace_service_account(
+        config, iam, GCP_WORKER_SERVICE_ACCOUNT_ID)
+    if worker_service_account is None:
+        cli_logger.abort("Worker service account not found for workspace.")
+
+    worker_service_accounts = [{
+        "email": worker_service_account["email"],
+        "scopes": ["https://www.googleapis.com/auth/cloud-platform"]
+    }]
+
+    for key, node_type in config["available_node_types"].items():
+        if key == config["head_node_type"]:
+            continue
+        node_config = node_type["node_config"]
+        node_config["serviceAccounts"] = worker_service_accounts
+
+
+def _configure_iam_role_from_workspace(config, iam):
+    config = copy.deepcopy(config)
+    _configure_iam_role_for_head(config, iam)
+
+    worker_role_for_cloud_storage = is_worker_role_for_cloud_storage(config)
+    if worker_role_for_cloud_storage:
+        _configure_iam_role_for_worker(config, iam)
 
     return config
 
@@ -1617,11 +1793,13 @@ def _get_service_account(account, config, iam):
     full_name = ("projects/{project_id}/serviceAccounts/{account}"
                  "".format(project_id=project_id, account=account))
     try:
+        cli_logger.verbose("Getting service account: {}...".format(account))
         service_account = iam.projects().serviceAccounts().get(
             name=full_name).execute()
     except errors.HttpError as e:
         if e.resp.status != 404:
             raise
+        cli_logger.verbose("Service account doesn't exist: {}...".format(account))
         service_account = None
 
     return service_account

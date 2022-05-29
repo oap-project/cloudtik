@@ -339,12 +339,12 @@ def create_gcp_workspace(config):
     config = copy.deepcopy(config)
 
     # Steps of configuring the workspace
-    config = _configure_workspace(config)
+    config = _create_workspace(config)
 
     return config
 
 
-def _configure_workspace(config):
+def _create_workspace(config):
     crm, iam, compute, tpu = \
         construct_clients_from_provider_config(config["provider"])
     workspace_name = config["workspace_name"]
@@ -362,14 +362,14 @@ def _configure_workspace(config):
                     _numbered=("[]", current_step, total_steps)):
                 current_step += 1
                 config = _configure_project(config, crm)
-            current_step = _configure_network_resources(config, current_step, total_steps)
+            current_step = _create_network_resources(config, current_step, total_steps)
 
             if managed_cloud_storage:
                 with cli_logger.group(
                         "Creating GCS bucket",
                         _numbered=("[]", current_step, total_steps)):
                     current_step += 1
-                    config = _configure_workspace_cloud_storage(config)
+                    config = _create_workspace_cloud_storage(config)
 
     except Exception as e:
         cli_logger.error("Failed to create workspace. {}", str(e))
@@ -988,7 +988,7 @@ def _create_vpc(config, compute):
     return VpcId
 
 
-def _configure_workspace_cloud_storage(config):
+def _create_workspace_cloud_storage(config):
     workspace_name = config["workspace_name"]
 
     # If the managed cloud storage for the workspace already exists
@@ -1017,7 +1017,7 @@ def _configure_workspace_cloud_storage(config):
     return config
 
 
-def _configure_network_resources(config, current_step, total_steps):
+def _create_network_resources(config, current_step, total_steps):
     crm, iam, compute, tpu = \
         construct_clients_from_provider_config(config["provider"])
 

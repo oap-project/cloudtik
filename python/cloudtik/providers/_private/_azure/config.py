@@ -662,11 +662,11 @@ def _delete_resource_group(config, resource_client):
 
 def create_azure_workspace(config):
     config = copy.deepcopy(config)
-    config = _configure_workspace(config)
+    config = _create_workspace(config)
     return config
 
 
-def _configure_workspace(config):
+def _create_workspace(config):
     workspace_name = config["workspace_name"]
     managed_cloud_storage = is_managed_cloud_storage(config)
 
@@ -687,7 +687,7 @@ def _configure_workspace(config):
                 resource_group_name = _create_resource_group(config, resource_client)
 
             # create network resources
-            current_step = _configure_network_resources(config, resource_group_name, current_step, total_steps)
+            current_step = _create_network_resources(config, resource_group_name, current_step, total_steps)
 
             # create user_assigned_identities
             with cli_logger.group(
@@ -1348,7 +1348,7 @@ def _create_or_update_network_security_group(config, network_client, resource_gr
     return network_security_group_name
 
 
-def _configure_network_resources(config, resource_group_name, current_step, total_steps):
+def _create_network_resources(config, resource_group_name, current_step, total_steps):
     network_client = construct_network_client(config)
     resource_client = construct_resource_client(config)
 

@@ -572,7 +572,7 @@ def create_aws_workspace(config):
     config = copy.deepcopy(config)
 
     # create workspace
-    config = _configure_workspace(config)
+    config = _create_workspace(config)
 
     return config
 
@@ -1420,7 +1420,7 @@ def _create_route_table_for_private_subnet(config, ec2, vpc, subnet):
     return private_route_table
 
 
-def _configure_workspace(config):
+def _create_workspace(config):
     ec2 = _resource("ec2", config)
     ec2_client = _client("ec2", config)
     workspace_name = config["workspace_name"]
@@ -1437,17 +1437,17 @@ def _configure_workspace(config):
                     "Creating instance profile",
                     _numbered=("[]", current_step, total_steps)):
                 current_step += 1
-                _configure_workspace_instance_profile(config, workspace_name)
+                _create_workspace_instance_profile(config, workspace_name)
 
-            current_step = _configure_network_resources(config, ec2, ec2_client,
-                                         current_step, total_steps)
+            current_step = _create_network_resources(config, ec2, ec2_client,
+                                                     current_step, total_steps)
 
             if managed_cloud_storage:
                 with cli_logger.group(
                         "Creating S3 bucket",
                         _numbered=("[]", current_step, total_steps)):
                     current_step += 1
-                    _configure_workspace_cloud_storage(config, workspace_name)
+                    _create_workspace_cloud_storage(config, workspace_name)
 
     except Exception as e:
         cli_logger.error("Failed to create workspace. {}", str(e))
@@ -1460,7 +1460,7 @@ def _configure_workspace(config):
     return config
 
 
-def _configure_workspace_instance_profile(config, workspace_name):
+def _create_workspace_instance_profile(config, workspace_name):
     head_instance_profile_name = _get_workspace_head_instance_profile_name(workspace_name)
     head_instance_role_name = "cloudtik-{}-head-role".format(workspace_name)
     cli_logger.print("Creating head instance profile: {}...".format(head_instance_profile_name))
@@ -1476,7 +1476,7 @@ def _configure_workspace_instance_profile(config, workspace_name):
     cli_logger.print("Successfully created and configured instance profile.")
 
 
-def _configure_workspace_cloud_storage(config, workspace_name):
+def _create_workspace_cloud_storage(config, workspace_name):
     # If the managed cloud storage for the workspace already exists
     # Skip the creation step
     bucket = get_workspace_s3_bucket(config, workspace_name)
@@ -1514,8 +1514,8 @@ def _get_workspace_worker_instance_profile_name(workspace_name):
     return "cloudtik-{}-worker-profile".format(workspace_name)
 
 
-def _configure_network_resources(config, ec2, ec2_client,
-                                 current_step, total_steps):
+def _create_network_resources(config, ec2, ec2_client,
+                              current_step, total_steps):
     workspace_name = config["workspace_name"]
 
     # create VPC

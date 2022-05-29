@@ -5,35 +5,71 @@ import os
 
 import yaml
 
-EXAMPLE_PATH = os.path.abspath(
+from cloudtik.core.api import Workspace, Cluster
+
+ROOT_PATH = os.path.abspath(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))))
-CLUSTER_EXAMPLE_PATHS = os.path.join(
-    EXAMPLE_PATH, "example/cluster")
-AWS_CLUSTER_EXAMPLE_PATHS = os.path.join(
-    CLUSTER_EXAMPLE_PATHS, "aws/example-docker.yaml")
-AWS_WORKSPACE_EXAMPLE_PATHS = os.path.join(
-    CLUSTER_EXAMPLE_PATHS, "aws/example-workspace.yaml")
+
+DEFAULT_CONF_FILE = os.path.join(os.path.dirname(__file__), "api_conf.yaml")
+
+
+def pytest_configure():
+    pytest.api_conf = yaml.safe_load(open(DEFAULT_CONF_FILE).read())
+
 
 def pytest_addoption(parser):
     parser.addoption(
-        "--workspace_conf", action="store", default=AWS_WORKSPACE_EXAMPLE_PATHS
-    )
-    parser.addoption(
-        "--cluster_conf", action="store", default=AWS_CLUSTER_EXAMPLE_PATHS
+        "--api_conf", action="store", default=""
     )
 
 
-def pytest_generate_tests(metafunc):
-    if 'workspace_config_fixture' in metafunc.fixturenames:
-        config_files = set(metafunc.config.option.workspace_conf.split(","))
-        configs = []
-        for config_file in config_files:
-            configs.append(yaml.safe_load(open(config_file).read()))
-        metafunc.parametrize("workspace_config_fixture", configs)
+@pytest.fixture(scope='session', autouse=True)
+def api_conf_fixture(request):
+    api_conf_file = request.config.getoption("--api_conf")
+    if api_conf_file:
+        pytest.api_conf = yaml.safe_load(open(api_conf_file).read())
 
-    if 'cluster_config_fixture' in metafunc.fixturenames:
-        config_files = set(metafunc.config.option.cluster_conf.split(","))
-        configs = []
-        for config_file in config_files:
-            configs.append(yaml.safe_load(open(config_file).read()))
-        metafunc.parametrize("cluster_config_fixture", configs)
+
+def cluster_up_down_opt(conf):
+    cluster = Cluster(conf)
+    print("\nStart cluster{}".format(conf["cluster_name"]))
+    cluster.start()
+    yield cluster
+    print("\nTeardown cluster{}".format(conf["cluster_name"]))
+    cluster.stop()
+
+
+def workspace_up_down_opt(conf):
+    workspace = Workspace(conf)
+    print("\nCreate Workspace{}".format(conf["cluster_name"]))
+    workspace.create()
+    yield workspace
+    print("\nDelete Workspace{}".format(conf["cluster_name"]))
+    workspace.delete()
+
+
+@pytest.fixture(scope="class")
+def basic_cluster_fixture(request):
+    param = request.param
+    conf_file = os.path.join(ROOT_PATH, param)
+    conf = yaml.safe_load(open(conf_file).read())
+    print("\nbasic_cluster_opt_fixture start{}".format(conf["cluster_name"]))
+    yield from cluster_up_down_opt(conf)
+    print("\nbasic_cluster_fixture Teardown cluster{}".format(conf["cluster_name"]))
+
+
+@pytest.fixture(scope="class")
+def worker_nodes_fixture(request):
+    param = request.param
+    return param
+
+
+@pytest.fixture(scope="class")
+def usability_cluster_fixture(request, worker_nodes_fixture):
+    param = request.param
+    conf_file = os.path.join(ROOT_PATH, param)
+    conf = yaml.safe_load(open(conf_file).read())
+    conf["available_node_types"]["worker.default"]["min_workers"] = worker_nodes_fixture
+    print("\nbasic_cluster_opt_fixture start{}".format(conf["cluster_name"]))
+    yield from cluster_up_down_opt(conf)
+    print("\nbasic_cluster_fixture Teardown cluster{}".format(conf["cluster_name"]))

@@ -1,7 +1,9 @@
+from typing import Any, Dict
+
 from cloudtik.providers._private.gcp.node import GCPNode
 
 
-def get_gcs_config(provider_config):
+def get_gcs_config(provider_config, node_config: Dict[str, Any], node_id: str):
     config_dict = {}
 
     project_id = provider_config.get("project_id")

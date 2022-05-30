@@ -1,4 +1,7 @@
-def get_azure_config(provider_config):
+from typing import Any, Dict
+
+
+def get_azure_config(provider_config, node_config: Dict[str, Any], node_id: str):
     config_dict = {}
 
     azure_storage_type = provider_config.get("azure_cloud_storage", {}).get("azure.storage.type")

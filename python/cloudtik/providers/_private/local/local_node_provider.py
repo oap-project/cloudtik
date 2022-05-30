@@ -4,6 +4,7 @@ import json
 import os
 import socket
 import logging
+from typing import Any, Dict
 
 from cloudtik.core.node_provider import NodeProvider
 
@@ -183,7 +184,7 @@ class LocalNodeProvider(NodeProvider):
         node_info.update(node["tags"])
         return node_info
 
-    def with_environment_variables(self):
+    def with_environment_variables(self, node_config: Dict[str, Any], node_id: str):
         return {}
 
     def get_instance_types(self):

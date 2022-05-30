@@ -114,8 +114,8 @@ class AWSNodeProvider(NodeProvider):
         # excessive DescribeInstances requests.
         self.cached_nodes = {}
 
-    def with_environment_variables(self):
-        return get_aws_s3_config(self.provider_config)
+    def with_environment_variables(self, node_config: Dict[str, Any], node_id: str):
+        return get_aws_s3_config(self.provider_config, node_config, node_id)
 
     def non_terminated_nodes(self, tag_filters):
         # Note that these filters are acceptable because they are set on

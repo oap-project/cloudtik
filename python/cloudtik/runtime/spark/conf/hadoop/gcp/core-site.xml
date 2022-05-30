@@ -19,7 +19,7 @@
 <configuration>
     <property>
         <name>fs.defaultFS</name>
-        <value>{%fs.default.name.gcp%}</value>
+        <value>{%fs.default.name%}</value>
     </property>
     <property>
         <name>fs.AbstractFileSystem.gs.impl</name>

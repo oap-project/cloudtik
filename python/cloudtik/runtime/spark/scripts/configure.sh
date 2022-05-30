@@ -179,9 +179,23 @@ function update_credential_config_for_azure() {
     fi
 }
 
+function update_credential_config_for_provider() {
+    if [ "$provider" == "aws" ]; then
+        update_credential_config_for_aws
+    elif [ "$provider" == "gcp" ]; then
+        update_credential_config_for_gcp
+    elif [ "$provider" == "azure" ]; then
+        update_credential_config_for_azure
+    fi
+}
+
 function update_config_for_hdfs() {
     # configure namenode uri for core-site.xml
-    sed -i "s!{%namenode.uri%}!${HDFS_NAMENODE_URI}!g" `grep "{%namenode.uri%}" -rl ./`
+    fs_default_name_for_hdfs="${HDFS_NAMENODE_URI}"
+    sed -i "s!{%fs.default.name%}!${fs_default_name_for_hdfs}!g" `grep "{%fs.default.name%}" -rl ./`
+
+    # Still update credential config for cloud provider storage in the case of explict usage
+    update_credential_config_for_provider
 
     # event log dir
     event_log_dir="${HDFS_NAMENODE_URI}/shared/spark-events"
@@ -193,7 +207,7 @@ function update_config_for_hdfs() {
 
 function update_config_for_aws() {
     fs_default_name_for_s3="s3a://${AWS_S3_BUCKET}"
-    sed -i "s!{%fs.default.name.aws%}!${fs_default_name_for_s3}!g" `grep "{%fs.default.name.aws%}" -rl ./`
+    sed -i "s!{%fs.default.name%}!${fs_default_name_for_s3}!g" `grep "{%fs.default.name%}" -rl ./`
 
     update_credential_config_for_aws
 
@@ -211,7 +225,7 @@ function update_config_for_aws() {
 
 function update_config_for_gcp() {
     fs_default_name_for_gcs="gs://${GCS_BUCKET}"
-    sed -i "s!{%fs.default.name.gcp%}!${fs_default_name_for_gcs}!g" `grep "{%fs.default.name.gcp%}" -rl ./`
+    sed -i "s!{%fs.default.name%}!${fs_default_name_for_gcs}!g" `grep "{%fs.default.name%}" -rl ./`
 
     update_credential_config_for_gcp
 
@@ -239,7 +253,7 @@ function update_config_for_azure() {
     fi
 
     fs_default_name_for_azure="${AZURE_SCHEMA}://${AZURE_CONTAINER}@${AZURE_STORAGE_ACCOUNT}.${AZURE_ENDPOINT}.core.windows.net"
-    sed -i "s!{%fs.default.name.azure%}!${fs_default_name_for_azure}!g" `grep "{%fs.default.name.azure%}" -rl ./`
+    sed -i "s!{%fs.default.name%}!${fs_default_name_for_azure}!g" `grep "{%fs.default.name%}" -rl ./`
 
     update_credential_config_for_azure
 
@@ -268,16 +282,12 @@ function update_config_for_remote_storage() {
 }
 
 function update_config_for_storage() {
-    check_hdfs_storage
     if [ "$HDFS_ENABLED" == "true" ];then
         update_config_for_local_hdfs
     else
+        check_hdfs_storage
         update_config_for_remote_storage
-        if [ "$HDFS_STORAGE" == "true" ];then
-            cp -r ${output_dir}/hadoop/hdfs/core-site.xml  ${HADOOP_HOME}/etc/hadoop/
-        else
-            cp -r ${output_dir}/hadoop/${provider}/core-site.xml  ${HADOOP_HOME}/etc/hadoop/
-        fi
+        cp -r ${output_dir}/hadoop/${provider}/core-site.xml  ${HADOOP_HOME}/etc/hadoop/
     fi
 }
 

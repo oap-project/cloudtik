@@ -510,9 +510,28 @@ def get_user_assigned_identity(config, resource_group_name, user_assigned_identi
 
 
 def _delete_user_assigned_identities(config, resource_group_name):
+    current_step = 1
+    total_steps = 2
+
+    with cli_logger.group(
+            "Deleting user assigned identity for head",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _delete_user_assigned_identity_for_head(config, resource_group_name)
+
+    with cli_logger.group(
+            "Deleting user assigned identity for worker",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _delete_user_assigned_identity_for_worker(config, resource_group_name)
+
+
+def _delete_user_assigned_identity_for_head(config, resource_group_name):
     user_assigned_identity_name = _get_head_user_assigned_identity_name(config)
     _delete_user_assigned_identity(config, resource_group_name, user_assigned_identity_name)
 
+
+def _delete_user_assigned_identity_for_worker(config, resource_group_name):
     worker_user_assigned_identity_name = _get_worker_user_assigned_identity_name(config)
     _delete_user_assigned_identity(config, resource_group_name, worker_user_assigned_identity_name)
 
@@ -998,20 +1017,20 @@ def _create_role_assignment_for_contributor(config, resource_group_name):
 def _create_role_assignments(config, resource_group_name):
     current_step = 1
     total_steps = 2
-    with cli_logger.group("Creating role assignments: "):
-        # create role_assignment for Contributor
-        with cli_logger.group(
-                "Creating role assignment for Contributor",
-                _numbered=("()", current_step, total_steps)):
-            current_step += 1
-            _create_role_assignment_for_contributor(config, resource_group_name)
 
-        # create role_assignment for Storage Blob Data Owner
-        with cli_logger.group(
-                "Creating role assignment for Storage Blob Data Owner",
-                _numbered=("()", current_step, total_steps)):
-            current_step += 1
-            _create_role_assignment_for_storage_blob_data_owner(config, resource_group_name)
+    # create role_assignment for Contributor
+    with cli_logger.group(
+            "Creating role assignment for Contributor",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _create_role_assignment_for_contributor(config, resource_group_name)
+
+    # create role_assignment for Storage Blob Data Owner
+    with cli_logger.group(
+            "Creating role assignment for Storage Blob Data Owner",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _create_role_assignment_for_storage_blob_data_owner(config, resource_group_name)
 
 
 def _create_container_for_storage_account(config, resource_group_name):
@@ -1107,9 +1126,28 @@ def _create_storage_account(config, resource_group_name):
 
 
 def _create_user_assigned_identities(config, resource_group_name):
+    current_step = 1
+    total_steps = 2
+
+    with cli_logger.group(
+            "Creating user assigned identity for head",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _create_user_assigned_identity_for_head(config, resource_group_name)
+
+    with cli_logger.group(
+            "Creating user assigned identity for worker",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _create_user_assigned_identity_for_worker(config, resource_group_name)
+
+
+def _create_user_assigned_identity_for_head(config, resource_group_name):
     user_assigned_identity_name = _get_head_user_assigned_identity_name(config)
     _create_user_assigned_identity(config, resource_group_name, user_assigned_identity_name)
 
+
+def _create_user_assigned_identity_for_worker(config, resource_group_name):
     worker_user_assigned_identity_name = _get_worker_user_assigned_identity_name(config)
     _create_user_assigned_identity(config, resource_group_name, worker_user_assigned_identity_name)
 

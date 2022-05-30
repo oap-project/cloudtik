@@ -913,7 +913,7 @@ def delete_workspace_gcp(config, delete_managed_storage: bool = False):
                     "Deleting service accounts",
                     _numbered=("[]", current_step, total_steps)):
                 current_step += 1
-                _delete_workspace_service_accounts(config, crm, iam)
+                _delete_workspace_service_accounts(config, iam)
 
             _delete_network_resources(config, compute, current_step, total_steps)
 
@@ -928,11 +928,31 @@ def delete_workspace_gcp(config, delete_managed_storage: bool = False):
     return None
 
 
-def _delete_workspace_service_accounts(config, crm, iam):
+def _delete_workspace_service_accounts(config, iam):
+    current_step = 1
+    total_steps = 2
+
+    with cli_logger.group(
+            "Deleting service account for head",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _delete_head_service_account(config, iam)
+
+    with cli_logger.group(
+            "Deleting service account for worker",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _delete_worker_service_account(config, iam)
+
+
+def _delete_head_service_account(config, iam):
     workspace_name = config["workspace_name"]
     head_service_account_id = GCP_HEAD_SERVICE_ACCOUNT_ID.format(workspace_name)
     _delete_service_account(config, iam, head_service_account_id)
 
+
+def _delete_worker_service_account(config, iam):
+    workspace_name = config["workspace_name"]
     worker_service_account_id = GCP_WORKER_SERVICE_ACCOUNT_ID.format(workspace_name)
     _delete_service_account(config, iam, worker_service_account_id)
 
@@ -1097,8 +1117,21 @@ def _create_worker_service_account(config, crm, iam):
 
 
 def _create_workspace_service_accounts(config, crm, iam):
-    _create_head_service_account(config, crm, iam)
-    _create_worker_service_account(config, crm, iam)
+    current_step = 1
+    total_steps = 2
+
+    with cli_logger.group(
+            "Creating service account for head",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _create_head_service_account(config, crm, iam)
+
+    with cli_logger.group(
+            "Creating service account for worker",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _create_worker_service_account(config, crm, iam)
+
     return config
 
 

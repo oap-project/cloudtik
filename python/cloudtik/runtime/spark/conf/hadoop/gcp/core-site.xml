@@ -19,7 +19,7 @@
 <configuration>
     <property>
         <name>fs.defaultFS</name>
-        <value>gs://{%gcs.bucket%}</value>
+        <value>{%fs.default.name.gcp%}</value>
     </property>
     <property>
         <name>fs.AbstractFileSystem.gs.impl</name>

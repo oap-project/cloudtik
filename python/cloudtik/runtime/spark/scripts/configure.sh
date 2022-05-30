@@ -145,6 +145,40 @@ function check_hdfs_storage() {
     fi
 }
 
+function update_credential_config_for_aws() {
+    sed -i "s#{%aws.s3a.bucket%}#${AWS_S3_BUCKET}#g" `grep "{%aws.s3a.bucket%}" -rl ./`
+    sed -i "s#{%fs.s3a.access.key%}#${AWS_S3_ACCESS_KEY_ID}#g" `grep "{%fs.s3a.access.key%}" -rl ./`
+    sed -i "s#{%fs.s3a.secret.key%}#${AWS_S3_SECRET_ACCESS_KEY}#g" `grep "{%fs.s3a.secret.key%}" -rl ./`
+}
+
+function update_credential_config_for_gcp() {
+    sed -i "s#{%project_id%}#${PROJECT_ID}#g" `grep "{%project_id%}" -rl ./`
+    sed -i "s#{%gcs.bucket%}#${GCS_BUCKET}#g" `grep "{%gcs.bucket%}" -rl ./`
+    sed -i "s#{%fs.gs.auth.service.account.email%}#${GCS_SERVICE_ACCOUNT_CLIENT_EMAIL}#g" `grep "{%fs.gs.auth.service.account.email%}" -rl ./`
+    sed -i "s#{%fs.gs.auth.service.account.private.key.id%}#${GCS_SERVICE_ACCOUNT_PRIVATE_KEY_ID}#g" `grep "{%fs.gs.auth.service.account.private.key.id%}" -rl ./`
+    sed -i "s#{%fs.gs.auth.service.account.private.key%}#${GCS_SERVICE_ACCOUNT_PRIVATE_KEY}#g" `grep "{%fs.gs.auth.service.account.private.key%}" -rl ./`
+}
+
+function update_credential_config_for_azure() {
+    sed -i "s#{%azure.storage.account%}#${AZURE_STORAGE_ACCOUNT}#g" "$(grep "{%azure.storage.account%}" -rl ./)"
+    sed -i "s#{%azure.container%}#${AZURE_CONTAINER}#g" "$(grep "{%azure.container%}" -rl ./)"
+    sed -i "s#{%azure.account.key%}#${AZURE_ACCOUNT_KEY}#g" "$(grep "{%azure.account.key%}" -rl ./)"
+    sed -i "s#{%fs.azure.account.oauth2.msi.tenant%}#${AZURE_MANAGED_IDENTITY_TENANT_ID}#g" "$(grep "{%fs.azure.account.oauth2.msi.tenant%}" -rl ./)"
+    sed -i "s#{%fs.azure.account.oauth2.client.id%}#${AZURE_MANAGED_IDENTITY_CLIENT_ID}#g" "$(grep "{%fs.azure.account.oauth2.client.id%}" -rl ./)"
+
+    sed -i "s#{%azure.storage.scheme%}#${AZURE_SCHEMA}#g" "$(grep "{%azure.storage.scheme%}" -rl ./)"
+    sed -i "s#{%storage.endpoint%}#${AZURE_ENDPOINT}#g" "$(grep "{%storage.endpoint%}" -rl ./)"
+
+    if [ "$AZURE_STORAGE_TYPE" != "blob" ];then
+        # datalake
+        if [ -n  "${AZURE_ACCOUNT_KEY}" ];then
+            sed -i "s#{%auth.type%}#SharedKey#g" "$(grep "{%auth.type%}" -rl ./)"
+        else
+            sed -i "s#{%auth.type%}##g" "$(grep "{%auth.type%}" -rl ./)"
+        fi
+    fi
+}
+
 function update_config_for_hdfs() {
     # configure namenode uri for core-site.xml
     sed -i "s!{%namenode.uri%}!${HDFS_NAMENODE_URI}!g" `grep "{%namenode.uri%}" -rl ./`
@@ -158,9 +192,10 @@ function update_config_for_hdfs() {
 }
 
 function update_config_for_aws() {
-    sed -i "s#{%aws.s3a.bucket%}#${AWS_S3_BUCKET}#g" `grep "{%aws.s3a.bucket%}" -rl ./`
-    sed -i "s#{%fs.s3a.access.key%}#${AWS_S3_ACCESS_KEY_ID}#g" `grep "{%fs.s3a.access.key%}" -rl ./`
-    sed -i "s#{%fs.s3a.secret.key%}#${AWS_S3_SECRET_ACCESS_KEY}#g" `grep "{%fs.s3a.secret.key%}" -rl ./`
+    fs_default_name_for_s3="s3a://${AWS_S3_BUCKET}"
+    sed -i "s!{%fs.default.name.aws%}!${fs_default_name_for_s3}!g" `grep "{%fs.default.name.aws%}" -rl ./`
+
+    update_credential_config_for_aws
 
     # event log dir
     if [ -z "${AWS_S3_BUCKET}" ]; then
@@ -175,11 +210,10 @@ function update_config_for_aws() {
 }
 
 function update_config_for_gcp() {
-    sed -i "s#{%project_id%}#${PROJECT_ID}#g" `grep "{%project_id%}" -rl ./`
-    sed -i "s#{%gcs.bucket%}#${GCS_BUCKET}#g" `grep "{%gcs.bucket%}" -rl ./`
-    sed -i "s#{%fs.gs.auth.service.account.email%}#${GCS_SERVICE_ACCOUNT_CLIENT_EMAIL}#g" `grep "{%fs.gs.auth.service.account.email%}" -rl ./`
-    sed -i "s#{%fs.gs.auth.service.account.private.key.id%}#${GCS_SERVICE_ACCOUNT_PRIVATE_KEY_ID}#g" `grep "{%fs.gs.auth.service.account.private.key.id%}" -rl ./`
-    sed -i "s#{%fs.gs.auth.service.account.private.key%}#${GCS_SERVICE_ACCOUNT_PRIVATE_KEY}#g" `grep "{%fs.gs.auth.service.account.private.key%}" -rl ./`
+    fs_default_name_for_gcs="gs://${GCS_BUCKET}"
+    sed -i "s!{%fs.default.name.gcp%}!${fs_default_name_for_gcs}!g" `grep "{%fs.default.name.gcp%}" -rl ./`
+
+    update_credential_config_for_gcp
 
     # event log dir
     if [ -z "${GCS_BUCKET}" ]; then
@@ -194,38 +228,28 @@ function update_config_for_gcp() {
 }
 
 function update_config_for_azure() {
-    sed -i "s#{%azure.storage.account%}#${AZURE_STORAGE_ACCOUNT}#g" "$(grep "{%azure.storage.account%}" -rl ./)"
-    sed -i "s#{%azure.container%}#${AZURE_CONTAINER}#g" "$(grep "{%azure.container%}" -rl ./)"
-    sed -i "s#{%azure.account.key%}#${AZURE_ACCOUNT_KEY}#g" "$(grep "{%azure.account.key%}" -rl ./)"
-    sed -i "s#{%fs.azure.account.oauth2.msi.tenant%}#${AZURE_MANAGED_IDENTITY_TENANT_ID}#g" "$(grep "{%fs.azure.account.oauth2.msi.tenant%}" -rl ./)"
-    sed -i "s#{%fs.azure.account.oauth2.client.id%}#${AZURE_MANAGED_IDENTITY_CLIENT_ID}#g" "$(grep "{%fs.azure.account.oauth2.client.id%}" -rl ./)"
     if [ "$AZURE_STORAGE_TYPE" == "blob" ];then
-        scheme="wasbs"
-        endpoint="blob"
-        sed -i "s#{%azure.storage.scheme%}#${scheme}#g" "$(grep "{%azure.storage.scheme%}" -rl ./)"
-        sed -i "s#{%storage.endpoint%}#${endpoint}#g" "$(grep "{%storage.endpoint%}" -rl ./)"
-    elif [ "$AZURE_STORAGE_TYPE" == "datalake" ];then
-        scheme="abfs"
-        endpoint="dfs"
-        sed -i "s#{%azure.storage.scheme%}#${scheme}#g" "$(grep "{%azure.storage.scheme%}" -rl ./)"
-        sed -i "s#{%storage.endpoint%}#${endpoint}#g" "$(grep "{%storage.endpoint%}" -rl ./)"
-        if [ -n  "${AZURE_ACCOUNT_KEY}" ];then
-            sed -i "s#{%auth.type%}#SharedKey#g" "$(grep "{%auth.type%}" -rl ./)"
-        else
-            sed -i "s#{%auth.type%}##g" "$(grep "{%auth.type%}" -rl ./)"
-        fi
+        AZURE_SCHEMA="wasbs"
+        AZURE_ENDPOINT="blob"
     else
-        endpoint=""
-        echo "Error: Azure storage kind must be blob (Azure Blob Storage) or datalake (Azure Data Lake Storage Gen 2)"
+        # Default to datalake
+        # Must be Azure storage kind must be blob (Azure Blob Storage) or datalake (Azure Data Lake Storage Gen 2)
+        AZURE_SCHEMA="abfs"
+        AZURE_ENDPOINT="dfs"
     fi
 
+    fs_default_name_for_azure="${AZURE_SCHEMA}://${AZURE_CONTAINER}@${AZURE_STORAGE_ACCOUNT}.${AZURE_ENDPOINT}.core.windows.net"
+    sed -i "s!{%fs.default.name.azure%}!${fs_default_name_for_azure}!g" `grep "{%fs.default.name.azure%}" -rl ./`
+
+    update_credential_config_for_azure
+
     # event log dir
-    if [ -z "${AZURE_CONTAINER}" ] || [ -z "$endpoint" ]; then
+    if [ -z "${AZURE_CONTAINER}" ]; then
         event_log_dir="file:///tmp/spark-events"
         sql_warehouse_dir="$USER_HOME/shared/data/spark-warehouse"
     else
-        event_log_dir="${scheme}://${AZURE_CONTAINER}@${AZURE_STORAGE_ACCOUNT}.${endpoint}.core.windows.net/shared/spark-events"
-        sql_warehouse_dir="${scheme}://${AZURE_CONTAINER}@${AZURE_STORAGE_ACCOUNT}.${endpoint}.core.windows.net/shared/data/spark-warehouse"
+        event_log_dir="${AZURE_SCHEMA}://${AZURE_CONTAINER}@${AZURE_STORAGE_ACCOUNT}.${AZURE_ENDPOINT}.core.windows.net/shared/spark-events"
+        sql_warehouse_dir="${AZURE_SCHEMA}://${AZURE_CONTAINER}@${AZURE_STORAGE_ACCOUNT}.${AZURE_ENDPOINT}.core.windows.net/shared/data/spark-warehouse"
     fi
     sed -i "s!{%spark.eventLog.dir%}!${event_log_dir}!g" `grep "{%spark.eventLog.dir%}" -rl ./`
     sed -i "s!{%spark.sql.warehouse.dir%}!${sql_warehouse_dir}!g" `grep "{%spark.sql.warehouse.dir%}" -rl ./`

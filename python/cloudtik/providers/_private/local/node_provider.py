@@ -81,8 +81,8 @@ class CloudSimulatorNodeProvider(NodeProvider):
         response = self._get_http_response(request)
         return response
 
-    def with_environment_variables(self):
-        request = {"type": "with_environment_variables", "args": ()}
+    def with_environment_variables(self, node_config: Dict[str, Any], node_id: str):
+        request = {"type": "with_environment_variables", "args": (node_config, node_id, )}
         response = self._get_http_response(request)
         return response
 

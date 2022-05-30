@@ -5,7 +5,7 @@ import yaml
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_HDFS, BUILT_IN_RUNTIME_METASTORE
 from cloudtik.core._private.utils import merge_rooted_config_hierarchy, \
     _get_runtime_config_object, is_runtime_enabled, round_memory_size_to_gb, load_head_cluster_config, \
-    RUNTIME_CONFIG_KEY, load_properties_file, save_properties_file, is_use_managed_cloud_storage
+    RUNTIME_CONFIG_KEY, load_properties_file, save_properties_file, is_use_managed_cloud_storage, get_node_config
 from cloudtik.core._private.workspace.workspace_operator import _get_workspace_provider
 
 RUNTIME_PROCESSES = [
@@ -232,7 +232,8 @@ def _with_runtime_environment_variables(runtime_config, config, provider, node_i
         runtime_envs["HDFS_NAMENODE_URI"] = spark_config.get("hdfs_namenode_uri")
     else:
         # Whether we need to expert the cloud storage for HDFS case
-        provider_envs = provider.with_environment_variables()
+        node_config = get_node_config(config, provider, node_id)
+        provider_envs = provider.with_environment_variables(node_config, node_id)
         runtime_envs.update(provider_envs)
 
     # 1) Try to use local metastore if there is one started;

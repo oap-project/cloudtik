@@ -484,12 +484,12 @@ def _delete_role_assignments(config, resource_group_name):
 
 
 def get_head_user_assigned_identity(config, resource_group_name):
-    user_assigned_identity_name = "cloudtik-{}-user-assigned-identity".format(config["workspace_name"])
+    user_assigned_identity_name = _get_head_user_assigned_identity_name(config)
     return get_user_assigned_identity(config, resource_group_name, user_assigned_identity_name)
 
 
 def get_worker_user_assigned_identity(config, resource_group_name):
-    user_assigned_identity_name = "cloudtik-{}-worker-user-assigned-identity".format(config["workspace_name"])
+    user_assigned_identity_name = _get_worker_user_assigned_identity_name(config)
     return get_user_assigned_identity(config, resource_group_name, user_assigned_identity_name)
 
 
@@ -510,11 +510,10 @@ def get_user_assigned_identity(config, resource_group_name, user_assigned_identi
 
 
 def _delete_user_assigned_identities(config, resource_group_name):
-    workspace_name = config["workspace_name"]
-    user_assigned_identity_name = "cloudtik-{}-user-assigned-identity".format(workspace_name)
+    user_assigned_identity_name = _get_head_user_assigned_identity_name(config)
     _delete_user_assigned_identity(config, resource_group_name, user_assigned_identity_name)
 
-    worker_user_assigned_identity_name = "cloudtik-{}-worker-user-assigned-identity".format(workspace_name)
+    worker_user_assigned_identity_name = _get_worker_user_assigned_identity_name(config)
     _delete_user_assigned_identity(config, resource_group_name, worker_user_assigned_identity_name)
 
 
@@ -1108,11 +1107,10 @@ def _create_storage_account(config, resource_group_name):
 
 
 def _create_user_assigned_identities(config, resource_group_name):
-    workspace_name = config["workspace_name"]
-    user_assigned_identity_name = 'cloudtik-{}-user-assigned-identity'.format(workspace_name)
+    user_assigned_identity_name = _get_head_user_assigned_identity_name(config)
     _create_user_assigned_identity(config, resource_group_name, user_assigned_identity_name)
 
-    worker_user_assigned_identity_name = 'cloudtik-{}-worker-user-assigned-identity'.format(workspace_name)
+    worker_user_assigned_identity_name = _get_worker_user_assigned_identity_name(config)
     _create_user_assigned_identity(config, resource_group_name, worker_user_assigned_identity_name)
 
 
@@ -1494,15 +1492,29 @@ def _configure_cloud_storage_from_workspace(config):
     return config
 
 
-def _configure_user_assigned_identity_from_workspace(config):
+def _get_head_user_assigned_identity_name(config):
     workspace_name = config["workspace_name"]
     user_assigned_identity_name = "cloudtik-{}-user-assigned-identity".format(workspace_name)
+    return user_assigned_identity_name
+
+
+def _get_worker_user_assigned_identity_name(config):
+    workspace_name = config["workspace_name"]
+    user_assigned_identity_name = "cloudtik-{}-worker-user-assigned-identity".format(workspace_name)
+    return user_assigned_identity_name
+
+
+def _configure_user_assigned_identity_from_workspace(config):
+    user_assigned_identity_name = _get_head_user_assigned_identity_name(config)
+    worker_user_assigned_identity_name = _get_worker_user_assigned_identity_name(config)
 
     config["provider"]["userAssignedIdentity"] = user_assigned_identity_name
-    for node_type_key in config["available_node_types"].keys():
-        node_config = config["available_node_types"][node_type_key][
-            "node_config"]
-        node_config["azure_arm_parameters"]["userAssignedIdentity"] = user_assigned_identity_name
+    for key, node_type in config["available_node_types"].items():
+        node_config = node_type["node_config"]
+        if key == config["head_node_type"]:
+            node_config["azure_arm_parameters"]["userAssignedIdentity"] = user_assigned_identity_name
+        else:
+            node_config["azure_arm_parameters"]["userAssignedIdentity"] = user_assigned_identity_name
 
     return config
 

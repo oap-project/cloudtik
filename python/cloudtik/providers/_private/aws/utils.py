@@ -1,5 +1,6 @@
 from collections import defaultdict
 from functools import lru_cache
+from typing import Any, Dict
 
 from boto3.exceptions import ResourceNotExistsError
 from botocore.config import Config
@@ -146,7 +147,7 @@ def boto_exception_handler(msg, *args, **kwargs):
     return ExceptionHandlerContextManager()
 
 
-def get_aws_s3_config(provider_config):
+def get_aws_s3_config(provider_config, node_config: Dict[str, Any], node_id: str):
     config_dict = {}
     s3_bucket = provider_config.get("aws_s3_storage", {}).get("s3.bucket")
     if s3_bucket:

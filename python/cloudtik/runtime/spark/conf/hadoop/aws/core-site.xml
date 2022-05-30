@@ -19,7 +19,7 @@
 <configuration>
     <property>
         <name>fs.default.name</name>
-        <value>s3a://{%aws.s3a.bucket%}</value>
+        <value>{%fs.default.name.aws%}</value>
     </property>
 	<property>
         <name>fs.s3a.aws.credentials.provider</name>

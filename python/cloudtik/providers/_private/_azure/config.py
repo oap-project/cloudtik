@@ -673,11 +673,11 @@ def _delete_resource_group(config, resource_client):
 
 def create_azure_workspace(config):
     config = copy.deepcopy(config)
-    config = _configure_workspace(config)
+    config = _create_workspace(config)
     return config
 
 
-def _configure_workspace(config):
+def _create_workspace(config):
     workspace_name = config["workspace_name"]
     managed_cloud_storage = is_managed_cloud_storage(config)
 
@@ -698,7 +698,7 @@ def _configure_workspace(config):
                 resource_group_name = _create_resource_group(config, resource_client)
 
             # create network resources
-            current_step = _configure_network_resources(config, resource_group_name, current_step, total_steps)
+            current_step = _create_network_resources(config, resource_group_name, current_step, total_steps)
 
             # create user_assigned_identities
             with cli_logger.group(
@@ -900,10 +900,8 @@ def create_resource_group(config, resource_client):
     cli_logger.print("Creating workspace resource group: {} on Azure...", resource_group_name)
     # create resource group
     try:
-
         resource_group = resource_client.resource_groups.create_or_update(
             resource_group_name=resource_group_name, parameters=params)
-        # time.sleep(20)
         cli_logger.print("Successfully created workspace resource group: cloudtik-{}-resource_group.".
                          format(config["workspace_name"]))
         return resource_group
@@ -1080,7 +1078,7 @@ def _create_storage_account(config, resource_group_name):
     cli_logger.print("Creating workspace storage account: {} on Azure...", account_name)
     # Create storage account
     try:
-        storage_client.storage_accounts.begin_create(
+        poller = storage_client.storage_accounts.begin_create(
             resource_group_name=resource_group_name,
             account_name=account_name,
             parameters={
@@ -1109,9 +1107,11 @@ def _create_storage_account(config, resource_group_name):
                 }
             }
         )
-        time.sleep(20)
+        # Long-running operations return a poller object; calling poller.result()
+        # waits for completion.
+        account_result = poller.result()
         cli_logger.print("Successfully created storage account: {}.".
-                         format(account_name))
+                         format(account_result.name))
     except Exception as e:
         cli_logger.error(
             "Failed to create storage account. {}", str(e))
@@ -1362,7 +1362,7 @@ def _create_public_ip_address(config, network_client, resource_group_name):
                     "name": "Standard"
                 }
             }
-        )
+        ).result()
         cli_logger.print("Successfully created public IP address: {}.".
                          format(public_ip_address_name))
     except Exception as e:
@@ -1400,7 +1400,7 @@ def _create_or_update_network_security_group(config, network_client, resource_gr
     return network_security_group_name
 
 
-def _configure_network_resources(config, resource_group_name, current_step, total_steps):
+def _create_network_resources(config, resource_group_name, current_step, total_steps):
     network_client = construct_network_client(config)
     resource_client = construct_resource_client(config)
 

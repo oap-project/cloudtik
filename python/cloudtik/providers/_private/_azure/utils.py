@@ -22,15 +22,16 @@ def get_azure_config(provider_config, node_type_config: Dict[str, Any], node_id:
     if azure_account_key:
         config_dict["AZURE_ACCOUNT_KEY"] = azure_account_key
 
-    user_assigned_identity_client_id = provider_config.get("azure_cloud_storage", {}).get(
-        "azure.user.assigned.identity.client.id")
-    if user_assigned_identity_client_id:
-        config_dict["AZURE_MANAGED_IDENTITY_CLIENT_ID"] = user_assigned_identity_client_id
+    if node_type_config is not None:
+        user_assigned_identity_client_id = node_type_config.get(
+            "azure.user.assigned.identity.client.id")
+        if user_assigned_identity_client_id:
+            config_dict["AZURE_MANAGED_IDENTITY_CLIENT_ID"] = user_assigned_identity_client_id
 
-    user_assigned_identity_tenant_id = provider_config.get("azure_cloud_storage", {}).get(
-        "azure.user.assigned.identity.tenant.id")
-    if user_assigned_identity_tenant_id:
-        config_dict["AZURE_MANAGED_IDENTITY_TENANT_ID"] = user_assigned_identity_tenant_id
+        user_assigned_identity_tenant_id = node_type_config.get(
+            "azure.user.assigned.identity.tenant.id")
+        if user_assigned_identity_tenant_id:
+            config_dict["AZURE_MANAGED_IDENTITY_TENANT_ID"] = user_assigned_identity_tenant_id
 
     return config_dict
 

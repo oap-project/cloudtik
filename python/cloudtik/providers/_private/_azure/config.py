@@ -1578,12 +1578,15 @@ def _configure_cloud_storage_from_workspace(config):
         config["provider"]["azure_cloud_storage"]["azure.storage.account"] = storage_account.name
         config["provider"]["azure_cloud_storage"]["azure.container"] = container.name
 
-    if "azure_cloud_storage" in config["provider"]:
-        user_assigned_identity = get_head_user_assigned_identity(config, resource_group_name)
-        config["provider"]["azure_cloud_storage"][
-            "azure.user.assigned.identity.client.id"] = user_assigned_identity.client_id
-        config["provider"]["azure_cloud_storage"][
-            "azure.user.assigned.identity.tenant.id"] = user_assigned_identity.tenant_id
+    user_assigned_identity = get_head_user_assigned_identity(config, resource_group_name)
+    worker_user_assigned_identity = get_worker_user_assigned_identity(config, resource_group_name)
+    for key, node_type in config["available_node_types"].items():
+        if key == config["head_node_type"]:
+            node_type["azure.user.assigned.identity.client.id"] = user_assigned_identity.client_id
+            node_type["azure.user.assigned.identity.tenant.id"] = user_assigned_identity.tenant_id
+        else:
+            node_type["azure.user.assigned.identity.client.id"] = worker_user_assigned_identity.client_id
+            node_type["azure.user.assigned.identity.tenant.id"] = worker_user_assigned_identity.tenant_id
 
     return config
 
@@ -1610,7 +1613,7 @@ def _configure_user_assigned_identity_from_workspace(config):
         if key == config["head_node_type"]:
             node_config["azure_arm_parameters"]["userAssignedIdentity"] = user_assigned_identity_name
         else:
-            node_config["azure_arm_parameters"]["userAssignedIdentity"] = user_assigned_identity_name
+            node_config["azure_arm_parameters"]["userAssignedIdentity"] = worker_user_assigned_identity_name
 
     return config
 

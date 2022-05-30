@@ -3,10 +3,17 @@ import pytest
 
 CLUSTER_TIMEOUT = 60 * 5
 
+BASIC_WORKSPACE_CONF_FILES = ["example/cluster/aws/example-workspace.yaml",
+                              "example/cluster/azure/example-workspace.yaml",
+                              "example/cluster/gcp/example-workspace.yaml"]
+BASIC_CLUSTER_CONF_FILES = ["example/cluster/aws/example-docker.yaml",
+                            "example/cluster/azure/example-docker.yaml",
+                            "example/cluster/gcp/example-docker.yaml"]
+USABILITY_CLUSTER_CONF_FILES = ["example/cluster/aws/example-docker.yaml"]
 
 @pytest.mark.parametrize(
     'basic_workspace_fixture',
-    pytest.api_conf["basic_workspace_conf_files"],
+    BASIC_WORKSPACE_CONF_FILES,
     indirect=True
 )
 class TestWorkspaceBasic:
@@ -20,7 +27,7 @@ class TestWorkspaceBasic:
 
 @pytest.mark.parametrize(
     'basic_cluster_fixture',
-    pytest.api_conf["basic_cluster_conf_files"],
+    BASIC_CLUSTER_CONF_FILES,
     indirect=True
 )
 class TestClusterBasic:
@@ -56,29 +63,29 @@ class TestClusterBasic:
 
 @pytest.mark.parametrize(
     'worker_nodes_fixture',
-    pytest.api_conf["nodes"],
+    [1, 2, 4, 6],
     indirect=True
 )
 @pytest.mark.parametrize(
     'usability_cluster_fixture',
-    pytest.api_conf["usability_cluster_conf_files"],
+    USABILITY_CLUSTER_CONF_FILES,
     indirect=True
 )
 class TestClusterUsability:
 
-    @pytest.mark.parametrize("num_cpus", pytest.api_conf["num_cpus"])
+    @pytest.mark.parametrize("num_cpus", [2, 6, 8, 14])
     def test_scale_by_cpu(self, usability_cluster_fixture, worker_nodes_fixture, num_cpus):
         usability_cluster_fixture.scale(num_cpus=num_cpus)
         usability_cluster_fixture.wait_for_ready(timeout=CLUSTER_TIMEOUT)
 
-
-    @pytest.mark.parametrize("nodes", pytest.api_conf["nodes"])
+    @pytest.mark.parametrize("nodes", [1, 2, 4, 6])
     def test_scale_by_node(self, usability_cluster_fixture, worker_nodes_fixture, nodes):
         usability_cluster_fixture.scale(nodes=nodes)
         usability_cluster_fixture.wait_for_ready(timeout=CLUSTER_TIMEOUT)
 
 
+
 if __name__ == "__main__":
     import sys
 
-    sys.exit(pytest.main(["-vx", __file__]))
+    sys.exit(pytest.main(["-vsx", __file__]))

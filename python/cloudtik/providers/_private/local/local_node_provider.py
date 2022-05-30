@@ -184,7 +184,7 @@ class LocalNodeProvider(NodeProvider):
         node_info.update(node["tags"])
         return node_info
 
-    def with_environment_variables(self, node_config: Dict[str, Any], node_id: str):
+    def with_environment_variables(self, node_type_config: Dict[str, Any], node_id: str):
         return {}
 
     def get_instance_types(self):

@@ -228,10 +228,11 @@ def _with_runtime_environment_variables(runtime_config, config, provider, node_i
     # 3) Try to use provider storage;
     if is_runtime_enabled(cluster_runtime_config, BUILT_IN_RUNTIME_HDFS):
         runtime_envs["HDFS_ENABLED"] = True
-    elif spark_config.get("hdfs_namenode_uri") is not None:
-        runtime_envs["HDFS_NAMENODE_URI"] = spark_config.get("hdfs_namenode_uri")
     else:
-        # Whether we need to expert the cloud storage for HDFS case
+        if spark_config.get("hdfs_namenode_uri") is not None:
+            runtime_envs["HDFS_NAMENODE_URI"] = spark_config.get("hdfs_namenode_uri")
+
+        # We always export the cloud storage even for remote HDFS case
         node_type_config = get_node_type_config(config, provider, node_id)
         provider_envs = provider.with_environment_variables(node_type_config, node_id)
         runtime_envs.update(provider_envs)

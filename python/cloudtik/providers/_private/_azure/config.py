@@ -941,38 +941,6 @@ def _create_role_assignment_for_storage_blob_data_owner(config, resource_group_n
         cli_logger.error(
             "Failed to create workspace role assignment for Storage Blob Data Owner. {}", str(e))
         raise e
-    
-
-def _create_role_assignment_for_storage_blob_data_contributor(config, resource_group_name):
-    workspace_name = config["workspace_name"]
-    authorization_client = construct_authorization_client(config)
-    subscription_id = config["provider"].get("subscription_id")
-    scope = "subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}".format(
-        subscriptionId=subscription_id,
-        resourceGroupName=resource_group_name
-    )
-
-    role_assignment_name = str(uuid.uuid3(uuid.UUID(subscription_id), workspace_name + 'storage_blob_data_contributor'))
-    user_assigned_identity = get_user_assigned_identity(config, resource_group_name)
-    cli_logger.print("Creating workspace role assignment for Storage Blob Data Contributor: {} on Azure...", role_assignment_name)
-
-    # Create role assignment for Storage Blob Data Contributor
-    try:
-        role_assignment = authorization_client.role_assignments.create(
-            scope=scope,
-            role_assignment_name=role_assignment_name,
-            parameters={
-                "role_definition_id": "/providers/Microsoft.Authorization/roleDefinitions/ba92f5b4-2d11-453d-a403-e96b0029c9fe",
-                "principal_id": user_assigned_identity.principal_id,
-                "principalType": "ServicePrincipal"
-            }
-        )
-        cli_logger.print("Successfully created workspace role assignment for Storage Blob Data Contributor: {}.".
-                         format(role_assignment_name))
-    except Exception as e:
-        cli_logger.error(
-            "Failed to create workspace role assignment for Storage Blob Data Contributor. {}", str(e))
-        raise e
 
 
 def _create_role_assignment_for_contributor(config, resource_group_name):

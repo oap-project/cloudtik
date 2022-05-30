@@ -105,13 +105,16 @@ def check_azure_workspace_resource(config):
     if get_subnet(network_client, resource_group_name, virtual_network_name, public_subnet_name) is None:
         return False
 
+    if get_head_user_assigned_identity(config, resource_group_name) is None:
+        return False
+
+    if get_worker_user_assigned_identity(config, resource_group_name) is None:
+        return False
+
     if get_role_assignment_for_contributor(config, resource_group_name) is None:
         return False
 
     if get_role_assignment_for_storage_blob_data_owner(config, resource_group_name) is None:
-        return False
-
-    if get_user_assigned_identity(config, resource_group_name) is None:
         return False
 
     if managed_cloud_storage:
@@ -203,7 +206,7 @@ def delete_workspace_azure(config, delete_managed_storage: bool = False):
                     "Deleting user assigned identities",
                     _numbered=("[]", current_step, total_steps)):
                 current_step += 1
-                _delete_user_assigned_identity(config, resource_group_name)
+                _delete_user_assigned_identities(config, resource_group_name)
 
             if managed_cloud_storage and delete_managed_storage:
                 with cli_logger.group(
@@ -480,8 +483,17 @@ def _delete_role_assignments(config, resource_group_name):
             _delete_role_assignment_for_storage_blob_data_owner(config, resource_group_name)
 
 
-def get_user_assigned_identity(config, resource_group_name):
+def get_head_user_assigned_identity(config, resource_group_name):
     user_assigned_identity_name = "cloudtik-{}-user-assigned-identity".format(config["workspace_name"])
+    return get_user_assigned_identity(config, resource_group_name, user_assigned_identity_name)
+
+
+def get_worker_user_assigned_identity(config, resource_group_name):
+    user_assigned_identity_name = "cloudtik-{}-worker-user-assigned-identity".format(config["workspace_name"])
+    return get_user_assigned_identity(config, resource_group_name, user_assigned_identity_name)
+
+
+def get_user_assigned_identity(config, resource_group_name, user_assigned_identity_name):
     msi_client = construct_manage_server_identity_client(config)
     cli_logger.verbose("Getting the existing user assigned identity: {}.".format(user_assigned_identity_name))
     try:
@@ -497,11 +509,20 @@ def get_user_assigned_identity(config, resource_group_name):
         return None
 
 
-def _delete_user_assigned_identity(config, resource_group_name):
-    user_assigned_identity = get_user_assigned_identity(config, resource_group_name)
+def _delete_user_assigned_identities(config, resource_group_name):
+    workspace_name = config["workspace_name"]
+    user_assigned_identity_name = "cloudtik-{}-user-assigned-identity".format(workspace_name)
+    _delete_user_assigned_identity(config, resource_group_name, user_assigned_identity_name)
+
+    worker_user_assigned_identity_name = "cloudtik-{}-worker-user-assigned-identity".format(workspace_name)
+    _delete_user_assigned_identity(config, resource_group_name, worker_user_assigned_identity_name)
+
+
+def _delete_user_assigned_identity(config, resource_group_name, user_assigned_identity_name):
+    user_assigned_identity = get_user_assigned_identity(config, resource_group_name, user_assigned_identity_name)
     msi_client = construct_manage_server_identity_client(config)
     if user_assigned_identity is None:
-        cli_logger.print("The user assigned identity doesn't exist.")
+        cli_logger.print("The user assigned identity doesn't exist: {}.".format(user_assigned_identity_name))
         return
 
     """ Delete the user_assigned_identity """
@@ -705,7 +726,7 @@ def _create_workspace(config):
                     "Creating user assigned identities",
                     _numbered=("[]", current_step, total_steps)):
                 current_step += 1
-                _create_user_assigned_identity(config, resource_group_name)
+                _create_user_assigned_identities(config, resource_group_name)
 
             # create role assignments
             with cli_logger.group(
@@ -920,7 +941,7 @@ def _create_role_assignment_for_storage_blob_data_owner(config, resource_group_n
         resourceGroupName=resource_group_name
     )
     role_assignment_name = str(uuid.uuid3(uuid.UUID(subscription_id), workspace_name + 'storage_blob_data_owner'))
-    user_assigned_identity = get_user_assigned_identity(config, resource_group_name)
+    user_assigned_identity = get_head_user_assigned_identity(config, resource_group_name)
     cli_logger.print("Creating workspace role assignment for Storage Blob Data Owner: {} on Azure...",
                      role_assignment_name)
 
@@ -952,7 +973,7 @@ def _create_role_assignment_for_contributor(config, resource_group_name):
         resourceGroupName=resource_group_name
     )
     role_assignment_name = str(uuid.uuid3(uuid.UUID(subscription_id), workspace_name + "contributor"))
-    user_assigned_identity = get_user_assigned_identity(config, resource_group_name)
+    user_assigned_identity = get_head_user_assigned_identity(config, resource_group_name)
     cli_logger.print("Creating workspace role assignment: {} on Azure...", role_assignment_name)
 
     # Create role assignment
@@ -1086,10 +1107,17 @@ def _create_storage_account(config, resource_group_name):
         raise e
 
 
-def _create_user_assigned_identity(config, resource_group_name):
+def _create_user_assigned_identities(config, resource_group_name):
     workspace_name = config["workspace_name"]
-    location = config["provider"]["location"]
     user_assigned_identity_name = 'cloudtik-{}-user-assigned-identity'.format(workspace_name)
+    _create_user_assigned_identity(config, resource_group_name, user_assigned_identity_name)
+
+    worker_user_assigned_identity_name = 'cloudtik-{}-worker-user-assigned-identity'.format(workspace_name)
+    _create_user_assigned_identity(config, resource_group_name, worker_user_assigned_identity_name)
+
+
+def _create_user_assigned_identity(config, resource_group_name, user_assigned_identity_name):
+    location = config["provider"]["location"]
     msi_client = construct_manage_server_identity_client(config)
 
     cli_logger.print("Creating workspace user assigned identity: {} on Azure...", user_assigned_identity_name)
@@ -1457,7 +1485,7 @@ def _configure_cloud_storage_from_workspace(config):
         config["provider"]["azure_cloud_storage"]["azure.container"] = container.name
 
     if "azure_cloud_storage" in config["provider"]:
-        user_assigned_identity = get_user_assigned_identity(config, resource_group_name)
+        user_assigned_identity = get_head_user_assigned_identity(config, resource_group_name)
         config["provider"]["azure_cloud_storage"][
             "azure.user.assigned.identity.client.id"] = user_assigned_identity.client_id
         config["provider"]["azure_cloud_storage"][

@@ -108,9 +108,6 @@ def check_azure_workspace_resource(config):
     if get_role_assignment_for_contributor(config, resource_group_name) is None:
         return False
 
-    if get_role_assignment_for_storage_blob_data_contributor(config, resource_group_name) is None:
-        return False
-
     if get_role_assignment_for_storage_blob_data_owner(config, resource_group_name) is None:
         return False
 
@@ -386,31 +383,6 @@ def get_role_assignment_for_storage_blob_data_owner(config, resource_group_name)
         return None
 
 
-def get_role_assignment_for_storage_blob_data_contributor(config, resource_group_name):
-    workspace_name = config["workspace_name"]
-    authorization_client = construct_authorization_client(config)
-    subscription_id = config["provider"].get("subscription_id")
-    scope = "subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}".format(
-        subscriptionId=subscription_id,
-        resourceGroupName=resource_group_name
-    )
-    role_assignment_name = str(uuid.uuid3(uuid.UUID(subscription_id), workspace_name + "storage_blob_data_contributor"))
-    cli_logger.verbose("Getting the existing role assignment for Storage Blob Data Contributor: {}.", role_assignment_name)
-
-    try:
-        role_assignment = authorization_client.role_assignments.get(
-            scope=scope,
-            role_assignment_name=role_assignment_name,
-        )
-        cli_logger.verbose("Successfully get the role assignment for Storage Blob Data Contributor: {}.".
-                           format(role_assignment_name))
-        return role_assignment_name
-    except Exception as e:
-        cli_logger.error(
-            "Failed to get the role assignment. {}", str(e))
-        return None
-
-
 def get_role_assignment_for_contributor(config, resource_group_name):
     workspace_name = config["workspace_name"]
     authorization_client = construct_authorization_client(config)
@@ -465,35 +437,6 @@ def _delete_role_assignment_for_storage_blob_data_owner(config, resource_group_n
         raise e
 
 
-def _delete_role_assignment_for_storage_blob_data_contributor(config, resource_group_name):
-    role_assignment_name = get_role_assignment_for_storage_blob_data_contributor(config, resource_group_name)
-    authorization_client = construct_authorization_client(config)
-    subscription_id = config["provider"].get("subscription_id")
-    scope = "subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}".format(
-        subscriptionId=subscription_id,
-        resourceGroupName=resource_group_name
-    )
-    if role_assignment_name is None:
-        cli_logger.print("The role assignment doesn't exist.")
-        return
-
-    """ Delete the role_assignment"""
-    cli_logger.print("Deleting the role assignment for Storage Blob Data Contributor: {}...".format(
-        role_assignment_name))
-    try:
-        authorization_client.role_assignments.delete(
-            scope=scope,
-            role_assignment_name=role_assignment_name
-        )
-        cli_logger.print("Successfully deleted the role assignment for Storage Blob Data Contributor: {}.".format(
-            role_assignment_name))
-    except Exception as e:
-        cli_logger.error(
-            "Failed to delete the role assignment for Storage Blob Data Contributor: {}. {}".format(
-                role_assignment_name, str(e)))
-        raise e
-
-
 def _delete_role_assignment_for_contributor(config, resource_group_name):
     role_assignment_name = get_role_assignment_for_contributor(config, resource_group_name)
     authorization_client = construct_authorization_client(config)
@@ -522,19 +465,13 @@ def _delete_role_assignment_for_contributor(config, resource_group_name):
 
 def _delete_role_assignments(config, resource_group_name):
     current_step = 1
-    total_steps = 3
+    total_steps = 2
     with cli_logger.group("Deleting role assignments: "):
         with cli_logger.group(
                 "Deleting role assignment for Contributor",
                 _numbered=("()", current_step, total_steps)):
             current_step += 1
             _delete_role_assignment_for_contributor(config, resource_group_name)
-
-        with cli_logger.group(
-                "Deleting role assignment for Storage Blob Data Contributor",
-                _numbered=("()", current_step, total_steps)):
-            current_step += 1
-            _delete_role_assignment_for_storage_blob_data_contributor(config, resource_group_name)
 
         with cli_logger.group(
                 "Deleting role assignment for Storage Blob Data Owner",
@@ -1074,7 +1011,7 @@ def _create_role_assignment_for_contributor(config, resource_group_name):
 
 def _create_role_assignments(config, resource_group_name):
     current_step = 1
-    total_steps = 3
+    total_steps = 2
     with cli_logger.group("Creating role assignments: "):
         # create role_assignment for Contributor
         with cli_logger.group(
@@ -1082,13 +1019,6 @@ def _create_role_assignments(config, resource_group_name):
                 _numbered=("()", current_step, total_steps)):
             current_step += 1
             _create_role_assignment_for_contributor(config, resource_group_name)
-
-        # create role_assignment for Storage Blob Data Contributor
-        with cli_logger.group(
-                "Creating role assignment for Storage Blob Data Contributor",
-                _numbered=("()", current_step, total_steps)):
-            current_step += 1
-            _create_role_assignment_for_storage_blob_data_contributor(config, resource_group_name)
 
         # create role_assignment for Storage Blob Data Owner
         with cli_logger.group(

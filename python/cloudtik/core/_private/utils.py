@@ -2576,12 +2576,12 @@ def get_node_type(provider, node_id: str):
     return node_type
 
 
-def get_node_config(config, provider, node_id: str):
+def get_node_type_config(config, provider, node_id: str):
     node_type = get_node_type(provider, node_id)
     if node_type is None:
         raise RuntimeError("Node type of node {} is unknown.".format(node_id))
 
-    return get_node_config_of_node_type(config, node_type)
+    return get_node_type_config_of_node_type(config, node_type)
 
 
 def get_resource_of_node_type(config, node_type: str):
@@ -2592,7 +2592,7 @@ def get_resource_of_node_type(config, node_type: str):
     return available_node_types[node_type].get("resources", {})
 
 
-def get_node_config_of_node_type(config, node_type: str):
+def get_node_type_config_of_node_type(config, node_type: str):
     available_node_types = config.get("available_node_types")
     if (available_node_types is None) or (node_type not in available_node_types):
         return None

@@ -114,7 +114,10 @@ def check_azure_workspace_resource(config):
     if get_role_assignment_for_contributor(config, resource_group_name) is None:
         return False
 
-    if get_role_assignment_for_storage_blob_data_owner(config, resource_group_name) is None:
+    if get_head_role_assignment_for_storage_blob_data_owner(config, resource_group_name) is None:
+        return False
+
+    if get_worker_role_assignment_for_storage_blob_data_owner(config, resource_group_name) is None:
         return False
 
     if managed_cloud_storage:
@@ -359,8 +362,27 @@ def _delete_workspace_cloud_storage(config, resource_group_name):
         raise e
 
 
-def get_role_assignment_for_storage_blob_data_owner(config, resource_group_name):
+def get_head_role_assignment_for_storage_blob_data_owner(config, resource_group_name):
+    role_assignment_name = get_role_assignment_name_for_storage_blob_data_owner(config, "head")
+    return get_role_assignment_for_storage_blob_data_owner(
+        config, resource_group_name, role_assignment_name)
+
+
+def get_worker_role_assignment_for_storage_blob_data_owner(config, resource_group_name):
+    role_assignment_name = get_role_assignment_name_for_storage_blob_data_owner(config, "worker")
+    return get_role_assignment_for_storage_blob_data_owner(
+        config, resource_group_name, role_assignment_name)
+
+
+def get_role_assignment_name_for_storage_blob_data_owner(config, role_type):
     workspace_name = config["workspace_name"]
+    subscription_id = config["provider"].get("subscription_id")
+    role_assignment_name = str(uuid.uuid3(uuid.UUID(subscription_id),
+                                          workspace_name + role_type + "storage_blob_data_owner"))
+    return role_assignment_name
+
+
+def get_role_assignment_for_storage_blob_data_owner(config, resource_group_name, role_assignment_name):
     authorization_client = construct_authorization_client(config)
     subscription_id = config["provider"].get("subscription_id")
     scope = "subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}".format(
@@ -368,7 +390,6 @@ def get_role_assignment_for_storage_blob_data_owner(config, resource_group_name)
         resourceGroupName=resource_group_name
     )
 
-    role_assignment_name = str(uuid.uuid3(uuid.UUID(subscription_id), workspace_name + "storage_blob_data_owner"))
     cli_logger.verbose("Getting the existing role assignment for Storage Blob Data Owner: {}.",
                        role_assignment_name)
 
@@ -379,7 +400,7 @@ def get_role_assignment_for_storage_blob_data_owner(config, resource_group_name)
         )
         cli_logger.verbose("Successfully get the role assignment for Storage Blob Data Owner: {}.".
                            format(role_assignment_name))
-        return role_assignment_name
+        return role_assignment
     except Exception as e:
         cli_logger.error(
             "Failed to get the role assignment. {}", str(e))
@@ -411,22 +432,35 @@ def get_role_assignment_for_contributor(config, resource_group_name):
         return None
 
 
-def _delete_role_assignment_for_storage_blob_data_owner(config, resource_group_name):
-    role_assignment_name = get_role_assignment_for_storage_blob_data_owner(config, resource_group_name)
-    authorization_client = construct_authorization_client(config)
-    subscription_id = config["provider"].get("subscription_id")
-    scope = "subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}".format(
-        subscriptionId=subscription_id,
-        resourceGroupName=resource_group_name
-    )
-    if role_assignment_name is None:
-        cli_logger.print("The role assignment doesn't exist.")
+def _delete_head_role_assignment_for_storage_blob_data_owner(config, resource_group_name):
+    _delete_role_assignment_for_storage_blob_data_owner(
+        config, resource_group_name, "head")
+
+
+def _delete_worker_role_assignment_for_storage_blob_data_owner(config, resource_group_name):
+    _delete_role_assignment_for_storage_blob_data_owner(
+        config, resource_group_name, "worker")
+
+
+def _delete_role_assignment_for_storage_blob_data_owner(config, resource_group_name, role_type):
+    role_assignment_name = get_role_assignment_name_for_storage_blob_data_owner(config, role_type)
+    role_assignment = get_role_assignment_for_storage_blob_data_owner(
+        config, resource_group_name, role_assignment_name)
+    if role_assignment is None:
+        cli_logger.print("The role assignment {} doesn't exist.".format(role_assignment_name))
         return
 
     """ Delete the role_assignment """
     cli_logger.print("Deleting the role assignment for Storage Blob Data Owner: {}...".format(
         role_assignment_name))
     try:
+        authorization_client = construct_authorization_client(config)
+        subscription_id = config["provider"].get("subscription_id")
+        scope = "subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}".format(
+            subscriptionId=subscription_id,
+            resourceGroupName=resource_group_name
+        )
+
         authorization_client.role_assignments.delete(
             scope=scope,
             role_assignment_name=role_assignment_name
@@ -468,19 +502,25 @@ def _delete_role_assignment_for_contributor(config, resource_group_name):
 
 def _delete_role_assignments(config, resource_group_name):
     current_step = 1
-    total_steps = 2
-    with cli_logger.group("Deleting role assignments: "):
-        with cli_logger.group(
-                "Deleting role assignment for Contributor",
-                _numbered=("()", current_step, total_steps)):
-            current_step += 1
-            _delete_role_assignment_for_contributor(config, resource_group_name)
+    total_steps = 3
 
-        with cli_logger.group(
-                "Deleting role assignment for Storage Blob Data Owner",
-                _numbered=("()", current_step, total_steps)):
-            current_step += 1
-            _delete_role_assignment_for_storage_blob_data_owner(config, resource_group_name)
+    with cli_logger.group(
+            "Deleting Contributor role assignment for head",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _delete_role_assignment_for_contributor(config, resource_group_name)
+
+    with cli_logger.group(
+            "Deleting Storage Blob Data Owner role assignment for head",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _delete_head_role_assignment_for_storage_blob_data_owner(config, resource_group_name)
+
+    with cli_logger.group(
+            "Deleting Storage Blob Data Owner role assignment for worker",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _delete_worker_role_assignment_for_storage_blob_data_owner(config, resource_group_name)
 
 
 def get_head_user_assigned_identity(config, resource_group_name):
@@ -950,16 +990,27 @@ def create_resource_group(config, resource_client):
         raise e
 
 
-def _create_role_assignment_for_storage_blob_data_owner(config, resource_group_name):
-    workspace_name = config["workspace_name"]
+def _create_head_role_assignment_for_storage_blob_data_owner(config, resource_group_name):
+    user_assigned_identity = get_head_user_assigned_identity(config, resource_group_name)
+    _create_role_assignment_for_storage_blob_data_owner(
+        config, resource_group_name, user_assigned_identity, "head")
+
+
+def _create_worker_role_assignment_for_storage_blob_data_owner(config, resource_group_name):
+    user_assigned_identity = get_worker_user_assigned_identity(config, resource_group_name)
+    _create_role_assignment_for_storage_blob_data_owner(
+        config, resource_group_name, user_assigned_identity, "worker")
+
+
+def _create_role_assignment_for_storage_blob_data_owner(
+        config, resource_group_name, user_assigned_identity, role_type):
     authorization_client = construct_authorization_client(config)
     subscription_id = config["provider"].get("subscription_id")
     scope = "subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}".format(
         subscriptionId=subscription_id,
         resourceGroupName=resource_group_name
     )
-    role_assignment_name = str(uuid.uuid3(uuid.UUID(subscription_id), workspace_name + 'storage_blob_data_owner'))
-    user_assigned_identity = get_head_user_assigned_identity(config, resource_group_name)
+    role_assignment_name = get_role_assignment_name_for_storage_blob_data_owner(config, role_type)
     cli_logger.print("Creating workspace role assignment for Storage Blob Data Owner: {} on Azure...",
                      role_assignment_name)
 
@@ -1016,21 +1067,28 @@ def _create_role_assignment_for_contributor(config, resource_group_name):
 
 def _create_role_assignments(config, resource_group_name):
     current_step = 1
-    total_steps = 2
+    total_steps = 3
 
-    # create role_assignment for Contributor
+    # create Contributor role assignment for head
     with cli_logger.group(
-            "Creating role assignment for Contributor",
+            "Creating Contributor role assignment for head ",
             _numbered=("()", current_step, total_steps)):
         current_step += 1
         _create_role_assignment_for_contributor(config, resource_group_name)
 
-    # create role_assignment for Storage Blob Data Owner
+    # create Storage Blob Data Owner role assignment for head
     with cli_logger.group(
-            "Creating role assignment for Storage Blob Data Owner",
+            "Creating Storage Blob Data Owner role assignment for head",
             _numbered=("()", current_step, total_steps)):
         current_step += 1
-        _create_role_assignment_for_storage_blob_data_owner(config, resource_group_name)
+        _create_head_role_assignment_for_storage_blob_data_owner(config, resource_group_name)
+
+    # create Storage Blob Data Owner role assignment for worker
+    with cli_logger.group(
+            "Creating Storage Blob Data Owner role assignment for worker",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _create_worker_role_assignment_for_storage_blob_data_owner(config, resource_group_name)
 
 
 def _create_container_for_storage_account(config, resource_group_name):

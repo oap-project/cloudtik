@@ -11,7 +11,7 @@ RUNTIME_PROCESSES = [
     # The second element, if True, is to filter ps results by command name.
     # The third element is the process name.
     # The forth element, if node, the process should on all nodes,if head, the process should on head node.
-    ["com.facebook.trino.server.TrinoServer", False, "TrinoServer", "node"],
+    ["io.trino.server.TrinoServer", False, "TrinoServer", "node"],
 ]
 
 RUNTIME_ROOT_PATH = os.path.abspath(os.path.dirname(__file__))

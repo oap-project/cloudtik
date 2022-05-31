@@ -132,7 +132,7 @@ function update_storage_config_for_azure() {
     # Use Hadoop core-site.xml configurations directly
     update_credential_config_for_azure
 
-    HIVE_AZURE_CORE_SITE="${PRESTO_HOME}/etc/catalog/hive-azure-core-site.xml"
+    HIVE_AZURE_CORE_SITE="${TRINO_HOME}/etc/catalog/hive-azure-core-site.xml"
     cp $catalog_dir/hive-azure-core-site.xml ${HIVE_AZURE_CORE_SITE}
     sed -i "s!{%hive.config.resources%}!${HIVE_AZURE_CORE_SITE}!g" $catalog_dir/hive.config.properties
     cat $catalog_dir/hive.config.properties >> $catalog_dir/hive.properties

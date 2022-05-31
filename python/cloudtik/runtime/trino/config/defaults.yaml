@@ -1,0 +1,9 @@
+# Configuration defaults
+
+# The distributed max memory query can use in total
+query_max_memory: 50GB
+
+# catalogs:
+  # - your_catalog_name:
+      # connector.name: your_connector_name
+      # Other connector properties

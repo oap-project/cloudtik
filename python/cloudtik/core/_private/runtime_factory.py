@@ -18,6 +18,7 @@ BUILT_IN_RUNTIME_HDFS = "hdfs"
 BUILT_IN_RUNTIME_METASTORE = "metastore"
 BUILT_IN_RUNTIME_SPARK = "spark"
 BUILT_IN_RUNTIME_PRESTO = "presto"
+BUILT_IN_RUNTIME_TRINO = "trino"
 BUILT_IN_RUNTIME_ZOOKEEPER = "zookeeper"
 BUILT_IN_RUNTIME_KAFKA = "kafka"
 
@@ -72,6 +73,16 @@ def _load_presto_runtime_home():
     return os.path.dirname(presto.__file__)
 
 
+def _import_trino():
+    from cloudtik.runtime.trino.runtime import TrinoRuntime
+    return TrinoRuntime
+
+
+def _load_trino_runtime_home():
+    import cloudtik.runtime.trino as trino
+    return os.path.dirname(trino.__file__)
+
+
 def _import_zookeeper():
     from cloudtik.runtime.zookeeper.runtime import ZooKeeperRuntime
     return ZooKeeperRuntime
@@ -98,6 +109,7 @@ _RUNTIMES = {
     "hdfs": _import_hdfs,
     "metastore": _import_metastore,
     "presto": _import_presto,
+    "trino": _import_trino,
     "zookeeper": _import_zookeeper,
     "kafka": _import_kafka,
 }
@@ -108,6 +120,7 @@ _RUNTIME_HOMES = {
     "hdfs": _load_hdfs_runtime_home,
     "metastore": _load_metastore_runtime_home,
     "presto": _load_presto_runtime_home,
+    "trino": _load_trino_runtime_home,
     "zookeeper": _load_zookeeper_runtime_home,
     "kafka": _load_kafka_runtime_home,
 }

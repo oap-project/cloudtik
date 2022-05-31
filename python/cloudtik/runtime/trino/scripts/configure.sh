@@ -162,9 +162,13 @@ function update_storage_config_for_gcp() {
 }
 
 function update_storage_config() {
-    update_storage_config_for_aws
-    update_storage_config_for_azure
-    update_storage_config_for_gcp
+    if [ "$CLOUDTIK_PROVIDER_TYPE" == "aws" ]; then
+        update_storage_config_for_aws
+    elif [ "$CLOUDTIK_PROVIDER_TYPE" == "gcp" ]; then
+        update_storage_config_for_gcp
+    elif [ "$CLOUDTIK_PROVIDER_TYPE" == "azure" ]; then
+        update_storage_config_for_azure
+    fi
 }
 
 function update_hive_metastore_config() {

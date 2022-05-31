@@ -27,14 +27,14 @@ mkdir -p $RUNTIME_PATH
 
 function install_jdk() {
     # install JDK
-    export JAVA_HOME=$RUNTIME_PATH/jdk
+    export JAVA_HOME=$RUNTIME_PATH/jdk12
 
     if [ ! -d "${JAVA_HOME}" ]; then
-      (cd $RUNTIME_PATH && wget -q --show-progress https://devops.egov.org.in/Downloads/jdk/jdk-8u192-linux-x64.tar.gz  && \
-          gunzip jdk-8u192-linux-x64.tar.gz && \
-          tar -xf jdk-8u192-linux-x64.tar && \
-          rm jdk-8u192-linux-x64.tar && \
-          mv jdk1.8.0_192 jdk)
+      (cd $RUNTIME_PATH && wget -q --show-progress https://download.java.net/java/GA/jdk12/33/GPL/openjdk-12_linux-x64_bin.tar.gz  && \
+          gunzip openjdk-12_linux-x64_bin.tar.gz && \
+          tar -xf openjdk-12_linux-x64_bin.tar && \
+          rm openjdk-12_linux-x64_bin.tar && \
+          mv jdk-12 jdk12)
       echo "export JAVA_HOME=$JAVA_HOME">> ${USER_HOME}/.bashrc
       echo "export PATH=\$JAVA_HOME/bin:\$PATH" >> ${USER_HOME}/.bashrc
     fi

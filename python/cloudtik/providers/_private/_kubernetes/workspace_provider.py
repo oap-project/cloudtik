@@ -11,7 +11,6 @@ class KubernetesWorkspaceProvider(WorkspaceProvider):
     def __init__(self, provider_config, workspace_name):
         WorkspaceProvider.__init__(self, provider_config, workspace_name)
 
-    @staticmethod
     def validate_config(
             provider_config: Dict[str, Any]):
         pass

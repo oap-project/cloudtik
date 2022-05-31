@@ -60,7 +60,6 @@ class GCPWorkspaceProvider(WorkspaceProvider):
 
         return global_variables
 
-    @staticmethod
     def validate_config(
             provider_config: Dict[str, Any]):
         pass

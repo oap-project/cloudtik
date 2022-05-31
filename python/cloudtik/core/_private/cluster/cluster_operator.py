@@ -538,6 +538,8 @@ def teardown_cluster_nodes(config: Dict[str, Any],
                            keep_min_workers: bool,
                            on_head: bool,
                            hard: bool = False):
+    _cli_logger = call_context.cli_logger
+
     def remaining_nodes():
         workers = provider.non_terminated_nodes({
             CLOUDTIK_TAG_NODE_KIND: NODE_KIND_WORKER
@@ -545,7 +547,7 @@ def teardown_cluster_nodes(config: Dict[str, Any],
 
         if keep_min_workers:
             min_workers = config.get("min_workers", 0)
-            cli_logger.print(
+            _cli_logger.print(
                 "{} random worker nodes will not be shut down. " +
                 cf.dimmed("(due to {})"), cf.bold(min_workers),
                 cf.bold("--keep-min-workers"))
@@ -559,7 +561,7 @@ def teardown_cluster_nodes(config: Dict[str, Any],
         # todo: it's weird to kill the head node but not all workers
         if workers_only:
             if not on_head:
-                cli_logger.print(
+                _cli_logger.print(
                     "The head node will not be shut down. " +
                     cf.dimmed("(due to {})"), cf.bold("--workers-only"))
 
@@ -571,47 +573,68 @@ def teardown_cluster_nodes(config: Dict[str, Any],
     #   really gone
     head, A = remaining_nodes()
 
+    current_step = 1
+    total_steps = 1
+
     if not hard:
+        total_steps += 1
         # first stop the services on the nodes
         if on_head and len(head) > 0:
+            total_steps += 1
+
             # Only do this for workers on head
             head_node = head[0]
-            _stop_node_on_head(
+
+            # Step 1:
+            with _cli_logger.group(
+                    "Stopping services for worker nodes...",
+                    _numbered=("()", current_step, total_steps)):
+                current_step += 1
+                _stop_node_on_head(
+                    config=config,
+                    call_context=call_context,
+                    provider=provider,
+                    head_node=head_node,
+                    node_head=None,
+                    node_workers=A,
+                    parallel=True
+                )
+
+        # Step 2: stop docker containers
+        with _cli_logger.group(
+                "Stopping docker container for worker nodes...",
+                _numbered=("()", current_step, total_steps)):
+            current_step += 1
+            _stop_docker_on_nodes(
                 config=config,
                 call_context=call_context,
                 provider=provider,
-                head_node=head_node,
-                node_head=None,
-                node_workers=A,
-                parallel=True
+                workers_only=workers_only,
+                on_head=on_head,
+                head=head,
+                nodes=A
             )
 
-        # stop docker containers
-        _stop_docker_on_nodes(
-            config=config,
-            call_context=call_context,
-            provider=provider,
-            workers_only=workers_only,
-            on_head=on_head,
-            head=head,
-            nodes=A
-        )
-
+    # Step 3
     node_type = "workers" if workers_only else "nodes"
-    with LogTimer("teardown_cluster: done."):
-        while A:
-            provider.terminate_nodes(A)
+    with _cli_logger.group(
+            "Terminating {}...".format(node_type),
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        with LogTimer("teardown_cluster: done."):
+            while A:
+                provider.terminate_nodes(A)
 
-            cli_logger.print(
-                "Requested {} {} to shut down.",
-                cf.bold(len(A)), node_type,
-                _tags=dict(interval="1s"))
+                _cli_logger.print(
+                    "Requested {} {} to shut down.",
+                    cf.bold(len(A)), node_type,
+                    _tags=dict(interval="1s"))
 
-            time.sleep(POLL_INTERVAL)  # todo: interval should be a variable
-            head, A = remaining_nodes()
-            cli_logger.print("{} {} remaining after {} second(s).",
-                             cf.bold(len(A)), node_type, POLL_INTERVAL)
-        cli_logger.success("No {} remaining.", node_type)
+                time.sleep(POLL_INTERVAL)  # todo: interval should be a variable
+                head, A = remaining_nodes()
+                _cli_logger.print("{} {} remaining after {} second(s).",
+                                 cf.bold(len(A)), node_type, POLL_INTERVAL)
+            _cli_logger.success("No {} remaining.", node_type)
 
 
 def _stop_docker_on_nodes(
@@ -625,6 +648,8 @@ def _stop_docker_on_nodes(
     use_internal_ip = True if on_head else False
 
     def run_docker_stop(node, container_name, call_context):
+        _cli_logger = call_context.cli_logger
+
         try:
             updater = create_node_updater_for_exec(
                 config=config,
@@ -641,16 +666,17 @@ def _stop_docker_on_nodes(
                 with_output=False,
                 run_env="host")
         except Exception:
-            cli_logger.warning(f"Docker stop failed on {node}")
+            _cli_logger.warning(f"Docker stop failed on {node}")
 
+    _cli_logger = call_context.cli_logger
     docker_enabled = is_docker_enabled(config)
     if docker_enabled and (on_head or not workers_only):
         container_name = config.get(DOCKER_CONFIG_KEY, {}).get("container_name")
         if on_head:
-            cli_logger.print("Stopping docker containers on workers.")
+            _cli_logger.print("Stopping docker containers on workers...")
             container_nodes = nodes
         else:
-            cli_logger.print("Stopping docker container on head.")
+            _cli_logger.print("Stopping docker container on head...")
             container_nodes = head
         # This is to ensure that the parallel SSH calls below do not mess with
         # the users terminal.
@@ -667,6 +693,7 @@ def _stop_docker_on_nodes(
                     call_context=call_context.new_call_context())
         call_context.set_output_redirected(output_redir)
         call_context.set_allow_interactive(allow_interactive)
+        _cli_logger.print("Done stopping docker containers.")
 
 
 def kill_node_from_head(config_file: str, yes: bool, hard: bool,
@@ -2801,9 +2828,10 @@ def _stop_node_on_head(
     head_node_ip = provider.internal_ip(head_node)
 
     def stop_single_node_on_head(node_id, call_context):
+        _cli_logger = call_context.cli_logger
         if not is_node_in_completed_status(provider, node_id):
             node_ip = provider.internal_ip(node_id)
-            cli_logger.print("Skip stopping node {} as it is in setting up.", node_ip)
+            _cli_logger.print("Skip stopping node {} as it is in setting up.", node_ip)
             return
 
         runtime_config = _get_node_specific_runtime_config(
@@ -2845,22 +2873,24 @@ def _stop_node_on_head(
         node_runtime_envs.update(runtime_envs)
         updater.exec_commands("Stopping", stop_commands, node_runtime_envs)
 
+    _cli_logger = call_context.cli_logger
+
     # First stop the head service
     if node_head:
-        with cli_logger.group(
+        with _cli_logger.group(
                 "Stopping on head: {}", head_node_ip):
             stop_single_node_on_head(node_head, call_context=call_context)
 
     total_workers = len(node_workers)
     if parallel and total_workers > 1:
-        cli_logger.print("Stopping on {} workers in parallel...", total_workers)
+        _cli_logger.print("Stopping on {} workers in parallel...", total_workers)
         run_in_paralell_on_nodes(stop_single_node_on_head,
                                  call_context=call_context,
                                  nodes=node_workers)
     else:
         for i, node_id in enumerate(node_workers):
             node_ip = provider.internal_ip(node_id)
-            with cli_logger.group(
+            with _cli_logger.group(
                     "Stopping on worker: {}", node_ip,
                     _numbered=("()", i + 1, total_workers)):
                 stop_single_node_on_head(node_id, call_context=call_context)

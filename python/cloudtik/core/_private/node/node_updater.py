@@ -19,7 +19,7 @@ from cloudtik.core._private.log_timer import LogTimer
 from cloudtik.core._private.cli_logger import cf, CliLogger
 import cloudtik.core._private.subprocess_output_util as cmd_output_util
 from cloudtik.core._private.constants import CLOUDTIK_RESOURCES_ENV, CLOUDTIK_RUNTIME_ENV_NODE_NUMBER, \
-    CLOUDTIK_RUNTIME_ENV_NODE_TYPE
+    CLOUDTIK_RUNTIME_ENV_NODE_TYPE, CLOUDTIK_RUNTIME_ENV_PROVIDER_TYPE
 from cloudtik.core._private.event_system import (CreateClusterEvent,
                                                   global_event_system)
 
@@ -338,6 +338,9 @@ class NodeUpdater:
         node_type = get_node_type(self.provider, self.node_id)
         if node_type is not None:
             runtime_envs[CLOUDTIK_RUNTIME_ENV_NODE_TYPE] = node_type
+
+        if self.provider_type is not None:
+            runtime_envs[CLOUDTIK_RUNTIME_ENV_PROVIDER_TYPE] = self.provider_type
         return runtime_envs
 
     def do_update(self):

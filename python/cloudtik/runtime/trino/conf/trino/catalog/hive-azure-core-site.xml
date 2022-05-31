@@ -45,5 +45,4 @@
         <name>fs.azure.skipUserGroupMetadataDuringInitialization</name>
         <value>true</value>
     </property>
-
 </configuration>

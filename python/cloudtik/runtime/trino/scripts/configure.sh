@@ -103,20 +103,39 @@ function update_storage_config_for_aws() {
     fi
 }
 
-function update_storage_config_for_azure() {
-    # AZURE_STORAGE_TYPE
-    # AZURE_STORAGE_ACCOUNT
-    # AZURE_ACCOUNT_KEY
-
+function update_credential_config_for_azure() {
     if [ "$AZURE_STORAGE_TYPE" == "blob" ];then
-        sed -i "s#{%azure.wasb-storage-account%}#${AZURE_STORAGE_ACCOUNT}#g" $catalog_dir/hive.wasb.properties
-        sed -i "s#{%azure.wasb-access-key%}#${AZURE_ACCOUNT_KEY}#g" $catalog_dir/hive.wasb.properties
-        cat $catalog_dir/hive.wasb.properties >> $catalog_dir/hive.properties
-    elif [ "$AZURE_STORAGE_TYPE" == "datalake" ];then
-        sed -i "s#{%azure.abfs-storage-account%}#${AZURE_STORAGE_ACCOUNT}#g" $catalog_dir/hive.abfs.properties
-        sed -i "s#{%azure.abfs-access-key%}#${AZURE_ACCOUNT_KEY}#g" $catalog_dir/hive.abfs.properties
-        cat $catalog_dir/hive.abfs.properties >> $catalog_dir/hive.properties
+        AZURE_ENDPOINT="blob"
+    else
+        # Default to datalake
+        AZURE_ENDPOINT="dfs"
     fi
+
+    sed -i "s#{%azure.storage.account%}#${AZURE_STORAGE_ACCOUNT}#g" $catalog_dir/hive-azure-core-site.xml
+    sed -i "s#{%storage.endpoint%}#${AZURE_ENDPOINT}#g" $catalog_dir/hive-azure-core-site.xml
+
+    sed -i "s#{%azure.account.key%}#${AZURE_ACCOUNT_KEY}#g" $catalog_dir/hive-azure-core-site.xml
+    sed -i "s#{%fs.azure.account.oauth2.msi.tenant%}#${AZURE_MANAGED_IDENTITY_TENANT_ID}#g" $catalog_dir/hive-azure-core-site.xml
+    sed -i "s#{%fs.azure.account.oauth2.client.id%}#${AZURE_MANAGED_IDENTITY_CLIENT_ID}#g" $catalog_dir/hive-azure-core-site.xml
+
+    if [ "$AZURE_STORAGE_TYPE" != "blob" ];then
+        # datalake
+        if [ -n  "${AZURE_ACCOUNT_KEY}" ];then
+            sed -i "s#{%auth.type%}#SharedKey#g" $catalog_dir/hive-azure-core-site.xml
+        else
+            sed -i "s#{%auth.type%}##g" $catalog_dir/hive-azure-core-site.xml
+        fi
+    fi
+}
+
+function update_storage_config_for_azure() {
+    # Use Hadoop core-site.xml configurations directly
+    update_credential_config_for_azure
+
+    HIVE_AZURE_CORE_SITE="${PRESTO_HOME}/etc/catalog/hive-azure-core-site.xml"
+    cp $catalog_dir/hive-azure-core-site.xml ${HIVE_AZURE_CORE_SITE}
+    sed -i "s!{%hive.config.resources%}!${HIVE_AZURE_CORE_SITE}!g" $catalog_dir/hive.config.properties
+    cat $catalog_dir/hive.config.properties >> $catalog_dir/hive.properties
 }
 
 function update_storage_config_for_gcp() {

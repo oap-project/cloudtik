@@ -351,6 +351,7 @@ setuptools.setup(
             "cloudtik-hdfs=cloudtik.runtime.hdfs.scripts:main",
             "cloudtik-metastore=cloudtik.runtime.metastore.scripts:main",
             "cloudtik-presto=cloudtik.runtime.presto.scripts:main",
+            "cloudtik-trino=cloudtik.runtime.trino.scripts:main",
             "cloudtik-zookeeper=cloudtik.runtime.zookeeper.scripts:main",
             "cloudtik-kafka=cloudtik.runtime.kafka.scripts:main",
         ]

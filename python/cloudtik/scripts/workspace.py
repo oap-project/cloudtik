@@ -1,3 +1,4 @@
+import copy
 import click
 import logging
 import urllib
@@ -118,6 +119,12 @@ def show_clusters(workspace_config_file, workspace_name):
     list_workspace_clusters(workspace_config_file, workspace_name)
 
 
+def _add_command_alias(command, name, hidden):
+    new_command = copy.deepcopy(command)
+    new_command.hidden = hidden
+    workspace.add_command(new_command, name=name)
+
+
 # core commands working on workspace
 workspace.add_command(create)
 workspace.add_command(delete)
@@ -125,3 +132,4 @@ workspace.add_command(update_firewalls)
 
 # commands for workspace info
 workspace.add_command(show_clusters)
+_add_command_alias(show_clusters, name="list-clusters", hidden=True)

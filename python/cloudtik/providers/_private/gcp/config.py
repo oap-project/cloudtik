@@ -794,8 +794,20 @@ def _create_or_update_custom_firewalls(config, compute, VpcId):
 
 
 def _create_or_update_firewalls(config, compute, VpcId):
-    _create_default_allow_internal_firewall(config, compute, VpcId)
-    _create_or_update_custom_firewalls(config, compute, VpcId)
+    current_step = 1
+    total_steps = 2
+
+    with cli_logger.group(
+            "Creating or updating internal firewall",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _create_default_allow_internal_firewall(config, compute, VpcId)
+
+    with cli_logger.group(
+            "Creating or updating custom firewalls",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _create_or_update_custom_firewalls(config, compute, VpcId)
 
 
 def check_workspace_firewalls(config, compute):
@@ -824,15 +836,16 @@ def delete_firewall(compute, project_id, firewall_name):
 def _delete_firewalls(config, compute):
     project_id = config["provider"]["project_id"]
     workspace_name = config["workspace_name"]
-    cloudtik_firewalls = [ firewall.get("name")
+    cloudtik_firewalls = [firewall.get("name")
         for firewall in compute.firewalls().list(project=project_id).execute().get("items")
             if "cloudtik-{}".format(workspace_name) in firewall.get("name")]
 
-    cli_logger.print("Deleting the firewalls...")
-    for cloudtik_firewall in cloudtik_firewalls:
-        delete_firewall(compute, project_id, cloudtik_firewall)
-
-    cli_logger.print("Successfully deleted the firewalls.")
+    total_steps = len(cloudtik_firewalls)
+    for i, cloudtik_firewall in enumerate(cloudtik_firewalls):
+        with cli_logger.group(
+                "Deleting firewall",
+                _numbered=("()", i + 1, total_steps)):
+            delete_firewall(compute, project_id, cloudtik_firewall)
 
 
 def get_gcp_vpcId(config, compute, use_internal_ips):

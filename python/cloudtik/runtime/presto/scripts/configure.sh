@@ -95,6 +95,7 @@ function update_presto_data_disks_config() {
 function update_storage_config_for_aws() {
     # AWS_S3_ACCESS_KEY_ID
     # AWS_S3_SECRET_ACCESS_KEY
+    # Since hive.s3.use-instance-credentials is default true
     if [ ! -z "$AWS_S3_ACCESS_KEY_ID" ]; then
         sed -i "s#{%s3.aws-access-key%}#${AWS_S3_ACCESS_KEY_ID}#g" $catalog_dir/hive.s3.properties
         sed -i "s#{%s3.aws-secret-key%}#${AWS_S3_SECRET_ACCESS_KEY}#g" $catalog_dir/hive.s3.properties
@@ -131,9 +132,14 @@ function update_storage_config_for_gcp() {
 
         cp $catalog_dir/gcs.key-file.json ${PRESTO_HOME}/etc/catalog/gcs.key-file.json
 
+        sed -i "s#{%gcs.use-access-token%}#false#g" $catalog_dir/hive.gcs.properties
         sed -i "s!{%gcs.json-key-file-path%}!${PRESTO_HOME}/etc/catalog/gcs.key-file.json!g" $catalog_dir/hive.gcs.properties
-        cat $catalog_dir/hive.gcs.properties >> $catalog_dir/hive.properties
+    else
+        sed -i "s#{%gcs.use-access-token%}#true#g" $catalog_dir/hive.gcs.properties
+        sed -i "s#{%gcs.json-key-file-path%}##g" $catalog_dir/hive.gcs.properties
     fi
+
+    cat $catalog_dir/hive.gcs.properties >> $catalog_dir/hive.properties
 }
 
 function update_storage_config() {

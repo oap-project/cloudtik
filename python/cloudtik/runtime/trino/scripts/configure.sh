@@ -85,7 +85,7 @@ function update_trino_data_disks_config() {
 
     # if no disks mounted on /mnt/cloudtik
     if [ -z "$trino_data_dir" ]; then
-        trino_data_dir="${RUNTIME_PATH}/shared/data"
+        trino_data_dir="${RUNTIME_PATH}/shared/trino/data"
     fi
 
     mkdir -p $trino_data_dir

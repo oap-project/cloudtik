@@ -74,7 +74,7 @@ function update_zookeeper_data_disks_config() {
 
     # if no disks mounted on /mnt/cloudtik
     if [ -z "$zookeeper_data_dir" ]; then
-        zookeeper_data_dir="${RUNTIME_PATH}/shared/data/zookeeper"
+        zookeeper_data_dir="${RUNTIME_PATH}/shared/zookeeper/data"
     fi
 
     mkdir -p $zookeeper_data_dir

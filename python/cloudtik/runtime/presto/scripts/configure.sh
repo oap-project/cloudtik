@@ -85,7 +85,7 @@ function update_presto_data_disks_config() {
 
     # if no disks mounted on /mnt/cloudtik
     if [ -z "$presto_data_dir" ]; then
-        presto_data_dir="${RUNTIME_PATH}/shared/data"
+        presto_data_dir="${RUNTIME_PATH}/shared/presto/data"
     fi
 
     mkdir -p $presto_data_dir

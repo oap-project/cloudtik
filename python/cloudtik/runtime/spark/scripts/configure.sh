@@ -201,7 +201,7 @@ function update_config_for_hdfs() {
     event_log_dir="${HDFS_NAMENODE_URI}/shared/spark-events"
     sed -i "s!{%spark.eventLog.dir%}!${event_log_dir}!g" `grep "{%spark.eventLog.dir%}" -rl ./`
 
-    sql_warehouse_dir="${HDFS_NAMENODE_URI}/shared/data/spark-warehouse"
+    sql_warehouse_dir="${HDFS_NAMENODE_URI}/shared/spark-warehouse"
     sed -i "s!{%spark.sql.warehouse.dir%}!${sql_warehouse_dir}!g" `grep "{%spark.sql.warehouse.dir%}" -rl ./`
 }
 
@@ -214,10 +214,10 @@ function update_config_for_aws() {
     # event log dir
     if [ -z "${AWS_S3_BUCKET}" ]; then
         event_log_dir="file:///tmp/spark-events"
-        sql_warehouse_dir="$USER_HOME/shared/data/spark-warehouse"
+        sql_warehouse_dir="$USER_HOME/shared/spark-warehouse"
     else
         event_log_dir="s3a://${AWS_S3_BUCKET}/shared/spark-events"
-        sql_warehouse_dir="s3a://${AWS_S3_BUCKET}/shared/data/spark-warehouse"
+        sql_warehouse_dir="s3a://${AWS_S3_BUCKET}/shared/spark-warehouse"
     fi
     sed -i "s!{%spark.eventLog.dir%}!${event_log_dir}!g" `grep "{%spark.eventLog.dir%}" -rl ./`
     sed -i "s!{%spark.sql.warehouse.dir%}!${sql_warehouse_dir}!g" `grep "{%spark.sql.warehouse.dir%}" -rl ./`
@@ -232,10 +232,10 @@ function update_config_for_gcp() {
     # event log dir
     if [ -z "${GCS_BUCKET}" ]; then
         event_log_dir="file:///tmp/spark-events"
-        sql_warehouse_dir="$USER_HOME/shared/data/spark-warehouse"
+        sql_warehouse_dir="$USER_HOME/shared/spark-warehouse"
     else
         event_log_dir="gs://${GCS_BUCKET}/shared/spark-events"
-        sql_warehouse_dir="gs://${GCS_BUCKET}/shared/data/spark-warehouse"
+        sql_warehouse_dir="gs://${GCS_BUCKET}/shared/spark-warehouse"
     fi
     sed -i "s!{%spark.eventLog.dir%}!${event_log_dir}!g" `grep "{%spark.eventLog.dir%}" -rl ./`
     sed -i "s!{%spark.sql.warehouse.dir%}!${sql_warehouse_dir}!g" `grep "{%spark.sql.warehouse.dir%}" -rl ./`
@@ -260,10 +260,10 @@ function update_config_for_azure() {
     # event log dir
     if [ -z "${AZURE_CONTAINER}" ]; then
         event_log_dir="file:///tmp/spark-events"
-        sql_warehouse_dir="$USER_HOME/shared/data/spark-warehouse"
+        sql_warehouse_dir="$USER_HOME/shared/spark-warehouse"
     else
         event_log_dir="${AZURE_SCHEMA}://${AZURE_CONTAINER}@${AZURE_STORAGE_ACCOUNT}.${AZURE_ENDPOINT}.core.windows.net/shared/spark-events"
-        sql_warehouse_dir="${AZURE_SCHEMA}://${AZURE_CONTAINER}@${AZURE_STORAGE_ACCOUNT}.${AZURE_ENDPOINT}.core.windows.net/shared/data/spark-warehouse"
+        sql_warehouse_dir="${AZURE_SCHEMA}://${AZURE_CONTAINER}@${AZURE_STORAGE_ACCOUNT}.${AZURE_ENDPOINT}.core.windows.net/shared/spark-warehouse"
     fi
     sed -i "s!{%spark.eventLog.dir%}!${event_log_dir}!g" `grep "{%spark.eventLog.dir%}" -rl ./`
     sed -i "s!{%spark.sql.warehouse.dir%}!${sql_warehouse_dir}!g" `grep "{%spark.sql.warehouse.dir%}" -rl ./`
@@ -313,7 +313,7 @@ function update_config_for_local_hdfs() {
     event_log_dir="hdfs://${HEAD_ADDRESS}:9000/shared/spark-events"
     sed -i "s!{%spark.eventLog.dir%}!${event_log_dir}!g" `grep "{%spark.eventLog.dir%}" -rl ./`
 
-    sql_warehouse_dir="hdfs://${HEAD_ADDRESS}:9000/shared/data/spark-warehouse"
+    sql_warehouse_dir="hdfs://${HEAD_ADDRESS}:9000/shared/spark-warehouse"
     sed -i "s!{%spark.sql.warehouse.dir%}!${sql_warehouse_dir}!g" `grep "{%spark.sql.warehouse.dir%}" -rl ./`
 }
 

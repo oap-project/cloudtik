@@ -81,7 +81,7 @@ function configure_hive_metastore() {
 
     # set metastore warehouse dir according to the storage options: HDFS, S3, GCS, Azure
     # The full path will be decided on the default.fs of hadoop core-site.xml
-    METASTORE_WAREHOUSE_DIR=/shared/data/warehouse
+    METASTORE_WAREHOUSE_DIR=/shared/warehouse
     sed -i "s|{%METASTORE_WAREHOUSE_DIR%}|${METASTORE_WAREHOUSE_DIR}|g" `grep "{%METASTORE_WAREHOUSE_DIR%}" -rl ./`
 
     cp -r ${output_dir}/hive/metastore-site.xml  ${METASTORE_HOME}/conf/metastore-site.xml

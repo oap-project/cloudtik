@@ -79,7 +79,7 @@ function update_kafka_data_disks_config() {
 
     # if no disks mounted on /mnt/cloudtik
     if [ -z "$kafka_data_dir" ]; then
-        kafka_data_dir="${RUNTIME_PATH}/shared/data/kafka"
+        kafka_data_dir="${RUNTIME_PATH}/shared/kafka/data"
         mkdir -p $kafka_data_dir
     fi
 

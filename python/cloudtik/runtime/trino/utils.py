@@ -18,7 +18,6 @@ RUNTIME_ROOT_PATH = os.path.abspath(os.path.dirname(__file__))
 
 JVM_MAX_MEMORY_RATIO = 0.8
 QUERY_MAX_MEMORY_PER_NODE_RATIO = 0.5
-QUERY_MAX_TOTAL_MEMORY_PER_NODE_RATIO = 0.7
 MEMORY_HEAP_HEADROOM_PER_NODE_RATIO = 0.25
 
 
@@ -28,10 +27,6 @@ def get_jvm_max_memory(total_memory):
 
 def get_query_max_memory_per_node(jvm_max_memory):
     return int(jvm_max_memory * QUERY_MAX_MEMORY_PER_NODE_RATIO)
-
-
-def get_query_max_total_memory_per_node(jvm_max_memory):
-    return int(jvm_max_memory * QUERY_MAX_TOTAL_MEMORY_PER_NODE_RATIO)
 
 
 def get_memory_heap_headroom_per_node(jvm_max_memory):
@@ -162,11 +157,9 @@ def _with_memory_configurations(
 
     jvm_max_memory = get_jvm_max_memory(memory_in_mb)
     query_max_memory_per_node = get_query_max_memory_per_node(jvm_max_memory)
-    query_max_total_memory_per_node = get_query_max_total_memory_per_node(jvm_max_memory)
 
     runtime_envs["TRINO_JVM_MAX_MEMORY"] = jvm_max_memory
     runtime_envs["TRINO_MAX_MEMORY_PER_NODE"] = query_max_memory_per_node
-    runtime_envs["TRINO_MAX_TOTAL_MEMORY_PER_NODE"] = query_max_total_memory_per_node
     runtime_envs["TRINO_HEAP_HEADROOM_PER_NODE"] = \
         get_memory_heap_headroom_per_node(jvm_max_memory)
 

@@ -5,7 +5,7 @@ from cloudtik.providers._private.gcp.config import create_gcp_workspace, \
     delete_workspace_gcp, check_gcp_workspace_resource, update_gcp_workspace_firewalls, \
     get_workspace_head_nodes, list_gcp_clusters
 from cloudtik.core._private.providers import _get_node_provider
-from cloudtik.core._private.utils import binary_to_hex, hex_to_binary, get_running_head_node
+from cloudtik.core._private.utils import binary_to_hex, hex_to_binary, get_running_head_node, check_workspace_name_format
 from cloudtik.core.tags import CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX, CLOUDTIK_GLOBAL_VARIABLE_KEY
 from cloudtik.core.workspace_provider import WorkspaceProvider
 
@@ -60,9 +60,11 @@ class GCPWorkspaceProvider(WorkspaceProvider):
 
         return global_variables
 
-    def validate_config(
-            provider_config: Dict[str, Any]):
-        pass
+    def validate_config(self, provider_config: Dict[str, Any]):
+        if len(self.workspace_name) > 19 or not check_workspace_name_format(self.workspace_name):
+            raise RuntimeError("{} workspace name is between 1 and 19 characters, "
+                               "and can only contain lowercase alphanumeric "
+                               "characters and dashes".format(provider_config["type"]))
 
     @staticmethod
     def bootstrap_workspace_config(cluster_config):

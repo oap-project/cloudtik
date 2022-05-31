@@ -1,7 +1,7 @@
 import logging
 from typing import Any, Dict, Optional
 
-from cloudtik.core._private.utils import get_running_head_node
+from cloudtik.core._private.utils import get_running_head_node, check_workspace_name_format
 from cloudtik.providers._private.aws.config import create_aws_workspace, \
     delete_workspace_aws, check_aws_workspace_resource, update_aws_workspace_firewalls, \
     list_aws_clusters, _get_workspace_head_nodes
@@ -57,9 +57,11 @@ class AWSWorkspaceProvider(WorkspaceProvider):
 
         return global_variables
 
-    def validate_config(
-            provider_config: Dict[str, Any]):
-        pass
+    def validate_config(self, provider_config: Dict[str, Any]):
+        if len(self.workspace_name) > 45 or not check_workspace_name_format(self.workspace_name):
+            raise RuntimeError("{} workspace name is between 1 and 19 characters, "
+                               "and can only contain lowercase alphanumeric "
+                               "characters and dashes".format(provider_config["type"]))
 
     @staticmethod
     def bootstrap_workspace_config(cluster_config):

@@ -48,8 +48,7 @@ class WorkspaceProvider:
         """Workspace provide a way to subscribe global variables and can be subscribed anybody"""
         return {}
 
-    @staticmethod
-    def validate_config(provider_config: Dict[str, Any]):
+    def validate_config(self, provider_config: Dict[str, Any]):
         pass
 
     @staticmethod

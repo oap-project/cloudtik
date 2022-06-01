@@ -184,7 +184,7 @@ def _create_workspace(config: Dict[str, Any]):
     elif provider.check_workspace_resource_unique(config):
         provider.create_workspace(config)
     else:
-        raise RuntimeError(f"Workspace with the name {workspace_name}is not gloabal unique, "
+        raise RuntimeError(f"Workspace with the name {workspace_name} is not globally unique, "
                            f"you need try another workspace name.")
 
 

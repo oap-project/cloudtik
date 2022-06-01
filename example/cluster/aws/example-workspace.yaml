@@ -5,11 +5,6 @@ workspace_name: example-workspace
 provider:
     type: aws
     region: us-west-2
-    security_group:
-        # Use IpPermissions to allow SSH access from your working node
-        IpPermissions:
-          - FromPort: 22
-            ToPort: 22
-            IpProtocol: TCP
-            IpRanges:
-              - CidrIp: 0.0.0.0/0
+    # Use allowed_ssh_sources to allow SSH access from your client machine
+    allowed_ssh_sources:
+      - 0.0.0.0/0

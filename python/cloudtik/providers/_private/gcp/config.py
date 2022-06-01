@@ -72,7 +72,7 @@ HAS_TPU_PROVIDER_FIELD = "_has_tpus"
 # with ServiceAccounts.
 
 NUM_GCP_WORKSPACE_CREATION_STEPS = 7
-NUM_GCP_WORKSPACE_DELETION_STEPS = 5
+NUM_GCP_WORKSPACE_DELETION_STEPS = 6
 
 
 def get_node_type(node: dict) -> GCPNodeType:
@@ -427,6 +427,11 @@ def _get_workspace_vpc_id(provider_config, workspace_name, compute):
 
 
 def _delete_vpc(config, compute):
+    use_internal_ips = is_use_internal_ip(config)
+    if use_internal_ips:
+        cli_logger.print("Will not delete the current VPC.")
+        return
+
     VpcId = get_workspace_vpc_id(config, compute)
     project_id = config["provider"].get("project_id")
     vpc_name = 'cloudtik-{}-vpc'.format(config["workspace_name"])
@@ -895,7 +900,7 @@ def update_gcp_workspace_firewalls(config):
     return None
 
 
-def delete_workspace_gcp(config, delete_managed_storage: bool = False):
+def delete_gcp_workspace(config, delete_managed_storage: bool = False):
     crm, iam, compute, tpu = \
         construct_clients_from_provider_config(config["provider"])
 
@@ -909,13 +914,12 @@ def delete_workspace_gcp(config, delete_managed_storage: bool = False):
 
     current_step = 1
     total_steps = NUM_GCP_WORKSPACE_DELETION_STEPS
-    if not use_internal_ips:
-        total_steps += 1
     if managed_cloud_storage and delete_managed_storage:
         total_steps += 1
 
     try:
         with cli_logger.group("Deleting workspace: {}", workspace_name):
+            # Delete in a reverse way of creating
             if managed_cloud_storage and delete_managed_storage:
                 with cli_logger.group(
                         "Deleting GCS bucket",
@@ -1010,8 +1014,6 @@ def _delete_workspace_cloud_storage(config, workspace_name):
 
 
 def _delete_network_resources(config, compute, current_step, total_steps):
-    use_internal_ips = is_use_internal_ip(config)
-
     """
          Do the work - order of operation
          1.) Delete public subnet
@@ -1050,12 +1052,11 @@ def _delete_network_resources(config, compute, current_step, total_steps):
         _delete_firewalls(config, compute)
 
     # delete vpc
-    if not use_internal_ips:
-        with cli_logger.group(
-                "Deleting VPC",
-                _numbered=("[]", current_step, total_steps)):
-            current_step += 1
-            _delete_vpc(config, compute)
+    with cli_logger.group(
+            "Deleting VPC",
+            _numbered=("[]", current_step, total_steps)):
+        current_step += 1
+        _delete_vpc(config, compute)
 
 
 def _create_vpc(config, compute):
@@ -1404,6 +1405,44 @@ def bootstrap_gcp_from_workspace(config):
     config = _configure_subnet_from_workspace(config, compute)
 
     return config
+
+
+def bootstrap_gcp_workspace(config):
+    # create a copy of the input config to modify
+    config = copy.deepcopy(config)
+    _configure_allowed_ssh_sources(config)
+    return config
+
+
+def _configure_allowed_ssh_sources(config):
+    provider_config = config["provider"]
+    if "allowed_ssh_sources" not in provider_config:
+        return
+
+    allowed_ssh_sources = provider_config["allowed_ssh_sources"]
+    if len(allowed_ssh_sources) == 0:
+        return
+
+    if "firewalls" not in provider_config:
+        provider_config["firewalls"] = {}
+    fire_walls = provider_config["firewalls"]
+
+    if "firewall_rules" not in fire_walls:
+        fire_walls["firewall_rules"] = []
+    firewall_rules = fire_walls["firewall_rules"]
+
+    firewall_rule = {
+        "allowed": [
+            {
+              "IPProtocol": "tcp",
+              "ports": [
+                "22"
+              ]
+            }
+        ],
+        "sourceRanges": [allowed_ssh_source for allowed_ssh_source in allowed_ssh_sources]
+    }
+    firewall_rules.append(firewall_rule)
 
 
 def _configure_project(config, crm):

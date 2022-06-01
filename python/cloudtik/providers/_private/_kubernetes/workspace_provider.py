@@ -1,7 +1,7 @@
 import logging
 from typing import Any, Dict
 
-from cloudtik.providers._private._kubernetes.config import bootstrap_workspace_kubernetes
+from cloudtik.providers._private._kubernetes.config import bootstrap_kubernetes_workspace
 from cloudtik.core.workspace_provider import WorkspaceProvider
 
 logger = logging.getLogger(__name__)
@@ -15,5 +15,5 @@ class KubernetesWorkspaceProvider(WorkspaceProvider):
         pass
 
     @staticmethod
-    def bootstrap_workspace_config(cluster_config):
-        return bootstrap_workspace_kubernetes(cluster_config)
+    def bootstrap_workspace_config(config):
+        return bootstrap_kubernetes_workspace(config)

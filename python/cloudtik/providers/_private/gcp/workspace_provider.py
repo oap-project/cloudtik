@@ -2,8 +2,8 @@ import logging
 from typing import Any, Dict, Optional
 
 from cloudtik.providers._private.gcp.config import create_gcp_workspace, \
-    delete_workspace_gcp, check_gcp_workspace_resource_integrity, update_gcp_workspace_firewalls, \
-    get_workspace_head_nodes, list_gcp_clusters
+    delete_gcp_workspace, check_gcp_workspace_resource_integrity, update_gcp_workspace_firewalls, \
+    get_workspace_head_nodes, list_gcp_clusters, bootstrap_gcp_workspace
 from cloudtik.core._private.providers import _get_node_provider
 from cloudtik.core._private.utils import binary_to_hex, hex_to_binary, get_running_head_node, check_workspace_name_format
 from cloudtik.core.tags import CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX, CLOUDTIK_GLOBAL_VARIABLE_KEY
@@ -21,7 +21,7 @@ class GCPWorkspaceProvider(WorkspaceProvider):
 
     def delete_workspace(self, config,
                          delete_managed_storage: bool = False):
-        delete_workspace_gcp(config, delete_managed_storage)
+        delete_gcp_workspace(config, delete_managed_storage)
     
     def update_workspace_firewalls(self, config):
         update_gcp_workspace_firewalls(config)
@@ -67,5 +67,5 @@ class GCPWorkspaceProvider(WorkspaceProvider):
                                "characters and dashes".format(provider_config["type"]))
 
     @staticmethod
-    def bootstrap_workspace_config(cluster_config):
-        return cluster_config
+    def bootstrap_workspace_config(config):
+        return bootstrap_gcp_workspace(config)

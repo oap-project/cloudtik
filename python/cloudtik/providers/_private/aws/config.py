@@ -440,7 +440,7 @@ def update_aws_workspace_firewalls(config):
     return None
 
 
-def delete_workspace_aws(config, delete_managed_storage: bool = False):
+def delete_aws_workspace(config, delete_managed_storage: bool = False):
     ec2 = _resource("ec2", config)
     ec2_client = _client("ec2", config)
     workspace_name = config["workspace_name"]
@@ -461,18 +461,19 @@ def delete_workspace_aws(config, delete_managed_storage: bool = False):
     try:
 
         with cli_logger.group("Deleting workspace: {}", workspace_name):
-            with cli_logger.group(
-                    "Deleting instance profile",
-                    _numbered=("[]", current_step, total_steps)):
-                current_step += 1
-                _delete_workspace_instance_profile(config, workspace_name)
-
+            # Delete in a reverse way of creating
             if managed_cloud_storage and delete_managed_storage:
                 with cli_logger.group(
                         "Deleting S3 bucket",
                         _numbered=("[]", current_step, total_steps)):
                     current_step += 1
                     _delete_workspace_cloud_storage(config, workspace_name)
+
+            with cli_logger.group(
+                    "Deleting instance profile",
+                    _numbered=("[]", current_step, total_steps)):
+                current_step += 1
+                _delete_workspace_instance_profile(config, workspace_name)
 
             _delete_network_resources(config, workspace_name,
                                       ec2, ec2_client, vpc_id,
@@ -740,6 +741,38 @@ def bootstrap_aws_from_workspace(config):
     config = _configure_ami(config)
 
     return config
+
+
+def bootstrap_aws_workspace(config):
+    # create a copy of the input config to modify
+    config = copy.deepcopy(config)
+    _configure_allowed_ssh_sources(config)
+    return config
+
+
+def _configure_allowed_ssh_sources(config):
+    provider_config = config["provider"]
+    if "allowed_ssh_sources" not in provider_config:
+        return
+
+    allowed_ssh_sources = provider_config["allowed_ssh_sources"]
+    if len(allowed_ssh_sources) == 0:
+        return
+
+    if "security_group" not in provider_config:
+        provider_config["security_group"] = {}
+    security_group_config = provider_config["security_group"]
+
+    if "IpPermissions" not in security_group_config:
+        security_group_config["IpPermissions"] = []
+    ip_permissions = security_group_config["IpPermissions"]
+    ip_permission = {
+        "IpProtocol": "tcp",
+        "FromPort": 22,
+        "ToPort": 22,
+        "IpRanges": [{"CidrIp": allowed_ssh_source} for allowed_ssh_source in allowed_ssh_sources]
+    }
+    ip_permissions.append(ip_permission)
 
 
 def get_workspace_head_nodes(config):
@@ -1478,6 +1511,7 @@ def _create_workspace(config):
         with cli_logger.group("Creating workspace: {}", workspace_name):
             current_step = _create_network_resources(config, ec2, ec2_client,
                                                      current_step, total_steps)
+
             with cli_logger.group(
                     "Creating instance profile",
                     _numbered=("[]", current_step, total_steps)):

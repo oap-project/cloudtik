@@ -4,7 +4,7 @@ from typing import Any, Dict, Optional
 from cloudtik.core._private.utils import get_running_head_node
 from cloudtik.providers._private._azure.config import create_azure_workspace, \
     delete_workspace_azure, check_azure_workspace_resource, update_azure_workspace_firewalls, \
-    get_workspace_head_nodes, list_azure_clusters
+    get_workspace_head_nodes, list_azure_clusters, bootstrap_azure_workspace
 from cloudtik.core._private.providers import _get_node_provider
 from cloudtik.core.tags import CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX, CLOUDTIK_GLOBAL_VARIABLE_KEY
 from cloudtik.core.workspace_provider import WorkspaceProvider
@@ -62,6 +62,6 @@ class AzureWorkspaceProvider(WorkspaceProvider):
         pass
 
     @staticmethod
-    def bootstrap_workspace_config(cluster_config):
-        return cluster_config
+    def bootstrap_workspace_config(config):
+        return bootstrap_azure_workspace(config)
 

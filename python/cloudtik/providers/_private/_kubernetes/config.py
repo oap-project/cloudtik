@@ -55,9 +55,9 @@ def created_msg(resource_type, name):
 def not_provided_msg(resource_type):
     return "no {} config provided, must already exist".format(resource_type)
 
-def bootstrap_workspace_kubernetes(cluster_config):
-    # TODO:
-    return cluster_config
+
+def bootstrap_kubernetes_workspace(config):
+    return config
 
 
 def bootstrap_kubernetes(config):

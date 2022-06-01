@@ -161,7 +161,7 @@ class Cluster:
                script_args,
                tmux: bool = False,
                stop: bool = False,
-               port_forward: Optional[cluster_operator.Port_forward] = None) -> Optional[str]:
+               port_forward: Optional[cluster_operator.Port_forward] = ()) -> Optional[str]:
         """Submit a script file to cluster and run.
 
         Args:

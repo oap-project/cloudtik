@@ -38,7 +38,7 @@ AZURE_SUBNET_NAME = AZURE_RESOURCE_NAME_PREFIX + "-subnet"
 AZURE_VNET_NAME = AZURE_RESOURCE_NAME_PREFIX + "-vnet"
 
 NUM_AZURE_WORKSPACE_CREATION_STEPS = 9
-NUM_AZURE_WORKSPACE_DELETION_STEPS = 7
+NUM_AZURE_WORKSPACE_DELETION_STEPS = 9
 
 logger = logging.getLogger(__name__)
 
@@ -174,7 +174,7 @@ def update_azure_workspace_firewalls(config):
     return None
 
 
-def delete_workspace_azure(config, delete_managed_storage: bool = False):
+def delete_azure_workspace(config, delete_managed_storage: bool = False):
     resource_client = construct_resource_client(config)
     workspace_name = config["workspace_name"]
     use_internal_ips = is_use_internal_ip(config)
@@ -187,15 +187,20 @@ def delete_workspace_azure(config, delete_managed_storage: bool = False):
 
     current_step = 1
     total_steps = NUM_AZURE_WORKSPACE_DELETION_STEPS
-    if not use_internal_ips:
-        total_steps += 2
     if managed_cloud_storage and delete_managed_storage:
         total_steps += 1
 
     try:
         # delete network resources
         with cli_logger.group("Deleting workspace: {}", workspace_name):
-            current_step = _delete_network_resources(config, resource_client, resource_group_name, current_step, total_steps)
+            # Delete the resources in a reverse way of creating
+
+            if managed_cloud_storage and delete_managed_storage:
+                with cli_logger.group(
+                        "Deleting Azure storage account",
+                        _numbered=("[]", current_step, total_steps)):
+                    current_step += 1
+                    _delete_workspace_cloud_storage(config, resource_group_name)
 
             # delete role_assignments
             with cli_logger.group(
@@ -211,20 +216,14 @@ def delete_workspace_azure(config, delete_managed_storage: bool = False):
                 current_step += 1
                 _delete_user_assigned_identities(config, resource_group_name)
 
-            if managed_cloud_storage and delete_managed_storage:
-                with cli_logger.group(
-                        "Deleting Azure storage account",
-                        _numbered=("[]", current_step, total_steps)):
-                    current_step += 1
-                    _delete_workspace_cloud_storage(config, resource_group_name)
-                    
+            current_step = _delete_network_resources(config, resource_client, resource_group_name, current_step, total_steps)
+
             # delete resource group
-            if not use_internal_ips:
-                with cli_logger.group(
-                        "Deleting resource group",
-                        _numbered=("[]", current_step, total_steps)):
-                    current_step += 1
-                    _delete_resource_group(config, resource_client)
+            with cli_logger.group(
+                    "Deleting resource group",
+                    _numbered=("[]", current_step, total_steps)):
+                current_step += 1
+                _delete_resource_group(config, resource_client)
     except Exception as e:
         cli_logger.error(
             "Failed to delete workspace {}. {}".format(workspace_name, str(e)))
@@ -287,12 +286,11 @@ def _delete_network_resources(config, resource_client, resource_group_name, curr
         _delete_network_security_group(config, network_client, resource_group_name)
 
     # delete virtual network
-    if not use_internal_ips:
-        with cli_logger.group(
-                "Deleting VPC",
-                _numbered=("[]", current_step, total_steps)):
-            current_step += 1
-            _delete_vnet(config, resource_client, network_client)
+    with cli_logger.group(
+            "Deleting VPC",
+            _numbered=("[]", current_step, total_steps)):
+        current_step += 1
+        _delete_vnet(config, resource_client, network_client)
 
     return current_step
 
@@ -704,6 +702,10 @@ def _delete_nat(config, network_client, resource_group_name):
 
 def _delete_vnet(config, resource_client, network_client):
     use_internal_ips = is_use_internal_ip(config)
+    if use_internal_ips:
+        cli_logger.print("Will not delete the current node virtual network.")
+        return
+
     resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
     virtual_network_name = get_virtual_network_name(config, resource_client, network_client, use_internal_ips)
     if virtual_network_name is None:
@@ -725,8 +727,12 @@ def _delete_vnet(config, resource_client, network_client):
 
 
 def _delete_resource_group(config, resource_client):
-    resource_group_name = get_workspace_resource_group_name(config["workspace_name"], resource_client)
+    use_internal_ips = is_use_internal_ip(config)
+    if use_internal_ips:
+        cli_logger.print("Will not delete the current node resource group.")
+        return
 
+    resource_group_name = get_workspace_resource_group_name(config["workspace_name"], resource_client)
     if resource_group_name is None:
         cli_logger.print("The resource group: {} doesn't exist.".
                          format(resource_group_name))
@@ -827,6 +833,8 @@ def _create_resource_group(config, resource_client):
         if resource_group_name is None:
             cli_logger.abort("Only when the working node is "
                              "an Azure instance can use use_internal_ips=True.")
+        else:
+            cli_logger.print("Will use the current node resource group: {}.", resource_group_name)
     else:
 
         # Need to create a new resource_group
@@ -834,6 +842,8 @@ def _create_resource_group(config, resource_client):
         if resource_group_name is None:
             resource_group = create_resource_group(config, resource_client)
             resource_group_name = resource_group.name
+        else:
+            cli_logger.print("Resource group {} for workspace already exists. Skip creation.", resource_group_name)
 
     return resource_group_name
 
@@ -1243,6 +1253,8 @@ def _create_vnet(config, resource_client, network_client):
         if virtual_network_name is None:
             cli_logger.abort("Only when the working node is "
                              "an Azure instance can use use_internal_ips=True.")
+        else:
+            cli_logger.print("Will use the current node virtual network: {}.", virtual_network_name)
     else:
 
         # Need to create a new virtual network

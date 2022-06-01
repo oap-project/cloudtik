@@ -416,7 +416,7 @@ def update_aws_workspace_firewalls(config):
     return None
 
 
-def delete_workspace_aws(config, delete_managed_storage: bool = False):
+def delete_aws_workspace(config, delete_managed_storage: bool = False):
     ec2 = _resource("ec2", config)
     ec2_client = _client("ec2", config)
     workspace_name = config["workspace_name"]
@@ -437,18 +437,19 @@ def delete_workspace_aws(config, delete_managed_storage: bool = False):
     try:
 
         with cli_logger.group("Deleting workspace: {}", workspace_name):
-            with cli_logger.group(
-                    "Deleting instance profile",
-                    _numbered=("[]", current_step, total_steps)):
-                current_step += 1
-                _delete_workspace_instance_profile(config, workspace_name)
-
+            # Delete in a reverse way of creating
             if managed_cloud_storage and delete_managed_storage:
                 with cli_logger.group(
                         "Deleting S3 bucket",
                         _numbered=("[]", current_step, total_steps)):
                     current_step += 1
                     _delete_workspace_cloud_storage(config, workspace_name)
+
+            with cli_logger.group(
+                    "Deleting instance profile",
+                    _numbered=("[]", current_step, total_steps)):
+                current_step += 1
+                _delete_workspace_instance_profile(config, workspace_name)
 
             _delete_network_resources(config, workspace_name,
                                       ec2, ec2_client, vpc_id,
@@ -1484,14 +1485,14 @@ def _create_workspace(config):
 
     try:
         with cli_logger.group("Creating workspace: {}", workspace_name):
+            current_step = _create_network_resources(config, ec2, ec2_client,
+                                                     current_step, total_steps)
+
             with cli_logger.group(
                     "Creating instance profile",
                     _numbered=("[]", current_step, total_steps)):
                 current_step += 1
                 _create_workspace_instance_profile(config, workspace_name)
-
-            current_step = _create_network_resources(config, ec2, ec2_client,
-                                                     current_step, total_steps)
 
             if managed_cloud_storage:
                 with cli_logger.group(

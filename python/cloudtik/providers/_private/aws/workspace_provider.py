@@ -3,7 +3,7 @@ from typing import Any, Dict, Optional
 
 from cloudtik.core._private.utils import get_running_head_node
 from cloudtik.providers._private.aws.config import create_aws_workspace, \
-    delete_workspace_aws, check_aws_workspace_resource, update_aws_workspace_firewalls, \
+    delete_aws_workspace, check_aws_workspace_resource, update_aws_workspace_firewalls, \
     list_aws_clusters, _get_workspace_head_nodes, bootstrap_aws_workspace
 from cloudtik.core._private.providers import _get_node_provider
 from cloudtik.core.tags import CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX, CLOUDTIK_GLOBAL_VARIABLE_KEY
@@ -21,7 +21,7 @@ class AWSWorkspaceProvider(WorkspaceProvider):
 
     def delete_workspace(self, config,
                          delete_managed_storage: bool = False):
-        delete_workspace_aws(config, delete_managed_storage)
+        delete_aws_workspace(config, delete_managed_storage)
 
     def update_workspace_firewalls(self, config):
         update_aws_workspace_firewalls(config)

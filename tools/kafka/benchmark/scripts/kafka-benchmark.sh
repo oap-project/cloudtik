@@ -39,7 +39,7 @@ function prepare_kafka_topic() {
 }
 
 function producer_perf_test(){
-    echo "Testing kafka cluster with single producer"
+    echo "Testing kafka cluster with single producer..."
     $KAFKA_HOME/bin/kafka-producer-perf-test.sh \
         --topic cloudtik-kafka-benchmark \
         --num-records 50000000 \
@@ -49,10 +49,10 @@ function producer_perf_test(){
         bootstrap.servers=${bootstrap_servers} \
         buffer.memory=67108864 \
         batch.size=8096
-    echo "Testing kafka cluster with single producer has finished"
+    echo "Testing kafka cluster with single producer has finished."
     echo ""
 
-    echo "Testing with different record size..."
+    echo "Testing producer with different record size..."
     for i in 10 100 1000 10000 100000; do
         echo ""
         echo "record_size=$i"
@@ -66,7 +66,7 @@ function producer_perf_test(){
           buffer.memory=67108864 \
           batch.size=128000
     done;
-    echo "Testing with diffrent record size has finished."
+    echo "Testing producer with different record size has finished."
 }
 
 function consumer_perf_test(){

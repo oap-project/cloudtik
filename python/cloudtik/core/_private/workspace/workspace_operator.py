@@ -178,7 +178,6 @@ def create_workspace(
 def _create_workspace(config: Dict[str, Any]):
     workspace_name = config["workspace_name"]
     provider = _get_workspace_provider(config["provider"], workspace_name)
-    # if workspace is comple
     if provider.check_workspace_resource_integrity(config):
         raise RuntimeError(f"Workspace with the name {workspace_name} already exists!")
     elif provider.check_workspace_resource_unique(config):

@@ -89,7 +89,7 @@ function end_to_end_latency(){
 }
 
 
-function prepare_brokers
+prepare_brokers
 prepare_kafka_topic
 producer_perf_test
 consumer_perf_test

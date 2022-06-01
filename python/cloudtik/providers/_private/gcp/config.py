@@ -1405,6 +1405,44 @@ def bootstrap_gcp_from_workspace(config):
     return config
 
 
+def bootstrap_gcp_workspace(config):
+    # create a copy of the input config to modify
+    config = copy.deepcopy(config)
+    _configure_allowed_ssh_sources(config)
+    return config
+
+
+def _configure_allowed_ssh_sources(config):
+    provider_config = config["provider"]
+    if "allowed_ssh_sources" not in provider_config:
+        return
+
+    allowed_ssh_sources = provider_config["allowed_ssh_sources"]
+    if len(allowed_ssh_sources) == 0:
+        return
+
+    if "firewalls" not in provider_config:
+        provider_config["firewalls"] = {}
+    fire_walls = provider_config["firewalls"]
+
+    if "firewall_rules" not in fire_walls:
+        fire_walls["firewall_rules"] = []
+    firewall_rules = fire_walls["firewall_rules"]
+
+    firewall_rule = {
+        "allowed": [
+            {
+              "IPProtocol": "tcp",
+              "ports": [
+                "22"
+              ]
+            }
+        ],
+        "sourceRanges": [allowed_ssh_source for allowed_ssh_source in allowed_ssh_sources]
+    }
+    firewall_rules.append(firewall_rule)
+
+
 def _configure_project(config, crm):
     """Setup a Google Cloud Platform Project.
 

@@ -53,6 +53,6 @@ class WorkspaceProvider:
         pass
 
     @staticmethod
-    def bootstrap_workspace_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-        """Bootstraps the cluster config by adding env defaults if needed."""
-        return cluster_config
+    def bootstrap_workspace_config(config: Dict[str, Any]) -> Dict[str, Any]:
+        """Bootstraps the workspace config by adding env defaults if needed."""
+        return config

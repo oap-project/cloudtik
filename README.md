@@ -109,17 +109,12 @@ workspace_name: example-workspace
 provider:
     type: aws
     region: us-west-2
-    security_group:
-        # Use IpPermissions to allow SSH access from your working node
-        # Remember to restrict IpRanges for security 
-        IpPermissions:
-        - FromPort: 22
-          ToPort: 22
-          IpProtocol: TCP
-          IpRanges:
-          - CidrIp: 0.0.0.0/0
+    # Use allowed_ssh_sources to allow SSH access from your client machine
+    allowed_ssh_sources:
+      - 0.0.0.0/0
 ```
-*NOTE:* Remember to change `CidrIp` from `0.0.0.0/0` to restricted IpRanges for TCP port 22 security.
+*NOTE:* `0.0.0.0/0` in `allowed_ssh_sources` will allow any IP addresses to connect to your cluster as long as it has the cluster private key.
+For more security, make sure to change from `0.0.0.0/0` to restricted CIDR ranges for your case.
 
 Use the following command to create and provision a Workspace:
 

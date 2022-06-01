@@ -718,6 +718,38 @@ def bootstrap_aws_from_workspace(config):
     return config
 
 
+def bootstrap_aws_workspace(config):
+    # create a copy of the input config to modify
+    config = copy.deepcopy(config)
+    _configure_allowed_ssh_sources(config)
+    return config
+
+
+def _configure_allowed_ssh_sources(config):
+    provider_config = config["provider"]
+    if "allowed_ssh_sources" not in provider_config:
+        return
+
+    allowed_ssh_sources = provider_config["allowed_ssh_sources"]
+    if len(allowed_ssh_sources) == 0:
+        return
+
+    if "security_group" not in provider_config:
+        provider_config["security_group"] = {}
+    security_group_config = provider_config["security_group"]
+
+    if "IpPermissions" not in security_group_config:
+        security_group_config["IpPermissions"] = []
+    ip_permissions = security_group_config["IpPermissions"]
+    ip_permission = {
+        "IpProtocol": "tcp",
+        "FromPort": 22,
+        "ToPort": 22,
+        "IpRanges": [{"CidrIp": allowed_ssh_source} for allowed_ssh_source in allowed_ssh_sources]
+    }
+    ip_permissions.append(ip_permission)
+
+
 def get_workspace_head_nodes(config):
     return _get_workspace_head_nodes(
         config["provider"], config["workspace_name"])

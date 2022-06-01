@@ -430,6 +430,7 @@ class SSHCommandExecutor(CommandExecutor):
                     final_cmd,
                     with_output=False,
                     exit_on_fail=False,
+                    ignore_exception=False,
                     silent=False,
                     cmd_to_print=None):
         """Run a command that was already setup with SSH and `bash` settings.
@@ -441,6 +442,9 @@ class SSHCommandExecutor(CommandExecutor):
             with_output (bool):
                 If `with_output` is `True`, command stdout and stderr
                 will be captured and returned.
+            ignore_exception (bool):
+                If `ignore_exception` is `True`, command stdout will
+                still be captured and returned and will not raise exception.
             exit_on_fail (bool):
                 If `exit_on_fail` is `True`, the process will exit
                 if the command fails (exits with a code other than 0).
@@ -471,6 +475,8 @@ class SSHCommandExecutor(CommandExecutor):
                 return self.process_runner.check_call(final_cmd)
         except subprocess.CalledProcessError as e:
             joined_cmd = " ".join(final_cmd if cmd_to_print is None else cmd_to_print)
+            if ignore_exception:
+                return e.output
             if not self.call_context.is_using_login_shells():
                 raise ProcessRunnerError(
                     "Command failed",
@@ -503,6 +509,7 @@ class SSHCommandExecutor(CommandExecutor):
             run_env="auto",  # Unused argument.
             ssh_options_override_ssh_key="",
             shutdown_after_run=False,
+            ignore_exception=False,
             silent=False,
             cmd_to_print=None):
         if shutdown_after_run:
@@ -566,11 +573,11 @@ class SSHCommandExecutor(CommandExecutor):
         if self.cli_logger.verbosity > 0:
             with self.cli_logger.indented():
                 return self._run_helper(
-                    final_cmd, with_output, exit_on_fail,
+                    final_cmd, with_output, exit_on_fail, ignore_exception=ignore_exception,
                     silent=silent, cmd_to_print=final_cmd_to_print)
         else:
             return self._run_helper(
-                final_cmd, with_output, exit_on_fail,
+                final_cmd, with_output, exit_on_fail, ignore_exception=ignore_exception,
                 silent=silent, cmd_to_print=final_cmd_to_print)
 
     def _create_rsync_filter_args(self, options):
@@ -709,6 +716,7 @@ class DockerCommandExecutor(CommandExecutor):
             port_forward=None,
             with_output=False,
             environment_variables: Dict[str, object] = None,
+            ignore_exception: bool = False,
             run_env="auto",
             ssh_options_override_ssh_key="",
             shutdown_after_run=False,
@@ -742,6 +750,7 @@ class DockerCommandExecutor(CommandExecutor):
             exit_on_fail=exit_on_fail,
             port_forward=port_forward,
             with_output=with_output,
+            ignore_exception=ignore_exception,
             ssh_options_override_ssh_key=ssh_options_override_ssh_key,
             cmd_to_print=cmd_to_print)
 

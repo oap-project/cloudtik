@@ -28,6 +28,7 @@ class CommandExecutor:
             port_forward: List[Tuple[int, int]] = None,
             with_output: bool = False,
             environment_variables: Dict[str, object] = None,
+            ignore_exception: bool = False,
             run_env: str = "auto",
             ssh_options_override_ssh_key: str = "",
             shutdown_after_run: bool = False,
@@ -44,6 +45,9 @@ class CommandExecutor:
             port_forward (list): List of (local, remote) ports to forward, or
                 a single tuple.
             with_output (bool): Whether to return output.
+            ignore_exception (bool):
+                If `ignore_exception` is `True`, command stdout will
+                still be captured and returned and will not raise exception.
             environment_variables (Dict[str, str | int | Dict[str, str]):
                 Environment variables that `cmd` should be run with.
             run_env (str): Options: docker/host/auto. Used in

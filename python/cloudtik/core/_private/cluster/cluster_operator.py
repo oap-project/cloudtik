@@ -1177,6 +1177,7 @@ def _exec_cluster(config: Dict[str, Any],
                   tmux: bool = False,
                   stop: bool = False,
                   start: bool = False,
+                  ignore_exception: bool = False,
                   port_forward: Optional[Port_forward] = None,
                   with_output: bool = False,
                   _allow_uninitialized_state: bool = False) -> str:
@@ -1231,6 +1232,7 @@ def _exec_cluster(config: Dict[str, Any],
         cmd,
         screen,
         tmux,
+        ignore_exception=ignore_exception,
         port_forward=port_forward,
         with_output=with_output,
         run_env=run_env,
@@ -1242,6 +1244,7 @@ def _exec(updater: NodeUpdaterThread,
           cmd: Optional[str] = None,
           screen: bool = False,
           tmux: bool = False,
+          ignore_exception: bool = False,
           port_forward: Optional[Port_forward] = None,
           with_output: bool = False,
           run_env: str = "auto",
@@ -1266,6 +1269,7 @@ def _exec(updater: NodeUpdaterThread,
         port_forward=port_forward,
         with_output=with_output,
         run_env=run_env,
+        ignore_exception=ignore_exception,
         shutdown_after_run=shutdown_after_run)
 
 
@@ -2994,6 +2998,8 @@ def submit_and_exec(config: Dict[str, Any],
                     tmux: bool = False,
                     stop: bool = False,
                     start: bool = False,
+                    ignore_exception: bool = False,
+                    with_output: bool = False,
                     port_forward: Optional[Port_forward] = None,
                     ):
     cli_logger.doassert(not (screen and tmux),
@@ -3045,16 +3051,18 @@ def submit_and_exec(config: Dict[str, Any],
         command_parts += list(script_args)
 
     port_forward = [(port, port) for port in list(port_forward)]
-    cmd = " ".join(command_parts)
-    _exec_cluster(
-        config,
-        call_context=call_context,
-        cmd=cmd,
-        screen=screen,
-        tmux=tmux,
-        stop=stop,
-        start=False,
-        port_forward=port_forward)
+    cmd = " ".join(command_parts)+""
+    return _exec_cluster(
+            config,
+            call_context=call_context,
+            cmd=cmd,
+            screen=screen,
+            tmux=tmux,
+            stop=stop,
+            start=False,
+            ignore_exception=ignore_exception,
+            with_output=with_output,
+            port_forward=port_forward)
 
 
 def _sum_min_workers(config: Dict[str, Any]):

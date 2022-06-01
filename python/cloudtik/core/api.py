@@ -166,7 +166,7 @@ class Cluster:
 
         Args:
             script_file (str): The script file to submit and run.
-            script_args (array): An array of arguments for the script file.
+            script_args (list): An array of arguments for the script file.
             tmux (bool): whether to run in a tmux session
             stop (bool): whether to stop the cluster after command run
             port_forward ( (int,int) or list[(int,int)]): port(s) to forward.
@@ -174,14 +174,18 @@ class Cluster:
         Returns:
             The output of the command as a string.
         """
-        return cluster_operator.submit_and_exec(
-            config=self.config,
-            call_context=self.call_context,
-            script=script_file,
-            script_args=script_args,
-            tmux=tmux,
-            stop=stop,
-            port_forward=port_forward)
+        exec_output = cluster_operator.submit_and_exec(
+                config=self.config,
+                call_context=self.call_context,
+                script=script_file,
+                script_args=script_args,
+                tmux=tmux,
+                stop=stop,
+                ignore_exception=True,
+                with_output=True,
+                port_forward=port_forward)
+
+        return exec_output.decode("utf-8")
 
     def rsync(self,
               *,

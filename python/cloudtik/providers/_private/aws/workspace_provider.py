@@ -3,8 +3,8 @@ from typing import Any, Dict, Optional
 
 from cloudtik.core._private.utils import get_running_head_node, check_workspace_name_format
 from cloudtik.providers._private.aws.config import create_aws_workspace, \
-    delete_workspace_aws, check_aws_workspace_resource, update_aws_workspace_firewalls, \
-    list_aws_clusters, _get_workspace_head_nodes
+    delete_workspace_aws, check_aws_workspace_resource_unique, check_aws_workspace_resource_integrity, \
+    update_aws_workspace_firewalls, list_aws_clusters, _get_workspace_head_nodes
 from cloudtik.core._private.providers import _get_node_provider
 from cloudtik.core.tags import CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX, CLOUDTIK_GLOBAL_VARIABLE_KEY
 from cloudtik.core.workspace_provider import WorkspaceProvider
@@ -26,8 +26,11 @@ class AWSWorkspaceProvider(WorkspaceProvider):
     def update_workspace_firewalls(self, config):
         update_aws_workspace_firewalls(config)
 
-    def check_workspace_resource(self, config):
-        return check_aws_workspace_resource(config)
+    def check_workspace_resource_unique(self, config):
+        return check_aws_workspace_resource_unique(config)
+
+    def check_workspace_resource_integrity(self, config):
+        return check_aws_workspace_resource_integrity(config)
 
     def list_clusters(self, config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         return list_aws_clusters(config)
@@ -59,7 +62,7 @@ class AWSWorkspaceProvider(WorkspaceProvider):
 
     def validate_config(self, provider_config: Dict[str, Any]):
         if len(self.workspace_name) > 45 or not check_workspace_name_format(self.workspace_name):
-            raise RuntimeError("{} workspace name is between 1 and 19 characters, "
+            raise RuntimeError("{} workspace name is between 1 and 45 characters, "
                                "and can only contain lowercase alphanumeric "
                                "characters and dashes".format(provider_config["type"]))
 

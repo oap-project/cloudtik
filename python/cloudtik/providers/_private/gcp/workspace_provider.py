@@ -2,7 +2,7 @@ import logging
 from typing import Any, Dict, Optional
 
 from cloudtik.providers._private.gcp.config import create_gcp_workspace, \
-    delete_workspace_gcp, check_gcp_workspace_resource, update_gcp_workspace_firewalls, \
+    delete_workspace_gcp, check_gcp_workspace_resource_integrity, update_gcp_workspace_firewalls, \
     get_workspace_head_nodes, list_gcp_clusters
 from cloudtik.core._private.providers import _get_node_provider
 from cloudtik.core._private.utils import binary_to_hex, hex_to_binary, get_running_head_node, check_workspace_name_format
@@ -26,8 +26,8 @@ class GCPWorkspaceProvider(WorkspaceProvider):
     def update_workspace_firewalls(self, config):
         update_gcp_workspace_firewalls(config)
     
-    def check_workspace_resource(self, config):
-        return check_gcp_workspace_resource(config)
+    def check_workspace_resource_integrity(self, config):
+        return check_gcp_workspace_resource_integrity(config)
 
     def list_clusters(self, config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         return list_gcp_clusters(config)

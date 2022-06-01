@@ -345,7 +345,31 @@ def get_vpc_endpoint_for_s3(ec2_client, workspace_name):
     return vpc_endpoint['VpcEndpoints']
 
 
-def check_aws_workspace_resource(config):
+def check_aws_workspace_resource_unique(config):
+    ec2_client = _client("ec2", config)
+    workspace_name = config["workspace_name"]
+    vpc_id = get_workspace_vpc_id(config["workspace_name"], ec2_client)
+    """
+         Do the work - order of operation
+         1.) Check head instance profile
+         2.) Check worker instance profile
+    """
+    if vpc_id is None:
+        head_instance_profile_name = _get_workspace_head_instance_profile_name(workspace_name)
+        head_instance_profile = _get_instance_profile(head_instance_profile_name, config)
+        if head_instance_profile is not None:
+            return False
+
+        worker_instance_profile_name = _get_workspace_worker_instance_profile_name(workspace_name)
+        worker_instance_profile = _get_instance_profile(worker_instance_profile_name, config)
+        if worker_instance_profile is not None:
+            return False
+        return True
+    else:
+        return True
+
+
+def check_aws_workspace_resource_integrity(config):
     ec2 = _resource("ec2", config)
     ec2_client = _client("ec2", config)
     workspace_name = config["workspace_name"]
@@ -589,7 +613,7 @@ def _delete_network_resources(config, workspace_name,
 def create_aws_workspace(config):
     # create a copy of the input config to modify
     config = copy.deepcopy(config)
-
+    
     # create workspace
     config = _create_workspace(config)
 
@@ -681,7 +705,7 @@ def bootstrap_aws_default(config):
 
 
 def bootstrap_aws_from_workspace(config):
-    if not check_aws_workspace_resource(config):
+    if not check_aws_workspace_resource_integrity(config):
         workspace_name = config["workspace_name"]
         cli_logger.abort("AWS workspace {} doesn't exist or is in wrong state!", workspace_name)
 
@@ -1452,14 +1476,13 @@ def _create_workspace(config):
 
     try:
         with cli_logger.group("Creating workspace: {}", workspace_name):
+            current_step = _create_network_resources(config, ec2, ec2_client,
+                                                     current_step, total_steps)
             with cli_logger.group(
                     "Creating instance profile",
                     _numbered=("[]", current_step, total_steps)):
                 current_step += 1
                 _create_workspace_instance_profile(config, workspace_name)
-
-            current_step = _create_network_resources(config, ec2, ec2_client,
-                                                     current_step, total_steps)
 
             if managed_cloud_storage:
                 with cli_logger.group(
@@ -1469,7 +1492,8 @@ def _create_workspace(config):
                     _create_workspace_cloud_storage(config, workspace_name)
 
     except Exception as e:
-        cli_logger.error("Failed to create workspace. {}", str(e))
+        cli_logger.error("Failed to create workspace with the name {}. "
+                         "You need to delete and try create again. {}", workspace_name, str(e))
         raise e
 
     cli_logger.print(
@@ -1525,9 +1549,8 @@ def _create_workspace_cloud_storage(config, workspace_name):
     s3 = _resource("s3", config)
     region = config["provider"]["region"]
     suffix = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(8))
-    bucket_name = "cloudtik-{workspace_name}-{region}-{suffix}".format(
+    bucket_name = "cloudtik-{workspace_name}-{suffix}".format(
         workspace_name=workspace_name.lower(),
-        region=region,
         suffix=suffix
     )
 
@@ -2118,10 +2141,8 @@ def _get_instance_profile(profile_name, config):
 
 def get_workspace_s3_bucket(config, workspace_name):
     s3 = _resource("s3", config)
-    region = config["provider"]["region"]
-    bucket_name_prefix = "cloudtik-{workspace_name}-{region}-".format(
+    bucket_name_prefix = "cloudtik-{workspace_name}-".format(
         workspace_name=workspace_name.lower(),
-        region=region,
     )
     for bucket in s3.buckets.all():
         if bucket_name_prefix in bucket.name:

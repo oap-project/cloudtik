@@ -74,7 +74,7 @@ HAS_TPU_PROVIDER_FIELD = "_has_tpus"
 
 GCP_WORKSPACE_NUM_CREATION_STEPS = 7
 GCP_WORKSPACE_NUM_DELETION_STEPS = 6
-GCP_WORKSPACE_TARGET_RESOURCES = 7
+GCP_WORKSPACE_TARGET_RESOURCES = 8
 
 
 def get_node_type(node: dict) -> GCPNodeType:
@@ -258,6 +258,7 @@ def _create_tpu(gcp_credentials=None):
 
 def _create_storage_client(gcp_credentials=None):
     return storage.Client(credentials=gcp_credentials)
+
 
 def construct_clients_from_provider_config(provider_config):
     """
@@ -1237,82 +1238,57 @@ def check_gcp_workspace_existence(config):
 
     """
          Do the work - order of operation
-         1.) Check VPC
-         2.) Check private subnet
-         3.) Check public subnet
-         4.) Check router
-         5.) Check firewalls
-         6.) Check GCS bucket
-         7.) Check service accounts
+         1.) Check project
+         2.) Check VPC
+         3.) Check private subnet
+         4.) Check public subnet
+         5.) Check router
+         6.) Check firewalls
+         7.) Check GCS bucket
+         8.) Check service accounts
     """
-    if get_gcp_vpcId(config, compute, use_internal_ips) is not None:
-        existing_resources += 1
-        # Network resources that depending on VPC
-        if get_subnet(config, "cloudtik-{}-private-subnet".format(workspace_name), compute) is not None:
-            existing_resources += 1
-        if get_subnet(config, "cloudtik-{}-public-subnet".format(workspace_name), compute) is not None:
-            existing_resources += 1
-        if get_router(config, "cloudtik-{}-private-router".format(workspace_name), compute) is not None:
-            existing_resources += 1
-        if check_workspace_firewalls(config, compute):
-            existing_resources += 1
-
+    project_existence = False
     cloud_storage_existence = False
-    if managed_cloud_storage:
-        if get_workspace_gcs_bucket(config, workspace_name) is not None:
+    if get_workspace_project(config, crm) is not None:
+        existing_resources += 1
+        project_existence = True
+        # All resources that depending on project
+        if get_gcp_vpcId(config, compute, use_internal_ips) is not None:
             existing_resources += 1
-            cloud_storage_existence = True
+            # Network resources that depending on VPC
+            if get_subnet(config, "cloudtik-{}-private-subnet".format(workspace_name), compute) is not None:
+                existing_resources += 1
+            if get_subnet(config, "cloudtik-{}-public-subnet".format(workspace_name), compute) is not None:
+                existing_resources += 1
+            if get_router(config, "cloudtik-{}-private-router".format(workspace_name), compute) is not None:
+                existing_resources += 1
+            if check_workspace_firewalls(config, compute):
+                existing_resources += 1
 
-    if _get_workspace_service_account(config, iam, GCP_HEAD_SERVICE_ACCOUNT_ID) is not None:
-        existing_resources += 1
-    if _get_workspace_service_account(config, iam, GCP_WORKER_SERVICE_ACCOUNT_ID) is not None:
-        existing_resources += 1
+        if managed_cloud_storage:
+            if get_workspace_gcs_bucket(config, workspace_name) is not None:
+                existing_resources += 1
+                cloud_storage_existence = True
 
-    if existing_resources == 0:
+        if _get_workspace_service_account(config, iam, GCP_HEAD_SERVICE_ACCOUNT_ID) is not None:
+            existing_resources += 1
+        if _get_workspace_service_account(config, iam, GCP_WORKER_SERVICE_ACCOUNT_ID) is not None:
+            existing_resources += 1
+
+    if existing_resources == 0 or (
+            existing_resources == 1 and project_existence):
         return Existence.NOT_EXIST
     elif existing_resources == target_resources:
         return Existence.COMPLETED
     else:
-        if existing_resources == 1 and cloud_storage_existence:
+        if existing_resources == 2 and cloud_storage_existence:
             return Existence.STORAGE_ONLY
         return Existence.IN_COMPLETED
 
 
 def check_gcp_workspace_integrity(config):
-    crm, iam, compute, tpu = \
-        construct_clients_from_provider_config(config["provider"])
-    use_internal_ips = is_use_internal_ip(config)
-    workspace_name = config["workspace_name"]
-    managed_cloud_storage = is_managed_cloud_storage(config)
-
-    """
-         Do the work - order of operation
-         1.) Check VPC 
-         2.) Check private subnet
-         3.) Check public subnet
-         4.) Check router
-         5.) Check firewalls
-         6.) Check GCS bucket
-         7.) Check service accounts
-    """
-    if get_gcp_vpcId(config, compute, use_internal_ips) is None:
-        return False
-    if get_subnet(config, "cloudtik-{}-private-subnet".format(workspace_name), compute) is None:
-        return False
-    if get_subnet(config, "cloudtik-{}-public-subnet".format(workspace_name), compute) is None:
-        return False
-    if get_router(config, "cloudtik-{}-private-router".format(workspace_name), compute) is None:
-        return False
-    if not check_workspace_firewalls(config, compute):
-        return False
-    if managed_cloud_storage:
-        if get_workspace_gcs_bucket(config, workspace_name) is None:
-            return False
-    if _get_workspace_service_account(config, iam, GCP_HEAD_SERVICE_ACCOUNT_ID) is None:
-        return False
-    if _get_workspace_service_account(config, iam, GCP_WORKER_SERVICE_ACCOUNT_ID) is None:
-        return False
-    return True
+    existence = check_gcp_workspace_existence(config)
+    return True if existence == Existence.COMPLETED else False
 
 
 def _fix_disk_type_for_disk(zone, disk):
@@ -1434,11 +1410,12 @@ def bootstrap_gcp_default(config):
 
 
 def bootstrap_gcp_from_workspace(config):
+    config = copy.deepcopy(config)
+    _configure_project_id(config)
+
     if not check_gcp_workspace_integrity(config):
         workspace_name = config["workspace_name"]
         cli_logger.abort("GCP workspace {} doesn't exist or is in wrong state!", workspace_name)
-
-    config = copy.deepcopy(config)
 
     # Used internally to store head IAM role.
     config["head_node"] = {}
@@ -1467,8 +1444,15 @@ def bootstrap_gcp_from_workspace(config):
 def bootstrap_gcp_workspace(config):
     # create a copy of the input config to modify
     config = copy.deepcopy(config)
+    _configure_project_id(config)
     _configure_allowed_ssh_sources(config)
     return config
+
+
+def _configure_project_id(config):
+    project_id = config["provider"].get("project_id")
+    if project_id is None:
+        config["provider"]["project_id"] = config["workspace_name"]
 
 
 def _configure_allowed_ssh_sources(config):
@@ -1513,7 +1497,7 @@ def _configure_project(config, crm):
 
     project_id = config["provider"].get("project_id")
     assert config["provider"]["project_id"] is not None, (
-        "'project_id' must be set in the 'provider' section of the scaler"
+        "'project_id' must be set in the 'provider' section of the"
         " config. Notice that the project id must be globally unique.")
     project = _get_project(project_id, crm)
 
@@ -1521,6 +1505,8 @@ def _configure_project(config, crm):
         #  Project not found, try creating it
         _create_project(project_id, crm)
         project = _get_project(project_id, crm)
+    else:
+        cli_logger.print("Using the existing project: {}.".format(project_id))
 
     assert project is not None, "Failed to create project"
     assert project["lifecycleState"] == "ACTIVE", (
@@ -1903,6 +1889,11 @@ def _get_project(project_id, crm):
     return project
 
 
+def get_workspace_project(config, crm):
+    project_id = config["provider"]["project_id"]
+    return _get_project(project_id, crm)
+
+
 def get_workspace_gcs_bucket(config, workspace_name):
     gcs = _create_storage_client()
     region = config["provider"]["region"]
@@ -1921,12 +1912,15 @@ def get_workspace_gcs_bucket(config, workspace_name):
 
 
 def _create_project(project_id, crm):
+    cli_logger.print("Creating project: {}...".format(project_id))
     operation = crm.projects().create(body={
         "projectId": project_id,
         "name": project_id
     }).execute()
 
     result = wait_for_crm_operation(operation, crm)
+    if "done" in result and result["done"]:
+        cli_logger.print("Successfully created project: {}.".format(project_id))
 
     return result
 

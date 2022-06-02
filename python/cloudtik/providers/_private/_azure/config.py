@@ -87,10 +87,12 @@ def check_azure_workspace_existence(config):
          9.) Check user assigned identities
          10.) Check cloud storage if need
     """
+    resource_group_existence = False
     cloud_storage_existence = False
     resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
     if resource_group_name is not None:
         existing_resources += 1
+        resource_group_existence = True
 
         # Below resources are all depends on resource group
         virtual_network_name = get_virtual_network_name(config, resource_client, network_client, use_internal_ips)
@@ -133,7 +135,8 @@ def check_azure_workspace_existence(config):
                 existing_resources += 1
                 cloud_storage_existence = True
 
-    if existing_resources == 0:
+    if existing_resources == 0 or (
+            existing_resources == 1 and resource_group_existence):
         return Existence.NOT_EXIST
     elif existing_resources == target_resources:
         return Existence.COMPLETED
@@ -144,70 +147,8 @@ def check_azure_workspace_existence(config):
 
 
 def check_azure_workspace_integrity(config):
-    use_internal_ips = is_use_internal_ip(config)
-    workspace_name = config["workspace_name"]
-    managed_cloud_storage = is_managed_cloud_storage(config)
-    network_client = construct_network_client(config)
-    resource_client = construct_resource_client(config)
-
-    """
-         Do the work - order of operation
-         1). Check resource group
-         2.) Check vpc 
-         3.) Check network security group
-         4.) Check public IP address
-         5.) Check NAT gateway
-         6.) Check private subnet 
-         7.) Check public subnet
-         8.) Check role assignments
-         9.) Check user assigned identities
-         10.) Check cloud storage if need
-    """
-    resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
-    if resource_group_name is None:
-        return False
-    virtual_network_name = get_virtual_network_name(config, resource_client, network_client, use_internal_ips)
-
-    if virtual_network_name is None:
-        return False
-
-    if get_network_security_group(config, network_client, resource_group_name) is None:
-        return False
-
-    if get_public_ip_address(config, network_client, resource_group_name) is None:
-        return False
-
-    if get_nat_gateway(config, network_client, resource_group_name) is None:
-        return False
-
-    private_subnet_name = "cloudtik-{}-private-subnet".format(workspace_name)
-    if get_subnet(network_client, resource_group_name, virtual_network_name, private_subnet_name) is None:
-        return False
-
-    public_subnet_name = "cloudtik-{}-public-subnet".format(workspace_name)
-    if get_subnet(network_client, resource_group_name, virtual_network_name, public_subnet_name) is None:
-        return False
-
-    if get_head_user_assigned_identity(config, resource_group_name) is None:
-        return False
-
-    if get_worker_user_assigned_identity(config, resource_group_name) is None:
-        return False
-
-    if get_role_assignment_for_contributor(config, resource_group_name) is None:
-        return False
-
-    if get_head_role_assignment_for_storage_blob_data_owner(config, resource_group_name) is None:
-        return False
-
-    if get_worker_role_assignment_for_storage_blob_data_owner(config, resource_group_name) is None:
-        return False
-
-    if managed_cloud_storage:
-        if get_container_for_storage_account(config, resource_group_name) is None:
-            return False
-
-    return True
+    existence = check_azure_workspace_existence(config)
+    return True if existence == Existence.COMPLETED else False
 
 
 def get_resource_group_name(config, resource_client, use_internal_ips):

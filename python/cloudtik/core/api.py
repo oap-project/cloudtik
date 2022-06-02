@@ -46,7 +46,7 @@ class Workspace:
 
     def get_status(self) -> Existence:
         """Return the existence status of the workspace."""
-        workspace_operator._get_workspace_status(self.config)
+        return workspace_operator._get_workspace_status(self.config)
 
     def list_clusters(self) -> Optional[Dict[str, Any]]:
         """Get a list of cluster information running in the workspace"""

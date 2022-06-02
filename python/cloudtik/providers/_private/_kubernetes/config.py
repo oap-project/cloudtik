@@ -7,6 +7,7 @@ from typing import Any, Dict
 from kubernetes import client
 from kubernetes.client.rest import ApiException
 
+from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core._private.utils import is_use_internal_ip
 from cloudtik.providers._private._kubernetes import auth_api, core_api, log_prefix
 from cloudtik.core._private.constants import CLOUDTIK_DEFAULT_OBJECT_STORE_MEMORY_PROPORTION
@@ -85,11 +86,19 @@ def bootstrap_kubernetes(config):
 
 
 def post_prepare_kubernetes(config: Dict[str, Any]) -> Dict[str, Any]:
-    config = fillout_resources_kubernetes(config)
+    try:
+        config = fill_resources_kubernetes(config)
+    except Exception as exc:
+        if cli_logger.verbosity > 2:
+            logger.exception("Failed to detect node resources.")
+        else:
+            cli_logger.warning(
+                "Failed to detect node resources: {}. You can see full stack trace with higher verbosity.", str(exc))
+
     return config
 
 
-def fillout_resources_kubernetes(config):
+def fill_resources_kubernetes(config):
     """Fills CPU and GPU resources by reading pod spec of each available node
     type.
 

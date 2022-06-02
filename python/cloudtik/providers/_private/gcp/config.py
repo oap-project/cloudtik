@@ -317,7 +317,16 @@ def construct_clients_from_provider_config(provider_config):
 def post_prepare_gcp(config: Dict[str, Any]) -> Dict[str, Any]:
     config = copy.deepcopy(config)
     config = _configure_project_id(config)
-    config = fill_available_node_types_resources(config)
+
+    try:
+        config = fill_available_node_types_resources(config)
+    except Exception as exc:
+        if cli_logger.verbosity > 2:
+            logger.exception("Failed to detect node resources.")
+        else:
+            cli_logger.warning(
+                "Failed to detect node resources: {}. You can see full stack trace with higher verbosity.", str(exc))
+
     return config
 
 

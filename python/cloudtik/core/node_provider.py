@@ -256,9 +256,9 @@ class NodeProvider:
         return cluster_config
 
     @staticmethod
-    def fillout_available_node_types_resources(
+    def post_prepare(
             cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-        """Fills out missing "resources" field for available_node_types."""
+        """Fills out missing fields after the user config is merged with defaults and before validate"""
         return cluster_config
 
     @staticmethod

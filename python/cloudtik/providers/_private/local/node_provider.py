@@ -4,7 +4,7 @@ from typing import Any, Dict
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME
 from cloudtik.providers._private.local.config import prepare_local, set_node_types_resources, \
-    _get_cloud_simulator_address, _get_http_response_from_simulator
+    _get_cloud_simulator_address, _get_http_response_from_simulator, post_prepare_local
 
 logger = logging.getLogger(__name__)
 
@@ -91,11 +91,7 @@ class CloudSimulatorNodeProvider(NodeProvider):
         return prepare_local(cluster_config)
 
     @staticmethod
-    def fillout_available_node_types_resources(
+    def post_prepare(
             cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-        """Fills out missing "resources" field for available_node_types."""
-        request = {"type": "get_instance_types", "args": ()}
-        cloud_simulator_address = _get_cloud_simulator_address(cluster_config["provider"])
-        instance_types = _get_http_response_from_simulator(cloud_simulator_address, request)
-        set_node_types_resources(cluster_config, instance_types)
-        return cluster_config
+        """Fills out missing fields after the user config is merged with defaults and before validate"""
+        return post_prepare_local(cluster_config)

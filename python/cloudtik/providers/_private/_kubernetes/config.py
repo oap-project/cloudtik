@@ -2,6 +2,7 @@ import copy
 import logging
 import math
 import re
+from typing import Any, Dict
 
 from kubernetes import client
 from kubernetes.client.rest import ApiException
@@ -80,6 +81,11 @@ def bootstrap_kubernetes(config):
         _configure_scaler_role(namespace, config["provider"])
         _configure_scaler_role_binding(namespace, config["provider"])
 
+    return config
+
+
+def post_prepare_kubernetes(config: Dict[str, Any]) -> Dict[str, Any]:
+    config = fillout_resources_kubernetes(config)
     return config
 
 

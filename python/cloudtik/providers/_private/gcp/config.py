@@ -314,6 +314,62 @@ def construct_clients_from_provider_config(provider_config):
         tpu_resource
 
 
+def post_prepare_gcp(config: Dict[str, Any]) -> Dict[str, Any]:
+    config = copy.deepcopy(config)
+    config = _configure_project_id(config)
+    config = fill_available_node_types_resources(config)
+    return config
+
+
+def fill_available_node_types_resources(
+        cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+    """Fills out missing "resources" field for available_node_types."""
+    if "available_node_types" not in cluster_config:
+        return cluster_config
+
+    # Get instance information from cloud provider
+    _, _, compute, tpu = construct_clients_from_provider_config(
+        cluster_config)
+
+    response = compute.machineTypes().list(
+        project=cluster_config["provider"]["project_id"],
+        zone=cluster_config["provider"]["availability_zone"],
+    ).execute()
+
+    instances_list = response.get("items", [])
+    instances_dict = {
+        instance["name"]: instance
+        for instance in instances_list
+    }
+
+    # Update the instance information to node type
+    available_node_types = cluster_config["available_node_types"]
+    for node_type in available_node_types:
+        instance_type = available_node_types[node_type]["node_config"][
+            "machineType"]
+        if instance_type in instances_dict:
+            cpus = instances_dict[instance_type]["guestCpus"]
+            detected_resources = {"CPU": cpus}
+
+            memory_total = instances_dict[instance_type]["memoryMb"]
+            memory_total_in_bytes = int(memory_total) * 1024 * 1024
+            detected_resources["memory"] = memory_total_in_bytes
+
+            detected_resources.update(
+                available_node_types[node_type].get("resources", {}))
+            if detected_resources != \
+                    available_node_types[node_type].get("resources", {}):
+                available_node_types[node_type][
+                    "resources"] = detected_resources
+                logger.debug("Updating the resources of {} to {}.".format(
+                    node_type, detected_resources))
+        else:
+            raise ValueError("Instance type " + instance_type +
+                             " is not available in GCP zone: " +
+                             cluster_config["provider"]["availability_zone"] + ".")
+    return cluster_config
+
+
 def get_workspace_head_nodes(provider_config, workspace_name):
     _, _, compute, tpu = \
         construct_clients_from_provider_config(provider_config)
@@ -1410,12 +1466,11 @@ def bootstrap_gcp_default(config):
 
 
 def bootstrap_gcp_from_workspace(config):
-    config = copy.deepcopy(config)
-    _configure_project_id(config)
-
     if not check_gcp_workspace_integrity(config):
         workspace_name = config["workspace_name"]
         cli_logger.abort("GCP workspace {} doesn't exist or is in wrong state!", workspace_name)
+
+    config = copy.deepcopy(config)
 
     # Used internally to store head IAM role.
     config["head_node"] = {}
@@ -1444,15 +1499,15 @@ def bootstrap_gcp_from_workspace(config):
 def bootstrap_gcp_workspace(config):
     # create a copy of the input config to modify
     config = copy.deepcopy(config)
-    _configure_project_id(config)
     _configure_allowed_ssh_sources(config)
     return config
 
 
 def _configure_project_id(config):
     project_id = config["provider"].get("project_id")
-    if project_id is None:
+    if project_id is None and "workspace_name" in config:
         config["provider"]["project_id"] = config["workspace_name"]
+    return config
 
 
 def _configure_allowed_ssh_sources(config):

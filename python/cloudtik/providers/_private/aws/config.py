@@ -415,49 +415,8 @@ def check_aws_workspace_existence(config):
 
 
 def check_aws_workspace_integrity(config):
-    ec2 = _resource("ec2", config)
-    ec2_client = _client("ec2", config)
-    workspace_name = config["workspace_name"]
-    managed_cloud_storage = is_managed_cloud_storage(config)
-
-    """
-         Do the work - order of operation
-         1.) Check VPC 
-         2.) Check private subnets
-         3.) Check public subnets
-         4.) Check nat-gateways
-         5.) Check route-tables
-         6.) Check Internet-gateways
-         7.) Check security-group
-         8.) Check VPC endpoint for s3
-         9.) Instance profiles
-         10.) Check S3 bucket
-    """
-    vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
-    if vpc_id is None:
-        return False
-    if len(get_workspace_private_subnets(workspace_name, ec2, vpc_id)) == 0:
-        return False
-    if len(get_workspace_public_subnets(workspace_name, ec2, vpc_id)) == 0:
-        return False
-    if len(get_vpc_nat_gateways(ec2_client, vpc_id)) == 0:
-        return False
-    if len(get_workspace_private_route_tables(workspace_name, ec2, vpc_id)) == 0:
-        return False
-    if len(get_vpc_internet_gateways(ec2, vpc_id)) == 0:
-        return False
-    if get_workspace_security_group(config, vpc_id, workspace_name) is None:
-        return False
-    if len(get_vpc_endpoint_for_s3(ec2_client, vpc_id, workspace_name)) == 0:
-        return False
-    if _get_head_instance_profile(config) is None:
-        return False
-    if _get_worker_instance_profile(config) is None:
-        return False
-    if managed_cloud_storage:
-        if get_workspace_s3_bucket(config, workspace_name) is None:
-            return False
-    return True
+    existence = check_aws_workspace_existence(config)
+    return True if existence == Existence.COMPLETED else False
 
 
 def update_aws_workspace_firewalls(config):

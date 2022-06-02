@@ -1,7 +1,14 @@
 import logging
 from typing import Any, Dict, List, Optional
+from enum import Enum
 
 logger = logging.getLogger(__name__)
+
+
+class Existence(Enum):
+    NOT_EXIST = 1
+    IN_COMPLETED = 2
+    COMPLETED = 3
 
 
 class WorkspaceProvider:
@@ -31,11 +38,13 @@ class WorkspaceProvider:
 
     def update_workspace_firewalls(self, config: Dict[str, Any]):
         pass
-    
-    def check_workspace_resource_unique(self, config: Dict[str, Any]) -> bool:
-        """Check whether the workspace is globally unique """
-        return True
-    
+
+    def check_workspace_existence(self, config: Dict[str, Any]) -> Existence:
+        """Check whether the workspace with the same name exists.
+        The existing workspace may be in incomplete state.
+        """
+        return Existence.NOT_EXIST
+
     def check_workspace_integrity(self, config: Dict[str, Any]) -> bool:
         """Check whether the workspace is correctly configured"""
         return False

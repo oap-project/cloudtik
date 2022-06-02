@@ -17,6 +17,7 @@ from google.cloud import storage
 from google.oauth2 import service_account
 from google.oauth2.credentials import Credentials as OAuthCredentials
 
+from cloudtik.core.workspace_provider import Existence
 from cloudtik.providers._private.gcp.node import (GCPNodeType, MAX_POLLS,
                                                   POLL_INTERVAL, GCPCompute)
 
@@ -71,8 +72,9 @@ HAS_TPU_PROVIDER_FIELD = "_has_tpus"
 # NOTE: iam.serviceAccountUser allows the Head Node to create worker nodes
 # with ServiceAccounts.
 
-NUM_GCP_WORKSPACE_CREATION_STEPS = 7
-NUM_GCP_WORKSPACE_DELETION_STEPS = 6
+GCP_WORKSPACE_NUM_CREATION_STEPS = 7
+GCP_WORKSPACE_NUM_DELETION_STEPS = 6
+GCP_WORKSPACE_TARGET_RESOURCES = 7
 
 
 def get_node_type(node: dict) -> GCPNodeType:
@@ -364,7 +366,7 @@ def _create_workspace(config):
     managed_cloud_storage = is_managed_cloud_storage(config)
 
     current_step = 1
-    total_steps = NUM_GCP_WORKSPACE_CREATION_STEPS
+    total_steps = GCP_WORKSPACE_NUM_CREATION_STEPS
     if managed_cloud_storage:
         total_steps += 1
 
@@ -913,7 +915,7 @@ def delete_gcp_workspace(config, delete_managed_storage: bool = False):
         return
 
     current_step = 1
-    total_steps = NUM_GCP_WORKSPACE_DELETION_STEPS
+    total_steps = GCP_WORKSPACE_NUM_DELETION_STEPS
     if managed_cloud_storage and delete_managed_storage:
         total_steps += 1
 
@@ -1219,6 +1221,57 @@ def _create_network_resources(config, current_step, total_steps):
         _create_or_update_firewalls(config, compute, VpcId)
 
     return current_step
+
+
+def check_gcp_workspace_existence(config):
+    crm, iam, compute, tpu = \
+        construct_clients_from_provider_config(config["provider"])
+    use_internal_ips = is_use_internal_ip(config)
+    workspace_name = config["workspace_name"]
+    managed_cloud_storage = is_managed_cloud_storage(config)
+
+    existing_resources = 0
+    target_resources = GCP_WORKSPACE_TARGET_RESOURCES
+    if managed_cloud_storage:
+        target_resources += 1
+
+    """
+         Do the work - order of operation
+         1.) Check VPC
+         2.) Check private subnet
+         3.) Check public subnet
+         4.) Check router
+         5.) Check firewalls
+         6.) Check GCS bucket
+         7.) Check service accounts
+    """
+    if get_gcp_vpcId(config, compute, use_internal_ips) is not None:
+        existing_resources += 1
+        # Network resources that depending on VPC
+        if get_subnet(config, "cloudtik-{}-private-subnet".format(workspace_name), compute) is not None:
+            existing_resources += 1
+        if get_subnet(config, "cloudtik-{}-public-subnet".format(workspace_name), compute) is not None:
+            existing_resources += 1
+        if get_router(config, "cloudtik-{}-private-router".format(workspace_name), compute) is not None:
+            existing_resources += 1
+        if check_workspace_firewalls(config, compute):
+            existing_resources += 1
+
+    if managed_cloud_storage:
+        if get_workspace_gcs_bucket(config, workspace_name) is not None:
+            existing_resources += 1
+
+    if _get_workspace_service_account(config, iam, GCP_HEAD_SERVICE_ACCOUNT_ID) is not None:
+        existing_resources += 1
+    if _get_workspace_service_account(config, iam, GCP_WORKER_SERVICE_ACCOUNT_ID) is not None:
+        existing_resources += 1
+
+    if existing_resources == 0:
+        return Existence.NOT_EXIST
+    elif existing_resources == target_resources:
+        return Existence.COMPLETED
+    else:
+        return Existence.IN_COMPLETED
 
 
 def check_gcp_workspace_integrity(config):

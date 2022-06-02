@@ -4,7 +4,7 @@ from typing import Any, Dict, Optional
 from cloudtik.core._private.utils import get_running_head_node, check_workspace_name_format
 from cloudtik.providers._private._azure.config import create_azure_workspace, \
     delete_azure_workspace, check_azure_workspace_integrity, update_azure_workspace_firewalls, \
-    get_workspace_head_nodes, list_azure_clusters, bootstrap_azure_workspace
+    get_workspace_head_nodes, list_azure_clusters, bootstrap_azure_workspace, check_azure_workspace_existence
 from cloudtik.core._private.providers import _get_node_provider
 from cloudtik.core.tags import CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX, CLOUDTIK_GLOBAL_VARIABLE_KEY
 from cloudtik.core.workspace_provider import WorkspaceProvider
@@ -25,6 +25,9 @@ class AzureWorkspaceProvider(WorkspaceProvider):
     
     def update_workspace_firewalls(self, config):
         update_azure_workspace_firewalls(config)
+
+    def check_workspace_existence(self, config: Dict[str, Any]):
+        return check_azure_workspace_existence(config)
 
     def check_workspace_integrity(self, config):
         return check_azure_workspace_integrity(config)

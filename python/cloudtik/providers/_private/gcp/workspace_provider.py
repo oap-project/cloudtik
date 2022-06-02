@@ -3,7 +3,7 @@ from typing import Any, Dict, Optional
 
 from cloudtik.providers._private.gcp.config import create_gcp_workspace, \
     delete_gcp_workspace, check_gcp_workspace_integrity, update_gcp_workspace_firewalls, \
-    get_workspace_head_nodes, list_gcp_clusters, bootstrap_gcp_workspace
+    get_workspace_head_nodes, list_gcp_clusters, bootstrap_gcp_workspace, check_gcp_workspace_existence
 from cloudtik.core._private.providers import _get_node_provider
 from cloudtik.core._private.utils import binary_to_hex, hex_to_binary, get_running_head_node, check_workspace_name_format
 from cloudtik.core.tags import CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX, CLOUDTIK_GLOBAL_VARIABLE_KEY
@@ -25,7 +25,10 @@ class GCPWorkspaceProvider(WorkspaceProvider):
     
     def update_workspace_firewalls(self, config):
         update_gcp_workspace_firewalls(config)
-    
+
+    def check_workspace_existence(self, config: Dict[str, Any]):
+        return check_gcp_workspace_existence(config)
+
     def check_workspace_integrity(self, config):
         return check_gcp_workspace_integrity(config)
 

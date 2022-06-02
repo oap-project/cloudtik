@@ -1257,9 +1257,11 @@ def check_gcp_workspace_existence(config):
         if check_workspace_firewalls(config, compute):
             existing_resources += 1
 
+    cloud_storage_existence = False
     if managed_cloud_storage:
         if get_workspace_gcs_bucket(config, workspace_name) is not None:
             existing_resources += 1
+            cloud_storage_existence = True
 
     if _get_workspace_service_account(config, iam, GCP_HEAD_SERVICE_ACCOUNT_ID) is not None:
         existing_resources += 1
@@ -1271,6 +1273,8 @@ def check_gcp_workspace_existence(config):
     elif existing_resources == target_resources:
         return Existence.COMPLETED
     else:
+        if existing_resources == 1 and cloud_storage_existence:
+            return Existence.STORAGE_ONLY
         return Existence.IN_COMPLETED
 
 

@@ -87,6 +87,7 @@ def check_azure_workspace_existence(config):
          9.) Check user assigned identities
          10.) Check cloud storage if need
     """
+    cloud_storage_existence = False
     resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
     if resource_group_name is not None:
         existing_resources += 1
@@ -130,12 +131,15 @@ def check_azure_workspace_existence(config):
         if managed_cloud_storage:
             if get_container_for_storage_account(config, resource_group_name) is not None:
                 existing_resources += 1
+                cloud_storage_existence = True
 
     if existing_resources == 0:
         return Existence.NOT_EXIST
     elif existing_resources == target_resources:
         return Existence.COMPLETED
     else:
+        if existing_resources == 2 and cloud_storage_existence:
+            return Existence.STORAGE_ONLY
         return Existence.IN_COMPLETED
 
 

@@ -7,8 +7,9 @@ logger = logging.getLogger(__name__)
 
 class Existence(Enum):
     NOT_EXIST = 1
-    IN_COMPLETED = 2
-    COMPLETED = 3
+    COMPLETED = 2
+    IN_COMPLETED = 3
+    STORAGE_ONLY = 4
 
 
 class WorkspaceProvider:

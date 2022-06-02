@@ -402,23 +402,40 @@ def get_container_for_storage_account(config, resource_group_name):
     storage_account = get_storage_account(config)
     if storage_account is None:
         return None
+
+    cli_logger.verbose("Getting container: {}.".format(container_name))
     containers = list(storage_client.blob_containers.list(
         resource_group_name=resource_group_name, account_name=storage_account.name))
     workspace_containers = [container for container in containers
                                   if container.name == container_name]
-    return None if len(workspace_containers) == 0 else workspace_containers[0]
+
+    if len(workspace_containers) > 0:
+        container = workspace_containers[0]
+        cli_logger.verbose("Successfully get the container: {}.".format(container.name))
+        return container
+
+    cli_logger.verbose("Failed to get the container in storage account: {}", storage_account.name)
+    return None
 
 
 def get_storage_account(config):
     workspace_name = config["workspace_name"]
     storage_client = construct_storage_client(config)
     storage_account_name = "cloudtik-{}-storage-account".format(workspace_name)
-    storage_accounts = list(storage_client.storage_accounts.list())
 
+    cli_logger.verbose("Getting storage account: {}.".format(storage_account_name))
+    storage_accounts = list(storage_client.storage_accounts.list())
     workspace_storage_accounts = [storage_account for storage_account in storage_accounts
                                  for key, value in storage_account.tags.items()
                                  if key == "Name" and value == storage_account_name]
-    return None if len(workspace_storage_accounts) == 0 else workspace_storage_accounts[0]
+
+    if len(workspace_storage_accounts) > 0:
+        storage_account = workspace_storage_accounts[0]
+        cli_logger.verbose("Successfully get the storage account: {}.".format(storage_account.name))
+        return storage_account
+
+    cli_logger.verbose("Failed to get the storage account for workspace")
+    return None
 
 
 def has_storage_account(config, resource_group_name) -> bool:

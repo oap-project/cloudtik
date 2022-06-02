@@ -392,7 +392,8 @@ def _create_workspace(config):
                     config = _create_workspace_cloud_storage(config)
 
     except Exception as e:
-        cli_logger.error("Failed to create workspace. {}", str(e))
+        cli_logger.error("Failed to create workspace with the name {}. "
+                         "You need to delete and try create again. {}", workspace_name, str(e))
         raise e
 
     cli_logger.print(
@@ -1220,7 +1221,7 @@ def _create_network_resources(config, current_step, total_steps):
     return current_step
 
 
-def check_gcp_workspace_resource(config):
+def check_gcp_workspace_resource_integrity(config):
     crm, iam, compute, tpu = \
         construct_clients_from_provider_config(config["provider"])
     use_internal_ips = is_use_internal_ip(config)
@@ -1376,7 +1377,7 @@ def bootstrap_gcp_default(config):
 
 
 def bootstrap_gcp_from_workspace(config):
-    if not check_gcp_workspace_resource(config):
+    if not check_gcp_workspace_resource_integrity(config):
         workspace_name = config["workspace_name"]
         cli_logger.abort("GCP workspace {} doesn't exist or is in wrong state!", workspace_name)
 

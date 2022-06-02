@@ -22,6 +22,7 @@ import math
 import multiprocessing
 import ipaddr
 import socket
+import re
 from contextlib import closing
 from concurrent.futures import ThreadPoolExecutor
 
@@ -2828,3 +2829,7 @@ def _is_use_managed_cloud_storage(provider_config: Dict[str, Any]) -> bool:
 
 def is_worker_role_for_cloud_storage(config: Dict[str, Any]) -> bool:
     return config["provider"].get("worker_role_for_cloud_storage", True)
+
+
+def check_workspace_name_format(workspace_name):
+    return bool(re.match("^[a-z0-9-]*$", workspace_name))

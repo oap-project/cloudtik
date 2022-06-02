@@ -1,9 +1,9 @@
 import logging
 from typing import Any, Dict, Optional
 
-from cloudtik.core._private.utils import get_running_head_node
+from cloudtik.core._private.utils import get_running_head_node, check_workspace_name_format
 from cloudtik.providers._private._azure.config import create_azure_workspace, \
-    delete_azure_workspace, check_azure_workspace_resource, update_azure_workspace_firewalls, \
+    delete_azure_workspace, check_azure_workspace_resource_integrity, update_azure_workspace_firewalls, \
     get_workspace_head_nodes, list_azure_clusters, bootstrap_azure_workspace
 from cloudtik.core._private.providers import _get_node_provider
 from cloudtik.core.tags import CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX, CLOUDTIK_GLOBAL_VARIABLE_KEY
@@ -25,9 +25,9 @@ class AzureWorkspaceProvider(WorkspaceProvider):
     
     def update_workspace_firewalls(self, config):
         update_azure_workspace_firewalls(config)
-    
-    def check_workspace_resource(self, config):
-        return check_azure_workspace_resource(config)
+
+    def check_workspace_resource_integrity(self, config):
+        return check_azure_workspace_resource_integrity(config)
 
     def list_clusters(self, config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         return list_azure_clusters(config)
@@ -56,10 +56,11 @@ class AzureWorkspaceProvider(WorkspaceProvider):
 
         return global_variables
 
-    @staticmethod
-    def validate_config(
-            provider_config: Dict[str, Any]):
-        pass
+    def validate_config(self, provider_config: Dict[str, Any]):
+        if len(self.workspace_name) > 55 or not check_workspace_name_format(self.workspace_name):
+            raise RuntimeError("{} workspace name is between 1 and 55 characters, "
+                               "and can only contain lowercase alphanumeric "
+                               "characters and dashes".format(provider_config["type"]))
 
     @staticmethod
     def bootstrap_workspace_config(config):

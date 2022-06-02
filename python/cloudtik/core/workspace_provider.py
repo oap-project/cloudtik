@@ -36,7 +36,7 @@ class WorkspaceProvider:
         """Check whether the workspace is globally unique """
         return True
     
-    def check_workspace_resource_integrity(self, config: Dict[str, Any]) -> bool:
+    def check_workspace_integrity(self, config: Dict[str, Any]) -> bool:
         """Check whether the workspace is correctly configured"""
         return False
 

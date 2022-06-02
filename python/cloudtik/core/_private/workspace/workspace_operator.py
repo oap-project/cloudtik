@@ -73,7 +73,7 @@ def update_workspace_firewalls(
 def _update_workspace_firewalls(config: Dict[str, Any]):
     provider = _get_workspace_provider(config["provider"], config["workspace_name"])
 
-    if provider.check_workspace_resource_integrity(config):
+    if provider.check_workspace_integrity(config):
         provider.update_workspace_firewalls(config)
     else:
         raise RuntimeError(
@@ -178,7 +178,7 @@ def create_workspace(
 def _create_workspace(config: Dict[str, Any]):
     workspace_name = config["workspace_name"]
     provider = _get_workspace_provider(config["provider"], workspace_name)
-    if provider.check_workspace_resource_integrity(config):
+    if provider.check_workspace_integrity(config):
         raise RuntimeError(f"Workspace with the name {workspace_name} already exists!")
     elif provider.check_workspace_resource_unique(config):
         provider.create_workspace(config)
@@ -249,7 +249,7 @@ def _show_clusters(clusters_info):
 
 def _list_workspace_clusters(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     provider = _get_workspace_provider(config["provider"], config["workspace_name"])
-    if not provider.check_workspace_resource_integrity(config):
+    if not provider.check_workspace_integrity(config):
         return None
 
     return provider.list_clusters(config)

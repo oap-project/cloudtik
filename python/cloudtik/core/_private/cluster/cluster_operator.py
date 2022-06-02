@@ -378,22 +378,11 @@ def _bootstrap_config(config: Dict[str, Any],
 
     cli_logger.print("Checking {} environment settings",
                      _PROVIDER_PRETTY_NAMES.get(config["provider"]["type"]))
-    try:
-        config = provider_cls.post_prepare(config)
-        config = runtime_prepare_config(config.get(RUNTIME_CONFIG_KEY), config)
-    except Exception as exc:
-        if cli_logger.verbosity > 2:
-            logger.exception("Failed to detect node resources.")
-        else:
-            cli_logger.warning(
-                f"Failed to detect node resources: {str(exc)}. "
-                "You can see full stack trace with higher verbosity.")
+
+    config = provider_cls.post_prepare(config)
+    config = runtime_prepare_config(config.get(RUNTIME_CONFIG_KEY), config)
 
     try:
-        # NOTE: if `resources` field is missing, validate_config for providers
-        # other than AWS and Kubernetes will fail (the schema error will ask
-        # the user to manually fill the resources) as we currently support
-        # autofilling resources for AWS and Kubernetes only.
         validate_config(config)
     except (ModuleNotFoundError, ImportError):
         cli_logger.abort(

@@ -154,7 +154,15 @@ def list_ec2_instances(region: str, aws_credentials: Dict[str, Any] = None
 
 
 def post_prepare_aws(config: Dict[str, Any]) -> Dict[str, Any]:
-    config = fill_available_node_types_resources(config)
+    try:
+        config = fill_available_node_types_resources(config)
+    except Exception as exc:
+        if cli_logger.verbosity > 2:
+            logger.exception("Failed to detect node resources.")
+        else:
+            cli_logger.warning(
+                "Failed to detect node resources: {}. You can see full stack trace with higher verbosity.", str(exc))
+
     return config
 
 

@@ -17,7 +17,7 @@ from cloudtik.core._private.command_executor import KubernetesCommandExecutor
 from cloudtik.providers._private._kubernetes import core_api, log_prefix, \
     extensions_beta_api
 from cloudtik.providers._private._kubernetes.config import bootstrap_kubernetes, \
-    fillout_resources_kubernetes
+    post_prepare_kubernetes
 
 logger = logging.getLogger(__name__)
 
@@ -214,9 +214,9 @@ class KubernetesNodeProvider(NodeProvider):
         return bootstrap_kubernetes(cluster_config)
 
     @staticmethod
-    def fillout_available_node_types_resources(cluster_config):
-        """Fills out missing "resources" field for available_node_types."""
-        return fillout_resources_kubernetes(cluster_config)
+    def post_prepare(cluster_config):
+        """Fills out missing fields after the user config is merged with defaults and before validate"""
+        return post_prepare_kubernetes(cluster_config)
 
 
 def _add_service_name_to_service_port(spec, svc_name):

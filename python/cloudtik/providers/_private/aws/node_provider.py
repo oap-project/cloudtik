@@ -14,9 +14,9 @@ from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_NAME
 from cloudtik.core._private.log_timer import LogTimer
 from cloudtik.core._private.cli_logger import cli_logger, cf
 
-from cloudtik.providers._private.aws.config import verify_s3_storage, bootstrap_aws
+from cloudtik.providers._private.aws.config import verify_s3_storage, bootstrap_aws, make_ec2_client, post_prepare_aws
 from cloudtik.providers._private.aws.utils import boto_exception_handler, \
-    resource_cache, client_cache, get_aws_s3_config, get_boto_error_code, BOTO_MAX_RETRIES, BOTO_CREATE_MAX_RETRIES, \
+    get_aws_s3_config, get_boto_error_code, BOTO_MAX_RETRIES, BOTO_CREATE_MAX_RETRIES, \
     _get_node_info
 from cloudtik.providers._private.utils import validate_config_dict
 
@@ -41,42 +41,6 @@ def from_aws_format(tags):
         tags[CLOUDTIK_TAG_NODE_NAME] = tags["Name"]
         del tags["Name"]
     return tags
-
-
-def make_ec2_client(region, max_retries, aws_credentials=None):
-    """Make client, retrying requests up to `max_retries`."""
-    aws_credentials = aws_credentials or {}
-    return resource_cache("ec2", region, max_retries, **aws_credentials)
-
-
-def list_ec2_instances(region: str, aws_credentials: Dict[str, Any] = None
-                       ) -> List[Dict[str, Any]]:
-    """Get all instance-types/resources available in the user's AWS region.
-    Args:
-        region (str): the region of the AWS provider. e.g., "us-west-2".
-    Returns:
-        final_instance_types: a list of instances. An example of one element in
-        the list:
-            {'InstanceType': 'm5a.xlarge', 'ProcessorInfo':
-            {'SupportedArchitectures': ['x86_64'], 'SustainedClockSpeedInGhz':
-            2.5},'VCpuInfo': {'DefaultVCpus': 4, 'DefaultCores': 2,
-            'DefaultThreadsPerCore': 2, 'ValidCores': [2],
-            'ValidThreadsPerCore': [1, 2]}, 'MemoryInfo': {'SizeInMiB': 16384},
-            ...}
-
-    """
-    final_instance_types = []
-    aws_credentials = aws_credentials or {}
-    ec2 = client_cache("ec2", region, BOTO_MAX_RETRIES, **aws_credentials)
-    instance_types = ec2.describe_instance_types()
-    final_instance_types.extend(copy.deepcopy(instance_types["InstanceTypes"]))
-    while "NextToken" in instance_types:
-        instance_types = ec2.describe_instance_types(
-            NextToken=instance_types["NextToken"])
-        final_instance_types.extend(
-            copy.deepcopy(instance_types["InstanceTypes"]))
-
-    return final_instance_types
 
 
 class AWSNodeProvider(NodeProvider):
@@ -558,60 +522,10 @@ class AWSNodeProvider(NodeProvider):
         return bootstrap_aws(cluster_config)
 
     @staticmethod
-    def fillout_available_node_types_resources(
+    def post_prepare(
             cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-        """Fills out missing "resources" field for available_node_types."""
-        if "available_node_types" not in cluster_config:
-            return cluster_config
-        cluster_config = copy.deepcopy(cluster_config)
-
-        # Get instance information from cloud provider
-        instances_list = list_ec2_instances(
-            cluster_config["provider"]["region"],
-            cluster_config["provider"].get("aws_credentials"))
-        instances_dict = {
-            instance["InstanceType"]: instance
-            for instance in instances_list
-        }
-
-        # Update the instance information to node type
-        available_node_types = cluster_config["available_node_types"]
-        for node_type in available_node_types:
-            instance_type = available_node_types[node_type]["node_config"][
-                "InstanceType"]
-            if instance_type in instances_dict:
-                cpus = instances_dict[instance_type]["VCpuInfo"][
-                    "DefaultVCpus"]
-                detected_resources = {"CPU": cpus}
-
-                memory_total = instances_dict[instance_type]["MemoryInfo"][
-                    "SizeInMiB"]
-                memory_total_in_bytes = int(memory_total) * 1024 * 1024
-                detected_resources["memory"] = memory_total_in_bytes
-
-                gpus = instances_dict[instance_type].get("GpuInfo",
-                                                         {}).get("Gpus")
-                if gpus is not None:
-                    assert len(gpus) == 1
-                    gpu_name = gpus[0]["Name"]
-                    detected_resources.update({
-                        "GPU": gpus[0]["Count"],
-                        f"accelerator_type:{gpu_name}": 1
-                    })
-
-                detected_resources.update(
-                    available_node_types[node_type].get("resources", {}))
-                if detected_resources != \
-                        available_node_types[node_type].get("resources", {}):
-                    available_node_types[node_type][
-                        "resources"] = detected_resources
-                    logger.debug("Updating the resources of {} to {}.".format(
-                        node_type, detected_resources))
-            else:
-                raise ValueError("Instance type " + instance_type +
-                                 " is not available in AWS region: " +
-                                 cluster_config["provider"]["region"] + ".")
-        return cluster_config
+        """Fills out missing fields after the user config is merged with defaults and before validate"""
+        return post_prepare_aws(cluster_config)
 
     @staticmethod
     def validate_config(

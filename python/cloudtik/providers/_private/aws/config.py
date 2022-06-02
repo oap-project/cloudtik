@@ -24,7 +24,7 @@ from cloudtik.core._private.utils import check_cidr_conflict, get_cluster_uri, i
     is_managed_cloud_storage, is_use_managed_cloud_storage, is_worker_role_for_cloud_storage
 from cloudtik.core.workspace_provider import Existence
 from cloudtik.providers._private.aws.utils import LazyDefaultDict, \
-    handle_boto_error, resource_cache, get_boto_error_code, _get_node_info
+    handle_boto_error, resource_cache, get_boto_error_code, _get_node_info, client_cache, BOTO_MAX_RETRIES
 from cloudtik.providers._private.utils import StorageTestingError
 
 logger = logging.getLogger(__name__)
@@ -115,6 +115,103 @@ def _set_config_info(**kwargs):
 
 def _arn_to_name(arn):
     return arn.split(":")[-1].split("/")[-1]
+
+
+def make_ec2_client(region, max_retries, aws_credentials=None):
+    """Make client, retrying requests up to `max_retries`."""
+    aws_credentials = aws_credentials or {}
+    return resource_cache("ec2", region, max_retries, **aws_credentials)
+
+
+def list_ec2_instances(region: str, aws_credentials: Dict[str, Any] = None
+                       ) -> List[Dict[str, Any]]:
+    """Get all instance-types/resources available in the user's AWS region.
+    Args:
+        region (str): the region of the AWS provider. e.g., "us-west-2".
+    Returns:
+        final_instance_types: a list of instances. An example of one element in
+        the list:
+            {'InstanceType': 'm5a.xlarge', 'ProcessorInfo':
+            {'SupportedArchitectures': ['x86_64'], 'SustainedClockSpeedInGhz':
+            2.5},'VCpuInfo': {'DefaultVCpus': 4, 'DefaultCores': 2,
+            'DefaultThreadsPerCore': 2, 'ValidCores': [2],
+            'ValidThreadsPerCore': [1, 2]}, 'MemoryInfo': {'SizeInMiB': 16384},
+            ...}
+
+    """
+    final_instance_types = []
+    aws_credentials = aws_credentials or {}
+    ec2 = client_cache("ec2", region, BOTO_MAX_RETRIES, **aws_credentials)
+    instance_types = ec2.describe_instance_types()
+    final_instance_types.extend(copy.deepcopy(instance_types["InstanceTypes"]))
+    while "NextToken" in instance_types:
+        instance_types = ec2.describe_instance_types(
+            NextToken=instance_types["NextToken"])
+        final_instance_types.extend(
+            copy.deepcopy(instance_types["InstanceTypes"]))
+
+    return final_instance_types
+
+
+def post_prepare_aws(config: Dict[str, Any]) -> Dict[str, Any]:
+    config = fill_available_node_types_resources(config)
+    return config
+
+
+def fill_available_node_types_resources(
+        cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+    """Fills out missing "resources" field for available_node_types."""
+    if "available_node_types" not in cluster_config:
+        return cluster_config
+    cluster_config = copy.deepcopy(cluster_config)
+
+    # Get instance information from cloud provider
+    instances_list = list_ec2_instances(
+        cluster_config["provider"]["region"],
+        cluster_config["provider"].get("aws_credentials"))
+    instances_dict = {
+        instance["InstanceType"]: instance
+        for instance in instances_list
+    }
+
+    # Update the instance information to node type
+    available_node_types = cluster_config["available_node_types"]
+    for node_type in available_node_types:
+        instance_type = available_node_types[node_type]["node_config"][
+            "InstanceType"]
+        if instance_type in instances_dict:
+            cpus = instances_dict[instance_type]["VCpuInfo"][
+                "DefaultVCpus"]
+            detected_resources = {"CPU": cpus}
+
+            memory_total = instances_dict[instance_type]["MemoryInfo"][
+                "SizeInMiB"]
+            memory_total_in_bytes = int(memory_total) * 1024 * 1024
+            detected_resources["memory"] = memory_total_in_bytes
+
+            gpus = instances_dict[instance_type].get("GpuInfo",
+                                                     {}).get("Gpus")
+            if gpus is not None:
+                assert len(gpus) == 1
+                gpu_name = gpus[0]["Name"]
+                detected_resources.update({
+                    "GPU": gpus[0]["Count"],
+                    f"accelerator_type:{gpu_name}": 1
+                })
+
+            detected_resources.update(
+                available_node_types[node_type].get("resources", {}))
+            if detected_resources != \
+                    available_node_types[node_type].get("resources", {}):
+                available_node_types[node_type][
+                    "resources"] = detected_resources
+                logger.debug("Updating the resources of {} to {}.".format(
+                    node_type, detected_resources))
+        else:
+            raise ValueError("Instance type " + instance_type +
+                             " is not available in AWS region: " +
+                             cluster_config["provider"]["region"] + ".")
+    return cluster_config
 
 
 def log_to_cli(config: Dict[str, Any]) -> None:
@@ -347,7 +444,6 @@ def get_vpc_endpoint_for_s3(ec2_client, vpc_id, workspace_name):
         {'Name': 'tag:Name', 'Values': ['cloudtik-{}-vpc-endpoint-s3'.format(workspace_name)]}
     ])
     return vpc_endpoint['VpcEndpoints']
-
 
 def check_aws_workspace_existence(config):
     ec2 = _resource("ec2", config)

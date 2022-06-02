@@ -193,3 +193,18 @@ def list_local_clusters(provider_config: Dict[str, Any]) -> Optional[Dict[str, A
         if cluster_name:
             clusters[cluster_name] = node_info
     return clusters
+
+
+def post_prepare_local(config: Dict[str, Any]) -> Dict[str, Any]:
+    config = fill_available_node_types_resources(config)
+    return config
+
+
+def fill_available_node_types_resources(
+        cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+    """Fills out missing "resources" field for available_node_types."""
+    request = {"type": "get_instance_types", "args": ()}
+    cloud_simulator_address = _get_cloud_simulator_address(cluster_config["provider"])
+    instance_types = _get_http_response_from_simulator(cloud_simulator_address, request)
+    set_node_types_resources(cluster_config, instance_types)
+    return cluster_config

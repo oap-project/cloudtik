@@ -379,7 +379,7 @@ def _bootstrap_config(config: Dict[str, Any],
     cli_logger.print("Checking {} environment settings",
                      _PROVIDER_PRETTY_NAMES.get(config["provider"]["type"]))
     try:
-        config = provider_cls.fillout_available_node_types_resources(config)
+        config = provider_cls.post_prepare(config)
         config = runtime_prepare_config(config.get(RUNTIME_CONFIG_KEY), config)
     except Exception as exc:
         if cli_logger.verbosity > 2:

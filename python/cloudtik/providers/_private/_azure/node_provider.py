@@ -7,7 +7,6 @@ from threading import RLock
 from uuid import uuid4
 from typing import Any, Dict, List
 
-from azure.identity import DefaultAzureCredential
 from azure.mgmt.compute import ComputeManagementClient
 from azure.mgmt.network import NetworkManagementClient
 from azure.mgmt.resource import ResourceManagementClient
@@ -20,7 +19,8 @@ from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_NAME
 
 from cloudtik.providers._private._azure.config import (AZURE_MSI_NAME, get_azure_sdk_function,
                                                        verify_azure_cloud_storage, bootstrap_azure,
-                                                       _extract_metadata_for_node, bootstrap_azure_for_read)
+                                                       _extract_metadata_for_node, bootstrap_azure_for_read,
+                                                       get_credential, post_prepare_azure)
 
 from cloudtik.providers._private._azure.utils import get_azure_config, _get_node_info
 from cloudtik.providers._private.utils import validate_config_dict
@@ -44,21 +44,6 @@ def synchronized(f):
             self.lock.release()
 
     return wrapper
-
-
-def get_credential(provider_config):
-    managed_identity_client_id = provider_config.get("managed_identity_client_id")
-    if managed_identity_client_id is None:
-        # No managed identity
-        credential = DefaultAzureCredential(
-            exclude_managed_identity_credential=True,
-            exclude_shared_token_cache_credential=True)
-    else:
-        credential = DefaultAzureCredential(
-            exclude_shared_token_cache_credential=True,
-            managed_identity_client_id=managed_identity_client_id
-        )
-    return credential
 
 
 class AzureNodeProvider(NodeProvider):
@@ -330,52 +315,10 @@ class AzureNodeProvider(NodeProvider):
         return cluster_config
 
     @staticmethod
-    def fillout_available_node_types_resources(
+    def post_prepare(
             cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-        """Fills out missing "resources" field for available_node_types."""
-        if "available_node_types" not in cluster_config:
-            return cluster_config
-        cluster_config = copy.deepcopy(cluster_config)
-
-        # Get instance information from cloud provider
-        provider_config = cluster_config["provider"]
-        subscription_id = provider_config["subscription_id"]
-        vm_location = provider_config["location"]
-
-        credential = get_credential(provider_config)
-        compute_client = ComputeManagementClient(credential, subscription_id)
-
-        vmsizes = compute_client.virtual_machine_sizes.list(vm_location)
-        instances_dict = {
-            instance.name: {"memory": instance.memory_in_mb, "cpu": instance.number_of_cores}
-            for instance in vmsizes
-        }
-
-        # Update the instance information to node type
-        available_node_types = cluster_config["available_node_types"]
-        for node_type in available_node_types:
-            instance_type = available_node_types[node_type]["node_config"]["azure_arm_parameters"]["vmSize"]
-            if instance_type in instances_dict:
-                cpus = instances_dict[instance_type]["cpu"]
-                detected_resources = {"CPU": cpus}
-
-                memory_total = instances_dict[instance_type]["memory"]
-                memory_total_in_bytes = int(memory_total) * 1024 * 1024
-                detected_resources["memory"] = memory_total_in_bytes
-
-                detected_resources.update(
-                    available_node_types[node_type].get("resources", {}))
-                if detected_resources != \
-                        available_node_types[node_type].get("resources", {}):
-                    available_node_types[node_type][
-                        "resources"] = detected_resources
-                    logger.debug("Updating the resources of {} to {}.".format(
-                        node_type, detected_resources))
-            else:
-                raise ValueError("Instance type " + instance_type +
-                                 " is not available in Azure location: " +
-                                 vm_location + ".")
-        return cluster_config
+        """Fills out missing fields after the user config is merged with defaults and before validate"""
+        return post_prepare_azure(cluster_config)
 
     @staticmethod
     def validate_config(

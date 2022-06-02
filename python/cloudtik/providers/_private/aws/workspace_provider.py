@@ -3,7 +3,7 @@ from typing import Any, Dict, Optional
 
 from cloudtik.core._private.utils import get_running_head_node, check_workspace_name_format
 from cloudtik.providers._private.aws.config import create_aws_workspace, \
-    delete_aws_workspace, check_aws_workspace_resource_unique, check_aws_workspace_resource_integrity, \
+    delete_aws_workspace, check_aws_workspace_resource_unique, check_aws_workspace_integrity, \
     update_aws_workspace_firewalls, list_aws_clusters, _get_workspace_head_nodes, bootstrap_aws_workspace
 from cloudtik.core._private.providers import _get_node_provider
 from cloudtik.core.tags import CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX, CLOUDTIK_GLOBAL_VARIABLE_KEY
@@ -29,8 +29,8 @@ class AWSWorkspaceProvider(WorkspaceProvider):
     def check_workspace_resource_unique(self, config):
         return check_aws_workspace_resource_unique(config)
 
-    def check_workspace_resource_integrity(self, config):
-        return check_aws_workspace_resource_integrity(config)
+    def check_workspace_integrity(self, config):
+        return check_aws_workspace_integrity(config)
 
     def list_clusters(self, config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         return list_aws_clusters(config)

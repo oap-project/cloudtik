@@ -1221,7 +1221,7 @@ def _create_network_resources(config, current_step, total_steps):
     return current_step
 
 
-def check_gcp_workspace_resource_integrity(config):
+def check_gcp_workspace_integrity(config):
     crm, iam, compute, tpu = \
         construct_clients_from_provider_config(config["provider"])
     use_internal_ips = is_use_internal_ip(config)
@@ -1377,7 +1377,7 @@ def bootstrap_gcp_default(config):
 
 
 def bootstrap_gcp_from_workspace(config):
-    if not check_gcp_workspace_resource_integrity(config):
+    if not check_gcp_workspace_integrity(config):
         workspace_name = config["workspace_name"]
         cli_logger.abort("GCP workspace {} doesn't exist or is in wrong state!", workspace_name)
 

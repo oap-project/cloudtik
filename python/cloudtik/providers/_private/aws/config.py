@@ -369,7 +369,7 @@ def check_aws_workspace_resource_unique(config):
         return True
 
 
-def check_aws_workspace_resource_integrity(config):
+def check_aws_workspace_integrity(config):
     ec2 = _resource("ec2", config)
     ec2_client = _client("ec2", config)
     workspace_name = config["workspace_name"]
@@ -706,7 +706,7 @@ def bootstrap_aws_default(config):
 
 
 def bootstrap_aws_from_workspace(config):
-    if not check_aws_workspace_resource_integrity(config):
+    if not check_aws_workspace_integrity(config):
         workspace_name = config["workspace_name"]
         cli_logger.abort("AWS workspace {} doesn't exist or is in wrong state!", workspace_name)
 

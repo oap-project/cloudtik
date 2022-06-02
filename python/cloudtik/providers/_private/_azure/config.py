@@ -60,7 +60,7 @@ def get_azure_sdk_function(client: Any, function_name: str) -> Callable:
     return func
 
 
-def check_azure_workspace_resource_integrity(config):
+def check_azure_workspace_integrity(config):
     use_internal_ips = is_use_internal_ip(config)
     workspace_name = config["workspace_name"]
     managed_cloud_storage = is_managed_cloud_storage(config)
@@ -1555,7 +1555,7 @@ def _create_network_resources(config, resource_group_name, current_step, total_s
 
 
 def bootstrap_azure_from_workspace(config):
-    if not check_azure_workspace_resource_integrity(config):
+    if not check_azure_workspace_integrity(config):
         workspace_name = config["workspace_name"]
         cli_logger.abort("Azure workspace {} doesn't exist or is in wrong state!", workspace_name)
 

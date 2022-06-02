@@ -60,7 +60,7 @@ def get_azure_sdk_function(client: Any, function_name: str) -> Callable:
     return func
 
 
-def check_azure_workspace_resource(config):
+def check_azure_workspace_integrity(config):
     use_internal_ips = is_use_internal_ip(config)
     workspace_name = config["workspace_name"]
     managed_cloud_storage = is_managed_cloud_storage(config)
@@ -297,7 +297,7 @@ def _delete_network_resources(config, resource_client, resource_group_name, curr
 
 def get_container_for_storage_account(config, resource_group_name):
     workspace_name = config["workspace_name"]
-    container_name = "cloudtik-{}-storage-container".format(workspace_name)
+    container_name = "cloudtik-{}".format(workspace_name)
     storage_client = construct_storage_client(config)
     storage_account = get_storage_account(config)
     if storage_account is None:
@@ -813,7 +813,8 @@ def _create_workspace(config):
                     _create_container_for_storage_account(config, resource_group_name)
 
     except Exception as e:
-        cli_logger.error("Failed to create workspace. {}", str(e))
+        cli_logger.error("Failed to create workspace with the name {}. "
+                         "You need to delete and try create again. {}", workspace_name, str(e))
         raise e
 
     cli_logger.print(
@@ -1103,7 +1104,7 @@ def _create_role_assignments(config, resource_group_name):
 
 def _create_container_for_storage_account(config, resource_group_name):
     workspace_name = config["workspace_name"]
-    container_name = "cloudtik-{}-storage-container".format(workspace_name)
+    container_name = "cloudtik-{}".format(workspace_name)
     storage_account = get_storage_account(config)
     if storage_account is None:
         cli_logger.abort("No storage account is found. You need to make sure storage account has been created.")
@@ -1554,7 +1555,7 @@ def _create_network_resources(config, resource_group_name, current_step, total_s
 
 
 def bootstrap_azure_from_workspace(config):
-    if not check_azure_workspace_resource(config):
+    if not check_azure_workspace_integrity(config):
         workspace_name = config["workspace_name"]
         cli_logger.abort("Azure workspace {} doesn't exist or is in wrong state!", workspace_name)
 

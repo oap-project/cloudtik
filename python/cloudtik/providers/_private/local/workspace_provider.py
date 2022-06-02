@@ -14,7 +14,7 @@ class LocalWorkspaceProvider(WorkspaceProvider):
     def __init__(self, provider_config, workspace_name):
         WorkspaceProvider.__init__(self, provider_config, workspace_name)
 
-    def check_workspace_resource(self, config: Dict[str, Any]) -> bool:
+    def check_workspace_integrity(self, config: Dict[str, Any]) -> bool:
         """Check whether the workspace is correctly configured"""
         return True
 

@@ -2,10 +2,10 @@ import logging
 from typing import Any, Dict, Optional
 
 from cloudtik.providers._private.gcp.config import create_gcp_workspace, \
-    delete_gcp_workspace, check_gcp_workspace_resource, update_gcp_workspace_firewalls, \
+    delete_gcp_workspace, check_gcp_workspace_integrity, update_gcp_workspace_firewalls, \
     get_workspace_head_nodes, list_gcp_clusters, bootstrap_gcp_workspace
 from cloudtik.core._private.providers import _get_node_provider
-from cloudtik.core._private.utils import binary_to_hex, hex_to_binary, get_running_head_node
+from cloudtik.core._private.utils import binary_to_hex, hex_to_binary, get_running_head_node, check_workspace_name_format
 from cloudtik.core.tags import CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX, CLOUDTIK_GLOBAL_VARIABLE_KEY
 from cloudtik.core.workspace_provider import WorkspaceProvider
 
@@ -26,8 +26,8 @@ class GCPWorkspaceProvider(WorkspaceProvider):
     def update_workspace_firewalls(self, config):
         update_gcp_workspace_firewalls(config)
     
-    def check_workspace_resource(self, config):
-        return check_gcp_workspace_resource(config)
+    def check_workspace_integrity(self, config):
+        return check_gcp_workspace_integrity(config)
 
     def list_clusters(self, config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         return list_gcp_clusters(config)
@@ -60,10 +60,11 @@ class GCPWorkspaceProvider(WorkspaceProvider):
 
         return global_variables
 
-    @staticmethod
-    def validate_config(
-            provider_config: Dict[str, Any]):
-        pass
+    def validate_config(self, provider_config: Dict[str, Any]):
+        if len(self.workspace_name) > 19 or not check_workspace_name_format(self.workspace_name):
+            raise RuntimeError("{} workspace name is between 1 and 19 characters, "
+                               "and can only contain lowercase alphanumeric "
+                               "characters and dashes".format(provider_config["type"]))
 
     @staticmethod
     def bootstrap_workspace_config(config):

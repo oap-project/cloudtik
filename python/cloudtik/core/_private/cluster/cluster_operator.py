@@ -1,4 +1,6 @@
 import copy
+import urllib
+import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 import datetime
 import hashlib
@@ -3027,22 +3029,24 @@ def submit_and_exec(config: Dict[str, Any],
         call_context=call_context,
         cmd=cmd_mkdir
     )
-
-    # upload the script to cluster
-    _rsync(
-        config,
-        call_context=call_context,
-        source=script,
-        target=target,
-        down=False)
-
+    command_parts = []
+    if urllib.parse.urlparse(script).scheme in ("http", "https"):
+        command_parts = ["wget", script, "-P", "~/jobs"]
+    else:
+        # upload the script to cluster
+        _rsync(
+            config,
+            call_context=call_context,
+            source=script,
+            target=target,
+            down=False)
     if target_name.endswith(".py"):
-        command_parts = ["python", target]
+        command_parts += ["python", target]
     elif target_name.endswith(".sh"):
-        command_parts = ["bash", target]
+        command_parts += ["bash", target]
     else:
 
-        command_parts = get_runnable_command(config.get(RUNTIME_CONFIG_KEY), target)
+        command_parts += get_runnable_command(config.get(RUNTIME_CONFIG_KEY), target)
         if command_parts is None:
             cli_logger.error("We don't how to execute your file: {}", script)
             return

@@ -13,6 +13,7 @@ from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, CLOUDTIK_
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.utils import check_cidr_conflict, is_use_internal_ip, _is_use_internal_ip, \
     is_managed_cloud_storage, is_use_managed_cloud_storage, _is_use_managed_cloud_storage
+from cloudtik.core.workspace_provider import Existence
 from cloudtik.providers._private._azure.azure_identity_credential_adapter import AzureIdentityCredentialAdapter
 
 from azure.common.credentials import get_cli_profile
@@ -37,8 +38,9 @@ AZURE_NSG_NAME = AZURE_RESOURCE_NAME_PREFIX + "-nsg"
 AZURE_SUBNET_NAME = AZURE_RESOURCE_NAME_PREFIX + "-subnet"
 AZURE_VNET_NAME = AZURE_RESOURCE_NAME_PREFIX + "-vnet"
 
-NUM_AZURE_WORKSPACE_CREATION_STEPS = 9
-NUM_AZURE_WORKSPACE_DELETION_STEPS = 9
+AZURE_WORKSPACE_NUM_CREATION_STEPS = 9
+AZURE_WORKSPACE_NUM_DELETION_STEPS = 9
+AZURE_WORKSPACE_TARGET_RESOURCES = 12
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +60,83 @@ def get_azure_sdk_function(client: Any, function_name: str) -> Callable:
             "'{obj}' object has no {func} or begin_{func} attribute".format(
                 obj={client.__name__}, func=function_name))
     return func
+
+
+def check_azure_workspace_existence(config):
+    use_internal_ips = is_use_internal_ip(config)
+    workspace_name = config["workspace_name"]
+    managed_cloud_storage = is_managed_cloud_storage(config)
+    network_client = construct_network_client(config)
+    resource_client = construct_resource_client(config)
+
+    existing_resources = 0
+    target_resources = AZURE_WORKSPACE_TARGET_RESOURCES
+    if managed_cloud_storage:
+        target_resources += 1
+
+    """
+         Do the work - order of operation
+         1). Check resource group
+         2.) Check vpc
+         3.) Check network security group
+         4.) Check public IP address
+         5.) Check NAT gateway
+         6.) Check private subnet
+         7.) Check public subnet
+         8.) Check role assignments
+         9.) Check user assigned identities
+         10.) Check cloud storage if need
+    """
+    resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
+    if resource_group_name is not None:
+        existing_resources += 1
+
+        # Below resources are all depends on resource group
+        virtual_network_name = get_virtual_network_name(config, resource_client, network_client, use_internal_ips)
+        if virtual_network_name is not None:
+            existing_resources += 1
+
+            # Below resources are all depends on the virtual network
+            if get_network_security_group(config, network_client, resource_group_name) is not None:
+                existing_resources += 1
+
+            if get_public_ip_address(config, network_client, resource_group_name) is not None:
+                existing_resources += 1
+
+            if get_nat_gateway(config, network_client, resource_group_name) is not None:
+                existing_resources += 1
+
+            private_subnet_name = "cloudtik-{}-private-subnet".format(workspace_name)
+            if get_subnet(network_client, resource_group_name, virtual_network_name, private_subnet_name) is not None:
+                existing_resources += 1
+
+            public_subnet_name = "cloudtik-{}-public-subnet".format(workspace_name)
+            if get_subnet(network_client, resource_group_name, virtual_network_name, public_subnet_name) is not None:
+                existing_resources += 1
+
+        if get_head_user_assigned_identity(config, resource_group_name) is not None:
+            existing_resources += 1
+            if get_role_assignment_for_contributor(config, resource_group_name) is not None:
+                existing_resources += 1
+
+            if get_head_role_assignment_for_storage_blob_data_owner(config, resource_group_name) is not None:
+                existing_resources += 1
+
+        if get_worker_user_assigned_identity(config, resource_group_name) is not None:
+            existing_resources += 1
+            if get_worker_role_assignment_for_storage_blob_data_owner(config, resource_group_name) is not None:
+                existing_resources += 1
+
+        if managed_cloud_storage:
+            if get_container_for_storage_account(config, resource_group_name) is not None:
+                existing_resources += 1
+
+    if existing_resources == 0:
+        return Existence.NOT_EXIST
+    elif existing_resources == target_resources:
+        return Existence.COMPLETED
+    else:
+        return Existence.IN_COMPLETED
 
 
 def check_azure_workspace_integrity(config):
@@ -186,7 +265,7 @@ def delete_azure_workspace(config, delete_managed_storage: bool = False):
         return
 
     current_step = 1
-    total_steps = NUM_AZURE_WORKSPACE_DELETION_STEPS
+    total_steps = AZURE_WORKSPACE_NUM_DELETION_STEPS
     if managed_cloud_storage and delete_managed_storage:
         total_steps += 1
 
@@ -767,7 +846,7 @@ def _create_workspace(config):
     managed_cloud_storage = is_managed_cloud_storage(config)
 
     current_step = 1
-    total_steps = NUM_AZURE_WORKSPACE_CREATION_STEPS
+    total_steps = AZURE_WORKSPACE_NUM_CREATION_STEPS
     if managed_cloud_storage:
         total_steps += 2
 

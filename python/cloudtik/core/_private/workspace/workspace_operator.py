@@ -11,6 +11,7 @@ import prettytable as pt
 import yaml
 
 from cloudtik.core._private.cluster.cluster_operator import _get_cluster_info
+from cloudtik.core.workspace_provider import Existence
 
 try:  # py3
     from shlex import quote
@@ -178,13 +179,13 @@ def create_workspace(
 def _create_workspace(config: Dict[str, Any]):
     workspace_name = config["workspace_name"]
     provider = _get_workspace_provider(config["provider"], workspace_name)
-    if provider.check_workspace_integrity(config):
-        raise RuntimeError(f"Workspace with the name {workspace_name} already exists!")
-    elif provider.check_workspace_resource_unique(config):
-        provider.create_workspace(config)
+    existence = provider.check_workspace_existence(config)
+    if existence == Existence.COMPLETED:
+        raise RuntimeError(f"A completed workspace with the name {workspace_name} already exists!")
+    elif existence == Existence.IN_COMPLETED:
+        raise RuntimeError(f"A workspace with the name {workspace_name} already exists but not completed!")
     else:
-        raise RuntimeError(f"Workspace with the name {workspace_name} is not globally unique, "
-                           f"you need try another workspace name.")
+        provider.create_workspace(config)
 
 
 def list_workspace_clusters(

@@ -22,6 +22,7 @@ from cloudtik.core._private.event_system import (CreateClusterEvent,
 from cloudtik.core._private.services import get_node_ip_address
 from cloudtik.core._private.utils import check_cidr_conflict, get_cluster_uri, is_use_internal_ip, \
     is_managed_cloud_storage, is_use_managed_cloud_storage, is_worker_role_for_cloud_storage
+from cloudtik.core.workspace_provider import Existence
 from cloudtik.providers._private.aws.utils import LazyDefaultDict, \
     handle_boto_error, resource_cache, get_boto_error_code, _get_node_info
 from cloudtik.providers._private.utils import StorageTestingError
@@ -62,8 +63,9 @@ DEFAULT_AMI = {
     "sa-east-1": "ami-090006f29ecb2d79a",  # SA (Sao Paulo)
 }
 
-NUM_AWS_WORKSPACE_CREATION_STEPS = 8
-NUM_AWS_WORKSPACE_DELETION_STEPS = 8
+AWS_WORKSPACE_NUM_CREATION_STEPS = 8
+AWS_WORKSPACE_NUM_DELETION_STEPS = 8
+AWS_WORKSPACE_TARGET_RESOURCES = 10
 
 # todo: cli_logger should handle this assert properly
 # this should probably also happens somewhere else
@@ -320,7 +322,7 @@ def get_workspace_security_group(config, vpc_id, workspace_name):
     return _get_security_group(config, vpc_id, SECURITY_GROUP_TEMPLATE.format(workspace_name))
 
 
-def get_workspace_internat_gateways(workspace_name, ec2, vpc_id):
+def get_workspace_internet_gateways(workspace_name, ec2, vpc_id):
     vpc_resource = ec2.Vpc(vpc_id)
     igws = [igw for igw in vpc_resource.internet_gateways.all() if igw.tags]
 
@@ -332,48 +334,86 @@ def get_workspace_internat_gateways(workspace_name, ec2, vpc_id):
     return workspace_igws
 
 
-def get_vpc_internat_gateways(ec2, vpc_id):
+def get_vpc_internet_gateways(ec2, vpc_id):
     vpc_resource = ec2.Vpc(vpc_id)
     igws = list(vpc_resource.internet_gateways.all())
 
     return igws
 
 
-def get_vpc_endpoint_for_s3(ec2_client, workspace_name):
+def get_vpc_endpoint_for_s3(ec2_client, vpc_id, workspace_name):
     vpc_endpoint = ec2_client.describe_vpc_endpoints(Filters=[
-        {'Name': 'tag:Name', 'Values': ['cloudtik-{}-vpc-endpoint-s3'.format(workspace_name)]}])
+        {'Name': 'vpc-id', 'Values': [vpc_id]},
+        {'Name': 'tag:Name', 'Values': ['cloudtik-{}-vpc-endpoint-s3'.format(workspace_name)]}
+    ])
     return vpc_endpoint['VpcEndpoints']
 
 
-def check_aws_workspace_resource_unique(config):
+def check_aws_workspace_existence(config):
+    ec2 = _resource("ec2", config)
     ec2_client = _client("ec2", config)
     workspace_name = config["workspace_name"]
-    vpc_id = get_workspace_vpc_id(config["workspace_name"], ec2_client)
+    managed_cloud_storage = is_managed_cloud_storage(config)
+
+    existing_resources = 0
+    target_resources = AWS_WORKSPACE_TARGET_RESOURCES
+    if managed_cloud_storage:
+        target_resources += 1
+
     """
          Do the work - order of operation
-         1.) Check head instance profile
-         2.) Check worker instance profile
+         1.) Check VPC
+         2.) Check private subnets
+         3.) Check public subnets
+         4.) Check nat-gateways
+         5.) Check route-tables
+         6.) Check Internet-gateways
+         7.) Check security-group
+         8.) Check VPC endpoint for s3
+         9.) Instance profiles
+         10.) Check S3 bucket
     """
-    if vpc_id is None:
-        head_instance_profile_name = _get_workspace_head_instance_profile_name(workspace_name)
-        head_instance_profile = _get_instance_profile(head_instance_profile_name, config)
-        if head_instance_profile is not None:
-            return False
+    vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
+    if vpc_id is not None:
+        existing_resources += 1
+        # Network resources that depending on VPC
+        if len(get_workspace_private_subnets(workspace_name, ec2, vpc_id)) > 0:
+            existing_resources += 1
+        if len(get_workspace_public_subnets(workspace_name, ec2, vpc_id)) > 0:
+            existing_resources += 1
+        if len(get_vpc_nat_gateways(ec2_client, vpc_id)) > 0:
+            existing_resources += 1
+        if len(get_workspace_private_route_tables(workspace_name, ec2, vpc_id)) > 0:
+            existing_resources += 1
+        if len(get_vpc_internet_gateways(ec2, vpc_id)) > 0:
+            existing_resources += 1
+        if get_workspace_security_group(config, vpc_id, workspace_name) is not None:
+            existing_resources += 1
+        if len(get_vpc_endpoint_for_s3(ec2_client, vpc_id, workspace_name)) > 0:
+            existing_resources += 1
 
-        worker_instance_profile_name = _get_workspace_worker_instance_profile_name(workspace_name)
-        worker_instance_profile = _get_instance_profile(worker_instance_profile_name, config)
-        if worker_instance_profile is not None:
-            return False
-        return True
+    if _get_head_instance_profile(config) is not None:
+        existing_resources += 1
+
+    if _get_worker_instance_profile(config) is not None:
+        existing_resources += 1
+
+    if managed_cloud_storage:
+        if get_workspace_s3_bucket(config, workspace_name) is not None:
+            existing_resources += 1
+
+    if existing_resources == 0:
+        return Existence.NOT_EXIST
+    elif existing_resources == target_resources:
+        return Existence.COMPLETED
     else:
-        return True
+        return Existence.IN_COMPLETED
 
 
 def check_aws_workspace_integrity(config):
     ec2 = _resource("ec2", config)
     ec2_client = _client("ec2", config)
     workspace_name = config["workspace_name"]
-    vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
     managed_cloud_storage = is_managed_cloud_storage(config)
 
     """
@@ -381,13 +421,15 @@ def check_aws_workspace_integrity(config):
          1.) Check VPC 
          2.) Check private subnets
          3.) Check public subnets
-         4.) Check nat-gatways
+         4.) Check nat-gateways
          5.) Check route-tables
-         6.) Check Internat-gateways
+         6.) Check Internet-gateways
          7.) Check security-group
          8.) Check VPC endpoint for s3
-         9.) Check S3 bucket
+         9.) Instance profiles
+         10.) Check S3 bucket
     """
+    vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
     if vpc_id is None:
         return False
     if len(get_workspace_private_subnets(workspace_name, ec2, vpc_id)) == 0:
@@ -398,11 +440,15 @@ def check_aws_workspace_integrity(config):
         return False
     if len(get_workspace_private_route_tables(workspace_name, ec2, vpc_id)) == 0:
         return False
-    if len(get_vpc_internat_gateways(ec2, vpc_id)) == 0:
+    if len(get_vpc_internet_gateways(ec2, vpc_id)) == 0:
         return False
     if get_workspace_security_group(config, vpc_id, workspace_name) is None:
         return False
-    if len(get_vpc_endpoint_for_s3(ec2_client, workspace_name)) == 0:
+    if len(get_vpc_endpoint_for_s3(ec2_client, vpc_id, workspace_name)) == 0:
+        return False
+    if _get_head_instance_profile(config) is None:
+        return False
+    if _get_worker_instance_profile(config) is None:
         return False
     if managed_cloud_storage:
         if get_workspace_s3_bucket(config, workspace_name) is None:
@@ -452,7 +498,7 @@ def delete_aws_workspace(config, delete_managed_storage: bool = False):
         return
 
     current_step = 1
-    total_steps = NUM_AWS_WORKSPACE_DELETION_STEPS
+    total_steps = AWS_WORKSPACE_NUM_DELETION_STEPS
     if not use_internal_ips:
         total_steps += 1
     if managed_cloud_storage and delete_managed_storage:
@@ -508,13 +554,13 @@ def _delete_workspace_instance_profile(config, workspace_name):
 
 
 def _delete_instance_profile_for_head(config, workspace_name):
-    head_instance_profile_name = _get_workspace_head_instance_profile_name(workspace_name)
+    head_instance_profile_name = _get_head_instance_profile_name(workspace_name)
     head_instance_role_name = "cloudtik-{}-head-role".format(workspace_name)
     _delete_instance_profile(config, head_instance_profile_name, head_instance_role_name)
 
 
 def _delete_instance_profile_for_worker(config, workspace_name):
-    worker_instance_profile_name = _get_workspace_worker_instance_profile_name(workspace_name)
+    worker_instance_profile_name = _get_worker_instance_profile_name(workspace_name)
     worker_instance_role_name = "cloudtik-{}-worker-role".format(workspace_name)
     _delete_instance_profile(config, worker_instance_profile_name, worker_instance_role_name)
 
@@ -600,7 +646,7 @@ def _delete_network_resources(config, workspace_name,
             "Deleting VPC endpoint for S3",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
-        _delete_vpc_endpoint_for_s3(ec2_client, workspace_name)
+        _delete_vpc_endpoint_for_s3(ec2_client, vpc_id, workspace_name)
 
     # delete vpc
     if not use_internal_ips:
@@ -857,7 +903,7 @@ def _configure_iam_role_for_head(config):
         return config
     _set_config_info(head_instance_profile_src="workspace")
 
-    instance_profile_name = _get_workspace_head_instance_profile_name(
+    instance_profile_name = _get_head_instance_profile_name(
         config["workspace_name"])
     profile = _get_instance_profile(instance_profile_name, config)
     if not profile:
@@ -873,11 +919,11 @@ def _configure_iam_role_for_head(config):
 def _configure_iam_role_for_cluster(config):
     _set_config_info(head_instance_profile_src="workspace")
 
-    head_instance_profile_name = _get_workspace_head_instance_profile_name(
+    head_instance_profile_name = _get_head_instance_profile_name(
         config["workspace_name"])
     head_profile = _get_instance_profile(head_instance_profile_name, config)
 
-    worker_instance_profile_name = _get_workspace_worker_instance_profile_name(
+    worker_instance_profile_name = _get_worker_instance_profile_name(
         config["workspace_name"])
     worker_profile = _get_instance_profile(worker_instance_profile_name, config)
 
@@ -1090,7 +1136,7 @@ def _key_assert_msg(node_type: str) -> str:
 
 def _delete_internet_gateway(workspace_name, ec2, vpc_id):
     """ Detach and delete the internet-gateway """
-    igws = get_workspace_internat_gateways(workspace_name, ec2, vpc_id)
+    igws = get_workspace_internet_gateways(workspace_name, ec2, vpc_id)
 
     if len(igws) == 0:
         cli_logger.print("No Internet Gateways for workspace were found under this VPC: {}...".format(vpc_id))
@@ -1236,8 +1282,8 @@ def _delete_vpc(ec2, ec2_client, vpc_id):
     return
 
 
-def _delete_vpc_endpoint_for_s3(ec2_client, workspace_name):
-    endpoint_ids = [endpoint['VpcEndpointId'] for endpoint in get_vpc_endpoint_for_s3(ec2_client, workspace_name)]
+def _delete_vpc_endpoint_for_s3(ec2_client, vpc_id, workspace_name):
+    endpoint_ids = [endpoint['VpcEndpointId'] for endpoint in get_vpc_endpoint_for_s3(ec2_client, vpc_id, workspace_name)]
     if len(endpoint_ids) == 0:
         cli_logger.print("No VPC endpoint for S3 was found in workspace.")
         return
@@ -1503,7 +1549,7 @@ def _create_workspace(config):
     managed_cloud_storage = is_managed_cloud_storage(config)
 
     current_step = 1
-    total_steps = NUM_AWS_WORKSPACE_CREATION_STEPS
+    total_steps = AWS_WORKSPACE_NUM_CREATION_STEPS
     if managed_cloud_storage:
         total_steps += 1
 
@@ -1555,7 +1601,7 @@ def _create_workspace_instance_profile(config, workspace_name):
 
 
 def _create_instance_profile_for_head(config, workspace_name):
-    head_instance_profile_name = _get_workspace_head_instance_profile_name(workspace_name)
+    head_instance_profile_name = _get_head_instance_profile_name(workspace_name)
     head_instance_role_name = "cloudtik-{}-head-role".format(workspace_name)
     cli_logger.print("Creating head instance profile: {}...".format(head_instance_profile_name))
     _create_or_update_instance_profile(config, head_instance_profile_name,
@@ -1564,7 +1610,7 @@ def _create_instance_profile_for_head(config, workspace_name):
 
 
 def _create_instance_profile_for_worker(config, workspace_name):
-    worker_instance_profile_name = _get_workspace_worker_instance_profile_name(workspace_name)
+    worker_instance_profile_name = _get_worker_instance_profile_name(workspace_name)
     worker_instance_role_name = "cloudtik-{}-worker-role".format(workspace_name)
     cli_logger.print("Creating worker instance profile: {}...".format(worker_instance_profile_name))
     _create_or_update_instance_profile(config, worker_instance_profile_name,
@@ -1601,12 +1647,24 @@ def _create_workspace_cloud_storage(config, workspace_name):
     return
 
 
-def _get_workspace_head_instance_profile_name(workspace_name):
+def _get_head_instance_profile_name(workspace_name):
     return "cloudtik-{}-head-profile".format(workspace_name)
 
 
-def _get_workspace_worker_instance_profile_name(workspace_name):
+def _get_worker_instance_profile_name(workspace_name):
     return "cloudtik-{}-worker-profile".format(workspace_name)
+
+
+def _get_head_instance_profile(config):
+    workspace_name = config["workspace_name"]
+    head_instance_profile_name = _get_head_instance_profile_name(workspace_name)
+    return _get_instance_profile(head_instance_profile_name, config)
+
+
+def _get_worker_instance_profile(config):
+    workspace_name = config["workspace_name"]
+    head_instance_profile_name = _get_worker_instance_profile_name(workspace_name)
+    return _get_instance_profile(head_instance_profile_name, config)
 
 
 def _create_network_resources(config, ec2, ec2_client,

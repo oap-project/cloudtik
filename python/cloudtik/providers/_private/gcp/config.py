@@ -750,12 +750,10 @@ def _delete_router(config, compute):
     return
 
 
-def check_firewall_exsit(config, compute, firewall_name):
+def check_firewall_exist(config, compute, firewall_name):
     if get_firewall(config, compute, firewall_name) is None:
-        cli_logger.verbose("The firewall {} doesn't exist.".format(firewall_name))
         return False
     else:
-        cli_logger.verbose("The firewall {} exists.".format(firewall_name))
         return True
 
 
@@ -798,7 +796,7 @@ def create_or_update_firewall(config, compute, firewall_body):
     firewall_name = firewall_body.get("name")
     project_id = config["provider"]["project_id"]
 
-    if not check_firewall_exsit(config, compute, firewall_name):
+    if not check_firewall_exist(config, compute, firewall_name):
         create_firewall(compute, project_id, firewall_body)
     else:
         cli_logger.print("The firewall {} already exists. Will update the rules... ".format(firewall_name))
@@ -889,7 +887,7 @@ def check_workspace_firewalls(config, compute):
     firewall_names = ["cloudtik-{}-default-allow-internal-firewall".format(workspace_name)]
 
     for firewall_name in firewall_names:
-        if not check_firewall_exsit(config, compute, firewall_name):
+        if not check_firewall_exist(config, compute, firewall_name):
             return False
 
     return True
@@ -1231,9 +1229,8 @@ def _create_workspace_cloud_storage(config):
     region = config["provider"]["region"]
     storage_client = _create_storage_client()
     suffix = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(8))
-    bucket_name = "cloudtik-{workspace_name}-{region}-{suffix}".format(
+    bucket_name = "cloudtik-{workspace_name}-{suffix}".format(
         workspace_name=workspace_name.lower(),
-        region=region,
         suffix=suffix
     )
 
@@ -1962,10 +1959,11 @@ def get_workspace_gcs_bucket(config, workspace_name):
     gcs = _create_storage_client()
     region = config["provider"]["region"]
     project_id = config["provider"]["project_id"]
-    bucket_name_prefix = "cloudtik-{workspace_name}-{region}-".format(
-        workspace_name=workspace_name.lower(),
-        region=region
+    bucket_name_prefix = "cloudtik-{workspace_name}-".format(
+        workspace_name=workspace_name.lower()
     )
+
+    cli_logger.verbose("Getting GCS bucket with prefix: {}.".format(bucket_name_prefix))
     for bucket in gcs.list_buckets(project=project_id):
         if bucket_name_prefix in bucket.name:
             cli_logger.verbose("Successfully get the GCS bucket: {}.".format(bucket.name))
@@ -1997,6 +1995,7 @@ def _get_service_account(account, config, iam):
         cli_logger.verbose("Getting service account: {}...".format(account))
         service_account = iam.projects().serviceAccounts().get(
             name=full_name).execute()
+        cli_logger.verbose("Successfully get the service account: {}.".format(account))
     except errors.HttpError as e:
         if e.resp.status != 404:
             raise

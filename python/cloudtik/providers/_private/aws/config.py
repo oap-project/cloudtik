@@ -453,6 +453,7 @@ def get_vpc_endpoint_for_s3(ec2_client, vpc_id, workspace_name):
     ])
     return vpc_endpoint['VpcEndpoints']
 
+
 def check_aws_workspace_existence(config):
     ec2 = _resource("ec2", config)
     ec2_client = _client("ec2", config)
@@ -2308,6 +2309,8 @@ def get_workspace_s3_bucket(config, workspace_name):
     bucket_name_prefix = "cloudtik-{workspace_name}-".format(
         workspace_name=workspace_name.lower(),
     )
+
+    cli_logger.verbose("Getting s3 bucket with prefix: {}.".format(bucket_name_prefix))
     for bucket in s3.buckets.all():
         if bucket_name_prefix in bucket.name:
             cli_logger.verbose("Successfully get the s3 bucket: {}.".format(bucket.name))

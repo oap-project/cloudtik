@@ -398,15 +398,19 @@ def check_aws_workspace_existence(config):
     if _get_worker_instance_profile(config) is not None:
         existing_resources += 1
 
+    cloud_storage_existence = False
     if managed_cloud_storage:
         if get_workspace_s3_bucket(config, workspace_name) is not None:
             existing_resources += 1
+            cloud_storage_existence = True
 
     if existing_resources == 0:
         return Existence.NOT_EXIST
     elif existing_resources == target_resources:
         return Existence.COMPLETED
     else:
+        if existing_resources == 1 and cloud_storage_existence:
+            return Existence.STORAGE_ONLY
         return Existence.IN_COMPLETED
 
 
@@ -1627,6 +1631,7 @@ def _create_workspace_cloud_storage(config, workspace_name):
         return
 
     s3 = _resource("s3", config)
+    s3_client = _client("s3", config)
     region = config["provider"]["region"]
     suffix = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(8))
     bucket_name = "cloudtik-{workspace_name}-{suffix}".format(
@@ -1640,6 +1645,10 @@ def _create_workspace_cloud_storage(config, workspace_name):
             s3.create_bucket(Bucket=bucket_name)
         else:
             s3.create_bucket(Bucket=bucket_name, CreateBucketConfiguration={'LocationConstraint': region})
+
+        # Enable server side encryption by default
+        s3_client.put_bucket_encryption(Bucket=bucket_name, ServerSideEncryptionConfiguration={
+            'Rules': [{'ApplyServerSideEncryptionByDefault': {'SSEAlgorithm': 'AES256'}}, ]})
         cli_logger.print(
             "Successfully created S3 bucket: {}.".format(bucket_name))
     except Exception as e:

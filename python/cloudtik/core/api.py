@@ -11,6 +11,7 @@ from cloudtik.core._private.event_system import (
     global_event_system)
 from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core._private import utils
+from cloudtik.core.workspace_provider import Existence
 
 
 class Workspace:
@@ -42,6 +43,10 @@ class Workspace:
     def update_firewalls(self) -> None:
         """Update the firewall rules for the workspace."""
         workspace_operator._update_workspace_firewalls(self.config)
+
+    def get_status(self) -> Existence:
+        """Return the existence status of the workspace."""
+        workspace_operator._get_workspace_status(self.config)
 
     def list_clusters(self) -> Optional[Dict[str, Any]]:
         """Get a list of cluster information running in the workspace"""

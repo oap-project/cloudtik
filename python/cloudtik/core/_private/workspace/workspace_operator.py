@@ -264,6 +264,29 @@ def _list_workspace_clusters(config: Dict[str, Any]) -> Optional[Dict[str, Any]]
     return provider.list_clusters(config)
 
 
+def show_status(
+        config_file: str,
+        override_workspace_name: Optional[str] = None):
+    """Show workspace status."""
+    config = _load_workspace_config(config_file, override_workspace_name)
+    workspace_name = config["workspace_name"]
+    existence = _get_workspace_status(config)
+    if existence == Existence.NOT_EXIST:
+        cli_logger.print(f"Workspace {workspace_name}: NOT EXIST.")
+    elif existence == Existence.STORAGE_ONLY:
+        cli_logger.print(f"Workspace {workspace_name}: STORAGE ONLY.")
+    elif existence == Existence.IN_COMPLETED:
+        cli_logger.print(f"Workspace {workspace_name}: NOT COMPLETED.")
+    else:
+        cli_logger.print(f"Workspace {workspace_name}: COMPLETED.")
+
+
+def _get_workspace_status(config):
+    workspace_name = config["workspace_name"]
+    provider = _get_workspace_provider(config["provider"], workspace_name)
+    return provider.check_workspace_existence(config)
+
+
 CONFIG_CACHE_VERSION = 1
 
 

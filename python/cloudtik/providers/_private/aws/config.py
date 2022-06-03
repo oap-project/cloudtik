@@ -1538,6 +1538,34 @@ def wait_nat_creation(ec2_client, nat_gateway_id):
         raise
 
 
+def _create_and_configure_nat_gateway(
+        config, ec2_client, vpc, subnet, private_route_table):
+    current_step = 1
+    total_steps = 2
+
+    with cli_logger.group(
+            "Creating NAT Gateway",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        nat_gateway = _create_nat_gateway(config, ec2_client, vpc, subnet)
+
+    with cli_logger.group(
+            "Configuring NAT Gateway route for private subnet",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _configure_nat_gateway_route_for_private_subnet(
+            ec2_client, nat_gateway, private_route_table)
+
+
+def _configure_nat_gateway_route_for_private_subnet(
+        ec2_client, nat_gateway, private_route_table):
+    cli_logger.print("Configuring NAT Gateway route for private subnet...")
+    # Create a default route pointing to NAT Gateway for private subnets
+    ec2_client.create_route(RouteTableId=private_route_table.id, DestinationCidrBlock='0.0.0.0/0',
+                            NatGatewayId=nat_gateway['NatGatewayId'])
+    cli_logger.print("Successfully configured NAT Gateway route for private subnet.")
+
+
 def _create_nat_gateway(config, ec2_client, vpc, subnet):
     cli_logger.print("Creating NAT Gateway for subnet: {}...".format(subnet.id))
     try:
@@ -1601,6 +1629,29 @@ def _create_vpc_endpoint_for_s3(config, ec2, ec2_client, vpc):
         raise e
 
 
+def _create_or_update_route_tables(
+        config, ec2, ec2_client, vpc, subnets, internet_gateway):
+    current_step = 1
+    total_steps = 2
+
+    with cli_logger.group(
+            "Updating route table for public subnet",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _update_route_table_for_public_subnet(
+            config, ec2, ec2_client, vpc, subnets[0], internet_gateway)
+
+    with cli_logger.group(
+            "Creating route table for private subnet",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        # create private route table for private subnets
+        private_route_table = _create_route_table_for_private_subnet(
+            config, ec2, vpc, subnets[-1])
+
+    return private_route_table
+
+
 def _update_route_table_for_public_subnet(config, ec2, ec2_client, vpc, subnet, igw):
     cli_logger.print("Updating public subnet route table: {}...".format(subnet.id))
     public_route_tables = get_workspace_public_route_tables(config["workspace_name"], ec2, vpc.id)
@@ -1620,6 +1671,7 @@ def _update_route_table_for_public_subnet(config, ec2, ec2_client, vpc, subnet, 
         ec2_client.delete_route(RouteTableId=public_route_table.id, DestinationCidrBlock='0.0.0.0/0')
         ec2_client.create_route(RouteTableId=public_route_table.id, DestinationCidrBlock='0.0.0.0/0', GatewayId=igw.id)
     public_route_table.associate_with_subnet(SubnetId=subnet.id)
+    cli_logger.print("Successfully updated public subnet route table: {}.".format(subnet.id))
 
 
 def _create_route_table_for_private_subnet(config, ec2, vpc, subnet):
@@ -1643,6 +1695,7 @@ def _create_route_table_for_private_subnet(config, ec2, vpc, subnet):
             ]
         )
     private_route_table.associate_with_subnet(SubnetId=subnet.id)
+    cli_logger.print("Successfully updated private subnet route table: {}.".format(subnet.id))
     return private_route_table
 
 
@@ -1804,22 +1857,19 @@ def _create_network_resources(config, ec2, ec2_client,
 
     # add internet_gateway into public route table
     with cli_logger.group(
-            "Updating route table",
+            "Updating route tables",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
-        _update_route_table_for_public_subnet(config, ec2, ec2_client, vpc, subnets[0], internet_gateway)
-        # create private route table for private subnets
-        private_route_table = _create_route_table_for_private_subnet(config, ec2, vpc, subnets[-1])
+        private_route_table = _create_or_update_route_tables(
+            config, ec2, ec2_client, vpc, subnets, internet_gateway)
 
     # create NAT gateway for private subnets
     with cli_logger.group(
-            "Creating NAT gateway",
+            "Creating and configuring NAT gateway",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
-        nat_gateway = _create_nat_gateway(config, ec2_client, vpc, subnets[0])
-        # Create a default route pointing to NAT Gateway for private subnets
-        ec2_client.create_route(RouteTableId=private_route_table.id, DestinationCidrBlock='0.0.0.0/0',
-                                NatGatewayId=nat_gateway['NatGatewayId'])
+        _create_and_configure_nat_gateway(
+            config, ec2_client, vpc, subnets[0], private_route_table)
 
     # create VPC endpoint for S3
     with cli_logger.group(
@@ -2103,20 +2153,36 @@ def _upsert_security_groups(config, node_types):
 
 
 def _upsert_security_group(config, vpc_id):
-    cli_logger.print("Updating security group for VPC: {}...".format(vpc_id))
-    security_group = _create_security_group(config, vpc_id,
-                                            SECURITY_GROUP_TEMPLATE.format(config["workspace_name"]))
-    _add_security_group_rules(config, security_group)
+    current_step = 1
+    total_steps = 2
+
+    with cli_logger.group(
+            "Creating security group for VPC",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        security_group = _create_workspace_security_group(config, vpc_id)
+
+    with cli_logger.group(
+            "Configuring rules for security group",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _add_security_group_rules(config, security_group)
 
     return security_group
 
 
+def _create_workspace_security_group(config, vpc_id):
+    group_name = SECURITY_GROUP_TEMPLATE.format(config["workspace_name"])
+    cli_logger.print("Creating security group for VPC: {}...".format(group_name))
+    security_group = _create_security_group(config, vpc_id, group_name)
+    cli_logger.print("Successfully created security group: {}.".format(group_name))
+    return security_group
+
+
 def _update_security_group(config, vpc_id):
-    cli_logger.print("Updating security group for VPC: {}...".format(vpc_id))
     security_group = get_workspace_security_group(config, vpc_id,
                                                   SECURITY_GROUP_TEMPLATE.format(config["workspace_name"]))
     _add_security_group_rules(config, security_group)
-    cli_logger.print("Successfully updated security group.")
     return security_group
 
 
@@ -2250,7 +2316,9 @@ def _upsert_security_group_rules(conf, security_groups):
 
 
 def _add_security_group_rules(conf, security_group):
+    cli_logger.print("Updating rules for security group: {}...".format(security_group.id))
     _update_inbound_rules(security_group, {security_group.id}, conf)
+    cli_logger.print("Successfully updated rules for security group.")
 
 
 def _update_inbound_rules(target_security_group, sgids, config):
@@ -2258,9 +2326,9 @@ def _update_inbound_rules(target_security_group, sgids, config):
         .get("security_group", {}) \
         .get("IpPermissions", [])
     ip_permissions = _create_default_inbound_rules(config, sgids, extended_rules)
-    old_ip_permisssions = target_security_group.ip_permissions
-    if len(old_ip_permisssions) != 0:
-        target_security_group.revoke_ingress(IpPermissions=old_ip_permisssions)
+    old_ip_permissions = target_security_group.ip_permissions
+    if len(old_ip_permissions) != 0:
+        target_security_group.revoke_ingress(IpPermissions=old_ip_permissions)
     target_security_group.authorize_ingress(IpPermissions=ip_permissions)
 
 

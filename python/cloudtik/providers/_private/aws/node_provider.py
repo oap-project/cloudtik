@@ -14,10 +14,10 @@ from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_NAME
 from cloudtik.core._private.log_timer import LogTimer
 from cloudtik.core._private.cli_logger import cli_logger, cf
 
-from cloudtik.providers._private.aws.config import verify_s3_storage, bootstrap_aws, make_ec2_client, post_prepare_aws
+from cloudtik.providers._private.aws.config import verify_s3_storage, bootstrap_aws, post_prepare_aws
 from cloudtik.providers._private.aws.utils import boto_exception_handler, \
     get_aws_s3_config, get_boto_error_code, BOTO_MAX_RETRIES, BOTO_CREATE_MAX_RETRIES, \
-    _get_node_info
+    _get_node_info, make_ec2_resource
 from cloudtik.providers._private.utils import validate_config_dict
 
 logger = logging.getLogger(__name__)
@@ -52,11 +52,11 @@ class AWSNodeProvider(NodeProvider):
                                                        False)
         aws_credentials = provider_config.get("aws_credentials")
 
-        self.ec2 = make_ec2_client(
+        self.ec2 = make_ec2_resource(
             region=provider_config["region"],
             max_retries=BOTO_MAX_RETRIES,
             aws_credentials=aws_credentials)
-        self.ec2_fail_fast = make_ec2_client(
+        self.ec2_fail_fast = make_ec2_resource(
             region=provider_config["region"],
             max_retries=0,
             aws_credentials=aws_credentials)

@@ -5,7 +5,7 @@ import time
 from pathlib import Path
 from threading import RLock
 from uuid import uuid4
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from azure.mgmt.compute import ComputeManagementClient
 from azure.mgmt.network import NetworkManagementClient
@@ -17,12 +17,13 @@ from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_NAME
 
-from cloudtik.providers._private._azure.config import (AZURE_MSI_NAME, get_azure_sdk_function,
+from cloudtik.providers._private._azure.config import (AZURE_MSI_NAME,
                                                        verify_azure_cloud_storage, bootstrap_azure,
                                                        _extract_metadata_for_node, bootstrap_azure_for_read,
-                                                       get_credential, post_prepare_azure)
+                                                       post_prepare_azure)
 
-from cloudtik.providers._private._azure.utils import get_azure_config, _get_node_info
+from cloudtik.providers._private._azure.utils import (get_azure_config, _get_node_info, get_azure_sdk_function,
+                                                      get_credential)
 from cloudtik.providers._private.utils import validate_config_dict
 
 VM_NAME_MAX_LEN = 64

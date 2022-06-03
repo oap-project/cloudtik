@@ -1559,7 +1559,7 @@ def _create_and_configure_nat_gateway(
 
 def _configure_nat_gateway_route_for_private_subnet(
         ec2_client, nat_gateway, private_route_table):
-    cli_logger.print("Configuring NAT Gateway route for private subnet.")
+    cli_logger.print("Configuring NAT Gateway route for private subnet...")
     # Create a default route pointing to NAT Gateway for private subnets
     ec2_client.create_route(RouteTableId=private_route_table.id, DestinationCidrBlock='0.0.0.0/0',
                             NatGatewayId=nat_gateway['NatGatewayId'])
@@ -1671,7 +1671,7 @@ def _update_route_table_for_public_subnet(config, ec2, ec2_client, vpc, subnet, 
         ec2_client.delete_route(RouteTableId=public_route_table.id, DestinationCidrBlock='0.0.0.0/0')
         ec2_client.create_route(RouteTableId=public_route_table.id, DestinationCidrBlock='0.0.0.0/0', GatewayId=igw.id)
     public_route_table.associate_with_subnet(SubnetId=subnet.id)
-    cli_logger.print("Successfully updated public subnet route table: {}...".format(subnet.id))
+    cli_logger.print("Successfully updated public subnet route table: {}.".format(subnet.id))
 
 
 def _create_route_table_for_private_subnet(config, ec2, vpc, subnet):
@@ -1695,7 +1695,7 @@ def _create_route_table_for_private_subnet(config, ec2, vpc, subnet):
             ]
         )
     private_route_table.associate_with_subnet(SubnetId=subnet.id)
-    cli_logger.print("Successfully updated private subnet route table: {}...".format(subnet.id))
+    cli_logger.print("Successfully updated private subnet route table: {}.".format(subnet.id))
     return private_route_table
 
 
@@ -2175,7 +2175,7 @@ def _create_workspace_security_group(config, vpc_id):
     group_name = SECURITY_GROUP_TEMPLATE.format(config["workspace_name"])
     cli_logger.print("Creating security group for VPC: {}...".format(group_name))
     security_group = _create_security_group(config, vpc_id, group_name)
-    cli_logger.print("Successfully created security group: {}...".format(group_name))
+    cli_logger.print("Successfully created security group: {}.".format(group_name))
     return security_group
 
 

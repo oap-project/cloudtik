@@ -683,7 +683,7 @@ def _delete_network_resources(config, workspace_name,
             "Deleting NAT gateway",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
-        _delete_nat_gateway(workspace_name, ec2_client, vpc_id)
+        _delete_nat_gateways(workspace_name, ec2_client, vpc_id)
 
     # delete public subnets
     with cli_logger.group(
@@ -1289,28 +1289,49 @@ def release_elastic_ip_address(ec2_client, allocation_id, retry=5):
                 cli_logger.error("Failed to release elastic ip address for NAT Gateway. {}", str(e))
                 raise e
 
-    cli_logger.print("Successfully released elastic ip address for NAT Gateway.")
 
-
-def _delete_nat_gateway(workspace_name, ec2_client, vpc_id):
+def _delete_nat_gateways(workspace_name, ec2_client, vpc_id):
     """ Remove nat-gateway and release elastic IP """
     nat_gateways = get_workspace_nat_gateways(workspace_name, ec2_client, vpc_id)
     if len(nat_gateways) == 0:
         cli_logger.print("No NAT Gateways for workspace were found under this VPC: {}...".format(vpc_id))
         return
-    try:
-        for nat in nat_gateways:
-            cli_logger.print("Deleting NAT Gateway: {}...".format(nat["NatGatewayId"]))
-            ec2_client.delete_nat_gateway(NatGatewayId=nat["NatGatewayId"])
-            cli_logger.print("Successfully deleted NAT Gateway: {}.".format(nat["NatGatewayId"]))
 
-            cli_logger.print("Deleting elastic instance : {}...".format(nat["NatGatewayAddresses"][0]["AllocationId"]))
-            release_elastic_ip_address(ec2_client, nat["NatGatewayAddresses"][0]["AllocationId"])
-            cli_logger.print("Successfully deleted elastic instance.")
+    for nat in nat_gateways:
+        _delete_nat_gateway(nat, ec2_client)
+
+
+def _delete_nat_gateway_resource(nat, ec2_client):
+    try:
+        cli_logger.print("Deleting NAT Gateway: {}...".format(nat["NatGatewayId"]))
+        ec2_client.delete_nat_gateway(NatGatewayId=nat["NatGatewayId"])
+        cli_logger.print("Successfully deleted NAT Gateway: {}.".format(nat["NatGatewayId"]))
     except boto3.exceptions.Boto3Error as e:
         cli_logger.error("Failed to delete NAT Gateway. {}", str(e))
         raise e
-    return
+
+
+def _delete_elastic_ip_address(nat, ec2_client):
+    cli_logger.print("Releasing elastic ip address : {}...".format(nat["NatGatewayAddresses"][0]["AllocationId"]))
+    release_elastic_ip_address(ec2_client, nat["NatGatewayAddresses"][0]["AllocationId"])
+    cli_logger.print("Successfully released elastic ip address for NAT Gateway.")
+
+
+def _delete_nat_gateway(nat, ec2_client):
+    current_step = 1
+    total_steps = 2
+
+    with cli_logger.group(
+            "Deleting NAT Gateway",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _delete_nat_gateway_resource(nat, ec2_client)
+
+    with cli_logger.group(
+            "Releasing elastic ip address",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _delete_elastic_ip_address(nat, ec2_client)
 
 
 def _delete_security_group(config, vpc_id):
@@ -1399,51 +1420,69 @@ def _create_vpc(config, ec2, ec2_client):
 def _create_and_configure_subnets(config, vpc):
     subnets = []
     cidr_list = _configure_subnets_cidr(vpc)
-    for i in range(0, len(cidr_list)):
-        cli_logger.print("Creating subnet for VPC: {} with CIDR: {}...".format(vpc.id, cidr_list[i]))
-        try:
-            if i == 0:
-                subnet = vpc.create_subnet(
-                    CidrBlock=cidr_list[i],
-                    TagSpecifications=[
-                        {
-                            'ResourceType': 'subnet',
-                            'Tags': [
-                                {
-                                    'Key': 'Name',
-                                    'Value': 'cloudtik-{}-public-subnet'.format(config["workspace_name"])
-                                },
-                            ]
-                        },
-                    ]
-                )
-                subnet.meta.client.modify_subnet_attribute(SubnetId=subnet.id,
-                                                               MapPublicIpOnLaunch={"Value": True})
-                cli_logger.print("Successfully created public subnet: cloudtik-{}-public-subnet.".format(config["workspace_name"]))
-            else:
-                subnet = vpc.create_subnet(
-                    CidrBlock=cidr_list[i],
-                    TagSpecifications=[
-                        {
-                            'ResourceType': 'subnet',
-                            'Tags': [
-                                {
-                                    'Key': 'Name',
-                                    'Value': 'cloudtik-{}-private-subnet'.format(config["workspace_name"])
-                                },
-                            ]
-                        },
-                    ]
-                )
-                cli_logger.print("Successfully created private subnet: cloudtik-{}-private-subnet.".format(
-                    config["workspace_name"]))
-        except Exception as e:
-            cli_logger.error("Failed to create subnet. {}", str(e))
-            raise e
-        subnets.append(subnet)
+    cidr_len = len(cidr_list)
+    for i in range(0, cidr_len):
+        cidr_block = cidr_list[i]
+        subnet_type = "public" if i == 0 else "private"
+        with cli_logger.group(
+                "Creating {} subnet", subnet_type,
+                _numbered=("()", i + 1, cidr_len)):
+            try:
+                if i == 0:
+                    subnet = _create_public_subnet(config, vpc, cidr_block)
+                else:
+                    subnet = _create_private_subnet(config, vpc, cidr_block)
+            except Exception as e:
+                cli_logger.error("Failed to create {} subnet. {}", subnet_type, str(e))
+                raise e
+            subnets.append(subnet)
 
     assert len(subnets) == 2, "We must create 2 subnets for VPC: {}!".format(vpc.id)
     return subnets
+
+
+def _create_public_subnet(config, vpc, cidr_block):
+    cli_logger.print("Creating public subnet for VPC: {} with CIDR: {}...".format(vpc.id, cidr_block))
+    subnet_name = 'cloudtik-{}-public-subnet'.format(config["workspace_name"])
+    subnet = vpc.create_subnet(
+        CidrBlock=cidr_block,
+        TagSpecifications=[
+            {
+                'ResourceType': 'subnet',
+                'Tags': [
+                    {
+                        'Key': 'Name',
+                        'Value': subnet_name
+                    },
+                ]
+            },
+        ]
+    )
+    subnet.meta.client.modify_subnet_attribute(SubnetId=subnet.id,
+                                               MapPublicIpOnLaunch={"Value": True})
+    cli_logger.print("Successfully created public subnet: {}.".format(subnet_name))
+    return subnet
+
+
+def _create_private_subnet(config, vpc, cidr_block):
+    cli_logger.print("Creating private subnet for VPC: {} with CIDR: {}...".format(vpc.id, cidr_block))
+    subnet_name = 'cloudtik-{}-private-subnet'.format(config["workspace_name"])
+    subnet = vpc.create_subnet(
+        CidrBlock=cidr_block,
+        TagSpecifications=[
+            {
+                'ResourceType': 'subnet',
+                'Tags': [
+                    {
+                        'Key': 'Name',
+                        'Value': subnet_name
+                    },
+                ]
+            },
+        ]
+    )
+    cli_logger.print("Successfully created private subnet: {}.".format(subnet_name))
+    return subnet
 
 
 def _create_internet_gateway(config, ec2, ec2_client, vpc):

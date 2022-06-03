@@ -24,7 +24,8 @@ from cloudtik.core._private.utils import check_cidr_conflict, get_cluster_uri, i
     is_managed_cloud_storage, is_use_managed_cloud_storage, is_worker_role_for_cloud_storage
 from cloudtik.core.workspace_provider import Existence
 from cloudtik.providers._private.aws.utils import LazyDefaultDict, \
-    handle_boto_error, resource_cache, get_boto_error_code, _get_node_info, client_cache, BOTO_MAX_RETRIES
+    handle_boto_error, get_boto_error_code, _get_node_info, BOTO_MAX_RETRIES, _resource, \
+    _client, _make_resource, _make_client, make_ec2_client
 from cloudtik.providers._private.utils import StorageTestingError
 
 logger = logging.getLogger(__name__)
@@ -117,12 +118,6 @@ def _arn_to_name(arn):
     return arn.split(":")[-1].split("/")[-1]
 
 
-def make_ec2_client(region, max_retries, aws_credentials=None):
-    """Make client, retrying requests up to `max_retries`."""
-    aws_credentials = aws_credentials or {}
-    return resource_cache("ec2", region, max_retries, **aws_credentials)
-
-
 def list_ec2_instances(region: str, aws_credentials: Dict[str, Any] = None
                        ) -> List[Dict[str, Any]]:
     """Get all instance-types/resources available in the user's AWS region.
@@ -140,8 +135,10 @@ def list_ec2_instances(region: str, aws_credentials: Dict[str, Any] = None
 
     """
     final_instance_types = []
-    aws_credentials = aws_credentials or {}
-    ec2 = client_cache("ec2", region, BOTO_MAX_RETRIES, **aws_credentials)
+    ec2 = make_ec2_client(
+        region=region,
+        max_retries=BOTO_MAX_RETRIES,
+        aws_credentials=aws_credentials)
     instance_types = ec2.describe_instance_types()
     final_instance_types.extend(copy.deepcopy(instance_types["InstanceTypes"]))
     while "NextToken" in instance_types:
@@ -2622,21 +2619,3 @@ def list_aws_clusters(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         if cluster_name:
             clusters[cluster_name] = _get_node_info(head_node)
     return clusters
-
-
-def _client(name, config):
-    return _make_client(name, config["provider"])
-
-
-def _resource(name, config):
-    return _make_resource(name, config["provider"])
-
-
-def _make_client(name, provider_config):
-    return _make_resource(name, provider_config).meta.client
-
-
-def _make_resource(name, provider_config):
-    region = provider_config["region"]
-    aws_credentials = provider_config.get("aws_credentials", {})
-    return resource_cache(name, region, **aws_credentials)

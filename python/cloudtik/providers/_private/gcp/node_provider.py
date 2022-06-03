@@ -1,5 +1,4 @@
-import copy
-from typing import Any, Dict, List
+from typing import Any, Dict
 from functools import wraps
 from threading import RLock
 import time
@@ -11,16 +10,16 @@ from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core.node_provider import NodeProvider
 
 from cloudtik.providers._private.gcp.config import (
-    construct_clients_from_provider_config, get_node_type, verify_gcs_storage, bootstrap_gcp, post_prepare_gcp)
+    verify_gcs_storage, bootstrap_gcp, post_prepare_gcp)
 
 # The logic has been abstracted away here to allow for different GCP resources
 # (API endpoints), which can differ widely, making it impossible to use
 # the same logic for everything.
 from cloudtik.providers._private.gcp.node import (
-    GCPResource, GCPNode, GCPCompute, GCPTPU, GCPNodeType,
-    INSTANCE_NAME_MAX_LEN, INSTANCE_NAME_UUID_LEN)
+    GCPResource, GCPNode, GCPCompute, GCPTPU, GCPNodeType)
 
-from cloudtik.providers._private.gcp.utils import get_gcs_config, _get_node_info
+from cloudtik.providers._private.gcp.utils import get_gcs_config, _get_node_info, \
+    construct_clients_from_provider_config, get_node_type
 from cloudtik.providers._private.utils import validate_config_dict
 
 logger = logging.getLogger(__name__)

@@ -13,7 +13,7 @@ more easily if such knowledge is in mind.
 ## High Level Architecture
 Blow diagram shows the high level system architecture of CloudTik.
 
-![system-architecture](../../image/system-architecture.jpg)
+![Hive Level System Architecture](../../image/system-architecture.jpg)
 
 User can use CloudTik through a command line interface (CLI) or a python application programming interface (API).
 Both CLI and API provides the management operations for both workspace and cluster, for example creating a workspace or
@@ -39,7 +39,7 @@ to perform tasks like installing, configuring and managing the services running 
 ## Cluster Architecture
 Blow diagram shows the cluster architecture and a general internal steps when starting a cluster.
 
-![cluster-architecture](../../image/cluster-architecture.jpg)
+![Cluster Architecture](../../image/cluster-architecture.jpg)
 
 Let's zoom in to have a closer look to a single cluster. A CloudTik cluster includes one head and
 zero or more workers.
@@ -56,7 +56,7 @@ The process of starting a cluster:
 ## Head and Worker Services
 Let's have a look to what services are running on head node and worker nodes.
 
-![head-and-worker-services](../../image/head-and-worker-services.jpg)
+![Head and Worker Services](../../image/head-and-worker-services.jpg)
 
 Head node is the brain of the cluster. It runs the core services for both CloudTik and the runtimes such as Spark.
 Head node runs the following services:
@@ -77,7 +77,7 @@ Worker nodes are horse force providing computation power. On worker node, it run
 As mentioned that cluster controller is the braining of cluster scaling capabilities.
 Below shows the key controller loop for what cluster controller does for managing the scaling and cluster availability.
 
-![cluster-controller](../../image/cluster-controller.jpg)
+![Cluster Controller](../../image/cluster-controller.jpg)
 
 First, Cluster Controller keep checking the active non-terminated nodes for cluster and keep the minimal
 number of workers satisfied. If one or more nodes are terminated for any reasons, Cluster Controller
@@ -98,7 +98,7 @@ to each node.
 ## Runtime Design
 Belows diagram shows the current design of analytics runtimes (AI to come).
 
-![analytics-runtimes](../../image/analytics-runtimes.jpg)
+![Analytics Runtimes](../../image/analytics-runtimes.jpg)
 
 CloudTik targets to support a systematic of analytics and AI services to efficiently solve
 end-to-end and distributed analytics and AI problems.
@@ -109,7 +109,7 @@ We will continue to optimize and advance to include AI features as next step.
 ## Execution Mode
 CloudTik supports two execution mode: Host mode and Container mode.
 
-![execution-mode](../../image/execution-mode.jpg)
+![Execution Mode](../../image/execution-mode.jpg)
 
 For Host mode, all CloudTik and runtime services are running directly on the VM instance
 launched from the cloud provider. The software packages are downloaded, installed and configured

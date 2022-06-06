@@ -63,7 +63,8 @@ Please refer to [Creating projects](https://cloud.google.com/resource-manager/do
 First, follow [Creating a service account](https://cloud.google.com/docs/authentication/getting-started#creating_a_service_account)
 to create a service account on Google Cloud. 
 
-A JSON file should be safely downloaded to your local computer, and then set the `GOOGLE_APPLICATION_CREDENTIALS` environment
+To use the service account through API, you need a service account key. Refer to [Create and manage service account keys](https://cloud.google.com/iam/docs/creating-managing-service-account-keys) for details.
+
+A JSON key file should be safely downloaded to your local computer, and then set the `GOOGLE_APPLICATION_CREDENTIALS` environment
 variable as described in the [Setting the environment variable](https://cloud.google.com/docs/authentication/getting-started#setting_the_environment_variable)
 on your working machine.
-

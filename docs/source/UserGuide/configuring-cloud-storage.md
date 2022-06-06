@@ -99,15 +99,18 @@ The following applies only when you want to create or use your own storage and c
 ### Creating GCS Bucket
 If you want to use your own GCS bucket, you can create one by following the
 [Creating buckets](https://cloud.google.com/storage/docs/creating-buckets#create_a_new_bucket).
-
-### Configuring GCS in CloudTik
-To control access to the bucket, please refer to [Google cloud buckets](../GettingStarted/gcs-bucket.md) for instructions. 
 The name of bucket will be used when configuring GCP cluster yaml.
 
-You will also need the previously downloaded Json file's `project_id`, `client_email`, `private_key_id` and 
-`gcs.service.account.private.key` when configuring a GCP cluster yaml, which grants the access to the created GCP bucket.
+### Configuring GCS in CloudTik
+You can use the same login service account to gain access to the bucket or create a dedicated service account.
+Refer to [Creating a service account](https://cloud.google.com/docs/authentication/getting-started#creating_a_service_account) if you need to create a service account.
 
-You will be able to fill out the `gcp_cloud_storage` for your cluster configuration yaml file.
+To use the service account through API, you need a service account key. Refer to [Create and manage service account keys](https://cloud.google.com/iam/docs/creating-managing-service-account-keys) for details.
+
+To control access to the bucket, please refer to [Google Cloud Storage: Use IAM permissions](https://cloud.google.com/storage/docs/access-control/using-iam-permissions) for instructions
+to add principal (using the service account) and roles for bucket resource. We suggest you to choose "Storage Admin" role to gain full access to GCS bucket.
+
+You will be able to fill out the `gcp_cloud_storage` for your cluster configuration yaml file using the download JSON key file.
 
 ```
 # Cloud-provider specific configuration.

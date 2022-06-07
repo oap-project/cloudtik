@@ -22,10 +22,23 @@ function prepare_coordinator() {
     echo "Successfully get coordinator: ${head_ip}"
 }
 
+function contains() {
+    local n=$#
+    local value=${!n}
+    for ((i=1;i < $#;i++)) {
+        if [ "${!i}" == "${value}" ]; then
+            echo "y"
+            return 0
+        fi
+    }
+    echo "n"
+    return 1
+}
+
 function check_data_scale(){
     if [ "${WORKLOAD}" == "tpch" ];then
         TPCH_ALLOWED_SF=( 1 100 1000 10000 100000 300 3000 30000 )
-        if [[ ${TPCH_ALLOWED_SF[*]} =~ "$SCALE" ]]; then
+        if [ $(contains "${TPCH_ALLOWED_SF[*]}" "$SCALE") == "y" ]; then
             echo "SF$SCALE is allowed for TPCH."
         else
             echo "SF$SCALE is not allowed for TPCH. Supported SF: ${TPCH_ALLOWED_SF[*]}."
@@ -33,7 +46,7 @@ function check_data_scale(){
         fi
     elif [ "${WORKLOAD}" == "tpcds" ];then
         TPCDS_ALLOWED_SF=( 1 10 100 1000 10000 100000 300 3000 30000 )
-        if [[ ${TPCDS_ALLOWED_SF[*]} =~ "$SCALE" ]]; then
+        if [ $(contains "${TPCDS_ALLOWED_SF[*]}" "$SCALE") == "y" ]; then
             echo "SF$SCALE is allowed for TPCDS."
         else
             echo "SF$SCALE is not allowed for TPCDS. Supported SF: ${TPCDS_ALLOWED_SF[*]}."
@@ -52,9 +65,9 @@ function prepare_tpcds_queries(){
     database=tpcds
     schema=${SCALE}
     prefix=""
-    sed -i "s#\${database}#'${database}'#g" `grep '\${database}' -rl $PRESTO_HOME/tpcds`
-    sed -i "s#\${schema}#'${schema}'#g" `grep '\${schema}' -rl $PRESTO_HOME/tpcds`
-    sed -i "s#\${prefix}#'${prefix}'#g" `grep '\${prefix}' -rl $PRESTO_HOME/tpcds`
+    sed -i "s#\${database}#${database}#g" `grep '\${database}' -rl $PRESTO_HOME/tpcds`
+    sed -i "s#\${schema}#sf${schema}#g" `grep '\${schema}' -rl $PRESTO_HOME/tpcds`
+    sed -i "s#\${prefix}#${prefix}#g" `grep '\${prefix}' -rl $PRESTO_HOME/tpcds`
 }
 
 function prepare_tpch_queries(){
@@ -67,9 +80,9 @@ function prepare_tpch_queries(){
     database=tpch
     schema=${SCALE}
     prefix=""
-    sed -i "s#\${database}#'${database}'#g" `grep '\${database}' -rl $PRESTO_HOME/tpch`
-    sed -i "s#\${schema}#'${schema}'#g" `grep '\${schema}' -rl $PRESTO_HOME/tpch`
-    sed -i "s#\${prefix}#'${prefix}'#g" `grep '\${prefix}' -rl $PRESTO_HOME/tpch`
+    sed -i "s#\${database}#${database}#g" `grep '\${database}' -rl $PRESTO_HOME/tpch`
+    sed -i "s#\${schema}#sf${schema}#g" `grep '\${schema}' -rl $PRESTO_HOME/tpch`
+    sed -i "s#\${prefix}#${prefix}#g" `grep '\${prefix}' -rl $PRESTO_HOME/tpch`
 }
 
 

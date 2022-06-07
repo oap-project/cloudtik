@@ -12,7 +12,7 @@ bash dev/install-conda.sh
 ```
 
 Once Conda is installed, create an environment with a specific Python version as below.
-CloudTik currently supports Python 3.7, 3.8, 3.9. Here we take Python 3.7 as an example.
+CloudTik currently supports Python 3.7, 3.8, 3.9. Take Python 3.7 for example,
 
 ```
 conda create -n cloudtik -y python=3.7
@@ -23,7 +23,7 @@ conda activate cloudtik
 
 Execute the following `pip` commands to install CloudTik on your working machine for specific cloud providers. 
 
-Here we take AWS as an example.
+Take AWS for example,
 
 ```
 # if running CloudTik on aws
@@ -85,7 +85,7 @@ Within a workspace, you can start one or more clusters with different combinatio
 Create a configuration workspace yaml file to specify the unique workspace name, cloud provider type and a few cloud 
 provider properties. 
 
-Take AWS as an example.
+Take AWS as an example,
 
 ```
 # A unique identifier for the workspace.
@@ -120,9 +120,7 @@ cloudtik start /path/to/your-cluster-config.yaml
 
 A typical cluster configuration file is usually very simple thanks to design of CloudTik's templates with inheritance.
 
-Here we take AWS as an example. This example can be found from CloudTik's `example/cluster/aws/example-standard.yaml`.
-It will start a cluster named "example-docker" in workspace "example-workspace" with minimal of 3 worker nodes running
-Ganglia and Spark runtime services by default.
+Take AWS for example,
 
 ```
 # An example of standard 1 + 3 nodes cluster with standard instance type
@@ -149,6 +147,11 @@ available_node_types:
         # The minimum number of worker nodes to launch.
         min_workers: 3
 ```
+
+This example can be found in CloudTik source code folder `example/cluster/aws/example-standard.yaml`.
+
+It will start a cluster named "example" in workspace "example-workspace" with minimal of 3 worker nodes running
+Ganglia and Spark runtime services by default.
 
 You need only a few key settings in the configuration file to launch a Spark cluster.
 
@@ -208,6 +211,8 @@ Download files or directories from cluster.
 cloudtik rsync-down /path/to/your-cluster-config.yaml [source] [target]
 ```
 
+### 7. Tearing Down
+
 #### Terminate a Cluster
 
 Stop and delete the cluster.
@@ -223,5 +228,7 @@ Delete the workspace and all the network resources within it.
 ```
 cloudtik workspace delete /path/to/your-workspace-config.yaml
 ```
+Be default, the managed cloud storage will not be deleted.
+Add --delete-managed-storage option to force deletion of manged cloud storage.
 
 For more information as to the commands, you can use `cloudtik --help` or `cloudtik [command] --help` to get detailed instructions.

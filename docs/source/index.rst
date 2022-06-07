@@ -32,7 +32,7 @@ CloudTik is a cloud scaling platform to scale your distributed analytics and AI 
    UserGuide/creating-workspace.md
    UserGuide/creating-cluster.md
    UserGuide/managing-cluster.md
-   UserGuide/advanced-tasks.md
+   UserGuide/advanced-tasks.rst
 
 
 .. toctree::

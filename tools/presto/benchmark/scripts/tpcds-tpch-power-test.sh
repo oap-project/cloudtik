@@ -13,7 +13,7 @@ SCALE=1
 WORKLOAD=tpcds
 
 function usage() {
-    echo "Usage: $0 -i [iteration] -s [scale] -w [workload] | -h | --help" >&2
+    echo "Usage: $0 -i=[iteration] -s=[scale] -w=[workload] | -h | --help" >&2
 }
 
 function prepare_coordinator() {
@@ -23,30 +23,32 @@ function prepare_coordinator() {
 }
 
 function check_data_scale(){
-    if [ "${WORKLOAD}" == "tpcds" ];then
+    if [ "${WORKLOAD}" == "tpch" ];then
         TPCH_ALLOWED_SF=( 1 100 1000 10000 100000 300 3000 30000 )
         if [[ ${TPCH_ALLOWED_SF[*]} =~ "$SCALE" ]]; then
             echo "SF$SCALE is allowed for TPCH."
         else
             echo "SF$SCALE is not allowed for TPCH. Supported SF: ${TPCH_ALLOWED_SF[*]}."
+            exit 1
         fi
-    elif [ "${WORKLOAD}" == "tpch" ];then
+    elif [ "${WORKLOAD}" == "tpcds" ];then
         TPCDS_ALLOWED_SF=( 1 10 100 1000 10000 100000 300 3000 30000 )
         if [[ ${TPCDS_ALLOWED_SF[*]} =~ "$SCALE" ]]; then
             echo "SF$SCALE is allowed for TPCDS."
         else
             echo "SF$SCALE is not allowed for TPCDS. Supported SF: ${TPCDS_ALLOWED_SF[*]}."
+            exit 1
         fi
     fi
-
 }
 
 function prepare_tpcds_queries(){
-    if [ ! -d "/tmp/presto" ]; then
-        git clone https://github.com/prestodb/presto.git /tmp/presto
+    if [ ! -d "/tmp/repo/presto" ]; then
+        mkdir -p /tmp/repo
+        git clone https://github.com/prestodb/presto.git /tmp/repo/presto
     fi
     rm -rf $PRESTO_HOME/tpcds/tpcds-queries && mkdir -p $PRESTO_HOME/tpcds
-    cp -r /tmp/presto/presto-benchto-benchmarks/src/main/resources/sql/presto/tpcds $PRESTO_HOME/tpcds/tpcds-queries
+    cp -r /tmp/repo/presto/presto-benchto-benchmarks/src/main/resources/sql/presto/tpcds $PRESTO_HOME/tpcds/tpcds-queries
     database=tpcds
     schema=${SCALE}
     prefix=""
@@ -56,11 +58,12 @@ function prepare_tpcds_queries(){
 }
 
 function prepare_tpch_queries(){
-    if [ ! -d "/tmp/presto" ]; then
-        git clone https://github.com/prestodb/presto.git /tmp/presto
+    if [ ! -d "/tmp/repo/presto" ]; then
+        mkdir -p /tmp/repo
+        git clone https://github.com/prestodb/presto.git /tmp/repo/presto
     fi
     rm -rf $PRESTO_HOME/tpch/tpch-queries && mkdir -p $PRESTO_HOME/tpch
-    cp -r /tmp/presto/presto-benchto-benchmarks/src/main/resources/sql/presto/tpch $PRESTO_HOME/tpch/tpch-queries
+    cp -r /tmp/repo/presto/presto-benchto-benchmarks/src/main/resources/sql/presto/tpch $PRESTO_HOME/tpch/tpch-queries
     database=tpch
     schema=${SCALE}
     prefix=""
@@ -174,6 +177,10 @@ do
         shift
         usage
         exit 0
+        ;;
+    --)
+        shift
+        break
         ;;
     esac
     shift

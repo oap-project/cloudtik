@@ -9,35 +9,26 @@ Please follow instructions below to customize your cluster configuration.
 
 ## Execution Mode
 
-CloudTik supports to run services with two execution modes: 
+Choosing between host mode or container mode is simple with 'enabled' option under 'docker' config.
 
-- Host Mode: All the services will run on (VM) host. 
-
-- Container Mode: All the service will run in Docker container on (VM) host. 
-    - CloudTik handles all the docker stuffs transparently (installation, command execution bridge). Users see little difference on operations. 
-
-Host mode is set as below
-
+The following config chooses to run on host mode:
 ```
-# This executes all commands on all nodes in the docker container,
-# and opens all the necessary ports to support the cluster.
 # Turn on or off container by setting "enabled" to True or False.
 docker:
     enabled: False
 
 ```
 
-Container mode is set as below.
+The following config chooses to run on container mode:
 
 ```
 # Enable container
 docker:
     enabled: True
-    image: "cloudtik/spark-runtime:latest"
-    container_name: "cloudtik-spark"
-    disable_shm_size_detection: True
 ```
 
+There are a few other advanced options for container mode.
+For details, please refer to [Advanced Tasks: Configuring Container Mode](./AdvancedTasks/configuring-container-mode.md)
 
 ## Controlling the Number of Workers
 
@@ -60,52 +51,25 @@ available_node_types:
 
 ## Choosing Runtimes for Cluster
 
-CloudTik introduces **Runtime** concept to integrate different analytics and AI frameworks to deploy into clusters.
+Without extra configuration, CloudTik creates a cluster with the Ganglia and Spark runtimes by default.
+You can use 'types' configure key under 'runtime' to configure the list of runtimes for the cluster.
 
-- **Spark**,  a multi-language engine for executing data engineering, data science, and machine learning.
-
-- **HDFS**, a distributed file system designed to run on commodity hardware.
-
-- **Ganglia**, a scalable distributed monitoring system for high-performance computing systems such as clusters and Grids.
-
-- **Metastore**, a service that stores metadata related to Apache Hive and other services.
-
-- **Presto**, a distributed SQL query engine for running interactive analytic queries against data sources of all sizes.
-
-- **ZooKeeper**, a centralized service for maintaining configuration information, naming, providing distributed synchronization, and providing group services.
-
-- **Kafka**, a community distributed event streaming platform capable of handling trillions of events a day.
-
-Default runtimes contains ganglia and Spark, you can add more runtimes according to demands of your cluster.
-
-For example, if you want use HDFS as file system instead of cloud storage, please add configuration to your cluster yaml file as below.
+The following example will start a cluster with Ganglia, HDFS as default storage and Spark.
 
 ```
 runtime:
     types: [ganglia, hdfs, spark]
 ```
 
-## Customizing Setup Steps
+For more detailed information of each runtime, please refer to [Reference: Runtimes](../Reference/runtimes.md)
 
-CloudTik will install and configure Conda, Python, selected Runtimes and other requirements to your head and workers on setup step.
-
-You can customize the commands during cluster setup steps.
+## Using Bootstrap Commands to Customize Setup
+You can specify a list of commands in the 'bootstrap_commands' in cluster config
+to run customized setup commands.
 
 ```
-# List of commands that will be run before `setup_commands`.
-initialization_commands: []
-
-# Commands running when each node setting up.
-setup_commands: []
-
-# Commands running when head node setting up.
-head_setup_commands:[]
-
-# Commands running when worker nodes setting up.
-worker_setup_commands:[]
-
 # Commands running after common setup commands
-bootstrap_commands: []
+bootstrap_commands: ['your shell command 1', 'your shell command 2']
 ```
 
 For example, If you want to add more integrations to your clusters within the setup steps, such as adding required tools to run TPC-DS, 
@@ -118,8 +82,10 @@ bootstrap_commands:
     - wget -P ~/ https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/spark/benchmark/scripts/bootstrap-benchmark.sh &&
         bash ~/bootstrap-benchmark.sh  --tpcds
 ```
+CloudTik allows user to custom as mang commands as CloudTik itself does.
+For more advanced commands customization, please refer to [Advanced Tasks: Using Custom Commands](./AdvancedTasks/using-custom-commands.md)
 
-## Mounting Files or Directories to Each Node
+## Mounting Files or Directories to Nodes
 
 To mount files or directories to each node when cluster starting up, add the following to cluster configuration file.
 
@@ -135,88 +101,24 @@ file_mounts: {
 ```
 
 ## Using Templates to Simplify Node Configuration
+CloudTik designs a templating structure to allow user to reuse a standard configurations.
+A template defines a typical or useful configurations for node such as the instance type and disk configurations.
+By inheriting from a template, you get these configurations by default.
+You can use the keyword 'from' to specify the template you want to inherit from.
 
-CloudTik designs the structure of inheritance to offer a series of cluster configuration templates.
-Please refer to CloudTik's `python/cloudtik/templates` directory for configuration templates for different cloud providers.
-
-Here is AWS standard template, which is located in CloudTik's `./python/cloudtik/templates/aws/standard.yaml`
-
-```
-# Cloud-provider specific configuration.
-provider:
-    type: aws
-
-# The instance configuration for a standard instance type
-available_node_types:
-    head.default:
-        node_config:
-            InstanceType: m5.2xlarge
-            BlockDeviceMappings:
-                - DeviceName: /dev/sda1
-                  Ebs:
-                      VolumeSize: 100
-                      VolumeType: gp2
-                      DeleteOnTermination: True
-    worker.default:
-        node_config:
-            InstanceType: m5.2xlarge
-            BlockDeviceMappings:
-                - DeviceName: /dev/sda1
-                  Ebs:
-                      VolumeSize: 100
-                      VolumeType: gp2
-                      DeleteOnTermination: True
-                - DeviceName: /dev/sdf
-                  Ebs:
-                      VolumeSize: 200
-                      VolumeType: gp3
-                      # gp3: 3,000-16,000 IOPS
-                      Iops: 5000
-                      DeleteOnTermination: True
-
+For example, the following instruction at the beginning of the cluster config declares
+the inheritance from a template called 'aws/standard' which is defined as part of CloudTik
+within `python/cloudtik/templates` folder.
 
 ```
-
-You can find `available_node_types` section providing with instances type examples for different cluster from small to very large cluster.
-
-We also provide cluster configuration yaml examples, which are located in CloudTik's `example/cluster/` directory.
-
-Here takes AWS standard cluster as an example. You can find it in CloudTik's `./example/cluster/aws/example-standard.yaml`. It inherits
-AWS standard template, which is set by `from: AWS/standard` as below.
-It inherits the `available_node_types` of AWS standard template, which will select the same node configuration.
-
-```
-# An example of standard 1 + 3 nodes cluster with standard instance type
-# Inherits AWS standard template
 from: aws/standard
-
-# A unique identifier for the cluster.
-cluster_name: example-standard
-
-# Workspace into which to launch the cluster
-workspace_name: exmaple-workspace
-
-# Cloud-provider specific configuration.
-provider:
-    type: aws
-    region: us-west-2
-    # S3 configurations for storage
-    aws_s3_storage:
-        s3.bucket: your_s3_bucket
-        s3.access.key.id: your_s3_access_key_id
-        s3.secret.access.key: your_s3_secret_access_key
-
-auth:
-    ssh_user: ubuntu
-    # Set proxy if you are in corporation network. For example,
-    # ssh_proxy_command: "ncat --proxy-type socks5 --proxy your_proxy_host:your_proxy_port %h %p"
-
-available_node_types:
-    worker.default:
-        # The minimum number of worker nodes to launch.
-        min_workers: 3
-
 ```
+
+For a list of CloudTik defined system templates, please refer to `python/cloudtik/templates` directory
+under the cloudtik pip installation.
+
+For more details as to templates, please refer to [Advanced Tasks: Using Templates](./AdvancedTasks/using-templates.md)
+
 
 Once the cluster configuration is defined and CloudTik is installed, you can use the following commands to create a cluster with CloudTik
 
@@ -224,6 +126,6 @@ Once the cluster configuration is defined and CloudTik is installed, you can use
 $ cloudtik start /path/to/your-cluster-config.yaml -y
 ```
 
-After that, you can use the CloudTik to monitor and manage your cluster.
+After that, you can also use the CloudTik commands to check the status or manage the cluster.
 
-Please refer to next guide: [managing clusters](./managing-cluster.md) for detailed instructions.
+Please refer to [Managing Cluster](./managing-cluster.md) for detailed instructions.

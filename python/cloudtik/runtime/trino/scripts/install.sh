@@ -53,8 +53,18 @@ function install_trino() {
             tar -zxf trino-server-${TRINO_VERSION}.tar.gz && \
             mv trino-server-${TRINO_VERSION} trino && \
             rm trino-server-${TRINO_VERSION}.tar.gz)
+
+        if [ $IS_HEAD_NODE == "true" ]; then
+            # Download trino cli on head
+            (cd $RUNTIME_PATH && wget -q --show-progress https://repo1.maven.org/maven2/io/trino/trino-cli/${TRINO_VERSION}/trino-cli-${TRINO_VERSION}-executable.jar && \
+            mv trino-cli-${TRINO_VERSION}-executable.jar TRINO_VERSION/bin/trino && \
+            chmod +x TRINO_VERSION/bin/trino)
+
             echo "export TRINO_HOME=$TRINO_HOME">> ${USER_HOME}/.bashrc
             echo "export PATH=\$TRINO_HOME/bin:\$PATH" >> ${USER_HOME}/.bashrc
+        else
+            echo "export TRINO_HOME=$TRINO_HOME">> ${USER_HOME}/.bashrc
+        fi
     fi
 }
 

@@ -62,7 +62,7 @@ class AWSWorkspaceProvider(WorkspaceProvider):
         return global_variables
 
     def validate_config(self, provider_config: Dict[str, Any]):
-        if len(self.workspace_name) > 45 or not check_workspace_name_format(self.workspace_name):
+        if len(self.workspace_name) > 31 or not check_workspace_name_format(self.workspace_name):
             raise RuntimeError("{} workspace name is between 1 and 45 characters, "
                                "and can only contain lowercase alphanumeric "
                                "characters and dashes".format(provider_config["type"]))

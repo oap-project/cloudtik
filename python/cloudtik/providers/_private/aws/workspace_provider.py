@@ -10,7 +10,7 @@ from cloudtik.core._private.providers import _get_node_provider
 from cloudtik.core.tags import CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX, CLOUDTIK_GLOBAL_VARIABLE_KEY
 from cloudtik.core.workspace_provider import WorkspaceProvider
 
-AWS_WORKSPACE_NAME_MAX_LEN=31
+AWS_WORKSPACE_NAME_MAX_LEN = 31
 
 logger = logging.getLogger(__name__)
 
@@ -66,9 +66,9 @@ class AWSWorkspaceProvider(WorkspaceProvider):
     def validate_config(self, provider_config: Dict[str, Any]):
         if len(self.workspace_name) > AWS_WORKSPACE_NAME_MAX_LEN or \
                 not check_workspace_name_format(self.workspace_name):
-            raise RuntimeError("{} workspace name is between 1 and 45 characters, "
+            raise RuntimeError("{} workspace name is between 1 and {} characters, "
                                "and can only contain lowercase alphanumeric "
-                               "characters and dashes".format(provider_config["type"]))
+                               "characters and dashes".format(provider_config["type"], AWS_WORKSPACE_NAME_MAX_LEN))
 
     @staticmethod
     def bootstrap_workspace_config(config):

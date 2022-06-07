@@ -1017,8 +1017,9 @@ def _create_workspace_cloud_storage(config):
     region = config["provider"]["region"]
     storage_client = _create_storage_client()
     suffix = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(8))
-    bucket_name = "cloudtik-{workspace_name}-{suffix}".format(
-        workspace_name=workspace_name.lower(),
+    bucket_name = "cloudtik-{workspace_name}-{region}-{suffix}".format(
+        workspace_name=workspace_name,
+        region=region,
         suffix=suffix
     )
 
@@ -1747,8 +1748,9 @@ def get_workspace_gcs_bucket(config, workspace_name):
     gcs = _create_storage_client()
     region = config["provider"]["region"]
     project_id = config["provider"]["project_id"]
-    bucket_name_prefix = "cloudtik-{workspace_name}-".format(
-        workspace_name=workspace_name.lower()
+    bucket_name_prefix = "cloudtik-{workspace_name}-{region}-".format(
+        workspace_name=workspace_name,
+        region=region
     )
 
     cli_logger.verbose("Getting GCS bucket with prefix: {}.".format(bucket_name_prefix))

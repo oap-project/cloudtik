@@ -35,18 +35,33 @@ function contains() {
     return 1
 }
 
+
+function contains() {
+    local n=$#
+    local value=${!n}
+
+    for ((i=1;i < $#;i++)) {
+        if [ "${!i}" == "${value}" ]; then
+            echo "y"
+            return 0
+        fi
+    }
+    echo "n"
+    return 1
+}
+
 function check_data_scale(){
     if [ "${WORKLOAD}" == "tpch" ];then
-        TPCH_ALLOWED_SF=( 1 100 1000 10000 100000 300 3000 30000 )
-        if [ $(contains "${TPCH_ALLOWED_SF[*]}" "$SCALE") == "y" ]; then
+        TPCH_ALLOWED_SF=(1 100 1000 10000 100000 300 3000 30000)
+        if [ $(contains "${TPCH_ALLOWED_SF[@]}" "$SCALE") == "y" ]; then
             echo "SF$SCALE is allowed for TPCH."
         else
             echo "SF$SCALE is not allowed for TPCH. Supported SF: ${TPCH_ALLOWED_SF[*]}."
             exit 1
         fi
     elif [ "${WORKLOAD}" == "tpcds" ];then
-        TPCDS_ALLOWED_SF=( 1 10 100 1000 10000 100000 300 3000 30000 )
-        if [ $(contains "${TPCDS_ALLOWED_SF[*]}" "$SCALE") == "y" ]; then
+        TPCDS_ALLOWED_SF=(1 10 100 1000 10000 100000 300 3000 30000)
+        if [ $(contains "${TPCDS_ALLOWED_SF[@]}" "$SCALE") == "y" ]; then
             echo "SF$SCALE is allowed for TPCDS."
         else
             echo "SF$SCALE is not allowed for TPCDS. Supported SF: ${TPCDS_ALLOWED_SF[*]}."
@@ -62,12 +77,14 @@ function prepare_tpcds_queries(){
     fi
     rm -rf $TRINO_HOME/tpcds/tpcds-queries && mkdir -p $TRINO_HOME/tpcds
     cp -r /tmp/repo/trino/testing/trino-benchto-benchmarks/src/main/resources/sql/presto/tpcds $TRINO_HOME/tpcds/tpcds-queries
+    for query in $PRESTO_HOME/tpcds/tpcds-queries/*
+    do
+        echo ";" >> "$query"
+    done
     database=tpcds
     schema=${SCALE}
-    prefix=""
     sed -i "s#\${database}#${database}#g" `grep '\${database}' -rl $TRINO_HOME/tpcds`
     sed -i "s#\${schema}#sf${schema}#g" `grep '\${schema}' -rl $TRINO_HOME/tpcds`
-    sed -i "s#\${prefix}#${prefix}#g" `grep '\${prefix}' -rl $TRINO_HOME/tpcds`
 }
 
 function prepare_tpch_queries(){

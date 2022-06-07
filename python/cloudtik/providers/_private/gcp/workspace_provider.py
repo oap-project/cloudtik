@@ -9,6 +9,8 @@ from cloudtik.core._private.utils import binary_to_hex, hex_to_binary, get_runni
 from cloudtik.core.tags import CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX, CLOUDTIK_GLOBAL_VARIABLE_KEY
 from cloudtik.core.workspace_provider import WorkspaceProvider
 
+GCP_WORKSPACE_NAME_MAX_LEN=19
+
 logger = logging.getLogger(__name__)
 
 
@@ -64,7 +66,8 @@ class GCPWorkspaceProvider(WorkspaceProvider):
         return global_variables
 
     def validate_config(self, provider_config: Dict[str, Any]):
-        if len(self.workspace_name) > 19 or not check_workspace_name_format(self.workspace_name):
+        if len(self.workspace_name) > GCP_WORKSPACE_NAME_MAX_LEN or \
+                not check_workspace_name_format(self.workspace_name):
             raise RuntimeError("{} workspace name is between 1 and 19 characters, "
                                "and can only contain lowercase alphanumeric "
                                "characters and dashes".format(provider_config["type"]))

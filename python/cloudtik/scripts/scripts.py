@@ -948,9 +948,7 @@ def head_ip(cluster_config_file, cluster_name, public):
 def worker_ips(cluster_config_file, cluster_name, runtime):
     """Return the list of worker IPs of a cluster."""
     workers = get_worker_node_ips(cluster_config_file, cluster_name, runtime=runtime)
-    if len(workers) == 0:
-        click.echo("No worker found.")
-    else:
+    if len(workers) > 0:
         click.echo("\n".join(workers))
 
 

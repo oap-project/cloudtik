@@ -18,7 +18,7 @@ function usage() {
 
 function prepare_coordinator() {
     echo "Getting coordinator..."
-    head_ip=$(cloudtik head-ip ~/cloudtik_bootstrap_config.yaml)
+    head_ip=$(cloudtik head head-ip)
     echo "Successfully get coordinator: ${head_ip}"
 }
 

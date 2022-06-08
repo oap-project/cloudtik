@@ -2,8 +2,12 @@
 # for developers that need the source code to actively modify.
 
 FROM cloudtik/cloudtik-deps:nightly
-ADD cloudtik.tar /cloudtik
-COPY git-rev /cloudtik/git-rev
+
+COPY cloudtik.tar /tmp/cloudtik.tar
+
+WORKDIR /cloudtik
+RUN tar -xf /tmp/cloudtik.tar
+COPY git-rev ./git-rev
 
 # Install dependencies needed to build
 RUN sudo apt-get update && sudo apt-get install -y curl unzip cmake gcc g++ && sudo apt-get clean

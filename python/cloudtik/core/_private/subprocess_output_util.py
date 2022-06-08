@@ -16,7 +16,8 @@ class ProcessRunnerError(Exception):
                  msg_type,
                  code=None,
                  command=None,
-                 special_case=None):
+                 special_case=None,
+                 output=None):
         super(ProcessRunnerError, self).__init__(
             "{} (discovered={}): type={}, code={}, command={}".format(
                 msg, special_case, msg_type, code, command))
@@ -24,8 +25,8 @@ class ProcessRunnerError(Exception):
         self.msg_type = msg_type
         self.code = code
         self.command = command
-
         self.special_case = special_case
+        self.output = output
 
 
 _ssh_output_regexes = {

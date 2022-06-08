@@ -2223,9 +2223,9 @@ def exec_on_nodes(config: Dict[str, Any],
                   start: bool = False,
                   port_forward: Optional[Port_forward] = None,
                   with_output: bool = False,
-                  parallel: bool = True) -> None:
+                  parallel: bool = True) -> str:
     if not node_ip and not all_nodes:
-        _exec_cluster(
+        return _exec_cluster(
             config,
             call_context=call_context,
             cmd=cmd,
@@ -2238,7 +2238,7 @@ def exec_on_nodes(config: Dict[str, Any],
             with_output=with_output,
             _allow_uninitialized_state=True)
     else:
-        _exec_node_from_head(
+        return _exec_node_from_head(
             config,
             call_context=call_context,
             node_ip=node_ip,
@@ -2262,7 +2262,7 @@ def _exec_node_from_head(config: Dict[str, Any],
                          tmux: bool = False,
                          port_forward: Optional[Port_forward] = None,
                          with_output: bool = False,
-                         parallel: bool = True) -> None:
+                         parallel: bool = True) -> str:
 
     # execute exec on head with the cmd
     cmds = [
@@ -2283,17 +2283,15 @@ def _exec_node_from_head(config: Dict[str, Any],
         cmds += ["--screen"]
     if tmux:
         cmds += ["--tmux"]
-    if with_output:
-        cmds += ["--with-output"]
     if parallel:
         cmds += ["--parallel"]
     else:
         cmds += ["--no-parallel"]
 
-    # TODO (haifeng): handle port forward for two state cases
+    # TODO (haifeng): handle port forward and with_output for two state cases
     final_cmd = " ".join(cmds)
 
-    _exec_cluster(
+    return _exec_cluster(
         config,
         call_context=call_context,
         cmd=final_cmd,
@@ -2993,6 +2991,7 @@ def submit_and_exec(config: Dict[str, Any],
                     stop: bool = False,
                     start: bool = False,
                     port_forward: Optional[Port_forward] = None,
+                    with_output: bool = False
                     ):
     cli_logger.doassert(not (screen and tmux),
                         "`{}` and `{}` are incompatible.", cf.bold("--screen"),
@@ -3044,9 +3043,8 @@ def submit_and_exec(config: Dict[str, Any],
     if script_args:
         command_parts += list(script_args)
 
-    port_forward = [(port, port) for port in list(port_forward)]
     cmd = " ".join(command_parts)
-    _exec_cluster(
+    return _exec_cluster(
         config,
         call_context=call_context,
         cmd=cmd,
@@ -3054,7 +3052,8 @@ def submit_and_exec(config: Dict[str, Any],
         tmux=tmux,
         stop=stop,
         start=False,
-        port_forward=port_forward)
+        port_forward=port_forward,
+        with_output=with_output)
 
 
 def _sum_min_workers(config: Dict[str, Any]):

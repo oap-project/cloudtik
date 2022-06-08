@@ -9,7 +9,7 @@ class CallContext:
         """
         self._redirect_output = False  # Whether to log command output to a temporary file
         self._allow_interactive = True  # whether to pass on stdin to running commands.
-        self._config = {"use_login_shells": True, "silent_rsync": True}
+        self._config = {"use_login_shells": True, "silent_rsync": True, "call_from_api": False}
         self._cli_logger = _cli_logger
 
     def new_call_context(self):
@@ -82,3 +82,9 @@ class CallContext:
             val (bool): If true, login shells will be used to run all commands.
         """
         self._config["use_login_shells"] = val
+
+    def is_call_from_api(self):
+        return self._config["call_from_api"]
+
+    def set_call_from_api(self, val):
+        return self._config["call_from_api"]

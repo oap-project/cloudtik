@@ -60,6 +60,7 @@ function prepare_tpc_connector(){
     cloudtik exec --all-nodes --no-parallel ~/cloudtik_bootstrap_config.yaml "mkdir -p \${TRINO_HOME}/etc/catalog/"
     cloudtik exec --all-nodes --no-parallel ~/cloudtik_bootstrap_config.yaml "echo connector.name=${tpc_workload} > \${TRINO_HOME}/etc/catalog/${tpc_workload}.properties"
     cloudtik runtime start --runtimes trino ~/cloudtik_bootstrap_config.yaml -y
+    sleep 30
 }
 
 function prepare_tpc_queries(){

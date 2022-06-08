@@ -736,6 +736,7 @@ def submit(cluster_config_file, screen, tmux, stop, start, cluster_name,
     """
     config = _load_cluster_config(
         cluster_config_file, cluster_name, no_config_cache=no_config_cache)
+    port_forward = [(port, port) for port in list(port_forward)]
     submit_and_exec(
         config,
         call_context=cli_call_context(),

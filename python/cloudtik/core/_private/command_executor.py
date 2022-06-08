@@ -471,12 +471,14 @@ class SSHCommandExecutor(CommandExecutor):
                 return self.process_runner.check_call(final_cmd)
         except subprocess.CalledProcessError as e:
             joined_cmd = " ".join(final_cmd if cmd_to_print is None else cmd_to_print)
-            if not self.call_context.is_using_login_shells():
+            if (not self.call_context.is_using_login_shells()) or (
+                    self.call_context.is_call_from_api()):
                 raise ProcessRunnerError(
                     "Command failed",
                     "ssh_command_failed",
                     code=e.returncode,
-                    command=joined_cmd)
+                    command=joined_cmd,
+                    output=e.output)
 
             if exit_on_fail:
                 msg = "Command failed"

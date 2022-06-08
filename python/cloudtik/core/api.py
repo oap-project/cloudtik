@@ -76,6 +76,7 @@ class Cluster:
 
         # TODO: Each call may need its own call context
         self.call_context = CallContext()
+        self.call_context.set_call_from_api(True)
 
     def start(self,
               no_restart: bool = False,
@@ -166,7 +167,8 @@ class Cluster:
                script_args,
                tmux: bool = False,
                stop: bool = False,
-               port_forward: Optional[cluster_operator.Port_forward] = ()) -> Optional[str]:
+               port_forward: Optional[cluster_operator.Port_forward] = None,
+               with_output: bool = False) -> Optional[str]:
         """Submit a script file to cluster and run.
 
         Args:
@@ -175,6 +177,7 @@ class Cluster:
             tmux (bool): whether to run in a tmux session
             stop (bool): whether to stop the cluster after command run
             port_forward ( (int,int) or list[(int,int)]): port(s) to forward.
+            with_output (bool): Whether to capture command output.
 
         Returns:
             The output of the command as a string.
@@ -186,7 +189,8 @@ class Cluster:
             script_args=script_args,
             tmux=tmux,
             stop=stop,
-            port_forward=port_forward)
+            port_forward=port_forward,
+            with_output=with_output)
 
     def rsync(self,
               *,

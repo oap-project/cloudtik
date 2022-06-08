@@ -35,21 +35,6 @@ function contains() {
     return 1
 }
 
-
-function contains() {
-    local n=$#
-    local value=${!n}
-
-    for ((i=1;i < $#;i++)) {
-        if [ "${!i}" == "${value}" ]; then
-            echo "y"
-            return 0
-        fi
-    }
-    echo "n"
-    return 1
-}
-
 function check_data_scale(){
     if [ "${WORKLOAD}" == "tpch" ];then
         TPCH_ALLOWED_SF=(1 100 1000 10000 100000 300 3000 30000)
@@ -70,38 +55,34 @@ function check_data_scale(){
     fi
 }
 
-function prepare_tpcds_queries(){
+function prepare_tpc_connector(){
+    tpc_workload=$1
+    cloudtik exec --all-nodes --no-parallel ~/cloudtik_bootstrap_config.yaml "mkdir -p \${TRINO_HOME}/etc/catalog/"
+    cloudtik exec --all-nodes --no-parallel ~/cloudtik_bootstrap_config.yaml "echo connector.name=${tpc_workload} > \${TRINO_HOME}/etc/catalog/${tpc_workload}.properties"
+    cloudtik runtime start --runtimes trino ~/cloudtik_bootstrap_config.yaml -y
+}
+
+function prepare_tpc_queries(){
+    tpc_workload=$1
     if [ ! -d "/tmp/repo/trino" ]; then
         mkdir -p /tmp/repo
         git clone https://github.com/trinodb/trino.git /tmp/repo/trino
     fi
-    rm -rf $TRINO_HOME/tpcds/tpcds-queries && mkdir -p $TRINO_HOME/tpcds
-    cp -r /tmp/repo/trino/testing/trino-benchto-benchmarks/src/main/resources/sql/presto/tpcds $TRINO_HOME/tpcds/tpcds-queries
-    for query in $PRESTO_HOME/tpcds/tpcds-queries/*
-    do
-        echo ";" >> "$query"
-    done
+    rm -rf $TRINO_HOME/${tpc_workload}/${tpc_workload}-queries && mkdir -p $TRINO_HOME/${tpc_workload}
+    cp -r /tmp/repo/trino/testing/trino-benchto-benchmarks/src/main/resources/sql/presto/${tpc_workload} $TRINO_HOME/${tpc_workload}/${tpc_workload}-queries
+    if [ "${tpc_workload}" == "tpcds" ]; then
+        for query in $TRINO_HOME/tpcds/tpcds-queries/*
+        do
+            echo ";" >> "$query"
+        done
+    fi
     database=tpcds
     schema=${SCALE}
-    sed -i "s#\${database}#${database}#g" `grep '\${database}' -rl $TRINO_HOME/tpcds`
-    sed -i "s#\${schema}#sf${schema}#g" `grep '\${schema}' -rl $TRINO_HOME/tpcds`
-}
-
-function prepare_tpch_queries(){
-    if [ ! -d "/tmp/repo/trino" ]; then
-        mkdir -p /tmp/repo
-        git clone https://github.com/trinodb/trino.git /tmp/repo/trino
-    fi
-    rm -rf $TRINO_HOME/tpch/tpch-queries && mkdir -p $TRINO_HOME/tpch
-    cp -r /tmp/repo/trino/testing/trino-benchto-benchmarks/src/main/resources/sql/presto/tpch $TRINO_HOME/tpch/tpch-queries
-    database=tpch
-    schema=${SCALE}
     prefix=""
-    sed -i "s#\${database}#${database}#g" `grep '\${database}' -rl $TRINO_HOME/tpch`
-    sed -i "s#\${schema}#sf${schema}#g" `grep '\${schema}' -rl $TRINO_HOME/tpch`
-    sed -i "s#\${prefix}#${prefix}#g" `grep '\${prefix}' -rl $TRINO_HOME/tpch`
+    sed -i "s#\${database}#${database}#g" `grep '\${database}' -rl $TRINO_HOME/${tpc_workload}`
+    sed -i "s#\${schema}#sf${schema}#g" `grep '\${schema}' -rl $TRINO_HOME/${tpc_workload}`
+    sed -i "s#\${prefix}#${prefix}#g" `grep '\${prefix}' -rl $TRINO_HOME/${tpc_workload}`
 }
-
 
 function run_tpch(){
     log_dir=$TRINO_HOME/tpch/SF${SCALE}
@@ -129,7 +110,6 @@ function run_tpch(){
         echo "The final result directory is: ${log_current_dir}"
     done
 }
-
 
 function run_tpcds(){
     log_dir=$TRINO_HOME/tpcds/SF${SCALE}
@@ -221,10 +201,12 @@ prepare_coordinator
 check_data_scale
 
 if [ "${WORKLOAD}" == "tpcds" ];then
-    prepare_tpcds_queries
+    prepare_tpc_connector tpcds
+    prepare_tpc_queries tpcds
     run_tpcds
 elif [ "${WORKLOAD}" == "tpch" ];then
-    prepare_tpch_queries
+    prepare_tpc_connector tpch
+    prepare_tpc_queries tpch
     run_tpch
 else
     echo "Only support tpcds and tpch workload."

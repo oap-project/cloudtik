@@ -55,38 +55,34 @@ function check_data_scale(){
     fi
 }
 
-function prepare_tpcds_queries(){
-    if [ ! -d "/tmp/repo/presto" ]; then
-        mkdir -p /tmp/repo
-        git clone https://github.com/prestodb/presto.git /tmp/repo/presto
-    fi
-    rm -rf $PRESTO_HOME/tpcds/tpcds-queries && mkdir -p $PRESTO_HOME/tpcds
-    cp -r /tmp/repo/presto/presto-benchto-benchmarks/src/main/resources/sql/presto/tpcds $PRESTO_HOME/tpcds/tpcds-queries
-    for query in $PRESTO_HOME/tpcds/tpcds-queries/*
-    do
-        echo ";" >> "$query"
-    done
-    database=tpcds
-    schema=${SCALE}
-    sed -i "s#\${database}#${database}#g" `grep '\${database}' -rl $PRESTO_HOME/tpcds`
-    sed -i "s#\${schema}#sf${schema}#g" `grep '\${schema}' -rl $PRESTO_HOME/tpcds`
+function prepare_tpc_connector(){
+    tpc_workload=$1
+    cloudtik exec --all-nodes --no-parallel ~/cloudtik_bootstrap_config.yaml "mkdir -p \${PRESTO_HOME}/etc/catalog/"
+    cloudtik exec --all-nodes --no-parallel ~/cloudtik_bootstrap_config.yaml "echo connector.name=${tpc_workload} > \${PRESTO_HOME}/etc/catalog/${tpc_workload}.properties"
+    cloudtik runtime start --runtimes presto ~/cloudtik_bootstrap_config.yaml -y
 }
 
-function prepare_tpch_queries(){
+function prepare_tpc_queries(){
+    tpc_workload=$1
     if [ ! -d "/tmp/repo/presto" ]; then
         mkdir -p /tmp/repo
         git clone https://github.com/prestodb/presto.git /tmp/repo/presto
     fi
-    rm -rf $PRESTO_HOME/tpch/tpch-queries && mkdir -p $PRESTO_HOME/tpch
-    cp -r /tmp/repo/presto/presto-benchto-benchmarks/src/main/resources/sql/presto/tpch $PRESTO_HOME/tpch/tpch-queries
-    database=tpch
+    rm -rf $PRESTO_HOME/${tpc_workload}/${tpc_workload}-queries && mkdir -p $PRESTO_HOME/${tpc_workload}
+    cp -r /tmp/repo/presto/presto-benchto-benchmarks/src/main/resources/sql/presto/${tpc_workload} $PRESTO_HOME/${tpc_workload}/${tpc_workload}-queries
+    if [ "${tpc_workload}" == "tpcds" ]; then
+        for query in $PRESTO_HOME/tpcds/tpcds-queries/*
+        do
+            echo ";" >> "$query"
+        done
+    fi
+    database=${tpc_workload}
     schema=${SCALE}
     prefix=""
-    sed -i "s#\${database}#${database}#g" `grep '\${database}' -rl $PRESTO_HOME/tpch`
-    sed -i "s#\${schema}#sf${schema}#g" `grep '\${schema}' -rl $PRESTO_HOME/tpch`
-    sed -i "s#\${prefix}#${prefix}#g" `grep '\${prefix}' -rl $PRESTO_HOME/tpch`
+    sed -i "s#\${database}#${database}#g" `grep '\${database}' -rl $PRESTO_HOME/${tpc_workload}`
+    sed -i "s#\${schema}#sf${schema}#g" `grep '\${schema}' -rl $PRESTO_HOME/${tpc_workload}`
+    sed -i "s#\${prefix}#${prefix}#g" `grep '\${prefix}' -rl $PRESTO_HOME/${tpc_workload}`
 }
-
 
 function run_tpch(){
     log_dir=$PRESTO_HOME/tpch/SF${SCALE}
@@ -114,7 +110,6 @@ function run_tpch(){
         echo "The final result directory is: ${log_current_dir}"
     done
 }
-
 
 function run_tpcds(){
     log_dir=$PRESTO_HOME/tpcds/SF${SCALE}
@@ -206,10 +201,12 @@ prepare_coordinator
 check_data_scale
 
 if [ "${WORKLOAD}" == "tpcds" ];then
-    prepare_tpcds_queries
+    prepare_tpc_connector tpcds
+    prepare_tpc_queries tpcds
     run_tpcds
 elif [ "${WORKLOAD}" == "tpch" ];then
-    prepare_tpch_queries
+    prepare_tpc_connector tpch
+    prepare_tpc_queries tpch
     run_tpch
 else
     echo "Only support tpcds and tpch workload."

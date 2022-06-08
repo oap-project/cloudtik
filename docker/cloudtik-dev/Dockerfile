@@ -3,7 +3,7 @@
 
 FROM cloudtik/cloudtik-deps:nightly
 ADD cloudtik.tar /cloudtik
-ADD git-rev /cloudtik/git-rev
+COPY git-rev /cloudtik/git-rev
 
 # Install dependencies needed to build
 RUN sudo apt-get update && sudo apt-get install -y curl unzip cmake gcc g++ && sudo apt-get clean

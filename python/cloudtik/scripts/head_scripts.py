@@ -13,7 +13,7 @@ from cloudtik.core._private.cluster.cluster_operator import (
     RUN_ENV_TYPES, teardown_cluster_on_head, cluster_process_status_on_head, rsync_node_on_head, attach_node_on_head,
     exec_node_on_head, show_cluster_info, show_cluster_status, monitor_cluster, get_worker_node_ips,
     start_node_on_head, stop_node_on_head, kill_node_on_head, scale_cluster_on_head, show_worker_cpus,
-    show_worker_memory, _wait_for_ready)
+    show_worker_memory, _wait_for_ready, get_head_node_ip)
 from cloudtik.core._private.constants import CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
     CLOUDTIK_KV_NAMESPACE_HEALTHCHECK
 from cloudtik.core._private.state import kv_store
@@ -226,6 +226,24 @@ def info(worker_cpus, worker_memory):
 
 
 @head.command()
+@click.option(
+    "--public",
+    is_flag=True,
+    default=False,
+    help="Return public ip if there is one")
+@add_click_logging_options
+def head_ip(public):
+    """Return the head node IP of a cluster."""
+    try:
+        cluster_config_file = get_head_bootstrap_config()
+        head_node_ip = get_head_node_ip(cluster_config_file, None, public)
+        click.echo(head_node_ip)
+    except RuntimeError as re:
+        cli_logger.error("Get head IP failed. " + str(re))
+        raise re
+
+
+@head.command()
 @add_click_logging_options
 @click.option(
     "--runtime",
@@ -237,9 +255,7 @@ def worker_ips(runtime):
     """Return the list of worker IPs of a cluster."""
     cluster_config_file = get_head_bootstrap_config()
     workers = get_worker_node_ips(cluster_config_file, None, runtime=runtime)
-    if len(workers) == 0:
-        click.echo("No worker found.")
-    else:
+    if len(workers) > 0:
         click.echo("\n".join(workers))
 
 

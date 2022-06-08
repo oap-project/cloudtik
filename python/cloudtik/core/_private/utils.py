@@ -2274,6 +2274,17 @@ def get_node_info(provider, node, extras: bool = False,
     return node_info
 
 
+def is_node_for_runtime(config: Dict[str, Any], node_id: str, runtime: str) -> bool:
+    runtime_types = _get_node_specific_runtime_types(config, node_id)
+    if (runtime_types is not None) and (runtime in runtime_types):
+        return True
+    return False
+
+
+def get_nodes_for_runtime(config: Dict[str, Any], nodes: List[str], runtime: str) -> List[str]:
+    return [node for node in nodes if is_node_for_runtime(config, node, runtime)]
+
+
 def sum_worker_cpus(workers_info):
     total_cpus = 0
     for worker_info in workers_info:

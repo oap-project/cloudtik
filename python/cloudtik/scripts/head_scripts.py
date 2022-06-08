@@ -227,10 +227,16 @@ def info(worker_cpus, worker_memory):
 
 @head.command()
 @add_click_logging_options
-def worker_ips():
+@click.option(
+    "--runtime",
+    required=False,
+    type=str,
+    default=None,
+    help="Get the worker ips for specific runtime.")
+def worker_ips(runtime):
     """Return the list of worker IPs of a cluster."""
     cluster_config_file = get_head_bootstrap_config()
-    workers = get_worker_node_ips(cluster_config_file, None)
+    workers = get_worker_node_ips(cluster_config_file, None, runtime=runtime)
     if len(workers) == 0:
         click.echo("No worker found.")
     else:

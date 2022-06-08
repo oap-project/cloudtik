@@ -48,7 +48,8 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     with_head_node_ip_environment_variables, get_verified_runtime_list, get_commands_of_runtimes, \
     is_node_in_completed_status, check_for_single_worker_type, get_preferred_cpu_bundle_size, \
     _get_node_specific_commands, get_node_specific_commands_of_runtimes, _get_node_specific_runtime_config, \
-    _get_node_specific_docker_config, RUNTIME_CONFIG_KEY, DOCKER_CONFIG_KEY, get_running_head_node
+    _get_node_specific_docker_config, RUNTIME_CONFIG_KEY, DOCKER_CONFIG_KEY, get_running_head_node, \
+    get_nodes_for_runtime
 
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
@@ -1452,11 +1453,12 @@ def get_head_node_ip(config_file: str,
 
 
 def get_worker_node_ips(config_file: str,
-                        override_cluster_name: Optional[str] = None
+                        override_cluster_name: Optional[str] = None,
+                        runtime: str = None
                         ) -> List[str]:
     """Returns worker node IPs for given configuration file."""
     config = _load_cluster_config(config_file, override_cluster_name)
-    return _get_worker_node_ips(config)
+    return _get_worker_node_ips(config, runtime)
 
 
 def _get_head_node_ip(config: Dict[str, Any], public: bool = False) -> str:
@@ -1468,11 +1470,16 @@ def _get_head_node_ip(config: Dict[str, Any], public: bool = False) -> str:
         return get_node_cluster_ip(provider, head_node)
 
 
-def _get_worker_node_ips(config: Dict[str, Any]) -> List[str]:
+def _get_worker_node_ips(config: Dict[str, Any], runtime: str = None) -> List[str]:
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     nodes = provider.non_terminated_nodes({
         CLOUDTIK_TAG_NODE_KIND: NODE_KIND_WORKER
     })
+
+    if runtime is not None:
+        # Filter the nodes for the specific runtime only
+        nodes = get_nodes_for_runtime(config, nodes, runtime)
+
     return [get_node_cluster_ip(provider, node) for node in nodes]
 
 

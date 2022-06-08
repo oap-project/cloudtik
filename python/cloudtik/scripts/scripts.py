@@ -938,10 +938,16 @@ def head_ip(cluster_config_file, cluster_name, public):
     required=False,
     type=str,
     help="Override the configured cluster name.")
+@click.option(
+    "--runtime",
+    required=False,
+    type=str,
+    default=None,
+    help="Get the worker ips for specific runtime.")
 @add_click_logging_options
-def worker_ips(cluster_config_file, cluster_name):
+def worker_ips(cluster_config_file, cluster_name, runtime):
     """Return the list of worker IPs of a cluster."""
-    workers = get_worker_node_ips(cluster_config_file, cluster_name)
+    workers = get_worker_node_ips(cluster_config_file, cluster_name, runtime=runtime)
     if len(workers) == 0:
         click.echo("No worker found.")
     else:

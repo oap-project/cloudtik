@@ -57,9 +57,9 @@ function check_data_scale(){
 
 function prepare_tpc_connector(){
     tpc_workload=$1
-    cloudtik exec --all-nodes --no-parallel ~/cloudtik_bootstrap_config.yaml "mkdir -p \${PRESTO_HOME}/etc/catalog/"
-    cloudtik exec --all-nodes --no-parallel ~/cloudtik_bootstrap_config.yaml "echo connector.name=${tpc_workload} > \${PRESTO_HOME}/etc/catalog/${tpc_workload}.properties"
-    cloudtik runtime start --runtimes presto ~/cloudtik_bootstrap_config.yaml -y
+    cloudtik head exec --all-nodes --no-parallel "mkdir -p \${PRESTO_HOME}/etc/catalog/"
+    cloudtik head exec --all-nodes --no-parallel "echo connector.name=${tpc_workload} > \${PRESTO_HOME}/etc/catalog/${tpc_workload}.properties"
+    cloudtik head runtime start --runtimes presto -y
     sleep 30
 }
 

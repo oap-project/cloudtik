@@ -7,7 +7,7 @@ fi
 
 function prepare_brokers() {
     echo "Getting brokers..."
-    worker_ips=$(cloudtik  worker-ips ~/cloudtik_bootstrap_config.yaml)
+    worker_ips=$(cloudtik head worker-ips)
     bootstrap_servers=""
     for worker_ip in ${worker_ips}; do
         if [ -z "$bootstrap_servers" ]; then

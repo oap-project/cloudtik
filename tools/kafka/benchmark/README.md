@@ -1,4 +1,4 @@
-# Run kafa-benchmark for Kafka on Cloudtik cluster
+# Run kafka-benchmark for Kafka on Cloudtik cluster
 
 ## 1. Create a new Cloudtik cluster
 To run kafka-benchmark on Cloudtik cluster, you need to download the benchmark script on head node.

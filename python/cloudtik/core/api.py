@@ -330,7 +330,8 @@ class Cluster:
         """
         return cluster_operator._get_head_node_ip(config=self.config, public=public)
 
-    def get_worker_node_ips(self) -> List[str]:
+    def get_worker_node_ips(self,
+                            runtime: str = None) -> List[str]:
         """Returns worker node IPs for given configuration file.
         Returns:
             List of worker node ip addresses.
@@ -338,12 +339,12 @@ class Cluster:
         Raises:
             RuntimeError if the cluster is not found.
         """
-        return cluster_operator._get_worker_node_ips(config=self.config)
+        return cluster_operator._get_worker_node_ips(config=self.config, runtime=runtime)
 
     def get_nodes(self) -> List[Dict[str, Any]]:
         """Returns a list of info for each cluster node
         Returns:
-            A list of Dict object for each node with the informaition
+            A list of Dict object for each node with the information
         """
         return cluster_operator._get_cluster_nodes_info(config=self.config)
 

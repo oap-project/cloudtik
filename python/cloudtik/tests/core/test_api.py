@@ -1,15 +1,8 @@
 import os
 import pytest
+from cloudtik.tests.core.constants import BASIC_WORKSPACE_CONF_FILES, BASIC_CLUSTER_CONF_FILES, CLUSTER_TIMEOUT, \
+    AWS_BASIC_CLUSTER_CONF_FILES
 
-CLUSTER_TIMEOUT = 60 * 5
-
-BASIC_WORKSPACE_CONF_FILES = ["example/cluster/aws/example-workspace.yaml",
-                              "example/cluster/azure/example-workspace.yaml",
-                              "example/cluster/gcp/example-workspace.yaml"]
-BASIC_CLUSTER_CONF_FILES = ["example/cluster/aws/example-docker.yaml",
-                            "example/cluster/azure/example-docker.yaml",
-                            "example/cluster/gcp/example-docker.yaml"]
-USABILITY_CLUSTER_CONF_FILES = ["example/cluster/aws/example-docker.yaml"]
 
 @pytest.mark.parametrize(
     'basic_workspace_fixture',
@@ -68,7 +61,7 @@ class TestClusterBasic:
 )
 @pytest.mark.parametrize(
     'usability_cluster_fixture',
-    USABILITY_CLUSTER_CONF_FILES,
+    AWS_BASIC_CLUSTER_CONF_FILES,
     indirect=True
 )
 class TestClusterUsability:
@@ -84,8 +77,6 @@ class TestClusterUsability:
         usability_cluster_fixture.wait_for_ready(timeout=CLUSTER_TIMEOUT)
 
 
-
 if __name__ == "__main__":
     import sys
-
     sys.exit(pytest.main(["-vsx", __file__]))

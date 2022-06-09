@@ -17,6 +17,7 @@ psutil
 pyyaml
 redis >= 3.5.0
 requests
+six
 smart_open
 pycryptodome
 

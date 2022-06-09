@@ -7,13 +7,13 @@ fi
 
 function prepare_brokers() {
     echo "Getting brokers..."
-    worker_ips=$(cloudtik head worker-ips)
+    broker_ips=$(cloudtik head worker-ips --runtime kafka)
     bootstrap_servers=""
-    for worker_ip in ${worker_ips}; do
+    for broker_ip in ${broker_ips}; do
         if [ -z "$bootstrap_servers" ]; then
-            bootstrap_servers=$worker_ip:9092
+            bootstrap_servers=$broker_ip_ip:9092
         else
-            bootstrap_servers="$bootstrap_servers,$worker_ip:9092"
+            bootstrap_servers="$bootstrap_servers,$broker_ip:9092"
         fi
     done
     echo "Successfully get brokers: ${bootstrap_servers}"

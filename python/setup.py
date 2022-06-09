@@ -150,6 +150,7 @@ if setup_spec.type == SetupType.CLOUDTIK:
         "pyyaml",
         "redis >= 3.5.0",
         "requests",
+        "six",
         "smart_open",
         "prettytable",
         "ipaddr",

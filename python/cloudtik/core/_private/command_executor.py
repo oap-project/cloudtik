@@ -645,7 +645,7 @@ class SSHCommandExecutor(CommandExecutor):
 
     def _is_raw_block_device(self, block_device):
         # Read only or not a disk
-        if block_device["ro"] or block_device["type"] != "disk":
+        if block_device["ro"] != '0' or block_device["ro"] is True or block_device["type"] != "disk":
             return False
         mount_point = block_device.get("mountpoint", None)
         if mount_point is not None and mount_point != "":

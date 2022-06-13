@@ -5,10 +5,8 @@ import os
 
 import yaml
 
-from cloudtik.core.api import Workspace, Cluster
-
-ROOT_PATH = os.path.abspath(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))))
+from cloudtik.core.api import Cluster
+from cloudtik.tests.core.basic_test import ROOT_PATH
 
 
 def pytest_configure():
@@ -39,15 +37,6 @@ def cluster_up_down_opt(conf):
     cluster.stop()
 
 
-def workspace_up_down_opt(conf):
-    workspace = Workspace(conf)
-    print("\nCreate Workspace {}".format(conf["cluster_name"]))
-    workspace.create()
-    yield workspace
-    print("\nDelete Workspace {}".format(conf["cluster_name"]))
-    workspace.delete()
-
-
 @pytest.fixture(scope="class")
 def basic_cluster_fixture(request):
     param = request.param
@@ -68,15 +57,4 @@ def usability_cluster_fixture(request, worker_nodes_fixture):
     conf_file = os.path.join(ROOT_PATH, param)
     conf = yaml.safe_load(open(conf_file).read())
     conf["available_node_types"]["worker.default"]["min_workers"] = worker_nodes_fixture
-    yield from cluster_up_down_opt(conf)
-
-
-@pytest.fixture(scope="class")
-def runtime_cluster_fixture(request):
-    param = request.param
-    conf_file = os.path.join(ROOT_PATH, param)
-    conf = yaml.safe_load(open(conf_file).read())
-    conf["setup_commands"] = "wget -P ~/ https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/spark" \
-                             "/benchmark/scripts/bootstrap-benchmark.sh &&bash ~/bootstrap-benchmark.sh  --tpcds "
-    conf["runtime"]["types"] = ["ganglia", "metastore", "spark", "kafka"]
     yield from cluster_up_down_opt(conf)

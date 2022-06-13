@@ -173,7 +173,7 @@ class Cluster:
 
         Args:
             script_file (str): The script file to submit and run.
-            script_args (array): An array of arguments for the script file.
+            script_args (list): An array of arguments for the script file.
             tmux (bool): whether to run in a tmux session
             stop (bool): whether to stop the cluster after command run
             port_forward ( (int,int) or list[(int,int)]): port(s) to forward.

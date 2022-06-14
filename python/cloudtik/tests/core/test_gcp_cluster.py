@@ -1,9 +1,9 @@
 import pytest
 
 from cloudtik.tests.core.basic_test import WorkspaceBasicTest, create_workspace, ClusterFunctionTest, \
-    ClusterRuntimeTest
-from cloudtik.tests.core.constants import GCP_BASIC_WORKSPACE_CONF_FILE, GCP_BASIC_CLUSTER_CONF_FILE, CLUSTER_TIMEOUT, \
-    WORKER_NODES_LIST, SCALE_CPUS_LIST, SCALE_NODES_LIST
+    ClusterRuntimeTest, ClusterScaleTest
+from cloudtik.tests.core.constants import GCP_BASIC_WORKSPACE_CONF_FILE, GCP_BASIC_CLUSTER_CONF_FILE, \
+    WORKER_NODES_LIST
 
 workspace = None
 
@@ -23,10 +23,13 @@ class TestGCPWorkspaceBasic(WorkspaceBasicTest):
         self.workspace = workspace
 
 
+@pytest.mark.parametrize(
+    'basic_cluster_fixture',
+    [GCP_BASIC_CLUSTER_CONF_FILE],
+    indirect=True
+)
 class TestGCPClusterFunction(ClusterFunctionTest):
-    def setup_class(self):
-        self.conf_file = GCP_BASIC_CLUSTER_CONF_FILE
-        super().setup_class(self)
+    """ Test cloudtik functionality on GCP"""
 
 
 @pytest.mark.parametrize(
@@ -39,22 +42,17 @@ class TestGCPClusterFunction(ClusterFunctionTest):
     [GCP_BASIC_CLUSTER_CONF_FILE],
     indirect=True
 )
-class TestGCPClusterUsability:
+class TestGCPClusterScale(ClusterScaleTest):
+    """ Test cloudtik Scale Function on GCP"""
 
-    @pytest.mark.parametrize("scale_cpus", SCALE_CPUS_LIST)
-    def test_scale_by_cpu(self, usability_cluster_fixture, worker_nodes_fixture, scale_cpus):
-        usability_cluster_fixture.scale(num_cpus=scale_cpus)
-        usability_cluster_fixture.wait_for_ready(timeout=CLUSTER_TIMEOUT)
 
-    @pytest.mark.parametrize("scale_nodes", SCALE_NODES_LIST)
-    def test_scale_by_node(self, usability_cluster_fixture, worker_nodes_fixture, scale_nodes):
-        usability_cluster_fixture.scale(nodes=scale_nodes)
-        usability_cluster_fixture.wait_for_ready(timeout=CLUSTER_TIMEOUT)
-
+@pytest.mark.parametrize(
+    'runtime_cluster_fixture',
+    [GCP_BASIC_CLUSTER_CONF_FILE],
+    indirect=True
+)
 class TestGCPClusterRuntime(ClusterRuntimeTest):
-    def setup_class(self):
-        self.conf_file = GCP_BASIC_CLUSTER_CONF_FILE
-        super().setup_class(self)
+    """ Test cloudtik runtime on GCP"""
 
 
 if __name__ == "__main__":

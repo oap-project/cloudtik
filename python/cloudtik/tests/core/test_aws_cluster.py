@@ -1,9 +1,9 @@
 import pytest
 
 from cloudtik.tests.core.basic_test import WorkspaceBasicTest, create_workspace, ClusterFunctionTest, \
-    ClusterRuntimeTest
-from cloudtik.tests.core.constants import AWS_BASIC_WORKSPACE_CONF_FILE, AWS_BASIC_CLUSTER_CONF_FILE, CLUSTER_TIMEOUT, \
-    SCALE_CPUS_LIST, SCALE_NODES_LIST, WORKER_NODES_LIST
+    ClusterRuntimeTest, ClusterScaleTest
+from cloudtik.tests.core.constants import AWS_BASIC_WORKSPACE_CONF_FILE, AWS_BASIC_CLUSTER_CONF_FILE, \
+    WORKER_NODES_LIST
 
 workspace = None
 
@@ -23,10 +23,13 @@ class TestAWSWorkspaceBasic(WorkspaceBasicTest):
         self.workspace = workspace
 
 
+@pytest.mark.parametrize(
+    'basic_cluster_fixture',
+    [AWS_BASIC_CLUSTER_CONF_FILE],
+    indirect=True
+)
 class TestAWSClusterFunction(ClusterFunctionTest):
-    def setup_class(self):
-        self.conf_file = AWS_BASIC_CLUSTER_CONF_FILE
-        super().setup_class(self)
+    """ Test cloudtik functionality on AWS"""
 
 
 @pytest.mark.parametrize(
@@ -39,24 +42,17 @@ class TestAWSClusterFunction(ClusterFunctionTest):
     [AWS_BASIC_CLUSTER_CONF_FILE],
     indirect=True
 )
-class TestAWSClusterUsability:
-
-    @pytest.mark.parametrize("scale_cpus", SCALE_CPUS_LIST)
-    def test_scale_by_cpu(self, usability_cluster_fixture, worker_nodes_fixture, scale_cpus):
-        usability_cluster_fixture.scale(num_cpus=scale_cpus)
-        usability_cluster_fixture.wait_for_ready(timeout=CLUSTER_TIMEOUT)
-
-    @pytest.mark.parametrize("scale_nodes", SCALE_NODES_LIST)
-    def test_scale_by_node(self, usability_cluster_fixture, worker_nodes_fixture, scale_nodes):
-        usability_cluster_fixture.scale(nodes=scale_nodes)
-        usability_cluster_fixture.wait_for_ready(timeout=CLUSTER_TIMEOUT)
+class TestAWSClusterScale(ClusterScaleTest):
+    """ Test cloudtik Scale Function on AWS"""
 
 
+@pytest.mark.parametrize(
+    'runtime_cluster_fixture',
+    [AWS_BASIC_CLUSTER_CONF_FILE],
+    indirect=True
+)
 class TestAWSClusterRuntime(ClusterRuntimeTest):
-    def setup_class(self):
-        self.conf_file = AWS_BASIC_CLUSTER_CONF_FILE
-        super().setup_class(self)
-
+    """ Test cloudtik runtime on AWS"""
 
 
 if __name__ == "__main__":

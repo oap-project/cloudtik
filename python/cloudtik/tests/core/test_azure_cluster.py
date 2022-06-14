@@ -1,9 +1,9 @@
 import pytest
 
 from cloudtik.tests.core.basic_test import WorkspaceBasicTest, create_workspace, ClusterFunctionTest, \
-    ClusterRuntimeTest
+    ClusterRuntimeTest, ClusterScaleTest
 from cloudtik.tests.core.constants import AZURE_BASIC_WORKSPACE_CONF_FILE, AZURE_BASIC_CLUSTER_CONF_FILE, \
-    CLUSTER_TIMEOUT, SCALE_NODES_LIST, SCALE_CPUS_LIST, WORKER_NODES_LIST
+    WORKER_NODES_LIST
 
 workspace = None
 
@@ -23,10 +23,13 @@ class TestAZUREWorkspaceBasic(WorkspaceBasicTest):
         self.workspace = workspace
 
 
+@pytest.mark.parametrize(
+    'basic_cluster_fixture',
+    [AZURE_BASIC_CLUSTER_CONF_FILE],
+    indirect=True
+)
 class TestAZUREClusterFunction(ClusterFunctionTest):
-    def setup_class(self):
-        self.conf_file = AZURE_BASIC_CLUSTER_CONF_FILE
-        super().setup_class(self)
+    """ Test cloudtik functionality on AZURE"""
 
 
 @pytest.mark.parametrize(
@@ -39,23 +42,17 @@ class TestAZUREClusterFunction(ClusterFunctionTest):
     [AZURE_BASIC_CLUSTER_CONF_FILE],
     indirect=True
 )
-class TestAZUREClusterUsability:
-
-    @pytest.mark.parametrize("scale_cpus", SCALE_CPUS_LIST)
-    def test_scale_by_cpu(self, usability_cluster_fixture, worker_nodes_fixture, scale_cpus):
-        usability_cluster_fixture.scale(num_cpus=scale_cpus)
-        usability_cluster_fixture.wait_for_ready(timeout=CLUSTER_TIMEOUT)
-
-    @pytest.mark.parametrize("scale_nodes", SCALE_NODES_LIST)
-    def test_scale_by_node(self, usability_cluster_fixture, worker_nodes_fixture, scale_nodes):
-        usability_cluster_fixture.scale(nodes=scale_nodes)
-        usability_cluster_fixture.wait_for_ready(timeout=CLUSTER_TIMEOUT)
+class TestAZUREClusterScale(ClusterScaleTest):
+    """ Test cloudtik Scale Function on AZURE"""
 
 
+@pytest.mark.parametrize(
+    'runtime_cluster_fixture',
+    [AZURE_BASIC_CLUSTER_CONF_FILE],
+    indirect=True
+)
 class TestAZUREClusterRuntime(ClusterRuntimeTest):
-    def setup_class(self):
-        self.conf_file = AZURE_BASIC_CLUSTER_CONF_FILE
-        super().setup_class(self)
+    """ Test cloudtik runtime on AZURE"""
 
 
 if __name__ == "__main__":

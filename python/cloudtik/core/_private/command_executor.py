@@ -685,7 +685,7 @@ class SSHCommandExecutor(CommandExecutor):
         self.cli_logger.print("Formatting device {} and mount to {}...", device_name, mount_path)
 
         # Execute the format commands on the block device
-        self.run(f"sudo mkfs -t xfs {device_name}")
+        self.run(f"sudo mkfs -t xfs -f {device_name}")
         self.run(f"sudo mkdir -p {mount_path}")
         self.run(f"sudo mount {device_name} {mount_path}")
         self.run(f"sudo chmod a+w {mount_path}")

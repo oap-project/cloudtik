@@ -9,7 +9,8 @@ docker:
     initialization_commands:
         - which docker || (curl -fsSL https://get.docker.com -o /tmp/get-docker.sh && sed -i "s/set -x/set +x/g" /tmp/get-docker.sh &&
           sudo bash /tmp/get-docker.sh > /dev/null && sudo usermod -aG docker $USER && sudo systemctl restart docker -f)
-        - which jq || (sudo apt-get -qq update -y && sudo apt-get -qq install -y jq > /dev/null)
+        - docker ps -a || sudo usermod -aG docker $USER && sudo systemctl restart docker -f
+        - which jq || (sudo apt-get -qq update -y && sudo apt-get -qq install -y jq > /dev/null) || true
     head_initialization_commands:
         - sudo docker pull registry:2
         - "(stat /etc/docker/daemon.json &> /dev/null && jq '. + { \"registry-mirrors\": [$address] }' --arg address \"http://${CLOUDTIK_NODE_IP}:5000\" /etc/docker/daemon.json > /tmp/tmp.$$.json && sudo mv /tmp/tmp.$$.json /etc/docker/daemon.json) || (printf \"{\n  \\\"registry-mirrors\\\": [\\\"http://${CLOUDTIK_NODE_IP}:5000\\\"]\n}\" | sudo tee -a /etc/docker/daemon.json &> /dev/null) && sudo systemctl restart docker -f"

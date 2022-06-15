@@ -32,7 +32,6 @@ if (use_arrow){
     resultLocation = s"${fsdir}/shared/data/results/tpcds_arrow/${scaleFactor}/"
     databaseName = s"tpcds_arrow_scale_${scaleFactor}_db"
     val tables = Seq("call_center", "catalog_page", "catalog_returns", "catalog_sales", "customer", "customer_address", "customer_demographics", "date_dim", "household_demographics", "income_band", "inventory", "item", "promotion", "reason", "ship_mode", "store", "store_returns", "store_sales", "time_dim", "warehouse", "web_page", "web_returns", "web_sales", "web_site")
-    sql(s"DROP database $databaseName CASCADE")
     if (spark.catalog.databaseExists(s"$databaseName")) {
         println(s"$databaseName has exists!")
     }else{

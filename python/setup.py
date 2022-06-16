@@ -175,18 +175,6 @@ def build(build_python):
             ".".join(map(str, sys.version_info[:2])),
             ", ".join(".".join(map(str, v)) for v in SUPPORTED_PYTHONS))
         raise RuntimeError(msg)
-    # Note: We are passing in sys.executable so that we use the same
-    # version of Python to build packages inside the build.sh script. Note
-    # that certain flags will not be passed along such as --user or sudo.
-    # TODO: Fix this.
-    if not os.getenv("SKIP_THIRDPARTY_INSTALL"):
-        pip_packages = ["psutil", "setproctitle==1.2.2", "colorama"]
-        subprocess.check_call(
-            [
-                sys.executable, "-m", "pip", "install", "-q",
-                "--target=" + os.path.join(ROOT_DIR, THIRDPARTY_SUBDIR)
-            ] + pip_packages,
-            env=dict(os.environ, CC="gcc"))
 
 
 def walk_directory(directory, exclude_python: bool = False):

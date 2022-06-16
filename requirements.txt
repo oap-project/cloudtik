@@ -19,7 +19,7 @@ redis >= 3.5.0
 requests
 six
 smart_open
-pycryptodome
+pycryptodomex
 
 
 # setup.py extras

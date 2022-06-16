@@ -65,6 +65,8 @@ function update_hdfs_data_disks_config() {
     if [ -d "/mnt/cloudtik" ]; then
         for data_disk in /mnt/cloudtik/*; do
             [ -d "$data_disk" ] || continue
+            # Keep the directory not contain outdated information of cluster.(Local mode)
+            sudo rm -rf $data_disk/dfs/dn
             if [ -z "$hdfs_dn_dirs" ]; then
                 hdfs_dn_dirs=$data_disk/dfs/dn
             else
@@ -75,6 +77,7 @@ function update_hdfs_data_disks_config() {
 
     # if no disks mounted on /mnt/cloudtik
     if [ -z "$hdfs_dn_dirs" ]; then
+        sudo rm -rf "${HADOOP_HOME}/data/dfs/dn"
         hdfs_dn_dirs="${HADOOP_HOME}/data/dfs/dn"
     fi
     sed -i "s!{%dfs.namenode.name.dir%}!${hdfs_nn_dirs}!g" `grep "{%dfs.namenode.name.dir%}" -rl ./`

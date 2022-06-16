@@ -77,7 +77,7 @@ function prepare_tpc_queries(){
             echo ";" >> "$query"
         done
     fi
-    database=tpcds
+    database=${tpc_workload}
     schema=${SCALE}
     prefix=""
     sed -i "s#\${database}#${database}#g" `grep '\${database}' -rl $TRINO_HOME/${tpc_workload}`

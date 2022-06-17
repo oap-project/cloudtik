@@ -5,10 +5,8 @@ import os
 
 import yaml
 
-from cloudtik.core.api import Workspace, Cluster
-
-ROOT_PATH = os.path.abspath(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))))
+from cloudtik.core.api import Cluster
+from cloudtik.tests.core.basic_test import ROOT_PATH
 
 
 def pytest_configure():
@@ -37,15 +35,6 @@ def cluster_up_down_opt(conf):
     yield cluster
     print("\nTeardown cluster {}".format(conf["cluster_name"]))
     cluster.stop()
-
-
-def workspace_up_down_opt(conf):
-    workspace = Workspace(conf)
-    print("\nCreate Workspace {}".format(conf["cluster_name"]))
-    workspace.create()
-    yield workspace
-    print("\nDelete Workspace {}".format(conf["cluster_name"]))
-    workspace.delete()
 
 
 @pytest.fixture(scope="class")

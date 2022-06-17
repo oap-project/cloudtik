@@ -38,7 +38,7 @@ def _with_runtime_environment_variables(runtime_config, config, provider, node_i
 
 
 def publish_service_uri(cluster_config: Dict[str, Any], head_node_id: str) -> None:
-    workspace_name = cluster_config["workspace_name"]
+    workspace_name = cluster_config.get("workspace_name")
     if workspace_name is None:
         return
 

@@ -1,4 +1,5 @@
 #!/bin/bash
+source ~/.bashrc
 sudo apt-get install -y git
 export USER_HOME=/home/$(whoami)
 BENCHMARK_TOOL_HOME=$USER_HOME/runtime/benchmark-tools

@@ -1,6 +1,3 @@
-Advanced Tasks
-==============
-
 .. toctree::
    :maxdepth: 1
    :caption: Advanced Tasks

@@ -880,11 +880,13 @@ def fillout_workspace_defaults(config: Dict[str, Any]) -> Dict[str, Any]:
 
 def _get_user_template_file(template_name: str):
     if constants.CLOUDTIK_USER_TEMPLATES in os.environ:
-        user_template_dir = os.environ[constants.CLOUDTIK_USER_TEMPLATES]
-        if user_template_dir:
-            template_file = os.path.join(user_template_dir, template_name)
-            if os.path.exists(template_file):
-                return template_file
+        user_template_dirs_str = os.environ[constants.CLOUDTIK_USER_TEMPLATES]
+        if user_template_dirs_str:
+            user_template_dirs = [user_template_dir.strip() for user_template_dir in user_template_dirs_str.split(',')]
+            for user_template_dir in user_template_dirs:
+                template_file = os.path.join(user_template_dir, template_name)
+                if os.path.exists(template_file):
+                    return template_file
 
     return None
 

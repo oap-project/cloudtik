@@ -104,7 +104,7 @@ while true
 do
     case "$1" in
     -r|--repo)
-        SCALE=$2
+        REPO=$2
         shift
         ;;
     -w|--workload)

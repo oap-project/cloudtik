@@ -97,7 +97,7 @@ function run_tpch(){
         for query in `seq 1 22`; do
             query=`printf "%02d" $query`
             start=$(date +%s)
-            presto --server ${head_ip}:8080 --file $queries_dir/q${query}.sql --output-format ALIGNED > ${log_current_dir}/q${query}.log
+            presto --server ${head_ip}:8081 --file $queries_dir/q${query}.sql --output-format ALIGNED > ${log_current_dir}/q${query}.log
             if [ $? -eq 0 ];then
                 RES=Success
             else
@@ -126,7 +126,7 @@ function run_tpcds(){
 
             if [ -e "${queries_dir}/q${query}.sql" ]; then
                 start=$(date +%s)
-                presto --server ${head_ip}:8080 --file ${queries_dir}/q${query}.sql --output-format ALIGNED > ${log_current_dir}/q${query}.log
+                presto --server ${head_ip}:8081 --file ${queries_dir}/q${query}.sql --output-format ALIGNED > ${log_current_dir}/q${query}.log
                 if [ $? -eq 0 ];then
                     RES=Success
                 else
@@ -140,7 +140,7 @@ function run_tpcds(){
 
             if [ -e "${queries_dir}/q${query}_1.sql" ]; then
                 start=$(date +%s)
-                presto --server ${head_ip}:8080 --file ${queries_dir}/q${query}_1.sql --output-format ALIGNED > ${log_current_dir}/q${query}_1.log
+                presto --server ${head_ip}:8081 --file ${queries_dir}/q${query}_1.sql --output-format ALIGNED > ${log_current_dir}/q${query}_1.log
                 if [ $? -eq 0 ];then
                     RES=Success
                 else
@@ -154,7 +154,7 @@ function run_tpcds(){
 
             if [ -e "${queries_dir}/q${query}_2.sql" ]; then
                 start=$(date +%s)
-                presto --server ${head_ip}:8080 --file ${queries_dir}/q${query}_2.sql --output-format ALIGNED > ${log_current_dir}/q${query}_2.log
+                presto --server ${head_ip}:8081 --file ${queries_dir}/q${query}_2.sql --output-format ALIGNED > ${log_current_dir}/q${query}_2.log
                 if [ $? -eq 0 ];then
                     RES=Success
                 else

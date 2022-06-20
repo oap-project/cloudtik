@@ -1,10 +1,10 @@
 #!/bin/bash
 
-args=$(getopt -a -o w::r::h:: -l workload::,repo::,help:: -- "$@")
+args=$(getopt -a -o w::r::h:: -l workload::,repository::,help:: -- "$@")
 eval set -- "${args}"
 
 WORKLOAD=all
-REPO=default
+REPOSITORY=default
 
 function prepare_prerequisite() {
     source ~/.bashrc
@@ -26,13 +26,12 @@ function install_sbt() {
     sudo apt-get update
     sudo apt-get install sbt -y
 
-    if [ "${REPO}" == "China" ]; then
-        use_sbt_China_repositories
+    if [ "${REPOSITORY}" == "china" ]; then
+        use_sbt_china_repositories
     fi
-
 }
 
-function use_sbt_China_repositories() {
+function use_sbt_china_repositories() {
     sudo chown $(whoami) ~/.sbt
     tee > ~/.sbt/repositories << EOF
 [repositories]
@@ -42,7 +41,6 @@ function use_sbt_China_repositories() {
   bintray-typesafe-ivy: https://dl.bintray.com/typesafe/ivy-releases/, [organization]/[module]/(scala_[scalaVersion]/)(sbt_[sbtVersion]/)[revision]/[type]s/[artifact](-[classifier]).[ext]
   bintray-sbt-plugins: https://dl.bintray.com/sbt/sbt-plugin-releases/, [organization]/[module]/(scala_[scalaVersion]/)(sbt_[sbtVersion]/)[revision]/[type]s/[artifact](-[classifier]).[ext], bootOnly
 EOF
-
 }
 
 function install_maven() {
@@ -95,16 +93,15 @@ function install_tpch() {
 }
 
 function usage() {
-    echo "Usage: $0 --workload=[all|tpch|tpcds|hibench] --repo=[default|China]" >&2
+    echo "Usage: $0 --workload=[all|tpch|tpcds|hibench] --repository=[default|china]" >&2
     echo "Usage: $0 -h|--help"
 }
-
 
 while true
 do
     case "$1" in
-    -r|--repo)
-        REPO=$2
+    -r|--repository)
+        REPOSITORY=$2
         shift
         ;;
     -w|--workload)

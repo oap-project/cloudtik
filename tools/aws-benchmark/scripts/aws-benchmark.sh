@@ -72,7 +72,7 @@ function run_tpcds_power_test_with_vanilla_spark() {
 }
 
 function run_tpcds_power_test_with_gazelle() {
-    cloudtik submit cloudtik/example/aws/example-standard.yaml ../tools/spark/benchmark/scripts/tpcds-power-test.scala \
+    cloudtik submit cloudtik/example/aws/example-standard.yaml $CLOUDTIK_HOME/tools/spark/benchmark/scripts/tpcds-power-test.scala \
         --conf spark.driver.scaleFactor=${SCALE_FACTOR} \
         --conf spark.driver.fsdir="s3a://${BUCKET}" \
         --conf spark.driver.iterations=${ITERATION} \

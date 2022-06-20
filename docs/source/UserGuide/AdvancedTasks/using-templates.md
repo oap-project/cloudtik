@@ -168,3 +168,10 @@ For example, to use,
 ```
 from: production/my-template-3
 ```
+
+## Searching order of templates
+CloudTik will search a template with the name in the following order:
+1. Built-in templates
+2. User defined templates locations in 'CLOUDTIK_USER_TEMPLATES' in the order.
+
+Once a match is found, the template will be used.

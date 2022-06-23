@@ -2,7 +2,7 @@ import pytest
 
 from cloudtik.tests.core.basic_test import WorkspaceBasicTest, create_workspace, ClusterFunctionTest, \
     ClusterRuntimeTest, ClusterScaleTest
-from cloudtik.tests.core.constants import AZURE_BASIC_WORKSPACE_CONF_FILE, AZURE_BASIC_CLUSTER_CONF_FILE, \
+from cloudtik.intergrationtest.constants import AZURE_BASIC_WORKSPACE_CONF_FILE, AZURE_BASIC_CLUSTER_CONF_FILE, \
     WORKER_NODES_LIST
 
 workspace = None

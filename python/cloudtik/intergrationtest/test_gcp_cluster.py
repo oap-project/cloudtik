@@ -2,7 +2,7 @@ import pytest
 
 from cloudtik.tests.core.basic_test import WorkspaceBasicTest, create_workspace, ClusterFunctionTest, \
     ClusterRuntimeTest, ClusterScaleTest
-from cloudtik.tests.core.constants import AWS_BASIC_WORKSPACE_CONF_FILE, AWS_BASIC_CLUSTER_CONF_FILE, \
+from cloudtik.intergrationtest.constants import GCP_BASIC_WORKSPACE_CONF_FILE, GCP_BASIC_CLUSTER_CONF_FILE, \
     WORKER_NODES_LIST
 
 workspace = None
@@ -10,7 +10,7 @@ workspace = None
 
 def setup_module():
     global workspace
-    workspace = create_workspace(AWS_BASIC_WORKSPACE_CONF_FILE)
+    workspace = create_workspace(GCP_BASIC_WORKSPACE_CONF_FILE)
 
 
 def teardown_module():
@@ -18,18 +18,18 @@ def teardown_module():
     workspace.delete()
 
 
-class TestAWSWorkspaceBasic(WorkspaceBasicTest):
+class TestGCPWorkspaceBasic(WorkspaceBasicTest):
     def setup_class(self):
         self.workspace = workspace
 
 
 @pytest.mark.parametrize(
     'basic_cluster_fixture',
-    [AWS_BASIC_CLUSTER_CONF_FILE],
+    [GCP_BASIC_CLUSTER_CONF_FILE],
     indirect=True
 )
-class TestAWSClusterFunction(ClusterFunctionTest):
-    """ Test cloudtik functionality on AWS"""
+class TestGCPClusterFunction(ClusterFunctionTest):
+    """ Test cloudtik functionality on GCP"""
 
 
 @pytest.mark.parametrize(
@@ -39,20 +39,20 @@ class TestAWSClusterFunction(ClusterFunctionTest):
 )
 @pytest.mark.parametrize(
     'usability_cluster_fixture',
-    [AWS_BASIC_CLUSTER_CONF_FILE],
+    [GCP_BASIC_CLUSTER_CONF_FILE],
     indirect=True
 )
-class TestAWSClusterScale(ClusterScaleTest):
-    """ Test cloudtik Scale Function on AWS"""
+class TestGCPClusterScale(ClusterScaleTest):
+    """ Test cloudtik Scale Function on GCP"""
 
 
 @pytest.mark.parametrize(
     'runtime_cluster_fixture',
-    [AWS_BASIC_CLUSTER_CONF_FILE],
+    [GCP_BASIC_CLUSTER_CONF_FILE],
     indirect=True
 )
-class TestAWSClusterRuntime(ClusterRuntimeTest):
-    """ Test cloudtik runtime on AWS"""
+class TestGCPClusterRuntime(ClusterRuntimeTest):
+    """ Test cloudtik runtime on GCP"""
 
 
 if __name__ == "__main__":

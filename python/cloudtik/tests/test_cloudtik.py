@@ -1,63 +1,26 @@
-from enum import Enum
+import copy
 import os
+import pytest
 import re
-from subprocess import CalledProcessError
 import tempfile
 import threading
 import time
 import unittest
 import yaml
-import copy
+
 from jsonschema.exceptions import ValidationError
+from subprocess import CalledProcessError
 from typing import Dict, Callable, List, Optional
+
 
 from cloudtik.core._private.utils import prepare_config, validate_config
 from cloudtik.core._private.cluster import cluster_operator
 from cloudtik.core._private.cluster.cluster_metrics import ClusterMetrics
 from cloudtik.core._private.providers import (
     _NODE_PROVIDERS, _DEFAULT_CONFIGS)
+from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, CLOUDTIK_TAG_NODE_STATUS, \
      CLOUDTIK_TAG_USER_NODE_TYPE, CLOUDTIK_TAG_CLUSTER_NAME
-from cloudtik.core.node_provider import NodeProvider
-
-
-import grpc
-import pytest
-
-
-class DrainNodeOutcome(str, Enum):
-    """Potential outcomes of DrainNode calls, each of which is handled
-    differently by the clusterscaler.
-    """
-    # Return a reponse indicating all nodes were succesfully drained.
-    Succeeded = "Succeeded"
-    # Return response indicating at least one node failed to be drained.
-    NotAllDrained = "NotAllDrained"
-    # Return an unimplemented gRPC error, indicating an old GCS.
-    Unimplemented = "Unimplemented"
-    # Raise a generic unexpected RPC error.
-    GenericRpcError = "GenericRpcError"
-    # Raise a generic unexpected exception.
-    GenericException = "GenericException"
-
-
-class MockRpcException(grpc.RpcError):
-    """Mock RpcError with a specified status code.
-
-    Note: It might be possible to do this already with standard tools
-    in the `grpc` module, but how wasn't immediately obvious to me.
-    """
-
-    def __init__(self, status_code: grpc.StatusCode):
-        self.status_code = status_code
-
-    def code(self):
-        return self.status_code
-
-
-class CloudTikTestTimeoutException(Exception):
-    """Exception used to identify timeouts from test utilities."""
-    pass
 
 
 class MockNode:
@@ -305,12 +268,9 @@ SMALL_CLUSTER = {
     "cluster_name": "default",
     "min_workers": 2,
     "max_workers": 2,
-    "initial_workers": 0,
-    "autoscaling_mode": "default",
-    "target_utilization_fraction": 0.8,
     "idle_timeout_minutes": 5,
     "provider": {
-        "type": "mock",
+        "type": "aws",
         "region": "us-east-1",
         "availability_zone": "us-east-1a",
     },
@@ -334,6 +294,7 @@ SMALL_CLUSTER = {
     "worker_setup_commands": ["worker_setup_cmd"],
     "head_start_commands": ["head_start_cmd"],
     "worker_start_commands": ["worker_start_cmd"],
+    "merged_commands": {},
 }
 
 MOCK_DEFAULT_CONFIG = {
@@ -341,7 +302,7 @@ MOCK_DEFAULT_CONFIG = {
     "max_workers": 2,
     "idle_timeout_minutes": 5,
     "provider": {
-        "type": "mock",
+        "type": "aws",
         "region": "us-east-1",
         "availability_zone": "us-east-1a",
     },
@@ -439,7 +400,7 @@ MULTI_WORKER_CLUSTER = dict(
 class ClusterMetricsTest(unittest.TestCase):
     def testHeartbeat(self):
         cluster_metrics = ClusterMetrics()
-        cluster_metrics.update("1.1.1.1", b'\xb6\x80\xbdw\xbd\x1c\xee\xf6@\x11', {"CPU": 2}, {"CPU": 1}, {})
+        cluster_metrics.update("1.1.1.1", b'\xb6\x80\xbdw\xbd\x1c\xee\xf6@\x11', None, {"CPU": 2}, {"CPU": 1}, {})
         cluster_metrics.mark_active("2.2.2.2")
         assert "1.1.1.1" in cluster_metrics.last_heartbeat_time_by_ip
         assert "2.2.2.2" in cluster_metrics.last_heartbeat_time_by_ip
@@ -453,14 +414,6 @@ class CloudTikTest(unittest.TestCase):
         _DEFAULT_CONFIGS["mock"] = _DEFAULT_CONFIGS["aws"]
         self.provider = None
         self.tmpdir = tempfile.mkdtemp()
-
-    def waitFor(self, condition, num_retries=50, fail_msg=None):
-        for _ in range(num_retries):
-            if condition():
-                return
-            time.sleep(.1)
-        fail_msg = fail_msg or "Timed out waiting for {}".format(condition)
-        raise CloudTikTestTimeoutException(fail_msg)
 
     def waitForNodes(self, expected, comparison=None, tag_filters=None):
         if tag_filters is None:
@@ -492,7 +445,6 @@ class CloudTikTest(unittest.TestCase):
             f.write(yaml.dump(new_config))
         return path
 
-
     def testValidateDefaultConfig(self):
         config = {"provider": {
             "type": "aws",
@@ -505,6 +457,22 @@ class CloudTikTest(unittest.TestCase):
         except ValidationError:
             self.fail("Default config did not pass validation test!")
 
+    def testValidation(self):
+        """Ensures that schema validation is working."""
+        config = copy.deepcopy(SMALL_CLUSTER)
+        try:
+            validate_config(config)
+        except Exception:
+            self.fail("Test config did not pass validation test!")
+
+        config["blah"] = "blah"
+        with pytest.raises(ValidationError):
+            validate_config(config)
+        del config["blah"]
+
+        del config["provider"]
+        with pytest.raises(ValidationError):
+            validate_config(config)
 
     def testGetRunningHeadNode(self):
         config = copy.deepcopy(SMALL_CLUSTER)
@@ -548,7 +516,6 @@ class CloudTikTest(unittest.TestCase):
 
         assert optionally_failed == 1
 
-
     def testDefaultMinMaxWorkers(self):
         config = copy.deepcopy(MOCK_DEFAULT_CONFIG)
         config = prepare_config(config)
@@ -560,4 +527,5 @@ class CloudTikTest(unittest.TestCase):
 
 if __name__ == "__main__":
     import sys
+
     sys.exit(pytest.main(["-v", __file__]))

@@ -24,7 +24,7 @@ def batch_test(num_threads, delay):
     Return the number of batches of tag updates and the number of tags
     updated.
     """
-    with mock.patch("cloudtik.providers._private.aws.node_provider.make_ec2_client"
+    with mock.patch("cloudtik.providers._private.aws.utils.make_ec2_client"
                     ), mock.patch.object(AWSNodeProvider, "_create_tags",
                                          mock_create_tags):
         provider = AWSNodeProvider(

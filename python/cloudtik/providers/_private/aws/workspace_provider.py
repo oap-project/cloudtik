@@ -5,7 +5,7 @@ from cloudtik.core._private.utils import get_running_head_node, check_workspace_
 from cloudtik.providers._private.aws.config import create_aws_workspace, \
     delete_aws_workspace, check_aws_workspace_integrity, \
     update_aws_workspace_firewalls, list_aws_clusters, _get_workspace_head_nodes, bootstrap_aws_workspace, \
-    check_aws_workspace_existence
+    check_aws_workspace_existence, get_workspace_s3_bucket
 from cloudtik.core._private.providers import _get_node_provider
 from cloudtik.core.tags import CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX, CLOUDTIK_GLOBAL_VARIABLE_KEY
 from cloudtik.core.workspace_provider import WorkspaceProvider
@@ -69,6 +69,10 @@ class AWSWorkspaceProvider(WorkspaceProvider):
             raise RuntimeError("{} workspace name is between 1 and {} characters, "
                                "and can only contain lowercase alphanumeric "
                                "characters and dashes".format(provider_config["type"], AWS_WORKSPACE_NAME_MAX_LEN))
+
+    def get_managed_cloud_storage(self, config: Dict[str, Any]):
+        bucket = get_workspace_s3_bucket(config, self.workspace_name)
+        return None if bucket is None else bucket.name
 
     @staticmethod
     def bootstrap_workspace_config(config):

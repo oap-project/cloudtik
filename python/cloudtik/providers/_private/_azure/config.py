@@ -1696,16 +1696,12 @@ def _configure_cloud_storage_from_workspace(config):
     resource_client = construct_resource_client(config)
     resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
     if use_managed_cloud_storage:
-        storage_account = get_storage_account(config)
-        container = get_container_for_storage_account(config, resource_group_name)
-        if container is None:
-            cli_logger.abort("No managed azure storage container was found. If you want to use managed azure storage, "
-                             "you should set managed_cloud_storage equal to True when you creating workspace.")
+        azure_cloud_storage = get_workspace_azure_storage(config, config["workspace_name"])
         if "azure_cloud_storage" not in config["provider"]:
             config["provider"]["azure_cloud_storage"] = {}
-        config["provider"]["azure_cloud_storage"]["azure.storage.type"] = "datalake"
-        config["provider"]["azure_cloud_storage"]["azure.storage.account"] = storage_account.name
-        config["provider"]["azure_cloud_storage"]["azure.container"] = container.name
+        config["provider"]["azure_cloud_storage"]["azure.storage.type"] = azure_cloud_storage["azure.storage.type"]
+        config["provider"]["azure_cloud_storage"]["azure.storage.account"] = azure_cloud_storage["azure.storage.account"]
+        config["provider"]["azure_cloud_storage"]["azure.container"] = azure_cloud_storage["azure.container"]
 
     user_assigned_identity = get_head_user_assigned_identity(config, resource_group_name)
     worker_user_assigned_identity = get_worker_user_assigned_identity(config, resource_group_name)
@@ -1719,6 +1715,23 @@ def _configure_cloud_storage_from_workspace(config):
 
     return config
 
+
+def get_workspace_azure_storage(config, workspace_name):
+    use_internal_ips = is_use_internal_ip(config)
+    resource_client = construct_resource_client(config)
+    resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
+    storage_account = get_storage_account(config)
+    container = get_container_for_storage_account(config, resource_group_name)
+    if container is None:
+        cli_logger.abort("No managed azure storage container was found. If you want to use managed azure storage, "
+                         "you should set managed_cloud_storage equal to True when you creating workspace.")
+
+    azure_cloud_storage = {}
+    azure_cloud_storage["azure.storage.type"] = "datalake"
+    azure_cloud_storage["azure.storage.account"] = storage_account.name
+    azure_cloud_storage["azure.container"] = container.name
+
+    return azure_cloud_storage
 
 def _get_head_user_assigned_identity_name(config):
     workspace_name = config["workspace_name"]

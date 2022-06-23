@@ -64,7 +64,13 @@ class WorkspaceProvider:
 
     def validate_config(self, provider_config: Dict[str, Any]):
         pass
-
+    
+    def get_workspace_info(self, config: Dict[str, Any]):
+        pass
+    
+    def get_managed_cloud_storage(self, config: Dict[str, Any]):
+        pass
+    
     @staticmethod
     def bootstrap_workspace_config(config: Dict[str, Any]) -> Dict[str, Any]:
         """Bootstraps the workspace config by adding env defaults if needed."""

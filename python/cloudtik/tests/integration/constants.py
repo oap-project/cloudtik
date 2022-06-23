@@ -26,6 +26,6 @@ runtime_additional_conf = {
     'setup_commands': 'wget -P ~/ https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/spark/benchmark/scripts/bootstrap-benchmark.sh &&bash ~/bootstrap-benchmark.sh  --tpcds ',
     'runtime': {'types': ['ganglia', 'metastore', 'spark', 'kafka']}}
 
-WORKER_NODES_LIST = [1, 2, 4, 6]
-SCALE_CPUS_LIST = [2, 6, 8, 14]
-SCALE_NODES_LIST = [1, 2, 4, 6]
+WORKER_NODES_LIST = [1, 4]
+SCALE_CPUS_LIST = [2, 6, 14]
+SCALE_NODES_LIST = [1, 2, 4]

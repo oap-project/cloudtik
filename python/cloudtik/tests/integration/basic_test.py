@@ -2,7 +2,7 @@ import os
 import pytest
 import yaml
 
-from cloudtik.intergrationtest.constants import CLUSTER_TIMEOUT, \
+from cloudtik.tests.integration.constants import CLUSTER_TIMEOUT, \
     TPC_DATAGEN_BENCHMARK, SCALE_CPUS_LIST, SCALE_NODES_LIST
 from cloudtik.core.api import Workspace
 

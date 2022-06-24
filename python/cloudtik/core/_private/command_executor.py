@@ -195,7 +195,7 @@ class KubernetesCommandExecutor(CommandExecutor):
             try:
                 if with_output:
                     return self.process_runner.check_output(
-                        final_cmd, shell=True).decode(encoding="utf-8")
+                        final_cmd, shell=True)
                 else:
                     self.process_runner.check_call(final_cmd, shell=True)
             except subprocess.CalledProcessError:
@@ -466,7 +466,7 @@ class SSHCommandExecutor(CommandExecutor):
                     cmd_to_print=cmd_to_print
                 )
             if with_output:
-                return self.process_runner.check_output(final_cmd).decode(encoding="utf-8")
+                return self.process_runner.check_output(final_cmd)
             else:
                 return self.process_runner.check_call(final_cmd)
         except subprocess.CalledProcessError as e:

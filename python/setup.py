@@ -58,21 +58,29 @@ cloudtik_files += [
 
 # If you're adding dependencies for cloudtik extras, please
 # also update the matching section of requirements.txt.
-setup_spec.extras = {"aws": [
-    "boto3==1.22.13",
-    "botocore",
-], "azure": [
-    "azure-cli==2.35.0",
-    "azure-storage-blob==12.11.0",
-    "azure-storage-file-datalake==12.6.0",
-], "gcp": [
-    "google-api-python-client==2.48.0",
-    "google-cloud-storage==2.3.0",
-], "k8s": [
-    "kubernetes",
-    "urllib3",
-], "all": list(
-    set(chain.from_iterable(setup_spec.extras.values())))}
+
+setup_spec.extras = {
+    "aws": [
+        "boto3==1.22.13",
+        "botocore",
+    ],
+    "azure": [
+        "azure-cli==2.35.0",
+        "azure-storage-blob==12.11.0",
+        "azure-storage-file-datalake==12.6.0",
+    ],
+    "gcp": [
+        "google-api-python-client==2.48.0",
+        "google-cloud-storage==2.3.0",
+    ],
+    "k8s": [
+        "kubernetes",
+        "urllib3",
+    ],
+}
+
+setup_spec.extras["all"] = list(
+        set(chain.from_iterable(setup_spec.extras.values())))
 
 # These are the main dependencies for users of cloudtik. This list
 # should be carefully curated. If you change it, please reflect

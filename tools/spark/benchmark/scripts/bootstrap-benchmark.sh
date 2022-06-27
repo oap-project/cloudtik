@@ -32,6 +32,7 @@ function install_sbt() {
 }
 
 function use_sbt_china_repositories() {
+    sudo mkdir -p ~/.sbt
     sudo chown $(whoami) ~/.sbt
     tee > ~/.sbt/repositories << EOF
 [repositories]

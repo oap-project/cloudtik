@@ -1,6 +1,6 @@
 #!/bin/bash
 
-args=$(getopt -a -o a:s:i::b:h -l action:,cluster_config:,workspace_config:,scale_factor:,iteration::,bucket:,baseline,help, -- "$@")
+args=$(getopt -a -o a:s:i::h -l action:,cluster_config:,workspace_config:,scale_factor:,iteration::,baseline,help, -- "$@")
 eval set -- "${args}"
 
 ITERATION=1
@@ -135,9 +135,9 @@ function run_tpcds_power_test_with_gazelle() {
 }
 
 function usage() {
-    echo "Usage for data generation : $0 -a|--action generate-data --cluster_config [your_cluster.yaml] --workspace_config [your_workspace.yaml] -s|--scale_factor [data scale] -b|--bucket [s3 bucket name] " >&2
-    echo "Usage for tpc-ds power test with vanilla spark: $0 -a|--action run --cluster_config [your_cluster.yaml] --workspace_config [your_workspace.yaml] -s|--scale_factor [data scale] -i|--iteration=[default value is 1] -b|--bucket [s3 bucket name] --baseline" >&2
-    echo "Usage for tpc-ds power test with gazelle: $0 -a|--action run --cluster_config [your_cluster.yaml] --workspace_config [your_workspace.yaml] -s|--scale_factor [data scale] -i|--iteration=[default value is 1] -b|--bucket [s3 bucket name] " >&2
+    echo "Usage for data generation : $0 -a|--action generate-data --cluster_config [your_cluster.yaml] --workspace_config [your_workspace.yaml] -s|--scale_factor [data scale] " >&2
+    echo "Usage for tpc-ds power test with vanilla spark: $0 -a|--action run --cluster_config [your_cluster.yaml] --workspace_config [your_workspace.yaml] -s|--scale_factor [data scale] -i|--iteration=[default value is 1] --baseline" >&2
+    echo "Usage for tpc-ds power test with gazelle: $0 -a|--action run --cluster_config [your_cluster.yaml] --workspace_config [your_workspace.yaml] -s|--scale_factor [data scale] -i|--iteration=[default value is 1] " >&2
     echo "Usage: $0 -h|--help"
 }
 
@@ -163,10 +163,6 @@ do
         ;;
     -i|--iteration)
         ITERATION=$2
-        shift
-        ;;
-    -b|--bucket)
-        BUCKET=$2
         shift
         ;;
     --baseline)

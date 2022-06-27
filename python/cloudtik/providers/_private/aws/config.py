@@ -22,7 +22,8 @@ from cloudtik.core._private.event_system import (CreateClusterEvent,
 from cloudtik.core._private.services import get_node_ip_address
 from cloudtik.core._private.utils import check_cidr_conflict, get_cluster_uri, is_use_internal_ip, \
     is_managed_cloud_storage, is_use_managed_cloud_storage, is_worker_role_for_cloud_storage
-from cloudtik.core.workspace_provider import Existence
+from cloudtik.core.workspace_provider import Existence, CLOUDTIK_MANAGED_CLOUD_STORAGE, \
+    CLOUDTIK_MANAGED_CLOUD_STORAGE_URI
 from cloudtik.providers._private.aws.utils import LazyDefaultDict, \
     handle_boto_error, get_boto_error_code, _get_node_info, BOTO_MAX_RETRIES, _resource, \
     _client, _make_resource, _make_client, make_ec2_client
@@ -67,6 +68,8 @@ DEFAULT_AMI = {
 AWS_WORKSPACE_NUM_CREATION_STEPS = 8
 AWS_WORKSPACE_NUM_DELETION_STEPS = 8
 AWS_WORKSPACE_TARGET_RESOURCES = 10
+
+AWS_MANAGED_STORAGE_S3_BUCKET = "aws.managed.storage.s3.bucket"
 
 # todo: cli_logger should handle this assert properly
 # this should probably also happens somewhere else
@@ -519,6 +522,18 @@ def check_aws_workspace_existence(config):
 def check_aws_workspace_integrity(config):
     existence = check_aws_workspace_existence(config)
     return True if existence == Existence.COMPLETED else False
+
+
+def get_aws_workspace_info(config):
+    workspace_name = config["workspace_name"]
+    bucket = get_workspace_s3_bucket(config, workspace_name)
+    managed_bucket_name = None if bucket is None else bucket.name
+    info = {}
+    if managed_bucket_name is not None:
+        managed_cloud_storage = {AWS_MANAGED_STORAGE_S3_BUCKET: managed_bucket_name,
+                                 CLOUDTIK_MANAGED_CLOUD_STORAGE_URI: "s3a://{}".format(managed_bucket_name)}
+        info[CLOUDTIK_MANAGED_CLOUD_STORAGE] = managed_cloud_storage
+    return info
 
 
 def update_aws_workspace_firewalls(config):

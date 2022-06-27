@@ -4,6 +4,9 @@ from enum import Enum
 
 logger = logging.getLogger(__name__)
 
+CLOUDTIK_MANAGED_CLOUD_STORAGE = "managed.cloud.storage"
+CLOUDTIK_MANAGED_CLOUD_STORAGE_URI = "cloud.storage.uri"
+
 
 class Existence(Enum):
     NOT_EXIST = 1
@@ -64,6 +67,9 @@ class WorkspaceProvider:
 
     def validate_config(self, provider_config: Dict[str, Any]):
         pass
+
+    def get_workspace_info(self, config: Dict[str, Any]):
+        return {}
 
     @staticmethod
     def bootstrap_workspace_config(config: Dict[str, Any]) -> Dict[str, Any]:

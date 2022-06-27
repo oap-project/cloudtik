@@ -4,7 +4,8 @@ import logging
 import urllib
 
 from cloudtik.core._private.workspace.workspace_operator import (
-    create_workspace, delete_workspace, update_workspace_firewalls, list_workspace_clusters, show_status)
+    create_workspace, delete_workspace, update_workspace_firewalls, list_workspace_clusters, show_status,
+    show_workspace_info, show_managed_cloud_storage, show_managed_cloud_storage_uri)
 from cloudtik.core._private.cli_logger import (add_click_logging_options, cli_logger)
 from cloudtik.scripts.utils import NaturalOrderGroup
 
@@ -131,6 +132,38 @@ def status(workspace_config_file, workspace_name):
 def show_clusters(workspace_config_file, workspace_name):
     """List clusters running in this workspace."""
     list_workspace_clusters(workspace_config_file, workspace_name)
+
+
+@workspace.command()
+@click.argument("workspace_config_file", required=True, type=str)
+@click.option(
+    "--workspace-name",
+    "-n",
+    required=False,
+    type=str,
+    help="Override the configured workspace name.")
+@click.option(
+    "--managed-storage",
+    is_flag=True,
+    default=False,
+    help="Get the managed cloud storage for workspace.")
+@click.option(
+    "--managed-storage-uri",
+    is_flag=True,
+    default=False,
+    help="Get the managed cloud storage uri for Hadoop.")
+@add_click_logging_options
+def info(workspace_config_file, workspace_name, managed_storage, managed_storage_uri):
+    """Show workspace summary information."""
+    if managed_storage:
+        return show_managed_cloud_storage(workspace_config_file, workspace_name)
+
+    if managed_storage_uri:
+        return show_managed_cloud_storage_uri(workspace_config_file, workspace_name)
+
+    show_workspace_info(
+        workspace_config_file,
+        workspace_name)
 
 
 def _add_command_alias(command, name, hidden):

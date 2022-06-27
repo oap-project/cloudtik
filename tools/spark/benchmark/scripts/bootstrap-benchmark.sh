@@ -1,11 +1,20 @@
 #!/bin/bash
-source ~/.bashrc
-sudo apt-get install -y git
-export USER_HOME=/home/$(whoami)
-BENCHMARK_TOOL_HOME=$USER_HOME/runtime/benchmark-tools
-mkdir -p $BENCHMARK_TOOL_HOME
-sudo chown $(whoami):$(whoami) $BENCHMARK_TOOL_HOME
-sudo apt-get update
+
+args=$(getopt -a -o w::r::h:: -l workload::,repository::,help:: -- "$@")
+eval set -- "${args}"
+
+WORKLOAD=all
+REPOSITORY=default
+
+function prepare_prerequisite() {
+    source ~/.bashrc
+    sudo apt-get install -y git
+    export USER_HOME=/home/$(whoami)
+    BENCHMARK_TOOL_HOME=$USER_HOME/runtime/benchmark-tools
+    mkdir -p $BENCHMARK_TOOL_HOME
+    sudo chown $(whoami) $BENCHMARK_TOOL_HOME
+    sudo apt-get update
+}
 
 function install_sbt() {
     sudo apt-get update
@@ -16,6 +25,23 @@ function install_sbt() {
     sudo chmod 644 /etc/apt/trusted.gpg.d/scalasbt-release.gpg
     sudo apt-get update
     sudo apt-get install sbt -y
+
+    if [ "${REPOSITORY}" == "china" ]; then
+        use_sbt_china_repositories
+    fi
+}
+
+function use_sbt_china_repositories() {
+    sudo mkdir -p ~/.sbt
+    sudo chown $(whoami) ~/.sbt
+    tee > ~/.sbt/repositories << EOF
+[repositories]
+  local
+  huaweicloud-ivy: https://mirrors.huaweicloud.com/repository/ivy/, [organization]/[module]/(scala_[scalaVersion]/)(sbt_[sbtVersion]/)[revision]/[type]s/[artifact](-[classifier]).[ext]
+  huaweicloud-maven: https://mirrors.huaweicloud.com/repository/maven/
+  bintray-typesafe-ivy: https://dl.bintray.com/typesafe/ivy-releases/, [organization]/[module]/(scala_[scalaVersion]/)(sbt_[sbtVersion]/)[revision]/[type]s/[artifact](-[classifier]).[ext]
+  bintray-sbt-plugins: https://dl.bintray.com/sbt/sbt-plugin-releases/, [organization]/[module]/(scala_[scalaVersion]/)(sbt_[sbtVersion]/)[revision]/[type]s/[artifact](-[classifier]).[ext], bootOnly
+EOF
 }
 
 function install_maven() {
@@ -68,45 +94,47 @@ function install_tpch() {
 }
 
 function usage() {
-    echo "Usage: $0 --all|--tpcds|--tpch|--hibench|-h|--help" >&2
+    echo "Usage: $0 --workload=[all|tpch|tpcds|hibench] --repository=[default|china]" >&2
+    echo "Usage: $0 -h|--help"
 }
 
-while [[ $# -ge 0 ]]
+while true
 do
-    key="$1"
-    case $key in
-    "")
-        shift 1
-        echo "Start to deploy all benchmark for Spark Runtime ..."
-        install_hibench
-        install_tpcds
-        install_tpch
-        exit 0
+    case "$1" in
+    -r|--repository)
+        REPOSITORY=$2
+        shift
         ;;
-    --tpcds)
-        shift 1
-        install_tpcds
-        exit 0
-        ;;
-    --tpch)
-        shift 1
-        install_tpch
-        exit 0
-        ;;
-    --hibench)
-        shift 1
-        install_hibench
-        exit 0
+    -w|--workload)
+        WORKLOAD=$2
+        shift
         ;;
     -h|--help)
-        shift 1
+        shift
         usage
         exit 0
         ;;
-    *)    # unknown option
-        echo "Unknown option"
-        usage
-        exit 1
+    --)
+        shift
+        break
         ;;
     esac
+    shift
 done
+
+prepare_prerequisite
+
+if [ "${WORKLOAD}" == "tpcds" ];then
+    install_tpcds
+elif [ "${WORKLOAD}" == "tpch" ];then
+    install_tpch
+elif [ "${WORKLOAD}" == "hibench" ];then
+    install_hibench
+elif [ "${WORKLOAD}" == "all" ];then
+    install_hibench
+    install_tpcds
+    install_tpch
+else
+    usage
+    exit 1
+fi

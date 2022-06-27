@@ -11,7 +11,8 @@ import prettytable as pt
 import yaml
 
 from cloudtik.core._private.cluster.cluster_operator import _get_cluster_info
-from cloudtik.core.workspace_provider import Existence
+from cloudtik.core.workspace_provider import Existence, CLOUDTIK_MANAGED_CLOUD_STORAGE, \
+    CLOUDTIK_MANAGED_CLOUD_STORAGE_URI
 
 try:  # py3
     from shlex import quote
@@ -19,7 +20,8 @@ except ImportError:  # py2
     from pipes import quote
 
 
-from cloudtik.core._private.utils import validate_workspace_config, prepare_workspace_config, is_managed_cloud_storage
+from cloudtik.core._private.utils import validate_workspace_config, prepare_workspace_config, is_managed_cloud_storage, \
+    print_dict_info
 from cloudtik.core._private.providers import _get_workspace_provider_cls, _get_workspace_provider, \
     _WORKSPACE_PROVIDERS, _PROVIDER_PRETTY_NAMES, _get_node_provider_cls
 
@@ -285,6 +287,45 @@ def _get_workspace_status(config):
     workspace_name = config["workspace_name"]
     provider = _get_workspace_provider(config["provider"], workspace_name)
     return provider.check_workspace_existence(config)
+
+
+def get_workspace_info(
+        config_file: str,
+        override_workspace_name: Optional[str] = None):
+    config = _load_workspace_config(config_file, override_workspace_name)
+    return _get_workspace_info(config)
+
+
+def _get_workspace_info(
+        config: Dict[str, Any]):
+    provider = _get_workspace_provider(config["provider"], config["workspace_name"])
+    return provider.get_workspace_info(config)
+
+
+def show_workspace_info(
+        config_file: str,
+        override_workspace_name: Optional[str] = None):
+    show_status(config_file, override_workspace_name)
+    workspace_info = get_workspace_info(config_file, override_workspace_name)
+    print_dict_info(workspace_info)
+
+
+def show_managed_cloud_storage(
+        config_file: str,
+        override_workspace_name: Optional[str] = None):
+    workspace_info = get_workspace_info(config_file, override_workspace_name)
+    managed_cloud_storage = workspace_info.get(CLOUDTIK_MANAGED_CLOUD_STORAGE)
+    if managed_cloud_storage is not None:
+        print_dict_info(managed_cloud_storage)
+
+
+def show_managed_cloud_storage_uri(
+        config_file: str,
+        override_workspace_name: Optional[str] = None):
+    workspace_info = get_workspace_info(config_file, override_workspace_name)
+    managed_cloud_storage = workspace_info.get(CLOUDTIK_MANAGED_CLOUD_STORAGE)
+    if managed_cloud_storage is not None:
+        cli_logger.print(managed_cloud_storage[CLOUDTIK_MANAGED_CLOUD_STORAGE_URI])
 
 
 CONFIG_CACHE_VERSION = 1

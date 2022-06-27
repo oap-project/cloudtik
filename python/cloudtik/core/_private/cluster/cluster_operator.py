@@ -1252,13 +1252,17 @@ def _exec(updater: NodeUpdaterThread,
                 quote(cmd + "; exec bash")
             ]
             cmd = " ".join(wrapped_cmd)
-    return updater.cmd_executor.run(
+    exec_out = updater.cmd_executor.run(
         cmd,
         exit_on_fail=True,
         port_forward=port_forward,
         with_output=with_output,
         run_env=run_env,
         shutdown_after_run=shutdown_after_run)
+    if with_output:
+        return exec_out.decode(encoding="utf-8")
+    else:
+        return exec_out
 
 
 def _rsync(config: Dict[str, Any],

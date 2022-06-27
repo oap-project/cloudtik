@@ -4,7 +4,8 @@ from typing import Any, Dict, Optional
 from cloudtik.core._private.utils import get_running_head_node, check_workspace_name_format
 from cloudtik.providers._private._azure.config import create_azure_workspace, \
     delete_azure_workspace, check_azure_workspace_integrity, update_azure_workspace_firewalls, \
-    get_workspace_head_nodes, list_azure_clusters, bootstrap_azure_workspace, check_azure_workspace_existence
+    get_workspace_head_nodes, list_azure_clusters, bootstrap_azure_workspace, check_azure_workspace_existence, \
+    get_azure_workspace_info
 from cloudtik.core._private.providers import _get_node_provider
 from cloudtik.core.tags import CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX, CLOUDTIK_GLOBAL_VARIABLE_KEY
 from cloudtik.core.workspace_provider import WorkspaceProvider
@@ -67,6 +68,9 @@ class AzureWorkspaceProvider(WorkspaceProvider):
             raise RuntimeError("{} workspace name is between 1 and {} characters, "
                                "and can only contain lowercase alphanumeric "
                                "characters and dashes".format(provider_config["type"], AZURE_WORKSPACE_NAME_MAX_LEN))
+
+    def get_workspace_info(self, config: Dict[str, Any]):
+        return get_azure_workspace_info(config)
 
     @staticmethod
     def bootstrap_workspace_config(config):

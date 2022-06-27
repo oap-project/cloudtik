@@ -880,11 +880,13 @@ def fillout_workspace_defaults(config: Dict[str, Any]) -> Dict[str, Any]:
 
 def _get_user_template_file(template_name: str):
     if constants.CLOUDTIK_USER_TEMPLATES in os.environ:
-        user_template_dir = os.environ[constants.CLOUDTIK_USER_TEMPLATES]
-        if user_template_dir:
-            template_file = os.path.join(user_template_dir, template_name)
-            if os.path.exists(template_file):
-                return template_file
+        user_template_dirs_str = os.environ[constants.CLOUDTIK_USER_TEMPLATES]
+        if user_template_dirs_str:
+            user_template_dirs = [user_template_dir.strip() for user_template_dir in user_template_dirs_str.split(',')]
+            for user_template_dir in user_template_dirs:
+                template_file = os.path.join(user_template_dir, template_name)
+                if os.path.exists(template_file):
+                    return template_file
 
     return None
 
@@ -2844,3 +2846,12 @@ def is_worker_role_for_cloud_storage(config: Dict[str, Any]) -> bool:
 
 def check_workspace_name_format(workspace_name):
     return bool(re.match("^[a-z0-9-]*$", workspace_name))
+
+
+def print_dict_info(info: Dict[str, Any]):
+    for k, v in info.items():
+        if isinstance(v, collections.abc.Mapping):
+            with cli_logger.group("{}:".format(k)):
+                print_dict_info(v)
+        else:
+            cli_logger.labeled_value(k, v)

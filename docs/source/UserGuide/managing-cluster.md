@@ -129,57 +129,6 @@ Execute commands on all nodes
 cloudtik exec --all-nodes /path/to/your-cluster-config.yaml [CMD]
 ```
 
-Submit job to cluster to run.
-
-```
-cloudtik submit [OPTIONS] /path/to/your-cluster-config.yaml SCRIPT [SCRIPT_ARGS]
-```
-
-##### Run TPC-DS on Spark cluster
-
-Here is an example of how to use `cloudtik submit` to run TPC-DS on the created cluster.
-
-###### 1. Creating a cluster 
-
-To generate data and run TPC-DS on a cluster, some extra tools need be installed to nodes within cluster setup steps. 
-We provide a script to simplify the installation of these dependencies. You only need to add the following bootstrap_commands to the cluster configuration file.
-
-```buildoutcfg
-
-bootstrap_commands:
-    - wget -P ~/ https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/spark/benchmark/scripts/bootstrap-benchmark.sh &&
-        bash ~/bootstrap-benchmark.sh  --tpcds
-```
-
-###### 2. Generating data
-
-We provided the datagen scala script which can be found from CloudTik's `./tools/spark/benchmark/scripts/tpcds-datagen.scala` for you to generate data in different size.
-
-Execute the following command to submit and run the script of generating data after the cluster's all nodes are ready.
-
-```
-cloudtik submit /path/to/your-cluster-config.yaml $CLOUTIK_HOME/tools/spark/benchmark/scripts/tpcds-datagen.scala --conf spark.driver.scaleFactor=1 --conf spark.driver.fsdir="s3a://s3_bucket_name" --jars \$HOME/runtime/benchmark-tools/spark-sql-perf/target/scala-2.12/spark-sql-perf_2.12-0.5.1-SNAPSHOT.jar
-```
-
-`$CLOUTIK_HOME/tools/spark/benchmark/scripts/tpcds-datagen.scala` is the script's location on your working node.
-
-`spark.driver.scaleFactor=1` is to generate 1 GB data, you can change it by case. 
-
-`spark.driver.fsdir="s3a://s3_bucket_name"` is to specify S3 bucket name, change it to your bucket link of cloud storage.
-
-`--jars \$HOME/runtime/benchmark-tools/spark-sql-perf/target/scala-2.12/spark-sql-perf_2.12-0.5.1-SNAPSHOT.jar` specifies the default path of spark-sql-perf jar when the cluster nodes are set up, just leave it untouched.
-
-
-###### 3. Run TPC-DS power test
-
-We provided the power test scala script which can be found from CloudTik's `./tools/spark/benchmark/scripts/tpcds-power-test.scala` for users to run TPC-DS power test with Cloudtik cluster.
-
-Execute the following command to submit and run the power test script on the cluster,
-
-```buildoutcfg
-cloudtik submit /path/to/your-cluster-config.yaml $CLOUTIK_HOME/tools/spark/benchmark/scripts/tpcds-power-test.scala --conf spark.driver.scaleFactor=1 --conf spark.driver.fsdir="s3a://s3_bucket_name" --conf spark.sql.shuffle.partitions=\$(cloudtik head info --worker-cpus) --conf spark.driver.iterations=1 --jars \$HOME/runtime/benchmark-tools/spark-sql-perf/target/scala-2.12/spark-sql-perf_2.12-0.5.1-SNAPSHOT.jar
-```
-
 ### Manage Files
 
 Upload files or directories to cluster:

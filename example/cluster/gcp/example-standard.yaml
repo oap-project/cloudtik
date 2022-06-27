@@ -5,7 +5,7 @@ from: gcp/standard
 cluster_name: example-standard
 
 # Workspace into which to launch the cluster
-workspace_name: exmaple-workspace
+workspace_name: example-workspace
 
 # Cloud-provider specific configuration.
 provider:

@@ -17,7 +17,7 @@ Please follow these steps to use local mode.
 
 
 ## Create a new sudo user 
-Cloudtik does not allow the root user to manage the cluster, 
+Cloudtik does not allow root user to manage the cluster, 
 so you need to create a normal user with sudo privileges for each of your machines. 
 If such a user already exists, you can skip this step.
 

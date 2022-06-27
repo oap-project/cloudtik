@@ -1,8 +1,8 @@
 import pytest
 
-from cloudtik.tests.core.basic_test import WorkspaceBasicTest, create_workspace, ClusterFunctionTest, \
+from cloudtik.tests.integration.basic_test import WorkspaceBasicTest, create_workspace, ClusterFunctionTest, \
     ClusterRuntimeTest, ClusterScaleTest
-from cloudtik.tests.core.constants import GCP_BASIC_WORKSPACE_CONF_FILE, GCP_BASIC_CLUSTER_CONF_FILE, \
+from cloudtik.tests.integration.constants import GCP_BASIC_WORKSPACE_CONF_FILE, GCP_BASIC_CLUSTER_CONF_FILE, \
     WORKER_NODES_LIST
 
 workspace = None

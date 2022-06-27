@@ -1,12 +1,10 @@
-import sys
-
 import pytest
 import os
 
 import yaml
 
 from cloudtik.core.api import Cluster
-from cloudtik.tests.core.basic_test import ROOT_PATH
+from cloudtik.tests.integration.basic_test import ROOT_PATH
 
 
 def pytest_configure():

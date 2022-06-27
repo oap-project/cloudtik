@@ -29,10 +29,10 @@ If such a user already exists, you can skip this step.
  Cloudtik will use this private key to login in the cluster.
 
 
-
 ## Prepare local disks
 Cloudtik will automatically detect the disks on each node, format the disks without partitions and mount these disks in the directory "/mnt/cloudtik/data_disk_[number]" specified by Cloudtik.
-So please make sure that the required data disk has cleared the partition information,and mount the redundant disk to a directory other than "/mnt/cloudtik"
+So please make sure that the required data disk has cleared the partition information,and mount the redundant disk to a directory other than "/mnt/cloudtik". 
+For the disk information below, Cloudtik will use nvme0n1, nvme1n1 and nvme2n1 as storage disks.
 ```buildoutcfg
 (base) ubuntu@worker01:~$ lsblk
 NAME                      MAJ:MIN RM   SIZE RO TYPE MOUNTPOINT
@@ -56,7 +56,6 @@ nvme5n1                   259:9    0   3.7T  0 disk /mnt/disk_3
 nvme6n1                   259:10   0   3.7T  0 disk /mnt/disk_4
 
 ```
-
 
 ## Create and configure a YAML file for cloudtik-cloud-simulator 
 You need to provide your machine hardware configuration and ip.
@@ -96,7 +95,6 @@ nodes:
       instance_type: worker_instance_type_2
 
 ```
-
 
 ## Start cloudtik-cloud-simulator service
 ```buildoutcfg
@@ -152,7 +150,6 @@ available_node_types:
         node_config:
             instance_type: worker_instance_type_1
 ```
-
 
 ## Create cluster
 ```buildoutcfg

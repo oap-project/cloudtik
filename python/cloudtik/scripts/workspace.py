@@ -143,22 +143,22 @@ def show_clusters(workspace_config_file, workspace_name):
     type=str,
     help="Override the configured workspace name.")
 @click.option(
-    "--storage",
+    "--managed-storage",
     is_flag=True,
     default=False,
     help="Get the managed cloud storage for workspace.")
 @click.option(
-    "--storage-uri",
+    "--managed-storage-uri",
     is_flag=True,
     default=False,
     help="Get the managed cloud storage uri for Hadoop.")
 @add_click_logging_options
-def info(workspace_config_file, workspace_name, storage, storage_uri):
+def info(workspace_config_file, workspace_name, managed_storage, managed_storage_uri):
     """Show workspace summary information."""
-    if storage:
+    if managed_storage:
         return show_managed_cloud_storage(workspace_config_file, workspace_name)
 
-    if storage_uri:
+    if managed_storage_uri:
         return show_managed_cloud_storage_uri(workspace_config_file, workspace_name)
 
     show_workspace_info(

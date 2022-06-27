@@ -1,5 +1,5 @@
 # An example of standard 1 + 3 nodes cluster with standard instance type
-from: aws/standrad
+from: aws/large
 
 # Workspace into which to launch the cluster
 workspace_name: aws-workspace
@@ -31,9 +31,11 @@ runtime:
 
 bootstrap_commands:
     - sudo apt-get update && sudo apt-get install openjdk-8-jdk -y
-    - wget -P ~/ https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/spark/benchmark/scripts/bootstrap-benchmark.sh && bash ~/bootstrap-benchmark.sh --tpcds
-    - wget -P ~/ https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/integrations/oap/bootstrap_oap.sh && bash ~/bootstrap_oap.sh
-    - echo "export CC=$HOME/runtime/oap/bin/x86_64-conda_cos6-linux-gnu-cc" >> ~/.bashrc
-    - echo "export LD_LIBRARY_PATH=$HOME/runtime/oap/lib/:\$LD_LIBRARY_PATH" >> ~/.bashrc
-    - echo "export LIBARROW_DIR=$HOME/runtime/oap/" >> ~/.bashrc
-    - echo "export CODEGEN_OPTION=\" -O1 -march=native -fno-semantic-interposition \""
+    - wget -P ~/ https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/spark/benchmark/scripts/bootstrap-benchmark.sh \
+        && bash ~/bootstrap-benchmark.sh --workload=tpcds
+    - wget -P ~/ https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/integrations/oap/bootstrap_oap.sh \
+        && bash ~/bootstrap_oap.sh
+    - echo 'export CC=$HOME/runtime/oap/bin/x86_64-conda_cos6-linux-gnu-cc' >> ~/.bashrc
+    - echo 'export LD_LIBRARY_PATH=$HOME/runtime/oap/lib/:$LD_LIBRARY_PATH' >> ~/.bashrc
+    - echo 'export LIBARROW_DIR=$HOME/runtime/oap/' >> ~/.bashrc
+    - echo 'export CODEGEN_OPTION=" -O1 -march=native -fno-semantic-interposition "' >> ~/.bashrc

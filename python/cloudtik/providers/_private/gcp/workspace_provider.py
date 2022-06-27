@@ -3,7 +3,8 @@ from typing import Any, Dict, Optional
 
 from cloudtik.providers._private.gcp.config import create_gcp_workspace, \
     delete_gcp_workspace, check_gcp_workspace_integrity, update_gcp_workspace_firewalls, \
-    get_workspace_head_nodes, list_gcp_clusters, bootstrap_gcp_workspace, check_gcp_workspace_existence
+    get_workspace_head_nodes, list_gcp_clusters, bootstrap_gcp_workspace, check_gcp_workspace_existence, \
+    get_workspace_gcs_bucket
 from cloudtik.core._private.providers import _get_node_provider
 from cloudtik.core._private.utils import binary_to_hex, hex_to_binary, get_running_head_node, check_workspace_name_format
 from cloudtik.core.tags import CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX, CLOUDTIK_GLOBAL_VARIABLE_KEY
@@ -71,6 +72,10 @@ class GCPWorkspaceProvider(WorkspaceProvider):
             raise RuntimeError("{} workspace name is between 1 and {} characters, "
                                "and can only contain lowercase alphanumeric "
                                "characters and dashes".format(provider_config["type"], GCP_WORKSPACE_NAME_MAX_LEN))
+
+    def get_managed_cloud_storage(self, config: Dict[str, Any]):
+        bucket = get_workspace_gcs_bucket(config, self.workspace_name)
+        return None if bucket is None else bucket.name
 
     @staticmethod
     def bootstrap_workspace_config(config):

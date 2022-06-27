@@ -287,6 +287,25 @@ def _get_workspace_status(config):
     return provider.check_workspace_existence(config)
 
 
+def  show_workspace_info(
+        config_file: str,
+        override_workspace_name: Optional[str] = None):
+    show_status(config_file, override_workspace_name)
+    config = _load_workspace_config(config_file, override_workspace_name)
+    provider = _get_workspace_provider(config["provider"], config["workspace_name"])
+    provider.get_workspace_info(config)
+
+
+def  show_managed_cloud_storage(
+        config_file: str,
+        override_workspace_name: Optional[str] = None):
+    
+    config = _load_workspace_config(config_file, override_workspace_name)
+    provider = _get_workspace_provider(config["provider"], config["workspace_name"])
+    cloud_storage = provider.get_managed_cloud_storage(config)
+    cli_logger.print(cf.bold(cloud_storage))
+
+
 CONFIG_CACHE_VERSION = 1
 
 

@@ -34,7 +34,6 @@ bash $CLOUDTIK_HOME/tools/aws-benchmark/scripts/aws-resource.sh --action start-c
 ```
 
 ## 5. Generate data
-
 We provided the shell script **[aws-benchmark.sh](./scripts/aws-benchmark.sh)** for you to generate data in different scales.
 ```buildoutcfg
 # Generate TPC-DS SF1000 data

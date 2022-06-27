@@ -14,7 +14,8 @@ from googleapiclient import discovery, errors
 
 from google.oauth2 import service_account
 
-from cloudtik.core.workspace_provider import Existence
+from cloudtik.core.workspace_provider import Existence, CLOUDTIK_MANAGED_CLOUD_STORAGE, \
+    CLOUDTIK_MANAGED_CLOUD_STORAGE_URI
 
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, CLOUDTIK_TAG_CLUSTER_NAME
 from cloudtik.core._private.cli_logger import cli_logger, cf
@@ -69,6 +70,7 @@ GCP_WORKSPACE_NUM_CREATION_STEPS = 7
 GCP_WORKSPACE_NUM_DELETION_STEPS = 6
 GCP_WORKSPACE_TARGET_RESOURCES = 8
 
+GCP_MANAGED_STORAGE_GCS_BUCKET = "gcp.managed.storage.gcs.bucket"
 
 def key_pair_name(i, region, project_id, ssh_user):
     """Returns the ith default gcp_key_pair_name."""
@@ -1140,6 +1142,18 @@ def check_gcp_workspace_existence(config):
 def check_gcp_workspace_integrity(config):
     existence = check_gcp_workspace_existence(config)
     return True if existence == Existence.COMPLETED else False
+
+
+def get_gcp_workspace_info(config):
+    workspace_name = config["workspace_name"]
+    bucket = get_workspace_gcs_bucket(config, workspace_name)
+    managed_bucket_name = None if bucket is None else bucket.name
+    info = {}
+    if managed_bucket_name is not None:
+        managed_cloud_storage = {GCP_MANAGED_STORAGE_GCS_BUCKET: managed_bucket_name,
+                                 CLOUDTIK_MANAGED_CLOUD_STORAGE_URI: "gs://{}".format(managed_bucket_name)}
+        info[CLOUDTIK_MANAGED_CLOUD_STORAGE] = managed_cloud_storage
+    return info
 
 
 def _fix_disk_type_for_disk(zone, disk):

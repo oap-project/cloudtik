@@ -5,7 +5,7 @@ from cloudtik.core._private.utils import get_running_head_node, check_workspace_
 from cloudtik.providers._private._azure.config import create_azure_workspace, \
     delete_azure_workspace, check_azure_workspace_integrity, update_azure_workspace_firewalls, \
     get_workspace_head_nodes, list_azure_clusters, bootstrap_azure_workspace, check_azure_workspace_existence, \
-    get_workspace_azure_storage
+    get_azure_workspace_info
 from cloudtik.core._private.providers import _get_node_provider
 from cloudtik.core.tags import CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX, CLOUDTIK_GLOBAL_VARIABLE_KEY
 from cloudtik.core.workspace_provider import WorkspaceProvider
@@ -68,15 +68,10 @@ class AzureWorkspaceProvider(WorkspaceProvider):
             raise RuntimeError("{} workspace name is between 1 and {} characters, "
                                "and can only contain lowercase alphanumeric "
                                "characters and dashes".format(provider_config["type"], AZURE_WORKSPACE_NAME_MAX_LEN))
-    
-    def get_managed_cloud_storage(self, config: Dict[str, Any]):
-        azure_cloud_storage = get_workspace_azure_storage(config, self.workspace_name)
-        fs_default_name_for_azure = "abfs://{container}@{storage_account}.dfs.core.windows.net".format(
-            container=azure_cloud_storage.get("azure.storage.account"),
-            storage_account=azure_cloud_storage.get("azure.container")
-        )
-        return fs_default_name_for_azure
-    
+
+    def get_workspace_info(self, config: Dict[str, Any]):
+        return get_azure_workspace_info(config)
+
     @staticmethod
     def bootstrap_workspace_config(config):
         return bootstrap_azure_workspace(config)

@@ -13,7 +13,8 @@ from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, CLOUDTIK_
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.utils import check_cidr_conflict, is_use_internal_ip, _is_use_internal_ip, \
     is_managed_cloud_storage, is_use_managed_cloud_storage, _is_use_managed_cloud_storage
-from cloudtik.core.workspace_provider import Existence
+from cloudtik.core.workspace_provider import Existence, CLOUDTIK_MANAGED_CLOUD_STORAGE, \
+    CLOUDTIK_MANAGED_CLOUD_STORAGE_URI
 
 from azure.common.credentials import get_cli_profile
 from azure.identity import AzureCliCredential
@@ -39,6 +40,10 @@ AZURE_VNET_NAME = AZURE_RESOURCE_NAME_PREFIX + "-vnet"
 AZURE_WORKSPACE_NUM_CREATION_STEPS = 9
 AZURE_WORKSPACE_NUM_DELETION_STEPS = 9
 AZURE_WORKSPACE_TARGET_RESOURCES = 12
+
+AZURE_MANAGED_STORAGE_TYPE = "azure.managed.storage.type"
+AZURE_MANAGED_STORAGE_ACCOUNT = "azure.managed.storage.account"
+AZURE_MANAGED_STORAGE_CONTAINER = "azure.managed.storage.container"
 
 logger = logging.getLogger(__name__)
 
@@ -191,6 +196,24 @@ def check_azure_workspace_existence(config):
 def check_azure_workspace_integrity(config):
     existence = check_azure_workspace_existence(config)
     return True if existence == Existence.COMPLETED else False
+
+
+def get_azure_workspace_info(config):
+    workspace_name = config["workspace_name"]
+    azure_cloud_storage = get_workspace_azure_storage(config, workspace_name)
+    info = {}
+    if azure_cloud_storage is not None:
+        storage_uri = "abfs://{container}@{storage_account}.dfs.core.windows.net".format(
+            container=azure_cloud_storage.get("azure.container"),
+            storage_account=azure_cloud_storage.get("azure.storage.account")
+        )
+        managed_cloud_storage = {AZURE_MANAGED_STORAGE_TYPE: azure_cloud_storage.get("azure.storage.type"),
+                                 AZURE_MANAGED_STORAGE_ACCOUNT: azure_cloud_storage.get("azure.storage.account"),
+                                 AZURE_MANAGED_STORAGE_CONTAINER: azure_cloud_storage.get("azure.container"),
+                                 CLOUDTIK_MANAGED_CLOUD_STORAGE_URI: storage_uri}
+        info[CLOUDTIK_MANAGED_CLOUD_STORAGE] = managed_cloud_storage
+
+    return info
 
 
 def get_resource_group_name(config, resource_client, use_internal_ips):
@@ -1697,6 +1720,10 @@ def _configure_cloud_storage_from_workspace(config):
     resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
     if use_managed_cloud_storage:
         azure_cloud_storage = get_workspace_azure_storage(config, config["workspace_name"])
+        if azure_cloud_storage is None:
+            cli_logger.abort("No managed azure storage container was found. If you want to use managed azure storage, "
+                             "you should set managed_cloud_storage equal to True when you creating workspace.")
+
         if "azure_cloud_storage" not in config["provider"]:
             config["provider"]["azure_cloud_storage"] = {}
         config["provider"]["azure_cloud_storage"]["azure.storage.type"] = azure_cloud_storage["azure.storage.type"]
@@ -1723,15 +1750,13 @@ def get_workspace_azure_storage(config, workspace_name):
     storage_account = get_storage_account(config)
     container = get_container_for_storage_account(config, resource_group_name)
     if container is None:
-        cli_logger.abort("No managed azure storage container was found. If you want to use managed azure storage, "
-                         "you should set managed_cloud_storage equal to True when you creating workspace.")
+        return None
 
-    azure_cloud_storage = {}
-    azure_cloud_storage["azure.storage.type"] = "datalake"
-    azure_cloud_storage["azure.storage.account"] = storage_account.name
-    azure_cloud_storage["azure.container"] = container.name
-
+    azure_cloud_storage = {"azure.storage.type": "datalake",
+                           "azure.storage.account": storage_account.name,
+                           "azure.container": container.name}
     return azure_cloud_storage
+
 
 def _get_head_user_assigned_identity_name(config):
     workspace_name = config["workspace_name"]

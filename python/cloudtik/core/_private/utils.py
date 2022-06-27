@@ -2846,3 +2846,12 @@ def is_worker_role_for_cloud_storage(config: Dict[str, Any]) -> bool:
 
 def check_workspace_name_format(workspace_name):
     return bool(re.match("^[a-z0-9-]*$", workspace_name))
+
+
+def print_dict_info(info: Dict[str, Any]):
+    for k, v in info.items():
+        if isinstance(v, collections.abc.Mapping):
+            with cli_logger.group("{}:".format(k)):
+                print_dict_info(v)
+        else:
+            cli_logger.labeled_value(k, v)

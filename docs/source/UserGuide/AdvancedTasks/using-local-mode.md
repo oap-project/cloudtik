@@ -1,24 +1,61 @@
-# Using local mode 
-Cloudtik can easily manage the resources on cloud through the cloud vendor's SDK. While users sometimes want to do some performance tests on their local machines. 
-In order to manage local machine resources conveniently, cloudtik has developed a cloud-simulator service 
+# Using on-premise mode 
+Cloudtik can easily manage the resources on cloud through the cloud SDK. While users sometimes want to do some performance tests on their local machines. 
+In order to manage local machine resources conveniently, Cloudtik has developed a cloud-simulator service 
 that runs on local/private clusters to simulate cloud operations and manage different clusters for multiple users.
 
 
-## How to use local mode 
+## How to use on-premise mode 
 Please follow these steps to use local mode.
 
-- Create a new sudo user 
+- Create a new sudo user
+- Set up host resolution 
+- Prepare local disks
 - Create and configure a YAML file for cloudtik-cloud-simulator 
-- Create and configure a YAML file for cluster
-- Set up host resolution
 - Start cloudtik-cloud-simulator service
+- Create and configure a YAML file for cluster
 - Create cluster
 
 
 ## Create a new sudo user 
 Cloudtik does not allow the root user to manage the cluster, 
 so you need to create a normal user with sudo privileges for each of your machines. 
-If such a user already exists, you can skip this step
+If such a user already exists, you can skip this step.
+
+
+## Set up host resolution
+ We need to make sure that the host resolution is configured and working properly. 
+ This resolution can be done by using a DNS server or by configuring the "/etc/hosts" file on each node we use for cluster setting up. 
+ Then you also need to generate a new ssh key pair on working node and add this SSH public key to each nodes. 
+ Cloudtik will use this private key to login in the cluster.
+
+
+
+## Prepare local disks
+Cloudtik will automatically detect the disks on each node, format the disks without partitions and mount these disks in the directory "/mnt/cloudtik/data_disk_[number]" specified by Cloudtik.
+So please make sure that the required data disk has cleared the partition information,and mount the redundant disk to a directory other than "/mnt/cloudtik"
+```buildoutcfg
+(base) ubuntu@worker01:~$ lsblk
+NAME                      MAJ:MIN RM   SIZE RO TYPE MOUNTPOINT
+loop0                       7:0    0  61.9M  1 loop /snap/core20/1494
+loop1                       7:1    0  67.2M  1 loop /snap/lxd/21835
+loop2                       7:2    0  61.9M  1 loop /snap/core20/1518
+loop3                       7:3    0    47M  1 loop /snap/snapd/16010
+loop4                       7:4    0  67.8M  1 loop /snap/lxd/22753
+loop5                       7:5    0  44.7M  1 loop /snap/snapd/15904
+sda                         8:0    0 372.6G  0 disk
+├─sda1                      8:1    0   1.1G  0 part /boot/efi
+├─sda2                      8:2    0   1.5G  0 part /boot
+└─sda3                      8:3    0 370.1G  0 part
+  └─ubuntu--vg-ubuntu--lv 253:0    0   100G  0 lvm  /
+nvme0n1                   259:0    0   1.8T  0 disk /mnt/cloudtik/data_disk_1
+nvme1n1                   259:2    0   1.8T  0 disk /mnt/cloudtik/data_disk_2
+nvme2n1                   259:3    0   1.8T  0 disk /mnt/cloudtik/data_disk_3
+nvme3n1                   259:5    0   3.7T  0 disk /mnt/disk_1
+nvme4n1                   259:8    0   3.7T  0 disk /mnt/disk_2
+nvme5n1                   259:9    0   3.7T  0 disk /mnt/disk_3
+nvme6n1                   259:10   0   3.7T  0 disk /mnt/disk_4
+
+```
 
 
 ## Create and configure a YAML file for cloudtik-cloud-simulator 
@@ -59,6 +96,13 @@ nodes:
       instance_type: worker_instance_type_2
 
 ```
+
+
+## Start cloudtik-cloud-simulator service
+```buildoutcfg
+cloudtik-simulator [--bind-address BIND_ADDRESS] [--port PORT] your_cloudtik_simulator_config
+```
+
 
 ## Create and configure a YAML file for cluster
 1. Local provider support both docker mode and host node. When choosing docker model and the OS of machines is RedHat-based Linux Distributions, you need to add following Initialization_command to install jq.
@@ -109,14 +153,7 @@ available_node_types:
             instance_type: worker_instance_type_1
 ```
 
-## Set up host resolution
- We need to make sure that the host resolution is configured and working properly. 
- This resolution can be done using a DNS server or by configuring the /etc/hosts file on each node we use for our cluster setup.
- 
-## Start cloudtik-cloud-simulator service
-```buildoutcfg
-cloudtik-simulator [--bind-address BIND_ADDRESS] [--port PORT] your_cloudtik_simulator_config
-```
+
 ## Create cluster
 ```buildoutcfg
 cloudtik start your_cluster_config

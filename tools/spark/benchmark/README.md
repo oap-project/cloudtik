@@ -7,7 +7,7 @@ We provide an installation script to simplify the installation of these dependen
 
 bootstrap_commands:
     - wget -P ~/ https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/spark/benchmark/scripts/bootstrap-benchmark.sh &&
-        bash ~/bootstrap-benchmark.sh  --tpcds
+        bash ~/bootstrap-benchmark.sh  --workload=tpcds
 ```
 
 ## 2. Generate data

@@ -58,14 +58,14 @@ function get_workspace_managed_storage_uri() {
 }
 
 function generate_tpcds_data() {
-    cloudtik submit $CLUSTER_CONFIG $CLOUDTIK_HOME/tools/spark/benchmark/scripts/tpcds-datagen.scala \
+    cloudtik submit $CLUSTER_CONFIG $CLOUDTIK_HOME/tools/benchmarks/spark/scripts/tpcds-datagen.scala \
         --conf spark.driver.scaleFactor=${SCALE_FACTOR} \
         --conf spark.driver.fsdir="${MANAGED_STORAGE_URI}" \
         --jars '$HOME/runtime/benchmark-tools/spark-sql-perf/target/scala-2.12/spark-sql-perf_2.12-0.5.1-SNAPSHOT.jar'
 }
 
 function run_tpcds_power_test_with_vanilla_spark() {
-    cloudtik submit $CLUSTER_CONFIG $CLOUDTIK_HOME/tools/spark/benchmark/scripts/tpcds-power-test.scala \
+    cloudtik submit $CLUSTER_CONFIG $CLOUDTIK_HOME/tools/benchmarks/spark/scripts/tpcds-power-test.scala \
         --conf spark.driver.scaleFactor=${SCALE_FACTOR} \
         --conf spark.driver.fsdir="${MANAGED_STORAGE_URI}" \
         --conf spark.driver.iterations=${ITERATION} \
@@ -83,7 +83,7 @@ function run_tpcds_power_test_with_vanilla_spark() {
 }
 
 function run_tpcds_power_test_with_gazelle() {
-    cloudtik submit $CLUSTER_CONFIG $CLOUDTIK_HOME/tools/spark/benchmark/scripts/tpcds-power-test.scala \
+    cloudtik submit $CLUSTER_CONFIG $CLOUDTIK_HOME/tools/benchmarks/spark/scripts/tpcds-power-test.scala \
         --conf spark.driver.scaleFactor=${SCALE_FACTOR} \
         --conf spark.driver.fsdir="${MANAGED_STORAGE_URI}" \
         --conf spark.driver.iterations=${ITERATION} \

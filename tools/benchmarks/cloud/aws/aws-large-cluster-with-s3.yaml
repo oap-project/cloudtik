@@ -31,7 +31,7 @@ runtime:
 
 bootstrap_commands:
     - sudo apt-get update && sudo apt-get install openjdk-8-jdk -y
-    - wget -P ~/ https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/spark/benchmark/scripts/bootstrap-benchmark.sh \
+    - wget -P ~/ https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/spark/scripts/bootstrap-benchmark.sh \
         && bash ~/bootstrap-benchmark.sh --workload=tpcds
     - wget -P ~/ https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/integrations/oap/bootstrap_oap.sh \
         && bash ~/bootstrap_oap.sh

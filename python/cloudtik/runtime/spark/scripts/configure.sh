@@ -123,7 +123,11 @@ function set_head_address() {
 
 function set_resources_for_spark() {
     # For nodemanager
-    total_memory=$(awk '($1 == "MemTotal:"){print $2/1024*0.8}' /proc/meminfo)
+    memory_ratio=0.8
+    if [ ! -z "${YARN_RESOURCE_MEMORY_RATIO}" ]; then
+        memory_ratio=${YARN_RESOURCE_MEMORY_RATIO}
+    fi
+    total_memory=$(awk -v ratio=${memory_ratio} '($1 == "MemTotal:"){print $2/1024*ratio}' /proc/meminfo)
     total_memory=${total_memory%.*}
     total_vcores=$(cat /proc/cpuinfo | grep processor | wc -l)
 

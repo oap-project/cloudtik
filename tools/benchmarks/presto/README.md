@@ -6,7 +6,7 @@ You only need to add the following bootstrap_commands in the cluster configurati
 ```buildoutcfg
 
 bootstrap_commands:
-    - wget -P ~/ https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/presto/benchmark/scripts/tpcds-tpch-power-test.sh
+    - wget -P ~/ https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/presto/scripts/tpcds-tpch-power-test.sh
 ```
 
 ## 2. Run TPC-DS power test

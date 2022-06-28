@@ -28,13 +28,13 @@ available_node_types:
 
 runtime:
     types: [ganglia, spark]
+    spark:
+      yarn_resource_memory_ratio: 1
 
 bootstrap_commands:
     - sudo apt-get update && sudo apt-get install openjdk-8-jdk -y
-    - wget -P ~/ https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/spark/scripts/bootstrap-benchmark.sh \
-        && bash ~/bootstrap-benchmark.sh --workload=tpcds
-    - wget -P ~/ https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/integrations/oap/bootstrap_oap.sh \
-        && bash ~/bootstrap_oap.sh
+    - wget -P ~/ https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/spark/scripts/bootstrap-benchmark.sh && bash ~/bootstrap-benchmark.sh --workload=tpcds
+    - wget -P ~/ https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/integrations/oap/bootstrap_oap.sh && bash ~/bootstrap_oap.sh
     - echo 'export CC=$HOME/runtime/oap/bin/x86_64-conda_cos6-linux-gnu-cc' >> ~/.bashrc
     - echo 'export LD_LIBRARY_PATH=$HOME/runtime/oap/lib/:$LD_LIBRARY_PATH' >> ~/.bashrc
     - echo 'export LIBARROW_DIR=$HOME/runtime/oap/' >> ~/.bashrc

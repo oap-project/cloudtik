@@ -15,7 +15,7 @@ We provide the script **[aws-resource.sh](./scripts/aws-resource.sh)** to create
 bash $CLOUDTIK_HOME/tools/benchmarks/cloud/aws/scripts/aws-resource.sh --action create-workspace --config $CLOUDTIK_HOME/tools/benchmarks/cloud/aws/aws-workspace.yaml --yes
 
 # Delete the workspace
-# bash ./scripts/aws-resource.sh --action delete-workspace --config aws-workspace.yaml --yes
+# bash $CLOUDTIK_HOME/tools/benchmarks/cloud/aws/scripts/aws-resource.sh --action delete-workspace --config $CLOUDTIK_HOME/tools/benchmarks/cloud/aws/aws-workspace.yaml --yes
 ```
 
 ## 3. Create and configure a YAML file for cluster
@@ -30,7 +30,7 @@ We provide the script **[aws-resource.sh](./scripts/aws-resource.sh)** to start 
 bash $CLOUDTIK_HOME/tools/benchmarks/cloud/aws/scripts/aws-resource.sh --action start-cluster --config $CLOUDTIK_HOME/tools/benchmarks/cloud/aws/aws-large-cluster-with-s3.yaml --yes
 
 # Stop the cluster
-# bash ./scripts/aws-resource.sh --action stop-cluster --config aws-large-cluster-with-s3.yaml --yes
+# bash $CLOUDTIK_HOME/tools/benchmarks/cloud/aws/scripts/aws-resource.sh --action stop-cluster --config $CLOUDTIK_HOME/tools/benchmarks/cloud/aws/aws-large-cluster-with-s3.yaml --yes
 ```
 
 ## 5. Generate data

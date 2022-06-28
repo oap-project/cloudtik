@@ -1,6 +1,5 @@
 import os
 from typing import Any, Dict
-import yaml
 
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_HDFS, BUILT_IN_RUNTIME_METASTORE
 from cloudtik.core._private.utils import merge_rooted_config_hierarchy, \
@@ -29,6 +28,15 @@ SPARK_EXECUTOR_CORES_DEFAULT = 4
 SPARK_ADDITIONAL_OVERHEAD = 1024
 SPARK_EXECUTOR_OVERHEAD_MINIMUM = 384
 SPARK_EXECUTOR_OVERHEAD_RATIO = 0.1
+
+
+def get_yarn_resource_memory_ratio(cluster_config: Dict[str, Any]):
+    yarn_resource_memory_ratio = YARN_RESOURCE_MEMORY_RATIO
+    spark_config = cluster_config.get(RUNTIME_CONFIG_KEY, {}).get("spark", {})
+    memory_ratio = spark_config.get("yarn_resource_memory_ratio")
+    if memory_ratio:
+        yarn_resource_memory_ratio = memory_ratio
+    return yarn_resource_memory_ratio
 
 
 def get_spark_driver_memory(cluster_resource: Dict[str, Any]) -> int:
@@ -127,8 +135,9 @@ def _config_runtime_resources(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
     cluster_resource = _get_cluster_resources(cluster_config)
     container_resource = {"yarn_container_maximum_vcores": cluster_resource["worker_cpu"]}
 
+    yarn_resource_memory_ratio = get_yarn_resource_memory_ratio(cluster_config)
     worker_memory_for_yarn = round_memory_size_to_gb(
-        int(cluster_resource["worker_memory"] * YARN_RESOURCE_MEMORY_RATIO))
+        int(cluster_resource["worker_memory"] * yarn_resource_memory_ratio))
     container_resource["yarn_container_maximum_memory"] = worker_memory_for_yarn
 
     executor_resource = {"spark_driver_memory": get_spark_driver_memory(cluster_resource)}
@@ -222,6 +231,11 @@ def _with_runtime_environment_variables(runtime_config, config, provider, node_i
     runtime_envs = {}
     spark_config = runtime_config.get("spark", {})
     cluster_runtime_config = config.get(RUNTIME_CONFIG_KEY)
+
+    # export yarn memory ratio to use if configured by user
+    yarn_resource_memory_ratio = spark_config.get("yarn_resource_memory_ratio")
+    if yarn_resource_memory_ratio:
+        runtime_envs["YARN_RESOURCE_MEMORY_RATIO"] = yarn_resource_memory_ratio
 
     # 1) Try to use local hdfs first;
     # 2) Try to use defined hdfs_namenode_uri;

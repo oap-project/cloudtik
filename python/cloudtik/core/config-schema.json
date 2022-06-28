@@ -598,6 +598,10 @@
                         "hive_metastore_uri": {
                             "type": "string",
                             "description": "Metastore service endpoint for Spark to use."
+                        },
+                        "yarn_resource_memory_ratio": {
+                            "type": "number",
+                            "description": "The yarn node virtual memory ratio vs the available physical memory."
                         }
                     }
                 },

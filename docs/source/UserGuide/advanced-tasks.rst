@@ -7,3 +7,4 @@ Advanced Tasks
    AdvancedTasks/configuring-container-mode.md
    AdvancedTasks/using-custom-commands.md
    AdvancedTasks/using-templates.md
+   AdvancedTasks/submitting-jobs.md

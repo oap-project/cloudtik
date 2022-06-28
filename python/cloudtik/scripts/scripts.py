@@ -729,7 +729,7 @@ def submit(cluster_config_file, screen, tmux, stop, start, cluster_name,
 
     The script is automatically synced to the following location:
 
-        os.path.join("~", os.path.basename(script))
+        os.path.join("~/jobs", os.path.basename(script))
 
     Example:
         >>> cloudtik submit [CLUSTER.YAML] experiment.py -- --smoke-test

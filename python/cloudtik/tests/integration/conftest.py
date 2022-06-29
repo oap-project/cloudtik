@@ -19,21 +19,37 @@ def pytest_addoption(parser):
     parser.addoption(
         "--allowed_ssh_sources", action="store", default=""
     )
+    parser.addoption(
+        "--gcp_project_id", action="store", default=""
+    )
+    parser.addoption(
+        "--azure_subscription_id", action="store", default=""
+    )
 
 
 @pytest.fixture(scope='session', autouse=True)
 def api_conf_fixture(request):
     ssh_proxy_command = request.config.getoption("--ssh_proxy_command")
     allowed_ssh_sources = request.config.getoption("--allowed_ssh_sources")
+    gcp_project_id = request.config.getoption("--gcp_project_id")
+    azure_subscription_id = request.config.getoption("--azure_subscription_id")
     if ssh_proxy_command:
         pytest.ssh_proxy_command = ssh_proxy_command
     if allowed_ssh_sources:
         pytest.allowed_ssh_sources = allowed_ssh_sources.split(",")
+    if azure_subscription_id:
+        pytest.azure_subscription_id = azure_subscription_id
+    if gcp_project_id:
+        pytest.gcp_project_id = gcp_project_id
 
 
 def cluster_up_down_opt(conf):
     if pytest.ssh_proxy_command:
         conf["auth"]["ssh_proxy_command"] = pytest.ssh_proxy_command
+    if conf["provider"]["type"] == "azure":
+        conf["provider"]["subscription_id"] = pytest.azure_subscription_id
+    if conf["provider"]["type"] == "gcp":
+        conf["provider"]["project_id"] = pytest.gcp_project_id
     cluster = Cluster(conf)
     print("\nStart cluster {}".format(conf["cluster_name"]))
     cluster.start()

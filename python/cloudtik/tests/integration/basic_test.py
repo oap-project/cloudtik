@@ -85,6 +85,10 @@ def create_workspace(conf_file):
     conf = load_conf(conf_file)
     if pytest.allowed_ssh_sources:
         conf["provider"]["allowed_ssh_sources"] = pytest.allowed_ssh_sources
+    if conf["provider"]["type"] == "azure":
+        conf["provider"]["subscription_id"] = pytest.azure_subscription_id
+    if conf["provider"]["type"] == "gcp":
+        conf["provider"]["project_id"] = pytest.gcp_project_id
     workspace = Workspace(conf)
     print("\nCreate Workspace {}".format(conf["workspace_name"]))
     workspace.create()

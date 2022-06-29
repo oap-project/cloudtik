@@ -48,8 +48,8 @@ bash $CLOUDTIK_HOME/tools/benchmarks/cloud/aws/scripts/aws-benchmark.sh --action
 ```
 
 ## 7. Run TPC-DS power test with gazelle_plugin
-We provided the shell script **[aws-benchmark.sh](./scripts/aws-benchmark.sh)** for you to easily run TPC-DS power test with **[gazelle_plugin](https://raw.githubusercontent.com/oap-project/oap-tools/master/integrations/oap/emr/bootstrap_oap.sh)**.
+We provided the shell script **[aws-benchmark.sh](./scripts/aws-benchmark.sh)** for you to easily run TPC-DS power test with **[gazelle_plugin](https://raw.githubusercontent.com/oap-project/oap-tools/master/integrations/oap/emr/bootstrap_oap.sh)**. You must provide aws_access_key_id and aws_secret_access_key for gazelle_plugin to access S3.
 ```buildoutcfg
 # Run TPC-DS power test with SF1000 for 1 round
-bash $CLOUDTIK_HOME/tools/benchmarks/cloud/aws/scripts/aws-benchmark.sh --action run --cluster_config $CLOUDTIK_HOME/tools/benchmarks/cloud/aws/aws-large-cluster-with-s3.yaml --workspace_config $CLOUDTIK_HOME/tools/benchmarks/cloud/aws/aws-workspace.yaml --scale_factor 1000 --iteration=1
+bash $CLOUDTIK_HOME/tools/benchmarks/cloud/aws/scripts/aws-benchmark.sh --action run --cluster_config $CLOUDTIK_HOME/tools/benchmarks/cloud/aws/aws-large-cluster-with-s3.yaml --workspace_config $CLOUDTIK_HOME/tools/benchmarks/cloud/aws/aws-workspace.yaml --scale_factor 1000 --iteration=1 --aws_access_key_id=[key_id] --aws_secret_access_key=[key]
 ```

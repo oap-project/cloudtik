@@ -17,7 +17,7 @@ function contains() {
 }
 
 function check_cloudtik_environment() {
-    which cloudtik || echo "Cloudtik is not found. Please install cloudtik first!"; exit 1
+    which cloudtik > /dev/null || (echo "Cloudtik is not found. Please install cloudtik first!"; exit 1)
 }
 
 function check_aws_resource_action() {
@@ -31,11 +31,11 @@ function check_aws_resource_action() {
 }
 
 function check_aws_resource_config() {
-    if [ -f "${CONFIG}"]
-    then
+    if [ -f "${CONFIG}" ]; then
          echo "The config file exist"
     else
          echo "The config file doesn't exist"
+	 exit 1
     fi
 }
 
@@ -74,7 +74,6 @@ do
         ;;
     -y|--yes)
         CONFIRM="-y"
-        shift
         ;;
     -h|--help)
         shift
@@ -94,12 +93,12 @@ check_aws_resource_action
 check_aws_resource_config
 
 if [ "${ACTION}" == "create-workspace" ];then
-    start_aws_workspace
-elif [ "${WORKLOAD}" == "delete-workspace" ];then
+    create_aws_workspace
+elif [ "${ACTION}" == "delete-workspace" ];then
     delete_aws_workspace
-elif [ "${WORKLOAD}" == "start-cluster" ];then
+elif [ "${ACTION}" == "start-cluster" ];then
     start_aws_cluster
-elif [ "${WORKLOAD}" == "stop-cluster" ];then
+elif [ "${ACTION}" == "stop-cluster" ];then
     stop_aws_cluster
 else
     usage

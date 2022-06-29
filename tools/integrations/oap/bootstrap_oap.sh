@@ -3,7 +3,7 @@
 export USER_HOME=/home/$(whoami)
 oap_install_dir=$USER_HOME/runtime/oap
 
-if [ ! -n "$1" ];then
+if [ -n "$1" ];then
     oap_version=$1
 else
     oap_version=1.3.1.h331

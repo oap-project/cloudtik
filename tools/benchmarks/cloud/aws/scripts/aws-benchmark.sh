@@ -1,6 +1,6 @@
 #!/bin/bash
 
-args=$(getopt -a -o a:s:i::h -l action:,cluster_config:,workspace_config:,scale_factor:,iteration::,baseline,help, -- "$@")
+args=$(getopt -a -o a:s:i::h -l action:,cluster_config:,workspace_config:,scale_factor:,iteration::,aws_access_key_id::,aws_secret_access_key::,baseline,help, -- "$@")
 eval set -- "${args}"
 
 ITERATION=1
@@ -24,7 +24,7 @@ function check_cloudtik_environment() {
         echo "Please define CLOUDTIK_HOME for cloudtik repo so that we can use the tpc-ds scripts to generate data or run power test."
         exit 1
     fi
-    which cloudtik || echo "Cloudtik is not found. Please install cloudtik first!"; exit 1
+    which cloudtik > /dev/null || (echo "Cloudtik is not found. Please install cloudtik first!"; exit 1)
 }
 
 function check_benchmark_action() {
@@ -38,15 +38,13 @@ function check_benchmark_action() {
 }
 
 function check_aws_resource_config() {
-    if [ -f "${CLUSTER_CONFIG}"]
-    then
+    if [ -f "${CLUSTER_CONFIG}" ]; then
          echo "The cluster config file exist"
     else
          echo "The cluster config file doesn't exist"
     fi
 
-    if [ -f "${WORKSPACE_CONFIG}"]
-    then
+    if [ -f "${WORKSPACE_CONFIG}" ]; then
          echo "The workspace config file exist"
     else
          echo "The workspace config file doesn't exist"
@@ -131,13 +129,15 @@ function run_tpcds_power_test_with_gazelle() {
         --conf spark.oap.sql.columnar.joinOptimizationLevel=18 \
         --conf spark.oap.sql.columnar.shuffle.customizedCompression.codec=lz4 \
         --conf spark.executorEnv.ARROW_ENABLE_NULL_CHECK_FOR_GET=false \
-        --conf spark.executorEnv.ARROW_ENABLE_UNSAFE_MEMORY_ACCESS=true
+        --conf spark.executorEnv.ARROW_ENABLE_UNSAFE_MEMORY_ACCESS=true \
+        --conf spark.executorEnv.AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} \
+        --conf spark.executorEnv.AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
 }
 
 function usage() {
     echo "Usage for data generation : $0 -a|--action generate-data --cluster_config [your_cluster.yaml] --workspace_config [your_workspace.yaml] -s|--scale_factor [data scale] " >&2
     echo "Usage for tpc-ds power test with vanilla spark: $0 -a|--action run --cluster_config [your_cluster.yaml] --workspace_config [your_workspace.yaml] -s|--scale_factor [data scale] -i|--iteration=[default value is 1] --baseline" >&2
-    echo "Usage for tpc-ds power test with gazelle: $0 -a|--action run --cluster_config [your_cluster.yaml] --workspace_config [your_workspace.yaml] -s|--scale_factor [data scale] -i|--iteration=[default value is 1] " >&2
+    echo "Usage for tpc-ds power test with gazelle: $0 -a|--action run --cluster_config [your_cluster.yaml] --workspace_config [your_workspace.yaml] -s|--scale_factor [data scale] -i|--iteration=[default value is 1] --aws_access_key_id=[key_id] --aws_secret_access_key=[key]" >&2
     echo "Usage: $0 -h|--help"
 }
 
@@ -165,9 +165,16 @@ do
         ITERATION=$2
         shift
         ;;
+    --aws_access_key_id)
+        AWS_ACCESS_KEY_ID=$2
+        shift
+        ;;
+    --aws_secret_access_key)
+        AWS_SECRET_ACCESS_KEY=$2
+        shift
+        ;;
     --baseline)
         BASELINE=true
-        shift
         ;;
     -h|--help)
         shift
@@ -189,7 +196,7 @@ get_workspace_managed_storage_uri
 
 if [ "${ACTION}" == "generate-data" ];then
     generate_tpcds_data
-elif [ "${WORKLOAD}" == "run" ];then
+elif [ "${ACTION}" == "run" ];then
     if [ ${BASELINE} == "true" ]; then
         run_tpcds_power_test_with_vanilla_spark
     else

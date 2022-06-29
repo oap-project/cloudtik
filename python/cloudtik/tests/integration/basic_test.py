@@ -3,7 +3,7 @@ import pytest
 import yaml
 
 from cloudtik.tests.integration.constants import CLUSTER_TIMEOUT, \
-    TPC_DATAGEN_BENCHMARK, SCALE_CPUS_LIST, SCALE_NODES_LIST
+    TPC_DATAGEN_BENCHMARK, SCALE_CPUS_LIST, SCALE_NODES_LIST, TPCDS_BENCHMARK, KAFKA_BENCHMARK
 from cloudtik.core.api import Workspace
 
 ROOT_PATH = os.path.abspath(
@@ -14,8 +14,8 @@ class WorkspaceBasicTest:
     def setup_class(self):
         self.workspace = Workspace({})
 
-    def test_update_firewalls(self):
-        self.workspace.update_firewalls()
+    # def test_update_firewalls(self):
+    #     self.workspace.update_firewalls()
 
     def test_list_clusters(self):
         res = self.workspace.list_clusters()
@@ -54,7 +54,7 @@ class ClusterFunctionTest:
 
 class ClusterRuntimeTest:
 
-    @pytest.mark.parametrize("benchmark", [TPC_DATAGEN_BENCHMARK])
+    @pytest.mark.parametrize("benchmark", [TPC_DATAGEN_BENCHMARK, TPCDS_BENCHMARK, KAFKA_BENCHMARK])
     def test_benchmark(self, runtime_cluster_fixture, benchmark):
         script_file = benchmark["script_file"]
         script_args = benchmark["script_args"]
@@ -83,6 +83,8 @@ def load_conf(conf_file) -> dict:
 
 def create_workspace(conf_file):
     conf = load_conf(conf_file)
+    if pytest.allowed_ssh_sources:
+        conf["provider"]["allowed_ssh_sources"] = pytest.allowed_ssh_sources
     workspace = Workspace(conf)
     print("\nCreate Workspace {}".format(conf["workspace_name"]))
     workspace.create()

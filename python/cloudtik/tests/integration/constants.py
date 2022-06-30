@@ -23,7 +23,7 @@ KAFKA_BENCHMARK = {
 }
 
 runtime_additional_conf = {
-    'setup_commands': 'wget -P ~/ https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/spark/benchmark/scripts/bootstrap-benchmark.sh &&bash ~/bootstrap-benchmark.sh  --tpcds ',
+    'setup_commands': 'wget -P ~/ https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/spark/scripts/bootstrap-benchmark.sh &&bash ~/bootstrap-benchmark.sh  --tpcds ',
     'runtime': {'types': ['ganglia', 'metastore', 'spark', 'kafka']}}
 
 WORKER_NODES_LIST = [1, 4]

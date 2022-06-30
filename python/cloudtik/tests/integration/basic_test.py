@@ -14,9 +14,6 @@ class WorkspaceBasicTest:
     def setup_class(self):
         self.workspace = Workspace({})
 
-    # def test_update_firewalls(self):
-    #     self.workspace.update_firewalls()
-
     def test_list_clusters(self):
         res = self.workspace.list_clusters()
         assert type(res) == dict

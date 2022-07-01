@@ -1,3 +1,5 @@
+from shlex import quote
+
 import click
 import os
 import logging
@@ -6,7 +8,7 @@ from cloudtik.core._private import constants
 from cloudtik.core._private import logging_utils
 from cloudtik.core._private.cli_logger import (cli_logger)
 from cloudtik.core._private.utils import subscribe_runtime_config, run_bash_scripts, run_system_command, \
-    load_head_cluster_config, RUNTIME_CONFIG_KEY
+    load_head_cluster_config, RUNTIME_CONFIG_KEY, with_script_args
 
 from cloudtik.runtime.presto.utils import RUNTIME_ROOT_PATH, configure_connectors
 
@@ -53,13 +55,12 @@ def install(head, script_args):
     install_script_path = os.path.join(RUNTIME_SCRIPTS_PATH, "install.sh")
     cmds = [
         "bash",
-        install_script_path,
+        quote(install_script_path),
     ]
 
     if head:
         cmds += ["--head"]
-    if script_args:
-        cmds += list(script_args)
+    with_script_args(cmds, script_args)
     final_cmd = " ".join(cmds)
 
     run_system_command(final_cmd)
@@ -82,7 +83,7 @@ def configure(head, head_address, script_args):
     shell_path = os.path.join(RUNTIME_SCRIPTS_PATH, "configure.sh")
     cmds = [
         "bash",
-        shell_path,
+        quote(shell_path),
     ]
 
     if head:
@@ -90,8 +91,7 @@ def configure(head, head_address, script_args):
     if head_address:
         cmds += ["--head_address={}".format(head_address)]
 
-    if script_args:
-        cmds += list(script_args)
+    with_script_args(cmds, script_args)
 
     final_cmd = " ".join(cmds)
     run_system_command(final_cmd)

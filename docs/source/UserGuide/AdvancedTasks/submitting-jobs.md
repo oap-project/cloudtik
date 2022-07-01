@@ -1,8 +1,13 @@
-# Submitting Jobs
-
+# Submitting Jobs to Cluster
 
 ### Overview
-Cloudtik provides the ability to easily submit tasks to your clusters. Currently, Cloudtik can support submit local script files and web script files, supported file types include ***.sh, .scala, .py, .presto.sql, .trino.sql***.
+CloudTik provides the ability to easily submit scripts to run on your clusters. Currently, CloudTik supports to submit local script files and web script files.
+The supported file types include:
+- .sh: Shell scripts run by bash
+- .scala: Scala scripts run by Spark shell
+- .py: Python script run by Python
+- .presto.sql: Presto SQL scripts run by Presto CLI
+- .trino.sql: Trino SQL scripts run by Trino CLI
 
 ## Submit Command
 
@@ -11,20 +16,16 @@ Cloudtik provides the ability to easily submit tasks to your clusters. Currently
 Usage: cloudtik submit [OPTIONS] /path/to/your-cluster-config.yaml $YOUE_SCRIPT [SCRIPT_ARGS]
 ```
 
-| COMMAND_OPTIONS| Description|
-|---|---|
-|--stop|Stop the cluster after the command finishes running.|
-|--start|Start the cluster if needed.|
-|--screen|Run the command in a screen.|
-|--tmux|Run the command in tmux.|
-|-n, --cluster-name TEXT|Override the configured cluster name.|
-|--no-config-cache|Disable the local cluster config cache.|
-|-p, --port-forward INTEGER|ort to forward. Use this multiple times to forward multiple ports.|
-|--log-style [auto,record,pretty]|If 'pretty', outputs with formatting and color. If 'record', outputs record-style without formatting. 'auto' defaults to 'pretty', and disables pretty logging if stdin is *not* a TTY.|
-|--log-color [auto,false,true]|Use color logging. Auto enables color logging if stdout is a TTY.|
+| Some Key Options        | Description|
+|-------------------------|---|
+| --screen                |Run the command in a screen.|
+| --tmux                  |Run the command in tmux.|
+| -n, --cluster-name TEXT |Override the configured cluster name.|
+| --no-config-cache       |Disable the local cluster config cache.|
 
 
-### Specifying arguments for jobs
+
+### Specifying additional arguments for the job
 
 You can specify additional argument when submitting a job.  
 For example, the user has a python file **experiment.py** to submit, and `--smoke-test` is an option for experiment.py. The command is as follows:
@@ -32,18 +33,18 @@ For example, the user has a python file **experiment.py** to submit, and `--smok
     cloudtik submit /path/to/your-cluster-config.yaml /path/to/experiment.py  --smoke-test
 ```
 #### Notes 
-1. The script file will be automatically synced/downloaded to the path "~/jobs/".
-2. Sometimes your parameters for the script will contain special character like ***|,\\***, it will cause the parameters can not be parsed correctly.
- We suggest you use single quote to avoid these problems. For example:
-   ''
+1. The script file will be automatically uploaded to the path "~/jobs/" on the head.
+2. The script will run on head with the interpreter based on the script type.
+3. If your parameters for the script contain special character like ***|,\\***, you need to escape such parameter using quote.
+ For example:
 ```    
-    --conf spark.oap.sql.columnar.coreRange='"0-31,64-95|32-63,96-127"'  --jars '$HOME/runtime/benchmark-tools/spark-sql-perf/target/scala-2.12/spark-sql-perf_2.12-0.5.1-SNAPSHOT.jar'
+    --conf spark.oap.sql.columnar.coreRange="0-31,64-95|32-63,96-127"  --jars '$HOME/runtime/benchmark-tools/spark-sql-perf/target/scala-2.12/spark-sql-perf_2.12-0.5.1-SNAPSHOT.jar'
 ```  
 
 
-### Submitting background jobs
+### Submitting job running in background
     
-Sometimes, user's network environments may be not stable, cloudtik will be disconnected from the remote clusters during jobs execution.
+Sometimes, user's network connection to the cluster may be not stable. CloudTik will be disconnected from the remote clusters during jobs execution.
 Or user needs to run some long-time tasks, and just want to check the output halfway or after the job is finished.  
 To solve such scenarios, we provide options `--screen` or `--tmux` to support run jobs in background. 
 **[Screen](https://www.gnu.org/software/screen/manual/screen.html)** and **[tmux](https://github.com/tmux/tmux/wiki/Getting-Started)** are the most popular Terminal multiplexers, you can choose according to your needs.

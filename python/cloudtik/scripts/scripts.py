@@ -9,6 +9,7 @@ import urllib
 import urllib.parse
 from socket import socket
 from typing import Optional
+from shlex import quote
 
 import click
 import psutil
@@ -30,6 +31,7 @@ from cloudtik.core._private.constants import CLOUDTIK_PROCESSES, \
     CLOUDTIK_DEFAULT_PORT
 from cloudtik.core._private.node.node_services import NodeServicesStarter
 from cloudtik.core._private.parameter import StartParams
+from cloudtik.core._private.utils import with_script_args
 from cloudtik.scripts.utils import NaturalOrderGroup
 from cloudtik.scripts.workspace import workspace
 from cloudtik.scripts.runtime_scripts import runtime
@@ -1394,10 +1396,9 @@ def run_script(script, script_args):
     """Runs a bash script within this python package."""
     root_path = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
     target = os.path.join(root_path, script)
-    command_parts = ["bash", target]
+    command_parts = ["bash", quote(target)]
 
-    if script_args:
-        command_parts += list(script_args)
+    with_script_args(command_parts, script_args)
 
     final_cmd = " ".join(command_parts)
     os.system(final_cmd)

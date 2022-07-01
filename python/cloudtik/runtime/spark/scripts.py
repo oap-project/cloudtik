@@ -8,7 +8,7 @@ from cloudtik.core._private.cli_logger import (cli_logger)
 
 from shlex import quote
 
-from cloudtik.core._private.utils import run_bash_scripts, run_system_command
+from cloudtik.core._private.utils import run_bash_scripts, run_system_command, with_script_args
 from cloudtik.runtime.spark.utils import RUNTIME_ROOT_PATH, update_spark_configurations
 
 RUNTIME_SCRIPTS_PATH = os.path.join(
@@ -59,15 +59,14 @@ def install(head, provider, script_args):
     install_script_path = os.path.join(RUNTIME_SCRIPTS_PATH, "install.sh")
     cmds = [
         "bash",
-        install_script_path,
+        quote(install_script_path),
     ]
 
     if head:
         cmds += ["--head"]
     if provider:
         cmds += ["--provider={}".format(provider)]
-    if script_args:
-        cmds += list(script_args)
+    with_script_args(cmds, script_args)
     final_cmd = " ".join(cmds)
 
     run_system_command(final_cmd)
@@ -170,7 +169,7 @@ def configure(head, provider, head_address, aws_s3_bucket, aws_s3_access_key_id,
     shell_path = os.path.join(RUNTIME_SCRIPTS_PATH, "configure.sh")
     cmds = [
         "bash",
-        shell_path,
+        quote(shell_path),
     ]
 
     if head:
@@ -208,8 +207,7 @@ def configure(head, provider, head_address, aws_s3_bucket, aws_s3_access_key_id,
     if azure_account_key:
         cmds += ["--azure_account_key={}".format(azure_account_key)]
 
-    if script_args:
-        cmds += list(script_args)
+    with_script_args(cmds, script_args)
 
     final_cmd = " ".join(cmds)
     run_system_command(final_cmd)

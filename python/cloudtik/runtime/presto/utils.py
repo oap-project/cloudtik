@@ -1,5 +1,6 @@
 import os
 from typing import Any, Dict
+from shlex import quote
 
 from cloudtik.core._private.providers import _get_workspace_provider
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_METASTORE
@@ -75,7 +76,7 @@ def _is_runtime_scripts(script_file):
 
 
 def _get_runnable_command(target):
-    command_parts = ["presto", "-f", target]
+    command_parts = ["presto", "-f", quote(target)]
     return command_parts
 
 

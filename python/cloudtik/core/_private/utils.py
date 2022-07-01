@@ -7,7 +7,6 @@ import logging
 import hashlib
 import json
 import os
-import re
 import threading
 from typing import Any, Dict, Optional, Tuple, List, Union
 import sys
@@ -25,6 +24,7 @@ import socket
 import re
 from contextlib import closing
 from concurrent.futures import ThreadPoolExecutor
+from shlex import quote
 
 import yaml
 
@@ -138,15 +138,19 @@ def run_system_command(cmd: str):
         raise RuntimeError(f"Error happened in running: {cmd}")
 
 
+def with_script_args(cmds, script_args):
+    if script_args:
+        cmds += [quote(script_arg) for script_arg in list(script_args)]
+
+
 def run_bash_scripts(command: str, script_path, script_args):
     cmds = [
         "bash",
-        script_path,
+        quote(script_path),
     ]
 
     cmds += [command]
-    if script_args:
-        cmds += list(script_args)
+    with_script_args(cmds, script_args)
     final_cmd = " ".join(cmds)
 
     run_system_command(final_cmd)

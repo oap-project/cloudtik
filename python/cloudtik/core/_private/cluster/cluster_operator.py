@@ -49,7 +49,7 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     is_node_in_completed_status, check_for_single_worker_type, get_preferred_cpu_bundle_size, \
     _get_node_specific_commands, get_node_specific_commands_of_runtimes, _get_node_specific_runtime_config, \
     _get_node_specific_docker_config, RUNTIME_CONFIG_KEY, DOCKER_CONFIG_KEY, get_running_head_node, \
-    get_nodes_for_runtime
+    get_nodes_for_runtime, with_script_args
 
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
@@ -3024,7 +3024,7 @@ def submit_and_exec(config: Dict[str, Any],
     )
     command_parts = []
     if urllib.parse.urlparse(script).scheme in ("http", "https"):
-        command_parts = ["wget", script, "-P", "~/jobs;"]
+        command_parts = ["wget", quote(script), "-P", "~/jobs;"]
     else:
         # upload the script to cluster
         _rsync(
@@ -3034,9 +3034,9 @@ def submit_and_exec(config: Dict[str, Any],
             target=target,
             down=False)
     if target_name.endswith(".py"):
-        command_parts += ["python", target]
+        command_parts += ["python", quote(target)]
     elif target_name.endswith(".sh"):
-        command_parts += ["bash", target]
+        command_parts += ["bash", quote(target)]
     else:
 
         command_parts += get_runnable_command(config.get(RUNTIME_CONFIG_KEY), target)
@@ -3044,8 +3044,7 @@ def submit_and_exec(config: Dict[str, Any],
             cli_logger.error("We don't how to execute your file: {}", script)
             return
 
-    if script_args:
-        command_parts += list(script_args)
+    with_script_args(command_parts, script_args)
 
     cmd = " ".join(command_parts)
     return _exec_cluster(

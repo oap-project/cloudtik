@@ -1,5 +1,6 @@
 import os
 from typing import Any, Dict
+from shlex import quote
 
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_HDFS, BUILT_IN_RUNTIME_METASTORE
 from cloudtik.core._private.utils import merge_rooted_config_hierarchy, \
@@ -192,7 +193,7 @@ def _is_runtime_scripts(script_file):
 
 
 def _get_runnable_command(target):
-    command_parts = ["spark-shell", "-i", target]
+    command_parts = ["spark-shell", "-i", quote(target)]
     return command_parts
 
 

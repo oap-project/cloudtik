@@ -32,15 +32,45 @@ For example, the user has a python file **experiment.py** to submit, and `--smok
 ```
     cloudtik submit /path/to/your-cluster-config.yaml /path/to/experiment.py  --smoke-test
 ```
-#### Notes 
-1. The script file will be automatically uploaded to the path "~/jobs/" on the head.
-2. The script will run on head with the interpreter based on the script type.
-3. If your parameters for the script contain special character like ***|,\\***, you need to escape such parameter using quote.
- For example:
-```    
-    --conf spark.oap.sql.columnar.coreRange="0-31,64-95|32-63,96-127"  --jars '$HOME/runtime/benchmark-tools/spark-sql-perf/target/scala-2.12/spark-sql-perf_2.12-0.5.1-SNAPSHOT.jar'
-```  
+The script file will be automatically uploaded to the path "~/jobs/" on the head. And tehn it will run on head with the interpreter based on the script type.
 
+### Script arguments quote or escaping
+If your parameters for the script contain special character like ***|,\\*** or
+you need environment variable substitution in the parameters, you need to quote or escape such parameters.
+These need to be handled differently as following:
+
+- If the parameter contains special character, you can either quote the parameter by single quote or double quote.
+For example,
+```
+    --conf "value with spaces"
+```
+or
+```
+    --conf 'value with spaces'
+```
+
+- If the parameter contains local shell environment variable substitution, you need to quote the parameter by double quote.
+For example, $HOME will be replaced with the environment variable of $HOME at the local machine.
+```
+    "$HOME/working"
+```
+
+- If the parameter contains remote shell environment variable substitution, you need to quote the parameter by single quote.
+For example, $HOME will be replaced with the environment variable of $HOME at the head machine.
+```
+    '$HOME/runtime'
+```
+
+- If the parameter contains '$' character without meaning environment variable substitution, you escape '$' with '\\'.
+For this case, you can ues either single quote or double quote.
+For example, '\\$abc' will be passed to script as "$abc" without substitution.
+```
+    '\$abc'
+```
+or
+```
+    "\$abc"
+```
 
 ### Submitting job running in background
     

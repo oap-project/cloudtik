@@ -138,9 +138,24 @@ def run_system_command(cmd: str):
         raise RuntimeError(f"Error happened in running: {cmd}")
 
 
+_find_unsafe = re.compile(r'[^\w@%+=:,./-]', re.ASCII).search
+
+
+def double_quote(s):
+    """Return a shell-escaped version of the string *s* with double quote."""
+    if not s:
+        return '""'
+    if _find_unsafe(s) is None:
+        return s
+
+    # use single quotes, and put single quotes into double quotes
+    # the string $"b is then quoted as "$"'"'"b"
+    return '"' + s.replace('"', '"\'"\'"') + '"'
+
+
 def with_script_args(cmds, script_args):
     if script_args:
-        cmds += [quote(script_arg) for script_arg in list(script_args)]
+        cmds += [double_quote(script_arg) for script_arg in list(script_args)]
 
 
 def run_bash_scripts(command: str, script_path, script_args):

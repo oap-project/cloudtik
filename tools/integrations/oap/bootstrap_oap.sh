@@ -6,7 +6,7 @@ oap_install_dir=$USER_HOME/runtime/oap
 if [ -n "$1" ];then
     oap_version=$1
 else
-    oap_version=1.3.1.h331
+    oap_version=1.4.0.spark32.h331
 fi
 
 # Install OAP by Conda

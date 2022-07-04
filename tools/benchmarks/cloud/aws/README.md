@@ -44,9 +44,6 @@ Use the wrapper script **[aws-cloudtik.sh](./scripts/aws-cloudtik.sh)** to start
 ```buildoutcfg
 # Start a cluster on AWS
 bash $CLOUDTIK_HOME/tools/benchmarks/cloud/aws/scripts/aws-cloudtik.sh --action start-cluster --config $CLOUDTIK_HOME/tools/benchmarks/cloud/aws/aws-large-cluster-with-s3.yaml --yes
-
-# Stop the cluster
-# bash $CLOUDTIK_HOME/tools/benchmarks/cloud/aws/scripts/aws-cloudtik.sh --action stop-cluster --config $CLOUDTIK_HOME/tools/benchmarks/cloud/aws/aws-large-cluster-with-s3.yaml --yes
 ```
 
 ## 5. Generate data

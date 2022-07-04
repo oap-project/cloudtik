@@ -21,33 +21,33 @@ function contains() {
 
 function check_cloudtik_environment() {
     if [ ! -d "${CLOUDTIK_HOME}" ]; then
-        echo "Please define CLOUDTIK_HOME for cloudtik repo so that we can use the tpc-ds scripts to generate data or run power test."
+        echo "Please define CLOUDTIK_HOME to CloudTik source root so that we can use the tpc-ds scripts to generate data or run power test."
         exit 1
     fi
-    which cloudtik > /dev/null || (echo "Cloudtik is not found. Please install cloudtik first!"; exit 1)
+    which cloudtik > /dev/null || (echo "CloudTik is not found. Please install CloudTik first!"; exit 1)
 }
 
-function check_benchmark_action() {
-    BENCHMARL_ALLOW_ACTIONS=( generate-data run  )
+function check_aws_benchmark_action() {
+    BENCHMARL_ALLOW_ACTIONS=( generate-data power-test  )
     if [ $(contains "${BENCHMARL_ALLOW_ACTIONS[@]}" "$ACTION") == "y" ]; then
-        echo "Action $ACTION is allowed for benchmark."
+        echo "Action $ACTION is allowed for this aws benchmark script."
     else
-        echo "Action $ACTION is not allowed for benchmark. Supported action: ${BENCHMARL_ALLOW_ACTIONS[*]}."
+        echo "Action $ACTION is not allowed for this aws benchmark script. Supported action: ${BENCHMARL_ALLOW_ACTIONS[*]}."
         exit 1
     fi
 }
 
-function check_aws_resource_config() {
+function check_aws_benchmark_config() {
     if [ -f "${CLUSTER_CONFIG}" ]; then
-         echo "The cluster config file exist"
+         echo "Found the cluster config file ${CLUSTER_CONFIG}"
     else
-         echo "The cluster config file doesn't exist"
+         echo "The cluster config file ${CLUSTER_CONFIG} doesn't exist"
     fi
 
     if [ -f "${WORKSPACE_CONFIG}" ]; then
-         echo "The workspace config file exist"
+         echo "Found the workspace config file ${WORKSPACE_CONFIG}"
     else
-         echo "The workspace config file doesn't exist"
+         echo "The workspace config file ${WORKSPACE_CONFIG} doesn't exist"
     fi
 }
 
@@ -136,8 +136,8 @@ function run_tpcds_power_test_with_gazelle() {
 
 function usage() {
     echo "Usage for data generation : $0 -a|--action generate-data --cluster_config [your_cluster.yaml] --workspace_config [your_workspace.yaml] -s|--scale_factor [data scale] " >&2
-    echo "Usage for tpc-ds power test with vanilla spark: $0 -a|--action run --cluster_config [your_cluster.yaml] --workspace_config [your_workspace.yaml] -s|--scale_factor [data scale] -i|--iteration=[default value is 1] --baseline" >&2
-    echo "Usage for tpc-ds power test with gazelle: $0 -a|--action run --cluster_config [your_cluster.yaml] --workspace_config [your_workspace.yaml] -s|--scale_factor [data scale] -i|--iteration=[default value is 1] --aws_access_key_id=[key_id] --aws_secret_access_key=[key]" >&2
+    echo "Usage for tpc-ds power test with vanilla spark: $0 -a|--action power-test --cluster_config [your_cluster.yaml] --workspace_config [your_workspace.yaml] -s|--scale_factor [data scale] -i|--iteration=[default value is 1] --baseline" >&2
+    echo "Usage for tpc-ds power test with gazelle: $0 -a|--action power-test --cluster_config [your_cluster.yaml] --workspace_config [your_workspace.yaml] -s|--scale_factor [data scale] -i|--iteration=[default value is 1] --aws_access_key_id=[key_id] --aws_secret_access_key=[key]" >&2
     echo "Usage: $0 -h|--help"
 }
 
@@ -190,13 +190,13 @@ do
 done
 
 check_cloudtik_environment
-check_benchmark_action
-check_aws_resource_config
+check_aws_benchmark_action
+check_aws_benchmark_config
 get_workspace_managed_storage_uri
 
 if [ "${ACTION}" == "generate-data" ];then
     generate_tpcds_data
-elif [ "${ACTION}" == "run" ];then
+elif [ "${ACTION}" == "power-test" ];then
     if [ ${BASELINE} == "true" ]; then
         run_tpcds_power_test_with_vanilla_spark
     else

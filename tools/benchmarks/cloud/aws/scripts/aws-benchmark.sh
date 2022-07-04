@@ -100,8 +100,8 @@ function run_tpcds_power_test_with_gazelle() {
         --conf spark.plugins=com.intel.oap.GazellePlugin \
         --conf spark.executorEnv.LD_LIBRARY_PATH='$HOME/runtime/oap/lib/' \
         --conf spark.executorEnv.LIBARROW_DIR='$HOME/runtime/oap/' \
-        --conf spark.driver.extraClassPath='$HOME/runtime/oap/oap_jars/spark-columnar-core-1.3.1-jar-with-dependencies.jar:$HOME/runtime/oap/oap_jars/spark-arrow-datasource-standard-1.3.1-jar-with-dependencies.jar:$HOME/runtime/oap/oap_jars/spark-sql-columnar-shims-spark321-1.3.1.jar:$HOME/runtime/oap/oap_jars/spark-sql-columnar-shims-common-1.3.1.jar' \
-        --conf spark.executor.extraClassPath='$HOME/runtime/oap/oap_jars/spark-columnar-core-1.3.1-jar-with-dependencies.jar:$HOME/runtime/oap/oap_jars/spark-arrow-datasource-standard-1.3.1-jar-with-dependencies.jar:$HOME/runtime/oap/oap_jars/spark-sql-columnar-shims-spark321-1.3.1.jar:$HOME/runtime/oap/oap_jars/spark-sql-columnar-shims-common-1.3.1.jar' \
+        --conf spark.driver.extraClassPath='$HOME/runtime/oap/oap_jars/gazelle-plugin-1.4.0-spark-3.2.1.jar' \
+        --conf spark.executor.extraClassPath='$HOME/runtime/oap/oap_jars/gazelle-plugin-1.4.0-spark-3.2.1.jar' \
         --conf spark.shuffle.manager=org.apache.spark.shuffle.sort.ColumnarShuffleManager \
         --conf spark.sql.join.preferSortMergeJoin=false \
         --conf spark.sql.inMemoryColumnarStorage.batchSize=20480 \
@@ -125,7 +125,7 @@ function run_tpcds_power_test_with_gazelle() {
         --conf spark.executorEnv.MALLOC_CONF=background_thread:true,dirty_decay_ms:0,muzzy_decay_ms:0,narenas:2 \
         --conf spark.executorEnv.MALLOC_ARENA_MAX=2 \
         --conf spark.oap.sql.columnar.numaBinding=true \
-        --conf spark.oap.sql.columnar.coreRange='"0-15,32-47|16-31,48-63"' \
+        --conf spark.oap.sql.columnar.coreRange="0-15,32-47|16-31,48-63" \
         --conf spark.oap.sql.columnar.joinOptimizationLevel=18 \
         --conf spark.oap.sql.columnar.shuffle.customizedCompression.codec=lz4 \
         --conf spark.executorEnv.ARROW_ENABLE_NULL_CHECK_FOR_GET=false \

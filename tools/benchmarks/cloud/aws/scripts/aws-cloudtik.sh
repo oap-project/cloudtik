@@ -17,25 +17,25 @@ function contains() {
 }
 
 function check_cloudtik_environment() {
-    which cloudtik > /dev/null || (echo "Cloudtik is not found. Please install cloudtik first!"; exit 1)
+    which cloudtik > /dev/null || (echo "CloudTik is not found. Please install CloudTik first!"; exit 1)
 }
 
-function check_aws_resource_action() {
-    AWS_RESOURCE_ALLOW_ACTIONS=( create-workspace delete-workspace start-cluster stop-cluster )
-    if [ $(contains "${AWS_RESOURCE_ALLOW_ACTIONS[@]}" "$ACTION") == "y" ]; then
-        echo "Action $ACTION is allowed for aws resource."
+function check_aws_cloudtik_action() {
+    AWS_CLOUDTIK_ALLOW_ACTIONS=( create-workspace delete-workspace start-cluster stop-cluster )
+    if [ $(contains "${AWS_CLOUDTIK_ALLOW_ACTIONS[@]}" "$ACTION") == "y" ]; then
+        echo "Action $ACTION is allowed for this aws cloudtik script."
     else
-        echo "Action $ACTION is not allowed for aws resource. Supported action: ${AWS_RESOURCE_ALLOW_ACTIONS[*]}."
+        echo "Action $ACTION is not allowed for this aws cloudtik script. Supported action: ${AWS_CLOUDTIK_ALLOW_ACTIONS[*]}."
         exit 1
     fi
 }
 
-function check_aws_resource_config() {
+function check_aws_cloudtik_config() {
     if [ -f "${CONFIG}" ]; then
-         echo "The config file exist"
+        echo "Found the config file ${CONFIG}"
     else
-         echo "The config file doesn't exist"
-	 exit 1
+        echo "The config file ${CONFIG} doesn't exist"
+	      exit 1
     fi
 }
 
@@ -89,8 +89,8 @@ do
 done
 
 check_cloudtik_environment
-check_aws_resource_action
-check_aws_resource_config
+check_aws_cloudtik_action
+check_aws_cloudtik_config
 
 if [ "${ACTION}" == "create-workspace" ];then
     create_aws_workspace

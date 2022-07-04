@@ -72,6 +72,7 @@ GCP_WORKSPACE_TARGET_RESOURCES = 8
 
 GCP_MANAGED_STORAGE_GCS_BUCKET = "gcp.managed.storage.gcs.bucket"
 
+
 def key_pair_name(i, region, project_id, ssh_user):
     """Returns the ith default gcp_key_pair_name."""
     key_name = "{}_gcp_{}_{}_{}_{}".format(GCP_RESOURCE_NAME_PREFIX, region, project_id, ssh_user,

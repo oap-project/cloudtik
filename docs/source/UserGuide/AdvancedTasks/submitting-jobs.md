@@ -1,6 +1,6 @@
 # Submitting Jobs to Cluster
 
-### Overview
+## Overview
 CloudTik provides the ability to easily submit scripts to run on your clusters. Currently, CloudTik supports to submit local script files and web script files.
 The supported file types include:
 - .sh: Shell scripts run by bash
@@ -24,8 +24,7 @@ Usage: cloudtik submit [OPTIONS] /path/to/your-cluster-config.yaml $YOUE_SCRIPT 
 | --no-config-cache       |Disable the local cluster config cache.|
 
 
-
-### Specifying additional arguments for the job
+## Specifying additional arguments for the job
 
 You can specify additional argument when submitting a job.  
 For example, the user has a python file **experiment.py** to submit, and `--smoke-test` is an option for experiment.py. The command is as follows:
@@ -34,7 +33,7 @@ For example, the user has a python file **experiment.py** to submit, and `--smok
 ```
 The script file will be automatically uploaded to the path "~/jobs/" on the head. And tehn it will run on head with the interpreter based on the script type.
 
-### Script arguments quote or escaping
+## Script arguments quote or escaping
 If your parameters for the script contain special character like ***|,\\*** or
 you need environment variable substitution in the parameters, you need to quote or escape such parameters.
 These need to be handled differently as following:
@@ -72,14 +71,14 @@ or
     "\$abc"
 ```
 
-### Submitting job running in background
+## Submitting job running in background
     
 Sometimes, user's network connection to the cluster may be not stable. CloudTik will be disconnected from the remote clusters during jobs execution.
 Or user needs to run some long-time tasks, and just want to check the output halfway or after the job is finished.  
 To solve such scenarios, we provide options `--screen` or `--tmux` to support run jobs in background. 
 **[Screen](https://www.gnu.org/software/screen/manual/screen.html)** and **[tmux](https://github.com/tmux/tmux/wiki/Getting-Started)** are the most popular Terminal multiplexers, you can choose according to your needs.
 
-####  Using screen
+###  Using screen
 Submitting a job:
 ```bash
    cloudtik submit --screen /path/to/your-cluster-config.yaml experiment.py
@@ -99,8 +98,7 @@ Checking background job:
   
 ```
 
-
-####  Using tmux
+###  Using tmux
 Submitting a job:
 ```bash
    cloudtik submit --tmux /path/to/your-cluster-config.yaml experiment.py

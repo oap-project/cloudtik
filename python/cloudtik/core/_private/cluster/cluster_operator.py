@@ -1831,7 +1831,10 @@ def show_useful_commands(config_file: str,
     cli_logger.newline()
     with cli_logger.group("Key information:"):
         private_key_file = config["auth"].get("ssh_private_key", "")
+        public_key_file = config["auth"].get("ssh_public_key")
         cli_logger.print("Cluster private key file: {}", private_key_file)
+        if public_key_file is not None:
+            cli_logger.print("Cluster public key file: {}", public_key_file)
         cli_logger.print("Please keep the cluster private key file safe.")
 
     cli_logger.newline()

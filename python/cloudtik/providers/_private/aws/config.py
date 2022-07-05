@@ -83,12 +83,12 @@ def key_pair(i, region, key_name):
     Returns the ith default (aws_key_pair_name, key_pair_path).
     """
     if i == 0:
-        key_pair_name = ("{}_{}".format(AWS_RESOURCE_NAME_PREFIX, region)
+        key_pair_name = ("{}_aws_{}".format(AWS_RESOURCE_NAME_PREFIX, region)
                          if key_name is None else key_name)
         return (key_pair_name,
                 os.path.expanduser("~/.ssh/{}.pem".format(key_pair_name)))
 
-    key_pair_name = ("{}_{}_{}".format(AWS_RESOURCE_NAME_PREFIX, i, region)
+    key_pair_name = ("{}_aws_{}_{}".format(AWS_RESOURCE_NAME_PREFIX, region, i)
                      if key_name is None else key_name + "_key-{}".format(i))
     return (key_pair_name,
             os.path.expanduser("~/.ssh/{}.pem".format(key_pair_name)))

@@ -42,8 +42,8 @@ class SetupSpec:
 
 
 # "cloudtik" primary wheel package.
-setup_spec = SetupSpec("cloudtik", "CloudTik is a cloud scaling platform for scaling your distributed analytics and "
-                                   "AI cluster easily on public Cloud providers including AWS, Azure, GCP and so on. ")
+setup_spec = SetupSpec("cloudtik", "CloudTik is a cloud scaling platform to scale your distributed analytics and AI "
+                                   "clusters on public cloud providers including AWS, Azure, GCP, and so on. ")
 
 # NOTE: The lists below must be kept in sync with cloudtik build(.sh)
 cloudtik_files = [
@@ -176,10 +176,13 @@ if os.path.isdir(build_dir):
 setuptools.setup(
     name=setup_spec.name,
     version=setup_spec.version,
-    author="CloudTik Team",
-    author_email="cloudtik-dev@intel.com",
+    author="Intel Corporation",
     description=setup_spec.description,
-    long_description="CloudTik",
+    long_description="CloudTik is a cloud scaling platform for distributed analytics and AI on public cloud providers "
+                     "including AWS, Azure, GCP, and so on. CloudTik enables any user or enterprise to easily create "
+                     "and manage analytics and AI platforms on public clouds with out-of-box optimized "
+                     "functionalities and performance, and quickly to focus on running the business workloads in "
+                     "minutes or hours instead of spending months to construct and optimize the platform.",
     url="https://github.com/oap-project/cloudtik.git",
     keywords="Distributed Cloud Analytic AI Spark",
     classifiers=[

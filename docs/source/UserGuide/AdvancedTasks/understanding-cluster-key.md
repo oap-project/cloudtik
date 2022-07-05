@@ -26,16 +26,30 @@ The command will show where is the cluster private or public key files located.
 
 ### Implicit cluster private key
 If you don't specify a private key through ssh_private_key in the auth section in cluster configuration file,
-CloudTik will try to find an existing AWS key pair with the name pattern of cloudtik_{index}_{region}
-and if the private key file of the key pair ~/.ssh/cloudtik_{index}_{region}.pem exists.
-If found, the cluster will be created with the key pair and the private key file at ~/.ssh/cloudtik_{index}_{region}.pem.
+CloudTik will try to find an existing AWS key pair with the name pattern of cloudtik_aws_{region}_{index}
+and if the private key file of the key pair ~/.ssh/cloudtik_aws_{region}_{index}.pem exists.
+If found, the cluster will be created with the key pair and the private key file at ~/.ssh/cloudtik_aws_{region}_{index}.pem.
 
-Otherwise, CloudTik will create a new key pair with the name pattern of cloudtik_{index}_{region}
-and download the private key file of the key pair to ~/.ssh/cloudtik_{index}_{region}.pem.
+Otherwise, CloudTik will create a new key pair with the name pattern of cloudtik_aws_{region}_{index}
+and download the private key file of the key pair to ~/.ssh/cloudtik_aws_{region}_{index}.pem.
+
+```buildoutcfg
+auth:
+    ssh_user: ubuntu
+```
 
 If you create multiple clusters on the same client machine, CloudTik will use the same cluster private key based
 on the above process. If you don't want this, you can specify explicitly a key pair name to use for the cluster
 with provider/key_pair/key_name configuration key in cluster configuration file.
+
+```buildoutcfg
+provider:
+    type: aws
+    key_pair:
+        key_name: my_cluster_key_name
+auth:
+    ssh_user: ubuntu
+```
 
 ### Explicit cluster private key
 You can also specify explicitly a private key file in the auth section in cluster configuration file.
@@ -43,8 +57,23 @@ In this case, the specified private key file will be used.
 And you also need to explicitly specify the AWS key pair name of the private key through 'KeyName' configuration key
 in the 'node_config' of each node types defined in 'available_node_types'.
 
+```buildoutcfg
+
+available_node_types
+    head.default:
+        node_config:
+            KeyName: your_aws_key_pair_name
+    worker.default:
+        node_config:
+            KeyName: your_aws_key_pair_name
+auth:
+    ssh_user: ubuntu
+    ssh_private_key: ~/.ssh/your_aws_ssh_private_key.pem
+```
+
 For this case, CloudTik will not try creating any key pairs on AWS.
-You need to make sure the key pair exists on AWS and the private key file contains the corresponding private key material. 
+You need to make sure the key pair exists on AWS and the private key file contains the corresponding private key material.
+
 
 ## Azure cluster private key
 Azure cluster key management is simple.
@@ -70,6 +99,11 @@ and create a GCP project wide ssh key with the USERNAME equals to ssh_user and t
 and save the private key file of the key pair to ~/.ssh/cloudtik_gcp_{region}_{project_id}_{ssh_user}_{index}.pem and
 public key file of the key pair to ~/.ssh/cloudtik_gcp_{region}_{project_id}_{ssh_user}_{index}.pub.
 
+```buildoutcfg
+auth:
+    ssh_user: ubuntu
+```
+
 If you create multiple clusters on the same client machine and used the same ssh_user, CloudTik will use the same cluster private key based
 on the above process.
 
@@ -78,4 +112,10 @@ You can also specify explicitly a private key file in the auth section in cluste
 In this case, the specified private key file will be used.
 
 For this case, CloudTik will not try creating any project wide ssh key on GCP.
-You need to make sure the project wide ssh key with USERNAME equals to ssh_user exists on GCP project and the private key file contains the corresponding private key material. 
+You need to make sure the project wide ssh key exists with USERNAME equals to ssh_user exists on GCP project and the private key file contains the corresponding private key material.
+
+```buildoutcfg
+auth:
+    ssh_user: ubuntu
+    ssh_private_key: ~/.ssh/your_gcp_ssh_private_key.pem
+```

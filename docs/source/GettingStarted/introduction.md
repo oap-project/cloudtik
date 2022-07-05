@@ -4,7 +4,7 @@ The existing solutions for solving distributed analytics and AI problems on Clou
 of various aspects including cost, performance, complexity and openness. CloudTik is developed for solving these challenges.
 
 CloudTik is a cloud scale platform for distributed analytics and AI on public cloud providers including AWS, Azure, GCP, and so on.
-CloudTik enables any users or enterprises to easily create and manage analytics and AI platform on public clouds,
+CloudTik enables users or enterprises to easily create and manage analytics and AI platform on public clouds,
 with out-of-box optimized functionalities and performance, and to go quickly to focus on running the business workloads in minutes or hours
 instead of spending months to construct and optimize the platform.
 We target to:

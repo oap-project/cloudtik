@@ -11,3 +11,4 @@ Advanced Tasks
    AdvancedTasks/using-for-on-premise.md
    AdvancedTasks/understanding-cluster-key.md
    AdvancedTasks/switching-client-machine.md
+   AdvancedTasks/configuring-spot-instances.md

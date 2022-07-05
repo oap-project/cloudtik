@@ -163,6 +163,16 @@ auth:
     ssh_proxy_command: "ncat --proxy-type socks5 --proxy <your_proxy_host>:<your_proxy_port> %h %p"
 ```
 
+The cluster key will be created automatically for AWS and GCP if not specified.
+For Azure, you need to generate an RSA key pair manually (use `ssh-keygen -t rsa -b 4096` to generate a new ssh key pair).
+and configure the public and private key as following,
+
+```
+auth:
+    ssh_private_key: ~/.ssh/my_cluster_rsa_key
+    ssh_public_key: ~/.ssh/my_cluster_rsa_key.pub
+```
+
 Refer to `example/cluster` directory for more cluster configurations examples.
 
 ### 6. Managing clusters

@@ -120,6 +120,21 @@ under the cloudtik pip installation.
 For more details as to templates, please refer to [Advanced Tasks: Using Templates](./AdvancedTasks/using-templates.md)
 
 
+## Configuring Cluster Key
+If you don't specify cluster key information under auth section of configuration file,
+The cluster key will be created automatically for AWS and GCP.
+For Azure, you need to generate an RSA key pair manually and configure the public and private key as following,
+
+```
+auth:
+    ssh_private_key: ~/.ssh/my_cluster_rsa_key
+    ssh_public_key: ~/.ssh/my_cluster_rsa_key.pub
+```
+
+For more details as to cluster key configuration, refer to [Advanced Tasks: Understanding Cluster Key](./AdvancedTasks/understanding-cluster-key.md)
+
+## Starting the cluster
+
 Once the cluster configuration is defined and CloudTik is installed, you can use the following commands to create a cluster with CloudTik
 
 ```

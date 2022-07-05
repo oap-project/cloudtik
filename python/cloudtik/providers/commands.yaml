@@ -1,7 +1,10 @@
 # List of commands that will be run before `setup_commands`. If docker is
 # enabled, these commands will run outside the container and before docker
 # is setup.
-initialization_commands: []
+initialization_commands:
+    - sudo systemctl stop unattended-upgrades || true
+    - sudo apt-get purge unattended-upgrades -y || true
+    - (sudo pkill -9 apt || true) && (sudo pkill -9 apt-get || true) && (sudo pkill -9 dpkg || true) && (sudo dpkg --configure -a) && sudo apt update -qq
 
 # Docker configurations
 docker:

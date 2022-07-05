@@ -174,7 +174,8 @@ auth:
 ```
 
 The cluster key will be created automatically for AWS and GCP if not specified.
-For Azure, you need to generate an RSA key pair manually and configure the public and private key as following,
+For Azure, you need to generate an RSA key pair manually (use `ssh-keygen -t rsa -b 4096` to generate a new ssh key pair).
+and configure the public and private key as following,
 
 ```
 auth:

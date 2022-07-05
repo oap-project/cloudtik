@@ -123,7 +123,8 @@ For more details as to templates, please refer to [Advanced Tasks: Using Templat
 ## Configuring Cluster Key
 If you don't specify cluster key information under auth section of configuration file,
 The cluster key will be created automatically for AWS and GCP.
-For Azure, you need to generate an RSA key pair manually and configure the public and private key as following,
+For Azure, you need to generate an RSA key pair manually (use `ssh-keygen -t rsa -b 4096` to generate a new ssh key pair).
+and configure the public and private key as following,
 
 ```
 auth:

@@ -21,5 +21,8 @@ The command will show where is the cluster private key located.
 You need moving the corresponding private key file and for azure also the public key file to the new client machine.
 The file names of the private or public key may have association with the key pair name at Cloud side (for AWS and GCP).
 Please don't change the file names of the private or public key files when you are doing file movements.
+
+Note: When you are moving key files, please make sure to set the private key file attributes to read/write by the owner only (0600 rw-------)
+at target machine. Otherwise, SSH will not recognize your private key file.
  
 For a more detailed description of cluster key file, refer to [Understanding Cluster Key](./understanding-cluster-key.md)

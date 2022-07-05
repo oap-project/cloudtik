@@ -13,6 +13,8 @@ ssh key.
 For private key, it is simpler. CloudTik CLI needs the cluster private key file to connect to the cluster
 and issue management commands for all Cloud providers.
 
+Note: If you are creating SSH key pair manually, please make sure that the private key file attributes are read/write by the owner only (0600 rw-------).
+
 ## The location of cluster key files
 For a running cluster, if you don't know where is the cluster key files located,
 you can execute info command,

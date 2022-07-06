@@ -1,13 +1,9 @@
 #!/bin/bash
 
 CURRENT_HOME=$(cd $(dirname ${BASH_SOURCE[0]});pwd)
-HIBENCH_TOOL=$CURRENT_HOME/hibench-tool
-
 which realpath > /dev/null || sudo apt-get install realpath
-
 args=$(getopt -a -o a:w:h -l action:workload:,cluster_config:,workspace_config:,hibench_config_dir:,docker,managed_cloud_storage,help -- "$@")
 eval set -- "${args}"
-
 
 function contains() {
     local n=$#

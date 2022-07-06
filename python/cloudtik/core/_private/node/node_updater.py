@@ -8,6 +8,7 @@ from threading import Thread
 
 from cloudtik.core._private.utils import with_runtime_environment_variables, with_node_ip_environment_variables, \
     _get_cluster_uri, _is_use_internal_ip, get_node_type
+from cloudtik.core.command_executor import get_cmd_to_print
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_STATUS, CLOUDTIK_TAG_RUNTIME_CONFIG, \
     CLOUDTIK_TAG_FILE_MOUNTS_CONTENTS, \
     STATUS_UP_TO_DATE, STATUS_UPDATE_FAILED, STATUS_WAITING_FOR_SSH, \
@@ -27,7 +28,6 @@ logger = logging.getLogger(__name__)
 
 NUM_SETUP_STEPS = 8
 READY_CHECK_INTERVAL = 5
-MAX_COMMAND_LENGTH_TO_PRINT = 48
 
 
 class NodeUpdater:
@@ -447,6 +447,10 @@ class NodeUpdater:
                 _numbered=("[]", 8, NUM_SETUP_STEPS)):
             self._exec_start_commands(runtime_envs)
 
+    def get_cmd_to_print(self, cmd):
+        verbose = False if self.cli_logger.verbosity == 0 else True
+        return get_cmd_to_print(cmd, verbose)
+
     def rsync_up(self, source, target, docker_mount_if_possible=False):
         options = {}
         options["docker_mount_if_possible"] = docker_mount_if_possible
@@ -489,7 +493,7 @@ class NodeUpdater:
             # this ssh_private_key as its only __init__
             # argument.
             # Run outside docker.
-            self.cmd_executor.run(
+            self.cmd_executor.run_with_retry(
                 cmd,
                 environment_variables=runtime_envs,
                 ssh_options_override_ssh_key=self.
@@ -530,11 +534,8 @@ class NodeUpdater:
             self.cluster_uri,
             CreateClusterEvent.run_setup_cmd,
             {"node_id": self.node_id, "command": cmd})
-        if self.cli_logger.verbosity == 0 and len(cmd) > MAX_COMMAND_LENGTH_TO_PRINT:
-            cmd_to_print = cf.bold(cmd[:MAX_COMMAND_LENGTH_TO_PRINT]) + "..."
-        else:
-            cmd_to_print = cf.bold(cmd)
 
+        cmd_to_print = self.get_cmd_to_print(cmd)
         self.cli_logger.print("- {}", cmd_to_print)
 
         try:
@@ -584,11 +585,7 @@ class NodeUpdater:
             env_vars = {}
         env_vars.update(runtime_envs)
 
-        if self.cli_logger.verbosity == 0 and len(cmd) > MAX_COMMAND_LENGTH_TO_PRINT:
-            cmd_to_print = cf.bold(cmd[:MAX_COMMAND_LENGTH_TO_PRINT]) + "..."
-        else:
-            cmd_to_print = cf.bold(cmd)
-
+        cmd_to_print = self.get_cmd_to_print(cmd)
         self.cli_logger.print("- {}", cmd_to_print)
 
         try:
@@ -627,11 +624,7 @@ class NodeUpdater:
         if envs:
             env_vars.update(envs)
 
-        if self.cli_logger.verbosity == 0 and len(cmd) > MAX_COMMAND_LENGTH_TO_PRINT:
-            cmd_to_print = cf.bold(cmd[:MAX_COMMAND_LENGTH_TO_PRINT]) + "..."
-        else:
-            cmd_to_print = cf.bold(cmd)
-
+        cmd_to_print = self.get_cmd_to_print(cmd)
         self.cli_logger.print("- {}", cmd_to_print)
 
         try:

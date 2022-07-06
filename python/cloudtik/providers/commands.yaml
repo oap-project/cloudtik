@@ -8,10 +8,9 @@ docker:
     # Initialization commands running on host for only docker enabled
     initialization_commands:
         - which docker || (curl -fsSL https://get.docker.com -o /tmp/get-docker.sh && sed -i "s/set -x/set +x/g" /tmp/get-docker.sh &&
-          while sudo bash /tmp/get-docker.sh  |& grep -q "Could not get lock /var/lib/dpkg/lock-frontend" ; do echo "Waiting for other apt-get instances to exit"; sleep 1; done &&
-            sudo addgroup --system docker && sudo usermod -aG docker $USER && sudo systemctl restart docker -f)
-        - docker ps -a &> /dev/null || (sudo usermod -aG docker $USER && sudo systemctl restart docker -f)
-        - which jq || (while sudo apt-get -qq update -y && sudo apt-get -qq install -y jq |& grep -q "Could not get lock /var/lib/dpkg/lock-frontend"; do echo "Waiting for other apt-get instances to exit"; sleep 1; done ) || true
+            sudo bash /tmp/get-docker.sh > /dev/null && sudo usermod -aG docker $USER && sudo systemctl restart docker -f)
+        - docker ps -a &> /dev/null || (sudo addgroup --system docker && sudo usermod -aG docker $USER && sudo systemctl restart docker -f)
+        - which jq || (sudo apt-get -qq update -y && sudo apt-get -qq install -y jq > /dev/null)
     head_initialization_commands:
         - sudo docker pull registry:2
         - "(stat /etc/docker/daemon.json &> /dev/null && jq '. + { \"registry-mirrors\": [$address] }' --arg address \"http://${CLOUDTIK_NODE_IP}:5000\" /etc/docker/daemon.json > /tmp/tmp.$$.json && sudo mv /tmp/tmp.$$.json /etc/docker/daemon.json) || (printf \"{\n  \\\"registry-mirrors\\\": [\\\"http://${CLOUDTIK_NODE_IP}:5000\\\"]\n}\" | sudo tee -a /etc/docker/daemon.json &> /dev/null) && sudo systemctl restart docker -f"

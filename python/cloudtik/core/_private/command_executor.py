@@ -138,7 +138,8 @@ class KubernetesCommandExecutor(CommandExecutor):
             run_env="auto",  # Unused argument.
             ssh_options_override_ssh_key="",  # Unused argument.
             shutdown_after_run=False,
-            cmd_to_print=None
+            cmd_to_print=None,
+            silent=False,  # Unused argument.
     ):
         if shutdown_after_run:
             cmd, cmd_to_print = _with_shutdown(cmd, cmd_to_print)
@@ -496,7 +497,7 @@ class SSHCommandExecutor(CommandExecutor):
 
     def run(
             self,
-            cmd,
+            cmd=None,
             timeout=120,
             exit_on_fail=False,
             port_forward=None,
@@ -505,8 +506,8 @@ class SSHCommandExecutor(CommandExecutor):
             run_env="auto",  # Unused argument.
             ssh_options_override_ssh_key="",
             shutdown_after_run=False,
-            silent=False,
-            cmd_to_print=None):
+            cmd_to_print=None,
+            silent=False):
         if shutdown_after_run:
             cmd, cmd_to_print = _with_shutdown(cmd, cmd_to_print)
         if ssh_options_override_ssh_key:
@@ -671,7 +672,7 @@ class SSHCommandExecutor(CommandExecutor):
         raw_block_devices = []
         for block_device in block_devices:
             if not self._is_raw_block_device(block_device):
-                continue;
+                continue
 
             self.cli_logger.verbose("Found raw block devices {}", block_device["name"])
             raw_block_devices += [block_device]
@@ -706,7 +707,7 @@ class DockerCommandExecutor(CommandExecutor):
 
     def run(
             self,
-            cmd,
+            cmd=None,
             timeout=120,
             exit_on_fail=False,
             port_forward=None,
@@ -715,7 +716,8 @@ class DockerCommandExecutor(CommandExecutor):
             run_env="auto",
             ssh_options_override_ssh_key="",
             shutdown_after_run=False,
-            cmd_to_print=None
+            cmd_to_print=None,
+            silent=False
     ):
         if run_env == "auto":
             run_env = "host" if (not bool(cmd) or cmd.find(
@@ -746,7 +748,8 @@ class DockerCommandExecutor(CommandExecutor):
             port_forward=port_forward,
             with_output=with_output,
             ssh_options_override_ssh_key=ssh_options_override_ssh_key,
-            cmd_to_print=cmd_to_print)
+            cmd_to_print=cmd_to_print,
+            silent=silent)
 
     def run_rsync_up(self, source, target, options=None):
         options = options or {}

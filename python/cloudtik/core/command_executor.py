@@ -1,6 +1,19 @@
+import time
 from typing import Any, List, Tuple, Dict, Optional
 
 from cloudtik.core._private.call_context import CallContext
+
+MAX_COMMAND_RUN_RETRIES = 30
+COMMAND_RUN_RETRY_DELAY_S = 5
+MAX_COMMAND_LENGTH_TO_PRINT = 48
+
+
+def get_cmd_to_print(cmd, verbose=False):
+    if not verbose and len(cmd) > MAX_COMMAND_LENGTH_TO_PRINT:
+        cmd_to_print = cmd[:MAX_COMMAND_LENGTH_TO_PRINT] + "..."
+    else:
+        cmd_to_print = cmd
+    return cmd_to_print
 
 
 class CommandExecutor:
@@ -31,6 +44,8 @@ class CommandExecutor:
             run_env: str = "auto",
             ssh_options_override_ssh_key: str = "",
             shutdown_after_run: bool = False,
+            cmd_to_print: str = None,
+            silent: bool = False
     ) -> str:
         """Run the given command on the cluster node and optionally get output.
 
@@ -52,8 +67,50 @@ class CommandExecutor:
                 SSHOptions class with SSHOptions(ssh_options_override_ssh_key).
             shutdown_after_run (bool): if provided, shutdowns down the machine
             after executing the command with `sudo shutdown -h now`.
+            cmd_to_print (str): The command to print instead of print the original cmd.
+            silent (bool): Whether run this command in silent mode without output
         """
         raise NotImplementedError
+
+    def run_with_retry(
+            self,
+            cmd: str = None,
+            timeout: int = 120,
+            exit_on_fail: bool = False,
+            port_forward: List[Tuple[int, int]] = None,
+            with_output: bool = False,
+            environment_variables: Dict[str, object] = None,
+            run_env: str = "auto",
+            ssh_options_override_ssh_key: str = "",
+            shutdown_after_run: bool = False,
+            cmd_to_print: str = None,
+            silent: bool = False
+    ) -> str:
+        retries = MAX_COMMAND_RUN_RETRIES
+        while retries > 0:
+            try:
+                return self.run(cmd,
+                                timeout=timeout,
+                                exit_on_fail=exit_on_fail,
+                                port_forward=port_forward,
+                                with_output=with_output,
+                                environment_variables=environment_variables,
+                                run_env=run_env,
+                                ssh_options_override_ssh_key=ssh_options_override_ssh_key,
+                                shutdown_after_run=shutdown_after_run,
+                                cmd_to_print=cmd_to_print,
+                                silent=silent)
+            except Exception as e:
+                retries -= 1
+                if retries > 0:
+                    cmd_to_print = cmd if cmd_to_print is None else cmd_to_print
+                    verbose = False if self.cli_logger.verbosity == 0 else True
+                    cmd_to_print = get_cmd_to_print(cmd_to_print, verbose)
+                    self.cli_logger.warning(f"Error running command: {cmd_to_print}. "
+                                            f"Retrying in {COMMAND_RUN_RETRY_DELAY_S} seconds.")
+                    time.sleep(COMMAND_RUN_RETRY_DELAY_S)
+                else:
+                    raise e
 
     def run_rsync_up(self,
                      source: str,

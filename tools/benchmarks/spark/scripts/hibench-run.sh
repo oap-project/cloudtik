@@ -124,11 +124,27 @@ function update_hibench_config() {
 
 function hibench_generate_data() {
     cloudtik exec "$CLUSTER_CONFIG" "cd \$HOME/runtime/benchmark-tools/HiBench && bash bin/workloads/$WORKLOAD/prepare/prepare.sh"
+    if [ $? -eq 0 ]; then
+        echo "Succeed to generate data for the workload: $WORKLOAD."
+    else
+        echo "Failed to generate data for the workload: $WORKLOAD."
+        exit 1
+    fi
 }
 
 
 function hibench_run_benchmark() {
+    cloudtik exec "$CLUSTER_CONFIG" "cd \$HOME/runtime/benchmark-tools/HiBench && rm -rf report/"
     cloudtik exec "$CLUSTER_CONFIG" "cd \$HOME/runtime/benchmark-tools/HiBench && bash bin/workloads/$WORKLOAD/spark/run.sh"
+    if [ $? -eq 0 ]; then
+        echo "Succeed to run the workload: $WORKLOAD."
+        mkdir -p $HIBENCH_CONFIG_DIR/result/
+        cloudtik rsync-down "$CLUSTER_CONFIG"  "runtime/benchmark-tools/HiBench/report/hibench.report" $HIBENCH_CONFIG_DIR/result/
+        cat $HIBENCH_CONFIG_DIR/result/hibench.report
+    else
+        echo "Failed to run the workload: $WORKLOAD."
+        exit 1
+    fi
 }
 
 

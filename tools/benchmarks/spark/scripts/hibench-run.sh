@@ -88,7 +88,7 @@ function prepare_replace_conf_value() {
 
 
 function update_hibench_config() {
-    python $CURRENT_HOME/hibench_config_utils.py $HIBENCH_CONFIG_DIR
+    python $CURRENT_HOME/config_utils.py $HIBENCH_CONFIG_DIR
     HIBENCH_TMP_CONFIG_DIR=$HIBENCH_CONFIG_DIR/output/hibench
     if [ -d "${HIBENCH_TMP_CONFIG_DIR}" ]; then
         echo "Successfully generated hibench tmp config directory: ${HIBENCH_TMP_CONFIG_DIR}"

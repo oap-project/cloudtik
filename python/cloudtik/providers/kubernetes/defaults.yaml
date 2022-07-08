@@ -103,11 +103,11 @@ available_node_types:
                     args: ["trap : TERM INT; sleep infinity & wait;"]
                     resources:
                         requests:
-                            cpu: 1000m
-                            memory: 512Mi
+                            cpu: 4
+                            memory: 8Gi
                         limits:
                             # The maximum memory that this pod is allowed to use.
-                            memory: 512Mi
+                            memory: 8Gi
     head_node:
         node_config:
             apiVersion: v1
@@ -136,11 +136,11 @@ available_node_types:
                     - containerPort: 6789  # Redis port
                     resources:
                         requests:
-                            cpu: 1000m
-                            memory: 512Mi
+                            cpu: 4
+                            memory: 8Gi
                         limits:
                             # The maximum memory that this pod is allowed to use.
-                            memory: 512Mi
+                            memory: 8Gi
 
 # Specify the pod type for the head node (as configured below).
 head_node_type: head_node

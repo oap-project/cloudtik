@@ -25,7 +25,7 @@ MEMORY_SIZE_UNITS = {
 CLOUDTIK_COMPONENT_LABEL = "cluster.cloudtik.io/component"
 CLOUDTIK_HEAD_POD_NAME = "cloudtik-{}-head-"
 CLOUDTIK_HEAD_POD_LABEL = "cloudtik-{}-head"
-CLOUDTIK_WORKER_POD_NAME = "cloudtik-{}-head-"
+CLOUDTIK_WORKER_POD_NAME = "cloudtik-{}-worker-"
 
 
 def head_service_selector(cluster_name: str) -> Dict[str, str]:

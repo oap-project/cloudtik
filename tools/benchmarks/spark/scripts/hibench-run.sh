@@ -65,18 +65,20 @@ function check_hibench_config_dir() {
 
 
 function prepare_replace_conf_value() {
+    HEAD_ADDRESS=$(cloudtik head-ip $CLUSTER_CONFIG)
+
     if [ "$DOCKER_MODE" == "true" ]; then
-        SPARK_HOME="/home/cloudtik/runtime/spark"
-        HADOOP_HOME="/home/cloudtik/runtime/hadoop"
+        USER_HOME="/home/cloudtik"
     else
-        SPARK_HOME="/home/ubuntu/runtime/spark"
-        HADOOP_HOME="/home/ubuntu/runtime/hadoop"
+        USER_HOME="/home/ubuntu"
     fi
+    SPARK_HOME="${USER_HOME}/runtime/spark"
+    HADOOP_HOME="${USER_HOME}/runtime/hadoop"
 
     if [ "$MANAGED_CLOUD_STORAGE" == "true" ]; then
         FS_DEFAULT_NAME=$(cloudtik workspace info ${WORKSPACE_CONFIG} --managed-storage-uri)
     else
-        FS_DEFAULT_NAME="hdfs://$(cloudtik head-ip $CLUSTER_CONFIG):9000"
+        FS_DEFAULT_NAME="hdfs://${HEAD_ADDRESS}:9000"
     fi
 
     HIBENCH_HADOOP_EXAMPLES_JAR=$(echo $(cloudtik exec "$CLUSTER_CONFIG" 'find $HADOOP_HOME  -name hadoop-mapreduce-examples-*.jar | grep -v /sources/'))
@@ -100,6 +102,8 @@ function update_hibench_config() {
     prepare_replace_conf_value
 
     cd $HIBENCH_TMP_CONFIG_DIR
+    sed -i "s!{%head.address%}!${HEAD_ADDRESS}!g" `grep "{%head.address%}" -rl ./`
+    sed -i "s!{%user.home%}!${USER_HOME}!g" `grep "{%user.home%}" -rl ./`
     sed -i "s!{%spark.home%}!${SPARK_HOME}!g" `grep "{%spark.home%}" -rl ./`
     sed -i "s!{%hadoop.home%}!${HADOOP_HOME}!g" `grep "{%hadoop.home%}" -rl ./`
     sed -i "s!{%fs.default.name%}!${FS_DEFAULT_NAME}!g" `grep "{%fs.default.name%}" -rl ./`

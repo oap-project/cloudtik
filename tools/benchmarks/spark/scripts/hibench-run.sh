@@ -25,7 +25,7 @@ function check_cloudtik_environment() {
 
 
 function check_hibench_cloudtik_action() {
-    HIBENCH_CLOUDTIK_ALLOW_ACTIONS=( update-config run generate-data )
+    HIBENCH_CLOUDTIK_ALLOW_ACTIONS=( run generate-data )
     if [ $(contains "${HIBENCH_CLOUDTIK_ALLOW_ACTIONS[@]}" "$ACTION") == "y" ]; then
         echo "Action $ACTION is allowed for this hibench cloudtik script."
     else
@@ -153,9 +153,9 @@ function hibench_run_benchmark() {
 
 
 function usage() {
-    echo "Docker Mode: $0 -a|--action [update-config|run|generate-data] -w|--workload [ml/kmeans| ml/als| ml/bayes] --cluster_config [your_cluster.yaml] --workspace_config [your_workspace.yaml] --hibench_config_dir [your_hibench_config_dirl] -d" >&2
-    echo "Host Mode: $0 -a|--action [update-config|run|generate-data] -w|--workload [ml/kmeans| ml/als| ml/bayes] --cluster_config [your_cluster.yaml] --workspace_config [your_workspace.yaml] --hibench_config_dir [your_hibench_config_dirl]" >&2
-    echo "Docker Mode with managed_cloud_storage: $0 -a|--action [update-config|run|generate-data] -w|--workload [ml/kmeans| ml/als| ml/bayes] --cluster_config [your_cluster.yaml] --workspace_config [your_workspace.yaml] --hibench_config_dir [your_hibench_config_dirl] -d -managed_cloud_storage" >&2
+    echo "Docker Mode: $0 -a|--action [run|generate-data] -w|--workload [ml/kmeans| ml/als| ml/bayes] --cluster_config [your_cluster.yaml] --workspace_config [your_workspace.yaml] --hibench_config_dir [your_hibench_config_dirl] -d" >&2
+    echo "Host Mode: $0 -a|--action [run|generate-data] -w|--workload [ml/kmeans| ml/als| ml/bayes] --cluster_config [your_cluster.yaml] --workspace_config [your_workspace.yaml] --hibench_config_dir [your_hibench_config_dirl]" >&2
+    echo "Docker Mode with managed_cloud_storage: $0 -a|--action [run|generate-data] -w|--workload [ml/kmeans| ml/als| ml/bayes] --cluster_config [your_cluster.yaml] --workspace_config [your_workspace.yaml] --hibench_config_dir [your_hibench_config_dirl] -d -managed_cloud_storage" >&2
     echo "Usage: $0 -h|--help"
 }
 
@@ -208,11 +208,11 @@ check_cloudtik_workspace_config
 check_hibench_cloudtik_action
 check_hibench_config_dir
 
-if [ "${ACTION}" == "update-config" ];then
+if [ "${ACTION}" == "generate-data" ];then
     update_hibench_config
-elif [ "${ACTION}" == "generate-data" ];then
     hibench_generate_data
 elif [ "${ACTION}" == "run" ];then
+    update_hibench_config
     hibench_run_benchmark
 else
     usage

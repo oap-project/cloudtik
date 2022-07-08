@@ -1237,7 +1237,8 @@ def _exec(updater: NodeUpdaterThread,
           port_forward: Optional[Port_forward] = None,
           with_output: bool = False,
           run_env: str = "auto",
-          shutdown_after_run: bool = False) -> str:
+          shutdown_after_run: bool = False,
+          exit_on_fail: bool = False) -> str:
     if cmd:
         if screen:
             wrapped_cmd = [
@@ -1254,7 +1255,7 @@ def _exec(updater: NodeUpdaterThread,
             cmd = " ".join(wrapped_cmd)
     exec_out = updater.cmd_executor.run(
         cmd,
-        exit_on_fail=True,
+        exit_on_fail=exit_on_fail,
         port_forward=port_forward,
         with_output=with_output,
         run_env=run_env,

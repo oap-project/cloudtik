@@ -1,7 +1,7 @@
 import copy
 import logging
 import time
-from typing import Dict
+from typing import Dict, Any
 from uuid import uuid4
 
 from kubernetes.client.rest import ApiException
@@ -15,31 +15,16 @@ from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND
 from cloudtik.core._private.command_executor import KubernetesCommandExecutor
 
 from cloudtik.providers._private._kubernetes import core_api, log_prefix, \
-    extensions_beta_api
+    networking_api
 from cloudtik.providers._private._kubernetes.config import bootstrap_kubernetes, \
-    post_prepare_kubernetes
+    post_prepare_kubernetes, _add_service_name_to_service_port, head_service_selector
+from cloudtik.providers._private._kubernetes.utils import _get_node_info, to_label_selector
+from cloudtik.providers._private.utils import validate_config_dict
 
 logger = logging.getLogger(__name__)
 
 MAX_TAG_RETRIES = 3
 DELAY_BEFORE_TAG_RETRY = .5
-
-CLOUDTIK_COMPONENT_LABEL = "cloudtik/component"
-
-
-def head_service_selector(cluster_name: str) -> Dict[str, str]:
-    """Selector for Operator-configured head service.
-    """
-    return {CLOUDTIK_COMPONENT_LABEL: f"{cluster_name}-cloudtik-head"}
-
-
-def to_label_selector(tags):
-    label_selector = ""
-    for k, v in tags.items():
-        if label_selector != "":
-            label_selector += ","
-        label_selector += "{}={}".format(k, v)
-    return label_selector
 
 
 class KubernetesNodeProvider(NodeProvider):
@@ -72,6 +57,10 @@ class KubernetesNodeProvider(NodeProvider):
             pod.metadata.name for pod in pod_list.items
             if pod.metadata.deletion_timestamp is None
         ]
+
+    def get_node_info(self, node_id):
+        pod = core_api().read_namespaced_pod(node_id, self.namespace)
+        return _get_node_info(pod)
 
     def is_running(self, node_id):
         pod = core_api().read_namespaced_pod(node_id, self.namespace)
@@ -150,7 +139,6 @@ class KubernetesNodeProvider(NodeProvider):
                         "(count={}).".format(count))
 
             for new_node in new_nodes:
-
                 metadata = service_spec.get("metadata", {})
                 metadata["name"] = new_node.metadata.name
                 service_spec["metadata"] = metadata
@@ -168,8 +156,7 @@ class KubernetesNodeProvider(NodeProvider):
                 ingress_spec["metadata"] = metadata
                 ingress_spec = _add_service_name_to_service_port(
                     ingress_spec, new_svc.metadata.name)
-                extensions_beta_api().create_namespaced_ingress(
-                    self.namespace, ingress_spec)
+                networking_api().create_namespaced_ingress(self.namespace, ingress_spec)
 
     def terminate_node(self, node_id):
         logger.info(log_prefix + "calling delete_namespaced_pod")
@@ -186,7 +173,7 @@ class KubernetesNodeProvider(NodeProvider):
         except ApiException:
             pass
         try:
-            extensions_beta_api().delete_namespaced_ingress(
+            networking_api().delete_namespaced_ingress(
                 node_id,
                 self.namespace,
             )
@@ -218,30 +205,11 @@ class KubernetesNodeProvider(NodeProvider):
         """Fills out missing fields after the user config is merged with defaults and before validate"""
         return post_prepare_kubernetes(cluster_config)
 
+    @staticmethod
+    def validate_config(
+            provider_config: Dict[str, Any]) -> None:
+        config_dict = {
+            "namespace": provider_config.get("namespace"),
+            }
 
-def _add_service_name_to_service_port(spec, svc_name):
-    """Goes recursively through the ingress manifest and adds the
-    right serviceName next to every servicePort definition.
-    """
-    if isinstance(spec, dict):
-        dict_keys = list(spec.keys())
-        for k in dict_keys:
-            spec[k] = _add_service_name_to_service_port(spec[k], svc_name)
-
-            if k == "serviceName" and spec[k] != svc_name:
-                raise ValueError(
-                    "The value of serviceName must be set to "
-                    "${CLOUDTIK_POD_NAME}. It is automatically replaced "
-                    "when using the scaler.")
-
-    elif isinstance(spec, list):
-        spec = [
-            _add_service_name_to_service_port(item, svc_name) for item in spec
-        ]
-
-    elif isinstance(spec, str):
-        # The magic string ${CLOUDTIK_POD_NAME} is replaced with
-        # the true service name, which is equal to the worker pod name.
-        if "${CLOUDTIK_POD_NAME}" in spec:
-            spec = spec.replace("${CLOUDTIK_POD_NAME}", svc_name)
-    return spec
+        validate_config_dict(provider_config["type"], config_dict)

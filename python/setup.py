@@ -76,6 +76,7 @@ setup_spec.extras = {
     "k8s": [
         "kubernetes",
         "urllib3",
+        "kopf",
     ],
 }
 

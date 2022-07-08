@@ -1,18 +1,15 @@
-# A unique identifier for the head node and workers of this cluster.
-cluster_name: defaults
+# Include the common defaults
+from: defaults
 
-# The scaler will scale up the cluster faster with higher upscaling speed.
-# E.g., if the task requires adding more nodes then scaler will gradually
-# scale up the cluster in chunks of upscaling_speed*currently_running_nodes.
-# This number should be > 0.
-upscaling_speed: 1.0
+# This executes all commands on all nodes in the docker container,
+# and opens all the necessary ports to support the cluster.
+# Turn on or off container by set enabled to True or False.
+docker:
+    enabled: False
 
-# If a node is idle for this many minutes, it will be removed.
-idle_timeout_minutes: 5
-
-# Kubernetes resources that need to be configured for the scaler to be
+# Kubernetes resources that need to be configured for the controller to be
 # able to manage the cluster. If any of the provided resources don't
-# exist, the scaler will attempt to create them. If this fails, you may
+# exist, the controller will attempt to create them. If this fails, you may
 # not have the required permissions and will have to request them to be
 # created by your cluster administrator.
 provider:
@@ -27,20 +24,20 @@ provider:
     # ServiceAccount created by the scaler for the head node pod that it
     # runs in. If this field isn't provided, the head pod config below must
     # contain a user-created service account with the proper permissions.
-    scaler_service_account:
+    controller_service_account:
         apiVersion: v1
         kind: ServiceAccount
         metadata:
-            name: cloudtik_scaler
+            name: cloudtik-controller
 
     # Role created by the scaler for the head node pod that it runs in.
     # If this field isn't provided, the role referenced in
-    # scaler_role_binding must exist and have at least these permissions.
-    scaler_role:
+    # controller_role_binding must exist and have at least these permissions.
+    controller_role:
         kind: Role
         apiVersion: rbac.authorization.k8s.io/v1
         metadata:
-            name: cloudtik_scaler
+            name: cloudtik-controller
         rules:
         - apiGroups: [""]
           resources: ["pods", "pods/status", "pods/exec"]
@@ -49,17 +46,17 @@ provider:
     # RoleBinding created by the scaler for the head node pod that it runs
     # in. If this field isn't provided, the head pod config below must contain
     # a user-created service account with the proper permissions.
-    scaler_role_binding:
+    controller_role_binding:
         apiVersion: rbac.authorization.k8s.io/v1
         kind: RoleBinding
         metadata:
-            name: cloudtik_scaler
+            name: cloudtik-controller
         subjects:
         - kind: ServiceAccount
-          name: cloudtik_scaler
+          name: cloudtik-controller
         roleRef:
             kind: Role
-            name: cloudtik_scaler
+            name: cloudtik-controller
             apiGroup: rbac.authorization.k8s.io
 
     services:
@@ -70,11 +67,11 @@ provider:
             # NOTE: If you're running multiple clusters with services
             # on one Kubernetes cluster, they must have unique service
             # names.
-            name: example-cluster-cloudtik-head
+            name: cloudtik-{}-head
         spec:
             # This selector must match the head node pod's selector below.
             selector:
-                component: example-cluster-cloudtik-head
+                component: cloudtik-{}-head
             ports:
                 - name: client
                   protocol: TCP
@@ -85,137 +82,65 @@ provider:
                   port: 8265
                   targetPort: 8265
 
-# Specify the pod type for the head node (as configured below).
-head_node_type: head_node
 # Specify the allowed pod types for this cluster and the resources they provide.
 available_node_types:
-  worker_node:
-    # Minimum number of workers of this Pod type.
-    min_workers: 1
-    node_config:
-      apiVersion: v1
-      kind: Pod
-      metadata:
-        # Automatically generates a name for the pod with this prefix.
-        generateName: example-cluster-cloudtik-worker-
-      spec:
-        restartPolicy: Never
-        volumes:
-        - name: dshm
-          emptyDir:
-            medium: Memory
-        containers:
-        - name: cloudtik-node
-          imagePullPolicy: Always
-          image: cloudtik/spark-ai:latest
-          command: ["/bin/bash", "-c", "--"]
-          args: ["trap : TERM INT; sleep infinity & wait;"]
-          # This volume allocates shared memory to use for its plasma
-          # object store. If you do not provide this, It will fall back to
-          # /tmp which cause slowdowns if is not a shared memory volume.
-          volumeMounts:
-          - mountPath: /dev/shm
-            name: dshm
-          resources:
-            requests:
-              cpu: 1000m
-              memory: 512Mi
-            limits:
-              # The maximum memory that this pod is allowed to use.
-              memory: 512Mi
-  head_node:
-    node_config:
-      apiVersion: v1
-      kind: Pod
-      metadata:
-        # Automatically generates a name for the pod with this prefix.
-        generateName: example-cluster-cloudtik-head-
-        # Must match the head node service selector above if a head node
-        # service is required.
-        labels:
-            component: example-cluster-cloudtik-head
-      spec:
-        # Change this if you altered the scaler_service_account above
-        # or want to provide your own.
-        serviceAccountName: cloudtik_scaler
+    worker_node:
+        # Minimum number of workers of this Pod type.
+        min_workers: 1
+        node_config:
+            apiVersion: v1
+            kind: Pod
+            metadata:
+              # Automatically generates a name for the pod with this prefix.
+              generateName: cloudtik-{}-worker-
+            spec:
+                restartPolicy: Never
+                containers:
+                  - name: cloudtik-node
+                    imagePullPolicy: Always
+                    image: cloudtik/spark-runtime:nightly
+                    command: ["/bin/bash", "-c", "--"]
+                    args: ["trap : TERM INT; sleep infinity & wait;"]
+                    resources:
+                        requests:
+                            cpu: 1000m
+                            memory: 512Mi
+                        limits:
+                            # The maximum memory that this pod is allowed to use.
+                            memory: 512Mi
+    head_node:
+        node_config:
+            apiVersion: v1
+            kind: Pod
+            metadata:
+                # Automatically generates a name for the pod with this prefix.
+                generateName: cloudtik-{}-head-
+                # Must match the head node service selector above if a head node
+                # service is required.
+                labels:
+                    component: cloudtik-{}-head
+            spec:
+                # Change this if you altered the controller_service_account above
+                # or want to provide your own.
+                serviceAccountName: cloudtik-controller
+                restartPolicy: Never
+                containers:
+                  - name: cloudtik-node
+                    imagePullPolicy: Always
+                    image: cloudtik/spark-runtime:nightly
+                    # Do not change this command - it keeps the pod alive until it is
+                    # explicitly killed.
+                    command: ["/bin/bash", "-c", "--"]
+                    args: ['trap : TERM INT; sleep infinity & wait;']
+                    ports:
+                    - containerPort: 6789  # Redis port
+                    resources:
+                        requests:
+                            cpu: 1000m
+                            memory: 512Mi
+                        limits:
+                            # The maximum memory that this pod is allowed to use.
+                            memory: 512Mi
 
-        restartPolicy: Never
-
-        # This volume allocates shared memory to use for its plasma
-        # object store. If you do not provide this, It will fall back to
-        # /tmp which cause slowdowns if is not a shared memory volume.
-        volumes:
-        - name: dshm
-          emptyDir:
-            medium: Memory
-        containers:
-        - name: cloudtik-node
-          imagePullPolicy: Always
-          image: cloudtik/spark-ai:latest
-          # Do not change this command - it keeps the pod alive until it is
-          # explicitly killed.
-          command: ["/bin/bash", "-c", "--"]
-          args: ['trap : TERM INT; sleep infinity & wait;']
-          ports:
-          - containerPort: 6789  # Redis port
-
-          # This volume allocates shared memory to use for its plasma
-          # object store. If you do not provide this, It will fall back to
-          # /tmp which cause slowdowns if is not a shared memory volume.
-          volumeMounts:
-          - mountPath: /dev/shm
-            name: dshm
-          resources:
-            requests:
-              cpu: 1000m
-              memory: 512Mi
-            limits:
-              # The maximum memory that this pod is allowed to use.
-              memory: 512Mi
-
-
-# Command to start cloudtik on the head node. You don't need to change this.
-# Note dashboard-host is set to 0.0.0.0 so that kubernetes can port forward.
-head_start_commands:
-    - cloudtik node-stop
-    - ulimit -n 65536; cloudtik node-start --head --cluster-scaling-config=~/cloudtik_bootstrap_config.yaml --dashboard-host 0.0.0.0
-
-# Command to start cloudtik on worker nodes. You don't need to change this.
-worker_start_commands:
-    - cloudtik node-stop
-    - ulimit -n 65536; cloudtik node-start --address=$CLOUDTIK_HEAD_IP:6789
-
-# Files or directories to copy to the head and worker nodes. The format is a
-# dictionary from REMOTE_PATH: LOCAL_PATH, e.g.
-file_mounts: {
-#    "~/path1/on/remote/machine": "/path1/on/local/machine",
-#    "~/path2/on/remote/machine": "/path2/on/local/machine",
-}
-# Note that the container images in this example have a non-root user.
-# To avoid permissions issues, we recommend mounting into a subdirectory of home (~).
-
-# Files or directories to copy from the head node to the worker nodes. The format is a
-# list of paths. The same path on the head node will be copied to the worker node.
-# This behavior is a subset of the file_mounts behavior. In the vast majority of cases
-# you should just use file_mounts. Only use this if you know what you're doing!
-cluster_synced_files: []
-
-# Whether changes to directories in file_mounts or cluster_synced_files in the head node
-# should sync to the worker node continuously
-file_mounts_sync_continuously: False
-
-
-# List of commands that will be run before `setup_commands`. If docker is
-# enabled, these commands will run outside the container and before docker
-# is setup.
-initialization_commands: []
-
-# List of shell commands to run to set up nodes.
-setup_commands: []
-
-# Custom commands that will be run on the head node after common setup.
-head_setup_commands: []
-
-# Custom commands that will be run on worker nodes after common setup.
-worker_setup_commands: []
-
+# Specify the pod type for the head node (as configured below).
+head_node_type: head_node

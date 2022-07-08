@@ -126,8 +126,8 @@ class KubernetesNodeProvider(NodeProvider):
             head_selector = head_service_selector(self.cluster_name)
             pod_spec["metadata"]["labels"].update(head_selector)
 
-        logger.info(log_prefix + "calling create_namespaced_pod "
-                    "(count={}).".format(count))
+        logger.debug(log_prefix + "calling create_namespaced_pod "
+                                  "(count={}).".format(count))
         new_nodes = []
         for _ in range(count):
             pod = core_api().create_namespaced_pod(self.namespace, pod_spec)
@@ -135,8 +135,8 @@ class KubernetesNodeProvider(NodeProvider):
 
         new_svcs = []
         if service_spec is not None:
-            logger.info(log_prefix + "calling create_namespaced_service "
-                        "(count={}).".format(count))
+            logger.debug(log_prefix + "calling create_namespaced_service "
+                                      "(count={}).".format(count))
 
             for new_node in new_nodes:
                 metadata = service_spec.get("metadata", {})
@@ -148,8 +148,8 @@ class KubernetesNodeProvider(NodeProvider):
                 new_svcs.append(svc)
 
         if ingress_spec is not None:
-            logger.info(log_prefix + "calling create_namespaced_ingress "
-                        "(count={}).".format(count))
+            logger.debug(log_prefix + "calling create_namespaced_ingress "
+                         "(count={}).".format(count))
             for new_svc in new_svcs:
                 metadata = ingress_spec.get("metadata", {})
                 metadata["name"] = new_svc.metadata.name
@@ -159,7 +159,7 @@ class KubernetesNodeProvider(NodeProvider):
                 networking_api().create_namespaced_ingress(self.namespace, ingress_spec)
 
     def terminate_node(self, node_id):
-        logger.info(log_prefix + "calling delete_namespaced_pod")
+        logger.debug(log_prefix + "calling delete_namespaced_pod")
         try:
             core_api().delete_namespaced_pod(node_id, self.namespace)
         except ApiException as e:

@@ -4,9 +4,10 @@
 
 set -x
 
+CLOUDTIK_VERSION=$(sed -n 's/__version__ = \"\(..*\)\"/\1/p' ./python/cloudtik/__init__.py)
 GPU=""
 BASE_IMAGE="ubuntu:focal"
-WHEEL_URL="https://d30257nes7d4fq.cloudfront.net/downloads/cloudtik/cloudtik-0.9.0-cp37-cp37m-manylinux2014_x86_64.whl"
+WHEEL_URL="https://d30257nes7d4fq.cloudfront.net/downloads/cloudtik/cloudtik-${CLOUDTIK_VERSION}-cp37-cp37m-manylinux2014_x86_64.whl"
 PYTHON_VERSION="3.7.7"
 CONDA_ENV_NAME="cloudtik_py37"
 

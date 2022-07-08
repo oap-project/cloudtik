@@ -18,20 +18,20 @@ provider:
     # ServiceAccount created by the scaler for the head node pod that it
     # runs in. If this field isn't provided, the head pod config below must
     # contain a user-created service account with the proper permissions.
-    scaler_service_account:
+    controller_service_account:
         apiVersion: v1
         kind: ServiceAccount
         metadata:
-            name: cloudtik_scaler
+            name: cloudtik-controller
 
     # Role created by the scaler for the head node pod that it runs in.
     # If this field isn't provided, the role referenced in
-    # scaler_role_binding must exist and have at least these permissions.
-    scaler_role:
+    # controller_role_binding must exist and have at least these permissions.
+    controller_role:
         kind: Role
         apiVersion: rbac.authorization.k8s.io/v1
         metadata:
-            name: cloudtik_scaler
+            name: cloudtik-controller
         rules:
         - apiGroups: [""]
           resources: ["pods", "pods/status", "pods/exec"]
@@ -40,38 +40,15 @@ provider:
     # RoleBinding created by the scaler for the head node pod that it runs
     # in. If this field isn't provided, the head pod config below must contain
     # a user-created service account with the proper permissions.
-    scaler_role_binding:
+    controller_role_binding:
         apiVersion: rbac.authorization.k8s.io/v1
         kind: RoleBinding
         metadata:
-            name: cloudtik_scaler
+            name: cloudtik-controller
         subjects:
         - kind: ServiceAccount
-          name: cloudtik_scaler
+          name: cloudtik-controller
         roleRef:
             kind: Role
-            name: cloudtik_scaler
+            name: cloudtik-controller
             apiGroup: rbac.authorization.k8s.io
-
-    services:
-      # Service that maps to the head node of the cluster.
-      - apiVersion: v1
-        kind: Service
-        metadata:
-            # NOTE: If you're running multiple clusters with services
-            # on one Kubernetes cluster, they must have unique service
-            # names.
-            name: example-cluster-cloudtik-head
-        spec:
-            # This selector must match the head node pod's selector below.
-            selector:
-                component: example-cluster-cloudtik-head
-            ports:
-                - name: client
-                  protocol: TCP
-                  port: 10001
-                  targetPort: 10001
-                - name: dashboard
-                  protocol: TCP
-                  port: 8265
-                  targetPort: 8265

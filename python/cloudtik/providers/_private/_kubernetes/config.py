@@ -22,6 +22,45 @@ MEMORY_SIZE_UNITS = {
     "P": 2**50
 }
 
+CLOUDTIK_COMPONENT_LABEL = "cluster.cloudtik.io/component"
+CLOUDTIK_HEAD_POD_NAME = "cloudtik-{}-head-"
+CLOUDTIK_HEAD_POD_LABEL = "cloudtik-{}-head"
+CLOUDTIK_WORKER_POD_NAME = "cloudtik-{}-worker-"
+
+
+def head_service_selector(cluster_name: str) -> Dict[str, str]:
+    """Selector for Operator-configured head service.
+    """
+    return {CLOUDTIK_COMPONENT_LABEL: CLOUDTIK_HEAD_POD_LABEL.format(cluster_name)}
+
+
+def _add_service_name_to_service_port(spec, svc_name):
+    """Goes recursively through the ingress manifest and adds the
+    right serviceName next to every servicePort definition.
+    """
+    if isinstance(spec, dict):
+        dict_keys = list(spec.keys())
+        for k in dict_keys:
+            spec[k] = _add_service_name_to_service_port(spec[k], svc_name)
+
+            if k == "serviceName" and spec[k] != svc_name:
+                raise ValueError(
+                    "The value of serviceName must be set to "
+                    "${CLOUDTIK_POD_NAME}. It is automatically replaced "
+                    "when using the scaler.")
+
+    elif isinstance(spec, list):
+        spec = [
+            _add_service_name_to_service_port(item, svc_name) for item in spec
+        ]
+
+    elif isinstance(spec, str):
+        # The magic string ${CLOUDTIK_POD_NAME} is replaced with
+        # the true service name, which is equal to the worker pod name.
+        if "${CLOUDTIK_POD_NAME}" in spec:
+            spec = spec.replace("${CLOUDTIK_POD_NAME}", svc_name)
+    return spec
+
 
 class InvalidNamespaceError(ValueError):
     def __init__(self, field_name, namespace):
@@ -34,11 +73,11 @@ class InvalidNamespaceError(ValueError):
 
 
 def using_existing_msg(resource_type, name):
-    return "using existing {} '{}'".format(resource_type, name)
+    return "Using existing {} '{}'".format(resource_type, name)
 
 
 def updating_existing_msg(resource_type, name):
-    return "updating existing {} '{}'".format(resource_type, name)
+    return "Updating existing {} '{}'".format(resource_type, name)
 
 
 def not_found_msg(resource_type, name):
@@ -47,15 +86,15 @@ def not_found_msg(resource_type, name):
 
 
 def not_checking_msg(resource_type, name):
-    return "not checking if {} '{}' exists".format(resource_type, name)
+    return "Not checking if {} '{}' exists".format(resource_type, name)
 
 
 def created_msg(resource_type, name):
-    return "successfully created {} '{}'".format(resource_type, name)
+    return "Successfully created {} '{}'".format(resource_type, name)
 
 
 def not_provided_msg(resource_type):
-    return "no {} config provided, must already exist".format(resource_type)
+    return "No {} config provided, must already exist".format(resource_type)
 
 
 def bootstrap_kubernetes_workspace(config):
@@ -74,13 +113,17 @@ def bootstrap_kubernetes(config):
     else:
         namespace = _configure_namespace(config["provider"])
 
+    # Update the generateName pod name and labels with the cluster name
+    _configure_pod_name_and_labels(config)
+    _configure_services_name_and_selector(config)
+
     _configure_services(namespace, config["provider"])
 
     if not config["provider"].get("_operator"):
-        # These steps are unecessary when using the Operator.
-        _configure_scaler_service_account(namespace, config["provider"])
-        _configure_scaler_role(namespace, config["provider"])
-        _configure_scaler_role_binding(namespace, config["provider"])
+        # These steps are unnecessary when using the Operator.
+        _configure_controller_service_account(namespace, config["provider"])
+        _configure_controller_role(namespace, config["provider"])
+        _configure_controller_role_binding(namespace, config["provider"])
 
     return config
 
@@ -111,18 +154,10 @@ def fill_resources_kubernetes(config):
     node_types = copy.deepcopy(config["available_node_types"])
     head_node_type = config["head_node_type"]
     for node_type in node_types:
-
         node_config = node_types[node_type]["node_config"]
-        # The next line is for compatibility with configs like
-        # kubernetes/example-ingress.yaml,
-        # cf. KubernetesNodeProvider.create_node().
-        pod = node_config.get("pod", node_config)
-        container_data = pod["spec"]["containers"][0]
+        container_data = node_config["spec"]["containers"][0]
 
         autodetected_resources = get_autodetected_resources(container_data)
-        if node_types == head_node_type:
-            # we only autodetect worker type node memory resource
-            autodetected_resources.pop("memory")
         if "resources" not in config["available_node_types"][node_type]:
             config["available_node_types"][node_type]["resources"] = {}
         autodetected_resources.update(
@@ -154,14 +189,17 @@ def get_autodetected_resources(container_data):
 
 
 def get_resource(container_resources, resource_name):
-    request = _get_resource(
-        container_resources, resource_name, field_name="requests")
+    # float("inf") means there's no limit set
+    # consider limit first if it is specified for this resource type
     limit = _get_resource(
         container_resources, resource_name, field_name="limits")
-    resource = min(request, limit)
-    # float("inf") value means the resource wasn't detected in either
-    # requests or limits
-    return 0 if resource == float("inf") else int(resource)
+    if limit != float("inf"):
+        return int(limit)
+
+    # if no limit specified, check requests
+    request = _get_resource(
+        container_resources, resource_name, field_name="requests")
+    return 0 if request == float("inf") else int(request)
 
 
 def _get_resource(container_resources, resource_name, field_name):
@@ -237,22 +275,21 @@ def _configure_namespace(provider_config):
 
     if len(namespaces) > 0:
         assert len(namespaces) == 1
-        logger.info(log_prefix +
-                    using_existing_msg(namespace_field, namespace))
+        cli_logger.print(log_prefix + using_existing_msg(namespace_field, namespace))
         return namespace
 
-    logger.info(log_prefix + not_found_msg(namespace_field, namespace))
+    cli_logger.print(log_prefix + not_found_msg(namespace_field, namespace))
     namespace_config = client.V1Namespace(
         metadata=client.V1ObjectMeta(name=namespace))
     core_api().create_namespace(namespace_config)
-    logger.info(log_prefix + created_msg(namespace_field, namespace))
+    cli_logger.print(log_prefix + created_msg(namespace_field, namespace))
     return namespace
 
 
-def _configure_scaler_service_account(namespace, provider_config):
-    account_field = "scaler_service_account"
+def _configure_controller_service_account(namespace, provider_config):
+    account_field = "controller_service_account"
     if account_field not in provider_config:
-        logger.info(log_prefix + not_provided_msg(account_field))
+        cli_logger.print(log_prefix + not_provided_msg(account_field))
         return
 
     account = provider_config[account_field]
@@ -267,18 +304,18 @@ def _configure_scaler_service_account(namespace, provider_config):
         namespace, field_selector=field_selector).items
     if len(accounts) > 0:
         assert len(accounts) == 1
-        logger.info(log_prefix + using_existing_msg(account_field, name))
+        cli_logger.print(log_prefix + using_existing_msg(account_field, name))
         return
 
-    logger.info(log_prefix + not_found_msg(account_field, name))
+    cli_logger.print(log_prefix + not_found_msg(account_field, name))
     core_api().create_namespaced_service_account(namespace, account)
-    logger.info(log_prefix + created_msg(account_field, name))
+    cli_logger.print(log_prefix + created_msg(account_field, name))
 
 
-def _configure_scaler_role(namespace, provider_config):
-    role_field = "scaler_role"
+def _configure_controller_role(namespace, provider_config):
+    role_field = "controller_role"
     if role_field not in provider_config:
-        logger.info(log_prefix + not_provided_msg(role_field))
+        cli_logger.print(log_prefix + not_provided_msg(role_field))
         return
 
     role = provider_config[role_field]
@@ -293,18 +330,18 @@ def _configure_scaler_role(namespace, provider_config):
         namespace, field_selector=field_selector).items
     if len(accounts) > 0:
         assert len(accounts) == 1
-        logger.info(log_prefix + using_existing_msg(role_field, name))
+        cli_logger.print(log_prefix + using_existing_msg(role_field, name))
         return
 
-    logger.info(log_prefix + not_found_msg(role_field, name))
+    cli_logger.print(log_prefix + not_found_msg(role_field, name))
     auth_api().create_namespaced_role(namespace, role)
-    logger.info(log_prefix + created_msg(role_field, name))
+    cli_logger.print(log_prefix + created_msg(role_field, name))
 
 
-def _configure_scaler_role_binding(namespace, provider_config):
-    binding_field = "scaler_role_binding"
+def _configure_controller_role_binding(namespace, provider_config):
+    binding_field = "controller_role_binding"
     if binding_field not in provider_config:
-        logger.info(log_prefix + not_provided_msg(binding_field))
+        cli_logger.print(log_prefix + not_provided_msg(binding_field))
         return
 
     binding = provider_config[binding_field]
@@ -326,18 +363,18 @@ def _configure_scaler_role_binding(namespace, provider_config):
         namespace, field_selector=field_selector).items
     if len(accounts) > 0:
         assert len(accounts) == 1
-        logger.info(log_prefix + using_existing_msg(binding_field, name))
+        cli_logger.print(log_prefix + using_existing_msg(binding_field, name))
         return
 
-    logger.info(log_prefix + not_found_msg(binding_field, name))
+    cli_logger.print(log_prefix + not_found_msg(binding_field, name))
     auth_api().create_namespaced_role_binding(namespace, binding)
-    logger.info(log_prefix + created_msg(binding_field, name))
+    cli_logger.print(log_prefix + created_msg(binding_field, name))
 
 
 def _configure_services(namespace, provider_config):
     service_field = "services"
     if service_field not in provider_config:
-        logger.info(log_prefix + not_provided_msg(service_field))
+        cli_logger.print(log_prefix + not_provided_msg(service_field))
         return
 
     services = provider_config[service_field]
@@ -355,13 +392,58 @@ def _configure_services(namespace, provider_config):
             assert len(services) == 1
             existing_service = services[0]
             if service == existing_service:
-                logger.info(log_prefix + using_existing_msg("service", name))
+                cli_logger.print(log_prefix + using_existing_msg("service", name))
                 return
             else:
-                logger.info(log_prefix +
-                            updating_existing_msg("service", name))
+                cli_logger.print(log_prefix + updating_existing_msg("service", name))
                 core_api().patch_namespaced_service(name, namespace, service)
         else:
-            logger.info(log_prefix + not_found_msg("service", name))
+            cli_logger.print(log_prefix + not_found_msg("service", name))
             core_api().create_namespaced_service(namespace, service)
-            logger.info(log_prefix + created_msg("service", name))
+            cli_logger.print(log_prefix + created_msg("service", name))
+
+
+def _configure_pod_name_and_labels(config):
+    if "available_node_types" not in config:
+        return config
+
+    cluster_name = config["cluster_name"]
+    node_types = config["available_node_types"]
+    head_node_type = config["head_node_type"]
+    for node_type in node_types:
+        node_config = node_types[node_type]["node_config"]
+        if "metadata" not in node_config:
+            node_config["metadata"] = {}
+        metadata = node_config["metadata"]
+        if node_type == head_node_type:
+            _configure_pod_name_and_labels_for_head(metadata, cluster_name)
+        else:
+            _configure_pod_name(metadata, cluster_name, CLOUDTIK_WORKER_POD_NAME)
+
+
+def _configure_pod_name_and_labels_for_head(metadata, cluster_name):
+    _configure_pod_name(metadata, cluster_name, CLOUDTIK_HEAD_POD_NAME)
+    if "labels" not in metadata:
+        metadata["labels"] = {}
+    labels = metadata["labels"]
+    labels["component"] = CLOUDTIK_HEAD_POD_LABEL.format(cluster_name)
+
+
+def _configure_pod_name(metadata, cluster_name, name_pattern):
+    metadata["generateName"] = name_pattern.format(cluster_name)
+
+
+def _configure_services_name_and_selector(config):
+    provider_config = config["provider"]
+    service_field = "services"
+    if service_field not in provider_config:
+        return
+
+    cluster_name = config["cluster_name"]
+    services = provider_config[service_field]
+    for service in services:
+        service_name_pattern = service["metadata"]["name"]
+        service["metadata"]["name"] = service_name_pattern.format(cluster_name)
+
+        component_selector_pattern = service["spec"]["selector"]["component"]
+        service["spec"]["selector"]["component"] = component_selector_pattern.format(cluster_name)

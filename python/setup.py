@@ -73,7 +73,7 @@ setup_spec.extras = {
         "google-api-python-client==2.48.0",
         "google-cloud-storage==2.3.0",
     ],
-    "k8s": [
+    "kubernetes": [
         "kubernetes",
         "urllib3",
         "kopf",

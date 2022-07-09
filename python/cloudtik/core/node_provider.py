@@ -205,6 +205,11 @@ class NodeProvider:
         return cluster_config
 
     @staticmethod
+    def cleanup_cluster(cluster_config: Dict[str, Any]):
+        """Cleanup the cluster by deleting additional resources other than the nodes."""
+        pass
+
+    @staticmethod
     def bootstrap_config_for_api(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         """Bootstraps the cluster config for node provider api access."""
         return cluster_config

@@ -261,7 +261,7 @@ def bootstrap_kubernetes_workspace(config):
     return config
 
 
-def bootstrap_kubernetes_for_read(config):
+def bootstrap_kubernetes_for_api(config):
     workspace_name = config.get("workspace_name", "")
     if workspace_name == "":
         raise ValueError(f"Workspace name is not specified.")
@@ -299,6 +299,7 @@ def bootstrap_kubernetes_default(config):
     _configure_pod_name_and_labels(config)
     _configure_services_name_and_selector(config)
     _configure_head_service_account(config)
+
     _configure_services(namespace, config["provider"])
 
     if not config["provider"].get("_operator"):
@@ -330,6 +331,11 @@ def bootstrap_kubernetes_from_workspace(config):
     _configure_services(namespace, config["provider"])
 
     return config
+
+
+def cleanup_kubernetes_cluster(config):
+    # Delete services associated with the cluster
+    _delete_services(config)
 
 
 def _configure_namespace_from_workspace(config):
@@ -1058,3 +1064,43 @@ def _delete_controller_role_binding(namespace, provider_config):
     cli_logger.print(log_prefix + "Deleting role binding: {}".format(name))
     auth_api().delete_namespaced_role_binding(name, namespace)
     cli_logger.print(log_prefix + "Successfully deleted role binding: {}".format(name))
+
+
+def _delete_services(config):
+    provider_config = config["provider"]
+    service_field = "services"
+    if service_field not in provider_config:
+        return
+
+    if "namespace" not in provider_config:
+        raise ValueError("Must specify namespace in Kubernetes config.")
+
+    namespace = provider_config["namespace"]
+    cluster_name = config["cluster_name"]
+    services = provider_config[service_field]
+    for service in services:
+        service_name_pattern = service["metadata"]["name"]
+        service_name = service_name_pattern.format(cluster_name)
+        _delete_service(namespace, service_name)
+
+
+def _get_service(namespace, name):
+    field_selector = "metadata.name={}".format(name)
+    services = core_api().list_namespaced_service(
+        namespace, field_selector=field_selector).items
+    if len(services) > 0:
+        assert len(services) == 1
+        return services[0]
+
+    return None
+
+
+def _delete_service(namespace: str, name: str):
+    service_object = _get_service(namespace, name)
+    if service_object is None:
+        cli_logger.print(log_prefix + "Service: {} doesn't exist.".format(name))
+        return
+
+    cli_logger.print(log_prefix + "Deleting service: {}".format(name))
+    core_api().delete_namespaced_service(name, namespace)
+    cli_logger.print(log_prefix + "Successfully deleted service: {}".format(name))

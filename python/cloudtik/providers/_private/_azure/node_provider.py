@@ -19,7 +19,7 @@ from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_NAME
 
 from cloudtik.providers._private._azure.config import (AZURE_MSI_NAME,
                                                        verify_azure_cloud_storage, bootstrap_azure,
-                                                       _extract_metadata_for_node, bootstrap_azure_for_read,
+                                                       _extract_metadata_for_node, bootstrap_azure_for_api,
                                                        post_prepare_azure)
 
 from cloudtik.providers._private._azure.utils import (get_azure_config, _get_node_info, get_azure_sdk_function,
@@ -304,7 +304,7 @@ class AzureNodeProvider(NodeProvider):
 
     @staticmethod
     def bootstrap_config_for_api(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-        return bootstrap_azure_for_read(cluster_config)
+        return bootstrap_azure_for_api(cluster_config)
 
     def prepare_for_head_node(
             self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:

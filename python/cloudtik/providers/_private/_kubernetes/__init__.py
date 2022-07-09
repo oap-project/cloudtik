@@ -55,4 +55,4 @@ def custom_objects_api():
     return _custom_objects_api
 
 
-log_prefix = "KubernetesNodeProvider: "
+log_prefix = ""

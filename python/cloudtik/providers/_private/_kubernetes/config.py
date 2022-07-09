@@ -2,15 +2,21 @@ import copy
 import logging
 import math
 import re
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from kubernetes import client
 from kubernetes.client.rest import ApiException
 
-from cloudtik.core._private.cli_logger import cli_logger
-from cloudtik.core._private.utils import is_use_internal_ip
+from cloudtik.core._private.cli_logger import cli_logger, cf
+from cloudtik.core._private.providers import _get_node_provider
+from cloudtik.core._private.utils import is_use_internal_ip, get_running_head_node, binary_to_hex, hex_to_binary
+from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, \
+    CLOUDTIK_GLOBAL_VARIABLE_KEY, CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX
+from cloudtik.core.workspace_provider import Existence
 from cloudtik.providers._private._kubernetes import auth_api, core_api, log_prefix
 from cloudtik.core._private.constants import CLOUDTIK_DEFAULT_OBJECT_STORE_MEMORY_PROPORTION
+from cloudtik.providers._private._kubernetes.utils import _get_node_info, to_label_selector, \
+    KUBERNETES_WORKSPACE_NAME_MAX, check_kubernetes_name_format
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +34,14 @@ CLOUDTIK_HEAD_POD_LABEL = "cloudtik-{}-head"
 CLOUDTIK_WORKER_POD_NAME = "cloudtik-{}-worker-"
 
 CONFIG_NAME_IMAGE = "image"
+
+KUBERNETES_CLOUDTIK_SERVICE_ACCOUNT_NAME = "cloudtik-controller"
+KUBERNETES_CLOUDTIK_ROLE_NAME = "cloudtik-controller"
+KUBERNETES_CLOUDTIK_ROLE_BINDING_NAME = "cloudtik-controller"
+
+KUBERNETES_WORKSPACE_NUM_CREATION_STEPS = 4
+KUBERNETES_WORKSPACE_NUM_DELETION_STEPS = 4
+KUBERNETES_WORKSPACE_TARGET_RESOURCES = 4
 
 
 def head_service_selector(cluster_name: str) -> Dict[str, str]:
@@ -91,6 +105,11 @@ def not_checking_msg(resource_type, name):
     return "Not checking if {} '{}' exists".format(resource_type, name)
 
 
+def creating_msg(resource_type, name):
+    return "Creating {} '{}'...".format(
+        resource_type, name)
+
+
 def created_msg(resource_type, name):
     return "Successfully created {} '{}'".format(resource_type, name)
 
@@ -99,16 +118,174 @@ def not_provided_msg(resource_type):
     return "No {} config provided, must already exist".format(resource_type)
 
 
+def get_workspace_namespace(workspace_name: str):
+    # Check namespace exists
+    namespace_object = _get_namespace(workspace_name)
+    if namespace_object is None:
+        return None
+    return workspace_name
+
+
+def _get_workspace_service_account(config, namespace):
+    name = _get_controller_service_account_name(config["provider"])
+    return _get_controller_service_account(namespace, name)
+
+
+def _get_workspace_role(config, namespace):
+    name = _get_controller_role_name(config["provider"])
+    return _get_controller_role(namespace, name)
+
+
+def _get_workspace_role_binding(config, namespace):
+    name = _get_controller_role_binding_name(config["provider"])
+    return _get_controller_role_binding(namespace, name)
+
+
+def create_kubernetes_workspace(config):
+    # create a copy of the input config to modify
+    config = copy.deepcopy(config)
+
+    # create workspace
+    config = _create_workspace(config)
+
+    return config
+
+
+def delete_kubernetes_workspace(config, delete_managed_storage: bool = False):
+    workspace_name = config["workspace_name"]
+    namespace = get_workspace_namespace(workspace_name)
+    if namespace is None:
+        cli_logger.print("The workspace: {} doesn't exist!".format(config["workspace_name"]))
+        return
+
+    current_step = 1
+    total_steps = KUBERNETES_WORKSPACE_NUM_DELETION_STEPS
+
+    try:
+        with cli_logger.group("Deleting workspace: {}", workspace_name):
+            with cli_logger.group(
+                    "Deleting role binding",
+                    _numbered=("[]", current_step, total_steps)):
+                current_step += 1
+                _delete_controller_role_binding(workspace_name, config["provider"])
+
+            with cli_logger.group(
+                    "Deleting role",
+                    _numbered=("[]", current_step, total_steps)):
+                current_step += 1
+                _delete_controller_role(workspace_name, config["provider"])
+
+            with cli_logger.group(
+                    "Deleting service account",
+                    _numbered=("[]", current_step, total_steps)):
+                current_step += 1
+                _delete_controller_service_account(workspace_name, config["provider"])
+
+            with cli_logger.group(
+                    "Deleting namespace",
+                    _numbered=("[]", current_step, total_steps)):
+                current_step += 1
+                _delete_namespace(workspace_name)
+
+    except Exception as e:
+        cli_logger.error(
+            "Failed to delete workspace {}. {}".format(workspace_name, str(e)))
+        raise e
+
+    cli_logger.print(
+        "Successfully deleted workspace: {}.",
+        cf.bold(workspace_name))
+
+
+def check_kubernetes_workspace_existence(config):
+    workspace_name = config["workspace_name"]
+    existing_resources = 0
+    target_resources = KUBERNETES_WORKSPACE_TARGET_RESOURCES
+    """
+         Do the work - order of operation
+         1.) Check namespace
+         2.) Check service account
+         3.) Check role
+         4.) Check role binding
+    """
+    namespace = get_workspace_namespace(workspace_name)
+    if namespace is not None:
+        existing_resources += 1
+
+        # Resources depending on namespace
+        if _get_workspace_service_account(config, namespace) is not None:
+            existing_resources += 1
+        if _get_workspace_role(config, namespace) is not None:
+            existing_resources += 1
+        if _get_workspace_role_binding(config, namespace) is not None:
+            existing_resources += 1
+
+    if existing_resources == 0:
+        return Existence.NOT_EXIST
+    elif existing_resources == target_resources:
+        return Existence.COMPLETED
+    else:
+        return Existence.IN_COMPLETED
+
+
+def check_kubernetes_workspace_integrity(config):
+    existence = check_kubernetes_workspace_existence(config)
+    return True if existence == Existence.COMPLETED else False
+
+
+def list_kubernetes_clusters(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    head_nodes = get_workspace_head_nodes(config)
+    clusters = {}
+    for head_node in head_nodes:
+        cluster_name = get_cluster_name_from_head(head_node)
+        if cluster_name:
+            clusters[cluster_name] = _get_node_info(head_node)
+    return clusters
+
+
+def get_kubernetes_workspace_info(config):
+    workspace_name = config["workspace_name"]
+    info = {}
+    return info
+
+
+def validate_kubernetes_config(provider_config: Dict[str, Any], workspace_name: str):
+    if len(workspace_name) > KUBERNETES_WORKSPACE_NAME_MAX or \
+            not check_kubernetes_name_format(workspace_name):
+        raise RuntimeError("{} workspace name is between 1 and {} characters, "
+                           "and can only contain lowercase alphanumeric "
+                           "characters and '-' or '.'".format(provider_config["type"], KUBERNETES_WORKSPACE_NAME_MAX))
+
+
 def bootstrap_kubernetes_workspace(config):
     return config
 
 
+def bootstrap_kubernetes_for_read(config):
+    workspace_name = config.get("workspace_name", "")
+    if workspace_name == "":
+        raise ValueError(f"Workspace name is not specified.")
+
+    _configure_namespace_from_workspace(config)
+    return config
+
+
 def bootstrap_kubernetes(config):
+    workspace_name = config.get("workspace_name", "")
+    if workspace_name == "":
+        config = bootstrap_kubernetes_default(config)
+    else:
+        config = bootstrap_kubernetes_from_workspace(config)
+
+    return config
+
+
+def bootstrap_kubernetes_default(config):
     if not is_use_internal_ip(config):
         return ValueError(
             "Exposing external IP addresses for containers isn't "
             "currently supported. Please set "
-            "'use_internal_ips' to false.")
+            "'use_internal_ips' to true.")
 
     if config["provider"].get("_operator"):
         namespace = config["provider"]["namespace"]
@@ -121,7 +298,7 @@ def bootstrap_kubernetes(config):
     # Update the generateName pod name and labels with the cluster name
     _configure_pod_name_and_labels(config)
     _configure_services_name_and_selector(config)
-
+    _configure_head_service_account(config)
     _configure_services(namespace, config["provider"])
 
     if not config["provider"].get("_operator"):
@@ -131,6 +308,41 @@ def bootstrap_kubernetes(config):
         _configure_controller_role_binding(namespace, config["provider"])
 
     return config
+
+
+def bootstrap_kubernetes_from_workspace(config):
+    if not is_use_internal_ip(config):
+        return ValueError(
+            "Exposing external IP addresses for containers isn't "
+            "currently supported. Please set "
+            "'use_internal_ips' to true.")
+
+    namespace = _configure_namespace_from_workspace(config)
+
+    # Update the node config with image
+    _configure_pod_image(config)
+
+    # Update the generateName pod name and labels with the cluster name
+    _configure_pod_name_and_labels(config)
+    _configure_services_name_and_selector(config)
+    _configure_head_service_account(config)
+
+    _configure_services(namespace, config["provider"])
+
+    return config
+
+
+def _configure_namespace_from_workspace(config):
+    if config["provider"].get("_operator"):
+        namespace = config["provider"]["namespace"]
+    else:
+        workspace_name = config["workspace_name"]
+        namespace = get_workspace_namespace(workspace_name)
+        if namespace is None:
+            raise RuntimeError("The workspace namespace {} doesn't exist.".format(workspace_name))
+
+        config["provider"]["namespace"] = namespace
+    return namespace
 
 
 def post_prepare_kubernetes(config: Dict[str, Any]) -> Dict[str, Any]:
@@ -454,6 +666,20 @@ def _configure_services_name_and_selector(config):
         service["spec"]["selector"]["component"] = component_selector_pattern.format(cluster_name)
 
 
+def _configure_head_service_account(config):
+    if "available_node_types" not in config:
+        return config
+
+    service_account_name = KUBERNETES_CLOUDTIK_SERVICE_ACCOUNT_NAME
+    node_types = config["available_node_types"]
+    head_node_type = config["head_node_type"]
+    for node_type in node_types:
+        if node_type == head_node_type:
+            node_type_config = node_types[node_type]
+            pod_spec = node_type_config["node_config"]["spec"]
+            pod_spec["serviceAccountName"] = service_account_name
+
+
 def _configure_pod_image(config):
     if "available_node_types" not in config:
         return config
@@ -468,7 +694,7 @@ def _configure_pod_image(config):
 
 
 def get_node_type_image(provider_config, node_type_config):
-    if CONFIG_NAME_IMAGE not in node_type_config:
+    if CONFIG_NAME_IMAGE in node_type_config:
         return node_type_config[CONFIG_NAME_IMAGE]
 
     return provider_config.get(CONFIG_NAME_IMAGE)
@@ -481,3 +707,354 @@ def _configure_pod_image_for_node_type(node_type_config, image):
     # The image spec in the container will take high priority than external config
     if CONFIG_NAME_IMAGE not in container_data:
         container_data[CONFIG_NAME_IMAGE] = image
+
+
+def get_cluster_name_from_head(head_node) -> Optional[str]:
+    labels = head_node.metadata.labels
+    if labels is not None and CLOUDTIK_TAG_CLUSTER_NAME in labels:
+        return labels[CLOUDTIK_TAG_CLUSTER_NAME]
+    return None
+
+
+def get_workspace_head_nodes(config):
+    return _get_workspace_head_nodes(
+        config["provider"], config["workspace_name"])
+
+
+def _get_workspace_head_nodes(provider_config, workspace_name):
+    namespace = get_workspace_namespace(workspace_name)
+    if namespace is None:
+        raise RuntimeError(f"Kubernetes namespace for workspace doesn't exist: {workspace_name}")
+
+    head_node_tags = {
+        CLOUDTIK_TAG_NODE_KIND: NODE_KIND_HEAD,
+    }
+
+    field_selector = ",".join([
+        "status.phase!=Failed",
+        "status.phase!=Unknown",
+        "status.phase!=Succeeded",
+        "status.phase!=Terminating",
+    ])
+
+    label_selector = to_label_selector(head_node_tags)
+    pod_list = core_api().list_namespaced_pod(
+        namespace,
+        field_selector=field_selector,
+        label_selector=label_selector)
+
+    # Don't return pods marked for deletion,
+    # i.e. pods with non-null metadata.DeletionTimestamp.
+    return [
+        pod for pod in pod_list.items
+        if pod.metadata.deletion_timestamp is None
+    ]
+
+
+def publish_kubernetes_global_variables(
+        cluster_config: Dict[str, Any], global_variables: Dict[str, Any]):
+    # Add prefix to the variables
+    global_variables_prefixed = {}
+    for name in global_variables:
+        prefixed_name = CLOUDTIK_GLOBAL_VARIABLE_KEY.format(name)
+        value = global_variables[name]
+        hex_encoded_value = binary_to_hex(value.encode())
+        global_variables_prefixed[prefixed_name] = hex_encoded_value
+
+    provider = _get_node_provider(cluster_config["provider"], cluster_config["cluster_name"])
+    head_node_id = get_running_head_node(cluster_config, provider)
+    provider.set_node_tags(head_node_id, global_variables_prefixed)
+
+
+def subscribe_kubernetes_global_variables(
+        provider_config: Dict[str, Any], workspace_name: str, cluster_config: Dict[str, Any]):
+    global_variables = {}
+    head_nodes = _get_workspace_head_nodes(
+        provider_config, workspace_name)
+    for head in head_nodes:
+        labels = head.metadata.labels
+        if labels is None:
+            continue
+
+        for key, value in labels.items():
+            if key.startswith(CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX):
+                global_variable_name = key[len(CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX):]
+                hex_decoded_value = hex_to_binary(value).decode()
+                global_variables[global_variable_name] = hex_decoded_value
+
+    return global_variables
+
+
+def _create_workspace(config):
+    workspace_name = config["workspace_name"]
+
+    current_step = 1
+    total_steps = KUBERNETES_WORKSPACE_NUM_CREATION_STEPS
+
+    try:
+        with cli_logger.group("Creating workspace: {}", workspace_name):
+            with cli_logger.group(
+                    "Creating namespace",
+                    _numbered=("[]", current_step, total_steps)):
+                current_step += 1
+                _create_namespace(workspace_name)
+
+            with cli_logger.group(
+                    "Creating service account",
+                    _numbered=("[]", current_step, total_steps)):
+                current_step += 1
+                _create_controller_service_account(workspace_name, config["provider"])
+
+            with cli_logger.group(
+                    "Creating role",
+                    _numbered=("[]", current_step, total_steps)):
+                current_step += 1
+                _create_controller_role(workspace_name, config["provider"])
+
+            with cli_logger.group(
+                    "Creating role binding",
+                    _numbered=("[]", current_step, total_steps)):
+                current_step += 1
+                _create_controller_role_binding(workspace_name, config["provider"])
+
+    except Exception as e:
+        cli_logger.error("Failed to create workspace with the name {}. "
+                         "You need to delete and try create again. {}", workspace_name, str(e))
+        raise e
+
+    cli_logger.print(
+        "Successfully created workspace: {}.",
+        cf.bold(workspace_name))
+
+    return config
+
+
+def _get_namespace(namespace: str):
+    field_selector = "metadata.name={}".format(namespace)
+    namespaces = core_api().list_namespace(
+        field_selector=field_selector).items
+
+    if len(namespaces) > 0:
+        assert len(namespaces) == 1
+        return namespaces[0]
+
+    return None
+
+
+def _create_namespace(workspace_name: str):
+    namespace_field = "namespace"
+    namespace = workspace_name
+
+    # Check existence
+    namespace_object = _get_namespace(namespace)
+    if namespace_object is not None:
+        cli_logger.print(log_prefix + using_existing_msg(namespace_field, namespace))
+        return
+
+    cli_logger.print(log_prefix + creating_msg(namespace_field, namespace))
+    namespace_config = client.V1Namespace(
+        metadata=client.V1ObjectMeta(name=namespace))
+    core_api().create_namespace(namespace_config)
+    cli_logger.print(log_prefix + created_msg(namespace_field, namespace))
+    return namespace
+
+
+def _get_controller_service_account_name(provider_config):
+    account_field = "controller_service_account"
+    name = provider_config.get(account_field, {}).get("metadata", {}).get("name")
+    if name is None:
+        return KUBERNETES_CLOUDTIK_SERVICE_ACCOUNT_NAME
+    return name
+
+
+def _get_controller_service_account(namespace, name):
+    field_selector = "metadata.name={}".format(name)
+    accounts = core_api().list_namespaced_service_account(
+        namespace, field_selector=field_selector).items
+    if len(accounts) > 0:
+        assert len(accounts) == 1
+        return accounts[0]
+
+    return None
+
+
+def _create_controller_service_account(namespace, provider_config):
+    account_field = "controller_service_account"
+    if account_field not in provider_config:
+        cli_logger.print(log_prefix + not_provided_msg(account_field))
+        return
+
+    name = _get_controller_service_account_name(provider_config)
+    service_account_object = _get_controller_service_account(namespace, name)
+    if service_account_object is not None:
+        cli_logger.print(log_prefix + using_existing_msg(account_field, name))
+        return
+
+    account = provider_config[account_field]
+    if "metadata" not in account:
+        account["metadata"] = {}
+    if "namespace" not in account["metadata"]:
+        account["metadata"]["namespace"] = namespace
+    elif account["metadata"]["namespace"] != namespace:
+        raise InvalidNamespaceError(account_field, namespace)
+    if "name" not in account["metadata"]:
+        account["metadata"]["name"] = name
+
+    cli_logger.print(log_prefix + creating_msg(account_field, name))
+    core_api().create_namespaced_service_account(namespace, account)
+    cli_logger.print(log_prefix + created_msg(account_field, name))
+
+
+def _get_controller_role_name(provider_config):
+    role_field = "controller_role"
+    name = provider_config.get(role_field, {}).get("metadata", {}).get("name")
+    if name is None:
+        return KUBERNETES_CLOUDTIK_ROLE_NAME
+    return name
+
+
+def _get_controller_role(namespace, name):
+    field_selector = "metadata.name={}".format(name)
+    roles = auth_api().list_namespaced_role(
+        namespace, field_selector=field_selector).items
+    if len(roles) > 0:
+        assert len(roles) == 1
+        return roles[0]
+
+    return None
+
+
+def _create_controller_role(namespace, provider_config):
+    role_field = "controller_role"
+    if role_field not in provider_config:
+        cli_logger.print(log_prefix + not_provided_msg(role_field))
+        return
+
+    name = _get_controller_role_name(provider_config)
+    role_object = _get_controller_role(namespace, name)
+    if role_object is not None:
+        cli_logger.print(log_prefix + using_existing_msg(role_field, name))
+        return
+
+    role = provider_config[role_field]
+    if "metadata" not in role:
+        role["metadata"] = {}
+    if "namespace" not in role["metadata"]:
+        role["metadata"]["namespace"] = namespace
+    elif role["metadata"]["namespace"] != namespace:
+        raise InvalidNamespaceError(role_field, namespace)
+    if "name" not in role["metadata"]:
+        role["metadata"]["name"] = name
+
+    cli_logger.print(log_prefix + creating_msg(role_field, name))
+    auth_api().create_namespaced_role(namespace, role)
+    cli_logger.print(log_prefix + created_msg(role_field, name))
+
+
+def _get_controller_role_binding_name(provider_config):
+    binding_field = "controller_role_binding"
+    name = provider_config.get(binding_field, {}).get("metadata", {}).get("name")
+    if name is None:
+        return KUBERNETES_CLOUDTIK_ROLE_BINDING_NAME
+    return name
+
+
+def _get_controller_role_binding(namespace, name):
+    field_selector = "metadata.name={}".format(name)
+    role_bindings = auth_api().list_namespaced_role_binding(
+        namespace, field_selector=field_selector).items
+    if len(role_bindings) > 0:
+        assert len(role_bindings) == 1
+        return role_bindings[0]
+
+    return None
+
+
+def _create_controller_role_binding(namespace, provider_config):
+    binding_field = "controller_role_binding"
+    if binding_field not in provider_config:
+        cli_logger.print(log_prefix + not_provided_msg(binding_field))
+        return
+
+    name = _get_controller_role_binding_name(provider_config)
+    role_binding_object = _get_controller_role_binding(namespace, name)
+    if role_binding_object is not None:
+        cli_logger.print(log_prefix + using_existing_msg(binding_field, name))
+        return
+
+    service_account_name = _get_controller_service_account_name(provider_config)
+    role_name = _get_controller_role_name(provider_config)
+    binding = provider_config[binding_field]
+    if "metadata" not in binding:
+        binding["metadata"] = {}
+    if "namespace" not in binding["metadata"]:
+        binding["metadata"]["namespace"] = namespace
+    elif binding["metadata"]["namespace"] != namespace:
+        raise InvalidNamespaceError(binding_field, namespace)
+    for subject in binding["subjects"]:
+        if "namespace" not in subject:
+            subject["namespace"] = namespace
+        elif subject["namespace"] != namespace:
+            raise InvalidNamespaceError(
+                binding_field + " subject '{}'".format(subject["name"]),
+                namespace)
+        if "name" not in subject:
+            subject["name"] = service_account_name
+    if name not in binding["roleRef"]:
+        binding["roleRef"]["name"] = role_name
+    if "name" not in binding["metadata"]:
+        binding["metadata"]["name"] = name
+
+    cli_logger.print(log_prefix + creating_msg(binding_field, name))
+    auth_api().create_namespaced_role_binding(namespace, binding)
+    cli_logger.print(log_prefix + created_msg(binding_field, name))
+
+
+def _delete_namespace(namespace):
+    namespace_object = _get_namespace(namespace)
+    if namespace_object is None:
+        cli_logger.print(log_prefix + "Namespace: {} doesn't exist.".format(namespace))
+        return
+
+    cli_logger.print(log_prefix + "Deleting namespace: {}".format(namespace))
+    core_api().delete_namespace(namespace)
+    cli_logger.print(log_prefix + "Successfully deleted namespace: {}".format(namespace))
+
+
+def _delete_controller_service_account(namespace, provider_config):
+    name = _get_controller_service_account_name(provider_config)
+
+    service_account_object = _get_controller_service_account(namespace, name)
+    if service_account_object is None:
+        cli_logger.print(log_prefix + "Service account: {} doesn't exist.".format(name))
+        return
+
+    cli_logger.print(log_prefix + "Deleting service account: {}".format(name))
+    core_api().delete_namespaced_service_account(name, namespace)
+    cli_logger.print(log_prefix + "Successfully deleted service account: {}".format(name))
+
+
+def _delete_controller_role(namespace, provider_config):
+    name = _get_controller_role_name(provider_config)
+
+    role_object = _get_controller_role(namespace, name)
+    if role_object is None:
+        cli_logger.print(log_prefix + "Role: {} doesn't exist.".format(name))
+        return
+
+    cli_logger.print(log_prefix + "Deleting role: {}".format(name))
+    auth_api().delete_namespaced_role(name, namespace)
+    cli_logger.print(log_prefix + "Successfully deleted role: {}".format(name))
+
+
+def _delete_controller_role_binding(namespace, provider_config):
+    name = _get_controller_role_binding_name(provider_config)
+
+    role_binding_object = _get_controller_role_binding(namespace, name)
+    if role_binding_object is None:
+        cli_logger.print(log_prefix + "Role Binding: {} doesn't exist.".format(name))
+        return
+
+    cli_logger.print(log_prefix + "Deleting role binding: {}".format(name))
+    auth_api().delete_namespaced_role_binding(name, namespace)
+    cli_logger.print(log_prefix + "Successfully deleted role binding: {}".format(name))

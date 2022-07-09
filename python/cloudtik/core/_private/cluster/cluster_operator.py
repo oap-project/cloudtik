@@ -81,7 +81,7 @@ POLL_INTERVAL = 5
 
 Port_forward = Union[Tuple[int, int], List[Tuple[int, int]]]
 
-NUM_TEARDOWN_CLUSTER_STEPS_BASE = 2
+NUM_TEARDOWN_CLUSTER_STEPS_BASE = 3
 
 
 # The global shared CLI call context
@@ -521,6 +521,22 @@ def _teardown_cluster(config: Dict[str, Any],
                                keep_min_workers=keep_min_workers,
                                on_head=False,
                                hard=hard)
+
+    with cli_logger.group(
+            "Clean up the cluster",
+            _numbered=("[]", current_step, total_steps)):
+        current_step += 1
+        cleanup_cluster(config,
+                        call_context=call_context,
+                        provider=provider)
+
+
+def cleanup_cluster(config: Dict[str, Any],
+                    call_context: CallContext,
+                    provider: NodeProvider):
+    call_context.cli_logger.print("Cleaning up cluster resources...")
+    provider.cleanup_cluster(config)
+    call_context.cli_logger.print(cf.bold("Successfully cleaned up other cluster resources."))
 
 
 def teardown_cluster_nodes(config: Dict[str, Any],

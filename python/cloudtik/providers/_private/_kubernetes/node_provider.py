@@ -17,7 +17,8 @@ from cloudtik.core._private.command_executor import KubernetesCommandExecutor
 from cloudtik.providers._private._kubernetes import core_api, log_prefix, \
     networking_api
 from cloudtik.providers._private._kubernetes.config import bootstrap_kubernetes, \
-    post_prepare_kubernetes, _add_service_name_to_service_port, head_service_selector, bootstrap_kubernetes_for_read
+    post_prepare_kubernetes, _add_service_name_to_service_port, head_service_selector, \
+    bootstrap_kubernetes_for_api, cleanup_kubernetes_cluster
 from cloudtik.providers._private._kubernetes.utils import _get_node_info, to_label_selector
 from cloudtik.providers._private.utils import validate_config_dict
 
@@ -201,8 +202,13 @@ class KubernetesNodeProvider(NodeProvider):
         return bootstrap_kubernetes(cluster_config)
 
     @staticmethod
+    def cleanup_cluster(cluster_config: Dict[str, Any]):
+        """Finalize the cluster by cleanup additional resources other than the nodes."""
+        cleanup_kubernetes_cluster(cluster_config)
+
+    @staticmethod
     def bootstrap_config_for_api(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-        return bootstrap_kubernetes_for_read(cluster_config)
+        return bootstrap_kubernetes_for_api(cluster_config)
 
     @staticmethod
     def post_prepare(cluster_config):

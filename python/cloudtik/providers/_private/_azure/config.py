@@ -1894,7 +1894,7 @@ def bootstrap_azure_default(config):
     return config
 
 
-def bootstrap_azure_for_read(config):
+def bootstrap_azure_for_api(config):
     workspace_name = config.get("workspace_name", "")
     if workspace_name == "":
         raise ValueError(f"Workspace name is not specified.")

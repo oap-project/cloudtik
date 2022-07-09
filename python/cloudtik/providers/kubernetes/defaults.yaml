@@ -21,6 +21,11 @@ provider:
     # Namespace to use for all resources created.
     namespace: cloudtik
 
+
+    # Default image used by head and worker pod
+    # Head or Worker node type config can override this
+    image: cloudtik/spark-runtime:nightly
+
     # ServiceAccount created by the scaler for the head node pod that it
     # runs in. If this field isn't provided, the head pod config below must
     # contain a user-created service account with the proper permissions.
@@ -73,14 +78,10 @@ provider:
             selector:
                 component: cloudtik-{}-head
             ports:
-                - name: client
-                  protocol: TCP
-                  port: 10001
-                  targetPort: 10001
-                - name: dashboard
-                  protocol: TCP
-                  port: 8265
-                  targetPort: 8265
+              - name: cloudtik-redis
+                protocol: TCP
+                port: 6789
+                targetPort: 6789
 
 # Specify the allowed pod types for this cluster and the resources they provide.
 available_node_types:
@@ -98,7 +99,6 @@ available_node_types:
                 containers:
                   - name: cloudtik-node
                     imagePullPolicy: Always
-                    image: cloudtik/spark-runtime:nightly
                     command: ["/bin/bash", "-c", "--"]
                     args: ["trap : TERM INT; sleep infinity & wait;"]
                     resources:
@@ -127,13 +127,12 @@ available_node_types:
                 containers:
                   - name: cloudtik-node
                     imagePullPolicy: Always
-                    image: cloudtik/spark-runtime:nightly
                     # Do not change this command - it keeps the pod alive until it is
                     # explicitly killed.
                     command: ["/bin/bash", "-c", "--"]
                     args: ['trap : TERM INT; sleep infinity & wait;']
                     ports:
-                    - containerPort: 6789  # Redis port
+                      - containerPort: 6789  # Redis port
                     resources:
                         requests:
                             cpu: 4

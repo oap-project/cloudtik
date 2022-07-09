@@ -261,6 +261,15 @@ def bootstrap_kubernetes_workspace(config):
     return config
 
 
+def bootstrap_kubernetes_for_read(config):
+    workspace_name = config.get("workspace_name", "")
+    if workspace_name == "":
+        raise ValueError(f"Workspace name is not specified.")
+
+    _configure_namespace_from_workspace(config)
+    return config
+
+
 def bootstrap_kubernetes(config):
     workspace_name = config.get("workspace_name", "")
     if workspace_name == "":

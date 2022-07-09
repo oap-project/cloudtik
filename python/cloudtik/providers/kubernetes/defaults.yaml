@@ -84,7 +84,7 @@ provider:
 
 # Specify the allowed pod types for this cluster and the resources they provide.
 available_node_types:
-    worker_node:
+    worker.default:
         # Minimum number of workers of this Pod type.
         min_workers: 1
         node_config:
@@ -107,7 +107,7 @@ available_node_types:
                         limits:
                             # The maximum memory that this pod is allowed to use.
                             memory: 8Gi
-    head_node:
+    head.default:
         node_config:
             apiVersion: v1
             kind: Pod
@@ -141,4 +141,4 @@ available_node_types:
                             memory: 8Gi
 
 # Specify the pod type for the head node (as configured below).
-head_node_type: head_node
+head_node_type: head.default

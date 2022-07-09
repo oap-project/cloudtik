@@ -15,7 +15,8 @@ def check_kubernetes_name_format(workspace_name):
     # - contain only lowercase alphanumeric characters, '-' or '.'
     # - start with an alphanumeric character
     # - end with an alphanumeric character
-    return bool(re.match("^[a-z0-9-]*$", workspace_name))
+    # '(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?'
+    return bool(re.match("^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$", workspace_name))
 
 
 def to_label_selector(tags):

@@ -27,6 +27,8 @@ CLOUDTIK_HEAD_POD_NAME = "cloudtik-{}-head-"
 CLOUDTIK_HEAD_POD_LABEL = "cloudtik-{}-head"
 CLOUDTIK_WORKER_POD_NAME = "cloudtik-{}-worker-"
 
+CONFIG_NAME_IMAGE = "image"
+
 
 def head_service_selector(cluster_name: str) -> Dict[str, str]:
     """Selector for Operator-configured head service.
@@ -112,6 +114,9 @@ def bootstrap_kubernetes(config):
         namespace = config["provider"]["namespace"]
     else:
         namespace = _configure_namespace(config["provider"])
+
+    # Update the node config with image
+    _configure_pod_image(config)
 
     # Update the generateName pod name and labels with the cluster name
     _configure_pod_name_and_labels(config)
@@ -447,3 +452,32 @@ def _configure_services_name_and_selector(config):
 
         component_selector_pattern = service["spec"]["selector"]["component"]
         service["spec"]["selector"]["component"] = component_selector_pattern.format(cluster_name)
+
+
+def _configure_pod_image(config):
+    if "available_node_types" not in config:
+        return config
+
+    provider_config = config["provider"]
+    node_types = config["available_node_types"]
+    for node_type in node_types:
+        node_type_config = node_types[node_type]
+        image = get_node_type_image(provider_config, node_type_config)
+        if image is not None:
+            _configure_pod_image_for_node_type(node_type_config, image)
+
+
+def get_node_type_image(provider_config, node_type_config):
+    if CONFIG_NAME_IMAGE not in node_type_config:
+        return node_type_config[CONFIG_NAME_IMAGE]
+
+    return provider_config.get(CONFIG_NAME_IMAGE)
+
+
+def _configure_pod_image_for_node_type(node_type_config, image):
+    node_config = node_type_config["node_config"]
+    container_data = node_config["spec"]["containers"][0]
+
+    # The image spec in the container will take high priority than external config
+    if CONFIG_NAME_IMAGE not in container_data:
+        container_data[CONFIG_NAME_IMAGE] = image

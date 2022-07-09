@@ -21,7 +21,6 @@ provider:
     # Namespace to use for all resources created.
     namespace: cloudtik
 
-
     # Default image used by head and worker pod
     # Head or Worker node type config can override this
     image: cloudtik/spark-runtime:nightly

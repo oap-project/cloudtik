@@ -298,7 +298,7 @@ def bootstrap_kubernetes_default(config):
     # Update the generateName pod name and labels with the cluster name
     _configure_pod_name_and_labels(config)
     _configure_services_name_and_selector(config)
-
+    _configure_head_service_account(config)
     _configure_services(namespace, config["provider"])
 
     if not config["provider"].get("_operator"):
@@ -325,6 +325,7 @@ def bootstrap_kubernetes_from_workspace(config):
     # Update the generateName pod name and labels with the cluster name
     _configure_pod_name_and_labels(config)
     _configure_services_name_and_selector(config)
+    _configure_head_service_account(config)
 
     _configure_services(namespace, config["provider"])
 
@@ -665,6 +666,20 @@ def _configure_services_name_and_selector(config):
         service["spec"]["selector"]["component"] = component_selector_pattern.format(cluster_name)
 
 
+def _configure_head_service_account(config):
+    if "available_node_types" not in config:
+        return config
+
+    service_account_name = KUBERNETES_CLOUDTIK_SERVICE_ACCOUNT_NAME
+    node_types = config["available_node_types"]
+    head_node_type = config["head_node_type"]
+    for node_type in node_types:
+        if node_type == head_node_type:
+            node_type_config = node_types[node_type]
+            pod_spec = node_type_config["node_config"]["spec"]
+            pod_spec["serviceAccountName"] = service_account_name
+
+
 def _configure_pod_image(config):
     if "available_node_types" not in config:
         return config
@@ -846,8 +861,7 @@ def _create_namespace(workspace_name: str):
 
 def _get_controller_service_account_name(provider_config):
     account_field = "controller_service_account"
-    account = provider_config[account_field]
-    name = account.get("metadata", {}).get("name")
+    name = provider_config.get(account_field, {}).get("metadata", {}).get("name")
     if name is None:
         return KUBERNETES_CLOUDTIK_SERVICE_ACCOUNT_NAME
     return name
@@ -893,8 +907,7 @@ def _create_controller_service_account(namespace, provider_config):
 
 def _get_controller_role_name(provider_config):
     role_field = "controller_role"
-    role = provider_config[role_field]
-    name = role.get("metadata", {}).get("name")
+    name = provider_config.get(role_field, {}).get("metadata", {}).get("name")
     if name is None:
         return KUBERNETES_CLOUDTIK_ROLE_NAME
     return name
@@ -940,8 +953,7 @@ def _create_controller_role(namespace, provider_config):
 
 def _get_controller_role_binding_name(provider_config):
     binding_field = "controller_role_binding"
-    binding = provider_config[binding_field]
-    name = binding.get("metadata", {}).get("name")
+    name = provider_config.get(binding_field, {}).get("metadata", {}).get("name")
     if name is None:
         return KUBERNETES_CLOUDTIK_ROLE_BINDING_NAME
     return name

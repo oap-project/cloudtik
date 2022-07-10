@@ -298,7 +298,6 @@ def bootstrap_kubernetes_default(config):
     # Update the generateName pod name and labels with the cluster name
     _configure_pod_name_and_labels(config)
     _configure_services_name_and_selector(config)
-    _configure_head_service_account(config)
 
     _configure_services(namespace, config["provider"])
 
@@ -307,6 +306,8 @@ def bootstrap_kubernetes_default(config):
         _configure_controller_service_account(namespace, config["provider"])
         _configure_controller_role(namespace, config["provider"])
         _configure_controller_role_binding(namespace, config["provider"])
+
+        _configure_head_service_account(config)
 
     return config
 
@@ -326,9 +327,11 @@ def bootstrap_kubernetes_from_workspace(config):
     # Update the generateName pod name and labels with the cluster name
     _configure_pod_name_and_labels(config)
     _configure_services_name_and_selector(config)
-    _configure_head_service_account(config)
 
     _configure_services(namespace, config["provider"])
+
+    if not config["provider"].get("_operator"):
+        _configure_head_service_account(config)
 
     return config
 

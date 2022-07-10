@@ -101,7 +101,7 @@ class CloudTikCluster:
         self.write_config()
 
     def start_controller(self) -> None:
-        """Runs the autoscaling monitor."""
+        """Runs the cluster controller in operator instead of on head."""
         head_pod_ip = cluster_operator.get_head_node_ip(self.config_path)
         port = operator_utils.infer_head_port(self.config)
         address = services.address(head_pod_ip, port)
@@ -264,13 +264,13 @@ def restart_cluster(body, status, name, namespace, memo: kopf.Memo, **kwargs):
 
 
 def _create_or_update_cluster(
-    cluster_cr_body, name, namespace, memo, restart_head=False
+    custom_resource_body, name, namespace, memo, restart_head=False
 ):
     """Create, update, or restart the cluster described by a CloudTikCluster
     resource.
 
     Args:
-        cluster_cr_body: The body of the K8s CloudTikCluster resources describing
+        custom_resource_body: The body of the K8s CloudTikCluster resources describing
             a CloudTik cluster.
         name: The name of the cluster.
         namespace: The K8s namespace in which the cluster runs.
@@ -278,7 +278,7 @@ def _create_or_update_cluster(
         restart_head: Only restart cluster processes if this is true.
     """
     # Convert the CloudTikCluster custom resource to a cluster config.
-    cluster_config = operator_utils.custom_resource_to_config(cluster_cr_body)
+    cluster_config = operator_utils.custom_resource_to_config(custom_resource_body)
 
     # Fetch or create the CloudTikCluster python object encapsulating cluster state.
     cloudtik_cluster = memo.get("cloudtik_cluster")

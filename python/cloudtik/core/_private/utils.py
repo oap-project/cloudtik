@@ -2193,10 +2193,56 @@ def get_head_working_ip(config: Dict[str, Any],
     return get_node_working_ip(config, provider, node)
 
 
-def update_nested_dict(target_dict, new_dict):
+def _get_only_named_dict_child(v):
+    if not isinstance(v, list) or len(v) != 1:
+        return None
+
+    child = v[0]
+    if child is None or not isinstance(
+            child, collections.abc.Mapping) or "name" not in child:
+        return None
+
+    return child
+
+
+def _match_named_item(item_1, item_2):
+    name_1 = item_1["name"]
+    name_2 = item_2["name"]
+    return True if name_1 == name_2 else False
+
+
+def _match_list_item_with_name(target_dict, k, v):
+    new_item = _get_only_named_dict_child(v)
+    if new_item is None:
+        return None
+
+    if k not in target_dict:
+        return None
+
+    target_v = target_dict[k]
+    target_item = _get_only_named_dict_child(target_v)
+    if target_item is None:
+        return None
+
+    if not _match_named_item(new_item, target_item):
+        return None
+
+    return target_item, new_item
+
+
+def update_nested_dict(target_dict, new_dict, match_list_item_with_name: bool = True):
     for k, v in new_dict.items():
         if isinstance(v, collections.abc.Mapping):
-            target_dict[k] = update_nested_dict(target_dict.get(k, {}), v)
+            target_dict[k] = update_nested_dict(
+                target_dict.get(k, {}), v, match_list_item_with_name)
+        elif match_list_item_with_name:
+            matched_items = _match_list_item_with_name(target_dict, k, v)
+            if matched_items is not None:
+                target_item, new_item = matched_items
+                target_dict[k][0] = update_nested_dict(
+                    target_item, new_item, match_list_item_with_name)
+            else:
+                target_dict[k] = v
         else:
             target_dict[k] = v
     return target_dict

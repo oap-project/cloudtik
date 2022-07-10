@@ -73,7 +73,8 @@ class ClusterController:
                  redis_password=None,
                  prefix_cluster_info=False,
                  controller_ip=None,
-                 stop_event: Optional[Event] = None):
+                 stop_event: Optional[Event] = None,
+                 retry_on_failure: bool = True):
 
         # Initialize the Redis clients.
         redis_address = address
@@ -106,6 +107,7 @@ class ClusterController:
         self.prefix_cluster_info = prefix_cluster_info
         # Can be used to signal graceful exit from controller loop.
         self.stop_event = stop_event  # type: Optional[Event]
+        self.retry_on_failure = retry_on_failure
         self.cluster_scaling_config = cluster_scaling_config
         self.cluster_scaler = None
         self.cluster_metrics_failures = 0
@@ -216,35 +218,42 @@ class ClusterController:
     def _run(self):
         """Run the controller loop."""
         while True:
-            if self.stop_event and self.stop_event.is_set():
-                break
-            self.update_cluster_metrics()
-            self.update_resource_requests()
-            self.update_event_summary()
-            status = {
-                "cluster_metrics_report": asdict(self.cluster_metrics.summary()),
-                "time": time.time(),
-                "controller_pid": os.getpid()
-            }
+            try:
+                if self.stop_event and self.stop_event.is_set():
+                    break
+                self.update_cluster_metrics()
+                self.update_resource_requests()
+                self.update_event_summary()
+                status = {
+                    "cluster_metrics_report": asdict(self.cluster_metrics.summary()),
+                    "time": time.time(),
+                    "controller_pid": os.getpid()
+                }
 
-            # Process autoscaling actions
-            if self.cluster_scaler:
-                # Only used to update the load metrics for the scaler.
-                self.cluster_scaler.update()
-                status["cluster_scaler_report"] = asdict(self.cluster_scaler.summary())
+                # Process autoscaling actions
+                if self.cluster_scaler:
+                    # Only used to update the load metrics for the scaler.
+                    self.cluster_scaler.update()
+                    status["cluster_scaler_report"] = asdict(self.cluster_scaler.summary())
 
-                for msg in self.event_summarizer.summary():
-                    # Need to prefix each line of the message for the lines to
-                    # get pushed to the driver logs.
-                    for line in msg.split("\n"):
-                        logger.info("{}{}".format(
-                            constants.LOG_PREFIX_EVENT_SUMMARY, line))
-                self.event_summarizer.clear()
+                    for msg in self.event_summarizer.summary():
+                        # Need to prefix each line of the message for the lines to
+                        # get pushed to the driver logs.
+                        for line in msg.split("\n"):
+                            logger.info("{}{}".format(
+                                constants.LOG_PREFIX_EVENT_SUMMARY, line))
+                    self.event_summarizer.clear()
 
-            as_json = json.dumps(status)
-            if kv_initialized():
-                kv_put(
-                    CLOUDTIK_CLUSTER_SCALING_STATUS, as_json, overwrite=True)
+                as_json = json.dumps(status)
+                if kv_initialized():
+                    kv_put(
+                        CLOUDTIK_CLUSTER_SCALING_STATUS, as_json, overwrite=True)
+            except Exception:
+                # By default, do not exit the controller on failure.
+                if self.retry_on_failure:
+                    logger.exception("Controller: Execution exception. Trying again...")
+                else:
+                    raise
 
             # Wait for a cluster scaler update interval before processing the next
             # round of messages.

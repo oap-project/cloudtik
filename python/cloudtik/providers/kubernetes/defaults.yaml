@@ -121,7 +121,6 @@ available_node_types:
             spec:
                 # Change this if you altered the controller_service_account above
                 # or want to provide your own.
-                serviceAccountName: cloudtik-controller
                 restartPolicy: Never
                 containers:
                   - name: cloudtik-node

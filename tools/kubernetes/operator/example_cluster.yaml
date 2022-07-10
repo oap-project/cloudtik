@@ -1,0 +1,80 @@
+apiVersion: cloudtik.io/v1
+kind: CloudTikCluster
+metadata:
+  name: example-cluster
+spec:
+  # The maximum number of workers nodes to launch in addition to the head node.
+  maxWorkers: 3
+  # The autoscaler will scale up the cluster faster with higher upscaling speed.
+  # E.g., if the task requires adding more nodes then autoscaler will gradually
+  # scale up the cluster in chunks of upscaling_speed*currently_running_nodes.
+  # This number should be > 0.
+  upscalingSpeed: 1.0
+  # If a node is idle for this many minutes, it will be removed.
+  idleTimeoutMinutes: 5
+  # Specify the pod type for the head node (as configured below).
+  headPodType: head.default
+  # Optionally, configure ports for the cluster head service.
+  # The ports specified below are the defaults.
+  headServicePorts:
+    - name: client
+      port: 10001
+      targetPort: 10001
+  # Specify the allowed pod types for this cluster and the resources they provide.
+  podTypes:
+  - name: head.default
+    podConfig:
+      apiVersion: v1
+      kind: Pod
+      metadata:
+        # The operator automatically cloudtik-{cluster name}- to this field.
+        generateName: head-
+      spec:
+        restartPolicy: Never
+        containers:
+        - name: cloudtik-node
+          imagePullPolicy: Always
+          image: cloudtik/spark-runtime:latest
+          ports:
+          - containerPort: 6789  # Redis port
+          resources:
+            requests:
+              cpu: 4
+              memory: 8Gi
+              ephemeral-storage: 1Gi
+            limits:
+              cpu: 4
+              # The maximum memory that this pod is allowed to use. The
+              # limit will be detected and split to use 10% for
+              # redis, the rest for application memory.
+              memory: 8Gi
+  - name: worker.default
+    # Minimum number of workers of this Pod type.
+    minWorkers: 2
+    # Maximum number of workers of this Pod type. Takes precedence over minWorkers.
+    maxWorkers: 3
+    # User-specified custom resources.
+    customResources: {}
+    podConfig:
+      apiVersion: v1
+      kind: Pod
+      metadata:
+        # The operator automatically prefix with cloudtik-{cluster name}- to this field.
+        generateName: worker-
+      spec:
+        restartPolicy: Never
+        containers:
+        - name: cloudtik-node
+          imagePullPolicy: Always
+          image: cloudtik/spark-runtime:latest
+          resources:
+            requests:
+              cpu: 4
+              memory: 8Gi
+              ephemeral-storage: 1Gi
+            limits:
+              cpu: 4
+              # The maximum memory that this pod is allowed to use. The
+              # limit will be detected and split to use 10% for
+              # redis, the rest for application memory.
+              memory: 8Gi

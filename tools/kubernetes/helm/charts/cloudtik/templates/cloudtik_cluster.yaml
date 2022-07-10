@@ -1,0 +1,61 @@
+{{- if not .Values.operatorOnly }}
+apiVersion: cloudtik.io/v1
+kind: CloudTikCluster
+metadata:
+  name: {{ .Release.Name }}
+spec:
+  # The maximum number of workers nodes to launch in addition to the head node.
+  maxWorkers: {{ include "cloudtik.clusterMaxWorkers" . }}
+  # The autoscaler will scale up the cluster faster with higher upscaling speed.
+  # E.g., if the task requires adding more nodes then autoscaler will gradually
+  # scale up the cluster in chunks of upscaling_speed*currently_running_nodes.
+  # This number should be > 0.
+  upscalingSpeed: {{ .Values.upscalingSpeed | default 1.0 }}
+  # If a node is idle for this many minutes, it will be removed.
+  idleTimeoutMinutes: {{ .Values.idleTimeoutMinutes | default 5 }}
+  # Specify the pod type for the head node (as configured below).
+  headPodType: {{ .Values.headPodType }}
+  # Specify the allowed pod types for this cluster and the resources they provide.
+  podTypes:
+    {{- range $key, $val := .Values.podTypes }}
+    - name: {{ $key }}
+      minWorkers: {{ $val.minWorkers | default 0}}
+      maxWorkers: {{ $val.maxWorkers | default 0}}
+      {{- if $val.customResources }}
+      customResources:
+        {{- toYaml $val.customResources | nindent 8 }}
+      {{- end }}
+      podConfig:
+        apiVersion: v1
+        kind: Pod
+        metadata:
+          generateName: {{ kebabcase $key }}-
+        spec:
+          restartPolicy: Never
+          containers:
+          - name: cloudtik-node
+            imagePullPolicy: Always
+            image: {{ $.Values.image }}
+            resources:
+              requests:
+                cpu: {{ .CPU }}
+                memory: {{ .memory }}
+              limits:
+                cpu: {{ .CPU }}
+                # The maximum memory that this pod is allowed to use. The
+                # limit will be detected and split to use 10% for
+                # redis, and the rest for application memory.
+                memory: {{ .memory }}
+                {{- if .GPU }}
+                nvidia.com/gpu: {{ .GPU }}
+                {{- end }}
+          {{- if .nodeSelector }}
+          nodeSelector:
+          {{- toYaml $val.nodeSelector | nindent 12 }}
+          {{- end }}
+          {{- if $val.tolerations }}
+          tolerations:
+          {{- toYaml $val.tolerations | nindent 10 }}
+          {{- end }}
+    {{- end }}
+{{- end }}

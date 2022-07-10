@@ -204,6 +204,7 @@ setuptools.setup(
         "console_scripts": [
             "cloudtik=cloudtik.scripts.scripts:main",
             "cloudtik-simulator=cloudtik.providers.local.service.cloudtik_cloud_simulator:main",
+            "cloudtik-operator=cloudtik.providers.kubernetes.cloudtik_operator.operator:main",
             "cloudtik-ganglia=cloudtik.runtime.ganglia.scripts:main",
             "cloudtik-spark=cloudtik.runtime.spark.scripts:main",
             "cloudtik-hdfs=cloudtik.runtime.hdfs.scripts:main",

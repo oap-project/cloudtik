@@ -1,0 +1,21 @@
+# Job to submit a program from a pod outside a running cluster.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cloudtik-test-job
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: cloudtik-test-job
+          image: cloudtik/cloudtik:latest
+          imagePullPolicy: Always
+          command: [ "/bin/bash", "-c", "--" ]
+          args:
+            - "wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/kubernetes/operator/example-job.py &&
+              python example-job.py"
+          resources:
+            requests:
+              cpu: 1
+              memory: 512Mi

@@ -1,0 +1,10 @@
+apiVersion: v2
+name: cloudtik
+description: A Helm chart for deployments of CloudTik on Kubernetes.
+type: application
+
+# Chart version.
+version: 0.1.0
+
+# CloudTik version.
+appVersion: "latest"

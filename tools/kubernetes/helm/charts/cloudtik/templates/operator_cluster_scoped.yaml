@@ -1,0 +1,66 @@
+{{- if and (not .Values.namespacedOperator) (not .Values.clusterOnly) }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cloudtik-operator
+  namespace: {{ .Values.operatorNamespace }}
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: cloudtik-operator
+rules:
+- apiGroups: ["", "cloudtik.io"]
+  resources: ["cloudtikclusters", "cloudtikclusters/finalizers", "cloudtikclusters/status", "pods", "pods/exec", "services"]
+  verbs: ["get", "watch", "list", "create", "delete", "patch", "update"]
+- apiGroups: [""]
+  resources: [events]
+  verbs: [create]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cloudtik-operator
+subjects:
+- kind: ServiceAccount
+  name: cloudtik-operator
+  namespace: {{ .Values.operatorNamespace }}
+roleRef:
+  kind: ClusterRole
+  name: cloudtik-operator
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudtik-operator
+  namespace: {{ .Values.operatorNamespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      cloudtik.io/component: operator
+  template:
+    metadata:
+      labels:
+        cloudtik.io/component: operator
+    spec:
+      serviceAccountName: cloudtik-operator
+      containers:
+      - name: cloudtik-operator
+        imagePullPolicy: Always
+        image: {{ .Values.operatorImage }}
+        command: ["cloudtik-operator"]
+        env:
+        - name: CLOUDTIK_MAX_NUM_FAILURES
+          value: "inf"
+        resources:
+          requests:
+            cpu: 4
+            memory: 8Gi
+            ephemeral-storage: 1Gi
+          limits:
+            cpu: 4
+            memory: 8Gi
+{{- end }}

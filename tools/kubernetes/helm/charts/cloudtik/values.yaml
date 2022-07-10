@@ -1,0 +1,89 @@
+# Default values for CloudTik cluster.
+
+# CloudTikCluster settings:
+
+# image is Docker image to use for the head and workers of this cluster.
+image: cloudtik/spark-runtime:latest
+# The cluster scaler will scale up the cluster faster with higher upscaling speed.
+# If the task requires adding more nodes, cluster scaler will gradually
+# scale up the cluster in chunks of upscaling_speed*currently_running_nodes.
+# This number should be > 0.
+upscalingSpeed: 1.0
+# If a node is idle for this many minutes, it will be removed.
+idleTimeoutMinutes: 5
+# headPodType is the podType used for the head node (as configured below).
+headPodType: headDefault
+# podTypes is the list of pod configurations available for use as worker nodes.
+podTypes:
+    # The key for each podType is a user-defined string.
+    # Since we set headPodType: head.default, the head pod will use the configuration
+    # defined in this entry of podTypes:
+    headDefault:
+        # CPU is the number of CPUs used by this pod type.
+        # (Used for both requests and limits. Must be an integer, does not support fractional CPUs.)
+        CPU: 4
+        # memory is the memory used by this Pod type.
+        # (Used for both requests and limits.)
+        memory: 8Gi
+        # GPU is the number of NVIDIA GPUs used by this pod type.
+        # (Optional, requires GPU nodes with appropriate setup.)
+        GPU: 0
+        # customResources is an optional string-int mapping signalling additional resources.
+        # "CPU", "GPU", and "memory" are filled automatically based on the above settings, but can be overriden.
+        customResources: {}
+        # Optionally, set a node selector for this podType: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
+        nodeSelector: {}
+        # tolerations for pods of this podType (the head's podType in this case)
+        #   ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
+        #   Note that it is often not necessary to manually specify tolerations for GPU
+        #   usage on managed platforms such as AKS, EKS, and GKE.
+        tolerations: []
+
+    # The key for each podType is a user-defined string.
+    workerDefault:
+        # minWorkers is the minimum number of workers of this pod type to keep running.
+        minWorkers: 1
+        # maxWorkers is the maximum number of workers of this pod type to which the cluster will scale.
+        maxWorkers: 3
+        # CPU is the number of CPUs used by this pod type.
+        # (Used for both requests and limits. Must be an integer, does not support fractional CPUs.)
+        CPU: 4
+        # memory is the memory used by this Pod type.
+        # (Used for both requests and limits.)
+        memory: 8Gi
+        # GPU is the number of NVIDIA GPUs used by this pod type.
+        # (Optional, requires GPU nodes with appropriate setup.)
+        GPU: 0
+        # customResources is an optional string-int mapping signalling additional resources.
+        # "CPU", "GPU", and "memory" are filled automatically based on the above settings, but can be overriden.
+        customResources: {}
+        # Optionally, set a node selector for this podType: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
+        nodeSelector: {}
+        # tolerations for pods of this podType (the head's podType in this case)
+        #   ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
+        #   Note that it is often not necessary to manually specify tolerations for GPU
+        #   usage on managed platforms such as AKS, EKS, and GKE.
+        tolerations: []
+
+# Operator settings:
+
+# operatorOnly - If true, will only set up the Operator with this release,
+# without launching a cluster.
+operatorOnly: false
+# clusterOnly - If true, will only create a CloudTikCluster resource with this release,
+# without setting up the Operator.
+# (Useful when launching multiple clusters.)
+clusterOnly: false
+# namespacedOperator - If true, the operator is scoped to the Release namespace
+# and only manages CloudTikCluster in that namespace.
+# By default, the operator is cluster-scoped and runs in the default namespace.
+namespacedOperator: false
+# operatorNamepsace - If using a cluster-scoped operator (namespacedOperator: false), set the namespace
+# in which to launch the operator.
+operatorNamespace: default
+# operatorImage - The image used in the operator deployment.
+# It is recommended to use one of the official `cloudtik/*` images for the operator.
+# It is recommended to use the same CloudTik version in the operator as in the clusters managed
+# by the operator. In other words, the images specified under the fields `operatorImage` and `image`
+# should carry matching CloudTik versions.
+operatorImage: cloudtik/cloudtik:latest

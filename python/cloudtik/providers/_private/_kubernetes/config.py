@@ -29,15 +29,21 @@ MEMORY_SIZE_UNITS = {
 }
 
 CLOUDTIK_COMPONENT_LABEL = "cluster.cloudtik.io/component"
-CLOUDTIK_HEAD_POD_NAME = "cloudtik-{}-head-"
+CLOUDTIK_HEAD_POD_NAME_PREFIX = "cloudtik-{}-head-"
+CLOUDTIK_WORKER_POD_NAME_PREFIX = "cloudtik-{}-worker-"
 CLOUDTIK_HEAD_POD_LABEL = "cloudtik-{}-head"
-CLOUDTIK_WORKER_POD_NAME = "cloudtik-{}-worker-"
+CLOUDTIK_HEAD_SERVICE_NAME_FORMAT = "cloudtik-{}-head"
 
 CONFIG_NAME_IMAGE = "image"
 
 KUBERNETES_CLOUDTIK_SERVICE_ACCOUNT_NAME = "cloudtik-controller"
 KUBERNETES_CLOUDTIK_ROLE_NAME = "cloudtik-controller"
 KUBERNETES_CLOUDTIK_ROLE_BINDING_NAME = "cloudtik-controller"
+
+KUBERNETES_NAMESPACE = "kubernetes.namespace"
+KUBERNETES_CONTROLLER_SERVICE_ACCOUNT = "controller.service_account"
+KUBERNETES_CONTROLLER_ROLE = "controller.role"
+KUBERNETES_CONTROLLER_ROLE_BINDING = "controller.role_binding"
 
 KUBERNETES_WORKSPACE_NUM_CREATION_STEPS = 4
 KUBERNETES_WORKSPACE_NUM_DELETION_STEPS = 4
@@ -48,6 +54,20 @@ def head_service_selector(cluster_name: str) -> Dict[str, str]:
     """Selector for Operator-configured head service.
     """
     return {CLOUDTIK_COMPONENT_LABEL: CLOUDTIK_HEAD_POD_LABEL.format(cluster_name)}
+
+
+def _get_service_name_format(service):
+    service_name = service.get("metadata", {}).get("name")
+    if service_name is None or service_name == "":
+        return CLOUDTIK_HEAD_SERVICE_NAME_FORMAT
+    return service_name
+
+
+def _get_service_selector_format(service):
+    selector = service.get("spec", {}).get("selector", {}).get("component")
+    if selector is None or selector == "":
+        return CLOUDTIK_HEAD_POD_LABEL
+    return selector
 
 
 def _add_service_name_to_service_port(spec, svc_name):
@@ -245,7 +265,19 @@ def list_kubernetes_clusters(config: Dict[str, Any]) -> Optional[Dict[str, Any]]
 
 def get_kubernetes_workspace_info(config):
     workspace_name = config["workspace_name"]
-    info = {}
+    provider_config = config["provider"]
+
+    service_account_name = _get_controller_service_account_name(provider_config)
+    role_name = _get_controller_role_name(provider_config)
+    role_binding_name = _get_controller_role_binding_name(provider_config)
+
+    info = {
+        KUBERNETES_NAMESPACE: workspace_name,
+        KUBERNETES_CONTROLLER_SERVICE_ACCOUNT: service_account_name,
+        KUBERNETES_CONTROLLER_ROLE: role_name,
+        KUBERNETES_CONTROLLER_ROLE_BINDING: role_binding_name,
+    }
+
     return info
 
 
@@ -644,11 +676,11 @@ def _configure_pod_name_and_labels(config):
         if node_type == head_node_type:
             _configure_pod_name_and_labels_for_head(metadata, cluster_name)
         else:
-            _configure_pod_name(metadata, cluster_name, CLOUDTIK_WORKER_POD_NAME)
+            _configure_pod_name(metadata, cluster_name, CLOUDTIK_WORKER_POD_NAME_PREFIX)
 
 
 def _configure_pod_name_and_labels_for_head(metadata, cluster_name):
-    _configure_pod_name(metadata, cluster_name, CLOUDTIK_HEAD_POD_NAME)
+    _configure_pod_name(metadata, cluster_name, CLOUDTIK_HEAD_POD_NAME_PREFIX)
     if "labels" not in metadata:
         metadata["labels"] = {}
     labels = metadata["labels"]
@@ -668,10 +700,16 @@ def _configure_services_name_and_selector(config):
     cluster_name = config["cluster_name"]
     services = provider_config[service_field]
     for service in services:
-        service_name_pattern = service["metadata"]["name"]
-        service["metadata"]["name"] = service_name_pattern.format(cluster_name)
+        if "metadata" not in service:
+            service["metadata"] = {}
+        service_name_format = _get_service_name_format(service)
+        service["metadata"]["name"] = service_name_format.format(cluster_name)
 
-        component_selector_pattern = service["spec"]["selector"]["component"]
+        if "spec" not in service:
+            service["spec"] = {}
+        if "selector" not in service["spec"]:
+            service["spec"]["selector"] = {}
+        component_selector_pattern = _get_service_selector_format(service)
         service["spec"]["selector"]["component"] = component_selector_pattern.format(cluster_name)
 
 
@@ -686,7 +724,9 @@ def _configure_head_service_account(config):
         if node_type == head_node_type:
             node_type_config = node_types[node_type]
             pod_spec = node_type_config["node_config"]["spec"]
-            pod_spec["serviceAccountName"] = service_account_name
+            # If service account name is not configured, configure it
+            if "serviceAccountName" not in pod_spec:
+                pod_spec["serviceAccountName"] = service_account_name
 
 
 def _configure_pod_image(config):
@@ -871,7 +911,7 @@ def _create_namespace(workspace_name: str):
 def _get_controller_service_account_name(provider_config):
     account_field = "controller_service_account"
     name = provider_config.get(account_field, {}).get("metadata", {}).get("name")
-    if name is None:
+    if name is None or name == "":
         return KUBERNETES_CLOUDTIK_SERVICE_ACCOUNT_NAME
     return name
 
@@ -917,7 +957,7 @@ def _create_controller_service_account(namespace, provider_config):
 def _get_controller_role_name(provider_config):
     role_field = "controller_role"
     name = provider_config.get(role_field, {}).get("metadata", {}).get("name")
-    if name is None:
+    if name is None or name == "":
         return KUBERNETES_CLOUDTIK_ROLE_NAME
     return name
 
@@ -963,7 +1003,7 @@ def _create_controller_role(namespace, provider_config):
 def _get_controller_role_binding_name(provider_config):
     binding_field = "controller_role_binding"
     name = provider_config.get(binding_field, {}).get("metadata", {}).get("name")
-    if name is None:
+    if name is None or name == "":
         return KUBERNETES_CLOUDTIK_ROLE_BINDING_NAME
     return name
 
@@ -1082,8 +1122,8 @@ def _delete_services(config):
     cluster_name = config["cluster_name"]
     services = provider_config[service_field]
     for service in services:
-        service_name_pattern = service["metadata"]["name"]
-        service_name = service_name_pattern.format(cluster_name)
+        service_name_format = _get_service_name_format(service)
+        service_name = service_name_format.format(cluster_name)
         _delete_service(namespace, service_name)
 
 

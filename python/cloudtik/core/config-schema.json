@@ -450,6 +450,10 @@
             "type": "object",
             "description": "The merged commands used internally. Don't override."
         },
+        "no_controller_on_head": {
+            "type": "boolean",
+            "description": "Whether need to run controller on head. Internal flag, don't override."
+        },
         "available_node_types": {
             "type": "object",
             "description": "A list of node types for multi-node-type autoscaling.",

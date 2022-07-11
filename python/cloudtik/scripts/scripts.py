@@ -157,12 +157,19 @@ def cli(logging_level, logging_format):
     default=None,
     hidden=True,
     help="Runtimes enabled for process monitoring purposes")
+@click.option(
+    "--no-controller",
+    is_flag=True,
+    hidden=True,
+    default=False,
+    help="If True, the cluster controller will not be started on head",
+)
 @add_click_logging_options
 def node_start(node_ip_address, address, port, head,
           redis_password, redis_shard_ports, redis_max_memory,
           memory, num_cpus, num_gpus, resources,
           cluster_scaling_config, temp_dir, metrics_export_port,
-          no_redirect_output, runtimes):
+          no_redirect_output, runtimes, no_controller):
     """Start the main daemon processes on the local machine."""
     # Convert hostnames to numerical IP address.
     if node_ip_address is not None:
@@ -193,7 +200,9 @@ def node_start(node_ip_address, address, port, head,
         temp_dir=temp_dir,
         metrics_export_port=metrics_export_port,
         redirect_output=redirect_output,
-        runtimes=runtimes)
+        runtimes=runtimes,
+        no_controller=no_controller,
+    )
     if head:
         # Use default if port is none, allocate an available port if port is 0
         if port is None:

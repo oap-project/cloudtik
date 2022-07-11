@@ -23,17 +23,20 @@ def _config_runtime_resources(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+    workspace_name = cluster_config.get("workspace_name")
+    if workspace_name is None:
+        return cluster_config
+
     runtime_config = cluster_config.get(RUNTIME_CONFIG_KEY)
     if CONFIG_KEY_RUNTIME not in runtime_config:
         runtime_config[CONFIG_KEY_RUNTIME] = {}
     kafka_config = runtime_config[CONFIG_KEY_RUNTIME]
 
-    workspace_name = cluster_config.get("workspace_name", "")
     workspace_provider = _get_workspace_provider(cluster_config["provider"], workspace_name)
     global_variables = workspace_provider.subscribe_global_variables(cluster_config)
 
-    # Check metastore
-    if not is_runtime_enabled(runtime_config, "metastore"):
+    # Check zookeeper
+    if not is_runtime_enabled(runtime_config, "zookeeper"):
         if kafka_config.get("zookeeper.connect") is None:
             if kafka_config.get("auto_detect_zookeeper", True):
                 zookeeper_uri = global_variables.get("zookeeper-uri")

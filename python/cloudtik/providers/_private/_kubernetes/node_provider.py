@@ -34,6 +34,10 @@ class KubernetesNodeProvider(NodeProvider):
         self.cluster_name = cluster_name
         self.namespace = provider_config["namespace"]
 
+    def with_environment_variables(self, node_type_config: Dict[str, Any], node_id: str):
+        """Export necessary environment variables for running node commands"""
+        return {}
+
     def non_terminated_nodes(self, tag_filters):
         # Match pods that are in the 'Pending' or 'Running' phase.
         # Unfortunately there is no OR operator in field selectors, so we

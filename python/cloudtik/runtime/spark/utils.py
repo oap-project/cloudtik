@@ -101,12 +101,15 @@ def _get_cluster_resources(
 
 
 def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+    workspace_name = cluster_config.get("workspace_name")
+    if workspace_name is None:
+        return cluster_config
+
     runtime_config = cluster_config.get(RUNTIME_CONFIG_KEY)
     if "spark" not in runtime_config:
         runtime_config["spark"] = {}
     spark_config = runtime_config["spark"]
 
-    workspace_name = cluster_config.get("workspace_name", "")
     workspace_provider = _get_workspace_provider(cluster_config["provider"], workspace_name)
     global_variables = workspace_provider.subscribe_global_variables(cluster_config)
 

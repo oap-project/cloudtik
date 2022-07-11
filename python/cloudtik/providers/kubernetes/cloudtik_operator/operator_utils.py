@@ -103,6 +103,7 @@ def custom_resource_to_config(cluster_resource: Dict[str, Any]) -> Dict[str, Any
         cluster_resource, cluster_name, cluster_owner_reference
     )
     config["cluster_name"] = cluster_name
+    config["workspace_name"] = namespace
     head_service_ports = cluster_resource["spec"].get("headServicePorts", None)
     config["provider"] = get_provider_config(
         cluster_name, namespace, cluster_owner_reference, head_service_ports

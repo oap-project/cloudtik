@@ -1040,6 +1040,16 @@ def prepare_internal_commands(config, built_in_commands):
     setup_commands += [cloudtik_setup_command]
     built_in_commands["setup_commands"] = setup_commands
 
+    head_start_commands = built_in_commands.get("head_start_commands", [])
+    cloudtik_head_start_command = get_cloudtik_head_start_command(config)
+    head_start_commands += [cloudtik_head_start_command]
+    built_in_commands["head_start_commands"] = head_start_commands
+
+    worker_start_commands = built_in_commands.get("worker_start_commands", [])
+    cloudtik_worker_start_command = get_cloudtik_worker_start_command(config)
+    worker_start_commands += [cloudtik_worker_start_command]
+    built_in_commands["worker_start_commands"] = worker_start_commands
+
 
 def merge_command_key(merged_commands, group_name, from_config, command_key):
     if command_key not in merged_commands:
@@ -1535,6 +1545,27 @@ def get_cloudtik_setup_command(config) -> str:
     setup_command += config.get("cloudtik_wheel_url", get_default_cloudtik_wheel_url())
     setup_command += "\""
     return setup_command
+
+
+def get_cloudtik_head_start_command(config) -> str:
+    # ulimit -n 65536; cloudtik node-start --head --node-ip-address=$CLOUDTIK_NODE_IP --port=6789
+    # --cluster-scaling-config=~/cloudtik_bootstrap_config.yaml --runtimes=$CLOUDTIK_RUNTIMES
+    no_controller_on_head = config.get("no_controller_on_head", False)
+    start_command = "ulimit -n 65536; cloudtik node-start --head --node-ip-address=$CLOUDTIK_NODE_IP --port=6789"
+    if no_controller_on_head:
+        start_command += " --no-controller"
+    else:
+        start_command += " --cluster-scaling-config=~/cloudtik_bootstrap_config.yaml"
+    start_command += " --runtimes=$CLOUDTIK_RUNTIMES"
+    return start_command
+
+
+def get_cloudtik_worker_start_command(config) -> str:
+    # ulimit -n 65536; cloudtik node-start --node-ip-address=$CLOUDTIK_NODE_IP --address=$CLOUDTIK_HEAD_IP:6789
+    # --runtimes=$CLOUDTIK_RUNTIMES
+    start_command = "ulimit -n 65536; cloudtik node-start --node-ip-address=$CLOUDTIK_NODE_IP"
+    start_command += " --address=$CLOUDTIK_HEAD_IP:6789 --runtimes=$CLOUDTIK_RUNTIMES"
+    return start_command
 
 
 def combine_initialization_commands(config):

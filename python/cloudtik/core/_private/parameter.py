@@ -56,6 +56,8 @@ class StartParams:
         memory: Total available memory for workers requesting memory.
         redirect_output (bool): True if stdout and stderr for non-worker
             processes should be redirected to files and false otherwise.
+        runtimes: Runtimes enabled on this node.
+        no_controller: No controller to start on the head.
     """
 
     def __init__(self,
@@ -81,7 +83,8 @@ class StartParams:
                  num_gpus=None,
                  memory=None,
                  redirect_output=None,
-                 runtimes=None
+                 runtimes=None,
+                 no_controller=False
                  ):
         self.external_addresses = external_addresses
         self.redis_address = redis_address
@@ -105,6 +108,7 @@ class StartParams:
         self.redirect_output = redirect_output
         self.resources = resources
         self.runtimes = runtimes
+        self.no_controller = no_controller
         self._check_usage()
 
     def update(self, **kwargs):

@@ -626,7 +626,8 @@ class NodeServicesStarter:
         assert self._redis_address is None
         # If this is the head node, start the relevant head node processes.
         self.start_redis()
-        self.start_cluster_controller()
+        if not self._start_params.no_controller:
+            self.start_cluster_controller()
 
     def start_node_processes(self):
         """Start all of the processes on the node."""

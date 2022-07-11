@@ -202,7 +202,7 @@ def create_or_update_cluster(
         no_controller_on_head: bool = False) -> Dict[str, Any]:
     """Creates or updates an scaling cluster from a config json."""
     # no_controller_on_head is an internal flag used by the K8s operator.
-    # If True, prevents autoscaling config sync to the  head during cluster
+    # If True, prevents autoscaling config sync to the head during cluster
     # creation. See pull #13720.
     def handle_yaml_error(e):
         cli_logger.error("Cluster config invalid")
@@ -251,6 +251,9 @@ def create_or_update_cluster(
                         " [configuration file has " + cf.bold("{}") + "]"),
                     key, override, config[key])
             config[key] = override
+
+    # Set no_controller_on_head to config so that bootstrap can generate the right commands
+    config["no_controller_on_head"] = no_controller_on_head
 
     handle_cli_override("min_workers", override_min_workers)
     handle_cli_override("max_workers", override_max_workers)
@@ -956,11 +959,14 @@ def get_or_create_head_node(config: Dict[str, Any],
          file_mounts_contents_hash,
          runtime_hash_for_node_types) = hash_runtime_conf(
             config["file_mounts"], None, config)
-        if not no_controller_on_head:
-            # Return remote_config_file to avoid prematurely closing it.
-            config, remote_config_file = _set_up_config_for_head_node(
-                config, provider, no_restart)
-            cli_logger.print("Prepared bootstrap config")
+        # Even we don't need controller on head, we still need config and cluster keys on head
+        # because head depends a lot on the cluster config file and cluster keys to do cluster
+        # operations and connect to the worker.
+        # if not no_controller_on_head:
+        # Return remote_config_file to avoid prematurely closing it.
+        config, remote_config_file = _set_up_config_for_head_node(
+            config, provider, no_restart)
+        cli_logger.print("Prepared bootstrap config")
 
         if restart_only:
             # Docker may re-launch nodes, requiring setup

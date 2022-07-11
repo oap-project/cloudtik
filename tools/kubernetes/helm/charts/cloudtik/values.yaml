@@ -25,9 +25,6 @@ podTypes:
         # memory is the memory used by this Pod type.
         # (Used for both requests and limits.)
         memory: 8Gi
-        # GPU is the number of NVIDIA GPUs used by this pod type.
-        # (Optional, requires GPU nodes with appropriate setup.)
-        GPU: 0
         # customResources is an optional string-int mapping signalling additional resources.
         # "CPU", "GPU", and "memory" are filled automatically based on the above settings, but can be overriden.
         customResources: {}
@@ -51,9 +48,6 @@ podTypes:
         # memory is the memory used by this Pod type.
         # (Used for both requests and limits.)
         memory: 8Gi
-        # GPU is the number of NVIDIA GPUs used by this pod type.
-        # (Optional, requires GPU nodes with appropriate setup.)
-        GPU: 0
         # customResources is an optional string-int mapping signalling additional resources.
         # "CPU", "GPU", and "memory" are filled automatically based on the above settings, but can be overriden.
         customResources: {}

@@ -134,10 +134,14 @@ def get_node_types(
         pod_type_copy = copy.deepcopy(pod_type)
         pod_type_copy.pop("name")
         node_type = translate(pod_type_copy, dictionary=NODE_TYPE_FIELDS)
-        metadata = node_type["node_config"]["metadata"]
+        node_config = node_type["node_config"]
+        if "metadata" not in node_config:
+            node_config["metadata"] = {}
+        metadata = node_config["metadata"]
         metadata.update({"ownerReferences": [cluster_owner_reference]})
         # Prepend cluster name:
-        metadata["generateName"] = f"cloudtik-{cluster_name}-{metadata['generateName']}"
+        if "generateName" in metadata:
+            metadata["generateName"] = f"cloudtik-{cluster_name}-{metadata['generateName']}"
         if name == cluster_resource["spec"]["headPodType"]:
             if "labels" not in metadata:
                 metadata["labels"] = {}

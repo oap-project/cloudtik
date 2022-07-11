@@ -26,15 +26,9 @@ spec:
     podConfig:
       apiVersion: v1
       kind: Pod
-      metadata:
-        # The operator automatically cloudtik-{cluster name}- to this field.
-        generateName: head-
       spec:
-        restartPolicy: Never
         containers:
         - name: cloudtik-node
-          imagePullPolicy: Always
-          image: cloudtik/spark-runtime:latest
           ports:
           - containerPort: 6789  # Redis port
           resources:
@@ -58,15 +52,9 @@ spec:
     podConfig:
       apiVersion: v1
       kind: Pod
-      metadata:
-        # The operator automatically prefix with cloudtik-{cluster name}- to this field.
-        generateName: worker-
       spec:
-        restartPolicy: Never
         containers:
         - name: cloudtik-node
-          imagePullPolicy: Always
-          image: cloudtik/spark-runtime:latest
           resources:
             requests:
               cpu: 4

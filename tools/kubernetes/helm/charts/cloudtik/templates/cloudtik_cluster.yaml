@@ -31,10 +31,8 @@ spec:
         metadata:
           generateName: {{ kebabcase $key }}-
         spec:
-          restartPolicy: Never
           containers:
           - name: cloudtik-node
-            imagePullPolicy: Always
             image: {{ $.Values.image }}
             resources:
               requests:
@@ -46,9 +44,6 @@ spec:
                 # limit will be detected and split to use 10% for
                 # redis, and the rest for application memory.
                 memory: {{ .memory }}
-                {{- if .GPU }}
-                nvidia.com/gpu: {{ .GPU }}
-                {{- end }}
           {{- if .nodeSelector }}
           nodeSelector:
           {{- toYaml $val.nodeSelector | nindent 12 }}

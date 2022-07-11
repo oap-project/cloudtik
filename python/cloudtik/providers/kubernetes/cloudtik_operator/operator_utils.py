@@ -84,10 +84,21 @@ def namespace_dir(namespace: str) -> str:
     return os.path.join(CLOUDTIK_CONFIG_DIR, namespace)
 
 
-def config_path(cluster_namespace: str, cluster_name: str) -> str:
+def cluster_config_path(cluster_namespace: str, cluster_name: str) -> str:
     """Where to store a cluster's config, given the cluster's name and
     namespace."""
     file_name = cluster_name + CONFIG_SUFFIX
+    return config_path(cluster_namespace, file_name)
+
+
+def controller_config_path(cluster_namespace: str, cluster_name: str) -> str:
+    """Where to store controller cluster's config, given the cluster's name and
+    namespace."""
+    file_name = "cloudtik_" + cluster_name + CONFIG_SUFFIX
+    return config_path(cluster_namespace, file_name)
+
+
+def config_path(cluster_namespace: str, file_name: str) -> str:
     return os.path.join(namespace_dir(cluster_namespace), file_name)
 
 

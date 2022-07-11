@@ -11,6 +11,7 @@ import yaml
 import cloudtik.core._private.service.cloudtik_cluster_controller as cluster_controller
 from cloudtik.core._private import constants, services
 from cloudtik.core._private.cluster import cluster_operator
+from cloudtik.core._private.cluster.cluster_operator import _get_head_node_ip
 from cloudtik.providers.kubernetes.cloudtik_operator import operator_utils
 from cloudtik.providers.kubernetes.cloudtik_operator.operator_utils import (
     STATUS_RECOVERING,
@@ -36,13 +37,17 @@ class CloudTikCluster:
         self.config = config
         self.name = self.config["cluster_name"]
         self.namespace = self.config["provider"]["namespace"]
+        self.controller_config = None
 
         # Make directory for configs of clusters in the namespace,
         # if the directory doesn't exist already.
         namespace_dir = operator_utils.namespace_dir(self.namespace)
         os.makedirs(namespace_dir, exist_ok=True)
 
-        self.config_path = operator_utils.config_path(
+        self.config_path = operator_utils.cluster_config_path(
+            cluster_namespace=self.namespace, cluster_name=self.name
+        )
+        self.controller_config_path = operator_utils.controller_config_path(
             cluster_namespace=self.namespace, cluster_name=self.name
         )
 
@@ -73,21 +78,21 @@ class CloudTikCluster:
             self.start_head(restart_head=restart_head)
             self.start_controller()
         except Exception:
-            # Report failed autoscaler status to trigger cluster restart.
+            # Report failed cluster controller status to trigger cluster restart.
             cluster_status_q.put(
                 (self.name, self.namespace, STATUS_RECOVERING)
             )
             # `status_handling_loop` will increment the
-            # `status.AutoscalerRetries` of the CR. A restart will trigger
+            # `status.scalerRetries` of the CR. A restart will trigger
             # at the subsequent "MODIFIED" event.
             raise
 
     def start_head(self, restart_head: bool = False) -> None:
-        self.write_config()
+        self.write_config(self.config, self.config_path)
         # Don't restart on head unless recovering from failure.
         no_restart = not restart_head
         # Create or update cluster head and record config side effects.
-        self.config = cluster_operator.create_or_update_cluster(
+        self.controller_config = cluster_operator.create_or_update_cluster(
             self.config_path,
             override_min_workers=None,
             override_max_workers=None,
@@ -97,17 +102,17 @@ class CloudTikCluster:
             no_config_cache=True,
             no_controller_on_head=True,
         )
-        # Write the resulting config for use by the autoscaling monitor:
-        self.write_config()
+        # Write the resulting config for use by the cluster controller:
+        self.write_config(self.controller_config, self.controller_config_path)
 
     def start_controller(self) -> None:
         """Runs the cluster controller in operator instead of on head."""
-        head_pod_ip = cluster_operator.get_head_node_ip(self.config_path)
-        port = operator_utils.infer_head_port(self.config)
+        head_pod_ip = _get_head_node_ip(self.controller_config)
+        port = operator_utils.infer_head_port(self.controller_config)
         address = services.address(head_pod_ip, port)
         controller = cluster_controller.ClusterController(
             address,
-            cluster_scaling_config=self.config_path,
+            cluster_scaling_config=self.controller_config_path,
             redis_password=constants.CLOUDTIK_DEFAULT_PORT,
             prefix_cluster_info=True,
             stop_event=self.controller_stop_event,
@@ -190,18 +195,23 @@ class CloudTikCluster:
     def set_config(self, config: Dict[str, Any]) -> None:
         self.config = config
 
-    def write_config(self) -> None:
+    @staticmethod
+    def write_config(config, config_path) -> None:
         """Write config to disk for use by the autoscaling monitor."""
-        with open(self.config_path, "w") as file:
-            yaml.dump(self.config, file)
+        with open(config_path, "w") as file:
+            yaml.dump(config, file)
 
     def delete_config(self) -> None:
+        self.delete_config_file(self.config_path)
+        self.delete_config_file(self.controller_config_path)
+
+    def delete_config_file(self, config_path) -> None:
         try:
-            os.remove(self.config_path)
+            os.remove(config_path)
         except OSError:
             log_prefix = ",".join([self.name, self.namespace])
             logger.warning(
-                f"{log_prefix}: config path does not exist {self.config_path}"
+                f"{log_prefix}: config path does not exist {config_path}"
             )
 
 

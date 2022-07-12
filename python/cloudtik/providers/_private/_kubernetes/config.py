@@ -339,7 +339,7 @@ def bootstrap_kubernetes_default(config):
         _configure_controller_role(namespace, config["provider"])
         _configure_controller_role_binding(namespace, config["provider"])
 
-        _configure_head_service_account(config)
+    _configure_head_service_account(config)
 
     return config
 
@@ -362,8 +362,7 @@ def bootstrap_kubernetes_from_workspace(config):
 
     _configure_services(namespace, config["provider"])
 
-    if not config["provider"].get("_operator"):
-        _configure_head_service_account(config)
+    _configure_head_service_account(config)
 
     return config
 

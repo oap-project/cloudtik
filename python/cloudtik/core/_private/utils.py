@@ -1040,15 +1040,25 @@ def prepare_internal_commands(config, built_in_commands):
     setup_commands += [cloudtik_setup_command]
     built_in_commands["setup_commands"] = setup_commands
 
+    cloudtik_stop_command = get_cloudtik_stop_command(config)
+
     head_start_commands = built_in_commands.get("head_start_commands", [])
     cloudtik_head_start_command = get_cloudtik_head_start_command(config)
-    head_start_commands += [cloudtik_head_start_command]
+    head_start_commands += [cloudtik_stop_command, cloudtik_head_start_command]
     built_in_commands["head_start_commands"] = head_start_commands
 
     worker_start_commands = built_in_commands.get("worker_start_commands", [])
     cloudtik_worker_start_command = get_cloudtik_worker_start_command(config)
-    worker_start_commands += [cloudtik_worker_start_command]
+    worker_start_commands += [cloudtik_stop_command, cloudtik_worker_start_command]
     built_in_commands["worker_start_commands"] = worker_start_commands
+
+    head_stop_commands = built_in_commands.get("head_stop_commands", [])
+    head_stop_commands += [cloudtik_stop_command]
+    built_in_commands["head_stop_commands"] = head_stop_commands
+
+    worker_stop_commands = built_in_commands.get("worker_stop_commands", [])
+    worker_stop_commands += [cloudtik_stop_command]
+    built_in_commands["worker_stop_commands"] = worker_stop_commands
 
 
 def merge_command_key(merged_commands, group_name, from_config, command_key):
@@ -1566,6 +1576,11 @@ def get_cloudtik_worker_start_command(config) -> str:
     start_command = "ulimit -n 65536; cloudtik node-start --node-ip-address=$CLOUDTIK_NODE_IP"
     start_command += " --address=$CLOUDTIK_HEAD_IP:6789 --runtimes=$CLOUDTIK_RUNTIMES"
     return start_command
+
+
+def get_cloudtik_stop_command(config) -> str:
+    stop_command = "cloudtik node-stop"
+    return stop_command
 
 
 def combine_initialization_commands(config):

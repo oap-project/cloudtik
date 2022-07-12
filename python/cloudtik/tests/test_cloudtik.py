@@ -1,5 +1,7 @@
 import copy
 import os
+import urllib
+
 import pytest
 import re
 import tempfile
@@ -523,6 +525,21 @@ class CloudTikTest(unittest.TestCase):
         head_node_config = node_types["cloudtik.head.default"]
         assert head_node_config["min_workers"] == 0
         assert head_node_config["max_workers"] == 0
+
+    def testValidateNetworkConfig(self):
+        web_yaml = ("https://raw.githubusercontent.com/oap-project/cloudtik/main/python/cloudtik/templates/aws/small"
+                    ".yaml")
+        response = urllib.request.urlopen(web_yaml, timeout=5)
+        content = response.read()
+        with tempfile.TemporaryFile() as f:
+            f.write(content)
+            f.seek(0)
+            config = yaml.safe_load(f)
+        config = prepare_config(config)
+        try:
+            validate_config(config)
+        except Exception:
+            self.fail("Config did not pass validation test!")
 
 
 if __name__ == "__main__":

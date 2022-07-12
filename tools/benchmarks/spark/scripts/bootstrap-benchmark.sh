@@ -73,6 +73,7 @@ function install_tpch_dbgen() {
 }
 
 function install_hibench() {
+    which bc > /dev/null || sudo apt-get install bc -y
     install_maven
     cd ${BENCHMARK_TOOL_HOME}
     if [ ! -d "HiBench" ]; then

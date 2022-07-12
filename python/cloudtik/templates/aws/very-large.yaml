@@ -15,7 +15,7 @@ available_node_types:
                       DeleteOnTermination: True
     worker.default:
         node_config:
-            InstanceType: m5.32xlarge
+            InstanceType: m5.24xlarge
             BlockDeviceMappings:
                 - DeviceName: /dev/sda1
                   Ebs:

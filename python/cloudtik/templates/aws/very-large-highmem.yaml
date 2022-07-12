@@ -8,4 +8,4 @@ provider:
 available_node_types:
     worker.default:
         node_config:
-            InstanceType: r5..32xlarge
+            InstanceType: r5.24xlarge

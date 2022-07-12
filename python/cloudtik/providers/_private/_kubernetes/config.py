@@ -879,13 +879,17 @@ def _create_workspace(config):
 
 def _get_namespace(namespace: str):
     field_selector = "metadata.name={}".format(namespace)
+
+    cli_logger.verbose("Getting the namespace: {}.", namespace)
     namespaces = core_api().list_namespace(
         field_selector=field_selector).items
 
     if len(namespaces) > 0:
         assert len(namespaces) == 1
+        cli_logger.verbose("Successfully get the namespace: {}.", namespace)
         return namespaces[0]
 
+    cli_logger.verbose("Failed to get the namespace: {}.", namespace)
     return None
 
 
@@ -917,12 +921,15 @@ def _get_controller_service_account_name(provider_config):
 
 def _get_controller_service_account(namespace, name):
     field_selector = "metadata.name={}".format(name)
+
+    cli_logger.verbose("Getting the service account: {} {}.", namespace, name)
     accounts = core_api().list_namespaced_service_account(
         namespace, field_selector=field_selector).items
     if len(accounts) > 0:
         assert len(accounts) == 1
+        cli_logger.verbose("Successfully get the service account: {} {}.", namespace, name)
         return accounts[0]
-
+    cli_logger.verbose("Failed to get the service account: {} {}.", namespace, name)
     return None
 
 
@@ -963,12 +970,15 @@ def _get_controller_role_name(provider_config):
 
 def _get_controller_role(namespace, name):
     field_selector = "metadata.name={}".format(name)
+    cli_logger.verbose("Getting the role: {} {}.", namespace, name)
     roles = auth_api().list_namespaced_role(
         namespace, field_selector=field_selector).items
     if len(roles) > 0:
         assert len(roles) == 1
+        cli_logger.verbose("Successfully get the role: {} {}.", namespace, name)
         return roles[0]
 
+    cli_logger.verbose("Failed to get the role: {} {}.", namespace, name)
     return None
 
 
@@ -1009,12 +1019,16 @@ def _get_controller_role_binding_name(provider_config):
 
 def _get_controller_role_binding(namespace, name):
     field_selector = "metadata.name={}".format(name)
+
+    cli_logger.verbose("Getting the role binding: {} {}.", namespace, name)
     role_bindings = auth_api().list_namespaced_role_binding(
         namespace, field_selector=field_selector).items
     if len(role_bindings) > 0:
         assert len(role_bindings) == 1
+        cli_logger.verbose("Successfully get the role binding: {} {}.", namespace, name)
         return role_bindings[0]
 
+    cli_logger.verbose("Failed to get the role binding: {} {}", namespace, name)
     return None
 
 
@@ -1128,12 +1142,16 @@ def _delete_services(config):
 
 def _get_service(namespace, name):
     field_selector = "metadata.name={}".format(name)
+
+    cli_logger.verbose("Getting the service: {} {}.", namespace, name)
     services = core_api().list_namespaced_service(
         namespace, field_selector=field_selector).items
     if len(services) > 0:
         assert len(services) == 1
+        cli_logger.verbose("Successfully get the service: {} {}.", namespace, name)
         return services[0]
 
+    cli_logger.verbose("Failed to get the service: {} {}", namespace, name)
     return None
 
 

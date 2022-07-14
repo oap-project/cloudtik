@@ -50,3 +50,10 @@ RUN export PATH="$HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH" \
     && pip install -r  /tmp/requirements.txt \
     && sudo rm /tmp/requirements.txt \
     && python -m spylon_kernel install --user
+
+RUN export PATH="$HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH" \
+    && pip install torch==1.12.0 torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cpu
+
+RUN export PATH="$HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH" \
+    && export CXX=/usr/bin/g++-9 \
+    && pip install horovod[all-frameworks]

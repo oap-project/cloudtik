@@ -12,11 +12,13 @@ start-head)
     echo "Starting Spark History Server..."
     export SPARK_LOCAL_IP=${CLOUDTIK_NODE_IP}; $SPARK_HOME/sbin/start-history-server.sh > /dev/null
     nohup jupyter lab --no-browser > /tmp/logs/jupyterlab.log 2>&1 &
+    nohup mlflow server --backend-store-uri sqlite:///mlflow.db --default-artifact-root $RUNTIME_PATH/mlflow --host 0.0.0.0  -p 5001 >mlflow.log 2>&1 &
     ;;
 stop-head)
     $HADOOP_HOME/bin/yarn --daemon stop resourcemanager
     $SPARK_HOME/sbin/stop-history-server.sh
     jupyter lab stop
+    ps aux | grep 'mlflow.server:app' | awk '{print $2}' | xargs -r kill -9
     ;;
 start-worker)
     $HADOOP_HOME/bin/yarn --daemon start nodemanager

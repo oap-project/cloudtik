@@ -171,7 +171,7 @@ def get_provider_config(
 def get_runtime_config(
     cluster_resource: Dict[str, Any],
 ) -> Dict[str, Any]:
-    if "runtime" not in cluster_resource["spec"]["runtime"]:
+    if "runtime" not in cluster_resource["spec"]:
         return {}
     return copy.deepcopy(cluster_resource["spec"]["runtime"])
 

@@ -3,6 +3,7 @@ import logging
 import multiprocessing as mp
 import os
 import threading
+from functools import partial
 from typing import Any, Callable, Dict, Optional, Tuple
 
 import kopf
@@ -198,8 +199,9 @@ class CloudTikCluster:
     @staticmethod
     def write_config(config, config_path) -> None:
         """Write config to disk for use by the autoscaling monitor."""
-        with open(config_path, "w") as file:
-            yaml.dump(config, file)
+        # Make sure to create the file to owner only rw permissions.
+        with open(config_path, "w", opener=partial(os.open, mode=0o600)) as f:
+            yaml.dump(config, f)
 
     def delete_config(self) -> None:
         self.delete_config_file(self.config_path)

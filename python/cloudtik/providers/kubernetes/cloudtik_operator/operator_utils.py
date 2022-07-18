@@ -110,14 +110,17 @@ def custom_resource_to_config(cluster_resource: Dict[str, Any]) -> Dict[str, Any
     cluster_owner_reference = get_cluster_owner_reference(
         cluster_resource, cluster_name
     )
+    config["cluster_name"] = cluster_name
+    config["workspace_name"] = namespace
     config["available_node_types"] = get_node_types(
         cluster_resource, cluster_name, cluster_owner_reference
     )
-    config["cluster_name"] = cluster_name
-    config["workspace_name"] = namespace
     head_service_ports = cluster_resource["spec"].get("headServicePorts", None)
     config["provider"] = get_provider_config(
         cluster_name, namespace, cluster_owner_reference, head_service_ports
+    )
+    config["runtime"] = get_runtime_config(
+        cluster_resource
     )
     return config
 
@@ -163,6 +166,14 @@ def get_provider_config(
     provider_conf["_operator"] = True
 
     return provider_conf
+
+
+def get_runtime_config(
+    cluster_resource: Dict[str, Any],
+) -> Dict[str, Any]:
+    if "runtime" not in cluster_resource["spec"]["runtime"]:
+        return {}
+    return copy.deepcopy(cluster_resource["spec"]["runtime"])
 
 
 def get_head_service(cluster_name, cluster_owner_reference, head_service_ports):

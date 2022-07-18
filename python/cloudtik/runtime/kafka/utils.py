@@ -37,11 +37,11 @@ def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
 
     # Check zookeeper
     if not is_runtime_enabled(runtime_config, "zookeeper"):
-        if kafka_config.get("zookeeper.connect") is None:
+        if kafka_config.get("zookeeper_connect") is None:
             if kafka_config.get("auto_detect_zookeeper", True):
                 zookeeper_uri = global_variables.get("zookeeper-uri")
                 if zookeeper_uri is not None:
-                    kafka_config["zookeeper.connect"] = zookeeper_uri
+                    kafka_config["zookeeper_connect"] = zookeeper_uri
 
     return cluster_config
 
@@ -75,7 +75,7 @@ def _validate_config(config: Dict[str, Any], provider):
         runtime_config = config.get(RUNTIME_CONFIG_KEY)
         if (runtime_config is None) or (
                 CONFIG_KEY_RUNTIME not in runtime_config) or (
-                "zookeeper.connect" not in runtime_config[CONFIG_KEY_RUNTIME]):
+                "zookeeper_connect" not in runtime_config[CONFIG_KEY_RUNTIME]):
             raise ValueError("Zookeeper connect must be configured!")
 
 
@@ -113,7 +113,7 @@ def _get_zookeeper_connect(runtime_config):
         return None
 
     # check config
-    zookeeper_connect = kafka_config.get("zookeeper.connect")
+    zookeeper_connect = kafka_config.get("zookeeper_connect")
     if zookeeper_connect is not None:
         return zookeeper_connect
 

@@ -90,7 +90,7 @@ def configure(head, head_address, script_args):
     if head_address:
         cmds += ["--head_address={}".format(head_address)]
 
-    # We either get the zookeeper.connect from kafka runtime config
+    # We either get the zookeeper_connect from kafka runtime config
     # or we get it from redis published zookeeper uri (or make it by nodes info?)
     if not head:
         runtime_config = subscribe_runtime_config()

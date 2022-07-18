@@ -618,7 +618,7 @@
                             "type": "object",
                             "description": "Map of Kafka server properties."
                         },
-                        "zookeeper.connect": {
+                        "zookeeper_connect": {
                             "type": "string",
                             "description": "Zookeeper servers to use for Kafka."
                         }

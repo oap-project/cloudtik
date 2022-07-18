@@ -16,7 +16,7 @@ import time
 from types import ModuleType
 from typing import Any, Dict, List, Optional, Tuple, Union
 import prettytable as pt
-
+from functools import partial
 import click
 import yaml
 
@@ -401,7 +401,7 @@ def _bootstrap_config(config: Dict[str, Any],
     verify_config(resolved_config)
 
     if not no_config_cache or init_config_cache:
-        with open(cache_key, "w") as f:
+        with open(cache_key, "w", opener=partial(os.open, mode=0o600)) as f:
             config_cache = {
                 "_version": CONFIG_CACHE_VERSION,
                 "provider_log_info": try_get_log_state(
@@ -2107,7 +2107,7 @@ def _start_proxy_process(head_node_ip, config,
     else:
         process_info = {}
     process_info["proxy"] = {"pid": p.pid, "bind_address": bind_address, "port": proxy_port}
-    with open(proxy_info_file, "w") as f:
+    with open(proxy_info_file, "w", opener=partial(os.open, mode=0o600)) as f:
         f.write(json.dumps(process_info))
     return p.pid, bind_address, proxy_port
 
@@ -2128,7 +2128,7 @@ def _stop_proxy(config: Dict[str, Any]):
         return
 
     kill_process_tree(pid)
-    with open(proxy_info_file, "w") as f:
+    with open(proxy_info_file, "w", opener=partial(os.open, mode=0o600)) as f:
         f.write(json.dumps({"proxy": {}}))
     cli_logger.print(cf.bold("Successfully stopped the SOCKS5 proxy of cluster {}."), cluster_name)
 

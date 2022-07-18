@@ -138,12 +138,18 @@ def not_provided_msg(resource_type):
     return "No {} config provided, must already exist".format(resource_type)
 
 
+def get_workspace_namespace_name(workspace_name: str):
+    # The namespace is workspace name
+    return workspace_name
+
+
 def get_workspace_namespace(workspace_name: str):
     # Check namespace exists
-    namespace_object = _get_namespace(workspace_name)
+    namespace_name = get_workspace_namespace_name(workspace_name)
+    namespace_object = _get_namespace(namespace_name)
     if namespace_object is None:
         return None
-    return workspace_name
+    return namespace_name
 
 
 def _get_workspace_service_account(config, namespace):
@@ -377,7 +383,8 @@ def _configure_namespace_from_workspace(config):
         namespace = config["provider"]["namespace"]
     else:
         workspace_name = config["workspace_name"]
-        namespace = get_workspace_namespace(workspace_name)
+        # We don't check namespace existence here since operator may not have the permission to list namespaces
+        namespace = get_workspace_namespace_name(workspace_name)
         if namespace is None:
             raise RuntimeError("The workspace namespace {} doesn't exist.".format(workspace_name))
 
@@ -770,7 +777,7 @@ def get_workspace_head_nodes(config):
 
 
 def _get_workspace_head_nodes(provider_config, workspace_name):
-    namespace = get_workspace_namespace(workspace_name)
+    namespace = get_workspace_namespace_name(workspace_name)
     if namespace is None:
         raise RuntimeError(f"Kubernetes namespace for workspace doesn't exist: {workspace_name}")
 

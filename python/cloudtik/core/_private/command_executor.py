@@ -117,6 +117,17 @@ def _with_interactive(cmd):
     return ["bash", "--login", "-c", "-i", quote(force_interactive)]
 
 
+def _with_login_shell(cmd, interactive=True):
+    force_interactive = (
+        f"true && source ~/.bashrc && "
+        f"export OMP_NUM_THREADS=1 PYTHONWARNINGS=ignore && ({cmd})")
+    shell_cmd = ["bash", "--login", "-c"]
+    if interactive:
+        shell_cmd += ["-i"]
+    shell_cmd += [quote(force_interactive)]
+    return shell_cmd
+
+
 class KubernetesCommandExecutor(CommandExecutor):
     def __init__(self, call_context, log_prefix, namespace, node_id, auth_config,
                  process_runner):
@@ -173,8 +184,10 @@ class KubernetesCommandExecutor(CommandExecutor):
                 cmd, cmd_to_print = _with_environment_variables(
                     cmd, environment_variables, cmd_to_print=cmd_to_print)
             if self.call_context.is_using_login_shells():
-                cmd = _with_interactive(cmd)
-                cmd_to_print = _with_interactive(cmd_to_print) if cmd_to_print else None
+                cmd = _with_login_shell(
+                    cmd, interactive=self.call_context.does_allow_interactive())
+                cmd_to_print = _with_login_shell(
+                    cmd_to_print, interactive=self.call_context.does_allow_interactive()) if cmd_to_print else None
             else:
                 # Originally, cmd and cmd_to_print is a string
                 # Hence it was converted to a array by _with_interactive
@@ -207,16 +220,10 @@ class KubernetesCommandExecutor(CommandExecutor):
                         final_cmd, shell=True)
                 else:
                     self.process_runner.check_call(final_cmd, shell=True)
-            except subprocess.CalledProcessError as e:
-                joined_cmd = final_cmd if final_cmd_to_print is None else final_cmd_to_print
+            except subprocess.CalledProcessError:
                 if (not self.call_context.is_using_login_shells()) or (
                         self.call_context.is_call_from_api()):
-                    raise ProcessRunnerError(
-                        "Command failed",
-                        "ssh_command_failed",
-                        code=e.returncode,
-                        command=joined_cmd,
-                        output=e.output)
+                    raise
 
                 if exit_on_fail:
                     quoted_cmd = cmd_prefix + quote(" ".join(cmd if cmd_to_print is None else cmd_to_print))
@@ -322,7 +329,7 @@ class KubernetesCommandExecutor(CommandExecutor):
 
     def _with_kubectl_exec(self, cmd=None):
         exec_cmd = self.kubectl + ["exec"]
-        if self.call_context.is_using_login_shells():
+        if self.call_context.does_allow_interactive():
             exec_cmd += ["-it"]
         exec_cmd += [
             self.node_id,

@@ -207,7 +207,17 @@ class KubernetesCommandExecutor(CommandExecutor):
                         final_cmd, shell=True)
                 else:
                     self.process_runner.check_call(final_cmd, shell=True)
-            except subprocess.CalledProcessError:
+            except subprocess.CalledProcessError as e:
+                joined_cmd = final_cmd if final_cmd_to_print is None else final_cmd_to_print
+                if (not self.call_context.is_using_login_shells()) or (
+                        self.call_context.is_call_from_api()):
+                    raise ProcessRunnerError(
+                        "Command failed",
+                        "ssh_command_failed",
+                        code=e.returncode,
+                        command=joined_cmd,
+                        output=e.output)
+
                 if exit_on_fail:
                     quoted_cmd = cmd_prefix + quote(" ".join(cmd if cmd_to_print is None else cmd_to_print))
                     msg = self.log_prefix + "Command failed"

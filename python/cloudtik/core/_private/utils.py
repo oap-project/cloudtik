@@ -38,7 +38,7 @@ from cloudtik.core._private.constants import CLOUDTIK_WHEELS, CLOUDTIK_CLUSTER_P
     CLOUDTIK_CLUSTER_URI_TEMPLATE, CLOUDTIK_RUNTIME_NAME, CLOUDTIK_RUNTIME_ENV_NODE_IP, CLOUDTIK_RUNTIME_ENV_HEAD_IP, \
     CLOUDTIK_RUNTIME_ENV_SECRETS, CLOUDTIK_DEFAULT_PORT, CLOUDTIK_REDIS_DEFAULT_PASSWORD, CLOUDTIK_RUNTIME_ENV_NODE_TYPE
 from cloudtik.core._private.crypto import AESCipher
-from cloudtik.core._private.runtime_factory import _get_runtime, _get_runtime_cls
+from cloudtik.core._private.runtime_factory import _get_runtime, _get_runtime_cls, DEFAULT_RUNTIMES
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core._private.providers import _get_default_config, _get_node_provider, _get_provider_config_object, \
     _get_node_provider_cls
@@ -2557,7 +2557,7 @@ def get_useful_runtime_urls(runtime_config, head_cluster_ip):
 
 
 def get_enabled_runtimes(config):
-    return config.get(RUNTIME_CONFIG_KEY, {}).get(RUNTIME_TYPES_CONFIG_KEY, [])
+    return config.get(RUNTIME_CONFIG_KEY, {}).get(RUNTIME_TYPES_CONFIG_KEY, DEFAULT_RUNTIMES)
 
 
 def is_runtime_enabled(runtime_config, runtime_type:str):

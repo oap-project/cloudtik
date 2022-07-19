@@ -23,6 +23,9 @@ BUILT_IN_RUNTIME_ZOOKEEPER = "zookeeper"
 BUILT_IN_RUNTIME_KAFKA = "kafka"
 
 
+DEFAULT_RUNTIMES = [BUILT_IN_RUNTIME_GANGLIA, BUILT_IN_RUNTIME_SPARK]
+
+
 def _import_ganglia():
     from cloudtik.runtime.ganglia.runtime import GangliaRuntime
     return GangliaRuntime

@@ -47,7 +47,7 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     cluster_booting_completed, load_head_cluster_config, get_runnable_command, get_cluster_uri, \
     with_head_node_ip_environment_variables, get_verified_runtime_list, get_commands_of_runtimes, \
     is_node_in_completed_status, check_for_single_worker_type, get_preferred_cpu_bundle_size, \
-    _get_node_specific_commands, get_node_specific_commands_of_runtimes, _get_node_specific_runtime_config, \
+    get_node_specific_commands_of_runtimes, _get_node_specific_runtime_config, \
     _get_node_specific_docker_config, RUNTIME_CONFIG_KEY, DOCKER_CONFIG_KEY, get_running_head_node, \
     get_nodes_for_runtime, with_script_args
 
@@ -189,6 +189,7 @@ def _request_resources(cpus: Optional[List[dict]] = None,
 
 def create_or_update_cluster(
         config_file: str,
+        call_context: CallContext,
         override_min_workers: Optional[int],
         override_max_workers: Optional[int],
         no_restart: bool,
@@ -272,7 +273,6 @@ def create_or_update_cluster(
     cli_logger.newline()
     config = _bootstrap_config(config, no_config_cache=no_config_cache,
                                init_config_cache=True)
-    call_context = cli_call_context()
     _create_or_update_cluster(
         config,
         call_context=call_context,

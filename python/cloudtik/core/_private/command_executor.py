@@ -169,21 +169,28 @@ class KubernetesCommandExecutor(CommandExecutor):
                 port_forward_cmd) + " failed with error: " + perr
             raise Exception(exception_str)
         else:
-            final_cmd = self.kubectl + ["exec", "-it"]
-            final_cmd += [
-                self.node_id,
-                "--",
-            ]
             if environment_variables:
                 cmd, cmd_to_print = _with_environment_variables(
                     cmd, environment_variables, cmd_to_print=cmd_to_print)
-            cmd = _with_interactive(cmd)
-            cmd_to_print = _with_interactive(cmd_to_print) if cmd_to_print else None
+            if self.call_context.is_using_login_shells():
+                cmd = _with_interactive(cmd)
+                cmd_to_print = _with_interactive(cmd_to_print) if cmd_to_print else None
+            else:
+                # Originally, cmd and cmd_to_print is a string
+                # Hence it was converted to a array by _with_interactive
+                cmd = [cmd]
+                if cmd_to_print:
+                    cmd_to_print = [cmd_to_print]
+
+            final_cmd = self._with_kubectl_exec()
             cmd_prefix = " ".join(final_cmd)
-            final_cmd += cmd
+
             final_cmd_to_print = None
             if cmd_to_print:
                 final_cmd_to_print = copy.deepcopy(final_cmd)
+
+            final_cmd += cmd
+            if cmd_to_print:
                 final_cmd_to_print += cmd_to_print
             # `kubectl exec` + subprocess w/ list of args has unexpected
             # side-effects.
@@ -295,15 +302,25 @@ class KubernetesCommandExecutor(CommandExecutor):
         return self._home_cached
 
     def _try_to_get_home(self):
-        # TODO (Dmitri): Think about how to use the node's HOME variable
+        # TODO: Think about how to use the node's HOME variable
         # without making an extra kubectl exec call.
-        cmd = self.kubectl + [
-            "exec", "-it", self.node_id, "--", "printenv", "HOME"
-        ]
+        cmd = self._with_kubectl_exec(["printenv", "HOME"])
         joined_cmd = " ".join(cmd)
         raw_out = self.process_runner.check_output(joined_cmd, shell=True)
         home = raw_out.decode().strip("\n\r")
         return home
+
+    def _with_kubectl_exec(self, cmd=None):
+        exec_cmd = self.kubectl + ["exec"]
+        if self.call_context.is_using_login_shells():
+            exec_cmd += ["-it"]
+        exec_cmd += [
+            self.node_id,
+            "--",
+        ]
+        if cmd:
+            exec_cmd += cmd
+        return exec_cmd
 
 
 class SSHOptions:
@@ -467,10 +484,8 @@ class SSHCommandExecutor(CommandExecutor):
                     output_redirected=self.call_context.is_output_redirected(),
                     cmd_to_print=cmd_to_print
                 )
-            if with_output:
-                return self.process_runner.check_output(final_cmd)
             else:
-                return self.process_runner.check_call(final_cmd)
+                return self.process_runner.check_output(final_cmd)
         except subprocess.CalledProcessError as e:
             joined_cmd = " ".join(final_cmd if cmd_to_print is None else cmd_to_print)
             if (not self.call_context.is_using_login_shells()) or (

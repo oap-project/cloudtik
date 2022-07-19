@@ -114,7 +114,7 @@ class CloudTikCluster:
         controller = cluster_controller.ClusterController(
             address,
             cluster_scaling_config=self.controller_config_path,
-            redis_password=constants.CLOUDTIK_DEFAULT_PORT,
+            redis_password=constants.CLOUDTIK_REDIS_DEFAULT_PASSWORD,
             prefix_cluster_info=True,
             stop_event=self.controller_stop_event,
             retry_on_failure=False,

@@ -64,6 +64,7 @@ class CloudTikCluster:
         self.setup_logging()
         self.call_context = CallContext()
         self.call_context.set_call_from_api(True)
+        self.call_context.set_allow_interactive(False)
 
     def create_or_update(self, restart_head: bool = False) -> None:
         """Create/update the Cluster and run the controller loop, all in a
@@ -106,7 +107,7 @@ class CloudTikCluster:
             restart_only=False,
             yes=True,
             no_config_cache=True,
-            use_login_shells=False,
+            use_login_shells=True,
             no_controller_on_head=True,
         )
         # Write the resulting config for use by the cluster controller:

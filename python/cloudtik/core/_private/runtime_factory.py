@@ -21,7 +21,7 @@ BUILT_IN_RUNTIME_PRESTO = "presto"
 BUILT_IN_RUNTIME_TRINO = "trino"
 BUILT_IN_RUNTIME_ZOOKEEPER = "zookeeper"
 BUILT_IN_RUNTIME_KAFKA = "kafka"
-
+BUILT_IN_RUNTIME_ML = "ml"
 
 DEFAULT_RUNTIMES = [BUILT_IN_RUNTIME_GANGLIA, BUILT_IN_RUNTIME_SPARK]
 
@@ -106,6 +106,16 @@ def _load_kafka_runtime_home():
     return os.path.dirname(kafka.__file__)
 
 
+def _import_ml():
+    from cloudtik.runtime.ml.runtime import MLRuntime
+    return MLRuntime
+
+
+def _load_ml_runtime_home():
+    import cloudtik.runtime.ml as ml
+    return os.path.dirname(ml.__file__)
+
+
 _RUNTIMES = {
     "ganglia": _import_ganglia,
     "spark": _import_spark,
@@ -115,6 +125,7 @@ _RUNTIMES = {
     "trino": _import_trino,
     "zookeeper": _import_zookeeper,
     "kafka": _import_kafka,
+    "ml": _import_ml,
 }
 
 _RUNTIME_HOMES = {
@@ -126,6 +137,7 @@ _RUNTIME_HOMES = {
     "trino": _load_trino_runtime_home,
     "zookeeper": _load_zookeeper_runtime_home,
     "kafka": _load_kafka_runtime_home,
+    "ml": _load_ml_runtime_home,
 }
 
 

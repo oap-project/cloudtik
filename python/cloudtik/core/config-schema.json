@@ -119,17 +119,17 @@
                     "type": "string",
                     "description": "Network subnet id"
                 },
-                "scaler_service_account": {
+                "controller_service_account": {
                     "type": "object",
-                    "description": "k8s cluster scaler permissions, if using k8s"
+                    "description": "k8s cluster controller permissions, if using k8s"
                 },
-                "scaler_role": {
+                "controller_role": {
                     "type": "object",
-                    "description": "k8s cluster scaler permissions, if using k8s"
+                    "description": "k8s cluster controller permissions, if using k8s"
                 },
-                "scaler_role_binding": {
+                "controller_role_binding": {
                     "type": "object",
-                    "description": "k8s cluster scaler permissions, if using k8s"
+                    "description": "k8s cluster controller permissions, if using k8s"
                 },
                 "cache_stopped_nodes": {
                     "type": "boolean",

@@ -4385,6 +4385,10 @@ spec:
                 items:
                   type: string
                   description: shell command
+              cloudStorage:
+                type: object
+                description: The cloud storage configurations
+                x-kubernetes-preserve-unknown-fields: true
               runtime:
                 type: object
                 description: The runtime configurations

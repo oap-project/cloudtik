@@ -64,7 +64,8 @@ class CloudTikCluster:
         self.setup_logging()
         self.call_context = CallContext()
         self.call_context.set_call_from_api(True)
-        self.call_context.set_allow_interactive(False)
+        # We need to restore this in the future to avoid the errors from the lack of TTY
+        # self.call_context.set_allow_interactive(False)
 
     def create_or_update(self, restart_head: bool = False) -> None:
         """Create/update the Cluster and run the controller loop, all in a

@@ -194,3 +194,13 @@ def configure_connector(catalog: str, catalog_config: Dict[str, Any]):
     with open(catalog_properties_file, mode) as f:
         for key, value in catalog_config.items():
             f.write("{}={}\n".format(key, value))
+
+
+def _get_runtime_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
+    service_ports = {
+        "trino-coordinator": {
+            "protocol": "TCP",
+            "port": 8081,
+        },
+    }
+    return service_ports

@@ -86,3 +86,17 @@ def _get_useful_urls(cluster_head_ip):
         {"name": "HDFS Web UI", "url": "http://{}:9870".format(cluster_head_ip)},
     ]
     return urls
+
+
+def _get_runtime_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
+    service_ports = {
+        "hdfs-web": {
+            "protocol": "TCP",
+            "port": 9870,
+        },
+        "hdfs-namenode": {
+            "protocol": "TCP",
+            "port": 9000,
+        },
+    }
+    return service_ports

@@ -2966,3 +2966,23 @@ def print_dict_info(info: Dict[str, Any]):
                 print_dict_info(v)
         else:
             cli_logger.labeled_value(k, v)
+
+
+def get_runtime_service_ports(runtime_config):
+    if runtime_config is None:
+        return {}
+
+    # Iterate through all the runtimes
+    runtime_types = runtime_config.get(RUNTIME_TYPES_CONFIG_KEY, [])
+    return _get_runtime_service_ports(runtime_types, runtime_config)
+
+
+def _get_runtime_service_ports(runtime_types, runtime_config):
+    service_ports = {}
+    for runtime_type in runtime_types:
+        runtime = _get_runtime(runtime_type, runtime_config)
+        runtime_service_ports = runtime.get_runtime_service_ports()
+        if runtime_service_ports:
+            service_ports.update(runtime_service_ports)
+
+    return service_ports

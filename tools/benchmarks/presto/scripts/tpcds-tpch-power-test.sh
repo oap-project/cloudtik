@@ -134,8 +134,8 @@ function run_tpcds(){
                 fi
                 end=$(date +%s)
                 time=$(( $end - $start ))
-                echo "q${t} $time $RES" >> ${log_current_dir}/result.log
-                echo "q${t},$time,$RES" >> ${log_current_dir}/result.csv
+                echo "q${query} $time $RES" >> ${log_current_dir}/result.log
+                echo "q${query},$time,$RES" >> ${log_current_dir}/result.csv
             fi
 
             if [ -e "${queries_dir}/q${query}_1.sql" ]; then
@@ -148,8 +148,8 @@ function run_tpcds(){
                 fi
                 end=$(date +%s)
                 time=$(( $end - $start ))
-                echo "q${t}_1 $time $RES" >> ${log_current_dir}/result.log
-                echo "q${t}_1,$time,$RES" >> ${log_current_dir}/result.csv
+                echo "q${query}_1 $time $RES" >> ${log_current_dir}/result.log
+                echo "q${query}_1,$time,$RES" >> ${log_current_dir}/result.csv
             fi
 
             if [ -e "${queries_dir}/q${query}_2.sql" ]; then
@@ -162,8 +162,8 @@ function run_tpcds(){
                 fi
                 end=$(date +%s)
                 time=$(( $end - $start ))
-                echo "q${t}_2 $time $RES" >> ${log_current_dir}/result.log
-                echo "q${t}_2,$time,$RES" >> ${log_current_dir}/result.csv
+                echo "q${query}_2 $time $RES" >> ${log_current_dir}/result.log
+                echo "q${query}_2,$time,$RES" >> ${log_current_dir}/result.csv
             fi
         done
         echo "The final result directory is: ${log_current_dir}"

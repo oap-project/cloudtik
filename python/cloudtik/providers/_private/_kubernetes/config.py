@@ -782,9 +782,7 @@ def _configure_service_ports(service, service_ports):
             "port": port_config["port"],
             "targetPort": port_name,
         }
-
         ports.append(port)
-
     service["spec"]["ports"] = ports
 
 

@@ -77,10 +77,10 @@ provider:
             selector:
                 component: cloudtik-{}-head
             ports:
-              - name: cloudtik-redis
+              - name: cloudtik-redis-service-port
                 protocol: TCP
                 port: 6789
-                targetPort: 6789
+                targetPort: cloudtik-redis
 
 # Specify the allowed pod types for this cluster and the resources they provide.
 available_node_types:
@@ -131,6 +131,7 @@ available_node_types:
                     args: ['trap : TERM INT; sleep infinity & wait;']
                     ports:
                       - containerPort: 6789  # Redis port
+                        name: cloudtik-redis
                     resources:
                         requests:
                             cpu: 4

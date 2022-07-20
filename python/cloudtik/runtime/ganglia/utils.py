@@ -68,3 +68,13 @@ def _get_useful_urls(cluster_head_ip):
         {"name": "Ganglia Web UI", "url": "http://{}/ganglia".format(cluster_head_ip)},
     ]
     return urls
+
+
+def _get_runtime_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
+    service_ports = {
+        "ganglia-web": {
+            "protocol": "TCP",
+            "port": 80,
+        },
+    }
+    return service_ports

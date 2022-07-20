@@ -68,6 +68,18 @@ class Runtime:
         """
         return None
 
+    def get_runtime_service_ports(self) -> Dict[str, Any]:
+        """Return a dictionary of service port with name as the key.
+        For example:
+            {
+                "service-port-name": {
+                    "protocol": "TCP",
+                    "port": "1234",
+                },
+            }
+        """
+        return None
+
     def require_minimal_nodes(self, cluster_config: Dict[str, Any]) -> bool:
         """Whether the runtime nodes need minimal nodes launch before going to setup.
         Usually this is because the setup of the nodes need to know each other.

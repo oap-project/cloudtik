@@ -36,7 +36,8 @@ from cloudtik.core._private.cluster.cluster_metrics import ClusterMetricsSummary
 from cloudtik.core._private.constants import CLOUDTIK_WHEELS, CLOUDTIK_CLUSTER_PYTHON_VERSION, \
     CLOUDTIK_DEFAULT_MAX_WORKERS, CLOUDTIK_NODE_SSH_INTERVAL_S, CLOUDTIK_NODE_START_WAIT_S, MAX_PARALLEL_EXEC_NODES, \
     CLOUDTIK_CLUSTER_URI_TEMPLATE, CLOUDTIK_RUNTIME_NAME, CLOUDTIK_RUNTIME_ENV_NODE_IP, CLOUDTIK_RUNTIME_ENV_HEAD_IP, \
-    CLOUDTIK_RUNTIME_ENV_SECRETS, CLOUDTIK_DEFAULT_PORT, CLOUDTIK_REDIS_DEFAULT_PASSWORD, CLOUDTIK_RUNTIME_ENV_NODE_TYPE
+    CLOUDTIK_RUNTIME_ENV_SECRETS, CLOUDTIK_DEFAULT_PORT, CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
+    CLOUDTIK_RUNTIME_ENV_NODE_TYPE, PRIVACY_REPLACEMENT_TEMPLATE, PRIVACY_REPLACEMENT
 from cloudtik.core._private.crypto import AESCipher
 from cloudtik.core._private.runtime_factory import _get_runtime, _get_runtime_cls, DEFAULT_RUNTIMES
 from cloudtik.core.node_provider import NodeProvider
@@ -108,6 +109,8 @@ MERGED_COMMAND_KEY = "merged_commands"
 RUNTIME_CONFIG_KEY = "runtime"
 DOCKER_CONFIG_KEY = "docker"
 RUNTIME_TYPES_CONFIG_KEY = "types"
+
+PRIVACY_CONFIG_KEYS = ["credentials", "account.key", "secret", "access.key", "private.key"]
 
 pwd = None
 if sys.platform != "win32":
@@ -2986,3 +2989,44 @@ def _get_runtime_service_ports(runtime_types, runtime_config):
             service_ports.update(runtime_service_ports)
 
     return service_ports
+
+
+def is_config_key_with_privacy(key: str):
+    key = key.lower()
+    for keyword in PRIVACY_CONFIG_KEYS:
+        if keyword in key:
+            return True
+    return False
+
+
+def process_key_with_privacy(v):
+    if v is None:
+        return v
+
+    if isinstance(v, str):
+        val_len = len(v)
+        replacement_len = len(PRIVACY_REPLACEMENT)
+        if val_len > replacement_len:
+            v = PRIVACY_REPLACEMENT_TEMPLATE.format("-" * (val_len - replacement_len))
+        else:
+            v = PRIVACY_REPLACEMENT
+    else:
+        v = PRIVACY_REPLACEMENT
+
+    return v
+
+
+def process_config_with_privacy(config):
+    if config is None:
+        return
+
+    if isinstance(config, collections.abc.Mapping):
+        for k, v in config.items():
+            if isinstance(v, collections.abc.Mapping) or isinstance(v, list):
+                process_config_with_privacy(v)
+            elif is_config_key_with_privacy(k):
+                config[k] = process_key_with_privacy(v)
+    elif isinstance(config, list):
+        for item in config:
+            if isinstance(item, collections.abc.Mapping) or isinstance(item, list):
+                process_config_with_privacy(item)

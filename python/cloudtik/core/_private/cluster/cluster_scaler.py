@@ -47,7 +47,8 @@ from cloudtik.core._private.utils import ConcurrentCounter, validate_config, \
     encode_cluster_secrets, _get_node_specific_commands, _get_node_specific_config, \
     _get_node_specific_docker_config, _get_node_specific_runtime_config, \
     _has_node_type_specific_runtime_config, get_runtime_config_key, RUNTIME_CONFIG_KEY, \
-    _get_minimal_nodes_before_update, CLOUDTIK_CLUSTER_NODES_INFO_NODE_TYPE, _notify_minimal_nodes_reached
+    _get_minimal_nodes_before_update, CLOUDTIK_CLUSTER_NODES_INFO_NODE_TYPE, _notify_minimal_nodes_reached, \
+    process_config_with_privacy
 from cloudtik.core._private.constants import CLOUDTIK_MAX_NUM_FAILURES, \
     CLOUDTIK_MAX_LAUNCH_BATCH, CLOUDTIK_MAX_CONCURRENT_LAUNCHES, \
     CLOUDTIK_UPDATE_INTERVAL_S, CLOUDTIK_HEARTBEAT_TIMEOUT_S, CLOUDTIK_RUNTIME_ENV_SECRETS
@@ -271,7 +272,9 @@ class ClusterScaler:
 
         for local_path in self.config["file_mounts"].values():
             assert os.path.exists(local_path)
-        logger.info("Cluster Controller: {}".format(self.config))
+        config_to_log = copy.deepcopy(self.config)
+        process_config_with_privacy(config_to_log)
+        logger.info("Cluster Controller: {}".format(config_to_log))
 
     def update(self):
         try:

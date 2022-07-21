@@ -2,7 +2,7 @@ import copy
 
 import pytest
 
-from cloudtik.core._private.utils import update_nested_dict
+from cloudtik.core._private.utils import update_nested_dict, process_config_with_privacy
 
 TARGET_DICT_WITH_MATCHED_LIST = {
     "test_list": [
@@ -52,6 +52,24 @@ NEW_DICT_WITHOUT_MATCHED_LIST_3 = {
 }
 
 
+TEST_CONFIG_WITH_PRIVACY = {
+    "test_array": [
+        {
+            "no_privacy": "abc",
+            "account.key": "123",
+        }
+    ],
+    "test_dict": {
+        "no_privacy": "abc",
+        "Account.Key": "123",
+        "nested_dict": {
+            "no_privacy": "abc",
+            "credentials": "123"
+        }
+    }
+}
+
+
 class TestUtils:
     def test_updated_nested_dict_match_list(self):
         updated_dict = update_nested_dict(
@@ -91,6 +109,19 @@ class TestUtils:
 
         assert len(updated_dict["test_list"]) == 1
         assert updated_dict["test_list"][0] == "child-1"
+
+    def test_process_config_with_privacy(self):
+        config = copy.deepcopy(TEST_CONFIG_WITH_PRIVACY)
+        process_config_with_privacy(config)
+
+        # Make sure we don't see '123'
+        # Make sure we saw 3 occurrence 'abc'
+        assert config["test_array"][0]["no_privacy"] == "abc"
+        assert config["test_array"][0]["account.key"] != "123"
+        assert config["test_dict"]["no_privacy"] == "abc"
+        assert config["test_dict"]["Account.Key"] != "123"
+        assert config["test_dict"]["nested_dict"]["no_privacy"] == "abc"
+        assert config["test_dict"]["nested_dict"]["credentials"] != "123"
 
 
 if __name__ == "__main__":

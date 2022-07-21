@@ -14,11 +14,11 @@ import warnings
 
 from cloudtik.core.command_executor import CommandExecutor
 from cloudtik.core._private.constants import \
-                                     CLOUDTIK_NODE_SSH_INTERVAL_S, \
-                                     CLOUDTIK_DEFAULT_OBJECT_STORE_MAX_MEMORY_BYTES, \
-                                     CLOUDTIK_DEFAULT_OBJECT_STORE_MEMORY_PROPORTION, \
-                                     CLOUDTIK_NODE_START_WAIT_S,\
-                                     CLOUDTIK_DATA_DISK_MOUNT_POINT
+    CLOUDTIK_NODE_SSH_INTERVAL_S, \
+    CLOUDTIK_DEFAULT_OBJECT_STORE_MAX_MEMORY_BYTES, \
+    CLOUDTIK_DEFAULT_OBJECT_STORE_MEMORY_PROPORTION, \
+    CLOUDTIK_NODE_START_WAIT_S, \
+    CLOUDTIK_DATA_DISK_MOUNT_POINT, PRIVACY_REPLACEMENT, PRIVACY_REPLACEMENT_TEMPLATE
 from cloudtik.core._private.docker import check_bind_mounts_cmd, \
                                   check_docker_running_cmd, \
                                   check_docker_image, \
@@ -43,9 +43,6 @@ MAX_HOME_RETRIES = 3
 HOME_RETRY_DELAY_S = 5
 
 PRIVACY_KEYWORDS = ["PASSWORD", "ACCOUNT", "SECRET", "ACCESS_KEY", "PRIVATE_KEY", "PROJECT_ID"]
-
-PRIVACY_REPLACEMENT = "VALUE-PROTECTED"
-PRIVACY_REPLACEMENT_TEMPLATE = "VALUE-{}PROTECTED"
 
 
 def is_key_with_privacy(key: str):

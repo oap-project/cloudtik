@@ -89,7 +89,7 @@ def _get_useful_urls(cluster_head_ip):
 
 def _get_runtime_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
     service_ports = {
-        "hive-metastore-thrift": {
+        "metastore": {
             "protocol": "TCP",
             "port": 9083,
         },

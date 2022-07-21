@@ -198,7 +198,7 @@ def configure_connector(catalog: str, catalog_config: Dict[str, Any]):
 
 def _get_runtime_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
     service_ports = {
-        "trino-coordinator": {
+        "trino": {
             "protocol": "TCP",
             "port": 8081,
         },

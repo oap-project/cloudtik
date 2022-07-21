@@ -1238,3 +1238,21 @@ def _delete_service(namespace: str, name: str):
     cli_logger.print(log_prefix + "Deleting service: {}".format(name))
     core_api().delete_namespaced_service(name, namespace)
     cli_logger.print(log_prefix + "Successfully deleted service: {}".format(name))
+
+
+def with_kubernetes_environment_variables(provider_config, node_type_config: Dict[str, Any], node_id: str):
+    config_dict = {}
+
+    if "gcp_cloud_storage" in provider_config:
+        from cloudtik.providers._private.gcp.utils import get_gcp_cloud_storage_config
+        get_gcp_cloud_storage_config(provider_config, config_dict)
+
+    if "aws_s3_storage" in provider_config:
+        from cloudtik.providers._private.aws.utils import get_aws_s3_config
+        get_aws_s3_config(provider_config, config_dict)
+
+    if "azure_cloud_storage" in provider_config:
+        from cloudtik.providers._private._azure.utils import get_azure_cloud_storage_config
+        get_azure_cloud_storage_config(provider_config, config_dict)
+
+    return config_dict

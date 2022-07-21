@@ -28,7 +28,7 @@ from azure.storage.filedatalake import DataLakeServiceClient
 from cloudtik.providers._private._azure.utils import _get_node_info, get_azure_sdk_function, get_credential, \
     construct_resource_client, construct_network_client, construct_storage_client, _construct_storage_client, \
     construct_authorization_client, construct_manage_server_identity_client, construct_compute_client, \
-    _construct_compute_client, _construct_resource_client
+    _construct_compute_client, _construct_resource_client, get_azure_cloud_storage_config
 from cloudtik.providers._private.utils import StorageTestingError
 
 AZURE_RESOURCE_NAME_PREFIX = "cloudtik"
@@ -2177,3 +2177,21 @@ def list_azure_clusters(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
                 network_client=network_client)
             clusters[cluster_name] = _get_node_info(head_node_meta)
     return clusters
+
+
+def with_azure_environment_variables(provider_config, node_type_config: Dict[str, Any], node_id: str):
+    config_dict = {}
+    get_azure_cloud_storage_config(provider_config, config_dict)
+
+    if node_type_config is not None:
+        user_assigned_identity_client_id = node_type_config.get(
+            "azure.user.assigned.identity.client.id")
+        if user_assigned_identity_client_id:
+            config_dict["AZURE_MANAGED_IDENTITY_CLIENT_ID"] = user_assigned_identity_client_id
+
+        user_assigned_identity_tenant_id = node_type_config.get(
+            "azure.user.assigned.identity.tenant.id")
+        if user_assigned_identity_tenant_id:
+            config_dict["AZURE_MANAGED_IDENTITY_TENANT_ID"] = user_assigned_identity_tenant_id
+
+    return config_dict

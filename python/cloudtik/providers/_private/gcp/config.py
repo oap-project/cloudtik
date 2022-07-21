@@ -26,7 +26,8 @@ from cloudtik.core._private.utils import check_cidr_conflict, unescape_private_k
 from cloudtik.providers._private.gcp.node import GCPCompute
 from cloudtik.providers._private.gcp.utils import _get_node_info, construct_clients_from_provider_config, \
     wait_for_compute_global_operation, wait_for_compute_region_operation, _create_storage_client, _create_storage, \
-    wait_for_crm_operation, HAS_TPU_PROVIDER_FIELD, _is_head_node_a_tpu, _has_tpus_in_node_configs
+    wait_for_crm_operation, HAS_TPU_PROVIDER_FIELD, _is_head_node_a_tpu, _has_tpus_in_node_configs, \
+    get_gcp_cloud_storage_config
 from cloudtik.providers._private.utils import StorageTestingError
 
 logger = logging.getLogger(__name__)
@@ -1960,3 +1961,15 @@ def list_gcp_clusters(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
             gcp_node = gcp_resource.from_instance(head_node)
             clusters[cluster_name] = _get_node_info(gcp_node)
     return clusters
+
+
+def with_gcp_environment_variables(provider_config, node_type_config: Dict[str, Any], node_id: str):
+    config_dict = {}
+    get_gcp_cloud_storage_config(provider_config, config_dict)
+
+    if "GCP_PROJECT_ID" not in config_dict:
+        project_id = provider_config.get("project_id")
+        if project_id:
+            config_dict["GCP_PROJECT_ID"] = project_id
+
+    return config_dict

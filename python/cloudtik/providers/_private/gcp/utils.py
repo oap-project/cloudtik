@@ -228,33 +228,34 @@ def _is_head_node_a_tpu(config: dict) -> bool:
         node_configs[config["head_node_type"]]) == GCPNodeType.TPU
 
 
-def get_gcs_config(provider_config, node_type_config: Dict[str, Any], node_id: str):
-    config_dict = {}
+def get_gcp_cloud_storage_config(provider_config, config_dict: Dict[str, Any]):
+    if "gcp_cloud_storage" not in provider_config:
+        return
+    cloud_storage = provider_config["gcp_cloud_storage"]
+    config_dict["GCP_CLOUD_STORAGE"] = True
 
-    project_id = provider_config.get("project_id")
+    project_id = cloud_storage.get("project_id")
     if project_id:
-        config_dict["PROJECT_ID"] = project_id
+        config_dict["GCP_PROJECT_ID"] = project_id
 
-    gcs_bucket = provider_config.get("gcp_cloud_storage", {}).get("gcs.bucket")
+    gcs_bucket = cloud_storage.get("gcs.bucket")
     if gcs_bucket:
         config_dict["GCS_BUCKET"] = gcs_bucket
 
-    gs_client_email = provider_config.get("gcp_cloud_storage", {}).get(
+    gs_client_email = cloud_storage.get(
         "gcs.service.account.client.email")
     if gs_client_email:
         config_dict["GCS_SERVICE_ACCOUNT_CLIENT_EMAIL"] = gs_client_email
 
-    gs_private_key_id = provider_config.get("gcp_cloud_storage", {}).get(
+    gs_private_key_id = cloud_storage.get(
         "gcs.service.account.private.key.id")
     if gs_private_key_id:
         config_dict["GCS_SERVICE_ACCOUNT_PRIVATE_KEY_ID"] = gs_private_key_id
 
-    gs_private_key = provider_config.get("gcp_cloud_storage", {}).get(
+    gs_private_key = cloud_storage.get(
         "gcs.service.account.private.key")
     if gs_private_key:
         config_dict["GCS_SERVICE_ACCOUNT_PRIVATE_KEY"] = gs_private_key
-
-    return config_dict
 
 
 def _get_node_info(node: GCPNode):

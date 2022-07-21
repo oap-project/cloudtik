@@ -18,7 +18,7 @@ from cloudtik.providers._private._kubernetes import core_api, log_prefix, \
     networking_api
 from cloudtik.providers._private._kubernetes.config import bootstrap_kubernetes, \
     post_prepare_kubernetes, _add_service_name_to_service_port, head_service_selector, \
-    bootstrap_kubernetes_for_api, cleanup_kubernetes_cluster
+    bootstrap_kubernetes_for_api, cleanup_kubernetes_cluster, with_kubernetes_environment_variables
 from cloudtik.providers._private._kubernetes.utils import _get_node_info, to_label_selector
 from cloudtik.providers._private.utils import validate_config_dict
 
@@ -36,7 +36,7 @@ class KubernetesNodeProvider(NodeProvider):
 
     def with_environment_variables(self, node_type_config: Dict[str, Any], node_id: str):
         """Export necessary environment variables for running node commands"""
-        return {}
+        return with_kubernetes_environment_variables(self.provider_config, node_type_config, node_id)
 
     def non_terminated_nodes(self, tag_filters):
         # Match pods that are in the 'Pending' or 'Running' phase.

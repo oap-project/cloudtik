@@ -1,17 +1,15 @@
 import os
 from typing import Any, Dict
 
+from cloudtik.core._private.providers import _get_node_provider, _get_workspace_provider
 from cloudtik.core._private.utils import merge_rooted_config_hierarchy, _get_runtime_config_object
-from cloudtik.core._private.workspace.workspace_operator import _get_workspace_provider
-from cloudtik.core._private.providers import _get_node_provider
 
 RUNTIME_PROCESSES = [
     # The first element is the substring to filter.
     # The second element, if True, is to filter ps results by command name.
     # The third element is the process name.
     # The forth element, if node, the process should on all nodes,if head, the process should on head node.
-    ["proc_namenode", False, "NameNode", "head"],
-    ["proc_datanode", False, "DataNode", "worker"],
+    ["proc_ml", False, "MLflow", "head"],
 ]
 
 RUNTIME_ROOT_PATH = os.path.abspath(os.path.dirname(__file__))
@@ -19,19 +17,6 @@ RUNTIME_ROOT_PATH = os.path.abspath(os.path.dirname(__file__))
 
 def _config_runtime_resources(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
     return cluster_config
-
-
-def publish_service_uri(cluster_config: Dict[str, Any], head_node_id: str) -> None:
-    workspace_name = cluster_config.get("workspace_name")
-    if workspace_name is None:
-        return
-
-    provider = _get_node_provider(cluster_config["provider"], cluster_config["cluster_name"])
-    head_internal_ip = provider.internal_ip(head_node_id)
-    service_uris = {"hdfs-namenode-uri": "hdfs://{}:9000".format(head_internal_ip)}
-
-    workspace_provider = _get_workspace_provider(cluster_config["provider"], workspace_name)
-    workspace_provider.publish_global_variables(cluster_config, service_uris)
 
 
 def _get_runtime_processes():
@@ -47,14 +32,25 @@ def _get_runnable_command(target):
 
 
 def _with_runtime_environment_variables(runtime_config, config, provider, node_id: str):
-    runtime_envs = {"HDFS_ENABLED": True}
+    runtime_envs = {"ML_ENABLED": True}
     return runtime_envs
 
 
+def publish_service_uri(cluster_config: Dict[str, Any], head_node_id: str) -> None:
+    workspace_name = cluster_config.get("workspace_name")
+    if workspace_name is None:
+        return
+
+    provider = _get_node_provider(cluster_config["provider"], cluster_config["cluster_name"])
+    head_internal_ip = provider.internal_ip(head_node_id)
+    service_uris = {"mlflow-service-uri": "http://{}:5001".format(head_internal_ip)}
+
+    workspace_provider = _get_workspace_provider(cluster_config["provider"], workspace_name)
+    workspace_provider.publish_global_variables(cluster_config, service_uris)
+
+
 def _get_runtime_logs():
-    hadoop_logs_dir = os.path.join(os.getenv("HADOOP_HOME"), "logs")
-    all_logs = {"hadoop": hadoop_logs_dir}
-    return all_logs
+    return {}
 
 
 def _validate_config(config: Dict[str, Any], provider):
@@ -83,20 +79,16 @@ def _get_defaults_config(runtime_config: Dict[str, Any],
 
 def _get_useful_urls(cluster_head_ip):
     urls = [
-        {"name": "HDFS Web UI", "url": "http://{}:9870".format(cluster_head_ip)},
+        {"name": "MLflow Web", "url": "http://{}:5001".format(cluster_head_ip)},
     ]
     return urls
 
 
 def _get_runtime_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
     service_ports = {
-        "hdfs-web": {
+        "mlflow-web": {
             "protocol": "TCP",
-            "port": 9870,
-        },
-        "hdfs-namenode": {
-            "protocol": "TCP",
-            "port": 9000,
+            "port": 5001,
         },
     }
     return service_ports

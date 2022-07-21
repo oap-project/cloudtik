@@ -110,14 +110,16 @@ def custom_resource_to_config(cluster_resource: Dict[str, Any]) -> Dict[str, Any
     cluster_owner_reference = get_cluster_owner_reference(
         cluster_resource, cluster_name
     )
+    config["cluster_name"] = cluster_name
+    config["workspace_name"] = namespace
     config["available_node_types"] = get_node_types(
         cluster_resource, cluster_name, cluster_owner_reference
     )
-    config["cluster_name"] = cluster_name
-    config["workspace_name"] = namespace
-    head_service_ports = cluster_resource["spec"].get("headServicePorts", None)
     config["provider"] = get_provider_config(
-        cluster_name, namespace, cluster_owner_reference, head_service_ports
+        cluster_resource, cluster_name, namespace, cluster_owner_reference
+    )
+    config["runtime"] = get_runtime_config(
+        cluster_resource
     )
     return config
 
@@ -150,8 +152,9 @@ def get_node_types(
 
 
 def get_provider_config(
-    cluster_name, namespace, cluster_owner_reference, head_service_ports
+    cluster_resource, cluster_name, namespace, cluster_owner_reference
 ):
+    head_service_ports = cluster_resource["spec"].get("headServicePorts", None)
     provider_conf = {}
     provider_conf["type"] = "kubernetes"
     provider_conf["use_internal_ips"] = True
@@ -159,10 +162,29 @@ def get_provider_config(
     provider_conf["services"] = [
         get_head_service(cluster_name, cluster_owner_reference, head_service_ports)
     ]
+    configure_cloud_storage(provider_conf, cluster_resource)
     # Signal to autoscaler that the Operator is in use:
     provider_conf["_operator"] = True
-
     return provider_conf
+
+
+def get_runtime_config(
+    cluster_resource: Dict[str, Any],
+) -> Dict[str, Any]:
+    if "runtime" not in cluster_resource["spec"]:
+        return {}
+    return copy.deepcopy(cluster_resource["spec"]["runtime"])
+
+
+def configure_cloud_storage(
+    provider_config: Dict[str, Any],
+    cluster_resource: Dict[str, Any],
+):
+    if "cloudStorage" not in cluster_resource["spec"]:
+        return
+    cloud_storage = cluster_resource["spec"]["cloudStorage"]
+    for field in cloud_storage:
+        provider_config[field] = cloud_storage[field]
 
 
 def get_head_service(cluster_name, cluster_owner_reference, head_service_ports):

@@ -483,8 +483,10 @@ def start(cluster_config_file, min_workers, max_workers, no_restart, restart_onl
             cli_logger.warning("{}", str(e))
             cli_logger.warning(
                 "Could not download remote cluster configuration file.")
+    call_context = cli_call_context()
     create_or_update_cluster(
         config_file=cluster_config_file,
+        call_context=call_context,
         override_min_workers=min_workers,
         override_max_workers=max_workers,
         no_restart=no_restart,

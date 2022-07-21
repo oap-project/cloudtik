@@ -13,8 +13,8 @@ spec:
           imagePullPolicy: Always
           command: [ "/bin/bash", "-c", "--" ]
           args:
-            - "wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/kubernetes/operator/example-job.py &&
-              python example-job.py"
+            - "wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/kubernetes/operator/example_job.py &&
+              python example_job.py"
           resources:
             requests:
               cpu: 1

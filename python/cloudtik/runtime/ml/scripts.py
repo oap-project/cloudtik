@@ -1,15 +1,15 @@
+from shlex import quote
+
 import click
 import os
 import logging
-from shlex import quote
 
 from cloudtik.core._private import constants
 from cloudtik.core._private import logging_utils
 from cloudtik.core._private.cli_logger import (cli_logger)
-from cloudtik.core._private.utils import run_bash_scripts, run_system_command, \
-    subscribe_runtime_config, with_script_args
+from cloudtik.core._private.utils import run_bash_scripts, run_system_command, with_script_args
 
-from cloudtik.runtime.kafka.utils import RUNTIME_ROOT_PATH, _get_zookeeper_connect, update_configurations
+from cloudtik.runtime.ml.utils import RUNTIME_ROOT_PATH
 
 RUNTIME_SCRIPTS_PATH = os.path.join(
     RUNTIME_ROOT_PATH, "scripts")
@@ -90,24 +90,10 @@ def configure(head, head_address, script_args):
     if head_address:
         cmds += ["--head_address={}".format(head_address)]
 
-    # We either get the zookeeper_connect from kafka runtime config
-    # or we get it from redis published zookeeper uri (or make it by nodes info?)
-    if not head:
-        runtime_config = subscribe_runtime_config()
-        zookeeper_connect = _get_zookeeper_connect(runtime_config)
-        if zookeeper_connect is None:
-            raise RuntimeError("Not able to get zookeeper connect.")
-
-        cmds += ["--zookeeper_connect={}".format(quote(zookeeper_connect))]
-
     with_script_args(cmds, script_args)
 
     final_cmd = " ".join(cmds)
     run_system_command(final_cmd)
-
-    if not head:
-        # Update kafka configuration from runtime config
-        update_configurations()
 
 
 @click.command(context_settings={"ignore_unknown_options": True})

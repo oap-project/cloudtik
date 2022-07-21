@@ -9,7 +9,8 @@ from kubernetes.client.rest import ApiException
 
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.providers import _get_node_provider
-from cloudtik.core._private.utils import is_use_internal_ip, get_running_head_node, binary_to_hex, hex_to_binary
+from cloudtik.core._private.utils import is_use_internal_ip, get_running_head_node, binary_to_hex, hex_to_binary, \
+    get_runtime_service_ports
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, \
     CLOUDTIK_GLOBAL_VARIABLE_KEY, CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX
 from cloudtik.core.workspace_provider import Existence
@@ -138,12 +139,18 @@ def not_provided_msg(resource_type):
     return "No {} config provided, must already exist".format(resource_type)
 
 
+def get_workspace_namespace_name(workspace_name: str):
+    # The namespace is workspace name
+    return workspace_name
+
+
 def get_workspace_namespace(workspace_name: str):
     # Check namespace exists
-    namespace_object = _get_namespace(workspace_name)
+    namespace_name = get_workspace_namespace_name(workspace_name)
+    namespace_object = _get_namespace(namespace_name)
     if namespace_object is None:
         return None
-    return workspace_name
+    return namespace_name
 
 
 def _get_workspace_service_account(config, namespace):
@@ -324,14 +331,10 @@ def bootstrap_kubernetes_default(config):
     else:
         namespace = _configure_namespace(config["provider"])
 
-    # Update the node config with image
-    _configure_pod_image(config)
+    _configure_pods(config)
+    _configure_services(config)
 
-    # Update the generateName pod name and labels with the cluster name
-    _configure_pod_name_and_labels(config)
-    _configure_services_name_and_selector(config)
-
-    _configure_services(namespace, config["provider"])
+    _create_or_update_services(namespace, config["provider"])
 
     if not config["provider"].get("_operator"):
         # These steps are unnecessary when using the Operator.
@@ -353,14 +356,10 @@ def bootstrap_kubernetes_from_workspace(config):
 
     namespace = _configure_namespace_from_workspace(config)
 
-    # Update the node config with image
-    _configure_pod_image(config)
+    _configure_pods(config)
+    _configure_services(config)
 
-    # Update the generateName pod name and labels with the cluster name
-    _configure_pod_name_and_labels(config)
-    _configure_services_name_and_selector(config)
-
-    _configure_services(namespace, config["provider"])
+    _create_or_update_services(namespace, config["provider"])
 
     _configure_head_service_account(config)
 
@@ -377,7 +376,8 @@ def _configure_namespace_from_workspace(config):
         namespace = config["provider"]["namespace"]
     else:
         workspace_name = config["workspace_name"]
-        namespace = get_workspace_namespace(workspace_name)
+        # We don't check namespace existence here since operator may not have the permission to list namespaces
+        namespace = get_workspace_namespace_name(workspace_name)
         if namespace is None:
             raise RuntimeError("The workspace namespace {} doesn't exist.".format(workspace_name))
 
@@ -409,7 +409,6 @@ def fill_resources_kubernetes(config):
     if "available_node_types" not in config:
         return config
     node_types = copy.deepcopy(config["available_node_types"])
-    head_node_type = config["head_node_type"]
     for node_type in node_types:
         node_config = node_types[node_type]["node_config"]
         container_data = node_config["spec"]["containers"][0]
@@ -628,7 +627,7 @@ def _configure_controller_role_binding(namespace, provider_config):
     cli_logger.print(log_prefix + created_msg(binding_field, name))
 
 
-def _configure_services(namespace, provider_config):
+def _create_or_update_services(namespace, provider_config):
     service_field = "services"
     if service_field not in provider_config:
         cli_logger.print(log_prefix + not_provided_msg(service_field))
@@ -658,6 +657,17 @@ def _configure_services(namespace, provider_config):
             cli_logger.print(log_prefix + not_found_msg("service", name))
             core_api().create_namespaced_service(namespace, service)
             cli_logger.print(log_prefix + created_msg("service", name))
+
+
+def _configure_pods(config):
+    # Update the node config with image
+    _configure_pod_image(config)
+
+    # Update the generateName pod name and labels with the cluster name
+    _configure_pod_name_and_labels(config)
+
+    # Configure the head pod container ports
+    _configure_pod_container_ports(config)
 
 
 def _configure_pod_name_and_labels(config):
@@ -690,6 +700,37 @@ def _configure_pod_name(metadata, cluster_name, name_pattern):
     metadata["generateName"] = name_pattern.format(cluster_name)
 
 
+def _configure_pod_container_ports(config):
+    if "available_node_types" not in config:
+        return config
+
+    runtime_config = config.get("runtime", {})
+    service_ports = get_runtime_service_ports(runtime_config)
+
+    node_types = config["available_node_types"]
+    head_node_type = config["head_node_type"]
+    node_config = node_types[head_node_type]["node_config"]
+    container_data = node_config["spec"]["containers"][0]
+
+    if "ports" not in container_data:
+        container_data["ports"] = []
+
+    ports = container_data["ports"]
+    for port_name in service_ports:
+        port_config = service_ports[port_name]
+        container_port = {
+            "containerPort": port_config["port"],
+            "name": port_name,
+        }
+        ports.append(container_port)
+    container_data["ports"] = ports
+
+
+def _configure_services(config):
+    _configure_services_name_and_selector(config)
+    _configure_services_ports(config)
+
+
 def _configure_services_name_and_selector(config):
     provider_config = config["provider"]
     service_field = "services"
@@ -710,6 +751,39 @@ def _configure_services_name_and_selector(config):
             service["spec"]["selector"] = {}
         component_selector_pattern = _get_service_selector_format(service)
         service["spec"]["selector"]["component"] = component_selector_pattern.format(cluster_name)
+
+
+def _configure_services_ports(config):
+    provider_config = config["provider"]
+    service_field = "services"
+    if service_field not in provider_config:
+        return
+
+    runtime_config = config.get("runtime", {})
+    service_ports = get_runtime_service_ports(runtime_config)
+
+    services = provider_config[service_field]
+    for service in services:
+        _configure_service_ports(service, service_ports)
+
+
+def _configure_service_ports(service, service_ports):
+    if "spec" not in service:
+        service["spec"] = {}
+    if "ports" not in service["spec"]:
+        service["spec"]["ports"] = []
+
+    ports = service["spec"]["ports"]
+    for port_name in service_ports:
+        port_config = service_ports[port_name]
+        port = {
+            "name": "{}_service_port".format(port_name),
+            "protocol": port_config["protocol"],
+            "port": port_config["port"],
+            "targetPort": port_name,
+        }
+        ports.append(port)
+    service["spec"]["ports"] = ports
 
 
 def _configure_head_service_account(config):
@@ -770,7 +844,7 @@ def get_workspace_head_nodes(config):
 
 
 def _get_workspace_head_nodes(provider_config, workspace_name):
-    namespace = get_workspace_namespace(workspace_name)
+    namespace = get_workspace_namespace_name(workspace_name)
     if namespace is None:
         raise RuntimeError(f"Kubernetes namespace for workspace doesn't exist: {workspace_name}")
 

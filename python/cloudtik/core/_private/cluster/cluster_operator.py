@@ -16,7 +16,7 @@ import time
 from types import ModuleType
 from typing import Any, Dict, List, Optional, Tuple, Union
 import prettytable as pt
-
+from functools import partial
 import click
 import yaml
 
@@ -47,7 +47,7 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     cluster_booting_completed, load_head_cluster_config, get_runnable_command, get_cluster_uri, \
     with_head_node_ip_environment_variables, get_verified_runtime_list, get_commands_of_runtimes, \
     is_node_in_completed_status, check_for_single_worker_type, get_preferred_cpu_bundle_size, \
-    _get_node_specific_commands, get_node_specific_commands_of_runtimes, _get_node_specific_runtime_config, \
+    get_node_specific_commands_of_runtimes, _get_node_specific_runtime_config, \
     _get_node_specific_docker_config, RUNTIME_CONFIG_KEY, DOCKER_CONFIG_KEY, get_running_head_node, \
     get_nodes_for_runtime, with_script_args
 
@@ -189,6 +189,7 @@ def _request_resources(cpus: Optional[List[dict]] = None,
 
 def create_or_update_cluster(
         config_file: str,
+        call_context: CallContext,
         override_min_workers: Optional[int],
         override_max_workers: Optional[int],
         no_restart: bool,
@@ -204,20 +205,22 @@ def create_or_update_cluster(
     # no_controller_on_head is an internal flag used by the K8s operator.
     # If True, prevents autoscaling config sync to the head during cluster
     # creation. See pull #13720.
+    _cli_logger = call_context.cli_logger
+
     def handle_yaml_error(e):
-        cli_logger.error("Cluster config invalid")
-        cli_logger.newline()
-        cli_logger.error("Failed to load YAML file " + cf.bold("{}"),
+        _cli_logger.error("Cluster config invalid")
+        _cli_logger.newline()
+        _cli_logger.error("Failed to load YAML file " + cf.bold("{}"),
                          config_file)
-        cli_logger.newline()
-        with cli_logger.verbatim_error_ctx("PyYAML error:"):
-            cli_logger.error(e)
-        cli_logger.abort()
+        _cli_logger.newline()
+        with _cli_logger.verbatim_error_ctx("PyYAML error:"):
+            _cli_logger.error(e)
+        _cli_logger.abort()
 
     try:
         config = yaml.safe_load(open(config_file).read())
     except FileNotFoundError:
-        cli_logger.abort(
+        _cli_logger.abort(
             "Provided cluster configuration file ({}) does not exist",
             cf.bold(config_file))
     except yaml.parser.ParserError as e:
@@ -230,10 +233,10 @@ def create_or_update_cluster(
     # TODO: validate file_mounts, ssh keys, etc.
     importer = _NODE_PROVIDERS.get(config["provider"]["type"])
     if not importer:
-        cli_logger.abort(
+        _cli_logger.abort(
             "Unknown provider type " + cf.bold("{}") + "\n"
             "Available providers are: {}", config["provider"]["type"],
-            cli_logger.render_list([
+            _cli_logger.render_list([
                 k for k in _NODE_PROVIDERS.keys()
                 if _NODE_PROVIDERS[k] is not None
             ]))
@@ -261,18 +264,17 @@ def create_or_update_cluster(
     handle_cli_override("workspace_name", override_workspace_name)
 
     if printed_overrides:
-        cli_logger.newline()
+        _cli_logger.newline()
 
-    cli_logger.labeled_value("Cluster", config["cluster_name"])
+    _cli_logger.labeled_value("Cluster", config["cluster_name"])
     workspace_name = config.get("workspace_name")
     if workspace_name:
-        cli_logger.labeled_value("Workspace", workspace_name)
-    cli_logger.labeled_value("Runtimes", ", ".join(get_enabled_runtimes(config)))
+        _cli_logger.labeled_value("Workspace", workspace_name)
+    _cli_logger.labeled_value("Runtimes", ", ".join(get_enabled_runtimes(config)))
 
-    cli_logger.newline()
+    _cli_logger.newline()
     config = _bootstrap_config(config, no_config_cache=no_config_cache,
                                init_config_cache=True)
-    call_context = cli_call_context()
     _create_or_update_cluster(
         config,
         call_context=call_context,
@@ -286,17 +288,18 @@ def create_or_update_cluster(
 
     if not is_use_internal_ip(config):
         # start proxy and bind to localhost
-        cli_logger.newline()
-        with cli_logger.group("Starting SOCKS5 proxy..."):
+        _cli_logger.newline()
+        with _cli_logger.group("Starting SOCKS5 proxy..."):
             _start_proxy(config, True, "localhost")
 
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     head_node = _get_running_head_node(config)
     show_useful_commands(config_file,
-                         config,
-                         provider,
-                         head_node,
-                         override_cluster_name)
+                         call_context=call_context,
+                         config=config,
+                         provider=provider,
+                         head_node=head_node,
+                         override_cluster_name=override_cluster_name)
     return config
 
 
@@ -401,7 +404,7 @@ def _bootstrap_config(config: Dict[str, Any],
     verify_config(resolved_config)
 
     if not no_config_cache or init_config_cache:
-        with open(cache_key, "w") as f:
+        with open(cache_key, "w", opener=partial(os.open, mode=0o600)) as f:
             config_cache = {
                 "_version": CONFIG_CACHE_VERSION,
                 "provider_log_info": try_get_log_state(
@@ -838,6 +841,8 @@ def get_or_create_head_node(config: Dict[str, Any],
                             _provider: Optional[NodeProvider] = None,
                             _runner: ModuleType = subprocess) -> None:
     """Create the cluster head node, which in turn creates the workers."""
+    _cli_logger = call_context.cli_logger
+
     global_event_system.execute_callback(
         get_cluster_uri(config),
         CreateClusterEvent.cluster_booting_started)
@@ -855,7 +860,7 @@ def get_or_create_head_node(config: Dict[str, Any],
         head_node = None
 
     if not head_node:
-        cli_logger.confirm(
+        _cli_logger.confirm(
             yes,
             "No head node found. "
             "Launching a new cluster.",
@@ -863,7 +868,7 @@ def get_or_create_head_node(config: Dict[str, Any],
 
     if head_node:
         if restart_only:
-            cli_logger.confirm(
+            _cli_logger.confirm(
                 yes,
                 "Updating cluster configuration and "
                 "restarting the cluster runtime. "
@@ -871,23 +876,23 @@ def get_or_create_head_node(config: Dict[str, Any],
                 cf.bold("--restart-only"),
                 _abort=True)
         elif no_restart:
-            cli_logger.print(
+            _cli_logger.print(
                 "Cluster runtime will not be restarted due "
                 "to `{}`.", cf.bold("--no-restart"))
-            cli_logger.confirm(
+            _cli_logger.confirm(
                 yes,
                 "Updating cluster configuration and "
                 "running setup commands.",
                 _abort=True)
         else:
-            cli_logger.print(
+            _cli_logger.print(
                 "Updating cluster configuration and running full setup.")
-            cli_logger.confirm(
+            _cli_logger.confirm(
                 yes,
                 cf.bold("Cluster runtime will be restarted."),
                 _abort=True)
 
-    cli_logger.newline()
+    _cli_logger.newline()
 
     # The "head_node" config stores only the internal head node specific
     # configuration values generated in the runtime, for example IAM
@@ -907,16 +912,16 @@ def get_or_create_head_node(config: Dict[str, Any],
     creating_new_head = _should_create_new_head(head_node, launch_hash,
                                                 head_node_type, provider)
     if creating_new_head:
-        with cli_logger.group("Acquiring an up-to-date head node"):
+        with _cli_logger.group("Acquiring an up-to-date head node"):
             global_event_system.execute_callback(
                 get_cluster_uri(config),
                 CreateClusterEvent.acquiring_new_head_node)
             if head_node is not None:
-                cli_logger.confirm(
+                _cli_logger.confirm(
                     yes, "Relaunching the head node.", _abort=True)
 
                 provider.terminate_node(head_node)
-                cli_logger.print("Terminated head node {}", head_node)
+                _cli_logger.print("Terminated head node {}", head_node)
 
             head_node_tags[CLOUDTIK_TAG_LAUNCH_CONFIG] = launch_hash
             head_node_tags[CLOUDTIK_TAG_NODE_NAME] = "cloudtik-{}-head".format(
@@ -924,27 +929,27 @@ def get_or_create_head_node(config: Dict[str, Any],
             head_node_tags[CLOUDTIK_TAG_NODE_STATUS] = STATUS_UNINITIALIZED
             head_node_tags[CLOUDTIK_TAG_NODE_NUMBER] = str(CLOUDTIK_TAG_HEAD_NODE_NUMBER)
             provider.create_node(head_node_config, head_node_tags, 1)
-            cli_logger.print("Launched a new head node")
+            _cli_logger.print("Launched a new head node")
 
             start = time.time()
             head_node = None
-            with cli_logger.group("Fetching the new head node"):
+            with _cli_logger.group("Fetching the new head node"):
                 while True:
                     if time.time() - start > 50:
-                        cli_logger.abort("Head node fetch timed out. "
+                        _cli_logger.abort("Head node fetch timed out. "
                                          "Failed to create head node.")
                     nodes = provider.non_terminated_nodes(head_node_tags)
                     if len(nodes) == 1:
                         head_node = nodes[0]
                         break
                     time.sleep(POLL_INTERVAL)
-            cli_logger.newline()
+            _cli_logger.newline()
 
     global_event_system.execute_callback(
         get_cluster_uri(config),
         CreateClusterEvent.head_node_acquired)
 
-    with cli_logger.group(
+    with _cli_logger.group(
             "Setting up head node",
             _numbered=("<>", 1, 1),
             # cf.bold(provider.node_tags(head_node)[CLOUDTIK_TAG_NODE_NAME]),
@@ -966,7 +971,7 @@ def get_or_create_head_node(config: Dict[str, Any],
         # Return remote_config_file to avoid prematurely closing it.
         config, remote_config_file = _set_up_config_for_head_node(
             config, provider, no_restart)
-        cli_logger.print("Prepared bootstrap config")
+        _cli_logger.print("Prepared bootstrap config")
 
         if restart_only:
             # Docker may re-launch nodes, requiring setup
@@ -1017,9 +1022,11 @@ def get_or_create_head_node(config: Dict[str, Any],
         provider.non_terminated_nodes(head_node_tags)
 
         if updater.exitcode != 0:
-            # todo: this does not follow the mockup and is not good enough
-            cli_logger.abort("Failed to setup head node.")
-            sys.exit(1)
+            msg = "Failed to setup head node."
+            if call_context.is_call_from_api():
+                raise RuntimeError(msg)
+            else:
+                _cli_logger.abort(msg)
 
     global_event_system.execute_callback(
         get_cluster_uri(config),
@@ -1029,11 +1036,11 @@ def get_or_create_head_node(config: Dict[str, Any],
 
     cluster_booting_completed(config, head_node)
 
-    cli_logger.newline()
+    _cli_logger.newline()
     successful_msg = "Successfully started cluster: {}.".format(config["cluster_name"])
-    cli_logger.success("-" * len(successful_msg))
-    cli_logger.success(successful_msg)
-    cli_logger.success("-" * len(successful_msg))
+    _cli_logger.success("-" * len(successful_msg))
+    _cli_logger.success(successful_msg)
+    _cli_logger.success("-" * len(successful_msg))
 
 
 def _should_create_new_head(head_node_id: Optional[str], new_launch_hash: str,
@@ -1832,18 +1839,21 @@ def show_cluster_info(config_file: str,
 
     head_node = cluster_info["head-id"]
     show_useful_commands(config_file,
-                         config,
-                         provider,
-                         head_node,
-                         override_cluster_name)
+                         call_context=cli_call_context(),
+                         config=config,
+                         provider=provider,
+                         head_node=head_node,
+                         override_cluster_name=override_cluster_name)
 
 
 def show_useful_commands(config_file: str,
+                         call_context: CallContext,
                          config: Dict[str, Any],
                          provider: NodeProvider,
                          head_node: str,
                          override_cluster_name: Optional[str] = None
                          ) -> None:
+    _cli_logger = call_context.cli_logger
     if override_cluster_name:
         modifiers = " --cluster-name={}".format(quote(override_cluster_name))
         cluster_name = override_cluster_name
@@ -1851,58 +1861,58 @@ def show_useful_commands(config_file: str,
         modifiers = ""
         cluster_name = config["cluster_name"]
 
-    cli_logger.newline()
+    _cli_logger.newline()
     private_key_file = config["auth"].get("ssh_private_key")
     public_key_file = config["auth"].get("ssh_public_key")
     if private_key_file is not None or public_key_file is not None:
-        with cli_logger.group("Key information:"):
+        with _cli_logger.group("Key information:"):
             if private_key_file is not None:
-                cli_logger.print("Cluster private key file: {}", private_key_file)
-                cli_logger.print("Please keep the cluster private key file safe.")
+                _cli_logger.print("Cluster private key file: {}", private_key_file)
+                _cli_logger.print("Please keep the cluster private key file safe.")
 
             if public_key_file is not None:
-                cli_logger.print("Cluster public key file: {}", public_key_file)
+                _cli_logger.print("Cluster public key file: {}", public_key_file)
 
-    cli_logger.newline()
-    with cli_logger.group("Useful commands:"):
+    _cli_logger.newline()
+    with _cli_logger.group("Useful commands:"):
         config_file = os.path.abspath(config_file)
 
-        with cli_logger.group("Check cluster status with:"):
-            cli_logger.print(
+        with _cli_logger.group("Check cluster status with:"):
+            _cli_logger.print(
                 cf.bold("cloudtik status {}{}"), config_file, modifiers)
 
-        with cli_logger.group("Execute command on cluster with:"):
-            cli_logger.print(
+        with _cli_logger.group("Execute command on cluster with:"):
+            _cli_logger.print(
                 cf.bold("cloudtik exec {}{} [command]"), config_file, modifiers)
 
-        with cli_logger.group("Connect to a terminal on the cluster head:"):
-            cli_logger.print(
+        with _cli_logger.group("Connect to a terminal on the cluster head:"):
+            _cli_logger.print(
                 cf.bold("cloudtik attach {}{}"), config_file, modifiers)
 
-        with cli_logger.group("Upload files or folders to cluster:"):
-            cli_logger.print(
+        with _cli_logger.group("Upload files or folders to cluster:"):
+            _cli_logger.print(
                 cf.bold("cloudtik rsync-up {}{} [source] [target]"), config_file, modifiers)
 
-        with cli_logger.group("Download files or folders from cluster:"):
-            cli_logger.print(
+        with _cli_logger.group("Download files or folders from cluster:"):
+            _cli_logger.print(
                 cf.bold("cloudtik rsync-down {}{} [source] [target]"), config_file, modifiers)
 
-        with cli_logger.group("Submit job to cluster to run with:"):
-            cli_logger.print(
+        with _cli_logger.group("Submit job to cluster to run with:"):
+            _cli_logger.print(
                 cf.bold("cloudtik submit {}{} [job-file.(py|sh|scala)] "), config_file, modifiers)
 
-        with cli_logger.group("Monitor cluster with:"):
-            cli_logger.print(
+        with _cli_logger.group("Monitor cluster with:"):
+            _cli_logger.print(
                 cf.bold("cloudtik monitor {}{}"), config_file, modifiers)
 
-    cli_logger.newline()
-    with cli_logger.group("Useful addresses:"):
+    _cli_logger.newline()
+    with _cli_logger.group("Useful addresses:"):
         proxy_info_file = get_proxy_info_file(cluster_name)
         pid, address, port = get_safe_proxy_process_info(proxy_info_file)
         if pid is not None:
             bind_address_show = get_proxy_bind_address_to_show(address)
-            with cli_logger.group("The SOCKS5 proxy to access the cluster Web UI from local browsers:"):
-                cli_logger.print(
+            with _cli_logger.group("The SOCKS5 proxy to access the cluster Web UI from local browsers:"):
+                _cli_logger.print(
                     cf.bold("{}:{}"),
                     bind_address_show, port)
 
@@ -1910,8 +1920,8 @@ def show_useful_commands(config_file: str,
 
         runtime_urls = get_useful_runtime_urls(config.get(RUNTIME_CONFIG_KEY), head_node_cluster_ip)
         for runtime_url in runtime_urls:
-            with cli_logger.group(runtime_url["name"] + ":"):
-                cli_logger.print(runtime_url["url"])
+            with _cli_logger.group(runtime_url["name"] + ":"):
+                _cli_logger.print(runtime_url["url"])
 
 
 def show_cluster_status(config_file: str,
@@ -2107,7 +2117,7 @@ def _start_proxy_process(head_node_ip, config,
     else:
         process_info = {}
     process_info["proxy"] = {"pid": p.pid, "bind_address": bind_address, "port": proxy_port}
-    with open(proxy_info_file, "w") as f:
+    with open(proxy_info_file, "w", opener=partial(os.open, mode=0o600)) as f:
         f.write(json.dumps(process_info))
     return p.pid, bind_address, proxy_port
 
@@ -2128,7 +2138,7 @@ def _stop_proxy(config: Dict[str, Any]):
         return
 
     kill_process_tree(pid)
-    with open(proxy_info_file, "w") as f:
+    with open(proxy_info_file, "w", opener=partial(os.open, mode=0o600)) as f:
         f.write(json.dumps({"proxy": {}}))
     cli_logger.print(cf.bold("Successfully stopped the SOCKS5 proxy of cluster {}."), cluster_name)
 

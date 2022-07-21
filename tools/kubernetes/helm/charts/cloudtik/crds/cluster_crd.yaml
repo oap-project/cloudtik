@@ -4385,3 +4385,54 @@ spec:
                 items:
                   type: string
                   description: shell command
+              cloudStorage:
+                type: object
+                description: The cloud storage configurations
+                x-kubernetes-preserve-unknown-fields: true
+              runtime:
+                type: object
+                description: The runtime configurations
+                x-kubernetes-preserve-unknown-fields: true
+                properties:
+                  types:
+                    description: The runtime list to run on the cluster.
+                    type: array
+                    items:
+                      type: string
+                      description: The runtime time name
+                  spark:
+                    type: object
+                    description: The Spark runtime configurations.
+                    x-kubernetes-preserve-unknown-fields: true
+                    properties:
+                      config:
+                        type: object
+                        description: The Spark configurations to set as cluster wide default.
+                        x-kubernetes-preserve-unknown-fields: true
+                  kafka:
+                    type: object
+                    description: The Kafka runtime configurations.
+                    x-kubernetes-preserve-unknown-fields: true
+                    properties:
+                      config:
+                        type: object
+                        description: Map of Kafka server properties.
+                        x-kubernetes-preserve-unknown-fields: true
+                  zookeeper:
+                    type: object
+                    description: The Zookeeper runtime configurations.
+                    x-kubernetes-preserve-unknown-fields: true
+                    properties:
+                      config:
+                        type: object
+                        description: Map of Zookeeper server properties.
+                        x-kubernetes-preserve-unknown-fields: true
+                  presto:
+                    type: object
+                    description: The Presto runtime configurations.
+                    x-kubernetes-preserve-unknown-fields: true
+                    properties:
+                      config:
+                        type: object
+                        description: Map of Presto server properties.
+                        x-kubernetes-preserve-unknown-fields: true

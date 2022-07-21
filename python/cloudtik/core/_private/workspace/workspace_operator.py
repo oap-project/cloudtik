@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import tempfile
+from functools import partial
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import prettytable as pt
@@ -387,7 +388,7 @@ def _bootstrap_workspace_config(config: Dict[str, Any],
     resolved_config = provider_cls.bootstrap_workspace_config(config)
 
     if not no_config_cache:
-        with open(cache_key, "w") as f:
+        with open(cache_key, "w", opener=partial(os.open, mode=0o600)) as f:
             config_cache = {
                 "_version": CONFIG_CACHE_VERSION,
                 "provider_log_info": try_get_log_state(

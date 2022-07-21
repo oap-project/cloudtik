@@ -14,10 +14,10 @@ spec:
   idleTimeoutMinutes: 5
   # Specify the pod type for the head node (as configured below).
   headPodType: head.default
-  # Optionally, configure ports for the cluster head service.
-  # The ports specified below are the defaults.
+  # Optionally, configure additional service ports for the cluster head service.
+  # The cloudtik and runtime service ports will be automatically configured.
   headServicePorts:
-    - name: client
+    - name: your-service-port
       port: 10001
       targetPort: 10001
   # Specify the allowed pod types for this cluster and the resources they provide.
@@ -29,8 +29,6 @@ spec:
       spec:
         containers:
         - name: cloudtik-node
-          ports:
-          - containerPort: 6789  # Redis port
           resources:
             requests:
               cpu: 4
@@ -66,3 +64,5 @@ spec:
               # limit will be detected and split to use 10% for
               # redis, the rest for application memory.
               memory: 8Gi
+  runtime:
+    types: [ganglia, hdfs, spark]

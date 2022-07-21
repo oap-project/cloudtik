@@ -117,6 +117,17 @@ def _with_interactive(cmd):
     return ["bash", "--login", "-c", "-i", quote(force_interactive)]
 
 
+def _with_login_shell(cmd, interactive=True):
+    force_interactive = (
+        f"true && source ~/.bashrc && "
+        f"export OMP_NUM_THREADS=1 PYTHONWARNINGS=ignore && ({cmd})")
+    shell_cmd = ["bash", "--login", "-c"]
+    if interactive:
+        shell_cmd += ["-i"]
+    shell_cmd += [quote(force_interactive)]
+    return shell_cmd
+
+
 class KubernetesCommandExecutor(CommandExecutor):
     def __init__(self, call_context, log_prefix, namespace, node_id, auth_config,
                  process_runner):
@@ -169,21 +180,30 @@ class KubernetesCommandExecutor(CommandExecutor):
                 port_forward_cmd) + " failed with error: " + perr
             raise Exception(exception_str)
         else:
-            final_cmd = self.kubectl + ["exec", "-it"]
-            final_cmd += [
-                self.node_id,
-                "--",
-            ]
             if environment_variables:
                 cmd, cmd_to_print = _with_environment_variables(
                     cmd, environment_variables, cmd_to_print=cmd_to_print)
-            cmd = _with_interactive(cmd)
-            cmd_to_print = _with_interactive(cmd_to_print) if cmd_to_print else None
+            if self.call_context.is_using_login_shells():
+                cmd = _with_login_shell(
+                    cmd, interactive=self.call_context.does_allow_interactive())
+                cmd_to_print = _with_login_shell(
+                    cmd_to_print, interactive=self.call_context.does_allow_interactive()) if cmd_to_print else None
+            else:
+                # Originally, cmd and cmd_to_print is a string
+                # Hence it was converted to a array by _with_interactive
+                cmd = [cmd]
+                if cmd_to_print:
+                    cmd_to_print = [cmd_to_print]
+
+            final_cmd = self._with_kubectl_exec()
             cmd_prefix = " ".join(final_cmd)
-            final_cmd += cmd
+
             final_cmd_to_print = None
             if cmd_to_print:
                 final_cmd_to_print = copy.deepcopy(final_cmd)
+
+            final_cmd += cmd
+            if cmd_to_print:
                 final_cmd_to_print += cmd_to_print
             # `kubectl exec` + subprocess w/ list of args has unexpected
             # side-effects.
@@ -201,6 +221,10 @@ class KubernetesCommandExecutor(CommandExecutor):
                 else:
                     self.process_runner.check_call(final_cmd, shell=True)
             except subprocess.CalledProcessError:
+                if (not self.call_context.is_using_login_shells()) or (
+                        self.call_context.is_call_from_api()):
+                    raise
+
                 if exit_on_fail:
                     quoted_cmd = cmd_prefix + quote(" ".join(cmd if cmd_to_print is None else cmd_to_print))
                     msg = self.log_prefix + "Command failed"
@@ -295,15 +319,25 @@ class KubernetesCommandExecutor(CommandExecutor):
         return self._home_cached
 
     def _try_to_get_home(self):
-        # TODO (Dmitri): Think about how to use the node's HOME variable
+        # TODO: Think about how to use the node's HOME variable
         # without making an extra kubectl exec call.
-        cmd = self.kubectl + [
-            "exec", "-it", self.node_id, "--", "printenv", "HOME"
-        ]
+        cmd = self._with_kubectl_exec(["printenv", "HOME"])
         joined_cmd = " ".join(cmd)
         raw_out = self.process_runner.check_output(joined_cmd, shell=True)
         home = raw_out.decode().strip("\n\r")
         return home
+
+    def _with_kubectl_exec(self, cmd=None):
+        exec_cmd = self.kubectl + ["exec"]
+        if self.call_context.does_allow_interactive():
+            exec_cmd += ["-it"]
+        exec_cmd += [
+            self.node_id,
+            "--",
+        ]
+        if cmd:
+            exec_cmd += cmd
+        return exec_cmd
 
 
 class SSHOptions:
@@ -467,10 +501,8 @@ class SSHCommandExecutor(CommandExecutor):
                     output_redirected=self.call_context.is_output_redirected(),
                     cmd_to_print=cmd_to_print
                 )
-            if with_output:
-                return self.process_runner.check_output(final_cmd)
             else:
-                return self.process_runner.check_call(final_cmd)
+                return self.process_runner.check_output(final_cmd)
         except subprocess.CalledProcessError as e:
             joined_cmd = " ".join(final_cmd if cmd_to_print is None else cmd_to_print)
             if (not self.call_context.is_using_login_shells()) or (

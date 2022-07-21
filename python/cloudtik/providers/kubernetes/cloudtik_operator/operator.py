@@ -3,6 +3,7 @@ import logging
 import multiprocessing as mp
 import os
 import threading
+from functools import partial
 from typing import Any, Callable, Dict, Optional, Tuple
 
 import kopf
@@ -10,6 +11,7 @@ import yaml
 
 import cloudtik.core._private.service.cloudtik_cluster_controller as cluster_controller
 from cloudtik.core._private import constants, services
+from cloudtik.core._private.call_context import CallContext
 from cloudtik.core._private.cluster import cluster_operator
 from cloudtik.core._private.cluster.cluster_operator import _get_head_node_ip
 from cloudtik.providers.kubernetes.cloudtik_operator import operator_utils
@@ -60,6 +62,10 @@ class CloudTikCluster:
         self.subprocess_name = ",".join([self.name, self.namespace])
         self.controller_stop_event = mp.Event()
         self.setup_logging()
+        self.call_context = CallContext()
+        self.call_context.set_call_from_api(True)
+        # We need to restore this in the future to avoid the errors from the lack of TTY
+        # self.call_context.set_allow_interactive(False)
 
     def create_or_update(self, restart_head: bool = False) -> None:
         """Create/update the Cluster and run the controller loop, all in a
@@ -92,14 +98,17 @@ class CloudTikCluster:
         # Don't restart on head unless recovering from failure.
         no_restart = not restart_head
         # Create or update cluster head and record config side effects.
+
         self.controller_config = cluster_operator.create_or_update_cluster(
             self.config_path,
+            call_context=self.call_context,
             override_min_workers=None,
             override_max_workers=None,
             no_restart=no_restart,
             restart_only=False,
             yes=True,
             no_config_cache=True,
+            use_login_shells=True,
             no_controller_on_head=True,
         )
         # Write the resulting config for use by the cluster controller:
@@ -113,7 +122,7 @@ class CloudTikCluster:
         controller = cluster_controller.ClusterController(
             address,
             cluster_scaling_config=self.controller_config_path,
-            redis_password=constants.CLOUDTIK_DEFAULT_PORT,
+            redis_password=constants.CLOUDTIK_REDIS_DEFAULT_PASSWORD,
             prefix_cluster_info=True,
             stop_event=self.controller_stop_event,
             retry_on_failure=False,
@@ -198,8 +207,9 @@ class CloudTikCluster:
     @staticmethod
     def write_config(config, config_path) -> None:
         """Write config to disk for use by the autoscaling monitor."""
-        with open(config_path, "w") as file:
-            yaml.dump(config, file)
+        # Make sure to create the file to owner only rw permissions.
+        with open(config_path, "w", opener=partial(os.open, mode=0o600)) as f:
+            yaml.dump(config, f)
 
     def delete_config(self) -> None:
         self.delete_config_file(self.config_path)

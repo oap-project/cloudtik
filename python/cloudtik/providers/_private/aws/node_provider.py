@@ -14,9 +14,10 @@ from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_NAME
 from cloudtik.core._private.log_timer import LogTimer
 from cloudtik.core._private.cli_logger import cli_logger, cf
 
-from cloudtik.providers._private.aws.config import verify_s3_storage, bootstrap_aws, post_prepare_aws
+from cloudtik.providers._private.aws.config import verify_s3_storage, bootstrap_aws, post_prepare_aws, \
+    with_aws_environment_variables
 from cloudtik.providers._private.aws.utils import boto_exception_handler, \
-    get_aws_s3_config, get_boto_error_code, BOTO_MAX_RETRIES, BOTO_CREATE_MAX_RETRIES, \
+    get_boto_error_code, BOTO_MAX_RETRIES, BOTO_CREATE_MAX_RETRIES, \
     _get_node_info, make_ec2_resource
 from cloudtik.providers._private.utils import validate_config_dict
 
@@ -79,7 +80,7 @@ class AWSNodeProvider(NodeProvider):
         self.cached_nodes = {}
 
     def with_environment_variables(self, node_type_config: Dict[str, Any], node_id: str):
-        return get_aws_s3_config(self.provider_config, node_type_config, node_id)
+        return with_aws_environment_variables(self.provider_config, node_type_config, node_id)
 
     def non_terminated_nodes(self, tag_filters):
         # Note that these filters are acceptable because they are set on

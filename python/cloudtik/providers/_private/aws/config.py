@@ -26,7 +26,7 @@ from cloudtik.core.workspace_provider import Existence, CLOUDTIK_MANAGED_CLOUD_S
     CLOUDTIK_MANAGED_CLOUD_STORAGE_URI
 from cloudtik.providers._private.aws.utils import LazyDefaultDict, \
     handle_boto_error, get_boto_error_code, _get_node_info, BOTO_MAX_RETRIES, _resource, \
-    _client, _make_resource, _make_client, make_ec2_client
+    _client, _make_resource, _make_client, make_ec2_client, get_aws_s3_config
 from cloudtik.providers._private.utils import StorageTestingError
 
 logger = logging.getLogger(__name__)
@@ -2744,3 +2744,9 @@ def list_aws_clusters(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         if cluster_name:
             clusters[cluster_name] = _get_node_info(head_node)
     return clusters
+
+
+def with_aws_environment_variables(provider_config, node_type_config: Dict[str, Any], node_id: str):
+    config_dict = {}
+    get_aws_s3_config(provider_config, config_dict)
+    return config_dict

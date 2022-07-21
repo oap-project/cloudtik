@@ -159,13 +159,25 @@ function update_storage_config_for_gcp() {
     cat $catalog_dir/hive.gcs.properties >> $catalog_dir/hive.properties
 }
 
+function set_cloud_storage_provider() {
+    cloud_storage_provider="none"
+    if [ "$AWS_CLOUD_STORAGE" == "true" ]; then
+        cloud_storage_provider="aws"
+    elif [ "$AZURE_CLOUD_STORAGE" == "true" ]; then
+        cloud_storage_provider="azure"
+    elif [ "$GCP_CLOUD_STORAGE" == "true" ]; then
+        cloud_storage_provider="gcp"
+    fi
+}
+
 function update_storage_config() {
-    if [ "$CLOUDTIK_PROVIDER_TYPE" == "aws" ]; then
+    set_cloud_storage_provider
+    if [ "${cloud_storage_provider}" == "aws" ]; then
         update_storage_config_for_aws
-    elif [ "$CLOUDTIK_PROVIDER_TYPE" == "gcp" ]; then
-        update_storage_config_for_gcp
-    elif [ "$CLOUDTIK_PROVIDER_TYPE" == "azure" ]; then
+    elif [ "${cloud_storage_provider}" == "azure" ]; then
         update_storage_config_for_azure
+    elif [ "${cloud_storage_provider}" == "gcp" ]; then
+        update_storage_config_for_gcp
     fi
 }
 

@@ -186,7 +186,7 @@
                 "gcp_cloud_storage": {
                     "type": "object",
                     "description": "use google cloud storage",
-                    "additionalProperties": false,
+                    "additionalProperties": true,
                     "properties": {
                         "gcs.bucket": {
                             "type": "string",

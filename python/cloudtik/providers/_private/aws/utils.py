@@ -147,21 +147,23 @@ def boto_exception_handler(msg, *args, **kwargs):
     return ExceptionHandlerContextManager()
 
 
-def get_aws_s3_config(provider_config, node_type_config: Dict[str, Any], node_id: str):
-    config_dict = {}
-    s3_bucket = provider_config.get("aws_s3_storage", {}).get("s3.bucket")
+def get_aws_s3_config(provider_config, config_dict: Dict[str, Any]):
+    if "aws_s3_storage" not in provider_config:
+        return
+    cloud_storage = provider_config["aws_s3_storage"]
+    config_dict["AWS_CLOUD_STORAGE"] = True
+
+    s3_bucket = cloud_storage.get("s3.bucket")
     if s3_bucket:
         config_dict["AWS_S3_BUCKET"] = s3_bucket
 
-    s3_access_key_id = provider_config.get("aws_s3_storage", {}).get("s3.access.key.id")
+    s3_access_key_id = cloud_storage.get("s3.access.key.id")
     if s3_access_key_id:
         config_dict["AWS_S3_ACCESS_KEY_ID"] = s3_access_key_id
 
-    s3_secret_access_key = provider_config.get("aws_s3_storage", {}).get("s3.secret.access.key")
+    s3_secret_access_key = cloud_storage.get("s3.secret.access.key")
     if s3_secret_access_key:
         config_dict["AWS_S3_SECRET_ACCESS_KEY"] = s3_secret_access_key
-
-    return config_dict
 
 
 def tags_list_to_dict(tags: list):

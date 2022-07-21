@@ -20,9 +20,9 @@ from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_NAME
 from cloudtik.providers._private._azure.config import (AZURE_MSI_NAME,
                                                        verify_azure_cloud_storage, bootstrap_azure,
                                                        _extract_metadata_for_node, bootstrap_azure_for_api,
-                                                       post_prepare_azure)
+                                                       post_prepare_azure, with_azure_environment_variables)
 
-from cloudtik.providers._private._azure.utils import (get_azure_config, _get_node_info, get_azure_sdk_function,
+from cloudtik.providers._private._azure.utils import (_get_node_info, get_azure_sdk_function,
                                                       get_credential)
 from cloudtik.providers._private.utils import validate_config_dict
 
@@ -76,7 +76,7 @@ class AzureNodeProvider(NodeProvider):
         self.cached_nodes = {}
 
     def with_environment_variables(self, node_type_config: Dict[str, Any], node_id: str):
-        return get_azure_config(self.provider_config, node_type_config, node_id)
+        return with_azure_environment_variables(self.provider_config, node_type_config, node_id)
 
     @synchronized
     def _get_filtered_nodes(self, tag_filters):

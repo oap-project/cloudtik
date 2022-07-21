@@ -10,7 +10,7 @@ from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core.node_provider import NodeProvider
 
 from cloudtik.providers._private.gcp.config import (
-    verify_gcs_storage, bootstrap_gcp, post_prepare_gcp)
+    verify_gcs_storage, bootstrap_gcp, post_prepare_gcp, with_gcp_environment_variables)
 
 # The logic has been abstracted away here to allow for different GCP resources
 # (API endpoints), which can differ widely, making it impossible to use
@@ -18,7 +18,7 @@ from cloudtik.providers._private.gcp.config import (
 from cloudtik.providers._private.gcp.node import (
     GCPResource, GCPNode, GCPCompute, GCPTPU, GCPNodeType)
 
-from cloudtik.providers._private.gcp.utils import get_gcs_config, _get_node_info, \
+from cloudtik.providers._private.gcp.utils import _get_node_info, \
     construct_clients_from_provider_config, get_node_type
 from cloudtik.providers._private.utils import validate_config_dict
 
@@ -64,7 +64,7 @@ class GCPNodeProvider(NodeProvider):
         self.cached_nodes: Dict[str, GCPNode] = {}
 
     def with_environment_variables(self, node_type_config: Dict[str, Any], node_id: str):
-        return get_gcs_config(self.provider_config, node_type_config, node_id)
+        return with_gcp_environment_variables(self.provider_config, node_type_config, node_id)
 
     def _construct_clients(self):
         _, _, compute, tpu = construct_clients_from_provider_config(

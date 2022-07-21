@@ -1,6 +1,6 @@
 #!/bin/bash
 
-args=$(getopt -a -o h::p: -l head::,provider: -- "$@")
+args=$(getopt -a -o h::p: -l head:: -- "$@")
 eval set -- "${args}"
 
 IS_HEAD_NODE=false
@@ -10,10 +10,6 @@ do
     case "$1" in
     --head)
         IS_HEAD_NODE=true
-        ;;
-    -p|--provider)
-        PROVIDER=$2
-        shift
         ;;
     --)
         shift

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-args=$(getopt -a -o h::p: -l head::,node_ip_address::,head_address::,provider:,aws_s3_bucket::,aws_s3_access_key_id::,aws_s3_secret_access_key::,project_id::,gcs_bucket::,gcs_service_account_client_email::,gcs_service_account_private_key_id::,gcs_service_account_private_key::,azure_storage_type::,azure_storage_account::,azure_container::,azure_account_key:: -- "$@")
+args=$(getopt -a -o h::p: -l head::,node_ip_address::,head_address:: -- "$@")
 eval set -- "${args}"
 
 IS_HEAD_NODE=false
@@ -18,58 +18,6 @@ do
         ;;
     -h|--head_address)
         HEAD_ADDRESS=$2
-        shift
-        ;;
-    -p|--provider)
-        provider=$2
-        shift
-        ;;
-    --aws_s3_bucket)
-        AWS_S3_BUCKET=$2
-        shift
-        ;;
-    --aws_s3_access_key_id)
-        AWS_S3_ACCESS_KEY_ID=$2
-        shift
-        ;;
-    --aws_s3_secret_access_key)
-        AWS_S3_SECRET_ACCESS_KEY=$2
-        shift
-        ;;
-    --project_id)
-        PROJECT_ID=$2
-        shift
-        ;;
-    --gcs_bucket)
-        GCS_BUCKET=$2
-        shift
-        ;;
-    --gcs_service_account_client_email)
-        GCS_SERVICE_ACCOUNT_CLIENT_EMAIL=$2
-        shift
-        ;;
-    --gcs_service_account_private_key_id)
-        GCS_SERVICE_ACCOUNT_PRIVATE_KEY_ID=$2
-        shift
-        ;;
-    --gcs_service_account_private_key)
-        GCS_SERVICE_ACCOUNT_PRIVATE_KEY=$2
-        shift
-        ;;
-    --azure_storage_type)
-        AZURE_STORAGE_TYPE=$2
-        shift
-        ;;
-    --azure_storage_account)
-        AZURE_STORAGE_ACCOUNT=$2
-        shift
-        ;;
-    --azure_container)
-        AZURE_CONTAINER=$2
-        shift
-        ;;
-    --azure_account_key)
-        AZURE_ACCOUNT_KEY=$2
         shift
         ;;
     --)
@@ -149,6 +97,17 @@ function check_hdfs_storage() {
     fi
 }
 
+function set_cloud_storage_provider() {
+    cloud_storage_provider="none"
+    if [ "$AWS_CLOUD_STORAGE" == "true" ]; then
+        cloud_storage_provider="aws"
+    elif [ "$AZURE_CLOUD_STORAGE" == "true" ]; then
+        cloud_storage_provider="azure"
+    elif [ "$GCP_CLOUD_STORAGE" == "true" ]; then
+        cloud_storage_provider="gcp"
+    fi
+}
+
 function update_credential_config_for_aws() {
     sed -i "s#{%fs.s3a.access.key%}#${AWS_S3_ACCESS_KEY_ID}#g" `grep "{%fs.s3a.access.key%}" -rl ./`
     sed -i "s#{%fs.s3a.secret.key%}#${AWS_S3_SECRET_ACCESS_KEY}#g" `grep "{%fs.s3a.secret.key%}" -rl ./`
@@ -167,7 +126,12 @@ function update_credential_config_for_azure() {
     sed -i "s#{%fs.azure.account.oauth2.msi.tenant%}#${AZURE_MANAGED_IDENTITY_TENANT_ID}#g" "$(grep "{%fs.azure.account.oauth2.msi.tenant%}" -rl ./)"
     sed -i "s#{%fs.azure.account.oauth2.client.id%}#${AZURE_MANAGED_IDENTITY_CLIENT_ID}#g" "$(grep "{%fs.azure.account.oauth2.client.id%}" -rl ./)"
 
-    sed -i "s#{%azure.storage.scheme%}#${AZURE_SCHEMA}#g" "$(grep "{%azure.storage.scheme%}" -rl ./)"
+    if [ "$AZURE_STORAGE_TYPE" == "blob" ];then
+        AZURE_ENDPOINT="blob"
+    else
+        # Default to datalake
+        AZURE_ENDPOINT="dfs"
+    fi
     sed -i "s#{%storage.endpoint%}#${AZURE_ENDPOINT}#g" "$(grep "{%storage.endpoint%}" -rl ./)"
 
     if [ "$AZURE_STORAGE_TYPE" != "blob" ];then
@@ -181,12 +145,12 @@ function update_credential_config_for_azure() {
 }
 
 function update_credential_config_for_provider() {
-    if [ "$provider" == "aws" ]; then
+    if [ "${cloud_storage_provider}" == "aws" ]; then
         update_credential_config_for_aws
-    elif [ "$provider" == "gcp" ]; then
-        update_credential_config_for_gcp
-    elif [ "$provider" == "azure" ]; then
+    elif [ "${cloud_storage_provider}" == "azure" ]; then
         update_credential_config_for_azure
+    elif [ "${cloud_storage_provider}" == "gcp" ]; then
+        update_credential_config_for_gcp
     fi
 }
 
@@ -273,12 +237,12 @@ function update_config_for_azure() {
 function update_config_for_remote_storage() {
     if [ "$HDFS_STORAGE" == "true" ]; then
         update_config_for_hdfs
-    elif [ "$provider" == "aws" ]; then
+    elif [ "${cloud_storage_provider}" == "aws" ]; then
         update_config_for_aws
-    elif [ "$provider" == "gcp" ]; then
-        update_config_for_gcp
-    elif [ "$provider" == "azure" ]; then
+    elif [ "${cloud_storage_provider}" == "azure" ]; then
         update_config_for_azure
+    elif [ "${cloud_storage_provider}" == "gcp" ]; then
+        update_config_for_gcp
     fi
 }
 
@@ -287,8 +251,15 @@ function update_config_for_storage() {
         update_config_for_local_hdfs
     else
         check_hdfs_storage
+        set_cloud_storage_provider
         update_config_for_remote_storage
-        cp -r ${output_dir}/hadoop/${provider}/core-site.xml  ${HADOOP_HOME}/etc/hadoop/
+
+        if [ "${cloud_storage_provider}" != "none" ];then
+            cp -r ${output_dir}/hadoop/${cloud_storage_provider}/core-site.xml  ${HADOOP_HOME}/etc/hadoop/
+        else
+            # Possible remote hdfs without cloud storage
+            cp -r ${output_dir}/hadoop/core-site.xml  ${HADOOP_HOME}/etc/hadoop/
+        fi
     fi
 }
 

@@ -49,13 +49,8 @@ def cli(logging_level, logging_format):
     is_flag=True,
     default=False,
     help="provide this argument for the head node")
-@click.option(
-    '--provider',
-    required=True,
-    type=str,
-    help="the provider of cluster ")
 @click.argument("script_args", nargs=-1)
-def install(head, provider, script_args):
+def install(head, script_args):
     install_script_path = os.path.join(RUNTIME_SCRIPTS_PATH, "install.sh")
     cmds = [
         "bash",
@@ -64,8 +59,6 @@ def install(head, provider, script_args):
 
     if head:
         cmds += ["--head"]
-    if provider:
-        cmds += ["--provider={}".format(provider)]
     with_script_args(cmds, script_args)
     final_cmd = " ".join(cmds)
 
@@ -79,93 +72,13 @@ def install(head, provider, script_args):
     default=False,
     help="provide this argument for the head node")
 @click.option(
-    '--provider',
-    required=True,
-    type=str,
-    help="the provider of cluster ")
-@click.option(
     '--head_address',
     required=False,
     type=str,
     default="",
     help="the head ip ")
-@click.option(
-    '--aws_s3_bucket',
-    required=False,
-    type=str,
-    default="",
-    help="the bucket name of s3")
-@click.option(
-    '--aws_s3_access_key_id',
-    required=False,
-    type=str,
-    default="",
-    help="the access key id of s3")
-@click.option(
-    '--aws_s3_secret_access_key',
-    required=False,
-    type=str,
-    default="",
-    help="the secret access key of s3")
-@click.option(
-    '--project_id',
-    required=False,
-    type=str,
-    default="",
-    help="gcp project id")
-@click.option(
-    '--gcs_bucket',
-    required=False,
-    type=str,
-    default="",
-    help="gcp cloud storage bucket name")
-@click.option(
-    '--gcs_service_account_client_email',
-    required=False,
-    type=str,
-    default="",
-    help="google service account email")
-@click.option(
-    '--gcs_service_account_private_key_id',
-    required=False,
-    type=str,
-    default="",
-    help="google service account private key id")
-@click.option(
-    '--gcs_service_account_private_key',
-    required=False,
-    type=str,
-    default="",
-    help="google service account private key")
-@click.option(
-    '--azure_storage_type',
-    required=False,
-    type=str,
-    default="",
-    help="azure storage kind, whether azure blob storage or azure data lake gen2")
-@click.option(
-    '--azure_storage_account',
-    required=False,
-    type=str,
-    default="",
-    help="azure storage account")
-@click.option(
-    '--azure_container',
-    required=False,
-    type=str,
-    default="",
-    help="azure storage container")
-@click.option(
-    '--azure_account_key',
-    required=False,
-    type=str,
-    default="",
-    help="azure storage account access key")
 @click.argument("script_args", nargs=-1)
-def configure(head, provider, head_address, aws_s3_bucket, aws_s3_access_key_id, aws_s3_secret_access_key, project_id, gcs_bucket,
-              gcs_service_account_client_email, gcs_service_account_private_key_id,
-              gcs_service_account_private_key, azure_storage_type, azure_storage_account, azure_container,
-              azure_account_key, script_args):
+def configure(head, head_address, script_args):
     shell_path = os.path.join(RUNTIME_SCRIPTS_PATH, "configure.sh")
     cmds = [
         "bash",
@@ -174,38 +87,8 @@ def configure(head, provider, head_address, aws_s3_bucket, aws_s3_access_key_id,
 
     if head:
         cmds += ["--head"]
-    if provider:
-        cmds += ["--provider={}".format(provider)]
     if head_address:
         cmds += ["--head_address={}".format(head_address)]
-
-    if aws_s3_bucket:
-        cmds += ["--aws_s3_bucket={}".format(aws_s3_bucket)]
-    if aws_s3_access_key_id:
-        cmds += ["--aws_s3_access_key_id={}".format(aws_s3_access_key_id)]
-    if aws_s3_secret_access_key:
-        cmds += ["--aws_s3_secret_access_key={}".format(aws_s3_secret_access_key)]
-
-    if project_id:
-        cmds += ["--project_id={}".format(project_id)]
-    if gcs_bucket:
-        cmds += ["--gcs_bucket={}".format(gcs_bucket)]
-
-    if gcs_service_account_client_email:
-        cmds += ["--gcs_service_account_client_email={}".format(gcs_service_account_client_email)]
-    if gcs_service_account_private_key_id:
-        cmds += ["--gcs_service_account_private_key_id={}".format(gcs_service_account_private_key_id)]
-    if gcs_service_account_private_key:
-        cmds += ["--gcs_service_account_private_key={}".format(quote(gcs_service_account_private_key))]
-
-    if azure_storage_type:
-        cmds += ["--azure_storage_type={}".format(azure_storage_type)]
-    if azure_storage_account:
-        cmds += ["--azure_storage_account={}".format(azure_storage_account)]
-    if azure_container:
-        cmds += ["--azure_container={}".format(azure_container)]
-    if azure_account_key:
-        cmds += ["--azure_account_key={}".format(azure_account_key)]
 
     with_script_args(cmds, script_args)
 

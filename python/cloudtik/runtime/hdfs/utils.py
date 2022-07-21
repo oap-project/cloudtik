@@ -94,7 +94,7 @@ def _get_runtime_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]
             "protocol": "TCP",
             "port": 9870,
         },
-        "hdfs-namenode": {
+        "hdfs-nn": {
             "protocol": "TCP",
             "port": 9000,
         },

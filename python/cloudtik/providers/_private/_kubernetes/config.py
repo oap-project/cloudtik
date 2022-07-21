@@ -777,7 +777,7 @@ def _configure_service_ports(service, service_ports):
     for port_name in service_ports:
         port_config = service_ports[port_name]
         port = {
-            "name": "{}_service_port".format(port_name),
+            "name": "{}-svc-port".format(port_name),
             "protocol": port_config["protocol"],
             "port": port_config["port"],
             "targetPort": port_name,

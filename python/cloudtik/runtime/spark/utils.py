@@ -325,7 +325,7 @@ def _get_runtime_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]
             "protocol": "TCP",
             "port": 8888,
         },
-        "spark-history-server": {
+        "history-server": {
             "protocol": "TCP",
             "port": 18080,
         },

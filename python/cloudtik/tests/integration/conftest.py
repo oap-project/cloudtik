@@ -51,11 +51,16 @@ def cluster_up_down_opt(conf):
     if conf["provider"]["type"] == "gcp":
         conf["provider"]["project_id"] = pytest.gcp_project_id
     cluster = Cluster(conf)
-    print("\nStart cluster {}".format(conf["cluster_name"]))
-    cluster.start()
-    yield cluster
-    print("\nTeardown cluster {}".format(conf["cluster_name"]))
-    cluster.stop()
+    try:
+        print("\nStart cluster {}".format(conf["cluster_name"]))
+        cluster.start()
+        yield cluster
+    except Exception as e:
+        print("\nFailed to start cluster {}".format(conf["cluster_name"]))
+        print("Exception: "+str(e))
+    finally:
+        print("\nTeardown cluster {}".format(conf["cluster_name"]))
+        cluster.stop()
 
 
 @pytest.fixture(scope="class")
@@ -93,5 +98,5 @@ def runtime_cluster_fixture(request):
                              "/scripts/bootstrap-benchmark.sh &&bash ~/bootstrap-benchmark.sh  --workload=tpcds "]
     if not conf.get("runtime", False):
         conf["runtime"] = {}
-    conf["runtime"]["types"] = ["ganglia", "metastore", "zookeeper", "spark", "kafka"]
+    conf["runtime"]["types"] = ["ganglia", "metastore", "zookeeper", "spark", "kafka", "presto"]
     yield from cluster_up_down_opt(conf)

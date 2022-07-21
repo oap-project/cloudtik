@@ -22,6 +22,11 @@ KAFKA_BENCHMARK = {
     "script_args": ""
 }
 
+PRESTO_BENCHMARK = {
+    "script_file": "https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/presto/scripts/tpcds-tpch-power-test.sh",
+    "script_args": "--workload=tpcds --scale=1 --iteration=2"
+}
+
 runtime_additional_conf = {
     'setup_commands': 'wget -P ~/ https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/spark/scripts/bootstrap-benchmark.sh &&bash ~/bootstrap-benchmark.sh  --tpcds ',
     'runtime': {'types': ['ganglia', 'metastore', 'spark', 'kafka']}}

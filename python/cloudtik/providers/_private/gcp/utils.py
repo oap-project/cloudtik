@@ -236,7 +236,7 @@ def get_gcp_cloud_storage_config(provider_config, config_dict: Dict[str, Any]):
 
     project_id = cloud_storage.get("project_id")
     if project_id:
-        config_dict["PROJECT_ID"] = project_id
+        config_dict["GCP_PROJECT_ID"] = project_id
 
     gcs_bucket = cloud_storage.get("gcs.bucket")
     if gcs_bucket:

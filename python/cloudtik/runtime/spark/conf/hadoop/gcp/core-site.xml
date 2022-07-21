@@ -28,7 +28,7 @@
     </property>
     <property>
         <name>fs.gs.project.id</name>
-        <value>{%project_id%}</value>
+        <value>{%fs.gs.project.id%}</value>
         <description>
         Optional. Google Cloud Project ID with access to GCS buckets.
         Required only for list buckets and create bucket operations.

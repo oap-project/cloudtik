@@ -1967,9 +1967,9 @@ def with_gcp_environment_variables(provider_config, node_type_config: Dict[str, 
     config_dict = {}
     get_gcp_cloud_storage_config(provider_config, config_dict)
 
-    if "PROJECT_ID" not in config_dict:
+    if "GCP_PROJECT_ID" not in config_dict:
         project_id = provider_config.get("project_id")
         if project_id:
-            config_dict["PROJECT_ID"] = project_id
+            config_dict["GCP_PROJECT_ID"] = project_id
 
     return config_dict

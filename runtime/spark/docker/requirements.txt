@@ -1,8 +1,3 @@
-mxnet==1.9.1
-mlflow==1.27.0
-pyarrow==8.0.0
-hyperopt==0.2.7
-scikit-learn==1.0.2
 # jupyter_core 4.11.0 removed jupyter.py which cause spylon-kernel install failed with no module named jupyter
 # once this is fixed, we can upgrade to any compatible version
 jupyter_core==4.10.0
@@ -10,4 +5,4 @@ jupyter_server==1.16.0
 jupyterlab==3.4.3
 nbclassic==0.3.7
 spylon-kernel==0.4.1
-tensorflow==2.9.1
+

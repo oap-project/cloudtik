@@ -116,23 +116,9 @@ function install_jupyter_for_spark() {
     fi
 }
 
-function install_ai_libraries() {
-    if [ -f /.dockerenv ]; then
-        horovodrun --check-build
-    else
-        pip -qq install mxnet==1.9.1 tensorflow==2.9.1
-        pip -qq install torch==1.12.0 torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cpu
-        pip -qq install mlflow==1.27.0 pyarrow==8.0.0 hyperopt==0.2.7 scikit-learn==1.0.2
-        mkdir -p $RUNTIME_PATH/mlflow
-        export CXX=/usr/bin/g++-9&&HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_MXNET=1 HOROVOD_WITH_GLOO=1 pip install  horovod[all-frameworks]==0.25.0
-    fi
-}
-
 function install_tools() {
     which jq > /dev/null || sudo apt-get -qq update -y; sudo apt-get -qq install jq -y
     which vim > /dev/null || sudo apt-get -qq update -y; sudo apt-get -qq install vim -y
-    which cmake > /dev/null || sudo apt-get -qq update -y; sudo apt-get -qq install cmake -y
-    which g++-9 > /dev/null || sudo apt-get -qq update -y; sudo apt-get -qq install g++-9 -y
 }
 
 function install_yarn_with_spark_jars() {
@@ -193,7 +179,6 @@ install_hadoop
 install_spark
 install_jupyter_for_spark
 install_tools
-install_ai_libraries
 install_yarn_with_spark_jars
 install_hadoop_with_cloud_jars
 install_spark_with_cloud_jars

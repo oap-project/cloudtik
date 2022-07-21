@@ -1,10 +1,18 @@
 ARG BASE_IMAGE="nightly"
 FROM cloudtik/spark-runtime:"$BASE_IMAGE"
 
+RUN sudo apt-get update -y \
+    && sudo apt-get install -y \
+        cmake \
+        g++-9 \
+    # Clean up
+    && sudo rm -rf /var/lib/apt/lists/* \
+    && sudo apt-get clean
+
 WORKDIR /home/cloudtik/
 COPY requirements.txt /tmp/requirements.txt
 RUN export PATH="$HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH" \
-    && pip install -r  /tmp/requirements.txt \
+    && pip install -r /tmp/requirements.txt \
     && sudo rm /tmp/requirements.txt \
     && pip install torch==1.12.0 torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cpu \
     && export CXX=/usr/bin/g++-9 \

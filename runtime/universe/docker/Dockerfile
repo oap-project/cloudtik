@@ -25,7 +25,10 @@ ENV PRESTO_HOME           $RUNTIME_PATH/presto
 ENV PATH                  $PRESTO_HOME/bin:$KAFKA_HOME/bin:$ZOOKEEPER_HOME/bin:$PATH
 
 RUN sudo apt-get update -y \
-    && sudo apt-get install -y ganglia-monitor \
+    && sudo apt-get install -y \
+        ganglia-monitor \
+        cmake \
+        g++-9 \
     && sudo rm -rf /var/lib/apt/lists/* \
     && sudo apt-get clean
 

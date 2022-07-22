@@ -176,13 +176,15 @@ def find_redis_address(address=None):
             cmdline = proc.cmdline()
             # NOTE: To support Windows, we can't use
             # `os.path.basename(cmdline[0]) == "abc"` here.
-            # TODO (haifeng): use the right way to detect the redis
-            if utils.find_name_in_command(cmdline, "cloudtik_cluster_controller"):
+            # TODO: use the right way to detect the redis
+            if utils.find_name_in_command(cmdline, "cloudtik_cluster_controller") or \
+                    utils.find_name_in_command(cmdline, "cloudtik_node_controller") or \
+                    utils.find_name_in_command(cmdline, "cloudtik_log_monitor"):
                 for arglist in cmdline:
                     # Given we're merely seeking --redis-address, we just split
                     # every argument on spaces for now.
                     for arg in arglist.split(" "):
-                        # TODO(ekl): Find a robust solution for locating Redis.
+                        # TODO: Find a robust solution for locating Redis.
                         if arg.startswith("--redis-address="):
                             proc_addr = arg.split("=")[1]
                             if address is not None and address != proc_addr:

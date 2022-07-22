@@ -376,11 +376,11 @@ def wait_for_ready(min_workers, timeout):
     type=str,
     help="Override the address to connect to.")
 @click.option(
-    "--redis_password",
+    "--redis-password",
     required=False,
     type=str,
     default=CLOUDTIK_REDIS_DEFAULT_PASSWORD,
-    help="Connect with redis_password.")
+    help="Connect with redis password.")
 @add_click_logging_options
 def debug_status(address, redis_password):
     """Print cluster status, including autoscaling info."""
@@ -396,12 +396,21 @@ def debug_status(address, redis_password):
 
 @head.command()
 @click.option(
-    "--redis_address", required=True, type=str, help="the address to redis", default="127.0.0.1")
+    "--address",
+    required=False,
+    type=str,
+    help="Override the address to connect to.")
+@click.option(
+    "--redis-password",
+    required=False,
+    type=str,
+    default=CLOUDTIK_REDIS_DEFAULT_PASSWORD,
+    help="Connect with redis password.")
 @add_click_logging_options
-def process_status(redis_address):
+def process_status(address, redis_password):
     """Show cluster process status."""
     cluster_process_status_on_head(
-        redis_address)
+        address, redis_password)
 
 
 @head.command()
@@ -411,11 +420,11 @@ def process_status(redis_address):
     type=str,
     help="Override the address to connect to.")
 @click.option(
-    "--redis_password",
+    "--redis-password",
     required=False,
     type=str,
     default=CLOUDTIK_REDIS_DEFAULT_PASSWORD,
-    help="Connect  with redis_password.")
+    help="Connect with redis password.")
 @click.option(
     "--component",
     required=False,

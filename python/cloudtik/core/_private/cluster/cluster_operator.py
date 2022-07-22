@@ -22,6 +22,7 @@ import yaml
 
 from cloudtik.core._private import services, constants
 from cloudtik.core._private.call_context import CallContext
+from cloudtik.core._private.services import validate_redis_address
 
 try:  # py3
     from shlex import quote
@@ -2213,10 +2214,11 @@ def teardown_cluster_on_head(keep_min_workers: bool,
                            hard=hard)
 
 
-def cluster_process_status_on_head(redis_address):
+def cluster_process_status_on_head(redis_address, redis_password):
     control_state = ControlState()
-    control_state.initialize_control_state(redis_address, CLOUDTIK_DEFAULT_PORT,
-                                           CLOUDTIK_REDIS_DEFAULT_PASSWORD)
+    _, redis_ip_address, redis_port = validate_redis_address(redis_address)
+    control_state.initialize_control_state(redis_ip_address, redis_port,
+                                           redis_password)
     node_table = control_state.get_node_table()
 
     tb = pt.PrettyTable()

@@ -30,6 +30,24 @@ do
     --build-dev)
         BUILD_DEV=YES
         ;;
+    --no-build-all)
+        NO_BUILD_ALL=YES
+        ;;
+    --build-spark)
+        BUILD_SPARK=YES
+        ;;
+    --build-presto)
+        BUILD_PRESTO=YES
+        ;;
+    --build-trino)
+        BUILD_TRINO=YES
+        ;;
+    --build-ml)
+        BUILD_ML=YES
+        ;;
+    --build-universe)
+        BUILD_UNIVERSE=YES
+        ;;
     --shas-only)
         # output the SHA sum of each build. This is useful for scripting tests,
         # especially when builds of different versions are running on the same machine.
@@ -98,8 +116,22 @@ fi
 
 rm -rf "$WHEEL_DIR"
 
-docker build  $NO_CACHE -t cloudtik/spark-runtime:nightly runtime/spark/docker
-docker build  $NO_CACHE -t cloudtik/presto-runtime:nightly runtime/presto/docker
-docker build  $NO_CACHE -t cloudtik/trino-runtime:nightly runtime/trino/docker
-docker build  $NO_CACHE -t cloudtik/ml-runtime:nightly runtime/ml/docker
-docker build  $NO_CACHE -t cloudtik/universe-runtime:nightly runtime/universe/docker
+if [ $BUILD_SPARK ] || [ ! $NO_BUILD_ALL ]; then
+    docker build  $NO_CACHE -t cloudtik/spark-runtime:nightly runtime/spark/docker
+fi
+
+if [ $BUILD_PRESTO ] || [ ! $NO_BUILD_ALL ]; then
+    docker build  $NO_CACHE -t cloudtik/presto-runtime:nightly runtime/presto/docker
+fi
+
+if [ $BUILD_TRINO ] || [ ! $NO_BUILD_ALL ]; then
+    docker build  $NO_CACHE -t cloudtik/trino-runtime:nightly runtime/trino/docker
+fi
+
+if [ $BUILD_ML ] || [ ! $NO_BUILD_ALL ]; then
+    docker build  $NO_CACHE -t cloudtik/ml-runtime:nightly runtime/ml/docker
+fi
+
+if [ $BUILD_UNIVERSE ] || [ ! $NO_BUILD_ALL ]; then
+    docker build  $NO_CACHE -t cloudtik/universe-runtime:nightly runtime/universe/docker
+fi

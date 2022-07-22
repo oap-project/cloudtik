@@ -2196,8 +2196,7 @@ def _create_workspace_security_group(config, vpc_id):
 
 
 def _update_security_group(config, vpc_id):
-    security_group = get_workspace_security_group(config, vpc_id,
-                                                  SECURITY_GROUP_TEMPLATE.format(config["workspace_name"]))
+    security_group = get_workspace_security_group(config, vpc_id, config["workspace_name"])
     _add_security_group_rules(config, security_group)
     return security_group
 

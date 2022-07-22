@@ -109,8 +109,10 @@ function set_cloud_storage_provider() {
 }
 
 function update_credential_config_for_aws() {
-    sed -i "s#{%fs.s3a.access.key%}#${AWS_S3_ACCESS_KEY_ID}#g" `grep "{%fs.s3a.access.key%}" -rl ./`
-    sed -i "s#{%fs.s3a.secret.key%}#${AWS_S3_SECRET_ACCESS_KEY}#g" `grep "{%fs.s3a.secret.key%}" -rl ./`
+    JCEKS_PATH="jceks://file@${HADOOP_HOME}/s3.jceks"
+    hadoop credential create fs.s3a.access.key -value ${AWS_S3_ACCESS_KEY_ID}  -provider ${JCEKS_PATH}
+    hadoop credential create fs.s3a.secret.key -value ${AWS_S3_SECRET_ACCESS_KEY}  -provider ${JCEKS_PATH}
+    sed -i "s#{%s3.jceks%}#${JCEKS_PATH}#g" `grep "{%s3.jceks%}" -rl ./`
 }
 
 function update_credential_config_for_gcp() {

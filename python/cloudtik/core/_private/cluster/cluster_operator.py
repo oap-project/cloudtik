@@ -50,7 +50,7 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     is_node_in_completed_status, check_for_single_worker_type, get_preferred_cpu_bundle_size, \
     get_node_specific_commands_of_runtimes, _get_node_specific_runtime_config, \
     _get_node_specific_docker_config, RUNTIME_CONFIG_KEY, DOCKER_CONFIG_KEY, get_running_head_node, \
-    get_nodes_for_runtime, with_script_args
+    get_nodes_for_runtime, with_script_args, encrypt_config
 
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
@@ -401,16 +401,18 @@ def _bootstrap_config(config: Dict[str, Any],
 
     resolved_config = provider_cls.bootstrap_config(config)
 
+    # encrypt sensitive fields in configuration
+    store_config = encrypt_config(resolved_config)
+
     # add a verify step
     verify_config(resolved_config)
-
     if not no_config_cache or init_config_cache:
         with open(cache_key, "w", opener=partial(os.open, mode=0o600)) as f:
             config_cache = {
                 "_version": CONFIG_CACHE_VERSION,
                 "provider_log_info": try_get_log_state(
                     resolved_config["provider"]),
-                "config": resolved_config
+                "config": store_config
             }
             f.write(json.dumps(config_cache))
     return resolved_config

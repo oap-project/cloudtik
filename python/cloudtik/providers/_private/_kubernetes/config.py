@@ -17,7 +17,9 @@ from cloudtik.core.workspace_provider import Existence
 from cloudtik.providers._private._kubernetes import auth_api, core_api, log_prefix
 from cloudtik.core._private.constants import CLOUDTIK_DEFAULT_OBJECT_STORE_MEMORY_PROPORTION
 from cloudtik.providers._private._kubernetes.utils import _get_node_info, to_label_selector, \
-    KUBERNETES_WORKSPACE_NAME_MAX, check_kubernetes_name_format
+    KUBERNETES_WORKSPACE_NAME_MAX, check_kubernetes_name_format, _get_head_service_account_name, \
+    _get_worker_service_account_name, KUBERNETES_HEAD_SERVICE_ACCOUNT_CONFIG_KEY, \
+    KUBERNETES_WORKER_SERVICE_ACCOUNT_CONFIG_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -37,18 +39,22 @@ CLOUDTIK_HEAD_SERVICE_NAME_FORMAT = "cloudtik-{}-head"
 
 CONFIG_NAME_IMAGE = "image"
 
-KUBERNETES_CLOUDTIK_SERVICE_ACCOUNT_NAME = "cloudtik-controller"
-KUBERNETES_CLOUDTIK_ROLE_NAME = "cloudtik-controller"
-KUBERNETES_CLOUDTIK_ROLE_BINDING_NAME = "cloudtik-controller"
+KUBERNETES_HEAD_ROLE_NAME = "cloudtik-role"
+KUBERNETES_HEAD_ROLE_BINDING_NAME = "cloudtik-role-binding"
 
 KUBERNETES_NAMESPACE = "kubernetes.namespace"
-KUBERNETES_CONTROLLER_SERVICE_ACCOUNT = "controller.service_account"
-KUBERNETES_CONTROLLER_ROLE = "controller.role"
-KUBERNETES_CONTROLLER_ROLE_BINDING = "controller.role_binding"
+KUBERNETES_HEAD_SERVICE_ACCOUNT = "head.service_account"
+KUBERNETES_HEAD_ROLE = "head.role"
+KUBERNETES_HEAD_ROLE_BINDING = "head.role_binding"
 
-KUBERNETES_WORKSPACE_NUM_CREATION_STEPS = 4
-KUBERNETES_WORKSPACE_NUM_DELETION_STEPS = 4
-KUBERNETES_WORKSPACE_TARGET_RESOURCES = 4
+
+KUBERNETES_HEAD_ROLE_CONFIG_KEY = "head_role"
+KUBERNETES_HEAD_ROLE_BINDING_CONFIG_KEY = "head_role_binding"
+
+
+KUBERNETES_WORKSPACE_NUM_CREATION_STEPS = 5
+KUBERNETES_WORKSPACE_NUM_DELETION_STEPS = 5
+KUBERNETES_WORKSPACE_TARGET_RESOURCES = 5
 
 
 def head_service_selector(cluster_name: str) -> Dict[str, str]:
@@ -153,19 +159,24 @@ def get_workspace_namespace(workspace_name: str):
     return namespace_name
 
 
-def _get_workspace_service_account(config, namespace):
-    name = _get_controller_service_account_name(config["provider"])
-    return _get_controller_service_account(namespace, name)
+def _get_head_service_account(config, namespace):
+    name = _get_head_service_account_name(config["provider"])
+    return _get_service_account(namespace, name)
 
 
-def _get_workspace_role(config, namespace):
-    name = _get_controller_role_name(config["provider"])
-    return _get_controller_role(namespace, name)
+def _get_worker_service_account(config, namespace):
+    name = _get_worker_service_account_name(config["provider"])
+    return _get_service_account(namespace, name)
 
 
-def _get_workspace_role_binding(config, namespace):
-    name = _get_controller_role_binding_name(config["provider"])
-    return _get_controller_role_binding(namespace, name)
+def _get_head_role(config, namespace):
+    name = _get_head_role_name(config["provider"])
+    return _get_role(namespace, name)
+
+
+def _get_head_role_binding(config, namespace):
+    name = _get_head_role_binding_name(config["provider"])
+    return _get_role_binding(namespace, name)
 
 
 def create_kubernetes_workspace(config):
@@ -191,22 +202,28 @@ def delete_kubernetes_workspace(config, delete_managed_storage: bool = False):
     try:
         with cli_logger.group("Deleting workspace: {}", workspace_name):
             with cli_logger.group(
+                    "Deleting cloud provider configurations",
+                    _numbered=("[]", current_step, total_steps)):
+                current_step += 1
+                _delete_configurations_for_cloud_provider(config, workspace_name, delete_managed_storage)
+
+            with cli_logger.group(
                     "Deleting role binding",
                     _numbered=("[]", current_step, total_steps)):
                 current_step += 1
-                _delete_controller_role_binding(workspace_name, config["provider"])
+                _delete_head_role_binding(workspace_name, config["provider"])
 
             with cli_logger.group(
                     "Deleting role",
                     _numbered=("[]", current_step, total_steps)):
                 current_step += 1
-                _delete_controller_role(workspace_name, config["provider"])
+                _delete_head_role(workspace_name, config["provider"])
 
             with cli_logger.group(
-                    "Deleting service account",
+                    "Deleting service accounts",
                     _numbered=("[]", current_step, total_steps)):
                 current_step += 1
-                _delete_controller_service_account(workspace_name, config["provider"])
+                _delete_service_accounts(workspace_name, config["provider"])
 
             with cli_logger.group(
                     "Deleting namespace",
@@ -231,7 +248,7 @@ def check_kubernetes_workspace_existence(config):
     """
          Do the work - order of operation
          1.) Check namespace
-         2.) Check service account
+         2.) Check service accounts (2)
          3.) Check role
          4.) Check role binding
     """
@@ -240,11 +257,13 @@ def check_kubernetes_workspace_existence(config):
         existing_resources += 1
 
         # Resources depending on namespace
-        if _get_workspace_service_account(config, namespace) is not None:
+        if _get_head_service_account(config, namespace) is not None:
             existing_resources += 1
-        if _get_workspace_role(config, namespace) is not None:
+        if _get_worker_service_account(config, namespace) is not None:
             existing_resources += 1
-        if _get_workspace_role_binding(config, namespace) is not None:
+        if _get_head_role(config, namespace) is not None:
+            existing_resources += 1
+        if _get_head_role_binding(config, namespace) is not None:
             existing_resources += 1
 
     if existing_resources == 0:
@@ -274,15 +293,15 @@ def get_kubernetes_workspace_info(config):
     workspace_name = config["workspace_name"]
     provider_config = config["provider"]
 
-    service_account_name = _get_controller_service_account_name(provider_config)
-    role_name = _get_controller_role_name(provider_config)
-    role_binding_name = _get_controller_role_binding_name(provider_config)
+    service_account_name = _get_head_service_account_name(provider_config)
+    role_name = _get_head_role_name(provider_config)
+    role_binding_name = _get_head_role_binding_name(provider_config)
 
     info = {
         KUBERNETES_NAMESPACE: workspace_name,
-        KUBERNETES_CONTROLLER_SERVICE_ACCOUNT: service_account_name,
-        KUBERNETES_CONTROLLER_ROLE: role_name,
-        KUBERNETES_CONTROLLER_ROLE_BINDING: role_binding_name,
+        KUBERNETES_HEAD_SERVICE_ACCOUNT: service_account_name,
+        KUBERNETES_HEAD_ROLE: role_name,
+        KUBERNETES_HEAD_ROLE_BINDING: role_binding_name,
     }
 
     return info
@@ -338,11 +357,9 @@ def bootstrap_kubernetes_default(config):
 
     if not config["provider"].get("_operator"):
         # These steps are unnecessary when using the Operator.
-        _configure_controller_service_account(namespace, config["provider"])
-        _configure_controller_role(namespace, config["provider"])
-        _configure_controller_role_binding(namespace, config["provider"])
-
-    _configure_head_service_account(config)
+        _configure_head_service_account(namespace, config["provider"])
+        _configure_head_role(namespace, config["provider"])
+        _configure_head_role_binding(namespace, config["provider"])
 
     return config
 
@@ -356,12 +373,11 @@ def bootstrap_kubernetes_from_workspace(config):
 
     namespace = _configure_namespace_from_workspace(config)
 
+    _configure_cloud_provider(config, namespace)
     _configure_pods(config)
     _configure_services(config)
 
     _create_or_update_services(namespace, config["provider"])
-
-    _configure_head_service_account(config)
 
     return config
 
@@ -542,8 +558,8 @@ def _configure_namespace(provider_config):
     return namespace
 
 
-def _configure_controller_service_account(namespace, provider_config):
-    account_field = "controller_service_account"
+def _configure_head_service_account(namespace, provider_config):
+    account_field = KUBERNETES_HEAD_SERVICE_ACCOUNT_CONFIG_KEY
     if account_field not in provider_config:
         cli_logger.print(log_prefix + not_provided_msg(account_field))
         return
@@ -568,8 +584,8 @@ def _configure_controller_service_account(namespace, provider_config):
     cli_logger.print(log_prefix + created_msg(account_field, name))
 
 
-def _configure_controller_role(namespace, provider_config):
-    role_field = "controller_role"
+def _configure_head_role(namespace, provider_config):
+    role_field = KUBERNETES_HEAD_ROLE_CONFIG_KEY
     if role_field not in provider_config:
         cli_logger.print(log_prefix + not_provided_msg(role_field))
         return
@@ -594,8 +610,8 @@ def _configure_controller_role(namespace, provider_config):
     cli_logger.print(log_prefix + created_msg(role_field, name))
 
 
-def _configure_controller_role_binding(namespace, provider_config):
-    binding_field = "controller_role_binding"
+def _configure_head_role_binding(namespace, provider_config):
+    binding_field = KUBERNETES_HEAD_ROLE_BINDING_CONFIG_KEY
     if binding_field not in provider_config:
         cli_logger.print(log_prefix + not_provided_msg(binding_field))
         return
@@ -668,6 +684,8 @@ def _configure_pods(config):
 
     # Configure the head pod container ports
     _configure_pod_container_ports(config)
+
+    _configure_pod_service_account(config)
 
 
 def _configure_pod_name_and_labels(config):
@@ -786,20 +804,27 @@ def _configure_service_ports(service, service_ports):
     service["spec"]["ports"] = ports
 
 
-def _configure_head_service_account(config):
+def _configure_pod_service_account(config):
     if "available_node_types" not in config:
         return config
 
-    service_account_name = KUBERNETES_CLOUDTIK_SERVICE_ACCOUNT_NAME
+    provider_config = config["provider"]
+
+    head_service_account_name = _get_head_service_account_name(provider_config)
+    worker_service_account_name = _get_worker_service_account_name(provider_config)
     node_types = config["available_node_types"]
     head_node_type = config["head_node_type"]
     for node_type in node_types:
+        node_type_config = node_types[node_type]
+        pod_spec = node_type_config["node_config"]["spec"]
         if node_type == head_node_type:
-            node_type_config = node_types[node_type]
-            pod_spec = node_type_config["node_config"]["spec"]
             # If service account name is not configured, configure it
             if "serviceAccountName" not in pod_spec:
-                pod_spec["serviceAccountName"] = service_account_name
+                pod_spec["serviceAccountName"] = head_service_account_name
+        else:
+            # If service account name is not configured, configure it
+            if "serviceAccountName" not in pod_spec:
+                pod_spec["serviceAccountName"] = worker_service_account_name
 
 
 def _configure_pod_image(config):
@@ -922,22 +947,28 @@ def _create_workspace(config):
                 _create_namespace(workspace_name)
 
             with cli_logger.group(
-                    "Creating service account",
+                    "Creating service accounts",
                     _numbered=("[]", current_step, total_steps)):
                 current_step += 1
-                _create_controller_service_account(workspace_name, config["provider"])
+                _create_head_service_account(workspace_name, config["provider"])
 
             with cli_logger.group(
                     "Creating role",
                     _numbered=("[]", current_step, total_steps)):
                 current_step += 1
-                _create_controller_role(workspace_name, config["provider"])
+                _create_head_role(workspace_name, config["provider"])
 
             with cli_logger.group(
                     "Creating role binding",
                     _numbered=("[]", current_step, total_steps)):
                 current_step += 1
-                _create_controller_role_binding(workspace_name, config["provider"])
+                _create_head_role_binding(workspace_name, config["provider"])
+
+            with cli_logger.group(
+                    "Creating cloud provider configurations",
+                    _numbered=("[]", current_step, total_steps)):
+                current_step += 1
+                _create_configurations_for_cloud_provider(config, workspace_name)
 
     except Exception as e:
         cli_logger.error("Failed to create workspace with the name {}. "
@@ -985,15 +1016,7 @@ def _create_namespace(workspace_name: str):
     return namespace
 
 
-def _get_controller_service_account_name(provider_config):
-    account_field = "controller_service_account"
-    name = provider_config.get(account_field, {}).get("metadata", {}).get("name")
-    if name is None or name == "":
-        return KUBERNETES_CLOUDTIK_SERVICE_ACCOUNT_NAME
-    return name
-
-
-def _get_controller_service_account(namespace, name):
+def _get_service_account(namespace, name):
     field_selector = "metadata.name={}".format(name)
 
     cli_logger.verbose("Getting the service account: {} {}.", namespace, name)
@@ -1007,14 +1030,50 @@ def _get_controller_service_account(namespace, name):
     return None
 
 
-def _create_controller_service_account(namespace, provider_config):
-    account_field = "controller_service_account"
+def _create_service_accounts(namespace, provider_config):
+    current_step = 1
+    total_steps = 2
+
+    with cli_logger.group(
+            "Creating head service account",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _create_head_service_account(namespace, provider_config)
+
+    with cli_logger.group(
+            "Creating worker service account",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _create_worker_service_account(namespace, provider_config)
+
+
+def _create_head_service_account(namespace, provider_config):
+    service_account_name = _get_head_service_account_name(provider_config)
+    _create_service_account(
+        namespace,
+        provider_config,
+        KUBERNETES_HEAD_SERVICE_ACCOUNT_CONFIG_KEY,
+        service_account_name
+    )
+
+
+def _create_worker_service_account(namespace, provider_config):
+    service_account_name = _get_worker_service_account_name(provider_config)
+    _create_service_account(
+        namespace,
+        provider_config,
+        KUBERNETES_WORKER_SERVICE_ACCOUNT_CONFIG_KEY,
+        service_account_name
+    )
+
+
+def _create_service_account(namespace, provider_config,
+                            account_field, name):
     if account_field not in provider_config:
         cli_logger.print(log_prefix + not_provided_msg(account_field))
         return
 
-    name = _get_controller_service_account_name(provider_config)
-    service_account_object = _get_controller_service_account(namespace, name)
+    service_account_object = _get_service_account(namespace, name)
     if service_account_object is not None:
         cli_logger.print(log_prefix + using_existing_msg(account_field, name))
         return
@@ -1034,15 +1093,15 @@ def _create_controller_service_account(namespace, provider_config):
     cli_logger.print(log_prefix + created_msg(account_field, name))
 
 
-def _get_controller_role_name(provider_config):
-    role_field = "controller_role"
+def _get_head_role_name(provider_config):
+    role_field = KUBERNETES_HEAD_ROLE_CONFIG_KEY
     name = provider_config.get(role_field, {}).get("metadata", {}).get("name")
     if name is None or name == "":
-        return KUBERNETES_CLOUDTIK_ROLE_NAME
+        return KUBERNETES_HEAD_ROLE_NAME
     return name
 
 
-def _get_controller_role(namespace, name):
+def _get_role(namespace, name):
     field_selector = "metadata.name={}".format(name)
     cli_logger.verbose("Getting the role: {} {}.", namespace, name)
     roles = auth_api().list_namespaced_role(
@@ -1056,14 +1115,14 @@ def _get_controller_role(namespace, name):
     return None
 
 
-def _create_controller_role(namespace, provider_config):
-    role_field = "controller_role"
+def _create_head_role(namespace, provider_config):
+    role_field = KUBERNETES_HEAD_ROLE_CONFIG_KEY
     if role_field not in provider_config:
         cli_logger.print(log_prefix + not_provided_msg(role_field))
         return
 
-    name = _get_controller_role_name(provider_config)
-    role_object = _get_controller_role(namespace, name)
+    name = _get_head_role_name(provider_config)
+    role_object = _get_role(namespace, name)
     if role_object is not None:
         cli_logger.print(log_prefix + using_existing_msg(role_field, name))
         return
@@ -1083,15 +1142,15 @@ def _create_controller_role(namespace, provider_config):
     cli_logger.print(log_prefix + created_msg(role_field, name))
 
 
-def _get_controller_role_binding_name(provider_config):
-    binding_field = "controller_role_binding"
+def _get_head_role_binding_name(provider_config):
+    binding_field = KUBERNETES_HEAD_ROLE_BINDING_CONFIG_KEY
     name = provider_config.get(binding_field, {}).get("metadata", {}).get("name")
     if name is None or name == "":
-        return KUBERNETES_CLOUDTIK_ROLE_BINDING_NAME
+        return KUBERNETES_HEAD_ROLE_BINDING_NAME
     return name
 
 
-def _get_controller_role_binding(namespace, name):
+def _get_role_binding(namespace, name):
     field_selector = "metadata.name={}".format(name)
 
     cli_logger.verbose("Getting the role binding: {} {}.", namespace, name)
@@ -1106,20 +1165,20 @@ def _get_controller_role_binding(namespace, name):
     return None
 
 
-def _create_controller_role_binding(namespace, provider_config):
-    binding_field = "controller_role_binding"
+def _create_head_role_binding(namespace, provider_config):
+    binding_field = KUBERNETES_HEAD_ROLE_BINDING_CONFIG_KEY
     if binding_field not in provider_config:
         cli_logger.print(log_prefix + not_provided_msg(binding_field))
         return
 
-    name = _get_controller_role_binding_name(provider_config)
-    role_binding_object = _get_controller_role_binding(namespace, name)
+    name = _get_head_role_binding_name(provider_config)
+    role_binding_object = _get_role_binding(namespace, name)
     if role_binding_object is not None:
         cli_logger.print(log_prefix + using_existing_msg(binding_field, name))
         return
 
-    service_account_name = _get_controller_service_account_name(provider_config)
-    role_name = _get_controller_role_name(provider_config)
+    service_account_name = _get_head_service_account_name(provider_config)
+    role_name = _get_head_role_name(provider_config)
     binding = provider_config[binding_field]
     if "metadata" not in binding:
         binding["metadata"] = {}
@@ -1157,10 +1216,35 @@ def _delete_namespace(namespace):
     cli_logger.print(log_prefix + "Successfully deleted namespace: {}".format(namespace))
 
 
-def _delete_controller_service_account(namespace, provider_config):
-    name = _get_controller_service_account_name(provider_config)
+def _delete_service_accounts(namespace, provider_config):
+    current_step = 1
+    total_steps = 2
 
-    service_account_object = _get_controller_service_account(namespace, name)
+    with cli_logger.group(
+            "Deleting head service account",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _delete_head_service_account(namespace, provider_config)
+
+    with cli_logger.group(
+            "Deleting worker service account",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _delete_worker_service_account(namespace, provider_config)
+
+
+def _delete_head_service_account(namespace, provider_config):
+    name = _get_head_service_account_name(provider_config)
+    _delete_service_account(namespace, name)
+
+
+def _delete_worker_service_account(namespace, provider_config):
+    name = _get_worker_service_account_name(provider_config)
+    _delete_service_account(namespace, name)
+
+
+def _delete_service_account(namespace, name):
+    service_account_object = _get_service_account(namespace, name)
     if service_account_object is None:
         cli_logger.print(log_prefix + "Service account: {} doesn't exist.".format(name))
         return
@@ -1170,10 +1254,10 @@ def _delete_controller_service_account(namespace, provider_config):
     cli_logger.print(log_prefix + "Successfully deleted service account: {}".format(name))
 
 
-def _delete_controller_role(namespace, provider_config):
-    name = _get_controller_role_name(provider_config)
+def _delete_head_role(namespace, provider_config):
+    name = _get_head_role_name(provider_config)
 
-    role_object = _get_controller_role(namespace, name)
+    role_object = _get_role(namespace, name)
     if role_object is None:
         cli_logger.print(log_prefix + "Role: {} doesn't exist.".format(name))
         return
@@ -1183,10 +1267,10 @@ def _delete_controller_role(namespace, provider_config):
     cli_logger.print(log_prefix + "Successfully deleted role: {}".format(name))
 
 
-def _delete_controller_role_binding(namespace, provider_config):
-    name = _get_controller_role_binding_name(provider_config)
+def _delete_head_role_binding(namespace, provider_config):
+    name = _get_head_role_binding_name(provider_config)
 
-    role_binding_object = _get_controller_role_binding(namespace, name)
+    role_binding_object = _get_role_binding(namespace, name)
     if role_binding_object is None:
         cli_logger.print(log_prefix + "Role Binding: {} doesn't exist.".format(name))
         return
@@ -1256,3 +1340,62 @@ def with_kubernetes_environment_variables(provider_config, node_type_config: Dic
         get_azure_cloud_storage_config(provider_config, config_dict)
 
     return config_dict
+
+
+def _get_cloud_provider_config(provider_config):
+    if "cloud_provider" not in provider_config:
+        cli_logger.print("No cloud provider configured. Skipped cloud provider configurations.")
+        return None
+    cloud_provider = provider_config["cloud_provider"]
+
+    if "type" not in cloud_provider:
+        raise RuntimeError("Missing 'type' key for cloud provider configuration.")
+
+    return cloud_provider
+
+
+def _create_configurations_for_cloud_provider(config, namespace):
+    provider_config = config["provider"]
+    cloud_provider = _get_cloud_provider_config(provider_config)
+    cloud_provider_type = cloud_provider["type"]
+    _create_configurations_for(config, namespace, cloud_provider_type, cloud_provider)
+
+
+def _create_configurations_for(config, namespace, cloud_provider_type, cloud_provider):
+    cli_logger.print("Configuring {} cloud provider for Kubernetes.", cloud_provider_type)
+    if cloud_provider_type == "aws":
+        from cloudtik.providers._private._kubernetes.aws_eks.config import create_configurations_for_aws
+        create_configurations_for_aws(config, namespace, cloud_provider)
+    else:
+        cli_logger.print("No integration for {} cloud provider. Configuration skipped.", cloud_provider_type)
+
+
+def _delete_configurations_for_cloud_provider(config, namespace,
+                                              delete_managed_storage: bool = False):
+    provider_config = config["provider"]
+    cloud_provider = _get_cloud_provider_config(provider_config)
+    cloud_provider_type = cloud_provider["type"]
+    _delete_configurations_for(
+        config, namespace, cloud_provider_type, cloud_provider,
+        delete_managed_storage)
+
+
+def _delete_configurations_for(config, namespace, cloud_provider_type, cloud_provider,
+                               delete_managed_storage: bool = False):
+    cli_logger.print("Configuring {} cloud provider for Kubernetes.", cloud_provider_type)
+    if cloud_provider_type == "aws":
+        from cloudtik.providers._private._kubernetes.aws_eks.config import delete_configurations_for_aws
+        delete_configurations_for_aws(
+            config, namespace, cloud_provider, delete_managed_storage)
+    else:
+        cli_logger.print("No integration for {} cloud provider. Configuration skipped.", cloud_provider_type)
+
+
+def _configure_cloud_provider(config: Dict[str, Any], namespace):
+    cloud_provider = _get_cloud_provider_config(config["provider"])
+    cloud_provider_type = cloud_provider["type"]
+    if cloud_provider_type == "aws":
+        from cloudtik.providers._private._kubernetes.aws_eks.config import configure_kubernetes_for_aws
+        configure_kubernetes_for_aws(config, namespace, cloud_provider)
+    else:
+        cli_logger.verbose("No integration for {} cloud provider. Configuration skipped.", cloud_provider_type)

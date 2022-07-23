@@ -7,11 +7,6 @@ from: defaults
 docker:
     enabled: False
 
-# Kubernetes resources that need to be configured for the controller to be
-# able to manage the cluster. If any of the provided resources don't
-# exist, the controller will attempt to create them. If this fails, you may
-# not have the required permissions and will have to request them to be
-# created by your cluster administrator.
 provider:
     type: kubernetes
 
@@ -25,43 +20,50 @@ provider:
     # Head or Worker node type config can override this
     image: cloudtik/spark-runtime:nightly
 
-    # ServiceAccount created by the scaler for the head node pod that it
+    # ServiceAccount created for the head node pod that it
     # runs in. If this field isn't provided, the head pod config below must
     # contain a user-created service account with the proper permissions.
-    controller_service_account:
+    head_service_account:
         apiVersion: v1
         kind: ServiceAccount
         metadata:
-            name: cloudtik-controller
+            name: cloudtik-head-service-account
 
-    # Role created by the scaler for the head node pod that it runs in.
+    # Role created for the head node pod that it runs in.
     # If this field isn't provided, the role referenced in
-    # controller_role_binding must exist and have at least these permissions.
-    controller_role:
+    # head_role_binding must exist and have at least these permissions.
+    head_role:
         kind: Role
         apiVersion: rbac.authorization.k8s.io/v1
         metadata:
-            name: cloudtik-controller
+            name: cloudtik-head-role
         rules:
         - apiGroups: [""]
           resources: ["pods", "pods/status", "pods/exec"]
           verbs: ["get", "watch", "list", "create", "delete", "patch"]
 
-    # RoleBinding created by the scaler for the head node pod that it runs
+    # RoleBinding created for the head node pod that it runs
     # in. If this field isn't provided, the head pod config below must contain
     # a user-created service account with the proper permissions.
-    controller_role_binding:
+    head_role_binding:
         apiVersion: rbac.authorization.k8s.io/v1
         kind: RoleBinding
         metadata:
-            name: cloudtik-controller
+            name: cloudtik-role-binding
         subjects:
         - kind: ServiceAccount
-          name: cloudtik-controller
+          name: cloudtik-head-service-account
         roleRef:
             kind: Role
-            name: cloudtik-controller
+            name: cloudtik-head-role
             apiGroup: rbac.authorization.k8s.io
+
+    # ServiceAccount created for the worker node pod that it runs in.
+    worker_service_account:
+        apiVersion: v1
+        kind: ServiceAccount
+        metadata:
+          name: cloudtik-worker-service-account
 
     services:
       # Service that maps to the head node of the cluster.
@@ -119,8 +121,6 @@ available_node_types:
                 labels:
                     component: cloudtik-{}-head
             spec:
-                # Change this if you altered the controller_service_account above
-                # or want to provide your own.
                 restartPolicy: Never
                 containers:
                   - name: cloudtik-node

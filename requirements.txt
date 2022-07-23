@@ -20,7 +20,7 @@ requests
 six
 smart_open
 pycryptodomex
-
+pyopenssl
 
 # setup.py extras
 ## for aws

@@ -646,7 +646,11 @@ def _delete_instance_profile_for_worker(config, workspace_name):
 
 
 def _delete_workspace_cloud_storage(config, workspace_name):
-    bucket = get_workspace_s3_bucket(config, workspace_name)
+    _delete_managed_cloud_storage(config["provider"], workspace_name)
+
+
+def _delete_managed_cloud_storage(cloud_provider, workspace_name):
+    bucket = get_managed_s3_bucket(cloud_provider, workspace_name)
     if bucket is None:
         cli_logger.warning("No S3 bucket with the name found.")
         return
@@ -954,16 +958,20 @@ def _configure_iam_role(config):
 def _configure_cloud_storage_from_workspace(config):
     use_managed_cloud_storage = is_use_managed_cloud_storage(config)
     if use_managed_cloud_storage:
-        workspace_name = config["workspace_name"]
-        s3_bucket = get_workspace_s3_bucket(config, workspace_name)
-        if s3_bucket is None:
-            cli_logger.abort("No managed s3 bucket was found. If you want to use managed s3 bucket, "
-                             "you should set managed_cloud_storage equal to True when you creating workspace.")
-        if "aws_s3_storage" not in config["provider"]:
-            config["provider"]["aws_s3_storage"] = {}
-        config["provider"]["aws_s3_storage"]["s3.bucket"] = s3_bucket.name
+        _configure_managed_cloud_storage_from_workspace(config, config["provider"])
 
     return config
+
+
+def _configure_managed_cloud_storage_from_workspace(config, cloud_provider):
+    workspace_name = config["workspace_name"]
+    s3_bucket = get_managed_s3_bucket(cloud_provider, workspace_name)
+    if s3_bucket is None:
+        cli_logger.abort("No managed s3 bucket was found. If you want to use managed s3 bucket, "
+                         "you should set managed_cloud_storage equal to True when you creating workspace.")
+    if "aws_s3_storage" not in config["provider"]:
+        config["provider"]["aws_s3_storage"] = {}
+    config["provider"]["aws_s3_storage"]["s3.bucket"] = s3_bucket.name
 
 
 def _configure_iam_role_from_workspace(config):
@@ -1022,7 +1030,7 @@ def _configure_iam_role_for_cluster(config):
     return config
 
 
-def _create_or_update_instance_profile(config, instance_profile_name, instance_role_name, isHead=True):
+def _create_or_update_instance_profile(config, instance_profile_name, instance_role_name, is_head=True):
     profile = _get_instance_profile(instance_profile_name, config)
 
     if profile is None:
@@ -1058,7 +1066,7 @@ def _create_or_update_instance_profile(config, instance_profile_name, instance_r
                     },
                 ]
             }
-            if isHead:
+            if is_head:
                 attach_policy_arns = [
                     "arn:aws:iam::aws:policy/AmazonEC2FullAccess",
                     "arn:aws:iam::aws:policy/AmazonS3FullAccess",
@@ -1786,21 +1794,25 @@ def _create_instance_profile_for_worker(config, workspace_name):
     worker_instance_role_name = "cloudtik-{}-worker-role".format(workspace_name)
     cli_logger.print("Creating worker instance profile: {}...".format(worker_instance_profile_name))
     _create_or_update_instance_profile(config, worker_instance_profile_name,
-                                       worker_instance_role_name, isHead=False)
+                                       worker_instance_role_name, is_head=False)
     cli_logger.print("Successfully created and configured worker instance profile.")
 
 
 def _create_workspace_cloud_storage(config, workspace_name):
+    _create_managed_cloud_storage(config["provider"], workspace_name)
+
+
+def _create_managed_cloud_storage(cloud_provider, workspace_name):
     # If the managed cloud storage for the workspace already exists
     # Skip the creation step
-    bucket = get_workspace_s3_bucket(config, workspace_name)
+    bucket = get_managed_s3_bucket(cloud_provider, workspace_name)
     if bucket is not None:
         cli_logger.print("S3 bucket for the workspace already exists. Skip creation.")
         return
 
-    s3 = _resource("s3", config)
-    s3_client = _client("s3", config)
-    region = config["provider"]["region"]
+    s3 = _make_resource("s3", cloud_provider)
+    s3_client = _make_client("s3", cloud_provider)
+    region = cloud_provider["region"]
     suffix = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(8))
     bucket_name = "cloudtik-{workspace_name}-{region}-{suffix}".format(
         workspace_name=workspace_name,
@@ -2391,7 +2403,11 @@ def _create_default_ssh_inbound_rules(sgids, config):
 
 
 def _get_role(role_name, config):
-    iam = _resource("iam", config)
+    return _get_iam_role(role_name, config["provider"])
+
+
+def _get_iam_role(role_name, provider_config):
+    iam = _make_resource("iam", provider_config)
     role = iam.Role(role_name)
     try:
         role.load()
@@ -2424,8 +2440,12 @@ def _get_instance_profile(profile_name, config):
 
 
 def get_workspace_s3_bucket(config, workspace_name):
-    s3 = _resource("s3", config)
-    region = config["provider"]["region"]
+    return get_managed_s3_bucket(config["provider"], workspace_name)
+
+
+def get_managed_s3_bucket(provider_config, workspace_name):
+    s3 = _make_resource("s3", provider_config)
+    region = provider_config["region"]
     bucket_name_prefix = "cloudtik-{workspace_name}-{region}-".format(
         workspace_name=workspace_name,
         region=region

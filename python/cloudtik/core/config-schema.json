@@ -119,17 +119,37 @@
                     "type": "string",
                     "description": "Network subnet id"
                 },
-                "controller_service_account": {
+                "head_service_account": {
                     "type": "object",
-                    "description": "k8s cluster controller permissions, if using k8s"
+                    "description": "k8s cluster head and controller permissions, if using k8s"
                 },
-                "controller_role": {
+                "head_role": {
                     "type": "object",
-                    "description": "k8s cluster controller permissions, if using k8s"
+                    "description": "k8s cluster head and controller permissions, if using k8s"
                 },
-                "controller_role_binding": {
+                "head_role_binding": {
                     "type": "object",
-                    "description": "k8s cluster controller permissions, if using k8s"
+                    "description": "k8s cluster head and controller permissions, if using k8s"
+                },
+                "worker_service_account": {
+                    "type": "object",
+                    "description": "k8s cluster worker permissions, if using k8s"
+                },
+                "cloud_provider": {
+                    "type": "object",
+                    "description": "k8s cluster configurations for cloud provider integration.",
+                    "required": [ "type" ],
+                    "additionalProperties": true,
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "description": "e.g. aws, azure, gcp,..."
+                        },
+                        "region": {
+                            "type": "string",
+                            "description": "e.g. us-east-1"
+                        }
+                    }
                 },
                 "cache_stopped_nodes": {
                     "type": "boolean",

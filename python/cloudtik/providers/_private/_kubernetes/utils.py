@@ -6,6 +6,12 @@ KUBERNETES_NAME_MAX = 256
 
 KUBERNETES_WORKSPACE_NAME_MAX = KUBERNETES_NAME_MAX - KUBERNETES_NAME_FIXED_MAX
 
+KUBERNETES_HEAD_SERVICE_ACCOUNT_NAME = "cloudtik-head-service-account"
+KUBERNETES_WORKER_SERVICE_ACCOUNT_NAME = "cloudtik-worker-service-account"
+
+KUBERNETES_HEAD_SERVICE_ACCOUNT_CONFIG_KEY = "head_service_account"
+KUBERNETES_WORKER_SERVICE_ACCOUNT_CONFIG_KEY = "worker_service_account"
+
 
 def check_kubernetes_name_format(workspace_name):
     # TODO: Improve with the correct format
@@ -37,3 +43,19 @@ def _get_node_info(pod):
     node_info.update(pod.metadata.labels)
 
     return node_info
+
+
+def _get_head_service_account_name(provider_config):
+    account_field = KUBERNETES_HEAD_SERVICE_ACCOUNT_CONFIG_KEY
+    name = provider_config.get(account_field, {}).get("metadata", {}).get("name")
+    if name is None or name == "":
+        return KUBERNETES_HEAD_SERVICE_ACCOUNT_NAME
+    return name
+
+
+def _get_worker_service_account_name(provider_config):
+    account_field = KUBERNETES_WORKER_SERVICE_ACCOUNT_CONFIG_KEY
+    name = provider_config.get(account_field, {}).get("metadata", {}).get("name")
+    if name is None or name == "":
+        return KUBERNETES_WORKER_SERVICE_ACCOUNT_NAME
+    return name

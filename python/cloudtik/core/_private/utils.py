@@ -2943,7 +2943,11 @@ def save_properties_file(properties_file,  properties: Dict[str, str], separator
 
 
 def is_managed_cloud_storage(workspace_config: Dict[str, Any]) -> bool:
-    return workspace_config["provider"].get("managed_cloud_storage", False)
+    return _is_managed_cloud_storage(workspace_config["provider"])
+
+
+def _is_managed_cloud_storage(provider_config: Dict[str, Any]) -> bool:
+    return provider_config.get("managed_cloud_storage", False)
 
 
 def is_use_managed_cloud_storage(config: Dict[str, Any]) -> bool:

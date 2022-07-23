@@ -183,6 +183,11 @@ def _get_node_info(node):
     return node_info
 
 
+def get_current_account_id(cloud_provider):
+    sts_client = _make_client("sts", cloud_provider)
+    return sts_client.get_caller_identity().get('Account')
+
+
 @lru_cache()
 def resource_cache(name, region, max_retries=BOTO_MAX_RETRIES, **kwargs):
     cli_logger.verbose("Creating AWS resource `{}` in `{}`", cf.bold(name),

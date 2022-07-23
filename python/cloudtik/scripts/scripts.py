@@ -7,6 +7,8 @@ import sys
 import traceback
 import urllib
 import urllib.parse
+import urllib.request
+import urllib.error
 from socket import socket
 from typing import Optional
 from shlex import quote

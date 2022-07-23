@@ -106,7 +106,8 @@ setup_spec.install_requires = [
     "smart_open",
     "prettytable",
     "ipaddr",
-    "pycryptodomex"
+    "pycryptodomex",
+    "pyopenssl",
 ]
 
 

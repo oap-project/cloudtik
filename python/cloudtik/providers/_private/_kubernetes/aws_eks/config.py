@@ -5,15 +5,19 @@ import urllib.request
 import urllib.error
 from typing import Any, Dict
 
+import botocore
+
 from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core._private.utils import _is_use_managed_cloud_storage, _is_managed_cloud_storage
+from cloudtik.core.workspace_provider import Existence
 from cloudtik.providers._private._kubernetes import core_api, log_prefix
 from cloudtik.providers._private._kubernetes.aws_eks.eks_utils import get_root_ca_cert_thumbprint
 from cloudtik.providers._private._kubernetes.utils import _get_head_service_account_name, \
-    _get_worker_service_account_name
+    _get_worker_service_account_name, _get_service_account
 from cloudtik.providers._private.aws.config import _configure_managed_cloud_storage_from_workspace, \
-    _create_managed_cloud_storage, _delete_managed_cloud_storage, _get_iam_role
-from cloudtik.providers._private.aws.utils import _make_client, _make_resource, get_current_account_id
+    _create_managed_cloud_storage, _delete_managed_cloud_storage, _get_iam_role, _delete_iam_role, get_managed_s3_bucket
+from cloudtik.providers._private.aws.utils import _make_client, _make_resource, get_current_account_id, \
+    handle_boto_error
 
 HTTP_DEFAULT_PORT = 80
 HTTPS_DEFAULT_PORT = 443
@@ -21,10 +25,25 @@ HTTPS_DEFAULT_PORT = 443
 HTTPS_URL_PREFIX = "https://"
 
 AWS_KUBERNETES_IAM_ROLE_NAME_TEMPLATE = "cloudtik-eks-{}-role"
+AWS_KUBERNETES_OPEN_ID_IDENTITY_PROVIDER_ARN = "arn:aws:iam::{}:oidc-provider/{}"
+AWS_KUBERNETES_ANNOTATION_NAME = "eks.amazonaws.com/role-arn"
+AWS_KUBERNETES_ANNOTATION_VALUE = "arn:aws:iam::{}:role/{}"
 
 AWS_KUBERNETES_NUM_CREATION_STEPS = 2
 AWS_KUBERNETES_NUM_DELETION_STEPS = 2
-AWS_KUBERNETES_IAM_ROLE_NUM_STEPS = 3
+
+AWS_KUBERNETES_IAM_ROLE_CREATION_NUM_STEPS = 3
+AWS_KUBERNETES_IAM_ROLE_DELETION_NUM_STEPS = 2
+
+AWS_KUBERNETES_ASSOCIATE_CREATION_NUM_STEPS = 2
+AWS_KUBERNETES_ASSOCIATE_DELETION_NUM_STEPS = 2
+
+AWS_KUBERNETES_TARGET_RESOURCES = 4
+
+
+def _check_eks_cluster_name(cloud_provider):
+    if "eks_cluster_name" not in cloud_provider:
+        raise ValueError("Must specify 'eks_cluster_name' in cloud provider for AWS.")
 
 
 def create_configurations_for_aws(config: Dict[str, Any], namespace, cloud_provider):
@@ -70,6 +89,13 @@ def delete_configurations_for_aws(config: Dict[str, Any], namespace, cloud_provi
             current_step += 1
             _delete_managed_cloud_storage(cloud_provider, workspace_name)
 
+    # Delete S3 IAM role based access for Kubernetes service accounts
+    with cli_logger.group(
+            "Deleting IAM role based access for Kubernetes",
+            _numbered=("[]", current_step, total_steps)):
+        current_step += 1
+        _delete_iam_role_based_access_for_kubernetes(config, namespace, cloud_provider)
+
 
 def configure_kubernetes_for_aws(config: Dict[str, Any], namespace, cloud_provider):
     # Optionally, if user choose to use managed cloud storage (s3 bucket)
@@ -93,7 +119,7 @@ def _create_iam_role_based_access_for_kubernetes(config: Dict[str, Any], namespa
     workspace_name = config["workspace_name"]
 
     current_step = 1
-    total_steps = AWS_KUBERNETES_IAM_ROLE_NUM_STEPS
+    total_steps = AWS_KUBERNETES_IAM_ROLE_CREATION_NUM_STEPS
 
     with cli_logger.group(
             "Creating OIDC Identity Provider",
@@ -115,11 +141,15 @@ def _create_iam_role_based_access_for_kubernetes(config: Dict[str, Any], namespa
 
 
 def _create_oidc_identity_provider(cloud_provider, workspace_name):
-    if "eks_cluster_name" not in cloud_provider:
-        raise ValueError("Must specify 'eks_cluster_name' in cloud provider for AWS.")
-
+    _check_eks_cluster_name(cloud_provider)
     eks_cluster_name = cloud_provider["eks_cluster_name"]
     oidc_provider_url = _get_eks_cluster_oidc_identity_issuer(cloud_provider, eks_cluster_name)
+
+    oidc_identity_provider = _get_oidc_identity_provider(cloud_provider, oidc_provider_url)
+    if oidc_identity_provider is not None:
+        cli_logger.print("Open ID Identity Provider already exists for : {}. Skip creation.", eks_cluster_name)
+        return
+
     client_id = "sts.amazonaws.com"
     thumbprint = get_oidc_provider_thumbprint(oidc_provider_url)
 
@@ -215,9 +245,7 @@ def get_oidc_provider_role_name(eks_cluster_name, namespace):
 
 
 def _create_oidc_iam_role_and_policy(cloud_provider, namespace):
-    if "eks_cluster_name" not in cloud_provider:
-        raise ValueError("Must specify 'eks_cluster_name' in cloud provider for AWS.")
-
+    _check_eks_cluster_name(cloud_provider)
     eks_cluster_name = cloud_provider["eks_cluster_name"]
     oidc_provider_url = _get_eks_cluster_oidc_identity_issuer(cloud_provider, eks_cluster_name)
 
@@ -231,7 +259,7 @@ def _create_oidc_iam_role_and_policy(cloud_provider, namespace):
         account_id=account_id,
         oidc_provider=oidc_provider,
         namespace=namespace)
-    cli_logger.print("Successfully IAM role and policy for: {}.", eks_cluster_name)
+    cli_logger.print("Successfully created IAM role and policy for: {}.", eks_cluster_name)
 
 
 def _create_iam_role_and_policy(
@@ -243,7 +271,7 @@ def _create_iam_role_and_policy(
             {
                 "Effect": "Allow",
                 "Principal": {
-                    "Federated": "arn:aws:iam::{}:oidc-provider/{}".format(account_id, oidc_provider)
+                    "Federated": AWS_KUBERNETES_OPEN_ID_IDENTITY_PROVIDER_ARN.format(account_id, oidc_provider)
                 },
                 "Action": "sts:AssumeRoleWithWebIdentity",
                 "Condition": {
@@ -280,7 +308,7 @@ def _associate_oidc_iam_role_with_service_account(config, cloud_provider, namesp
     provider_config = config["provider"]
 
     current_step = 1
-    total_steps = AWS_KUBERNETES_IAM_ROLE_NUM_STEPS
+    total_steps = AWS_KUBERNETES_ASSOCIATE_CREATION_NUM_STEPS
 
     with cli_logger.group(
             "Patching head service account with IAM role",
@@ -306,14 +334,226 @@ def _associate_oidc_iam_role_with_service_account(config, cloud_provider, namesp
 
 
 def _patch_service_account_with_iam_role(namespace, name, account_id, role_name):
+    service_account = _get_service_account(namespace=namespace, name=name)
+    if service_account is None:
+        cli_logger.print(log_prefix + "No service account {} found. Skip patching.".format(name))
+        return
+
     patch = {
         "metadata": {
             "annotations": {
-                "eks.amazonaws.com/role-arn": "arn:aws:iam::{}:role/{}".format(account_id, role_name)
+                AWS_KUBERNETES_ANNOTATION_NAME: AWS_KUBERNETES_ANNOTATION_VALUE.format(account_id, role_name)
             }
         }
     }
 
     cli_logger.print(log_prefix + "Patching service account {} with IAM role...".format(name))
     core_api().patch_namespaced_service_account(name, namespace, patch)
-    cli_logger.print(log_prefix + "Successfully service account {} with IAM role.".format(name))
+    cli_logger.print(log_prefix + "Successfully patched service account {} with IAM role.".format(name))
+
+
+def _patch_service_account_without_iam_role(namespace, name):
+    service_account = _get_service_account(namespace=namespace, name=name)
+    if service_account is None:
+        cli_logger.print(log_prefix + "No service account {} found. Skip patching.".format(name))
+        return
+
+    patch = {
+        "metadata": {
+            "annotations": {
+                AWS_KUBERNETES_ANNOTATION_NAME: None
+            }
+        }
+    }
+
+    cli_logger.print(log_prefix + "Patching service account {} removing IAM role...".format(name))
+    core_api().patch_namespaced_service_account(name, namespace, patch)
+    cli_logger.print(log_prefix + "Successfully patched service account {} removing IAM role.".format(name))
+
+
+def get_oidc_identity_provider(cloud_provider):
+    _check_eks_cluster_name(cloud_provider)
+    eks_cluster_name = cloud_provider["eks_cluster_name"]
+    oidc_provider_url = _get_eks_cluster_oidc_identity_issuer(cloud_provider, eks_cluster_name)
+    oidc_identity_provider = _get_oidc_identity_provider(cloud_provider, oidc_provider_url)
+    if oidc_identity_provider is None:
+        return None
+
+    return oidc_identity_provider
+
+
+def _get_oidc_identity_provider(cloud_provider, oidc_provider_url):
+    account_id = get_current_account_id(cloud_provider)
+    oidc_provider = get_oidc_provider_from_url(oidc_provider_url)
+    oidc_identity_provider_arn = AWS_KUBERNETES_OPEN_ID_IDENTITY_PROVIDER_ARN.format(account_id, oidc_provider)
+    iam_client = _make_client("iam", cloud_provider)
+
+    try:
+        cli_logger.verbose("Getting Open ID identity provider for: {}.", oidc_provider_url)
+        response = iam_client.get_open_id_connect_provider(
+            OpenIDConnectProviderArn=oidc_identity_provider_arn
+        )
+        cli_logger.verbose("Successfully got Open ID identity provider for: {}.", oidc_provider_url)
+    except botocore.exceptions.ClientError as exc:
+        if exc.response.get("Error", {}).get("Code") == "NoSuchEntity":
+            return None
+        else:
+            handle_boto_error(
+                exc, "Failed to get Open ID identity provider for {} from AWS.",
+                oidc_provider_url)
+            raise exc
+
+    return response
+
+
+def _delete_iam_role_based_access_for_kubernetes(config: Dict[str, Any], namespace, cloud_provider):
+    # 1. Dissociate an IAM role with service accounts
+    # 2. Delete the IAM role
+    current_step = 1
+    total_steps = AWS_KUBERNETES_IAM_ROLE_DELETION_NUM_STEPS
+
+    with cli_logger.group(
+            "Dissociating IAM role with Kubernetes service account",
+            _numbered=("[]", current_step, total_steps)):
+        current_step += 1
+        _dissociate_oidc_iam_role_with_service_account(config, cloud_provider, namespace)
+
+    with cli_logger.group(
+            "Deleting IAM role and policy",
+            _numbered=("[]", current_step, total_steps)):
+        current_step += 1
+        _delete_oidc_iam_role_and_policy(cloud_provider, namespace)
+
+
+def _dissociate_oidc_iam_role_with_service_account(config, cloud_provider, namespace):
+    # Patch head service account and worker service account
+    eks_cluster_name = cloud_provider["eks_cluster_name"]
+    provider_config = config["provider"]
+
+    current_step = 1
+    total_steps = AWS_KUBERNETES_ASSOCIATE_DELETION_NUM_STEPS
+
+    with cli_logger.group(
+            "Patching head service account without IAM role",
+            _numbered=("[]", current_step, total_steps)):
+        head_service_account_name = _get_head_service_account_name(provider_config)
+        _patch_service_account_with_iam_role(
+            namespace,
+            head_service_account_name
+        )
+
+    with cli_logger.group(
+            "Patching head service account without IAM role",
+            _numbered=("[]", current_step, total_steps)):
+        worker_service_account_name = _get_worker_service_account_name(provider_config)
+        _patch_service_account_without_iam_role(
+            namespace,
+            worker_service_account_name
+        )
+
+
+def _delete_oidc_iam_role_and_policy(cloud_provider, namespace):
+    _check_eks_cluster_name(cloud_provider)
+    eks_cluster_name = cloud_provider["eks_cluster_name"]
+    role_name = get_oidc_provider_role_name(eks_cluster_name, namespace)
+
+    cli_logger.print("Deleting IAM role and policy for: {}...", eks_cluster_name)
+    _delete_iam_role(
+        cloud_provider, role_name)
+    cli_logger.print("Successfully deleted IAM role and policy for: {}.", eks_cluster_name)
+
+
+def _get_oidc_iam_role(cloud_provider, namespace):
+    _check_eks_cluster_name(cloud_provider)
+    eks_cluster_name = cloud_provider["eks_cluster_name"]
+    role_name = get_oidc_provider_role_name(eks_cluster_name, namespace)
+    return _get_iam_role(role_name, cloud_provider)
+
+
+def _is_head_service_account_associated(config, cloud_provider, namespace):
+    provider_config = config["provider"]
+    head_service_account_name = _get_head_service_account_name(provider_config)
+    return _is_service_account_associated(
+        cloud_provider,
+        namespace,
+        head_service_account_name,
+    )
+
+
+def _is_worker_service_account_associated(config, cloud_provider, namespace):
+    provider_config = config["provider"]
+    worker_service_account_name = _get_head_service_account_name(provider_config)
+    return _is_service_account_associated(
+        cloud_provider,
+        namespace,
+        worker_service_account_name,
+    )
+
+
+def _is_service_account_associated(cloud_provider, namespace, name):
+    service_account = _get_service_account(namespace, name)
+    if service_account is None:
+        return False
+
+    # Check annotation with the account id and role_name
+    eks_cluster_name = cloud_provider["eks_cluster_name"]
+    account_id = get_current_account_id(cloud_provider)
+    role_name = get_oidc_provider_role_name(eks_cluster_name, namespace)
+
+    annotation_name = AWS_KUBERNETES_ANNOTATION_NAME
+    annotation_value = AWS_KUBERNETES_ANNOTATION_VALUE.format(account_id, role_name)
+
+    if "metadata" not in service_account or "annotations" not in service_account["metadata"]:
+        return False
+    annotations = service_account["metadata"]["annotations"]
+    annotated_value = annotations.get(annotation_name)
+    if annotated_value is None or annotation_value != annotated_value:
+        return False
+    return True
+
+
+def check_existence_for_aws(config: Dict[str, Any], namespace, cloud_provider):
+    workspace_name = config["workspace_name"]
+    managed_cloud_storage = _is_managed_cloud_storage(cloud_provider)
+
+    existing_resources = 0
+    target_resources = AWS_KUBERNETES_TARGET_RESOURCES
+    if managed_cloud_storage:
+        target_resources += 1
+
+    """
+         Do the work - order of operation
+         1. Open ID Identity provider
+         2. IAM role
+         3. head service association
+         4. worker service association
+    """
+    oidc_identity_provider = get_oidc_identity_provider(cloud_provider)
+    if oidc_identity_provider is not None:
+        existing_resources += 1
+
+        # Only if the oidc identity provider exist
+        # Will the IAM role will exist
+        if _get_oidc_iam_role(cloud_provider, namespace) is not None:
+            existing_resources += 1
+
+        if _is_head_service_account_associated(config):
+            existing_resources += 1
+
+        if _is_worker_service_account_associated(config):
+            existing_resources += 1
+
+    cloud_storage_existence = False
+    if managed_cloud_storage:
+        if get_managed_s3_bucket(cloud_provider, workspace_name) is not None:
+            existing_resources += 1
+            cloud_storage_existence = True
+
+    if existing_resources == 0:
+        return Existence.NOT_EXIST
+    elif existing_resources == target_resources:
+        return Existence.COMPLETED
+    else:
+        if existing_resources == 1 and cloud_storage_existence:
+            return Existence.STORAGE_ONLY
+        return Existence.IN_COMPLETED

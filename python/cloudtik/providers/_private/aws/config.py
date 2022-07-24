@@ -1120,9 +1120,13 @@ def _delete_instance_profile(config, instance_profile_name, instance_profile_rol
 
 
 def _delete_instance_profile_role(config, instance_profile_role):
-    role = _get_role(instance_profile_role, config)
+    _delete_iam_role(config["provider"], instance_profile_role)
+
+
+def _delete_iam_role(cloud_provider, role_name):
+    role = _get_iam_role(role_name, cloud_provider)
     if role is None:
-        cli_logger.print("IAM role {} doesn't exist", instance_profile_role)
+        cli_logger.print("IAM role {} doesn't exist", role_name)
         return
 
     # detach the policies

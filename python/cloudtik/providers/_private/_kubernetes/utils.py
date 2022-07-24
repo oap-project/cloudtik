@@ -1,5 +1,8 @@
 import re
 
+from cloudtik.core._private.cli_logger import cli_logger
+from cloudtik.providers._private._kubernetes import auth_api, core_api, log_prefix
+
 # For example cloudtik-{workspace-name}-worker-kb7w7
 KUBERNETES_NAME_FIXED_MAX = 22
 KUBERNETES_NAME_MAX = 256
@@ -59,3 +62,17 @@ def _get_worker_service_account_name(provider_config):
     if name is None or name == "":
         return KUBERNETES_WORKER_SERVICE_ACCOUNT_NAME
     return name
+
+
+def _get_service_account(namespace, name):
+    field_selector = "metadata.name={}".format(name)
+
+    cli_logger.verbose("Getting the service account: {} {}.", namespace, name)
+    accounts = core_api().list_namespaced_service_account(
+        namespace, field_selector=field_selector).items
+    if len(accounts) > 0:
+        assert len(accounts) == 1
+        cli_logger.verbose("Successfully get the service account: {} {}.", namespace, name)
+        return accounts[0]
+    cli_logger.verbose("Failed to get the service account: {} {}.", namespace, name)
+    return None

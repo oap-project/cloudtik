@@ -2,6 +2,7 @@ import copy
 import logging
 import math
 import re
+import time
 from typing import Any, Dict, Optional
 
 from kubernetes import client
@@ -55,6 +56,9 @@ KUBERNETES_HEAD_ROLE_BINDING_CONFIG_KEY = "head_role_binding"
 KUBERNETES_WORKSPACE_NUM_CREATION_STEPS = 5
 KUBERNETES_WORKSPACE_NUM_DELETION_STEPS = 5
 KUBERNETES_WORKSPACE_TARGET_RESOURCES = 5
+
+KUBERNETES_RESOURCE_OP_MAX_POLLS = 12
+KUBERNETES_RESOURCE_OP_POLL_INTERVAL = 5
 
 
 def head_service_selector(cluster_name: str) -> Dict[str, str]:
@@ -1216,7 +1220,24 @@ def _delete_namespace(namespace):
 
     cli_logger.print(log_prefix + "Deleting namespace: {}".format(namespace))
     core_api().delete_namespace(namespace)
+    wait_for_namespace_deleted()
     cli_logger.print(log_prefix + "Successfully deleted namespace: {}".format(namespace))
+
+
+def wait_for_namespace_deleted(namespace):
+    field_selector = "metadata.name={}".format(namespace)
+    for _ in range(KUBERNETES_RESOURCE_OP_MAX_POLLS):
+        namespaces = core_api().list_namespace(
+            field_selector=field_selector).items
+        if len(namespaces) == 0:
+            break
+
+        # wait for deletion
+        cli_logger.verbose("Waiting for namespace delete operation to finish...")
+        time.sleep(KUBERNETES_RESOURCE_OP_POLL_INTERVAL)
+
+    raise RuntimeError("Namespace deletion doesn't completed after {} seconds.".format(
+        KUBERNETES_RESOURCE_OP_MAX_POLLS * KUBERNETES_RESOURCE_OP_POLL_INTERVAL))
 
 
 def _delete_service_accounts(namespace, provider_config):
@@ -1408,13 +1429,16 @@ def _check_existence_for_cloud_provider(config: Dict[str, Any], namespace):
     provider_config = config["provider"]
     cloud_provider = _get_cloud_provider_config(provider_config)
     if cloud_provider is None:
+        cli_logger.verbose("No cloud provider configured for Kubernetes.")
         return None
     cloud_provider_type = cloud_provider["type"]
 
     cli_logger.verbose("Getting existence for {} cloud provider for Kubernetes.", cloud_provider_type)
     if cloud_provider_type == "aws":
         from cloudtik.providers._private._kubernetes.aws_eks.config import check_existence_for_aws
-        return check_existence_for_aws(config, namespace, cloud_provider)
+        existence = check_existence_for_aws(config, namespace, cloud_provider)
+        cli_logger.verbose("The existence status for {} cloud provider: {}.", cloud_provider_type, existence)
+        return existence
     else:
         cli_logger.verbose("No integration for {} cloud provider.", cloud_provider_type)
         return None

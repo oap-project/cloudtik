@@ -1,28 +1,61 @@
 import copy
 import os
-import urllib
-
-import pytest
 import re
+import subprocess
 import tempfile
 import threading
 import time
 import unittest
+import urllib
+from types import ModuleType
+
+import pytest
 import yaml
 
 from jsonschema.exceptions import ValidationError
+from unittest.mock import Mock
 from subprocess import CalledProcessError
-from typing import Dict, Callable, List, Optional
+from threading import Thread
+from typing import Dict, Callable, List, Optional, Any
 
-
-from cloudtik.core._private.utils import prepare_config, validate_config
+from cloudtik.core import node_provider
+from cloudtik.core._private.call_context import CallContext
+from cloudtik.core._private.cli_logger import cli_logger, cf
+from cloudtik.core._private.cluster.cluster_operator import _should_create_new_head, _set_up_config_for_head_node, \
+    POLL_INTERVAL
+from cloudtik.core._private.cluster.cluster_scaler import ClusterScaler
+from cloudtik.core._private.docker import validate_docker_config
+from cloudtik.core._private.event_system import global_event_system, CreateClusterEvent
+from cloudtik.core._private.node.node_updater import NodeUpdater
+from cloudtik.core._private.prometheus_metrics import ClusterPrometheusMetrics
+from cloudtik.core._private.utils import prepare_config, validate_config, fillout_defaults, \
+    fill_node_type_min_max_workers, DOCKER_CONFIG_KEY, RUNTIME_CONFIG_KEY, get_cluster_uri, hash_launch_conf, \
+    hash_runtime_conf, is_docker_enabled, get_commands_to_run, cluster_booting_completed, merge_cluster_config, \
+    with_head_node_ip_environment_variables
 from cloudtik.core._private.cluster import cluster_operator
 from cloudtik.core._private.cluster.cluster_metrics import ClusterMetrics
-from cloudtik.core._private.providers import (
-    _NODE_PROVIDERS, _DEFAULT_CONFIGS)
+from cloudtik.core._private.providers import _NODE_PROVIDERS, _DEFAULT_CONFIGS, _get_node_provider, _PROVIDER_HOMES
+from cloudtik.core.api import get_docker_host_mount_location
+
 from cloudtik.core.node_provider import NodeProvider
-from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, CLOUDTIK_TAG_NODE_STATUS, \
-     CLOUDTIK_TAG_USER_NODE_TYPE, CLOUDTIK_TAG_CLUSTER_NAME
+from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, CLOUDTIK_TAG_NODE_STATUS, CLOUDTIK_TAG_USER_NODE_TYPE, \
+    CLOUDTIK_TAG_CLUSTER_NAME, STATUS_UNINITIALIZED, STATUS_UPDATE_FAILED, NODE_KIND_HEAD, CLOUDTIK_TAG_LAUNCH_CONFIG, \
+    CLOUDTIK_TAG_NODE_NAME, CLOUDTIK_TAG_NODE_NUMBER, CLOUDTIK_TAG_HEAD_NODE_NUMBER, STATUS_UP_TO_DATE, NODE_KIND_WORKER
+
+
+def mock_node_id() -> bytes:
+    """Random node id to pass to load_metrics.update."""
+    return os.urandom(10)
+
+
+def fill_in_node_ids(provider, cluster_metrics) -> None:
+    """Mode ids for each ip are usually obtained by polling the GCS
+    in monitor.py. For test purposes, we sometimes need to manually fill
+    these fields with mocks.
+    """
+    for node in provider.non_terminated_nodes({}):
+        ip = provider.internal_ip(node)
+        cluster_metrics.node_id_by_ip[ip] = mock_node_id()
 
 
 class MockNode:
@@ -30,7 +63,6 @@ class MockNode:
                  unique_ips=False):
         self.node_id = node_id
         self.state = "pending"
-        self.tags = tags
         self.external_ip = "1.2.3.4"
         self.internal_ip = "172.0.0.{}".format(self.node_id)
         if unique_ips:
@@ -38,6 +70,10 @@ class MockNode:
 
         self.node_config = node_config
         self.node_type = node_type
+        if CLOUDTIK_TAG_USER_NODE_TYPE in tags:
+            self.tags = tags
+        else:
+            self.tags = {**tags, CLOUDTIK_TAG_USER_NODE_TYPE: "head.default"}
 
     def matches(self, tags):
         for k, v in tags.items():
@@ -90,7 +126,7 @@ class MockProcessRunner:
                     break
             if key_to_shrink:
                 self.call_response[key_to_shrink] = self.call_response[
-                    key_to_shrink][1:]
+                                                        key_to_shrink][1:]
                 if len(self.call_response[key_to_shrink]) == 0:
                     del self.call_response[key_to_shrink]
 
@@ -175,20 +211,23 @@ class MockProvider(NodeProvider):
         self.ready_to_create.set()
         self.cache_stopped = cache_stopped
         self.unique_ips = unique_ips
+        self.fail_to_fetch_ip = False
         # Many of these functions are called by node_launcher or updater in
         # different threads. This can be treated as a global lock for
         # everything.
         self.lock = threading.Lock()
+        self.num_non_terminated_nodes_calls = 0
         super().__init__(None, None)
 
     def non_terminated_nodes(self, tag_filters):
+        self.num_non_terminated_nodes_calls += 1
         with self.lock:
             if self.throw:
                 raise Exception("oops")
             return [
                 n.node_id for n in self.mock_nodes.values()
                 if n.matches(tag_filters)
-                and n.state not in ["stopped", "terminated"]
+                   and n.state not in ["stopped", "terminated"]
             ]
 
     def non_terminated_node_ips(self, tag_filters):
@@ -198,7 +237,7 @@ class MockProvider(NodeProvider):
             return [
                 n.internal_ip for n in self.mock_nodes.values()
                 if n.matches(tag_filters)
-                and n.state not in ["stopped", "terminated"]
+                   and n.state not in ["stopped", "terminated"]
             ]
 
     def is_running(self, node_id):
@@ -265,14 +304,104 @@ class MockProvider(NodeProvider):
                 if node.state == "pending":
                     node.state = "running"
 
+    def with_environment_variables(self, node_type_config: Dict[str, Any], node_id: str):
+        return {}
+
+
+class MockNodeUpdater(NodeUpdater):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def bootstrap_data_disks(self, step_numbers=(1, 1)):
+        pass
+
+
+class MockNodeUpdaterThread(MockNodeUpdater, Thread):
+    def __init__(self, *args, **kwargs):
+        Thread.__init__(self)
+        MockNodeUpdater.__init__(self, *args, **kwargs)
+        self.exitcode = -1
+
+
+class MockClusterScaler(ClusterScaler):
+    """Test Cluster Scaler constructed to verify the property that each
+    Cluster Scaler update issues at most one provider.non_terminated_nodes call.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fail_to_find_ip_during_drain = False
+
+    def _publish_runtime_config(self, *args):
+        return
+
+    def _publish_runtime_configs(self):
+        return
+
+    def _update(self):
+        # Only works with MockProvider
+        assert isinstance(self.provider, MockProvider)
+        start_calls = self.provider.num_non_terminated_nodes_calls
+        super()._update()
+        end_calls = self.provider.num_non_terminated_nodes_calls
+
+        # Strict inequality if update is called twice within the throttling
+        # interval `self.update_interval_s`
+        assert end_calls <= start_calls + 1
+
+    def spawn_updater(self, node_id, setup_commands, start_commands,
+                      node_resources, docker_config, call_context):
+        ip = self.provider.internal_ip(node_id)
+        node_type = self._get_node_type(node_id)
+        self.node_tracker.track(node_id, ip, node_type)
+        head_node_ip = self.provider.internal_ip(
+            self.non_terminated_nodes.head_id)
+        runtime_hash = self.get_node_runtime_hash(node_id)
+        runtime_config = self._get_node_specific_runtime_config(node_id)
+
+        initialization_commands = self._get_node_specific_commands(
+            node_id, "worker_initialization_commands")
+        environment_variables = with_head_node_ip_environment_variables(
+            head_node_ip)
+        environment_variables = self._with_cluster_secrets(environment_variables)
+
+        updater = MockNodeUpdaterThread(
+            config=self.config,
+            call_context=call_context,
+            node_id=node_id,
+            provider_config=self.config["provider"],
+            provider=self.provider,
+            auth_config=self.config["auth"],
+            cluster_name=self.config["cluster_name"],
+            file_mounts=self.config["file_mounts"],
+            initialization_commands=initialization_commands,
+            setup_commands=setup_commands,
+            start_commands=start_commands,
+            runtime_hash=runtime_hash,
+            file_mounts_contents_hash=self.file_mounts_contents_hash,
+            is_head_node=False,
+            cluster_synced_files=self.config["cluster_synced_files"],
+            rsync_options={
+                "rsync_exclude": self.config.get("rsync_exclude"),
+                "rsync_filter": self.config.get("rsync_filter")
+            },
+            process_runner=self.process_runner,
+            use_internal_ip=True,
+            docker_config=docker_config,
+            node_resources=node_resources,
+            runtime_config=runtime_config,
+            environment_variables=environment_variables)
+        updater.start()
+        self.updaters[node_id] = updater
+
 
 SMALL_CLUSTER = {
     "cluster_name": "default",
     "min_workers": 2,
-    "max_workers": 2,
+    "max_workers": 5,
     "idle_timeout_minutes": 5,
     "provider": {
-        "type": "aws",
+        "type": "mock",
         "region": "us-east-1",
         "availability_zone": "us-east-1a",
     },
@@ -288,6 +417,9 @@ SMALL_CLUSTER = {
     "head_node": {
         "TestProp": 1,
     },
+    "worker_nodes": {
+        "TestProp": 2,
+    },
     "file_mounts": {},
     "cluster_synced_files": [],
     "initialization_commands": ["init_cmd"],
@@ -297,6 +429,9 @@ SMALL_CLUSTER = {
     "head_start_commands": ["head_start_cmd"],
     "worker_start_commands": ["worker_start_cmd"],
     "merged_commands": {},
+    "runtime": {
+        "types": ["spark", "ganglia"]
+    },
 }
 
 MOCK_DEFAULT_CONFIG = {
@@ -409,13 +544,33 @@ class ClusterMetricsTest(unittest.TestCase):
         assert "3.3.3.3" not in cluster_metrics.last_heartbeat_time_by_ip
 
 
+class CloudTikTestTimeoutException(Exception):
+    pass
+
+
+def mock_node_id():
+    pass
+
+
 class CloudTikTest(unittest.TestCase):
     def setUp(self):
-        _NODE_PROVIDERS["mock"] = \
-            lambda config: self.create_provider
+        _NODE_PROVIDERS["mock"] = lambda config: self.create_provider
+        _PROVIDER_HOMES["mock"] = self._load_mock_provider_home
         _DEFAULT_CONFIGS["mock"] = _DEFAULT_CONFIGS["aws"]
         self.provider = None
         self.tmpdir = tempfile.mkdtemp()
+
+    def _load_mock_provider_home(self):
+        import cloudtik.providers as mock_provider
+        return os.path.dirname(mock_provider.__file__)
+
+    def waitFor(self, condition, num_retries=50, fail_msg=None):
+        for _ in range(num_retries):
+            if condition():
+                return
+            time.sleep(0.1)
+        fail_msg = fail_msg or "Timed out waiting for {}".format(condition)
+        raise CloudTikTestTimeoutException(fail_msg)
 
     def waitForNodes(self, expected, comparison=None, tag_filters=None):
         if tag_filters is None:
@@ -438,10 +593,17 @@ class CloudTikTest(unittest.TestCase):
         assert self.provider
         return self.provider
 
+    def prepare_mock_config(self, config):
+        with_defaults = fillout_defaults(config)
+        merge_cluster_config(with_defaults)
+        validate_docker_config(with_defaults)
+        fill_node_type_min_max_workers(with_defaults)
+        return with_defaults
+
     def write_config(self, config, call_prepare_config=True):
         new_config = copy.deepcopy(config)
         if call_prepare_config:
-            new_config = prepare_config(new_config)
+            new_config = self.prepare_mock_config(new_config)
         path = os.path.join(self.tmpdir, "simple.yaml")
         with open(path, "w") as f:
             f.write(yaml.dump(new_config))
@@ -461,7 +623,7 @@ class CloudTikTest(unittest.TestCase):
 
     def testValidation(self):
         """Ensures that schema validation is working."""
-        config = copy.deepcopy(SMALL_CLUSTER)
+        config = copy.deepcopy(MOCK_DEFAULT_CONFIG)
         try:
             validate_config(config)
         except Exception:
@@ -526,6 +688,284 @@ class CloudTikTest(unittest.TestCase):
         assert head_node_config["min_workers"] == 0
         assert head_node_config["max_workers"] == 0
 
+    def testGetOrCreateHeadNode(self):
+        config = copy.deepcopy(SMALL_CLUSTER)
+        config = self.prepare_mock_config(config)
+        head_run_option = "--kernel-memory=10g"
+        standard_run_option = "--memory-swap=5g"
+        config["docker"]["head_run_options"] = [head_run_option]
+        config["docker"]["run_options"] = [standard_run_option]
+        self.provider = MockProvider()
+        runner = MockProcessRunner()
+        runner.respond_to_call("json .Mounts", ["[]"])
+        # Two initial calls to rsync, + 2 more calls during run_init
+        runner.respond_to_call(".State.Running", ["false", "false", "false", "false"])
+        runner.respond_to_call("json .Config.Env", ["[]"])
+
+        def _create_node(node_config, tags, count, _skip_wait=False):
+            assert tags[CLOUDTIK_TAG_NODE_STATUS] == STATUS_UNINITIALIZED
+            if not _skip_wait:
+                self.provider.ready_to_create.wait()
+            if self.provider.fail_creates:
+                return
+            with self.provider.lock:
+                if self.provider.cache_stopped:
+                    for node in self.provider.mock_nodes.values():
+                        if node.state == "stopped" and count > 0:
+                            count -= 1
+                            node.state = "pending"
+                            node.tags.update(tags)
+                for _ in range(count):
+                    self.provider.mock_nodes[self.provider.next_id] = MockNode(
+                        self.provider.next_id,
+                        tags.copy(),
+                        node_config,
+                        tags.get(CLOUDTIK_TAG_USER_NODE_TYPE),
+                        unique_ips=self.provider.unique_ips,
+                    )
+                    self.provider.next_id += 1
+
+        def get_or_create_head_node(config: Dict[str, Any],
+                                    call_context: CallContext,
+                                    no_restart: bool,
+                                    restart_only: bool,
+                                    yes: bool,
+                                    no_controller_on_head: bool = False,
+                                    _provider: Optional[NodeProvider] = None,
+                                    _runner: ModuleType = subprocess) -> None:
+            """Create the cluster head node, which in turn creates the workers."""
+            global_event_system.execute_callback(
+                get_cluster_uri(config),
+                CreateClusterEvent.cluster_booting_started)
+            provider = (_provider or _get_node_provider(config["provider"],
+                                                        config["cluster_name"]))
+
+            config = copy.deepcopy(config)
+            head_node_tags = {
+                CLOUDTIK_TAG_NODE_KIND: NODE_KIND_HEAD,
+            }
+            nodes = provider.non_terminated_nodes(head_node_tags)
+            if len(nodes) > 0:
+                head_node = nodes[0]
+            else:
+                head_node = None
+
+            if not head_node:
+                cli_logger.confirm(
+                    yes,
+                    "No head node found. "
+                    "Launching a new cluster.",
+                    _abort=True)
+
+            if head_node:
+                if restart_only:
+                    cli_logger.confirm(
+                        yes,
+                        "Updating cluster configuration and "
+                        "restarting the cluster runtime. "
+                        "Setup commands will not be run due to `{}`.\n",
+                        cf.bold("--restart-only"),
+                        _abort=True)
+                elif no_restart:
+                    cli_logger.print(
+                        "Cluster runtime will not be restarted due "
+                        "to `{}`.", cf.bold("--no-restart"))
+                    cli_logger.confirm(
+                        yes,
+                        "Updating cluster configuration and "
+                        "running setup commands.",
+                        _abort=True)
+                else:
+                    cli_logger.print(
+                        "Updating cluster configuration and running full setup.")
+                    cli_logger.confirm(
+                        yes,
+                        cf.bold("Cluster runtime will be restarted."),
+                        _abort=True)
+
+            cli_logger.newline()
+
+            # The "head_node" config stores only the internal head node specific
+            # configuration values generated in the runtime, for example IAM
+            head_node_config = copy.deepcopy(config.get("head_node", {}))
+            head_node_resources = None
+            head_node_type = config.get("head_node_type")
+            if head_node_type:
+                head_node_tags[CLOUDTIK_TAG_USER_NODE_TYPE] = head_node_type
+                head_config = config["available_node_types"][head_node_type]
+                head_node_config.update(head_config["node_config"])
+
+                # Not necessary to keep in sync with node_launcher.py
+                # Keep in sync with cluster_scaler.py _node_resources
+                head_node_resources = head_config.get("resources")
+
+            launch_hash = hash_launch_conf(head_node_config, config["auth"])
+            creating_new_head = _should_create_new_head(head_node, launch_hash,
+                                                        head_node_type, provider)
+            if creating_new_head:
+                with cli_logger.group("Acquiring an up-to-date head node"):
+                    global_event_system.execute_callback(
+                        get_cluster_uri(config),
+                        CreateClusterEvent.acquiring_new_head_node)
+                    if head_node is not None:
+                        cli_logger.confirm(
+                            yes, "Relaunching the head node.", _abort=True)
+
+                        provider.terminate_node(head_node)
+                        cli_logger.print("Terminated head node {}", head_node)
+
+                    head_node_tags[CLOUDTIK_TAG_LAUNCH_CONFIG] = launch_hash
+                    head_node_tags[CLOUDTIK_TAG_NODE_NAME] = "cloudtik-{}-head".format(
+                        config["cluster_name"])
+                    head_node_tags[CLOUDTIK_TAG_NODE_STATUS] = STATUS_UNINITIALIZED
+                    head_node_tags[CLOUDTIK_TAG_NODE_NUMBER] = str(CLOUDTIK_TAG_HEAD_NODE_NUMBER)
+                    provider.create_node(head_node_config, head_node_tags, 1)
+                    cli_logger.print("Launched a new head node")
+
+                    start = time.time()
+                    head_node = None
+                    with cli_logger.group("Fetching the new head node"):
+                        while True:
+                            if time.time() - start > 50:
+                                cli_logger.abort("Head node fetch timed out. "
+                                                 "Failed to create head node.")
+                            nodes = provider.non_terminated_nodes(head_node_tags)
+                            if len(nodes) == 1:
+                                head_node = nodes[0]
+                                break
+                            time.sleep(POLL_INTERVAL)
+                    cli_logger.newline()
+
+            global_event_system.execute_callback(
+                get_cluster_uri(config),
+                CreateClusterEvent.head_node_acquired)
+
+            with cli_logger.group(
+                    "Setting up head node",
+                    _numbered=("<>", 1, 1),
+                    # cf.bold(provider.node_tags(head_node)[CLOUDTIK_TAG_NODE_NAME]),
+                    _tags=dict()):  # add id, ARN to tags?
+
+                # TODO: right now we always update the head node even if the
+                # hash matches.
+                # We could prompt the user for what they want to do here.
+                # No need to pass in cluster_sync_files because we use this
+                # hash to set up the head node
+                (runtime_hash,
+                 file_mounts_contents_hash,
+                 runtime_hash_for_node_types) = hash_runtime_conf(
+                    config["file_mounts"], None, config)
+                # Even we don't need controller on head, we still need config and cluster keys on head
+                # because head depends a lot on the cluster config file and cluster keys to do cluster
+                # operations and connect to the worker.
+                # if not no_controller_on_head:
+                # Return remote_config_file to avoid prematurely closing it.
+                config, remote_config_file = _set_up_config_for_head_node(
+                    config, provider, no_restart)
+                cli_logger.print("Prepared bootstrap config")
+
+                if restart_only:
+                    # Docker may re-launch nodes, requiring setup
+                    # commands to be rerun.
+                    if is_docker_enabled(config):
+                        setup_commands = get_commands_to_run(config, "head_setup_commands")
+                    else:
+                        setup_commands = []
+                    start_commands = get_commands_to_run(config, "head_start_commands")
+                # If user passed in --no-restart and we're not creating a new head,
+                # omit start commands.
+                elif no_restart and not creating_new_head:
+                    setup_commands = get_commands_to_run(config, "head_setup_commands")
+                    start_commands = []
+                else:
+                    setup_commands = get_commands_to_run(config, "head_setup_commands")
+                    start_commands = get_commands_to_run(config, "head_start_commands")
+
+                initialization_commands = get_commands_to_run(config, "head_initialization_commands")
+                updater = MockNodeUpdaterThread(
+                    config=config,
+                    call_context=call_context,
+                    node_id=head_node,
+                    provider_config=config["provider"],
+                    provider=provider,
+                    auth_config=config["auth"],
+                    cluster_name=config["cluster_name"],
+                    file_mounts=config["file_mounts"],
+                    initialization_commands=initialization_commands,
+                    setup_commands=setup_commands,
+                    start_commands=start_commands,
+                    process_runner=_runner,
+                    runtime_hash=runtime_hash,
+                    file_mounts_contents_hash=file_mounts_contents_hash,
+                    is_head_node=True,
+                    node_resources=head_node_resources,
+                    rsync_options={
+                        "rsync_exclude": config.get("rsync_exclude"),
+                        "rsync_filter": config.get("rsync_filter")
+                    },
+                    docker_config=config.get(DOCKER_CONFIG_KEY),
+                    restart_only=restart_only,
+                    runtime_config=config.get(RUNTIME_CONFIG_KEY))
+                updater.start()
+                updater.join()
+
+                # Refresh the node cache so we see the external ip if available
+                provider.non_terminated_nodes(head_node_tags)
+
+                if updater.exitcode != 0:
+                    # todo: this does not follow the mockup and is not good enough
+                    cli_logger.abort("Failed to setup head node.")
+                    sys.exit(1)
+
+            global_event_system.execute_callback(
+                get_cluster_uri(config),
+                CreateClusterEvent.cluster_booting_completed, {
+                    "head_node_id": head_node,
+                })
+
+            cluster_booting_completed(config, head_node)
+
+            cli_logger.newline()
+            successful_msg = "Successfully started cluster: {}.".format(config["cluster_name"])
+            cli_logger.success("-" * len(successful_msg))
+            cli_logger.success(successful_msg)
+            cli_logger.success("-" * len(successful_msg))
+
+        self.provider.create_node = _create_node
+        call_context = CallContext()
+        call_context._allow_interactive = False
+        get_or_create_head_node(
+            config,
+            call_context,
+            no_restart=False,
+            restart_only=False,
+            yes=True,
+            _provider=self.provider,
+            _runner=runner,
+        )
+        self.waitForNodes(1)
+        runner.assert_has_call("1.2.3.4", "init_cmd")
+        runner.assert_has_call("1.2.3.4", "head_setup_cmd")
+        runner.assert_has_call("1.2.3.4", "head_start_cmd")
+        runner.assert_has_call("1.2.3.4", pattern="docker run")
+        runner.assert_has_call("1.2.3.4", pattern=head_run_option)
+        runner.assert_has_call("1.2.3.4", pattern=standard_run_option)
+
+        docker_mount_prefix = get_docker_host_mount_location(
+            SMALL_CLUSTER["cluster_name"]
+        )
+        runner.assert_not_has_call(
+            "1.2.3.4", pattern=f"-v {docker_mount_prefix}/~/cloudtik_bootstrap_config"
+        )
+        common_container_copy = f"rsync -e.*docker exec -i.*{docker_mount_prefix}/~/"
+        runner.assert_has_call(
+            "1.2.3.4", pattern=common_container_copy + "cloudtik_bootstrap_key.pem"
+        )
+        runner.assert_has_call(
+            "1.2.3.4", pattern=common_container_copy + "cloudtik_bootstrap_config.yaml"
+        )
+        # return config
+
     def testValidateNetworkConfig(self):
         web_yaml = ("https://raw.githubusercontent.com/oap-project/cloudtik/main/python/cloudtik/templates/aws/small"
                     ".yaml")
@@ -540,6 +980,168 @@ class CloudTikTest(unittest.TestCase):
             validate_config(config)
         except Exception:
             self.fail("Config did not pass validation test!")
+
+    def ScaleUpHelper(self, disable_node_updaters):
+        config = copy.deepcopy(SMALL_CLUSTER)
+        config["provider"]["disable_node_updaters"] = disable_node_updaters
+        config_path = self.write_config(config)
+        self.provider = MockProvider()
+        runner = MockProcessRunner()
+        mock_metrics = Mock(spec=ClusterPrometheusMetrics())
+        cluster_scaler = MockClusterScaler(
+            config_path,
+            ClusterMetrics(),
+            max_failures=0,
+            process_runner=runner,
+            update_interval_s=0,
+            prometheus_metrics=mock_metrics,
+        )
+        assert len(self.provider.non_terminated_nodes({})) == 0
+        cluster_scaler.update()
+        self.waitForNodes(2)
+
+        assert mock_metrics.started_nodes.inc.call_count == 2
+        mock_metrics.started_nodes.inc.assert_called_with(1)
+        assert mock_metrics.worker_create_node_time.observe.call_count == 2
+        cluster_scaler.update()
+        # The two autoscaler update iterations in this test led to two
+        # observations of the update time.
+        assert mock_metrics.update_time.observe.call_count == 2
+        self.waitForNodes(2)
+
+        # running_workers metric should be set to 2
+        mock_metrics.running_workers.set.assert_called_with(2)
+
+        if disable_node_updaters:
+            # Node Updaters have NOT been invoked because they were explicitly
+            # disabled.
+            time.sleep(1)
+            assert len(runner.calls) == 0
+            # Nodes were created in uninitialized and not updated.
+            self.waitForNodes(
+                2, tag_filters={CLOUDTIK_TAG_NODE_STATUS: STATUS_UNINITIALIZED}
+            )
+        else:
+            # Node Updaters have been invoked.
+            self.waitFor(lambda: len(runner.calls) > 0)
+            # The updates failed. Key thing is that the updates completed.
+            self.waitForNodes(
+                2, tag_filters={CLOUDTIK_TAG_NODE_STATUS: STATUS_UPDATE_FAILED}
+            )
+        assert mock_metrics.drain_node_exceptions.inc.call_count == 0
+
+    def testScaleUpNoUpdaters(self):
+        self.ScaleUpHelper(disable_node_updaters=True)
+
+    def testScaleUpBasedOnLoad(self):
+        config = SMALL_CLUSTER.copy()
+        config["min_workers"] = 1
+        config["max_workers"] = 10
+        config["target_utilization_fraction"] = 0.5
+        config_path = self.write_config(config)
+        # Query the provider to update the list of non-terminated nodes
+        self.provider = MockProvider()
+        cm = ClusterMetrics()
+        runner = MockProcessRunner()
+        runner.respond_to_call("json .Config.Env", ["[]" for i in range(6)])
+        self.provider.create_node(
+            {},
+            {
+                CLOUDTIK_TAG_NODE_KIND: NODE_KIND_HEAD,
+                CLOUDTIK_TAG_NODE_STATUS: STATUS_UP_TO_DATE,
+                CLOUDTIK_TAG_USER_NODE_TYPE: "head.default",
+            },
+            1,
+        )
+        cm.update("172.0.0.0", mock_node_id(), {"CPU": 1}, {"CPU": 0}, {}, {})
+        autoscaler = MockClusterScaler(
+            config_path,
+            cm,
+            max_failures=0,
+            process_runner=runner,
+            update_interval_s=0,
+        )
+        assert (
+                len(
+                    self.provider.non_terminated_nodes(
+                        {CLOUDTIK_TAG_NODE_KIND: NODE_KIND_WORKER, }
+                    )
+                )
+                == 0
+        )
+        autoscaler.update()
+        self.waitForNodes(1, tag_filters={CLOUDTIK_TAG_NODE_KIND: NODE_KIND_WORKER})
+        autoscaler.update()
+        assert autoscaler.pending_launches.value == 0
+        assert (
+                len(
+                    self.provider.non_terminated_nodes(
+                        {CLOUDTIK_TAG_NODE_KIND: NODE_KIND_WORKER}
+                    )
+                )
+                == 1
+        )
+        autoscaler.update()
+        cm.update(
+            "172.0.0.1",
+            mock_node_id(),
+            {"CPU": 2},
+            {"CPU": 0},
+            {},
+            {},
+            waiting_bundles=2 * [{"CPU": 2}],
+        )
+        autoscaler.update()
+        self.waitForNodes(1, tag_filters={CLOUDTIK_TAG_NODE_KIND: NODE_KIND_WORKER})
+        cm.update(
+            "172.0.0.2",
+            mock_node_id(),
+            {"CPU": 2},
+            {"CPU": 0},
+            {},
+            {},
+            waiting_bundles=3 * [{"CPU": 2}],
+        )
+        autoscaler.update()
+        self.waitForNodes(1, tag_filters={CLOUDTIK_TAG_NODE_KIND: NODE_KIND_WORKER})
+
+        # Holds steady when load is removed
+        cm.update("172.0.0.1", mock_node_id(), {"CPU": 2}, {"CPU": 2}, {}, {})
+        cm.update("172.0.0.2", mock_node_id(), {"CPU": 2}, {"CPU": 2}, {}, {})
+        autoscaler.update()
+        assert autoscaler.pending_launches.value == 0
+        assert (
+                len(
+                    self.provider.non_terminated_nodes(
+                        {CLOUDTIK_TAG_NODE_KIND: NODE_KIND_WORKER}
+                    )
+                )
+                == 1
+        )
+
+        # Scales down as nodes become unused
+        cm.last_used_time_by_ip["172.0.0.1"] = 0
+        cm.last_used_time_by_ip["172.0.0.2"] = 0
+        autoscaler.update()
+
+        assert autoscaler.pending_launches.value == 0
+        assert (
+                len(
+                    self.provider.non_terminated_nodes(
+                        {CLOUDTIK_TAG_NODE_KIND: NODE_KIND_WORKER}
+                    )
+                )
+                == 1
+        )
+        cm.last_used_time_by_ip["172.0.0.3"] = 0
+        cm.last_used_time_by_ip["172.0.0.4"] = 0
+        fill_in_node_ids(self.provider, cm)
+        autoscaler.update()
+        assert autoscaler.pending_launches.value == 0
+        self.waitForNodes(1, tag_filters={CLOUDTIK_TAG_NODE_KIND: NODE_KIND_WORKER})
+        cm.last_used_time_by_ip["172.0.0.5"] = 0
+        autoscaler.update()
+        self.waitForNodes(1, tag_filters={CLOUDTIK_TAG_NODE_KIND: NODE_KIND_WORKER})
 
 
 if __name__ == "__main__":

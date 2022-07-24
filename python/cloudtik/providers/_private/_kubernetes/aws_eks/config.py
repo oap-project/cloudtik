@@ -467,7 +467,14 @@ def _get_oidc_iam_role(cloud_provider, namespace):
     _check_eks_cluster_name(cloud_provider)
     eks_cluster_name = cloud_provider["eks_cluster_name"]
     role_name = get_oidc_provider_role_name(eks_cluster_name, namespace)
-    return _get_iam_role(role_name, cloud_provider)
+
+    cli_logger.verbose("Getting Open ID IAM role: {}.", role_name)
+    role = _get_iam_role(role_name, cloud_provider)
+    if role is None:
+        cli_logger.verbose("Open ID IAM role with the name doesn't exist: {}.", role_name)
+    else:
+        cli_logger.verbose("Successfully get Open ID IAM role: {}.", role_name)
+    return role
 
 
 def _is_head_service_account_associated(config, cloud_provider, namespace):

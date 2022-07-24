@@ -19,7 +19,7 @@ from cloudtik.core._private.constants import CLOUDTIK_DEFAULT_OBJECT_STORE_MEMOR
 from cloudtik.providers._private._kubernetes.utils import _get_node_info, to_label_selector, \
     KUBERNETES_WORKSPACE_NAME_MAX, check_kubernetes_name_format, _get_head_service_account_name, \
     _get_worker_service_account_name, KUBERNETES_HEAD_SERVICE_ACCOUNT_CONFIG_KEY, \
-    KUBERNETES_WORKER_SERVICE_ACCOUNT_CONFIG_KEY
+    KUBERNETES_WORKER_SERVICE_ACCOUNT_CONFIG_KEY, _get_service_account
 
 logger = logging.getLogger(__name__)
 
@@ -245,6 +245,7 @@ def check_kubernetes_workspace_existence(config):
     workspace_name = config["workspace_name"]
     existing_resources = 0
     target_resources = KUBERNETES_WORKSPACE_TARGET_RESOURCES
+    cloud_existence = Existence.NOT_EXIST
     """
          Do the work - order of operation
          1.) Check namespace
@@ -266,9 +267,25 @@ def check_kubernetes_workspace_existence(config):
         if _get_head_role_binding(config, namespace) is not None:
             existing_resources += 1
 
+    # The namespace may not exist
+    namespace_name = get_workspace_namespace_name(workspace_name)
+    cloud_existence = _check_existence_for_cloud_provider(config, namespace_name)
+
     if existing_resources == 0:
+        if cloud_existence is not None:
+            if cloud_existence == Existence.STORAGE_ONLY:
+                return Existence.STORAGE_ONLY
+            elif cloud_existence == Existence.NOT_EXIST:
+                return Existence.NOT_EXIST
+            return Existence.IN_COMPLETED
+
         return Existence.NOT_EXIST
     elif existing_resources == target_resources:
+        if cloud_existence is not None:
+            if cloud_existence == Existence.COMPLETED:
+                return Existence.COMPLETED
+            return Existence.IN_COMPLETED
+
         return Existence.COMPLETED
     else:
         return Existence.IN_COMPLETED
@@ -1016,20 +1033,6 @@ def _create_namespace(workspace_name: str):
     return namespace
 
 
-def _get_service_account(namespace, name):
-    field_selector = "metadata.name={}".format(name)
-
-    cli_logger.verbose("Getting the service account: {} {}.", namespace, name)
-    accounts = core_api().list_namespaced_service_account(
-        namespace, field_selector=field_selector).items
-    if len(accounts) > 0:
-        assert len(accounts) == 1
-        cli_logger.verbose("Successfully get the service account: {} {}.", namespace, name)
-        return accounts[0]
-    cli_logger.verbose("Failed to get the service account: {} {}.", namespace, name)
-    return None
-
-
 def _create_service_accounts(namespace, provider_config):
     current_step = 1
     total_steps = 2
@@ -1344,7 +1347,6 @@ def with_kubernetes_environment_variables(provider_config, node_type_config: Dic
 
 def _get_cloud_provider_config(provider_config):
     if "cloud_provider" not in provider_config:
-        cli_logger.print("No cloud provider configured. Skipped cloud provider configurations.")
         return None
     cloud_provider = provider_config["cloud_provider"]
 
@@ -1357,11 +1359,12 @@ def _get_cloud_provider_config(provider_config):
 def _create_configurations_for_cloud_provider(config, namespace):
     provider_config = config["provider"]
     cloud_provider = _get_cloud_provider_config(provider_config)
+    if cloud_provider is None:
+        cli_logger.print("No cloud provider configured. Skipped cloud provider configurations.")
+        return
+
     cloud_provider_type = cloud_provider["type"]
-    _create_configurations_for(config, namespace, cloud_provider_type, cloud_provider)
 
-
-def _create_configurations_for(config, namespace, cloud_provider_type, cloud_provider):
     cli_logger.print("Configuring {} cloud provider for Kubernetes.", cloud_provider_type)
     if cloud_provider_type == "aws":
         from cloudtik.providers._private._kubernetes.aws_eks.config import create_configurations_for_aws
@@ -1374,14 +1377,11 @@ def _delete_configurations_for_cloud_provider(config, namespace,
                                               delete_managed_storage: bool = False):
     provider_config = config["provider"]
     cloud_provider = _get_cloud_provider_config(provider_config)
+    if cloud_provider is None:
+        cli_logger.print("No cloud provider configured. Skipped cloud provider configurations.")
+        return
     cloud_provider_type = cloud_provider["type"]
-    _delete_configurations_for(
-        config, namespace, cloud_provider_type, cloud_provider,
-        delete_managed_storage)
 
-
-def _delete_configurations_for(config, namespace, cloud_provider_type, cloud_provider,
-                               delete_managed_storage: bool = False):
     cli_logger.print("Configuring {} cloud provider for Kubernetes.", cloud_provider_type)
     if cloud_provider_type == "aws":
         from cloudtik.providers._private._kubernetes.aws_eks.config import delete_configurations_for_aws
@@ -1393,9 +1393,28 @@ def _delete_configurations_for(config, namespace, cloud_provider_type, cloud_pro
 
 def _configure_cloud_provider(config: Dict[str, Any], namespace):
     cloud_provider = _get_cloud_provider_config(config["provider"])
+    if cloud_provider is None:
+        cli_logger.print("No cloud provider configured. Skipped cloud provider configurations.")
+        return
     cloud_provider_type = cloud_provider["type"]
     if cloud_provider_type == "aws":
         from cloudtik.providers._private._kubernetes.aws_eks.config import configure_kubernetes_for_aws
         configure_kubernetes_for_aws(config, namespace, cloud_provider)
     else:
         cli_logger.verbose("No integration for {} cloud provider. Configuration skipped.", cloud_provider_type)
+
+
+def _check_existence_for_cloud_provider(config: Dict[str, Any], namespace):
+    provider_config = config["provider"]
+    cloud_provider = _get_cloud_provider_config(provider_config)
+    if cloud_provider is None:
+        return None
+    cloud_provider_type = cloud_provider["type"]
+
+    cli_logger.verbose("Getting existence for {} cloud provider for Kubernetes.", cloud_provider_type)
+    if cloud_provider_type == "aws":
+        from cloudtik.providers._private._kubernetes.aws_eks.config import check_existence_for_aws
+        return check_existence_for_aws(config, namespace, cloud_provider)
+    else:
+        cli_logger.verbose("No integration for {} cloud provider.", cloud_provider_type)
+        return None

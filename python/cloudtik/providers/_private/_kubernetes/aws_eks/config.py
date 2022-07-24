@@ -16,8 +16,8 @@ from cloudtik.providers._private._kubernetes.utils import _get_head_service_acco
     _get_worker_service_account_name, _get_service_account
 from cloudtik.providers._private.aws.config import _configure_managed_cloud_storage_from_workspace, \
     _create_managed_cloud_storage, _delete_managed_cloud_storage, _get_iam_role, _delete_iam_role, get_managed_s3_bucket
-from cloudtik.providers._private.aws.utils import _make_client, _make_resource, get_current_account_id, \
-    handle_boto_error
+from cloudtik.providers._private.aws.utils import _make_resource_client, _make_resource, get_current_account_id, \
+    handle_boto_error, _make_client
 
 HTTP_DEFAULT_PORT = 80
 HTTPS_DEFAULT_PORT = 443
@@ -29,8 +29,8 @@ AWS_KUBERNETES_OPEN_ID_IDENTITY_PROVIDER_ARN = "arn:aws:iam::{}:oidc-provider/{}
 AWS_KUBERNETES_ANNOTATION_NAME = "eks.amazonaws.com/role-arn"
 AWS_KUBERNETES_ANNOTATION_VALUE = "arn:aws:iam::{}:role/{}"
 
-AWS_KUBERNETES_NUM_CREATION_STEPS = 2
-AWS_KUBERNETES_NUM_DELETION_STEPS = 2
+AWS_KUBERNETES_NUM_CREATION_STEPS = 1
+AWS_KUBERNETES_NUM_DELETION_STEPS = 1
 
 AWS_KUBERNETES_IAM_ROLE_CREATION_NUM_STEPS = 3
 AWS_KUBERNETES_IAM_ROLE_DELETION_NUM_STEPS = 2
@@ -155,7 +155,7 @@ def _create_oidc_identity_provider(cloud_provider, workspace_name):
 
     cli_logger.print("Creating OIDC Identity Provider for: {}...", eks_cluster_name)
 
-    iam_client = _make_client("iam", cloud_provider)
+    iam_client = _make_resource_client("iam", cloud_provider)
     response = iam_client.create_open_id_connect_provider(
         Url=oidc_provider_url,
         ClientIDList=[
@@ -386,7 +386,7 @@ def _get_oidc_identity_provider(cloud_provider, oidc_provider_url):
     account_id = get_current_account_id(cloud_provider)
     oidc_provider = get_oidc_provider_from_url(oidc_provider_url)
     oidc_identity_provider_arn = AWS_KUBERNETES_OPEN_ID_IDENTITY_PROVIDER_ARN.format(account_id, oidc_provider)
-    iam_client = _make_client("iam", cloud_provider)
+    iam_client = _make_resource_client("iam", cloud_provider)
 
     try:
         cli_logger.verbose("Getting Open ID identity provider for: {}.", oidc_provider_url)
@@ -437,7 +437,7 @@ def _dissociate_oidc_iam_role_with_service_account(config, cloud_provider, names
             "Patching head service account without IAM role",
             _numbered=("[]", current_step, total_steps)):
         head_service_account_name = _get_head_service_account_name(provider_config)
-        _patch_service_account_with_iam_role(
+        _patch_service_account_without_iam_role(
             namespace,
             head_service_account_name
         )
@@ -503,9 +503,9 @@ def _is_service_account_associated(cloud_provider, namespace, name):
     annotation_name = AWS_KUBERNETES_ANNOTATION_NAME
     annotation_value = AWS_KUBERNETES_ANNOTATION_VALUE.format(account_id, role_name)
 
-    if "metadata" not in service_account or "annotations" not in service_account["metadata"]:
+    annotations = service_account.metadata.annotations
+    if annotations is None:
         return False
-    annotations = service_account["metadata"]["annotations"]
     annotated_value = annotations.get(annotation_name)
     if annotated_value is None or annotation_value != annotated_value:
         return False
@@ -528,19 +528,21 @@ def check_existence_for_aws(config: Dict[str, Any], namespace, cloud_provider):
          3. head service association
          4. worker service association
     """
+    oidc_identity_provider_existence = False
     oidc_identity_provider = get_oidc_identity_provider(cloud_provider)
     if oidc_identity_provider is not None:
         existing_resources += 1
+        oidc_identity_provider_existence = True
 
         # Only if the oidc identity provider exist
         # Will the IAM role will exist
         if _get_oidc_iam_role(cloud_provider, namespace) is not None:
             existing_resources += 1
 
-        if _is_head_service_account_associated(config):
+        if _is_head_service_account_associated(config, cloud_provider, namespace):
             existing_resources += 1
 
-        if _is_worker_service_account_associated(config):
+        if _is_worker_service_account_associated(config, cloud_provider, namespace):
             existing_resources += 1
 
     cloud_storage_existence = False
@@ -549,11 +551,12 @@ def check_existence_for_aws(config: Dict[str, Any], namespace, cloud_provider):
             existing_resources += 1
             cloud_storage_existence = True
 
-    if existing_resources == 0:
+    if existing_resources == 0 or (
+            existing_resources == 1 and oidc_identity_provider_existence):
         return Existence.NOT_EXIST
     elif existing_resources == target_resources:
         return Existence.COMPLETED
     else:
-        if existing_resources == 1 and cloud_storage_existence:
+        if existing_resources == 2 and cloud_storage_existence:
             return Existence.STORAGE_ONLY
         return Existence.IN_COMPLETED

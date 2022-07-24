@@ -26,7 +26,7 @@ from cloudtik.core.workspace_provider import Existence, CLOUDTIK_MANAGED_CLOUD_S
     CLOUDTIK_MANAGED_CLOUD_STORAGE_URI
 from cloudtik.providers._private.aws.utils import LazyDefaultDict, \
     handle_boto_error, get_boto_error_code, _get_node_info, BOTO_MAX_RETRIES, _resource, \
-    _client, _make_resource, _make_client, make_ec2_client, get_aws_s3_config
+    _resource_client, _make_resource, _make_resource_client, make_ec2_client, get_aws_s3_config
 from cloudtik.providers._private.utils import StorageTestingError
 
 logger = logging.getLogger(__name__)
@@ -456,7 +456,7 @@ def get_vpc_endpoint_for_s3(ec2_client, vpc_id, workspace_name):
 
 def check_aws_workspace_existence(config):
     ec2 = _resource("ec2", config)
-    ec2_client = _client("ec2", config)
+    ec2_client = _resource_client("ec2", config)
     workspace_name = config["workspace_name"]
     managed_cloud_storage = is_managed_cloud_storage(config)
 
@@ -537,7 +537,7 @@ def get_aws_workspace_info(config):
 
 
 def update_aws_workspace_firewalls(config):
-    ec2_client = _client("ec2", config)
+    ec2_client = _resource_client("ec2", config)
     workspace_name = config["workspace_name"]
     vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
     if vpc_id is None:
@@ -568,7 +568,7 @@ def update_aws_workspace_firewalls(config):
 
 def delete_aws_workspace(config, delete_managed_storage: bool = False):
     ec2 = _resource("ec2", config)
-    ec2_client = _client("ec2", config)
+    ec2_client = _resource_client("ec2", config)
     workspace_name = config["workspace_name"]
     use_internal_ips = is_use_internal_ip(config)
     managed_cloud_storage = is_managed_cloud_storage(config)
@@ -912,7 +912,7 @@ def get_workspace_head_nodes(config):
 
 def _get_workspace_head_nodes(provider_config, workspace_name):
     ec2 = _make_resource("ec2", provider_config)
-    ec2_client = _make_client("ec2", provider_config)
+    ec2_client = _make_resource_client("ec2", provider_config)
     vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
     if vpc_id is None:
         raise RuntimeError(f"Failed to get VPC for workspace: {workspace_name}")
@@ -1037,7 +1037,7 @@ def _create_or_update_instance_profile(config, instance_profile_name, instance_r
         cli_logger.verbose(
             "Creating new IAM instance profile {} for use as the default.",
             cf.bold(instance_profile_name))
-        client = _client("iam", config)
+        client = _resource_client("iam", config)
         client.create_instance_profile(
             InstanceProfileName=instance_profile_name)
         profile = _get_instance_profile(instance_profile_name, config)
@@ -1111,7 +1111,7 @@ def _delete_instance_profile(config, instance_profile_name, instance_profile_rol
     # first delete role and policy
     _delete_instance_profile_role(config, instance_profile_role)
 
-    client = _client("iam", config)
+    client = _resource_client("iam", config)
     # Deletes the specified instance profile. The instance profile must not have an associated role.
     client.delete_instance_profile(
         InstanceProfileName=instance_profile_name)
@@ -1728,7 +1728,7 @@ def _create_route_table_for_private_subnet(config, ec2, vpc, subnet):
 
 def _create_workspace(config):
     ec2 = _resource("ec2", config)
-    ec2_client = _client("ec2", config)
+    ec2_client = _resource_client("ec2", config)
     workspace_name = config["workspace_name"]
     managed_cloud_storage = is_managed_cloud_storage(config)
 
@@ -1815,7 +1815,7 @@ def _create_managed_cloud_storage(cloud_provider, workspace_name):
         return
 
     s3 = _make_resource("s3", cloud_provider)
-    s3_client = _make_client("s3", cloud_provider)
+    s3_client = _make_resource_client("s3", cloud_provider)
     region = cloud_provider["region"]
     suffix = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(8))
     bucket_name = "cloudtik-{workspace_name}-{region}-{suffix}".format(
@@ -1963,7 +1963,7 @@ def _configure_subnets_cidr(vpc):
 
 
 def get_current_vpc(config):
-    client = _client("ec2", config)
+    client = _resource_client("ec2", config)
     ip_address = get_node_ip_address(address="8.8.8.8:53")
     vpc_id = ""
     for Reservation in client.describe_instances().get("Reservations"):
@@ -2051,7 +2051,7 @@ def _configure_subnet(config):
 
 def _configure_subnet_from_workspace(config):
     ec2 = _resource("ec2", config)
-    ec2_client = _client("ec2", config)
+    ec2_client = _resource_client("ec2", config)
     workspace_name = config["workspace_name"]
     use_internal_ips = is_use_internal_ip(config)
 
@@ -2140,7 +2140,7 @@ def _configure_security_group(config):
 
 
 def _configure_security_group_from_workspace(config):
-    ec2_client = _client("ec2", config)
+    ec2_client = _resource_client("ec2", config)
     workspace_name = config["workspace_name"]
     vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
     # map from node type key -> source of SecurityGroupIds field
@@ -2308,7 +2308,7 @@ def wait_security_group_creation(ec2_client, vpc_id, group_name):
 
 
 def _create_security_group(config, vpc_id, group_name):
-    client = _client("ec2", config)
+    client = _resource_client("ec2", config)
     client.create_security_group(
         Description="Auto-created security group for workers",
         GroupName=group_name,
@@ -2573,7 +2573,7 @@ def _configure_node_cfg_from_launch_template(
     # create a copy of the input config to modify
     node_cfg = copy.deepcopy(node_cfg)
 
-    ec2 = _client("ec2", config)
+    ec2 = _resource_client("ec2", config)
     kwargs = copy.deepcopy(node_cfg["LaunchTemplate"])
     template_version = str(kwargs.pop("Version", "$Default"))
     # save the launch template version as a string to prevent errors from

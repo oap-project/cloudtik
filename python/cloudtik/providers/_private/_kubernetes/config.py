@@ -967,7 +967,7 @@ def _create_workspace(config):
                     "Creating service accounts",
                     _numbered=("[]", current_step, total_steps)):
                 current_step += 1
-                _create_head_service_account(workspace_name, config["provider"])
+                _create_service_accounts(workspace_name, config["provider"])
 
             with cli_logger.group(
                     "Creating role",

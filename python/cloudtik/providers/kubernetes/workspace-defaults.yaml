@@ -49,3 +49,10 @@ provider:
             kind: Role
             name: cloudtik-head-role
             apiGroup: rbac.authorization.k8s.io
+
+    # ServiceAccount created for the worker node pod that it runs in.
+    worker_service_account:
+        apiVersion: v1
+        kind: ServiceAccount
+        metadata:
+          name: cloudtik-worker-service-account

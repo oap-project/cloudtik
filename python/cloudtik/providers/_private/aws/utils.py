@@ -223,15 +223,15 @@ def client_cache(name, region, max_retries=BOTO_MAX_RETRIES, **kwargs):
         )
 
 
-def _client(name, config):
-    return _make_client(name, config["provider"])
+def _resource_client(name, config):
+    return _make_resource_client(name, config["provider"])
 
 
 def _resource(name, config):
     return _make_resource(name, config["provider"])
 
 
-def _make_client(name, provider_config):
+def _make_resource_client(name, provider_config):
     return _make_resource(name, provider_config).meta.client
 
 
@@ -245,6 +245,16 @@ def make_ec2_resource(region, max_retries, aws_credentials=None):
     """Make resource, retrying requests up to `max_retries`."""
     aws_credentials = aws_credentials or {}
     return resource_cache("ec2", region, max_retries, **aws_credentials)
+
+
+def _client(name, config):
+    return _make_client(name, config["provider"])
+
+
+def _make_client(name, provider_config):
+    region = provider_config["region"]
+    aws_credentials = provider_config.get("aws_credentials", {})
+    return client_cache(name, region, **aws_credentials)
 
 
 def make_ec2_client(region, max_retries, aws_credentials=None):

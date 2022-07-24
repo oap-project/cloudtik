@@ -19,7 +19,7 @@ def get_client_cert_cas(hostname, port):
                 "depth": depth,
                 "subject": cert.get_subject(),
                 "issuer": cert.get_issuer(),
-                "digest": cert.digest(),
+                "digest": cert.digest("sha1"),
             }
             certs.append(cert_info)
         return 1

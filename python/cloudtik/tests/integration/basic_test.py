@@ -3,7 +3,7 @@ import pytest
 import yaml
 
 from cloudtik.tests.integration.constants import CLUSTER_TIMEOUT, \
-    TPC_DATAGEN_BENCHMARK, SCALE_CPUS_LIST, SCALE_NODES_LIST, TPCDS_BENCHMARK, KAFKA_BENCHMARK
+    TPC_DATAGEN_BENCHMARK, SCALE_CPUS_LIST, SCALE_NODES_LIST, TPCDS_BENCHMARK, KAFKA_BENCHMARK, PRESTO_BENCHMARK
 from cloudtik.core.api import Workspace
 
 ROOT_PATH = os.path.abspath(
@@ -51,7 +51,7 @@ class ClusterFunctionTest:
 
 class ClusterRuntimeTest:
 
-    @pytest.mark.parametrize("benchmark", [TPC_DATAGEN_BENCHMARK, TPCDS_BENCHMARK, KAFKA_BENCHMARK])
+    @pytest.mark.parametrize("benchmark", [TPC_DATAGEN_BENCHMARK, TPCDS_BENCHMARK, KAFKA_BENCHMARK, PRESTO_BENCHMARK])
     def test_benchmark(self, runtime_cluster_fixture, benchmark):
         script_file = benchmark["script_file"]
         script_args = benchmark["script_args"]

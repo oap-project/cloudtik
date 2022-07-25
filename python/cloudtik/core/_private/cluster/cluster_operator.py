@@ -401,8 +401,6 @@ def _bootstrap_config(config: Dict[str, Any],
 
     resolved_config = provider_cls.bootstrap_config(config)
 
-    # encrypt sensitive fields in configuration
-    store_config = encrypt_config(resolved_config)
 
     # add a verify step
     verify_config(resolved_config)
@@ -412,7 +410,7 @@ def _bootstrap_config(config: Dict[str, Any],
                 "_version": CONFIG_CACHE_VERSION,
                 "provider_log_info": try_get_log_state(
                     resolved_config["provider"]),
-                "config": store_config
+                "config": resolved_config
             }
             f.write(json.dumps(config_cache))
     return resolved_config
@@ -1133,7 +1131,7 @@ def _set_up_config_for_head_node(config: Dict[str, Any],
     remote_config["no_restart"] = no_restart
 
     remote_config = provider.prepare_for_head_node(remote_config)
-
+    remote_config = encrypt_config(remote_config)
     # Now inject the rewritten config and SSH key into the head node
     remote_config_file = tempfile.NamedTemporaryFile(
         "w", prefix="cloudtik-bootstrap-")

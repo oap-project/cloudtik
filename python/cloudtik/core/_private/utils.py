@@ -111,7 +111,7 @@ RUNTIME_CONFIG_KEY = "runtime"
 DOCKER_CONFIG_KEY = "docker"
 RUNTIME_TYPES_CONFIG_KEY = "types"
 
-PRIVACY_CONFIG_KEYS = ["credentials", "account.key", "secret", "access.key", "private.key"]
+PRIVACY_CONFIG_KEYS = ["credentials", "account.key", "secret", "access.key", "private.key", "identity_client_id"]
 
 pwd = None
 if sys.platform != "win32":
@@ -3057,13 +3057,14 @@ def get_config_cipher():
 
 def encode_config_value(v):
     cipher = get_config_cipher()
-    return "AES:" + str(cipher.encrypt(v))
+    return "AES:" + cipher.encrypt(v).decode("utf-8")
 
 
 def decode_config_value(v):
     if v.startswith("AES:"):
         cipher = get_config_cipher()
-        return cipher.decrypt(v.strip("AES:"))
+        target_bytes = v.strip("AES:").encode("utf-8")
+        return cipher.decrypt(target_bytes)
     else:
         return v
 

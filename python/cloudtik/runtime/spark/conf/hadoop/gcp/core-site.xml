@@ -44,6 +44,14 @@
         </description>
     </property>
     <property>
+        <name>fs.gs.auth.service.account.email</name>
+        <value>{%fs.gs.auth.service.account.email%}</value>
+    </property>
+    <property>
+        <name>fs.gs.auth.service.account.private.key.id</name>
+        <value>{%fs.gs.auth.service.account.private.key.id%}</value>
+    </property>
+    <property>
       <name>hadoop.security.credential.provider.path</name>
       <value>{%gcp.jceks%}</value>
     </property>

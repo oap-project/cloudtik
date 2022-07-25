@@ -34,6 +34,10 @@
         <value>org.apache.hadoop.fs.s3a.S3AFileSystem</value>
     </property>
     <property>
+        <name>fs.s3a.access.key</name>
+        <value>{%fs.s3a.access.key%}</value>
+    </property>
+    <property>
       <name>hadoop.security.credential.provider.path</name>
       <value>{%s3.jceks%}</value>
     </property>

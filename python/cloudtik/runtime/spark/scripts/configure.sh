@@ -116,10 +116,12 @@ function update_credential_config_for_aws() {
 }
 
 function update_credential_config_for_gcp() {
-    sed -i "s#{%fs.gs.project.id%}#${GCP_PROJECT_ID}#g" `grep "{%fs.gs.project.id%}" -rl ./`
-    sed -i "s#{%fs.gs.auth.service.account.email%}#${GCS_SERVICE_ACCOUNT_CLIENT_EMAIL}#g" `grep "{%fs.gs.auth.service.account.email%}" -rl ./`
-    sed -i "s#{%fs.gs.auth.service.account.private.key.id%}#${GCS_SERVICE_ACCOUNT_PRIVATE_KEY_ID}#g" `grep "{%fs.gs.auth.service.account.private.key.id%}" -rl ./`
-    sed -i "s#{%fs.gs.auth.service.account.private.key%}#${GCS_SERVICE_ACCOUNT_PRIVATE_KEY}#g" `grep "{%fs.gs.auth.service.account.private.key%}" -rl ./`
+    JCEKS_PATH="jceks://file@${HADOOP_HOME}/gcp.jceks"
+    hadoop credential create fs.gs.auth.service.account.email -value ${GCS_SERVICE_ACCOUNT_CLIENT_EMAIL}  -provider ${JCEKS_PATH}
+    hadoop credential create fs.gs.auth.service.account.private.key.id -value ${GCS_SERVICE_ACCOUNT_PRIVATE_KEY_ID}  -provider ${JCEKS_PATH}
+    hadoop credential create fs.gs.auth.service.account.private.key -value ${GCS_SERVICE_ACCOUNT_PRIVATE_KEY}  -provider ${JCEKS_PATH}
+    sed -i "s#{%gcp.jceks%}#${JCEKS_PATH}#g" `grep "{%gcp.jceks%}" -rl ./`
+
 }
 
 function update_credential_config_for_azure() {

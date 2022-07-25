@@ -38,7 +38,8 @@ from cloudtik.core._private.constants import CLOUDTIK_WHEELS, CLOUDTIK_CLUSTER_P
     CLOUDTIK_DEFAULT_MAX_WORKERS, CLOUDTIK_NODE_SSH_INTERVAL_S, CLOUDTIK_NODE_START_WAIT_S, MAX_PARALLEL_EXEC_NODES, \
     CLOUDTIK_CLUSTER_URI_TEMPLATE, CLOUDTIK_RUNTIME_NAME, CLOUDTIK_RUNTIME_ENV_NODE_IP, CLOUDTIK_RUNTIME_ENV_HEAD_IP, \
     CLOUDTIK_RUNTIME_ENV_SECRETS, CLOUDTIK_DEFAULT_PORT, CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
-    CLOUDTIK_RUNTIME_ENV_NODE_TYPE, PRIVACY_REPLACEMENT_TEMPLATE, PRIVACY_REPLACEMENT, CLOUDTIK_CONFIG_SECRET
+    CLOUDTIK_RUNTIME_ENV_NODE_TYPE, PRIVACY_REPLACEMENT_TEMPLATE, PRIVACY_REPLACEMENT, CLOUDTIK_CONFIG_SECRET, \
+    CLOUDTIK_ENCRYPTION_PREFIX
 from cloudtik.core._private.crypto import AESCipher
 from cloudtik.core._private.runtime_factory import _get_runtime, _get_runtime_cls, DEFAULT_RUNTIMES
 from cloudtik.core.node_provider import NodeProvider
@@ -111,7 +112,7 @@ RUNTIME_CONFIG_KEY = "runtime"
 DOCKER_CONFIG_KEY = "docker"
 RUNTIME_TYPES_CONFIG_KEY = "types"
 
-PRIVACY_CONFIG_KEYS = ["credentials", "account.key", "secret", "access.key", "private.key", "identity_client_id"]
+PRIVACY_CONFIG_KEYS = ["credentials", "account.key", "secret", "access.key", "private.key"]
 
 pwd = None
 if sys.platform != "win32":
@@ -2338,6 +2339,7 @@ def get_head_bootstrap_config():
 def load_head_cluster_config() -> Dict[str, Any]:
     config_file = get_head_bootstrap_config()
     config = yaml.safe_load(open(config_file).read())
+    config = decrypt_config(config)
     return config
 
 
@@ -3057,13 +3059,13 @@ def get_config_cipher():
 
 def encode_config_value(v):
     cipher = get_config_cipher()
-    return "AES:" + cipher.encrypt(v).decode("utf-8")
+    return CLOUDTIK_ENCRYPTION_PREFIX + cipher.encrypt(v).decode("utf-8")
 
 
 def decode_config_value(v):
-    if v.startswith("AES:"):
+    if v.startswith(CLOUDTIK_ENCRYPTION_PREFIX):
         cipher = get_config_cipher()
-        target_bytes = v.strip("AES:").encode("utf-8")
+        target_bytes = v.strip(CLOUDTIK_ENCRYPTION_PREFIX).encode("utf-8")
         return cipher.decrypt(target_bytes)
     else:
         return v

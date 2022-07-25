@@ -27,7 +27,7 @@ from cloudtik.providers._private.gcp.node import GCPCompute
 from cloudtik.providers._private.gcp.utils import _get_node_info, construct_clients_from_provider_config, \
     wait_for_compute_global_operation, wait_for_compute_region_operation, _create_storage_client, _create_storage, \
     wait_for_crm_operation, HAS_TPU_PROVIDER_FIELD, _is_head_node_a_tpu, _has_tpus_in_node_configs, \
-    get_gcp_cloud_storage_config
+    get_gcp_cloud_storage_config, get_service_account_email
 from cloudtik.providers._private.utils import StorageTestingError
 
 logger = logging.getLogger(__name__)
@@ -37,8 +37,6 @@ VERSION = "v1"
 GCP_RESOURCE_NAME_PREFIX = "cloudtik"
 GCP_DEFAULT_SERVICE_ACCOUNT_ID = GCP_RESOURCE_NAME_PREFIX + "-sa-" + VERSION
 
-SERVICE_ACCOUNT_EMAIL_TEMPLATE = (
-    "{account_id}@{project_id}.iam.gserviceaccount.com")
 DEFAULT_SERVICE_ACCOUNT_CONFIG = {
     "displayName": "CloudTik Service Account ({})".format(VERSION),
 }
@@ -824,39 +822,41 @@ def _delete_workspace_service_accounts(config, iam):
 def _delete_head_service_account(config, iam):
     workspace_name = config["workspace_name"]
     head_service_account_id = GCP_HEAD_SERVICE_ACCOUNT_ID.format(workspace_name)
-    _delete_service_account(config, iam, head_service_account_id)
+    _delete_service_account(config["provider"], head_service_account_id, iam)
 
 
 def _delete_worker_service_account(config, iam):
     workspace_name = config["workspace_name"]
     worker_service_account_id = GCP_WORKER_SERVICE_ACCOUNT_ID.format(workspace_name)
-    _delete_service_account(config, iam, worker_service_account_id)
+    _delete_service_account(config["provider"], worker_service_account_id, iam)
 
 
-def _delete_service_account(config, iam, service_account_id):
-    project_id = config["provider"]["project_id"]
-    email = SERVICE_ACCOUNT_EMAIL_TEMPLATE.format(
+def _delete_service_account(cloud_provider, service_account_id, iam):
+    project_id = cloud_provider["project_id"]
+    email = get_service_account_email(
         account_id=service_account_id,
         project_id=project_id)
-    service_account = _get_service_account(email, config, iam)
+    service_account = _get_service_account(cloud_provider, email, iam)
     if service_account is None:
         cli_logger.warning("No service account with id {} found.".format(service_account_id))
         return
 
     try:
         cli_logger.print("Deleting service account: {}...".format(service_account_id))
-        full_name = ("projects/{project_id}/serviceAccounts/{account}"
-                     "".format(project_id=project_id, account=email))
+        full_name = get_service_account_resource_name(project_id=project_id, account=email)
         iam.projects().serviceAccounts().delete(name=full_name).execute()
         cli_logger.print("Successfully deleted the service account.")
     except Exception as e:
         cli_logger.error("Failed to delete the service account. {}", str(e))
         raise e
-    return
 
 
 def _delete_workspace_cloud_storage(config, workspace_name):
-    bucket = get_workspace_gcs_bucket(config, workspace_name)
+    _delete_managed_cloud_storage(config["provider"], workspace_name)
+
+
+def _delete_managed_cloud_storage(cloud_provider, workspace_name):
+    bucket = get_managed_gcs_bucket(cloud_provider, workspace_name)
     if bucket is None:
         cli_logger.warning("No GCS bucket with the name found.")
         return
@@ -868,7 +868,6 @@ def _delete_workspace_cloud_storage(config, workspace_name):
     except Exception as e:
         cli_logger.error("Failed to delete GCS bucket. {}", str(e))
         raise e
-    return
 
 
 def _delete_network_resources(config, compute, current_step, total_steps):
@@ -950,7 +949,7 @@ def _create_head_service_account(config, crm, iam):
         }
 
         service_account = _create_service_account(
-            service_account_id, service_account_config, config,
+            config["provider"], service_account_id, service_account_config,
             iam)
 
         assert service_account is not None, "Failed to create head service account."
@@ -960,7 +959,7 @@ def _create_head_service_account(config, crm, iam):
         else:
             roles = DEFAULT_SERVICE_ACCOUNT_ROLES
 
-        _add_iam_policy_binding(service_account, roles, crm)
+        _add_iam_role_binding_for_service_account(service_account, roles, crm)
         cli_logger.print("Successfully created head service account and configured with roles.")
     except Exception as e:
         cli_logger.error("Failed to create head service account. {}", str(e))
@@ -977,12 +976,12 @@ def _create_worker_service_account(config, crm, iam):
             "displayName": GCP_WORKER_SERVICE_ACCOUNT_DISPLAY_NAME.format(workspace_name),
         }
         service_account = _create_service_account(
-            service_account_id, service_account_config, config,
+            config["provider"], service_account_id, service_account_config,
             iam)
 
         assert service_account is not None, "Failed to create worker service account."
 
-        _add_iam_policy_binding(service_account, WORKER_SERVICE_ACCOUNT_ROLES, crm)
+        _add_iam_role_binding_for_service_account(service_account, WORKER_SERVICE_ACCOUNT_ROLES, crm)
         cli_logger.print("Successfully created worker service account and configured with roles.")
     except Exception as e:
         cli_logger.error("Failed to create worker service account. {}", str(e))
@@ -1009,16 +1008,19 @@ def _create_workspace_service_accounts(config, crm, iam):
 
 
 def _create_workspace_cloud_storage(config):
-    workspace_name = config["workspace_name"]
+    _create_managed_cloud_storage(config["provider"], config["workspace_name"])
+    return config
 
+
+def _create_managed_cloud_storage(cloud_provider, workspace_name):
     # If the managed cloud storage for the workspace already exists
     # Skip the creation step
-    bucket = get_workspace_gcs_bucket(config, workspace_name)
+    bucket = get_managed_gcs_bucket(cloud_provider, workspace_name)
     if bucket is not None:
         cli_logger.print("GCS bucket for the workspace already exists. Skip creation.")
         return
 
-    region = config["provider"]["region"]
+    region = cloud_provider["region"]
     storage_client = _create_storage_client()
     suffix = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(8))
     bucket_name = "cloudtik-{workspace_name}-{region}-{suffix}".format(
@@ -1034,7 +1036,6 @@ def _create_workspace_cloud_storage(config):
     except Exception as e:
         cli_logger.error("Failed to create GCS bucket. {}", str(e))
         raise e
-    return config
 
 
 def _create_network_resources(config, current_step, total_steps):
@@ -1387,16 +1388,20 @@ def _configure_project(config, crm):
 def _configure_cloud_storage_from_workspace(config):
     use_managed_cloud_storage = is_use_managed_cloud_storage(config)
     if use_managed_cloud_storage:
-        workspace_name = config["workspace_name"]
-        gcs_bucket = get_workspace_gcs_bucket(config, workspace_name)
-        if gcs_bucket is None:
-            cli_logger.abort("No managed GCS bucket was found. If you want to use managed GCS bucket, "
-                             "you should set managed_cloud_storage equal to True when you creating workspace.")
-        if "gcp_cloud_storage" not in config["provider"]:
-            config["provider"]["gcp_cloud_storage"] = {}
-        config["provider"]["gcp_cloud_storage"]["gcs.bucket"] = gcs_bucket.name
+        _configure_managed_cloud_storage_from_workspace(config, config["provider"])
 
     return config
+
+
+def _configure_managed_cloud_storage_from_workspace(config, cloud_provider):
+    workspace_name = config["workspace_name"]
+    gcs_bucket = get_managed_gcs_bucket(cloud_provider, workspace_name)
+    if gcs_bucket is None:
+        cli_logger.abort("No managed GCS bucket was found. If you want to use managed GCS bucket, "
+                         "you should set managed_cloud_storage equal to True when you creating workspace.")
+    if "gcp_cloud_storage" not in config["provider"]:
+        config["provider"]["gcp_cloud_storage"] = {}
+    config["provider"]["gcp_cloud_storage"]["gcs.bucket"] = gcs_bucket.name
 
 
 def _configure_iam_role(config, crm, iam):
@@ -1411,16 +1416,16 @@ def _configure_iam_role(config, crm, iam):
     """
     config = copy.deepcopy(config)
 
-    email = SERVICE_ACCOUNT_EMAIL_TEMPLATE.format(
+    email = get_service_account_email(
         account_id=GCP_DEFAULT_SERVICE_ACCOUNT_ID,
         project_id=config["provider"]["project_id"])
-    service_account = _get_service_account(email, config, iam)
+    service_account = _get_service_account(config["provider"], email, iam)
 
     if service_account is None:
         cli_logger.print("Creating new service account: {}".format(GCP_DEFAULT_SERVICE_ACCOUNT_ID))
 
         service_account = _create_service_account(
-            GCP_DEFAULT_SERVICE_ACCOUNT_ID, DEFAULT_SERVICE_ACCOUNT_CONFIG, config,
+            config["provider"], GCP_DEFAULT_SERVICE_ACCOUNT_ID, DEFAULT_SERVICE_ACCOUNT_CONFIG,
             iam)
 
     assert service_account is not None, "Failed to create service account"
@@ -1430,7 +1435,7 @@ def _configure_iam_role(config, crm, iam):
     else:
         roles = DEFAULT_SERVICE_ACCOUNT_ROLES
 
-    _add_iam_policy_binding(service_account, roles, crm)
+    _add_iam_role_binding_for_service_account(service_account, roles, crm)
 
     serviceAccounts = [{
             "email": service_account["email"],
@@ -1454,10 +1459,10 @@ def _configure_iam_role(config, crm, iam):
 def _get_workspace_service_account(config, iam, service_account_id_template):
     workspace_name = config["workspace_name"]
     service_account_id = service_account_id_template.format(workspace_name)
-    email = SERVICE_ACCOUNT_EMAIL_TEMPLATE.format(
+    email = get_service_account_email(
         account_id=service_account_id,
         project_id=config["provider"]["project_id"])
-    service_account = _get_service_account(email, config, iam)
+    service_account = _get_service_account(config["provider"], email, iam)
     return service_account
 
 
@@ -1761,9 +1766,13 @@ def get_workspace_project(config, crm):
 
 
 def get_workspace_gcs_bucket(config, workspace_name):
+    return get_managed_gcs_bucket(config["provider"], workspace_name)
+
+
+def get_managed_gcs_bucket(cloud_provider, workspace_name):
     gcs = _create_storage_client()
-    region = config["provider"]["region"]
-    project_id = config["provider"]["project_id"]
+    region = cloud_provider["region"]
+    project_id = cloud_provider["project_id"]
     bucket_name_prefix = "cloudtik-{workspace_name}-{region}-".format(
         workspace_name=workspace_name,
         region=region
@@ -1793,10 +1802,16 @@ def _create_project(project_id, crm):
     return result
 
 
-def _get_service_account(account, config, iam):
-    project_id = config["provider"]["project_id"]
-    full_name = ("projects/{project_id}/serviceAccounts/{account}"
-                 "".format(project_id=project_id, account=account))
+def _get_service_account_by_id(cloud_provider, account_id, iam):
+    email = get_service_account_email(
+        account_id=account_id,
+        project_id=cloud_provider["project_id"])
+    return _get_service_account(cloud_provider, email, iam)
+
+
+def _get_service_account(cloud_provider, account, iam):
+    project_id = cloud_provider["project_id"]
+    full_name = get_service_account_resource_name(project_id=project_id, account=account)
     try:
         cli_logger.verbose("Getting the service account: {}...".format(account))
         service_account = iam.projects().serviceAccounts().get(
@@ -1811,9 +1826,8 @@ def _get_service_account(account, config, iam):
     return service_account
 
 
-def _create_service_account(account_id, account_config, config, iam):
-    project_id = config["provider"]["project_id"]
-
+def _create_service_account(cloud_provider, account_id, account_config, iam):
+    project_id = cloud_provider["project_id"]
     service_account = iam.projects().serviceAccounts().create(
         name="projects/{project_id}".format(project_id=project_id),
         body={
@@ -1824,33 +1838,21 @@ def _create_service_account(account_id, account_config, config, iam):
     return service_account
 
 
-def _add_iam_policy_binding(service_account, roles, crm):
-    """Add new IAM roles for the service account."""
+def _add_iam_role_binding_for_service_account(service_account, roles, crm):
     project_id = service_account["projectId"]
-    email = service_account["email"]
-    member_id = "serviceAccount:" + email
+    service_account_email = service_account["email"]
+    return _add_iam_role_binding(
+        project_id, service_account_email, roles, crm)
 
+
+def _add_iam_role_binding(project_id, service_account_email, roles, crm):
+    """Add new IAM roles for the service account."""
+    member_id = "serviceAccount:" + service_account_email
     policy = crm.projects().getIamPolicy(
         resource=project_id, body={}).execute()
 
-    already_configured = True
-    for role in roles:
-        role_exists = False
-        for binding in policy["bindings"]:
-            if binding["role"] == role:
-                if member_id not in binding["members"]:
-                    binding["members"].append(member_id)
-                    already_configured = False
-                role_exists = True
-
-        if not role_exists:
-            already_configured = False
-            policy["bindings"].append({
-                "members": [member_id],
-                "role": role,
-            })
-
-    if already_configured:
+    changed = _add_role_bindings_to_policy(roles, member_id, policy)
+    if not changed:
         # In some managed environments, an admin needs to grant the
         # roles, so only call setIamPolicy if needed.
         return
@@ -1861,6 +1863,147 @@ def _add_iam_policy_binding(service_account, roles, crm):
         }).execute()
 
     return result
+
+
+def _remove_iam_role_binding(project_id, service_account_email, roles, crm):
+    """Remove new IAM roles for the service account."""
+    member_id = "serviceAccount:" + service_account_email
+    policy = crm.projects().getIamPolicy(
+        resource=project_id, body={}).execute()
+
+    changed = _remove_role_bindings_from_policy(roles, member_id, policy)
+    if not changed:
+        return
+
+    result = crm.projects().setIamPolicy(
+        resource=project_id, body={
+            "policy": policy,
+        }).execute()
+    return result
+
+
+def _has_iam_role_binding(project_id, service_account_email, roles, crm):
+    role_bindings = _get_iam_role_binding(
+        project_id, service_account_email, roles, crm)
+    if len(role_bindings) != roles:
+        return False
+    return True
+
+
+def _get_iam_role_binding(project_id, service_account_email, roles, crm):
+    """Get IAM roles bindings for the service account."""
+    member_id = "serviceAccount:" + service_account_email
+    policy = crm.projects().getIamPolicy(
+        resource=project_id, body={}).execute()
+    return _get_role_bindings_of_policy(roles, member_id, policy)
+
+
+def get_service_account_resource_name(project_id, account):
+    # 'account' can be the account id or the email
+    return "projects/{project_id}/serviceAccounts/{account}".format(
+           project_id=project_id, account=account)
+
+
+def _add_role_bindings_to_policy(roles, member_id, policy):
+    changed = False
+    for role in roles:
+        role_exists = False
+        for binding in policy["bindings"]:
+            if binding["role"] == role:
+                if "members" not in binding:
+                    binding["members"] = [member_id]
+                    changed = True
+                elif member_id not in binding["members"]:
+                    binding["members"].append(member_id)
+                    changed = True
+                role_exists = True
+
+        if not role_exists:
+            changed = True
+            policy["bindings"].append({
+                "members": [member_id],
+                "role": role,
+            })
+    return changed
+
+
+def _remove_role_bindings_from_policy(roles, member_id, policy):
+    changed = False
+    for role in roles:
+        for binding in policy["bindings"]:
+            if binding["role"] == role:
+                if "members" in binding and member_id in binding["members"]:
+                    binding["members"].remove(member_id)
+                    changed = True
+    return changed
+
+
+def _get_role_bindings_of_policy(roles, member_id, policy):
+    role_binding = []
+    for role in roles:
+        for binding in policy["bindings"]:
+            if binding["role"] == role:
+                if "members" in binding and member_id in binding["members"]:
+                    role_binding.append({"role": role, "member": member_id})
+
+    return role_binding
+
+
+def _add_service_account_iam_role_binding(
+        project_id, service_account_email, roles, member_id, iam):
+    """Add new IAM roles for the service account."""
+    resource = get_service_account_resource_name(project_id, service_account_email)
+    policy = iam.projects().serviceAccounts().getIamPolicy(
+        resource=resource).execute()
+
+    changed = _add_role_bindings_to_policy(roles, member_id, policy)
+    if not changed:
+        # In some managed environments, an admin needs to grant the
+        # roles, so only call setIamPolicy if needed.
+        return
+
+    result = iam.projects().serviceAccounts().setIamPolicy(
+        resource=resource, body={
+            "policy": policy,
+        }).execute()
+
+    return result
+
+
+def _remove_service_account_iam_role_binding(
+        project_id, service_account_email, roles, member_id, iam):
+    """Remove new IAM roles for the service account."""
+    resource = get_service_account_resource_name(project_id, service_account_email)
+    policy = iam.projects().serviceAccounts().getIamPolicy(
+        resource=resource).execute()
+
+    changed = _remove_role_bindings_from_policy(roles, member_id, policy)
+    if not changed:
+        return
+
+    result = iam.projects().serviceAccounts().setIamPolicy(
+        resource=resource, body={
+            "policy": policy,
+        }).execute()
+    return result
+
+
+def _has_service_account_iam_role_binding(
+        project_id, service_account_email, roles, member_id, iam):
+    role_bindings = _get_service_account_iam_role_binding(
+        project_id, service_account_email, roles, member_id, iam)
+    if len(role_bindings) != roles:
+        return False
+    return True
+
+
+def _get_service_account_iam_role_binding(
+        project_id, service_account_email, roles, member_id, iam):
+    """Get IAM roles bindings for the service account."""
+    resource = get_service_account_resource_name(project_id, service_account_email)
+    policy = iam.projects().serviceAccounts().getIamPolicy(
+        resource=resource).execute()
+    return _get_role_bindings_of_policy(roles, member_id, policy)
 
 
 def _create_project_ssh_key_pair(project, public_key, ssh_user, compute):

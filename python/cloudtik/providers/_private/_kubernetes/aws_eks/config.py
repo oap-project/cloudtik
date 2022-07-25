@@ -11,7 +11,7 @@ from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core._private.utils import _is_use_managed_cloud_storage, _is_managed_cloud_storage
 from cloudtik.core.workspace_provider import Existence
 from cloudtik.providers._private._kubernetes import core_api, log_prefix
-from cloudtik.providers._private._kubernetes.aws_eks.eks_utils import get_root_ca_cert_thumbprint
+from cloudtik.providers._private._kubernetes.aws_eks.utils import get_root_ca_cert_thumbprint
 from cloudtik.providers._private._kubernetes.utils import _get_head_service_account_name, \
     _get_worker_service_account_name, _get_service_account
 from cloudtik.providers._private.aws.config import _configure_managed_cloud_storage_from_workspace, \
@@ -55,12 +55,12 @@ def create_configurations_for_aws(config: Dict[str, Any], namespace, cloud_provi
     if managed_cloud_storage:
         total_steps += 1
 
-    # Configure S3 IAM role based access for Kubernetes service accounts
+    # Configure IAM based access for Kubernetes service accounts
     with cli_logger.group(
-            "Creating IAM role based access for Kubernetes",
+            "Creating IAM based access for Kubernetes",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
-        _create_iam_role_based_access_for_kubernetes(config, namespace, cloud_provider)
+        _create_iam_based_access_for_kubernetes(config, namespace, cloud_provider)
 
     # Optionally, create managed cloud storage (s3 bucket) if user choose to
     if managed_cloud_storage:
@@ -91,10 +91,10 @@ def delete_configurations_for_aws(config: Dict[str, Any], namespace, cloud_provi
 
     # Delete S3 IAM role based access for Kubernetes service accounts
     with cli_logger.group(
-            "Deleting IAM role based access for Kubernetes",
+            "Deleting IAM based access for Kubernetes",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
-        _delete_iam_role_based_access_for_kubernetes(config, namespace, cloud_provider)
+        _delete_iam_based_access_for_kubernetes(config, namespace, cloud_provider)
 
 
 def configure_kubernetes_for_aws(config: Dict[str, Any], namespace, cloud_provider):
@@ -111,7 +111,7 @@ def _configure_cloud_storage_for_aws(config: Dict[str, Any], cloud_provider):
     return config
 
 
-def _create_iam_role_based_access_for_kubernetes(config: Dict[str, Any], namespace, cloud_provider):
+def _create_iam_based_access_for_kubernetes(config: Dict[str, Any], namespace, cloud_provider):
     # 1. Create an IAM OIDC provider for your cluster
     # 2. Create an IAM role and attach an IAM policy to it with the permissions that your service accounts need
     #    We recommend creating separate roles for each unique collection of permissions that pods need.
@@ -406,7 +406,7 @@ def _get_oidc_identity_provider(cloud_provider, oidc_provider_url):
     return response
 
 
-def _delete_iam_role_based_access_for_kubernetes(config: Dict[str, Any], namespace, cloud_provider):
+def _delete_iam_based_access_for_kubernetes(config: Dict[str, Any], namespace, cloud_provider):
     # 1. Dissociate an IAM role with service accounts
     # 2. Delete the IAM role
     current_step = 1

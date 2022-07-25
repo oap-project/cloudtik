@@ -1390,6 +1390,9 @@ def _create_configurations_for_cloud_provider(config, namespace):
     if cloud_provider_type == "aws":
         from cloudtik.providers._private._kubernetes.aws_eks.config import create_configurations_for_aws
         create_configurations_for_aws(config, namespace, cloud_provider)
+    elif cloud_provider_type == "gcp":
+        from cloudtik.providers._private._kubernetes.gcp_gke.config import create_configurations_for_gcp
+        create_configurations_for_gcp(config, namespace, cloud_provider)
     else:
         cli_logger.print("No integration for {} cloud provider. Configuration skipped.", cloud_provider_type)
 
@@ -1408,6 +1411,10 @@ def _delete_configurations_for_cloud_provider(config, namespace,
         from cloudtik.providers._private._kubernetes.aws_eks.config import delete_configurations_for_aws
         delete_configurations_for_aws(
             config, namespace, cloud_provider, delete_managed_storage)
+    elif cloud_provider_type == "gcp":
+        from cloudtik.providers._private._kubernetes.gcp_gke.config import delete_configurations_for_gcp
+        delete_configurations_for_gcp(
+            config, namespace, cloud_provider, delete_managed_storage)
     else:
         cli_logger.print("No integration for {} cloud provider. Configuration skipped.", cloud_provider_type)
 
@@ -1421,6 +1428,9 @@ def _configure_cloud_provider(config: Dict[str, Any], namespace):
     if cloud_provider_type == "aws":
         from cloudtik.providers._private._kubernetes.aws_eks.config import configure_kubernetes_for_aws
         configure_kubernetes_for_aws(config, namespace, cloud_provider)
+    elif cloud_provider_type == "gcp":
+        from cloudtik.providers._private._kubernetes.gcp_gke.config import configure_kubernetes_for_gcp
+        configure_kubernetes_for_gcp(config, namespace, cloud_provider)
     else:
         cli_logger.verbose("No integration for {} cloud provider. Configuration skipped.", cloud_provider_type)
 
@@ -1437,8 +1447,12 @@ def _check_existence_for_cloud_provider(config: Dict[str, Any], namespace):
     if cloud_provider_type == "aws":
         from cloudtik.providers._private._kubernetes.aws_eks.config import check_existence_for_aws
         existence = check_existence_for_aws(config, namespace, cloud_provider)
-        cli_logger.verbose("The existence status for {} cloud provider: {}.", cloud_provider_type, existence)
-        return existence
+    elif cloud_provider_type == "gcp":
+        from cloudtik.providers._private._kubernetes.gcp_gke.config import check_existence_for_gcp
+        existence = check_existence_for_gcp(config, namespace, cloud_provider)
     else:
         cli_logger.verbose("No integration for {} cloud provider.", cloud_provider_type)
         return None
+
+    cli_logger.verbose("The existence status for {} cloud provider: {}.", cloud_provider_type, existence)
+    return existence

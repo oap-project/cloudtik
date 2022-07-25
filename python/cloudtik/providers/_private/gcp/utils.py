@@ -22,6 +22,9 @@ TPU_VERSION = "v2alpha"  # change once v2 is stable
 # to True in config["provider"].
 HAS_TPU_PROVIDER_FIELD = "_has_tpus"
 
+SERVICE_ACCOUNT_EMAIL_TEMPLATE = (
+    "{account_id}@{project_id}.iam.gserviceaccount.com")
+
 
 def _create_crm(gcp_credentials=None):
     return discovery.build(
@@ -59,27 +62,15 @@ def _create_storage_client(gcp_credentials=None):
     return storage.Client(credentials=gcp_credentials)
 
 
-def construct_clients_from_provider_config(provider_config):
-    """
-    Attempt to fetch and parse the JSON GCP credentials from the provider
-    config yaml file.
-
-    tpu resource (the last element of the tuple) will be None if
-    `_has_tpus` in provider config is not set or False.
-    """
+def _get_gcp_credentials(provider_config):
     gcp_credentials = provider_config.get("gcp_credentials")
     if gcp_credentials is None:
         logger.debug("gcp_credentials not found in cluster yaml file. "
                      "Falling back to GOOGLE_APPLICATION_CREDENTIALS "
                      "environment variable.")
-        tpu_resource = _create_tpu() if provider_config.get(
-            HAS_TPU_PROVIDER_FIELD, False) else None
         # If gcp_credentials is None, then discovery.build will search for
         # credentials in the local environment.
-        return _create_crm(), \
-            _create_iam(), \
-            _create_compute(), \
-            tpu_resource
+        return None
 
     assert ("type" in gcp_credentials), \
         "gcp_credentials cluster yaml field missing 'type' field."
@@ -103,6 +94,33 @@ def construct_clients_from_provider_config(provider_config):
     elif cred_type == "credentials_token":
         # Otherwise the credentials type must be credentials_token.
         credentials = OAuthCredentials(credentials_field)
+    else:
+        credentials = None
+
+    return credentials
+
+
+def construct_clients_from_provider_config(provider_config):
+    """
+    Attempt to fetch and parse the JSON GCP credentials from the provider
+    config yaml file.
+
+    tpu resource (the last element of the tuple) will be None if
+    `_has_tpus` in provider config is not set or False.
+    """
+    credentials = _get_gcp_credentials(provider_config)
+    if credentials is None:
+        logger.debug("gcp_credentials not found in cluster yaml file. "
+                     "Falling back to GOOGLE_APPLICATION_CREDENTIALS "
+                     "environment variable.")
+        tpu_resource = _create_tpu() if provider_config.get(
+            HAS_TPU_PROVIDER_FIELD, False) else None
+        # If gcp_credentials is None, then discovery.build will search for
+        # credentials in the local environment.
+        return _create_crm(), \
+            _create_iam(), \
+            _create_compute(), \
+            tpu_resource
 
     tpu_resource = _create_tpu(credentials) if provider_config.get(
         HAS_TPU_PROVIDER_FIELD, False) else None
@@ -111,6 +129,22 @@ def construct_clients_from_provider_config(provider_config):
         _create_iam(credentials), \
         _create_compute(credentials), \
         tpu_resource
+
+
+def construct_crm_client(provider_config):
+    credentials = _get_gcp_credentials(provider_config)
+    if credentials is None:
+        return _create_crm()
+
+    return _create_crm(credentials)
+
+
+def construct_iam_client(provider_config):
+    credentials = _get_gcp_credentials(provider_config)
+    if credentials is None:
+        return _create_iam()
+
+    return _create_iam(credentials)
 
 
 def wait_for_crm_operation(operation, crm):
@@ -266,3 +300,21 @@ def _get_node_info(node: GCPNode):
                  "instance_status": node["status"]}
     node_info.update(node.get_labels())
     return node_info
+
+
+def get_gcp_project(cloud_provider, project_id):
+    crm = construct_crm_client(cloud_provider)
+    try:
+        project = crm.projects().get(projectId=project_id).execute()
+    except errors.HttpError as e:
+        if e.resp.status != 403:
+            raise
+        project = None
+    return project
+
+
+def get_service_account_email(project_id, account_id):
+    email = SERVICE_ACCOUNT_EMAIL_TEMPLATE.format(
+            account_id=account_id,
+            project_id=project_id)
+    return email

@@ -1889,7 +1889,7 @@ def _remove_iam_role_binding(project_id, service_account_email, roles, crm):
 def _has_iam_role_binding(project_id, service_account_email, roles, crm):
     role_bindings = _get_iam_role_binding(
         project_id, service_account_email, roles, crm)
-    if len(role_bindings) != roles:
+    if len(role_bindings) != len(roles):
         return False
     return True
 
@@ -2023,7 +2023,7 @@ def _has_service_account_iam_role_binding(
         return False
     role_bindings = _get_service_account_iam_role_binding(
         project_id, service_account_email, roles, member_id, iam)
-    if len(role_bindings) != roles:
+    if len(role_bindings) != len(roles):
         return False
     return True
 

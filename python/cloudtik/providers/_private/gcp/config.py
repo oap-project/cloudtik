@@ -1811,6 +1811,10 @@ def _get_service_account_by_id(cloud_provider, account_id, iam):
 
 def _get_service_account(cloud_provider, account, iam):
     project_id = cloud_provider["project_id"]
+    return _get_service_account_of_project(project_id, account, iam)
+
+
+def _get_service_account_of_project(project_id, account, iam):
     full_name = get_service_account_resource_name(project_id=project_id, account=account)
     try:
         cli_logger.verbose("Getting the service account: {}...".format(account))
@@ -1906,6 +1910,16 @@ def get_service_account_resource_name(project_id, account):
 
 def _add_role_bindings_to_policy(roles, member_id, policy):
     changed = False
+    if "bindings" not in policy:
+        bindings = []
+        for role in roles:
+            bindings.append({
+                "members": [member_id],
+                "role": role,
+            })
+        policy["bindings"] = bindings
+        changed = True
+
     for role in roles:
         role_exists = False
         for binding in policy["bindings"]:
@@ -1929,6 +1943,8 @@ def _add_role_bindings_to_policy(roles, member_id, policy):
 
 def _remove_role_bindings_from_policy(roles, member_id, policy):
     changed = False
+    if "bindings" not in policy:
+        return changed
     for role in roles:
         for binding in policy["bindings"]:
             if binding["role"] == role:
@@ -1939,19 +1955,30 @@ def _remove_role_bindings_from_policy(roles, member_id, policy):
 
 
 def _get_role_bindings_of_policy(roles, member_id, policy):
-    role_binding = []
+    role_bindings = []
+    if "bindings" not in policy:
+        return role_bindings
+
     for role in roles:
         for binding in policy["bindings"]:
             if binding["role"] == role:
                 if "members" in binding and member_id in binding["members"]:
-                    role_binding.append({"role": role, "member": member_id})
+                    role_bindings.append({"role": role, "member": member_id})
 
-    return role_binding
+    return role_bindings
+
+
+def _check_service_account_existence(project_id, service_account_email, iam):
+    sa = _get_service_account_of_project(project_id, service_account_email, iam)
+    if sa is None:
+        raise RuntimeError(
+            "No service account found in project {}: {}".format(project_id, service_account_email))
 
 
 def _add_service_account_iam_role_binding(
         project_id, service_account_email, roles, member_id, iam):
     """Add new IAM roles for the service account."""
+    _check_service_account_existence(project_id, service_account_email, iam)
     resource = get_service_account_resource_name(project_id, service_account_email)
     policy = iam.projects().serviceAccounts().getIamPolicy(
         resource=resource).execute()
@@ -1973,6 +2000,7 @@ def _add_service_account_iam_role_binding(
 def _remove_service_account_iam_role_binding(
         project_id, service_account_email, roles, member_id, iam):
     """Remove new IAM roles for the service account."""
+    _check_service_account_existence(project_id, service_account_email, iam)
     resource = get_service_account_resource_name(project_id, service_account_email)
     policy = iam.projects().serviceAccounts().getIamPolicy(
         resource=resource).execute()
@@ -1990,6 +2018,9 @@ def _remove_service_account_iam_role_binding(
 
 def _has_service_account_iam_role_binding(
         project_id, service_account_email, roles, member_id, iam):
+    sa = _get_service_account_of_project(project_id, service_account_email, iam)
+    if sa is None:
+        return False
     role_bindings = _get_service_account_iam_role_binding(
         project_id, service_account_email, roles, member_id, iam)
     if len(role_bindings) != roles:
@@ -2000,6 +2031,7 @@ def _has_service_account_iam_role_binding(
 def _get_service_account_iam_role_binding(
         project_id, service_account_email, roles, member_id, iam):
     """Get IAM roles bindings for the service account."""
+    _check_service_account_existence(project_id, service_account_email, iam)
     resource = get_service_account_resource_name(project_id, service_account_email)
     policy = iam.projects().serviceAccounts().getIamPolicy(
         resource=resource).execute()

@@ -1220,7 +1220,7 @@ def _delete_namespace(namespace):
 
     cli_logger.print(log_prefix + "Deleting namespace: {}".format(namespace))
     core_api().delete_namespace(namespace)
-    wait_for_namespace_deleted()
+    wait_for_namespace_deleted(namespace)
     cli_logger.print(log_prefix + "Successfully deleted namespace: {}".format(namespace))
 
 
@@ -1230,7 +1230,7 @@ def wait_for_namespace_deleted(namespace):
         namespaces = core_api().list_namespace(
             field_selector=field_selector).items
         if len(namespaces) == 0:
-            break
+            return
 
         # wait for deletion
         cli_logger.verbose("Waiting for namespace delete operation to finish...")

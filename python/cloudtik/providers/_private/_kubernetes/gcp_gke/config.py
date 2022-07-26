@@ -12,12 +12,9 @@ from cloudtik.providers._private.gcp.config import _configure_managed_cloud_stor
     _create_managed_cloud_storage, _delete_managed_cloud_storage, get_managed_gcs_bucket, _create_service_account, \
     _delete_service_account, _get_service_account_by_id, _add_iam_role_binding, WORKER_SERVICE_ACCOUNT_ROLES, \
     _remove_iam_role_binding, _has_iam_role_binding, _add_service_account_iam_role_binding, \
-    _remove_service_account_iam_role_binding, _has_service_account_iam_role_binding
+    _remove_service_account_iam_role_binding, _has_service_account_iam_role_binding, _get_service_account_of_project
 from cloudtik.providers._private.gcp.utils import get_gcp_project, construct_iam_client, construct_crm_client, \
     get_service_account_email
-
-AWS_KUBERNETES_IAM_ROLE_NAME_TEMPLATE = "cloudtik-eks-{}-role"
-AWS_KUBERNETES_OPEN_ID_IDENTITY_PROVIDER_ARN = "arn:aws:iam::{}:oidc-provider/{}"
 
 GCP_KUBERNETES_ANNOTATION_NAME = "iam.gke.io/gcp-service-account"
 GCP_KUBERNETES_ANNOTATION_VALUE = "{service_account}@{project_id}.iam.gserviceaccount.com"
@@ -48,6 +45,7 @@ def _get_kubernetes_service_account_iam_member_id(
     return GCP_KUBERNETES_SERVICE_ACCOUNT_WORKLOAD_IDENTITY_MEMBER.format(
         project_id, namespace, service_account_name
     )
+
 
 def create_configurations_for_gcp(config: Dict[str, Any], namespace, cloud_provider):
     workspace_name = config["workspace_name"]
@@ -172,9 +170,12 @@ def _create_iam_service_account(cloud_provider, workspace_name, iam, account_typ
     service_account_config = {
         "displayName": _get_iam_service_account_display_name(workspace_name, account_type),
     }
+
+    cli_logger.print("Creating IAM service account: {}...".format(iam_service_account_name))
     _create_service_account(
         cloud_provider, iam_service_account_name,
         service_account_config, iam)
+    cli_logger.print("Successfully created IAM service account: {}...".format(iam_service_account_name))
 
 
 def _delete_iam_service_accounts(cloud_provider, workspace_name):
@@ -232,9 +233,13 @@ def _create_iam_service_account_role_binding(
     service_account_name = _get_iam_service_account_name(workspace_name, account_type)
     service_account_email = get_service_account_email(
         project_id=project_id, account_id=service_account_name)
+
+    cli_logger.print("Creating IAM service account role binding: {}...".format(service_account_name))
     # Both head and worker use the same set of roles
     _add_iam_role_binding(
         project_id, service_account_email, WORKER_SERVICE_ACCOUNT_ROLES, crm)
+
+    cli_logger.print("Successfully created IAM service account role binding: {}...".format(service_account_name))
 
 
 def _delete_iam_service_accounts_role_binding(cloud_provider, workspace_name):
@@ -262,9 +267,23 @@ def _delete_iam_service_account_role_binding(
     service_account_name = _get_iam_service_account_name(workspace_name, account_type)
     service_account_email = get_service_account_email(
         project_id=project_id, account_id=service_account_name)
+
+    iam = construct_iam_client(cloud_provider)
+    sa = _get_service_account_of_project(project_id, service_account_email, iam)
+    if sa is None:
+        cli_logger.print(log_prefix + "No IAM service account {} found. Skip deletion.".format(
+            service_account_email))
+        return
+
+    cli_logger.print(log_prefix + "Deleting IAM service account role binding: {}".format(
+        service_account_email))
+
     # Both head and worker use the same set of roles
     _remove_iam_role_binding(
         project_id, service_account_email, WORKER_SERVICE_ACCOUNT_ROLES, crm)
+
+    cli_logger.print(log_prefix + "Successfully deleted IAM service account role binding: {}".format(
+        service_account_email))
 
 
 def _has_iam_service_account_role_binding(
@@ -314,11 +333,18 @@ def _create_iam_service_account_binding_with_kubernetes(
     member_id = _get_kubernetes_service_account_iam_member_id(
         project_id, namespace, service_account_name
     )
+
+    cli_logger.print("Creating IAM service account role binding with Kubernetes: {}...".format(
+        service_account_name))
+
     _add_service_account_iam_role_binding(
         project_id, iam_service_account_email,
         GCP_KUBERNETES_SERVICE_ACCOUNT_WORKLOAD_IDENTITY_ROLES,
         member_id=member_id,
         iam=iam)
+
+    cli_logger.print("Successfully created IAM service account role binding with Kubernetes: {}...".format(
+        service_account_name))
 
 
 def _delete_iam_service_accounts_binding_with_kubernetes(
@@ -357,11 +383,22 @@ def _delete_iam_service_account_binding_with_kubernetes(
     member_id = _get_kubernetes_service_account_iam_member_id(
         project_id, namespace, service_account_name
     )
+
+    sa = _get_service_account_of_project(project_id, iam_service_account_email, iam)
+    if sa is None:
+        cli_logger.print(log_prefix + "No IAM service account {} found. Skip deletion.".format(
+            iam_service_account_email))
+        return
+
+    cli_logger.print(log_prefix + "Deleting IAM service account role binding for Kubernetes: {}".format(
+        iam_service_account_email))
     _remove_service_account_iam_role_binding(
         project_id, iam_service_account_email,
         GCP_KUBERNETES_SERVICE_ACCOUNT_WORKLOAD_IDENTITY_ROLES,
         member_id=member_id,
         iam=iam)
+    cli_logger.print(log_prefix + "Successfully deleted IAM service account role binding for Kubernetes: {}".format(
+        iam_service_account_email))
 
 
 def _has_iam_service_account_binding_with_kubernetes(
@@ -524,7 +561,7 @@ def _dissociate_kubernetes_service_accounts_with_iam(config, cloud_provider, wor
 
 def _is_service_account_associated(config, cloud_provider, namespace, account_type: AccountType):
     provider_config = config["provider"]
-    workspace_name = config["workspace"]
+    workspace_name = config["workspace_name"]
     service_account_name = _get_service_account_name(provider_config, account_type)
     iam_service_account_name = _get_iam_service_account_name(workspace_name, account_type)
     return _is_service_account_associated_with_iam(
@@ -599,11 +636,13 @@ def check_existence_for_gcp(config: Dict[str, Any], namespace, cloud_provider):
             existing_resources += 1
 
         if _has_iam_service_account_binding_with_kubernetes(
-                config, cloud_provider, workspace_name, iam, AccountType.HEAD):
+                config, cloud_provider, workspace_name,
+                namespace, iam, AccountType.HEAD):
             existing_resources += 1
 
         if _has_iam_service_account_binding_with_kubernetes(
-                config, cloud_provider, workspace_name, iam, AccountType.WORKER):
+                config, cloud_provider, workspace_name,
+                namespace, iam, AccountType.WORKER):
             existing_resources += 1
 
         if _is_service_account_associated(

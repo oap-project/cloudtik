@@ -8,6 +8,7 @@ import threading
 import time
 import unittest
 import urllib
+from collections import defaultdict
 from types import ModuleType
 
 import pytest
@@ -23,7 +24,7 @@ from cloudtik.core._private.call_context import CallContext
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.cluster.cluster_operator import _should_create_new_head, _set_up_config_for_head_node, \
     POLL_INTERVAL
-from cloudtik.core._private.cluster.cluster_scaler import ClusterScaler
+from cloudtik.core._private.cluster.cluster_scaler import ClusterScaler, NonTerminatedNodes
 from cloudtik.core._private.docker import validate_docker_config
 from cloudtik.core._private.event_system import global_event_system, CreateClusterEvent
 from cloudtik.core._private.node.node_updater import NodeUpdater
@@ -40,7 +41,7 @@ from cloudtik.core.api import get_docker_host_mount_location
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, CLOUDTIK_TAG_NODE_STATUS, CLOUDTIK_TAG_USER_NODE_TYPE, \
     CLOUDTIK_TAG_CLUSTER_NAME, STATUS_UNINITIALIZED, STATUS_UPDATE_FAILED, NODE_KIND_HEAD, CLOUDTIK_TAG_LAUNCH_CONFIG, \
-    CLOUDTIK_TAG_NODE_NAME, CLOUDTIK_TAG_NODE_NUMBER, CLOUDTIK_TAG_HEAD_NODE_NUMBER
+    CLOUDTIK_TAG_NODE_NAME, CLOUDTIK_TAG_NODE_NUMBER, CLOUDTIK_TAG_HEAD_NODE_NUMBER, NODE_KIND_WORKER, STATUS_UP_TO_DATE
 
 
 def mock_node_id() -> bytes:
@@ -1103,7 +1104,7 @@ class CloudTikTest(unittest.TestCase):
         mock_metrics.started_nodes.inc.assert_called_with(1)
         assert mock_metrics.worker_create_node_time.observe.call_count == 2
         cluster_scaler.update()
-        # The two autoscaler update iterations in this test led to two
+        # The two cluster_scaler update iterations in this test led to two
         # observations of the update time.
         assert mock_metrics.update_time.observe.call_count == 2
         self.waitForNodes(2)
@@ -1125,39 +1126,15 @@ class CloudTikTest(unittest.TestCase):
             self.waitFor(lambda: len(runner.calls) > 0)
             # The updates failed. Key thing is that the updates completed.
             self.waitForNodes(
-                2, tag_filters={CLOUDTIK_TAG_NODE_STATUS: STATUS_UPDATE_FAILED}
+                1, tag_filters={CLOUDTIK_TAG_NODE_STATUS: STATUS_UPDATE_FAILED}
             )
         assert mock_metrics.drain_node_exceptions.inc.call_count == 0
 
+    def testScaleUp(self):
+        self.ScaleUpHelper(disable_node_updaters=False)
+
     def testScaleUpNoUpdaters(self):
         self.ScaleUpHelper(disable_node_updaters=True)
-
-    def testUpdateThrottling(self):
-        config_path = self.write_config(SMALL_CLUSTER)
-        self.provider = MockProvider()
-        runner = MockProcessRunner()
-        cluster_scaler = MockClusterScaler(
-            config_path,
-            ClusterMetrics(),
-            max_launch_batch=5,
-            max_concurrent_launches=5,
-            max_failures=0,
-            process_runner=runner,
-            update_interval_s=10,
-        )
-        cluster_scaler.update()
-        self.waitForNodes(2)
-        assert cluster_scaler.pending_launches.value == 0
-        # Update the config to change the node type
-        new_config = SMALL_CLUSTER.copy()
-        new_config["max_workers"] = 1
-        self.write_config(new_config)
-        cluster_scaler.update()
-        # not updated yet
-        # note that node termination happens in the main thread, so
-        # we do not need to add any delay here before checking
-        assert len(self.provider.non_terminated_nodes({})) == 2
-        assert cluster_scaler.pending_launches.value == 0
 
     def testDockerFileMountsAdded(self):
         config = copy.deepcopy(SMALL_CLUSTER)
@@ -1208,6 +1185,125 @@ class CloudTikTest(unittest.TestCase):
         runner.assert_has_call(
             "1.2.3.4", pattern=common_container_copy + "cloudtik_bootstrap_config.yaml"
         )
+
+    def testScaleDownMaxWorkers(self):
+        """Tests terminating nodes due to max_nodes per type."""
+        config = copy.deepcopy(MULTI_WORKER_CLUSTER)
+        config["available_node_types"]["m4.large"]["min_workers"] = 3
+        config["available_node_types"]["m4.large"]["max_workers"] = 3
+        config["available_node_types"]["m4.large"]["resources"] = {}
+        config["available_node_types"]["m4.16xlarge"]["resources"] = {}
+        config["available_node_types"]["p2.xlarge"]["min_workers"] = 5
+        config["available_node_types"]["p2.xlarge"]["max_workers"] = 8
+        config["available_node_types"]["p2.xlarge"]["resources"] = {}
+        config["available_node_types"]["p2.8xlarge"]["min_workers"] = 2
+        config["available_node_types"]["p2.8xlarge"]["max_workers"] = 4
+        config["available_node_types"]["p2.8xlarge"]["resources"] = {}
+        config["max_workers"] = 13
+
+        config_path = self.write_config(config)
+        config = self.prepare_mock_config(config)
+        self.provider = MockProvider()
+        runner = MockProcessRunner()
+        runner.respond_to_call("json .Config.Env", ["[]" for i in range(15)])
+        lm = ClusterMetrics()
+
+        self.get_or_create_head_node(
+            config,
+            CallContext(),
+            no_restart=False,
+            restart_only=False,
+            yes=True,
+            _provider=self.provider,
+            _runner=runner,
+        )
+        self.waitForNodes(1)
+
+        cluster_scaler = MockClusterScaler(
+            config_path,
+            lm,
+            max_failures=0,
+            max_concurrent_launches=13,
+            max_launch_batch=13,
+            process_runner=runner,
+            update_interval_s=0,
+        )
+        cluster_scaler.update()
+        self.waitForNodes(12)
+        assert cluster_scaler.pending_launches.value == 0
+        assert (
+            len(
+                self.provider.non_terminated_nodes(
+                    {CLOUDTIK_TAG_NODE_KIND: NODE_KIND_WORKER}
+                )
+            )
+            == 11
+        )
+
+        # Terminate some nodes
+        config["available_node_types"]["m4.large"]["min_workers"] = 2  # 3
+        config["available_node_types"]["m4.large"]["max_workers"] = 2
+        config["available_node_types"]["p2.8xlarge"]["min_workers"] = 0  # 2
+        config["available_node_types"]["p2.8xlarge"]["max_workers"] = 0
+        # And spawn one.
+        config["available_node_types"]["p2.xlarge"]["min_workers"] = 6  # 5
+        config["available_node_types"]["p2.xlarge"]["max_workers"] = 6
+        config["from"] = None
+        self.write_config(config)
+        fill_in_node_ids(self.provider, lm)
+        cluster_scaler.update()
+        events = cluster_scaler.event_summarizer.summary()
+        self.waitFor(lambda: cluster_scaler.pending_launches.value == 0)
+        self.waitForNodes(9, tag_filters={CLOUDTIK_TAG_NODE_KIND: NODE_KIND_WORKER})
+        assert cluster_scaler.pending_launches.value == 0
+        events = cluster_scaler.event_summarizer.summary()
+
+        # We should not be starting/stopping empty_node at all.
+        for event in events:
+            assert "empty_node" not in event
+
+        node_type_counts = defaultdict(int)
+        for node_id in NonTerminatedNodes(self.provider).worker_ids:
+            tags = self.provider.node_tags(node_id)
+            if CLOUDTIK_TAG_USER_NODE_TYPE in tags:
+                node_type = tags[CLOUDTIK_TAG_USER_NODE_TYPE]
+                node_type_counts[node_type] += 1
+        assert node_type_counts == {'m4.large': 2, 'p2.xlarge': 6, 'worker.default': 1}
+
+    def testSetupCommandsWithNoNodeCaching(self):
+        config = copy.deepcopy(SMALL_CLUSTER)
+        config["min_workers"] = 1
+        config["max_workers"] = 1
+        config_path = self.write_config(config)
+        self.provider = MockProvider(cache_stopped=False)
+        runner = MockProcessRunner()
+        runner.respond_to_call("json .Config.Env", ["[]" for i in range(2)])
+        cm = ClusterMetrics()
+        cluster_scaler = MockClusterScaler(
+            config_path,
+            cm,
+            max_failures=0,
+            process_runner=runner,
+            update_interval_s=0,
+        )
+        nodes_id = cluster_scaler.provider.non_terminated_nodes({})
+        for node_id in nodes_id:
+            cluster_scaler.provider.terminate_node(node_id)
+        cluster_scaler.update()
+        self.provider = cluster_scaler.provider
+        self.waitForNodes(2)
+        self.provider.finish_starting_nodes()
+        cluster_scaler.update()
+        self.waitForNodes(1, tag_filters={CLOUDTIK_TAG_NODE_STATUS: STATUS_UP_TO_DATE})
+        if nodes_id:
+            worker_id = nodes_id[-1] + 2
+        else:
+            worker_id = 1
+        worker_ip = "172.0.0.{}".format(worker_id)
+        runner.assert_has_call(worker_ip, "init_cmd")
+        runner.assert_has_call(worker_ip, "setup_cmd")
+        runner.assert_has_call(worker_ip, "worker_setup_cmd")
+        runner.assert_has_call(worker_ip, "worker_start_cmd")
 
 
 if __name__ == "__main__":

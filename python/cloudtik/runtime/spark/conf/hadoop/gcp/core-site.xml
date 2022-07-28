@@ -53,7 +53,7 @@
     </property>
     <property>
       <name>hadoop.security.credential.provider.path</name>
-      <value>{%gcp.jceks%}</value>
+      <value>{%secret.jceks%}</value>
     </property>
     <property>
         <name>fs.gs.reported.permissions</name>

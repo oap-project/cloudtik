@@ -891,14 +891,15 @@ def prepare_config(config: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def encrypt_config(config: Dict[str, Any]) -> Dict[str, Any]:
-    store_config = copy.deepcopy(config)
-    process_config_with_privacy(store_config, func=encode_config_value)
-    return store_config
+    encrypted_config = copy.deepcopy(config)
+    process_config_with_privacy(encrypted_config, func=encode_config_value)
+    return encrypted_config
 
 
 def decrypt_config(config: Dict[str, Any]) -> Dict[str, Any]:
-    process_config_with_privacy(config, func=decode_config_value)
-    return config
+    decrypted_config = copy.deepcopy(config)
+    process_config_with_privacy(decrypted_config, func=decode_config_value)
+    return decrypted_config
 
 
 def prepare_workspace_config(config: Dict[str, Any]) -> Dict[str, Any]:

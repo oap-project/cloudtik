@@ -401,7 +401,6 @@ def _bootstrap_config(config: Dict[str, Any],
 
     resolved_config = provider_cls.bootstrap_config(config)
 
-
     # add a verify step
     verify_config(resolved_config)
     if not no_config_cache or init_config_cache:

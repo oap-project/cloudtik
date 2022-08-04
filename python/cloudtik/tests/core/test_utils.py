@@ -140,8 +140,6 @@ class TestUtils:
         assert ori_config["test_dict"]["nested_dict"]["credentials"] == "123"
 
 
-
-
 if __name__ == "__main__":
     import sys
 

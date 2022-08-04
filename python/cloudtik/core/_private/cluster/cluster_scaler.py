@@ -784,6 +784,8 @@ class ClusterScaler:
                 "file_mounts_sync_continuously", False)
         try:
             new_config = self.config_reader()
+            new_config = decrypt_config(new_config)
+
             if new_config != getattr(self, "config", None):
                 try:
                     validate_config(new_config)
@@ -809,7 +811,7 @@ class ClusterScaler:
                  config=new_config
              )
 
-            self.config = decrypt_config(new_config)
+            self.config = new_config
 
             self.runtime_hash = new_runtime_hash
             self.runtime_hash_for_node_types = new_runtime_hash_for_node_types

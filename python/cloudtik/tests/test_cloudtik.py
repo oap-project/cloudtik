@@ -63,6 +63,7 @@ class MockNode:
                  unique_ips=False):
         self.node_id = node_id
         self.state = "pending"
+        self.tags = tags
         self.external_ip = "1.2.3.4"
         self.internal_ip = "172.0.0.{}".format(self.node_id)
         if unique_ips:
@@ -70,10 +71,6 @@ class MockNode:
 
         self.node_config = node_config
         self.node_type = node_type
-        if CLOUDTIK_TAG_USER_NODE_TYPE in tags:
-            self.tags = tags
-        else:
-            self.tags = {**tags, CLOUDTIK_TAG_USER_NODE_TYPE: "head.default"}
 
     def matches(self, tags):
         for k, v in tags.items():
@@ -312,6 +309,9 @@ class MockProvider(NodeProvider):
     def with_environment_variables(self, node_type_config: Dict[str, Any], node_id: str):
         return {}
 
+    def get_node_info(self, node_id: str) -> Dict[str, str]:
+        pass
+
 
 class MockNodeUpdater(NodeUpdater):
     def __init__(self, *args, **kwargs):
@@ -356,6 +356,8 @@ class MockClusterScaler(ClusterScaler):
 
     def spawn_updater(self, node_id, setup_commands, start_commands,
                       node_resources, docker_config, call_context):
+        # Only works with MockProvider
+        assert isinstance(self.provider, MockProvider)
         ip = self.provider.internal_ip(node_id)
         node_type = self._get_node_type(node_id)
         self.node_tracker.track(node_id, ip, node_type)
@@ -423,21 +425,21 @@ SMALL_CLUSTER = {
         "TestProp": 1,
     },
     "available_node_types": {
-            "head.default": {
-                "resources": {},
-                "node_config": {
-                    "head_default_prop": 1
-                }
-            },
-            "worker.default": {
-                "min_workers": 2,
-                "max_workers": 2,
-                "resources": {},
-                "node_config": {
-                    "worker_default_prop": 2
-                }
+        "head.default": {
+            "resources": {},
+            "node_config": {
+                "head_default_prop": 1
             }
         },
+        "worker.default": {
+            "min_workers": 2,
+            "max_workers": 2,
+            "resources": {},
+            "node_config": {
+                "worker_default_prop": 2
+            }
+        }
+    },
     "file_mounts": {},
     "cluster_synced_files": [],
     "initialization_commands": ["init_cmd"],
@@ -561,6 +563,33 @@ class ClusterMetricsTest(unittest.TestCase):
         assert "2.2.2.2" in cluster_metrics.last_heartbeat_time_by_ip
         assert "3.3.3.3" not in cluster_metrics.last_heartbeat_time_by_ip
 
+    def testDebugString(self):
+        cluster_metrics = ClusterMetrics()
+        cluster_metrics.update("1.1.1.1", mock_node_id(), time.time(), {"CPU": 2}, {"CPU": 0}, {})
+        cluster_metrics.update(
+            "2.2.2.2", mock_node_id(), time.time(), {"CPU": 2, "GPU": 16}, {"CPU": 2, "GPU": 2}, {}
+        )
+        cluster_metrics.update(
+            "3.3.3.3",
+            mock_node_id(),
+            time.time(),
+            {
+                "memory": 1.05 * 1024 * 1024 * 1024,
+                "object_store_memory": 2.1 * 1024 * 1024 * 1024,
+            },
+            {
+                "memory": 0,
+                "object_store_memory": 1.05 * 1024 * 1024 * 1024,
+            },
+            {},
+        )
+        debug = cluster_metrics.info_string()
+        assert (
+                   "ResourceUsage: 2.0/4.0 CPU, 14.0/16.0 GPU, "
+                   "1.05 GiB/1.05 GiB memory, "
+                   "1127428915.2/2254857830.4 object_store_memory"
+               ) in debug
+
 
 class CloudTikTestTimeoutException(Exception):
     pass
@@ -631,7 +660,8 @@ class CloudTikTest(unittest.TestCase):
                                 no_controller_on_head: bool = False,
                                 _provider: Optional[NodeProvider] = None,
                                 _runner: ModuleType = subprocess) -> None:
-        """Create the cluster head node, which in turn creates the workers."""
+        """Create the cluster head node, which in turn creates the workers. Only works with MockProvider."""
+        assert isinstance(self.provider, MockProvider)
         global_event_system.execute_callback(
             get_cluster_uri(config),
             CreateClusterEvent.cluster_booting_started)
@@ -948,15 +978,8 @@ class CloudTikTest(unittest.TestCase):
         self.provider.create_node = _create_node
         call_context = CallContext()
         call_context._allow_interactive = False
-        self.get_or_create_head_node(
-            config,
-            call_context,
-            no_restart=False,
-            restart_only=False,
-            yes=True,
-            _provider=self.provider,
-            _runner=runner,
-        )
+        self.get_or_create_head_node(config, call_context, no_restart=False, restart_only=False, yes=True,
+                                     _provider=self.provider, _runner=runner)
         self.waitForNodes(1)
         runner.assert_has_call("1.2.3.4", "init_cmd")
         runner.assert_has_call("1.2.3.4", "head_setup_cmd")
@@ -993,15 +1016,8 @@ class CloudTikTest(unittest.TestCase):
         runner.respond_to_call(".State.Running", ["false", "false", "false", "false"])
         runner.respond_to_call("json .Config.Env", ["[]"])
         call_context = CallContext()
-        self.get_or_create_head_node(
-            config,
-            call_context,
-            no_restart=False,
-            restart_only=False,
-            yes=True,
-            _provider=self.provider,
-            _runner=runner,
-        )
+        self.get_or_create_head_node(config, call_context, no_restart=False, restart_only=False, yes=True,
+                                     _provider=self.provider, _runner=runner)
         self.waitForNodes(1)
         # Init & Setup commands must be run for Docker!
         runner.assert_has_call("1.2.3.4", "init_cmd")
@@ -1068,15 +1084,8 @@ class CloudTikTest(unittest.TestCase):
         runner.respond_to_call(".State.Running", ["false", "false", "false", "false"])
         runner.respond_to_call("json .Config.Env", ["[]"])
         call_context = CallContext()
-        self.get_or_create_head_node(
-            config,
-            call_context,
-            no_restart=False,
-            restart_only=True,
-            yes=True,
-            _provider=self.provider,
-            _runner=runner,
-        )
+        self.get_or_create_head_node(config, call_context, no_restart=False, restart_only=True, yes=True,
+                                     _provider=self.provider, _runner=runner)
         self.waitForNodes(1)
         runner.assert_has_call("1.2.3.4", "init_cmd")
         runner.assert_has_call("1.2.3.4", "head_start_cmd")
@@ -1168,15 +1177,8 @@ class CloudTikTest(unittest.TestCase):
         # Two initial calls to rsync, +1 more call during run_init
         runner.respond_to_call(".State.Running", ["false", "false", "true", "true"])
         runner.respond_to_call("json .Config.Env", ["[]"])
-        self.get_or_create_head_node(
-            config,
-            CallContext(),
-            no_restart=False,
-            restart_only=False,
-            yes=True,
-            _provider=self.provider,
-            _runner=runner,
-        )
+        self.get_or_create_head_node(config, CallContext(), no_restart=False, restart_only=False, yes=True,
+                                     _provider=self.provider, _runner=runner)
         self.waitForNodes(1)
         runner.assert_has_call("1.2.3.4", "init_cmd")
         runner.assert_has_call("1.2.3.4", "head_setup_cmd")
@@ -1220,15 +1222,8 @@ class CloudTikTest(unittest.TestCase):
         runner.respond_to_call("json .Config.Env", ["[]" for i in range(15)])
         cm = ClusterMetrics()
 
-        self.get_or_create_head_node(
-            config,
-            CallContext(),
-            no_restart=False,
-            restart_only=False,
-            yes=True,
-            _provider=self.provider,
-            _runner=runner,
-        )
+        self.get_or_create_head_node(config, CallContext(), no_restart=False, restart_only=False, yes=True,
+                                     _provider=self.provider, _runner=runner)
         self.waitForNodes(1)
 
         cluster_scaler = MockClusterScaler(
@@ -1248,12 +1243,12 @@ class CloudTikTest(unittest.TestCase):
         self.waitForNodes(12)
         assert cluster_scaler.pending_launches.value == 0
         assert (
-            len(
-                self.provider.non_terminated_nodes(
-                    {CLOUDTIK_TAG_NODE_KIND: NODE_KIND_WORKER}
+                len(
+                    self.provider.non_terminated_nodes(
+                        {CLOUDTIK_TAG_NODE_KIND: NODE_KIND_WORKER}
+                    )
                 )
-            )
-            == 12
+                == 12
         )
 
         # Terminate some nodes

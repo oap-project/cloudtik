@@ -23,7 +23,7 @@
     </property>
 	<property>
         <name>fs.s3a.aws.credentials.provider</name>
-        <value>org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider,com.amazonaws.auth.EnvironmentVariableCredentialsProvider,com.amazonaws.auth.InstanceProfileCredentialsProvider,com.amazonaws.auth.WebIdentityTokenCredentialsProvider</value>
+        <value>org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider,com.amazonaws.auth.EnvironmentVariableCredentialsProvider,com.amazonaws.auth.WebIdentityTokenCredentialsProvider,com.amazonaws.auth.InstanceProfileCredentialsProvider</value>
     </property>
     <property>
         <name>fs.s3a.path.style.access</name>

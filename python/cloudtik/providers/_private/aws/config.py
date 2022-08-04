@@ -525,15 +525,20 @@ def check_aws_workspace_integrity(config):
 
 
 def get_aws_workspace_info(config):
-    workspace_name = config["workspace_name"]
-    bucket = get_workspace_s3_bucket(config, workspace_name)
-    managed_bucket_name = None if bucket is None else bucket.name
     info = {}
+    get_aws_managed_cloud_storage_info(config, config["provider"], info)
+    return info
+
+
+def get_aws_managed_cloud_storage_info(config, cloud_provider, info):
+    workspace_name = config["workspace_name"]
+    bucket = get_managed_s3_bucket(cloud_provider, workspace_name)
+    managed_bucket_name = None if bucket is None else bucket.name
+
     if managed_bucket_name is not None:
         managed_cloud_storage = {AWS_MANAGED_STORAGE_S3_BUCKET: managed_bucket_name,
                                  CLOUDTIK_MANAGED_CLOUD_STORAGE_URI: "s3a://{}".format(managed_bucket_name)}
         info[CLOUDTIK_MANAGED_CLOUD_STORAGE] = managed_cloud_storage
-    return info
 
 
 def update_aws_workspace_firewalls(config):

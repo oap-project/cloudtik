@@ -11,7 +11,7 @@ from kubernetes.client.rest import ApiException
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.providers import _get_node_provider
 from cloudtik.core._private.utils import is_use_internal_ip, get_running_head_node, binary_to_hex, hex_to_binary, \
-    get_runtime_service_ports
+    get_runtime_service_ports, _is_use_managed_cloud_storage
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, \
     CLOUDTIK_GLOBAL_VARIABLE_KEY, CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX
 from cloudtik.core.workspace_provider import Existence
@@ -432,6 +432,11 @@ def post_prepare_kubernetes(config: Dict[str, Any]) -> Dict[str, Any]:
             cli_logger.warning(
                 "Failed to detect node resources: {}. You can see full stack trace with higher verbosity.", str(exc))
 
+    # Set use_managed_cloud_storage value from cloud_provider if it is set
+    provider_config = config["provider"]
+    if "cloud_provider" in provider_config:
+        provider_config["use_managed_cloud_storage"] = _is_use_managed_cloud_storage(
+            provider_config["cloud_provider"])
     return config
 
 

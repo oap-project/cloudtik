@@ -1148,15 +1148,19 @@ def check_gcp_workspace_integrity(config):
 
 
 def get_gcp_workspace_info(config):
-    workspace_name = config["workspace_name"]
-    bucket = get_workspace_gcs_bucket(config, workspace_name)
-    managed_bucket_name = None if bucket is None else bucket.name
     info = {}
+    get_gcp_managed_cloud_storage_info(config, config["provider"], info)
+    return info
+
+
+def get_gcp_managed_cloud_storage_info(config, cloud_provider, info):
+    workspace_name = config["workspace_name"]
+    bucket = get_managed_gcs_bucket(cloud_provider, workspace_name)
+    managed_bucket_name = None if bucket is None else bucket.name
     if managed_bucket_name is not None:
         managed_cloud_storage = {GCP_MANAGED_STORAGE_GCS_BUCKET: managed_bucket_name,
                                  CLOUDTIK_MANAGED_CLOUD_STORAGE_URI: "gs://{}".format(managed_bucket_name)}
         info[CLOUDTIK_MANAGED_CLOUD_STORAGE] = managed_cloud_storage
-    return info
 
 
 def _fix_disk_type_for_disk(zone, disk):

@@ -15,7 +15,8 @@ from cloudtik.providers._private._kubernetes.aws_eks.utils import get_root_ca_ce
 from cloudtik.providers._private._kubernetes.utils import _get_head_service_account_name, \
     _get_worker_service_account_name, _get_service_account
 from cloudtik.providers._private.aws.config import _configure_managed_cloud_storage_from_workspace, \
-    _create_managed_cloud_storage, _delete_managed_cloud_storage, _get_iam_role, _delete_iam_role, get_managed_s3_bucket
+    _create_managed_cloud_storage, _delete_managed_cloud_storage, _get_iam_role, _delete_iam_role, \
+    get_managed_s3_bucket, get_aws_managed_cloud_storage_info
 from cloudtik.providers._private.aws.utils import _make_resource_client, _make_resource, get_current_account_id, \
     handle_boto_error, _make_client
 
@@ -28,6 +29,8 @@ AWS_KUBERNETES_IAM_ROLE_NAME_TEMPLATE = "cloudtik-eks-{}-role"
 AWS_KUBERNETES_OPEN_ID_IDENTITY_PROVIDER_ARN = "arn:aws:iam::{}:oidc-provider/{}"
 AWS_KUBERNETES_ANNOTATION_NAME = "eks.amazonaws.com/role-arn"
 AWS_KUBERNETES_ANNOTATION_VALUE = "arn:aws:iam::{}:role/{}"
+
+AWS_KUBERNETES_IAM_ROLE_NAME_INFO = "aws.kubernetes.iam.role"
 
 AWS_KUBERNETES_NUM_CREATION_STEPS = 1
 AWS_KUBERNETES_NUM_DELETION_STEPS = 1
@@ -567,3 +570,14 @@ def check_existence_for_aws(config: Dict[str, Any], namespace, cloud_provider):
         if existing_resources == 2 and cloud_storage_existence:
             return Existence.STORAGE_ONLY
         return Existence.IN_COMPLETED
+
+
+def get_info_for_aws(config: Dict[str, Any], namespace, cloud_provider, info):
+    _check_eks_cluster_name(cloud_provider)
+    eks_cluster_name = cloud_provider["eks_cluster_name"]
+    iam_role_name = get_oidc_provider_role_name(eks_cluster_name, namespace)
+    info[AWS_KUBERNETES_IAM_ROLE_NAME_INFO] = iam_role_name
+
+    managed_cloud_storage = _is_managed_cloud_storage(cloud_provider)
+    if managed_cloud_storage:
+        get_aws_managed_cloud_storage_info(config, cloud_provider, info)

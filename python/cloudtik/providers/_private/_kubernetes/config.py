@@ -44,9 +44,10 @@ KUBERNETES_HEAD_ROLE_NAME = "cloudtik-role"
 KUBERNETES_HEAD_ROLE_BINDING_NAME = "cloudtik-role-binding"
 
 KUBERNETES_NAMESPACE = "kubernetes.namespace"
-KUBERNETES_HEAD_SERVICE_ACCOUNT = "head.service_account"
-KUBERNETES_HEAD_ROLE = "head.role"
-KUBERNETES_HEAD_ROLE_BINDING = "head.role_binding"
+KUBERNETES_HEAD_SERVICE_ACCOUNT = "kubernetes.head.service_account"
+KUBERNETES_WORKER_SERVICE_ACCOUNT = "kubernetes.worker.service_account"
+KUBERNETES_HEAD_ROLE = "kubernetes.head.role"
+KUBERNETES_HEAD_ROLE_BINDING = "kubernetes.head.role_binding"
 
 
 KUBERNETES_HEAD_ROLE_CONFIG_KEY = "head_role"
@@ -311,19 +312,32 @@ def list_kubernetes_clusters(config: Dict[str, Any]) -> Optional[Dict[str, Any]]
 
 
 def get_kubernetes_workspace_info(config):
-    workspace_name = config["workspace_name"]
+    namespace = config["workspace_name"]
     provider_config = config["provider"]
 
-    service_account_name = _get_head_service_account_name(provider_config)
+    head_service_account_name = _get_head_service_account_name(provider_config)
+    worker_service_account_name = _get_worker_service_account_name(provider_config)
     role_name = _get_head_role_name(provider_config)
     role_binding_name = _get_head_role_binding_name(provider_config)
 
     info = {
-        KUBERNETES_NAMESPACE: workspace_name,
-        KUBERNETES_HEAD_SERVICE_ACCOUNT: service_account_name,
+        KUBERNETES_NAMESPACE: namespace,
+        KUBERNETES_HEAD_SERVICE_ACCOUNT: head_service_account_name,
+        KUBERNETES_WORKER_SERVICE_ACCOUNT: worker_service_account_name,
         KUBERNETES_HEAD_ROLE: role_name,
         KUBERNETES_HEAD_ROLE_BINDING: role_binding_name,
     }
+
+    cloud_provider = _get_cloud_provider_config(provider_config)
+    if cloud_provider is not None:
+        cloud_provider_type = cloud_provider["type"]
+
+        if cloud_provider_type == "aws":
+            from cloudtik.providers._private._kubernetes.aws_eks.config import get_info_for_aws
+            get_info_for_aws(config, namespace, cloud_provider, info)
+        elif cloud_provider_type == "gcp":
+            from cloudtik.providers._private._kubernetes.gcp_gke.config import get_info_for_gcp
+            get_info_for_gcp(config, namespace, cloud_provider, info)
 
     return info
 

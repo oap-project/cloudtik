@@ -12,7 +12,8 @@ from cloudtik.providers._private.gcp.config import _configure_managed_cloud_stor
     _create_managed_cloud_storage, _delete_managed_cloud_storage, get_managed_gcs_bucket, _create_service_account, \
     _delete_service_account, _get_service_account_by_id, _add_iam_role_binding, WORKER_SERVICE_ACCOUNT_ROLES, \
     _remove_iam_role_binding, _has_iam_role_binding, _add_service_account_iam_role_binding, \
-    _remove_service_account_iam_role_binding, _has_service_account_iam_role_binding, _get_service_account_of_project
+    _remove_service_account_iam_role_binding, _has_service_account_iam_role_binding, _get_service_account_of_project, \
+    get_gcp_managed_cloud_storage_info
 from cloudtik.providers._private.gcp.utils import get_gcp_project, construct_iam_client, construct_crm_client, \
     get_service_account_email
 
@@ -21,6 +22,9 @@ GCP_KUBERNETES_ANNOTATION_VALUE = "{service_account}@{project_id}.iam.gserviceac
 
 GCP_KUBERNETES_SERVICE_ACCOUNT_WORKLOAD_IDENTITY_ROLES = ["roles/iam.workloadIdentityUser"]
 GCP_KUBERNETES_SERVICE_ACCOUNT_WORKLOAD_IDENTITY_MEMBER = "serviceAccount:{}.svc.id.goog[{}/{}]"
+
+GCP_KUBERNETES_HEAD_IAM_SERVICE_ACCOUNT_INFO = "gcp.kubernetes.head.iam.service_account"
+GCP_KUBERNETES_WORKER_IAM_SERVICE_ACCOUNT_INFO = "gcp.kubernetes.worker.iam.service_account"
 
 GCP_KUBERNETES_NUM_CREATION_STEPS = 1
 GCP_KUBERNETES_NUM_DELETION_STEPS = 1
@@ -709,3 +713,16 @@ def check_existence_for_gcp(config: Dict[str, Any], namespace, cloud_provider):
         if existing_resources == 2 and cloud_storage_existence:
             return Existence.STORAGE_ONLY
         return Existence.IN_COMPLETED
+
+
+def get_info_for_gcp(config: Dict[str, Any], namespace, cloud_provider, info):
+    workspace_name = config["workspace_name"]
+    head_iam_service_account_name = _get_iam_service_account_name(workspace_name, AccountType.HEAD)
+    worker_iam_service_account_name = _get_iam_service_account_name(workspace_name, AccountType.WORKER)
+
+    info[GCP_KUBERNETES_HEAD_IAM_SERVICE_ACCOUNT_INFO] = head_iam_service_account_name
+    info[GCP_KUBERNETES_WORKER_IAM_SERVICE_ACCOUNT_INFO] = worker_iam_service_account_name
+
+    managed_cloud_storage = _is_managed_cloud_storage(cloud_provider)
+    if managed_cloud_storage:
+        get_gcp_managed_cloud_storage_info(config, cloud_provider, info)

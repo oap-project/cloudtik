@@ -1,0 +1,27 @@
+# Cloud-provider specific configuration.
+provider:
+    type: kubernetes
+
+    cloud_provider:
+        type: gcp
+
+# The instance configuration for a standard instance type
+available_node_types:
+    head.default:
+        node_config:
+            resources:
+                cpu: 4
+                memory: 16Gi
+            dataDisks:
+              - name: data-disk-1
+                storageClass: "standard-rwo"
+                diskSize: 100Gi
+    worker.default:
+        node_config:
+            resources:
+                cpu: 4
+                memory: 16Gi
+            dataDisks:
+              - name: data-disk-1
+                storageClass: "premium-rwo"
+                diskSize: 200Gi

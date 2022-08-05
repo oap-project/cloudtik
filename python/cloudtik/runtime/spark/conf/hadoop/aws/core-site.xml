@@ -37,10 +37,7 @@
         <name>fs.s3a.access.key</name>
         <value>{%fs.s3a.access.key%}</value>
     </property>
-    <property>
-      <name>hadoop.security.credential.provider.path</name>
-      <value>{%secret.jceks%}</value>
-    </property>
+    {%secret.jceks%}
     <property>
         <name>hadoop.proxyuser.root.groups</name>
         <value>*</value>

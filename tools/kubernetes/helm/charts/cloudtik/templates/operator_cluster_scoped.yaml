@@ -12,7 +12,7 @@ metadata:
   name: cloudtik-operator
 rules:
 - apiGroups: ["", "cloudtik.io"]
-  resources: ["cloudtikclusters", "cloudtikclusters/finalizers", "cloudtikclusters/status", "pods", "pods/exec", "services"]
+  resources: ["cloudtikclusters", "cloudtikclusters/finalizers", "cloudtikclusters/status", "pods", "pods/exec", "services", "persistentvolumeclaims"]
   verbs: ["get", "watch", "list", "create", "delete", "patch", "update"]
 - apiGroups: [""]
   resources: [events]

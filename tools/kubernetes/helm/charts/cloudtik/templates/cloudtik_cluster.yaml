@@ -26,31 +26,32 @@ spec:
         {{- toYaml $val.customResources | nindent 8 }}
       {{- end }}
       podConfig:
-        apiVersion: v1
-        kind: Pod
-        metadata:
-          generateName: {{ kebabcase $key }}-
-        spec:
-          containers:
-          - name: cloudtik-node
-            image: {{ $.Values.image }}
-            resources:
-              requests:
-                cpu: {{ .CPU }}
-                memory: {{ .memory }}
-              limits:
-                cpu: {{ .CPU }}
-                # The maximum memory that this pod is allowed to use. The
-                # limit will be detected and split to use 10% for
-                # redis, and the rest for application memory.
-                memory: {{ .memory }}
-          {{- if .nodeSelector }}
-          nodeSelector:
-          {{- toYaml $val.nodeSelector | nindent 12 }}
-          {{- end }}
-          {{- if $val.tolerations }}
-          tolerations:
-          {{- toYaml $val.tolerations | nindent 10 }}
-          {{- end }}
+        pod:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            generateName: {{ kebabcase $key }}-
+          spec:
+            containers:
+            - name: cloudtik-node
+              image: {{ $.Values.image }}
+              resources:
+                requests:
+                  cpu: {{ .CPU }}
+                  memory: {{ .memory }}
+                limits:
+                  cpu: {{ .CPU }}
+                  # The maximum memory that this pod is allowed to use. The
+                  # limit will be detected and split to use 10% for
+                  # redis, and the rest for application memory.
+                  memory: {{ .memory }}
+            {{- if .nodeSelector }}
+            nodeSelector:
+            {{- toYaml $val.nodeSelector | nindent 12 }}
+            {{- end }}
+            {{- if $val.tolerations }}
+            tolerations:
+            {{- toYaml $val.tolerations | nindent 10 }}
+            {{- end }}
     {{- end }}
 {{- end }}

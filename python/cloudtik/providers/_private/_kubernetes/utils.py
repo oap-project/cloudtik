@@ -44,9 +44,28 @@ def to_label_selector(tags):
     return label_selector
 
 
+def get_instance_type_for_pod(pod):
+    instance_type = "Unknown"
+
+    resources = pod.spec.containers[0].resources
+    if resources is not None and resources.requests is not None:
+        requests = resources.requests
+        cpu = requests.get("cpu")
+        memory = requests.get("memory")
+        if cpu is not None and memory is not None:
+            instance_type = "{} cores/{} memory".format(cpu, memory)
+        elif cpu is not None:
+            instance_type = "{} cores".format(cpu)
+        elif memory is not None:
+            instance_type = "{} memory".format(cpu)
+
+    return instance_type
+
+
 def _get_node_info(pod):
+    instance_type = get_instance_type_for_pod(pod)
     node_info = {"node_id": pod.metadata.name,
-                 "instance_type": "Unknown",
+                 "instance_type": instance_type,
                  "private_ip": pod.status.pod_ip,
                  "public_ip": None,
                  "instance_status": pod.status.phase}

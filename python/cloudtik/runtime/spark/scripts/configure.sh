@@ -5,8 +5,8 @@ eval set -- "${args}"
 
 IS_HEAD_NODE=false
 USER_HOME=/home/$(whoami)
-JCEKS_PATH="jceks://file@${HADOOP_HOME}/etc/hadoop/secret.jceks"
-JCEKS_PROPERTY="<property>\n      <name>hadoop.security.credential.provider.path</name>\n      <value>${JCEKS_PATH}</value>\n    </property>"
+HADOOP_CREDENTIAL_FILE_PATH="jceks://file@${HADOOP_HOME}/etc/hadoop/credential.jceks"
+HADOOP_CREDENTIAL_PROPERTY="<property>\n      <name>hadoop.security.credential.provider.path</name>\n      <value>${HADOOP_CREDENTIAL_FILE_PATH}</value>\n    </property>"
 
 while true
 do
@@ -114,10 +114,10 @@ function update_credential_config_for_aws() {
     sed -i "s#{%fs.s3a.access.key%}#${AWS_S3_ACCESS_KEY_ID}#g" `grep "{%fs.s3a.access.key%}" -rl ./`
 
     if [ ! -z "${AWS_S3_SECRET_ACCESS_KEY}" ]; then
-      ${HADOOP_HOME}/bin/hadoop credential create fs.s3a.secret.key -value ${AWS_S3_SECRET_ACCESS_KEY}  -provider ${JCEKS_PATH}
-      sed -i "s#{%secret.jceks%}#${JCEKS_PROPERTY}#g" `grep "{%secret.jceks%}" -rl ./`
+      ${HADOOP_HOME}/bin/hadoop credential create fs.s3a.secret.key -value ${AWS_S3_SECRET_ACCESS_KEY}  -provider ${HADOOP_CREDENTIAL_FILE_PATH}
+      sed -i "s#{%hadoop.credential.property%}#${HADOOP_CREDENTIAL_PROPERTY}#g" `grep "{%hadoop.credential.property%}" -rl ./`
     else
-      sed -i "s#{%secret.jceks%}#""#g" `grep "{%secret.jceks%}" -rl ./`
+      sed -i "s#{%hadoop.credential.property%}#""#g" `grep "{%hadoop.credential.property%}" -rl ./`
     fi
 }
 
@@ -128,10 +128,10 @@ function update_credential_config_for_gcp() {
     sed -i "s#{%fs.gs.auth.service.account.private.key.id%}#${GCS_SERVICE_ACCOUNT_PRIVATE_KEY_ID}#g" `grep "{%fs.gs.auth.service.account.private.key.id%}" -rl ./`
 
     if [ ! -z "${GCS_SERVICE_ACCOUNT_PRIVATE_KEY}" ]; then
-      ${HADOOP_HOME}/bin/hadoop credential create fs.gs.auth.service.account.private.key -value ${GCS_SERVICE_ACCOUNT_PRIVATE_KEY}  -provider ${JCEKS_PATH}
-      sed -i "s#{%secret.jceks%}#${JCEKS_PROPERTY}#g" `grep "{%secret.jceks%}" -rl ./`
+      ${HADOOP_HOME}/bin/hadoop credential create fs.gs.auth.service.account.private.key -value ${GCS_SERVICE_ACCOUNT_PRIVATE_KEY}  -provider ${HADOOP_CREDENTIAL_FILE_PATH}
+      sed -i "s#{%hadoop.credential.property%}#${HADOOP_CREDENTIAL_PROPERTY}#g" `grep "{%hadoop.credential.property%}" -rl ./`
     else
-      sed -i "s#{%secret.jceks%}#""#g" `grep "{%secret.jceks%}" -rl ./`
+      sed -i "s#{%hadoop.credential.property%}#""#g" `grep "{%hadoop.credential.property%}" -rl ./`
     fi
 }
 
@@ -159,10 +159,10 @@ function update_credential_config_for_azure() {
 
     if [ ! -z "${AZURE_ACCOUNT_KEY}" ]; then
       FS_KEY_NAME_FOR_AZURE="fs.azure.account.key.${%AZURE_STORAGE_ACCOUNT%}.${%AZURE_ENDPOINT%}.core.windows.net"
-      ${HADOOP_HOME}/bin/hadoop credential create ${FS_KEY_NAME_FOR_AZURE} -value ${AZURE_ACCOUNT_KEY}  -provider ${JCEKS_PATH}
-      sed -i "s#{%secret.jceks%}#${JCEKS_PROPERTY}#g" `grep "{%secret.jceks%}" -rl ./`
+      ${HADOOP_HOME}/bin/hadoop credential create ${FS_KEY_NAME_FOR_AZURE} -value ${AZURE_ACCOUNT_KEY}  -provider ${HADOOP_CREDENTIAL_FILE_PATH}
+      sed -i "s#{%hadoop.credential.property%}#${HADOOP_CREDENTIAL_PROPERTY}#g" `grep "{%hadoop.credential.property%}" -rl ./`
     else
-      sed -i "s#{%secret.jceks%}#""#g" `grep "{%secret.jceks%}" -rl ./`
+      sed -i "s#{%hadoop.credential.property%}#""#g" `grep "{%hadoop.credential.property%}" -rl ./`
     fi
 }
 

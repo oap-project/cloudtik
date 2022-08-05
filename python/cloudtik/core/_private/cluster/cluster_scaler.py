@@ -812,7 +812,6 @@ class ClusterScaler:
              )
 
             self.config = new_config
-
             self.runtime_hash = new_runtime_hash
             self.runtime_hash_for_node_types = new_runtime_hash_for_node_types
             self.file_mounts_contents_hash = new_file_mounts_contents_hash

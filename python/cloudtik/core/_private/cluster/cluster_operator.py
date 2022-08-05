@@ -403,6 +403,7 @@ def _bootstrap_config(config: Dict[str, Any],
 
     # add a verify step
     verify_config(resolved_config)
+
     if not no_config_cache or init_config_cache:
         with open(cache_key, "w", opener=partial(os.open, mode=0o600)) as f:
             config_cache = {

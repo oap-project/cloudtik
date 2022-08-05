@@ -732,6 +732,8 @@ def _configure_pods(config):
 
     _configure_pod_service_account(config)
 
+    _configure_pod_container_resources(config)
+
 
 def _configure_pod_name_and_labels(config):
     if "available_node_types" not in config:
@@ -789,6 +791,41 @@ def _configure_pod_container_ports(config):
         }
         ports.append(container_port)
     container_data["ports"] = ports
+
+
+def _configure_pod_container_resources(config):
+    if "available_node_types" not in config:
+        return
+
+    node_types = config["available_node_types"]
+    for node_type in node_types:
+        node_config = node_types[node_type]["node_config"]
+        if "resources" in node_config:
+            resources = node_config["resources"]
+            containers = node_config["pod"]["spec"]["containers"]
+            for container in containers:
+                _configure_container_resources(resources, container)
+
+
+def _configure_container_resources(resources, container):
+    cpu = resources.get("cpu")
+    memory = resources.get("memory")
+    if cpu is not None or memory is not None:
+        if "resources" not in container:
+            container["resources"] = {}
+        container_resources = container["resources"]
+        if "requests" not in container_resources:
+            container_resources["requests"] = {}
+        if "limits" not in container_resources:
+            container_resources["limits"] = {}
+
+        if cpu is not None:
+            container_resources["requests"]["cpu"] = cpu
+            container_resources["limits"]["cpu"] = cpu
+
+        if memory is not None:
+            container_resources["requests"]["memory"] = memory
+            container_resources["limits"]["memory"] = memory
 
 
 def _configure_services(config):

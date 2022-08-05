@@ -1,0 +1,13 @@
+# A unique identifier for the workspace
+workspace_name: exmaple-workspace
+
+# Kubernetes provider specific configurations
+provider:
+    type: kubernetes
+
+    # Cloud-provider specific configuration.
+    cloud_provider:
+        type: gcp
+        region: us-central1
+        project_id: your_gcp_project_id
+        managed_cloud_storage: True

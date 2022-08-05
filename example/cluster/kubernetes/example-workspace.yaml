@@ -1,10 +1,6 @@
 # A unique identifier for the workspace
 workspace_name: example-workspace
 
-# Kubernetes resources that need to be configured for controller to be
-# able to manage the cluster. If any of the provided resources don't
-# exist, CloudTik will attempt to create them. If this fails, you may
-# not have the required permissions and will have to request them to be
-# created by your cluster administrator.
+# Kubernetes provider specific configurations
 provider:
     type: kubernetes

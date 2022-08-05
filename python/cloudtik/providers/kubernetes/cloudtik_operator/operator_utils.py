@@ -137,9 +137,10 @@ def get_node_types(
         pod_type_copy.pop("name")
         node_type = translate(pod_type_copy, dictionary=NODE_TYPE_FIELDS)
         node_config = node_type["node_config"]
-        if "metadata" not in node_config:
-            node_config["metadata"] = {}
-        metadata = node_config["metadata"]
+        pod = node_config["pod"]
+        if "metadata" not in pod:
+            pod["metadata"] = {}
+        metadata = pod["metadata"]
         metadata.update({"ownerReferences": [cluster_owner_reference]})
         # Prepend cluster name:
         if "generateName" in metadata:

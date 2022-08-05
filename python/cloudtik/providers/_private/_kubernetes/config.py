@@ -20,7 +20,8 @@ from cloudtik.core._private.constants import CLOUDTIK_DEFAULT_OBJECT_STORE_MEMOR
 from cloudtik.providers._private._kubernetes.utils import _get_node_info, to_label_selector, \
     KUBERNETES_WORKSPACE_NAME_MAX, check_kubernetes_name_format, _get_head_service_account_name, \
     _get_worker_service_account_name, KUBERNETES_HEAD_SERVICE_ACCOUNT_CONFIG_KEY, \
-    KUBERNETES_WORKER_SERVICE_ACCOUNT_CONFIG_KEY, _get_service_account
+    KUBERNETES_WORKER_SERVICE_ACCOUNT_CONFIG_KEY, _get_service_account, \
+    cleanup_orphan_pvcs
 
 logger = logging.getLogger(__name__)
 
@@ -417,9 +418,12 @@ def bootstrap_kubernetes_from_workspace(config):
     return config
 
 
-def cleanup_kubernetes_cluster(config):
+def cleanup_kubernetes_cluster(config, cluster_name, namespace):
     # Delete services associated with the cluster
     _delete_services(config)
+
+    # Clean up the PVCs if there are any not deleted by Pod deletion
+    cleanup_orphan_pvcs(cluster_name, namespace)
 
 
 def _configure_namespace_from_workspace(config):
@@ -467,7 +471,8 @@ def fill_resources_kubernetes(config):
     node_types = copy.deepcopy(config["available_node_types"])
     for node_type in node_types:
         node_config = node_types[node_type]["node_config"]
-        container_data = node_config["spec"]["containers"][0]
+        pod = node_config["pod"]
+        container_data = pod["spec"]["containers"][0]
 
         autodetected_resources = get_autodetected_resources(container_data)
         if "resources" not in config["available_node_types"][node_type]:
@@ -737,9 +742,10 @@ def _configure_pod_name_and_labels(config):
     head_node_type = config["head_node_type"]
     for node_type in node_types:
         node_config = node_types[node_type]["node_config"]
-        if "metadata" not in node_config:
-            node_config["metadata"] = {}
-        metadata = node_config["metadata"]
+        pod = node_config["pod"]
+        if "metadata" not in pod:
+            pod["metadata"] = {}
+        metadata = pod["metadata"]
         if node_type == head_node_type:
             _configure_pod_name_and_labels_for_head(metadata, cluster_name)
         else:
@@ -760,7 +766,7 @@ def _configure_pod_name(metadata, cluster_name, name_pattern):
 
 def _configure_pod_container_ports(config):
     if "available_node_types" not in config:
-        return config
+        return
 
     runtime_config = config.get("runtime", {})
     service_ports = get_runtime_service_ports(runtime_config)
@@ -768,7 +774,8 @@ def _configure_pod_container_ports(config):
     node_types = config["available_node_types"]
     head_node_type = config["head_node_type"]
     node_config = node_types[head_node_type]["node_config"]
-    container_data = node_config["spec"]["containers"][0]
+    pod = node_config["pod"]
+    container_data = pod["spec"]["containers"][0]
 
     if "ports" not in container_data:
         container_data["ports"] = []
@@ -856,7 +863,9 @@ def _configure_pod_service_account(config):
     head_node_type = config["head_node_type"]
     for node_type in node_types:
         node_type_config = node_types[node_type]
-        pod_spec = node_type_config["node_config"]["spec"]
+        node_config = node_type_config["node_config"]
+        pod = node_config["pod"]
+        pod_spec = pod["spec"]
         if node_type == head_node_type:
             # If service account name is not configured, configure it
             if "serviceAccountName" not in pod_spec:
@@ -889,7 +898,8 @@ def get_node_type_image(provider_config, node_type_config):
 
 def _configure_pod_image_for_node_type(node_type_config, image):
     node_config = node_type_config["node_config"]
-    container_data = node_config["spec"]["containers"][0]
+    pod = node_config["pod"]
+    container_data = pod["spec"]["containers"][0]
 
     # The image spec in the container will take high priority than external config
     if CONFIG_NAME_IMAGE not in container_data:

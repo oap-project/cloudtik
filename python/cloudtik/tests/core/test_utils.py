@@ -2,7 +2,7 @@ import copy
 
 import pytest
 
-from cloudtik.core._private.utils import update_nested_dict, process_config_with_privacy
+from cloudtik.core._private.utils import update_nested_dict, process_config_with_privacy, encrypt_config, decrypt_config
 
 TARGET_DICT_WITH_MATCHED_LIST = {
     "test_list": [
@@ -122,6 +122,22 @@ class TestUtils:
         assert config["test_dict"]["Account.Key"] != "123"
         assert config["test_dict"]["nested_dict"]["no_privacy"] == "abc"
         assert config["test_dict"]["nested_dict"]["credentials"] != "123"
+
+
+    def test_encrypt_decrypt_config(self):
+        config = copy.deepcopy(TEST_CONFIG_WITH_PRIVACY)
+        secret_config = encrypt_config(config)
+        assert secret_config["test_array"][0]["no_privacy"] == "abc"
+        assert secret_config["test_array"][0]["account.key"] != "123"
+        assert secret_config["test_dict"]["no_privacy"] == "abc"
+        assert secret_config["test_dict"]["Account.Key"] != "123"
+        assert secret_config["test_dict"]["nested_dict"]["no_privacy"] == "abc"
+        assert secret_config["test_dict"]["nested_dict"]["credentials"] != "123"
+        ori_config = decrypt_config(secret_config)
+
+        assert ori_config["test_array"][0]["account.key"] == "123"
+        assert ori_config["test_dict"]["Account.Key"] == "123"
+        assert ori_config["test_dict"]["nested_dict"]["credentials"] == "123"
 
 
 if __name__ == "__main__":

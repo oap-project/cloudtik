@@ -50,7 +50,7 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     is_node_in_completed_status, check_for_single_worker_type, get_preferred_cpu_bundle_size, \
     get_node_specific_commands_of_runtimes, _get_node_specific_runtime_config, \
     _get_node_specific_docker_config, RUNTIME_CONFIG_KEY, DOCKER_CONFIG_KEY, get_running_head_node, \
-    get_nodes_for_runtime, with_script_args
+    get_nodes_for_runtime, with_script_args, encrypt_config
 
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
@@ -1131,7 +1131,7 @@ def _set_up_config_for_head_node(config: Dict[str, Any],
     remote_config["no_restart"] = no_restart
 
     remote_config = provider.prepare_for_head_node(remote_config)
-
+    remote_config = encrypt_config(remote_config)
     # Now inject the rewritten config and SSH key into the head node
     remote_config_file = tempfile.NamedTemporaryFile(
         "w", prefix="cloudtik-bootstrap-")

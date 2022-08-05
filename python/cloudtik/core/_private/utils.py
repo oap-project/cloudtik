@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import threading
+from functools import lru_cache
 from typing import Any, Dict, Optional, Tuple, List, Union
 import sys
 import tempfile
@@ -37,7 +38,8 @@ from cloudtik.core._private.constants import CLOUDTIK_WHEELS, CLOUDTIK_CLUSTER_P
     CLOUDTIK_DEFAULT_MAX_WORKERS, CLOUDTIK_NODE_SSH_INTERVAL_S, CLOUDTIK_NODE_START_WAIT_S, MAX_PARALLEL_EXEC_NODES, \
     CLOUDTIK_CLUSTER_URI_TEMPLATE, CLOUDTIK_RUNTIME_NAME, CLOUDTIK_RUNTIME_ENV_NODE_IP, CLOUDTIK_RUNTIME_ENV_HEAD_IP, \
     CLOUDTIK_RUNTIME_ENV_SECRETS, CLOUDTIK_DEFAULT_PORT, CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
-    CLOUDTIK_RUNTIME_ENV_NODE_TYPE, PRIVACY_REPLACEMENT_TEMPLATE, PRIVACY_REPLACEMENT
+    CLOUDTIK_RUNTIME_ENV_NODE_TYPE, PRIVACY_REPLACEMENT_TEMPLATE, PRIVACY_REPLACEMENT, CLOUDTIK_CONFIG_SECRET, \
+    CLOUDTIK_ENCRYPTION_PREFIX
 from cloudtik.core._private.crypto import AESCipher
 from cloudtik.core._private.runtime_factory import _get_runtime, _get_runtime_cls, DEFAULT_RUNTIMES
 from cloudtik.core.node_provider import NodeProvider
@@ -886,6 +888,18 @@ def prepare_config(config: Dict[str, Any]) -> Dict[str, Any]:
     validate_docker_config(with_defaults)
     fill_node_type_min_max_workers(with_defaults)
     return with_defaults
+
+
+def encrypt_config(config: Dict[str, Any]) -> Dict[str, Any]:
+    encrypted_config = copy.deepcopy(config)
+    process_config_with_privacy(encrypted_config, func=encode_config_value)
+    return encrypted_config
+
+
+def decrypt_config(config: Dict[str, Any]) -> Dict[str, Any]:
+    decrypted_config = copy.deepcopy(config)
+    process_config_with_privacy(decrypted_config, func=decode_config_value)
+    return decrypted_config
 
 
 def prepare_workspace_config(config: Dict[str, Any]) -> Dict[str, Any]:
@@ -2326,6 +2340,7 @@ def get_head_bootstrap_config():
 def load_head_cluster_config() -> Dict[str, Any]:
     config_file = get_head_bootstrap_config()
     config = yaml.safe_load(open(config_file).read())
+    config = decrypt_config(config)
     return config
 
 
@@ -3020,17 +3035,39 @@ def process_key_with_privacy(v):
     return v
 
 
-def process_config_with_privacy(config):
+def process_config_with_privacy(config, func=process_key_with_privacy):
     if config is None:
         return
 
     if isinstance(config, collections.abc.Mapping):
         for k, v in config.items():
             if isinstance(v, collections.abc.Mapping) or isinstance(v, list):
-                process_config_with_privacy(v)
+                process_config_with_privacy(v, func)
             elif is_config_key_with_privacy(k):
-                config[k] = process_key_with_privacy(v)
+                config[k] = func(v)
     elif isinstance(config, list):
         for item in config:
             if isinstance(item, collections.abc.Mapping) or isinstance(item, list):
-                process_config_with_privacy(item)
+                process_config_with_privacy(item, func)
+
+
+@lru_cache()
+def get_config_cipher():
+    secrets = decode_cluster_secrets(CLOUDTIK_CONFIG_SECRET)
+    cipher = AESCipher(secrets)
+    return cipher
+
+
+def encode_config_value(v):
+    cipher = get_config_cipher()
+    return CLOUDTIK_ENCRYPTION_PREFIX + cipher.encrypt(v).decode("utf-8")
+
+
+def decode_config_value(v):
+    if v.startswith(CLOUDTIK_ENCRYPTION_PREFIX):
+        cipher = get_config_cipher()
+        target_bytes = v.strip(CLOUDTIK_ENCRYPTION_PREFIX).encode("utf-8")
+        return cipher.decrypt(target_bytes)
+    else:
+        return v
+

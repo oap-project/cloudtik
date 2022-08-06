@@ -11,10 +11,6 @@ import cloudtik.core._private.services as services
 
 logger = logging.getLogger(__name__)
 
-# Prefix for the node id resource that is automatically added to each node.
-# For example, a node may have id `node:172.23.42.1`.
-NODE_ID_PREFIX = "node:"
-
 
 class ResourceSpec(
         namedtuple("ResourceSpec", [
@@ -114,13 +110,6 @@ class ResourceSpec(
         assert "CPU" not in resources, resources
         assert "GPU" not in resources, resources
         assert "memory" not in resources, resources
-
-        if node_ip_address is None:
-            node_ip_address = services.get_node_ip_address()
-
-        # Automatically create a node id resource on each node. This is
-        # queryable with state.node_ids() and state.current_node_id().
-        resources[NODE_ID_PREFIX + node_ip_address] = 1.0
 
         num_cpus = self.num_cpus
         if num_cpus is None:

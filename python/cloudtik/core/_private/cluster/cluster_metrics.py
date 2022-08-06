@@ -82,31 +82,42 @@ class ClusterMetrics:
     """
 
     def __init__(self):
-        self.last_used_time_by_ip = {}
+        self.node_id_by_ip = {}
+
+        # Heartbeat metrics
         self.last_heartbeat_time_by_ip = {}
+
+        # Resources metrics
+        self.last_used_time_by_ip = {}
+        self.last_resource_time_by_ip = {}
         self.static_resources_by_ip = {}
         self.dynamic_resources_by_ip = {}
-        self.node_id_by_ip = {}
         self.resource_load_by_ip = {}
+
+        # Resource requests (on demand or autoscale)
         self.waiting_bundles = []
         self.infeasible_bundles = []
         self.resource_requests = []
-        self.cluster_full = False
+
+    def update_heartbeat(self,
+                         ip: str,
+                         node_id: bytes,
+                         last_heartbeat_time):
+        self.node_id_by_ip[ip] = node_id
+        self.last_heartbeat_time_by_ip[ip] = last_heartbeat_time
 
     def update(self,
                ip: str,
                node_id: bytes,
-               last_heartbeat_time,
+               last_resource_time,
                static_resources: Dict[str, Dict],
                dynamic_resources: Dict[str, Dict],
                resource_load: Dict[str, Dict],
                waiting_bundles: List[Dict[str, float]] = None,
-               infeasible_bundles: List[Dict[str, float]] = None,
-               cluster_full: bool = False):
-        self.resource_load_by_ip[ip] = resource_load
-        self.static_resources_by_ip[ip] = static_resources
+               infeasible_bundles: List[Dict[str, float]] = None):
         self.node_id_by_ip[ip] = node_id
-        self.cluster_full = cluster_full
+        self.static_resources_by_ip[ip] = static_resources
+        self.resource_load_by_ip[ip] = resource_load
 
         if not waiting_bundles:
             waiting_bundles = []
@@ -123,14 +134,19 @@ class ClusterMetrics:
                 dynamic_resources_update[resource_name] = 0.0
         self.dynamic_resources_by_ip[ip] = dynamic_resources_update
 
-        now = time.time()
-        if ip not in self.last_used_time_by_ip or \
-                self.static_resources_by_ip[ip] != \
-                self.dynamic_resources_by_ip[ip]:
-            self.last_used_time_by_ip[ip] = now
-        self.last_heartbeat_time_by_ip[ip] = last_heartbeat_time
+        if (ip not in self.last_used_time_by_ip
+                or not self._is_node_idle(ip)):
+            self.last_used_time_by_ip[ip] = last_resource_time
+
+        self.last_resource_time_by_ip[ip] = last_resource_time
         self.waiting_bundles = waiting_bundles
         self.infeasible_bundles = infeasible_bundles
+
+    def _is_node_idle(self, ip):
+        # TODO: We may need some tolerance when making such comparisons
+        if self.static_resources_by_ip[ip] != self.dynamic_resources_by_ip[ip]:
+            return False
+        return True
 
     def mark_active(self, ip, last_heartbeat_time=None):
         assert ip is not None, "IP should be known at this time"

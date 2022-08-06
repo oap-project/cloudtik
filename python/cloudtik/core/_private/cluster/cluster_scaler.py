@@ -340,6 +340,15 @@ class ClusterScaler:
                 self.attempt_to_recover_unhealthy_nodes(now)
                 self.set_prometheus_updater_data()
 
+        # The key place to scale up the nodes based on resource metrics
+        # Based on the following aspects:
+        # 1. The remaining (available) resources -> dynamic_resources_by_ip (get_resource_utilization)
+        # 2. The resource demands (get_resource_demands)
+        # 3. The minimum resources request from manual scale up or down (get_resource_requests).
+        #    This resource requests will not check the existing resource usage which is different from resource
+        #    demands from #2
+        # 4. The total resources of each node reported by runtime is used to update the node type resource information.
+        #    (get_static_node_resources_by_ip)
         # Dict[NodeType, int], List[ResourceDict]
         to_launch, unfulfilled = (
             self.resource_demand_scheduler.get_nodes_to_launch(
@@ -363,6 +372,7 @@ class ClusterScaler:
         """Terminates nodes to enforce constraints defined by the autoscaling
         config.
 
+        Key place to scale down cluster based on node idle state.
         (1) Terminates nodes in excess of `max_workers`.
         (2) Terminates nodes idle for longer than `idle_timeout_minutes`.
         (3) Terminates outdated nodes,
@@ -371,6 +381,10 @@ class ClusterScaler:
 
         Avoids terminating non-outdated nodes required by
         cloudtik.core.api.request_resources().
+
+        The key of checking node is not used (idle) is the last_used_time_by_ip metrics
+        The basic logic to decide whether a node is idle is to check whether the available resources
+        is the same as the total resources. (We may need some tolerance when making such comparisons)
         """
         last_used = self.cluster_metrics.last_used_time_by_ip
         horizon = now - (60 * self.config["idle_timeout_minutes"])
@@ -648,7 +662,7 @@ class ClusterScaler:
 
     def _get_nodes_needed_for_request_resources(
             self, sorted_node_ids: List[NodeID]) -> FrozenSet[NodeID]:
-        # TODO(ameer): try merging this with resource_demand_scheduler
+        # TODO: try merging this with resource_demand_scheduler
         # code responsible for adding nodes for request_resources().
         """Returns the nodes NOT allowed to terminate due to request_resources().
 
@@ -665,7 +679,7 @@ class ClusterScaler:
                 "resources"])
         if not head_node_resources:
             # Legacy yaml might include {} in the resources field.
-            # TODO(ameer): this is somewhat duplicated in
+            # TODO: this is somewhat duplicated in
             # resource_demand_scheduler.py.
             static_nodes: Dict[
                 NodeIP,

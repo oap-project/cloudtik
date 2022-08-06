@@ -138,6 +138,10 @@ class ControlStateAccessor:
         assert self.connected, "Control state accessor not connected"
         return self.state_table_store.get_node_table()
 
+    def get_user_state_table(self, table_name):
+        assert self.connected, "Control state accessor not connected"
+        return self.state_table_store.get_user_state_table(table_name)
+
 
 class ControlState:
     """A class used to interface with the global control state.
@@ -211,36 +215,49 @@ class ControlState:
         node_table = self.control_state_accessor.get_node_table()
         return node_table
 
-    def node_table(self):
-        """Fetch and parse the node info table.
-
-        Returns:
-            Information about the node in the cluster.
-        """
+    def get_user_state_table(self, table_name):
         self._check_connected()
-
-        node_table = self.control_state_accessor.get_node_table()
-
-        results = []
-        for node_info_item in node_table:
-            node_info = {}
-            # TODO (haifeng): parse and populate node info from the node info string
-            node_info["alive"] = node_info["Alive"]
-            results.append(node_info)
-        return results
+        state_table = self.control_state_accessor.get_user_state_table(table_name)
+        return state_table
 
 
-class ResourceUsageBatch:
+class NodeHeartbeatState:
+    def __init__(self, node_id, node_ip, last_heartbeat_time):
+        self.node_id = node_id
+        self.node_ip = node_ip
+        self.last_heartbeat_time = last_heartbeat_time
+
+
+class ClusterHeartbeatState:
     def __init__(self):
-        self.batch = []
+        self.node_heartbeat_states = {}
+
+    def add(self, node_id, node_heartbeat_state):
+        self.node_heartbeat_states[node_id] = node_heartbeat_state
+
+
+class NodeResourceState:
+    def __init__(self, node_id, node_ip, resource_time,
+                 total_resources, available_resources, resource_load):
+        self.node_id = node_id
+        self.node_ip = node_ip
+        self.resource_time = resource_time
+
+        self.total_resources = total_resources
+        self.available_resources = available_resources
+        self.resource_load = resource_load
+
+
+class ClusterResourceState:
+    def __init__(self):
+        self.node_resource_states = {}
         self.resource_demands = []
 
-    def set_batch(self, batch):
-        self.batch = batch
+    def add(self, node_id, node_resource_state):
+        self.node_resource_states[node_id] = node_resource_state
 
 
-
-class ResourceInfoClient:
+class ResourceStateClient:
     """Client to read resource information from Redis"""
 
     def __init__(self,
@@ -249,20 +266,39 @@ class ResourceInfoClient:
         self._state_client = state_client
         self._nums_reconnect_retry = nums_reconnect_retry
 
-    def get_cluster_resource_usage(self, timeout: int = 60):
+    def get_cluster_heartbeat_state(self, timeout: int = 60):
         node_table = self._state_client.get_node_table()
-        # TODO (haifeng): implement the resource usage metrics of cluster
-        resources_usage_batch = ResourceUsageBatch()
-        batch = []
-        for node_info in node_table.get_all().values():
-            node_info_dict = eval(node_info)
+        cluster_heartbeat_state = ClusterHeartbeatState()
+        for node_info_as_json in node_table.get_all().values():
+            node_info = eval(node_info_as_json)
             # Filter out the stale record in the node table
-            delta = time.time() - node_info_dict.get("last_heartbeat_time")
+            delta = time.time() - node_info.get("last_heartbeat_time", 0)
             if delta < CLOUDTIK_HEARTBEAT_TIMEOUT_S:
-                batch.append(node_info_dict)
-        resources_usage_batch.set_batch(batch)
-        return resources_usage_batch
+                node_id = node_info["node_id"]
+                node_heartbeat_state = NodeHeartbeatState(
+                    node_id, node_info["node_ip"], node_info.get("last_heartbeat_time"))
+                cluster_heartbeat_state.add(node_id, node_heartbeat_state)
+        return cluster_heartbeat_state
+
+    def get_cluster_resource_state(self, timeout: int = 60):
+        resource_state_table = self._state_client.get_user_state_table("resource_state")
+        cluster_resource_state = ClusterResourceState()
+        for resource_state_as_json in resource_state_table.get_all().values():
+            resource_state = eval(resource_state_as_json)
+            # Filter out the stale record in the node table
+            resource_time = resource_state.get("resource_time", 0)
+            delta = time.time() - resource_time
+            if delta < CLOUDTIK_HEARTBEAT_TIMEOUT_S:
+                node_id = resource_state["node_id"]
+                node_resource_state = NodeResourceState(
+                    node_id, resource_state["node_ip"], resource_time,
+                    resource_state.get("total_resources"),
+                    resource_state.get("available_resources"),
+                    resource_state.get("resource_load")
+                )
+                cluster_resource_state.add(node_id, node_resource_state)
+        return cluster_resource_state
 
     @staticmethod
     def create_from_control_state(control_state):
-        return ResourceInfoClient(state_client=control_state)
+        return ResourceStateClient(state_client=control_state)

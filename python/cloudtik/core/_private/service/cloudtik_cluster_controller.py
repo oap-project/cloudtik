@@ -31,7 +31,7 @@ from cloudtik.core._private import constants, services
 from cloudtik.core._private.logging_utils import setup_component_logger
 from cloudtik.core._private.state.kv_store import kv_initialize, \
     kv_put, kv_initialized, kv_get, kv_del
-from cloudtik.core._private.state.control_state import ControlState, ResourceInfoClient, StateClient
+from cloudtik.core._private.state.control_state import ControlState, ResourceStateClient, StateClient
 from cloudtik.core._private.services import validate_redis_address
 
 logger = logging.getLogger(__name__)
@@ -91,15 +91,15 @@ class ClusterController:
         _, redis_ip_address, redis_port = validate_redis_address(redis_address)
         control_state.initialize_control_state(redis_ip_address, redis_port, redis_password)
 
-        self.resource_info_client = ResourceInfoClient.create_from_control_state(control_state)
+        self.resource_state_client = ResourceStateClient.create_from_control_state(control_state)
 
-        head_node_ip = redis_address.split(":")[0]
+        self.head_ip = redis_address.split(":")[0]
         self.redis_address = redis_address
         self.redis_password = redis_password
 
         # initialize the global kv store client
-        state_client = StateClient.create_from_redis(self.redis)
-        kv_initialize(state_client)
+        self.state_client = StateClient.create_from_redis(self.redis)
+        kv_initialize(self.state_client)
 
         self.cluster_metrics = ClusterMetrics()
         self.last_avail_resources = None
@@ -162,46 +162,35 @@ class ClusterController:
             self.cluster_metrics_failures += 1
 
     def _update_cluster_metrics(self):
+        self._update_node_heartbeats()
+        self._update_resource_metrics()
+
+    def _update_node_heartbeats(self):
+        cluster_heartbeat_state = self.resource_state_client.get_cluster_heartbeat_state(timeout=60)
+        for node_id, node_heartbeat_state in cluster_heartbeat_state.node_heartbeat_states.items():
+            ip = node_heartbeat_state.node_ip
+            last_heartbeat_time = node_heartbeat_state.last_heartbeat_time
+            self.cluster_metrics.update_heartbeat(ip, node_id, last_heartbeat_time)
+
+    def _update_resource_metrics(self):
         """Fetches resource usage data from control state and updates load metrics."""
-        # TODO (haifeng): implement load metrics
-        resources_usage_batch = self.resource_info_client.get_cluster_resource_usage(timeout=60)
+        cluster_resource_state = self.resource_state_client.get_cluster_resource_state(timeout=60)
         waiting_bundles, infeasible_bundles = parse_resource_demands(
-            resources_usage_batch.resource_demands)
+            cluster_resource_state.resource_demands)
 
-        cluster_full = False
-        for resource_message in resources_usage_batch.batch:
-            node_id = resource_message.get('node_id')
-            last_heartbeat_time = resource_message.get('last_heartbeat_time')
-            # Generate node type config based on reported node list.
+        for node_resource_state in cluster_resource_state.node_resource_states:
+            node_id = node_resource_state.node_id
+            ip = node_resource_state.node_ip
 
-            if (hasattr(resource_message, "cluster_full")
-                    and resource_message.get('cluster_full')):
-                # Aggregate this flag across all batches.
-                cluster_full = True
-            # FIXME: implement the dynamic adjustment
-            resource_load = {}
-            total_resources = {}
-            available_resources = {}
+            # Node resource state
+            total_resources = node_resource_state.total_resources
+            available_resources = node_resource_state.available_resources
+            resource_load = node_resource_state.resource_load
 
-            use_node_id_as_ip = (self.cluster_scaler is not None
-                                 and self.cluster_scaler.config["provider"].get("use_node_id_as_ip", False))
-
-            # "use_node_id_as_ip" is a hack meant to address situations in
-            # which there's more than one service node residing at a given ip.
-
-            # TODO: Stop using ips as node identifiers.
-            # (1) generating node ids when launching nodes, and
-            # (2) propagating the node id to the start command so the node will
-            # report resource stats under its assigned node id.
-
-            if use_node_id_as_ip:
-                ip = node_id.hex()
-            else:
-                ip = resource_message["resource"].get("ip")
-            self.cluster_metrics.update(ip, node_id, last_heartbeat_time, total_resources,
-                                        available_resources, resource_load,
-                                        waiting_bundles, infeasible_bundles,
-                                        cluster_full)
+            self.cluster_metrics.update(
+                ip, node_id, node_resource_state.resource_time,
+                total_resources, available_resources, resource_load,
+                waiting_bundles, infeasible_bundles)
 
     def update_resource_requests(self):
         """Fetches resource requests from the internal KV and updates load."""

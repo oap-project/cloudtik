@@ -84,7 +84,10 @@ class NodeController:
 
             # Wait for update interval before processing the next
             # round of messages.
-            self._check_process()
+            try:
+                self._check_process()
+            except Exception as e:
+                logger.exception("Error happened when checking processes: " + str(e))
             time.sleep(constants.CLOUDTIK_UPDATE_INTERVAL_S)
 
     def _handle_failure(self, error):

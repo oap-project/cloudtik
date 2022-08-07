@@ -1,9 +1,6 @@
 import logging
 from typing import List, Optional
-import redis
-import time
 
-from cloudtik.core._private.constants import CLOUDTIK_HEARTBEAT_TIMEOUT_S
 from cloudtik.core._private.state.redis_shards_client import RedisShardsClient
 from cloudtik.core._private.state.state_table_store import StateTableStore
 
@@ -219,86 +216,3 @@ class ControlState:
         self._check_connected()
         state_table = self.control_state_accessor.get_user_state_table(table_name)
         return state_table
-
-
-class NodeHeartbeatState:
-    def __init__(self, node_id, node_ip, last_heartbeat_time):
-        self.node_id = node_id
-        self.node_ip = node_ip
-        self.last_heartbeat_time = last_heartbeat_time
-
-
-class ClusterHeartbeatState:
-    def __init__(self):
-        self.node_heartbeat_states = {}
-
-    def add(self, node_id, node_heartbeat_state):
-        self.node_heartbeat_states[node_id] = node_heartbeat_state
-
-
-class NodeResourceState:
-    def __init__(self, node_id, node_ip, resource_time,
-                 total_resources, available_resources, resource_load):
-        self.node_id = node_id
-        self.node_ip = node_ip
-        self.resource_time = resource_time
-
-        self.total_resources = total_resources
-        self.available_resources = available_resources
-        self.resource_load = resource_load
-
-
-class ClusterResourceState:
-    def __init__(self):
-        self.node_resource_states = {}
-        self.resource_demands = []
-
-    def add(self, node_id, node_resource_state):
-        self.node_resource_states[node_id] = node_resource_state
-
-
-class ResourceStateClient:
-    """Client to read resource information from Redis"""
-
-    def __init__(self,
-                 state_client: ControlState,
-                 nums_reconnect_retry: int = 5):
-        self._state_client = state_client
-        self._nums_reconnect_retry = nums_reconnect_retry
-
-    def get_cluster_heartbeat_state(self, timeout: int = 60):
-        node_table = self._state_client.get_node_table()
-        cluster_heartbeat_state = ClusterHeartbeatState()
-        for node_info_as_json in node_table.get_all().values():
-            node_info = eval(node_info_as_json)
-            # Filter out the stale record in the node table
-            delta = time.time() - node_info.get("last_heartbeat_time", 0)
-            if delta < CLOUDTIK_HEARTBEAT_TIMEOUT_S:
-                node_id = node_info["node_id"]
-                node_heartbeat_state = NodeHeartbeatState(
-                    node_id, node_info["node_ip"], node_info.get("last_heartbeat_time"))
-                cluster_heartbeat_state.add(node_id, node_heartbeat_state)
-        return cluster_heartbeat_state
-
-    def get_cluster_resource_state(self, timeout: int = 60):
-        resource_state_table = self._state_client.get_user_state_table("resource_state")
-        cluster_resource_state = ClusterResourceState()
-        for resource_state_as_json in resource_state_table.get_all().values():
-            resource_state = eval(resource_state_as_json)
-            # Filter out the stale record in the node table
-            resource_time = resource_state.get("resource_time", 0)
-            delta = time.time() - resource_time
-            if delta < CLOUDTIK_HEARTBEAT_TIMEOUT_S:
-                node_id = resource_state["node_id"]
-                node_resource_state = NodeResourceState(
-                    node_id, resource_state["node_ip"], resource_time,
-                    resource_state.get("total_resources"),
-                    resource_state.get("available_resources"),
-                    resource_state.get("resource_load")
-                )
-                cluster_resource_state.add(node_id, node_resource_state)
-        return cluster_resource_state
-
-    @staticmethod
-    def create_from_control_state(control_state):
-        return ResourceStateClient(state_client=control_state)

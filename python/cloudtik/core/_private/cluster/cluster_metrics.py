@@ -4,7 +4,7 @@ from functools import reduce
 import logging
 from numbers import Number
 import time
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Any
 
 import numpy as np
 
@@ -95,8 +95,8 @@ class ClusterMetrics:
         self.resource_load_by_ip = {}
 
         # Resource requests (on demand or autoscale)
-        self.waiting_bundles = []
-        self.infeasible_bundles = []
+        self.autoscaling_instructions = {}
+        self.resource_demands = []
         self.resource_requests = []
 
     def update_heartbeat(self,
@@ -106,23 +106,26 @@ class ClusterMetrics:
         self.node_id_by_ip[ip] = node_id
         self.last_heartbeat_time_by_ip[ip] = last_heartbeat_time
 
-    def update(self,
-               ip: str,
-               node_id: bytes,
-               last_resource_time,
-               static_resources: Dict[str, Dict],
-               dynamic_resources: Dict[str, Dict],
-               resource_load: Dict[str, Dict],
-               waiting_bundles: List[Dict[str, float]] = None,
-               infeasible_bundles: List[Dict[str, float]] = None):
+    def update_autoscaling_instructions(self,
+                                        autoscaling_instructions: Dict[str, Any]):
+        self.autoscaling_instructions = autoscaling_instructions
+
+        # resource_demands is a List[Dict[str, float]]
+        resource_demands = autoscaling_instructions.get("resource_demands")
+        if not resource_demands:
+            resource_demands = []
+        self.resource_demands = resource_demands
+
+    def update_node_resources(self,
+                              ip: str,
+                              node_id: bytes,
+                              last_resource_time,
+                              static_resources: Dict[str, Any],
+                              dynamic_resources: Dict[str, Any],
+                              resource_load: Dict[str, Any]):
         self.node_id_by_ip[ip] = node_id
         self.static_resources_by_ip[ip] = static_resources
         self.resource_load_by_ip[ip] = resource_load
-
-        if not waiting_bundles:
-            waiting_bundles = []
-        if not infeasible_bundles:
-            infeasible_bundles = []
 
         # We are not guaranteed to have a corresponding dynamic resource
         # for every static resource because dynamic resources are based on
@@ -134,13 +137,15 @@ class ClusterMetrics:
                 dynamic_resources_update[resource_name] = 0.0
         self.dynamic_resources_by_ip[ip] = dynamic_resources_update
 
+        # Every time we update the resource state,
+        # If a node is not idle, we will update its last used time
+        # If a node is idle, it's last used time will not be updated and keep in the previous used time
+        # This last used time can be used to check how long a node is in an idle state
         if (ip not in self.last_used_time_by_ip
                 or not self._is_node_idle(ip)):
             self.last_used_time_by_ip[ip] = last_resource_time
 
         self.last_resource_time_by_ip[ip] = last_resource_time
-        self.waiting_bundles = waiting_bundles
-        self.infeasible_bundles = infeasible_bundles
 
     def _is_node_idle(self, ip):
         # TODO: We may need some tolerance when making such comparisons
@@ -226,7 +231,7 @@ class ClusterMetrics:
             avail_resources = self.dynamic_resources_by_ip[ip]
             resource_load = self.resource_load_by_ip[ip]
             max_frac = 0.0
-            for resource_id, amount in resource_load.items():
+            for resource_id, amount in resource_load.get("utilization", {}).items():
                 if amount > 0:
                     max_frac = 1.0  # the resource is saturated
             for resource_id, amount in max_resources.items():
@@ -249,17 +254,14 @@ class ClusterMetrics:
     def get_resource_demands(self, clip=True):
         if clip:
             # Bound the total number of bundles to
-            # 2 x CLOUDTIK_MAX_RESOURCE_DEMAND_VECTOR_SIZE. This guarantees the resource
+            # CLOUDTIK_MAX_RESOURCE_DEMAND_VECTOR_SIZE. This guarantees the resource
             # demand scheduler bin packing algorithm takes a reasonable amount
             # of time to run.
             return (
-                self.
-                waiting_bundles[:CLOUDTIK_MAX_RESOURCE_DEMAND_VECTOR_SIZE] +
-                self.
-                infeasible_bundles[:CLOUDTIK_MAX_RESOURCE_DEMAND_VECTOR_SIZE]
+                self.resource_demands[:CLOUDTIK_MAX_RESOURCE_DEMAND_VECTOR_SIZE]
             )
         else:
-            return self.waiting_bundles + self.infeasible_bundles
+            return self.resource_demands
 
     def get_resource_requests(self):
         return self.resource_requests

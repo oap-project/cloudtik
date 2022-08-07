@@ -1,16 +1,18 @@
 """Cluster control loop daemon."""
 
 import argparse
-from dataclasses import asdict
 import logging.handlers
 import os
 import sys
 import signal
 import time
 import traceback
-import json
 from multiprocessing.synchronize import Event
 from typing import Optional
+
+from cloudtik.core._private.cluster.cluster_metrics_updater import ClusterMetricsUpdater
+from cloudtik.core._private.cluster.resource_scaling_policy import ResourceScalingPolicy
+from cloudtik.core._private.state.resource_state import ResourceStateClient
 
 try:
     import prometheus_client
@@ -21,40 +23,19 @@ import cloudtik
 from cloudtik.core._private.cluster.cluster_scaler import ClusterScaler
 from cloudtik.core._private.cluster.cluster_operator import teardown_cluster
 from cloudtik.core._private.constants import CLOUDTIK_UPDATE_INTERVAL_S, \
-    CLOUDTIK_METRIC_PORT, CLOUDTIK_RESOURCE_REQUEST_CHANNEL
+    CLOUDTIK_METRIC_PORT
 from cloudtik.core._private.cluster.event_summarizer import EventSummarizer
 from cloudtik.core._private.prometheus_metrics import ClusterPrometheusMetrics
 from cloudtik.core._private.cluster.cluster_metrics import ClusterMetrics
-from cloudtik.core._private.utils import CLOUDTIK_CLUSTER_SCALING_ERROR, \
-    CLOUDTIK_CLUSTER_SCALING_STATUS
+from cloudtik.core._private.utils import CLOUDTIK_CLUSTER_SCALING_ERROR
 from cloudtik.core._private import constants, services
 from cloudtik.core._private.logging_utils import setup_component_logger
 from cloudtik.core._private.state.kv_store import kv_initialize, \
-    kv_put, kv_initialized, kv_get, kv_del
-from cloudtik.core._private.state.control_state import ControlState, ResourceStateClient, StateClient
+    kv_put, kv_initialized, kv_del
+from cloudtik.core._private.state.control_state import ControlState, StateClient
 from cloudtik.core._private.services import validate_redis_address
 
 logger = logging.getLogger(__name__)
-
-
-MAX_FAILURES_FOR_LOGGING = 16
-
-
-def parse_resource_demands(resource_load):
-    """Handle the message.resource_load for the demand
-    based cluster scaling.
-
-    Args:
-        resource_load (ResourceLoad): The resource demands or None.
-
-    Returns:
-        List[ResourceDict]: Waiting bundles (ready and feasible).
-        List[ResourceDict]: Infeasible bundles.
-    """
-    waiting_bundles, infeasible_bundles = [], []
-
-    # TODO (haifeng): implement this in the future for resource demands based scaling
-    return waiting_bundles, infeasible_bundles
 
 
 class ClusterController:
@@ -68,49 +49,49 @@ class ClusterController:
     """
 
     def __init__(self,
-                 address,
+                 redis_address,
                  cluster_scaling_config,
                  redis_password=None,
-                 prefix_cluster_info=False,
                  controller_ip=None,
                  stop_event: Optional[Event] = None,
                  retry_on_failure: bool = True):
 
+        self.controller_ip = controller_ip
         # Initialize the Redis clients.
-        redis_address = address
         self.redis = services.create_redis_client(
             redis_address, password=redis_password)
-        (ip, port) = address.split(":")
+        (ip, port) = redis_address.split(":")
 
         if prometheus_client:
             controller_addr = f"{controller_ip}:{CLOUDTIK_METRIC_PORT}"
-            # TODO (haifeng): handle metrics
+            # TODO: handle metrics
             self.redis.set(constants.CLOUDTIK_METRIC_ADDRESS_KEY, controller_addr)
 
         control_state = ControlState()
         _, redis_ip_address, redis_port = validate_redis_address(redis_address)
         control_state.initialize_control_state(redis_ip_address, redis_port, redis_password)
 
-        self.resource_state_client = ResourceStateClient.create_from_control_state(control_state)
+        # initialize the global kv store client
+        state_client = StateClient.create_from_redis(self.redis)
+        kv_initialize(state_client)
+
+        self.resource_state_client = ResourceStateClient.create_from(control_state, state_client)
 
         self.head_ip = redis_address.split(":")[0]
         self.redis_address = redis_address
         self.redis_password = redis_password
 
-        # initialize the global kv store client
-        self.state_client = StateClient.create_from_redis(self.redis)
-        kv_initialize(self.state_client)
-
         self.cluster_metrics = ClusterMetrics()
-        self.last_avail_resources = None
         self.event_summarizer = EventSummarizer()
-        self.prefix_cluster_info = prefix_cluster_info
         # Can be used to signal graceful exit from controller loop.
         self.stop_event = stop_event  # type: Optional[Event]
         self.retry_on_failure = retry_on_failure
         self.cluster_scaling_config = cluster_scaling_config
         self.cluster_scaler = None
-        self.cluster_metrics_failures = 0
+        self.resource_scaling_policy = ResourceScalingPolicy(
+            self.head_ip, 8088, self.resource_state_client)
+        self.cluster_metrics_updater = ClusterMetricsUpdater(
+            self.cluster_metrics, self.event_summarizer, self.resource_state_client)
 
         self.prometheus_metrics = ClusterPrometheusMetrics()
         if prometheus_client:
@@ -132,77 +113,13 @@ class ClusterController:
         logger.info("Controller: Started")
 
     def _initialize_cluster_scaler(self):
-        cluster_scaling_config = self.cluster_scaling_config
-
         self.cluster_scaler = ClusterScaler(
-            cluster_scaling_config,
+            self.cluster_scaling_config,
             self.cluster_metrics,
-            prefix_cluster_info=self.prefix_cluster_info,
+            cluster_metrics_updater=self.cluster_metrics_updater,
+            resource_scaling_policy=self.resource_scaling_policy,
             event_summarizer=self.event_summarizer,
             prometheus_metrics=self.prometheus_metrics)
-
-    def update_cluster_metrics(self):
-        try:
-            self._update_cluster_metrics()
-            # reset if there is a success
-            self.cluster_metrics_failures = 0
-        except Exception as e:
-            if self.cluster_metrics_failures == 0 or self.cluster_metrics_failures == MAX_FAILURES_FOR_LOGGING:
-                # detailed form
-                error = traceback.format_exc()
-                logger.exception(f"Load metrics update failed with the following error:\n{error}")
-            elif self.cluster_metrics_failures < MAX_FAILURES_FOR_LOGGING:
-                # short form
-                logger.exception(f"Load metrics update failed with the following error:{str(e)}")
-
-            if self.cluster_metrics_failures == MAX_FAILURES_FOR_LOGGING:
-                logger.exception(f"The above error has been showed consecutively"
-                                 f" for {self.cluster_metrics_failures} times. Stop showing.")
-
-            self.cluster_metrics_failures += 1
-
-    def _update_cluster_metrics(self):
-        self._update_node_heartbeats()
-        self._update_resource_metrics()
-
-    def _update_node_heartbeats(self):
-        cluster_heartbeat_state = self.resource_state_client.get_cluster_heartbeat_state(timeout=60)
-        for node_id, node_heartbeat_state in cluster_heartbeat_state.node_heartbeat_states.items():
-            ip = node_heartbeat_state.node_ip
-            last_heartbeat_time = node_heartbeat_state.last_heartbeat_time
-            self.cluster_metrics.update_heartbeat(ip, node_id, last_heartbeat_time)
-
-    def _update_resource_metrics(self):
-        """Fetches resource usage data from control state and updates load metrics."""
-        cluster_resource_state = self.resource_state_client.get_cluster_resource_state(timeout=60)
-        waiting_bundles, infeasible_bundles = parse_resource_demands(
-            cluster_resource_state.resource_demands)
-
-        for node_resource_state in cluster_resource_state.node_resource_states:
-            node_id = node_resource_state.node_id
-            ip = node_resource_state.node_ip
-
-            # Node resource state
-            total_resources = node_resource_state.total_resources
-            available_resources = node_resource_state.available_resources
-            resource_load = node_resource_state.resource_load
-
-            self.cluster_metrics.update(
-                ip, node_id, node_resource_state.resource_time,
-                total_resources, available_resources, resource_load,
-                waiting_bundles, infeasible_bundles)
-
-    def update_resource_requests(self):
-        """Fetches resource requests from the internal KV and updates load."""
-        if not kv_initialized():
-            return
-        data = kv_get(CLOUDTIK_RESOURCE_REQUEST_CHANNEL)
-        if data:
-            try:
-                resource_request = json.loads(data)
-                self.cluster_metrics.set_resource_requests(resource_request)
-            except Exception:
-                logger.exception("Error parsing resource requests")
 
     def _run(self):
         """Run the controller loop."""
@@ -210,33 +127,10 @@ class ClusterController:
             try:
                 if self.stop_event and self.stop_event.is_set():
                     break
-                self.update_cluster_metrics()
-                self.update_resource_requests()
-                self.update_event_summary()
-                status = {
-                    "cluster_metrics_report": asdict(self.cluster_metrics.summary()),
-                    "time": time.time(),
-                    "controller_pid": os.getpid()
-                }
 
                 # Process autoscaling actions
                 if self.cluster_scaler:
-                    # Only used to update the load metrics for the scaler.
-                    self.cluster_scaler.update()
-                    status["cluster_scaler_report"] = asdict(self.cluster_scaler.summary())
-
-                    for msg in self.event_summarizer.summary():
-                        # Need to prefix each line of the message for the lines to
-                        # get pushed to the driver logs.
-                        for line in msg.split("\n"):
-                            logger.info("{}{}".format(
-                                constants.LOG_PREFIX_EVENT_SUMMARY, line))
-                    self.event_summarizer.clear()
-
-                as_json = json.dumps(status)
-                if kv_initialized():
-                    kv_put(
-                        CLOUDTIK_CLUSTER_SCALING_STATUS, as_json, overwrite=True)
+                    self.cluster_scaler.run()
             except Exception:
                 # By default, do not exit the controller on failure.
                 if self.retry_on_failure:
@@ -247,21 +141,6 @@ class ClusterController:
             # Wait for a cluster scaler update interval before processing the next
             # round of messages.
             time.sleep(CLOUDTIK_UPDATE_INTERVAL_S)
-
-    def update_event_summary(self):
-        """Report the current size of the cluster.
-
-        To avoid log spam, only cluster size changes (CPU or GPU count change)
-        are reported to the event summarizer. The event summarizer will report
-        only the latest cluster size per batch.
-        """
-        avail_resources = self.cluster_metrics.resources_avail_summary()
-        if avail_resources != self.last_avail_resources:
-            self.event_summarizer.add(
-                "Resized to {}.",  # e.g., Resized to 100 CPUs, 4 GPUs.
-                quantity=avail_resources,
-                aggregate=lambda old, new: new)
-            self.last_avail_resources = avail_resources
 
     def destroy_cluster_scaler_workers(self):
         """Cleanup the cluster scaler, in case of an exception in the run() method.

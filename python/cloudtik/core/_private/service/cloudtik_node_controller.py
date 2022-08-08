@@ -17,13 +17,9 @@ import cloudtik
 from cloudtik.core._private import constants, services
 from cloudtik.core._private.logging_utils import setup_component_logger
 from cloudtik.core._private.state.control_state import ControlState
-from cloudtik.core._private.utils import get_runtime_processes
+from cloudtik.core._private.utils import get_runtime_processes, make_node_id
 
 logger = logging.getLogger(__name__)
-
-# Prefix for the node id resource that is automatically added to each node.
-# For example, a node may have id `node-172.23.42.1`.
-NODE_ID_PREFIX = "node_"
 
 
 class NodeController:
@@ -43,7 +39,7 @@ class NodeController:
                  stop_event: Optional[Event] = None,
                  runtimes: str = None):
         if node_id is None:
-            node_id = NODE_ID_PREFIX + node_ip
+            node_id = make_node_id(node_ip)
         self.node_id = node_id
         # Initialize the Redis clients.
         self.redis = services.create_redis_client(

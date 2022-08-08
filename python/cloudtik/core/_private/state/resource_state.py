@@ -3,7 +3,8 @@ import logging
 import time
 
 from cloudtik.core._private.constants import CLOUDTIK_HEARTBEAT_TIMEOUT_S
-from cloudtik.core._private.state.control_state import ControlState, StateClient
+from cloudtik.core._private.state.control_state import ControlState
+from cloudtik.core._private.state.kv_store import kv_put, kv_get
 
 CLOUDTIK_AUTOSCALING_INSTRUCTIONS = "autoscaling_instructions"
 STATE_FETCH_TIMEOUT = 60
@@ -47,17 +48,15 @@ class ResourceStateClient:
 
     def __init__(self,
                  control_state: ControlState,
-                 state_client: StateClient,
                  nums_reconnect_retry: int = 5):
         self._control_state = control_state
-        self._state_client = state_client
         self._nums_reconnect_retry = nums_reconnect_retry
 
     def get_cluster_heartbeat_state(self, timeout: int = STATE_FETCH_TIMEOUT):
         node_table = self._control_state.get_node_table()
         cluster_heartbeat_state = ClusterHeartbeatState()
         for node_info_as_json in node_table.get_all().values():
-            node_info = eval(node_info_as_json)
+            node_info = json.loads(node_info_as_json)
             # Filter out the stale record in the node table
             delta = time.time() - node_info.get("last_heartbeat_time", 0)
             if delta < CLOUDTIK_HEARTBEAT_TIMEOUT_S:
@@ -71,16 +70,15 @@ class ResourceStateClient:
         cluster_resource_state = ClusterResourceState()
 
         # Get resource demands
-        key = CLOUDTIK_AUTOSCALING_INSTRUCTIONS.encode()
-        as_json = self._state_client.kv_get(key, None)
+        as_json = kv_get(CLOUDTIK_AUTOSCALING_INSTRUCTIONS)
         if as_json is not None:
-            autoscaling_instructions = eval(as_json)
+            autoscaling_instructions = json.loads(as_json)
             cluster_resource_state.set_autoscaling_instructions(autoscaling_instructions)
 
         # Get resource state of nodes
         resource_state_table = self._control_state.get_user_state_table(RESOURCE_STATE_TABLE)
         for resource_state_as_json in resource_state_table.get_all().values():
-            resource_state = eval(resource_state_as_json)
+            resource_state = json.loads(resource_state_as_json)
             # Filter out the stale record in the node table
             resource_time = resource_state.get("resource_time", 0)
             delta = time.time() - resource_time
@@ -93,8 +91,7 @@ class ResourceStateClient:
         autoscaling_instructions = cluster_resource_state.autoscaling_instructions
         if autoscaling_instructions is not None:
             as_json = json.dumps(autoscaling_instructions)
-            key = CLOUDTIK_AUTOSCALING_INSTRUCTIONS.encode()
-            self._state_client.kv_put(key, as_json)
+            kv_put(CLOUDTIK_AUTOSCALING_INSTRUCTIONS, as_json)
 
         node_resource_states = cluster_resource_state.node_resource_states
         if node_resource_states is not None:
@@ -104,5 +101,5 @@ class ResourceStateClient:
                 resource_state_table.put(node_id, resource_state_as_json)
 
     @staticmethod
-    def create_from(control_state, state_client):
-        return ResourceStateClient(control_state=control_state, state_client=state_client)
+    def create_from(control_state):
+        return ResourceStateClient(control_state=control_state)

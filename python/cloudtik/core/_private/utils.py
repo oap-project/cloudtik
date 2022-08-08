@@ -129,6 +129,14 @@ linux_prctl = None
 win32_job = None
 win32_AssignProcessToJobObject = None
 
+# Prefix for the node id resource that is automatically added to each node.
+# For example, a node may have id `node-172.23.42.1`.
+NODE_ID_PREFIX = "node-"
+
+
+def make_node_id(node_ip):
+    return NODE_ID_PREFIX + node_ip
+
 
 def round_memory_size_to_gb(memory_size: int) -> int:
     gb = int(memory_size / 1024)
@@ -2711,6 +2719,31 @@ def get_preferred_cpu_bundle_size(config: Dict[str, Any]) -> Optional[int]:
         return cpu_sizes[0]
     else:
         return _gcd_of_numbers(cpu_sizes)
+
+
+def get_resource_demands_for_cpu(num_cpus, config):
+    cpus_to_request = None
+    if num_cpus is None:
+        return cpus_to_request
+
+    remaining = num_cpus
+    cpus_to_request = []
+    if config:
+        # convert the num cpus based on the largest common factor of the node types
+        cpu_bundle_size = get_preferred_cpu_bundle_size(config)
+        if cpu_bundle_size and cpu_bundle_size > 0:
+            count = int(num_cpus / cpu_bundle_size)
+            remaining = num_cpus % cpu_bundle_size
+            if count > 0:
+                cpus_to_request += [{"CPU": cpu_bundle_size}] * count
+            if remaining > 0:
+                cpus_to_request += [{"CPU": remaining}]
+            remaining = 0
+
+    if remaining > 0:
+        cpus_to_request += [{"CPU": 1}] * remaining
+
+    return cpus_to_request
 
 
 def get_node_type(provider, node_id: str):

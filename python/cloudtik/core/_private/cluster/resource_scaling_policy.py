@@ -2,7 +2,9 @@ import json
 import logging
 import time
 
+from cloudtik.core._private.services import address_to_ip
 from cloudtik.core._private.state.resource_state import ResourceStateClient, ClusterResourceState
+from cloudtik.core._private.utils import make_node_id, get_resource_demands_for_cpu
 
 CLOUDTIK_CLUSTER_RESOURCE_TIGHT_THRESHOLD = 4
 
@@ -17,6 +19,8 @@ class ResourceScalingPolicy:
         self.port = port
         self.resource_state_client = resource_state_client
         self.config = None
+        self.last_resource_demands_time = 0
+        self.last_resource_state_snapshot = None
 
     def reset(self, config):
         self.config = config
@@ -51,36 +55,59 @@ class ResourceScalingPolicy:
             logger.error("Failed to retrieve the cluster metrics: {}", str(e))
             return None
 
-        cluster_metrics = json.loads(content)
+        cluster_metrics_response = json.loads(content)
 
         # Use the following information to make the decisions
         """
         "appsPending": 0,
         "appsRunning": 0,
+
         "availableMB": 17408,
         "allocatedMB": 0,
+        "totalMB": 17408,
+
         "availableVirtualCores": 7,
         "allocatedVirtualCores": 1,
+        "totalVirtualCores": 8,
+
         "containersAllocated": 0,
         "containersReserved": 0,
         "containersPending": 0,
-        "totalMB": 17408,
-        "totalVirtualCores": 8,
         """
         autoscaling_instructions = {}
 
         resource_demands = []
-        if self.need_more_resources(cluster_metrics):
-            # There are applications cannot have the resource to run
-            # We request more resources with a configured step of up scaling speed
-            # TODO: improvement with the right number of cores request and the number of demands
-            resource_demand = {
-                "CPU": 4
-            }
-            resource_demands.append(resource_demand)
+
+        if "clusterMetrics" in cluster_metrics_response:
+            cluster_metrics = cluster_metrics_response["clusterMetrics"]
+            if self.need_more_resources(cluster_metrics):
+                # There are applications cannot have the resource to run
+                # We request more resources with a configured step of up scaling speed
+                # TODO: improvement with the right number of cores request and the number of demands
+                num_cores = 4
+                resource_demands_for_cpu = get_resource_demands_for_cpu(num_cores, self.config)
+                resource_demands += resource_demands_for_cpu
+
+                self.last_resource_demands_time = time.time()
+                self.last_resource_state_snapshot = {
+                    "totalVirtualCores": cluster_metrics["totalVirtualCores"],
+                    "allocatedVirtualCores": cluster_metrics["allocatedVirtualCores"],
+                    "availableVirtualCores": cluster_metrics["availableVirtualCores"],
+                    "requestingVirtualCores": num_cores
+                }
+
+                logger.info("Scaling event: {}/{} cpus are free. Requesting {} more cpus...".format(
+                    cluster_metrics["availableVirtualCores"], cluster_metrics["totalVirtualCores"], num_cores))
 
         autoscaling_instructions["resource_demands"] = resource_demands
         return autoscaling_instructions
+
+    @staticmethod
+    def address_to_ip(address):
+        try:
+            return address_to_ip(address)
+        except Exception:
+            return None
 
     def get_node_resource_states(self):
         import urllib.request
@@ -93,16 +120,42 @@ class ResourceScalingPolicy:
             logger.error("Failed to retrieve the cluster nodes metrics: {}", str(e))
             return None
 
-        cluster_nodes_metrics = json.loads(content)
+        """
+        "nodeHostName":"host.domain.com",
+        "nodeHTTPAddress":"host.domain.com:8042",
+        "lastHealthUpdate": 1476995346399,
+        "version": "3.0.0",
+        "healthReport":"",
+        "numContainers":0,
+        "usedMemoryMB":0,
+        "availMemoryMB":8192,
+        "usedVirtualCores":0,
+        "availableVirtualCores":8,
+        "resourceUtilization":
+        {
+          "nodePhysicalMemoryMB":1027,
+          "nodeVirtualMemoryMB":1027,
+          "nodeCPUUsage":0.016661113128066063,
+          "aggregatedContainersPhysicalMemoryMB":0,
+          "aggregatedContainersVirtualMemoryMB":0,
+          "containersCPUUsage":0
+        }
+        """
+
+        cluster_nodes_response = json.loads(content)
         node_resource_states = {}
-        if ("nodes" in cluster_nodes_metrics
-                and "node" in cluster_nodes_metrics["nodes"]):
-            node_list = cluster_nodes_metrics["nodes"]["node"]
+        if ("nodes" in cluster_nodes_response
+                and "node" in cluster_nodes_response["nodes"]):
+            cluster_nodes = cluster_nodes_response["nodes"]["node"]
             now = time.time()
-            for node in node_list:
-                # TODO: get the right id and ip
-                node_id = node["id"]
-                node_ip = node["nodeHostName"]
+            for node in cluster_nodes:
+                host_name = node["nodeHostName"]
+                node_ip = address_to_ip(host_name)
+                if node_ip is None:
+                    continue
+
+                node_id = make_node_id(node_ip)
+
                 total_resources = {
                     "CPU": node["availableVirtualCores"],
                     "memory": int(node["availMemoryMB"]) * 1024 * 1024

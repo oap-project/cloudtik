@@ -75,7 +75,7 @@ class ClusterController:
         state_client = StateClient.create_from_redis(self.redis)
         kv_initialize(state_client)
 
-        self.resource_state_client = ResourceStateClient.create_from(control_state, state_client)
+        self.resource_state_client = ResourceStateClient.create_from(control_state)
 
         self.head_ip = redis_address.split(":")[0]
         self.redis_address = redis_address

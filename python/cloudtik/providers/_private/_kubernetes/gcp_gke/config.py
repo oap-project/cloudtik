@@ -15,7 +15,7 @@ from cloudtik.providers._private.gcp.config import _configure_managed_cloud_stor
     _remove_service_account_iam_role_binding, _has_service_account_iam_role_binding, _get_service_account_of_project, \
     get_gcp_managed_cloud_storage_info
 from cloudtik.providers._private.gcp.utils import get_gcp_project, construct_iam_client, construct_crm_client, \
-    get_service_account_email
+    get_service_account_email, get_gcp_cloud_storage_config
 
 GCP_KUBERNETES_ANNOTATION_NAME = "iam.gke.io/gcp-service-account"
 GCP_KUBERNETES_ANNOTATION_VALUE = "{service_account}@{project_id}.iam.gserviceaccount.com"
@@ -726,3 +726,7 @@ def get_info_for_gcp(config: Dict[str, Any], namespace, cloud_provider, info):
     managed_cloud_storage = _is_managed_cloud_storage(cloud_provider)
     if managed_cloud_storage:
         get_gcp_managed_cloud_storage_info(config, cloud_provider, info)
+
+
+def with_gcp_environment_variables(provider_config, config_dict: Dict[str, Any]):
+    get_gcp_cloud_storage_config(provider_config, config_dict)

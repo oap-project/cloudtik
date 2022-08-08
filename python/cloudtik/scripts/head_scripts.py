@@ -21,7 +21,7 @@ from cloudtik.core._private.state.kv_store import kv_initialize_with_address
 from cloudtik.core._private.utils import CLOUDTIK_CLUSTER_SCALING_ERROR, \
     CLOUDTIK_CLUSTER_SCALING_STATUS, decode_cluster_scaling_time, is_alive_time, get_head_bootstrap_config, \
     load_head_cluster_config
-from cloudtik.scripts.utils import NaturalOrderGroup
+from cloudtik.scripts.utils import NaturalOrderGroup, add_command_alias
 
 logger = logging.getLogger(__name__)
 
@@ -687,7 +687,12 @@ def stop(node_ip, all_nodes, runtimes, indent_level, parallel, yes):
         do_stop_node()
 
 
+def runtime_add_command_alias(command, name, hidden):
+    add_command_alias(runtime, command, name, hidden)
+
+
 runtime.add_command(start)
+runtime_add_command_alias(start, name="restart", hidden=True)
 runtime.add_command(stop)
 
 # commands running on head node

@@ -87,18 +87,24 @@ class ResourceStateClient:
                 cluster_resource_state.add_node_resource_state(node_id, resource_state)
         return cluster_resource_state
 
-    def update_cluster_resource_state(self, cluster_resource_state: ClusterResourceState):
+    def update_cluster_resource_state(self,
+                                      cluster_resource_state: ClusterResourceState,
+                                      lost_nodes):
         autoscaling_instructions = cluster_resource_state.autoscaling_instructions
         if autoscaling_instructions is not None:
             as_json = json.dumps(autoscaling_instructions)
             kv_put(CLOUDTIK_AUTOSCALING_INSTRUCTIONS, as_json)
 
         node_resource_states = cluster_resource_state.node_resource_states
-        if node_resource_states is not None:
+        if node_resource_states is not None or lost_nodes is not None:
             resource_state_table = self._control_state.get_user_state_table(RESOURCE_STATE_TABLE)
-            for node_id, node_resource_state in node_resource_states.items():
-                resource_state_as_json = json.dumps(node_resource_state)
-                resource_state_table.put(node_id, resource_state_as_json)
+            if node_resource_states is not None:
+                for node_id, node_resource_state in node_resource_states.items():
+                    resource_state_as_json = json.dumps(node_resource_state)
+                    resource_state_table.put(node_id, resource_state_as_json)
+            if lost_nodes is not None:
+                for node_id in lost_nodes:
+                    resource_state_table.delete(node_id)
 
     @staticmethod
     def create_from(control_state):

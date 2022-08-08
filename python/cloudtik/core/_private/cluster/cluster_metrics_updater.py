@@ -67,17 +67,16 @@ class ClusterMetricsUpdater:
         self.cluster_metrics.update_autoscaling_instructions(
             cluster_resource_state.autoscaling_instructions)
 
-        for node_resource_state in cluster_resource_state.node_resource_states:
-            node_id = node_resource_state["node_id"]
+        for node_id, node_resource_state in cluster_resource_state.node_resource_states.items():
             ip = node_resource_state["node_ip"]
-
+            resource_time = node_resource_state["resource_time"]
             # Node resource state
             total_resources = node_resource_state["total_resources"]
             available_resources = node_resource_state["available_resources"]
             resource_load = node_resource_state["resource_load"]
 
             self.cluster_metrics.update_node_resources(
-                ip, node_id, node_resource_state.resource_time,
+                ip, node_id, resource_time,
                 total_resources, available_resources, resource_load)
 
     def _update_resource_requests(self):

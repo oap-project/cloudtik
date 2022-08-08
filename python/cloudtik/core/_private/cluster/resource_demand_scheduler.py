@@ -353,9 +353,21 @@ class ResourceDemandScheduler:
             tags = self.provider.node_tags(node_id)
             if CLOUDTIK_TAG_USER_NODE_TYPE in tags:
                 node_type = tags[CLOUDTIK_TAG_USER_NODE_TYPE]
-                ip = self.provider.internal_ip(node_id)
-                available_resources = unused_resources_by_ip.get(ip)
-                add_node(node_type, available_resources)
+                # NOTE: Special handling for head node -> consider head node resources are all used!
+                if tags[CLOUDTIK_TAG_NODE_KIND] == NODE_KIND_HEAD:
+                    # Head node: consider all the head resources are used, because we cannot use it for workers
+                    if node_type in self.node_types:
+                        available_resources = copy.deepcopy(self.node_types[node_type]["resources"])
+                        for resource_id in available_resources:
+                            available_resources[resource_id] = 0
+                    else:
+                        available_resources = {"CPU": 0}
+                    add_node(node_type, available_resources)
+                elif tags[CLOUDTIK_TAG_NODE_KIND] == NODE_KIND_WORKER:
+                    # Worker node
+                    ip = self.provider.internal_ip(node_id)
+                    available_resources = unused_resources_by_ip.get(ip)
+                    add_node(node_type, available_resources)
 
         for node_type, count in pending_nodes.items():
             for _ in range(count):

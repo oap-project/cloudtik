@@ -111,8 +111,11 @@ class ClusterMetrics:
         self.autoscaling_instructions = autoscaling_instructions
 
         # resource_demands is a List[Dict[str, float]]
-        resource_demands = autoscaling_instructions.get("resource_demands")
-        if not resource_demands:
+        if autoscaling_instructions is not None:
+            resource_demands = autoscaling_instructions.get("resource_demands")
+            if not resource_demands:
+                resource_demands = []
+        else:
             resource_demands = []
         self.resource_demands = resource_demands
 
@@ -142,6 +145,7 @@ class ClusterMetrics:
         # If a node is idle, it's last used time will not be updated and keep in the previous used time
         # This last used time can be used to check how long a node is in an idle state
         if (ip not in self.last_used_time_by_ip
+                or ("in_use" in resource_load and resource_load["in_use"])
                 or not self._is_node_idle(ip)):
             self.last_used_time_by_ip[ip] = last_resource_time
 

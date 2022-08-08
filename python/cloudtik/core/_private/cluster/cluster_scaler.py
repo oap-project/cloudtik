@@ -284,7 +284,7 @@ class ClusterScaler:
     def run(self):
         self.reset(errors_fatal=False)
 
-        # self.resource_scaling_policy.update()
+        self.resource_scaling_policy.update()
         self.cluster_metrics_updater.update()
 
         status = {

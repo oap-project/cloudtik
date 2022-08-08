@@ -47,10 +47,10 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     with_node_ip_environment_variables, run_in_paralell_on_nodes, get_commands_to_run, \
     cluster_booting_completed, load_head_cluster_config, get_runnable_command, get_cluster_uri, \
     with_head_node_ip_environment_variables, get_verified_runtime_list, get_commands_of_runtimes, \
-    is_node_in_completed_status, check_for_single_worker_type, get_preferred_cpu_bundle_size, \
+    is_node_in_completed_status, check_for_single_worker_type, \
     get_node_specific_commands_of_runtimes, _get_node_specific_runtime_config, \
     _get_node_specific_docker_config, RUNTIME_CONFIG_KEY, DOCKER_CONFIG_KEY, get_running_head_node, \
-    get_nodes_for_runtime, with_script_args, encrypt_config
+    get_nodes_for_runtime, with_script_args, encrypt_config, get_resource_demands_for_cpu
 
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
@@ -140,25 +140,7 @@ def debug_status_string(status, error) -> str:
 def request_resources(num_cpus: Optional[int] = None,
                       bundles: Optional[List[dict]] = None,
                       config: Dict[str, Any] = None) -> None:
-    cpus_to_request = None
-    if num_cpus:
-        remaining = num_cpus
-        cpus_to_request = []
-        if config:
-            # convert the num cpus based on the largest common factor of the node types
-            cpu_bundle_size = get_preferred_cpu_bundle_size(config)
-            if cpu_bundle_size and cpu_bundle_size > 0:
-                count = int(num_cpus / cpu_bundle_size)
-                remaining = num_cpus % cpu_bundle_size
-                if count > 0:
-                    cpus_to_request += [{"CPU": cpu_bundle_size}] * count
-                if remaining > 0:
-                    cpus_to_request += [{"CPU": remaining}]
-                remaining = 0
-
-        if remaining > 0:
-            cpus_to_request += [{"CPU": 1}] * remaining
-
+    cpus_to_request = get_resource_demands_for_cpu(num_cpus, config)
     _request_resources(cpus=cpus_to_request, bundles=bundles)
 
 

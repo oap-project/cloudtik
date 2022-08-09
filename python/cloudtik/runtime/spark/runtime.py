@@ -67,7 +67,7 @@ class SparkRuntime(Runtime):
         return _get_runtime_service_ports(self.runtime_config)
 
     def get_scaling_policy(self, cluster_config: Dict[str, Any], head_ip: str) -> Optional[ScalingPolicy]:
-        return _get_scaling_policy(self.runtime_config, self.cluster_config, head_ip)
+        return _get_scaling_policy(self.runtime_config, cluster_config, head_ip)
 
     @staticmethod
     def get_logs() -> Dict[str, str]:

@@ -157,11 +157,9 @@ def post_prepare_aws(config: Dict[str, Any]) -> Dict[str, Any]:
     try:
         config = fill_available_node_types_resources(config)
     except Exception as exc:
-        if cli_logger.verbosity > 2:
-            logger.exception("Failed to detect node resources.")
-        else:
-            cli_logger.warning(
-                "Failed to detect node resources: {}. You can see full stack trace with higher verbosity.", str(exc))
+        cli_logger.warning(
+            "Failed to detect node resources. Make sure you have properly configured the AWS credentials: {}.",
+            str(exc))
 
     return config
 

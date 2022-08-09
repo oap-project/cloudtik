@@ -444,11 +444,9 @@ def post_prepare_kubernetes(config: Dict[str, Any]) -> Dict[str, Any]:
     try:
         config = fill_resources_kubernetes(config)
     except Exception as exc:
-        if cli_logger.verbosity > 2:
-            logger.exception("Failed to detect node resources.")
-        else:
-            cli_logger.warning(
-                "Failed to detect node resources: {}. You can see full stack trace with higher verbosity.", str(exc))
+        cli_logger.warning(
+            "Failed to detect node resources. Make sure you have properly configured the Kubernetes credentials: {}.",
+            str(exc))
 
     # Set use_managed_cloud_storage value from cloud_provider if it is set
     provider_config = config["provider"]

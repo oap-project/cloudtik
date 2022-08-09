@@ -2467,7 +2467,7 @@ def escape_private_key(private_key: str):
 
 def _get_node_type_specific_object(config, node_type, object_name):
     config_object = config.get(object_name)
-    node_type_config = _get_node_type_config(node_type)
+    node_type_config = _get_node_type_config(config, node_type)
     if node_type_config is not None:
         node_config_object = node_type_config.get(object_name)
         if node_config_object is not None:

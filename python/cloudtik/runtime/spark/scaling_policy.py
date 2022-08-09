@@ -128,7 +128,7 @@ class SparkScalingPolicy(ScalingPolicy):
             response = urllib.request.urlopen(cluster_metrics_url, timeout=10)
             content = response.read()
         except urllib.error.URLError as e:
-            logger.error("Failed to retrieve the cluster metrics: {}", str(e))
+            logger.error("Failed to retrieve the cluster metrics: {}".format(str(e)))
             return None
 
         cluster_metrics_response = json.loads(content)
@@ -206,7 +206,7 @@ class SparkScalingPolicy(ScalingPolicy):
             response = urllib.request.urlopen(cluster_nodes_url, timeout=10)
             content = response.read()
         except urllib.error.URLError as e:
-            logger.error("Failed to retrieve the cluster nodes metrics: {}", str(e))
+            logger.error("Failed to retrieve the cluster nodes metrics: {}".format(str(e)))
             return None, None
 
         cluster_nodes_response = json.loads(content)

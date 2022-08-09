@@ -1,7 +1,8 @@
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from cloudtik.core.node_provider import NodeProvider
+from cloudtik.core.scaling_policy import ScalingPolicy
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +92,13 @@ class Runtime:
         When the minimal nodes are reached. Please note this may call multiple times (for example server down and up)
         """
         pass
+
+    def get_scaling_policy(self, cluster_config: Dict[str, Any], head_ip: str) -> Optional[ScalingPolicy]:
+        """
+        If the runtime has a resource management and configured to act resource scaling source
+        return a scaling policy object to use by the cluster scaler.
+        """
+        return None
 
     @staticmethod
     def get_logs() -> Dict[str, str]:

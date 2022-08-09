@@ -2,9 +2,10 @@ import json
 import logging
 import time
 
-from cloudtik.core._private.constants import CLOUDTIK_HEARTBEAT_TIMEOUT_S
+from cloudtik.core._private.constants import CLOUDTIK_HEARTBEAT_TIMEOUT_S, CLOUDTIK_SCALING_STATE_TIMEOUT_S
 from cloudtik.core._private.state.control_state import ControlState
 from cloudtik.core._private.state.kv_store import kv_put, kv_get
+from cloudtik.core.scaling_policy import ScalingState
 
 CLOUDTIK_AUTOSCALING_INSTRUCTIONS = "autoscaling_instructions"
 STATE_FETCH_TIMEOUT = 60
@@ -28,22 +29,7 @@ class ClusterHeartbeatState:
         self.node_heartbeat_states[node_id] = node_heartbeat_state
 
 
-class ClusterResourceState:
-    def __init__(self):
-        self.node_resource_states = {}
-        self.autoscaling_instructions = None
-
-    def add_node_resource_state(self, node_id, node_resource_state):
-        self.node_resource_states[node_id] = node_resource_state
-
-    def set_node_resource_states(self, node_resource_states):
-        self.node_resource_states = node_resource_states
-
-    def set_autoscaling_instructions(self, autoscaling_instructions):
-        self.autoscaling_instructions = autoscaling_instructions
-
-
-class ResourceStateClient:
+class ScalingStateClient:
     """Client to read resource information from Redis"""
 
     def __init__(self,
@@ -66,14 +52,18 @@ class ResourceStateClient:
                 cluster_heartbeat_state.add_heartbeat_state(node_id, node_heartbeat_state)
         return cluster_heartbeat_state
 
-    def get_cluster_resource_state(self, timeout: int = STATE_FETCH_TIMEOUT):
-        cluster_resource_state = ClusterResourceState()
+    def get_scaling_state(self, timeout: int = STATE_FETCH_TIMEOUT):
+        now = time.time()
+        scaling_state = ScalingState()
 
         # Get resource demands
         as_json = kv_get(CLOUDTIK_AUTOSCALING_INSTRUCTIONS)
         if as_json is not None:
             autoscaling_instructions = json.loads(as_json)
-            cluster_resource_state.set_autoscaling_instructions(autoscaling_instructions)
+            scaling_time = autoscaling_instructions.get("scaling_time", 0)
+            delta = now - scaling_time
+            if delta < CLOUDTIK_SCALING_STATE_TIMEOUT_S:
+                scaling_state.set_autoscaling_instructions(autoscaling_instructions)
 
         # Get resource state of nodes
         resource_state_table = self._control_state.get_user_state_table(RESOURCE_STATE_TABLE)
@@ -81,21 +71,20 @@ class ResourceStateClient:
             resource_state = json.loads(resource_state_as_json)
             # Filter out the stale record in the node table
             resource_time = resource_state.get("resource_time", 0)
-            delta = time.time() - resource_time
-            if delta < CLOUDTIK_HEARTBEAT_TIMEOUT_S:
+            delta = now - resource_time
+            if delta < CLOUDTIK_SCALING_STATE_TIMEOUT_S:
                 node_id = resource_state["node_id"]
-                cluster_resource_state.add_node_resource_state(node_id, resource_state)
-        return cluster_resource_state
+                scaling_state.add_node_resource_state(node_id, resource_state)
+        return scaling_state
 
-    def update_cluster_resource_state(self,
-                                      cluster_resource_state: ClusterResourceState,
-                                      lost_nodes):
-        autoscaling_instructions = cluster_resource_state.autoscaling_instructions
+    def update_scaling_state(self,scaling_state: ScalingState):
+        autoscaling_instructions = scaling_state.autoscaling_instructions
         if autoscaling_instructions is not None:
             as_json = json.dumps(autoscaling_instructions)
             kv_put(CLOUDTIK_AUTOSCALING_INSTRUCTIONS, as_json)
 
-        node_resource_states = cluster_resource_state.node_resource_states
+        node_resource_states = scaling_state.node_resource_states
+        lost_nodes = scaling_state.lost_nodes
         if node_resource_states is not None or lost_nodes is not None:
             resource_state_table = self._control_state.get_user_state_table(RESOURCE_STATE_TABLE)
             if node_resource_states is not None:
@@ -108,4 +97,4 @@ class ResourceStateClient:
 
     @staticmethod
     def create_from(control_state):
-        return ResourceStateClient(control_state=control_state)
+        return ScalingStateClient(control_state=control_state)

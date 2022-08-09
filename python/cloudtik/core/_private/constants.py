@@ -131,6 +131,8 @@ CLOUDTIK_UPDATE_INTERVAL_S = env_integer("CLOUDTIK_UPDATE_INTERVAL_S", 5)
 # in more than this interval.
 CLOUDTIK_HEARTBEAT_TIMEOUT_S = env_integer("CLOUDTIK_HEARTBEAT_TIMEOUT_S", 30)
 
+CLOUDTIK_SCALING_STATE_TIMEOUT_S = env_integer("CLOUDTIK_SCALING_STATE_TIMEOUT_S", 15)
+
 CLOUDTIK_HEARTBEAT_PERIOD_SECONDS = env_integer("CLOUDTIK_HEARTBEAT_PERIOD_SECONDS", 1)
 
 # The maximum number of nodes (including failed nodes) that the cluster scaler will

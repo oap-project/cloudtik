@@ -12,7 +12,7 @@ from typing import Optional
 
 from cloudtik.core._private.cluster.cluster_metrics_updater import ClusterMetricsUpdater
 from cloudtik.core._private.cluster.resource_scaling_policy import ResourceScalingPolicy
-from cloudtik.core._private.state.resource_state import ResourceStateClient
+from cloudtik.core._private.state.scaling_state import ScalingStateClient
 
 try:
     import prometheus_client
@@ -75,7 +75,7 @@ class ClusterController:
         state_client = StateClient.create_from_redis(self.redis)
         kv_initialize(state_client)
 
-        self.resource_state_client = ResourceStateClient.create_from(control_state)
+        self.scaling_state_client = ScalingStateClient.create_from(control_state)
 
         self.head_ip = redis_address.split(":")[0]
         self.redis_address = redis_address
@@ -89,9 +89,9 @@ class ClusterController:
         self.cluster_scaling_config = cluster_scaling_config
         self.cluster_scaler = None
         self.resource_scaling_policy = ResourceScalingPolicy(
-            self.head_ip, 8088, self.resource_state_client)
+            self.head_ip, self.scaling_state_client)
         self.cluster_metrics_updater = ClusterMetricsUpdater(
-            self.cluster_metrics, self.event_summarizer, self.resource_state_client)
+            self.cluster_metrics, self.event_summarizer, self.scaling_state_client)
 
         self.prometheus_metrics = ClusterPrometheusMetrics()
         if prometheus_client:

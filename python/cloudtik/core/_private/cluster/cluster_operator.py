@@ -50,7 +50,7 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     is_node_in_completed_status, check_for_single_worker_type, \
     get_node_specific_commands_of_runtimes, _get_node_specific_runtime_config, \
     _get_node_specific_docker_config, RUNTIME_CONFIG_KEY, DOCKER_CONFIG_KEY, get_running_head_node, \
-    get_nodes_for_runtime, with_script_args, encrypt_config, get_resource_demands_for_cpu
+    get_nodes_for_runtime, with_script_args, encrypt_config, get_resource_demands_for_cpu, convert_nodes_to_cpus
 
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
@@ -2994,19 +2994,6 @@ def scale_cluster_on_head(yes: bool, cpus: int, nodes: int):
         request_resources(num_cpus=cpus, config=config)
     except Exception as e:
         cli_logger.abort("Error happened when making the scale cluster request.", exc=e)
-
-
-def convert_nodes_to_cpus(config: Dict[str, Any], nodes: int) -> int:
-    available_node_types = config["available_node_types"]
-    head_node_type = config["head_node_type"]
-    for node_type in available_node_types:
-        if node_type != head_node_type:
-            resources = available_node_types[node_type].get("resources", {})
-            cpu_total = resources.get("CPU", 0)
-            if cpu_total > 0:
-                return nodes * cpu_total
-
-    return 0
 
 
 def submit_and_exec(config: Dict[str, Any],

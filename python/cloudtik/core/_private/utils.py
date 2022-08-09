@@ -3127,3 +3127,31 @@ def decode_config_value(v):
     else:
         return v
 
+
+def _get_runtime_scaling_policy(config, head_ip):
+    runtime_config = config.get(RUNTIME_CONFIG_KEY)
+    if runtime_config is None:
+        return None
+
+    runtime_types = runtime_config.get(RUNTIME_TYPES_CONFIG_KEY, [])
+    if len(runtime_types) == 0:
+        return None
+
+    for runtime_type in runtime_types:
+        runtime = _get_runtime(runtime_type, runtime_config)
+        scaling_policy = runtime.get_scaling_policy(config, head_ip)
+        if scaling_policy is not None:
+            return scaling_policy
+    return None
+
+
+def convert_nodes_to_cpus(config: Dict[str, Any], nodes: int) -> int:
+    available_node_types = config["available_node_types"]
+    head_node_type = config["head_node_type"]
+    for node_type in available_node_types:
+        if node_type != head_node_type:
+            resources = available_node_types[node_type].get("resources", {})
+            cpu_total = resources.get("CPU", 0)
+            if cpu_total > 0:
+                return nodes * cpu_total
+    return 0

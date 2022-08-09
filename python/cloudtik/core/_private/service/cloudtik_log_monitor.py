@@ -2,7 +2,6 @@ import argparse
 import errno
 import glob
 import json
-import logging
 import logging.handlers
 import os
 import platform

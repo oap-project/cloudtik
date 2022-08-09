@@ -183,10 +183,9 @@ class ClusterScaler:
         # exactly once).
         self.provider = None
         # Keep this before self.reset (if an exception occurs in reset
-        # then prometheus_metrics must be instantitiated to increment the
+        # then prometheus_metrics must be instantiated to increment the
         # exception counter)
-        self.prometheus_metrics = prometheus_metrics or \
-                            ClusterPrometheusMetrics()
+        self.prometheus_metrics = prometheus_metrics or ClusterPrometheusMetrics()
         self.resource_demand_scheduler = None
 
         # These are records of publish for performance
@@ -285,7 +284,8 @@ class ClusterScaler:
         self.reset(errors_fatal=False)
 
         self.resource_scaling_policy.update()
-        self.cluster_metrics_updater.update()
+        self.cluster_metrics_updater.update(
+            self.resource_scaling_policy.has_scaling_policy())
 
         status = {
             "cluster_metrics_report": asdict(self.cluster_metrics.summary()),

@@ -7,7 +7,7 @@ from cloudtik.core._private.cluster.cluster_metrics import ClusterMetrics
 from cloudtik.core._private.cluster.event_summarizer import EventSummarizer
 from cloudtik.core._private.constants import CLOUDTIK_RESOURCE_REQUEST_CHANNEL
 from cloudtik.core._private.state.kv_store import kv_initialized, kv_get
-from cloudtik.core._private.state.resource_state import ResourceStateClient
+from cloudtik.core._private.state.scaling_state import ScalingStateClient
 
 logger = logging.getLogger(__name__)
 
@@ -18,21 +18,24 @@ class ClusterMetricsUpdater:
     def __init__(self,
                  cluster_metrics: ClusterMetrics,
                  event_summarizer: Optional[EventSummarizer],
-                 resource_state_client: ResourceStateClient):
+                 scaling_state_client: ScalingStateClient):
         self.cluster_metrics = cluster_metrics
         self.event_summarizer = event_summarizer
-        self.resource_state_client = resource_state_client
+        self.scaling_state_client = scaling_state_client
         self.last_avail_resources = None
         self.cluster_metrics_failures = 0
 
-    def update(self):
-        self._update_cluster_metrics()
+    def update(self, update_scaling_metrics: bool = False):
+        self._update_cluster_metrics(update_scaling_metrics)
         self._update_resource_requests()
         self._update_event_summary()
 
-    def _update_cluster_metrics(self):
+    def _update_cluster_metrics(self, update_scaling_metrics: bool = False):
         try:
-            self._do_update_cluster_metrics()
+            self._update_node_heartbeats()
+            if update_scaling_metrics:
+                self._update_scaling_metrics()
+
             # reset if there is a success
             self.cluster_metrics_failures = 0
         except Exception as e:
@@ -50,24 +53,20 @@ class ClusterMetricsUpdater:
 
             self.cluster_metrics_failures += 1
 
-    def _do_update_cluster_metrics(self):
-        self._update_node_heartbeats()
-        self._update_resource_metrics()
-
     def _update_node_heartbeats(self):
-        cluster_heartbeat_state = self.resource_state_client.get_cluster_heartbeat_state(timeout=60)
+        cluster_heartbeat_state = self.scaling_state_client.get_cluster_heartbeat_state(timeout=60)
         for node_id, node_heartbeat_state in cluster_heartbeat_state.node_heartbeat_states.items():
             ip = node_heartbeat_state.node_ip
             last_heartbeat_time = node_heartbeat_state.last_heartbeat_time
             self.cluster_metrics.update_heartbeat(ip, node_id, last_heartbeat_time)
 
-    def _update_resource_metrics(self):
+    def _update_scaling_metrics(self):
         """Fetches resource usage data from control state and updates load metrics."""
-        cluster_resource_state = self.resource_state_client.get_cluster_resource_state(timeout=60)
+        scaling_state = self.scaling_state_client.get_scaling_state(timeout=60)
         self.cluster_metrics.update_autoscaling_instructions(
-            cluster_resource_state.autoscaling_instructions)
+            scaling_state.autoscaling_instructions)
 
-        for node_id, node_resource_state in cluster_resource_state.node_resource_states.items():
+        for node_id, node_resource_state in scaling_state.node_resource_states.items():
             ip = node_resource_state["node_ip"]
             resource_time = node_resource_state["resource_time"]
             # Node resource state

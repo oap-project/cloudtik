@@ -47,7 +47,7 @@ logger = logging.getLogger(__name__)
 @click.option(
     "--logging-level",
     required=False,
-    default=constants.LOGGER_LEVEL,
+    default=constants.LOGGER_LEVEL_INFO,
     type=str,
     help=constants.LOGGER_LEVEL_HELP)
 @click.option(

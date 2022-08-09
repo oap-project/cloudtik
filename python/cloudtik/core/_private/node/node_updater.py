@@ -7,7 +7,7 @@ from typing import Dict
 from threading import Thread
 
 from cloudtik.core._private.utils import with_runtime_environment_variables, with_node_ip_environment_variables, \
-    _get_cluster_uri, _is_use_internal_ip, get_node_type
+    _get_cluster_uri, _is_use_internal_ip, get_node_type, with_environment_variables_from_config
 from cloudtik.core.command_executor import get_cmd_to_print
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_STATUS, CLOUDTIK_TAG_RUNTIME_CONFIG, \
     CLOUDTIK_TAG_FILE_MOUNTS_CONTENTS, \
@@ -317,31 +317,34 @@ class NodeUpdater:
             self.cmd_executor.bootstrap_data_disks()
 
     def get_update_environment_variables(self):
+        node_type = get_node_type(self.provider, self.node_id)
+        node_envs = with_environment_variables_from_config(config=self.config, node_type=node_type)
+
         runtime_envs = with_runtime_environment_variables(
             self.runtime_config, config=self.config, provider=self.provider, node_id=self.node_id)
+        node_envs.update(runtime_envs)
 
         # Add node ip address environment variables
         ip_envs = with_node_ip_environment_variables(
             self.call_context, None, self.provider, self.node_id)
-        runtime_envs.update(ip_envs)
+        node_envs.update(ip_envs)
 
         if self.environment_variables is not None:
-            runtime_envs.update(self.environment_variables)
+            node_envs.update(self.environment_variables)
 
         # Set node number if there is one
         node_number = self.provider.node_tags(
             self.node_id).get(CLOUDTIK_TAG_NODE_NUMBER)
         if node_number is not None:
-            runtime_envs[CLOUDTIK_RUNTIME_ENV_NODE_NUMBER] = node_number
+            node_envs[CLOUDTIK_RUNTIME_ENV_NODE_NUMBER] = node_number
 
         # With node type in the environment variables
-        node_type = get_node_type(self.provider, self.node_id)
         if node_type is not None:
-            runtime_envs[CLOUDTIK_RUNTIME_ENV_NODE_TYPE] = node_type
+            node_envs[CLOUDTIK_RUNTIME_ENV_NODE_TYPE] = node_type
 
         if self.provider_type is not None:
-            runtime_envs[CLOUDTIK_RUNTIME_ENV_PROVIDER_TYPE] = self.provider_type
-        return runtime_envs
+            node_envs[CLOUDTIK_RUNTIME_ENV_PROVIDER_TYPE] = self.provider_type
+        return node_envs
 
     def do_update(self):
         self.provider.set_node_tags(

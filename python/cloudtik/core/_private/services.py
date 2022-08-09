@@ -1090,6 +1090,7 @@ def start_log_monitor(redis_address,
                       stderr_file=None,
                       redis_password=None,
                       fate_share=None,
+                      logging_level=None,
                       max_bytes=0,
                       backup_count=0):
     """Start a log monitor process.
@@ -1102,6 +1103,7 @@ def start_log_monitor(redis_address,
         stderr_file: A file handle opened for writing to redirect stderr to. If
             no redirection should happen, then this should be None.
         redis_password (str): The password of the redis server.
+        logging_level (str): The logging level to use for the process.
         max_bytes (int): Log rotation parameter. Corresponding to
             RotatingFileHandler's maxBytes.
         backup_count (int): Log rotation parameter. Corresponding to
@@ -1118,6 +1120,8 @@ def start_log_monitor(redis_address,
         f"--logging-rotate-bytes={max_bytes}",
         f"--logging-rotate-backup-count={backup_count}",
     ]
+    if logging_level:
+        command.append("--logging-level=" + logging_level)
     if redis_password:
         command += ["--redis-password", redis_password]
     process_info = start_cloudtik_process(
@@ -1130,15 +1134,16 @@ def start_log_monitor(redis_address,
 
 
 def start_cluster_controller(redis_address,
-                  logs_dir,
-                  stdout_file=None,
-                  stderr_file=None,
-                  cluster_scaling_config=None,
-                  redis_password=None,
-                  fate_share=None,
-                  max_bytes=0,
-                  backup_count=0,
-                  controller_ip=None):
+                             logs_dir,
+                             stdout_file=None,
+                             stderr_file=None,
+                             cluster_scaling_config=None,
+                             redis_password=None,
+                             fate_share=None,
+                             logging_level=None,
+                             max_bytes=0,
+                             backup_count=0,
+                             controller_ip=None):
     """Run a process to control the cluster.
 
     Args:
@@ -1150,6 +1155,7 @@ def start_cluster_controller(redis_address,
             no redirection should happen, then this should be None.
         cluster_scaling_config: path to autoscaling config file.
         redis_password (str): The password of the redis server.
+        logging_level (str): The logging level to use for the process.
         max_bytes (int): Log rotation parameter. Corresponding to
             RotatingFileHandler's maxBytes.
         backup_count (int): Log rotation parameter. Corresponding to
@@ -1169,6 +1175,8 @@ def start_cluster_controller(redis_address,
         f"--logging-rotate-bytes={max_bytes}",
         f"--logging-rotate-backup-count={backup_count}",
     ]
+    if logging_level:
+        command.append("--logging-level=" + logging_level)
     if cluster_scaling_config:
         command.append("--cluster-scaling-config=" + str(cluster_scaling_config))
     if redis_password:
@@ -1191,6 +1199,7 @@ def start_node_controller(head, redis_address,
                           stderr_file=None,
                           redis_password=None,
                           fate_share=None,
+                          logging_level=None,
                           max_bytes=0,
                           backup_count=0,
                           controller_ip=None,
@@ -1207,6 +1216,7 @@ def start_node_controller(head, redis_address,
         stderr_file: A file handle opened for writing to redirect stderr to. If
             no redirection should happen, then this should be None.
         redis_password (str): The password of the redis server.
+        logging_level (str): The logging level to use for the process.
         max_bytes (int): Log rotation parameter. Corresponding to
             RotatingFileHandler's maxBytes.
         backup_count (int): Log rotation parameter. Corresponding to
@@ -1227,6 +1237,8 @@ def start_node_controller(head, redis_address,
         f"--logging-rotate-bytes={max_bytes}",
         f"--logging-rotate-backup-count={backup_count}",
     ]
+    if logging_level:
+        command.append("--logging-level=" + logging_level)
 
     node_type = tags.NODE_KIND_HEAD if head else tags.NODE_KIND_WORKER
     command.append("--node-type=" + node_type)

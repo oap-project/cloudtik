@@ -103,7 +103,9 @@ class NodeServicesStarter:
         self._start_params = start_params
         self._redis_address = start_params.redis_address
 
-        # Configure log rotation parameters.
+        # Configure log parameters.
+        self.logging_level = os.getenv(constants.CLOUDTIK_LOGGING_LEVEL_ENV,
+                                       constants.LOGGER_LEVEL_INFO)
         self.max_bytes = int(
             os.getenv(constants.CLOUDTIK_LOGGING_ROTATE_MAX_BYTES_ENV,
                       constants.LOGGING_ROTATE_MAX_BYTES))
@@ -312,8 +314,9 @@ class NodeServicesStarter:
     def logging_config(self):
         """Get the logging config of the current node."""
         return {
-            "log_rotation_max_bytes": self.max_bytes,
-            "log_rotation_backup_count": self.backup_count
+            "logging_level": self.logging_level,
+            "logging_rotation_max_bytes": self.max_bytes,
+            "logging_rotation_backup_count": self.backup_count
         }
 
     @property
@@ -587,6 +590,7 @@ class NodeServicesStarter:
             cluster_scaling_config=self._start_params.cluster_scaling_config,
             redis_password=self._start_params.redis_password,
             fate_share=self.kernel_fate_share,
+            logging_level=self.logging_level,
             max_bytes=self.max_bytes,
             backup_count=self.backup_count,
             controller_ip=self._node_ip_address)
@@ -611,6 +615,7 @@ class NodeServicesStarter:
             stderr_file=stderr_file,
             redis_password=self._start_params.redis_password,
             fate_share=self.kernel_fate_share,
+            logging_level=self.logging_level,
             max_bytes=self.max_bytes,
             backup_count=self.backup_count,
             controller_ip=self._node_ip_address,
@@ -878,6 +883,7 @@ class NodeServicesStarter:
             stderr_file=subprocess.DEVNULL,
             redis_password=self._start_params.redis_password,
             fate_share=self.kernel_fate_share,
+            logging_level=self.logging_level,
             max_bytes=self.max_bytes,
             backup_count=self.backup_count)
         assert constants.PROCESS_TYPE_LOG_MONITOR not in self.all_processes

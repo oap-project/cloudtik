@@ -2465,6 +2465,29 @@ def escape_private_key(private_key: str):
     return escaped_private_key
 
 
+def _get_node_type_specific_object(config, node_type, object_name):
+    config_object = config.get(object_name)
+    node_type_config = _get_node_type_config(node_type)
+    if node_type_config is not None:
+        node_config_object = node_type_config.get(object_name)
+        if node_config_object is not None:
+            # Merge with global config object
+            if config_object is not None:
+                config_object = copy.deepcopy(config_object)
+                return merge_config(config_object, node_config_object)
+            else:
+                return node_config_object
+    return config_object
+
+
+def with_environment_variables_from_config(config, node_type: str):
+    config_envs = {}
+    envs = _get_node_type_specific_object(config, node_type, "envs")
+    if envs is not None:
+        config_envs.update(envs)
+    return config_envs
+
+
 def with_runtime_environment_variables(runtime_config, config, provider, node_id: str):
     all_runtime_envs = {}
     if runtime_config is None:
@@ -2809,7 +2832,7 @@ def get_runtime_config_key(node_type: str):
 def retrieve_runtime_config(node_type: str = None):
     # Retrieve the runtime config
     runtime_config_key = get_runtime_config_key(node_type)
-    encrypted_runtime_config = _get_key_from_kv( runtime_config_key)
+    encrypted_runtime_config = _get_key_from_kv(runtime_config_key)
     if encrypted_runtime_config is None:
         return None
 

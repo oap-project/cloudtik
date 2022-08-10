@@ -67,7 +67,7 @@ do
         PYTHON_VERSION=$1
         ;;
     *)
-        echo "Usage: build-docker.sh [ --gpu ] [ --base-image ] [ --no-cache-build ] [ --shas-only ] [ --build-dev ] [ --wheel-to-use ] [ --python-version ]"
+        echo "Usage: build-docker.sh [ --gpu ] [ --base-image ] [ --no-cache-build ] [ --shas-only ] [ --build-dev ] [ --no-build-all ] [ --build-spark ] [ --build-universe ] [ --wheel-to-use ] [ --python-version ]"
         exit 1
     esac
     shift

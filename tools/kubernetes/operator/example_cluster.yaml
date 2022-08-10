@@ -24,22 +24,23 @@ spec:
   podTypes:
   - name: head.default
     podConfig:
-      apiVersion: v1
-      kind: Pod
-      spec:
-        containers:
-        - name: cloudtik-node
-          resources:
-            requests:
-              cpu: 4
-              memory: 8Gi
-              ephemeral-storage: 1Gi
-            limits:
-              cpu: 4
-              # The maximum memory that this pod is allowed to use. The
-              # limit will be detected and split to use 10% for
-              # redis, the rest for application memory.
-              memory: 8Gi
+      pod:
+        apiVersion: v1
+        kind: Pod
+        spec:
+          containers:
+          - name: cloudtik-node
+            resources:
+              requests:
+                cpu: 4
+                memory: 8Gi
+                ephemeral-storage: 1Gi
+              limits:
+                cpu: 4
+                # The maximum memory that this pod is allowed to use. The
+                # limit will be detected and split to use 10% for
+                # redis, the rest for application memory.
+                memory: 8Gi
   - name: worker.default
     # Minimum number of workers of this Pod type.
     minWorkers: 2
@@ -48,21 +49,22 @@ spec:
     # User-specified custom resources.
     customResources: {}
     podConfig:
-      apiVersion: v1
-      kind: Pod
-      spec:
-        containers:
-        - name: cloudtik-node
-          resources:
-            requests:
-              cpu: 4
-              memory: 8Gi
-              ephemeral-storage: 1Gi
-            limits:
-              cpu: 4
-              # The maximum memory that this pod is allowed to use. The
-              # limit will be detected and split to use 10% for
-              # redis, the rest for application memory.
-              memory: 8Gi
+      pod:
+        apiVersion: v1
+        kind: Pod
+        spec:
+          containers:
+          - name: cloudtik-node
+            resources:
+              requests:
+                cpu: 4
+                memory: 8Gi
+                ephemeral-storage: 1Gi
+              limits:
+                cpu: 4
+                # The maximum memory that this pod is allowed to use. The
+                # limit will be detected and split to use 10% for
+                # redis, the rest for application memory.
+                memory: 8Gi
   runtime:
     types: [ganglia, hdfs, spark]

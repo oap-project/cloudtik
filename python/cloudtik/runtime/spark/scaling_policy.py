@@ -198,6 +198,8 @@ class SparkScalingPolicy(ScalingPolicy):
                     "totalMemoryMB": cluster_metrics["totalMB"],
                     "allocatedMemoryMB": cluster_metrics["allocatedMB"],
                     "availableMemoryMB": cluster_metrics["availableMB"],
+                    "containersAllocated": cluster_metrics["containersAllocated"],
+                    "containersPending": cluster_metrics["containersPending"],
                     "activeNodes": cluster_metrics["activeNodes"],
                     "unhealthyNodes": cluster_metrics["unhealthyNodes"],
                 }
@@ -322,6 +324,7 @@ class SparkScalingPolicy(ScalingPolicy):
                     "available_resources": free_resources,
                     "resource_load": resource_load
                 }
+                # logger.debug("Node metrics: {}".format(node))
                 # logger.debug("Node resources: {}".format(node_resource_state))
                 node_resource_states[node_id] = node_resource_state
 

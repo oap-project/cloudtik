@@ -2720,53 +2720,68 @@ def _gcd_of_numbers(numbers):
 
 
 def get_preferred_cpu_bundle_size(config: Dict[str, Any]) -> Optional[int]:
+    return get_preferred_bundle_size(config, constants.CLOUDTIK_RESOURCE_CPU)
+
+
+def get_preferred_memory_bundle_size(config: Dict[str, Any]) -> Optional[int]:
+    return get_preferred_bundle_size(config, constants.CLOUDTIK_RESOURCE_MEMORY)
+
+
+def get_preferred_bundle_size(config: Dict[str, Any], resource_id: str) -> Optional[int]:
     available_node_types = config.get("available_node_types")
     if available_node_types is None:
         return None
 
-    cpu_sizes = []
+    resource_sizes = []
     head_node_type = config["head_node_type"]
     for node_type in available_node_types:
         if node_type == head_node_type:
             continue
 
         resources = available_node_types[node_type].get("resources", {})
-        cpu_total = resources.get("CPU", 0)
-        if cpu_total > 0:
-            cpu_sizes += [cpu_total]
+        resource_total = resources.get(resource_id, 0)
+        if resource_total > 0:
+            resource_sizes += [resource_total]
 
-    num_types = len(cpu_sizes)
+    num_types = len(resource_sizes)
     if num_types == 0:
         return None
     elif num_types == 1:
-        return cpu_sizes[0]
+        return resource_sizes[0]
     else:
-        return _gcd_of_numbers(cpu_sizes)
+        return _gcd_of_numbers(resource_sizes)
 
 
 def get_resource_demands_for_cpu(num_cpus, config):
-    cpus_to_request = None
-    if num_cpus is None:
-        return cpus_to_request
+    return get_resource_demands(
+        num_cpus, constants.CLOUDTIK_RESOURCE_CPU, config, 1)
 
-    remaining = num_cpus
-    cpus_to_request = []
+
+def get_resource_demands_for_memory(memory_in_bytes, config):
+    return get_resource_demands(
+        memory_in_bytes,constants.CLOUDTIK_RESOURCE_MEMORY, config, pow(1024, 3))
+
+
+def get_resource_demands(amount, resource_id, config, default_bundle_size):
+    if amount is None:
+        return None
+
+    bundle_size = default_bundle_size
     if config:
         # convert the num cpus based on the largest common factor of the node types
-        cpu_bundle_size = get_preferred_cpu_bundle_size(config)
-        if cpu_bundle_size and cpu_bundle_size > 0:
-            count = int(num_cpus / cpu_bundle_size)
-            remaining = num_cpus % cpu_bundle_size
-            if count > 0:
-                cpus_to_request += [{"CPU": cpu_bundle_size}] * count
-            if remaining > 0:
-                cpus_to_request += [{"CPU": remaining}]
-            remaining = 0
+        preferred_bundle_size = get_preferred_bundle_size(config, resource_id)
+        if preferred_bundle_size and preferred_bundle_size > default_bundle_size:
+            bundle_size = preferred_bundle_size
 
+    count = int(amount / bundle_size)
+    remaining = amount % bundle_size
+    to_request = []
+    if count > 0:
+        to_request += [{resource_id: bundle_size}] * count
     if remaining > 0:
-        cpus_to_request += [{"CPU": 1}] * remaining
+        to_request += [{resource_id: remaining}]
 
-    return cpus_to_request
+    return to_request
 
 
 def get_node_type(provider, node_id: str):
@@ -3146,12 +3161,20 @@ def _get_runtime_scaling_policy(config, head_ip):
 
 
 def convert_nodes_to_cpus(config: Dict[str, Any], nodes: int) -> int:
+    return convert_nodes_to_resource(config, nodes, constants.CLOUDTIK_RESOURCE_CPU)
+
+
+def convert_nodes_to_memory(config: Dict[str, Any], nodes: int) -> int:
+    return convert_nodes_to_resource(config, nodes, constants.CLOUDTIK_RESOURCE_MEMORY)
+
+
+def convert_nodes_to_resource(config: Dict[str, Any], nodes: int, resource_id) -> int:
     available_node_types = config["available_node_types"]
     head_node_type = config["head_node_type"]
     for node_type in available_node_types:
         if node_type != head_node_type:
             resources = available_node_types[node_type].get("resources", {})
-            cpu_total = resources.get("CPU", 0)
-            if cpu_total > 0:
-                return nodes * cpu_total
+            resource_total = resources.get(resource_id, 0)
+            if resource_total > 0:
+                return nodes * resource_total
     return 0

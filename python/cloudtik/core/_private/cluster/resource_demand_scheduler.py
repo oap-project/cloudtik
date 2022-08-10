@@ -132,8 +132,9 @@ class ResourceDemandScheduler:
             Dict of count to add for each node type, and residual of resources
             that still cannot be fulfilled.
         """
-
-        self._update_node_resources_from_runtime(nodes, max_resources_by_ip)
+        # Currently, we don't update the total resources from runtime
+        # But we use the node types static memory information here
+        # self._update_node_resources_from_runtime(nodes, max_resources_by_ip)
 
         node_resources: List[ResourceDict]
         node_type_counts: Dict[NodeType, int]

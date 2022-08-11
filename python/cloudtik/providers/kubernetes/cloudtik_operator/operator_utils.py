@@ -163,7 +163,7 @@ def get_provider_config(
     provider_conf["services"] = [
         get_head_service(cluster_name, cluster_owner_reference, head_service_ports)
     ]
-    configure_cloud_storage(provider_conf, cluster_resource)
+    configure_cloud(provider_conf, cluster_resource)
     # Signal to autoscaler that the Operator is in use:
     provider_conf["_operator"] = True
     return provider_conf
@@ -177,15 +177,42 @@ def get_runtime_config(
     return copy.deepcopy(cluster_resource["spec"]["runtime"])
 
 
-def configure_cloud_storage(
+def configure_cloud(
     provider_config: Dict[str, Any],
     cluster_resource: Dict[str, Any],
 ):
-    if "cloudStorage" not in cluster_resource["spec"]:
+    if "cloudConfig" not in cluster_resource["spec"]:
         return
-    cloud_storage = cluster_resource["spec"]["cloudStorage"]
+    cloud_config = cluster_resource["spec"]["cloudConfig"]
+    configure_cloud_provider(provider_config, cloud_config)
+    configure_cloud_storage(provider_config, cloud_config)
+
+
+def configure_cloud_provider(
+    provider_config: Dict[str, Any],
+    cloud_config: Dict[str, Any],
+):
+    if "cloudProvider" not in cloud_config:
+        return
+
+    if "cloud_provider" not in provider_config:
+        provider_config["cloud_provider"] = {}
+    cloud_provider = provider_config["cloud_provider"]
+
+    cloud_provider_config = cloud_config["cloudProvider"]
+    for field in cloud_provider_config:
+        cloud_provider[field] = copy.deepcopy(cloud_provider_config[field])
+
+
+def configure_cloud_storage(
+    provider_config: Dict[str, Any],
+    cloud_config: Dict[str, Any],
+):
+    if "cloudStorage" not in cloud_config:
+        return
+    cloud_storage = cloud_config["cloudStorage"]
     for field in cloud_storage:
-        provider_config[field] = cloud_storage[field]
+        provider_config[field] = copy.deepcopy(cloud_storage[field])
 
 
 def get_head_service(cluster_name, cluster_owner_reference, head_service_ports):

@@ -66,6 +66,141 @@ spec:
                 description: If a node is idle for this many minutes, it will be removed.
                 type: integer
                 minimum: 0
+              headPodType:
+                description: Specifies the head node type.
+                type: string
+              setupCommands:
+                description: Additional commands to setup on the node.
+                type: array
+                items:
+                  type: string
+                  description: shell command
+              bootstrapCommands:
+                description: Additional commands to run on the node.
+                type: array
+                items:
+                  type: string
+                  description: shell command
+              headSetupCommands:
+                description: Additional commands to setup on the head node.
+                type: array
+                items:
+                  type: string
+                  description: shell command
+              workerSetupCommands:
+                description: Additional commands to setup on worker nodes.
+                type: array
+                items:
+                  type: string
+                  description: shell command
+              startCommands:
+                description: Additional commands to start on the node.
+                type: array
+                items:
+                  type: string
+                  description: shell command
+              headStartCommands:
+                description: Additional commands to start on the head node.
+                type: array
+                items:
+                  type: string
+                  description: shell command
+              workerStartCommands:
+                description: Additional commands to start on worker nodes.
+                type: array
+                items:
+                  type: string
+                  description: shell command
+              stopCommands:
+                description: Additional commands to stop on the node.
+                type: array
+                items:
+                  type: string
+                  description: shell command
+              headStopCommands:
+                description: Additional commands to stop on the head node.
+                type: array
+                items:
+                  type: string
+                  description: shell command
+              workerStopCommands:
+                description: Additional commands to stop on worker nodes.
+                type: array
+                items:
+                  type: string
+                  description: shell command
+              cloudConfig:
+                type: object
+                description: The cloud configurations
+                x-kubernetes-preserve-unknown-fields: true
+                properties:
+                  cloudStorage:
+                    type: object
+                    description: The cloud storage configurations
+                    x-kubernetes-preserve-unknown-fields: true
+                  cloudProvider:
+                    type: object
+                    required:
+                      - type
+                    description: The cloud provider configurations
+                    x-kubernetes-preserve-unknown-fields: true
+                    properties:
+                      type:
+                        description: The cloud provider type - aws, azure, gcp
+                        type: string
+                      region:
+                        description: The region for the cloud if needed
+                        type: string
+                      use_managed_cloud_storage:
+                        description: Whether to use the managed cloud storage of the workspace
+                        type: boolean
+              runtime:
+                type: object
+                description: The runtime configurations
+                x-kubernetes-preserve-unknown-fields: true
+                properties:
+                  types:
+                    description: The runtime list to run on the cluster.
+                    type: array
+                    items:
+                      type: string
+                      description: The runtime time name
+                  spark:
+                    type: object
+                    description: The Spark runtime configurations.
+                    x-kubernetes-preserve-unknown-fields: true
+                    properties:
+                      config:
+                        type: object
+                        description: The Spark configurations to set as cluster wide default.
+                        x-kubernetes-preserve-unknown-fields: true
+                  kafka:
+                    type: object
+                    description: The Kafka runtime configurations.
+                    x-kubernetes-preserve-unknown-fields: true
+                    properties:
+                      config:
+                        type: object
+                        description: Map of Kafka server properties.
+                        x-kubernetes-preserve-unknown-fields: true
+                  zookeeper:
+                    type: object
+                    description: The Zookeeper runtime configurations.
+                    x-kubernetes-preserve-unknown-fields: true
+                    properties:
+                      config:
+                        type: object
+                        description: Map of Zookeeper server properties.
+                        x-kubernetes-preserve-unknown-fields: true
+                  presto:
+                    type: object
+                    description: The Presto runtime configurations.
+                    x-kubernetes-preserve-unknown-fields: true
+                    properties:
+                      config:
+                        type: object
+                        description: Map of Presto server properties.
+                        x-kubernetes-preserve-unknown-fields: true
               headServicePorts:
                 description: Optional list of ports to use for the head service.
                 type: array
@@ -141,6 +276,15 @@ spec:
                       required:
                         - pod
                       properties:
+                        resources:
+                          additionalProperties:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                            x-kubernetes-int-or-string: true
+                          description: 'Requests describes the minimum amount of compute resources required.'
+                          type: object
                         dataDisks:
                           type: array
                           description: Data disks needed for the pod.
@@ -4347,117 +4491,3 @@ spec:
                               required:
                               - containers
                               type: object
-              headPodType:
-                description: Specifies the head node type.
-                type: string
-              setupCommands:
-                description: Additional commands to setup on the node.
-                type: array
-                items:
-                  type: string
-                  description: shell command
-              bootstrapCommands:
-                description: Additional commands to run on the node.
-                type: array
-                items:
-                  type: string
-                  description: shell command
-              headSetupCommands:
-                description: Additional commands to setup on the head node.
-                type: array
-                items:
-                  type: string
-                  description: shell command
-              workerSetupCommands:
-                description: Additional commands to setup on worker nodes.
-                type: array
-                items:
-                  type: string
-                  description: shell command
-              startCommands:
-                description: Additional commands to start on the node.
-                type: array
-                items:
-                  type: string
-                  description: shell command
-              headStartCommands:
-                description: Additional commands to start on the head node.
-                type: array
-                items:
-                  type: string
-                  description: shell command
-              workerStartCommands:
-                description: Additional commands to start on worker nodes.
-                type: array
-                items:
-                  type: string
-                  description: shell command
-              stopCommands:
-                description: Additional commands to stop on the node.
-                type: array
-                items:
-                  type: string
-                  description: shell command
-              headStopCommands:
-                description: Additional commands to stop on the head node.
-                type: array
-                items:
-                  type: string
-                  description: shell command
-              workerStopCommands:
-                description: Additional commands to stop on worker nodes.
-                type: array
-                items:
-                  type: string
-                  description: shell command
-              cloudStorage:
-                type: object
-                description: The cloud storage configurations
-                x-kubernetes-preserve-unknown-fields: true
-              runtime:
-                type: object
-                description: The runtime configurations
-                x-kubernetes-preserve-unknown-fields: true
-                properties:
-                  types:
-                    description: The runtime list to run on the cluster.
-                    type: array
-                    items:
-                      type: string
-                      description: The runtime time name
-                  spark:
-                    type: object
-                    description: The Spark runtime configurations.
-                    x-kubernetes-preserve-unknown-fields: true
-                    properties:
-                      config:
-                        type: object
-                        description: The Spark configurations to set as cluster wide default.
-                        x-kubernetes-preserve-unknown-fields: true
-                  kafka:
-                    type: object
-                    description: The Kafka runtime configurations.
-                    x-kubernetes-preserve-unknown-fields: true
-                    properties:
-                      config:
-                        type: object
-                        description: Map of Kafka server properties.
-                        x-kubernetes-preserve-unknown-fields: true
-                  zookeeper:
-                    type: object
-                    description: The Zookeeper runtime configurations.
-                    x-kubernetes-preserve-unknown-fields: true
-                    properties:
-                      config:
-                        type: object
-                        description: Map of Zookeeper server properties.
-                        x-kubernetes-preserve-unknown-fields: true
-                  presto:
-                    type: object
-                    description: The Presto runtime configurations.
-                    x-kubernetes-preserve-unknown-fields: true
-                    properties:
-                      config:
-                        type: object
-                        description: Map of Presto server properties.
-                        x-kubernetes-preserve-unknown-fields: true

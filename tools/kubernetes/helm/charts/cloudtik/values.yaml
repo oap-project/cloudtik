@@ -44,12 +44,6 @@ podTypes:
         minWorkers: 1
         # maxWorkers is the maximum number of workers of this pod type to which the cluster will scale.
         maxWorkers: 3
-        # CPU is the number of CPUs used by this pod type.
-        # (Used for both requests and limits. Must be an integer, does not support fractional CPUs.)
-        CPU: 4
-        # memory is the memory used by this Pod type.
-        # (Used for both requests and limits.)
-        memory: 8Gi
         # customResources is an optional string-int mapping signalling additional resources.
         # "CPU", "GPU", and "memory" are filled automatically based on the above settings, but can be overriden.
         customResources: {}

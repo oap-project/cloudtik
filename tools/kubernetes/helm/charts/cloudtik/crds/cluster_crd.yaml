@@ -292,7 +292,6 @@ spec:
                             type: object
                             required:
                               - name
-                              - storageClass
                               - diskSize
                             properties:
                               name:

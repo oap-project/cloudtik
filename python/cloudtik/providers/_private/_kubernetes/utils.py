@@ -138,7 +138,6 @@ def create_and_configure_pvc_for_pod(_pod_spec, data_disks, cluster_name, namesp
                 "generateName": "cloudtik-{}-{}-".format(cluster_name, data_disk["name"])
             },
             "spec": {
-                "storageClassName": data_disk["storageClass"],
                 "accessModes": ["ReadWriteOnce"],
                 "resources": {
                     "requests": {
@@ -147,6 +146,10 @@ def create_and_configure_pvc_for_pod(_pod_spec, data_disks, cluster_name, namesp
                 }
             },
         }
+
+        if "storageClass" in data_disk:
+            pvc_spec["spec"]["storageClassName"] = data_disk["storageClass"]
+
         tags = {CLOUDTIK_TAG_CLUSTER_NAME: cluster_name}
         pvc_spec["metadata"]["namespace"] = namespace
         if "labels" in pvc_spec["metadata"]:

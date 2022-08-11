@@ -4,9 +4,9 @@ kind: CloudTikCluster
 metadata:
   name: {{ .Release.Name }}
 spec:
-  { { - if .Values.from } }
-  from: { { - toYaml .Values.from } }
-  { { - end } }
+  {{- if .Values.from }}
+  from: {{- toYaml .Values.from }}
+  {{- end }}
   # The maximum number of workers nodes to launch in addition to the head node.
   maxWorkers: {{ include "cloudtik.clusterMaxWorkers" . }}
   # The autoscaler will scale up the cluster faster with higher upscaling speed.
@@ -19,15 +19,15 @@ spec:
   # Specify the pod type for the head node (as configured below).
   headPodType: {{ .Values.headPodType }}
   # Cloud config
-  { { - if .Values.cloudConfig } }
+  {{- if .Values.cloudConfig }}
   cloudConfig:
-    { { - toYaml .Values.cloudConfig | nindent 4 } }
-  { { - end } }
+    {{- toYaml .Values.cloudConfig | nindent 4 }}
+  {{- end }}
   # Runtime config
-  { { - if .Values.runtime } }
+  {{- if .Values.runtime }}
   runtime:
-    { { - toYaml .Values.runtime | nindent 4 } }
-  { { - end } }
+    {{- toYaml .Values.runtime | nindent 4 }}
+  {{- end }}
   # Specify the allowed pod types for this cluster and the resources they provide.
   podTypes:
     {{- range $key, $val := .Values.podTypes }}
@@ -40,15 +40,15 @@ spec:
       {{- end }}
       podConfig:
         # Pod container resources
-        { { - if $val.resources } }
+        {{- if $val.resources }}
         resources:
-          { { - toYaml $val.resources | nindent 10 } }
-        { { - end } }
+          {{- toYaml $val.resources | nindent 10 }}
+        {{- end }}
         # Pod data disks
-        { { - if $val.dataDisks } }
+        {{- if $val.dataDisks }}
         dataDisks:
-        { { - toYaml $val.dataDisks | nindent 8 } }
-        { { - end } }
+        {{- toYaml $val.dataDisks | nindent 8 }}
+        {{- end }}
         pod:
           apiVersion: v1
           kind: Pod

@@ -62,7 +62,7 @@ function set_head_address() {
 
 
 function retrieve_resources() {
-    jvm_max_memory=$(awk '($1 == "MemTotal:"){print $2/1024*0.8}' /proc/meminfo)
+    jvm_max_memory=$(awk -v  total_phycical_memory=$(python cloudtik/scripts/scripts.py resources --memory --in-mb) 'BEGIN{print 0.8 * total_phycical_memory}')
     jvm_max_memory=${jvm_max_memory%.*}
     query_max_memory_per_node=$(echo $jvm_max_memory | awk '{print $1*0.5}')
     query_max_memory_per_node=${query_max_memory_per_node%.*}

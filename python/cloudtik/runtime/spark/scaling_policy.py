@@ -5,9 +5,10 @@ import time
 import urllib.request
 import urllib.error
 
+from cloudtik.core._private import constants
 from cloudtik.core._private.services import address_to_ip
 from cloudtik.core._private.utils import make_node_id, get_resource_demands_for_cpu, RUNTIME_CONFIG_KEY, \
-    convert_nodes_to_cpus
+    convert_nodes_to_cpus, get_resource_demands_for_memory, convert_nodes_to_memory
 from cloudtik.core.scaling_policy import ScalingPolicy, ScalingState
 
 SPARK_YARN_REST_ENDPOINT_CLUSTER_NODES = "http://{}:{}/ws/v1/cluster/nodes"
@@ -15,11 +16,19 @@ SPARK_YARN_REST_ENDPOINT_CLUSTER_METRICS = "http://{}:{}/ws/v1/cluster/metrics"
 
 SPARK_SCALING_MODE_APPS_PENDING = "apps-pending"
 SPARK_SCALING_MODE_AGGRESSIVE = "aggressive"
+
+SPARK_SCALING_RESOURCE_MEMORY = constants.CLOUDTIK_RESOURCE_MEMORY
+SPARK_SCALING_RESOURCE_CPU = constants.CLOUDTIK_RESOURCE_CPU
+
 SPARK_SCALING_STEP_DEFAULT = 1
 APP_PENDING_THRESHOLD_DEFAULT = 1
+
+# The free cores to check for scaling up
 APP_PENDING_FREE_CORES_THRESHOLD_DEFAULT = 4
-# When the free core ratio is lower than this threshold, it starts up scaling
-AGGRESSIVE_FREE_CORES_RATIO_THRESHOLD_DEFAULT = 0.1
+# The free memory MB to check for scaling up
+APP_PENDING_FREE_MEMORY_THRESHOLD_DEFAULT = 1024
+# When the free resource ratio is lower than this threshold, it starts up scaling
+AGGRESSIVE_FREE_RATIO_THRESHOLD_DEFAULT = 0.1
 
 logger = logging.getLogger(__name__)
 
@@ -42,9 +51,11 @@ class SparkScalingPolicy(ScalingPolicy):
         # scaling parameters
         self.scaling_mode = SPARK_SCALING_MODE_APPS_PENDING
         self.scaling_step = SPARK_SCALING_STEP_DEFAULT
+        self.scaling_resource = SPARK_SCALING_RESOURCE_MEMORY
         self.apps_pending_threshold = 1
         self.apps_pending_free_cores_threshold = APP_PENDING_FREE_CORES_THRESHOLD_DEFAULT
-        self.aggressive_free_cores_ratio_threshold = AGGRESSIVE_FREE_CORES_RATIO_THRESHOLD_DEFAULT
+        self.apps_pending_free_memory_threshold = APP_PENDING_FREE_MEMORY_THRESHOLD_DEFAULT
+        self.aggressive_free_ratio_threshold = AGGRESSIVE_FREE_RATIO_THRESHOLD_DEFAULT
 
         self.reset(config)
 
@@ -61,12 +72,15 @@ class SparkScalingPolicy(ScalingPolicy):
         # Update the scaling parameters
         self.scaling_mode = self.scaling_config.get("scaling_mode", SPARK_SCALING_MODE_APPS_PENDING)
         self.scaling_step = self.scaling_config.get("scaling_step", SPARK_SCALING_STEP_DEFAULT)
+        self.scaling_resource = self.scaling_config.get("scaling_resource", SPARK_SCALING_RESOURCE_MEMORY)
         self.apps_pending_threshold = self.scaling_config.get(
             "apps_pending_threshold", APP_PENDING_THRESHOLD_DEFAULT)
         self.apps_pending_free_cores_threshold = self.scaling_config.get(
             "apps_pending_free_cores_threshold", APP_PENDING_FREE_CORES_THRESHOLD_DEFAULT)
-        self.aggressive_free_cores_ratio_threshold = self.scaling_config.get(
-            "aggressive_free_cores_ratio_threshold", AGGRESSIVE_FREE_CORES_RATIO_THRESHOLD_DEFAULT)
+        self.apps_pending_free_memory_threshold = self.scaling_config.get(
+            "apps_pending_free_memory_threshold", APP_PENDING_FREE_MEMORY_THRESHOLD_DEFAULT)
+        self.aggressive_free_ratio_threshold = self.scaling_config.get(
+            "aggressive_free_cores_ratio_threshold", AGGRESSIVE_FREE_RATIO_THRESHOLD_DEFAULT)
 
     def get_scaling_state(self) -> Optional[ScalingState]:
         self.last_state_time = time.time()
@@ -79,7 +93,7 @@ class SparkScalingPolicy(ScalingPolicy):
         scaling_state.set_lost_nodes(lost_nodes)
         return scaling_state
 
-    def _need_more_resources(self, cluster_metrics):
+    def _need_more_cores(self, cluster_metrics):
         # TODO: Refine the algorithm here for better scaling decisions
         num_cores = 0
 
@@ -87,10 +101,10 @@ class SparkScalingPolicy(ScalingPolicy):
             # aggressive mode
             # When the availableVirtualCores are less than the configured threshold percentage
             # it starts to scaling up
-            available_cores = float(cluster_metrics["availableVirtualCores"])
-            total_cores = float(cluster_metrics["totalVirtualCores"])
-            free_cores_ratio = available_cores/total_cores
-            if free_cores_ratio < self.aggressive_free_cores_ratio_threshold:
+            available = float(cluster_metrics["availableVirtualCores"])
+            total = float(cluster_metrics["totalVirtualCores"])
+            free_ratio = available/total
+            if free_ratio < self.aggressive_free_ratio_threshold:
                 num_cores = self.get_number_of_cores_to_scale(self.scaling_step)
         else:
             # apps-pending mode
@@ -100,8 +114,43 @@ class SparkScalingPolicy(ScalingPolicy):
 
         return num_cores
 
+    def _need_more_memory(self, cluster_metrics):
+        # TODO: Refine the algorithm here for better scaling decisions
+        memory_to_scale = 0
+
+        if self.scaling_mode == SPARK_SCALING_MODE_AGGRESSIVE:
+            # aggressive mode
+            # When the availableMB are less than the configured threshold percentage
+            # it starts to scaling up
+            available = float(cluster_metrics["availableMB"])
+            total = float(cluster_metrics["totalMB"])
+            free_ratio = available/total
+            if free_ratio < self.aggressive_free_ratio_threshold:
+                memory_to_scale = self.get_memory_to_scale(self.scaling_step)
+        else:
+            # apps-pending mode
+            if (cluster_metrics["appsPending"] >= self.apps_pending_threshold
+                    and cluster_metrics["availableMB"] < self.apps_pending_free_memory_threshold):
+                memory_to_scale = self.get_memory_to_scale(self.scaling_step)
+
+        return memory_to_scale
+
+    def _need_more_resources(self, cluster_metrics):
+        requesting_resources = {}
+        if self.scaling_resource == SPARK_SCALING_RESOURCE_MEMORY:
+            requesting_memory = self._need_more_memory(cluster_metrics)
+            requesting_resources[constants.CLOUDTIK_RESOURCE_MEMORY] = requesting_memory
+        else:
+            requesting_cores = self._need_more_cores(cluster_metrics)
+            requesting_resources[constants.CLOUDTIK_RESOURCE_CPU] = requesting_cores
+
+        return requesting_resources
+
     def get_number_of_cores_to_scale(self, scaling_step):
         return convert_nodes_to_cpus(self.config, scaling_step)
+
+    def get_memory_to_scale(self, scaling_step):
+        return convert_nodes_to_memory(self.config, scaling_step)
 
     def _get_autoscaling_instructions(self):
         # Use the following information to make the decisions
@@ -146,30 +195,54 @@ class SparkScalingPolicy(ScalingPolicy):
                     "totalVirtualCores": cluster_metrics["totalVirtualCores"],
                     "allocatedVirtualCores": cluster_metrics["allocatedVirtualCores"],
                     "availableVirtualCores": cluster_metrics["availableVirtualCores"],
+                    "totalMemoryMB": cluster_metrics["totalMB"],
+                    "allocatedMemoryMB": cluster_metrics["allocatedMB"],
+                    "availableMemoryMB": cluster_metrics["availableMB"],
+                    "containersAllocated": cluster_metrics["containersAllocated"],
+                    "containersPending": cluster_metrics["containersPending"],
                     "activeNodes": cluster_metrics["activeNodes"],
                     "unhealthyNodes": cluster_metrics["unhealthyNodes"],
                 }
                 logger.debug("Cluster metrics: {}".format(cluster_info))
 
-            num_cores = self._need_more_resources(cluster_metrics)
-            if num_cores > 0:
+            resource_requesting = self._need_more_resources(cluster_metrics)
+            if resource_requesting is not None:
                 # There are applications cannot have the resource to run
                 # We request more resources with a configured step of up scaling speed
-                resource_demands_for_cpu = get_resource_demands_for_cpu(num_cores, self.config)
-                resource_demands += resource_demands_for_cpu
+                requesting_cores = resource_requesting.get(constants.CLOUDTIK_RESOURCE_CPU, 0)
+                requesting_memory = resource_requesting.get(constants.CLOUDTIK_RESOURCE_MEMORY, 0)
+                if requesting_cores > 0 or requesting_memory > 0:
+                    if requesting_cores > 0:
+                        resource_demands_for_cpu = get_resource_demands_for_cpu(
+                            requesting_cores, self.config)
+                        resource_demands += resource_demands_for_cpu
 
-                self.last_resource_demands_time = self.last_state_time
-                self.last_resource_state_snapshot = {
-                    "totalVirtualCores": cluster_metrics["totalVirtualCores"],
-                    "allocatedVirtualCores": cluster_metrics["allocatedVirtualCores"],
-                    "availableVirtualCores": cluster_metrics["availableVirtualCores"],
-                    "requestingVirtualCores": num_cores
-                }
+                        logger.info("Scaling event: {}/{} cpus are free. Requesting {} more cpus...".format(
+                            cluster_metrics["availableVirtualCores"],
+                            cluster_metrics["totalVirtualCores"],
+                            requesting_cores))
+                    elif requesting_memory > 0:
+                        resource_demands_for_memory = get_resource_demands_for_memory(
+                            requesting_memory, self.config)
+                        resource_demands += resource_demands_for_memory
 
-                logger.info("Scaling event: {}/{} cpus are free. Requesting {} more cpus...".format(
-                    cluster_metrics["availableVirtualCores"], cluster_metrics["totalVirtualCores"], num_cores))
+                        logger.info("Scaling event: {}/{} memory are free. Requesting {} more memory...".format(
+                            cluster_metrics["allocatedMB"],
+                            cluster_metrics["totalMB"],
+                            requesting_cores))
 
-        autoscaling_instructions["scaling_time"] = self.last_state_time
+                    self.last_resource_demands_time = self.last_state_time
+                    self.last_resource_state_snapshot = {
+                        "totalVirtualCores": cluster_metrics["totalVirtualCores"],
+                        "allocatedVirtualCores": cluster_metrics["allocatedVirtualCores"],
+                        "availableVirtualCores": cluster_metrics["availableVirtualCores"],
+                        "totalMemoryMB": cluster_metrics["totalMB"],
+                        "allocatedMemoryMB": cluster_metrics["allocatedMB"],
+                        "availableMemoryMB": cluster_metrics["availableMB"],
+                        "resource_requesting": resource_requesting,
+                    }
+
+        autoscaling_instructions["demanding_time"] = self.last_state_time
         autoscaling_instructions["resource_demands"] = resource_demands
         if len(resource_demands) > 0:
             logger.debug("Resource demands: {}".format(resource_demands))
@@ -227,19 +300,19 @@ class SparkScalingPolicy(ScalingPolicy):
                     continue
 
                 total_resources = {
-                    "CPU": node["availableVirtualCores"] + node["usedVirtualCores"],
-                    "memory": int(node["availMemoryMB"] + node["usedMemoryMB"]) * 1024 * 1024
+                    constants.CLOUDTIK_RESOURCE_CPU: node["availableVirtualCores"] + node["usedVirtualCores"],
+                    constants.CLOUDTIK_RESOURCE_MEMORY: int(node["availMemoryMB"] + node["usedMemoryMB"]) * 1024 * 1024
                 }
                 free_resources = {
-                    "CPU": node["availableVirtualCores"],
-                    "memory": int(node["availMemoryMB"]) * 1024 * 1024
+                    constants.CLOUDTIK_RESOURCE_CPU: node["availableVirtualCores"],
+                    constants.CLOUDTIK_RESOURCE_MEMORY: int(node["availMemoryMB"]) * 1024 * 1024
                 }
                 cpu_load = 0.0
                 if "resourceUtilization" in node:
                     cpu_load = node["resourceUtilization"].get("nodeCPUUsage", 0.0)
                 resource_load = {
                     "utilization": {
-                        "CPU": cpu_load
+                        constants.CLOUDTIK_RESOURCE_CPU: cpu_load
                     },
                     "in_use": True if node["numContainers"] > 0 else False
                 }
@@ -251,6 +324,7 @@ class SparkScalingPolicy(ScalingPolicy):
                     "available_resources": free_resources,
                     "resource_load": resource_load
                 }
+                # logger.debug("Node metrics: {}".format(node))
                 # logger.debug("Node resources: {}".format(node_resource_state))
                 node_resource_states[node_id] = node_resource_state
 

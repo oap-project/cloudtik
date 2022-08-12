@@ -33,6 +33,7 @@ from cloudtik.core._private.constants import CLOUDTIK_PROCESSES, \
     CLOUDTIK_DEFAULT_PORT
 from cloudtik.core._private.node.node_services import NodeServicesStarter
 from cloudtik.core._private.parameter import StartParams
+from cloudtik.core._private.resource_spec import ResourceSpec
 from cloudtik.core._private.utils import with_script_args
 from cloudtik.scripts.utils import NaturalOrderGroup, add_command_alias
 from cloudtik.scripts.workspace import workspace
@@ -1417,6 +1418,44 @@ def run_script(script, script_args):
     os.system(final_cmd)
 
 
+@cli.command()
+@click.option(
+    "--cpu",
+    required=False,
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Show total CPU available in the current environment - considering docker or K8S.")
+@click.option(
+    "--memory",
+    required=False,
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Show total memory in the current environment - considering docker or K8S.")
+@click.option(
+    "--in-mb",
+    required=False,
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Show total memory in MB.")
+def resources(cpu, memory, in_mb):
+    """Show system resource information"""
+    resource_spec = ResourceSpec().resolve(False)
+    if cpu:
+        click.echo(resource_spec.num_cpus)
+    elif memory:
+        if in_mb:
+            memory_in_mb = int(resource_spec.memory / (1024 * 1024))
+            click.echo(memory_in_mb)
+        else:
+            click.echo(resource_spec.memory)
+    else:
+        static_resources = resource_spec.to_resource_dict()
+        click.echo(static_resources)
+
+
 def _add_command_alias(command, name, hidden):
     add_command_alias(cli, command, name, hidden)
 
@@ -1471,6 +1510,7 @@ _add_command_alias(cluster_dump, name="cluster_dump", hidden=True)
 cli.add_command(local_dump)
 _add_command_alias(local_dump, name="local_dump", hidden=True)
 cli.add_command(run_script)
+cli.add_command(resources)
 
 # workspace commands
 cli.add_command(workspace)

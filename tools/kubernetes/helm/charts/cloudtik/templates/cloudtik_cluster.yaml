@@ -4,6 +4,9 @@ kind: CloudTikCluster
 metadata:
   name: {{ .Release.Name }}
 spec:
+  {{- if .Values.from }}
+  from: {{- toYaml .Values.from }}
+  {{- end }}
   # The maximum number of workers nodes to launch in addition to the head node.
   maxWorkers: {{ include "cloudtik.clusterMaxWorkers" . }}
   # The autoscaler will scale up the cluster faster with higher upscaling speed.
@@ -15,6 +18,16 @@ spec:
   idleTimeoutMinutes: {{ .Values.idleTimeoutMinutes | default 5 }}
   # Specify the pod type for the head node (as configured below).
   headPodType: {{ .Values.headPodType }}
+  # Cloud config
+  {{- if .Values.cloudConfig }}
+  cloudConfig:
+    {{- toYaml .Values.cloudConfig | nindent 4 }}
+  {{- end }}
+  # Runtime config
+  {{- if .Values.runtime }}
+  runtime:
+    {{- toYaml .Values.runtime | nindent 4 }}
+  {{- end }}
   # Specify the allowed pod types for this cluster and the resources they provide.
   podTypes:
     {{- range $key, $val := .Values.podTypes }}
@@ -26,25 +39,23 @@ spec:
         {{- toYaml $val.customResources | nindent 8 }}
       {{- end }}
       podConfig:
+        # Pod container resources
+        {{- if $val.resources }}
+        resources:
+          {{- toYaml $val.resources | nindent 10 }}
+        {{- end }}
+        # Pod data disks
+        {{- if $val.dataDisks }}
+        dataDisks:
+        {{- toYaml $val.dataDisks | nindent 8 }}
+        {{- end }}
         pod:
           apiVersion: v1
           kind: Pod
-          metadata:
-            generateName: {{ kebabcase $key }}-
           spec:
             containers:
             - name: cloudtik-node
               image: {{ $.Values.image }}
-              resources:
-                requests:
-                  cpu: {{ .CPU }}
-                  memory: {{ .memory }}
-                limits:
-                  cpu: {{ .CPU }}
-                  # The maximum memory that this pod is allowed to use. The
-                  # limit will be detected and split to use 10% for
-                  # redis, and the rest for application memory.
-                  memory: {{ .memory }}
             {{- if .nodeSelector }}
             nodeSelector:
             {{- toYaml $val.nodeSelector | nindent 12 }}

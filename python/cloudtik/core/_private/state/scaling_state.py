@@ -60,8 +60,8 @@ class ScalingStateClient:
         as_json = kv_get(CLOUDTIK_AUTOSCALING_INSTRUCTIONS)
         if as_json is not None:
             autoscaling_instructions = json.loads(as_json)
-            scaling_time = autoscaling_instructions.get("scaling_time", 0)
-            delta = now - scaling_time
+            demanding_time = autoscaling_instructions.get("demanding_time", 0)
+            delta = now - demanding_time
             if delta < CLOUDTIK_SCALING_STATE_TIMEOUT_S:
                 scaling_state.set_autoscaling_instructions(autoscaling_instructions)
 

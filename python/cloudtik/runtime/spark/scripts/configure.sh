@@ -77,7 +77,7 @@ function set_resources_for_spark() {
     if [ ! -z "${YARN_RESOURCE_MEMORY_RATIO}" ]; then
         memory_ratio=${YARN_RESOURCE_MEMORY_RATIO}
     fi
-    total_memory=$(awk -v  ratio=$ratio -v total_phycical_memory=$(python cloudtik/scripts/scripts.py resources --memory --in-mb) 'BEGIN{print ratio * total_phycical_memory}')
+    total_memory=$(awk -v  ratio=$ratio -v total_phycical_memory=$(python cloudtik/scripts/scripts.py resources --memory --in-mb) 'BEGIN{print ratio * total_physical_memory}')
     total_vcores=$(cloudtik resources --cpu)
 
     # For Head Node

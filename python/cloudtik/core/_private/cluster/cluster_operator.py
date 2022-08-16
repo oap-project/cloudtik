@@ -2606,15 +2606,10 @@ def _start_node_on_head(
             cli_logger.print("Skip starting node {} as it is in setting up.", node_ip)
             return
 
-        node_type = get_node_type(provider, node_id)
         runtime_config = _get_node_specific_runtime_config(
             config, provider, node_id)
-
-        node_envs = with_environment_variables_from_config(
-            config=config, node_type=node_type)
-        runtime_envs = with_runtime_environment_variables(
+        node_envs = with_runtime_environment_variables(
             runtime_config, config=config, provider=provider, node_id=node_id)
-        node_envs.update(runtime_envs)
 
         is_head_node = False
         if node_id == head_node:
@@ -2865,15 +2860,10 @@ def _stop_node_on_head(
             _cli_logger.print("Skip stopping node {} as it is in setting up.", node_ip)
             return
 
-        node_type = get_node_type(provider, node_id)
         runtime_config = _get_node_specific_runtime_config(
             config, provider, node_id)
-
-        node_envs = with_environment_variables_from_config(
-            config=config, node_type=node_type)
-        runtime_envs = with_runtime_environment_variables(
+        node_envs = with_runtime_environment_variables(
             runtime_config, config=config, provider=provider, node_id=node_id)
-        node_envs.update(runtime_envs)
 
         is_head_node = False
         if node_id == head_node:

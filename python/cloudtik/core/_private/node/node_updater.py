@@ -318,11 +318,8 @@ class NodeUpdater:
 
     def get_update_environment_variables(self):
         node_type = get_node_type(self.provider, self.node_id)
-        node_envs = with_environment_variables_from_config(config=self.config, node_type=node_type)
-
-        runtime_envs = with_runtime_environment_variables(
+        node_envs = with_runtime_environment_variables(
             self.runtime_config, config=self.config, provider=self.provider, node_id=self.node_id)
-        node_envs.update(runtime_envs)
 
         # Add node ip address environment variables
         ip_envs = with_node_ip_environment_variables(

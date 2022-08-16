@@ -411,14 +411,6 @@
             "type": "object",
             "description": "Metadata field that can be used to store user-defined data in the cluster config. We do not interpret these fields."
         },
-        "envs": {
-            "type": "object",
-            "patternProperties": {
-                ".*":{
-                    "type": "string"
-                }
-            }
-        },
         "initialization_commands": {
             "$ref": "#/definitions/commands",
             "description": "List of commands that will be run before `setup_commands`. If docker is enabled, these commands will run outside the container and before docker is setup."
@@ -505,14 +497,6 @@
                                 }
                             }
                         },
-                        "envs": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*":{
-                                    "type": "string"
-                                }
-                            }
-                        },
                         "worker_initialization_commands": {
                             "$ref": "#/definitions/commands",
                             "description": "List of commands that will be run before `setup_commands`. If docker is enabled, these commands will run outside the container and before docker is setup."
@@ -548,6 +532,14 @@
                                         "type": "string"
                                     },
                                     "description": "The list of runtimes to enable for this cluster"
+                                },
+                                "envs": {
+                                    "type": "object",
+                                    "patternProperties": {
+                                        ".*":{
+                                            "type": "string"
+                                        }
+                                    }
                                 }
                             }
                         },
@@ -587,6 +579,14 @@
                         "type": "string"
                     },
                     "description": "The list of runtimes to enable for this cluster"
+                },
+                "envs": {
+                    "type": "object",
+                    "patternProperties": {
+                        ".*":{
+                            "type": "string"
+                        }
+                    }
                 },
                 "spark": {
                     "type": "object",

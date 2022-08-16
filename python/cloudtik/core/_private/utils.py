@@ -2489,9 +2489,11 @@ def _get_node_type_specific_object(config, node_type, object_name):
 
 def with_environment_variables_from_config(config, node_type: str):
     config_envs = {}
-    envs = _get_node_type_specific_object(config, node_type, "envs")
-    if envs is not None:
-        config_envs.update(envs)
+    runtime_config = _get_node_type_specific_runtime_config(config, node_type)
+    if runtime_config is not None:
+        envs = runtime_config.get("envs")
+        if envs is not None:
+            config_envs.update(envs)
     return config_envs
 
 
@@ -2499,6 +2501,11 @@ def with_runtime_environment_variables(runtime_config, config, provider, node_id
     all_runtime_envs = {}
     if runtime_config is None:
         return all_runtime_envs
+
+    node_type = get_node_type(provider, node_id)
+    static_runtime_envs = with_environment_variables_from_config(
+        config=config, node_type=node_type)
+    all_runtime_envs.update(static_runtime_envs)
 
     runtime_types = runtime_config.get(RUNTIME_TYPES_CONFIG_KEY, [])
 

@@ -196,8 +196,11 @@ class ClusterScaler:
         self.published_nodes_info_hashes = {}
 
         # These are initialized for each config change
+        self.runtime_hash = None
+        self.file_mounts_contents_hash = None
         self.runtime_hash_for_node_types = {}
         self.minimal_nodes_before_update = {}
+        self.available_node_types = None
 
         # The next node number to assign
         # will be initialized by the max node number from the existing nodes
@@ -849,9 +852,9 @@ class ClusterScaler:
             (new_runtime_hash,
              new_file_mounts_contents_hash,
              new_runtime_hash_for_node_types) = hash_runtime_conf(
-                 new_config["file_mounts"],
-                 new_config["cluster_synced_files"],
-                 global_runtime_conf,
+                 file_mounts=new_config["file_mounts"],
+                 cluster_synced_files=new_config["cluster_synced_files"],
+                 extra_objs=global_runtime_conf,
                  generate_file_mounts_contents_hash=sync_continuously,
                  generate_node_types_runtime_hash=True,
                  config=new_config

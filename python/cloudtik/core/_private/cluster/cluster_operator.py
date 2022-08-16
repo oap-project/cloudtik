@@ -947,7 +947,9 @@ def get_or_create_head_node(config: Dict[str, Any],
         (runtime_hash,
          file_mounts_contents_hash,
          runtime_hash_for_node_types) = hash_runtime_conf(
-            config["file_mounts"], None, config)
+            file_mounts=config["file_mounts"],
+            cluster_synced_files=None,
+            extra_objs=config)
         # Even we don't need controller on head, we still need config and cluster keys on head
         # because head depends a lot on the cluster config file and cluster keys to do cluster
         # operations and connect to the worker.

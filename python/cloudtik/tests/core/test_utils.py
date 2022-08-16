@@ -2,7 +2,8 @@ import copy
 
 import pytest
 
-from cloudtik.core._private.utils import update_nested_dict, process_config_with_privacy, encrypt_config, decrypt_config
+from cloudtik.core._private.utils import update_nested_dict, process_config_with_privacy, encrypt_config, \
+    decrypt_config, hash_runtime_conf
 
 TARGET_DICT_WITH_MATCHED_LIST = {
     "test_list": [
@@ -123,7 +124,6 @@ class TestUtils:
         assert config["test_dict"]["nested_dict"]["no_privacy"] == "abc"
         assert config["test_dict"]["nested_dict"]["credentials"] != "123"
 
-
     def test_encrypt_decrypt_config(self):
         config = copy.deepcopy(TEST_CONFIG_WITH_PRIVACY)
         secret_config = encrypt_config(config)
@@ -138,6 +138,63 @@ class TestUtils:
         assert ori_config["test_array"][0]["account.key"] == "123"
         assert ori_config["test_dict"]["Account.Key"] == "123"
         assert ori_config["test_dict"]["nested_dict"]["credentials"] == "123"
+
+    def test_hash_runtime_conf(self):
+        file_mounts = {}
+        extra_objs = {"a": 1}
+        config = {
+            "available_node_types": {
+                "head.default": {
+                    "runtime": {
+                        "a": 1
+                    }
+                },
+                "worker.default": {
+                    "runtime": {
+                        "a": 1
+                    },
+                    "merged_commands": {
+                        "worker_setup_commands": ["abc1"],
+                        "worker_start_commands": ["xyz1"]
+                    }
+                }
+            },
+            "head_node_type": "head.default",
+            "merged_commands": {
+                "worker_setup_commands": ["abc"],
+                "worker_start_commands": ["xyz"]
+            }
+        }
+
+        (runtime_hash,
+         file_mounts_contents_hash,
+         runtime_hash_for_node_types) = hash_runtime_conf(
+            file_mounts=file_mounts,
+            cluster_synced_files=[],
+            extra_objs=extra_objs,
+            generate_file_mounts_contents_hash=True,
+            generate_node_types_runtime_hash=True,
+            config=config)
+
+        assert runtime_hash is not None
+        assert file_mounts_contents_hash is not None
+        assert runtime_hash_for_node_types is not None
+        assert len(runtime_hash_for_node_types) == 1
+
+        (runtime_hash_1,
+         file_mounts_contents_hash_1,
+         runtime_hash_for_node_types_1) = hash_runtime_conf(
+            file_mounts=file_mounts,
+            cluster_synced_files=[],
+            extra_objs=extra_objs,
+            generate_file_mounts_contents_hash=False,
+            generate_node_types_runtime_hash=False,
+            config=config)
+
+        assert runtime_hash_1 is not None
+        assert file_mounts_contents_hash_1 is None
+        assert runtime_hash_for_node_types_1 is None
+        assert runtime_hash == runtime_hash_1
 
 
 if __name__ == "__main__":

@@ -390,7 +390,7 @@ class NodeUpdater:
             self.cli_logger.print(
                 "Configuration already up to date, "
                 "skipping file mounts, initialization and setup commands.",
-                _numbered=("[]", "2-6", NUM_SETUP_STEPS))
+                _numbered=("[]", "2-7", NUM_SETUP_STEPS))
 
         else:
             self.cli_logger.print(

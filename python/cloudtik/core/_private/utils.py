@@ -34,6 +34,7 @@ from cloudtik.core._private import constants, services
 from cloudtik.core._private.call_context import CallContext
 from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core._private.cluster.cluster_metrics import ClusterMetricsSummary
+from cloudtik.core._private.concurrent_cache import ConcurrentObjectCache
 from cloudtik.core._private.constants import CLOUDTIK_WHEELS, CLOUDTIK_CLUSTER_PYTHON_VERSION, \
     CLOUDTIK_DEFAULT_MAX_WORKERS, CLOUDTIK_NODE_SSH_INTERVAL_S, CLOUDTIK_NODE_START_WAIT_S, MAX_PARALLEL_EXEC_NODES, \
     CLOUDTIK_CLUSTER_URI_TEMPLATE, CLOUDTIK_RUNTIME_NAME, CLOUDTIK_RUNTIME_ENV_NODE_IP, CLOUDTIK_RUNTIME_ENV_HEAD_IP, \
@@ -1717,8 +1718,11 @@ def hash_launch_conf(node_conf, auth):
 # Cache the file hashes to avoid rescanning it each time. Also, this avoids
 # inadvertently restarting workers if the file mount content is mutated on the
 # head node.
-# TODO: This global cache needs to be protected for thread concurrency for future cases
-_hash_cache = {}
+# This global cache needs to be protected for thread concurrency for future cases
+_hash_cache = ConcurrentObjectCache()
+
+HASH_CONTEXT_HEAD_NODE_CONTENTS_HASH = "head_node_contents_hash"
+HASH_CONTEXT_CONTENTS_HASHER = "contents_hasher"
 
 
 def add_content_hashes(hasher, path, allow_non_existing_paths: bool = False):
@@ -1744,6 +1748,21 @@ def add_content_hashes(hasher, path, allow_non_existing_paths: bool = False):
         add_hash_of_file(path)
 
 
+def load_runtime_hash(hash_context: Dict[str, Any], file_mounts, hash_str: str):
+    contents_hash = hash_context.get(HASH_CONTEXT_HEAD_NODE_CONTENTS_HASH)
+    if contents_hash is None:
+        contents_hasher = hash_context.get(HASH_CONTEXT_CONTENTS_HASHER)
+        if contents_hasher is None:
+            contents_hasher = hashlib.sha1()
+        contents_hash = hash_contents(contents_hasher, file_mounts)
+        hash_context[HASH_CONTEXT_HEAD_NODE_CONTENTS_HASH] = contents_hash
+
+    runtime_hasher = hashlib.sha1()
+    runtime_hasher.update(hash_str)
+    runtime_hasher.update(contents_hash.encode("utf-8"))
+    return runtime_hasher.hexdigest()
+
+
 def hash_runtime_conf(file_mounts,
                       cluster_synced_files,
                       extra_objs,
@@ -1760,30 +1779,22 @@ def hash_runtime_conf(file_mounts,
     cluster_synced_files contents have changed. It is used at monitor time to
     determine if additional file syncing is needed.
     """
-    runtime_hasher = hashlib.sha1()
     contents_hasher = hashlib.sha1()
 
     file_mounts_str = json.dumps(file_mounts, sort_keys=True).encode("utf-8")
-    conf_str = (file_mounts_str +
-                json.dumps(extra_objs, sort_keys=True).encode("utf-8"))
+    extra_objs_str = json.dumps(extra_objs, sort_keys=True).encode("utf-8")
+    conf_str = (file_mounts_str + extra_objs_str)
 
-    runtime_hash_for_node_types = None
-    head_node_contents_hash = None
+    hash_context = {HASH_CONTEXT_CONTENTS_HASHER: contents_hasher}
+    runtime_hash = _hash_cache.get(
+            conf_str, load_runtime_hash,
+            hash_context=hash_context, file_mounts=file_mounts, hash_str=conf_str)
 
-    # Only generate a contents hash if generate_contents_hash is true or
-    # if we need to generate the runtime_hash
-    if conf_str not in _hash_cache or generate_file_mounts_contents_hash:
-        head_node_contents_hash = hash_contents(
-            contents_hasher, file_mounts)
-
-        # Generate a new runtime_hash if its not cached
-        # The runtime hash does not depend on the cluster_synced_files hash
-        # because we do not want to restart nodes only if cluster_synced_files
-        # contents have changed.
-        if conf_str not in _hash_cache:
-            runtime_hasher.update(conf_str)
-            runtime_hasher.update(head_node_contents_hash.encode("utf-8"))
-            _hash_cache[conf_str] = runtime_hasher.hexdigest()
+    head_node_contents_hash = hash_context.get(HASH_CONTEXT_HEAD_NODE_CONTENTS_HASH)
+    if generate_file_mounts_contents_hash:
+        if head_node_contents_hash is None:
+            head_node_contents_hash = hash_contents(
+                contents_hasher, file_mounts)
 
         # Add cluster_synced_files to the file_mounts_content hash
         if cluster_synced_files is not None:
@@ -1800,8 +1811,10 @@ def hash_runtime_conf(file_mounts,
     if generate_node_types_runtime_hash:
         runtime_hash_for_node_types = hash_runtime_conf_for_node_types(
             config, file_mounts, file_mounts_str, head_node_contents_hash)
+    else:
+        runtime_hash_for_node_types = None
 
-    return _hash_cache[conf_str], file_mounts_contents_hash, runtime_hash_for_node_types
+    return runtime_hash, file_mounts_contents_hash, runtime_hash_for_node_types
 
 
 def hash_contents(hasher, file_mounts):
@@ -1815,6 +1828,11 @@ def hash_runtime_conf_for_node_types(
     runtime_hash_for_node_types = {}
     available_node_types = config["available_node_types"]
     head_node_type = config["head_node_type"]
+
+    hash_context = {}
+    if head_node_contents_hash is not None:
+        hash_context[HASH_CONTEXT_HEAD_NODE_CONTENTS_HASH] = head_node_contents_hash
+
     for node_type in available_node_types:
         if node_type == head_node_type:
             continue
@@ -1834,23 +1852,12 @@ def hash_runtime_conf_for_node_types(
                 config, node_type)
         }
 
-        node_type_conf_str = (file_mounts_str +
-                              json.dumps(node_type_runtime_conf, sort_keys=True).encode("utf-8"))
-        if node_type_conf_str not in _hash_cache:
-            if head_node_contents_hash is None:
-                contents_hasher = hashlib.sha1()
-                head_node_contents_hash = hash_contents(
-                    contents_hasher, file_mounts)
+        extra_objs_str = json.dumps(node_type_runtime_conf, sort_keys=True).encode("utf-8")
+        node_type_conf_str = (file_mounts_str + extra_objs_str)
 
-            node_type_runtime_hasher = hashlib.sha1()
-            node_type_runtime_hasher.update(node_type_conf_str)
-            node_type_runtime_hasher.update(head_node_contents_hash.encode("utf-8"))
-
-            node_type_runtime_hash = node_type_runtime_hasher.hexdigest()
-            _hash_cache[node_type_conf_str] = node_type_runtime_hash
-            runtime_hash_for_node_types[node_type] = node_type_runtime_hash
-        else:
-            runtime_hash_for_node_types[node_type] = _hash_cache[node_type_conf_str]
+        runtime_hash_for_node_types[node_type] = _hash_cache.get(
+            node_type_conf_str, load_runtime_hash,
+            hash_context=hash_context, file_mounts=file_mounts, hash_str=node_type_conf_str)
 
     return runtime_hash_for_node_types
 

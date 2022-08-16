@@ -106,7 +106,7 @@ function install_jupyter_for_spark() {
         export SPYLON_KERNEL=$USER_HOME/.local/share/jupyter/kernels/spylon-kernel
 
         if  [ ! -d "${SPYLON_KERNEL}" ]; then
-            pip -qq install spylon-kernel=0.4.1;
+            pip -qq install spylon-kernel==0.4.1;
             python -m spylon_kernel install --user;
         fi
     fi

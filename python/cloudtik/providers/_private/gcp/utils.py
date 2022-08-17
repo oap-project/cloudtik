@@ -78,22 +78,14 @@ def _get_gcp_credentials(provider_config):
         "gcp_credentials cluster yaml field missing 'credentials' field."
 
     cred_type = gcp_credentials["type"]
-    credentials_field = gcp_credentials["credentials"]
+    credentials_fields = gcp_credentials["credentials"]
 
     if cred_type == "service_account":
-        # If parsing the gcp_credentials failed, then the user likely made a
-        # mistake in copying the credentials into the config yaml.
-        try:
-            service_account_info = json.loads(credentials_field)
-        except json.decoder.JSONDecodeError:
-            raise RuntimeError(
-                "gcp_credentials found in cluster yaml file but "
-                "formatted improperly.")
         credentials = service_account.Credentials.from_service_account_info(
-            service_account_info)
-    elif cred_type == "credentials_token":
-        # Otherwise the credentials type must be credentials_token.
-        credentials = OAuthCredentials(credentials_field)
+            credentials_fields)
+    elif cred_type == "oauth_token":
+        # Otherwise the credentials type must be oauth_token.
+        credentials = OAuthCredentials(**credentials_fields)
     else:
         credentials = None
 

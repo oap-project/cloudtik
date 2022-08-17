@@ -36,6 +36,9 @@ do
     --build-spark)
         BUILD_SPARK=YES
         ;;
+    --build-spark-native)
+        BUILD_SPARK_NATIVE=YES
+        ;;
     --build-presto)
         BUILD_PRESTO=YES
         ;;
@@ -118,6 +121,10 @@ rm -rf "$WHEEL_DIR"
 
 if [ $BUILD_SPARK ] || [ ! $NO_BUILD_ALL ]; then
     docker build  $NO_CACHE -t cloudtik/spark-runtime:nightly docker/runtime/spark
+fi
+
+if [ $BUILD_SPARK_NATIVE ] || [ ! $NO_BUILD_ALL ]; then
+    docker build  $NO_CACHE -t cloudtik/spark-runtime-native:nightly docker/runtime/spark/native
 fi
 
 if [ $BUILD_PRESTO ] || [ ! $NO_BUILD_ALL ]; then

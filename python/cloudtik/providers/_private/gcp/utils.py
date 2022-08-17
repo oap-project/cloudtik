@@ -58,8 +58,8 @@ def _create_tpu(gcp_credentials=None):
         discoveryServiceUrl="https://tpu.googleapis.com/$discovery/rest")
 
 
-def _create_storage_client(gcp_credentials=None):
-    return storage.Client(credentials=gcp_credentials)
+def _create_storage_client(project=None, gcp_credentials=None):
+    return storage.Client(project=project, credentials=gcp_credentials)
 
 
 def _get_gcp_credentials(provider_config):
@@ -131,6 +131,14 @@ def construct_clients_from_provider_config(provider_config):
         tpu_resource
 
 
+def construct_compute_client(provider_config):
+    credentials = _get_gcp_credentials(provider_config)
+    if credentials is None:
+        return _create_compute()
+
+    return _create_compute(credentials)
+
+
 def construct_crm_client(provider_config):
     credentials = _get_gcp_credentials(provider_config)
     if credentials is None:
@@ -145,6 +153,23 @@ def construct_iam_client(provider_config):
         return _create_iam()
 
     return _create_iam(credentials)
+
+
+def construct_storage(provider_config):
+    credentials = _get_gcp_credentials(provider_config)
+    if credentials is None:
+        return _create_storage()
+
+    return _create_storage(credentials)
+
+
+def construct_storage_client(provider_config):
+    credentials = _get_gcp_credentials(provider_config)
+    project_id = provider_config.get("project_id")
+    if credentials is None:
+        return _create_storage_client(project_id)
+
+    return _create_storage_client(project_id, credentials)
 
 
 def wait_for_crm_operation(operation, crm):

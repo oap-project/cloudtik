@@ -117,21 +117,21 @@ fi
 rm -rf "$WHEEL_DIR"
 
 if [ $BUILD_SPARK ] || [ ! $NO_BUILD_ALL ]; then
-    docker build  $NO_CACHE -t cloudtik/spark-runtime:nightly docker/runtime/spark/docker
+    docker build  $NO_CACHE -t cloudtik/spark-runtime:nightly docker/runtime/spark
 fi
 
 if [ $BUILD_PRESTO ] || [ ! $NO_BUILD_ALL ]; then
-    docker build  $NO_CACHE -t cloudtik/presto-runtime:nightly docker/runtime/presto/docker
+    docker build  $NO_CACHE -t cloudtik/presto-runtime:nightly docker/runtime/presto
 fi
 
 if [ $BUILD_TRINO ] || [ ! $NO_BUILD_ALL ]; then
-    docker build  $NO_CACHE -t cloudtik/trino-runtime:nightly docker/runtime/trino/docker
+    docker build  $NO_CACHE -t cloudtik/trino-runtime:nightly docker/runtime/trino
 fi
 
 if [ $BUILD_ML ] || [ ! $NO_BUILD_ALL ]; then
-    docker build  $NO_CACHE -t cloudtik/ml-runtime:nightly docker/runtime/ml/docker
+    docker build  $NO_CACHE -t cloudtik/ml-runtime:nightly docker/runtime/ml
 fi
 
 if [ $BUILD_UNIVERSE ] || [ ! $NO_BUILD_ALL ]; then
-    docker build  $NO_CACHE -t cloudtik/universe-runtime:nightly docker/runtime/universe/docker
+    docker build  $NO_CACHE -t cloudtik/universe-runtime:nightly docker/runtime/universe
 fi

@@ -18,13 +18,10 @@ class ResourceScalingPolicy:
 
     def reset(self, config):
         self.config = config
-        if self.scaling_policy is None:
-            self.scaling_policy = self._create_scaling_policy(self.config)
-        else:
-            # TODO: if config changed and cause the scaling policy was disabled
-            # Basically we can create scaling policy for each reset
-            # if we check that reset is called only when config is changed.
-            self.scaling_policy.reset(self.config)
+        # Reset is called when the configuration changed
+        # Always recreate the scaling policy when config is changed
+        # in the case that the scaling policy is disabled in the change
+        self.scaling_policy = self._create_scaling_policy(self.config)
 
     def has_scaling_policy(self):
         return False if self.scaling_policy is None else True

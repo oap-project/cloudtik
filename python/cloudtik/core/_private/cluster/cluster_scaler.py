@@ -134,7 +134,7 @@ class ClusterScaler:
     def __init__(
             self,
             # TODO: require config reader to be a callable always.
-            config_reader: Union[str, Callable[[str], (dict, str)]],
+            config_reader: Union[str, Callable[[str], Tuple[dict, str]]],
             cluster_metrics: ClusterMetrics,
             cluster_metrics_updater: ClusterMetricsUpdater,
             resource_scaling_policy: ResourceScalingPolicy,

@@ -169,7 +169,7 @@ class ClusterScaler:
             def read_fn(config_hash: str):
                 with open(config_reader) as f:
                     config_data = f.read()
-                    new_config_hash = hashlib.md5(config_data).hexdigest()
+                    new_config_hash = hashlib.md5(config_data.encode("utf-8")).hexdigest()
                     if config_hash is not None and new_config_hash == config_hash:
                         return None, None
                     new_config = yaml.safe_load(config_data)

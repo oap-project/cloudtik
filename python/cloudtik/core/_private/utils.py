@@ -1766,6 +1766,7 @@ def load_runtime_hash(hash_context: Dict[str, Any], file_mounts, hash_str: str):
 def hash_runtime_conf(file_mounts,
                       cluster_synced_files,
                       extra_objs,
+                      generate_runtime_hash=True,
                       generate_file_mounts_contents_hash=False,
                       generate_node_types_runtime_hash=False,
                       config: Dict[str, Any] = None):
@@ -1780,18 +1781,22 @@ def hash_runtime_conf(file_mounts,
     determine if additional file syncing is needed.
     """
     contents_hasher = hashlib.sha1()
-
-    file_mounts_str = json.dumps(file_mounts, sort_keys=True).encode("utf-8")
-    extra_objs_str = json.dumps(extra_objs, sort_keys=True).encode("utf-8")
-    conf_str = (file_mounts_str + extra_objs_str)
-
     hash_context = {HASH_CONTEXT_CONTENTS_HASHER: contents_hasher}
-    runtime_hash = _hash_cache.get(
-            conf_str, load_runtime_hash,
-            hash_context=hash_context, file_mounts=file_mounts, hash_str=conf_str)
+    file_mounts_str = json.dumps(file_mounts, sort_keys=True).encode("utf-8")
+
+    if generate_runtime_hash:
+        extra_objs_str = json.dumps(extra_objs, sort_keys=True).encode("utf-8")
+        conf_str = (file_mounts_str + extra_objs_str)
+        runtime_hash = _hash_cache.get(
+                conf_str, load_runtime_hash,
+                hash_context=hash_context, file_mounts=file_mounts, hash_str=conf_str)
+    else:
+        runtime_hash = None
 
     head_node_contents_hash = hash_context.get(HASH_CONTEXT_HEAD_NODE_CONTENTS_HASH)
-    if generate_file_mounts_contents_hash:
+    if generate_file_mounts_contents_hash or head_node_contents_hash is not None:
+        # Only generate a contents hash if generate_file_mounts_contents_hash is true or
+        # if we need to generate the runtime_hash (head_node_contents_hash is not None)
         if head_node_contents_hash is None:
             head_node_contents_hash = hash_contents(
                 contents_hasher, file_mounts)

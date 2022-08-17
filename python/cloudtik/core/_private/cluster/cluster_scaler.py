@@ -134,7 +134,7 @@ class ClusterScaler:
     def __init__(
             self,
             # TODO: require config reader to be a callable always.
-            config_reader: Union[str, Callable[[], dict]],
+            config_reader: Union[str, Callable[[str], (dict, str)]],
             cluster_metrics: ClusterMetrics,
             cluster_metrics_updater: ClusterMetricsUpdater,
             resource_scaling_policy: ResourceScalingPolicy,
@@ -166,16 +166,21 @@ class ClusterScaler:
 
         if isinstance(config_reader, str):
             # Auto wrap with file reader.
-            def read_fn():
+            def read_fn(config_hash: str):
                 with open(config_reader) as f:
-                    new_config = yaml.safe_load(f.read())
-                return new_config
+                    config_data = f.read()
+                    new_config_hash = hashlib.md5(config_data).hexdigest()
+                    if config_hash is not None and new_config_hash == config_hash:
+                        return None, None
+                    new_config = yaml.safe_load(config_data)
+                return new_config, new_config_hash
 
             self.config_reader = read_fn
         else:
             self.config_reader = config_reader
 
         self.config = {}
+        self.config_hash = None
         # TODO: Each node updater may need its own CallContext
         # The call context for node updater
         self.call_context = CallContext()
@@ -827,78 +832,15 @@ class ClusterScaler:
             return {}
 
     def reset(self, errors_fatal=False):
-        sync_continuously = False
-        if hasattr(self, "config"):
-            sync_continuously = self.config.get(
-                "file_mounts_sync_continuously", False)
         try:
-            new_config = self.config_reader()
-            new_config = decrypt_config(new_config)
-
-            if new_config != getattr(self, "config", None):
-                try:
-                    validate_config(new_config)
-                except Exception as e:
-                    self.prometheus_metrics.config_validation_exceptions.inc()
-                    logger.debug(
-                        "Cluster config validation failed. ",
-                        exc_info=e)
-
-            global_runtime_conf = {
-                "worker_setup_commands": get_commands_to_run(new_config, "worker_setup_commands"),
-                "worker_start_commands": get_commands_to_run(new_config, "worker_start_commands"),
-                "runtime": new_config.get(RUNTIME_CONFIG_KEY, {})
-            }
-            (new_runtime_hash,
-             new_file_mounts_contents_hash,
-             new_runtime_hash_for_node_types) = hash_runtime_conf(
-                 file_mounts=new_config["file_mounts"],
-                 cluster_synced_files=new_config["cluster_synced_files"],
-                 extra_objs=global_runtime_conf,
-                 generate_file_mounts_contents_hash=sync_continuously,
-                 generate_node_types_runtime_hash=True,
-                 config=new_config
-             )
-
-            self.config = new_config
-            self.runtime_hash = new_runtime_hash
-            self.runtime_hash_for_node_types = new_runtime_hash_for_node_types
-            self.file_mounts_contents_hash = new_file_mounts_contents_hash
-            if not self.provider:
-                self.provider = _get_node_provider(self.config["provider"],
-                                                   self.config["cluster_name"])
-
-            self.available_node_types = self.config["available_node_types"]
-
-            upscaling_speed = self.config.get("upscaling_speed")
-            target_utilization_fraction = self.config.get(
-                "target_utilization_fraction")
-            if upscaling_speed:
-                upscaling_speed = float(upscaling_speed)
-                # TODO(ameer): consider adding (if users ask) an option of
-                # initial_upscaling_num_workers.
+            new_config, new_config_hash = self.config_reader(self.config_hash)
+            if new_config is not None:
+                # Config changed
+                self.config_hash = new_config_hash
+                self._apply_config(new_config)
             else:
-                upscaling_speed = 1.0
-
-            if self.resource_demand_scheduler:
-                self.resource_demand_scheduler.reset_config(
-                    self.provider, self.available_node_types,
-                    self.config["max_workers"], self.config["head_node_type"],
-                    upscaling_speed)
-            else:
-                self.resource_demand_scheduler = ResourceDemandScheduler(
-                    self.provider, self.available_node_types,
-                    self.config["max_workers"], self.config["head_node_type"],
-                    upscaling_speed)
-
-            # Push the runtime config to redis encrypted with secrets
-            self._publish_runtime_configs()
-
-            # Collect the minimal nodes before update requirements
-            self._collect_minimal_nodes_before_update()
-
-            # Update the new config to resource scaling policy
-            self.resource_scaling_policy.reset(self.config)
+                # Config not changed, check whether it needs to update the file_mounts_contents_hash
+                self._update_file_mounts_contents_hash(self.config)
         except Exception as e:
             self.prometheus_metrics.reset_exceptions.inc()
             if errors_fatal:
@@ -906,6 +848,97 @@ class ClusterScaler:
             else:
                 logger.exception("Cluster Controller: "
                                  "Error parsing config.")
+
+    def _apply_config(self, new_config):
+        new_config = decrypt_config(new_config)
+        if new_config != getattr(self, "config", None):
+            try:
+                validate_config(new_config)
+            except Exception as e:
+                self.prometheus_metrics.config_validation_exceptions.inc()
+                logger.debug(
+                    "Cluster config validation failed. ",
+                    exc_info=e)
+
+        self.config = new_config
+
+        self._update_runtime_hashes(self.config)
+
+        if not self.provider:
+            self.provider = _get_node_provider(self.config["provider"],
+                                               self.config["cluster_name"])
+
+        self.available_node_types = self.config["available_node_types"]
+
+        upscaling_speed = self.config.get("upscaling_speed")
+        target_utilization_fraction = self.config.get(
+            "target_utilization_fraction")
+        if upscaling_speed:
+            upscaling_speed = float(upscaling_speed)
+            # TODO(ameer): consider adding (if users ask) an option of
+            # initial_upscaling_num_workers.
+        else:
+            upscaling_speed = 1.0
+
+        if self.resource_demand_scheduler:
+            self.resource_demand_scheduler.reset_config(
+                self.provider, self.available_node_types,
+                self.config["max_workers"], self.config["head_node_type"],
+                upscaling_speed)
+        else:
+            self.resource_demand_scheduler = ResourceDemandScheduler(
+                self.provider, self.available_node_types,
+                self.config["max_workers"], self.config["head_node_type"],
+                upscaling_speed)
+
+        # Push the runtime config to redis encrypted with secrets
+        self._publish_runtime_configs()
+
+        # Collect the minimal nodes before update requirements
+        self._collect_minimal_nodes_before_update()
+
+        # Update the new config to resource scaling policy
+        self.resource_scaling_policy.reset(self.config)
+
+    def _update_runtime_hashes(self, new_config):
+        sync_continuously = new_config.get("file_mounts_sync_continuously", False)
+        global_runtime_conf = {
+            "worker_setup_commands": get_commands_to_run(new_config, "worker_setup_commands"),
+            "worker_start_commands": get_commands_to_run(new_config, "worker_start_commands"),
+            "runtime": new_config.get(RUNTIME_CONFIG_KEY, {})
+        }
+        (new_runtime_hash,
+         new_file_mounts_contents_hash,
+         new_runtime_hash_for_node_types) = hash_runtime_conf(
+            file_mounts=new_config["file_mounts"],
+            cluster_synced_files=new_config["cluster_synced_files"],
+            extra_objs=global_runtime_conf,
+            generate_runtime_hash=True,
+            generate_file_mounts_contents_hash=sync_continuously,
+            generate_node_types_runtime_hash=True,
+            config=new_config
+        )
+
+        self.runtime_hash = new_runtime_hash
+        self.file_mounts_contents_hash = new_file_mounts_contents_hash
+        self.runtime_hash_for_node_types = new_runtime_hash_for_node_types
+
+    def _update_file_mounts_contents_hash(self, config):
+        sync_continuously = config.get("file_mounts_sync_continuously", False)
+        if not sync_continuously:
+            return
+
+        (_,
+         new_file_mounts_contents_hash,
+         _) = hash_runtime_conf(
+            file_mounts=config["file_mounts"],
+            cluster_synced_files=config["cluster_synced_files"],
+            extra_objs=None,
+            generate_runtime_hash=False,
+            generate_file_mounts_contents_hash=True,
+            generate_node_types_runtime_hash=False
+        )
+        self.file_mounts_contents_hash = new_file_mounts_contents_hash
 
     def _publish_runtime_configs(self):
         # Push global runtime config

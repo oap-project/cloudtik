@@ -441,6 +441,8 @@ class ClusterScaler:
         if self.cluster_metrics.get_resource_requests():
             nodes_not_allowed_to_terminate = \
                 self._get_nodes_needed_for_request_resources(sorted_node_ids)
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug("Nodes not allowed to terminate: {}".format(nodes_not_allowed_to_terminate))
 
         # Tracks counts of nodes we intend to keep for each node type.
         node_type_counts = defaultdict(int)

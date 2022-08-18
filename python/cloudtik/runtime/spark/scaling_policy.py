@@ -48,6 +48,7 @@ class SparkScalingPolicy(ScalingPolicy):
         ScalingPolicy.__init__(self, config, head_ip)
         self.scaling_config = {}
 
+        self.auto_scaling = False
         # scaling parameters
         self.scaling_mode = SPARK_SCALING_MODE_APPS_PENDING
         self.scaling_step = SPARK_SCALING_STEP_DEFAULT
@@ -69,6 +70,7 @@ class SparkScalingPolicy(ScalingPolicy):
         spark_config = config.get(RUNTIME_CONFIG_KEY, {}).get("spark", {})
         self.scaling_config = spark_config.get("scaling", {})
 
+        self.auto_scaling = self.scaling_config.get("auto_scaling", False)
         # Update the scaling parameters
         self.scaling_mode = self.scaling_config.get("scaling_mode", SPARK_SCALING_MODE_APPS_PENDING)
         self.scaling_step = self.scaling_config.get("scaling_step", SPARK_SCALING_STEP_DEFAULT)
@@ -84,7 +86,7 @@ class SparkScalingPolicy(ScalingPolicy):
 
     def get_scaling_state(self) -> Optional[ScalingState]:
         self.last_state_time = time.time()
-        autoscaling_instructions = self._get_autoscaling_instructions()
+        autoscaling_instructions = self._get_autoscaling_instructions() if self.auto_scaling else None
         node_resource_states, lost_nodes = self._get_node_resource_states()
 
         scaling_state = ScalingState()

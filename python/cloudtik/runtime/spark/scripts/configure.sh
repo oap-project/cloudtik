@@ -90,10 +90,6 @@ function set_resources_for_spark() {
     fi
 }
 
-function update_resource_calculator_for_capacity_scheduler() {
-    sed -i "s!org.apache.hadoop.yarn.util.resource.DefaultResourceCalculator!org.apache.hadoop.yarn.util.resource.DominantResourceCalculator!g" \
-        `grep "org.apache.hadoop.yarn.util.resource.DefaultResourceCalculator" -rl ${HADOOP_HOME}/etc/hadoop/`
-}
 
 function check_hdfs_storage() {
     if [ -n  "${HDFS_NAMENODE_URI}" ];then
@@ -387,7 +383,6 @@ function configure_hadoop_and_spark() {
     update_spark_runtime_config
     update_data_disks_config
     update_config_for_storage
-    update_resource_calculator_for_capacity_scheduler
 
     cp -r ${output_dir}/hadoop/yarn-site.xml  ${HADOOP_HOME}/etc/hadoop/
 

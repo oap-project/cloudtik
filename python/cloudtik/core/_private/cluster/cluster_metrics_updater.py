@@ -75,7 +75,7 @@ class ClusterMetricsUpdater:
             # If there is no scaling metrics for nodes, we still need to make sure
             # to set node last used status so that the idle nodes can be killed
             resource_time = time.time()
-            for node_id, ip in heartbeat_nodes:
+            for node_id, ip in heartbeat_nodes.items():
                 total_resources = {}
                 available_resources = {}
                 resource_load = {}

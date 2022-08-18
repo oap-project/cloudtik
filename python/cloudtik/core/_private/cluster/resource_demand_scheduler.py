@@ -132,7 +132,7 @@ class ResourceDemandScheduler:
             Dict of count to add for each node type, and residual of resources
             that still cannot be fulfilled.
         """
-        # Currently, we don't update the total resources from runtime
+        # Note: currently, we don't update the total resources from runtime
         # But we use the node types static memory information here
         # self._update_node_resources_from_runtime(nodes, max_resources_by_ip)
 
@@ -141,8 +141,11 @@ class ResourceDemandScheduler:
         node_resources, node_type_counts = self.calculate_node_resources(
             nodes, launching_nodes, unused_resources_by_ip)
 
-        logger.debug("Cluster resources: {}".format(node_resources))
-        logger.debug("Node counts: {}".format(node_type_counts))
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug("Cluster resources: {}".format(node_resources))
+            logger.debug("Node counts: {}".format(node_type_counts))
+            logger.debug("Minimum cluster size: {}".format(ensure_min_cluster_size))
+
         # Step 2: add nodes to add to satisfy min_workers for each type
         (node_resources,
          node_type_counts,
@@ -157,12 +160,17 @@ class ResourceDemandScheduler:
         # Step 3/4: add nodes for pending tasks
         unfulfilled, _ = get_bin_pack_residual(node_resources,
                                                resource_demands)
-        logger.debug("Resource demands: {}".format(resource_demands))
-        logger.debug("Unfulfilled demands: {}".format(unfulfilled))
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug("Resource demands: {}".format(resource_demands))
+            logger.debug("Unfulfilled demands: {}".format(unfulfilled))
+
         nodes_to_add_based_on_demand, final_unfulfilled = get_nodes_for(
             self.node_types, node_type_counts, self.head_node_type, max_to_add,
             unfulfilled)
-        logger.debug("Final unfulfilled: {}".format(final_unfulfilled))
+
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug("Final unfulfilled: {}".format(final_unfulfilled))
+
         # Merge nodes to add based on demand and nodes to add based on
         # min_workers constraint. We add them because nodes to add based on
         # demand was calculated after the min_workers constraint was respected.
@@ -179,7 +187,8 @@ class ResourceDemandScheduler:
             total_nodes_to_add, unused_resources_by_ip.keys(), nodes,
             launching_nodes, adjusted_min_workers)
 
-        logger.debug("Node requests: {}".format(total_nodes_to_add))
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug("Node requests: {}".format(total_nodes_to_add))
         return total_nodes_to_add, final_unfulfilled
 
     def _update_node_resources_from_runtime(
@@ -375,6 +384,7 @@ class ResourceDemandScheduler:
                 add_node(node_type)
 
         return node_resources, node_type_counts
+
 
 def _convert_memory_unit(node_types: Dict[NodeType, NodeTypeConfigDict]
                          ) -> Dict[NodeType, NodeTypeConfigDict]:

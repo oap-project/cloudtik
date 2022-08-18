@@ -344,8 +344,9 @@ def _get_scaling_policy(
     spark_config = runtime_config.get("spark", {})
     scaling_config = spark_config.get("scaling", {})
 
+    node_resource_states = scaling_config.get("node_resource_states", True)
     auto_scaling = scaling_config.get("auto_scaling", False)
-    if not auto_scaling:
+    if not node_resource_states and not auto_scaling:
         return None
 
     return SparkScalingPolicy(

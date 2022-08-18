@@ -278,11 +278,11 @@ def create_or_update_cluster(
 
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     head_node = _get_running_head_node(config)
-    show_useful_commands(config_file,
-                         call_context=call_context,
+    show_useful_commands(call_context=call_context,
                          config=config,
                          provider=provider,
                          head_node=head_node,
+                         config_file=config_file,
                          override_cluster_name=override_cluster_name)
     return config
 
@@ -795,8 +795,15 @@ def _kill_node(config: Dict[str, Any],
 def monitor_cluster(config_file: str, num_lines: int,
                     override_cluster_name: Optional[str] = None,
                     file_type: str = None) -> None:
-    """Tails the controller logs of a cluster."""
     config = _load_cluster_config(config_file, override_cluster_name)
+    _monitor_cluster(config, num_lines, file_type)
+
+
+def _monitor_cluster(config: Dict[str, Any],
+                     num_lines: int,
+                     file_type: str = None) -> None:
+    """Tails the controller logs of a cluster."""
+
     call_context = cli_call_context()
     cmd = f"tail -n {num_lines} -f /tmp/cloudtik/session_latest/logs/cloudtik_cluster_controller"
     if file_type and file_type != "":
@@ -1787,6 +1794,10 @@ def get_cluster_dump_archive(config_file: Optional[str] = None,
 def show_worker_cpus(config_file: str,
                      override_cluster_name: Optional[str] = None) -> None:
     config = _load_cluster_config(config_file, override_cluster_name)
+    _show_worker_cpus(config)
+
+
+def _show_worker_cpus(config: Dict[str, Any]):
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     worker_cpus = get_worker_cpus(config, provider)
     cli_logger.print(cf.bold(worker_cpus))
@@ -1795,6 +1806,10 @@ def show_worker_cpus(config_file: str,
 def show_worker_memory(config_file: str,
                        override_cluster_name: Optional[str] = None) -> None:
     config = _load_cluster_config(config_file, override_cluster_name)
+    _show_worker_memory(config)
+
+
+def _show_worker_memory(config: Dict[str, Any]):
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     memory_in_gb = int(get_worker_memory(config, provider))
     cli_logger.print(cf.bold("{}GB"), memory_in_gb)
@@ -1804,6 +1819,12 @@ def show_cluster_info(config_file: str,
                       override_cluster_name: Optional[str] = None) -> None:
     """Shows the cluster information for given configuration file."""
     config = _load_cluster_config(config_file, override_cluster_name)
+    _show_cluster_info(config, config_file, override_cluster_name)
+
+
+def _show_cluster_info(config: Dict[str, Any],
+                       config_file: str,
+                       override_cluster_name: Optional[str] = None):
     provider = _get_node_provider(config["provider"], config["cluster_name"])
 
     cluster_info = _get_cluster_info(config, provider)
@@ -1824,19 +1845,19 @@ def show_cluster_info(config_file: str,
     cli_logger.print(cf.bold("The total worker memory: {}GB."), cluster_info["total-worker-memory"])
 
     head_node = cluster_info["head-id"]
-    show_useful_commands(config_file,
-                         call_context=cli_call_context(),
+    show_useful_commands(call_context=cli_call_context(),
                          config=config,
                          provider=provider,
                          head_node=head_node,
+                         config_file=config_file,
                          override_cluster_name=override_cluster_name)
 
 
-def show_useful_commands(config_file: str,
-                         call_context: CallContext,
+def show_useful_commands(call_context: CallContext,
                          config: Dict[str, Any],
                          provider: NodeProvider,
                          head_node: str,
+                         config_file: str,
                          override_cluster_name: Optional[str] = None
                          ) -> None:
     _cli_logger = call_context.cli_logger
@@ -1914,6 +1935,10 @@ def show_cluster_status(config_file: str,
                         override_cluster_name: Optional[str] = None
                         ) -> None:
     config = _load_cluster_config(config_file, override_cluster_name)
+    _show_cluster_status(config)
+
+
+def _show_cluster_status(config: Dict[str, Any]) -> None:
     nodes_info = _get_cluster_nodes_info(config)
 
     tb = pt.PrettyTable()

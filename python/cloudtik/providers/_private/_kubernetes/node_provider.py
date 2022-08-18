@@ -18,7 +18,8 @@ from cloudtik.providers._private._kubernetes import core_api, log_prefix, \
     networking_api
 from cloudtik.providers._private._kubernetes.config import bootstrap_kubernetes, \
     post_prepare_kubernetes, _add_service_name_to_service_port, head_service_selector, \
-    bootstrap_kubernetes_for_api, cleanup_kubernetes_cluster, with_kubernetes_environment_variables
+    bootstrap_kubernetes_for_api, cleanup_kubernetes_cluster, with_kubernetes_environment_variables, get_head_hostname, \
+    get_worker_hostname
 from cloudtik.providers._private._kubernetes.utils import _get_node_info, to_label_selector, \
     create_and_configure_pvc_for_pod, delete_persistent_volume_claims, get_pod_persistent_volume_claims, \
     delete_persistent_volume_claims_by_name
@@ -140,6 +141,9 @@ class KubernetesNodeProvider(NodeProvider):
         new_nodes = []
         for _ in range(count):
             _pod_spec = copy.deepcopy(pod_spec)
+            # Generate a random hostname
+            _pod_spec["spec"]["hostname"] = get_head_hostname() if (
+                    tags[CLOUDTIK_TAG_NODE_KIND] == NODE_KIND_HEAD) else get_worker_hostname()
             created_pvcs = create_and_configure_pvc_for_pod(
                 _pod_spec, data_disks, self.cluster_name, self.namespace)
             try:

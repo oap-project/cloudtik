@@ -160,9 +160,7 @@ def get_provider_config(
     provider_conf["type"] = "kubernetes"
     provider_conf["use_internal_ips"] = True
     provider_conf["namespace"] = namespace
-    provider_conf["services"] = [
-        get_head_service(cluster_name, cluster_owner_reference, head_service_ports)
-    ]
+    provider_conf["head_service"] = get_head_service(cluster_name, cluster_owner_reference, head_service_ports)
     configure_cloud(provider_conf, cluster_resource)
     # Signal to autoscaler that the Operator is in use:
     provider_conf["_operator"] = True
@@ -222,7 +220,7 @@ def get_head_service(cluster_name, cluster_owner_reference, head_service_ports):
     # providers/kubernetes/defaults.yaml
     default_kubernetes_config = _get_default_config({"type": "kubernetes"})
     default_provider_conf = default_kubernetes_config["provider"]
-    head_service = copy.deepcopy(default_provider_conf["services"][0])
+    head_service = copy.deepcopy(default_provider_conf["head_service"])
 
     # Configure the service's name
     service_name = f"cloudtik-{cluster_name}-head"

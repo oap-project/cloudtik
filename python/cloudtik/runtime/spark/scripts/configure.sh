@@ -90,7 +90,6 @@ function set_resources_for_spark() {
     fi
 }
 
-
 function check_hdfs_storage() {
     if [ -n  "${HDFS_NAMENODE_URI}" ];then
         HDFS_STORAGE="true"

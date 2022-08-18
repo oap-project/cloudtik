@@ -208,6 +208,16 @@ class GCPNodeProvider(NodeProvider):
 
         return self._get_node(node_id)
 
+    def prepare_for_head_node(
+            self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Returns a new cluster config with custom configs for head node."""
+        # Since the head will use the instance profile and role to access cloud,
+        # remove the client credentials from config
+        if "gcp_credentials" in cluster_config["provider"]:
+            cluster_config.pop("gcp_credentials", None)
+
+        return cluster_config
+
     @staticmethod
     def bootstrap_config(cluster_config):
         return bootstrap_gcp(cluster_config)

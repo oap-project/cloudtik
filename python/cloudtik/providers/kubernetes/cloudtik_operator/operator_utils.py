@@ -225,9 +225,14 @@ def configure_cloud_storage(
 ):
     if "cloudStorage" not in cloud_config:
         return
+
+    if "storage" not in provider_config:
+        provider_config["storage"] = {}
+    storage_config = provider_config["storage"]
+
     cloud_storage = cloud_config["cloudStorage"]
     for field in cloud_storage:
-        provider_config[field] = copy.deepcopy(cloud_storage[field])
+        storage_config[field] = copy.deepcopy(cloud_storage[field])
 
 
 def get_head_service(

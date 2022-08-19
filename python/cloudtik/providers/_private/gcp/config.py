@@ -27,7 +27,8 @@ from cloudtik.providers._private.gcp.node import GCPCompute
 from cloudtik.providers._private.gcp.utils import _get_node_info, construct_clients_from_provider_config, \
     wait_for_compute_global_operation, wait_for_compute_region_operation, _create_storage, \
     wait_for_crm_operation, HAS_TPU_PROVIDER_FIELD, _is_head_node_a_tpu, _has_tpus_in_node_configs, \
-    get_gcp_cloud_storage_config, get_service_account_email, construct_storage_client, construct_storage
+    export_gcp_cloud_storage_config, get_service_account_email, construct_storage_client, construct_storage, \
+    get_gcp_cloud_storage_config, get_gcp_cloud_storage_config_for_update
 from cloudtik.providers._private.utils import StorageTestingError
 
 logger = logging.getLogger(__name__)
@@ -1402,9 +1403,9 @@ def _configure_managed_cloud_storage_from_workspace(config, cloud_provider):
     if gcs_bucket is None:
         cli_logger.abort("No managed GCS bucket was found. If you want to use managed GCS bucket, "
                          "you should set managed_cloud_storage equal to True when you creating workspace.")
-    if "gcp_cloud_storage" not in config["provider"]:
-        config["provider"]["gcp_cloud_storage"] = {}
-    config["provider"]["gcp_cloud_storage"]["gcs.bucket"] = gcs_bucket.name
+
+    cloud_storage = get_gcp_cloud_storage_config_for_update(config["provider"])
+    cloud_storage["gcs.bucket"] = gcs_bucket.name
 
 
 def _configure_iam_role(config, crm, iam):
@@ -2078,7 +2079,7 @@ def _create_project_ssh_key_pair(project, public_key, ssh_user, compute):
 
 
 def verify_gcs_storage(provider_config: Dict[str, Any]):
-    gcs_storage = provider_config.get("gcp_cloud_storage")
+    gcs_storage = get_gcp_cloud_storage_config(provider_config)
     if gcs_storage is None:
         return
 
@@ -2143,7 +2144,7 @@ def list_gcp_clusters(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 
 def with_gcp_environment_variables(provider_config, node_type_config: Dict[str, Any], node_id: str):
     config_dict = {}
-    get_gcp_cloud_storage_config(provider_config, config_dict)
+    export_gcp_cloud_storage_config(provider_config, config_dict)
 
     if "GCP_PROJECT_ID" not in config_dict:
         project_id = provider_config.get("project_id")

@@ -11,6 +11,8 @@ from cloudtik.core._private.constants import env_integer
 
 
 # Max number of retries to AWS (default is 5, time increases exponentially)
+from cloudtik.core._private.utils import get_storage_config_for_update
+
 BOTO_MAX_RETRIES = env_integer("BOTO_MAX_RETRIES", 12)
 
 # Max number of retries to create an EC2 node (retry different subnet)
@@ -147,10 +149,24 @@ def boto_exception_handler(msg, *args, **kwargs):
     return ExceptionHandlerContextManager()
 
 
-def get_aws_s3_config(provider_config, config_dict: Dict[str, Any]):
-    if "aws_s3_storage" not in provider_config:
+def get_aws_s3_storage_config(provider_config: Dict[str, Any]):
+    if "storage" in provider_config and "aws_s3_storage" in provider_config["storage"]:
+        return provider_config["storage"]["aws_s3_storage"]
+
+    return None
+
+
+def get_aws_s3_storage_config_for_update(provider_config: Dict[str, Any]):
+    storage_config = get_storage_config_for_update(provider_config)
+    if "aws_s3_storage" not in storage_config:
+        storage_config["aws_s3_storage"] = {}
+    return storage_config["aws_s3_storage"]
+
+
+def export_aws_s3_storage_config(provider_config, config_dict: Dict[str, Any]):
+    cloud_storage = get_aws_s3_storage_config(provider_config)
+    if cloud_storage is None:
         return
-    cloud_storage = provider_config["aws_s3_storage"]
     config_dict["AWS_CLOUD_STORAGE"] = True
 
     s3_bucket = cloud_storage.get("s3.bucket")

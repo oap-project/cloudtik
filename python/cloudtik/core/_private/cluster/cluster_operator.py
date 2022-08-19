@@ -36,7 +36,8 @@ from cloudtik.core._private.constants import \
     CLOUDTIK_RESOURCE_REQUEST_CHANNEL, \
     MAX_PARALLEL_SHUTDOWN_WORKERS, \
     CLOUDTIK_DEFAULT_PORT, \
-    CLOUDTIK_REDIS_DEFAULT_PASSWORD, CLOUDTIK_CLUSTER_STATUS_STOPPED, CLOUDTIK_CLUSTER_STATUS_RUNNING
+    CLOUDTIK_REDIS_DEFAULT_PASSWORD, CLOUDTIK_CLUSTER_STATUS_STOPPED, CLOUDTIK_CLUSTER_STATUS_RUNNING, \
+    CLOUDTIK_RUNTIME_NAME
 from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     hash_launch_conf, prepare_config, get_free_port, \
     get_proxy_info_file, get_safe_proxy_process_info, \
@@ -444,7 +445,7 @@ def _teardown_cluster(config: Dict[str, Any],
     if proxy_stop:
         total_steps += 1
     if not workers_only:
-        total_steps += 1
+        total_steps += 2
 
     if proxy_stop:
         with cli_logger.group(
@@ -455,7 +456,7 @@ def _teardown_cluster(config: Dict[str, Any],
 
     if not workers_only:
         with cli_logger.group(
-                "Requesting head to stop head services",
+                "Requesting head to stop controller services",
                 _numbered=("[]", current_step, total_steps)):
             current_step += 1
             try:
@@ -463,11 +464,12 @@ def _teardown_cluster(config: Dict[str, Any],
                     config,
                     call_context=call_context,
                     node_ip=None, all_nodes=False,
+                    runtimes=[CLOUDTIK_RUNTIME_NAME],
                     indent_level=2)
             except Exception as e:
                 cli_logger.verbose_error("{}", str(e))
                 cli_logger.warning(
-                    "Exception occurred when stopping head services "
+                    "Exception occurred when stopping controller services "
                     "(use -v to show details).")
                 cli_logger.warning(
                     "Ignoring the exception and "
@@ -496,6 +498,26 @@ def _teardown_cluster(config: Dict[str, Any],
             cli_logger.warning(
                 "Ignoring the exception and "
                 "attempting to shut down the cluster nodes anyway.")
+
+    if not workers_only:
+        with cli_logger.group(
+                "Requesting head to stop head services",
+                _numbered=("[]", current_step, total_steps)):
+            current_step += 1
+            try:
+                _stop_node_from_head(
+                    config,
+                    call_context=call_context,
+                    node_ip=None, all_nodes=False,
+                    indent_level=2)
+            except Exception as e:
+                cli_logger.verbose_error("{}", str(e))
+                cli_logger.warning(
+                    "Exception occurred when stopping head services "
+                    "(use -v to show details).")
+                cli_logger.warning(
+                    "Ignoring the exception and "
+                    "attempting to shut down the cluster nodes anyway.")
 
     with cli_logger.group(
             "Stopping head and remaining nodes",

@@ -1511,17 +1511,19 @@ def _delete_service(namespace: str, name: str):
 def with_kubernetes_environment_variables(provider_config, node_type_config: Dict[str, Any], node_id: str):
     config_dict = {}
 
-    if "aws_s3_storage" in provider_config:
+    storage_config = provider_config.get("storage", {})
+
+    if "aws_s3_storage" in storage_config:
         from cloudtik.providers._private._kubernetes.aws_eks.config import with_aws_environment_variables
         with_aws_environment_variables(provider_config, config_dict)
 
-    if "gcp_cloud_storage" in provider_config:
+    if "gcp_cloud_storage" in storage_config:
         from cloudtik.providers._private._kubernetes.gcp_gke.config import with_gcp_environment_variables
         with_gcp_environment_variables(provider_config, config_dict)
 
-    if "azure_cloud_storage" in provider_config:
-        from cloudtik.providers._private._azure.utils import get_azure_cloud_storage_config
-        get_azure_cloud_storage_config(provider_config, config_dict)
+    if "azure_cloud_storage" in storage_config:
+        from cloudtik.providers._private._azure.utils import export_azure_cloud_storage_config
+        export_azure_cloud_storage_config(provider_config, config_dict)
 
     return config_dict
 

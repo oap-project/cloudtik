@@ -203,70 +203,77 @@
                         }
                     }
                 },
-                "gcp_cloud_storage": {
+                "storage": {
                     "type": "object",
-                    "description": "use google cloud storage",
+                    "description": "The cloud storage configurations",
                     "additionalProperties": true,
                     "properties": {
-                        "gcs.bucket": {
-                            "type": "string",
-                            "description": "gcp cloud storage bucket name"
+                        "gcp_cloud_storage": {
+                            "type": "object",
+                            "description": "use google cloud storage",
+                            "additionalProperties": true,
+                            "properties": {
+                                "gcs.bucket": {
+                                    "type": "string",
+                                    "description": "gcp cloud storage bucket name"
+                                },
+                                "gcs.service.account.client.email": {
+                                    "type": "string",
+                                    "description": "gcp service account client email"
+                                },
+                                "gcs.service.account.private.key.id": {
+                                    "type": "string",
+                                    "description": "gcp service account private key id"
+                                },
+                                "gcs.service.account.private.key": {
+                                    "type": "string",
+                                    "description": "gcp service account private key"
+                                }
+                            }
                         },
-                        "gcs.service.account.client.email": {
-                            "type": "string",
-                            "description": "gcp service account client email"
+                        "azure_cloud_storage": {
+                            "type": "object",
+                            "description": "Azure cloud storage configurations",
+                            "additionalProperties": false,
+                            "properties": {
+                              "azure.storage.type": {
+                                "type": "string",
+                                "enum": ["blob", "datalake"],
+                                "description": "Azure cloud storage type: blob (Azure Blob Storage) or datalake (Azure Data Lake Storage Gen 2)."
+                              },
+                              "azure.storage.account": {
+                                "type": "string",
+                                "description": "azure storage account name"
+                              },
+                              "azure.container": {
+                                "type": "string",
+                                "description": "azure container name"
+                              },
+                              "azure.account.key": {
+                                "type": "string",
+                                "description": "azure storage account access key"
+                              }
+                            }
                         },
-                        "gcs.service.account.private.key.id": {
-                            "type": "string",
-                            "description": "gcp service account private key id"
-                        },
-                        "gcs.service.account.private.key": {
-                            "type": "string",
-                            "description": "gcp service account private key"
+                        "aws_s3_storage": {
+                            "type": "object",
+                            "description": "AWS S3 storage configurations",
+                            "additionalProperties": false,
+                            "properties": {
+                              "s3.bucket": {
+                                "type": "string",
+                                "description": "the s3 bucket name"
+                              },
+                              "s3.access.key.id": {
+                                "type": "string",
+                                "description": "access key id of s3"
+                              },
+                              "s3.secret.access.key": {
+                                "type": "string",
+                                "description": "secret access key of s3"
+                              }
+                            }
                         }
-                    }
-                },
-                "azure_cloud_storage": {
-                    "type": "object",
-                    "description": "Azure cloud storage configurations",
-                    "additionalProperties": false,
-                    "properties": {
-                      "azure.storage.type": {
-                        "type": "string",
-                        "enum": ["blob", "datalake"],
-                        "description": "Azure cloud storage type: blob (Azure Blob Storage) or datalake (Azure Data Lake Storage Gen 2)."
-                      },
-                      "azure.storage.account": {
-                        "type": "string",
-                        "description": "azure storage account name"
-                      },
-                      "azure.container": {
-                        "type": "string",
-                        "description": "azure container name"
-                      },
-                      "azure.account.key": {
-                        "type": "string",
-                        "description": "azure storage account access key"
-                      }
-                    }
-                },
-                "aws_s3_storage": {
-                    "type": "object",
-                    "description": "AWS S3 storage configurations",
-                    "additionalProperties": false,
-                    "properties": {
-                      "s3.bucket": {
-                        "type": "string",
-                        "description": "the s3 bucket name"
-                      },
-                      "s3.access.key.id": {
-                        "type": "string",
-                        "description": "access key id of s3"
-                      },
-                      "s3.secret.access.key": {
-                        "type": "string",
-                        "description": "secret access key of s3"
-                      }
                     }
                 },
                 "verify_cloud_storage": {

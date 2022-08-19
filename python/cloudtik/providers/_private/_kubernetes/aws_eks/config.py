@@ -18,7 +18,7 @@ from cloudtik.providers._private.aws.config import _configure_managed_cloud_stor
     _create_managed_cloud_storage, _delete_managed_cloud_storage, _get_iam_role, _delete_iam_role, \
     get_managed_s3_bucket, get_aws_managed_cloud_storage_info
 from cloudtik.providers._private.aws.utils import _make_resource_client, _make_resource, get_current_account_id, \
-    handle_boto_error, _make_client, get_aws_s3_config
+    handle_boto_error, _make_client, export_aws_s3_storage_config
 
 HTTP_DEFAULT_PORT = 80
 HTTPS_DEFAULT_PORT = 443
@@ -102,7 +102,7 @@ def delete_configurations_for_aws(config: Dict[str, Any], namespace, cloud_provi
 
 def configure_kubernetes_for_aws(config: Dict[str, Any], namespace, cloud_provider):
     # Optionally, if user choose to use managed cloud storage (s3 bucket)
-    # Configure the s3 bucket under aws_s3_storage
+    # Configure the s3 bucket under cloud storage
     _configure_cloud_storage_for_aws(config, cloud_provider)
 
 
@@ -584,5 +584,5 @@ def get_info_for_aws(config: Dict[str, Any], namespace, cloud_provider, info):
 
 
 def with_aws_environment_variables(provider_config, config_dict: Dict[str, Any]):
-    get_aws_s3_config(provider_config, config_dict)
+    export_aws_s3_storage_config(provider_config, config_dict)
     config_dict["AWS_WEB_IDENTITY"] = True

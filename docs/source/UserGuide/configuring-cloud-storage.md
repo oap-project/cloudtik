@@ -31,11 +31,12 @@ The name of S3 bucket will be used in CloudTik S3 storage configurations.
 provider:
     type: aws
     region: us-west-2
-    # S3 configurations for storage
-    aws_s3_storage:
-        s3.bucket: your_s3_bucket
-        s3.access.key.id: your_s3_access_key_id
-        s3.secret.access.key: your_s3_secret_access_key
+    storage:
+        # S3 configurations for storage
+        aws_s3_storage:
+            s3.bucket: your_s3_bucket
+            s3.access.key.id: your_s3_access_key_id
+            s3.secret.access.key: your_s3_secret_access_key
 
 ```
 
@@ -73,12 +74,13 @@ provider:
     type: azure
     location: westus
     subscription_id: your_subscription_id
-    azure_cloud_storage:
-        # Choose cloud storage type: blob (Azure Blob Storage) or datalake (Azure Data Lake Storage Gen 2).
-        azure.storage.type: datalake
-        azure.storage.account: your_storage_account
-        azure.container: your_container
-        azure.account.key: your_account_key
+    storage:
+        azure_cloud_storage:
+            # Choose cloud storage type: blob (Azure Blob Storage) or datalake (Azure Data Lake Storage Gen 2).
+            azure.storage.type: datalake
+            azure.storage.account: your_storage_account
+            azure.container: your_container
+            azure.account.key: your_account_key
 
 ```
 
@@ -119,12 +121,13 @@ provider:
     region: us-central1
     availability_zone: us-central1-a
     project_id: your_project_id
-    # GCS configurations for storage
-    gcp_cloud_storage:
-        gcs.bucket: your_gcs_bucket
-        gcs.service.account.client.email: your_service_account_client_email
-        gcs.service.account.private.key.id: your_service_account_private_key_id
-        gcs.service.account.private.key: your_service_account_private_key
+    storage:
+        # GCS configurations for storage
+        gcp_cloud_storage:
+            gcs.bucket: your_gcs_bucket
+            gcs.service.account.client.email: your_service_account_client_email
+            gcs.service.account.private.key.id: your_service_account_private_key_id
+            gcs.service.account.private.key: your_service_account_private_key
 
 ```
 A JSON file should be safely downloaded and kept after a service account is created.

@@ -9,6 +9,7 @@ from azure.mgmt.compute import ComputeManagementClient
 from azure.mgmt.msi import ManagedServiceIdentityClient
 from azure.mgmt.authorization import AuthorizationManagementClient
 
+from cloudtik.core._private.utils import get_storage_config_for_update
 from cloudtik.providers._private._azure.azure_identity_credential_adapter import AzureIdentityCredentialAdapter
 
 
@@ -129,10 +130,24 @@ def _construct_authorization_client(provider_config):
     return authorization_client
 
 
-def get_azure_cloud_storage_config(provider_config, config_dict: Dict[str, Any]):
-    if "azure_cloud_storage" not in provider_config:
+def get_azure_cloud_storage_config(provider_config: Dict[str, Any]):
+    if "storage" in provider_config and "azure_cloud_storage" in provider_config["storage"]:
+        return provider_config["storage"]["azure_cloud_storage"]
+
+    return None
+
+
+def get_azure_cloud_storage_config_for_update(provider_config: Dict[str, Any]):
+    storage_config = get_storage_config_for_update(provider_config)
+    if "azure_cloud_storage" not in storage_config:
+        storage_config["azure_cloud_storage"] = {}
+    return storage_config["azure_cloud_storage"]
+
+
+def export_azure_cloud_storage_config(provider_config, config_dict: Dict[str, Any]):
+    cloud_storage = get_azure_cloud_storage_config(provider_config)
+    if cloud_storage is None:
         return
-    cloud_storage = provider_config["azure_cloud_storage"]
     config_dict["AZURE_CLOUD_STORAGE"] = True
 
     azure_storage_type = cloud_storage.get("azure.storage.type")

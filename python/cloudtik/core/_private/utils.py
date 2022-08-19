@@ -3203,3 +3203,9 @@ def convert_nodes_to_resource(config: Dict[str, Any], nodes: int, resource_id) -
             if resource_total > 0:
                 return nodes * resource_total
     return 0
+
+
+def get_storage_config_for_update(provider_config):
+    if "storage" not in provider_config:
+        provider_config["storage"] = {}
+    return provider_config["storage"]

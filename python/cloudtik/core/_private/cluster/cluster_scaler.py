@@ -907,7 +907,8 @@ class ClusterScaler:
         global_runtime_conf = {
             "worker_setup_commands": get_commands_to_run(new_config, "worker_setup_commands"),
             "worker_start_commands": get_commands_to_run(new_config, "worker_start_commands"),
-            "runtime": new_config.get(RUNTIME_CONFIG_KEY, {})
+            "runtime": new_config.get(RUNTIME_CONFIG_KEY, {}),
+            "storage": new_config["provider"].get("storage", {})
         }
         (new_runtime_hash,
          new_file_mounts_contents_hash,

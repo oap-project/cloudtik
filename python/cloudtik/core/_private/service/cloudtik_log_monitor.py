@@ -2,7 +2,6 @@ import argparse
 import errno
 import glob
 import json
-import logging
 import logging.handlers
 import os
 import platform
@@ -351,7 +350,7 @@ if __name__ == "__main__":
         "--logging-level",
         required=False,
         type=str,
-        default=constants.LOGGER_LEVEL,
+        default=constants.LOGGER_LEVEL_INFO,
         choices=constants.LOGGER_LEVEL_CHOICES,
         help=constants.LOGGER_LEVEL_HELP)
     parser.add_argument(

@@ -17,7 +17,7 @@ import cloudtik
 from cloudtik.core._private import constants, services
 from cloudtik.core._private.logging_utils import setup_component_logger
 from cloudtik.core._private.state.control_state import ControlState
-from cloudtik.core._private.utils import get_runtime_processes
+from cloudtik.core._private.utils import get_runtime_processes, make_node_id
 
 logger = logging.getLogger(__name__)
 
@@ -30,32 +30,34 @@ class NodeController:
     """
 
     def __init__(self,
+                 node_id,
+                 node_ip,
                  node_type,
-                 address,
+                 redis_address,
                  redis_password=None,
-                 controller_ip=None,
                  static_resource_list=None,
                  stop_event: Optional[Event] = None,
                  runtimes: str = None):
-
+        if node_id is None:
+            node_id = make_node_id(node_ip)
+        self.node_id = node_id
         # Initialize the Redis clients.
-        redis_address = address
         self.redis = services.create_redis_client(
             redis_address, password=redis_password)
-        (ip, port) = address.split(":")
+        (ip, port) = redis_address.split(":")
 
         self.redis_address = redis_address
         self.redis_password = redis_password
-        self.controller_ip = controller_ip
+        self.node_ip = node_ip
         self.node_type = node_type
         self.static_resource_list = static_resource_list
-        # node_detail store the resource, process and other details of the current node
-        self.node_detail = {}
-        resource_dict, node_id = self._parse_resource_list()
-        self.node_detail["resource"] = resource_dict
-        self.node_detail["node_id"] = node_id
-        self.node_detail["node_type"] = self.node_type
-        self.node_id = node_id
+        # node_info store the resource, process and other details of the current node
+        self.node_info = {
+            "node_id": node_id,
+            "node_ip": node_ip,
+            "node_type": node_type,
+            "resource": self._parse_resource_list(),
+        }
         self.old_processes = []
 
         # Can be used to signal graceful exit from controller loop.
@@ -78,7 +80,10 @@ class NodeController:
 
             # Wait for update interval before processing the next
             # round of messages.
-            self._check_process()
+            try:
+                self._check_process()
+            except Exception as e:
+                logger.exception("Error happened when checking processes: " + str(e))
             time.sleep(constants.CLOUDTIK_UPDATE_INTERVAL_S)
 
     def _handle_failure(self, error):
@@ -99,11 +104,11 @@ class NodeController:
         while True:
             time.sleep(constants.CLOUDTIK_HEARTBEAT_PERIOD_SECONDS)
             now = time.time()
-            node_info = self.node_detail.copy()
+            node_info = self.node_info.copy()
             node_info.update({"last_heartbeat_time": now})
-            as_json = json.dumps(node_info)
+            node_info_as_json = json.dumps(node_info)
             try:
-                self.node_table.put(self.node_id, as_json)
+                self.node_table.put(self.node_id, node_info_as_json)
             except Exception as e:
                 logger.exception("Failed sending heartbeat: " + str(e))
                 logger.exception(traceback.format_exc())
@@ -112,12 +117,8 @@ class NodeController:
         node_resource_dict = {}
         resource_split = self.static_resource_list.split(",")
         for i in range(int(len(resource_split) / 2)):
-            if "node" in resource_split[2 * i]:
-                node_resource_dict["ip"] = resource_split[2 * i].split(":")[1]
-                node_id = resource_split[2 * i].replace(":", "_")
-            else:
-                node_resource_dict[resource_split[2 * i]] = float(resource_split[2 * i + 1])
-        return node_resource_dict, node_id
+            node_resource_dict[resource_split[2 * i]] = float(resource_split[2 * i + 1])
+        return node_resource_dict
 
     def _check_process(self):
         """check CloudTik runtime processes on the local machine."""
@@ -149,7 +150,7 @@ class NodeController:
 
         if found_process != self.old_processes:
             logger.info("Cloudtik processes status changed, latest process information: {}".format(str(found_process)))
-        self.node_detail["process"] = found_process
+        self.node_info["process"] = found_process
         self.old_processes = found_process
 
     def run(self):
@@ -187,7 +188,7 @@ if __name__ == "__main__":
         "--logging-level",
         required=False,
         type=str,
-        default=constants.LOGGER_LEVEL,
+        default=constants.LOGGER_LEVEL_INFO,
         choices=constants.LOGGER_LEVEL_CHOICES,
         help=constants.LOGGER_LEVEL_HELP)
     parser.add_argument(
@@ -226,6 +227,12 @@ if __name__ == "__main__":
         help="Specify the backup count of rotated log file, default is "
         f"{constants.LOGGING_ROTATE_BACKUP_COUNT}.")
     parser.add_argument(
+        "--node-id",
+        required=False,
+        type=str,
+        default=None,
+        help="The unique node id to use to for this node.")
+    parser.add_argument(
         "--controller-ip",
         required=False,
         type=str,
@@ -258,10 +265,11 @@ if __name__ == "__main__":
     logger.info(f"Node Controller started with command: {sys.argv}")
 
     controller = NodeController(
+        args.node_id,
+        args.controller_ip,
         args.node_type,
         args.redis_address,
         redis_password=args.redis_password,
-        controller_ip=args.controller_ip,
         static_resource_list=args.static_resource_list,
         runtimes=args.runtimes)
 

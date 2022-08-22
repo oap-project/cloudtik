@@ -1,5 +1,5 @@
 import os
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from shlex import quote
 
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_HDFS, BUILT_IN_RUNTIME_METASTORE
@@ -7,6 +7,8 @@ from cloudtik.core._private.utils import merge_rooted_config_hierarchy, \
     _get_runtime_config_object, is_runtime_enabled, round_memory_size_to_gb, load_head_cluster_config, \
     RUNTIME_CONFIG_KEY, load_properties_file, save_properties_file, is_use_managed_cloud_storage, get_node_type_config
 from cloudtik.core._private.workspace.workspace_operator import _get_workspace_provider
+from cloudtik.core.scaling_policy import ScalingPolicy
+from cloudtik.runtime.spark.scaling_policy import SparkScalingPolicy
 
 RUNTIME_PROCESSES = [
     # The first element is the substring to filter.
@@ -29,6 +31,8 @@ SPARK_EXECUTOR_CORES_DEFAULT = 4
 SPARK_ADDITIONAL_OVERHEAD = 1024
 SPARK_EXECUTOR_OVERHEAD_MINIMUM = 384
 SPARK_EXECUTOR_OVERHEAD_RATIO = 0.1
+
+SPARK_YARN_WEB_API_PORT = 8088
 
 
 def get_yarn_resource_memory_ratio(cluster_config: Dict[str, Any]):
@@ -279,9 +283,7 @@ def _validate_config(config: Dict[str, Any], provider):
     if not is_runtime_enabled(config.get(RUNTIME_CONFIG_KEY), "hdfs"):
         # Check any cloud storage is configured
         provider_config = config["provider"]
-        if ("azure_cloud_storage" not in provider_config) and (
-                "aws_s3_storage" not in provider_config) and (
-                "gcp_cloud_storage" not in provider_config) and \
+        if ("storage" not in provider_config) and \
                 not is_use_managed_cloud_storage(config):
             raise ValueError("No storage configuration found for Spark.")
 
@@ -331,3 +333,20 @@ def _get_runtime_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]
         },
     }
     return service_ports
+
+
+def _get_scaling_policy(
+        runtime_config: Dict[str, Any],
+        cluster_config: Dict[str, Any],
+        head_ip: str) -> Optional[ScalingPolicy]:
+    spark_config = runtime_config.get("spark", {})
+    scaling_config = spark_config.get("scaling", {})
+
+    node_resource_states = scaling_config.get("node_resource_states", True)
+    auto_scaling = scaling_config.get("auto_scaling", False)
+    if not node_resource_states and not auto_scaling:
+        return None
+
+    return SparkScalingPolicy(
+        cluster_config, head_ip,
+        rest_port=SPARK_YARN_WEB_API_PORT)

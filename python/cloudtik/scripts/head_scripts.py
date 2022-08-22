@@ -11,9 +11,10 @@ from cloudtik.core._private.cli_logger import (add_click_logging_options,
 from cloudtik.core._private.cluster.cluster_operator import (
     debug_status_string, get_cluster_dump_archive_on_head,
     RUN_ENV_TYPES, teardown_cluster_on_head, cluster_process_status_on_head, rsync_node_on_head, attach_node_on_head,
-    exec_node_on_head, show_cluster_info, show_cluster_status, monitor_cluster, get_worker_node_ips,
-    start_node_on_head, stop_node_on_head, kill_node_on_head, scale_cluster_on_head, show_worker_cpus,
-    show_worker_memory, _wait_for_ready, get_head_node_ip)
+    exec_node_on_head,
+    start_node_on_head, stop_node_on_head, kill_node_on_head, scale_cluster_on_head,
+    _wait_for_ready, _get_worker_node_ips, _get_head_node_ip,
+    _show_cluster_status, _monitor_cluster, _show_cluster_info, _show_worker_cpus, _show_worker_memory)
 from cloudtik.core._private.constants import CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
     CLOUDTIK_KV_NAMESPACE_HEALTHCHECK
 from cloudtik.core._private.state import kv_store
@@ -21,7 +22,7 @@ from cloudtik.core._private.state.kv_store import kv_initialize_with_address
 from cloudtik.core._private.utils import CLOUDTIK_CLUSTER_SCALING_ERROR, \
     CLOUDTIK_CLUSTER_SCALING_STATUS, decode_cluster_scaling_time, is_alive_time, get_head_bootstrap_config, \
     load_head_cluster_config
-from cloudtik.scripts.utils import NaturalOrderGroup
+from cloudtik.scripts.utils import NaturalOrderGroup, add_command_alias
 
 logger = logging.getLogger(__name__)
 
@@ -196,8 +197,8 @@ def rsync_down(source, target, node_ip):
 @add_click_logging_options
 def status():
     """Show cluster summary status."""
-    cluster_config_file = get_head_bootstrap_config()
-    show_cluster_status(cluster_config_file, None)
+    config = load_head_cluster_config()
+    _show_cluster_status(config)
 
 
 @head.command()
@@ -215,14 +216,15 @@ def status():
 def info(worker_cpus, worker_memory):
     """Show cluster summary information and useful links to use the cluster."""
     cluster_config_file = get_head_bootstrap_config()
+    config = load_head_cluster_config()
 
     if worker_cpus:
-        return show_worker_cpus(cluster_config_file, None)
+        return _show_worker_cpus(config)
 
     if worker_memory:
-        return show_worker_memory(cluster_config_file, None)
+        return _show_worker_memory(config)
 
-    show_cluster_info(cluster_config_file, None)
+    _show_cluster_info(config, cluster_config_file)
 
 
 @head.command()
@@ -235,8 +237,8 @@ def info(worker_cpus, worker_memory):
 def head_ip(public):
     """Return the head node IP of a cluster."""
     try:
-        cluster_config_file = get_head_bootstrap_config()
-        head_node_ip = get_head_node_ip(cluster_config_file, None, public)
+        config = load_head_cluster_config()
+        head_node_ip = _get_head_node_ip(config, public)
         click.echo(head_node_ip)
     except RuntimeError as re:
         cli_logger.error("Get head IP failed. " + str(re))
@@ -253,8 +255,8 @@ def head_ip(public):
     help="Get the worker ips for specific runtime.")
 def worker_ips(runtime):
     """Return the list of worker IPs of a cluster."""
-    cluster_config_file = get_head_bootstrap_config()
-    workers = get_worker_node_ips(cluster_config_file, None, runtime=runtime)
+    config = load_head_cluster_config()
+    workers = _get_worker_node_ips(config, runtime=runtime)
     if len(workers) > 0:
         click.echo("\n".join(workers))
 
@@ -275,8 +277,8 @@ def worker_ips(runtime):
 @add_click_logging_options
 def monitor(lines, file_type):
     """Tails the monitor logs of a cluster."""
-    cluster_config_file = get_head_bootstrap_config()
-    monitor_cluster(cluster_config_file, lines, file_type=file_type)
+    config = load_head_cluster_config()
+    _monitor_cluster(config, lines, file_type=file_type)
 
 
 @head.command()
@@ -687,7 +689,12 @@ def stop(node_ip, all_nodes, runtimes, indent_level, parallel, yes):
         do_stop_node()
 
 
+def runtime_add_command_alias(command, name, hidden):
+    add_command_alias(runtime, command, name, hidden)
+
+
 runtime.add_command(start)
+runtime_add_command_alias(start, name="restart", hidden=True)
 runtime.add_command(stop)
 
 # commands running on head node

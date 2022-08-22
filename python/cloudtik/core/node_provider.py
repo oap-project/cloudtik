@@ -204,8 +204,7 @@ class NodeProvider:
         """Bootstraps the cluster config by adding env defaults if needed."""
         return cluster_config
 
-    @staticmethod
-    def cleanup_cluster(cluster_config: Dict[str, Any]):
+    def cleanup_cluster(self, cluster_config: Dict[str, Any]):
         """Cleanup the cluster by deleting additional resources other than the nodes."""
         pass
 

@@ -39,7 +39,7 @@ provider:
             name: cloudtik-head-role
         rules:
         - apiGroups: [""]
-          resources: ["pods", "pods/status", "pods/exec"]
+          resources: ["pods", "pods/status", "pods/exec", "persistentvolumeclaims"]
           verbs: ["get", "watch", "list", "create", "delete", "patch"]
 
     # RoleBinding created for the head node pod that it runs
@@ -65,9 +65,9 @@ provider:
         metadata:
           name: cloudtik-worker-service-account
 
-    services:
-      # Service that maps to the head node of the cluster.
-      - apiVersion: v1
+    head_service:
+        # Service that maps to the head node of the cluster.
+        apiVersion: v1
         kind: Service
         metadata:
             # NOTE: If you're running multiple clusters with services
@@ -83,6 +83,18 @@ provider:
                 protocol: TCP
                 port: 6789
                 targetPort: cloudtik-redis
+    node_service:
+        # Service that maps to all the nodes of the cluster for dns name resolving
+        apiVersion: v1
+        kind: Service
+        metadata:
+            # The node service with the name of cluster-name
+            name: {cluster-name}
+        spec:
+            # This selector must match the all the node pod's selector below.
+            selector:
+              cluster: cloudtik-{}
+            clusterIP: None
 
 # Specify the allowed pod types for this cluster and the resources they provide.
 available_node_types:
@@ -90,55 +102,71 @@ available_node_types:
         # Minimum number of workers of this Pod type.
         min_workers: 1
         node_config:
-            apiVersion: v1
-            kind: Pod
-            metadata:
-              # Automatically generates a name for the pod with this prefix.
-              generateName: cloudtik-{}-worker-
-            spec:
-                restartPolicy: Never
-                containers:
-                  - name: cloudtik-node
-                    imagePullPolicy: Always
-                    command: ["/bin/bash", "-c", "--"]
-                    args: ["trap : TERM INT; sleep infinity & wait;"]
-                    resources:
-                        requests:
-                            cpu: 4
-                            memory: 8Gi
-                        limits:
-                            # The maximum memory that this pod is allowed to use.
-                            memory: 8Gi
+            pod:
+                apiVersion: v1
+                kind: Pod
+                metadata:
+                    # Automatically generates a name for the pod with this prefix.
+                    generateName: cloudtik-{}-worker-
+                    labels:
+                        cluster: cloudtik-{}
+                        component: cloudtik-{}-worker
+                spec:
+                    hostname: worker-{}
+                    subdomain: {cluster-name}
+                    restartPolicy: Never
+                    # Allow non-root user to access PersistentVolume
+                    securityContext:
+                        fsGroup: 100
+                    containers:
+                      - name: cloudtik-node
+                        imagePullPolicy: Always
+                        command: ["/bin/bash", "-c", "--"]
+                        args: ["trap : TERM INT; sleep infinity & wait;"]
+                        resources:
+                            requests:
+                                cpu: 4
+                                memory: 8Gi
+                            limits:
+                                # The maximum memory that this pod is allowed to use.
+                                memory: 8Gi
     head.default:
         node_config:
-            apiVersion: v1
-            kind: Pod
-            metadata:
-                # Automatically generates a name for the pod with this prefix.
-                generateName: cloudtik-{}-head-
-                # Must match the head node service selector above if a head node
-                # service is required.
-                labels:
-                    component: cloudtik-{}-head
-            spec:
-                restartPolicy: Never
-                containers:
-                  - name: cloudtik-node
-                    imagePullPolicy: Always
-                    # Do not change this command - it keeps the pod alive until it is
-                    # explicitly killed.
-                    command: ["/bin/bash", "-c", "--"]
-                    args: ['trap : TERM INT; sleep infinity & wait;']
-                    ports:
-                      - containerPort: 6789  # Redis port
-                        name: cloudtik-redis
-                    resources:
-                        requests:
-                            cpu: 4
-                            memory: 8Gi
-                        limits:
-                            # The maximum memory that this pod is allowed to use.
-                            memory: 8Gi
+            pod:
+                apiVersion: v1
+                kind: Pod
+                metadata:
+                    # Automatically generates a name for the pod with this prefix.
+                    generateName: cloudtik-{}-head-
+                    # Must match the head node service selector above if a head node
+                    # service is required.
+                    labels:
+                        cluster: cloudtik-{}
+                        component: cloudtik-{}-head
+                spec:
+                    hostname: head-{}
+                    subdomain: {cluster-name}
+                    restartPolicy: Never
+                    # Allow non-root user to access PersistentVolume
+                    securityContext:
+                        fsGroup: 100
+                    containers:
+                      - name: cloudtik-node
+                        imagePullPolicy: Always
+                        # Do not change this command - it keeps the pod alive until it is
+                        # explicitly killed.
+                        command: ["/bin/bash", "-c", "--"]
+                        args: ['trap : TERM INT; sleep infinity & wait;']
+                        ports:
+                          - containerPort: 6789  # Redis port
+                            name: cloudtik-redis
+                        resources:
+                            requests:
+                                cpu: 4
+                                memory: 8Gi
+                            limits:
+                                # The maximum memory that this pod is allowed to use.
+                                memory: 8Gi
 
 # Specify the pod type for the head node (as configured below).
 head_node_type: head.default

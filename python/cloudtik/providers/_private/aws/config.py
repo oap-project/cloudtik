@@ -26,7 +26,8 @@ from cloudtik.core.workspace_provider import Existence, CLOUDTIK_MANAGED_CLOUD_S
     CLOUDTIK_MANAGED_CLOUD_STORAGE_URI
 from cloudtik.providers._private.aws.utils import LazyDefaultDict, \
     handle_boto_error, get_boto_error_code, _get_node_info, BOTO_MAX_RETRIES, _resource, \
-    _resource_client, _make_resource, _make_resource_client, make_ec2_client, get_aws_s3_config
+    _resource_client, _make_resource, _make_resource_client, make_ec2_client, export_aws_s3_storage_config, \
+    get_aws_s3_storage_config, get_aws_s3_storage_config_for_update
 from cloudtik.providers._private.utils import StorageTestingError
 
 logger = logging.getLogger(__name__)
@@ -157,11 +158,9 @@ def post_prepare_aws(config: Dict[str, Any]) -> Dict[str, Any]:
     try:
         config = fill_available_node_types_resources(config)
     except Exception as exc:
-        if cli_logger.verbosity > 2:
-            logger.exception("Failed to detect node resources.")
-        else:
-            cli_logger.warning(
-                "Failed to detect node resources: {}. You can see full stack trace with higher verbosity.", str(exc))
+        cli_logger.warning(
+            "Failed to detect node resources. Make sure you have properly configured the AWS credentials: {}.",
+            str(exc))
 
     return config
 
@@ -974,9 +973,9 @@ def _configure_managed_cloud_storage_from_workspace(config, cloud_provider):
     if s3_bucket is None:
         cli_logger.abort("No managed s3 bucket was found. If you want to use managed s3 bucket, "
                          "you should set managed_cloud_storage equal to True when you creating workspace.")
-    if "aws_s3_storage" not in config["provider"]:
-        config["provider"]["aws_s3_storage"] = {}
-    config["provider"]["aws_s3_storage"]["s3.bucket"] = s3_bucket.name
+
+    cloud_storage = get_aws_s3_storage_config_for_update(config["provider"])
+    cloud_storage["s3.bucket"] = s3_bucket.name
 
 
 def _configure_iam_role_from_workspace(config):
@@ -2737,7 +2736,7 @@ def _security_groups_in_network_config(config: Dict[str, Any]) \
 
 
 def verify_s3_storage(provider_config: Dict[str, Any]):
-    s3_storage = provider_config.get("aws_s3_storage")
+    s3_storage = get_aws_s3_storage_config(provider_config)
     if s3_storage is None:
         return
 
@@ -2776,5 +2775,6 @@ def list_aws_clusters(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 
 def with_aws_environment_variables(provider_config, node_type_config: Dict[str, Any], node_id: str):
     config_dict = {}
-    get_aws_s3_config(provider_config, config_dict)
+    export_aws_s3_storage_config(provider_config, config_dict)
     return config_dict
+

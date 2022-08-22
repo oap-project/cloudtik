@@ -5,6 +5,8 @@ eval set -- "${args}"
 
 IS_HEAD_NODE=false
 USER_HOME=/home/$(whoami)
+HADOOP_CREDENTIAL_FILE_PATH="jceks://file@${HADOOP_HOME}/etc/hadoop/credential.jceks"
+HADOOP_CREDENTIAL_PROPERTY="<property>\n      <name>hadoop.security.credential.provider.path</name>\n      <value>${HADOOP_CREDENTIAL_FILE_PATH}</value>\n    </property>"
 
 while true
 do
@@ -75,9 +77,9 @@ function set_resources_for_spark() {
     if [ ! -z "${YARN_RESOURCE_MEMORY_RATIO}" ]; then
         memory_ratio=${YARN_RESOURCE_MEMORY_RATIO}
     fi
-    total_memory=$(awk -v ratio=${memory_ratio} '($1 == "MemTotal:"){print $2/1024*ratio}' /proc/meminfo)
+    total_memory=$(awk -v  ratio=${memory_ratio} -v total_physical_memory=$(cloudtik resources --memory --in-mb) 'BEGIN{print ratio * total_physical_memory}')
     total_memory=${total_memory%.*}
-    total_vcores=$(cat /proc/cpuinfo | grep processor | wc -l)
+    total_vcores=$(cloudtik resources --cpu)
 
     # For Head Node
     if [ $IS_HEAD_NODE == "true" ];then
@@ -109,20 +111,37 @@ function set_cloud_storage_provider() {
 }
 
 function update_credential_config_for_aws() {
+    if [ "$AWS_WEB_IDENTITY" == "true" ]; then
+        # Replace with InstanceProfileCredentialsProvider with WebIdentityTokenCredentialsProvider for Kubernetes
+        sed -i "s#InstanceProfileCredentialsProvider#WebIdentityTokenCredentialsProvider#g" `grep "InstanceProfileCredentialsProvider" -rl ./`
+    fi
+
     sed -i "s#{%fs.s3a.access.key%}#${AWS_S3_ACCESS_KEY_ID}#g" `grep "{%fs.s3a.access.key%}" -rl ./`
-    sed -i "s#{%fs.s3a.secret.key%}#${AWS_S3_SECRET_ACCESS_KEY}#g" `grep "{%fs.s3a.secret.key%}" -rl ./`
+
+    if [ ! -z "${AWS_S3_SECRET_ACCESS_KEY}" ]; then
+        ${HADOOP_HOME}/bin/hadoop credential create fs.s3a.secret.key -value ${AWS_S3_SECRET_ACCESS_KEY}  -provider ${HADOOP_CREDENTIAL_FILE_PATH}
+        sed -i "s#{%hadoop.credential.property%}#${HADOOP_CREDENTIAL_PROPERTY}#g" `grep "{%hadoop.credential.property%}" -rl ./`
+    else
+        sed -i "s#{%hadoop.credential.property%}#""#g" `grep "{%hadoop.credential.property%}" -rl ./`
+    fi
 }
 
 function update_credential_config_for_gcp() {
     sed -i "s#{%fs.gs.project.id%}#${GCP_PROJECT_ID}#g" `grep "{%fs.gs.project.id%}" -rl ./`
+
     sed -i "s#{%fs.gs.auth.service.account.email%}#${GCS_SERVICE_ACCOUNT_CLIENT_EMAIL}#g" `grep "{%fs.gs.auth.service.account.email%}" -rl ./`
     sed -i "s#{%fs.gs.auth.service.account.private.key.id%}#${GCS_SERVICE_ACCOUNT_PRIVATE_KEY_ID}#g" `grep "{%fs.gs.auth.service.account.private.key.id%}" -rl ./`
-    sed -i "s#{%fs.gs.auth.service.account.private.key%}#${GCS_SERVICE_ACCOUNT_PRIVATE_KEY}#g" `grep "{%fs.gs.auth.service.account.private.key%}" -rl ./`
+
+    if [ ! -z "${GCS_SERVICE_ACCOUNT_PRIVATE_KEY}" ]; then
+        ${HADOOP_HOME}/bin/hadoop credential create fs.gs.auth.service.account.private.key -value ${GCS_SERVICE_ACCOUNT_PRIVATE_KEY}  -provider ${HADOOP_CREDENTIAL_FILE_PATH}
+        sed -i "s#{%hadoop.credential.property%}#${HADOOP_CREDENTIAL_PROPERTY}#g" `grep "{%hadoop.credential.property%}" -rl ./`
+    else
+        sed -i "s#{%hadoop.credential.property%}#""#g" `grep "{%hadoop.credential.property%}" -rl ./`
+    fi
 }
 
 function update_credential_config_for_azure() {
     sed -i "s#{%azure.storage.account%}#${AZURE_STORAGE_ACCOUNT}#g" "$(grep "{%azure.storage.account%}" -rl ./)"
-    sed -i "s#{%azure.account.key%}#${AZURE_ACCOUNT_KEY}#g" "$(grep "{%azure.account.key%}" -rl ./)"
     sed -i "s#{%fs.azure.account.oauth2.msi.tenant%}#${AZURE_MANAGED_IDENTITY_TENANT_ID}#g" "$(grep "{%fs.azure.account.oauth2.msi.tenant%}" -rl ./)"
     sed -i "s#{%fs.azure.account.oauth2.client.id%}#${AZURE_MANAGED_IDENTITY_CLIENT_ID}#g" "$(grep "{%fs.azure.account.oauth2.client.id%}" -rl ./)"
 
@@ -141,6 +160,14 @@ function update_credential_config_for_azure() {
         else
             sed -i "s#{%auth.type%}##g" "$(grep "{%auth.type%}" -rl ./)"
         fi
+    fi
+
+    if [ ! -z "${AZURE_ACCOUNT_KEY}" ]; then
+        FS_KEY_NAME_FOR_AZURE="fs.azure.account.key.${%AZURE_STORAGE_ACCOUNT%}.${%AZURE_ENDPOINT%}.core.windows.net"
+        ${HADOOP_HOME}/bin/hadoop credential create ${FS_KEY_NAME_FOR_AZURE} -value ${AZURE_ACCOUNT_KEY}  -provider ${HADOOP_CREDENTIAL_FILE_PATH}
+        sed -i "s#{%hadoop.credential.property%}#${HADOOP_CREDENTIAL_PROPERTY}#g" `grep "{%hadoop.credential.property%}" -rl ./`
+    else
+        sed -i "s#{%hadoop.credential.property%}#""#g" `grep "{%hadoop.credential.property%}" -rl ./`
     fi
 }
 
@@ -390,7 +417,6 @@ function configure_jupyter_for_spark() {
       sed -i  "1 ic.NotebookApp.ip = '${HEAD_ADDRESS}'" ~/.jupyter/jupyter_lab_config.py
   fi
 }
-
 check_spark_installed
 set_head_address
 set_resources_for_spark

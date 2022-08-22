@@ -1,6 +1,23 @@
 #!/usr/bin/env bash
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
+while [[ $# -gt 0 ]]
+do
+    key="$1"
+    case $key in
+    --no-build-redis)
+        NO_BUILD_REDIS=YES
+        ;;
+    --no-build-ganglia)
+        NO_BUILD_GANGLIA=YES
+        ;;
+    *)
+        echo "Usage: build.sh [ --no-build-redis ] [ --no-build-ganglia ] "
+        exit 1
+    esac
+    shift
+done
+
 if [ "${OSTYPE}" = msys ]; then
     echo "WARNING: ${0##*/} is not recommended on MSYS2, as MSYS2 alters the build environment."
 fi
@@ -46,8 +63,13 @@ function compile_ganglia_for_python() {
     sudo chmod 644 ${SCRIPT_DIR}/python/dist/modpython.so
 }
 
-compile_redis_server
-compile_ganglia_for_python
+if [ ! $NO_BUILD_REDIS ]; then
+  compile_redis_server
+fi
+
+if [ ! $NO_BUILD_GANGLIA ]; then
+  compile_ganglia_for_python
+fi
 
 # build pip wheel
 cd ${SCRIPT_DIR}/python

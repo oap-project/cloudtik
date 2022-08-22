@@ -22,10 +22,6 @@
         <value>{%fs.default.name%}</value>
     </property>
     <property>
-        <name>fs.azure.account.key.{%azure.storage.account%}.{%storage.endpoint%}.core.windows.net</name>
-        <value>{%azure.account.key%}</value>
-    </property>
-    <property>
         <name>fs.azure.account.auth.type.{%azure.storage.account%}.{%storage.endpoint%}.core.windows.net</name>
         <value>{%auth.type%}</value>
     </property>
@@ -45,6 +41,7 @@
         <name>fs.azure.account.oauth2.client.id</name>
         <value>{%fs.azure.account.oauth2.client.id%}</value>
     </property>
+    {%hadoop.credential.property%}
     <property>
         <name>hadoop.proxyuser.root.groups</name>
         <value>*</value>

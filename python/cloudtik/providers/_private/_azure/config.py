@@ -28,7 +28,8 @@ from azure.storage.filedatalake import DataLakeServiceClient
 from cloudtik.providers._private._azure.utils import _get_node_info, get_azure_sdk_function, get_credential, \
     construct_resource_client, construct_network_client, construct_storage_client, _construct_storage_client, \
     construct_authorization_client, construct_manage_server_identity_client, construct_compute_client, \
-    _construct_compute_client, _construct_resource_client, get_azure_cloud_storage_config
+    _construct_compute_client, _construct_resource_client, export_azure_cloud_storage_config, \
+    get_azure_cloud_storage_config, get_azure_cloud_storage_config_for_update
 from cloudtik.providers._private.utils import StorageTestingError
 
 AZURE_RESOURCE_NAME_PREFIX = "cloudtik"
@@ -52,12 +53,10 @@ def post_prepare_azure(config: Dict[str, Any]) -> Dict[str, Any]:
     try:
         config = fill_available_node_types_resources(config)
     except Exception as exc:
-        if cli_logger.verbosity > 2:
-            logger.exception("Failed to detect node resources.")
-        else:
-            cli_logger.warning(
-                "Failed to detect node resources: {}. You can see full stack trace with higher verbosity.", str(exc))
-
+        cli_logger.warning(
+            "Failed to detect node resources. Make sure you have properly configured the Azure credentials: {}.",
+            str(exc))
+        raise
     return config
 
 
@@ -1724,11 +1723,10 @@ def _configure_cloud_storage_from_workspace(config):
             cli_logger.abort("No managed azure storage container was found. If you want to use managed azure storage, "
                              "you should set managed_cloud_storage equal to True when you creating workspace.")
 
-        if "azure_cloud_storage" not in config["provider"]:
-            config["provider"]["azure_cloud_storage"] = {}
-        config["provider"]["azure_cloud_storage"]["azure.storage.type"] = azure_cloud_storage["azure.storage.type"]
-        config["provider"]["azure_cloud_storage"]["azure.storage.account"] = azure_cloud_storage["azure.storage.account"]
-        config["provider"]["azure_cloud_storage"]["azure.container"] = azure_cloud_storage["azure.container"]
+        cloud_storage = get_azure_cloud_storage_config_for_update(config["provider"])
+        cloud_storage["azure.storage.type"] = azure_cloud_storage["azure.storage.type"]
+        cloud_storage["azure.storage.account"] = azure_cloud_storage["azure.storage.account"]
+        cloud_storage["azure.container"] = azure_cloud_storage["azure.container"]
 
     user_assigned_identity = get_head_user_assigned_identity(config, resource_group_name)
     worker_user_assigned_identity = get_worker_user_assigned_identity(config, resource_group_name)
@@ -2079,7 +2077,7 @@ def _get_workspace_head_nodes(resource_group_name,
 
 
 def verify_azure_blob_storage(provider_config: Dict[str, Any]):
-    azure_cloud_storage = provider_config["azure_cloud_storage"]
+    azure_cloud_storage = get_azure_cloud_storage_config(provider_config)
     azure_storage_account = azure_cloud_storage["azure.storage.account"]
     azure_account_key = azure_cloud_storage["azure.account.key"]
     azure_container = azure_cloud_storage["azure.container"]
@@ -2101,7 +2099,7 @@ def verify_azure_blob_storage(provider_config: Dict[str, Any]):
 
 
 def verify_azure_datalake_storage(provider_config: Dict[str, Any]):
-    azure_cloud_storage = provider_config["azure_cloud_storage"]
+    azure_cloud_storage = get_azure_cloud_storage_config(provider_config)
     azure_storage_account = azure_cloud_storage["azure.storage.account"]
     azure_container = azure_cloud_storage["azure.container"]
     azure_account_key = azure_cloud_storage.get("azure.account.key")
@@ -2130,7 +2128,7 @@ def verify_azure_cloud_storage(provider_config: Dict[str, Any]):
     if _is_use_managed_cloud_storage(provider_config):
         return
 
-    azure_cloud_storage = provider_config.get("azure_cloud_storage")
+    azure_cloud_storage = get_azure_cloud_storage_config(provider_config)
     if azure_cloud_storage is None:
         return
 
@@ -2181,7 +2179,7 @@ def list_azure_clusters(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 
 def with_azure_environment_variables(provider_config, node_type_config: Dict[str, Any], node_id: str):
     config_dict = {}
-    get_azure_cloud_storage_config(provider_config, config_dict)
+    export_azure_cloud_storage_config(provider_config, config_dict)
 
     if node_type_config is not None:
         user_assigned_identity_client_id = node_type_config.get(

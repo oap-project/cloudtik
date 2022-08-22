@@ -25,9 +25,10 @@ from cloudtik.core._private.utils import check_cidr_conflict, unescape_private_k
     _is_use_managed_cloud_storage
 from cloudtik.providers._private.gcp.node import GCPCompute
 from cloudtik.providers._private.gcp.utils import _get_node_info, construct_clients_from_provider_config, \
-    wait_for_compute_global_operation, wait_for_compute_region_operation, _create_storage_client, _create_storage, \
+    wait_for_compute_global_operation, wait_for_compute_region_operation, _create_storage, \
     wait_for_crm_operation, HAS_TPU_PROVIDER_FIELD, _is_head_node_a_tpu, _has_tpus_in_node_configs, \
-    get_gcp_cloud_storage_config, get_service_account_email
+    export_gcp_cloud_storage_config, get_service_account_email, construct_storage_client, construct_storage, \
+    get_gcp_cloud_storage_config, get_gcp_cloud_storage_config_for_update
 from cloudtik.providers._private.utils import StorageTestingError
 
 logger = logging.getLogger(__name__)
@@ -111,11 +112,9 @@ def post_prepare_gcp(config: Dict[str, Any]) -> Dict[str, Any]:
     try:
         config = fill_available_node_types_resources(config)
     except Exception as exc:
-        if cli_logger.verbosity > 2:
-            logger.exception("Failed to detect node resources.")
-        else:
-            cli_logger.warning(
-                "Failed to detect node resources: {}. You can see full stack trace with higher verbosity.", str(exc))
+        cli_logger.warning(
+            "Failed to detect node resources. Make sure you have properly configured the GCP credentials: {}.",
+            str(exc))
 
     return config
 
@@ -127,12 +126,13 @@ def fill_available_node_types_resources(
         return cluster_config
 
     # Get instance information from cloud provider
+    provider_config = cluster_config["provider"]
     _, _, compute, tpu = construct_clients_from_provider_config(
-        cluster_config)
+        provider_config)
 
     response = compute.machineTypes().list(
-        project=cluster_config["provider"]["project_id"],
-        zone=cluster_config["provider"]["availability_zone"],
+        project=provider_config["project_id"],
+        zone=provider_config["availability_zone"],
     ).execute()
 
     instances_list = response.get("items", [])
@@ -165,7 +165,7 @@ def fill_available_node_types_resources(
         else:
             raise ValueError("Instance type " + instance_type +
                              " is not available in GCP zone: " +
-                             cluster_config["provider"]["availability_zone"] + ".")
+                             provider_config["availability_zone"] + ".")
     return cluster_config
 
 
@@ -1021,7 +1021,7 @@ def _create_managed_cloud_storage(cloud_provider, workspace_name):
         return
 
     region = cloud_provider["region"]
-    storage_client = _create_storage_client()
+    storage_client = construct_storage_client(cloud_provider)
     suffix = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(8))
     bucket_name = "cloudtik-{workspace_name}-{region}-{suffix}".format(
         workspace_name=workspace_name,
@@ -1403,9 +1403,9 @@ def _configure_managed_cloud_storage_from_workspace(config, cloud_provider):
     if gcs_bucket is None:
         cli_logger.abort("No managed GCS bucket was found. If you want to use managed GCS bucket, "
                          "you should set managed_cloud_storage equal to True when you creating workspace.")
-    if "gcp_cloud_storage" not in config["provider"]:
-        config["provider"]["gcp_cloud_storage"] = {}
-    config["provider"]["gcp_cloud_storage"]["gcs.bucket"] = gcs_bucket.name
+
+    cloud_storage = get_gcp_cloud_storage_config_for_update(config["provider"])
+    cloud_storage["gcs.bucket"] = gcs_bucket.name
 
 
 def _configure_iam_role(config, crm, iam):
@@ -1774,7 +1774,7 @@ def get_workspace_gcs_bucket(config, workspace_name):
 
 
 def get_managed_gcs_bucket(cloud_provider, workspace_name):
-    gcs = _create_storage_client()
+    gcs = construct_storage_client(cloud_provider)
     region = cloud_provider["region"]
     project_id = cloud_provider["project_id"]
     bucket_name_prefix = "cloudtik-{workspace_name}-{region}-".format(
@@ -2079,20 +2079,20 @@ def _create_project_ssh_key_pair(project, public_key, ssh_user, compute):
 
 
 def verify_gcs_storage(provider_config: Dict[str, Any]):
-    gcs_storage = provider_config.get("gcp_cloud_storage")
+    gcs_storage = get_gcp_cloud_storage_config(provider_config)
     if gcs_storage is None:
         return
 
     try:
         use_managed_cloud_storage = _is_use_managed_cloud_storage(provider_config)
         if use_managed_cloud_storage:
-            storage_gcs = _create_storage()
+            storage_gcs = construct_storage(provider_config)
         else:
             private_key_id = gcs_storage.get("gcs.service.account.private.key.id")
             if private_key_id is None:
                 # The bucket may be able to accessible from roles
                 # Verify through the client credential
-                storage_gcs = _create_storage()
+                storage_gcs = construct_storage(provider_config)
             else:
                 private_key = gcs_storage.get("gcs.service.account.private.key")
                 private_key = unescape_private_key(private_key)
@@ -2144,7 +2144,7 @@ def list_gcp_clusters(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 
 def with_gcp_environment_variables(provider_config, node_type_config: Dict[str, Any], node_id: str):
     config_dict = {}
-    get_gcp_cloud_storage_config(provider_config, config_dict)
+    export_gcp_cloud_storage_config(provider_config, config_dict)
 
     if "GCP_PROJECT_ID" not in config_dict:
         project_id = provider_config.get("project_id")

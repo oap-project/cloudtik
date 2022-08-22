@@ -18,7 +18,7 @@ from cloudtik.providers._private.aws.config import verify_s3_storage, bootstrap_
     with_aws_environment_variables
 from cloudtik.providers._private.aws.utils import boto_exception_handler, \
     get_boto_error_code, BOTO_MAX_RETRIES, BOTO_CREATE_MAX_RETRIES, \
-    _get_node_info, make_ec2_resource
+    _get_node_info, make_ec2_resource, get_aws_s3_storage_config
 from cloudtik.providers._private.utils import validate_config_dict
 
 logger = logging.getLogger(__name__)
@@ -536,8 +536,8 @@ class AWSNodeProvider(NodeProvider):
 
         validate_config_dict(provider_config["type"], config_dict)
 
-        if "aws_s3_storage" in provider_config:
-            storage_config = provider_config["aws_s3_storage"]
+        storage_config = get_aws_s3_storage_config(provider_config)
+        if storage_config is not None:
             config_dict = {
                 "s3.bucket": storage_config.get("s3.bucket"),
                 # The access key is no longer a must since we have role access
@@ -551,7 +551,8 @@ class AWSNodeProvider(NodeProvider):
     def verify_config(
             provider_config: Dict[str, Any]) -> None:
         verify_cloud_storage = provider_config.get("verify_cloud_storage", True)
-        if ("aws_s3_storage" in provider_config) and verify_cloud_storage:
+        cloud_storage = get_aws_s3_storage_config(provider_config)
+        if verify_cloud_storage and cloud_storage is not None:
             cli_logger.verbose("Verifying S3 storage configurations...")
             verify_s3_storage(provider_config)
             cli_logger.verbose("Successfully verified S3 storage configurations.")

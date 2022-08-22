@@ -1,0 +1,13 @@
+# A unique identifier for the workspace
+workspace_name: exmaple-workspace
+
+# Kubernetes provider specific configurations
+provider:
+    type: kubernetes
+
+    # Cloud-provider specific configuration.
+    cloud_provider:
+        type: aws
+        region: us-west-2
+        eks_cluster_name: your-eks-cluster
+        managed_cloud_storage: True

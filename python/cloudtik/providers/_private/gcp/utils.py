@@ -10,6 +10,7 @@ from google.oauth2 import service_account
 from google.oauth2.credentials import Credentials as OAuthCredentials
 
 from cloudtik.core._private.cli_logger import cli_logger
+from cloudtik.core._private.utils import get_storage_config_for_update
 from cloudtik.providers._private.gcp.node import (GCPNodeType, MAX_POLLS,
                                                   POLL_INTERVAL)
 from cloudtik.providers._private.gcp.node import GCPNode
@@ -58,8 +59,8 @@ def _create_tpu(gcp_credentials=None):
         discoveryServiceUrl="https://tpu.googleapis.com/$discovery/rest")
 
 
-def _create_storage_client(gcp_credentials=None):
-    return storage.Client(credentials=gcp_credentials)
+def _create_storage_client(project=None, gcp_credentials=None):
+    return storage.Client(project=project, credentials=gcp_credentials)
 
 
 def _get_gcp_credentials(provider_config):
@@ -78,22 +79,14 @@ def _get_gcp_credentials(provider_config):
         "gcp_credentials cluster yaml field missing 'credentials' field."
 
     cred_type = gcp_credentials["type"]
-    credentials_field = gcp_credentials["credentials"]
+    credentials_fields = gcp_credentials["credentials"]
 
     if cred_type == "service_account":
-        # If parsing the gcp_credentials failed, then the user likely made a
-        # mistake in copying the credentials into the config yaml.
-        try:
-            service_account_info = json.loads(credentials_field)
-        except json.decoder.JSONDecodeError:
-            raise RuntimeError(
-                "gcp_credentials found in cluster yaml file but "
-                "formatted improperly.")
         credentials = service_account.Credentials.from_service_account_info(
-            service_account_info)
-    elif cred_type == "credentials_token":
-        # Otherwise the credentials type must be credentials_token.
-        credentials = OAuthCredentials(credentials_field)
+            credentials_fields)
+    elif cred_type == "oauth_token":
+        # Otherwise the credentials type must be oauth_token.
+        credentials = OAuthCredentials(**credentials_fields)
     else:
         credentials = None
 
@@ -131,6 +124,14 @@ def construct_clients_from_provider_config(provider_config):
         tpu_resource
 
 
+def construct_compute_client(provider_config):
+    credentials = _get_gcp_credentials(provider_config)
+    if credentials is None:
+        return _create_compute()
+
+    return _create_compute(credentials)
+
+
 def construct_crm_client(provider_config):
     credentials = _get_gcp_credentials(provider_config)
     if credentials is None:
@@ -145,6 +146,23 @@ def construct_iam_client(provider_config):
         return _create_iam()
 
     return _create_iam(credentials)
+
+
+def construct_storage(provider_config):
+    credentials = _get_gcp_credentials(provider_config)
+    if credentials is None:
+        return _create_storage()
+
+    return _create_storage(credentials)
+
+
+def construct_storage_client(provider_config):
+    credentials = _get_gcp_credentials(provider_config)
+    project_id = provider_config.get("project_id")
+    if credentials is None:
+        return _create_storage_client(project_id)
+
+    return _create_storage_client(project_id, credentials)
 
 
 def wait_for_crm_operation(operation, crm):
@@ -262,10 +280,24 @@ def _is_head_node_a_tpu(config: dict) -> bool:
         node_configs[config["head_node_type"]]) == GCPNodeType.TPU
 
 
-def get_gcp_cloud_storage_config(provider_config, config_dict: Dict[str, Any]):
-    if "gcp_cloud_storage" not in provider_config:
+def get_gcp_cloud_storage_config(provider_config: Dict[str, Any]):
+    if "storage" in provider_config and "gcp_cloud_storage" in provider_config["storage"]:
+        return provider_config["storage"]["gcp_cloud_storage"]
+
+    return None
+
+
+def get_gcp_cloud_storage_config_for_update(provider_config: Dict[str, Any]):
+    storage_config = get_storage_config_for_update(provider_config)
+    if "gcp_cloud_storage" not in storage_config:
+        storage_config["gcp_cloud_storage"] = {}
+    return storage_config["gcp_cloud_storage"]
+
+
+def export_gcp_cloud_storage_config(provider_config, config_dict: Dict[str, Any]):
+    cloud_storage = get_gcp_cloud_storage_config(provider_config)
+    if cloud_storage is None:
         return
-    cloud_storage = provider_config["gcp_cloud_storage"]
     config_dict["GCP_CLOUD_STORAGE"] = True
 
     project_id = cloud_storage.get("project_id")

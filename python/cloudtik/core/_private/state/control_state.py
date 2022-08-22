@@ -1,9 +1,6 @@
 import logging
 from typing import List, Optional
-import redis
-import time
 
-from cloudtik.core._private.constants import CLOUDTIK_HEARTBEAT_TIMEOUT_S
 from cloudtik.core._private.state.redis_shards_client import RedisShardsClient
 from cloudtik.core._private.state.state_table_store import StateTableStore
 
@@ -138,6 +135,10 @@ class ControlStateAccessor:
         assert self.connected, "Control state accessor not connected"
         return self.state_table_store.get_node_table()
 
+    def get_user_state_table(self, table_name):
+        assert self.connected, "Control state accessor not connected"
+        return self.state_table_store.get_user_state_table(table_name)
+
 
 class ControlState:
     """A class used to interface with the global control state.
@@ -211,58 +212,7 @@ class ControlState:
         node_table = self.control_state_accessor.get_node_table()
         return node_table
 
-    def node_table(self):
-        """Fetch and parse the node info table.
-
-        Returns:
-            Information about the node in the cluster.
-        """
+    def get_user_state_table(self, table_name):
         self._check_connected()
-
-        node_table = self.control_state_accessor.get_node_table()
-
-        results = []
-        for node_info_item in node_table:
-            node_info = {}
-            # TODO (haifeng): parse and populate node info from the node info string
-            node_info["alive"] = node_info["Alive"]
-            results.append(node_info)
-        return results
-
-
-class ResourceUsageBatch:
-    def __init__(self):
-        self.batch = []
-        self.resource_demands = []
-
-    def set_batch(self, batch):
-        self.batch = batch
-
-
-
-class ResourceInfoClient:
-    """Client to read resource information from Redis"""
-
-    def __init__(self,
-                 state_client: ControlState,
-                 nums_reconnect_retry: int = 5):
-        self._state_client = state_client
-        self._nums_reconnect_retry = nums_reconnect_retry
-
-    def get_cluster_resource_usage(self, timeout: int = 60):
-        node_table = self._state_client.get_node_table()
-        # TODO (haifeng): implement the resource usage metrics of cluster
-        resources_usage_batch = ResourceUsageBatch()
-        batch = []
-        for node_info in node_table.get_all().values():
-            node_info_dict = eval(node_info)
-            # Filter out the stale record in the node table
-            delta = time.time() - node_info_dict.get("last_heartbeat_time")
-            if delta < CLOUDTIK_HEARTBEAT_TIMEOUT_S:
-                batch.append(node_info_dict)
-        resources_usage_batch.set_batch(batch)
-        return resources_usage_batch
-
-    @staticmethod
-    def create_from_control_state(control_state):
-        return ResourceInfoClient(state_client=control_state)
+        state_table = self.control_state_accessor.get_user_state_table(table_name)
+        return state_table

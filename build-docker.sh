@@ -36,6 +36,9 @@ do
     --build-spark)
         BUILD_SPARK=YES
         ;;
+    --build-spark-native)
+        BUILD_SPARK_NATIVE=YES
+        ;;
     --build-presto)
         BUILD_PRESTO=YES
         ;;
@@ -67,7 +70,7 @@ do
         PYTHON_VERSION=$1
         ;;
     *)
-        echo "Usage: build-docker.sh [ --gpu ] [ --base-image ] [ --no-cache-build ] [ --shas-only ] [ --build-dev ] [ --wheel-to-use ] [ --python-version ]"
+        echo "Usage: build-docker.sh [ --gpu ] [ --base-image ] [ --no-cache-build ] [ --shas-only ] [ --build-dev ] [ --no-build-all ] [ --build-spark ] [ --build-universe ] [ --wheel-to-use ] [ --python-version ]"
         exit 1
     esac
     shift
@@ -117,21 +120,25 @@ fi
 rm -rf "$WHEEL_DIR"
 
 if [ $BUILD_SPARK ] || [ ! $NO_BUILD_ALL ]; then
-    docker build  $NO_CACHE -t cloudtik/spark-runtime:nightly runtime/spark/docker
+    docker build  $NO_CACHE -t cloudtik/spark-runtime:nightly docker/runtime/spark
+fi
+
+if [ $BUILD_SPARK_NATIVE ] || [ ! $NO_BUILD_ALL ]; then
+    docker build  $NO_CACHE -t cloudtik/spark-runtime-native:nightly docker/runtime/spark/native
 fi
 
 if [ $BUILD_PRESTO ] || [ ! $NO_BUILD_ALL ]; then
-    docker build  $NO_CACHE -t cloudtik/presto-runtime:nightly runtime/presto/docker
+    docker build  $NO_CACHE -t cloudtik/presto-runtime:nightly docker/runtime/presto
 fi
 
 if [ $BUILD_TRINO ] || [ ! $NO_BUILD_ALL ]; then
-    docker build  $NO_CACHE -t cloudtik/trino-runtime:nightly runtime/trino/docker
+    docker build  $NO_CACHE -t cloudtik/trino-runtime:nightly docker/runtime/trino
 fi
 
 if [ $BUILD_ML ] || [ ! $NO_BUILD_ALL ]; then
-    docker build  $NO_CACHE -t cloudtik/ml-runtime:nightly runtime/ml/docker
+    docker build  $NO_CACHE -t cloudtik/ml-runtime:nightly docker/runtime/ml
 fi
 
 if [ $BUILD_UNIVERSE ] || [ ! $NO_BUILD_ALL ]; then
-    docker build  $NO_CACHE -t cloudtik/universe-runtime:nightly runtime/universe/docker
+    docker build  $NO_CACHE -t cloudtik/universe-runtime:nightly docker/runtime/universe
 fi

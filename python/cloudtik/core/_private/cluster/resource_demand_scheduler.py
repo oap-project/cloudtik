@@ -132,16 +132,20 @@ class ResourceDemandScheduler:
             Dict of count to add for each node type, and residual of resources
             that still cannot be fulfilled.
         """
-
-        self._update_node_resources_from_runtime(nodes, max_resources_by_ip)
+        # Note: currently, we don't update the total resources from runtime
+        # But we use the node types static memory information here
+        # self._update_node_resources_from_runtime(nodes, max_resources_by_ip)
 
         node_resources: List[ResourceDict]
         node_type_counts: Dict[NodeType, int]
         node_resources, node_type_counts = self.calculate_node_resources(
             nodes, launching_nodes, unused_resources_by_ip)
 
-        logger.debug("Cluster resources: {}".format(node_resources))
-        logger.debug("Node counts: {}".format(node_type_counts))
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug("Cluster resources: {}".format(node_resources))
+            logger.debug("Node counts: {}".format(node_type_counts))
+            logger.debug("Minimum cluster size: {}".format(ensure_min_cluster_size))
+
         # Step 2: add nodes to add to satisfy min_workers for each type
         (node_resources,
          node_type_counts,
@@ -156,12 +160,17 @@ class ResourceDemandScheduler:
         # Step 3/4: add nodes for pending tasks
         unfulfilled, _ = get_bin_pack_residual(node_resources,
                                                resource_demands)
-        logger.debug("Resource demands: {}".format(resource_demands))
-        logger.debug("Unfulfilled demands: {}".format(unfulfilled))
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug("Resource demands: {}".format(resource_demands))
+            logger.debug("Unfulfilled demands: {}".format(unfulfilled))
+
         nodes_to_add_based_on_demand, final_unfulfilled = get_nodes_for(
             self.node_types, node_type_counts, self.head_node_type, max_to_add,
             unfulfilled)
-        logger.debug("Final unfulfilled: {}".format(final_unfulfilled))
+
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug("Final unfulfilled: {}".format(final_unfulfilled))
+
         # Merge nodes to add based on demand and nodes to add based on
         # min_workers constraint. We add them because nodes to add based on
         # demand was calculated after the min_workers constraint was respected.
@@ -178,7 +187,8 @@ class ResourceDemandScheduler:
             total_nodes_to_add, unused_resources_by_ip.keys(), nodes,
             launching_nodes, adjusted_min_workers)
 
-        logger.debug("Node requests: {}".format(total_nodes_to_add))
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug("Node requests: {}".format(total_nodes_to_add))
         return total_nodes_to_add, final_unfulfilled
 
     def _update_node_resources_from_runtime(
@@ -353,15 +363,28 @@ class ResourceDemandScheduler:
             tags = self.provider.node_tags(node_id)
             if CLOUDTIK_TAG_USER_NODE_TYPE in tags:
                 node_type = tags[CLOUDTIK_TAG_USER_NODE_TYPE]
-                ip = self.provider.internal_ip(node_id)
-                available_resources = unused_resources_by_ip.get(ip)
-                add_node(node_type, available_resources)
+                # NOTE: Special handling for head node -> consider head node resources are all used!
+                if tags[CLOUDTIK_TAG_NODE_KIND] == NODE_KIND_HEAD:
+                    # Head node: consider all the head resources are used, because we cannot use it for workers
+                    if node_type in self.node_types:
+                        available_resources = copy.deepcopy(self.node_types[node_type]["resources"])
+                        for resource_id in available_resources:
+                            available_resources[resource_id] = 0
+                    else:
+                        available_resources = {"CPU": 0}
+                    add_node(node_type, available_resources)
+                elif tags[CLOUDTIK_TAG_NODE_KIND] == NODE_KIND_WORKER:
+                    # Worker node
+                    ip = self.provider.internal_ip(node_id)
+                    available_resources = unused_resources_by_ip.get(ip)
+                    add_node(node_type, available_resources)
 
         for node_type, count in pending_nodes.items():
             for _ in range(count):
                 add_node(node_type)
 
         return node_resources, node_type_counts
+
 
 def _convert_memory_unit(node_types: Dict[NodeType, NodeTypeConfigDict]
                          ) -> Dict[NodeType, NodeTypeConfigDict]:

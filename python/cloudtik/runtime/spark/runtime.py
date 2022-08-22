@@ -1,13 +1,14 @@
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_METASTORE, BUILT_IN_RUNTIME_HDFS
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.runtime import Runtime
+from cloudtik.core.scaling_policy import ScalingPolicy
 from cloudtik.runtime.spark.utils import _config_runtime_resources, _with_runtime_environment_variables, \
     _is_runtime_scripts, _get_runnable_command, get_runtime_processes, _validate_config, \
     _verify_config, get_runtime_logs, _get_runtime_commands, \
-    _get_defaults_config, _get_useful_urls, _config_depended_services, _get_runtime_service_ports
+    _get_defaults_config, _get_useful_urls, _config_depended_services, _get_runtime_service_ports, _get_scaling_policy
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +65,9 @@ class SparkRuntime(Runtime):
 
     def get_runtime_service_ports(self) -> Dict[str, Any]:
         return _get_runtime_service_ports(self.runtime_config)
+
+    def get_scaling_policy(self, cluster_config: Dict[str, Any], head_ip: str) -> Optional[ScalingPolicy]:
+        return _get_scaling_policy(self.runtime_config, cluster_config, head_ip)
 
     @staticmethod
     def get_logs() -> Dict[str, str]:

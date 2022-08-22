@@ -7,7 +7,7 @@ from cloudtik.core._private.cli_logger import (add_click_logging_options,
                                                cli_logger)
 from cloudtik.core._private.cluster.cluster_operator import (
     start_node_from_head, stop_node_from_head)
-from cloudtik.scripts.utils import NaturalOrderGroup
+from cloudtik.scripts.utils import NaturalOrderGroup, add_command_alias
 
 logger = logging.getLogger(__name__)
 
@@ -142,5 +142,10 @@ def stop(cluster_config_file, cluster_name, no_config_cache,
             traceback.print_exc()
 
 
+def runtime_add_command_alias(command, name, hidden):
+    add_command_alias(runtime, command, name, hidden)
+
+
 runtime.add_command(start)
+runtime_add_command_alias(start, name="restart", hidden=True)
 runtime.add_command(stop)

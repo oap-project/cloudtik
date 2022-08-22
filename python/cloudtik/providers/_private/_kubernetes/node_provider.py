@@ -18,8 +18,11 @@ from cloudtik.providers._private._kubernetes import core_api, log_prefix, \
     networking_api
 from cloudtik.providers._private._kubernetes.config import bootstrap_kubernetes, \
     post_prepare_kubernetes, _add_service_name_to_service_port, head_service_selector, \
-    bootstrap_kubernetes_for_api, cleanup_kubernetes_cluster, with_kubernetes_environment_variables
-from cloudtik.providers._private._kubernetes.utils import _get_node_info, to_label_selector
+    bootstrap_kubernetes_for_api, cleanup_kubernetes_cluster, with_kubernetes_environment_variables, get_head_hostname, \
+    get_worker_hostname
+from cloudtik.providers._private._kubernetes.utils import _get_node_info, to_label_selector, \
+    create_and_configure_pvc_for_pod, delete_persistent_volume_claims, get_pod_persistent_volume_claims, \
+    delete_persistent_volume_claims_by_name
 from cloudtik.providers._private.utils import validate_config_dict
 
 logger = logging.getLogger(__name__)
@@ -114,7 +117,8 @@ class KubernetesNodeProvider(NodeProvider):
 
     def create_node(self, node_config, tags, count):
         conf = copy.deepcopy(node_config)
-        pod_spec = conf.get("pod", conf)
+        data_disks = conf.get("dataDisks")
+        pod_spec = conf["pod"]
         service_spec = conf.get("service")
         ingress_spec = conf.get("ingress")
         node_uuid = str(uuid4())
@@ -133,10 +137,22 @@ class KubernetesNodeProvider(NodeProvider):
 
         logger.debug(log_prefix + "calling create_namespaced_pod "
                                   "(count={}).".format(count))
+
         new_nodes = []
         for _ in range(count):
-            pod = core_api().create_namespaced_pod(self.namespace, pod_spec)
-            new_nodes.append(pod)
+            _pod_spec = copy.deepcopy(pod_spec)
+            # Generate a random hostname
+            _pod_spec["spec"]["hostname"] = get_head_hostname() if (
+                    tags[CLOUDTIK_TAG_NODE_KIND] == NODE_KIND_HEAD) else get_worker_hostname()
+            created_pvcs = create_and_configure_pvc_for_pod(
+                _pod_spec, data_disks, self.cluster_name, self.namespace)
+            try:
+                pod = core_api().create_namespaced_pod(self.namespace, _pod_spec)
+                new_nodes.append(pod)
+            except ApiException:
+                logger.error("Error happened when creating the pod. Try clean up its PVCs...")
+                delete_persistent_volume_claims(created_pvcs, self.namespace)
+                raise
 
         new_svcs = []
         if service_spec is not None:
@@ -164,7 +180,11 @@ class KubernetesNodeProvider(NodeProvider):
                 networking_api().create_namespaced_ingress(self.namespace, ingress_spec)
 
     def terminate_node(self, node_id):
-        logger.debug(log_prefix + "calling delete_namespaced_pod")
+        logger.debug(log_prefix + f"Deleting PVCs for pod: {node_id}.")
+
+        pod_pvcs = get_pod_persistent_volume_claims(node_id, self.cluster_name, self.namespace)
+
+        logger.debug(log_prefix + "Calling delete_namespaced_pod")
         try:
             core_api().delete_namespaced_pod(node_id, self.namespace)
         except ApiException as e:
@@ -173,10 +193,18 @@ class KubernetesNodeProvider(NodeProvider):
                                " but the pod was not found (404).")
             else:
                 raise
+
+        try:
+            delete_persistent_volume_claims_by_name(pod_pvcs, self.namespace)
+        except ApiException:
+            logger.warning(log_prefix + f"Error happened when deleting PVCs of pod {node_id}.")
+            pass
+
         try:
             core_api().delete_namespaced_service(node_id, self.namespace)
         except ApiException:
             pass
+
         try:
             networking_api().delete_namespaced_ingress(
                 node_id,
@@ -205,10 +233,9 @@ class KubernetesNodeProvider(NodeProvider):
     def bootstrap_config(cluster_config):
         return bootstrap_kubernetes(cluster_config)
 
-    @staticmethod
-    def cleanup_cluster(cluster_config: Dict[str, Any]):
+    def cleanup_cluster(self, cluster_config: Dict[str, Any]):
         """Finalize the cluster by cleanup additional resources other than the nodes."""
-        cleanup_kubernetes_cluster(cluster_config)
+        cleanup_kubernetes_cluster(cluster_config, self.cluster_name, self.namespace)
 
     @staticmethod
     def bootstrap_config_for_api(cluster_config: Dict[str, Any]) -> Dict[str, Any]:

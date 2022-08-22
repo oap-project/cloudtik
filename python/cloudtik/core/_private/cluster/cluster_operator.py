@@ -36,7 +36,8 @@ from cloudtik.core._private.constants import \
     CLOUDTIK_RESOURCE_REQUEST_CHANNEL, \
     MAX_PARALLEL_SHUTDOWN_WORKERS, \
     CLOUDTIK_DEFAULT_PORT, \
-    CLOUDTIK_REDIS_DEFAULT_PASSWORD, CLOUDTIK_CLUSTER_STATUS_STOPPED, CLOUDTIK_CLUSTER_STATUS_RUNNING
+    CLOUDTIK_REDIS_DEFAULT_PASSWORD, CLOUDTIK_CLUSTER_STATUS_STOPPED, CLOUDTIK_CLUSTER_STATUS_RUNNING, \
+    CLOUDTIK_RUNTIME_NAME
 from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     hash_launch_conf, prepare_config, get_free_port, \
     get_proxy_info_file, get_safe_proxy_process_info, \
@@ -47,10 +48,11 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     with_node_ip_environment_variables, run_in_paralell_on_nodes, get_commands_to_run, \
     cluster_booting_completed, load_head_cluster_config, get_runnable_command, get_cluster_uri, \
     with_head_node_ip_environment_variables, get_verified_runtime_list, get_commands_of_runtimes, \
-    is_node_in_completed_status, check_for_single_worker_type, get_preferred_cpu_bundle_size, \
+    is_node_in_completed_status, check_for_single_worker_type, \
     get_node_specific_commands_of_runtimes, _get_node_specific_runtime_config, \
     _get_node_specific_docker_config, RUNTIME_CONFIG_KEY, DOCKER_CONFIG_KEY, get_running_head_node, \
-    get_nodes_for_runtime, with_script_args
+    get_nodes_for_runtime, with_script_args, encrypt_config, get_resource_demands_for_cpu, convert_nodes_to_cpus, \
+    with_environment_variables_from_config, get_node_type
 
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
@@ -140,25 +142,7 @@ def debug_status_string(status, error) -> str:
 def request_resources(num_cpus: Optional[int] = None,
                       bundles: Optional[List[dict]] = None,
                       config: Dict[str, Any] = None) -> None:
-    cpus_to_request = None
-    if num_cpus:
-        remaining = num_cpus
-        cpus_to_request = []
-        if config:
-            # convert the num cpus based on the largest common factor of the node types
-            cpu_bundle_size = get_preferred_cpu_bundle_size(config)
-            if cpu_bundle_size and cpu_bundle_size > 0:
-                count = int(num_cpus / cpu_bundle_size)
-                remaining = num_cpus % cpu_bundle_size
-                if count > 0:
-                    cpus_to_request += [{"CPU": cpu_bundle_size}] * count
-                if remaining > 0:
-                    cpus_to_request += [{"CPU": remaining}]
-                remaining = 0
-
-        if remaining > 0:
-            cpus_to_request += [{"CPU": 1}] * remaining
-
+    cpus_to_request = get_resource_demands_for_cpu(num_cpus, config)
     _request_resources(cpus=cpus_to_request, bundles=bundles)
 
 
@@ -295,11 +279,11 @@ def create_or_update_cluster(
 
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     head_node = _get_running_head_node(config)
-    show_useful_commands(config_file,
-                         call_context=call_context,
+    show_useful_commands(call_context=call_context,
                          config=config,
                          provider=provider,
                          head_node=head_node,
+                         config_file=config_file,
                          override_cluster_name=override_cluster_name)
     return config
 
@@ -461,7 +445,7 @@ def _teardown_cluster(config: Dict[str, Any],
     if proxy_stop:
         total_steps += 1
     if not workers_only:
-        total_steps += 1
+        total_steps += 2
 
     if proxy_stop:
         with cli_logger.group(
@@ -472,7 +456,7 @@ def _teardown_cluster(config: Dict[str, Any],
 
     if not workers_only:
         with cli_logger.group(
-                "Requesting head to stop head services",
+                "Requesting head to stop controller services",
                 _numbered=("[]", current_step, total_steps)):
             current_step += 1
             try:
@@ -480,11 +464,12 @@ def _teardown_cluster(config: Dict[str, Any],
                     config,
                     call_context=call_context,
                     node_ip=None, all_nodes=False,
+                    runtimes=[CLOUDTIK_RUNTIME_NAME],
                     indent_level=2)
             except Exception as e:
                 cli_logger.verbose_error("{}", str(e))
                 cli_logger.warning(
-                    "Exception occurred when stopping head services "
+                    "Exception occurred when stopping controller services "
                     "(use -v to show details).")
                 cli_logger.warning(
                     "Ignoring the exception and "
@@ -513,6 +498,26 @@ def _teardown_cluster(config: Dict[str, Any],
             cli_logger.warning(
                 "Ignoring the exception and "
                 "attempting to shut down the cluster nodes anyway.")
+
+    if not workers_only:
+        with cli_logger.group(
+                "Requesting head to stop head services",
+                _numbered=("[]", current_step, total_steps)):
+            current_step += 1
+            try:
+                _stop_node_from_head(
+                    config,
+                    call_context=call_context,
+                    node_ip=None, all_nodes=False,
+                    indent_level=2)
+            except Exception as e:
+                cli_logger.verbose_error("{}", str(e))
+                cli_logger.warning(
+                    "Exception occurred when stopping head services "
+                    "(use -v to show details).")
+                cli_logger.warning(
+                    "Ignoring the exception and "
+                    "attempting to shut down the cluster nodes anyway.")
 
     with cli_logger.group(
             "Stopping head and remaining nodes",
@@ -812,8 +817,15 @@ def _kill_node(config: Dict[str, Any],
 def monitor_cluster(config_file: str, num_lines: int,
                     override_cluster_name: Optional[str] = None,
                     file_type: str = None) -> None:
-    """Tails the controller logs of a cluster."""
     config = _load_cluster_config(config_file, override_cluster_name)
+    _monitor_cluster(config, num_lines, file_type)
+
+
+def _monitor_cluster(config: Dict[str, Any],
+                     num_lines: int,
+                     file_type: str = None) -> None:
+    """Tails the controller logs of a cluster."""
+
     call_context = cli_call_context()
     cmd = f"tail -n {num_lines} -f /tmp/cloudtik/session_latest/logs/cloudtik_cluster_controller"
     if file_type and file_type != "":
@@ -964,7 +976,9 @@ def get_or_create_head_node(config: Dict[str, Any],
         (runtime_hash,
          file_mounts_contents_hash,
          runtime_hash_for_node_types) = hash_runtime_conf(
-            config["file_mounts"], None, config)
+            file_mounts=config["file_mounts"],
+            cluster_synced_files=None,
+            extra_objs=config)
         # Even we don't need controller on head, we still need config and cluster keys on head
         # because head depends a lot on the cluster config file and cluster keys to do cluster
         # operations and connect to the worker.
@@ -1131,7 +1145,7 @@ def _set_up_config_for_head_node(config: Dict[str, Any],
     remote_config["no_restart"] = no_restart
 
     remote_config = provider.prepare_for_head_node(remote_config)
-
+    remote_config = encrypt_config(remote_config)
     # Now inject the rewritten config and SSH key into the head node
     remote_config_file = tempfile.NamedTemporaryFile(
         "w", prefix="cloudtik-bootstrap-")
@@ -1802,6 +1816,10 @@ def get_cluster_dump_archive(config_file: Optional[str] = None,
 def show_worker_cpus(config_file: str,
                      override_cluster_name: Optional[str] = None) -> None:
     config = _load_cluster_config(config_file, override_cluster_name)
+    _show_worker_cpus(config)
+
+
+def _show_worker_cpus(config: Dict[str, Any]):
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     worker_cpus = get_worker_cpus(config, provider)
     cli_logger.print(cf.bold(worker_cpus))
@@ -1810,6 +1828,10 @@ def show_worker_cpus(config_file: str,
 def show_worker_memory(config_file: str,
                        override_cluster_name: Optional[str] = None) -> None:
     config = _load_cluster_config(config_file, override_cluster_name)
+    _show_worker_memory(config)
+
+
+def _show_worker_memory(config: Dict[str, Any]):
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     memory_in_gb = int(get_worker_memory(config, provider))
     cli_logger.print(cf.bold("{}GB"), memory_in_gb)
@@ -1819,6 +1841,12 @@ def show_cluster_info(config_file: str,
                       override_cluster_name: Optional[str] = None) -> None:
     """Shows the cluster information for given configuration file."""
     config = _load_cluster_config(config_file, override_cluster_name)
+    _show_cluster_info(config, config_file, override_cluster_name)
+
+
+def _show_cluster_info(config: Dict[str, Any],
+                       config_file: str,
+                       override_cluster_name: Optional[str] = None):
     provider = _get_node_provider(config["provider"], config["cluster_name"])
 
     cluster_info = _get_cluster_info(config, provider)
@@ -1839,19 +1867,19 @@ def show_cluster_info(config_file: str,
     cli_logger.print(cf.bold("The total worker memory: {}GB."), cluster_info["total-worker-memory"])
 
     head_node = cluster_info["head-id"]
-    show_useful_commands(config_file,
-                         call_context=cli_call_context(),
+    show_useful_commands(call_context=cli_call_context(),
                          config=config,
                          provider=provider,
                          head_node=head_node,
+                         config_file=config_file,
                          override_cluster_name=override_cluster_name)
 
 
-def show_useful_commands(config_file: str,
-                         call_context: CallContext,
+def show_useful_commands(call_context: CallContext,
                          config: Dict[str, Any],
                          provider: NodeProvider,
                          head_node: str,
+                         config_file: str,
                          override_cluster_name: Optional[str] = None
                          ) -> None:
     _cli_logger = call_context.cli_logger
@@ -1929,6 +1957,10 @@ def show_cluster_status(config_file: str,
                         override_cluster_name: Optional[str] = None
                         ) -> None:
     config = _load_cluster_config(config_file, override_cluster_name)
+    _show_cluster_status(config)
+
+
+def _show_cluster_status(config: Dict[str, Any]) -> None:
     nodes_info = _get_cluster_nodes_info(config)
 
     tb = pt.PrettyTable()
@@ -2623,7 +2655,7 @@ def _start_node_on_head(
 
         runtime_config = _get_node_specific_runtime_config(
             config, provider, node_id)
-        runtime_envs = with_runtime_environment_variables(
+        node_envs = with_runtime_environment_variables(
             runtime_config, config=config, provider=provider, node_id=node_id)
 
         is_head_node = False
@@ -2654,8 +2686,8 @@ def _start_node_on_head(
             use_internal_ip=True,
             runtime_config=runtime_config)
 
-        node_runtime_envs.update(runtime_envs)
-        updater.exec_commands("Starting", start_commands, node_runtime_envs)
+        node_envs.update(node_runtime_envs)
+        updater.exec_commands("Starting", start_commands, node_envs)
 
     # First start on head if needed
     if node_head:
@@ -2877,7 +2909,7 @@ def _stop_node_on_head(
 
         runtime_config = _get_node_specific_runtime_config(
             config, provider, node_id)
-        runtime_envs = with_runtime_environment_variables(
+        node_envs = with_runtime_environment_variables(
             runtime_config, config=config, provider=provider, node_id=node_id)
 
         is_head_node = False
@@ -2911,8 +2943,8 @@ def _stop_node_on_head(
             use_internal_ip=True,
             runtime_config=runtime_config)
 
-        node_runtime_envs.update(runtime_envs)
-        updater.exec_commands("Stopping", stop_commands, node_runtime_envs)
+        node_envs.update(node_runtime_envs)
+        updater.exec_commands("Stopping", stop_commands, node_envs)
 
     _cli_logger = call_context.cli_logger
 
@@ -3012,19 +3044,6 @@ def scale_cluster_on_head(yes: bool, cpus: int, nodes: int):
         request_resources(num_cpus=cpus, config=config)
     except Exception as e:
         cli_logger.abort("Error happened when making the scale cluster request.", exc=e)
-
-
-def convert_nodes_to_cpus(config: Dict[str, Any], nodes: int) -> int:
-    available_node_types = config["available_node_types"]
-    head_node_type = config["head_node_type"]
-    for node_type in available_node_types:
-        if node_type != head_node_type:
-            resources = available_node_types[node_type].get("resources", {})
-            cpu_total = resources.get("CPU", 0)
-            if cpu_total > 0:
-                return nodes * cpu_total
-
-    return 0
 
 
 def submit_and_exec(config: Dict[str, Any],

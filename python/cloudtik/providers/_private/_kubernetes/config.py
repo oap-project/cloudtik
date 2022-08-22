@@ -4,6 +4,8 @@ import math
 import re
 import time
 from typing import Any, Dict, Optional
+import random
+import string
 
 from kubernetes import client
 from kubernetes.client.rest import ApiException
@@ -20,7 +22,8 @@ from cloudtik.core._private.constants import CLOUDTIK_DEFAULT_OBJECT_STORE_MEMOR
 from cloudtik.providers._private._kubernetes.utils import _get_node_info, to_label_selector, \
     KUBERNETES_WORKSPACE_NAME_MAX, check_kubernetes_name_format, _get_head_service_account_name, \
     _get_worker_service_account_name, KUBERNETES_HEAD_SERVICE_ACCOUNT_CONFIG_KEY, \
-    KUBERNETES_WORKER_SERVICE_ACCOUNT_CONFIG_KEY, _get_service_account
+    KUBERNETES_WORKER_SERVICE_ACCOUNT_CONFIG_KEY, _get_service_account, \
+    cleanup_orphan_pvcs
 
 logger = logging.getLogger(__name__)
 
@@ -35,8 +38,17 @@ MEMORY_SIZE_UNITS = {
 CLOUDTIK_COMPONENT_LABEL = "cluster.cloudtik.io/component"
 CLOUDTIK_HEAD_POD_NAME_PREFIX = "cloudtik-{}-head-"
 CLOUDTIK_WORKER_POD_NAME_PREFIX = "cloudtik-{}-worker-"
+
 CLOUDTIK_HEAD_POD_LABEL = "cloudtik-{}-head"
+CLOUDTIK_WORKER_POD_LABEL = "cloudtik-{}-worker"
+
 CLOUDTIK_HEAD_SERVICE_NAME_FORMAT = "cloudtik-{}-head"
+CLOUDTIK_NODE_SERVICE_NAME_FORMAT = "{}"
+
+CLOUDTIK_CLUSTER_POD_LABEL = "cloudtik-{}"
+
+CLOUDTIK_HEAD_HOSTNAME = "head-{}"
+CLOUDTIK_WORKER_HOSTNAME = "worker-{}"
 
 CONFIG_NAME_IMAGE = "image"
 
@@ -49,10 +61,8 @@ KUBERNETES_WORKER_SERVICE_ACCOUNT = "kubernetes.worker.service_account"
 KUBERNETES_HEAD_ROLE = "kubernetes.head.role"
 KUBERNETES_HEAD_ROLE_BINDING = "kubernetes.head.role_binding"
 
-
 KUBERNETES_HEAD_ROLE_CONFIG_KEY = "head_role"
 KUBERNETES_HEAD_ROLE_BINDING_CONFIG_KEY = "head_role_binding"
-
 
 KUBERNETES_WORKSPACE_NUM_CREATION_STEPS = 5
 KUBERNETES_WORKSPACE_NUM_DELETION_STEPS = 5
@@ -68,18 +78,37 @@ def head_service_selector(cluster_name: str) -> Dict[str, str]:
     return {CLOUDTIK_COMPONENT_LABEL: CLOUDTIK_HEAD_POD_LABEL.format(cluster_name)}
 
 
-def _get_service_name_format(service):
-    service_name = service.get("metadata", {}).get("name")
-    if service_name is None or service_name == "":
-        return CLOUDTIK_HEAD_SERVICE_NAME_FORMAT
-    return service_name
+def _get_head_service_name(cluster_name):
+    return CLOUDTIK_HEAD_SERVICE_NAME_FORMAT.format(cluster_name)
 
 
-def _get_service_selector_format(service):
-    selector = service.get("spec", {}).get("selector", {}).get("component")
-    if selector is None or selector == "":
-        return CLOUDTIK_HEAD_POD_LABEL
-    return selector
+def _get_node_service_name(cluster_name):
+    return CLOUDTIK_NODE_SERVICE_NAME_FORMAT.format(cluster_name)
+
+
+def _get_head_component_selector(cluster_name):
+    return CLOUDTIK_HEAD_POD_LABEL.format(cluster_name)
+
+
+def _get_worker_component_selector(cluster_name):
+    return CLOUDTIK_WORKER_POD_LABEL.format(cluster_name)
+
+
+def _get_cluster_selector(cluster_name):
+    return CLOUDTIK_CLUSTER_POD_LABEL.format(cluster_name)
+
+
+def get_random_hostname(hostname_format):
+    suffix = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(8))
+    return hostname_format.format(suffix)
+
+
+def get_head_hostname():
+    return get_random_hostname(CLOUDTIK_HEAD_HOSTNAME)
+
+
+def get_worker_hostname():
+    return get_random_hostname(CLOUDTIK_WORKER_HOSTNAME)
 
 
 def _add_service_name_to_service_port(spec, svc_name):
@@ -387,7 +416,6 @@ def bootstrap_kubernetes_default(config):
 
     _configure_pods(config)
     _configure_services(config)
-
     _create_or_update_services(namespace, config["provider"])
 
     if not config["provider"].get("_operator"):
@@ -411,15 +439,17 @@ def bootstrap_kubernetes_from_workspace(config):
     _configure_cloud_provider(config, namespace)
     _configure_pods(config)
     _configure_services(config)
-
     _create_or_update_services(namespace, config["provider"])
 
     return config
 
 
-def cleanup_kubernetes_cluster(config):
+def cleanup_kubernetes_cluster(config, cluster_name, namespace):
     # Delete services associated with the cluster
     _delete_services(config)
+
+    # Clean up the PVCs if there are any not deleted by Pod deletion
+    cleanup_orphan_pvcs(cluster_name, namespace)
 
 
 def _configure_namespace_from_workspace(config):
@@ -440,11 +470,9 @@ def post_prepare_kubernetes(config: Dict[str, Any]) -> Dict[str, Any]:
     try:
         config = fill_resources_kubernetes(config)
     except Exception as exc:
-        if cli_logger.verbosity > 2:
-            logger.exception("Failed to detect node resources.")
-        else:
-            cli_logger.warning(
-                "Failed to detect node resources: {}. You can see full stack trace with higher verbosity.", str(exc))
+        cli_logger.warning(
+            "Failed to detect node resources. Make sure you have properly configured the Kubernetes credentials: {}.",
+            str(exc))
 
     # Set use_managed_cloud_storage value from cloud_provider if it is set
     provider_config = config["provider"]
@@ -467,7 +495,8 @@ def fill_resources_kubernetes(config):
     node_types = copy.deepcopy(config["available_node_types"])
     for node_type in node_types:
         node_config = node_types[node_type]["node_config"]
-        container_data = node_config["spec"]["containers"][0]
+        pod = node_config["pod"]
+        container_data = pod["spec"]["containers"][0]
 
         autodetected_resources = get_autodetected_resources(container_data)
         if "resources" not in config["available_node_types"][node_type]:
@@ -684,35 +713,50 @@ def _configure_head_role_binding(namespace, provider_config):
 
 
 def _create_or_update_services(namespace, provider_config):
-    service_field = "services"
+    _create_or_update_head_service(namespace, provider_config)
+    _create_or_update_node_service(namespace, provider_config)
+
+
+def _create_or_update_head_service(namespace, provider_config):
+    service_field = "head_service"
     if service_field not in provider_config:
         cli_logger.print(log_prefix + not_provided_msg(service_field))
         return
+    _create_or_update_service(namespace, provider_config, service_field)
 
-    services = provider_config[service_field]
-    for service in services:
-        if "namespace" not in service["metadata"]:
-            service["metadata"]["namespace"] = namespace
-        elif service["metadata"]["namespace"] != namespace:
-            raise InvalidNamespaceError(service_field, namespace)
 
-        name = service["metadata"]["name"]
-        field_selector = "metadata.name={}".format(name)
-        services = core_api().list_namespaced_service(
-            namespace, field_selector=field_selector).items
-        if len(services) > 0:
-            assert len(services) == 1
-            existing_service = services[0]
-            if service == existing_service:
-                cli_logger.print(log_prefix + using_existing_msg("service", name))
-                return
-            else:
-                cli_logger.print(log_prefix + updating_existing_msg("service", name))
-                core_api().patch_namespaced_service(name, namespace, service)
+def _create_or_update_node_service(namespace, provider_config):
+    service_field = "node_service"
+    if service_field not in provider_config:
+        cli_logger.print(log_prefix + not_provided_msg(service_field))
+        raise RuntimeError("No node service specified in configuration.")
+    _create_or_update_service(namespace, provider_config, service_field)
+
+
+def _create_or_update_service(namespace, provider_config, service_field):
+    service = provider_config[service_field]
+    if "namespace" not in service["metadata"]:
+        service["metadata"]["namespace"] = namespace
+    elif service["metadata"]["namespace"] != namespace:
+        raise InvalidNamespaceError(service_field, namespace)
+
+    name = service["metadata"]["name"]
+    field_selector = "metadata.name={}".format(name)
+    service_list = core_api().list_namespaced_service(
+        namespace, field_selector=field_selector).items
+    if len(service_list) > 0:
+        assert len(service_list) == 1
+        existing_service = service_list[0]
+        if service == existing_service:
+            cli_logger.print(log_prefix + using_existing_msg("service", name))
+            return
         else:
-            cli_logger.print(log_prefix + not_found_msg("service", name))
-            core_api().create_namespaced_service(namespace, service)
-            cli_logger.print(log_prefix + created_msg("service", name))
+            cli_logger.print(log_prefix + updating_existing_msg("service", name))
+            core_api().patch_namespaced_service(name, namespace, service)
+    else:
+        cli_logger.print(log_prefix + not_found_msg("service", name))
+        core_api().create_namespaced_service(namespace, service)
+        cli_logger.print(log_prefix + created_msg("service", name))
 
 
 def _configure_pods(config):
@@ -721,11 +765,12 @@ def _configure_pods(config):
 
     # Update the generateName pod name and labels with the cluster name
     _configure_pod_name_and_labels(config)
+    _configure_pod_service_account(config)
+    _configure_pod_hostname(config)
 
     # Configure the head pod container ports
     _configure_pod_container_ports(config)
-
-    _configure_pod_service_account(config)
+    _configure_pod_container_resources(config)
 
 
 def _configure_pod_name_and_labels(config):
@@ -737,13 +782,14 @@ def _configure_pod_name_and_labels(config):
     head_node_type = config["head_node_type"]
     for node_type in node_types:
         node_config = node_types[node_type]["node_config"]
-        if "metadata" not in node_config:
-            node_config["metadata"] = {}
-        metadata = node_config["metadata"]
+        pod = node_config["pod"]
+        if "metadata" not in pod:
+            pod["metadata"] = {}
+        metadata = pod["metadata"]
         if node_type == head_node_type:
             _configure_pod_name_and_labels_for_head(metadata, cluster_name)
         else:
-            _configure_pod_name(metadata, cluster_name, CLOUDTIK_WORKER_POD_NAME_PREFIX)
+            _configure_pod_name_and_labels_for_worker(metadata, cluster_name)
 
 
 def _configure_pod_name_and_labels_for_head(metadata, cluster_name):
@@ -751,16 +797,38 @@ def _configure_pod_name_and_labels_for_head(metadata, cluster_name):
     if "labels" not in metadata:
         metadata["labels"] = {}
     labels = metadata["labels"]
-    labels["component"] = CLOUDTIK_HEAD_POD_LABEL.format(cluster_name)
+    labels["cluster"] = _get_cluster_selector(cluster_name)
+    labels["component"] = _get_head_component_selector(cluster_name)
+
+
+def _configure_pod_name_and_labels_for_worker(metadata, cluster_name):
+    _configure_pod_name(metadata, cluster_name, CLOUDTIK_WORKER_POD_NAME_PREFIX)
+    if "labels" not in metadata:
+        metadata["labels"] = {}
+    labels = metadata["labels"]
+    labels["cluster"] = _get_cluster_selector(cluster_name)
+    labels["component"] = _get_worker_component_selector(cluster_name)
 
 
 def _configure_pod_name(metadata, cluster_name, name_pattern):
     metadata["generateName"] = name_pattern.format(cluster_name)
 
 
-def _configure_pod_container_ports(config):
+def _configure_pod_hostname(config):
     if "available_node_types" not in config:
         return config
+
+    cluster_name = config["cluster_name"]
+    node_types = config["available_node_types"]
+    for node_type in node_types:
+        node_config = node_types[node_type]["node_config"]
+        spec = node_config["pod"]["spec"]
+        spec["subdomain"] = cluster_name
+
+
+def _configure_pod_container_ports(config):
+    if "available_node_types" not in config:
+        return
 
     runtime_config = config.get("runtime", {})
     service_ports = get_runtime_service_ports(runtime_config)
@@ -768,7 +836,8 @@ def _configure_pod_container_ports(config):
     node_types = config["available_node_types"]
     head_node_type = config["head_node_type"]
     node_config = node_types[head_node_type]["node_config"]
-    container_data = node_config["spec"]["containers"][0]
+    pod = node_config["pod"]
+    container_data = pod["spec"]["containers"][0]
 
     if "ports" not in container_data:
         container_data["ports"] = []
@@ -784,45 +853,103 @@ def _configure_pod_container_ports(config):
     container_data["ports"] = ports
 
 
+def _configure_pod_container_resources(config):
+    if "available_node_types" not in config:
+        return
+
+    node_types = config["available_node_types"]
+    for node_type in node_types:
+        node_config = node_types[node_type]["node_config"]
+        if "resources" in node_config:
+            resources = node_config["resources"]
+            containers = node_config["pod"]["spec"]["containers"]
+            for container in containers:
+                _configure_container_resources(resources, container)
+
+
+def _configure_container_resources(resources, container):
+    cpu = resources.get("cpu")
+    memory = resources.get("memory")
+    if cpu is not None or memory is not None:
+        if "resources" not in container:
+            container["resources"] = {}
+        container_resources = container["resources"]
+        if "requests" not in container_resources:
+            container_resources["requests"] = {}
+        if "limits" not in container_resources:
+            container_resources["limits"] = {}
+
+        if cpu is not None:
+            container_resources["requests"]["cpu"] = cpu
+            container_resources["limits"]["cpu"] = cpu
+
+        if memory is not None:
+            container_resources["requests"]["memory"] = memory
+            container_resources["limits"]["memory"] = memory
+
+
 def _configure_services(config):
     _configure_services_name_and_selector(config)
-    _configure_services_ports(config)
+    _configure_head_service_ports(config)
 
 
 def _configure_services_name_and_selector(config):
+    _configure_head_service_name_and_selector(config)
+    _configure_node_service_name_and_selector(config)
+
+
+def _configure_head_service_name_and_selector(config):
     provider_config = config["provider"]
-    service_field = "services"
+    service_field = "head_service"
     if service_field not in provider_config:
         return
 
     cluster_name = config["cluster_name"]
-    services = provider_config[service_field]
-    for service in services:
-        if "metadata" not in service:
-            service["metadata"] = {}
-        service_name_format = _get_service_name_format(service)
-        service["metadata"]["name"] = service_name_format.format(cluster_name)
+    service = provider_config[service_field]
 
-        if "spec" not in service:
-            service["spec"] = {}
-        if "selector" not in service["spec"]:
-            service["spec"]["selector"] = {}
-        component_selector_pattern = _get_service_selector_format(service)
-        service["spec"]["selector"]["component"] = component_selector_pattern.format(cluster_name)
+    if "metadata" not in service:
+        service["metadata"] = {}
+    service["metadata"]["name"] = _get_head_service_name(cluster_name)
+
+    if "spec" not in service:
+        service["spec"] = {}
+    if "selector" not in service["spec"]:
+        service["spec"]["selector"] = {}
+
+    service["spec"]["selector"]["component"] = _get_head_component_selector(cluster_name)
 
 
-def _configure_services_ports(config):
+def _configure_node_service_name_and_selector(config):
     provider_config = config["provider"]
-    service_field = "services"
+    service_field = "node_service"
+    if service_field not in provider_config:
+        return
+
+    cluster_name = config["cluster_name"]
+    service = provider_config[service_field]
+
+    if "metadata" not in service:
+        service["metadata"] = {}
+    service["metadata"]["name"] = _get_node_service_name(cluster_name)
+
+    if "spec" not in service:
+        service["spec"] = {}
+    if "selector" not in service["spec"]:
+        service["spec"]["selector"] = {}
+    service["spec"]["selector"]["cluster"] = _get_cluster_selector(cluster_name)
+
+
+def _configure_head_service_ports(config):
+    provider_config = config["provider"]
+    service_field = "head_service"
     if service_field not in provider_config:
         return
 
     runtime_config = config.get("runtime", {})
     service_ports = get_runtime_service_ports(runtime_config)
 
-    services = provider_config[service_field]
-    for service in services:
-        _configure_service_ports(service, service_ports)
+    service = provider_config[service_field]
+    _configure_service_ports(service, service_ports)
 
 
 def _configure_service_ports(service, service_ports):
@@ -856,7 +983,9 @@ def _configure_pod_service_account(config):
     head_node_type = config["head_node_type"]
     for node_type in node_types:
         node_type_config = node_types[node_type]
-        pod_spec = node_type_config["node_config"]["spec"]
+        node_config = node_type_config["node_config"]
+        pod = node_config["pod"]
+        pod_spec = pod["spec"]
         if node_type == head_node_type:
             # If service account name is not configured, configure it
             if "serviceAccountName" not in pod_spec:
@@ -889,7 +1018,8 @@ def get_node_type_image(provider_config, node_type_config):
 
 def _configure_pod_image_for_node_type(node_type_config, image):
     node_config = node_type_config["node_config"]
-    container_data = node_config["spec"]["containers"][0]
+    pod = node_config["pod"]
+    container_data = pod["spec"]["containers"][0]
 
     # The image spec in the container will take high priority than external config
     if CONFIG_NAME_IMAGE not in container_data:
@@ -1324,33 +1454,44 @@ def _delete_head_role_binding(namespace, provider_config):
 
 
 def _delete_services(config):
-    provider_config = config["provider"]
-    service_field = "services"
-    if service_field not in provider_config:
-        return
+    _delete_head_service(config)
+    _delete_node_service(config)
 
+
+def _delete_head_service(config):
+    provider_config = config["provider"]
     if "namespace" not in provider_config:
         raise ValueError("Must specify namespace in Kubernetes config.")
 
     namespace = provider_config["namespace"]
     cluster_name = config["cluster_name"]
-    services = provider_config[service_field]
-    for service in services:
-        service_name_format = _get_service_name_format(service)
-        service_name = service_name_format.format(cluster_name)
-        _delete_service(namespace, service_name)
+
+    service_name = _get_head_service_name(cluster_name)
+    _delete_service(namespace, service_name)
+
+
+def _delete_node_service(config):
+    provider_config = config["provider"]
+    if "namespace" not in provider_config:
+        raise ValueError("Must specify namespace in Kubernetes config.")
+
+    namespace = provider_config["namespace"]
+    cluster_name = config["cluster_name"]
+
+    service_name = _get_node_service_name(cluster_name)
+    _delete_service(namespace, service_name)
 
 
 def _get_service(namespace, name):
     field_selector = "metadata.name={}".format(name)
 
     cli_logger.verbose("Getting the service: {} {}.", namespace, name)
-    services = core_api().list_namespaced_service(
+    service_list = core_api().list_namespaced_service(
         namespace, field_selector=field_selector).items
-    if len(services) > 0:
-        assert len(services) == 1
+    if len(service_list) > 0:
+        assert len(service_list) == 1
         cli_logger.verbose("Successfully get the service: {} {}.", namespace, name)
-        return services[0]
+        return service_list[0]
 
     cli_logger.verbose("Failed to get the service: {} {}", namespace, name)
     return None
@@ -1370,17 +1511,19 @@ def _delete_service(namespace: str, name: str):
 def with_kubernetes_environment_variables(provider_config, node_type_config: Dict[str, Any], node_id: str):
     config_dict = {}
 
-    if "gcp_cloud_storage" in provider_config:
-        from cloudtik.providers._private.gcp.utils import get_gcp_cloud_storage_config
-        get_gcp_cloud_storage_config(provider_config, config_dict)
+    storage_config = provider_config.get("storage", {})
 
-    if "aws_s3_storage" in provider_config:
-        from cloudtik.providers._private.aws.utils import get_aws_s3_config
-        get_aws_s3_config(provider_config, config_dict)
+    if "aws_s3_storage" in storage_config:
+        from cloudtik.providers._private._kubernetes.aws_eks.config import with_aws_environment_variables
+        with_aws_environment_variables(provider_config, config_dict)
 
-    if "azure_cloud_storage" in provider_config:
-        from cloudtik.providers._private._azure.utils import get_azure_cloud_storage_config
-        get_azure_cloud_storage_config(provider_config, config_dict)
+    if "gcp_cloud_storage" in storage_config:
+        from cloudtik.providers._private._kubernetes.gcp_gke.config import with_gcp_environment_variables
+        with_gcp_environment_variables(provider_config, config_dict)
+
+    if "azure_cloud_storage" in storage_config:
+        from cloudtik.providers._private._azure.utils import export_azure_cloud_storage_config
+        export_azure_cloud_storage_config(provider_config, config_dict)
 
     return config_dict
 

@@ -37,7 +37,16 @@ class StateTableStore:
     def __init__(self, redis_shards_client: RedisShardsClient):
         self._store_client = StoreClient(redis_shards_client)
         self._node_table = NodeStateTable(self._store_client)
+        self._user_state_tables = {}
 
-    def get_node_table(self):
+    def get_node_table(self) -> NodeStateTable:
         return self._node_table
 
+    def get_user_state_table(self, table_name) -> StateTable:
+        user_state_table = self._user_state_tables.get(table_name)
+        if user_state_table is not None:
+            return user_state_table
+
+        user_state_table = StateTable(self._store_client, table_name)
+        self._user_state_tables[table_name] = user_state_table
+        return user_state_table

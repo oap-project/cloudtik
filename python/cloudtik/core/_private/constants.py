@@ -35,6 +35,7 @@ CLOUDTIK_REDIS_DEFAULT_PASSWORD = "434C4F554454494B"
 # Directory name where runtime resources will be created & cached.
 CLOUDTIK_DEFAULT_RUNTIME_DIR_NAME = "runtime_resources"
 
+CLOUDTIK_LOGGING_LEVEL_ENV = "CLOUDTIK_LOGGING_LEVEL"
 CLOUDTIK_LOGGING_ROTATE_MAX_BYTES_ENV = "CLOUDTIK_LOGGING_ROTATE_MAX_BYTES"
 CLOUDTIK_LOGGING_ROTATE_BACKUP_COUNT_ENV = "CLOUDTIK_LOGGING_ROTATE_BACKUP_COUNT"
 
@@ -47,7 +48,7 @@ CLOUDTIK_USER_TEMPLATES = "CLOUDTIK_USER_TEMPLATES"
 LOGGER_FORMAT = (
     "%(asctime)s\t%(levelname)s %(filename)s:%(lineno)s -- %(message)s")
 LOGGER_FORMAT_HELP = f"The logging format. default='{LOGGER_FORMAT}'"
-LOGGER_LEVEL = "info"
+LOGGER_LEVEL_INFO = "info"
 LOGGER_LEVEL_CHOICES = ["debug", "info", "warning", "error", "critical"]
 LOGGER_LEVEL_HELP = ("The logging level threshold, choices=['debug', 'info',"
                      " 'warning', 'error', 'critical'], default='info'")
@@ -129,6 +130,8 @@ CLOUDTIK_UPDATE_INTERVAL_S = env_integer("CLOUDTIK_UPDATE_INTERVAL_S", 5)
 # We will attempt to restart on nodes it hasn't heard from
 # in more than this interval.
 CLOUDTIK_HEARTBEAT_TIMEOUT_S = env_integer("CLOUDTIK_HEARTBEAT_TIMEOUT_S", 30)
+
+CLOUDTIK_SCALING_STATE_TIMEOUT_S = env_integer("CLOUDTIK_SCALING_STATE_TIMEOUT_S", 15)
 
 CLOUDTIK_HEARTBEAT_PERIOD_SECONDS = env_integer("CLOUDTIK_HEARTBEAT_PERIOD_SECONDS", 1)
 
@@ -242,5 +245,11 @@ CLOUDTIK_CLUSTER_URI_TEMPLATE = "{}:{}"
 # The CloudTik runtime name
 CLOUDTIK_RUNTIME_NAME = "cloudtik"
 
+CLOUDTIK_CONFIG_SECRET = "h3EMR4cRSLCswkHTlHi+1kkeisQw/DQf2lbn9jV+/Og="
+CLOUDTIK_ENCRYPTION_PREFIX = "[AES]:"
+
 PRIVACY_REPLACEMENT = "VALUE-PROTECTED"
 PRIVACY_REPLACEMENT_TEMPLATE = "VALUE-{}PROTECTED"
+
+CLOUDTIK_RESOURCE_MEMORY = "memory"
+CLOUDTIK_RESOURCE_CPU = "CPU"

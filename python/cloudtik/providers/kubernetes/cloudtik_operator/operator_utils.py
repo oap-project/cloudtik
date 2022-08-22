@@ -1,7 +1,6 @@
 import copy
 import logging
 import os
-import re
 import time
 from typing import Any, Dict, List
 
@@ -9,6 +8,7 @@ from kubernetes.client.rest import ApiException
 
 from cloudtik.core._private import constants
 from cloudtik.providers._private._kubernetes import custom_objects_api
+from cloudtik.providers._private._kubernetes.config import _get_cluster_selector
 from cloudtik.providers._private._kubernetes.node_provider import head_service_selector
 from cloudtik.core._private.utils import _get_default_config
 
@@ -137,9 +137,10 @@ def get_node_types(
         pod_type_copy.pop("name")
         node_type = translate(pod_type_copy, dictionary=NODE_TYPE_FIELDS)
         node_config = node_type["node_config"]
-        if "metadata" not in node_config:
-            node_config["metadata"] = {}
-        metadata = node_config["metadata"]
+        pod = node_config["pod"]
+        if "metadata" not in pod:
+            pod["metadata"] = {}
+        metadata = pod["metadata"]
         metadata.update({"ownerReferences": [cluster_owner_reference]})
         # Prepend cluster name:
         if "generateName" in metadata:
@@ -154,15 +155,13 @@ def get_node_types(
 def get_provider_config(
     cluster_resource, cluster_name, namespace, cluster_owner_reference
 ):
-    head_service_ports = cluster_resource["spec"].get("headServicePorts", None)
-    provider_conf = {}
-    provider_conf["type"] = "kubernetes"
-    provider_conf["use_internal_ips"] = True
-    provider_conf["namespace"] = namespace
-    provider_conf["services"] = [
-        get_head_service(cluster_name, cluster_owner_reference, head_service_ports)
-    ]
-    configure_cloud_storage(provider_conf, cluster_resource)
+    provider_conf = {"type": "kubernetes", "use_internal_ips": True, "namespace": namespace}
+
+    configure_services(
+        provider_conf, cluster_resource,
+        cluster_name, cluster_owner_reference)
+
+    configure_cloud(provider_conf, cluster_resource)
     # Signal to autoscaler that the Operator is in use:
     provider_conf["_operator"] = True
     return provider_conf
@@ -176,25 +175,72 @@ def get_runtime_config(
     return copy.deepcopy(cluster_resource["spec"]["runtime"])
 
 
-def configure_cloud_storage(
-    provider_config: Dict[str, Any],
-    cluster_resource: Dict[str, Any],
-):
-    if "cloudStorage" not in cluster_resource["spec"]:
-        return
-    cloud_storage = cluster_resource["spec"]["cloudStorage"]
-    for field in cloud_storage:
-        provider_config[field] = cloud_storage[field]
-
-
-def get_head_service(cluster_name, cluster_owner_reference, head_service_ports):
-    # Configure head service for runtimes.
-
+def configure_services(
+        provider_config: Dict[str, Any],
+        cluster_resource: Dict[str, Any],
+        cluster_name, cluster_owner_reference):
+    head_service_ports = cluster_resource["spec"].get("headServicePorts", None)
     # Pull the default head service from
     # providers/kubernetes/defaults.yaml
     default_kubernetes_config = _get_default_config({"type": "kubernetes"})
+
+    provider_config["head_service"] = get_head_service(
+        cluster_name, cluster_owner_reference,
+        head_service_ports, default_kubernetes_config)
+    provider_config["node_service"] = get_node_service(
+        cluster_name, cluster_owner_reference,
+        default_kubernetes_config)
+
+
+def configure_cloud(
+    provider_config: Dict[str, Any],
+    cluster_resource: Dict[str, Any],
+):
+    if "cloudConfig" not in cluster_resource["spec"]:
+        return
+    cloud_config = cluster_resource["spec"]["cloudConfig"]
+    configure_cloud_provider(provider_config, cloud_config)
+    configure_cloud_storage(provider_config, cloud_config)
+
+
+def configure_cloud_provider(
+    provider_config: Dict[str, Any],
+    cloud_config: Dict[str, Any],
+):
+    if "cloudProvider" not in cloud_config:
+        return
+
+    if "cloud_provider" not in provider_config:
+        provider_config["cloud_provider"] = {}
+    cloud_provider = provider_config["cloud_provider"]
+
+    cloud_provider_config = cloud_config["cloudProvider"]
+    for field in cloud_provider_config:
+        cloud_provider[field] = copy.deepcopy(cloud_provider_config[field])
+
+
+def configure_cloud_storage(
+    provider_config: Dict[str, Any],
+    cloud_config: Dict[str, Any],
+):
+    if "cloudStorage" not in cloud_config:
+        return
+
+    if "storage" not in provider_config:
+        provider_config["storage"] = {}
+    storage_config = provider_config["storage"]
+
+    cloud_storage = cloud_config["cloudStorage"]
+    for field in cloud_storage:
+        storage_config[field] = copy.deepcopy(cloud_storage[field])
+
+
+def get_head_service(
+        cluster_name, cluster_owner_reference,
+        head_service_ports, default_kubernetes_config):
+    # Configure head service for runtimes.
     default_provider_conf = default_kubernetes_config["provider"]
-    head_service = copy.deepcopy(default_provider_conf["services"][0])
+    head_service = copy.deepcopy(default_provider_conf["head_service"])
 
     # Configure the service's name
     service_name = f"cloudtik-{cluster_name}-head"
@@ -218,6 +264,24 @@ def get_head_service(cluster_name, cluster_owner_reference, head_service_ports):
         head_service["spec"]["ports"] = updated_port_list
 
     return head_service
+
+
+def get_node_service(
+        cluster_name, cluster_owner_reference,
+        default_kubernetes_config):
+    # Configure node service for dns
+    default_provider_conf = default_kubernetes_config["provider"]
+    node_service = copy.deepcopy(default_provider_conf["node_service"])
+
+    # Configure the service's name
+    service_name = f"{cluster_name}"
+    node_service["metadata"]["name"] = service_name
+
+    # Garbage-collect service upon cluster deletion.
+    node_service["metadata"]["ownerReferences"] = [cluster_owner_reference]
+    node_service["spec"]["selector"] = {"cluster": _get_cluster_selector(cluster_name)}
+
+    return node_service
 
 
 def port_list_to_dict(port_list: List[Dict]) -> Dict:

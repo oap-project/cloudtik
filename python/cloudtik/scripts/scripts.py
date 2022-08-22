@@ -33,8 +33,9 @@ from cloudtik.core._private.constants import CLOUDTIK_PROCESSES, \
     CLOUDTIK_DEFAULT_PORT
 from cloudtik.core._private.node.node_services import NodeServicesStarter
 from cloudtik.core._private.parameter import StartParams
+from cloudtik.core._private.resource_spec import ResourceSpec
 from cloudtik.core._private.utils import with_script_args
-from cloudtik.scripts.utils import NaturalOrderGroup
+from cloudtik.scripts.utils import NaturalOrderGroup, add_command_alias
 from cloudtik.scripts.workspace import workspace
 from cloudtik.scripts.runtime_scripts import runtime
 from cloudtik.scripts.head_scripts import head
@@ -47,7 +48,7 @@ logger = logging.getLogger(__name__)
 @click.option(
     "--logging-level",
     required=False,
-    default=constants.LOGGER_LEVEL,
+    default=constants.LOGGER_LEVEL_INFO,
     type=str,
     help=constants.LOGGER_LEVEL_HELP)
 @click.option(
@@ -1417,10 +1418,46 @@ def run_script(script, script_args):
     os.system(final_cmd)
 
 
-def add_command_alias(command, name, hidden):
-    new_command = copy.deepcopy(command)
-    new_command.hidden = hidden
-    cli.add_command(new_command, name=name)
+@cli.command()
+@click.option(
+    "--cpu",
+    required=False,
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Show total CPU available in the current environment - considering docker or K8S.")
+@click.option(
+    "--memory",
+    required=False,
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Show total memory in the current environment - considering docker or K8S.")
+@click.option(
+    "--in-mb",
+    required=False,
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Show total memory in MB.")
+def resources(cpu, memory, in_mb):
+    """Show system resource information"""
+    resource_spec = ResourceSpec().resolve(False)
+    if cpu:
+        click.echo(resource_spec.num_cpus)
+    elif memory:
+        if in_mb:
+            memory_in_mb = int(resource_spec.memory / (1024 * 1024))
+            click.echo(memory_in_mb)
+        else:
+            click.echo(resource_spec.memory)
+    else:
+        static_resources = resource_spec.to_resource_dict()
+        click.echo(static_resources)
+
+
+def _add_command_alias(command, name, hidden):
+    add_command_alias(cli, command, name, hidden)
 
 
 # core commands running on head and worker node
@@ -1429,9 +1466,9 @@ cli.add_command(node_stop)
 
 # commands running on working node for handling a cluster
 cli.add_command(start)
-add_command_alias(start, name="up", hidden=True)
+_add_command_alias(start, name="up", hidden=True)
 cli.add_command(stop)
-add_command_alias(stop, name="down", hidden=True)
+_add_command_alias(stop, name="down", hidden=True)
 
 cli.add_command(attach)
 cli.add_command(exec)
@@ -1439,17 +1476,17 @@ cli.add_command(submit)
 cli.add_command(scale)
 
 cli.add_command(rsync_up)
-add_command_alias(rsync_up, name="rsync_up", hidden=True)
+_add_command_alias(rsync_up, name="rsync_up", hidden=True)
 cli.add_command(rsync_down)
-add_command_alias(rsync_down, name="rsync_down", hidden=True)
+_add_command_alias(rsync_down, name="rsync_down", hidden=True)
 
 # commands running on working node for information and status
 cli.add_command(status)
 cli.add_command(info)
 cli.add_command(head_ip)
-add_command_alias(head_ip, name="head_ip", hidden=True)
+_add_command_alias(head_ip, name="head_ip", hidden=True)
 cli.add_command(worker_ips)
-add_command_alias(worker_ips, name="worker_ips", hidden=True)
+_add_command_alias(worker_ips, name="worker_ips", hidden=True)
 
 cli.add_command(monitor)
 
@@ -1458,7 +1495,7 @@ cli.add_command(enable_proxy)
 cli.add_command(disable_proxy)
 
 cli.add_command(kill_node)
-add_command_alias(kill_node, name="kill_node", hidden=True)
+_add_command_alias(kill_node, name="kill_node", hidden=True)
 cli.add_command(wait_for_ready)
 
 # commands running on working node for debug
@@ -1467,12 +1504,13 @@ cli.add_command(debug_status)
 cli.add_command(health_check)
 
 cli.add_command(cluster_dump)
-add_command_alias(cluster_dump, name="cluster_dump", hidden=True)
+_add_command_alias(cluster_dump, name="cluster_dump", hidden=True)
 
 # utility commands running on head or worker node for dump local data
 cli.add_command(local_dump)
-add_command_alias(local_dump, name="local_dump", hidden=True)
+_add_command_alias(local_dump, name="local_dump", hidden=True)
 cli.add_command(run_script)
+cli.add_command(resources)
 
 # workspace commands
 cli.add_command(workspace)

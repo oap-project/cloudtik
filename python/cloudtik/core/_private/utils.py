@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import threading
+from functools import lru_cache
 from typing import Any, Dict, Optional, Tuple, List, Union
 import sys
 import tempfile
@@ -33,11 +34,13 @@ from cloudtik.core._private import constants, services
 from cloudtik.core._private.call_context import CallContext
 from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core._private.cluster.cluster_metrics import ClusterMetricsSummary
+from cloudtik.core._private.concurrent_cache import ConcurrentObjectCache
 from cloudtik.core._private.constants import CLOUDTIK_WHEELS, CLOUDTIK_CLUSTER_PYTHON_VERSION, \
     CLOUDTIK_DEFAULT_MAX_WORKERS, CLOUDTIK_NODE_SSH_INTERVAL_S, CLOUDTIK_NODE_START_WAIT_S, MAX_PARALLEL_EXEC_NODES, \
     CLOUDTIK_CLUSTER_URI_TEMPLATE, CLOUDTIK_RUNTIME_NAME, CLOUDTIK_RUNTIME_ENV_NODE_IP, CLOUDTIK_RUNTIME_ENV_HEAD_IP, \
     CLOUDTIK_RUNTIME_ENV_SECRETS, CLOUDTIK_DEFAULT_PORT, CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
-    CLOUDTIK_RUNTIME_ENV_NODE_TYPE, PRIVACY_REPLACEMENT_TEMPLATE, PRIVACY_REPLACEMENT
+    CLOUDTIK_RUNTIME_ENV_NODE_TYPE, PRIVACY_REPLACEMENT_TEMPLATE, PRIVACY_REPLACEMENT, CLOUDTIK_CONFIG_SECRET, \
+    CLOUDTIK_ENCRYPTION_PREFIX
 from cloudtik.core._private.crypto import AESCipher
 from cloudtik.core._private.runtime_factory import _get_runtime, _get_runtime_cls, DEFAULT_RUNTIMES
 from cloudtik.core.node_provider import NodeProvider
@@ -126,6 +129,14 @@ linux_prctl = None
 # We keep a global job object to tie its lifetime to that of our own process.
 win32_job = None
 win32_AssignProcessToJobObject = None
+
+# Prefix for the node id resource that is automatically added to each node.
+# For example, a node may have id `node-172.23.42.1`.
+NODE_ID_PREFIX = "node-"
+
+
+def make_node_id(node_ip):
+    return NODE_ID_PREFIX + node_ip
 
 
 def round_memory_size_to_gb(memory_size: int) -> int:
@@ -886,6 +897,22 @@ def prepare_config(config: Dict[str, Any]) -> Dict[str, Any]:
     validate_docker_config(with_defaults)
     fill_node_type_min_max_workers(with_defaults)
     return with_defaults
+
+
+def encrypt_config(config: Dict[str, Any]) -> Dict[str, Any]:
+    encrypted_config = copy.deepcopy(config)
+    cipher = get_config_cipher()
+    process_config_with_privacy(
+        encrypted_config, func=encrypt_config_value, param=cipher)
+    return encrypted_config
+
+
+def decrypt_config(config: Dict[str, Any]) -> Dict[str, Any]:
+    decrypted_config = copy.deepcopy(config)
+    cipher = get_config_cipher()
+    process_config_with_privacy(
+        decrypted_config, func=decrypt_config_value, param=cipher)
+    return decrypted_config
 
 
 def prepare_workspace_config(config: Dict[str, Any]) -> Dict[str, Any]:
@@ -1695,8 +1722,11 @@ def hash_launch_conf(node_conf, auth):
 # Cache the file hashes to avoid rescanning it each time. Also, this avoids
 # inadvertently restarting workers if the file mount content is mutated on the
 # head node.
-# TODO: This global cache needs to be protected for thread concurrency for future cases
-_hash_cache = {}
+# This global cache needs to be protected for thread concurrency for future cases
+_hash_cache = ConcurrentObjectCache()
+
+HASH_CONTEXT_HEAD_NODE_CONTENTS_HASH = "head_node_contents_hash"
+HASH_CONTEXT_CONTENTS_HASHER = "contents_hasher"
 
 
 def add_content_hashes(hasher, path, allow_non_existing_paths: bool = False):
@@ -1722,9 +1752,25 @@ def add_content_hashes(hasher, path, allow_non_existing_paths: bool = False):
         add_hash_of_file(path)
 
 
+def load_runtime_hash(hash_context: Dict[str, Any], file_mounts, hash_str: str):
+    contents_hash = hash_context.get(HASH_CONTEXT_HEAD_NODE_CONTENTS_HASH)
+    if contents_hash is None:
+        contents_hasher = hash_context.get(HASH_CONTEXT_CONTENTS_HASHER)
+        if contents_hasher is None:
+            contents_hasher = hashlib.sha1()
+        contents_hash = hash_contents(contents_hasher, file_mounts)
+        hash_context[HASH_CONTEXT_HEAD_NODE_CONTENTS_HASH] = contents_hash
+
+    runtime_hasher = hashlib.sha1()
+    runtime_hasher.update(hash_str)
+    runtime_hasher.update(contents_hash.encode("utf-8"))
+    return runtime_hasher.hexdigest()
+
+
 def hash_runtime_conf(file_mounts,
                       cluster_synced_files,
                       extra_objs,
+                      generate_runtime_hash=True,
                       generate_file_mounts_contents_hash=False,
                       generate_node_types_runtime_hash=False,
                       config: Dict[str, Any] = None):
@@ -1738,30 +1784,26 @@ def hash_runtime_conf(file_mounts,
     cluster_synced_files contents have changed. It is used at monitor time to
     determine if additional file syncing is needed.
     """
-    runtime_hasher = hashlib.sha1()
     contents_hasher = hashlib.sha1()
-
+    hash_context = {HASH_CONTEXT_CONTENTS_HASHER: contents_hasher}
     file_mounts_str = json.dumps(file_mounts, sort_keys=True).encode("utf-8")
-    conf_str = (file_mounts_str +
-                json.dumps(extra_objs, sort_keys=True).encode("utf-8"))
 
-    runtime_hash_for_node_types = None
-    head_node_contents_hash = None
+    if generate_runtime_hash:
+        extra_objs_str = json.dumps(extra_objs, sort_keys=True).encode("utf-8")
+        conf_str = (file_mounts_str + extra_objs_str)
+        runtime_hash = _hash_cache.get(
+                conf_str, load_runtime_hash,
+                hash_context=hash_context, file_mounts=file_mounts, hash_str=conf_str)
+    else:
+        runtime_hash = None
 
-    # Only generate a contents hash if generate_contents_hash is true or
-    # if we need to generate the runtime_hash
-    if conf_str not in _hash_cache or generate_file_mounts_contents_hash:
-        head_node_contents_hash = hash_contents(
-            contents_hasher, file_mounts)
-
-        # Generate a new runtime_hash if its not cached
-        # The runtime hash does not depend on the cluster_synced_files hash
-        # because we do not want to restart nodes only if cluster_synced_files
-        # contents have changed.
-        if conf_str not in _hash_cache:
-            runtime_hasher.update(conf_str)
-            runtime_hasher.update(head_node_contents_hash.encode("utf-8"))
-            _hash_cache[conf_str] = runtime_hasher.hexdigest()
+    head_node_contents_hash = hash_context.get(HASH_CONTEXT_HEAD_NODE_CONTENTS_HASH)
+    if generate_file_mounts_contents_hash or head_node_contents_hash is not None:
+        # Only generate a contents hash if generate_file_mounts_contents_hash is true or
+        # if we need to generate the runtime_hash (head_node_contents_hash is not None)
+        if head_node_contents_hash is None:
+            head_node_contents_hash = hash_contents(
+                contents_hasher, file_mounts)
 
         # Add cluster_synced_files to the file_mounts_content hash
         if cluster_synced_files is not None:
@@ -1778,8 +1820,10 @@ def hash_runtime_conf(file_mounts,
     if generate_node_types_runtime_hash:
         runtime_hash_for_node_types = hash_runtime_conf_for_node_types(
             config, file_mounts, file_mounts_str, head_node_contents_hash)
+    else:
+        runtime_hash_for_node_types = None
 
-    return _hash_cache[conf_str], file_mounts_contents_hash, runtime_hash_for_node_types
+    return runtime_hash, file_mounts_contents_hash, runtime_hash_for_node_types
 
 
 def hash_contents(hasher, file_mounts):
@@ -1793,6 +1837,11 @@ def hash_runtime_conf_for_node_types(
     runtime_hash_for_node_types = {}
     available_node_types = config["available_node_types"]
     head_node_type = config["head_node_type"]
+
+    hash_context = {}
+    if head_node_contents_hash is not None:
+        hash_context[HASH_CONTEXT_HEAD_NODE_CONTENTS_HASH] = head_node_contents_hash
+
     for node_type in available_node_types:
         if node_type == head_node_type:
             continue
@@ -1812,23 +1861,12 @@ def hash_runtime_conf_for_node_types(
                 config, node_type)
         }
 
-        node_type_conf_str = (file_mounts_str +
-                              json.dumps(node_type_runtime_conf, sort_keys=True).encode("utf-8"))
-        if node_type_conf_str not in _hash_cache:
-            if head_node_contents_hash is None:
-                contents_hasher = hashlib.sha1()
-                head_node_contents_hash = hash_contents(
-                    contents_hasher, file_mounts)
+        extra_objs_str = json.dumps(node_type_runtime_conf, sort_keys=True).encode("utf-8")
+        node_type_conf_str = (file_mounts_str + extra_objs_str)
 
-            node_type_runtime_hasher = hashlib.sha1()
-            node_type_runtime_hasher.update(node_type_conf_str)
-            node_type_runtime_hasher.update(head_node_contents_hash.encode("utf-8"))
-
-            node_type_runtime_hash = node_type_runtime_hasher.hexdigest()
-            _hash_cache[node_type_conf_str] = node_type_runtime_hash
-            runtime_hash_for_node_types[node_type] = node_type_runtime_hash
-        else:
-            runtime_hash_for_node_types[node_type] = _hash_cache[node_type_conf_str]
+        runtime_hash_for_node_types[node_type] = _hash_cache.get(
+            node_type_conf_str, load_runtime_hash,
+            hash_context=hash_context, file_mounts=file_mounts, hash_str=node_type_conf_str)
 
     return runtime_hash_for_node_types
 
@@ -2326,6 +2364,7 @@ def get_head_bootstrap_config():
 def load_head_cluster_config() -> Dict[str, Any]:
     config_file = get_head_bootstrap_config()
     config = yaml.safe_load(open(config_file).read())
+    config = decrypt_config(config)
     return config
 
 
@@ -2442,10 +2481,40 @@ def escape_private_key(private_key: str):
     return escaped_private_key
 
 
+def _get_node_type_specific_object(config, node_type, object_name):
+    config_object = config.get(object_name)
+    node_type_config = _get_node_type_config(config, node_type)
+    if node_type_config is not None:
+        node_config_object = node_type_config.get(object_name)
+        if node_config_object is not None:
+            # Merge with global config object
+            if config_object is not None:
+                config_object = copy.deepcopy(config_object)
+                return merge_config(config_object, node_config_object)
+            else:
+                return node_config_object
+    return config_object
+
+
+def with_environment_variables_from_config(config, node_type: str):
+    config_envs = {}
+    runtime_config = _get_node_type_specific_runtime_config(config, node_type)
+    if runtime_config is not None:
+        envs = runtime_config.get("envs")
+        if envs is not None:
+            config_envs.update(envs)
+    return config_envs
+
+
 def with_runtime_environment_variables(runtime_config, config, provider, node_id: str):
     all_runtime_envs = {}
     if runtime_config is None:
         return all_runtime_envs
+
+    node_type = get_node_type(provider, node_id)
+    static_runtime_envs = with_environment_variables_from_config(
+        config=config, node_type=node_type)
+    all_runtime_envs.update(static_runtime_envs)
 
     runtime_types = runtime_config.get(RUNTIME_TYPES_CONFIG_KEY, [])
 
@@ -2674,28 +2743,68 @@ def _gcd_of_numbers(numbers):
 
 
 def get_preferred_cpu_bundle_size(config: Dict[str, Any]) -> Optional[int]:
+    return get_preferred_bundle_size(config, constants.CLOUDTIK_RESOURCE_CPU)
+
+
+def get_preferred_memory_bundle_size(config: Dict[str, Any]) -> Optional[int]:
+    return get_preferred_bundle_size(config, constants.CLOUDTIK_RESOURCE_MEMORY)
+
+
+def get_preferred_bundle_size(config: Dict[str, Any], resource_id: str) -> Optional[int]:
     available_node_types = config.get("available_node_types")
     if available_node_types is None:
         return None
 
-    cpu_sizes = []
+    resource_sizes = []
     head_node_type = config["head_node_type"]
     for node_type in available_node_types:
         if node_type == head_node_type:
             continue
 
         resources = available_node_types[node_type].get("resources", {})
-        cpu_total = resources.get("CPU", 0)
-        if cpu_total > 0:
-            cpu_sizes += [cpu_total]
+        resource_total = resources.get(resource_id, 0)
+        if resource_total > 0:
+            resource_sizes += [resource_total]
 
-    num_types = len(cpu_sizes)
+    num_types = len(resource_sizes)
     if num_types == 0:
         return None
     elif num_types == 1:
-        return cpu_sizes[0]
+        return resource_sizes[0]
     else:
-        return _gcd_of_numbers(cpu_sizes)
+        return _gcd_of_numbers(resource_sizes)
+
+
+def get_resource_demands_for_cpu(num_cpus, config):
+    return get_resource_demands(
+        num_cpus, constants.CLOUDTIK_RESOURCE_CPU, config, 1)
+
+
+def get_resource_demands_for_memory(memory_in_bytes, config):
+    return get_resource_demands(
+        memory_in_bytes,constants.CLOUDTIK_RESOURCE_MEMORY, config, pow(1024, 3))
+
+
+def get_resource_demands(amount, resource_id, config, default_bundle_size):
+    if amount is None:
+        return None
+
+    bundle_size = default_bundle_size
+    if config:
+        # convert the num cpus based on the largest common factor of the node types
+        preferred_bundle_size = get_preferred_bundle_size(config, resource_id)
+        if preferred_bundle_size and preferred_bundle_size > default_bundle_size:
+            bundle_size = preferred_bundle_size
+
+    count = int(amount / bundle_size)
+    remaining = amount % bundle_size
+    to_request = []
+    if count > 0:
+        to_request += [{resource_id: bundle_size}] * count
+    if remaining > 0:
+        to_request += [{resource_id: remaining}]
+
+    return to_request
 
 
 def get_node_type(provider, node_id: str):
@@ -2761,7 +2870,7 @@ def get_runtime_config_key(node_type: str):
 def retrieve_runtime_config(node_type: str = None):
     # Retrieve the runtime config
     runtime_config_key = get_runtime_config_key(node_type)
-    encrypted_runtime_config = _get_key_from_kv( runtime_config_key)
+    encrypted_runtime_config = _get_key_from_kv(runtime_config_key)
     if encrypted_runtime_config is None:
         return None
 
@@ -3003,7 +3112,7 @@ def is_config_key_with_privacy(key: str):
     return False
 
 
-def process_key_with_privacy(v):
+def process_key_with_privacy(v, param):
     if v is None:
         return v
 
@@ -3020,17 +3129,83 @@ def process_key_with_privacy(v):
     return v
 
 
-def process_config_with_privacy(config):
+def process_config_with_privacy(config, func=process_key_with_privacy, param=None):
     if config is None:
         return
 
     if isinstance(config, collections.abc.Mapping):
         for k, v in config.items():
             if isinstance(v, collections.abc.Mapping) or isinstance(v, list):
-                process_config_with_privacy(v)
+                process_config_with_privacy(v, func, param)
             elif is_config_key_with_privacy(k):
-                config[k] = process_key_with_privacy(v)
+                config[k] = func(v, param)
     elif isinstance(config, list):
         for item in config:
             if isinstance(item, collections.abc.Mapping) or isinstance(item, list):
-                process_config_with_privacy(item)
+                process_config_with_privacy(item, func, param)
+
+
+def get_config_cipher():
+    secrets = decode_cluster_secrets(CLOUDTIK_CONFIG_SECRET)
+    cipher = AESCipher(secrets)
+    return cipher
+
+
+def encrypt_config_value(v, cipher):
+    if v is None or not isinstance(v, str):
+        return v
+
+    return CLOUDTIK_ENCRYPTION_PREFIX + cipher.encrypt(v).decode("utf-8")
+
+
+def decrypt_config_value(v, cipher):
+    if v is None or (
+            not isinstance(v, str)) or (
+            not v.startswith(CLOUDTIK_ENCRYPTION_PREFIX)):
+        return v
+
+    target_bytes = v[len(CLOUDTIK_ENCRYPTION_PREFIX):].encode("utf-8")
+    return cipher.decrypt(target_bytes)
+
+
+def _get_runtime_scaling_policy(config, head_ip):
+    runtime_config = config.get(RUNTIME_CONFIG_KEY)
+    if runtime_config is None:
+        return None
+
+    runtime_types = runtime_config.get(RUNTIME_TYPES_CONFIG_KEY, [])
+    if len(runtime_types) == 0:
+        return None
+
+    for runtime_type in runtime_types:
+        runtime = _get_runtime(runtime_type, runtime_config)
+        scaling_policy = runtime.get_scaling_policy(config, head_ip)
+        if scaling_policy is not None:
+            return scaling_policy
+    return None
+
+
+def convert_nodes_to_cpus(config: Dict[str, Any], nodes: int) -> int:
+    return convert_nodes_to_resource(config, nodes, constants.CLOUDTIK_RESOURCE_CPU)
+
+
+def convert_nodes_to_memory(config: Dict[str, Any], nodes: int) -> int:
+    return convert_nodes_to_resource(config, nodes, constants.CLOUDTIK_RESOURCE_MEMORY)
+
+
+def convert_nodes_to_resource(config: Dict[str, Any], nodes: int, resource_id) -> int:
+    available_node_types = config["available_node_types"]
+    head_node_type = config["head_node_type"]
+    for node_type in available_node_types:
+        if node_type != head_node_type:
+            resources = available_node_types[node_type].get("resources", {})
+            resource_total = resources.get(resource_id, 0)
+            if resource_total > 0:
+                return nodes * resource_total
+    return 0
+
+
+def get_storage_config_for_update(provider_config):
+    if "storage" not in provider_config:
+        provider_config["storage"] = {}
+    return provider_config["storage"]

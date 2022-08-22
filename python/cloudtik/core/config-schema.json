@@ -194,79 +194,86 @@
                     "properties": {
                         "type": {
                             "type": "string",
-                            "enum": ["credentials_token", "service_account"],
+                            "enum": ["oauth_token", "service_account"],
                             "description": "Credentials type: either temporary OAuth 2.0 token or permanent service account credentials blob."
                         },
                         "credentials": {
-                            "type": "string",
-                            "description": "Oauth token or JSON string constituting service account credentials"
+                            "type": "object",
+                            "description": "OAuth token fields or service account credentials fields"
                         }
                     }
                 },
-                "gcp_cloud_storage": {
+                "storage": {
                     "type": "object",
-                    "description": "use google cloud storage",
+                    "description": "The cloud storage configurations",
                     "additionalProperties": true,
                     "properties": {
-                        "gcs.bucket": {
-                            "type": "string",
-                            "description": "gcp cloud storage bucket name"
+                        "gcp_cloud_storage": {
+                            "type": "object",
+                            "description": "use google cloud storage",
+                            "additionalProperties": true,
+                            "properties": {
+                                "gcs.bucket": {
+                                    "type": "string",
+                                    "description": "gcp cloud storage bucket name"
+                                },
+                                "gcs.service.account.client.email": {
+                                    "type": "string",
+                                    "description": "gcp service account client email"
+                                },
+                                "gcs.service.account.private.key.id": {
+                                    "type": "string",
+                                    "description": "gcp service account private key id"
+                                },
+                                "gcs.service.account.private.key": {
+                                    "type": "string",
+                                    "description": "gcp service account private key"
+                                }
+                            }
                         },
-                        "gcs.service.account.client.email": {
-                            "type": "string",
-                            "description": "gcp service account client email"
+                        "azure_cloud_storage": {
+                            "type": "object",
+                            "description": "Azure cloud storage configurations",
+                            "additionalProperties": false,
+                            "properties": {
+                              "azure.storage.type": {
+                                "type": "string",
+                                "enum": ["blob", "datalake"],
+                                "description": "Azure cloud storage type: blob (Azure Blob Storage) or datalake (Azure Data Lake Storage Gen 2)."
+                              },
+                              "azure.storage.account": {
+                                "type": "string",
+                                "description": "azure storage account name"
+                              },
+                              "azure.container": {
+                                "type": "string",
+                                "description": "azure container name"
+                              },
+                              "azure.account.key": {
+                                "type": "string",
+                                "description": "azure storage account access key"
+                              }
+                            }
                         },
-                        "gcs.service.account.private.key.id": {
-                            "type": "string",
-                            "description": "gcp service account private key id"
-                        },
-                        "gcs.service.account.private.key": {
-                            "type": "string",
-                            "description": "gcp service account private key"
+                        "aws_s3_storage": {
+                            "type": "object",
+                            "description": "AWS S3 storage configurations",
+                            "additionalProperties": false,
+                            "properties": {
+                              "s3.bucket": {
+                                "type": "string",
+                                "description": "the s3 bucket name"
+                              },
+                              "s3.access.key.id": {
+                                "type": "string",
+                                "description": "access key id of s3"
+                              },
+                              "s3.secret.access.key": {
+                                "type": "string",
+                                "description": "secret access key of s3"
+                              }
+                            }
                         }
-                    }
-                },
-                "azure_cloud_storage": {
-                    "type": "object",
-                    "description": "Azure cloud storage configurations",
-                    "additionalProperties": false,
-                    "properties": {
-                      "azure.storage.type": {
-                        "type": "string",
-                        "enum": ["blob", "datalake"],
-                        "description": "Azure cloud storage type: blob (Azure Blob Storage) or datalake (Azure Data Lake Storage Gen 2)."
-                      },
-                      "azure.storage.account": {
-                        "type": "string",
-                        "description": "azure storage account name"
-                      },
-                      "azure.container": {
-                        "type": "string",
-                        "description": "azure container name"
-                      },
-                      "azure.account.key": {
-                        "type": "string",
-                        "description": "azure storage account access key"
-                      }
-                    }
-                },
-                "aws_s3_storage": {
-                    "type": "object",
-                    "description": "AWS S3 storage configurations",
-                    "additionalProperties": false,
-                    "properties": {
-                      "s3.bucket": {
-                        "type": "string",
-                        "description": "the s3 bucket name"
-                      },
-                      "s3.access.key.id": {
-                        "type": "string",
-                        "description": "access key id of s3"
-                      },
-                      "s3.secret.access.key": {
-                        "type": "string",
-                        "description": "secret access key of s3"
-                      }
                     }
                 },
                 "verify_cloud_storage": {
@@ -532,6 +539,14 @@
                                         "type": "string"
                                     },
                                     "description": "The list of runtimes to enable for this cluster"
+                                },
+                                "envs": {
+                                    "type": "object",
+                                    "patternProperties": {
+                                        ".*":{
+                                            "type": "string"
+                                        }
+                                    }
                                 }
                             }
                         },
@@ -571,6 +586,14 @@
                         "type": "string"
                     },
                     "description": "The list of runtimes to enable for this cluster"
+                },
+                "envs": {
+                    "type": "object",
+                    "patternProperties": {
+                        ".*":{
+                            "type": "string"
+                        }
+                    }
                 },
                 "spark": {
                     "type": "object",

@@ -29,6 +29,9 @@ RUN sudo apt-get update -y \
         ganglia-monitor \
         cmake \
         g++-9 \
+    && wget https://d30257nes7d4fq.cloudfront.net/downloads/ganglia/modpython.so \
+    && sudo cp modpython.so /usr/lib/ganglia && sudo chmod 644 /usr/lib/ganglia/modpython.so \
+    && rm modpython.so \
     && sudo rm -rf /var/lib/apt/lists/* \
     && sudo apt-get clean
 

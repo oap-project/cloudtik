@@ -1,0 +1,23 @@
+from: kubernetes/gke/small
+
+# A unique identifier for the head node and workers of this cluster.
+cluster_name: example-cluster
+
+# Workspace name
+workspace_name: exmaple-workspace
+
+# Kubernetes provider specific configurations
+provider:
+    type: kubernetes
+
+    # Cloud-provider specific configuration.
+    cloud_provider:
+        type: gcp
+        region: us-central1
+        project_id: your_gcp_project_id
+        use_managed_cloud_storage: True
+
+available_node_types:
+    worker.default:
+        # The minimum number of worker nodes to launch.
+        min_workers: 3

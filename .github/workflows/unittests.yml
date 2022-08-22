@@ -50,4 +50,4 @@ jobs:
           # compile redis server
           bash build.sh --no-build-ganglia
           # run unit tests with pytest
-          pytest python/cloudtik/tests/unittests
+          pytest python/cloudtik/tests/unit

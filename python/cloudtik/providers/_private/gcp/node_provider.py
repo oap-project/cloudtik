@@ -19,7 +19,7 @@ from cloudtik.providers._private.gcp.node import (
     GCPResource, GCPNode, GCPCompute, GCPTPU, GCPNodeType)
 
 from cloudtik.providers._private.gcp.utils import _get_node_info, \
-    construct_clients_from_provider_config, get_node_type
+    construct_clients_from_provider_config, get_node_type, get_gcp_cloud_storage_config
 from cloudtik.providers._private.utils import validate_config_dict
 
 logger = logging.getLogger(__name__)
@@ -236,8 +236,8 @@ class GCPNodeProvider(NodeProvider):
 
         validate_config_dict(provider_config["type"], config_dict)
 
-        if "gcp_cloud_storage" in provider_config:
-            storage_config = provider_config["gcp_cloud_storage"]
+        storage_config = get_gcp_cloud_storage_config(provider_config)
+        if storage_config is not None:
             config_dict = {"gcs.bucket": storage_config.get("gcs.bucket"),
                            # The private key is no longer a must since we have role access
                            # "gcs.service.account.client.email": storage_config.get(
@@ -254,7 +254,8 @@ class GCPNodeProvider(NodeProvider):
     def verify_config(
             provider_config: Dict[str, Any]) -> None:
         verify_cloud_storage = provider_config.get("verify_cloud_storage", True)
-        if ("gcp_cloud_storage" in provider_config) and verify_cloud_storage:
+        cloud_storage = get_gcp_cloud_storage_config(provider_config)
+        if verify_cloud_storage and cloud_storage is not None:
             cli_logger.verbose("Verifying GCS storage configurations...")
             verify_gcs_storage(provider_config)
             cli_logger.verbose("Successfully verified GCS storage configurations.")

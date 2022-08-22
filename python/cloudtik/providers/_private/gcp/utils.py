@@ -10,6 +10,7 @@ from google.oauth2 import service_account
 from google.oauth2.credentials import Credentials as OAuthCredentials
 
 from cloudtik.core._private.cli_logger import cli_logger
+from cloudtik.core._private.utils import get_storage_config_for_update
 from cloudtik.providers._private.gcp.node import (GCPNodeType, MAX_POLLS,
                                                   POLL_INTERVAL)
 from cloudtik.providers._private.gcp.node import GCPNode
@@ -279,10 +280,24 @@ def _is_head_node_a_tpu(config: dict) -> bool:
         node_configs[config["head_node_type"]]) == GCPNodeType.TPU
 
 
-def get_gcp_cloud_storage_config(provider_config, config_dict: Dict[str, Any]):
-    if "gcp_cloud_storage" not in provider_config:
+def get_gcp_cloud_storage_config(provider_config: Dict[str, Any]):
+    if "storage" in provider_config and "gcp_cloud_storage" in provider_config["storage"]:
+        return provider_config["storage"]["gcp_cloud_storage"]
+
+    return None
+
+
+def get_gcp_cloud_storage_config_for_update(provider_config: Dict[str, Any]):
+    storage_config = get_storage_config_for_update(provider_config)
+    if "gcp_cloud_storage" not in storage_config:
+        storage_config["gcp_cloud_storage"] = {}
+    return storage_config["gcp_cloud_storage"]
+
+
+def export_gcp_cloud_storage_config(provider_config, config_dict: Dict[str, Any]):
+    cloud_storage = get_gcp_cloud_storage_config(provider_config)
+    if cloud_storage is None:
         return
-    cloud_storage = provider_config["gcp_cloud_storage"]
     config_dict["GCP_CLOUD_STORAGE"] = True
 
     project_id = cloud_storage.get("project_id")

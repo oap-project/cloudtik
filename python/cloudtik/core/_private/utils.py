@@ -901,13 +901,17 @@ def prepare_config(config: Dict[str, Any]) -> Dict[str, Any]:
 
 def encrypt_config(config: Dict[str, Any]) -> Dict[str, Any]:
     encrypted_config = copy.deepcopy(config)
-    process_config_with_privacy(encrypted_config, func=encode_config_value)
+    cipher = get_config_cipher()
+    process_config_with_privacy(
+        encrypted_config, func=encrypt_config_value, param=cipher)
     return encrypted_config
 
 
 def decrypt_config(config: Dict[str, Any]) -> Dict[str, Any]:
     decrypted_config = copy.deepcopy(config)
-    process_config_with_privacy(decrypted_config, func=decode_config_value)
+    cipher = get_config_cipher()
+    process_config_with_privacy(
+        decrypted_config, func=decrypt_config_value, param=cipher)
     return decrypted_config
 
 
@@ -3108,7 +3112,7 @@ def is_config_key_with_privacy(key: str):
     return False
 
 
-def process_key_with_privacy(v):
+def process_key_with_privacy(v, param):
     if v is None:
         return v
 
@@ -3125,41 +3129,43 @@ def process_key_with_privacy(v):
     return v
 
 
-def process_config_with_privacy(config, func=process_key_with_privacy):
+def process_config_with_privacy(config, func=process_key_with_privacy, param=None):
     if config is None:
         return
 
     if isinstance(config, collections.abc.Mapping):
         for k, v in config.items():
             if isinstance(v, collections.abc.Mapping) or isinstance(v, list):
-                process_config_with_privacy(v, func)
+                process_config_with_privacy(v, func, param)
             elif is_config_key_with_privacy(k):
-                config[k] = func(v)
+                config[k] = func(v, param)
     elif isinstance(config, list):
         for item in config:
             if isinstance(item, collections.abc.Mapping) or isinstance(item, list):
-                process_config_with_privacy(item, func)
+                process_config_with_privacy(item, func, param)
 
 
-@lru_cache()
 def get_config_cipher():
     secrets = decode_cluster_secrets(CLOUDTIK_CONFIG_SECRET)
     cipher = AESCipher(secrets)
     return cipher
 
 
-def encode_config_value(v):
-    cipher = get_config_cipher()
+def encrypt_config_value(v, cipher):
+    if v is None or not isinstance(v, str):
+        return v
+
     return CLOUDTIK_ENCRYPTION_PREFIX + cipher.encrypt(v).decode("utf-8")
 
 
-def decode_config_value(v):
-    if v.startswith(CLOUDTIK_ENCRYPTION_PREFIX):
-        cipher = get_config_cipher()
-        target_bytes = v.strip(CLOUDTIK_ENCRYPTION_PREFIX).encode("utf-8")
-        return cipher.decrypt(target_bytes)
-    else:
+def decrypt_config_value(v, cipher):
+    if v is None or (
+            not isinstance(v, str)) or (
+            not v.startswith(CLOUDTIK_ENCRYPTION_PREFIX)):
         return v
+
+    target_bytes = v[len(CLOUDTIK_ENCRYPTION_PREFIX):].encode("utf-8")
+    return cipher.decrypt(target_bytes)
 
 
 def _get_runtime_scaling_policy(config, head_ip):
@@ -3197,3 +3203,9 @@ def convert_nodes_to_resource(config: Dict[str, Any], nodes: int, resource_id) -
             if resource_total > 0:
                 return nodes * resource_total
     return 0
+
+
+def get_storage_config_for_update(provider_config):
+    if "storage" not in provider_config:
+        provider_config["storage"] = {}
+    return provider_config["storage"]

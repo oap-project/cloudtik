@@ -2,7 +2,7 @@
 from: gcp/standard
 
 # A unique identifier for the cluster.
-cluster_name: example-gcs
+cluster_name: example-standard
 
 # Workspace into which to launch the cluster
 workspace_name: example-workspace
@@ -13,15 +13,19 @@ provider:
     region: us-central1
     availability_zone: us-central1-a
     project_id: your_project_id
-    use_managed_cloud_storage: False
-    storage:
-        # GCS configurations for storage
-        gcp_cloud_storage:
-            gcs.bucket: your_gcs_bucket
-            # Optional email, key ID and private key
-            gcs.service.account.client.email: your_service_account_client_email
-            gcs.service.account.private.key.id: your_service_account_private_key_id
-            gcs.service.account.private.key: your_service_account_private_key
+    gcp_credentials:
+        type: oauth_token
+        credentials:
+            # Option 1: You can execute 'gcloud auth print-access-token' to get oauth access token
+            # and put it here as token value. You don't need to other fields for this case.
+            # but note that the token is short-lived and will expire.
+            token: nil
+            # Option 1: Set the above token as nil and specify the below fields needed for getting and refreshing
+            # an access token.
+            client_id: your-oauth-client-id
+            client_secret: your-oauth-client-secret
+            token_uri: https://oauth2.googleapis.com/token
+            refresh_token: your-oauth-refresh-token
 
 # How CloudTik will authenticate with newly launched nodes.
 auth:

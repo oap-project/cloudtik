@@ -1,7 +1,6 @@
 import copy
 import logging
 import os
-import re
 import time
 from typing import Any, Dict, List
 
@@ -9,6 +8,7 @@ from kubernetes.client.rest import ApiException
 
 from cloudtik.core._private import constants
 from cloudtik.providers._private._kubernetes import custom_objects_api
+from cloudtik.providers._private._kubernetes.config import _get_cluster_selector
 from cloudtik.providers._private._kubernetes.node_provider import head_service_selector
 from cloudtik.core._private.utils import _get_default_config
 
@@ -155,14 +155,12 @@ def get_node_types(
 def get_provider_config(
     cluster_resource, cluster_name, namespace, cluster_owner_reference
 ):
-    head_service_ports = cluster_resource["spec"].get("headServicePorts", None)
-    provider_conf = {}
-    provider_conf["type"] = "kubernetes"
-    provider_conf["use_internal_ips"] = True
-    provider_conf["namespace"] = namespace
-    provider_conf["services"] = [
-        get_head_service(cluster_name, cluster_owner_reference, head_service_ports)
-    ]
+    provider_conf = {"type": "kubernetes", "use_internal_ips": True, "namespace": namespace}
+
+    configure_services(
+        provider_conf, cluster_resource,
+        cluster_name, cluster_owner_reference)
+
     configure_cloud(provider_conf, cluster_resource)
     # Signal to autoscaler that the Operator is in use:
     provider_conf["_operator"] = True
@@ -175,6 +173,23 @@ def get_runtime_config(
     if "runtime" not in cluster_resource["spec"]:
         return {}
     return copy.deepcopy(cluster_resource["spec"]["runtime"])
+
+
+def configure_services(
+        provider_config: Dict[str, Any],
+        cluster_resource: Dict[str, Any],
+        cluster_name, cluster_owner_reference):
+    head_service_ports = cluster_resource["spec"].get("headServicePorts", None)
+    # Pull the default head service from
+    # providers/kubernetes/defaults.yaml
+    default_kubernetes_config = _get_default_config({"type": "kubernetes"})
+
+    provider_config["head_service"] = get_head_service(
+        cluster_name, cluster_owner_reference,
+        head_service_ports, default_kubernetes_config)
+    provider_config["node_service"] = get_node_service(
+        cluster_name, cluster_owner_reference,
+        default_kubernetes_config)
 
 
 def configure_cloud(
@@ -210,19 +225,22 @@ def configure_cloud_storage(
 ):
     if "cloudStorage" not in cloud_config:
         return
+
+    if "storage" not in provider_config:
+        provider_config["storage"] = {}
+    storage_config = provider_config["storage"]
+
     cloud_storage = cloud_config["cloudStorage"]
     for field in cloud_storage:
-        provider_config[field] = copy.deepcopy(cloud_storage[field])
+        storage_config[field] = copy.deepcopy(cloud_storage[field])
 
 
-def get_head_service(cluster_name, cluster_owner_reference, head_service_ports):
+def get_head_service(
+        cluster_name, cluster_owner_reference,
+        head_service_ports, default_kubernetes_config):
     # Configure head service for runtimes.
-
-    # Pull the default head service from
-    # providers/kubernetes/defaults.yaml
-    default_kubernetes_config = _get_default_config({"type": "kubernetes"})
     default_provider_conf = default_kubernetes_config["provider"]
-    head_service = copy.deepcopy(default_provider_conf["services"][0])
+    head_service = copy.deepcopy(default_provider_conf["head_service"])
 
     # Configure the service's name
     service_name = f"cloudtik-{cluster_name}-head"
@@ -246,6 +264,24 @@ def get_head_service(cluster_name, cluster_owner_reference, head_service_ports):
         head_service["spec"]["ports"] = updated_port_list
 
     return head_service
+
+
+def get_node_service(
+        cluster_name, cluster_owner_reference,
+        default_kubernetes_config):
+    # Configure node service for dns
+    default_provider_conf = default_kubernetes_config["provider"]
+    node_service = copy.deepcopy(default_provider_conf["node_service"])
+
+    # Configure the service's name
+    service_name = f"{cluster_name}"
+    node_service["metadata"]["name"] = service_name
+
+    # Garbage-collect service upon cluster deletion.
+    node_service["metadata"]["ownerReferences"] = [cluster_owner_reference]
+    node_service["spec"]["selector"] = {"cluster": _get_cluster_selector(cluster_name)}
+
+    return node_service
 
 
 def port_list_to_dict(port_list: List[Dict]) -> Dict:

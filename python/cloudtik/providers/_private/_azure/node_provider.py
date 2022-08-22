@@ -23,7 +23,7 @@ from cloudtik.providers._private._azure.config import (AZURE_MSI_NAME,
                                                        post_prepare_azure, with_azure_environment_variables)
 
 from cloudtik.providers._private._azure.utils import (_get_node_info, get_azure_sdk_function,
-                                                      get_credential)
+                                                      get_credential, get_azure_cloud_storage_config)
 from cloudtik.providers._private.utils import validate_config_dict
 
 VM_NAME_MAX_LEN = 64
@@ -330,8 +330,8 @@ class AzureNodeProvider(NodeProvider):
 
         validate_config_dict(provider_config["type"], config_dict)
 
-        if "azure_cloud_storage" in provider_config:
-            cloud_storage = provider_config["azure_cloud_storage"]
+        cloud_storage = get_azure_cloud_storage_config(provider_config)
+        if cloud_storage is not None:
             config_dict = {
                 "azure.storage.type": cloud_storage.get("azure.storage.type"),
                 "azure.storage.account": cloud_storage.get("azure.storage.account"),
@@ -346,7 +346,8 @@ class AzureNodeProvider(NodeProvider):
     def verify_config(
             provider_config: Dict[str, Any]) -> None:
         verify_cloud_storage = provider_config.get("verify_cloud_storage", True)
-        if ("azure_cloud_storage" in provider_config) and verify_cloud_storage:
+        cloud_storage = get_azure_cloud_storage_config(provider_config)
+        if verify_cloud_storage and cloud_storage is not None:
             cli_logger.verbose("Verifying Azure cloud storage configurations...")
             verify_azure_cloud_storage(provider_config)
             cli_logger.verbose("Successfully verified Azure cloud storage configurations.")

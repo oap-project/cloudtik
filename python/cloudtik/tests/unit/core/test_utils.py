@@ -133,11 +133,12 @@ class TestUtils:
         assert secret_config["test_dict"]["Account.Key"] != "123"
         assert secret_config["test_dict"]["nested_dict"]["no_privacy"] == "abc"
         assert secret_config["test_dict"]["nested_dict"]["credentials"] != "123"
-        ori_config = decrypt_config(secret_config)
 
-        assert ori_config["test_array"][0]["account.key"] == "123"
-        assert ori_config["test_dict"]["Account.Key"] == "123"
-        assert ori_config["test_dict"]["nested_dict"]["credentials"] == "123"
+        original_config = decrypt_config(secret_config)
+
+        assert original_config["test_array"][0]["account.key"] == "123"
+        assert original_config["test_dict"]["Account.Key"] == "123"
+        assert original_config["test_dict"]["nested_dict"]["credentials"] == "123"
 
     def test_hash_runtime_conf(self):
         file_mounts = {}

@@ -283,9 +283,7 @@ def _validate_config(config: Dict[str, Any], provider):
     if not is_runtime_enabled(config.get(RUNTIME_CONFIG_KEY), "hdfs"):
         # Check any cloud storage is configured
         provider_config = config["provider"]
-        if ("azure_cloud_storage" not in provider_config) and (
-                "aws_s3_storage" not in provider_config) and (
-                "gcp_cloud_storage" not in provider_config) and \
+        if ("storage" not in provider_config) and \
                 not is_use_managed_cloud_storage(config):
             raise ValueError("No storage configuration found for Spark.")
 

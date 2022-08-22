@@ -66,6 +66,9 @@ DEFAULT_AMI = {
     "sa-east-1": "ami-090006f29ecb2d79a",  # SA (Sao Paulo)
 }
 
+AWS_VPC_SUBNETS_COUNT = 2
+AWS_VPC_PUBLIC_SUBNET_INDEX = 0
+
 AWS_WORKSPACE_NUM_CREATION_STEPS = 8
 AWS_WORKSPACE_NUM_DELETION_STEPS = 8
 AWS_WORKSPACE_TARGET_RESOURCES = 10
@@ -481,7 +484,7 @@ def check_aws_workspace_existence(config):
     if vpc_id is not None:
         existing_resources += 1
         # Network resources that depending on VPC
-        if len(get_workspace_private_subnets(workspace_name, ec2, vpc_id)) > 0:
+        if len(get_workspace_private_subnets(workspace_name, ec2, vpc_id)) >= AWS_VPC_SUBNETS_COUNT - 1:
             existing_resources += 1
         if len(get_workspace_public_subnets(workspace_name, ec2, vpc_id)) > 0:
             existing_resources += 1
@@ -1448,10 +1451,37 @@ def _create_vpc(config, ec2, ec2_client):
     return vpc
 
 
-def _create_and_configure_subnets(config, vpc):
+def _describe_availability_zones(ec2_client):
+    response = ec2_client.describe_availability_zones()
+    availability_zones = [zone["ZoneName"] for zone in response['AvailabilityZones']
+                          if zone["State"] == 'available' and zone["ZoneType"] == 'availability-zone']
+    return availability_zones
+
+
+def _next_availability_zone(availability_zones: set, used: set, last_availability_zone):
+    used.add(last_availability_zone)
+    unused = availability_zones.difference(used)
+    if len(unused) > 0:
+        return unused.pop()
+
+    # Used all, restart
+    used.clear()
+    if len(availability_zones) > 0:
+        return next(iter(availability_zones))
+
+    return None
+
+
+def _create_and_configure_subnets(config, ec2_client, vpc):
     subnets = []
     cidr_list = _configure_subnets_cidr(vpc)
     cidr_len = len(cidr_list)
+
+    availability_zones = set(_describe_availability_zones(ec2_client))
+    used_availability_zones = set()
+    default_availability_zone = None
+    last_availability_zone = None
+
     for i in range(0, cidr_len):
         cidr_block = cidr_list[i]
         subnet_type = "public" if i == 0 else "private"
@@ -1461,14 +1491,24 @@ def _create_and_configure_subnets(config, vpc):
             try:
                 if i == 0:
                     subnet = _create_public_subnet(config, vpc, cidr_block)
+                    default_availability_zone = subnet.availability_zone
                 else:
-                    subnet = _create_private_subnet(config, vpc, cidr_block)
+                    if last_availability_zone is None:
+                        last_availability_zone = default_availability_zone
+
+                    subnet = _create_private_subnet(config, vpc, cidr_block,
+                                                    last_availability_zone)
+
+                    last_availability_zone = _next_availability_zone(
+                        availability_zones, used_availability_zones, last_availability_zone)
+
             except Exception as e:
                 cli_logger.error("Failed to create {} subnet. {}", subnet_type, str(e))
                 raise e
             subnets.append(subnet)
 
-    assert len(subnets) == 2, "We must create 2 subnets for VPC: {}!".format(vpc.id)
+    assert len(subnets) == AWS_VPC_SUBNETS_COUNT, "We must create {} subnets for VPC: {}!".format(
+        AWS_VPC_SUBNETS_COUNT, vpc.id)
     return subnets
 
 
@@ -1495,12 +1535,16 @@ def _create_public_subnet(config, vpc, cidr_block):
     return subnet
 
 
-def _create_private_subnet(config, vpc, cidr_block):
-    cli_logger.print("Creating private subnet for VPC: {} with CIDR: {}...".format(vpc.id, cidr_block))
+def _create_private_subnet(config, vpc, cidr_block, availability_zone):
+    if availability_zone is None:
+        cli_logger.print("Creating private subnet for VPC: {} with CIDR: {}...".format(
+            vpc.id, cidr_block))
+    else:
+        cli_logger.print("Creating private subnet for VPC: {} with CIDR: {} in {}...".format(
+            vpc.id, cidr_block, availability_zone))
+
     subnet_name = 'cloudtik-{}-private-subnet'.format(config["workspace_name"])
-    subnet = vpc.create_subnet(
-        CidrBlock=cidr_block,
-        TagSpecifications=[
+    tag_specs = [
             {
                 'ResourceType': 'subnet',
                 'Tags': [
@@ -1511,7 +1555,17 @@ def _create_private_subnet(config, vpc, cidr_block):
                 ]
             },
         ]
-    )
+    if availability_zone is None:
+        subnet = vpc.create_subnet(
+            CidrBlock=cidr_block,
+            TagSpecifications=tag_specs
+        )
+    else:
+        subnet = vpc.create_subnet(
+            CidrBlock=cidr_block,
+            TagSpecifications=tag_specs,
+            AvailabilityZone=availability_zone
+        )
     cli_logger.print("Successfully created private subnet: {}.".format(subnet_name))
     return subnet
 
@@ -1670,15 +1724,16 @@ def _create_or_update_route_tables(
             _numbered=("()", current_step, total_steps)):
         current_step += 1
         _update_route_table_for_public_subnet(
-            config, ec2, ec2_client, vpc, subnets[0], internet_gateway)
+            config, ec2, ec2_client, vpc, subnets[AWS_VPC_PUBLIC_SUBNET_INDEX], internet_gateway)
 
     with cli_logger.group(
             "Creating route table for private subnet",
             _numbered=("()", current_step, total_steps)):
         current_step += 1
         # create private route table for private subnets
-        private_route_table = _create_route_table_for_private_subnet(
-            config, ec2, vpc, subnets[-1])
+        private_subnets = subnets[1:]
+        private_route_table = _create_route_table_for_private_subnets(
+            config, ec2, vpc, private_subnets)
 
     return private_route_table
 
@@ -1705,8 +1760,9 @@ def _update_route_table_for_public_subnet(config, ec2, ec2_client, vpc, subnet, 
     cli_logger.print("Successfully updated public subnet route table: {}.".format(subnet.id))
 
 
-def _create_route_table_for_private_subnet(config, ec2, vpc, subnet):
-    cli_logger.print("Updating private subnet route table: {}...".format(subnet.id))
+def _create_route_table_for_private_subnets(config, ec2, vpc, subnets):
+    route_table_name = 'cloudtik-{}-private-route-table'.format(config["workspace_name"])
+    cli_logger.print("Creating private subnet route table: {}...".format(route_table_name))
     private_route_tables = get_workspace_private_route_tables(config["workspace_name"], ec2, vpc.id)
     if len(private_route_tables) > 0:
         private_route_table = private_route_tables[0]
@@ -1719,14 +1775,18 @@ def _create_route_table_for_private_subnet(config, ec2, vpc, subnet):
                     'Tags': [
                         {
                             'Key': 'Name',
-                            'Value': 'cloudtik-{}-private-route-table'.format(config["workspace_name"])
+                            'Value': route_table_name
                         },
                     ]
                 },
             ]
         )
-    private_route_table.associate_with_subnet(SubnetId=subnet.id)
-    cli_logger.print("Successfully updated private subnet route table: {}.".format(subnet.id))
+    cli_logger.print("Successfully created private subnet route table: {}...".format(route_table_name))
+
+    for subnet in subnets:
+        cli_logger.print("Updating private subnet route table: {}...".format(subnet.id))
+        private_route_table.associate_with_subnet(SubnetId=subnet.id)
+        cli_logger.print("Successfully updated private subnet route table: {}.".format(subnet.id))
     return private_route_table
 
 
@@ -1881,7 +1941,7 @@ def _create_network_resources(config, ec2, ec2_client,
             "Creating subnets",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
-        subnets = _create_and_configure_subnets(config, vpc)
+        subnets = _create_and_configure_subnets(config, ec2_client, vpc)
 
     # TODO check whether we need to create new internet gateway? Maybe existing vpc contains internet subnets
     # create internet gateway for public subnets
@@ -1905,7 +1965,7 @@ def _create_network_resources(config, ec2, ec2_client,
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
         _create_and_configure_nat_gateway(
-            config, ec2_client, vpc, subnets[0], private_route_table)
+            config, ec2_client, vpc, subnets[AWS_VPC_PUBLIC_SUBNET_INDEX], private_route_table)
 
     # create VPC endpoint for S3
     with cli_logger.group(
@@ -1945,11 +2005,11 @@ def _configure_vpc(config, workspace_name, ec2, ec2_client):
 def _configure_subnets_cidr(vpc):
     cidr_list = []
     subnets = list(vpc.subnets.all())
-    vpc_CidrBlock = vpc.cidr_block
-    ip = vpc_CidrBlock.split("/")[0].split(".")
+    vpc_cidr_block = vpc.cidr_block
+    ip = vpc_cidr_block.split("/")[0].split(".")
 
     if len(subnets) == 0:
-        for i in range(0, 2):
+        for i in range(0, AWS_VPC_SUBNETS_COUNT):
             cidr_list.append(ip[0] + "." + ip[1] + "." + str(i) + ".0/24")
     else:
         cidr_blocks = [subnet.cidr_block for subnet in subnets]
@@ -1960,7 +2020,7 @@ def _configure_subnets_cidr(vpc):
                 cidr_list.append(tmp_cidr_block)
                 print("Choose CIDR: {}".format(tmp_cidr_block))
 
-            if len(cidr_list) == 2:
+            if len(cidr_list) == AWS_VPC_SUBNETS_COUNT:
                 break
 
     return cidr_list

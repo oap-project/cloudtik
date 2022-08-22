@@ -22,13 +22,18 @@ from typing import Dict, Callable, List, Optional, Any
 
 from cloudtik.core._private.call_context import CallContext
 from cloudtik.core._private.cli_logger import cli_logger, cf
+from cloudtik.core._private.cluster.cluster_metrics_updater import ClusterMetricsUpdater
 from cloudtik.core._private.cluster.cluster_operator import _should_create_new_head, _set_up_config_for_head_node, \
     POLL_INTERVAL
 from cloudtik.core._private.cluster.cluster_scaler import ClusterScaler, NonTerminatedNodes
+from cloudtik.core._private.cluster.event_summarizer import EventSummarizer
+from cloudtik.core._private.cluster.resource_scaling_policy import ResourceScalingPolicy
 from cloudtik.core._private.docker import validate_docker_config
 from cloudtik.core._private.event_system import global_event_system, CreateClusterEvent
 from cloudtik.core._private.node.node_updater import NodeUpdater
 from cloudtik.core._private.prometheus_metrics import ClusterPrometheusMetrics
+from cloudtik.core._private.state.control_state import ControlState
+from cloudtik.core._private.state.scaling_state import ScalingStateClient
 from cloudtik.core._private.utils import prepare_config, validate_config, fillout_defaults, \
     fill_node_type_min_max_workers, DOCKER_CONFIG_KEY, RUNTIME_CONFIG_KEY, get_cluster_uri, hash_launch_conf, \
     hash_runtime_conf, is_docker_enabled, get_commands_to_run, cluster_booting_completed, merge_cluster_config, \
@@ -134,9 +139,7 @@ class MockProcessRunner:
                         pattern: Optional[str] = None,
                         exact: Optional[List[str]] = None):
         """Checks if the given value was called by this process runner.
-
         NOTE: Either pattern or exact must be specified, not both!
-
         Args:
             ip: IP address of the node that the given call was executed on.
             pattern: RegEx that matches one specific call.
@@ -557,7 +560,8 @@ MULTI_WORKER_CLUSTER = dict(
 class ClusterMetricsTest(unittest.TestCase):
     def testHeartbeat(self):
         cluster_metrics = ClusterMetrics()
-        cluster_metrics.update("1.1.1.1", mock_node_id(), None, {"CPU": 2}, {"CPU": 1}, {})
+        cluster_metrics.update_heartbeat("1.1.1.1", mock_node_id(), None)
+        cluster_metrics.update_node_resources("1.1.1.1", mock_node_id(), None, {"CPU": 2}, {"CPU": 1}, {})
         cluster_metrics.mark_active("2.2.2.2")
         assert "1.1.1.1" in cluster_metrics.last_heartbeat_time_by_ip
         assert "2.2.2.2" in cluster_metrics.last_heartbeat_time_by_ip
@@ -565,11 +569,11 @@ class ClusterMetricsTest(unittest.TestCase):
 
     def testDebugString(self):
         cluster_metrics = ClusterMetrics()
-        cluster_metrics.update("1.1.1.1", mock_node_id(), time.time(), {"CPU": 2}, {"CPU": 0}, {})
-        cluster_metrics.update(
+        cluster_metrics.update_node_resources("1.1.1.1", mock_node_id(), time.time(), {"CPU": 2}, {"CPU": 0}, {})
+        cluster_metrics.update_node_resources(
             "2.2.2.2", mock_node_id(), time.time(), {"CPU": 2, "GPU": 16}, {"CPU": 2, "GPU": 2}, {}
         )
-        cluster_metrics.update(
+        cluster_metrics.update_node_resources(
             "3.3.3.3",
             mock_node_id(),
             time.time(),
@@ -1112,9 +1116,14 @@ class CloudTikTest(unittest.TestCase):
         self.provider = MockProvider()
         runner = MockProcessRunner()
         mock_metrics = Mock(spec=ClusterPrometheusMetrics())
+        cluster_metrics = ClusterMetrics()
+        event_summarizer = EventSummarizer()
+        control_state = ControlState()
         cluster_scaler = MockClusterScaler(
             config_path,
-            ClusterMetrics(),
+            cluster_metrics,
+            ClusterMetricsUpdater(cluster_metrics, event_summarizer, control_state),
+            ResourceScalingPolicy("1.2.3.4", ScalingStateClient.create_from(ControlState())),
             max_failures=0,
             process_runner=runner,
             update_interval_s=0,
@@ -1220,15 +1229,17 @@ class CloudTikTest(unittest.TestCase):
         self.provider = MockProvider()
         runner = MockProcessRunner()
         runner.respond_to_call("json .Config.Env", ["[]" for i in range(15)])
-        cm = ClusterMetrics()
-
         self.get_or_create_head_node(config, CallContext(), no_restart=False, restart_only=False, yes=True,
                                      _provider=self.provider, _runner=runner)
         self.waitForNodes(1)
-
+        cluster_metrics = ClusterMetrics()
+        event_summarizer = EventSummarizer()
+        control_state = ControlState()
         cluster_scaler = MockClusterScaler(
             config_path,
-            cm,
+            cluster_metrics,
+            ClusterMetricsUpdater(cluster_metrics, event_summarizer, control_state),
+            ResourceScalingPolicy("1.2.3.4", ScalingStateClient.create_from(ControlState())),
             max_failures=0,
             max_concurrent_launches=13,
             max_launch_batch=13,
@@ -1261,7 +1272,8 @@ class CloudTikTest(unittest.TestCase):
         config["available_node_types"]["p2.xlarge"]["max_workers"] = 6
         config["from"] = None
         self.write_config(config)
-        fill_in_node_ids(self.provider, cm)
+        fill_in_node_ids(self.provider, cluster_metrics)
+        cluster_scaler.reset(errors_fatal=False)
         cluster_scaler.update()
         self.waitFor(lambda: cluster_scaler.pending_launches.value == 0)
         self.waitForNodes(10, tag_filters={CLOUDTIK_TAG_NODE_KIND: NODE_KIND_WORKER})
@@ -1286,10 +1298,14 @@ class CloudTikTest(unittest.TestCase):
         self.provider = MockProvider(cache_stopped=False)
         runner = MockProcessRunner()
         runner.respond_to_call("json .Config.Env", ["[]" for i in range(2)])
-        cm = ClusterMetrics()
+        cluster_metrics = ClusterMetrics()
+        event_summarizer = EventSummarizer()
+        control_state = ControlState()
         cluster_scaler = MockClusterScaler(
             config_path,
-            cm,
+            cluster_metrics,
+            ClusterMetricsUpdater(cluster_metrics, event_summarizer, control_state),
+            ResourceScalingPolicy("1.2.3.4", ScalingStateClient.create_from(ControlState())),
             max_failures=0,
             process_runner=runner,
             update_interval_s=0,
@@ -1325,10 +1341,14 @@ class CloudTikTest(unittest.TestCase):
         self.provider = MockProvider(cache_stopped=True)
         runner = MockProcessRunner()
         runner.respond_to_call("json .Config.Env", ["[]" for i in range(3)])
-        cm = ClusterMetrics()
+        cluster_metrics = ClusterMetrics()
+        event_summarizer = EventSummarizer()
+        control_state = ControlState()
         cluster_scaler = MockClusterScaler(
             config_path,
-            cm,
+            cluster_metrics,
+            ClusterMetricsUpdater(cluster_metrics, event_summarizer, control_state),
+            ResourceScalingPolicy("1.2.3.4", ScalingStateClient.create_from(ControlState())),
             max_failures=0,
             process_runner=runner,
             update_interval_s=0,
@@ -1406,10 +1426,14 @@ class CloudTikTest(unittest.TestCase):
         self.provider = MockProvider(cache_stopped=True)
         runner = MockProcessRunner()
         runner.respond_to_call("json .Config.Env", ["[]" for i in range(3)])
-        cm = ClusterMetrics()
+        cluster_metrics = ClusterMetrics()
+        event_summarizer = EventSummarizer()
+        control_state = ControlState()
         cluster_scaler = MockClusterScaler(
             config_path,
-            cm,
+            cluster_metrics,
+            ClusterMetricsUpdater(cluster_metrics, event_summarizer, control_state),
+            ResourceScalingPolicy("1.2.3.4", ScalingStateClient.create_from(ControlState())),
             max_failures=0,
             process_runner=runner,
             update_interval_s=0,
@@ -1497,10 +1521,14 @@ MemAvailable:   33000000 kB
         runner.respond_to_call(".Runtimes", 2 * ["nvidia-container-runtime"])
         runner.respond_to_call("nvidia-smi", 2 * ["works"])
         runner.respond_to_call("json .Config.Env", 2 * ["[]"])
-        cm = ClusterMetrics()
+        cluster_metrics = ClusterMetrics()
+        event_summarizer = EventSummarizer()
+        control_state = ControlState()
         cluster_scaler = MockClusterScaler(
             config_path,
-            cm,
+            cluster_metrics,
+            ClusterMetricsUpdater(cluster_metrics, event_summarizer, control_state),
+            ResourceScalingPolicy("1.2.3.4", ScalingStateClient.create_from(ControlState())),
             max_failures=0,
             process_runner=runner,
             update_interval_s=0,
@@ -1531,9 +1559,14 @@ MemAvailable:   33000000 kB
         self.provider = MockProvider()
         runner = MockProcessRunner()
         runner.respond_to_call("json .Config.Env", ["[]" for i in range(1)])
+        cluster_metrics = ClusterMetrics()
+        event_summarizer = EventSummarizer()
+        control_state = ControlState()
         cluster_scaler = MockClusterScaler(
             config_path,
-            ClusterMetrics(),
+            cluster_metrics,
+            ClusterMetricsUpdater(cluster_metrics, event_summarizer, control_state),
+            ResourceScalingPolicy("1.2.3.4", ScalingStateClient.create_from(ControlState())),
             max_failures=0,
             process_runner=runner,
             update_interval_s=0,

@@ -20,6 +20,7 @@ from cloudtik.core._private import constants
 from cloudtik.core._private.call_context import CallContext
 from cloudtik.core._private.cluster.cluster_metrics_updater import ClusterMetricsUpdater
 from cloudtik.core._private.cluster.resource_scaling_policy import ResourceScalingPolicy
+from cloudtik.core._private.core_utils import ConcurrentCounter
 from cloudtik.core._private.crypto import AESCipher
 from cloudtik.core._private.state.kv_store import kv_put, kv_del, kv_initialized
 
@@ -44,7 +45,7 @@ from cloudtik.core._private.cluster.node_tracker import NodeTracker
 from cloudtik.core._private.cluster.resource_demand_scheduler import \
     get_bin_pack_residual, ResourceDemandScheduler, NodeType, NodeID, NodeIP, \
     ResourceDict
-from cloudtik.core._private.utils import ConcurrentCounter, validate_config, \
+from cloudtik.core._private.utils import validate_config, \
     hash_launch_conf, hash_runtime_conf, \
     format_info_string, get_commands_to_run, with_head_node_ip_environment_variables, \
     encode_cluster_secrets, _get_node_specific_commands, _get_node_specific_config, \

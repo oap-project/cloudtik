@@ -22,11 +22,12 @@ import cloudtik.core._private.constants as constants
 import cloudtik.core._private.services as services
 from cloudtik.core._private.state.control_state import StateClient
 from cloudtik.core._private import utils
+from cloudtik.core._private import core_utils
 from cloudtik.core._private.state import kv_store
 from cloudtik.core._private.resource_spec import ResourceSpec
 
-from cloudtik.core._private.utils import (try_to_create_directory, try_to_symlink,
-                                          open_log)
+from cloudtik.core._private.core_utils import try_to_create_directory, try_to_symlink, open_log, \
+    detect_fate_sharing_support, set_sigterm_handler
 
 # Logger for this module.
 logger = logging.getLogger(__name__)
@@ -77,7 +78,7 @@ class NodeServicesStarter:
 
         self.head = head
         self.kernel_fate_share = bool(
-            spawn_reaper and utils.detect_fate_sharing_support())
+            spawn_reaper and detect_fate_sharing_support())
         self.all_processes = {}
         self.removal_lock = threading.Lock()
 
@@ -128,7 +129,7 @@ class NodeServicesStarter:
         else:
             session_name = self._kv_get_with_retry(
                 "session_name", constants.KV_NAMESPACE_SESSION)
-            self.session_name = utils.decode(session_name)
+            self.session_name = core_utils.decode(session_name)
             # setup state client
             self.get_state_client()
 
@@ -187,7 +188,7 @@ class NodeServicesStarter:
             self.kill_all_processes(check_alive=False, allow_graceful=True)
             sys.exit(1)
 
-        utils.set_sigterm_handler(sigterm_handler)
+        set_sigterm_handler(sigterm_handler)
 
     def _init_temp(self):
         # Create a dictionary to store temp file index.
@@ -198,7 +199,7 @@ class NodeServicesStarter:
         else:
             temp_dir = self._kv_get_with_retry(
                 "temp_dir", constants.KV_NAMESPACE_SESSION)
-            self._temp_dir = utils.decode(temp_dir)
+            self._temp_dir = core_utils.decode(temp_dir)
 
         try_to_create_directory(self._temp_dir)
 
@@ -207,7 +208,7 @@ class NodeServicesStarter:
         else:
             session_dir = self._kv_get_with_retry(
                 "session_dir", constants.KV_NAMESPACE_SESSION)
-            self._session_dir = utils.decode(session_dir)
+            self._session_dir = core_utils.decode(session_dir)
         session_symlink = os.path.join(self._temp_dir, SESSION_LATEST)
 
         # Send a warning message if the session exists.

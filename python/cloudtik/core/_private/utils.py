@@ -1331,7 +1331,7 @@ def format_pg(pg):
 
 
 def parse_placement_group_resource_str(
-        placement_group_resource_str: str) -> Tuple[str, Optional[str]]:
+        placement_group_resource_str: str) -> Tuple[str, Optional[str], bool]:
     """Parse placement group resource in the form of following 3 cases:
     {resource_name}_group_{bundle_id}_{group_name};
     -> This case is ignored as it is duplicated to the case below.
@@ -1350,12 +1350,12 @@ def parse_placement_group_resource_str(
     result = PLACEMENT_GROUP_RESOURCE_BUNDLED_PATTERN.match(
         placement_group_resource_str)
     if result:
-        return (result.group(1), result.group(3), False)
+        return result.group(1), result.group(3), False
     result = PLACEMENT_GROUP_RESOURCE_PATTERN.match(
         placement_group_resource_str)
     if result:
-        return (result.group(1), result.group(2), True)
-    return (placement_group_resource_str, None, True)
+        return result.group(1), result.group(2), True
+    return placement_group_resource_str, None, True
 
 
 def get_usage_report(cluster_metrics_summary: ClusterMetricsSummary) -> str:
@@ -1459,12 +1459,12 @@ def format_resource_demand_summary(
     return demand_lines
 
 
-def get_demand_report(lm_summary: ClusterMetricsSummary):
+def get_demand_report(cluster_metrics_summary: ClusterMetricsSummary):
     demand_lines = []
-    if lm_summary.resource_demand:
+    if cluster_metrics_summary.resource_demand:
         demand_lines.extend(
-            format_resource_demand_summary(lm_summary.resource_demand))
-    for bundle, count in lm_summary.request_demand:
+            format_resource_demand_summary(cluster_metrics_summary.resource_demand))
+    for bundle, count in cluster_metrics_summary.request_demand:
         line = f" {bundle}: {count}+ from request_resources()"
         demand_lines.append(line)
     if len(demand_lines) > 0:
@@ -1481,7 +1481,7 @@ def decode_cluster_scaling_time(status):
     return report_time
 
 
-def format_info_string(lm_summary, scaler_summary, time=None):
+def format_info_string(cluster_metrics_summary, scaler_summary, time=None):
     if time is None:
         time = datetime.now()
     header = "=" * 8 + f" Cluster Scaler status: {time} " + "=" * 8
@@ -1517,17 +1517,8 @@ def format_info_string(lm_summary, scaler_summary, time=None):
     else:
         failure_report += " (no failures)"
 
-    # TODO: temporarily remove usage and deman report. To restore in the future
-    #usage_report = get_usage_report(lm_summary)
-    #demand_report = get_demand_report(lm_summary)
-
-    #Resources
-    #{separator}
-    #Usage:
-    #{usage_report}
-
-    #Demands:
-    #{demand_report}
+    usage_report = get_usage_report(cluster_metrics_summary)
+    demand_report = get_demand_report(cluster_metrics_summary)
 
     formatted_output = f"""{header}
 Node status
@@ -1536,7 +1527,14 @@ Healthy:
 {available_node_report}
 Pending:
 {pending_report}
-{failure_report}"""
+{failure_report}
+
+Resources
+{separator}
+Usage:
+{usage_report}
+Demands:
+{demand_report}"""
     return formatted_output
 
 

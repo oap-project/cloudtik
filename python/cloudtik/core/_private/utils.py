@@ -116,10 +116,6 @@ RUNTIME_TYPES_CONFIG_KEY = "types"
 
 PRIVACY_CONFIG_KEYS = ["credentials", "account.key", "secret", "access.key", "private.key"]
 
-pwd = None
-if sys.platform != "win32":
-    pass
-
 logger = logging.getLogger(__name__)
 
 # Linux can bind child processes' lifetimes to that of their parents via prctl.

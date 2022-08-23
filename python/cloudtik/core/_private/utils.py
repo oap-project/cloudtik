@@ -8,7 +8,6 @@ import hashlib
 import json
 import os
 import threading
-from functools import lru_cache
 from typing import Any, Dict, Optional, Tuple, List, Union
 import sys
 import tempfile
@@ -41,6 +40,7 @@ from cloudtik.core._private.constants import CLOUDTIK_WHEELS, CLOUDTIK_CLUSTER_P
     CLOUDTIK_RUNTIME_ENV_SECRETS, CLOUDTIK_DEFAULT_PORT, CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
     CLOUDTIK_RUNTIME_ENV_NODE_TYPE, PRIVACY_REPLACEMENT_TEMPLATE, PRIVACY_REPLACEMENT, CLOUDTIK_CONFIG_SECRET, \
     CLOUDTIK_ENCRYPTION_PREFIX
+from cloudtik.core._private.core_utils import _load_class
 from cloudtik.core._private.crypto import AESCipher
 from cloudtik.core._private.runtime_factory import _get_runtime, _get_runtime_cls, DEFAULT_RUNTIMES
 from cloudtik.core.node_provider import NodeProvider
@@ -48,6 +48,7 @@ from cloudtik.core._private.providers import _get_default_config, _get_node_prov
     _get_node_provider_cls
 from cloudtik.core._private.docker import validate_docker_config
 from cloudtik.core._private.providers import _get_workspace_provider
+from cloudtik.core.scaling_policy import ScalingState
 from cloudtik.core.tags import CLOUDTIK_TAG_USER_NODE_TYPE, CLOUDTIK_TAG_NODE_STATUS, STATUS_UP_TO_DATE, \
     STATUS_UPDATE_FAILED, CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD
 
@@ -3168,21 +3169,68 @@ def decrypt_config_value(v, cipher):
     return cipher.decrypt(target_bytes)
 
 
-def _get_runtime_scaling_policy(config, head_ip):
+def _get_runtime_scaling_policies(config, head_ip):
+    scaling_policies = []
+
     runtime_config = config.get(RUNTIME_CONFIG_KEY)
     if runtime_config is None:
-        return None
+        return scaling_policies
 
     runtime_types = runtime_config.get(RUNTIME_TYPES_CONFIG_KEY, [])
-    if len(runtime_types) == 0:
+    if len(runtime_types) > 0:
+        for runtime_type in runtime_types:
+            runtime = _get_runtime(runtime_type, runtime_config)
+            scaling_policy = runtime.get_scaling_policy(config, head_ip)
+            if scaling_policy is not None:
+                scaling_policies.append(scaling_policy)
+
+    # Check whether there are any user scaling policies configured
+    user_scaling_policy = _get_user_scaling_policy(runtime_config, config, head_ip)
+    if user_scaling_policy is not None:
+        scaling_policies.append(user_scaling_policy)
+
+    return scaling_policies
+
+
+def _get_scaling_policy_cls(class_path):
+    """Get the ScalingPolicy class from user specified module and class name.
+    Returns:
+        ScalingPolicy class
+    """
+    scaling_policy_class = _load_class(path=class_path)
+    if scaling_policy_class is None:
+        raise NotImplementedError("Cannot load external scaling policy class: {}".format(class_path))
+
+    return scaling_policy_class
+
+
+def _get_user_scaling_policy(runtime_config, config, head_ip):
+    if "scaling" not in runtime_config:
+        return None
+    scaling_config = runtime_config["scaling"]
+    if "scaling_policy_class" not in scaling_config:
         return None
 
-    for runtime_type in runtime_types:
-        runtime = _get_runtime(runtime_type, runtime_config)
-        scaling_policy = runtime.get_scaling_policy(config, head_ip)
-        if scaling_policy is not None:
-            return scaling_policy
-    return None
+    scaling_policy_cls = _get_scaling_policy_cls(scaling_config["scaling_policy_class"])
+    return scaling_policy_cls(config, head_ip)
+
+
+def merge_optional_dict(config, updates):
+    if config is None:
+        return updates
+    if updates is None:
+        return config
+    return update_nested_dict(config, updates)
+
+
+def merge_scaling_state(scaling_state: ScalingState, new_scaling_state: ScalingState):
+    autoscaling_instructions = merge_optional_dict(
+        scaling_state.autoscaling_instructions, new_scaling_state.autoscaling_instructions)
+    node_resource_states = merge_optional_dict(
+        scaling_state.node_resource_states, new_scaling_state.node_resource_states)
+    lost_nodes = merge_optional_dict(
+        scaling_state.lost_nodes, new_scaling_state.lost_nodes)
+    return ScalingState(autoscaling_instructions, node_resource_states, lost_nodes)
 
 
 def convert_nodes_to_cpus(config: Dict[str, Any], nodes: int) -> int:

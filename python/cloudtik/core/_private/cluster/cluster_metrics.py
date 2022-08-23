@@ -102,7 +102,7 @@ class ClusterMetrics:
 
     def update_heartbeat(self,
                          ip: str,
-                         node_id: bytes,
+                         node_id: str,
                          last_heartbeat_time):
         self.node_id_by_ip[ip] = node_id
         self.last_heartbeat_time_by_ip[ip] = last_heartbeat_time
@@ -126,7 +126,7 @@ class ClusterMetrics:
 
     def update_node_resources(self,
                               ip: str,
-                              node_id: bytes,
+                              node_id: str,
                               last_resource_time,
                               static_resources: Dict[str, Any],
                               dynamic_resources: Dict[str, Any],

@@ -9,7 +9,6 @@ import logging
 import os
 import random
 import shutil
-import sys
 import subprocess
 import tempfile
 import time
@@ -35,7 +34,6 @@ from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core._private.constants import \
     CLOUDTIK_RESOURCE_REQUEST_CHANNEL, \
     MAX_PARALLEL_SHUTDOWN_WORKERS, \
-    CLOUDTIK_DEFAULT_PORT, \
     CLOUDTIK_REDIS_DEFAULT_PASSWORD, CLOUDTIK_CLUSTER_STATUS_STOPPED, CLOUDTIK_CLUSTER_STATUS_RUNNING, \
     CLOUDTIK_RUNTIME_NAME
 from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
@@ -52,7 +50,7 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     get_node_specific_commands_of_runtimes, _get_node_specific_runtime_config, \
     _get_node_specific_docker_config, RUNTIME_CONFIG_KEY, DOCKER_CONFIG_KEY, get_running_head_node, \
     get_nodes_for_runtime, with_script_args, encrypt_config, get_resource_demands_for_cpu, convert_nodes_to_cpus, \
-    with_environment_variables_from_config, get_node_type
+    decrypt_config
 
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
@@ -341,7 +339,8 @@ def _bootstrap_config(config: Dict[str, Any],
             # we can have migrations otherwise or something
             # but this seems overcomplicated given that resolving is
             # relatively cheap
-            try_reload_log_state(config_cache["config"]["provider"],
+            cached_config = decrypt_config(config_cache["config"])
+            try_reload_log_state(cached_config["provider"],
                                  config_cache.get("provider_log_info"))
 
             if log_once("_printed_cached_config_warning"):
@@ -353,7 +352,7 @@ def _bootstrap_config(config: Dict[str, Any],
                     "the cloud provider, try re-running "
                     "the command with {}.", cf.bold("--no-config-cache"))
 
-            return config_cache["config"]
+            return cached_config
         else:
             cli_logger.warning(
                 "Found cached cluster config "
@@ -390,11 +389,12 @@ def _bootstrap_config(config: Dict[str, Any],
 
     if not no_config_cache or init_config_cache:
         with open(cache_key, "w", opener=partial(os.open, mode=0o600)) as f:
+            encrypted_config = encrypt_config(resolved_config)
             config_cache = {
                 "_version": CONFIG_CACHE_VERSION,
                 "provider_log_info": try_get_log_state(
                     resolved_config["provider"]),
-                "config": resolved_config
+                "config": encrypted_config
             }
             f.write(json.dumps(config_cache))
     return resolved_config

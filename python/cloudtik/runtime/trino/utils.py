@@ -4,7 +4,7 @@ from shlex import quote
 
 from cloudtik.core._private.providers import _get_workspace_provider
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_METASTORE
-from cloudtik.core._private.utils import merge_rooted_config_hierarchy, _get_runtime_config_object, is_runtime_enabled, \
+from cloudtik.core._private.config_utils import merge_rooted_config_hierarchy, _get_runtime_config_object, is_runtime_enabled, \
     get_node_type, get_resource_of_node_type, round_memory_size_to_gb, RUNTIME_CONFIG_KEY, get_node_type_config
 
 RUNTIME_PROCESSES = [

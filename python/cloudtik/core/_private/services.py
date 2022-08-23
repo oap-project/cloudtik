@@ -22,7 +22,7 @@ import cloudtik
 import psutil
 
 import cloudtik.core._private.constants as constants
-import cloudtik.core._private.utils as utils
+import cloudtik.core._private.config_utils as utils
 from cloudtik.core import tags
 from cloudtik.core._private.state.control_state import ControlState
 

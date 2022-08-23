@@ -11,7 +11,7 @@ from typing import Any, Dict, Optional
 
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, CLOUDTIK_TAG_CLUSTER_NAME
 from cloudtik.core._private.cli_logger import cli_logger, cf
-from cloudtik.core._private.utils import check_cidr_conflict, is_use_internal_ip, _is_use_internal_ip, \
+from cloudtik.core._private.config_utils import check_cidr_conflict, is_use_internal_ip, _is_use_internal_ip, \
     is_managed_cloud_storage, is_use_managed_cloud_storage, _is_use_managed_cloud_storage
 from cloudtik.core.workspace_provider import Existence, CLOUDTIK_MANAGED_CLOUD_STORAGE, \
     CLOUDTIK_MANAGED_CLOUD_STORAGE_URI

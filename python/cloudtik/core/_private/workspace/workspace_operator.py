@@ -21,7 +21,7 @@ except ImportError:  # py2
     from pipes import quote
 
 
-from cloudtik.core._private.utils import validate_workspace_config, prepare_workspace_config, is_managed_cloud_storage, \
+from cloudtik.core._private.config_utils import validate_workspace_config, prepare_workspace_config, is_managed_cloud_storage, \
     print_dict_info
 from cloudtik.core._private.providers import _get_workspace_provider_cls, _get_workspace_provider, \
     _WORKSPACE_PROVIDERS, _PROVIDER_PRETTY_NAMES, _get_node_provider_cls

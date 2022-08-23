@@ -5,7 +5,7 @@ import re
 import subprocess
 import sys
 
-import cloudtik.core._private.utils as utils
+import cloudtik.core._private.config_utils as utils
 import cloudtik.core._private.constants as constants
 import cloudtik.core._private.services as services
 

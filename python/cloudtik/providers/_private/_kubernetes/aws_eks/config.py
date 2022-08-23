@@ -8,7 +8,7 @@ from typing import Any, Dict
 import botocore
 
 from cloudtik.core._private.cli_logger import cli_logger
-from cloudtik.core._private.utils import _is_use_managed_cloud_storage, _is_managed_cloud_storage
+from cloudtik.core._private.config_utils import _is_use_managed_cloud_storage, _is_managed_cloud_storage
 from cloudtik.core.workspace_provider import Existence
 from cloudtik.providers._private._kubernetes import core_api, log_prefix
 from cloudtik.providers._private._kubernetes.aws_eks.utils import get_root_ca_cert_thumbprint

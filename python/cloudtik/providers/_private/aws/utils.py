@@ -11,7 +11,7 @@ from cloudtik.core._private.constants import env_integer
 
 
 # Max number of retries to AWS (default is 5, time increases exponentially)
-from cloudtik.core._private.utils import get_storage_config_for_update
+from cloudtik.core._private.config_utils import get_storage_config_for_update
 
 BOTO_MAX_RETRIES = env_integer("BOTO_MAX_RETRIES", 12)
 

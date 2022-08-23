@@ -2,7 +2,7 @@ import logging
 from typing import Optional
 
 from cloudtik.core._private.state.scaling_state import ScalingStateClient, ScalingState
-from cloudtik.core._private.utils import _get_runtime_scaling_policy
+from cloudtik.core._private.config_utils import _get_runtime_scaling_policy
 
 logger = logging.getLogger(__name__)
 

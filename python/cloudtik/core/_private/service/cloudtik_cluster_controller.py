@@ -27,7 +27,7 @@ from cloudtik.core._private.constants import CLOUDTIK_UPDATE_INTERVAL_S, \
 from cloudtik.core._private.cluster.event_summarizer import EventSummarizer
 from cloudtik.core._private.prometheus_metrics import ClusterPrometheusMetrics
 from cloudtik.core._private.cluster.cluster_metrics import ClusterMetrics
-from cloudtik.core._private.utils import CLOUDTIK_CLUSTER_SCALING_ERROR
+from cloudtik.core._private.config_utils import CLOUDTIK_CLUSTER_SCALING_ERROR
 from cloudtik.core._private import constants, services
 from cloudtik.core._private.logging_utils import setup_component_logger
 from cloudtik.core._private.state.kv_store import kv_initialize, \
@@ -191,7 +191,7 @@ class ClusterController:
         redis_client = services.create_redis_client(
             self.redis_address, password=self.redis_password)
 
-        from cloudtik.core._private.utils import publish_error
+        from cloudtik.core._private.config_utils import publish_error
         publish_error(
             constants.ERROR_CLUSTER_CONTROLLER_DIED,
             message,

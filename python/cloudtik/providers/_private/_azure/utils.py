@@ -9,7 +9,7 @@ from azure.mgmt.compute import ComputeManagementClient
 from azure.mgmt.msi import ManagedServiceIdentityClient
 from azure.mgmt.authorization import AuthorizationManagementClient
 
-from cloudtik.core._private.utils import get_storage_config_for_update
+from cloudtik.core._private.config_utils import get_storage_config_for_update
 from cloudtik.providers._private._azure.azure_identity_credential_adapter import AzureIdentityCredentialAdapter
 
 

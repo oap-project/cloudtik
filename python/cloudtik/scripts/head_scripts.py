@@ -19,7 +19,7 @@ from cloudtik.core._private.constants import CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
     CLOUDTIK_KV_NAMESPACE_HEALTHCHECK
 from cloudtik.core._private.state import kv_store
 from cloudtik.core._private.state.kv_store import kv_initialize_with_address
-from cloudtik.core._private.utils import CLOUDTIK_CLUSTER_SCALING_ERROR, \
+from cloudtik.core._private.config_utils import CLOUDTIK_CLUSTER_SCALING_ERROR, \
     CLOUDTIK_CLUSTER_SCALING_STATUS, decode_cluster_scaling_time, is_alive_time, get_head_bootstrap_config, \
     load_head_cluster_config
 from cloudtik.scripts.utils import NaturalOrderGroup, add_command_alias

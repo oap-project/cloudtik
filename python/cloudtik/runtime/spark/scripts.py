@@ -8,7 +8,7 @@ from cloudtik.core._private.cli_logger import (cli_logger)
 
 from shlex import quote
 
-from cloudtik.core._private.utils import run_bash_scripts, run_system_command, with_script_args
+from cloudtik.core._private.config_utils import run_bash_scripts, run_system_command, with_script_args
 from cloudtik.runtime.spark.utils import RUNTIME_ROOT_PATH, update_spark_configurations
 
 RUNTIME_SCRIPTS_PATH = os.path.join(

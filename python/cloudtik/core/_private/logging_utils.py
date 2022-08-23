@@ -6,7 +6,7 @@ from logging.handlers import RotatingFileHandler
 
 from typing import Callable
 
-from cloudtik.core._private.utils import open_log
+from cloudtik.core._private.config_utils import open_log
 
 _default_handler = None
 

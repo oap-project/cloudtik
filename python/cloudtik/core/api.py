@@ -4,13 +4,13 @@ from typing import Any, Callable, Dict, List, Optional, Union
 import os
 
 from cloudtik.core._private.call_context import CallContext
-from cloudtik.core._private.utils import verify_runtime_list
+from cloudtik.core._private.config_utils import verify_runtime_list
 from cloudtik.core._private.workspace import workspace_operator
 from cloudtik.core._private.cluster import cluster_operator
 from cloudtik.core._private.event_system import (
     global_event_system)
 from cloudtik.core._private.cli_logger import cli_logger
-from cloudtik.core._private import utils
+from cloudtik.core._private import config_utils
 from cloudtik.core.workspace_provider import Existence
 
 

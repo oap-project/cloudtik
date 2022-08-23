@@ -1,7 +1,7 @@
 import logging
 from typing import Any, Dict, Optional
 
-from cloudtik.core._private.utils import get_running_head_node, check_workspace_name_format
+from cloudtik.core._private.config_utils import get_running_head_node, check_workspace_name_format
 from cloudtik.providers._private.aws.config import create_aws_workspace, \
     delete_aws_workspace, check_aws_workspace_integrity, \
     update_aws_workspace_firewalls, list_aws_clusters, _get_workspace_head_nodes, bootstrap_aws_workspace, \

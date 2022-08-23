@@ -10,7 +10,7 @@ from cloudtik.core._private import constants
 from cloudtik.providers._private._kubernetes import custom_objects_api
 from cloudtik.providers._private._kubernetes.config import _get_cluster_selector
 from cloudtik.providers._private._kubernetes.node_provider import head_service_selector
-from cloudtik.core._private.utils import _get_default_config
+from cloudtik.core._private.config_utils import _get_default_config
 
 CLOUDTIK_API_GROUP = "cloudtik.io"
 CLOUDTIK_API_VERSION = "v1"

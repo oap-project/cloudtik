@@ -17,7 +17,7 @@ import click
 import psutil
 
 from cloudtik.core._private import constants
-from cloudtik.core._private import services, utils, logging_utils
+from cloudtik.core._private import services, config_utils, logging_utils
 from cloudtik.core._private.cli_logger import (add_click_logging_options,
                                                cli_logger, cf)
 from cloudtik.core._private.cluster.cluster_operator import (
@@ -34,7 +34,7 @@ from cloudtik.core._private.constants import CLOUDTIK_PROCESSES, \
 from cloudtik.core._private.node.node_services import NodeServicesStarter
 from cloudtik.core._private.parameter import StartParams
 from cloudtik.core._private.resource_spec import ResourceSpec
-from cloudtik.core._private.utils import with_script_args
+from cloudtik.core._private.config_utils import with_script_args
 from cloudtik.scripts.utils import NaturalOrderGroup, add_command_alias
 from cloudtik.scripts.workspace import workspace
 from cloudtik.scripts.runtime_scripts import runtime

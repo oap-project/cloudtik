@@ -2,7 +2,7 @@ import logging
 from typing import Any, Dict, Optional
 
 from cloudtik.core._private.providers import _get_node_provider
-from cloudtik.core._private.utils import get_running_head_node
+from cloudtik.core._private.config_utils import get_running_head_node
 from cloudtik.core.tags import CLOUDTIK_GLOBAL_VARIABLE_KEY, CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX
 from cloudtik.core.workspace_provider import WorkspaceProvider
 from cloudtik.providers._private.local.config import get_workspace_head_nodes, list_local_clusters, _get_node_tags

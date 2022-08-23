@@ -17,7 +17,7 @@ import cloudtik
 from cloudtik.core._private import constants, services
 from cloudtik.core._private.logging_utils import setup_component_logger
 from cloudtik.core._private.state.control_state import ControlState
-from cloudtik.core._private.utils import get_runtime_processes, make_node_id
+from cloudtik.core._private.config_utils import get_runtime_processes, make_node_id
 
 logger = logging.getLogger(__name__)
 

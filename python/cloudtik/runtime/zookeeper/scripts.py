@@ -7,7 +7,7 @@ import logging
 from cloudtik.core._private import constants
 from cloudtik.core._private import logging_utils
 from cloudtik.core._private.cli_logger import (cli_logger)
-from cloudtik.core._private.utils import run_bash_scripts, run_system_command, subscribe_nodes_info, with_script_args
+from cloudtik.core._private.config_utils import run_bash_scripts, run_system_command, subscribe_nodes_info, with_script_args
 
 from cloudtik.runtime.zookeeper.utils import RUNTIME_ROOT_PATH, _configure_server_ensemble, update_configurations
 

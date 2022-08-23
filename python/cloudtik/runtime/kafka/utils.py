@@ -2,7 +2,7 @@ import os
 from typing import Any, Dict, List
 
 from cloudtik.core._private.providers import _get_workspace_provider
-from cloudtik.core._private.utils import merge_rooted_config_hierarchy, _get_runtime_config_object, \
+from cloudtik.core._private.config_utils import merge_rooted_config_hierarchy, _get_runtime_config_object, \
     subscribe_cluster_variable, is_runtime_enabled, RUNTIME_CONFIG_KEY, subscribe_runtime_config, load_properties_file, \
     save_properties_file
 

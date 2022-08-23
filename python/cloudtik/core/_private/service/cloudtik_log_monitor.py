@@ -12,7 +12,7 @@ import traceback
 
 import cloudtik.core._private.constants as constants
 import cloudtik.core._private.services as services
-import cloudtik.core._private.utils as utils
+import cloudtik.core._private.config_utils as utils
 from cloudtik.core._private.logging_utils import setup_component_logger
 
 # TODO (haifeng): check what is this comment about

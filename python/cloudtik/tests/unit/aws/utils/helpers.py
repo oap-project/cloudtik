@@ -6,7 +6,7 @@ import copy
 from cloudtik.providers._private.aws.node_provider import AWSNodeProvider
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, \
     NODE_KIND_WORKER, CLOUDTIK_TAG_USER_NODE_TYPE, CLOUDTIK_TAG_CLUSTER_NAME
-from cloudtik.core._private.utils import prepare_config, validate_config
+from cloudtik.core._private.config_utils import prepare_config, validate_config
 from cloudtik.tests.aws.utils.constants import DEFAULT_CLUSTER_NAME, \
     DEFAULT_NODE_PROVIDER_INSTANCE_TAGS
 

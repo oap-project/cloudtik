@@ -6,7 +6,7 @@ import time
 from typing import Dict
 from threading import Thread
 
-from cloudtik.core._private.utils import with_runtime_environment_variables, with_node_ip_environment_variables, \
+from cloudtik.core._private.config_utils import with_runtime_environment_variables, with_node_ip_environment_variables, \
     _get_cluster_uri, _is_use_internal_ip, get_node_type, with_environment_variables_from_config
 from cloudtik.core.command_executor import get_cmd_to_print
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_STATUS, CLOUDTIK_TAG_RUNTIME_CONFIG, \

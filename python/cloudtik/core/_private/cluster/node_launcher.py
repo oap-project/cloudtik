@@ -11,7 +11,7 @@ from cloudtik.core.tags import (CLOUDTIK_TAG_LAUNCH_CONFIG, CLOUDTIK_TAG_NODE_ST
                                 CLOUDTIK_TAG_USER_NODE_TYPE, STATUS_UNINITIALIZED,
                                 NODE_KIND_WORKER)
 from cloudtik.core._private.prometheus_metrics import ClusterPrometheusMetrics
-from cloudtik.core._private.utils import hash_launch_conf
+from cloudtik.core._private.config_utils import hash_launch_conf
 
 logger = logging.getLogger(__name__)
 

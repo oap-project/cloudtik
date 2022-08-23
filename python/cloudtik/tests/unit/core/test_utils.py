@@ -2,7 +2,7 @@ import copy
 
 import pytest
 
-from cloudtik.core._private.utils import update_nested_dict, process_config_with_privacy, encrypt_config, \
+from cloudtik.core._private.config_utils import update_nested_dict, process_config_with_privacy, encrypt_config, \
     decrypt_config, hash_runtime_conf
 
 TARGET_DICT_WITH_MATCHED_LIST = {

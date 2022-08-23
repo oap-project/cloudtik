@@ -2,7 +2,7 @@ import os
 from typing import Any, Dict
 
 from cloudtik.core._private.providers import _get_node_provider, _get_workspace_provider
-from cloudtik.core._private.utils import merge_rooted_config_hierarchy, _get_runtime_config_object
+from cloudtik.core._private.config_utils import merge_rooted_config_hierarchy, _get_runtime_config_object
 
 RUNTIME_PROCESSES = [
     # The first element is the substring to filter.

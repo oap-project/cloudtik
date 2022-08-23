@@ -44,7 +44,7 @@ from cloudtik.core._private.cluster.node_tracker import NodeTracker
 from cloudtik.core._private.cluster.resource_demand_scheduler import \
     get_bin_pack_residual, ResourceDemandScheduler, NodeType, NodeID, NodeIP, \
     ResourceDict
-from cloudtik.core._private.utils import ConcurrentCounter, validate_config, \
+from cloudtik.core._private.config_utils import ConcurrentCounter, validate_config, \
     hash_launch_conf, hash_runtime_conf, \
     format_info_string, get_commands_to_run, with_head_node_ip_environment_variables, \
     encode_cluster_secrets, _get_node_specific_commands, _get_node_specific_config, \

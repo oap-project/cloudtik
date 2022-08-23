@@ -6,7 +6,7 @@ from typing import Dict
 import logging
 
 from cloudtik.core._private.cli_logger import cli_logger
-import cloudtik.core._private.utils as utils
+import cloudtik.core._private.config_utils as utils
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, CLOUDTIK_TAG_CLUSTER_NAME
 
 logger = logging.getLogger(__name__)

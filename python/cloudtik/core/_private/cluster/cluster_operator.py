@@ -38,7 +38,7 @@ from cloudtik.core._private.constants import \
     CLOUDTIK_DEFAULT_PORT, \
     CLOUDTIK_REDIS_DEFAULT_PASSWORD, CLOUDTIK_CLUSTER_STATUS_STOPPED, CLOUDTIK_CLUSTER_STATUS_RUNNING, \
     CLOUDTIK_RUNTIME_NAME
-from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
+from cloudtik.core._private.config_utils import validate_config, hash_runtime_conf, \
     hash_launch_conf, prepare_config, get_free_port, \
     get_proxy_info_file, get_safe_proxy_process_info, \
     get_head_working_ip, get_node_cluster_ip, is_use_internal_ip, \
@@ -74,7 +74,7 @@ from cloudtik.core._private.debug import log_once
 
 from cloudtik.core._private.cluster.cluster_metrics import ClusterMetricsSummary
 from cloudtik.core._private.cluster.cluster_scaler import ClusterScalerSummary
-from cloudtik.core._private.utils import format_info_string
+from cloudtik.core._private.config_utils import format_info_string
 
 logger = logging.getLogger(__name__)
 

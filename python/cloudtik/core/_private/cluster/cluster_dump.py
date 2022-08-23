@@ -14,7 +14,7 @@ import yaml
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 
-from cloudtik.core._private.utils import get_head_working_ip, get_node_cluster_ip, get_runtime_logs, \
+from cloudtik.core._private.config_utils import get_head_working_ip, get_node_cluster_ip, get_runtime_logs, \
     get_runtime_processes, _get_node_specific_runtime_types, DOCKER_CONFIG_KEY
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, \
     NODE_KIND_WORKER

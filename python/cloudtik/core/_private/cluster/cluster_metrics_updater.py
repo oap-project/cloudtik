@@ -26,16 +26,16 @@ class ClusterMetricsUpdater:
         self.last_avail_resources = None
         self.cluster_metrics_failures = 0
 
-    def update(self, has_scaling_metrics: bool = False):
-        self._update_cluster_metrics(has_scaling_metrics)
+    def update(self):
+        self._update_cluster_metrics()
         self._update_resource_requests()
         self._update_event_summary()
 
-    def _update_cluster_metrics(self, has_scaling_metrics: bool = False):
+    def _update_cluster_metrics(self):
         try:
             heartbeat_nodes = {}
             self._update_node_heartbeats(heartbeat_nodes)
-            self._update_scaling_metrics(heartbeat_nodes, has_scaling_metrics)
+            self._update_scaling_metrics(heartbeat_nodes)
 
             # reset if there is a success
             self.cluster_metrics_failures = 0
@@ -64,40 +64,41 @@ class ClusterMetricsUpdater:
             self.cluster_metrics.update_heartbeat(ip, node_id, last_heartbeat_time)
 
     def _update_scaling_metrics(
-            self, heartbeat_nodes: Dict[str, str],
-            has_scaling_metrics: bool = False):
+            self, heartbeat_nodes: Dict[str, str]):
         """Fetches resource usage data from control state and updates load metrics."""
-        if not has_scaling_metrics:
-            self.cluster_metrics.update_autoscaling_instructions(None)
+        scaling_state = self.scaling_state_client.get_scaling_state(timeout=60)
+        self.cluster_metrics.update_autoscaling_instructions(
+            scaling_state.autoscaling_instructions)
 
-            # TODO: when there is no node resources states available,
-            #  how to handle the existing resource states
-            # If there is no scaling metrics for nodes, we still need to make sure
-            # to set node last used status so that the idle nodes can be killed
-            resource_time = time.time()
-            for node_id, ip in heartbeat_nodes.items():
-                total_resources = {}
-                available_resources = {}
-                resource_load = {}
-                self.cluster_metrics.update_node_resources(
-                    ip, node_id, resource_time,
-                    total_resources, available_resources, resource_load)
-        else:
-            scaling_state = self.scaling_state_client.get_scaling_state(timeout=60)
-            self.cluster_metrics.update_autoscaling_instructions(
-                scaling_state.autoscaling_instructions)
+        # If there is no scaling metrics for nodes, we still need to make sure
+        # to set node last used status so that the idle nodes can be killed
+        # We will depend on the timeout of a previous node resource states
+        # if there is no latest reporting from that node
+        node_resource_states = scaling_state.node_resource_states
+        for node_id, node_resource_state in node_resource_states.items():
+            ip = node_resource_state["node_ip"]
+            resource_time = node_resource_state["resource_time"]
+            # Node resource state
+            total_resources = node_resource_state["total_resources"]
+            available_resources = node_resource_state["available_resources"]
+            resource_load = node_resource_state["resource_load"]
 
-            for node_id, node_resource_state in scaling_state.node_resource_states.items():
-                ip = node_resource_state["node_ip"]
-                resource_time = node_resource_state["resource_time"]
-                # Node resource state
-                total_resources = node_resource_state["total_resources"]
-                available_resources = node_resource_state["available_resources"]
-                resource_load = node_resource_state["resource_load"]
+            self.cluster_metrics.update_node_resources(
+                ip, node_id, resource_time,
+                total_resources, available_resources, resource_load)
 
-                self.cluster_metrics.update_node_resources(
-                    ip, node_id, resource_time,
-                    total_resources, available_resources, resource_load)
+        # All the nodes that shows in heartbeat but not in reported with node resources
+        # We consider it is idle
+        resource_time = time.time()
+        for node_id, ip in heartbeat_nodes.items():
+            if node_id in node_resource_states:
+                continue
+            total_resources = {}
+            available_resources = {}
+            resource_load = {}
+            self.cluster_metrics.update_node_resources(
+                ip, node_id, resource_time,
+                total_resources, available_resources, resource_load)
 
     def _update_resource_requests(self):
         """Fetches resource requests from the internal KV and updates load."""

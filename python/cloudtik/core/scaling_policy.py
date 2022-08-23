@@ -5,25 +5,32 @@ logger = logging.getLogger(__name__)
 
 
 class ScalingState:
-    def __init__(self):
-        self.node_resource_states = {}
-        self.lost_nodes = {}
-        self.autoscaling_instructions = None
+    def __init__(self,
+                 autoscaling_instructions=None,
+                 node_resource_states=None,
+                 lost_nodes=None):
+        self.autoscaling_instructions = autoscaling_instructions
+        self.node_resource_states = node_resource_states
+        self.lost_nodes = lost_nodes
+
+    def set_autoscaling_instructions(self, autoscaling_instructions):
+        self.autoscaling_instructions = autoscaling_instructions
 
     def add_node_resource_state(self, node_id, node_resource_state):
+        if self.node_resource_states is None:
+            self.node_resource_states = {}
         self.node_resource_states[node_id] = node_resource_state
 
     def set_node_resource_states(self, node_resource_states):
         self.node_resource_states = node_resource_states
 
     def add_lost_node(self, node_id):
-        self.node_resource_states[node_id] = node_id
+        if self.lost_nodes is None:
+            self.lost_nodes = {}
+        self.lost_nodes[node_id] = node_id
 
     def set_lost_nodes(self, lost_nodes):
         self.lost_nodes = lost_nodes
-
-    def set_autoscaling_instructions(self, autoscaling_instructions):
-        self.autoscaling_instructions = autoscaling_instructions
 
 
 class ScalingPolicy:

@@ -2,7 +2,8 @@ import json
 import logging
 import time
 
-from cloudtik.core._private.constants import CLOUDTIK_HEARTBEAT_TIMEOUT_S, CLOUDTIK_SCALING_STATE_TIMEOUT_S
+from cloudtik.core._private.constants import CLOUDTIK_HEARTBEAT_TIMEOUT_S, CLOUDTIK_SCALING_STATE_TIMEOUT_S, \
+    CLOUDTIK_NODE_RESOURCE_STATE_TIMEOUT_S
 from cloudtik.core._private.state.control_state import ControlState
 from cloudtik.core._private.state.kv_store import kv_put, kv_get
 from cloudtik.core.scaling_policy import ScalingState
@@ -72,7 +73,7 @@ class ScalingStateClient:
             # Filter out the stale record in the node table
             resource_time = resource_state.get("resource_time", 0)
             delta = now - resource_time
-            if delta < CLOUDTIK_SCALING_STATE_TIMEOUT_S:
+            if delta < CLOUDTIK_NODE_RESOURCE_STATE_TIMEOUT_S:
                 node_id = resource_state["node_id"]
                 scaling_state.add_node_resource_state(node_id, resource_state)
         return scaling_state

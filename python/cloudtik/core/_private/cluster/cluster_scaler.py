@@ -292,8 +292,7 @@ class ClusterScaler:
         self.reset(errors_fatal=False)
 
         self.resource_scaling_policy.update()
-        self.cluster_metrics_updater.update(
-            self.resource_scaling_policy.has_scaling_policy())
+        self.cluster_metrics_updater.update()
 
         status = {
             "cluster_metrics_report": asdict(self.cluster_metrics.summary()),

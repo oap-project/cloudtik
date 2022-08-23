@@ -32,9 +32,9 @@
                     "type": "string",
                     "description": "e.g. us-east-1"
                 },
-                "module": {
+                "provider_class": {
                     "type": "string",
-                    "description": "module, if using external node provider"
+                    "description": "The module and class path if using external workspace provider"
                 },
                 "use_internal_ips": {
                     "type": "boolean",

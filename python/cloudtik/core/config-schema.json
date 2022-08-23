@@ -595,6 +595,17 @@
                         }
                     }
                 },
+                "scaling:": {
+                    "type": "object",
+                    "description": "User scaling configurations",
+                    "additionalProperties": true,
+                    "properties": {
+                        "scaling_policy_class": {
+                            "type": "string",
+                            "description": "The module and class path of the scaling policy class"
+                        }
+                    }
+                },
                 "spark": {
                     "type": "object",
                     "description": "Spark runtime related configurations",

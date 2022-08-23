@@ -1,3 +1,4 @@
+import base64
 import copy
 import json
 import os
@@ -51,7 +52,7 @@ from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, CLOUDTIK_TAG_NODE_STATUS,
 
 def mock_node_id() -> bytes:
     """Random node id to pass to cluster_metrics.update."""
-    return os.urandom(10)
+    return base64.b64encode(os.urandom(10)).decode("utf-8")
 
 
 def fill_in_node_ids(provider, cluster_metrics) -> None:

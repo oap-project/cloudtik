@@ -298,7 +298,7 @@ class SparkScalingPolicy(ScalingPolicy):
 
                 node_id = make_node_id(node_ip)
                 if node["state"] != "RUNNING":
-                    lost_nodes["node_id"] = node_id
+                    lost_nodes[node_id] = node_ip
                     continue
 
                 total_resources = {

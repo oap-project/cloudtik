@@ -1,0 +1,310 @@
+From b8d740b0c9572e47c0d491684af14bbebe18ac72 Mon Sep 17 00:00:00 2001
+From: haojin <hao.jin@intel.com>
+Date: Tue, 23 Aug 2022 10:41:57 +0800
+Subject: [PATCH] Support more scenarios for runtime Filter
+
+---
+ .../optimizer/InjectRuntimeFilter.scala       | 114 ++++++++++++++++--
+ .../catalyst/plans/logical/LogicalPlan.scala  |   2 +
+ .../apache/spark/sql/internal/SQLConf.scala   |   8 ++
+ .../datasources/HadoopFsRelation.scala        |   6 +
+ .../datasources/LogicalRelation.scala         |   5 +
+ .../PartitioningAwareFileIndex.scala          |   4 +-
+ .../apache/spark/sql/sources/interfaces.scala |   2 +
+ 7 files changed, 131 insertions(+), 10 deletions(-)
+
+diff --git a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/InjectRuntimeFilter.scala b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/InjectRuntimeFilter.scala
+index 134292ae30..18b6ec611f 100644
+--- a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/InjectRuntimeFilter.scala
++++ b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/InjectRuntimeFilter.scala
+@@ -17,6 +17,8 @@
+ 
+ package org.apache.spark.sql.catalyst.optimizer
+ 
++import scala.collection.mutable.ArrayBuffer
++
+ import org.apache.spark.sql.catalyst.expressions._
+ import org.apache.spark.sql.catalyst.expressions.aggregate.{AggregateExpression, BloomFilterAggregate, Complete}
+ import org.apache.spark.sql.catalyst.planning.{ExtractEquiJoinKeys, PhysicalOperation}
+@@ -26,6 +28,7 @@ import org.apache.spark.sql.catalyst.trees.TreePattern.{INVOKE, JSON_TO_STRUCT,
+ import org.apache.spark.sql.internal.SQLConf
+ import org.apache.spark.sql.types._
+ 
++
+ /**
+  * Insert a filter on one side of the join if the other side has a selective predicate.
+  * The filter could be an IN subquery (converted to a semi join), a bloom filter, or something
+@@ -48,19 +51,29 @@ object InjectRuntimeFilter extends Rule[LogicalPlan] with PredicateHelper with J
+       filterCreationSideExp: Expression,
+       filterCreationSidePlan: LogicalPlan): LogicalPlan = {
+     require(conf.runtimeFilterBloomFilterEnabled || conf.runtimeFilterSemiJoinReductionEnabled)
++    var newFilterCreationSidePlan = filterCreationSidePlan
++    var newFilterCreationSideExp = filterCreationSideExp
++    if (!isSelectiveFilterOverScan(filterCreationSidePlan)) {
++      val projectExpress = findOriginProject(
++        filterCreationSidePlan, filterCreationSideExp).
++        getOrElse().asInstanceOf[(LogicalPlan, Expression)]
++      newFilterCreationSidePlan = projectExpress._1
++      newFilterCreationSideExp = projectExpress._2
++    }
++
+     if (conf.runtimeFilterBloomFilterEnabled) {
+       injectBloomFilter(
+         filterApplicationSideExp,
+         filterApplicationSidePlan,
+-        filterCreationSideExp,
+-        filterCreationSidePlan
++        newFilterCreationSideExp,
++        newFilterCreationSidePlan
+       )
+     } else {
+       injectInSubqueryFilter(
+         filterApplicationSideExp,
+         filterApplicationSidePlan,
+-        filterCreationSideExp,
+-        filterCreationSidePlan
++        newFilterCreationSideExp,
++        newFilterCreationSidePlan
+       )
+     }
+   }
+@@ -123,9 +136,50 @@ object InjectRuntimeFilter extends Rule[LogicalPlan] with PredicateHelper with J
+           filters.exists(isLikelySelective)
+       case _ => false
+     }
++
+     !plan.isStreaming && ret
+   }
+ 
++  private def findOriginProject(
++      plan: LogicalPlan, expression: Expression):
++        Option[(LogicalPlan, Expression)] = {
++    val originProject = findProjectWithExp(
++      expression, plan, ArrayBuffer[(LogicalPlan, Expression)]())
++    if (originProject.isDefined) {
++      val b = originProject.getOrElse() match {
++        case tuple3 @ (a: Any, b: Any, c: Any) => tuple3
++      }
++      val path = b._3.asInstanceOf[ArrayBuffer[(LogicalPlan, Expression)]]
++      for (i <- (0 until path.size).reverse) {
++        if (path(i)._1.isInstanceOf[Project]) {
++          return Some(path(i))
++        }
++      }
++      None
++    }
++    None
++  }
++
++  private def isOriginPlanSelectiveFilterOverScan(
++      plan: LogicalPlan, expression: Expression): Boolean = {
++    if (conf.getConf(SQLConf.RUNTIME_FILTER_EXTEND_ENABLED)) {
++      val projectPlanAndExp = findOriginProject(plan, expression)
++      if (projectPlanAndExp.isDefined) {
++        val projectPlan = projectPlanAndExp.getOrElse().asInstanceOf[(LogicalPlan, Expression)]._1
++        val ret = projectPlan match {
++          case PhysicalOperation(_, filters, child) if child.isInstanceOf[LeafNode] =>
++            filters.forall(isSimpleExpression) &&
++              filters.exists(isLikelySelective)
++          case _ => false
++        }
++        return !plan.isStreaming && ret
++      } else {
++        return false
++      }
++    }
++    false
++  }
++
+   private def isSimpleExpression(e: Expression): Boolean = {
+     !e.containsAnyPattern(PYTHON_UDF, SCALA_UDF, INVOKE, JSON_TO_STRUCT, LIKE_FAMLIY,
+       REGEXP_EXTRACT_FAMILY, REGEXP_REPLACE)
+@@ -155,7 +209,17 @@ object InjectRuntimeFilter extends Rule[LogicalPlan] with PredicateHelper with J
+       // creating a Bloom filter when the filter application side is very small, so using 0
+       // as the byte size when the actual size is unknown can avoid regression by applying BF
+       // on a small table.
+-      if (scan.stats.sizeInBytes == defaultSizeInBytes) BigInt(0) else scan.stats.sizeInBytes
++      if (scan.stats.sizeInBytes == defaultSizeInBytes) {
++        if (conf.getConf(SQLConf.RUNTIME_FILTER_EXTEND_ENABLED)) {
++          val estimateSizeInBytes = scan.estimateStats().sizeInBytes
++          if (estimateSizeInBytes == defaultSizeInBytes) BigInt(0) else estimateSizeInBytes
++        } else {
++          BigInt(0)
++        }
++      } else {
++        scan.stats.sizeInBytes
++      }
++//      scan.stats.sizeInBytes
+     }).max
+   }
+ 
+@@ -182,9 +246,12 @@ object InjectRuntimeFilter extends Rule[LogicalPlan] with PredicateHelper with J
+       filterApplicationSide: LogicalPlan,
+       filterCreationSide: LogicalPlan,
+       filterApplicationSideExp: Expression,
++      filterCreationSideSideExp: Expression,
+       hint: JoinHint): Boolean = {
+     findExpressionAndTrackLineageDown(filterApplicationSideExp,
+-      filterApplicationSide).isDefined && isSelectiveFilterOverScan(filterCreationSide) &&
++      filterApplicationSide).isDefined &&
++      (isSelectiveFilterOverScan(filterCreationSide) ||
++        isOriginPlanSelectiveFilterOverScan(filterCreationSide, filterCreationSideSideExp)) &&
+       (isProbablyShuffleJoin(filterApplicationSide, filterCreationSide, hint) ||
+         probablyHasShuffle(filterApplicationSide)) &&
+       satisfyByteSizeRequirement(filterApplicationSide)
+@@ -235,6 +302,37 @@ object InjectRuntimeFilter extends Rule[LogicalPlan] with PredicateHelper with J
+     }
+   }
+ 
++  private def findProjectWithExp(
++    exp: Expression, plan: LogicalPlan, path: ArrayBuffer[(LogicalPlan, Expression)])
++        : Option[(Expression, LogicalPlan, ArrayBuffer[(LogicalPlan, Expression)])] = {
++    if (exp.references.isEmpty) return None
++    plan match {
++      case p: Project =>
++        val aliases = getAliasMap(p)
++        val exp_aliases = replaceAlias(exp, aliases)
++        path += Tuple2(plan, exp_aliases)
++        findProjectWithExp(exp_aliases, p.child, path)
++      // we can unwrap only if there are row projections, and no aggregation operation
++      case a: Aggregate =>
++        val aliasMap = getAliasMap(a)
++        val exp_aliases = replaceAlias(exp, aliasMap)
++        path += Tuple2(plan, exp_aliases)
++        findProjectWithExp(exp_aliases, a.child, path)
++      case l: LeafNode if exp.references.subsetOf(l.outputSet) =>
++        path += Tuple2(plan, exp)
++        Some((exp, l, path))
++      case other =>
++        path += Tuple2(plan, exp)
++        other.children.flatMap {
++          child => if (exp.references.subsetOf(child.outputSet)) {
++            findProjectWithExp(exp, child, path)
++          } else {
++            None
++          }
++        }.headOption
++    }
++  }
++
+   def hasInSubquery(left: LogicalPlan, right: LogicalPlan, leftKey: Expression,
+       rightKey: Expression): Boolean = {
+     (left, right) match {
+@@ -266,12 +364,12 @@ object InjectRuntimeFilter extends Rule[LogicalPlan] with PredicateHelper with J
+             isSimpleExpression(l) && isSimpleExpression(r)) {
+             val oldLeft = newLeft
+             val oldRight = newRight
+-            if (canPruneLeft(joinType) && filteringHasBenefit(left, right, l, hint)) {
++            if (canPruneLeft(joinType) && filteringHasBenefit(left, right, l, r, hint)) {
+               newLeft = injectFilter(l, newLeft, r, right)
+             }
+             // Did we actually inject on the left? If not, try on the right
+             if (newLeft.fastEquals(oldLeft) && canPruneRight(joinType) &&
+-              filteringHasBenefit(right, left, r, hint)) {
++              filteringHasBenefit(right, left, r, l, hint)) {
+               newRight = injectFilter(r, newRight, l, left)
+             }
+             if (!newLeft.fastEquals(oldLeft) || !newRight.fastEquals(oldRight)) {
+diff --git a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/plans/logical/LogicalPlan.scala b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/plans/logical/LogicalPlan.scala
+index 7640d9234c..5590015e6f 100644
+--- a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/plans/logical/LogicalPlan.scala
++++ b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/plans/logical/LogicalPlan.scala
+@@ -169,6 +169,8 @@ trait LeafNode extends LogicalPlan with LeafLike[LogicalPlan] {
+ 
+   /** Leaf nodes that can survive analysis must define their own statistics. */
+   def computeStats(): Statistics = throw new UnsupportedOperationException
++
++  def estimateStats(): Statistics = throw new UnsupportedOperationException
+ }
+ 
+ /**
+diff --git a/sql/catalyst/src/main/scala/org/apache/spark/sql/internal/SQLConf.scala b/sql/catalyst/src/main/scala/org/apache/spark/sql/internal/SQLConf.scala
+index 6df880bd4e..7afcf5a3b4 100644
+--- a/sql/catalyst/src/main/scala/org/apache/spark/sql/internal/SQLConf.scala
++++ b/sql/catalyst/src/main/scala/org/apache/spark/sql/internal/SQLConf.scala
+@@ -341,6 +341,14 @@ object SQLConf {
+       .booleanConf
+       .createWithDefault(true)
+ 
++  val RUNTIME_FILTER_EXTEND_ENABLED =
++    buildConf("spark.sql.optimizer.runtimeFilter.extend.enabled")
++      .doc("When true and if the plan is not a simple filter over scan, we attempt " +
++        "to get the origin likely selective plan according to exp.")
++      .version("3.3.0")
++      .booleanConf
++      .createWithDefault(false)
++
+   val RUNTIME_FILTER_SEMI_JOIN_REDUCTION_ENABLED =
+     buildConf("spark.sql.optimizer.runtimeFilter.semiJoinReduction.enabled")
+       .doc("When true and if one side of a shuffle join has a selective predicate, we attempt " +
+diff --git a/sql/core/src/main/scala/org/apache/spark/sql/execution/datasources/HadoopFsRelation.scala b/sql/core/src/main/scala/org/apache/spark/sql/execution/datasources/HadoopFsRelation.scala
+index fd1824055d..962ef85a64 100644
+--- a/sql/core/src/main/scala/org/apache/spark/sql/execution/datasources/HadoopFsRelation.scala
++++ b/sql/core/src/main/scala/org/apache/spark/sql/execution/datasources/HadoopFsRelation.scala
+@@ -69,6 +69,12 @@ case class HadoopFsRelation(
+     (location.sizeInBytes * compressionFactor).toLong
+   }
+ 
++  override def estimateSizeInBytes: Long = {
++    val files: Seq[PartitionDirectory] = location.listFiles(Nil, Nil)
++    val length = files.head.files.head.getLen
++    val files_num = files.map(_.files.length).sum.toLong
++    files_num * length
++  }
+ 
+   override def inputFiles: Array[String] = location.inputFiles
+ }
+diff --git a/sql/core/src/main/scala/org/apache/spark/sql/execution/datasources/LogicalRelation.scala b/sql/core/src/main/scala/org/apache/spark/sql/execution/datasources/LogicalRelation.scala
+index 291b98fb37..f5f2cf1446 100644
+--- a/sql/core/src/main/scala/org/apache/spark/sql/execution/datasources/LogicalRelation.scala
++++ b/sql/core/src/main/scala/org/apache/spark/sql/execution/datasources/LogicalRelation.scala
+@@ -45,6 +45,11 @@ case class LogicalRelation(
+       .getOrElse(Statistics(sizeInBytes = relation.sizeInBytes))
+   }
+ 
++  override def estimateStats(): Statistics = {
++    val sizeInBytes = relation.estimateSizeInBytes
++    Statistics(sizeInBytes = sizeInBytes)
++  }
++
+   /** Used to lookup original attribute capitalization */
+   val attributeMap: AttributeMap[AttributeReference] = AttributeMap(output.map(o => (o, o)))
+ 
+diff --git a/sql/core/src/main/scala/org/apache/spark/sql/execution/datasources/PartitioningAwareFileIndex.scala b/sql/core/src/main/scala/org/apache/spark/sql/execution/datasources/PartitioningAwareFileIndex.scala
+index d70c4b11bc..ca7b8b2c1f 100644
+--- a/sql/core/src/main/scala/org/apache/spark/sql/execution/datasources/PartitioningAwareFileIndex.scala
++++ b/sql/core/src/main/scala/org/apache/spark/sql/execution/datasources/PartitioningAwareFileIndex.scala
+@@ -110,7 +110,7 @@ abstract class PartitioningAwareFileIndex(
+         throw new IllegalArgumentException(
+           "Datasource with partition do not allow recursive file loading.")
+       }
+-      prunePartitions(partitionFilters, partitionSpec()).map {
++      prunePartitions(partitionFilters, partitionSpec()).toArray.map {
+         case PartitionPath(values, path) =>
+           val files: Seq[FileStatus] = leafDirToChildrenFiles.get(path) match {
+             case Some(existingDir) =>
+@@ -124,7 +124,7 @@ abstract class PartitioningAwareFileIndex(
+           }
+           PartitionDirectory(values, files)
+       }
+-    }
++    }.toSeq
+     logTrace("Selected files after partition pruning:\n\t" + selectedPartitions.mkString("\n\t"))
+     selectedPartitions
+   }
+diff --git a/sql/core/src/main/scala/org/apache/spark/sql/sources/interfaces.scala b/sql/core/src/main/scala/org/apache/spark/sql/sources/interfaces.scala
+index 63e57c6804..5314669808 100644
+--- a/sql/core/src/main/scala/org/apache/spark/sql/sources/interfaces.scala
++++ b/sql/core/src/main/scala/org/apache/spark/sql/sources/interfaces.scala
+@@ -208,6 +208,8 @@ abstract class BaseRelation {
+    */
+   def sizeInBytes: Long = sqlContext.conf.defaultSizeInBytes
+ 
++  def estimateSizeInBytes: Long = sizeInBytes
++
+   /**
+    * Whether does it need to convert the objects in Row to internal representation, for example:
+    *  java.lang.String to UTF8String
+-- 
+2.20.1
+

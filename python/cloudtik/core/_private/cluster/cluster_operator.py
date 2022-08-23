@@ -2267,12 +2267,12 @@ def cluster_process_status_on_head(redis_address, redis_password):
 
     # sort nodes info based on node type and then node ip for workers
     def node_info_sort(node_info):
-        return node_info["node_type"] + node_info["resource"]["ip"]
+        return node_info["node_type"] + node_info["node_ip"]
     nodes_info.sort(key=node_info_sort)
 
     for node_info in nodes_info:
         process_info = node_info["process"]
-        tb.add_row([node_info["resource"]["ip"], node_info["node_type"],
+        tb.add_row([node_info["node_ip"], node_info["node_type"],
                     process_info.get("NodeController", "-"), process_info.get("NodeManager", "-"),
                     process_info.get("LogMonitor", "-"), process_info.get("ClusterController", "-"),
                     process_info.get("ResourceManager", "-"), process_info.get("RedisServer", "-")

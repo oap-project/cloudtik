@@ -411,6 +411,8 @@ def debug_status(address, redis_password):
 @add_click_logging_options
 def process_status(address, redis_password):
     """Show cluster process status."""
+    if not address:
+        address = services.get_address_to_use_or_die()
     cluster_process_status_on_head(
         address, redis_password)
 

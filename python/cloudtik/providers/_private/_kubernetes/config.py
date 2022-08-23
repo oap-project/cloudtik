@@ -1,6 +1,7 @@
 import copy
 import logging
 import math
+import os
 import re
 import time
 from typing import Any, Dict, Optional
@@ -70,6 +71,15 @@ KUBERNETES_WORKSPACE_TARGET_RESOURCES = 5
 
 KUBERNETES_RESOURCE_OP_MAX_POLLS = 12
 KUBERNETES_RESOURCE_OP_POLL_INTERVAL = 5
+
+KUBERNETES_PODS_SSH_SPEC = {'containerPort': 22, 'name': 'cloudtik-ssh'}
+
+KUBERNETES_SERVICE_SSH_SPEC = {
+        "name": "cloudtik-ssh-port",
+        "protocol": "TCP",
+        "port": 9999,
+        "targetPort": "cloudtik-ssh"
+    }
 
 
 def head_service_selector(cluster_name: str) -> Dict[str, str]:
@@ -377,6 +387,21 @@ def validate_kubernetes_config(provider_config: Dict[str, Any], workspace_name: 
         raise RuntimeError("{} workspace name is between 1 and {} characters, "
                            "and can only contain lowercase alphanumeric "
                            "characters and '-' or '.'".format(provider_config["type"], KUBERNETES_WORKSPACE_NAME_MAX))
+
+
+def prepare_kubernetes_config(config: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Prepare kubernetes cluster config.
+    """
+    if config["provider"].get("enable_access_kubernetes_head", False):
+        private_key_generation_cmd = "ssh-keygen -t rsa -q -N '' -m PEM -f /tmp/cloudtik.pem"
+        ssh_start_cmd = " sudo /etc/init.d/ssh start"
+        os.system(private_key_generation_cmd)
+        config["file_mounts"].update({
+            "/tmp/cloudtik.pem.pub": "~/.ssh/authorized_keys"
+        })
+        config["head_start_commands"] = ssh_start_cmd + config.get("head_start_commands", [])
+    return config
 
 
 def bootstrap_kubernetes_workspace(config):
@@ -843,13 +868,16 @@ def _configure_pod_container_ports(config):
         container_data["ports"] = []
 
     ports = container_data["ports"]
-    for port_name in service_ports:
-        port_config = service_ports[port_name]
-        container_port = {
-            "containerPort": port_config["port"],
-            "name": port_name,
-        }
-        ports.append(container_port)
+    ports.append(KUBERNETES_PODS_SSH_SPEC)
+
+    # At present, we do not need to expose the port of runtime
+    # for port_name in service_ports:
+    #     port_config = service_ports[port_name]
+    #     container_port = {
+    #         "containerPort": port_config["port"],
+    #         "name": port_name,
+    #     }
+    #     ports.append(container_port)
     container_data["ports"] = ports
 
 
@@ -890,6 +918,7 @@ def _configure_container_resources(resources, container):
 
 def _configure_services(config):
     _configure_services_name_and_selector(config)
+    _configure_head_service_type(config)
     _configure_head_service_ports(config)
 
 
@@ -939,20 +968,32 @@ def _configure_node_service_name_and_selector(config):
     service["spec"]["selector"]["cluster"] = _get_cluster_selector(cluster_name)
 
 
+def _configure_head_service_type(config):
+    # Start a service which type is LoadBalancer to support access web ui from outside the cluster
+    provider_config = config["provider"]
+    service_field = "head_service"
+    if service_field not in provider_config:
+        return
+    service = provider_config[service_field]
+    service["spec"]["type"] = "LoadBalancer"
+
+
 def _configure_head_service_ports(config):
     provider_config = config["provider"]
     service_field = "head_service"
     if service_field not in provider_config:
         return
 
-    runtime_config = config.get("runtime", {})
-    service_ports = get_runtime_service_ports(runtime_config)
-
     service = provider_config[service_field]
-    _configure_service_ports(service, service_ports)
+    service["spec"]["ports"] = [KUBERNETES_SERVICE_SSH_SPEC]
+
+    # At present, we do not need to expose the port of runtime
+    # runtime_config = config.get("runtime", {})
+    # runtime_service_ports = get_runtime_service_ports(runtime_config)
+    # _configure_service_ports_for_runtime(service, runtime_service_ports)
 
 
-def _configure_service_ports(service, service_ports):
+def _configure_service_ports_for_runtime(service, service_ports):
     if "spec" not in service:
         service["spec"] = {}
     if "ports" not in service["spec"]:

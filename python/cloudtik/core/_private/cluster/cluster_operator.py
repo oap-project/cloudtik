@@ -23,6 +23,7 @@ from cloudtik.core._private import services, constants
 from cloudtik.core._private.call_context import CallContext
 from cloudtik.core._private.core_utils import kill_process_tree
 from cloudtik.core._private.services import validate_redis_address
+from cloudtik.providers._private._kubernetes.utils import get_service_external_address
 
 try:  # py3
     from shlex import quote
@@ -270,7 +271,11 @@ def create_or_update_cluster(
         no_controller_on_head=no_controller_on_head
     )
 
-    if not is_use_internal_ip(config):
+    if config["provider"]["type"] == "kubernetes":
+        _cli_logger.newline()
+        with _cli_logger.group("Please start a SOCKS5 proxy manually to access Web UI"):
+            _get_kubernetes_proxy_cmd(config)
+    elif not is_use_internal_ip(config):
         # start proxy and bind to localhost
         _cli_logger.newline()
         with _cli_logger.group("Starting SOCKS5 proxy..."):
@@ -2120,6 +2125,20 @@ def _start_proxy(config: Dict[str, Any],
     cli_logger.print(cf.bold(
         "To access the cluster from local tools, please configure the SOCKS5 proxy with {}:{}."),
         bind_address_to_show, port)
+
+
+def _get_kubernetes_proxy_cmd(config: Dict[str, Any]):
+    auth_config = config["auth"]
+
+    ssh_proxy_command = auth_config.get("ssh_proxy_command", None)
+    ssh_user = "cloudtik"
+    cmd = "ssh -o \'StrictHostKeyChecking no\'"
+    cmd += " -i {}".format("/tmp/cloudtik.pem")
+    if ssh_proxy_command:
+        cmd += " -o ProxyCommand=\'{}\'".format(ssh_proxy_command)
+    kubernetes_external_address = get_service_external_address(config)
+    cmd += " -D 6000 -C -N {}@{}".format(ssh_user, kubernetes_external_address)
+    cli_logger.print("The command to establish ssh tunnel: `{}`", cf.bold(cmd))
 
 
 def _start_proxy_process(head_node_ip, config,

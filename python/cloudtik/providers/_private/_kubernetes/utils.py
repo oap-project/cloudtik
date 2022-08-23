@@ -104,6 +104,18 @@ def _get_service_account(namespace, name):
     return None
 
 
+def get_service_external_address(config):
+    provider_config = config["provider"]
+    head_service_config = provider_config["head_service"]
+    service_name = head_service_config["metadata"]["name"]
+    namespace = head_service_config["metadata"]["namespace"]
+    field_selector = "metadata.name={}".format(service_name)
+    services = core_api().list_namespaced_service(namespace, field_selector=field_selector).items
+    # TODO
+    return None
+
+
+
 def delete_persistent_volume_claims(pvcs, namespace):
     for pvc in pvcs:
         delete_persistent_volume_claim(pvc.metadata.name, namespace)

@@ -19,7 +19,7 @@ from cloudtik.providers._private._kubernetes import core_api, log_prefix, \
 from cloudtik.providers._private._kubernetes.config import bootstrap_kubernetes, \
     post_prepare_kubernetes, _add_service_name_to_service_port, head_service_selector, \
     bootstrap_kubernetes_for_api, cleanup_kubernetes_cluster, with_kubernetes_environment_variables, get_head_hostname, \
-    get_worker_hostname
+    get_worker_hostname, prepare_kubernetes_config
 from cloudtik.providers._private._kubernetes.utils import _get_node_info, to_label_selector, \
     create_and_configure_pvc_for_pod, delete_persistent_volume_claims, get_pod_persistent_volume_claims, \
     delete_persistent_volume_claims_by_name
@@ -240,6 +240,11 @@ class KubernetesNodeProvider(NodeProvider):
     @staticmethod
     def bootstrap_config_for_api(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         return bootstrap_kubernetes_for_api(cluster_config)
+
+    @staticmethod
+    def prepare_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+        return prepare_kubernetes_config(cluster_config)
+
 
     @staticmethod
     def post_prepare(cluster_config):

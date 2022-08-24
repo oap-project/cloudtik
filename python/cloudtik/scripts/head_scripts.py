@@ -135,16 +135,16 @@ def exec(cmd, node_ip, all_nodes, run_env, screen, tmux, port_forward, with_outp
     "--cpus",
     required=False,
     type=int,
-    help="Specify the number of cpus of the cluster.")
+    help="Specify the number of worker cpus of the cluster.")
 @click.option(
-    "--nodes",
+    "--workers",
     required=False,
     type=int,
-    help="Specify the number of nodes of the cluster.")
+    help="Specify the number of workers of the cluster.")
 @add_click_logging_options
-def scale(yes, cpus, nodes):
+def scale(yes, cpus, workers):
     """Scale the cluster with a specific number cpus or nodes."""
-    scale_cluster_on_head(yes, cpus, nodes)
+    scale_cluster_on_head(yes, cpus, workers)
 
 
 @head.command()

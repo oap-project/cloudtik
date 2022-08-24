@@ -783,16 +783,16 @@ def submit(cluster_config_file, screen, tmux, stop, start, cluster_name,
     "--cpus",
     required=False,
     type=int,
-    help="Specify the number of cpus of the cluster.")
+    help="Specify the number of worker cpus of the cluster.")
 @click.option(
-    "--nodes",
+    "--workers",
     required=False,
     type=int,
-    help="Specify the number of nodes of the cluster.")
+    help="Specify the number of workers of the cluster.")
 @add_click_logging_options
-def scale(cluster_config_file, yes, cluster_name, cpus, nodes):
+def scale(cluster_config_file, yes, cluster_name, cpus, workers):
     """Scale the cluster with a specific number cpus or nodes."""
-    scale_cluster(cluster_config_file, yes, cluster_name, cpus, nodes)
+    scale_cluster(cluster_config_file, yes, cluster_name, cpus, workers)
 
 
 @cli.command()

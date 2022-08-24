@@ -208,8 +208,8 @@ Scale up the cluster with a specific number cpus or nodes.
 Scale up the cluster by specifying `--cpus` as below.
 
 ```
-$ cloudtik scale  --cpus 12 /path/to/your-cluster-config.yaml
-Are you sure that you want to scale cluster small to 12 CPUs? Confirm [y/N]: y
+$ cloudtik scale  --cpus 8 /path/to/your-cluster-config.yaml
+Are you sure that you want to scale cluster small to 8 worker CPUs? Confirm [y/N]: y
 
 Shared connection to 23.xxx.xx.xxx closed.
 
@@ -225,11 +225,11 @@ The total worker memory: 32.0GB.
 
 ```
 
-Scale up the cluster by specifying `--nodes` as below.
+Scale up the cluster by specifying `--workers` as below.
 
 ```
-$ cloudtik scale --nodes 4  /path/to/your-cluster-config.yaml
-Are you sure that you want to scale cluster small to 4 nodes? Confirm [y/N]: y
+$ cloudtik scale --workers 3  /path/to/your-cluster-config.yaml
+Are you sure that you want to scale cluster small to 3 workers? Confirm [y/N]: y
 
 Shared connection to 23.xxx.xx.xxx closed.
 $ cloudtik info /path/to/your-cluster-config.yaml

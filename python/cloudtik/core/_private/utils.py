@@ -2188,6 +2188,42 @@ def get_preferred_bundle_size(config: Dict[str, Any], resource_id: str) -> Optio
         return _gcd_of_numbers(resource_sizes)
 
 
+def get_resource_requests_for_cpu(num_cpus, config):
+    # For resource requests, it is the statically total resources of the cluster
+    # While num_cpus here is the number of worker cpus, we need to accounted into
+    # the head node cpus as the first resource request
+    resource_requests = _get_head_resource_requests(
+        config, constants.CLOUDTIK_RESOURCE_CPU)
+    resource_demands_for_workers = get_resource_demands(
+        num_cpus, constants.CLOUDTIK_RESOURCE_CPU, config, 1)
+    if resource_demands_for_workers is not None:
+        resource_requests += resource_demands_for_workers
+    return resource_requests
+
+
+def _get_head_resource_requests(config, resource_id):
+    head_node_type = config["head_node_type"]
+    return _get_node_type_resource_requests(config, head_node_type, resource_id)
+
+
+def _get_node_type_resource_requests(config, node_type, resource_id):
+    resource_requests = []
+    available_node_types = config.get("available_node_types")
+    if available_node_types is None:
+        return resource_requests
+
+    if node_type not in available_node_types:
+        raise RuntimeError("Invalid configuration. Node type {} is not defined.".format(node_type))
+
+    node_type_config = available_node_types[node_type]
+    resources = node_type_config.get("resources", {})
+    resource_total = resources.get(resource_id, 0)
+    if resource_total > 0:
+        resource_requests += [{resource_id: resource_total}]
+
+    return resource_requests
+
+
 def get_resource_demands_for_cpu(num_cpus, config):
     return get_resource_demands(
         num_cpus, constants.CLOUDTIK_RESOURCE_CPU, config, 1)

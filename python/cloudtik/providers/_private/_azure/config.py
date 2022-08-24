@@ -12,7 +12,7 @@ from typing import Any, Dict, Optional
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, CLOUDTIK_TAG_CLUSTER_NAME
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.utils import check_cidr_conflict, is_use_internal_ip, _is_use_internal_ip, \
-    is_managed_cloud_storage, is_use_managed_cloud_storage, _is_use_managed_cloud_storage
+    is_managed_cloud_storage, is_use_managed_cloud_storage, _is_use_managed_cloud_storage, update_nested_dict
 from cloudtik.core.workspace_provider import Existence, CLOUDTIK_MANAGED_CLOUD_STORAGE, \
     CLOUDTIK_MANAGED_CLOUD_STORAGE_URI
 
@@ -1253,7 +1253,8 @@ def _create_storage_account(config, resource_group_name):
     location = provider_config["location"]
     subscription_id = provider_config.get("subscription_id")
     # Default is "TLS1_1", some environment requires "TLS1_2"
-    minimum_tls_version = provider_config.get("minimum_tls_version")
+    # can be specified with storage options
+    storage_account_options = provider_config.get("storage_account_options")
     use_internal_ips = is_use_internal_ip(config)
     resource_client = construct_resource_client(config)
     resource_group = _get_resource_group(workspace_name, resource_client, use_internal_ips)
@@ -1291,8 +1292,9 @@ def _create_storage_account(config, resource_group_name):
                 }
             }
 
-        if minimum_tls_version is not None:
-            parameters["minimumTlsVersion"] = minimum_tls_version
+        if storage_account_options is not None:
+            update_nested_dict(parameters, storage_account_options)
+
         poller = storage_client.storage_accounts.begin_create(
             resource_group_name=resource_group_name,
             account_name=account_name,

@@ -34,11 +34,13 @@ class Workspace:
 
     def create(self) -> None:
         """Create and provision the workspace resources."""
-        workspace_operator._create_workspace(self.config)
+        workspace_operator._create_workspace(
+            self.config, yes=True)
 
     def delete(self, delete_managed_storage: bool = False) -> None:
         """Delete the workspace and corresponding resources."""
-        workspace_operator._delete_workspace(self.config, delete_managed_storage)
+        workspace_operator._delete_workspace(
+            self.config, yes=True, delete_managed_storage=delete_managed_storage)
 
     def update_firewalls(self) -> None:
         """Update the firewall rules for the workspace."""

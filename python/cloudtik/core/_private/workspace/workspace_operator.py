@@ -90,13 +90,26 @@ def delete_workspace(
         delete_managed_storage: bool = False):
     """Destroys the workspace and associated Cloud resources."""
     config = _load_workspace_config(config_file, override_workspace_name)
+    _delete_workspace(config, yes, delete_managed_storage)
 
+
+def _delete_workspace(config: Dict[str, Any],
+                      yes: bool = False,
+                      delete_managed_storage: bool = False):
     workspace_name = config["workspace_name"]
     provider = _get_workspace_provider(config["provider"], workspace_name)
     existence = provider.check_workspace_existence(config)
     if existence == Existence.NOT_EXIST:
         raise RuntimeError(f"Workspace with the name {workspace_name} doesn't exist!")
     else:
+        running_clusters = provider.list_clusters(config)
+        if running_clusters is not None and len(running_clusters) > 0:
+            cluster_names = ",".join(list(running_clusters.keys()))
+            raise RuntimeError(
+                "Workspace {} has clusters ({}) in running. Please stop the clusters first.".format(
+                    workspace_name, cluster_names
+                ))
+
         managed_cloud_storage = is_managed_cloud_storage(config)
         if managed_cloud_storage:
             if delete_managed_storage:
@@ -107,13 +120,7 @@ def delete_workspace(
 
         cli_logger.confirm(yes, "Are you sure that you want to delete workspace {}?",
                            config["workspace_name"], _abort=True)
-        _delete_workspace(config, delete_managed_storage)
-
-
-def _delete_workspace(config: Dict[str, Any],
-                      delete_managed_storage: bool = False):
-    provider = _get_workspace_provider(config["provider"], config["workspace_name"])
-    provider.delete_workspace(config, delete_managed_storage)
+        provider.delete_workspace(config, delete_managed_storage)
 
 
 def create_workspace(
@@ -179,7 +186,10 @@ def create_workspace(
 
     config = _bootstrap_workspace_config(config,
                                          no_config_cache=no_config_cache)
+    _create_workspace(config, yes)
 
+
+def _create_workspace(config: Dict[str, Any], yes: bool = False):
     workspace_name = config["workspace_name"]
     provider = _get_workspace_provider(config["provider"], workspace_name)
     existence = provider.check_workspace_existence(config)
@@ -190,13 +200,7 @@ def create_workspace(
     else:
         cli_logger.confirm(yes, "Are you sure that you want to create workspace {}?",
                            config["workspace_name"], _abort=True)
-        _create_workspace(config)
-
-
-def _create_workspace(config: Dict[str, Any]):
-    workspace_name = config["workspace_name"]
-    provider = _get_workspace_provider(config["provider"], workspace_name)
-    provider.create_workspace(config)
+        provider.create_workspace(config)
 
 
 def list_workspace_clusters(

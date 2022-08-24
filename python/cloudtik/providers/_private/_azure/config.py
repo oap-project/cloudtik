@@ -38,6 +38,9 @@ AZURE_NSG_NAME = AZURE_RESOURCE_NAME_PREFIX + "-nsg"
 AZURE_SUBNET_NAME = AZURE_RESOURCE_NAME_PREFIX + "-subnet"
 AZURE_VNET_NAME = AZURE_RESOURCE_NAME_PREFIX + "-vnet"
 
+AZURE_WORKSPACE_VERSION_TAG_NAME = "cloudtik-workspace-version"
+AZURE_WORKSPACE_VERSION_CURRENT = "1"
+
 AZURE_WORKSPACE_NUM_CREATION_STEPS = 9
 AZURE_WORKSPACE_NUM_DELETION_STEPS = 9
 AZURE_WORKSPACE_TARGET_RESOURCES = 12
@@ -1390,7 +1393,10 @@ def create_virtual_network(config, resource_client, network_client):
                 "10.{}.0.0/16".format(random.randint(1, 254))
             ]
         },
-        "location": config["provider"]["location"]
+        "location": config["provider"]["location"],
+        "tags": {
+            AZURE_WORKSPACE_VERSION_TAG_NAME: AZURE_WORKSPACE_VERSION_CURRENT
+        }
     }
     cli_logger.print("Creating workspace virtual network: {} on Azure...", virtual_network_name)
     # create virtual network

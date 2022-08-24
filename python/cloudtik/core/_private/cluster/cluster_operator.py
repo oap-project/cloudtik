@@ -3095,9 +3095,9 @@ def submit_and_exec(config: Dict[str, Any],
             target=target,
             down=False)
     if target_name.endswith(".py"):
-        command_parts += ["python", quote(target)]
+        command_parts += ["python", target]
     elif target_name.endswith(".sh"):
-        command_parts += ["bash", quote(target)]
+        command_parts += ["bash", target]
     else:
 
         command_parts += get_runnable_command(config.get(RUNTIME_CONFIG_KEY), target)

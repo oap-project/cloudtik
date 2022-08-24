@@ -74,7 +74,7 @@ def _is_runtime_scripts(script_file):
 
 
 def _get_runnable_command(target):
-    command_parts = ["trino", "-f", quote(target)]
+    command_parts = ["trino", "-f", target]
     return command_parts
 
 

@@ -200,7 +200,7 @@ def _is_runtime_scripts(script_file):
 
 
 def _get_runnable_command(target):
-    command_parts = ["spark-shell", "-i", quote(target)]
+    command_parts = ["spark-shell", "-i", target]
     return command_parts
 
 

@@ -38,6 +38,9 @@ AWS_DEFAULT_IAM_ROLE = AWS_RESOURCE_NAME_PREFIX + "-v1"
 
 SECURITY_GROUP_TEMPLATE = AWS_RESOURCE_NAME_PREFIX + "-{}"
 
+AWS_WORKSPACE_VERSION_TAG_NAME = "cloudtik-workspace-version"
+AWS_WORKSPACE_VERSION_CURRENT = "1"
+
 DEFAULT_AMI_NAME = "Ubuntu Server 20.04 LTS (HVM), SSD Volume Type"
 
 # Obtained from https://aws.amazon.com/marketplace/pp/B07Y43P7X5 on 8/4/2020.
@@ -1433,6 +1436,10 @@ def _create_vpc(config, ec2, ec2_client):
                             'Key': 'Name',
                             'Value': 'cloudtik-{}-vpc'.format(config["workspace_name"])
                         },
+                        {
+                            'Key': AWS_WORKSPACE_VERSION_TAG_NAME,
+                            'Value': AWS_WORKSPACE_VERSION_CURRENT
+                        },
                     ]
                 },
             ]
@@ -1989,7 +1996,10 @@ def _configure_vpc(config, workspace_name, ec2, ec2_client):
         # No need to create new vpc
         vpc_id = get_current_vpc(config)
         vpc = ec2.Vpc(id=vpc_id)
-        vpc.create_tags(Tags=[{'Key': 'Name', 'Value': 'cloudtik-{}-vpc'.format(workspace_name)}])
+        vpc.create_tags(Tags=[
+            {'Key': 'Name', 'Value': 'cloudtik-{}-vpc'.format(workspace_name)},
+            {'Key': AWS_WORKSPACE_VERSION_TAG_NAME, 'Value': AWS_WORKSPACE_VERSION_CURRENT}
+        ])
     else:
 
         # Need to create a new vpc

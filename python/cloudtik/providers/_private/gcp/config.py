@@ -921,21 +921,21 @@ def _create_vpc(config, compute):
     use_internal_ips = is_use_internal_ip(config)
     if use_internal_ips:
         # No need to create new vpc
-        VpcId = get_working_node_vpc_id(config, compute)
-        if VpcId is None:
-            cli_logger.abort("Only when the  working node is "
-                             "an GCP  instance can use use_internal_ips=True.")
+        vpc_id = get_working_node_vpc_id(config, compute)
+        if vpc_id is None:
+            cli_logger.abort("Only when the working node is "
+                             "a GCP instance can use use_internal_ips=True.")
     else:
 
         # Need to create a new vpc
         if get_workspace_vpc_id(config, compute) is None:
             create_vpc(config, compute)
-            VpcId = get_workspace_vpc_id(config, compute)
+            vpc_id = get_workspace_vpc_id(config, compute)
         else:
             cli_logger.abort("There is a existing VPC with the same name: {}, "
                              "if you want to create a new workspace with the same name, "
                              "you need to execute workspace delete first!".format(workspace_name))
-    return VpcId
+    return vpc_id
 
 
 def _create_head_service_account(config, crm, iam):

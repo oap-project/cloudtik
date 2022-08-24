@@ -1409,7 +1409,12 @@ def get_usage_report(cluster_metrics_summary: ClusterMetricsSummary) -> str:
                 line += (f" ({pg_used} used of "
                          f"{pg_total} reserved in placement groups)")
             usage_lines.append(line)
-    usage_report = "\n".join(usage_lines)
+
+    if len(usage_lines) > 0:
+        usage_report = "\n".join(usage_lines)
+    else:
+        usage_report = " (no usage report)"
+
     return usage_report
 
 

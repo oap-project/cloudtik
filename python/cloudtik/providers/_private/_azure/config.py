@@ -168,7 +168,7 @@ def check_azure_workspace_existence(config):
 
         if get_head_user_assigned_identity(config, resource_group_name) is not None:
             existing_resources += 1
-            if get_role_assignment_for_contributor(config, resource_group_name) is not None:
+            if get_head_role_assignment_for_contributor(config, resource_group_name) is not None:
                 existing_resources += 1
 
             if get_head_role_assignment_for_storage_blob_data_owner(config, resource_group_name) is not None:
@@ -262,7 +262,6 @@ def update_azure_workspace_firewalls(config):
     cli_logger.print(
         "Successfully updated the firewalls of workspace: {}.",
         cf.bold(workspace_name))
-    return None
 
 
 def delete_azure_workspace(config, delete_managed_storage: bool = False):
@@ -323,7 +322,6 @@ def delete_azure_workspace(config, delete_managed_storage: bool = False):
     cli_logger.print(
         "Successfully deleted workspace: {}.",
         cf.bold(workspace_name))
-    return None
 
 
 def _delete_network_resources(config, resource_client, resource_group_name, current_step, total_steps):
@@ -513,17 +511,17 @@ def get_role_assignment_for_storage_blob_data_owner(config, resource_group_name,
         return None
 
 
-def get_role_assignment_for_contributor(config, resource_group_name):
+def get_head_role_assignment_for_contributor(config, resource_group_name):
     workspace_name = config["workspace_name"]
-    authorization_client = construct_authorization_client(config)
     subscription_id = config["provider"].get("subscription_id")
+    role_assignment_name = str(uuid.uuid3(uuid.UUID(subscription_id), workspace_name + "contributor"))
+    cli_logger.verbose("Getting the existing role assignment for Contributor: {}.", role_assignment_name)
+
+    authorization_client = construct_authorization_client(config)
     scope = "subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}".format(
         subscriptionId=subscription_id,
         resourceGroupName=resource_group_name
     )
-    role_assignment_name = str(uuid.uuid3(uuid.UUID(subscription_id), workspace_name + "contributor"))
-    cli_logger.verbose("Getting the existing role assignment for Contributor: {}.", role_assignment_name)
-
     try:
         role_assignment = authorization_client.role_assignments.get(
             scope=scope,
@@ -580,17 +578,18 @@ def _delete_role_assignment_for_storage_blob_data_owner(config, resource_group_n
         raise e
 
 
-def _delete_role_assignment_for_contributor(config, resource_group_name):
-    role_assignment_name = get_role_assignment_for_contributor(config, resource_group_name)
+def _delete_head_role_assignment_for_contributor(config, resource_group_name):
+    role_assignment_name = get_head_role_assignment_for_contributor(config, resource_group_name)
+    if role_assignment_name is None:
+        cli_logger.print("The role assignment doesn't exist.")
+        return
+
     authorization_client = construct_authorization_client(config)
     subscription_id = config["provider"].get("subscription_id")
     scope = "subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}".format(
         subscriptionId=subscription_id,
         resourceGroupName=resource_group_name
     )
-    if role_assignment_name is None:
-        cli_logger.print("The role assignment doesn't exist.")
-        return
 
     """ Delete the role_assignment"""
     cli_logger.print("Deleting the role assignment for Contributor: {}...".format(role_assignment_name))
@@ -614,7 +613,7 @@ def _delete_role_assignments(config, resource_group_name):
             "Deleting Contributor role assignment for head",
             _numbered=("()", current_step, total_steps)):
         current_step += 1
-        _delete_role_assignment_for_contributor(config, resource_group_name)
+        _delete_head_role_assignment_for_contributor(config, resource_group_name)
 
     with cli_logger.group(
             "Deleting Storage Blob Data Owner role assignment for head",
@@ -1123,16 +1122,16 @@ def _create_worker_role_assignment_for_storage_blob_data_owner(config, resource_
 
 def _create_role_assignment_for_storage_blob_data_owner(
         config, resource_group_name, user_assigned_identity, role_type):
+    role_assignment_name = get_role_assignment_name_for_storage_blob_data_owner(config, role_type)
+    cli_logger.print("Creating workspace role assignment for Storage Blob Data Owner: {} on Azure...",
+                     role_assignment_name)
+
     authorization_client = construct_authorization_client(config)
     subscription_id = config["provider"].get("subscription_id")
     scope = "subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}".format(
         subscriptionId=subscription_id,
         resourceGroupName=resource_group_name
     )
-    role_assignment_name = get_role_assignment_name_for_storage_blob_data_owner(config, role_type)
-    cli_logger.print("Creating workspace role assignment for Storage Blob Data Owner: {} on Azure...",
-                     role_assignment_name)
-
     # Create role assignment for Storage Blob Data Owner
     try:
         role_assignment = authorization_client.role_assignments.create(
@@ -1152,18 +1151,19 @@ def _create_role_assignment_for_storage_blob_data_owner(
         raise e
 
 
-def _create_role_assignment_for_contributor(config, resource_group_name):
+def _create_head_role_assignment_for_contributor(config, resource_group_name):
     workspace_name = config["workspace_name"]
-    authorization_client = construct_authorization_client(config)
     subscription_id = config["provider"].get("subscription_id")
+    role_assignment_name = str(uuid.uuid3(uuid.UUID(subscription_id), workspace_name + "contributor"))
+
+    cli_logger.print("Creating workspace role assignment: {} on Azure...", role_assignment_name)
+
+    authorization_client = construct_authorization_client(config)
     scope = "subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}".format(
         subscriptionId=subscription_id,
         resourceGroupName=resource_group_name
     )
-    role_assignment_name = str(uuid.uuid3(uuid.UUID(subscription_id), workspace_name + "contributor"))
     user_assigned_identity = get_head_user_assigned_identity(config, resource_group_name)
-    cli_logger.print("Creating workspace role assignment: {} on Azure...", role_assignment_name)
-
     # Create role assignment
     try:
         role_assignment = authorization_client.role_assignments.create(
@@ -1193,7 +1193,7 @@ def _create_role_assignments(config, resource_group_name):
             "Creating Contributor role assignment for head ",
             _numbered=("()", current_step, total_steps)):
         current_step += 1
-        _create_role_assignment_for_contributor(config, resource_group_name)
+        _create_head_role_assignment_for_contributor(config, resource_group_name)
 
     # create Storage Blob Data Owner role assignment for head
     with cli_logger.group(
@@ -1481,13 +1481,15 @@ def _configure_azure_subnet_cidr(network_client, resource_group_name, virtual_ne
 
 
 def _create_and_configure_subnets(config, network_client, resource_group_name, virtual_network_name, is_private=True):
-    cidr_block = _configure_azure_subnet_cidr(network_client, resource_group_name, virtual_network_name)
     subscription_id = config["provider"].get("subscription_id")
     workspace_name = config["workspace_name"]
+    subnet_attribute = "private" if is_private else "public"
+    subnet_name = "cloudtik-{}-{}-subnet".format(config["workspace_name"], subnet_attribute)
+
+    cidr_block = _configure_azure_subnet_cidr(network_client, resource_group_name, virtual_network_name)
     nat_gateway_name = "cloudtik-{}-nat".format(workspace_name)
     network_security_group_name = "cloudtik-{}-network-security-group".format(workspace_name)
     if is_private:
-        subnet_attribute = "private"
         subnet_parameters = {
             "address_prefix": cidr_block,
             "nat_gateway": {
@@ -1498,10 +1500,8 @@ def _create_and_configure_subnets(config, network_client, resource_group_name, v
                 "id": "/subscriptions/{}/resourceGroups/{}/providers/Microsoft.Network/networkSecurityGroups/{}"
                     .format(subscription_id, resource_group_name, network_security_group_name)
             }
-
         }
     else:
-        subnet_attribute = "public"
         subnet_parameters = {
             "address_prefix": cidr_block,
             "network_security_group": {
@@ -1517,15 +1517,13 @@ def _create_and_configure_subnets(config, network_client, resource_group_name, v
         network_client.subnets.begin_create_or_update(
             resource_group_name=resource_group_name,
             virtual_network_name=virtual_network_name,
-            subnet_name="cloudtik-{}-{}-subnet".format(config["workspace_name"], subnet_attribute),
+            subnet_name=subnet_name,
             subnet_parameters=subnet_parameters
         ).result()
-        cli_logger.print("Successfully created {} subnet: cloudtik-{}-{}-subnet.".
-                         format(subnet_attribute, config["workspace_name"], subnet_attribute))
+        cli_logger.print("Successfully created {} subnet: {}.".format(subnet_attribute, subnet_name))
     except Exception as e:
         cli_logger.error("Failed to create subnet. {}", str(e))
         raise e
-    return
 
 
 def _create_nat(config, network_client, resource_group_name, public_ip_address_name):
@@ -1535,7 +1533,7 @@ def _create_nat(config, network_client, resource_group_name, public_ip_address_n
 
     cli_logger.print("Creating NAT gateway: {}... ".format(nat_gateway_name))
     try:
-        nat_gateway = network_client.nat_gateways.begin_create_or_update(
+        network_client.nat_gateways.begin_create_or_update(
             resource_group_name=resource_group_name,
             nat_gateway_name=nat_gateway_name,
             parameters={

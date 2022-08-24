@@ -412,8 +412,6 @@ def _delete_subnet(config, compute, is_private=True):
                          .format(subnet_attribute, subnet_name, str(e)))
         raise e
 
-    return
-
 
 def _create_and_configure_subnets(config, compute, vpc_id):
     workspace_name = config["workspace_name"]
@@ -450,17 +448,18 @@ def _create_router(config, compute, vpc_id):
     project_id = config["provider"]["project_id"]
     region = config["provider"]["region"]
     workspace_name = config["workspace_name"]
+    router_name = "cloudtik-{}-private-router".format(workspace_name)
+
+    cli_logger.print("Creating router for the private subnet: {}...".format(router_name))
     router_body = {
         "bgp": {
             "advertiseMode": "CUSTOM"
         },
         "description": "auto created for the workspace: cloudtik-{}-vpc".format(workspace_name),
-        "name": "cloudtik-{}-private-router".format(workspace_name),
+        "name": router_name,
         "network": "projects/{}/global/networks/{}".format(project_id, vpc_id),
         "region": "projects/{}/regions/{}".format(project_id, region)
     }
-    cli_logger.print("Creating router for the private subnet: "
-                     "cloudtik-{}-private-subnet...".format(workspace_name))
     try:
         operation = compute.routers().insert(project=project_id, region=region, body=router_body).execute()
         wait_for_compute_region_operation(project_id, region, operation, compute)
@@ -470,18 +469,19 @@ def _create_router(config, compute, vpc_id):
         cli_logger.error("Failed to create router. {}", str(e))
         raise e
 
-    return
-
 
 def _create_nat_for_router(config, compute):
     project_id = config["provider"]["project_id"]
     region = config["provider"]["region"]
     workspace_name = config["workspace_name"]
+    nat_name = "cloudtik-{}-nat".format(workspace_name)
+
+    cli_logger.print("Creating nat-gateway for private router: {}... ".format(nat_name))
+
     router = "cloudtik-{}-private-router".format(workspace_name)
     subnet_name = "cloudtik-{}-private-subnet".format(workspace_name)
     private_subnet = get_subnet(config, subnet_name, compute)
-    private_subnet_selfLink = private_subnet.get("selfLink")
-    nat_name = "cloutik-{}-nat".format(workspace_name)
+    private_subnet_self_link = private_subnet.get("selfLink")
     router_body ={
         "nats": [
             {
@@ -492,7 +492,7 @@ def _create_nat_for_router(config, compute):
                         "sourceIpRangesToNat": [
                             "ALL_IP_RANGES"
                         ],
-                        "name": private_subnet_selfLink
+                        "name": private_subnet_self_link
                     }
                 ],
                 "sourceSubnetworkIpRangesToNat": "LIST_OF_SUBNETWORKS"
@@ -500,17 +500,14 @@ def _create_nat_for_router(config, compute):
         ]
     }
 
-    cli_logger.print("Creating nat-gateway for private router: {}... ".format(nat_name))
     try:
-        operation =  compute.routers().patch(project=project_id, region=region, router=router, body=router_body).execute()
+        operation = compute.routers().patch(project=project_id, region=region, router=router, body=router_body).execute()
         wait_for_compute_region_operation(project_id, region, operation, compute)
         cli_logger.print("Successfully created nat-gateway for the private router: {}.".
                          format(nat_name))
     except Exception as e:
         cli_logger.error("Failed to create nat-gateway. {}", str(e))
         raise e
-
-    return
 
 
 def _delete_router(config, compute):
@@ -531,8 +528,6 @@ def _delete_router(config, compute):
     except Exception as e:
         cli_logger.error("Failed to delete the router: {}. {}".format(router_name, str(e)))
         raise e
-
-    return
 
 
 def check_firewall_exist(config, compute, firewall_name):
@@ -748,7 +743,6 @@ def update_gcp_workspace_firewalls(config):
     cli_logger.print(
         "Successfully updated the firewalls of workspace: {}.",
         cf.bold(workspace_name))
-    return None
 
 
 def delete_gcp_workspace(config, delete_managed_storage: bool = False):
@@ -794,7 +788,6 @@ def delete_gcp_workspace(config, delete_managed_storage: bool = False):
     cli_logger.print(
             "Successfully deleted workspace: {}.",
             cf.bold(workspace_name))
-    return None
 
 
 def _delete_workspace_service_accounts(config, iam):

@@ -224,7 +224,7 @@ class Cluster:
             all_nodes=all_nodes,
             use_internal_ip=use_internal_ip)
 
-    def scale(self, num_cpus: Optional[int] = None, nodes: Optional[int] = None,
+    def scale(self, num_cpus: Optional[int] = None, workers: Optional[int] = None,
               bundles: Optional[List[dict]] = None) -> None:
         """Reqeust to scale to accommodate the specified requests.
 
@@ -245,7 +245,7 @@ class Cluster:
             num_cpus (int): Scale the cluster to ensure this number of CPUs are
                 available. This request is persistent until another call to
                 request_resources() is made to override.
-            nodes (int): Scale to number of nodes.
+            workers (int): Scale to number of workers.
             bundles (List[ResourceDict]): Scale the cluster to ensure this set of
                 resource shapes can fit. This request is persistent until another
                 call to request_resources() is made to override.
@@ -262,7 +262,7 @@ class Cluster:
             config=self.config,
             call_context=self.call_context,
             cpus=num_cpus,
-            nodes=nodes)
+            workers=workers)
 
     def start_node(self,
                    node_ip: str = None,

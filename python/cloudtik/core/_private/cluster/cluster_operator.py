@@ -50,7 +50,7 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     is_node_in_completed_status, check_for_single_worker_type, \
     get_node_specific_commands_of_runtimes, _get_node_specific_runtime_config, \
     _get_node_specific_docker_config, RUNTIME_CONFIG_KEY, DOCKER_CONFIG_KEY, get_running_head_node, \
-    get_nodes_for_runtime, with_script_args, encrypt_config, get_resource_demands_for_cpu, convert_nodes_to_cpus, \
+    get_nodes_for_runtime, with_script_args, encrypt_config, get_resource_requests_for_cpu, convert_nodes_to_cpus, \
     decrypt_config
 
 from cloudtik.core._private.providers import _get_node_provider, \
@@ -141,7 +141,7 @@ def debug_status_string(status, error) -> str:
 def request_resources(num_cpus: Optional[int] = None,
                       bundles: Optional[List[dict]] = None,
                       config: Dict[str, Any] = None) -> None:
-    cpus_to_request = get_resource_demands_for_cpu(num_cpus, config)
+    cpus_to_request = get_resource_requests_for_cpu(num_cpus, config)
     _request_resources(cpus=cpus_to_request, bundles=bundles)
 
 
@@ -2971,34 +2971,34 @@ def _stop_node_on_head(
 
 
 def scale_cluster(config_file: str, yes: bool, override_cluster_name: Optional[str],
-                  cpus: int, nodes: int):
+                  cpus: int, workers: int):
     config = _load_cluster_config(config_file, override_cluster_name)
     call_context = cli_call_context()
-    resource_string = f"{cpus} CPUs" if cpus else f"{nodes} nodes"
+    resource_string = f"{cpus} worker CPUs" if cpus else f"{workers} workers"
     cli_logger.confirm(yes, "Are you sure that you want to scale cluster {} to {}?",
                        config["cluster_name"], resource_string, _abort=True)
     cli_logger.newline()
 
     _scale_cluster(config,
                    call_context=call_context,
-                   cpus=cpus, nodes=nodes)
+                   cpus=cpus, workers=workers)
 
 
 def _scale_cluster(config: Dict[str, Any],
                    call_context: CallContext,
-                   cpus: int, nodes: int = None):
-    assert not (cpus and nodes), "Can specify only one of `cpus` or `nodes`."
-    assert (cpus or nodes), "Need specify either `cpus` or `nodes`."
+                   cpus: int, workers: int = None):
+    assert not (cpus and workers), "Can specify only one of `cpus` or `workers`."
+    assert (cpus or workers), "Need specify either `cpus` or `workers`."
 
     # send the head the resource request
     scale_cluster_from_head(config,
                             call_context=call_context,
-                            cpus=cpus, nodes=nodes)
+                            cpus=cpus, workers=workers)
 
 
 def scale_cluster_from_head(config: Dict[str, Any],
                             call_context: CallContext,
-                            cpus: int, nodes: int = None):
+                            cpus: int, workers: int = None):
     # Make a request to head to scale the cluster
     cmds = [
         "cloudtik",
@@ -3008,8 +3008,8 @@ def scale_cluster_from_head(config: Dict[str, Any],
     ]
     if cpus:
         cmds += ["--cpus={}".format(cpus)]
-    if nodes:
-        cmds += ["--nodes={}".format(nodes)]
+    if workers:
+        cmds += ["--workers={}".format(workers)]
 
     final_cmd = " ".join(cmds)
     _exec_cmd_on_cluster(config,
@@ -3017,26 +3017,26 @@ def scale_cluster_from_head(config: Dict[str, Any],
                          cmd=final_cmd)
 
 
-def scale_cluster_on_head(yes: bool, cpus: int, nodes: int):
-    assert not (cpus and nodes), "Can specify only one of `cpus` or `nodes`."
-    assert (cpus or nodes), "Need specify either `cpus` or `nodes`."
+def scale_cluster_on_head(yes: bool, cpus: int, workers: int):
+    assert not (cpus and workers), "Can specify only one of `cpus` or `workers`."
+    assert (cpus or workers), "Need specify either `cpus` or `workers`."
 
     config = load_head_cluster_config()
 
     if not yes:
-        resource_string = f"{cpus} CPUs" if cpus else f"{nodes} nodes"
+        resource_string = f"{cpus} worker CPUs" if cpus else f"{workers} workers"
         cli_logger.confirm(yes, "Are you sure that you want to scale cluster {} to {}?",
                            config["cluster_name"], resource_string, _abort=True)
         cli_logger.newline()
 
     # Calculate nodes request to the number of cpus
-    if nodes:
+    if workers:
         # if nodes specified, we need to check there is only one worker type defined
         check_for_single_worker_type(config)
 
-        cpus = convert_nodes_to_cpus(config, nodes)
+        cpus = convert_nodes_to_cpus(config, workers)
         if cpus == 0:
-            cli_logger.abort("Unknown to convert number of nodes to number of CPUs.")
+            cli_logger.abort("Unknown to convert number of workers to number of CPUs.")
 
     try:
         address = services.get_address_to_use_or_die()

@@ -1249,8 +1249,11 @@ def _create_storage_account(config, resource_group_name):
         return
 
     workspace_name = config["workspace_name"]
-    location = config["provider"]["location"]
-    subscription_id = config["provider"].get("subscription_id")
+    provider_config = config["provider"]
+    location = provider_config["location"]
+    subscription_id = provider_config.get("subscription_id")
+    # Default is "TLS1_1", some environment requires "TLS1_2"
+    minimum_tls_version = provider_config.get("minimum_tls_version")
     use_internal_ips = is_use_internal_ip(config)
     resource_client = construct_resource_client(config)
     resource_group = _get_resource_group(workspace_name, resource_client, use_internal_ips)
@@ -1262,10 +1265,7 @@ def _create_storage_account(config, resource_group_name):
     cli_logger.print("Creating workspace storage account: {} on Azure...", account_name)
     # Create storage account
     try:
-        poller = storage_client.storage_accounts.begin_create(
-            resource_group_name=resource_group_name,
-            account_name=account_name,
-            parameters={
+        parameters = {
                 "sku": {
                     "name": "Premium_LRS",
                     "tier": "Premium"
@@ -1290,6 +1290,13 @@ def _create_storage_account(config, resource_group_name):
                     "Name": 'cloudtik-{}-storage-account'.format(workspace_name)
                 }
             }
+
+        if minimum_tls_version is not None:
+            parameters["minimumTlsVersion"] = minimum_tls_version
+        poller = storage_client.storage_accounts.begin_create(
+            resource_group_name=resource_group_name,
+            account_name=account_name,
+            parameters=parameters
         )
         # Long-running operations return a poller object; calling poller.result()
         # waits for completion.

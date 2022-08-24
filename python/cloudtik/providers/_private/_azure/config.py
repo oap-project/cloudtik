@@ -295,7 +295,7 @@ def delete_azure_workspace(config, delete_managed_storage: bool = False):
 
             # delete role_assignments
             with cli_logger.group(
-                    "Deleting role assignments for managed Identity ",
+                    "Deleting role assignments for managed identity",
                     _numbered=("[]", current_step, total_steps)):
                 current_step += 1
                 _delete_role_assignments(config, resource_group_name)
@@ -902,7 +902,7 @@ def _create_workspace(config):
 
             # create role assignments
             with cli_logger.group(
-                    "Creating role assignments for managed Identity",
+                    "Creating role assignments for managed identity",
                     _numbered=("[]", current_step, total_steps)):
                 current_step += 1
                 _create_role_assignments(config, resource_group_name)

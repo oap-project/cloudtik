@@ -75,6 +75,9 @@ class ClusterMetricsUpdater:
         # We will depend on the timeout of a previous node resource states
         # if there is no latest reporting from that node
         node_resource_states = scaling_state.node_resource_states
+        if node_resource_states is None:
+            node_resource_states = {}
+
         for node_id, node_resource_state in node_resource_states.items():
             ip = node_resource_state["node_ip"]
             resource_time = node_resource_state["resource_time"]

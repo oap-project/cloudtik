@@ -430,6 +430,9 @@ class ClusterScaler:
         last_used = self.cluster_metrics.last_used_time_by_ip
         horizon = now - (60 * self.config["idle_timeout_minutes"])
 
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug("Nodes last used (horizon={}): {}".format(horizon, last_used))
+
         # Sort based on last used to make sure to keep min_workers that
         # were most recently used. Otherwise, _keep_min_workers_of_node_type
         # might keep a node that should be terminated.

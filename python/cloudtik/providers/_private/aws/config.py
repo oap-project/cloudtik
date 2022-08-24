@@ -2130,8 +2130,19 @@ def _configure_subnet_from_workspace(config):
     use_internal_ips = is_use_internal_ip(config)
 
     vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
-    public_subnet_ids = [public_subnet.id for public_subnet in get_workspace_public_subnets(workspace_name, ec2, vpc_id)]
-    private_subnet_ids = [private_subnet.id for private_subnet in get_workspace_private_subnets(workspace_name, ec2, vpc_id)]
+    public_subnets = get_workspace_public_subnets(workspace_name, ec2, vpc_id)
+    private_subnets = get_workspace_private_subnets(workspace_name, ec2, vpc_id)
+    public_subnet_ids = [public_subnet.id for public_subnet in public_subnets]
+    private_subnet_ids = [private_subnet.id for private_subnet in private_subnets]
+
+    # We need to make sure the first private subnet is the same availability zone with the first public subnet
+    if not use_internal_ips and len(public_subnet_ids) > 0:
+        availability_zone = public_subnets[0].availability_zone
+        for private_subnet in private_subnets:
+            if availability_zone == private_subnet.availability_zone:
+                private_subnet_ids.remove(private_subnet.id)
+                private_subnet_ids.insert(0, private_subnet.id)
+                break
 
     # map from node type key -> source of SubnetIds field
     subnet_src_info = {}

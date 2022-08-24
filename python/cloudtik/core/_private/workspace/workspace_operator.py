@@ -22,7 +22,7 @@ except ImportError:  # py2
 
 
 from cloudtik.core._private.utils import validate_workspace_config, prepare_workspace_config, is_managed_cloud_storage, \
-    print_dict_info
+    print_dict_info, decrypt_config, encrypt_config
 from cloudtik.core._private.providers import _get_workspace_provider_cls, _get_workspace_provider, \
     _WORKSPACE_PROVIDERS, _PROVIDER_PRETTY_NAMES, _get_node_provider_cls
 
@@ -346,12 +346,13 @@ def _bootstrap_workspace_config(config: Dict[str, Any],
 
     if os.path.exists(cache_key) and not no_config_cache:
         config_cache = json.loads(open(cache_key).read())
-        if config_cache.get("_version", -1) == CONFIG_CACHE_VERSION :
+        if config_cache.get("_version", -1) == CONFIG_CACHE_VERSION:
             # todo: is it fine to re-resolve? afaik it should be.
             # we can have migrations otherwise or something
             # but this seems overcomplicated given that resolving is
             # relatively cheap
-            try_reload_log_state(config_cache["config"]["provider"],
+            cached_config = decrypt_config(config_cache["config"])
+            try_reload_log_state(cached_config["provider"],
                                  config_cache.get("provider_log_info"))
             if log_once("_printed_cached_config_warning"):
                 cli_logger.verbose_warning(
@@ -361,7 +362,7 @@ def _bootstrap_workspace_config(config: Dict[str, Any],
                     "If you experience issues with "
                     "the cloud provider, try re-running "
                     "the command with {}.", cf.bold("--no-config-cache"))
-            return config_cache["config"]
+            return cached_config
         else:
             cli_logger.warning(
                 "Found cached workspace config "
@@ -389,11 +390,12 @@ def _bootstrap_workspace_config(config: Dict[str, Any],
 
     if not no_config_cache:
         with open(cache_key, "w", opener=partial(os.open, mode=0o600)) as f:
+            encrypted_config = encrypt_config(resolved_config)
             config_cache = {
                 "_version": CONFIG_CACHE_VERSION,
                 "provider_log_info": try_get_log_state(
                     resolved_config["provider"]),
-                "config": resolved_config
+                "config": encrypted_config
             }
             f.write(json.dumps(config_cache))
     return resolved_config

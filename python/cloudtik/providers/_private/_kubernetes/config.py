@@ -399,7 +399,7 @@ def prepare_kubernetes_config(config: Dict[str, Any]) -> Dict[str, Any]:
         os.system(private_key_generation_cmd)
         if not config.get("file_mounts", False):
             config["file_mounts"] = {}
-        config["file_mounts"].update({"/tmp/cloudtik.pem.pub": "~/.ssh/authorized_keys"})
+        config["file_mounts"].update({"~/.ssh/authorized_keys": "/tmp/cloudtik.pem.pub" })
 
         config["head_start_commands"] = [ssh_start_cmd] + config.get("head_start_commands", [])
     return config

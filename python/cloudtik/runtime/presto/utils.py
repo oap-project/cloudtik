@@ -2,6 +2,7 @@ import os
 from typing import Any, Dict
 from shlex import quote
 
+from cloudtik.core._private.core_utils import double_quote
 from cloudtik.core._private.providers import _get_workspace_provider
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_METASTORE
 from cloudtik.core._private.utils import merge_rooted_config_hierarchy, _get_runtime_config_object, is_runtime_enabled, \
@@ -79,7 +80,7 @@ def _is_runtime_scripts(script_file):
 
 
 def _get_runnable_command(target):
-    command_parts = ["presto", "-f", quote(target)]
+    command_parts = ["presto", "-f", double_quote(target)]
     return command_parts
 
 

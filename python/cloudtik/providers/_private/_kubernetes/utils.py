@@ -109,10 +109,8 @@ def get_service_external_address(config):
     head_service_config = provider_config["head_service"]
     service_name = head_service_config["metadata"]["name"]
     namespace = head_service_config["metadata"]["namespace"]
-    field_selector = "metadata.name={}".format(service_name)
-    services = core_api().list_namespaced_service(namespace, field_selector=field_selector).items
-    # TODO
-    return None
+    service = core_api().read_namespaced_service(namespace=namespace, name=service_name)
+    return service.status.load_balancer.ingress[0].hostname
 
 
 

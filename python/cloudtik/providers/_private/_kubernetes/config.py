@@ -14,7 +14,7 @@ from kubernetes.client.rest import ApiException
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.providers import _get_node_provider
 from cloudtik.core._private.utils import is_use_internal_ip, get_running_head_node, binary_to_hex, hex_to_binary, \
-    get_runtime_service_ports, _is_use_managed_cloud_storage
+    get_runtime_service_ports, _is_use_managed_cloud_storage, get_pem_path_for_kubernetes
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, \
     CLOUDTIK_GLOBAL_VARIABLE_KEY, CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX
 from cloudtik.core.workspace_provider import Existence
@@ -393,15 +393,14 @@ def prepare_kubernetes_config(config: Dict[str, Any]) -> Dict[str, Any]:
     """
     Prepare kubernetes cluster config.
     """
-    if config["provider"].get("enable_access_kubernetes_head", False):
-        pem_file_name = "cloudtik_kubernetes_{}_{}.pem".format(config["provider"]["cloud_provider"]["type"],
-                                                               config["cluster_name"])
-        private_key_generation_cmd = f"test -e /tmp/cloudtik.pem||ssh-keygen -t rsa -q -N '' -m PEM -f ~/.ssh/{pem_file_name}"
+    if not is_use_internal_ip(config):
+        pem_file_path = get_pem_path_for_kubernetes(config)
+        private_key_generation_cmd = f"test -e {pem_file_path}||ssh-keygen -t rsa -q -N '' -m PEM -f {pem_file_path}"
         ssh_start_cmd = " sudo /etc/init.d/ssh start"
         os.system(private_key_generation_cmd)
         if not config.get("file_mounts", False):
             config["file_mounts"] = {}
-        config["file_mounts"].update({"~/.ssh/authorized_keys": f"~/.ssh/{pem_file_name}.pub"})
+        config["file_mounts"].update({"~/.ssh/authorized_keys": f"{pem_file_path}.pub"})
 
         config["head_start_commands"] = [ssh_start_cmd] + config.get("head_start_commands", [])
     return config
@@ -431,12 +430,6 @@ def bootstrap_kubernetes(config):
 
 
 def bootstrap_kubernetes_default(config):
-    if not is_use_internal_ip(config):
-        return ValueError(
-            "Exposing external IP addresses for containers isn't "
-            "currently supported. Please set "
-            "'use_internal_ips' to true.")
-
     if config["provider"].get("_operator"):
         namespace = config["provider"]["namespace"]
     else:
@@ -456,12 +449,6 @@ def bootstrap_kubernetes_default(config):
 
 
 def bootstrap_kubernetes_from_workspace(config):
-    if not is_use_internal_ip(config):
-        return ValueError(
-            "Exposing external IP addresses for containers isn't "
-            "currently supported. Please set "
-            "'use_internal_ips' to true.")
-
     namespace = _configure_namespace_from_workspace(config)
 
     _configure_cloud_provider(config, namespace)
@@ -973,6 +960,8 @@ def _configure_node_service_name_and_selector(config):
 
 def _configure_head_service_type(config):
     # Start a service which type is LoadBalancer to support access web ui from outside the cluster
+    if is_use_internal_ip(config):
+        return
     provider_config = config["provider"]
     service_field = "head_service"
     if service_field not in provider_config:

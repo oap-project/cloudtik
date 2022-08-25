@@ -9,7 +9,6 @@ workspace_name: cloudtik
 provider:
     type: kubernetes
 
-    # Exposing external IP addresses for pods isn't currently supported.
     use_internal_ips: true
 
     # ServiceAccount created for the head node pod that it

@@ -104,8 +104,7 @@ def _get_service_account(namespace, name):
     return None
 
 
-def get_service_external_address(config):
-    provider_config = config["provider"]
+def get_service_external_address(provider_config):
     head_service_config = provider_config["head_service"]
     service_name = head_service_config["metadata"]["name"]
     namespace = head_service_config["metadata"]["namespace"]

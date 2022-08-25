@@ -22,7 +22,7 @@ from cloudtik.providers._private._kubernetes.config import bootstrap_kubernetes,
     get_worker_hostname, prepare_kubernetes_config
 from cloudtik.providers._private._kubernetes.utils import _get_node_info, to_label_selector, \
     create_and_configure_pvc_for_pod, delete_persistent_volume_claims, get_pod_persistent_volume_claims, \
-    delete_persistent_volume_claims_by_name
+    delete_persistent_volume_claims_by_name, get_service_external_address
 from cloudtik.providers._private.utils import validate_config_dict
 
 logger = logging.getLogger(__name__)
@@ -83,7 +83,9 @@ class KubernetesNodeProvider(NodeProvider):
         return pod.metadata.labels
 
     def external_ip(self, node_id):
-        raise NotImplementedError("Must use internal IPs with Kubernetes.")
+        # For kubernetes, this is not really the external IP of a node,
+        # but the external address of the service connected to the head node
+        return get_service_external_address(self.provider_config)
 
     def internal_ip(self, node_id):
         pod = core_api().read_namespaced_pod(node_id, self.namespace)

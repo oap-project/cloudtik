@@ -400,7 +400,7 @@ def prepare_kubernetes_config(config: Dict[str, Any]) -> Dict[str, Any]:
         config["file_mounts"].update({
             "/tmp/cloudtik.pem.pub": "~/.ssh/authorized_keys"
         })
-        config["head_start_commands"] = ssh_start_cmd + config.get("head_start_commands", [])
+        config["head_start_commands"] = [ssh_start_cmd] + config.get("head_start_commands", [])
     return config
 
 

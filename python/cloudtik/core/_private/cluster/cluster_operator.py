@@ -2075,7 +2075,12 @@ def start_proxy(config_file: str,
     config = _load_cluster_config(config_file, override_cluster_name,
                                   no_config_cache=no_config_cache)
 
-    if is_use_internal_ip(config):
+    if config["provider"]["type"] == "kubernetes":
+        cli_logger.newline()
+        with cli_logger.group("Please start a SOCKS5 proxy manually to access Web UI"):
+            _get_kubernetes_proxy_cmd(config)
+            return
+    elif is_use_internal_ip(config):
         cli_logger.print(cf.bold(
             "SOCKS5 proxy is not needed. With use_internal_ips is True, you can access the cluster directly."),)
         return

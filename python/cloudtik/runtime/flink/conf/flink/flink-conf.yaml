@@ -12,4 +12,5 @@ io.tmp.dirs: {%flink.local.dir%}
 state.checkpoints.dir: {%flink.state.checkpoints.dir%}
 state.savepoints.dir: {%flink.state.savepoints.dir%}
 
-{%flink.fs.default-scheme%}
+# History server
+historyserver.archive.fs.dir: {%flink.historyserver.archive.fs.dir%}

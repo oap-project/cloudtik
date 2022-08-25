@@ -73,6 +73,8 @@ function install_flink() {
         tar -zxf flink-${FLINK_VERSION}-bin-scala_2.12.tgz && \
         mv flink-${FLINK_VERSION} flink && \
         rm flink-${FLINK_VERSION}-bin-scala_2.12.tgz)
+        # Flink need HADOOP_CLASSPATH defined
+        echo "export HADOOP_CLASSPATH=\`hadoop classpath\`">> ${USER_HOME}/.bashrc
         echo "export FLINK_HOME=$FLINK_HOME">> ${USER_HOME}/.bashrc
         echo "export PATH=\$FLINK_HOME/bin:\$PATH" >> ${USER_HOME}/.bashrc
     fi
@@ -116,17 +118,6 @@ function install_jupyter_for_flink() {
 function install_tools() {
     which jq > /dev/null || sudo apt-get -qq update -y; sudo apt-get -qq install jq -y
     which vim > /dev/null || sudo apt-get -qq update -y; sudo apt-get -qq install vim -y
-}
-
-function install_yarn_with_flink_jars() {
-    # Copy flink jars to hadoop path
-    jars=('flink-[0-9]*[0-9]-yarn-shuffle.jar' 'jackson-databind-[0-9]*[0-9].jar' 'jackson-core-[0-9]*[0-9].jar' 'jackson-annotations-[0-9]*[0-9].jar' 'metrics-core-[0-9]*[0-9].jar' 'netty-all-[0-9]*[0-9].Final.jar' 'commons-lang3-[0-9]*[0-9].jar')
-    find ${HADOOP_HOME}/share/hadoop/yarn/lib -name netty-all-[0-9]*[0-9].Final.jar| xargs -i mv -f {} {}.old
-    for jar in ${jars[@]};
-    do
-	    find ${FLINK_HOME}/jars/ -name $jar | xargs -i cp {} ${HADOOP_HOME}/share/hadoop/yarn/lib;
-	    find ${FLINK_HOME}/yarn/ -name $jar | xargs -i cp {} ${HADOOP_HOME}/share/hadoop/yarn/lib;
-    done
 }
 
 function download_hadoop_cloud_jars() {
@@ -176,6 +167,5 @@ install_hadoop
 install_flink
 install_jupyter_for_flink
 install_tools
-#install_yarn_with_flink_jars
 install_hadoop_with_cloud_jars
 #install_flink_with_cloud_jars

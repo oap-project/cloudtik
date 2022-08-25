@@ -182,28 +182,40 @@ function update_credential_config_for_provider() {
     fi
 }
 
+function update_config_for_flink_dirs() {
+    sed -i "s!{%flink.state.checkpoints.dir%}!${checkpoints_dir}!g" `grep "{%flink.state.checkpoints.dir%}" -rl ./`
+    sed -i "s!{%flink.state.savepoints.dir%}!${savepoints_dir}!g" `grep "{%flink.state.savepoints.dir%}" -rl ./`
+    sed -i "s!{%flink.historyserver.archive.fs.dir%}!${historyserver_archive_dir}!g" `grep "{%flink.historyserver.archive.fs.dir%}" -rl ./`
+}
+
+function update_config_for_local_hdfs() {
+    fs_default_dir="hdfs://${HEAD_ADDRESS}:9000"
+    checkpoints_dir="${fs_default_dir}/${PATH_CHECKPOINTS}"
+    savepoints_dir="${fs_default_dir}/${PATH_SAVEPOINTS}"
+    historyserver_archive_dir="${fs_default_dir}/${PATH_HISTORY_SERVER}"
+
+    update_config_for_flink_dirs
+}
+
 function update_config_for_hdfs() {
     # configure namenode uri for core-site.xml
-    fs_default_name_for_hdfs="${HDFS_NAMENODE_URI}"
-    sed -i "s!{%fs.default.name%}!${fs_default_name_for_hdfs}!g" `grep "{%fs.default.name%}" -rl ./`
+    fs_default_dir="${HDFS_NAMENODE_URI}"
+    sed -i "s!{%fs.default.name%}!${fs_default_dir}!g" `grep "{%fs.default.name%}" -rl ./`
 
     # Still update credential config for cloud provider storage in the case of explict usage
     update_credential_config_for_provider
 
     # checkpoints dir
-    checkpoints_dir="${HDFS_NAMENODE_URI}/shared/flink-checkpoints"
-    sed -i "s!{%flink.state.checkpoints.dir%}!${checkpoints_dir}!g" `grep "{%flink.state.checkpoints.dir%}" -rl ./`
+    checkpoints_dir="${fs_default_dir}/${PATH_CHECKPOINTS}"
+    savepoints_dir="${fs_default_dir}/${PATH_SAVEPOINTS}"
+    historyserver_archive_dir="${fs_default_dir}/${PATH_HISTORY_SERVER}"
 
-    savepoints_dir="${HDFS_NAMENODE_URI}/shared/flink-savepoints"
-    sed -i "s!{%flink.state.savepoints.dir%}!${savepoints_dir}!g" `grep "{%flink.state.savepoints.dir%}" -rl ./`
-
-    fs_default_schemes="fs.default-scheme: ${HDFS_NAMENODE_URI}/"
-    sed -i "s!{%flink.fs.default-scheme%}!${fs_default_schemes}!g" `grep "{%flink.fs.default-scheme%}" -rl ./`
+    update_config_for_flink_dirs
 }
 
 function update_config_for_aws() {
-    fs_default_name_for_s3="s3a://${AWS_S3_BUCKET}"
-    sed -i "s!{%fs.default.name%}!${fs_default_name_for_s3}!g" `grep "{%fs.default.name%}" -rl ./`
+    fs_default_dir="s3a://${AWS_S3_BUCKET}"
+    sed -i "s!{%fs.default.name%}!${fs_default_dir}!g" `grep "{%fs.default.name%}" -rl ./`
 
     update_credential_config_for_aws
 
@@ -211,21 +223,19 @@ function update_config_for_aws() {
     if [ -z "${AWS_S3_BUCKET}" ]; then
         checkpoints_dir="file:///tmp/flink-checkpoints"
         savepoints_dir="file:///tmp/flink-savepoints"
-        fs_default_schemes=""
+        historyserver_archive_dir="file:///tmp/history-server"
     else
-        fs_default_dir="s3a://${AWS_S3_BUCKET}"
-        checkpoints_dir="${fs_default_dir}/shared/flink-checkpoints"
-        savepoints_dir="${fs_default_dir}/shared/flink-savepoints"
-        fs_default_schemes="fs.default-scheme: ${fs_default_dir}/"
+        checkpoints_dir="${fs_default_dir}/${PATH_CHECKPOINTS}"
+        savepoints_dir="${fs_default_dir}/${PATH_SAVEPOINTS}"
+        historyserver_archive_dir="${fs_default_dir}/${PATH_HISTORY_SERVER}"
     fi
-    sed -i "s!{%flink.state.checkpoints.dir%}!${checkpoints_dir}!g" `grep "{%flink.state.checkpoints.dir%}" -rl ./`
-    sed -i "s!{%flink.state.savepoints.dir%}!${savepoints_dir}!g" `grep "{%flink.state.savepoints.dir%}" -rl ./`
-    sed -i "s!{%flink.fs.default-scheme%}!${fs_default_schemes}!g" `grep "{%flink.fs.default-scheme%}" -rl ./`
+
+    update_config_for_flink_dirs
 }
 
 function update_config_for_gcp() {
-    fs_default_name_for_gcs="gs://${GCS_BUCKET}"
-    sed -i "s!{%fs.default.name%}!${fs_default_name_for_gcs}!g" `grep "{%fs.default.name%}" -rl ./`
+    fs_default_dir="gs://${GCS_BUCKET}"
+    sed -i "s!{%fs.default.name%}!${fs_default_dir}!g" `grep "{%fs.default.name%}" -rl ./`
 
     update_credential_config_for_gcp
 
@@ -233,16 +243,14 @@ function update_config_for_gcp() {
     if [ -z "${GCS_BUCKET}" ]; then
         checkpoints_dir="file:///tmp/flink-checkpoints"
         savepoints_dir="file:///tmp/flink-savepoints"
-        fs_default_schemes=""
+        historyserver_archive_dir="file:///tmp/history-server"
     else
-        fs_default_dir="gs://${GCS_BUCKET}"
-        checkpoints_dir="${fs_default_dir}/shared/flink-checkpoints"
-        savepoints_dir="${fs_default_dir}/shared/flink-savepoints"
-        fs_default_schemes="fs.default-scheme: ${fs_default_dir}/"
+        checkpoints_dir="${fs_default_dir}/${PATH_CHECKPOINTS}"
+        savepoints_dir="${fs_default_dir}/${PATH_SAVEPOINTS}"
+        historyserver_archive_dir="${fs_default_dir}/${PATH_HISTORY_SERVER}"
     fi
-    sed -i "s!{%flink.state.checkpoints.dir%}!${checkpoints_dir}!g" `grep "{%flink.state.checkpoints.dir%}" -rl ./`
-    sed -i "s!{%flink.state.savepoints.dir%}!${savepoints_dir}!g" `grep "{%flink.state.savepoints.dir%}" -rl ./`
-    sed -i "s!{%flink.fs.default-scheme%}!${fs_default_schemes}!g" `grep "{%flink.fs.default-scheme%}" -rl ./`
+
+    update_config_for_flink_dirs
 }
 
 function update_config_for_azure() {
@@ -256,8 +264,8 @@ function update_config_for_azure() {
         AZURE_ENDPOINT="dfs"
     fi
 
-    fs_default_name_for_azure="${AZURE_SCHEMA}://${AZURE_CONTAINER}@${AZURE_STORAGE_ACCOUNT}.${AZURE_ENDPOINT}.core.windows.net"
-    sed -i "s!{%fs.default.name%}!${fs_default_name_for_azure}!g" `grep "{%fs.default.name%}" -rl ./`
+    fs_default_dir="${AZURE_SCHEMA}://${AZURE_CONTAINER}@${AZURE_STORAGE_ACCOUNT}.${AZURE_ENDPOINT}.core.windows.net"
+    sed -i "s!{%fs.default.name%}!${fs_default_dir}!g" `grep "{%fs.default.name%}" -rl ./`
 
     update_credential_config_for_azure
 
@@ -265,29 +273,14 @@ function update_config_for_azure() {
     if [ -z "${AZURE_CONTAINER}" ]; then
         checkpoints_dir="file:///tmp/flink-checkpoints"
         savepoints_dir="file:///tmp/flink-savepoints"
-        fs_default_schemes=""
+        historyserver_archive_dir="file:///tmp/history-server"
     else
-        fs_default_dir="${AZURE_SCHEMA}://${AZURE_CONTAINER}@${AZURE_STORAGE_ACCOUNT}.${AZURE_ENDPOINT}.core.windows.net"
-        checkpoints_dir="${fs_default_dir}/shared/flink-checkpoints"
-        savepoints_dir="${fs_default_dir}/shared/flink-savepoints"
-        fs_default_schemes="fs.default-scheme: ${fs_default_dir}/"
+        checkpoints_dir="${fs_default_dir}/${PATH_CHECKPOINTS}"
+        savepoints_dir="${fs_default_dir}/${PATH_SAVEPOINTS}"
+        historyserver_archive_dir="${fs_default_dir}/${PATH_HISTORY_SERVER}"
     fi
-    sed -i "s!{%flink.state.checkpoints.dir%}!${checkpoints_dir}!g" `grep "{%flink.state.checkpoints.dir%}" -rl ./`
-    sed -i "s!{%flink.state.savepoints.dir%}!${savepoints_dir}!g" `grep "{%flink.state.savepoints.dir%}" -rl ./`
-    sed -i "s!{%flink.fs.default-scheme%}!${fs_default_schemes}!g" `grep "{%flink.fs.default-scheme%}" -rl ./`
-}
 
-function update_config_for_local_hdfs() {
-    fs_default_dir="hdfs://${HEAD_ADDRESS}:9000"
-    # checkpoints dir
-    checkpoints_dir="${fs_default_dir}/shared/flink-checkpoints"
-    sed -i "s!{%flink.state.checkpoints.dir%}!${checkpoints_dir}!g" `grep "{%flink.state.checkpoints.dir%}" -rl ./`
-
-    savepoints_dir="${fs_default_dir}/shared/flink-savepoints"
-    sed -i "s!{%flink.state.savepoints.dir%}!${savepoints_dir}!g" `grep "{%flink.state.savepoints.dir%}" -rl ./`
-
-    fs_default_schemes="fs.default-scheme: ${fs_default_dir}/"
-    sed -i "s!{%flink.fs.default-scheme%}!${fs_default_schemes}!g" `grep "{%flink.fs.default-scheme%}" -rl ./`
+    update_config_for_flink_dirs
 }
 
 function update_config_for_remote_storage() {
@@ -303,6 +296,10 @@ function update_config_for_remote_storage() {
 }
 
 function update_config_for_storage() {
+    PATH_CHECKPOINTS="shared/flink-checkpoints"
+    PATH_SAVEPOINTS="shared/flink-savepoints"
+    PATH_HISTORY_SERVER="shared/history-server"
+
     if [ "$HDFS_ENABLED" == "true" ];then
         update_config_for_local_hdfs
     else
@@ -420,14 +417,14 @@ function configure_hadoop_and_flink() {
         if [ "$HDFS_ENABLED" == "true" ]; then
             # Create dirs on hdfs
             ${HADOOP_HOME}/bin/hdfs --loglevel WARN --daemon start namenode
-            ${HADOOP_HOME}/bin/hadoop --loglevel WARN fs -mkdir -p /shared/flink-checkpoints
-            ${HADOOP_HOME}/bin/hadoop --loglevel WARN fs -mkdir -p /shared/flink-savepoints
+            ${HADOOP_HOME}/bin/hadoop --loglevel WARN fs -mkdir -p /${PATH_CHECKPOINTS}
+            ${HADOOP_HOME}/bin/hadoop --loglevel WARN fs -mkdir -p /${PATH_SAVEPOINTS}
             ${HADOOP_HOME}/bin/hdfs --loglevel WARN --daemon stop namenode
         else
             # Create dirs on cloud storage if needed
             # This needs to be done after hadoop file system has been configured correctly
-            ${HADOOP_HOME}/bin/hadoop --loglevel WARN fs -mkdir -p /shared/flink-checkpoints
-            ${HADOOP_HOME}/bin/hadoop --loglevel WARN fs -mkdir -p /shared/flink-savepoints
+            ${HADOOP_HOME}/bin/hadoop --loglevel WARN fs -mkdir -p /${PATH_CHECKPOINTS}
+            ${HADOOP_HOME}/bin/hadoop --loglevel WARN fs -mkdir -p /${PATH_SAVEPOINTS}
         fi
     fi
 }

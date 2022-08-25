@@ -181,25 +181,38 @@ function update_credential_config_for_provider() {
     fi
 }
 
+function update_config_for_spark_dirs() {
+    sed -i "s!{%spark.eventLog.dir%}!${event_log_dir}!g" `grep "{%spark.eventLog.dir%}" -rl ./`
+    sed -i "s!{%spark.sql.warehouse.dir%}!${sql_warehouse_dir}!g" `grep "{%spark.sql.warehouse.dir%}" -rl ./`
+}
+
+function update_config_for_local_hdfs() {
+    fs_default_dir="hdfs://${HEAD_ADDRESS}:9000"
+    # event log dir
+    event_log_dir="${fs_default_dir}/shared/spark-events"
+    sql_warehouse_dir="${fs_default_dir}/shared/spark-warehouse"
+
+    update_config_for_spark_dirs
+}
+
 function update_config_for_hdfs() {
     # configure namenode uri for core-site.xml
-    fs_default_name_for_hdfs="${HDFS_NAMENODE_URI}"
-    sed -i "s!{%fs.default.name%}!${fs_default_name_for_hdfs}!g" `grep "{%fs.default.name%}" -rl ./`
+    fs_default_dir="${HDFS_NAMENODE_URI}"
+    sed -i "s!{%fs.default.name%}!${fs_default_dir}!g" `grep "{%fs.default.name%}" -rl ./`
 
     # Still update credential config for cloud provider storage in the case of explict usage
     update_credential_config_for_provider
 
     # event log dir
-    event_log_dir="${HDFS_NAMENODE_URI}/shared/spark-events"
-    sed -i "s!{%spark.eventLog.dir%}!${event_log_dir}!g" `grep "{%spark.eventLog.dir%}" -rl ./`
+    event_log_dir="${fs_default_dir}/shared/spark-events"
+    sql_warehouse_dir="${fs_default_dir}/shared/spark-warehouse"
 
-    sql_warehouse_dir="${HDFS_NAMENODE_URI}/shared/spark-warehouse"
-    sed -i "s!{%spark.sql.warehouse.dir%}!${sql_warehouse_dir}!g" `grep "{%spark.sql.warehouse.dir%}" -rl ./`
+    update_config_for_spark_dirs
 }
 
 function update_config_for_aws() {
-    fs_default_name_for_s3="s3a://${AWS_S3_BUCKET}"
-    sed -i "s!{%fs.default.name%}!${fs_default_name_for_s3}!g" `grep "{%fs.default.name%}" -rl ./`
+    fs_default_dir="s3a://${AWS_S3_BUCKET}"
+    sed -i "s!{%fs.default.name%}!${fs_default_dir}!g" `grep "{%fs.default.name%}" -rl ./`
 
     update_credential_config_for_aws
 
@@ -208,16 +221,16 @@ function update_config_for_aws() {
         event_log_dir="file:///tmp/spark-events"
         sql_warehouse_dir="$USER_HOME/shared/spark-warehouse"
     else
-        event_log_dir="s3a://${AWS_S3_BUCKET}/shared/spark-events"
-        sql_warehouse_dir="s3a://${AWS_S3_BUCKET}/shared/spark-warehouse"
+        event_log_dir="${fs_default_dir}/shared/spark-events"
+        sql_warehouse_dir="${fs_default_dir}/shared/spark-warehouse"
     fi
-    sed -i "s!{%spark.eventLog.dir%}!${event_log_dir}!g" `grep "{%spark.eventLog.dir%}" -rl ./`
-    sed -i "s!{%spark.sql.warehouse.dir%}!${sql_warehouse_dir}!g" `grep "{%spark.sql.warehouse.dir%}" -rl ./`
+
+    update_config_for_spark_dirs
 }
 
 function update_config_for_gcp() {
-    fs_default_name_for_gcs="gs://${GCS_BUCKET}"
-    sed -i "s!{%fs.default.name%}!${fs_default_name_for_gcs}!g" `grep "{%fs.default.name%}" -rl ./`
+    fs_default_dir="gs://${GCS_BUCKET}"
+    sed -i "s!{%fs.default.name%}!${fs_default_dir}!g" `grep "{%fs.default.name%}" -rl ./`
 
     update_credential_config_for_gcp
 
@@ -226,11 +239,11 @@ function update_config_for_gcp() {
         event_log_dir="file:///tmp/spark-events"
         sql_warehouse_dir="$USER_HOME/shared/spark-warehouse"
     else
-        event_log_dir="gs://${GCS_BUCKET}/shared/spark-events"
-        sql_warehouse_dir="gs://${GCS_BUCKET}/shared/spark-warehouse"
+        event_log_dir="${fs_default_dir}/shared/spark-events"
+        sql_warehouse_dir="${fs_default_dir}/shared/spark-warehouse"
     fi
-    sed -i "s!{%spark.eventLog.dir%}!${event_log_dir}!g" `grep "{%spark.eventLog.dir%}" -rl ./`
-    sed -i "s!{%spark.sql.warehouse.dir%}!${sql_warehouse_dir}!g" `grep "{%spark.sql.warehouse.dir%}" -rl ./`
+
+    update_config_for_spark_dirs
 }
 
 function update_config_for_azure() {
@@ -244,8 +257,8 @@ function update_config_for_azure() {
         AZURE_ENDPOINT="dfs"
     fi
 
-    fs_default_name_for_azure="${AZURE_SCHEMA}://${AZURE_CONTAINER}@${AZURE_STORAGE_ACCOUNT}.${AZURE_ENDPOINT}.core.windows.net"
-    sed -i "s!{%fs.default.name%}!${fs_default_name_for_azure}!g" `grep "{%fs.default.name%}" -rl ./`
+    fs_default_dir="${AZURE_SCHEMA}://${AZURE_CONTAINER}@${AZURE_STORAGE_ACCOUNT}.${AZURE_ENDPOINT}.core.windows.net"
+    sed -i "s!{%fs.default.name%}!${fs_default_dir}!g" `grep "{%fs.default.name%}" -rl ./`
 
     update_credential_config_for_azure
 
@@ -254,11 +267,11 @@ function update_config_for_azure() {
         event_log_dir="file:///tmp/spark-events"
         sql_warehouse_dir="$USER_HOME/shared/spark-warehouse"
     else
-        event_log_dir="${AZURE_SCHEMA}://${AZURE_CONTAINER}@${AZURE_STORAGE_ACCOUNT}.${AZURE_ENDPOINT}.core.windows.net/shared/spark-events"
-        sql_warehouse_dir="${AZURE_SCHEMA}://${AZURE_CONTAINER}@${AZURE_STORAGE_ACCOUNT}.${AZURE_ENDPOINT}.core.windows.net/shared/spark-warehouse"
+        event_log_dir="${fs_default_dir}/shared/spark-events"
+        sql_warehouse_dir="${fs_default_dir}/shared/spark-warehouse"
     fi
-    sed -i "s!{%spark.eventLog.dir%}!${event_log_dir}!g" `grep "{%spark.eventLog.dir%}" -rl ./`
-    sed -i "s!{%spark.sql.warehouse.dir%}!${sql_warehouse_dir}!g" `grep "{%spark.sql.warehouse.dir%}" -rl ./`
+
+    update_config_for_spark_dirs
 }
 
 function update_config_for_remote_storage() {
@@ -290,15 +303,12 @@ function update_config_for_storage() {
     fi
 }
 
-function update_spark_runtime_config() {
+function update_yarn_config() {
     if [ $IS_HEAD_NODE == "true" ];then
         sed -i "s/{%yarn.scheduler.maximum-allocation-mb%}/${yarn_container_maximum_memory}/g" `grep "{%yarn.scheduler.maximum-allocation-mb%}" -rl ./`
         sed -i "s/{%yarn.nodemanager.resource.memory-mb%}/${yarn_container_maximum_memory}/g" `grep "{%yarn.nodemanager.resource.memory-mb%}" -rl ./`
         sed -i "s/{%yarn.nodemanager.resource.cpu-vcores%}/${yarn_container_maximum_vcores}/g" `grep "{%yarn.nodemanager.resource.cpu-vcores%}" -rl ./`
         sed -i "s/{%yarn.scheduler.maximum-allocation-vcores%}/${yarn_container_maximum_vcores}/g" `grep "{%yarn.scheduler.maximum-allocation-vcores%}" -rl ./`
-        sed -i "s/{%spark.executor.cores%}/${spark_executor_cores}/g" `grep "{%spark.executor.cores%}" -rl ./`
-        sed -i "s/{%spark.executor.memory%}/${spark_executor_memory}/g" `grep "{%spark.executor.memory%}" -rl ./`
-        sed -i "s/{%spark.driver.memory%}/${spark_driver_memory}/g" `grep "{%spark.driver.memory%}" -rl ./`
     else
         sed -i "s/{%yarn.scheduler.maximum-allocation-mb%}/${total_memory}/g" `grep "{%yarn.scheduler.maximum-allocation-mb%}" -rl ./`
         sed -i "s/{%yarn.nodemanager.resource.memory-mb%}/${total_memory}/g" `grep "{%yarn.nodemanager.resource.memory-mb%}" -rl ./`
@@ -307,13 +317,12 @@ function update_spark_runtime_config() {
     fi
 }
 
-function update_config_for_local_hdfs() {
-    # event log dir
-    event_log_dir="hdfs://${HEAD_ADDRESS}:9000/shared/spark-events"
-    sed -i "s!{%spark.eventLog.dir%}!${event_log_dir}!g" `grep "{%spark.eventLog.dir%}" -rl ./`
-
-    sql_warehouse_dir="hdfs://${HEAD_ADDRESS}:9000/shared/spark-warehouse"
-    sed -i "s!{%spark.sql.warehouse.dir%}!${sql_warehouse_dir}!g" `grep "{%spark.sql.warehouse.dir%}" -rl ./`
+function update_spark_runtime_config() {
+    if [ $IS_HEAD_NODE == "true" ];then
+        sed -i "s/{%spark.executor.cores%}/${spark_executor_cores}/g" `grep "{%spark.executor.cores%}" -rl ./`
+        sed -i "s/{%spark.executor.memory%}/${spark_executor_memory}/g" `grep "{%spark.executor.memory%}" -rl ./`
+        sed -i "s/{%spark.driver.memory%}/${spark_driver_memory}/g" `grep "{%spark.driver.memory%}" -rl ./`
+    fi
 }
 
 function update_data_disks_config() {
@@ -380,6 +389,7 @@ function configure_hadoop_and_spark() {
     cd $output_dir
     sed -i "s/HEAD_ADDRESS/${HEAD_ADDRESS}/g" `grep "HEAD_ADDRESS" -rl ./`
 
+    update_yarn_config
     update_spark_runtime_config
     update_data_disks_config
     update_config_for_storage

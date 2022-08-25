@@ -140,14 +140,12 @@ def _config_runtime_resources(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         int(cluster_resource["worker_memory"] * yarn_resource_memory_ratio))
     container_resource["yarn_container_maximum_memory"] = worker_memory_for_yarn
 
-    runtime_resource = {"flink_jobmanager_memory": get_flink_jobmanager_memory(cluster_resource)}
-
     # Calculate Flink taskmanager cores
     flink_taskmanager_cores = FLINK_TASKMANAGER_CORES_DEFAULT
     if flink_taskmanager_cores > cluster_resource["worker_cpu"]:
         flink_taskmanager_cores = cluster_resource["worker_cpu"]
 
-    runtime_resource["flink_taskmanager_cores"] = flink_taskmanager_cores
+    runtime_resource = {"flink_taskmanager_cores": flink_taskmanager_cores}
 
     # For Flink taskmanager memory, we use the following formula:
     # x = worker_memory_for_yarn
@@ -166,6 +164,7 @@ def _config_runtime_resources(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         int(worker_memory_for_taskmanagers / number_of_taskmanagers))
     runtime_resource["flink_taskmanager_memory"] =\
         flink_taskmanager_memory_all - get_flink_taskmanager_overhead(flink_taskmanager_memory_all)
+    runtime_resource["flink_jobmanager_memory"] = get_flink_jobmanager_memory(worker_memory_for_flink)
 
     if RUNTIME_CONFIG_KEY not in cluster_config:
         cluster_config[RUNTIME_CONFIG_KEY] = {}

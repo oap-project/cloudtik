@@ -75,11 +75,11 @@ KUBERNETES_RESOURCE_OP_POLL_INTERVAL = 5
 KUBERNETES_PODS_SSH_SPEC = {'containerPort': 22, 'name': 'cloudtik-ssh'}
 
 KUBERNETES_SERVICE_SSH_SPEC = {
-        "name": "cloudtik-ssh-port",
-        "protocol": "TCP",
-        "port": 9999,
-        "targetPort": "cloudtik-ssh"
-    }
+    "name": "cloudtik-ssh-port",
+    "protocol": "TCP",
+    "port": 9999,
+    "targetPort": "cloudtik-ssh"
+}
 
 
 def head_service_selector(cluster_name: str) -> Dict[str, str]:
@@ -394,12 +394,13 @@ def prepare_kubernetes_config(config: Dict[str, Any]) -> Dict[str, Any]:
     Prepare kubernetes cluster config.
     """
     if config["provider"].get("enable_access_kubernetes_head", False):
-        private_key_generation_cmd = "ssh-keygen -t rsa -q -N '' -m PEM -f /tmp/cloudtik.pem"
+        private_key_generation_cmd = "test -e /tmp/cloudtik.pem||ssh-keygen -t rsa -q -N '' -m PEM -f /tmp/cloudtik.pem"
         ssh_start_cmd = " sudo /etc/init.d/ssh start"
         os.system(private_key_generation_cmd)
-        config["file_mounts"].update({
-            "/tmp/cloudtik.pem.pub": "~/.ssh/authorized_keys"
-        })
+        if not config.get("file_mounts", False):
+            config["file_mounts"] = {}
+        config["file_mounts"].update({"/tmp/cloudtik.pem.pub": "~/.ssh/authorized_keys"})
+
         config["head_start_commands"] = [ssh_start_cmd] + config.get("head_start_commands", [])
     return config
 

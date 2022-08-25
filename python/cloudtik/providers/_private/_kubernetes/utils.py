@@ -110,7 +110,11 @@ def get_service_external_address(config):
     service_name = head_service_config["metadata"]["name"]
     namespace = head_service_config["metadata"]["namespace"]
     service = core_api().read_namespaced_service(namespace=namespace, name=service_name)
-    return service.status.load_balancer.ingress[0].hostname
+    ingress = service.status.load_balancer.ingress[0]
+    if ingress.hostname:
+        return ingress.hostname
+    else:
+        return ingress.ip
 
 
 

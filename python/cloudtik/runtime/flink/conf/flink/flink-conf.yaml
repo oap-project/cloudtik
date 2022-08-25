@@ -1,0 +1,15 @@
+# Default system properties included when running Flink.
+# This is useful for setting default environmental settings.
+
+# Core configurations
+jobmanager.memory.process.size: {%flink.jobmanager.memory.process.size%}
+taskmanager.memory.process.size: {%flink.taskmanager.memory.process.size%}
+taskmanager.numberOfTaskSlots: {%flink.taskmanager.numberOfTaskSlots%}
+
+# File system and checkpoints
+io.tmp.dirs: {%flink.local.dir%}
+
+state.checkpoints.dir: {%flink.state.checkpoints.dir%}
+state.savepoints.dir: {%flink.state.savepoints.dir%}
+
+{%flink.fs.default-scheme%}

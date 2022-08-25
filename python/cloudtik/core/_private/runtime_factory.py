@@ -22,6 +22,7 @@ BUILT_IN_RUNTIME_TRINO = "trino"
 BUILT_IN_RUNTIME_ZOOKEEPER = "zookeeper"
 BUILT_IN_RUNTIME_KAFKA = "kafka"
 BUILT_IN_RUNTIME_ML = "ml"
+BUILT_IN_RUNTIME_FLINK = "flink"
 
 DEFAULT_RUNTIMES = [BUILT_IN_RUNTIME_GANGLIA, BUILT_IN_RUNTIME_SPARK]
 
@@ -116,6 +117,16 @@ def _load_ml_runtime_home():
     return os.path.dirname(ml.__file__)
 
 
+def _import_flink():
+    from cloudtik.runtime.flink.runtime import FlinkRuntime
+    return FlinkRuntime
+
+
+def _load_flink_runtime_home():
+    import cloudtik.runtime.flink as flink
+    return os.path.dirname(flink.__file__)
+
+
 _RUNTIMES = {
     "ganglia": _import_ganglia,
     "spark": _import_spark,
@@ -126,6 +137,7 @@ _RUNTIMES = {
     "zookeeper": _import_zookeeper,
     "kafka": _import_kafka,
     "ml": _import_ml,
+    "flink": _import_flink,
 }
 
 _RUNTIME_HOMES = {
@@ -138,6 +150,7 @@ _RUNTIME_HOMES = {
     "zookeeper": _load_zookeeper_runtime_home,
     "kafka": _load_kafka_runtime_home,
     "ml": _load_ml_runtime_home,
+    "flink": _load_flink_runtime_home,
 }
 
 

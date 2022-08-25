@@ -394,12 +394,14 @@ def prepare_kubernetes_config(config: Dict[str, Any]) -> Dict[str, Any]:
     Prepare kubernetes cluster config.
     """
     if config["provider"].get("enable_access_kubernetes_head", False):
-        private_key_generation_cmd = "test -e /tmp/cloudtik.pem||ssh-keygen -t rsa -q -N '' -m PEM -f /tmp/cloudtik.pem"
+        pem_file_name = "cloudtik_kubernetes_{}_{}.pem".format(config["provider"]["cloud_provider"]["type"],
+                                                               config["cluster_name"])
+        private_key_generation_cmd = f"test -e /tmp/cloudtik.pem||ssh-keygen -t rsa -q -N '' -m PEM -f ~/.ssh/{pem_file_name}"
         ssh_start_cmd = " sudo /etc/init.d/ssh start"
         os.system(private_key_generation_cmd)
         if not config.get("file_mounts", False):
             config["file_mounts"] = {}
-        config["file_mounts"].update({"~/.ssh/authorized_keys": "/tmp/cloudtik.pem.pub" })
+        config["file_mounts"].update({"~/.ssh/authorized_keys": f"~/.ssh/{pem_file_name}.pub"})
 
         config["head_start_commands"] = [ssh_start_cmd] + config.get("head_start_commands", [])
     return config

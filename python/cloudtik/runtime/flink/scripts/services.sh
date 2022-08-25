@@ -5,16 +5,25 @@ if [ ! -n "${HADOOP_HOME}" ]; then
     exit 1
 fi
 
+if [ ! -n "${FLINK_HOME}" ]; then
+    echo "FLINK_HOME environment variable is not set."
+    exit 1
+fi
+
 case "$1" in
 start-head)
     echo "Starting Resource Manager..."
     $HADOOP_HOME/bin/yarn --daemon start resourcemanager
     echo "Starting Flink History Server..."
+    # Make sure HADOOP_CLASSPATH is set
+    export HADOOP_CLASSPATH=`$HADOOP_HOME/bin/hadoop classpath`
     $FLINK_HOME/bin/historyserver.sh start > /dev/null
     nohup jupyter lab --no-browser > /tmp/logs/jupyterlab.log 2>&1 &
     ;;
 stop-head)
     $HADOOP_HOME/bin/yarn --daemon stop resourcemanager
+    # Make sure HADOOP_CLASSPATH is set
+    export HADOOP_CLASSPATH=`$HADOOP_HOME/bin/hadoop classpath`
     $FLINK_HOME/bin/historyserver.sh stop > /dev/null
     jupyter lab stop
     ;;

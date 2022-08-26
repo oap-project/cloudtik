@@ -116,7 +116,6 @@ def get_service_external_address(provider_config):
         return ingress.ip
 
 
-
 def delete_persistent_volume_claims(pvcs, namespace):
     for pvc in pvcs:
         delete_persistent_volume_claim(pvc.metadata.name, namespace)

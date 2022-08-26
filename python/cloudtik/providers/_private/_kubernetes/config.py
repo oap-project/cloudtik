@@ -424,6 +424,8 @@ def bootstrap_kubernetes(config):
 
 
 def bootstrap_kubernetes_for_ssh(config):
+    if is_use_internal_ip(config):
+        return
     auth_config = config["auth"]
     ssh_private_key = auth_config.get("ssh_private_key", None)
     ssh_public_key = auth_config.get("ssh_public_key", None)

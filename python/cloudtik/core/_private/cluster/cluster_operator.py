@@ -3074,7 +3074,7 @@ def submit_and_exec(config: Dict[str, Any],
             redirect_command_output=False,
             use_login_shells=True)
     target_name = os.path.basename(script)
-    target = os.path.join("$HOME", "jobs", target_name)
+    target = os.path.join("~", "jobs", target_name)
 
     # Create the "jobs" folder before do upload
     cmd_mkdir = "mkdir -p ~/jobs"
@@ -3094,12 +3094,14 @@ def submit_and_exec(config: Dict[str, Any],
             source=script,
             target=target,
             down=False)
+
+    # Use new target with $HOME instead of ~ for exec
+    target = os.path.join("$HOME", "jobs", target_name)
     if target_name.endswith(".py"):
         command_parts += ["python", double_quote(target)]
     elif target_name.endswith(".sh"):
         command_parts += ["bash", double_quote(target)]
     else:
-
         command_parts += get_runnable_command(config.get(RUNTIME_CONFIG_KEY), target)
         if command_parts is None:
             cli_logger.error("We don't how to execute your file: {}", script)

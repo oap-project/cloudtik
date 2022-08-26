@@ -583,7 +583,6 @@ def attach(cluster_config_file, screen, tmux, cluster_name,
             # attach to the head
             attach_cluster(
                 cluster_config_file,
-                False,
                 screen,
                 tmux,
                 cluster_name,
@@ -615,12 +614,25 @@ def attach(cluster_config_file, screen, tmux, cluster_name,
 @click.argument("cluster_config_file", required=True, type=str)
 @click.argument("cmd", required=True, type=str)
 @click.option(
+    "--cluster-name",
+    "-n",
+    required=False,
+    type=str,
+    help="Override the configured cluster name.")
+@click.option(
     "--run-env",
     required=False,
     type=click.Choice(RUN_ENV_TYPES),
     default="auto",
     help="Choose whether to execute this command in a container or directly on"
     " the cluster head. Only applies when docker is configured in the YAML.")
+@click.option(
+    "--screen",
+    is_flag=True,
+    default=False,
+    help="Run the command in a screen.")
+@click.option(
+    "--tmux", is_flag=True, default=False, help="Run the command in tmux.")
 @click.option(
     "--stop",
     is_flag=True,
@@ -632,18 +644,25 @@ def attach(cluster_config_file, screen, tmux, cluster_name,
     default=False,
     help="Start the cluster if needed.")
 @click.option(
-    "--screen",
+    "--force-update",
     is_flag=True,
     default=False,
-    help="Run the command in a screen.")
+    help="Force update the cluster even if the cluster is running.")
 @click.option(
-    "--tmux", is_flag=True, default=False, help="Run the command in tmux.")
+    "--wait-for-workers",
+    is_flag=True,
+    default=False,
+    help="Whether wait for minimum number of workers to be ready.")
 @click.option(
-    "--cluster-name",
-    "-n",
+    "--min-workers",
     required=False,
-    type=str,
-    help="Override the configured cluster name.")
+    type=int,
+    help="The minimum number of workers to wait for ready.")
+@click.option(
+    "--wait-timeout",
+    required=False,
+    type=int,
+    help="The timeout seconds to wait for ready.")
 @click.option(
     "--no-config-cache",
     is_flag=True,
@@ -670,8 +689,9 @@ def attach(cluster_config_file, screen, tmux, cluster_name,
 @click.option(
     "--parallel/--no-parallel", is_flag=True, default=True, help="Whether the run the commands on nodes in parallel.")
 @add_click_logging_options
-def exec(cluster_config_file, cmd, run_env, screen, tmux, stop, start,
-         cluster_name, no_config_cache, port_forward, node_ip, all_nodes, parallel):
+def exec(cluster_config_file, cmd, cluster_name, run_env, screen, tmux, stop, start,
+         force_update, wait_for_workers, min_workers, wait_timeout,
+         no_config_cache, port_forward, node_ip, all_nodes, parallel):
     """Execute a command via SSH on a cluster or a specified node."""
     port_forward = [(port, port) for port in list(port_forward)]
 
@@ -689,6 +709,10 @@ def exec(cluster_config_file, cmd, run_env, screen, tmux, stop, start,
             tmux=tmux,
             stop=stop,
             start=start,
+            force_update=force_update,
+            wait_for_workers=wait_for_workers,
+            min_workers=min_workers,
+            wait_timeout=wait_timeout,
             port_forward=port_forward,
             parallel=parallel)
     except RuntimeError as re:
@@ -702,6 +726,19 @@ def exec(cluster_config_file, cmd, run_env, screen, tmux, stop, start,
 @cli.command(context_settings={"ignore_unknown_options": True})
 @click.argument("cluster_config_file", required=True, type=str)
 @click.option(
+    "--cluster-name",
+    "-n",
+    required=False,
+    type=str,
+    help="Override the configured cluster name.")
+@click.option(
+    "--screen",
+    is_flag=True,
+    default=False,
+    help="Run the command in a screen.")
+@click.option(
+    "--tmux", is_flag=True, default=False, help="Run the command in tmux.")
+@click.option(
     "--stop",
     is_flag=True,
     default=False,
@@ -712,18 +749,25 @@ def exec(cluster_config_file, cmd, run_env, screen, tmux, stop, start,
     default=False,
     help="Start the cluster if needed.")
 @click.option(
-    "--screen",
+    "--force-update",
     is_flag=True,
     default=False,
-    help="Run the command in a screen.")
+    help="Force update the cluster even if the cluster is running.")
 @click.option(
-    "--tmux", is_flag=True, default=False, help="Run the command in tmux.")
+    "--wait-for-workers",
+    is_flag=True,
+    default=False,
+    help="Whether wait for minimum number of workers to be ready.")
 @click.option(
-    "--cluster-name",
-    "-n",
+    "--min-workers",
     required=False,
-    type=str,
-    help="Override the configured cluster name.")
+    type=int,
+    help="The minimum number of workers to wait for ready.")
+@click.option(
+    "--wait-timeout",
+    required=False,
+    type=int,
+    help="The timeout seconds to wait for ready.")
 @click.option(
     "--no-config-cache",
     is_flag=True,
@@ -739,7 +783,8 @@ def exec(cluster_config_file, cmd, run_env, screen, tmux, stop, start,
 @click.argument("script", required=True, type=str)
 @click.argument("script_args", nargs=-1)
 @add_click_logging_options
-def submit(cluster_config_file, screen, tmux, stop, start, cluster_name,
+def submit(cluster_config_file, cluster_name, screen, tmux, stop, start,
+           force_update, wait_for_workers, min_workers, wait_timeout,
            no_config_cache, port_forward, script, script_args):
     """Uploads and runs a script on the specified cluster.
 
@@ -762,6 +807,10 @@ def submit(cluster_config_file, screen, tmux, stop, start, cluster_name,
         tmux=tmux,
         stop=stop,
         start=start,
+        force_update=force_update,
+        wait_for_workers=wait_for_workers,
+        min_workers=min_workers,
+        wait_timeout=wait_timeout,
         port_forward=port_forward)
 
 

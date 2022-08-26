@@ -186,10 +186,6 @@
                     "type": "boolean",
                     "description": "Disables node updaters if set to True. Default is False. (For Kubernetes operator usage.)"
                 },
-                "enable_access_kubernetes_head": {
-                    "type": "boolean",
-                    "description": "Enable to SSH into a kubernetes head pod if set to True. Default is False. (For Kubernetes operator usage.)"
-                },
                 "gcp_credentials": {
                     "type": "object",
                     "description": "Credentials for authenticating with the GCP client",

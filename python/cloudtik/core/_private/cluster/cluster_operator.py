@@ -23,7 +23,6 @@ from cloudtik.core._private import services, constants
 from cloudtik.core._private.call_context import CallContext
 from cloudtik.core._private.core_utils import kill_process_tree
 from cloudtik.core._private.services import validate_redis_address
-from cloudtik.providers._private._kubernetes.utils import get_service_external_address
 
 try:  # py3
     from shlex import quote

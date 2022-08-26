@@ -1365,8 +1365,10 @@ def _rsync(config: Dict[str, Any],
 
     head_node = _get_running_head_node(config)
     if not node_ip:
+        # No node specified, rsync with head or rsync up with all nodes
         rsync_to_node(head_node, source, target, is_head_node=True)
         if not down and all_nodes:
+            # rsync up with all nodes
             rsync_to_node_from_head(config,
                                     call_context=call_context,
                                     source=target, target=target, down=False,
@@ -1380,15 +1382,19 @@ def _rsync(config: Dict[str, Any],
         target_base = os.path.basename(target)
         target_on_head = tempfile.mktemp(prefix=f"{target_base}_")
         if down:
-            # first run rsync on head
+            # rsync down
+            # first run rsync from head with the specific node
             rsync_to_node_from_head(config,
                                     call_context=call_context,
                                     source=source, target=target_on_head, down=True,
                                     node_ip=node_ip)
+            # then rsync local node with the head
             rsync_to_node(head_node, target_on_head, target, is_head_node=True)
         else:
-            # First rsync with head
+            # rsync up
+            # first rsync local node with head
             rsync_to_node(head_node, source, target_on_head, is_head_node=True)
+            # then rsync from head to the specific node
             rsync_to_node_from_head(config,
                                     call_context=call_context,
                                     source=target_on_head, target=target, down=False,
@@ -1417,10 +1423,12 @@ def rsync_to_node_from_head(config: Dict[str, Any],
         cmds += [quote(target)]
     if node_ip:
         cmds += ["--node-ip={}".format(node_ip)]
-    if all_workers:
-        cmds += ["--all-workers"]
-    else:
-        cmds += ["--no-all-workers"]
+
+    if not down:
+        if all_workers:
+            cmds += ["--all-workers"]
+        else:
+            cmds += ["--no-all-workers"]
 
     final_cmd = " ".join(cmds)
     _exec_cmd_on_cluster(config,
@@ -1461,6 +1469,13 @@ def rsync_node_on_head(source: str,
             rsync = updater.rsync_up
 
         if source and target:
+            if down:
+                # rsync down, expand user for target (on head) if it is not handled
+                target = os.path.expanduser(target)
+            else:
+                # rsync up, expand user for source (on head) if it is not handled
+                source = os.path.expanduser(source)
+
             # print rsync progress for single file rsync
             if cli_logger.verbosity > 0:
                 call_context.set_output_redirected(False)

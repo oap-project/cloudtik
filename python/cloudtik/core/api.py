@@ -176,7 +176,8 @@ class Cluster:
             wait_timeout=wait_timeout,
             port_forward=port_forward,
             with_output=with_output,
-            parallel=parallel)
+            parallel=parallel,
+            yes=True)
 
     def submit(self,
                script_file: str,
@@ -221,7 +222,8 @@ class Cluster:
             min_workers=min_workers,
             wait_timeout=wait_timeout,
             port_forward=port_forward,
-            with_output=with_output)
+            with_output=with_output,
+            yes=True)
 
     def rsync(self,
               *,

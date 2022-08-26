@@ -283,6 +283,12 @@ def monitor(lines, file_type):
 
 @head.command()
 @click.option(
+    "--yes",
+    "-y",
+    is_flag=True,
+    default=False,
+    help="Don't ask for confirmation.")
+@click.option(
     "--keep-min-workers",
     is_flag=True,
     default=False,
@@ -300,13 +306,13 @@ def monitor(lines, file_type):
     hidden=True,
     help="The indent level for showing messages during this command.")
 @add_click_logging_options
-def teardown(keep_min_workers, hard, indent_level):
+def teardown(yes, keep_min_workers, hard, indent_level):
     """Tear down a cluster."""
     if indent_level is not None:
         with cli_logger.indented_by(indent_level):
-            teardown_cluster_on_head(keep_min_workers, hard=hard)
+            teardown_cluster_on_head(yes, keep_min_workers, hard=hard)
     else:
-        teardown_cluster_on_head(keep_min_workers, hard=hard)
+        teardown_cluster_on_head(yes, keep_min_workers, hard=hard)
 
 
 @head.command()

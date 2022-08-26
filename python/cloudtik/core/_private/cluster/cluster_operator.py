@@ -437,8 +437,8 @@ def teardown_cluster(config_file: str, yes: bool, workers_only: bool,
 
 def _teardown_cluster(config: Dict[str, Any],
                       call_context: CallContext,
-                      workers_only: bool,
-                      keep_min_workers: bool,
+                      workers_only: bool = False,
+                      keep_min_workers: bool = False,
                       proxy_stop: bool = False,
                       hard: bool = False) -> None:
     current_step = 1
@@ -482,23 +482,10 @@ def _teardown_cluster(config: Dict[str, Any],
             "Requesting head to stop workers",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
-        cmd = "cloudtik head teardown"
-        if keep_min_workers:
-            cmd += " --keep-min-workers"
-        cmd += " --indent-level={}".format(2)
-
-        try:
-            _exec_cmd_on_cluster(config,
-                                 call_context=call_context,
-                                 cmd=cmd)
-        except Exception as e:
-            cli_logger.verbose_error("{}", str(e))
-            cli_logger.warning(
-                "Exception occurred when requesting head to stop the workers "
-                "(use -v to show details).")
-            cli_logger.warning(
-                "Ignoring the exception and "
-                "attempting to shut down the cluster nodes anyway.")
+        _teardown_workers_from_head(
+            config,
+            call_context,
+            keep_min_workers=keep_min_workers)
 
     if not workers_only:
         with cli_logger.group(
@@ -542,6 +529,30 @@ def _teardown_cluster(config: Dict[str, Any],
         cleanup_cluster(config,
                         call_context=call_context,
                         provider=provider)
+
+
+def _teardown_workers_from_head(
+        config: Dict[str, Any],
+        call_context: CallContext,
+        keep_min_workers: bool = False
+):
+    cmd = "cloudtik head teardown --yes"
+    if keep_min_workers:
+        cmd += " --keep-min-workers"
+    cmd += " --indent-level={}".format(2)
+
+    try:
+        _exec_cmd_on_cluster(config,
+                             call_context=call_context,
+                             cmd=cmd)
+    except Exception as e:
+        cli_logger.verbose_error("{}", str(e))
+        cli_logger.warning(
+            "Exception occurred when requesting head to stop the workers "
+            "(use -v to show details).")
+        cli_logger.warning(
+            "Ignoring the exception and "
+            "attempting to shut down the cluster nodes anyway.")
 
 
 def cleanup_cluster(config: Dict[str, Any],
@@ -1257,10 +1268,13 @@ def _exec_cluster(config: Dict[str, Any],
     shutdown_after_run = False
     if cmd and stop:
         cmd = "; ".join([
-            cmd, "cloudtik head runtime stop",
-            "cloudtik down ~/cloudtik_bootstrap_config.yaml --yes --workers-only"
+            cmd, "cloudtik head runtime stop --runtimes=cloudtik --no-all-nodes --yes",
+            "cloudtik head teardown --yes"
         ])
-        shutdown_after_run = True
+        if screen or tmux:
+            # Only when the cmd is run background
+            # we go with shutdown command on head
+            shutdown_after_run = True
 
     result = _exec(
         updater,
@@ -1271,6 +1285,14 @@ def _exec_cluster(config: Dict[str, Any],
         with_output=with_output,
         run_env=run_env,
         shutdown_after_run=shutdown_after_run)
+
+    # if the cmd is not run with screen or tmux
+    # or in the future we can check the screen or tmux session completion
+    # we do tear down here
+    if cmd and stop:
+        if not screen and not tmux:
+            _teardown_cluster(
+                config=config, call_context=call_context)
     return result
 
 
@@ -2245,10 +2267,17 @@ def cluster_health_check(config_file: str,
     exec_cmd_on_cluster(config_file, cmd, override_cluster_name)
 
 
-def teardown_cluster_on_head(keep_min_workers: bool,
+def teardown_cluster_on_head(yes: bool = False,
+                             keep_min_workers: bool = False,
                              hard: bool = False) -> None:
     # Since this is running on head, the bootstrap config must exist
     config = load_head_cluster_config()
+
+    if not yes:
+        cli_logger.confirm(yes, "Are you sure that you want to shut down all workers of {}?",
+                           config["cluster_name"], _abort=True)
+        cli_logger.newline()
+
     call_context = cli_call_context()
     provider = _get_node_provider(config["provider"], config["cluster_name"])
 
@@ -2320,8 +2349,16 @@ def exec_on_nodes(
         wait_timeout: Optional[int] = None,
         port_forward: Optional[Port_forward] = None,
         with_output: bool = False,
-        parallel: bool = True) -> str:
+        parallel: bool = True,
+        yes: bool = False) -> str:
     if not node_ip and not all_nodes:
+        if (start or stop) and not yes:
+            cli_logger.confirm(
+                yes,
+                "You are about to start or stop cluster {} for this operation. Are you sure that you want to continue?",
+                config["cluster_name"], _abort=True)
+            cli_logger.newline()
+
         _start_cluster_and_wait_for_workers(
             config=config,
             call_context=call_context,
@@ -3121,13 +3158,21 @@ def submit_and_exec(config: Dict[str, Any],
                     min_workers: Optional[int] = None,
                     wait_timeout: Optional[int] = None,
                     port_forward: Optional[Port_forward] = None,
-                    with_output: bool = False
+                    with_output: bool = False,
+                    yes: bool = False
                     ):
     cli_logger.doassert(not (screen and tmux),
                         "`{}` and `{}` are incompatible.", cf.bold("--screen"),
                         cf.bold("--tmux"))
 
     assert not (screen and tmux), "Can specify only one of `screen` or `tmux`."
+
+    if (start or stop) and not yes:
+        cli_logger.confirm(
+            yes,
+            "You are about to start or stop cluster {} for this operation. Are you sure that you want to continue?",
+            config["cluster_name"], _abort=True)
+        cli_logger.newline()
 
     _start_cluster_and_wait_for_workers(
         config=config,

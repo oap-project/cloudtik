@@ -688,10 +688,16 @@ def attach(cluster_config_file, screen, tmux, cluster_name,
     help="Whether to execute commands on all nodes.")
 @click.option(
     "--parallel/--no-parallel", is_flag=True, default=True, help="Whether the run the commands on nodes in parallel.")
+@click.option(
+    "--yes",
+    "-y",
+    is_flag=True,
+    default=False,
+    help="Don't ask for confirmation.")
 @add_click_logging_options
 def exec(cluster_config_file, cmd, cluster_name, run_env, screen, tmux, stop, start,
          force_update, wait_for_workers, min_workers, wait_timeout,
-         no_config_cache, port_forward, node_ip, all_nodes, parallel):
+         no_config_cache, port_forward, node_ip, all_nodes, parallel, yes):
     """Execute a command via SSH on a cluster or a specified node."""
     port_forward = [(port, port) for port in list(port_forward)]
 
@@ -714,7 +720,8 @@ def exec(cluster_config_file, cmd, cluster_name, run_env, screen, tmux, stop, st
             min_workers=min_workers,
             wait_timeout=wait_timeout,
             port_forward=port_forward,
-            parallel=parallel)
+            parallel=parallel,
+            yes=yes)
     except RuntimeError as re:
         cli_logger.error("Run exec failed. " + str(re))
         if cli_logger.verbosity == 0:
@@ -780,12 +787,18 @@ def exec(cluster_config_file, cmd, cluster_name, run_env, screen, tmux, stop, st
     multiple=True,
     type=int,
     help="Port to forward. Use this multiple times to forward multiple ports.")
+@click.option(
+    "--yes",
+    "-y",
+    is_flag=True,
+    default=False,
+    help="Don't ask for confirmation.")
 @click.argument("script", required=True, type=str)
 @click.argument("script_args", nargs=-1)
 @add_click_logging_options
 def submit(cluster_config_file, cluster_name, screen, tmux, stop, start,
            force_update, wait_for_workers, min_workers, wait_timeout,
-           no_config_cache, port_forward, script, script_args):
+           no_config_cache, port_forward, yes, script, script_args):
     """Uploads and runs a script on the specified cluster.
 
     The script is automatically synced to the following location:
@@ -811,7 +824,8 @@ def submit(cluster_config_file, cluster_name, screen, tmux, stop, start,
         wait_for_workers=wait_for_workers,
         min_workers=min_workers,
         wait_timeout=wait_timeout,
-        port_forward=port_forward)
+        port_forward=port_forward,
+        yes=yes)
 
 
 @cli.command()

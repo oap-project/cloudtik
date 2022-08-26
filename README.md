@@ -6,9 +6,9 @@ with out-of-box optimized functionalities and performance, and to go quickly to 
 instead of spending months to construct and optimize the platform.
 
 We target CloudTik to be:
-- Scalable, robust, and unified control plane and runtime all public clouds
-- Out of box and optimized runtimes for Analytics and AI (Spark, ...)
-- Support major public Cloud providers - AWS, Azure and GCP, Kubernetes (EKS, AKS, and GKE) and more
+- Scalable, robust, and unified control plane and runtimes for all public clouds
+- Out of box optimized runtimes for analytics and AI (Spark, ...)
+- Support major public cloud providers - AWS, Azure, GCP, Kubernetes (EKS, AKS, and GKE) and more
 - Fully open architecture and open-sourced solution
 
 ## Getting Started with CloudTik

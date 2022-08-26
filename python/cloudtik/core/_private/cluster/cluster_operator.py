@@ -1165,7 +1165,6 @@ def _set_up_config_for_head_node(config: Dict[str, Any],
 
 
 def attach_cluster(config_file: str,
-                   start: bool,
                    use_screen: bool,
                    use_tmux: bool,
                    override_cluster_name: Optional[str],
@@ -1200,7 +1199,7 @@ def attach_cluster(config_file: str,
         screen=False,
         tmux=False,
         stop=False,
-        start=start,
+        start=False,
         port_forward=port_forward,
         _allow_uninitialized_state=True)
 
@@ -2304,20 +2303,35 @@ def cluster_process_status(config_file: str,
     exec_cmd_on_cluster(config_file, cmd, override_cluster_name)
 
 
-def exec_on_nodes(config: Dict[str, Any],
-                  call_context: CallContext,
-                  node_ip: str,
-                  all_nodes: bool = False,
-                  cmd: str = None,
-                  run_env: str = "auto",
-                  screen: bool = False,
-                  tmux: bool = False,
-                  stop: bool = False,
-                  start: bool = False,
-                  port_forward: Optional[Port_forward] = None,
-                  with_output: bool = False,
-                  parallel: bool = True) -> str:
+def exec_on_nodes(
+        config: Dict[str, Any],
+        call_context: CallContext,
+        node_ip: str,
+        all_nodes: bool = False,
+        cmd: str = None,
+        run_env: str = "auto",
+        screen: bool = False,
+        tmux: bool = False,
+        stop: bool = False,
+        start: bool = False,
+        force_update: bool = False,
+        wait_for_workers: bool = False,
+        min_workers: Optional[int] = None,
+        wait_timeout: Optional[int] = None,
+        port_forward: Optional[Port_forward] = None,
+        with_output: bool = False,
+        parallel: bool = True) -> str:
     if not node_ip and not all_nodes:
+        _start_cluster_and_wait_for_workers(
+            config=config,
+            call_context=call_context,
+            start=start,
+            force_update=force_update,
+            wait_for_workers=wait_for_workers,
+            min_workers=min_workers,
+            wait_timeout=wait_timeout,
+        )
+
         return _exec_cluster(
             config,
             call_context=call_context,
@@ -2326,7 +2340,7 @@ def exec_on_nodes(config: Dict[str, Any],
             screen=screen,
             tmux=tmux,
             stop=stop,
-            start=start,
+            start=False,
             port_forward=port_forward,
             with_output=with_output,
             _allow_uninitialized_state=True)
@@ -3062,6 +3076,38 @@ def scale_cluster_on_head(yes: bool, cpus: int, workers: int):
         cli_logger.abort("Error happened when making the scale cluster request.", exc=e)
 
 
+def _start_cluster_and_wait_for_workers(
+        config: Dict[str, Any],
+        call_context: CallContext,
+        start: bool = False,
+        force_update: bool = False,
+        wait_for_workers: bool = False,
+        min_workers: Optional[int] = None,
+        wait_timeout: Optional[int] = None):
+    head_node = _get_running_head_node_ex(
+        config,
+        call_context=call_context,
+        create_if_needed=False,
+        _allow_uninitialized_state=False)
+
+    if start:
+        if head_node is None or force_update:
+            _create_or_update_cluster(
+                config=config,
+                call_context=call_context,
+                no_restart=False,
+                restart_only=False,
+                yes=True,
+                redirect_command_output=False,
+                use_login_shells=True)
+    else:
+        if head_node is not None:
+            raise RuntimeError("Cluster {} is not running.".format(config["cluster_name"]))
+
+    if wait_for_workers:
+        _wait_for_ready(config, min_workers, wait_timeout)
+
+
 def submit_and_exec(config: Dict[str, Any],
                     call_context: CallContext,
                     script: str,
@@ -3070,6 +3116,10 @@ def submit_and_exec(config: Dict[str, Any],
                     tmux: bool = False,
                     stop: bool = False,
                     start: bool = False,
+                    force_update: bool = False,
+                    wait_for_workers: bool = False,
+                    min_workers: Optional[int] = None,
+                    wait_timeout: Optional[int] = None,
                     port_forward: Optional[Port_forward] = None,
                     with_output: bool = False
                     ):
@@ -3079,15 +3129,16 @@ def submit_and_exec(config: Dict[str, Any],
 
     assert not (screen and tmux), "Can specify only one of `screen` or `tmux`."
 
-    if start:
-        _create_or_update_cluster(
-            config=config,
-            call_context=call_context,
-            no_restart=False,
-            restart_only=False,
-            yes=True,
-            redirect_command_output=False,
-            use_login_shells=True)
+    _start_cluster_and_wait_for_workers(
+        config=config,
+        call_context=call_context,
+        start=start,
+        force_update=force_update,
+        wait_for_workers=wait_for_workers,
+        min_workers=min_workers,
+        wait_timeout=wait_timeout,
+    )
+
     target_name = os.path.basename(script)
     target = os.path.join("~", "jobs", target_name)
 
@@ -3176,6 +3227,6 @@ def _wait_for_ready(config: Dict[str, Any],
         if workers_ready >= min_workers:
             return
         else:
-            cli_logger.verbose("Waiting for workers to be ready: {}/{}", workers_ready, min_workers)
+            cli_logger.print("Waiting for workers to be ready: {}/{} ({} seconds)...", workers_ready, min_workers, interval)
             time.sleep(interval)
     raise TimeoutError("Timed out while waiting for workers to be ready: {}/{}".format(workers_ready, min_workers))

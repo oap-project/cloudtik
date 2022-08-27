@@ -1144,6 +1144,7 @@ def _set_up_config_for_head_node(config: Dict[str, Any],
     # drop proxy options if they exist, otherwise
     # head node won't be able to connect to workers
     remote_config["auth"].pop("ssh_proxy_command", None)
+    remote_config["auth"].pop("ssh_public_key", None)
 
     if "ssh_private_key" in config["auth"]:
         remote_key_path = "~/cloudtik_bootstrap_key.pem"

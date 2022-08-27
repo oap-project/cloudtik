@@ -129,6 +129,11 @@ class Cluster:
              run_env: str = "auto",
              tmux: bool = False,
              stop: bool = False,
+             start: bool = False,
+             force_update: bool = False,
+             wait_for_workers: bool = False,
+             min_workers: Optional[int] = None,
+             wait_timeout: Optional[int] = None,
              port_forward: Optional[cluster_operator.Port_forward] = None,
              with_output: bool = False,
              parallel: bool = True) -> Optional[str]:
@@ -142,6 +147,11 @@ class Cluster:
                 container. Select between "auto", "host" and "docker".
             tmux (bool): whether to run in a tmux session
             stop (bool): whether to stop the cluster after command run
+            start (bool): whether to start the cluster if not started
+            force_update (bool): if already started, whether force update the configuration if start is true
+            wait_for_workers (bool): whether wait for minimum number of ready workers
+            min_workers (int): The number of workers to wait for ready
+            wait_timeout (int): The timeout for wait for ready
             port_forward ( (int,int) or list[(int,int)]): port(s) to forward.
             with_output (bool): Whether to capture command output.
             parallel (bool): Whether to run the commands on nodes in parallel
@@ -159,16 +169,26 @@ class Cluster:
             screen=False,
             tmux=tmux,
             stop=stop,
-            start=False,
+            start=start,
+            force_update=force_update,
+            wait_for_workers=wait_for_workers,
+            min_workers=min_workers,
+            wait_timeout=wait_timeout,
             port_forward=port_forward,
             with_output=with_output,
-            parallel=parallel)
+            parallel=parallel,
+            yes=True)
 
     def submit(self,
                script_file: str,
-               script_args,
+               script_args: Optional[List[str]] = None,
                tmux: bool = False,
                stop: bool = False,
+               start: bool = False,
+               force_update: bool = False,
+               wait_for_workers: bool = False,
+               min_workers: Optional[int] = None,
+               wait_timeout: Optional[int] = None,
                port_forward: Optional[cluster_operator.Port_forward] = None,
                with_output: bool = False) -> Optional[str]:
         """Submit a script file to cluster and run.
@@ -178,6 +198,11 @@ class Cluster:
             script_args (list): An array of arguments for the script file.
             tmux (bool): whether to run in a tmux session
             stop (bool): whether to stop the cluster after command run
+            start (bool): whether to start the cluster if not started
+            force_update (bool): if already started, whether force update the configuration if start is true
+            wait_for_workers (bool): whether wait for minimum number of ready workers
+            min_workers (int): The number of workers to wait for ready
+            wait_timeout (int): The timeout for wait for ready
             port_forward ( (int,int) or list[(int,int)]): port(s) to forward.
             with_output (bool): Whether to capture command output.
 
@@ -191,8 +216,14 @@ class Cluster:
             script_args=script_args,
             tmux=tmux,
             stop=stop,
+            start=start,
+            force_update=force_update,
+            wait_for_workers=wait_for_workers,
+            min_workers=min_workers,
+            wait_timeout=wait_timeout,
             port_forward=port_forward,
-            with_output=with_output)
+            with_output=with_output,
+            yes=True)
 
     def rsync(self,
               *,

@@ -1,6 +1,5 @@
 import os
 from typing import Any, Dict, Optional
-from shlex import quote
 
 from cloudtik.core._private.core_utils import double_quote
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_HDFS, BUILT_IN_RUNTIME_METASTORE
@@ -9,7 +8,7 @@ from cloudtik.core._private.utils import merge_rooted_config_hierarchy, \
     RUNTIME_CONFIG_KEY, load_properties_file, save_properties_file, is_use_managed_cloud_storage, get_node_type_config
 from cloudtik.core._private.workspace.workspace_operator import _get_workspace_provider
 from cloudtik.core.scaling_policy import ScalingPolicy
-from cloudtik.runtime.spark.scaling_policy import SparkScalingPolicy
+from cloudtik.runtime.flink.scaling_policy import FlinkScalingPolicy
 
 RUNTIME_PROCESSES = [
     # The first element is the substring to filter.
@@ -22,57 +21,49 @@ RUNTIME_PROCESSES = [
 
 RUNTIME_ROOT_PATH = os.path.abspath(os.path.dirname(__file__))
 
+YARN_WEB_API_PORT = 8088
 YARN_RESOURCE_MEMORY_RATIO = 0.8
-SPARK_EXECUTOR_MEMORY_RATIO = 1
-SPARK_DRIVER_MEMORY_RATIO = 0.1
-SPARK_APP_MASTER_MEMORY_RATIO = 0.02
-SPARK_DRIVER_MEMORY_MINIMUM = 1024
-SPARK_DRIVER_MEMORY_MAXIMUM = 8192
-SPARK_EXECUTOR_CORES_DEFAULT = 4
-SPARK_ADDITIONAL_OVERHEAD = 1024
-SPARK_EXECUTOR_OVERHEAD_MINIMUM = 384
-SPARK_EXECUTOR_OVERHEAD_RATIO = 0.1
 
-SPARK_YARN_WEB_API_PORT = 8088
+FLINK_TASKMANAGER_MEMORY_RATIO = 1
+FLINK_JOBMANAGER_MEMORY_RATIO = 0.02
+FLINK_JOBMANAGER_MEMORY_MINIMUM = 1024
+FLINK_JOBMANAGER_MEMORY_MAXIMUM = 8192
+FLINK_TASKMANAGER_CORES_DEFAULT = 4
+FLINK_ADDITIONAL_OVERHEAD = 1024
+FLINK_TASKMANAGER_OVERHEAD_MINIMUM = 384
+FLINK_TASKMANAGER_OVERHEAD_RATIO = 0.1
 
 
 def get_yarn_resource_memory_ratio(cluster_config: Dict[str, Any]):
     yarn_resource_memory_ratio = YARN_RESOURCE_MEMORY_RATIO
-    spark_config = cluster_config.get(RUNTIME_CONFIG_KEY, {}).get("spark", {})
-    memory_ratio = spark_config.get("yarn_resource_memory_ratio")
+    flink_config = cluster_config.get(RUNTIME_CONFIG_KEY, {}).get("flink", {})
+    memory_ratio = flink_config.get("yarn_resource_memory_ratio")
     if memory_ratio:
         yarn_resource_memory_ratio = memory_ratio
     return yarn_resource_memory_ratio
 
 
-def get_spark_driver_memory(cluster_resource: Dict[str, Any]) -> int:
-    spark_driver_memory = round_memory_size_to_gb(
-        int(cluster_resource["head_memory"] * SPARK_DRIVER_MEMORY_RATIO))
-    return max(min(spark_driver_memory,
-               SPARK_DRIVER_MEMORY_MAXIMUM), SPARK_DRIVER_MEMORY_MINIMUM)
+def get_flink_jobmanager_memory(worker_memory_for_flink: int) -> int:
+    flink_jobmanager_memory = round_memory_size_to_gb(
+        int(worker_memory_for_flink * FLINK_JOBMANAGER_MEMORY_RATIO))
+    return max(min(flink_jobmanager_memory,
+               FLINK_JOBMANAGER_MEMORY_MAXIMUM), FLINK_JOBMANAGER_MEMORY_MINIMUM)
 
 
-def get_spark_app_master_memory(worker_memory_for_spark: int) -> int:
-    spark_app_master_memory = round_memory_size_to_gb(
-        int(worker_memory_for_spark * SPARK_APP_MASTER_MEMORY_RATIO))
-    return max(min(spark_app_master_memory,
-               SPARK_DRIVER_MEMORY_MAXIMUM), SPARK_DRIVER_MEMORY_MINIMUM)
+def get_flink_overhead(worker_memory_for_flink: int) -> int:
+    # Calculate the flink overhead including one jobmanager based on worker_memory_for_flink
+    flink_jobmanager = get_flink_jobmanager_memory(worker_memory_for_flink)
+    return flink_jobmanager + FLINK_ADDITIONAL_OVERHEAD
 
 
-def get_spark_overhead(worker_memory_for_spark: int) -> int:
-    # Calculate the spark overhead including one app master based on worker_memory_for_spark
-    spark_app_master = get_spark_app_master_memory(worker_memory_for_spark)
-    return spark_app_master + SPARK_ADDITIONAL_OVERHEAD
-
-
-def get_spark_executor_overhead(spark_executor_memory_all: int) -> int:
-    return max(int(spark_executor_memory_all * SPARK_EXECUTOR_OVERHEAD_RATIO),
-               SPARK_EXECUTOR_OVERHEAD_MINIMUM)
+def get_flink_taskmanager_overhead(flink_taskmanager_memory_all: int) -> int:
+    return max(int(flink_taskmanager_memory_all * FLINK_TASKMANAGER_OVERHEAD_RATIO),
+               FLINK_TASKMANAGER_OVERHEAD_MINIMUM)
 
 
 def _get_cluster_resources(
         cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-    """Fills out spark executor resource for available_node_types."""
+    """Fills out flink runtime resource for available_node_types."""
     cluster_resource = {}
     if "available_node_types" not in cluster_config:
         return cluster_resource
@@ -111,9 +102,9 @@ def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         return cluster_config
 
     runtime_config = cluster_config.get(RUNTIME_CONFIG_KEY)
-    if "spark" not in runtime_config:
-        runtime_config["spark"] = {}
-    spark_config = runtime_config["spark"]
+    if "flink" not in runtime_config:
+        runtime_config["flink"] = {}
+    flink_config = runtime_config["flink"]
 
     workspace_provider = _get_workspace_provider(cluster_config["provider"], workspace_name)
     global_variables = workspace_provider.subscribe_global_variables(cluster_config)
@@ -123,19 +114,19 @@ def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
     # 3) If subscribed_hdfs_namenode_uri=true,try to subscribe global variables to find remote hdfs_namenode_uri
 
     if not is_runtime_enabled(runtime_config, "hdfs"):
-        if spark_config.get("hdfs_namenode_uri") is None:
-            if spark_config.get("auto_detect_hdfs", False):
+        if flink_config.get("hdfs_namenode_uri") is None:
+            if flink_config.get("auto_detect_hdfs", False):
                 hdfs_namenode_uri = global_variables.get("hdfs-namenode-uri")
                 if hdfs_namenode_uri is not None:
-                    spark_config["hdfs_namenode_uri"] = hdfs_namenode_uri
+                    flink_config["hdfs_namenode_uri"] = hdfs_namenode_uri
 
     # Check metastore
     if not is_runtime_enabled(runtime_config, "metastore"):
-        if spark_config.get("hive_metastore_uri") is None:
-            if spark_config.get("auto_detect_metastore", True):
+        if flink_config.get("hive_metastore_uri") is None:
+            if flink_config.get("auto_detect_metastore", True):
                 hive_metastore_uri = global_variables.get("hive-metastore-uri")
                 if hive_metastore_uri is not None:
-                    spark_config["hive_metastore_uri"] = hive_metastore_uri
+                    flink_config["hive_metastore_uri"] = hive_metastore_uri
 
     return cluster_config
 
@@ -149,43 +140,42 @@ def _config_runtime_resources(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         int(cluster_resource["worker_memory"] * yarn_resource_memory_ratio))
     container_resource["yarn_container_maximum_memory"] = worker_memory_for_yarn
 
-    executor_resource = {"spark_driver_memory": get_spark_driver_memory(cluster_resource)}
+    # Calculate Flink taskmanager cores
+    flink_taskmanager_cores = FLINK_TASKMANAGER_CORES_DEFAULT
+    if flink_taskmanager_cores > cluster_resource["worker_cpu"]:
+        flink_taskmanager_cores = cluster_resource["worker_cpu"]
 
-    # Calculate Spark executor cores
-    spark_executor_cores = SPARK_EXECUTOR_CORES_DEFAULT
-    if spark_executor_cores > cluster_resource["worker_cpu"]:
-        spark_executor_cores = cluster_resource["worker_cpu"]
+    runtime_resource = {"flink_taskmanager_cores": flink_taskmanager_cores}
 
-    executor_resource["spark_executor_cores"] = spark_executor_cores
-
-    # For Spark executor memory, we use the following formula:
+    # For Flink taskmanager memory, we use the following formula:
     # x = worker_memory_for_yarn
-    # n = number_of_executors
-    # m = spark_executor_memory
-    # a = spark_overhead (app_master_memory + others)
+    # n = number_of_taskmanagers
+    # m = flink_taskmanager_memory
+    # a = flink_overhead (jobmanager_memory + others)
     # x = n * m + a
 
-    number_of_executors = int(cluster_resource["worker_cpu"] / spark_executor_cores)
-    worker_memory_for_spark = round_memory_size_to_gb(
-        int(worker_memory_for_yarn * SPARK_EXECUTOR_MEMORY_RATIO))
-    spark_overhead = round_memory_size_to_gb(
-        get_spark_overhead(worker_memory_for_spark))
-    worker_memory_for_executors = worker_memory_for_spark - spark_overhead
-    spark_executor_memory_all = round_memory_size_to_gb(
-        int(worker_memory_for_executors / number_of_executors))
-    executor_resource["spark_executor_memory"] =\
-        spark_executor_memory_all - get_spark_executor_overhead(spark_executor_memory_all)
+    number_of_taskmanagers = int(cluster_resource["worker_cpu"] / flink_taskmanager_cores)
+    worker_memory_for_flink = round_memory_size_to_gb(
+        int(worker_memory_for_yarn * FLINK_TASKMANAGER_MEMORY_RATIO))
+    flink_overhead = round_memory_size_to_gb(
+        get_flink_overhead(worker_memory_for_flink))
+    worker_memory_for_taskmanagers = worker_memory_for_flink - flink_overhead
+    flink_taskmanager_memory_all = round_memory_size_to_gb(
+        int(worker_memory_for_taskmanagers / number_of_taskmanagers))
+    runtime_resource["flink_taskmanager_memory"] =\
+        flink_taskmanager_memory_all - get_flink_taskmanager_overhead(flink_taskmanager_memory_all)
+    runtime_resource["flink_jobmanager_memory"] = get_flink_jobmanager_memory(worker_memory_for_flink)
 
     if RUNTIME_CONFIG_KEY not in cluster_config:
         cluster_config[RUNTIME_CONFIG_KEY] = {}
     runtime_config = cluster_config[RUNTIME_CONFIG_KEY]
 
-    if "spark" not in runtime_config:
-        runtime_config["spark"] = {}
-    spark_config = runtime_config["spark"]
+    if "flink" not in runtime_config:
+        runtime_config["flink"] = {}
+    flink_config = runtime_config["flink"]
 
-    spark_config["yarn_container_resource"] = container_resource
-    spark_config["spark_executor_resource"] = executor_resource
+    flink_config["yarn_container_resource"] = container_resource
+    flink_config["flink_resource"] = runtime_resource
     return cluster_config
 
 
@@ -201,48 +191,48 @@ def _is_runtime_scripts(script_file):
 
 
 def _get_runnable_command(target):
-    command_parts = ["spark-shell", "-i", double_quote(target)]
+    command_parts = ["flink", "-i", double_quote(target)]
     return command_parts
 
 
-def _get_spark_config(config: Dict[str, Any]):
+def _get_flink_config(config: Dict[str, Any]):
     runtime = config.get(RUNTIME_CONFIG_KEY)
     if not runtime:
         return None
 
-    spark = runtime.get("spark")
-    if not spark:
+    flink = runtime.get("flink")
+    if not flink:
         return None
 
-    return spark.get("config")
+    return flink.get("config")
 
 
-def update_spark_configurations():
+def update_flink_configurations():
     # Merge user specified configuration and default configuration
     config = load_head_cluster_config()
-    spark_config = _get_spark_config(config)
-    if not spark_config:
+    flink_config = _get_flink_config(config)
+    if not flink_config:
         return
 
-    spark_conf_file = os.path.join(os.getenv("SPARK_HOME"), "conf/spark-defaults.conf")
+    flink_conf_file = os.path.join(os.getenv("FLINK_HOME"), "conf/flink-conf.yaml")
 
     # Read in the existing configurations
-    spark_conf, comments = load_properties_file(spark_conf_file, ' ')
+    flink_conf, comments = load_properties_file(flink_conf_file, ':')
 
     # Merge with the user configurations
-    spark_conf.update(spark_config)
+    flink_conf.update(flink_config)
 
     # Write back the configuration file
-    save_properties_file(spark_conf_file, spark_conf, separator=' ', comments=comments)
+    save_properties_file(flink_conf_file, flink_conf, separator=': ', comments=comments)
 
 
 def _with_runtime_environment_variables(runtime_config, config, provider, node_id: str):
     runtime_envs = {}
-    spark_config = runtime_config.get("spark", {})
+    flink_config = runtime_config.get("flink", {})
     cluster_runtime_config = config.get(RUNTIME_CONFIG_KEY)
 
     # export yarn memory ratio to use if configured by user
-    yarn_resource_memory_ratio = spark_config.get("yarn_resource_memory_ratio")
+    yarn_resource_memory_ratio = flink_config.get("yarn_resource_memory_ratio")
     if yarn_resource_memory_ratio:
         runtime_envs["YARN_RESOURCE_MEMORY_RATIO"] = yarn_resource_memory_ratio
 
@@ -252,8 +242,8 @@ def _with_runtime_environment_variables(runtime_config, config, provider, node_i
     if is_runtime_enabled(cluster_runtime_config, BUILT_IN_RUNTIME_HDFS):
         runtime_envs["HDFS_ENABLED"] = True
     else:
-        if spark_config.get("hdfs_namenode_uri") is not None:
-            runtime_envs["HDFS_NAMENODE_URI"] = spark_config.get("hdfs_namenode_uri")
+        if flink_config.get("hdfs_namenode_uri") is not None:
+            runtime_envs["HDFS_NAMENODE_URI"] = flink_config.get("hdfs_namenode_uri")
 
         # We always export the cloud storage even for remote HDFS case
         node_type_config = get_node_type_config(config, provider, node_id)
@@ -264,16 +254,16 @@ def _with_runtime_environment_variables(runtime_config, config, provider, node_i
     # 2) Try to use defined metastore_uri;
     if is_runtime_enabled(cluster_runtime_config, BUILT_IN_RUNTIME_METASTORE):
         runtime_envs["METASTORE_ENABLED"] = True
-    elif spark_config.get("hive_metastore_uri") is not None:
-        runtime_envs["HIVE_METASTORE_URI"] = spark_config.get("hive_metastore_uri")
+    elif flink_config.get("hive_metastore_uri") is not None:
+        runtime_envs["HIVE_METASTORE_URI"] = flink_config.get("hive_metastore_uri")
     return runtime_envs
 
 
 def get_runtime_logs():
     hadoop_logs_dir = os.path.join(os.getenv("HADOOP_HOME"), "logs")
-    spark_logs_dir = os.path.join(os.getenv("SPARK_HOME"), "logs")
+    flink_logs_dir = os.path.join(os.getenv("FLINK_HOME"), "logs")
     all_logs = {"hadoop": hadoop_logs_dir,
-                "spark": spark_logs_dir,
+                "flink": flink_logs_dir,
                 "other": "/tmp/logs"
                 }
     return all_logs
@@ -286,7 +276,7 @@ def _validate_config(config: Dict[str, Any], provider):
         provider_config = config["provider"]
         if ("storage" not in provider_config) and \
                 not is_use_managed_cloud_storage(config):
-            raise ValueError("No storage configuration found for Spark.")
+            raise ValueError("No storage configuration found for Flink.")
 
 
 def _verify_config(config: Dict[str, Any], provider):
@@ -313,7 +303,7 @@ def _get_useful_urls(cluster_head_ip):
     urls = [
         {"name": "Yarn Web UI", "url": "http://{}:8088".format(cluster_head_ip)},
         {"name": "Jupyter Web UI", "url": "http://{}:8888, default password is \'cloudtik\'".format(cluster_head_ip)},
-        {"name": "Spark History Server Web UI", "url": "http://{}:18080".format(cluster_head_ip)},
+        {"name": "Flink History Server Web UI", "url": "http://{}:8082".format(cluster_head_ip)},
     ]
     return urls
 
@@ -330,7 +320,7 @@ def _get_runtime_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]
         },
         "history-server": {
             "protocol": "TCP",
-            "port": 18080,
+            "port": 8082,
         },
     }
     return service_ports
@@ -340,14 +330,14 @@ def _get_scaling_policy(
         runtime_config: Dict[str, Any],
         cluster_config: Dict[str, Any],
         head_ip: str) -> Optional[ScalingPolicy]:
-    spark_config = runtime_config.get("spark", {})
-    scaling_config = spark_config.get("scaling", {})
+    flink_config = runtime_config.get("flink", {})
+    scaling_config = flink_config.get("scaling", {})
 
     node_resource_states = scaling_config.get("node_resource_states", True)
     auto_scaling = scaling_config.get("auto_scaling", False)
     if not node_resource_states and not auto_scaling:
         return None
 
-    return SparkScalingPolicy(
+    return FlinkScalingPolicy(
         cluster_config, head_ip,
-        rest_port=SPARK_YARN_WEB_API_PORT)
+        rest_port=YARN_WEB_API_PORT)

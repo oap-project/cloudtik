@@ -32,20 +32,20 @@ done
 
 function prepare_base_conf() {
     source_dir=$(cd $(dirname ${BASH_SOURCE[0]})/..;pwd)/conf
-    output_dir=/tmp/spark/conf
+    output_dir=/tmp/flink/conf
     rm -rf  $output_dir
     mkdir -p $output_dir
     cp -r $source_dir/* $output_dir
 }
 
-function check_spark_installed() {
+function check_flink_installed() {
     if [ ! -n "${HADOOP_HOME}" ]; then
         echo "HADOOP_HOME environment variable is not set."
         exit 1
     fi
 
-    if [ ! -n "${SPARK_HOME}" ]; then
-        echo "SPARK_HOME environment variable is not set."
+    if [ ! -n "${FLINK_HOME}" ]; then
+        echo "FLINK_HOME environment variable is not set."
         exit 1
     fi
 }
@@ -71,7 +71,7 @@ function set_head_address() {
     fi
 }
 
-function set_resources_for_spark() {
+function set_resources_for_flink() {
     # For nodemanager
     memory_ratio=0.8
     if [ ! -z "${YARN_RESOURCE_MEMORY_RATIO}" ]; then
@@ -83,11 +83,12 @@ function set_resources_for_spark() {
 
     # For Head Node
     if [ $IS_HEAD_NODE == "true" ];then
-        spark_executor_cores=$(cat ~/cloudtik_bootstrap_config.yaml | jq '."runtime"."spark"."spark_executor_resource"."spark_executor_cores"')
-        spark_executor_memory=$(cat ~/cloudtik_bootstrap_config.yaml | jq '."runtime"."spark"."spark_executor_resource"."spark_executor_memory"')M
-        spark_driver_memory=$(cat ~/cloudtik_bootstrap_config.yaml | jq '."runtime"."spark"."spark_executor_resource"."spark_driver_memory"')M
-        yarn_container_maximum_vcores=$(cat ~/cloudtik_bootstrap_config.yaml | jq '."runtime"."spark"."yarn_container_resource"."yarn_container_maximum_vcores"')
-        yarn_container_maximum_memory=$(cat ~/cloudtik_bootstrap_config.yaml | jq '."runtime"."spark"."yarn_container_resource"."yarn_container_maximum_memory"')
+        flink_taskmanager_cores=$(cat ~/cloudtik_bootstrap_config.yaml | jq '."runtime"."flink"."flink_resource"."flink_taskmanager_cores"')
+        flink_taskmanager_memory=$(cat ~/cloudtik_bootstrap_config.yaml | jq '."runtime"."flink"."flink_resource"."flink_taskmanager_memory"')M
+        flink_jobmanager_memory=$(cat ~/cloudtik_bootstrap_config.yaml | jq '."runtime"."flink"."flink_resource"."flink_jobmanager_memory"')M
+
+        yarn_container_maximum_vcores=$(cat ~/cloudtik_bootstrap_config.yaml | jq '."runtime"."flink"."yarn_container_resource"."yarn_container_maximum_vcores"')
+        yarn_container_maximum_memory=$(cat ~/cloudtik_bootstrap_config.yaml | jq '."runtime"."flink"."yarn_container_resource"."yarn_container_maximum_memory"')
     fi
 }
 
@@ -181,18 +182,19 @@ function update_credential_config_for_provider() {
     fi
 }
 
-function update_config_for_spark_dirs() {
-    sed -i "s!{%spark.eventLog.dir%}!${event_log_dir}!g" `grep "{%spark.eventLog.dir%}" -rl ./`
-    sed -i "s!{%spark.sql.warehouse.dir%}!${sql_warehouse_dir}!g" `grep "{%spark.sql.warehouse.dir%}" -rl ./`
+function update_config_for_flink_dirs() {
+    sed -i "s!{%flink.state.checkpoints.dir%}!${checkpoints_dir}!g" `grep "{%flink.state.checkpoints.dir%}" -rl ./`
+    sed -i "s!{%flink.state.savepoints.dir%}!${savepoints_dir}!g" `grep "{%flink.state.savepoints.dir%}" -rl ./`
+    sed -i "s!{%flink.historyserver.archive.fs.dir%}!${historyserver_archive_dir}!g" `grep "{%flink.historyserver.archive.fs.dir%}" -rl ./`
 }
 
 function update_config_for_local_hdfs() {
     fs_default_dir="hdfs://${HEAD_ADDRESS}:9000"
-    # event log dir
-    event_log_dir="${fs_default_dir}/shared/spark-events"
-    sql_warehouse_dir="${fs_default_dir}/shared/spark-warehouse"
+    checkpoints_dir="${fs_default_dir}/${PATH_CHECKPOINTS}"
+    savepoints_dir="${fs_default_dir}/${PATH_SAVEPOINTS}"
+    historyserver_archive_dir="${fs_default_dir}/${PATH_HISTORY_SERVER}"
 
-    update_config_for_spark_dirs
+    update_config_for_flink_dirs
 }
 
 function update_config_for_hdfs() {
@@ -203,11 +205,12 @@ function update_config_for_hdfs() {
     # Still update credential config for cloud provider storage in the case of explict usage
     update_credential_config_for_provider
 
-    # event log dir
-    event_log_dir="${fs_default_dir}/shared/spark-events"
-    sql_warehouse_dir="${fs_default_dir}/shared/spark-warehouse"
+    # checkpoints dir
+    checkpoints_dir="${fs_default_dir}/${PATH_CHECKPOINTS}"
+    savepoints_dir="${fs_default_dir}/${PATH_SAVEPOINTS}"
+    historyserver_archive_dir="${fs_default_dir}/${PATH_HISTORY_SERVER}"
 
-    update_config_for_spark_dirs
+    update_config_for_flink_dirs
 }
 
 function update_config_for_aws() {
@@ -216,16 +219,18 @@ function update_config_for_aws() {
 
     update_credential_config_for_aws
 
-    # event log dir
+    # checkpoints dir
     if [ -z "${AWS_S3_BUCKET}" ]; then
-        event_log_dir="file:///tmp/spark-events"
-        sql_warehouse_dir="$USER_HOME/shared/spark-warehouse"
+        checkpoints_dir="file:///tmp/flink-checkpoints"
+        savepoints_dir="file:///tmp/flink-savepoints"
+        historyserver_archive_dir="file:///tmp/history-server"
     else
-        event_log_dir="${fs_default_dir}/shared/spark-events"
-        sql_warehouse_dir="${fs_default_dir}/shared/spark-warehouse"
+        checkpoints_dir="${fs_default_dir}/${PATH_CHECKPOINTS}"
+        savepoints_dir="${fs_default_dir}/${PATH_SAVEPOINTS}"
+        historyserver_archive_dir="${fs_default_dir}/${PATH_HISTORY_SERVER}"
     fi
 
-    update_config_for_spark_dirs
+    update_config_for_flink_dirs
 }
 
 function update_config_for_gcp() {
@@ -234,16 +239,18 @@ function update_config_for_gcp() {
 
     update_credential_config_for_gcp
 
-    # event log dir
+    # checkpoints dir
     if [ -z "${GCS_BUCKET}" ]; then
-        event_log_dir="file:///tmp/spark-events"
-        sql_warehouse_dir="$USER_HOME/shared/spark-warehouse"
+        checkpoints_dir="file:///tmp/flink-checkpoints"
+        savepoints_dir="file:///tmp/flink-savepoints"
+        historyserver_archive_dir="file:///tmp/history-server"
     else
-        event_log_dir="${fs_default_dir}/shared/spark-events"
-        sql_warehouse_dir="${fs_default_dir}/shared/spark-warehouse"
+        checkpoints_dir="${fs_default_dir}/${PATH_CHECKPOINTS}"
+        savepoints_dir="${fs_default_dir}/${PATH_SAVEPOINTS}"
+        historyserver_archive_dir="${fs_default_dir}/${PATH_HISTORY_SERVER}"
     fi
 
-    update_config_for_spark_dirs
+    update_config_for_flink_dirs
 }
 
 function update_config_for_azure() {
@@ -262,16 +269,18 @@ function update_config_for_azure() {
 
     update_credential_config_for_azure
 
-    # event log dir
+    # checkpoints dir
     if [ -z "${AZURE_CONTAINER}" ]; then
-        event_log_dir="file:///tmp/spark-events"
-        sql_warehouse_dir="$USER_HOME/shared/spark-warehouse"
+        checkpoints_dir="file:///tmp/flink-checkpoints"
+        savepoints_dir="file:///tmp/flink-savepoints"
+        historyserver_archive_dir="file:///tmp/history-server"
     else
-        event_log_dir="${fs_default_dir}/shared/spark-events"
-        sql_warehouse_dir="${fs_default_dir}/shared/spark-warehouse"
+        checkpoints_dir="${fs_default_dir}/${PATH_CHECKPOINTS}"
+        savepoints_dir="${fs_default_dir}/${PATH_SAVEPOINTS}"
+        historyserver_archive_dir="${fs_default_dir}/${PATH_HISTORY_SERVER}"
     fi
 
-    update_config_for_spark_dirs
+    update_config_for_flink_dirs
 }
 
 function update_config_for_remote_storage() {
@@ -287,6 +296,10 @@ function update_config_for_remote_storage() {
 }
 
 function update_config_for_storage() {
+    PATH_CHECKPOINTS="shared/flink-checkpoints"
+    PATH_SAVEPOINTS="shared/flink-savepoints"
+    PATH_HISTORY_SERVER="shared/history-server"
+
     if [ "$HDFS_ENABLED" == "true" ];then
         update_config_for_local_hdfs
     else
@@ -317,11 +330,11 @@ function update_yarn_config() {
     fi
 }
 
-function update_spark_runtime_config() {
+function update_flink_runtime_config() {
     if [ $IS_HEAD_NODE == "true" ];then
-        sed -i "s/{%spark.executor.cores%}/${spark_executor_cores}/g" `grep "{%spark.executor.cores%}" -rl ./`
-        sed -i "s/{%spark.executor.memory%}/${spark_executor_memory}/g" `grep "{%spark.executor.memory%}" -rl ./`
-        sed -i "s/{%spark.driver.memory%}/${spark_driver_memory}/g" `grep "{%spark.driver.memory%}" -rl ./`
+        sed -i "s/{%flink.taskmanager.numberOfTaskSlots%}/${flink_taskmanager_cores}/g" `grep "{%flink.taskmanager.numberOfTaskSlots%}" -rl ./`
+        sed -i "s/{%flink.taskmanager.memory.process.size%}/${flink_taskmanager_memory}/g" `grep "{%flink.taskmanager.memory.process.size%}" -rl ./`
+        sed -i "s/{%flink.jobmanager.memory.process.size%}/${flink_jobmanager_memory}/g" `grep "{%flink.jobmanager.memory.process.size%}" -rl ./`
     fi
 }
 
@@ -345,17 +358,17 @@ function update_data_disks_config() {
     fi
     sed -i "s!{%yarn.nodemanager.local-dirs%}!${nodemanager_local_dirs}!g" `grep "{%yarn.nodemanager.local-dirs%}" -rl ./`
 
-    # set spark local dir
-    spark_local_dir=$local_dirs
-    if [ -z "$spark_local_dir" ]; then
-        spark_local_dir="/tmp"
+    # set flink local dir
+    flink_local_dir=$local_dirs
+    if [ -z "$flink_local_dir" ]; then
+        flink_local_dir="/tmp"
     fi
-    sed -i "s!{%spark.local.dir%}!${spark_local_dir}!g" `grep "{%spark.local.dir%}" -rl ./`
+    sed -i "s!{%flink.local.dir%}!${flink_local_dir}!g" `grep "{%flink.local.dir%}" -rl ./`
 }
 
 function update_metastore_config() {
     # To be improved for external metastore cluster
-    SPARK_DEFAULTS=${output_dir}/spark/spark-defaults.conf
+    FLINK_DEFAULTS=${output_dir}/flink/flink-conf.yaml
     if [ "$METASTORE_ENABLED" == "true" ] || [ ! -z "$HIVE_METASTORE_URI" ]; then
         if [ "$METASTORE_ENABLED" == "true" ]; then
             METASTORE_IP=${HEAD_ADDRESS}
@@ -372,49 +385,51 @@ function update_metastore_config() {
             hive_metastore_jars="${HIVE_HOME}/lib/*"
         fi
 
-        sed -i "s!{%spark.hadoop.hive.metastore.uris%}!spark.hadoop.hive.metastore.uris ${hive_metastore_uris}!g" ${SPARK_DEFAULTS}
-        sed -i "s!{%spark.sql.hive.metastore.version%}!spark.sql.hive.metastore.version ${hive_metastore_version}!g" ${SPARK_DEFAULTS}
-        sed -i "s!{%spark.sql.hive.metastore.jars%}!spark.sql.hive.metastore.jars ${hive_metastore_jars}!g" ${SPARK_DEFAULTS}
+        sed -i "s!{%flink.hadoop.hive.metastore.uris%}!flink.hadoop.hive.metastore.uris ${hive_metastore_uris}!g" ${FLINK_DEFAULTS}
+        sed -i "s!{%flink.sql.hive.metastore.version%}!flink.sql.hive.metastore.version ${hive_metastore_version}!g" ${FLINK_DEFAULTS}
+        sed -i "s!{%flink.sql.hive.metastore.jars%}!flink.sql.hive.metastore.jars ${hive_metastore_jars}!g" ${FLINK_DEFAULTS}
     else
         # replace with empty
-        sed -i "s/{%spark.hadoop.hive.metastore.uris%}//g" ${SPARK_DEFAULTS}
-        sed -i "s/{%spark.sql.hive.metastore.version%}//g" ${SPARK_DEFAULTS}
-        sed -i "s/{%spark.sql.hive.metastore.jars%}//g" ${SPARK_DEFAULTS}
+        sed -i "s/{%flink.hadoop.hive.metastore.uris%}//g" ${FLINK_DEFAULTS}
+        sed -i "s/{%flink.sql.hive.metastore.version%}//g" ${FLINK_DEFAULTS}
+        sed -i "s/{%flink.sql.hive.metastore.jars%}//g" ${FLINK_DEFAULTS}
     fi
 }
 
-function configure_hadoop_and_spark() {
+function configure_hadoop_and_flink() {
     prepare_base_conf
 
     cd $output_dir
     sed -i "s/HEAD_ADDRESS/${HEAD_ADDRESS}/g" `grep "HEAD_ADDRESS" -rl ./`
 
     update_yarn_config
-    update_spark_runtime_config
+    update_flink_runtime_config
     update_data_disks_config
     update_config_for_storage
 
     cp -r ${output_dir}/hadoop/yarn-site.xml  ${HADOOP_HOME}/etc/hadoop/
 
     if [ $IS_HEAD_NODE == "true" ];then
-        update_metastore_config
+        # update_metastore_config
 
-        cp -r ${output_dir}/spark/*  ${SPARK_HOME}/conf
+        cp -r ${output_dir}/flink/*  ${FLINK_HOME}/conf
 
         if [ "$HDFS_ENABLED" == "true" ]; then
-            # Create event log dir on hdfs
+            # Create dirs on hdfs
             ${HADOOP_HOME}/bin/hdfs --loglevel WARN --daemon start namenode
-            ${HADOOP_HOME}/bin/hadoop --loglevel WARN fs -mkdir -p /shared/spark-events
+            ${HADOOP_HOME}/bin/hadoop --loglevel WARN fs -mkdir -p /${PATH_CHECKPOINTS}
+            ${HADOOP_HOME}/bin/hadoop --loglevel WARN fs -mkdir -p /${PATH_SAVEPOINTS}
             ${HADOOP_HOME}/bin/hdfs --loglevel WARN --daemon stop namenode
         else
-            # Create event log dir on cloud storage if needed
+            # Create dirs on cloud storage if needed
             # This needs to be done after hadoop file system has been configured correctly
-            ${HADOOP_HOME}/bin/hadoop --loglevel WARN fs -mkdir -p /shared/spark-events
+            ${HADOOP_HOME}/bin/hadoop --loglevel WARN fs -mkdir -p /${PATH_CHECKPOINTS}
+            ${HADOOP_HOME}/bin/hadoop --loglevel WARN fs -mkdir -p /${PATH_SAVEPOINTS}
         fi
     fi
 }
 
-function configure_jupyter_for_spark() {
+function configure_jupyter() {
   if [ $IS_HEAD_NODE == "true" ]; then
       echo Y | jupyter lab --generate-config;
       # Set default password(cloudtik) for JupyterLab
@@ -427,11 +442,11 @@ function configure_jupyter_for_spark() {
       sed -i  "1 ic.NotebookApp.ip = '${HEAD_ADDRESS}'" ~/.jupyter/jupyter_lab_config.py
   fi
 }
-check_spark_installed
+check_flink_installed
 set_head_address
-set_resources_for_spark
+set_resources_for_flink
 configure_system_folders
-configure_hadoop_and_spark
-configure_jupyter_for_spark
+configure_hadoop_and_flink
+configure_jupyter
 
 exit 0

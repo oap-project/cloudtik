@@ -215,6 +215,7 @@ setuptools.setup(
             "cloudtik-zookeeper=cloudtik.runtime.zookeeper.scripts:main",
             "cloudtik-kafka=cloudtik.runtime.kafka.scripts:main",
             "cloudtik-ml=cloudtik.runtime.ml.scripts:main",
+            "cloudtik-flink=cloudtik.runtime.flink.scripts:main",
         ]
     },
     include_package_data=True,

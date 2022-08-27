@@ -429,19 +429,17 @@ def bootstrap_kubernetes_for_ssh(config):
     auth_config = config["auth"]
     ssh_private_key = auth_config.get("ssh_private_key", None)
     ssh_public_key = auth_config.get("ssh_public_key", None)
-    if not config.get("file_mounts", False):
-        config["file_mounts"] = {}
+    if not auth_config.get("ssh_port", None):
+        auth_config["ssh_port"] = CLOUDTIK_KUBERNETES_SSH_DEFAULT_PORT
     if ssh_public_key and ssh_private_key:
-        config["file_mounts"].update({"~/.ssh/authorized_keys": ssh_public_key})
+        return
     else:
         pem_file_path = get_pem_path_for_kubernetes(config)
         private_key_generation_cmd = f"test -e {pem_file_path}||ssh-keygen -t rsa -q -N '' -m PEM -f {pem_file_path}"
         os.system(private_key_generation_cmd)
         auth_config["ssh_private_key"] = pem_file_path
         auth_config["ssh_public_key"] = f"{pem_file_path}.pub"
-        config["file_mounts"].update({"~/.ssh/authorized_keys": f"{pem_file_path}.pub"})
-    if not auth_config.get("ssh_port", None):
-        auth_config["ssh_port"] = CLOUDTIK_KUBERNETES_SSH_DEFAULT_PORT
+
 
 
 def bootstrap_kubernetes_default(config):

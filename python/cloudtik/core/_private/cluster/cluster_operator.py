@@ -1172,6 +1172,13 @@ def _set_up_config_for_head_node(config: Dict[str, Any],
             remote_key_path: config["auth"]["ssh_private_key"],
         })
 
+    # rsync ssh_public_key to head node authorized_keys,
+    # it's for kubernetes to use.
+    if not is_use_internal_ip(config) and config["provider"]["type"] == "kubernetes":
+        config["file_mounts"].update({
+            "~/.ssh/authorized_keys": config["auth"]["ssh_public_key"]
+        })
+
     return config, remote_config_file
 
 

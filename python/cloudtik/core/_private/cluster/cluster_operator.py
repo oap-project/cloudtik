@@ -3138,7 +3138,7 @@ def _start_cluster_and_wait_for_workers(
                 redirect_command_output=False,
                 use_login_shells=True)
     else:
-        if head_node is not None:
+        if head_node is None:
             raise RuntimeError("Cluster {} is not running.".format(config["cluster_name"]))
 
     if wait_for_workers:

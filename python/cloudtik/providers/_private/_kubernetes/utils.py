@@ -247,3 +247,9 @@ def cleanup_orphan_pvcs(cluster_name, namespace):
         namespace,
         label_selector=label_selector)
     delete_persistent_volume_claims(pvc_list.items, namespace)
+
+
+def get_pem_path_for_kubernetes(config):
+    pem_file_path = "~/.ssh/cloudtik_kubernetes_{}_{}.pem".format(config["provider"]["cloud_provider"]["type"],
+                                                                  config["cluster_name"])
+    return pem_file_path

@@ -7,6 +7,9 @@ from: defaults
 docker:
     enabled: False
 
+auth:
+    ssh_user: cloudtik
+
 provider:
     type: kubernetes
 

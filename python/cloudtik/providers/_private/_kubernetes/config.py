@@ -14,17 +14,18 @@ from kubernetes.client.rest import ApiException
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.providers import _get_node_provider
 from cloudtik.core._private.utils import is_use_internal_ip, get_running_head_node, binary_to_hex, hex_to_binary, \
-    get_runtime_service_ports, _is_use_managed_cloud_storage, get_pem_path_for_kubernetes
+    get_runtime_service_ports, _is_use_managed_cloud_storage
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, \
     CLOUDTIK_GLOBAL_VARIABLE_KEY, CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX
 from cloudtik.core.workspace_provider import Existence
 from cloudtik.providers._private._kubernetes import auth_api, core_api, log_prefix
-from cloudtik.core._private.constants import CLOUDTIK_DEFAULT_OBJECT_STORE_MEMORY_PROPORTION
+from cloudtik.core._private.constants import CLOUDTIK_DEFAULT_OBJECT_STORE_MEMORY_PROPORTION, \
+    CLOUDTIK_KUBERNETES_SSH_DEFAULT_PORT
 from cloudtik.providers._private._kubernetes.utils import _get_node_info, to_label_selector, \
     KUBERNETES_WORKSPACE_NAME_MAX, check_kubernetes_name_format, _get_head_service_account_name, \
     _get_worker_service_account_name, KUBERNETES_HEAD_SERVICE_ACCOUNT_CONFIG_KEY, \
     KUBERNETES_WORKER_SERVICE_ACCOUNT_CONFIG_KEY, _get_service_account, \
-    cleanup_orphan_pvcs
+    cleanup_orphan_pvcs, get_pem_path_for_kubernetes
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +78,7 @@ KUBERNETES_PODS_SSH_SPEC = {'containerPort': 22, 'name': 'cloudtik-ssh'}
 KUBERNETES_SERVICE_SSH_SPEC = {
     "name": "cloudtik-ssh-port",
     "protocol": "TCP",
-    "port": 9999,
+    "port": CLOUDTIK_KUBERNETES_SSH_DEFAULT_PORT,
     "targetPort": "cloudtik-ssh"
 }
 
@@ -394,14 +395,7 @@ def prepare_kubernetes_config(config: Dict[str, Any]) -> Dict[str, Any]:
     Prepare kubernetes cluster config.
     """
     if not is_use_internal_ip(config):
-        pem_file_path = get_pem_path_for_kubernetes(config)
-        private_key_generation_cmd = f"test -e {pem_file_path}||ssh-keygen -t rsa -q -N '' -m PEM -f {pem_file_path}"
         ssh_start_cmd = " sudo /etc/init.d/ssh start"
-        os.system(private_key_generation_cmd)
-        if not config.get("file_mounts", False):
-            config["file_mounts"] = {}
-        config["file_mounts"].update({"~/.ssh/authorized_keys": f"{pem_file_path}.pub"})
-
         config["head_start_commands"] = [ssh_start_cmd] + config.get("head_start_commands", [])
     return config
 
@@ -425,8 +419,27 @@ def bootstrap_kubernetes(config):
         config = bootstrap_kubernetes_default(config)
     else:
         config = bootstrap_kubernetes_from_workspace(config)
-
+    bootstrap_kubernetes_for_ssh(config)
     return config
+
+
+def bootstrap_kubernetes_for_ssh(config):
+    auth_config = config["auth"]
+    ssh_private_key = auth_config.get("ssh_private_key", None)
+    ssh_public_key = auth_config.get("ssh_public_key", None)
+    if not config.get("file_mounts", False):
+        config["file_mounts"] = {}
+    if ssh_public_key and ssh_private_key:
+        config["file_mounts"].update({"~/.ssh/authorized_keys": ssh_public_key})
+    else:
+        pem_file_path = get_pem_path_for_kubernetes(config)
+        private_key_generation_cmd = f"test -e {pem_file_path}||ssh-keygen -t rsa -q -N '' -m PEM -f {pem_file_path}"
+        os.system(private_key_generation_cmd)
+        auth_config["ssh_private_key"] = pem_file_path
+        auth_config["ssh_public_key"] = f"{pem_file_path}.pub"
+        config["file_mounts"].update({"~/.ssh/authorized_keys": f"{pem_file_path}.pub"})
+    if not auth_config.get("ssh_port", None):
+        auth_config["ssh_port"] = CLOUDTIK_KUBERNETES_SSH_DEFAULT_PORT
 
 
 def bootstrap_kubernetes_default(config):
@@ -977,6 +990,7 @@ def _configure_head_service_ports(config):
         return
 
     service = provider_config[service_field]
+    KUBERNETES_SERVICE_SSH_SPEC["port"] = config["auth"].get("ssh_port", CLOUDTIK_KUBERNETES_SSH_DEFAULT_PORT)
     service["spec"]["ports"] = [KUBERNETES_SERVICE_SSH_SPEC]
 
     # At present, we do not need to expose the port of runtime

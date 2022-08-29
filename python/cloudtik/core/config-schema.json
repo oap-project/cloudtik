@@ -302,6 +302,10 @@
                     "type": "string",
                     "default": "ubuntu"
                 },
+                "ssh_port": {
+                    "type": "string",
+                    "default": "Except that kubernetes is 9999, all others are 22"
+                },
                 "ssh_public_key": { 
                     "type": "string"
                 },

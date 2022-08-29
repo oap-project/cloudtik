@@ -1667,8 +1667,6 @@ def is_use_internal_ip(config: Dict[str, Any]) -> bool:
 
 
 def _is_use_internal_ip(provider_config: Dict[str, Any]) -> bool:
-    if provider_config["type"] == "kubernetes":
-        return provider_config.get("use_internal_ips", True)
     return provider_config.get("use_internal_ips", False)
 
 
@@ -2707,9 +2705,3 @@ def get_storage_config_for_update(provider_config):
     if "storage" not in provider_config:
         provider_config["storage"] = {}
     return provider_config["storage"]
-
-
-def get_pem_path_for_kubernetes(config):
-    pem_file_path = "~/.ssh/cloudtik_kubernetes_{}_{}.pem".format(config["provider"]["cloud_provider"]["type"],
-                                                                  config["cluster_name"])
-    return pem_file_path

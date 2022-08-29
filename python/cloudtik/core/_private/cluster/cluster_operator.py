@@ -2129,13 +2129,11 @@ def _start_proxy_process(head_node_ip, config,
 
     auth_config = config["auth"]
     ssh_proxy_command = auth_config.get("ssh_proxy_command", None)
-    if config["provider"]["type"] == "kubernetes":
-        ssh_private_key = get_pem_path_for_kubernetes(config)
-        ssh_user = "cloudtik"
-        cmd += " -p 9999"
-    else:
-        ssh_private_key = auth_config.get("ssh_private_key", None)
-        ssh_user = auth_config["ssh_user"]
+    ssh_private_key = auth_config.get("ssh_private_key", None)
+    ssh_user = auth_config["ssh_user"]
+    ssh_port = auth_config["ssh_port"]
+    cmd += f" -p {ssh_port}"
+
     proxy_port = get_free_port()
     if ssh_private_key:
         cmd += " -i {}".format(ssh_private_key)

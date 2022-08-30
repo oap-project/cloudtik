@@ -468,6 +468,10 @@ def _configure_namespace_from_workspace(config):
 
 def post_prepare_kubernetes(config: Dict[str, Any]) -> Dict[str, Any]:
     try:
+        # Configure pod container resource should be done before fill resources
+        # Because fill resources will use the pod resources as a source of truth to resources
+        # and set the resources field in the node type for other usage
+        _configure_pod_container_resources(config)
         config = fill_resources_kubernetes(config)
     except Exception as exc:
         cli_logger.warning(
@@ -499,12 +503,12 @@ def fill_resources_kubernetes(config):
         container_data = pod["spec"]["containers"][0]
 
         autodetected_resources = get_autodetected_resources(container_data)
-        if "resources" not in config["available_node_types"][node_type]:
-            config["available_node_types"][node_type]["resources"] = {}
+        node_type_config = config["available_node_types"][node_type]
+        if "resources" not in node_type_config:
+            node_type_config["resources"] = {}
         autodetected_resources.update(
-            config["available_node_types"][node_type]["resources"])
-        config["available_node_types"][node_type][
-            "resources"] = autodetected_resources
+            node_type_config["resources"])
+        node_type_config["resources"] = autodetected_resources
         logger.debug(
             "Updating the resources of node type {} to include {}.".format(
                 node_type, autodetected_resources))
@@ -770,7 +774,6 @@ def _configure_pods(config):
 
     # Configure the head pod container ports
     _configure_pod_container_ports(config)
-    _configure_pod_container_resources(config)
 
 
 def _configure_pod_name_and_labels(config):

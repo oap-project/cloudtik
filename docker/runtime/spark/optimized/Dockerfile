@@ -3,7 +3,7 @@ FROM cloudtik/cloudtik:"$BASE_IMAGE"
 
 # Install spark based Analytics + AI platform components
 ARG HADOOP_VERSION=3.3.1
-ARG SPARK_VERSION=3.3.1
+ARG SPARK_VERSION=3.3.0
 
 ENV RUNTIME_PATH /home/cloudtik/runtime
 RUN mkdir -p $RUNTIME_PATH

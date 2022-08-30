@@ -483,21 +483,25 @@ def _get_oidc_iam_role(cloud_provider, namespace):
 def _is_head_service_account_associated(config, cloud_provider, namespace):
     provider_config = config["provider"]
     head_service_account_name = _get_head_service_account_name(provider_config)
-    return _is_service_account_associated(
+    associated = _is_service_account_associated(
         cloud_provider,
         namespace,
         head_service_account_name,
     )
+    cli_logger.verbose("Is service account {} associated with IAM role: {}.", head_service_account_name, associated)
+    return associated
 
 
 def _is_worker_service_account_associated(config, cloud_provider, namespace):
     provider_config = config["provider"]
-    worker_service_account_name = _get_head_service_account_name(provider_config)
-    return _is_service_account_associated(
+    worker_service_account_name = _get_worker_service_account_name(provider_config)
+    associated = _is_service_account_associated(
         cloud_provider,
         namespace,
         worker_service_account_name,
     )
+    cli_logger.verbose("Is service account {} associated with IAM role: {}.", worker_service_account_name, associated)
+    return associated
 
 
 def _is_service_account_associated(cloud_provider, namespace, name):

@@ -75,19 +75,11 @@ def _get_node_info(pod):
 
 
 def _get_head_service_account_name(provider_config):
-    account_field = KUBERNETES_HEAD_SERVICE_ACCOUNT_CONFIG_KEY
-    name = provider_config.get(account_field, {}).get("metadata", {}).get("name")
-    if name is None or name == "":
-        return KUBERNETES_HEAD_SERVICE_ACCOUNT_NAME
-    return name
+    return KUBERNETES_HEAD_SERVICE_ACCOUNT_NAME
 
 
 def _get_worker_service_account_name(provider_config):
-    account_field = KUBERNETES_WORKER_SERVICE_ACCOUNT_CONFIG_KEY
-    name = provider_config.get(account_field, {}).get("metadata", {}).get("name")
-    if name is None or name == "":
-        return KUBERNETES_WORKER_SERVICE_ACCOUNT_NAME
-    return name
+    return KUBERNETES_WORKER_SERVICE_ACCOUNT_NAME
 
 
 def _get_service_account(namespace, name):

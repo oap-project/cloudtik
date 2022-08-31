@@ -7,6 +7,7 @@ from uuid import uuid4
 from kubernetes.client.rest import ApiException
 
 from cloudtik.core._private.call_context import CallContext
+from cloudtik.core._private.utils import is_use_internal_ip
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.tags import NODE_KIND_HEAD
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME
@@ -230,6 +231,15 @@ class KubernetesNodeProvider(NodeProvider):
                              docker_config=None):
         return KubernetesCommandExecutor(call_context, log_prefix, self.namespace,
                                          node_id, auth_config, process_runner)
+
+    def prepare_for_head_node(
+            self, cluster_config: Dict[str, Any], remote_config: Dict[str, Any]) -> Dict[str, Any]:
+        # rsync ssh_public_key to head node authorized_keys,
+        if not is_use_internal_ip(cluster_config):
+            cluster_config["file_mounts"].update({
+                "~/.ssh/authorized_keys": cluster_config["auth"]["ssh_public_key"]
+            })
+        return remote_config
 
     @staticmethod
     def bootstrap_config(cluster_config):

@@ -14,18 +14,18 @@ from kubernetes.client.rest import ApiException
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.providers import _get_node_provider
 from cloudtik.core._private.utils import is_use_internal_ip, get_running_head_node, binary_to_hex, hex_to_binary, \
-    get_runtime_service_ports, _is_use_managed_cloud_storage
+    get_runtime_service_ports, _is_use_managed_cloud_storage, _is_use_internal_ip
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, \
     CLOUDTIK_GLOBAL_VARIABLE_KEY, CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX
 from cloudtik.core.workspace_provider import Existence
 from cloudtik.providers._private._kubernetes import auth_api, core_api, log_prefix
-from cloudtik.core._private.constants import CLOUDTIK_DEFAULT_OBJECT_STORE_MEMORY_PROPORTION, \
-    CLOUDTIK_KUBERNETES_SSH_DEFAULT_PORT
+from cloudtik.core._private.constants import CLOUDTIK_DEFAULT_OBJECT_STORE_MEMORY_PROPORTION, CLOUDTIK_SSH_DEFAULT_PORT
 from cloudtik.providers._private._kubernetes.utils import _get_node_info, to_label_selector, \
     KUBERNETES_WORKSPACE_NAME_MAX, check_kubernetes_name_format, _get_head_service_account_name, \
     _get_worker_service_account_name, KUBERNETES_HEAD_SERVICE_ACCOUNT_CONFIG_KEY, \
     KUBERNETES_WORKER_SERVICE_ACCOUNT_CONFIG_KEY, _get_service_account, \
-    cleanup_orphan_pvcs, get_pem_path_for_kubernetes
+    cleanup_orphan_pvcs, get_key_pair_path_for_kubernetes, KUBERNETES_HEAD_SERVICE_CONFIG_KEY, \
+    KUBERNETES_HEAD_EXTERNAL_SERVICE_CONFIG_KEY, KUBERNETES_NODE_SERVICE_CONFIG_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +45,7 @@ CLOUDTIK_HEAD_POD_LABEL = "cloudtik-{}-head"
 CLOUDTIK_WORKER_POD_LABEL = "cloudtik-{}-worker"
 
 CLOUDTIK_HEAD_SERVICE_NAME_FORMAT = "cloudtik-{}-head"
+CLOUDTIK_HEAD_EXTERNAL_SERVICE_NAME_FORMAT = "cloudtik-{}-external"
 CLOUDTIK_NODE_SERVICE_NAME_FORMAT = "{}"
 
 CLOUDTIK_CLUSTER_POD_LABEL = "cloudtik-{}"
@@ -73,12 +74,14 @@ KUBERNETES_WORKSPACE_TARGET_RESOURCES = 5
 KUBERNETES_RESOURCE_OP_MAX_POLLS = 12
 KUBERNETES_RESOURCE_OP_POLL_INTERVAL = 5
 
-KUBERNETES_PODS_SSH_SPEC = {'containerPort': 22, 'name': 'cloudtik-ssh'}
+KUBERNETES_SSH_DEFAULT_PORT = 9999
 
-KUBERNETES_SERVICE_SSH_SPEC = {
+KUBERNETES_CONTAINER_SSH_PORT_SPEC = {'containerPort': CLOUDTIK_SSH_DEFAULT_PORT, 'name': 'cloudtik-ssh'}
+
+KUBERNETES_HEAD_EXTERNAL_SERVICE_SSH_PORT_SPEC = {
     "name": "cloudtik-ssh-port",
     "protocol": "TCP",
-    "port": CLOUDTIK_KUBERNETES_SSH_DEFAULT_PORT,
+    "port": KUBERNETES_SSH_DEFAULT_PORT,
     "targetPort": "cloudtik-ssh"
 }
 
@@ -91,6 +94,10 @@ def head_service_selector(cluster_name: str) -> Dict[str, str]:
 
 def _get_head_service_name(cluster_name):
     return CLOUDTIK_HEAD_SERVICE_NAME_FORMAT.format(cluster_name)
+
+
+def _get_head_external_service_name(cluster_name):
+    return CLOUDTIK_HEAD_EXTERNAL_SERVICE_NAME_FORMAT.format(cluster_name)
 
 
 def _get_node_service_name(cluster_name):
@@ -419,26 +426,7 @@ def bootstrap_kubernetes(config):
         config = bootstrap_kubernetes_default(config)
     else:
         config = bootstrap_kubernetes_from_workspace(config)
-    bootstrap_kubernetes_for_ssh(config)
     return config
-
-
-def bootstrap_kubernetes_for_ssh(config):
-    if is_use_internal_ip(config):
-        return
-    auth_config = config["auth"]
-    ssh_private_key = auth_config.get("ssh_private_key", None)
-    ssh_public_key = auth_config.get("ssh_public_key", None)
-    if not auth_config.get("ssh_port", None):
-        auth_config["ssh_port"] = CLOUDTIK_KUBERNETES_SSH_DEFAULT_PORT
-    if ssh_public_key and ssh_private_key:
-        return
-    else:
-        pem_file_path = get_pem_path_for_kubernetes(config)
-        private_key_generation_cmd = f"test -e {pem_file_path}||ssh-keygen -t rsa -q -N '' -m PEM -f {pem_file_path}"
-        os.system(private_key_generation_cmd)
-        auth_config["ssh_private_key"] = pem_file_path
-        auth_config["ssh_public_key"] = f"{pem_file_path}.pub"
 
 
 def bootstrap_kubernetes_default(config):
@@ -457,6 +445,7 @@ def bootstrap_kubernetes_default(config):
         _configure_head_role(namespace, config["provider"])
         _configure_head_role_binding(namespace, config["provider"])
 
+    configure_for_ssh(config)
     return config
 
 
@@ -468,7 +457,29 @@ def bootstrap_kubernetes_from_workspace(config):
     _configure_services(config)
     _create_or_update_services(namespace, config["provider"])
 
+    configure_for_ssh(config)
     return config
+
+
+def configure_for_ssh(config):
+    if is_use_internal_ip(config):
+        return
+    auth_config = config["auth"]
+    ssh_private_key = auth_config.get("ssh_private_key", None)
+    ssh_public_key = auth_config.get("ssh_public_key", None)
+    if not auth_config.get("ssh_port", None):
+        auth_config["ssh_port"] = KUBERNETES_SSH_DEFAULT_PORT
+    if ssh_public_key and ssh_private_key:
+        return
+    else:
+        key_pair_file_path = get_key_pair_path_for_kubernetes(config)
+        private_key_generation_cmd = f"test -e {key_pair_file_path} || ssh-keygen -t rsa -q -N '' -m PEM -f {key_pair_file_path}"
+        os.system(private_key_generation_cmd)
+        auth_config["ssh_private_key"] = key_pair_file_path
+        auth_config["ssh_public_key"] = f"{key_pair_file_path}.pub"
+
+        cli_logger.print("Private key not specified in config, generated and using "
+                         "{}".format(key_pair_file_path))
 
 
 def cleanup_kubernetes_cluster(config, cluster_name, namespace):
@@ -745,11 +756,24 @@ def _configure_head_role_binding(namespace, provider_config):
 
 def _create_or_update_services(namespace, provider_config):
     _create_or_update_head_service(namespace, provider_config)
+    _create_or_update_head_external_service(namespace, provider_config)
     _create_or_update_node_service(namespace, provider_config)
 
 
 def _create_or_update_head_service(namespace, provider_config):
-    service_field = "head_service"
+    service_field = KUBERNETES_HEAD_SERVICE_CONFIG_KEY
+    if service_field not in provider_config:
+        cli_logger.print(log_prefix + not_provided_msg(service_field))
+        return
+    _create_or_update_service(namespace, provider_config, service_field)
+
+
+def _create_or_update_head_external_service(namespace, provider_config):
+    # Check whether we need to create the service based on use_internal_ip flag
+    if _is_use_internal_ip(provider_config):
+        return
+
+    service_field = KUBERNETES_HEAD_EXTERNAL_SERVICE_CONFIG_KEY
     if service_field not in provider_config:
         cli_logger.print(log_prefix + not_provided_msg(service_field))
         return
@@ -757,7 +781,7 @@ def _create_or_update_head_service(namespace, provider_config):
 
 
 def _create_or_update_node_service(namespace, provider_config):
-    service_field = "node_service"
+    service_field = KUBERNETES_NODE_SERVICE_CONFIG_KEY
     if service_field not in provider_config:
         cli_logger.print(log_prefix + not_provided_msg(service_field))
         raise RuntimeError("No node service specified in configuration.")
@@ -873,16 +897,18 @@ def _configure_pod_container_ports(config):
         container_data["ports"] = []
 
     ports = container_data["ports"]
-    ports.append(KUBERNETES_PODS_SSH_SPEC)
+    for port_name in service_ports:
+        port_config = service_ports[port_name]
+        container_port = {
+            "containerPort": port_config["port"],
+            "name": port_name,
+        }
+        ports.append(container_port)
 
-    # At present, we do not need to expose the port of runtime
-    # for port_name in service_ports:
-    #     port_config = service_ports[port_name]
-    #     container_port = {
-    #         "containerPort": port_config["port"],
-    #         "name": port_name,
-    #     }
-    #     ports.append(container_port)
+    if not is_use_internal_ip(config):
+        # ssh port
+        ports.append(KUBERNETES_CONTAINER_SSH_PORT_SPEC)
+
     container_data["ports"] = ports
 
 
@@ -923,18 +949,37 @@ def _configure_container_resources(resources, container):
 
 def _configure_services(config):
     _configure_services_name_and_selector(config)
-    _configure_head_service_type(config)
     _configure_head_service_ports(config)
+    _configure_head_external_service_ports(config)
 
 
 def _configure_services_name_and_selector(config):
     _configure_head_service_name_and_selector(config)
+    _configure_head_external_service_name_and_selector(config)
     _configure_node_service_name_and_selector(config)
 
 
 def _configure_head_service_name_and_selector(config):
+    cluster_name = config["cluster_name"]
+    _configure_service_name_and_selector_for_head(
+        config,
+        KUBERNETES_HEAD_SERVICE_CONFIG_KEY,
+        _get_head_service_name(cluster_name)
+    )
+
+
+def _configure_head_external_service_name_and_selector(config):
+    cluster_name = config["cluster_name"]
+    _configure_service_name_and_selector_for_head(
+        config,
+        KUBERNETES_HEAD_EXTERNAL_SERVICE_CONFIG_KEY,
+        _get_head_external_service_name(cluster_name)
+    )
+
+
+def _configure_service_name_and_selector_for_head(
+        config, service_field, service_name):
     provider_config = config["provider"]
-    service_field = "head_service"
     if service_field not in provider_config:
         return
 
@@ -943,7 +988,7 @@ def _configure_head_service_name_and_selector(config):
 
     if "metadata" not in service:
         service["metadata"] = {}
-    service["metadata"]["name"] = _get_head_service_name(cluster_name)
+    service["metadata"]["name"] = service_name
 
     if "spec" not in service:
         service["spec"] = {}
@@ -955,7 +1000,7 @@ def _configure_head_service_name_and_selector(config):
 
 def _configure_node_service_name_and_selector(config):
     provider_config = config["provider"]
-    service_field = "node_service"
+    service_field = KUBERNETES_NODE_SERVICE_CONFIG_KEY
     if service_field not in provider_config:
         return
 
@@ -973,32 +1018,16 @@ def _configure_node_service_name_and_selector(config):
     service["spec"]["selector"]["cluster"] = _get_cluster_selector(cluster_name)
 
 
-def _configure_head_service_type(config):
-    # Start a service which type is LoadBalancer to support access web ui from outside the cluster
-    if is_use_internal_ip(config):
-        return
-    provider_config = config["provider"]
-    service_field = "head_service"
-    if service_field not in provider_config:
-        return
-    service = provider_config[service_field]
-    service["spec"]["type"] = "LoadBalancer"
-
-
 def _configure_head_service_ports(config):
     provider_config = config["provider"]
-    service_field = "head_service"
+    service_field = KUBERNETES_HEAD_SERVICE_CONFIG_KEY
     if service_field not in provider_config:
         return
-
     service = provider_config[service_field]
-    KUBERNETES_SERVICE_SSH_SPEC["port"] = config["auth"].get("ssh_port", CLOUDTIK_KUBERNETES_SSH_DEFAULT_PORT)
-    service["spec"]["ports"] = [KUBERNETES_SERVICE_SSH_SPEC]
 
-    # At present, we do not need to expose the port of runtime
-    # runtime_config = config.get("runtime", {})
-    # runtime_service_ports = get_runtime_service_ports(runtime_config)
-    # _configure_service_ports_for_runtime(service, runtime_service_ports)
+    runtime_config = config.get("runtime", {})
+    runtime_service_ports = get_runtime_service_ports(runtime_config)
+    _configure_service_ports_for_runtime(service, runtime_service_ports)
 
 
 def _configure_service_ports_for_runtime(service, service_ports):
@@ -1018,6 +1047,18 @@ def _configure_service_ports_for_runtime(service, service_ports):
         }
         ports.append(port)
     service["spec"]["ports"] = ports
+
+
+def _configure_head_external_service_ports(config):
+    provider_config = config["provider"]
+    service_field = KUBERNETES_HEAD_EXTERNAL_SERVICE_CONFIG_KEY
+    if service_field not in provider_config:
+        return
+
+    service = provider_config[service_field]
+    ssh_port = copy.deepcopy(KUBERNETES_HEAD_EXTERNAL_SERVICE_SSH_PORT_SPEC)
+    ssh_port["port"] = config["auth"].get("ssh_port", KUBERNETES_SSH_DEFAULT_PORT)
+    service["spec"]["ports"] = [ssh_port]
 
 
 def _configure_pod_service_account(config):
@@ -1504,6 +1545,7 @@ def _delete_head_role_binding(namespace, provider_config):
 
 def _delete_services(config):
     _delete_head_service(config)
+    _delete_head_external_service(config)
     _delete_node_service(config)
 
 
@@ -1516,6 +1558,21 @@ def _delete_head_service(config):
     cluster_name = config["cluster_name"]
 
     service_name = _get_head_service_name(cluster_name)
+    _delete_service(namespace, service_name)
+
+
+def _delete_head_external_service(config):
+    if is_use_internal_ip(config):
+        return
+
+    provider_config = config["provider"]
+    if "namespace" not in provider_config:
+        raise ValueError("Must specify namespace in Kubernetes config.")
+
+    namespace = provider_config["namespace"]
+    cluster_name = config["cluster_name"]
+
+    service_name = _get_head_external_service_name(cluster_name)
     _delete_service(namespace, service_name)
 
 
@@ -1555,6 +1612,16 @@ def _delete_service(namespace: str, name: str):
     cli_logger.print(log_prefix + "Deleting service: {}".format(name))
     core_api().delete_namespaced_service(name, namespace)
     cli_logger.print(log_prefix + "Successfully deleted service: {}".format(name))
+
+
+def get_head_external_service_address(provider_config, namespace, cluster_name):
+    service_name = _get_head_external_service_name(cluster_name)
+    service = core_api().read_namespaced_service(namespace=namespace, name=service_name)
+    ingress = service.status.load_balancer.ingress[0]
+    if ingress.hostname:
+        return ingress.hostname
+    else:
+        return ingress.ip
 
 
 def with_kubernetes_environment_variables(provider_config, node_type_config: Dict[str, Any], node_id: str):

@@ -187,6 +187,9 @@ def configure_services(
     provider_config["head_service"] = get_head_service(
         cluster_name, cluster_owner_reference,
         head_service_ports, default_kubernetes_config)
+    provider_config["head_external_service"] = get_head_external_service(
+        cluster_name, cluster_owner_reference,
+        default_kubernetes_config)
     provider_config["node_service"] = get_node_service(
         cluster_name, cluster_owner_reference,
         default_kubernetes_config)
@@ -242,10 +245,6 @@ def get_head_service(
     default_provider_conf = default_kubernetes_config["provider"]
     head_service = copy.deepcopy(default_provider_conf["head_service"])
 
-    # Configure the service's name
-    service_name = f"cloudtik-{cluster_name}-head"
-    head_service["metadata"]["name"] = service_name
-
     # Garbage-collect service upon cluster deletion.
     head_service["metadata"]["ownerReferences"] = [cluster_owner_reference]
 
@@ -264,6 +263,18 @@ def get_head_service(
         head_service["spec"]["ports"] = updated_port_list
 
     return head_service
+
+
+def get_head_external_service(
+        cluster_name, cluster_owner_reference,
+        default_kubernetes_config):
+    # Configure head external service for SSH access.
+    default_provider_conf = default_kubernetes_config["provider"]
+    head_external_service = copy.deepcopy(default_provider_conf["head_external_service"])
+
+    # Garbage-collect service upon cluster deletion.
+    head_external_service["metadata"]["ownerReferences"] = [cluster_owner_reference]
+    return head_external_service
 
 
 def get_node_service(

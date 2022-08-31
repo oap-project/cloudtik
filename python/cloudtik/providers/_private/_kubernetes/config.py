@@ -20,12 +20,12 @@ from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_KIND
 from cloudtik.core.workspace_provider import Existence
 from cloudtik.providers._private._kubernetes import auth_api, core_api, log_prefix
 from cloudtik.core._private.constants import CLOUDTIK_DEFAULT_OBJECT_STORE_MEMORY_PROPORTION, CLOUDTIK_SSH_DEFAULT_PORT
-from cloudtik.providers._private._kubernetes.utils import _get_node_info, to_label_selector, \
+from cloudtik.providers._private._kubernetes.utils import to_label_selector, \
     KUBERNETES_WORKSPACE_NAME_MAX, check_kubernetes_name_format, _get_head_service_account_name, \
     _get_worker_service_account_name, KUBERNETES_HEAD_SERVICE_ACCOUNT_CONFIG_KEY, \
     KUBERNETES_WORKER_SERVICE_ACCOUNT_CONFIG_KEY, _get_service_account, \
     cleanup_orphan_pvcs, get_key_pair_path_for_kubernetes, KUBERNETES_HEAD_SERVICE_CONFIG_KEY, \
-    KUBERNETES_HEAD_EXTERNAL_SERVICE_CONFIG_KEY, KUBERNETES_NODE_SERVICE_CONFIG_KEY
+    KUBERNETES_HEAD_EXTERNAL_SERVICE_CONFIG_KEY, KUBERNETES_NODE_SERVICE_CONFIG_KEY, get_instance_type_for_pod
 
 logger = logging.getLogger(__name__)
 
@@ -1614,7 +1614,7 @@ def _delete_service(namespace: str, name: str):
     cli_logger.print(log_prefix + "Successfully deleted service: {}".format(name))
 
 
-def get_head_external_service_address(provider_config, namespace, cluster_name):
+def get_head_external_service_address(namespace, cluster_name):
     service_name = _get_head_external_service_name(cluster_name)
     service = core_api().read_namespaced_service(namespace=namespace, name=service_name)
     ingress = service.status.load_balancer.ingress[0]
@@ -1622,6 +1622,32 @@ def get_head_external_service_address(provider_config, namespace, cluster_name):
         return ingress.hostname
     else:
         return ingress.ip
+
+
+def _get_node_public_ip(tags, namespace, cluster_name):
+    if (tags is not None) and (
+            CLOUDTIK_TAG_NODE_KIND in tags) and (
+            tags[CLOUDTIK_TAG_NODE_KIND] == NODE_KIND_HEAD):
+        return get_head_external_service_address(namespace, cluster_name)
+    else:
+        return None
+
+
+def _get_node_info(pod, provider_config, namespace, cluster_name):
+    instance_type = get_instance_type_for_pod(pod)
+    public_ip = None
+    if not _is_use_internal_ip(provider_config):
+        public_ip = _get_node_public_ip(
+            pod.metadata.labels, namespace, cluster_name)
+
+    node_info = {"node_id": pod.metadata.name,
+                 "instance_type": instance_type,
+                 "private_ip": pod.status.pod_ip,
+                 "public_ip": public_ip,
+                 "instance_status": pod.status.phase}
+    node_info.update(pod.metadata.labels)
+
+    return node_info
 
 
 def with_kubernetes_environment_variables(provider_config, node_type_config: Dict[str, Any], node_id: str):

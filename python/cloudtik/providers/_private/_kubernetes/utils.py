@@ -65,18 +65,6 @@ def get_instance_type_for_pod(pod):
     return instance_type
 
 
-def _get_node_info(pod):
-    instance_type = get_instance_type_for_pod(pod)
-    node_info = {"node_id": pod.metadata.name,
-                 "instance_type": instance_type,
-                 "private_ip": pod.status.pod_ip,
-                 "public_ip": None,
-                 "instance_status": pod.status.phase}
-    node_info.update(pod.metadata.labels)
-
-    return node_info
-
-
 def _get_head_service_account_name(provider_config):
     return KUBERNETES_HEAD_SERVICE_ACCOUNT_NAME
 

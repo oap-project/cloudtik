@@ -20,8 +20,9 @@ from cloudtik.providers._private._kubernetes import core_api, log_prefix, \
 from cloudtik.providers._private._kubernetes.config import bootstrap_kubernetes, \
     post_prepare_kubernetes, _add_service_name_to_service_port, head_service_selector, \
     bootstrap_kubernetes_for_api, cleanup_kubernetes_cluster, with_kubernetes_environment_variables, get_head_hostname, \
-    get_worker_hostname, prepare_kubernetes_config, get_head_external_service_address
-from cloudtik.providers._private._kubernetes.utils import _get_node_info, to_label_selector, \
+    get_worker_hostname, prepare_kubernetes_config, get_head_external_service_address, _get_node_info, \
+    _get_node_public_ip
+from cloudtik.providers._private._kubernetes.utils import to_label_selector, \
     create_and_configure_pvc_for_pod, delete_persistent_volume_claims, get_pod_persistent_volume_claims, \
     delete_persistent_volume_claims_by_name
 from cloudtik.providers._private.utils import validate_config_dict
@@ -69,7 +70,7 @@ class KubernetesNodeProvider(NodeProvider):
 
     def get_node_info(self, node_id):
         pod = core_api().read_namespaced_pod(node_id, self.namespace)
-        return _get_node_info(pod)
+        return _get_node_info(pod, self.provider_config, self.namespace, self.cluster_name)
 
     def is_running(self, node_id):
         pod = core_api().read_namespaced_pod(node_id, self.namespace)
@@ -90,13 +91,7 @@ class KubernetesNodeProvider(NodeProvider):
         # but the external address of the service connected to the head node
         # check node is head
         tags = self.node_tags(node_id)
-        if (tags is not None) and (
-                CLOUDTIK_TAG_NODE_KIND in tags) and (
-                tags[CLOUDTIK_TAG_NODE_KIND] == NODE_KIND_HEAD):
-            return get_head_external_service_address(
-                self.provider_config, self.namespace, self.cluster_name)
-        else:
-            return None
+        return _get_node_public_ip(tags, self.namespace, self.cluster_name)
 
     def internal_ip(self, node_id):
         pod = core_api().read_namespaced_pod(node_id, self.namespace)

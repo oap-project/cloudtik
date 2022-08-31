@@ -7,10 +7,12 @@ from: defaults
 docker:
     enabled: False
 
+auth:
+    ssh_user: cloudtik
+
 provider:
     type: kubernetes
 
-    # Exposing external IP addresses for pods isn't currently supported.
     use_internal_ips: true
 
     # Namespace to use for all resources created.

@@ -1,6 +1,7 @@
 import copy
 import logging
 import math
+import os
 import re
 import time
 from typing import Any, Dict, Optional
@@ -18,12 +19,13 @@ from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_KIND
     CLOUDTIK_GLOBAL_VARIABLE_KEY, CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX
 from cloudtik.core.workspace_provider import Existence
 from cloudtik.providers._private._kubernetes import auth_api, core_api, log_prefix
-from cloudtik.core._private.constants import CLOUDTIK_DEFAULT_OBJECT_STORE_MEMORY_PROPORTION
+from cloudtik.core._private.constants import CLOUDTIK_DEFAULT_OBJECT_STORE_MEMORY_PROPORTION, \
+    CLOUDTIK_KUBERNETES_SSH_DEFAULT_PORT
 from cloudtik.providers._private._kubernetes.utils import _get_node_info, to_label_selector, \
     KUBERNETES_WORKSPACE_NAME_MAX, check_kubernetes_name_format, _get_head_service_account_name, \
     _get_worker_service_account_name, KUBERNETES_HEAD_SERVICE_ACCOUNT_CONFIG_KEY, \
     KUBERNETES_WORKER_SERVICE_ACCOUNT_CONFIG_KEY, _get_service_account, \
-    cleanup_orphan_pvcs
+    cleanup_orphan_pvcs, get_pem_path_for_kubernetes
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +72,15 @@ KUBERNETES_WORKSPACE_TARGET_RESOURCES = 5
 
 KUBERNETES_RESOURCE_OP_MAX_POLLS = 12
 KUBERNETES_RESOURCE_OP_POLL_INTERVAL = 5
+
+KUBERNETES_PODS_SSH_SPEC = {'containerPort': 22, 'name': 'cloudtik-ssh'}
+
+KUBERNETES_SERVICE_SSH_SPEC = {
+    "name": "cloudtik-ssh-port",
+    "protocol": "TCP",
+    "port": CLOUDTIK_KUBERNETES_SSH_DEFAULT_PORT,
+    "targetPort": "cloudtik-ssh"
+}
 
 
 def head_service_selector(cluster_name: str) -> Dict[str, str]:
@@ -379,6 +390,16 @@ def validate_kubernetes_config(provider_config: Dict[str, Any], workspace_name: 
                            "characters and '-' or '.'".format(provider_config["type"], KUBERNETES_WORKSPACE_NAME_MAX))
 
 
+def prepare_kubernetes_config(config: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Prepare kubernetes cluster config.
+    """
+    if not is_use_internal_ip(config):
+        ssh_start_cmd = " sudo /etc/init.d/ssh start"
+        config["head_start_commands"] = [ssh_start_cmd] + config.get("head_start_commands", [])
+    return config
+
+
 def bootstrap_kubernetes_workspace(config):
     return config
 
@@ -398,17 +419,29 @@ def bootstrap_kubernetes(config):
         config = bootstrap_kubernetes_default(config)
     else:
         config = bootstrap_kubernetes_from_workspace(config)
-
+    bootstrap_kubernetes_for_ssh(config)
     return config
 
 
-def bootstrap_kubernetes_default(config):
-    if not is_use_internal_ip(config):
-        return ValueError(
-            "Exposing external IP addresses for containers isn't "
-            "currently supported. Please set "
-            "'use_internal_ips' to true.")
+def bootstrap_kubernetes_for_ssh(config):
+    if is_use_internal_ip(config):
+        return
+    auth_config = config["auth"]
+    ssh_private_key = auth_config.get("ssh_private_key", None)
+    ssh_public_key = auth_config.get("ssh_public_key", None)
+    if not auth_config.get("ssh_port", None):
+        auth_config["ssh_port"] = CLOUDTIK_KUBERNETES_SSH_DEFAULT_PORT
+    if ssh_public_key and ssh_private_key:
+        return
+    else:
+        pem_file_path = get_pem_path_for_kubernetes(config)
+        private_key_generation_cmd = f"test -e {pem_file_path}||ssh-keygen -t rsa -q -N '' -m PEM -f {pem_file_path}"
+        os.system(private_key_generation_cmd)
+        auth_config["ssh_private_key"] = pem_file_path
+        auth_config["ssh_public_key"] = f"{pem_file_path}.pub"
 
+
+def bootstrap_kubernetes_default(config):
     if config["provider"].get("_operator"):
         namespace = config["provider"]["namespace"]
     else:
@@ -428,12 +461,6 @@ def bootstrap_kubernetes_default(config):
 
 
 def bootstrap_kubernetes_from_workspace(config):
-    if not is_use_internal_ip(config):
-        return ValueError(
-            "Exposing external IP addresses for containers isn't "
-            "currently supported. Please set "
-            "'use_internal_ips' to true.")
-
     namespace = _configure_namespace_from_workspace(config)
 
     _configure_cloud_provider(config, namespace)
@@ -846,13 +873,16 @@ def _configure_pod_container_ports(config):
         container_data["ports"] = []
 
     ports = container_data["ports"]
-    for port_name in service_ports:
-        port_config = service_ports[port_name]
-        container_port = {
-            "containerPort": port_config["port"],
-            "name": port_name,
-        }
-        ports.append(container_port)
+    ports.append(KUBERNETES_PODS_SSH_SPEC)
+
+    # At present, we do not need to expose the port of runtime
+    # for port_name in service_ports:
+    #     port_config = service_ports[port_name]
+    #     container_port = {
+    #         "containerPort": port_config["port"],
+    #         "name": port_name,
+    #     }
+    #     ports.append(container_port)
     container_data["ports"] = ports
 
 
@@ -893,6 +923,7 @@ def _configure_container_resources(resources, container):
 
 def _configure_services(config):
     _configure_services_name_and_selector(config)
+    _configure_head_service_type(config)
     _configure_head_service_ports(config)
 
 
@@ -942,20 +973,35 @@ def _configure_node_service_name_and_selector(config):
     service["spec"]["selector"]["cluster"] = _get_cluster_selector(cluster_name)
 
 
+def _configure_head_service_type(config):
+    # Start a service which type is LoadBalancer to support access web ui from outside the cluster
+    if is_use_internal_ip(config):
+        return
+    provider_config = config["provider"]
+    service_field = "head_service"
+    if service_field not in provider_config:
+        return
+    service = provider_config[service_field]
+    service["spec"]["type"] = "LoadBalancer"
+
+
 def _configure_head_service_ports(config):
     provider_config = config["provider"]
     service_field = "head_service"
     if service_field not in provider_config:
         return
 
-    runtime_config = config.get("runtime", {})
-    service_ports = get_runtime_service_ports(runtime_config)
-
     service = provider_config[service_field]
-    _configure_service_ports(service, service_ports)
+    KUBERNETES_SERVICE_SSH_SPEC["port"] = config["auth"].get("ssh_port", CLOUDTIK_KUBERNETES_SSH_DEFAULT_PORT)
+    service["spec"]["ports"] = [KUBERNETES_SERVICE_SSH_SPEC]
+
+    # At present, we do not need to expose the port of runtime
+    # runtime_config = config.get("runtime", {})
+    # runtime_service_ports = get_runtime_service_ports(runtime_config)
+    # _configure_service_ports_for_runtime(service, runtime_service_ports)
 
 
-def _configure_service_ports(service, service_ports):
+def _configure_service_ports_for_runtime(service, service_ports):
     if "spec" not in service:
         service["spec"] = {}
     if "ports" not in service["spec"]:

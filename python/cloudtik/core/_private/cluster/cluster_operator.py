@@ -1144,6 +1144,7 @@ def _set_up_config_for_head_node(config: Dict[str, Any],
     # drop proxy options if they exist, otherwise
     # head node won't be able to connect to workers
     remote_config["auth"].pop("ssh_proxy_command", None)
+    remote_config["auth"].pop("ssh_public_key", None)
 
     if "ssh_private_key" in config["auth"]:
         remote_key_path = "~/cloudtik_bootstrap_key.pem"
@@ -2161,18 +2162,21 @@ def _start_proxy(config: Dict[str, Any],
 def _start_proxy_process(head_node_ip, config,
                          bind_address: str = None):
     proxy_info_file = get_proxy_info_file(config["cluster_name"])
+    cmd = "ssh -o \'StrictHostKeyChecking no\'"
 
     auth_config = config["auth"]
     ssh_proxy_command = auth_config.get("ssh_proxy_command", None)
     ssh_private_key = auth_config.get("ssh_private_key", None)
     ssh_user = auth_config["ssh_user"]
+    ssh_port = auth_config.get("ssh_port", None)
+
     proxy_port = get_free_port()
-    cmd = "ssh -o \'StrictHostKeyChecking no\'"
     if ssh_private_key:
         cmd += " -i {}".format(ssh_private_key)
     if ssh_proxy_command:
         cmd += " -o ProxyCommand=\'{}\'".format(ssh_proxy_command)
-
+    if ssh_port:
+        cmd += " -p {}".format(ssh_port)
     if bind_address is None or bind_address == "":
         bind_string = "{}".format(proxy_port)
     else:

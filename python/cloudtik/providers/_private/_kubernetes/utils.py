@@ -96,6 +96,18 @@ def _get_service_account(namespace, name):
     return None
 
 
+def get_service_external_address(provider_config):
+    head_service_config = provider_config["head_service"]
+    service_name = head_service_config["metadata"]["name"]
+    namespace = head_service_config["metadata"]["namespace"]
+    service = core_api().read_namespaced_service(namespace=namespace, name=service_name)
+    ingress = service.status.load_balancer.ingress[0]
+    if ingress.hostname:
+        return ingress.hostname
+    else:
+        return ingress.ip
+
+
 def delete_persistent_volume_claims(pvcs, namespace):
     for pvc in pvcs:
         delete_persistent_volume_claim(pvc.metadata.name, namespace)
@@ -226,3 +238,9 @@ def cleanup_orphan_pvcs(cluster_name, namespace):
         namespace,
         label_selector=label_selector)
     delete_persistent_volume_claims(pvc_list.items, namespace)
+
+
+def get_pem_path_for_kubernetes(config):
+    pem_file_path = "~/.ssh/cloudtik_kubernetes_{}_{}.pem".format(config["provider"]["cloud_provider"]["type"],
+                                                                  config["cluster_name"])
+    return pem_file_path

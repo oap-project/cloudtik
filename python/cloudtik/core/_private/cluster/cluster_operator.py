@@ -1144,7 +1144,6 @@ def _set_up_config_for_head_node(config: Dict[str, Any],
     # drop proxy options if they exist, otherwise
     # head node won't be able to connect to workers
     remote_config["auth"].pop("ssh_proxy_command", None)
-    remote_config["auth"].pop("ssh_public_key", None)
 
     if "ssh_private_key" in config["auth"]:
         remote_key_path = "~/cloudtik_bootstrap_key.pem"
@@ -1171,13 +1170,6 @@ def _set_up_config_for_head_node(config: Dict[str, Any],
     if "ssh_private_key" in config["auth"]:
         config["file_mounts"].update({
             remote_key_path: config["auth"]["ssh_private_key"],
-        })
-
-    # rsync ssh_public_key to head node authorized_keys,
-    # it's for kubernetes to use.
-    if not is_use_internal_ip(config) and config["provider"]["type"] == "kubernetes":
-        config["file_mounts"].update({
-            "~/.ssh/authorized_keys": config["auth"]["ssh_public_key"]
         })
 
     return config, remote_config_file

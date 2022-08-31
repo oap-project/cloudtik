@@ -38,23 +38,8 @@ mkdir -p $RUNTIME_PATH
 # JDK install function
 . "$ROOT_DIR"/common/scripts/jdk-install.sh
 
-function install_hadoop() {
-    # install Hadoop
-    export HADOOP_HOME=$RUNTIME_PATH/hadoop
-
-    if [ ! -d "${HADOOP_HOME}" ]; then
-      (cd $RUNTIME_PATH && wget -q --show-progress http://archive.apache.org/dist/hadoop/common/hadoop-${HADOOP_VERSION}/hadoop-${HADOOP_VERSION}.tar.gz -O hadoop-${HADOOP_VERSION}.tar.gz && \
-          tar -zxf hadoop-${HADOOP_VERSION}.tar.gz && \
-          mv hadoop-${HADOOP_VERSION} hadoop && \
-          rm hadoop-${HADOOP_VERSION}.tar.gz)
-        echo "export HADOOP_HOME=$HADOOP_HOME">> ${USER_HOME}/.bashrc
-        echo "export HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop">> ${USER_HOME}/.bashrc
-        echo "export PATH=\$HADOOP_HOME/bin:\$PATH" >> ${USER_HOME}/.bashrc
-        echo "export JAVA_HOME=$JAVA_HOME" >> ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh
-        #Add share/hadoop/tools/lib/* into classpath
-        echo "export HADOOP_CLASSPATH=\$HADOOP_CLASSPATH:\$HADOOP_HOME/share/hadoop/tools/lib/*" >> ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh
-    fi
-}
+# Hadoop install function
+. "$ROOT_DIR"/common/scripts/hadoop-install.sh
 
 function install_mariadb() {
     sudo apt-get -qq update -y > /dev/null
@@ -66,10 +51,10 @@ function install_hive_metastore() {
     export METASTORE_HOME=$RUNTIME_PATH/hive-metastore
 
     if [ ! -d "${METASTORE_HOME}" ]; then
-      (cd $RUNTIME_PATH && wget -q --show-progress https://repo1.maven.org/maven2/org/apache/hive/hive-standalone-metastore/${HIVE_VERSION}/hive-standalone-metastore-${HIVE_VERSION}-bin.tar.gz && \
-          tar -zxf hive-standalone-metastore-${HIVE_VERSION}-bin.tar.gz && \
-          mv apache-hive-metastore-${HIVE_VERSION}-bin hive-metastore && \
-          rm hive-standalone-metastore-${HIVE_VERSION}-bin.tar.gz)
+      (cd $RUNTIME_PATH && wget -q --show-progress https://repo1.maven.org/maven2/org/apache/hive/hive-standalone-metastore/${HIVE_VERSION}/hive-standalone-metastore-${HIVE_VERSION}-bin.tar.gz -O hive-standalone-metastore.tar.gz && \
+          mkdir -p "$METASTORE_HOME" && \
+          tar --extract --file hive-standalone-metastore.tar.gz --directory "$METASTORE_HOME" --strip-components 1 --no-same-owner && \
+          rm hive-standalone-metastore.tar.gz)
         wget -q --show-progress https://repo1.maven.org/maven2/mysql/mysql-connector-java/5.1.38/mysql-connector-java-5.1.38.jar -P $METASTORE_HOME/lib/
         echo "export METASTORE_HOME=$METASTORE_HOME">> ${USER_HOME}/.bashrc
     fi

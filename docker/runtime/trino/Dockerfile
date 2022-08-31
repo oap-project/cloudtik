@@ -35,6 +35,9 @@ ENV PATH                 $TRINO_HOME/bin:$PATH
 RUN wget https://repo1.maven.org/maven2/io/trino/trino-server/${TRINO_VERSION}/trino-server-${TRINO_VERSION}.tar.gz -O trino-server.tar.gz && \
     mkdir -p "$TRINO_HOME" && \
     tar --extract --file trino-server.tar.gz --directory "$TRINO_HOME" --strip-components 1 --no-same-owner && \
-    rm trino-server.tar.gz
+    rm trino-server.tar.gz && \
+    wget https://repo1.maven.org/maven2/io/trino/trino-cli/${TRINO_VERSION}/trino-cli-${TRINO_VERSION}-executable.jar && \
+    mv trino-cli-${TRINO_VERSION}-executable.jar $TRINO_HOME/bin/trino && \
+    chmod +x $TRINO_HOME/bin/trino
 
 WORKDIR /home/cloudtik/

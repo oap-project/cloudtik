@@ -32,23 +32,8 @@ mkdir -p $RUNTIME_PATH
 # JDK install function
 . "$ROOT_DIR"/common/scripts/jdk-install.sh
 
-function install_hadoop() {
-    # install Hadoop
-    export HADOOP_HOME=$RUNTIME_PATH/hadoop
-
-    if [ ! -d "${HADOOP_HOME}" ]; then
-      (cd $RUNTIME_PATH && wget -q --show-progress http://archive.apache.org/dist/hadoop/common/hadoop-${HADOOP_VERSION}/hadoop-${HADOOP_VERSION}.tar.gz -O hadoop-${HADOOP_VERSION}.tar.gz && \
-          tar -zxf hadoop-${HADOOP_VERSION}.tar.gz && \
-          mv hadoop-${HADOOP_VERSION} hadoop && \
-          rm hadoop-${HADOOP_VERSION}.tar.gz)
-        echo "export HADOOP_HOME=$HADOOP_HOME">> ${USER_HOME}/.bashrc
-        echo "export HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop">> ${USER_HOME}/.bashrc
-        echo "export PATH=\$HADOOP_HOME/bin:\$PATH" >> ${USER_HOME}/.bashrc
-        echo "export JAVA_HOME=$JAVA_HOME" >> ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh
-        #Add share/hadoop/tools/lib/* into classpath
-        echo "export HADOOP_CLASSPATH=\$HADOOP_CLASSPATH:\$HADOOP_HOME/share/hadoop/tools/lib/*" >> ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh
-    fi
-}
+# Hadoop install function
+. "$ROOT_DIR"/common/scripts/hadoop-install.sh
 
 install_jdk
 install_hadoop

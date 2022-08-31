@@ -38,33 +38,18 @@ mkdir -p $RUNTIME_PATH
 # JDK install function
 . "$ROOT_DIR"/common/scripts/jdk-install.sh
 
-function install_hadoop() {
-    # install Hadoop
-    export HADOOP_HOME=$RUNTIME_PATH/hadoop
-
-    if [ ! -d "${HADOOP_HOME}" ]; then
-      (cd $RUNTIME_PATH && wget -q --show-progress http://archive.apache.org/dist/hadoop/common/hadoop-${HADOOP_VERSION}/hadoop-${HADOOP_VERSION}.tar.gz -O hadoop-${HADOOP_VERSION}.tar.gz && \
-          tar -zxf hadoop-${HADOOP_VERSION}.tar.gz && \
-          mv hadoop-${HADOOP_VERSION} hadoop && \
-          rm hadoop-${HADOOP_VERSION}.tar.gz)
-        echo "export HADOOP_HOME=$HADOOP_HOME">> ${USER_HOME}/.bashrc
-        echo "export HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop">> ${USER_HOME}/.bashrc
-        echo "export PATH=\$HADOOP_HOME/bin:\$PATH" >> ${USER_HOME}/.bashrc
-        echo "export JAVA_HOME=$JAVA_HOME" >> ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh
-        # Add share/hadoop/tools/lib/* into classpath
-        echo "export HADOOP_CLASSPATH=\$HADOOP_CLASSPATH:\$HADOOP_HOME/share/hadoop/tools/lib/*" >> ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh
-    fi
-}
+# Hadoop install function
+. "$ROOT_DIR"/common/scripts/hadoop-install.sh
 
 function install_flink() {
     # install Flink
     export FLINK_HOME=$RUNTIME_PATH/flink
 
     if [ ! -d "${FLINK_HOME}" ]; then
-     (cd $RUNTIME_PATH && wget -q --show-progress https://dlcdn.apache.org/flink/flink-${FLINK_VERSION}/flink-${FLINK_VERSION}-bin-scala_2.12.tgz && \
-        tar -zxf flink-${FLINK_VERSION}-bin-scala_2.12.tgz && \
-        mv flink-${FLINK_VERSION} flink && \
-        rm flink-${FLINK_VERSION}-bin-scala_2.12.tgz)
+     (cd $RUNTIME_PATH && wget -q --show-progress https://dlcdn.apache.org/flink/flink-${FLINK_VERSION}/flink-${FLINK_VERSION}-bin-scala_2.12.tgz -O flink.tgz && \
+        mkdir -p "$FLINK_HOME" && \
+        tar --extract --file flink.tgz --directory "$FLINK_HOME" --strip-components 1 --no-same-owner && \
+        rm flink.tgz)
         # Flink need HADOOP_CLASSPATH defined
         echo "export HADOOP_CLASSPATH=\`hadoop classpath\`">> ${USER_HOME}/.bashrc
         echo "export FLINK_HOME=$FLINK_HOME">> ${USER_HOME}/.bashrc
@@ -81,10 +66,10 @@ function install_flink() {
         export HIVE_HOME=$RUNTIME_PATH/hive
         export HIVE_VERSION=3.1.2
         if [ ! -d "${HIVE_HOME}" ]; then
-         (cd $RUNTIME_PATH && wget -q --show-progress https://downloads.apache.org/hive/hive-${HIVE_VERSION}/apache-hive-${HIVE_VERSION}-bin.tar.gz && \
-            tar -zxf apache-hive-${HIVE_VERSION}-bin.tar.gz && \
-            mv apache-hive-${HIVE_VERSION}-bin hive && \
-            rm apache-hive-${HIVE_VERSION}-bin.tar.gz)
+         (cd $RUNTIME_PATH && wget -q --show-progress https://downloads.apache.org/hive/hive-${HIVE_VERSION}/apache-hive-${HIVE_VERSION}-bin.tar.gz -O hive.tar.gz && \
+            mkdir -p "$HIVE_HOME" && \
+            tar --extract --file hive.tar.gz --directory "$HIVE_HOME" --strip-components 1 --no-same-owner && \
+            rm hive.tar.gz)
             echo "export HIVE_HOME=$HIVE_HOME">> ${USER_HOME}/.bashrc
         fi
     fi

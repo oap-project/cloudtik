@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spark-client-configmap
+  namespace: $K8S_NAMESPACE
+data:
+  kubernetes_api_server_endpoint: "$K8S_API_SERVER_ENDPOINT"
+  spark_kubernetes_namespace: "$K8S_NAMESPACE"
+  spark_kubernetes_service_account_name: "$SPARK_DRIVER_SERVICE_ACCOUNT"
+  spark_kubernetes_executor_service_account_name: "$SPARK_EXECUTOR_SERVICE_ACCOUNT"
+  spark_kubernetes_container_image: "$CONTAINER_IMAGE"
+  spark_kubernetes_driver_pod_name: "spark-client"
+  spark_driver_host: "spark-client-headless-service.$K8S_NAMESPACE.svc.cluster.local"
+  spark_driver_port: "1888"

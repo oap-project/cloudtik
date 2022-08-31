@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: spark-client
+  namespace: $K8S_NAMESPACE
+  labels:
+    app: spark-client
+spec:
+  serviceAccountName: $SPARK_SERVICE_ACCOUNT
+  containers:
+  - name: spark-client-container
+    imagePullPolicy: IfNotPresent
+    image: $CONTAINER_IMAGE
+    args: ["/opt/entrypoint-nop.sh"]
+    volumeMounts:
+      - name: spark-conf-volume 
+        mountPath: /opt/conf
+    envFrom:
+    - configMapRef:
+        name: spark-client-configmap
+  volumes:
+    - name: spark-conf-volume 
+      configMap:
+        # Provide the name of the ConfigMap containing the files you want
+        # to add to the container
+        name: spark-client-conf

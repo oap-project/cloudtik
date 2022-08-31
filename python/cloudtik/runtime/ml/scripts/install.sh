@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Current bin directory
+BIN_DIR=`dirname "$0"`
+ROOT_DIR="$(dirname "$(dirname "$BIN_DIR")")"
+
 args=$(getopt -a -o h::p: -l head:: -- "$@")
 eval set -- "${args}"
 

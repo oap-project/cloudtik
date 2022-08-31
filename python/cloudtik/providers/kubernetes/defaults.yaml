@@ -67,6 +67,18 @@ provider:
         metadata:
           name: cloudtik-worker-service-account
 
+    head_external_service:
+        # Service that maps to the head node of the cluster.
+        apiVersion: v1
+        kind: Service
+        metadata:
+            name: cloudtik-{}-external
+        spec:
+            type: LoadBalancer
+            # This selector must match the head node pod's selector below.
+            selector:
+                component: cloudtik-{}-head
+
     head_service:
         # Service that maps to the head node of the cluster.
         apiVersion: v1

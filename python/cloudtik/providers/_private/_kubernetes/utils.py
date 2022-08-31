@@ -19,6 +19,9 @@ KUBERNETES_WORKER_SERVICE_ACCOUNT_NAME = "cloudtik-worker-service-account"
 KUBERNETES_HEAD_SERVICE_ACCOUNT_CONFIG_KEY = "head_service_account"
 KUBERNETES_WORKER_SERVICE_ACCOUNT_CONFIG_KEY = "worker_service_account"
 
+KUBERNETES_HEAD_SERVICE_CONFIG_KEY = "head_service"
+KUBERNETES_HEAD_EXTERNAL_SERVICE_CONFIG_KEY = "head_external_service"
+KUBERNETES_NODE_SERVICE_CONFIG_KEY = "node_service"
 
 logger = logging.getLogger(__name__)
 
@@ -94,18 +97,6 @@ def _get_service_account(namespace, name):
         return accounts[0]
     cli_logger.verbose("Failed to get the service account: {} {}.", namespace, name)
     return None
-
-
-def get_service_external_address(provider_config):
-    head_service_config = provider_config["head_service"]
-    service_name = head_service_config["metadata"]["name"]
-    namespace = head_service_config["metadata"]["namespace"]
-    service = core_api().read_namespaced_service(namespace=namespace, name=service_name)
-    ingress = service.status.load_balancer.ingress[0]
-    if ingress.hostname:
-        return ingress.hostname
-    else:
-        return ingress.ip
 
 
 def delete_persistent_volume_claims(pvcs, namespace):
@@ -240,7 +231,7 @@ def cleanup_orphan_pvcs(cluster_name, namespace):
     delete_persistent_volume_claims(pvc_list.items, namespace)
 
 
-def get_pem_path_for_kubernetes(config):
-    pem_file_path = "~/.ssh/cloudtik_kubernetes_{}_{}.pem".format(config["provider"]["cloud_provider"]["type"],
+def get_key_pair_path_for_kubernetes(config):
+    key_pair_file_path = "~/.ssh/cloudtik_kubernetes_{}_{}.pem".format(config["provider"]["cloud_provider"]["type"],
                                                                   config["cluster_name"])
-    return pem_file_path
+    return key_pair_file_path

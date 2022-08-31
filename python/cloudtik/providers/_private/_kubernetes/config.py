@@ -19,8 +19,7 @@ from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_KIND
     CLOUDTIK_GLOBAL_VARIABLE_KEY, CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX
 from cloudtik.core.workspace_provider import Existence
 from cloudtik.providers._private._kubernetes import auth_api, core_api, log_prefix
-from cloudtik.core._private.constants import CLOUDTIK_DEFAULT_OBJECT_STORE_MEMORY_PROPORTION, \
-    CLOUDTIK_KUBERNETES_SSH_DEFAULT_PORT
+from cloudtik.core._private.constants import CLOUDTIK_DEFAULT_OBJECT_STORE_MEMORY_PROPORTION, CLOUDTIK_SSH_DEFAULT_PORT
 from cloudtik.providers._private._kubernetes.utils import _get_node_info, to_label_selector, \
     KUBERNETES_WORKSPACE_NAME_MAX, check_kubernetes_name_format, _get_head_service_account_name, \
     _get_worker_service_account_name, KUBERNETES_HEAD_SERVICE_ACCOUNT_CONFIG_KEY, \
@@ -75,12 +74,14 @@ KUBERNETES_WORKSPACE_TARGET_RESOURCES = 5
 KUBERNETES_RESOURCE_OP_MAX_POLLS = 12
 KUBERNETES_RESOURCE_OP_POLL_INTERVAL = 5
 
-KUBERNETES_CONTAINER_SSH_PORT_SPEC = {'containerPort': 22, 'name': 'cloudtik-ssh'}
+KUBERNETES_SSH_DEFAULT_PORT = 9999
+
+KUBERNETES_CONTAINER_SSH_PORT_SPEC = {'containerPort': CLOUDTIK_SSH_DEFAULT_PORT, 'name': 'cloudtik-ssh'}
 
 KUBERNETES_HEAD_EXTERNAL_SERVICE_SSH_PORT_SPEC = {
     "name": "cloudtik-ssh-port",
     "protocol": "TCP",
-    "port": CLOUDTIK_KUBERNETES_SSH_DEFAULT_PORT,
+    "port": KUBERNETES_SSH_DEFAULT_PORT,
     "targetPort": "cloudtik-ssh"
 }
 
@@ -467,12 +468,12 @@ def configure_for_ssh(config):
     ssh_private_key = auth_config.get("ssh_private_key", None)
     ssh_public_key = auth_config.get("ssh_public_key", None)
     if not auth_config.get("ssh_port", None):
-        auth_config["ssh_port"] = CLOUDTIK_KUBERNETES_SSH_DEFAULT_PORT
+        auth_config["ssh_port"] = KUBERNETES_SSH_DEFAULT_PORT
     if ssh_public_key and ssh_private_key:
         return
     else:
         key_pair_file_path = get_key_pair_path_for_kubernetes(config)
-        private_key_generation_cmd = f"test -e {key_pair_file_path}||ssh-keygen -t rsa -q -N '' -m PEM -f {key_pair_file_path}"
+        private_key_generation_cmd = f"test -e {key_pair_file_path} || ssh-keygen -t rsa -q -N '' -m PEM -f {key_pair_file_path}"
         os.system(private_key_generation_cmd)
         auth_config["ssh_private_key"] = key_pair_file_path
         auth_config["ssh_public_key"] = f"{key_pair_file_path}.pub"
@@ -1056,7 +1057,7 @@ def _configure_head_external_service_ports(config):
 
     service = provider_config[service_field]
     ssh_port = copy.deepcopy(KUBERNETES_HEAD_EXTERNAL_SERVICE_SSH_PORT_SPEC)
-    ssh_port["port"] = config["auth"].get("ssh_port", CLOUDTIK_KUBERNETES_SSH_DEFAULT_PORT)
+    ssh_port["port"] = config["auth"].get("ssh_port", KUBERNETES_SSH_DEFAULT_PORT)
     service["spec"]["ports"] = [ssh_port]
 
 

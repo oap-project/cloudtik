@@ -41,10 +41,10 @@ function install_presto() {
     export PRESTO_HOME=$RUNTIME_PATH/presto
 
     if [ ! -d "${PRESTO_HOME}" ]; then
-        (cd $RUNTIME_PATH && wget -q --show-progress https://repo1.maven.org/maven2/com/facebook/presto/presto-server/${PRESTO_VERSION}/presto-server-${PRESTO_VERSION}.tar.gz && \
-            tar -zxf presto-server-${PRESTO_VERSION}.tar.gz && \
-            mv presto-server-${PRESTO_VERSION} presto && \
-            rm presto-server-${PRESTO_VERSION}.tar.gz)
+        (cd $RUNTIME_PATH && wget -q --show-progress https://repo1.maven.org/maven2/com/facebook/presto/presto-server/${PRESTO_VERSION}/presto-server-${PRESTO_VERSION}.tar.gz -O presto-server.tar.gz && \
+            mkdir -p "$PRESTO_HOME" && \
+            tar --extract --file presto-server.tar.gz --directory "$PRESTO_HOME" --strip-components 1 --no-same-owner && \
+            rm presto-server.tar.gz)
 
         if [ $IS_HEAD_NODE == "true" ]; then
             # Download presto cli on head

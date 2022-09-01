@@ -23,7 +23,10 @@ import psutil
 
 import cloudtik.core._private.constants as constants
 import cloudtik.core._private.utils as utils
+from cloudtik.core._private import core_utils
 from cloudtik.core import tags
+from cloudtik.core._private.core_utils import detect_fate_sharing_support, set_kill_on_parent_death_linux, \
+    set_kill_child_on_death_win32
 from cloudtik.core._private.state.control_state import ControlState
 
 resource = None
@@ -120,7 +123,7 @@ class ConsolePopen(subprocess.Popen):
             # https://docs.python.org/3/library/subprocess.html#subprocess.Popen.send_signal
             new_pgroup = subprocess.CREATE_NEW_PROCESS_GROUP
             flags_to_add = 0
-            if utils.detect_fate_sharing_support():
+            if detect_fate_sharing_support():
                 # If we don't have kernel-mode fate-sharing, then don't do this
                 # because our children need to be in out process group for
                 # the process reaper to properly terminate them.
@@ -529,7 +532,7 @@ def start_cloudtik_process(command,
         command = ["tmux", "new-session", "-d", f"{' '.join(command)}"]
 
     if fate_share:
-        assert utils.detect_fate_sharing_support(), (
+        assert detect_fate_sharing_support(), (
             "kernel-level fate-sharing must only be specified if "
             "detect_fate_sharing_support() has returned True")
 
@@ -537,7 +540,7 @@ def start_cloudtik_process(command,
         import signal
         signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGINT})
         if fate_share and sys.platform.startswith("linux"):
-            utils.set_kill_on_parent_death_linux()
+            set_kill_on_parent_death_linux()
 
     win32_fate_sharing = fate_share and sys.platform == "win32"
     # With Windows fate-sharing, we need special care:
@@ -568,7 +571,7 @@ def start_cloudtik_process(command,
 
     if win32_fate_sharing:
         try:
-            utils.set_kill_child_on_death_win32(process)
+            set_kill_child_on_death_win32(process)
             psutil.Process(process.pid).resume()
         except (psutil.Error, OSError):
             process.kill()
@@ -700,7 +703,7 @@ def check_version_info(redis_client):
         return
 
     true_version_info = tuple(
-        json.loads(utils.decode(redis_reply)))
+        json.loads(core_utils.decode(redis_reply)))
     version_info = _compute_version_info()
     if version_info != true_version_info:
         node_ip_address = get_node_ip_address()

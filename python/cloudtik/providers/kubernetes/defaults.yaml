@@ -7,10 +7,12 @@ from: defaults
 docker:
     enabled: False
 
+auth:
+    ssh_user: cloudtik
+
 provider:
     type: kubernetes
 
-    # Exposing external IP addresses for pods isn't currently supported.
     use_internal_ips: true
 
     # Namespace to use for all resources created.
@@ -64,6 +66,18 @@ provider:
         kind: ServiceAccount
         metadata:
           name: cloudtik-worker-service-account
+
+    head_external_service:
+        # Service that maps to the head node of the cluster.
+        apiVersion: v1
+        kind: Service
+        metadata:
+            name: cloudtik-{}-external
+        spec:
+            type: LoadBalancer
+            # This selector must match the head node pod's selector below.
+            selector:
+                component: cloudtik-{}-head
 
     head_service:
         # Service that maps to the head node of the cluster.

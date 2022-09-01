@@ -261,8 +261,6 @@ class KubernetesCommandExecutor(CommandExecutor):
                 self.log_prefix +
                 "rsync failed: '{}'. Falling back to 'kubectl cp'".format(e),
                 UserWarning)
-            if target.startswith("~"):
-                target = self._home + target[1:]
 
             self.process_runner.check_call(self.kubectl + [
                 "cp", source, "{}/{}:{}".format(self.namespace, self.node_id,
@@ -286,8 +284,6 @@ class KubernetesCommandExecutor(CommandExecutor):
                 self.log_prefix +
                 "rsync failed: '{}'. Falling back to 'kubectl cp'".format(e),
                 UserWarning)
-            if target.startswith("~"):
-                target = self._home + target[1:]
 
             self.process_runner.check_call(self.kubectl + [
                 "cp", "{}/{}:{}".format(self.namespace, self.node_id, source),

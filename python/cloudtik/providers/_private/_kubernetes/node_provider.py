@@ -7,6 +7,7 @@ from uuid import uuid4
 from kubernetes.client.rest import ApiException
 
 from cloudtik.core._private.call_context import CallContext
+from cloudtik.core._private.utils import is_use_internal_ip, _is_use_internal_ip
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.tags import NODE_KIND_HEAD
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME
@@ -19,8 +20,9 @@ from cloudtik.providers._private._kubernetes import core_api, log_prefix, \
 from cloudtik.providers._private._kubernetes.config import bootstrap_kubernetes, \
     post_prepare_kubernetes, _add_service_name_to_service_port, head_service_selector, \
     bootstrap_kubernetes_for_api, cleanup_kubernetes_cluster, with_kubernetes_environment_variables, get_head_hostname, \
-    get_worker_hostname
-from cloudtik.providers._private._kubernetes.utils import _get_node_info, to_label_selector, \
+    get_worker_hostname, prepare_kubernetes_config, get_head_external_service_address, _get_node_info, \
+    _get_node_public_ip
+from cloudtik.providers._private._kubernetes.utils import to_label_selector, \
     create_and_configure_pvc_for_pod, delete_persistent_volume_claims, get_pod_persistent_volume_claims, \
     delete_persistent_volume_claims_by_name
 from cloudtik.providers._private.utils import validate_config_dict
@@ -68,7 +70,7 @@ class KubernetesNodeProvider(NodeProvider):
 
     def get_node_info(self, node_id):
         pod = core_api().read_namespaced_pod(node_id, self.namespace)
-        return _get_node_info(pod)
+        return _get_node_info(pod, self.provider_config, self.namespace, self.cluster_name)
 
     def is_running(self, node_id):
         pod = core_api().read_namespaced_pod(node_id, self.namespace)
@@ -83,7 +85,13 @@ class KubernetesNodeProvider(NodeProvider):
         return pod.metadata.labels
 
     def external_ip(self, node_id):
-        raise NotImplementedError("Must use internal IPs with Kubernetes.")
+        if _is_use_internal_ip(self.provider_config):
+            return None
+        # For kubernetes, this is not really the external IP of a node,
+        # but the external address of the service connected to the head node
+        # check node is head
+        tags = self.node_tags(node_id)
+        return _get_node_public_ip(tags, self.namespace, self.cluster_name)
 
     def internal_ip(self, node_id):
         pod = core_api().read_namespaced_pod(node_id, self.namespace)
@@ -229,6 +237,15 @@ class KubernetesNodeProvider(NodeProvider):
         return KubernetesCommandExecutor(call_context, log_prefix, self.namespace,
                                          node_id, auth_config, process_runner)
 
+    def prepare_for_head_node(
+            self, cluster_config: Dict[str, Any], remote_config: Dict[str, Any]) -> Dict[str, Any]:
+        # rsync ssh_public_key to head node authorized_keys,
+        if not is_use_internal_ip(cluster_config):
+            cluster_config["file_mounts"].update({
+                "~/.ssh/authorized_keys": cluster_config["auth"]["ssh_public_key"]
+            })
+        return remote_config
+
     @staticmethod
     def bootstrap_config(cluster_config):
         return bootstrap_kubernetes(cluster_config)
@@ -240,6 +257,11 @@ class KubernetesNodeProvider(NodeProvider):
     @staticmethod
     def bootstrap_config_for_api(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         return bootstrap_kubernetes_for_api(cluster_config)
+
+    @staticmethod
+    def prepare_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+        return prepare_kubernetes_config(cluster_config)
+
 
     @staticmethod
     def post_prepare(cluster_config):

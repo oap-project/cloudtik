@@ -38,6 +38,9 @@ AWS_DEFAULT_IAM_ROLE = AWS_RESOURCE_NAME_PREFIX + "-v1"
 
 SECURITY_GROUP_TEMPLATE = AWS_RESOURCE_NAME_PREFIX + "-{}"
 
+AWS_WORKSPACE_VERSION_TAG_NAME = "cloudtik-workspace-version"
+AWS_WORKSPACE_VERSION_CURRENT = "1"
+
 DEFAULT_AMI_NAME = "Ubuntu Server 20.04 LTS (HVM), SSD Volume Type"
 
 # Obtained from https://aws.amazon.com/marketplace/pp/B07Y43P7X5 on 8/4/2020.
@@ -331,67 +334,79 @@ def log_to_cli(config: Dict[str, Any]) -> None:
 
 
 def get_workspace_vpc_id(workspace_name, ec2_client):
+    vpc = describe_workspace_vpc(workspace_name, ec2_client)
+    if vpc is None:
+        return None
+
+    return vpc["VpcId"]
+
+
+def get_workspace_vpc(workspace_name, ec2_client, ec2):
+    vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
+    if vpc_id is None:
+        return None
+    return ec2.Vpc(vpc_id)
+
+
+def describe_workspace_vpc(workspace_name, ec2_client):
     vpcs = [vpc for vpc in ec2_client.describe_vpcs()["Vpcs"] if not vpc.get("Tags") is None]
-    vpc_ids = [vpc["VpcId"] for vpc in vpcs
+    workspace_vpcs = [vpc for vpc in vpcs
              for tag in vpc["Tags"]
                 if tag['Key'] == 'Name' and tag['Value'] == 'cloudtik-{}-vpc'.format(workspace_name)]
 
-    if len(vpc_ids) == 0:
+    if len(workspace_vpcs) == 0:
         return None
-    elif len(vpc_ids) == 1:
-        return vpc_ids[0]
+    elif len(workspace_vpcs) == 1:
+        return workspace_vpcs[0]
     else:
-        cli_logger.abort("The workspace {} should not have more than one VPC!".format(workspace_name))
-        return None
+        raise RuntimeError("The workspace {} should not have more than one VPC.".format(workspace_name))
 
 
 def get_workspace_private_subnets(workspace_name, ec2, vpc_id):
-    vpc_resource = ec2.Vpc(vpc_id)
-    subnets = [subnet for subnet in vpc_resource.subnets.all() if subnet.tags]
-
-    workspace_private_subnets = [subnet for subnet in subnets
-                        for tag in subnet.tags
-                            if tag['Key'] == 'Name' and tag['Value'].startswith(
-                        "cloudtik-{}-private-subnet".format(workspace_name))]
-
-    return workspace_private_subnets
+    vpc = ec2.Vpc(vpc_id)
+    return _get_workspace_private_subnets(workspace_name, vpc)
 
 
 def get_workspace_public_subnets(workspace_name, ec2, vpc_id):
-    vpc_resource = ec2.Vpc(vpc_id)
-    subnets = [subnet for subnet in vpc_resource.subnets.all() if subnet.tags]
+    vpc = ec2.Vpc(vpc_id)
+    return _get_workspace_public_subnets(workspace_name, vpc)
 
-    workspace_public_subnets = [subnet for subnet in subnets
-                                for tag in subnet.tags
-                                    if tag['Key'] == 'Name' and tag['Value'].startswith(
-            "cloudtik-{}-public-subnet".format(workspace_name))]
 
-    return workspace_public_subnets
+def _get_workspace_private_subnets(workspace_name, vpc):
+    return _get_workspace_subnets(workspace_name, vpc, "cloudtik-{}-private-subnet")
+
+
+def _get_workspace_public_subnets(workspace_name, vpc):
+    return _get_workspace_subnets(workspace_name, vpc, "cloudtik-{}-public-subnet")
+
+
+def _get_workspace_subnets(workspace_name, vpc, name_pattern):
+    subnets = [subnet for subnet in vpc.subnets.all() if subnet.tags]
+    workspace_subnets = [subnet for subnet in subnets
+                                 for tag in subnet.tags
+                                 if tag['Key'] == 'Name' and tag['Value'].startswith(
+                                    name_pattern.format(workspace_name))]
+    return workspace_subnets
 
 
 def get_workspace_nat_gateways(workspace_name, ec2_client, vpc_id):
-    nat_gateways = [nat for nat in ec2_client.describe_nat_gateways()['NatGateways']
-                    if nat["VpcId"] == vpc_id and nat["State"] != 'deleted'
-                    and not nat.get("Tags") is None]
-
+    nat_gateways = [nat for nat in get_vpc_nat_gateways(ec2_client, vpc_id)
+                    if nat.get("Tags") is not None]
     workspace_nat_gateways = [nat for nat in nat_gateways
                               for tag in nat['Tags']
                               if tag['Key'] == 'Name' and tag['Value'] == "cloudtik-{}-nat-gateway".format(
                                 workspace_name)]
-
     return workspace_nat_gateways
 
 
 def get_vpc_nat_gateways(ec2_client, vpc_id):
-    nat_gateways = [nat for nat in ec2_client.describe_nat_gateways()['NatGateways']
-                    if nat["VpcId"] == vpc_id and nat["State"] != 'deleted']
-
-    return nat_gateways
+    return [nat for nat in ec2_client.describe_nat_gateways()['NatGateways']
+            if nat["VpcId"] == vpc_id and nat["State"] != 'deleted']
 
 
 def _get_workspace_route_table_ids(workspace_name, ec2, vpc_id):
-    vpc_resource = ec2.Vpc(vpc_id)
-    rtbs = [rtb for rtb in vpc_resource.route_tables.all() if rtb.tags]
+    vpc = ec2.Vpc(vpc_id)
+    rtbs = [rtb for rtb in vpc.route_tables.all() if rtb.tags]
 
     workspace_rtb_ids = [rtb.id for rtb in rtbs
                          for tag in rtb.tags
@@ -402,8 +417,8 @@ def _get_workspace_route_table_ids(workspace_name, ec2, vpc_id):
 
 
 def get_workspace_private_route_tables(workspace_name, ec2, vpc_id):
-    vpc_resource = ec2.Vpc(vpc_id)
-    rtbs = [rtb for rtb in vpc_resource.route_tables.all() if rtb.tags]
+    vpc = ec2.Vpc(vpc_id)
+    rtbs = [rtb for rtb in vpc.route_tables.all() if rtb.tags]
 
     workspace_private_rtbs = [rtb for rtb in rtbs
                               for tag in rtb.tags
@@ -414,8 +429,8 @@ def get_workspace_private_route_tables(workspace_name, ec2, vpc_id):
 
 
 def get_workspace_public_route_tables(workspace_name, ec2, vpc_id):
-    vpc_resource = ec2.Vpc(vpc_id)
-    rtbs = [rtb for rtb in vpc_resource.route_tables.all() if rtb.tags]
+    vpc = ec2.Vpc(vpc_id)
+    rtbs = [rtb for rtb in vpc.route_tables.all() if rtb.tags]
 
     workspace_public_rtbs = [rtb for rtb in rtbs
                              for tag in rtb.tags
@@ -430,8 +445,8 @@ def get_workspace_security_group(config, vpc_id, workspace_name):
 
 
 def get_workspace_internet_gateways(workspace_name, ec2, vpc_id):
-    vpc_resource = ec2.Vpc(vpc_id)
-    igws = [igw for igw in vpc_resource.internet_gateways.all() if igw.tags]
+    vpc = ec2.Vpc(vpc_id)
+    igws = [igw for igw in vpc.internet_gateways.all() if igw.tags]
 
     workspace_igws = [igw for igw in igws
                       for tag in igw.tags
@@ -442,10 +457,8 @@ def get_workspace_internet_gateways(workspace_name, ec2, vpc_id):
 
 
 def get_vpc_internet_gateways(ec2, vpc_id):
-    vpc_resource = ec2.Vpc(vpc_id)
-    igws = list(vpc_resource.internet_gateways.all())
-
-    return igws
+    vpc = ec2.Vpc(vpc_id)
+    return list(vpc.internet_gateways.all())
 
 
 def get_vpc_endpoint_for_s3(ec2_client, vpc_id, workspace_name):
@@ -1182,13 +1195,10 @@ def _configure_key_pair(config):
     # Try a few times to get or create a good key pair.
     MAX_NUM_KEYS = 30
     for i in range(MAX_NUM_KEYS):
-
         key_name = config["provider"].get("key_pair", {}).get("key_name")
-
         key_name, key_path = key_pair(i, config["provider"]["region"],
                                       key_name)
         key = _get_key(key_name, config)
-
         # Found a good key.
         if key and os.path.exists(key_path):
             break
@@ -1391,11 +1401,11 @@ def _delete_vpc(ec2, ec2_client, vpc_id):
         cli_logger.print("The VPC: {} doesn't exist.".format(vpc_id))
         return
 
-    vpc_resource = ec2.Vpc(vpc_id)
+    vpc = ec2.Vpc(vpc_id)
     try:
-        cli_logger.print("Deleting VPC: {}...".format(vpc_resource.id))
-        vpc_resource.delete()
-        cli_logger.print("Successfully deleted VPC: {}.".format(vpc_resource.id))
+        cli_logger.print("Deleting VPC: {}...".format(vpc.id))
+        vpc.delete()
+        cli_logger.print("Successfully deleted VPC: {}.".format(vpc.id))
     except Exception as e:
         cli_logger.error("Failed to delete VPC. {}", str(e))
         raise e
@@ -1432,6 +1442,10 @@ def _create_vpc(config, ec2, ec2_client):
                         {
                             'Key': 'Name',
                             'Value': 'cloudtik-{}-vpc'.format(config["workspace_name"])
+                        },
+                        {
+                            'Key': AWS_WORKSPACE_VERSION_TAG_NAME,
+                            'Value': AWS_WORKSPACE_VERSION_CURRENT
                         },
                     ]
                 },
@@ -1473,6 +1487,7 @@ def _next_availability_zone(availability_zones: set, used: set, last_availabilit
 
 
 def _create_and_configure_subnets(config, ec2_client, vpc):
+    workspace_name = config["workspace_name"]
     subnets = []
     cidr_list = _configure_subnets_cidr(vpc)
     cidr_len = len(cidr_list)
@@ -1490,13 +1505,13 @@ def _create_and_configure_subnets(config, ec2_client, vpc):
                 _numbered=("()", i + 1, cidr_len)):
             try:
                 if i == 0:
-                    subnet = _create_public_subnet(config, vpc, cidr_block)
+                    subnet = _create_public_subnet(workspace_name, vpc, cidr_block)
                     default_availability_zone = subnet.availability_zone
                 else:
                     if last_availability_zone is None:
                         last_availability_zone = default_availability_zone
 
-                    subnet = _create_private_subnet(config, vpc, cidr_block,
+                    subnet = _create_private_subnet(workspace_name, vpc, cidr_block,
                                                     last_availability_zone)
 
                     last_availability_zone = _next_availability_zone(
@@ -1512,9 +1527,9 @@ def _create_and_configure_subnets(config, ec2_client, vpc):
     return subnets
 
 
-def _create_public_subnet(config, vpc, cidr_block):
+def _create_public_subnet(workspace_name, vpc, cidr_block):
     cli_logger.print("Creating public subnet for VPC: {} with CIDR: {}...".format(vpc.id, cidr_block))
-    subnet_name = 'cloudtik-{}-public-subnet'.format(config["workspace_name"])
+    subnet_name = 'cloudtik-{}-public-subnet'.format(workspace_name)
     subnet = vpc.create_subnet(
         CidrBlock=cidr_block,
         TagSpecifications=[
@@ -1535,7 +1550,7 @@ def _create_public_subnet(config, vpc, cidr_block):
     return subnet
 
 
-def _create_private_subnet(config, vpc, cidr_block, availability_zone):
+def _create_private_subnet(workspace_name, vpc, cidr_block, availability_zone):
     if availability_zone is None:
         cli_logger.print("Creating private subnet for VPC: {} with CIDR: {}...".format(
             vpc.id, cidr_block))
@@ -1543,7 +1558,7 @@ def _create_private_subnet(config, vpc, cidr_block, availability_zone):
         cli_logger.print("Creating private subnet for VPC: {} with CIDR: {} in {}...".format(
             vpc.id, cidr_block, availability_zone))
 
-    subnet_name = 'cloudtik-{}-private-subnet'.format(config["workspace_name"])
+    subnet_name = 'cloudtik-{}-private-subnet'.format(workspace_name)
     tag_specs = [
             {
                 'ResourceType': 'subnet',
@@ -1597,10 +1612,15 @@ def _create_internet_gateway(config, ec2, ec2_client, vpc):
         try:
             cli_logger.print("Try to find the existing Internet Gateway...")
             igws = [igw for igw in vpc.internet_gateways.all()]
-            igw = igws[0]
-            cli_logger.print("Existing internet gateway found. Will use this one.")
         except Exception:
             raise e
+
+        if len(igws) > 0:
+            igw = igws[0]
+            cli_logger.print("Existing internet gateway found. Will use this one.")
+        else:
+            raise e
+
     return igw
 
 
@@ -1680,11 +1700,14 @@ def _create_nat_gateway(config, ec2_client, vpc, subnet):
         cli_logger.error("Failed to create NAT Gateway. {}", str(e))
         try:
             cli_logger.print("Try to find the existing NAT Gateway...")
-            nat_gws = [nat for nat in ec2_client.describe_nat_gateways()['NatGateways'] if nat["VpcId"] == vpc.id]
-            nat_gw = nat_gws[0]
-            cli_logger.print(
-                "Found an existing NAT Gateway. Will use this one")
+            nat_gws = get_vpc_nat_gateways(ec2_client, vpc.id)
         except Exception:
+            raise e
+
+        if len(nat_gws) > 0:
+            nat_gw = nat_gws[0]
+            cli_logger.print("Found an existing NAT Gateway. Will use this one")
+        else:
             raise e
 
     return nat_gw
@@ -1696,7 +1719,7 @@ def _create_vpc_endpoint_for_s3(config, ec2, ec2_client, vpc):
         region = config["provider"]["region"]
         route_table_ids = _get_workspace_route_table_ids(config["workspace_name"], ec2, vpc.id)
 
-        vpc_endpoint = ec2_client.create_vpc_endpoint(
+        ec2_client.create_vpc_endpoint(
             VpcEndpointType='Gateway',
             VpcId=vpc.id,
             ServiceName='com.amazonaws.{}.s3'.format(region),
@@ -1766,6 +1789,7 @@ def _create_route_table_for_private_subnets(config, ec2, vpc, subnets):
     private_route_tables = get_workspace_private_route_tables(config["workspace_name"], ec2, vpc.id)
     if len(private_route_tables) > 0:
         private_route_table = private_route_tables[0]
+        cli_logger.print("Found existing private subnet route table. Skip creation.")
     else:
         private_route_table = ec2.create_route_table(
             VpcId=vpc.id,
@@ -1781,7 +1805,7 @@ def _create_route_table_for_private_subnets(config, ec2, vpc, subnets):
                 },
             ]
         )
-    cli_logger.print("Successfully created private subnet route table: {}...".format(route_table_name))
+        cli_logger.print("Successfully created private subnet route table: {}...".format(route_table_name))
 
     for subnet in subnets:
         cli_logger.print("Updating private subnet route table: {}...".format(subnet.id))
@@ -1989,7 +2013,10 @@ def _configure_vpc(config, workspace_name, ec2, ec2_client):
         # No need to create new vpc
         vpc_id = get_current_vpc(config)
         vpc = ec2.Vpc(id=vpc_id)
-        vpc.create_tags(Tags=[{'Key': 'Name', 'Value': 'cloudtik-{}-vpc'.format(workspace_name)}])
+        vpc.create_tags(Tags=[
+            {'Key': 'Name', 'Value': 'cloudtik-{}-vpc'.format(workspace_name)},
+            {'Key': AWS_WORKSPACE_VERSION_TAG_NAME, 'Value': AWS_WORKSPACE_VERSION_CURRENT}
+        ])
     else:
 
         # Need to create a new vpc
@@ -2120,8 +2147,19 @@ def _configure_subnet_from_workspace(config):
     use_internal_ips = is_use_internal_ip(config)
 
     vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
-    public_subnet_ids = [public_subnet.id for public_subnet in get_workspace_public_subnets(workspace_name, ec2, vpc_id)]
-    private_subnet_ids = [private_subnet.id for private_subnet in get_workspace_private_subnets(workspace_name, ec2, vpc_id)]
+    public_subnets = get_workspace_public_subnets(workspace_name, ec2, vpc_id)
+    private_subnets = get_workspace_private_subnets(workspace_name, ec2, vpc_id)
+    public_subnet_ids = [public_subnet.id for public_subnet in public_subnets]
+    private_subnet_ids = [private_subnet.id for private_subnet in private_subnets]
+
+    # We need to make sure the first private subnet is the same availability zone with the first public subnet
+    if not use_internal_ips and len(public_subnet_ids) > 0:
+        availability_zone = public_subnets[0].availability_zone
+        for private_subnet in private_subnets:
+            if availability_zone == private_subnet.availability_zone:
+                private_subnet_ids.remove(private_subnet.id)
+                private_subnet_ids.insert(0, private_subnet.id)
+                break
 
     # map from node type key -> source of SubnetIds field
     subnet_src_info = {}

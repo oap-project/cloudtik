@@ -22,7 +22,7 @@ except ImportError:  # py2
 
 
 from cloudtik.core._private.utils import validate_workspace_config, prepare_workspace_config, is_managed_cloud_storage, \
-    print_dict_info
+    print_dict_info, decrypt_config, encrypt_config
 from cloudtik.core._private.providers import _get_workspace_provider_cls, _get_workspace_provider, \
     _WORKSPACE_PROVIDERS, _PROVIDER_PRETTY_NAMES, _get_node_provider_cls
 
@@ -90,13 +90,26 @@ def delete_workspace(
         delete_managed_storage: bool = False):
     """Destroys the workspace and associated Cloud resources."""
     config = _load_workspace_config(config_file, override_workspace_name)
+    _delete_workspace(config, yes, delete_managed_storage)
 
+
+def _delete_workspace(config: Dict[str, Any],
+                      yes: bool = False,
+                      delete_managed_storage: bool = False):
     workspace_name = config["workspace_name"]
     provider = _get_workspace_provider(config["provider"], workspace_name)
     existence = provider.check_workspace_existence(config)
     if existence == Existence.NOT_EXIST:
         raise RuntimeError(f"Workspace with the name {workspace_name} doesn't exist!")
     else:
+        running_clusters = provider.list_clusters(config)
+        if running_clusters is not None and len(running_clusters) > 0:
+            cluster_names = ",".join(list(running_clusters.keys()))
+            raise RuntimeError(
+                "Workspace {} has clusters ({}) in running. Please stop the clusters first.".format(
+                    workspace_name, cluster_names
+                ))
+
         managed_cloud_storage = is_managed_cloud_storage(config)
         if managed_cloud_storage:
             if delete_managed_storage:
@@ -107,13 +120,7 @@ def delete_workspace(
 
         cli_logger.confirm(yes, "Are you sure that you want to delete workspace {}?",
                            config["workspace_name"], _abort=True)
-        _delete_workspace(config, delete_managed_storage)
-
-
-def _delete_workspace(config: Dict[str, Any],
-                      delete_managed_storage: bool = False):
-    provider = _get_workspace_provider(config["provider"], config["workspace_name"])
-    provider.delete_workspace(config, delete_managed_storage)
+        provider.delete_workspace(config, delete_managed_storage)
 
 
 def create_workspace(
@@ -179,7 +186,10 @@ def create_workspace(
 
     config = _bootstrap_workspace_config(config,
                                          no_config_cache=no_config_cache)
+    _create_workspace(config, yes)
 
+
+def _create_workspace(config: Dict[str, Any], yes: bool = False):
     workspace_name = config["workspace_name"]
     provider = _get_workspace_provider(config["provider"], workspace_name)
     existence = provider.check_workspace_existence(config)
@@ -190,13 +200,7 @@ def create_workspace(
     else:
         cli_logger.confirm(yes, "Are you sure that you want to create workspace {}?",
                            config["workspace_name"], _abort=True)
-        _create_workspace(config)
-
-
-def _create_workspace(config: Dict[str, Any]):
-    workspace_name = config["workspace_name"]
-    provider = _get_workspace_provider(config["provider"], workspace_name)
-    provider.create_workspace(config)
+        provider.create_workspace(config)
 
 
 def list_workspace_clusters(
@@ -346,12 +350,13 @@ def _bootstrap_workspace_config(config: Dict[str, Any],
 
     if os.path.exists(cache_key) and not no_config_cache:
         config_cache = json.loads(open(cache_key).read())
-        if config_cache.get("_version", -1) == CONFIG_CACHE_VERSION :
+        if config_cache.get("_version", -1) == CONFIG_CACHE_VERSION:
             # todo: is it fine to re-resolve? afaik it should be.
             # we can have migrations otherwise or something
             # but this seems overcomplicated given that resolving is
             # relatively cheap
-            try_reload_log_state(config_cache["config"]["provider"],
+            cached_config = decrypt_config(config_cache["config"])
+            try_reload_log_state(cached_config["provider"],
                                  config_cache.get("provider_log_info"))
             if log_once("_printed_cached_config_warning"):
                 cli_logger.verbose_warning(
@@ -361,7 +366,7 @@ def _bootstrap_workspace_config(config: Dict[str, Any],
                     "If you experience issues with "
                     "the cloud provider, try re-running "
                     "the command with {}.", cf.bold("--no-config-cache"))
-            return config_cache["config"]
+            return cached_config
         else:
             cli_logger.warning(
                 "Found cached workspace config "
@@ -389,11 +394,12 @@ def _bootstrap_workspace_config(config: Dict[str, Any],
 
     if not no_config_cache:
         with open(cache_key, "w", opener=partial(os.open, mode=0o600)) as f:
+            encrypted_config = encrypt_config(resolved_config)
             config_cache = {
                 "_version": CONFIG_CACHE_VERSION,
                 "provider_log_info": try_get_log_state(
                     resolved_config["provider"]),
-                "config": resolved_config
+                "config": encrypted_config
             }
             f.write(json.dumps(config_cache))
     return resolved_config

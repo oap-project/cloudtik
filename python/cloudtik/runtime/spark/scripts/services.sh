@@ -5,6 +5,11 @@ if [ ! -n "${HADOOP_HOME}" ]; then
     exit 1
 fi
 
+if [ ! -n "${SPARK_HOME}" ]; then
+    echo "SPARK_HOME environment variable is not set."
+    exit 1
+fi
+
 case "$1" in
 start-head)
     echo "Starting Resource Manager..."

@@ -135,16 +135,16 @@ def exec(cmd, node_ip, all_nodes, run_env, screen, tmux, port_forward, with_outp
     "--cpus",
     required=False,
     type=int,
-    help="Specify the number of cpus of the cluster.")
+    help="Specify the number of worker cpus of the cluster.")
 @click.option(
-    "--nodes",
+    "--workers",
     required=False,
     type=int,
-    help="Specify the number of nodes of the cluster.")
+    help="Specify the number of workers of the cluster.")
 @add_click_logging_options
-def scale(yes, cpus, nodes):
+def scale(yes, cpus, workers):
     """Scale the cluster with a specific number cpus or nodes."""
-    scale_cluster_on_head(yes, cpus, nodes)
+    scale_cluster_on_head(yes, cpus, workers)
 
 
 @head.command()
@@ -283,6 +283,12 @@ def monitor(lines, file_type):
 
 @head.command()
 @click.option(
+    "--yes",
+    "-y",
+    is_flag=True,
+    default=False,
+    help="Don't ask for confirmation.")
+@click.option(
     "--keep-min-workers",
     is_flag=True,
     default=False,
@@ -300,13 +306,13 @@ def monitor(lines, file_type):
     hidden=True,
     help="The indent level for showing messages during this command.")
 @add_click_logging_options
-def teardown(keep_min_workers, hard, indent_level):
+def teardown(yes, keep_min_workers, hard, indent_level):
     """Tear down a cluster."""
     if indent_level is not None:
         with cli_logger.indented_by(indent_level):
-            teardown_cluster_on_head(keep_min_workers, hard=hard)
+            teardown_cluster_on_head(yes, keep_min_workers, hard=hard)
     else:
-        teardown_cluster_on_head(keep_min_workers, hard=hard)
+        teardown_cluster_on_head(yes, keep_min_workers, hard=hard)
 
 
 @head.command()
@@ -411,6 +417,8 @@ def debug_status(address, redis_password):
 @add_click_logging_options
 def process_status(address, redis_password):
     """Show cluster process status."""
+    if not address:
+        address = services.get_address_to_use_or_die()
     cluster_process_status_on_head(
         address, redis_password)
 

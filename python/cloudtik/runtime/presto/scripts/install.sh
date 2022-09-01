@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Current bin directory
+BIN_DIR=`dirname "$0"`
+ROOT_DIR="$(dirname "$(dirname "$BIN_DIR")")"
+
 args=$(getopt -a -o h::p: -l head:: -- "$@")
 eval set -- "${args}"
 
@@ -25,20 +29,8 @@ export USER_HOME=/home/$(whoami)
 export RUNTIME_PATH=$USER_HOME/runtime
 mkdir -p $RUNTIME_PATH
 
-function install_jdk() {
-    # install JDK
-    export JAVA_HOME=$RUNTIME_PATH/jdk
-
-    if [ ! -d "${JAVA_HOME}" ]; then
-      (cd $RUNTIME_PATH && wget -q --show-progress https://devops.egov.org.in/Downloads/jdk/jdk-8u192-linux-x64.tar.gz  && \
-          gunzip jdk-8u192-linux-x64.tar.gz && \
-          tar -xf jdk-8u192-linux-x64.tar && \
-          rm jdk-8u192-linux-x64.tar && \
-          mv jdk1.8.0_192 jdk)
-      echo "export JAVA_HOME=$JAVA_HOME">> ${USER_HOME}/.bashrc
-      echo "export PATH=\$JAVA_HOME/bin:\$PATH" >> ${USER_HOME}/.bashrc
-    fi
-}
+# JDK install function
+. "$ROOT_DIR"/common/scripts/jdk-install.sh
 
 function install_tools() {
     which uuid > /dev/null || sudo apt-get -qq update -y; sudo apt-get -qq install uuid -y
@@ -49,10 +41,10 @@ function install_presto() {
     export PRESTO_HOME=$RUNTIME_PATH/presto
 
     if [ ! -d "${PRESTO_HOME}" ]; then
-        (cd $RUNTIME_PATH && wget -q --show-progress https://repo1.maven.org/maven2/com/facebook/presto/presto-server/${PRESTO_VERSION}/presto-server-${PRESTO_VERSION}.tar.gz && \
-            tar -zxf presto-server-${PRESTO_VERSION}.tar.gz && \
-            mv presto-server-${PRESTO_VERSION} presto && \
-            rm presto-server-${PRESTO_VERSION}.tar.gz)
+        (cd $RUNTIME_PATH && wget -q --show-progress https://repo1.maven.org/maven2/com/facebook/presto/presto-server/${PRESTO_VERSION}/presto-server-${PRESTO_VERSION}.tar.gz -O presto-server.tar.gz && \
+            mkdir -p "$PRESTO_HOME" && \
+            tar --extract --file presto-server.tar.gz --directory "$PRESTO_HOME" --strip-components 1 --no-same-owner && \
+            rm presto-server.tar.gz)
 
         if [ $IS_HEAD_NODE == "true" ]; then
             # Download presto cli on head

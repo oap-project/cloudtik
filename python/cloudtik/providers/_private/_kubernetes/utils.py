@@ -19,6 +19,9 @@ KUBERNETES_WORKER_SERVICE_ACCOUNT_NAME = "cloudtik-worker-service-account"
 KUBERNETES_HEAD_SERVICE_ACCOUNT_CONFIG_KEY = "head_service_account"
 KUBERNETES_WORKER_SERVICE_ACCOUNT_CONFIG_KEY = "worker_service_account"
 
+KUBERNETES_HEAD_SERVICE_CONFIG_KEY = "head_service"
+KUBERNETES_HEAD_EXTERNAL_SERVICE_CONFIG_KEY = "head_external_service"
+KUBERNETES_NODE_SERVICE_CONFIG_KEY = "node_service"
 
 logger = logging.getLogger(__name__)
 
@@ -62,32 +65,12 @@ def get_instance_type_for_pod(pod):
     return instance_type
 
 
-def _get_node_info(pod):
-    instance_type = get_instance_type_for_pod(pod)
-    node_info = {"node_id": pod.metadata.name,
-                 "instance_type": instance_type,
-                 "private_ip": pod.status.pod_ip,
-                 "public_ip": None,
-                 "instance_status": pod.status.phase}
-    node_info.update(pod.metadata.labels)
-
-    return node_info
-
-
 def _get_head_service_account_name(provider_config):
-    account_field = KUBERNETES_HEAD_SERVICE_ACCOUNT_CONFIG_KEY
-    name = provider_config.get(account_field, {}).get("metadata", {}).get("name")
-    if name is None or name == "":
-        return KUBERNETES_HEAD_SERVICE_ACCOUNT_NAME
-    return name
+    return KUBERNETES_HEAD_SERVICE_ACCOUNT_NAME
 
 
 def _get_worker_service_account_name(provider_config):
-    account_field = KUBERNETES_WORKER_SERVICE_ACCOUNT_CONFIG_KEY
-    name = provider_config.get(account_field, {}).get("metadata", {}).get("name")
-    if name is None or name == "":
-        return KUBERNETES_WORKER_SERVICE_ACCOUNT_NAME
-    return name
+    return KUBERNETES_WORKER_SERVICE_ACCOUNT_NAME
 
 
 def _get_service_account(namespace, name):
@@ -234,3 +217,9 @@ def cleanup_orphan_pvcs(cluster_name, namespace):
         namespace,
         label_selector=label_selector)
     delete_persistent_volume_claims(pvc_list.items, namespace)
+
+
+def get_key_pair_path_for_kubernetes(config):
+    key_pair_file_path = "~/.ssh/cloudtik_kubernetes_{}_{}.pem".format(config["provider"]["cloud_provider"]["type"],
+                                                                  config["cluster_name"])
+    return key_pair_file_path

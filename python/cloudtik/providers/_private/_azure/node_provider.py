@@ -307,13 +307,13 @@ class AzureNodeProvider(NodeProvider):
         return bootstrap_azure_for_api(cluster_config)
 
     def prepare_for_head_node(
-            self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+            self, cluster_config: Dict[str, Any], remote_config: Dict[str, Any]) -> Dict[str, Any]:
         """Returns a new cluster config with custom configs for head node."""
-        managed_identity_client_id = self._get_managed_identity_client_id(cluster_config)
+        managed_identity_client_id = self._get_managed_identity_client_id(remote_config)
         if managed_identity_client_id:
-            cluster_config["provider"]["managed_identity_client_id"] = managed_identity_client_id
+            remote_config["provider"]["managed_identity_client_id"] = managed_identity_client_id
 
-        return cluster_config
+        return remote_config
 
     @staticmethod
     def post_prepare(

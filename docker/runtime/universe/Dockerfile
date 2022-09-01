@@ -35,20 +35,20 @@ RUN sudo apt-get update -y \
     && sudo rm -rf /var/lib/apt/lists/* \
     && sudo apt-get clean
 
-RUN wget https://downloads.apache.org/zookeeper/zookeeper-${ZOOKEEPER_VERSION}/apache-zookeeper-${ZOOKEEPER_VERSION}-bin.tar.gz -O zookeeper-${ZOOKEEPER_VERSION}.tar.gz \
-    && tar -zxf zookeeper-${ZOOKEEPER_VERSION}.tar.gz \
-    && mv apache-zookeeper-${ZOOKEEPER_VERSION}-bin zookeeper \
-    && rm zookeeper-${ZOOKEEPER_VERSION}.tar.gz \
+RUN wget https://downloads.apache.org/zookeeper/zookeeper-${ZOOKEEPER_VERSION}/apache-zookeeper-${ZOOKEEPER_VERSION}-bin.tar.gz -O zookeeper-${ZOOKEEPER_VERSION}.tar.gz -O zookeeper.tar.gz \
+    && mkdir -p "$ZOOKEEPER_HOME" \
+    && tar --extract --file zookeeper.tar.gz --directory "$ZOOKEEPER_HOME" --strip-components 1 --no-same-owner \
+    && rm zookeeper.tar.gz \
     # Install Kafka
-    && wget https://downloads.apache.org/kafka/${KAFKA_VERSION}/kafka_${KAFKA_SCALA_VERSION}-${KAFKA_VERSION}.tgz -O kafka-${KAFKA_VERSION}.tgz \
-    && tar -zxf kafka-${KAFKA_VERSION}.tgz \
-    && mv kafka_${KAFKA_SCALA_VERSION}-${KAFKA_VERSION} kafka \
-    && rm kafka-${KAFKA_VERSION}.tgz \
+    && wget https://downloads.apache.org/kafka/${KAFKA_VERSION}/kafka_${KAFKA_SCALA_VERSION}-${KAFKA_VERSION}.tgz -O kafka.tgz \
+    && mkdir -p "$KAFKA_HOME" \
+    && tar --extract --file kafka.tgz --directory "$KAFKA_HOME" --strip-components 1 --no-same-owner \
+    && rm kafka.tgz \
     # Install Presto
-    && wget https://repo1.maven.org/maven2/com/facebook/presto/presto-server/${PRESTO_VERSION}/presto-server-${PRESTO_VERSION}.tar.gz \
-    && tar -zxf presto-server-${PRESTO_VERSION}.tar.gz \
-    && mv presto-server-${PRESTO_VERSION} presto \
-    && rm presto-server-${PRESTO_VERSION}.tar.gz \
+    && wget https://repo1.maven.org/maven2/com/facebook/presto/presto-server/${PRESTO_VERSION}/presto-server-${PRESTO_VERSION}.tar.gz -O presto-server.tar.gz \
+    && mkdir -p "$PRESTO_HOME" \
+    && tar --extract --file presto-server.tar.gz --directory "$PRESTO_HOME" --strip-components 1 --no-same-owner \
+    && rm presto-server.tar.gz \
     && wget https://repo1.maven.org/maven2/com/facebook/presto/presto-cli/${PRESTO_VERSION}/presto-cli-${PRESTO_VERSION}-executable.jar \
     && mv presto-cli-${PRESTO_VERSION}-executable.jar $PRESTO_HOME/bin/presto \
     && chmod +x $PRESTO_HOME/bin/presto

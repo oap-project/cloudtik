@@ -5,9 +5,9 @@ import re
 import subprocess
 import sys
 
-import cloudtik.core._private.utils as utils
 import cloudtik.core._private.constants as constants
-import cloudtik.core._private.services as services
+from cloudtik.core._private.core_utils import get_num_cpus, get_cuda_visible_devices, get_system_memory, \
+    estimate_available_memory
 
 logger = logging.getLogger(__name__)
 
@@ -113,10 +113,10 @@ class ResourceSpec(
 
         num_cpus = self.num_cpus
         if num_cpus is None:
-            num_cpus = utils.get_num_cpus()
+            num_cpus = get_num_cpus()
 
         num_gpus = self.num_gpus
-        gpu_ids = utils.get_cuda_visible_devices()
+        gpu_ids = get_cuda_visible_devices()
         # Check that the number of GPUs that the node wants doesn't
         # exceed the amount allowed by CUDA_VISIBLE_DEVICES.
         if (num_gpus is not None and gpu_ids is not None
@@ -139,8 +139,8 @@ class ResourceSpec(
             logger.exception("Could not parse gpu information.")
 
         # Choose a default object store size.
-        system_memory = utils.get_system_memory()
-        avail_memory = utils.estimate_available_memory()
+        system_memory = get_system_memory()
+        avail_memory = estimate_available_memory()
 
         redis_max_memory = self.redis_max_memory
         if redis_max_memory is None:

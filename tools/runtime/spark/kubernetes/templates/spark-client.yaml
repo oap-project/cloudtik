@@ -6,7 +6,7 @@ metadata:
   labels:
     app: spark-client
 spec:
-  serviceAccountName: $SPARK_SERVICE_ACCOUNT
+  serviceAccountName: $SPARK_DRIVER_SERVICE_ACCOUNT
   containers:
   - name: spark-client-container
     imagePullPolicy: IfNotPresent

@@ -143,10 +143,7 @@ RUN set -ex && \
     rm -rf /var/cache/apt/* && \
     chmod g+w ${HOME} && \
     mkdir -p ${HOME}/logs && \
-    chmod g+w ${HOME}/logs && \
-    mkdir -p ${HOME}/work && \
-    chmod g+w ${HOME}/work && \
-    chmod a+x ${HOME}/decom.sh
+    chmod g+w ${HOME}/logs
 
 ENV SPARK_LOG_DIR   ${HOME}/logs
 ENV SPARK_CONF_DIR  ${HOME}/conf
@@ -156,7 +153,14 @@ COPY  spark-sql.sh ${HOME}/spark-sql.sh
 COPY  spark-shell.sh ${HOME}/spark-shell.sh
 COPY  spark-submit.sh ${HOME}/spark-submit.sh
 
-WORKDIR ${HOME}/work
+RUN chmod a+x ${HOME}/entrypoint.sh && \
+    chmod a+x ${HOME}/decom.sh && \
+    chmod a+x ${HOME}/entrypoint-nop.sh && \
+    chmod a+x ${HOME}/spark-sql.sh && \
+    chmod a+x ${HOME}/spark-shell.sh && \
+    chmod a+x ${HOME}/spark-submit.sh && \
+
+WORKDIR ${HOME}
 
 ENTRYPOINT [ "/opt/entrypoint.sh" ]
 

@@ -20,17 +20,17 @@ WORK_DIR="$(dirname "$0")"
 case "$1" in
   start)
     shift 1
-    sh ${WORK_DIR}/spark-client.sh start "$@"
+    bash ${WORK_DIR}/spark-client.sh start "$@"
     ;;
   stop)
     shift 1
-    sh ${WORK_DIR}/spark-client.sh stop "$@"
+    bash ${WORK_DIR}/spark-client.sh stop "$@"
     ;;
   -h|--help)
     shift 1 # past argument
-    sh ${WORK_DIR}/spark-client.sh --help "$@"
+    bash ${WORK_DIR}/spark-client.sh --help "$@"
     ;;
   *)
-    kubectl exec --stdin --tty spark-client -- /bin/bash ./spark-shell.sh "$@"
+    kubectl exec --stdin --tty spark-client -- /bin/bash /opt/spark-shell.sh "$@"
     ;;
 esac

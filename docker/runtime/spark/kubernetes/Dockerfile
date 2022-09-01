@@ -158,7 +158,7 @@ RUN chmod a+x ${HOME}/entrypoint.sh && \
     chmod a+x ${HOME}/entrypoint-nop.sh && \
     chmod a+x ${HOME}/spark-sql.sh && \
     chmod a+x ${HOME}/spark-shell.sh && \
-    chmod a+x ${HOME}/spark-submit.sh && \
+    chmod a+x ${HOME}/spark-submit.sh
 
 WORKDIR ${HOME}
 

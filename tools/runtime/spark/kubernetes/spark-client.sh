@@ -16,6 +16,20 @@
 # limitations under the License.
 #
 
+ACTION=exec
+case "$1" in
+  start|stop|exec)
+    ACTION=$1
+    shift 1 # past argument
+    ;;
+  -h|--help)
+    ;;
+  *)
+    echo "Unknown action: $ACTION"
+    exit 1
+    ;;
+esac
+
 WORK_DIR="$(dirname "$0")"
 
 SPARK_CONF=${WORK_DIR}/conf/
@@ -24,8 +38,6 @@ K8S_NAMESPACE=default
 SPARK_DRIVER_SERVICE_ACCOUNT=cloudtik-head-service-account
 SPARK_EXECUTOR_SERVICE_ACCOUNT=cloudtik-worker-service-account
 CONTAINER_IMAGE=cloudtik/spark-kubernetes:nightly
-
-ACTION=shell
 
 while [[ $# -gt 0 ]]
 do
@@ -51,19 +63,23 @@ case $key in
     CONTAINER_IMAGE=$1
     shift 1 # past value
     ;;
-    -s|--spark_conf)
+    -s|--spark-conf)
     shift 1 # past argument
     SPARK_CONF=$1
     shift 1 # past value
     ;;
+    -c|--cmd)
+    shift 1 # past argument
+    SHELL_CMD=$1
+    shift 1 # past value
+    ;;
     -h|--help)
     shift 1 # past argument
-    echo "Usage: spark-[shell|sql|submit]-client.sh start|stop --namespace k8s-namespace --driver-service-account spark-driver-service-account --executor-service-account spark-executor-service-account --image image:tag --spark_conf spark-conf-dir --help "
+    echo "Usage: spark-[shell|sql|submit]-client.sh start|stop|exec --namespace k8s-namespace --driver-service-account spark-driver-service-account --executor-service-account spark-executor-service-account --image image:tag --spark-conf spark-conf-dir --help "
     exit 1
     ;;
-    *)    # action option
-    ACTION=$1
-    shift 1 # past argument
+    *)    # the remaining parameters
+    break
     ;;
 esac
 done
@@ -73,7 +89,6 @@ K8S_API_SERVER_ENDPOINT=https://kubernetes.default.svc.cluster.local:443
 
 case "$ACTION" in
   start)
-    shift 1
     echo "Using Spark configuration at ${SPARK_CONF}"
     # create spark configmap for Spark conf directory
     kubectl create configmap spark-client-conf --from-file=${SPARK_CONF} --namespace=${K8S_NAMESPACE}
@@ -101,13 +116,15 @@ case "$ACTION" in
     kubectl apply -f -
     ;;
   stop)
-    shift 1
     kubectl delete pod spark-client --namespace=${K8S_NAMESPACE}
     kubectl delete svc spark-client-headless-service --namespace=${K8S_NAMESPACE}
     kubectl delete configmap spark-client-configmap --namespace=${K8S_NAMESPACE}
     kubectl delete configmap spark-client-conf --namespace=${K8S_NAMESPACE}
     ;;
+  exec)
+    kubectl exec --namespace=${K8S_NAMESPACE} --stdin --tty spark-client -- /bin/bash ${SHELL_CMD} "$@"
+    ;;
   *)
-    kubectl exec --stdin --tty spark-client -- /bin/bash
+    echo "Unknown action: $ACTION"
     ;;
 esac

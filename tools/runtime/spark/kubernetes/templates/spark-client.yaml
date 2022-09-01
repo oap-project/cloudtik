@@ -9,7 +9,7 @@ spec:
   serviceAccountName: $SPARK_DRIVER_SERVICE_ACCOUNT
   containers:
   - name: spark-client-container
-    imagePullPolicy: IfNotPresent
+    imagePullPolicy: Always
     image: $CONTAINER_IMAGE
     args: ["/opt/entrypoint-nop.sh"]
     volumeMounts:

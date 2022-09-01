@@ -30,6 +30,8 @@ SPARK_DRIVER_SERVICE_ACCOUNT=cloudtik-head-service-account
 SPARK_EXECUTOR_SERVICE_ACCOUNT=cloudtik-worker-service-account
 CONTAINER_IMAGE=cloudtik/spark-kubernetes:nightly
 
+PARTITIONS=100
+
 while [[ $# -gt 0 ]]
 do
 key="$1"
@@ -64,9 +66,14 @@ case $key in
     SPARK_CONF=$1
     shift 1 # past value
     ;;
+    -p|--partitions)
+    shift 1 # past argument
+    PARTITIONS=$1
+    shift 1 # past value
+    ;;
     -h|--help)
     shift 1 # past argument
-    echo "Usage: spark-pi.sh --api-server k8s-api-server-endpoint --namespace k8s-namespace --driver-service-account spark-driver-service-account --executor-service-account spark-executor-service-account --image image:tag --spark-conf spark-conf-dir --help other spark configurations"
+    echo "Usage: spark-pi.sh --api-server k8s-api-server-endpoint --namespace k8s-namespace --driver-service-account spark-driver-service-account --executor-service-account spark-executor-service-account --image image:tag --spark-conf spark-conf-dir --partitions n --help other spark configurations"
     exit 1
     ;;
     *)    # completed this shell arguments processing
@@ -85,7 +92,7 @@ $SPARK_HOME/bin/spark-submit \
     --conf spark.kubernetes.authenticate.driver.serviceAccountName=$SPARK_DRIVER_SERVICE_ACCOUNT \
     --conf spark.kubernetes.authenticate.executor.serviceAccountName=$SPARK_EXECUTOR_SERVICE_ACCOUNT \
     --conf spark.kubernetes.container.image=$CONTAINER_IMAGE \
+    "$@" \
     --name spark-pi \
     --class org.apache.spark.examples.SparkPi \
-    "$@" \
-    local:///opt/runtime/spark/examples/jars/spark-examples_2.12-3.2.1.jar 100
+    local:///opt/runtime/spark/examples/jars/spark-examples_2.12-3.2.1.jar ${PARTITIONS}

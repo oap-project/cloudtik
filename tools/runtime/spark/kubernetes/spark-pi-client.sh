@@ -17,24 +17,25 @@
 #
 WORK_DIR="$(dirname "$0")"
 
-case "$1" in
-  start)
-    shift 1
-    bash ${WORK_DIR}/spark-client.sh start "$@"
-    ;;
-  stop)
-    shift 1
-    bash ${WORK_DIR}/spark-client.sh stop "$@"
-    ;;
-  -h|--help)
+PARTITIONS=100
+
+while [[ $# -gt 0 ]]
+do
+key="$1"
+case $key in
+    -p|--partitions)
     shift 1 # past argument
-    bash ${WORK_DIR}/spark-client.sh --help "$@"
+    PARTITIONS=$1
+    shift 1 # past value
     ;;
-  *)
-    kubectl exec --stdin --tty spark-client -- /bin/bash /opt/spark-submit.sh \
-    --name spark-pi \
-    --class org.apache.spark.examples.SparkPi \
-    "$@" \
-    local:///opt/runtime/spark/examples/jars/spark-examples_2.12-3.2.1.jar 100
+    *)    # completed this shell arguments processing
+    break
     ;;
 esac
+done
+
+bash ${WORK_DIR}/spark-submit-client.sh \
+  "$@" \
+  --name spark-pi \
+  --class org.apache.spark.examples.SparkPi \
+  local:///opt/runtime/spark/examples/jars/spark-examples_2.12-3.2.1.jar ${PARTITIONS}

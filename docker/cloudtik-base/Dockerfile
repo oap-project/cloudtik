@@ -39,6 +39,7 @@ RUN sudo apt-get update -y && sudo apt-get upgrade -y \
         dnsutils \
         uuid \
         openssh-server \
+        apt-utils \
     # Install Conda
     && wget \
         --quiet "https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh" \

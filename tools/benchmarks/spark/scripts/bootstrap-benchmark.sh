@@ -56,7 +56,7 @@ function install_spark_sql_perf() {
     fi
     cd spark-sql-perf && git reset --hard 6b2bf9f9ad6f6c2f620062fda78cded203f619c8
     if [ ! -f "Update-TPC-DS-Queries.patch" ]; then
-       wget https://raw.githubusercontent.com/oap-project/cloudtik/c715938150e868a1870a894a3c9b4955031eafcc/tools/benchmarks/spark/patches/Update-TPC-DS-Queries.patch
+       wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/spark/patches/Update-TPC-DS-Queries.patch
     fi
     git apply Update-TPC-DS-Queries.patch
     sbt package

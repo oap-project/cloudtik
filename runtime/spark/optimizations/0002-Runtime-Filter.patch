@@ -1,31 +1,69 @@
-From 24a920026991ce0baf508b592df891f13a45f9e4 Mon Sep 17 00:00:00 2001
+From 9a5b6065dbf4f3277acce4bf0b82b5ecef431434 Mon Sep 17 00:00:00 2001
 From: haojin <hao.jin@intel.com>
-Date: Thu, 1 Sep 2022 12:36:07 +0800
+Date: Thu, 1 Sep 2022 17:10:34 +0800
 Subject: [PATCH] Support more scenarios for runtime Filter
 
 ---
- .../optimizer/InjectRuntimeFilter.scala       | 107 ++++++++++++++++--
- .../catalyst/plans/logical/LogicalPlan.scala  |   3 +
+ .../read/SupportsEstimateStatistics.scala     |  24 ++++
+ .../optimizer/InjectRuntimeFilter.scala       | 109 ++++++++++++++++--
+ .../catalyst/plans/logical/LogicalPlan.scala  |   1 +
  .../apache/spark/sql/internal/SQLConf.scala   |  16 +++
  .../datasources/HadoopFsRelation.scala        |   5 +
- .../datasources/LogicalRelation.scala         |   5 +
+ .../datasources/LogicalRelation.scala         |   9 +-
  .../PartitioningAwareFileIndex.scala          |   4 +-
  .../apache/spark/sql/sources/interfaces.scala |   2 +
- 7 files changed, 132 insertions(+), 10 deletions(-)
+ 8 files changed, 159 insertions(+), 11 deletions(-)
+ create mode 100644 sql/catalyst/src/main/java/org/apache/spark/sql/connector/read/SupportsEstimateStatistics.scala
 
+diff --git a/sql/catalyst/src/main/java/org/apache/spark/sql/connector/read/SupportsEstimateStatistics.scala b/sql/catalyst/src/main/java/org/apache/spark/sql/connector/read/SupportsEstimateStatistics.scala
+new file mode 100644
+index 0000000000..4b7d9f79e5
+--- /dev/null
++++ b/sql/catalyst/src/main/java/org/apache/spark/sql/connector/read/SupportsEstimateStatistics.scala
+@@ -0,0 +1,24 @@
++/*
++ * Licensed to the Apache Software Foundation (ASF) under one or more
++ * contributor license agreements.  See the NOTICE file distributed with
++ * this work for additional information regarding copyright ownership.
++ * The ASF licenses this file to You under the Apache License, Version 2.0
++ * (the "License"); you may not use this file except in compliance with
++ * the License.  You may obtain a copy of the License at
++ *
++ *    http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package org.apache.spark.sql.connector.read
++
++trait SupportsEstimateStatistics {
++
++  def estimateStats(): org.apache.spark.sql.catalyst.plans.logical.Statistics
++
++}
 diff --git a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/InjectRuntimeFilter.scala b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/InjectRuntimeFilter.scala
-index 134292ae30..21c6d32b35 100644
+index 134292ae30..b6f88e5240 100644
 --- a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/InjectRuntimeFilter.scala
 +++ b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/InjectRuntimeFilter.scala
-@@ -17,6 +17,8 @@
+@@ -17,12 +17,14 @@
  
  package org.apache.spark.sql.catalyst.optimizer
  
 +import scala.collection.mutable.ArrayBuffer
-+
  import org.apache.spark.sql.catalyst.expressions._
  import org.apache.spark.sql.catalyst.expressions.aggregate.{AggregateExpression, BloomFilterAggregate, Complete}
  import org.apache.spark.sql.catalyst.planning.{ExtractEquiJoinKeys, PhysicalOperation}
+ import org.apache.spark.sql.catalyst.plans.logical._
+ import org.apache.spark.sql.catalyst.rules.Rule
+ import org.apache.spark.sql.catalyst.trees.TreePattern.{INVOKE, JSON_TO_STRUCT, LIKE_FAMLIY, PYTHON_UDF, REGEXP_EXTRACT_FAMILY, REGEXP_REPLACE, SCALA_UDF}
++import org.apache.spark.sql.connector.read.SupportsEstimateStatistics
+ import org.apache.spark.sql.internal.SQLConf
+ import org.apache.spark.sql.types._
+ 
 @@ -48,19 +50,29 @@ object InjectRuntimeFilter extends Rule[LogicalPlan] with PredicateHelper with J
        filterCreationSideExp: Expression,
        filterCreationSidePlan: LogicalPlan): LogicalPlan = {
@@ -71,10 +109,10 @@ index 134292ae30..21c6d32b35 100644
 +  private def findOriginProject(
 +      plan: LogicalPlan, expression: Expression):
 +        Option[(LogicalPlan, Expression)] = {
-+    val planWithExp = findPlanWithExp(
++    val planWithExp: Option[ArrayBuffer[(LogicalPlan, Expression)]] = findPlanWithExp(
 +      expression, plan, ArrayBuffer[(LogicalPlan, Expression)]())
 +    if (planWithExp.isDefined) {
-+      val path = planWithExp.asInstanceOf[ArrayBuffer[(LogicalPlan, Expression)]]
++      val path = planWithExp.getOrElse().asInstanceOf[ArrayBuffer[(LogicalPlan, Expression)]]
 +      for (i <- (0 until path.size).reverse) {
 +        if (path(i)._1.isInstanceOf[Project]) {
 +          return Some(path(i))
@@ -102,18 +140,20 @@ index 134292ae30..21c6d32b35 100644
    private def isSimpleExpression(e: Expression): Boolean = {
      !e.containsAnyPattern(PYTHON_UDF, SCALA_UDF, INVOKE, JSON_TO_STRUCT, LIKE_FAMLIY,
        REGEXP_EXTRACT_FAMILY, REGEXP_REPLACE)
-@@ -155,7 +199,20 @@ object InjectRuntimeFilter extends Rule[LogicalPlan] with PredicateHelper with J
+@@ -155,7 +199,22 @@ object InjectRuntimeFilter extends Rule[LogicalPlan] with PredicateHelper with J
        // creating a Bloom filter when the filter application side is very small, so using 0
        // as the byte size when the actual size is unknown can avoid regression by applying BF
        // on a small table.
 -      if (scan.stats.sizeInBytes == defaultSizeInBytes) BigInt(0) else scan.stats.sizeInBytes
 +      if (scan.stats.sizeInBytes == defaultSizeInBytes) {
 +        if (conf.getConf(SQLConf.RUNTIME_FILTER_ESTIMATE_STATS_ENABLED)) {
-+          try {
-+            val estimateSizeInBytes = scan.estimateStats().sizeInBytes
++          if (scan.isInstanceOf[SupportsEstimateStatistics]) {
++            val estimateSizeInBytes =
++              scan.asInstanceOf[SupportsEstimateStatistics].estimateStats().sizeInBytes
 +            if (estimateSizeInBytes == defaultSizeInBytes) BigInt(0) else estimateSizeInBytes
-+          } catch {
-+            case e: UnsupportedOperationException => BigInt(0)
++          }
++          else {
++            BigInt(0)
 +          }
 +        } else {
 +          BigInt(0)
@@ -124,7 +164,7 @@ index 134292ae30..21c6d32b35 100644
      }).max
    }
  
-@@ -182,9 +239,12 @@ object InjectRuntimeFilter extends Rule[LogicalPlan] with PredicateHelper with J
+@@ -182,9 +241,12 @@ object InjectRuntimeFilter extends Rule[LogicalPlan] with PredicateHelper with J
        filterApplicationSide: LogicalPlan,
        filterCreationSide: LogicalPlan,
        filterApplicationSideExp: Expression,
@@ -138,7 +178,7 @@ index 134292ae30..21c6d32b35 100644
        (isProbablyShuffleJoin(filterApplicationSide, filterCreationSide, hint) ||
          probablyHasShuffle(filterApplicationSide)) &&
        satisfyByteSizeRequirement(filterApplicationSide)
-@@ -235,6 +295,37 @@ object InjectRuntimeFilter extends Rule[LogicalPlan] with PredicateHelper with J
+@@ -235,6 +297,37 @@ object InjectRuntimeFilter extends Rule[LogicalPlan] with PredicateHelper with J
      }
    }
  
@@ -176,7 +216,7 @@ index 134292ae30..21c6d32b35 100644
    def hasInSubquery(left: LogicalPlan, right: LogicalPlan, leftKey: Expression,
        rightKey: Expression): Boolean = {
      (left, right) match {
-@@ -266,12 +357,12 @@ object InjectRuntimeFilter extends Rule[LogicalPlan] with PredicateHelper with J
+@@ -266,12 +359,12 @@ object InjectRuntimeFilter extends Rule[LogicalPlan] with PredicateHelper with J
              isSimpleExpression(l) && isSimpleExpression(r)) {
              val oldLeft = newLeft
              val oldRight = newRight
@@ -192,15 +232,13 @@ index 134292ae30..21c6d32b35 100644
              }
              if (!newLeft.fastEquals(oldLeft) || !newRight.fastEquals(oldRight)) {
 diff --git a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/plans/logical/LogicalPlan.scala b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/plans/logical/LogicalPlan.scala
-index 7640d9234c..657b85fb61 100644
+index 7640d9234c..6bf5db6d55 100644
 --- a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/plans/logical/LogicalPlan.scala
 +++ b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/plans/logical/LogicalPlan.scala
-@@ -169,6 +169,9 @@ trait LeafNode extends LogicalPlan with LeafLike[LogicalPlan] {
+@@ -169,6 +169,7 @@ trait LeafNode extends LogicalPlan with LeafLike[LogicalPlan] {
  
    /** Leaf nodes that can survive analysis must define their own statistics. */
    def computeStats(): Statistics = throw new UnsupportedOperationException
-+
-+  def estimateStats(): Statistics = throw new UnsupportedOperationException
 +
  }
  
@@ -249,10 +287,28 @@ index fd1824055d..e51d0bd874 100644
    override def inputFiles: Array[String] = location.inputFiles
  }
 diff --git a/sql/core/src/main/scala/org/apache/spark/sql/execution/datasources/LogicalRelation.scala b/sql/core/src/main/scala/org/apache/spark/sql/execution/datasources/LogicalRelation.scala
-index 291b98fb37..f5f2cf1446 100644
+index 291b98fb37..d033bbc8a7 100644
 --- a/sql/core/src/main/scala/org/apache/spark/sql/execution/datasources/LogicalRelation.scala
 +++ b/sql/core/src/main/scala/org/apache/spark/sql/execution/datasources/LogicalRelation.scala
-@@ -45,6 +45,11 @@ case class LogicalRelation(
+@@ -22,6 +22,7 @@ import org.apache.spark.sql.catalyst.expressions.{AttributeMap, AttributeReferen
+ import org.apache.spark.sql.catalyst.plans.QueryPlan
+ import org.apache.spark.sql.catalyst.plans.logical.{ExposesMetadataColumns, LeafNode, LogicalPlan, Statistics}
+ import org.apache.spark.sql.catalyst.util.{truncatedString, CharVarcharUtils}
++import org.apache.spark.sql.connector.read.SupportsEstimateStatistics
+ import org.apache.spark.sql.sources.BaseRelation
+ 
+ /**
+@@ -32,7 +33,8 @@ case class LogicalRelation(
+     output: Seq[AttributeReference],
+     catalogTable: Option[CatalogTable],
+     override val isStreaming: Boolean)
+-  extends LeafNode with MultiInstanceRelation with ExposesMetadataColumns {
++  extends LeafNode with MultiInstanceRelation
++    with ExposesMetadataColumns with SupportsEstimateStatistics {
+ 
+   // Only care about relation when canonicalizing.
+   override def doCanonicalize(): LogicalPlan = copy(
+@@ -45,6 +47,11 @@ case class LogicalRelation(
        .getOrElse(Statistics(sizeInBytes = relation.sizeInBytes))
    }
  

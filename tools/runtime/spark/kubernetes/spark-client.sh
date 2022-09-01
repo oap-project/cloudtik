@@ -25,7 +25,7 @@ case "$1" in
   -h|--help)
     ;;
   *)
-    echo "Unknown action: $ACTION"
+    echo "Unknown action: $1"
     exit 1
     ;;
 esac

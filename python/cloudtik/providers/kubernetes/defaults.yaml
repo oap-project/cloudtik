@@ -41,7 +41,7 @@ provider:
             name: cloudtik-head-role
         rules:
         - apiGroups: [""]
-          resources: ["pods", "pods/status", "pods/exec", "persistentvolumeclaims"]
+          resources: ["pods", "pods/status", "pods/exec", "services", "persistentvolumeclaims", "configmaps"]
           verbs: ["get", "watch", "list", "create", "delete", "patch"]
 
     # RoleBinding created for the head node pod that it runs

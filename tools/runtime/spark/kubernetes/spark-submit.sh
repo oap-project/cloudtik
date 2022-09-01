@@ -60,14 +60,14 @@ case $key in
     CONTAINER_IMAGE=$1
     shift 1 # past value
     ;;
-    -s|--spark_conf)
+    -s|--spark-conf)
     shift 1 # past argument
     SPARK_CONF=$1
     shift 1 # past value
     ;;
     -h|--help)
     shift 1 # past argument
-    echo "Usage: spark-submit.sh --api-server k8s-api-server-endpoint --namespace k8s-namespace --driver-service-account spark-driver-service-account --executor-service-account spark-executor-service-account --image image:tag --spark_conf spark-conf-dir --help other spark configurations"
+    echo "Usage: spark-submit.sh --api-server k8s-api-server-endpoint --namespace k8s-namespace --driver-service-account spark-driver-service-account --executor-service-account spark-executor-service-account --image image:tag --spark-conf spark-conf-dir --help other spark configurations"
     exit 1
     ;;
     *)    # completed this shell arguments processing
@@ -84,5 +84,6 @@ $SPARK_HOME/bin/spark-submit \
     --deploy-mode cluster \
     --conf spark.kubernetes.namespace=$K8S_NAMESPACE \
     --conf spark.kubernetes.authenticate.driver.serviceAccountName=$SPARK_DRIVER_SERVICE_ACCOUNT \
+    --conf spark.kubernetes.authenticate.executor.serviceAccountName=$SPARK_EXECUTOR_SERVICE_ACCOUNT \
     --conf spark.kubernetes.container.image=$CONTAINER_IMAGE \
     "$@"

@@ -8,7 +8,6 @@ USER_HOME=/home/$(whoami)
 HADOOP_CREDENTIAL_FILE_PATH="jceks://file@${HADOOP_HOME}/etc/hadoop/credential.jceks"
 HADOOP_CREDENTIAL_PROPERTY="<property>\n      <name>hadoop.security.credential.provider.path</name>\n      <value>${HADOOP_CREDENTIAL_FILE_PATH}</value>\n    </property>"
 
-SPARK_DEFAULTS=${output_dir}/spark/spark-defaults.conf
 
 while true
 do
@@ -35,6 +34,7 @@ done
 function prepare_base_conf() {
     source_dir=$(cd $(dirname ${BASH_SOURCE[0]})/..;pwd)/conf
     output_dir=/tmp/spark/conf
+    SPARK_DEFAULTS=${output_dir}/spark/spark-defaults.conf
     rm -rf  $output_dir
     mkdir -p $output_dir
     cp -r $source_dir/* $output_dir

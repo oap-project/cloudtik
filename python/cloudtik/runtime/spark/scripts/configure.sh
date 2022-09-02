@@ -8,6 +8,8 @@ USER_HOME=/home/$(whoami)
 HADOOP_CREDENTIAL_FILE_PATH="jceks://file@${HADOOP_HOME}/etc/hadoop/credential.jceks"
 HADOOP_CREDENTIAL_PROPERTY="<property>\n      <name>hadoop.security.credential.provider.path</name>\n      <value>${HADOOP_CREDENTIAL_FILE_PATH}</value>\n    </property>"
 
+SPARK_DEFAULTS=${output_dir}/spark/spark-defaults.conf
+
 while true
 do
     case "$1" in
@@ -114,6 +116,10 @@ function update_credential_config_for_aws() {
     if [ "$AWS_WEB_IDENTITY" == "true" ]; then
         # Replace with InstanceProfileCredentialsProvider with WebIdentityTokenCredentialsProvider for Kubernetes
         sed -i "s#InstanceProfileCredentialsProvider#WebIdentityTokenCredentialsProvider#g" `grep "InstanceProfileCredentialsProvider" -rl ./`
+        WEB_IDENTITY_ENVS="spark.yarn.appMasterEnv.AWS_ROLE_ARN   ${AWS_ROLE_ARN}\nspark.yarn.appMasterEnv.AWS_WEB_IDENTITY_TOKEN_FILE   ${AWS_WEB_IDENTITY_TOKEN_FILE}\nspark.executorEnv.AWS_ROLE_ARN   ${AWS_ROLE_ARN}\nspark.executorEnv.AWS_WEB_IDENTITY_TOKEN_FILE   ${AWS_WEB_IDENTITY_TOKEN_FILE}"
+        sed -i "s!{%spark_web_identity_envs%}!${WEB_IDENTITY_ENVS}!g" ${SPARK_DEFAULTS}
+    else
+        sed -i "s/{%spark_web_identity_envs%}//g" ${SPARK_DEFAULTS}
     fi
 
     sed -i "s#{%fs.s3a.access.key%}#${AWS_S3_ACCESS_KEY_ID}#g" `grep "{%fs.s3a.access.key%}" -rl ./`
@@ -355,7 +361,6 @@ function update_data_disks_config() {
 
 function update_metastore_config() {
     # To be improved for external metastore cluster
-    SPARK_DEFAULTS=${output_dir}/spark/spark-defaults.conf
     if [ "$METASTORE_ENABLED" == "true" ] || [ ! -z "$HIVE_METASTORE_URI" ]; then
         if [ "$METASTORE_ENABLED" == "true" ]; then
             METASTORE_IP=${HEAD_ADDRESS}

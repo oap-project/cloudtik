@@ -36,8 +36,8 @@ do
     --build-spark)
         BUILD_SPARK=YES
         ;;
-    --build-spark-native)
-        BUILD_SPARK_NATIVE=YES
+    --build-spark-native-sql)
+        BUILD_SPARK_NATIVE_SQL=YES
         ;;
     --build-presto)
         BUILD_PRESTO=YES
@@ -123,8 +123,8 @@ if [ $BUILD_SPARK ] || [ ! $NO_BUILD_ALL ]; then
     docker build  $NO_CACHE -t cloudtik/spark-runtime:nightly docker/runtime/spark
 fi
 
-if [ $BUILD_SPARK_NATIVE ] || [ ! $NO_BUILD_ALL ]; then
-    docker build  $NO_CACHE -t cloudtik/spark-runtime-native:nightly docker/runtime/spark/native
+if [ $BUILD_SPARK_NATIVE_SQL ] || [ ! $NO_BUILD_ALL ]; then
+    docker build  $NO_CACHE -t cloudtik/spark-native-sql:nightly docker/runtime/spark/native-sql
 fi
 
 if [ $BUILD_PRESTO ] || [ ! $NO_BUILD_ALL ]; then

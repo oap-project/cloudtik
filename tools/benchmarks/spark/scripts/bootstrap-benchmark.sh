@@ -97,6 +97,13 @@ function install_tpch() {
     install_tpch_dbgen
 }
 
+function clean_up() {
+   sudo rm -rf /var/lib/apt/lists/*
+   sudo apt-get clean
+
+   # Do other cleanups
+}
+
 function usage() {
     echo "Usage: $0 --workload=[all|tpch|tpcds|hibench] --repository=[default|china]" >&2
     echo "Usage: $0 -h|--help"
@@ -142,3 +149,5 @@ else
     usage
     exit 1
 fi
+
+clean_up

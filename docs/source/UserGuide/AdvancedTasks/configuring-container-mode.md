@@ -4,7 +4,7 @@ And other parameters required for container mode are configured by default.
 For advanced users, there may be a need to change these parameters.
 
 ## Specifying the docker image to use
-By default, CloudTik will use the image tag 'cloudtik/spark-runtime:latest'.
+By default, CloudTik will use the image tag 'cloudtik/spark-runtime:${cloudtik-version}'.
 User can specify to use his own image to pull for head and worker nodes.
 
 For example,

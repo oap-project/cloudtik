@@ -1,7 +1,7 @@
 # CloudTikCluster settings:
 
 # image is Docker image to use for the head and workers of this cluster.
-image: cloudtik/spark-runtime:latest
+image: cloudtik/spark-runtime:nightly
 
 # The cluster scaler will scale up the cluster faster with higher upscaling speed.
 # If the task requires adding more nodes, cluster scaler will gradually

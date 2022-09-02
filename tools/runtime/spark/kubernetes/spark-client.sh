@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+WORK_DIR="$(dirname "$0")"
 
 ACTION=exec
 case "$1" in
@@ -29,8 +30,6 @@ case "$1" in
     exit 1
     ;;
 esac
-
-WORK_DIR="$(dirname "$0")"
 
 SPARK_CONF=${WORK_DIR}/conf/
 

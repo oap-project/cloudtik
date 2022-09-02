@@ -46,7 +46,7 @@ ENV SPARK_VERSION        ${SPARK_VERSION}
 ENV SPARK_HOME           $RUNTIME_PATH/spark
 ENV PATH                 $SPARK_HOME/bin:$PATH
 
-RUN wget https://d30257nes7d4fq.cloudfront.net/downloads/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop3.tgz -O spark.tgz && \
+RUN wget https://d30257nes7d4fq.cloudfront.net/downloads/spark/spark-${SPARK_VERSION}-bin-hadoop3.tgz -O spark.tgz && \
     mkdir -p "$SPARK_HOME" && \
     tar --extract --file spark.tgz --directory "$SPARK_HOME" --strip-components 1 --no-same-owner && \
     rm spark.tgz && \

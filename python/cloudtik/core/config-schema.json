@@ -331,7 +331,7 @@
                 "image": {
                     "type": "string",
                     "description": "the docker image name",
-                    "default": "cloudtik/spark-runtime:latest"
+                    "default": "cloudtik/spark-runtime:nightly"
                 },
                 "container_name": {
                     "type": "string",

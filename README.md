@@ -40,19 +40,19 @@ Take AWS for example,
 
 ```
 # if running CloudTik on aws
-pip install -U "cloudtik[aws] @ https://d30257nes7d4fq.cloudfront.net/downloads/cloudtik/cloudtik-0.9.0-cp37-cp37m-manylinux2014_x86_64.whl"
+pip install -U "cloudtik[aws] @ https://d30257nes7d4fq.cloudfront.net/downloads/cloudtik/cloudtik-0.9.1-cp37-cp37m-manylinux2014_x86_64.whl"
 ```
 
 Replace `cloudtik[aws]` with `clouditk[azure]` or `cloudtik[gcp]` if you want to create clusters on Azure or GCP.
 Use `cloudtik[all]` if you want to manage clusters with all supported Cloud providers.
 
-You can install the latest CloudTik wheels via the following links. These daily releases do not go through the full release process.
+The following table shows the installation links for latest CloudTik wheels of supported Python versions. 
 
 | Linux      | Installation                                                                                                                                       |
 |:-----------|:---------------------------------------------------------------------------------------------------------------------------------------------------|
-| Python 3.9 | `pip install -U "cloudtik[aws] @ https://d30257nes7d4fq.cloudfront.net/downloads/cloudtik/cloudtik-0.9.0-cp39-cp39-manylinux2014_x86_64.whl" `     |
-| Python 3.8 | `pip install -U "cloudtik[aws] @ https://d30257nes7d4fq.cloudfront.net/downloads/cloudtik/cloudtik-0.9.0-cp38-cp38-manylinux2014_x86_64.whl" `     |
-| Python 3.7 | `pip install -U "cloudtik[aws] @ https://d30257nes7d4fq.cloudfront.net/downloads/cloudtik/cloudtik-0.9.0-cp37-cp37m-manylinux2014_x86_64.whl" `    |
+| Python 3.9 | `pip install -U "cloudtik[aws] @ https://d30257nes7d4fq.cloudfront.net/downloads/cloudtik/cloudtik-0.9.1-cp39-cp39-manylinux2014_x86_64.whl" `     |
+| Python 3.8 | `pip install -U "cloudtik[aws] @ https://d30257nes7d4fq.cloudfront.net/downloads/cloudtik/cloudtik-0.9.1-cp38-cp38-manylinux2014_x86_64.whl" `     |
+| Python 3.7 | `pip install -U "cloudtik[aws] @ https://d30257nes7d4fq.cloudfront.net/downloads/cloudtik/cloudtik-0.9.1-cp37-cp37m-manylinux2014_x86_64.whl" `    |
 
 
 ### 3. Authentication to Cloud Providers API
@@ -88,6 +88,7 @@ variable as described in the [Setting the environment variable](https://cloud.go
 on your working machine.
 
 ### 4. Creating a Workspace for Clusters.
+Once you authenticated with your cloud provider, you can start to create a Workspace.
 
 CloudTik uses **Workspace** concept to easily manage shared Cloud resources such as VPC network resources,
 identity and role resources, firewall or security groups, and cloud storage resources.
@@ -113,7 +114,7 @@ provider:
       - 0.0.0.0/0
 ```
 *NOTE:* `0.0.0.0/0` in `allowed_ssh_sources` will allow any IP addresses to connect to your cluster as long as it has the cluster private key.
-For more security, make sure to change from `0.0.0.0/0` to restricted CIDR ranges for your case.
+For more security, you need to change from `0.0.0.0/0` to restricted CIDR ranges for your case.
 
 Use the following command to create and provision a Workspace:
 
@@ -123,7 +124,12 @@ cloudtik workspace create /path/to/your-workspace-config.yaml
 
 Check `example/cluster` folder for more Workspace configuration file examples.
 
-### 5. Starting a cluster with default runtimes
+If you encounter problems on creating a Workspace, a common cause is that your current login account
+for the cloud doesn't have enough privileges to create some resources such as VPC, storages, public ip and so on.
+Make sure your current account have enough privileges. An admin or owner role will give the latest chance to have
+all these privileges.
+
+### 5. Starting a cluster with Spark runtime
 
 Now you can start a cluster running Spark by default:
 
@@ -173,6 +179,7 @@ auth:
 ```
 
 The cluster key will be created automatically for AWS and GCP if not specified.
+The created private key file can be found in .ssh folder of your home folder.
 For Azure, you need to generate an RSA key pair manually (use `ssh-keygen -t rsa -b 4096` to generate a new ssh key pair).
 and configure the public and private key as following,
 

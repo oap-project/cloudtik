@@ -10,7 +10,7 @@ In your cluster config under docker key, configure the Spark runtime image with 
 ```buildoutcfg
 
 docker:
-    image: "cloudtik/spark-runtime-tpcds:nightly"
+    image: "cloudtik/spark-runtime-benchmark:nightly"
 
 ```
 

@@ -1,0 +1,505 @@
+From 53c181058e50415c266cc83fd75b39fe6b21f02a Mon Sep 17 00:00:00 2001
+From: haojin <hao.jin@intel.com>
+Date: Tue, 26 Jul 2022 12:48:49 +0800
+Subject: [PATCH] Support a rank-based filter to optimize top-k computation
+
+---
+ .../spark/sql/catalyst/dsl/package.scala      |   7 +
+ .../sql/catalyst/optimizer/Optimizer.scala    |  62 +++-
+ .../plans/logical/basicLogicalOperators.scala |  16 ++
+ .../sql/catalyst/rules/RuleIdCollection.scala |   1 +
+ .../sql/catalyst/trees/TreePatterns.scala     |   1 +
+ .../apache/spark/sql/internal/SQLConf.scala   |   7 +
+ .../spark/sql/execution/SparkPlanner.scala    |   1 +
+ .../spark/sql/execution/SparkStrategies.scala |  16 ++
+ .../sql/execution/window/RankLimitExec.scala  | 265 ++++++++++++++++++
+ 9 files changed, 375 insertions(+), 1 deletion(-)
+ create mode 100644 sql/core/src/main/scala/org/apache/spark/sql/execution/window/RankLimitExec.scala
+
+diff --git a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/dsl/package.scala b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/dsl/package.scala
+index d47e34b110..5e92bc5604 100644
+--- a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/dsl/package.scala
++++ b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/dsl/package.scala
+@@ -455,6 +455,13 @@ package object dsl {
+           orderSpec: Seq[SortOrder]): LogicalPlan =
+         Window(windowExpressions, partitionSpec, orderSpec, logicalPlan)
+ 
++      def rankLimit(
++                     partitionSpec: Seq[Expression],
++                     orderSpec: Seq[SortOrder],
++                     rankFunction: Expression,
++                     limit: Int): LogicalPlan =
++        RankLimit(partitionSpec, orderSpec, rankFunction, limit, logicalPlan)
++
+       def subquery(alias: Symbol): LogicalPlan = SubqueryAlias(alias.name, logicalPlan)
+ 
+       def except(otherPlan: LogicalPlan, isAll: Boolean): LogicalPlan =
+diff --git a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/Optimizer.scala b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/Optimizer.scala
+index 02f9a9eb01..40c03157b0 100644
+--- a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/Optimizer.scala
++++ b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/Optimizer.scala
+@@ -145,7 +145,9 @@ abstract class Optimizer(catalogManager: CatalogManager)
+       // join condition.
+       Batch("Push extra predicate through join", fixedPoint,
+         PushExtraPredicateThroughJoin,
+-        PushDownPredicates) :: Nil
++        PushDownPredicates) ::
++      Batch("Insert RankLimit", fixedPoint,
++        InsertRankLimit) :: Nil
+     }
+ 
+     val batches = (Batch("Eliminate Distinct", Once, EliminateDistinct) ::
+@@ -1665,6 +1667,7 @@ object PushPredicateThroughNonJoin extends Rule[LogicalPlan] with PredicateHelpe
+     case _: RebalancePartitions => true
+     case _: ScriptTransformation => true
+     case _: Sort => true
++    case _: RankLimit => true
+     case _: BatchEvalPython => true
+     case _: ArrowEvalPython => true
+     case _: Expand => true
+@@ -1988,6 +1991,63 @@ object ReplaceDistinctWithAggregate extends Rule[LogicalPlan] {
+   }
+ }
+ 
++object InsertRankLimit extends Rule[LogicalPlan] with PredicateHelper {
++
++  private def support(rankFunction: Expression): Boolean = rankFunction match {
++    case _: RowNumber => true
++    case _: Rank => true
++    case _: DenseRank => true
++    case _ => false
++  }
++
++  private def extractLimit(condition: Expression, rank: Attribute): Option[Int] = {
++    val limits = splitConjunctivePredicates(condition).collect {
++      case EqualTo(Literal(limit: Int, IntegerType), e)
++        if e.semanticEquals(rank) => limit
++      case EqualTo(e, Literal(limit: Int, IntegerType))
++        if e.semanticEquals(rank) => limit
++      case LessThan(e, Literal(limit: Int, IntegerType))
++        if e.semanticEquals(rank) => limit - 1
++      case GreaterThan(Literal(limit: Int, IntegerType), e)
++        if e.semanticEquals(rank) => limit - 1
++      case LessThanOrEqual(e, Literal(limit: Int, IntegerType))
++        if e.semanticEquals(rank) => limit
++      case GreaterThanOrEqual(Literal(limit: Int, IntegerType), e)
++        if e.semanticEquals(rank) => limit
++    }
++    if (limits.nonEmpty) Some(limits.min) else None
++  }
++
++  private def extractLimitAndRankFunction(f: Filter, w: Window): Option[(Int, Expression)] = {
++    w.windowExpressions.head match {
++      case alias @ Alias(WindowExpression(rankFunction: Expression,
++      WindowSpecDefinition(_, _, SpecifiedWindowFrame(RowFrame, UnboundedPreceding, CurrentRow))),
++      _) if support(rankFunction) =>
++        extractLimit(f.condition, alias.toAttribute).map((_, rankFunction))
++
++      case _ => None
++    }
++  }
++
++  def apply(plan: LogicalPlan): LogicalPlan = {
++    if (!conf.getConf(SQLConf.RANK_LIMIT_ENABLE)) return plan
++
++    plan.transformUpWithPruning(
++      _.containsAllPatterns(FILTER, WINDOW), ruleId) {
++      case f @ Filter(_, w @ Window(_, partitionSpec, orderSpec, c))
++        if !c.isInstanceOf[RankLimit] && w.windowExpressions.size == 1 && orderSpec.nonEmpty =>
++        extractLimitAndRankFunction(f, w) match {
++          case Some((limit, rankFunction)) if limit > 0 =>
++            f.copy(child = w.copy(child =
++              RankLimit(partitionSpec, orderSpec, rankFunction, limit, c)))
++          case Some((limit, _)) if limit <= 0 =>
++            LocalRelation(f.output, data = Seq.empty, isStreaming = f.isStreaming)
++          case _ => f
++        }
++    }
++  }
++}
++
+ /**
+  * Replaces logical [[Deduplicate]] operator with an [[Aggregate]] operator.
+  */
+diff --git a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/plans/logical/basicLogicalOperators.scala b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/plans/logical/basicLogicalOperators.scala
+index 774f695616..b561e5cfc5 100644
+--- a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/plans/logical/basicLogicalOperators.scala
++++ b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/plans/logical/basicLogicalOperators.scala
+@@ -1056,6 +1056,22 @@ case class Window(
+     copy(child = newChild)
+ }
+ 
++case class RankLimit(
++                      partitionSpec: Seq[Expression],
++                      orderSpec: Seq[SortOrder],
++                      rankFunction: Expression,
++                      limit: Int,
++                      child: LogicalPlan) extends OrderPreservingUnaryNode {
++  assert(orderSpec.nonEmpty && limit > 0)
++
++  override def output: Seq[Attribute] = child.output
++  override def maxRows: Option[Long] = child.maxRows
++  override def maxRowsPerPartition: Option[Long] = child.maxRowsPerPartition
++  final override val nodePatterns: Seq[TreePattern] = Seq(RANK_LIMIT)
++  override protected def withNewChildInternal(newChild: LogicalPlan): RankLimit =
++    copy(child = newChild)
++}
++
+ object Expand {
+   /**
+    * Build bit mask from attributes of selected grouping set. A bit in the bitmask is corresponding
+diff --git a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/rules/RuleIdCollection.scala b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/rules/RuleIdCollection.scala
+index e36a76b0b2..6ffa5ab14d 100644
+--- a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/rules/RuleIdCollection.scala
++++ b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/rules/RuleIdCollection.scala
+@@ -113,6 +113,7 @@ object RuleIdCollection {
+       "org.apache.spark.sql.catalyst.optimizer.EliminateMapObjects" ::
+       "org.apache.spark.sql.catalyst.optimizer.EliminateOuterJoin" ::
+       "org.apache.spark.sql.catalyst.optimizer.EliminateSerialization" ::
++      "org.apache.spark.sql.catalyst.optimizer.InsertRankLimit" ::
+       "org.apache.spark.sql.catalyst.optimizer.LikeSimplification" ::
+       "org.apache.spark.sql.catalyst.optimizer.LimitPushDown" ::
+       "org.apache.spark.sql.catalyst.optimizer.LimitPushDownThroughWindow" ::
+diff --git a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/trees/TreePatterns.scala b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/trees/TreePatterns.scala
+index 93273b5a2c..c70e4cb4b6 100644
+--- a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/trees/TreePatterns.scala
++++ b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/trees/TreePatterns.scala
+@@ -110,6 +110,7 @@ object TreePattern extends Enumeration  {
+   val NATURAL_LIKE_JOIN: Value = Value
+   val OUTER_JOIN: Value = Value
+   val PROJECT: Value = Value
++  val RANK_LIMIT: Value = Value
+   val RELATION_TIME_TRAVEL: Value = Value
+   val REPARTITION_OPERATION: Value = Value
+   val REBALANCE_PARTITIONS: Value = Value
+diff --git a/sql/catalyst/src/main/scala/org/apache/spark/sql/internal/SQLConf.scala b/sql/catalyst/src/main/scala/org/apache/spark/sql/internal/SQLConf.scala
+index b6230f7138..6df880bd4e 100644
+--- a/sql/catalyst/src/main/scala/org/apache/spark/sql/internal/SQLConf.scala
++++ b/sql/catalyst/src/main/scala/org/apache/spark/sql/internal/SQLConf.scala
+@@ -1314,6 +1314,13 @@ object SQLConf {
+     .booleanConf
+     .createWithDefault(false)
+ 
++  val RANK_LIMIT_ENABLE = buildConf("spark.sql.rankLimit.enabled")
++    .internal()
++    .doc("When true, filter the dataset by the rank limit before window-based top-k computation.")
++    .version("3.3.0")
++    .booleanConf
++    .createWithDefault(false)
++
+   val GATHER_FASTSTAT = buildConf("spark.sql.hive.gatherFastStats")
+       .internal()
+       .doc("When true, fast stats (number of files and total size of all files) will be gathered" +
+diff --git a/sql/core/src/main/scala/org/apache/spark/sql/execution/SparkPlanner.scala b/sql/core/src/main/scala/org/apache/spark/sql/execution/SparkPlanner.scala
+index 6994aaf47d..db822f7003 100644
+--- a/sql/core/src/main/scala/org/apache/spark/sql/execution/SparkPlanner.scala
++++ b/sql/core/src/main/scala/org/apache/spark/sql/execution/SparkPlanner.scala
+@@ -41,6 +41,7 @@ class SparkPlanner(val session: SparkSession, val experimentalMethods: Experimen
+       SpecialLimits ::
+       Aggregation ::
+       Window ::
++      RankLimit ::
+       JoinSelection ::
+       InMemoryScans ::
+       SparkScripts ::
+diff --git a/sql/core/src/main/scala/org/apache/spark/sql/execution/SparkStrategies.scala b/sql/core/src/main/scala/org/apache/spark/sql/execution/SparkStrategies.scala
+index 17f3cfbda8..914222c36a 100644
+--- a/sql/core/src/main/scala/org/apache/spark/sql/execution/SparkStrategies.scala
++++ b/sql/core/src/main/scala/org/apache/spark/sql/execution/SparkStrategies.scala
+@@ -594,6 +594,22 @@ abstract class SparkStrategies extends QueryPlanner[SparkPlan] {
+     }
+   }
+ 
++  object RankLimit extends Strategy {
++    def apply(plan: LogicalPlan): Seq[SparkPlan] = plan match {
++      case logical.RankLimit(partitionSpec, orderSpec, rankFunction, limit, child) =>
++        // TODO: add a physical rule to remove the partialRankLimit node, if there is no shuffle
++        // between the two nodes (partialRankLimit's outputPartitioning satisfies the
++        // finalRankLimit's requiredChildDistribution)
++        val partialRankLimit = execution.window.RankLimitExec(partitionSpec, orderSpec,
++          rankFunction, limit, execution.window.Partial, planLater(child))
++        val finalRankLimit = execution.window.RankLimitExec(partitionSpec, orderSpec,
++          rankFunction, limit, execution.window.Final, partialRankLimit)
++        finalRankLimit :: Nil
++
++      case _ => Nil
++    }
++  }
++
+   protected lazy val singleRowRdd = session.sparkContext.parallelize(Seq(InternalRow()), 1)
+ 
+   object InMemoryScans extends Strategy {
+diff --git a/sql/core/src/main/scala/org/apache/spark/sql/execution/window/RankLimitExec.scala b/sql/core/src/main/scala/org/apache/spark/sql/execution/window/RankLimitExec.scala
+new file mode 100644
+index 0000000000..a869368b8a
+--- /dev/null
++++ b/sql/core/src/main/scala/org/apache/spark/sql/execution/window/RankLimitExec.scala
+@@ -0,0 +1,265 @@
++/*
++ * Licensed to the Apache Software Foundation (ASF) under one or more
++ * contributor license agreements.  See the NOTICE file distributed with
++ * this work for additional information regarding copyright ownership.
++ * The ASF licenses this file to You under the Apache License, Version 2.0
++ * (the "License"); you may not use this file except in compliance with
++ * the License.  You may obtain a copy of the License at
++ *
++ *    http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++
++package org.apache.spark.sql.execution.window
++
++import org.apache.spark.rdd.RDD
++import org.apache.spark.sql.catalyst.InternalRow
++import org.apache.spark.sql.catalyst.expressions._
++import org.apache.spark.sql.catalyst.expressions.codegen._
++import org.apache.spark.sql.catalyst.plans.physical._
++import org.apache.spark.sql.execution._
++import org.apache.spark.sql.execution.metric.SQLMetrics
++import org.apache.spark.util.collection.Utils
++
++
++sealed trait RankLimitMode
++
++case object Partial extends RankLimitMode
++
++case object Final extends RankLimitMode
++
++
++/**
++ * This operator is designed to filter out unnecessary rows before WindowExec,
++ * for top-k computation.
++ * @param partitionSpec Should be the same as [[WindowExec#partitionSpec]]
++ * @param orderSpec Should be the same as [[WindowExec#orderSpec]]
++ * @param rankFunction The function to compute row rank, should be RowNumber/Rank/DenseRank.
++ */
++case class RankLimitExec(
++                          partitionSpec: Seq[Expression],
++                          orderSpec: Seq[SortOrder],
++                          rankFunction: Expression,
++                          limit: Int,
++                          mode: RankLimitMode,
++                          child: SparkPlan) extends UnaryExecNode {
++  assert(orderSpec.nonEmpty && limit > 0)
++
++  private val shouldApplyTakeOrdered: Boolean = rankFunction match {
++    case _: RowNumber => limit < conf.topKSortFallbackThreshold
++    case _: Rank => false
++    case _: DenseRank => false
++    case f => throw new IllegalArgumentException(s"Unsupported rank function: $f")
++  }
++
++  override def output: Seq[Attribute] = child.output
++
++  override def requiredChildOrdering: Seq[Seq[SortOrder]] = {
++    if (shouldApplyTakeOrdered) {
++      Seq(partitionSpec.map(SortOrder(_, Ascending)))
++    } else {
++      // Should be the same as [[WindowExec#requiredChildOrdering]]
++      Seq(partitionSpec.map(SortOrder(_, Ascending)) ++ orderSpec)
++    }
++  }
++
++  override def outputOrdering: Seq[SortOrder] = {
++    partitionSpec.map(SortOrder(_, Ascending)) ++ orderSpec
++  }
++
++  override def requiredChildDistribution: Seq[Distribution] = mode match {
++    case Partial => super.requiredChildDistribution
++    case Final =>
++      // Should be the same as [[WindowExec#requiredChildDistribution]]
++      if (partitionSpec.isEmpty) {
++        AllTuples :: Nil
++      } else ClusteredDistribution(partitionSpec) :: Nil
++  }
++
++  override def outputPartitioning: Partitioning = child.outputPartitioning
++
++  override lazy val metrics = Map(
++    "numOutputRows" -> SQLMetrics.createMetric(sparkContext, "number of output rows"))
++
++  private lazy val ordering = GenerateOrdering.generate(orderSpec, output)
++
++  private lazy val limitFunction = rankFunction match {
++    case _: RowNumber if shouldApplyTakeOrdered =>
++      (stream: Iterator[InternalRow]) =>
++        Utils.takeOrdered(stream.map(_.copy()), limit)(ordering)
++
++    case _: RowNumber =>
++      (stream: Iterator[InternalRow]) =>
++        stream.take(limit)
++
++    case _: Rank =>
++      (stream: Iterator[InternalRow]) =>
++        var count = 0
++        var rank = 0
++        SimpleGroupedIterator.apply(stream, ordering)
++          .flatMap { group =>
++            rank = count + 1
++            group.map { row => count += 1; row }
++          }.takeWhile(_ => rank <= limit)
++
++    case _: DenseRank =>
++      (stream: Iterator[InternalRow]) =>
++        SimpleGroupedIterator.apply(stream, ordering)
++          .take(limit)
++          .flatten
++
++    case f => throw new IllegalArgumentException(s"Unsupported rank function: $f")
++  }
++
++  protected override def doExecute(): RDD[InternalRow] = {
++    val numOutputRows = longMetric("numOutputRows")
++    child.execute().mapPartitionsInternal { stream =>
++      val filteredStream = if (stream.isEmpty) {
++        Iterator.empty
++      } else if (partitionSpec.isEmpty) {
++        limitFunction(stream)
++      } else {
++        val partitionOrdering = GenerateOrdering.generate(
++          partitionSpec.map(SortOrder(_, Ascending)), output)
++        SimpleGroupedIterator.apply(stream, partitionOrdering)
++          .flatMap(limitFunction)
++      }
++
++      filteredStream.map { row =>
++        numOutputRows += 1
++        row
++      }
++    }
++  }
++
++  override protected def withNewChildInternal(newChild: SparkPlan): RankLimitExec =
++    copy(child = newChild)
++}
++
++
++object SimpleGroupedIterator {
++  def apply(
++             input: Iterator[InternalRow],
++             ordering: BaseOrdering): Iterator[Iterator[InternalRow]] = {
++    if (input.hasNext) {
++      new SimpleGroupedIterator(input.buffered, ordering)
++    } else {
++      Iterator.empty
++    }
++  }
++}
++
++
++/**
++ * A simplified version of [[GroupedIterator]], there are mainly two differences:
++ * 1, does not need to perform key projection, since grouping key is not used,
++ * 2, the ordering is passed in, so can be reused.
++ *
++ * Note, the class does not handle the case of an empty input for simplicity of implementation.
++ * Use the factory to construct a new instance.
++ *
++ * @param input An iterator of rows.  This iterator must be ordered by the groupingExpressions or
++ *              it is possible for the same group to appear more than once.
++ * @param ordering Compares two input rows and returns 0 if they are in the same group.
++ */
++class SimpleGroupedIterator private(
++                                     input: BufferedIterator[InternalRow],
++                                     ordering: BaseOrdering)
++  extends Iterator[Iterator[InternalRow]] {
++
++  /**
++   * Holds null or the row that will be returned on next call to `next()` in the inner iterator.
++   */
++  var currentRow = input.next()
++
++  /** Holds a copy of an input row that is in the current group. */
++  var currentGroup = currentRow.copy()
++
++  assert(ordering.compare(currentGroup, currentRow) == 0)
++  var currentIterator = createGroupValuesIterator()
++
++  /**
++   * Return true if we already have the next iterator or fetching a new iterator is successful.
++   *
++   * Note that, if we get the iterator by `next`, we should consume it before call `hasNext`,
++   * because we will consume the input data to skip to next group while fetching a new iterator,
++   * thus make the previous iterator empty.
++   */
++  def hasNext: Boolean = currentIterator != null || fetchNextGroupIterator
++
++  def next(): Iterator[InternalRow] = {
++    assert(hasNext) // Ensure we have fetched the next iterator.
++    val ret = currentIterator
++    currentIterator = null
++    ret
++  }
++
++  private def fetchNextGroupIterator(): Boolean = {
++    assert(currentIterator == null)
++
++    if (currentRow == null && input.hasNext) {
++      currentRow = input.next()
++    }
++
++    if (currentRow == null) {
++      // These is no data left, return false.
++      false
++    } else {
++      // Skip to next group.
++      // currentRow may be overwritten by `hasNext`, so we should compare them first.
++      while (ordering.compare(currentGroup, currentRow) == 0 && input.hasNext) {
++        currentRow = input.next()
++      }
++
++      if (ordering.compare(currentGroup, currentRow) == 0) {
++        // We are in the last group, there is no more groups, return false.
++        false
++      } else {
++        // Now the `currentRow` is the first row of next group.
++        currentGroup = currentRow.copy()
++        currentIterator = createGroupValuesIterator()
++        true
++      }
++    }
++  }
++
++  private def createGroupValuesIterator(): Iterator[InternalRow] = {
++    new Iterator[InternalRow] {
++      def hasNext: Boolean = currentRow != null || fetchNextRowInGroup()
++
++      def next(): InternalRow = {
++        assert(hasNext)
++        val res = currentRow
++        currentRow = null
++        res
++      }
++
++      private def fetchNextRowInGroup(): Boolean = {
++        assert(currentRow == null)
++
++        if (input.hasNext) {
++          // The inner iterator should NOT consume the input into next group, here we use `head` to
++          // peek the next input, to see if we should continue to process it.
++          if (ordering.compare(currentGroup, input.head) == 0) {
++            // Next input is in the current group.  Continue the inner iterator.
++            currentRow = input.next()
++            true
++          } else {
++            // Next input is not in the right group.  End this inner iterator.
++            false
++          }
++        } else {
++          // There is no more data, return false.
++          false
++        }
++      }
++    }
++  }
++}
++
+-- 
+2.20.1
+

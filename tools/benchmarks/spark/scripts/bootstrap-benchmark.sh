@@ -52,10 +52,13 @@ function install_spark_sql_perf() {
     install_sbt
     cd ${BENCHMARK_TOOL_HOME}
     if [ ! -d "spark-sql-perf" ]; then
-        git clone https://github.com/databricks/spark-sql-perf.git && cd spark-sql-perf
-    else
-        cd spark-sql-perf && git pull
+        git clone https://github.com/databricks/spark-sql-perf.git
     fi
+    cd spark-sql-perf && git reset --hard 6b2bf9f9ad6f6c2f620062fda78cded203f619c8
+    if [ ! -f "Update-TPC-DS-Queries.patch" ]; then
+       wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/spark/patches/Update-TPC-DS-Queries.patch
+    fi
+    git apply Update-TPC-DS-Queries.patch
     sbt package
 }
 

@@ -27,11 +27,13 @@ def replace_name_value(conf_file, name, value):
         property_tag.find("value").text = value
     tree.write(conf_file)
 
+
 def add_config_value(conf_file, dict, delimeter):
     with open(conf_file, 'a') as f:
-        for key,val in dict.items():
-            if (not key == ""):
+        for key, val in dict.items():
+            if not key == "":
                 f.write(key + delimeter + val + "\n")
+
 
 def add_property_element(root_elemnt, name, value):
     property_element = ET.SubElement(root_elemnt, "property")
@@ -95,21 +97,22 @@ def update_conf(component, conf_root):
           
     return output_component_conf
 
+
 def list_files_tree(conf_root, component) :
     # list this folder
     all_files = {}
     
     component_conf = conf_root
-    if(os.path.isdir(component_conf)) :
-       files = os.listdir(component_conf)
-       for file in files :
-           if os.path.isfile(os.path.join(component_conf, file)):
+    if os.path.isdir(component_conf) :
+        files = os.listdir(component_conf)
+        for file in files :
+            if os.path.isfile(os.path.join(component_conf, file)):
                 all_files[file] = "0"
     
     # list base files
     base_conf = get_component_base_conf(conf_root, component)
-    if( base_conf == "") :
-       return all_files
+    if base_conf == "":
+        return all_files
        
     base_files = list_files_tree(base_conf, component)
     for file in base_files :
@@ -128,11 +131,13 @@ def get_configs_from_properties (filename):
             result[kv[0]] = kv[1]
     return result
 
+
 def get_component_base_conf(conf_root, component):
     component_base_conf = os.path.join(os.path.join(root_conf, component), "base")
-    if (conf_root == component_base_conf):
+    if conf_root == component_base_conf:
         return ""
     return component_base_conf
+
 
 # properties file hierarchy handling
 def merge_properties_tree (conf_root, conf_file, output_filename, delimeter, component):
@@ -140,25 +145,27 @@ def merge_properties_tree (conf_root, conf_file, output_filename, delimeter, com
     
     with open(output_filename, 'w') as f:
         for k, v in props_merged.items():
-            if(not k == ""):
+            if not k == "":
                f.write(k + delimeter + v + "\n")
+
 
 def get_properties_tree (conf_root, conf_file, delimeter, component):
     props_base = get_properties_base(conf_root, conf_file, delimeter, component)
 
-    if( os.path.isfile(conf_file) ) :
+    if os.path.isfile(conf_file):
         props_from = parse_properties(conf_file, delimeter)
         props_base = merge_properties(props_base, props_from)
     
     return props_base
-    
+
+
 def parse_properties (filename, delimeter):
     result = {}
     with open(filename, 'r') as f:
         for line in f:
-            #kv = line.split(delimeter)
+            # kv = line.split(delimeter)
             kv = line.split(delimeter,1)
-            #if line.startswith('#') or len(kv) != 2:
+            # if line.startswith('#') or len(kv) != 2:
             if line.startswith('#'):
                 continue
             if len(kv) < 2:
@@ -168,17 +175,19 @@ def parse_properties (filename, delimeter):
             result[kv[0]] = kv[1].strip('\n')
     
     return result
-        
+
+
 def get_properties_base (conf_root, conf_file, delimeter, component):
     result = {}
 
     component_base_conf = get_component_base_conf(conf_root, component)
-    if(component_base_conf == "") :
-       return result
+    if component_base_conf == "":
+        return result
     
     conf_file_relative = os.path.relpath(conf_file, conf_root)
     base_conf_file = os.path.join(component_base_conf, conf_file_relative)
     return get_properties_tree(component_base_dir, base_conf_file, delimeter, component)
+
 
 def merge_properties(props, props_from) :
     for k, v in props_from.items():
@@ -196,10 +205,12 @@ def merge_properties(props, props_from) :
             props[k] = v
     return props
 
+
 # xml config hierarchy handling
 def mkdirs(path) :
-    if(not os.path.exists(path)):
-       os.makedirs(path)
+    if not os.path.exists(path):
+        os.makedirs(path)
+
 
 def merge_pmem_xml_properties_tree(conf_root, conf_file, output_filename, component):
     props_merged = get_pmem_xml_properties_tree(conf_root, conf_file, component)
@@ -211,24 +222,27 @@ def merge_pmem_xml_properties_tree(conf_root, conf_file, output_filename, compon
     with open(output_filename, "w") as f:
         f.write(minidom.parseString(ET.tostring(xml_output.getroot())).toprettyxml(indent="  "))
 
+
 def get_pmem_xml_properties_tree(conf_root, conf_file, component):
     props_base = get_pmem_xml_properties_base(conf_root, conf_file, component)
 
-    if (os.path.isfile(conf_file)):
+    if os.path.isfile(conf_file):
         props_base = merge_pmem_xml_properties(props_base, conf_file)
 
     return props_base
+
 
 def  get_pmem_xml_properties_base(conf_root, conf_file, component):
     result = ET.Element("persistentMemoryPool")
 
     component_base_conf = get_component_base_conf(conf_root, component)
-    if (component_base_conf == ""):
+    if component_base_conf == "":
         return result
 
     conf_file_relative = os.path.relpath(conf_file, conf_root)
     base_conf_file = os.path.join(component_base_conf, conf_file_relative)
     return get_pmem_xml_properties_tree(component_base_conf, base_conf_file)
+
 
 def merge_pmem_xml_properties(props, conf_file_from):
     result = ET.Element("persistentMemoryPool")
@@ -253,6 +267,7 @@ def merge_pmem_xml_properties(props, conf_file_from):
         i += 1
     return result
 
+
 def merge_xml_properties_tree (conf_root, conf_file, output_filename, component):
     props_merged = get_xml_properties_tree(conf_root, conf_file, component)
     
@@ -260,28 +275,31 @@ def merge_xml_properties_tree (conf_root, conf_file, output_filename, component)
     
     xml_output = ET.ElementTree(props_merged)
 
-    #xml_output.write(output_filename, encoding="UTF-8", xml_declaration=True)
+    # xml_output.write(output_filename, encoding="UTF-8", xml_declaration=True)
     with open(output_filename, "w") as f:
         f.write(minidom.parseString(ET.tostring(xml_output.getroot())).toprettyxml(indent="  "))
+
 
 def get_xml_properties_tree (conf_root, conf_file, component):
     props_base = get_xml_properties_base(conf_root, conf_file, component)
     
-    if( os.path.isfile(conf_file) ) :
+    if os.path.isfile(conf_file):
         props_base = merge_xml_properties(props_base, conf_file)
     
     return props_base
-        
-def get_xml_properties_base (conf_root, conf_file, component):
+
+
+def get_xml_properties_base(conf_root, conf_file, component):
     result = ET.Element("configuration")
 
     component_base_conf = get_component_base_conf(conf_root, component)
-    if(component_base_conf == "") :
-       return result
+    if component_base_conf == "":
+        return result
     
     conf_file_relative = os.path.relpath(conf_file, conf_root)
     base_conf_file = os.path.join(component_base_conf, conf_file_relative)
     return get_xml_properties_tree(component_base_conf, base_conf_file, component)
+
 
 def merge_xml_properties(props, conf_file_from) :
     result = ET.Element("configuration")
@@ -315,13 +333,15 @@ def get_properties(filename):
             properties[key.strip()] = value.strip()
     return properties
 
+
 def get_component(conf_path):
     component_dir = os.path.dirname(os.path.dirname(os.path.abspath(conf_path)))
     component = os.path.basename(component_dir)
     return component
 
+
 def usage():
-    print("Usage: python hibench_config_utils.py [conf_dir]/n")
+    print("Usage: python config_utils.py [conf_dir]/n")
     exit(1)
 
 

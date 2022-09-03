@@ -77,7 +77,7 @@ function set_resources_for_spark() {
     if [ ! -z "${YARN_RESOURCE_MEMORY_RATIO}" ]; then
         memory_ratio=${YARN_RESOURCE_MEMORY_RATIO}
     fi
-    total_memory=$(awk -v  ratio=${memory_ratio} -v total_physical_memory=$(cloudtik resources --memory --in-mb) 'BEGIN{print ratio * total_physical_memory}')
+    total_memory=$(awk -v ratio=${memory_ratio} -v total_physical_memory=$(cloudtik resources --memory --in-mb) 'BEGIN{print ratio * total_physical_memory}')
     total_memory=${total_memory%.*}
     total_vcores=$(cloudtik resources --cpu)
 
@@ -114,8 +114,11 @@ function update_credential_config_for_aws() {
     if [ "$AWS_WEB_IDENTITY" == "true" ]; then
         # Replace with InstanceProfileCredentialsProvider with WebIdentityTokenCredentialsProvider for Kubernetes
         sed -i "s#InstanceProfileCredentialsProvider#WebIdentityTokenCredentialsProvider#g" `grep "InstanceProfileCredentialsProvider" -rl ./`
-        WEB_IDENTITY_ENVS="spark.yarn.appMasterEnv.AWS_ROLE_ARN   ${AWS_ROLE_ARN}\nspark.yarn.appMasterEnv.AWS_WEB_IDENTITY_TOKEN_FILE   ${AWS_WEB_IDENTITY_TOKEN_FILE}\nspark.executorEnv.AWS_ROLE_ARN   ${AWS_ROLE_ARN}\nspark.executorEnv.AWS_WEB_IDENTITY_TOKEN_FILE   ${AWS_WEB_IDENTITY_TOKEN_FILE}"
-        sed -i "$ a ${WEB_IDENTITY_ENVS}" ${SPARK_DEFAULTS}
+
+        if [ ! -z "${AWS_ROLE_ARN}" ] && [ ! -z "${AWS_WEB_IDENTITY_TOKEN_FILE}" ]; then
+            WEB_IDENTITY_ENVS="\nspark.yarn.appMasterEnv.AWS_ROLE_ARN ${AWS_ROLE_ARN}\nspark.yarn.appMasterEnv.AWS_WEB_IDENTITY_TOKEN_FILE ${AWS_WEB_IDENTITY_TOKEN_FILE}\nspark.executorEnv.AWS_ROLE_ARN ${AWS_ROLE_ARN}\nspark.executorEnv.AWS_WEB_IDENTITY_TOKEN_FILE ${AWS_WEB_IDENTITY_TOKEN_FILE}\n"
+            sed -i "$ a ${WEB_IDENTITY_ENVS}" ${SPARK_DEFAULTS}
+        fi
     fi
 
     sed -i "s#{%fs.s3a.access.key%}#${AWS_S3_ACCESS_KEY_ID}#g" `grep "{%fs.s3a.access.key%}" -rl ./`
@@ -297,10 +300,10 @@ function update_config_for_storage() {
         update_config_for_remote_storage
 
         if [ "${cloud_storage_provider}" != "none" ];then
-            cp -r ${output_dir}/hadoop/${cloud_storage_provider}/core-site.xml  ${HADOOP_HOME}/etc/hadoop/
+            cp -r ${output_dir}/hadoop/${cloud_storage_provider}/core-site.xml ${HADOOP_HOME}/etc/hadoop/
         else
             # Possible remote hdfs without cloud storage
-            cp -r ${output_dir}/hadoop/core-site.xml  ${HADOOP_HOME}/etc/hadoop/
+            cp -r ${output_dir}/hadoop/core-site.xml ${HADOOP_HOME}/etc/hadoop/
         fi
     fi
 }
@@ -396,12 +399,12 @@ function configure_hadoop_and_spark() {
     update_data_disks_config
     update_config_for_storage
 
-    cp -r ${output_dir}/hadoop/yarn-site.xml  ${HADOOP_HOME}/etc/hadoop/
+    cp -r ${output_dir}/hadoop/yarn-site.xml ${HADOOP_HOME}/etc/hadoop/
 
     if [ $IS_HEAD_NODE == "true" ];then
         update_metastore_config
 
-        cp -r ${output_dir}/spark/*  ${SPARK_HOME}/conf
+        cp -r ${output_dir}/spark/* ${SPARK_HOME}/conf
 
         if [ "$HDFS_ENABLED" == "true" ]; then
             # Create event log dir on hdfs

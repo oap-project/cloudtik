@@ -124,20 +124,11 @@ start the cluster with the cluster configure file.
 ### Create and configure a YAML file for cluster
 
 1. Local provider support both docker mode and host node. 
-```buildoutcfg
-# Enable container
-docker:
-    enabled: True
-```
-
 When using docker mode and the OS of machines is RedHat-based Linux Distributions, you need to additional initialization_command to install jq.
 For example,
 
 ```buildoutcfg
-# Enable container
 docker:
-    enabled: True
-    
     # Set initialization_command to install jq if the OS is Redhat, Centos or Fedora etc. (Only need on docker mode)
     initialization_command:
 	    - which jq || (sudo yum -qq update -y && sudo yum -qq install -y jq > /dev/null) 

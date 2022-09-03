@@ -10,24 +10,20 @@ User can specify to use his own image to pull for head and worker nodes.
 For example,
 
 ```
-# Turn on or off container by setting "enabled" to True or False.
 docker:
-    enabled: True
     image: your-own-image-tag
 ```
 
 And if you want the head to use a different image,
 ```
 docker:
-    enabled: True
     head_image: your-own-head-image-tag
 ```
 
 And if you want the worker to use a different image,
 ```
 docker:
-    enabled: True
-    head_image: your-own-worker-image-tag
+    worker_image: your-own-worker-image-tag
 ```
 
 ## Specifying the container name
@@ -36,7 +32,6 @@ You can customize it using the following,
 
 ```
 docker:
-    enabled: True
     container_name: your-container-name
 ```
 
@@ -47,7 +42,6 @@ For example,
 
 ```
 docker:
-    enabled: True
     run_options: your-additional-container-run-options
 ```
 Use 'head_run_options' or 'worker_run_options' key if head and worker need to use different run options.
@@ -60,7 +54,6 @@ For example,
 
 ```
 docker:
-    enabled: True
     initialization_commands:
         - your-initialization-commands-run-for-docker-only-1
         - your-initialization-commands-run-for-docker-only-2

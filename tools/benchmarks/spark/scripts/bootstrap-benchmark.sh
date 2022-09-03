@@ -54,7 +54,7 @@ function install_spark_sql_perf() {
     if [ ! -d "spark-sql-perf" ]; then
         git clone https://github.com/databricks/spark-sql-perf.git
     fi
-    cd spark-sql-perf && git reset --hard 6b2bf9f9ad6f6c2f620062fda78cded203f619c8
+    cd spark-sql-perf && git reset --hard 28d88190f6a5f6698d32eaf4092334c41180b806
     if [ ! -f "Update-TPC-DS-Queries.patch" ]; then
        wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/spark/patches/Update-TPC-DS-Queries.patch
     fi
@@ -75,9 +75,30 @@ function install_tpch_dbgen() {
     cd tpch-dbgen && make clean && make;
 }
 
+function install_jdk8() {
+    wget https://devops.egov.org.in/Downloads/jdk/jdk-8u192-linux-x64.tar.gz  -O /tmp/jdk-8u192-linux-x64.tar.gz && \
+    tar -xvf /tmp/jdk-8u192-linux-x64.tar.gz -C /tmp&& \
+    mv /tmp/jdk1.8.0_192 /tmp/jdk
+    export JAVA_HOME=/tmp/jdk
+    export PATH=$JAVA_HOME/bin:$PATH
+}
+
+function check_jdk_major_version() {
+    jdk_major_version=$(java -version 2>&1 | head -1 | cut -d'"' -f2 | sed '/^1\./s///' | cut -d'.' -f1)
+    if [ ${jdk_major_version} -gt 8 ]; then
+        install_jdk8
+    fi
+}
+
+function remove_jdk8() {
+    rm /tmp/jdk-8u192-linux-x64.tar.gz
+    rm -rf /tmp/jdk
+}
+
 function install_hibench() {
     which bc > /dev/null || sudo apt-get install bc -y
     install_maven
+    check_jdk_major_version
     cd ${BENCHMARK_TOOL_HOME}
     if [ ! -d "HiBench" ]; then
         git clone https://github.com/Intel-bigdata/HiBench.git && cd HiBench
@@ -85,6 +106,7 @@ function install_hibench() {
         cd HiBench && git pull
     fi
     mvn -Psparkbench -Dmodules -Pml -Pmicro -Dspark=3.0 -Dscala=2.12 -DskipTests clean package
+    remove_jdk8
 }
 
 function install_tpcds() {

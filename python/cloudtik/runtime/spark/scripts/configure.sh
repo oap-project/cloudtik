@@ -114,6 +114,8 @@ function update_credential_config_for_aws() {
     if [ "$AWS_WEB_IDENTITY" == "true" ]; then
         # Replace with InstanceProfileCredentialsProvider with WebIdentityTokenCredentialsProvider for Kubernetes
         sed -i "s#InstanceProfileCredentialsProvider#WebIdentityTokenCredentialsProvider#g" `grep "InstanceProfileCredentialsProvider" -rl ./`
+        WEB_IDENTITY_ENVS="spark.yarn.appMasterEnv.AWS_ROLE_ARN   ${AWS_ROLE_ARN}\nspark.yarn.appMasterEnv.AWS_WEB_IDENTITY_TOKEN_FILE   ${AWS_WEB_IDENTITY_TOKEN_FILE}\nspark.executorEnv.AWS_ROLE_ARN   ${AWS_ROLE_ARN}\nspark.executorEnv.AWS_WEB_IDENTITY_TOKEN_FILE   ${AWS_WEB_IDENTITY_TOKEN_FILE}"
+        sed -i "$ a ${WEB_IDENTITY_ENVS}" ${SPARK_DEFAULTS}
     fi
 
     sed -i "s#{%fs.s3a.access.key%}#${AWS_S3_ACCESS_KEY_ID}#g" `grep "{%fs.s3a.access.key%}" -rl ./`
@@ -355,7 +357,6 @@ function update_data_disks_config() {
 
 function update_metastore_config() {
     # To be improved for external metastore cluster
-    SPARK_DEFAULTS=${output_dir}/spark/spark-defaults.conf
     if [ "$METASTORE_ENABLED" == "true" ] || [ ! -z "$HIVE_METASTORE_URI" ]; then
         if [ "$METASTORE_ENABLED" == "true" ]; then
             METASTORE_IP=${HEAD_ADDRESS}
@@ -385,6 +386,7 @@ function update_metastore_config() {
 
 function configure_hadoop_and_spark() {
     prepare_base_conf
+    SPARK_DEFAULTS=${output_dir}/spark/spark-defaults.conf
 
     cd $output_dir
     sed -i "s/HEAD_ADDRESS/${HEAD_ADDRESS}/g" `grep "HEAD_ADDRESS" -rl ./`

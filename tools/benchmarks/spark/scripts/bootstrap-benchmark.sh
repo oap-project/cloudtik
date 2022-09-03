@@ -8,22 +8,22 @@ REPOSITORY=default
 
 function prepare_prerequisite() {
     source ~/.bashrc
+    sudo apt-get update -y
     sudo apt-get install -y git
     export USER_HOME=/home/$(whoami)
     BENCHMARK_TOOL_HOME=$USER_HOME/runtime/benchmark-tools
     mkdir -p $BENCHMARK_TOOL_HOME
     sudo chown $(whoami) $BENCHMARK_TOOL_HOME
-    sudo apt-get update
 }
 
 function install_sbt() {
-    sudo apt-get update
+    sudo apt-get update -y
     sudo apt-get install apt-transport-https curl gnupg -yqq
     echo "deb https://repo.scala-sbt.org/scalasbt/debian all main" | sudo tee /etc/apt/sources.list.d/sbt.list
     echo "deb https://repo.scala-sbt.org/scalasbt/debian /" | sudo tee /etc/apt/sources.list.d/sbt_old.list
     curl -sL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x2EE0EA64E40A89B84B2DF73499E82A75642AC823" | sudo -H gpg --no-default-keyring --keyring gnupg-ring:/etc/apt/trusted.gpg.d/scalasbt-release.gpg --import
     sudo chmod 644 /etc/apt/trusted.gpg.d/scalasbt-release.gpg
-    sudo apt-get update
+    sudo apt-get update -y
     sudo apt-get install sbt -y
 
     if [ "${REPOSITORY}" == "china" ]; then
@@ -76,14 +76,14 @@ function install_tpch_dbgen() {
 }
 
 function install_jdk8() {
-    wget https://devops.egov.org.in/Downloads/jdk/jdk-8u192-linux-x64.tar.gz  -O /tmp/jdk-8u192-linux-x64.tar.gz && \
-    tar -xvf /tmp/jdk-8u192-linux-x64.tar.gz -C /tmp&& \
+    wget https://devops.egov.org.in/Downloads/jdk/jdk-8u192-linux-x64.tar.gz -O /tmp/jdk-8u192-linux-x64.tar.gz && \
+    tar -xvf /tmp/jdk-8u192-linux-x64.tar.gz -C /tmp && \
     mv /tmp/jdk1.8.0_192 /tmp/jdk
     export JAVA_HOME=/tmp/jdk
     export PATH=$JAVA_HOME/bin:$PATH
 }
 
-function check_jdk_major_version() {
+function check_jdk8() {
     jdk_major_version=$(java -version 2>&1 | head -1 | cut -d'"' -f2 | sed '/^1\./s///' | cut -d'.' -f1)
     if [ ${jdk_major_version} -gt 8 ]; then
         install_jdk8
@@ -98,7 +98,7 @@ function remove_jdk8() {
 function install_hibench() {
     which bc > /dev/null || sudo apt-get install bc -y
     install_maven
-    check_jdk_major_version
+    check_jdk8
     cd ${BENCHMARK_TOOL_HOME}
     if [ ! -d "HiBench" ]; then
         git clone https://github.com/Intel-bigdata/HiBench.git && cd HiBench
@@ -122,12 +122,10 @@ function install_tpch() {
 function clean_up() {
    sudo rm -rf /var/lib/apt/lists/*
    sudo apt-get clean
-
-   # Do other cleanups
 }
 
 function usage() {
-    echo "Usage: $0 --workload=[all|tpch|tpcds|hibench] --repository=[default|china]" >&2
+    echo "Usage: $0 --workload=[all|tpcds|tpch|hibench] --repository=[default|china]" >&2
     echo "Usage: $0 -h|--help"
 }
 
@@ -164,9 +162,9 @@ elif [ "${WORKLOAD}" == "tpch" ];then
 elif [ "${WORKLOAD}" == "hibench" ];then
     install_hibench
 elif [ "${WORKLOAD}" == "all" ];then
-    install_hibench
     install_tpcds
     install_tpch
+    install_hibench
 else
     usage
     exit 1

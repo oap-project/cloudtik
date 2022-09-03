@@ -54,12 +54,10 @@ function prepare_base_conf() {
 }
 
 function configure_diskstat() {
-    which hwinfo || sudo apt-get update && sudo apt-get install -y hwinfo > /dev/null
     node_disks=$(echo $(sudo hwinfo --disk --short | grep dev | awk '{print $1}' | cut -d "/" -f 3))
     sed -i "s/{cloudtik-node-disks}/${node_disks}/g" $output_dir/conf.d/diskstat.pyconf
     sudo cp $output_dir/conf.d/diskstat.pyconf /etc/ganglia/conf.d/diskstat.pyconf
 }
-
 
 function configure_ganglia() {
     prepare_base_conf

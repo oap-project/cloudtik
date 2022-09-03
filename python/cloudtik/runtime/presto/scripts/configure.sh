@@ -228,12 +228,10 @@ function configure_presto() {
 
     cd $output_dir
     node_id=$(uuid)
-    presto_log_dir=${PRESTO_HOME}/logs
-    mkdir -p ${presto_log_dir}
+
     sed -i "s/{%HEAD_ADDRESS%}/${HEAD_ADDRESS}/g" `grep "{%HEAD_ADDRESS%}" -rl ./`
     sed -i "s/{%node.environment%}/presto/g" $output_dir/presto/node.properties
     sed -i "s/{%node.id%}/${node_id}/g" $output_dir/presto/node.properties
-    sed -i "s!{%node.log-dir%}!${presto_log_dir}!g" $output_dir/presto/node.properties
 
     update_presto_memory_config
     update_presto_data_disks_config

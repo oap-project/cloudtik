@@ -4,7 +4,7 @@ FROM cloudtik/spark-runtime:"$BASE_IMAGE"
 ARG ZOOKEEPER_VERSION=3.7.1
 ARG KAFKA_VERSION=3.1.0
 ARG KAFKA_SCALA_VERSION=2.13
-ARG PRESTO_VERSION=0.271.1
+ARG PRESTO_VERSION=0.276
 
 HEALTHCHECK CMD exit 0
 
@@ -63,4 +63,3 @@ RUN export PATH="$HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH" \
     && pip install torch==1.12.0 torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cpu \
     && export CXX=/usr/bin/g++-9 \
     && HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_MXNET=1 HOROVOD_WITH_GLOO=1  pip install horovod[all-frameworks]==0.25.0
-

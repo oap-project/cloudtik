@@ -23,7 +23,7 @@ do
     shift
 done
 
-export PRESTO_VERSION=0.271.1
+export PRESTO_VERSION=0.276
 
 export USER_HOME=/home/$(whoami)
 export RUNTIME_PATH=$USER_HOME/runtime

@@ -16,6 +16,7 @@ RUNTIME_PROCESSES = [
     # The third element is the process name.
     # The forth element, if node, the process should on all nodes,if head, the process should on head node.
     ["proc_resourcemanager", False, "ResourceManager", "head"],
+    ["org.apache.flink.runtime.webmonitor.history.HistoryServer", False, "FlinkHistoryServer", "head"],
     ["proc_nodemanager", False, "NodeManager", "worker"],
 ]
 
@@ -318,7 +319,7 @@ def _get_runtime_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]
             "protocol": "TCP",
             "port": 8888,
         },
-        "history-server": {
+        "flink-history": {
             "protocol": "TCP",
             "port": 8082,
         },

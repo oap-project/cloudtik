@@ -1,7 +1,7 @@
 ARG BASE_IMAGE="nightly"
 FROM cloudtik/cloudtik:"$BASE_IMAGE"
 
-ARG TRINO_VERSION=382
+ARG TRINO_VERSION=389
 
 ENV RUNTIME_PATH /home/cloudtik/runtime
 RUN mkdir -p $RUNTIME_PATH

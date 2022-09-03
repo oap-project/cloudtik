@@ -17,6 +17,7 @@ RUNTIME_PROCESSES = [
     # The third element is the process name.
     # The forth element, if node, the process should on all nodes,if head, the process should on head node.
     ["proc_resourcemanager", False, "ResourceManager", "head"],
+    ["org.apache.spark.deploy.history.HistoryServer", False, "SparkHistoryServer", "head"],
     ["proc_nodemanager", False, "NodeManager", "worker"],
 ]
 

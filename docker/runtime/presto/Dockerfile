@@ -1,7 +1,7 @@
 ARG BASE_IMAGE="nightly"
 FROM cloudtik/cloudtik:"$BASE_IMAGE"
 
-ARG PRESTO_VERSION=0.271.1
+ARG PRESTO_VERSION=0.276
 
 ENV RUNTIME_PATH /home/cloudtik/runtime
 RUN mkdir -p $RUNTIME_PATH

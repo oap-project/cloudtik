@@ -12,6 +12,7 @@ CLOUDTIK_REDIS_EXECUTABLE = os.path.join(
 from cloudtik.core._private.services import start_cloudtik_process
 import cloudtik.core._private.constants as constants
 from cloudtik.core._private.state.control_state import ControlState
+import time
 
 processes = []
 TEST_KEYS = ['node-1', 'node-2', 'node-3', 'node-4', 'node-5']
@@ -32,7 +33,7 @@ def setup_module():
             fate_share=False)
         print(process_info)
         processes.append(process_info)
-
+    time.sleep(10)
 
 def teardown_module():
     print("teardown_function--->")

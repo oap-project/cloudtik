@@ -96,13 +96,27 @@ val experiment = tpcds.runExperiment(
 println(experiment.toString)
 experiment.waitForFinish(timeout*60*60)
 
-val res=experiment.getCurrentResults // or: spark.read.json(resultLocation).filter("timestamp = 1429132621024")
-  .withColumn("Name", substring(col("name"), 1, 100))
-  .withColumn("Runtime", round(((col("parsingTime") + col("analysisTime") + col("optimizationTime") + col("planningTime") + col("executionTime")) / 1000.0), 2))
-  .select('Name, 'Runtime)
-res.show(104)
+// Get performance results data
+val resultPath = experiment.resultPath
+val resultDF = spark.read.json(resultPath)
+val result = resultDF.withColumn("result", explode(col("results")))
+  .withColumn("Name", substring(col("result.name"), 1, 100))
+  .withColumn("Runtime", round(((col("result.parsingTime") + col("result.analysisTime") + col("result.optimizationTime") + col("result.planningTime") + col("result.executionTime")) / 1000.0), 2))
 
-val sumRuntime: Double = res.agg(sum("Runtime").cast("double")).first.getDouble(0)
-println(s"Total time: ${sumRuntime}s")
+// Process and save TPCDS performance summary for each iteration
+for( r <- 1 to iterations) {
+  val resultIteration = result.filter(f"iteration = $r").select("Name", "Runtime")
+  // Add total time for this round
+  val sumRuntime: Double = resultIteration.agg(sum("Runtime").cast("double")).first.getDouble(0)
+  val totalRow = Seq(("total", sumRuntime))
+  val resultIterationTotal = resultIteration.union(totalRow.toDF())
+  resultIterationTotal.show(105)
+  // Save summary data
+  val summaryPath = s"${experiment.resultPath}/summary/round_$r"
+  resultIterationTotal.coalesce(1).write.mode("overwrite").format("csv").option("header", "true").save(summaryPath)
+
+  println(s"Round $r total time: ${sumRuntime}s")
+  println(s"Round $r performance summary is saved to ${summaryPath}")
+}
 
 sys.exit(0)

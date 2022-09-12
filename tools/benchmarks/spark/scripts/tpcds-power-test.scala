@@ -23,7 +23,7 @@ if (fsdir == "") {
 }
 
 // detailed results will be written as JSON to this location.
-var resultLocation = s"${fsdir}/shared/data/results/tpcds_${format}/${scaleFactor}/"
+var resultLocation = s"${fsdir}/shared/data/results/tpcds_${format}/${scaleFactor}"
 val data_path = s"${fsdir}/shared/data/tpcds/tpcds_${format}/${scaleFactor}"
 var databaseName = s"tpcds_${format}_scale_${scaleFactor}_db"
 val use_arrow = conf.getBoolean("spark.driver.useArrow", false) // when you want to use gazella_plugin to run TPC-DS, you need to set it true.
@@ -96,27 +96,38 @@ val experiment = tpcds.runExperiment(
 println(experiment.toString)
 experiment.waitForFinish(timeout*60*60)
 
-// Get performance results data
+// Process general performance results
 val resultPath = experiment.resultPath
 val resultDF = spark.read.json(resultPath)
 val result = resultDF.withColumn("result", explode(col("results")))
   .withColumn("Name", substring(col("result.name"), 1, 100))
   .withColumn("Runtime", round(((col("result.parsingTime") + col("result.analysisTime") + col("result.optimizationTime") + col("result.planningTime") + col("result.executionTime")) / 1000.0), 2))
+  .select("Iteration", "Name", "Runtime")
 
-// Process and save TPCDS performance summary for each iteration
+// Present all iterations performance results to columns
+import org.apache.spark.sql.DataFrame
+var fullResult: DataFrame = result.select(col("Name").as("Query")).filter("Iteration = 1")
 for( r <- 1 to iterations) {
-  val resultIteration = result.filter(f"iteration = $r").select("Name", "Runtime")
-  // Add total time for this round
-  val sumRuntime: Double = resultIteration.agg(sum("Runtime").cast("double")).first.getDouble(0)
-  val totalRow = Seq(("total", sumRuntime))
-  val resultIterationTotal = resultIteration.union(totalRow.toDF())
-  resultIterationTotal.show(105)
-  // Save summary data
-  val summaryPath = s"${experiment.resultPath}/summary/round_$r"
-  resultIterationTotal.coalesce(1).write.mode("overwrite").format("csv").option("header", "true").save(summaryPath)
-
-  println(s"Round $r total time: ${sumRuntime}s")
-  println(s"Round $r performance summary is saved to ${summaryPath}")
+  val roundResult = result.filter(f"Iteration = $r").withColumn(f"Runtime_Round$r", col("Runtime"))
+  fullResult = fullResult.join(roundResult, fullResult("Query") === roundResult("Name")).drop("Iteration", "Name", "Runtime")
 }
+
+// Calculate the query's maximum, minimum and average runtime of each round.
+val calResult = result.groupBy("Name").agg(max("Runtime").as("Runtime_Max"), min("Runtime").as("Runtime_Min"), round(avg("Runtime"),2).as("Runtime_Average"))
+fullResult = fullResult.join(calResult, fullResult("Query") === calResult("Name")).drop("Name")
+
+val columns = fullResult.columns.dropWhile(_ == "Query").map(col)
+val totalResult = fullResult.union(fullResult.select(lit("Total").as("Query") +: columns.map(sum):_*))
+
+val roundCols = totalResult.columns.filter(_.startsWith("Runtime"))
+val finalResult = totalResult.select(col("Query") +: roundCols.map(c => round(col(c), 2).as(c)): _*)
+
+finalResult.show(105)
+
+// Save all the performance summary data
+val finalResultPath = s"${experiment.resultPath}/summary/"
+finalResult.repartition(1).write.option("header", "true").csv(finalResultPath)
+
+println(s"Performance summary is saved to ${finalResultPath}")
 
 sys.exit(0)

@@ -108,21 +108,21 @@ val result = resultDF.withColumn("result", explode(col("results")))
 import org.apache.spark.sql.DataFrame
 var fullResult: DataFrame = result.select(col("Name").as("Query")).filter("Iteration = 1")
 for( r <- 1 to iterations) {
-  val roundResult = result.filter(f"Iteration = $r").withColumn(f"Runtime_Round$r", col("Runtime"))
+  val roundResult = result.filter(f"Iteration = $r").withColumn(f"Round$r", col("Runtime"))
   fullResult = fullResult.join(roundResult, fullResult("Query") === roundResult("Name")).drop("Iteration", "Name", "Runtime")
 }
 
-// Calculate the query's maximum, minimum and average runtime of each round.
-val calResult = result.groupBy("Name").agg(max("Runtime").as("Runtime_Max"), min("Runtime").as("Runtime_Min"), round(avg("Runtime"),2).as("Runtime_Average"))
+// Calculate and present the query's maximum, minimum and average runtime of each round.
+val calResult = result.groupBy("Name").agg(max("Runtime").as("Max"), min("Runtime").as("Min"), round(avg("Runtime"),2).as("Average"))
 fullResult = fullResult.join(calResult, fullResult("Query") === calResult("Name")).drop("Name")
 
 val columns = fullResult.columns.dropWhile(_ == "Query").map(col)
 val totalResult = fullResult.union(fullResult.select(lit("Total").as("Query") +: columns.map(sum):_*))
 
-val roundCols = totalResult.columns.filter(_.startsWith("Runtime"))
+val roundCols = totalResult.columns.filter(!_.startsWith("Query"))
 val finalResult = totalResult.select(col("Query") +: roundCols.map(c => round(col(c), 2).as(c)): _*)
 
-finalResult.show(105)
+finalResult.show(200)
 
 // Save all the performance summary data
 val finalResultPath = s"${experiment.resultPath}/summary/"

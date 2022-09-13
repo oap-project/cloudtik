@@ -116,7 +116,7 @@ function update_credential_config_for_aws() {
         sed -i "s#InstanceProfileCredentialsProvider#WebIdentityTokenCredentialsProvider#g" `grep "InstanceProfileCredentialsProvider" -rl ./`
 
         if [ ! -z "${AWS_ROLE_ARN}" ] && [ ! -z "${AWS_WEB_IDENTITY_TOKEN_FILE}" ]; then
-            WEB_IDENTITY_ENVS="\nspark.yarn.appMasterEnv.AWS_ROLE_ARN ${AWS_ROLE_ARN}\nspark.yarn.appMasterEnv.AWS_WEB_IDENTITY_TOKEN_FILE ${AWS_WEB_IDENTITY_TOKEN_FILE}\nspark.executorEnv.AWS_ROLE_ARN ${AWS_ROLE_ARN}\nspark.executorEnv.AWS_WEB_IDENTITY_TOKEN_FILE ${AWS_WEB_IDENTITY_TOKEN_FILE}\n"
+            WEB_IDENTITY_ENVS="spark.yarn.appMasterEnv.AWS_ROLE_ARN ${AWS_ROLE_ARN}\nspark.yarn.appMasterEnv.AWS_WEB_IDENTITY_TOKEN_FILE ${AWS_WEB_IDENTITY_TOKEN_FILE}\nspark.executorEnv.AWS_ROLE_ARN ${AWS_ROLE_ARN}\nspark.executorEnv.AWS_WEB_IDENTITY_TOKEN_FILE ${AWS_WEB_IDENTITY_TOKEN_FILE}\n"
             sed -i "$ a ${WEB_IDENTITY_ENVS}" ${SPARK_DEFAULTS}
         fi
     fi

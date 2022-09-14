@@ -60,12 +60,6 @@ available_node_types:
         node_config:
             InstanceType: m5.xlarge
             ImageId: ami-0892d3c7ee96c0bf7 # ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-20211129
-            # Run workers on spot by default. Comment this out to use on-demand.
-            InstanceMarketOptions:
-                MarketType: spot
-                # Additional options can be found in the boto docs, e.g.
-                #   SpotOptions:
-                #       MaxPrice: MAX_HOURLY_PRICE
             # Additional options in the boto docs.
             BlockDeviceMappings:
                 - DeviceName: /dev/sda1

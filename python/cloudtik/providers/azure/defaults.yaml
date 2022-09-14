@@ -63,11 +63,6 @@ available_node_types:
                 osDiskType: StandardSSD_LRS
                 osDiskSizeGB: 100
                 dataDisks: []
-                # comment lines below to not use Spot instances
-                priority: Spot
-                # set a maximum price for spot instances if desired
-                # billingProfile:
-                #     maxPrice: -1
 
 # Specify the node type of the head node (as configured above).
 head_node_type: head.default

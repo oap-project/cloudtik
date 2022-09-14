@@ -9,4 +9,4 @@ available_node_types:
     worker.default:
         node_config:
             resources:
-                memory: 64Gi
+                memory: 56Gi

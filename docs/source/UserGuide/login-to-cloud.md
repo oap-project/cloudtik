@@ -58,8 +58,15 @@ Create a project within your Google Cloud account.
 
 Please refer to [Creating projects](https://cloud.google.com/resource-manager/docs/creating-managing-projects) for instructions.
 
-### Authentication calls to Google Cloud APIs.
+### Authentication calls to Google Cloud APIs
+User have two options to authenticate to Google Cloud.
+- Authenticate with service account
+- Authenticate with user account
 
+Please refer to [Authentication Principal](https://cloud.google.com/docs/authentication#principal)
+for detailed information as to these two methods.
+
+#### Authenticate with Service Account
 First, follow [Creating a service account](https://cloud.google.com/docs/authentication/getting-started#creating_a_service_account)
 to create a service account on Google Cloud. 
 
@@ -68,3 +75,34 @@ To use the service account through API, you need a service account key. Refer to
 A JSON key file should be safely downloaded to your local computer, and then set the `GOOGLE_APPLICATION_CREDENTIALS` environment
 variable as described in the [Setting the environment variable](https://cloud.google.com/docs/authentication/getting-started#setting_the_environment_variable)
 on your working machine.
+
+#### Authenticate with user account
+If you have a user account with the right permissions,
+You can authenticate using gcloud command. After you have authenticated,
+You need to configure credentials in the workspace configuration file
+or cluster configuration file with OAuth token information.
+
+After you authenticated using gcloud, you can find a file named "adc.json"
+in ~/.config/gcloud/legacy_credentials/your_account_name folder.
+Using the information from this file, you can configure workspace configuration file
+or cluster configuration file as following:
+
+```
+# Cloud-provider specific configuration.
+provider:
+    type: gcp
+    region: us-central1
+    availability_zone: us-central1-a
+    project_id: your_project_id
+    # Use allowed_ssh_sources to allow SSH access from your client machine
+    allowed_ssh_sources:
+      - 0.0.0.0/0
+    gcp_credentials:
+        type: oauth_token
+        credentials:
+            token: nil
+            client_id: "your_client_id"
+            client_secret: "your_client_secret"
+            token_uri: https://oauth2.googleapis.com/token
+            refresh_token: "your_refresh_token"
+```

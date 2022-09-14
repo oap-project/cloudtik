@@ -32,7 +32,7 @@ def setup_module():
             fate_share=False)
         print(process_info)
         processes.append(process_info)
-    wait_for_redis_to_start("127.0.0.1", constants.CLOUDTIK_DEFAULT_PORT, constants.CLOUDTIK_REDIS_DEFAULT_PASSWORD)
+        wait_for_redis_to_start("127.0.0.1", port, constants.CLOUDTIK_REDIS_DEFAULT_PASSWORD)
 
 
 def teardown_module():

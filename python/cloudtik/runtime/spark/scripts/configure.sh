@@ -168,7 +168,7 @@ function update_credential_config_for_azure() {
     fi
 
     if [ ! -z "${AZURE_ACCOUNT_KEY}" ]; then
-        FS_KEY_NAME_FOR_AZURE="fs.azure.account.key.${%AZURE_STORAGE_ACCOUNT%}.${%AZURE_ENDPOINT%}.core.windows.net"
+        FS_KEY_NAME_FOR_AZURE="fs.azure.account.key.${AZURE_STORAGE_ACCOUNT}.${AZURE_ENDPOINT}.core.windows.net"
         ${HADOOP_HOME}/bin/hadoop credential create ${FS_KEY_NAME_FOR_AZURE} -value ${AZURE_ACCOUNT_KEY}  -provider ${HADOOP_CREDENTIAL_FILE_PATH}
         sed -i "s#{%hadoop.credential.property%}#${HADOOP_CREDENTIAL_PROPERTY}#g" `grep "{%hadoop.credential.property%}" -rl ./`
     else

@@ -237,12 +237,10 @@ function configure_trino() {
 
     cd $output_dir
     node_id=$(uuid)
-    trino_log_dir=${TRINO_HOME}/logs
-    mkdir -p ${trino_log_dir}
+
     sed -i "s/{%HEAD_ADDRESS%}/${HEAD_ADDRESS}/g" `grep "{%HEAD_ADDRESS%}" -rl ./`
     sed -i "s/{%node.environment%}/trino/g" $output_dir/trino/node.properties
     sed -i "s/{%node.id%}/${node_id}/g" $output_dir/trino/node.properties
-    sed -i "s!{%node.log-dir%}!${trino_log_dir}!g" $output_dir/trino/node.properties
 
     update_trino_memory_config
     update_trino_data_disks_config

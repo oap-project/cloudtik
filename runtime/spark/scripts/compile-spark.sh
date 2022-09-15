@@ -8,9 +8,8 @@ cd /tmp/spark && git checkout v3.3.0
 
 git apply $CLOUDTIK_HOME/runtime/spark/optimizations/0001-Top-N.patch
 git apply $CLOUDTIK_HOME/runtime/spark/optimizations/0002-Runtime-Filter.patch
-git apply $CLOUDTIK_HOME/runtime/spark/optimizations/0003-Flatten-Scalar-Subquery.patch
 
-./dev/make-distribution.sh --name hadoop3  --tgz  -Phadoop-3 -Dhadoop.version=3.3.1  -Phive -Phive-thriftserver  -Pyarn \
+./dev/make-distribution.sh --name hadoop3 --tgz -Phadoop-3 -Dhadoop.version=3.3.1 -Phive -Phive-thriftserver -Pyarn \
  -Dmaven.wagon.http.ssl.insecure=true -Dmaven.wagon.http.ssl.allowall=true -Dmaven.wagon.http.ssl.ignore.validity.dates=true
 
 mkdir -p $CLOUDTIK_HOME/runtime/spark/dist

@@ -23,7 +23,7 @@ do
     shift
 done
 
-export TRINO_VERSION=382
+export TRINO_VERSION=389
 
 export USER_HOME=/home/$(whoami)
 export RUNTIME_PATH=$USER_HOME/runtime

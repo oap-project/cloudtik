@@ -60,12 +60,14 @@ Refer to [Sign in with Azure CLI](https://docs.microsoft.com/en-us/cli/azure/aut
 
 #### GCP
 
-First, follow [Creating a service account](https://cloud.google.com/docs/authentication/getting-started#creating_a_service_account)
+If you use service account authentication, follow [Creating a service account](https://cloud.google.com/docs/authentication/getting-started#creating_a_service_account)
 to create a service account on Google Cloud. 
 
 A JSON file should be safely downloaded to your local computer, and then set the `GOOGLE_APPLICATION_CREDENTIALS` environment
 variable as described in the [Setting the environment variable](https://cloud.google.com/docs/authentication/getting-started#setting_the_environment_variable)
 on your working machine.
+
+If you use user account authentication, refer to [User Guide: Login to Cloud](../UserGuide/login-to-cloud.md#gcp) for details.
 
 ### 4. Creating a Workspace for Clusters.
 Once you authenticated with your cloud provider, you can start to create a Workspace.

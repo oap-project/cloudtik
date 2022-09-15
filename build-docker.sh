@@ -27,30 +27,6 @@ do
     --no-cache-build)
         NO_CACHE="--no-cache"
         ;;
-    --build-dev)
-        BUILD_DEV=YES
-        ;;
-    --no-build-all)
-        NO_BUILD_ALL=YES
-        ;;
-    --build-spark)
-        BUILD_SPARK=YES
-        ;;
-    --build-spark-native)
-        BUILD_SPARK_NATIVE=YES
-        ;;
-    --build-presto)
-        BUILD_PRESTO=YES
-        ;;
-    --build-trino)
-        BUILD_TRINO=YES
-        ;;
-    --build-ml)
-        BUILD_ML=YES
-        ;;
-    --build-universe)
-        BUILD_UNIVERSE=YES
-        ;;
     --shas-only)
         # output the SHA sum of each build. This is useful for scripting tests,
         # especially when builds of different versions are running on the same machine.
@@ -69,8 +45,48 @@ do
         shift
         PYTHON_VERSION=$1
         ;;
+    --build-all)
+        BUILD_ALL=YES
+        ;;
+    --build-dev)
+        BUILD_DEV=YES
+        ;;
+    --build-spark)
+        BUILD_SPARK=YES
+        ;;
+    --build-spark-native-sql)
+        BUILD_SPARK_NATIVE_SQL=YES
+        ;;
+    --build-spark-optimized)
+        BUILD_SPARK_OPTIMIZED=YES
+        ;;
+    --build-universe)
+        BUILD_UNIVERSE=YES
+        ;;
+    --build-presto)
+        BUILD_PRESTO=YES
+        ;;
+    --build-trino)
+        BUILD_TRINO=YES
+        ;;
+    --build-ml)
+        BUILD_ML=YES
+        ;;
+    --build-spark-benchmark)
+        BUILD_SPARK_BENCHMARK=YES
+        ;;
+    --build-spark-native-sql-benchmark)
+        BUILD_SPARK_NATIVE_SQL_BENCHMARK=YES
+        ;;
+    --build-spark-optimized-benchmark)
+        BUILD_SPARK_OPTIMIZED_BENCHMARK=YES
+        ;;
     *)
-        echo "Usage: build-docker.sh [ --gpu ] [ --base-image ] [ --no-cache-build ] [ --shas-only ] [ --build-dev ] [ --no-build-all ] [ --build-spark ] [ --build-universe ] [ --wheel-to-use ] [ --python-version ]"
+        echo "Usage: build-docker.sh [ --base-image ] [ --no-cache-build ] [ --shas-only ] [ --wheel-to-use ] [ --python-version ]"
+        echo "Images to build options:"
+        echo "[ --build-all ] [ --build-dev ] [ --build-spark ] [ --build-optimized ] [ --build-spark-native-sql ]"
+        echo "[ --build-universe ] [ --build-presto ] [ --build-trino ] [ --build-ml ]"
+        ehco "[ --build-spark-benchmark ] [ --build-optimized-benchmark ] [ --build-spark-native-sql-benchmark ]"
         exit 1
     esac
     shift
@@ -87,7 +103,7 @@ do
         IMAGE_SHA=$(docker build $NO_CACHE --build-arg GPU="$GPU" --build-arg BASE_IMAGE="$BASE_IMAGE" --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_VERSION="$PYTHON_VERSION" --build-arg CONDA_ENV_NAME="$CONDA_ENV_NAME" -q -t cloudtik/$IMAGE:nightly$GPU docker/$IMAGE)
         echo "cloudtik/$IMAGE:nightly$GPU SHA:$IMAGE_SHA"
     else
-        docker build $NO_CACHE  --build-arg GPU="$GPU" --build-arg BASE_IMAGE="$BASE_IMAGE" --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_VERSION="$PYTHON_VERSION" --build-arg CONDA_ENV_NAME="$CONDA_ENV_NAME" -t cloudtik/$IMAGE:nightly$GPU docker/$IMAGE
+        docker build $NO_CACHE --build-arg GPU="$GPU" --build-arg BASE_IMAGE="$BASE_IMAGE" --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_VERSION="$PYTHON_VERSION" --build-arg CONDA_ENV_NAME="$CONDA_ENV_NAME" -t cloudtik/$IMAGE:nightly$GPU docker/$IMAGE
     fi
     rm "docker/$IMAGE/$(basename "$WHEEL")"
 done 
@@ -99,13 +115,13 @@ do
         IMAGE_SHA=$(docker build $NO_CACHE --build-arg GPU="$GPU" --build-arg BASE_IMAGE="nightly" --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_VERSION="$PYTHON_VERSION" -q -t cloudtik/$IMAGE:nightly$GPU docker/$IMAGE)
         echo "cloudtik/$IMAGE:nightly$GPU SHA:$IMAGE_SHA"
     else
-        docker build $NO_CACHE  --build-arg GPU="$GPU" --build-arg BASE_IMAGE="nightly" --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_VERSION="$PYTHON_VERSION" -t cloudtik/$IMAGE:nightly$GPU docker/$IMAGE
+        docker build $NO_CACHE --build-arg GPU="$GPU" --build-arg BASE_IMAGE="nightly" --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_VERSION="$PYTHON_VERSION" -t cloudtik/$IMAGE:nightly$GPU docker/$IMAGE
     fi
     rm "docker/$IMAGE/$(basename "$WHEEL")"
 done 
 
 # Build the current source
-if [ $BUILD_DEV ]; then 
+if [ $BUILD_DEV ] || [ $BUILD_ALL ]; then
     git rev-parse HEAD > ./docker/cloudtik-dev/git-rev
     git archive -o ./docker/cloudtik-dev/cloudtik.tar "$(git rev-parse HEAD)"
     if [ $OUTPUT_SHA ]; then
@@ -119,26 +135,42 @@ fi
 
 rm -rf "$WHEEL_DIR"
 
-if [ $BUILD_SPARK ] || [ ! $NO_BUILD_ALL ]; then
-    docker build  $NO_CACHE -t cloudtik/spark-runtime:nightly docker/runtime/spark
+if [ $BUILD_SPARK ] || [ $BUILD_ALL ]; then
+    docker build $NO_CACHE -t cloudtik/spark-runtime:nightly docker/runtime/spark
 fi
 
-if [ $BUILD_SPARK_NATIVE ] || [ ! $NO_BUILD_ALL ]; then
-    docker build  $NO_CACHE -t cloudtik/spark-runtime-native:nightly docker/runtime/spark/native
+if [ $BUILD_SPARK_NATIVE_SQL ] || [ $BUILD_ALL ]; then
+    docker build $NO_CACHE -t cloudtik/spark-native-sql:nightly docker/runtime/spark/native-sql
 fi
 
-if [ $BUILD_PRESTO ] || [ ! $NO_BUILD_ALL ]; then
-    docker build  $NO_CACHE -t cloudtik/presto-runtime:nightly docker/runtime/presto
+if [ $BUILD_SPARK_OPTIMIZED ] || [ $BUILD_ALL ]; then
+    docker build $NO_CACHE -t cloudtik/spark-optimized:nightly docker/runtime/spark/optmized
 fi
 
-if [ $BUILD_TRINO ] || [ ! $NO_BUILD_ALL ]; then
-    docker build  $NO_CACHE -t cloudtik/trino-runtime:nightly docker/runtime/trino
+if [ $BUILD_UNIVERSE ] || [ $BUILD_ALL ]; then
+    docker build $NO_CACHE -t cloudtik/universe-runtime:nightly docker/runtime/universe
 fi
 
-if [ $BUILD_ML ] || [ ! $NO_BUILD_ALL ]; then
-    docker build  $NO_CACHE -t cloudtik/ml-runtime:nightly docker/runtime/ml
+if [ $BUILD_PRESTO ] || [ $BUILD_ALL ]; then
+    docker build $NO_CACHE -t cloudtik/presto-runtime:nightly docker/runtime/presto
 fi
 
-if [ $BUILD_UNIVERSE ] || [ ! $NO_BUILD_ALL ]; then
-    docker build  $NO_CACHE -t cloudtik/universe-runtime:nightly docker/runtime/universe
+if [ $BUILD_TRINO ] || [ $BUILD_ALL ]; then
+    docker build $NO_CACHE -t cloudtik/trino-runtime:nightly docker/runtime/trino
+fi
+
+if [ $BUILD_ML ] || [ $BUILD_ALL ]; then
+    docker build $NO_CACHE -t cloudtik/ml-runtime:nightly docker/runtime/ml
+fi
+
+if [ $BUILD_SPARK_BENCHMARK ] || [ $BUILD_ALL ]; then
+    docker build $NO_CACHE -t cloudtik/spark-runtime-benchmark:nightly docker/runtime/spark/benchmark
+fi
+
+if [ $BUILD_SPARK_NATIVE_SQL_BENCHMARK ] || [ $BUILD_ALL ]; then
+    docker build $NO_CACHE -t cloudtik/spark-native-sql-benchmark:nightly docker/runtime/spark/benchmark/native-sql
+fi
+
+if [ $BUILD_SPARK_OPTIMIZED_BENCHMARK ] || [ $BUILD_ALL ]; then
+    docker build $NO_CACHE -t cloudtik/spark-optimized-benchmark:nightly docker/runtime/spark/benchmark/optmized
 fi

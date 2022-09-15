@@ -17,6 +17,7 @@ RUNTIME_PROCESSES = [
     # The third element is the process name.
     # The forth element, if node, the process should on all nodes,if head, the process should on head node.
     ["proc_resourcemanager", False, "ResourceManager", "head"],
+    ["org.apache.spark.deploy.history.HistoryServer", False, "SparkHistoryServer", "head"],
     ["proc_nodemanager", False, "NodeManager", "worker"],
 ]
 
@@ -29,6 +30,7 @@ SPARK_APP_MASTER_MEMORY_RATIO = 0.02
 SPARK_DRIVER_MEMORY_MINIMUM = 1024
 SPARK_DRIVER_MEMORY_MAXIMUM = 8192
 SPARK_EXECUTOR_CORES_DEFAULT = 4
+SPARK_EXECUTOR_CORES_SINGLE_BOUND = 8
 SPARK_ADDITIONAL_OVERHEAD = 1024
 SPARK_EXECUTOR_OVERHEAD_MINIMUM = 384
 SPARK_EXECUTOR_OVERHEAD_RATIO = 0.1
@@ -142,7 +144,9 @@ def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
 
 def _config_runtime_resources(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
     cluster_resource = _get_cluster_resources(cluster_config)
-    container_resource = {"yarn_container_maximum_vcores": cluster_resource["worker_cpu"]}
+    worker_cpu = cluster_resource["worker_cpu"]
+
+    container_resource = {"yarn_container_maximum_vcores": worker_cpu}
 
     yarn_resource_memory_ratio = get_yarn_resource_memory_ratio(cluster_config)
     worker_memory_for_yarn = round_memory_size_to_gb(
@@ -153,8 +157,20 @@ def _config_runtime_resources(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
 
     # Calculate Spark executor cores
     spark_executor_cores = SPARK_EXECUTOR_CORES_DEFAULT
-    if spark_executor_cores > cluster_resource["worker_cpu"]:
-        spark_executor_cores = cluster_resource["worker_cpu"]
+    if spark_executor_cores > worker_cpu:
+        spark_executor_cores = worker_cpu
+    elif (worker_cpu % SPARK_EXECUTOR_CORES_DEFAULT) != 0:
+        if worker_cpu <= SPARK_EXECUTOR_CORES_SINGLE_BOUND:
+            spark_executor_cores = worker_cpu
+        elif worker_cpu <= SPARK_EXECUTOR_CORES_SINGLE_BOUND * 2:
+            if (worker_cpu % 2) != 0:
+                # Overload 1 core
+                worker_cpu += 1
+            spark_executor_cores = int(worker_cpu / 2)
+        else:
+            # Overload max number of SPARK_EXECUTOR_CORES_DEFAULT - 1 cores
+            overload_cores = SPARK_EXECUTOR_CORES_DEFAULT - (worker_cpu % SPARK_EXECUTOR_CORES_DEFAULT)
+            worker_cpu += overload_cores
 
     executor_resource["spark_executor_cores"] = spark_executor_cores
 
@@ -165,7 +181,7 @@ def _config_runtime_resources(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
     # a = spark_overhead (app_master_memory + others)
     # x = n * m + a
 
-    number_of_executors = int(cluster_resource["worker_cpu"] / spark_executor_cores)
+    number_of_executors = int(worker_cpu / spark_executor_cores)
     worker_memory_for_spark = round_memory_size_to_gb(
         int(worker_memory_for_yarn * SPARK_EXECUTOR_MEMORY_RATIO))
     spark_overhead = round_memory_size_to_gb(

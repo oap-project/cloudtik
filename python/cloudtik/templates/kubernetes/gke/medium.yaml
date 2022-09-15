@@ -10,8 +10,9 @@ available_node_types:
     head.default:
         node_config:
             resources:
-                cpu: 16
-                memory: 64Gi
+                cpu: 15
+                # 64GB - 6GB
+                memory: 56Gi
             dataDisks:
               - name: data-disk-1
                 storageClass: "standard-rwo"
@@ -19,8 +20,9 @@ available_node_types:
     worker.default:
         node_config:
             resources:
-                cpu: 16
-                memory: 64Gi
+                cpu: 15
+                # 64GB - 6GB
+                memory: 56Gi
             dataDisks:
               - name: data-disk-1
                 storageClass: "premium-rwo"

@@ -9,4 +9,5 @@ available_node_types:
     worker.default:
         node_config:
             resources:
-                memory: 512Gi
+                # 512GB - 17GB
+                memory: 490Gi

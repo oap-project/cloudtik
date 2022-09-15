@@ -19,13 +19,7 @@ docker:
 
 ```
 
-The following config chooses to run on container mode:
-
-```
-# Enable container
-docker:
-    enabled: True
-```
+CloudTik runs with container mode by default if it is not explicitly disabled like above.
 
 There are a few other advanced options for container mode.
 For details, please refer to [Advanced Tasks: Configuring Container Mode](./AdvancedTasks/configuring-container-mode.md)

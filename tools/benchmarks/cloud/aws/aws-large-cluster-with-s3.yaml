@@ -7,9 +7,6 @@ workspace_name: aws-workspace
 # A unique identifier for the cluster.
 cluster_name: aws-benchmark
 
-docker:
-    enabled: True
-
 # Cloud-provider specific configuration.
 provider:
     type: aws

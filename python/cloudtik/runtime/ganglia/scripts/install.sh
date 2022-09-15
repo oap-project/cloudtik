@@ -31,13 +31,14 @@ function install_ganglia_monitor_python() {
         wget -q -P /tmp https://d30257nes7d4fq.cloudfront.net/downloads/ganglia/modpython.so
         sudo cp /tmp/modpython.so ${GANGLIA_LIB} && sudo chmod 644 ${GANGLIA_MODULE_PYTHON}
     fi
-    sudo apt-get install -y ganglia-monitor-python python2.7-dev > /dev/null
+    sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install -y ganglia-monitor-python python2.7-dev > /dev/null
+    which hwinfo > /dev/null || sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install -y hwinfo > /dev/null
 }
 
 function install_ganglia_server() {
     # Simply do the install, if they are already installed, it doesn't take time
     sudo apt-get -qq update -y > /dev/null
-    sudo apt-get -qq install -y apache2 php libapache2-mod-php php-common php-mbstring php-gmp php-curl php-intl php-xmlrpc php-zip php-gd php-mysql php-xml > /dev/null
+    sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install -y apache2 php libapache2-mod-php php-common php-mbstring php-gmp php-curl php-intl php-xmlrpc php-zip php-gd php-mysql php-xml > /dev/null
     sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install -y ganglia-monitor rrdtool gmetad ganglia-webfrontend > /dev/null
     install_ganglia_monitor_python
 }

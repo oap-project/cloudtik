@@ -112,6 +112,7 @@ function update_credential_config_for_azure() {
     sed -i "s#{%azure.storage.account%}#${AZURE_STORAGE_ACCOUNT}#g" $catalog_dir/hive-azure-core-site.xml
     sed -i "s#{%storage.endpoint%}#${AZURE_ENDPOINT}#g" $catalog_dir/hive-azure-core-site.xml
 
+    # To be fixed with hadoop credential files so that the client id is properly set to worker client id
     sed -i "s#{%azure.account.key%}#${AZURE_ACCOUNT_KEY}#g" $catalog_dir/hive-azure-core-site.xml
     sed -i "s#{%fs.azure.account.oauth2.msi.tenant%}#${AZURE_MANAGED_IDENTITY_TENANT_ID}#g" $catalog_dir/hive-azure-core-site.xml
     sed -i "s#{%fs.azure.account.oauth2.client.id%}#${AZURE_MANAGED_IDENTITY_CLIENT_ID}#g" $catalog_dir/hive-azure-core-site.xml

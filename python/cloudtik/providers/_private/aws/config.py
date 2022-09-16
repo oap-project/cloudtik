@@ -167,7 +167,7 @@ def post_prepare_aws(config: Dict[str, Any]) -> Dict[str, Any]:
         cli_logger.warning(
             "Failed to detect node resources. Make sure you have properly configured the AWS credentials: {}.",
             str(exc))
-
+        raise
     return config
 
 

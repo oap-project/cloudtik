@@ -131,6 +131,7 @@ function update_credential_config_for_azure() {
 
     # Use hadoop credential files so that the client id is properly set to worker client id
     HAS_HADOOP_CREDENTIAL=false
+    rm -f ${HADOOP_CREDENTIAL_FILE_PATH}
     if [ ! -z "${AZURE_ACCOUNT_KEY}" ]; then
         FS_KEY_NAME_ACCOUNT_KEY="fs.azure.account.key.${AZURE_STORAGE_ACCOUNT}.${AZURE_ENDPOINT}.core.windows.net"
         ${HADOOP_HOME}/bin/hadoop credential create ${FS_KEY_NAME_ACCOUNT_KEY} -value ${AZURE_ACCOUNT_KEY} -provider ${HADOOP_CREDENTIAL_FILE_PATH} > /dev/null

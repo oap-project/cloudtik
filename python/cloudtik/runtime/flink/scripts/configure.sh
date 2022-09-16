@@ -188,6 +188,7 @@ function update_credential_config_for_azure() {
 }
 
 function update_credential_config_for_provider() {
+    rm -f ${HADOOP_CREDENTIAL_FILE_PATH}
     if [ "${cloud_storage_provider}" == "aws" ]; then
         update_credential_config_for_aws
     elif [ "${cloud_storage_provider}" == "azure" ]; then

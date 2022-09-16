@@ -21,6 +21,7 @@ from azure.identity import AzureCliCredential
 from azure.mgmt.resource import ResourceManagementClient
 from azure.mgmt.compute import ComputeManagementClient
 from azure.mgmt.resource.resources.models import DeploymentMode
+from azure.core.exceptions import ResourceNotFoundError
 
 from azure.storage.blob import BlobServiceClient
 from azure.storage.filedatalake import DataLakeServiceClient
@@ -648,7 +649,7 @@ def get_user_assigned_identity(config, resource_group_name, user_assigned_identi
         )
         cli_logger.verbose("Successfully get the user assigned identity: {}.".format(user_assigned_identity_name))
         return user_assigned_identity
-    except Exception as e:
+    except ResourceNotFoundError as e:
         cli_logger.verbose_error(
             "Failed to get the user assigned identity: {}. {}".format(user_assigned_identity_name, e))
         return None
@@ -713,7 +714,7 @@ def get_network_security_group(config, network_client, resource_group_name):
         )
         cli_logger.verbose("Successfully get the network security group: {}.".format(network_security_group_name))
         return network_security_group_name
-    except Exception as e:
+    except ResourceNotFoundError as e:
         cli_logger.verbose_error("Failed to get the network security group: {}. {}".format(network_security_group_name, e))
         return None
 
@@ -748,7 +749,7 @@ def get_public_ip_address(config, network_client, resource_group_name):
         )
         cli_logger.verbose("Successfully get the public IP address: {}.".format(public_ip_address_name))
         return public_ip_address_name
-    except Exception as e:
+    except ResourceNotFoundError as e:
         cli_logger.verbose_error("Failed to get the public IP address: {}. {}".format(public_ip_address_name, e))
         return None
 
@@ -783,7 +784,7 @@ def get_nat_gateway(config, network_client, resource_group_name):
         )
         cli_logger.verbose("Successfully get the NAT gateway: {}.".format(nat_gateway_name))
         return nat_gateway_name
-    except Exception as e:
+    except ResourceNotFoundError as e:
         cli_logger.verbose_error("Failed to get the NAT gateway: {}. {}".format(nat_gateway_name, e))
         return None
 
@@ -982,6 +983,7 @@ def get_working_node_resource_group(resource_client):
     if metadata is None:
         cli_logger.error("Failed to get the metadata of the working node. "
                          "Please check whether the working node is a Azure instance or not!")
+        return None
     resource_group_name = metadata.get("compute", {}).get("name", "")
     try:
         resource_group = resource_client.resource_groups.get(
@@ -990,7 +992,7 @@ def get_working_node_resource_group(resource_client):
         cli_logger.verbose(
             "Successfully get the resource group: {} for working node.".format(resource_group_name))
         return resource_group
-    except Exception as e:
+    except ResourceNotFoundError as e:
         cli_logger.verbose_error(
             "The resource group for working node is not found: {}", str(e))
         return None
@@ -1019,6 +1021,7 @@ def get_working_node_virtual_network_name(resource_client, network_client):
     if metadata is None:
         cli_logger.error("Failed to get the metadata of the working node. "
                          "Please check whether the working node is a Azure instance or not!")
+        return None
     resource_group_name = metadata.get("compute", {}).get("name", "")
     interfaces = metadata.get("network", {}).get("interface", "")
     subnet = interfaces[0]["ipv4"]["subnet"][0]
@@ -1043,7 +1046,7 @@ def get_workspace_virtual_network_name(config, network_client):
         cli_logger.verbose("Successfully get the VirtualNetworkName: {} for workspace.".
                                  format(virtual_network_name))
         return virtual_network.name
-    except Exception as e:
+    except ResourceNotFoundError as e:
         cli_logger.verbose_error(
             "The virtual network for workspace is not found: {}", str(e))
         return None
@@ -1065,7 +1068,7 @@ def _get_resource_group(
     if use_internal_ips:
         resource_group = get_working_node_resource_group(resource_client)
     else:
-        resource_group =  _get_workspace_resource_group(workspace_name, resource_client)
+        resource_group = _get_workspace_resource_group(workspace_name, resource_client)
 
     return resource_group
 
@@ -1082,7 +1085,7 @@ def _get_workspace_resource_group(workspace_name, resource_client):
         cli_logger.verbose(
             "Successfully get the resource group name: {} for workspace.".format(resource_group_name))
         return resource_group
-    except Exception as e:
+    except ResourceNotFoundError as e:
         cli_logger.verbose_error(
             "The resource group for workspace is not found: {}", str(e))
         return None
@@ -1432,7 +1435,7 @@ def get_subnet(network_client, resource_group_name, virtual_network_name, subnet
         )
         cli_logger.verbose("Successfully get the subnet: {}.".format(subnet_name))
         return subnet
-    except Exception as e:
+    except ResourceNotFoundError as e:
         cli_logger.verbose_error("Failed to get the subnet: {}. {}".format(subnet_name, e))
         return None
 

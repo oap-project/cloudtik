@@ -7,6 +7,9 @@ IS_HEAD_NODE=false
 USER_HOME=/home/$(whoami)
 RUNTIME_PATH=$USER_HOME/runtime
 
+HADOOP_CREDENTIAL_FILE_PATH="jceks://file@${TRINO_HOME}/etc/catalog/hadoop_credential.jceks"
+HADOOP_CREDENTIAL_PROPERTY="<property>\n      <name>hadoop.security.credential.provider.path</name>\n      <value>${HADOOP_CREDENTIAL_FILE_PATH}</value>\n    </property>"
+
 while true
 do
     case "$1" in
@@ -38,6 +41,11 @@ function prepare_base_conf() {
 }
 
 function check_trino_installed() {
+    if [ ! -n "${HADOOP_HOME}" ]; then
+        echo "HADOOP_HOME environment variable is not set."
+        exit 1
+    fi
+
     if [ ! -n "${TRINO_HOME}" ]; then
         echo "Trino is not installed for TRINO_HOME environment variable is not set."
         exit 1
@@ -112,11 +120,6 @@ function update_credential_config_for_azure() {
     sed -i "s#{%azure.storage.account%}#${AZURE_STORAGE_ACCOUNT}#g" $catalog_dir/hive-azure-core-site.xml
     sed -i "s#{%storage.endpoint%}#${AZURE_ENDPOINT}#g" $catalog_dir/hive-azure-core-site.xml
 
-    # To be fixed with hadoop credential files so that the client id is properly set to worker client id
-    sed -i "s#{%azure.account.key%}#${AZURE_ACCOUNT_KEY}#g" $catalog_dir/hive-azure-core-site.xml
-    sed -i "s#{%fs.azure.account.oauth2.msi.tenant%}#${AZURE_MANAGED_IDENTITY_TENANT_ID}#g" $catalog_dir/hive-azure-core-site.xml
-    sed -i "s#{%fs.azure.account.oauth2.client.id%}#${AZURE_MANAGED_IDENTITY_CLIENT_ID}#g" $catalog_dir/hive-azure-core-site.xml
-
     if [ "$AZURE_STORAGE_TYPE" != "blob" ];then
         # datalake
         if [ -n  "${AZURE_ACCOUNT_KEY}" ];then
@@ -124,6 +127,32 @@ function update_credential_config_for_azure() {
         else
             sed -i "s#{%auth.type%}##g" $catalog_dir/hive-azure-core-site.xml
         fi
+    fi
+
+    # Use hadoop credential files so that the client id is properly set to worker client id
+    HAS_HADOOP_CREDENTIAL=false
+    if [ ! -z "${AZURE_ACCOUNT_KEY}" ]; then
+        FS_KEY_NAME_ACCOUNT_KEY="fs.azure.account.key.${AZURE_STORAGE_ACCOUNT}.${AZURE_ENDPOINT}.core.windows.net"
+        ${HADOOP_HOME}/bin/hadoop credential create ${FS_KEY_NAME_ACCOUNT_KEY} -value ${AZURE_ACCOUNT_KEY} -provider ${HADOOP_CREDENTIAL_FILE_PATH} > /dev/null
+        HAS_HADOOP_CREDENTIAL=true
+    fi
+
+    if [ ! -z "${AZURE_MANAGED_IDENTITY_TENANT_ID}" ]; then
+        FS_KEY_NAME_TENANT_ID="fs.azure.account.oauth2.msi.tenant"
+        ${HADOOP_HOME}/bin/hadoop credential create ${FS_KEY_NAME_TENANT_ID} -value ${AZURE_MANAGED_IDENTITY_TENANT_ID} -provider ${HADOOP_CREDENTIAL_FILE_PATH} > /dev/null
+        HAS_HADOOP_CREDENTIAL=true
+    fi
+
+    if [ ! -z "${AZURE_MANAGED_IDENTITY_CLIENT_ID}" ]; then
+        FS_KEY_NAME_CLIENT_ID="fs.azure.account.oauth2.client.id"
+        ${HADOOP_HOME}/bin/hadoop credential create ${FS_KEY_NAME_CLIENT_ID} -value ${AZURE_MANAGED_IDENTITY_CLIENT_ID} -provider ${HADOOP_CREDENTIAL_FILE_PATH} > /dev/null
+        HAS_HADOOP_CREDENTIAL=true
+    fi
+
+    if [ "${HAS_HADOOP_CREDENTIAL}" == "true" ]; then
+        sed -i "s#{%hadoop.credential.property%}#${HADOOP_CREDENTIAL_PROPERTY}#g" $catalog_dir/hive-azure-core-site.xml
+    else
+        sed -i "s#{%hadoop.credential.property%}#""#g" $catalog_dir/hive-azure-core-site.xml
     fi
 }
 

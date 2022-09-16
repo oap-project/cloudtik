@@ -43,7 +43,7 @@ mkdir -p $RUNTIME_PATH
 
 function install_mariadb() {
     sudo apt-get -qq update -y > /dev/null
-    sudo apt-get -qq install -y mariadb-server > /dev/null
+    sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install -y mariadb-server > /dev/null
 }
 
 function install_hive_metastore() {

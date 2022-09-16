@@ -115,7 +115,7 @@ def post_prepare_gcp(config: Dict[str, Any]) -> Dict[str, Any]:
         cli_logger.warning(
             "Failed to detect node resources. Make sure you have properly configured the GCP credentials: {}.",
             str(exc))
-
+        raise
     return config
 
 

@@ -27,6 +27,18 @@ RUN wget https://github.com/adoptium/temurin11-binaries/releases/download/jdk-11
     tar --extract --file openjdk.tar.gz --directory "$JAVA_HOME" --strip-components 1 --no-same-owner && \
     rm openjdk.tar.gz
 
+# Install Hadoop
+ENV HADOOP_HOME $RUNTIME_PATH/hadoop
+ENV HADOOP_CONF_DIR $HADOOP_HOME/etc/hadoop
+ENV PATH $HADOOP_HOME/bin:$PATH
+
+RUN wget http://archive.apache.org/dist/hadoop/common/hadoop-${HADOOP_VERSION}/hadoop-${HADOOP_VERSION}.tar.gz -O hadoop.tar.gz && \
+    mkdir -p "$HADOOP_HOME" && \
+    tar --extract --file hadoop.tar.gz --directory "$HADOOP_HOME" --strip-components 1 --no-same-owner && \
+    rm hadoop.tar.gz && \
+    wget -nc -P "${HADOOP_HOME}/share/hadoop/tools/lib" https://storage.googleapis.com/hadoop-lib/gcs/gcs-connector-hadoop3-latest.jar && \
+    echo "export HADOOP_CLASSPATH=\$HADOOP_CLASSPATH:\$HADOOP_HOME/share/hadoop/tools/lib/*" >> ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh
+
 # Install Trino
 ENV TRINO_VERSION        ${TRINO_VERSION}
 ENV TRINO_HOME           $RUNTIME_PATH/trino

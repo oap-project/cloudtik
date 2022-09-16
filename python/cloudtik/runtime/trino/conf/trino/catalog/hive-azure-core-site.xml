@@ -18,10 +18,6 @@
 
 <configuration>
     <property>
-        <name>fs.azure.account.key.{%azure.storage.account%}.{%storage.endpoint%}.core.windows.net</name>
-        <value>{%azure.account.key%}</value>
-    </property>
-    <property>
         <name>fs.azure.account.auth.type.{%azure.storage.account%}.{%storage.endpoint%}.core.windows.net</name>
         <value>{%auth.type%}</value>
     </property>
@@ -33,14 +29,7 @@
         <name>fs.azure.account.auth.type</name>
         <value>OAuth</value>
     </property>
-    <property>
-        <name>fs.azure.account.oauth2.msi.tenant</name>
-        <value>{%fs.azure.account.oauth2.msi.tenant%}</value>
-    </property>
-    <property>
-        <name>fs.azure.account.oauth2.client.id</name>
-        <value>{%fs.azure.account.oauth2.client.id%}</value>
-    </property>
+    {%hadoop.credential.property%}
     <property>
         <name>fs.azure.skipUserGroupMetadataDuringInitialization</name>
         <value>true</value>

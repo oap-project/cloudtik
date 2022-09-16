@@ -45,7 +45,7 @@ function install_ganglia_server() {
 
 function install_ganglia_client() {
     sudo apt-get -qq update -y > /dev/null
-    sudo apt-get -qq install -y ganglia-monitor > /dev/null
+    sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install -y ganglia-monitor > /dev/null
     install_ganglia_monitor_python
 }
 

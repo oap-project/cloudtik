@@ -702,6 +702,9 @@ def exec(cluster_config_file, cmd, cluster_name, run_env, screen, tmux, stop, st
     port_forward = [(port, port) for port in list(port_forward)]
 
     try:
+        # Don't use config cache so that we will run a full bootstrap needed for start
+        if start:
+            no_config_cache = True
         config = _load_cluster_config(cluster_config_file, cluster_name,
                                       no_config_cache=no_config_cache)
         exec_on_nodes(
@@ -808,6 +811,9 @@ def submit(cluster_config_file, cluster_name, screen, tmux, stop, start,
     Example:
         >>> cloudtik submit [CLUSTER.YAML] experiment.py -- --smoke-test
     """
+    # Don't use config cache so that we will run a full bootstrap needed for start
+    if start:
+        no_config_cache = True
     config = _load_cluster_config(
         cluster_config_file, cluster_name, no_config_cache=no_config_cache)
     port_forward = [(port, port) for port in list(port_forward)]

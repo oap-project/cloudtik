@@ -57,7 +57,7 @@ class ClusterRuntimeTest:
         script_args = benchmark["script_args"]
         cmd_output = runtime_cluster_fixture.submit(script_file=script_file, script_args=[script_args],
                                                     with_output=True)
-
+        print(cmd_output)
 
 class ClusterScaleTest:
 
@@ -68,7 +68,7 @@ class ClusterScaleTest:
 
     @pytest.mark.parametrize("scale_nodes", SCALE_NODES_LIST)
     def test_scale_by_node(self, usability_cluster_fixture, worker_nodes_fixture, scale_nodes):
-        usability_cluster_fixture.scale(nodes=scale_nodes)
+        usability_cluster_fixture.scale(workers=scale_nodes)
         usability_cluster_fixture.wait_for_ready(timeout=CLUSTER_TIMEOUT)
 
 

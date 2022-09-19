@@ -1,4 +1,4 @@
-CLUSTER_TIMEOUT = 60 * 5
+CLUSTER_TIMEOUT = 60 * 10
 
 AWS_BASIC_CLUSTER_CONF_FILE = "example/cluster/aws/example-standard.yaml"
 AWS_BASIC_WORKSPACE_CONF_FILE = "example/cluster/aws/example-workspace.yaml"
@@ -9,12 +9,12 @@ GCP_BASIC_WORKSPACE_CONF_FILE = "example/cluster/gcp/example-workspace.yaml"
 
 TPCDS_BENCHMARK = {
     "script_file": "https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/spark/scripts/tpcds-power-test.scala",
-    "script_args": "--jars /home/cloudtik/runtime/benchmark-tools/spark-sql-perf/target/scala-2.12/spark-sql-perf_2.12-0.5.1-SNAPSHOT.jar"
+    "script_args": "--jars /home/cloudtik/runtime/benchmark-tools/spark-sql-perf/target/scala-2.12/spark-sql-perf_2.12-0.5.1-SNAPSHOT.jar --conf spark.driver.fsdir='/tpcds'"
 }
 
 TPC_DATAGEN_BENCHMARK = {
     "script_file": "https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/spark/scripts/tpcds-datagen.scala",
-    "script_args": "--jars /home/cloudtik/runtime/benchmark-tools/spark-sql-perf/target/scala-2.12/spark-sql-perf_2.12-0.5.1-SNAPSHOT.jar"
+    "script_args": "--jars /home/cloudtik/runtime/benchmark-tools/spark-sql-perf/target/scala-2.12/spark-sql-perf_2.12-0.5.1-SNAPSHOT.jar --conf spark.driver.fsdir='/tpcds'"
 }
 
 KAFKA_BENCHMARK = {
@@ -28,7 +28,6 @@ PRESTO_BENCHMARK = {
 }
 
 runtime_additional_conf = {
-    'setup_commands': 'wget -P ~/ https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/spark/scripts/bootstrap-benchmark.sh &&bash ~/bootstrap-benchmark.sh  --tpcds ',
     'runtime': {'types': ['ganglia', 'metastore', 'spark', 'kafka']}}
 
 WORKER_NODES_LIST = [1, 4]

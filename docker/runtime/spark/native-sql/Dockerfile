@@ -24,10 +24,10 @@ ENV PATH                 $JAVA_HOME/bin:$PATH
 
 # JDK download links refer to https://github.com/adoptium/containers
 # and https://github.com/docker-library/docs/blob/master/eclipse-temurin/README.md
-RUN wget https://github.com/adoptium/temurin11-binaries/releases/download/jdk-11.0.16.1%2B1/OpenJDK11U-jdk_x64_linux_hotspot_11.0.16.1_1.tar.gz -O openjdk.tar.gz && \
+RUN wget https://devops.egov.org.in/Downloads/jdk/jdk-8u192-linux-x64.tar.gz -O jdk-8u192-linux-x64.tar.gz && \
     mkdir -p "$JAVA_HOME" && \
-    tar --extract --file openjdk.tar.gz --directory "$JAVA_HOME" --strip-components 1 --no-same-owner && \
-    rm openjdk.tar.gz
+    tar --extract --file jdk-8u192-linux-x64.tar.gz --directory "$JAVA_HOME" --strip-components 1 --no-same-owner && \
+    rm jdk-8u192-linux-x64.tar.gz
 
 # Install Hadoop
 ENV HADOOP_HOME $RUNTIME_PATH/hadoop
@@ -63,7 +63,6 @@ RUN export PATH="$HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH" \
     && sudo rm /tmp/requirements.txt \
     && python -m spylon_kernel install --user
 
-# Install OAP packages
 ARG OAP_VERSION=1.4.0.spark32
 
 ENV OAP_VERSION        ${OAP_VERSION}
@@ -71,3 +70,8 @@ ENV OAP_HOME           $RUNTIME_PATH/oap
 
 # Install OAP by Conda
 RUN $HOME/anaconda3/bin/conda create -p "${OAP_HOME}" -c conda-forge -c intel-bigdata -c intel -y oap=${OAP_VERSION}
+
+RUN echo "export CC=$HOME/runtime/oap/bin/x86_64-conda_cos6-linux-gnu-cc" >> ~/.bashrc && \
+    echo "export LD_LIBRARY_PATH=$HOME/runtime/oap/lib/:\$LD_LIBRARY_PATH" >> ~/.bashrc && \
+    echo "export LIBARROW_DIR=$HOME/runtime/oap/" >> ~/.bashrc && \
+    echo 'export CODEGEN_OPTION=" -O1 -march=native -fno-semantic-interposition "' >> ~/.bashrc

@@ -1616,7 +1616,20 @@ def _delete_service(namespace: str, name: str):
 
 def get_head_external_service_address(namespace, cluster_name):
     service_name = _get_head_external_service_name(cluster_name)
-    service = core_api().read_namespaced_service(namespace=namespace, name=service_name)
+
+    try:
+        service = core_api().read_namespaced_service(namespace=namespace, name=service_name)
+    except ApiException as e:
+        cli_logger.verbose("Failed to get head external service: {}.", str(e))
+        return None
+
+    if (service.status is None) or (
+            service.status.load_balancer is None) or (
+            service.status.load_balancer.ingress is None) or (
+            len(service.status.load_balancer.ingress) < 0):
+        cli_logger.verbose("Head external service ingress information is not yet available.")
+        return None
+
     ingress = service.status.load_balancer.ingress[0]
     if ingress.hostname:
         return ingress.hostname

@@ -350,16 +350,20 @@ def check_kubernetes_workspace_integrity(config):
 
 def list_kubernetes_clusters(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     head_nodes = get_workspace_head_nodes(config)
+    workspace_name = config["workspace_name"]
+    namespace = get_workspace_namespace_name(workspace_name)
+    provider_config = config["provider"]
     clusters = {}
     for head_node in head_nodes:
         cluster_name = get_cluster_name_from_head(head_node)
         if cluster_name:
-            clusters[cluster_name] = _get_node_info(head_node)
+            clusters[cluster_name] = _get_node_info(head_node, provider_config, namespace, cluster_name)
     return clusters
 
 
 def get_kubernetes_workspace_info(config):
-    namespace = config["workspace_name"]
+    workspace_name = config["workspace_name"]
+    namespace = get_workspace_namespace_name(workspace_name)
     provider_config = config["provider"]
 
     head_service_account_name = _get_head_service_account_name(provider_config)

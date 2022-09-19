@@ -116,6 +116,10 @@ logger = logging.getLogger(__name__)
 NODE_ID_PREFIX = "node-"
 
 
+class HeadNotRunningError(RuntimeError):
+    pass
+
+
 def make_node_id(node_ip):
     return NODE_ID_PREFIX + node_ip
 
@@ -2418,7 +2422,7 @@ def get_running_head_node(
                 "it is recommended to restart this cluster.")
 
             return _backup_head_node
-        raise RuntimeError("Head node of cluster {} not found!".format(
+        raise HeadNotRunningError("Head node of cluster {} not found!".format(
             config["cluster_name"]))
 
 

@@ -51,7 +51,7 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     get_node_specific_commands_of_runtimes, _get_node_specific_runtime_config, \
     _get_node_specific_docker_config, RUNTIME_CONFIG_KEY, DOCKER_CONFIG_KEY, get_running_head_node, \
     get_nodes_for_runtime, with_script_args, encrypt_config, get_resource_requests_for_cpu, convert_nodes_to_cpus, \
-    decrypt_config
+    decrypt_config, HeadNotRunningError
 
 from cloudtik.core._private.providers import _get_node_provider, \
     _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
@@ -1637,7 +1637,7 @@ def _get_running_head_node_ex(
                 "it is recommended to restart this cluster.")
 
             return _backup_head_node
-        raise RuntimeError("Head node of cluster {} not found!".format(
+        raise HeadNotRunningError("Head node of cluster {} not found!".format(
             config["cluster_name"]))
 
 
@@ -2056,7 +2056,7 @@ def _get_cluster_info(config: Dict[str, Any],
     # Check whether the head node is running
     try:
         head_node = _get_running_head_node(config)
-    except Exception:
+    except HeadNotRunningError:
         head_node = None
 
     if head_node is None:
@@ -2145,7 +2145,7 @@ def _start_proxy(config: Dict[str, Any],
     try:
         head_node = _get_running_head_node(config)
         head_node_ip = get_head_working_ip(config, provider, head_node)
-    except Exception:
+    except HeadNotRunningError:
         cli_logger.print(cf.bold("Cluster {} is not running."), cluster_name)
         return
 
@@ -3125,11 +3125,15 @@ def _start_cluster_and_wait_for_workers(
         wait_for_workers: bool = False,
         min_workers: Optional[int] = None,
         wait_timeout: Optional[int] = None):
-    head_node = _get_running_head_node_ex(
-        config,
-        call_context=call_context,
-        create_if_needed=False,
-        _allow_uninitialized_state=False)
+
+    try:
+        head_node = _get_running_head_node_ex(
+            config,
+            call_context=call_context,
+            create_if_needed=False,
+            _allow_uninitialized_state=False)
+    except HeadNotRunningError:
+        head_node = None
 
     if start:
         if head_node is None or force_update:

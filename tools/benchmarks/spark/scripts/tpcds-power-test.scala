@@ -134,7 +134,7 @@ import java.net.URI
 val fs = FileSystem.get(URI.create(finalResultPath), sc.hadoopConfiguration)
 val file = fs.globStatus(new Path(s"$finalResultPath/*.csv"))(0).getPath().getName()
 val srcPath=new Path(s"$finalResultPath/$file")
-val destPath= new Path(s"$finalResultPath/finalresult.csv")
+val destPath= new Path(s"$finalResultPath/summary.csv")
 fs.rename(srcPath, destPath)
 
 println(s"Performance summary is saved to ${destPath}")

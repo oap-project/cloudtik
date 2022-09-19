@@ -7,8 +7,8 @@ rm -rf /tmp/spark
 git clone https://github.com/apache/spark.git /tmp/spark
 cd /tmp/spark && git checkout v${SPARK_VERSION}
 
-for file in $CLOUDTIK_HOME/runtime/spark/spark-${SPARK_VERSION}/optimizations/*; do
-    git apply $file
+for patch in $CLOUDTIK_HOME/runtime/spark/spark-${SPARK_VERSION}/optimizations/*.patch; do
+    git apply $patch
 done
 
 ./dev/make-distribution.sh --name hadoop3 --tgz -Phadoop-3 -Dhadoop.version=3.3.1 -Phive -Phive-thriftserver -Pyarn \

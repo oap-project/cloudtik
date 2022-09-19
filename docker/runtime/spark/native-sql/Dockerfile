@@ -69,6 +69,7 @@ ENV OAP_VERSION        ${OAP_VERSION}
 ENV OAP_HOME           $RUNTIME_PATH/oap
 ENV LD_LIBRARY_PATH $HOME/runtime/oap/lib/:$LD_LIBRARY_PATH
 ENV CODEGEN_OPTION  " -O1 -march=native -fno-semantic-interposition "
+ENV LIBARROW_DIR      $HOME/runtime/oap/
 ENV CC                         $HOME/runtime/oap/bin/x86_64-conda_cos6-linux-gnu-cc
 
 # Install OAP by Conda

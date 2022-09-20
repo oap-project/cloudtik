@@ -1,9 +1,9 @@
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 
 from cloudtik.core._private.core_utils import _load_class
 from cloudtik.core._private.runtime_factory import _get_runtime
-from cloudtik.core._private.utils import RUNTIME_CONFIG_KEY, RUNTIME_TYPES_CONFIG_KEY
+from cloudtik.core._private.utils import RUNTIME_CONFIG_KEY
 from cloudtik.core.job_waiter import JobWaiter
 
 logger = logging.getLogger(__name__)
@@ -33,7 +33,7 @@ def _get_built_in_job_waiter_cls(job_waiter_name: str):
     return importer()
 
 
-def _parse_built_in_chain(job_waiter_name: str) -> Optional[list[str]]:
+def _parse_built_in_chain(job_waiter_name: str) -> Optional[List[str]]:
     start = job_waiter_name.find("[")
     if start <= 0:
         return None

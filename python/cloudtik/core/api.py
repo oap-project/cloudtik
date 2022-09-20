@@ -136,7 +136,8 @@ class Cluster:
              wait_timeout: Optional[int] = None,
              port_forward: Optional[cluster_operator.Port_forward] = None,
              with_output: bool = False,
-             parallel: bool = True) -> Optional[str]:
+             parallel: bool = True,
+             job_waiter: Optional[str] = None) -> Optional[str]:
         """Runs a command on the specified cluster.
 
         Args:
@@ -154,8 +155,8 @@ class Cluster:
             wait_timeout (int): The timeout for wait for ready
             port_forward ( (int,int) or list[(int,int)]): port(s) to forward.
             with_output (bool): Whether to capture command output.
-            parallel (bool): Whether to run the commands on nodes in parallel
-
+            parallel (bool): Whether to run the commands on nodes in parallel.
+            job_waiter (str): The job waiter to use for waiting an async job to complete.
         Returns:
             The output of the command as a string.
         """
@@ -177,7 +178,8 @@ class Cluster:
             port_forward=port_forward,
             with_output=with_output,
             parallel=parallel,
-            yes=True)
+            yes=True,
+            job_waiter_name=job_waiter)
 
     def submit(self,
                script_file: str,
@@ -190,7 +192,8 @@ class Cluster:
                min_workers: Optional[int] = None,
                wait_timeout: Optional[int] = None,
                port_forward: Optional[cluster_operator.Port_forward] = None,
-               with_output: bool = False) -> Optional[str]:
+               with_output: bool = False,
+               job_waiter: Optional[str] = None) -> Optional[str]:
         """Submit a script file to cluster and run.
 
         Args:
@@ -205,7 +208,7 @@ class Cluster:
             wait_timeout (int): The timeout for wait for ready
             port_forward ( (int,int) or list[(int,int)]): port(s) to forward.
             with_output (bool): Whether to capture command output.
-
+            job_waiter (str): The job waiter to use for waiting an async job to complete.
         Returns:
             The output of the command as a string.
         """
@@ -223,7 +226,8 @@ class Cluster:
             wait_timeout=wait_timeout,
             port_forward=port_forward,
             with_output=with_output,
-            yes=True)
+            yes=True,
+            job_waiter_name=job_waiter)
 
     def rsync(self,
               *,

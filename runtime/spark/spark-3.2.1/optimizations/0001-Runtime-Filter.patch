@@ -1,0 +1,1125 @@
+From 671c44b06881ac4e62fba35bab54a55bf6750263 Mon Sep 17 00:00:00 2001
+From: haojin <hao.jin@intel.com>
+Date: Wed, 14 Sep 2022 11:11:13 +0800
+Subject: [PATCH] Enable Runtime Filter for Spark-3.2.1
+
+---
+ .../apache/spark/util/sketch/BloomFilter.java |   7 +
+ .../spark/util/sketch/BloomFilterImpl.java    |   5 +
+ .../expressions/BloomFilterMightContain.scala | 100 +++++
+ .../aggregate/BloomFilterAggregate.scala      | 196 +++++++++
+ .../expressions/objects/objects.scala         |   4 +-
+ .../expressions/regexpExpressions.scala       |   5 +-
+ .../optimizer/InjectRuntimeFilter.scala       | 398 ++++++++++++++++++
+ .../spark/sql/catalyst/optimizer/joins.scala  |  10 +
+ .../sql/catalyst/trees/TreePatterns.scala     |   3 +
+ .../read/SupportsEstimateStatistics.scala     |  23 +
+ .../apache/spark/sql/internal/SQLConf.scala   |  67 +++
+ .../spark/sql/execution/SparkOptimizer.scala  |   3 +
+ .../datasources/HadoopFsRelation.scala        |   5 +
+ .../datasources/LogicalRelation.scala         |   8 +-
+ .../PartitioningAwareFileIndex.scala          |   4 +-
+ .../dynamicpruning/PartitionPruning.scala     |  14 +-
+ .../apache/spark/sql/sources/interfaces.scala |   2 +
+ 17 files changed, 837 insertions(+), 17 deletions(-)
+ create mode 100644 sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/expressions/BloomFilterMightContain.scala
+ create mode 100644 sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/expressions/aggregate/BloomFilterAggregate.scala
+ create mode 100644 sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/InjectRuntimeFilter.scala
+ create mode 100644 sql/catalyst/src/main/scala/org/apache/spark/sql/connector/read/SupportsEstimateStatistics.scala
+
+diff --git a/common/sketch/src/main/java/org/apache/spark/util/sketch/BloomFilter.java b/common/sketch/src/main/java/org/apache/spark/util/sketch/BloomFilter.java
+index c53987ecf6..2a6e270a91 100644
+--- a/common/sketch/src/main/java/org/apache/spark/util/sketch/BloomFilter.java
++++ b/common/sketch/src/main/java/org/apache/spark/util/sketch/BloomFilter.java
+@@ -163,6 +163,13 @@ public abstract class BloomFilter {
+    */
+   public abstract void writeTo(OutputStream out) throws IOException;
+ 
++  /**
++   * @return the number of set bits in this {@link BloomFilter}.
++   */
++  public long cardinality() {
++    throw new UnsupportedOperationException("Not implemented");
++  }
++
+   /**
+    * Reads in a {@link BloomFilter} from an input stream. It is the caller's responsibility to close
+    * the stream.
+diff --git a/common/sketch/src/main/java/org/apache/spark/util/sketch/BloomFilterImpl.java b/common/sketch/src/main/java/org/apache/spark/util/sketch/BloomFilterImpl.java
+index 5afe5fe45b..b053de8bd4 100644
+--- a/common/sketch/src/main/java/org/apache/spark/util/sketch/BloomFilterImpl.java
++++ b/common/sketch/src/main/java/org/apache/spark/util/sketch/BloomFilterImpl.java
+@@ -207,6 +207,11 @@ class BloomFilterImpl extends BloomFilter implements Serializable {
+     return this;
+   }
+ 
++  @Override
++  public long cardinality() {
++    return this.bits.cardinality();
++  }
++
+   private BloomFilterImpl checkCompatibilityForMerge(BloomFilter other)
+           throws IncompatibleMergeException {
+     // Duplicates the logic of `isCompatible` here to provide better error message.
+diff --git a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/expressions/BloomFilterMightContain.scala b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/expressions/BloomFilterMightContain.scala
+new file mode 100644
+index 0000000000..9a1cf637e5
+--- /dev/null
++++ b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/expressions/BloomFilterMightContain.scala
+@@ -0,0 +1,100 @@
++/*
++ * Licensed to the Apache Software Foundation (ASF) under one or more
++ * contributor license agreements.  See the NOTICE file distributed with
++ * this work for additional information regarding copyright ownership.
++ * The ASF licenses this file to You under the Apache License, Version 2.0
++ * (the "License"); you may not use this file except in compliance with
++ * the License.  You may obtain a copy of the License at
++ *
++ *    http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package org.apache.spark.sql.catalyst.expressions
++
++import java.io.ByteArrayInputStream
++
++import org.apache.spark.sql.catalyst.analysis.TypeCheckResult
++import org.apache.spark.sql.catalyst.expressions.codegen.{CodegenContext, ExprCode}
++import org.apache.spark.sql.catalyst.trees.TreePattern.OUTER_REFERENCE
++import org.apache.spark.sql.types._
++import org.apache.spark.util.sketch.BloomFilter
++
++/**
++ * An internal scalar function that returns the membership check result (either true or false)
++ * for values of `valueExpression` in the Bloom filter represented by `bloomFilterExpression`.
++ * Not that since the function is "might contain", always returning true regardless is not
++ * wrong.
++ * Note that this expression requires that `bloomFilterExpression` is either a constant value or
++ * an uncorrelated scalar subquery. This is sufficient for the Bloom filter join rewrite.
++ *
++ * @param bloomFilterExpression the Binary data of Bloom filter.
++ * @param valueExpression the Long value to be tested for the membership of `bloomFilterExpression`.
++ */
++case class BloomFilterMightContain(
++    bloomFilterExpression: Expression,
++    valueExpression: Expression) extends BinaryExpression {
++
++  override def nullable: Boolean = true
++  override def left: Expression = bloomFilterExpression
++  override def right: Expression = valueExpression
++  override def prettyName: String = "might_contain"
++  override def dataType: DataType = BooleanType
++
++  override def checkInputDataTypes(): TypeCheckResult = {
++    val typeCheckResult = (left.dataType, right.dataType) match {
++      case (BinaryType, NullType) | (NullType, LongType) | (NullType, NullType) |
++           (BinaryType, LongType) => TypeCheckResult.TypeCheckSuccess
++      case _ => TypeCheckResult.TypeCheckFailure(s"Input to function $prettyName should have " +
++        s"been ${BinaryType.simpleString} followed by a value with ${LongType.simpleString}, " +
++        s"but it's [${left.dataType.catalogString}, ${right.dataType.catalogString}].")
++    }
++    if (typeCheckResult.isFailure) {
++      return typeCheckResult
++    }
++    bloomFilterExpression match {
++      case e : Expression if e.foldable => TypeCheckResult.TypeCheckSuccess
++      case subquery : PlanExpression[_] if !subquery.containsPattern(OUTER_REFERENCE) =>
++        TypeCheckResult.TypeCheckSuccess
++      case _ =>
++        TypeCheckResult.TypeCheckFailure(s"The Bloom filter binary input to $prettyName " +
++          s"should be either a constant value or a scalar subquery expression")
++    }
++  }
++
++  override protected def withNewChildrenInternal(
++      newBloomFilterExpression: Expression,
++      newValueExpression: Expression): BloomFilterMightContain =
++    copy(bloomFilterExpression = newBloomFilterExpression,
++      valueExpression = newValueExpression)
++
++  // The bloom filter created from `bloomFilterExpression`.
++  @transient private var bloomFilter: BloomFilter = _
++
++  override def nullSafeEval(bloomFilterBytes: Any, value: Any): Any = {
++    if (bloomFilter == null) {
++      bloomFilter = deserialize(bloomFilterBytes.asInstanceOf[Array[Byte]])
++    }
++    bloomFilter.mightContainLong(value.asInstanceOf[Long])
++  }
++
++  override def doGenCode(ctx: CodegenContext, ev: ExprCode): ExprCode = {
++    val thisObj = ctx.addReferenceObj("thisObj", this)
++    nullSafeCodeGen(ctx, ev, (bloomFilterBytes, value) => {
++      s"\n${ev.value} = (Boolean) $thisObj.nullSafeEval($bloomFilterBytes, $value);\n"
++    })
++  }
++
++  final def deserialize(bytes: Array[Byte]): BloomFilter = {
++    val in = new ByteArrayInputStream(bytes)
++    val bloomFilter = BloomFilter.readFrom(in)
++    in.close()
++    bloomFilter
++  }
++
++}
+diff --git a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/expressions/aggregate/BloomFilterAggregate.scala b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/expressions/aggregate/BloomFilterAggregate.scala
+new file mode 100644
+index 0000000000..86d3d62e1c
+--- /dev/null
++++ b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/expressions/aggregate/BloomFilterAggregate.scala
+@@ -0,0 +1,196 @@
++/*
++ * Licensed to the Apache Software Foundation (ASF) under one or more
++ * contributor license agreements.  See the NOTICE file distributed with
++ * this work for additional information regarding copyright ownership.
++ * The ASF licenses this file to You under the Apache License, Version 2.0
++ * (the "License"); you may not use this file except in compliance with
++ * the License.  You may obtain a copy of the License at
++ *
++ *    http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package org.apache.spark.sql.catalyst.expressions.aggregate
++
++import java.io.ByteArrayInputStream
++import java.io.ByteArrayOutputStream
++
++import org.apache.spark.sql.catalyst.InternalRow
++import org.apache.spark.sql.catalyst.analysis.TypeCheckResult
++import org.apache.spark.sql.catalyst.analysis.TypeCheckResult._
++import org.apache.spark.sql.catalyst.expressions._
++import org.apache.spark.sql.catalyst.trees.TernaryLike
++import org.apache.spark.sql.types._
++import org.apache.spark.util.sketch.BloomFilter
++
++/**
++ * An internal aggregate function that creates a Bloom filter from input values.
++ *
++ * @param child                     Child expression of Long values for creating a Bloom filter.
++ * @param estimatedNumItemsExpression The number of estimated distinct items (optional).
++ * @param numBitsExpression         The number of bits to use (optional).
++ */
++case class BloomFilterAggregate(
++    child: Expression,
++    estimatedNumItemsExpression: Expression,
++    numBitsExpression: Expression,
++    override val mutableAggBufferOffset: Int,
++    override val inputAggBufferOffset: Int)
++  extends TypedImperativeAggregate[BloomFilter] with TernaryLike[Expression] {
++
++  def this(child: Expression, estimatedNumItemsExpression: Expression,
++      numBitsExpression: Expression) = {
++    this(child, estimatedNumItemsExpression, numBitsExpression, 0, 0)
++  }
++
++  def this(child: Expression, estimatedNumItemsExpression: Expression) = {
++    this(child, estimatedNumItemsExpression,
++      // 1 byte per item.
++      Multiply(estimatedNumItemsExpression, Literal(8L)))
++  }
++
++  def this(child: Expression) = {
++    this(child, Literal(BloomFilterAggregate.DEFAULT_EXPECTED_NUM_ITEMS),
++      Literal(BloomFilterAggregate.DEFAULT_NUM_BITS))
++  }
++
++  override def checkInputDataTypes(): TypeCheckResult = {
++    val typeCheckResult = (first.dataType, second.dataType, third.dataType) match {
++      case (_, NullType, _) | (_, _, NullType) =>
++        TypeCheckResult.TypeCheckFailure("Null typed values cannot be used as size arguments")
++      case (LongType, LongType, LongType) => TypeCheckResult.TypeCheckSuccess
++      case _ => TypeCheckResult.TypeCheckFailure(s"Input to function $prettyName should have " +
++        s"been a ${LongType.simpleString} value followed with two ${LongType.simpleString} size " +
++        s"arguments, but it's [${first.dataType.catalogString}, " +
++        s"${second.dataType.catalogString}, ${third.dataType.catalogString}]")
++    }
++    if (typeCheckResult.isFailure) {
++      return typeCheckResult
++    }
++    if (!estimatedNumItemsExpression.foldable) {
++      TypeCheckFailure("The estimated number of items provided must be a constant literal")
++    } else if (estimatedNumItems <= 0L) {
++      TypeCheckFailure("The estimated number of items must be a positive value " +
++        s" (current value = $estimatedNumItems)")
++    } else if (!numBitsExpression.foldable) {
++      TypeCheckFailure("The number of bits provided must be a constant literal")
++    } else if (numBits <= 0L) {
++      TypeCheckFailure("The number of bits must be a positive value " +
++        s" (current value = $numBits)")
++    } else {
++      require(estimatedNumItems <= BloomFilterAggregate.MAX_ALLOWED_NUM_ITEMS)
++      require(numBits <= BloomFilterAggregate.MAX_NUM_BITS)
++      TypeCheckSuccess
++    }
++  }
++  override def nullable: Boolean = true
++
++  override def dataType: DataType = BinaryType
++
++  override def prettyName: String = "bloom_filter_agg"
++
++  // Mark as lazy so that `estimatedNumItems` is not evaluated during tree transformation.
++  private lazy val estimatedNumItems: Long =
++    Math.min(estimatedNumItemsExpression.eval().asInstanceOf[Number].longValue,
++      BloomFilterAggregate.MAX_ALLOWED_NUM_ITEMS)
++
++  // Mark as lazy so that `numBits` is not evaluated during tree transformation.
++  private lazy val numBits: Long =
++    Math.min(numBitsExpression.eval().asInstanceOf[Number].longValue,
++      BloomFilterAggregate.MAX_NUM_BITS)
++
++  override def first: Expression = child
++
++  override def second: Expression = estimatedNumItemsExpression
++
++  override def third: Expression = numBitsExpression
++
++  override protected def withNewChildrenInternal(newChild: Expression,
++      newEstimatedNumItemsExpression: Expression, newNumBitsExpression: Expression)
++  : BloomFilterAggregate = {
++    copy(child = newChild, estimatedNumItemsExpression = newEstimatedNumItemsExpression,
++      numBitsExpression = newNumBitsExpression)
++  }
++
++  override def createAggregationBuffer(): BloomFilter = {
++    BloomFilter.create(estimatedNumItems, numBits)
++  }
++
++  override def update(buffer: BloomFilter, inputRow: InternalRow): BloomFilter = {
++    val value = child.eval(inputRow)
++    // Ignore null values.
++    if (value == null) {
++      return buffer
++    }
++    buffer.putLong(value.asInstanceOf[Long])
++    buffer
++  }
++
++  override def merge(buffer: BloomFilter, other: BloomFilter): BloomFilter = {
++    buffer.mergeInPlace(other)
++  }
++
++  override def eval(buffer: BloomFilter): Any = {
++    if (buffer.cardinality() == 0) {
++      // There's no set bit in the Bloom filter and hence no not-null value is processed.
++      return null
++    }
++    serialize(buffer)
++  }
++
++  override def withNewMutableAggBufferOffset(newOffset: Int): BloomFilterAggregate =
++    copy(mutableAggBufferOffset = newOffset)
++
++  override def withNewInputAggBufferOffset(newOffset: Int): BloomFilterAggregate =
++    copy(inputAggBufferOffset = newOffset)
++
++  override def serialize(obj: BloomFilter): Array[Byte] = {
++    BloomFilterAggregate.serde.serialize(obj)
++  }
++
++  override def deserialize(bytes: Array[Byte]): BloomFilter = {
++    BloomFilterAggregate.serde.deserialize(bytes)
++  }
++}
++
++object BloomFilterAggregate {
++
++  val DEFAULT_EXPECTED_NUM_ITEMS: Long = 1000000L // Default 1M distinct items
++
++  val MAX_ALLOWED_NUM_ITEMS: Long = 4000000L // At most 4M distinct items
++
++  val DEFAULT_NUM_BITS: Long = 8388608 // Default 1MB
++
++  val MAX_NUM_BITS: Long = 67108864 // At most 8MB
++
++  /**
++   * Serializer/Deserializer for class [[BloomFilter]]
++   *
++   * This class is thread safe.
++   */
++  class BloomFilterSerDe {
++
++    final def serialize(obj: BloomFilter): Array[Byte] = {
++      val size = obj.bitSize()/8
++      require(size <= Integer.MAX_VALUE, s"actual number of bits is too large $size")
++      val out = new ByteArrayOutputStream(size.intValue())
++      obj.writeTo(out)
++      out.close()
++      out.toByteArray
++    }
++
++    final def deserialize(bytes: Array[Byte]): BloomFilter = {
++      val in = new ByteArrayInputStream(bytes)
++      val bloomFilter = BloomFilter.readFrom(in)
++      in.close()
++      bloomFilter
++    }
++  }
++
++  val serde: BloomFilterSerDe = new BloomFilterSerDe
++}
+diff --git a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/expressions/objects/objects.scala b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/expressions/objects/objects.scala
+index 6d251b6d10..c42843764f 100644
+--- a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/expressions/objects/objects.scala
++++ b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/expressions/objects/objects.scala
+@@ -35,7 +35,7 @@ import org.apache.spark.sql.catalyst.expressions._
+ import org.apache.spark.sql.catalyst.expressions.codegen._
+ import org.apache.spark.sql.catalyst.expressions.codegen.Block._
+ import org.apache.spark.sql.catalyst.trees.TernaryLike
+-import org.apache.spark.sql.catalyst.trees.TreePattern._
++import org.apache.spark.sql.catalyst.trees.TreePattern.{INVOKE, _}
+ import org.apache.spark.sql.catalyst.util.{ArrayBasedMapData, ArrayData, GenericArrayData, MapData}
+ import org.apache.spark.sql.errors.QueryExecutionErrors
+ import org.apache.spark.sql.types._
+@@ -359,6 +359,8 @@ case class Invoke(
+ 
+   lazy val argClasses = ScalaReflection.expressionJavaClasses(arguments)
+ 
++  final override val nodePatterns: Seq[TreePattern] = Seq(INVOKE)
++
+   override def nullable: Boolean = targetObject.nullable || needNullCheck || returnNullable
+   override def children: Seq[Expression] = targetObject +: arguments
+   override lazy val deterministic: Boolean = isDeterministic && arguments.forall(_.deterministic)
+diff --git a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/expressions/regexpExpressions.scala b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/expressions/regexpExpressions.scala
+index 57d7d76268..ae320f8c6c 100644
+--- a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/expressions/regexpExpressions.scala
++++ b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/expressions/regexpExpressions.scala
+@@ -30,7 +30,7 @@ import org.apache.spark.sql.catalyst.analysis.TypeCheckResult
+ import org.apache.spark.sql.catalyst.analysis.TypeCheckResult.{TypeCheckFailure, TypeCheckSuccess}
+ import org.apache.spark.sql.catalyst.expressions.codegen._
+ import org.apache.spark.sql.catalyst.expressions.codegen.Block._
+-import org.apache.spark.sql.catalyst.trees.TreePattern.{LIKE_FAMLIY, TreePattern}
++import org.apache.spark.sql.catalyst.trees.TreePattern.{LIKE_FAMLIY, REGEXP_EXTRACT_FAMILY, REGEXP_REPLACE, TreePattern}
+ import org.apache.spark.sql.catalyst.util.{GenericArrayData, StringUtils}
+ import org.apache.spark.sql.errors.QueryExecutionErrors
+ import org.apache.spark.sql.types._
+@@ -554,6 +554,7 @@ case class RegExpReplace(subject: Expression, regexp: Expression, rep: Expressio
+   @transient private var lastReplacementInUTF8: UTF8String = _
+   // result buffer write by Matcher
+   @transient private lazy val result: StringBuffer = new StringBuffer
++  final override val nodePatterns: Seq[TreePattern] = Seq(REGEXP_REPLACE)
+ 
+   override def nullSafeEval(s: Any, p: Any, r: Any, i: Any): Any = {
+     if (!p.equals(lastRegex)) {
+@@ -678,6 +679,8 @@ abstract class RegExpExtractBase
+   // last regex pattern, we cache it for performance concern
+   @transient private var pattern: Pattern = _
+ 
++  final override val nodePatterns: Seq[TreePattern] = Seq(REGEXP_EXTRACT_FAMILY)
++
+   override def inputTypes: Seq[AbstractDataType] = Seq(StringType, StringType, IntegerType)
+   override def first: Expression = subject
+   override def second: Expression = regexp
+diff --git a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/InjectRuntimeFilter.scala b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/InjectRuntimeFilter.scala
+new file mode 100644
+index 0000000000..6451c812b8
+--- /dev/null
++++ b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/InjectRuntimeFilter.scala
+@@ -0,0 +1,398 @@
++/*
++ * Licensed to the Apache Software Foundation (ASF) under one or more
++ * contributor license agreements.  See the NOTICE file distributed with
++ * this work for additional information regarding copyright ownership.
++ * The ASF licenses this file to You under the Apache License, Version 2.0
++ * (the "License"); you may not use this file except in compliance with
++ * the License.  You may obtain a copy of the License at
++ *
++ *    http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package org.apache.spark.sql.catalyst.optimizer
++
++import scala.collection.mutable.ArrayBuffer
++
++import org.apache.spark.sql.catalyst.expressions._
++import org.apache.spark.sql.catalyst.expressions.aggregate.{AggregateExpression, BloomFilterAggregate, Complete}
++import org.apache.spark.sql.catalyst.planning.{ExtractEquiJoinKeys, PhysicalOperation}
++import org.apache.spark.sql.catalyst.plans.logical._
++import org.apache.spark.sql.catalyst.rules.Rule
++import org.apache.spark.sql.catalyst.trees.TreePattern.{INVOKE, JSON_TO_STRUCT, LIKE_FAMLIY, PYTHON_UDF, REGEXP_EXTRACT_FAMILY, REGEXP_REPLACE, SCALA_UDF}
++import org.apache.spark.sql.connector.read.SupportsEstimateStatistics
++import org.apache.spark.sql.internal.SQLConf
++import org.apache.spark.sql.types._
++
++/**
++ * Insert a filter on one side of the join if the other side has a selective predicate.
++ * The filter could be an IN subquery (converted to a semi join), a bloom filter, or something
++ * else in the future.
++ */
++object InjectRuntimeFilter extends Rule[LogicalPlan] with PredicateHelper with JoinSelectionHelper {
++
++  // Wraps `expr` with a hash function if its byte size is larger than an integer.
++  private def mayWrapWithHash(expr: Expression): Expression = {
++    if (expr.dataType.defaultSize >  IntegerType.defaultSize) {
++      new Murmur3Hash(Seq(expr))
++    } else {
++      expr
++    }
++  }
++
++  private def injectFilter(
++      filterApplicationSideExp: Expression,
++      filterApplicationSidePlan: LogicalPlan,
++      filterCreationSideExp: Expression,
++      filterCreationSidePlan: LogicalPlan
++  ): LogicalPlan = {
++    require(conf.runtimeFilterBloomFilterEnabled || conf.runtimeFilterSemiJoinReductionEnabled)
++    var newFilterCreationSidePlan = filterCreationSidePlan
++    var newFilterCreationSideExp = filterCreationSideExp
++    if (!isSelectiveFilterOverScan(filterCreationSidePlan)) {
++      val projectExpress = findOriginProject(
++        filterCreationSidePlan, filterCreationSideExp).
++        getOrElse().asInstanceOf[(LogicalPlan, Expression)]
++      newFilterCreationSidePlan = projectExpress._1
++      newFilterCreationSideExp = projectExpress._2
++    }
++
++    if (conf.runtimeFilterBloomFilterEnabled) {
++      injectBloomFilter(
++        filterApplicationSideExp,
++        filterApplicationSidePlan,
++        newFilterCreationSideExp,
++        newFilterCreationSidePlan
++      )
++    } else {
++      injectInSubqueryFilter(
++        filterApplicationSideExp,
++        filterApplicationSidePlan,
++        newFilterCreationSideExp,
++        newFilterCreationSidePlan
++      )
++    }
++  }
++
++  private def injectBloomFilter(
++      filterApplicationSideExp: Expression,
++      filterApplicationSidePlan: LogicalPlan,
++      filterCreationSideExp: Expression,
++      filterCreationSidePlan: LogicalPlan
++  ): LogicalPlan = {
++    // Skip if the filter creation side is too big
++    if (filterCreationSidePlan.stats.sizeInBytes > conf.runtimeFilterBloomFilterThreshold) {
++      return filterApplicationSidePlan
++    }
++    val rowCount = filterCreationSidePlan.stats.rowCount
++    val bloomFilterAgg =
++      if (rowCount.isDefined && rowCount.get.longValue > 0L) {
++        new BloomFilterAggregate(new XxHash64(Seq(filterCreationSideExp)),
++          Literal(rowCount.get.longValue))
++      } else {
++        new BloomFilterAggregate(new XxHash64(Seq(filterCreationSideExp)))
++      }
++    val aggExp = AggregateExpression(bloomFilterAgg, Complete, isDistinct = false, None)
++    val alias = Alias(aggExp, "bloomFilter")()
++    val aggregate = ConstantFolding(Aggregate(Nil, Seq(alias), filterCreationSidePlan))
++    val bloomFilterSubquery = ScalarSubquery(aggregate, Nil)
++    val filter = BloomFilterMightContain(bloomFilterSubquery,
++      new XxHash64(Seq(filterApplicationSideExp)))
++    Filter(filter, filterApplicationSidePlan)
++  }
++
++  private def injectInSubqueryFilter(
++      filterApplicationSideExp: Expression,
++      filterApplicationSidePlan: LogicalPlan,
++      filterCreationSideExp: Expression,
++      filterCreationSidePlan: LogicalPlan
++  ): LogicalPlan = {
++    require(filterApplicationSideExp.dataType == filterCreationSideExp.dataType)
++    val actualFilterKeyExpr = mayWrapWithHash(filterCreationSideExp)
++    val alias = Alias(actualFilterKeyExpr, actualFilterKeyExpr.toString)()
++    val aggregate = Aggregate(Seq(alias), Seq(alias), filterCreationSidePlan)
++    if (!canBroadcastBySize(aggregate, conf)) {
++      // Skip the InSubquery filter if the size of `aggregate` is beyond broadcast join threshold,
++      // i.e., the semi-join will be a shuffled join, which is not worthwhile.
++      return filterApplicationSidePlan
++    }
++    val filter = InSubquery(Seq(mayWrapWithHash(filterApplicationSideExp)),
++      ListQuery(aggregate, childOutputs = aggregate.output))
++    Filter(filter, filterApplicationSidePlan)
++  }
++
++  /**
++   * Returns whether the plan is a simple filter over scan and the filter is likely selective
++   * Also check if the plan only has simple expressions (attribute reference, literals) so that we
++   * do not add a subquery that might have an expensive computation
++   */
++  private def isSelectiveFilterOverScan(plan: LogicalPlan): Boolean = {
++    plan.expressions
++    val ret = plan match {
++      case PhysicalOperation(_, filters, child) if child.isInstanceOf[LeafNode] =>
++        filters.forall(isSimpleExpression) &&
++          filters.exists(isLikelySelective)
++      case _ => false
++    }
++    !plan.isStreaming && ret
++  }
++
++  private def findOriginProject(
++                                 plan: LogicalPlan, expression: Expression):
++  Option[(LogicalPlan, Expression)] = {
++    val planWithExp: Option[ArrayBuffer[(LogicalPlan, Expression)]] = findPlanWithExp(
++      expression, plan, ArrayBuffer[(LogicalPlan, Expression)]())
++    if (planWithExp.isDefined) {
++      val path = planWithExp.getOrElse().asInstanceOf[ArrayBuffer[(LogicalPlan, Expression)]]
++      for (i <- (0 until path.size).reverse) {
++        if (path(i)._1.isInstanceOf[Project]) {
++          return Some(path(i))
++        }
++      }
++      None
++    }
++    None
++  }
++
++  private def isOriginProjectSelectiveFilterOverScan(
++      plan: LogicalPlan, expression: Expression): Boolean = {
++    if (conf.getConf(SQLConf.RUNTIME_FILTER_CREATION_SIDE_EXTEND_ENABLED)) {
++      val projectPlanAndExp = findOriginProject(plan, expression)
++      if (projectPlanAndExp.isDefined) {
++        val projectPlan = projectPlanAndExp.getOrElse().asInstanceOf[(LogicalPlan, Expression)]._1
++        return isSelectiveFilterOverScan(projectPlan)
++      } else {
++        return false
++      }
++    }
++    false
++  }
++
++  private def isSimpleExpression(e: Expression): Boolean = {
++    !e.containsAnyPattern(PYTHON_UDF, SCALA_UDF, INVOKE, JSON_TO_STRUCT, LIKE_FAMLIY,
++      REGEXP_EXTRACT_FAMILY, REGEXP_REPLACE)
++  }
++
++  /**
++   * Returns whether an expression is likely to be selective
++   */
++  private def isLikelySelective(e: Expression): Boolean = e match {
++    case Not(expr) => isLikelySelective(expr)
++    case And(l, r) => isLikelySelective(l) || isLikelySelective(r)
++    case Or(l, r) => isLikelySelective(l) && isLikelySelective(r)
++    case _: StringRegexExpression => true
++    case _: BinaryComparison => true
++    case _: In | _: InSet => true
++    case _: StringPredicate => true
++    case _: MultiLikeBase => true
++    case _ => false
++  }
++
++  private def isProbablyShuffleJoin(left: LogicalPlan,
++      right: LogicalPlan, hint: JoinHint): Boolean = {
++    !hintToBroadcastLeft(hint) && !hintToBroadcastRight(hint) &&
++      !canBroadcastBySize(left, conf) && !canBroadcastBySize(right, conf)
++  }
++
++  private def probablyHasShuffle(plan: LogicalPlan): Boolean = {
++    plan.collectFirst {
++      case j@Join(left, right, _, _, hint)
++        if isProbablyShuffleJoin(left, right, hint) => j
++      case a: Aggregate => a
++    }.nonEmpty
++  }
++
++  // Returns the max scan byte size in the subtree rooted at `filterApplicationSide`.
++  private def maxScanByteSize(filterApplicationSide: LogicalPlan): BigInt = {
++    val defaultSizeInBytes = conf.getConf(SQLConf.DEFAULT_SIZE_IN_BYTES)
++    filterApplicationSide.collect({
++      case leaf: LeafNode => leaf
++    }).map(scan => {
++      // DEFAULT_SIZE_IN_BYTES means there's no byte size information in stats. Since we avoid
++      // creating a Bloom filter when the filter application side is very small, so using 0
++      // as the byte size when the actual size is unknown can avoid regression by applying BF
++      // on a small table.
++      if (scan.stats.sizeInBytes == defaultSizeInBytes) {
++        if (conf.getConf(SQLConf.RUNTIME_FILTER_ESTIMATE_STATS_ENABLED)) {
++          if (scan.isInstanceOf[SupportsEstimateStatistics]) {
++            val estimateSizeInBytes =
++              scan.asInstanceOf[SupportsEstimateStatistics].estimateStats().sizeInBytes
++            if (estimateSizeInBytes == defaultSizeInBytes) BigInt(0) else estimateSizeInBytes
++          }
++          else {
++            BigInt(0)
++          }
++        } else {
++          BigInt(0)
++        }
++      } else {
++        scan.stats.sizeInBytes
++      }
++    }).max
++  }
++
++  // Returns true if `filterApplicationSide` satisfies the byte size requirement to apply a
++  // Bloom filter; false otherwise.
++  private def satisfyByteSizeRequirement(filterApplicationSide: LogicalPlan): Boolean = {
++    // In case `filterApplicationSide` is a union of many small tables, disseminating the Bloom
++    // filter to each small task might be more costly than scanning them itself. Thus, we use max
++    // rather than sum here.
++    val maxScanSize = maxScanByteSize(filterApplicationSide)
++    maxScanSize >=
++      conf.getConf(SQLConf.RUNTIME_BLOOM_FILTER_APPLICATION_SIDE_SCAN_SIZE_THRESHOLD)
++  }
++
++  private def filteringHasBenefit(
++      filterApplicationSide: LogicalPlan,
++      filterCreationSide: LogicalPlan,
++      filterApplicationSideExp: Expression,
++      filterCreationSideSideExp: Expression,
++      hint: JoinHint): Boolean = {
++    // Check that:
++    // 1. The filterApplicationSideJoinExp can be pushed down through joins and aggregates (ie the
++    //    expression references originate from a single leaf node)
++    // 2. The filter creation side has a selective predicate
++    // 3. The current join is a shuffle join or a broadcast join that has a shuffle or aggregate
++    //    in the filter application side
++    // 4. The filterApplicationSide is larger than the filterCreationSide by a configurable
++    //    threshold
++    findExpressionAndTrackLineageDown(filterApplicationSideExp,
++      filterApplicationSide).isDefined &&
++      (isSelectiveFilterOverScan(filterCreationSide) ||
++      isOriginProjectSelectiveFilterOverScan(filterCreationSide,
++        filterCreationSideSideExp))&&
++      (isProbablyShuffleJoin(filterApplicationSide, filterCreationSide, hint) ||
++        probablyHasShuffle(filterApplicationSide)) &&
++      satisfyByteSizeRequirement(filterApplicationSide)
++  }
++
++  def hasRuntimeFilter(left: LogicalPlan, right: LogicalPlan, leftKey: Expression,
++      rightKey: Expression): Boolean = {
++    if (conf.runtimeFilterBloomFilterEnabled) {
++      hasBloomFilter(left, right, leftKey, rightKey)
++    } else {
++      hasInSubquery(left, right, leftKey, rightKey)
++    }
++  }
++
++  // This checks if there is already a DPP filter, as this rule is called just after DPP.
++  def hasDynamicPruningSubquery(left: LogicalPlan, right: LogicalPlan, leftKey: Expression,
++      rightKey: Expression): Boolean = {
++    (left, right) match {
++      case (Filter(DynamicPruningSubquery(pruningKey, _, _, _, _, _), plan), _) =>
++        pruningKey.fastEquals(leftKey) || hasDynamicPruningSubquery(plan, right, leftKey, rightKey)
++      case (_, Filter(DynamicPruningSubquery(pruningKey, _, _, _, _, _), plan)) =>
++        pruningKey.fastEquals(rightKey) ||
++          hasDynamicPruningSubquery(left, plan, leftKey, rightKey)
++      case _ => false
++    }
++  }
++
++  def hasBloomFilter(left: LogicalPlan, right: LogicalPlan, leftKey: Expression,
++      rightKey: Expression): Boolean = {
++    findBloomFilterWithExp(left, leftKey) || findBloomFilterWithExp(right, rightKey)
++  }
++
++  private def findBloomFilterWithExp(plan: LogicalPlan, key: Expression): Boolean = {
++    plan.find {
++      case Filter(condition, _) =>
++        splitConjunctivePredicates(condition).exists {
++          case BloomFilterMightContain(_, XxHash64(Seq(valueExpression), _))
++            if valueExpression.fastEquals(key) => true
++          case _ => false
++        }
++      case _ => false
++    }.isDefined
++  }
++
++  private def findPlanWithExp(
++    exp: Expression, plan: LogicalPlan, path: ArrayBuffer[(LogicalPlan, Expression)])
++  : Option[ArrayBuffer[(LogicalPlan, Expression)]] = {
++    if (exp.references.isEmpty) return None
++    plan match {
++      case p: Project =>
++        val aliases = getAliasMap(p)
++        val exp_aliases = replaceAlias(exp, aliases)
++        path += Tuple2(plan, exp_aliases)
++        findPlanWithExp(exp_aliases, p.child, path)
++      // we can unwrap only if there are row projections, and no aggregation operation
++      case a: Aggregate =>
++        val aliasMap = getAliasMap(a)
++        val exp_aliases = replaceAlias(exp, aliasMap)
++        path += Tuple2(plan, exp_aliases)
++        findPlanWithExp(exp_aliases, a.child, path)
++      case l: LeafNode if exp.references.subsetOf(l.outputSet) =>
++        path += Tuple2(plan, exp)
++        Some(path)
++      case other =>
++        path += Tuple2(plan, exp)
++        other.children.flatMap {
++          child => if (exp.references.subsetOf(child.outputSet)) {
++            findPlanWithExp(exp, child, path)
++          } else {
++            None
++          }
++        }.headOption
++    }
++  }
++
++  def hasInSubquery(left: LogicalPlan, right: LogicalPlan, leftKey: Expression,
++      rightKey: Expression): Boolean = {
++    (left, right) match {
++      case (Filter(InSubquery(Seq(key),
++      ListQuery(Aggregate(Seq(Alias(_, _)), Seq(Alias(_, _)), _), _, _, _, _)), _), _) =>
++        key.fastEquals(leftKey) || key.fastEquals(new Murmur3Hash(Seq(leftKey)))
++      case (_, Filter(InSubquery(Seq(key),
++      ListQuery(Aggregate(Seq(Alias(_, _)), Seq(Alias(_, _)), _), _, _, _, _)), _)) =>
++        key.fastEquals(rightKey) || key.fastEquals(new Murmur3Hash(Seq(rightKey)))
++      case _ => false
++    }
++  }
++
++  private def tryInjectRuntimeFilter(plan: LogicalPlan): LogicalPlan = {
++    var filterCounter = 0
++    val numFilterThreshold = conf.getConf(SQLConf.RUNTIME_FILTER_NUMBER_THRESHOLD)
++    plan transformUp {
++      case join @ ExtractEquiJoinKeys(joinType, leftKeys, rightKeys, _, left, right, hint) =>
++        var newLeft = left
++        var newRight = right
++        (leftKeys, rightKeys).zipped.foreach((l, r) => {
++          // Check if:
++          // 1. There is already a DPP filter on the key
++          // 2. There is already a runtime filter (Bloom filter or IN subquery) on the key
++          // 3. The keys are simple cheap expressions
++          if (filterCounter < numFilterThreshold &&
++            !hasDynamicPruningSubquery(left, right, l, r) &&
++            !hasRuntimeFilter(newLeft, newRight, l, r) &&
++            isSimpleExpression(l) && isSimpleExpression(r)) {
++            val oldLeft = newLeft
++            val oldRight = newRight
++            if (canPruneLeft(joinType) && filteringHasBenefit(left, right, l, r, hint)) {
++              newLeft = injectFilter(l, newLeft, r, right)
++            }
++            if (newLeft.fastEquals(oldLeft) && canPruneRight(joinType) &&
++              filteringHasBenefit(right, left, r, l, hint)) {
++              newRight = injectFilter(r, newRight, l, left)
++            }
++            if (!newLeft.fastEquals(oldLeft) || !newRight.fastEquals(oldRight)) {
++              filterCounter = filterCounter + 1
++            }
++          }
++        })
++        Join(newLeft, newRight, joinType, join.condition, hint)
++    }
++  }
++
++  override def apply(plan: LogicalPlan): LogicalPlan = plan match {
++    case s: Subquery if s.correlated => plan
++    case _ if !conf.runtimeFilterSemiJoinReductionEnabled &&
++      !conf.runtimeFilterBloomFilterEnabled => plan
++    case _ => tryInjectRuntimeFilter(plan)
++  }
++
++}
+diff --git a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/joins.scala b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/joins.scala
+index d6e2a59de0..4914e3b469 100644
+--- a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/joins.scala
++++ b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/joins.scala
+@@ -347,6 +347,16 @@ trait JoinSelectionHelper {
+         join.hint, hintOnly = false, conf).isDefined
+   }
+ 
++  def canPruneLeft(joinType: JoinType): Boolean = joinType match {
++    case Inner | LeftSemi | RightOuter => true
++    case _ => false
++  }
++
++  def canPruneRight(joinType: JoinType): Boolean = joinType match {
++    case Inner | LeftSemi | LeftOuter => true
++    case _ => false
++  }
++
+   def hintToBroadcastLeft(hint: JoinHint): Boolean = {
+     hint.leftHint.exists(_.strategy.contains(BROADCAST))
+   }
+diff --git a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/trees/TreePatterns.scala b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/trees/TreePatterns.scala
+index 7322121e84..c3a0a90d8c 100644
+--- a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/trees/TreePatterns.scala
++++ b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/trees/TreePatterns.scala
+@@ -55,6 +55,7 @@ object TreePattern extends Enumeration  {
+   val IN_SUBQUERY: Value = Value
+   val INSET: Value = Value
+   val INTERSECT: Value = Value
++  val INVOKE: Value = Value
+   val JSON_TO_STRUCT: Value = Value
+   val LAMBDA_FUNCTION: Value = Value
+   val LAMBDA_VARIABLE: Value = Value
+@@ -73,6 +74,8 @@ object TreePattern extends Enumeration  {
+   val PIVOT: Value = Value
+   val PLAN_EXPRESSION: Value = Value
+   val PYTHON_UDF: Value = Value
++  val REGEXP_EXTRACT_FAMILY: Value = Value
++  val REGEXP_REPLACE: Value = Value
+   val RUNTIME_REPLACEABLE: Value = Value
+   val SCALAR_SUBQUERY: Value = Value
+   val SCALA_UDF: Value = Value
+diff --git a/sql/catalyst/src/main/scala/org/apache/spark/sql/connector/read/SupportsEstimateStatistics.scala b/sql/catalyst/src/main/scala/org/apache/spark/sql/connector/read/SupportsEstimateStatistics.scala
+new file mode 100644
+index 0000000000..745adf6c59
+--- /dev/null
++++ b/sql/catalyst/src/main/scala/org/apache/spark/sql/connector/read/SupportsEstimateStatistics.scala
+@@ -0,0 +1,23 @@
++/*
++ * Licensed to the Apache Software Foundation (ASF) under one or more
++ * contributor license agreements.  See the NOTICE file distributed with
++ * this work for additional information regarding copyright ownership.
++ * The ASF licenses this file to You under the Apache License, Version 2.0
++ * (the "License"); you may not use this file except in compliance with
++ * the License.  You may obtain a copy of the License at
++ *
++ *    http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package org.apache.spark.sql.connector.read
++
++trait SupportsEstimateStatistics {
++
++  def estimateStats(): org.apache.spark.sql.catalyst.plans.logical.Statistics
++}
+\ No newline at end of file
+diff --git a/sql/catalyst/src/main/scala/org/apache/spark/sql/internal/SQLConf.scala b/sql/catalyst/src/main/scala/org/apache/spark/sql/internal/SQLConf.scala
+index bd990d3499..5ba0beda77 100644
+--- a/sql/catalyst/src/main/scala/org/apache/spark/sql/internal/SQLConf.scala
++++ b/sql/catalyst/src/main/scala/org/apache/spark/sql/internal/SQLConf.scala
+@@ -341,6 +341,64 @@ object SQLConf {
+       .booleanConf
+       .createWithDefault(true)
+ 
++  val RUNTIME_FILTER_CREATION_SIDE_EXTEND_ENABLED =
++    buildConf("spark.sql.optimizer.runtimeFilter.creationSideExtend.enabled")
++      .doc("When true and if the plan is not a simple filter over scan, we attempt " +
++        "to get the origin likely selective plan according to exp.")
++      .version("3.3.0")
++      .booleanConf
++      .createWithDefault(false)
++
++  val RUNTIME_FILTER_ESTIMATE_STATS_ENABLED =
++    buildConf("spark.sql.optimizer.runtimeFilter.estimateStats.enabled")
++      .doc("When true and if sizeInBytes of the plan is unknown, we attempt " +
++        "to estimate the sizeInBytes.")
++      .version("3.3.0")
++      .booleanConf
++      .createWithDefault(false)
++
++  val RUNTIME_FILTER_SEMI_JOIN_REDUCTION_ENABLED =
++    buildConf("spark.sql.optimizer.runtimeFilter.semiJoinReduction.enabled")
++      .doc("When true and if one side of a shuffle join has a selective predicate, we attempt " +
++        "to insert a semi join in the other side to reduce the amount of shuffle data")
++      .version("3.3.0")
++      .booleanConf
++      .createWithDefault(false)
++
++  val RUNTIME_FILTER_NUMBER_THRESHOLD =
++    buildConf("spark.sql.optimizer.runtimeFilter.number.threshold")
++      .doc("The total number of injected runtime filters (non-DPP) for a single " +
++        "query. This is to prevent driver OOMs with too many Bloom filters")
++      .version("3.3.0")
++      .intConf
++      .checkValue(threshold => threshold >= 0, "The threshold should be >= 0")
++      .createWithDefault(10)
++
++  lazy val RUNTIME_BLOOM_FILTER_ENABLED =
++    buildConf("spark.sql.optimizer.runtime.bloomFilter.enabled")
++      .doc("When true and if one side of a shuffle join has a selective predicate, we attempt " +
++        "to insert a bloom filter in the other side to reduce the amount of shuffle data")
++      .version("3.3.0")
++      .booleanConf
++      .createWithDefault(false)
++
++  val RUNTIME_BLOOM_FILTER_THRESHOLD =
++    buildConf("spark.sql.optimizer.runtime.bloomFilter.threshold")
++      .doc("Size threshold of the bloom filter creation side plan. Estimated size needs to be " +
++        "under this value to try to inject bloom filter")
++      .version("3.3.0")
++      .bytesConf(ByteUnit.BYTE)
++      .createWithDefaultString("10MB")
++
++  val RUNTIME_BLOOM_FILTER_APPLICATION_SIDE_SCAN_SIZE_THRESHOLD =
++    buildConf("spark.sql.optimizer.runtime.bloomFilter.applicationSideScanSizeThreshold")
++      .doc("Byte size threshold of the Bloom filter application side plan's aggregated scan " +
++        "size. Aggregated scan byte size of the Bloom filter application side needs to be over " +
++        "this value to inject a bloom filter")
++      .version("3.3.0")
++      .bytesConf(ByteUnit.BYTE)
++      .createWithDefaultString("10GB")
++
+   val COMPRESS_CACHED = buildConf("spark.sql.inMemoryColumnarStorage.compressed")
+     .doc("When set to true Spark SQL will automatically select a compression codec for each " +
+       "column based on statistics of the data.")
+@@ -3526,6 +3584,15 @@ class SQLConf extends Serializable with Logging {
+   def dynamicPartitionPruningReuseBroadcastOnly: Boolean =
+     getConf(DYNAMIC_PARTITION_PRUNING_REUSE_BROADCAST_ONLY)
+ 
++  def runtimeFilterSemiJoinReductionEnabled: Boolean =
++    getConf(RUNTIME_FILTER_SEMI_JOIN_REDUCTION_ENABLED)
++
++  def runtimeFilterBloomFilterEnabled: Boolean =
++    getConf(RUNTIME_BLOOM_FILTER_ENABLED)
++
++  def runtimeFilterBloomFilterThreshold: Long =
++    getConf(RUNTIME_BLOOM_FILTER_THRESHOLD)
++
+   def stateStoreProviderClass: String = getConf(STATE_STORE_PROVIDER_CLASS)
+ 
+   def isStateSchemaCheckEnabled: Boolean = getConf(STATE_SCHEMA_CHECK_ENABLED)
+diff --git a/sql/core/src/main/scala/org/apache/spark/sql/execution/SparkOptimizer.scala b/sql/core/src/main/scala/org/apache/spark/sql/execution/SparkOptimizer.scala
+index dc3ceb5c59..da11df664a 100644
+--- a/sql/core/src/main/scala/org/apache/spark/sql/execution/SparkOptimizer.scala
++++ b/sql/core/src/main/scala/org/apache/spark/sql/execution/SparkOptimizer.scala
+@@ -43,6 +43,9 @@ class SparkOptimizer(
+     Batch("Optimize Metadata Only Query", Once, OptimizeMetadataOnlyQuery(catalog)) :+
+     Batch("PartitionPruning", Once,
+       PartitionPruning) :+
++    Batch("InjectRuntimeFilter", FixedPoint(1),
++      InjectRuntimeFilter,
++      RewritePredicateSubquery) :+
+     Batch("Pushdown Filters from PartitionPruning", fixedPoint,
+       PushDownPredicates) :+
+     Batch("Cleanup filters that cannot be pushed down", Once,
+diff --git a/sql/core/src/main/scala/org/apache/spark/sql/execution/datasources/HadoopFsRelation.scala b/sql/core/src/main/scala/org/apache/spark/sql/execution/datasources/HadoopFsRelation.scala
+index 4ed8943ef4..c47b384bfb 100644
+--- a/sql/core/src/main/scala/org/apache/spark/sql/execution/datasources/HadoopFsRelation.scala
++++ b/sql/core/src/main/scala/org/apache/spark/sql/execution/datasources/HadoopFsRelation.scala
+@@ -72,6 +72,11 @@ case class HadoopFsRelation(
+     (location.sizeInBytes * compressionFactor).toLong
+   }
+ 
++  override def estimateSizeInBytes: Long = {
++    val partitionDirectories: Seq[PartitionDirectory] = location.listFiles(Nil, Nil)
++    val files = partitionDirectories.flatMap(_.files)
++    if (files.isEmpty) 0 else files.map(_.getLen).sum
++  }
+ 
+   override def inputFiles: Array[String] = location.inputFiles
+ }
+diff --git a/sql/core/src/main/scala/org/apache/spark/sql/execution/datasources/LogicalRelation.scala b/sql/core/src/main/scala/org/apache/spark/sql/execution/datasources/LogicalRelation.scala
+index cfe5f046bd..50f29a0c65 100644
+--- a/sql/core/src/main/scala/org/apache/spark/sql/execution/datasources/LogicalRelation.scala
++++ b/sql/core/src/main/scala/org/apache/spark/sql/execution/datasources/LogicalRelation.scala
+@@ -22,6 +22,7 @@ import org.apache.spark.sql.catalyst.expressions.{AttributeMap, AttributeReferen
+ import org.apache.spark.sql.catalyst.plans.QueryPlan
+ import org.apache.spark.sql.catalyst.plans.logical.{LeafNode, LogicalPlan, Statistics}
+ import org.apache.spark.sql.catalyst.util.{truncatedString, CharVarcharUtils}
++import org.apache.spark.sql.connector.read.SupportsEstimateStatistics
+ import org.apache.spark.sql.sources.BaseRelation
+ 
+ /**
+@@ -32,7 +33,7 @@ case class LogicalRelation(
+     output: Seq[AttributeReference],
+     catalogTable: Option[CatalogTable],
+     override val isStreaming: Boolean)
+-  extends LeafNode with MultiInstanceRelation {
++  extends LeafNode with MultiInstanceRelation with SupportsEstimateStatistics{
+ 
+   // Only care about relation when canonicalizing.
+   override def doCanonicalize(): LogicalPlan = copy(
+@@ -45,6 +46,11 @@ case class LogicalRelation(
+       .getOrElse(Statistics(sizeInBytes = relation.sizeInBytes))
+   }
+ 
++  override def estimateStats(): Statistics = {
++    val sizeInBytes = relation.estimateSizeInBytes
++    Statistics(sizeInBytes = sizeInBytes)
++  }
++
+   /** Used to lookup original attribute capitalization */
+   val attributeMap: AttributeMap[AttributeReference] = AttributeMap(output.map(o => (o, o)))
+ 
+diff --git a/sql/core/src/main/scala/org/apache/spark/sql/execution/datasources/PartitioningAwareFileIndex.scala b/sql/core/src/main/scala/org/apache/spark/sql/execution/datasources/PartitioningAwareFileIndex.scala
+index 5b0d0606da..2036f4759a 100644
+--- a/sql/core/src/main/scala/org/apache/spark/sql/execution/datasources/PartitioningAwareFileIndex.scala
++++ b/sql/core/src/main/scala/org/apache/spark/sql/execution/datasources/PartitioningAwareFileIndex.scala
+@@ -78,7 +78,7 @@ abstract class PartitioningAwareFileIndex(
+         throw new IllegalArgumentException(
+           "Datasource with partition do not allow recursive file loading.")
+       }
+-      prunePartitions(partitionFilters, partitionSpec()).map {
++      prunePartitions(partitionFilters, partitionSpec()).toArray.map {
+         case PartitionPath(values, path) =>
+           val files: Seq[FileStatus] = leafDirToChildrenFiles.get(path) match {
+             case Some(existingDir) =>
+@@ -91,7 +91,7 @@ abstract class PartitioningAwareFileIndex(
+           }
+           PartitionDirectory(values, files)
+       }
+-    }
++    }.toSeq
+     logTrace("Selected files after partition pruning:\n\t" + selectedPartitions.mkString("\n\t"))
+     selectedPartitions
+   }
+diff --git a/sql/core/src/main/scala/org/apache/spark/sql/execution/dynamicpruning/PartitionPruning.scala b/sql/core/src/main/scala/org/apache/spark/sql/execution/dynamicpruning/PartitionPruning.scala
+index 9190eae58e..3164eea6a6 100644
+--- a/sql/core/src/main/scala/org/apache/spark/sql/execution/dynamicpruning/PartitionPruning.scala
++++ b/sql/core/src/main/scala/org/apache/spark/sql/execution/dynamicpruning/PartitionPruning.scala
+@@ -18,8 +18,8 @@
+ package org.apache.spark.sql.execution.dynamicpruning
+ 
+ import org.apache.spark.sql.catalyst.expressions._
++import org.apache.spark.sql.catalyst.optimizer.JoinSelectionHelper
+ import org.apache.spark.sql.catalyst.planning.ExtractEquiJoinKeys
+-import org.apache.spark.sql.catalyst.plans._
+ import org.apache.spark.sql.catalyst.plans.logical._
+ import org.apache.spark.sql.catalyst.rules.Rule
+ import org.apache.spark.sql.connector.read.SupportsRuntimeFiltering
+@@ -47,7 +47,7 @@ import org.apache.spark.sql.execution.datasources.v2.DataSourceV2ScanRelation
+  *    subquery query twice, we keep the duplicated subquery
+  *    (3) otherwise, we drop the subquery.
+  */
+-object PartitionPruning extends Rule[LogicalPlan] with PredicateHelper {
++object PartitionPruning extends Rule[LogicalPlan] with PredicateHelper with JoinSelectionHelper{
+ 
+   /**
+    * Searches for a table scan that can be filtered for a given column in a logical plan.
+@@ -199,16 +199,6 @@ object PartitionPruning extends Rule[LogicalPlan] with PredicateHelper {
+     !plan.isStreaming && hasSelectivePredicate(plan)
+   }
+ 
+-  private def canPruneLeft(joinType: JoinType): Boolean = joinType match {
+-    case Inner | LeftSemi | RightOuter => true
+-    case _ => false
+-  }
+-
+-  private def canPruneRight(joinType: JoinType): Boolean = joinType match {
+-    case Inner | LeftSemi | LeftOuter => true
+-    case _ => false
+-  }
+-
+   private def prune(plan: LogicalPlan): LogicalPlan = {
+     plan transformUp {
+       // skip this rule if there's already a DPP subquery on the LHS of a join
+diff --git a/sql/core/src/main/scala/org/apache/spark/sql/sources/interfaces.scala b/sql/core/src/main/scala/org/apache/spark/sql/sources/interfaces.scala
+index 63e57c6804..5314669808 100644
+--- a/sql/core/src/main/scala/org/apache/spark/sql/sources/interfaces.scala
++++ b/sql/core/src/main/scala/org/apache/spark/sql/sources/interfaces.scala
+@@ -208,6 +208,8 @@ abstract class BaseRelation {
+    */
+   def sizeInBytes: Long = sqlContext.conf.defaultSizeInBytes
+ 
++  def estimateSizeInBytes: Long = sizeInBytes
++
+   /**
+    * Whether does it need to convert the objects in Row to internal representation, for example:
+    *  java.lang.String to UTF8String
+-- 
+2.20.1
+

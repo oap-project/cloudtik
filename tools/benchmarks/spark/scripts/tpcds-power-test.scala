@@ -12,6 +12,8 @@ val iterations = conf.getInt("spark.driver.iterations", 1)
 // wasbs://container@storage_account.blob.core.windows.net
 // abfs://container@storage_account.dfs.core.windows.net
 val fsdir = conf.get("spark.driver.fsdir", "")
+// If the tables in database are not fully created in the previous run, you need to force to drop and recreate the database and tables.
+val forceRecreate = conf.getBoolean("spark.database.force.recreate", false)
 
 val query_filter = Seq()        // Seq() == all queries
 // val query_filter = Seq("q1-v2.4", "q2-v2.4") // run subset of queries
@@ -32,7 +34,7 @@ if (use_arrow){
     resultLocation = s"${fsdir}/shared/data/results/tpcds_arrow/${scaleFactor}/"
     databaseName = s"tpcds_arrow_scale_${scaleFactor}_db"
     val tables = Seq("call_center", "catalog_page", "catalog_returns", "catalog_sales", "customer", "customer_address", "customer_demographics", "date_dim", "household_demographics", "income_band", "inventory", "item", "promotion", "reason", "ship_mode", "store", "store_returns", "store_sales", "time_dim", "warehouse", "web_page", "web_returns", "web_sales", "web_site")
-    if (spark.catalog.databaseExists(s"$databaseName")) {
+    if (spark.catalog.databaseExists(s"$databaseName") && !forceRecreate) {
         println(s"$databaseName has exists!")
     }else{
         spark.sql(s"create database if not exists $databaseName").show
@@ -56,9 +58,13 @@ if (use_arrow){
     }
 } else {
     // Check whether the database is created, we create external tables if not
-    if (spark.catalog.databaseExists(s"$databaseName")) {
+    if (spark.catalog.databaseExists(s"$databaseName") && !forceRecreate) {
         println(s"Using existing $databaseName")
     } else {
+        if (forceRecreate) {
+            println(s"Force to drop $databaseName")
+            sql(s"drop database if exists $databaseName cascade")
+        }
         import com.databricks.spark.sql.perf.tpcds.TPCDSTables
 
         println(s"$databaseName doesn't exist. Creating...")

@@ -7,8 +7,8 @@ IS_HEAD_NODE=false
 USER_HOME=/home/$(whoami)
 RUNTIME_PATH=$USER_HOME/runtime
 
-HADOOP_CREDENTIAL_FILE_PATH="jceks://file@${TRINO_HOME}/etc/catalog/hadoop_credential.jceks"
-HADOOP_CREDENTIAL_PROPERTY="<property>\n      <name>hadoop.security.credential.provider.path</name>\n      <value>${HADOOP_CREDENTIAL_FILE_PATH}</value>\n    </property>"
+HADOOP_CREDENTIAL_FILE="${TRINO_HOME}/etc/catalog/hadoop_credential.jceks"
+HADOOP_CREDENTIAL_PROPERTY="<property>\n      <name>hadoop.security.credential.provider.path</name>\n      <value>jceks://file@${HADOOP_CREDENTIAL_FILE}</value>\n    </property>"
 
 while true
 do
@@ -131,24 +131,28 @@ function update_credential_config_for_azure() {
 
     # Use hadoop credential files so that the client id is properly set to worker client id
     HAS_HADOOP_CREDENTIAL=false
+    HADOOP_CREDENTIAL_TMP_FILE="${output_dir}/credential.jceks"
+    HADOOP_CREDENTIAL_TEP_PROVIDER_PATH="jceks://file@${HADOOP_CREDENTIAL_TMP_FILE}"
     if [ ! -z "${AZURE_ACCOUNT_KEY}" ]; then
         FS_KEY_NAME_ACCOUNT_KEY="fs.azure.account.key.${AZURE_STORAGE_ACCOUNT}.${AZURE_ENDPOINT}.core.windows.net"
-        ${HADOOP_HOME}/bin/hadoop credential create ${FS_KEY_NAME_ACCOUNT_KEY} -value ${AZURE_ACCOUNT_KEY} -provider ${HADOOP_CREDENTIAL_FILE_PATH} > /dev/null
+        ${HADOOP_HOME}/bin/hadoop credential create ${FS_KEY_NAME_ACCOUNT_KEY} -value ${AZURE_ACCOUNT_KEY} -provider ${HADOOP_CREDENTIAL_TEP_PROVIDER_PATH} > /dev/null
         HAS_HADOOP_CREDENTIAL=true
     fi
 
     if [ ! -z "${AZURE_MANAGED_IDENTITY_TENANT_ID}" ]; then
         FS_KEY_NAME_TENANT_ID="fs.azure.account.oauth2.msi.tenant"
-        ${HADOOP_HOME}/bin/hadoop credential create ${FS_KEY_NAME_TENANT_ID} -value ${AZURE_MANAGED_IDENTITY_TENANT_ID} -provider ${HADOOP_CREDENTIAL_FILE_PATH} > /dev/null
+        ${HADOOP_HOME}/bin/hadoop credential create ${FS_KEY_NAME_TENANT_ID} -value ${AZURE_MANAGED_IDENTITY_TENANT_ID} -provider ${HADOOP_CREDENTIAL_TEP_PROVIDER_PATH} > /dev/null
         HAS_HADOOP_CREDENTIAL=true
     fi
 
     if [ ! -z "${AZURE_MANAGED_IDENTITY_CLIENT_ID}" ]; then
         FS_KEY_NAME_CLIENT_ID="fs.azure.account.oauth2.client.id"
-        ${HADOOP_HOME}/bin/hadoop credential create ${FS_KEY_NAME_CLIENT_ID} -value ${AZURE_MANAGED_IDENTITY_CLIENT_ID} -provider ${HADOOP_CREDENTIAL_FILE_PATH} > /dev/null
+        ${HADOOP_HOME}/bin/hadoop credential create ${FS_KEY_NAME_CLIENT_ID} -value ${AZURE_MANAGED_IDENTITY_CLIENT_ID} -provider ${HADOOP_CREDENTIAL_TEP_PROVIDER_PATH} > /dev/null
         HAS_HADOOP_CREDENTIAL=true
     fi
-
+    if [  -f "$HADOOP_CREDENTIAL_TMP_FILE"  ]; then
+        cp  ${HADOOP_CREDENTIAL_TMP_FILE} ${HADOOP_CREDENTIAL_FILE}
+    fi
     if [ "${HAS_HADOOP_CREDENTIAL}" == "true" ]; then
         sed -i "s#{%hadoop.credential.property%}#${HADOOP_CREDENTIAL_PROPERTY}#g" $catalog_dir/hive-azure-core-site.xml
     else

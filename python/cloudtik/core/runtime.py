@@ -1,6 +1,7 @@
 import logging
 from typing import Any, Dict, Optional
 
+from cloudtik.core.job_waiter import JobWaiter
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.scaling_policy import ScalingPolicy
 
@@ -97,6 +98,12 @@ class Runtime:
         """
         If the runtime has a resource management and configured to act resource scaling source
         return a scaling policy object to use by the cluster scaler.
+        """
+        return None
+
+    def get_job_waiter(self, cluster_config: Dict[str, Any]) -> Optional[JobWaiter]:
+        """
+        If the runtime has job waiter for checking job completion, return a job waiter object.
         """
         return None
 

@@ -22,7 +22,9 @@ import yaml
 from cloudtik.core._private import services, constants
 from cloudtik.core._private.call_context import CallContext
 from cloudtik.core._private.core_utils import kill_process_tree, double_quote
+from cloudtik.core._private.job_waiter_factory import create_job_waiter
 from cloudtik.core._private.services import validate_redis_address
+from cloudtik.core.job_waiter import JobWaiter
 
 try:  # py3
     from shlex import quote
@@ -1227,7 +1229,8 @@ def _exec_cluster(config: Dict[str, Any],
                   start: bool = False,
                   port_forward: Optional[Port_forward] = None,
                   with_output: bool = False,
-                  _allow_uninitialized_state: bool = False) -> str:
+                  _allow_uninitialized_state: bool = False,
+                  job_waiter: Optional[JobWaiter] = None) -> str:
     """Runs a command on the specified cluster.
 
     Arguments:
@@ -1241,6 +1244,7 @@ def _exec_cluster(config: Dict[str, Any],
         port_forward ( (int, int) or list[(int, int)] ): port(s) to forward
         _allow_uninitialized_state: whether to execute on an uninitialized head
             node.
+        job_waiter: The waiter object to check the job is done
     """
     assert not (screen and tmux), "Can specify only one of `screen` or `tmux`."
     assert run_env in RUN_ENV_TYPES, "--run_env must be in {}".format(
@@ -1266,16 +1270,14 @@ def _exec_cluster(config: Dict[str, Any],
         start_commands=[],
         is_head_node=True,
         use_internal_ip=use_internal_ip)
-    shutdown_after_run = False
+
     if cmd and stop:
-        cmd = "; ".join([
-            cmd, "cloudtik head runtime stop --runtimes=cloudtik --no-all-nodes --yes",
-            "cloudtik head teardown --yes"
-        ])
-        if screen or tmux:
-            # Only when the cmd is run background
-            # we go with shutdown command on head
-            shutdown_after_run = True
+        # if no job waiter defined, we shut down at the end
+        if job_waiter is None:
+            cmd = "; ".join([
+                cmd, "cloudtik head runtime stop --runtimes=cloudtik --no-all-nodes --yes",
+                "cloudtik head teardown --yes"
+            ])
 
     result = _exec(
         updater,
@@ -1284,14 +1286,18 @@ def _exec_cluster(config: Dict[str, Any],
         tmux,
         port_forward=port_forward,
         with_output=with_output,
-        run_env=run_env,
-        shutdown_after_run=shutdown_after_run)
+        run_env=run_env)
+
+    # if a job waiter is specified, we always wait for its completion.
+    if job_waiter is not None:
+        job_waiter.wait_for_completion(cmd)
 
     # if the cmd is not run with screen or tmux
     # or in the future we can check the screen or tmux session completion
     # we do tear down here
     if cmd and stop:
-        if not screen and not tmux:
+        if (job_waiter is not None) or (not screen and not tmux):
+            # for either job waiter case or command run in foreground case
             _teardown_cluster(
                 config=config, call_context=call_context)
     return result
@@ -2354,7 +2360,8 @@ def exec_on_nodes(
         port_forward: Optional[Port_forward] = None,
         with_output: bool = False,
         parallel: bool = True,
-        yes: bool = False) -> str:
+        yes: bool = False,
+        job_waiter_name: Optional[str] = None) -> str:
     if not node_ip and not all_nodes:
         if (start or stop) and not yes:
             cli_logger.confirm(
@@ -2362,6 +2369,10 @@ def exec_on_nodes(
                 "You are about to start or stop cluster {} for this operation. Are you sure that you want to continue?",
                 config["cluster_name"], _abort=True)
             cli_logger.newline()
+
+        # create job waiter, None if no job waiter specified
+        job_waiter = _create_job_waiter(
+            config, call_context, job_waiter_name)
 
         _start_cluster_and_wait_for_workers(
             config=config,
@@ -2384,7 +2395,8 @@ def exec_on_nodes(
             start=False,
             port_forward=port_forward,
             with_output=with_output,
-            _allow_uninitialized_state=True)
+            _allow_uninitialized_state=True,
+            job_waiter=job_waiter)
     else:
         return _exec_node_from_head(
             config,
@@ -3167,7 +3179,8 @@ def submit_and_exec(config: Dict[str, Any],
                     wait_timeout: Optional[int] = None,
                     port_forward: Optional[Port_forward] = None,
                     with_output: bool = False,
-                    yes: bool = False
+                    yes: bool = False,
+                    job_waiter_name: Optional[str] = None
                     ):
     cli_logger.doassert(not (screen and tmux),
                         "`{}` and `{}` are incompatible.", cf.bold("--screen"),
@@ -3181,6 +3194,10 @@ def submit_and_exec(config: Dict[str, Any],
             "You are about to start or stop cluster {} for this operation. Are you sure that you want to continue?",
             config["cluster_name"], _abort=True)
         cli_logger.newline()
+
+    # create job waiter, None if no job waiter specified
+    job_waiter = _create_job_waiter(
+        config, call_context, job_waiter_name)
 
     _start_cluster_and_wait_for_workers(
         config=config,
@@ -3238,7 +3255,8 @@ def submit_and_exec(config: Dict[str, Any],
         stop=stop,
         start=False,
         port_forward=port_forward,
-        with_output=with_output)
+        with_output=with_output,
+        job_waiter=job_waiter)
 
 
 def _sum_min_workers(config: Dict[str, Any]):
@@ -3283,3 +3301,10 @@ def _wait_for_ready(config: Dict[str, Any],
             cli_logger.print("Waiting for workers to be ready: {}/{} ({} seconds)...", workers_ready, min_workers, interval)
             time.sleep(interval)
     raise TimeoutError("Timed out while waiting for workers to be ready: {}/{}".format(workers_ready, min_workers))
+
+
+def _create_job_waiter(
+        config: Dict[str, Any],
+        call_context: CallContext,
+        job_waiter_name: Optional[str] = None) -> Optional[JobWaiter]:
+    return create_job_waiter(config, job_waiter_name)

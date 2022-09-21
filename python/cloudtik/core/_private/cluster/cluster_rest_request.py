@@ -1,7 +1,6 @@
 import json
 from typing import Dict, Any
 
-import click
 import sshtunnel
 import urllib
 import urllib.request
@@ -12,16 +11,6 @@ from cloudtik.core._private.utils import get_cluster_head_ip
 
 
 REST_ENDPOINT_URL_FORMAT = "http://{}:{}/{}"
-
-
-def print_request_rest_on_head(
-        cluster_config_file: str, cluster_name: str, endpoint: str, rest_api_port: int):
-    response = request_rest_on_head(
-        cluster_config_file, cluster_name, endpoint, rest_api_port)
-    json_response = json.loads(response)
-    formatted_response = json.dumps(json_response, indent=4)
-
-    click.echo(formatted_response)
 
 
 def request_rest_on_head(

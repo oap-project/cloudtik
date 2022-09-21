@@ -14,6 +14,8 @@ import binascii
 import uuid
 import time
 import math
+
+import click
 import ipaddr
 import socket
 import re
@@ -2718,3 +2720,9 @@ def get_storage_config_for_update(provider_config):
     if "storage" not in provider_config:
         provider_config["storage"] = {}
     return provider_config["storage"]
+
+
+def print_json_formatted(json_bytes):
+    json_object = json.loads(json_bytes)
+    formatted_response = json.dumps(json_object, indent=4)
+    click.echo(formatted_response)

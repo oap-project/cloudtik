@@ -9,8 +9,8 @@ from cloudtik.core._private.cli_logger import (cli_logger, add_click_logging_opt
 from shlex import quote
 
 from cloudtik.core._private.utils import run_bash_scripts, run_system_command, with_script_args
-from cloudtik.runtime.spark.utils import RUNTIME_ROOT_PATH, update_spark_configurations, request_applications, \
-    request_yarn
+from cloudtik.runtime.spark.utils import RUNTIME_ROOT_PATH, update_spark_configurations, print_request_rest_applications, \
+    print_request_rest_yarn
 
 RUNTIME_SCRIPTS_PATH = os.path.join(
     RUNTIME_ROOT_PATH, "scripts")
@@ -147,7 +147,7 @@ def stop_worker(script_args):
     help="The resource endpoint for the history server rest API")
 @add_click_logging_options
 def applications(cluster_config_file, cluster_name, endpoint):
-    request_applications(cluster_config_file, cluster_name, endpoint)
+    print_request_rest_applications(cluster_config_file, cluster_name, endpoint)
 
 
 @click.command()
@@ -165,7 +165,7 @@ def applications(cluster_config_file, cluster_name, endpoint):
     help="The resource endpoint for the YARN rest API")
 @add_click_logging_options
 def yarn(cluster_config_file, cluster_name, endpoint):
-    request_yarn(cluster_config_file, cluster_name, endpoint)
+    print_request_rest_yarn(cluster_config_file, cluster_name, endpoint)
 
 
 cli.add_command(install)

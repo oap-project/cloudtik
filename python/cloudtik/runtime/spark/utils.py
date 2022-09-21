@@ -1,12 +1,14 @@
 import os
 from typing import Any, Dict, Optional
 
-from cloudtik.core._private.cluster.cluster_rest_request import print_request_rest_on_head
+from cloudtik.core._private.cluster.cluster_config import _load_cluster_config
+from cloudtik.core._private.cluster.cluster_rest_request import _request_rest_on_head
 from cloudtik.core._private.core_utils import double_quote
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_HDFS, BUILT_IN_RUNTIME_METASTORE
 from cloudtik.core._private.utils import merge_rooted_config_hierarchy, \
     _get_runtime_config_object, is_runtime_enabled, round_memory_size_to_gb, load_head_cluster_config, \
-    RUNTIME_CONFIG_KEY, load_properties_file, save_properties_file, is_use_managed_cloud_storage, get_node_type_config
+    RUNTIME_CONFIG_KEY, load_properties_file, save_properties_file, is_use_managed_cloud_storage, get_node_type_config, \
+    print_json_formatted
 from cloudtik.core._private.workspace.workspace_operator import _get_workspace_provider
 from cloudtik.core.scaling_policy import ScalingPolicy
 from cloudtik.runtime.spark.scaling_policy import SparkScalingPolicy
@@ -373,23 +375,37 @@ def _get_scaling_policy(
         rest_port=SPARK_YARN_WEB_API_PORT)
 
 
-def request_applications(
+def print_request_rest_applications(
         cluster_config_file: str, cluster_name: str, endpoint: str):
+    config = _load_cluster_config(cluster_config_file, cluster_name)
+    response = request_rest_applications(config, endpoint)
+    print_json_formatted(response)
+
+
+def request_rest_applications(
+        config: Dict[str, Any], endpoint: str):
     if endpoint is None:
         endpoint = "/applications"
     if not endpoint.startswith("/"):
         endpoint = "/" + endpoint
     endpoint = "api/v1" + endpoint
-    print_request_rest_on_head(
-        cluster_config_file, cluster_name, endpoint, SPARK_HISTORY_SERVER_API_PORT)
+    return _request_rest_on_head(
+        config, endpoint, SPARK_HISTORY_SERVER_API_PORT)
 
 
-def request_yarn(
+def print_request_rest_yarn(
         cluster_config_file: str, cluster_name: str, endpoint: str):
+    config = _load_cluster_config(cluster_config_file, cluster_name)
+    response = request_rest_yarn(config, endpoint)
+    print_json_formatted(response)
+
+
+def request_rest_yarn(
+        config: Dict[str, Any], endpoint: str):
     if endpoint is None:
         endpoint = "/cluster/metrics"
     if not endpoint.startswith("/"):
         endpoint = "/" + endpoint
     endpoint = "ws/v1" + endpoint
-    print_request_rest_on_head(
-        cluster_config_file, cluster_name, endpoint, SPARK_YARN_WEB_API_PORT)
+    return _request_rest_on_head(
+        config, endpoint, SPARK_YARN_WEB_API_PORT)

@@ -175,6 +175,7 @@ cli.add_command(start_head)
 cli.add_command(start_worker)
 cli.add_command(stop_head)
 cli.add_command(stop_worker)
+
 cli.add_command(applications)
 cli.add_command(yarn)
 

@@ -146,7 +146,7 @@ def stop_worker(script_args):
     type=str,
     help="The resource endpoint for the history server rest API")
 @add_click_logging_options
-def applications(cluster_config_file, cluster_name, endpoint):
+def jobs(cluster_config_file, cluster_name, endpoint):
     print_request_rest_jobs(cluster_config_file, cluster_name, endpoint)
 
 
@@ -176,8 +176,9 @@ cli.add_command(start_worker)
 cli.add_command(stop_head)
 cli.add_command(stop_worker)
 
-cli.add_command(applications)
+cli.add_command(jobs)
 cli.add_command(yarn)
+
 
 def main():
     return cli()

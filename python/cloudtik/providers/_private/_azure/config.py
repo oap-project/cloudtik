@@ -2063,14 +2063,20 @@ def get_workspace_head_nodes(provider_config, workspace_name):
     resource_group_name = _get_resource_group_name(
         workspace_name, resource_client, use_internal_ips)
     return _get_workspace_head_nodes(
+        workspace_name=workspace_name,
         resource_group_name=resource_group_name,
         compute_client=compute_client
     )
 
 
-def _get_workspace_head_nodes(resource_group_name,
+def _get_workspace_head_nodes(workspace_name,
+                              resource_group_name,
                               compute_client):
-
+    if resource_group_name is None:
+        raise RuntimeError(
+            "The workspace {} doesn't exist or is in the wrong state.".format(
+                workspace_name
+            ))
     all_heads = [node for node in list(
         compute_client.virtual_machines.list(resource_group_name=resource_group_name))
             if node.tags is not None and node.tags.get(CLOUDTIK_TAG_NODE_KIND, "") == NODE_KIND_HEAD]
@@ -2176,6 +2182,7 @@ def list_azure_clusters(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
 
     head_nodes = _get_workspace_head_nodes(
+        workspace_name=config.get("workspace_name"),
         resource_group_name=resource_group_name,
         compute_client=compute_client
     )

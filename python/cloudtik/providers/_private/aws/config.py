@@ -935,7 +935,10 @@ def _get_workspace_head_nodes(provider_config, workspace_name):
     ec2_client = _make_resource_client("ec2", provider_config)
     vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
     if vpc_id is None:
-        raise RuntimeError(f"Failed to get VPC for workspace: {workspace_name}")
+        raise RuntimeError(
+            "Failed to get the VPC. The workspace {} doesn't exist or is in the wrong state.".format(
+                workspace_name
+            ))
 
     filters = [
         {

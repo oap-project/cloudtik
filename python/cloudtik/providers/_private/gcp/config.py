@@ -182,6 +182,11 @@ def _get_workspace_head_nodes(provider_config, workspace_name, compute):
     availability_zone = provider_config.get("availability_zone")
     vpc_id = _get_gcp_vpc_id(
         provider_config, workspace_name, compute, use_internal_ips)
+    if vpc_id is None:
+        raise RuntimeError(
+            "Failed to get the VPC. The workspace {} doesn't exist or is in the wrong state.".format(
+                workspace_name
+            ))
     vpc_self_link = compute.networks().get(project=project_id, network=vpc_id).execute()["selfLink"]
 
     filter_expr = '(labels.{key} = {value}) AND (status = RUNNING)'.\

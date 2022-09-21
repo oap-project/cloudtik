@@ -1,7 +1,7 @@
 import os
 from typing import Any, Dict, Optional
-from shlex import quote
 
+from cloudtik.core._private.cluster.cluster_rest_request import print_request_rest_on_head
 from cloudtik.core._private.core_utils import double_quote
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_HDFS, BUILT_IN_RUNTIME_METASTORE
 from cloudtik.core._private.utils import merge_rooted_config_hierarchy, \
@@ -36,6 +36,7 @@ SPARK_EXECUTOR_OVERHEAD_MINIMUM = 384
 SPARK_EXECUTOR_OVERHEAD_RATIO = 0.1
 
 SPARK_YARN_WEB_API_PORT = 8088
+SPARK_HISTORY_SERVER_API_PORT = 18080
 
 
 def get_yarn_resource_memory_ratio(cluster_config: Dict[str, Any]):
@@ -327,9 +328,12 @@ def _get_defaults_config(runtime_config: Dict[str, Any],
 
 def _get_useful_urls(cluster_head_ip):
     urls = [
-        {"name": "Yarn Web UI", "url": "http://{}:8088".format(cluster_head_ip)},
-        {"name": "Jupyter Web UI", "url": "http://{}:8888, default password is \'cloudtik\'".format(cluster_head_ip)},
-        {"name": "Spark History Server Web UI", "url": "http://{}:18080".format(cluster_head_ip)},
+        {"name": "Yarn Web UI", "url": "http://{}:{}".format(
+            cluster_head_ip, SPARK_YARN_WEB_API_PORT)},
+        {"name": "Jupyter Web UI", "url": "http://{}:8888, default password is \'cloudtik\'".format(
+            cluster_head_ip)},
+        {"name": "Spark History Server Web UI", "url": "http://{}:{}".format(
+            cluster_head_ip, SPARK_HISTORY_SERVER_API_PORT)},
     ]
     return urls
 
@@ -338,7 +342,7 @@ def _get_runtime_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]
     service_ports = {
         "yarn-web": {
             "protocol": "TCP",
-            "port": 8088,
+            "port": SPARK_YARN_WEB_API_PORT,
         },
         "jupyter-web": {
             "protocol": "TCP",
@@ -346,7 +350,7 @@ def _get_runtime_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]
         },
         "history-server": {
             "protocol": "TCP",
-            "port": 18080,
+            "port": SPARK_HISTORY_SERVER_API_PORT,
         },
     }
     return service_ports
@@ -367,3 +371,25 @@ def _get_scaling_policy(
     return SparkScalingPolicy(
         cluster_config, head_ip,
         rest_port=SPARK_YARN_WEB_API_PORT)
+
+
+def request_applications(
+        cluster_config_file: str, cluster_name: str, endpoint: str):
+    if endpoint is None:
+        endpoint = "/applications"
+    if not endpoint.startswith("/"):
+        endpoint = "/" + endpoint
+    endpoint = "api/v1" + endpoint
+    print_request_rest_on_head(
+        cluster_config_file, cluster_name, endpoint, SPARK_HISTORY_SERVER_API_PORT)
+
+
+def request_yarn(
+        cluster_config_file: str, cluster_name: str, endpoint: str):
+    if endpoint is None:
+        endpoint = "/cluster/metrics"
+    if not endpoint.startswith("/"):
+        endpoint = "/" + endpoint
+    endpoint = "ws/v1" + endpoint
+    print_request_rest_on_head(
+        cluster_config_file, cluster_name, endpoint, SPARK_YARN_WEB_API_PORT)

@@ -1713,6 +1713,15 @@ def get_head_working_ip(config: Dict[str, Any],
     return get_node_working_ip(config, provider, node)
 
 
+def get_cluster_head_ip(config: Dict[str, Any], public: bool = False) -> str:
+    provider = _get_node_provider(config["provider"], config["cluster_name"])
+    head_node = get_running_head_node(config)
+    if public:
+        return get_head_working_ip(config, provider, head_node)
+    else:
+        return get_node_cluster_ip(provider, head_node)
+
+
 def _get_only_named_dict_child(v):
     if not isinstance(v, list) or len(v) != 1:
         return None

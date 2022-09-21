@@ -3,7 +3,6 @@ import urllib
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 import datetime
-import hashlib
 import json
 import logging
 import os
@@ -21,6 +20,7 @@ import yaml
 
 from cloudtik.core._private import services, constants
 from cloudtik.core._private.call_context import CallContext
+from cloudtik.core._private.cluster.cluster_config import _load_cluster_config, _bootstrap_config, try_logging_config
 from cloudtik.core._private.core_utils import kill_process_tree, double_quote
 from cloudtik.core._private.job_waiter_factory import create_job_waiter
 from cloudtik.core._private.services import validate_redis_address
@@ -39,12 +39,12 @@ from cloudtik.core._private.constants import \
     MAX_PARALLEL_SHUTDOWN_WORKERS, \
     CLOUDTIK_REDIS_DEFAULT_PASSWORD, CLOUDTIK_CLUSTER_STATUS_STOPPED, CLOUDTIK_CLUSTER_STATUS_RUNNING, \
     CLOUDTIK_RUNTIME_NAME
-from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
-    hash_launch_conf, prepare_config, get_free_port, \
+from cloudtik.core._private.utils import hash_runtime_conf, \
+    hash_launch_conf, get_free_port, \
     get_proxy_info_file, get_safe_proxy_process_info, \
     get_head_working_ip, get_node_cluster_ip, is_use_internal_ip, \
     get_attach_command, is_alive_time, is_docker_enabled, get_proxy_bind_address_to_show, \
-    with_runtime_environment_variables, verify_config, runtime_prepare_config, get_nodes_info, \
+    with_runtime_environment_variables, get_nodes_info, \
     sum_worker_cpus, sum_worker_memory, get_useful_runtime_urls, get_enabled_runtimes, \
     with_node_ip_environment_variables, run_in_paralell_on_nodes, get_commands_to_run, \
     cluster_booting_completed, load_head_cluster_config, get_runnable_command, get_cluster_uri, \
@@ -53,10 +53,9 @@ from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
     get_node_specific_commands_of_runtimes, _get_node_specific_runtime_config, \
     _get_node_specific_docker_config, RUNTIME_CONFIG_KEY, DOCKER_CONFIG_KEY, get_running_head_node, \
     get_nodes_for_runtime, with_script_args, encrypt_config, get_resource_requests_for_cpu, convert_nodes_to_cpus, \
-    decrypt_config, HeadNotRunningError
+    HeadNotRunningError, get_cluster_head_ip
 
-from cloudtik.core._private.providers import _get_node_provider, \
-    _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
+from cloudtik.core._private.providers import _get_node_provider, _NODE_PROVIDERS
 from cloudtik.core.tags import (
     CLOUDTIK_TAG_NODE_KIND, CLOUDTIK_TAG_LAUNCH_CONFIG, CLOUDTIK_TAG_NODE_NAME,
     NODE_KIND_WORKER, NODE_KIND_HEAD, CLOUDTIK_TAG_USER_NODE_TYPE,
@@ -71,7 +70,6 @@ from cloudtik.core._private.cluster.cluster_dump import Archive, \
     create_archive_for_remote_nodes, get_all_local_data, \
     create_archive_for_cluster_nodes
 from cloudtik.core._private.state.control_state import ControlState
-from cloudtik.core._private.debug import log_once
 
 from cloudtik.core._private.cluster.cluster_metrics import ClusterMetricsSummary
 from cloudtik.core._private.cluster.cluster_scaler import ClusterScalerSummary
@@ -94,28 +92,6 @@ _cli_call_context = CallContext()
 
 def cli_call_context() -> CallContext:
     return _cli_call_context
-
-
-def try_logging_config(config: Dict[str, Any]) -> None:
-    if config["provider"]["type"] == "aws":
-        from cloudtik.providers._private.aws.config import log_to_cli
-        log_to_cli(config)
-
-
-def try_get_log_state(provider_config: Dict[str, Any]) -> Optional[dict]:
-    if provider_config["type"] == "aws":
-        from cloudtik.providers._private.aws.config import get_log_state
-        return get_log_state()
-    return None
-
-
-def try_reload_log_state(provider_config: Dict[str, Any],
-                         log_state: dict) -> None:
-    if not log_state:
-        return
-    if provider_config["type"] == "aws":
-        from cloudtik.providers._private.aws.config import reload_log_state
-        return reload_log_state(log_state)
 
 
 def decode_cluster_scaling_status(status):
@@ -315,104 +291,6 @@ def _create_or_update_cluster(
     try_logging_config(config)
     get_or_create_head_node(config, call_context, no_restart, restart_only,
                             yes, no_controller_on_head)
-
-
-CONFIG_CACHE_VERSION = 1
-
-
-def _bootstrap_config(config: Dict[str, Any],
-                      no_config_cache: bool = False,
-                      init_config_cache: bool = False) -> Dict[str, Any]:
-    # Check if bootstrapped, return if it is the case
-    if config.get("bootstrapped", False):
-        return config
-
-    config = prepare_config(config)
-    # NOTE: multi-node-type cluster scaler is guaranteed to be in use after this.
-
-    hasher = hashlib.sha1()
-    hasher.update(json.dumps([config], sort_keys=True).encode("utf-8"))
-    cache_key = os.path.join(tempfile.gettempdir(),
-                             "cloudtik-config-{}".format(hasher.hexdigest()))
-
-    if os.path.exists(cache_key) and not no_config_cache:
-        config_cache = json.loads(open(cache_key).read())
-        if config_cache.get("_version", -1) == CONFIG_CACHE_VERSION:
-            # todo: is it fine to re-resolve? afaik it should be.
-            # we can have migrations otherwise or something
-            # but this seems overcomplicated given that resolving is
-            # relatively cheap
-            cached_config = decrypt_config(config_cache["config"])
-            try_reload_log_state(cached_config["provider"],
-                                 config_cache.get("provider_log_info"))
-
-            if log_once("_printed_cached_config_warning"):
-                cli_logger.verbose_warning(
-                    "Loaded cached provider configuration "
-                    "from " + cf.bold("{}"), cache_key)
-                cli_logger.verbose_warning(
-                    "If you experience issues with "
-                    "the cloud provider, try re-running "
-                    "the command with {}.", cf.bold("--no-config-cache"))
-
-            return cached_config
-        else:
-            cli_logger.warning(
-                "Found cached cluster config "
-                "but the version " + cf.bold("{}") + " "
-                "(expected " + cf.bold("{}") + ") does not match.\n"
-                "This is normal if cluster launcher was updated.\n"
-                "Config will be re-resolved.",
-                config_cache.get("_version", "none"), CONFIG_CACHE_VERSION)
-
-    importer = _NODE_PROVIDERS.get(config["provider"]["type"])
-    if not importer:
-        raise NotImplementedError("Unsupported provider {}".format(
-            config["provider"]))
-
-    provider_cls = importer(config["provider"])
-
-    cli_logger.print("Checking {} environment settings",
-                     _PROVIDER_PRETTY_NAMES.get(config["provider"]["type"]))
-
-    config = provider_cls.post_prepare(config)
-    config = runtime_prepare_config(config.get(RUNTIME_CONFIG_KEY), config)
-
-    try:
-        validate_config(config)
-    except (ModuleNotFoundError, ImportError):
-        cli_logger.abort(
-            "Not all dependencies were found. Please "
-            "update your install command.")
-
-    resolved_config = provider_cls.bootstrap_config(config)
-
-    # add a verify step
-    verify_config(resolved_config)
-
-    if not no_config_cache or init_config_cache:
-        with open(cache_key, "w", opener=partial(os.open, mode=0o600)) as f:
-            encrypted_config = encrypt_config(resolved_config)
-            config_cache = {
-                "_version": CONFIG_CACHE_VERSION,
-                "provider_log_info": try_get_log_state(
-                    resolved_config["provider"]),
-                "config": encrypted_config
-            }
-            f.write(json.dumps(config_cache))
-    return resolved_config
-
-
-def _load_cluster_config(config_file: str,
-                         override_cluster_name: Optional[str] = None,
-                         should_bootstrap: bool = True,
-                         no_config_cache: bool = False) -> Dict[str, Any]:
-    config = yaml.safe_load(open(config_file).read())
-    if override_cluster_name is not None:
-        config["cluster_name"] = override_cluster_name
-    if should_bootstrap:
-        config = _bootstrap_config(config, no_config_cache=no_config_cache)
-    return config
 
 
 def teardown_cluster(config_file: str, yes: bool, workers_only: bool,
@@ -1555,12 +1433,7 @@ def get_worker_node_ips(config_file: str,
 
 
 def _get_head_node_ip(config: Dict[str, Any], public: bool = False) -> str:
-    provider = _get_node_provider(config["provider"], config["cluster_name"])
-    head_node = _get_running_head_node(config)
-    if public:
-        return get_head_working_ip(config, provider, head_node)
-    else:
-        return get_node_cluster_ip(provider, head_node)
+    return get_cluster_head_ip(config, public)
 
 
 def _get_worker_node_ips(config: Dict[str, Any], runtime: str = None) -> List[str]:

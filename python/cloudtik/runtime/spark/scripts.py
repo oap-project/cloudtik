@@ -4,12 +4,13 @@ import logging
 
 from cloudtik.core._private import constants
 from cloudtik.core._private import logging_utils
-from cloudtik.core._private.cli_logger import (cli_logger)
+from cloudtik.core._private.cli_logger import (cli_logger, add_click_logging_options)
 
 from shlex import quote
 
 from cloudtik.core._private.utils import run_bash_scripts, run_system_command, with_script_args
-from cloudtik.runtime.spark.utils import RUNTIME_ROOT_PATH, update_spark_configurations
+from cloudtik.runtime.spark.utils import RUNTIME_ROOT_PATH, update_spark_configurations, print_request_rest_applications, \
+    print_request_rest_yarn
 
 RUNTIME_SCRIPTS_PATH = os.path.join(
     RUNTIME_ROOT_PATH, "scripts")
@@ -131,6 +132,42 @@ def stop_worker(script_args):
     run_services_command("stop-worker", script_args)
 
 
+@click.command()
+@click.argument("cluster_config_file", required=True, type=str)
+@click.option(
+    "--cluster-name",
+    "-n",
+    required=False,
+    type=str,
+    help="Override the configured cluster name.")
+@click.option(
+    "--endpoint",
+    required=False,
+    type=str,
+    help="The resource endpoint for the history server rest API")
+@add_click_logging_options
+def applications(cluster_config_file, cluster_name, endpoint):
+    print_request_rest_applications(cluster_config_file, cluster_name, endpoint)
+
+
+@click.command()
+@click.argument("cluster_config_file", required=True, type=str)
+@click.option(
+    "--cluster-name",
+    "-n",
+    required=False,
+    type=str,
+    help="Override the configured cluster name.")
+@click.option(
+    "--endpoint",
+    required=False,
+    type=str,
+    help="The resource endpoint for the YARN rest API")
+@add_click_logging_options
+def yarn(cluster_config_file, cluster_name, endpoint):
+    print_request_rest_yarn(cluster_config_file, cluster_name, endpoint)
+
+
 cli.add_command(install)
 cli.add_command(configure)
 cli.add_command(services)
@@ -138,6 +175,8 @@ cli.add_command(start_head)
 cli.add_command(start_worker)
 cli.add_command(stop_head)
 cli.add_command(stop_worker)
+cli.add_command(applications)
+cli.add_command(yarn)
 
 
 def main():

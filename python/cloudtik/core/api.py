@@ -4,6 +4,7 @@ from typing import Any, Callable, Dict, List, Optional, Union
 import os
 
 from cloudtik.core._private.call_context import CallContext
+from cloudtik.core._private.cluster.cluster_config import _bootstrap_config, _load_cluster_config
 from cloudtik.core._private.utils import verify_runtime_list
 from cloudtik.core._private.workspace import workspace_operator
 from cloudtik.core._private.cluster import cluster_operator
@@ -66,14 +67,14 @@ class Cluster:
         self.cluster_config = cluster_config
         if isinstance(cluster_config, dict):
             if should_bootstrap:
-                self.config = cluster_operator._bootstrap_config(
+                self.config = _bootstrap_config(
                     cluster_config, no_config_cache=True)
             else:
                 self.config = cluster_config
         else:
             if not os.path.exists(cluster_config):
                 raise ValueError("Cluster config file not found: {}".format(cluster_config))
-            self.config = cluster_operator._load_cluster_config(
+            self.config = _load_cluster_config(
                 cluster_config, should_bootstrap=should_bootstrap, no_config_cache=True)
 
         # TODO: Each call may need its own call context

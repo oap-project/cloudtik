@@ -14,6 +14,8 @@ import binascii
 import uuid
 import time
 import math
+
+import click
 import ipaddr
 import socket
 import re
@@ -1713,6 +1715,15 @@ def get_head_working_ip(config: Dict[str, Any],
     return get_node_working_ip(config, provider, node)
 
 
+def get_cluster_head_ip(config: Dict[str, Any], public: bool = False) -> str:
+    provider = _get_node_provider(config["provider"], config["cluster_name"])
+    head_node = get_running_head_node(config)
+    if public:
+        return get_head_working_ip(config, provider, head_node)
+    else:
+        return get_node_cluster_ip(provider, head_node)
+
+
 def _get_only_named_dict_child(v):
     if not isinstance(v, list) or len(v) != 1:
         return None
@@ -2709,3 +2720,9 @@ def get_storage_config_for_update(provider_config):
     if "storage" not in provider_config:
         provider_config["storage"] = {}
     return provider_config["storage"]
+
+
+def print_json_formatted(json_bytes):
+    json_object = json.loads(json_bytes)
+    formatted_response = json.dumps(json_object, indent=4)
+    click.echo(formatted_response)

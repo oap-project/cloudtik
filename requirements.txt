@@ -21,6 +21,7 @@ six
 smart_open
 pycryptodomex
 pyopenssl
+sshtunnel
 
 # setup.py extras
 ## for aws

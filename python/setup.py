@@ -108,6 +108,7 @@ setup_spec.install_requires = [
     "ipaddr",
     "pycryptodomex",
     "pyopenssl",
+    "sshtunnel",
 ]
 
 

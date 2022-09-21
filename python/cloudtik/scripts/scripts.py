@@ -1,4 +1,3 @@
-import copy
 import json
 import logging
 import os
@@ -20,6 +19,7 @@ from cloudtik.core._private import constants
 from cloudtik.core._private import services, utils, logging_utils
 from cloudtik.core._private.cli_logger import (add_click_logging_options,
                                                cli_logger, cf)
+from cloudtik.core._private.cluster.cluster_config import _load_cluster_config
 from cloudtik.core._private.cluster.cluster_operator import (
     attach_cluster, create_or_update_cluster, monitor_cluster,
     teardown_cluster, get_head_node_ip, kill_node_from_head, get_worker_node_ips,
@@ -27,7 +27,7 @@ from cloudtik.core._private.cluster.cluster_operator import (
     show_worker_cpus, show_worker_memory, show_cluster_info, show_cluster_status,
     start_proxy, stop_proxy, cluster_debug_status,
     cluster_health_check, cluster_process_status, attach_worker, scale_cluster,
-    _load_cluster_config, exec_on_nodes, submit_and_exec, _wait_for_ready, _rsync, cli_call_context)
+    exec_on_nodes, submit_and_exec, _wait_for_ready, _rsync, cli_call_context)
 from cloudtik.core._private.constants import CLOUDTIK_PROCESSES, \
     CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
     CLOUDTIK_DEFAULT_PORT

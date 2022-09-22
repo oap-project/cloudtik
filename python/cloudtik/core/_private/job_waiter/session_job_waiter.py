@@ -41,13 +41,14 @@ class SessionJobWaiter(JobWaiter):
                     call_context=self.call_context,
                     cmd=cmd,
                     with_output=True)
-                if session_name == output:
-                    return True
+                if output is not None:
+                    if output.startswith(session_name + " found."):
+                        return True
                 return False
             except Exception as e:
                 retry = retry - 1
                 if retry > 0:
-                    cli_logger.warning(f"Error when requesting yarn api. Retrying in {CHECK_SESSION_RETRY_DELAY_S} seconds.")
+                    cli_logger.warning(f"Error when checking session. Retrying in {CHECK_SESSION_RETRY_DELAY_S} seconds.")
                     time.sleep(CHECK_SESSION_RETRY_DELAY_S)
                 else:
                     cli_logger.error("Failed to request yarn api: {}", str(e))

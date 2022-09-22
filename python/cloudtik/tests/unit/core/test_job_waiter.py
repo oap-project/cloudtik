@@ -2,7 +2,7 @@ from typing import Optional, Any, Dict
 
 import pytest
 
-from cloudtik.core._private.job_waiter_factory import _parse_built_in_chain, create_job_waiter
+from cloudtik.core._private.job_waiter.job_waiter_factory import _parse_built_in_chain, create_job_waiter
 from cloudtik.core.job_waiter import JobWaiter
 
 

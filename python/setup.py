@@ -54,6 +54,8 @@ cloudtik_files = [
 cloudtik_files += [
     "cloudtik/core/config-schema.json",
     "cloudtik/core/workspace-schema.json",
+    "cloudtik/core/_private/job_waiter/tmux-session.sh",
+    "cloudtik/core/_private/job_waiter/screen-session.sh",
 ]
 
 # If you're adding dependencies for cloudtik extras, please

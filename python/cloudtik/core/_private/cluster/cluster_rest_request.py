@@ -31,9 +31,10 @@ def _request_rest_on_head(
         rest_api_ip=head_node_ip, rest_api_port=rest_api_port, endpoint=endpoint)
 
 
-def ssh_proxy_wrapper(ssh_proxy_command, server_ip, ssh_port):
+def ssh_proxy_wrapper(ssh_proxy_command, server_ip, ssh_port, ssh_user):
     ssh_proxy_command = ssh_proxy_command.replace("%h", server_ip)
     ssh_proxy_command = ssh_proxy_command.replace("%p", str(ssh_port))
+    ssh_proxy_command = ssh_proxy_command.replace("%r", str(ssh_user))
     ssh_proxy = ProxyCommand(ssh_proxy_command)
     return ssh_proxy
 
@@ -45,7 +46,7 @@ def request_rest_on_server(
     ssh_private_key = auth_config.get("ssh_private_key", None)
     ssh_user = auth_config["ssh_user"]
     ssh_port = auth_config.get("ssh_port", 22)
-    ssh_proxy = ssh_proxy_wrapper(ssh_proxy_command, server_ip, ssh_port)
+    ssh_proxy = ssh_proxy_wrapper(ssh_proxy_command, server_ip, ssh_port, ssh_user)
 
     with sshtunnel.open_tunnel(
             server_ip,

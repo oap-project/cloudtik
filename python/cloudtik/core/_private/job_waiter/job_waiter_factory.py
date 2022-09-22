@@ -12,12 +12,24 @@ BUILT_IN_JOB_WAITER_CHAIN = "chain"
 
 
 def _import_chain():
-    from cloudtik.core._private.job_waiter_chain import JobWaiterChain
+    from cloudtik.core._private.job_waiter.job_waiter_chain import JobWaiterChain
     return JobWaiterChain
+
+
+def _import_tmux_job_waiter():
+    from cloudtik.core._private.job_waiter.session_job_waiter import TmuxJobWaiter
+    return TmuxJobWaiter
+
+
+def _import_screen_job_waiter():
+    from cloudtik.core._private.job_waiter.session_job_waiter import ScreenJobWaiter
+    return ScreenJobWaiter
 
 
 _BUILT_IN_JOB_WAITERS = {
     "chain": _import_chain,
+    "tmux": _import_tmux_job_waiter,
+    "screen": _import_screen_job_waiter,
 }
 
 

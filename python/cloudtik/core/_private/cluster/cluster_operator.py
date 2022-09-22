@@ -22,7 +22,7 @@ from cloudtik.core._private import services, constants
 from cloudtik.core._private.call_context import CallContext
 from cloudtik.core._private.cluster.cluster_config import _load_cluster_config, _bootstrap_config, try_logging_config
 from cloudtik.core._private.core_utils import kill_process_tree, double_quote
-from cloudtik.core._private.job_waiter_factory import create_job_waiter
+from cloudtik.core._private.job_waiter.job_waiter_factory import create_job_waiter
 from cloudtik.core._private.services import validate_redis_address
 from cloudtik.core.job_waiter import JobWaiter
 

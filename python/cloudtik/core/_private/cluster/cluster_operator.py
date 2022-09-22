@@ -21,6 +21,7 @@ import yaml
 from cloudtik.core._private import services, constants
 from cloudtik.core._private.call_context import CallContext
 from cloudtik.core._private.cluster.cluster_config import _load_cluster_config, _bootstrap_config, try_logging_config
+from cloudtik.core._private.cluster.cluster_utils import create_node_updater_for_exec
 from cloudtik.core._private.core_utils import kill_process_tree, double_quote
 from cloudtik.core._private.job_waiter.job_waiter_factory import create_job_waiter
 from cloudtik.core._private.services import validate_redis_address
@@ -53,7 +54,7 @@ from cloudtik.core._private.utils import hash_runtime_conf, \
     get_node_specific_commands_of_runtimes, _get_node_specific_runtime_config, \
     _get_node_specific_docker_config, RUNTIME_CONFIG_KEY, DOCKER_CONFIG_KEY, get_running_head_node, \
     get_nodes_for_runtime, with_script_args, encrypt_config, get_resource_requests_for_cpu, convert_nodes_to_cpus, \
-    HeadNotRunningError, get_cluster_head_ip
+    HeadNotRunningError, get_cluster_head_ip, get_command_session_name
 
 from cloudtik.core._private.providers import _get_node_provider, _NODE_PROVIDERS
 from cloudtik.core.tags import (
@@ -1157,6 +1158,8 @@ def _exec_cluster(config: Dict[str, Any],
                 "cloudtik head teardown --yes"
             ])
 
+    # Only when there is no job waiter we hold the tmux or screen session
+    hold_session = False if job_waiter else True
     result = _exec(
         updater,
         cmd,
@@ -1164,7 +1167,8 @@ def _exec_cluster(config: Dict[str, Any],
         tmux,
         port_forward=port_forward,
         with_output=with_output,
-        run_env=run_env)
+        run_env=run_env,
+        hold_session=hold_session)
 
     # if a job waiter is specified, we always wait for its completion.
     if job_waiter is not None:
@@ -1189,19 +1193,21 @@ def _exec(updater: NodeUpdaterThread,
           with_output: bool = False,
           run_env: str = "auto",
           shutdown_after_run: bool = False,
-          exit_on_fail: bool = False) -> str:
+          exit_on_fail: bool = False,
+          hold_session: bool = True) -> str:
     if cmd:
         if screen:
+            session_name = get_command_session_name(cmd)
             wrapped_cmd = [
-                "screen", "-L", "-dm", "bash", "-c",
-                quote(cmd + "; exec bash")
+                "screen", "-S", session_name, "-L", "-dm", "bash", "-c",
+                quote(cmd + "; exec bash") if hold_session else quote(cmd)
             ]
             cmd = " ".join(wrapped_cmd)
         elif tmux:
-            # TODO: Consider providing named session functionality
+            session_name = get_command_session_name(cmd)
             wrapped_cmd = [
-                "tmux", "new", "-d", "bash", "-c",
-                quote(cmd + "; exec bash")
+                "tmux", "new", "-s", session_name, "-d", "bash", "-c",
+                quote(cmd + "; exec bash") if hold_session else quote(cmd)
             ]
             cmd = " ".join(wrapped_cmd)
     exec_out = updater.cmd_executor.run(
@@ -2518,46 +2524,6 @@ def exec_node_on_head(
                     "Executing on node: {}", node_ip,
                     _numbered=("()", i + 1, total_nodes)):
                 run_exec_cmd_on_head(node_id=node_id, call_context=call_context)
-
-
-def create_node_updater_for_exec(config,
-                                 call_context: CallContext,
-                                 node_id,
-                                 provider,
-                                 start_commands,
-                                 is_head_node: bool = False,
-                                 use_internal_ip: bool = False,
-                                 runtime_config: Dict[str, Any] = None,
-                                 process_runner: ModuleType = subprocess):
-    if runtime_config is None:
-        runtime_config = _get_node_specific_runtime_config(
-            config, provider, node_id)
-    docker_config = _get_node_specific_docker_config(
-            config, provider, node_id)
-    updater = NodeUpdaterThread(
-        config=config,
-        call_context=call_context,
-        node_id=node_id,
-        provider_config=config["provider"],
-        provider=provider,
-        auth_config=config["auth"],
-        cluster_name=config["cluster_name"],
-        file_mounts=config["file_mounts"],
-        initialization_commands=[],
-        setup_commands=[],
-        start_commands=start_commands,
-        runtime_hash="",
-        file_mounts_contents_hash="",
-        is_head_node=is_head_node,
-        process_runner=process_runner,
-        use_internal_ip=use_internal_ip,
-        rsync_options={
-            "rsync_exclude": config.get("rsync_exclude"),
-            "rsync_filter": config.get("rsync_filter")
-        },
-        docker_config=docker_config,
-        runtime_config=runtime_config)
-    return updater
 
 
 def start_node_on_head(node_ip: str = None,

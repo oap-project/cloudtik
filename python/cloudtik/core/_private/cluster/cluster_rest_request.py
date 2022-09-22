@@ -6,6 +6,8 @@ import urllib
 import urllib.request
 import urllib.error
 
+from paramiko import ProxyCommand
+
 from cloudtik.core._private.cluster.cluster_config import _load_cluster_config
 from cloudtik.core._private.utils import get_cluster_head_ip
 
@@ -29,6 +31,13 @@ def _request_rest_on_head(
         rest_api_ip=head_node_ip, rest_api_port=rest_api_port, endpoint=endpoint)
 
 
+def ssh_proxy_wrapper(ssh_proxy_command, server_ip, ssh_port):
+    ssh_proxy_command = ssh_proxy_command.replace("%h", server_ip)
+    ssh_proxy_command = ssh_proxy_command.replace("%p", str(ssh_port))
+    ssh_proxy = ProxyCommand(ssh_proxy_command)
+    return ssh_proxy
+
+
 def request_rest_on_server(
         config, server_ip, rest_api_ip: str, rest_api_port: int, endpoint: str):
     auth_config = config.get("auth", {})
@@ -36,13 +45,14 @@ def request_rest_on_server(
     ssh_private_key = auth_config.get("ssh_private_key", None)
     ssh_user = auth_config["ssh_user"]
     ssh_port = auth_config.get("ssh_port", 22)
+    ssh_proxy = ssh_proxy_wrapper(ssh_proxy_command, server_ip, ssh_port)
 
     with sshtunnel.open_tunnel(
             server_ip,
             ssh_username=ssh_user,
             ssh_port=ssh_port,
             ssh_pkey=ssh_private_key,
-            ssh_proxy=ssh_proxy_command,
+            ssh_proxy=ssh_proxy,
             remote_bind_address=(rest_api_ip, rest_api_port)
     ) as tunnel:
         endpoint_url = REST_ENDPOINT_URL_FORMAT.format(

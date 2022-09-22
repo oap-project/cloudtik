@@ -1,24 +1,22 @@
-import hashlib
 import logging
 import os
 import time
 from typing import Any, Dict, Optional
 
+from cloudtik.core._private.call_context import CallContext
 from cloudtik.core._private.cli_logger import cli_logger
+from cloudtik.core._private.cluster.cluster_utils import run_on_cluster
 from cloudtik.core._private.constants import CLOUDTIK_WAIT_FOR_JOB_FINISHED_INTERVAL_S, CLOUDTIK_JOB_WAITER_TIMEOUT_MAX
+from cloudtik.core._private.utils import get_command_session_name
 from cloudtik.core.job_waiter import JobWaiter
 
 logger = logging.getLogger(__name__)
 
-JOB_WAITER_SCRIPT_HOME = os.path.dirname(__file__)
-TMUX_SESSION_CHECK_SCRIPT = os.path.join(JOB_WAITER_SCRIPT_HOME, "tmux-session.sh")
-SCREEN_SESSION_CHECK_SCRIPT = os.path.join(JOB_WAITER_SCRIPT_HOME, "screen-session.sh")
+TMUX_SESSION_CHECK_SCRIPT = "core/_private/job_waiter/tmux-session.sh"
+SCREEN_SESSION_CHECK_SCRIPT = "core/_private/job_waiter/screen-session.sh"
 
-
-def _get_command_session_name(cmd: str):
-    hasher = hashlib.sha1()
-    hasher.update(cmd.encode("utf-8"))
-    return "cloudtik-" + hasher.hexdigest()
+CHECK_SESSION_RETRY = 5
+CHECK_SESSION_RETRY_DELAY_S = 5
 
 
 class SessionJobWaiter(JobWaiter):
@@ -26,9 +24,35 @@ class SessionJobWaiter(JobWaiter):
                  config: Dict[str, Any], session_check_script: str) -> None:
         JobWaiter.__init__(self, config)
         self.session_check_script = session_check_script
+        self.call_context = CallContext()
+        self.call_context.set_call_from_api(True)
 
     def _check_session(self, session_name):
-        return True
+        cmd = "cloudtik run-script "
+        cmd += self.session_check_script
+        cmd += " "
+        cmd += session_name
+
+        retry = CHECK_SESSION_RETRY
+        while retry > 0:
+            try:
+                output = run_on_cluster(
+                    config=self.config,
+                    call_context=self.call_context,
+                    cmd=cmd,
+                    with_output=True)
+                if session_name == output:
+                    return True
+                return False
+            except Exception as e:
+                retry = retry - 1
+                if retry > 0:
+                    cli_logger.warning(f"Error when requesting yarn api. Retrying in {CHECK_SESSION_RETRY_DELAY_S} seconds.")
+                    time.sleep(CHECK_SESSION_RETRY_DELAY_S)
+                else:
+                    cli_logger.error("Failed to request yarn api: {}", str(e))
+                    raise e
+        return False
 
     def wait_for_completion(self, cmd: str, timeout: Optional[int] = None):
         start_time = time.time()
@@ -36,7 +60,7 @@ class SessionJobWaiter(JobWaiter):
             timeout = CLOUDTIK_JOB_WAITER_TIMEOUT_MAX
         interval = CLOUDTIK_WAIT_FOR_JOB_FINISHED_INTERVAL_S
 
-        session_name = _get_command_session_name(cmd)
+        session_name = get_command_session_name(cmd)
         session_exists = self._check_session(session_name)
         while time.time() - start_time < timeout:
             if not session_exists:

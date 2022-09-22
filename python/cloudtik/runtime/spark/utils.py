@@ -42,6 +42,8 @@ SPARK_EXECUTOR_OVERHEAD_RATIO = 0.1
 SPARK_YARN_WEB_API_PORT = 8088
 SPARK_HISTORY_SERVER_API_PORT = 18080
 
+RETRY_DELAY_S = 5
+
 
 def get_yarn_resource_memory_ratio(cluster_config: Dict[str, Any]):
     yarn_resource_memory_ratio = YARN_RESOURCE_MEMORY_RATIO
@@ -415,7 +417,6 @@ def request_rest_yarn(
 
 def request_rest_yarn_with_retry(
         config: Dict[str, Any], endpoint: str, retry=5):
-    RETRY_DELAY_S = 15
     while retry > 0:
         try:
             response = request_rest_yarn(config, endpoint)

@@ -1,6 +1,8 @@
 import os
+import time
 from typing import Any, Dict, Optional
 
+from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core._private.cluster.cluster_config import _load_cluster_config
 from cloudtik.core._private.cluster.cluster_rest_request import _request_rest_on_head
 from cloudtik.core._private.core_utils import double_quote
@@ -54,14 +56,14 @@ def get_spark_driver_memory(cluster_resource: Dict[str, Any]) -> int:
     spark_driver_memory = round_memory_size_to_gb(
         int(cluster_resource["head_memory"] * SPARK_DRIVER_MEMORY_RATIO))
     return max(min(spark_driver_memory,
-               SPARK_DRIVER_MEMORY_MAXIMUM), SPARK_DRIVER_MEMORY_MINIMUM)
+                   SPARK_DRIVER_MEMORY_MAXIMUM), SPARK_DRIVER_MEMORY_MINIMUM)
 
 
 def get_spark_app_master_memory(worker_memory_for_spark: int) -> int:
     spark_app_master_memory = round_memory_size_to_gb(
         int(worker_memory_for_spark * SPARK_APP_MASTER_MEMORY_RATIO))
     return max(min(spark_app_master_memory,
-               SPARK_DRIVER_MEMORY_MAXIMUM), SPARK_DRIVER_MEMORY_MINIMUM)
+                   SPARK_DRIVER_MEMORY_MAXIMUM), SPARK_DRIVER_MEMORY_MINIMUM)
 
 
 def get_spark_overhead(worker_memory_for_spark: int) -> int:
@@ -192,7 +194,7 @@ def _config_runtime_resources(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
     worker_memory_for_executors = worker_memory_for_spark - spark_overhead
     spark_executor_memory_all = round_memory_size_to_gb(
         int(worker_memory_for_executors / number_of_executors))
-    executor_resource["spark_executor_memory"] =\
+    executor_resource["spark_executor_memory"] = \
         spark_executor_memory_all - get_spark_executor_overhead(spark_executor_memory_all)
 
     if RUNTIME_CONFIG_KEY not in cluster_config:
@@ -409,3 +411,20 @@ def request_rest_yarn(
     endpoint = "ws/v1" + endpoint
     return _request_rest_on_head(
         config, endpoint, SPARK_YARN_WEB_API_PORT)
+
+
+def request_rest_yarn_with_retry(
+        config: Dict[str, Any], endpoint: str, retry=5):
+    RETRY_DELAY_S = 15
+    while retry > 0:
+        try:
+            response = request_rest_yarn(config, endpoint)
+            return response
+        except Exception as e:
+            retry = retry - 1
+            if retry > 0:
+                cli_logger.warning(f"Error when requesting yarn api. Retrying in {RETRY_DELAY_S} seconds.")
+                time.sleep(RETRY_DELAY_S)
+            else:
+                cli_logger.error("Failed to request yarn api: {}", str(e))
+                raise e

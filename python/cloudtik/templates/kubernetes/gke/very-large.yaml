@@ -22,7 +22,7 @@ available_node_types:
             resources:
                 cpu: 62
                 # 256GB - 12GB
-                memory: 240Gi
+                memory: 238Gi
             dataDisks:
               - name: data-disk-1
                 storageClass: "premium-rwo"

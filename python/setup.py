@@ -85,6 +85,15 @@ setup_spec.extras = {
 setup_spec.extras["all"] = list(
         set(chain.from_iterable(setup_spec.extras.values())))
 
+setup_spec.extras["eks"] = list(
+        set(chain(setup_spec.extras["aws"], setup_spec.extras["kubernetes"])))
+
+setup_spec.extras["aks"] = list(
+        set(chain(setup_spec.extras["azure"], setup_spec.extras["kubernetes"])))
+
+setup_spec.extras["gke"] = list(
+        set(chain(setup_spec.extras["gcp"], setup_spec.extras["kubernetes"])))
+
 # These are the main dependencies for users of cloudtik. This list
 # should be carefully curated. If you change it, please reflect
 # the change in the matching section of requirements/requirements.txt

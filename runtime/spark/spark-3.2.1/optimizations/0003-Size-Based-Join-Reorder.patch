@@ -1,0 +1,508 @@
+From c68a2749cd0ecab3ae4fc6b41fec9ebc5e646c24 Mon Sep 17 00:00:00 2001
+From: haojin <hao.jin@intel.com>
+Date: Mon, 26 Sep 2022 11:14:17 +0800
+Subject: [PATCH] Support sizeBasedJoinReorder optimization
+
+---
+ .../sql/catalyst/expressions/predicates.scala |  15 +
+ .../optimizer/InjectRuntimeFilter.scala       |  15 -
+ .../sql/catalyst/optimizer/Optimizer.scala    |   3 +-
+ .../optimizer/SizeBasedJoinReorder.scala      | 351 ++++++++++++++++++
+ .../sql/catalyst/rules/RuleIdCollection.scala |   1 +
+ .../apache/spark/sql/internal/SQLConf.scala   |  10 +
+ .../dynamicpruning/PartitionPruning.scala     |  15 -
+ 7 files changed, 379 insertions(+), 31 deletions(-)
+ create mode 100644 sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/SizeBasedJoinReorder.scala
+
+diff --git a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/expressions/predicates.scala b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/expressions/predicates.scala
+index fcd533dc5f..d002ced841 100644
+--- a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/expressions/predicates.scala
++++ b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/expressions/predicates.scala
+@@ -287,6 +287,21 @@ trait PredicateHelper extends AliasHelper with Logging {
+       }
+     }
+   }
++
++  /**
++   * Returns whether an expression is likely to be selective
++   */
++  def isLikelySelective(e: Expression): Boolean = e match {
++    case Not(expr) => isLikelySelective(expr)
++    case And(l, r) => isLikelySelective(l) || isLikelySelective(r)
++    case Or(l, r) => isLikelySelective(l) && isLikelySelective(r)
++    case _: StringRegexExpression => true
++    case _: BinaryComparison => true
++    case _: In | _: InSet => true
++    case _: StringPredicate => true
++    case _: MultiLikeBase => true
++    case _ => false
++  }
+ }
+ 
+ @ExpressionDescription(
+diff --git a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/InjectRuntimeFilter.scala b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/InjectRuntimeFilter.scala
+index 6451c812b8..8ff6592262 100644
+--- a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/InjectRuntimeFilter.scala
++++ b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/InjectRuntimeFilter.scala
+@@ -178,21 +178,6 @@ object InjectRuntimeFilter extends Rule[LogicalPlan] with PredicateHelper with J
+       REGEXP_EXTRACT_FAMILY, REGEXP_REPLACE)
+   }
+ 
+-  /**
+-   * Returns whether an expression is likely to be selective
+-   */
+-  private def isLikelySelective(e: Expression): Boolean = e match {
+-    case Not(expr) => isLikelySelective(expr)
+-    case And(l, r) => isLikelySelective(l) || isLikelySelective(r)
+-    case Or(l, r) => isLikelySelective(l) && isLikelySelective(r)
+-    case _: StringRegexExpression => true
+-    case _: BinaryComparison => true
+-    case _: In | _: InSet => true
+-    case _: StringPredicate => true
+-    case _: MultiLikeBase => true
+-    case _ => false
+-  }
+-
+   private def isProbablyShuffleJoin(left: LogicalPlan,
+       right: LogicalPlan, hint: JoinHint): Boolean = {
+     !hintToBroadcastLeft(hint) && !hintToBroadcastRight(hint) &&
+diff --git a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/Optimizer.scala b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/Optimizer.scala
+index 194f43accf..ea901336e1 100644
+--- a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/Optimizer.scala
++++ b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/Optimizer.scala
+@@ -217,7 +217,8 @@ abstract class Optimizer(catalogManager: CatalogManager)
+     // Since join costs in AQP can change between multiple runs, there is no reason that we have an
+     // idempotence enforcement on this batch. We thus make it FixedPoint(1) instead of Once.
+     Batch("Join Reorder", FixedPoint(1),
+-      CostBasedJoinReorder) :+
++      CostBasedJoinReorder,
++      SizeBasedJoinReorder) :+
+     Batch("Eliminate Sorts", Once,
+       EliminateSorts) :+
+     Batch("Decimal Optimizations", fixedPoint,
+diff --git a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/SizeBasedJoinReorder.scala b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/SizeBasedJoinReorder.scala
+new file mode 100644
+index 0000000000..2a8dcd19a6
+--- /dev/null
++++ b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/SizeBasedJoinReorder.scala
+@@ -0,0 +1,351 @@
++/*
++ * Licensed to the Apache Software Foundation (ASF) under one or more
++ * contributor license agreements.  See the NOTICE file distributed with
++ * this work for additional information regarding copyright ownership.
++ * The ASF licenses this file to You under the Apache License, Version 2.0
++ * (the "License"); you may not use this file except in compliance with
++ * the License.  You may obtain a copy of the License at
++ *
++ *    http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package org.apache.spark.sql.catalyst.optimizer
++
++import scala.collection.mutable
++
++import org.apache.spark.internal.Logging
++import org.apache.spark.sql.catalyst.expressions.{And, Attribute, AttributeSet, ExpressionSet, PredicateHelper}
++import org.apache.spark.sql.catalyst.planning.PhysicalOperation
++import org.apache.spark.sql.catalyst.plans.{Inner, InnerLike}
++import org.apache.spark.sql.catalyst.plans.logical._
++import org.apache.spark.sql.catalyst.rules.Rule
++import org.apache.spark.sql.catalyst.trees.TreePattern.INNER_LIKE_JOIN
++import org.apache.spark.sql.internal.SQLConf
++
++
++/**
++ * Cost-based join reorder.
++ * We may have several join reorder algorithms in the future. This class is the entry of these
++ * algorithms, and chooses which one to use.
++ */
++object SizeBasedJoinReorder extends Rule[LogicalPlan] with PredicateHelper {
++
++  def apply(plan: LogicalPlan): LogicalPlan = {
++    if (conf.cboEnabled || !conf.sizeBasedJoinReorderEnabled) {
++      plan
++    } else {
++      val result = plan.transformDownWithPruning(_.containsPattern(INNER_LIKE_JOIN), ruleId) {
++        // Start reordering with a joinable item, which is an InnerLike join with conditions.
++        // Avoid reordering if a join hint is present.
++        case j @ Join(_, _, _: InnerLike, Some(cond), JoinHint.NONE) =>
++          reorder(j, j.output)
++        case p @ Project(projectList, Join(_, _, _: InnerLike, Some(cond), JoinHint.NONE))
++          if projectList.forall(_.isInstanceOf[Attribute]) =>
++          reorder(p, p.output)
++      }
++      // After reordering is finished, convert OrderedJoin back to Join.
++      result transform {
++        case OrderedJoin(left, right, jt, cond) => Join(left, right, jt, cond, JoinHint.NONE)
++      }
++    }
++  }
++
++  private def reorder(plan: LogicalPlan, output: Seq[Attribute]): LogicalPlan = {
++    val (items, conditions) = extractInnerJoins(plan)
++    val result =
++      // Do reordering if the number of items is appropriate and join conditions exist.
++      if (items.size > 2 && conditions.nonEmpty) {
++        SizeBasedJoinReorderDP.search(conf, plan, items, conditions, output)
++      } else {
++        plan
++      }
++    // Set consecutive join nodes ordered.
++    replaceWithOrderedJoin(result)
++  }
++
++  /**
++   * Extracts items of consecutive inner joins and join conditions.
++   * This method works for bushy trees and left/right deep trees.
++   */
++  private def extractInnerJoins(plan: LogicalPlan): (Seq[LogicalPlan], ExpressionSet) = {
++    plan match {
++      case Join(left, right, _: InnerLike, Some(cond), JoinHint.NONE) =>
++        val (leftPlans, leftConditions) = extractInnerJoins(left)
++        val (rightPlans, rightConditions) = extractInnerJoins(right)
++        (leftPlans ++ rightPlans, leftConditions ++ rightConditions ++
++          splitConjunctivePredicates(cond))
++      case Project(projectList, j @ Join(_, _, _: InnerLike, Some(cond), JoinHint.NONE))
++        if projectList.forall(_.isInstanceOf[Attribute]) =>
++        extractInnerJoins(j)
++      case _ =>
++        (Seq(plan), ExpressionSet())
++    }
++  }
++
++  private def replaceWithOrderedJoin(plan: LogicalPlan): LogicalPlan = plan match {
++    case j @ Join(left, right, jt: InnerLike, Some(cond), JoinHint.NONE) =>
++      val replacedLeft = replaceWithOrderedJoin(left)
++      val replacedRight = replaceWithOrderedJoin(right)
++      OrderedJoin(replacedLeft, replacedRight, jt, Some(cond))
++    case p @ Project(projectList, j @ Join(_, _, _: InnerLike, Some(cond), JoinHint.NONE)) =>
++      p.copy(child = replaceWithOrderedJoin(j))
++    case _ =>
++      plan
++  }
++}
++
++/**
++ * Reorder the joins using a dynamic programming algorithm. This implementation is based on the
++ *
++ * First we extracted the items(broadcastFilterJoinItems) with filter conditions and small size,
++ * then put all remaining items (basic joined nodes) into level 0. Next we build all two-way joins
++ * between broadcastFilterJoinPlanItems and remainingJoinPlanItems. Note that each level we will
++ * only build extra one join comparing with last level. Last we will try to build remaining joins
++ * orderly.
++ * E.g., given A J B J C J D with join conditions A.k1 = B.k1 and A.k2 = C.k2 and A.k3 = D.k3,
++ * A and B are partitioned tables, D is a broadcast table with filters.
++ * plans maintained for each level are as follows:
++ * broadcastFilterJoinItems = [C]
++ * level 0: p({A}), p({B}), p({C})
++ * level 1: p({A, C}), p({B}), p({D})
++ * level 2: p({A, C, B}), p({D})
++ * level 4: p({A, C, B, D})
++ * where p({A, C, B, D}) is the final output plan.
++ */
++object SizeBasedJoinReorderDP extends PredicateHelper with JoinSelectionHelper with Logging {
++
++  def searchBroadcastFilterItemsIndex(
++      conf: SQLConf, itemsIndex: Seq[(LogicalPlan, Int)]): Seq[(LogicalPlan, Int)] = {
++    val broadcastFilterItemsIndex = itemsIndex.filter(
++      itemIndex => itemIndex._1 match {
++        case PhysicalOperation(_, filters, _) =>
++          filters.exists(isLikelySelective) && canBroadcastBySize(itemIndex._1, conf)
++        case _ => false
++      }
++    )
++    broadcastFilterItemsIndex
++  }
++
++  def search(
++      conf: SQLConf,
++      plan: LogicalPlan,
++      items: Seq[LogicalPlan],
++      conditions: ExpressionSet,
++      output: Seq[Attribute]): LogicalPlan = {
++
++    val startTime = System.nanoTime()
++    // Level i maintains all found plans for i + 1 items.
++    // Create the initial plans: each plan is a single item with zero cost.
++    val itemIndex: Seq[(LogicalPlan, Int)] = items.zipWithIndex
++    val broadcastFilterItemsIndex = searchBroadcastFilterItemsIndex(conf, itemIndex)
++
++    if (broadcastFilterItemsIndex.isEmpty) return plan
++
++    val remainingItemsIndex = itemIndex.diff(broadcastFilterItemsIndex)
++
++    val broadcastFilterJoinPlanMap = new JoinPlanMap
++    broadcastFilterItemsIndex.foreach {
++      case (item, id) =>
++        broadcastFilterJoinPlanMap.put(Set(id), JoinPlan(Set(id), item, ExpressionSet() ))
++    }
++
++    val remainingJoinPlanMap = new JoinPlanMap
++    remainingItemsIndex.foreach {
++      case (item, id) =>
++        remainingJoinPlanMap.put(Set(id), JoinPlan(Set(id), item, ExpressionSet()))
++    }
++
++    val foundPlans = mutable.Buffer[JoinPlanMap](remainingJoinPlanMap)
++
++    val topOutputSet = AttributeSet(output)
++    val filters = JoinReorderDPFilters.buildJoinGraphInfo(conf, items, conditions, itemIndex)
++
++    for (broadcastFilterJoinPlan <- broadcastFilterJoinPlanMap.values) {
++      foundPlans += searchBroadcastFilterLevel(
++        foundPlans.toSeq, broadcastFilterJoinPlan, conf, conditions, topOutputSet, filters)
++    }
++
++    while (foundPlans.size < items.length) {
++      // Build plans for the next level.
++      foundPlans += searchRemainLevel(foundPlans.toSeq, conf, conditions, topOutputSet, filters)
++    }
++
++    val durationInMs = (System.nanoTime() - startTime) / (1000 * 1000)
++    logDebug(s"Join reordering finished. Duration: $durationInMs ms, number of items: " +
++      s"${items.length}, number of plans in memo: ${foundPlans.map(_.size).sum}")
++
++    // The last level must have one and only one plan, because all items are joinable.
++    assert(foundPlans.size == items.length && foundPlans.last.size == 1)
++    foundPlans.last.head._2.plan match {
++      case p @ Project(projectList, j: Join) if projectList != output =>
++        assert(topOutputSet == p.outputSet)
++        // Keep the same order of final output attributes.
++        p.copy(projectList = output)
++      case finalPlan if !sameOutput(finalPlan, output) =>
++        Project(output, finalPlan)
++      case finalPlan =>
++        finalPlan
++    }
++  }
++
++  private def sameOutput(plan: LogicalPlan, expectedOutput: Seq[Attribute]): Boolean = {
++    val thisOutput = plan.output
++    thisOutput.length == expectedOutput.length && thisOutput.zip(expectedOutput).forall {
++      case (a1, a2) => a1.semanticEquals(a2)
++    }
++  }
++
++  /** Find all possible plans at the next level, based on existing levels. */
++  private def searchBroadcastFilterLevel(
++                           existingLevels: Seq[JoinPlanMap],
++                           broadcastFilterJoinPlan: JoinPlan,
++                           conf: SQLConf,
++                           conditions: ExpressionSet,
++                           topOutput: AttributeSet,
++                           filters: Option[JoinGraphInfo]): JoinPlanMap = {
++
++    val nextLevel = new JoinPlanMap
++
++    val lev = existingLevels.length - 1
++    val otherSideCandidates = existingLevels(lev).values.toSeq
++
++    var ifJoin = false
++    for (otherSidePlan <- otherSideCandidates) {
++      if (ifJoin) {
++        nextLevel.update(otherSidePlan.itemIds, otherSidePlan)
++      }
++      else {
++        buildJoin(
++          broadcastFilterJoinPlan, otherSidePlan, conf, conditions, topOutput, filters) match {
++          case Some(newJoinPlan) =>
++            nextLevel.update(newJoinPlan.itemIds, newJoinPlan)
++            ifJoin = true
++          case None => nextLevel.update(otherSidePlan.itemIds, otherSidePlan)
++        }
++      }
++    }
++    nextLevel
++  }
++
++  /** Find all possible plans at the next level, based on existing levels. */
++  private def searchRemainLevel(
++                            existingLevels: Seq[JoinPlanMap],
++                            conf: SQLConf,
++                            conditions: ExpressionSet,
++                            topOutput: AttributeSet,
++                            filters: Option[JoinGraphInfo]): JoinPlanMap = {
++    val nextLevel = new JoinPlanMap
++    var ifJoin = false
++    val lev = existingLevels.length - 1
++    val firstJoinPlan = existingLevels(lev).values.toSeq.head
++    val otherSideCandidates = existingLevels(lev).values.toBuffer.drop(1)
++    for (otherSidePlan <- otherSideCandidates) {
++      if (ifJoin) {
++        nextLevel.update(otherSidePlan.itemIds, otherSidePlan)
++      }
++      else {
++        buildJoin(
++          firstJoinPlan, otherSidePlan, conf, conditions, topOutput, filters) match {
++          case Some(newJoinPlan) =>
++            nextLevel.update(newJoinPlan.itemIds, newJoinPlan)
++            ifJoin = true
++          case None => nextLevel.update(otherSidePlan.itemIds, otherSidePlan)
++        }
++      }
++    }
++    nextLevel
++  }
++
++  /**
++   * Builds a new JoinPlan if the following conditions hold:
++   * - the sets of items contained in left and right sides do not overlap.
++   * - there exists at least one join condition involving references from both sides.
++   * - if star-join filter is enabled, allow the following combinations:
++   *         1) (oneJoinPlan U otherJoinPlan) is a subset of star-join
++   *         2) star-join is a subset of (oneJoinPlan U otherJoinPlan)
++   *         3) (oneJoinPlan U otherJoinPlan) is a subset of non star-join
++   *
++   * @param oneJoinPlan One side JoinPlan for building a new JoinPlan.
++   * @param otherJoinPlan The other side JoinPlan for building a new join node.
++   * @param conf SQLConf for statistics computation.
++   * @param conditions The overall set of join conditions.
++   * @param topOutput The output attributes of the final plan.
++   * @param filters Join graph info to be used as filters by the search algorithm.
++   * @return Builds and returns a new JoinPlan if both conditions hold. Otherwise, returns None.
++   */
++
++  private def buildJoin(
++      oneJoinPlan: JoinPlan,
++      otherJoinPlan: JoinPlan,
++      conf: SQLConf,
++      conditions: ExpressionSet,
++      topOutput: AttributeSet,
++      filters: Option[JoinGraphInfo]): Option[JoinPlan] = {
++
++    if (oneJoinPlan.itemIds.intersect(otherJoinPlan.itemIds).nonEmpty) {
++      // Should not join two overlapping item sets.
++      return None
++    }
++
++    if (filters.isDefined) {
++      // Apply star-join filter, which ensures that tables in a star schema relationship
++      // are planned together. The star-filter will eliminate joins among star and non-star
++      // tables until the star joins are built. The following combinations are allowed:
++      // 1. (oneJoinPlan U otherJoinPlan) is a subset of star-join
++      // 2. star-join is a subset of (oneJoinPlan U otherJoinPlan)
++      // 3. (oneJoinPlan U otherJoinPlan) is a subset of non star-join
++      val isValidJoinCombination =
++      JoinReorderDPFilters.starJoinFilter(oneJoinPlan.itemIds, otherJoinPlan.itemIds,
++          filters.get)
++      if (!isValidJoinCombination) return None
++    }
++
++    val onePlan = oneJoinPlan.plan
++    val otherPlan = otherJoinPlan.plan
++    val joinConds = conditions
++      .filterNot(l => canEvaluate(l, onePlan))
++      .filterNot(r => canEvaluate(r, otherPlan))
++      .filter(e => e.references.subsetOf(onePlan.outputSet ++ otherPlan.outputSet))
++    if (joinConds.isEmpty) {
++      // Cartesian product is very expensive, so we exclude them from candidate plans.
++      // This also significantly reduces the search space.
++      return None
++    }
++
++    val newJoin = Join(onePlan, otherPlan, Inner, joinConds.reduceOption(And), JoinHint.NONE)
++    val collectedJoinConds = joinConds ++ oneJoinPlan.joinConds ++ otherJoinPlan.joinConds
++    val remainingConds = conditions -- collectedJoinConds
++    val neededAttr = AttributeSet(remainingConds.flatMap(_.references)) ++ topOutput
++    val neededFromNewJoin = newJoin.output.filter(neededAttr.contains)
++    val newPlan =
++      if ((newJoin.outputSet -- neededFromNewJoin).nonEmpty) {
++        Project(neededFromNewJoin, newJoin)
++      } else {
++        newJoin
++      }
++
++    val itemIds = oneJoinPlan.itemIds.union(otherJoinPlan.itemIds)
++    Some(JoinPlan(itemIds, newPlan, collectedJoinConds))
++  }
++
++  /** Map[set of item ids, join plan for these items] */
++  type JoinPlanMap = mutable.LinkedHashMap[Set[Int], JoinPlan]
++
++  /**
++   * Partial join order in a specific level.
++   *
++   * @param itemIds Set of item ids participating in this partial plan.
++   * @param plan The plan tree with the lowest cost for these items found so far.
++   * @param joinConds Join conditions included in the plan.
++   */
++  case class JoinPlan(
++      itemIds: Set[Int],
++      plan: LogicalPlan,
++      joinConds: ExpressionSet)
++}
+diff --git a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/rules/RuleIdCollection.scala b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/rules/RuleIdCollection.scala
+index 0e7155d8df..a8001d03cf 100644
+--- a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/rules/RuleIdCollection.scala
++++ b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/rules/RuleIdCollection.scala
+@@ -151,6 +151,7 @@ object RuleIdCollection {
+       "org.apache.spark.sql.catalyst.optimizer.SimplifyConditionals" ::
+       "org.apache.spark.sql.catalyst.optimizer.SimplifyConditionalsInPredicate" ::
+       "org.apache.spark.sql.catalyst.optimizer.SimplifyExtractValueOps" ::
++      "org.apache.spark.sql.catalyst.optimizer.SizeBasedJoinReorder"::
+       "org.apache.spark.sql.catalyst.optimizer.TransposeWindow" ::
+       "org.apache.spark.sql.catalyst.optimizer.UnwrapCastInBinaryComparison" ::  Nil
+   }
+diff --git a/sql/catalyst/src/main/scala/org/apache/spark/sql/internal/SQLConf.scala b/sql/catalyst/src/main/scala/org/apache/spark/sql/internal/SQLConf.scala
+index f28434a929..8706ee5af5 100644
+--- a/sql/catalyst/src/main/scala/org/apache/spark/sql/internal/SQLConf.scala
++++ b/sql/catalyst/src/main/scala/org/apache/spark/sql/internal/SQLConf.scala
+@@ -2144,6 +2144,14 @@ object SQLConf {
+       .booleanConf
+       .createWithDefault(false)
+ 
++  val SIZE_BASED_JOIN_REORDER_ENABLED =
++    buildConf("spark.sql.optimizer.sizeBasedJoinReorder.enabled")
++      .doc(" When true, this strategy can get opportunities to execute smaller joins " +
++        "with filters first, in order to benefit more expensive joins later.")
++      .version("3.2.0")
++      .booleanConf
++      .createWithDefault(false)
++
+   val JOIN_REORDER_ENABLED =
+     buildConf("spark.sql.cbo.joinReorder.enabled")
+       .doc("Enables join reorder in CBO.")
+@@ -3957,6 +3965,8 @@ class SQLConf extends Serializable with Logging {
+ 
+   def autoSizeUpdateEnabled: Boolean = getConf(SQLConf.AUTO_SIZE_UPDATE_ENABLED)
+ 
++  def sizeBasedJoinReorderEnabled: Boolean = getConf(SQLConf.SIZE_BASED_JOIN_REORDER_ENABLED)
++
+   def joinReorderEnabled: Boolean = getConf(SQLConf.JOIN_REORDER_ENABLED)
+ 
+   def joinReorderDPThreshold: Int = getConf(SQLConf.JOIN_REORDER_DP_THRESHOLD)
+diff --git a/sql/core/src/main/scala/org/apache/spark/sql/execution/dynamicpruning/PartitionPruning.scala b/sql/core/src/main/scala/org/apache/spark/sql/execution/dynamicpruning/PartitionPruning.scala
+index 3164eea6a6..89f4d9ec08 100644
+--- a/sql/core/src/main/scala/org/apache/spark/sql/execution/dynamicpruning/PartitionPruning.scala
++++ b/sql/core/src/main/scala/org/apache/spark/sql/execution/dynamicpruning/PartitionPruning.scala
+@@ -164,21 +164,6 @@ object PartitionPruning extends Rule[LogicalPlan] with PredicateHelper with Join
+     estimatePruningSideSize > overhead
+   }
+ 
+-  /**
+-   * Returns whether an expression is likely to be selective
+-   */
+-  private def isLikelySelective(e: Expression): Boolean = e match {
+-    case Not(expr) => isLikelySelective(expr)
+-    case And(l, r) => isLikelySelective(l) || isLikelySelective(r)
+-    case Or(l, r) => isLikelySelective(l) && isLikelySelective(r)
+-    case _: StringRegexExpression => true
+-    case _: BinaryComparison => true
+-    case _: In | _: InSet => true
+-    case _: StringPredicate => true
+-    case _: MultiLikeBase => true
+-    case _ => false
+-  }
+-
+   /**
+    * Search a filtering predicate in a given logical plan
+    */
+-- 
+2.20.1
+

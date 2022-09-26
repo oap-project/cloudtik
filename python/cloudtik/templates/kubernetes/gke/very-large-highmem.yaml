@@ -1,4 +1,4 @@
-from: kubernetes/gke/large
+from: kubernetes/gke/very-large
 
 # Cloud-provider specific configuration.
 provider:
@@ -10,4 +10,4 @@ available_node_types:
         node_config:
             resources:
                 # 512GB - 17GB
-                memory: 490Gi
+                memory: 486Gi

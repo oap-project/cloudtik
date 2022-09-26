@@ -10,4 +10,4 @@ available_node_types:
         node_config:
             resources:
                 # 32GB - 4GB
-                memory: 28Gi
+                memory: 27Gi

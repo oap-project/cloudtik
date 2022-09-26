@@ -12,7 +12,7 @@ available_node_types:
             resources:
                 cpu: 7
                 # 32GB - 4GB
-                memory: 28Gi
+                memory: 27Gi
             dataDisks:
               - name: data-disk-1
                 storageClass: "standard-rwo"
@@ -22,7 +22,7 @@ available_node_types:
             resources:
                 cpu: 7
                 # 32GB - 4GB
-                memory: 28Gi
+                memory: 27Gi
             dataDisks:
               - name: data-disk-1
                 storageClass: "premium-rwo"

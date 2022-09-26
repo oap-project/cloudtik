@@ -53,7 +53,7 @@ Replace the cluster configuration file, the paths, spark.driver.scale, spark.dri
 The above command will submit and run the job in foreground and possible need a long time.
 you may need to run the command with --tmux option for background execution
 for avoiding terminal disconnection in the middle. And you don't get the command result.
-Please refer to [CloudTik Submitting Jobs](https://cloudtik.readthedocs.io/en/latest/UserGuide/AdvancedTasks/submitting-jobs.html) for
+Please refer to [CloudTik Submitting Jobs](https://cloudtik.readthedocs.io/en/latest/UserGuide/AdvancedConfigurations/submitting-jobs.html) for
 the details for run job in background.
 
 ## 3. Run TPC-DS power test

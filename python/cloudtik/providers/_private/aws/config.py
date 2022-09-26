@@ -41,7 +41,7 @@ SECURITY_GROUP_TEMPLATE = AWS_RESOURCE_NAME_PREFIX + "-{}"
 AWS_WORKSPACE_VERSION_TAG_NAME = "cloudtik-workspace-version"
 AWS_WORKSPACE_VERSION_CURRENT = "1"
 
-DEFAULT_AMI_NAME = "Ubuntu Server 20.04 LTS (HVM), SSD Volume Type"
+DEFAULT_AMI_NAME_PREFIX = "ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server"
 
 # Obtained from https://aws.amazon.com/marketplace/pp/B07Y43P7X5 on 8/4/2020.
 DEFAULT_AMI = {
@@ -158,6 +158,22 @@ def list_ec2_instances(region: str, aws_credentials: Dict[str, Any] = None
             copy.deepcopy(instance_types["InstanceTypes"]))
 
     return final_instance_types
+
+
+def get_latest_ami_id(cluster_config: Dict[str, Any]):
+    ec2 = make_ec2_client(
+        region=cluster_config["provider"]["region"],
+        max_retries=BOTO_MAX_RETRIES,
+        aws_credentials=cluster_config["provider"].get("aws_credentials"))
+    response = ec2.describe_images(Owners=["amazon"],
+                                   Filters=[{'Name': 'name', 'Values': [DEFAULT_AMI_NAME_PREFIX + "*"]}])
+    images = response['Images']
+    if len(images) > 0:
+        images.sort(key=lambda item: item['CreationDate'], reverse=True)
+        ami_id = images[0]["ImageId"]
+        return ami_id
+    else:
+        return None
 
 
 def post_prepare_aws(config: Dict[str, Any]) -> Dict[str, Any]:
@@ -2270,7 +2286,13 @@ def _configure_ami(config):
     _set_config_info(ami_src=ami_src_info)
 
     region = config["provider"]["region"]
-    default_ami = DEFAULT_AMI.get(region)
+
+    default_ami = get_latest_ami_id(config)
+    if not default_ami:
+        if not default_ami:
+            cli_logger.abort("Can not get latest ami information in this region: {}. Will use default ami id".
+                             format(region))
+        default_ami = DEFAULT_AMI.get(region)
     if not default_ami:
         cli_logger.abort("Not support on this region: {}. Please use one of these regions {}".
                          format(region, sorted(DEFAULT_AMI.keys())))

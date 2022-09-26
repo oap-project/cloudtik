@@ -243,10 +243,6 @@ def create_kubernetes_workspace(config):
 
 def delete_kubernetes_workspace(config, delete_managed_storage: bool = False):
     workspace_name = config["workspace_name"]
-    namespace = get_workspace_namespace(workspace_name)
-    if namespace is None:
-        cli_logger.print("The workspace: {} doesn't exist!".format(config["workspace_name"]))
-        return
 
     current_step = 1
     total_steps = KUBERNETES_WORKSPACE_NUM_DELETION_STEPS

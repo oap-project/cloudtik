@@ -161,18 +161,26 @@ def list_ec2_instances(region: str, aws_credentials: Dict[str, Any] = None
 
 
 def get_latest_ami_id(cluster_config: Dict[str, Any]):
-    ec2 = make_ec2_client(
-        region=cluster_config["provider"]["region"],
-        max_retries=BOTO_MAX_RETRIES,
-        aws_credentials=cluster_config["provider"].get("aws_credentials"))
-    response = ec2.describe_images(Owners=["amazon"],
-                                   Filters=[{'Name': 'name', 'Values': [DEFAULT_AMI_NAME_PREFIX + "*"]}])
-    images = response['Images']
-    if len(images) > 0:
-        images.sort(key=lambda item: item['CreationDate'], reverse=True)
-        ami_id = images[0]["ImageId"]
-        return ami_id
-    else:
+    try:
+        ec2 = make_ec2_client(
+            region=cluster_config["provider"]["region"],
+            max_retries=BOTO_MAX_RETRIES,
+            aws_credentials=cluster_config["provider"].get("aws_credentials"))
+        response = ec2.describe_images(Owners=["amazon"],
+                                       Filters=[{'Name': 'name', 'Values': [DEFAULT_AMI_NAME_PREFIX + "*"]},
+                                                {"Name": "is-public", "Values": ["true"]},
+                                                {"Name": "state", "Values": ["available"]}
+                                                ])
+        images = response.get('Images', [])
+        if len(images) > 0:
+            images.sort(key=lambda item: item['CreationDate'], reverse=True)
+            ami_id = images[0]["ImageId"]
+            return ami_id
+        else:
+            return None
+    except Exception as e:
+        cli_logger.warning(
+            "Error when getting latest AWS AMI information!", str(e))
         return None
 
 
@@ -2289,9 +2297,7 @@ def _configure_ami(config):
 
     default_ami = get_latest_ami_id(config)
     if not default_ami:
-        if not default_ami:
-            cli_logger.abort("Can not get latest ami information in this region: {}. Will use default ami id".
-                             format(region))
+        cli_logger.warning("Can not get latest ami information in this region: {}. Will use default ami id".format(region))
         default_ami = DEFAULT_AMI.get(region)
     if not default_ami:
         cli_logger.abort("Not support on this region: {}. Please use one of these regions {}".

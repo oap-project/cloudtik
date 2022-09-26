@@ -12,3 +12,4 @@ Advanced Configurations
    AdvancedConfigurations/understanding-cluster-key.md
    AdvancedConfigurations/switching-client-machine.md
    AdvancedConfigurations/configuring-spot-instances.md
+   AdvancedConfigurations/configuring-user-tags.md

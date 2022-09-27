@@ -1,0 +1,85 @@
+From 02cfd0dd7e1f3ec2b2b2c375a81b7c2c25ca2604 Mon Sep 17 00:00:00 2001
+From: haojin <hao.jin@intel.com>
+Date: Tue, 27 Sep 2022 11:46:56 +0800
+Subject: [PATCH] Support DISTINCT before INTERSECT
+
+---
+ .../sql/catalyst/optimizer/Optimizer.scala    | 32 +++++++++++++++++--
+ .../apache/spark/sql/internal/SQLConf.scala   | 10 ++++++
+ 2 files changed, 39 insertions(+), 3 deletions(-)
+
+diff --git a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/Optimizer.scala b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/Optimizer.scala
+index ea901336e1..8a32e3be75 100644
+--- a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/Optimizer.scala
++++ b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/Optimizer.scala
+@@ -1966,6 +1966,13 @@ object ReplaceDeduplicateWithAggregate extends Rule[LogicalPlan] {
+  *   SELECT a1, a2 FROM Tab1 INTERSECT SELECT b1, b2 FROM Tab2
+  *   ==>  SELECT DISTINCT a1, a2 FROM Tab1 LEFT SEMI JOIN Tab2 ON a1<=>b1 AND a2<=>b2
+  * }}}
++ * If spark.sql.optimizer.distinctBeforeIntersect.enabled is set true, try to pushDown
++ * distinct through join to reduce data before shuffle operation.
++ * {{{
++ *   SELECT a1, a2 FROM Tab1 INTERSECT SELECT b1, b2 FROM Tab2
++ *   ==>  (SELECT DISTINCT a1, a2 FROM Tab1) LEFT SEMI JOIN
++ *   (SELECT DISTINCT b1, b2 FROM Tab2) ON a1<=>b1 AND a2<=>b2
++ * }}}
+  *
+  * Note:
+  * 1. This rule is only applicable to INTERSECT DISTINCT. Do not use it for INTERSECT ALL.
+@@ -1975,10 +1982,29 @@ object ReplaceDeduplicateWithAggregate extends Rule[LogicalPlan] {
+ object ReplaceIntersectWithSemiJoin extends Rule[LogicalPlan] {
+   def apply(plan: LogicalPlan): LogicalPlan = plan.transformWithPruning(
+     _.containsPattern(INTERSECT), ruleId) {
+-    case Intersect(left, right, false) =>
++    case i @ Intersect(left, right, false) =>
+       assert(left.output.size == right.output.size)
+-      val joinCond = left.output.zip(right.output).map { case (l, r) => EqualNullSafe(l, r) }
+-      Distinct(Join(left, right, LeftSemi, joinCond.reduceLeftOption(And), JoinHint.NONE))
++      if (conf.getConf(SQLConf.DISTINCT_BEFORE_INTERSECT_ENABLED)) {
++        pushDownDistinctThroughJoin(i)
++      }
++      else {
++        val joinCond = left.output.zip(right.output).map { case (l, r) => EqualNullSafe(l, r) }
++        Distinct(Join(left, right, LeftSemi, joinCond.reduceLeftOption(And), JoinHint.NONE))
++      }
++  }
++
++  private def pushDownDistinctThroughJoin(plan: LogicalPlan): LogicalPlan = {
++    plan match {
++      case Intersect(left, right, false) =>
++        val leftPlan = pushDownDistinctThroughJoin(left)
++        val rightPlan = pushDownDistinctThroughJoin(right)
++        assert(leftPlan.output.size == rightPlan.output.size)
++        val joinCond = leftPlan.output.zip(rightPlan.output).map {
++          case (l, r) => EqualNullSafe(l, r) }
++        Join(leftPlan, rightPlan, LeftSemi, joinCond.reduceLeftOption(And), JoinHint.NONE)
++      case _ =>
++        Distinct(plan)
++    }
+   }
+ }
+ 
+diff --git a/sql/catalyst/src/main/scala/org/apache/spark/sql/internal/SQLConf.scala b/sql/catalyst/src/main/scala/org/apache/spark/sql/internal/SQLConf.scala
+index 8706ee5af5..35437c17a7 100644
+--- a/sql/catalyst/src/main/scala/org/apache/spark/sql/internal/SQLConf.scala
++++ b/sql/catalyst/src/main/scala/org/apache/spark/sql/internal/SQLConf.scala
+@@ -3448,6 +3448,16 @@ object SQLConf {
+     .intConf
+     .createWithDefault(0)
+ 
++  val DISTINCT_BEFORE_INTERSECT_ENABLED =
++    buildConf("spark.sql.optimizer.distinctBeforeIntersect.enabled")
++      .internal()
++      .doc(s"When this property is set to true, the query optimizer pushes the DISTINCT operator " +
++        s"to the children of INTERSECT if it detects that the DISTINCT operator can make the " +
++        s"left-semi join a BroadcastHashJoin instead of a SortMergeJoin,")
++      .version("3.2.0")
++      .booleanConf
++      .createWithDefault(false)
++
+   /**
+    * Holds information about keys that have been deprecated.
+    *
+-- 
+2.20.1
+

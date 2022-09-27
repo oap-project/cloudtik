@@ -60,3 +60,7 @@ from recommonmark.parser import CommonMarkParser
 
 source_suffix = {'.rst': 'restructuredtext',
                  '.md': 'markdown', }
+
+
+def setup(app):
+    app.add_css_file('style.css')

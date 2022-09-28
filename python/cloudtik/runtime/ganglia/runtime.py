@@ -39,7 +39,7 @@ class GangliaRuntime(Runtime):
         return _with_runtime_environment_variables(
             self.runtime_config, config=config, provider=provider, node_id=node_id)
 
-    def get_runnable_command(self, target: str):
+    def get_runnable_command(self, target: str, job_options: str, job_arguments: str):
         """Return the runnable command for the target script.
         For example: ["bash", target]
         """

@@ -807,12 +807,30 @@ def exec(cluster_config_file, cmd, cluster_name, run_env, screen, tmux, stop, st
     required=False,
     type=str,
     help="The job waiter to be used to check the completion of the job.")
+@click.option(
+    "--job-type",
+    required=False,
+    type=str,
+    help="The type of the job.")
+@click.option(
+    "--job-options",
+    required=False,
+    type=str,
+    default="",
+    help="The type of the job.")
+@click.option(
+    "--job-arguments",
+    required=False,
+    type=str,
+    default="",
+    help="The type of the job.")
 @click.argument("script", required=True, type=str)
 @click.argument("script_args", nargs=-1)
 @add_click_logging_options
 def submit(cluster_config_file, cluster_name, screen, tmux, stop, start,
            force_update, wait_for_workers, min_workers, wait_timeout,
-           no_config_cache, port_forward, yes, job_waiter, script, script_args):
+           no_config_cache, port_forward, yes, job_waiter, job_type, job_options,
+           job_arguments, script, script_args):
     """Uploads and runs a script on the specified cluster.
 
     The script is automatically synced to the following location:
@@ -843,7 +861,11 @@ def submit(cluster_config_file, cluster_name, screen, tmux, stop, start,
         wait_timeout=wait_timeout,
         port_forward=port_forward,
         yes=yes,
-        job_waiter_name=job_waiter)
+        job_waiter_name=job_waiter,
+        job_type=job_type,
+        job_options=job_options,
+        job_arguments=job_arguments,
+        )
 
 
 @cli.command()

@@ -217,14 +217,17 @@ def get_runtime_processes():
 
 
 def _is_runtime_scripts(script_file):
-    if script_file.endswith(".scala"):
+    if script_file.endswith(".scala") or script_file.endswith(".jar"):
         return True
-
     return False
 
 
-def _get_runnable_command(target):
-    command_parts = ["spark-shell", "-i", double_quote(target)]
+def _get_runnable_command(target, job_options, job_arguments):
+    command_parts = []
+    if target.endswith(".scala"):
+        command_parts = ["spark-shell", "-i", double_quote(target)]
+    elif target.endswith(".jar"):
+        command_parts = ["spark-submit", job_options, double_quote(target), job_arguments]
     return command_parts
 
 

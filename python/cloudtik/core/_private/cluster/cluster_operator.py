@@ -3019,7 +3019,10 @@ def submit_and_exec(config: Dict[str, Any],
                     port_forward: Optional[Port_forward] = None,
                     with_output: bool = False,
                     yes: bool = False,
-                    job_waiter_name: Optional[str] = None
+                    job_waiter_name: Optional[str] = None,
+                    job_type: Optional[str] = None,
+                    job_options: Optional[str] = None,
+                    job_arguments: Optional[str] = None,
                     ):
     cli_logger.doassert(not (screen and tmux),
                         "`{}` and `{}` are incompatible.", cf.bold("--screen"),
@@ -3077,7 +3080,7 @@ def submit_and_exec(config: Dict[str, Any],
     elif target_name.endswith(".sh"):
         command_parts += ["bash", double_quote(target)]
     else:
-        command_parts += get_runnable_command(config.get(RUNTIME_CONFIG_KEY), target)
+        command_parts += get_runnable_command(config.get(RUNTIME_CONFIG_KEY), target, job_type, job_options, job_arguments)
         if command_parts is None:
             cli_logger.error("We don't how to execute your file: {}", script)
             return

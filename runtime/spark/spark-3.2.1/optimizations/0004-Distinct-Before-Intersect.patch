@@ -1,15 +1,15 @@
-From 4bf0bcbfffa5e44c0622d2ca3b1a68d7bfe69d73 Mon Sep 17 00:00:00 2001
+From 2418ac0dad6f41539db6e32a71ceba8193e406b2 Mon Sep 17 00:00:00 2001
 From: haojin <hao.jin@intel.com>
-Date: Wed, 28 Sep 2022 09:58:10 +0800
-Subject: [PATCH]  Support DISTINCT before INTERSECT
+Date: Wed, 28 Sep 2022 11:59:06 +0800
+Subject: [PATCH] Support DISTINCT before INTERSECT
 
 ---
- .../sql/catalyst/optimizer/Optimizer.scala    | 47 +++++++++++++++++--
- .../apache/spark/sql/internal/SQLConf.scala   | 24 ++++++++++
- 2 files changed, 68 insertions(+), 3 deletions(-)
+ .../sql/catalyst/optimizer/Optimizer.scala    | 52 +++++++++++++++++--
+ .../apache/spark/sql/internal/SQLConf.scala   | 24 +++++++++
+ 2 files changed, 73 insertions(+), 3 deletions(-)
 
 diff --git a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/Optimizer.scala b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/Optimizer.scala
-index ea901336e1..4164771909 100644
+index ea901336e1..58e21a154d 100644
 --- a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/Optimizer.scala
 +++ b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/Optimizer.scala
 @@ -1966,6 +1966,13 @@ object ReplaceDeduplicateWithAggregate extends Rule[LogicalPlan] {
@@ -26,7 +26,7 @@ index ea901336e1..4164771909 100644
   *
   * Note:
   * 1. This rule is only applicable to INTERSECT DISTINCT. Do not use it for INTERSECT ALL.
-@@ -1975,10 +1982,44 @@ object ReplaceDeduplicateWithAggregate extends Rule[LogicalPlan] {
+@@ -1975,10 +1982,49 @@ object ReplaceDeduplicateWithAggregate extends Rule[LogicalPlan] {
  object ReplaceIntersectWithSemiJoin extends Rule[LogicalPlan] {
    def apply(plan: LogicalPlan): LogicalPlan = plan.transformWithPruning(
      _.containsPattern(INTERSECT), ruleId) {
@@ -35,7 +35,12 @@ index ea901336e1..4164771909 100644
        assert(left.output.size == right.output.size)
 -      val joinCond = left.output.zip(right.output).map { case (l, r) => EqualNullSafe(l, r) }
 -      Distinct(Join(left, right, LeftSemi, joinCond.reduceLeftOption(And), JoinHint.NONE))
-+      pushDownDistinctThroughJoin(i)
++      if (conf.distinctPushDown) {
++        pushDownDistinctThroughJoin(i)
++      } else {
++        val joinCond = left.output.zip(right.output).map { case (l, r) => EqualNullSafe(l, r) }
++        Distinct(Join(left, right, LeftSemi, joinCond.reduceLeftOption(And), JoinHint.NONE))
++      }
 +  }
 +
 +  private def pushDownDistinctThroughJoin(plan: LogicalPlan): LogicalPlan = {

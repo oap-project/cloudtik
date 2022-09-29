@@ -73,3 +73,43 @@ When the test is done, you have two options to get the query time results:
 "${fsdir}/shared/data/results/tpcds_${format}/${scaleFactor}/"
 (replace the fsdir and scaleFactor with the value when submitting job. if 'format' is not specified, it defaults to 'parquet')
 You can get the saved file using hadoop command after you attached to the cluster.
+
+## 4. Run TPC-DS throughput test
+
+We provided the throughput test scala script **[tpcds-throughput-test.scala](./scripts/tpcds-throughput-test.scala)** for users to run TPC-DS throughput test with Cloudtik cluster.
+Execute the following command to submit and run the throughput test script on the cluster,
+```buildoutcfg
+cloudtik submit your-cluster-config.yaml $CLOUTIK_HOME/tools/benchmarks/spark/scripts/tpcds-throughput-test.scala --conf spark.driver.streamNumber=2 --conf spark.driver.scaleFactor=1 --conf spark.driver.fsdir="s3a://s3_bucket_name" --conf spark.driver.iterations=1 --jars \$HOME/runtime/benchmark-tools/spark-sql-perf/target/scala-2.12/spark-sql-perf_2.12-0.5.1-SNAPSHOT.jar
+```
+Replace the cluster configuration file, the paths, spark.driver.streamNumber, spark.driver.scale, spark.driver.fsdir, spark.driver.iterations values in the above command for your case. 
+
+Just like data gen, you may need to run the command with --tmux option for background execution. 
+
+When the test is done, you have two options to get the query time results:
+1. The query time results will be printed at the end.
+2. The query time results will be saved to the configured storage with following location pattern:
+"${fsdir}/shared/data/results/tpcds_${format}/${scaleFactor}/"
+(replace the fsdir and scaleFactor with the value when submitting job. if 'format' is not specified, it defaults to 'parquet').
+The script will create a directory named after the start time of the throughput test, and all streaming results will be placed in this directory. 
+The following example shows the final detailed message of throughput test.
+```buildoutcfg
+stream_0 has finished.                                                          
+stream_2 has finished.
+stream_1 has finished.
+stream_3 has finished.
++----------+------------------+
+|    stream|      sum(Runtime)|
++----------+------------------+
+|  stream_0|441.92720381699996|
+|  stream_1|     394.519159437|
+|  stream_2|417.52151995299994|
+|  stream_3| 373.3234622819999|
+|max_stream|441.92720381699996|
++----------+------------------+
+
+stream_0 result is saved to ${fsdir}/shared/data/results/tpcds_parquet/${scaleFactor}/2022-09-28-23-28-09/timestamp=1664432893936
+stream_1 result is saved to ${fsdir}/shared/data/results/tpcds_parquet/${scaleFactor}/2022-09-28-23-28-09/timestamp=1664432893949
+stream_2 result is saved to ${fsdir}/shared/data/results/tpcds_parquet/${scaleFactor}/2022-09-28-23-28-09/timestamp=1664432893962
+stream_3 result is saved to ${fsdir}/shared/data/results/tpcds_parquet/${scaleFactor}/2022-09-28-23-28-09/timestamp=1664432893980
+Performance summary is saved to ${fsdir}/shared/data/results/tpcds_parquet/${scaleFactor}/2022-09-28-23-28-09/summary/summary.csv
+```

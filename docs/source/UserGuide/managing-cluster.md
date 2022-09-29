@@ -259,7 +259,7 @@ YARN ResourceManager Web UI:
 Spark History Server Web UI:
     http://<head-internal-ip>10.0.0.4:18080
 Jupyter Web UI:
-    http://<head-internal-ip>:8888, default password is 'cloudtik'
+    http://<head-internal-ip>:8888, default token is 'cloudtik'
 ```
 
 

@@ -336,7 +336,7 @@ def _get_useful_urls(cluster_head_ip):
     urls = [
         {"name": "Yarn Web UI", "url": "http://{}:{}".format(
             cluster_head_ip, SPARK_YARN_WEB_API_PORT)},
-        {"name": "Jupyter Web UI", "url": "http://{}:8888, default password is \'cloudtik\'".format(
+        {"name": "Jupyter Web UI", "url": "http://{}:8888, default token is \'cloudtik\'".format(
             cluster_head_ip)},
         {"name": "Spark History Server Web UI", "url": "http://{}:{}".format(
             cluster_head_ip, SPARK_HISTORY_SERVER_API_PORT)},

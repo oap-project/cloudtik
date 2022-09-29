@@ -442,8 +442,8 @@ function configure_hadoop_and_spark() {
 function configure_jupyter_for_spark() {
   if [ $IS_HEAD_NODE == "true" ]; then
       echo Y | jupyter lab --generate-config;
-      # Set default password(cloudtik) for JupyterLab
-      sed -i  "1 ic.NotebookApp.password = 'argon2:\$argon2id\$v=19\$m=10240,t=10,p=8\$Y+sBd6UhAyKNsI+/mHsy9g\$WzJsUujSzmotUkblSTpMwCFoOBVSwm7S5oOPzpC+tz8'" ~/.jupyter/jupyter_lab_config.py
+      # Set default token(cloudtik) for JupyterLab
+      sed -i  "1 ic.ServerApp.token = 'cloudtik'" ~/.jupyter/jupyter_lab_config.py
 
       # Set default notebook_dir for JupyterLab
       export JUPYTER_WORKSPACE=/home/$(whoami)/jupyter

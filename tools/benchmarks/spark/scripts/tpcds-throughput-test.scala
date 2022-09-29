@@ -170,6 +170,10 @@ val srcPath=new Path(s"$finalResultPath/$file")
 val destPath= new Path(s"$finalResultPath/summary.csv")
 fs.rename(srcPath, destPath)
 
+for(i <- 0 to (streamNumber - 1)){
+   println(s"stream_${i} result is saved to ${experiments(i).resultPath}")
+}
+
 println(s"Performance summary is saved to ${destPath}")
 
 sys.exit(0)

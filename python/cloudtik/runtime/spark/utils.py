@@ -222,12 +222,12 @@ def _is_runtime_scripts(script_file):
     return False
 
 
-def _get_runnable_command(target, job_options, job_arguments):
+def _get_runnable_command(target, runtime_options):
     command_parts = []
     if target.endswith(".scala"):
         command_parts = ["spark-shell", "-i", double_quote(target)]
-    elif target.endswith(".jar"):
-        command_parts = ["spark-submit", job_options, double_quote(target), job_arguments]
+    elif target.endswith(".jar") or target.endswith(".py"):
+        command_parts = ["spark-submit", double_quote(runtime_options), double_quote(target)]
     return command_parts
 
 

@@ -44,7 +44,7 @@ class ZooKeeperRuntime(Runtime):
         # Do nothing here. service uri will only be published when minimal node reached.
         pass
 
-    def get_runnable_command(self, target: str, job_options: str, job_arguments: str):
+    def get_runnable_command(self, target: str, runtime_options: str):
         """Return the runnable command for the target script.
         For example: ["bash", target]
         """

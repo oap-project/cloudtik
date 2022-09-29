@@ -1996,13 +1996,13 @@ def runtime_verify_config(runtime_config, config, provider):
         runtime.verify_config(config, provider)
 
 
-def get_runnable_command(runtime_config, target, job_type, job_options, job_arguments):
+def get_runnable_command(runtime_config, target, runtime, runtime_options):
     if runtime_config is None:
         return None
 
-    if job_type:
-        runtime = _get_runtime(job_type, runtime_config)
-        commands = runtime.get_runnable_command(target, job_options, job_arguments)
+    if runtime:
+        runtime = _get_runtime(runtime, runtime_config)
+        commands = runtime.get_runnable_command(target, runtime_options)
         if commands:
             return commands
     else:
@@ -2010,7 +2010,7 @@ def get_runnable_command(runtime_config, target, job_type, job_options, job_argu
         runtime_types = runtime_config.get(RUNTIME_TYPES_CONFIG_KEY, [])
         for runtime_type in runtime_types:
             runtime = _get_runtime(runtime_type, runtime_config)
-            commands = runtime.get_runnable_command(target, job_options, job_arguments)
+            commands = runtime.get_runnable_command(target, runtime_options)
             if commands:
                 return commands
 

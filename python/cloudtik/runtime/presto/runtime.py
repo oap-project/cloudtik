@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional, List
 
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_HDFS, BUILT_IN_RUNTIME_METASTORE
 from cloudtik.core.node_provider import NodeProvider
@@ -42,7 +42,7 @@ class PrestoRuntime(Runtime):
         return _with_runtime_environment_variables(
             self.runtime_config, config=config, provider=provider, node_id=node_id)
 
-    def get_runnable_command(self, target: str, runtime_options: str):
+    def get_runnable_command(self, target: str, runtime_options:  Optional[List[str]]):
         """Return the runnable command for the target script.
         For example: ["bash", target]
         """

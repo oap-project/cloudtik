@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 
 from cloudtik.core.job_waiter import JobWaiter
 from cloudtik.core.node_provider import NodeProvider
@@ -46,7 +46,7 @@ class Runtime:
             self, cluster_config: Dict[str, Any], head_node_id: str) -> None:
         pass
 
-    def get_runnable_command(self, target: str, runtime_options: str):
+    def get_runnable_command(self, target: str, runtime_options:  Optional[List[str]]):
         """Return the runnable command for the target script.
         For example: ["bash", target]
         """

@@ -3021,7 +3021,7 @@ def submit_and_exec(config: Dict[str, Any],
                     yes: bool = False,
                     job_waiter_name: Optional[str] = None,
                     runtime: Optional[str] = None,
-                    runtime_options: Optional[str] = None,
+                    runtime_options:  Optional[List[str]] = None,
                     ):
     cli_logger.doassert(not (screen and tmux),
                         "`{}` and `{}` are incompatible.", cf.bold("--screen"),

@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import shlex
 import subprocess
 import sys
 import traceback
@@ -840,6 +841,7 @@ def submit(cluster_config_file, cluster_name, screen, tmux, stop, start,
     config = _load_cluster_config(
         cluster_config_file, cluster_name, no_config_cache=no_config_cache)
     port_forward = [(port, port) for port in list(port_forward)]
+    runtime_options = shlex.split(runtime_options)
     submit_and_exec(
         config,
         call_context=cli_call_context(),

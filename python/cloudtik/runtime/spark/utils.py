@@ -217,7 +217,7 @@ def get_runtime_processes():
 
 
 def _is_runtime_scripts(script_file):
-    if script_file.endswith(".scala") or script_file.endswith(".jar"):
+    if script_file.endswith(".scala") or script_file.endswith(".jar") or script_file.endswith(".py"):
         return True
     return False
 

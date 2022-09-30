@@ -3,8 +3,9 @@ from typing import Any, List, Tuple, Dict, Optional
 
 from cloudtik.core._private.call_context import CallContext
 
-MAX_COMMAND_RUN_RETRIES = 30
-COMMAND_RUN_RETRY_DELAY_S = 5
+COMMAND_RUN_DEFAULT_NUMBER_OF_RETRIES = 30
+COMMAND_RUN_DEFAULT_RETRY_DELAY_S = 5
+
 MAX_COMMAND_LENGTH_TO_PRINT = 48
 
 
@@ -84,9 +85,12 @@ class CommandExecutor:
             ssh_options_override_ssh_key: str = "",
             shutdown_after_run: bool = False,
             cmd_to_print: str = None,
-            silent: bool = False
+            silent: bool = False,
+            number_of_retries: Optional[int] = None,
+            retry_interval: Optional[int] = None
     ) -> str:
-        retries = MAX_COMMAND_RUN_RETRIES
+        retries = number_of_retries if number_of_retries is not None else COMMAND_RUN_DEFAULT_NUMBER_OF_RETRIES
+        interval = retry_interval if retry_interval is not None else COMMAND_RUN_DEFAULT_RETRY_DELAY_S
         while retries > 0:
             try:
                 return self.run(cmd,
@@ -106,9 +110,12 @@ class CommandExecutor:
                     cmd_to_print = cmd if cmd_to_print is None else cmd_to_print
                     verbose = False if self.cli_logger.verbosity == 0 else True
                     cmd_to_print = get_cmd_to_print(cmd_to_print, verbose)
-                    self.cli_logger.warning(f"Error running command: {cmd_to_print}. "
-                                            f"Retrying in {COMMAND_RUN_RETRY_DELAY_S} seconds.")
-                    time.sleep(COMMAND_RUN_RETRY_DELAY_S)
+                    self.cli_logger.warning(
+                        "Error running command: {}. Retrying in {} seconds.",
+                        cmd_to_print,
+                        interval
+                    )
+                    time.sleep(interval)
                 else:
                     raise e
 

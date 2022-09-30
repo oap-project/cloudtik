@@ -65,6 +65,19 @@
             "description": "Whether disable the feature of assigning node number to each node",
             "default": false
         },
+        "retry_setup_command": {
+            "type": "boolean",
+            "description": "Whether to retry setup command if the command failed",
+            "default": true
+        },
+        "number_of_retries": {
+            "type": "integer",
+            "description": "The number of reties if the command failed"
+        },
+        "retry_interval": {
+            "type": "integer",
+            "description": "The time interval in seconds for command retry"
+        },
         "provider": {
             "type": "object",
             "description": "Cloud-provider specific configuration.",

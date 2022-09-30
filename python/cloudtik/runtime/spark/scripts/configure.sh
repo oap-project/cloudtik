@@ -442,9 +442,6 @@ function configure_hadoop_and_spark() {
 function configure_jupyter_for_spark() {
   if [ $IS_HEAD_NODE == "true" ]; then
       echo Y | jupyter lab --generate-config;
-      # Set default token(cloudtik) for JupyterLab
-      sed -i  "1 ic.ServerApp.token = 'cloudtik'" ~/.jupyter/jupyter_lab_config.py
-
       # Set default notebook_dir for JupyterLab
       export JUPYTER_WORKSPACE=/home/$(whoami)/jupyter
       mkdir -p $JUPYTER_WORKSPACE

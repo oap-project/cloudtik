@@ -227,7 +227,10 @@ def _get_runnable_command(target, runtime_options):
     if target.endswith(".scala"):
         command_parts = ["spark-shell", "-i", double_quote(target)]
     elif target.endswith(".jar") or target.endswith(".py"):
-        command_parts = ["spark-submit"] + runtime_options + [double_quote(target)]
+        command_parts = ["spark-submit"]
+        if runtime_options is not None:
+            command_parts += runtime_options
+        command_parts += [double_quote(target)]
     return command_parts
 
 

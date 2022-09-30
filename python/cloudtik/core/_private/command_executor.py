@@ -1000,8 +1000,8 @@ class DockerCommandExecutor(CommandExecutor):
                         break
             except json.JSONDecodeError as e:
                 self.cli_logger.error(
-                    "Unable to deserialize `image_env` to Python object. "
-                    f"The `image_env` is:\n{image_env}"
+                    "Unable to deserialize `image_env` to Python object. The `image_env` is:\n{}",
+                    image_env
                 )
                 raise e
 

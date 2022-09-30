@@ -29,6 +29,8 @@ logger = logging.getLogger(__name__)
 NUM_SETUP_STEPS = 8
 READY_CHECK_INTERVAL = 5
 
+SETUP_COMMAND_DEFAULT_NUMBER_OF_RETRIES = 5
+
 
 class NodeUpdater:
     """A process for syncing files and running init commands on a node.
@@ -496,9 +498,11 @@ class NodeUpdater:
             self.cmd_executor.run_with_retry(
                 cmd,
                 environment_variables=runtime_envs,
-                ssh_options_override_ssh_key=self.
-                    auth_config.get("ssh_private_key"),
-                run_env="host")
+                ssh_options_override_ssh_key=self.auth_config.get("ssh_private_key"),
+                run_env="host",
+                number_of_retries=self.config.get("number_of_retries"),
+                retry_interval=self.config.get("retry_interval")
+            )
         except ProcessRunnerError as e:
             if e.msg_type == "ssh_command_failed":
                 self.cli_logger.error("Failed.")
@@ -540,7 +544,14 @@ class NodeUpdater:
 
         try:
             # Runs in the container if docker is in use
-            self.cmd_executor.run(cmd, environment_variables=runtime_envs, run_env="auto")
+            if self.config.get("retry_setup_command", True):
+                self.cmd_executor.run_with_retry(
+                    cmd, environment_variables=runtime_envs, run_env="auto",
+                    number_of_retries=self.config.get("number_of_retries", SETUP_COMMAND_DEFAULT_NUMBER_OF_RETRIES),
+                    retry_interval=self.config.get("retry_interval")
+                )
+            else:
+                self.cmd_executor.run(cmd, environment_variables=runtime_envs, run_env="auto")
         except ProcessRunnerError as e:
             if e.msg_type == "ssh_command_failed":
                 self.cli_logger.error("Failed.")

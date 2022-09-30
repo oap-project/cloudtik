@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional, List
 
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.runtime import Runtime
@@ -43,7 +43,7 @@ class MLRuntime(Runtime):
             self, cluster_config: Dict[str, Any], head_node_id: str) -> None:
         publish_service_uri(cluster_config, head_node_id)
 
-    def get_runnable_command(self, target: str):
+    def get_runnable_command(self, target: str, runtime_options:  Optional[List[str]]):
         if not _is_runtime_scripts(target):
             return None
 

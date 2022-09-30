@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_METASTORE, BUILT_IN_RUNTIME_HDFS
 from cloudtik.core.job_waiter import JobWaiter
@@ -45,14 +45,14 @@ class SparkRuntime(Runtime):
         return _with_runtime_environment_variables(
             self.runtime_config, config=config, provider=provider, node_id=node_id)
 
-    def get_runnable_command(self, target: str):
+    def get_runnable_command(self, target: str, runtime_options:  Optional[List[str]]):
         """Return the runnable command for the target script.
         For example: ["bash", target]
         """
         if not _is_runtime_scripts(target):
             return None
 
-        return _get_runnable_command(target)
+        return _get_runnable_command(target, runtime_options)
 
     def get_runtime_commands(self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         """Returns a copy of runtime commands to run at different stages"""

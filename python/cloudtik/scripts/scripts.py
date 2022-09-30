@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import shlex
 import subprocess
 import sys
 import traceback
@@ -807,12 +808,24 @@ def exec(cluster_config_file, cmd, cluster_name, run_env, screen, tmux, stop, st
     required=False,
     type=str,
     help="The job waiter to be used to check the completion of the job.")
+@click.option(
+    "--runtime",
+    required=False,
+    type=str,
+    help="The type of the job.")
+@click.option(
+    "--runtime-options",
+    required=False,
+    type=str,
+    default="",
+    help="The type of the job.")
 @click.argument("script", required=True, type=str)
 @click.argument("script_args", nargs=-1)
 @add_click_logging_options
 def submit(cluster_config_file, cluster_name, screen, tmux, stop, start,
            force_update, wait_for_workers, min_workers, wait_timeout,
-           no_config_cache, port_forward, yes, job_waiter, script, script_args):
+           no_config_cache, port_forward, yes, job_waiter, runtime, runtime_options,
+           script, script_args):
     """Uploads and runs a script on the specified cluster.
 
     The script is automatically synced to the following location:
@@ -828,6 +841,7 @@ def submit(cluster_config_file, cluster_name, screen, tmux, stop, start,
     config = _load_cluster_config(
         cluster_config_file, cluster_name, no_config_cache=no_config_cache)
     port_forward = [(port, port) for port in list(port_forward)]
+    runtime_options = shlex.split(runtime_options)
     submit_and_exec(
         config,
         call_context=cli_call_context(),
@@ -843,7 +857,10 @@ def submit(cluster_config_file, cluster_name, screen, tmux, stop, start,
         wait_timeout=wait_timeout,
         port_forward=port_forward,
         yes=yes,
-        job_waiter_name=job_waiter)
+        job_waiter_name=job_waiter,
+        runtime=runtime,
+        runtime_options=runtime_options,
+        )
 
 
 @cli.command()

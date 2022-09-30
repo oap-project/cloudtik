@@ -1996,17 +1996,23 @@ def runtime_verify_config(runtime_config, config, provider):
         runtime.verify_config(config, provider)
 
 
-def get_runnable_command(runtime_config, target):
+def get_runnable_command(runtime_config, target, runtime, runtime_options):
     if runtime_config is None:
         return None
 
-    # Iterate through all the runtimes
-    runtime_types = runtime_config.get(RUNTIME_TYPES_CONFIG_KEY, [])
-    for runtime_type in runtime_types:
-        runtime = _get_runtime(runtime_type, runtime_config)
-        commands = runtime.get_runnable_command(target)
+    if runtime:
+        runtime = _get_runtime(runtime, runtime_config)
+        commands = runtime.get_runnable_command(target, runtime_options)
         if commands:
             return commands
+    else:
+        # Iterate through all the runtimes
+        runtime_types = runtime_config.get(RUNTIME_TYPES_CONFIG_KEY, [])
+        for runtime_type in runtime_types:
+            runtime = _get_runtime(runtime_type, runtime_config)
+            commands = runtime.get_runnable_command(target, runtime_options)
+            if commands:
+                return commands
 
     return None
 

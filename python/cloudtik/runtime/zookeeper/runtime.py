@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional, List
 
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.runtime import Runtime
@@ -44,7 +44,7 @@ class ZooKeeperRuntime(Runtime):
         # Do nothing here. service uri will only be published when minimal node reached.
         pass
 
-    def get_runnable_command(self, target: str):
+    def get_runnable_command(self, target: str, runtime_options:  Optional[List[str]]):
         """Return the runnable command for the target script.
         For example: ["bash", target]
         """

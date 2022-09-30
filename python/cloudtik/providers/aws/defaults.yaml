@@ -36,7 +36,6 @@ available_node_types:
         # http://boto3.readthedocs.io/en/latest/reference/services/ec2.html#EC2.ServiceResource.create_instances
         node_config:
             InstanceType: m5.xlarge
-            ImageId: ami-0892d3c7ee96c0bf7 # ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-20211129
             # You can provision additional disk space with a conf as follows
             BlockDeviceMappings:
                 - DeviceName: /dev/sda1
@@ -59,7 +58,6 @@ available_node_types:
         # http://boto3.readthedocs.io/en/latest/reference/services/ec2.html#EC2.ServiceResource.create_instances
         node_config:
             InstanceType: m5.xlarge
-            ImageId: ami-0892d3c7ee96c0bf7 # ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-20211129
             # Additional options in the boto docs.
             BlockDeviceMappings:
                 - DeviceName: /dev/sda1

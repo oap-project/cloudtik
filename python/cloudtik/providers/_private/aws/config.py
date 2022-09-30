@@ -2286,6 +2286,22 @@ def _configure_security_group_from_workspace(config):
     return config
 
 
+def _get_default_ami(config, default_ami):
+    if default_ami is not None:
+        return default_ami
+
+    default_ami = get_latest_ami_id(config)
+    if not default_ami:
+        region = config["provider"]["region"]
+        cli_logger.warning(
+            "Can not get latest ami information in this region: {}. Will use default ami id".format(region))
+        default_ami = DEFAULT_AMI.get(region)
+        if not default_ami:
+            cli_logger.abort("Not support on this region: {}. Please use one of these regions {}".
+                             format(region, sorted(DEFAULT_AMI.keys())))
+    return default_ami
+
+
 def _configure_ami(config):
     """Provide helpful message for missing ImageId for node configuration."""
 
@@ -2293,19 +2309,14 @@ def _configure_ami(config):
     ami_src_info = {key: "config" for key in config["available_node_types"]}
     _set_config_info(ami_src=ami_src_info)
 
-    region = config["provider"]["region"]
-
-    default_ami = get_latest_ami_id(config)
-    if not default_ami:
-        cli_logger.warning("Can not get latest ami information in this region: {}. Will use default ami id".format(region))
-        default_ami = DEFAULT_AMI.get(region)
-    if not default_ami:
-        cli_logger.abort("Not support on this region: {}. Please use one of these regions {}".
-                         format(region, sorted(DEFAULT_AMI.keys())))
-
+    default_ami = None
     for key, node_type in config["available_node_types"].items():
         node_config = node_type["node_config"]
-        node_config["ImageId"] = default_ami
+        image_id = node_config.get("ImageId", "")
+        if image_id == "":
+            # Only set to default ami if not specified by the user
+            default_ami = _get_default_ami(config, default_ami)
+            node_config["ImageId"] = default_ami
 
     return config
 

@@ -1,8 +1,0 @@
-# jupyter_core 4.11.0 removed jupyter.py which cause spylon-kernel install failed with no module named jupyter
-# once this is fixed, we can upgrade to any compatible version
-jupyter_core==4.10.0
-jupyter_server==1.19.1
-jupyterlab==3.4.3
-nbclassic==0.3.7
-spylon-kernel==0.4.1
-

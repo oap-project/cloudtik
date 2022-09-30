@@ -812,13 +812,13 @@ def exec(cluster_config_file, cmd, cluster_name, run_env, screen, tmux, stop, st
     "--runtime",
     required=False,
     type=str,
-    help="The type of the job.")
+    help="The runtime used to run the job.")
 @click.option(
     "--runtime-options",
     required=False,
     type=str,
     default="",
-    help="The type of the job.")
+    help="The runtime options of the job.")
 @click.argument("script", required=True, type=str)
 @click.argument("script_args", nargs=-1)
 @add_click_logging_options
@@ -841,7 +841,7 @@ def submit(cluster_config_file, cluster_name, screen, tmux, stop, start,
     config = _load_cluster_config(
         cluster_config_file, cluster_name, no_config_cache=no_config_cache)
     port_forward = [(port, port) for port in list(port_forward)]
-    runtime_options = shlex.split(runtime_options)
+    runtime_options = shlex.split(runtime_options) if runtime_options is not None else None
     submit_and_exec(
         config,
         call_context=cli_call_context(),

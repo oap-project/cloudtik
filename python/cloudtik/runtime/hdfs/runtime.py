@@ -43,7 +43,7 @@ class HDFSRuntime(Runtime):
             self, cluster_config: Dict[str, Any], head_node_id: str) -> None:
         publish_service_uri(cluster_config, head_node_id)
 
-    def get_runnable_command(self, target: str, runtime_options:  Optional[List[str]]):
+    def get_runnable_command(self, target: str, runtime_options: Optional[List[str]]):
         """Return the runnable command for the target script.
         For example: ["bash", target]
         """

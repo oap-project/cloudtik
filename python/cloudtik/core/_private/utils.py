@@ -1996,12 +1996,14 @@ def runtime_verify_config(runtime_config, config, provider):
         runtime.verify_config(config, provider)
 
 
-def get_runnable_command(runtime_config, target, runtime, runtime_options):
+def get_runnable_command(
+        runtime_config, target,
+        runtime_type: str = None, runtime_options: Optional[List[str]] = None):
     if runtime_config is None:
         return None
 
-    if runtime:
-        runtime = _get_runtime(runtime, runtime_config)
+    if runtime_type:
+        runtime = _get_runtime(runtime_type, runtime_config)
         commands = runtime.get_runnable_command(target, runtime_options)
         if commands:
             return commands

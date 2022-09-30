@@ -52,7 +52,7 @@ from cloudtik.core._private.utils import hash_runtime_conf, \
     with_head_node_ip_environment_variables, get_verified_runtime_list, get_commands_of_runtimes, \
     is_node_in_completed_status, check_for_single_worker_type, \
     get_node_specific_commands_of_runtimes, _get_node_specific_runtime_config, \
-    _get_node_specific_docker_config, RUNTIME_CONFIG_KEY, DOCKER_CONFIG_KEY, get_running_head_node, \
+    RUNTIME_CONFIG_KEY, DOCKER_CONFIG_KEY, get_running_head_node, \
     get_nodes_for_runtime, with_script_args, encrypt_config, get_resource_requests_for_cpu, convert_nodes_to_cpus, \
     HeadNotRunningError, get_cluster_head_ip, get_command_session_name
 
@@ -3021,7 +3021,7 @@ def submit_and_exec(config: Dict[str, Any],
                     yes: bool = False,
                     job_waiter_name: Optional[str] = None,
                     runtime: Optional[str] = None,
-                    runtime_options:  Optional[List[str]] = None,
+                    runtime_options: Optional[List[str]] = None,
                     ):
     cli_logger.doassert(not (screen and tmux),
                         "`{}` and `{}` are incompatible.", cf.bold("--screen"),
@@ -3074,15 +3074,21 @@ def submit_and_exec(config: Dict[str, Any],
 
     # Use new target with $HOME instead of ~ for exec
     target = os.path.join("$HOME", "jobs", target_name)
-    if target_name.endswith(".py"):
+    if runtime is not None:
+        runtime_commands = get_runnable_command(
+            config.get(RUNTIME_CONFIG_KEY), target, runtime, runtime_options)
+        if runtime_commands is None:
+            cli_logger.abort("Runtime {} doesn't how to execute your file: {}", runtime, script)
+        command_parts += runtime_commands
+    elif target_name.endswith(".py"):
         command_parts += ["python", double_quote(target)]
     elif target_name.endswith(".sh"):
         command_parts += ["bash", double_quote(target)]
     else:
-        command_parts += get_runnable_command(config.get(RUNTIME_CONFIG_KEY), target, runtime, runtime_options)
-        if command_parts is None:
-            cli_logger.error("We don't how to execute your file: {}", script)
-            return
+        runtime_commands = get_runnable_command(config.get(RUNTIME_CONFIG_KEY), target)
+        if runtime_commands is None:
+            cli_logger.abort("We don't how to execute your file: {}", script)
+        command_parts += runtime_commands
 
     with_script_args(command_parts, script_args)
 

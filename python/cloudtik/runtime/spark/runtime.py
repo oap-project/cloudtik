@@ -45,7 +45,7 @@ class SparkRuntime(Runtime):
         return _with_runtime_environment_variables(
             self.runtime_config, config=config, provider=provider, node_id=node_id)
 
-    def get_runnable_command(self, target: str, runtime_options:  Optional[List[str]]):
+    def get_runnable_command(self, target: str, runtime_options: Optional[List[str]]):
         """Return the runnable command for the target script.
         For example: ["bash", target]
         """

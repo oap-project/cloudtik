@@ -1,7 +1,7 @@
 import os
 from typing import Any, Dict
 
-from cloudtik.core._private.utils import merge_rooted_config_hierarchy, _get_runtime_config_object
+from cloudtik.core._private.utils import merge_rooted_config_hierarchy, _get_runtime_config_object, get_node_type_config
 from cloudtik.core._private.workspace.workspace_operator import _get_workspace_provider
 from cloudtik.core._private.providers import _get_node_provider
 
@@ -48,6 +48,12 @@ def _get_runnable_command(target):
 
 def _with_runtime_environment_variables(runtime_config, config, provider, node_id: str):
     runtime_envs = {"HDFS_ENABLED": True}
+
+    # We always export the cloud storage even for local HDFS case
+    node_type_config = get_node_type_config(config, provider, node_id)
+    provider_envs = provider.with_environment_variables(node_type_config, node_id)
+    runtime_envs.update(provider_envs)
+
     return runtime_envs
 
 

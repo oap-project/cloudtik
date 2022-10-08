@@ -2416,11 +2416,6 @@ def exec_cmd_on_head(config,
     assert run_env in RUN_ENV_TYPES, "--run_env must be in {}".format(
         RUN_ENV_TYPES)
 
-    # TODO(rliaw): We default this to True to maintain backwards-compat.
-    # In the future we would want to support disabling login-shells
-    # and interactivity.
-    call_context.set_allow_interactive(True)
-
     updater = create_node_updater_for_exec(
         config=config,
         call_context=call_context,

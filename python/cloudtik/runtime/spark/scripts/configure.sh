@@ -126,7 +126,7 @@ function update_spark_credential_config_for_aws() {
     fi
 }
 
-function update_credential_config() {
+function update_cloud_storage_credential_config() {
     # update hadoop credential config
     update_credential_config_for_provider
 
@@ -156,7 +156,7 @@ function update_config_for_hdfs() {
     sed -i "s!{%fs.default.name%}!${fs_default_dir}!g" `grep "{%fs.default.name%}" -rl ./`
 
     # Still update credential config for cloud provider storage in the case of explict usage
-    update_credential_config
+    update_cloud_storage_credential_config
 
     # event log dir
     event_log_dir="${fs_default_dir}/shared/spark-events"
@@ -169,7 +169,7 @@ function update_config_for_aws() {
     fs_default_dir="s3a://${AWS_S3_BUCKET}"
     sed -i "s!{%fs.default.name%}!${fs_default_dir}!g" `grep "{%fs.default.name%}" -rl ./`
 
-    update_credential_config
+    update_cloud_storage_credential_config
 
     # event log dir
     if [ -z "${AWS_S3_BUCKET}" ]; then
@@ -187,7 +187,7 @@ function update_config_for_gcp() {
     fs_default_dir="gs://${GCS_BUCKET}"
     sed -i "s!{%fs.default.name%}!${fs_default_dir}!g" `grep "{%fs.default.name%}" -rl ./`
 
-    update_credential_config
+    update_cloud_storage_credential_config
 
     # event log dir
     if [ -z "${GCS_BUCKET}" ]; then
@@ -215,7 +215,7 @@ function update_config_for_azure() {
     fs_default_dir="${AZURE_SCHEMA}://${AZURE_CONTAINER}@${AZURE_STORAGE_ACCOUNT}.${AZURE_ENDPOINT}.core.windows.net"
     sed -i "s!{%fs.default.name%}!${fs_default_dir}!g" `grep "{%fs.default.name%}" -rl ./`
 
-    update_credential_config
+    update_cloud_storage_credential_config
 
     # event log dir
     if [ -z "${AZURE_CONTAINER}" ]; then

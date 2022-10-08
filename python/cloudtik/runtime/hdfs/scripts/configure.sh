@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Current bin directory
+BIN_DIR=`dirname "$0"`
+ROOT_DIR="$(dirname "$(dirname "$BIN_DIR")")"
+
 args=$(getopt -a -o h::p: -l head::,node_ip_address::,head_address:: -- "$@")
 eval set -- "${args}"
 
@@ -28,12 +32,17 @@ do
     shift
 done
 
+# Hadoop cloud credential configuration functions
+. "$ROOT_DIR"/common/scripts/hadoop-cloud-credential.sh
+
 function prepare_base_conf() {
     source_dir=$(cd $(dirname ${BASH_SOURCE[0]})/..;pwd)/conf
     output_dir=/tmp/hdfs/conf
     rm -rf  $output_dir
     mkdir -p $output_dir
     cp -r $source_dir/* $output_dir
+    # Include hadoop config file for cloud providers
+    cp -r "$ROOT_DIR"/common/conf/hadoop $output_dir/hadoop
 }
 
 function check_hadoop_installed() {
@@ -88,9 +97,15 @@ function configure_hdfs() {
     prepare_base_conf
     mkdir -p ${HADOOP_HOME}/logs
     cd $output_dir
-    sed -i "s/HEAD_ADDRESS/${HEAD_ADDRESS}/g" `grep "HEAD_ADDRESS" -rl ./`
+
+    fs_default_dir="hdfs://${HEAD_ADDRESS}:9000"
+    sed -i "s!{%fs.default.name%}!${fs_default_dir}!g" `grep "{%fs.default.name%}" -rl ./`
+
+    # update hadoop credential config
+    update_credential_config_for_provider
 
     update_hdfs_data_disks_config
+
     cp -r ${output_dir}/hadoop/core-site.xml  ${HADOOP_HOME}/etc/hadoop/
     cp -r ${output_dir}/hadoop/hdfs-site.xml  ${HADOOP_HOME}/etc/hadoop/
 

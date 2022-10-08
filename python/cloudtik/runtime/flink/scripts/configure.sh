@@ -1,12 +1,14 @@
 #!/bin/bash
 
+# Current bin directory
+BIN_DIR=`dirname "$0"`
+ROOT_DIR="$(dirname "$(dirname "$BIN_DIR")")"
+
 args=$(getopt -a -o h::p: -l head::,node_ip_address::,head_address:: -- "$@")
 eval set -- "${args}"
 
 IS_HEAD_NODE=false
 USER_HOME=/home/$(whoami)
-HADOOP_CREDENTIAL_FILE="${HADOOP_HOME}/etc/hadoop/credential.jceks"
-HADOOP_CREDENTIAL_PROPERTY="<property>\n      <name>hadoop.security.credential.provider.path</name>\n      <value>jceks://file@${HADOOP_CREDENTIAL_FILE}</value>\n    </property>"
 
 while true
 do
@@ -30,12 +32,17 @@ do
     shift
 done
 
+# Hadoop cloud credential configuration functions
+. "$ROOT_DIR"/common/scripts/hadoop-cloud-credential.sh
+
 function prepare_base_conf() {
     source_dir=$(cd $(dirname ${BASH_SOURCE[0]})/..;pwd)/conf
     output_dir=/tmp/flink/conf
     rm -rf  $output_dir
     mkdir -p $output_dir
     cp -r $source_dir/* $output_dir
+    # Include hadoop config file for cloud providers
+    cp -r "$ROOT_DIR"/common/conf/hadoop $output_dir/hadoop
 }
 
 function check_flink_installed() {
@@ -111,95 +118,9 @@ function set_cloud_storage_provider() {
     fi
 }
 
-function update_credential_config_for_aws() {
-    if [ "$AWS_WEB_IDENTITY" == "true" ]; then
-        # Replace with InstanceProfileCredentialsProvider with WebIdentityTokenCredentialsProvider for Kubernetes
-        sed -i "s#InstanceProfileCredentialsProvider#WebIdentityTokenCredentialsProvider#g" `grep "InstanceProfileCredentialsProvider" -rl ./`
-    fi
-
-    sed -i "s#{%fs.s3a.access.key%}#${AWS_S3_ACCESS_KEY_ID}#g" `grep "{%fs.s3a.access.key%}" -rl ./`
-
-    if [ ! -z "${AWS_S3_SECRET_ACCESS_KEY}" ]; then
-        ${HADOOP_HOME}/bin/hadoop credential create fs.s3a.secret.key -value ${AWS_S3_SECRET_ACCESS_KEY} -provider ${HADOOP_CREDENTIAL_TEP_PROVIDER_PATH} > /dev/null
-        sed -i "s#{%hadoop.credential.property%}#${HADOOP_CREDENTIAL_PROPERTY}#g" `grep "{%hadoop.credential.property%}" -rl ./`
-    else
-        sed -i "s#{%hadoop.credential.property%}#""#g" `grep "{%hadoop.credential.property%}" -rl ./`
-    fi
-}
-
-function update_credential_config_for_gcp() {
-    sed -i "s#{%fs.gs.project.id%}#${GCP_PROJECT_ID}#g" `grep "{%fs.gs.project.id%}" -rl ./`
-
-    sed -i "s#{%fs.gs.auth.service.account.email%}#${GCS_SERVICE_ACCOUNT_CLIENT_EMAIL}#g" `grep "{%fs.gs.auth.service.account.email%}" -rl ./`
-    sed -i "s#{%fs.gs.auth.service.account.private.key.id%}#${GCS_SERVICE_ACCOUNT_PRIVATE_KEY_ID}#g" `grep "{%fs.gs.auth.service.account.private.key.id%}" -rl ./`
-
-    if [ ! -z "${GCS_SERVICE_ACCOUNT_PRIVATE_KEY}" ]; then
-        ${HADOOP_HOME}/bin/hadoop credential create fs.gs.auth.service.account.private.key -value ${GCS_SERVICE_ACCOUNT_PRIVATE_KEY} -provider ${HADOOP_CREDENTIAL_TEP_PROVIDER_PATH} > /dev/null
-        sed -i "s#{%hadoop.credential.property%}#${HADOOP_CREDENTIAL_PROPERTY}#g" `grep "{%hadoop.credential.property%}" -rl ./`
-    else
-        sed -i "s#{%hadoop.credential.property%}#""#g" `grep "{%hadoop.credential.property%}" -rl ./`
-    fi
-}
-
-function update_credential_config_for_azure() {
-    sed -i "s#{%azure.storage.account%}#${AZURE_STORAGE_ACCOUNT}#g" "$(grep "{%azure.storage.account%}" -rl ./)"
-
-    if [ "$AZURE_STORAGE_TYPE" == "blob" ];then
-        AZURE_ENDPOINT="blob"
-    else
-        # Default to datalake
-        AZURE_ENDPOINT="dfs"
-    fi
-    sed -i "s#{%storage.endpoint%}#${AZURE_ENDPOINT}#g" "$(grep "{%storage.endpoint%}" -rl ./)"
-
-    if [ "$AZURE_STORAGE_TYPE" != "blob" ];then
-        # datalake
-        if [ -n  "${AZURE_ACCOUNT_KEY}" ];then
-            sed -i "s#{%auth.type%}#SharedKey#g" "$(grep "{%auth.type%}" -rl ./)"
-        else
-            sed -i "s#{%auth.type%}##g" "$(grep "{%auth.type%}" -rl ./)"
-        fi
-    fi
-
-    HAS_HADOOP_CREDENTIAL=false
-    if [ ! -z "${AZURE_ACCOUNT_KEY}" ]; then
-        FS_KEY_NAME_ACCOUNT_KEY="fs.azure.account.key.${AZURE_STORAGE_ACCOUNT}.${AZURE_ENDPOINT}.core.windows.net"
-        ${HADOOP_HOME}/bin/hadoop credential create ${FS_KEY_NAME_ACCOUNT_KEY} -value ${AZURE_ACCOUNT_KEY} -provider ${HADOOP_CREDENTIAL_TEP_PROVIDER_PATH} > /dev/null
-        HAS_HADOOP_CREDENTIAL=true
-    fi
-
-    if [ ! -z "${AZURE_MANAGED_IDENTITY_TENANT_ID}" ]; then
-        FS_KEY_NAME_TENANT_ID="fs.azure.account.oauth2.msi.tenant"
-        ${HADOOP_HOME}/bin/hadoop credential create ${FS_KEY_NAME_TENANT_ID} -value ${AZURE_MANAGED_IDENTITY_TENANT_ID} -provider ${HADOOP_CREDENTIAL_TEP_PROVIDER_PATH} > /dev/null
-        HAS_HADOOP_CREDENTIAL=true
-    fi
-
-    if [ ! -z "${AZURE_MANAGED_IDENTITY_CLIENT_ID}" ]; then
-        FS_KEY_NAME_CLIENT_ID="fs.azure.account.oauth2.client.id"
-        ${HADOOP_HOME}/bin/hadoop credential create ${FS_KEY_NAME_CLIENT_ID} -value ${AZURE_MANAGED_IDENTITY_CLIENT_ID} -provider ${HADOOP_CREDENTIAL_TEP_PROVIDER_PATH} > /dev/null
-        HAS_HADOOP_CREDENTIAL=true
-    fi
-
-    if [ "${HAS_HADOOP_CREDENTIAL}" == "true" ]; then
-        sed -i "s#{%hadoop.credential.property%}#${HADOOP_CREDENTIAL_PROPERTY}#g" `grep "{%hadoop.credential.property%}" -rl ./`
-    else
-        sed -i "s#{%hadoop.credential.property%}#""#g" `grep "{%hadoop.credential.property%}" -rl ./`
-    fi
-}
-
-function update_credential_config_for_provider() {
-    HADOOP_CREDENTIAL_TMP_FILE="${output_dir}/credential.jceks"
-    HADOOP_CREDENTIAL_TEP_PROVIDER_PATH="jceks://file@${HADOOP_CREDENTIAL_TMP_FILE}"
-    if [ "${cloud_storage_provider}" == "aws" ]; then
-        update_credential_config_for_aws
-    elif [ "${cloud_storage_provider}" == "azure" ]; then
-        update_credential_config_for_azure
-    elif [ "${cloud_storage_provider}" == "gcp" ]; then
-        update_credential_config_for_gcp
-    fi
-    if [  -f "$HADOOP_CREDENTIAL_TMP_FILE"  ]; then
-      cp  ${HADOOP_CREDENTIAL_TMP_FILE} ${HADOOP_CREDENTIAL_FILE}
-    fi
+function update_credential_config() {
+    # update hadoop credential config
+    update_credential_config_for_provider
 }
 
 function update_config_for_flink_dirs() {
@@ -223,7 +144,7 @@ function update_config_for_hdfs() {
     sed -i "s!{%fs.default.name%}!${fs_default_dir}!g" `grep "{%fs.default.name%}" -rl ./`
 
     # Still update credential config for cloud provider storage in the case of explict usage
-    update_credential_config_for_provider
+    update_credential_config
 
     # checkpoints dir
     checkpoints_dir="${fs_default_dir}/${PATH_CHECKPOINTS}"
@@ -237,7 +158,7 @@ function update_config_for_aws() {
     fs_default_dir="s3a://${AWS_S3_BUCKET}"
     sed -i "s!{%fs.default.name%}!${fs_default_dir}!g" `grep "{%fs.default.name%}" -rl ./`
 
-    update_credential_config_for_provider
+    update_credential_config
 
     # checkpoints dir
     if [ -z "${AWS_S3_BUCKET}" ]; then
@@ -257,7 +178,7 @@ function update_config_for_gcp() {
     fs_default_dir="gs://${GCS_BUCKET}"
     sed -i "s!{%fs.default.name%}!${fs_default_dir}!g" `grep "{%fs.default.name%}" -rl ./`
 
-    update_credential_config_for_provider
+    update_credential_config
 
     # checkpoints dir
     if [ -z "${GCS_BUCKET}" ]; then
@@ -287,7 +208,7 @@ function update_config_for_azure() {
     fs_default_dir="${AZURE_SCHEMA}://${AZURE_CONTAINER}@${AZURE_STORAGE_ACCOUNT}.${AZURE_ENDPOINT}.core.windows.net"
     sed -i "s!{%fs.default.name%}!${fs_default_dir}!g" `grep "{%fs.default.name%}" -rl ./`
 
-    update_credential_config_for_provider
+    update_credential_config
 
     # checkpoints dir
     if [ -z "${AZURE_CONTAINER}" ]; then

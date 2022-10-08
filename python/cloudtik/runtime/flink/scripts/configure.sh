@@ -42,7 +42,7 @@ function prepare_base_conf() {
     mkdir -p $output_dir
     cp -r $source_dir/* $output_dir
     # Include hadoop config file for cloud providers
-    cp -r "$ROOT_DIR"/common/conf/hadoop $output_dir/hadoop
+    cp -r "$ROOT_DIR"/common/conf/hadoop $output_dir
 }
 
 function check_flink_installed() {

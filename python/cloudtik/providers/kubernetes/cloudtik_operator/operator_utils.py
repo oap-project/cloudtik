@@ -112,6 +112,7 @@ def custom_resource_to_config(cluster_resource: Dict[str, Any]) -> Dict[str, Any
     )
     config["cluster_name"] = cluster_name
     config["workspace_name"] = namespace
+    config["no_controller_on_head"] = True
     config["available_node_types"] = get_node_types(
         cluster_resource, cluster_name, cluster_owner_reference
     )

@@ -662,7 +662,6 @@ class CloudTikTest(unittest.TestCase):
                                 no_restart: bool,
                                 restart_only: bool,
                                 yes: bool,
-                                no_controller_on_head: bool = False,
                                 _provider: Optional[NodeProvider] = None,
                                 _runner: ModuleType = subprocess) -> None:
         """Create the cluster head node, which in turn creates the workers. Only works with MockProvider."""
@@ -791,7 +790,7 @@ class CloudTikTest(unittest.TestCase):
             # Even we don't need controller on head, we still need config and cluster keys on head
             # because head depends a lot on the cluster config file and cluster keys to do cluster
             # operations and connect to the worker.
-            # if not no_controller_on_head:
+
             # Return remote_config_file to avoid prematurely closing it.
             config, remote_config_file = _set_up_config_for_head_node(
                 config, provider, no_restart)

@@ -108,8 +108,7 @@ class CloudTikCluster:
             restart_only=False,
             yes=True,
             no_config_cache=True,
-            use_login_shells=True,
-            no_controller_on_head=True,
+            use_login_shells=True
         )
         # Write the resulting config for use by the cluster controller:
         self.write_config(self.controller_config, self.controller_config_path)

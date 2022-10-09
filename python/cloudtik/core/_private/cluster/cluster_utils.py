@@ -56,7 +56,6 @@ def run_on_cluster(
         run_env: str = "auto",
         with_output: bool = False,
         _allow_uninitialized_state: bool = False) -> str:
-    use_internal_ip = config.get("bootstrapped", False)
     head_node = get_running_head_node(
         config,
         _allow_uninitialized_state=_allow_uninitialized_state)
@@ -68,8 +67,7 @@ def run_on_cluster(
         cmd=cmd,
         run_env=run_env,
         with_output=with_output,
-        is_head_node=True,
-        use_internal_ip=use_internal_ip
+        is_head_node=True
     )
 
 
@@ -80,8 +78,8 @@ def run_on_node(
         cmd: str = None,
         run_env: str = "auto",
         with_output: bool = False,
-        is_head_node: bool = False,
-        use_internal_ip: bool = True) -> str:
+        is_head_node: bool = False) -> str:
+    use_internal_ip = config.get("bootstrapped", False)
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     updater = create_node_updater_for_exec(
         config=config,

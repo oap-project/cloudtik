@@ -74,7 +74,7 @@ class SessionJobWaiter(JobWaiter):
                         session_name,
                         interval))
                 time.sleep(interval)
-                session_exists = self._check_session(session_name)
+                session_exists = self._check_session(node_id, session_name)
         raise TimeoutError(
             "Timed out while waiting for session {} to finish.".format(session_name))
 

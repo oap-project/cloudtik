@@ -1160,6 +1160,7 @@ def _exec_cluster(config: Dict[str, Any],
 
     # Only when there is no job waiter we hold the tmux or screen session
     hold_session = False if job_waiter else True
+    timestamp = time.time_ns()
     result = _exec(
         updater,
         cmd,
@@ -1168,11 +1169,12 @@ def _exec_cluster(config: Dict[str, Any],
         port_forward=port_forward,
         with_output=with_output,
         run_env=run_env,
-        hold_session=hold_session)
+        hold_session=hold_session,
+        timestamp=timestamp)
 
     # if a job waiter is specified, we always wait for its completion.
     if job_waiter is not None:
-        job_waiter.wait_for_completion(head_node, cmd)
+        job_waiter.wait_for_completion(head_node, cmd, timestamp)
 
     # if the cmd is not run with screen or tmux
     # or in the future we can check the screen or tmux session completion
@@ -1194,17 +1196,18 @@ def _exec(updater: NodeUpdaterThread,
           run_env: str = "auto",
           shutdown_after_run: bool = False,
           exit_on_fail: bool = False,
-          hold_session: bool = True) -> str:
+          hold_session: bool = True,
+          timestamp: int = time.time_ns()) -> str:
     if cmd:
         if screen:
-            session_name = get_command_session_name(cmd)
+            session_name = get_command_session_name(cmd, timestamp)
             wrapped_cmd = [
                 "screen", "-S", session_name, "-L", "-dm", "bash", "-c",
                 quote(cmd + "; exec bash") if hold_session else quote(cmd)
             ]
             cmd = " ".join(wrapped_cmd)
         elif tmux:
-            session_name = get_command_session_name(cmd)
+            session_name = get_command_session_name(cmd, timestamp)
             wrapped_cmd = [
                 "tmux", "new", "-s", session_name, "-d", "bash", "-c",
                 quote(cmd + "; exec bash") if hold_session else quote(cmd)
@@ -2439,6 +2442,7 @@ def exec_cmd_on_head(config,
         use_internal_ip=True)
 
     hold_session = False if job_waiter else True
+    timestamp = time.time_ns()
     result = _exec(
         updater,
         cmd,
@@ -2448,11 +2452,12 @@ def exec_cmd_on_head(config,
         with_output=with_output,
         run_env=run_env,
         shutdown_after_run=False,
-        hold_session=hold_session)
+        hold_session=hold_session,
+        timestamp=timestamp)
 
     # if a job waiter is specified, we always wait for its completion.
     if job_waiter is not None:
-        job_waiter.wait_for_completion(node_id, cmd)
+        job_waiter.wait_for_completion(node_id, cmd, timestamp)
 
     return result
 

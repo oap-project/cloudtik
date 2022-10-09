@@ -162,12 +162,8 @@ def create_or_update_cluster(
         override_workspace_name: Optional[str] = None,
         no_config_cache: bool = False,
         redirect_command_output: Optional[bool] = False,
-        use_login_shells: bool = True,
-        no_controller_on_head: bool = False) -> Dict[str, Any]:
+        use_login_shells: bool = True) -> Dict[str, Any]:
     """Creates or updates an scaling cluster from a config json."""
-    # no_controller_on_head is an internal flag used by the K8s operator.
-    # If True, prevents autoscaling config sync to the head during cluster
-    # creation. See pull #13720.
     _cli_logger = call_context.cli_logger
 
     def handle_yaml_error(e):
@@ -218,9 +214,6 @@ def create_or_update_cluster(
                     key, override, config[key])
             config[key] = override
 
-    # Set no_controller_on_head to config so that bootstrap can generate the right commands
-    config["no_controller_on_head"] = no_controller_on_head
-
     handle_cli_override("min_workers", override_min_workers)
     handle_cli_override("max_workers", override_max_workers)
     handle_cli_override("cluster_name", override_cluster_name)
@@ -245,8 +238,7 @@ def create_or_update_cluster(
         restart_only=restart_only,
         yes=yes,
         redirect_command_output=redirect_command_output,
-        use_login_shells=use_login_shells,
-        no_controller_on_head=no_controller_on_head
+        use_login_shells=use_login_shells
     )
 
     if not is_use_internal_ip(config):
@@ -273,8 +265,7 @@ def _create_or_update_cluster(
         restart_only: bool,
         yes: bool,
         redirect_command_output: Optional[bool] = False,
-        use_login_shells: bool = True,
-        no_controller_on_head: bool = False):
+        use_login_shells: bool = True):
     global_event_system.execute_callback(
         get_cluster_uri(config),
         CreateClusterEvent.up_started,
@@ -291,7 +282,7 @@ def _create_or_update_cluster(
 
     try_logging_config(config)
     get_or_create_head_node(config, call_context, no_restart, restart_only,
-                            yes, no_controller_on_head)
+                            yes)
 
 
 def teardown_cluster(config_file: str, yes: bool, workers_only: bool,
@@ -743,7 +734,6 @@ def get_or_create_head_node(config: Dict[str, Any],
                             no_restart: bool,
                             restart_only: bool,
                             yes: bool,
-                            no_controller_on_head: bool = False,
                             _provider: Optional[NodeProvider] = None,
                             _runner: ModuleType = subprocess) -> None:
     """Create the cluster head node, which in turn creates the workers."""
@@ -875,7 +865,7 @@ def get_or_create_head_node(config: Dict[str, Any],
         # Even we don't need controller on head, we still need config and cluster keys on head
         # because head depends a lot on the cluster config file and cluster keys to do cluster
         # operations and connect to the worker.
-        # if not no_controller_on_head:
+
         # Return remote_config_file to avoid prematurely closing it.
         config, remote_config_file = _set_up_config_for_head_node(
             config, provider, no_restart)

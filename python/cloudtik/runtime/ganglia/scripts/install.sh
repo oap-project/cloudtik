@@ -28,7 +28,8 @@ function install_ganglia_monitor_python() {
     GANGLIA_LIB=/usr/lib/ganglia
     GANGLIA_MODULE_PYTHON=${GANGLIA_LIB}/modpython.so
     if [ ! -f "${GANGLIA_MODULE_PYTHON}" ]; then
-        wget -q -P /tmp https://d30257nes7d4fq.cloudfront.net/downloads/ganglia/modpython.so
+        arch=$(uname -m)
+        wget -q https://d30257nes7d4fq.cloudfront.net/downloads/ganglia/modpython-${arch}.so -O /tmp/modpython.so
         sudo cp /tmp/modpython.so ${GANGLIA_LIB} && sudo chmod 644 ${GANGLIA_MODULE_PYTHON}
     fi
     sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install -y ganglia-monitor-python python2.7-dev > /dev/null

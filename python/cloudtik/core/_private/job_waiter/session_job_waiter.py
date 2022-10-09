@@ -56,13 +56,13 @@ class SessionJobWaiter(JobWaiter):
                     raise e
         return False
 
-    def wait_for_completion(self, node_id: str, cmd: str, timeout: Optional[int] = None):
+    def wait_for_completion(self, node_id: str, cmd: str, timestamp: int, timeout: Optional[int] = None):
         start_time = time.time()
         if timeout is None:
             timeout = CLOUDTIK_JOB_WAITER_TIMEOUT_MAX
         interval = CLOUDTIK_WAIT_FOR_JOB_FINISHED_INTERVAL_S
 
-        session_name = get_command_session_name(cmd)
+        session_name = get_command_session_name(cmd, timestamp)
         session_exists = self._check_session(node_id, session_name)
         while time.time() - start_time < timeout:
             if not session_exists:
@@ -74,7 +74,7 @@ class SessionJobWaiter(JobWaiter):
                         session_name,
                         interval))
                 time.sleep(interval)
-                session_exists = self._check_session(session_name)
+                session_exists = self._check_session(node_id, session_name)
         raise TimeoutError(
             "Timed out while waiting for session {} to finish.".format(session_name))
 

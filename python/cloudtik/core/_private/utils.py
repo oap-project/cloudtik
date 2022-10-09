@@ -2736,7 +2736,9 @@ def print_json_formatted(json_bytes):
     click.echo(formatted_response)
 
 
-def get_command_session_name(cmd: str):
+def get_command_session_name(cmd: str, timestamp: int):
+    timestamp_str = "{}".format(timestamp)
     hasher = hashlib.sha1()
     hasher.update(cmd.encode("utf-8"))
+    hasher.update(timestamp_str.encode("utf-8"))
     return "cloudtik-" + hasher.hexdigest()

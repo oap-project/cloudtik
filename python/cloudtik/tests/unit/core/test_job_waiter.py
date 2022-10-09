@@ -12,7 +12,7 @@ class JobWaiterTest(JobWaiter):
         JobWaiter.__init__(self, config)
         self.job_waiters_in_chain = []
 
-    def wait_for_completion(self, node_id: str, cmd: str, timeout: Optional[int] = None):
+    def wait_for_completion(self, node_id: str, cmd: str, timestamp: int, timeout: Optional[int] = None):
         pass
 
 

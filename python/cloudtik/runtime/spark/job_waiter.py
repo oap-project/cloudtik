@@ -14,7 +14,7 @@ class SparkJobWaiter(JobWaiter):
         json_object = json.loads(response)
         return json_object["clusterMetrics"]["appsPending"], json_object["clusterMetrics"]["appsRunning"]
 
-    def wait_for_completion(self, node_id: str, cmd: str, timeout: Optional[int] = None):
+    def wait_for_completion(self, node_id: str, cmd: str, timestamp: int, timeout: Optional[int] = None):
         start_time = time.time()
         if timeout is None:
             timeout = CLOUDTIK_JOB_WAITER_TIMEOUT_MAX

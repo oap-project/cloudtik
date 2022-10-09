@@ -1172,7 +1172,7 @@ def _exec_cluster(config: Dict[str, Any],
 
     # if a job waiter is specified, we always wait for its completion.
     if job_waiter is not None:
-        job_waiter.wait_for_completion(cmd)
+        job_waiter.wait_for_completion(head_node, cmd)
 
     # if the cmd is not run with screen or tmux
     # or in the future we can check the screen or tmux session completion
@@ -2288,7 +2288,8 @@ def exec_on_nodes(
             tmux=tmux,
             port_forward=port_forward,
             with_output=with_output,
-            parallel=parallel)
+            parallel=parallel,
+            job_waiter_name=job_waiter_name)
 
 
 def _exec_node_from_head(config: Dict[str, Any],
@@ -2301,7 +2302,8 @@ def _exec_node_from_head(config: Dict[str, Any],
                          tmux: bool = False,
                          port_forward: Optional[Port_forward] = None,
                          with_output: bool = False,
-                         parallel: bool = True) -> str:
+                         parallel: bool = True,
+                         job_waiter_name: Optional[str] = None) -> str:
 
     # execute exec on head with the cmd
     cmds = [
@@ -2327,21 +2329,27 @@ def _exec_node_from_head(config: Dict[str, Any],
     else:
         cmds += ["--no-parallel"]
 
+    if job_waiter_name:
+        cmds += ["--job-waiter={}".format(job_waiter_name)]
+
     # TODO (haifeng): handle port forward and with_output for two state cases
     final_cmd = " ".join(cmds)
 
+    job_waiter = _create_job_waiter(
+        config, call_context, job_waiter_name)
     return _exec_cluster(
         config,
         call_context=call_context,
         cmd=final_cmd,
         run_env="auto",
-        screen=False,
-        tmux=False,
+        screen=screen if job_waiter else False,
+        tmux=tmux if job_waiter else False,
         stop=False,
         start=False,
         port_forward=port_forward,
         with_output=with_output,
-        _allow_uninitialized_state=False)
+        _allow_uninitialized_state=False,
+        job_waiter=job_waiter)
 
 
 def attach_worker(config_file: str,
@@ -2409,12 +2417,17 @@ def exec_cmd_on_head(config,
                      screen: bool = False,
                      tmux: bool = False,
                      port_forward: Optional[Port_forward] = None,
-                     with_output: bool = False) -> str:
+                     with_output: bool = False,
+                     job_waiter_name: Optional[str] = None) -> str:
     """Runs a command on the specified node from head."""
 
     assert not (screen and tmux), "Can specify only one of `screen` or `tmux`."
     assert run_env in RUN_ENV_TYPES, "--run_env must be in {}".format(
         RUN_ENV_TYPES)
+
+    # create job waiter, None if no job waiter specified
+    job_waiter = _create_job_waiter(
+        config, call_context, job_waiter_name)
 
     updater = create_node_updater_for_exec(
         config=config,
@@ -2425,6 +2438,7 @@ def exec_cmd_on_head(config,
         is_head_node=False,
         use_internal_ip=True)
 
+    hold_session = False if job_waiter else True
     result = _exec(
         updater,
         cmd,
@@ -2433,7 +2447,12 @@ def exec_cmd_on_head(config,
         port_forward=port_forward,
         with_output=with_output,
         run_env=run_env,
-        shutdown_after_run=False)
+        shutdown_after_run=False,
+        hold_session=hold_session)
+
+    # if a job waiter is specified, we always wait for its completion.
+    if job_waiter is not None:
+        job_waiter.wait_for_completion(node_id, cmd)
 
     return result
 
@@ -2483,7 +2502,8 @@ def exec_node_on_head(
         tmux: bool = False,
         port_forward: Optional[Port_forward] = None,
         with_output: bool = False,
-        parallel: bool = True):
+        parallel: bool = True,
+        job_waiter_name: Optional[str] = None):
     config = load_head_cluster_config()
     call_context = cli_call_context()
     provider = _get_node_provider(config["provider"], config["cluster_name"])
@@ -2504,7 +2524,8 @@ def exec_node_on_head(
             run_env=run_env,
             screen=screen, tmux=tmux,
             port_forward=port_forward,
-            with_output=with_output)
+            with_output=with_output,
+            job_waiter_name=job_waiter_name)
 
     total_nodes = len(nodes)
     if parallel and total_nodes > 1:

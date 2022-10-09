@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional
 
 from cloudtik.core._private.call_context import CallContext
 from cloudtik.core._private.cli_logger import cli_logger
-from cloudtik.core._private.cluster.cluster_utils import run_on_cluster
+from cloudtik.core._private.cluster.cluster_utils import run_on_node
 from cloudtik.core._private.constants import CLOUDTIK_WAIT_FOR_JOB_FINISHED_INTERVAL_S, CLOUDTIK_JOB_WAITER_TIMEOUT_MAX
 from cloudtik.core._private.utils import get_command_session_name
 from cloudtik.core.job_waiter import JobWaiter
@@ -27,7 +27,7 @@ class SessionJobWaiter(JobWaiter):
         self.call_context = CallContext()
         self.call_context.set_call_from_api(True)
 
-    def _check_session(self, session_name):
+    def _check_session(self, node_id: str, session_name):
         cmd = "cloudtik run-script "
         cmd += self.session_check_script
         cmd += " "
@@ -36,9 +36,10 @@ class SessionJobWaiter(JobWaiter):
         retry = CHECK_SESSION_RETRY
         while retry > 0:
             try:
-                output = run_on_cluster(
+                output = run_on_node(
                     config=self.config,
                     call_context=self.call_context,
+                    node_id=node_id,
                     cmd=cmd,
                     with_output=True)
                 if output is not None:
@@ -55,14 +56,14 @@ class SessionJobWaiter(JobWaiter):
                     raise e
         return False
 
-    def wait_for_completion(self, cmd: str, timeout: Optional[int] = None):
+    def wait_for_completion(self, node_id: str, cmd: str, timeout: Optional[int] = None):
         start_time = time.time()
         if timeout is None:
             timeout = CLOUDTIK_JOB_WAITER_TIMEOUT_MAX
         interval = CLOUDTIK_WAIT_FOR_JOB_FINISHED_INTERVAL_S
 
         session_name = get_command_session_name(cmd)
-        session_exists = self._check_session(session_name)
+        session_exists = self._check_session(node_id, session_name)
         while time.time() - start_time < timeout:
             if not session_exists:
                 cli_logger.print("Session {} finished.", session_name)

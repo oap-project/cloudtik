@@ -108,8 +108,13 @@ def attach(node_ip, screen, tmux, new, port_forward, host):
     help="Whether to capture command output.")
 @click.option(
     "--parallel/--no-parallel", is_flag=True, default=True, help="Whether the run the commands on nodes in parallel.")
+@click.option(
+    "--job-waiter",
+    required=False,
+    type=str,
+    help="The job waiter to be used to check the completion of the job.")
 @add_click_logging_options
-def exec(cmd, node_ip, all_nodes, run_env, screen, tmux, port_forward, with_output, parallel):
+def exec(cmd, node_ip, all_nodes, run_env, screen, tmux, port_forward, with_output, parallel, job_waiter):
     """Execute command on the worker node from head."""
     port_forward = [(port, port) for port in list(port_forward)]
     exec_node_on_head(
@@ -121,7 +126,8 @@ def exec(cmd, node_ip, all_nodes, run_env, screen, tmux, port_forward, with_outp
         tmux,
         port_forward,
         with_output=with_output,
-        parallel=parallel)
+        parallel=parallel,
+        job_waiter_name=job_waiter)
 
 
 @head.command()

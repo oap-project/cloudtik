@@ -1,0 +1,126 @@
+From 2418ac0dad6f41539db6e32a71ceba8193e406b2 Mon Sep 17 00:00:00 2001
+From: haojin <hao.jin@intel.com>
+Date: Wed, 28 Sep 2022 11:59:06 +0800
+Subject: [PATCH] Support DISTINCT before INTERSECT
+
+---
+ .../sql/catalyst/optimizer/Optimizer.scala    | 52 +++++++++++++++++--
+ .../apache/spark/sql/internal/SQLConf.scala   | 24 +++++++++
+ 2 files changed, 73 insertions(+), 3 deletions(-)
+
+diff --git a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/Optimizer.scala b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/Optimizer.scala
+index ea901336e1..58e21a154d 100644
+--- a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/Optimizer.scala
++++ b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/Optimizer.scala
+@@ -1966,6 +1966,13 @@ object ReplaceDeduplicateWithAggregate extends Rule[LogicalPlan] {
+  *   SELECT a1, a2 FROM Tab1 INTERSECT SELECT b1, b2 FROM Tab2
+  *   ==>  SELECT DISTINCT a1, a2 FROM Tab1 LEFT SEMI JOIN Tab2 ON a1<=>b1 AND a2<=>b2
+  * }}}
++ * If spark.sql.optimizer.distinctBeforeIntersect.enabled is set true, try to pushDown
++ * distinct through join to reduce data before shuffle operation.
++ * {{{
++ *   SELECT a1, a2 FROM Tab1 INTERSECT SELECT b1, b2 FROM Tab2
++ *   ==>  (SELECT DISTINCT a1, a2 FROM Tab1) LEFT SEMI JOIN
++ *   (SELECT DISTINCT b1, b2 FROM Tab2) ON a1<=>b1 AND a2<=>b2
++ * }}}
+  *
+  * Note:
+  * 1. This rule is only applicable to INTERSECT DISTINCT. Do not use it for INTERSECT ALL.
+@@ -1975,10 +1982,49 @@ object ReplaceDeduplicateWithAggregate extends Rule[LogicalPlan] {
+ object ReplaceIntersectWithSemiJoin extends Rule[LogicalPlan] {
+   def apply(plan: LogicalPlan): LogicalPlan = plan.transformWithPruning(
+     _.containsPattern(INTERSECT), ruleId) {
+-    case Intersect(left, right, false) =>
++    case i @ Intersect(left, right, false) =>
+       assert(left.output.size == right.output.size)
+-      val joinCond = left.output.zip(right.output).map { case (l, r) => EqualNullSafe(l, r) }
+-      Distinct(Join(left, right, LeftSemi, joinCond.reduceLeftOption(And), JoinHint.NONE))
++      if (conf.distinctPushDown) {
++        pushDownDistinctThroughJoin(i)
++      } else {
++        val joinCond = left.output.zip(right.output).map { case (l, r) => EqualNullSafe(l, r) }
++        Distinct(Join(left, right, LeftSemi, joinCond.reduceLeftOption(And), JoinHint.NONE))
++      }
++  }
++
++  private def pushDownDistinctThroughJoin(plan: LogicalPlan): LogicalPlan = {
++    plan match {
++      case Intersect(left, right, false) =>
++        var leftPlan = pushDownDistinctThroughJoin(left)
++        var rightPlan = pushDownDistinctThroughJoin(right)
++        val pushLeftHasBenefit = pushDistinctHasBenefit(left)
++        val pushRightHasBenefit = pushDistinctHasBenefit(right)
++        leftPlan = if (pushLeftHasBenefit) leftPlan else left
++        rightPlan = if (pushRightHasBenefit) rightPlan else right
++        assert(leftPlan.output.size == rightPlan.output.size)
++        val joinCond = leftPlan.output.zip(rightPlan.output).map {
++          case (l, r) => EqualNullSafe(l, r) }
++
++        if (pushLeftHasBenefit && pushRightHasBenefit) {
++          Join(leftPlan, rightPlan, LeftSemi, joinCond.reduceLeftOption(And), JoinHint.NONE)
++        } else {
++          Distinct(Join(leftPlan, rightPlan, LeftSemi,
++            joinCond.reduceLeftOption(And), JoinHint.NONE))
++        }
++      case _ =>
++        Distinct(plan)
++    }
++  }
++
++  def pushDistinctHasBenefit(plan: LogicalPlan): Boolean = {
++    val originRowCount = plan.stats.rowCount
++    val distinctRowCount = Distinct(plan).stats.rowCount
++    if (distinctRowCount.nonEmpty && originRowCount.nonEmpty) {
++      val ratio = distinctRowCount.get.toDouble / originRowCount.get.toDouble
++      ratio <= conf.distinctPushDownOptimizationBenefitRatio
++    } else {
++      conf.distinctPushDown
++    }
+   }
+ }
+ 
+diff --git a/sql/catalyst/src/main/scala/org/apache/spark/sql/internal/SQLConf.scala b/sql/catalyst/src/main/scala/org/apache/spark/sql/internal/SQLConf.scala
+index 8706ee5af5..5d71142002 100644
+--- a/sql/catalyst/src/main/scala/org/apache/spark/sql/internal/SQLConf.scala
++++ b/sql/catalyst/src/main/scala/org/apache/spark/sql/internal/SQLConf.scala
+@@ -3448,6 +3448,26 @@ object SQLConf {
+     .intConf
+     .createWithDefault(0)
+ 
++  val DISTINCT_BEFORE_INTERSECT_ENABLED =
++    buildConf("spark.sql.optimizer.distinctBeforeIntersect.enabled")
++      .internal()
++      .doc(s"When this property is set to true, the query optimizer pushes the DISTINCT operator " +
++        s"to the children of INTERSECT if it detects that the DISTINCT operator can make the " +
++        s"left-semi join a BroadcastHashJoin instead of a SortMergeJoin,")
++      .version("3.2.0")
++      .booleanConf
++      .createWithDefault(false)
++
++  val DISTINCT_PUSH_DOWN_OPTIMIZATION_BENEFIT_RATIO =
++    buildConf("spark.sql.optimizer.partialAggregationOptimization.benefitRatio")
++      .internal()
++      .doc("The reduction ratio lower than this config will introduce partial aggregations " +
++        "before join.")
++      .version("3.2.0")
++      .doubleConf
++      .checkValue(r => r >= 0 && r <= 1.0, "The benefit ratio must be positive number.")
++      .createWithDefault(0.3)
++
+   /**
+    * Holds information about keys that have been deprecated.
+    *
+@@ -4174,6 +4194,10 @@ class SQLConf extends Serializable with Logging {
+ 
+   def maxConcurrentOutputFileWriters: Int = getConf(SQLConf.MAX_CONCURRENT_OUTPUT_FILE_WRITERS)
+ 
++  def distinctPushDown: Boolean = getConf(SQLConf.DISTINCT_BEFORE_INTERSECT_ENABLED)
++
++  def distinctPushDownOptimizationBenefitRatio: Double = getConf(DISTINCT_PUSH_DOWN_OPTIMIZATION_BENEFIT_RATIO)
++
+   /** ********************** SQLConf functionality methods ************ */
+ 
+   /** Set Spark SQL configuration properties. */
+-- 
+2.20.1
+

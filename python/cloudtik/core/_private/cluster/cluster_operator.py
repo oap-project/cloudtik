@@ -3073,7 +3073,7 @@ def submit_and_exec(config: Dict[str, Any],
     )
     command_parts = []
     if urllib.parse.urlparse(script).scheme in ("http", "https"):
-        command_parts = ["wget", quote(script), "-P", "~/jobs;"]
+        command_parts = ["wget", quote(script), "-O", f"~/jobs/{target_name};"]
     else:
         # upload the script to cluster
         _rsync(

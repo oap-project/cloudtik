@@ -57,7 +57,7 @@ class Workspace:
 
 
 class Cluster:
-    def __init__(self, cluster_config: Union[dict, str], should_bootstrap: bool = True, use_config_cache: bool = True) -> None:
+    def __init__(self, cluster_config: Union[dict, str], should_bootstrap: bool = True, no_config_cache: bool = True) -> None:
         """Create a cluster object to operate on with this API.
 
         Args:
@@ -68,14 +68,14 @@ class Cluster:
         if isinstance(cluster_config, dict):
             if should_bootstrap:
                 self.config = _bootstrap_config(
-                    cluster_config, no_config_cache=use_config_cache)
+                    cluster_config, no_config_cache=no_config_cache)
             else:
                 self.config = cluster_config
         else:
             if not os.path.exists(cluster_config):
                 raise ValueError("Cluster config file not found: {}".format(cluster_config))
             self.config = _load_cluster_config(
-                cluster_config, should_bootstrap=should_bootstrap, no_config_cache=use_config_cache)
+                cluster_config, should_bootstrap=should_bootstrap, no_config_cache=no_config_cache)
 
         # TODO: Each call may need its own call context
         self.call_context = CallContext()

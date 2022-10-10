@@ -552,12 +552,12 @@ def _stop_docker_on_nodes(
     use_internal_ip = True if on_head else False
     container_name = config.get(DOCKER_CONFIG_KEY, {}).get("container_name")
 
-    def run_docker_stop(node, call_context):
+    def run_docker_stop(node_id, call_context):
         try:
             updater = create_node_updater_for_exec(
                 config=config,
                 call_context=call_context,
-                node_id=node,
+                node_id=node_id,
                 provider=provider,
                 start_commands=[],
                 is_head_node=False,
@@ -569,7 +569,7 @@ def _stop_docker_on_nodes(
                 with_output=False,
                 run_env="host")
         except Exception:
-            raise RuntimeError(f"Docker stop failed on {node}") from None
+            raise RuntimeError(f"Docker stop failed on {node_id}") from None
 
     _cli_logger = call_context.cli_logger
     docker_enabled = is_docker_enabled(config)

@@ -122,6 +122,10 @@ class HeadNotRunningError(RuntimeError):
     pass
 
 
+class ParallelTaskSkipped(RuntimeError):
+    pass
+
+
 def make_node_id(node_ip):
     return NODE_ID_PREFIX + node_ip
 
@@ -238,9 +242,10 @@ def publish_error(error_type,
             "redis_client needs to be specified!")
 
 
-def run_in_paralell_on_nodes(run_exec,
+def run_in_parallel_on_nodes(run_exec,
                              call_context: CallContext,
-                             nodes):
+                             nodes,
+                             max_workers=MAX_PARALLEL_EXEC_NODES) -> Tuple[int, int, int]:
     # This is to ensure that the parallel SSH calls below do not mess with
     # the users terminal.
     output_redir = call_context.is_output_redirected()
@@ -248,13 +253,34 @@ def run_in_paralell_on_nodes(run_exec,
     allow_interactive = call_context.does_allow_interactive()
     call_context.set_allow_interactive(False)
 
+    _cli_logger = call_context.cli_logger
+
+    failures = 0
+    skipped = 0
     with ThreadPoolExecutor(
-            max_workers=MAX_PARALLEL_EXEC_NODES) as executor:
+            max_workers=max_workers) as executor:
+        futures = {}
         for node_id in nodes:
-            executor.submit(
+            futures[node_id] = executor.submit(
                 run_exec, node_id=node_id, call_context=call_context.new_call_context())
+
+        for node_id, future in futures.items():
+            try:
+                result = future.result()
+            except ParallelTaskSkipped as se:
+                skipped += 1
+                _cli_logger.warning("Task skipped on node {}: {}", node_id, str(se)),
+            except Exception as e:
+                failures += 1
+                _cli_logger.error("Task failed on node {}: {}", node_id, str(e))
+
     call_context.set_output_redirected(output_redir)
     call_context.set_allow_interactive(allow_interactive)
+
+    if failures > 1 or skipped > 1:
+        _cli_logger.print("Total {} tasks failed. Total {} tasks skipped.", failures, skipped)
+
+    return len(nodes) - failures - skipped, failures, skipped
 
 
 def validate_config(config: Dict[str, Any]) -> None:

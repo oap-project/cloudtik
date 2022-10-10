@@ -47,14 +47,14 @@ from cloudtik.core._private.utils import hash_runtime_conf, \
     get_attach_command, is_alive_time, is_docker_enabled, get_proxy_bind_address_to_show, \
     with_runtime_environment_variables, get_nodes_info, \
     sum_worker_cpus, sum_worker_memory, get_useful_runtime_urls, get_enabled_runtimes, \
-    with_node_ip_environment_variables, run_in_paralell_on_nodes, get_commands_to_run, \
+    with_node_ip_environment_variables, run_in_parallel_on_nodes, get_commands_to_run, \
     cluster_booting_completed, load_head_cluster_config, get_runnable_command, get_cluster_uri, \
     with_head_node_ip_environment_variables, get_verified_runtime_list, get_commands_of_runtimes, \
     is_node_in_completed_status, check_for_single_worker_type, \
     get_node_specific_commands_of_runtimes, _get_node_specific_runtime_config, \
     RUNTIME_CONFIG_KEY, DOCKER_CONFIG_KEY, get_running_head_node, \
     get_nodes_for_runtime, with_script_args, encrypt_config, get_resource_requests_for_cpu, convert_nodes_to_cpus, \
-    HeadNotRunningError, get_cluster_head_ip, get_command_session_name
+    HeadNotRunningError, get_cluster_head_ip, get_command_session_name, ParallelTaskSkipped
 
 from cloudtik.core._private.providers import _get_node_provider, _NODE_PROVIDERS
 from cloudtik.core.tags import (
@@ -550,10 +550,9 @@ def _stop_docker_on_nodes(
         head: List[str],
         nodes: List[str]):
     use_internal_ip = True if on_head else False
+    container_name = config.get(DOCKER_CONFIG_KEY, {}).get("container_name")
 
-    def run_docker_stop(node, container_name, call_context):
-        _cli_logger = call_context.cli_logger
-
+    def run_docker_stop(node, call_context):
         try:
             updater = create_node_updater_for_exec(
                 config=config,
@@ -570,12 +569,11 @@ def _stop_docker_on_nodes(
                 with_output=False,
                 run_env="host")
         except Exception:
-            _cli_logger.warning(f"Docker stop failed on {node}")
+            raise RuntimeError(f"Docker stop failed on {node}") from None
 
     _cli_logger = call_context.cli_logger
     docker_enabled = is_docker_enabled(config)
     if docker_enabled and (on_head or not workers_only):
-        container_name = config.get(DOCKER_CONFIG_KEY, {}).get("container_name")
         if on_head:
             _cli_logger.print("Stopping docker containers on workers...")
             container_nodes = nodes
@@ -584,19 +582,10 @@ def _stop_docker_on_nodes(
             container_nodes = head
         # This is to ensure that the parallel SSH calls below do not mess with
         # the users terminal.
-        output_redir = call_context.is_output_redirected()
-        call_context.set_output_redirected(True)
-        allow_interactive = call_context.does_allow_interactive()
-        call_context.set_allow_interactive(False)
-
-        with ThreadPoolExecutor(
-                max_workers=MAX_PARALLEL_SHUTDOWN_WORKERS) as executor:
-            for node in container_nodes:
-                executor.submit(
-                    run_docker_stop, node=node, container_name=container_name,
-                    call_context=call_context.new_call_context())
-        call_context.set_output_redirected(output_redir)
-        call_context.set_allow_interactive(allow_interactive)
+        run_in_parallel_on_nodes(run_docker_stop,
+                                 call_context=call_context,
+                                 nodes=container_nodes,
+                                 max_workers=MAX_PARALLEL_SHUTDOWN_WORKERS)
         _cli_logger.print("Done stopping docker containers.")
 
 
@@ -2525,7 +2514,7 @@ def exec_node_on_head(
     total_nodes = len(nodes)
     if parallel and total_nodes > 1:
         cli_logger.print("Executing on {} nodes in parallel...", total_nodes)
-        run_in_paralell_on_nodes(run_exec_cmd_on_head,
+        run_in_parallel_on_nodes(run_exec_cmd_on_head,
                                  call_context=call_context,
                                  nodes=nodes)
     else:
@@ -2583,8 +2572,7 @@ def _start_node_on_head(
     def start_single_node_on_head(node_id, call_context):
         if not is_node_in_completed_status(provider, node_id):
             node_ip = provider.internal_ip(node_id)
-            cli_logger.print("Skip starting node {} as it is in setting up.", node_ip)
-            return
+            raise ParallelTaskSkipped("Skip starting node {} as it is in setting up.".format(node_ip))
 
         runtime_config = _get_node_specific_runtime_config(
             config, provider, node_id)
@@ -2622,25 +2610,33 @@ def _start_node_on_head(
         node_envs.update(node_runtime_envs)
         updater.exec_commands("Starting", start_commands, node_envs)
 
+    _cli_logger = call_context.cli_logger
+
     # First start on head if needed
     if node_head:
-        with cli_logger.group(
+        with _cli_logger.group(
                 "Starting on head: {}", head_node_ip):
-            start_single_node_on_head(node_head, call_context=call_context)
+            try:
+                start_single_node_on_head(node_head, call_context=call_context)
+            except ParallelTaskSkipped as e:
+                _cli_logger.print(str(e))
 
     total_workers = len(node_workers)
     if parallel and total_workers > 1:
-        cli_logger.print("Starting on {} workers in parallel...", total_workers)
-        run_in_paralell_on_nodes(start_single_node_on_head,
+        _cli_logger.print("Starting on {} workers in parallel...", total_workers)
+        run_in_parallel_on_nodes(start_single_node_on_head,
                                  call_context=call_context,
                                  nodes=node_workers)
     else:
         for i, node_id in enumerate(node_workers):
             node_ip = provider.internal_ip(node_id)
-            with cli_logger.group(
+            with _cli_logger.group(
                     "Starting on worker: {}", node_ip,
                     _numbered=("()", i + 1, total_workers)):
-                start_single_node_on_head(node_id, call_context=call_context)
+                try:
+                    start_single_node_on_head(node_id, call_context=call_context)
+                except ParallelTaskSkipped as e:
+                    _cli_logger.print(str(e))
 
 
 def start_node_from_head(config_file: str,
@@ -2834,11 +2830,9 @@ def _stop_node_on_head(
     head_node_ip = provider.internal_ip(head_node)
 
     def stop_single_node_on_head(node_id, call_context):
-        _cli_logger = call_context.cli_logger
         if not is_node_in_completed_status(provider, node_id):
             node_ip = provider.internal_ip(node_id)
-            _cli_logger.print("Skip stopping node {} as it is in setting up.", node_ip)
-            return
+            raise ParallelTaskSkipped("Skip stopping node {} as it is in setting up.".format(node_ip))
 
         runtime_config = _get_node_specific_runtime_config(
             config, provider, node_id)
@@ -2885,12 +2879,15 @@ def _stop_node_on_head(
     if node_head:
         with _cli_logger.group(
                 "Stopping on head: {}", head_node_ip):
-            stop_single_node_on_head(node_head, call_context=call_context)
+            try:
+                stop_single_node_on_head(node_head, call_context=call_context)
+            except ParallelTaskSkipped as e:
+                _cli_logger.print(str(e))
 
     total_workers = len(node_workers)
     if parallel and total_workers > 1:
         _cli_logger.print("Stopping on {} workers in parallel...", total_workers)
-        run_in_paralell_on_nodes(stop_single_node_on_head,
+        run_in_parallel_on_nodes(stop_single_node_on_head,
                                  call_context=call_context,
                                  nodes=node_workers)
     else:
@@ -2899,7 +2896,10 @@ def _stop_node_on_head(
             with _cli_logger.group(
                     "Stopping on worker: {}", node_ip,
                     _numbered=("()", i + 1, total_workers)):
-                stop_single_node_on_head(node_id, call_context=call_context)
+                try:
+                    stop_single_node_on_head(node_id, call_context=call_context)
+                except ParallelTaskSkipped as e:
+                    _cli_logger.print(str(e))
 
 
 def scale_cluster(config_file: str, yes: bool, override_cluster_name: Optional[str],

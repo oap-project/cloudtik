@@ -100,6 +100,10 @@
                     "type": "boolean",
                     "description": "don't require public ips"
                 },
+                "use_working_vpc": {
+                    "type": "boolean",
+                    "description": "When use_internal_ips is true, whether to use the working client vpc."
+                },
                 "namespace": {
                     "type": "string",
                     "description": "k8s namespace, if using k8s"

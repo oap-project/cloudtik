@@ -21,7 +21,7 @@ from cloudtik.core._private.event_system import (CreateClusterEvent,
                                                   global_event_system)
 from cloudtik.core._private.services import get_node_ip_address
 from cloudtik.core._private.utils import check_cidr_conflict, get_cluster_uri, is_use_internal_ip, \
-    is_managed_cloud_storage, is_use_managed_cloud_storage, is_worker_role_for_cloud_storage
+    is_managed_cloud_storage, is_use_managed_cloud_storage, is_worker_role_for_cloud_storage, is_use_working_vpc
 from cloudtik.core.workspace_provider import Existence, CLOUDTIK_MANAGED_CLOUD_STORAGE, \
     CLOUDTIK_MANAGED_CLOUD_STORAGE_URI
 from cloudtik.providers._private.aws.utils import LazyDefaultDict, \
@@ -469,8 +469,7 @@ def get_workspace_security_group(config, vpc_id, workspace_name):
 
 
 def get_workspace_internet_gateways(workspace_name, ec2, vpc_id):
-    vpc = ec2.Vpc(vpc_id)
-    igws = [igw for igw in vpc.internet_gateways.all() if igw.tags]
+    igws = [igw for igw in get_vpc_internet_gateways(ec2, vpc_id) if igw.tags]
 
     workspace_igws = [igw for igw in igws
                       for tag in igw.tags
@@ -498,6 +497,7 @@ def check_aws_workspace_existence(config):
     ec2_client = _resource_client("ec2", config)
     workspace_name = config["workspace_name"]
     managed_cloud_storage = is_managed_cloud_storage(config)
+    use_working_vpc = is_use_working_vpc(config)
 
     existing_resources = 0
     target_resources = AWS_WORKSPACE_TARGET_RESOURCES
@@ -517,20 +517,28 @@ def check_aws_workspace_existence(config):
          9.) Instance profiles
          10.) Check S3 bucket
     """
+    skipped_resources = 0
     vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
     if vpc_id is not None:
         existing_resources += 1
+        skipped_resources += 1 if use_working_vpc else 0
         # Network resources that depending on VPC
         if len(get_workspace_private_subnets(workspace_name, ec2, vpc_id)) >= AWS_VPC_SUBNETS_COUNT - 1:
             existing_resources += 1
         if len(get_workspace_public_subnets(workspace_name, ec2, vpc_id)) > 0:
             existing_resources += 1
-        if len(get_vpc_nat_gateways(ec2_client, vpc_id)) > 0:
+        if len(get_workspace_nat_gateways(workspace_name, ec2_client, vpc_id)) > 0:
             existing_resources += 1
+        elif len(get_vpc_nat_gateways(ec2_client, vpc_id)) > 0:
+            existing_resources += 1
+            skipped_resources += 1
         if len(get_workspace_private_route_tables(workspace_name, ec2, vpc_id)) > 0:
             existing_resources += 1
-        if len(get_vpc_internet_gateways(ec2, vpc_id)) > 0:
+        if len(get_workspace_internet_gateways(workspace_name, ec2, vpc_id)) > 0:
             existing_resources += 1
+        elif len(get_vpc_internet_gateways(ec2, vpc_id)) > 0:
+            existing_resources += 1
+            skipped_resources += 1
         if get_workspace_security_group(config, vpc_id, workspace_name) is not None:
             existing_resources += 1
         if len(get_vpc_endpoint_for_s3(ec2_client, vpc_id, workspace_name)) > 0:
@@ -548,12 +556,12 @@ def check_aws_workspace_existence(config):
             existing_resources += 1
             cloud_storage_existence = True
 
-    if existing_resources == 0:
+    if existing_resources <= skipped_resources:
         return Existence.NOT_EXIST
     elif existing_resources == target_resources:
         return Existence.COMPLETED
     else:
-        if existing_resources == 1 and cloud_storage_existence:
+        if existing_resources == skipped_resources + 1 and cloud_storage_existence:
             return Existence.STORAGE_ONLY
         return Existence.IN_COMPLETED
 
@@ -2039,11 +2047,15 @@ def _configure_vpc(config, workspace_name, ec2, ec2_client):
     if use_internal_ips:
         # No need to create new vpc
         vpc_id = get_current_vpc(config)
+        if vpc_id is None:
+            raise RuntimeError("Failed to get the VPC for the current machine. "
+                               "Please make sure your current machine is an AWS virtual machine.")
         vpc = ec2.Vpc(id=vpc_id)
         vpc.create_tags(Tags=[
             {'Key': 'Name', 'Value': 'cloudtik-{}-vpc'.format(workspace_name)},
             {'Key': AWS_WORKSPACE_VERSION_TAG_NAME, 'Value': AWS_WORKSPACE_VERSION_CURRENT}
         ])
+        cli_logger.print("Using the existing VPC: {} for workspace. Skip creation.".format(vpc_id))
     else:
 
         # Need to create a new vpc
@@ -2072,7 +2084,6 @@ def _configure_subnets_cidr(vpc):
 
             if check_cidr_conflict(tmp_cidr_block, cidr_blocks):
                 cidr_list.append(tmp_cidr_block)
-                print("Choose CIDR: {}".format(tmp_cidr_block))
 
             if len(cidr_list) == AWS_VPC_SUBNETS_COUNT:
                 break
@@ -2083,7 +2094,7 @@ def _configure_subnets_cidr(vpc):
 def get_current_vpc(config):
     client = _resource_client("ec2", config)
     ip_address = get_node_ip_address(address="8.8.8.8:53")
-    vpc_id = ""
+    vpc_id = None
     for Reservation in client.describe_instances().get("Reservations"):
         for instance in Reservation["Instances"]:
             if instance.get("PrivateIpAddress", "") == ip_address:

@@ -57,8 +57,8 @@ RUN wget https://d30257nes7d4fq.cloudfront.net/downloads/spark/spark-${SPARK_VER
 
 # Install python packages
 WORKDIR /home/cloudtik/
-RUN wget https://raw.githubusercontent.com/oap-project/cloudtik/main/docker/runtime/spark/requirements.txt -O /tmp/requirements.txt \
-    && export PATH="$HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH" \
+COPY requirements.txt /tmp/requirements.txt
+RUN export PATH="$HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH" \
     && pip install -r  /tmp/requirements.txt \
     && sudo rm /tmp/requirements.txt \
     && python -m spylon_kernel install --user

@@ -25,7 +25,7 @@ stop-head)
     # Make sure HADOOP_CLASSPATH is set
     export HADOOP_CLASSPATH=`$HADOOP_HOME/bin/hadoop classpath`
     $FLINK_HOME/bin/historyserver.sh stop > /dev/null
-    jupyter lab stop
+    kill $(pgrep jupyter)
     ;;
 start-worker)
     $HADOOP_HOME/bin/yarn --daemon start nodemanager

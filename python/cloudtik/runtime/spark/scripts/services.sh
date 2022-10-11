@@ -21,7 +21,7 @@ start-head)
 stop-head)
     $HADOOP_HOME/bin/yarn --daemon stop resourcemanager
     $SPARK_HOME/sbin/stop-history-server.sh
-    jupyter lab stop
+    kill $(pgrep jupyter)
     ;;
 start-worker)
     $HADOOP_HOME/bin/yarn --daemon start nodemanager

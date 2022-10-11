@@ -33,9 +33,6 @@ from cloudtik.providers._private.utils import StorageTestingError
 logger = logging.getLogger(__name__)
 
 AWS_RESOURCE_NAME_PREFIX = "cloudtik"
-AWS_DEFAULT_INSTANCE_PROFILE = AWS_RESOURCE_NAME_PREFIX + "-v1"
-AWS_DEFAULT_IAM_ROLE = AWS_RESOURCE_NAME_PREFIX + "-v1"
-
 SECURITY_GROUP_TEMPLATE = AWS_RESOURCE_NAME_PREFIX + "-{}"
 
 AWS_WORKSPACE_VERSION_TAG_NAME = "cloudtik-workspace-version"
@@ -823,7 +820,7 @@ def _configure_prefer_spot_node(config):
 
     # if no such key, we consider user don't want to override
     if prefer_spot_node is None:
-        return
+        return config
 
     # User override, set or remove spot settings for worker node types
     node_types = config["available_node_types"]
@@ -836,54 +833,15 @@ def _configure_prefer_spot_node(config):
         _configure_spot_for_node_type(
             node_type_data, prefer_spot_node)
 
+    return config
+
 
 def bootstrap_aws(config):
     workspace_name = config.get("workspace_name", "")
     if workspace_name == "":
-        config = bootstrap_aws_default(config)
-    else:
-        config = bootstrap_aws_from_workspace(config)
+        raise RuntimeError("Workspace name is not specified in cluster configuration.")
 
-    _configure_prefer_spot_node(config)
-    return config
-
-
-def bootstrap_aws_default(config):
-    # create a copy of the input config to modify
-    config = copy.deepcopy(config)
-
-    # Used internally to store head IAM role.
-    config["head_node"] = {}
-
-    # If a LaunchTemplate is provided, extract the necessary fields for the
-    # config stages below.
-    config = _configure_from_launch_template(config)
-
-    # If NetworkInterfaces are provided, extract the necessary fields for the
-    # config stages below.
-    config = _configure_from_network_interfaces(config)
-
-    # The head node needs to have an IAM role that allows it to create further
-    # EC2 instances.
-    config = _configure_iam_role(config)
-
-    # Configure SSH access, using an existing key pair if possible.
-    config = _configure_key_pair(config)
-    global_event_system.execute_callback(
-        get_cluster_uri(config),
-        CreateClusterEvent.ssh_keypair_downloaded,
-        {"ssh_key_path": config["auth"]["ssh_private_key"]})
-
-    # Pick a reasonable subnet if not specified by the user.
-    config = _configure_subnet(config)
-
-    # Cluster workers should be in a security group that permits traffic within
-    # the group, and also SSH access from outside.
-    config = _configure_security_group(config)
-
-    # Provide a helpful message for missing AMI.
-    _configure_ami(config)
-
+    config = bootstrap_aws_from_workspace(config)
     return config
 
 
@@ -922,6 +880,7 @@ def bootstrap_aws_from_workspace(config):
     # Provide a helpful message for missing AMI.
     config = _configure_ami(config)
 
+    config = _configure_prefer_spot_node(config)
     return config
 
 
@@ -989,25 +948,6 @@ def _get_workspace_head_nodes(provider_config, workspace_name):
 
     nodes = list(ec2.instances.filter(Filters=filters))
     return nodes
-
-
-def _configure_iam_role(config):
-    head_node_type = config["head_node_type"]
-    head_node_config = config["available_node_types"][head_node_type][
-        "node_config"]
-    if "IamInstanceProfile" in head_node_config:
-        _set_config_info(head_instance_profile_src="config")
-        return config
-    _set_config_info(head_instance_profile_src="default")
-
-    profile = _create_or_update_instance_profile(config,
-                                                 AWS_DEFAULT_INSTANCE_PROFILE,
-                                                 AWS_DEFAULT_IAM_ROLE)
-    # Add IAM role to "head_node" field so that it is applied only to
-    # the head node -- not to workers with the same node type as the head.
-    config["head_node"]["IamInstanceProfile"] = {"Arn": profile.arn}
-
-    return config
 
 
 def _configure_cloud_storage_from_workspace(config):
@@ -2103,81 +2043,6 @@ def get_current_vpc(config):
     return vpc_id
 
 
-def _configure_subnet(config):
-    ec2 = _resource("ec2", config)
-    use_internal_ips = is_use_internal_ip(config)
-
-    # If head or worker security group is specified, filter down to subnets
-    # belonging to the same VPC as the security group.
-    sg_ids = []
-    for node_type in config["available_node_types"].values():
-        node_config = node_type["node_config"]
-        sg_ids.extend(node_config.get("SecurityGroupIds", []))
-    if sg_ids:
-        vpc_id_of_sg = _get_vpc_id_of_sg(sg_ids, config)
-    else:
-        vpc_id_of_sg = None
-
-    try:
-        candidate_subnets = ec2.subnets.all()
-        if vpc_id_of_sg:
-            candidate_subnets = [
-                s for s in candidate_subnets if s.vpc_id == vpc_id_of_sg
-            ]
-        subnets = sorted(
-            (s for s in candidate_subnets if s.state == "available" and (
-                use_internal_ips or s.map_public_ip_on_launch)),
-            reverse=True,  # sort from Z-A
-            key=lambda subnet: subnet.availability_zone)
-    except botocore.exceptions.ClientError as exc:
-        handle_boto_error(exc, "Failed to fetch available subnets from AWS.")
-        raise exc
-
-    if not subnets:
-        cli_logger.abort(
-            "No usable subnets found, try manually creating an instance in "
-            "your specified region to populate the list of subnets "
-            "and trying this again.\n"
-            "Note that the subnet must map public IPs "
-            "on instance launch unless you set `use_internal_ips: true` in "
-            "the `provider` config.")
-
-    if "availability_zone" in config["provider"]:
-        azs = config["provider"]["availability_zone"].split(",")
-        subnets = [
-            s for az in azs  # Iterate over AZs first to maintain the ordering
-            for s in subnets if s.availability_zone == az
-        ]
-        if not subnets:
-            cli_logger.abort(
-                "No usable subnets matching availability zone {} found.\n"
-                "Choose a different availability zone or try "
-                "manually creating an instance in your specified region "
-                "to populate the list of subnets and trying this again.",
-                config["provider"]["availability_zone"])
-
-    # Use subnets in only one VPC, so that _configure_security_groups only
-    # needs to create a security group in this one VPC. Otherwise, we'd need
-    # to set up security groups in all of the user's VPCs and set up networking
-    # rules to allow traffic between these groups.
-    # See pull #14868.
-    subnet_ids = [
-        s.subnet_id for s in subnets if s.vpc_id == subnets[0].vpc_id
-    ]
-    # map from node type key -> source of SubnetIds field
-    subnet_src_info = {}
-    _set_config_info(subnet_src=subnet_src_info)
-    for key, node_type in config["available_node_types"].items():
-        node_config = node_type["node_config"]
-        if "SubnetIds" not in node_config:
-            subnet_src_info[key] = "default"
-            node_config["SubnetIds"] = subnet_ids
-        else:
-            subnet_src_info[key] = "config"
-
-    return config
-
-
 def _configure_subnet_from_workspace(config):
     ec2 = _resource("ec2", config)
     ec2_client = _resource_client("ec2", config)
@@ -2244,39 +2109,6 @@ def _get_vpc_id_of_sg(sg_ids: List[str], config: Dict[str, Any]) -> str:
     assert len(vpc_ids) > 0, no_sg_msg
 
     return vpc_ids[0]
-
-
-def _configure_security_group(config):
-    # map from node type key -> source of SecurityGroupIds field
-    security_group_info_src = {}
-    _set_config_info(security_group_src=security_group_info_src)
-
-    for node_type_key in config["available_node_types"]:
-        security_group_info_src[node_type_key] = "config"
-
-    node_types_to_configure = [
-        node_type_key
-        for node_type_key, node_type in config["available_node_types"].items()
-        if "SecurityGroupIds" not in node_type["node_config"]
-    ]
-    if not node_types_to_configure:
-        return config  # have user-defined groups
-    head_node_type = config["head_node_type"]
-    if config["head_node_type"] in node_types_to_configure:
-        # configure head node security group last for determinism
-        # in tests
-        node_types_to_configure.remove(head_node_type)
-        node_types_to_configure.append(head_node_type)
-    security_groups = _upsert_security_groups(config, node_types_to_configure)
-
-    for node_type_key in node_types_to_configure:
-        node_config = config["available_node_types"][node_type_key][
-            "node_config"]
-        sg = security_groups[node_type_key]
-        node_config["SecurityGroupIds"] = [sg.id]
-        security_group_info_src[node_type_key] = "default"
-
-    return config
 
 
 def _configure_security_group_from_workspace(config):
@@ -2749,141 +2581,6 @@ def _configure_node_cfg_from_launch_template(
     node_cfg.update(lt_data)
 
     return node_cfg
-
-
-def _configure_from_network_interfaces(config: Dict[str, Any]) \
-        -> Dict[str, Any]:
-    """
-    Copies all network interface subnet and security group IDs up to their
-    parent node config for each available node type.
-
-    Args:
-        config (Dict[str, Any]): config to bootstrap
-    Returns:
-        config (Dict[str, Any]): The input config with all network interface
-        subnet and security group IDs copied into the node config of all
-        available node types. If no network interfaces are found, then the
-        config is returned unchanged.
-    Raises:
-        ValueError: If [1] subnet and security group IDs exist at both the
-        node config and network interface levels, [2] any network interface
-        doesn't have a subnet defined, or [3] any network interface doesn't
-        have a security group defined.
-    """
-    # create a copy of the input config to modify
-    config = copy.deepcopy(config)
-
-    node_types = config["available_node_types"]
-    for name, node_type in node_types.items():
-        node_types[name] = _configure_node_type_from_network_interface(
-            node_type)
-    return config
-
-
-def _configure_node_type_from_network_interface(node_type: Dict[str, Any]) \
-        -> Dict[str, Any]:
-    """
-    Copies all network interface subnet and security group IDs up to the
-    parent node config for the given node type.
-
-    Args:
-        node_type (Dict[str, Any]): node type config to bootstrap
-    Returns:
-        node_type (Dict[str, Any]): The input config with all network interface
-        subnet and security group IDs copied into the node config of the
-        given node type. If no network interfaces are found, then the
-        config is returned unchanged.
-    Raises:
-        ValueError: If [1] subnet and security group IDs exist at both the
-        node config and network interface levels, [2] any network interface
-        doesn't have a subnet defined, or [3] any network interface doesn't
-        have a security group defined.
-    """
-    # create a copy of the input config to modify
-    node_type = copy.deepcopy(node_type)
-
-    node_cfg = node_type["node_config"]
-    if "NetworkInterfaces" in node_cfg:
-        node_type["node_config"] = \
-            _configure_subnets_and_groups_from_network_interfaces(node_cfg)
-    return node_type
-
-
-def _configure_subnets_and_groups_from_network_interfaces(
-        node_cfg: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Copies all network interface subnet and security group IDs into their
-    parent node config.
-
-    Args:
-        node_cfg (Dict[str, Any]): node config to bootstrap
-    Returns:
-        node_cfg (Dict[str, Any]): node config with all copied network
-        interface subnet and security group IDs
-    Raises:
-        ValueError: If [1] subnet and security group IDs exist at both the
-        node config and network interface levels, [2] any network interface
-        doesn't have a subnet defined, or [3] any network interface doesn't
-        have a security group defined.
-    """
-    # create a copy of the input config to modify
-    node_cfg = copy.deepcopy(node_cfg)
-
-    # If NetworkInterfaces are defined, SubnetId and SecurityGroupIds
-    # can't be specified in the same node type config.
-    conflict_keys = ["SubnetId", "SubnetIds", "SecurityGroupIds"]
-    if any(conflict in node_cfg for conflict in conflict_keys):
-        raise ValueError(
-            "If NetworkInterfaces are defined, subnets and security groups "
-            "must ONLY be given in each NetworkInterface.")
-    subnets = _subnets_in_network_config(node_cfg)
-    if not all(subnets):
-        raise ValueError(
-            "NetworkInterfaces are defined but at least one is missing a "
-            "subnet. Please ensure all interfaces have a subnet assigned.")
-    security_groups = _security_groups_in_network_config(node_cfg)
-    if not all(security_groups):
-        raise ValueError(
-            "NetworkInterfaces are defined but at least one is missing a "
-            "security group. Please ensure all interfaces have a security "
-            "group assigned.")
-    node_cfg["SubnetIds"] = subnets
-    node_cfg["SecurityGroupIds"] = list(itertools.chain(*security_groups))
-
-    return node_cfg
-
-
-def _subnets_in_network_config(config: Dict[str, Any]) -> List[str]:
-    """
-    Returns all subnet IDs found in the given node config's network interfaces.
-
-    Args:
-        config (Dict[str, Any]): node config
-    Returns:
-        subnet_ids (List[str]): List of subnet IDs for all network interfaces,
-        or an empty list if no network interfaces are defined. An empty string
-        is returned for each missing network interface subnet ID.
-    """
-    return [
-        ni.get("SubnetId", "") for ni in config.get("NetworkInterfaces", [])
-    ]
-
-
-def _security_groups_in_network_config(config: Dict[str, Any]) \
-        -> List[List[str]]:
-    """
-    Returns all security group IDs found in the given node config's network
-    interfaces.
-
-    Args:
-        config (Dict[str, Any]): node config
-    Returns:
-        security_group_ids (List[List[str]]): List of security group ID lists
-        for all network interfaces, or an empty list if no network interfaces
-        are defined. An empty list is returned for each missing network
-        interface security group list.
-    """
-    return [ni.get("Groups", []) for ni in config.get("NetworkInterfaces", [])]
 
 
 def verify_s3_storage(provider_config: Dict[str, Any]):

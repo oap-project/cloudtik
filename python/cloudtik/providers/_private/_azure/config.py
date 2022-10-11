@@ -1678,7 +1678,7 @@ def bootstrap_azure_from_workspace(config):
 
     config = _configure_key_pair(config)
     config = _configure_workspace_resource(config)
-    _configure_prefer_spot_node(config)
+    config = _configure_prefer_spot_node(config)
     return config
 
 
@@ -1873,7 +1873,7 @@ def _configure_prefer_spot_node(config):
 
     # if no such key, we consider user don't want to override
     if prefer_spot_node is None:
-        return
+        return config
 
     # User override, set or remove spot settings for worker node types
     node_types = config["available_node_types"]
@@ -1885,6 +1885,8 @@ def _configure_prefer_spot_node(config):
         node_type_data = node_types[node_type_name]
         _configure_spot_for_node_type(
             node_type_data, prefer_spot_node)
+
+    return config
 
 
 def bootstrap_azure(config):

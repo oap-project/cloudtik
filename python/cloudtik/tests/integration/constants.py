@@ -24,7 +24,7 @@ KAFKA_BENCHMARK = {
 
 PRESTO_BENCHMARK = {
     "script_file": "https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/presto/scripts/tpcds-tpch-power-test.sh",
-    "script_args": "--workload=tpcds --scale=1 --iteration=2"
+    "script_args": " --workload=tpcds --scale=1 --iteration=1"
 }
 
 runtime_additional_conf = {

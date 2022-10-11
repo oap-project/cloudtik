@@ -945,7 +945,6 @@ def _create_resource_group(config, resource_client):
         else:
             cli_logger.print("Will use the current node resource group: {}.", resource_group_name)
     else:
-
         # Need to create a new resource_group
         resource_group_name = get_workspace_resource_group_name(workspace_name, resource_client)
         if resource_group_name is None:
@@ -1682,6 +1681,7 @@ def bootstrap_azure_from_workspace(config):
 
     config = _configure_key_pair(config)
     config = _configure_workspace_resource(config)
+    _configure_prefer_spot_node(config)
     return config
 
 
@@ -1893,18 +1893,9 @@ def _configure_prefer_spot_node(config):
 def bootstrap_azure(config):
     workspace_name = config.get("workspace_name", "")
     if workspace_name == "":
-        config = bootstrap_azure_default(config)
-    else:
-        config = bootstrap_azure_from_workspace(config)
+        raise RuntimeError("Workspace name is not specified in cluster configuration.")
 
-    _configure_prefer_spot_node(config)
-    return config
-
-
-def bootstrap_azure_default(config):
-    config = _configure_key_pair(config)
-    config = _configure_resource_group(config)
-    config = _configure_provision_public_ip(config)
+    config = bootstrap_azure_from_workspace(config)
     return config
 
 
@@ -1914,75 +1905,6 @@ def bootstrap_azure_for_api(config):
         raise ValueError(f"Workspace name is not specified.")
 
     return _configure_resource_group_from_workspace(config)
-
-
-def _configure_provision_public_ip(config):
-    use_internal_ips = is_use_internal_ip(config)
-
-    for key, node_type in config["available_node_types"].items():
-        node_config = node_type["node_config"]
-        node_config["azure_arm_parameters"]["provisionPublicIp"] = False if use_internal_ips else True
-
-    return config
-
-
-def _configure_resource_group(config):
-    # TODO: look at availability sets
-    # https://docs.microsoft.com/en-us/azure/virtual-machines/windows/tutorial-availability-sets
-    subscription_id = config["provider"].get("subscription_id")
-    if subscription_id is None:
-        subscription_id = get_cli_profile().get_subscription_id()
-    credential = AzureCliCredential()
-    resource_client = ResourceManagementClient(credential,
-                                               subscription_id)
-    config["provider"]["subscription_id"] = subscription_id
-    logger.info("Using subscription id: %s", subscription_id)
-
-    assert "resource_group" in config["provider"], (
-        "Provider config must include resource_group field")
-    resource_group = config["provider"]["resource_group"]
-
-    assert "location" in config["provider"], (
-        "Provider config must include location field")
-    params = {"location": config["provider"]["location"]}
-
-    if "tags" in config["provider"]:
-        params["tags"] = config["provider"]["tags"]
-
-    logger.info("Creating/Updating resource group: %s", resource_group)
-    resource_client.resource_groups.create_or_update(
-        resource_group_name=resource_group, parameters=params)
-
-    # load the template file
-    current_path = Path(__file__).parent
-    template_path = current_path.joinpath("azure-config-template.json")
-    with open(template_path, "r") as template_fp:
-        template = json.load(template_fp)
-
-    # choose a random subnet, skipping most common value of 0
-    random.seed(resource_group)
-    subnet_mask = "10.{}.0.0/16".format(random.randint(1, 254))
-
-    parameters = {
-        "properties": {
-            "mode": DeploymentMode.incremental,
-            "template": template,
-            "parameters": {
-                "subnet": {
-                    "value": subnet_mask
-                }
-            }
-        }
-    }
-
-    create_or_update = get_azure_sdk_function(
-        client=resource_client.deployments, function_name="create_or_update")
-    create_or_update(
-        resource_group_name=resource_group,
-        deployment_name="cloudtik-config",
-        parameters=parameters).wait()
-
-    return config
 
 
 def _configure_key_pair(config):

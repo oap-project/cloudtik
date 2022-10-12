@@ -36,14 +36,9 @@ logger = logging.getLogger(__name__)
 VERSION = "v1"
 
 GCP_RESOURCE_NAME_PREFIX = "cloudtik"
-GCP_DEFAULT_SERVICE_ACCOUNT_ID = GCP_RESOURCE_NAME_PREFIX + "-sa-" + VERSION
-
-DEFAULT_SERVICE_ACCOUNT_CONFIG = {
-    "displayName": "CloudTik Service Account ({})".format(VERSION),
-}
 
 # Those roles will always be added.
-DEFAULT_SERVICE_ACCOUNT_ROLES = [
+HEAD_SERVICE_ACCOUNT_ROLES = [
     "roles/storage.admin", "roles/compute.admin",
     "roles/iam.serviceAccountUser"
 ]
@@ -948,9 +943,9 @@ def _create_head_service_account(config, crm, iam):
         assert service_account is not None, "Failed to create head service account."
 
         if config["provider"].get(HAS_TPU_PROVIDER_FIELD, False):
-            roles = DEFAULT_SERVICE_ACCOUNT_ROLES + TPU_SERVICE_ACCOUNT_ROLES
+            roles = HEAD_SERVICE_ACCOUNT_ROLES + TPU_SERVICE_ACCOUNT_ROLES
         else:
-            roles = DEFAULT_SERVICE_ACCOUNT_ROLES
+            roles = HEAD_SERVICE_ACCOUNT_ROLES
 
         _add_iam_role_binding_for_service_account(service_account, roles, crm)
         cli_logger.print("Successfully created head service account and configured with roles.")
@@ -1222,7 +1217,7 @@ def _configure_prefer_spot_node(config):
 
     # if no such key, we consider user don't want to override
     if prefer_spot_node is None:
-        return
+        return config
 
     # User override, set or remove spot settings for worker node types
     node_types = config["available_node_types"]
@@ -1235,42 +1230,15 @@ def _configure_prefer_spot_node(config):
         _configure_spot_for_node_type(
             node_type_data, prefer_spot_node)
 
+    return config
+
 
 def bootstrap_gcp(config):
     workspace_name = config.get("workspace_name", "")
     if workspace_name == "":
-        config = bootstrap_gcp_default(config)
-    else:
-        config = bootstrap_gcp_from_workspace(config)
+        raise RuntimeError("Workspace name is not specified in cluster configuration.")
 
-    _configure_prefer_spot_node(config)
-    return config
-
-
-def bootstrap_gcp_default(config):
-    config = copy.deepcopy(config)
-    
-    # Used internally to store head IAM role.
-    config["head_node"] = {}
-
-    # Check if we have any TPUs defined, and if so,
-    # insert that information into the provider config
-    if _has_tpus_in_node_configs(config):
-        config["provider"][HAS_TPU_PROVIDER_FIELD] = True
-
-        # We can't run autoscaling through a serviceAccount on TPUs (atm)
-        if _is_head_node_a_tpu(config):
-            raise RuntimeError("TPUs are not supported as head nodes.")
-
-    crm, iam, compute, tpu = \
-        construct_clients_from_provider_config(config["provider"])
-
-    config = _fix_disk_info(config)
-    config = _configure_project(config, crm)
-    config = _configure_iam_role(config, crm, iam)
-    config = _configure_key_pair(config, compute)
-    config = _configure_subnet(config, compute)
-
+    config = bootstrap_gcp_from_workspace(config)
     return config
 
 
@@ -1301,7 +1269,7 @@ def bootstrap_gcp_from_workspace(config):
     config = _configure_cloud_storage_from_workspace(config)
     config = _configure_key_pair(config, compute)
     config = _configure_subnet_from_workspace(config, compute)
-
+    config = _configure_prefer_spot_node(config)
     return config
 
 
@@ -1399,58 +1367,6 @@ def _configure_managed_cloud_storage_from_workspace(config, cloud_provider):
 
     cloud_storage = get_gcp_cloud_storage_config_for_update(config["provider"])
     cloud_storage["gcs.bucket"] = gcs_bucket.name
-
-
-def _configure_iam_role(config, crm, iam):
-    """Setup a gcp service account with IAM roles.
-
-    Creates a gcp service acconut and binds IAM roles which allow it to control
-    control storage/compute services. Specifically, the head node needs to have
-    an IAM role that allows it to create further gce instances and store items
-    in google cloud storage.
-
-    TODO: Allow the name/id of the service account to be configured
-    """
-    config = copy.deepcopy(config)
-
-    email = get_service_account_email(
-        account_id=GCP_DEFAULT_SERVICE_ACCOUNT_ID,
-        project_id=config["provider"]["project_id"])
-    service_account = _get_service_account(config["provider"], email, iam)
-
-    if service_account is None:
-        cli_logger.print("Creating new service account: {}".format(GCP_DEFAULT_SERVICE_ACCOUNT_ID))
-
-        service_account = _create_service_account(
-            config["provider"], GCP_DEFAULT_SERVICE_ACCOUNT_ID, DEFAULT_SERVICE_ACCOUNT_CONFIG,
-            iam)
-
-    assert service_account is not None, "Failed to create service account"
-
-    if config["provider"].get(HAS_TPU_PROVIDER_FIELD, False):
-        roles = DEFAULT_SERVICE_ACCOUNT_ROLES + TPU_SERVICE_ACCOUNT_ROLES
-    else:
-        roles = DEFAULT_SERVICE_ACCOUNT_ROLES
-
-    _add_iam_role_binding_for_service_account(service_account, roles, crm)
-
-    serviceAccounts = [{
-            "email": service_account["email"],
-            # NOTE: The amount of access is determined by the scope + IAM
-            # role of the service account. Even if the cloud-platform scope
-            # gives (scope) access to the whole cloud-platform, the service
-            # account is limited by the IAM rights specified below.
-            "scopes": ["https://www.googleapis.com/auth/cloud-platform"]
-        }]
-    worker_role_for_cloud_storage = is_worker_role_for_cloud_storage(config)
-    if worker_role_for_cloud_storage:
-        for key, node_type in config["available_node_types"].items():
-            node_config = node_type["node_config"]
-            node_config["serviceAccounts"] = serviceAccounts
-    else:
-        config["head_node"]["serviceAccounts"] = serviceAccounts
-
-    return config
 
 
 def _get_workspace_service_account(config, iam, service_account_id_template):
@@ -1610,55 +1526,6 @@ def _configure_key_pair(config, compute):
     return config
 
 
-def _configure_subnet(config, compute):
-    """Pick a reasonable subnet if not specified by the config."""
-    config = copy.deepcopy(config)
-
-    node_configs = [
-        node_type["node_config"]
-        for node_type in config["available_node_types"].values()
-    ]
-    # Rationale: avoid subnet lookup if the network is already
-    # completely manually configured
-
-    # networkInterfaces is compute, networkConfig is TPU
-    if all("networkInterfaces" in node_config or "networkConfig" in node_config
-           for node_config in node_configs):
-        return config
-
-    subnets = _list_subnets(config, compute)
-
-    if not subnets:
-        raise NotImplementedError("Should be able to create subnet.")
-
-    # TODO: make sure that we have usable subnet. Maybe call
-    # compute.subnetworks().listUsable? For some reason it didn't
-    # work out-of-the-box
-    default_subnet = subnets[0]
-
-    default_interfaces = [{
-        "subnetwork": default_subnet["selfLink"],
-        "accessConfigs": [{
-            "name": "External NAT",
-            "type": "ONE_TO_ONE_NAT",
-        }],
-    }]
-
-    for node_config in node_configs:
-        # The not applicable key will be removed during node creation
-
-        # compute
-        if "networkInterfaces" not in node_config:
-            node_config["networkInterfaces"] = copy.deepcopy(
-                default_interfaces)
-        # TPU
-        if "networkConfig" not in node_config:
-            node_config["networkConfig"] = copy.deepcopy(default_interfaces)[0]
-            node_config["networkConfig"].pop("accessConfigs")
-
-    return config
-
-
 def _configure_subnet_from_workspace(config, compute):
     workspace_name = config["workspace_name"]
     use_internal_ips = is_use_internal_ip(config)
@@ -1706,14 +1573,6 @@ def _configure_subnet_from_workspace(config, compute):
             node_config["networkConfig"] = copy.deepcopy(private_interfaces)[0]
 
     return config
-
-
-def _list_subnets(config, compute):
-    response = compute.subnetworks().list(
-        project=config["provider"]["project_id"],
-        region=config["provider"]["region"]).execute()
-
-    return response["items"]
 
 
 def get_subnet(config, subnet_name, compute):

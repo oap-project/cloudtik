@@ -18,6 +18,7 @@ start-head)
     # Make sure HADOOP_CLASSPATH is set
     export HADOOP_CLASSPATH=`$HADOOP_HOME/bin/hadoop classpath`
     $FLINK_HOME/bin/historyserver.sh start > /dev/null
+    echo "Starting Jupyter..."
     nohup jupyter lab --no-browser > /tmp/logs/jupyterlab.log 2>&1 &
     ;;
 stop-head)
@@ -27,7 +28,7 @@ stop-head)
     $FLINK_HOME/bin/historyserver.sh stop > /dev/null
     # workaround for stopping jupyter when password being set
     if pgrep jupyter >/dev/null 2>&1; then
-      echo "Stop Jupyter..."
+      echo "Stopping Jupyter..."
       kill $(pgrep jupyter) >/dev/null 2>&1
     fi
     ;;

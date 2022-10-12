@@ -24,7 +24,7 @@ stop-head)
     $SPARK_HOME/sbin/stop-history-server.sh
     # workaround for stopping jupyter when password being set
     if pgrep jupyter >/dev/null 2>&1; then
-      echo "Stop Jupyter..."
+      echo "Stopping Jupyter..."
       kill $(pgrep jupyter) >/dev/null 2>&1
     fi
     ;;

@@ -856,6 +856,10 @@ def bootstrap_aws_from_workspace(config):
     # Used internally to store head IAM role.
     config["head_node"] = {}
 
+    # If a LaunchTemplate is provided, extract the necessary fields for the
+    # config stages below.
+    config = _configure_from_launch_template(config)
+
     # The head node needs to have an IAM role that allows it to create further
     # EC2 instances.
     config = _configure_iam_role_from_workspace(config)
@@ -2487,14 +2491,14 @@ def _configure_from_launch_template(config: Dict[str, Any]) -> Dict[str, Any]:
         template [name|id] and version, or more than one launch template is
         found.
     """
-    # create a copy of the input config to modify
-    config = copy.deepcopy(config)
     node_types = config["available_node_types"]
 
     # iterate over sorted node types to support deterministic unit test stubs
     for name, node_type in sorted(node_types.items()):
-        node_types[name] = _configure_node_type_from_launch_template(
-            config, node_type)
+        node_cfg = node_type["node_config"]
+        if "LaunchTemplate" in node_cfg:
+            node_types[name] = _configure_node_type_from_launch_template(
+                config, node_type)
     return config
 
 
@@ -2522,9 +2526,8 @@ def _configure_node_type_from_launch_template(
     node_type = copy.deepcopy(node_type)
 
     node_cfg = node_type["node_config"]
-    if "LaunchTemplate" in node_cfg:
-        node_type["node_config"] = \
-            _configure_node_cfg_from_launch_template(config, node_cfg)
+    node_type["node_config"] = \
+        _configure_node_cfg_from_launch_template(config, node_cfg)
     return node_type
 
 

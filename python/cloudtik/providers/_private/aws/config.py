@@ -1903,6 +1903,7 @@ def _accept_vpc_peering_connection(config, ec2_client):
 def get_workspace_vpc_peering_connection(config, ec2_client):
     workspace_name = config["workspace_name"]
     pending_vpc_peering_connection = ec2_client.describe_vpc_peering_connections(Filters=[
+        {'Name': 'status-code', 'Values': ['active']},
         {'Name': 'tag:Name', 'Values': ['cloudtik-{}-vpc-peering-connection'.format(workspace_name)]}
     ])
     vpc_peering_connections = pending_vpc_peering_connection['VpcPeeringConnections']
@@ -1940,6 +1941,9 @@ def _create_workspace_vpc_peering_connection(config, ec2, ec2_client):
                                               workspace_name)
                                           }]}],
         )
+        vpc_peering_connection_id = response['VpcPeeringConnection']['VpcPeeringConnectionId']
+        waiter = ec2_client.get_waiter('vpc_peering_connection_exists')
+        waiter.wait(VpcPeeringConnectionIds=[vpc_peering_connection_id])
         cli_logger.print(
             "Successfully created VPC peering connection: cloudtik-{}-vpc-peering-connection.".format(workspace_name))
 

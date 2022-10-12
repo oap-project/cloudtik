@@ -631,7 +631,8 @@ def delete_aws_workspace(config, delete_managed_storage: bool = False):
     ec2 = _resource("ec2", config)
     ec2_client = _resource_client("ec2", config)
     workspace_name = config["workspace_name"]
-    use_internal_ips = is_use_internal_ip(config)
+    use_peering_vpc = is_use_peering_vpc(config)
+    use_working_vpc = is_use_working_vpc(config)
     managed_cloud_storage = is_managed_cloud_storage(config)
     vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
     if vpc_id is None:
@@ -640,7 +641,9 @@ def delete_aws_workspace(config, delete_managed_storage: bool = False):
 
     current_step = 1
     total_steps = AWS_WORKSPACE_NUM_DELETION_STEPS
-    if not use_internal_ips:
+    if not use_working_vpc:
+        total_steps += 1
+    if use_peering_vpc:
         total_steps += 1
     if managed_cloud_storage and delete_managed_storage:
         total_steps += 1
@@ -730,19 +733,29 @@ def _delete_managed_cloud_storage(cloud_provider, workspace_name):
 def _delete_network_resources(config, workspace_name,
                               ec2, ec2_client, vpc_id,
                               current_step, total_steps):
-    use_internal_ips = is_use_internal_ip(config)
+    use_working_vpc = is_use_working_vpc(config)
+    use_peering_vpc = is_use_peering_vpc(config)
 
     """
          Do the work - order of operation
-         1.) Delete private subnets 
-         2.) Delete route-tables for private subnets 
-         3.) Delete nat-gateway for private subnets
-         4.) Delete public subnets
-         5.) Delete internet gateway
-         6.) Delete security group
-         7.) Delete VPC endpoint for S3"
-         8.) Delete vpc
+         1.) Delete vpc peering connection
+         2.) Delete private subnets 
+         3.) Delete route-tables for private subnets 
+         4.) Delete nat-gateway for private subnets
+         5.) Delete public subnets
+         6.) Delete internet gateway
+         7.) Delete security group
+         8.) Delete VPC endpoint for S3
+         9.) Delete vpc
     """
+
+    # delete vpc peering connection
+    if use_peering_vpc:
+        with cli_logger.group(
+                "Deleting VPC peering connection",
+                _numbered=("[]", current_step, total_steps)):
+            current_step += 1
+            _delete_workspace_vpc_peering_connection_and_routes(config, ec2_client)
 
     # delete private subnets
     with cli_logger.group(
@@ -794,7 +807,7 @@ def _delete_network_resources(config, workspace_name,
         _delete_vpc_endpoint_for_s3(ec2_client, vpc_id, workspace_name)
 
     # delete vpc
-    if not use_internal_ips:
+    if not use_working_vpc:
         with cli_logger.group(
                 "Deleting VPC",
                 _numbered=("[]", current_step, total_steps)):
@@ -1416,6 +1429,76 @@ def _delete_vpc_endpoint_for_s3(ec2_client, vpc_id, workspace_name):
     return
 
 
+def _delete_workspace_vpc_peering_connection_and_routes(config, ec2_client):
+    current_step = 1
+    total_steps = 2
+
+    with cli_logger.group(
+            "Deleting routes for VPC peering connection",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _remove_routes_for_vpc_peering_connection(config, ec2, ec2_client)
+
+    with cli_logger.group(
+            "Deleting  VPC peering connection",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _delete_workspace_vpc_peering_connection(config, ec2_client)
+
+
+def _remove_routes_for_vpc_peering_connection(config, ec2, ec2_client):
+    workspace_name = config["workspace_name"]
+    current_vpc = get_current_vpc(config)
+    workspace_vpc = get_workspace_vpc(workspace_name, ec2_client, ec2)
+    current_vpc_route_tables = get_vpc_route_tables(current_vpc)
+    workspace_vpc_route_tables = get_vpc_route_tables(workspace_vpc)
+
+    for current_vpc_route_table in current_vpc_route_tables:
+        if len([route for route in current_vpc_route_table.routes if
+                route._destination_cidr_block == workspace_vpc.cidr_block]) == 0:
+            continue
+        try:
+            ec2_client.delete_route(RouteTableId=current_vpc_route_table.id, DestinationCidrBlock=workspace_vpc.cidr_block)
+            cli_logger.print(
+                "Successfully delete the route about VPC peering connection for current VPC route table {}.".format(
+                    current_vpc_route_table.id))
+        except Exception as e:
+            cli_logger.error("Failed to delete the route about VPC peering connection for current VPC route table. {}", str(e))
+            raise e
+
+    for workspace_vpc_route_table in workspace_vpc_route_tables:
+        if len([route for route in workspace_vpc_route_table.routes if
+                route._destination_cidr_block == current_vpc.cidr_block]) == 0:
+            continue
+        try:
+            ec2_client.delete_route(RouteTableId=workspace_vpc_route_table.id,
+                                    DestinationCidrBlock=current_vpc.cidr_block)
+            cli_logger.print(
+                "Successfully delete the route about VPC peering connection for workspace VPC route table.".format(
+                    workspace_vpc_route_table.id))
+        except Exception as e:
+            cli_logger.error("Failed to delete the route about VPC peering connection for workspace VPC route table. {}", str(e))
+            raise e
+
+
+def _delete_workspace_vpc_peering_connection(config, ec2_client):
+    vpc_peering_connection = get_workspace_vpc_peering_connection(config, ec2_client)
+    if vpc_peering_connection is None:
+        cli_logger.print("No VPC peering connection was found in workspace.")
+        return
+    vpc_peering_connection_id = vpc_peering_connection['VpcPeeringConnectionId']
+    try:
+        cli_logger.print("Deleting VPC peering connection for : {}...".format(vpc_peering_connection_id))
+        ec2_client.delete_vpc_peering_connection(
+            VpcPeeringConnectionId=vpc_peering_connection_id
+        )
+        cli_logger.print("Successfully deleted VPC peering connection for: {}.".format(vpc_peering_connection_id))
+    except Exception as e:
+        cli_logger.error("Failed to delete VPC peering connection. {}", str(e))
+        raise e
+    return
+
+
 def _create_vpc(config, ec2, ec2_client):
     cli_logger.print("Creating workspace VPC...")
     # create vpc
@@ -1856,8 +1939,6 @@ def _create_workspace_vpc_peering_connection(config, ec2, ec2_client):
     except Exception as e:
         cli_logger.error("Failed to create VPC peering connection. {}", str(e))
         raise e
-
-
 
 
 def _create_vpc_endpoint_for_s3(config, ec2, ec2_client, vpc):

@@ -21,7 +21,7 @@ from cloudtik.core._private.event_system import (CreateClusterEvent,
                                                   global_event_system)
 from cloudtik.core._private.services import get_node_ip_address
 from cloudtik.core._private.utils import check_cidr_conflict, get_cluster_uri, is_use_internal_ip, \
-    is_managed_cloud_storage, is_use_managed_cloud_storage, is_worker_role_for_cloud_storage, is_use_working_vpc
+    is_managed_cloud_storage, is_use_managed_cloud_storage, is_worker_role_for_cloud_storage, is_use_working_vpc, is_use_peering_vpc
 from cloudtik.core.workspace_provider import Existence, CLOUDTIK_MANAGED_CLOUD_STORAGE, \
     CLOUDTIK_MANAGED_CLOUD_STORAGE_URI
 from cloudtik.providers._private.aws.utils import LazyDefaultDict, \
@@ -447,6 +447,12 @@ def get_workspace_private_route_tables(workspace_name, ec2, vpc_id):
                                 workspace_name)]
 
     return workspace_private_rtbs
+
+
+def get_vpc_route_tables(vpc):
+    vpc_rtbs = [rtb for rtb in vpc.route_tables.all() if rtb.vpc_id == vpc.id]
+
+    return vpc_rtbs
 
 
 def get_workspace_public_route_tables(workspace_name, ec2, vpc_id):
@@ -1407,9 +1413,15 @@ def _delete_vpc_endpoint_for_s3(ec2_client, vpc_id, workspace_name):
 def _create_vpc(config, ec2, ec2_client):
     cli_logger.print("Creating workspace VPC...")
     # create vpc
+    CidrBlock = '10.0.0.0/16'
+    if is_use_peering_vpc(config):
+        current_vpc_id = get_current_vpc(config)
+        current_vpc = ec2.Vpc(id=current_vpc_id)
+        CidrBlock = _configure_peering_vpc_cidr(current_vpc)
+
     try:
         vpc = ec2.create_vpc(
-            CidrBlock='10.10.0.0/16',
+            CidrBlock=CidrBlock,
             TagSpecifications=[
                 {
                     'ResourceType': 'vpc',
@@ -1438,6 +1450,34 @@ def _create_vpc(config, ec2, ec2_client):
         raise e
 
     return vpc
+
+
+def get_existing_routes_cidr_block(route_tables):
+    existing_routes_cidr_block = set()
+    for route_table in route_tables:
+        for route in route_table.routes:
+            if route._destination_cidr_block != '0.0.0.0/0':
+                existing_routes_cidr_block.add(route._destination_cidr_block)
+    return existing_routes_cidr_block
+
+
+def _configure_peering_vpc_cidr(current_vpc):
+    current_vpc_cidr_block = current_vpc.cidr_block
+    current_vpc_route_tables = get_vpc_route_tables(current_vpc)
+
+    existing_routes_cidr_block = get_existing_routes_cidr_block(current_vpc_route_tables)
+    existing_routes_cidr_block.add(current_vpc_cidr_block)
+
+    ip = current_vpc_cidr_block.split("/")[0].split(".")
+
+    for  i in range(0, 256):
+        tmp_cidr_block = ip[0] + "." + str(i) + ".0.0/16"
+
+        if check_cidr_conflict(tmp_cidr_block, existing_routes_cidr_block):
+            cli_logger.print("Successfully found cidr block for peering VPC.")
+            return tmp_cidr_block
+
+    cli_logger.abort("Failed to find non-conflicted cidr block for peering VPC.")
 
 
 def _describe_availability_zones(ec2_client):
@@ -1688,6 +1728,132 @@ def _create_nat_gateway(config, ec2_client, vpc, subnet):
     return nat_gw
 
 
+def _create_configure_vpc_peering_connection(config, ec2, ec2_client):
+    current_step = 1
+    total_steps = 3
+
+    with cli_logger.group(
+            "Creating VPC peering connection",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _create_workspace_vpc_peering_connection(config, ec2, ec2_client)
+
+    with cli_logger.group(
+            "Accepting  VPC peering connection",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _accept_vpc_peering_connection(config, ec2_client)
+
+    with cli_logger.group(
+            "Update route tables for the VPC peering connection",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _update_route_tables_for_vpc_peering_connection(config, ec2, ec2_client)
+
+
+def _update_route_tables_for_vpc_peering_connection(config, ec2, ec2_client):
+    workspace_name = config["workspace_name"]
+    current_vpc = get_current_vpc(config)
+    workspace_vpc = get_workspace_vpc(workspace_name, ec2_client, ec2)
+    current_vpc_route_tables = get_vpc_route_tables(current_vpc)
+    workspace_vpc_route_tables = get_vpc_route_tables(workspace_vpc)
+
+    vpc_peering_connection = _get_workspace_vpc_peering_connection(config, ec2_client)
+    if vpc_peering_connection is None:
+        cli_logger.abort(
+            "No vpc_peering_connection found for workspace: {}.".format(workspace_name))
+
+    for current_vpc_route_table in current_vpc_route_tables:
+        try:
+            ec2_client.create_route(RouteTableId=current_vpc_route_table.id, DestinationCidrBlock=workspace_vpc.cidr_block,
+                                    VpcPeeringConnectionId=vpc_peering_connection['VpcPeeringConnectionId'])
+            cli_logger.print(
+                "Successfully add route destination to current VPC route table {} with workspace VPC CIDR block.".format(
+                    current_vpc_route_table.id))
+        except Exception as e:
+            cli_logger.error("Failed to add route destination to current VPC route table with workspace VPC CIDR block. {}", str(e))
+            raise e
+
+    for workspace_vpc_route_table in workspace_vpc_route_tables:
+        try:
+            ec2_client.create_route(RouteTableId=workspace_vpc_route_table.id, DestinationCidrBlock=current_vpc.cidr_block,
+                                    VpcPeeringConnectionId=vpc_peering_connection['VpcPeeringConnectionId'])
+            cli_logger.print(
+                "Successfully add route destination to workspace VPC route table {} with current VPC CIDR block.".format(
+                    workspace_vpc_route_table.id))
+        except Exception as e:
+            cli_logger.error("Failed to add route destination to workspace VPC route table with current VPC CIDR block. {}", str(e))
+            raise e
+
+
+def _accept_vpc_peering_connection(config, ec2_client):
+    workspace_name = config["workspace_name"]
+    pending_vpc_peering_connection  = _get_workspace_peeding_vpc_peering_connection(config, ec2_client)
+    if pending_vpc_peering_connection is None:
+        cli_logger.abort(
+            "No peeding vpc peering connection found for the workspace: {}.".format(workspace_name))
+    try:
+        response = ec2_client.accept_vpc_peering_connection(
+            VpcPeeringConnectionId=pending_vpc_peering_connection['VpcPeeringConnectionId'],
+        )
+        cli_logger.print(
+            "Successfully accepted VPC peering connection: cloudtik-{}-vpc-peering-connection.".format(workspace_name))
+
+    except Exception as e:
+        cli_logger.error("Failed to accept VPC peering connection. {}", str(e))
+        raise e
+
+
+def _get_workspace_vpc_peering_connection(config, ec2_client):
+    workspace_name = config["workspace_name"]
+    pending_vpc_peering_connection = ec2_client.describe_vpc_peering_connections(Filters=[
+        {'Name': 'tag:Name', 'Values': ['cloudtik-{}-vpc-peering-connection'.format(workspace_name)]}
+    ])
+    vpc_peering_connections = pending_vpc_peering_connection['VpcPeeringConnections']
+
+    return None if len(vpc_peering_connections) == 0 else vpc_peering_connections[0]
+
+
+def _get_workspace_peeding_vpc_peering_connection(config, ec2_client):
+    workspace_name = config["workspace_name"]
+    pending_vpc_peering_connection = ec2_client.describe_vpc_peering_connections(Filters=[
+        {'Name': 'status-code', 'Values': ['pending-acceptance']},
+        {'Name': 'tag:Name', 'Values': ['cloudtik-{}-vpc-peering-connection'.format(workspace_name)]}
+    ])
+    vpc_peering_connections = pending_vpc_peering_connection['VpcPeeringConnections']
+
+    return None if len(vpc_peering_connections) == 0  else vpc_peering_connections[0]
+
+
+def _create_workspace_vpc_peering_connection(config, ec2, ec2_client):
+    workspace_name = config["workspace_name"]
+    region = config["provider"]["region"]
+    current_vpc_id = get_current_vpc(config)
+    workspace_vpc = get_workspace_vpc(workspace_name, ec2_client, ec2)
+
+    cli_logger.print("Creating VPC peering connection.")
+    try:
+        response = ec2_client.create_vpc_peering_connection(
+            DryRun=False,
+            VpcId=current_vpc_id,
+            PeerVpcId=workspace_vpc.vpc_id,
+            PeerRegion=region,
+            TagSpecifications=[{'ResourceType': "vpc-peering-connection",
+                                "Tags": [{'Key': 'Name',
+                                          'Value': 'cloudtik-{}-vpc-peering-connection'.format(
+                                              workspace_name)
+                                          }]}],
+        )
+        cli_logger.print(
+            "Successfully created VPC peering connection: cloudtik-{}-vpc-peering-connection.".format(workspace_name))
+
+    except Exception as e:
+        cli_logger.error("Failed to create VPC peering connection. {}", str(e))
+        raise e
+
+
+
+
 def _create_vpc_endpoint_for_s3(config, ec2, ec2_client, vpc):
     cli_logger.print("Creating VPC endpoint for S3: {}...".format(vpc.id))
     try:
@@ -1794,10 +1960,13 @@ def _create_workspace(config):
     ec2_client = _resource_client("ec2", config)
     workspace_name = config["workspace_name"]
     managed_cloud_storage = is_managed_cloud_storage(config)
+    use_peering_vpc = is_use_peering_vpc(config)
 
     current_step = 1
     total_steps = AWS_WORKSPACE_NUM_CREATION_STEPS
     if managed_cloud_storage:
+        total_steps += 1
+    if use_peering_vpc:
         total_steps += 1
 
     try:
@@ -1979,12 +2148,19 @@ def _create_network_resources(config, ec2, ec2_client,
         current_step += 1
         _upsert_security_group(config, vpc.id)
 
+    if is_use_peering_vpc(config):
+        with cli_logger.group(
+                "Creating VPC peering connection",
+                _numbered=("[]", current_step, total_steps)):
+            current_step += 1
+            _create_configure_vpc_peering_connection(config, ec2, ec2_client)
+
     return current_step
 
 
 def _configure_vpc(config, workspace_name, ec2, ec2_client):
-    use_internal_ips = is_use_internal_ip(config)
-    if use_internal_ips:
+    use_working_vpc = is_use_working_vpc(config)
+    if use_working_vpc:
         # No need to create new vpc
         vpc_id = get_current_vpc(config)
         if vpc_id is None:

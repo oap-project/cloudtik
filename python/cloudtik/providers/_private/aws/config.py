@@ -501,10 +501,13 @@ def check_aws_workspace_existence(config):
     workspace_name = config["workspace_name"]
     managed_cloud_storage = is_managed_cloud_storage(config)
     use_working_vpc = is_use_working_vpc(config)
+    use_peering_vpc = is_use_peering_vpc(config)
 
     existing_resources = 0
     target_resources = AWS_WORKSPACE_TARGET_RESOURCES
     if managed_cloud_storage:
+        target_resources += 1
+    if use_peering_vpc:
         target_resources += 1
 
     """
@@ -546,6 +549,9 @@ def check_aws_workspace_existence(config):
             existing_resources += 1
         if len(get_vpc_endpoint_for_s3(ec2_client, vpc_id, workspace_name)) > 0:
             existing_resources += 1
+        if use_peering_vpc:
+            if get_workspace_vpc_peering_connection(config, ec2_client) is not None:
+                existing_resources += 1
 
     if _get_head_instance_profile(config) is not None:
         existing_resources += 1
@@ -1758,7 +1764,7 @@ def _update_route_tables_for_vpc_peering_connection(config, ec2, ec2_client):
     current_vpc_route_tables = get_vpc_route_tables(current_vpc)
     workspace_vpc_route_tables = get_vpc_route_tables(workspace_vpc)
 
-    vpc_peering_connection = _get_workspace_vpc_peering_connection(config, ec2_client)
+    vpc_peering_connection = get_workspace_vpc_peering_connection(config, ec2_client)
     if vpc_peering_connection is None:
         cli_logger.abort(
             "No vpc_peering_connection found for workspace: {}.".format(workspace_name))
@@ -1788,7 +1794,7 @@ def _update_route_tables_for_vpc_peering_connection(config, ec2, ec2_client):
 
 def _accept_vpc_peering_connection(config, ec2_client):
     workspace_name = config["workspace_name"]
-    pending_vpc_peering_connection  = _get_workspace_peeding_vpc_peering_connection(config, ec2_client)
+    pending_vpc_peering_connection  = get_workspace_peeding_vpc_peering_connection(config, ec2_client)
     if pending_vpc_peering_connection is None:
         cli_logger.abort(
             "No peeding vpc peering connection found for the workspace: {}.".format(workspace_name))
@@ -1804,7 +1810,7 @@ def _accept_vpc_peering_connection(config, ec2_client):
         raise e
 
 
-def _get_workspace_vpc_peering_connection(config, ec2_client):
+def get_workspace_vpc_peering_connection(config, ec2_client):
     workspace_name = config["workspace_name"]
     pending_vpc_peering_connection = ec2_client.describe_vpc_peering_connections(Filters=[
         {'Name': 'tag:Name', 'Values': ['cloudtik-{}-vpc-peering-connection'.format(workspace_name)]}
@@ -1814,7 +1820,7 @@ def _get_workspace_vpc_peering_connection(config, ec2_client):
     return None if len(vpc_peering_connections) == 0 else vpc_peering_connections[0]
 
 
-def _get_workspace_peeding_vpc_peering_connection(config, ec2_client):
+def get_workspace_peeding_vpc_peering_connection(config, ec2_client):
     workspace_name = config["workspace_name"]
     pending_vpc_peering_connection = ec2_client.describe_vpc_peering_connections(Filters=[
         {'Name': 'status-code', 'Values': ['pending-acceptance']},

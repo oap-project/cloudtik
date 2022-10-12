@@ -26,7 +26,10 @@ stop-head)
     export HADOOP_CLASSPATH=`$HADOOP_HOME/bin/hadoop classpath`
     $FLINK_HOME/bin/historyserver.sh stop > /dev/null
     # workaround for stopping jupyter when password being set
-    kill $(pgrep jupyter)
+    if pgrep jupyter >/dev/null 2>&1; then
+      echo "Stop Jupyter..."
+      kill $(pgrep jupyter) >/dev/null 2>&1
+    fi
     ;;
 start-worker)
     $HADOOP_HOME/bin/yarn --daemon start nodemanager

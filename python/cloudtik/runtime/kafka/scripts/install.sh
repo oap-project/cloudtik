@@ -23,7 +23,7 @@ do
     shift
 done
 
-export KAFKA_VERSION=3.1.0
+export KAFKA_VERSION=3.2.3
 export KAFKA_SCALA_VERSION=2.13
 
 export USER_HOME=/home/$(whoami)

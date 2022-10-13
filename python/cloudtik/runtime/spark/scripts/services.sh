@@ -23,9 +23,10 @@ stop-head)
     $HADOOP_HOME/bin/yarn --daemon stop resourcemanager
     $SPARK_HOME/sbin/stop-history-server.sh
     # workaround for stopping jupyter when password being set
-    if pgrep jupyter >/dev/null 2>&1; then
+    JUPYTER_PID=$(pgrep jupyter)
+    if [ -n "$JUPYTER_PID" ]; then
       echo "Stopping Jupyter..."
-      kill $(pgrep jupyter) >/dev/null 2>&1
+      kill $JUPYTER_PID >/dev/null 2>&1
     fi
     ;;
 start-worker)

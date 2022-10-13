@@ -27,9 +27,11 @@ stop-head)
     export HADOOP_CLASSPATH=`$HADOOP_HOME/bin/hadoop classpath`
     $FLINK_HOME/bin/historyserver.sh stop > /dev/null
     # workaround for stopping jupyter when password being set
-    if pgrep jupyter >/dev/null 2>&1; then
+    # workaround for stopping jupyter when password being set
+    JUPYTER_PID=$(pgrep jupyter)
+    if [ -n "$JUPYTER_PID" ]; then
       echo "Stopping Jupyter..."
-      kill $(pgrep jupyter) >/dev/null 2>&1
+      kill $JUPYTER_PID >/dev/null 2>&1
     fi
     ;;
 start-worker)

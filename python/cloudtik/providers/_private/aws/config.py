@@ -1892,13 +1892,13 @@ def _update_route_tables_for_workspace_vpc_peering_connection(config, ec2, ec2_c
             raise e
 
 
-def wait_for_workspace_vpc_peering_connection_accepted(config):
+def wait_for_workspace_vpc_peering_connection_active(config):
     workspace_name = config["workspace_name"]
     current_ec2_client = boto3.client('ec2')
     retry = 20
     while retry > 0:
         pending_vpc_peering_connection = current_ec2_client.describe_vpc_peering_connections(Filters=[
-            {'Name': 'status-code', 'Values': ['pending-acceptance']},
+            {'Name': 'status-code', 'Values': ['active']},
             {'Name': 'tag:Name', 'Values': ['cloudtik-{}-vpc-peering-connection'.format(workspace_name)]}
         ])
         vpc_peering_connections = pending_vpc_peering_connection['VpcPeeringConnections']
@@ -1924,7 +1924,7 @@ def _accept_workspace_vpc_peering_connection(config, ec2_client):
         ec2_client.accept_vpc_peering_connection(
             VpcPeeringConnectionId=pending_vpc_peering_connection['VpcPeeringConnectionId'],
         )
-        wait_for_workspace_vpc_peering_connection_accepted(config)
+        wait_for_workspace_vpc_peering_connection_active(config)
         cli_logger.print(
             "Successfully accepted VPC peering connection: cloudtik-{}-vpc-peering-connection.".format(workspace_name))
 

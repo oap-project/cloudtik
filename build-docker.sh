@@ -86,7 +86,7 @@ do
         echo "Images to build options:"
         echo "[ --build-all ] [ --build-dev ] [ --build-spark ] [ --build-optimized ] [ --build-spark-native-sql ]"
         echo "[ --build-universe ] [ --build-presto ] [ --build-trino ] [ --build-ml ]"
-        ehco "[ --build-spark-benchmark ] [ --build-optimized-benchmark ] [ --build-spark-native-sql-benchmark ]"
+        echo "[ --build-spark-benchmark ] [ --build-optimized-benchmark ] [ --build-spark-native-sql-benchmark ]"
         exit 1
     esac
     shift

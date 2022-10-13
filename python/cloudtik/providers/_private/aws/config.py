@@ -1437,7 +1437,7 @@ def _delete_workspace_vpc_peering_connection_and_routes(config, ec2, ec2_client)
             "Deleting routes for VPC peering connection",
             _numbered=("()", current_step, total_steps)):
         current_step += 1
-        _remove_routes_for_vpc_peering_connection(config, ec2, ec2_client)
+        _delete_routes_for_workspace_vpc_peering_connection(config, ec2, ec2_client)
 
     with cli_logger.group(
             "Deleting  VPC peering connection",
@@ -1446,7 +1446,7 @@ def _delete_workspace_vpc_peering_connection_and_routes(config, ec2, ec2_client)
         _delete_workspace_vpc_peering_connection(config, ec2_client)
 
 
-def _remove_routes_for_vpc_peering_connection(config, ec2, ec2_client):
+def _delete_routes_for_workspace_vpc_peering_connection(config, ec2, ec2_client):
     workspace_name = config["workspace_name"]
     current_vpc = get_current_vpc(ec2, config)
     workspace_vpc = get_workspace_vpc(workspace_name, ec2_client, ec2)
@@ -1513,7 +1513,7 @@ def _create_vpc(config, ec2, ec2_client):
     CidrBlock = '10.0.0.0/16'
     if is_use_peering_vpc(config):
         current_vpc = get_current_vpc(ec2, config)
-        CidrBlock = _configure_peering_vpc_cidr(current_vpc)
+        CidrBlock = _configure_peering_vpc_cidr_block(current_vpc)
 
     try:
         vpc = ec2.create_vpc(
@@ -1557,7 +1557,7 @@ def get_existing_routes_cidr_block(route_tables):
     return existing_routes_cidr_block
 
 
-def _configure_peering_vpc_cidr(current_vpc):
+def _configure_peering_vpc_cidr_block(current_vpc):
     current_vpc_cidr_block = current_vpc.cidr_block
     current_vpc_route_tables = get_vpc_route_tables(current_vpc)
 
@@ -1824,7 +1824,7 @@ def _create_nat_gateway(config, ec2_client, vpc, subnet):
     return nat_gw
 
 
-def _create_configure_vpc_peering_connection(config, ec2, ec2_client):
+def _create_and_configure_vpc_peering_connection(config, ec2, ec2_client):
     current_step = 1
     total_steps = 3
 
@@ -1835,19 +1835,19 @@ def _create_configure_vpc_peering_connection(config, ec2, ec2_client):
         _create_workspace_vpc_peering_connection(config, ec2, ec2_client)
 
     with cli_logger.group(
-            "Accepting  VPC peering connection",
+            "Accepting VPC peering connection",
             _numbered=("()", current_step, total_steps)):
         current_step += 1
-        _accept_vpc_peering_connection(config, ec2_client)
+        _accept_workspace_vpc_peering_connection(config, ec2_client)
 
     with cli_logger.group(
             "Update route tables for the VPC peering connection",
             _numbered=("()", current_step, total_steps)):
         current_step += 1
-        _update_route_tables_for_vpc_peering_connection(config, ec2, ec2_client)
+        _update_route_tables_for_workspace_vpc_peering_connection(config, ec2, ec2_client)
 
 
-def _update_route_tables_for_vpc_peering_connection(config, ec2, ec2_client):
+def _update_route_tables_for_workspace_vpc_peering_connection(config, ec2, ec2_client):
     workspace_name = config["workspace_name"]
     current_vpc = get_current_vpc(ec2, config)
     workspace_vpc = get_workspace_vpc(workspace_name, ec2_client, ec2)
@@ -1882,12 +1882,12 @@ def _update_route_tables_for_vpc_peering_connection(config, ec2, ec2_client):
             raise e
 
 
-def _accept_vpc_peering_connection(config, ec2_client):
+def _accept_workspace_vpc_peering_connection(config, ec2_client):
     workspace_name = config["workspace_name"]
-    pending_vpc_peering_connection  = get_workspace_peeding_vpc_peering_connection(config, ec2_client)
+    pending_vpc_peering_connection = get_workspace_pending_acceptance_vpc_peering_connection(config, ec2_client)
     if pending_vpc_peering_connection is None:
         cli_logger.abort(
-            "No peeding vpc peering connection found for the workspace: {}.".format(workspace_name))
+            "No pending-acceptance vpc peering connection was found for the workspace: {}.".format(workspace_name))
     try:
         response = ec2_client.accept_vpc_peering_connection(
             VpcPeeringConnectionId=pending_vpc_peering_connection['VpcPeeringConnectionId'],
@@ -1911,7 +1911,7 @@ def get_workspace_vpc_peering_connection(config, ec2_client):
     return None if len(vpc_peering_connections) == 0 else vpc_peering_connections[0]
 
 
-def get_workspace_peeding_vpc_peering_connection(config, ec2_client):
+def get_workspace_pending_acceptance_vpc_peering_connection(config, ec2_client):
     workspace_name = config["workspace_name"]
     pending_vpc_peering_connection = ec2_client.describe_vpc_peering_connections(Filters=[
         {'Name': 'status-code', 'Values': ['pending-acceptance']},
@@ -1931,7 +1931,6 @@ def _create_workspace_vpc_peering_connection(config, ec2, ec2_client):
     cli_logger.print("Creating VPC peering connection.")
     try:
         response = ec2_client.create_vpc_peering_connection(
-            DryRun=False,
             VpcId=current_vpc_id,
             PeerVpcId=workspace_vpc.vpc_id,
             PeerRegion=region,
@@ -2251,7 +2250,7 @@ def _create_network_resources(config, ec2, ec2_client,
                 "Creating VPC peering connection",
                 _numbered=("[]", current_step, total_steps)):
             current_step += 1
-            _create_configure_vpc_peering_connection(config, ec2, ec2_client)
+            _create_and_configure_vpc_peering_connection(config, ec2, ec2_client)
 
     return current_step
 

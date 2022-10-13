@@ -1712,6 +1712,7 @@ def _is_use_working_vpc(provider_config: Dict[str, Any]) -> bool:
 
     return provider_config.get("use_working_vpc", True)
 
+
 def is_use_peering_vpc(config: Dict[str, Any]) -> bool:
     return _is_use_peering_vpc(config.get("provider", {}))
 
@@ -1721,6 +1722,7 @@ def _is_use_peering_vpc(provider_config: Dict[str, Any]) -> bool:
         return False
 
     return not _is_use_working_vpc(provider_config)
+
 
 def get_node_cluster_ip(provider: NodeProvider, node: str) -> str:
     return provider.internal_ip(node)

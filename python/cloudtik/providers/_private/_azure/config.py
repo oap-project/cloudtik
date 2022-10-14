@@ -16,11 +16,7 @@ from cloudtik.core._private.utils import check_cidr_conflict, is_use_internal_ip
 from cloudtik.core.workspace_provider import Existence, CLOUDTIK_MANAGED_CLOUD_STORAGE, \
     CLOUDTIK_MANAGED_CLOUD_STORAGE_URI
 
-from azure.common.credentials import get_cli_profile
-from azure.identity import AzureCliCredential
-from azure.mgmt.resource import ResourceManagementClient
 from azure.mgmt.compute import ComputeManagementClient
-from azure.mgmt.resource.resources.models import DeploymentMode
 from azure.core.exceptions import ResourceNotFoundError
 
 from azure.storage.blob import BlobServiceClient

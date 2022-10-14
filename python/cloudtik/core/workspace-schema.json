@@ -91,9 +91,28 @@
                         }
                     }
                 },
+                "aws_credentials": {
+                    "type": "object",
+                    "description": "Credentials for authenticating with the AWS using boto3. If not specified, will use environment default.",
+                    "additionalProperties": true,
+                    "properties": {
+                        "aws_access_key_id": {
+                            "type": "string",
+                            "description": "The access key to use when creating the client."
+                        },
+                        "aws_secret_access_key": {
+                            "type": "string",
+                            "description": "The secret key to use when creating the client."
+                        },
+                        "aws_session_token": {
+                            "type": "string",
+                            "description": "The session token to use when creating the client."
+                        }
+                    }
+                },
                 "gcp_credentials": {
                     "type": "object",
-                    "description": "Credentials for authenticating with the GCP client",
+                    "description": "Credentials for authenticating with the GCP client. If not specified, will use environment default.",
                     "required": [ "type" ],
                     "additionalProperties": false,
                     "properties": {
@@ -105,6 +124,38 @@
                         "credentials": {
                             "type": "object",
                             "description": "OAuth token fields or service account credentials fields"
+                        }
+                    }
+                },
+                "azure_credentials": {
+                    "type": "object",
+                    "description": "Credentials for authenticating with the Azure Cloud. If not specified, will use environment default.",
+                    "required": [ "type" ],
+                    "additionalProperties": false,
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "enum": ["ClientSecret", "ManagedIdentity"],
+                            "description": "Credentials type for credentials information."
+                        },
+                        "credentials": {
+                            "type": "object",
+                            "additionalProperties": true,
+                            "description": "Credential fields based on different credential types.",
+                            "properties": {
+                                "client_id": {
+                                    "type": "string",
+                                    "description": "The client id field for ClientSecret or ManagedIdentity credential."
+                                },
+                                "tenant_id": {
+                                    "type": "string",
+                                    "description": "The tenant id field for ClientSecret credential."
+                                },
+                                "client_secret": {
+                                    "type": "string",
+                                    "description": "The client secret field for ClientSecret credential."
+                                }
+                            }
                         }
                     }
                 },

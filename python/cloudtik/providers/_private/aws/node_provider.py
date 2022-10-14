@@ -518,6 +518,16 @@ class AWSNodeProvider(NodeProvider):
 
         return self._get_node(node_id)
 
+    def prepare_for_head_node(
+            self, cluster_config: Dict[str, Any], remote_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Returns a new cluster config with custom configs for head node."""
+        # Since the head will use the instance profile and role to access cloud,
+        # remove the client credentials from config
+        if "aws_credentials" in remote_config["provider"]:
+            remote_config.pop("aws_credentials", None)
+
+        return remote_config
+
     @staticmethod
     def bootstrap_config(cluster_config):
         return bootstrap_aws(cluster_config)

@@ -257,7 +257,7 @@ Ganglia Web UI:
 YARN ResourceManager Web UI:
     http://<head-internal-ip>:8088
 Spark History Server Web UI:
-    http://<head-internal-ip>10.0.0.4:18080
+    http://<head-internal-ip>:18080
 Jupyter Web UI:
     http://<head-internal-ip>:8888, default password is 'cloudtik'
 ```

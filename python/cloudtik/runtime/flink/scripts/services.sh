@@ -18,6 +18,7 @@ start-head)
     # Make sure HADOOP_CLASSPATH is set
     export HADOOP_CLASSPATH=`$HADOOP_HOME/bin/hadoop classpath`
     $FLINK_HOME/bin/historyserver.sh start > /dev/null
+    echo "Starting Jupyter..."
     nohup jupyter lab --no-browser > /tmp/logs/jupyterlab.log 2>&1 &
     ;;
 stop-head)
@@ -25,7 +26,13 @@ stop-head)
     # Make sure HADOOP_CLASSPATH is set
     export HADOOP_CLASSPATH=`$HADOOP_HOME/bin/hadoop classpath`
     $FLINK_HOME/bin/historyserver.sh stop > /dev/null
-    jupyter lab stop
+    # workaround for stopping jupyter when password being set
+    # workaround for stopping jupyter when password being set
+    JUPYTER_PID=$(pgrep jupyter)
+    if [ -n "$JUPYTER_PID" ]; then
+      echo "Stopping Jupyter..."
+      kill $JUPYTER_PID >/dev/null 2>&1
+    fi
     ;;
 start-worker)
     $HADOOP_HOME/bin/yarn --daemon start nodemanager

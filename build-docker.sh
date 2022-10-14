@@ -144,7 +144,7 @@ if [ $BUILD_SPARK_NATIVE_SQL ] || [ $BUILD_ALL ]; then
 fi
 
 if [ $BUILD_SPARK_OPTIMIZED ] || [ $BUILD_ALL ]; then
-    docker build $NO_CACHE -t cloudtik/spark-optimized:nightly docker/runtime/spark/optmized
+    docker build $NO_CACHE -t cloudtik/spark-optimized:nightly docker/runtime/spark/optimized
 fi
 
 if [ $BUILD_UNIVERSE ] || [ $BUILD_ALL ]; then
@@ -172,5 +172,5 @@ if [ $BUILD_SPARK_NATIVE_SQL_BENCHMARK ] || [ $BUILD_ALL ]; then
 fi
 
 if [ $BUILD_SPARK_OPTIMIZED_BENCHMARK ] || [ $BUILD_ALL ]; then
-    docker build $NO_CACHE -t cloudtik/spark-optimized-benchmark:nightly docker/runtime/spark/benchmark/optmized
+    docker build $NO_CACHE -t cloudtik/spark-optimized-benchmark:nightly docker/runtime/spark/benchmark/optimized
 fi

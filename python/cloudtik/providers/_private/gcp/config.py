@@ -753,12 +753,11 @@ def delete_gcp_workspace(config, delete_managed_storage: bool = False):
     use_internal_ips = is_use_internal_ip(config)
     managed_cloud_storage = is_managed_cloud_storage(config)
     vpc_id = get_gcp_vpc_id(config, compute, use_internal_ips)
-    if vpc_id is None:
-        cli_logger.print("Workspace: {} doesn't exist!".format(config["workspace_name"]))
-        return
 
     current_step = 1
     total_steps = GCP_WORKSPACE_NUM_DELETION_STEPS
+    if vpc_id is None:
+        total_steps = 1
     if managed_cloud_storage and delete_managed_storage:
         total_steps += 1
 
@@ -778,7 +777,8 @@ def delete_gcp_workspace(config, delete_managed_storage: bool = False):
                 current_step += 1
                 _delete_workspace_service_accounts(config, iam)
 
-            _delete_network_resources(config, compute, current_step, total_steps)
+            if vpc_id:
+                _delete_network_resources(config, compute, current_step, total_steps)
 
     except Exception as e:
         cli_logger.error(

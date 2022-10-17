@@ -353,7 +353,7 @@ class ResourceDemandScheduler:
             # If available_resources is None this might be because the node is
             # no longer pending, but the node hasn't sent a heartbeat to redis
             # yet.
-            if available_resources is not None:
+            if bool(available_resources):
                 available = copy.deepcopy(available_resources)
 
             node_resources.append(available)

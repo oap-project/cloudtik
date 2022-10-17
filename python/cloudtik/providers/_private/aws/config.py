@@ -527,7 +527,6 @@ def check_aws_workspace_existence(config):
     vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
     if vpc_id is not None:
         existing_resources += 1
-        skipped_resources += 1 if use_working_vpc else 0
         # Network resources that depending on VPC
         if len(get_workspace_private_subnets(workspace_name, ec2, vpc_id)) >= AWS_VPC_SUBNETS_COUNT - 1:
             existing_resources += 1
@@ -641,8 +640,6 @@ def delete_aws_workspace(config, delete_managed_storage: bool = False):
     if vpc_id is None:
         total_steps = 1
     else:
-        if not use_working_vpc:
-            total_steps += 1
         if use_peering_vpc:
             total_steps += 1
     if managed_cloud_storage and delete_managed_storage:
@@ -808,12 +805,15 @@ def _delete_network_resources(config, workspace_name,
         _delete_vpc_endpoint_for_s3(ec2_client, vpc_id, workspace_name)
 
     # delete vpc
-    if not use_working_vpc:
-        with cli_logger.group(
-                "Deleting VPC",
-                _numbered=("[]", current_step, total_steps)):
-            current_step += 1
+    with cli_logger.group(
+            "Deleting VPC",
+            _numbered=("[]", current_step, total_steps)):
+        current_step += 1
+        if not use_working_vpc:
             _delete_vpc(ec2, ec2_client, vpc_id)
+        else:
+            # deleting the tags we created on working vpc
+            _delete_vpc_tags(ec2, ec2_client, vpc_id, workspace_name)
 
 
 def create_aws_workspace(config):
@@ -1263,7 +1263,6 @@ def _delete_internet_gateway(workspace_name, ec2, vpc_id):
         except boto3.exceptions.Boto3Error as e:
             cli_logger.error("Failed to detach or delete Internet Gateway. {}", str(e))
             raise e
-    return
 
 
 def _delete_private_subnets(workspace_name, ec2, vpc_id):
@@ -1281,7 +1280,6 @@ def _delete_private_subnets(workspace_name, ec2, vpc_id):
     except boto3.exceptions.Boto3Error as e:
         cli_logger.error("Failed to delete private subnet. {}", str(e))
         raise e
-    return
 
 
 def _delete_public_subnets(workspace_name, ec2, vpc_id):
@@ -1299,7 +1297,6 @@ def _delete_public_subnets(workspace_name, ec2, vpc_id):
     except boto3.exceptions.Boto3Error as e:
         cli_logger.error("Failed to delete public subnet. {}", str(e))
         raise e
-    return
 
 
 def _delete_route_table(workspace_name, ec2, vpc_id):
@@ -1317,7 +1314,6 @@ def _delete_route_table(workspace_name, ec2, vpc_id):
     except boto3.exceptions.Boto3Error as e:
         cli_logger.error("Failed to delete route table. {}", str(e))
         raise e
-    return
 
 
 def release_elastic_ip_address(ec2_client, allocation_id, retry=5):
@@ -1396,17 +1392,23 @@ def _delete_security_group(config, vpc_id):
     except boto3.exceptions.Boto3Error as e:
         cli_logger.error("Failed to delete security group. {}", str(e))
         raise e
-    return
+
+
+def _get_vpc(ec2, ec2_client, vpc_id):
+    vpc_ids = [vpc["VpcId"] for vpc in ec2_client.describe_vpcs()["Vpcs"] if vpc["VpcId"] == vpc_id]
+    if len(vpc_ids) == 0:
+        return None
+
+    vpc = ec2.Vpc(vpc_id)
+    return vpc
 
 
 def _delete_vpc(ec2, ec2_client, vpc_id):
     """ Delete the VPC """
-    vpc_ids = [vpc["VpcId"] for vpc in ec2_client.describe_vpcs()["Vpcs"] if vpc["VpcId"] == vpc_id]
-    if len(vpc_ids) == 0:
+    vpc = _get_vpc(ec2, ec2_client, vpc_id)
+    if vpc is None:
         cli_logger.print("The VPC: {} doesn't exist.".format(vpc_id))
         return
-
-    vpc = ec2.Vpc(vpc_id)
     try:
         cli_logger.print("Deleting VPC: {}...".format(vpc.id))
         vpc.delete()
@@ -1414,7 +1416,26 @@ def _delete_vpc(ec2, ec2_client, vpc_id):
     except Exception as e:
         cli_logger.error("Failed to delete VPC. {}", str(e))
         raise e
-    return
+
+
+def _delete_vpc_tags(ec2, ec2_client, vpc_id, workspace_name):
+    vpc = _get_vpc(ec2, ec2_client, vpc_id)
+    if vpc is None:
+        cli_logger.print("The VPC: {} doesn't exist.".format(vpc_id))
+        return
+    try:
+        cli_logger.print("Deleting VPC tags: {}...".format(vpc.id))
+        ec2_client.delete_tags(
+            Resources=[vpc_id],
+            Tags=[
+                {'Key': 'Name', 'Value': 'cloudtik-{}-vpc'.format(workspace_name)},
+                {'Key': AWS_WORKSPACE_VERSION_TAG_NAME}
+            ]
+        )
+        cli_logger.print("Successfully deleted VPC tags: {}.".format(vpc.id))
+    except Exception as e:
+        cli_logger.error("Failed to delete VPC tags. {}", str(e))
+        raise e
 
 
 def _delete_vpc_endpoint_for_s3(ec2_client, vpc_id, workspace_name):
@@ -1431,7 +1452,6 @@ def _delete_vpc_endpoint_for_s3(ec2_client, vpc_id, workspace_name):
     except Exception as e:
         cli_logger.error("Failed to delete VPC endpoint for S3. {}", str(e))
         raise e
-    return
 
 
 def _delete_workspace_vpc_peering_connection_and_routes(config, ec2, ec2_client):
@@ -1518,7 +1538,6 @@ def _delete_workspace_vpc_peering_connection(config, ec2_client):
     except Exception as e:
         cli_logger.error("Failed to delete VPC peering connection. {}", str(e))
         raise e
-    return
 
 
 def _create_vpc(config, ec2, ec2_client):

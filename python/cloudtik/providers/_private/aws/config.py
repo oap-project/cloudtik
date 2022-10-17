@@ -1445,7 +1445,7 @@ def _delete_workspace_vpc_peering_connection_and_routes(config, ec2, ec2_client)
         _delete_routes_for_workspace_vpc_peering_connection(config, ec2, ec2_client)
 
     with cli_logger.group(
-            "Deleting  VPC peering connection",
+            "Deleting VPC peering connection",
             _numbered=("()", current_step, total_steps)):
         current_step += 1
         _delete_workspace_vpc_peering_connection(config, ec2_client)

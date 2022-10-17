@@ -300,7 +300,8 @@ def delete_azure_workspace(config, delete_managed_storage: bool = False):
                 current_step += 1
                 _delete_user_assigned_identities(config, resource_group_name)
 
-            current_step = _delete_network_resources(config, resource_client, resource_group_name, current_step, total_steps)
+            current_step = _delete_network_resources(
+                config, resource_client, resource_group_name, current_step, total_steps)
 
             # delete resource group
             with cli_logger.group(

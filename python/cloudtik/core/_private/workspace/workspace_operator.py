@@ -102,13 +102,15 @@ def _delete_workspace(config: Dict[str, Any],
     if existence == Existence.NOT_EXIST:
         raise RuntimeError(f"Workspace with the name {workspace_name} doesn't exist!")
     else:
-        running_clusters = provider.list_clusters(config)
-        if running_clusters is not None and len(running_clusters) > 0:
-            cluster_names = ",".join(list(running_clusters.keys()))
-            raise RuntimeError(
-                "Workspace {} has clusters ({}) in running. Please stop the clusters first.".format(
-                    workspace_name, cluster_names
-                ))
+        if existence == Existence.COMPLETED:
+            # Only check the running cluster when the workspace is at completed status
+            running_clusters = provider.list_clusters(config)
+            if running_clusters is not None and len(running_clusters) > 0:
+                cluster_names = ",".join(list(running_clusters.keys()))
+                raise RuntimeError(
+                    "Workspace {} has clusters ({}) in running. Please stop the clusters first.".format(
+                        workspace_name, cluster_names
+                    ))
 
         managed_cloud_storage = is_managed_cloud_storage(config)
         if managed_cloud_storage:

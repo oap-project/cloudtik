@@ -635,16 +635,16 @@ def delete_aws_workspace(config, delete_managed_storage: bool = False):
     use_working_vpc = is_use_working_vpc(config)
     managed_cloud_storage = is_managed_cloud_storage(config)
     vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
-    if vpc_id is None:
-        cli_logger.print("The workspace: {} doesn't exist!".format(config["workspace_name"]))
-        return
 
     current_step = 1
     total_steps = AWS_WORKSPACE_NUM_DELETION_STEPS
-    if not use_working_vpc:
-        total_steps += 1
-    if use_peering_vpc:
-        total_steps += 1
+    if vpc_id is None:
+        total_steps = 1
+    else:
+        if not use_working_vpc:
+            total_steps += 1
+        if use_peering_vpc:
+            total_steps += 1
     if managed_cloud_storage and delete_managed_storage:
         total_steps += 1
 
@@ -665,9 +665,10 @@ def delete_aws_workspace(config, delete_managed_storage: bool = False):
                 current_step += 1
                 _delete_workspace_instance_profile(config, workspace_name)
 
-            _delete_network_resources(config, workspace_name,
-                                      ec2, ec2_client, vpc_id,
-                                      current_step, total_steps)
+            if vpc_id:
+                _delete_network_resources(config, workspace_name,
+                                          ec2, ec2_client, vpc_id,
+                                          current_step, total_steps)
 
     except Exception as e:
         cli_logger.error(

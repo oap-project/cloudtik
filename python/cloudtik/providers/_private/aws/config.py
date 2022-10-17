@@ -27,7 +27,7 @@ from cloudtik.core.workspace_provider import Existence, CLOUDTIK_MANAGED_CLOUD_S
 from cloudtik.providers._private.aws.utils import LazyDefaultDict, \
     handle_boto_error, get_boto_error_code, _get_node_info, BOTO_MAX_RETRIES, _resource, \
     _resource_client, _make_resource, _make_resource_client, make_ec2_client, export_aws_s3_storage_config, \
-    get_aws_s3_storage_config, get_aws_s3_storage_config_for_update
+    get_aws_s3_storage_config, get_aws_s3_storage_config_for_update, _working_node_client, _working_node_resource
 from cloudtik.providers._private.utils import StorageTestingError
 
 logger = logging.getLogger(__name__)
@@ -500,7 +500,6 @@ def check_aws_workspace_existence(config):
     ec2_client = _resource_client("ec2", config)
     workspace_name = config["workspace_name"]
     managed_cloud_storage = is_managed_cloud_storage(config)
-    use_working_vpc = is_use_working_vpc(config)
     use_peering_vpc = is_use_peering_vpc(config)
 
     existing_resources = 0
@@ -1473,8 +1472,8 @@ def _delete_workspace_vpc_peering_connection_and_routes(config, ec2, ec2_client)
 
 def _delete_routes_for_workspace_vpc_peering_connection(config, ec2, ec2_client):
     workspace_name = config["workspace_name"]
-    current_ec2_client = boto3.client('ec2')
-    current_vpc = get_current_vpc()
+    current_ec2_client = _working_node_client('ec2', config)
+    current_vpc = get_current_vpc(config)
     workspace_vpc = get_workspace_vpc(workspace_name, ec2_client, ec2)
     current_vpc_route_tables = get_vpc_route_tables(current_vpc)
     workspace_vpc_route_tables = get_vpc_route_tables(workspace_vpc)
@@ -1545,7 +1544,7 @@ def _create_vpc(config, ec2, ec2_client):
     # create vpc
     cidr_block = '10.0.0.0/16'
     if is_use_peering_vpc(config):
-        current_vpc = get_current_vpc()
+        current_vpc = get_current_vpc(config)
         cidr_block = _configure_peering_vpc_cidr_block(current_vpc)
 
     try:
@@ -1881,9 +1880,9 @@ def _create_and_configure_vpc_peering_connection(config, ec2, ec2_client):
 
 
 def _update_route_tables_for_workspace_vpc_peering_connection(config, ec2, ec2_client):
-    current_ec2_client = boto3.client('ec2')
+    current_ec2_client = _working_node_client('ec2', config)
     workspace_name = config["workspace_name"]
-    current_vpc = get_current_vpc()
+    current_vpc = get_current_vpc(config)
     workspace_vpc = get_workspace_vpc(workspace_name, ec2_client, ec2)
     current_vpc_route_tables = get_vpc_route_tables(current_vpc)
     workspace_vpc_route_tables = get_vpc_route_tables(workspace_vpc)
@@ -1918,14 +1917,14 @@ def _update_route_tables_for_workspace_vpc_peering_connection(config, ec2, ec2_c
 
 def wait_for_workspace_vpc_peering_connection_active(config):
     workspace_name = config["workspace_name"]
-    current_ec2_client = boto3.client('ec2')
+    current_ec2_client = _working_node_client('ec2', config)
     retry = 20
     while retry > 0:
-        pending_vpc_peering_connection = current_ec2_client.describe_vpc_peering_connections(Filters=[
+        response = current_ec2_client.describe_vpc_peering_connections(Filters=[
             {'Name': 'status-code', 'Values': ['active']},
             {'Name': 'tag:Name', 'Values': ['cloudtik-{}-vpc-peering-connection'.format(workspace_name)]}
         ])
-        vpc_peering_connections = pending_vpc_peering_connection['VpcPeeringConnections']
+        vpc_peering_connections = response['VpcPeeringConnections']
         if len(vpc_peering_connections) == 0:
             retry = retry - 1
         else:
@@ -1951,7 +1950,6 @@ def _accept_workspace_vpc_peering_connection(config, ec2_client):
         wait_for_workspace_vpc_peering_connection_active(config)
         cli_logger.print(
             "Successfully accepted VPC peering connection: cloudtik-{}-vpc-peering-connection.".format(workspace_name))
-
     except Exception as e:
         cli_logger.error("Failed to accept VPC peering connection. {}", str(e))
         raise e
@@ -1959,26 +1957,25 @@ def _accept_workspace_vpc_peering_connection(config, ec2_client):
 
 def get_workspace_vpc_peering_connection(config):
     workspace_name = config["workspace_name"]
-    current_ec2_client = boto3.client('ec2')
-    pending_vpc_peering_connection = current_ec2_client.describe_vpc_peering_connections(Filters=[
+    current_ec2_client = _working_node_client('ec2', config)
+    response = current_ec2_client.describe_vpc_peering_connections(Filters=[
         {'Name': 'status-code', 'Values': ['active']},
         {'Name': 'tag:Name', 'Values': ['cloudtik-{}-vpc-peering-connection'.format(workspace_name)]}
     ])
-    vpc_peering_connections = pending_vpc_peering_connection['VpcPeeringConnections']
-
+    vpc_peering_connections = response['VpcPeeringConnections']
     return None if len(vpc_peering_connections) == 0 else vpc_peering_connections[0]
 
 
 def get_workspace_pending_acceptance_vpc_peering_connection(config, ec2_client):
     workspace_name = config["workspace_name"]
-    current_ec2_client = boto3.client('ec2')
+    current_ec2_client = _working_node_client('ec2', config)
     retry = 20
     while retry > 0:
-        pending_vpc_peering_connection = current_ec2_client.describe_vpc_peering_connections(Filters=[
+        response = current_ec2_client.describe_vpc_peering_connections(Filters=[
             {'Name': 'status-code', 'Values': ['pending-acceptance']},
             {'Name': 'tag:Name', 'Values': ['cloudtik-{}-vpc-peering-connection'.format(workspace_name)]}
         ])
-        vpc_peering_connections = pending_vpc_peering_connection['VpcPeeringConnections']
+        vpc_peering_connections = response['VpcPeeringConnections']
         if len(vpc_peering_connections) == 0:
             retry = retry - 1
         else:
@@ -1992,10 +1989,10 @@ def get_workspace_pending_acceptance_vpc_peering_connection(config, ec2_client):
 
 
 def _create_workspace_vpc_peering_connection(config, ec2, ec2_client):
-    current_ec2_client = boto3.client('ec2')
+    current_ec2_client = _working_node_client('ec2', config)
     workspace_name = config["workspace_name"]
     region = config["provider"]["region"]
-    current_vpc = get_current_vpc()
+    current_vpc = get_current_vpc(config)
     workspace_vpc = get_workspace_vpc(workspace_name, ec2_client, ec2)
     cli_logger.print("Creating VPC peering connection.")
     try:
@@ -2013,10 +2010,8 @@ def _create_workspace_vpc_peering_connection(config, ec2, ec2_client):
         waiter = current_ec2_client.get_waiter('vpc_peering_connection_exists')
         waiter.wait(VpcPeeringConnectionIds=[vpc_peering_connection_id])
 
-
         cli_logger.print(
             "Successfully created VPC peering connection: cloudtik-{}-vpc-peering-connection.".format(workspace_name))
-
     except Exception as e:
         cli_logger.error("Failed to create VPC peering connection. {}", str(e))
         raise e
@@ -2330,14 +2325,13 @@ def _configure_vpc(config, workspace_name, ec2, ec2_client):
     use_working_vpc = is_use_working_vpc(config)
     if use_working_vpc:
         # No need to create new vpc
-        vpc = get_current_vpc()
+        vpc = get_current_vpc(config)
         vpc.create_tags(Tags=[
             {'Key': 'Name', 'Value': 'cloudtik-{}-vpc'.format(workspace_name)},
             {'Key': AWS_WORKSPACE_VERSION_TAG_NAME, 'Value': AWS_WORKSPACE_VERSION_CURRENT}
         ])
         cli_logger.print("Using the existing VPC: {} for workspace. Skip creation.".format(vpc.id))
     else:
-
         # Need to create a new vpc
         if get_workspace_vpc_id(config["workspace_name"], ec2_client) is None:
             vpc = _create_vpc(config, ec2, ec2_client)
@@ -2371,8 +2365,8 @@ def _configure_subnets_cidr(vpc):
     return cidr_list
 
 
-def get_current_vpc_id():
-    client = boto3.client('ec2')
+def get_current_vpc_id(config):
+    client = _working_node_client('ec2', config)
     ip_address = get_node_ip_address(address="8.8.8.8:53")
     vpc_id = None
     for Reservation in client.describe_instances().get("Reservations"):
@@ -2386,9 +2380,9 @@ def get_current_vpc_id():
     return vpc_id
 
 
-def get_current_vpc():
-    current_vpc_id = get_current_vpc_id()
-    ec2 = boto3.resource('ec2')
+def get_current_vpc(config):
+    current_vpc_id = get_current_vpc_id(config)
+    ec2 = _working_node_resource('ec2', config)
     current_vpc = ec2.Vpc(id=current_vpc_id)
     return current_vpc
 

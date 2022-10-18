@@ -16,11 +16,8 @@ from cloudtik.core._private.utils import check_cidr_conflict, is_use_internal_ip
 from cloudtik.core.workspace_provider import Existence, CLOUDTIK_MANAGED_CLOUD_STORAGE, \
     CLOUDTIK_MANAGED_CLOUD_STORAGE_URI
 
-from azure.common.credentials import get_cli_profile
-from azure.identity import AzureCliCredential
-from azure.mgmt.resource import ResourceManagementClient
 from azure.mgmt.compute import ComputeManagementClient
-from azure.mgmt.resource.resources.models import DeploymentMode
+from azure.core.exceptions import ResourceNotFoundError
 
 from azure.storage.blob import BlobServiceClient
 from azure.storage.filedatalake import DataLakeServiceClient
@@ -34,9 +31,6 @@ from cloudtik.providers._private.utils import StorageTestingError
 
 AZURE_RESOURCE_NAME_PREFIX = "cloudtik"
 AZURE_MSI_NAME = AZURE_RESOURCE_NAME_PREFIX + "-msi-user-identity"
-AZURE_NSG_NAME = AZURE_RESOURCE_NAME_PREFIX + "-nsg"
-AZURE_SUBNET_NAME = AZURE_RESOURCE_NAME_PREFIX + "-subnet"
-AZURE_VNET_NAME = AZURE_RESOURCE_NAME_PREFIX + "-vnet"
 
 AZURE_WORKSPACE_VERSION_TAG_NAME = "cloudtik-workspace-version"
 AZURE_WORKSPACE_VERSION_CURRENT = "1"
@@ -256,7 +250,7 @@ def update_azure_workspace_firewalls(config):
             
     except Exception as e:
         cli_logger.error(
-            "Failed to update the firewalls of workspace {}. {}".format(workspace_name, str(e)))
+            "Failed to update the firewalls of workspace {}. {}", workspace_name, str(e))
         raise e
 
     cli_logger.print(
@@ -306,7 +300,8 @@ def delete_azure_workspace(config, delete_managed_storage: bool = False):
                 current_step += 1
                 _delete_user_assigned_identities(config, resource_group_name)
 
-            current_step = _delete_network_resources(config, resource_client, resource_group_name, current_step, total_steps)
+            current_step = _delete_network_resources(
+                config, resource_client, resource_group_name, current_step, total_steps)
 
             # delete resource group
             with cli_logger.group(
@@ -316,7 +311,7 @@ def delete_azure_workspace(config, delete_managed_storage: bool = False):
                 _delete_resource_group(config, resource_client)
     except Exception as e:
         cli_logger.error(
-            "Failed to delete workspace {}. {}".format(workspace_name, str(e)))
+            "Failed to delete workspace {}. {}", workspace_name, str(e))
         raise e
 
     cli_logger.print(
@@ -462,7 +457,7 @@ def _delete_workspace_cloud_storage(config, resource_group_name):
         cli_logger.print("Successfully deleted the storage account: {}.".format(storage_account.name))
     except Exception as e:
         cli_logger.error(
-            "Failed to delete the storage account: {}. {}".format(storage_account.name, str(e)))
+            "Failed to delete the storage account: {}. {}", storage_account.name, str(e))
         raise e
 
 
@@ -506,8 +501,7 @@ def get_role_assignment_for_storage_blob_data_owner(config, resource_group_name,
                            format(role_assignment_name))
         return role_assignment
     except Exception as e:
-        cli_logger.error(
-            "Failed to get the role assignment. {}", str(e))
+        cli_logger.error("Failed to get the role assignment. {}", str(e))
         return None
 
 
@@ -573,8 +567,7 @@ def _delete_role_assignment_for_storage_blob_data_owner(config, resource_group_n
             role_assignment_name))
     except Exception as e:
         cli_logger.error(
-            "Failed to delete the role assignment for Storage Blob Data Owner: {}. {}".format(
-                role_assignment_name, str(e)))
+            "Failed to delete the role assignment for Storage Blob Data Owner: {}. {}", role_assignment_name, str(e))
         raise e
 
 
@@ -601,7 +594,7 @@ def _delete_head_role_assignment_for_contributor(config, resource_group_name):
         cli_logger.print("Successfully deleted the role assignment for Contributor: {}.".format(role_assignment_name))
     except Exception as e:
         cli_logger.error(
-            "Failed to delete the role assignment for Contributor: {}. {}".format(role_assignment_name, str(e)))
+            "Failed to delete the role assignment for Contributor: {}. {}", role_assignment_name, str(e))
         raise e
 
 
@@ -648,9 +641,9 @@ def get_user_assigned_identity(config, resource_group_name, user_assigned_identi
         )
         cli_logger.verbose("Successfully get the user assigned identity: {}.".format(user_assigned_identity_name))
         return user_assigned_identity
-    except Exception as e:
+    except ResourceNotFoundError as e:
         cli_logger.verbose_error(
-            "Failed to get the user assigned identity: {}. {}".format(user_assigned_identity_name, e))
+            "Failed to get the user assigned identity: {}. {}", user_assigned_identity_name, str(e))
         return None
 
 
@@ -698,7 +691,7 @@ def _delete_user_assigned_identity(config, resource_group_name, user_assigned_id
         cli_logger.print("Successfully deleted the user assigned identity: {}.".format(user_assigned_identity.name))
     except Exception as e:
         cli_logger.error(
-            "Failed to delete the user assigned identity: {}. {}".format(user_assigned_identity.name, str(e)))
+            "Failed to delete the user assigned identity: {}. {}", user_assigned_identity.name, str(e))
         raise e
 
 
@@ -713,8 +706,9 @@ def get_network_security_group(config, network_client, resource_group_name):
         )
         cli_logger.verbose("Successfully get the network security group: {}.".format(network_security_group_name))
         return network_security_group_name
-    except Exception as e:
-        cli_logger.verbose_error("Failed to get the network security group: {}. {}".format(network_security_group_name, e))
+    except ResourceNotFoundError as e:
+        cli_logger.verbose_error("Failed to get the network security group: {}. {}",
+                                 network_security_group_name, str(e))
         return None
 
 
@@ -733,7 +727,7 @@ def _delete_network_security_group(config, network_client, resource_group_name):
         ).result()
         cli_logger.print("Successfully deleted the network security group: {}.".format(network_security_group_name))
     except Exception as e:
-        cli_logger.error("Failed to delete the network security group: {}. {}".format(network_security_group_name, str(e)))
+        cli_logger.error("Failed to delete the network security group: {}. {}", network_security_group_name, str(e))
         raise e
 
 
@@ -748,8 +742,9 @@ def get_public_ip_address(config, network_client, resource_group_name):
         )
         cli_logger.verbose("Successfully get the public IP address: {}.".format(public_ip_address_name))
         return public_ip_address_name
-    except Exception as e:
-        cli_logger.verbose_error("Failed to get the public IP address: {}. {}".format(public_ip_address_name, e))
+    except ResourceNotFoundError as e:
+        cli_logger.verbose_error("Failed to get the public IP address: {}. {}",
+                                 public_ip_address_name, str(e))
         return None
 
 
@@ -768,7 +763,7 @@ def _delete_public_ip_address(config, network_client, resource_group_name):
         ).result()
         cli_logger.print("Successfully deleted the public IP address: {}.".format(public_ip_address_name))
     except Exception as e:
-        cli_logger.error("Failed to delete the public IP address: {}. {}".format(public_ip_address_name, str(e)))
+        cli_logger.error("Failed to delete the public IP address: {}. {}", public_ip_address_name, str(e))
         raise e
 
 
@@ -783,8 +778,8 @@ def get_nat_gateway(config, network_client, resource_group_name):
         )
         cli_logger.verbose("Successfully get the NAT gateway: {}.".format(nat_gateway_name))
         return nat_gateway_name
-    except Exception as e:
-        cli_logger.verbose_error("Failed to get the NAT gateway: {}. {}".format(nat_gateway_name, e))
+    except ResourceNotFoundError as e:
+        cli_logger.verbose_error("Failed to get the NAT gateway: {}. {}", nat_gateway_name, str(e))
         return None
 
 
@@ -803,7 +798,7 @@ def _delete_nat(config, network_client, resource_group_name):
         ).result()
         cli_logger.print("Successfully deleted the Nat Gateway: {}.".format(nat_gateway_name))
     except Exception as e:
-        cli_logger.error("Failed to delete the Nat Gateway: {}. {}".format(nat_gateway_name, str(e)))
+        cli_logger.error("Failed to delete the Nat Gateway: {}. {}", nat_gateway_name, str(e))
         raise e
 
 
@@ -829,7 +824,7 @@ def _delete_vnet(config, resource_client, network_client):
         ).result()
         cli_logger.print("Successfully deleted the virtual network: {}.".format(virtual_network_name))
     except Exception as e:
-        cli_logger.error("Failed to delete the virtual network: {}. {}".format(virtual_network_name, str(e)))
+        cli_logger.error("Failed to delete the virtual network: {}. {}", virtual_network_name, str(e))
         raise e
 
 
@@ -859,7 +854,7 @@ def _delete_resource_group(config, resource_client):
         ).result()
         cli_logger.print("Successfully deleted the resource group: {}.".format(resource_group_name))
     except Exception as e:
-        cli_logger.error("Failed to delete the resource group: {}. {}".format(resource_group_name, str(e)))
+        cli_logger.error("Failed to delete the resource group: {}. {}", resource_group_name, str(e))
         raise e
 
 
@@ -944,7 +939,6 @@ def _create_resource_group(config, resource_client):
         else:
             cli_logger.print("Will use the current node resource group: {}.", resource_group_name)
     else:
-
         # Need to create a new resource_group
         resource_group_name = get_workspace_resource_group_name(workspace_name, resource_client)
         if resource_group_name is None:
@@ -967,8 +961,7 @@ def get_azure_instance_metadata():
         subprocess.run("rm -rf /tmp/azure_instance_metadata.json", shell=True)
         return metadata
     except Exception as e:
-        cli_logger.verbose_error(
-            "Failed to get instance metadata: {}", str(e))
+        cli_logger.verbose_error("Failed to get instance metadata: {}", str(e))
         return None
 
 
@@ -982,6 +975,7 @@ def get_working_node_resource_group(resource_client):
     if metadata is None:
         cli_logger.error("Failed to get the metadata of the working node. "
                          "Please check whether the working node is a Azure instance or not!")
+        return None
     resource_group_name = metadata.get("compute", {}).get("name", "")
     try:
         resource_group = resource_client.resource_groups.get(
@@ -990,7 +984,7 @@ def get_working_node_resource_group(resource_client):
         cli_logger.verbose(
             "Successfully get the resource group: {} for working node.".format(resource_group_name))
         return resource_group
-    except Exception as e:
+    except ResourceNotFoundError as e:
         cli_logger.verbose_error(
             "The resource group for working node is not found: {}", str(e))
         return None
@@ -1019,6 +1013,7 @@ def get_working_node_virtual_network_name(resource_client, network_client):
     if metadata is None:
         cli_logger.error("Failed to get the metadata of the working node. "
                          "Please check whether the working node is a Azure instance or not!")
+        return None
     resource_group_name = metadata.get("compute", {}).get("name", "")
     interfaces = metadata.get("network", {}).get("interface", "")
     subnet = interfaces[0]["ipv4"]["subnet"][0]
@@ -1043,7 +1038,7 @@ def get_workspace_virtual_network_name(config, network_client):
         cli_logger.verbose("Successfully get the VirtualNetworkName: {} for workspace.".
                                  format(virtual_network_name))
         return virtual_network.name
-    except Exception as e:
+    except ResourceNotFoundError as e:
         cli_logger.verbose_error(
             "The virtual network for workspace is not found: {}", str(e))
         return None
@@ -1065,7 +1060,7 @@ def _get_resource_group(
     if use_internal_ips:
         resource_group = get_working_node_resource_group(resource_client)
     else:
-        resource_group =  _get_workspace_resource_group(workspace_name, resource_client)
+        resource_group = _get_workspace_resource_group(workspace_name, resource_client)
 
     return resource_group
 
@@ -1082,7 +1077,7 @@ def _get_workspace_resource_group(workspace_name, resource_client):
         cli_logger.verbose(
             "Successfully get the resource group name: {} for workspace.".format(resource_group_name))
         return resource_group
-    except Exception as e:
+    except ResourceNotFoundError as e:
         cli_logger.verbose_error(
             "The resource group for workspace is not found: {}", str(e))
         return None
@@ -1432,8 +1427,8 @@ def get_subnet(network_client, resource_group_name, virtual_network_name, subnet
         )
         cli_logger.verbose("Successfully get the subnet: {}.".format(subnet_name))
         return subnet
-    except Exception as e:
-        cli_logger.verbose_error("Failed to get the subnet: {}. {}".format(subnet_name, e))
+    except ResourceNotFoundError as e:
+        cli_logger.verbose_error("Failed to get the subnet: {}. {}", subnet_name, str(e))
         return None
 
 
@@ -1462,8 +1457,8 @@ def _delete_subnet(config, network_client, resource_group_name, virtual_network_
         cli_logger.print("Successfully deleted {} subnet: {}."
                          .format(subnet_attribute, subnet_name))
     except Exception as e:
-        cli_logger.error("Failed to delete the {} subnet: {}! {}"
-                         .format(subnet_attribute, subnet_name, str(e)))
+        cli_logger.error("Failed to delete the {} subnet: {}. {}",
+                         subnet_attribute, subnet_name, str(e))
         raise e
 
 
@@ -1679,6 +1674,7 @@ def bootstrap_azure_from_workspace(config):
 
     config = _configure_key_pair(config)
     config = _configure_workspace_resource(config)
+    config = _configure_prefer_spot_node(config)
     return config
 
 
@@ -1744,12 +1740,13 @@ def _configure_cloud_storage_from_workspace(config):
     user_assigned_identity = get_head_user_assigned_identity(config, resource_group_name)
     worker_user_assigned_identity = get_worker_user_assigned_identity(config, resource_group_name)
     for key, node_type in config["available_node_types"].items():
+        node_config = node_type["node_config"]
         if key == config["head_node_type"]:
-            node_type["azure.user.assigned.identity.client.id"] = user_assigned_identity.client_id
-            node_type["azure.user.assigned.identity.tenant.id"] = user_assigned_identity.tenant_id
+            node_config["azure.user.assigned.identity.client.id"] = user_assigned_identity.client_id
+            node_config["azure.user.assigned.identity.tenant.id"] = user_assigned_identity.tenant_id
         else:
-            node_type["azure.user.assigned.identity.client.id"] = worker_user_assigned_identity.client_id
-            node_type["azure.user.assigned.identity.tenant.id"] = worker_user_assigned_identity.tenant_id
+            node_config["azure.user.assigned.identity.client.id"] = worker_user_assigned_identity.client_id
+            node_config["azure.user.assigned.identity.tenant.id"] = worker_user_assigned_identity.tenant_id
 
     return config
 
@@ -1873,7 +1870,7 @@ def _configure_prefer_spot_node(config):
 
     # if no such key, we consider user don't want to override
     if prefer_spot_node is None:
-        return
+        return config
 
     # User override, set or remove spot settings for worker node types
     node_types = config["available_node_types"]
@@ -1886,22 +1883,15 @@ def _configure_prefer_spot_node(config):
         _configure_spot_for_node_type(
             node_type_data, prefer_spot_node)
 
+    return config
+
 
 def bootstrap_azure(config):
     workspace_name = config.get("workspace_name", "")
     if workspace_name == "":
-        config = bootstrap_azure_default(config)
-    else:
-        config = bootstrap_azure_from_workspace(config)
+        raise RuntimeError("Workspace name is not specified in cluster configuration.")
 
-    _configure_prefer_spot_node(config)
-    return config
-
-
-def bootstrap_azure_default(config):
-    config = _configure_key_pair(config)
-    config = _configure_resource_group(config)
-    config = _configure_provision_public_ip(config)
+    config = bootstrap_azure_from_workspace(config)
     return config
 
 
@@ -1911,75 +1901,6 @@ def bootstrap_azure_for_api(config):
         raise ValueError(f"Workspace name is not specified.")
 
     return _configure_resource_group_from_workspace(config)
-
-
-def _configure_provision_public_ip(config):
-    use_internal_ips = is_use_internal_ip(config)
-
-    for key, node_type in config["available_node_types"].items():
-        node_config = node_type["node_config"]
-        node_config["azure_arm_parameters"]["provisionPublicIp"] = False if use_internal_ips else True
-
-    return config
-
-
-def _configure_resource_group(config):
-    # TODO: look at availability sets
-    # https://docs.microsoft.com/en-us/azure/virtual-machines/windows/tutorial-availability-sets
-    subscription_id = config["provider"].get("subscription_id")
-    if subscription_id is None:
-        subscription_id = get_cli_profile().get_subscription_id()
-    credential = AzureCliCredential()
-    resource_client = ResourceManagementClient(credential,
-                                               subscription_id)
-    config["provider"]["subscription_id"] = subscription_id
-    logger.info("Using subscription id: %s", subscription_id)
-
-    assert "resource_group" in config["provider"], (
-        "Provider config must include resource_group field")
-    resource_group = config["provider"]["resource_group"]
-
-    assert "location" in config["provider"], (
-        "Provider config must include location field")
-    params = {"location": config["provider"]["location"]}
-
-    if "tags" in config["provider"]:
-        params["tags"] = config["provider"]["tags"]
-
-    logger.info("Creating/Updating resource group: %s", resource_group)
-    resource_client.resource_groups.create_or_update(
-        resource_group_name=resource_group, parameters=params)
-
-    # load the template file
-    current_path = Path(__file__).parent
-    template_path = current_path.joinpath("azure-config-template.json")
-    with open(template_path, "r") as template_fp:
-        template = json.load(template_fp)
-
-    # choose a random subnet, skipping most common value of 0
-    random.seed(resource_group)
-    subnet_mask = "10.{}.0.0/16".format(random.randint(1, 254))
-
-    parameters = {
-        "properties": {
-            "mode": DeploymentMode.incremental,
-            "template": template,
-            "parameters": {
-                "subnet": {
-                    "value": subnet_mask
-                }
-            }
-        }
-    }
-
-    create_or_update = get_azure_sdk_function(
-        client=resource_client.deployments, function_name="create_or_update")
-    create_or_update(
-        resource_group_name=resource_group,
-        deployment_name="cloudtik-config",
-        parameters=parameters).wait()
-
-    return config
 
 
 def _configure_key_pair(config):
@@ -2060,14 +1981,20 @@ def get_workspace_head_nodes(provider_config, workspace_name):
     resource_group_name = _get_resource_group_name(
         workspace_name, resource_client, use_internal_ips)
     return _get_workspace_head_nodes(
+        workspace_name=workspace_name,
         resource_group_name=resource_group_name,
         compute_client=compute_client
     )
 
 
-def _get_workspace_head_nodes(resource_group_name,
+def _get_workspace_head_nodes(workspace_name,
+                              resource_group_name,
                               compute_client):
-
+    if resource_group_name is None:
+        raise RuntimeError(
+            "The workspace {} doesn't exist or is in the wrong state.".format(
+                workspace_name
+            ))
     all_heads = [node for node in list(
         compute_client.virtual_machines.list(resource_group_name=resource_group_name))
             if node.tags is not None and node.tags.get(CLOUDTIK_TAG_NODE_KIND, "") == NODE_KIND_HEAD]
@@ -2173,6 +2100,7 @@ def list_azure_clusters(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
 
     head_nodes = _get_workspace_head_nodes(
+        workspace_name=config.get("workspace_name"),
         resource_group_name=resource_group_name,
         compute_client=compute_client
     )
@@ -2195,12 +2123,13 @@ def with_azure_environment_variables(provider_config, node_type_config: Dict[str
     export_azure_cloud_storage_config(provider_config, config_dict)
 
     if node_type_config is not None:
-        user_assigned_identity_client_id = node_type_config.get(
+        node_config = node_type_config.get("node_config")
+        user_assigned_identity_client_id = node_config.get(
             "azure.user.assigned.identity.client.id")
         if user_assigned_identity_client_id:
             config_dict["AZURE_MANAGED_IDENTITY_CLIENT_ID"] = user_assigned_identity_client_id
 
-        user_assigned_identity_tenant_id = node_type_config.get(
+        user_assigned_identity_tenant_id = node_config.get(
             "azure.user.assigned.identity.tenant.id")
         if user_assigned_identity_tenant_id:
             config_dict["AZURE_MANAGED_IDENTITY_TENANT_ID"] = user_assigned_identity_tenant_id

@@ -32,8 +32,11 @@ mkdir -p $RUNTIME_PATH
 # JDK install function
 . "$ROOT_DIR"/common/scripts/jdk-install.sh
 
+# Hadoop install function
+. "$ROOT_DIR"/common/scripts/hadoop-install.sh
+
 function install_tools() {
-    which uuid > /dev/null || sudo apt-get -qq update -y; sudo apt-get -qq install uuid -y
+    which uuid > /dev/null || sudo apt-get -qq update -y > /dev/null; sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install uuid -y > /dev/null
 }
 
 function install_trino() {
@@ -61,5 +64,6 @@ function install_trino() {
 }
 
 install_jdk
+install_hadoop
 install_tools
 install_trino

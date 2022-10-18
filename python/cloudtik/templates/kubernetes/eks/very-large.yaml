@@ -20,7 +20,7 @@ available_node_types:
         node_config:
             resources:
                 cpu: 62
-                memory: 240Gi
+                memory: 238Gi
             dataDisks:
               - name: data-disk-1
                 storageClass: "gp2"

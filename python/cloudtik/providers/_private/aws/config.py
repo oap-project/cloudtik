@@ -21,59 +21,56 @@ from cloudtik.core._private.event_system import (CreateClusterEvent,
                                                   global_event_system)
 from cloudtik.core._private.services import get_node_ip_address
 from cloudtik.core._private.utils import check_cidr_conflict, get_cluster_uri, is_use_internal_ip, \
-    is_managed_cloud_storage, is_use_managed_cloud_storage, is_worker_role_for_cloud_storage
+    is_managed_cloud_storage, is_use_managed_cloud_storage, is_worker_role_for_cloud_storage, is_use_working_vpc, is_use_peering_vpc
 from cloudtik.core.workspace_provider import Existence, CLOUDTIK_MANAGED_CLOUD_STORAGE, \
     CLOUDTIK_MANAGED_CLOUD_STORAGE_URI
 from cloudtik.providers._private.aws.utils import LazyDefaultDict, \
     handle_boto_error, get_boto_error_code, _get_node_info, BOTO_MAX_RETRIES, _resource, \
     _resource_client, _make_resource, _make_resource_client, make_ec2_client, export_aws_s3_storage_config, \
-    get_aws_s3_storage_config, get_aws_s3_storage_config_for_update
+    get_aws_s3_storage_config, get_aws_s3_storage_config_for_update, _working_node_client, _working_node_resource
 from cloudtik.providers._private.utils import StorageTestingError
 
 logger = logging.getLogger(__name__)
 
 AWS_RESOURCE_NAME_PREFIX = "cloudtik"
-AWS_DEFAULT_INSTANCE_PROFILE = AWS_RESOURCE_NAME_PREFIX + "-v1"
-AWS_DEFAULT_IAM_ROLE = AWS_RESOURCE_NAME_PREFIX + "-v1"
-
 SECURITY_GROUP_TEMPLATE = AWS_RESOURCE_NAME_PREFIX + "-{}"
 
 AWS_WORKSPACE_VERSION_TAG_NAME = "cloudtik-workspace-version"
 AWS_WORKSPACE_VERSION_CURRENT = "1"
 
-DEFAULT_AMI_NAME = "Ubuntu Server 20.04 LTS (HVM), SSD Volume Type"
+DEFAULT_AMI_NAME_PREFIX = "ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server"
 
 # Obtained from https://aws.amazon.com/marketplace/pp/B07Y43P7X5 on 8/4/2020.
 DEFAULT_AMI = {
-    "us-east-1": "ami-04505e74c0741db8d",  # US East (N. Virginia)
-    "us-east-2": "ami-0fb653ca2d3203ac1",  # US East (Ohio)
-    "us-west-1": "ami-01f87c43e618bf8f0",  # US West (N. California)
-    "us-west-2": "ami-0892d3c7ee96c0bf7",  # US West (Oregon)
-    "af-souce-1": "ami-030b8d2037063bab3", # Africa (Cape Town)
-    "ap-east-1": "ami-0b981d9ee99b28eba", # Asia Pacific (Hong Kong)
-    "ap-south-1": "ami-0851b76e8b1bce90b", # # Asia Pacific (Mumbai)
-    "ap-northeast-1": "ami-088da9557aae42f39", # Asia Pacific (Tokyo)
-    "ap-northeast-2": "ami-0454bb2fefc7de534", # Asia Pacific (Seoul),
-    "ap-northeast-3": "ami-096c4b6e0792d8c16", # Asia Pacific (Osaka),
-    "ap-southeast-1": "ami-055d15d9cfddf7bd3", # Asia Pacific (Singapore)
-    "ap-southeast-2": "ami-0b7dcd6e6fd797935", # Asia Pacific (Sydney),
-    "ap-southeast-3": "ami-0a9c8e0ccf1d85f67", # Asia Pacific (Jakarta)
-    "ca-central-1": "ami-0aee2d0182c9054ac",  # Canada (Central)
-    "eu-central-1": "ami-0d527b8c289b4af7f",  # EU (Frankfurt)
-    "eu-west-1": "ami-08ca3fed11864d6bb",  # EU (Ireland)
-    "eu-west-2": "ami-0015a39e4b7c0966f",  # EU (London)
-    "eu-west-3": "ami-0c6ebbd55ab05f070",  # EU (Paris)
-    "eu-south-1": "ami-0f8ce9c417115413d",  # EU (Milan)
-    "eu-north-1": "ami-092cce4a19b438926",  # EU (Stockholm)
-    "me-south-1": "ami-0b4946d7420c44be4",  # Middle East (Bahrain)
-    "sa-east-1": "ami-090006f29ecb2d79a",  # SA (Sao Paulo)
+    "us-east-1": "ami-0149b2da6ceec4bb0",  # US East (N. Virginia)
+    "us-east-2": "ami-0d5bf08bc8017c83b",  # US East (Ohio)
+    "us-west-1": "ami-03f6d497fceb40069",  # US West (N. California)
+    "us-west-2": "ami-0c09c7eb16d3e8e70",  # US West (Oregon)
+    "af-souce-1": "ami-0fffe3a460634f60c", # Africa (Cape Town)
+    "ap-east-1": "ami-09800b995a7e41703", # Asia Pacific (Hong Kong)
+    "ap-south-1": "ami-024c319d5d14b463e", # # Asia Pacific (Mumbai)
+    "ap-northeast-1": "ami-09b18720cb71042df", # Asia Pacific (Tokyo)
+    "ap-northeast-2": "ami-07d16c043aa8e5153", # Asia Pacific (Seoul),
+    "ap-northeast-3": "ami-09d2f3a31110c6ad4", # Asia Pacific (Osaka),
+    "ap-southeast-1": "ami-00e912d13fbb4f225", # Asia Pacific (Singapore)
+    "ap-southeast-2": "ami-055166f8a8041fbf1", # Asia Pacific (Sydney),
+    "ap-southeast-3": "ami-06704743af22a1200", # Asia Pacific (Jakarta)
+    "ca-central-1": "ami-043a72cf696697251",  # Canada (Central)
+    "eu-central-1": "ami-06148e0e81e5187c8",  # EU (Frankfurt)
+    "eu-west-1": "ami-0fd8802f94ed1c969",  # EU (Ireland)
+    "eu-west-2": "ami-04842bc62789b682e",  # EU (London)
+    "eu-west-3": "ami-064736ff8301af3ee",  # EU (Paris)
+    "eu-south-1": "ami-0e825b1b63ff6b36a",  # EU (Milan)
+    "eu-north-1": "ami-00b696228b0185ffe",  # EU (Stockholm)
+    "me-south-1": "ami-00df83d12eb4b3c4e",  # Middle East (Bahrain)
+    "sa-east-1": "ami-00742e66d44c13cd9",  # SA (Sao Paulo)
 }
 
 AWS_VPC_SUBNETS_COUNT = 2
 AWS_VPC_PUBLIC_SUBNET_INDEX = 0
 
 AWS_WORKSPACE_NUM_CREATION_STEPS = 8
-AWS_WORKSPACE_NUM_DELETION_STEPS = 8
+AWS_WORKSPACE_NUM_DELETION_STEPS = 9
 AWS_WORKSPACE_TARGET_RESOURCES = 10
 
 AWS_MANAGED_STORAGE_S3_BUCKET = "aws.managed.storage.s3.bucket"
@@ -160,6 +157,30 @@ def list_ec2_instances(region: str, aws_credentials: Dict[str, Any] = None
     return final_instance_types
 
 
+def get_latest_ami_id(cluster_config: Dict[str, Any]):
+    try:
+        ec2 = make_ec2_client(
+            region=cluster_config["provider"]["region"],
+            max_retries=BOTO_MAX_RETRIES,
+            aws_credentials=cluster_config["provider"].get("aws_credentials"))
+        response = ec2.describe_images(Owners=["amazon"],
+                                       Filters=[{'Name': 'name', 'Values': [DEFAULT_AMI_NAME_PREFIX + "*"]},
+                                                {"Name": "is-public", "Values": ["true"]},
+                                                {"Name": "state", "Values": ["available"]}
+                                                ])
+        images = response.get('Images', [])
+        if len(images) > 0:
+            images.sort(key=lambda item: item['CreationDate'], reverse=True)
+            ami_id = images[0]["ImageId"]
+            return ami_id
+        else:
+            return None
+    except Exception as e:
+        cli_logger.warning(
+            "Error when getting latest AWS AMI information.", str(e))
+        return None
+
+
 def post_prepare_aws(config: Dict[str, Any]) -> Dict[str, Any]:
     try:
         config = fill_available_node_types_resources(config)
@@ -167,7 +188,7 @@ def post_prepare_aws(config: Dict[str, Any]) -> Dict[str, Any]:
         cli_logger.warning(
             "Failed to detect node resources. Make sure you have properly configured the AWS credentials: {}.",
             str(exc))
-
+        raise
     return config
 
 
@@ -428,6 +449,12 @@ def get_workspace_private_route_tables(workspace_name, ec2, vpc_id):
     return workspace_private_rtbs
 
 
+def get_vpc_route_tables(vpc):
+    vpc_rtbs = [rtb for rtb in vpc.route_tables.all() if rtb.vpc_id == vpc.id]
+
+    return vpc_rtbs
+
+
 def get_workspace_public_route_tables(workspace_name, ec2, vpc_id):
     vpc = ec2.Vpc(vpc_id)
     rtbs = [rtb for rtb in vpc.route_tables.all() if rtb.tags]
@@ -445,8 +472,7 @@ def get_workspace_security_group(config, vpc_id, workspace_name):
 
 
 def get_workspace_internet_gateways(workspace_name, ec2, vpc_id):
-    vpc = ec2.Vpc(vpc_id)
-    igws = [igw for igw in vpc.internet_gateways.all() if igw.tags]
+    igws = [igw for igw in get_vpc_internet_gateways(ec2, vpc_id) if igw.tags]
 
     workspace_igws = [igw for igw in igws
                       for tag in igw.tags
@@ -474,25 +500,30 @@ def check_aws_workspace_existence(config):
     ec2_client = _resource_client("ec2", config)
     workspace_name = config["workspace_name"]
     managed_cloud_storage = is_managed_cloud_storage(config)
+    use_peering_vpc = is_use_peering_vpc(config)
 
     existing_resources = 0
     target_resources = AWS_WORKSPACE_TARGET_RESOURCES
     if managed_cloud_storage:
         target_resources += 1
+    if use_peering_vpc:
+        target_resources += 1
 
     """
-         Do the work - order of operation
-         1.) Check VPC
-         2.) Check private subnets
-         3.) Check public subnets
-         4.) Check nat-gateways
-         5.) Check route-tables
-         6.) Check Internet-gateways
-         7.) Check security-group
-         8.) Check VPC endpoint for s3
-         9.) Instance profiles
-         10.) Check S3 bucket
+         Do the work - order of operation:
+         Check VPC
+         Check private subnets
+         Check public subnets
+         Check nat-gateways
+         Check route-tables
+         Check Internet-gateways
+         Check security-group
+         Check VPC endpoint for s3
+         Check VPC peering if needed
+         Instance profiles
+         Check S3 bucket
     """
+    skipped_resources = 0
     vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
     if vpc_id is not None:
         existing_resources += 1
@@ -501,16 +532,25 @@ def check_aws_workspace_existence(config):
             existing_resources += 1
         if len(get_workspace_public_subnets(workspace_name, ec2, vpc_id)) > 0:
             existing_resources += 1
-        if len(get_vpc_nat_gateways(ec2_client, vpc_id)) > 0:
+        if len(get_workspace_nat_gateways(workspace_name, ec2_client, vpc_id)) > 0:
             existing_resources += 1
+        elif len(get_vpc_nat_gateways(ec2_client, vpc_id)) > 0:
+            existing_resources += 1
+            skipped_resources += 1
         if len(get_workspace_private_route_tables(workspace_name, ec2, vpc_id)) > 0:
             existing_resources += 1
-        if len(get_vpc_internet_gateways(ec2, vpc_id)) > 0:
+        if len(get_workspace_internet_gateways(workspace_name, ec2, vpc_id)) > 0:
             existing_resources += 1
+        elif len(get_vpc_internet_gateways(ec2, vpc_id)) > 0:
+            existing_resources += 1
+            skipped_resources += 1
         if get_workspace_security_group(config, vpc_id, workspace_name) is not None:
             existing_resources += 1
         if len(get_vpc_endpoint_for_s3(ec2_client, vpc_id, workspace_name)) > 0:
             existing_resources += 1
+        if use_peering_vpc:
+            if get_workspace_vpc_peering_connection(config) is not None:
+                existing_resources += 1
 
     if _get_head_instance_profile(config) is not None:
         existing_resources += 1
@@ -524,12 +564,12 @@ def check_aws_workspace_existence(config):
             existing_resources += 1
             cloud_storage_existence = True
 
-    if existing_resources == 0:
+    if existing_resources <= skipped_resources:
         return Existence.NOT_EXIST
     elif existing_resources == target_resources:
         return Existence.COMPLETED
     else:
-        if existing_resources == 1 and cloud_storage_existence:
+        if existing_resources == skipped_resources + 1 and cloud_storage_existence:
             return Existence.STORAGE_ONLY
         return Existence.IN_COMPLETED
 
@@ -577,7 +617,7 @@ def update_aws_workspace_firewalls(config):
 
     except Exception as e:
         cli_logger.error(
-            "Failed to update the firewalls of workspace {}. {}".format(workspace_name, str(e)))
+            "Failed to update the firewalls of workspace {}. {}", workspace_name, str(e))
         raise e
 
     cli_logger.print(
@@ -590,17 +630,17 @@ def delete_aws_workspace(config, delete_managed_storage: bool = False):
     ec2 = _resource("ec2", config)
     ec2_client = _resource_client("ec2", config)
     workspace_name = config["workspace_name"]
-    use_internal_ips = is_use_internal_ip(config)
+    use_peering_vpc = is_use_peering_vpc(config)
     managed_cloud_storage = is_managed_cloud_storage(config)
     vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
-    if vpc_id is None:
-        cli_logger.print("The workspace: {} doesn't exist!".format(config["workspace_name"]))
-        return
 
     current_step = 1
     total_steps = AWS_WORKSPACE_NUM_DELETION_STEPS
-    if not use_internal_ips:
-        total_steps += 1
+    if vpc_id is None:
+        total_steps = 1
+    else:
+        if use_peering_vpc:
+            total_steps += 1
     if managed_cloud_storage and delete_managed_storage:
         total_steps += 1
 
@@ -621,13 +661,14 @@ def delete_aws_workspace(config, delete_managed_storage: bool = False):
                 current_step += 1
                 _delete_workspace_instance_profile(config, workspace_name)
 
-            _delete_network_resources(config, workspace_name,
-                                      ec2, ec2_client, vpc_id,
-                                      current_step, total_steps)
+            if vpc_id:
+                _delete_network_resources(config, workspace_name,
+                                          ec2, ec2_client, vpc_id,
+                                          current_step, total_steps)
 
     except Exception as e:
         cli_logger.error(
-            "Failed to delete workspace {}. {}".format(workspace_name, str(e)))
+            "Failed to delete workspace {}. {}", workspace_name, str(e))
         raise e
 
     cli_logger.print(
@@ -689,19 +730,29 @@ def _delete_managed_cloud_storage(cloud_provider, workspace_name):
 def _delete_network_resources(config, workspace_name,
                               ec2, ec2_client, vpc_id,
                               current_step, total_steps):
-    use_internal_ips = is_use_internal_ip(config)
+    use_working_vpc = is_use_working_vpc(config)
+    use_peering_vpc = is_use_peering_vpc(config)
 
     """
-         Do the work - order of operation
-         1.) Delete private subnets 
-         2.) Delete route-tables for private subnets 
-         3.) Delete nat-gateway for private subnets
-         4.) Delete public subnets
-         5.) Delete internet gateway
-         6.) Delete security group
-         7.) Delete VPC endpoint for S3"
-         8.) Delete vpc
+         Do the work - order of operation:
+         Delete vpc peering connection
+         Delete private subnets
+         Delete route-tables for private subnets
+         Delete nat-gateway for private subnets
+         Delete public subnets
+         Delete internet gateway
+         Delete security group
+         Delete VPC endpoint for S3
+         Delete vpc
     """
+
+    # delete vpc peering connection
+    if use_peering_vpc:
+        with cli_logger.group(
+                "Deleting VPC peering connection",
+                _numbered=("[]", current_step, total_steps)):
+            current_step += 1
+            _delete_workspace_vpc_peering_connection_and_routes(config, ec2, ec2_client)
 
     # delete private subnets
     with cli_logger.group(
@@ -753,12 +804,15 @@ def _delete_network_resources(config, workspace_name,
         _delete_vpc_endpoint_for_s3(ec2_client, vpc_id, workspace_name)
 
     # delete vpc
-    if not use_internal_ips:
-        with cli_logger.group(
-                "Deleting VPC",
-                _numbered=("[]", current_step, total_steps)):
-            current_step += 1
+    with cli_logger.group(
+            "Deleting VPC",
+            _numbered=("[]", current_step, total_steps)):
+        current_step += 1
+        if not use_working_vpc:
             _delete_vpc(ec2, ec2_client, vpc_id)
+        else:
+            # deleting the tags we created on working vpc
+            _delete_vpc_tags(ec2, ec2_client, vpc_id, workspace_name)
 
 
 def create_aws_workspace(config):
@@ -791,7 +845,7 @@ def _configure_prefer_spot_node(config):
 
     # if no such key, we consider user don't want to override
     if prefer_spot_node is None:
-        return
+        return config
 
     # User override, set or remove spot settings for worker node types
     node_types = config["available_node_types"]
@@ -804,19 +858,23 @@ def _configure_prefer_spot_node(config):
         _configure_spot_for_node_type(
             node_type_data, prefer_spot_node)
 
+    return config
+
 
 def bootstrap_aws(config):
     workspace_name = config.get("workspace_name", "")
     if workspace_name == "":
-        config = bootstrap_aws_default(config)
-    else:
-        config = bootstrap_aws_from_workspace(config)
+        raise RuntimeError("Workspace name is not specified in cluster configuration.")
 
-    _configure_prefer_spot_node(config)
+    config = bootstrap_aws_from_workspace(config)
     return config
 
 
-def bootstrap_aws_default(config):
+def bootstrap_aws_from_workspace(config):
+    if not check_aws_workspace_integrity(config):
+        workspace_name = config["workspace_name"]
+        cli_logger.abort("AWS workspace {} doesn't exist or is in wrong state.", workspace_name)
+
     # create a copy of the input config to modify
     config = copy.deepcopy(config)
 
@@ -826,45 +884,6 @@ def bootstrap_aws_default(config):
     # If a LaunchTemplate is provided, extract the necessary fields for the
     # config stages below.
     config = _configure_from_launch_template(config)
-
-    # If NetworkInterfaces are provided, extract the necessary fields for the
-    # config stages below.
-    config = _configure_from_network_interfaces(config)
-
-    # The head node needs to have an IAM role that allows it to create further
-    # EC2 instances.
-    config = _configure_iam_role(config)
-
-    # Configure SSH access, using an existing key pair if possible.
-    config = _configure_key_pair(config)
-    global_event_system.execute_callback(
-        get_cluster_uri(config),
-        CreateClusterEvent.ssh_keypair_downloaded,
-        {"ssh_key_path": config["auth"]["ssh_private_key"]})
-
-    # Pick a reasonable subnet if not specified by the user.
-    config = _configure_subnet(config)
-
-    # Cluster workers should be in a security group that permits traffic within
-    # the group, and also SSH access from outside.
-    config = _configure_security_group(config)
-
-    # Provide a helpful message for missing AMI.
-    _configure_ami(config)
-
-    return config
-
-
-def bootstrap_aws_from_workspace(config):
-    if not check_aws_workspace_integrity(config):
-        workspace_name = config["workspace_name"]
-        cli_logger.abort("AWS workspace {} doesn't exist or is in wrong state!", workspace_name)
-
-    # create a copy of the input config to modify
-    config = copy.deepcopy(config)
-
-    # Used internally to store head IAM role.
-    config["head_node"] = {}
 
     # The head node needs to have an IAM role that allows it to create further
     # EC2 instances.
@@ -890,6 +909,7 @@ def bootstrap_aws_from_workspace(config):
     # Provide a helpful message for missing AMI.
     config = _configure_ami(config)
 
+    config = _configure_prefer_spot_node(config)
     return config
 
 
@@ -935,7 +955,10 @@ def _get_workspace_head_nodes(provider_config, workspace_name):
     ec2_client = _make_resource_client("ec2", provider_config)
     vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
     if vpc_id is None:
-        raise RuntimeError(f"Failed to get VPC for workspace: {workspace_name}")
+        raise RuntimeError(
+            "Failed to get the VPC. The workspace {} doesn't exist or is in the wrong state.".format(
+                workspace_name
+            ))
 
     filters = [
         {
@@ -954,25 +977,6 @@ def _get_workspace_head_nodes(provider_config, workspace_name):
 
     nodes = list(ec2.instances.filter(Filters=filters))
     return nodes
-
-
-def _configure_iam_role(config):
-    head_node_type = config["head_node_type"]
-    head_node_config = config["available_node_types"][head_node_type][
-        "node_config"]
-    if "IamInstanceProfile" in head_node_config:
-        _set_config_info(head_instance_profile_src="config")
-        return config
-    _set_config_info(head_instance_profile_src="default")
-
-    profile = _create_or_update_instance_profile(config,
-                                                 AWS_DEFAULT_INSTANCE_PROFILE,
-                                                 AWS_DEFAULT_IAM_ROLE)
-    # Add IAM role to "head_node" field so that it is applied only to
-    # the head node -- not to workers with the same node type as the head.
-    config["head_node"]["IamInstanceProfile"] = {"Arn": profile.arn}
-
-    return config
 
 
 def _configure_cloud_storage_from_workspace(config):
@@ -1258,7 +1262,6 @@ def _delete_internet_gateway(workspace_name, ec2, vpc_id):
         except boto3.exceptions.Boto3Error as e:
             cli_logger.error("Failed to detach or delete Internet Gateway. {}", str(e))
             raise e
-    return
 
 
 def _delete_private_subnets(workspace_name, ec2, vpc_id):
@@ -1276,7 +1279,6 @@ def _delete_private_subnets(workspace_name, ec2, vpc_id):
     except boto3.exceptions.Boto3Error as e:
         cli_logger.error("Failed to delete private subnet. {}", str(e))
         raise e
-    return
 
 
 def _delete_public_subnets(workspace_name, ec2, vpc_id):
@@ -1294,7 +1296,6 @@ def _delete_public_subnets(workspace_name, ec2, vpc_id):
     except boto3.exceptions.Boto3Error as e:
         cli_logger.error("Failed to delete public subnet. {}", str(e))
         raise e
-    return
 
 
 def _delete_route_table(workspace_name, ec2, vpc_id):
@@ -1312,7 +1313,6 @@ def _delete_route_table(workspace_name, ec2, vpc_id):
     except boto3.exceptions.Boto3Error as e:
         cli_logger.error("Failed to delete route table. {}", str(e))
         raise e
-    return
 
 
 def release_elastic_ip_address(ec2_client, allocation_id, retry=5):
@@ -1391,17 +1391,23 @@ def _delete_security_group(config, vpc_id):
     except boto3.exceptions.Boto3Error as e:
         cli_logger.error("Failed to delete security group. {}", str(e))
         raise e
-    return
+
+
+def _get_vpc(ec2, ec2_client, vpc_id):
+    vpc_ids = [vpc["VpcId"] for vpc in ec2_client.describe_vpcs()["Vpcs"] if vpc["VpcId"] == vpc_id]
+    if len(vpc_ids) == 0:
+        return None
+
+    vpc = ec2.Vpc(vpc_id)
+    return vpc
 
 
 def _delete_vpc(ec2, ec2_client, vpc_id):
     """ Delete the VPC """
-    vpc_ids = [vpc["VpcId"] for vpc in ec2_client.describe_vpcs()["Vpcs"] if vpc["VpcId"] == vpc_id]
-    if len(vpc_ids) == 0:
+    vpc = _get_vpc(ec2, ec2_client, vpc_id)
+    if vpc is None:
         cli_logger.print("The VPC: {} doesn't exist.".format(vpc_id))
         return
-
-    vpc = ec2.Vpc(vpc_id)
     try:
         cli_logger.print("Deleting VPC: {}...".format(vpc.id))
         vpc.delete()
@@ -1409,7 +1415,26 @@ def _delete_vpc(ec2, ec2_client, vpc_id):
     except Exception as e:
         cli_logger.error("Failed to delete VPC. {}", str(e))
         raise e
-    return
+
+
+def _delete_vpc_tags(ec2, ec2_client, vpc_id, workspace_name):
+    vpc = _get_vpc(ec2, ec2_client, vpc_id)
+    if vpc is None:
+        cli_logger.print("The VPC: {} doesn't exist.".format(vpc_id))
+        return
+    try:
+        cli_logger.print("Deleting VPC tags: {}...".format(vpc.id))
+        ec2_client.delete_tags(
+            Resources=[vpc_id],
+            Tags=[
+                {'Key': 'Name', 'Value': 'cloudtik-{}-vpc'.format(workspace_name)},
+                {'Key': AWS_WORKSPACE_VERSION_TAG_NAME}
+            ]
+        )
+        cli_logger.print("Successfully deleted VPC tags: {}.".format(vpc.id))
+    except Exception as e:
+        cli_logger.error("Failed to delete VPC tags. {}", str(e))
+        raise e
 
 
 def _delete_vpc_endpoint_for_s3(ec2_client, vpc_id, workspace_name):
@@ -1426,15 +1451,107 @@ def _delete_vpc_endpoint_for_s3(ec2_client, vpc_id, workspace_name):
     except Exception as e:
         cli_logger.error("Failed to delete VPC endpoint for S3. {}", str(e))
         raise e
-    return
+
+
+def _delete_workspace_vpc_peering_connection_and_routes(config, ec2, ec2_client):
+    current_step = 1
+    total_steps = 2
+
+    with cli_logger.group(
+            "Deleting routes for VPC peering connection",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _delete_routes_for_workspace_vpc_peering_connection(config, ec2, ec2_client)
+
+    with cli_logger.group(
+            "Deleting VPC peering connection",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _delete_workspace_vpc_peering_connection(config, ec2_client)
+
+
+def _delete_routes_for_workspace_vpc_peering_connection(config, ec2, ec2_client):
+    workspace_name = config["workspace_name"]
+    current_ec2_client = _working_node_client('ec2', config)
+    current_vpc = get_current_vpc(config)
+    workspace_vpc = get_workspace_vpc(workspace_name, ec2_client, ec2)
+    current_vpc_route_tables = get_vpc_route_tables(current_vpc)
+    workspace_vpc_route_tables = get_vpc_route_tables(workspace_vpc)
+    vpc_peering_connection = get_workspace_vpc_peering_connection(config)
+    if vpc_peering_connection is None:
+        cli_logger.print("No VPC peering connection was found in workspace. Skip delete "
+                         "routes for workspace vpc peering connection.")
+        return
+    vpc_peering_connection_id = vpc_peering_connection['VpcPeeringConnectionId']
+
+    for current_vpc_route_table in current_vpc_route_tables:
+        if len([route for route in current_vpc_route_table.routes if
+                route._destination_cidr_block == workspace_vpc.cidr_block
+                and route.vpc_peering_connection_id == vpc_peering_connection_id]) == 0:
+            cli_logger.print(
+                "No route of current VPC route table {} need to be delete.".format(
+                    current_vpc_route_table.id))
+            continue
+        try:
+            current_ec2_client.delete_route(RouteTableId=current_vpc_route_table.id, DestinationCidrBlock=workspace_vpc.cidr_block)
+            cli_logger.print(
+                "Successfully delete the route about VPC peering connection for current VPC route table {}.".format(
+                    current_vpc_route_table.id))
+        except Exception as e:
+            cli_logger.error(
+                "Failed to delete the route about VPC peering connection for current VPC route table. {}", str(e))
+            raise e
+
+    for workspace_vpc_route_table in workspace_vpc_route_tables:
+        if len([route for route in workspace_vpc_route_table.routes if
+                route._destination_cidr_block == current_vpc.cidr_block
+                and route.vpc_peering_connection_id == vpc_peering_connection_id]) == 0:
+            cli_logger.print(
+                "No route of workspace VPC route table {} need to be delete.".format(
+                    workspace_vpc_route_table.id))
+            continue
+        try:
+            ec2_client.delete_route(RouteTableId=workspace_vpc_route_table.id,
+                                    DestinationCidrBlock=current_vpc.cidr_block)
+            cli_logger.print(
+                "Successfully delete the route about VPC peering connection for workspace VPC route table.".format(
+                    workspace_vpc_route_table.id))
+        except Exception as e:
+            cli_logger.error(
+                "Failed to delete the route about VPC peering connection for workspace VPC route table. {}", str(e))
+            raise e
+
+
+def _delete_workspace_vpc_peering_connection(config, ec2_client):
+    vpc_peering_connection = get_workspace_vpc_peering_connection(config)
+    if vpc_peering_connection is None:
+        cli_logger.print("No VPC peering connection was found in workspace.")
+        return
+    vpc_peering_connection_id = vpc_peering_connection['VpcPeeringConnectionId']
+    try:
+        cli_logger.print("Deleting VPC peering connection for : {}...".format(vpc_peering_connection_id))
+        ec2_client.delete_vpc_peering_connection(
+            VpcPeeringConnectionId=vpc_peering_connection_id
+        )
+        waiter = ec2_client.get_waiter('vpc_peering_connection_deleted')
+        waiter.wait(VpcPeeringConnectionIds=[vpc_peering_connection_id])
+        cli_logger.print("Successfully deleted VPC peering connection for: {}.".format(vpc_peering_connection_id))
+    except Exception as e:
+        cli_logger.error("Failed to delete VPC peering connection. {}", str(e))
+        raise e
 
 
 def _create_vpc(config, ec2, ec2_client):
     cli_logger.print("Creating workspace VPC...")
     # create vpc
+    cidr_block = '10.0.0.0/16'
+    if is_use_peering_vpc(config):
+        current_vpc = get_current_vpc(config)
+        cidr_block = _configure_peering_vpc_cidr_block(current_vpc)
+
     try:
         vpc = ec2.create_vpc(
-            CidrBlock='10.10.0.0/16',
+            CidrBlock=cidr_block,
             TagSpecifications=[
                 {
                     'ResourceType': 'vpc',
@@ -1463,6 +1580,34 @@ def _create_vpc(config, ec2, ec2_client):
         raise e
 
     return vpc
+
+
+def get_existing_routes_cidr_block(route_tables):
+    existing_routes_cidr_block = set()
+    for route_table in route_tables:
+        for route in route_table.routes:
+            if route._destination_cidr_block != '0.0.0.0/0':
+                existing_routes_cidr_block.add(route._destination_cidr_block)
+    return existing_routes_cidr_block
+
+
+def _configure_peering_vpc_cidr_block(current_vpc):
+    current_vpc_cidr_block = current_vpc.cidr_block
+    current_vpc_route_tables = get_vpc_route_tables(current_vpc)
+
+    existing_routes_cidr_block = get_existing_routes_cidr_block(current_vpc_route_tables)
+    existing_routes_cidr_block.add(current_vpc_cidr_block)
+
+    ip = current_vpc_cidr_block.split("/")[0].split(".")
+
+    for  i in range(0, 256):
+        tmp_cidr_block = ip[0] + "." + str(i) + ".0.0/16"
+
+        if check_cidr_conflict(tmp_cidr_block, existing_routes_cidr_block):
+            cli_logger.print("Successfully found cidr block for peering VPC.")
+            return tmp_cidr_block
+
+    cli_logger.abort("Failed to find non-conflicted cidr block for peering VPC.")
 
 
 def _describe_availability_zones(ec2_client):
@@ -1713,6 +1858,171 @@ def _create_nat_gateway(config, ec2_client, vpc, subnet):
     return nat_gw
 
 
+def _create_and_configure_vpc_peering_connection(config, ec2, ec2_client):
+    current_step = 1
+    total_steps = 3
+
+    with cli_logger.group(
+            "Creating VPC peering connection",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _create_workspace_vpc_peering_connection(config, ec2, ec2_client)
+
+    with cli_logger.group(
+            "Accepting VPC peering connection",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _accept_workspace_vpc_peering_connection(config, ec2_client)
+
+    with cli_logger.group(
+            "Update route tables for the VPC peering connection",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _update_route_tables_for_workspace_vpc_peering_connection(config, ec2, ec2_client)
+
+
+def _update_route_tables_for_workspace_vpc_peering_connection(config, ec2, ec2_client):
+    current_ec2_client = _working_node_client('ec2', config)
+    workspace_name = config["workspace_name"]
+    current_vpc = get_current_vpc(config)
+    workspace_vpc = get_workspace_vpc(workspace_name, ec2_client, ec2)
+    current_vpc_route_tables = get_vpc_route_tables(current_vpc)
+    workspace_vpc_route_tables = get_vpc_route_tables(workspace_vpc)
+
+    vpc_peering_connection = get_workspace_vpc_peering_connection(config)
+    if vpc_peering_connection is None:
+        cli_logger.abort(
+            "No vpc_peering_connection found for workspace: {}.".format(workspace_name))
+
+    for current_vpc_route_table in current_vpc_route_tables:
+        try:
+            current_ec2_client.create_route(
+                RouteTableId=current_vpc_route_table.id, DestinationCidrBlock=workspace_vpc.cidr_block,
+                VpcPeeringConnectionId=vpc_peering_connection['VpcPeeringConnectionId'])
+            cli_logger.print(
+                "Successfully add route destination to current VPC route table {} with workspace VPC CIDR block.".format(
+                    current_vpc_route_table.id))
+        except Exception as e:
+            cli_logger.error(
+                "Failed to add route destination to current VPC route table with workspace VPC CIDR block. {}", str(e))
+            raise e
+
+    for workspace_vpc_route_table in workspace_vpc_route_tables:
+        try:
+            ec2_client.create_route(
+                RouteTableId=workspace_vpc_route_table.id, DestinationCidrBlock=current_vpc.cidr_block,
+                VpcPeeringConnectionId=vpc_peering_connection['VpcPeeringConnectionId'])
+            cli_logger.print(
+                "Successfully add route destination to workspace VPC route table {} with current VPC CIDR block.".format(
+                    workspace_vpc_route_table.id))
+        except Exception as e:
+            cli_logger.error(
+                "Failed to add route destination to workspace VPC route table with current VPC CIDR block. {}", str(e))
+            raise e
+
+
+def wait_for_workspace_vpc_peering_connection_active(config):
+    workspace_name = config["workspace_name"]
+    current_ec2_client = _working_node_client('ec2', config)
+    retry = 20
+    while retry > 0:
+        response = current_ec2_client.describe_vpc_peering_connections(Filters=[
+            {'Name': 'status-code', 'Values': ['active']},
+            {'Name': 'tag:Name', 'Values': ['cloudtik-{}-vpc-peering-connection'.format(workspace_name)]}
+        ])
+        vpc_peering_connections = response['VpcPeeringConnections']
+        if len(vpc_peering_connections) == 0:
+            retry = retry - 1
+        else:
+            return True
+        if retry > 0:
+            cli_logger.warning(
+                "Remaining {} tries to wait for workspace vpc_peering_connection active...".format(retry))
+            time.sleep(1)
+        else:
+            cli_logger.abort("Failed to wait for workspace vpc_peering_connection active.")
+
+
+def _accept_workspace_vpc_peering_connection(config, ec2_client):
+    workspace_name = config["workspace_name"]
+    pending_vpc_peering_connection = get_workspace_pending_acceptance_vpc_peering_connection(config, ec2_client)
+    if pending_vpc_peering_connection is None:
+        cli_logger.abort(
+            "No pending-acceptance vpc peering connection was found for the workspace: {}.".format(workspace_name))
+    try:
+        ec2_client.accept_vpc_peering_connection(
+            VpcPeeringConnectionId=pending_vpc_peering_connection['VpcPeeringConnectionId'],
+        )
+        wait_for_workspace_vpc_peering_connection_active(config)
+        cli_logger.print(
+            "Successfully accepted VPC peering connection: cloudtik-{}-vpc-peering-connection.".format(workspace_name))
+    except Exception as e:
+        cli_logger.error("Failed to accept VPC peering connection. {}", str(e))
+        raise e
+
+
+def get_workspace_vpc_peering_connection(config):
+    workspace_name = config["workspace_name"]
+    current_ec2_client = _working_node_client('ec2', config)
+    response = current_ec2_client.describe_vpc_peering_connections(Filters=[
+        {'Name': 'status-code', 'Values': ['active']},
+        {'Name': 'tag:Name', 'Values': ['cloudtik-{}-vpc-peering-connection'.format(workspace_name)]}
+    ])
+    vpc_peering_connections = response['VpcPeeringConnections']
+    return None if len(vpc_peering_connections) == 0 else vpc_peering_connections[0]
+
+
+def get_workspace_pending_acceptance_vpc_peering_connection(config, ec2_client):
+    workspace_name = config["workspace_name"]
+    current_ec2_client = _working_node_client('ec2', config)
+    retry = 20
+    while retry > 0:
+        response = current_ec2_client.describe_vpc_peering_connections(Filters=[
+            {'Name': 'status-code', 'Values': ['pending-acceptance']},
+            {'Name': 'tag:Name', 'Values': ['cloudtik-{}-vpc-peering-connection'.format(workspace_name)]}
+        ])
+        vpc_peering_connections = response['VpcPeeringConnections']
+        if len(vpc_peering_connections) == 0:
+            retry = retry - 1
+        else:
+            return vpc_peering_connections[0]
+
+        if retry > 0:
+            cli_logger.warning("Remaining {} tries to get workspace pending_acceptance vpc_peering_connection...".format(retry))
+            time.sleep(1)
+        else:
+            cli_logger.abort("Failed to get workspace pending_acceptance vpc_peering_connection.")
+
+
+def _create_workspace_vpc_peering_connection(config, ec2, ec2_client):
+    current_ec2_client = _working_node_client('ec2', config)
+    workspace_name = config["workspace_name"]
+    region = config["provider"]["region"]
+    current_vpc = get_current_vpc(config)
+    workspace_vpc = get_workspace_vpc(workspace_name, ec2_client, ec2)
+    cli_logger.print("Creating VPC peering connection.")
+    try:
+        response = current_ec2_client.create_vpc_peering_connection(
+            VpcId=current_vpc.vpc_id,
+            PeerVpcId=workspace_vpc.vpc_id,
+            PeerRegion=region,
+            TagSpecifications=[{'ResourceType': "vpc-peering-connection",
+                                "Tags": [{'Key': 'Name',
+                                          'Value': 'cloudtik-{}-vpc-peering-connection'.format(
+                                              workspace_name)
+                                          }]}],
+        )
+        vpc_peering_connection_id = response['VpcPeeringConnection']['VpcPeeringConnectionId']
+        waiter = current_ec2_client.get_waiter('vpc_peering_connection_exists')
+        waiter.wait(VpcPeeringConnectionIds=[vpc_peering_connection_id])
+
+        cli_logger.print(
+            "Successfully created VPC peering connection: cloudtik-{}-vpc-peering-connection.".format(workspace_name))
+    except Exception as e:
+        cli_logger.error("Failed to create VPC peering connection. {}", str(e))
+        raise e
+
+
 def _create_vpc_endpoint_for_s3(config, ec2, ec2_client, vpc):
     cli_logger.print("Creating VPC endpoint for S3: {}...".format(vpc.id))
     try:
@@ -1819,10 +2129,13 @@ def _create_workspace(config):
     ec2_client = _resource_client("ec2", config)
     workspace_name = config["workspace_name"]
     managed_cloud_storage = is_managed_cloud_storage(config)
+    use_peering_vpc = is_use_peering_vpc(config)
 
     current_step = 1
     total_steps = AWS_WORKSPACE_NUM_CREATION_STEPS
     if managed_cloud_storage:
+        total_steps += 1
+    if use_peering_vpc:
         total_steps += 1
 
     try:
@@ -2004,21 +2317,27 @@ def _create_network_resources(config, ec2, ec2_client,
         current_step += 1
         _upsert_security_group(config, vpc.id)
 
+    if is_use_peering_vpc(config):
+        with cli_logger.group(
+                "Creating VPC peering connection",
+                _numbered=("[]", current_step, total_steps)):
+            current_step += 1
+            _create_and_configure_vpc_peering_connection(config, ec2, ec2_client)
+
     return current_step
 
 
 def _configure_vpc(config, workspace_name, ec2, ec2_client):
-    use_internal_ips = is_use_internal_ip(config)
-    if use_internal_ips:
+    use_working_vpc = is_use_working_vpc(config)
+    if use_working_vpc:
         # No need to create new vpc
-        vpc_id = get_current_vpc(config)
-        vpc = ec2.Vpc(id=vpc_id)
+        vpc = get_current_vpc(config)
         vpc.create_tags(Tags=[
             {'Key': 'Name', 'Value': 'cloudtik-{}-vpc'.format(workspace_name)},
             {'Key': AWS_WORKSPACE_VERSION_TAG_NAME, 'Value': AWS_WORKSPACE_VERSION_CURRENT}
         ])
+        cli_logger.print("Using the existing VPC: {} for workspace. Skip creation.".format(vpc.id))
     else:
-
         # Need to create a new vpc
         if get_workspace_vpc_id(config["workspace_name"], ec2_client) is None:
             vpc = _create_vpc(config, ec2, ec2_client)
@@ -2045,7 +2364,6 @@ def _configure_subnets_cidr(vpc):
 
             if check_cidr_conflict(tmp_cidr_block, cidr_blocks):
                 cidr_list.append(tmp_cidr_block)
-                print("Choose CIDR: {}".format(tmp_cidr_block))
 
             if len(cidr_list) == AWS_VPC_SUBNETS_COUNT:
                 break
@@ -2053,91 +2371,26 @@ def _configure_subnets_cidr(vpc):
     return cidr_list
 
 
-def get_current_vpc(config):
-    client = _resource_client("ec2", config)
+def get_current_vpc_id(config):
+    client = _working_node_client('ec2', config)
     ip_address = get_node_ip_address(address="8.8.8.8:53")
-    vpc_id = ""
+    vpc_id = None
     for Reservation in client.describe_instances().get("Reservations"):
         for instance in Reservation["Instances"]:
             if instance.get("PrivateIpAddress", "") == ip_address:
                 vpc_id = instance["VpcId"]
 
+    if vpc_id is None:
+        raise RuntimeError("Failed to get the VPC for the current machine. "
+                           "Please make sure your current machine is an AWS virtual machine.")
     return vpc_id
 
 
-def _configure_subnet(config):
-    ec2 = _resource("ec2", config)
-    use_internal_ips = is_use_internal_ip(config)
-
-    # If head or worker security group is specified, filter down to subnets
-    # belonging to the same VPC as the security group.
-    sg_ids = []
-    for node_type in config["available_node_types"].values():
-        node_config = node_type["node_config"]
-        sg_ids.extend(node_config.get("SecurityGroupIds", []))
-    if sg_ids:
-        vpc_id_of_sg = _get_vpc_id_of_sg(sg_ids, config)
-    else:
-        vpc_id_of_sg = None
-
-    try:
-        candidate_subnets = ec2.subnets.all()
-        if vpc_id_of_sg:
-            candidate_subnets = [
-                s for s in candidate_subnets if s.vpc_id == vpc_id_of_sg
-            ]
-        subnets = sorted(
-            (s for s in candidate_subnets if s.state == "available" and (
-                use_internal_ips or s.map_public_ip_on_launch)),
-            reverse=True,  # sort from Z-A
-            key=lambda subnet: subnet.availability_zone)
-    except botocore.exceptions.ClientError as exc:
-        handle_boto_error(exc, "Failed to fetch available subnets from AWS.")
-        raise exc
-
-    if not subnets:
-        cli_logger.abort(
-            "No usable subnets found, try manually creating an instance in "
-            "your specified region to populate the list of subnets "
-            "and trying this again.\n"
-            "Note that the subnet must map public IPs "
-            "on instance launch unless you set `use_internal_ips: true` in "
-            "the `provider` config.")
-
-    if "availability_zone" in config["provider"]:
-        azs = config["provider"]["availability_zone"].split(",")
-        subnets = [
-            s for az in azs  # Iterate over AZs first to maintain the ordering
-            for s in subnets if s.availability_zone == az
-        ]
-        if not subnets:
-            cli_logger.abort(
-                "No usable subnets matching availability zone {} found.\n"
-                "Choose a different availability zone or try "
-                "manually creating an instance in your specified region "
-                "to populate the list of subnets and trying this again.",
-                config["provider"]["availability_zone"])
-
-    # Use subnets in only one VPC, so that _configure_security_groups only
-    # needs to create a security group in this one VPC. Otherwise, we'd need
-    # to set up security groups in all of the user's VPCs and set up networking
-    # rules to allow traffic between these groups.
-    # See pull #14868.
-    subnet_ids = [
-        s.subnet_id for s in subnets if s.vpc_id == subnets[0].vpc_id
-    ]
-    # map from node type key -> source of SubnetIds field
-    subnet_src_info = {}
-    _set_config_info(subnet_src=subnet_src_info)
-    for key, node_type in config["available_node_types"].items():
-        node_config = node_type["node_config"]
-        if "SubnetIds" not in node_config:
-            subnet_src_info[key] = "default"
-            node_config["SubnetIds"] = subnet_ids
-        else:
-            subnet_src_info[key] = "config"
-
-    return config
+def get_current_vpc(config):
+    current_vpc_id = get_current_vpc_id(config)
+    ec2 = _working_node_resource('ec2', config)
+    current_vpc = ec2.Vpc(id=current_vpc_id)
+    return current_vpc
 
 
 def _configure_subnet_from_workspace(config):
@@ -2208,39 +2461,6 @@ def _get_vpc_id_of_sg(sg_ids: List[str], config: Dict[str, Any]) -> str:
     return vpc_ids[0]
 
 
-def _configure_security_group(config):
-    # map from node type key -> source of SecurityGroupIds field
-    security_group_info_src = {}
-    _set_config_info(security_group_src=security_group_info_src)
-
-    for node_type_key in config["available_node_types"]:
-        security_group_info_src[node_type_key] = "config"
-
-    node_types_to_configure = [
-        node_type_key
-        for node_type_key, node_type in config["available_node_types"].items()
-        if "SecurityGroupIds" not in node_type["node_config"]
-    ]
-    if not node_types_to_configure:
-        return config  # have user-defined groups
-    head_node_type = config["head_node_type"]
-    if config["head_node_type"] in node_types_to_configure:
-        # configure head node security group last for determinism
-        # in tests
-        node_types_to_configure.remove(head_node_type)
-        node_types_to_configure.append(head_node_type)
-    security_groups = _upsert_security_groups(config, node_types_to_configure)
-
-    for node_type_key in node_types_to_configure:
-        node_config = config["available_node_types"][node_type_key][
-            "node_config"]
-        sg = security_groups[node_type_key]
-        node_config["SecurityGroupIds"] = [sg.id]
-        security_group_info_src[node_type_key] = "default"
-
-    return config
-
-
 def _configure_security_group_from_workspace(config):
     ec2_client = _resource_client("ec2", config)
     workspace_name = config["workspace_name"]
@@ -2259,6 +2479,22 @@ def _configure_security_group_from_workspace(config):
     return config
 
 
+def _get_default_ami(config, default_ami):
+    if default_ami is not None:
+        return default_ami
+
+    default_ami = get_latest_ami_id(config)
+    if not default_ami:
+        region = config["provider"]["region"]
+        cli_logger.warning(
+            "Can not get latest ami information in this region: {}. Will use default ami id".format(region))
+        default_ami = DEFAULT_AMI.get(region)
+        if not default_ami:
+            cli_logger.abort("Not support on this region: {}. Please use one of these regions {}".
+                             format(region, sorted(DEFAULT_AMI.keys())))
+    return default_ami
+
+
 def _configure_ami(config):
     """Provide helpful message for missing ImageId for node configuration."""
 
@@ -2266,15 +2502,14 @@ def _configure_ami(config):
     ami_src_info = {key: "config" for key in config["available_node_types"]}
     _set_config_info(ami_src=ami_src_info)
 
-    region = config["provider"]["region"]
-    default_ami = DEFAULT_AMI.get(region)
-    if not default_ami:
-        cli_logger.abort("Not support on this region: {}. Please use one of these regions {}".
-                         format(region, sorted(DEFAULT_AMI.keys())))
-
+    default_ami = None
     for key, node_type in config["available_node_types"].items():
         node_config = node_type["node_config"]
-        node_config["ImageId"] = default_ami
+        image_id = node_config.get("ImageId", "")
+        if image_id == "":
+            # Only set to default ami if not specified by the user
+            default_ami = _get_default_ami(config, default_ami)
+            node_config["ImageId"] = default_ami
 
     return config
 
@@ -2602,14 +2837,14 @@ def _configure_from_launch_template(config: Dict[str, Any]) -> Dict[str, Any]:
         template [name|id] and version, or more than one launch template is
         found.
     """
-    # create a copy of the input config to modify
-    config = copy.deepcopy(config)
     node_types = config["available_node_types"]
 
     # iterate over sorted node types to support deterministic unit test stubs
     for name, node_type in sorted(node_types.items()):
-        node_types[name] = _configure_node_type_from_launch_template(
-            config, node_type)
+        node_cfg = node_type["node_config"]
+        if "LaunchTemplate" in node_cfg:
+            node_types[name] = _configure_node_type_from_launch_template(
+                config, node_type)
     return config
 
 
@@ -2637,9 +2872,8 @@ def _configure_node_type_from_launch_template(
     node_type = copy.deepcopy(node_type)
 
     node_cfg = node_type["node_config"]
-    if "LaunchTemplate" in node_cfg:
-        node_type["node_config"] = \
-            _configure_node_cfg_from_launch_template(config, node_cfg)
+    node_type["node_config"] = \
+        _configure_node_cfg_from_launch_template(config, node_cfg)
     return node_type
 
 
@@ -2698,141 +2932,6 @@ def _configure_node_cfg_from_launch_template(
     return node_cfg
 
 
-def _configure_from_network_interfaces(config: Dict[str, Any]) \
-        -> Dict[str, Any]:
-    """
-    Copies all network interface subnet and security group IDs up to their
-    parent node config for each available node type.
-
-    Args:
-        config (Dict[str, Any]): config to bootstrap
-    Returns:
-        config (Dict[str, Any]): The input config with all network interface
-        subnet and security group IDs copied into the node config of all
-        available node types. If no network interfaces are found, then the
-        config is returned unchanged.
-    Raises:
-        ValueError: If [1] subnet and security group IDs exist at both the
-        node config and network interface levels, [2] any network interface
-        doesn't have a subnet defined, or [3] any network interface doesn't
-        have a security group defined.
-    """
-    # create a copy of the input config to modify
-    config = copy.deepcopy(config)
-
-    node_types = config["available_node_types"]
-    for name, node_type in node_types.items():
-        node_types[name] = _configure_node_type_from_network_interface(
-            node_type)
-    return config
-
-
-def _configure_node_type_from_network_interface(node_type: Dict[str, Any]) \
-        -> Dict[str, Any]:
-    """
-    Copies all network interface subnet and security group IDs up to the
-    parent node config for the given node type.
-
-    Args:
-        node_type (Dict[str, Any]): node type config to bootstrap
-    Returns:
-        node_type (Dict[str, Any]): The input config with all network interface
-        subnet and security group IDs copied into the node config of the
-        given node type. If no network interfaces are found, then the
-        config is returned unchanged.
-    Raises:
-        ValueError: If [1] subnet and security group IDs exist at both the
-        node config and network interface levels, [2] any network interface
-        doesn't have a subnet defined, or [3] any network interface doesn't
-        have a security group defined.
-    """
-    # create a copy of the input config to modify
-    node_type = copy.deepcopy(node_type)
-
-    node_cfg = node_type["node_config"]
-    if "NetworkInterfaces" in node_cfg:
-        node_type["node_config"] = \
-            _configure_subnets_and_groups_from_network_interfaces(node_cfg)
-    return node_type
-
-
-def _configure_subnets_and_groups_from_network_interfaces(
-        node_cfg: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Copies all network interface subnet and security group IDs into their
-    parent node config.
-
-    Args:
-        node_cfg (Dict[str, Any]): node config to bootstrap
-    Returns:
-        node_cfg (Dict[str, Any]): node config with all copied network
-        interface subnet and security group IDs
-    Raises:
-        ValueError: If [1] subnet and security group IDs exist at both the
-        node config and network interface levels, [2] any network interface
-        doesn't have a subnet defined, or [3] any network interface doesn't
-        have a security group defined.
-    """
-    # create a copy of the input config to modify
-    node_cfg = copy.deepcopy(node_cfg)
-
-    # If NetworkInterfaces are defined, SubnetId and SecurityGroupIds
-    # can't be specified in the same node type config.
-    conflict_keys = ["SubnetId", "SubnetIds", "SecurityGroupIds"]
-    if any(conflict in node_cfg for conflict in conflict_keys):
-        raise ValueError(
-            "If NetworkInterfaces are defined, subnets and security groups "
-            "must ONLY be given in each NetworkInterface.")
-    subnets = _subnets_in_network_config(node_cfg)
-    if not all(subnets):
-        raise ValueError(
-            "NetworkInterfaces are defined but at least one is missing a "
-            "subnet. Please ensure all interfaces have a subnet assigned.")
-    security_groups = _security_groups_in_network_config(node_cfg)
-    if not all(security_groups):
-        raise ValueError(
-            "NetworkInterfaces are defined but at least one is missing a "
-            "security group. Please ensure all interfaces have a security "
-            "group assigned.")
-    node_cfg["SubnetIds"] = subnets
-    node_cfg["SecurityGroupIds"] = list(itertools.chain(*security_groups))
-
-    return node_cfg
-
-
-def _subnets_in_network_config(config: Dict[str, Any]) -> List[str]:
-    """
-    Returns all subnet IDs found in the given node config's network interfaces.
-
-    Args:
-        config (Dict[str, Any]): node config
-    Returns:
-        subnet_ids (List[str]): List of subnet IDs for all network interfaces,
-        or an empty list if no network interfaces are defined. An empty string
-        is returned for each missing network interface subnet ID.
-    """
-    return [
-        ni.get("SubnetId", "") for ni in config.get("NetworkInterfaces", [])
-    ]
-
-
-def _security_groups_in_network_config(config: Dict[str, Any]) \
-        -> List[List[str]]:
-    """
-    Returns all security group IDs found in the given node config's network
-    interfaces.
-
-    Args:
-        config (Dict[str, Any]): node config
-    Returns:
-        security_group_ids (List[List[str]]): List of security group ID lists
-        for all network interfaces, or an empty list if no network interfaces
-        are defined. An empty list is returned for each missing network
-        interface security group list.
-    """
-    return [ni.get("Groups", []) for ni in config.get("NetworkInterfaces", [])]
-
-
 def verify_s3_storage(provider_config: Dict[str, Any]):
     s3_storage = get_aws_s3_storage_config(provider_config)
     if s3_storage is None:
@@ -2875,4 +2974,3 @@ def with_aws_environment_variables(provider_config, node_type_config: Dict[str, 
     config_dict = {}
     export_aws_s3_storage_config(provider_config, config_dict)
     return config_dict
-

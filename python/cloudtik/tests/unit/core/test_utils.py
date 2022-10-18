@@ -1,9 +1,11 @@
 import copy
+import time
 
 import pytest
 
+from cloudtik.core._private.call_context import CallContext
 from cloudtik.core._private.utils import update_nested_dict, process_config_with_privacy, encrypt_config, \
-    decrypt_config, hash_runtime_conf
+    decrypt_config, hash_runtime_conf, run_in_parallel_on_nodes, ParallelTaskSkipped
 
 TARGET_DICT_WITH_MATCHED_LIST = {
     "test_list": [
@@ -196,6 +198,59 @@ class TestUtils:
         assert file_mounts_contents_hash_1 is None
         assert runtime_hash_for_node_types_1 is None
         assert runtime_hash == runtime_hash_1
+
+    def test_run_in_parallel_on_nodes(self):
+        test_nodes = ["node-1", "node-2", "node-3"]
+        call_context = CallContext()
+
+        def task_success(node_id, call_context):
+            pass
+
+        succeeded, failures, skipped = run_in_parallel_on_nodes(
+            task_success,
+            call_context=call_context,
+            nodes=test_nodes)
+        assert succeeded == 3
+        assert failures == 0
+        assert skipped == 0
+
+        def task_failed(node_id, call_context):
+            raise RuntimeError("Task {} failed for no reason.".format(node_id))
+
+        succeeded, failures, skipped = run_in_parallel_on_nodes(
+            task_failed,
+            call_context=call_context,
+            nodes=test_nodes)
+        assert succeeded == 0
+        assert failures == 3
+        assert skipped == 0
+
+        def task_skipped(node_id, call_context):
+            raise ParallelTaskSkipped("Task {} skipped for no reason.".format(node_id))
+
+        succeeded, failures, skipped = run_in_parallel_on_nodes(
+            task_skipped,
+            call_context=call_context,
+            nodes=test_nodes)
+        assert succeeded == 0
+        assert failures == 0
+        assert skipped == 3
+
+        def task_mix(node_id, call_context):
+            if node_id == "node-1":
+                pass
+            elif node_id == "node-2":
+                raise RuntimeError("Task {} failed for no reason.".format(node_id))
+            elif node_id == "node-3":
+                raise ParallelTaskSkipped("Task {} skipped for no reason.".format(node_id))
+
+        succeeded, failures, skipped = run_in_parallel_on_nodes(
+            task_mix,
+            call_context=call_context,
+            nodes=test_nodes)
+        assert succeeded == 1
+        assert failures == 1
+        assert skipped == 1
 
 
 if __name__ == "__main__":

@@ -3,7 +3,6 @@ import urllib
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 import datetime
-import hashlib
 import json
 import logging
 import os
@@ -21,8 +20,12 @@ import yaml
 
 from cloudtik.core._private import services, constants
 from cloudtik.core._private.call_context import CallContext
+from cloudtik.core._private.cluster.cluster_config import _load_cluster_config, _bootstrap_config, try_logging_config
+from cloudtik.core._private.cluster.cluster_utils import create_node_updater_for_exec
 from cloudtik.core._private.core_utils import kill_process_tree, double_quote
+from cloudtik.core._private.job_waiter.job_waiter_factory import create_job_waiter
 from cloudtik.core._private.services import validate_redis_address
+from cloudtik.core.job_waiter import JobWaiter
 
 try:  # py3
     from shlex import quote
@@ -37,24 +40,23 @@ from cloudtik.core._private.constants import \
     MAX_PARALLEL_SHUTDOWN_WORKERS, \
     CLOUDTIK_REDIS_DEFAULT_PASSWORD, CLOUDTIK_CLUSTER_STATUS_STOPPED, CLOUDTIK_CLUSTER_STATUS_RUNNING, \
     CLOUDTIK_RUNTIME_NAME
-from cloudtik.core._private.utils import validate_config, hash_runtime_conf, \
-    hash_launch_conf, prepare_config, get_free_port, \
+from cloudtik.core._private.utils import hash_runtime_conf, \
+    hash_launch_conf, get_free_port, \
     get_proxy_info_file, get_safe_proxy_process_info, \
     get_head_working_ip, get_node_cluster_ip, is_use_internal_ip, \
     get_attach_command, is_alive_time, is_docker_enabled, get_proxy_bind_address_to_show, \
-    with_runtime_environment_variables, verify_config, runtime_prepare_config, get_nodes_info, \
+    with_runtime_environment_variables, get_nodes_info, \
     sum_worker_cpus, sum_worker_memory, get_useful_runtime_urls, get_enabled_runtimes, \
-    with_node_ip_environment_variables, run_in_paralell_on_nodes, get_commands_to_run, \
+    with_node_ip_environment_variables, run_in_parallel_on_nodes, get_commands_to_run, \
     cluster_booting_completed, load_head_cluster_config, get_runnable_command, get_cluster_uri, \
     with_head_node_ip_environment_variables, get_verified_runtime_list, get_commands_of_runtimes, \
     is_node_in_completed_status, check_for_single_worker_type, \
     get_node_specific_commands_of_runtimes, _get_node_specific_runtime_config, \
-    _get_node_specific_docker_config, RUNTIME_CONFIG_KEY, DOCKER_CONFIG_KEY, get_running_head_node, \
+    RUNTIME_CONFIG_KEY, DOCKER_CONFIG_KEY, get_running_head_node, \
     get_nodes_for_runtime, with_script_args, encrypt_config, get_resource_requests_for_cpu, convert_nodes_to_cpus, \
-    decrypt_config
+    HeadNotRunningError, get_cluster_head_ip, get_command_session_name, ParallelTaskSkipped
 
-from cloudtik.core._private.providers import _get_node_provider, \
-    _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
+from cloudtik.core._private.providers import _get_node_provider, _NODE_PROVIDERS
 from cloudtik.core.tags import (
     CLOUDTIK_TAG_NODE_KIND, CLOUDTIK_TAG_LAUNCH_CONFIG, CLOUDTIK_TAG_NODE_NAME,
     NODE_KIND_WORKER, NODE_KIND_HEAD, CLOUDTIK_TAG_USER_NODE_TYPE,
@@ -69,7 +71,6 @@ from cloudtik.core._private.cluster.cluster_dump import Archive, \
     create_archive_for_remote_nodes, get_all_local_data, \
     create_archive_for_cluster_nodes
 from cloudtik.core._private.state.control_state import ControlState
-from cloudtik.core._private.debug import log_once
 
 from cloudtik.core._private.cluster.cluster_metrics import ClusterMetricsSummary
 from cloudtik.core._private.cluster.cluster_scaler import ClusterScalerSummary
@@ -92,28 +93,6 @@ _cli_call_context = CallContext()
 
 def cli_call_context() -> CallContext:
     return _cli_call_context
-
-
-def try_logging_config(config: Dict[str, Any]) -> None:
-    if config["provider"]["type"] == "aws":
-        from cloudtik.providers._private.aws.config import log_to_cli
-        log_to_cli(config)
-
-
-def try_get_log_state(provider_config: Dict[str, Any]) -> Optional[dict]:
-    if provider_config["type"] == "aws":
-        from cloudtik.providers._private.aws.config import get_log_state
-        return get_log_state()
-    return None
-
-
-def try_reload_log_state(provider_config: Dict[str, Any],
-                         log_state: dict) -> None:
-    if not log_state:
-        return
-    if provider_config["type"] == "aws":
-        from cloudtik.providers._private.aws.config import reload_log_state
-        return reload_log_state(log_state)
 
 
 def decode_cluster_scaling_status(status):
@@ -183,12 +162,8 @@ def create_or_update_cluster(
         override_workspace_name: Optional[str] = None,
         no_config_cache: bool = False,
         redirect_command_output: Optional[bool] = False,
-        use_login_shells: bool = True,
-        no_controller_on_head: bool = False) -> Dict[str, Any]:
+        use_login_shells: bool = True) -> Dict[str, Any]:
     """Creates or updates an scaling cluster from a config json."""
-    # no_controller_on_head is an internal flag used by the K8s operator.
-    # If True, prevents autoscaling config sync to the head during cluster
-    # creation. See pull #13720.
     _cli_logger = call_context.cli_logger
 
     def handle_yaml_error(e):
@@ -239,9 +214,6 @@ def create_or_update_cluster(
                     key, override, config[key])
             config[key] = override
 
-    # Set no_controller_on_head to config so that bootstrap can generate the right commands
-    config["no_controller_on_head"] = no_controller_on_head
-
     handle_cli_override("min_workers", override_min_workers)
     handle_cli_override("max_workers", override_max_workers)
     handle_cli_override("cluster_name", override_cluster_name)
@@ -266,8 +238,7 @@ def create_or_update_cluster(
         restart_only=restart_only,
         yes=yes,
         redirect_command_output=redirect_command_output,
-        use_login_shells=use_login_shells,
-        no_controller_on_head=no_controller_on_head
+        use_login_shells=use_login_shells
     )
 
     if not is_use_internal_ip(config):
@@ -294,8 +265,7 @@ def _create_or_update_cluster(
         restart_only: bool,
         yes: bool,
         redirect_command_output: Optional[bool] = False,
-        use_login_shells: bool = True,
-        no_controller_on_head: bool = False):
+        use_login_shells: bool = True):
     global_event_system.execute_callback(
         get_cluster_uri(config),
         CreateClusterEvent.up_started,
@@ -312,105 +282,7 @@ def _create_or_update_cluster(
 
     try_logging_config(config)
     get_or_create_head_node(config, call_context, no_restart, restart_only,
-                            yes, no_controller_on_head)
-
-
-CONFIG_CACHE_VERSION = 1
-
-
-def _bootstrap_config(config: Dict[str, Any],
-                      no_config_cache: bool = False,
-                      init_config_cache: bool = False) -> Dict[str, Any]:
-    # Check if bootstrapped, return if it is the case
-    if config.get("bootstrapped", False):
-        return config
-
-    config = prepare_config(config)
-    # NOTE: multi-node-type cluster scaler is guaranteed to be in use after this.
-
-    hasher = hashlib.sha1()
-    hasher.update(json.dumps([config], sort_keys=True).encode("utf-8"))
-    cache_key = os.path.join(tempfile.gettempdir(),
-                             "cloudtik-config-{}".format(hasher.hexdigest()))
-
-    if os.path.exists(cache_key) and not no_config_cache:
-        config_cache = json.loads(open(cache_key).read())
-        if config_cache.get("_version", -1) == CONFIG_CACHE_VERSION:
-            # todo: is it fine to re-resolve? afaik it should be.
-            # we can have migrations otherwise or something
-            # but this seems overcomplicated given that resolving is
-            # relatively cheap
-            cached_config = decrypt_config(config_cache["config"])
-            try_reload_log_state(cached_config["provider"],
-                                 config_cache.get("provider_log_info"))
-
-            if log_once("_printed_cached_config_warning"):
-                cli_logger.verbose_warning(
-                    "Loaded cached provider configuration "
-                    "from " + cf.bold("{}"), cache_key)
-                cli_logger.verbose_warning(
-                    "If you experience issues with "
-                    "the cloud provider, try re-running "
-                    "the command with {}.", cf.bold("--no-config-cache"))
-
-            return cached_config
-        else:
-            cli_logger.warning(
-                "Found cached cluster config "
-                "but the version " + cf.bold("{}") + " "
-                "(expected " + cf.bold("{}") + ") does not match.\n"
-                "This is normal if cluster launcher was updated.\n"
-                "Config will be re-resolved.",
-                config_cache.get("_version", "none"), CONFIG_CACHE_VERSION)
-
-    importer = _NODE_PROVIDERS.get(config["provider"]["type"])
-    if not importer:
-        raise NotImplementedError("Unsupported provider {}".format(
-            config["provider"]))
-
-    provider_cls = importer(config["provider"])
-
-    cli_logger.print("Checking {} environment settings",
-                     _PROVIDER_PRETTY_NAMES.get(config["provider"]["type"]))
-
-    config = provider_cls.post_prepare(config)
-    config = runtime_prepare_config(config.get(RUNTIME_CONFIG_KEY), config)
-
-    try:
-        validate_config(config)
-    except (ModuleNotFoundError, ImportError):
-        cli_logger.abort(
-            "Not all dependencies were found. Please "
-            "update your install command.")
-
-    resolved_config = provider_cls.bootstrap_config(config)
-
-    # add a verify step
-    verify_config(resolved_config)
-
-    if not no_config_cache or init_config_cache:
-        with open(cache_key, "w", opener=partial(os.open, mode=0o600)) as f:
-            encrypted_config = encrypt_config(resolved_config)
-            config_cache = {
-                "_version": CONFIG_CACHE_VERSION,
-                "provider_log_info": try_get_log_state(
-                    resolved_config["provider"]),
-                "config": encrypted_config
-            }
-            f.write(json.dumps(config_cache))
-    return resolved_config
-
-
-def _load_cluster_config(config_file: str,
-                         override_cluster_name: Optional[str] = None,
-                         should_bootstrap: bool = True,
-                         no_config_cache: bool = False) -> Dict[str, Any]:
-    config = yaml.safe_load(open(config_file).read())
-    if override_cluster_name is not None:
-        config["cluster_name"] = override_cluster_name
-    if should_bootstrap:
-        config = _bootstrap_config(config, no_config_cache=no_config_cache)
-    return config
+                            yes)
 
 
 def teardown_cluster(config_file: str, yes: bool, workers_only: bool,
@@ -678,15 +550,14 @@ def _stop_docker_on_nodes(
         head: List[str],
         nodes: List[str]):
     use_internal_ip = True if on_head else False
+    container_name = config.get(DOCKER_CONFIG_KEY, {}).get("container_name")
 
-    def run_docker_stop(node, container_name, call_context):
-        _cli_logger = call_context.cli_logger
-
+    def run_docker_stop(node_id, call_context):
         try:
             updater = create_node_updater_for_exec(
                 config=config,
                 call_context=call_context,
-                node_id=node,
+                node_id=node_id,
                 provider=provider,
                 start_commands=[],
                 is_head_node=False,
@@ -698,12 +569,11 @@ def _stop_docker_on_nodes(
                 with_output=False,
                 run_env="host")
         except Exception:
-            _cli_logger.warning(f"Docker stop failed on {node}")
+            raise RuntimeError(f"Docker stop failed on {node_id}") from None
 
     _cli_logger = call_context.cli_logger
     docker_enabled = is_docker_enabled(config)
     if docker_enabled and (on_head or not workers_only):
-        container_name = config.get(DOCKER_CONFIG_KEY, {}).get("container_name")
         if on_head:
             _cli_logger.print("Stopping docker containers on workers...")
             container_nodes = nodes
@@ -712,19 +582,10 @@ def _stop_docker_on_nodes(
             container_nodes = head
         # This is to ensure that the parallel SSH calls below do not mess with
         # the users terminal.
-        output_redir = call_context.is_output_redirected()
-        call_context.set_output_redirected(True)
-        allow_interactive = call_context.does_allow_interactive()
-        call_context.set_allow_interactive(False)
-
-        with ThreadPoolExecutor(
-                max_workers=MAX_PARALLEL_SHUTDOWN_WORKERS) as executor:
-            for node in container_nodes:
-                executor.submit(
-                    run_docker_stop, node=node, container_name=container_name,
-                    call_context=call_context.new_call_context())
-        call_context.set_output_redirected(output_redir)
-        call_context.set_allow_interactive(allow_interactive)
+        run_in_parallel_on_nodes(run_docker_stop,
+                                 call_context=call_context,
+                                 nodes=container_nodes,
+                                 max_workers=MAX_PARALLEL_SHUTDOWN_WORKERS)
         _cli_logger.print("Done stopping docker containers.")
 
 
@@ -862,7 +723,6 @@ def get_or_create_head_node(config: Dict[str, Any],
                             no_restart: bool,
                             restart_only: bool,
                             yes: bool,
-                            no_controller_on_head: bool = False,
                             _provider: Optional[NodeProvider] = None,
                             _runner: ModuleType = subprocess) -> None:
     """Create the cluster head node, which in turn creates the workers."""
@@ -994,7 +854,7 @@ def get_or_create_head_node(config: Dict[str, Any],
         # Even we don't need controller on head, we still need config and cluster keys on head
         # because head depends a lot on the cluster config file and cluster keys to do cluster
         # operations and connect to the worker.
-        # if not no_controller_on_head:
+
         # Return remote_config_file to avoid prematurely closing it.
         config, remote_config_file = _set_up_config_for_head_node(
             config, provider, no_restart)
@@ -1227,7 +1087,8 @@ def _exec_cluster(config: Dict[str, Any],
                   start: bool = False,
                   port_forward: Optional[Port_forward] = None,
                   with_output: bool = False,
-                  _allow_uninitialized_state: bool = False) -> str:
+                  _allow_uninitialized_state: bool = False,
+                  job_waiter: Optional[JobWaiter] = None) -> str:
     """Runs a command on the specified cluster.
 
     Arguments:
@@ -1241,6 +1102,7 @@ def _exec_cluster(config: Dict[str, Any],
         port_forward ( (int, int) or list[(int, int)] ): port(s) to forward
         _allow_uninitialized_state: whether to execute on an uninitialized head
             node.
+        job_waiter: The waiter object to check the job is done
     """
     assert not (screen and tmux), "Can specify only one of `screen` or `tmux`."
     assert run_env in RUN_ENV_TYPES, "--run_env must be in {}".format(
@@ -1266,17 +1128,18 @@ def _exec_cluster(config: Dict[str, Any],
         start_commands=[],
         is_head_node=True,
         use_internal_ip=use_internal_ip)
-    shutdown_after_run = False
-    if cmd and stop:
-        cmd = "; ".join([
-            cmd, "cloudtik head runtime stop --runtimes=cloudtik --no-all-nodes --yes",
-            "cloudtik head teardown --yes"
-        ])
-        if screen or tmux:
-            # Only when the cmd is run background
-            # we go with shutdown command on head
-            shutdown_after_run = True
 
+    if cmd and stop:
+        # if no job waiter defined, we shut down at the end
+        if job_waiter is None:
+            cmd = "; ".join([
+                cmd, "cloudtik head runtime stop --runtimes=cloudtik --no-all-nodes --yes",
+                "cloudtik head teardown --yes"
+            ])
+
+    # Only when there is no job waiter we hold the tmux or screen session
+    hold_session = False if job_waiter else True
+    timestamp = time.time_ns()
     result = _exec(
         updater,
         cmd,
@@ -1285,13 +1148,19 @@ def _exec_cluster(config: Dict[str, Any],
         port_forward=port_forward,
         with_output=with_output,
         run_env=run_env,
-        shutdown_after_run=shutdown_after_run)
+        hold_session=hold_session,
+        timestamp=timestamp)
+
+    # if a job waiter is specified, we always wait for its completion.
+    if job_waiter is not None:
+        job_waiter.wait_for_completion(head_node, cmd, timestamp)
 
     # if the cmd is not run with screen or tmux
     # or in the future we can check the screen or tmux session completion
     # we do tear down here
     if cmd and stop:
-        if not screen and not tmux:
+        if (job_waiter is not None) or (not screen and not tmux):
+            # for either job waiter case or command run in foreground case
             _teardown_cluster(
                 config=config, call_context=call_context)
     return result
@@ -1305,19 +1174,22 @@ def _exec(updater: NodeUpdaterThread,
           with_output: bool = False,
           run_env: str = "auto",
           shutdown_after_run: bool = False,
-          exit_on_fail: bool = False) -> str:
+          exit_on_fail: bool = False,
+          hold_session: bool = True,
+          timestamp: int = time.time_ns()) -> str:
     if cmd:
         if screen:
+            session_name = get_command_session_name(cmd, timestamp)
             wrapped_cmd = [
-                "screen", "-L", "-dm", "bash", "-c",
-                quote(cmd + "; exec bash")
+                "screen", "-S", session_name, "-L", "-dm", "bash", "-c",
+                quote(cmd + "; exec bash") if hold_session else quote(cmd)
             ]
             cmd = " ".join(wrapped_cmd)
         elif tmux:
-            # TODO: Consider providing named session functionality
+            session_name = get_command_session_name(cmd, timestamp)
             wrapped_cmd = [
-                "tmux", "new", "-d", "bash", "-c",
-                quote(cmd + "; exec bash")
+                "tmux", "new", "-s", session_name, "-d", "bash", "-c",
+                quote(cmd + "; exec bash") if hold_session else quote(cmd)
             ]
             cmd = " ".join(wrapped_cmd)
     exec_out = updater.cmd_executor.run(
@@ -1549,12 +1421,7 @@ def get_worker_node_ips(config_file: str,
 
 
 def _get_head_node_ip(config: Dict[str, Any], public: bool = False) -> str:
-    provider = _get_node_provider(config["provider"], config["cluster_name"])
-    head_node = _get_running_head_node(config)
-    if public:
-        return get_head_working_ip(config, provider, head_node)
-    else:
-        return get_node_cluster_ip(provider, head_node)
+    return get_cluster_head_ip(config, public)
 
 
 def _get_worker_node_ips(config: Dict[str, Any], runtime: str = None) -> List[str]:
@@ -1637,7 +1504,7 @@ def _get_running_head_node_ex(
                 "it is recommended to restart this cluster.")
 
             return _backup_head_node
-        raise RuntimeError("Head node of cluster {} not found!".format(
+        raise HeadNotRunningError("Head node of cluster {} not found!".format(
             config["cluster_name"]))
 
 
@@ -2056,7 +1923,7 @@ def _get_cluster_info(config: Dict[str, Any],
     # Check whether the head node is running
     try:
         head_node = _get_running_head_node(config)
-    except Exception:
+    except HeadNotRunningError:
         head_node = None
 
     if head_node is None:
@@ -2145,7 +2012,7 @@ def _start_proxy(config: Dict[str, Any],
     try:
         head_node = _get_running_head_node(config)
         head_node_ip = get_head_working_ip(config, provider, head_node)
-    except Exception:
+    except HeadNotRunningError:
         cli_logger.print(cf.bold("Cluster {} is not running."), cluster_name)
         return
 
@@ -2354,7 +2221,8 @@ def exec_on_nodes(
         port_forward: Optional[Port_forward] = None,
         with_output: bool = False,
         parallel: bool = True,
-        yes: bool = False) -> str:
+        yes: bool = False,
+        job_waiter_name: Optional[str] = None) -> str:
     if not node_ip and not all_nodes:
         if (start or stop) and not yes:
             cli_logger.confirm(
@@ -2362,6 +2230,10 @@ def exec_on_nodes(
                 "You are about to start or stop cluster {} for this operation. Are you sure that you want to continue?",
                 config["cluster_name"], _abort=True)
             cli_logger.newline()
+
+        # create job waiter, None if no job waiter specified
+        job_waiter = _create_job_waiter(
+            config, call_context, job_waiter_name)
 
         _start_cluster_and_wait_for_workers(
             config=config,
@@ -2384,7 +2256,8 @@ def exec_on_nodes(
             start=False,
             port_forward=port_forward,
             with_output=with_output,
-            _allow_uninitialized_state=True)
+            _allow_uninitialized_state=True,
+            job_waiter=job_waiter)
     else:
         return _exec_node_from_head(
             config,
@@ -2397,7 +2270,8 @@ def exec_on_nodes(
             tmux=tmux,
             port_forward=port_forward,
             with_output=with_output,
-            parallel=parallel)
+            parallel=parallel,
+            job_waiter_name=job_waiter_name)
 
 
 def _exec_node_from_head(config: Dict[str, Any],
@@ -2410,7 +2284,8 @@ def _exec_node_from_head(config: Dict[str, Any],
                          tmux: bool = False,
                          port_forward: Optional[Port_forward] = None,
                          with_output: bool = False,
-                         parallel: bool = True) -> str:
+                         parallel: bool = True,
+                         job_waiter_name: Optional[str] = None) -> str:
 
     # execute exec on head with the cmd
     cmds = [
@@ -2436,21 +2311,27 @@ def _exec_node_from_head(config: Dict[str, Any],
     else:
         cmds += ["--no-parallel"]
 
+    if job_waiter_name:
+        cmds += ["--job-waiter={}".format(job_waiter_name)]
+
     # TODO (haifeng): handle port forward and with_output for two state cases
     final_cmd = " ".join(cmds)
 
+    job_waiter = _create_job_waiter(
+        config, call_context, job_waiter_name)
     return _exec_cluster(
         config,
         call_context=call_context,
         cmd=final_cmd,
         run_env="auto",
-        screen=False,
-        tmux=False,
+        screen=screen if job_waiter else False,
+        tmux=tmux if job_waiter else False,
         stop=False,
         start=False,
         port_forward=port_forward,
         with_output=with_output,
-        _allow_uninitialized_state=False)
+        _allow_uninitialized_state=False,
+        job_waiter=job_waiter)
 
 
 def attach_worker(config_file: str,
@@ -2518,17 +2399,17 @@ def exec_cmd_on_head(config,
                      screen: bool = False,
                      tmux: bool = False,
                      port_forward: Optional[Port_forward] = None,
-                     with_output: bool = False) -> str:
+                     with_output: bool = False,
+                     job_waiter_name: Optional[str] = None) -> str:
     """Runs a command on the specified node from head."""
 
     assert not (screen and tmux), "Can specify only one of `screen` or `tmux`."
     assert run_env in RUN_ENV_TYPES, "--run_env must be in {}".format(
         RUN_ENV_TYPES)
 
-    # TODO(rliaw): We default this to True to maintain backwards-compat.
-    # In the future we would want to support disabling login-shells
-    # and interactivity.
-    call_context.set_allow_interactive(True)
+    # create job waiter, None if no job waiter specified
+    job_waiter = _create_job_waiter(
+        config, call_context, job_waiter_name)
 
     updater = create_node_updater_for_exec(
         config=config,
@@ -2539,6 +2420,8 @@ def exec_cmd_on_head(config,
         is_head_node=False,
         use_internal_ip=True)
 
+    hold_session = False if job_waiter else True
+    timestamp = time.time_ns()
     result = _exec(
         updater,
         cmd,
@@ -2547,7 +2430,13 @@ def exec_cmd_on_head(config,
         port_forward=port_forward,
         with_output=with_output,
         run_env=run_env,
-        shutdown_after_run=False)
+        shutdown_after_run=False,
+        hold_session=hold_session,
+        timestamp=timestamp)
+
+    # if a job waiter is specified, we always wait for its completion.
+    if job_waiter is not None:
+        job_waiter.wait_for_completion(node_id, cmd, timestamp)
 
     return result
 
@@ -2597,7 +2486,8 @@ def exec_node_on_head(
         tmux: bool = False,
         port_forward: Optional[Port_forward] = None,
         with_output: bool = False,
-        parallel: bool = True):
+        parallel: bool = True,
+        job_waiter_name: Optional[str] = None):
     config = load_head_cluster_config()
     call_context = cli_call_context()
     provider = _get_node_provider(config["provider"], config["cluster_name"])
@@ -2618,12 +2508,13 @@ def exec_node_on_head(
             run_env=run_env,
             screen=screen, tmux=tmux,
             port_forward=port_forward,
-            with_output=with_output)
+            with_output=with_output,
+            job_waiter_name=job_waiter_name)
 
     total_nodes = len(nodes)
     if parallel and total_nodes > 1:
         cli_logger.print("Executing on {} nodes in parallel...", total_nodes)
-        run_in_paralell_on_nodes(run_exec_cmd_on_head,
+        run_in_parallel_on_nodes(run_exec_cmd_on_head,
                                  call_context=call_context,
                                  nodes=nodes)
     else:
@@ -2633,46 +2524,6 @@ def exec_node_on_head(
                     "Executing on node: {}", node_ip,
                     _numbered=("()", i + 1, total_nodes)):
                 run_exec_cmd_on_head(node_id=node_id, call_context=call_context)
-
-
-def create_node_updater_for_exec(config,
-                                 call_context: CallContext,
-                                 node_id,
-                                 provider,
-                                 start_commands,
-                                 is_head_node: bool = False,
-                                 use_internal_ip: bool = False,
-                                 runtime_config: Dict[str, Any] = None,
-                                 process_runner: ModuleType = subprocess):
-    if runtime_config is None:
-        runtime_config = _get_node_specific_runtime_config(
-            config, provider, node_id)
-    docker_config = _get_node_specific_docker_config(
-            config, provider, node_id)
-    updater = NodeUpdaterThread(
-        config=config,
-        call_context=call_context,
-        node_id=node_id,
-        provider_config=config["provider"],
-        provider=provider,
-        auth_config=config["auth"],
-        cluster_name=config["cluster_name"],
-        file_mounts=config["file_mounts"],
-        initialization_commands=[],
-        setup_commands=[],
-        start_commands=start_commands,
-        runtime_hash="",
-        file_mounts_contents_hash="",
-        is_head_node=is_head_node,
-        process_runner=process_runner,
-        use_internal_ip=use_internal_ip,
-        rsync_options={
-            "rsync_exclude": config.get("rsync_exclude"),
-            "rsync_filter": config.get("rsync_filter")
-        },
-        docker_config=docker_config,
-        runtime_config=runtime_config)
-    return updater
 
 
 def start_node_on_head(node_ip: str = None,
@@ -2721,8 +2572,7 @@ def _start_node_on_head(
     def start_single_node_on_head(node_id, call_context):
         if not is_node_in_completed_status(provider, node_id):
             node_ip = provider.internal_ip(node_id)
-            cli_logger.print("Skip starting node {} as it is in setting up.", node_ip)
-            return
+            raise ParallelTaskSkipped("Skip starting node {} as it is in setting up.".format(node_ip))
 
         runtime_config = _get_node_specific_runtime_config(
             config, provider, node_id)
@@ -2760,25 +2610,33 @@ def _start_node_on_head(
         node_envs.update(node_runtime_envs)
         updater.exec_commands("Starting", start_commands, node_envs)
 
+    _cli_logger = call_context.cli_logger
+
     # First start on head if needed
     if node_head:
-        with cli_logger.group(
+        with _cli_logger.group(
                 "Starting on head: {}", head_node_ip):
-            start_single_node_on_head(node_head, call_context=call_context)
+            try:
+                start_single_node_on_head(node_head, call_context=call_context)
+            except ParallelTaskSkipped as e:
+                _cli_logger.print(str(e))
 
     total_workers = len(node_workers)
     if parallel and total_workers > 1:
-        cli_logger.print("Starting on {} workers in parallel...", total_workers)
-        run_in_paralell_on_nodes(start_single_node_on_head,
+        _cli_logger.print("Starting on {} workers in parallel...", total_workers)
+        run_in_parallel_on_nodes(start_single_node_on_head,
                                  call_context=call_context,
                                  nodes=node_workers)
     else:
         for i, node_id in enumerate(node_workers):
             node_ip = provider.internal_ip(node_id)
-            with cli_logger.group(
+            with _cli_logger.group(
                     "Starting on worker: {}", node_ip,
                     _numbered=("()", i + 1, total_workers)):
-                start_single_node_on_head(node_id, call_context=call_context)
+                try:
+                    start_single_node_on_head(node_id, call_context=call_context)
+                except ParallelTaskSkipped as e:
+                    _cli_logger.print(str(e))
 
 
 def start_node_from_head(config_file: str,
@@ -2972,11 +2830,9 @@ def _stop_node_on_head(
     head_node_ip = provider.internal_ip(head_node)
 
     def stop_single_node_on_head(node_id, call_context):
-        _cli_logger = call_context.cli_logger
         if not is_node_in_completed_status(provider, node_id):
             node_ip = provider.internal_ip(node_id)
-            _cli_logger.print("Skip stopping node {} as it is in setting up.", node_ip)
-            return
+            raise ParallelTaskSkipped("Skip stopping node {} as it is in setting up.".format(node_ip))
 
         runtime_config = _get_node_specific_runtime_config(
             config, provider, node_id)
@@ -3023,12 +2879,15 @@ def _stop_node_on_head(
     if node_head:
         with _cli_logger.group(
                 "Stopping on head: {}", head_node_ip):
-            stop_single_node_on_head(node_head, call_context=call_context)
+            try:
+                stop_single_node_on_head(node_head, call_context=call_context)
+            except ParallelTaskSkipped as e:
+                _cli_logger.print(str(e))
 
     total_workers = len(node_workers)
     if parallel and total_workers > 1:
         _cli_logger.print("Stopping on {} workers in parallel...", total_workers)
-        run_in_paralell_on_nodes(stop_single_node_on_head,
+        run_in_parallel_on_nodes(stop_single_node_on_head,
                                  call_context=call_context,
                                  nodes=node_workers)
     else:
@@ -3037,7 +2896,10 @@ def _stop_node_on_head(
             with _cli_logger.group(
                     "Stopping on worker: {}", node_ip,
                     _numbered=("()", i + 1, total_workers)):
-                stop_single_node_on_head(node_id, call_context=call_context)
+                try:
+                    stop_single_node_on_head(node_id, call_context=call_context)
+                except ParallelTaskSkipped as e:
+                    _cli_logger.print(str(e))
 
 
 def scale_cluster(config_file: str, yes: bool, override_cluster_name: Optional[str],
@@ -3125,11 +2987,15 @@ def _start_cluster_and_wait_for_workers(
         wait_for_workers: bool = False,
         min_workers: Optional[int] = None,
         wait_timeout: Optional[int] = None):
-    head_node = _get_running_head_node_ex(
-        config,
-        call_context=call_context,
-        create_if_needed=False,
-        _allow_uninitialized_state=False)
+
+    try:
+        head_node = _get_running_head_node_ex(
+            config,
+            call_context=call_context,
+            create_if_needed=False,
+            _allow_uninitialized_state=False)
+    except HeadNotRunningError:
+        head_node = None
 
     if start:
         if head_node is None or force_update:
@@ -3163,7 +3029,10 @@ def submit_and_exec(config: Dict[str, Any],
                     wait_timeout: Optional[int] = None,
                     port_forward: Optional[Port_forward] = None,
                     with_output: bool = False,
-                    yes: bool = False
+                    yes: bool = False,
+                    job_waiter_name: Optional[str] = None,
+                    runtime: Optional[str] = None,
+                    runtime_options: Optional[List[str]] = None,
                     ):
     cli_logger.doassert(not (screen and tmux),
                         "`{}` and `{}` are incompatible.", cf.bold("--screen"),
@@ -3177,6 +3046,10 @@ def submit_and_exec(config: Dict[str, Any],
             "You are about to start or stop cluster {} for this operation. Are you sure that you want to continue?",
             config["cluster_name"], _abort=True)
         cli_logger.newline()
+
+    # create job waiter, None if no job waiter specified
+    job_waiter = _create_job_waiter(
+        config, call_context, job_waiter_name)
 
     _start_cluster_and_wait_for_workers(
         config=config,
@@ -3200,7 +3073,7 @@ def submit_and_exec(config: Dict[str, Any],
     )
     command_parts = []
     if urllib.parse.urlparse(script).scheme in ("http", "https"):
-        command_parts = ["wget", quote(script), "-P", "~/jobs;"]
+        command_parts = ["wget", quote(script), "-O", f"~/jobs/{target_name};"]
     else:
         # upload the script to cluster
         _rsync(
@@ -3212,15 +3085,21 @@ def submit_and_exec(config: Dict[str, Any],
 
     # Use new target with $HOME instead of ~ for exec
     target = os.path.join("$HOME", "jobs", target_name)
-    if target_name.endswith(".py"):
+    if runtime is not None:
+        runtime_commands = get_runnable_command(
+            config.get(RUNTIME_CONFIG_KEY), target, runtime, runtime_options)
+        if runtime_commands is None:
+            cli_logger.abort("Runtime {} doesn't how to execute your file: {}", runtime, script)
+        command_parts += runtime_commands
+    elif target_name.endswith(".py"):
         command_parts += ["python", double_quote(target)]
     elif target_name.endswith(".sh"):
         command_parts += ["bash", double_quote(target)]
     else:
-        command_parts += get_runnable_command(config.get(RUNTIME_CONFIG_KEY), target)
-        if command_parts is None:
-            cli_logger.error("We don't how to execute your file: {}", script)
-            return
+        runtime_commands = get_runnable_command(config.get(RUNTIME_CONFIG_KEY), target)
+        if runtime_commands is None:
+            cli_logger.abort("We don't how to execute your file: {}", script)
+        command_parts += runtime_commands
 
     with_script_args(command_parts, script_args)
 
@@ -3234,7 +3113,8 @@ def submit_and_exec(config: Dict[str, Any],
         stop=stop,
         start=False,
         port_forward=port_forward,
-        with_output=with_output)
+        with_output=with_output,
+        job_waiter=job_waiter)
 
 
 def _sum_min_workers(config: Dict[str, Any]):
@@ -3279,3 +3159,10 @@ def _wait_for_ready(config: Dict[str, Any],
             cli_logger.print("Waiting for workers to be ready: {}/{} ({} seconds)...", workers_ready, min_workers, interval)
             time.sleep(interval)
     raise TimeoutError("Timed out while waiting for workers to be ready: {}/{}".format(workers_ready, min_workers))
+
+
+def _create_job_waiter(
+        config: Dict[str, Any],
+        call_context: CallContext,
+        job_waiter_name: Optional[str] = None) -> Optional[JobWaiter]:
+    return create_job_waiter(config, job_waiter_name)

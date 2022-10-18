@@ -298,6 +298,20 @@ class AzureNodeProvider(NodeProvider):
             return self.cached_nodes[node_id]
         return self._get_node(node_id=node_id)
 
+    def prepare_for_head_node(
+            self, cluster_config: Dict[str, Any], remote_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Returns a new cluster config with custom configs for head node."""
+        managed_identity_client_id = self._get_managed_identity_client_id(cluster_config)
+        if managed_identity_client_id:
+            remote_config["provider"]["managed_identity_client_id"] = managed_identity_client_id
+
+        # Since the head will use the instance profile and role to access cloud,
+        # remove the client credentials from config
+        if "azure_credentials" in remote_config["provider"]:
+            remote_config.pop("azure_credentials", None)
+
+        return remote_config
+
     @staticmethod
     def bootstrap_config(cluster_config):
         return bootstrap_azure(cluster_config)
@@ -305,15 +319,6 @@ class AzureNodeProvider(NodeProvider):
     @staticmethod
     def bootstrap_config_for_api(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         return bootstrap_azure_for_api(cluster_config)
-
-    def prepare_for_head_node(
-            self, cluster_config: Dict[str, Any], remote_config: Dict[str, Any]) -> Dict[str, Any]:
-        """Returns a new cluster config with custom configs for head node."""
-        managed_identity_client_id = self._get_managed_identity_client_id(remote_config)
-        if managed_identity_client_id:
-            remote_config["provider"]["managed_identity_client_id"] = managed_identity_client_id
-
-        return remote_config
 
     @staticmethod
     def post_prepare(

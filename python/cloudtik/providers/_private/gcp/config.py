@@ -21,8 +21,8 @@ from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, CLOUDTIK_
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.services import get_node_ip_address
 from cloudtik.core._private.utils import check_cidr_conflict, unescape_private_key, is_use_internal_ip, \
-    _is_use_internal_ip, is_managed_cloud_storage, is_use_managed_cloud_storage, is_worker_role_for_cloud_storage, \
-    _is_use_managed_cloud_storage
+    is_managed_cloud_storage, is_use_managed_cloud_storage, is_worker_role_for_cloud_storage, \
+    _is_use_managed_cloud_storage, is_use_peering_vpc, is_use_working_vpc, _is_use_working_vpc
 from cloudtik.providers._private.gcp.node import GCPCompute
 from cloudtik.providers._private.gcp.utils import _get_node_info, construct_clients_from_provider_config, \
     wait_for_compute_global_operation, wait_for_compute_region_operation, _create_storage, \
@@ -36,14 +36,9 @@ logger = logging.getLogger(__name__)
 VERSION = "v1"
 
 GCP_RESOURCE_NAME_PREFIX = "cloudtik"
-GCP_DEFAULT_SERVICE_ACCOUNT_ID = GCP_RESOURCE_NAME_PREFIX + "-sa-" + VERSION
-
-DEFAULT_SERVICE_ACCOUNT_CONFIG = {
-    "displayName": "CloudTik Service Account ({})".format(VERSION),
-}
 
 # Those roles will always be added.
-DEFAULT_SERVICE_ACCOUNT_ROLES = [
+HEAD_SERVICE_ACCOUNT_ROLES = [
     "roles/storage.admin", "roles/compute.admin",
     "roles/iam.serviceAccountUser"
 ]
@@ -53,6 +48,11 @@ GCP_HEAD_SERVICE_ACCOUNT_DISPLAY_NAME = "CloudTik Head Service Account - {}"
 
 GCP_WORKER_SERVICE_ACCOUNT_ID = GCP_RESOURCE_NAME_PREFIX + "-w-{}"
 GCP_WORKER_SERVICE_ACCOUNT_DISPLAY_NAME = "CloudTik Worker Service Account - {}"
+
+GCP_WORKSPACE_VPC_NAME = GCP_RESOURCE_NAME_PREFIX + "-{}-vpc"
+
+GCP_WORKSPACE_VPC_PEERING_NAME = GCP_RESOURCE_NAME_PREFIX + "-{}-a-peer"
+GCP_WORKING_VPC_PEERING_NAME = GCP_RESOURCE_NAME_PREFIX + "-{}-b-peer"
 
 # Those roles will always be added.
 WORKER_SERVICE_ACCOUNT_ROLES = [
@@ -115,7 +115,7 @@ def post_prepare_gcp(config: Dict[str, Any]) -> Dict[str, Any]:
         cli_logger.warning(
             "Failed to detect node resources. Make sure you have properly configured the GCP credentials: {}.",
             str(exc))
-
+        raise
     return config
 
 
@@ -177,11 +177,16 @@ def get_workspace_head_nodes(provider_config, workspace_name):
 
 
 def _get_workspace_head_nodes(provider_config, workspace_name, compute):
-    use_internal_ips = _is_use_internal_ip(provider_config)
+    use_working_vpc = _is_use_working_vpc(provider_config)
     project_id = provider_config.get("project_id")
     availability_zone = provider_config.get("availability_zone")
     vpc_id = _get_gcp_vpc_id(
-        provider_config, workspace_name, compute, use_internal_ips)
+        provider_config, workspace_name, compute, use_working_vpc)
+    if vpc_id is None:
+        raise RuntimeError(
+            "Failed to get the VPC. The workspace {} doesn't exist or is in the wrong state.".format(
+                workspace_name
+            ))
     vpc_self_link = compute.networks().get(project=project_id, network=vpc_id).execute()["selfLink"]
 
     filter_expr = '(labels.{key} = {value}) AND (status = RUNNING)'.\
@@ -220,10 +225,13 @@ def _create_workspace(config):
         construct_clients_from_provider_config(config["provider"])
     workspace_name = config["workspace_name"]
     managed_cloud_storage = is_managed_cloud_storage(config)
+    use_peering_vpc = is_use_peering_vpc(config)
 
     current_step = 1
     total_steps = GCP_WORKSPACE_NUM_CREATION_STEPS
     if managed_cloud_storage:
+        total_steps += 1
+    if use_peering_vpc:
         total_steps += 1
 
     try:
@@ -266,11 +274,14 @@ def get_workspace_vpc_id(config, compute):
         config["provider"], config["workspace_name"], compute)
 
 
+def _get_workspace_vpc_name(workspace_name):
+    return GCP_WORKSPACE_VPC_NAME.format(workspace_name)
+
+
 def _get_workspace_vpc_id(provider_config, workspace_name, compute):
     project_id = provider_config.get("project_id")
-    vpc_name = 'cloudtik-{}-vpc'.format(workspace_name)
-    cli_logger.verbose("Getting the Vpc Id for workspace: {}...".
-                     format(vpc_name))
+    vpc_name = _get_workspace_vpc_name(workspace_name)
+    cli_logger.verbose("Getting the VPC Id for workspace: {}...".format(vpc_name))
 
     vpc_ids = [vpc["id"] for vpc in compute.networks().list(project=project_id).execute().get("items", "")
                if vpc["name"] == vpc_name]
@@ -278,19 +289,19 @@ def _get_workspace_vpc_id(provider_config, workspace_name, compute):
         cli_logger.verbose("The VPC for workspace is not found: {}.".format(vpc_name))
         return None
     else:
-        cli_logger.verbose_error("Successfully get the Vpc Id of {} for workspace.".format(vpc_name))
+        cli_logger.verbose_error("Successfully get the VPC Id of {} for workspace.".format(vpc_name))
         return vpc_ids[0]
 
 
 def _delete_vpc(config, compute):
-    use_internal_ips = is_use_internal_ip(config)
-    if use_internal_ips:
-        cli_logger.print("Will not delete the current VPC.")
+    use_working_vpc = is_use_working_vpc(config)
+    if use_working_vpc:
+        cli_logger.print("Will not delete the current working VPC.")
         return
 
     vpc_id = get_workspace_vpc_id(config, compute)
     project_id = config["provider"].get("project_id")
-    vpc_name = 'cloudtik-{}-vpc'.format(config["workspace_name"])
+    vpc_name = _get_workspace_vpc_name(config["workspace_name"])
 
     if vpc_id is None:
         cli_logger.print("The VPC: {} doesn't exist.".format(vpc_name))
@@ -304,39 +315,49 @@ def _delete_vpc(config, compute):
         wait_for_compute_global_operation(project_id, operation, compute)
         cli_logger.print("Successfully deleted the VPC: {}.".format(vpc_name))
     except Exception as e:
-        cli_logger.error("Failed to delete the VPC: {}. {}".format(vpc_name, str(e)))
+        cli_logger.error("Failed to delete the VPC: {}. {}", vpc_name, str(e))
         raise e
 
 
 def create_vpc(config, compute):
     project_id = config["provider"].get("project_id")
+    vpc_name = _get_workspace_vpc_name(config["workspace_name"])
     network_body = {
         "autoCreateSubnetworks": False,
         "description": "Auto created network by cloudtik",
-        "name": 'cloudtik-{}-vpc'.format(config["workspace_name"]),
+        "name": vpc_name,
         "routingConfig": {
             "routingMode": "REGIONAL"
         },
         "mtu": 1460
     }
 
-    cli_logger.print("Creating workspace vpc on GCP...")
+    cli_logger.print("Creating workspace VPC: {}...", vpc_name)
     # create vpc
     try:
         operation = compute.networks().insert(project=project_id, body=network_body).execute()
         wait_for_compute_global_operation(project_id, operation, compute)
-        cli_logger.print("Successfully created workspace VPC: cloudtik-{}-vpc.".format(config["workspace_name"]))
+        cli_logger.print("Successfully created workspace VPC: {}", vpc_name)
     except Exception as e:
-        cli_logger.error(
-            "Failed to create workspace VPC. {}", str(e))
+        cli_logger.error("Failed to create workspace VPC. {}", str(e))
         raise e
+
+
+def get_vpc_name_by_id(config, compute, vpc_id):
+    provider_config = config["provider"]
+    project_id = provider_config.get("project_id")
+    return compute.networks().get(project=project_id, network=vpc_id).execute()["name"]
 
 
 def get_working_node_vpc_id(config, compute):
     return _get_working_node_vpc_id(config["provider"], compute)
 
 
-def _get_working_node_vpc_id(provider_config, compute):
+def get_working_node_vpc_name(config, compute):
+    return _get_working_node_vpc_name(config["provider"], compute)
+
+
+def _find_working_node_vpc(provider_config, compute):
     ip_address = get_node_ip_address(address="8.8.8.8:53")
     project_id = provider_config.get("project_id")
     zone = provider_config.get("availability_zone")
@@ -349,12 +370,35 @@ def _get_working_node_vpc_id(provider_config, compute):
                 break
 
     if network is None:
-        cli_logger.error("Failed to get the Vpc Id of the working node. "
-                         "Please check whether the working node is a GCP instance or not!")
+        cli_logger.error("Failed to get the VPC of the working node. "
+                         "Please check whether the working node is a GCP instance.")
         return None
 
-    cli_logger.print("Successfully get the Vpc Id for working node.")
-    return compute.networks().get(project=project_id, network=network).execute()["id"]
+    cli_logger.verbose("Successfully get the VPC for working node.")
+    return network
+
+
+def _get_working_node_vpc(provider_config, compute):
+    network = _find_working_node_vpc(provider_config, compute)
+    if network is None:
+        return None
+
+    project_id = provider_config.get("project_id")
+    return compute.networks().get(project=project_id, network=network).execute()
+
+
+def _get_working_node_vpc_id(provider_config, compute):
+    vpc = _get_working_node_vpc(provider_config, compute)
+    if vpc is None:
+        return None
+    return vpc["id"]
+
+
+def _get_working_node_vpc_name(provider_config, compute):
+    vpc = _get_working_node_vpc(provider_config, compute)
+    if vpc is None:
+        return None
+    return vpc["name"]
 
 
 def _configure_gcp_subnets_cidr(config, compute, vpc_id):
@@ -408,8 +452,8 @@ def _delete_subnet(config, compute, is_private=True):
         cli_logger.print("Successfully deleted {} subnet: {}."
                          .format(subnet_attribute, subnet_name))
     except Exception as e:
-        cli_logger.error("Failed to delete the {} subnet: {}! {}"
-                         .format(subnet_attribute, subnet_name, str(e)))
+        cli_logger.error("Failed to delete the {} subnet: {}. {}",
+                         subnet_attribute, subnet_name, str(e))
         raise e
 
 
@@ -449,13 +493,13 @@ def _create_router(config, compute, vpc_id):
     region = config["provider"]["region"]
     workspace_name = config["workspace_name"]
     router_name = "cloudtik-{}-private-router".format(workspace_name)
-
+    vpc_name = _get_workspace_vpc_name(workspace_name)
     cli_logger.print("Creating router for the private subnet: {}...".format(router_name))
     router_body = {
         "bgp": {
             "advertiseMode": "CUSTOM"
         },
-        "description": "auto created for the workspace: cloudtik-{}-vpc".format(workspace_name),
+        "description": "auto created for the workspace: {}".format(vpc_name),
         "name": router_name,
         "network": "projects/{}/global/networks/{}".format(project_id, vpc_id),
         "region": "projects/{}/regions/{}".format(project_id, region)
@@ -526,7 +570,7 @@ def _delete_router(config, compute):
         wait_for_compute_region_operation(project_id, region, operation, compute)
         cli_logger.print("Successfully deleted the router: {}.".format(router_name))
     except Exception as e:
-        cli_logger.error("Failed to delete the router: {}. {}".format(router_name, str(e)))
+        cli_logger.error("Failed to delete the router: {}. {}", router_name, str(e))
         raise e
 
 
@@ -552,7 +596,7 @@ def get_firewall(config, compute, firewall_name):
 def create_firewall(compute, project_id, firewall_body):
     cli_logger.print("Creating firewall: {}... ".format(firewall_body.get("name")))
     try:
-        operation =  compute.firewalls().insert(project=project_id, body=firewall_body).execute()
+        operation = compute.firewalls().insert(project=project_id, body=firewall_body).execute()
         wait_for_compute_global_operation(project_id, operation, compute)
         cli_logger.print("Successfully created firewall: {}.".format(firewall_body.get("name")))
     except Exception as e:
@@ -563,7 +607,7 @@ def create_firewall(compute, project_id, firewall_body):
 def update_firewall(compute, project_id, firewall_body):
     cli_logger.print("Updating firewall: {}... ".format(firewall_body.get("name")))
     try:
-        operation =  compute.firewalls().update(
+        operation = compute.firewalls().update(
             project=project_id, firewall=firewall_body.get("name"), body=firewall_body).execute()
         wait_for_compute_global_operation(project_id, operation, compute)
         cli_logger.print("Successfully updated firewall: {}.".format(firewall_body.get("name")))
@@ -681,7 +725,7 @@ def delete_firewall(compute, project_id, firewall_name):
         cli_logger.print("Successfully delete the firewall {}.".format(firewall_name))
     except Exception as e:
         cli_logger.error(
-            "Failed to delete the firewall {}. {}".format(firewall_name, str(e)))
+            "Failed to delete the firewall {}. {}", firewall_name, str(e))
         raise e
 
 
@@ -700,13 +744,13 @@ def _delete_firewalls(config, compute):
             delete_firewall(compute, project_id, cloudtik_firewall)
 
 
-def get_gcp_vpc_id(config, compute, use_internal_ips):
+def get_gcp_vpc_id(config, compute, use_working_vpc):
     return _get_gcp_vpc_id(
-        config["provider"], config.get("workspace_name"), compute, use_internal_ips)
+        config["provider"], config.get("workspace_name"), compute, use_working_vpc)
 
 
-def _get_gcp_vpc_id(provider_config, workspace_name, compute, use_internal_ips):
-    if use_internal_ips:
+def _get_gcp_vpc_id(provider_config, workspace_name, compute, use_working_vpc):
+    if use_working_vpc:
         vpc_id = _get_working_node_vpc_id(provider_config, compute)
     else:
         vpc_id = _get_workspace_vpc_id(provider_config, workspace_name, compute)
@@ -718,8 +762,8 @@ def update_gcp_workspace_firewalls(config):
         construct_clients_from_provider_config(config["provider"])
 
     workspace_name = config["workspace_name"]
-    use_internal_ips = is_use_internal_ip(config)
-    vpc_id = get_gcp_vpc_id(config, compute, use_internal_ips)
+    use_working_vpc = is_use_working_vpc(config)
+    vpc_id = get_gcp_vpc_id(config, compute, use_working_vpc)
     if vpc_id is None:
         cli_logger.print("Workspace: {} doesn't exist!".format(config["workspace_name"]))
         return
@@ -737,7 +781,7 @@ def update_gcp_workspace_firewalls(config):
 
     except Exception as e:
         cli_logger.error(
-            "Failed to update the firewalls of workspace {}. {}".format(workspace_name, str(e)))
+            "Failed to update the firewalls of workspace {}. {}", workspace_name, str(e))
         raise e
 
     cli_logger.print(
@@ -750,15 +794,18 @@ def delete_gcp_workspace(config, delete_managed_storage: bool = False):
         construct_clients_from_provider_config(config["provider"])
 
     workspace_name = config["workspace_name"]
-    use_internal_ips = is_use_internal_ip(config)
     managed_cloud_storage = is_managed_cloud_storage(config)
-    vpc_id = get_gcp_vpc_id(config, compute, use_internal_ips)
-    if vpc_id is None:
-        cli_logger.print("Workspace: {} doesn't exist!".format(config["workspace_name"]))
-        return
+    use_working_vpc = is_use_working_vpc(config)
+    use_peering_vpc = is_use_peering_vpc(config)
+    vpc_id = get_gcp_vpc_id(config, compute, use_working_vpc)
 
     current_step = 1
     total_steps = GCP_WORKSPACE_NUM_DELETION_STEPS
+    if vpc_id is None:
+        total_steps = 1
+    else:
+        if use_peering_vpc:
+            total_steps += 1
     if managed_cloud_storage and delete_managed_storage:
         total_steps += 1
 
@@ -778,11 +825,12 @@ def delete_gcp_workspace(config, delete_managed_storage: bool = False):
                 current_step += 1
                 _delete_workspace_service_accounts(config, iam)
 
-            _delete_network_resources(config, compute, current_step, total_steps)
+            if vpc_id:
+                _delete_network_resources(config, compute, current_step, total_steps)
 
     except Exception as e:
         cli_logger.error(
-            "Failed to delete workspace {}. {}".format(workspace_name, str(e)))
+            "Failed to delete workspace {}. {}", workspace_name, str(e))
         raise e
 
     cli_logger.print(
@@ -860,13 +908,23 @@ def _delete_managed_cloud_storage(cloud_provider, workspace_name):
 
 def _delete_network_resources(config, compute, current_step, total_steps):
     """
-         Do the work - order of operation
-         1.) Delete public subnet
-         2.) Delete router for private subnet 
-         3.) Delete private subnets
-         4.) Delete firewalls
-         5.) Delete vpc
+         Do the work - order of operation:
+         Delete VPC peering connection if needed
+         Delete public subnet
+         Delete router for private subnet
+         Delete private subnets
+         Delete firewalls
+         Delete vpc
     """
+    use_peering_vpc = is_use_peering_vpc(config)
+
+    # delete vpc peering connection
+    if use_peering_vpc:
+        with cli_logger.group(
+                "Deleting VPC peering connection",
+                _numbered=("[]", current_step, total_steps)):
+            current_step += 1
+            _delete_vpc_peering_connections(config, compute)
 
     # delete public subnets
     with cli_logger.group(
@@ -906,15 +964,15 @@ def _delete_network_resources(config, compute, current_step, total_steps):
 
 def _create_vpc(config, compute):
     workspace_name = config["workspace_name"]
-    use_internal_ips = is_use_internal_ip(config)
-    if use_internal_ips:
+    use_working_vpc = is_use_working_vpc(config)
+    if use_working_vpc:
         # No need to create new vpc
         vpc_id = get_working_node_vpc_id(config, compute)
         if vpc_id is None:
-            cli_logger.abort("Only when the working node is "
-                             "a GCP instance can use use_internal_ips=True.")
+            cli_logger.abort("Failed to get the VPC for the current machine. "
+                             "Please make sure your current machine is an AWS virtual machine "
+                             "to use use_internal_ips=True with use_working_vpc=True.")
     else:
-
         # Need to create a new vpc
         if get_workspace_vpc_id(config, compute) is None:
             create_vpc(config, compute)
@@ -943,9 +1001,9 @@ def _create_head_service_account(config, crm, iam):
         assert service_account is not None, "Failed to create head service account."
 
         if config["provider"].get(HAS_TPU_PROVIDER_FIELD, False):
-            roles = DEFAULT_SERVICE_ACCOUNT_ROLES + TPU_SERVICE_ACCOUNT_ROLES
+            roles = HEAD_SERVICE_ACCOUNT_ROLES + TPU_SERVICE_ACCOUNT_ROLES
         else:
-            roles = DEFAULT_SERVICE_ACCOUNT_ROLES
+            roles = HEAD_SERVICE_ACCOUNT_ROLES
 
         _add_iam_role_binding_for_service_account(service_account, roles, crm)
         cli_logger.print("Successfully created head service account and configured with roles.")
@@ -1065,31 +1123,42 @@ def _create_network_resources(config, current_step, total_steps):
         current_step += 1
         _create_or_update_firewalls(config, compute, vpc_id)
 
+    if is_use_peering_vpc(config):
+        with cli_logger.group(
+                "Creating VPC peering connection",
+                _numbered=("[]", current_step, total_steps)):
+            current_step += 1
+            _create_vpc_peering_connections(config, compute, vpc_id)
+
     return current_step
 
 
 def check_gcp_workspace_existence(config):
     crm, iam, compute, tpu = \
         construct_clients_from_provider_config(config["provider"])
-    use_internal_ips = is_use_internal_ip(config)
     workspace_name = config["workspace_name"]
     managed_cloud_storage = is_managed_cloud_storage(config)
+    use_working_vpc = is_use_working_vpc(config)
+    use_peering_vpc = is_use_peering_vpc(config)
 
     existing_resources = 0
     target_resources = GCP_WORKSPACE_TARGET_RESOURCES
     if managed_cloud_storage:
         target_resources += 1
+    if use_peering_vpc:
+        target_resources += 1
 
     """
          Do the work - order of operation
-         1.) Check project
-         2.) Check VPC
-         3.) Check private subnet
-         4.) Check public subnet
-         5.) Check router
-         6.) Check firewalls
-         7.) Check GCS bucket
-         8.) Check service accounts
+         Check project
+         Check VPC
+         Check private subnet
+         Check public subnet
+         Check router
+         Check firewalls
+         Check VPC peering if needed
+         Check GCS bucket
+         Check service accounts
     """
     project_existence = False
     cloud_storage_existence = False
@@ -1097,7 +1166,8 @@ def check_gcp_workspace_existence(config):
         existing_resources += 1
         project_existence = True
         # All resources that depending on project
-        if get_gcp_vpc_id(config, compute, use_internal_ips) is not None:
+        vpc_id = get_gcp_vpc_id(config, compute, use_working_vpc)
+        if vpc_id is not None:
             existing_resources += 1
             # Network resources that depending on VPC
             if get_subnet(config, "cloudtik-{}-private-subnet".format(workspace_name), compute) is not None:
@@ -1108,6 +1178,10 @@ def check_gcp_workspace_existence(config):
                 existing_resources += 1
             if check_workspace_firewalls(config, compute):
                 existing_resources += 1
+            if use_peering_vpc:
+                peerings = get_workspace_vpc_peering_connections(config, compute, vpc_id)
+                if len(peerings) == 2:
+                    existing_resources += 1
 
         if managed_cloud_storage:
             if get_workspace_gcs_bucket(config, workspace_name) is not None:
@@ -1217,7 +1291,7 @@ def _configure_prefer_spot_node(config):
 
     # if no such key, we consider user don't want to override
     if prefer_spot_node is None:
-        return
+        return config
 
     # User override, set or remove spot settings for worker node types
     node_types = config["available_node_types"]
@@ -1230,42 +1304,15 @@ def _configure_prefer_spot_node(config):
         _configure_spot_for_node_type(
             node_type_data, prefer_spot_node)
 
+    return config
+
 
 def bootstrap_gcp(config):
     workspace_name = config.get("workspace_name", "")
     if workspace_name == "":
-        config = bootstrap_gcp_default(config)
-    else:
-        config = bootstrap_gcp_from_workspace(config)
+        raise RuntimeError("Workspace name is not specified in cluster configuration.")
 
-    _configure_prefer_spot_node(config)
-    return config
-
-
-def bootstrap_gcp_default(config):
-    config = copy.deepcopy(config)
-    
-    # Used internally to store head IAM role.
-    config["head_node"] = {}
-
-    # Check if we have any TPUs defined, and if so,
-    # insert that information into the provider config
-    if _has_tpus_in_node_configs(config):
-        config["provider"][HAS_TPU_PROVIDER_FIELD] = True
-
-        # We can't run autoscaling through a serviceAccount on TPUs (atm)
-        if _is_head_node_a_tpu(config):
-            raise RuntimeError("TPUs are not supported as head nodes.")
-
-    crm, iam, compute, tpu = \
-        construct_clients_from_provider_config(config["provider"])
-
-    config = _fix_disk_info(config)
-    config = _configure_project(config, crm)
-    config = _configure_iam_role(config, crm, iam)
-    config = _configure_key_pair(config, compute)
-    config = _configure_subnet(config, compute)
-
+    config = bootstrap_gcp_from_workspace(config)
     return config
 
 
@@ -1296,7 +1343,7 @@ def bootstrap_gcp_from_workspace(config):
     config = _configure_cloud_storage_from_workspace(config)
     config = _configure_key_pair(config, compute)
     config = _configure_subnet_from_workspace(config, compute)
-
+    config = _configure_prefer_spot_node(config)
     return config
 
 
@@ -1394,58 +1441,6 @@ def _configure_managed_cloud_storage_from_workspace(config, cloud_provider):
 
     cloud_storage = get_gcp_cloud_storage_config_for_update(config["provider"])
     cloud_storage["gcs.bucket"] = gcs_bucket.name
-
-
-def _configure_iam_role(config, crm, iam):
-    """Setup a gcp service account with IAM roles.
-
-    Creates a gcp service acconut and binds IAM roles which allow it to control
-    control storage/compute services. Specifically, the head node needs to have
-    an IAM role that allows it to create further gce instances and store items
-    in google cloud storage.
-
-    TODO: Allow the name/id of the service account to be configured
-    """
-    config = copy.deepcopy(config)
-
-    email = get_service_account_email(
-        account_id=GCP_DEFAULT_SERVICE_ACCOUNT_ID,
-        project_id=config["provider"]["project_id"])
-    service_account = _get_service_account(config["provider"], email, iam)
-
-    if service_account is None:
-        cli_logger.print("Creating new service account: {}".format(GCP_DEFAULT_SERVICE_ACCOUNT_ID))
-
-        service_account = _create_service_account(
-            config["provider"], GCP_DEFAULT_SERVICE_ACCOUNT_ID, DEFAULT_SERVICE_ACCOUNT_CONFIG,
-            iam)
-
-    assert service_account is not None, "Failed to create service account"
-
-    if config["provider"].get(HAS_TPU_PROVIDER_FIELD, False):
-        roles = DEFAULT_SERVICE_ACCOUNT_ROLES + TPU_SERVICE_ACCOUNT_ROLES
-    else:
-        roles = DEFAULT_SERVICE_ACCOUNT_ROLES
-
-    _add_iam_role_binding_for_service_account(service_account, roles, crm)
-
-    serviceAccounts = [{
-            "email": service_account["email"],
-            # NOTE: The amount of access is determined by the scope + IAM
-            # role of the service account. Even if the cloud-platform scope
-            # gives (scope) access to the whole cloud-platform, the service
-            # account is limited by the IAM rights specified below.
-            "scopes": ["https://www.googleapis.com/auth/cloud-platform"]
-        }]
-    worker_role_for_cloud_storage = is_worker_role_for_cloud_storage(config)
-    if worker_role_for_cloud_storage:
-        for key, node_type in config["available_node_types"].items():
-            node_config = node_type["node_config"]
-            node_config["serviceAccounts"] = serviceAccounts
-    else:
-        config["head_node"]["serviceAccounts"] = serviceAccounts
-
-    return config
 
 
 def _get_workspace_service_account(config, iam, service_account_id_template):
@@ -1605,55 +1600,6 @@ def _configure_key_pair(config, compute):
     return config
 
 
-def _configure_subnet(config, compute):
-    """Pick a reasonable subnet if not specified by the config."""
-    config = copy.deepcopy(config)
-
-    node_configs = [
-        node_type["node_config"]
-        for node_type in config["available_node_types"].values()
-    ]
-    # Rationale: avoid subnet lookup if the network is already
-    # completely manually configured
-
-    # networkInterfaces is compute, networkConfig is TPU
-    if all("networkInterfaces" in node_config or "networkConfig" in node_config
-           for node_config in node_configs):
-        return config
-
-    subnets = _list_subnets(config, compute)
-
-    if not subnets:
-        raise NotImplementedError("Should be able to create subnet.")
-
-    # TODO: make sure that we have usable subnet. Maybe call
-    # compute.subnetworks().listUsable? For some reason it didn't
-    # work out-of-the-box
-    default_subnet = subnets[0]
-
-    default_interfaces = [{
-        "subnetwork": default_subnet["selfLink"],
-        "accessConfigs": [{
-            "name": "External NAT",
-            "type": "ONE_TO_ONE_NAT",
-        }],
-    }]
-
-    for node_config in node_configs:
-        # The not applicable key will be removed during node creation
-
-        # compute
-        if "networkInterfaces" not in node_config:
-            node_config["networkInterfaces"] = copy.deepcopy(
-                default_interfaces)
-        # TPU
-        if "networkConfig" not in node_config:
-            node_config["networkConfig"] = copy.deepcopy(default_interfaces)[0]
-            node_config["networkConfig"].pop("accessConfigs")
-
-    return config
-
-
 def _configure_subnet_from_workspace(config, compute):
     workspace_name = config["workspace_name"]
     use_internal_ips = is_use_internal_ip(config)
@@ -1701,14 +1647,6 @@ def _configure_subnet_from_workspace(config, compute):
             node_config["networkConfig"] = copy.deepcopy(private_interfaces)[0]
 
     return config
-
-
-def _list_subnets(config, compute):
-    response = compute.subnetworks().list(
-        project=config["provider"]["project_id"],
-        region=config["provider"]["region"]).execute()
-
-    return response["items"]
 
 
 def get_subnet(config, subnet_name, compute):
@@ -2140,3 +2078,170 @@ def with_gcp_environment_variables(provider_config, node_type_config: Dict[str, 
             config_dict["GCP_PROJECT_ID"] = project_id
 
     return config_dict
+
+
+def _create_vpc_peering_connections(config, compute, vpc_id):
+    working_vpc_id = get_working_node_vpc_id(config, compute)
+    if working_vpc_id is None:
+        cli_logger.abort("Failed to get the VPC for the current machine. "
+                         "Please make sure your current machine is an AWS virtual machine "
+                         "to use use_internal_ips=True with use_working_vpc=True.")
+
+    current_step = 1
+    total_steps = 2
+
+    with cli_logger.group(
+            "Creating workspace VPC peering connection",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _create_workspace_vpc_peering_connection(config, compute, vpc_id, working_vpc_id)
+
+    with cli_logger.group(
+            "Creating working VPC peering connection",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _create_working_vpc_peering_connection(config, compute, vpc_id, working_vpc_id)
+
+
+def _create_vpc_peering_connection(config, compute, vpc_id, peer_name, peering_vpc_name):
+    provider_config = config["provider"]
+    project_id = provider_config.get("project_id")
+    cli_logger.print("Creating VPC peering connection: {}...".format(peer_name))
+    peer_network = "projects/{}/global/networks/{}".format(project_id, peering_vpc_name)
+    try:
+        # Creating the VPC peering
+        networks_add_peering_request_body = {
+            "networkPeering": {
+                "name": peer_name,
+                "network": peer_network,
+                "exchangeSubnetRoutes": True,
+            }
+        }
+
+        operation = compute.networks().addPeering(
+            project=project_id, network=vpc_id, body=networks_add_peering_request_body).execute()
+        wait_for_compute_global_operation(project_id, operation, compute)
+
+        cli_logger.print(
+            "Successfully created VPC peering connection: {}.".format(peer_name))
+    except Exception as e:
+        cli_logger.error("Failed to create VPC peering connection. {}", str(e))
+        raise e
+
+
+def _delete_vpc_peering_connection(config, compute, vpc_id, peer_name):
+    provider_config = config["provider"]
+    project_id = provider_config.get("project_id")
+    cli_logger.print("Deleting VPC peering connection: {}".format(peer_name))
+    try:
+        networks_remove_peering_request_body = {
+            "name": peer_name
+        }
+        operation = compute.networks().removePeering(
+            project=project_id, network=vpc_id, body=networks_remove_peering_request_body ).execute()
+        wait_for_compute_global_operation(project_id, operation, compute)
+
+        cli_logger.print(
+            "Successfully deleted VPC peering connection: {}.".format(peer_name))
+    except Exception as e:
+        cli_logger.error("Failed to delete VPC peering connection. {}", str(e))
+        raise e
+
+
+def _get_vpc_peering_connection(config, compute, vpc_id, peer_name):
+    provider_config = config["provider"]
+    project_id = provider_config.get("project_id")
+    vpc_info = compute.networks().get(project=project_id, network=vpc_id).execute()
+    peerings = vpc_info.get("peerings")
+    if peerings is not None:
+        for peering in peerings:
+            if peering["name"] == peer_name:
+                return peering
+    return None
+
+
+def _create_workspace_vpc_peering_connection(config, compute, vpc_id, working_vpc_id):
+    workspace_name = config["workspace_name"]
+    peer_name = GCP_WORKSPACE_VPC_PEERING_NAME.format(workspace_name)
+    working_vpc_name = get_vpc_name_by_id(config, compute, working_vpc_id)
+    _create_vpc_peering_connection(
+        config, compute, vpc_id,
+        peer_name=peer_name, peering_vpc_name=working_vpc_name
+    )
+
+
+def _create_working_vpc_peering_connection(config, compute, vpc_id, working_vpc_id):
+    workspace_name = config["workspace_name"]
+    peer_name = GCP_WORKING_VPC_PEERING_NAME.format(workspace_name)
+    workspace_vpc_name = _get_workspace_vpc_name(workspace_name)
+    _create_vpc_peering_connection(
+        config, compute, working_vpc_id,
+        peer_name=peer_name, peering_vpc_name=workspace_vpc_name
+    )
+
+
+def _delete_vpc_peering_connections(config, compute):
+    current_step = 1
+    total_steps = 2
+
+    with cli_logger.group(
+            "Deleting working VPC peering connection",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _delete_working_vpc_peering_connection(config, compute)
+
+    with cli_logger.group(
+            "Deleting workspace VPC peering connection",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _delete_workspace_vpc_peering_connection(config, compute)
+
+
+def _delete_workspace_vpc_peering_connection(config, compute):
+    workspace_name = config["workspace_name"]
+    peer_name = GCP_WORKSPACE_VPC_PEERING_NAME.format(workspace_name)
+    vpc_id = get_workspace_vpc_id(config, compute)
+
+    peering = _get_vpc_peering_connection(config, compute, vpc_id, peer_name)
+    if peering is None:
+        cli_logger.print(
+            "The workspace peering connection {} doesn't exist. Skip deletion.".format(peer_name))
+        return
+
+    _delete_vpc_peering_connection(
+        config, compute, vpc_id, peer_name
+    )
+
+
+def _delete_working_vpc_peering_connection(config, compute):
+    workspace_name = config["workspace_name"]
+    peer_name = GCP_WORKING_VPC_PEERING_NAME.format(workspace_name)
+    working_vpc_id = get_working_node_vpc_id(config, compute)
+
+    peering = _get_vpc_peering_connection(config, compute, working_vpc_id, peer_name)
+    if peering is None:
+        cli_logger.print(
+            "The workspace peering connection {} doesn't exist. Skip deletion.".format(peer_name))
+        return
+
+    _delete_vpc_peering_connection(
+        config, compute, working_vpc_id, peer_name
+    )
+
+
+def get_workspace_vpc_peering_connections(config, compute, vpc_id):
+    workspace_name = config["workspace_name"]
+    workspace_peer_name = GCP_WORKSPACE_VPC_PEERING_NAME.format(workspace_name)
+    vpc_peerings = {}
+    workspace_peering = _get_vpc_peering_connection(config, compute, vpc_id, workspace_peer_name)
+    if workspace_peering:
+        vpc_peerings["a"] = workspace_peering
+
+    working_vpc_id = get_working_node_vpc_id(config, compute)
+    if working_vpc_id is not None:
+        working_peer_name = GCP_WORKING_VPC_PEERING_NAME.format(workspace_name)
+        working_peering = _get_vpc_peering_connection(config, compute, working_vpc_id, working_peer_name)
+        if working_peering:
+            vpc_peerings["b"] = working_peering
+
+    return vpc_peerings

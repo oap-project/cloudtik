@@ -4,6 +4,7 @@ from typing import Any, Callable, Dict, List, Optional, Union
 import os
 
 from cloudtik.core._private.call_context import CallContext
+from cloudtik.core._private.cluster.cluster_config import _bootstrap_config, _load_cluster_config
 from cloudtik.core._private.utils import verify_runtime_list
 from cloudtik.core._private.workspace import workspace_operator
 from cloudtik.core._private.cluster import cluster_operator
@@ -56,7 +57,7 @@ class Workspace:
 
 
 class Cluster:
-    def __init__(self, cluster_config: Union[dict, str], should_bootstrap: bool = True) -> None:
+    def __init__(self, cluster_config: Union[dict, str], should_bootstrap: bool = True, no_config_cache: bool = True) -> None:
         """Create a cluster object to operate on with this API.
 
         Args:
@@ -66,15 +67,15 @@ class Cluster:
         self.cluster_config = cluster_config
         if isinstance(cluster_config, dict):
             if should_bootstrap:
-                self.config = cluster_operator._bootstrap_config(
-                    cluster_config, no_config_cache=True)
+                self.config = _bootstrap_config(
+                    cluster_config, no_config_cache=no_config_cache)
             else:
                 self.config = cluster_config
         else:
             if not os.path.exists(cluster_config):
                 raise ValueError("Cluster config file not found: {}".format(cluster_config))
-            self.config = cluster_operator._load_cluster_config(
-                cluster_config, should_bootstrap=should_bootstrap, no_config_cache=True)
+            self.config = _load_cluster_config(
+                cluster_config, should_bootstrap=should_bootstrap, no_config_cache=no_config_cache)
 
         # TODO: Each call may need its own call context
         self.call_context = CallContext()
@@ -136,7 +137,8 @@ class Cluster:
              wait_timeout: Optional[int] = None,
              port_forward: Optional[cluster_operator.Port_forward] = None,
              with_output: bool = False,
-             parallel: bool = True) -> Optional[str]:
+             parallel: bool = True,
+             job_waiter: Optional[str] = None) -> Optional[str]:
         """Runs a command on the specified cluster.
 
         Args:
@@ -154,8 +156,8 @@ class Cluster:
             wait_timeout (int): The timeout for wait for ready
             port_forward ( (int,int) or list[(int,int)]): port(s) to forward.
             with_output (bool): Whether to capture command output.
-            parallel (bool): Whether to run the commands on nodes in parallel
-
+            parallel (bool): Whether to run the commands on nodes in parallel.
+            job_waiter (str): The job waiter to use for waiting an async job to complete.
         Returns:
             The output of the command as a string.
         """
@@ -177,7 +179,8 @@ class Cluster:
             port_forward=port_forward,
             with_output=with_output,
             parallel=parallel,
-            yes=True)
+            yes=True,
+            job_waiter_name=job_waiter)
 
     def submit(self,
                script_file: str,
@@ -190,7 +193,8 @@ class Cluster:
                min_workers: Optional[int] = None,
                wait_timeout: Optional[int] = None,
                port_forward: Optional[cluster_operator.Port_forward] = None,
-               with_output: bool = False) -> Optional[str]:
+               with_output: bool = False,
+               job_waiter: Optional[str] = None) -> Optional[str]:
         """Submit a script file to cluster and run.
 
         Args:
@@ -205,7 +209,7 @@ class Cluster:
             wait_timeout (int): The timeout for wait for ready
             port_forward ( (int,int) or list[(int,int)]): port(s) to forward.
             with_output (bool): Whether to capture command output.
-
+            job_waiter (str): The job waiter to use for waiting an async job to complete.
         Returns:
             The output of the command as a string.
         """
@@ -223,7 +227,8 @@ class Cluster:
             wait_timeout=wait_timeout,
             port_forward=port_forward,
             with_output=with_output,
-            yes=True)
+            yes=True,
+            job_waiter_name=job_waiter)
 
     def rsync(self,
               *,

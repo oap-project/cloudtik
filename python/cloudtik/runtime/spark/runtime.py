@@ -1,10 +1,12 @@
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_METASTORE, BUILT_IN_RUNTIME_HDFS
+from cloudtik.core.job_waiter import JobWaiter
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.runtime import Runtime
 from cloudtik.core.scaling_policy import ScalingPolicy
+from cloudtik.runtime.spark.job_waiter import SparkJobWaiter
 from cloudtik.runtime.spark.utils import _config_runtime_resources, _with_runtime_environment_variables, \
     _is_runtime_scripts, _get_runnable_command, get_runtime_processes, _validate_config, \
     _verify_config, get_runtime_logs, _get_runtime_commands, \
@@ -43,14 +45,14 @@ class SparkRuntime(Runtime):
         return _with_runtime_environment_variables(
             self.runtime_config, config=config, provider=provider, node_id=node_id)
 
-    def get_runnable_command(self, target: str):
+    def get_runnable_command(self, target: str, runtime_options: Optional[List[str]]):
         """Return the runnable command for the target script.
         For example: ["bash", target]
         """
         if not _is_runtime_scripts(target):
             return None
 
-        return _get_runnable_command(target)
+        return _get_runnable_command(target, runtime_options)
 
     def get_runtime_commands(self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         """Returns a copy of runtime commands to run at different stages"""
@@ -68,6 +70,9 @@ class SparkRuntime(Runtime):
 
     def get_scaling_policy(self, cluster_config: Dict[str, Any], head_ip: str) -> Optional[ScalingPolicy]:
         return _get_scaling_policy(self.runtime_config, cluster_config, head_ip)
+
+    def get_job_waiter(self, cluster_config: Dict[str, Any]) -> Optional[JobWaiter]:
+        return SparkJobWaiter(cluster_config)
 
     @staticmethod
     def get_logs() -> Dict[str, str]:

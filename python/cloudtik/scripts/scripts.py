@@ -1,7 +1,7 @@
-import copy
 import json
 import logging
 import os
+import shlex
 import subprocess
 import sys
 import traceback
@@ -20,6 +20,7 @@ from cloudtik.core._private import constants
 from cloudtik.core._private import services, utils, logging_utils
 from cloudtik.core._private.cli_logger import (add_click_logging_options,
                                                cli_logger, cf)
+from cloudtik.core._private.cluster.cluster_config import _load_cluster_config
 from cloudtik.core._private.cluster.cluster_operator import (
     attach_cluster, create_or_update_cluster, monitor_cluster,
     teardown_cluster, get_head_node_ip, kill_node_from_head, get_worker_node_ips,
@@ -27,7 +28,7 @@ from cloudtik.core._private.cluster.cluster_operator import (
     show_worker_cpus, show_worker_memory, show_cluster_info, show_cluster_status,
     start_proxy, stop_proxy, cluster_debug_status,
     cluster_health_check, cluster_process_status, attach_worker, scale_cluster,
-    _load_cluster_config, exec_on_nodes, submit_and_exec, _wait_for_ready, _rsync, cli_call_context)
+    exec_on_nodes, submit_and_exec, _wait_for_ready, _rsync, cli_call_context)
 from cloudtik.core._private.constants import CLOUDTIK_PROCESSES, \
     CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
     CLOUDTIK_DEFAULT_PORT
@@ -694,14 +695,22 @@ def attach(cluster_config_file, screen, tmux, cluster_name,
     is_flag=True,
     default=False,
     help="Don't ask for confirmation.")
+@click.option(
+    "--job-waiter",
+    required=False,
+    type=str,
+    help="The job waiter to be used to check the completion of the job.")
 @add_click_logging_options
 def exec(cluster_config_file, cmd, cluster_name, run_env, screen, tmux, stop, start,
          force_update, wait_for_workers, min_workers, wait_timeout,
-         no_config_cache, port_forward, node_ip, all_nodes, parallel, yes):
+         no_config_cache, port_forward, node_ip, all_nodes, parallel, yes, job_waiter):
     """Execute a command via SSH on a cluster or a specified node."""
     port_forward = [(port, port) for port in list(port_forward)]
 
     try:
+        # Don't use config cache so that we will run a full bootstrap needed for start
+        if start:
+            no_config_cache = True
         config = _load_cluster_config(cluster_config_file, cluster_name,
                                       no_config_cache=no_config_cache)
         exec_on_nodes(
@@ -721,7 +730,8 @@ def exec(cluster_config_file, cmd, cluster_name, run_env, screen, tmux, stop, st
             wait_timeout=wait_timeout,
             port_forward=port_forward,
             parallel=parallel,
-            yes=yes)
+            yes=yes,
+            job_waiter_name=job_waiter)
     except RuntimeError as re:
         cli_logger.error("Run exec failed. " + str(re))
         if cli_logger.verbosity == 0:
@@ -793,12 +803,29 @@ def exec(cluster_config_file, cmd, cluster_name, run_env, screen, tmux, stop, st
     is_flag=True,
     default=False,
     help="Don't ask for confirmation.")
+@click.option(
+    "--job-waiter",
+    required=False,
+    type=str,
+    help="The job waiter to be used to check the completion of the job.")
+@click.option(
+    "--runtime",
+    required=False,
+    type=str,
+    help="The runtime used to run the job.")
+@click.option(
+    "--runtime-options",
+    required=False,
+    type=str,
+    default="",
+    help="The runtime options of the job.")
 @click.argument("script", required=True, type=str)
 @click.argument("script_args", nargs=-1)
 @add_click_logging_options
 def submit(cluster_config_file, cluster_name, screen, tmux, stop, start,
            force_update, wait_for_workers, min_workers, wait_timeout,
-           no_config_cache, port_forward, yes, script, script_args):
+           no_config_cache, port_forward, yes, job_waiter, runtime, runtime_options,
+           script, script_args):
     """Uploads and runs a script on the specified cluster.
 
     The script is automatically synced to the following location:
@@ -808,9 +835,13 @@ def submit(cluster_config_file, cluster_name, screen, tmux, stop, start,
     Example:
         >>> cloudtik submit [CLUSTER.YAML] experiment.py -- --smoke-test
     """
+    # Don't use config cache so that we will run a full bootstrap needed for start
+    if start:
+        no_config_cache = True
     config = _load_cluster_config(
         cluster_config_file, cluster_name, no_config_cache=no_config_cache)
     port_forward = [(port, port) for port in list(port_forward)]
+    runtime_options = shlex.split(runtime_options) if runtime_options is not None else None
     submit_and_exec(
         config,
         call_context=cli_call_context(),
@@ -825,7 +856,11 @@ def submit(cluster_config_file, cluster_name, screen, tmux, stop, start,
         min_workers=min_workers,
         wait_timeout=wait_timeout,
         port_forward=port_forward,
-        yes=yes)
+        yes=yes,
+        job_waiter_name=job_waiter,
+        runtime=runtime,
+        runtime_options=runtime_options,
+        )
 
 
 @cli.command()

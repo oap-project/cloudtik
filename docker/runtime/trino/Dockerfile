@@ -2,6 +2,7 @@ ARG BASE_IMAGE="nightly"
 FROM cloudtik/cloudtik:"$BASE_IMAGE"
 
 ARG TRINO_VERSION=389
+ARG HADOOP_VERSION=3.3.1
 
 ENV RUNTIME_PATH /home/cloudtik/runtime
 RUN mkdir -p $RUNTIME_PATH
@@ -10,7 +11,7 @@ WORKDIR /home/cloudtik/runtime
 # Ganglia
 RUN sudo apt-get update -y \
     && sudo apt-get install -y ganglia-monitor \
-    && wget https://d30257nes7d4fq.cloudfront.net/downloads/ganglia/modpython.so \
+    && arch=$(uname -m) && wget https://d30257nes7d4fq.cloudfront.net/downloads/ganglia/modpython-${arch}.so -O modpython.so \
     && sudo cp modpython.so /usr/lib/ganglia && sudo chmod 644 /usr/lib/ganglia/modpython.so \
     && rm modpython.so \
     && sudo rm -rf /var/lib/apt/lists/* \
@@ -26,6 +27,18 @@ RUN wget https://github.com/adoptium/temurin11-binaries/releases/download/jdk-11
     mkdir -p "$JAVA_HOME" && \
     tar --extract --file openjdk.tar.gz --directory "$JAVA_HOME" --strip-components 1 --no-same-owner && \
     rm openjdk.tar.gz
+
+# Install Hadoop
+ENV HADOOP_HOME $RUNTIME_PATH/hadoop
+ENV HADOOP_CONF_DIR $HADOOP_HOME/etc/hadoop
+ENV PATH $HADOOP_HOME/bin:$PATH
+
+RUN wget http://archive.apache.org/dist/hadoop/common/hadoop-${HADOOP_VERSION}/hadoop-${HADOOP_VERSION}.tar.gz -O hadoop.tar.gz && \
+    mkdir -p "$HADOOP_HOME" && \
+    tar --extract --file hadoop.tar.gz --directory "$HADOOP_HOME" --strip-components 1 --no-same-owner && \
+    rm hadoop.tar.gz && \
+    wget -nc -P "${HADOOP_HOME}/share/hadoop/tools/lib" https://storage.googleapis.com/hadoop-lib/gcs/gcs-connector-hadoop3-latest.jar && \
+    echo "export HADOOP_CLASSPATH=\$HADOOP_CLASSPATH:\$HADOOP_HOME/share/hadoop/tools/lib/*" >> ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh
 
 # Install Trino
 ENV TRINO_VERSION        ${TRINO_VERSION}

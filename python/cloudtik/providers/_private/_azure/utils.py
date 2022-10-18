@@ -1,7 +1,8 @@
 from typing import Any, Callable, Dict
 
 from azure.common.credentials import get_cli_profile
-from azure.identity import AzureCliCredential, DefaultAzureCredential
+from azure.identity import AzureCliCredential, DefaultAzureCredential, ClientSecretCredential, CertificateCredential,\
+    ManagedIdentityCredential
 from azure.mgmt.resource import ResourceManagementClient
 from azure.mgmt.storage import StorageManagementClient
 from azure.mgmt.network import NetworkManagementClient
@@ -45,6 +46,32 @@ def get_credential(provider_config):
     return credential
 
 
+def get_client_credential(provider_config):
+    azure_credentials = provider_config.get("azure_credentials")
+    if azure_credentials is not None:
+        # azure credentials configured in the configuration file
+        assert ("type" in azure_credentials), \
+            "azure_credentials cluster yaml field missing 'type' field."
+        assert ("credentials" in azure_credentials), \
+            "azure_credentials cluster yaml field missing 'credentials' field."
+
+        cred_type = azure_credentials["type"]
+        credentials_fields = azure_credentials["credentials"]
+
+        if cred_type == "ClientSecret":
+            return ClientSecretCredential(**credentials_fields)
+        elif cred_type == "ManagedIdentity":
+            return ManagedIdentityCredential(**credentials_fields)
+
+    credential = DefaultAzureCredential(
+        exclude_managed_identity_credential=True,
+        exclude_shared_token_cache_credential=True,
+        exclude_visual_studio_code_credential=True,
+        exclude_powershell_credential=True
+    )
+    return credential
+
+
 def construct_resource_client(config):
     return _construct_resource_client(config["provider"])
 
@@ -53,7 +80,7 @@ def _construct_resource_client(provider_config):
     subscription_id = provider_config.get("subscription_id")
     if subscription_id is None:
         subscription_id = get_cli_profile().get_subscription_id()
-    credential = AzureCliCredential()
+    credential = get_client_credential(provider_config)
     resource_client = ResourceManagementClient(credential, subscription_id)
     return resource_client
 
@@ -66,7 +93,7 @@ def _construct_storage_client(provider_config):
     subscription_id = provider_config.get("subscription_id")
     if subscription_id is None:
         subscription_id = get_cli_profile().get_subscription_id()
-    credential = AzureCliCredential()
+    credential = get_client_credential(provider_config)
     storage_client = StorageManagementClient(credential, subscription_id)
     return storage_client
 
@@ -79,7 +106,7 @@ def _construct_network_client(provider_config):
     subscription_id = provider_config.get("subscription_id")
     if subscription_id is None:
         subscription_id = get_cli_profile().get_subscription_id()
-    credential = AzureCliCredential()
+    credential = get_client_credential(provider_config)
     network_client = NetworkManagementClient(credential, subscription_id)
     return network_client
 
@@ -92,7 +119,7 @@ def _construct_compute_client(provider_config):
     subscription_id = provider_config.get("subscription_id")
     if subscription_id is None:
         subscription_id = get_cli_profile().get_subscription_id()
-    credential = AzureCliCredential()
+    credential = get_client_credential(provider_config)
     compute_client = ComputeManagementClient(credential, subscription_id)
     return compute_client
 
@@ -105,7 +132,7 @@ def _construct_manage_server_identity_client(provider_config):
     subscription_id = provider_config.get("subscription_id")
     if subscription_id is None:
         subscription_id = get_cli_profile().get_subscription_id()
-    credential = AzureCliCredential()
+    credential = get_client_credential(provider_config)
     # It showed that we no longer need to wrapper. Will fail with wrapper: no attribute get_token
     # wrapped_credential = AzureIdentityCredentialAdapter(credential)
     msi_client = ManagedServiceIdentityClient(credential, subscription_id)
@@ -120,7 +147,7 @@ def _construct_authorization_client(provider_config):
     subscription_id = provider_config.get("subscription_id")
     if subscription_id is None:
         subscription_id = get_cli_profile().get_subscription_id()
-    credential = AzureCliCredential()
+    credential = get_client_credential(provider_config)
     wrapped_credential = AzureIdentityCredentialAdapter(credential)
     authorization_client = AuthorizationManagementClient(
         credentials=wrapped_credential,

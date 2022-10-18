@@ -11,7 +11,7 @@ function prepare_brokers() {
     bootstrap_servers=""
     for broker_ip in ${broker_ips}; do
         if [ -z "$bootstrap_servers" ]; then
-            bootstrap_servers=$broker_ip_ip:9092
+            bootstrap_servers=$broker_ip:9092
         else
             bootstrap_servers="$bootstrap_servers,$broker_ip:9092"
         fi

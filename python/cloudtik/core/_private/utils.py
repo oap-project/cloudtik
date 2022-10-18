@@ -14,6 +14,8 @@ import binascii
 import uuid
 import time
 import math
+
+import click
 import ipaddr
 import socket
 import re
@@ -114,6 +116,14 @@ logger = logging.getLogger(__name__)
 # Prefix for the node id resource that is automatically added to each node.
 # For example, a node may have id `node-172.23.42.1`.
 NODE_ID_PREFIX = "node-"
+
+
+class HeadNotRunningError(RuntimeError):
+    pass
+
+
+class ParallelTaskSkipped(RuntimeError):
+    pass
 
 
 def make_node_id(node_ip):
@@ -232,9 +242,10 @@ def publish_error(error_type,
             "redis_client needs to be specified!")
 
 
-def run_in_paralell_on_nodes(run_exec,
+def run_in_parallel_on_nodes(run_exec,
                              call_context: CallContext,
-                             nodes):
+                             nodes,
+                             max_workers=MAX_PARALLEL_EXEC_NODES) -> Tuple[int, int, int]:
     # This is to ensure that the parallel SSH calls below do not mess with
     # the users terminal.
     output_redir = call_context.is_output_redirected()
@@ -242,13 +253,34 @@ def run_in_paralell_on_nodes(run_exec,
     allow_interactive = call_context.does_allow_interactive()
     call_context.set_allow_interactive(False)
 
+    _cli_logger = call_context.cli_logger
+
+    failures = 0
+    skipped = 0
     with ThreadPoolExecutor(
-            max_workers=MAX_PARALLEL_EXEC_NODES) as executor:
+            max_workers=max_workers) as executor:
+        futures = {}
         for node_id in nodes:
-            executor.submit(
+            futures[node_id] = executor.submit(
                 run_exec, node_id=node_id, call_context=call_context.new_call_context())
+
+        for node_id, future in futures.items():
+            try:
+                result = future.result()
+            except ParallelTaskSkipped as se:
+                skipped += 1
+                _cli_logger.warning("Task skipped on node {}: {}", node_id, str(se)),
+            except Exception as e:
+                failures += 1
+                _cli_logger.error("Task failed on node {}: {}", node_id, str(e))
+
     call_context.set_output_redirected(output_redir)
     call_context.set_allow_interactive(allow_interactive)
+
+    if failures > 1 or skipped > 1:
+        _cli_logger.print("Total {} tasks failed. Total {} tasks skipped.", failures, skipped)
+
+    return len(nodes) - failures - skipped, failures, skipped
 
 
 def validate_config(config: Dict[str, Any]) -> None:
@@ -1011,17 +1043,17 @@ def get_default_cloudtik_wheel_url() -> str:
         # Default python 3.7
         wheel_url += "-cp37-cp37m"
 
-    wheel_url += "-manylinux2014_x86_64.whl"
+    wheel_url += "-manylinux2014_${arch}.whl"
     return wheel_url
 
 
 def get_cloudtik_setup_command(config) -> str:
     provider_type = config["provider"]["type"]
-    setup_command = "which cloudtik || pip -qq install -U \"cloudtik["
+    setup_command = "which cloudtik || (arch=$(uname -m) && pip -qq install -U \"cloudtik["
     setup_command += provider_type
     setup_command += "] @ "
     setup_command += config.get("cloudtik_wheel_url", get_default_cloudtik_wheel_url())
-    setup_command += "\""
+    setup_command += "\")"
     return setup_command
 
 
@@ -1670,6 +1702,28 @@ def _is_use_internal_ip(provider_config: Dict[str, Any]) -> bool:
     return provider_config.get("use_internal_ips", False)
 
 
+def is_use_working_vpc(config: Dict[str, Any]) -> bool:
+    return _is_use_working_vpc(config.get("provider", {}))
+
+
+def _is_use_working_vpc(provider_config: Dict[str, Any]) -> bool:
+    if not _is_use_internal_ip(provider_config):
+        return False
+
+    return provider_config.get("use_working_vpc", True)
+
+
+def is_use_peering_vpc(config: Dict[str, Any]) -> bool:
+    return _is_use_peering_vpc(config.get("provider", {}))
+
+
+def _is_use_peering_vpc(provider_config: Dict[str, Any]) -> bool:
+    if not _is_use_internal_ip(provider_config):
+        return False
+
+    return not _is_use_working_vpc(provider_config)
+
+
 def get_node_cluster_ip(provider: NodeProvider, node: str) -> str:
     return provider.internal_ip(node)
 
@@ -1707,6 +1761,15 @@ def get_node_working_ip(config: Dict[str, Any],
 def get_head_working_ip(config: Dict[str, Any],
                         provider: NodeProvider, node: str) -> str:
     return get_node_working_ip(config, provider, node)
+
+
+def get_cluster_head_ip(config: Dict[str, Any], public: bool = False) -> str:
+    provider = _get_node_provider(config["provider"], config["cluster_name"])
+    head_node = get_running_head_node(config)
+    if public:
+        return get_head_working_ip(config, provider, head_node)
+    else:
+        return get_node_cluster_ip(provider, head_node)
 
 
 def _get_only_named_dict_child(v):
@@ -1981,17 +2044,25 @@ def runtime_verify_config(runtime_config, config, provider):
         runtime.verify_config(config, provider)
 
 
-def get_runnable_command(runtime_config, target):
+def get_runnable_command(
+        runtime_config, target,
+        runtime_type: str = None, runtime_options: Optional[List[str]] = None):
     if runtime_config is None:
         return None
 
-    # Iterate through all the runtimes
-    runtime_types = runtime_config.get(RUNTIME_TYPES_CONFIG_KEY, [])
-    for runtime_type in runtime_types:
+    if runtime_type:
         runtime = _get_runtime(runtime_type, runtime_config)
-        commands = runtime.get_runnable_command(target)
+        commands = runtime.get_runnable_command(target, runtime_options)
         if commands:
             return commands
+    else:
+        # Iterate through all the runtimes
+        runtime_types = runtime_config.get(RUNTIME_TYPES_CONFIG_KEY, [])
+        for runtime_type in runtime_types:
+            runtime = _get_runtime(runtime_type, runtime_config)
+            commands = runtime.get_runnable_command(target, runtime_options)
+            if commands:
+                return commands
 
     return None
 
@@ -2418,7 +2489,7 @@ def get_running_head_node(
                 "it is recommended to restart this cluster.")
 
             return _backup_head_node
-        raise RuntimeError("Head node of cluster {} not found!".format(
+        raise HeadNotRunningError("Head node of cluster {} not found!".format(
             config["cluster_name"]))
 
 
@@ -2705,3 +2776,17 @@ def get_storage_config_for_update(provider_config):
     if "storage" not in provider_config:
         provider_config["storage"] = {}
     return provider_config["storage"]
+
+
+def print_json_formatted(json_bytes):
+    json_object = json.loads(json_bytes)
+    formatted_response = json.dumps(json_object, indent=4)
+    click.echo(formatted_response)
+
+
+def get_command_session_name(cmd: str, timestamp: int):
+    timestamp_str = "{}".format(timestamp)
+    hasher = hashlib.sha1()
+    hasher.update(cmd.encode("utf-8"))
+    hasher.update(timestamp_str.encode("utf-8"))
+    return "cloudtik-" + hasher.hexdigest()

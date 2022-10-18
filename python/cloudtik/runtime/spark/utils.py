@@ -1,12 +1,16 @@
 import os
+import time
 from typing import Any, Dict, Optional
-from shlex import quote
 
+from cloudtik.core._private.cli_logger import cli_logger
+from cloudtik.core._private.cluster.cluster_config import _load_cluster_config
+from cloudtik.core._private.cluster.cluster_rest_request import _request_rest_on_head
 from cloudtik.core._private.core_utils import double_quote
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_HDFS, BUILT_IN_RUNTIME_METASTORE
 from cloudtik.core._private.utils import merge_rooted_config_hierarchy, \
     _get_runtime_config_object, is_runtime_enabled, round_memory_size_to_gb, load_head_cluster_config, \
-    RUNTIME_CONFIG_KEY, load_properties_file, save_properties_file, is_use_managed_cloud_storage, get_node_type_config
+    RUNTIME_CONFIG_KEY, load_properties_file, save_properties_file, is_use_managed_cloud_storage, get_node_type_config, \
+    print_json_formatted
 from cloudtik.core._private.workspace.workspace_operator import _get_workspace_provider
 from cloudtik.core.scaling_policy import ScalingPolicy
 from cloudtik.runtime.spark.scaling_policy import SparkScalingPolicy
@@ -36,6 +40,9 @@ SPARK_EXECUTOR_OVERHEAD_MINIMUM = 384
 SPARK_EXECUTOR_OVERHEAD_RATIO = 0.1
 
 SPARK_YARN_WEB_API_PORT = 8088
+SPARK_HISTORY_SERVER_API_PORT = 18080
+
+RETRY_DELAY_S = 5
 
 
 def get_yarn_resource_memory_ratio(cluster_config: Dict[str, Any]):
@@ -51,14 +58,14 @@ def get_spark_driver_memory(cluster_resource: Dict[str, Any]) -> int:
     spark_driver_memory = round_memory_size_to_gb(
         int(cluster_resource["head_memory"] * SPARK_DRIVER_MEMORY_RATIO))
     return max(min(spark_driver_memory,
-               SPARK_DRIVER_MEMORY_MAXIMUM), SPARK_DRIVER_MEMORY_MINIMUM)
+                   SPARK_DRIVER_MEMORY_MAXIMUM), SPARK_DRIVER_MEMORY_MINIMUM)
 
 
 def get_spark_app_master_memory(worker_memory_for_spark: int) -> int:
     spark_app_master_memory = round_memory_size_to_gb(
         int(worker_memory_for_spark * SPARK_APP_MASTER_MEMORY_RATIO))
     return max(min(spark_app_master_memory,
-               SPARK_DRIVER_MEMORY_MAXIMUM), SPARK_DRIVER_MEMORY_MINIMUM)
+                   SPARK_DRIVER_MEMORY_MAXIMUM), SPARK_DRIVER_MEMORY_MINIMUM)
 
 
 def get_spark_overhead(worker_memory_for_spark: int) -> int:
@@ -189,7 +196,7 @@ def _config_runtime_resources(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
     worker_memory_for_executors = worker_memory_for_spark - spark_overhead
     spark_executor_memory_all = round_memory_size_to_gb(
         int(worker_memory_for_executors / number_of_executors))
-    executor_resource["spark_executor_memory"] =\
+    executor_resource["spark_executor_memory"] = \
         spark_executor_memory_all - get_spark_executor_overhead(spark_executor_memory_all)
 
     if RUNTIME_CONFIG_KEY not in cluster_config:
@@ -210,14 +217,20 @@ def get_runtime_processes():
 
 
 def _is_runtime_scripts(script_file):
-    if script_file.endswith(".scala"):
+    if script_file.endswith(".scala") or script_file.endswith(".jar") or script_file.endswith(".py"):
         return True
-
     return False
 
 
-def _get_runnable_command(target):
-    command_parts = ["spark-shell", "-i", double_quote(target)]
+def _get_runnable_command(target, runtime_options):
+    command_parts = []
+    if target.endswith(".scala"):
+        command_parts = ["spark-shell", "-i", double_quote(target)]
+    elif target.endswith(".jar") or target.endswith(".py"):
+        command_parts = ["spark-submit"]
+        if runtime_options is not None:
+            command_parts += runtime_options
+        command_parts += [double_quote(target)]
     return command_parts
 
 
@@ -327,9 +340,12 @@ def _get_defaults_config(runtime_config: Dict[str, Any],
 
 def _get_useful_urls(cluster_head_ip):
     urls = [
-        {"name": "Yarn Web UI", "url": "http://{}:8088".format(cluster_head_ip)},
-        {"name": "Jupyter Web UI", "url": "http://{}:8888, default password is \'cloudtik\'".format(cluster_head_ip)},
-        {"name": "Spark History Server Web UI", "url": "http://{}:18080".format(cluster_head_ip)},
+        {"name": "Yarn Web UI", "url": "http://{}:{}".format(
+            cluster_head_ip, SPARK_YARN_WEB_API_PORT)},
+        {"name": "Jupyter Web UI", "url": "http://{}:8888, default password is \'cloudtik\'".format(
+            cluster_head_ip)},
+        {"name": "Spark History Server Web UI", "url": "http://{}:{}".format(
+            cluster_head_ip, SPARK_HISTORY_SERVER_API_PORT)},
     ]
     return urls
 
@@ -338,7 +354,7 @@ def _get_runtime_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]
     service_ports = {
         "yarn-web": {
             "protocol": "TCP",
-            "port": 8088,
+            "port": SPARK_YARN_WEB_API_PORT,
         },
         "jupyter-web": {
             "protocol": "TCP",
@@ -346,7 +362,7 @@ def _get_runtime_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]
         },
         "history-server": {
             "protocol": "TCP",
-            "port": 18080,
+            "port": SPARK_HISTORY_SERVER_API_PORT,
         },
     }
     return service_ports
@@ -367,3 +383,55 @@ def _get_scaling_policy(
     return SparkScalingPolicy(
         cluster_config, head_ip,
         rest_port=SPARK_YARN_WEB_API_PORT)
+
+
+def print_request_rest_applications(
+        cluster_config_file: str, cluster_name: str, endpoint: str):
+    config = _load_cluster_config(cluster_config_file, cluster_name)
+    response = request_rest_applications(config, endpoint)
+    print_json_formatted(response)
+
+
+def request_rest_applications(
+        config: Dict[str, Any], endpoint: str):
+    if endpoint is None:
+        endpoint = "/applications"
+    if not endpoint.startswith("/"):
+        endpoint = "/" + endpoint
+    endpoint = "api/v1" + endpoint
+    return _request_rest_on_head(
+        config, endpoint, SPARK_HISTORY_SERVER_API_PORT)
+
+
+def print_request_rest_yarn(
+        cluster_config_file: str, cluster_name: str, endpoint: str):
+    config = _load_cluster_config(cluster_config_file, cluster_name)
+    response = request_rest_yarn(config, endpoint)
+    print_json_formatted(response)
+
+
+def request_rest_yarn(
+        config: Dict[str, Any], endpoint: str):
+    if endpoint is None:
+        endpoint = "/cluster/metrics"
+    if not endpoint.startswith("/"):
+        endpoint = "/" + endpoint
+    endpoint = "ws/v1" + endpoint
+    return _request_rest_on_head(
+        config, endpoint, SPARK_YARN_WEB_API_PORT)
+
+
+def request_rest_yarn_with_retry(
+        config: Dict[str, Any], endpoint: str, retry=5):
+    while retry > 0:
+        try:
+            response = request_rest_yarn(config, endpoint)
+            return response
+        except Exception as e:
+            retry = retry - 1
+            if retry > 0:
+                cli_logger.warning(f"Error when requesting yarn api. Retrying in {RETRY_DELAY_S} seconds.")
+                time.sleep(RETRY_DELAY_S)
+            else:
+                cli_logger.error("Failed to request yarn api: {}", str(e))
+                raise e

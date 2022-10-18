@@ -243,10 +243,6 @@ def create_kubernetes_workspace(config):
 
 def delete_kubernetes_workspace(config, delete_managed_storage: bool = False):
     workspace_name = config["workspace_name"]
-    namespace = get_workspace_namespace(workspace_name)
-    if namespace is None:
-        cli_logger.print("The workspace: {} doesn't exist!".format(config["workspace_name"]))
-        return
 
     current_step = 1
     total_steps = KUBERNETES_WORKSPACE_NUM_DELETION_STEPS
@@ -285,7 +281,7 @@ def delete_kubernetes_workspace(config, delete_managed_storage: bool = False):
 
     except Exception as e:
         cli_logger.error(
-            "Failed to delete workspace {}. {}".format(workspace_name, str(e)))
+            "Failed to delete workspace {}. {}", workspace_name, str(e))
         raise e
 
     cli_logger.print(
@@ -350,16 +346,20 @@ def check_kubernetes_workspace_integrity(config):
 
 def list_kubernetes_clusters(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     head_nodes = get_workspace_head_nodes(config)
+    workspace_name = config["workspace_name"]
+    namespace = get_workspace_namespace_name(workspace_name)
+    provider_config = config["provider"]
     clusters = {}
     for head_node in head_nodes:
         cluster_name = get_cluster_name_from_head(head_node)
         if cluster_name:
-            clusters[cluster_name] = _get_node_info(head_node)
+            clusters[cluster_name] = _get_node_info(head_node, provider_config, namespace, cluster_name)
     return clusters
 
 
 def get_kubernetes_workspace_info(config):
-    namespace = config["workspace_name"]
+    workspace_name = config["workspace_name"]
+    namespace = get_workspace_namespace_name(workspace_name)
     provider_config = config["provider"]
 
     head_service_account_name = _get_head_service_account_name(provider_config)
@@ -1616,7 +1616,20 @@ def _delete_service(namespace: str, name: str):
 
 def get_head_external_service_address(namespace, cluster_name):
     service_name = _get_head_external_service_name(cluster_name)
-    service = core_api().read_namespaced_service(namespace=namespace, name=service_name)
+
+    try:
+        service = core_api().read_namespaced_service(namespace=namespace, name=service_name)
+    except ApiException as e:
+        cli_logger.verbose("Failed to get head external service: {}.", str(e))
+        return None
+
+    if (service.status is None) or (
+            service.status.load_balancer is None) or (
+            service.status.load_balancer.ingress is None) or (
+            len(service.status.load_balancer.ingress) < 0):
+        cli_logger.verbose("Head external service ingress information is not yet available.")
+        return None
+
     ingress = service.status.load_balancer.ingress[0]
     if ingress.hostname:
         return ingress.hostname

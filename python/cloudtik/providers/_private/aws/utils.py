@@ -277,3 +277,21 @@ def make_ec2_client(region, max_retries, aws_credentials=None):
     """Make client, retrying requests up to `max_retries`."""
     aws_credentials = aws_credentials or {}
     return client_cache("ec2", region, max_retries, **aws_credentials)
+
+
+def _working_node_resource(name, config):
+    return _make_working_node_resource(name, config["provider"])
+
+
+def _make_working_node_resource(name, provider_config):
+    aws_credentials = provider_config.get("aws_credentials", {})
+    return boto3.resource(name, **aws_credentials)
+
+
+def _working_node_client(name, config):
+    return _make_working_node_client(name, config["provider"])
+
+
+def _make_working_node_client(name, provider_config):
+    aws_credentials = provider_config.get("aws_credentials", {})
+    return boto3.client(name, **aws_credentials)

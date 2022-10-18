@@ -16,12 +16,18 @@ start-head)
     $HADOOP_HOME/bin/yarn --daemon start resourcemanager
     echo "Starting Spark History Server..."
     export SPARK_LOCAL_IP=${CLOUDTIK_NODE_IP}; $SPARK_HOME/sbin/start-history-server.sh > /dev/null
+    echo "Starting Jupyter..."
     nohup jupyter lab --no-browser > /tmp/logs/jupyterlab.log 2>&1 &
     ;;
 stop-head)
     $HADOOP_HOME/bin/yarn --daemon stop resourcemanager
     $SPARK_HOME/sbin/stop-history-server.sh
-    jupyter lab stop
+    # workaround for stopping jupyter when password being set
+    JUPYTER_PID=$(pgrep jupyter)
+    if [ -n "$JUPYTER_PID" ]; then
+      echo "Stopping Jupyter..."
+      kill $JUPYTER_PID >/dev/null 2>&1
+    fi
     ;;
 start-worker)
     $HADOOP_HOME/bin/yarn --daemon start nodemanager

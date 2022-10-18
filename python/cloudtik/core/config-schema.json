@@ -65,6 +65,19 @@
             "description": "Whether disable the feature of assigning node number to each node",
             "default": false
         },
+        "retry_setup_command": {
+            "type": "boolean",
+            "description": "Whether to retry setup command if the command failed",
+            "default": true
+        },
+        "number_of_retries": {
+            "type": "integer",
+            "description": "The number of reties if the command failed"
+        },
+        "retry_interval": {
+            "type": "integer",
+            "description": "The time interval in seconds for command retry"
+        },
         "provider": {
             "type": "object",
             "description": "Cloud-provider specific configuration.",
@@ -86,6 +99,10 @@
                 "use_internal_ips": {
                     "type": "boolean",
                     "description": "don't require public ips"
+                },
+                "use_working_vpc": {
+                    "type": "boolean",
+                    "description": "When use_internal_ips is true, whether to use the working client vpc."
                 },
                 "namespace": {
                     "type": "string",
@@ -186,9 +203,28 @@
                     "type": "boolean",
                     "description": "Disables node updaters if set to True. Default is False. (For Kubernetes operator usage.)"
                 },
+                "aws_credentials": {
+                    "type": "object",
+                    "description": "Credentials for authenticating with the AWS using boto3. If not specified, will use environment default.",
+                    "additionalProperties": true,
+                    "properties": {
+                        "aws_access_key_id": {
+                            "type": "string",
+                            "description": "The access key to use when creating the client."
+                        },
+                        "aws_secret_access_key": {
+                            "type": "string",
+                            "description": "The secret key to use when creating the client."
+                        },
+                        "aws_session_token": {
+                            "type": "string",
+                            "description": "The session token to use when creating the client."
+                        }
+                    }
+                },
                 "gcp_credentials": {
                     "type": "object",
-                    "description": "Credentials for authenticating with the GCP client",
+                    "description": "Credentials for authenticating with the GCP client. If not specified, will use environment default.",
                     "required": [ "type" ],
                     "additionalProperties": false,
                     "properties": {
@@ -200,6 +236,38 @@
                         "credentials": {
                             "type": "object",
                             "description": "OAuth token fields or service account credentials fields"
+                        }
+                    }
+                },
+                "azure_credentials": {
+                    "type": "object",
+                    "description": "Credentials for authenticating with the Azure Cloud. If not specified, will use environment default.",
+                    "required": [ "type" ],
+                    "additionalProperties": false,
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "enum": ["ClientSecret", "ManagedIdentity"],
+                            "description": "Credentials type for credentials information."
+                        },
+                        "credentials": {
+                            "type": "object",
+                            "additionalProperties": true,
+                            "description": "Credential fields based on different credential types.",
+                            "properties": {
+                                "client_id": {
+                                    "type": "string",
+                                    "description": "The client id field for ClientSecret or ManagedIdentity credential."
+                                },
+                                "tenant_id": {
+                                    "type": "string",
+                                    "description": "The tenant id field for ClientSecret credential."
+                                },
+                                "client_secret": {
+                                    "type": "string",
+                                    "description": "The client secret field for ClientSecret credential."
+                                }
+                            }
                         }
                     }
                 },

@@ -80,7 +80,7 @@ function install_jupyter_for_flink() {
         # Install Jupyter and spylon-kernel for Flink
         if ! type jupyter >/dev/null 2>&1; then
           echo "Install JupyterLab..."
-          pip -qq install jupyter_server==1.16.0 jupyterlab==3.4.3
+          pip -qq install jupyter_server==1.19.1 jupyterlab==3.4.3
         fi
 
         export SPYLON_KERNEL=$USER_HOME/.local/share/jupyter/kernels/spylon-kernel
@@ -93,8 +93,8 @@ function install_jupyter_for_flink() {
 }
 
 function install_tools() {
-    which jq > /dev/null || sudo apt-get -qq update -y; sudo apt-get -qq install jq -y
-    which vim > /dev/null || sudo apt-get -qq update -y; sudo apt-get -qq install vim -y
+    which jq > /dev/null || sudo apt-get -qq update -y > /dev/null; sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install jq -y > /dev/null
+    which vim > /dev/null || sudo apt-get -qq update -y > /dev/null; sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install vim -y > /dev/null
 }
 
 function download_hadoop_cloud_jars() {

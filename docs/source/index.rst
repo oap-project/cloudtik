@@ -34,7 +34,7 @@ with out-of-box optimized functionalities and performance, and to go quickly to 
    UserGuide/creating-workspace.md
    UserGuide/creating-cluster.md
    UserGuide/managing-cluster.md
-   UserGuide/advanced-tasks.rst
+   UserGuide/advanced-configurations.rst
 
 
 .. toctree::

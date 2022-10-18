@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.runtime import Runtime
@@ -39,7 +39,7 @@ class GangliaRuntime(Runtime):
         return _with_runtime_environment_variables(
             self.runtime_config, config=config, provider=provider, node_id=node_id)
 
-    def get_runnable_command(self, target: str):
+    def get_runnable_command(self, target: str, runtime_options: Optional[List[str]]):
         """Return the runnable command for the target script.
         For example: ["bash", target]
         """

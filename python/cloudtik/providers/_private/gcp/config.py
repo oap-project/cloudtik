@@ -274,11 +274,14 @@ def get_workspace_vpc_id(config, compute):
         config["provider"], config["workspace_name"], compute)
 
 
+def _get_workspace_vpc_name(workspace_name):
+    return GCP_WORKSPACE_VPC_NAME.format(workspace_name)
+
+
 def _get_workspace_vpc_id(provider_config, workspace_name, compute):
     project_id = provider_config.get("project_id")
-    vpc_name = 'cloudtik-{}-vpc'.format(workspace_name)
-    cli_logger.verbose("Getting the Vpc Id for workspace: {}...".
-                     format(vpc_name))
+    vpc_name = _get_workspace_vpc_name(workspace_name)
+    cli_logger.verbose("Getting the VPC Id for workspace: {}...".format(vpc_name))
 
     vpc_ids = [vpc["id"] for vpc in compute.networks().list(project=project_id).execute().get("items", "")
                if vpc["name"] == vpc_name]
@@ -286,7 +289,7 @@ def _get_workspace_vpc_id(provider_config, workspace_name, compute):
         cli_logger.verbose("The VPC for workspace is not found: {}.".format(vpc_name))
         return None
     else:
-        cli_logger.verbose_error("Successfully get the Vpc Id of {} for workspace.".format(vpc_name))
+        cli_logger.verbose_error("Successfully get the VPC Id of {} for workspace.".format(vpc_name))
         return vpc_ids[0]
 
 
@@ -298,7 +301,7 @@ def _delete_vpc(config, compute):
 
     vpc_id = get_workspace_vpc_id(config, compute)
     project_id = config["provider"].get("project_id")
-    vpc_name = 'cloudtik-{}-vpc'.format(config["workspace_name"])
+    vpc_name = _get_workspace_vpc_name(config["workspace_name"])
 
     if vpc_id is None:
         cli_logger.print("The VPC: {} doesn't exist.".format(vpc_name))
@@ -312,31 +315,31 @@ def _delete_vpc(config, compute):
         wait_for_compute_global_operation(project_id, operation, compute)
         cli_logger.print("Successfully deleted the VPC: {}.".format(vpc_name))
     except Exception as e:
-        cli_logger.error("Failed to delete the VPC: {}. {}".format(vpc_name, str(e)))
+        cli_logger.error("Failed to delete the VPC: {}. {}", vpc_name, str(e))
         raise e
 
 
 def create_vpc(config, compute):
     project_id = config["provider"].get("project_id")
+    vpc_name = _get_workspace_vpc_name(config["workspace_name"])
     network_body = {
         "autoCreateSubnetworks": False,
         "description": "Auto created network by cloudtik",
-        "name": 'cloudtik-{}-vpc'.format(config["workspace_name"]),
+        "name": vpc_name,
         "routingConfig": {
             "routingMode": "REGIONAL"
         },
         "mtu": 1460
     }
 
-    cli_logger.print("Creating workspace vpc on GCP...")
+    cli_logger.print("Creating workspace VPC: {}...", vpc_name)
     # create vpc
     try:
         operation = compute.networks().insert(project=project_id, body=network_body).execute()
         wait_for_compute_global_operation(project_id, operation, compute)
-        cli_logger.print("Successfully created workspace VPC: cloudtik-{}-vpc.".format(config["workspace_name"]))
+        cli_logger.print("Successfully created workspace VPC: {}", vpc_name)
     except Exception as e:
-        cli_logger.error(
-            "Failed to create workspace VPC. {}", str(e))
+        cli_logger.error("Failed to create workspace VPC. {}", str(e))
         raise e
 
 
@@ -449,8 +452,8 @@ def _delete_subnet(config, compute, is_private=True):
         cli_logger.print("Successfully deleted {} subnet: {}."
                          .format(subnet_attribute, subnet_name))
     except Exception as e:
-        cli_logger.error("Failed to delete the {} subnet: {}! {}"
-                         .format(subnet_attribute, subnet_name, str(e)))
+        cli_logger.error("Failed to delete the {} subnet: {}. {}",
+                         subnet_attribute, subnet_name, str(e))
         raise e
 
 
@@ -490,13 +493,13 @@ def _create_router(config, compute, vpc_id):
     region = config["provider"]["region"]
     workspace_name = config["workspace_name"]
     router_name = "cloudtik-{}-private-router".format(workspace_name)
-
+    vpc_name = _get_workspace_vpc_name(workspace_name)
     cli_logger.print("Creating router for the private subnet: {}...".format(router_name))
     router_body = {
         "bgp": {
             "advertiseMode": "CUSTOM"
         },
-        "description": "auto created for the workspace: cloudtik-{}-vpc".format(workspace_name),
+        "description": "auto created for the workspace: {}".format(vpc_name),
         "name": router_name,
         "network": "projects/{}/global/networks/{}".format(project_id, vpc_id),
         "region": "projects/{}/regions/{}".format(project_id, region)
@@ -567,7 +570,7 @@ def _delete_router(config, compute):
         wait_for_compute_region_operation(project_id, region, operation, compute)
         cli_logger.print("Successfully deleted the router: {}.".format(router_name))
     except Exception as e:
-        cli_logger.error("Failed to delete the router: {}. {}".format(router_name, str(e)))
+        cli_logger.error("Failed to delete the router: {}. {}", router_name, str(e))
         raise e
 
 
@@ -722,7 +725,7 @@ def delete_firewall(compute, project_id, firewall_name):
         cli_logger.print("Successfully delete the firewall {}.".format(firewall_name))
     except Exception as e:
         cli_logger.error(
-            "Failed to delete the firewall {}. {}".format(firewall_name, str(e)))
+            "Failed to delete the firewall {}. {}", firewall_name, str(e))
         raise e
 
 
@@ -778,7 +781,7 @@ def update_gcp_workspace_firewalls(config):
 
     except Exception as e:
         cli_logger.error(
-            "Failed to update the firewalls of workspace {}. {}".format(workspace_name, str(e)))
+            "Failed to update the firewalls of workspace {}. {}", workspace_name, str(e))
         raise e
 
     cli_logger.print(
@@ -827,7 +830,7 @@ def delete_gcp_workspace(config, delete_managed_storage: bool = False):
 
     except Exception as e:
         cli_logger.error(
-            "Failed to delete workspace {}. {}".format(workspace_name, str(e)))
+            "Failed to delete workspace {}. {}", workspace_name, str(e))
         raise e
 
     cli_logger.print(
@@ -2170,7 +2173,7 @@ def _create_workspace_vpc_peering_connection(config, compute, vpc_id, working_vp
 def _create_working_vpc_peering_connection(config, compute, vpc_id, working_vpc_id):
     workspace_name = config["workspace_name"]
     peer_name = GCP_WORKING_VPC_PEERING_NAME.format(workspace_name)
-    workspace_vpc_name = GCP_WORKSPACE_VPC_NAME.format(workspace_name)
+    workspace_vpc_name = _get_workspace_vpc_name(workspace_name)
     _create_vpc_peering_connection(
         config, compute, working_vpc_id,
         peer_name=peer_name, peering_vpc_name=workspace_vpc_name

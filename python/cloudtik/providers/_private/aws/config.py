@@ -177,7 +177,7 @@ def get_latest_ami_id(cluster_config: Dict[str, Any]):
             return None
     except Exception as e:
         cli_logger.warning(
-            "Error when getting latest AWS AMI information!", str(e))
+            "Error when getting latest AWS AMI information.", str(e))
         return None
 
 
@@ -617,7 +617,7 @@ def update_aws_workspace_firewalls(config):
 
     except Exception as e:
         cli_logger.error(
-            "Failed to update the firewalls of workspace {}. {}".format(workspace_name, str(e)))
+            "Failed to update the firewalls of workspace {}. {}", workspace_name, str(e))
         raise e
 
     cli_logger.print(
@@ -668,7 +668,7 @@ def delete_aws_workspace(config, delete_managed_storage: bool = False):
 
     except Exception as e:
         cli_logger.error(
-            "Failed to delete workspace {}. {}".format(workspace_name, str(e)))
+            "Failed to delete workspace {}. {}", workspace_name, str(e))
         raise e
 
     cli_logger.print(
@@ -873,7 +873,7 @@ def bootstrap_aws(config):
 def bootstrap_aws_from_workspace(config):
     if not check_aws_workspace_integrity(config):
         workspace_name = config["workspace_name"]
-        cli_logger.abort("AWS workspace {} doesn't exist or is in wrong state!", workspace_name)
+        cli_logger.abort("AWS workspace {} doesn't exist or is in wrong state.", workspace_name)
 
     # create a copy of the input config to modify
     config = copy.deepcopy(config)
@@ -1498,7 +1498,8 @@ def _delete_routes_for_workspace_vpc_peering_connection(config, ec2, ec2_client)
                 "Successfully delete the route about VPC peering connection for current VPC route table {}.".format(
                     current_vpc_route_table.id))
         except Exception as e:
-            cli_logger.error("Failed to delete the route about VPC peering connection for current VPC route table. {}", str(e))
+            cli_logger.error(
+                "Failed to delete the route about VPC peering connection for current VPC route table. {}", str(e))
             raise e
 
     for workspace_vpc_route_table in workspace_vpc_route_tables:
@@ -1516,7 +1517,8 @@ def _delete_routes_for_workspace_vpc_peering_connection(config, ec2, ec2_client)
                 "Successfully delete the route about VPC peering connection for workspace VPC route table.".format(
                     workspace_vpc_route_table.id))
         except Exception as e:
-            cli_logger.error("Failed to delete the route about VPC peering connection for workspace VPC route table. {}", str(e))
+            cli_logger.error(
+                "Failed to delete the route about VPC peering connection for workspace VPC route table. {}", str(e))
             raise e
 
 
@@ -1894,24 +1896,28 @@ def _update_route_tables_for_workspace_vpc_peering_connection(config, ec2, ec2_c
 
     for current_vpc_route_table in current_vpc_route_tables:
         try:
-            current_ec2_client.create_route(RouteTableId=current_vpc_route_table.id, DestinationCidrBlock=workspace_vpc.cidr_block,
-                                    VpcPeeringConnectionId=vpc_peering_connection['VpcPeeringConnectionId'])
+            current_ec2_client.create_route(
+                RouteTableId=current_vpc_route_table.id, DestinationCidrBlock=workspace_vpc.cidr_block,
+                VpcPeeringConnectionId=vpc_peering_connection['VpcPeeringConnectionId'])
             cli_logger.print(
                 "Successfully add route destination to current VPC route table {} with workspace VPC CIDR block.".format(
                     current_vpc_route_table.id))
         except Exception as e:
-            cli_logger.error("Failed to add route destination to current VPC route table with workspace VPC CIDR block. {}", str(e))
+            cli_logger.error(
+                "Failed to add route destination to current VPC route table with workspace VPC CIDR block. {}", str(e))
             raise e
 
     for workspace_vpc_route_table in workspace_vpc_route_tables:
         try:
-            ec2_client.create_route(RouteTableId=workspace_vpc_route_table.id, DestinationCidrBlock=current_vpc.cidr_block,
-                                    VpcPeeringConnectionId=vpc_peering_connection['VpcPeeringConnectionId'])
+            ec2_client.create_route(
+                RouteTableId=workspace_vpc_route_table.id, DestinationCidrBlock=current_vpc.cidr_block,
+                VpcPeeringConnectionId=vpc_peering_connection['VpcPeeringConnectionId'])
             cli_logger.print(
                 "Successfully add route destination to workspace VPC route table {} with current VPC CIDR block.".format(
                     workspace_vpc_route_table.id))
         except Exception as e:
-            cli_logger.error("Failed to add route destination to workspace VPC route table with current VPC CIDR block. {}", str(e))
+            cli_logger.error(
+                "Failed to add route destination to workspace VPC route table with current VPC CIDR block. {}", str(e))
             raise e
 
 

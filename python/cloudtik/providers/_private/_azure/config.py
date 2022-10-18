@@ -250,7 +250,7 @@ def update_azure_workspace_firewalls(config):
             
     except Exception as e:
         cli_logger.error(
-            "Failed to update the firewalls of workspace {}. {}".format(workspace_name, str(e)))
+            "Failed to update the firewalls of workspace {}. {}", workspace_name, str(e))
         raise e
 
     cli_logger.print(
@@ -311,7 +311,7 @@ def delete_azure_workspace(config, delete_managed_storage: bool = False):
                 _delete_resource_group(config, resource_client)
     except Exception as e:
         cli_logger.error(
-            "Failed to delete workspace {}. {}".format(workspace_name, str(e)))
+            "Failed to delete workspace {}. {}", workspace_name, str(e))
         raise e
 
     cli_logger.print(
@@ -457,7 +457,7 @@ def _delete_workspace_cloud_storage(config, resource_group_name):
         cli_logger.print("Successfully deleted the storage account: {}.".format(storage_account.name))
     except Exception as e:
         cli_logger.error(
-            "Failed to delete the storage account: {}. {}".format(storage_account.name, str(e)))
+            "Failed to delete the storage account: {}. {}", storage_account.name, str(e))
         raise e
 
 
@@ -501,8 +501,7 @@ def get_role_assignment_for_storage_blob_data_owner(config, resource_group_name,
                            format(role_assignment_name))
         return role_assignment
     except Exception as e:
-        cli_logger.error(
-            "Failed to get the role assignment. {}", str(e))
+        cli_logger.error("Failed to get the role assignment. {}", str(e))
         return None
 
 
@@ -568,8 +567,7 @@ def _delete_role_assignment_for_storage_blob_data_owner(config, resource_group_n
             role_assignment_name))
     except Exception as e:
         cli_logger.error(
-            "Failed to delete the role assignment for Storage Blob Data Owner: {}. {}".format(
-                role_assignment_name, str(e)))
+            "Failed to delete the role assignment for Storage Blob Data Owner: {}. {}", role_assignment_name, str(e))
         raise e
 
 
@@ -596,7 +594,7 @@ def _delete_head_role_assignment_for_contributor(config, resource_group_name):
         cli_logger.print("Successfully deleted the role assignment for Contributor: {}.".format(role_assignment_name))
     except Exception as e:
         cli_logger.error(
-            "Failed to delete the role assignment for Contributor: {}. {}".format(role_assignment_name, str(e)))
+            "Failed to delete the role assignment for Contributor: {}. {}", role_assignment_name, str(e))
         raise e
 
 
@@ -645,7 +643,7 @@ def get_user_assigned_identity(config, resource_group_name, user_assigned_identi
         return user_assigned_identity
     except ResourceNotFoundError as e:
         cli_logger.verbose_error(
-            "Failed to get the user assigned identity: {}. {}".format(user_assigned_identity_name, e))
+            "Failed to get the user assigned identity: {}. {}", user_assigned_identity_name, str(e))
         return None
 
 
@@ -693,7 +691,7 @@ def _delete_user_assigned_identity(config, resource_group_name, user_assigned_id
         cli_logger.print("Successfully deleted the user assigned identity: {}.".format(user_assigned_identity.name))
     except Exception as e:
         cli_logger.error(
-            "Failed to delete the user assigned identity: {}. {}".format(user_assigned_identity.name, str(e)))
+            "Failed to delete the user assigned identity: {}. {}", user_assigned_identity.name, str(e))
         raise e
 
 
@@ -709,7 +707,8 @@ def get_network_security_group(config, network_client, resource_group_name):
         cli_logger.verbose("Successfully get the network security group: {}.".format(network_security_group_name))
         return network_security_group_name
     except ResourceNotFoundError as e:
-        cli_logger.verbose_error("Failed to get the network security group: {}. {}".format(network_security_group_name, e))
+        cli_logger.verbose_error("Failed to get the network security group: {}. {}",
+                                 network_security_group_name, str(e))
         return None
 
 
@@ -728,7 +727,7 @@ def _delete_network_security_group(config, network_client, resource_group_name):
         ).result()
         cli_logger.print("Successfully deleted the network security group: {}.".format(network_security_group_name))
     except Exception as e:
-        cli_logger.error("Failed to delete the network security group: {}. {}".format(network_security_group_name, str(e)))
+        cli_logger.error("Failed to delete the network security group: {}. {}", network_security_group_name, str(e))
         raise e
 
 
@@ -744,7 +743,8 @@ def get_public_ip_address(config, network_client, resource_group_name):
         cli_logger.verbose("Successfully get the public IP address: {}.".format(public_ip_address_name))
         return public_ip_address_name
     except ResourceNotFoundError as e:
-        cli_logger.verbose_error("Failed to get the public IP address: {}. {}".format(public_ip_address_name, e))
+        cli_logger.verbose_error("Failed to get the public IP address: {}. {}",
+                                 public_ip_address_name, str(e))
         return None
 
 
@@ -763,7 +763,7 @@ def _delete_public_ip_address(config, network_client, resource_group_name):
         ).result()
         cli_logger.print("Successfully deleted the public IP address: {}.".format(public_ip_address_name))
     except Exception as e:
-        cli_logger.error("Failed to delete the public IP address: {}. {}".format(public_ip_address_name, str(e)))
+        cli_logger.error("Failed to delete the public IP address: {}. {}", public_ip_address_name, str(e))
         raise e
 
 
@@ -779,7 +779,7 @@ def get_nat_gateway(config, network_client, resource_group_name):
         cli_logger.verbose("Successfully get the NAT gateway: {}.".format(nat_gateway_name))
         return nat_gateway_name
     except ResourceNotFoundError as e:
-        cli_logger.verbose_error("Failed to get the NAT gateway: {}. {}".format(nat_gateway_name, e))
+        cli_logger.verbose_error("Failed to get the NAT gateway: {}. {}", nat_gateway_name, str(e))
         return None
 
 
@@ -798,7 +798,7 @@ def _delete_nat(config, network_client, resource_group_name):
         ).result()
         cli_logger.print("Successfully deleted the Nat Gateway: {}.".format(nat_gateway_name))
     except Exception as e:
-        cli_logger.error("Failed to delete the Nat Gateway: {}. {}".format(nat_gateway_name, str(e)))
+        cli_logger.error("Failed to delete the Nat Gateway: {}. {}", nat_gateway_name, str(e))
         raise e
 
 
@@ -824,7 +824,7 @@ def _delete_vnet(config, resource_client, network_client):
         ).result()
         cli_logger.print("Successfully deleted the virtual network: {}.".format(virtual_network_name))
     except Exception as e:
-        cli_logger.error("Failed to delete the virtual network: {}. {}".format(virtual_network_name, str(e)))
+        cli_logger.error("Failed to delete the virtual network: {}. {}", virtual_network_name, str(e))
         raise e
 
 
@@ -854,7 +854,7 @@ def _delete_resource_group(config, resource_client):
         ).result()
         cli_logger.print("Successfully deleted the resource group: {}.".format(resource_group_name))
     except Exception as e:
-        cli_logger.error("Failed to delete the resource group: {}. {}".format(resource_group_name, str(e)))
+        cli_logger.error("Failed to delete the resource group: {}. {}", resource_group_name, str(e))
         raise e
 
 
@@ -961,8 +961,7 @@ def get_azure_instance_metadata():
         subprocess.run("rm -rf /tmp/azure_instance_metadata.json", shell=True)
         return metadata
     except Exception as e:
-        cli_logger.verbose_error(
-            "Failed to get instance metadata: {}", str(e))
+        cli_logger.verbose_error("Failed to get instance metadata: {}", str(e))
         return None
 
 
@@ -1429,7 +1428,7 @@ def get_subnet(network_client, resource_group_name, virtual_network_name, subnet
         cli_logger.verbose("Successfully get the subnet: {}.".format(subnet_name))
         return subnet
     except ResourceNotFoundError as e:
-        cli_logger.verbose_error("Failed to get the subnet: {}. {}".format(subnet_name, e))
+        cli_logger.verbose_error("Failed to get the subnet: {}. {}", subnet_name, str(e))
         return None
 
 
@@ -1458,8 +1457,8 @@ def _delete_subnet(config, network_client, resource_group_name, virtual_network_
         cli_logger.print("Successfully deleted {} subnet: {}."
                          .format(subnet_attribute, subnet_name))
     except Exception as e:
-        cli_logger.error("Failed to delete the {} subnet: {}! {}"
-                         .format(subnet_attribute, subnet_name, str(e)))
+        cli_logger.error("Failed to delete the {} subnet: {}. {}",
+                         subnet_attribute, subnet_name, str(e))
         raise e
 
 

@@ -70,7 +70,7 @@ AWS_VPC_SUBNETS_COUNT = 2
 AWS_VPC_PUBLIC_SUBNET_INDEX = 0
 
 AWS_WORKSPACE_NUM_CREATION_STEPS = 8
-AWS_WORKSPACE_NUM_DELETION_STEPS = 8
+AWS_WORKSPACE_NUM_DELETION_STEPS = 9
 AWS_WORKSPACE_TARGET_RESOURCES = 10
 
 AWS_MANAGED_STORAGE_S3_BUCKET = "aws.managed.storage.s3.bucket"
@@ -510,17 +510,18 @@ def check_aws_workspace_existence(config):
         target_resources += 1
 
     """
-         Do the work - order of operation
-         1.) Check VPC
-         2.) Check private subnets
-         3.) Check public subnets
-         4.) Check nat-gateways
-         5.) Check route-tables
-         6.) Check Internet-gateways
-         7.) Check security-group
-         8.) Check VPC endpoint for s3
-         9.) Instance profiles
-         10.) Check S3 bucket
+         Do the work - order of operation:
+         Check VPC
+         Check private subnets
+         Check public subnets
+         Check nat-gateways
+         Check route-tables
+         Check Internet-gateways
+         Check security-group
+         Check VPC endpoint for s3
+         Check VPC peering if needed
+         Instance profiles
+         Check S3 bucket
     """
     skipped_resources = 0
     vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
@@ -630,7 +631,6 @@ def delete_aws_workspace(config, delete_managed_storage: bool = False):
     ec2_client = _resource_client("ec2", config)
     workspace_name = config["workspace_name"]
     use_peering_vpc = is_use_peering_vpc(config)
-    use_working_vpc = is_use_working_vpc(config)
     managed_cloud_storage = is_managed_cloud_storage(config)
     vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
 
@@ -734,16 +734,16 @@ def _delete_network_resources(config, workspace_name,
     use_peering_vpc = is_use_peering_vpc(config)
 
     """
-         Do the work - order of operation
-         1.) Delete vpc peering connection
-         2.) Delete private subnets 
-         3.) Delete route-tables for private subnets 
-         4.) Delete nat-gateway for private subnets
-         5.) Delete public subnets
-         6.) Delete internet gateway
-         7.) Delete security group
-         8.) Delete VPC endpoint for S3
-         9.) Delete vpc
+         Do the work - order of operation:
+         Delete vpc peering connection
+         Delete private subnets
+         Delete route-tables for private subnets
+         Delete nat-gateway for private subnets
+         Delete public subnets
+         Delete internet gateway
+         Delete security group
+         Delete VPC endpoint for S3
+         Delete vpc
     """
 
     # delete vpc peering connection

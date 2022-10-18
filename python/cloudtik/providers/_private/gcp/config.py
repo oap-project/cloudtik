@@ -1177,7 +1177,7 @@ def check_gcp_workspace_existence(config):
                 existing_resources += 1
             if use_peering_vpc:
                 peerings = get_workspace_vpc_peering_connections(config, compute, vpc_id)
-                if  len(peerings) == 2:
+                if len(peerings) == 2:
                     existing_resources += 1
 
         if managed_cloud_storage:

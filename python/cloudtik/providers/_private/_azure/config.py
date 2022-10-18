@@ -1741,12 +1741,13 @@ def _configure_cloud_storage_from_workspace(config):
     user_assigned_identity = get_head_user_assigned_identity(config, resource_group_name)
     worker_user_assigned_identity = get_worker_user_assigned_identity(config, resource_group_name)
     for key, node_type in config["available_node_types"].items():
+        node_config = node_type["node_config"]
         if key == config["head_node_type"]:
-            node_type["azure.user.assigned.identity.client.id"] = user_assigned_identity.client_id
-            node_type["azure.user.assigned.identity.tenant.id"] = user_assigned_identity.tenant_id
+            node_config["azure.user.assigned.identity.client.id"] = user_assigned_identity.client_id
+            node_config["azure.user.assigned.identity.tenant.id"] = user_assigned_identity.tenant_id
         else:
-            node_type["azure.user.assigned.identity.client.id"] = worker_user_assigned_identity.client_id
-            node_type["azure.user.assigned.identity.tenant.id"] = worker_user_assigned_identity.tenant_id
+            node_config["azure.user.assigned.identity.client.id"] = worker_user_assigned_identity.client_id
+            node_config["azure.user.assigned.identity.tenant.id"] = worker_user_assigned_identity.tenant_id
 
     return config
 
@@ -2123,12 +2124,13 @@ def with_azure_environment_variables(provider_config, node_type_config: Dict[str
     export_azure_cloud_storage_config(provider_config, config_dict)
 
     if node_type_config is not None:
-        user_assigned_identity_client_id = node_type_config.get(
+        node_config = node_type_config.get("node_config")
+        user_assigned_identity_client_id = node_config.get(
             "azure.user.assigned.identity.client.id")
         if user_assigned_identity_client_id:
             config_dict["AZURE_MANAGED_IDENTITY_CLIENT_ID"] = user_assigned_identity_client_id
 
-        user_assigned_identity_tenant_id = node_type_config.get(
+        user_assigned_identity_tenant_id = node_config.get(
             "azure.user.assigned.identity.tenant.id")
         if user_assigned_identity_tenant_id:
             config_dict["AZURE_MANAGED_IDENTITY_TENANT_ID"] = user_assigned_identity_tenant_id

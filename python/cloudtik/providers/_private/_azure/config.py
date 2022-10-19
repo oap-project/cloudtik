@@ -11,7 +11,7 @@ from typing import Any, Dict, Optional
 
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, CLOUDTIK_TAG_CLUSTER_NAME
 from cloudtik.core._private.cli_logger import cli_logger, cf
-from cloudtik.core._private.utils import check_cidr_conflict, is_use_internal_ip, _is_use_internal_ip, \
+from cloudtik.core._private.utils import check_cidr_conflict, is_use_internal_ip, _is_use_working_vpc, is_use_working_vpc, is_use_peering_vpc, \
     is_managed_cloud_storage, is_use_managed_cloud_storage, _is_use_managed_cloud_storage, update_nested_dict
 from cloudtik.core.workspace_provider import Existence, CLOUDTIK_MANAGED_CLOUD_STORAGE, \
     CLOUDTIK_MANAGED_CLOUD_STORAGE_URI
@@ -106,7 +106,8 @@ def fill_available_node_types_resources(
 
 
 def check_azure_workspace_existence(config):
-    use_internal_ips = is_use_internal_ip(config)
+    use_working_vpc = is_use_working_vpc(config)
+    use_peering_vpc = is_use_peering_vpc(config)
     workspace_name = config["workspace_name"]
     managed_cloud_storage = is_managed_cloud_storage(config)
     network_client = construct_network_client(config)
@@ -116,29 +117,32 @@ def check_azure_workspace_existence(config):
     target_resources = AZURE_WORKSPACE_TARGET_RESOURCES
     if managed_cloud_storage:
         target_resources += 1
+    if use_peering_vpc:
+        target_resources += 1
 
     """
          Do the work - order of operation
-         1). Check resource group
-         2.) Check vpc
-         3.) Check network security group
-         4.) Check public IP address
-         5.) Check NAT gateway
-         6.) Check private subnet
-         7.) Check public subnet
-         8.) Check role assignments
-         9.) Check user assigned identities
-         10.) Check cloud storage if need
+         Check resource group
+         Check vpc
+         Check network security group
+         Check public IP address
+         Check NAT gateway
+         Check private subnet
+         Check public subnet
+         Check virtual network peering if needed
+         Check role assignments
+         Check user assigned identities
+         Check cloud storage if need
     """
     resource_group_existence = False
     cloud_storage_existence = False
-    resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
+    resource_group_name = get_resource_group_name(config, resource_client, use_working_vpc)
     if resource_group_name is not None:
         existing_resources += 1
         resource_group_existence = True
 
         # Below resources are all depends on resource group
-        virtual_network_name = get_virtual_network_name(config, resource_client, network_client, use_internal_ips)
+        virtual_network_name = get_virtual_network_name(config, resource_client, network_client, use_working_vpc)
         if virtual_network_name is not None:
             existing_resources += 1
 
@@ -159,6 +163,10 @@ def check_azure_workspace_existence(config):
             public_subnet_name = "cloudtik-{}-public-subnet".format(workspace_name)
             if get_subnet(network_client, resource_group_name, virtual_network_name, public_subnet_name) is not None:
                 existing_resources += 1
+            virtual_network_peering_name = "cloudtik-{}-virtual-network-peering".format(workspace_name)
+            if use_peering_vpc:
+                if get_virtual_network_peering(network_client, resource_group_name, virtual_network_name, virtual_network_peering_name) is not None:
+                    existing_resources += 1
 
         if get_head_user_assigned_identity(config, resource_group_name) is not None:
             existing_resources += 1
@@ -212,13 +220,13 @@ def get_azure_workspace_info(config):
     return info
 
 
-def get_resource_group_name(config, resource_client, use_internal_ips):
+def get_resource_group_name(config, resource_client, use_working_vpc):
     return _get_resource_group_name(
-        config.get("workspace_name"), resource_client, use_internal_ips)
+        config.get("workspace_name"), resource_client, use_working_vpc)
 
 
-def get_virtual_network_name(config, resource_client, network_client, use_internal_ips):
-    if use_internal_ips:
+def get_virtual_network_name(config, resource_client, network_client, use_working_vpc):
+    if use_working_vpc:
         virtual_network_name = get_working_node_virtual_network_name(resource_client, network_client)
     else:
         virtual_network_name = get_workspace_virtual_network_name(config, network_client)
@@ -230,8 +238,8 @@ def update_azure_workspace_firewalls(config):
     resource_client = construct_resource_client(config)
     network_client = construct_network_client(config)
     workspace_name = config["workspace_name"]
-    use_internal_ips = is_use_internal_ip(config)
-    resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
+    use_working_vpc = is_use_working_vpc(config)
+    resource_group_name = get_resource_group_name(config, resource_client, use_working_vpc)
 
     if resource_group_name is None:
         cli_logger.print("Workspace: {} doesn't exist!".format(config["workspace_name"]))
@@ -261,9 +269,10 @@ def update_azure_workspace_firewalls(config):
 def delete_azure_workspace(config, delete_managed_storage: bool = False):
     resource_client = construct_resource_client(config)
     workspace_name = config["workspace_name"]
-    use_internal_ips = is_use_internal_ip(config)
+    use_working_vpc = is_use_working_vpc(config)
+    use_peering_vpc = is_use_peering_vpc(config)
     managed_cloud_storage = is_managed_cloud_storage(config)
-    resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
+    resource_group_name = get_resource_group_name(config, resource_client, use_working_vpc)
 
     if resource_group_name is None:
         cli_logger.print("Workspace: {} doesn't exist!".format(config["workspace_name"]))
@@ -272,6 +281,8 @@ def delete_azure_workspace(config, delete_managed_storage: bool = False):
     current_step = 1
     total_steps = AZURE_WORKSPACE_NUM_DELETION_STEPS
     if managed_cloud_storage and delete_managed_storage:
+        total_steps += 1
+    if use_peering_vpc:
         total_steps += 1
 
     try:
@@ -320,19 +331,29 @@ def delete_azure_workspace(config, delete_managed_storage: bool = False):
 
 
 def _delete_network_resources(config, resource_client, resource_group_name, current_step, total_steps):
-    use_internal_ips = is_use_internal_ip(config)
+    use_working_vpc = is_use_working_vpc(config)
+    use_peering_vpc = is_use_peering_vpc(config)
     network_client = construct_network_client(config)
-    virtual_network_name = get_virtual_network_name(config, resource_client, network_client, use_internal_ips)
+    virtual_network_name = get_virtual_network_name(config, resource_client, network_client, use_working_vpc)
 
     """
          Do the work - order of operation
-         1.) Delete public subnet
-         2.) Delete private subnet 
-         3.) Delete NAT gateway
-         4.) Delete public IP address
-         5.) Delete network security group
-         6.) Delete vpc
+         Delete virtual network peering if needed
+         Delete public subnet
+         Delete private subnet 
+         Delete NAT gateway
+         Delete public IP address
+         Delete network security group
+         Delete vpc
     """
+
+    # delete vpc peering connection
+    if use_peering_vpc:
+        with cli_logger.group(
+                "Deleting virtual network peering",
+                _numbered=("[]", current_step, total_steps)):
+            current_step += 1
+            _delete_virtual_network_peering(config, network_client)
 
     # delete public subnets
     with cli_logger.group(
@@ -803,13 +824,13 @@ def _delete_nat(config, network_client, resource_group_name):
 
 
 def _delete_vnet(config, resource_client, network_client):
-    use_internal_ips = is_use_internal_ip(config)
-    if use_internal_ips:
+    use_working_vpc = is_use_working_vpc(config)
+    if use_working_vpc:
         cli_logger.print("Will not delete the current node virtual network.")
         return
 
-    resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
-    virtual_network_name = get_virtual_network_name(config, resource_client, network_client, use_internal_ips)
+    resource_group_name = get_resource_group_name(config, resource_client, use_working_vpc)
+    virtual_network_name = get_virtual_network_name(config, resource_client, network_client, use_working_vpc)
     if virtual_network_name is None:
         cli_logger.print("The virtual network: {} doesn't exist.".
                          format(virtual_network_name))
@@ -867,11 +888,13 @@ def create_azure_workspace(config):
 def _create_workspace(config):
     workspace_name = config["workspace_name"]
     managed_cloud_storage = is_managed_cloud_storage(config)
-
+    use_peering_vpc = is_use_peering_vpc(config)
     current_step = 1
     total_steps = AZURE_WORKSPACE_NUM_CREATION_STEPS
     if managed_cloud_storage:
         total_steps += 2
+    if use_peering_vpc:
+        total_steps += 1
 
     resource_client = construct_resource_client(config)
 
@@ -928,14 +951,15 @@ def _create_workspace(config):
 
 def _create_resource_group(config, resource_client):
     workspace_name = config["workspace_name"]
-    use_internal_ips = is_use_internal_ip(config)
+    use_working_vpc = is_use_working_vpc(config)
 
-    if use_internal_ips:
+    if use_working_vpc:
         # No need to create new resource group
         resource_group_name = get_working_node_resource_group_name(resource_client)
         if resource_group_name is None:
-            cli_logger.abort("Only when the working node is "
-                             "an Azure instance can use use_internal_ips=True.")
+            cli_logger.abort("Failed to get the resource group for the current machine. "
+                             "Please make sure your current machine is an Azure virtual machine "
+                             "to use use_internal_ips=True with use_working_vpc=True.")
         else:
             cli_logger.print("Will use the current node resource group: {}.", resource_group_name)
     else:
@@ -1358,14 +1382,14 @@ def _create_user_assigned_identity(config, resource_group_name, user_assigned_id
 
 def _create_vnet(config, resource_client, network_client):
     workspace_name = config["workspace_name"]
-    use_internal_ips = is_use_internal_ip(config)
+    use_working_vpc = is_use_working_vpc(config)
 
-    if use_internal_ips:
+    if use_working_vpc:
         # No need to create new virtual network
         virtual_network_name = get_working_node_virtual_network_name(resource_client, network_client)
         if virtual_network_name is None:
-            cli_logger.abort("Only when the working node is "
-                             "an Azure instance can use use_internal_ips=True.")
+            cli_logger.abort("Only when the working node is an Azure instance"
+                             " can use use_internal_ips=True with use_working_vpc=True.")
         else:
             cli_logger.print("Will use the current node virtual network: {}.", virtual_network_name)
     else:
@@ -1383,8 +1407,8 @@ def _create_vnet(config, resource_client, network_client):
 
 def create_virtual_network(config, resource_client, network_client):
     virtual_network_name = 'cloudtik-{}-vnet'.format(config["workspace_name"])
-    use_internal_ips = is_use_internal_ip(config)
-    resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
+    use_working_vpc = is_use_working_vpc(config)
+    resource_group_name = get_resource_group_name(config, resource_client, use_working_vpc)
     assert "location" in config["provider"], (
         "Provider config must include location field")
 
@@ -1417,15 +1441,56 @@ def create_virtual_network(config, resource_client, network_client):
         raise e
 
 
+def get_virtual_network_peering(network_client, resource_group_name, virtual_network_name, virtual_network_peering_name):
+    cli_logger.verbose("Getting the existing virtual network peering: {}.", virtual_network_peering_name)
+    try:
+        virtual_network_peering = network_client.virtual_network_peerings.get(
+            resource_group_name=resource_group_name,
+            virtual_network_name=virtual_network_name,
+            virtual_network_peering_name=virtual_network_peering_name
+        )
+        cli_logger.verbose("Successfully get the virtual network peering: {}.", virtual_network_peering_name)
+        return virtual_network_peering
+    except ResourceNotFoundError as e:
+        cli_logger.verbose_error("Failed to get the virtual network peering: {}. {}", virtual_network_peering_name, str(e))
+        return None
+
+
+def _delete_virtual_network_peering(config, resource_client, network_client):
+    workspace_name = config["workspace_name"]
+    virtual_network_peering_name = "cloudtik-{}-virtual_network_peering".format(workspace_name)
+    resource_group_name = get_workspace_resource_group_name(workspace_name, resource_client)
+    virtual_network_name = get_workspace_virtual_network_name(config, network_client)
+    if get_virtual_network_peering(network_client, resource_group_name, virtual_network_name, virtual_network_peering_name) is None:
+        cli_logger.print("The virtual_network_peering \"{}\" is not found for workspace.", virtual_network_peering_name)
+        return
+
+    """ Delete virtual network peering """
+    cli_logger.print("Deleting virtual network peering: {}...", virtual_network_peering_name)
+
+    try:
+        network_client.virtual_network_peerings.begin_delete(
+            resource_group_name=resource_group_name,
+            virtual_network_name=virtual_network_name,
+            virtual_network_peering_name=virtual_network_peering_name
+        ).result()
+        cli_logger.print("Successfully deleted virtual network peering: {}.",
+                         virtual_network_peering_name)
+    except Exception as e:
+        cli_logger.error("Failed to delete the virtual network peering: {}. {}",
+                         virtual_network_peering_name, str(e))
+        raise e
+
+
 def get_subnet(network_client, resource_group_name, virtual_network_name, subnet_name):
-    cli_logger.verbose("Getting the existing subnet: {}.".format(subnet_name))
+    cli_logger.verbose("Getting the existing subnet: {}.", subnet_name)
     try:
         subnet = network_client.subnets.get(
             resource_group_name=resource_group_name,
             virtual_network_name=virtual_network_name,
             subnet_name=subnet_name
         )
-        cli_logger.verbose("Successfully get the subnet: {}.".format(subnet_name))
+        cli_logger.verbose("Successfully get the subnet: {}.", subnet_name)
         return subnet
     except ResourceNotFoundError as e:
         cli_logger.verbose_error("Failed to get the subnet: {}. {}", subnet_name, str(e))
@@ -1442,20 +1507,20 @@ def _delete_subnet(config, network_client, resource_group_name, virtual_network_
     subnet_name = "cloudtik-{}-{}-subnet".format(workspace_name, subnet_attribute)
 
     if get_subnet(network_client, resource_group_name, virtual_network_name, subnet_name) is None:
-        cli_logger.print("The {} subnet \"{}\" is not found for workspace."
-                         .format(subnet_attribute, subnet_name))
+        cli_logger.print("The {} subnet \"{}\" is not found for workspace.",
+                         subnet_attribute, subnet_name)
         return
 
     """ Delete custom subnet """
-    cli_logger.print("Deleting {} subnet: {}...".format(subnet_attribute, subnet_name))
+    cli_logger.print("Deleting {} subnet: {}...", subnet_attribute, subnet_name)
     try:
         network_client.subnets.begin_delete(
             resource_group_name=resource_group_name,
             virtual_network_name=virtual_network_name,
             subnet_name=subnet_name
         ).result()
-        cli_logger.print("Successfully deleted {} subnet: {}."
-                         .format(subnet_attribute, subnet_name))
+        cli_logger.print("Successfully deleted {} subnet: {}.",
+                         subnet_attribute, subnet_name)
     except Exception as e:
         cli_logger.error("Failed to delete the {} subnet: {}. {}",
                          subnet_attribute, subnet_name, str(e))
@@ -1484,11 +1549,42 @@ def _configure_azure_subnet_cidr(network_client, resource_group_name, virtual_ne
     return cidr_block
 
 
+def _create_vnet_peering_connections(config, resource_client, network_client, resource_group_name, virtual_network_name):
+    subscription_id = config["provider"].get("subscription_id")
+    workspace_name = config["workspace_name"]
+    virtual_network_peering_name = "cloudtik-{}-virtual_network_peering".format(workspace_name)
+    current_resource_group = get_working_node_resource_group(resource_client)
+    current_virtual_network_name = get_working_node_virtual_network_name(resource_client, network_client)
+
+    # Create virtual network peering
+    cli_logger.print("Creating virtual network peering: {}... ", virtual_network_peering_name)
+    try:
+        virtual_network_peering = network_client.virtual_network_peerings.begin_create_or_update(
+            current_resource_group,
+            current_virtual_network_name,
+            virtual_network_peering_name,
+            {
+                "allow_virtual_network_access": True,
+                "allow_forwarded_traffic": True,
+                "allow_gateway_transit": False,
+                "use_remote_gateways": False,
+                "remote_virtual_network": {
+                    "id": "/subscriptions/{}/resourceGroups/{}/providers/Microsoft.Network/virtualNetworks/{}"
+                        .format(subscription_id, resource_group_name, virtual_network_name)
+                }
+            }
+        ).result()
+        cli_logger.print("Successfully created virtual network peering: {}.", virtual_network_peering_name)
+    except Exception as e:
+        cli_logger.error("Failed to create virtual network peering. {}", str(e))
+        raise e
+
+
 def _create_and_configure_subnets(config, network_client, resource_group_name, virtual_network_name, is_private=True):
     subscription_id = config["provider"].get("subscription_id")
     workspace_name = config["workspace_name"]
     subnet_attribute = "private" if is_private else "public"
-    subnet_name = "cloudtik-{}-{}-subnet".format(config["workspace_name"], subnet_attribute)
+    subnet_name = "cloudtik-{}-{}-subnet".format(workspace_name, subnet_attribute)
 
     cidr_block = _configure_azure_subnet_cidr(network_client, resource_group_name, virtual_network_name)
     nat_gateway_name = "cloudtik-{}-nat".format(workspace_name)
@@ -1664,6 +1760,13 @@ def _create_network_resources(config, resource_group_name, current_step, total_s
         _create_and_configure_subnets(
             config, network_client, resource_group_name, virtual_network_name, is_private=True)
 
+    if is_use_peering_vpc(config):
+        with cli_logger.group(
+                "Creating virtual network peering connection",
+                _numbered=("[]", current_step, total_steps)):
+            current_step += 1
+            _create_vnet_peering_connections(config, resource_client, network_client, resource_group_name, virtual_network_name)
+
     return current_step
 
 
@@ -1723,9 +1826,9 @@ def _configure_workspace_resource(config):
 
 def _configure_cloud_storage_from_workspace(config):
     use_managed_cloud_storage = is_use_managed_cloud_storage(config)
-    use_internal_ips = is_use_internal_ip(config)
+    use_working_vpc = is_use_working_vpc(config)
     resource_client = construct_resource_client(config)
-    resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
+    resource_group_name = get_resource_group_name(config, resource_client, use_working_vpc)
     if use_managed_cloud_storage:
         azure_cloud_storage = get_workspace_azure_storage(config, config["workspace_name"])
         if azure_cloud_storage is None:
@@ -1752,9 +1855,9 @@ def _configure_cloud_storage_from_workspace(config):
 
 
 def get_workspace_azure_storage(config, workspace_name):
-    use_internal_ips = is_use_internal_ip(config)
+    use_working_vpc = is_use_working_vpc(config)
     resource_client = construct_resource_client(config)
-    resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
+    resource_group_name = get_resource_group_name(config, resource_client, use_working_vpc)
     storage_account = get_storage_account(config)
     container = get_container_for_storage_account(config, resource_group_name)
     if container is None:
@@ -1829,11 +1932,11 @@ def _configure_network_security_group_from_workspace(config):
 
 
 def _configure_virtual_network_from_workspace(config):
-    use_internal_ips = is_use_internal_ip(config)
+    use_working_vpc = is_use_working_vpc(config)
     resource_client = construct_resource_client(config)
     network_client = construct_network_client(config)
 
-    virtual_network_name = get_virtual_network_name(config, resource_client, network_client, use_internal_ips)
+    virtual_network_name = get_virtual_network_name(config, resource_client, network_client, use_working_vpc)
 
     for node_type_key in config["available_node_types"].keys():
         node_config = config["available_node_types"][node_type_key][
@@ -1844,9 +1947,9 @@ def _configure_virtual_network_from_workspace(config):
 
 
 def _configure_resource_group_from_workspace(config):
-    use_internal_ips = is_use_internal_ip(config)
+    use_working_vpc = is_use_working_vpc(config)
     resource_client = construct_resource_client(config)
-    resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
+    resource_group_name = get_resource_group_name(config, resource_client, use_working_vpc)
     config["provider"]["resource_group"] = resource_group_name
     return config
 
@@ -1977,9 +2080,9 @@ def _extract_metadata_for_node(vm, resource_group, compute_client, network_clien
 def get_workspace_head_nodes(provider_config, workspace_name):
     compute_client = _construct_compute_client(provider_config)
     resource_client = _construct_resource_client(provider_config)
-    use_internal_ips = _is_use_internal_ip(provider_config)
+    use_working_vpc = _is_use_working_vpc(provider_config)
     resource_group_name = _get_resource_group_name(
-        workspace_name, resource_client, use_internal_ips)
+        workspace_name, resource_client, use_working_vpc)
     return _get_workspace_head_nodes(
         workspace_name=workspace_name,
         resource_group_name=resource_group_name,
@@ -2096,8 +2199,8 @@ def list_azure_clusters(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     compute_client = construct_compute_client(config)
     resource_client = construct_resource_client(config)
     network_client = construct_network_client(config)
-    use_internal_ips = is_use_internal_ip(config)
-    resource_group_name = get_resource_group_name(config, resource_client, use_internal_ips)
+    use_working_vpc = is_use_working_vpc(config)
+    resource_group_name = get_resource_group_name(config, resource_client, use_working_vpc)
 
     head_nodes = _get_workspace_head_nodes(
         workspace_name=config.get("workspace_name"),

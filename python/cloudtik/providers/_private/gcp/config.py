@@ -22,7 +22,8 @@ from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.services import get_node_ip_address
 from cloudtik.core._private.utils import check_cidr_conflict, unescape_private_key, is_use_internal_ip, \
     is_managed_cloud_storage, is_use_managed_cloud_storage, is_worker_role_for_cloud_storage, \
-    _is_use_managed_cloud_storage, is_use_peering_vpc, is_use_working_vpc, _is_use_working_vpc
+    _is_use_managed_cloud_storage, is_use_peering_vpc, is_use_working_vpc, _is_use_working_vpc, \
+    is_firewall_allow_peering_subnet
 from cloudtik.providers._private.gcp.node import GCPCompute
 from cloudtik.providers._private.gcp.utils import _get_node_info, construct_clients_from_provider_config, \
     wait_for_compute_global_operation, wait_for_compute_region_operation, _create_storage, \
@@ -357,25 +358,45 @@ def get_working_node_vpc_name(config, compute):
     return _get_working_node_vpc_name(config["provider"], compute)
 
 
-def _find_working_node_vpc(provider_config, compute):
+def _find_working_node_network_interface(provider_config, compute):
     ip_address = get_node_ip_address(address="8.8.8.8:53")
     project_id = provider_config.get("project_id")
     zone = provider_config.get("availability_zone")
     instances = compute.instances().list(project=project_id, zone=zone).execute()["items"]
-    network = None
     for instance in instances:
         for networkInterface in instance.get("networkInterfaces"):
             if networkInterface.get("networkIP") == ip_address:
-                network = networkInterface.get("network").split("/")[-1]
-                break
+                return networkInterface
+    return None
 
-    if network is None:
+
+def _find_working_node_vpc(provider_config, compute):
+    network_interface = _find_working_node_network_interface(provider_config, compute)
+    if network_interface is None:
         cli_logger.error("Failed to get the VPC of the working node. "
                          "Please check whether the working node is a GCP instance.")
         return None
 
+    network = network_interface.get("network").split("/")[-1]
     cli_logger.verbose("Successfully get the VPC for working node.")
     return network
+
+
+def _split_subnetwork_info(project_id, subnetwork_url):
+    info = subnetwork_url.split("projects/" + project_id + "/regions/")[-1].split("/")
+    subnetwork_region = info[0]
+    subnet_name = info[-1]
+    return subnetwork_region, subnet_name
+
+
+def _find_working_node_subnetwork(provider_config, compute):
+    network_interface = _find_working_node_network_interface(provider_config, compute)
+    if network_interface is None:
+        return None
+
+    subnetwork = network_interface.get("subnetwork")
+    cli_logger.verbose("Successfully get the VPC for working node.")
+    return subnetwork
 
 
 def _get_working_node_vpc(provider_config, compute):
@@ -627,24 +648,43 @@ def create_or_update_firewall(config, compute, firewall_body):
         update_firewall(compute, project_id, firewall_body)
 
 
+def get_firewall_subnetworks_ip_cidr_range(config, compute, vpc_id):
+    subnetwork_cidrs = get_subnetworks_ip_cidr_range(config, compute, vpc_id)
+    if is_use_peering_vpc(config) and is_firewall_allow_peering_subnet(config):
+        subnetwork_cidrs += get_working_node_ip_cidr_range(config, compute)
+    return subnetwork_cidrs
+
+
+def _get_subnetwork_ip_cidr_range(project_id, compute, subnetwork):
+    subnetwork_region, subnet_name = _split_subnetwork_info(project_id, subnetwork)
+    return compute.subnetworks().get(
+        project=project_id, region=subnetwork_region, subnetwork=subnet_name).execute().get("ipCidrRange")
+
+
 def get_subnetworks_ip_cidr_range(config, compute, vpc_id):
-    project_id = config["provider"]["project_id"]
+    provider_config = config["provider"]
+    project_id = provider_config["project_id"]
     subnetworks = compute.networks().get(project=project_id, network=vpc_id).execute().get("subnetworks")
     subnetwork_cidrs = []
     for subnetwork in subnetworks:
-        info = subnetwork.split("projects/" + project_id + "/regions/")[-1].split("/")
-        subnetwork_region = info[0]
-        subnet_name = info[-1]
-        subnetwork_cidrs.append(compute.subnetworks().get(project=project_id,
-                                                          region=subnetwork_region, subnetwork=subnet_name)
-                                .execute().get("ipCidrRange"))
+        subnetwork_cidrs.append(_get_subnetwork_ip_cidr_range(project_id, compute, subnetwork))
+    return subnetwork_cidrs
+
+
+def get_working_node_ip_cidr_range(config, compute):
+    provider_config = config["provider"]
+    project_id = provider_config["project_id"]
+    subnetwork_cidrs = []
+    subnetwork = _find_working_node_subnetwork(provider_config, compute)
+    if subnetwork is not None:
+        subnetwork_cidrs.append(_get_subnetwork_ip_cidr_range(project_id, compute, subnetwork))
     return subnetwork_cidrs
 
 
 def _create_default_allow_internal_firewall(config, compute, vpc_id):
     project_id = config["provider"]["project_id"]
     workspace_name = config["workspace_name"]
-    subnetwork_cidrs = get_subnetworks_ip_cidr_range(config, compute, vpc_id)
+    subnetwork_cidrs = get_firewall_subnetworks_ip_cidr_range(config, compute, vpc_id)
     firewall_name = "cloudtik-{}-default-allow-internal-firewall".format(workspace_name)
     firewall_body = {
         "name": firewall_name,

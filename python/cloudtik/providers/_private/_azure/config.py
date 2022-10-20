@@ -1025,7 +1025,6 @@ def get_virtual_network_name_by_subnet(resource_client, network_client, resource
 
     for virtual_network in virtual_networks:
         for subnet in virtual_network.subnets:
-            print(subnet.address_prefix)
             if subnet.address_prefix == subnet_address_prefix:
                 return virtual_network.name
 

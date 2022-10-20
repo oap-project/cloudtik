@@ -23,7 +23,7 @@ from cloudtik.core._private.services import get_node_ip_address
 from cloudtik.core._private.utils import check_cidr_conflict, unescape_private_key, is_use_internal_ip, \
     is_managed_cloud_storage, is_use_managed_cloud_storage, is_worker_role_for_cloud_storage, \
     _is_use_managed_cloud_storage, is_use_peering_vpc, is_use_working_vpc, _is_use_working_vpc, \
-    is_firewall_allow_peering_subnet
+    is_peering_firewall_allow_working_subnet
 from cloudtik.providers._private.gcp.node import GCPCompute
 from cloudtik.providers._private.gcp.utils import _get_node_info, construct_clients_from_provider_config, \
     wait_for_compute_global_operation, wait_for_compute_region_operation, _create_storage, \
@@ -650,7 +650,7 @@ def create_or_update_firewall(config, compute, firewall_body):
 
 def get_firewall_subnetworks_ip_cidr_range(config, compute, vpc_id):
     subnetwork_cidrs = get_subnetworks_ip_cidr_range(config, compute, vpc_id)
-    if is_use_peering_vpc(config) and is_firewall_allow_peering_subnet(config):
+    if is_use_peering_vpc(config) and is_peering_firewall_allow_working_subnet(config):
         subnetwork_cidrs += get_working_node_ip_cidr_range(config, compute)
     return subnetwork_cidrs
 

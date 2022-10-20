@@ -1724,8 +1724,8 @@ def _is_use_peering_vpc(provider_config: Dict[str, Any]) -> bool:
     return not _is_use_working_vpc(provider_config)
 
 
-def is_firewall_allow_peering_subnet(config: Dict[str, Any]) -> bool:
-    return config.get("provider", {}).get("firewall_allow_peering_subnet", True)
+def is_peering_firewall_allow_working_subnet(config: Dict[str, Any]) -> bool:
+    return config.get("provider", {}).get("peering_firewall_allow_working_subnet", True)
 
 
 def get_node_cluster_ip(provider: NodeProvider, node: str) -> str:

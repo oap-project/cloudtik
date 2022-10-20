@@ -1048,6 +1048,21 @@ def get_working_node_virtual_network_name(resource_client, network_client):
     return virtual_network_name
 
 
+def get_virtual_network(resource_group_name, virtual_network_name, network_client):
+    try:
+        virtual_network = network_client.virtual_networks.get(
+            resource_group_name=resource_group_name,
+            virtual_network_name=virtual_network_name
+        )
+        cli_logger.verbose("Successfully get the VirtualNetwork: {}.".
+                                 format(virtual_network.name))
+        return virtual_network
+    except ResourceNotFoundError as e:
+        cli_logger.verbose_error(
+            "The virtual network {} is not found: {}", virtual_network_name, str(e))
+        return None
+
+
 def get_workspace_virtual_network_name(config, network_client):
     resource_group_name = 'cloudtik-{}-resource-group'.format(config["workspace_name"])
     virtual_network_name = 'cloudtik-{}-vnet'.format(config["workspace_name"])
@@ -1380,6 +1395,29 @@ def _create_user_assigned_identity(config, resource_group_name, user_assigned_id
         raise e
 
 
+def _configure_peering_vnet_cidr_block(resource_client, network_client):
+    current_resource_group_name = get_working_node_resource_group_name(resource_client)
+    current_virtual_network_name = get_working_node_virtual_network_name(resource_client, network_client)
+    current_vnet_peering_connections = list(network_client.virtual_network_peerings.list(current_resource_group_name, current_virtual_network_name))
+    current_remote_peering_cidr_blocks = [current_vnet_peering_connection.remote_address_space.address_prefixes
+                                          for current_vnet_peering_connection in current_vnet_peering_connections ]
+    existing_vnet_cidr_blocks = []
+    for current_remote_peering_cidr_block in current_remote_peering_cidr_blocks:
+        existing_vnet_cidr_blocks += current_remote_peering_cidr_block
+
+    current_virtual_network = get_virtual_network(current_resource_group_name, current_virtual_network_name, network_client)
+    existing_vnet_cidr_blocks += current_virtual_network.address_space.address_prefixes
+
+    for  i in range(0, 256):
+        tmp_cidr_block = "10.{}.0.0/16".format(i)
+
+        if check_cidr_conflict(tmp_cidr_block, existing_vnet_cidr_blocks):
+            cli_logger.print("Successfully found cidr block for peering vnet.")
+            return tmp_cidr_block
+
+    cli_logger.abort("Failed to find non-conflicted cidr block for peering vnet.")
+
+
 def _create_vnet(config, resource_client, network_client):
     workspace_name = config["workspace_name"]
     use_working_vpc = is_use_working_vpc(config)
@@ -1414,11 +1452,14 @@ def create_virtual_network(config, resource_client, network_client):
 
     # choose a random subnet, skipping most common value of 0
     random.seed(virtual_network_name)
+    cidr_block = "10.{}.0.0/16".format(random.randint(1, 254))
+    if is_use_peering_vpc(config):
+        cidr_block = _configure_peering_vnet_cidr_block(resource_client, network_client)
 
     params = {
         "address_space": {
             "address_prefixes": [
-                "10.{}.0.0/16".format(random.randint(1, 254))
+                cidr_block
             ]
         },
         "location": config["provider"]["location"],
@@ -1458,9 +1499,13 @@ def get_virtual_network_peering(network_client, resource_group_name, virtual_net
 
 def _delete_virtual_network_peering(config, resource_client, network_client):
     workspace_name = config["workspace_name"]
-    virtual_network_peering_name = "cloudtik-{}-virtual_network_peering".format(workspace_name)
-    resource_group_name = get_workspace_resource_group_name(workspace_name, resource_client)
-    virtual_network_name = get_workspace_virtual_network_name(config, network_client)
+    virtual_network_peering_name = "cloudtik-{}-virtual-network-peering".format(workspace_name)
+    use_working_vpc = is_use_working_vpc(config)
+    resource_group_name = get_resource_group_name(config, resource_client, use_working_vpc)
+    virtual_network_name = get_virtual_network_name(config, resource_client, network_client, use_working_vpc)
+    current_resource_group_name = get_working_node_resource_group_name(resource_client)
+    current_virtual_network_name = get_working_node_virtual_network_name(resource_client, network_client)
+
     if get_virtual_network_peering(network_client, resource_group_name, virtual_network_name, virtual_network_peering_name) is None:
         cli_logger.print("The virtual_network_peering \"{}\" is not found for workspace.", virtual_network_peering_name)
         return
@@ -1474,6 +1519,13 @@ def _delete_virtual_network_peering(config, resource_client, network_client):
             virtual_network_name=virtual_network_name,
             virtual_network_peering_name=virtual_network_peering_name
         ).result()
+
+        network_client.virtual_network_peerings.begin_delete(
+            resource_group_name=current_resource_group_name,
+            virtual_network_name=current_virtual_network_name,
+            virtual_network_peering_name=virtual_network_peering_name
+        ).result()
+
         cli_logger.print("Successfully deleted virtual network peering: {}.",
                          virtual_network_peering_name)
     except Exception as e:
@@ -1552,15 +1604,15 @@ def _configure_azure_subnet_cidr(network_client, resource_group_name, virtual_ne
 def _create_vnet_peering_connections(config, resource_client, network_client, resource_group_name, virtual_network_name):
     subscription_id = config["provider"].get("subscription_id")
     workspace_name = config["workspace_name"]
-    virtual_network_peering_name = "cloudtik-{}-virtual_network_peering".format(workspace_name)
-    current_resource_group = get_working_node_resource_group(resource_client)
+    virtual_network_peering_name = "cloudtik-{}-virtual-network-peering".format(workspace_name)
+    current_resource_group_name = get_working_node_resource_group_name(resource_client)
     current_virtual_network_name = get_working_node_virtual_network_name(resource_client, network_client)
 
     # Create virtual network peering
     cli_logger.print("Creating virtual network peering: {}... ", virtual_network_peering_name)
     try:
         network_client.virtual_network_peerings.begin_create_or_update(
-            current_resource_group.name,
+            current_resource_group_name,
             current_virtual_network_name,
             virtual_network_peering_name,
             {
@@ -1586,7 +1638,7 @@ def _create_vnet_peering_connections(config, resource_client, network_client, re
                 "use_remote_gateways": False,
                 "remote_virtual_network": {
                     "id": "/subscriptions/{}/resourceGroups/{}/providers/Microsoft.Network/virtualNetworks/{}"
-                        .format(subscription_id, current_resource_group.name, current_virtual_network_name)
+                        .format(subscription_id, current_resource_group_name, current_virtual_network_name)
                 }
             }
         ).result()

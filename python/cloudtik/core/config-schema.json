@@ -109,6 +109,11 @@
                     "description": "Whether automatically allow working node subnet access to peering network in firewall rules.",
                     "default": true
                 },
+                "peering_firewall_allow_ssh_only": {
+                    "type": "boolean",
+                    "description": "Whether allow only the ssh access to peering network in the above firewall rules.",
+                    "default": true
+                },
                 "namespace": {
                     "type": "string",
                     "description": "k8s namespace, if using k8s"

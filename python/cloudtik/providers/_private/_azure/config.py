@@ -850,8 +850,8 @@ def _delete_vnet(config, resource_client, network_client):
 
 
 def _delete_resource_group(config, resource_client):
-    use_internal_ips = is_use_internal_ip(config)
-    if use_internal_ips:
+    use_working_vpc = is_use_working_vpc(config)
+    if use_working_vpc:
         cli_logger.print("Will not delete the current node resource group.")
         return
 
@@ -1074,14 +1074,14 @@ def get_workspace_resource_group_name(workspace_name, resource_client):
 
 
 def _get_resource_group_name(
-        workspace_name, resource_client, use_internal_ips):
-    resource_group = _get_resource_group(workspace_name, resource_client, use_internal_ips)
+        workspace_name, resource_client, use_working_vpc):
+    resource_group = _get_resource_group(workspace_name, resource_client, use_working_vpc)
     return None if resource_group is None else resource_group.name
 
 
 def _get_resource_group(
-        workspace_name, resource_client, use_internal_ips):
-    if use_internal_ips:
+        workspace_name, resource_client, use_working_vpc):
+    if use_working_vpc:
         resource_group = get_working_node_resource_group(resource_client)
     else:
         resource_group = _get_workspace_resource_group(workspace_name, resource_client)
@@ -1559,7 +1559,7 @@ def _create_vnet_peering_connections(config, resource_client, network_client, re
     # Create virtual network peering
     cli_logger.print("Creating virtual network peering: {}... ", virtual_network_peering_name)
     try:
-        virtual_network_peering = network_client.virtual_network_peerings.begin_create_or_update(
+        network_client.virtual_network_peerings.begin_create_or_update(
             current_resource_group.name,
             current_virtual_network_name,
             virtual_network_peering_name,
@@ -1574,6 +1574,23 @@ def _create_vnet_peering_connections(config, resource_client, network_client, re
                 }
             }
         ).result()
+
+        network_client.virtual_network_peerings.begin_create_or_update(
+            resource_group_name,
+            virtual_network_name,
+            virtual_network_peering_name,
+            {
+                "allow_virtual_network_access": True,
+                "allow_forwarded_traffic": True,
+                "allow_gateway_transit": False,
+                "use_remote_gateways": False,
+                "remote_virtual_network": {
+                    "id": "/subscriptions/{}/resourceGroups/{}/providers/Microsoft.Network/virtualNetworks/{}"
+                        .format(subscription_id, current_resource_group.name, current_virtual_network_name)
+                }
+            }
+        ).result()
+
         cli_logger.print("Successfully created virtual network peering: {}.", virtual_network_peering_name)
     except Exception as e:
         cli_logger.error("Failed to create virtual network peering. {}", str(e))

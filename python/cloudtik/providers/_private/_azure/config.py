@@ -353,7 +353,7 @@ def _delete_network_resources(config, resource_client, resource_group_name, curr
                 "Deleting virtual network peering",
                 _numbered=("[]", current_step, total_steps)):
             current_step += 1
-            _delete_virtual_network_peering(config, resource_client, network_client)
+            _delete_virtual_network_peerings(config, resource_client, network_client)
 
     # delete public subnets
     with cli_logger.group(
@@ -1497,7 +1497,25 @@ def get_virtual_network_peering(network_client, resource_group_name, virtual_net
         return None
 
 
-def _delete_virtual_network_peering(config, resource_client, network_client):
+def _delete_virtual_network_peering(network_client, resource_group_name, virtual_network_name, virtual_network_peering_name):
+    if get_virtual_network_peering(network_client, resource_group_name, virtual_network_name, virtual_network_peering_name) is None:
+        cli_logger.print("The virtual_network_peering \"{}\" is not found.", virtual_network_peering_name)
+    else:
+        try:
+            network_client.virtual_network_peerings.begin_delete(
+                resource_group_name=resource_group_name,
+                virtual_network_name=virtual_network_name,
+                virtual_network_peering_name=virtual_network_peering_name
+            ).result()
+            cli_logger.print("Successfully deleted virtual network peering: {} .",
+                             virtual_network_peering_name)
+        except Exception as e:
+            cli_logger.error("Failed to delete the virtual network peering: {}. {}",
+                             virtual_network_peering_name, str(e))
+            raise e
+
+
+def _delete_virtual_network_peerings(config, resource_client, network_client):
     workspace_name = config["workspace_name"]
     virtual_network_peering_name = "cloudtik-{}-virtual-network-peering".format(workspace_name)
     use_working_vpc = is_use_working_vpc(config)
@@ -1506,32 +1524,8 @@ def _delete_virtual_network_peering(config, resource_client, network_client):
     current_resource_group_name = get_working_node_resource_group_name(resource_client)
     current_virtual_network_name = get_working_node_virtual_network_name(resource_client, network_client)
 
-    if get_virtual_network_peering(network_client, resource_group_name, virtual_network_name, virtual_network_peering_name) is None:
-        cli_logger.print("The virtual_network_peering \"{}\" is not found for workspace.", virtual_network_peering_name)
-        return
-
-    """ Delete virtual network peering """
-    cli_logger.print("Deleting virtual network peering: {}...", virtual_network_peering_name)
-
-    try:
-        network_client.virtual_network_peerings.begin_delete(
-            resource_group_name=resource_group_name,
-            virtual_network_name=virtual_network_name,
-            virtual_network_peering_name=virtual_network_peering_name
-        ).result()
-
-        network_client.virtual_network_peerings.begin_delete(
-            resource_group_name=current_resource_group_name,
-            virtual_network_name=current_virtual_network_name,
-            virtual_network_peering_name=virtual_network_peering_name
-        ).result()
-
-        cli_logger.print("Successfully deleted virtual network peering: {}.",
-                         virtual_network_peering_name)
-    except Exception as e:
-        cli_logger.error("Failed to delete the virtual network peering: {}. {}",
-                         virtual_network_peering_name, str(e))
-        raise e
+    _delete_virtual_network_peering(network_client, resource_group_name, virtual_network_name, virtual_network_peering_name)
+    _delete_virtual_network_peering(network_client, current_resource_group_name, current_virtual_network_name, virtual_network_peering_name)
 
 
 def get_subnet(network_client, resource_group_name, virtual_network_name, subnet_name):

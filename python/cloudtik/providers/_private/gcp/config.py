@@ -23,7 +23,7 @@ from cloudtik.core._private.services import get_node_ip_address
 from cloudtik.core._private.utils import check_cidr_conflict, unescape_private_key, is_use_internal_ip, \
     is_managed_cloud_storage, is_use_managed_cloud_storage, is_worker_role_for_cloud_storage, \
     _is_use_managed_cloud_storage, is_use_peering_vpc, is_use_working_vpc, _is_use_working_vpc, \
-    is_peering_firewall_allow_working_subnet
+    is_peering_firewall_allow_working_subnet, is_peering_firewall_allow_ssh_only
 from cloudtik.providers._private.gcp.node import GCPCompute
 from cloudtik.providers._private.gcp.utils import _get_node_info, construct_clients_from_provider_config, \
     wait_for_compute_global_operation, wait_for_compute_region_operation, _create_storage, \
@@ -648,13 +648,6 @@ def create_or_update_firewall(config, compute, firewall_body):
         update_firewall(compute, project_id, firewall_body)
 
 
-def get_firewall_subnetworks_ip_cidr_range(config, compute, vpc_id):
-    subnetwork_cidrs = get_subnetworks_ip_cidr_range(config, compute, vpc_id)
-    if is_use_peering_vpc(config) and is_peering_firewall_allow_working_subnet(config):
-        subnetwork_cidrs += get_working_node_ip_cidr_range(config, compute)
-    return subnetwork_cidrs
-
-
 def _get_subnetwork_ip_cidr_range(project_id, compute, subnetwork):
     subnetwork_region, subnet_name = _split_subnetwork_info(project_id, subnetwork)
     return compute.subnetworks().get(
@@ -684,7 +677,7 @@ def get_working_node_ip_cidr_range(config, compute):
 def _create_default_allow_internal_firewall(config, compute, vpc_id):
     project_id = config["provider"]["project_id"]
     workspace_name = config["workspace_name"]
-    subnetwork_cidrs = get_firewall_subnetworks_ip_cidr_range(config, compute, vpc_id)
+    subnetwork_cidrs = get_subnetworks_ip_cidr_range(config, compute, vpc_id)
     firewall_name = "cloudtik-{}-default-allow-internal-firewall".format(workspace_name)
     firewall_body = {
         "name": firewall_name,
@@ -712,10 +705,35 @@ def _create_default_allow_internal_firewall(config, compute, vpc_id):
     create_or_update_firewall(config, compute, firewall_body)
 
 
+def _get_allow_working_node_firewall_rules(config, compute):
+    firewall_rules = []
+    subnetwork_cidrs = get_working_node_ip_cidr_range(config, compute)
+    if len(subnetwork_cidrs) == 0:
+        return firewall_rules
+
+    firewall_rule = {
+        "allowed": [
+            {
+                "IPProtocol": "tcp",
+                "ports": [
+                    "22" if is_peering_firewall_allow_ssh_only(config) else "0-65535"
+                ]
+            }
+        ],
+        "sourceRanges": subnetwork_cidrs
+    }
+
+    firewall_rules.append(firewall_rule)
+    return firewall_rules
+
+
 def _create_or_update_custom_firewalls(config, compute, vpc_id):
     firewall_rules = config["provider"] \
         .get("firewalls", {}) \
         .get("firewall_rules", [])
+
+    if is_use_peering_vpc(config) and is_peering_firewall_allow_working_subnet(config):
+        firewall_rules += _get_allow_working_node_firewall_rules(config, compute)
 
     project_id = config["provider"]["project_id"]
     workspace_name = config["workspace_name"]

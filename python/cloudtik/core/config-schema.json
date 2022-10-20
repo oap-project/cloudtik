@@ -104,6 +104,11 @@
                     "type": "boolean",
                     "description": "When use_internal_ips is true, whether to use the working client vpc."
                 },
+                "peering_firewall_allow_working_subnet": {
+                    "type": "boolean",
+                    "description": "Whether automatically allow working node subnet access to peering network in firewall rules.",
+                    "default": true
+                },
                 "namespace": {
                     "type": "string",
                     "description": "k8s namespace, if using k8s"

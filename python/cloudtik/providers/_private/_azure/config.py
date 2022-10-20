@@ -353,7 +353,7 @@ def _delete_network_resources(config, resource_client, resource_group_name, curr
                 "Deleting virtual network peering",
                 _numbered=("[]", current_step, total_steps)):
             current_step += 1
-            _delete_virtual_network_peering(config, network_client)
+            _delete_virtual_network_peering(config, resource_client, network_client)
 
     # delete public subnets
     with cli_logger.group(
@@ -1000,7 +1000,7 @@ def get_working_node_resource_group(resource_client):
         cli_logger.error("Failed to get the metadata of the working node. "
                          "Please check whether the working node is a Azure instance or not!")
         return None
-    resource_group_name = metadata.get("compute", {}).get("name", "")
+    resource_group_name = metadata.get("compute", {}).get("resourceGroupName", "")
     try:
         resource_group = resource_client.resource_groups.get(
             resource_group_name
@@ -1038,7 +1038,7 @@ def get_working_node_virtual_network_name(resource_client, network_client):
         cli_logger.error("Failed to get the metadata of the working node. "
                          "Please check whether the working node is a Azure instance or not!")
         return None
-    resource_group_name = metadata.get("compute", {}).get("name", "")
+    resource_group_name = metadata.get("compute", {}).get("resourceGroupName", "")
     interfaces = metadata.get("network", {}).get("interface", "")
     subnet = interfaces[0]["ipv4"]["subnet"][0]
     virtual_network_name = get_virtual_network_name_by_subnet(resource_client, network_client, resource_group_name, subnet)
@@ -1274,9 +1274,9 @@ def _create_storage_account(config, resource_group_name):
     # Default is "TLS1_1", some environment requires "TLS1_2"
     # can be specified with storage options
     storage_account_options = provider_config.get("storage_account_options")
-    use_internal_ips = is_use_internal_ip(config)
+    use_working_vpc = is_use_working_vpc(config)
     resource_client = construct_resource_client(config)
-    resource_group = _get_resource_group(workspace_name, resource_client, use_internal_ips)
+    resource_group = _get_resource_group(workspace_name, resource_client, use_working_vpc)
 
     storage_suffix = str(uuid.uuid3(uuid.UUID(subscription_id), resource_group.id))[-12:]
     account_name = 'storage{}'.format(storage_suffix)
@@ -1560,7 +1560,7 @@ def _create_vnet_peering_connections(config, resource_client, network_client, re
     cli_logger.print("Creating virtual network peering: {}... ", virtual_network_peering_name)
     try:
         virtual_network_peering = network_client.virtual_network_peerings.begin_create_or_update(
-            current_resource_group,
+            current_resource_group.name,
             current_virtual_network_name,
             virtual_network_peering_name,
             {

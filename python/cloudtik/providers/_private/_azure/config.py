@@ -118,6 +118,14 @@ def fill_available_node_types_resources(
     return cluster_config
 
 
+def get_workspace_resource_group_name(workspace_name):
+    return AZURE_WORKSPACE_RESOURCE_GROUP_NAME.format(workspace_name)
+
+
+def get_workspace_virtual_network_name(workspace_name):
+    return AZURE_WORKSPACE_VNET_NAME.format(workspace_name)
+
+
 def get_workspace_vnet_peering_name(workspace_name):
     return AZURE_WORKSPACE_VNET_PEERING_NAME.format(workspace_name)
 
@@ -284,7 +292,8 @@ def get_virtual_network_name(config, resource_client, network_client, use_workin
     if use_working_vpc:
         virtual_network_name = get_working_node_virtual_network_name(resource_client, network_client)
     else:
-        virtual_network_name = get_workspace_virtual_network_name(config, network_client)
+        virtual_network = get_workspace_virtual_network(config, network_client)
+        virtual_network_name = None if virtual_network is None else virtual_network.name
 
     return virtual_network_name
 
@@ -910,12 +919,12 @@ def _delete_resource_group(config, resource_client):
         cli_logger.print("Will not delete the current node resource group.")
         return
 
-    resource_group_name = get_workspace_resource_group_name(config["workspace_name"], resource_client)
-    if resource_group_name is None:
-        cli_logger.print("The resource group: {} doesn't exist.".
-                         format(resource_group_name))
+    resource_group = _get_workspace_resource_group(config["workspace_name"], resource_client)
+    if resource_group is None:
+        cli_logger.print("The resource group doesn't exist. Skip deletion.")
         return
 
+    resource_group_name = resource_group.name
     if has_storage_account(config, resource_group_name):
         cli_logger.print("The resource group {} has remaining storage accounts. Will not be deleted.".
                          format(resource_group_name))
@@ -1019,13 +1028,12 @@ def _create_resource_group(config, resource_client):
             cli_logger.print("Will use the current node resource group: {}.", resource_group_name)
     else:
         # Need to create a new resource_group
-        resource_group_name = get_workspace_resource_group_name(workspace_name, resource_client)
-        if resource_group_name is None:
+        resource_group = _get_workspace_resource_group(workspace_name, resource_client)
+        if resource_group is None:
             resource_group = create_resource_group(config, resource_client)
-            resource_group_name = resource_group.name
         else:
-            cli_logger.print("Resource group {} for workspace already exists. Skip creation.", resource_group_name)
-
+            cli_logger.print("Resource group {} for workspace already exists. Skip creation.", resource_group.name)
+        resource_group_name = resource_group.name
     return resource_group_name
 
 
@@ -1117,29 +1125,15 @@ def get_virtual_network(resource_group_name, virtual_network_name, network_clien
         return None
 
 
-def get_workspace_virtual_network_name(config, network_client):
-    resource_group_name = 'cloudtik-{}-resource-group'.format(config["workspace_name"])
-    virtual_network_name = 'cloudtik-{}-vnet'.format(config["workspace_name"])
+def get_workspace_virtual_network(config, network_client):
+    workspace_name = config["workspace_name"]
+    resource_group_name = get_workspace_resource_group_name(workspace_name)
+    virtual_network_name = get_workspace_virtual_network_name(workspace_name)
     cli_logger.verbose("Getting the VirtualNetworkName for workspace: {}...".
                        format(virtual_network_name))
 
-    try:
-        virtual_network = network_client.virtual_networks.get(
-            resource_group_name=resource_group_name,
-            virtual_network_name=virtual_network_name
-        )
-        cli_logger.verbose("Successfully get the VirtualNetworkName: {} for workspace.".
-                                 format(virtual_network_name))
-        return virtual_network.name
-    except ResourceNotFoundError as e:
-        cli_logger.verbose_error(
-            "The virtual network for workspace is not found: {}", str(e))
-        return None
-
-
-def get_workspace_resource_group_name(workspace_name, resource_client):
-    resource_group = _get_workspace_resource_group(workspace_name, resource_client)
-    return None if resource_group is None else resource_group.name
+    virtual_network = get_virtual_network(resource_group_name, virtual_network_name, network_client)
+    return virtual_network
 
 
 def _get_resource_group_name(
@@ -1159,7 +1153,7 @@ def _get_resource_group(
 
 
 def _get_workspace_resource_group(workspace_name, resource_client):
-    resource_group_name = 'cloudtik-{}-resource-group'.format(workspace_name)
+    resource_group_name = get_workspace_resource_group_name(workspace_name)
     cli_logger.verbose("Getting the resource group name for workspace: {}...".
                        format(resource_group_name))
 
@@ -1177,7 +1171,7 @@ def _get_workspace_resource_group(workspace_name, resource_client):
 
 
 def create_resource_group(config, resource_client):
-    resource_group_name = 'cloudtik-{}-resource-group'.format(config["workspace_name"])
+    resource_group_name = get_workspace_resource_group_name(config["workspace_name"])
 
     assert "location" in config["provider"], (
         "Provider config must include location field")
@@ -1187,8 +1181,8 @@ def create_resource_group(config, resource_client):
     try:
         resource_group = resource_client.resource_groups.create_or_update(
             resource_group_name=resource_group_name, parameters=params)
-        cli_logger.print("Successfully created workspace resource group: cloudtik-{}-resource_group.".
-                         format(config["workspace_name"]))
+        cli_logger.print("Successfully created workspace resource group: {}.",
+                         get_workspace_resource_group_name(config["workspace_name"]))
         return resource_group
     except Exception as e:
         cli_logger.error(
@@ -1487,7 +1481,7 @@ def _create_vnet(config, resource_client, network_client):
     else:
 
         # Need to create a new virtual network
-        if get_workspace_virtual_network_name(config, network_client) is None:
+        if get_workspace_virtual_network(config, network_client) is None:
             virtual_network = create_virtual_network(config, resource_client, network_client)
             virtual_network_name = virtual_network.name
         else:
@@ -1498,7 +1492,8 @@ def _create_vnet(config, resource_client, network_client):
 
 
 def create_virtual_network(config, resource_client, network_client):
-    virtual_network_name = 'cloudtik-{}-vnet'.format(config["workspace_name"])
+    workspace_name = config["workspace_name"]
+    virtual_network_name = get_workspace_virtual_network_name(workspace_name)
     use_working_vpc = is_use_working_vpc(config)
     resource_group_name = get_resource_group_name(config, resource_client, use_working_vpc)
     assert "location" in config["provider"], (
@@ -1526,9 +1521,10 @@ def create_virtual_network(config, resource_client, network_client):
     try:
         virtual_network = network_client.virtual_networks.begin_create_or_update(
             resource_group_name=resource_group_name,
-            virtual_network_name=virtual_network_name, parameters=params).result()
-        cli_logger.print("Successfully created workspace virtual network: cloudtik-{}-vnet.".
-                         format(config["workspace_name"]))
+            virtual_network_name=virtual_network_name,
+            parameters=params).result()
+        cli_logger.print("Successfully created workspace virtual network: {}.",
+                         virtual_network_name)
         return virtual_network
     except Exception as e:
         cli_logger.error(

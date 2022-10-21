@@ -1491,7 +1491,7 @@ def get_virtual_network_peering(network_client, resource_group_name, virtual_net
         )
         cli_logger.verbose("Successfully get the virtual network peering: {}.", virtual_network_peering_name)
         return virtual_network_peering
-    except ResourceNotFoundError as e:
+    except Exception as e:
         cli_logger.verbose_error("Failed to get the virtual network peering: {}. {}", virtual_network_peering_name, str(e))
         return None
 

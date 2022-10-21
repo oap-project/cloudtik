@@ -1028,7 +1028,7 @@ def _create_vpc(config, compute):
         vpc_id = get_working_node_vpc_id(config, compute)
         if vpc_id is None:
             cli_logger.abort("Failed to get the VPC for the current machine. "
-                             "Please make sure your current machine is an AWS virtual machine "
+                             "Please make sure your current machine is an GCP virtual machine "
                              "to use use_internal_ips=True with use_working_vpc=True.")
     else:
         # Need to create a new vpc

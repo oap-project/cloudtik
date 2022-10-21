@@ -1,4 +1,3 @@
-import json
 from typing import Dict, Any
 
 import sshtunnel
@@ -60,6 +59,11 @@ def request_rest_on_server(
     ) as tunnel:
         endpoint_url = REST_ENDPOINT_URL_FORMAT.format(
             "127.0.0.1", tunnel.local_bind_port, endpoint)
+
+        # sine we have use 127.0.0.1, disable all proxy on 127.0.0.1
+        proxy_support = urllib.request.ProxyHandler({"no": "127.0.0.1"})
+        opener = urllib.request.build_opener(proxy_support)
+        urllib.request.install_opener(opener)
 
         response = urllib.request.urlopen(endpoint_url, timeout=10)
         return response.read()

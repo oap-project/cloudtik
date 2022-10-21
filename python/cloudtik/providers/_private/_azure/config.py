@@ -1482,7 +1482,11 @@ def create_virtual_network(config, resource_client, network_client):
 
 
 def get_virtual_network_peering(network_client, resource_group_name, virtual_network_name, virtual_network_peering_name):
-    cli_logger.verbose("Getting the existing virtual network peering: {}.", virtual_network_peering_name)
+    cli_logger.verbose("Getting the existing virtual network peering: {} ", virtual_network_peering_name)
+    if virtual_network_name is None:
+        cli_logger.verbose_error("Failed to get the virtual network peering: {} because virtual network {} not existed!",
+                                 virtual_network_peering_name, virtual_network_name)
+        return None
     try:
         virtual_network_peering = network_client.virtual_network_peerings.get(
             resource_group_name=resource_group_name,
@@ -1491,7 +1495,7 @@ def get_virtual_network_peering(network_client, resource_group_name, virtual_net
         )
         cli_logger.verbose("Successfully get the virtual network peering: {}.", virtual_network_peering_name)
         return virtual_network_peering
-    except Exception as e:
+    except ResourceNotFoundError as e:
         cli_logger.verbose_error("Failed to get the virtual network peering: {}. {}", virtual_network_peering_name, str(e))
         return None
 
@@ -1529,6 +1533,10 @@ def _delete_virtual_network_peerings(config, resource_client, network_client):
 
 def get_subnet(network_client, resource_group_name, virtual_network_name, subnet_name):
     cli_logger.verbose("Getting the existing subnet: {}.", subnet_name)
+    if virtual_network_name is None:
+        cli_logger.verbose_error("Failed to get the subnet: {} because virtual network not existed!",
+                                 subnet_name, virtual_network_name)
+        return None
     try:
         subnet = network_client.subnets.get(
             resource_group_name=resource_group_name,

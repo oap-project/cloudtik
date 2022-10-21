@@ -1,18 +1,18 @@
 #!/bin/bash
 
 function show_usage() {
-    echo "Usage: spark-pi.sh cluster-config-file [--digits number-of-pi-digits] [--help]"
+    echo "Usage: spark-pi.sh cluster-config-file [--slices number-of-slices] [--help]"
 }
 
-pi_digits=100
+pi_slices=100
 
 while [[ $# -gt 0 ]]
 do
     key="$1"
     case $key in
-    -d|--digits)
+    -s|--slices)
         shift 1 # past argument
-        pi_digits=$1
+        pi_slices=$1
         shift 1 # past value
         ;;
     -h|--help)
@@ -35,4 +35,4 @@ then
 fi
 
 cloudtik exec $cluster_config_file  \
-    "spark-submit --master yarn --deploy-mode cluster --name spark-pi --class org.apache.spark.examples.SparkPi \$SPARK_HOME/examples/jars/spark-examples_2.12-3.2.1.jar ${pi_digits}"
+    "spark-submit --master yarn --deploy-mode cluster --name spark-pi --class org.apache.spark.examples.SparkPi \$SPARK_HOME/examples/jars/spark-examples_2.12-3.2.1.jar ${pi_slices}"

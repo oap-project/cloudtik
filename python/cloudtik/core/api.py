@@ -123,8 +123,8 @@ class Cluster:
             hard=hard)
 
     def exec(self,
+             cmd: str,
              *,
-             cmd: Optional[str] = None,
              node_ip: str = None,
              all_nodes: bool = False,
              run_env: str = "auto",
@@ -142,7 +142,7 @@ class Cluster:
         """Runs a command on the specified cluster.
 
         Args:
-            cmd (str): the command to run, or None for a no-op command.
+            cmd (str): the command to run
             node_ip (str): node ip on which to run the command
             all_nodes (bool): whether to run the command on all nodes
             run_env (str): whether to run the command on the host or in a

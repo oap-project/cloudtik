@@ -31,6 +31,19 @@ from cloudtik.providers._private.utils import StorageTestingError
 
 AZURE_RESOURCE_NAME_PREFIX = "cloudtik"
 AZURE_MSI_NAME = AZURE_RESOURCE_NAME_PREFIX + "-msi-user-identity"
+AZURE_WORKSPACE_RESOURCE_GROUP_NAME = AZURE_RESOURCE_NAME_PREFIX + "-{}-resource-group"
+AZURE_WORKSPACE_VNET_NAME = AZURE_RESOURCE_NAME_PREFIX + "-{}-vnet"
+AZURE_WORKSPACE_SUBNET_NAME = AZURE_RESOURCE_NAME_PREFIX + "-{}-{}-subnet"
+AZURE_WORKSPACE_VNET_PEERING_NAME = AZURE_RESOURCE_NAME_PREFIX + "-{}-virtual-network-peering"
+AZURE_WORKSPACE_STORAGE_ACCOUNT_NAME = AZURE_RESOURCE_NAME_PREFIX + "-{}-storage-account"
+AZURE_WORKSPACE_STORAGE_CONTAINER_NAME = AZURE_RESOURCE_NAME_PREFIX + "-{}"
+AZURE_WORKSPACE_NETWORK_SECURITY_GROUP_NAME = AZURE_RESOURCE_NAME_PREFIX + "-{}-network-security-group"
+AZURE_WORKSPACE_PUBLIC_IP_ADDRESS_NAME = AZURE_RESOURCE_NAME_PREFIX + "-{}-public-ip-address"
+AZURE_WORKSPACE_NAT_NAME = AZURE_RESOURCE_NAME_PREFIX + "-{}-nat"
+AZURE_WORKSPACE_SECURITY_RULE_NAME = AZURE_RESOURCE_NAME_PREFIX + "-{}-security-rule-{}"
+AZURE_WORKSPACE_WORKER_USI_NAME = AZURE_RESOURCE_NAME_PREFIX + "-{}-worker-user-assigned-identity"
+AZURE_WORKSPACE_HEAD_USI_NAME = AZURE_RESOURCE_NAME_PREFIX + "-{}-user-assigned-identity"
+
 
 AZURE_WORKSPACE_VERSION_TAG_NAME = "cloudtik-workspace-version"
 AZURE_WORKSPACE_VERSION_CURRENT = "1"
@@ -105,6 +118,47 @@ def fill_available_node_types_resources(
     return cluster_config
 
 
+def get_workspace_vnet_peering_name(workspace_name):
+    return AZURE_WORKSPACE_VNET_PEERING_NAME.format(workspace_name)
+
+
+def get_workspace_subnet_name(workspace_name, isPrivate=True):
+    return AZURE_WORKSPACE_VNET_NAME.format(workspace_name, 'private') if isPrivate \
+        else AZURE_WORKSPACE_VNET_NAME.format(workspace_name, 'public')
+
+
+def get_workspace_storage_account_name(workspace_name):
+    return AZURE_WORKSPACE_STORAGE_ACCOUNT_NAME.format(workspace_name)
+
+
+def get_workspace_network_security_group_name(workspace_name):
+    return AZURE_WORKSPACE_NETWORK_SECURITY_GROUP_NAME.format(workspace_name)
+
+
+def get_workspace_public_ip_address_name(workspace_name):
+    return AZURE_WORKSPACE_PUBLIC_IP_ADDRESS_NAME.format(workspace_name)
+
+
+def get_workspace_nat_name(workspace_name):
+    return AZURE_WORKSPACE_NAT_NAME.format(workspace_name)
+
+
+def get_workspace_security_rule_name(workspace_name, suffix):
+    return AZURE_WORKSPACE_SECURITY_RULE_NAME.format(workspace_name, suffix)
+
+
+def get_workspace_worker_user_assigned_identity_name(workspace_name):
+    return AZURE_WORKSPACE_WORKER_USI_NAME.format(workspace_name)
+
+
+def get_workspace_head_user_assigned_identity_name(workspace_name):
+    return AZURE_WORKSPACE_HEAD_USI_NAME.format(workspace_name)
+
+
+def get_workspace_storage_container_name(workspace_name):
+    return AZURE_WORKSPACE_STORAGE_CONTAINER_NAME.format(workspace_name)
+
+
 def check_azure_workspace_existence(config):
     use_working_vpc = is_use_working_vpc(config)
     use_peering_vpc = is_use_peering_vpc(config)
@@ -156,16 +210,16 @@ def check_azure_workspace_existence(config):
             if get_nat_gateway(config, network_client, resource_group_name) is not None:
                 existing_resources += 1
 
-            private_subnet_name = "cloudtik-{}-private-subnet".format(workspace_name)
+            private_subnet_name = get_workspace_subnet_name(workspace_name, isPrivate=True)
             if get_subnet(network_client, resource_group_name, virtual_network_name, private_subnet_name) is not None:
                 existing_resources += 1
 
-            public_subnet_name = "cloudtik-{}-public-subnet".format(workspace_name)
+            public_subnet_name = get_workspace_subnet_name(workspace_name, isPrivate=False)
             if get_subnet(network_client, resource_group_name, virtual_network_name, public_subnet_name) is not None:
                 existing_resources += 1
 
             if use_peering_vpc:
-                virtual_network_peering_name = "cloudtik-{}-virtual-network-peering".format(workspace_name)
+                virtual_network_peering_name = get_workspace_vnet_peering_name(workspace_name)
                 if get_virtual_network_peering(network_client, resource_group_name, virtual_network_name, virtual_network_peering_name) is not None:
                     existing_resources += 1
 
@@ -403,7 +457,7 @@ def _delete_network_resources(config, resource_client, resource_group_name, curr
 
 def get_container_for_storage_account(config, resource_group_name):
     workspace_name = config["workspace_name"]
-    container_name = "cloudtik-{}".format(workspace_name)
+    container_name = get_workspace_storage_container_name(workspace_name)
     storage_client = construct_storage_client(config)
     storage_account = get_storage_account(config)
     if storage_account is None:
@@ -427,7 +481,7 @@ def get_container_for_storage_account(config, resource_group_name):
 def get_storage_account(config):
     workspace_name = config["workspace_name"]
     storage_client = construct_storage_client(config)
-    storage_account_name = "cloudtik-{}-storage-account".format(workspace_name)
+    storage_account_name = get_workspace_storage_account_name(workspace_name)
 
     cli_logger.verbose("Getting the workspace storage account: {}.".format(storage_account_name))
     storage_accounts = list(storage_client.storage_accounts.list())
@@ -718,7 +772,7 @@ def _delete_user_assigned_identity(config, resource_group_name, user_assigned_id
 
 
 def get_network_security_group(config, network_client, resource_group_name):
-    network_security_group_name = "cloudtik-{}-network-security-group".format(config["workspace_name"])
+    network_security_group_name = get_workspace_network_security_group_name(config["workspace_name"])
 
     cli_logger.verbose("Getting the existing network security group: {}.".format(network_security_group_name))
     try:
@@ -754,7 +808,7 @@ def _delete_network_security_group(config, network_client, resource_group_name):
 
 
 def get_public_ip_address(config, network_client, resource_group_name):
-    public_ip_address_name = "cloudtik-{}-public-ip-address".format(config["workspace_name"])
+    public_ip_address_name = get_workspace_public_ip_address_name(config["workspace_name"])
 
     cli_logger.verbose("Getting the existing public IP address: {}.".format(public_ip_address_name))
     try:
@@ -790,7 +844,7 @@ def _delete_public_ip_address(config, network_client, resource_group_name):
 
 
 def get_nat_gateway(config, network_client, resource_group_name):
-    nat_gateway_name = "cloudtik-{}-nat".format(config["workspace_name"])
+    nat_gateway_name = get_workspace_nat_name(config["workspace_name"])
 
     cli_logger.verbose("Getting the existing NAT gateway: {}.".format(nat_gateway_name))
     try:
@@ -1246,7 +1300,7 @@ def _create_role_assignments(config, resource_group_name):
 
 def _create_container_for_storage_account(config, resource_group_name):
     workspace_name = config["workspace_name"]
-    container_name = "cloudtik-{}".format(workspace_name)
+    container_name = get_workspace_storage_container_name(workspace_name)
     storage_account = get_storage_account(config)
     if storage_account is None:
         cli_logger.abort("No storage account is found. You need to make sure storage account has been created.")
@@ -1322,7 +1376,7 @@ def _create_storage_account(config, resource_group_name):
                     "key_source": "Microsoft.Storage"
                 },
                 "tags": {
-                    "Name": 'cloudtik-{}-storage-account'.format(workspace_name)
+                    "Name": get_workspace_storage_account_name(workspace_name)
                 }
             }
 
@@ -1521,7 +1575,7 @@ def _delete_vnet_peering_connection(network_client, resource_group_name, virtual
 
 def _delete_vnet_peering_connections(config, resource_client, network_client):
     workspace_name = config["workspace_name"]
-    virtual_network_peering_name = "cloudtik-{}-virtual-network-peering".format(workspace_name)
+    virtual_network_peering_name = get_workspace_vnet_peering_name(workspace_name)
     use_working_vpc = is_use_working_vpc(config)
     resource_group_name = get_resource_group_name(config, resource_client, use_working_vpc)
     virtual_network_name = get_virtual_network_name(config, resource_client, network_client, use_working_vpc)
@@ -1572,7 +1626,7 @@ def _delete_subnet(config, network_client, resource_group_name, virtual_network_
         subnet_attribute = "public"
 
     workspace_name = config["workspace_name"]
-    subnet_name = "cloudtik-{}-{}-subnet".format(workspace_name, subnet_attribute)
+    subnet_name = get_workspace_subnet_name(workspace_name, isPrivate=is_private)
 
     if get_subnet(network_client, resource_group_name, virtual_network_name, subnet_name) is None:
         cli_logger.print("The {} subnet \"{}\" is not found for workspace.",
@@ -1647,7 +1701,7 @@ def _create_vnet_peering_connection(network_client, subscription_id, current_res
 def _create_vnet_peering_connections(config, resource_client, network_client, resource_group_name, virtual_network_name):
     subscription_id = config["provider"].get("subscription_id")
     workspace_name = config["workspace_name"]
-    virtual_network_peering_name = "cloudtik-{}-virtual-network-peering".format(workspace_name)
+    virtual_network_peering_name = get_workspace_vnet_peering_name(workspace_name)
     current_resource_group_name = get_working_node_resource_group_name(resource_client)
     current_virtual_network_name = get_working_node_virtual_network_name(resource_client, network_client)
 
@@ -1675,11 +1729,11 @@ def _create_and_configure_subnets(config, network_client, resource_group_name, v
     subscription_id = config["provider"].get("subscription_id")
     workspace_name = config["workspace_name"]
     subnet_attribute = "private" if is_private else "public"
-    subnet_name = "cloudtik-{}-{}-subnet".format(workspace_name, subnet_attribute)
+    subnet_name = get_workspace_subnet_name(workspace_name, isPrivate=is_private)
 
     cidr_block = _configure_azure_subnet_cidr(network_client, resource_group_name, virtual_network_name)
-    nat_gateway_name = "cloudtik-{}-nat".format(workspace_name)
-    network_security_group_name = "cloudtik-{}-network-security-group".format(workspace_name)
+    nat_gateway_name = get_workspace_nat_name(workspace_name)
+    network_security_group_name = get_workspace_network_security_group_name(workspace_name)
     if is_private:
         subnet_parameters = {
             "address_prefix": cidr_block,
@@ -1720,7 +1774,7 @@ def _create_and_configure_subnets(config, network_client, resource_group_name, v
 def _create_nat(config, network_client, resource_group_name, public_ip_address_name):
     subscription_id = config["provider"].get("subscription_id")
     workspace_name = config["workspace_name"]
-    nat_gateway_name = "cloudtik-{}-nat".format(workspace_name)
+    nat_gateway_name = get_workspace_nat_name(workspace_name)
 
     cli_logger.print("Creating NAT gateway: {}... ".format(nat_gateway_name))
     try:
@@ -1749,7 +1803,7 @@ def _create_nat(config, network_client, resource_group_name, public_ip_address_n
 
 def _create_public_ip_address(config, network_client, resource_group_name):
     workspace_name = config["workspace_name"]
-    public_ip_address_name = "cloudtik-{}-public-ip-address".format(workspace_name)
+    public_ip_address_name = get_workspace_public_ip_address_name(workspace_name)
     location = config["provider"]["location"]
 
     cli_logger.print("Creating public IP address: {}... ".format(public_ip_address_name))
@@ -1779,10 +1833,10 @@ def _create_or_update_network_security_group(config, network_client, resource_gr
     workspace_name = config["workspace_name"]
     location = config["provider"]["location"]
     security_rules = config["provider"].get("securityRules", [])
-    network_security_group_name = "cloudtik-{}-network-security-group".format(workspace_name)
+    network_security_group_name = get_workspace_network_security_group_name(workspace_name)
 
     for i in range(0, len(security_rules)):
-        security_rules[i]["name"] = "cloudtik-{}-security-rule-{}".format(workspace_name, i)
+        security_rules[i]["name"] = get_workspace_security_rule_name(workspace_name, i)
 
     cli_logger.print("Creating or updating network security group: {}... ".format(network_security_group_name))
     try:
@@ -1962,13 +2016,13 @@ def get_workspace_azure_storage(config, workspace_name):
 
 def _get_head_user_assigned_identity_name(config):
     workspace_name = config["workspace_name"]
-    user_assigned_identity_name = "cloudtik-{}-user-assigned-identity".format(workspace_name)
+    user_assigned_identity_name = get_workspace_head_user_assigned_identity_name(workspace_name)
     return user_assigned_identity_name
 
 
 def _get_worker_user_assigned_identity_name(config):
     workspace_name = config["workspace_name"]
-    user_assigned_identity_name = "cloudtik-{}-worker-user-assigned-identity".format(workspace_name)
+    user_assigned_identity_name = get_workspace_worker_user_assigned_identity_name(workspace_name)
     return user_assigned_identity_name
 
 
@@ -1991,8 +2045,8 @@ def _configure_subnet_from_workspace(config):
     workspace_name = config["workspace_name"]
     use_internal_ips = is_use_internal_ip(config)
 
-    public_subnet = "cloudtik-{}-public-subnet".format(workspace_name)
-    private_subnet = "cloudtik-{}-private-subnet".format(workspace_name)
+    public_subnet = get_workspace_subnet_name(workspace_name, isPrivate=False)
+    private_subnet = get_workspace_subnet_name(workspace_name, isPrivate=True)
 
     for key, node_type in config["available_node_types"].items():
         node_config = node_type["node_config"]
@@ -2012,7 +2066,7 @@ def _configure_subnet_from_workspace(config):
 
 def _configure_network_security_group_from_workspace(config):
     workspace_name = config["workspace_name"]
-    network_security_group_name = "cloudtik-{}-network-security-group".format(workspace_name)
+    network_security_group_name = get_workspace_network_security_group_name(workspace_name)
 
     for node_type_key in config["available_node_types"].keys():
         node_config = config["available_node_types"][node_type_key][

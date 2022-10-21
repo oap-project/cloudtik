@@ -131,8 +131,8 @@ def get_workspace_vnet_peering_name(workspace_name):
 
 
 def get_workspace_subnet_name(workspace_name, isPrivate=True):
-    return AZURE_WORKSPACE_VNET_NAME.format(workspace_name, 'private') if isPrivate \
-        else AZURE_WORKSPACE_VNET_NAME.format(workspace_name, 'public')
+    return AZURE_WORKSPACE_SUBNET_NAME.format(workspace_name, 'private') if isPrivate \
+        else AZURE_WORKSPACE_SUBNET_NAME.format(workspace_name, 'public')
 
 
 def get_workspace_storage_account_name(workspace_name):

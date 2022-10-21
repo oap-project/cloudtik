@@ -32,6 +32,8 @@ def _request_rest_on_head(
 
 
 def ssh_proxy_wrapper(ssh_proxy_command, server_ip, ssh_port, ssh_user):
+    if ssh_proxy_command is None:
+        return None
     ssh_proxy_command = ssh_proxy_command.replace("%h", server_ip)
     ssh_proxy_command = ssh_proxy_command.replace("%p", str(ssh_port))
     ssh_proxy_command = ssh_proxy_command.replace("%r", str(ssh_user))

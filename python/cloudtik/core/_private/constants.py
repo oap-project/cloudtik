@@ -62,16 +62,18 @@ HEALTHCHECK_EXPIRATION_S = os.environ.get("CLOUDTIK_HEALTHCHECK_EXPIRATION_S", 1
 CLOUDTIK_KV_NAMESPACE_HEALTHCHECK = "healthcheck"
 
 # The default maximum number of bytes to reserved for object storage 
-CLOUDTIK_DEFAULT_OBJECT_STORE_MAX_MEMORY_BYTES = 200 * 10**9
+CLOUDTIK_DEFAULT_SHARED_MEMORY_MAX_BYTES = 200 * 10 ** 9
 
 # The default proportion of available memory allocated to system and runtime overhead
-CLOUDTIK_DEFAULT_OBJECT_STORE_MEMORY_PROPORTION = 0.0
+CLOUDTIK_DEFAULT_SHARED_MEMORY_PROPORTION = 0.0
 
 # The default maximum number of bytes that the non-primary Redis shards are
 # allowed to use unless overridden by the user.
-CLOUDTIK_DEFAULT_REDIS_MAX_MEMORY_BYTES = 10**10
+CLOUDTIK_DEFAULT_REDIS_MEMORY_MAX_BYTES = 2 * 1024 * 1024 * 1024  # 2GB
 # The smallest cap on the memory used by Redis that we allow.
-CLOUDTIK_REDIS_MINIMUM_MEMORY_BYTES = 10**7
+CLOUDTIK_DEFAULT_REDIS_MEMORY_MIN_BYTES = 16 * 1024 * 1024  # 16MB.
+# The default proportion of redis memory from available memory
+CLOUDTIK_DEFAULT_REDIS_MEMORY_PROPORTION = 0.02
 
 # The maximum resource quantity that is allowed. This could be relaxed
 CLOUDTIK_MAX_RESOURCE_QUANTITY = 100e12

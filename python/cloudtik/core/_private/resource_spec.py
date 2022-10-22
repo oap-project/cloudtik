@@ -97,13 +97,8 @@ class ResourceSpec(
 
         return resources
 
-    def resolve(self, is_head, node_ip_address=None):
+    def resolve(self, is_head: bool = False, available_memory: bool = True):
         """Returns a copy with values filled out with system defaults.
-
-        Args:
-            is_head (bool): Whether this is the head node.
-            node_ip_address (str): The IP address of the node that we are on.
-                This is used to automatically create a node id resource.
         """
 
         resources = (self.resources or {}).copy()
@@ -145,27 +140,30 @@ class ResourceSpec(
         redis_max_memory = self.redis_max_memory
         if redis_max_memory is None:
             redis_max_memory = min(
-                constants.CLOUDTIK_DEFAULT_REDIS_MAX_MEMORY_BYTES,
+                constants.CLOUDTIK_DEFAULT_REDIS_MEMORY_MAX_BYTES,
                 max(
-                    int(avail_memory * 0.1),
-                    constants.CLOUDTIK_REDIS_MINIMUM_MEMORY_BYTES))
-        if redis_max_memory < constants.CLOUDTIK_REDIS_MINIMUM_MEMORY_BYTES:
+                    int(avail_memory * constants.CLOUDTIK_DEFAULT_REDIS_MEMORY_PROPORTION),
+                    constants.CLOUDTIK_DEFAULT_REDIS_MEMORY_MIN_BYTES))
+        if redis_max_memory < constants.CLOUDTIK_DEFAULT_REDIS_MEMORY_MIN_BYTES:
             raise ValueError(
                 "Attempting to cap Redis memory usage at {} bytes, "
                 "but the minimum allowed is {} bytes.".format(
                     redis_max_memory,
-                    constants.CLOUDTIK_REDIS_MINIMUM_MEMORY_BYTES))
+                    constants.CLOUDTIK_DEFAULT_REDIS_MEMORY_MIN_BYTES))
 
         memory = self.memory
         if memory is None:
-            memory = (avail_memory - (redis_max_memory if is_head else 0))
-            if memory < 100e6 and memory < 0.05 * system_memory:
-                raise ValueError(
-                    "After taking into account redis memory "
-                    "usage, the amount of memory on this node available for "
-                    "tasks ({} GB) is less than {}% of total. ".format(
-                        round(memory / 1e9, 2),
-                        int(100 * (memory / system_memory))))
+            if not available_memory:
+                memory = system_memory
+            else:
+                memory = (avail_memory - (redis_max_memory if is_head else 0))
+                if memory < 100e6 and memory < 0.05 * system_memory:
+                    raise ValueError(
+                        "After taking into account redis memory "
+                        "usage, the amount of memory on this node available for "
+                        "tasks ({} GB) is less than {}% of total. ".format(
+                            round(memory / 1e9, 2),
+                            int(100 * (memory / system_memory))))
 
         spec = ResourceSpec(num_cpus, num_gpus, memory,
                             resources, redis_max_memory)

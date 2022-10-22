@@ -269,7 +269,7 @@ class NodeServicesStarter:
                 if num_gpus is None else num_gpus, self._start_params.memory
                 if memory is None else memory,
                 resources, self._start_params.redis_max_memory).resolve(
-                    is_head=self.head, node_ip_address=self.node_ip_address)
+                    is_head=self.head)
         return self._resource_spec
 
     @property

@@ -15,8 +15,8 @@ import warnings
 from cloudtik.core.command_executor import CommandExecutor
 from cloudtik.core._private.constants import \
     CLOUDTIK_NODE_SSH_INTERVAL_S, \
-    CLOUDTIK_DEFAULT_OBJECT_STORE_MAX_MEMORY_BYTES, \
-    CLOUDTIK_DEFAULT_OBJECT_STORE_MEMORY_PROPORTION, \
+    CLOUDTIK_DEFAULT_SHARED_MEMORY_MAX_BYTES, \
+    CLOUDTIK_DEFAULT_SHARED_MEMORY_PROPORTION, \
     CLOUDTIK_NODE_START_WAIT_S, \
     CLOUDTIK_DATA_DISK_MOUNT_POINT, PRIVACY_REPLACEMENT, PRIVACY_REPLACEMENT_TEMPLATE
 from cloudtik.core._private.docker import check_bind_mounts_cmd, \
@@ -1106,8 +1106,8 @@ class DockerCommandExecutor(CommandExecutor):
             available_memory_bytes = available_memory * 1024
             # Overestimate SHM size by 10%
             shm_size = int(min((available_memory_bytes *
-                            CLOUDTIK_DEFAULT_OBJECT_STORE_MEMORY_PROPORTION * 1.1),
-                           CLOUDTIK_DEFAULT_OBJECT_STORE_MAX_MEMORY_BYTES))
+                                CLOUDTIK_DEFAULT_SHARED_MEMORY_PROPORTION * 1.1),
+                               CLOUDTIK_DEFAULT_SHARED_MEMORY_MAX_BYTES))
             if shm_size <= 0:
                 return run_options
 

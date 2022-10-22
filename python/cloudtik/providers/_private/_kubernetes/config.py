@@ -19,7 +19,7 @@ from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_KIND
     CLOUDTIK_GLOBAL_VARIABLE_KEY, CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX
 from cloudtik.core.workspace_provider import Existence
 from cloudtik.providers._private._kubernetes import auth_api, core_api, log_prefix
-from cloudtik.core._private.constants import CLOUDTIK_DEFAULT_OBJECT_STORE_MEMORY_PROPORTION, CLOUDTIK_SSH_DEFAULT_PORT
+from cloudtik.core._private.constants import CLOUDTIK_DEFAULT_SHARED_MEMORY_PROPORTION, CLOUDTIK_SSH_DEFAULT_PORT
 from cloudtik.providers._private._kubernetes.utils import to_label_selector, \
     KUBERNETES_WORKSPACE_NAME_MAX, check_kubernetes_name_format, _get_head_service_account_name, \
     _get_worker_service_account_name, KUBERNETES_HEAD_SERVICE_ACCOUNT_CONFIG_KEY, \
@@ -566,7 +566,7 @@ def get_autodetected_resources(container_data):
     memory_limits = get_resource(container_resources, "memory")
     node_type_resources["memory"] = int(
         memory_limits *
-        (1 - CLOUDTIK_DEFAULT_OBJECT_STORE_MEMORY_PROPORTION))
+        (1 - CLOUDTIK_DEFAULT_SHARED_MEMORY_PROPORTION))
 
     return node_type_resources
 

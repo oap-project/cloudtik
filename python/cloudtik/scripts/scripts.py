@@ -1540,7 +1540,7 @@ def run_script(script, script_args):
     help="Show total memory in MB.")
 def resources(cpu, memory, in_mb):
     """Show system resource information"""
-    resource_spec = ResourceSpec().resolve(False)
+    resource_spec = ResourceSpec().resolve(is_head=False, available_memory=False)
     if cpu:
         click.echo(resource_spec.num_cpus)
     elif memory:

@@ -42,7 +42,8 @@ SPARK_EXECUTOR_OVERHEAD_RATIO = 0.1
 SPARK_YARN_WEB_API_PORT = 8088
 SPARK_HISTORY_SERVER_API_PORT = 18080
 
-RETRY_DELAY_S = 5
+YARN_REQUEST_REST_RETRY_DELAY_S = 5
+YARN_REQUEST_REST_RETRY_COUNT = 36
 
 
 def get_yarn_resource_memory_ratio(cluster_config: Dict[str, Any]):
@@ -422,7 +423,7 @@ def request_rest_yarn(
 
 
 def request_rest_yarn_with_retry(
-        config: Dict[str, Any], endpoint: str, retry=5):
+        config: Dict[str, Any], endpoint: str, retry=YARN_REQUEST_REST_RETRY_COUNT):
     while retry > 0:
         try:
             response = request_rest_yarn(config, endpoint)
@@ -430,8 +431,8 @@ def request_rest_yarn_with_retry(
         except Exception as e:
             retry = retry - 1
             if retry > 0:
-                cli_logger.warning(f"Error when requesting yarn api. Retrying in {RETRY_DELAY_S} seconds.")
-                time.sleep(RETRY_DELAY_S)
+                cli_logger.warning(f"Error when requesting yarn api. Retrying in {YARN_REQUEST_REST_RETRY_DELAY_S} seconds.")
+                time.sleep(YARN_REQUEST_REST_RETRY_DELAY_S)
             else:
                 cli_logger.error("Failed to request yarn api: {}", str(e))
                 raise e

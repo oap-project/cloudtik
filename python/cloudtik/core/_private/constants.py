@@ -69,7 +69,7 @@ CLOUDTIK_DEFAULT_SHARED_MEMORY_PROPORTION = 0.0
 
 # The default maximum number of bytes that the non-primary Redis shards are
 # allowed to use unless overridden by the user.
-CLOUDTIK_DEFAULT_REDIS_MEMORY_MAX_BYTES = 1024 * 1024 * 1024  # 1GB
+CLOUDTIK_DEFAULT_REDIS_MEMORY_MAX_BYTES = 2 * 1024 * 1024 * 1024  # 2GB
 # The smallest cap on the memory used by Redis that we allow.
 CLOUDTIK_DEFAULT_REDIS_MEMORY_MIN_BYTES = 16 * 1024 * 1024  # 16MB.
 # The default proportion of redis memory from available memory

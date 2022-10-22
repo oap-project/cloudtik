@@ -20,10 +20,6 @@
         <value>HEAD_ADDRESS</value>
     </property>
     <property>
-        <name>yarn.nodemanager.aux-services</name>
-        <value>mapreduce_shuffle</value>
-    </property>
-    <property>
         <name>yarn.resourcemanager.address</name>
         <value>HEAD_ADDRESS:8032</value>
     </property>
@@ -44,6 +40,22 @@
         <value>HEAD_ADDRESS:8088</value>
     </property>
     <property>
+        <name>yarn.resourcemanager.scheduler.class</name>
+        <value>{%yarn.resourcemanager.scheduler.class%}</value>
+    </property>
+    <property>
+        <name>yarn.scheduler.maximum-allocation-mb</name>
+        <value>{%yarn.scheduler.maximum-allocation-mb%}</value>
+    </property>
+    <property>
+        <name>yarn.scheduler.maximum-allocation-vcores</name>
+        <value>{%yarn.scheduler.maximum-allocation-vcores%}</value>
+    </property>
+    <property>
+        <name>yarn.nodemanager.aux-services</name>
+        <value>mapreduce_shuffle</value>
+    </property>
+    <property>
         <name>yarn.nodemanager.aux-services.mapreduce_shuffle.class</name>
         <value>org.apache.hadoop.mapred.ShuffleHandler</value>
     </property>
@@ -56,23 +68,11 @@
         <value>{%yarn.nodemanager.resource.cpu-vcores%}</value>
     </property>
     <property>
-        <name>yarn.scheduler.maximum-allocation-mb</name>
-        <value>{%yarn.scheduler.maximum-allocation-mb%}</value>
-    </property>
-    <property>
-        <name>yarn.scheduler.maximum-allocation-vcores</name>
-        <value>{%yarn.scheduler.maximum-allocation-vcores%}</value>
-    </property>
-    <property>
         <name>yarn.nodemanager.local-dirs</name>
         <value>{%yarn.nodemanager.local-dirs%}</value>
     </property>
     <property>
         <name>yarn.nodemanager.vmem-check-enabled</name>
         <value>false</value>
-    </property>
-    <property>
-        <name>yarn.resourcemanager.scheduler.class</name>
-        <value>org.apache.hadoop.yarn.server.resourcemanager.scheduler.capacity.CapacityScheduler</value>
     </property>
 </configuration>

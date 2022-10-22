@@ -242,6 +242,11 @@ def _with_runtime_environment_variables(runtime_config, config, provider, node_i
     if yarn_resource_memory_ratio:
         runtime_envs["YARN_RESOURCE_MEMORY_RATIO"] = yarn_resource_memory_ratio
 
+    # export yarn scheduler
+    yarn_scheduler = flink_config.get("yarn_scheduler")
+    if yarn_scheduler:
+        runtime_envs["YARN_SCHEDULER"] = yarn_scheduler
+
     # 1) Try to use local hdfs first;
     # 2) Try to use defined hdfs_namenode_uri;
     # 3) Try to use provider storage;

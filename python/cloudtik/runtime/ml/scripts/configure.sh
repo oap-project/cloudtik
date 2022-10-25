@@ -29,11 +29,11 @@ do
 done
 
 function prepare_base_conf() {
-    source_dir=$(cd $(dirname ${BASH_SOURCE[0]})/..;pwd)/conf
     output_dir=/tmp/ml/conf
     rm -rf  $output_dir
     mkdir -p $output_dir
-    cp -r $source_dir/* $output_dir
+    # source_dir=$(cd $(dirname ${BASH_SOURCE[0]})/..;pwd)/conf
+    # cp -r $source_dir/* $output_dir
 }
 
 function set_head_address() {
@@ -54,8 +54,8 @@ function set_head_address() {
 
 function configure_ml() {
     # Do necessary configurations for Machine Learning
-    # prepare_base_conf
-    # cd $output_dir
+    prepare_base_conf
+    cd $output_dir
 }
 
 set_head_address

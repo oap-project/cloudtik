@@ -63,7 +63,8 @@ cloudtik_files += [
 
 setup_spec.extras = {
     "aws": [
-        "boto3==1.22.13",
+        "boto3==1.24.59",
+        "s3fs==2022.10.0",
         "botocore",
     ],
     "azure": [

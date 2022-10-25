@@ -260,7 +260,7 @@ function update_config_for_storage() {
 
 function update_yarn_config() {
     yarn_scheduler_class="org.apache.hadoop.yarn.server.resourcemanager.scheduler.capacity.CapacityScheduler"
-    if [ ${YARN_SCHEDULER} == "fair" ];then
+    if [ "${YARN_SCHEDULER}" == "fair" ];then
         yarn_scheduler_class="org.apache.hadoop.yarn.server.resourcemanager.scheduler.fair.FairScheduler"
     fi
     sed -i "s/{%yarn.resourcemanager.scheduler.class%}/${yarn_scheduler_class}/g" `grep "{%yarn.resourcemanager.scheduler.class%}" -rl ./`

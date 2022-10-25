@@ -160,7 +160,7 @@ if [ $BUILD_TRINO ] || [ $BUILD_ALL ]; then
 fi
 
 if [ $BUILD_ML ] || [ $BUILD_ALL ]; then
-    docker build $NO_CACHE -t cloudtik/ml-runtime:nightly docker/runtime/ml
+    docker build $NO_CACHE -t cloudtik/spark-ml-runtime:nightly docker/runtime/ml
 fi
 
 if [ $BUILD_SPARK_BENCHMARK ] || [ $BUILD_ALL ]; then

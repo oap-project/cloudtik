@@ -200,3 +200,6 @@ hvd_keras_model = hvd.KerasModel(model=loaded_model,
 
 pred_df = hvd_keras_model.transform(test_df)
 pred_df.show(10)
+
+# Clean up
+spark.stop()

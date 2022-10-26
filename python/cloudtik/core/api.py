@@ -5,7 +5,7 @@ import os
 
 from cloudtik.core._private.call_context import CallContext
 from cloudtik.core._private.cluster.cluster_config import _bootstrap_config, _load_cluster_config
-from cloudtik.core._private.utils import verify_runtime_list
+from cloudtik.core._private.utils import verify_runtime_list, load_head_cluster_config
 from cloudtik.core._private.workspace import workspace_operator
 from cloudtik.core._private.cluster import cluster_operator
 from cloudtik.core._private.event_system import (
@@ -128,6 +128,7 @@ class Cluster:
              node_ip: str = None,
              all_nodes: bool = False,
              run_env: str = "auto",
+             screen: bool = False,
              tmux: bool = False,
              stop: bool = False,
              start: bool = False,
@@ -147,6 +148,7 @@ class Cluster:
             all_nodes (bool): whether to run the command on all nodes
             run_env (str): whether to run the command on the host or in a
                 container. Select between "auto", "host" and "docker".
+            screen (bool): whether to run in a screen session
             tmux (bool): whether to run in a tmux session
             stop (bool): whether to stop the cluster after command run
             start (bool): whether to start the cluster if not started
@@ -168,7 +170,7 @@ class Cluster:
             all_nodes=all_nodes,
             cmd=cmd,
             run_env=run_env,
-            screen=False,
+            screen=screen,
             tmux=tmux,
             stop=stop,
             start=start,
@@ -185,6 +187,7 @@ class Cluster:
     def submit(self,
                script_file: str,
                script_args: Optional[List[str]] = None,
+               screen: bool = False,
                tmux: bool = False,
                stop: bool = False,
                start: bool = False,
@@ -200,6 +203,7 @@ class Cluster:
         Args:
             script_file (str): The script file to submit and run.
             script_args (list): An array of arguments for the script file.
+            screen (bool): whether to run in a screen session
             tmux (bool): whether to run in a tmux session
             stop (bool): whether to stop the cluster after command run
             start (bool): whether to start the cluster if not started
@@ -218,6 +222,7 @@ class Cluster:
             call_context=self.call_context,
             script=script_file,
             script_args=script_args,
+            screen=screen,
             tmux=tmux,
             stop=stop,
             start=start,
@@ -287,14 +292,6 @@ class Cluster:
             bundles (List[ResourceDict]): Scale the cluster to ensure this set of
                 resource shapes can fit. This request is persistent until another
                 call to request_resources() is made to override.
-
-        Examples:
-            >>> # Request 1000 CPUs.
-            >>> scale(num_cpus=1000)
-            >>> # Request 64 CPUs and also fit a 1-GPU/4-CPU task.
-            >>> scale(num_cpus=64, bundles=[{"GPU": 1, "CPU": 4}])
-            >>> # Same as requesting num_cpus=3.
-            >>> scale(bundles=[{"CPU": 1}, {"CPU": 1}, {"CPU": 1}])
         """
         return cluster_operator._scale_cluster(
             config=self.config,
@@ -405,6 +402,7 @@ class Cluster:
             timeout (int): The maximum time to wait
         """
         return cluster_operator._wait_for_ready(config=self.config,
+                                                call_context=self.call_context,
                                                 min_workers=min_workers,
                                                 timeout=timeout)
 
@@ -422,6 +420,216 @@ class Cluster:
         """
         cluster_uri = utils.get_cluster_uri(self.config)
         global_event_system.add_callback_handler(cluster_uri, event_name, callback)
+
+
+class ThisCluster:
+    def __init__(self) -> None:
+        """Create a cluster object to operate on from head with this API."""
+        self.config = load_head_cluster_config()
+
+        # TODO: Each call may need its own call context
+        self.call_context = CallContext()
+        self.call_context.set_call_from_api(True)
+
+    def exec(self,
+             cmd: str,
+             *,
+             node_ip: str = None,
+             all_nodes: bool = False,
+             run_env: str = "auto",
+             screen: bool = False,
+             tmux: bool = False,
+             wait_for_workers: bool = False,
+             min_workers: Optional[int] = None,
+             wait_timeout: Optional[int] = None,
+             port_forward: Optional[cluster_operator.Port_forward] = None,
+             with_output: bool = False,
+             parallel: bool = True,
+             job_waiter: Optional[str] = None) -> Optional[str]:
+        """Runs a command on the specified cluster.
+
+        Args:
+            cmd (str): the command to run
+            node_ip (str): node ip on which to run the command
+            all_nodes (bool): whether to run the command on all nodes
+            run_env (str): whether to run the command on the host or in a
+                container. Select between "auto", "host" and "docker".
+            screen (bool): whether to run in a screen session
+            tmux (bool): whether to run in a tmux session
+            wait_for_workers (bool): whether wait for minimum number of ready workers
+            min_workers (int): The number of workers to wait for ready
+            wait_timeout (int): The timeout for wait for ready
+            port_forward ( (int,int) or list[(int,int)]): port(s) to forward.
+            with_output (bool): Whether to capture command output.
+            parallel (bool): Whether to run the commands on nodes in parallel.
+            job_waiter (str): The job waiter to use for waiting an async job to complete.
+        Returns:
+            The output of the command as a string.
+        """
+        return cluster_operator._exec_node_on_head(
+            config=self.config,
+            call_context=self.call_context,
+            node_ip=node_ip,
+            all_nodes=all_nodes,
+            cmd=cmd,
+            run_env=run_env,
+            screen=screen,
+            tmux=tmux,
+            wait_for_workers=wait_for_workers,
+            min_workers=min_workers,
+            wait_timeout=wait_timeout,
+            port_forward=port_forward,
+            with_output=with_output,
+            parallel=parallel,
+            job_waiter_name=job_waiter)
+
+    def rsync(self,
+              *,
+              source: Optional[str],
+              target: Optional[str],
+              down: bool,
+              node_ip: str = None,
+              all_nodes: bool = False,
+              use_internal_ip: bool = False):
+        """Rsyncs files to or from the cluster.
+
+        Args:
+            source (str): rsync source argument.
+            target (str): rsync target argument.
+            down (bool): whether we're syncing remote -> local.
+            node_ip (str): Address of node to rsync
+            all_nodes (bool): For rsync-up, whether to rsync uup to all nodes
+            use_internal_ip (bool): Whether the provided ip_address is
+                public or private.
+
+        Raises:
+            RuntimeError if the cluster head node is not found.
+        """
+        return cluster_operator._rsync(
+            config=self.config,
+            call_context=self.call_context,
+            source=source,
+            target=target,
+            down=down,
+            node_ip=node_ip,
+            all_nodes=all_nodes,
+            use_internal_ip=use_internal_ip)
+
+    def scale(self, num_cpus: Optional[int] = None, workers: Optional[int] = None,
+              bundles: Optional[List[dict]] = None) -> None:
+        """Reqeust to scale to accommodate the specified requests."""
+        return cluster_operator._scale_cluster_on_head(
+            config=self.config,
+            call_context=self.call_context,
+            cpus=num_cpus,
+            workers=workers)
+
+    def start_node(self,
+                   node_ip: str = None,
+                   all_nodes: bool = False,
+                   runtimes: Optional[List[str]] = None,
+                   parallel: bool = True) -> None:
+        """Start services on a node.
+        Args:
+            node_ip (str): The node_ip to run on
+            all_nodes (bool): Run on all nodes
+            runtimes (Optional[List[str]]): Optional list of runtime services to start
+            parallel (bool): Run the command in parallel if there are more than one node
+        """
+        verify_runtime_list(self.config, runtimes)
+        return cluster_operator._start_node_on_head(
+            config=self.config,
+            call_context=self.call_context,
+            node_ip=node_ip,
+            all_nodes=all_nodes,
+            runtimes=runtimes,
+            parallel=parallel
+            )
+
+    def stop_node(self,
+                  node_ip: str = None,
+                  all_nodes: bool = False,
+                  runtimes: Optional[List[str]] = None,
+                  parallel: bool = True) -> None:
+        """Run stop commands on a node.
+        Args:
+            node_ip (str): The node_ip to run on
+            all_nodes(bool): Stop on all nodes
+            runtimes (Optional[List[str]]): Optional list of runtime services to start
+            parallel (bool): Run the command in parallel if there are more than one node
+        """
+        verify_runtime_list(self.config, runtimes)
+        return cluster_operator._stop_node_on_head(
+            config=self.config,
+            call_context=self.call_context,
+            node_ip=node_ip,
+            all_nodes=all_nodes,
+            runtimes=runtimes,
+            parallel=parallel
+            )
+
+    def kill_node(self,
+                  node_ip: str = None,
+                  hard: bool = False) -> str:
+        """Kill a node or a random node
+        Args:
+            node_ip (str): The node_ip to run on
+            hard(bool): Terminate the node by force
+        """
+        return cluster_operator._kill_node(
+            config=self.config,
+            call_context=self.call_context,
+            node_ip=node_ip,
+            hard=hard)
+
+    def get_head_node_ip(self, public: bool = False) -> str:
+        """Returns head node IP for given configuration file if exists.
+        Args:
+            public (bool): Whether to return the public ip if there is one
+        Returns:
+            The ip address of the cluster head node.
+
+        Raises:
+            RuntimeError if the cluster is not found.
+        """
+        return cluster_operator._get_head_node_ip(config=self.config, public=public)
+
+    def get_worker_node_ips(self,
+                            runtime: str = None) -> List[str]:
+        """Returns worker node IPs for given configuration file.
+        Returns:
+            List of worker node ip addresses.
+
+        Raises:
+            RuntimeError if the cluster is not found.
+        """
+        return cluster_operator._get_worker_node_ips(config=self.config, runtime=runtime)
+
+    def get_nodes(self) -> List[Dict[str, Any]]:
+        """Returns a list of info for each cluster node
+        Returns:
+            A list of Dict object for each node with the information
+        """
+        return cluster_operator._get_cluster_nodes_info(config=self.config)
+
+    def get_info(self) -> Dict[str, Any]:
+        """Returns the general information of the cluster
+        Returns:
+            A Dict object for cluster properties
+        """
+        return cluster_operator._get_cluster_info(config=self.config)
+
+    def wait_for_ready(self, min_workers: int = None,
+                       timeout: int = None) -> None:
+        """Wait for to the min_workers to be ready.
+        Args:
+            min_workers (int): If min_workers is not specified, the min_workers of cluster will be used.
+            timeout (int): The maximum time to wait
+        """
+        return cluster_operator._wait_for_ready(config=self.config,
+                                                call_context=self.call_context,
+                                                min_workers=min_workers,
+                                                timeout=timeout)
 
 
 def configure_logging(log_style: Optional[str] = None,

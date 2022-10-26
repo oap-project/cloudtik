@@ -494,7 +494,7 @@ def teardown_cluster_nodes(config: Dict[str, Any],
                     "Stopping services for worker nodes...",
                     _numbered=("()", current_step, total_steps)):
                 current_step += 1
-                _stop_node_on_head(
+                _do_stop_node_on_head(
                     config=config,
                     call_context=call_context,
                     provider=provider,
@@ -625,7 +625,7 @@ def _kill_node_from_head(config: Dict[str, Any],
         node_ip = get_node_cluster_ip(provider, node)
 
     if hard:
-        return _kill_node(config, node_ip=node_ip, hard=hard)
+        return _kill_node(config, call_context=call_context, node_ip=node_ip, hard=hard)
 
     # soft kill, we need to do on head
     cmds = [
@@ -645,42 +645,45 @@ def _kill_node_from_head(config: Dict[str, Any],
 def kill_node_on_head(yes, hard, node_ip: str = None):
     # Since this is running on head, the bootstrap config must exist
     config = load_head_cluster_config()
-
+    call_context = cli_call_context()
     if not yes:
         if node_ip:
             cli_logger.confirm(yes, "Node {} will be killed.", node_ip, _abort=True)
         else:
             cli_logger.confirm(yes, "A random node will be killed.", _abort=True)
 
-    return _kill_node(config, node_ip=node_ip, hard=hard)
+    return _kill_node(config, call_context=call_context, node_ip=node_ip, hard=hard)
 
 
 def _kill_node(config: Dict[str, Any],
+               call_context: CallContext,
                hard: bool,
                node_ip: str = None):
     provider = _get_node_provider(config["provider"], config["cluster_name"])
-
+    _cli_logger = call_context.cli_logger
     if node_ip:
         node = provider.get_node_id(node_ip, use_internal_ip=True)
         if not node:
-            cli_logger.error("No node with the specified node ip - {} found.", node_ip)
+            _cli_logger.error("No node with the specified node ip - {} found.", node_ip)
             return None
     else:
         nodes = provider.non_terminated_nodes({
             CLOUDTIK_TAG_NODE_KIND: NODE_KIND_WORKER
         })
         if not nodes:
-            cli_logger.print("No worker nodes found.")
+            _cli_logger.print("No worker nodes found.")
             return None
         node = random.choice(nodes)
         node_ip = get_node_cluster_ip(provider, node)
 
     if not hard:
         # execute runtime stop command
-        stop_node_on_head(node_ip=node_ip, all_nodes=False, yes=True)
+        stop_node_on_head(
+            config, call_context=call_context,
+            node_ip=node_ip, all_nodes=False, yes=True)
 
     # terminate the node
-    cli_logger.print("Shutdown " + cf.bold("{}:{}"), node, node_ip)
+    _cli_logger.print("Shutdown " + cf.bold("{}:{}"), node, node_ip)
     provider.terminate_node(node)
     time.sleep(POLL_INTERVAL)
 
@@ -1330,14 +1333,13 @@ def rsync_to_node_from_head(config: Dict[str, Any],
                          cmd=final_cmd)
 
 
-def rsync_node_on_head(source: str,
+def rsync_node_on_head(config: Dict[str, Any],
+                       call_context: CallContext,
+                       source: str,
                        target: str,
                        down: bool,
                        node_ip: str = None,
                        all_workers: bool = False):
-    # Since this is running on head, the bootstrap config must exist
-    config = load_head_cluster_config()
-    call_context = cli_call_context()
     provider = _get_node_provider(config["provider"], config["cluster_name"])
 
     is_file_mount = False
@@ -2268,6 +2270,9 @@ def exec_on_nodes(
             run_env=run_env,
             screen=screen,
             tmux=tmux,
+            wait_for_workers=wait_for_workers,
+            min_workers=min_workers,
+            wait_timeout=wait_timeout,
             port_forward=port_forward,
             with_output=with_output,
             parallel=parallel,
@@ -2282,6 +2287,9 @@ def _exec_node_from_head(config: Dict[str, Any],
                          run_env: str = "auto",
                          screen: bool = False,
                          tmux: bool = False,
+                         wait_for_workers: bool = False,
+                         min_workers: Optional[int] = None,
+                         wait_timeout: Optional[int] = None,
                          port_forward: Optional[Port_forward] = None,
                          with_output: bool = False,
                          parallel: bool = True,
@@ -2306,6 +2314,12 @@ def _exec_node_from_head(config: Dict[str, Any],
         cmds += ["--screen"]
     if tmux:
         cmds += ["--tmux"]
+    if wait_for_workers:
+        cmds += ["--wait-for-workers"]
+        if min_workers:
+            cmds += ["--min-workers={}".format(min_workers)]
+        if wait_timeout:
+            cmds += ["--wait-timeout={}".format(wait_timeout)]
     if parallel:
         cmds += ["--parallel"]
     else:
@@ -2477,21 +2491,30 @@ def attach_node_on_head(node_ip: str,
         port_forward=port_forward)
 
 
-def exec_node_on_head(
+def _exec_node_on_head(
+        config: Dict[str, Any],
+        call_context: CallContext,
         node_ip: str,
         all_nodes: bool = False,
         cmd: str = None,
         run_env: str = "auto",
         screen: bool = False,
         tmux: bool = False,
+        wait_for_workers: bool = False,
+        min_workers: Optional[int] = None,
+        wait_timeout: Optional[int] = None,
         port_forward: Optional[Port_forward] = None,
         with_output: bool = False,
         parallel: bool = True,
         job_waiter_name: Optional[str] = None):
-    config = load_head_cluster_config()
-    call_context = cli_call_context()
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     head_node = _get_running_head_node(config, _provider=provider)
+
+    # wait for workers if needed
+    if wait_for_workers:
+        _wait_for_ready(
+            config=config, call_context=call_context,
+            min_workers=min_workers, timeout=wait_timeout)
 
     node_head, node_workers = get_nodes_of(
         config, provider=provider, head_node=head_node,
@@ -2534,19 +2557,36 @@ def start_node_on_head(node_ip: str = None,
     # Since this is running on head, the bootstrap config must exist
     config = load_head_cluster_config()
     call_context = cli_call_context()
-    provider = _get_node_provider(config["provider"], config["cluster_name"])
-    runtime_list = get_verified_runtime_list(config, runtimes) if runtimes else None
 
     if not yes:
         cli_logger.confirm(yes, "Are you sure that you want to perform the start operation?", _abort=True)
         cli_logger.newline()
+
+    _start_node_on_head(
+        config=config,
+        call_context=call_context,
+        node_ip=node_ip,
+        all_nodes=all_nodes,
+        runtimes=runtimes,
+        parallel=parallel
+    )
+
+
+def _start_node_on_head(config: Dict[str, Any],
+                        call_context: CallContext,
+                        node_ip: str = None,
+                        all_nodes: bool = False,
+                        runtimes: str = None,
+                        parallel: bool = True):
+    provider = _get_node_provider(config["provider"], config["cluster_name"])
+    runtime_list = get_verified_runtime_list(config, runtimes) if runtimes else None
 
     head_node = _get_running_head_node(config, _provider=provider)
     node_head, node_workers = get_nodes_of(
         config, provider=provider, head_node=head_node,
         node_ip=node_ip, all_nodes=all_nodes)
 
-    _start_node_on_head(
+    _do_start_node_on_head(
         config=config,
         call_context=call_context,
         provider=provider,
@@ -2558,7 +2598,7 @@ def start_node_on_head(node_ip: str = None,
     )
 
 
-def _start_node_on_head(
+def _do_start_node_on_head(
         config: Dict[str, Any],
         call_context: CallContext,
         provider: NodeProvider,
@@ -2790,23 +2830,38 @@ def stop_node_on_head(node_ip: str = None,
                       runtimes: Optional[str] = None,
                       parallel: bool = True,
                       yes: bool = False):
-    # Since this is running on head, the bootstrap config must exist
     config = load_head_cluster_config()
     call_context = cli_call_context()
-    provider = _get_node_provider(config["provider"], config["cluster_name"])
-    runtime_list = get_verified_runtime_list(config, runtimes) if runtimes else None
-
     if not yes:
         cli_logger.confirm(yes, "Are you sure that you want to perform the stop operation?", _abort=True)
         cli_logger.newline()
 
+    _stop_node_on_head(
+        config=config,
+        call_context=call_context,
+        node_ip=node_ip,
+        all_nodes=all_nodes,
+        runtimes=runtimes,
+        parallel=parallel
+    )
+
+
+def _stop_node_on_head(config: Dict[str, Any],
+                       call_context: CallContext,
+                       node_ip: str = None,
+                       all_nodes: bool = False,
+                       runtimes: Optional[str] = None,
+                       parallel: bool = True):
+    # Since this is running on head, the bootstrap config must exist
+    provider = _get_node_provider(config["provider"], config["cluster_name"])
+    runtime_list = get_verified_runtime_list(config, runtimes) if runtimes else None
     head_node = _get_running_head_node(config, _provider=provider,
                                        _allow_uninitialized_state=True)
     node_head, node_workers = get_nodes_of(
         config, provider=provider, head_node=head_node,
         node_ip=node_ip, all_nodes=all_nodes)
 
-    _stop_node_on_head(
+    _do_stop_node_on_head(
         config=config,
         call_context=call_context,
         provider=provider,
@@ -2818,7 +2873,7 @@ def stop_node_on_head(node_ip: str = None,
     )
 
 
-def _stop_node_on_head(
+def _do_stop_node_on_head(
         config: Dict[str, Any],
         call_context: CallContext,
         provider: NodeProvider,
@@ -2950,16 +3005,28 @@ def scale_cluster_from_head(config: Dict[str, Any],
 
 
 def scale_cluster_on_head(yes: bool, cpus: int, workers: int):
-    assert not (cpus and workers), "Can specify only one of `cpus` or `workers`."
-    assert (cpus or workers), "Need specify either `cpus` or `workers`."
-
     config = load_head_cluster_config()
-
+    call_context = cli_call_context()
     if not yes:
         resource_string = f"{cpus} worker CPUs" if cpus else f"{workers} workers"
         cli_logger.confirm(yes, "Are you sure that you want to scale cluster {} to {}?",
                            config["cluster_name"], resource_string, _abort=True)
         cli_logger.newline()
+
+    _scale_cluster_on_head(
+        config=config,
+        call_context=call_context,
+        cpus=cpus,
+        workers=workers
+    )
+
+
+def _scale_cluster_on_head(config: Dict[str, Any],
+                           call_context: CallContext,
+                           cpus: int,
+                           workers: int):
+    assert not (cpus and workers), "Can specify only one of `cpus` or `workers`."
+    assert (cpus or workers), "Need specify either `cpus` or `workers`."
 
     # Calculate nodes request to the number of cpus
     if workers:
@@ -2968,15 +3035,12 @@ def scale_cluster_on_head(yes: bool, cpus: int, workers: int):
 
         cpus = convert_nodes_to_cpus(config, workers)
         if cpus == 0:
-            cli_logger.abort("Unknown to convert number of workers to number of CPUs.")
+            raise RuntimeError("Unknown to convert number of workers to number of CPUs.")
 
-    try:
-        address = services.get_address_to_use_or_die()
-        kv_initialize_with_address(address, CLOUDTIK_REDIS_DEFAULT_PASSWORD)
+    address = services.get_address_to_use_or_die()
+    kv_initialize_with_address(address, CLOUDTIK_REDIS_DEFAULT_PASSWORD)
 
-        request_resources(num_cpus=cpus, config=config)
-    except Exception as e:
-        cli_logger.abort("Error happened when making the scale cluster request.", exc=e)
+    request_resources(num_cpus=cpus, config=config)
 
 
 def _start_cluster_and_wait_for_workers(
@@ -3012,7 +3076,9 @@ def _start_cluster_and_wait_for_workers(
             raise RuntimeError("Cluster {} is not running.".format(config["cluster_name"]))
 
     if wait_for_workers:
-        _wait_for_ready(config, min_workers, wait_timeout)
+        _wait_for_ready(
+            config=config, call_context=call_context,
+            min_workers=min_workers, timeout=wait_timeout)
 
 
 def submit_and_exec(config: Dict[str, Any],
@@ -3136,6 +3202,7 @@ def _get_workers_ready(config: Dict[str, Any], provider):
 
 
 def _wait_for_ready(config: Dict[str, Any],
+                    call_context: CallContext,
                     min_workers: int = None,
                     timeout: int = None) -> None:
     if min_workers is None:
@@ -3156,7 +3223,7 @@ def _wait_for_ready(config: Dict[str, Any],
         if workers_ready >= min_workers:
             return
         else:
-            cli_logger.print("Waiting for workers to be ready: {}/{} ({} seconds)...", workers_ready, min_workers, interval)
+            call_context.cli_logger.print("Waiting for workers to be ready: {}/{} ({} seconds)...", workers_ready, min_workers, interval)
             time.sleep(interval)
     raise TimeoutError("Timed out while waiting for workers to be ready: {}/{}".format(workers_ready, min_workers))
 

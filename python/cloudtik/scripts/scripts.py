@@ -1208,7 +1208,8 @@ def wait_for_ready(cluster_config_file, cluster_name, no_config_cache,
     """Wait for the minimum number of workers to be ready."""
     config = _load_cluster_config(cluster_config_file, cluster_name,
                                   no_config_cache=no_config_cache)
-    _wait_for_ready(config, min_workers, timeout)
+    call_context = cli_call_context()
+    _wait_for_ready(config, call_context, min_workers, timeout)
 
 
 @cli.command()

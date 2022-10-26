@@ -11,10 +11,10 @@ from cloudtik.core._private.cli_logger import (add_click_logging_options,
 from cloudtik.core._private.cluster.cluster_operator import (
     debug_status_string, get_cluster_dump_archive_on_head,
     RUN_ENV_TYPES, teardown_cluster_on_head, cluster_process_status_on_head, rsync_node_on_head, attach_node_on_head,
-    exec_node_on_head,
     start_node_on_head, stop_node_on_head, kill_node_on_head, scale_cluster_on_head,
     _wait_for_ready, _get_worker_node_ips, _get_head_node_ip,
-    _show_cluster_status, _monitor_cluster, _show_cluster_info, _show_worker_cpus, _show_worker_memory)
+    _show_cluster_status, _monitor_cluster, _show_cluster_info, _show_worker_cpus, _show_worker_memory,
+    cli_call_context, _exec_node_on_head)
 from cloudtik.core._private.constants import CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
     CLOUDTIK_KV_NAMESPACE_HEALTHCHECK
 from cloudtik.core._private.state import kv_store
@@ -95,6 +95,21 @@ def attach(node_ip, screen, tmux, new, port_forward, host):
 @click.option(
     "--tmux", is_flag=True, default=False, help="Run the command in tmux.")
 @click.option(
+    "--wait-for-workers",
+    is_flag=True,
+    default=False,
+    help="Whether wait for minimum number of workers to be ready.")
+@click.option(
+    "--min-workers",
+    required=False,
+    type=int,
+    help="The minimum number of workers to wait for ready.")
+@click.option(
+    "--wait-timeout",
+    required=False,
+    type=int,
+    help="The timeout seconds to wait for ready.")
+@click.option(
     "--port-forward",
     "-p",
     required=False,
@@ -114,17 +129,27 @@ def attach(node_ip, screen, tmux, new, port_forward, host):
     type=str,
     help="The job waiter to be used to check the completion of the job.")
 @add_click_logging_options
-def exec(cmd, node_ip, all_nodes, run_env, screen, tmux, port_forward, with_output, parallel, job_waiter):
+def exec(cmd, node_ip, all_nodes, run_env, screen, tmux,
+         wait_for_workers, min_workers, wait_timeout,
+         port_forward, with_output, parallel, job_waiter):
     """Execute command on the worker node from head."""
     port_forward = [(port, port) for port in list(port_forward)]
-    exec_node_on_head(
-        node_ip,
-        all_nodes,
-        cmd,
-        run_env,
-        screen,
-        tmux,
-        port_forward,
+    config = load_head_cluster_config()
+    call_context = cli_call_context()
+
+    _exec_node_on_head(
+        config=config,
+        call_context=call_context,
+        node_ip=node_ip,
+        all_nodes=all_nodes,
+        cmd=cmd,
+        run_env=run_env,
+        screen=screen,
+        tmux=tmux,
+        wait_for_workers=wait_for_workers,
+        min_workers=min_workers,
+        wait_timeout=wait_timeout,
+        port_forward=port_forward,
         with_output=with_output,
         parallel=parallel,
         job_waiter_name=job_waiter)
@@ -171,7 +196,11 @@ def scale(yes, cpus, workers):
 @add_click_logging_options
 def rsync_up(source, target, node_ip, all_workers):
     """Rsync up specific file from or to the worker node."""
+    config = load_head_cluster_config()
+    call_context = cli_call_context()
     rsync_node_on_head(
+        config,
+        call_context,
         source,
         target,
         down=False,
@@ -191,7 +220,11 @@ def rsync_up(source, target, node_ip, all_workers):
 @add_click_logging_options
 def rsync_down(source, target, node_ip):
     """Rsync down specific file from or to the worker node."""
+    config = load_head_cluster_config()
+    call_context = cli_call_context()
     rsync_node_on_head(
+        config,
+        call_context,
         source,
         target,
         down=True,
@@ -380,7 +413,8 @@ def kill_node(yes, hard, node_ip, indent_level):
 def wait_for_ready(min_workers, timeout):
     """Wait for the minimum number of workers to be ready."""
     config = load_head_cluster_config()
-    _wait_for_ready(config, min_workers, timeout)
+    call_context = cli_call_context()
+    _wait_for_ready(config, call_context, min_workers, timeout)
 
 
 @head.command()
@@ -726,6 +760,7 @@ head.add_command(monitor)
 
 head.add_command(teardown)
 head.add_command(kill_node)
+head.add_command(wait_for_ready)
 
 # runtime commands
 head.add_command(runtime)

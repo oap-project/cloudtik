@@ -22,7 +22,7 @@ http://<head_IP>:5001
 ```
 If the MLflow Server have started, you can see the below UI.
 
-![MLflowUI](./images/MLflowUI.png)
+![MLflowUI](images/MLflowUI.png)
 
 
 

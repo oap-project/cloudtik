@@ -1333,14 +1333,13 @@ def rsync_to_node_from_head(config: Dict[str, Any],
                          cmd=final_cmd)
 
 
-def rsync_node_on_head(source: str,
+def rsync_node_on_head(config: Dict[str, Any],
+                       call_context: CallContext,
+                       source: str,
                        target: str,
                        down: bool,
                        node_ip: str = None,
                        all_workers: bool = False):
-    # Since this is running on head, the bootstrap config must exist
-    config = load_head_cluster_config()
-    call_context = cli_call_context()
     provider = _get_node_provider(config["provider"], config["cluster_name"])
 
     is_file_mount = False
@@ -3007,7 +3006,7 @@ def scale_cluster_from_head(config: Dict[str, Any],
 
 def scale_cluster_on_head(yes: bool, cpus: int, workers: int):
     config = load_head_cluster_config()
-
+    call_context = cli_call_context()
     if not yes:
         resource_string = f"{cpus} worker CPUs" if cpus else f"{workers} workers"
         cli_logger.confirm(yes, "Are you sure that you want to scale cluster {} to {}?",
@@ -3016,6 +3015,7 @@ def scale_cluster_on_head(yes: bool, cpus: int, workers: int):
 
     _scale_cluster_on_head(
         config=config,
+        call_context=call_context,
         cpus=cpus,
         workers=workers
     )

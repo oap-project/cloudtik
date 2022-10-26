@@ -250,7 +250,7 @@ class Cluster:
             target (str): rsync target argument.
             down (bool): whether we're syncing remote -> local.
             node_ip (str): Address of node to rsync
-            all_nodes (bool): For rsync-up, whether to rsync uup to all nodes
+            all_nodes (bool): For rsync-up, whether to rsync up to all nodes
             use_internal_ip (bool): Whether the provided ip_address is
                 public or private.
 
@@ -489,8 +489,7 @@ class ThisCluster:
               target: Optional[str],
               down: bool,
               node_ip: str = None,
-              all_nodes: bool = False,
-              use_internal_ip: bool = False):
+              all_workers: bool = False):
         """Rsyncs files to or from the cluster.
 
         Args:
@@ -498,22 +497,18 @@ class ThisCluster:
             target (str): rsync target argument.
             down (bool): whether we're syncing remote -> local.
             node_ip (str): Address of node to rsync
-            all_nodes (bool): For rsync-up, whether to rsync uup to all nodes
-            use_internal_ip (bool): Whether the provided ip_address is
-                public or private.
-
+            all_workers (bool): For rsync-up, whether to rsync up to all workers
         Raises:
             RuntimeError if the cluster head node is not found.
         """
-        return cluster_operator._rsync(
+        return cluster_operator.rsync_node_on_head(
             config=self.config,
             call_context=self.call_context,
             source=source,
             target=target,
             down=down,
             node_ip=node_ip,
-            all_nodes=all_nodes,
-            use_internal_ip=use_internal_ip)
+            all_workers=all_workers)
 
     def scale(self, num_cpus: Optional[int] = None, workers: Optional[int] = None,
               bundles: Optional[List[dict]] = None) -> None:

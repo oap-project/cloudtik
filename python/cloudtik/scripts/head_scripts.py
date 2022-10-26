@@ -196,7 +196,11 @@ def scale(yes, cpus, workers):
 @add_click_logging_options
 def rsync_up(source, target, node_ip, all_workers):
     """Rsync up specific file from or to the worker node."""
+    config = load_head_cluster_config()
+    call_context = cli_call_context()
     rsync_node_on_head(
+        config,
+        call_context,
         source,
         target,
         down=False,
@@ -216,7 +220,11 @@ def rsync_up(source, target, node_ip, all_workers):
 @add_click_logging_options
 def rsync_down(source, target, node_ip):
     """Rsync down specific file from or to the worker node."""
+    config = load_head_cluster_config()
+    call_context = cli_call_context()
     rsync_node_on_head(
+        config,
+        call_context,
         source,
         target,
         down=True,

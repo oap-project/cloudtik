@@ -1,6 +1,5 @@
 # Common Imports
 import getopt
-import argparse
 import os
 import subprocess
 import sys
@@ -35,7 +34,6 @@ cluster_head_ip = cluster.get_head_node_ip()
 
 
 # Initialize SparkSession
-import pyspark
 from pyspark import SparkConf
 from pyspark.sql import SparkSession
 
@@ -76,7 +74,6 @@ train_df, test_df = train_df.randomSplit([0.9, 0.1])
 
 
 # Define training function and Keras model
-
 import numpy as np
 
 import tensorflow as tf
@@ -95,6 +92,14 @@ from pyspark.sql.functions import udf
 
 import mlflow
 
+# Disable GPUs when building the model to prevent memory leaks
+if LooseVersion(tf.__version__) >= LooseVersion('2.0.0'):
+    # See https://github.com/tensorflow/tensorflow/issues/33168
+    os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+else:
+    keras.backend.set_session(tf.Session(config=tf.ConfigProto(device_count={'GPU': 0})))
+
+# Set the parameters
 executor_cores = conf.get("spark.executor.cores")
 set_num_proc = int(executor_cores)
 print(set_num_proc)
@@ -107,6 +112,7 @@ print(set_epochs)
 
 store_path = param_fsdir + "/tmp"
 store = Store.create(store_path)
+
 
 #  Horovod distributed training
 def train(learning_rate):
@@ -187,10 +193,10 @@ model_uri = "models:/Keras-Sequential-model-reg/1"
 loaded_model = mlflow.keras.load_model(model_uri)
 
 hvd_keras_model = hvd.KerasModel(model=loaded_model,
-                                      feature_columns=['features'],
-                                      label_columns=['label_vec'],
-                                     _floatx = floatx,
-                                     _metadata = metadata)
+                                 feature_columns=['features'],
+                                 label_columns=['label_vec'],
+                                 _floatx = floatx,
+                                 _metadata = metadata)
 
 pred_df = hvd_keras_model.transform(test_df)
 pred_df.show(10)

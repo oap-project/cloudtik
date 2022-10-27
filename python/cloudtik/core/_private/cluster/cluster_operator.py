@@ -1,7 +1,6 @@
 import copy
 import urllib
 import urllib.parse
-from concurrent.futures import ThreadPoolExecutor
 import datetime
 import json
 import logging
@@ -678,9 +677,9 @@ def _kill_node(config: Dict[str, Any],
 
     if not hard:
         # execute runtime stop command
-        stop_node_on_head(
+        _stop_node_on_head(
             config, call_context=call_context,
-            node_ip=node_ip, all_nodes=False, yes=True)
+            node_ip=node_ip, all_nodes=False)
 
     # terminate the node
     _cli_logger.print("Shutdown " + cf.bold("{}:{}"), node, node_ip)
@@ -1051,12 +1050,13 @@ def attach_cluster(config_file: str,
 
     Arguments:
         config_file: path to the cluster yaml
-        start: whether to start the cluster if it isn't up
         use_screen: whether to use screen as multiplexer
         use_tmux: whether to use tmux as multiplexer
         override_cluster_name: set the name of the cluster
+        no_config_cache: no use config cache
         new: whether to force a new screen
         port_forward ( (int,int) or list[(int,int)] ): port(s) to forward
+        force_to_host: Force attaching to host
     """
     config = _load_cluster_config(config_file, override_cluster_name,
                                   no_config_cache=no_config_cache)

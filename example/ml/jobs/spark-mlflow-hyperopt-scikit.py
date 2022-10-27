@@ -37,7 +37,7 @@ def train(C):
 
 
 # Objective function to minimize
-def objective(C):
+def hyper_objective(C):
     # Create a support vector classifier model
     model = train(C)
 
@@ -64,7 +64,7 @@ spark_trials = SparkTrials(spark_session=spark)
 mlflow.set_tracking_uri(f"http://{cluster_head_ip}:5001")
 mlflow.set_experiment("MLflow + HyperOpt + Scikit-Learn")
 argmin = fmin(
-  fn=objective,
+  fn=hyper_objective,
   space=search_space,
   algo=algo,
   max_evals=16,

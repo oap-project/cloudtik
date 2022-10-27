@@ -29,15 +29,17 @@ if param_fsdir is None:
     sys.exit(1)
 
 from cloudtik.core.api import ThisCluster
+
 cluster = ThisCluster()
 cluster_head_ip = cluster.get_head_node_ip()
-
+# Wait for all cluster works read
+cluster.wait_for_ready()
 
 # Initialize SparkSession
 from pyspark import SparkConf
 from pyspark.sql import SparkSession
 
-spark_conf = SparkConf().setAppName('keras_spark_mnist').set('spark.sql.shuffle.partitions', '16')
+spark_conf = SparkConf().setAppName('spark-horovod-keras').set('spark.sql.shuffle.partitions', '16')
 spark = SparkSession.builder.config(conf=spark_conf).getOrCreate()
 conf = spark.conf
 

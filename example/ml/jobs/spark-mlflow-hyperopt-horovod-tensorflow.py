@@ -153,7 +153,7 @@ def train(learning_rate):
 
 
 #  Hyperopt training function
-def hyper_train(learning_rate):
+def hyper_objective(learning_rate):
     keras_model = train(learning_rate)
     pred_df = keras_model.transform(test_df)
     argmax = udf(lambda v: float(np.argmax(v)), returnType=T.DoubleType())
@@ -176,7 +176,7 @@ search_space = hp.uniform('learning_rate', 0, 1)
 mlflow.set_tracking_uri(f"http://{cluster_head_ip}:5001")
 mlflow.set_experiment("MNIST: Spark + Horovod + Hyperopt")
 argmin = fmin(
-    fn=hyper_train,
+    fn=hyper_objective,
     space=search_space,
     algo=tpe.suggest,
     max_evals=16)

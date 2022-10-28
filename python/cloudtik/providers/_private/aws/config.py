@@ -28,7 +28,8 @@ from cloudtik.core.workspace_provider import Existence, CLOUDTIK_MANAGED_CLOUD_S
 from cloudtik.providers._private.aws.utils import LazyDefaultDict, \
     handle_boto_error, get_boto_error_code, _get_node_info, BOTO_MAX_RETRIES, _resource, \
     _resource_client, _make_resource, _make_resource_client, make_ec2_client, export_aws_s3_storage_config, \
-    get_aws_s3_storage_config, get_aws_s3_storage_config_for_update, _working_node_client, _working_node_resource
+    get_aws_s3_storage_config, get_aws_s3_storage_config_for_update, _working_node_client, _working_node_resource, \
+    get_aws_cloud_storage_uri, AWS_S3_BUCKET
 from cloudtik.providers._private.utils import StorageTestingError
 
 logger = logging.getLogger(__name__)
@@ -610,8 +611,9 @@ def get_aws_managed_cloud_storage_info(config, cloud_provider, info):
     managed_bucket_name = None if bucket is None else bucket.name
 
     if managed_bucket_name is not None:
+        aws_cloud_storage = {AWS_S3_BUCKET, managed_bucket_name}
         managed_cloud_storage = {AWS_MANAGED_STORAGE_S3_BUCKET: managed_bucket_name,
-                                 CLOUDTIK_MANAGED_CLOUD_STORAGE_URI: "s3a://{}".format(managed_bucket_name)}
+                                 CLOUDTIK_MANAGED_CLOUD_STORAGE_URI: get_aws_cloud_storage_uri(aws_cloud_storage)}
         info[CLOUDTIK_MANAGED_CLOUD_STORAGE] = managed_cloud_storage
 
 
@@ -1014,7 +1016,7 @@ def _configure_managed_cloud_storage_from_workspace(config, cloud_provider):
                          "you should set managed_cloud_storage equal to True when you creating workspace.")
 
     cloud_storage = get_aws_s3_storage_config_for_update(config["provider"])
-    cloud_storage["s3.bucket"] = s3_bucket.name
+    cloud_storage[AWS_S3_BUCKET] = s3_bucket.name
 
 
 def _configure_iam_role_from_workspace(config):
@@ -2990,7 +2992,7 @@ def verify_s3_storage(provider_config: Dict[str, Any]):
     )
 
     try:
-        s3.list_objects(Bucket=s3_storage["s3.bucket"], Delimiter='/')
+        s3.list_objects(Bucket=s3_storage[AWS_S3_BUCKET], Delimiter='/')
     except botocore.exceptions.ClientError as e:
         raise StorageTestingError("Error happens when verifying S3 storage configurations. "
                                   "If you want to go without passing the verification, "

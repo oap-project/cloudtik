@@ -19,7 +19,7 @@ from cloudtik.providers._private.gcp.node import (
     GCPResource, GCPNode, GCPCompute, GCPTPU, GCPNodeType)
 
 from cloudtik.providers._private.gcp.utils import _get_node_info, \
-    construct_clients_from_provider_config, get_node_type, get_gcp_cloud_storage_config
+    construct_clients_from_provider_config, get_node_type, get_gcp_cloud_storage_config, get_default_gcp_cloud_storage
 from cloudtik.providers._private.utils import validate_config_dict
 
 logger = logging.getLogger(__name__)
@@ -217,6 +217,10 @@ class GCPNodeProvider(NodeProvider):
             remote_config.pop("gcp_credentials", None)
 
         return remote_config
+
+    def get_default_cloud_storage(self):
+        """Return the managed cloud storage if configured."""
+        return get_default_gcp_cloud_storage(self.provider_config)
 
     @staticmethod
     def bootstrap_config(cluster_config):

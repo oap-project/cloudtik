@@ -196,6 +196,36 @@ def export_azure_cloud_storage_config(provider_config, config_dict: Dict[str, An
         config_dict["AZURE_ACCOUNT_KEY"] = azure_account_key
 
 
+def get_azure_cloud_storage_uri(azure_cloud_storage):
+    storage_type = azure_cloud_storage.get("azure.storage.type")
+    if storage_type is None:
+        return None
+
+    if storage_type == "datalake":
+        schema = "abfs"
+        endpoint = "dfs"
+    elif storage_type == "blob":
+        schema = "wasbs"
+        endpoint = "blob"
+    else:
+        return None
+
+    return "{schema}://{container}@{storage_account}.{endpoint}.core.windows.net".format(
+        schema=schema,
+        endpoint=endpoint,
+        container=azure_cloud_storage.get("azure.container"),
+        storage_account=azure_cloud_storage.get("azure.storage.account")
+    )
+
+
+def get_default_azure_cloud_storage(provider_config):
+    cloud_storage = get_azure_cloud_storage_config(provider_config)
+    if cloud_storage is None:
+        return None
+
+    return get_azure_cloud_storage_uri(cloud_storage)
+
+
 def _get_node_info(node):
     node_info = {"node_id": node["name"].split("-")[-1],
                  "instance_type": node["vm_size"],

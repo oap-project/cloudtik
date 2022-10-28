@@ -1962,6 +1962,9 @@ def _get_cluster_info(config: Dict[str, Any],
         cluster_info["total-worker-cpus"] = worker_cpus
         cluster_info["total-worker-memory"] = worker_memory
 
+    if not simple_config:
+        cluster_info["default-cloud-storage"] = get_default_cloud_storage(config)
+
     return cluster_info
 
 
@@ -3233,3 +3236,9 @@ def _create_job_waiter(
         call_context: CallContext,
         job_waiter_name: Optional[str] = None) -> Optional[JobWaiter]:
     return create_job_waiter(config, job_waiter_name)
+
+
+def get_default_cloud_storage(
+        config: Dict[str, Any]):
+    provider = _get_node_provider(config["provider"], config["cluster_name"])
+    return provider.get_default_cloud_storage()

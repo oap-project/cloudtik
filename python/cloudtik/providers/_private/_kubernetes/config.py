@@ -1773,3 +1773,21 @@ def _check_existence_for_cloud_provider(config: Dict[str, Any], namespace):
 
     cli_logger.verbose("The existence status for {} cloud provider: {}.", cloud_provider_type, existence)
     return existence
+
+
+def get_default_kubernetes_cloud_storage(provider_config):
+    cloud_provider = _get_cloud_provider_config(provider_config)
+    if cloud_provider is None:
+        return None
+
+    cloud_provider_type = cloud_provider["type"]
+    if cloud_provider_type == "aws":
+        from cloudtik.providers._private._kubernetes.aws_eks.config import get_default_kubernetes_cloud_storage_for_aws
+        return get_default_kubernetes_cloud_storage_for_aws(cloud_provider)
+    elif cloud_provider_type == "gcp":
+        from cloudtik.providers._private._kubernetes.gcp_gke.config import get_default_kubernetes_cloud_storage_for_gcp
+        return get_default_kubernetes_cloud_storage_for_gcp(cloud_provider)
+    else:
+        cli_logger.verbose("No integration for {} cloud provider. Configuration skipped.", cloud_provider_type)
+
+    return None

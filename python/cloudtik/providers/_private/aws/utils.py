@@ -18,6 +18,8 @@ BOTO_MAX_RETRIES = env_integer("BOTO_MAX_RETRIES", 12)
 # Max number of retries to create an EC2 node (retry different subnet)
 BOTO_CREATE_MAX_RETRIES = env_integer("BOTO_CREATE_MAX_RETRIES", 5)
 
+AWS_S3_BUCKET = "s3.bucket"
+
 
 class LazyDefaultDict(defaultdict):
     """
@@ -169,7 +171,7 @@ def export_aws_s3_storage_config(provider_config, config_dict: Dict[str, Any]):
         return
     config_dict["AWS_CLOUD_STORAGE"] = True
 
-    s3_bucket = cloud_storage.get("s3.bucket")
+    s3_bucket = cloud_storage.get(AWS_S3_BUCKET)
     if s3_bucket:
         config_dict["AWS_S3_BUCKET"] = s3_bucket
 
@@ -180,6 +182,22 @@ def export_aws_s3_storage_config(provider_config, config_dict: Dict[str, Any]):
     s3_secret_access_key = cloud_storage.get("s3.secret.access.key")
     if s3_secret_access_key:
         config_dict["AWS_S3_SECRET_ACCESS_KEY"] = s3_secret_access_key
+
+
+def get_aws_cloud_storage_uri(aws_cloud_storage):
+    s3_bucket = aws_cloud_storage.get(AWS_S3_BUCKET)
+    if s3_bucket is None:
+        return None
+
+    return "s3a://{}".format(s3_bucket)
+
+
+def get_default_aws_cloud_storage(provider_config):
+    cloud_storage = get_aws_s3_storage_config(provider_config)
+    if cloud_storage is None:
+        return None
+
+    return get_aws_cloud_storage_uri(cloud_storage)
 
 
 def tags_list_to_dict(tags: list):

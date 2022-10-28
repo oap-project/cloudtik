@@ -730,3 +730,7 @@ def get_info_for_gcp(config: Dict[str, Any], namespace, cloud_provider, info):
 
 def with_gcp_environment_variables(provider_config, config_dict: Dict[str, Any]):
     export_gcp_cloud_storage_config(provider_config, config_dict)
+
+
+def get_default_kubernetes_cloud_storage_for_gcp(provider_config):
+    return get_default_gcp_cloud_storage(provider_config)

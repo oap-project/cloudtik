@@ -29,7 +29,7 @@ from cloudtik.providers._private.gcp.utils import _get_node_info, construct_clie
     wait_for_compute_global_operation, wait_for_compute_region_operation, _create_storage, \
     wait_for_crm_operation, HAS_TPU_PROVIDER_FIELD, _is_head_node_a_tpu, _has_tpus_in_node_configs, \
     export_gcp_cloud_storage_config, get_service_account_email, construct_storage_client, construct_storage, \
-    get_gcp_cloud_storage_config, get_gcp_cloud_storage_config_for_update
+    get_gcp_cloud_storage_config, get_gcp_cloud_storage_config_for_update, GCP_GCS_BUCKET, get_gcp_cloud_storage_uri
 from cloudtik.providers._private.utils import StorageTestingError
 
 logger = logging.getLogger(__name__)
@@ -1278,8 +1278,9 @@ def get_gcp_managed_cloud_storage_info(config, cloud_provider, info):
     bucket = get_managed_gcs_bucket(cloud_provider, workspace_name)
     managed_bucket_name = None if bucket is None else bucket.name
     if managed_bucket_name is not None:
+        gcp_cloud_storage = {GCP_GCS_BUCKET: managed_bucket_name}
         managed_cloud_storage = {GCP_MANAGED_STORAGE_GCS_BUCKET: managed_bucket_name,
-                                 CLOUDTIK_MANAGED_CLOUD_STORAGE_URI: "gs://{}".format(managed_bucket_name)}
+                                 CLOUDTIK_MANAGED_CLOUD_STORAGE_URI: get_gcp_cloud_storage_uri(gcp_cloud_storage)}
         info[CLOUDTIK_MANAGED_CLOUD_STORAGE] = managed_cloud_storage
 
 
@@ -1498,7 +1499,7 @@ def _configure_managed_cloud_storage_from_workspace(config, cloud_provider):
                          "you should set managed_cloud_storage equal to True when you creating workspace.")
 
     cloud_storage = get_gcp_cloud_storage_config_for_update(config["provider"])
-    cloud_storage["gcs.bucket"] = gcs_bucket.name
+    cloud_storage[GCP_GCS_BUCKET] = gcs_bucket.name
 
 
 def _get_workspace_service_account(config, iam, service_account_id_template):
@@ -2093,7 +2094,7 @@ def verify_gcs_storage(provider_config: Dict[str, Any]):
                     credentials_field)
                 storage_gcs = _create_storage(credentials)
 
-        storage_gcs.buckets().get(bucket=gcs_storage["gcs.bucket"]).execute()
+        storage_gcs.buckets().get(bucket=gcs_storage[GCP_GCS_BUCKET]).execute()
     except Exception as e:
         raise StorageTestingError("Error happens when verifying GCS storage configurations. "
                                   "If you want to go without passing the verification, "

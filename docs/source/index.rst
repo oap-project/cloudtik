@@ -3,17 +3,14 @@ CloudTik
 
 CloudTik is a cloud scale platform for distributed analytics and AI on public cloud providers including AWS, Azure, GCP, and so on.
 CloudTik enables users or enterprises to easily create and manage analytics and AI platform on public clouds,
-with out-of-box optimized functionalities and performance, and to go quickly to focus on running the business workloads in minutes or hours.
+with out-of-box optimized functionalities and performance, and to go quickly to focus on running the business workloads
+in hours or in even minutes instead of spending months to construct and optimize the platform.
 
-- Built upon Cloud compute engines and Cloud storages
-
-- Support major public Cloud providers (AWS, Azure, GCP, and more to come)
-
-- Powerful and Optimized: Out of box and optimized runtimes for Analytics and AI
-
-- Simplified and Unified: Easy to use and unified operate experiences on all Clouds
-
-- Open and Flexible: Open architecture and user in full control, fully open-source and user transparent.
+CloudTik provides:
+- Scalable, robust, and unified control plane and runtimes for all public clouds
+- Out of box optimized runtimes for analytics and AI (Spark, ...)
+- Support of major public cloud providers - AWS, Azure, GCP, Kubernetes (EKS, AKS, and GKE) and more
+- A fully open architecture and open-sourced solution
 
 .. toctree::
    :maxdepth: 1
@@ -34,6 +31,8 @@ with out-of-box optimized functionalities and performance, and to go quickly to 
    UserGuide/creating-workspace.md
    UserGuide/creating-cluster.md
    UserGuide/managing-cluster.md
+   UserGuide/running-optimized-analytics.rst
+   UserGuide/running-optimized-ai.rst
    UserGuide/advanced-configurations.rst
 
 

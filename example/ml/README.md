@@ -47,7 +47,7 @@ It trains a simple ConvNet on the MNIST dataset using Keras + Horovod using Clou
 You can also download and cloudtik rsync-up the file to ~/jupyter of cluster head:
 
 ```
-cloudtik rsync-up /path/to/your-cluster-config.yaml local-download-path/spark-mlflow-hyperopt-horovod-tensorflow.ipynb ~/jupyter/spark-mlflow-hyperopt-horovod-tensorflow.ipynb
+cloudtik rsync-up /path/to/your-cluster-config.yaml local-download-path/spark-mlflow-hyperopt-horovod-tensorflow.ipynb '~/jupyter/spark-mlflow-hyperopt-horovod-tensorflow.ipynb'
 ```
 
 2. Open this notebook on JupyterLab, and choose the Python 3 kernel to run the notebook.
@@ -64,7 +64,7 @@ under CloudTik Spark cluster. It also illustrates how to use MLflow and model Re
 You can also download and cloudtik rsync-up the file to ~/jupyter of cluster head:
 
 ```
-cloudtik rsync-up /path/to/your-cluster-config.yaml local-download-path/spark-mlflow-hyperopt-scikit.ipynb ~/jupyter/spark-mlflow-hyperopt-scikit.ipynb
+cloudtik rsync-up /path/to/your-cluster-config.yaml local-download-path/spark-mlflow-hyperopt-scikit.ipynb '~/jupyter/spark-mlflow-hyperopt-scikit.ipynb'
 ```
 
 2. Open this notebook on JupyterLab, and choose the Python 3 kernel to run the notebook.

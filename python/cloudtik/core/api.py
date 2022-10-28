@@ -406,6 +406,11 @@ class Cluster:
                                                 min_workers=min_workers,
                                                 timeout=timeout)
 
+    def get_default_cloud_storage(self):
+        """Get the managed cloud storage information."""
+        return cluster_operator.get_default_cloud_storage(config=self.config)
+
+
     def register_callback(self,
                           event_name: str,
                           callback: Union[Callable[[Dict], None], List[Callable[[Dict], None]]]) -> None:
@@ -625,6 +630,10 @@ class ThisCluster:
                                                 call_context=self.call_context,
                                                 min_workers=min_workers,
                                                 timeout=timeout)
+
+    def get_default_cloud_storage(self):
+        """Get the default cloud storage information."""
+        return cluster_operator.get_default_cloud_storage(config=self.config)
 
 
 def configure_logging(log_style: Optional[str] = None,

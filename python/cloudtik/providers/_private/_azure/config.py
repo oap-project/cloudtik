@@ -26,7 +26,7 @@ from cloudtik.providers._private._azure.utils import _get_node_info, get_azure_s
     construct_resource_client, construct_network_client, construct_storage_client, _construct_storage_client, \
     construct_authorization_client, construct_manage_server_identity_client, construct_compute_client, \
     _construct_compute_client, _construct_resource_client, export_azure_cloud_storage_config, \
-    get_azure_cloud_storage_config, get_azure_cloud_storage_config_for_update
+    get_azure_cloud_storage_config, get_azure_cloud_storage_config_for_update, get_azure_cloud_storage_uri
 from cloudtik.providers._private.utils import StorageTestingError
 
 AZURE_RESOURCE_NAME_PREFIX = "cloudtik"
@@ -270,10 +270,7 @@ def get_azure_workspace_info(config):
     azure_cloud_storage = get_workspace_azure_storage(config, workspace_name)
     info = {}
     if azure_cloud_storage is not None:
-        storage_uri = "abfs://{container}@{storage_account}.dfs.core.windows.net".format(
-            container=azure_cloud_storage.get("azure.container"),
-            storage_account=azure_cloud_storage.get("azure.storage.account")
-        )
+        storage_uri = get_azure_cloud_storage_uri(azure_cloud_storage)
         managed_cloud_storage = {AZURE_MANAGED_STORAGE_TYPE: azure_cloud_storage.get("azure.storage.type"),
                                  AZURE_MANAGED_STORAGE_ACCOUNT: azure_cloud_storage.get("azure.storage.account"),
                                  AZURE_MANAGED_STORAGE_CONTAINER: azure_cloud_storage.get("azure.container"),

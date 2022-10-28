@@ -277,3 +277,7 @@ class NodeProvider:
             provider_config: Dict[str, Any]) -> None:
         """Verify provider configuration. Verification usually means to check it is working."""
         return None
+
+    def get_default_cloud_storage(self):
+        """Return the managed cloud storage if configured."""
+        return None

@@ -26,6 +26,8 @@ HAS_TPU_PROVIDER_FIELD = "_has_tpus"
 SERVICE_ACCOUNT_EMAIL_TEMPLATE = (
     "{account_id}@{project_id}.iam.gserviceaccount.com")
 
+GCP_GCS_BUCKET = "gcs.bucket"
+
 
 def _create_crm(gcp_credentials=None):
     return discovery.build(
@@ -304,7 +306,7 @@ def export_gcp_cloud_storage_config(provider_config, config_dict: Dict[str, Any]
     if project_id:
         config_dict["GCP_PROJECT_ID"] = project_id
 
-    gcs_bucket = cloud_storage.get("gcs.bucket")
+    gcs_bucket = cloud_storage.get(GCP_GCS_BUCKET)
     if gcs_bucket:
         config_dict["GCS_BUCKET"] = gcs_bucket
 
@@ -322,6 +324,22 @@ def export_gcp_cloud_storage_config(provider_config, config_dict: Dict[str, Any]
         "gcs.service.account.private.key")
     if gs_private_key:
         config_dict["GCS_SERVICE_ACCOUNT_PRIVATE_KEY"] = gs_private_key
+
+
+def get_gcp_cloud_storage_uri(gcp_cloud_storage):
+    gcs_bucket = gcp_cloud_storage.get(GCP_GCS_BUCKET)
+    if gcs_bucket is None:
+        return None
+
+    return "gs://{}".format(gcs_bucket)
+
+
+def get_default_gcp_cloud_storage(provider_config):
+    cloud_storage = get_gcp_cloud_storage_config(provider_config)
+    if cloud_storage is None:
+        return None
+
+    return get_gcp_cloud_storage_uri(cloud_storage)
 
 
 def _get_node_info(node: GCPNode):

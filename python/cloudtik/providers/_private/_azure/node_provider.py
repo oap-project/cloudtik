@@ -23,7 +23,8 @@ from cloudtik.providers._private._azure.config import (AZURE_MSI_NAME,
                                                        post_prepare_azure, with_azure_environment_variables)
 
 from cloudtik.providers._private._azure.utils import (_get_node_info, get_azure_sdk_function,
-                                                      get_credential, get_azure_cloud_storage_config)
+                                                      get_credential, get_azure_cloud_storage_config,
+                                                      get_default_azure_cloud_storage)
 from cloudtik.providers._private.utils import validate_config_dict
 
 VM_NAME_MAX_LEN = 64
@@ -311,6 +312,10 @@ class AzureNodeProvider(NodeProvider):
             remote_config.pop("azure_credentials", None)
 
         return remote_config
+
+    def get_default_cloud_storage(self):
+        """Return the managed cloud storage if configured."""
+        return get_default_azure_cloud_storage(self.provider_config)
 
     @staticmethod
     def bootstrap_config(cluster_config):

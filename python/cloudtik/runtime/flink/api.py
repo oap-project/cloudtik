@@ -2,7 +2,7 @@
 
 from typing import Union
 
-from cloudtik.core.api import Cluster
+from cloudtik.core.api import Cluster, ThisCluster
 from cloudtik.runtime.flink.utils import request_rest_jobs, request_rest_yarn
 
 
@@ -31,3 +31,25 @@ class FlinkCluster(Cluster):
             endpoint (str): The Spark history server rest endpoint to request
         """
         return request_rest_yarn(self.config, endpoint)
+
+
+class ThisFlinkCluster(ThisCluster):
+    def __init__(self) -> None:
+        """Create a Flink cluster object to operate on with this API on head."""
+        ThisCluster.__init__(self)
+
+    def jobs(self, endpoint: str):
+        """Make a rest request to Flink History Server
+
+        Args:
+            endpoint (str): The Spark history server rest endpoint to request
+        """
+        return request_rest_jobs(self.config, endpoint, on_head=True)
+
+    def yarn(self, endpoint: str):
+        """Make a rest request to YARN Resource Manager
+
+        Args:
+            endpoint (str): The Spark history server rest endpoint to request
+        """
+        return request_rest_yarn(self.config, endpoint, on_head=True)

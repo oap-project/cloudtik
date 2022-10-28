@@ -2,7 +2,7 @@
 
 from typing import Union
 
-from cloudtik.core.api import Cluster
+from cloudtik.core.api import Cluster, ThisCluster
 from cloudtik.runtime.spark.utils import request_rest_applications, request_rest_yarn
 
 
@@ -31,3 +31,25 @@ class SparkCluster(Cluster):
             endpoint (str): The Spark history server rest endpoint to request
         """
         return request_rest_yarn(self.config, endpoint)
+
+
+class ThisSparkCluster(ThisCluster):
+    def __init__(self) -> None:
+        """Create a Spark cluster object to operate on with this API on head."""
+        ThisCluster.__init__(self)
+
+    def applications(self, endpoint: str):
+        """Make a rest request to Spark History Server
+
+        Args:
+            endpoint (str): The Spark history server rest endpoint to request
+        """
+        return request_rest_applications(self.config, endpoint, on_head=True)
+
+    def yarn(self, endpoint: str):
+        """Make a rest request to YARN Resource Manager
+
+        Args:
+            endpoint (str): The Spark history server rest endpoint to request
+        """
+        return request_rest_yarn(self.config, endpoint, on_head=True)

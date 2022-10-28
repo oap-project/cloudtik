@@ -2,7 +2,7 @@ import os
 from typing import Any, Dict, Optional
 
 from cloudtik.core._private.cluster.cluster_config import _load_cluster_config
-from cloudtik.core._private.cluster.cluster_rest_request import _request_rest_on_head
+from cloudtik.core._private.cluster.cluster_rest_request import _request_rest_to_head
 from cloudtik.core._private.core_utils import double_quote
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_HDFS, BUILT_IN_RUNTIME_METASTORE
 from cloudtik.core._private.utils import merge_rooted_config_hierarchy, \
@@ -358,35 +358,43 @@ def _get_scaling_policy(
 
 
 def print_request_rest_jobs(
-        cluster_config_file: str, cluster_name: str, endpoint: str):
+        cluster_config_file: str, cluster_name: str, endpoint: str,
+        on_head: bool = False):
     config = _load_cluster_config(cluster_config_file, cluster_name)
-    response = request_rest_jobs(config, endpoint)
+    response = request_rest_jobs(config, endpoint,
+                                 on_head=on_head)
     print_json_formatted(response)
 
 
 def request_rest_jobs(
-        config: Dict[str, Any], endpoint: str):
+        config: Dict[str, Any], endpoint: str,
+        on_head: bool = False):
     if endpoint is None:
         endpoint = "/jobs/overview"
     if not endpoint.startswith("/"):
         endpoint = "/" + endpoint
-    return _request_rest_on_head(
-        config, endpoint, FLINK_HISTORY_SERVER_API_PORT)
+    return _request_rest_to_head(
+        config, endpoint, FLINK_HISTORY_SERVER_API_PORT,
+        on_head=on_head)
 
 
 def print_request_rest_yarn(
-        cluster_config_file: str, cluster_name: str, endpoint: str):
+        cluster_config_file: str, cluster_name: str, endpoint: str,
+        on_head: bool = False):
     config = _load_cluster_config(cluster_config_file, cluster_name)
-    response = request_rest_yarn(config, endpoint)
+    response = request_rest_yarn(config, endpoint,
+                                 on_head=on_head)
     print_json_formatted(response)
 
 
 def request_rest_yarn(
-        config: Dict[str, Any], endpoint: str):
+        config: Dict[str, Any], endpoint: str,
+        on_head: bool = False):
     if endpoint is None:
         endpoint = "/cluster/metrics"
     if not endpoint.startswith("/"):
         endpoint = "/" + endpoint
     endpoint = "ws/v1" + endpoint
-    return _request_rest_on_head(
-        config, endpoint, FLINK_YARN_WEB_API_PORT)
+    return _request_rest_to_head(
+        config, endpoint, FLINK_YARN_WEB_API_PORT,
+        on_head=on_head)

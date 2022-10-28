@@ -423,29 +423,9 @@ def bootstrap_kubernetes_for_api(config):
 def bootstrap_kubernetes(config):
     workspace_name = config.get("workspace_name", "")
     if workspace_name == "":
-        config = bootstrap_kubernetes_default(config)
-    else:
-        config = bootstrap_kubernetes_from_workspace(config)
-    return config
+        raise RuntimeError("Workspace name is not specified in cluster configuration.")
 
-
-def bootstrap_kubernetes_default(config):
-    if config["provider"].get("_operator"):
-        namespace = config["provider"]["namespace"]
-    else:
-        namespace = _configure_namespace(config["provider"])
-
-    _configure_pods(config)
-    _configure_services(config)
-    _create_or_update_services(namespace, config["provider"])
-
-    if not config["provider"].get("_operator"):
-        # These steps are unnecessary when using the Operator.
-        _configure_head_service_account(namespace, config["provider"])
-        _configure_head_role(namespace, config["provider"])
-        _configure_head_role_binding(namespace, config["provider"])
-
-    configure_for_ssh(config)
+    config = bootstrap_kubernetes_from_workspace(config)
     return config
 
 
@@ -639,119 +619,6 @@ def _parse_memory_resource(resource):
     number, unit_index = [item.strip() for item in memory_size.split()]
     unit_index = unit_index[0]
     return float(number) * MEMORY_SIZE_UNITS[unit_index]
-
-
-def _configure_namespace(provider_config):
-    namespace_field = "namespace"
-    if namespace_field not in provider_config:
-        raise ValueError("Must specify namespace in Kubernetes config.")
-
-    namespace = provider_config[namespace_field]
-    field_selector = "metadata.name={}".format(namespace)
-    try:
-        namespaces = core_api().list_namespace(
-            field_selector=field_selector).items
-    except ApiException:
-        logger.warning(log_prefix +
-                       not_checking_msg(namespace_field, namespace))
-        return namespace
-
-    if len(namespaces) > 0:
-        assert len(namespaces) == 1
-        cli_logger.print(log_prefix + using_existing_msg(namespace_field, namespace))
-        return namespace
-
-    cli_logger.print(log_prefix + not_found_msg(namespace_field, namespace))
-    namespace_config = client.V1Namespace(
-        metadata=client.V1ObjectMeta(name=namespace))
-    core_api().create_namespace(namespace_config)
-    cli_logger.print(log_prefix + created_msg(namespace_field, namespace))
-    return namespace
-
-
-def _configure_head_service_account(namespace, provider_config):
-    account_field = KUBERNETES_HEAD_SERVICE_ACCOUNT_CONFIG_KEY
-    if account_field not in provider_config:
-        cli_logger.print(log_prefix + not_provided_msg(account_field))
-        return
-
-    account = provider_config[account_field]
-    if "namespace" not in account["metadata"]:
-        account["metadata"]["namespace"] = namespace
-    elif account["metadata"]["namespace"] != namespace:
-        raise InvalidNamespaceError(account_field, namespace)
-
-    name = account["metadata"]["name"]
-    field_selector = "metadata.name={}".format(name)
-    accounts = core_api().list_namespaced_service_account(
-        namespace, field_selector=field_selector).items
-    if len(accounts) > 0:
-        assert len(accounts) == 1
-        cli_logger.print(log_prefix + using_existing_msg(account_field, name))
-        return
-
-    cli_logger.print(log_prefix + not_found_msg(account_field, name))
-    core_api().create_namespaced_service_account(namespace, account)
-    cli_logger.print(log_prefix + created_msg(account_field, name))
-
-
-def _configure_head_role(namespace, provider_config):
-    role_field = KUBERNETES_HEAD_ROLE_CONFIG_KEY
-    if role_field not in provider_config:
-        cli_logger.print(log_prefix + not_provided_msg(role_field))
-        return
-
-    role = provider_config[role_field]
-    if "namespace" not in role["metadata"]:
-        role["metadata"]["namespace"] = namespace
-    elif role["metadata"]["namespace"] != namespace:
-        raise InvalidNamespaceError(role_field, namespace)
-
-    name = role["metadata"]["name"]
-    field_selector = "metadata.name={}".format(name)
-    accounts = auth_api().list_namespaced_role(
-        namespace, field_selector=field_selector).items
-    if len(accounts) > 0:
-        assert len(accounts) == 1
-        cli_logger.print(log_prefix + using_existing_msg(role_field, name))
-        return
-
-    cli_logger.print(log_prefix + not_found_msg(role_field, name))
-    auth_api().create_namespaced_role(namespace, role)
-    cli_logger.print(log_prefix + created_msg(role_field, name))
-
-
-def _configure_head_role_binding(namespace, provider_config):
-    binding_field = KUBERNETES_HEAD_ROLE_BINDING_CONFIG_KEY
-    if binding_field not in provider_config:
-        cli_logger.print(log_prefix + not_provided_msg(binding_field))
-        return
-
-    binding = provider_config[binding_field]
-    if "namespace" not in binding["metadata"]:
-        binding["metadata"]["namespace"] = namespace
-    elif binding["metadata"]["namespace"] != namespace:
-        raise InvalidNamespaceError(binding_field, namespace)
-    for subject in binding["subjects"]:
-        if "namespace" not in subject:
-            subject["namespace"] = namespace
-        elif subject["namespace"] != namespace:
-            raise InvalidNamespaceError(
-                binding_field + " subject '{}'".format(subject["name"]),
-                namespace)
-
-    name = binding["metadata"]["name"]
-    field_selector = "metadata.name={}".format(name)
-    accounts = auth_api().list_namespaced_role_binding(
-        namespace, field_selector=field_selector).items
-    if len(accounts) > 0:
-        assert len(accounts) == 1
-        cli_logger.print(log_prefix + using_existing_msg(binding_field, name))
-        return
-
-    cli_logger.print(log_prefix + not_found_msg(binding_field, name))
-    auth_api().create_namespaced_role_binding(namespace, binding)
-    cli_logger.print(log_prefix + created_msg(binding_field, name))
 
 
 def _create_or_update_services(namespace, provider_config):

@@ -75,6 +75,7 @@ setup_spec.extras = {
     "gcp": [
         "google-api-python-client==2.48.0",
         "google-cloud-storage==2.3.0",
+        "gcsfs==2022.10.0",
     ],
     "kubernetes": [
         "kubernetes",

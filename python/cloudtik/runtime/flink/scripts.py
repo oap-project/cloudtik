@@ -8,9 +8,10 @@ from cloudtik.core._private.cli_logger import (cli_logger, add_click_logging_opt
 
 from shlex import quote
 
+from cloudtik.core._private.cluster.cluster_config import _load_cluster_config
 from cloudtik.core._private.utils import run_bash_scripts, run_system_command, with_script_args
 from cloudtik.runtime.flink.utils import RUNTIME_ROOT_PATH, update_flink_configurations, print_request_rest_jobs, \
-    print_request_rest_yarn
+    print_request_rest_yarn, get_runtime_default_storage
 
 RUNTIME_SCRIPTS_PATH = os.path.join(
     RUNTIME_ROOT_PATH, "scripts")
@@ -168,6 +169,29 @@ def yarn(cluster_config_file, cluster_name, endpoint):
     print_request_rest_yarn(cluster_config_file, cluster_name, endpoint)
 
 
+@click.command()
+@click.argument("cluster_config_file", required=True, type=str)
+@click.option(
+    "--cluster-name",
+    "-n",
+    required=False,
+    type=str,
+    help="Override the configured cluster name.")
+@click.option(
+    "--default-storage",
+    required=False,
+    type=str,
+    help="Show the default storage of the cluster.")
+@add_click_logging_options
+def info(cluster_config_file, cluster_name, default_storage):
+    config = _load_cluster_config(cluster_config_file, cluster_name)
+    if default_storage:
+        # show default storage
+        default_storage_uri = get_runtime_default_storage(config)
+        if default_storage_uri:
+            click.echo(default_storage_uri)
+
+
 cli.add_command(install)
 cli.add_command(configure)
 cli.add_command(services)
@@ -178,6 +202,7 @@ cli.add_command(stop_worker)
 
 cli.add_command(jobs)
 cli.add_command(yarn)
+cli.add_command(info)
 
 
 def main():

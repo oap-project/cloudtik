@@ -182,13 +182,28 @@ cloudtik submit /path/to/your-cluster-config.yaml $CLOUTIK_HOME/tools/benchmarks
 
 ### Manage Files
 
-Upload files or directories to cluster:
+#### Upload files or directories to cluster
+Use rsync-up command to upload files to cluster.
 
 ``` 
 cloudtik rsync-up /path/to/your-cluster-config.yaml [source] [target]
 ```
-  
-Download files or directories from cluster
+
+If not --node-ip parameter is specified, it will default upload to the head node.
+You can also upload files to all the nodes by specify the --all-nodes parameter.
+
+For target path, if you want to refer to the remote user home path, make sure you use single quote
+for the path with ~ referring to the remote home. For example, '~/runtime'.
+If double quote is used with ~ in the target path, it will be replaced with the local user home
+instead of the remote user home.
+
+For target path, if the path is not an absolute path, it will be relative to
+the current working directory which is the remote user home.
+For example, "runtime" will refer the same path as '~/runtime'.
+
+
+#### Download files or directories from cluster
+Use rsync-down command to download files from cluster.
 
 ```
 cloudtik rsync-down /path/to/your-cluster-config.yaml [source] [target]

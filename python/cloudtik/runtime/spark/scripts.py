@@ -180,8 +180,8 @@ def yarn(cluster_config_file, cluster_name, endpoint):
     help="Override the configured cluster name.")
 @click.option(
     "--default-storage",
-    required=False,
-    type=str,
+    is_flag=True,
+    default=False,
     help="Show the default storage of the cluster.")
 @add_click_logging_options
 def info(cluster_config_file, cluster_name, default_storage):

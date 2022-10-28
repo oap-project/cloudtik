@@ -15,7 +15,7 @@ from cloudtik.providers._private.gcp.config import _configure_managed_cloud_stor
     _remove_service_account_iam_role_binding, _has_service_account_iam_role_binding, _get_service_account_of_project, \
     get_gcp_managed_cloud_storage_info
 from cloudtik.providers._private.gcp.utils import get_gcp_project, construct_iam_client, construct_crm_client, \
-    get_service_account_email, export_gcp_cloud_storage_config
+    get_service_account_email, export_gcp_cloud_storage_config, get_default_gcp_cloud_storage
 
 GCP_KUBERNETES_ANNOTATION_NAME = "iam.gke.io/gcp-service-account"
 GCP_KUBERNETES_ANNOTATION_VALUE = "{service_account}@{project_id}.iam.gserviceaccount.com"

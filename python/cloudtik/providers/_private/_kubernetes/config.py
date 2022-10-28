@@ -1788,6 +1788,4 @@ def get_default_kubernetes_cloud_storage(provider_config):
         from cloudtik.providers._private._kubernetes.gcp_gke.config import get_default_kubernetes_cloud_storage_for_gcp
         return get_default_kubernetes_cloud_storage_for_gcp(cloud_provider)
     else:
-        cli_logger.verbose("No integration for {} cloud provider. Configuration skipped.", cloud_provider_type)
-
-    return None
+        return None

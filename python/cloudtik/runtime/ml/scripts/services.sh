@@ -7,7 +7,7 @@ start-head)
     ;;
 stop-head)
     # Stop MLflow service
-    ps aux | grep 'mlflow.server:app' | awk '{print $2}' | xargs -r kill -9
+    ps aux | grep 'mlflow.server:app' | grep -v grep | awk '{print $2}' | xargs -r kill -9
     ;;
 start-worker)
     # No need to run anything for worker node

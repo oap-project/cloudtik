@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Current bin directory
+BIN_DIR=`dirname "$0"`
+ROOT_DIR="$(dirname "$(dirname "$BIN_DIR")")"
+
 args=$(getopt -a -o h::p: -l head::,node_ip_address::,head_address:: -- "$@")
 eval set -- "${args}"
 
@@ -32,8 +36,8 @@ function prepare_base_conf() {
     output_dir=/tmp/ml/conf
     rm -rf  $output_dir
     mkdir -p $output_dir
-    # source_dir=$(cd $(dirname ${BASH_SOURCE[0]})/..;pwd)/conf
-    # cp -r $source_dir/* $output_dir
+    source_dir=$(cd $(dirname ${BASH_SOURCE[0]})/..;pwd)/conf
+    cp -r $source_dir/* $output_dir
 }
 
 function set_head_address() {
@@ -54,8 +58,15 @@ function set_head_address() {
 
 function configure_ml() {
     # Do necessary configurations for Machine Learning
-    prepare_base_conf
-    cd $output_dir
+    if [ $IS_HEAD_NODE == "true" ];then
+        prepare_base_conf
+        cd $output_dir
+
+        # Fix the Horovod on Spark bug for handling network interfaces of loopback
+        HOROVOD_PYTHON_HOME="${ROOT_DIR}/../../horovod"
+        SPARK_GLOO_RUN_FILE="${HOROVOD_PYTHON_HOME}/spark/gloo_run.py"
+        cp $output_dir/gloo_run.py.patch ${SPARK_GLOO_RUN_FILE}
+    fi
 }
 
 set_head_address

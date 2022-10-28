@@ -12,22 +12,30 @@ from cloudtik.core._private.utils import get_cluster_head_ip
 
 
 REST_ENDPOINT_URL_FORMAT = "http://{}:{}/{}"
+REST_REQUEST_TIMEOUT = 60
 
 
-def request_rest_on_head(
-        cluster_config_file: str, cluster_name: str, endpoint: str, rest_api_port: int):
+def request_rest_to_head(
+        cluster_config_file: str, cluster_name: str, endpoint: str, rest_api_port: int,
+        on_head: bool = False):
     config = _load_cluster_config(cluster_config_file, cluster_name)
-    return _request_rest_on_head(
-        config=config, endpoint=endpoint, rest_api_port=rest_api_port)
+    return _request_rest_to_head(
+        config=config, endpoint=endpoint, rest_api_port=rest_api_port,
+        on_head=on_head)
 
 
-def _request_rest_on_head(
-        config: Dict[str, Any], endpoint: str, rest_api_port: int):
-    head_public_ip = get_cluster_head_ip(config, True)
+def _request_rest_to_head(
+        config: Dict[str, Any], endpoint: str, rest_api_port: int,
+        on_head: bool = False):
     head_node_ip = get_cluster_head_ip(config, False)
-    return request_rest_on_server(
-        config=config, server_ip=head_public_ip,
-        rest_api_ip=head_node_ip, rest_api_port=rest_api_port, endpoint=endpoint)
+    if on_head:
+        return request_rest_direct(
+            rest_api_ip=head_node_ip, rest_api_port=rest_api_port, endpoint=endpoint)
+    else:
+        head_public_ip = get_cluster_head_ip(config, True)
+        return request_rest_to_server(
+            config=config, server_ip=head_public_ip,
+            rest_api_ip=head_node_ip, rest_api_port=rest_api_port, endpoint=endpoint)
 
 
 def ssh_proxy_wrapper(ssh_proxy_command, server_ip, ssh_port, ssh_user):
@@ -40,7 +48,7 @@ def ssh_proxy_wrapper(ssh_proxy_command, server_ip, ssh_port, ssh_user):
     return ssh_proxy
 
 
-def request_rest_on_server(
+def request_rest_to_server(
         config, server_ip, rest_api_ip: str, rest_api_port: int, endpoint: str):
     auth_config = config.get("auth", {})
     ssh_proxy_command = auth_config.get("ssh_proxy_command", None)
@@ -57,13 +65,17 @@ def request_rest_on_server(
             ssh_proxy=ssh_proxy,
             remote_bind_address=(rest_api_ip, rest_api_port)
     ) as tunnel:
-        endpoint_url = REST_ENDPOINT_URL_FORMAT.format(
-            "127.0.0.1", tunnel.local_bind_port, endpoint)
+        return request_rest_direct("127.0.0.1", tunnel.local_bind_port, endpoint)
 
-        # sine we have use 127.0.0.1, disable all proxy on 127.0.0.1
-        proxy_support = urllib.request.ProxyHandler({"no": "127.0.0.1"})
-        opener = urllib.request.build_opener(proxy_support)
-        urllib.request.install_opener(opener)
 
-        response = urllib.request.urlopen(endpoint_url, timeout=10)
-        return response.read()
+def request_rest_direct(rest_api_ip: str, rest_api_port: int, endpoint: str):
+    endpoint_url = REST_ENDPOINT_URL_FORMAT.format(
+        rest_api_ip, rest_api_port, endpoint)
+
+    # sine we have use 127.0.0.1, disable all proxy on 127.0.0.1
+    proxy_support = urllib.request.ProxyHandler({"no": "127.0.0.1"})
+    opener = urllib.request.build_opener(proxy_support)
+    urllib.request.install_opener(opener)
+
+    response = urllib.request.urlopen(endpoint_url, timeout=REST_REQUEST_TIMEOUT)
+    return response.read()

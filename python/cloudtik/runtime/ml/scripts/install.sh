@@ -35,14 +35,14 @@ function install_tools() {
 
 function install_ml() {
     # Install Machine Learning libraries and components
-    echo "Installing deep learning frameworks: tensorflow, torch, mxnet..."
+    echo "Installing deep learning frameworks: tensorflow, pytorch, mxnet..."
     pip -qq install mxnet==1.9.1 tensorflow==2.9.1
     pip -qq install torch==1.12.0 torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cpu
     echo "Installing machine learning tools: mlflow, hyperopt..."
     pip -qq install mlflow==1.27.0 pyarrow==8.0.0 hyperopt==0.2.7 scikit-learn==1.0.2
     mkdir -p $RUNTIME_PATH/mlflow
     echo "Installing horovod..."
-    export CXX=/usr/bin/g++-9&&HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_MXNET=1 HOROVOD_WITH_GLOO=1 pip -qq install horovod[all-frameworks]==0.25.0
+    export CXX=/usr/bin/g++-9 && HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_MXNET=1 HOROVOD_WITH_GLOO=1 pip -qq install horovod[all-frameworks]==0.25.0
 }
 
 install_tools

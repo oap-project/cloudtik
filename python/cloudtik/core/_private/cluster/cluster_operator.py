@@ -1963,7 +1963,9 @@ def _get_cluster_info(config: Dict[str, Any],
         cluster_info["total-worker-memory"] = worker_memory
 
     if not simple_config:
-        cluster_info["default-cloud-storage"] = get_default_cloud_storage(config)
+        default_cloud_storage = get_default_cloud_storage(config)
+        if default_cloud_storage:
+            cluster_info["default-cloud-storage"] = default_cloud_storage
 
     return cluster_info
 

@@ -35,6 +35,7 @@ azure-storage-file-datalake == 12.6.0
 ## for gcp
 google-api-python-client == 2.48.0
 google-cloud-storage == 2.3.0
+gcsfs == 2022.10.0
 ## for kubernetes
 kubernetes
 urllib3

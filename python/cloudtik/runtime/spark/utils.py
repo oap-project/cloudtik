@@ -6,14 +6,15 @@ from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core._private.cluster.cluster_config import _load_cluster_config
 from cloudtik.core._private.cluster.cluster_rest_request import _request_rest_to_head
 from cloudtik.core._private.core_utils import double_quote
-from cloudtik.core._private.providers import _get_node_provider
-from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_HDFS, BUILT_IN_RUNTIME_METASTORE
+from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_HDFS, BUILT_IN_RUNTIME_METASTORE, \
+    BUILT_IN_RUNTIME_SPARK
 from cloudtik.core._private.utils import merge_rooted_config_hierarchy, \
     _get_runtime_config_object, is_runtime_enabled, round_memory_size_to_gb, load_head_cluster_config, \
     RUNTIME_CONFIG_KEY, load_properties_file, save_properties_file, is_use_managed_cloud_storage, get_node_type_config, \
-    print_json_formatted, get_cluster_head_ip
+    print_json_formatted
 from cloudtik.core._private.workspace.workspace_operator import _get_workspace_provider
 from cloudtik.core.scaling_policy import ScalingPolicy
+from cloudtik.runtime.common.utils import get_runtime_services_of, get_runtime_default_storage_of
 from cloudtik.runtime.spark.scaling_policy import SparkScalingPolicy
 
 RUNTIME_PROCESSES = [
@@ -463,19 +464,8 @@ def request_rest_yarn_with_retry(
 
 
 def get_runtime_default_storage(config: Dict[str, Any]):
-    runtime_config = config.get(RUNTIME_CONFIG_KEY)
-    spark_config = runtime_config.get("spark", {})
+    return get_runtime_default_storage_of(config, BUILT_IN_RUNTIME_SPARK)
 
-    # 1) Try to use local hdfs first;
-    # 2) Try to use defined hdfs_namenode_uri;
-    # 3) Try to use cloud storage;
-    if is_runtime_enabled(runtime_config, BUILT_IN_RUNTIME_HDFS):
-        # Use local HDFS, for this to work, cluster must be running
-        head_internal_ip = get_cluster_head_ip(config)
-        return "hdfs://{}:9000".format(head_internal_ip)
-    else:
-        if spark_config.get("hdfs_namenode_uri") is not None:
-            return spark_config.get("hdfs_namenode_uri")
 
-        provider = _get_node_provider(config["provider"], config["cluster_name"])
-        return provider.get_default_cloud_storage()
+def get_runtime_services(config: Dict[str, Any]):
+    return get_runtime_services_of(config, BUILT_IN_RUNTIME_SPARK)

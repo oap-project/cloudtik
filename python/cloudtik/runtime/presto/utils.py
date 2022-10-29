@@ -139,14 +139,13 @@ def _get_defaults_config(runtime_config: Dict[str, Any],
 
 
 def _get_runtime_services(cluster_head_ip):
-    urls = [
-        {
-            "id": "presto",
+    services = {
+        "presto": {
             "name": "Presto Web UI",
             "url": "http://{}:8081".format(cluster_head_ip)
         },
-    ]
-    return urls
+    }
+    return services
 
 
 def _with_memory_configurations(

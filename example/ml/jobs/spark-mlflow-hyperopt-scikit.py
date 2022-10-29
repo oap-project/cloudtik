@@ -1,9 +1,17 @@
-from cloudtik.core.api import ThisCluster
+from cloudtik.runtime.spark.api import ThisSparkCluster
+from cloudtik.runtime.ml.api import ThisMLCluster
 
-cluster = ThisCluster()
+cluster = ThisSparkCluster()
 cluster_head_ip = cluster.get_head_node_ip()
-# Wait for all cluster works read
-cluster.wait_for_ready()
+
+# Scale the cluster as need
+cluster.scale(workers=3)
+
+# Wait for all cluster workers to be ready
+cluster.wait_for_ready(min_workers=3)
+
+ml_cluster = ThisMLCluster()
+mlflow_url = ml_cluster.get_services()["mlflow"]["url"]
 
 
 # Initialize SparkSession

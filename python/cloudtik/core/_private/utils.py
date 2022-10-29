@@ -2105,7 +2105,7 @@ def _get_runtime_config_object(config_home: str, provider_config, object_name: s
 
 
 def get_runtime_services(runtime_config, head_cluster_ip):
-    all_services = []
+    all_services = {}
     if runtime_config is None:
         return all_services
 
@@ -2115,7 +2115,7 @@ def get_runtime_services(runtime_config, head_cluster_ip):
         runtime = _get_runtime(runtime_type, runtime_config)
         services_of_runtime = runtime.get_runtime_services(head_cluster_ip)
         if services_of_runtime:
-            all_services += services_of_runtime
+            all_services.update(services_of_runtime)
 
     return all_services
 

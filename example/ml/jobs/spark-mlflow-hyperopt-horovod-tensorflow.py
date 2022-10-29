@@ -24,16 +24,28 @@ for opt, arg in opts:
     elif opt in ['-e']:
         param_epochs = arg
 
-if param_fsdir is None:
-    print("Must specify storage filesystem dir using  -f.")
-    sys.exit(1)
 
-from cloudtik.core.api import ThisCluster
+from cloudtik.runtime.spark.api import ThisSparkCluster
+from cloudtik.runtime.ml.api import ThisMLCluster
 
-cluster = ThisCluster()
+cluster = ThisSparkCluster()
 cluster_head_ip = cluster.get_head_node_ip()
-# Wait for all cluster works read
-cluster.wait_for_ready()
+
+# Scale the cluster as need
+cluster.scale(workers=3)
+
+# Wait for all cluster workers to be ready
+cluster.wait_for_ready(min_workers=3)
+
+if param_fsdir is None:
+    param_fsdir = cluster.get_default_storage()
+    if param_fsdir is None:
+        print("Must specify storage filesystem dir using  -f.")
+        sys.exit(1)
+
+ml_cluster = ThisMLCluster()
+mlflow_url = ml_cluster.get_services()["mlflow"]["url"]
+
 
 # Initialize SparkSession
 from pyspark import SparkConf
@@ -173,7 +185,7 @@ def hyper_objective(learning_rate):
 from hyperopt import fmin, tpe, hp, SparkTrials, STATUS_OK, Trials
 
 search_space = hp.uniform('learning_rate', 0, 1)
-mlflow.set_tracking_uri(f"http://{cluster_head_ip}:5001")
+mlflow.set_tracking_uri(mlflow_url)
 mlflow.set_experiment("MNIST: Spark + Horovod + Hyperopt")
 argmin = fmin(
     fn=hyper_objective,

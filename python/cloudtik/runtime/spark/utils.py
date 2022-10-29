@@ -345,14 +345,24 @@ def _get_defaults_config(runtime_config: Dict[str, Any],
     return _get_config_object(cluster_config, "defaults")
 
 
-def _get_useful_urls(cluster_head_ip):
+def _get_runtime_services(cluster_head_ip):
     urls = [
-        {"name": "Yarn Web UI", "url": "http://{}:{}".format(
-            cluster_head_ip, SPARK_YARN_WEB_API_PORT)},
-        {"name": "Jupyter Web UI", "url": "http://{}:8888, default password is \'cloudtik\'".format(
-            cluster_head_ip)},
-        {"name": "Spark History Server Web UI", "url": "http://{}:{}".format(
-            cluster_head_ip, SPARK_HISTORY_SERVER_API_PORT)},
+        {
+            "id": "yarn-web",
+            "name": "Yarn Web UI",
+            "url": "http://{}:{}".format(cluster_head_ip, SPARK_YARN_WEB_API_PORT)
+        },
+        {
+            "id": "jupyter-web",
+            "name": "Jupyter Web UI",
+            "url": "http://{}:8888".format(cluster_head_ip),
+            "info": "default password is \'cloudtik\'"
+        },
+        {
+            "id": "history-server",
+            "name": "Spark History Server Web UI",
+            "url": "http://{}:{}".format(cluster_head_ip, SPARK_HISTORY_SERVER_API_PORT)
+        },
     ]
     return urls
 

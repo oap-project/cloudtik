@@ -45,7 +45,7 @@ from cloudtik.core._private.utils import hash_runtime_conf, \
     get_head_working_ip, get_node_cluster_ip, is_use_internal_ip, \
     get_attach_command, is_alive_time, is_docker_enabled, get_proxy_bind_address_to_show, \
     with_runtime_environment_variables, get_nodes_info, \
-    sum_worker_cpus, sum_worker_memory, get_useful_runtime_urls, get_enabled_runtimes, \
+    sum_worker_cpus, sum_worker_memory, get_runtime_services, get_enabled_runtimes, \
     with_node_ip_environment_variables, run_in_parallel_on_nodes, get_commands_to_run, \
     cluster_booting_completed, load_head_cluster_config, get_runnable_command, get_cluster_uri, \
     with_head_node_ip_environment_variables, get_verified_runtime_list, get_commands_of_runtimes, \
@@ -1854,10 +1854,14 @@ def show_useful_commands(call_context: CallContext,
 
         head_node_cluster_ip = get_node_cluster_ip(provider, head_node)
 
-        runtime_urls = get_useful_runtime_urls(config.get(RUNTIME_CONFIG_KEY), head_node_cluster_ip)
-        for runtime_url in runtime_urls:
-            with _cli_logger.group(runtime_url["name"] + ":"):
-                _cli_logger.print(runtime_url["url"])
+        runtime_services = get_runtime_services(config.get(RUNTIME_CONFIG_KEY), head_node_cluster_ip)
+        for runtime_service in runtime_services:
+            with _cli_logger.group(runtime_service["name"] + ":"):
+                if "info" in runtime_service:
+                    service_desc = "{}, {}".format(runtime_service["url"], runtime_service["info"])
+                else:
+                    service_desc = runtime_service["url"]
+                _cli_logger.print(service_desc)
 
 
 def show_cluster_status(config_file: str,

@@ -68,7 +68,7 @@ setup_spec.extras = {
         "botocore",
     ],
     "azure": [
-        "azure-cli==2.35.0",
+        "azure-cli==2.41.0",
         "azure-storage-blob==12.11.0",
         "azure-storage-file-datalake==12.6.0",
     ],

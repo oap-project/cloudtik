@@ -77,16 +77,20 @@ def _get_defaults_config(runtime_config: Dict[str, Any],
     return _get_config_object(cluster_config, "defaults")
 
 
-def _get_useful_urls(cluster_head_ip):
+def _get_runtime_services(cluster_head_ip):
     urls = [
-        {"name": "MLflow Web", "url": "http://{}:5001".format(cluster_head_ip)},
+        {
+            "id": "mlflow",
+            "name": "MLflow",
+            "url": "http://{}:5001".format(cluster_head_ip)
+        },
     ]
     return urls
 
 
 def _get_runtime_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
     service_ports = {
-        "mlflow-web": {
+        "mlflow": {
             "protocol": "TCP",
             "port": 5001,
         },

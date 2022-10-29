@@ -2104,20 +2104,20 @@ def _get_runtime_config_object(config_home: str, provider_config, object_name: s
     return config_object
 
 
-def get_useful_runtime_urls(runtime_config, head_cluster_ip):
-    runtime_urls = []
+def get_runtime_services(runtime_config, head_cluster_ip):
+    all_services = []
     if runtime_config is None:
-        return runtime_urls
+        return all_services
 
     # Iterate through all the runtimes
     runtime_types = runtime_config.get(RUNTIME_TYPES_CONFIG_KEY, [])
     for runtime_type in runtime_types:
         runtime = _get_runtime(runtime_type, runtime_config)
-        urls = runtime.get_useful_urls(head_cluster_ip)
-        if urls:
-            runtime_urls += urls
+        services_of_runtime = runtime.get_runtime_services(head_cluster_ip)
+        if services_of_runtime:
+            all_services += services_of_runtime
 
-    return runtime_urls
+    return all_services
 
 
 def get_enabled_runtimes(config):

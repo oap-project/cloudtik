@@ -60,12 +60,17 @@ class Runtime:
         """Returns a copy of runtime config"""
         return None
 
-    def get_useful_urls(self, cluster_head_ip: str):
-        """Return the useful urls to show when cluster started.
-        It's an array of dictionary
+    def get_runtime_services(self, cluster_head_ip: str):
+        """Return the user service information provided by this runtime
+        It's an array of dictionary of service properties
         For example:
         [
-            {"name": "app web", "url": "http://localhost/app"},
+            {
+                "id": "app-web",
+                "name": "app web",
+                "url": "http://localhost/app",
+                "info": "additional information"
+            },
         ]
         """
         return None

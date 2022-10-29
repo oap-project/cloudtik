@@ -29,7 +29,7 @@ boto3 == 1.24.59
 s3fs == 2022.10.0
 botocore
 ## for azure
-azure-cli == 2.35.0
+azure-cli == 2.41.0
 azure-storage-blob == 12.11.0
 azure-storage-file-datalake == 12.6.0
 ## for gcp

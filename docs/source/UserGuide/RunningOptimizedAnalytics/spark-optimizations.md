@@ -35,6 +35,12 @@ to the children of INTERSECT has benefit according to the duplication of data in
 You can enable it by setting the Spark property spark.sql.optimizer.distinctBeforeIntersect.enabled.
 
 ## Flatten Scalar Subquery Optimization
-
+We add a new optimizer rule MergeScalarSubqueries to merge multiple non-correlated ScalarSubquerys to compute multiple scalar values once.
+The query optimizer flattens aggregate scalar subqueries that use the same relation if possible. 
+The scalar subqueries are flattened by pushing any predicates present in the subquery into the aggregate functions and then performing one aggregation,
+ with all the aggregate functions, per relation.
+ 
 ## Flatten Single Row Aggregate Optimization
-
+This optimization is similar with ```Flatten Scalar Subquery Optimization```. For cross join, the children may be both aggregate with single row.
+The query optimizer flattens aggregate nodes of cross join that return one row and use the same relation if possible. 
+If the children of cross join can be merged, we will replace the cross join by merged node.

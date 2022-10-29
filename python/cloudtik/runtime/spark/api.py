@@ -3,7 +3,8 @@
 from typing import Union
 
 from cloudtik.core.api import Cluster, ThisCluster
-from cloudtik.runtime.spark.utils import request_rest_applications, request_rest_yarn, get_runtime_default_storage
+from cloudtik.runtime.spark.utils import request_rest_applications, request_rest_yarn, get_runtime_default_storage, \
+    get_runtime_services
 
 
 class SparkCluster(Cluster):
@@ -35,6 +36,9 @@ class SparkCluster(Cluster):
     def get_default_storage(self):
         return get_runtime_default_storage(self.config)
 
+    def get_services(self):
+        return get_runtime_services(self.config)
+
 
 class ThisSparkCluster(ThisCluster):
     def __init__(self) -> None:
@@ -59,3 +63,6 @@ class ThisSparkCluster(ThisCluster):
 
     def get_default_storage(self):
         return get_runtime_default_storage(self.config)
+
+    def get_services(self):
+        return get_runtime_services(self.config)

@@ -2,7 +2,9 @@ import os
 from typing import Any, Dict
 
 from cloudtik.core._private.providers import _get_node_provider, _get_workspace_provider
+from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_ML
 from cloudtik.core._private.utils import merge_rooted_config_hierarchy, _get_runtime_config_object
+from cloudtik.runtime.common.utils import get_runtime_services_of
 
 RUNTIME_PROCESSES = [
     # The first element is the substring to filter.
@@ -96,3 +98,7 @@ def _get_runtime_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]
         },
     }
     return service_ports
+
+
+def get_runtime_services(config: Dict[str, Any]):
+    return get_runtime_services_of(config, BUILT_IN_RUNTIME_ML)

@@ -36,10 +36,10 @@ cluster.scale(workers=3)
 # Wait for all cluster workers to be ready
 cluster.wait_for_ready(min_workers=3)
 
-if param_fsdir is None:
+if not param_fsdir:
     param_fsdir = cluster.get_default_storage()
-    if param_fsdir is None:
-        print("Must specify storage filesystem dir using  -f.")
+    if not param_fsdir:
+        print("Must specify storage filesystem dir using -f.")
         sys.exit(1)
 
 ml_cluster = ThisMLCluster()

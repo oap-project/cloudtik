@@ -2,7 +2,6 @@ from cloudtik.runtime.spark.api import ThisSparkCluster
 from cloudtik.runtime.ml.api import ThisMLCluster
 
 cluster = ThisSparkCluster()
-cluster_head_ip = cluster.get_head_node_ip()
 
 # Scale the cluster as need
 cluster.scale(workers=3)
@@ -69,7 +68,7 @@ search_space = hp.lognormal('C', 0, 1.0)
 algo = tpe.suggest
 spark_trials = SparkTrials(spark_session=spark)
 
-mlflow.set_tracking_uri(f"http://{cluster_head_ip}:5001")
+mlflow.set_tracking_uri(mlflow_url)
 mlflow.set_experiment("MLflow + HyperOpt + Scikit-Learn")
 argmin = fmin(
   fn=hyper_objective,

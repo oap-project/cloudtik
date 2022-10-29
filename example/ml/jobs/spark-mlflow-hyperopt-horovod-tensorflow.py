@@ -29,7 +29,6 @@ from cloudtik.runtime.spark.api import ThisSparkCluster
 from cloudtik.runtime.ml.api import ThisMLCluster
 
 cluster = ThisSparkCluster()
-cluster_head_ip = cluster.get_head_node_ip()
 
 # Scale the cluster as need
 cluster.scale(workers=3)

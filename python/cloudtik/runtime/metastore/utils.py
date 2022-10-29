@@ -81,14 +81,13 @@ def _get_defaults_config(runtime_config: Dict[str, Any],
 
 
 def _get_runtime_services(cluster_head_ip):
-    urls = [
-        {
-            "id": "metastore",
+    services = {
+        "metastore": {
             "name": "Metastore Uri",
             "url": "thrift://{}:9083".format(cluster_head_ip)
         },
-    ]
-    return urls
+    }
+    return services
 
 
 def _get_runtime_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:

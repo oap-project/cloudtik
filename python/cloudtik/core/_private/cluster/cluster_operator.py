@@ -1855,7 +1855,8 @@ def show_useful_commands(call_context: CallContext,
         head_node_cluster_ip = get_node_cluster_ip(provider, head_node)
 
         runtime_services = get_runtime_services(config.get(RUNTIME_CONFIG_KEY), head_node_cluster_ip)
-        for runtime_service in runtime_services:
+        sorted_runtime_services = sorted(runtime_services.items(), key=lambda kv: kv[1]["name"])
+        for service_id, runtime_service in sorted_runtime_services:
             with _cli_logger.group(runtime_service["name"] + ":"):
                 if "info" in runtime_service:
                     service_desc = "{}, {}".format(runtime_service["url"], runtime_service["info"])

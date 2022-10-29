@@ -88,19 +88,17 @@ def _get_defaults_config(runtime_config: Dict[str, Any],
 
 
 def _get_runtime_services(cluster_head_ip):
-    urls = [
-        {
-            "id": "hdfs-web",
+    services = {
+        "hdfs-web": {
             "name": "HDFS Web UI",
             "url": "http://{}:9870".format(cluster_head_ip)
         },
-        {
-            "id": "hdfs",
+        "hdfs": {
             "name": "HDFS Service",
             "url": "hdfs://{}:9000".format(cluster_head_ip)
         },
-    ]
-    return urls
+    }
+    return services
 
 
 def _get_runtime_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:

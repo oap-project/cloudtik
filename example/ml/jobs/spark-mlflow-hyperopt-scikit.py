@@ -1,9 +1,16 @@
-from cloudtik.core.api import ThisCluster
+from cloudtik.runtime.spark.api import ThisSparkCluster
+from cloudtik.runtime.ml.api import ThisMLCluster
 
-cluster = ThisCluster()
-cluster_head_ip = cluster.get_head_node_ip()
-# Wait for all cluster works read
-cluster.wait_for_ready()
+cluster = ThisSparkCluster()
+
+# Scale the cluster as need
+cluster.scale(workers=3)
+
+# Wait for all cluster workers to be ready
+cluster.wait_for_ready(min_workers=3)
+
+ml_cluster = ThisMLCluster()
+mlflow_url = ml_cluster.get_services()["mlflow"]["url"]
 
 
 # Initialize SparkSession
@@ -61,7 +68,7 @@ search_space = hp.lognormal('C', 0, 1.0)
 algo = tpe.suggest
 spark_trials = SparkTrials(spark_session=spark)
 
-mlflow.set_tracking_uri(f"http://{cluster_head_ip}:5001")
+mlflow.set_tracking_uri(mlflow_url)
 mlflow.set_experiment("MLflow + HyperOpt + Scikit-Learn")
 argmin = fmin(
   fn=hyper_objective,

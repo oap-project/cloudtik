@@ -62,16 +62,15 @@ class Runtime:
 
     def get_runtime_services(self, cluster_head_ip: str):
         """Return the user service information provided by this runtime
-        It's an array of dictionary of service properties
+        It's a map of dictionary of service properties
         For example:
-        [
-            {
-                "id": "app-web",
+        {
+            "app-web": {
                 "name": "app web",
                 "url": "http://localhost/app",
                 "info": "additional information"
             },
-        ]
+        }
         """
         return None
 

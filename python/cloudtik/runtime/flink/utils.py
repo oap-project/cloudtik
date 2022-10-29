@@ -4,13 +4,12 @@ from typing import Any, Dict, Optional
 from cloudtik.core._private.cluster.cluster_config import _load_cluster_config
 from cloudtik.core._private.cluster.cluster_rest_request import _request_rest_to_head
 from cloudtik.core._private.core_utils import double_quote
-from cloudtik.core._private.providers import _get_node_provider
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_HDFS, BUILT_IN_RUNTIME_METASTORE, \
     BUILT_IN_RUNTIME_FLINK
 from cloudtik.core._private.utils import merge_rooted_config_hierarchy, \
     _get_runtime_config_object, is_runtime_enabled, round_memory_size_to_gb, load_head_cluster_config, \
     RUNTIME_CONFIG_KEY, load_properties_file, save_properties_file, is_use_managed_cloud_storage, get_node_type_config, \
-    print_json_formatted, get_cluster_head_ip
+    print_json_formatted
 from cloudtik.core._private.workspace.workspace_operator import _get_workspace_provider
 from cloudtik.core.scaling_policy import ScalingPolicy
 from cloudtik.runtime.common.utils import get_runtime_services_of, get_runtime_default_storage_of

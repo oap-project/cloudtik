@@ -69,7 +69,7 @@ setup_spec.extras = {
     ],
     "azure": [
         "azure-cli==2.40.0",
-        "azure-identity==1.11.0"
+        "azure-identity==1.11.0",
         "azure-storage-blob==12.11.0",
         "azure-storage-file-datalake==12.6.0",
     ],

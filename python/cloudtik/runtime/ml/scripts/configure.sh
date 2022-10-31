@@ -66,6 +66,13 @@ function configure_ml() {
         HOROVOD_PYTHON_HOME="${ROOT_DIR}/../../horovod"
         SPARK_GLOO_RUN_FILE="${HOROVOD_PYTHON_HOME}/spark/gloo_run.py"
         cp $output_dir/gloo_run.py.patch ${SPARK_GLOO_RUN_FILE}
+
+        # Fix the Azure managed identity from adlfs
+        ADLFS_PYTHON_HOME="${ROOT_DIR}/../../adlfs"
+        ADLFS_SPEC_FILE="${ADLFS_PYTHON_HOME}/spec.py"
+        if [ -f "$ADLFS_SPEC_FILE" ]; then
+            cp $output_dir/adlfs_spec.py.patch ${ADLFS_SPEC_FILE}
+        fi
     fi
 }
 

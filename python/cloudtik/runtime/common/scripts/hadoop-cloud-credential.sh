@@ -75,6 +75,7 @@ function update_credential_config_for_azure() {
     if [ ! -z "${AZURE_MANAGED_IDENTITY_CLIENT_ID}" ]; then
         FS_KEY_NAME_CLIENT_ID="fs.azure.account.oauth2.client.id"
         ${HADOOP_HOME}/bin/hadoop credential create ${FS_KEY_NAME_CLIENT_ID} -value ${AZURE_MANAGED_IDENTITY_CLIENT_ID} -provider ${HADOOP_CREDENTIAL_TEP_PROVIDER_PATH} > /dev/null
+        echo "${AZURE_MANAGED_IDENTITY_CLIENT_ID}" > ~/azure_managed_identity.config
         HAS_HADOOP_CREDENTIAL=true
     fi
 

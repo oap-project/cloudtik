@@ -7,6 +7,23 @@ provider:
     region: us-central1
     availability_zone: us-central1-a
     project_id: your_project_id
-    # Use allowed_ssh_sources to allow SSH access from your client machine
+    # if you use a User account to authenticate, please add the field: gcp_credentials
+    gcp_credentials:
+        type: oauth_token
+        credentials:
+            # Option 1: You can execute 'gcloud auth print-access-token' to get oauth access token
+            # and put it here as token value. You don't need to other fields for this case.
+            # but note that the token is short-lived and will expire.
+            token: nil
+            # Option 1: Set the above token as nil and specify the below fields needed for getting and refreshing
+            # an access token.
+            # You can fill the following items with the info in 'adc.json' under '~/.config/gcloud/legacy_credentials/your_account_name'
+            # directory after you authenticated your working node using gcloud with your user account.
+            client_id: your-oauth-client-id
+            client_secret: your-oauth-client-secret
+            token_uri: https://oauth2.googleapis.com/token
+            refresh_token: your-oauth-refresh-token
+    # Use allowed_ssh_sources to allow SSH access from your client machine.
+    # Note: For security, make sure to replace 0.0.0.0/0 with restricted CIDR ranges for your case.
     allowed_ssh_sources:
       - 0.0.0.0/0

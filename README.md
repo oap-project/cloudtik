@@ -4,7 +4,7 @@
 
 ### The Problem
 Building and operating fully distributed and high performance data analytics and AI platform are complex and time-consuming.
-This is usually not possible for small or middle enterprises not saying individuals.
+This is usually hard for small or middle enterprises not saying individuals.
 
 While the existing solutions for solving distributed analytics and AI problems on cloud
 have major challenges on a combination of various aspects cared by users.

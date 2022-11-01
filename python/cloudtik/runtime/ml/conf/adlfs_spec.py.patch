@@ -526,7 +526,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
         if os.path.isfile(filename):
             with open(filename, 'r') as f:
                 client_id = f.readline()
-            if client_id:
+                if client_id is not None:
+                    client_id = client_id.strip()
                 return client_id
         return None
     # CloudTik: patch end

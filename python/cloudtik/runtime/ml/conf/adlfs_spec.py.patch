@@ -520,6 +520,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         return (async_credential, sync_credential)
 
     # CloudTik: patch start
+    @staticmethod
     def _get_azure_managed_identity_client_id():
         filename = os.path.expanduser("~/azure_managed_identity.config")
         if os.path.isfile(filename):
@@ -538,7 +539,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
             asyncio.get_child_watcher().attach_loop(self.loop)
             # CloudTik: patch start
-            managed_identity_client_id = _get_azure_managed_identity_client_id()
+            managed_identity_client_id = self._get_azure_managed_identity_client_id()
             if managed_identity_client_id:
                 self.credential = AIODefaultAzureCredential(managed_identity_client_id=managed_identity_client_id)
             else:

@@ -58,21 +58,22 @@ function set_head_address() {
 
 function configure_ml() {
     # Do necessary configurations for Machine Learning
+    prepare_base_conf
+    cd $output_dir
     if [ $IS_HEAD_NODE == "true" ];then
-        prepare_base_conf
-        cd $output_dir
-
         # Fix the Horovod on Spark bug for handling network interfaces of loopback
         HOROVOD_PYTHON_HOME="${ROOT_DIR}/../../horovod"
         SPARK_GLOO_RUN_FILE="${HOROVOD_PYTHON_HOME}/spark/gloo_run.py"
-        cp $output_dir/gloo_run.py.patch ${SPARK_GLOO_RUN_FILE}
-
-        # Fix the Azure managed identity from adlfs
-        ADLFS_PYTHON_HOME="${ROOT_DIR}/../../adlfs"
-        ADLFS_SPEC_FILE="${ADLFS_PYTHON_HOME}/spec.py"
-        if [ -f "$ADLFS_SPEC_FILE" ]; then
-            cp $output_dir/adlfs_spec.py.patch ${ADLFS_SPEC_FILE}
+        if [ -f "$SPARK_GLOO_RUN_FILE" ]; then
+           cp $output_dir/gloo_run.py.patch ${SPARK_GLOO_RUN_FILE}
         fi
+    fi
+
+    # Fix the Azure managed identity from adlfs
+    ADLFS_PYTHON_HOME="${ROOT_DIR}/../../adlfs"
+    ADLFS_SPEC_FILE="${ADLFS_PYTHON_HOME}/spec.py"
+    if [ -f "$ADLFS_SPEC_FILE" ]; then
+        cp $output_dir/adlfs_spec.py.patch ${ADLFS_SPEC_FILE}
     fi
 }
 

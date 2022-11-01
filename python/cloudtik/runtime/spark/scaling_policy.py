@@ -231,7 +231,7 @@ class SparkScalingPolicy(ScalingPolicy):
                         logger.info("Scaling event: {}/{} memory are free. Requesting {} more memory...".format(
                             cluster_metrics["allocatedMB"],
                             cluster_metrics["totalMB"],
-                            requesting_cores))
+                            requesting_memory))
 
                     self.last_resource_demands_time = self.last_state_time
                     self.last_resource_state_snapshot = {

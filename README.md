@@ -1,15 +1,59 @@
-# CloudTik
+# CloudTik: Cloud Scale Platform for Distributed Analytics and AI
 
-CloudTik is a cloud scale platform for distributed analytics and AI on public cloud providers including AWS, Azure, GCP, and so on.
-CloudTik enables users or enterprises to easily create and manage analytics and AI platform on public clouds,
-with out-of-box optimized functionalities and performance, and to go quickly to focus on running the business workloads
-in hours or in even minutes instead of spending months to construct and optimize the platform.
+## Introduction
 
-CloudTik provides:
+### The Problem
+Building and operating fully distributed and high performance data analytics and AI platform are complex and time-consuming.
+This is usually not possible for small or middle enterprises not saying individuals.
+
+While the existing solutions for solving distributed analytics and AI problems on cloud
+have major challenges on a combination of various aspects cared by users.
+These include high cost for software services, non-optimal performance on the corresponding hardware,
+the complexity of operating and running such a platform and lack of transparency.
+
+### CloudTik Solution
+CloudTik is designed for solving the above challenges by providing the following core capabilities:
 - Scalable, robust, and unified control plane and runtimes for all public clouds
 - Out of box optimized runtimes for analytics and AI (Spark, ...)
 - Support of major public cloud providers - AWS, Azure, GCP, Kubernetes (EKS, AKS, and GKE) and more
-- A fully open architecture and open-sourced solution
+- A fully open architecture and open-sourced platform
+
+### Who Will Use CloudTik
+CloudTik enables researchers, data scientists, and enterprises to easily create and manage analytics and AI platform on public clouds,
+with out-of-box optimized functionalities and performance, and to go quickly to focus on running the business workloads
+in hours or in even minutes instead of spending months to construct and optimize the platform.
+
+## CloudTik Architecture
+
+Blow diagram shows the high level concept architecture of CloudTik.
+
+![Hive Level System Architecture](docs/image/system-architecture.jpg)
+
+User can use CloudTik through a command line interface (CLI) or a python application programming interface (API).
+Both CLI and API provides the management operations for both workspace and cluster, for example creating a workspace or
+starting a cluster.
+
+The same CLI and API can operate on different cloud providers with a unified workspace and cluster design shown
+in the right part of the diagram.
+
+The CLI or API interacts with Cloud through two channels. It will use Cloud API to create or manage cloud provider
+resources such as launching or terminating a VM instance on cloud. It will use SSH to interact with the VM instance
+to perform tasks like installing, configuring and managing the services running on the VM instance.
+
+When a workspace for specific cloud provider is created, all the shared resources for implementing the unified
+design are created. These include network resources (like VPC, subnets, NAT gateways, firewall rules),
+instance profiles, cloud storage and so on. Although the actual resources varies between cloud providers while
+the design the resources achieved is consistent.
+
+Within a workspace, one or more clusters can be started. These clusters will share a lot of common configurations
+such as network (they are in the same VPC) but vary on other aspects including instance types, scale of the cluster,
+services running and so on. The services provided by one cluster can be discovered by other clusters
+and be consumed.
+
+For each cluster started, user can configure very easily which runtimes
+(such as Spark runtime or Machine Learning runtime) are needed.
+CloudTik has designed the runtime with the optimized configurations and libraries.
+And when the cluster is running, the runtimes are properly configured and ready for running your workload.
 
 ## Getting Started with CloudTik
 

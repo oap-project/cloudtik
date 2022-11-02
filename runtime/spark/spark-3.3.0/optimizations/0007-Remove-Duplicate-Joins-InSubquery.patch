@@ -1,14 +1,14 @@
-From 6ebe6a844054159d098f749ea73394c7199b92e0 Mon Sep 17 00:00:00 2001
+From bdfe5104287a78f0784b573124ff87eba883b972 Mon Sep 17 00:00:00 2001
 From: haojin <hao.jin@intel.com>
-Date: Wed, 2 Nov 2022 14:42:56 +0800
+Date: Wed, 2 Nov 2022 16:14:39 +0800
 Subject: [PATCH] Support to remove duplicate joins of InSubquery
 
 ---
  .../sql/catalyst/optimizer/Optimizer.scala    |   1 +
- .../sql/catalyst/optimizer/subquery.scala     | 266 ++++++++++++++++++
+ .../sql/catalyst/optimizer/subquery.scala     | 273 ++++++++++++++++++
  .../apache/spark/sql/internal/SQLConf.scala   |   7 +
  .../merge/MergeScalarSubqueriesSuite.scala    |   1 +
- 4 files changed, 275 insertions(+)
+ 4 files changed, 282 insertions(+)
 
 diff --git a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/Optimizer.scala b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/Optimizer.scala
 index c49b768ad6..c2c08c0874 100644
@@ -23,10 +23,10 @@ index c49b768ad6..c2c08c0874 100644
        ColumnPruning,
        CollapseProject,
 diff --git a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/subquery.scala b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/subquery.scala
-index 7ef5ef55fa..d50334ad50 100644
+index 7ef5ef55fa..cfd6a11ae5 100644
 --- a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/subquery.scala
 +++ b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/subquery.scala
-@@ -756,3 +756,269 @@ object OptimizeOneRowRelationSubquery extends Rule[LogicalPlan] {
+@@ -756,3 +756,276 @@ object OptimizeOneRowRelationSubquery extends Rule[LogicalPlan] {
      }
    }
  }
@@ -264,12 +264,19 @@ index 7ef5ef55fa..d50334ad50 100644
 +        })
 +
 +        val newSubqueryList =
-+          if (withInSubquery.isEmpty) Nil else getOptimizedInSubqueryList(withInSubquery)
++          if (withInSubquery.isEmpty) {
++            Nil
++          } else {
++            getOptimizedInSubqueryList(
++              getOptimizedInSubqueryList(withInSubquery).reverse)
++          }
 +        val newNotSubqueryList =
 +          if (withNotInSubqueryChild.isEmpty) {
 +            Nil
 +          } else {
-+            getOptimizedInSubqueryList(withNotInSubqueryChild).map(inSubquery => Not(inSubquery))
++            getOptimizedInSubqueryList(
++              getOptimizedInSubqueryList(
++                withNotInSubqueryChild).reverse).map(inSubquery => Not(inSubquery))
 +          }
 +
 +        val newConditions =

@@ -36,6 +36,12 @@ cluster.scale(workers=3)
 # Wait for all cluster workers to be ready
 cluster.wait_for_ready(min_workers=3)
 
+# Total worker cores
+cluster_info = cluster.get_info()
+total_worker_cpus = cluster_info.get("total-worker-cpus")
+if not total_worker_cpus:
+    total_worker_cpus = 1
+
 if not param_fsdir:
     param_fsdir = cluster.get_default_storage()
     if not param_fsdir:
@@ -84,6 +90,8 @@ train_df = model.transform(df)
 
 # Split to train/test
 train_df, test_df = train_df.randomSplit([0.9, 0.1])
+if train_df.rdd.getNumPartitions() < total_worker_cpus:
+    train_df = train_df.repartition(total_worker_cpus)
 
 
 # Define training function and Keras model
@@ -113,15 +121,14 @@ else:
     keras.backend.set_session(tf.Session(config=tf.ConfigProto(device_count={'GPU': 0})))
 
 # Set the parameters
-executor_cores = conf.get("spark.executor.cores")
-set_num_proc = int(executor_cores)
-print(set_num_proc)
+set_num_proc = total_worker_cpus
+print("Spark Backend num_proc: {}".format(set_num_proc))
 
 set_batch_size = int(param_batch_size) if param_batch_size else 128
-print(set_batch_size)
+print("Keras Estimator batch_size: {}".format(set_batch_size))
 
 set_epochs = int(param_epochs) if param_epochs else 1
-print(set_epochs)
+print("Keras Estimator epochs: {}".format(set_epochs))
 
 store_path = param_fsdir + "/tmp"
 store = Store.create(store_path)

@@ -1,0 +1,331 @@
+From 6ebe6a844054159d098f749ea73394c7199b92e0 Mon Sep 17 00:00:00 2001
+From: haojin <hao.jin@intel.com>
+Date: Wed, 2 Nov 2022 14:42:56 +0800
+Subject: [PATCH] Support to remove duplicate joins of InSubquery
+
+---
+ .../sql/catalyst/optimizer/Optimizer.scala    |   1 +
+ .../sql/catalyst/optimizer/subquery.scala     | 266 ++++++++++++++++++
+ .../apache/spark/sql/internal/SQLConf.scala   |   7 +
+ .../merge/MergeScalarSubqueriesSuite.scala    |   1 +
+ 4 files changed, 275 insertions(+)
+
+diff --git a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/Optimizer.scala b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/Optimizer.scala
+index c49b768ad6..c2c08c0874 100644
+--- a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/Optimizer.scala
++++ b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/Optimizer.scala
+@@ -236,6 +236,7 @@ abstract class Optimizer(catalogManager: CatalogManager)
+     Batch("Check Cartesian Products", Once,
+       CheckCartesianProducts) :+
+     Batch("RewriteSubquery", Once,
++      RemoveDuplicateJoinsInSubquery,
+       RewritePredicateSubquery,
+       ColumnPruning,
+       CollapseProject,
+diff --git a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/subquery.scala b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/subquery.scala
+index 7ef5ef55fa..d50334ad50 100644
+--- a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/subquery.scala
++++ b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/subquery.scala
+@@ -756,3 +756,269 @@ object OptimizeOneRowRelationSubquery extends Rule[LogicalPlan] {
+     }
+   }
+ }
++
++
++object RemoveDuplicateJoinsInSubquery extends Rule[LogicalPlan] with PredicateHelper {
++
++  private def extractInnerJoins(plan: LogicalPlan): (Seq[LogicalPlan], ExpressionSet) = {
++    plan match {
++      case Join(left, right, _: InnerLike, Some(cond), JoinHint.NONE) =>
++        val (leftPlans, leftConditions) = extractInnerJoins(left)
++        val (rightPlans, rightConditions) = extractInnerJoins(right)
++        (leftPlans ++ rightPlans, leftConditions ++ rightConditions ++
++          splitConjunctivePredicates(cond))
++      case Project(projectList, j @ Join(_, _, _: InnerLike, Some(cond), JoinHint.NONE))
++        if projectList.forall(_.isInstanceOf[Attribute]) =>
++        extractInnerJoins(j)
++      case _ =>
++        (Seq(plan), ExpressionSet())
++    }
++  }
++
++  private def extractInnerJoinNodes(plan: LogicalPlan): Seq[LogicalPlan] = {
++    plan match {
++      case j @ Join(left, right, _: InnerLike, Some(cond), JoinHint.NONE) =>
++        val leftJoinPlans = extractInnerJoinNodes(left)
++        val rightJoinPlans = extractInnerJoinNodes(right)
++        Seq(j) ++ leftJoinPlans ++ rightJoinPlans
++      case Project(projectList, j @ Join(_, _, _: InnerLike, Some(cond), JoinHint.NONE))
++        if projectList.forall(_.isInstanceOf[Attribute]) =>
++        extractInnerJoinNodes(j)
++      case _ =>
++        (Seq[LogicalPlan]())
++    }
++  }
++
++  private def findDuplicateJoinNodes(firstInSubqueryJoinNodes: Seq[LogicalPlan],
++      secondInSubqueryJoinNodes: Seq[LogicalPlan]): Seq[LogicalPlan] = {
++    val duplicateNodes = ArrayBuffer[LogicalPlan]()
++    firstInSubqueryJoinNodes.map(firstItem => {
++      secondInSubqueryJoinNodes.map(secondInSubqueryJoinNode => {
++        if (firstItem.canonicalized == secondInSubqueryJoinNode.canonicalized) {
++          duplicateNodes.append(secondInSubqueryJoinNode)
++        }
++      })
++    })
++    if (duplicateNodes.nonEmpty) {
++      duplicateNodes
++    } else {
++      Seq()
++    }
++  }
++
++  private def buildJoin(
++                         oneJoinPlan: LogicalPlan,
++                         otherJoinPlan: LogicalPlan,
++                         conditions: ExpressionSet,
++                         topOutput: AttributeSet): Option[LogicalPlan] = {
++
++    val onePlan = oneJoinPlan
++    val otherPlan = otherJoinPlan
++    val joinConds = conditions
++      .filterNot(l => canEvaluate(l, onePlan))
++      .filterNot(r => canEvaluate(r, otherPlan))
++      .filter(e => e.references.subsetOf(onePlan.outputSet ++ otherPlan.outputSet))
++    if (joinConds.isEmpty) {
++      // Cartesian product is very expensive, so we exclude them from candidate plans.
++      // This also significantly reduces the search space.
++      return None
++    }
++
++    val newJoin = Join(onePlan, otherPlan, Inner, joinConds.reduceOption(And), JoinHint.NONE)
++    val collectedJoinConds = joinConds
++    val remainingConds = conditions -- collectedJoinConds
++    val neededAttr = AttributeSet(remainingConds.flatMap(_.references)) ++ topOutput
++    val neededFromNewJoin = newJoin.output.filter(neededAttr.contains)
++    val newPlan =
++      if ((newJoin.outputSet -- neededFromNewJoin).nonEmpty) {
++        Project(neededFromNewJoin, newJoin)
++      } else {
++        newJoin
++      }
++    Some(newPlan)
++  }
++
++  private def mergeRemainPlan(
++                                 mergedPlan: LogicalPlan,
++                                 remainPlans: Seq[LogicalPlan],
++                                 conditions: ExpressionSet,
++                                 topOutput: AttributeSet
++                             ): Option[(LogicalPlan, Seq[LogicalPlan])] = {
++    for (remainPlan <- remainPlans) {
++      buildJoin(mergedPlan, remainPlan, conditions, topOutput) match {
++        case Some(newJoinPlan) =>
++          return Some((newJoinPlan, remainPlans.diff(Seq(remainPlan))))
++        case None =>
++      }
++    }
++    None
++  }
++
++  private def tryMergeJoinNodes(items: Seq[LogicalPlan], conditions: ExpressionSet,
++                                output: Seq[Attribute]): Option[LogicalPlan] = {
++
++    val topOutput = AttributeSet(output)
++    if(items.length == 1) {
++      val finalPlan = items.head
++      if((topOutput -- finalPlan.outputSet).nonEmpty) {
++        // it means that remaining items lack the attribute of origin plan
++        None
++      } else {
++        Some(finalPlan)
++      }
++    } else {
++      var finalPlan = items.head
++      var remainPlans = items.diff(Seq(finalPlan))
++      while(remainPlans.nonEmpty) {
++        val mergedPlanAndReminPlans = mergeRemainPlan(finalPlan, remainPlans, conditions, topOutput)
++        if (mergedPlanAndReminPlans.isDefined) {
++          finalPlan = mergedPlanAndReminPlans.get._1
++          remainPlans = mergedPlanAndReminPlans.get._2
++        } else {
++          return None
++        }
++      }
++      if((topOutput -- finalPlan.outputSet).nonEmpty) {
++        None
++      } else {
++        Some(finalPlan)
++      }
++    }
++  }
++
++  private def checkIdenticalInSubqueryValues(
++                                              firstInSubqueryValues: Seq[Expression],
++                                              secondInSubqueryValues: Seq[Expression]): Boolean = {
++    firstInSubqueryValues.zip(secondInSubqueryValues).exists(valueTuple => {
++      valueTuple._1.canonicalized != valueTuple._2.canonicalized
++    })
++  }
++
++  private def tryRemoveDuplicateJoin(
++    firstInSubquery: InSubquery, secondInSubquery: InSubquery): Option[InSubquery] = {
++
++    if (firstInSubquery.values.length != secondInSubquery.values.length ||
++      checkIdenticalInSubqueryValues(firstInSubquery.values, secondInSubquery.values)) {
++      return Some(secondInSubquery)
++    }
++
++    val firstInSubqueryListQueryPlan = firstInSubquery.query.plan
++    val secondInSubqueryListQueryPlan = secondInSubquery.query.plan
++    val (firstItems, firstConditions) = extractInnerJoins(firstInSubqueryListQueryPlan)
++    val (secondItems, secondConditions) = extractInnerJoins(secondInSubqueryListQueryPlan)
++    if(!(firstItems.size >= 2 && firstConditions.nonEmpty &&
++        secondItems.size >= 2 && secondConditions.nonEmpty)) {
++      return Some(secondInSubquery)
++    }
++
++    val firstInSubqueryJoinNodes = extractInnerJoinNodes(firstInSubqueryListQueryPlan)
++    val secondInSubqueryJoinNodes = extractInnerJoinNodes(secondInSubqueryListQueryPlan)
++
++    val duplicateJoinNodes =
++      findDuplicateJoinNodes(firstInSubqueryJoinNodes, secondInSubqueryJoinNodes)
++
++    var newPlan = secondInSubqueryListQueryPlan
++    for (duplicateJoinNode <- duplicateJoinNodes) {
++      val (duplicateItems, duplicateConditions) = extractInnerJoins(duplicateJoinNode)
++      val remainSecondItems = secondItems.diff(duplicateItems)
++      val remainSecondConditions = secondConditions.diff(duplicateConditions)
++      if (remainSecondItems.isEmpty) {
++        return None
++      } else {
++        val tmpNewPlan = tryMergeJoinNodes(
++          remainSecondItems, remainSecondConditions, secondInSubqueryListQueryPlan.output)
++        if(tmpNewPlan.isDefined) {
++          newPlan = tmpNewPlan.get
++        } else {
++          return Some(secondInSubquery)
++        }
++      }
++    }
++    if(newPlan.canonicalized == secondInSubqueryListQueryPlan.canonicalized) {
++      Some(secondInSubquery)
++    } else {
++      if ((newPlan.outputSet -- secondInSubqueryListQueryPlan.outputSet).isEmpty) {
++        Some(InSubquery(secondInSubquery.values, ListQuery(newPlan, childOutputs = newPlan.output)))
++      } else {
++        Some(secondInSubquery)
++      }
++    }
++  }
++
++  private def getOptimizedInSubqueryList(InsubqueryList: Seq[Expression]): Seq[Expression] = {
++    val withSubqueryList = InsubqueryList.toBuffer
++    val newSubqueryList = ArrayBuffer[Expression]()
++    while (withSubqueryList.nonEmpty) {
++      val headInSubquery = withSubqueryList.head.asInstanceOf[InSubquery]
++      withSubqueryList.remove(0)
++      var i = 0
++      while (i < withSubqueryList.size) {
++        val otherInSubquery = withSubqueryList(i).asInstanceOf[InSubquery]
++        val otherOptimizedInSubquery = tryRemoveDuplicateJoin(headInSubquery, otherInSubquery)
++        if (otherOptimizedInSubquery.isDefined) {
++          withSubqueryList(i) = otherOptimizedInSubquery.get
++          i = i + 1
++        } else {
++          // It means that otherInSubquery is useless and can be deleted.
++          withSubqueryList.remove(i)
++        }
++      }
++      newSubqueryList.append(headInSubquery)
++    }
++    newSubqueryList
++  }
++
++  private def removeDuplicateJoinInSubquery(plan: LogicalPlan): LogicalPlan = {
++    plan.transformWithPruning(
++    t => t.containsAnyPattern(LIST_SUBQUERY) && t.containsPattern(FILTER)) {
++      case Filter(condition, child)
++        if SubqueryExpression.hasInOrCorrelatedExistsSubquery(condition) =>
++        val (withSubquery, withoutSubquery) =
++          splitConjunctivePredicates(condition)
++            .partition(SubqueryExpression.hasInOrCorrelatedExistsSubquery)
++        val withInSubquery =
++          withSubquery.filter(subquery => subquery.isInstanceOf[InSubquery])
++        val withNotInSubquery = withSubquery.filter(subquery => subquery match {
++          case Not(InSubquery(_, _)) => true
++          case _ => false
++        })
++        val remainSubquery = withSubquery.diff(withInSubquery).diff(withNotInSubquery)
++
++        val withNotInSubqueryChild = withNotInSubquery.map(d => {
++          val e = d.asInstanceOf[Not]
++          e.child
++        })
++
++        val newSubqueryList =
++          if (withInSubquery.isEmpty) Nil else getOptimizedInSubqueryList(withInSubquery)
++        val newNotSubqueryList =
++          if (withNotInSubqueryChild.isEmpty) {
++            Nil
++          } else {
++            getOptimizedInSubqueryList(withNotInSubqueryChild).map(inSubquery => Not(inSubquery))
++          }
++
++        val newConditions =
++          withoutSubquery ++ newSubqueryList ++ newNotSubqueryList ++ remainSubquery
++
++        val newFilter: LogicalPlan = newConditions match {
++          case Nil => child
++          case conditions => Filter(conditions.reduce(And), child)
++        }
++        newFilter
++    }
++  }
++
++  def apply(plan: LogicalPlan): LogicalPlan = {
++    plan match {
++      // Subquery reuse needs to be enabled for this optimization.
++      case _ if !conf.getConf(SQLConf.REMOVE_INSUBQUERY_DUPLICATE_JOINS) => plan
++
++      // This rule does a whole plan traversal, no need to run on subqueries.
++      case _: Subquery => plan
++
++      case _ => removeDuplicateJoinInSubquery(plan)
++    }
++  }
++
++}
+diff --git a/sql/catalyst/src/main/scala/org/apache/spark/sql/internal/SQLConf.scala b/sql/catalyst/src/main/scala/org/apache/spark/sql/internal/SQLConf.scala
+index 729d6043ea..f9fde079b6 100644
+--- a/sql/catalyst/src/main/scala/org/apache/spark/sql/internal/SQLConf.scala
++++ b/sql/catalyst/src/main/scala/org/apache/spark/sql/internal/SQLConf.scala
+@@ -2406,6 +2406,13 @@ object SQLConf {
+       .booleanConf
+       .createWithDefault(false)
+ 
++  val REMOVE_INSUBQUERY_DUPLICATE_JOINS = buildConf("spark.sql.optimizer.removeInSubqueryDuplicateJoins.enabled")
++    .internal()
++    .doc("When true, the planner will try to remove duplicated joins of inSubqueries.")
++    .version("3.3.0")
++    .booleanConf
++    .createWithDefault(false)
++
+   val JOIN_REORDER_ENABLED =
+     buildConf("spark.sql.cbo.joinReorder.enabled")
+       .doc("Enables join reorder in CBO.")
+diff --git a/sql/core/src/test/scala/org/apache/spark/sql/execution/merge/MergeScalarSubqueriesSuite.scala b/sql/core/src/test/scala/org/apache/spark/sql/execution/merge/MergeScalarSubqueriesSuite.scala
+index 8af0e02855..b2782ec77d 100644
+--- a/sql/core/src/test/scala/org/apache/spark/sql/execution/merge/MergeScalarSubqueriesSuite.scala
++++ b/sql/core/src/test/scala/org/apache/spark/sql/execution/merge/MergeScalarSubqueriesSuite.scala
+@@ -24,6 +24,7 @@ import org.apache.spark.sql.catalyst.expressions.aggregate.{CollectList, Collect
+ import org.apache.spark.sql.catalyst.plans._
+ import org.apache.spark.sql.catalyst.plans.logical._
+ import org.apache.spark.sql.catalyst.rules._
++import org.apache.spark.sql.execution.merge.MergeScalarSubqueries
+ 
+ class MergeScalarSubqueriesSuite extends PlanTest {
+ 
+-- 
+2.20.1
+

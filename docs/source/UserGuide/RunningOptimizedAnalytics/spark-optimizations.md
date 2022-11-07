@@ -45,6 +45,7 @@ The scalar subqueries are flattened by pushing any predicates present in the sub
 This optimization is similar with [Flatten Scalar Subquery Optimization](#flatten-scalar-subquery-optimization). For cross join, the children may be both aggregate with single row.
 The query optimizer flattens aggregate nodes of cross join that return one row and use the same relation if possible. 
 If the children of cross join can be merged, we will replace the cross join by merged node.
+You can enable it by setting the Spark property ```spark.sql.optimizer.mergeSingleRowAggregate.enabled``` to ```true```.
 
 ## Remove Duplicate Joins InSubquery
 This optimization will try to find useless joins of all InSubqueries and remove them.  You can enable this feature by setting 

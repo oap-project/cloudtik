@@ -1,7 +1,7 @@
 From bdfe5104287a78f0784b573124ff87eba883b972 Mon Sep 17 00:00:00 2001
 From: haojin <hao.jin@intel.com>
 Date: Wed, 2 Nov 2022 16:14:39 +0800
-Subject: [PATCH] Support to remove duplicate joins of InSubquery
+Subject: [PATCH 1/2] Support to remove duplicate joins of InSubquery
 
 ---
  .../sql/catalyst/optimizer/Optimizer.scala    |   1 +

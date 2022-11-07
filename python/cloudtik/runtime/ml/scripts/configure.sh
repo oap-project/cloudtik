@@ -75,6 +75,13 @@ function configure_ml() {
     if [ -f "$ADLFS_SPEC_FILE" ]; then
         cp $output_dir/adlfs_spec.py.patch ${ADLFS_SPEC_FILE}
     fi
+
+    # Fix the empty key for path from gcsfs in pyarrow
+    PYARROW_PYTHON_HOME="${ROOT_DIR}/../../pyarrow"
+    PARQUET_INIT_FILE="${PYARROW_PYTHON_HOME}/parquet/__init__.py"
+    if [ -f "$PARQUET_INIT_FILE" ]; then
+        cp $output_dir/__init__.py.patch ${PARQUET_INIT_FILE}
+    fi
 }
 
 set_head_address

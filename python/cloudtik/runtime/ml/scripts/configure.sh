@@ -65,7 +65,7 @@ function configure_ml() {
         HOROVOD_PYTHON_HOME="${ROOT_DIR}/../../horovod"
         SPARK_GLOO_RUN_FILE="${HOROVOD_PYTHON_HOME}/spark/gloo_run.py"
         if [ -f "$SPARK_GLOO_RUN_FILE" ]; then
-           cp $output_dir/gloo_run.py.patch ${SPARK_GLOO_RUN_FILE}
+           cp $output_dir/horovod_gloo_run.py.patch ${SPARK_GLOO_RUN_FILE}
         fi
     fi
 
@@ -76,11 +76,11 @@ function configure_ml() {
         cp $output_dir/adlfs_spec.py.patch ${ADLFS_SPEC_FILE}
     fi
 
-    # Fix the empty key for path from gcsfs in pyarrow
-    PYARROW_PYTHON_HOME="${ROOT_DIR}/../../pyarrow"
-    PARQUET_INIT_FILE="${PYARROW_PYTHON_HOME}/parquet/__init__.py"
-    if [ -f "$PARQUET_INIT_FILE" ]; then
-        cp $output_dir/__init__.py.patch ${PARQUET_INIT_FILE}
+    # Fix the empty key for path from gcsfs
+    GCSFS_PYTHON_HOME="${ROOT_DIR}/../../gcsfs"
+    GCSFS_CORE_FILE="${GCSFS_PYTHON_HOME}/core.py"
+    if [ -f "$GCSFS_CORE_FILE" ]; then
+        cp $output_dir/gcsfs_core.py.patch ${GCSFS_CORE_FILE}
     fi
 }
 

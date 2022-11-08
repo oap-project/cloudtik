@@ -215,11 +215,14 @@ loaded_model = mlflow.keras.load_model(model_uri)
 hvd_keras_model = hvd.KerasModel(model=loaded_model,
                                  feature_columns=['features'],
                                  label_columns=['label_vec'],
-                                 _floatx = floatx,
-                                 _metadata = metadata)
+                                 _floatx=floatx,
+                                 _metadata=metadata).setOutputCols(['label_prob'])
 
 pred_df = hvd_keras_model.transform(test_df)
-pred_df.show(10)
+argmax = udf(lambda v: float(np.argmax(v)), returnType=T.DoubleType())
+pred_df = pred_df.withColumn('predicate', argmax(pred_df.label_prob))
+pred_df = pred_df.sampleBy('label', fractions={0.0: 0.1, 1.0: 0.1, 2.0: 0.1, 3.0: 0.1, 4.0: 0.1, 5.0: 0.1, 6.0: 0.1, 7.0: 0.1, 8.0: 0.1, 9.0: 0.1})
+pred_df.show(150)
 
 # Clean up
 spark.stop()

@@ -7,8 +7,7 @@ from botocore.config import Config
 import boto3
 
 from cloudtik.core._private.cli_logger import cli_logger, cf
-from cloudtik.core._private.constants import env_integer
-
+from cloudtik.core._private.constants import env_integer, CLOUDTIK_DEFAULT_CLOUD_STORAGE_URI
 
 # Max number of retries to AWS (default is 5, time increases exponentially)
 from cloudtik.core._private.utils import get_storage_config_for_update
@@ -197,7 +196,14 @@ def get_default_aws_cloud_storage(provider_config):
     if cloud_storage is None:
         return None
 
-    return get_aws_cloud_storage_uri(cloud_storage)
+    cloud_storage_info = {}
+    cloud_storage_info.update(cloud_storage)
+
+    cloud_storage_uri = get_aws_cloud_storage_uri(cloud_storage)
+    if cloud_storage_uri:
+        cloud_storage_info[CLOUDTIK_DEFAULT_CLOUD_STORAGE_URI] = cloud_storage_uri
+
+    return cloud_storage_info
 
 
 def tags_list_to_dict(tags: list):

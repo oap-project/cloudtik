@@ -10,6 +10,7 @@ from google.oauth2 import service_account
 from google.oauth2.credentials import Credentials as OAuthCredentials
 
 from cloudtik.core._private.cli_logger import cli_logger
+from cloudtik.core._private.constants import CLOUDTIK_DEFAULT_CLOUD_STORAGE_URI
 from cloudtik.core._private.utils import get_storage_config_for_update
 from cloudtik.providers._private.gcp.node import (GCPNodeType, MAX_POLLS,
                                                   POLL_INTERVAL)
@@ -339,7 +340,14 @@ def get_default_gcp_cloud_storage(provider_config):
     if cloud_storage is None:
         return None
 
-    return get_gcp_cloud_storage_uri(cloud_storage)
+    cloud_storage_info = {}
+    cloud_storage_info.update(cloud_storage)
+
+    cloud_storage_uri = get_gcp_cloud_storage_uri(cloud_storage)
+    if cloud_storage_uri:
+        cloud_storage_info[CLOUDTIK_DEFAULT_CLOUD_STORAGE_URI] = cloud_storage_uri
+
+    return cloud_storage_info
 
 
 def _get_node_info(node: GCPNode):

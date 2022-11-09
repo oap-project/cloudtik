@@ -42,8 +42,9 @@ total_worker_cpus = cluster_info.get("total-worker-cpus")
 if not total_worker_cpus:
     total_worker_cpus = 1
 
+default_storage = cluster.get_default_storage()
 if not param_fsdir:
-    param_fsdir = cluster.get_default_storage()
+    param_fsdir = default_storage.get("default.storage.uri") if default_storage else None
     if not param_fsdir:
         print("Must specify storage filesystem dir using -f.")
         sys.exit(1)
@@ -130,8 +131,15 @@ print("Keras Estimator batch_size: {}".format(set_batch_size))
 set_epochs = int(param_epochs) if param_epochs else 1
 print("Keras Estimator epochs: {}".format(set_epochs))
 
+# Create store for data accessing
 store_path = param_fsdir + "/tmp"
-store = Store.create(store_path)
+# AWS and GCP cloud storage authentication just work with empty storage options
+# Azure cloud storage authentication needs a few options
+storage_options = {}
+if default_storage and "azure.storage.account" in default_storage:
+    storage_options["anon"] = False
+    storage_options["account_name"] = default_storage["azure.storage.account"]
+store = Store.create(store_path, storage_options=storage_options)
 
 
 #  Horovod distributed training

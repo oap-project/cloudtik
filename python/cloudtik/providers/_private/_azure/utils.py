@@ -10,6 +10,7 @@ from azure.mgmt.compute import ComputeManagementClient
 from azure.mgmt.msi import ManagedServiceIdentityClient
 from azure.mgmt.authorization import AuthorizationManagementClient
 
+from cloudtik.core._private.constants import CLOUDTIK_DEFAULT_CLOUD_STORAGE_URI
 from cloudtik.core._private.utils import get_storage_config_for_update
 from cloudtik.providers._private._azure.azure_identity_credential_adapter import AzureIdentityCredentialAdapter
 
@@ -223,7 +224,14 @@ def get_default_azure_cloud_storage(provider_config):
     if cloud_storage is None:
         return None
 
-    return get_azure_cloud_storage_uri(cloud_storage)
+    cloud_storage_info = {}
+    cloud_storage_info.update(cloud_storage)
+
+    cloud_storage_uri = get_azure_cloud_storage_uri(cloud_storage)
+    if cloud_storage_uri:
+        cloud_storage_info[CLOUDTIK_DEFAULT_CLOUD_STORAGE_URI] = cloud_storage_uri
+
+    return cloud_storage_info
 
 
 def _get_node_info(node):

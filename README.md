@@ -237,7 +237,45 @@ auth:
 
 Refer to `example/cluster` directory for more cluster configurations examples.
 
-### 6. Managing clusters
+### 6. Running Analytics and AI workloads
+
+Once the cluster is started, you can run Spark analytics and AI workloads
+which are designed to be distributed and large scale in nature.
+
+#### Running spark PI example
+
+Running a Spark job is very straight forward. Spark PI job for example,
+
+```
+cloudtik exec ./your-cluster-config.yaml "spark-submit --master yarn --deploy-mode cluster --name spark-pi --class org.apache.spark.examples.SparkPi --conf spark.yarn.submit.waitAppCompletion=false \$SPARK_HOME/examples/jars/spark-examples_2.12-3.2.1.jar 12345" --job-waiter=spark
+```
+
+Refer to [Run Spark PI Example](example/spark) for more details.
+
+#### Running analytics benchmarks
+
+CloudTik provides ready to use tools for running TPC-DS benchmark
+on a CloudTik spark runtime cluster.
+
+Refer to [Run TPC-DS performance benchmark for Spark](tools/benchmarks/spark)
+for a detailed step-by-step guide.
+
+### Running machining examples
+
+CloudTik provides ready to run examples for demonstrating
+how distributed machine learning and deep learning jobs can be implemented
+in CloudTik Spark and ML runtime cluster.
+
+Refer to [Distributed Machine Learning and Deep Learning Examples](example/ml)
+for a detailed step-by-step guide.
+
+### Workflow examples
+User can integrate CloudTik with external workflows using bash scripts or python
+for running on-demand cluster and jobs.
+
+Refer to [Workflow Integration Examples](example/workflows) for example scripts.
+
+### 7. Managing clusters
 
 CloudTik provides very powerful capability to monitor and manage the cluster.
 
@@ -284,7 +322,7 @@ Download files or directories from cluster.
 cloudtik rsync-down /path/to/your-cluster-config.yaml [source] [target]
 ```
 
-### 7. Tearing Down
+### 8. Tearing Down
 
 #### Terminate a Cluster
 

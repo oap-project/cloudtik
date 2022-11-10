@@ -237,7 +237,7 @@ auth:
 
 Refer to `example/cluster` directory for more cluster configurations examples.
 
-### 6. Running Analytics and AI workloads
+### 6. Running analytics and AI workloads
 
 Once the cluster is started, you can run Spark analytics and AI workloads
 which are designed to be distributed and large scale in nature.
@@ -260,7 +260,7 @@ on a CloudTik spark runtime cluster.
 Refer to [Run TPC-DS performance benchmark for Spark](tools/benchmarks/spark)
 for a detailed step-by-step guide.
 
-### Running machining examples
+#### Running machine learning and deep learning examples
 
 CloudTik provides ready to run examples for demonstrating
 how distributed machine learning and deep learning jobs can be implemented
@@ -269,7 +269,7 @@ in CloudTik Spark and ML runtime cluster.
 Refer to [Distributed Machine Learning and Deep Learning Examples](example/ml)
 for a detailed step-by-step guide.
 
-### Workflow examples
+#### Workflow examples
 User can integrate CloudTik with external workflows using bash scripts or python
 for running on-demand cluster and jobs.
 

@@ -84,7 +84,7 @@ Take AWS for example,
 
 ```
 # if running CloudTik on aws
-pip install -U "cloudtik[aws] @ https://d30257nes7d4fq.cloudfront.net/downloads/cloudtik/cloudtik-0.9.1-cp37-cp37m-manylinux2014_x86_64.whl"
+pip install -U "cloudtik[aws] @ https://d30257nes7d4fq.cloudfront.net/downloads/cloudtik/cloudtik-1.0.0-cp37-cp37m-manylinux2014_x86_64.whl"
 ```
 
 Replace `cloudtik[aws]` with `clouditk[azure]` or `cloudtik[gcp]` if you want to create clusters on Azure or GCP.
@@ -94,9 +94,9 @@ The following table shows the installation links for latest CloudTik wheels of s
 
 | Linux      | Installation                                                                                                                                       |
 |:-----------|:---------------------------------------------------------------------------------------------------------------------------------------------------|
-| Python 3.9 | `pip install -U "cloudtik[aws] @ https://d30257nes7d4fq.cloudfront.net/downloads/cloudtik/cloudtik-0.9.1-cp39-cp39-manylinux2014_x86_64.whl" `     |
-| Python 3.8 | `pip install -U "cloudtik[aws] @ https://d30257nes7d4fq.cloudfront.net/downloads/cloudtik/cloudtik-0.9.1-cp38-cp38-manylinux2014_x86_64.whl" `     |
-| Python 3.7 | `pip install -U "cloudtik[aws] @ https://d30257nes7d4fq.cloudfront.net/downloads/cloudtik/cloudtik-0.9.1-cp37-cp37m-manylinux2014_x86_64.whl" `    |
+| Python 3.9 | `pip install -U "cloudtik[aws] @ https://d30257nes7d4fq.cloudfront.net/downloads/cloudtik/cloudtik-1.0.0-cp39-cp39-manylinux2014_x86_64.whl" `     |
+| Python 3.8 | `pip install -U "cloudtik[aws] @ https://d30257nes7d4fq.cloudfront.net/downloads/cloudtik/cloudtik-1.0.0-cp38-cp38-manylinux2014_x86_64.whl" `     |
+| Python 3.7 | `pip install -U "cloudtik[aws] @ https://d30257nes7d4fq.cloudfront.net/downloads/cloudtik/cloudtik-1.0.0-cp37-cp37m-manylinux2014_x86_64.whl" `    |
 
 
 ### 3. Authentication to Cloud Providers API

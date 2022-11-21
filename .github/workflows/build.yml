@@ -2,7 +2,7 @@ name: Build Python Package
 
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
   workflow_dispatch:
 jobs:
   build:
@@ -21,6 +21,3 @@ jobs:
     - name: build wheel
       run: |
         bash ./build.sh
-        curl -X PUT --upload-file ./python/dist/cloudtik-0.9.1-cp37-cp37m-manylinux2014_x86_64.whl http://23.95.96.95:8000/$GITHUB_ACTOR/cloudtik-0.9.1-cp37-cp37m-manylinux2014_x86_64.whl
-
-

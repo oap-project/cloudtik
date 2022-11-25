@@ -6,7 +6,7 @@ function prepare_prerequisite() {
     sudo apt-get install -y git
     export USER_HOME=/home/$(whoami)
     BENCHMARK_TOOL_HOME=$USER_HOME/runtime/benchmark-tools
-    TPCX_AI_HONE=$BENCHMARK_TOOL_HOME/tpcx-ai
+    TPCX_AI_HOME=$BENCHMARK_TOOL_HOME/tpcx-ai
     mkdir -p $BENCHMARK_TOOL_HOME
     sudo chown $(whoami) $BENCHMARK_TOOL_HOME
 }
@@ -39,27 +39,27 @@ function install_libaries() {
 }
 
 function install_python_libraries() {
-    pip install  librosa==0.8
+    conda install dlib=19.24.0 h5py=3.7.0 joblib=1.1.0 libffi=3.3 librosa=0.9.2 numpy=1.21.5 pyarrow=8.0.0 pyspark=2.4.7 tensorflow=2.9.1  tqdm=4.64.0 -c conda-forge
+    pip install opencv-python-headless==4.6.0.66 petastorm==0.11.5 tensorflow-addons==0.17.1
 }
 
 function install_tpcx_ai_benchmark() {
-    wget https://d30257nes7d4fq.cloudfront.net/downloads/tpcx-ai/tpcx-ai-v1.0.2.tgz -O /tmp/tpcx-ai.tgz
-    tar --extract --file tmp/tpcx-ai.tgz --directory "$TPCX_AI_HONE" --strip-components 1 --no-same-owner && \
-    rm tmp/tpcx-ai.tgz
+    wget https://d30257nes7d4fq.cloudfront.net/downloads/tpcx-ai/tpcx-ai-tool-v1.0.2.zip -O /tmp/tpcx-ai-tool.zip
+    unzip -o /tmp/tpcx-ai-tool.zip -d "$BENCHMARK_TOOL_HOME" && rm /tmp/tpcx-ai-tool.zip && mv $BENCHMARK_TOOL_HOME/tpcx-ai-v* $TPCX_AI_HOME
 }
 
 function download_tpcx_ai_files() {
-    wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/spark/scripts/tpcx-ai/parallel-data-gen.sh -O $TPCX_AI_HONE/tools/parallel-data-gen.sh
-    wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/spark/scripts/tpcx-ai/parallel-data-load.sh -O $TPCX_AI_HONE/tools/parallel-data-load.sh
-    wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/spark/confs/tpcx-ai/default-spark-yaml.yaml -O $TPCX_AI_HONE/driver/config/default-spark-yaml.yaml
+    wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/spark/scripts/tpcx-ai/parallel-data-gen.sh -O $TPCX_AI_HOME/tools/parallel-data-gen.sh
+    wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/spark/scripts/tpcx-ai/parallel-data-load.sh -O $TPCX_AI_HOME/tools/parallel-data-load.sh
+    wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/spark/confs/tpcx-ai/default-spark-yaml.yaml -O $TPCX_AI_HOME/driver/config/default-spark-yaml.yaml
 }
 
 function configure_tpcx_ai_benchmark() {
     is_head_node
-    echo IS_EULA_ACCEPTED=true >> ${TPCx_AI_HOME_DIR}/lib/pdgf/Constants.properties
+    echo IS_EULA_ACCEPTED=true >> ${TPCX_AI_HOME}/lib/pdgf/Constants.properties
     if [ $IS_HEAD_NODE == "true" ]; then
         cloudtik head worker-ips > $TPCX_AI_HONE/nodes
-        echo IS_EULA_ACCEPTED=true >> ${TPCx_AI_HOME_DIR}/data-gen/Constants.properties
+        echo IS_EULA_ACCEPTED=true >> ${TPCX_AI_HOME}/data-gen/Constants.properties
         echo 'export YARN_CONF_DIR=$HADOOP_HOME/etc/hadoop' >>  $TPCX_AI_HONE/setenv.sh
         echo "source $TPCX_AI_HONE/setenv.sh" >> ~/.bashrc
         download_tpcx_ai_files

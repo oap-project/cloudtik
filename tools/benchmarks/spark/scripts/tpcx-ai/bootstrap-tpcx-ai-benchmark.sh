@@ -3,7 +3,6 @@
 function prepare_prerequisite() {
     source ~/.bashrc
     sudo apt-get update -y
-    sudo apt-get install -y git
     export USER_HOME=/home/$(whoami)
     BENCHMARK_TOOL_HOME=$USER_HOME/runtime/benchmark-tools
     TPCX_AI_HOME=$BENCHMARK_TOOL_HOME/tpcx-ai
@@ -27,9 +26,10 @@ function check_jdk8() {
 }
 
 function install_tools() {
+    sudo apt-get install zip -y
     #Installl cmake, GCC 9.0 OpenMPI 4.0+
-    sudo apt-get install cmake
-    sudo apt-get install gcc-9 g++-9
+    sudo apt-get install cmake -y
+    sudo apt-get install gcc-9 g++-9 -y
     sudo apt-get install openmpi-bin openmpi-common openmpi-doc libopenmpi-dev -y
 }
 
@@ -39,8 +39,8 @@ function install_libaries() {
 }
 
 function install_python_libraries() {
-    conda install dlib=19.24.0 h5py=3.7.0 joblib=1.1.0 libffi=3.3 librosa=0.9.2 numpy=1.21.5 pyarrow=8.0.0 pyspark=2.4.7 tensorflow=2.9.1  tqdm=4.64.0 -c conda-forge
-    pip install opencv-python-headless==4.6.0.66 petastorm==0.11.5 tensorflow-addons==0.17.1
+    CLOUDTIK_CONDA_ENV=$(dirname $(dirname $(which cloudtik)))
+    conda env update -p $CLOUDTIK_CONDA_ENV  --file $TPCX_AI_HOME/tools/spark/build_dl.yml
 }
 
 function install_tpcx_ai_benchmark() {
@@ -51,19 +51,23 @@ function install_tpcx_ai_benchmark() {
 function download_tpcx_ai_files() {
     wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/spark/scripts/tpcx-ai/parallel-data-gen.sh -O $TPCX_AI_HOME/tools/parallel-data-gen.sh
     wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/spark/scripts/tpcx-ai/parallel-data-load.sh -O $TPCX_AI_HOME/tools/parallel-data-load.sh
-    wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/spark/confs/tpcx-ai/default-spark-yaml.yaml -O $TPCX_AI_HOME/driver/config/default-spark-yaml.yaml
+    wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/spark/confs/tpcx-ai/default-spark.yaml -O $TPCX_AI_HOME/driver/config/default-spark.yaml
+    wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/spark/confs/tpcx-ai/build_dl.yml -O $TPCX_AI_HOME/tools/spark/build_dl.yml
 }
 
 function configure_tpcx_ai_benchmark() {
+    download_tpcx_ai_files
     is_head_node
     echo IS_EULA_ACCEPTED=true >> ${TPCX_AI_HOME}/lib/pdgf/Constants.properties
     if [ $IS_HEAD_NODE == "true" ]; then
-        cloudtik head worker-ips > $TPCX_AI_HONE/nodes
+        cloudtik head worker-ips > $TPCX_AI_HOME/nodes
         echo IS_EULA_ACCEPTED=true >> ${TPCX_AI_HOME}/data-gen/Constants.properties
-        echo 'export YARN_CONF_DIR=$HADOOP_HOME/etc/hadoop' >>  $TPCX_AI_HONE/setenv.sh
-        echo "source $TPCX_AI_HONE/setenv.sh" >> ~/.bashrc
-        download_tpcx_ai_files
+        echo 'export YARN_CONF_DIR=$HADOOP_HOME/etc/hadoop' >>  $TPCX_AI_HOME/setenv.sh
+        echo ". $TPCX_AI_HOME/setenv.sh" >> ~/.bashrc
+        source ~/.bashrc
+        cd ${TPCX_AI_HOME} && bash ${TPCX_AI_HOME}/setup-spark.sh
     fi
+    chmod u+x -R ${TPCX_AI_HOME}
 }
 
 function is_head_node() {
@@ -77,9 +81,9 @@ function is_head_node() {
 }
 
 prepare_prerequisite
+install_tpcx_ai_benchmark
+configure_tpcx_ai_benchmark
 check_jdk8
 install_tools
 install_libaries
 install_python_libraries
-install_tpcx_ai_benchmark
-configure_tpcx_ai_benchmark

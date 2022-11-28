@@ -10,6 +10,7 @@ BASE_IMAGE="ubuntu:focal"
 WHEEL_URL="https://d30257nes7d4fq.cloudfront.net/downloads/cloudtik/cloudtik-${CLOUDTIK_VERSION}-cp37-cp37m-manylinux2014_x86_64.whl"
 PYTHON_VERSION="3.7.7"
 CONDA_ENV_NAME="cloudtik_py37"
+IMAGE_TAG="nightly"
 
 while [[ $# -gt 0 ]]
 do
@@ -44,6 +45,9 @@ do
         # If not provided defaults to 3.7.7
         shift
         PYTHON_VERSION=$1
+        ;;
+    --release)
+        IMAGE_TAG=${CLOUDTIK_VERSION}
         ;;
     --build-all)
         BUILD_ALL=YES
@@ -100,10 +104,10 @@ for IMAGE in "cloudtik-base"
 do
     cp "$WHEEL" "docker/$IMAGE/$(basename "$WHEEL")"
     if [ $OUTPUT_SHA ]; then
-        IMAGE_SHA=$(docker build $NO_CACHE --build-arg GPU="$GPU" --build-arg BASE_IMAGE="$BASE_IMAGE" --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_VERSION="$PYTHON_VERSION" --build-arg CONDA_ENV_NAME="$CONDA_ENV_NAME" -q -t cloudtik/$IMAGE:nightly$GPU docker/$IMAGE)
-        echo "cloudtik/$IMAGE:nightly$GPU SHA:$IMAGE_SHA"
+        IMAGE_SHA=$(docker build $NO_CACHE --build-arg GPU="$GPU" --build-arg BASE_IMAGE="$BASE_IMAGE" --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_VERSION="$PYTHON_VERSION" --build-arg CONDA_ENV_NAME="$CONDA_ENV_NAME" -q -t cloudtik/$IMAGE:$IMAGE_TAG$GPU docker/$IMAGE)
+        echo "cloudtik/$IMAGE:$IMAGE_TAG$GPU SHA:$IMAGE_SHA"
     else
-        docker build $NO_CACHE --build-arg GPU="$GPU" --build-arg BASE_IMAGE="$BASE_IMAGE" --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_VERSION="$PYTHON_VERSION" --build-arg CONDA_ENV_NAME="$CONDA_ENV_NAME" -t cloudtik/$IMAGE:nightly$GPU docker/$IMAGE
+        docker build $NO_CACHE --build-arg GPU="$GPU" --build-arg BASE_IMAGE="$BASE_IMAGE" --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_VERSION="$PYTHON_VERSION" --build-arg CONDA_ENV_NAME="$CONDA_ENV_NAME" -t cloudtik/$IMAGE:$IMAGE_TAG$GPU docker/$IMAGE
     fi
     rm "docker/$IMAGE/$(basename "$WHEEL")"
 done 
@@ -112,10 +116,10 @@ for IMAGE in "cloudtik-deps" "cloudtik"
 do
     cp "$WHEEL" "docker/$IMAGE/$(basename "$WHEEL")"
     if [ $OUTPUT_SHA ]; then
-        IMAGE_SHA=$(docker build $NO_CACHE --build-arg GPU="$GPU" --build-arg BASE_IMAGE="nightly" --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_VERSION="$PYTHON_VERSION" -q -t cloudtik/$IMAGE:nightly$GPU docker/$IMAGE)
-        echo "cloudtik/$IMAGE:nightly$GPU SHA:$IMAGE_SHA"
+        IMAGE_SHA=$(docker build $NO_CACHE --build-arg GPU="$GPU" --build-arg BASE_IMAGE=$IMAGE_TAG --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_VERSION="$PYTHON_VERSION" -q -t cloudtik/$IMAGE:$IMAGE_TAG$GPU docker/$IMAGE)
+        echo "cloudtik/$IMAGE:$IMAGE_TAG$GPU SHA:$IMAGE_SHA"
     else
-        docker build $NO_CACHE --build-arg GPU="$GPU" --build-arg BASE_IMAGE="nightly" --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_VERSION="$PYTHON_VERSION" -t cloudtik/$IMAGE:nightly$GPU docker/$IMAGE
+        docker build $NO_CACHE --build-arg GPU="$GPU" --build-arg BASE_IMAGE=$IMAGE_TAG --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_VERSION="$PYTHON_VERSION" -t cloudtik/$IMAGE:$IMAGE_TAG$GPU docker/$IMAGE
     fi
     rm "docker/$IMAGE/$(basename "$WHEEL")"
 done 
@@ -136,41 +140,41 @@ fi
 rm -rf "$WHEEL_DIR"
 
 if [ $BUILD_SPARK ] || [ $BUILD_ALL ]; then
-    docker build $NO_CACHE -t cloudtik/spark-runtime:nightly docker/runtime/spark
+    docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG -t cloudtik/spark-runtime:$IMAGE_TAG docker/runtime/spark
 fi
 
 if [ $BUILD_SPARK_NATIVE_SQL ] || [ $BUILD_ALL ]; then
-    docker build $NO_CACHE -t cloudtik/spark-native-sql:nightly docker/runtime/spark/native-sql
+    docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG -t cloudtik/spark-native-sql:$IMAGE_TAG docker/runtime/spark/native-sql
 fi
 
 if [ $BUILD_SPARK_OPTIMIZED ] || [ $BUILD_ALL ]; then
-    docker build $NO_CACHE -t cloudtik/spark-optimized:nightly docker/runtime/spark/optimized
+    docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG -t cloudtik/spark-optimized:$IMAGE_TAG docker/runtime/spark/optimized
 fi
 
 if [ $BUILD_UNIVERSE ] || [ $BUILD_ALL ]; then
-    docker build $NO_CACHE -t cloudtik/universe-runtime:nightly docker/runtime/universe
+    docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG -t cloudtik/universe-runtime:$IMAGE_TAG docker/runtime/universe
 fi
 
 if [ $BUILD_PRESTO ] || [ $BUILD_ALL ]; then
-    docker build $NO_CACHE -t cloudtik/presto-runtime:nightly docker/runtime/presto
+    docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG -t cloudtik/presto-runtime:$IMAGE_TAG docker/runtime/presto
 fi
 
 if [ $BUILD_TRINO ] || [ $BUILD_ALL ]; then
-    docker build $NO_CACHE -t cloudtik/trino-runtime:nightly docker/runtime/trino
+    docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG -t cloudtik/trino-runtime:$IMAGE_TAG docker/runtime/trino
 fi
 
 if [ $BUILD_ML ] || [ $BUILD_ALL ]; then
-    docker build $NO_CACHE -t cloudtik/spark-ml-runtime:nightly docker/runtime/ml
+    docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG -t cloudtik/spark-ml-runtime:$IMAGE_TAG docker/runtime/ml
 fi
 
 if [ $BUILD_SPARK_BENCHMARK ] || [ $BUILD_ALL ]; then
-    docker build $NO_CACHE -t cloudtik/spark-runtime-benchmark:nightly docker/runtime/spark/benchmark
+    docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG -t cloudtik/spark-runtime-benchmark:$IMAGE_TAG docker/runtime/spark/benchmark
 fi
 
 if [ $BUILD_SPARK_NATIVE_SQL_BENCHMARK ] || [ $BUILD_ALL ]; then
-    docker build $NO_CACHE -t cloudtik/spark-native-sql-benchmark:nightly docker/runtime/spark/benchmark/native-sql
+    docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG -t cloudtik/spark-native-sql-benchmark:$IMAGE_TAG docker/runtime/spark/benchmark/native-sql
 fi
 
 if [ $BUILD_SPARK_OPTIMIZED_BENCHMARK ] || [ $BUILD_ALL ]; then
-    docker build $NO_CACHE -t cloudtik/spark-optimized-benchmark:nightly docker/runtime/spark/benchmark/optimized
+    docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG -t cloudtik/spark-optimized-benchmark:$IMAGE_TAG docker/runtime/spark/benchmark/optimized
 fi

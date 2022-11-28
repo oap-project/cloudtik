@@ -20,7 +20,7 @@ provider:
 
     # Default image used by head and worker pod
     # Head or Worker node type config can override this
-    image: cloudtik/spark-runtime:nightly
+    image: cloudtik/spark-runtime:1.0.0
 
     # ServiceAccount created for the head node pod that it
     # runs in. If this field isn't provided, the head pod config below must

@@ -26,7 +26,6 @@ function check_jdk8() {
 }
 
 function install_tools() {
-    sudo apt-get install zip -y
     #Installl cmake, GCC 9.0 OpenMPI 4.0+
     sudo apt-get install cmake -y
     sudo apt-get install gcc-9 g++-9 -y
@@ -44,6 +43,7 @@ function install_python_libraries() {
 }
 
 function install_tpcx_ai_benchmark() {
+    sudo apt-get install zip -y
     wget https://d30257nes7d4fq.cloudfront.net/downloads/tpcx-ai/tpcx-ai-tool-v1.0.2.zip -O /tmp/tpcx-ai-tool.zip
     unzip -o /tmp/tpcx-ai-tool.zip -d "$BENCHMARK_TOOL_HOME" && rm /tmp/tpcx-ai-tool.zip && mv $BENCHMARK_TOOL_HOME/tpcx-ai-v* $TPCX_AI_HOME
 }
@@ -53,6 +53,7 @@ function download_tpcx_ai_files() {
     wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/spark/scripts/tpcx-ai/parallel-data-load.sh -O $TPCX_AI_HOME/tools/parallel-data-load.sh
     wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/spark/confs/tpcx-ai/default-spark.yaml -O $TPCX_AI_HOME/driver/config/default-spark.yaml
     wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/spark/confs/tpcx-ai/build_dl.yml -O $TPCX_AI_HOME/tools/spark/build_dl.yml
+
 }
 
 function configure_tpcx_ai_benchmark() {

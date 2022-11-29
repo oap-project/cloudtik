@@ -49,11 +49,10 @@ function install_tpcx_ai_benchmark() {
 }
 
 function download_tpcx_ai_files() {
-    wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/spark/scripts/tpcx-ai/parallel-data-gen.sh -O $TPCX_AI_HOME/tools/parallel-data-gen.sh
-    wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/spark/scripts/tpcx-ai/parallel-data-load.sh -O $TPCX_AI_HOME/tools/parallel-data-load.sh
-    wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/spark/confs/tpcx-ai/default-spark.yaml -O $TPCX_AI_HOME/driver/config/default-spark.yaml
-    wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/spark/confs/tpcx-ai/build_dl.yml -O $TPCX_AI_HOME/tools/spark/build_dl.yml
-
+    wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ml/tpcx-ai/scripts/parallel-data-gen.sh -O $TPCX_AI_HOME/tools/parallel-data-gen.sh
+    wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ml/tpcx-ai/scripts/parallel-data-load.sh -O $TPCX_AI_HOME/tools/parallel-data-load.sh
+    wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ml/tpcx-ai/confs/default-spark.yaml -O $TPCX_AI_HOME/driver/config/default-spark.yaml
+    wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ml/tpcx-ai/confs/tpcx_ai_dependencies.yml -O $TPCX_AI_HOME/tools/spark/build_dl.yml
 }
 
 function configure_tpcx_ai_benchmark() {

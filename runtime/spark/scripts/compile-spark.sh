@@ -1,6 +1,6 @@
 #!/bin/bash
 
-CLOUDTIK_HOME=$(cd $(dirname ${BASH_SOURCE[0]})/../..;pwd)
+CLOUDTIK_HOME=$(cd $(dirname ${BASH_SOURCE[0]})/../../..;pwd)
 SPARK_VERSION=$1
 
 rm -rf /tmp/spark

@@ -39,7 +39,7 @@ function install_libaries() {
 
 function install_python_libraries() {
     CLOUDTIK_CONDA_ENV=$(dirname $(dirname $(which cloudtik)))
-    conda env update -p $CLOUDTIK_CONDA_ENV  --file $TPCX_AI_HOME/tools/spark/build_dl.yml
+    conda env update -p $CLOUDTIK_CONDA_ENV  --file $TPCX_AI_HOME/tools/spark/tpcx_ai_dependencies.yml
 }
 
 function install_tpcx_ai_benchmark() {
@@ -49,10 +49,10 @@ function install_tpcx_ai_benchmark() {
 }
 
 function download_tpcx_ai_files() {
-    wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ml/tpcx-ai/scripts/parallel-data-gen.sh -O $TPCX_AI_HOME/tools/parallel-data-gen.sh
-    wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ml/tpcx-ai/scripts/parallel-data-load.sh -O $TPCX_AI_HOME/tools/parallel-data-load.sh
+    wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ml/tpcx-ai/confs/parallel-data-gen.sh.patch -O $TPCX_AI_HOME/tools/parallel-data-gen.sh
+    wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ml/tpcx-ai/confs/parallel-data-load.sh.patch -O $TPCX_AI_HOME/tools/parallel-data-load.sh
     wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ml/tpcx-ai/confs/default-spark.yaml -O $TPCX_AI_HOME/driver/config/default-spark.yaml
-    wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ml/tpcx-ai/confs/tpcx_ai_dependencies.yml -O $TPCX_AI_HOME/tools/spark/build_dl.yml
+    wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ml/tpcx-ai/confs/tpcx_ai_dependencies.yml -O $TPCX_AI_HOME/tools/spark/tpcx_ai_dependencies.yml
 }
 
 function configure_tpcx_ai_benchmark() {

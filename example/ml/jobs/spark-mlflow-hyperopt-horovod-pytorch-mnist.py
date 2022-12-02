@@ -3,7 +3,6 @@ import getopt
 import os
 import subprocess
 import sys
-from distutils.version import LooseVersion
 
 
 # Parse and get parameters
@@ -31,16 +30,16 @@ from cloudtik.runtime.ml.api import ThisMLCluster
 cluster = ThisSparkCluster()
 
 # Scale the cluster as need
-cluster.scale(workers=3)
+cluster.scale(workers=1)
 
 # Wait for all cluster workers to be ready
-cluster.wait_for_ready(min_workers=3)
+cluster.wait_for_ready(min_workers=1)
 
 # Total worker cores
 cluster_info = cluster.get_info()
-total_worker_cpus = cluster_info.get("total-worker-cpus")
-if not total_worker_cpus:
-    total_worker_cpus = 1
+total_workers = cluster_info.get("total-workers")
+if not total_workers:
+    total_workers = 1
 
 default_storage = cluster.get_default_storage()
 if not param_fsdir:
@@ -57,7 +56,7 @@ mlflow_url = ml_cluster.get_services()["mlflow"]["url"]
 from pyspark import SparkConf
 from pyspark.sql import SparkSession
 
-spark_conf = SparkConf().setAppName('spark-horovod-keras').set('spark.sql.shuffle.partitions', '16')
+spark_conf = SparkConf().setAppName('spark-horovod-pytorch').set('spark.sql.shuffle.partitions', '16')
 spark = SparkSession.builder.config(conf=spark_conf).getOrCreate()
 conf = spark.conf
 
@@ -80,31 +79,22 @@ os.system("hadoop fs -put   /tmp/mnist.bz2  /tmp")
 # Load to Spark dataframe
 df = spark.read.format('libsvm').option('numFeatures', '784').load(mnist_data_path)
 
-# One-hot encode labels into SparseVectors
-from pyspark.ml.feature import OneHotEncoder
-
-encoder = OneHotEncoder(inputCols=['label'],
-                        outputCols=['label_vec'],
-                        dropLast=False)
-model = encoder.fit(df)
-train_df = model.transform(df)
-
+# PyTorch doesn't need one-hot encode labels into SparseVectors
 # Split to train/test
-train_df, test_df = train_df.randomSplit([0.9, 0.1])
-if train_df.rdd.getNumPartitions() < total_worker_cpus:
-    train_df = train_df.repartition(total_worker_cpus)
+train_df, test_df = df.randomSplit([0.9, 0.1])
+if train_df.rdd.getNumPartitions() < total_workers:
+    train_df = train_df.repartition(total_workers)
 
 
-# Define training function and Keras model
+# Define training function and pytorch model
 import numpy as np
 
-import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Dropout, Flatten
-from tensorflow.keras.layers import Conv2D, MaxPooling2D
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
 
-import horovod.spark.keras as hvd
+import horovod.spark.torch as hvd
 from horovod.spark.common.backend import SparkBackend
 from horovod.spark.common.store import Store
 
@@ -114,22 +104,15 @@ from pyspark.sql.functions import udf
 
 import mlflow
 
-# Disable GPUs when building the model to prevent memory leaks
-if LooseVersion(tf.__version__) >= LooseVersion('2.0.0'):
-    # See https://github.com/tensorflow/tensorflow/issues/33168
-    os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-else:
-    keras.backend.set_session(tf.Session(config=tf.ConfigProto(device_count={'GPU': 0})))
-
 # Set the parameters
-set_num_proc = total_worker_cpus
+set_num_proc = total_workers
 print("Spark Backend num_proc: {}".format(set_num_proc))
 
 set_batch_size = int(param_batch_size) if param_batch_size else 128
-print("Keras Estimator batch_size: {}".format(set_batch_size))
+print("Torch Estimator batch_size: {}".format(set_batch_size))
 
 set_epochs = int(param_epochs) if param_epochs else 1
-print("Keras Estimator epochs: {}".format(set_epochs))
+print("Torch Estimator epochs: {}".format(set_epochs))
 
 # Create store for data accessing
 store_path = param_fsdir + "/tmp"
@@ -142,49 +125,68 @@ if default_storage and "azure.storage.account" in default_storage:
 store = Store.create(store_path, storage_options=storage_options)
 
 
+# Define the PyTorch model without any Horovod-specific parameters
+class Net(nn.Module):
+    def __init__(self):
+        super(Net, self).__init__()
+        self.conv1 = nn.Conv2d(1, 32, 3, 1)
+        self.conv2 = nn.Conv2d(32, 64, 3, 1)
+        self.dropout1 = nn.Dropout(0.25)
+        self.dropout2 = nn.Dropout(0.5)
+        self.fc1 = nn.Linear(9216, 128)
+        self.fc2 = nn.Linear(128, 10)
+
+    def forward(self, x):
+        x = x.float()
+        x = self.conv1(x)
+        x = F.relu(x)
+        x = self.conv2(x)
+        x = F.relu(x)
+        x = F.max_pool2d(x, 2)
+        x = self.dropout1(x)
+        x = torch.flatten(x, 1)
+        x = self.fc1(x)
+        x = F.relu(x)
+        x = self.dropout2(x)
+        x = self.fc2(x)
+        output = F.log_softmax(x, dim=1)
+        return output
+
+
 #  Horovod distributed training
 def train(learning_rate):
-    model = Sequential()
-    model.add(Conv2D(32, kernel_size=(3, 3),
-                     activation='relu',
-                     input_shape=(28, 28, 1)))
-    model.add(Conv2D(64, (3, 3), activation='relu'))
-    model.add(MaxPooling2D(pool_size=(2, 2)))
-    model.add(Dropout(0.25))
-    model.add(Flatten())
-    model.add(Dense(128, activation='relu'))
-    model.add(Dropout(0.5))
-    model.add(Dense(10, activation='softmax'))
-
-    optimizer = keras.optimizers.Adadelta(learning_rate)
-    loss = keras.losses.categorical_crossentropy
+    model = Net()
+    optimizer = optim.Adadelta(model.parameters(), lr=learning_rate)
+    loss = nn.NLLLoss()
 
     backend = SparkBackend(num_proc=set_num_proc,
                        stdout=sys.stdout, stderr=sys.stderr,
                        prefix_output_with_timestamp=True)
-    keras_estimator = hvd.KerasEstimator(backend=backend,
-                                         store=store,
-                                         model=model,
-                                         optimizer=optimizer,
-                                         loss=loss,
-                                         metrics=['accuracy'],
-                                         feature_cols=['features'],
-                                         label_cols=['label_vec'],
-                                         batch_size=set_batch_size,
-                                         epochs=set_epochs,
-                                         verbose=1)
 
-    keras_model = keras_estimator.fit(train_df).setOutputCols(['label_prob'])
-    return keras_model
+    # Train a Horovod Spark Estimator on the DataFrame
+    torch_estimator = hvd.TorchEstimator(
+        backend=backend,
+        store=store,
+        model=model,
+        optimizer=optimizer,
+        loss=lambda input, target: loss(input, target.long()),
+        input_shapes=[[-1, 1, 28, 28]],
+        feature_cols=['features'],
+        label_cols=['label'],
+        batch_size=set_batch_size,
+        epochs=set_epochs,
+        verbose=1)
+
+    torch_model = torch_estimator.fit(train_df).setOutputCols(['label_prob'])
+    return torch_model
 
 
 #  Hyperopt training function
 def hyper_objective(learning_rate):
-    keras_model = train(learning_rate)
-    pred_df = keras_model.transform(test_df)
+    torch_model = train(learning_rate)
+    pred_df = torch_model.transform(test_df)
     argmax = udf(lambda v: float(np.argmax(v)), returnType=T.DoubleType())
     pred_df = pred_df.withColumn('label_pred', argmax(pred_df.label_prob))
-
     evaluator = MulticlassClassificationEvaluator(predictionCol='label_pred', labelCol='label', metricName='accuracy')
     accuracy = evaluator.evaluate(pred_df)
     print('Test accuracy:', accuracy)
@@ -201,7 +203,7 @@ from hyperopt import fmin, tpe, hp, SparkTrials, STATUS_OK, Trials
 
 search_space = hp.uniform('learning_rate', 0, 1)
 mlflow.set_tracking_uri(mlflow_url)
-mlflow.set_experiment("MNIST: Spark + Horovod + Hyperopt")
+mlflow.set_experiment("MNIST: Spark + Horovod + Hyperopt + PyTorch")
 argmin = fmin(
     fn=hyper_objective,
     space=search_space,
@@ -212,22 +214,23 @@ print("Best value found: ", argmin)
 
 # Train final model with the best parameters
 best_model = train(argmin.get('learning_rate'))
+input_shapes = best_model.getInputShapes()
 metadata = best_model._get_metadata()
-floatx = best_model._get_floatx()
-mlflow.keras.log_model(best_model.getModel(), "keras-mnist-model", registered_model_name="keras-mnist-model-reg")
+mlflow.pytorch.log_model(
+    best_model.getModel(), "torch-mnist-model", registered_model_name="torch-mnist-model-reg")
 
 
 # Load the model from MLflow and run a transformation
-model_uri = "models:/keras-mnist-model-reg/1"
-loaded_model = mlflow.keras.load_model(model_uri)
+model_uri = "models:/torch-mnist-model-reg/1"
+loaded_model = mlflow.pytorch.load_model(model_uri)
 
-hvd_keras_model = hvd.KerasModel(model=loaded_model,
+hvd_torch_model = hvd.TorchModel(model=loaded_model,
                                  feature_columns=['features'],
-                                 label_columns=['label_vec'],
-                                 _floatx=floatx,
+                                 label_columns=['label'],
+                                 input_shapes=input_shapes,
                                  _metadata=metadata).setOutputCols(['label_prob'])
 
-pred_df = hvd_keras_model.transform(test_df)
+pred_df = hvd_torch_model.transform(test_df)
 argmax = udf(lambda v: float(np.argmax(v)), returnType=T.DoubleType())
 pred_df = pred_df.withColumn('label_pred', argmax(pred_df.label_prob))
 

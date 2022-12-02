@@ -42,7 +42,7 @@ for avoiding terminal disconnection in the middle. And you don't know its comple
 Use "cloudtik status your-cluster-config.yaml" to check the all workers are in ready (update-to-date) status.
 If workers are not ready, even you submit a job, the job will still in pending for lack of workers.
 
-Execute the following command to run the datagen script on the cluster,
+Execute the following command to run the datagen script on the cluster:
 ```buildoutcfg
 cloudtik exec your-cluster-config.yaml 'cd $TPCx_AI_HOME_DIR && bash bin/tpcxai.sh --phase {DATA_GENERATION, LOADING} -sf 1 -c $TPCx_AI_HOME_DIR/driver/config/default-spark.yaml' -uc {2,5,9}
 ```
@@ -72,4 +72,3 @@ Running serving stage for useCase02:
  ```buildoutcfg
 cloudtik exec your-cluster-config.yaml 'cd $TPCx_AI_HOME_DIR && bash bin/tpcxai.sh --phase SERVING -sf 1 -c [remote path for custom benchmark configuration] -uc 2'
 ```
-Replace the cluster configuration file, scale factor(-sf), custom benchmark configuration(-c), useCase number(-uc) valuein the above command for your case. 

@@ -34,13 +34,9 @@ function install_tools() {
 
 function install_libaries() {
     sudo apt-get update && sudo apt-get install openjdk-8-jdk -y
-    sudo apt-get install libsndfile1 libsndfile-dev libxxf86vm1 libxxf86vm-dev libglvnd-dev libgl1-mesa-dev -y
+    sudo apt-get install libsndfile1 libsndfile-dev libxxf86vm1 libxxf86vm-dev libglvnd0 libgl-dev -y
 }
 
-function install_python_libraries() {
-    CLOUDTIK_CONDA_ENV=$(dirname $(dirname $(which cloudtik)))
-    conda env update -p $CLOUDTIK_CONDA_ENV  --file $TPCX_AI_HOME/tools/spark/tpcx_ai_dependencies.yml
-}
 
 function install_tpcx_ai_benchmark() {
     sudo apt-get install zip -y
@@ -52,7 +48,7 @@ function download_tpcx_ai_files() {
     wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ml/tpcx-ai/confs/parallel-data-gen.sh.patch -O $TPCX_AI_HOME/tools/parallel-data-gen.sh
     wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ml/tpcx-ai/confs/parallel-data-load.sh.patch -O $TPCX_AI_HOME/tools/parallel-data-load.sh
     wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ml/tpcx-ai/confs/default-spark.yaml -O $TPCX_AI_HOME/driver/config/default-spark.yaml
-    wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ml/tpcx-ai/confs/tpcx_ai_dependencies.yml -O $TPCX_AI_HOME/tools/spark/tpcx_ai_dependencies.yml
+    wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ml/tpcx-ai/confs/UseCase09.py.patch -O $TPCX_AI_HOME/workload/spark/pyspark/workload-pyspark/UseCase09.py
 }
 
 function configure_tpcx_ai_benchmark() {
@@ -86,4 +82,3 @@ configure_tpcx_ai_benchmark
 check_jdk8
 install_tools
 install_libaries
-install_python_libraries

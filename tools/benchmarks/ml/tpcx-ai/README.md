@@ -4,29 +4,40 @@
 To generate data and run TPCx-AI benchmark on Cloudtik cluster, some tools must be installed in advance.
 You have several options to do this.
 
-### Option 1: Use bootstrap commands to install the TPCx-AI toolkit
+### Option 1: Use a CloudTik Spark ML runtime image with TPCx-AI toolkit installed (Recommended)
+In your cluster config under docker key, configure the ML runtime image with TPCx-AI toolkit installed.
+
+```buildoutcfg
+docker:
+    image: "cloudtik/spark-ml-runtime-benchmark:nightly"
+```
+
+### Option 2: Use bootstrap commands to install the TPCx-AI toolkit
 We provide an installation script to simplify the installation of these dependencies.
 You only need to add the following bootstrap_commands in the cluster configuration file when you start a cluster.
 ```buildoutcfg
-
 bootstrap_commands:
     - wget -P ~/ https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ml/tpcx-ai/scripts/bootstrap-tpcx-ai-benchmark.sh &&
         bash ~/bootstrap-tpcx-ai-benchmark.sh
 ```
 
-### Option 2: Use exec commands to install the TPCx-AI toolkit on all nodes
+### Option 3: Use exec commands to install the TPCx-AI toolkit on all nodes
 If you cluster already started, you can run the installing command on all nodes to achieve the same.
 ```buildoutcfg
-
 cloudtik exec your-cluster-config.yaml "wget -P ~/ https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ml/tpcx-ai/scripts/bootstrap-tpcx-ai-benchmark.sh && bash ~/bootstrap-tpcx-ai-benchmark.sh" --all-nodes
-
 ```
 
 Please note that the toolkit installing usually takes a long time.
 You may need to run the command with --tmux option for background execution
 for avoiding terminal disconnection in the middle. And you don't know its completion.
 
-## 2. Generate data for Deep Learning cases
+## 2. Update the ip of all workers for TPCx-AI
+After the cluster has been created, you need to run the following command to update the ip of all workers for TPCx-AI:
+```buildoutcfg
+cloudtik exec your-cluster-config.yaml "cloudtik head worker-ips > ~/runtime/benchmark-tools/tpcx-ai/nodes"
+```
+
+## 3. Generate data for Deep Learning cases
 Use "cloudtik status your-cluster-config.yaml" to check the all workers are in ready (update-to-date) status.
 If workers are not ready, even you submit a job, the job will still in pending for lack of workers.
 
@@ -43,7 +54,7 @@ for avoiding terminal disconnection in the middle. And you don't get the command
 Please refer to [CloudTik Submitting Jobs](https://cloudtik.readthedocs.io/en/latest/UserGuide/AdvancedConfigurations/submitting-jobs.html) for
 the details for run job in background.
 
-## 3. Run TPCx-AI Deep Learing cases
+## 4. Run TPCx-AI Deep Learing cases
 
 To run deep learning cases you need to provide custom benchmark configuration file which should be properly defined according to your cluster resources.
 There is an example file **[defalut-spark.yaml](tpcx-ai/confs/defalut-spark.yaml)**  and you need to tune the spark parameters for useCase02, useCase05, useCase09.

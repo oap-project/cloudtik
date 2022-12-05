@@ -1,5 +1,22 @@
 #!/bin/bash
 
+args=$(getopt -a -o h::p: -l head:: -- "$@")
+eval set -- "${args}"
+
+while true
+do
+    case "$1" in
+    --head)
+        IS_HEAD_NODE=true
+        ;;
+    --)
+        shift
+        break
+        ;;
+    esac
+    shift
+done
+
 function prepare_prerequisite() {
     source ~/.bashrc
     sudo apt-get update -y
@@ -54,7 +71,6 @@ function configure_tpcx_ai_benchmark() {
     is_head_node
     echo IS_EULA_ACCEPTED=true >> ${TPCX_AI_HOME}/lib/pdgf/Constants.properties
     if [ $IS_HEAD_NODE == "true" ]; then
-        cloudtik head worker-ips > $TPCX_AI_HOME/nodes
         echo IS_EULA_ACCEPTED=true >> ${TPCX_AI_HOME}/data-gen/Constants.properties
         echo 'export YARN_CONF_DIR=$HADOOP_HOME/etc/hadoop' >>  $TPCX_AI_HOME/setenv.sh
         source $TPCX_AI_HOME/setenv.sh
@@ -64,12 +80,14 @@ function configure_tpcx_ai_benchmark() {
 }
 
 function is_head_node() {
-    cloudtik head head-ip
-    GET_HEAD_IP_CODE=$?
-    if [ ${GET_HEAD_IP_CODE} -eq "0" ]; then
-        IS_HEAD_NODE=true
-    else
-        IS_HEAD_NODE=false
+    if [ ! -n  $IS_HEAD_NODE ]; then
+        cloudtik head head-ip
+        GET_HEAD_IP_CODE=$?
+        if [ ${GET_HEAD_IP_CODE} -eq "0" ]; then
+            IS_HEAD_NODE=true
+        else
+            IS_HEAD_NODE=false
+        fi
     fi
 }
 

@@ -199,7 +199,7 @@ def hyper_objective(learning_rate):
 
 # Do a super parameter tuning with hyperopt
 
-from hyperopt import fmin, tpe, hp, SparkTrials, STATUS_OK, Trials
+from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
 
 search_space = hp.uniform('learning_rate', 0, 1)
 mlflow.set_tracking_uri(mlflow_url)

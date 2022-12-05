@@ -32,7 +32,7 @@ If workers are not ready, even you submit a job, the job will still in pending f
 
 Execute the following command to run the datagen script on the cluster:
 ```buildoutcfg
-cloudtik exec your-cluster-config.yaml 'cd $TPCx_AI_HOME_DIR && bash bin/tpcxai.sh --phase {DATA_GENERATION,LOADING} -sf 1 -c $TPCx_AI_HOME_DIR/driver/config/default-spark.yaml -uc {2,5,9}'
+cloudtik exec your-cluster-config.yaml 'source ~/runtime/benchmark-tools/tpcx-ai/setenv.sh && cd $TPCx_AI_HOME_DIR && bash bin/tpcxai.sh --phase {DATA_GENERATION,LOADING} -sf 1 -c $TPCx_AI_HOME_DIR/driver/config/default-spark.yaml -uc {2,5,9}'
 ```
 Replace the cluster configuration file, scale factor(-sf), useCase(-uc) values in the above command for your case. 
 Please note that TPCx-AI supports three deep learning cases(useCase02, useCase05, useCase09), you can seperately generated data for any cases.
@@ -54,13 +54,22 @@ cloudtik rsync-up your-cluster-config.yaml [local path for custom benchmark conf
 ```
 Running training stage for useCase02: 
 ```buildoutcfg
-cloudtik exec your-cluster-config.yaml 'cd $TPCx_AI_HOME_DIR && bash bin/tpcxai.sh --phase TRAINING -sf 1 -c [remote path for custom benchmark configuration] -uc 2'
+cloudtik exec your-cluster-config.yaml 'source ~/runtime/benchmark-tools/tpcx-ai/setenv.sh && cd $TPCx_AI_HOME_DIR && bash bin/tpcxai.sh --phase TRAINING -sf 1 -c [remote path for custom benchmark configuration] -uc 2'
 ```
 Running serving stage for useCase02:
  ```buildoutcfg
-cloudtik exec your-cluster-config.yaml 'cd $TPCx_AI_HOME_DIR && bash bin/tpcxai.sh --phase SERVING -sf 1 -c [remote path for custom benchmark configuration] -uc 2'
+cloudtik exec your-cluster-config.yaml 'source ~/runtime/benchmark-tools/tpcx-ai/setenv.sh && cd $TPCx_AI_HOME_DIR && bash bin/tpcxai.sh --phase SERVING -sf 1 -c [remote path for custom benchmark configuration] -uc 2'
 ```
 Running training and serving stage for useCase02, useCase05, useCase09:
  ```buildoutcfg
-cloudtik exec your-cluster-config.yaml 'cd $TPCx_AI_HOME_DIR && bash bin/tpcxai.sh --phase {SERVING,TRAINING} -sf 1 -c [remote path for custom benchmark configuration] -uc {2,5,9}'
+cloudtik exec your-cluster-config.yaml 'source ~/runtime/benchmark-tools/tpcx-ai/setenv.sh && cd $TPCx_AI_HOME_DIR && bash bin/tpcxai.sh --phase {SERVING,TRAINING} -sf 1 -c [remote path for custom benchmark configuration] -uc {2,5,9}'
+```
+The final result will be similar to the output below. Each line will display the time consumed by each stage of each case, and the time unit is seconds.
+```buildoutcfg
+========== RESULTS ==========
+phase_name  Phase.SERVING_1  Phase.TRAINING_1
+use_case                                     
+2                   153.826           430.651
+5                    91.367           200.453
+9                    93.398           246.164
 ```

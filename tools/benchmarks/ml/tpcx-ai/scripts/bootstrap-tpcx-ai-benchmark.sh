@@ -26,17 +26,15 @@ function check_jdk8() {
 }
 
 function install_tools() {
-    #Installl cmake, GCC 9.0 OpenMPI 4.0+
+    #Installl cmake, GCC 9.0
     sudo apt-get install cmake -y
     sudo apt-get install gcc-9 g++-9 -y
-    sudo apt-get install openmpi-bin openmpi-common openmpi-doc libopenmpi-dev -y
 }
 
 function install_libaries() {
     sudo apt-get update && sudo apt-get install openjdk-8-jdk -y
     sudo apt-get install libsndfile1 libsndfile-dev libxxf86vm1 libxxf86vm-dev libglvnd0 libgl-dev -y
 }
-
 
 function install_tpcx_ai_benchmark() {
     sudo apt-get install zip -y
@@ -59,8 +57,7 @@ function configure_tpcx_ai_benchmark() {
         cloudtik head worker-ips > $TPCX_AI_HOME/nodes
         echo IS_EULA_ACCEPTED=true >> ${TPCX_AI_HOME}/data-gen/Constants.properties
         echo 'export YARN_CONF_DIR=$HADOOP_HOME/etc/hadoop' >>  $TPCX_AI_HOME/setenv.sh
-        echo ". $TPCX_AI_HOME/setenv.sh" >> ~/.bashrc
-        source ~/.bashrc
+        source $TPCX_AI_HOME/setenv.sh
         cd ${TPCX_AI_HOME} && bash ${TPCX_AI_HOME}/setup-spark.sh
     fi
     chmod u+x -R ${TPCX_AI_HOME}

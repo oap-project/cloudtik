@@ -961,16 +961,26 @@ def _configure_pod_image(config):
     node_types = config["available_node_types"]
     for node_type in node_types:
         node_type_config = node_types[node_type]
-        image = get_node_type_image(provider_config, node_type_config)
+        image = get_node_type_image(config, provider_config, node_type_config)
         if image is not None:
             _configure_pod_image_for_node_type(node_type_config, image)
 
 
-def get_node_type_image(provider_config, node_type_config):
+def get_node_type_image(config, provider_config, node_type_config):
     if CONFIG_NAME_IMAGE in node_type_config:
         return node_type_config[CONFIG_NAME_IMAGE]
 
-    return provider_config.get(CONFIG_NAME_IMAGE)
+    if CONFIG_NAME_IMAGE in provider_config:
+        return provider_config[CONFIG_NAME_IMAGE]
+
+    return _get_docker_config_image(config)
+
+
+def _get_docker_config_image(config):
+    if "docker" not in config:
+        return None
+    docker_config = config["docker"]
+    return docker_config.get(CONFIG_NAME_IMAGE)
 
 
 def _configure_pod_image_for_node_type(node_type_config, image):

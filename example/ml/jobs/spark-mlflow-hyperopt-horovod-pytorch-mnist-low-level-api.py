@@ -69,10 +69,12 @@ def get_checkpoint_file(log_dir, file_id):
 
 def save_checkpoint(log_dir, model, optimizer, file_id):
     filepath = get_checkpoint_file(log_dir, file_id)
+    print('Written checkpoint to {}'.format(filepath))
     state = {
         'model': model.state_dict(),
-        'optimizer': optimizer.state_dict(),
     }
+    if optimizer is not None:
+        state['optimizer'] = optimizer.state_dict()
     torch.save(state, filepath)
 
 
@@ -261,8 +263,8 @@ def hyper_objective(learning_rate):
             f.write(model_bytes)
         print('Written checkpoint to {}'.format(checkpoint_file))
 
-        loaded_model = load_model_of_checkpoint(checkpoint_dir, learning_rate)
-        test_loss = test_model(loaded_model)
+        model = load_model_of_checkpoint(checkpoint_dir, learning_rate)
+        test_loss = test_model(model)
 
         mlflow.log_metric("learning_rate", learning_rate)
         mlflow.log_metric("loss", test_loss)
@@ -292,6 +294,6 @@ mlflow.pytorch.log_model(
 
 
 # Load the model from MLflow and run an evaluation
-model_uri = "models:/model_name/1".format(model_name)
-loaded_model = mlflow.pytorch.load_model(model_uri)
-test_model(loaded_model)
+model_uri = "models:/{}/1".format(model_name)
+saved_model = mlflow.pytorch.load_model(model_uri)
+test_model(saved_model)

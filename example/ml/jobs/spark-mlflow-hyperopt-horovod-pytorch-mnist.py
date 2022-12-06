@@ -3,7 +3,7 @@ import getopt
 import os
 import subprocess
 import sys
-
+from time import time
 
 # Parse and get parameters
 try:
@@ -50,6 +50,38 @@ if not param_fsdir:
 
 ml_cluster = ThisMLCluster()
 mlflow_url = ml_cluster.get_services()["mlflow"]["url"]
+
+
+# Checkpoint utilities
+CHECKPOINT_HOME = "/tmp/ml/checkpoints"
+
+
+def get_checkpoint_file(log_dir, file_id):
+    return os.path.join(log_dir, 'checkpoint-{file_id}.pth.tar'.format(file_id=file_id))
+
+
+def save_checkpoint(log_dir, model, optimizer, file_id, meta=None):
+    filepath = get_checkpoint_file(log_dir, file_id)
+    print('Written checkpoint to {}'.format(filepath))
+    state = {
+        'model': model.state_dict(),
+    }
+    if optimizer is not None:
+        state['optimizer'] = optimizer.state_dict()
+    if meta is not None:
+        state['meta'] = meta
+    torch.save(state, filepath)
+
+
+def load_checkpoint(log_dir, file_id):
+    filepath = get_checkpoint_file(log_dir, file_id)
+    return torch.load(filepath)
+
+
+def create_log_dir(experiment_name):
+    log_dir = os.path.join(CHECKPOINT_HOME, str(time()), experiment_name)
+    os.makedirs(log_dir)
+    return log_dir
 
 
 # Initialize SparkSession
@@ -105,14 +137,14 @@ from pyspark.sql.functions import udf
 import mlflow
 
 # Set the parameters
-set_num_proc = total_workers
-print("Spark Backend num_proc: {}".format(set_num_proc))
+num_proc = total_workers
+print("Train processes: {}".format(num_proc))
 
-set_batch_size = int(param_batch_size) if param_batch_size else 128
-print("Torch Estimator batch_size: {}".format(set_batch_size))
+batch_size = int(param_batch_size) if param_batch_size else 128
+print("Train batch size: {}".format(batch_size))
 
-set_epochs = int(param_epochs) if param_epochs else 1
-print("Torch Estimator epochs: {}".format(set_epochs))
+epochs = int(param_epochs) if param_epochs else 1
+print("Train epochs: {}".format(epochs))
 
 # Create store for data accessing
 store_path = param_fsdir + "/tmp"
@@ -159,7 +191,7 @@ def train(learning_rate):
     optimizer = optim.Adadelta(model.parameters(), lr=learning_rate)
     loss = nn.NLLLoss()
 
-    backend = SparkBackend(num_proc=set_num_proc,
+    backend = SparkBackend(num_proc=num_proc,
                        stdout=sys.stdout, stderr=sys.stderr,
                        prefix_output_with_timestamp=True)
 
@@ -173,28 +205,64 @@ def train(learning_rate):
         input_shapes=[[-1, 1, 28, 28]],
         feature_cols=['features'],
         label_cols=['label'],
-        batch_size=set_batch_size,
-        epochs=set_epochs,
+        batch_size=batch_size,
+        epochs=epochs,
         verbose=1)
 
     torch_model = torch_estimator.fit(train_df).setOutputCols(['label_prob'])
     return torch_model
 
 
-#  Hyperopt training function
-def hyper_objective(learning_rate):
-    torch_model = train(learning_rate)
-    pred_df = torch_model.transform(test_df)
+def test_model(model, show_samples=False):
+    pred_df = model.transform(test_df)
     argmax = udf(lambda v: float(np.argmax(v)), returnType=T.DoubleType())
     pred_df = pred_df.withColumn('label_pred', argmax(pred_df.label_prob))
     evaluator = MulticlassClassificationEvaluator(predictionCol='label_pred', labelCol='label', metricName='accuracy')
     accuracy = evaluator.evaluate(pred_df)
     print('Test accuracy:', accuracy)
 
+    if show_samples:
+        pred_df = pred_df.sampleBy('label', fractions={0.0: 0.1, 1.0: 0.1, 2.0: 0.1, 3.0: 0.1, 4.0: 0.1,
+                                                       5.0: 0.1, 6.0: 0.1, 7.0: 0.1, 8.0: 0.1, 9.0: 0.1})
+        pred_df.show(150)
+
+    return 1 - accuracy
+
+
+def load_model_of_checkpoint(log_dir, file_id):
+    torch_model = Net()
+    checkpoint = load_checkpoint(log_dir, file_id)
+    torch_model.load_state_dict(checkpoint['model'])
+
+    meta = checkpoint['meta']
+    model = hvd.TorchModel(
+        model=torch_model,
+        input_shapes=meta.get('input_shapes'),
+        _metadata=meta.get('metadata'))
+
+    return model
+
+
+#  Hyperopt training function
+checkpoint_dir = create_log_dir('pytorch-mnist')
+print("Log directory:", checkpoint_dir)
+
+
+def hyper_objective(learning_rate):
     with mlflow.start_run():
-      mlflow.log_metric("learning_rate", learning_rate)
-      mlflow.log_metric("loss", 1-accuracy)
-    return {'loss': 1-accuracy, 'status': STATUS_OK}
+        model = train(learning_rate)
+
+        # Write checkpoint
+        meta = {
+            'input_shapes': model.getInputShapes(),
+            'metadata': model._get_metadata(),
+        }
+        save_checkpoint(checkpoint_dir, model.getModel(), None, learning_rate, meta)
+
+        test_loss = test_model(model)
+        mlflow.log_metric("learning_rate", learning_rate)
+        mlflow.log_metric("loss", test_loss)
+    return {'loss': test_loss, 'status': STATUS_OK}
 
 
 # Do a super parameter tuning with hyperopt
@@ -209,37 +277,28 @@ argmin = fmin(
     space=search_space,
     algo=tpe.suggest,
     max_evals=16)
-print("Best value found: ", argmin)
+print("Best parameter found: ", argmin)
 
 
 # Train final model with the best parameters
-best_model = train(argmin.get('learning_rate'))
+best_model = load_model_of_checkpoint(checkpoint_dir, argmin.get('learning_rate'))
 input_shapes = best_model.getInputShapes()
 metadata = best_model._get_metadata()
+model_name = 'torch-mnist-model'
 mlflow.pytorch.log_model(
-    best_model.getModel(), "torch-mnist-model", registered_model_name="torch-mnist-model-reg")
+    best_model.getModel(), model_name, registered_model_name=model_name)
 
 
 # Load the model from MLflow and run a transformation
-model_uri = "models:/torch-mnist-model-reg/1"
-loaded_model = mlflow.pytorch.load_model(model_uri)
-
-hvd_torch_model = hvd.TorchModel(model=loaded_model,
-                                 feature_columns=['features'],
-                                 label_columns=['label'],
-                                 input_shapes=input_shapes,
-                                 _metadata=metadata).setOutputCols(['label_prob'])
-
-pred_df = hvd_torch_model.transform(test_df)
-argmax = udf(lambda v: float(np.argmax(v)), returnType=T.DoubleType())
-pred_df = pred_df.withColumn('label_pred', argmax(pred_df.label_prob))
-
-evaluator = MulticlassClassificationEvaluator(predictionCol='label_pred', labelCol='label', metricName='accuracy')
-accuracy = evaluator.evaluate(pred_df)
-print('Test accuracy:', accuracy)
-
-pred_df = pred_df.sampleBy('label', fractions={0.0: 0.1, 1.0: 0.1, 2.0: 0.1, 3.0: 0.1, 4.0: 0.1, 5.0: 0.1, 6.0: 0.1, 7.0: 0.1, 8.0: 0.1, 9.0: 0.1})
-pred_df.show(150)
+model_uri = "models:/{}/1".format(model_name)
+saved_torch_model = mlflow.pytorch.load_model(model_uri)
+saved_model = hvd.TorchModel(
+    model=saved_torch_model,
+    feature_columns=['features'],
+    label_columns=['label'],
+    input_shapes=input_shapes,
+    _metadata=metadata).setOutputCols(['label_prob'])
+test_model(saved_model, True)
 
 # Clean up
 spark.stop()

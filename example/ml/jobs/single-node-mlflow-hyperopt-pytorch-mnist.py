@@ -48,10 +48,12 @@ def get_checkpoint_file(log_dir, file_id):
 
 def save_checkpoint(log_dir, model, optimizer, file_id):
     filepath = get_checkpoint_file(log_dir, file_id)
+    print('Written checkpoint to {}'.format(filepath))
     state = {
         'model': model.state_dict(),
-        'optimizer': optimizer.state_dict(),
     }
+    if optimizer is not None:
+        state['optimizer'] = optimizer.state_dict()
     torch.save(state, filepath)
 
 
@@ -124,9 +126,6 @@ def train_one_epoch(model, device, data_loader, optimizer, epoch):
 import torch.optim as optim
 from torchvision import datasets, transforms
 
-checkpoint_dir = create_log_dir('pytorch-mnist')
-print("Log directory:", checkpoint_dir)
-
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
@@ -142,9 +141,12 @@ def train(learning_rate):
 
     optimizer = optim.Adadelta(model.parameters(), lr=learning_rate)
 
+    local_checkpoint_dir = create_log_dir('pytorch-mnist-local')
+    print("Log directory:", local_checkpoint_dir)
+
     for epoch in range(1, epochs + 1):
         train_one_epoch(model, device, train_data_loader, optimizer, epoch)
-        save_checkpoint(checkpoint_dir, model, optimizer, epoch)
+        save_checkpoint(local_checkpoint_dir, model, optimizer, epoch)
     return model
 
 
@@ -184,11 +186,20 @@ def test_checkpoint(log_dir, file_id):
 #  Hyperopt training function
 import mlflow
 
+checkpoint_dir = create_log_dir('pytorch-mnist')
+print("Log directory:", checkpoint_dir)
+
 
 def hyper_objective(learning_rate):
     with mlflow.start_run():
         model = train(learning_rate)
+
+        # Write checkpoint
+        save_checkpoint(checkpoint_dir, model, None, learning_rate)
+
+        model = load_model_of_checkpoint(checkpoint_dir, learning_rate)
         test_loss = test_model(model)
+
         mlflow.log_metric("learning_rate", learning_rate)
         mlflow.log_metric("loss", test_loss)
     return {'loss': test_loss, 'status': STATUS_OK}
@@ -209,7 +220,7 @@ print("Best parameter found: ", argmin)
 
 
 # Train final model with the best parameters and save the model
-best_model = train(argmin.get('learning_rate'))
+best_model = load_model_of_checkpoint(checkpoint_dir, argmin.get('learning_rate'))
 model_name = "pytorch-mnist-model-single-node"
 mlflow.pytorch.log_model(
     best_model, model_name, registered_model_name=model_name)
@@ -217,5 +228,5 @@ mlflow.pytorch.log_model(
 
 # Load the model from MLflow and run an evaluation
 model_uri = "models:/{}/1".format(model_name)
-loaded_model = mlflow.pytorch.load_model(model_uri)
-test_model(loaded_model)
+saved_model = mlflow.pytorch.load_model(model_uri)
+test_model(saved_model)

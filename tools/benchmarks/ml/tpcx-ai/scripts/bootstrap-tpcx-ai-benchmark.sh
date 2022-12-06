@@ -80,7 +80,7 @@ function configure_tpcx_ai_benchmark() {
 }
 
 function is_head_node() {
-    if [ ! -n  $IS_HEAD_NODE ]; then
+    if [ -n $IS_HEAD_NODE ]; then
         cloudtik head head-ip
         GET_HEAD_IP_CODE=$?
         if [ ${GET_HEAD_IP_CODE} -eq "0" ]; then

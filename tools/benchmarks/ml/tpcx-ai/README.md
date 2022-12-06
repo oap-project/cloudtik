@@ -73,7 +73,7 @@ cloudtik exec your-cluster-config.yaml 'source ~/runtime/benchmark-tools/tpcx-ai
 ```
 Running training and serving stage for useCase02, useCase05, useCase09:
  ```buildoutcfg
-cloudtik exec your-cluster-config.yaml 'source ~/runtime/benchmark-tools/tpcx-ai/setenv.sh && cd $TPCx_AI_HOME_DIR && bash bin/tpcxai.sh --phase {SERVING,TRAINING} -sf 1 -c [remote path for custom benchmark configuration] -uc {2,5,9}'
+cloudtik exec your-cluster-config.yaml 'source ~/runtime/benchmark-tools/tpcx-ai/setenv.sh && cd $TPCx_AI_HOME_DIR && bash bin/tpcxai.sh --phase {TRAINING,SERVING} -sf 1 -c [remote path for custom benchmark configuration] -uc {2,5,9}'
 ```
 The final result will be similar to the output below. Each line will display the time consumed by each stage of each case, and the time unit is seconds.
 ```buildoutcfg

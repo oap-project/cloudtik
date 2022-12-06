@@ -1,5 +1,5 @@
 ARG BASE_IMAGE="nightly"
-FROM cloudtik/spark-optimized-native-sql:"$BASE_IMAGE"
+FROM cloudtik/spark-native-sql:"$BASE_IMAGE"
 
 # Compile spark-sql-perf, tpcds-kit, tpch-dbgen, HiBench
 RUN wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/spark/scripts/bootstrap-benchmark.sh -O /tmp/bootstrap-benchmark.sh \

@@ -27,6 +27,18 @@ from cloudtik.runtime.ml.api import ThisMLCluster
 
 cluster = ThisSparkCluster()
 
+# Scale the cluster as need
+cluster.scale(workers=1)
+
+# Wait for all cluster workers to be ready
+cluster.wait_for_ready(min_workers=1)
+
+# Total worker cores
+cluster_info = cluster.get_info()
+total_workers = cluster_info.get("total-workers")
+if not total_workers:
+    total_workers = 1
+
 default_storage = cluster.get_default_storage()
 if not param_fsdir:
     param_fsdir = default_storage.get("default.storage.uri") if default_storage else None
@@ -36,6 +48,15 @@ if not param_fsdir:
 
 ml_cluster = ThisMLCluster()
 mlflow_url = ml_cluster.get_services()["mlflow"]["url"]
+
+
+# Initialize SparkSession
+from pyspark import SparkConf
+from pyspark.sql import SparkSession
+
+spark_conf = SparkConf().setAppName('spark-horovod-pytorch').set('spark.sql.shuffle.partitions', '16')
+spark = SparkSession.builder.config(conf=spark_conf).getOrCreate()
+conf = spark.conf
 
 
 # Checkpoint utilities
@@ -72,6 +93,9 @@ def create_log_dir(experiment_name):
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+num_proc = total_workers
+print("Train processes: {}".format(num_proc))
 
 batch_size = int(param_batch_size) if param_batch_size else 128
 print("Train batch size: {}".format(batch_size))
@@ -122,32 +146,67 @@ def train_one_epoch(model, device, data_loader, optimizer, epoch):
                 100. * batch_idx / len(data_loader), loss.item()))
 
 
-# Single node train function
+# Horovod train function passed to horovod.spark.run
 import torch.optim as optim
 from torchvision import datasets, transforms
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+import horovod.torch as hvd
 
 
-def train(learning_rate):
+def train_horovod(learning_rate):
+    # Initialize Horovod
+    hvd.init()
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    if device.type == 'cuda':
+        # Pin GPU to local rank
+        torch.cuda.set_device(hvd.local_rank())
+
     train_dataset = datasets.MNIST(
-        'data',
+        # Use different root directory for each worker to avoid conflicts
+        root='data-%d' % hvd.rank(),
         train=True,
         download=True,
-        transform=transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]))
-    train_data_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+        transform=transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))])
+    )
+
+    from torch.utils.data.distributed import DistributedSampler
+
+    # Configure the sampler so that each worker gets a distinct sample of the input dataset
+    train_sampler = DistributedSampler(train_dataset, num_replicas=hvd.size(), rank=hvd.rank())
+    # Use train_sampler to load a different sample of data on each worker
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, sampler=train_sampler)
 
     model = Net().to(device)
 
+    # The effective batch size in synchronous distributed training is scaled by the number of workers
+    # Increase learning_rate to compensate for the increased batch size
     optimizer = optim.Adadelta(model.parameters(), lr=learning_rate)
+
+    # Wrap the local optimizer with hvd.DistributedOptimizer so that Horovod handles the distributed optimization
+    optimizer = hvd.DistributedOptimizer(optimizer, named_parameters=model.named_parameters())
+
+    # Broadcast initial parameters so all workers start with the same parameters
+    hvd.broadcast_parameters(model.state_dict(), root_rank=0)
 
     local_checkpoint_dir = create_log_dir('pytorch-mnist-local')
     print("Log directory:", local_checkpoint_dir)
 
     for epoch in range(1, epochs + 1):
-        train_one_epoch(model, device, train_data_loader, optimizer, epoch)
-        save_checkpoint(local_checkpoint_dir, model, optimizer, epoch)
-    return model
+        train_one_epoch(model, device, train_loader, optimizer, epoch)
+        # Save checkpoints only on worker 0 to prevent conflicts between workers
+        if hvd.rank() == 0:
+            save_checkpoint(local_checkpoint_dir, model, optimizer, epoch)
+
+    if hvd.rank() == 0:
+        # Return the model bytes of the last checkpoint
+        checkpoint_file = get_checkpoint_file(local_checkpoint_dir, epochs)
+        with open(checkpoint_file, 'rb') as f:
+            return f.read()
+
+
+# Local test functions
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 def test_model(model):
@@ -185,6 +244,7 @@ def test_checkpoint(log_dir, file_id):
 
 #  Hyperopt training function
 import mlflow
+import horovod.spark
 
 checkpoint_dir = create_log_dir('pytorch-mnist')
 print("Log directory:", checkpoint_dir)
@@ -192,16 +252,23 @@ print("Log directory:", checkpoint_dir)
 
 def hyper_objective(learning_rate):
     with mlflow.start_run():
-        model = train(learning_rate)
+        model_bytes = horovod.spark.run(
+            train_horovod, args=(learning_rate,), num_proc=num_proc,
+            stdout=sys.stdout, stderr=sys.stderr, verbose=2,
+            prefix_output_with_timestamp=True)[0]
 
         # Write checkpoint
-        save_checkpoint(checkpoint_dir, model, None, learning_rate)
+        checkpoint_file = get_checkpoint_file(checkpoint_dir, learning_rate)
+        with open(checkpoint_file, 'wb') as f:
+            f.write(model_bytes)
+        print('Written checkpoint to {}'.format(checkpoint_file))
 
         model = load_model_of_checkpoint(checkpoint_dir, learning_rate)
         test_loss = test_model(model)
 
         mlflow.log_metric("learning_rate", learning_rate)
         mlflow.log_metric("loss", test_loss)
+
     return {'loss': test_loss, 'status': STATUS_OK}
 
 
@@ -210,7 +277,7 @@ from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
 
 search_space = hp.uniform('learning_rate', 0, 1)
 mlflow.set_tracking_uri(mlflow_url)
-mlflow.set_experiment("MNIST: Single Node Hyperopt + PyTorch")
+mlflow.set_experiment("MNIST: Distributed Hyperopt + Horovod + PyTorch")
 argmin = fmin(
     fn=hyper_objective,
     space=search_space,
@@ -221,7 +288,7 @@ print("Best parameter found: ", argmin)
 
 # Train final model with the best parameters and save the model
 best_model = load_model_of_checkpoint(checkpoint_dir, argmin.get('learning_rate'))
-model_name = "pytorch-mnist-model-single-node"
+model_name = "pytorch-mnist-model-distributed"
 mlflow.pytorch.log_model(
     best_model, model_name, registered_model_name=model_name)
 

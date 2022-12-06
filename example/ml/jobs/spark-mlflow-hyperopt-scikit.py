@@ -78,22 +78,22 @@ argmin = fmin(
   trials=spark_trials)
 
 # Print the best value found for C
-print("Best value found: ", argmin)
+print("Best parameter found: ", argmin)
 print("argmin.get('C'): ", argmin.get('C'))
 
 
 # Train final model with the best parameters
 best_model = train(argmin.get('C'))
-mlflow.sklearn.log_model(best_model, "Sklearn-SVC-model",
-                         registered_model_name="Sklearn-SVC-model-reg")
-model_uri = "models:/Sklearn-SVC-model-reg/1"
+model_name = 'scikit-learn-svc-model'
+mlflow.sklearn.log_model(best_model, model_name, registered_model_name=model_name)
 
 
 # Load model as a PyFuncModel and predict on a Pandas DataFrame.
 import pandas as pd
 
-loaded_model = mlflow.pyfunc.load_model(model_uri)
-loaded_model.predict(pd.DataFrame(X))
+model_uri = 'models:/{}/1'.format(model_name)
+saved_model = mlflow.pyfunc.load_model(model_uri)
+saved_model.predict(pd.DataFrame(X))
 
 
 # Clean up

@@ -7,14 +7,15 @@ from time import time
 
 # Parse and get parameters
 try:
-    opts, args = getopt.getopt(sys.argv[1:], "f:b:e:")
+    opts, args = getopt.getopt(sys.argv[1:], "f:b:e:t:")
 except getopt.GetoptError:
-    print("Invalid options. Support -f for storage filesystem dir, -b for batch size,  -e for epochs.")
+    print("Invalid options. Support -f for storage filesystem dir, -b for batch size, -e for epochs, -t for trials.")
     sys.exit(1)
 
 param_batch_size = None
 param_epochs = None
 param_fsdir = None
+param_trials = None
 for opt, arg in opts:
     if opt in ['-f']:
         param_fsdir = arg
@@ -22,6 +23,8 @@ for opt, arg in opts:
         param_batch_size = arg
     elif opt in ['-e']:
         param_epochs = arg
+    elif opt in ['-t']:
+        param_trials = arg
 
 
 from cloudtik.runtime.spark.api import ThisSparkCluster
@@ -134,8 +137,6 @@ import pyspark.sql.types as T
 from pyspark.ml.evaluation import MulticlassClassificationEvaluator
 from pyspark.sql.functions import udf
 
-import mlflow
-
 # Set the parameters
 num_proc = total_workers
 print("Train processes: {}".format(num_proc))
@@ -244,6 +245,8 @@ def load_model_of_checkpoint(log_dir, file_id):
 
 
 #  Hyperopt training function
+import mlflow
+
 checkpoint_dir = create_log_dir('pytorch-mnist')
 print("Log directory:", checkpoint_dir)
 
@@ -269,6 +272,9 @@ def hyper_objective(learning_rate):
 
 from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
 
+trials = int(param_trials) if param_trials else 2
+print("Hyper parameter tuning trials: {}".format(trials))
+
 search_space = hp.uniform('learning_rate', 0, 1)
 mlflow.set_tracking_uri(mlflow_url)
 mlflow.set_experiment("MNIST: Spark + Horovod + Hyperopt + PyTorch")
@@ -276,7 +282,7 @@ argmin = fmin(
     fn=hyper_objective,
     space=search_space,
     algo=tpe.suggest,
-    max_evals=16)
+    max_evals=trials)
 print("Best parameter found: ", argmin)
 
 
@@ -290,7 +296,8 @@ mlflow.pytorch.log_model(
 
 
 # Load the model from MLflow and run a transformation
-model_uri = "models:/{}/1".format(model_name)
+model_uri = "models:/{}/latest".format(model_name)
+print('Inference with model: {}'.format(model_uri))
 saved_torch_model = mlflow.pytorch.load_model(model_uri)
 saved_model = hvd.TorchModel(
     model=saved_torch_model,

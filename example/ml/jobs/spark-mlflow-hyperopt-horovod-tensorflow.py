@@ -3,19 +3,22 @@ import getopt
 import os
 import subprocess
 import sys
+from time import time
+import pickle
 from distutils.version import LooseVersion
 
 
 # Parse and get parameters
 try:
-    opts, args = getopt.getopt(sys.argv[1:], "f:b:e:")
+    opts, args = getopt.getopt(sys.argv[1:], "f:b:e:t:")
 except getopt.GetoptError:
-    print("Invalid options. Support -f for storage filesystem dir, -b for batch size,  -e for epochs.")
+    print("Invalid options. Support -f for storage filesystem dir, -b for batch size, -e for epochs, -t for trials.")
     sys.exit(1)
 
 param_batch_size = None
 param_epochs = None
 param_fsdir = None
+param_trials = None
 for opt, arg in opts:
     if opt in ['-f']:
         param_fsdir = arg
@@ -23,6 +26,8 @@ for opt, arg in opts:
         param_batch_size = arg
     elif opt in ['-e']:
         param_epochs = arg
+    elif opt in ['-t']:
+        param_trials = arg
 
 
 from cloudtik.runtime.spark.api import ThisSparkCluster
@@ -31,10 +36,10 @@ from cloudtik.runtime.ml.api import ThisMLCluster
 cluster = ThisSparkCluster()
 
 # Scale the cluster as need
-cluster.scale(workers=3)
+cluster.scale(workers=1)
 
 # Wait for all cluster workers to be ready
-cluster.wait_for_ready(min_workers=3)
+cluster.wait_for_ready(min_workers=1)
 
 # Total worker cores
 cluster_info = cluster.get_info()
@@ -51,6 +56,67 @@ if not param_fsdir:
 
 ml_cluster = ThisMLCluster()
 mlflow_url = ml_cluster.get_services()["mlflow"]["url"]
+
+
+# Serialize and deserialize keras model
+import io
+import h5py
+from horovod.runner.common.util import codec
+
+
+def serialize_keras_model(model):
+    """Serialize model into byte array encoded into base 64."""
+    bio = io.BytesIO()
+    with h5py.File(bio, 'w') as f:
+        keras.models.save_model(model, f)
+    return codec.dumps_base64(bio.getvalue())
+
+
+def deserialize_keras_model(model_bytes, custom_objects):
+    """Deserialize model from byte array encoded in base 64."""
+    model_bytes = codec.loads_base64(model_bytes)
+    bio = io.BytesIO(model_bytes)
+    with h5py.File(bio, 'r') as f:
+        with keras.utils.custom_object_scope(custom_objects):
+            return keras.models.load_model(f)
+
+
+# Checkpoint utilities
+CHECKPOINT_HOME = "/tmp/ml/checkpoints"
+
+
+def get_checkpoint_file(log_dir, file_id):
+    return os.path.join(log_dir, 'checkpoint-{file_id}.bin'.format(file_id=file_id))
+
+
+def save_checkpoint(log_dir, model, optimizer, file_id, meta=None):
+    filepath = get_checkpoint_file(log_dir, file_id)
+    print('Written checkpoint to {}'.format(filepath))
+
+    model_bytes = serialize_keras_model(model)
+    state = {
+        'model': model_bytes,
+    }
+    if optimizer is not None:
+        state['optimizer'] = optimizer.state_dict()
+    if meta is not None:
+        state['meta'] = meta
+
+    # write file
+    with open(filepath, 'wb') as f:
+        pickle.dump(state, f)
+
+
+def load_checkpoint(log_dir, file_id):
+    filepath = get_checkpoint_file(log_dir, file_id)
+    with open(filepath, 'rb') as f:
+        return pickle.load(f)
+
+
+def create_log_dir(experiment_name):
+    log_dir = os.path.join(CHECKPOINT_HOME, str(time()), experiment_name)
+    os.makedirs(log_dir)
+    return log_dir
 
 
 # Initialize SparkSession
@@ -111,8 +177,6 @@ from horovod.spark.common.store import Store
 import pyspark.sql.types as T
 from pyspark.ml.evaluation import MulticlassClassificationEvaluator
 from pyspark.sql.functions import udf
-
-import mlflow
 
 # Disable GPUs when building the model to prevent memory leaks
 if LooseVersion(tf.__version__) >= LooseVersion('2.0.0'):
@@ -178,10 +242,8 @@ def train(learning_rate):
     return keras_model
 
 
-#  Hyperopt training function
-def hyper_objective(learning_rate):
-    keras_model = train(learning_rate)
-    pred_df = keras_model.transform(test_df)
+def test_model(model, show_samples=False):
+    pred_df = model.transform(test_df)
     argmax = udf(lambda v: float(np.argmax(v)), returnType=T.DoubleType())
     pred_df = pred_df.withColumn('label_pred', argmax(pred_df.label_prob))
 
@@ -189,15 +251,60 @@ def hyper_objective(learning_rate):
     accuracy = evaluator.evaluate(pred_df)
     print('Test accuracy:', accuracy)
 
+    if show_samples:
+        pred_df = pred_df.sampleBy('label',
+                                   fractions={0.0: 0.1, 1.0: 0.1, 2.0: 0.1, 3.0: 0.1, 4.0: 0.1,
+                                              5.0: 0.1, 6.0: 0.1, 7.0: 0.1, 8.0: 0.1, 9.0: 0.1})
+        pred_df.show(150)
+
+    return 1 - accuracy
+
+
+def load_model_of_checkpoint(log_dir, file_id):
+    checkpoint = load_checkpoint(log_dir, file_id)
+    meta = checkpoint['meta']
+    custom_objects = meta.get('custom_objects')
+    keras_model = deserialize_keras_model(checkpoint['model'], custom_objects)
+    model = hvd.KerasModel(
+        model=keras_model,
+        custom_objects=custom_objects,
+        _floatx=meta.get('floatx'),
+        _metadata=meta.get('metadata'))
+    return model
+
+
+#  Hyperopt training function
+import mlflow
+
+checkpoint_dir = create_log_dir('keras-mnist')
+print("Log directory:", checkpoint_dir)
+
+
+def hyper_objective(learning_rate):
     with mlflow.start_run():
-      mlflow.log_metric("learning_rate", learning_rate)
-      mlflow.log_metric("loss", 1-accuracy)
-    return {'loss': 1-accuracy, 'status': STATUS_OK}
+        model = train(learning_rate)
+
+        # Write checkpoint
+        meta = {
+            'custom_objects': model.getCustomObjects(),
+            'floatx': model._get_floatx(),
+            'metadata': model._get_metadata(),
+        }
+        save_checkpoint(checkpoint_dir, model.getModel(), None, learning_rate, meta)
+
+        test_loss = test_model(model)
+
+        mlflow.log_metric("learning_rate", learning_rate)
+        mlflow.log_metric("loss", test_loss)
+    return {'loss': test_loss, 'status': STATUS_OK}
 
 
 # Do a super parameter tuning with hyperopt
 
 from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
+
+trials = int(param_trials) if param_trials else 2
+print("Hyper parameter tuning trials: {}".format(trials))
 
 search_space = hp.uniform('learning_rate', 0, 1)
 mlflow.set_tracking_uri(mlflow_url)
@@ -206,12 +313,12 @@ argmin = fmin(
     fn=hyper_objective,
     space=search_space,
     algo=tpe.suggest,
-    max_evals=16)
+    max_evals=trials)
 print("Best parameter found: ", argmin)
 
 
 # Train final model with the best parameters
-best_model = train(argmin.get('learning_rate'))
+best_model = load_model_of_checkpoint(checkpoint_dir, argmin.get('learning_rate'))
 metadata = best_model._get_metadata()
 floatx = best_model._get_floatx()
 model_name = 'keras-mnist-model'
@@ -219,25 +326,17 @@ mlflow.keras.log_model(best_model.getModel(), model_name, registered_model_name=
 
 
 # Load the model from MLflow and run a transformation
-model_uri = "models:/{}/1".format(model_name)
+model_uri = "models:/{}/latest".format(model_name)
+print('Inference with model: {}'.format(model_uri))
 saved_keras_model = mlflow.keras.load_model(model_uri)
+saved_model = hvd.KerasModel(
+    model=saved_keras_model,
+    feature_columns=['features'],
+    label_columns=['label_vec'],
+    _floatx=floatx,
+    _metadata=metadata).setOutputCols(['label_prob'])
+test_model(saved_model, True)
 
-saved_model = hvd.KerasModel(model=saved_keras_model,
-                                 feature_columns=['features'],
-                                 label_columns=['label_vec'],
-                                 _floatx=floatx,
-                                 _metadata=metadata).setOutputCols(['label_prob'])
-
-pred_df = saved_model.transform(test_df)
-argmax = udf(lambda v: float(np.argmax(v)), returnType=T.DoubleType())
-pred_df = pred_df.withColumn('label_pred', argmax(pred_df.label_prob))
-
-evaluator = MulticlassClassificationEvaluator(predictionCol='label_pred', labelCol='label', metricName='accuracy')
-accuracy = evaluator.evaluate(pred_df)
-print('Test accuracy:', accuracy)
-
-pred_df = pred_df.sampleBy('label', fractions={0.0: 0.1, 1.0: 0.1, 2.0: 0.1, 3.0: 0.1, 4.0: 0.1, 5.0: 0.1, 6.0: 0.1, 7.0: 0.1, 8.0: 0.1, 9.0: 0.1})
-pred_df.show(150)
 
 # Clean up
 spark.stop()

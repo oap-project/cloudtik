@@ -1,13 +1,31 @@
+# Common Imports
+import getopt
+import sys
+
+
+# Parse and get parameters
+try:
+    opts, args = getopt.getopt(sys.argv[1:], "t:")
+except getopt.GetoptError:
+    print("Invalid options. Support -t for trials.")
+    sys.exit(1)
+
+param_trials = None
+for opt, arg in opts:
+    if opt in ['-t']:
+        param_trials = arg
+
+
 from cloudtik.runtime.spark.api import ThisSparkCluster
 from cloudtik.runtime.ml.api import ThisMLCluster
 
 cluster = ThisSparkCluster()
 
 # Scale the cluster as need
-cluster.scale(workers=3)
+cluster.scale(workers=1)
 
 # Wait for all cluster workers to be ready
-cluster.wait_for_ready(min_workers=3)
+cluster.wait_for_ready(min_workers=1)
 
 ml_cluster = ThisMLCluster()
 mlflow_url = ml_cluster.get_services()["mlflow"]["url"]
@@ -63,6 +81,9 @@ def hyper_objective(C):
 from hyperopt import fmin, tpe, hp, SparkTrials, STATUS_OK, Trials
 import mlflow
 
+trials = int(param_trials) if param_trials else 2
+print("Hyper parameter tuning trials: {}".format(trials))
+
 # Define the search space and select a search algorithm
 search_space = hp.lognormal('C', 0, 1.0)
 algo = tpe.suggest
@@ -74,7 +95,7 @@ argmin = fmin(
   fn=hyper_objective,
   space=search_space,
   algo=algo,
-  max_evals=16,
+  max_evals=trials,
   trials=spark_trials)
 
 # Print the best value found for C
@@ -91,7 +112,8 @@ mlflow.sklearn.log_model(best_model, model_name, registered_model_name=model_nam
 # Load model as a PyFuncModel and predict on a Pandas DataFrame.
 import pandas as pd
 
-model_uri = 'models:/{}/1'.format(model_name)
+model_uri = 'models:/{}/latest'.format(model_name)
+print('Inference with model: {}'.format(model_uri))
 saved_model = mlflow.pyfunc.load_model(model_uri)
 saved_model.predict(pd.DataFrame(X))
 

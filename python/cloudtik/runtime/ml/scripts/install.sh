@@ -41,6 +41,12 @@ function install_ml() {
     echo "Installing machine learning tools: mlflow, hyperopt..."
     pip -qq install mlflow==1.27.0 pyarrow==8.0.0 hyperopt==0.2.7 scikit-learn==1.0.2
     mkdir -p $RUNTIME_PATH/mlflow
+    echo "Installing deep learing libraries for music and audio analysis..."
+    pip -qq install librosa==0.9.2
+    echo "Installing deep learing libraries for facial recognition..."
+    pip -qq install opencv-python-headless==4.6.0.66 tensorflow-addons==0.17.1
+    CLOUDTIK_CONDA_ENV=$(dirname $(dirname $(which cloudtik)))
+    conda install dlib=19.24.0 libffi=3.3 -p $CLOUDTIK_CONDA_ENV -c conda-forge -y
     echo "Installing horovod..."
     export CXX=/usr/bin/g++-9 && HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_MXNET=1 HOROVOD_WITH_GLOO=1 pip -qq install horovod[all-frameworks]==0.25.0
 }

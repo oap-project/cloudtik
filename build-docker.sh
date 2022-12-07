@@ -76,6 +76,9 @@ do
     --build-ml)
         BUILD_ML=YES
         ;;
+    --build-ml-benchmark)
+        BUILD_ML_BENCHMARK=YES
+        ;;
     --build-spark-benchmark)
         BUILD_SPARK_BENCHMARK=YES
         ;;
@@ -165,6 +168,10 @@ fi
 
 if [ $BUILD_ML ] || [ $BUILD_ALL ]; then
     docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG -t cloudtik/spark-ml-runtime:$IMAGE_TAG docker/runtime/ml
+fi
+
+if [ $BUILD_ML_BENCHMARK ] || [ $BUILD_ALL ]; then
+    docker build $NO_CACHE -t cloudtik/spark-ml-runtime-benchmark:nightly docker/runtime/ml/benchmark
 fi
 
 if [ $BUILD_SPARK_BENCHMARK ] || [ $BUILD_ALL ]; then

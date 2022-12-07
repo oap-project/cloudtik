@@ -1,16 +1,18 @@
-# dl frameworks
+# DL Frameworks
 mxnet==1.9.1
 tensorflow==2.9.3
-tensorflow-addons==0.17.1
 
-mlflow==1.27.0
-# for mlflow
-pyarrow==8.0.0
-hyperopt==0.2.7
+# ML Frameworks
 scikit-learn==1.0.2
 
-# For deep learing cases about music and audio analysis
+# ML Tools
+mlflow==1.27.0
+pyarrow==8.0.0
+hyperopt==0.2.7
+
+# For deep learning cases about music and audio analysis
 librosa==0.9.2
 
-# For deep learing cases about facial recognition
+# For deep learning cases about facial recognition
 opencv-python-headless==4.6.0.66
+tensorflow-addons==0.17.1

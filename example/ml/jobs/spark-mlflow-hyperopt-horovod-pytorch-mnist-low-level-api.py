@@ -6,14 +6,15 @@ from time import time
 
 # Parse and get parameters
 try:
-    opts, args = getopt.getopt(sys.argv[1:], "f:b:e:")
+    opts, args = getopt.getopt(sys.argv[1:], "f:b:e:t:")
 except getopt.GetoptError:
-    print("Invalid options. Support -f for storage filesystem dir, -b for batch size,  -e for epochs.")
+    print("Invalid options. Support -f for storage filesystem dir, -b for batch size, -e for epochs, -t for trials.")
     sys.exit(1)
 
 param_batch_size = None
 param_epochs = None
 param_fsdir = None
+param_trials = None
 for opt, arg in opts:
     if opt in ['-f']:
         param_fsdir = arg
@@ -21,6 +22,8 @@ for opt, arg in opts:
         param_batch_size = arg
     elif opt in ['-e']:
         param_epochs = arg
+    elif opt in ['-t']:
+        param_trials = arg
 
 from cloudtik.runtime.spark.api import ThisSparkCluster
 from cloudtik.runtime.ml.api import ThisMLCluster
@@ -275,6 +278,9 @@ def hyper_objective(learning_rate):
 # Do a super parameter tuning with hyperopt
 from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
 
+trials = int(param_trials) if param_trials else 2
+print("Hyper parameter tuning trials: {}".format(trials))
+
 search_space = hp.uniform('learning_rate', 0, 1)
 mlflow.set_tracking_uri(mlflow_url)
 mlflow.set_experiment("MNIST: Distributed Hyperopt + Horovod + PyTorch")
@@ -282,7 +288,7 @@ argmin = fmin(
     fn=hyper_objective,
     space=search_space,
     algo=tpe.suggest,
-    max_evals=16)
+    max_evals=trials)
 print("Best parameter found: ", argmin)
 
 
@@ -294,6 +300,7 @@ mlflow.pytorch.log_model(
 
 
 # Load the model from MLflow and run an evaluation
-model_uri = "models:/{}/1".format(model_name)
+model_uri = "models:/{}/latest".format(model_name)
+print('Inference with model: {}'.format(model_uri))
 saved_model = mlflow.pytorch.load_model(model_uri)
 test_model(saved_model)

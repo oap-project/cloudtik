@@ -122,14 +122,14 @@ else:
     keras.backend.set_session(tf.Session(config=tf.ConfigProto(device_count={'GPU': 0})))
 
 # Set the parameters
-set_num_proc = total_worker_cpus
-print("Spark Backend num_proc: {}".format(set_num_proc))
+num_proc = total_worker_cpus
+print("Train processes: {}".format(num_proc))
 
-set_batch_size = int(param_batch_size) if param_batch_size else 128
-print("Keras Estimator batch_size: {}".format(set_batch_size))
+batch_size = int(param_batch_size) if param_batch_size else 128
+print("Train batch size: {}".format(batch_size))
 
-set_epochs = int(param_epochs) if param_epochs else 1
-print("Keras Estimator epochs: {}".format(set_epochs))
+epochs = int(param_epochs) if param_epochs else 1
+print("Train epochs: {}".format(epochs))
 
 # Create store for data accessing
 store_path = param_fsdir + "/tmp"
@@ -159,7 +159,7 @@ def train(learning_rate):
     optimizer = keras.optimizers.Adadelta(learning_rate)
     loss = keras.losses.categorical_crossentropy
 
-    backend = SparkBackend(num_proc=set_num_proc,
+    backend = SparkBackend(num_proc=num_proc,
                        stdout=sys.stdout, stderr=sys.stderr,
                        prefix_output_with_timestamp=True)
     keras_estimator = hvd.KerasEstimator(backend=backend,
@@ -170,8 +170,8 @@ def train(learning_rate):
                                          metrics=['accuracy'],
                                          feature_cols=['features'],
                                          label_cols=['label_vec'],
-                                         batch_size=set_batch_size,
-                                         epochs=set_epochs,
+                                         batch_size=batch_size,
+                                         epochs=epochs,
                                          verbose=1)
 
     keras_model = keras_estimator.fit(train_df).setOutputCols(['label_prob'])
@@ -207,27 +207,28 @@ argmin = fmin(
     space=search_space,
     algo=tpe.suggest,
     max_evals=16)
-print("Best value found: ", argmin)
+print("Best parameter found: ", argmin)
 
 
 # Train final model with the best parameters
 best_model = train(argmin.get('learning_rate'))
 metadata = best_model._get_metadata()
 floatx = best_model._get_floatx()
-mlflow.keras.log_model(best_model.getModel(), "keras-mnist-model", registered_model_name="keras-mnist-model-reg")
+model_name = 'keras-mnist-model'
+mlflow.keras.log_model(best_model.getModel(), model_name, registered_model_name=model_name)
 
 
 # Load the model from MLflow and run a transformation
-model_uri = "models:/keras-mnist-model-reg/1"
-loaded_model = mlflow.keras.load_model(model_uri)
+model_uri = "models:/{}/1".format(model_name)
+saved_keras_model = mlflow.keras.load_model(model_uri)
 
-hvd_keras_model = hvd.KerasModel(model=loaded_model,
+saved_model = hvd.KerasModel(model=saved_keras_model,
                                  feature_columns=['features'],
                                  label_columns=['label_vec'],
                                  _floatx=floatx,
                                  _metadata=metadata).setOutputCols(['label_prob'])
 
-pred_df = hvd_keras_model.transform(test_df)
+pred_df = saved_model.transform(test_df)
 argmax = udf(lambda v: float(np.argmax(v)), returnType=T.DoubleType())
 pred_df = pred_df.withColumn('label_pred', argmax(pred_df.label_prob))
 

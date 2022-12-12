@@ -1,14 +1,15 @@
-From bdfe5104287a78f0784b573124ff87eba883b972 Mon Sep 17 00:00:00 2001
+From d917f9d4f48d0fac181518e9965cc6d864b362f9 Mon Sep 17 00:00:00 2001
 From: haojin <hao.jin@intel.com>
-Date: Wed, 2 Nov 2022 16:14:39 +0800
-Subject: [PATCH 1/2] Support to remove duplicate joins of InSubquery
+Date: Mon, 7 Nov 2022 11:27:15 +0800
+Subject: [PATCH 2/2] Support to remove duplicate joins of InSubquery
 
 ---
  .../sql/catalyst/optimizer/Optimizer.scala    |   1 +
  .../sql/catalyst/optimizer/subquery.scala     | 273 ++++++++++++++++++
- .../apache/spark/sql/internal/SQLConf.scala   |   7 +
+ .../apache/spark/sql/internal/SQLConf.scala   |  14 +
+ .../merge/MergeSingleRowAggregate.scala       | 111 +++++--
  .../merge/MergeScalarSubqueriesSuite.scala    |   1 +
- 4 files changed, 282 insertions(+)
+ 5 files changed, 383 insertions(+), 17 deletions(-)
 
 diff --git a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/Optimizer.scala b/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/Optimizer.scala
 index c49b768ad6..c2c08c0874 100644
@@ -304,7 +305,7 @@ index 7ef5ef55fa..cfd6a11ae5 100644
 +
 +}
 diff --git a/sql/catalyst/src/main/scala/org/apache/spark/sql/internal/SQLConf.scala b/sql/catalyst/src/main/scala/org/apache/spark/sql/internal/SQLConf.scala
-index 729d6043ea..f9fde079b6 100644
+index 729d6043ea..9c5181bdfd 100644
 --- a/sql/catalyst/src/main/scala/org/apache/spark/sql/internal/SQLConf.scala
 +++ b/sql/catalyst/src/main/scala/org/apache/spark/sql/internal/SQLConf.scala
 @@ -2406,6 +2406,13 @@ object SQLConf {
@@ -321,6 +322,158 @@ index 729d6043ea..f9fde079b6 100644
    val JOIN_REORDER_ENABLED =
      buildConf("spark.sql.cbo.joinReorder.enabled")
        .doc("Enables join reorder in CBO.")
+@@ -3808,6 +3815,13 @@ object SQLConf {
+       .checkValue(r => r >= 0 && r <= 1.0, "The benefit ratio must be positive number.")
+       .createWithDefault(0.3)
+ 
++  val MERGE_SINGLE_ROW_AGGREGATE = buildConf("spark.sql.optimizer.mergeSingleRowAggregate.enabled")
++    .internal()
++    .doc("When true, the planner will try to merge single row aggregate plan.")
++    .version("3.3.0")
++    .booleanConf
++    .createWithDefault(false)
++
+   /**
+    * Holds information about keys that have been deprecated.
+    *
+diff --git a/sql/core/src/main/scala/org/apache/spark/sql/execution/merge/MergeSingleRowAggregate.scala b/sql/core/src/main/scala/org/apache/spark/sql/execution/merge/MergeSingleRowAggregate.scala
+index 4710f58da8..f0ad5b7867 100644
+--- a/sql/core/src/main/scala/org/apache/spark/sql/execution/merge/MergeSingleRowAggregate.scala
++++ b/sql/core/src/main/scala/org/apache/spark/sql/execution/merge/MergeSingleRowAggregate.scala
+@@ -22,8 +22,8 @@ import scala.collection.mutable.ArrayBuffer
+ import org.apache.spark.sql.catalyst.expressions._
+ import org.apache.spark.sql.catalyst.expressions.aggregate.{AggregateExpression, Average, Count, Max, Min, Sum}
+ import org.apache.spark.sql.catalyst.planning.PhysicalOperation
+-import org.apache.spark.sql.catalyst.plans.{Cross, Inner}
+-import org.apache.spark.sql.catalyst.plans.logical.{Aggregate, Filter, Join, LeafNode, LocalRelation, LogicalPlan, Project, SerializeFromObject, Subquery}
++import org.apache.spark.sql.catalyst.plans.{Cross, InnerLike}
++import org.apache.spark.sql.catalyst.plans.logical.{Aggregate, Filter, Join, JoinHint, LeafNode, LocalRelation, LogicalPlan, Project, SerializeFromObject, Subquery}
+ import org.apache.spark.sql.catalyst.rules.Rule
+ import org.apache.spark.sql.catalyst.trees.TreePattern.{INVOKE, JSON_TO_STRUCT, LIKE_FAMLIY, PYTHON_UDF, REGEXP_EXTRACT_FAMILY, REGEXP_REPLACE, SCALA_UDF}
+ import org.apache.spark.sql.execution.ExternalRDD
+@@ -54,6 +54,7 @@ object MergeSingleRowAggregate extends Rule[LogicalPlan] {
+ 
+   def apply(plan: LogicalPlan): LogicalPlan = {
+     plan match {
++      case _ if !conf.getConf(SQLConf.MERGE_SINGLE_ROW_AGGREGATE) => plan
+       // This rule does a whole plan traversal, no need to run on subqueries.
+       case _: Subquery => plan
+ 
+@@ -88,23 +89,99 @@ object MergeSingleRowAggregate extends Rule[LogicalPlan] {
+     ret
+   }
+ 
+-  // First traversal builds up the cache and inserts `ScalarSubqueryReference`s to the plan.
+-  private def mergeCommonSingleRowAggregate(plan: LogicalPlan): LogicalPlan = {
+-    plan.transformUpWithSubqueries{
+-      case join: Join if join.joinType == Cross ||
+-        (join.joinType == Inner && join.condition.isEmpty) =>
+-        val left = join.left
+-        val right = join.right
+-        if (isSingleRowAggregate(left) && isSingleRowAggregate(right)) {
+-          val mergedPlan = tryMergePlans(right, left, NO_NEED).collect{
+-            case (mergedPlan, _, None, None) =>
+-              if (mergedPlan.fastEquals(left)) join else removePropagatedFilters(mergedPlan)
+-            case _ => join
+-          }
+-          if (mergedPlan.isDefined) mergedPlan.get else join
++  private def extractInnerLikeJoinWithoutConditionsNodes(plan: LogicalPlan): Seq[LogicalPlan] = {
++    plan match {
++      case Join(left, right, _: InnerLike, None, JoinHint.NONE) =>
++        val leftJoinPlans = extractInnerLikeJoinWithoutConditionsNodes(left)
++        val rightJoinPlans = extractInnerLikeJoinWithoutConditionsNodes(right)
++        leftJoinPlans ++ rightJoinPlans
++      case Project(projectList, j @ Join(_, _, _: InnerLike, None, JoinHint.NONE))
++        if projectList.forall(_.isInstanceOf[Attribute]) =>
++        extractInnerLikeJoinWithoutConditionsNodes(j)
++      case _ =>
++        Seq(plan)
++    }
++  }
++
++  private def sameOutput(plan: LogicalPlan, expectedOutput: Seq[Attribute]): Boolean = {
++    val thisOutput = plan.output
++    thisOutput.length == expectedOutput.length && thisOutput.zip(expectedOutput).forall {
++      case (a1, a2) => a1.semanticEquals(a2)
++    }
++  }
++
++  private def mergeSingleRowAggregateNodes(plan: LogicalPlan): LogicalPlan = {
++    val items = extractInnerLikeJoinWithoutConditionsNodes(plan)
++    val singleRowAggregateItems = items.filter(item => isSingleRowAggregate(item))
++    val noSingleRowAggregateItems = items.diff(singleRowAggregateItems)
++    if (singleRowAggregateItems.isEmpty) {
++      return plan
++    }
++
++    val singleRowAggregateItemsList = singleRowAggregateItems.toBuffer
++    val mergedSingleRowAggregateItemsList = ArrayBuffer[LogicalPlan]()
++    while (singleRowAggregateItemsList.nonEmpty) {
++      var headItem = singleRowAggregateItemsList.head
++      singleRowAggregateItemsList.remove(0)
++      var i = 0
++      while (i < singleRowAggregateItemsList.size) {
++        val otherItem = singleRowAggregateItemsList(i)
++        var ifMerged = false
++        headItem = tryMergePlans(headItem, otherItem, NO_NEED).collect{
++          case (mergedPlan, _, None, None) =>
++            if (mergedPlan.canonicalized == headItem.canonicalized) {
++              headItem
++            } else {
++              ifMerged = true
++              removePropagatedFilters(mergedPlan)
++            }
++          case _ => headItem
++        }.getOrElse(headItem)
++        if(ifMerged) {
++          singleRowAggregateItemsList.remove(i)
+         } else {
+-          join
++          i = i + 1
+         }
++      }
++      mergedSingleRowAggregateItemsList.append(headItem)
++    }
++
++    val finalInnerLikeJoinItems =
++      (noSingleRowAggregateItems ++ mergedSingleRowAggregateItemsList).toBuffer
++
++    if(items.length == finalInnerLikeJoinItems.length) {
++      return plan
++    }
++
++    var finalPlan = finalInnerLikeJoinItems.head
++    finalInnerLikeJoinItems.remove(0)
++    for (finalInnerLikeJoinItem <- finalInnerLikeJoinItems) {
++      finalPlan = Join(finalPlan, finalInnerLikeJoinItem, Cross, None, JoinHint.NONE)
++    }
++
++    if (finalPlan.output.length != plan.output.length) {
++      return plan
++    }
++
++    if (!sameOutput(finalPlan, plan.output)) {
++      Project(plan.output, finalPlan)
++    } else {
++      finalPlan
++    }
++  }
++
++  // First traversal builds up the cache and inserts `ScalarSubqueryReference`s to the plan.
++  private def mergeCommonSingleRowAggregate(plan: LogicalPlan): LogicalPlan = {
++    if (false) {
++      plan
++    } else {
++      plan transform {
++        case j @ Join(_, _, _: InnerLike, None, JoinHint.NONE) =>
++          mergeSingleRowAggregateNodes(j)
++        case p @ Project(projectList, Join(_, _, _: InnerLike, None, JoinHint.NONE))
++          if projectList.forall(_.isInstanceOf[Attribute]) =>
++          mergeSingleRowAggregateNodes(p)
++      }
+     }
+   }
+ 
 diff --git a/sql/core/src/test/scala/org/apache/spark/sql/execution/merge/MergeScalarSubqueriesSuite.scala b/sql/core/src/test/scala/org/apache/spark/sql/execution/merge/MergeScalarSubqueriesSuite.scala
 index 8af0e02855..b2782ec77d 100644
 --- a/sql/core/src/test/scala/org/apache/spark/sql/execution/merge/MergeScalarSubqueriesSuite.scala

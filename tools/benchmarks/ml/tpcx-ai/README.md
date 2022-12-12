@@ -57,7 +57,7 @@ the details for run job in background.
 ## 4. Run TPCx-AI Deep Learing cases
 
 To run deep learning cases you need to provide custom benchmark configuration file which should be properly defined according to your cluster resources.
-There is an example file **[defalut-spark.yaml](tpcx-ai/confs/defalut-spark.yaml)**  and you need to tune the spark parameters for useCase02, useCase05, useCase09.
+There is an example file **[default-spark.yaml](tpcx-ai/confs/default-spark.yaml)**  and you need to tune the spark parameters for useCase02, useCase05, useCase09.
 
 After you've defined benchmark configuration file, you need to upload this file to head node:
 ```buildoutcfg

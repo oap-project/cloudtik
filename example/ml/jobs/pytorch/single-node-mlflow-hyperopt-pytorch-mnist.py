@@ -1,30 +1,25 @@
 # Common Imports
-import getopt
+import argparse
 import os
 import sys
 from time import time
 
-# Parse and get parameters
-try:
-    opts, args = getopt.getopt(sys.argv[1:], "f:b:e:t:")
-except getopt.GetoptError:
-    print("Invalid options. Support -f for storage filesystem dir, -b for batch size, -e for epochs, -t for trials.")
-    sys.exit(1)
+# Settings
+parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
+parser.add_argument('--batch-size', type=int, default=128,
+                    help='input batch size for training (default: 128)')
+parser.add_argument('--epochs', type=int, default=1,
+                    help='number of epochs to train (default: 1)')
+parser.add_argument('--trials', type=int, default=2,
+                    help='number of trails to parameter tuning (default: 2)')
+parser.add_argument('--fsdir', default=None,
+                    help='the file system dir (default: None)')
+args = parser.parse_args()
 
-param_batch_size = None
-param_epochs = None
-param_fsdir = None
-param_trials = None
-for opt, arg in opts:
-    if opt in ['-f']:
-        param_fsdir = arg
-    elif opt in ['-b']:
-        param_batch_size = arg
-    elif opt in ['-e']:
-        param_epochs = arg
-    elif opt in ['-t']:
-        param_trials = arg
+param_fsdir = args.fsdir
 
+
+# CloudTik cluster preparation or information
 from cloudtik.runtime.spark.api import ThisSparkCluster
 from cloudtik.runtime.ml.api import ThisMLCluster
 
@@ -76,10 +71,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-batch_size = int(param_batch_size) if param_batch_size else 128
+batch_size = args.batch_size
 print("Train batch size: {}".format(batch_size))
 
-epochs = int(param_epochs) if param_epochs else 1
+epochs = args.epochs
 print("Train epochs: {}".format(epochs))
 
 
@@ -211,7 +206,7 @@ def hyper_objective(learning_rate):
 # Do a super parameter tuning with hyperopt
 from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
 
-trials = int(param_trials) if param_trials else 2
+trials = args.trials
 print("Hyper parameter tuning trials: {}".format(trials))
 
 search_space = hp.uniform('learning_rate', 0, 1)

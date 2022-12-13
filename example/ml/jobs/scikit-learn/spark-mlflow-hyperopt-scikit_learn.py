@@ -2,7 +2,7 @@
 import argparse
 
 # Settings
-parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
+parser = argparse.ArgumentParser(description='Spark Scikit-Learn Example')
 parser.add_argument('--trials', type=int, default=2,
                     help='number of trails to parameter tuning (default: 2)')
 args = parser.parse_args()

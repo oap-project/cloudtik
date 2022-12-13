@@ -5,7 +5,7 @@ import sys
 from time import time
 
 # Settings
-parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
+parser = argparse.ArgumentParser(description='Horovod on Spark PyTorch MNIST Example')
 parser.add_argument('--batch-size', type=int, default=128,
                     help='input batch size for training (default: 128)')
 parser.add_argument('--epochs', type=int, default=1,

@@ -5,16 +5,19 @@ import sys
 from time import time
 import pickle
 
-
 # Settings
-parser = argparse.ArgumentParser(description='Horovod on Spark Keras MNIST Example')
+parser = argparse.ArgumentParser(description='Single Node Keras MNIST Example')
 parser.add_argument('--batch-size', type=int, default=128,
                     help='input batch size for training (default: 128)')
 parser.add_argument('--epochs', type=int, default=1,
                     help='number of epochs to train (default: 1)')
 parser.add_argument('--trials', type=int, default=2,
                     help='number of trails to parameter tuning (default: 2)')
+parser.add_argument('--fsdir', default=None,
+                    help='the file system dir (default: None)')
 args = parser.parse_args()
+
+param_fsdir = args.fsdir
 
 
 # CloudTik cluster preparation or information
@@ -23,34 +26,21 @@ from cloudtik.runtime.ml.api import ThisMLCluster
 
 cluster = ThisSparkCluster()
 
-# Scale the cluster as need
-cluster.scale(workers=1)
-
-# Wait for all cluster workers to be ready
-cluster.wait_for_ready(min_workers=1)
-
-# Total worker cores
-cluster_info = cluster.get_info()
-total_worker_cpus = cluster_info.get("total-worker-cpus")
-if not total_worker_cpus:
-    total_worker_cpus = 1
+default_storage = cluster.get_default_storage()
+if not param_fsdir:
+    param_fsdir = default_storage.get("default.storage.uri") if default_storage else None
+    if not param_fsdir:
+        print("Must specify storage filesystem dir using -f.")
+        sys.exit(1)
 
 ml_cluster = ThisMLCluster()
 mlflow_url = ml_cluster.get_services()["mlflow"]["url"]
 
 
-# Initialize SparkSession
-from pyspark import SparkConf
-from pyspark.sql import SparkSession
-
-spark_conf = SparkConf().setAppName('spark-horovod-pytorch').set('spark.sql.shuffle.partitions', '16')
-spark = SparkSession.builder.config(conf=spark_conf).getOrCreate()
-conf = spark.conf
-
-
 # Serialize and deserialize keras model
 import io
 import h5py
+import keras
 from horovod.runner.common.util import codec
 
 
@@ -110,25 +100,18 @@ def create_log_dir(experiment_name):
 
 
 # Define training function and Keras model
-import keras
 from keras.datasets import mnist
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, Flatten
 from keras.layers import Conv2D, MaxPooling2D
 from keras import backend as K
 
-import tensorflow as tf
-import horovod.keras as hvd
-
-# Set the parameters
-num_proc = total_worker_cpus
-print("Train processes: {}".format(num_proc))
-
 batch_size = args.batch_size
 print("Train batch size: {}".format(batch_size))
 
 epochs = args.epochs
 print("Train epochs: {}".format(epochs))
+
 
 num_classes = 10
 img_rows, img_cols = 28, 28
@@ -160,17 +143,8 @@ def load_data():
     return x_train, y_train, x_test, y_test
 
 
-#  Horovod distributed training function
-def train_horovod(learning_rate):
-    # Horovod: initialize Horovod.
-    hvd.init()
-
-    # Horovod: pin GPU to be used to process local rank (one GPU per process)
-    # config = tf.ConfigProto()
-    # config.gpu_options.allow_growth = True
-    # config.gpu_options.visible_device_list = str(hvd.local_rank())
-    # K.set_session(tf.Session(config=config))
-
+# Single node train function
+def train(learning_rate):
     # Input image dimensions
     if K.image_data_format() == 'channels_first':
         input_shape = (1, img_rows, img_cols)
@@ -189,11 +163,7 @@ def train_horovod(learning_rate):
     model.add(Dropout(0.5))
     model.add(Dense(num_classes, activation='softmax'))
 
-    # Horovod: adjust learning rate based on number of GPUs.
-    optimizer = keras.optimizers.Adadelta(learning_rate * hvd.size())
-
-    # Horovod: add Horovod Distributed Optimizer.
-    optimizer = hvd.DistributedOptimizer(optimizer)
+    optimizer = keras.optimizers.Adadelta(learning_rate)
     loss = keras.losses.categorical_crossentropy
 
     model.compile(loss=loss,
@@ -201,15 +171,8 @@ def train_horovod(learning_rate):
                   metrics=['accuracy'])
 
     callbacks = [
-        # Horovod: broadcast initial variable states from rank 0 to all other processes.
-        # This is necessary to ensure consistent initialization of all workers when
-        # training is started with random weights or restored from a checkpoint.
-        hvd.callbacks.BroadcastGlobalVariablesCallback(0),
+        keras.callbacks.ModelCheckpoint('./checkpoint-{epoch}.h5'),
     ]
-
-    # Horovod: save checkpoints only on worker 0 to prevent other workers from corrupting them.
-    if hvd.rank() == 0:
-        callbacks.append(keras.callbacks.ModelCheckpoint('./checkpoint-{epoch}.h5'))
 
     # Load data
     x_train, y_train, x_test, y_test = load_data()
@@ -218,12 +181,11 @@ def train_horovod(learning_rate):
               batch_size=batch_size,
               callbacks=callbacks,
               epochs=epochs,
-              verbose=1 if hvd.rank() == 0 else 0,
+              verbose=1,
               validation_data=(x_test, y_test))
 
-    if hvd.rank() == 0:
-        # Return the model bytes
-        return serialize_keras_model(model)
+    # Return the model
+    return model
 
 
 def test_model(model):
@@ -242,25 +204,26 @@ def load_model_of_checkpoint(log_dir, file_id):
     return model
 
 
+def test_checkpoint(log_dir, file_id):
+    model = load_model_of_checkpoint(log_dir, file_id)
+    return test_model(model)
+
+
 #  Hyperopt training function
 import mlflow
-import horovod.spark
 
-checkpoint_dir = create_log_dir('horovod-keras-mnist')
+checkpoint_dir = create_log_dir('single-node-keras-mnist')
 print("Log directory:", checkpoint_dir)
 
 
 def hyper_objective(learning_rate):
     with mlflow.start_run():
-        model_bytes = horovod.spark.run(
-            train_horovod, args=(learning_rate,), num_proc=num_proc,
-            stdout=sys.stdout, stderr=sys.stderr, verbose=2,
-            prefix_output_with_timestamp=True, use_gloo=True)[0]
-        model = deserialize_keras_model(model_bytes, custom_objects={})
+        model = train(learning_rate)
 
         # Write checkpoint
         save_checkpoint(checkpoint_dir, model, None, learning_rate)
 
+        model = load_model_of_checkpoint(checkpoint_dir, learning_rate)
         test_loss = test_model(model)
 
         mlflow.log_metric("learning_rate", learning_rate)
@@ -269,7 +232,6 @@ def hyper_objective(learning_rate):
 
 
 # Do a super parameter tuning with hyperopt
-
 from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
 
 trials = args.trials
@@ -277,7 +239,7 @@ print("Hyper parameter tuning trials: {}".format(trials))
 
 search_space = hp.uniform('learning_rate', 0, 1)
 mlflow.set_tracking_uri(mlflow_url)
-mlflow.set_experiment("MNIST: Horovod + Hyperopt + Keras")
+mlflow.set_experiment("MNIST: Single Node Hyperopt + Keras")
 argmin = fmin(
     fn=hyper_objective,
     space=search_space,
@@ -286,17 +248,15 @@ argmin = fmin(
 print("Best parameter found: ", argmin)
 
 
-# Train final model with the best parameters
+# Train final model with the best parameters and save the model
 best_model = load_model_of_checkpoint(checkpoint_dir, argmin.get('learning_rate'))
-model_name = 'keras-mnist-model'
-mlflow.keras.log_model(best_model, model_name, registered_model_name=model_name)
+model_name = "keras-mnist-model-single-node"
+mlflow.keras.log_model(
+    best_model, model_name, registered_model_name=model_name)
 
 
-# Load the model from MLflow and run a transformation
+# Load the model from MLflow and run an evaluation
 model_uri = "models:/{}/latest".format(model_name)
 print('Inference with model: {}'.format(model_uri))
 saved_model = mlflow.keras.load_model(model_uri)
 test_model(saved_model)
-
-# Clean up
-spark.stop()

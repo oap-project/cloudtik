@@ -23,6 +23,7 @@ args = parser.parse_args()
 param_fsdir = args.fsdir
 
 
+# CloudTik cluster preparation or information
 from cloudtik.runtime.spark.api import ThisSparkCluster
 from cloudtik.runtime.ml.api import ThisMLCluster
 

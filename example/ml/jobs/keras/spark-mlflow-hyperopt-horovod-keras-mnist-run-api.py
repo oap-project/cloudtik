@@ -16,6 +16,7 @@ parser.add_argument('--trials', type=int, default=2,
                     help='number of trails to parameter tuning (default: 2)')
 args = parser.parse_args()
 
+
 # CloudTik cluster preparation or information
 from cloudtik.runtime.spark.api import ThisSparkCluster
 from cloudtik.runtime.ml.api import ThisMLCluster

@@ -1,21 +1,14 @@
 # Common Imports
-import getopt
-import sys
+import argparse
+
+# Settings
+parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
+parser.add_argument('--trials', type=int, default=2,
+                    help='number of trails to parameter tuning (default: 2)')
+args = parser.parse_args()
 
 
-# Parse and get parameters
-try:
-    opts, args = getopt.getopt(sys.argv[1:], "t:")
-except getopt.GetoptError:
-    print("Invalid options. Support -t for trials.")
-    sys.exit(1)
-
-param_trials = None
-for opt, arg in opts:
-    if opt in ['-t']:
-        param_trials = arg
-
-
+# CloudTik cluster preparation or information
 from cloudtik.runtime.spark.api import ThisSparkCluster
 from cloudtik.runtime.ml.api import ThisMLCluster
 
@@ -81,7 +74,7 @@ def hyper_objective(C):
 from hyperopt import fmin, tpe, hp, SparkTrials, STATUS_OK, Trials
 import mlflow
 
-trials = int(param_trials) if param_trials else 2
+trials = args.trials
 print("Hyper parameter tuning trials: {}".format(trials))
 
 # Define the search space and select a search algorithm

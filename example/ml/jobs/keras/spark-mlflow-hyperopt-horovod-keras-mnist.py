@@ -1,5 +1,5 @@
 # Common Imports
-import getopt
+import argparse
 import os
 import subprocess
 import sys
@@ -8,26 +8,19 @@ import pickle
 from distutils.version import LooseVersion
 
 
-# Parse and get parameters
-try:
-    opts, args = getopt.getopt(sys.argv[1:], "f:b:e:t:")
-except getopt.GetoptError:
-    print("Invalid options. Support -f for storage filesystem dir, -b for batch size, -e for epochs, -t for trials.")
-    sys.exit(1)
+# Settings
+parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
+parser.add_argument('--batch-size', type=int, default=128,
+                    help='input batch size for training (default: 128)')
+parser.add_argument('--epochs', type=int, default=1,
+                    help='number of epochs to train (default: 1)')
+parser.add_argument('--trials', type=int, default=2,
+                    help='number of trails to parameter tuning (default: 2)')
+parser.add_argument('--fsdir', default=None,
+                    help='the file system dir (default: None)')
+args = parser.parse_args()
 
-param_batch_size = None
-param_epochs = None
-param_fsdir = None
-param_trials = None
-for opt, arg in opts:
-    if opt in ['-f']:
-        param_fsdir = arg
-    elif opt in ['-b']:
-        param_batch_size = arg
-    elif opt in ['-e']:
-        param_epochs = arg
-    elif opt in ['-t']:
-        param_trials = arg
+param_fsdir = args.fsdir
 
 
 from cloudtik.runtime.spark.api import ThisSparkCluster
@@ -189,10 +182,10 @@ else:
 num_proc = total_worker_cpus
 print("Train processes: {}".format(num_proc))
 
-batch_size = int(param_batch_size) if param_batch_size else 128
+batch_size = args.batch_size
 print("Train batch size: {}".format(batch_size))
 
-epochs = int(param_epochs) if param_epochs else 1
+epochs = args.epochs
 print("Train epochs: {}".format(epochs))
 
 # Create store for data accessing
@@ -262,8 +255,8 @@ def test_model(model, show_samples=False):
 
 def load_model_of_checkpoint(log_dir, file_id):
     checkpoint = load_checkpoint(log_dir, file_id)
-    meta = checkpoint['meta']
-    custom_objects = meta.get('custom_objects')
+    meta = checkpoint.get('meta', {})
+    custom_objects = meta.get('custom_objects', {})
     keras_model = deserialize_keras_model(checkpoint['model'], custom_objects)
     model = hvd.KerasModel(
         model=keras_model,
@@ -303,7 +296,7 @@ def hyper_objective(learning_rate):
 
 from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
 
-trials = int(param_trials) if param_trials else 2
+trials = args.trials
 print("Hyper parameter tuning trials: {}".format(trials))
 
 search_space = hp.uniform('learning_rate', 0, 1)

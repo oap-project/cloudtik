@@ -10,13 +10,13 @@ We provide these examples in two forms:
 ## Running the examples using python jobs
 
 ### Running Spark Distributed Deep Learning example
-This example runs Spark distributed deep learning with Hyperopt, Horovod and Tensorflow.
+This example runs Spark distributed deep learning with Hyperopt, Horovod and Tensorflow Keras API.
 It trains a simple ConvNet on the MNIST dataset using Keras + Horovod using Cloudtik Spark Runtime.
 
-Download [Spark Deep Learning with Horovod and Tensorflow](jobs/spark-mlflow-hyperopt-horovod-tensorflow.py)
+Download [Spark Deep Learning with Horovod and Tensorflow Keras](jobs/keras/spark-mlflow-hyperopt-horovod-keras.py)
 and execute:
 ```
-cloudtik submit /path/to/your-cluster-config.yaml local-download-path/spark-mlflow-hyperopt-horovod-tensorflow.py -f "your-cloud-storage-fsdir"
+cloudtik submit /path/to/your-cluster-config.yaml local-download-path/spark-mlflow-hyperopt-horovod-keras.py -f "your-cloud-storage-fsdir"
 ```
 
 Replace the cloud storage fsdir with the workspace cloud storage uri or hdfs dir. For example S3,  "s3a://cloudtik-workspace-bucket"
@@ -27,10 +27,10 @@ This example runs Spark distributed training using scikit-learn.
 It illustrates a complete end-to-end example of loading data, training a model, distributed hyperparameter tuning, and model inference
 under CloudTik Spark cluster. It also illustrates how to use MLflow and model Registry.
 
-Download [Spark Machine Learning with Scikit-Learn](jobs/spark-mlflow-hyperopt-scikit.py)
+Download [Spark Machine Learning with Scikit-Learn](jobs/scikit-learn/spark-mlflow-hyperopt-scikit_learn.py)
 and execute:
 ```
-cloudtik submit /path/to/your-cluster-config.yaml local-download-path/spark-mlflow-hyperopt-scikit.py -f "your-cloud-storage-fsdir"
+cloudtik submit /path/to/your-cluster-config.yaml local-download-path/spark-mlflow-hyperopt-scikit_learn.py -f "your-cloud-storage-fsdir"
 ```
 
 Replace the cloud storage fsdir with the workspace cloud storage uri or hdfs dir. For example S3,  "s3a://cloudtik-workspace-bucket"
@@ -40,14 +40,14 @@ Replace the cloud storage fsdir with the workspace cloud storage uri or hdfs dir
 
 ### Running Spark Distributed Deep Learning example
 
-This notebook example runs Spark distributed deep learning with Hyperopt, Horovod and Tensorflow.
+This notebook example runs Spark distributed deep learning with Hyperopt, Horovod and Tensorflow Keras API.
 It trains a simple ConvNet on the MNIST dataset using Keras + Horovod using Cloudtik Spark Runtime.
  
-1. Upload notebook [Spark Deep Learning with Horovod and Tensorflow](notebooks/spark-mlflow-hyperopt-horovod-tensorflow.ipynb) to JupyterLab.
+1. Upload notebook [Spark Deep Learning with Horovod and Tensorflow Keras](notebooks/spark-mlflow-hyperopt-horovod-keras.ipynb) to JupyterLab.
 You can also download and cloudtik rsync-up the file to ~/jupyter of cluster head:
 
 ```
-cloudtik rsync-up /path/to/your-cluster-config.yaml local-download-path/spark-mlflow-hyperopt-horovod-tensorflow.ipynb '~/jupyter/spark-mlflow-hyperopt-horovod-tensorflow.ipynb'
+cloudtik rsync-up /path/to/your-cluster-config.yaml local-download-path/spark-mlflow-hyperopt-horovod-keras.ipynb '~/jupyter/spark-mlflow-hyperopt-horovod-keras.ipynb'
 ```
 
 2. Open this notebook on JupyterLab, and choose the Python 3 kernel to run the notebook.
@@ -60,11 +60,11 @@ This notebook example runs Spark distributed training using scikit-learn.
 It illustrates a complete end-to-end example of loading data, training a model, distributed hyperparameter tuning, and model inference
 under CloudTik Spark cluster. It also illustrates how to use MLflow and model Registry.
 
-1. Upload notebook [Spark Machine Learning with Scikit-Learn](notebooks/spark-mlflow-hyperopt-scikit.ipynb) to JupyterLab.
+1. Upload notebook [Spark Machine Learning with Scikit-Learn](notebooks/spark-mlflow-hyperopt-scikit_learn.ipynb) to JupyterLab.
 You can also download and cloudtik rsync-up the file to ~/jupyter of cluster head:
 
 ```
-cloudtik rsync-up /path/to/your-cluster-config.yaml local-download-path/spark-mlflow-hyperopt-scikit.ipynb '~/jupyter/spark-mlflow-hyperopt-scikit.ipynb'
+cloudtik rsync-up /path/to/your-cluster-config.yaml local-download-path/spark-mlflow-hyperopt-scikit_learn.ipynb '~/jupyter/spark-mlflow-hyperopt-scikit_learn.ipynb'
 ```
 
 2. Open this notebook on JupyterLab, and choose the Python 3 kernel to run the notebook.

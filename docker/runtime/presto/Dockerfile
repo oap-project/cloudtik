@@ -1,5 +1,5 @@
 ARG BASE_IMAGE="nightly"
-FROM cloudtik/cloudtik:"$BASE_IMAGE"
+FROM cloudtik/cloudtik-deps:"$BASE_IMAGE"
 
 ARG PRESTO_VERSION=0.276
 

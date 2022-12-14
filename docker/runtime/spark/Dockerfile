@@ -1,5 +1,5 @@
 ARG BASE_IMAGE="nightly"
-FROM cloudtik/cloudtik:"$BASE_IMAGE"
+FROM cloudtik/cloudtik-deps:"$BASE_IMAGE"
 
 # Install spark based Analytics + AI platform components
 ARG SPARK_VERSION=3.2.1
@@ -59,6 +59,6 @@ RUN wget https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SP
 WORKDIR /home/cloudtik/
 COPY requirements.txt /tmp/requirements.txt
 RUN export PATH="$HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH" \
-    && pip install -r  /tmp/requirements.txt \
+    && pip install -r /tmp/requirements.txt \
     && sudo rm /tmp/requirements.txt \
     && python -m spylon_kernel install --user

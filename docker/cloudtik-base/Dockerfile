@@ -59,5 +59,6 @@ RUN sudo apt-get update -y && sudo apt-get upgrade -y \
     && sudo apt-get clean
 
 RUN $HOME/anaconda3/bin/conda create -n $CLOUDTIK_ENV -y python=$PYTHON_VERSION
+ENV PATH $HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH
 
 WORKDIR $HOME

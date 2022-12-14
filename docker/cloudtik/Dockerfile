@@ -9,5 +9,3 @@ COPY $WHEEL_PATH .
 RUN export PATH="$HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH" \
     && pip --no-cache-dir install `basename $WHEEL_PATH`[all] \
     && sudo rm `basename $WHEEL_PATH`
-
-ENV PATH $HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH

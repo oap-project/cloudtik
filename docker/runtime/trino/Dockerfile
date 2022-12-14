@@ -1,5 +1,5 @@
 ARG BASE_IMAGE="nightly"
-FROM cloudtik/cloudtik:"$BASE_IMAGE"
+FROM cloudtik/cloudtik-deps:"$BASE_IMAGE"
 
 ARG TRINO_VERSION=389
 ARG HADOOP_VERSION=3.3.1

@@ -2,6 +2,7 @@ import logging
 import os
 import re
 import shutil
+import io
 
 from itertools import chain
 
@@ -42,8 +43,7 @@ class SetupSpec:
 
 
 # "cloudtik" primary wheel package.
-setup_spec = SetupSpec("cloudtik", "CloudTik is a cloud scale platform for distributed analytics and AI "
-                                   "on public cloud providers including AWS, Azure, GCP, and so on.")
+setup_spec = SetupSpec("cloudtik", "CloudTik: a cloud scale platform for distributed analytics and AI on public clouds")
 
 # NOTE: The lists below must be kept in sync with cloudtik build(.sh)
 cloudtik_files = [
@@ -196,19 +196,15 @@ setuptools.setup(
     version=setup_spec.version,
     author="Intel Corporation",
     description=setup_spec.description,
-    long_description="CloudTik is a cloud scale platform for distributed analytics and AI "
-                     "on public cloud providers including AWS, Azure, GCP, and so on. "
-                     "CloudTik enables users or enterprises to easily create and manage analytics and AI platform "
-                     "on public clouds, with out-of-box optimized functionalities and performance, "
-                     "and to go quickly to focus on running the business workloads in minutes or hours.",
+    long_description=io.open(
+        os.path.join(ROOT_DIR, os.path.pardir, "README.md"), "r", encoding="utf-8").read(),
+    long_description_content_type="text/markdown",
     url="https://github.com/oap-project/cloudtik.git",
     keywords="Distributed Cloud Analytic AI Spark",
     classifiers=[
-        "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3 :: Only",
     ],
     packages=setup_spec.get_packages(),
     cmdclass={"build_ext": BuildExt},

@@ -1049,11 +1049,20 @@ def get_default_cloudtik_wheel_url() -> str:
 
 def get_cloudtik_setup_command(config) -> str:
     provider_type = config["provider"]["type"]
-    setup_command = "which cloudtik || (arch=$(uname -m) && pip -qq install -U \"cloudtik["
-    setup_command += provider_type
-    setup_command += "] @ "
-    setup_command += config.get("cloudtik_wheel_url", get_default_cloudtik_wheel_url())
-    setup_command += "\")"
+    setup_command = "which cloudtik || (arch=$(uname -m) && pip -qq install -U "
+    wheel_url = config.get("cloudtik_wheel_url")
+    if wheel_url:
+        setup_command += "\"cloudtik["
+        setup_command += provider_type
+        setup_command += "] @ "
+        setup_command += wheel_url
+        setup_command += "\")"
+    else:
+        setup_command += "cloudtik["
+        setup_command += provider_type
+        setup_command += "]=="
+        setup_command += cloudtik.__version__
+        setup_command += ")"
     return setup_command
 
 

@@ -20,15 +20,13 @@ conda activate cloudtik
 ```
 
 ## Installing CloudTik
+Execute the following `pip` commands to install CloudTik on your working machine for specific cloud providers.
 
-The following table shows the installation links for latest CloudTik wheels of supported Python versions.
-To install these wheels, use the following `pip` command and wheels on different cloud providers:
+Take AWS for example,
 
-| Linux      | Installation                                                                                                                                       |
-|:-----------|:---------------------------------------------------------------------------------------------------------------------------------------------------|
-| Python 3.9 | `pip install -U "cloudtik[aws] @ https://d30257nes7d4fq.cloudfront.net/downloads/cloudtik/cloudtik-1.1.0-cp39-cp39-manylinux2014_x86_64.whl" `     |
-| Python 3.8 | `pip install -U "cloudtik[aws] @ https://d30257nes7d4fq.cloudfront.net/downloads/cloudtik/cloudtik-1.1.0-cp38-cp38-manylinux2014_x86_64.whl" `     |
-| Python 3.7 | `pip install -U "cloudtik[aws] @ https://d30257nes7d4fq.cloudfront.net/downloads/cloudtik/cloudtik-1.1.0-cp37-cp37m-manylinux2014_x86_64.whl" `    |
+```
+pip install cloudtik[aws]
+```
 
 Replace `cloudtik[aws]` with `clouditk[azure]` or `cloudtik[gcp]` if you want to create clusters on Azure or GCP.
 Use `cloudtik[all]` if you want to manage clusters with all supported Cloud providers.

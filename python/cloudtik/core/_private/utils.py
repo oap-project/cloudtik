@@ -1047,22 +1047,32 @@ def get_default_cloudtik_wheel_url() -> str:
     return wheel_url
 
 
-def get_cloudtik_setup_command(config) -> str:
-    provider_type = config["provider"]["type"]
-    setup_command = "which cloudtik || (arch=$(uname -m) && pip -qq install -U "
-    wheel_url = config.get("cloudtik_wheel_url")
+def get_pip_install_command(provider_type, wheel_url):
     if wheel_url:
-        setup_command += "\"cloudtik["
+        setup_command = "(arch=$(uname -m) && pip -qq install -U \"cloudtik["
         setup_command += provider_type
         setup_command += "] @ "
         setup_command += wheel_url
         setup_command += "\")"
     else:
-        setup_command += "cloudtik["
+        setup_command = "pip -qq install -U cloudtik["
         setup_command += provider_type
         setup_command += "]=="
         setup_command += cloudtik.__version__
-        setup_command += ")"
+    return setup_command
+
+
+def get_cloudtik_setup_command(config) -> str:
+    provider_type = config["provider"]["type"]
+    wheel_url = config.get("cloudtik_wheel_url")
+
+    setup_command = "which cloudtik || "
+    setup_command += get_pip_install_command(provider_type, wheel_url)
+    if not wheel_url:
+        default_wheel_url = get_default_cloudtik_wheel_url()
+        setup_command += " || "
+        setup_command += get_pip_install_command(provider_type, default_wheel_url)
+
     return setup_command
 
 

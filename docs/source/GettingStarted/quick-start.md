@@ -26,8 +26,7 @@ Execute the following `pip` commands to install CloudTik on your working machine
 Take AWS for example,
 
 ```
-# if running CloudTik on aws
-pip install -U "cloudtik[aws] @ https://d30257nes7d4fq.cloudfront.net/downloads/cloudtik/cloudtik-1.1.0-cp37-cp37m-manylinux2014_x86_64.whl"
+pip install cloudtik[aws]
 ```
 
 Replace `cloudtik[aws]` with `clouditk[azure]` or `cloudtik[gcp]` if you want to create clusters on Azure or GCP.

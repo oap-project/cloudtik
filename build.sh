@@ -58,9 +58,10 @@ function compile_ganglia_for_python() {
     ./bootstrap && ./configure --with-gmetad --enable-status --with-python=/usr/bin/python2.7 && make
 
     # copy binary to target folder
-    mkdir -p ${SCRIPT_DIR}/python/dist
-    cp ./gmond/modules/python/.libs/modpython.so ${SCRIPT_DIR}/python/dist/
-    sudo chmod 644 ${SCRIPT_DIR}/python/dist/modpython.so
+    GANGLIA_BIN_DIR=${THIRDPARTY_DIR}/ganglia
+    mkdir -p ${GANGLIA_BIN_DIR}
+    cp ./gmond/modules/python/.libs/modpython.so ${GANGLIA_BIN_DIR}/
+    sudo chmod 644 ${GANGLIA_BIN_DIR}/modpython.so
 }
 
 if [ ! $NO_BUILD_REDIS ]; then

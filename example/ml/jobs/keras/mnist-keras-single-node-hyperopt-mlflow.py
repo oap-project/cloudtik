@@ -17,7 +17,7 @@ parser.add_argument('--fsdir', default=None,
                     help='the file system dir (default: None)')
 args = parser.parse_args()
 
-param_fsdir = args.fsdir
+fsdir = args.fsdir
 
 
 # CloudTik cluster preparation or information
@@ -27,9 +27,9 @@ from cloudtik.runtime.ml.api import ThisMLCluster
 cluster = ThisSparkCluster()
 
 default_storage = cluster.get_default_storage()
-if not param_fsdir:
-    param_fsdir = default_storage.get("default.storage.uri") if default_storage else None
-    if not param_fsdir:
+if not fsdir:
+    fsdir = default_storage.get("default.storage.uri") if default_storage else None
+    if not fsdir:
         print("Must specify storage filesystem dir using -f.")
         sys.exit(1)
 

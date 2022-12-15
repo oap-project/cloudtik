@@ -16,7 +16,7 @@ parser.add_argument('--fsdir', default=None,
                     help='the file system dir (default: None)')
 args = parser.parse_args()
 
-param_fsdir = args.fsdir
+fsdir = args.fsdir
 
 
 # CloudTik cluster preparation or information
@@ -26,7 +26,7 @@ from cloudtik.runtime.ml.api import ThisMLCluster
 cluster = ThisSparkCluster()
 
 # Scale the cluster as need
-cluster.scale(workers=1)
+# cluster.scale(workers=1)
 
 # Wait for all cluster workers to be ready
 cluster.wait_for_ready(min_workers=1)
@@ -38,9 +38,9 @@ if not total_workers:
     total_workers = 1
 
 default_storage = cluster.get_default_storage()
-if not param_fsdir:
-    param_fsdir = default_storage.get("default.storage.uri") if default_storage else None
-    if not param_fsdir:
+if not fsdir:
+    fsdir = default_storage.get("default.storage.uri") if default_storage else None
+    if not fsdir:
         print("Must specify storage filesystem dir using -f.")
         sys.exit(1)
 
@@ -52,9 +52,8 @@ mlflow_url = ml_cluster.get_services()["mlflow"]["url"]
 from pyspark import SparkConf
 from pyspark.sql import SparkSession
 
-spark_conf = SparkConf().setAppName('spark-horovod-pytorch').set('spark.sql.shuffle.partitions', '16')
-spark = SparkSession.builder.config(conf=spark_conf).getOrCreate()
-conf = spark.conf
+conf = SparkConf().setAppName('spark-horovod-pytorch').set('spark.sql.shuffle.partitions', '16')
+spark = SparkSession.builder.config(conf=conf).getOrCreate()
 
 
 # Checkpoint utilities

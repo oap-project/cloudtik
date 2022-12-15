@@ -22,6 +22,7 @@ import os
 import sys
 import subprocess
 from time import time
+import math
 from distutils.version import LooseVersion
 
 parser = argparse.ArgumentParser(description='Spark Keras Rossmann Run Example',
@@ -664,10 +665,7 @@ saved_model = mlflow.keras.load_model(model_uri, custom_objects=CUSTOM_OBJECTS)
 spark.stop()
 
 
-print('============================')
-print('Final prediction submission')
-print('============================')
-
+# Do predictions
 # Create Spark session for prediction.
 conf = SparkConf().setAppName('spark-keras-rossmann-prediction') \
     .setExecutorEnv('LD_LIBRARY_PATH', os.environ.get('LD_LIBRARY_PATH')) \
@@ -698,16 +696,49 @@ def predict_fn(model_bytes):
             log_sales = model.predict_on_batch([
                 np.array([row[col]]) for col in all_cols
             ])[0]
-            # Add 'Sales' column with prediction results.
-            fields['Sales'] = math.exp(log_sales)
+            # Set 'Sales_pred' column with prediction results.
+            fields['Sales_output'] = log_sales[0].item()
+            fields['Sales_pred'] = math.exp(log_sales)
             yield Row(**fields)
 
     return fn
 
 
+def df_rmspe(pred_df):
+    rmspe_df = pred_df.withColumn('pct', F.pow((pred_df.Sales - pred_df.Sales_pred) / pred_df.Sales, 2))
+    rmspe_df = rmspe_df.filter(rmspe_df.Sales_output > 0.001)
+    sum_pct = rmspe_df.agg(F.sum(rmspe_df.pct)).collect()[0][0]
+    count_pct = rmspe_df.count()
+    rmspe = math.sqrt(sum_pct / count_pct)
+    return rmspe
+
+
+def test_model(model, show_samples=False):
+    model_bytes = serialize_model(model)
+    pred_df = spark.read.parquet('%s/val_df.parquet' % data_dir) \
+        .rdd.mapPartitions(predict_fn(model_bytes)).toDF()
+
+    # Compute the RMSPE
+    rmspe = df_rmspe(pred_df)
+    print('Test RMSPE: %f' % rmspe)
+
+    if show_samples:
+        pred_df.show(5)
+    return rmspe
+
+
+# Test model
+test_model(saved_model, True)
+
+
+print('============================')
+print('Final prediction submission')
+print('============================')
+
 # Submit a Spark job to do inference. Horovod framework is not involved here.
 pred_df = spark.read.parquet('%s/test_df.parquet' % data_dir) \
     .rdd.mapPartitions(predict_fn(best_model_bytes)).toDF()
+pred_df = pred_df.withColumn('Sales', pred_df.Sales_pred)
 submission_df = pred_df.select(pred_df.Id.cast(T.IntegerType()), pred_df.Sales).toPandas()
 submission_df.sort_values(by=['Id']).to_csv(args.local_submission_csv, index=False)
 print('Saved predictions to %s' % args.local_submission_csv)

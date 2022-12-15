@@ -20,6 +20,7 @@ import os
 import sys
 import subprocess
 from time import time
+import math
 from distutils.version import LooseVersion
 
 parser = argparse.ArgumentParser(description='Spark Keras Rossmann Estimator Example',
@@ -337,6 +338,7 @@ test_max_date = test_df.agg(F.max(test_df.Date)).collect()[0][0]
 one_year = datetime.timedelta(365)
 train_df = train_df.withColumn('Validation',
                                (train_df.Date > test_min_date - one_year) & (train_df.Date <= test_max_date - one_year))
+val_df = train_df.filter(train_df.Validation)
 
 # Determine max Sales number.
 max_sales = train_df.agg(F.max(train_df.Sales)).collect()[0][0]
@@ -486,12 +488,28 @@ def train(learning_rate):
     return keras_model, best_val_rmspe
 
 
+def df_rmspe(pred_df):
+    rmspe_df = pred_df.withColumn('pct', F.pow((pred_df.Sales - pred_df.Sales_pred) / pred_df.Sales, 2))
+    rmspe_df = rmspe_df.filter(rmspe_df.Sales_output > 0.001)
+    sum_pct = rmspe_df.agg(F.sum(rmspe_df.pct)).collect()[0][0]
+    count_pct = rmspe_df.count()
+    rmspe = math.sqrt(sum_pct / count_pct)
+    return rmspe
+
+
 def test_model(model, show_samples=False):
-    pred_df = model.transform(test_df)
+    pred_df = model.transform(val_df)
+
+    # Convert from log domain to real Sales numbers
+    pred_df = pred_df.withColumn('Sales_pred', F.exp(pred_df.Sales_output))
+
+    # Compute the RMSPE
+    rmspe = df_rmspe(pred_df)
+    print('Test RMSPE: %f' % rmspe)
 
     if show_samples:
         pred_df.show(5)
-    return 0
+    return rmspe
 
 
 def load_model_of_checkpoint(log_dir, file_id):
@@ -546,6 +564,7 @@ saved_model = hvd.KerasModel(
     model=saved_keras_model,
     feature_columns=all_cols,
     label_columns=['Sales'],
+    custom_objects=CUSTOM_OBJECTS,
     _floatx=floatx,
     _metadata=metadata).setOutputCols(['Sales_output'])
 test_model(saved_model, True)

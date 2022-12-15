@@ -24,16 +24,16 @@ from cloudtik.runtime.ml.api import ThisMLCluster
 cluster = ThisSparkCluster()
 
 # Scale the cluster as need
-cluster.scale(workers=1)
+# cluster.scale(workers=1)
 
 # Wait for all cluster workers to be ready
 cluster.wait_for_ready(min_workers=1)
 
 # Total worker cores
 cluster_info = cluster.get_info()
-total_worker_cpus = cluster_info.get("total-worker-cpus")
-if not total_worker_cpus:
-    total_worker_cpus = 1
+total_workers = cluster_info.get("total-workers")
+if not total_workers:
+    total_workers = 1
 
 ml_cluster = ThisMLCluster()
 mlflow_url = ml_cluster.get_services()["mlflow"]["url"]
@@ -43,15 +43,13 @@ mlflow_url = ml_cluster.get_services()["mlflow"]["url"]
 from pyspark import SparkConf
 from pyspark.sql import SparkSession
 
-spark_conf = SparkConf().setAppName('spark-horovod-pytorch').set('spark.sql.shuffle.partitions', '16')
-spark = SparkSession.builder.config(conf=spark_conf).getOrCreate()
-conf = spark.conf
+conf = SparkConf().setAppName('spark-horovod-pytorch').set('spark.sql.shuffle.partitions', '16')
+spark = SparkSession.builder.config(conf=conf).getOrCreate()
 
 
 # Serialize and deserialize keras model
 import io
 import h5py
-from horovod.runner.common.util import codec
 
 
 def serialize_keras_model(model):
@@ -59,12 +57,11 @@ def serialize_keras_model(model):
     bio = io.BytesIO()
     with h5py.File(bio, 'w') as f:
         keras.models.save_model(model, f)
-    return codec.dumps_base64(bio.getvalue())
+    return bio.getvalue()
 
 
 def deserialize_keras_model(model_bytes, custom_objects):
     """Deserialize model from byte array encoded in base 64."""
-    model_bytes = codec.loads_base64(model_bytes)
     bio = io.BytesIO(model_bytes)
     with h5py.File(bio, 'r') as f:
         with keras.utils.custom_object_scope(custom_objects):
@@ -121,7 +118,7 @@ import tensorflow as tf
 import horovod.keras as hvd
 
 # Set the parameters
-num_proc = total_worker_cpus
+num_proc = total_workers
 print("Train processes: {}".format(num_proc))
 
 batch_size = args.batch_size

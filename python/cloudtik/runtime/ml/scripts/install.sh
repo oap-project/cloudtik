@@ -51,6 +51,7 @@ function install_ml() {
     echo "Installing Open MPI..."
     which mpirun > /dev/null \
     || mkdir /tmp/openmpi \
+    && PREV_CUR_DIR=$(pwd) \
     && cd /tmp/openmpi \
     && wget -q --show-progress https://www.open-mpi.org/software/ompi/v4.1/downloads/openmpi-4.1.4.tar.gz -O openmpi.tar.gz  \
     && tar --extract --file openmpi.tar.gz --directory /tmp/openmpi --strip-components 1 --no-same-owner \
@@ -58,6 +59,7 @@ function install_ml() {
     && sudo make -j $(nproc) all > /dev/null \
     && sudo make install > /dev/null \
     && sudo ldconfig \
+    && cd ${PREV_CUR_DIR} \
     && sudo rm -rf /tmp/openmpi
 
     echo "Installing horovod..."

@@ -18,6 +18,7 @@ RUN export PATH="$HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH" \
     && conda install dlib=19.24.0 libffi=3.3 -p $HOME/anaconda3/envs/$CLOUDTIK_ENV -c conda-forge -y \
     && export CXX=/usr/bin/g++-9 \
     && mkdir /tmp/openmpi \
+    && PREV_CUR_DIR=$(pwd) \
     && cd /tmp/openmpi \
     && wget https://www.open-mpi.org/software/ompi/v4.1/downloads/openmpi-4.1.4.tar.gz -O openmpi.tar.gz  \
     && tar --extract --file openmpi.tar.gz --directory /tmp/openmpi --strip-components 1 --no-same-owner \
@@ -25,5 +26,6 @@ RUN export PATH="$HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH" \
     && sudo make -j $(nproc) all \
     && sudo make install \
     && sudo ldconfig \
+    && cd ${PREV_CUR_DIR} \
     && sudo rm -rf /tmp/openmpi \
     && HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_MXNET=1 HOROVOD_WITH_GLOO=1 HOROVOD_WITH_MPI=1 pip install horovod[all-frameworks]==0.25.0

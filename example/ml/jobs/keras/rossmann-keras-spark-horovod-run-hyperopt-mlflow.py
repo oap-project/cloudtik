@@ -598,6 +598,7 @@ if __name__ == '__main__':
         history, trained_model_bytes = \
             horovod.spark.run(train_horovod, args=(model_bytes,), num_proc=num_proc,
                               stdout=sys.stdout, stderr=sys.stderr, verbose=2,
+                              use_gloo=args.use_gloo, use_mpi=args.use_mpi,
                               prefix_output_with_timestamp=True)[0]
 
         best_val_rmspe = min(history['val_exp_rmspe'])

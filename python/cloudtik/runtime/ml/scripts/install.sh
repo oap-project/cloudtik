@@ -27,6 +27,41 @@ export USER_HOME=/home/$(whoami)
 export RUNTIME_PATH=$USER_HOME/runtime
 mkdir -p $RUNTIME_PATH
 
+
+function prepare_s3_fuse() {
+    sudo apt-get update
+    sudo apt install s3fs -y
+}
+
+
+function prepare_blob_fuse() {
+    wget -N https://packages.microsoft.com/config/ubuntu/20.04/packages-microsoft-prod.deb
+    sudo dpkg -i packages-microsoft-prod.deb
+    sudo apt-get update
+    sudo apt-get install blobfuse -y
+}
+
+
+function prepare_gcs_fuse() {
+    sudo apt-get update
+    sudo apt-get install -y curl
+    echo "deb http://packages.cloud.google.com/apt gcsfuse-bionic main" |sudo tee /etc/apt/sources.list.d/gcsfuse.list
+    curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+    sudo apt-get install gcsfuse -y
+}
+
+function prepare_mount_tools() {
+    cloud_storage_provider="none"
+    if [ "$AWS_CLOUD_STORAGE" == "true" ]; then
+        prepare_s3_fuse
+    elif [ "$AZURE_CLOUD_STORAGE" == "true" ]; then
+        prepare_blob_fuse
+    elif [ "$GCP_CLOUD_STORAGE" == "true" ]; then
+        prepare_gcs_fuse
+    fi
+}
+
+
 function install_tools() {
     # Install necessary tools
     which cmake > /dev/null || sudo apt-get -qq update -y > /dev/null; sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install cmake -y > /dev/null
@@ -68,3 +103,4 @@ function install_ml() {
 
 install_tools
 install_ml
+prepare_mount_tools

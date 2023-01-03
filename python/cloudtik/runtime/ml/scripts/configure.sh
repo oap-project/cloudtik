@@ -84,7 +84,89 @@ function configure_ml() {
     fi
 }
 
+
+export MOUNT_PATH=$USER_HOME/share
+
+function configure_s3_fuse() {
+    if [ ! -n "${AWS_S3A_BUCKET}" ]; then
+        echo "AWS_S3A_BUCKET environment variable is not set."
+        return
+    fi
+
+    if [ ! -n "${FS_S3A_ACCESS_KEY}" ]; then
+        echo "FS_S3A_ACCESS_KEY environment variable is not set."
+        return
+    fi
+
+    if [ ! -n "${FS_S3A_SECRET_KEY}" ]; then
+        echo "FS_S3A_SECRET_KEY environment variable is not set."
+        return
+    fi
+
+    echo "${FS_S3A_ACCESS_KEY}:${FS_S3A_SECRET_KEY}" > ${USER_HOME}/.passwd-s3fs
+    chmod 600 ${USER_HOME}/.passwd-s3fs
+
+    mkdir -p ${MOUNT_PATH}
+    s3fs ${AWS_S3A_BUCKET} -o use_cache=/tmp -o mp_umask=002 -o multireq_max=5 ${MOUNT_PATH}
+}
+
+
+function configure_blob_fuse() {
+    if [ ! -n "${AZURE_CONTAINER}" ]; then
+        echo "AZURE_CONTAINER environment variable is not set."
+        return
+    fi
+
+    if [ ! -n "${AZURE_MANAGED_IDENTITY_CLIENT_ID}" ]; then
+        echo "AZURE_MANAGED_IDENTITY_CLIENT_ID environment variable is not set."
+        return
+    fi
+
+    if [ ! -n "${AZURE_STORAGE_ACCOUNT}" ]; then
+        echo "AZURE_STORAGE_ACCOUNT environment variable is not set."
+        return
+    fi
+    #Use a ramdisk for the temporary path
+    sudo mkdir /mnt/ramdisk
+    sudo mount -t tmpfs -o size=16g tmpfs /mnt/ramdisk
+    sudo mkdir /mnt/ramdisk/blobfusetmp
+    sudo chown cloudtik /mnt/ramdisk/blobfusetmp
+
+
+    echo "accountName ${AZURE_STORAGE_ACCOUNT}" > ${USER_HOME}/fuse_connection.cfg
+    echo "authType MSI" >> ${USER_HOME}/fuse_connection.cfg
+    echo "identityClientId ${AZURE_MANAGED_IDENTITY_CLIENT_ID}" >> ${USER_HOME}/fuse_connection.cfg
+    echo "containerName ${AZURE_CONTAINER}" >> ${USER_HOME}/fuse_connection.cfg
+    chmod 600 ${USER_HOME}/fuse_connection.cfg
+    mkdir -p ${MOUNT_PATH}
+
+    blobfuse ${MOUNT_PATH} --tmp-path=/mnt/ramdisk/blobfusetmp  --config-file=${USER_HOME}/fuse_connection.cfg  -o attr_timeout=240 -o entry_timeout=240 -o negative_timeout=120
+
+}
+
+
+function configure_gcs_fuse() {
+    if [ ! -n "${GCP_GCS_BUCKET}" ]; then
+        echo "GCP_GCS_BUCKET environment variable is not set."
+        return
+    fi
+    mkdir -p ${MOUNT_PATH}
+    gcsfuse ${GCP_GCS_BUCKET} ${MOUNT_PATH}
+}
+
+function mount_storage_for_cloudtik() {
+    cloud_storage_provider="none"
+    if [ "$AWS_CLOUD_STORAGE" == "true" ]; then
+        configure_s3_fuse
+    elif [ "$AZURE_CLOUD_STORAGE" == "true" ]; then
+        configure_blob_fuse
+    elif [ "$GCP_CLOUD_STORAGE" == "true" ]; then
+        configure_gcs_fuse
+    fi
+}
+
 set_head_address
 configure_ml
+mount_storage_for_cloudtik
 
 exit 0

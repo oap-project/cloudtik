@@ -271,7 +271,7 @@ if __name__ == '__main__':
 
     search_space = hp.uniform('learning_rate', 0, 1)
     mlflow.set_tracking_uri(mlflow_url)
-    mlflow.set_experiment("MNIST: Spark + Horovod + Hyperopt + PyTorch")
+    mlflow.set_experiment("MNIST: PyTorch + Spark + Horovod")
     argmin = fmin(
         fn=hyper_objective,
         space=search_space,
@@ -283,7 +283,7 @@ if __name__ == '__main__':
     best_model = load_model_of_checkpoint(checkpoint_dir, argmin.get('learning_rate'))
     input_shapes = best_model.getInputShapes()
     metadata = best_model._get_metadata()
-    model_name = 'torch-mnist-model'
+    model_name = 'mnist-pytorch-spark-horovod'
     mlflow.pytorch.log_model(
         best_model.getModel(), model_name, registered_model_name=model_name)
 

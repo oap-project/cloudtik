@@ -276,7 +276,7 @@ if __name__ == '__main__':
 
     search_space = hp.uniform('learning_rate', 0, 1)
     mlflow.set_tracking_uri(mlflow_url)
-    mlflow.set_experiment("MNIST: Horovod + Hyperopt + Keras")
+    mlflow.set_experiment("MNIST: Keras + Horovod Run")
     argmin = fmin(
         fn=hyper_objective,
         space=search_space,
@@ -286,7 +286,7 @@ if __name__ == '__main__':
 
     # Train final model with the best parameters
     best_model = load_model_of_checkpoint(checkpoint_dir, argmin.get('learning_rate'))
-    model_name = 'keras-mnist-model'
+    model_name = 'mnist-keras-horovod-run'
     mlflow.keras.log_model(best_model, model_name, registered_model_name=model_name)
 
     # Load the model from MLflow and run a transformation

@@ -88,26 +88,20 @@ function configure_ml() {
 export MOUNT_PATH=$USER_HOME/share
 
 function configure_s3_fuse() {
-    if [ ! -n "${AWS_S3A_BUCKET}" ]; then
+    if [ ! -n "${AWS_S3_BUCKET}" ]; then
         echo "AWS_S3A_BUCKET environment variable is not set."
         return
     fi
-
-    if [ ! -n "${FS_S3A_ACCESS_KEY}" ]; then
-        echo "FS_S3A_ACCESS_KEY environment variable is not set."
-        return
+    IAM_FLAG=""
+    if [ ! -n "${AWS_S3_ACCESS_KEY_ID}" ] || [ ! -n "${AWS_S3_SECRET_ACCESS_KEY}" ]; then
+        IAM_FLAG="-o iam_role=auto"
+    else
+        echo "${AWS_S3_ACCESS_KEY_ID}:${AWS_S3_SECRET_ACCESS_KEY}" > ${USER_HOME}/.passwd-s3fs
+        chmod 600 ${USER_HOME}/.passwd-s3fs
     fi
-
-    if [ ! -n "${FS_S3A_SECRET_KEY}" ]; then
-        echo "FS_S3A_SECRET_KEY environment variable is not set."
-        return
-    fi
-
-    echo "${FS_S3A_ACCESS_KEY}:${FS_S3A_SECRET_KEY}" > ${USER_HOME}/.passwd-s3fs
-    chmod 600 ${USER_HOME}/.passwd-s3fs
 
     mkdir -p ${MOUNT_PATH}
-    s3fs ${AWS_S3A_BUCKET} -o use_cache=/tmp -o mp_umask=002 -o multireq_max=5 ${MOUNT_PATH}
+    s3fs ${AWS_S3_BUCKET} -o use_cache=/tmp -o mp_umask=002 -o multireq_max=5 ${IAM_FLAG} ${MOUNT_PATH}
 }
 
 

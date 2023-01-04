@@ -81,9 +81,9 @@ function configure_ml() {
         fi
 
         # Fix the Horovod bug for handling network interfaces of loopback
-        HOROVOD_RUNNER_LAUNCH_FILE="${HOROVOD_PYTHON_HOME}/runner/launch.py"
-        if [ -f "$HOROVOD_RUNNER_LAUNCH_FILE" ]; then
-           cp $output_dir/horovod_runner_launch.py.patch ${HOROVOD_RUNNER_LAUNCH_FILE}
+        HOROVOD_RUNNER_DRIVER_SERVICE_FILE="${HOROVOD_PYTHON_HOME}/runner/driver/driver_service.py"
+        if [ -f "$HOROVOD_RUNNER_DRIVER_SERVICE_FILE" ]; then
+           cp $output_dir/horovod_runner_driver_service.py.patch ${HOROVOD_RUNNER_DRIVER_SERVICE_FILE}
         fi
     fi
 

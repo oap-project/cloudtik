@@ -209,7 +209,7 @@ if __name__ == '__main__':
 
     search_space = hp.uniform('learning_rate', 0, 1)
     mlflow.set_tracking_uri(mlflow_url)
-    mlflow.set_experiment("MNIST: Single Node Hyperopt + PyTorch")
+    mlflow.set_experiment("MNIST: PyTorch + Single Node")
     argmin = fmin(
         fn=hyper_objective,
         space=search_space,
@@ -219,7 +219,7 @@ if __name__ == '__main__':
 
     # Train final model with the best parameters and save the model
     best_model = load_model_of_checkpoint(checkpoint_dir, argmin.get('learning_rate'))
-    model_name = "pytorch-mnist-model-single-node"
+    model_name = "mnist-pytorch-single-node"
     mlflow.pytorch.log_model(
         best_model, model_name, registered_model_name=model_name)
 

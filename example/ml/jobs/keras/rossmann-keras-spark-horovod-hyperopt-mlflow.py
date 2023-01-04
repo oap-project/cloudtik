@@ -551,7 +551,7 @@ if __name__ == '__main__':
     best_model = load_model_of_checkpoint(checkpoint_dir, argmin.get('learning_rate'))
     metadata = best_model._get_metadata()
     floatx = best_model._get_floatx()
-    model_name = 'rossmann-keras-model'
+    model_name = 'rossmann-keras-spark-horovod'
     mlflow.keras.log_model(best_model.getModel(), model_name, registered_model_name=model_name)
 
     # Load the model from MLflow and run a transformation

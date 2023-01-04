@@ -5,7 +5,7 @@ import sys
 from time import time
 
 # Settings
-parser = argparse.ArgumentParser(description='Horovod on Spark PyTorch MNIST Example')
+parser = argparse.ArgumentParser(description='Horovod PyTorch MNIST Example')
 parser.add_argument('--batch-size', type=int, default=128,
                     help='input batch size for training (default: 128)')
 parser.add_argument('--epochs', type=int, default=1,
@@ -52,13 +52,7 @@ if __name__ == '__main__':
 
     ml_cluster = ThisMLCluster()
     mlflow_url = ml_cluster.get_services()["mlflow"]["url"]
-
-    # Initialize SparkSession
-    from pyspark import SparkConf
-    from pyspark.sql import SparkSession
-
-    conf = SparkConf().setAppName('spark-horovod-pytorch').set('spark.sql.shuffle.partitions', '16')
-    spark = SparkSession.builder.config(conf=conf).getOrCreate()
+    worker_ips = ml_cluster.get_worker_node_ips()
 
     # Checkpoint utilities
     CHECKPOINT_HOME = "/tmp/ml/checkpoints"
@@ -146,7 +140,7 @@ if __name__ == '__main__':
                     100. * batch_idx / len(data_loader), loss.item()))
 
 
-    # Horovod train function passed to horovod.spark.run
+    # Horovod train function passed to horovod.run
     import torch.optim as optim
     from torchvision import datasets, transforms
 
@@ -244,19 +238,23 @@ if __name__ == '__main__':
 
     #  Hyperopt training function
     import mlflow
-    import horovod.spark
+    import horovod
 
     checkpoint_dir = create_log_dir('pytorch-mnist')
     print("Log directory:", checkpoint_dir)
 
+    # Generate the host list
+    host_slots = ["{}:1".format(worker_ip) for worker_ip in worker_ips]
+    hosts = ",".join(host_slots)
+    print("Hosts to run:", hosts)
 
     def hyper_objective(learning_rate):
         with mlflow.start_run():
-            model_bytes = horovod.spark.run(
-                train_horovod, args=(learning_rate,), num_proc=num_proc,
-                stdout=sys.stdout, stderr=sys.stderr, verbose=2,
+            model_bytes = horovod.run(
+                train_horovod, args=(learning_rate,),
+                num_proc=num_proc, hosts=hosts,
                 use_gloo=args.use_gloo, use_mpi=args.use_mpi,
-                prefix_output_with_timestamp=True)[0]
+                verbose=2)[0]
 
             # Write checkpoint
             checkpoint_file = get_checkpoint_file(checkpoint_dir, learning_rate)
@@ -281,7 +279,7 @@ if __name__ == '__main__':
 
     search_space = hp.uniform('learning_rate', 0, 1)
     mlflow.set_tracking_uri(mlflow_url)
-    mlflow.set_experiment("MNIST: PyTorch + Spark + Horovod Run")
+    mlflow.set_experiment("MNIST: PyTorch + Horovod Run")
     argmin = fmin(
         fn=hyper_objective,
         space=search_space,
@@ -291,7 +289,7 @@ if __name__ == '__main__':
 
     # Train final model with the best parameters and save the model
     best_model = load_model_of_checkpoint(checkpoint_dir, argmin.get('learning_rate'))
-    model_name = "mnist-pytorch-spark-horovod-run"
+    model_name = "mnist-pytorch-horovod-run"
     mlflow.pytorch.log_model(
         best_model, model_name, registered_model_name=model_name)
 

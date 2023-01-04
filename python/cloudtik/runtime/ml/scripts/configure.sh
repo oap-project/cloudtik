@@ -67,6 +67,24 @@ function configure_ml() {
         if [ -f "$SPARK_GLOO_RUN_FILE" ]; then
            cp $output_dir/horovod_gloo_run.py.patch ${SPARK_GLOO_RUN_FILE}
         fi
+
+        # CloudTik the remote command execution
+        HOROVOD_RUNNER_UTIL_REMOTE_FILE="${HOROVOD_PYTHON_HOME}/runner/util/remote.py"
+        if [ -f "$HOROVOD_RUNNER_UTIL_REMOTE_FILE" ]; then
+           cp $output_dir/horovod_runner_util_remote.py.patch ${HOROVOD_RUNNER_UTIL_REMOTE_FILE}
+        fi
+
+        # Fix the remote command quote handling
+        HOROVOD_RUNNER_GLOO_RUN_FILE="${HOROVOD_PYTHON_HOME}/runner/gloo_run.py"
+        if [ -f "$HOROVOD_RUNNER_GLOO_RUN_FILE" ]; then
+           cp $output_dir/horovod_runner_gloo_run.py.patch ${HOROVOD_RUNNER_GLOO_RUN_FILE}
+        fi
+
+        # Fix the Horovod bug for handling network interfaces of loopback
+        HOROVOD_RUNNER_LAUNCH_FILE="${HOROVOD_PYTHON_HOME}/runner/launch.py"
+        if [ -f "$HOROVOD_RUNNER_LAUNCH_FILE" ]; then
+           cp $output_dir/horovod_runner_launch.py.patch ${HOROVOD_RUNNER_LAUNCH_FILE}
+        fi
     fi
 
     # Fix the Azure managed identity from adlfs

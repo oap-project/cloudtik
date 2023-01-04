@@ -68,7 +68,7 @@ function configure_ml() {
            cp $output_dir/horovod_gloo_run.py.patch ${SPARK_GLOO_RUN_FILE}
         fi
 
-        # CloudTik the remote command execution
+        # CloudTik remote command execution for Gloo
         HOROVOD_RUNNER_UTIL_REMOTE_FILE="${HOROVOD_PYTHON_HOME}/runner/util/remote.py"
         if [ -f "$HOROVOD_RUNNER_UTIL_REMOTE_FILE" ]; then
            cp $output_dir/horovod_runner_util_remote.py.patch ${HOROVOD_RUNNER_UTIL_REMOTE_FILE}
@@ -78,6 +78,12 @@ function configure_ml() {
         HOROVOD_RUNNER_GLOO_RUN_FILE="${HOROVOD_PYTHON_HOME}/runner/gloo_run.py"
         if [ -f "$HOROVOD_RUNNER_GLOO_RUN_FILE" ]; then
            cp $output_dir/horovod_runner_gloo_run.py.patch ${HOROVOD_RUNNER_GLOO_RUN_FILE}
+        fi
+
+        # CloudTik remote command execution for MPI
+        HOROVOD_RUNNER_MPI_RUN_FILE="${HOROVOD_PYTHON_HOME}/runner/mpi_run.py"
+        if [ -f "$HOROVOD_RUNNER_MPI_RUN_FILE" ]; then
+           cp $output_dir/horovod_runner_mpi_run.py.patch ${HOROVOD_RUNNER_MPI_RUN_FILE}
         fi
 
         # Fix the Horovod bug for handling network interfaces of loopback

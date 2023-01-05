@@ -1265,10 +1265,15 @@ def _rsync(config: Dict[str, Any],
         # No node specified, rsync with head or rsync up with all nodes
         rsync_to_node(head_node, source, target, is_head_node=True)
         if not down and all_nodes:
-            # rsync up with all nodes
+            # rsync up with all workers
+            source_for_target = target
+            if os.path.isdir(source):
+                source_for_target = source_for_target.rstrip("/")
+                source_for_target += "/."
+
             rsync_to_node_from_head(config,
                                     call_context=call_context,
-                                    source=target, target=target, down=False,
+                                    source=source_for_target, target=target, down=False,
                                     node_ip=None, all_workers=all_nodes)
     else:
         # for the cases that specified sync up or down with specific node
@@ -1286,12 +1291,17 @@ def _rsync(config: Dict[str, Any],
                                     source=source, target=target_on_head, down=True,
                                     node_ip=node_ip)
             # then rsync local node with the head
+            if source[-1] == "/":
+                target_on_head += "/."
             rsync_to_node(head_node, target_on_head, target, is_head_node=True)
         else:
             # rsync up
             # first rsync local node with head
             rsync_to_node(head_node, source, target_on_head, is_head_node=True)
+
             # then rsync from head to the specific node
+            if os.path.isdir(source):
+                target_on_head += "/."
             rsync_to_node_from_head(config,
                                     call_context=call_context,
                                     source=target_on_head, target=target, down=False,

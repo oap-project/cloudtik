@@ -152,6 +152,48 @@ function install_spark_with_cloud_jars() {
     done
 }
 
+
+function install_s3_fuse() {
+    if ! type s3fs >/dev/null 2>&1;then
+      sudo apt-get update > /dev/null
+      sudo apt install  -qq s3fs -y > /dev/null
+    fi
+
+}
+
+
+function install_azure_blob_fuse() {
+    if ! type blobfuse >/dev/null 2>&1;then
+      wget -N https://packages.microsoft.com/config/ubuntu/20.04/packages-microsoft-prod.deb
+      sudo dpkg -i packages-microsoft-prod.deb
+      sudo apt-get update > /dev/null
+      sudo apt-get install -qq blobfuse -y > /dev/null
+    fi
+
+}
+
+
+function install_gcs_fuse() {
+    if ! type gcsfuse >/dev/null 2>&1;then
+      sudo apt-get update > /dev/null
+      echo "deb http://packages.cloud.google.com/apt gcsfuse-bionic main" |sudo tee /etc/apt/sources.list.d/gcsfuse.list
+      curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+      sudo apt-get install -qq gcsfuse -y > /dev/null
+    fi
+}
+
+function install_fuse() {
+    cloud_storage_provider="none"
+    if [ "$AWS_CLOUD_STORAGE" == "true" ]; then
+        install_s3_fuse
+    elif [ "$AZURE_CLOUD_STORAGE" == "true" ]; then
+        install_azure_blob_fuse
+    elif [ "$GCP_CLOUD_STORAGE" == "true" ]; then
+        install_gcs_fuse
+    fi
+}
+
+
 install_jdk
 install_hadoop
 install_spark
@@ -160,3 +202,4 @@ install_tools
 install_yarn_with_spark_jars
 install_hadoop_with_cloud_jars
 install_spark_with_cloud_jars
+install_fuse

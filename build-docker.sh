@@ -46,8 +46,9 @@ do
         shift
         PYTHON_VERSION=$1
         ;;
-    --release)
-        IMAGE_TAG=${CLOUDTIK_VERSION}
+    --image-tag)
+        shift
+        IMAGE_TAG=$1
         ;;
     --build-all)
         BUILD_ALL=YES
@@ -89,7 +90,7 @@ do
         BUILD_SPARK_OPTIMIZED_BENCHMARK=YES
         ;;
     *)
-        echo "Usage: build-docker.sh [ --base-image ] [ --no-cache-build ] [ --shas-only ] [ --wheel-to-use ] [ --python-version ]"
+        echo "Usage: build-docker.sh [ --base-image ] [ --no-cache-build ] [ --shas-only ] [ --wheel-to-use ] [ --python-version ] [ --image-tag ]"
         echo "Images to build options:"
         echo "[ --build-all ] [ --build-dev ] [ --build-spark ] [ --build-optimized ] [ --build-spark-native-sql ]"
         echo "[ --build-universe ] [ --build-presto ] [ --build-trino ] [ --build-ml ]"

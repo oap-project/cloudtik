@@ -453,6 +453,8 @@ function mount_gcs_store() {
 
 function mount_cloud_store() {
     cloud_storage_provider="none"
+    sudo mkdir /cloudtik
+    sudo chown cloudtik /cloudtik
     if [ "$AWS_CLOUD_STORAGE" == "true" ]; then
         mount_s3_store
     elif [ "$AZURE_CLOUD_STORAGE" == "true" ]; then

@@ -50,7 +50,7 @@ function install_ml() {
 
     echo "Installing Open MPI..."
     which mpirun > /dev/null \
-    || mkdir /tmp/openmpi \
+    || (mkdir /tmp/openmpi \
     && PREV_CUR_DIR=$(pwd) \
     && cd /tmp/openmpi \
     && wget -q --show-progress https://www.open-mpi.org/software/ompi/v4.1/downloads/openmpi-4.1.4.tar.gz -O openmpi.tar.gz  \
@@ -60,7 +60,7 @@ function install_ml() {
     && sudo make install > /dev/null \
     && sudo ldconfig \
     && cd ${PREV_CUR_DIR} \
-    && sudo rm -rf /tmp/openmpi
+    && sudo rm -rf /tmp/openmpi)
 
     echo "Installing horovod..."
     export CXX=/usr/bin/g++-9 && HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_MXNET=1 HOROVOD_WITH_GLOO=1 HOROVOD_WITH_MPI=1 pip -qq install horovod[all-frameworks]==0.25.0

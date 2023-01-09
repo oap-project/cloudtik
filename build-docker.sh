@@ -104,6 +104,10 @@ do
     shift
 done
 
+if [ "$IMAGE_TAG"=="nightly" ]; then
+    WHEEL_URL="https://d30257nes7d4fq.cloudfront.net/downloads/cloudtik/cloudtik-${CLOUDTIK_VERSION}-cp37-cp37m-manylinux2014_x86_64.nightly.whl"
+fi
+
 WHEEL_DIR=$(mktemp -d)
 wget --quiet "$WHEEL_URL" -P "$WHEEL_DIR"
 WHEEL="$WHEEL_DIR/$(basename "$WHEEL_DIR"/*.whl)"

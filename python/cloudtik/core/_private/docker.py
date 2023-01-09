@@ -111,9 +111,12 @@ def docker_start_cmds(user, image, mount_dict, data_disks, container_name, user_
         ["-e {name}={val}".format(name=k, val=v) for k, v in env_vars.items()])
 
     user_options_str = " ".join(user_options)
+
+    fuse_flags = "--cap-add SYS_ADMIN --device /dev/fuse --security-opt apparmor:unconfined"
+
     docker_run = [
         docker_cmd, "run", "--rm", "--name {}".format(container_name), "-d",
-        "-it", mount_flags, env_flags, user_options_str, "--net=host", image,
+        "-it", mount_flags, env_flags, fuse_flags, user_options_str, "--net=host", image,
         "bash"
     ]
     return " ".join(docker_run)

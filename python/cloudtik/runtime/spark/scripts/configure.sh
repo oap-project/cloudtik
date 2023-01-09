@@ -387,11 +387,90 @@ function configure_jupyter_for_spark() {
       sed -i  "1 ic.NotebookApp.ip = '${HEAD_ADDRESS}'" ~/.jupyter/jupyter_lab_config.py
   fi
 }
+
+export MOUNT_PATH=/cloudtik/store
+
+function mount_s3_store() {
+    if [ ! -n "${AWS_S3_BUCKET}" ]; then
+        echo "AWS_S3A_BUCKET environment variable is not set."
+        return
+    fi
+    IAM_FLAG=""
+    if [ ! -n "${AWS_S3_ACCESS_KEY_ID}" ] || [ ! -n "${AWS_S3_SECRET_ACCESS_KEY}" ]; then
+        IAM_FLAG="-o iam_role=auto"
+    else
+        echo "${AWS_S3_ACCESS_KEY_ID}:${AWS_S3_SECRET_ACCESS_KEY}" > ${USER_HOME}/.passwd-s3fs
+        chmod 600 ${USER_HOME}/.passwd-s3fs
+    fi
+
+    mkdir -p ${MOUNT_PATH}
+    s3fs ${AWS_S3_BUCKET} -o use_cache=/tmp -o mp_umask=002 -o multireq_max=5 ${IAM_FLAG} ${MOUNT_PATH}
+}
+
+
+function mount_azure_blob_store() {
+    if [ ! -n "${AZURE_CONTAINER}" ]; then
+        echo "AZURE_CONTAINER environment variable is not set."
+        return
+    fi
+
+    if [ ! -n "${AZURE_MANAGED_IDENTITY_CLIENT_ID}" ]; then
+        echo "AZURE_MANAGED_IDENTITY_CLIENT_ID environment variable is not set."
+        return
+    fi
+
+    if [ ! -n "${AZURE_STORAGE_ACCOUNT}" ]; then
+        echo "AZURE_STORAGE_ACCOUNT environment variable is not set."
+        return
+    fi
+    #Use a ramdisk for the temporary path
+    sudo mkdir /mnt/ramdisk
+    sudo mount -t tmpfs -o size=16g tmpfs /mnt/ramdisk
+    sudo mkdir /mnt/ramdisk/blobfusetmp
+    sudo chown cloudtik /mnt/ramdisk/blobfusetmp
+
+
+    echo "accountName ${AZURE_STORAGE_ACCOUNT}" > ${USER_HOME}/fuse_connection.cfg
+    echo "authType MSI" >> ${USER_HOME}/fuse_connection.cfg
+    echo "identityClientId ${AZURE_MANAGED_IDENTITY_CLIENT_ID}" >> ${USER_HOME}/fuse_connection.cfg
+    echo "containerName ${AZURE_CONTAINER}" >> ${USER_HOME}/fuse_connection.cfg
+    chmod 600 ${USER_HOME}/fuse_connection.cfg
+    mkdir -p ${MOUNT_PATH}
+
+    blobfuse ${MOUNT_PATH} --tmp-path=/mnt/ramdisk/blobfusetmp  --config-file=${USER_HOME}/fuse_connection.cfg  -o attr_timeout=240 -o entry_timeout=240 -o negative_timeout=120
+
+}
+
+
+function mount_gcs_store() {
+    if [ ! -n "${GCP_GCS_BUCKET}" ]; then
+        echo "GCP_GCS_BUCKET environment variable is not set."
+        return
+    fi
+    mkdir -p ${MOUNT_PATH}
+    gcsfuse ${GCP_GCS_BUCKET} ${MOUNT_PATH}
+}
+
+function mount_cloud_store() {
+    cloud_storage_provider="none"
+    sudo mkdir /cloudtik
+    sudo chown cloudtik /cloudtik
+    if [ "$AWS_CLOUD_STORAGE" == "true" ]; then
+        mount_s3_store
+    elif [ "$AZURE_CLOUD_STORAGE" == "true" ]; then
+        mount_azure_blob_store
+    elif [ "$GCP_CLOUD_STORAGE" == "true" ]; then
+        mount_gcs_store
+    fi
+}
+
+
 check_spark_installed
 set_head_address
 set_resources_for_spark
 configure_system_folders
 configure_hadoop_and_spark
 configure_jupyter_for_spark
+mount_cloud_store
 
 exit 0

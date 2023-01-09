@@ -24,9 +24,10 @@ done
 cd $CLOUDTIK_HOME
 source /home/ubuntu/anaconda3/bin/activate cloudtik_py37
 
-sudo bash ./build-docker.sh --image-tag $IMAGE_TAG --build-spark --build-ml --build-spark-benchmark
+sudo bash ./build-docker.sh --image-tag $IMAGE_TAG --build-spark --build-ml --build-ml-mxnet --build-spark-benchmark
 
 sudo docker push cloudtik/cloudtik:$IMAGE_TAG
 sudo docker push cloudtik/spark-runtime:$IMAGE_TAG
 sudo docker push cloudtik/spark-ml-runtime:$IMAGE_TAG
+sudo docker push cloudtik/spark-ml-mxnet:$IMAGE_TAG
 sudo docker push cloudtik/spark-runtime-benchmark:$IMAGE_TAG

@@ -388,9 +388,9 @@ function configure_jupyter_for_spark() {
   fi
 }
 
-export MOUNT_PATH=/cloudtik/store
+export MOUNT_PATH=/cloudtik/fs
 
-function mount_s3_store() {
+function mount_s3_fs() {
     if [ ! -n "${AWS_S3_BUCKET}" ]; then
         echo "AWS_S3A_BUCKET environment variable is not set."
         return
@@ -407,8 +407,7 @@ function mount_s3_store() {
     s3fs ${AWS_S3_BUCKET} -o use_cache=/tmp -o mp_umask=002 -o multireq_max=5 ${IAM_FLAG} ${MOUNT_PATH}
 }
 
-
-function mount_azure_blob_store() {
+function mount_azure_blob_fs() {
     if [ ! -n "${AZURE_CONTAINER}" ]; then
         echo "AZURE_CONTAINER environment variable is not set."
         return
@@ -429,7 +428,6 @@ function mount_azure_blob_store() {
     sudo mkdir /mnt/ramdisk/blobfusetmp
     sudo chown cloudtik /mnt/ramdisk/blobfusetmp
 
-
     echo "accountName ${AZURE_STORAGE_ACCOUNT}" > ${USER_HOME}/fuse_connection.cfg
     echo "authType MSI" >> ${USER_HOME}/fuse_connection.cfg
     echo "identityClientId ${AZURE_MANAGED_IDENTITY_CLIENT_ID}" >> ${USER_HOME}/fuse_connection.cfg
@@ -437,12 +435,10 @@ function mount_azure_blob_store() {
     chmod 600 ${USER_HOME}/fuse_connection.cfg
     mkdir -p ${MOUNT_PATH}
 
-    blobfuse ${MOUNT_PATH} --tmp-path=/mnt/ramdisk/blobfusetmp  --config-file=${USER_HOME}/fuse_connection.cfg  -o attr_timeout=240 -o entry_timeout=240 -o negative_timeout=120
-
+    blobfuse ${MOUNT_PATH} --tmp-path=/mnt/ramdisk/blobfusetmp --config-file=${USER_HOME}/fuse_connection.cfg -o attr_timeout=240 -o entry_timeout=240 -o negative_timeout=120
 }
 
-
-function mount_gcs_store() {
+function mount_gcs_fs() {
     if [ ! -n "${GCP_GCS_BUCKET}" ]; then
         echo "GCP_GCS_BUCKET environment variable is not set."
         return
@@ -451,19 +447,18 @@ function mount_gcs_store() {
     gcsfuse ${GCP_GCS_BUCKET} ${MOUNT_PATH}
 }
 
-function mount_cloud_store() {
+function mount_cloud_fs() {
     cloud_storage_provider="none"
     sudo mkdir /cloudtik
     sudo chown cloudtik /cloudtik
     if [ "$AWS_CLOUD_STORAGE" == "true" ]; then
-        mount_s3_store
+        mount_s3_fs
     elif [ "$AZURE_CLOUD_STORAGE" == "true" ]; then
-        mount_azure_blob_store
+        mount_azure_blob_fs
     elif [ "$GCP_CLOUD_STORAGE" == "true" ]; then
-        mount_gcs_store
+        mount_gcs_fs
     fi
 }
-
 
 check_spark_installed
 set_head_address
@@ -471,6 +466,6 @@ set_resources_for_spark
 configure_system_folders
 configure_hadoop_and_spark
 configure_jupyter_for_spark
-mount_cloud_store
+mount_cloud_fs
 
 exit 0

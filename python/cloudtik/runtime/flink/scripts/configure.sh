@@ -175,13 +175,13 @@ function update_config_for_aws() {
 }
 
 function update_config_for_gcp() {
-    fs_default_dir="gs://${GCS_BUCKET}"
+    fs_default_dir="gs://${GCP_GCS_BUCKET}"
     sed -i "s!{%fs.default.name%}!${fs_default_dir}!g" `grep "{%fs.default.name%}" -rl ./`
 
     update_cloud_storage_credential_config
 
     # checkpoints dir
-    if [ -z "${GCS_BUCKET}" ]; then
+    if [ -z "${GCP_GCS_BUCKET}" ]; then
         checkpoints_dir="file:///tmp/flink-checkpoints"
         savepoints_dir="file:///tmp/flink-savepoints"
         historyserver_archive_dir="file:///tmp/history-server"

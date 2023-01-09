@@ -309,22 +309,22 @@ def export_gcp_cloud_storage_config(provider_config, config_dict: Dict[str, Any]
 
     gcs_bucket = cloud_storage.get(GCP_GCS_BUCKET)
     if gcs_bucket:
-        config_dict["GCS_BUCKET"] = gcs_bucket
+        config_dict["GCP_GCS_BUCKET"] = gcs_bucket
 
     gs_client_email = cloud_storage.get(
         "gcs.service.account.client.email")
     if gs_client_email:
-        config_dict["GCS_SERVICE_ACCOUNT_CLIENT_EMAIL"] = gs_client_email
+        config_dict["GCP_GCS_SERVICE_ACCOUNT_CLIENT_EMAIL"] = gs_client_email
 
     gs_private_key_id = cloud_storage.get(
         "gcs.service.account.private.key.id")
     if gs_private_key_id:
-        config_dict["GCS_SERVICE_ACCOUNT_PRIVATE_KEY_ID"] = gs_private_key_id
+        config_dict["GCP_GCS_SERVICE_ACCOUNT_PRIVATE_KEY_ID"] = gs_private_key_id
 
     gs_private_key = cloud_storage.get(
         "gcs.service.account.private.key")
     if gs_private_key:
-        config_dict["GCS_SERVICE_ACCOUNT_PRIVATE_KEY"] = gs_private_key
+        config_dict["GCP_GCS_SERVICE_ACCOUNT_PRIVATE_KEY"] = gs_private_key
 
 
 def get_gcp_cloud_storage_uri(gcp_cloud_storage):

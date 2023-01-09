@@ -172,14 +172,14 @@ function update_storage_config_for_azure() {
 
 function update_storage_config_for_gcp() {
     # GCP_PROJECT_ID
-    # GCS_SERVICE_ACCOUNT_CLIENT_EMAIL
-    # GCS_SERVICE_ACCOUNT_PRIVATE_KEY_ID
-    # GCS_SERVICE_ACCOUNT_PRIVATE_KEY
-    if [ ! -z "$GCS_SERVICE_ACCOUNT_PRIVATE_KEY_ID" ]; then
+    # GCP_GCS_SERVICE_ACCOUNT_CLIENT_EMAIL
+    # GCP_GCS_SERVICE_ACCOUNT_PRIVATE_KEY_ID
+    # GCP_GCS_SERVICE_ACCOUNT_PRIVATE_KEY
+    if [ ! -z "$GCP_GCS_SERVICE_ACCOUNT_PRIVATE_KEY_ID" ]; then
         sed -i "s#{%project_id%}#${GCP_PROJECT_ID}#g" $catalog_dir/gcs.key-file.json
-        sed -i "s#{%private_key_id%}#${GCS_SERVICE_ACCOUNT_CLIENT_EMAIL}#g" $catalog_dir/gcs.key-file.json
-        sed -i "s#{%private_key%}#${GCS_SERVICE_ACCOUNT_PRIVATE_KEY_ID}#g" $catalog_dir/gcs.key-file.json
-        sed -i "s#{%client_email%}#${GCS_SERVICE_ACCOUNT_PRIVATE_KEY}#g" $catalog_dir/gcs.key-file.json
+        sed -i "s#{%private_key_id%}#${GCP_GCS_SERVICE_ACCOUNT_CLIENT_EMAIL}#g" $catalog_dir/gcs.key-file.json
+        sed -i "s#{%private_key%}#${GCP_GCS_SERVICE_ACCOUNT_PRIVATE_KEY_ID}#g" $catalog_dir/gcs.key-file.json
+        sed -i "s#{%client_email%}#${GCP_GCS_SERVICE_ACCOUNT_PRIVATE_KEY}#g" $catalog_dir/gcs.key-file.json
 
         cp $catalog_dir/gcs.key-file.json ${TRINO_HOME}/etc/catalog/gcs.key-file.json
 

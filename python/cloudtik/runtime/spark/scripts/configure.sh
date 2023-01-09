@@ -184,13 +184,13 @@ function update_config_for_aws() {
 }
 
 function update_config_for_gcp() {
-    fs_default_dir="gs://${GCS_BUCKET}"
+    fs_default_dir="gs://${GCP_GCS_BUCKET}"
     sed -i "s!{%fs.default.name%}!${fs_default_dir}!g" `grep "{%fs.default.name%}" -rl ./`
 
     update_cloud_storage_credential_config
 
     # event log dir
-    if [ -z "${GCS_BUCKET}" ]; then
+    if [ -z "${GCP_GCS_BUCKET}" ]; then
         event_log_dir="file:///tmp/spark-events"
         sql_warehouse_dir="$USER_HOME/shared/spark-warehouse"
     else
@@ -395,6 +395,7 @@ function mount_s3_fs() {
         echo "AWS_S3A_BUCKET environment variable is not set."
         return
     fi
+
     IAM_FLAG=""
     if [ ! -n "${AWS_S3_ACCESS_KEY_ID}" ] || [ ! -n "${AWS_S3_SECRET_ACCESS_KEY}" ]; then
         IAM_FLAG="-o iam_role=auto"
@@ -404,7 +405,8 @@ function mount_s3_fs() {
     fi
 
     mkdir -p ${MOUNT_PATH}
-    s3fs ${AWS_S3_BUCKET} -o use_cache=/tmp -o mp_umask=002 -o multireq_max=5 ${IAM_FLAG} ${MOUNT_PATH}
+    echo "Mounting S3 bucket ${AWS_S3_BUCKET}..."
+    s3fs ${AWS_S3_BUCKET} -o use_cache=/tmp -o mp_umask=002 -o multireq_max=5 ${IAM_FLAG} ${MOUNT_PATH} > /dev/null
 }
 
 function mount_azure_blob_fs() {
@@ -422,6 +424,7 @@ function mount_azure_blob_fs() {
         echo "AZURE_STORAGE_ACCOUNT environment variable is not set."
         return
     fi
+
     #Use a ramdisk for the temporary path
     sudo mkdir /mnt/ramdisk
     sudo mount -t tmpfs -o size=16g tmpfs /mnt/ramdisk
@@ -434,8 +437,8 @@ function mount_azure_blob_fs() {
     echo "containerName ${AZURE_CONTAINER}" >> ${USER_HOME}/fuse_connection.cfg
     chmod 600 ${USER_HOME}/fuse_connection.cfg
     mkdir -p ${MOUNT_PATH}
-
-    blobfuse ${MOUNT_PATH} --tmp-path=/mnt/ramdisk/blobfusetmp --config-file=${USER_HOME}/fuse_connection.cfg -o attr_timeout=240 -o entry_timeout=240 -o negative_timeout=120
+    echo "Mounting Azure blob container ${AZURE_CONTAINER}@${AZURE_STORAGE_ACCOUNT}..."
+    blobfuse ${MOUNT_PATH} --tmp-path=/mnt/ramdisk/blobfusetmp --config-file=${USER_HOME}/fuse_connection.cfg -o attr_timeout=240 -o entry_timeout=240 -o negative_timeout=120 > /dev/null
 }
 
 function mount_gcs_fs() {
@@ -443,8 +446,10 @@ function mount_gcs_fs() {
         echo "GCP_GCS_BUCKET environment variable is not set."
         return
     fi
+
     mkdir -p ${MOUNT_PATH}
-    gcsfuse ${GCP_GCS_BUCKET} ${MOUNT_PATH}
+    echo "Mounting GCS bucket ${GCP_GCS_BUCKET}..."
+    gcsfuse ${GCP_GCS_BUCKET} ${MOUNT_PATH} > /dev/null
 }
 
 function mount_cloud_fs() {

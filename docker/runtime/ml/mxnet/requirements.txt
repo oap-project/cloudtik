@@ -1,0 +1,2 @@
+# DL Frameworks
+mxnet==1.9.1

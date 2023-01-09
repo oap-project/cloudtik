@@ -77,6 +77,9 @@ do
     --build-ml)
         BUILD_ML=YES
         ;;
+    --build-ml-mxnet)
+        BUILD_ML_MXNET=YES
+        ;;
     --build-ml-benchmark)
         BUILD_ML_BENCHMARK=YES
         ;;
@@ -93,7 +96,8 @@ do
         echo "Usage: build-docker.sh [ --base-image ] [ --no-cache-build ] [ --shas-only ] [ --wheel-to-use ] [ --python-version ] [ --image-tag ]"
         echo "Images to build options:"
         echo "[ --build-all ] [ --build-dev ] [ --build-spark ] [ --build-optimized ] [ --build-spark-native-sql ]"
-        echo "[ --build-universe ] [ --build-presto ] [ --build-trino ] [ --build-ml ]"
+        echo "[ --build-ml ] [ --build-ml-mxnet ]"
+        echo "[ --build-universe ] [ --build-presto ] [ --build-trino ]"
         echo "[ --build-spark-benchmark ] [ --build-optimized-benchmark ] [ --build-spark-native-sql-benchmark ]"
         exit 1
     esac
@@ -169,6 +173,11 @@ fi
 
 if [ $BUILD_ML ] || [ $BUILD_ALL ]; then
     docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG -t cloudtik/spark-ml-runtime:$IMAGE_TAG docker/runtime/ml
+fi
+
+if [ $BUILD_ML_MXNET ] || [ $BUILD_ALL ]; then
+    docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG -t cloudtik/spark-ml-base:$IMAGE_TAG docker/runtime/ml/base
+    docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG -t cloudtik/spark-ml-mxnet:$IMAGE_TAG docker/runtime/ml/mxnet
 fi
 
 if [ $BUILD_ML_BENCHMARK ] || [ $BUILD_ALL ]; then

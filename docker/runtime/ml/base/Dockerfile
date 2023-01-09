@@ -12,11 +12,10 @@ RUN sudo apt-get update -y \
 WORKDIR /home/cloudtik/
 COPY requirements.txt /tmp/requirements.txt
 RUN export PATH="$HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH" \
-    # Install deep learning libraries (Tensorflow, PyTorch, Keras)
+    # Install machine learning and basic libraries
     && pip install -r /tmp/requirements.txt \
     && sudo rm /tmp/requirements.txt \
     # Install deep learning libraries for facial recognition
-    && pip install torch==1.12.0 torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cpu \
     && conda install dlib=19.24.0 libffi=3.3 -p $HOME/anaconda3/envs/$CLOUDTIK_ENV -c conda-forge -y \
     # Install OpenMPI
     && export CXX=/usr/bin/g++-9 \
@@ -30,6 +29,4 @@ RUN export PATH="$HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH" \
     && sudo make install \
     && sudo ldconfig \
     && cd ${PREV_CUR_DIR} \
-    && sudo rm -rf /tmp/openmpi \
-    # Install Horovod
-    && HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITHOUT_MXNET=1 HOROVOD_WITH_GLOO=1 HOROVOD_WITH_MPI=1 pip install horovod[tensorflow,keras,pytorch,spark,pytorch-spark]==0.25.0
+    && sudo rm -rf /tmp/openmpi

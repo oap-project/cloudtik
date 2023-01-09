@@ -17,6 +17,7 @@ RUNTIME_PROCESSES = [
 ]
 
 RUNTIME_ROOT_PATH = os.path.abspath(os.path.dirname(__file__))
+TRINO_RUNTIME_CONFIG_KEY = "trino"
 
 JVM_MAX_MEMORY_RATIO = 0.8
 QUERY_MAX_MEMORY_PER_NODE_RATIO = 0.5
@@ -45,9 +46,9 @@ def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         return cluster_config
 
     runtime_config = cluster_config.get(RUNTIME_CONFIG_KEY)
-    if "trino" not in runtime_config:
-        runtime_config["trino"] = {}
-    trino_config = runtime_config["trino"]
+    if TRINO_RUNTIME_CONFIG_KEY not in runtime_config:
+        runtime_config[TRINO_RUNTIME_CONFIG_KEY] = {}
+    trino_config = runtime_config[TRINO_RUNTIME_CONFIG_KEY]
 
     workspace_provider = _get_workspace_provider(cluster_config["provider"], workspace_name)
     global_variables = workspace_provider.subscribe_global_variables(cluster_config)
@@ -81,7 +82,7 @@ def _get_runnable_command(target):
 
 def _with_runtime_environment_variables(runtime_config, config, provider, node_id: str):
     runtime_envs = {"TRINO_ENABLED": True}
-    trino_config = runtime_config.get("trino", {})
+    trino_config = runtime_config.get(TRINO_RUNTIME_CONFIG_KEY, {})
     cluster_runtime_config = config.get(RUNTIME_CONFIG_KEY)
 
     # 1) Try to use local metastore if there is one started;
@@ -176,7 +177,7 @@ def configure_connectors(runtime_config: Dict[str, Any]):
     if runtime_config is None:
         return
 
-    trino_config = runtime_config.get("trino")
+    trino_config = runtime_config.get(TRINO_RUNTIME_CONFIG_KEY)
     if trino_config is None:
         return
 

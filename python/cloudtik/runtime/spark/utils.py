@@ -28,6 +28,7 @@ RUNTIME_PROCESSES = [
 ]
 
 RUNTIME_ROOT_PATH = os.path.abspath(os.path.dirname(__file__))
+SPARK_RUNTIME_CONFIG_KEY = "spark"
 
 YARN_RESOURCE_MEMORY_RATIO = 0.8
 SPARK_EXECUTOR_MEMORY_RATIO = 1
@@ -50,7 +51,7 @@ YARN_REQUEST_REST_RETRY_COUNT = 36
 
 def get_yarn_resource_memory_ratio(cluster_config: Dict[str, Any]):
     yarn_resource_memory_ratio = YARN_RESOURCE_MEMORY_RATIO
-    spark_config = cluster_config.get(RUNTIME_CONFIG_KEY, {}).get("spark", {})
+    spark_config = cluster_config.get(RUNTIME_CONFIG_KEY, {}).get(SPARK_RUNTIME_CONFIG_KEY, {})
     memory_ratio = spark_config.get("yarn_resource_memory_ratio")
     if memory_ratio:
         yarn_resource_memory_ratio = memory_ratio
@@ -123,9 +124,9 @@ def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         return cluster_config
 
     runtime_config = cluster_config.get(RUNTIME_CONFIG_KEY)
-    if "spark" not in runtime_config:
-        runtime_config["spark"] = {}
-    spark_config = runtime_config["spark"]
+    if SPARK_RUNTIME_CONFIG_KEY not in runtime_config:
+        runtime_config[SPARK_RUNTIME_CONFIG_KEY] = {}
+    spark_config = runtime_config[SPARK_RUNTIME_CONFIG_KEY]
 
     workspace_provider = _get_workspace_provider(cluster_config["provider"], workspace_name)
     global_variables = workspace_provider.subscribe_global_variables(cluster_config)
@@ -206,9 +207,9 @@ def _config_runtime_resources(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         cluster_config[RUNTIME_CONFIG_KEY] = {}
     runtime_config = cluster_config[RUNTIME_CONFIG_KEY]
 
-    if "spark" not in runtime_config:
-        runtime_config["spark"] = {}
-    spark_config = runtime_config["spark"]
+    if SPARK_RUNTIME_CONFIG_KEY not in runtime_config:
+        runtime_config[SPARK_RUNTIME_CONFIG_KEY] = {}
+    spark_config = runtime_config[SPARK_RUNTIME_CONFIG_KEY]
 
     spark_config["yarn_container_resource"] = container_resource
     spark_config["spark_executor_resource"] = executor_resource
@@ -242,7 +243,7 @@ def _get_spark_config(config: Dict[str, Any]):
     if not runtime:
         return None
 
-    spark = runtime.get("spark")
+    spark = runtime.get(SPARK_RUNTIME_CONFIG_KEY)
     if not spark:
         return None
 
@@ -270,7 +271,7 @@ def update_spark_configurations():
 
 def _with_runtime_environment_variables(runtime_config, config, provider, node_id: str):
     runtime_envs = {}
-    spark_config = runtime_config.get("spark", {})
+    spark_config = runtime_config.get(SPARK_RUNTIME_CONFIG_KEY, {})
     cluster_runtime_config = config.get(RUNTIME_CONFIG_KEY)
 
     # export yarn memory ratio to use if configured by user
@@ -387,7 +388,7 @@ def _get_scaling_policy(
         runtime_config: Dict[str, Any],
         cluster_config: Dict[str, Any],
         head_ip: str) -> Optional[ScalingPolicy]:
-    spark_config = runtime_config.get("spark", {})
+    spark_config = runtime_config.get(SPARK_RUNTIME_CONFIG_KEY, {})
     scaling_config = spark_config.get("scaling", {})
 
     node_resource_states = scaling_config.get("node_resource_states", True)

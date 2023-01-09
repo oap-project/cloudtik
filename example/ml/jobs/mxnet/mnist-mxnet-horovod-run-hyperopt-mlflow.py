@@ -304,10 +304,10 @@ if __name__ == '__main__':
                 verbose=2)[0]
             model = deserialize_gluon_model(model_symbol, model_params)
 
+            test_loss = test_model(model)
+
             # Write checkpoint
             save_checkpoint(checkpoint_dir, model, None, learning_rate)
-
-            test_loss = test_model(model)
 
             mlflow.log_metric("learning_rate", learning_rate)
             mlflow.log_metric("loss", test_loss)
@@ -332,11 +332,14 @@ if __name__ == '__main__':
 
     # Train final model with the best parameters
     best_model = load_model_of_checkpoint(checkpoint_dir, argmin.get('learning_rate'))
+    #  Must run forward with this block at least once before calling export
+    test_model(best_model)
+
     model_name = 'mnist-mxnet-horovod-run'
     mlflow.gluon.log_model(best_model, model_name, registered_model_name=model_name)
 
     # Load the model from MLflow and run a transformation
     model_uri = "models:/{}/latest".format(model_name)
     print('Inference with model: {}'.format(model_uri))
-    saved_model = mlflow.gluon.load_model(model_uri)
+    saved_model = mlflow.gluon.load_model(model_uri, ctx=ctx)
     test_model(saved_model)

@@ -18,7 +18,6 @@ RUN export PATH="$HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH" \
     # Install deep learning libraries for facial recognition
     && conda install dlib=19.24.0 libffi=3.3 -p $HOME/anaconda3/envs/$CLOUDTIK_ENV -c conda-forge -y \
     # Install OpenMPI
-    && export CXX=/usr/bin/g++-9 \
     && mkdir /tmp/openmpi \
     && PREV_CUR_DIR=$(pwd) \
     && cd /tmp/openmpi \

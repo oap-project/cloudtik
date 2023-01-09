@@ -57,7 +57,7 @@ function install_ml() {
         pip -qq install tensorflow-addons==0.17.1
     fi
     CLOUDTIK_CONDA_ENV=$(dirname $(dirname $(which cloudtik)))
-    conda install dlib=19.24.0 libffi=3.3 -p $CLOUDTIK_CONDA_ENV -c conda-forge -y
+    conda install -q dlib=19.24.0 libffi=3.3 -p $CLOUDTIK_CONDA_ENV -c conda-forge -y > /dev/null
 
     echo "Installing Open MPI..."
     which mpirun > /dev/null \

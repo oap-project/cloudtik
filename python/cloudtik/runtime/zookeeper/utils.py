@@ -14,6 +14,7 @@ RUNTIME_PROCESSES = [
 ]
 
 RUNTIME_ROOT_PATH = os.path.abspath(os.path.dirname(__file__))
+ZOOKEEPER_RUNTIME_CONFIG_KEY = "zookeeper"
 
 
 def _config_runtime_resources(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
@@ -138,7 +139,7 @@ def _publish_service_uri_to_workspace(cluster_config: Dict[str, Any], service_ur
 
 
 def _get_server_config(runtime_config: Dict[str, Any]):
-    zookeeper_config = runtime_config.get("zookeeper")
+    zookeeper_config = runtime_config.get(ZOOKEEPER_RUNTIME_CONFIG_KEY)
     if not zookeeper_config:
         return None
 

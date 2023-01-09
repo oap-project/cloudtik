@@ -17,6 +17,7 @@ RUNTIME_PROCESSES = [
 ]
 
 RUNTIME_ROOT_PATH = os.path.abspath(os.path.dirname(__file__))
+PRESTO_RUNTIME_CONFIG_KEY = "presto"
 
 JVM_MAX_MEMORY_RATIO = 0.8
 QUERY_MAX_MEMORY_PER_NODE_RATIO = 0.5
@@ -50,9 +51,9 @@ def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         return cluster_config
 
     runtime_config = cluster_config.get(RUNTIME_CONFIG_KEY)
-    if "presto" not in runtime_config:
-        runtime_config["presto"] = {}
-    presto_config = runtime_config["presto"]
+    if PRESTO_RUNTIME_CONFIG_KEY not in runtime_config:
+        runtime_config[PRESTO_RUNTIME_CONFIG_KEY] = {}
+    presto_config = runtime_config[PRESTO_RUNTIME_CONFIG_KEY]
 
     workspace_provider = _get_workspace_provider(cluster_config["provider"], workspace_name)
     global_variables = workspace_provider.subscribe_global_variables(cluster_config)
@@ -86,7 +87,7 @@ def _get_runnable_command(target):
 
 def _with_runtime_environment_variables(runtime_config, config, provider, node_id: str):
     runtime_envs = {"PRESTO_ENABLED": True}
-    presto_config = runtime_config.get("presto", {})
+    presto_config = runtime_config.get(PRESTO_RUNTIME_CONFIG_KEY, {})
     cluster_runtime_config = config.get(RUNTIME_CONFIG_KEY)
 
     # 1) Try to use local metastore if there is one started;
@@ -183,7 +184,7 @@ def configure_connectors(runtime_config: Dict[str, Any]):
     if runtime_config is None:
         return
 
-    presto_config = runtime_config.get("presto")
+    presto_config = runtime_config.get(PRESTO_RUNTIME_CONFIG_KEY)
     if presto_config is None:
         return
 

@@ -15,7 +15,7 @@ RUNTIME_PROCESSES = [
 ]
 
 RUNTIME_ROOT_PATH = os.path.abspath(os.path.dirname(__file__))
-CONFIG_KEY_RUNTIME = "kafka"
+KAFKA_RUNTIME_CONFIG_KEY = "kafka"
 
 
 def _config_runtime_resources(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
@@ -28,9 +28,9 @@ def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         return cluster_config
 
     runtime_config = cluster_config.get(RUNTIME_CONFIG_KEY)
-    if CONFIG_KEY_RUNTIME not in runtime_config:
-        runtime_config[CONFIG_KEY_RUNTIME] = {}
-    kafka_config = runtime_config[CONFIG_KEY_RUNTIME]
+    if KAFKA_RUNTIME_CONFIG_KEY not in runtime_config:
+        runtime_config[KAFKA_RUNTIME_CONFIG_KEY] = {}
+    kafka_config = runtime_config[KAFKA_RUNTIME_CONFIG_KEY]
 
     workspace_provider = _get_workspace_provider(cluster_config["provider"], workspace_name)
     global_variables = workspace_provider.subscribe_global_variables(cluster_config)
@@ -74,8 +74,8 @@ def _validate_config(config: Dict[str, Any], provider):
         # Check zookeeper connect configured
         runtime_config = config.get(RUNTIME_CONFIG_KEY)
         if (runtime_config is None) or (
-                CONFIG_KEY_RUNTIME not in runtime_config) or (
-                "zookeeper_connect" not in runtime_config[CONFIG_KEY_RUNTIME]):
+                KAFKA_RUNTIME_CONFIG_KEY not in runtime_config) or (
+                "zookeeper_connect" not in runtime_config[KAFKA_RUNTIME_CONFIG_KEY]):
             raise ValueError("Zookeeper connect must be configured!")
 
 
@@ -108,7 +108,7 @@ def _get_zookeeper_connect(runtime_config):
     if runtime_config is None:
         return None
 
-    kafka_config = runtime_config.get(CONFIG_KEY_RUNTIME)
+    kafka_config = runtime_config.get(KAFKA_RUNTIME_CONFIG_KEY)
     if kafka_config is None:
         return None
 

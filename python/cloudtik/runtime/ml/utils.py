@@ -15,6 +15,7 @@ RUNTIME_PROCESSES = [
 ]
 
 RUNTIME_ROOT_PATH = os.path.abspath(os.path.dirname(__file__))
+ML_RUNTIME_CONFIG_KEY = "ml"
 
 
 def _config_runtime_resources(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
@@ -35,6 +36,13 @@ def _get_runnable_command(target):
 
 def _with_runtime_environment_variables(runtime_config, config, provider, node_id: str):
     runtime_envs = {"ML_ENABLED": True}
+
+    ml_config = runtime_config.get(ML_RUNTIME_CONFIG_KEY, {})
+    # export yarn memory ratio to use if configured by user
+    with_mxnet = ml_config.get("with_mxnet", False)
+    if with_mxnet:
+        runtime_envs["ML_WITH_MXNET"] = with_mxnet
+
     return runtime_envs
 
 

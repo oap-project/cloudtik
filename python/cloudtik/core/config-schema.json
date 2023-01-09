@@ -749,6 +749,18 @@
                         }
                     }
                 },
+                "ml": {
+                    "type": "object",
+                    "description": "Machine learning runtime related configurations",
+                    "additionalProperties": true,
+                    "properties": {
+                        "with_mxnet": {
+                            "type": "boolean",
+                            "description": "Whether to use mxnet deep learning framework. (MXNet conflicts with Tensorflow or Pytorch)",
+                            "default": false
+                        }
+                    }
+                },
                 "kafka": {
                     "type": "object",
                     "description": "Kafka runtime related configurations",

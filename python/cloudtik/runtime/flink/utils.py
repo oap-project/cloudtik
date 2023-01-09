@@ -26,6 +26,7 @@ RUNTIME_PROCESSES = [
 ]
 
 RUNTIME_ROOT_PATH = os.path.abspath(os.path.dirname(__file__))
+FLINK_RUNTIME_CONFIG_KEY = "flink"
 
 YARN_RESOURCE_MEMORY_RATIO = 0.8
 
@@ -44,7 +45,7 @@ FLINK_HISTORY_SERVER_API_PORT = 8082
 
 def get_yarn_resource_memory_ratio(cluster_config: Dict[str, Any]):
     yarn_resource_memory_ratio = YARN_RESOURCE_MEMORY_RATIO
-    flink_config = cluster_config.get(RUNTIME_CONFIG_KEY, {}).get("flink", {})
+    flink_config = cluster_config.get(RUNTIME_CONFIG_KEY, {}).get(FLINK_RUNTIME_CONFIG_KEY, {})
     memory_ratio = flink_config.get("yarn_resource_memory_ratio")
     if memory_ratio:
         yarn_resource_memory_ratio = memory_ratio
@@ -110,9 +111,9 @@ def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         return cluster_config
 
     runtime_config = cluster_config.get(RUNTIME_CONFIG_KEY)
-    if "flink" not in runtime_config:
-        runtime_config["flink"] = {}
-    flink_config = runtime_config["flink"]
+    if FLINK_RUNTIME_CONFIG_KEY not in runtime_config:
+        runtime_config[FLINK_RUNTIME_CONFIG_KEY] = {}
+    flink_config = runtime_config[FLINK_RUNTIME_CONFIG_KEY]
 
     workspace_provider = _get_workspace_provider(cluster_config["provider"], workspace_name)
     global_variables = workspace_provider.subscribe_global_variables(cluster_config)
@@ -178,9 +179,9 @@ def _config_runtime_resources(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         cluster_config[RUNTIME_CONFIG_KEY] = {}
     runtime_config = cluster_config[RUNTIME_CONFIG_KEY]
 
-    if "flink" not in runtime_config:
-        runtime_config["flink"] = {}
-    flink_config = runtime_config["flink"]
+    if FLINK_RUNTIME_CONFIG_KEY not in runtime_config:
+        runtime_config[FLINK_RUNTIME_CONFIG_KEY] = {}
+    flink_config = runtime_config[FLINK_RUNTIME_CONFIG_KEY]
 
     flink_config["yarn_container_resource"] = container_resource
     flink_config["flink_resource"] = runtime_resource
@@ -208,7 +209,7 @@ def _get_flink_config(config: Dict[str, Any]):
     if not runtime:
         return None
 
-    flink = runtime.get("flink")
+    flink = runtime.get(FLINK_RUNTIME_CONFIG_KEY)
     if not flink:
         return None
 
@@ -236,7 +237,7 @@ def update_flink_configurations():
 
 def _with_runtime_environment_variables(runtime_config, config, provider, node_id: str):
     runtime_envs = {}
-    flink_config = runtime_config.get("flink", {})
+    flink_config = runtime_config.get(FLINK_RUNTIME_CONFIG_KEY, {})
     cluster_runtime_config = config.get(RUNTIME_CONFIG_KEY)
 
     # export yarn memory ratio to use if configured by user
@@ -353,7 +354,7 @@ def _get_scaling_policy(
         runtime_config: Dict[str, Any],
         cluster_config: Dict[str, Any],
         head_ip: str) -> Optional[ScalingPolicy]:
-    flink_config = runtime_config.get("flink", {})
+    flink_config = runtime_config.get(FLINK_RUNTIME_CONFIG_KEY, {})
     scaling_config = flink_config.get("scaling", {})
 
     node_resource_states = scaling_config.get("node_resource_states", True)

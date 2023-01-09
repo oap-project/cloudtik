@@ -66,18 +66,21 @@ function install_ml() {
     && cd /tmp/openmpi \
     && wget -q --show-progress https://www.open-mpi.org/software/ompi/v4.1/downloads/openmpi-4.1.4.tar.gz -O openmpi.tar.gz  \
     && tar --extract --file openmpi.tar.gz --directory /tmp/openmpi --strip-components 1 --no-same-owner \
-    && sudo ./configure --enable-orterun-prefix-by-default CC=gcc-9 CXX=g++-9 > /dev/null \
-    && sudo make -j $(nproc) all > /dev/null \
-    && sudo make install > /dev/null \
+    && echo "Open MPI: configure..." \
+    && sudo ./configure --enable-orterun-prefix-by-default CC=gcc-9 CXX=g++-9 > /dev/null 2>&1 \
+    && echo "Open MPI: make..." \
+    && sudo make -j $(nproc) all > /dev/null 2>&1 \
+    && echo "Open MPI: make install..." \
+    && sudo make install > /dev/null 2>&1 \
     && sudo ldconfig \
     && cd ${PREV_CUR_DIR} \
     && sudo rm -rf /tmp/openmpi)
 
     echo "Installing Horovod..."
     if [ "$ML_WITH_MXNET" == "true" ]; then
-        export CXX=/usr/bin/g++-9 && HOROVOD_WITHOUT_PYTORCH=1 HOROVOD_WITHOUT_TENSORFLOW=1 HOROVOD_WIT_MXNET=1 HOROVOD_WITH_GLOO=1 HOROVOD_WITH_MPI=1 pip -qq install horovod[mxnet,spark]==0.25.0
+        export CXX=/usr/bin/g++-9 && HOROVOD_WITHOUT_TENSORFLOW=1 HOROVOD_WITHOUT_PYTORCH=1 HOROVOD_WIT_MXNET=1 HOROVOD_WITH_GLOO=1 HOROVOD_WITH_MPI=1 pip -qq install horovod[mxnet,spark]==0.25.0
     else
-        export CXX=/usr/bin/g++-9 && HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITHOUT_MXNET=1 HOROVOD_WITH_GLOO=1 HOROVOD_WITH_MPI=1 pip -qq install horovod[tensorflow,keras,pytorch,spark,pytorch-spark]==0.25.0
+        export CXX=/usr/bin/g++-9 && HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITHOUT_MXNET=1 HOROVOD_WITH_GLOO=1 HOROVOD_WITH_MPI=1 pip -qq install horovod[tensorflow,keras,pytorch,spark,pytorch-spark]==0.25.0
     fi
 }
 

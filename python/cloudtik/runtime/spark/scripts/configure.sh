@@ -437,7 +437,7 @@ function mount_azure_blob_fs() {
     echo "containerName ${AZURE_CONTAINER}" >> ${USER_HOME}/fuse_connection.cfg
     chmod 600 ${USER_HOME}/fuse_connection.cfg
     mkdir -p ${MOUNT_PATH}
-    echo "Mounting Azure blob container ${AZURE_CONTAINER}..."
+    echo "Mounting Azure blob container ${AZURE_CONTAINER}@${AZURE_STORAGE_ACCOUNT}..."
     blobfuse ${MOUNT_PATH} --tmp-path=/mnt/ramdisk/blobfusetmp --config-file=${USER_HOME}/fuse_connection.cfg -o attr_timeout=240 -o entry_timeout=240 -o negative_timeout=120 > /dev/null
 }
 

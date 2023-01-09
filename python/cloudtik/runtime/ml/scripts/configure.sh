@@ -84,7 +84,6 @@ function configure_ml() {
     fi
 }
 
-
 set_head_address
 configure_ml
 

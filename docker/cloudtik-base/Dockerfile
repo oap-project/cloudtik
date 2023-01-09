@@ -54,15 +54,6 @@ RUN sudo apt-get update -y && sudo apt-get upgrade -y \
     && echo "deb http://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee -a /etc/apt/sources.list.d/kubernetes.list \
     && sudo apt-get update \
     && sudo apt-get install kubectl \
-    # Install fuse tools
-    && wget -N https://packages.microsoft.com/config/ubuntu/20.04/packages-microsoft-prod.deb \
-    && sudo dpkg -i packages-microsoft-prod.deb \
-    && echo "deb http://packages.cloud.google.com/apt gcsfuse-bionic main" |sudo tee /etc/apt/sources.list.d/gcsfuse.list \
-    && sudo apt-get update -y && sudo apt-get install -y \
-         s3fs \
-         blobfuse \
-         gcsfuse \
-    && rm -rf packages-microsoft-prod.deb \
     # Clean up
     && sudo rm -rf /var/lib/apt/lists/* \
     && sudo apt-get clean

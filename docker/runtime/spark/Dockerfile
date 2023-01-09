@@ -9,12 +9,21 @@ ENV RUNTIME_PATH /home/cloudtik/runtime
 RUN mkdir -p $RUNTIME_PATH
 WORKDIR /home/cloudtik/runtime
 
-# Ganglia
+# Ganglia and Fuse
 RUN sudo apt-get update -y \
     && sudo apt-get install -y ganglia-monitor \
     && arch=$(uname -m) && wget https://d30257nes7d4fq.cloudfront.net/downloads/ganglia/modpython-${arch}.so -O modpython.so \
     && sudo cp modpython.so /usr/lib/ganglia && sudo chmod 644 /usr/lib/ganglia/modpython.so \
     && rm modpython.so \
+    # Install fuse tools
+    && wget -N https://packages.microsoft.com/config/ubuntu/20.04/packages-microsoft-prod.deb \
+    && sudo dpkg -i packages-microsoft-prod.deb \
+    && echo "deb http://packages.cloud.google.com/apt gcsfuse-bionic main" |sudo tee /etc/apt/sources.list.d/gcsfuse.list \
+    && sudo apt-get update -y && sudo apt-get install -y \
+         s3fs \
+         blobfuse \
+         gcsfuse \
+    && rm -rf packages-microsoft-prod.deb \
     && sudo rm -rf /var/lib/apt/lists/* \
     && sudo apt-get clean
 

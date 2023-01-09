@@ -56,8 +56,3 @@ CLOUDTIK_PY39_WHEEL=cloudtik-${CLOUDTIK_VERSION}-cp39-cp39-manylinux2014_${arch}
 aws s3 cp ./python/dist/$CLOUDTIK_PY39_WHEEL s3://cloudtik/downloads/cloudtik/
 
 aws cloudfront create-invalidation --distribution-id E3703BSG9BICN1 --paths "/downloads/cloudtik/cloudtik-${CLOUDTIK_VERSION}-cp37-cp37m-manylinux2014_${arch}.whl" "/downloads/cloudtik/cloudtik-${CLOUDTIK_VERSION}-cp38-cp38-manylinux2014_${arch}.whl" "/downloads/cloudtik/cloudtik-${CLOUDTIK_VERSION}-cp39-cp39-manylinux2014_${arch}.whl"
-
-
-# upload pip
-twine check ./python/dist/*
-twine upload ./python/dist/*

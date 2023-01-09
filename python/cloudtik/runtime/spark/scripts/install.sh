@@ -170,9 +170,9 @@ function install_azure_blob_fuse() {
 
 function install_gcs_fuse() {
     if ! type gcsfuse >/dev/null 2>&1; then
+      echo "deb http://packages.cloud.google.com/apt gcsfuse-bionic main" | sudo tee /etc/apt/sources.list.d/gcsfuse.list > /dev/null
+      wget -O - -q https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add - > /dev/null
       sudo apt-get update > /dev/null
-      echo "deb http://packages.cloud.google.com/apt gcsfuse-bionic main" | sudo tee /etc/apt/sources.list.d/gcsfuse.list
-      wget -O - -q https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
       sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq gcsfuse -y > /dev/null
     fi
 }

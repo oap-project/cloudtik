@@ -6,6 +6,8 @@ from time import time
 
 # Settings
 parser = argparse.ArgumentParser(description='Horovod on Spark PyTorch MNIST Example')
+parser.add_argument('--num-proc', type=int,
+                    help='number of worker processes for training')
 parser.add_argument('--batch-size', type=int, default=128,
                     help='input batch size for training (default: 128)')
 parser.add_argument('--epochs', type=int, default=1,
@@ -39,9 +41,13 @@ if __name__ == '__main__':
 
     # Total worker cores
     cluster_info = cluster.get_info()
-    total_workers = cluster_info.get("total-workers")
-    if not total_workers:
-        total_workers = 1
+
+    if not args.num_proc:
+        total_worker_cpus = cluster_info.get("total-worker-cpus")
+        if total_worker_cpus:
+            args.num_proc = int(total_worker_cpus / 4)
+        if not args.num_proc:
+            args.num_proc = 1
 
     default_storage = cluster.get_default_storage()
     if not fsdir:
@@ -95,7 +101,7 @@ if __name__ == '__main__':
     import torch.nn as nn
     import torch.nn.functional as F
 
-    num_proc = total_workers
+    num_proc = args.num_proc
     print("Train processes: {}".format(num_proc))
 
     batch_size = args.batch_size

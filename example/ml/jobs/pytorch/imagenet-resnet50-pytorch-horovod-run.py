@@ -5,6 +5,9 @@ import math
 # Training settings
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Example',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+parser.add_argument('--num-proc', type=int,
+                    help='number of worker processes for training')
+
 parser.add_argument('--train-dir', default=os.path.expanduser('~/imagenet/train'),
                     help='path to training data')
 parser.add_argument('--val-dir', default=os.path.expanduser('~/imagenet/validation'),
@@ -51,7 +54,6 @@ parser.add_argument('--gloo', action='store_true', dest='use_gloo',
 parser.add_argument('--mpi', action='store_true', dest='use_mpi',
                     help='Run Horovod using the MPI controller. This will '
                          'be the default if Horovod was built with MPI support.')
-
 
 import torch
 import torch.backends.cudnn as cudnn
@@ -311,9 +313,13 @@ if __name__ == '__main__':
 
     # Total worker cores
     cluster_info = cluster.get_info()
-    total_workers = cluster_info.get("total-workers")
-    if not total_workers:
-        total_workers = 1
+
+    if not args.num_proc:
+        total_workers = cluster_info.get("total-workers")
+        if total_workers:
+            args.num_proc = total_workers
+        if not args.num_proc:
+            args.num_proc = 1
 
     worker_ips = cluster.get_worker_node_ips()
 
@@ -321,7 +327,7 @@ if __name__ == '__main__':
     import horovod
 
     # Set the parameters
-    num_proc = total_workers
+    num_proc = args.num_proc
     print("Train processes: {}".format(num_proc))
 
     # Generate the host list

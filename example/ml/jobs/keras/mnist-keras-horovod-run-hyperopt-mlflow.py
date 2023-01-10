@@ -7,6 +7,8 @@ import pickle
 
 # Settings
 parser = argparse.ArgumentParser(description='Horovod Keras MNIST Example')
+parser.add_argument('--num-proc', type=int,
+                    help='number of worker processes for training')
 parser.add_argument('--batch-size', type=int, default=128,
                     help='input batch size for training (default: 128)')
 parser.add_argument('--epochs', type=int, default=1,
@@ -37,13 +39,18 @@ if __name__ == '__main__':
 
     # Total worker cores
     cluster_info = cluster.get_info()
-    total_workers = cluster_info.get("total-workers")
-    if not total_workers:
-        total_workers = 1
+
+    if not args.num_proc:
+        total_worker_cpus = cluster_info.get("total-worker-cpus")
+        if total_worker_cpus:
+            args.num_proc = int(total_worker_cpus / 2)
+        if not args.num_proc:
+            args.num_proc = 1
+
+    worker_ips = cluster.get_worker_node_ips()
 
     ml_cluster = ThisMLCluster()
     mlflow_url = ml_cluster.get_services()["mlflow"]["url"]
-    worker_ips = ml_cluster.get_worker_node_ips()
 
     # Serialize and deserialize keras model
     import io
@@ -116,7 +123,7 @@ if __name__ == '__main__':
     import horovod.keras as hvd
 
     # Set the parameters
-    num_proc = total_workers
+    num_proc = args.num_proc
     print("Train processes: {}".format(num_proc))
 
     batch_size = args.batch_size
@@ -244,7 +251,10 @@ if __name__ == '__main__':
     print("Log directory:", checkpoint_dir)
 
     # Generate the host list
-    host_slots = ["{}:1".format(worker_ip) for worker_ip in worker_ips]
+    worker_num_proc = int(num_proc / len(worker_ips))
+    if not worker_num_proc:
+        worker_num_proc = 1
+    host_slots = ["{}:{}".format(worker_ip, worker_num_proc) for worker_ip in worker_ips]
     hosts = ",".join(host_slots)
     print("Hosts to run:", hosts)
 

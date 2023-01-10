@@ -31,8 +31,8 @@ parser.add_argument('--training-master',
                     help='spark cluster to use for training. If set to None, uses current default cluster. Cluster'
                          'should be set up to provide a Spark task per multiple CPU cores, or per GPU, e.g. by'
                          'supplying `-c <NUM_GPUS>` in Spark Standalone mode. Example: spark://hostname:7077')
-parser.add_argument('--num-proc', type=int, default=4,
-                    help='number of worker processes for training, default: `spark.default.parallelism`')
+parser.add_argument('--num-proc', type=int,
+                    help='number of worker processes for training')
 parser.add_argument('--learning-rate', type=float, default=0.0001,
                     help='initial learning rate')
 parser.add_argument('--batch-size', type=int, default=100,
@@ -77,9 +77,13 @@ if __name__ == '__main__':
 
     # Total worker cores
     cluster_info = cluster.get_info()
-    total_workers = cluster_info.get("total-workers")
-    if not total_workers:
-        total_workers = 1
+
+    if not args.num_proc:
+        total_worker_cpus = cluster_info.get("total-worker-cpus")
+        if total_worker_cpus:
+            args.num_proc = int(total_worker_cpus / 2)
+        if not args.num_proc:
+            args.num_proc = 1
 
     default_storage = cluster.get_default_storage()
     if not fsdir:
@@ -466,7 +470,7 @@ if __name__ == '__main__':
 
     #  Horovod: distributed training
     # Set the parameters
-    num_proc = args.num_proc if args.num_proc else total_workers
+    num_proc = args.num_proc
     print("Train processes: {}".format(num_proc))
 
     batch_size = args.batch_size

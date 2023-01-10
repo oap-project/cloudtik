@@ -8,7 +8,8 @@ import tempfile
 
 # Training settings
 parser = argparse.ArgumentParser(description='MXNet MNIST Example')
-
+parser.add_argument('--num-proc', type=int,
+                    help='number of worker processes for training')
 parser.add_argument('--batch-size', type=int, default=64,
                     help='training batch size (default: 64)')
 parser.add_argument('--dtype', type=str, default='float32',
@@ -242,9 +243,13 @@ if __name__ == '__main__':
 
     # Total worker cores
     cluster_info = cluster.get_info()
-    total_workers = cluster_info.get("total-workers")
-    if not total_workers:
-        total_workers = 1
+
+    if not args.num_proc:
+        total_worker_cpus = cluster_info.get("total-worker-cpus")
+        if total_worker_cpus:
+            args.num_proc = int(total_worker_cpus / 2)
+        if not args.num_proc:
+            args.num_proc = 1
 
     worker_ips = cluster.get_worker_node_ips()
 
@@ -284,14 +289,17 @@ if __name__ == '__main__':
     import horovod
 
     # Set the parameters
-    num_proc = total_workers
+    num_proc = args.num_proc
     print("Train processes: {}".format(num_proc))
 
     checkpoint_dir = create_log_dir('mnist-mxnet-horovod')
     print("Log directory:", checkpoint_dir)
 
     # Generate the host list
-    host_slots = ["{}:1".format(worker_ip) for worker_ip in worker_ips]
+    worker_num_proc = int(num_proc / len(worker_ips))
+    if not worker_num_proc:
+        worker_num_proc = 1
+    host_slots = ["{}:{}".format(worker_ip, worker_num_proc) for worker_ip in worker_ips]
     hosts = ",".join(host_slots)
     print("Hosts to run:", hosts)
 

@@ -17,6 +17,9 @@ import os
 
 parser = argparse.ArgumentParser(description='Keras ImageNet Example',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+parser.add_argument('--num-proc', type=int,
+                    help='number of worker processes for training')
+
 parser.add_argument('--train-dir', default=os.path.expanduser('~/imagenet/train'),
                     help='path to training data')
 parser.add_argument('--val-dir', default=os.path.expanduser('~/imagenet/validation'),
@@ -232,9 +235,13 @@ if __name__ == '__main__':
 
     # Total worker cores
     cluster_info = cluster.get_info()
-    total_workers = cluster_info.get("total-workers")
-    if not total_workers:
-        total_workers = 1
+
+    if not args.num_proc:
+        total_workers = cluster_info.get("total-workers")
+        if total_workers:
+            args.num_proc = total_workers
+        if not args.num_proc:
+            args.num_proc = 1
 
     worker_ips = cluster.get_worker_node_ips()
 
@@ -242,11 +249,14 @@ if __name__ == '__main__':
     import horovod
 
     # Set the parameters
-    num_proc = total_workers
+    num_proc = args.num_proc
     print("Train processes: {}".format(num_proc))
 
     # Generate the host list
-    host_slots = ["{}:1".format(worker_ip) for worker_ip in worker_ips]
+    worker_num_proc = int(num_proc / len(worker_ips))
+    if not worker_num_proc:
+        worker_num_proc = 1
+    host_slots = ["{}:{}".format(worker_ip, worker_num_proc) for worker_ip in worker_ips]
     hosts = ",".join(host_slots)
     print("Hosts to run:", hosts)
 

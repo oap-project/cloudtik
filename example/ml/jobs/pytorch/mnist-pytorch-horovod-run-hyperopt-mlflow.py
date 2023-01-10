@@ -6,6 +6,8 @@ from time import time
 
 # Settings
 parser = argparse.ArgumentParser(description='Horovod PyTorch MNIST Example')
+parser.add_argument('--num-proc', type=int,
+                    help='number of worker processes for training')
 parser.add_argument('--batch-size', type=int, default=128,
                     help='input batch size for training (default: 128)')
 parser.add_argument('--epochs', type=int, default=1,
@@ -20,6 +22,15 @@ parser.add_argument('--gloo', action='store_true', dest='use_gloo',
 parser.add_argument('--mpi', action='store_true', dest='use_mpi',
                     help='Run Horovod using the MPI controller. This will '
                          'be the default if Horovod was built with MPI support.')
+parser.add_argument('--log-interval', type=int, default=100, metavar='N',
+                    help='how many batches to wait before logging training status')
+parser.add_argument('--fp16-allreduce', action='store_true', default=False,
+                    help='use fp16 compression during allreduce')
+parser.add_argument('--use-adasum', action='store_true', default=False,
+                    help='use adasum algorithm to do reduction')
+parser.add_argument('--gradient-predivide-factor', type=float, default=1.0,
+                    help='apply gradient predivide factor in optimizer (default: 1.0)')
+
 
 if __name__ == '__main__':
     args = parser.parse_args()
@@ -39,9 +50,15 @@ if __name__ == '__main__':
 
     # Total worker cores
     cluster_info = cluster.get_info()
-    total_workers = cluster_info.get("total-workers")
-    if not total_workers:
-        total_workers = 1
+
+    if not args.num_proc:
+        total_worker_cpus = cluster_info.get("total-worker-cpus")
+        if total_worker_cpus:
+            args.num_proc = int(total_worker_cpus / 2)
+        if not args.num_proc:
+            args.num_proc = 1
+
+    worker_ips = cluster.get_worker_node_ips()
 
     default_storage = cluster.get_default_storage()
     if not fsdir:
@@ -52,7 +69,6 @@ if __name__ == '__main__':
 
     ml_cluster = ThisMLCluster()
     mlflow_url = ml_cluster.get_services()["mlflow"]["url"]
-    worker_ips = ml_cluster.get_worker_node_ips()
 
     # Checkpoint utilities
     CHECKPOINT_HOME = "/tmp/ml/checkpoints"
@@ -89,7 +105,7 @@ if __name__ == '__main__':
     import torch.nn as nn
     import torch.nn.functional as F
 
-    num_proc = total_workers
+    num_proc = args.num_proc
     print("Train processes: {}".format(num_proc))
 
     batch_size = args.batch_size
@@ -134,7 +150,7 @@ if __name__ == '__main__':
             loss = F.nll_loss(output, target)
             loss.backward()
             optimizer.step()
-            if batch_idx % 100 == 0:
+            if batch_idx % args.log_interval == 0:
                 print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                     epoch, batch_idx * len(data), len(data_loader) * len(data),
                     100. * batch_idx / len(data_loader), loss.item()))
@@ -173,15 +189,31 @@ if __name__ == '__main__':
 
         model = Net().to(device)
 
+        # By default, Adasum doesn't need scaling up learning rate.
+        lr_scaler = hvd.size() if not args.use_adasum else 1
+
+        if device.type == 'cuda':
+            # If using GPU Adasum allreduce, scale learning rate by local_size.
+            if args.use_adasum and hvd.nccl_built():
+                lr_scaler = hvd.local_size()
+
         # The effective batch size in synchronous distributed training is scaled by the number of workers
         # Increase learning_rate to compensate for the increased batch size
-        optimizer = optim.Adadelta(model.parameters(), lr=learning_rate)
+        optimizer = optim.Adadelta(model.parameters(), lr=learning_rate * lr_scaler)
 
-        # Wrap the local optimizer with hvd.DistributedOptimizer so that Horovod handles the distributed optimization
-        optimizer = hvd.DistributedOptimizer(optimizer, named_parameters=model.named_parameters())
-
-        # Broadcast initial parameters so all workers start with the same parameters
+        # Horovod: broadcast parameters & optimizer state.
         hvd.broadcast_parameters(model.state_dict(), root_rank=0)
+        hvd.broadcast_optimizer_state(optimizer, root_rank=0)
+
+        # Horovod: (optional) compression algorithm.
+        compression = hvd.Compression.fp16 if args.fp16_allreduce else hvd.Compression.none
+
+        # Horovod: wrap optimizer with DistributedOptimizer.
+        optimizer = hvd.DistributedOptimizer(optimizer,
+                                             named_parameters=model.named_parameters(),
+                                             compression=compression,
+                                             op=hvd.Adasum if args.use_adasum else hvd.Average,
+                                             gradient_predivide_factor=args.gradient_predivide_factor)
 
         local_checkpoint_dir = create_log_dir('pytorch-mnist-local')
         print("Log directory:", local_checkpoint_dir)
@@ -244,7 +276,10 @@ if __name__ == '__main__':
     print("Log directory:", checkpoint_dir)
 
     # Generate the host list
-    host_slots = ["{}:1".format(worker_ip) for worker_ip in worker_ips]
+    worker_num_proc = int(num_proc / len(worker_ips))
+    if not worker_num_proc:
+        worker_num_proc = 1
+    host_slots = ["{}:{}".format(worker_ip, worker_num_proc) for worker_ip in worker_ips]
     hosts = ",".join(host_slots)
     print("Hosts to run:", hosts)
 

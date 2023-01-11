@@ -106,6 +106,11 @@ from mxnet.io import DataBatch, DataIter
 
 
 def train_horovod(learning_rate):
+    if not args.no_cuda:
+        # Disable CUDA if there are no GPUs.
+        if not mx.test_utils.list_gpus():
+            args.no_cuda = True
+
     logging.basicConfig(level=logging.INFO)
     logging.info(args)
 
@@ -479,11 +484,6 @@ def train_horovod(learning_rate):
 
 if __name__ == '__main__':
     args = parser.parse_args()
-
-    if not args.no_cuda:
-        # Disable CUDA if there are no GPUs.
-        if not mx.test_utils.list_gpus():
-            args.no_cuda = True
 
     # CloudTik cluster preparation or information
     from cloudtik.runtime.spark.api import ThisSparkCluster

@@ -35,10 +35,10 @@ parser.add_argument('--num-proc', type=int,
                     help='number of worker processes for training')
 parser.add_argument('--learning-rate', type=float, default=0.0001,
                     help='initial learning rate')
-parser.add_argument('--batch-size', type=int, default=100,
+parser.add_argument('--batch-size', type=int, default=128,
                     help='batch size')
-parser.add_argument('--epochs', type=int, default=1,
-                    help='number of epochs to train')
+parser.add_argument('--epochs', type=int, default=2,
+                    help='number of epochs to train (default: 2)')
 parser.add_argument('--trials', type=int, default=2,
                     help='number of trails to parameter tuning (default: 2)')
 parser.add_argument('--sample-rate', type=float,

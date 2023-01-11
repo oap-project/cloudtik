@@ -8,8 +8,8 @@ from time import time
 parser = argparse.ArgumentParser(description='Single Node PyTorch MNIST Example')
 parser.add_argument('--batch-size', type=int, default=128,
                     help='input batch size for training (default: 128)')
-parser.add_argument('--epochs', type=int, default=1,
-                    help='number of epochs to train (default: 1)')
+parser.add_argument('--epochs', type=int, default=2,
+                    help='number of epochs to train (default: 2)')
 parser.add_argument('--trials', type=int, default=2,
                     help='number of trails to parameter tuning (default: 2)')
 parser.add_argument('--fsdir', default=None,

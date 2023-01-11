@@ -12,8 +12,8 @@ parser.add_argument('--num-proc', type=int,
                     help='number of worker processes for training')
 parser.add_argument('--batch-size', type=int, default=128,
                     help='input batch size for training (default: 128)')
-parser.add_argument('--epochs', type=int, default=1,
-                    help='number of epochs to train (default: 1)')
+parser.add_argument('--epochs', type=int, default=2,
+                    help='number of epochs to train (default: 2)')
 parser.add_argument('--trials', type=int, default=2,
                     help='number of trails to parameter tuning (default: 2)')
 parser.add_argument('--gloo', action='store_true', dest='use_gloo',

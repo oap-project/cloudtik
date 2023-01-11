@@ -10,12 +10,12 @@ import tempfile
 parser = argparse.ArgumentParser(description='MXNet MNIST Example')
 parser.add_argument('--num-proc', type=int,
                     help='number of worker processes for training')
-parser.add_argument('--batch-size', type=int, default=64,
-                    help='training batch size (default: 64)')
+parser.add_argument('--batch-size', type=int, default=128,
+                    help='training batch size (default: 128)')
 parser.add_argument('--dtype', type=str, default='float32',
                     help='training data type (default: float32)')
-parser.add_argument('--epochs', type=int, default=5,
-                    help='number of training epochs (default: 5)')
+parser.add_argument('--epochs', type=int, default=2,
+                    help='number of training epochs (default: 2)')
 parser.add_argument('--lr', type=float, default=0.01,
                     help='learning rate (default: 0.01)')
 parser.add_argument('--momentum', type=float, default=0.9,

@@ -56,7 +56,8 @@ parser.add_argument('--mpi', action='store_true', dest='use_mpi',
                          'be the default if Horovod was built with MPI support.')
 
 import torch
-import torch.backends.cudnn as cudnn
+# Since we don't have cuda:cudnn in the runtime
+# import torch.backends.cudnn as cudnn
 import torch.multiprocessing as mp
 import torch.nn.functional as F
 import torch.optim as optim
@@ -79,7 +80,8 @@ def train_horovod(learning_rate):
         torch.cuda.set_device(hvd.local_rank())
         torch.cuda.manual_seed(args.seed)
 
-    cudnn.benchmark = True
+        # Since we don't have cuda:cudnn in the runtime
+        # cudnn.benchmark = True
 
     # If set > 0, will resume training from a given checkpoint.
     resume_from_epoch = 0

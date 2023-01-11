@@ -45,6 +45,8 @@ parser.add_argument('--dtype', type=str, default='float32',
                     help='data type for training (default: float32)')
 parser.add_argument('--epochs', type=int, default=90,
                     help='number of training epochs (default: 90)')
+parser.add_argument('--epoch-samples', type=int, default=128,
+                    help='samples per epoch when use synthetic data (default: 128)')
 parser.add_argument('--lr', type=float, default=0.05,
                     help='learning rate for a single GPU (default: 0.05)')
 parser.add_argument('--momentum', type=float, default=0.9,
@@ -105,6 +107,28 @@ from mxnet import autograd, gluon, lr_scheduler
 from mxnet.io import DataBatch, DataIter
 
 
+def serialize_gluon_model(model):
+    """Serialize model into byte array."""
+    name = "gluon_model_{}".format(time.time())
+    model.export(name)
+    symbol_file = name + "-symbol.json"
+    params_file = name + "-0000.params"
+    with open(symbol_file, 'rb') as f_symbol:
+        with open(params_file, 'rb') as f_params:
+            return f_symbol.read(), f_params.read()
+
+
+def serialize_model(model):
+    """Serialize model into byte array."""
+    name = "mxnet_model_{}".format(time.time())
+    model.save_checkpoint(name, 0)
+    symbol_file = name + "-symbol.json"
+    params_file = name + "-0000.params"
+    with open(symbol_file, 'rb') as f_symbol:
+        with open(params_file, 'rb') as f_params:
+            return f_symbol.read(), f_params.read()
+
+
 def train_horovod(learning_rate):
     if not args.no_cuda:
         # Disable CUDA if there are no GPUs.
@@ -121,8 +145,8 @@ def train_horovod(learning_rate):
     local_rank = hvd.local_rank()
 
     num_classes = 1000
-    num_training_samples = 1281167
     batch_size = args.batch_size
+    num_training_samples = 1281167 if args.use_rec else args.epoch_samples * num_workers * batch_size
     epoch_size = \
         int(math.ceil(int(num_training_samples // num_workers) / batch_size))
 
@@ -389,6 +413,18 @@ def train_horovod(learning_rate):
         # Evaluate performance at the end of training
         evaluate(epoch)
 
+        if not args.use_rec:
+            logging.info('Rank[%d] training done', rank)
+
+        logging.info("Starting serialize gluon model...")
+        # Need first call block.hybridize() and then run forward with
+        # this block at least once before calling export
+        net(mx.nd.ones((1, 3, 224, 224)))
+        result = serialize_gluon_model(net)
+        logging.info("Serialize gluon model done.")
+
+        return result
+
     def train_module():
         # Create input symbol
         data = mx.sym.var('data')
@@ -475,11 +511,19 @@ def train_horovod(learning_rate):
             for name, val in res:
                 logging.info('Epoch[%d] Rank[%d] Validation-%s=%f',
                              args.epochs - 1, rank, name, val)
+        else:
+            logging.info('Rank[%d] training done', rank)
+
+        logging.info("Starting serialize model...")
+        result = serialize_model(mod)
+        logging.info("Serialize model done.")
+
+        return result
 
     if args.mode == 'module':
-        train_module()
+        return train_module()
     else:
-        train_gluon()
+        return train_gluon()
 
 
 if __name__ == '__main__':
@@ -526,8 +570,10 @@ if __name__ == '__main__':
     learning_rate = args.lr
     print("Train learning rate: {}".format(learning_rate))
 
-    horovod.run(
+    train_results = horovod.run(
         train_horovod, args=(learning_rate,),
         num_proc=num_proc, hosts=hosts,
         use_gloo=args.use_gloo, use_mpi=args.use_mpi,
-        verbose=2)
+        verbose=2)[0]
+
+    print('Training done.')

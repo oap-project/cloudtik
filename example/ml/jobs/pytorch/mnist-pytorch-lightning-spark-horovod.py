@@ -13,9 +13,9 @@ parser.add_argument('--num-proc', type=int, default=2,
 parser.add_argument('--lr', type=float, default=1.0, metavar='LR',
                     help='learning rate (default: 1.0)')
 parser.add_argument('--batch-size', type=int, default=128,
-                    help='input batch size for training')
+                    help='input batch size for training (default: 128)')
 parser.add_argument('--epochs', type=int, default=2,
-                    help='number of epochs to train')
+                    help='number of epochs to train (default: 2)')
 parser.add_argument('--work-dir', default='/tmp',
                     help='temporary working directory to write intermediate files (prefix with hdfs:// to use HDFS)')
 parser.add_argument('--data-dir', default='/tmp',

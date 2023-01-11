@@ -12,7 +12,7 @@ parser.add_argument('--num-proc', type=int, default=2,
                     help='number of worker processes for training, default: `spark.default.parallelism`')
 parser.add_argument('--lr', type=float, default=1.0, metavar='LR',
                     help='learning rate (default: 1.0)')
-parser.add_argument('--batch-size', type=int, default=64,
+parser.add_argument('--batch-size', type=int, default=128,
                     help='input batch size for training')
 parser.add_argument('--epochs', type=int, default=2,
                     help='number of epochs to train')

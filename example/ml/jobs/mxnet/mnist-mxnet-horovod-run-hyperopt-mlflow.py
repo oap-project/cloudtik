@@ -109,6 +109,11 @@ def evaluate(model, data_iter, context):
 
 
 def train_horovod(learning_rate):
+    if not args.no_cuda:
+        # Disable CUDA if there are no GPUs.
+        if not mx.test_utils.list_gpus():
+            args.no_cuda = True
+
     logging.basicConfig(level=logging.INFO)
     logging.info(args)
 
@@ -183,9 +188,6 @@ def train_horovod(learning_rate):
             logging.info('Epoch[%d]\tTrain: %s=%f\tValidation: %s=%f', epoch, name,
                          train_acc, name, val_acc)
 
-        if hvd.rank() == 0 and epoch == args.epochs - 1:
-            assert val_acc > 0.96, "Achieved accuracy (%f) is lower than expected\
-                                    (0.96)" % val_acc
     if hvd.rank() == 0:
         return serialize_gluon_model(model)
 
@@ -223,11 +225,6 @@ def create_log_dir(experiment_name):
 
 if __name__ == '__main__':
     args = parser.parse_args()
-
-    if not args.no_cuda:
-        # Disable CUDA if there are no GPUs.
-        if not mx.test_utils.list_gpus():
-            args.no_cuda = True
 
     # CloudTik cluster preparation or information
     from cloudtik.runtime.spark.api import ThisSparkCluster

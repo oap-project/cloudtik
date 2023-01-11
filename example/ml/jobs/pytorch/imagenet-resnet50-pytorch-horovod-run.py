@@ -68,6 +68,9 @@ from tqdm import tqdm
 
 
 def train_horovod(learning_rate):
+    args.cuda = args.cuda and torch.cuda.is_available()
+    allreduce_batch_size = args.batch_size * args.batches_per_allreduce
+
     hvd.init()
     torch.manual_seed(args.seed)
 
@@ -296,9 +299,6 @@ def train_horovod(learning_rate):
 
 if __name__ == '__main__':
     args = parser.parse_args()
-    args.cuda = args.cuda and torch.cuda.is_available()
-
-    allreduce_batch_size = args.batch_size * args.batches_per_allreduce
 
     # CloudTik cluster preparation or information
     from cloudtik.runtime.spark.api import ThisSparkCluster

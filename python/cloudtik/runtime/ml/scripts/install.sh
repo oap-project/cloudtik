@@ -37,7 +37,7 @@ function install_ml() {
     # Install Machine Learning libraries and components
     if [ "$ML_WITH_MXNET" == "true" ]; then
         echo "Installing deep learning frameworks: mxnet..."
-        pip -qq install mxnet==1.9.1
+        pip -qq install mxnet==1.9.1 gluoncv==0.10.5.post0
     else
         echo "Installing deep learning frameworks: tensorflow, pytorch..."
         pip -qq install tensorflow==2.9.3

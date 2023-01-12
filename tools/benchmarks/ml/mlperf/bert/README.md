@@ -22,7 +22,7 @@ for avoiding terminal disconnection in the middle. And you don't get the command
 Please refer to [CloudTik Submitting Jobs](https://cloudtik.readthedocs.io/en/latest/UserGuide/AdvancedConfigurations/submitting-jobs.html) for
 the details for run job in background.
 
-## 4. Run MLPerf Bert benchmark
+## 3. Run MLPerf Bert benchmark
 Execute the following command to run Bert training benchmark 
 ```buildoutcfg
 cloudtik exec your-cluster-config.yaml 'cd $MLPERF_HOME && bash bert/scripts/train.sh'

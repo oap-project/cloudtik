@@ -83,7 +83,7 @@ POLL_INTERVAL = 5
 
 Port_forward = Union[Tuple[int, int], List[Tuple[int, int]]]
 
-NUM_TEARDOWN_CLUSTER_STEPS_BASE = 3
+NUM_TEARDOWN_CLUSTER_STEPS_BASE = 2
 
 
 # The global shared CLI call context
@@ -316,8 +316,10 @@ def _teardown_cluster(config: Dict[str, Any],
     total_steps = NUM_TEARDOWN_CLUSTER_STEPS_BASE
     if proxy_stop:
         total_steps += 1
-    if not workers_only:
-        total_steps += 2
+    if not hard:
+        total_steps += 1
+        if not workers_only:
+            total_steps += 2
 
     if proxy_stop:
         with cli_logger.group(
@@ -325,58 +327,58 @@ def _teardown_cluster(config: Dict[str, Any],
                 _numbered=("[]", current_step, total_steps)):
             current_step += 1
             _stop_proxy(config)
+    if not hard:
+        if not workers_only:
+            with cli_logger.group(
+                    "Requesting head to stop controller services",
+                    _numbered=("[]", current_step, total_steps)):
+                current_step += 1
+                try:
+                    _stop_node_from_head(
+                        config,
+                        call_context=call_context,
+                        node_ip=None, all_nodes=False,
+                        runtimes=[CLOUDTIK_RUNTIME_NAME],
+                        indent_level=2)
+                except Exception as e:
+                    cli_logger.verbose_error("{}", str(e))
+                    cli_logger.warning(
+                        "Exception occurred when stopping controller services "
+                        "(use -v to show details).")
+                    cli_logger.warning(
+                        "Ignoring the exception and "
+                        "attempting to shut down the cluster nodes anyway.")
 
-    if not workers_only:
+        # Running teardown cluster process on head first. But we allow this to fail.
+        # Since head node problem should not prevent cluster tear down
         with cli_logger.group(
-                "Requesting head to stop controller services",
+                "Requesting head to stop workers",
                 _numbered=("[]", current_step, total_steps)):
             current_step += 1
-            try:
-                _stop_node_from_head(
-                    config,
-                    call_context=call_context,
-                    node_ip=None, all_nodes=False,
-                    runtimes=[CLOUDTIK_RUNTIME_NAME],
-                    indent_level=2)
-            except Exception as e:
-                cli_logger.verbose_error("{}", str(e))
-                cli_logger.warning(
-                    "Exception occurred when stopping controller services "
-                    "(use -v to show details).")
-                cli_logger.warning(
-                    "Ignoring the exception and "
-                    "attempting to shut down the cluster nodes anyway.")
+            _teardown_workers_from_head(
+                config,
+                call_context,
+                keep_min_workers=keep_min_workers)
 
-    # Running teardown cluster process on head first. But we allow this to fail.
-    # Since head node problem should not prevent cluster tear down
-    with cli_logger.group(
-            "Requesting head to stop workers",
-            _numbered=("[]", current_step, total_steps)):
-        current_step += 1
-        _teardown_workers_from_head(
-            config,
-            call_context,
-            keep_min_workers=keep_min_workers)
-
-    if not workers_only:
-        with cli_logger.group(
-                "Requesting head to stop head services",
-                _numbered=("[]", current_step, total_steps)):
-            current_step += 1
-            try:
-                _stop_node_from_head(
-                    config,
-                    call_context=call_context,
-                    node_ip=None, all_nodes=False,
-                    indent_level=2)
-            except Exception as e:
-                cli_logger.verbose_error("{}", str(e))
-                cli_logger.warning(
-                    "Exception occurred when stopping head services "
-                    "(use -v to show details).")
-                cli_logger.warning(
-                    "Ignoring the exception and "
-                    "attempting to shut down the cluster nodes anyway.")
+        if not workers_only:
+            with cli_logger.group(
+                    "Requesting head to stop head services",
+                    _numbered=("[]", current_step, total_steps)):
+                current_step += 1
+                try:
+                    _stop_node_from_head(
+                        config,
+                        call_context=call_context,
+                        node_ip=None, all_nodes=False,
+                        indent_level=2)
+                except Exception as e:
+                    cli_logger.verbose_error("{}", str(e))
+                    cli_logger.warning(
+                        "Exception occurred when stopping head services "
+                        "(use -v to show details).")
+                    cli_logger.warning(
+                        "Ignoring the exception and "
+                        "attempting to shut down the cluster nodes anyway.")
 
     with cli_logger.group(
             "Stopping head and remaining nodes",
@@ -405,11 +407,14 @@ def _teardown_cluster(config: Dict[str, Any],
 def _teardown_workers_from_head(
         config: Dict[str, Any],
         call_context: CallContext,
-        keep_min_workers: bool = False
+        keep_min_workers: bool = False,
+        hard: bool = False
 ):
     cmd = "cloudtik head teardown --yes"
     if keep_min_workers:
         cmd += " --keep-min-workers"
+    if hard:
+        cmd += " --hard"
     cmd += " --indent-level={}".format(2)
 
     try:
@@ -505,7 +510,7 @@ def teardown_cluster_nodes(config: Dict[str, Any],
 
         # Step 2: stop docker containers
         with _cli_logger.group(
-                "Stopping docker container for worker nodes...",
+                "Stopping docker container for nodes...",
                 _numbered=("()", current_step, total_steps)):
             current_step += 1
             _stop_docker_on_nodes(

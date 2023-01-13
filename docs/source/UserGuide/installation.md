@@ -29,6 +29,8 @@ pip install cloudtik[aws]
 ```
 
 Replace `cloudtik[aws]` with `clouditk[azure]` or `cloudtik[gcp]` if you want to create clusters on Azure or GCP.
+If you want to run on Kubernetes, install `cloudtik[kubernetes]`.
+Or  `clouditk[eks]` or `cloudtik[gke]` if you are running on AWS EKS or GCP GKE cluster.
 Use `cloudtik[all]` if you want to manage clusters with all supported Cloud providers.
 
 ## Building CloudTik from Source and Installing

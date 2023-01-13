@@ -30,6 +30,8 @@ pip install cloudtik[aws]
 ```
 
 Replace `cloudtik[aws]` with `clouditk[azure]` or `cloudtik[gcp]` if you want to create clusters on Azure or GCP.
+If you want to run on Kubernetes, install `cloudtik[kubernetes]`.
+Or  `clouditk[eks]` or `cloudtik[gke]` if you are running on AWS EKS or GCP GKE cluster.
 Use `cloudtik[all]` if you want to manage clusters with all supported Cloud providers.
 
 Please refer to [User Guide: Installation](../UserGuide/installation.md) for the package links for other Python versions.
@@ -68,6 +70,24 @@ on your working machine.
 
 If you use user account authentication, refer to [User Guide: Login to Cloud](../UserGuide/login-to-cloud.md#gcp) for details.
 
+#### Kubernetes
+If you are running CloudTik on a generic Kubernetes cluster, the authentication setup is simple.
+You just need to authenticate your kubectl at your working machine to be able to access the Kubernetes cluster.
+
+##### AWS EKS
+If you are running CloudTik on AWS EKS, CloudTik has more integration with AWS EKS
+so that your CloudTik cluster running on EKS can access the S3 storage with IAM CloudTik workspace IAM roles.
+
+You need not only to authenticate your kubectl at your working machine to be able to access the Kubernetes cluster,
+but also setup your AWS credentials following the steps in [AWS](#aws) section above.
+
+##### GCP GKE
+If you are running CloudTik on GCP GKE, CloudTik has more integration with GCP GKE
+so that your CloudTik cluster running on GKE can access the GCS storage with IAM CloudTik workspace roles.
+
+You need not only to authenticate your kubectl at your working machine to be able to access the Kubernetes cluster,
+but also setup your GCP credentials following the steps in [GCP](#gcp) section above.
+
 ### 4. Creating a Workspace for Clusters.
 Once you authenticated with your cloud provider, you can start to create a Workspace.
 
@@ -103,7 +123,8 @@ Use the following command to create and provision a Workspace:
 cloudtik workspace create /path/to/your-workspace-config.yaml
 ```
 
-Check `example/cluster` folder for more Workspace configuration file examples.
+Check [Configuration Examples](https://github.com/oap-project/cloudtik/tree/main/example/cluster) folder for more Workspace configuration file examples
+for AWS, Azure, GCP, Kubernetes (AWS EKS or GCP GKE).
 
 If you encounter problems on creating a Workspace, a common cause is that your current login account
 for the cloud doesn't have enough privileges to create some resources such as VPC, storages, public ip and so on.

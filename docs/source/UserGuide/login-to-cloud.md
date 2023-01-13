@@ -106,3 +106,56 @@ provider:
             token_uri: https://oauth2.googleapis.com/token
             refresh_token: "your_refresh_token"
 ```
+
+
+#### Kubernetes
+If you are running CloudTik on a generic Kubernetes cluster, the authentication setup is simple.
+You just need to authenticate your kubectl at your working machine to be able to access the Kubernetes cluster.
+
+##### AWS EKS
+If you are running CloudTik on AWS EKS, CloudTik has more integration with AWS EKS
+so that your CloudTik cluster running on EKS can access the S3 storage with IAM CloudTik workspace IAM roles.
+
+You need not only to authenticate your kubectl at your working machine to be able to access the Kubernetes cluster,
+but also setup your AWS credentials following the steps in [AWS](#aws) section above.
+
+Instead of setting the cloud provider configurations at 'provider" section,
+for EKS, you set the cloud provider configurations at 'cloud_provider' section under 'provider' configuration key,
+For example,
+
+```
+# Kubernetes provider specific configurations
+provider:
+    type: kubernetes
+
+    # Cloud-provider specific configuration.
+    cloud_provider:
+        type: aws
+        region: us-west-2
+        eks_cluster_name: your-eks-cluster
+        managed_cloud_storage: True
+```
+
+##### GCP GKE
+If you are running CloudTik on GCP GKE, CloudTik has more integration with GCP GKE
+so that your CloudTik cluster running on GKE can access the GCS storage with IAM CloudTik workspace roles.
+
+You need not only to authenticate your kubectl at your working machine to be able to access the Kubernetes cluster,
+but also setup your GCP credentials following the steps in [GCP](#gcp) section above.
+
+Instead of setting the cloud provider configurations at 'provider" section,
+for GKE, you set the cloud provider configurations at 'cloud_provider' section under 'provider' configuration key,
+For example,
+
+```
+# Kubernetes provider specific configurations
+provider:
+    type: kubernetes
+
+    # Cloud-provider specific configuration.
+    cloud_provider:
+        type: gcp
+        region: us-central1
+        project_id: your_gcp_project_id
+        managed_cloud_storage: True
+```

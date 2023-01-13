@@ -4,9 +4,9 @@ args=$(getopt -a -o h::p: -l head:: -- "$@")
 eval set -- "${args}"
 
 USER_HOME=/home/$(whoami)
-BENCHMARK_TOOL_HOME=/cloudtik/fs/benchmark-tools
+BENCHMARK_TOOL_HOME=$USER_HOME/runtime/benchmark-tools
 MLPERF_HOME=$BENCHMARK_TOOL_HOME/mlperf
-GITSPACE=$USER_HOME/gitspace
+MLPERF_TMP=$USER_HOME/mlperf/tmp
 
 while true
 do
@@ -49,20 +49,22 @@ function install_tools() {
 }
 
 function install_libaries() {
+    pip -qq install tensorboardX h5py
+}
 
+function install_mlperf_tools() {
+    pip -qq install "git+https://github.com/mlcommons/logging.git@2.0.0"
 }
 
 function install_mlperf() {
-    pip install "git+https://github.com/mlcommons/logging.git@2.0.0"
-}
-
-function install_mlperf_scripts() {
-  mkdir -p $GITSPACE
-  cd $GITSPACE
-  git clone https://github.com/oap-project/cloudtik.git
+  mkdir -p $MLPERF_TMP
+  cd $MLPERF_TMP
+  if [ ! -d "cloudtik" ]; then
+    git clone https://github.com/oap-project/cloudtik.git
+  fi
   rm -rf $MLPERF_HOME/*
   cp -r cloudtik/tools/benchmarks/ml/mlperf/* $MLPERF_HOME/
-
+  rm -rf $MLPERF_TMP/cloudtik
 
 }
 
@@ -73,6 +75,6 @@ function configure_mlperf() {
 prepare
 install_tools
 install_libaries
+install_mlperf_tools
 install_mlperf
-install_mlperf_scripts
 configure_mlperf

@@ -1,5 +1,6 @@
 # DL Frameworks
 tensorflow==2.9.3
+transformers==4.11.0
 
 # ML Frameworks
 scikit-learn==1.0.2

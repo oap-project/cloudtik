@@ -42,7 +42,7 @@ function install_ml() {
         echo "Installing deep learning frameworks: tensorflow, pytorch..."
         pip -qq install tensorflow==2.9.3
         pip -qq install torch==1.12.0 torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cpu
-        pip -qq install transformers==4.11.0 tensorboardX h5py
+        pip -qq install transformers==4.11.0
     fi
 
     echo "Installing machine learning tools: mlflow, hyperopt..."

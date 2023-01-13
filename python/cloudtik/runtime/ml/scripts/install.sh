@@ -56,25 +56,33 @@ function install_ml() {
     if [ "$ML_WITH_MXNET" != "true" ]; then
         pip -qq install tensorflow-addons==0.17.1
     fi
-    CLOUDTIK_CONDA_ENV=$(dirname $(dirname $(which cloudtik)))
-    conda install -q dlib=19.24.0 libffi=3.3 -p $CLOUDTIK_CONDA_ENV -c conda-forge -y > /dev/null
+    CLOUDTIK_ENV_ROOT=$(dirname $(dirname $(which cloudtik)))
+    conda install -q dlib=19.24.0 libffi=3.3 -p ${CLOUDTIK_ENV_ROOT} -c conda-forge -y > /dev/null
 
-    echo "Installing Open MPI..."
-    which mpirun > /dev/null \
-    || (mkdir /tmp/openmpi \
-    && PREV_CUR_DIR=$(pwd) \
-    && cd /tmp/openmpi \
-    && wget -q --show-progress https://www.open-mpi.org/software/ompi/v4.1/downloads/openmpi-4.1.4.tar.gz -O openmpi.tar.gz  \
-    && tar --extract --file openmpi.tar.gz --directory /tmp/openmpi --strip-components 1 --no-same-owner \
-    && echo "Open MPI: configure..." \
-    && sudo ./configure --enable-orterun-prefix-by-default CC=gcc-9 CXX=g++-9 > /dev/null 2>&1 \
-    && echo "Open MPI: make..." \
-    && sudo make -j $(nproc) all > /dev/null 2>&1 \
-    && echo "Open MPI: make install..." \
-    && sudo make install > /dev/null 2>&1 \
-    && sudo ldconfig \
-    && cd ${PREV_CUR_DIR} \
-    && sudo rm -rf /tmp/openmpi)
+    if [ "$ML_WITH_MPI" == "IntelMPI" ]; then
+        echo "Installing Intel MPI..."
+        pip -qq install impi-rt==2021.8.0 impi-devel==2021.8.0
+        # This is needed for source mpivars.sh to setup the env in this session
+        CLOUDTIK_ENV=$(basename ${CLOUDTIK_ENV_ROOT})
+        source ${CONDA_ROOT}/bin/activate ${CLOUDTIK_ENV}
+    else
+        echo "Installing Open MPI..."
+        which mpirun > /dev/null \
+        || (mkdir /tmp/openmpi \
+        && PREV_CUR_DIR=$(pwd) \
+        && cd /tmp/openmpi \
+        && wget -q --show-progress https://www.open-mpi.org/software/ompi/v4.1/downloads/openmpi-4.1.4.tar.gz -O openmpi.tar.gz  \
+        && tar --extract --file openmpi.tar.gz --directory /tmp/openmpi --strip-components 1 --no-same-owner \
+        && echo "Open MPI: configure..." \
+        && sudo ./configure --enable-orterun-prefix-by-default CC=gcc-9 CXX=g++-9 > /dev/null 2>&1 \
+        && echo "Open MPI: make..." \
+        && sudo make -j $(nproc) all > /dev/null 2>&1 \
+        && echo "Open MPI: make install..." \
+        && sudo make install > /dev/null 2>&1 \
+        && sudo ldconfig \
+        && cd ${PREV_CUR_DIR} \
+        && sudo rm -rf /tmp/openmpi)
+    fi
 
     echo "Installing Horovod..."
     if [ "$ML_WITH_MXNET" == "true" ]; then

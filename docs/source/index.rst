@@ -26,6 +26,7 @@ CloudTik provides:
    UserGuide/key-concepts.md
    UserGuide/architecture-overview.md
    UserGuide/installation.md
+   UserGuide/configuring-proxy-and-firewall.md
    UserGuide/login-to-cloud.md
    UserGuide/configuring-cloud-storage.md
    UserGuide/creating-workspace.md

@@ -25,10 +25,15 @@ setup_commands:
     - >-
         which conda || (arch=$(uname -m) && wget -q --show-progress "https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-${arch}.sh" -O /tmp/miniconda.sh &&
         /bin/bash /tmp/miniconda.sh -b -u -p ~/anaconda3  &&  ~/anaconda3/bin/conda init  && rm -rf /tmp/miniconda.sh)
+    - ((! grep -Fxq 'export CONDA_ROOT="$HOME/anaconda3"' ~/.bashrc) &&
+        echo 'export CONDA_ROOT="$HOME/anaconda3"' >> ~/.bashrc) || true
     - conda activate cloudtik_py37 || conda create -n cloudtik_py37 -y python=3.7
     - (stat $HOME/anaconda3/envs/cloudtik_py37/ &> /dev/null &&
         (! grep -Fxq 'export PATH="$HOME/anaconda3/envs/cloudtik_py37/bin:$PATH"' ~/.bashrc) &&
         echo 'export PATH="$HOME/anaconda3/envs/cloudtik_py37/bin:$PATH"' >> ~/.bashrc) || true
+    - (stat $HOME/anaconda3/envs/cloudtik_py37/ &> /dev/null &&
+        (! grep -Fxq 'source ${CONDA_ROOT}/bin/activate cloudtik_py37' ~/.bashrc) &&
+        echo 'source ${CONDA_ROOT}/bin/activate cloudtik_py37' >> ~/.bashrc) || true
 
 # CloudTik built-in start or stop commands will be added to the list automatically
 # Command to start on the head node. You don't need to change this.

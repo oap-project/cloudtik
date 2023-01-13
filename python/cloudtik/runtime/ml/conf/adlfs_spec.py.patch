@@ -1586,7 +1586,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
         container_name, path = self.split_path(rpath, delimiter=delimiter)
 
         if os.path.isdir(lpath):
+            # CloudTik: patch start
             self._mkdir(rpath, exist_ok=True)
+            # CloudTik: patch end
         else:
             try:
                 with open(lpath, "rb") as f1:

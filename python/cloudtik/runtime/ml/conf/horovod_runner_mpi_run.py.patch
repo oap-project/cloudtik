@@ -208,15 +208,23 @@ def mpi_run(settings, nics, env, command, stdout=None, stderr=None):
                     '-x %s' % key for key in sorted(env.keys()) if env_util.is_exportable(key))
 
     # CloudTik: patch start
+    def get_cloudtik_rsh():
+        cloudtik_home = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'cloudtik')
+        return os.path.join(cloudtik_home, "runtime/ml/scripts", "cloudtik-rsh.sh")
+
     if not impi_or_mpich:
         if not settings.extra_mpi_args or "-mca plm_rsh_agent" not in settings.extra_mpi_args:
-            cloudtik_home = os.path.join(
-                os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'cloudtik')
-            cloudtik_rsh = os.path.join(cloudtik_home, "runtime/ml/scripts", "cloudtik-rsh.sh")
             settings.extra_mpi_args = (
                 '{extra_mpi_args} -mca plm_rsh_agent "{rsh_agent}"'
                 .format(extra_mpi_args=settings.extra_mpi_args if settings.extra_mpi_args else '',
-                        rsh_agent=cloudtik_rsh))
+                        rsh_agent=get_cloudtik_rsh()))
+    else:
+        if not settings.extra_mpi_args or "--launcher-exec" not in settings.extra_mpi_args:
+            settings.extra_mpi_args = (
+                '{extra_mpi_args} --launcher rsh --launcher-exec "{launcher_exec}"'
+                .format(extra_mpi_args=settings.extra_mpi_args if settings.extra_mpi_args else '',
+                        launcher_exec=get_cloudtik_rsh()))
     # CloudTik: patch end
 
     # Pass all the env variables to the mpirun command.

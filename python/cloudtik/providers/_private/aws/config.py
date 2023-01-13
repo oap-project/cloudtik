@@ -1015,7 +1015,7 @@ def _configure_managed_cloud_storage_from_workspace(config, cloud_provider):
         cli_logger.abort("No managed s3 bucket was found. If you want to use managed s3 bucket, "
                          "you should set managed_cloud_storage equal to True when you creating workspace.")
 
-    cloud_storage = get_aws_s3_storage_config_for_update(cloud_provider)
+    cloud_storage = get_aws_s3_storage_config_for_update(config["provider"])
     cloud_storage[AWS_S3_BUCKET] = s3_bucket.name
 
 

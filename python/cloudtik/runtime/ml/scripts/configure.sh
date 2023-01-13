@@ -60,12 +60,20 @@ function configure_ml() {
     # Do necessary configurations for Machine Learning
     prepare_base_conf
     cd $output_dir
+
+    HOROVOD_PYTHON_HOME="${ROOT_DIR}/../../horovod"
+
     if [ $IS_HEAD_NODE == "true" ];then
         # Fix the Horovod on Spark bug for handling network interfaces of loopback
-        HOROVOD_PYTHON_HOME="${ROOT_DIR}/../../horovod"
-        SPARK_GLOO_RUN_FILE="${HOROVOD_PYTHON_HOME}/spark/gloo_run.py"
-        if [ -f "$SPARK_GLOO_RUN_FILE" ]; then
-           cp $output_dir/horovod_gloo_run.py.patch ${SPARK_GLOO_RUN_FILE}
+        HOROVOD_SPARK_GLOO_RUN_FILE="${HOROVOD_PYTHON_HOME}/spark/gloo_run.py"
+        if [ -f "${HOROVOD_SPARK_GLOO_RUN_FILE}" ]; then
+           cp $output_dir/horovod_spark_gloo_run.py.patch ${HOROVOD_SPARK_GLOO_RUN_FILE}
+        fi
+
+        # Improve Horovod on Spark for support MPICH and IMPI
+        HOROVOD_SPARK_MPI_RUN_FILE="${HOROVOD_PYTHON_HOME}/spark/mpi_run.py"
+        if [ -f "${HOROVOD_SPARK_MPI_RUN_FILE}" ]; then
+           cp $output_dir/horovod_spark_mpi_run.py.patch ${HOROVOD_SPARK_MPI_RUN_FILE}
         fi
 
         # CloudTik remote command execution for Gloo
@@ -91,6 +99,12 @@ function configure_ml() {
         if [ -f "$HOROVOD_RUNNER_DRIVER_SERVICE_FILE" ]; then
            cp $output_dir/horovod_runner_driver_service.py.patch ${HOROVOD_RUNNER_DRIVER_SERVICE_FILE}
         fi
+    fi
+
+    # Improve Horovod on Spark for support MPICH and IMPI
+    HOROVOD_SPARK_MPIRUN_EXEC_FN_FILE="${HOROVOD_PYTHON_HOME}/spark/task/mpirun_exec_fn.py"
+    if [ -f "${HOROVOD_SPARK_MPIRUN_EXEC_FN_FILE}" ]; then
+       cp $output_dir/horovod_spark_mpirun_exec_fn.py.patch ${HOROVOD_SPARK_MPIRUN_EXEC_FN_FILE}
     fi
 
     # Fix the Azure managed identity from adlfs

@@ -1542,20 +1542,23 @@ def _get_node_info(pod, provider_config, namespace, cluster_name):
 
 def with_kubernetes_environment_variables(provider_config, node_type_config: Dict[str, Any], node_id: str):
     config_dict = {}
+    cloud_provider = _get_cloud_provider_config(provider_config)
+    if cloud_provider is None:
+        return config_dict
 
-    storage_config = provider_config.get("storage", {})
+    storage_config = cloud_provider.get("storage", {})
 
     if "aws_s3_storage" in storage_config:
         from cloudtik.providers._private._kubernetes.aws_eks.config import with_aws_environment_variables
-        with_aws_environment_variables(provider_config, config_dict)
+        with_aws_environment_variables(cloud_provider, config_dict)
 
     if "gcp_cloud_storage" in storage_config:
         from cloudtik.providers._private._kubernetes.gcp_gke.config import with_gcp_environment_variables
-        with_gcp_environment_variables(provider_config, config_dict)
+        with_gcp_environment_variables(cloud_provider, config_dict)
 
     if "azure_cloud_storage" in storage_config:
         from cloudtik.providers._private._azure.utils import export_azure_cloud_storage_config
-        export_azure_cloud_storage_config(provider_config, config_dict)
+        export_azure_cloud_storage_config(cloud_provider, config_dict)
 
     return config_dict
 

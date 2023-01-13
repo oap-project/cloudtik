@@ -117,9 +117,6 @@ if __name__ == '__main__':
 
     worker_ips = cluster.get_worker_node_ips()
 
-    ml_cluster = ThisMLCluster()
-    mlflow_url = ml_cluster.get_services()["mlflow"]["url"]
-
     # Checkpoint utilities
     CHECKPOINT_HOME = "/tmp/ml/checkpoints"
 
@@ -306,7 +303,7 @@ if __name__ == '__main__':
     def test_model(model):
         data_dir = args.data_dir or './data'
         test_dataset = \
-            datasets.MNIST(data_dir, train=False, transform=transforms.Compose([
+            datasets.MNIST(data_dir, train=False, download=True, transform=transforms.Compose([
                 transforms.ToTensor(),
                 transforms.Normalize((0.1307,), (0.3081,))
             ]))

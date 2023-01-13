@@ -1653,16 +1653,16 @@ def _check_existence_for_cloud_provider(config: Dict[str, Any], namespace):
 
 
 def get_default_kubernetes_cloud_storage(provider_config):
-    cloud_provider = _get_cloud_provider_config(provider_config)
-    if cloud_provider is None:
-        return None
+    storage_config = provider_config.get("storage", {})
 
-    cloud_provider_type = cloud_provider["type"]
-    if cloud_provider_type == "aws":
+    if "aws_s3_storage" in storage_config:
         from cloudtik.providers._private._kubernetes.aws_eks.config import get_default_kubernetes_cloud_storage_for_aws
         return get_default_kubernetes_cloud_storage_for_aws(provider_config)
-    elif cloud_provider_type == "gcp":
+    elif "gcp_cloud_storage" in storage_config:
         from cloudtik.providers._private._kubernetes.gcp_gke.config import get_default_kubernetes_cloud_storage_for_gcp
         return get_default_kubernetes_cloud_storage_for_gcp(provider_config)
+    elif "azure_cloud_storage" in storage_config:
+        from cloudtik.providers._private._azure.utils import get_default_azure_cloud_storage
+        return get_default_azure_cloud_storage(provider_config)
     else:
         return None

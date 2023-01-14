@@ -1,12 +1,12 @@
 #!/bin/bash
 
-args=$(getopt -a -o h::p: -l head:: -- "$@")
+args=$(getopt -a -o h:: -l head:: -- "$@")
 eval set -- "${args}"
 
 while true
 do
     case "$1" in
-    --head)
+    -h|--head)
         IS_HEAD_NODE=true
         ;;
     --)

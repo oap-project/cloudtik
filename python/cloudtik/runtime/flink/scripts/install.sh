@@ -4,7 +4,7 @@
 BIN_DIR=`dirname "$0"`
 ROOT_DIR="$(dirname "$(dirname "$BIN_DIR")")"
 
-args=$(getopt -a -o h::p: -l head:: -- "$@")
+args=$(getopt -a -o h:: -l head:: -- "$@")
 eval set -- "${args}"
 
 IS_HEAD_NODE=false
@@ -12,7 +12,7 @@ IS_HEAD_NODE=false
 while true
 do
     case "$1" in
-    --head)
+    -h|--head)
         IS_HEAD_NODE=true
         ;;
     --)

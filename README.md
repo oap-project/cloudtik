@@ -23,21 +23,15 @@ CloudTik enables researchers, data scientists, and enterprises to easily create 
 with out-of-box optimized functionalities and performance, and to go quickly to focus on running the business workloads
 in hours or in even minutes instead of spending months to construct and optimize the platform.
 
-## CloudTik Architecture
-
-Blow diagram shows the high level concept architecture of CloudTik.
-
-![Hive Level System Architecture](docs/image/system-architecture.jpg)
-
+## High Level Concepts
 User can use CloudTik through a command line interface (CLI) or a python application programming interface (API).
 Both CLI and API provides the management operations for both workspace and cluster, for example creating a workspace or
 starting a cluster.
 
-The same CLI and API can operate on different cloud providers with a unified workspace and cluster design shown
-in the right part of the diagram.
+The same CLI and API can operate on different cloud providers with a unified workspace and cluster design.
 
 The CLI or API interacts with Cloud through two channels. It will use Cloud API to create or manage cloud provider
-resources such as launching or terminating a VM instance on cloud. It will use SSH to interact with the VM instance
+resources such as launching or terminating a VM instance on cloud. It will also use SSH to interact with the VM instance
 to perform tasks like installing, configuring and managing the services running on the VM instance.
 
 When a workspace for specific cloud provider is created, all the shared resources for implementing the unified

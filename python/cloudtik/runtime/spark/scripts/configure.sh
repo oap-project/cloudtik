@@ -433,7 +433,7 @@ function configure_gcs_fs() {
 function configure_cloud_fs() {
     cloud_storage_provider="none"
     sudo mkdir /cloudtik
-    sudo chown cloudtik /cloudtik
+    sudo chown $(whoami) /cloudtik
     if [ "$AWS_CLOUD_STORAGE" == "true" ]; then
         configure_s3_fs
     elif [ "$AZURE_CLOUD_STORAGE" == "true" ]; then

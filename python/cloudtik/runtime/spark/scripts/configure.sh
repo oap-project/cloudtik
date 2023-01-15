@@ -99,7 +99,7 @@ function set_resources_for_spark() {
 }
 
 function check_hdfs_storage() {
-    if [ -n  "${HDFS_NAMENODE_URI}" ];then
+    if [ ! -z  "${HDFS_NAMENODE_URI}" ];then
         HDFS_STORAGE="true"
     else
         HDFS_STORAGE="false"
@@ -388,6 +388,16 @@ function configure_jupyter_for_spark() {
   fi
 }
 
+function configure_local_hdfs_fs() {
+    # Nothing to do now
+    :
+}
+
+function configure_hdfs_fs() {
+    # Nothing to do now
+    :
+}
+
 function configure_s3_fs() {
     if [ -z "${AWS_S3_BUCKET}" ]; then
         echo "AWS_S3A_BUCKET environment variable is not set."
@@ -416,11 +426,12 @@ function configure_azure_blob_fs() {
         return
     fi
 
-    echo "accountName ${AZURE_STORAGE_ACCOUNT}" > ${USER_HOME}/fuse_connection.cfg
-    echo "authType MSI" >> ${USER_HOME}/fuse_connection.cfg
-    echo "identityClientId ${AZURE_MANAGED_IDENTITY_CLIENT_ID}" >> ${USER_HOME}/fuse_connection.cfg
-    echo "containerName ${AZURE_CONTAINER}" >> ${USER_HOME}/fuse_connection.cfg
-    chmod 600 ${USER_HOME}/fuse_connection.cfg
+    fuse_connection_cfg=${USER_HOME}/fuse_connection.cfg
+    echo "accountName ${AZURE_STORAGE_ACCOUNT}" > ${fuse_connection_cfg}
+    echo "authType MSI" >> ${fuse_connection_cfg}
+    echo "identityClientId ${AZURE_MANAGED_IDENTITY_CLIENT_ID}" >> ${fuse_connection_cfg}
+    echo "containerName ${AZURE_CONTAINER}" >> ${fuse_connection_cfg}
+    chmod 600 ${fuse_connection_cfg}
 }
 
 function configure_gcs_fs() {
@@ -431,15 +442,20 @@ function configure_gcs_fs() {
 }
 
 function configure_cloud_fs() {
-    cloud_storage_provider="none"
     sudo mkdir /cloudtik
     sudo chown $(whoami) /cloudtik
-    if [ "$AWS_CLOUD_STORAGE" == "true" ]; then
-        configure_s3_fs
-    elif [ "$AZURE_CLOUD_STORAGE" == "true" ]; then
-        configure_azure_blob_fs
-    elif [ "$GCP_CLOUD_STORAGE" == "true" ]; then
-        configure_gcs_fs
+    if [ "$HDFS_ENABLED" == "true" ]; then
+        configure_local_hdfs_fs
+    else
+        if [ "$HDFS_STORAGE" == "true" ]; then
+            configure_hdfs_fs
+        elif [ "$AWS_CLOUD_STORAGE" == "true" ]; then
+            configure_s3_fs
+        elif [ "$AZURE_CLOUD_STORAGE" == "true" ]; then
+            configure_azure_blob_fs
+        elif [ "$GCP_CLOUD_STORAGE" == "true" ]; then
+            configure_gcs_fs
+        fi
     fi
 }
 

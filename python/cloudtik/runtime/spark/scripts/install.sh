@@ -152,6 +152,11 @@ function install_spark_with_cloud_jars() {
     done
 }
 
+function install_hdfs_fuse() {
+    # install fuse_dfs
+    :
+}
+
 function install_s3_fuse() {
     if ! type s3fs >/dev/null 2>&1;then
       sudo apt-get update > /dev/null
@@ -178,7 +183,7 @@ function install_gcs_fuse() {
 }
 
 function install_cloud_fuse() {
-    cloud_storage_provider="none"
+    install_hdfs_fuse
     if [ "$AWS_CLOUD_STORAGE" == "true" ]; then
         install_s3_fuse
     elif [ "$AZURE_CLOUD_STORAGE" == "true" ]; then

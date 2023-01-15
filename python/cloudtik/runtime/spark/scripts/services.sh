@@ -107,7 +107,7 @@ function mount_cloud_fs() {
         check_hdfs_storage
         if [ "$HDFS_STORAGE" == "true" ]; then
             mount_hdfs_fs
-        if [ "$AWS_CLOUD_STORAGE" == "true" ]; then
+        elif [ "$AWS_CLOUD_STORAGE" == "true" ]; then
             mount_s3_fs
         elif [ "$AZURE_CLOUD_STORAGE" == "true" ]; then
             mount_azure_blob_fs

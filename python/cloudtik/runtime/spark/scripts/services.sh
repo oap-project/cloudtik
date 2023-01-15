@@ -48,7 +48,7 @@ function mount_azure_blob_fs() {
     sudo mkdir /mnt/ramdisk
     sudo mount -t tmpfs -o size=16g tmpfs /mnt/ramdisk
     sudo mkdir /mnt/ramdisk/blobfusetmp
-    sudo chown cloudtik /mnt/ramdisk/blobfusetmp
+    sudo chown $(whoami) /mnt/ramdisk/blobfusetmp
 
     mkdir -p ${CLOUD_FS_MOUNT_PATH}
     echo "Mounting Azure blob container ${AZURE_CONTAINER}@${AZURE_STORAGE_ACCOUNT} to ${CLOUD_FS_MOUNT_PATH}..."

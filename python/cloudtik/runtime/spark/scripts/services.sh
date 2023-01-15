@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Current bin directory
+BIN_DIR=`dirname "$0"`
+ROOT_DIR="$(dirname "$(dirname "$BIN_DIR")")"
+
 if [ ! -n "${HADOOP_HOME}" ]; then
     echo "HADOOP_HOME environment variable is not set."
     exit 1
@@ -11,6 +15,36 @@ if [ ! -n "${SPARK_HOME}" ]; then
 fi
 
 export CLOUD_FS_MOUNT_PATH=/cloudtik/fs
+
+# import util functions
+. "$ROOT_DIR"/common/scripts/util-functions.sh
+
+function check_hdfs_storage() {
+    if [ ! -z  "${HDFS_NAMENODE_URI}" ];then
+        HDFS_STORAGE="true"
+    else
+        HDFS_STORAGE="false"
+    fi
+}
+
+function mount_local_hdfs_fs() {
+    fs_default_dir="hdfs://${HEAD_ADDRESS}:9000"
+    # Mount local hdfs fuse here
+    # fuse_dfs ${fs_default_dir}
+
+    mkdir -p ${CLOUD_FS_MOUNT_PATH}
+    echo "Mounting HDFS ${fs_default_dir} to ${CLOUD_FS_MOUNT_PATH}..."
+    # fuse_dfs ${fs_default_dir} ${CLOUD_FS_MOUNT_PATH}
+}
+
+function mount_hdfs_fs() {
+    fs_default_dir="${HDFS_NAMENODE_URI}"
+    # Mount remote hdfs fuse here
+
+    mkdir -p ${CLOUD_FS_MOUNT_PATH}
+    echo "Mounting HDFS ${fs_default_dir} to ${CLOUD_FS_MOUNT_PATH}..."
+    # fuse_dfs ${fs_default_dir} ${CLOUD_FS_MOUNT_PATH}
+}
 
 function mount_s3_fs() {
     if [ -z "${AWS_S3_BUCKET}" ]; then
@@ -67,13 +101,19 @@ function mount_gcs_fs() {
 }
 
 function mount_cloud_fs() {
-    cloud_storage_provider="none"
-    if [ "$AWS_CLOUD_STORAGE" == "true" ]; then
-        mount_s3_fs
-    elif [ "$AZURE_CLOUD_STORAGE" == "true" ]; then
-        mount_azure_blob_fs
-    elif [ "$GCP_CLOUD_STORAGE" == "true" ]; then
-        mount_gcs_fs
+    if [ "$HDFS_ENABLED" == "true" ]; then
+        mount_local_hdfs_fs
+    else
+        check_hdfs_storage
+        if [ "$HDFS_STORAGE" == "true" ]; then
+            mount_hdfs_fs
+        if [ "$AWS_CLOUD_STORAGE" == "true" ]; then
+            mount_s3_fs
+        elif [ "$AZURE_CLOUD_STORAGE" == "true" ]; then
+            mount_azure_blob_fs
+        elif [ "$GCP_CLOUD_STORAGE" == "true" ]; then
+            mount_gcs_fs
+        fi
     fi
 }
 
@@ -84,7 +124,12 @@ function unmount_cloud_fs() {
 
 case "$1" in
 start-head)
+    IS_HEAD_NODE=true
+    set_head_address
+
+    # Mount cloud filesystem or hdfs
     mount_cloud_fs
+
     echo "Starting Resource Manager..."
     $HADOOP_HOME/bin/yarn --daemon start resourcemanager
     echo "Starting Spark History Server..."
@@ -93,6 +138,9 @@ start-head)
     nohup jupyter lab --no-browser > /tmp/logs/jupyterlab.log 2>&1 &
     ;;
 stop-head)
+    IS_HEAD_NODE=true
+    set_head_address
+
     $HADOOP_HOME/bin/yarn --daemon stop resourcemanager
     $SPARK_HOME/sbin/stop-history-server.sh
     # workaround for stopping jupyter when password being set
@@ -101,13 +149,20 @@ stop-head)
       echo "Stopping Jupyter..."
       kill $JUPYTER_PID >/dev/null 2>&1
     fi
+
     unmount_cloud_fs
     ;;
 start-worker)
+    IS_HEAD_NODE=false
+    set_head_address
+
     mount_cloud_fs
     $HADOOP_HOME/bin/yarn --daemon start nodemanager
     ;;
 stop-worker)
+    IS_HEAD_NODE=false
+    set_head_address
+
     $HADOOP_HOME/bin/yarn --daemon stop nodemanager
     unmount_cloud_fs
     ;;

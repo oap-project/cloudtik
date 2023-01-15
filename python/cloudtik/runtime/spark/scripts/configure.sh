@@ -388,80 +388,58 @@ function configure_jupyter_for_spark() {
   fi
 }
 
-export MOUNT_PATH=/cloudtik/fs
-
-function mount_s3_fs() {
-    if [ ! -n "${AWS_S3_BUCKET}" ]; then
+function configure_s3_fs() {
+    if [ -z "${AWS_S3_BUCKET}" ]; then
         echo "AWS_S3A_BUCKET environment variable is not set."
         return
     fi
 
-    IAM_FLAG=""
-    if [ ! -n "${AWS_S3_ACCESS_KEY_ID}" ] || [ ! -n "${AWS_S3_SECRET_ACCESS_KEY}" ]; then
-        IAM_FLAG="-o iam_role=auto"
-    else
+    if [ ! -z "${AWS_S3_ACCESS_KEY_ID}" ] && [ ! -z "${AWS_S3_SECRET_ACCESS_KEY}" ]; then
         echo "${AWS_S3_ACCESS_KEY_ID}:${AWS_S3_SECRET_ACCESS_KEY}" > ${USER_HOME}/.passwd-s3fs
         chmod 600 ${USER_HOME}/.passwd-s3fs
     fi
-
-    mkdir -p ${MOUNT_PATH}
-    echo "Mounting S3 bucket ${AWS_S3_BUCKET}..."
-    s3fs ${AWS_S3_BUCKET} -o use_cache=/tmp -o mp_umask=002 -o multireq_max=5 ${IAM_FLAG} ${MOUNT_PATH} > /dev/null
 }
 
-function mount_azure_blob_fs() {
-    if [ ! -n "${AZURE_CONTAINER}" ]; then
+function configure_azure_blob_fs() {
+    if [ -z "${AZURE_CONTAINER}" ]; then
         echo "AZURE_CONTAINER environment variable is not set."
         return
     fi
 
-    if [ ! -n "${AZURE_MANAGED_IDENTITY_CLIENT_ID}" ]; then
+    if [ -z "${AZURE_MANAGED_IDENTITY_CLIENT_ID}" ]; then
         echo "AZURE_MANAGED_IDENTITY_CLIENT_ID environment variable is not set."
         return
     fi
 
-    if [ ! -n "${AZURE_STORAGE_ACCOUNT}" ]; then
+    if [ -z "${AZURE_STORAGE_ACCOUNT}" ]; then
         echo "AZURE_STORAGE_ACCOUNT environment variable is not set."
         return
     fi
-
-    #Use a ramdisk for the temporary path
-    sudo mkdir /mnt/ramdisk
-    sudo mount -t tmpfs -o size=16g tmpfs /mnt/ramdisk
-    sudo mkdir /mnt/ramdisk/blobfusetmp
-    sudo chown cloudtik /mnt/ramdisk/blobfusetmp
 
     echo "accountName ${AZURE_STORAGE_ACCOUNT}" > ${USER_HOME}/fuse_connection.cfg
     echo "authType MSI" >> ${USER_HOME}/fuse_connection.cfg
     echo "identityClientId ${AZURE_MANAGED_IDENTITY_CLIENT_ID}" >> ${USER_HOME}/fuse_connection.cfg
     echo "containerName ${AZURE_CONTAINER}" >> ${USER_HOME}/fuse_connection.cfg
     chmod 600 ${USER_HOME}/fuse_connection.cfg
-    mkdir -p ${MOUNT_PATH}
-    echo "Mounting Azure blob container ${AZURE_CONTAINER}@${AZURE_STORAGE_ACCOUNT}..."
-    blobfuse ${MOUNT_PATH} --tmp-path=/mnt/ramdisk/blobfusetmp --config-file=${USER_HOME}/fuse_connection.cfg -o attr_timeout=240 -o entry_timeout=240 -o negative_timeout=120 > /dev/null
 }
 
-function mount_gcs_fs() {
-    if [ ! -n "${GCP_GCS_BUCKET}" ]; then
+function configure_gcs_fs() {
+    if [ -z "${GCP_GCS_BUCKET}" ]; then
         echo "GCP_GCS_BUCKET environment variable is not set."
         return
     fi
-
-    mkdir -p ${MOUNT_PATH}
-    echo "Mounting GCS bucket ${GCP_GCS_BUCKET}..."
-    gcsfuse ${GCP_GCS_BUCKET} ${MOUNT_PATH} > /dev/null
 }
 
-function mount_cloud_fs() {
+function configure_cloud_fs() {
     cloud_storage_provider="none"
     sudo mkdir /cloudtik
     sudo chown cloudtik /cloudtik
     if [ "$AWS_CLOUD_STORAGE" == "true" ]; then
-        mount_s3_fs
+        configure_s3_fs
     elif [ "$AZURE_CLOUD_STORAGE" == "true" ]; then
-        mount_azure_blob_fs
+        configure_azure_blob_fs
     elif [ "$GCP_CLOUD_STORAGE" == "true" ]; then
-        mount_gcs_fs
+        configure_gcs_fs
     fi
 }
 
@@ -471,6 +449,6 @@ set_resources_for_spark
 configure_system_folders
 configure_hadoop_and_spark
 configure_jupyter_for_spark
-mount_cloud_fs
+configure_cloud_fs
 
 exit 0

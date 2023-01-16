@@ -1,10 +1,12 @@
-# ML Frameworks
-scikit-learn==1.0.2
-
 # ML Tools
 mlflow==1.27.0
 pyarrow==8.0.0
 hyperopt==0.2.7
+
+# ML Frameworks
+scikit-learn==1.0.2
+
+# DL Frameworks
 
 # For deep learning cases about music and audio analysis
 librosa==0.9.2

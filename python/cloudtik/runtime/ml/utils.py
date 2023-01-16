@@ -43,6 +43,10 @@ def _with_runtime_environment_variables(runtime_config, config, provider, node_i
     if with_mxnet:
         runtime_envs["ML_WITH_MXNET"] = with_mxnet
 
+    with_oneapi = ml_config.get("with_oneapi")
+    if with_oneapi:
+        runtime_envs["ML_WITH_ONEAP"] = with_oneapi
+
     with_mpi = ml_config.get("with_mpi")
     if with_mpi:
         runtime_envs["ML_WITH_MPI"] = with_mpi

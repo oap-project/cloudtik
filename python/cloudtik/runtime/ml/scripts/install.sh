@@ -59,7 +59,7 @@ function install_ml() {
     CLOUDTIK_ENV_ROOT=$(dirname $(dirname $(which cloudtik)))
     conda install -q dlib=19.24.0 libffi=3.3 -p ${CLOUDTIK_ENV_ROOT} -c conda-forge -y > /dev/null
 
-    if [ "$ML_WITH_MPI" == "IntelMPI" ]; then
+    if [ "$ML_WITH_ONEAPI" == "true" ] || [ "$ML_WITH_MPI" == "IntelMPI" ]; then
         echo "Installing Intel MPI..."
         pip -qq install impi-rt==2021.8.0 impi-devel==2021.8.0
         # This is needed for source mpivars.sh to setup the env in this session

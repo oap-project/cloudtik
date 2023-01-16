@@ -759,6 +759,10 @@
                             "description": "Whether to use mxnet deep learning framework. (MXNet conflicts with Tensorflow or Pytorch)",
                             "default": false
                         },
+                        "with_oneapi": {
+                            "type": "boolean",
+                            "description": "Whether to enable oneAPI frameworks and libraries for ML/DL"
+                        },
                         "with_mpi": {
                             "type": "string",
                             "description": "Select the MPI implementation values (OpenMPI, IntelMPI, MPICH)"

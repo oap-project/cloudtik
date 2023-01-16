@@ -490,7 +490,6 @@ def post_prepare_kubernetes(config: Dict[str, Any]) -> Dict[str, Any]:
         # Because fill resources will use the pod resources as a source of truth to resources
         # and set the resources field in the node type for other usage
         _configure_pod_container(config)
-        print("aaa")
         config = fill_resources_kubernetes(config)
     except Exception as exc:
         cli_logger.warning(

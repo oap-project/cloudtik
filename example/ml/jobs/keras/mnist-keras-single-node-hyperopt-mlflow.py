@@ -30,7 +30,7 @@ if __name__ == '__main__':
     if not fsdir:
         fsdir = default_storage.get("default.storage.uri") if default_storage else None
         if not fsdir:
-            print("Must specify storage filesystem dir using -f.")
+            print("Must specify storage filesystem dir using --fsdir.")
             sys.exit(1)
 
     ml_cluster = ThisMLCluster()

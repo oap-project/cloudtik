@@ -42,7 +42,7 @@ parser.add_argument('--data-dir',
                     help='location of data on local filesystem (prefixed with file://) or on distributed storage')
 parser.add_argument('--work-dir',
                     help='temporary working directory to write intermediate files (prefix with hdfs:// to use HDFS)')
-parser.add_argument('--fsdir',
+parser.add_argument('--fsdir', '-f',
                     help='the file system dir (default: None)')
 parser.add_argument('--local-submission-csv', default='submission.csv',
                     help='output submission predictions CSV')

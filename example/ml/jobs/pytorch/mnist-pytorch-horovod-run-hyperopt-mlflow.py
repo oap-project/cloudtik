@@ -14,7 +14,7 @@ parser.add_argument('--epochs', type=int, default=2,
                     help='number of epochs to train (default: 2)')
 parser.add_argument('--trials', type=int, default=2,
                     help='number of trails to parameter tuning (default: 2)')
-parser.add_argument('--fsdir', default=None,
+parser.add_argument('--fsdir', '-f', default=None,
                     help='the file system dir (default: None)')
 parser.add_argument('--gloo', action='store_true', dest='use_gloo',
                     help='Run Horovod using the Gloo controller. This will '

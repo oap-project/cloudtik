@@ -22,7 +22,7 @@ parser.add_argument('--data-dir', default='/tmp',
                     help='location of the training dataset in the local filesystem (will be downloaded if needed)')
 parser.add_argument('--enable-profiler', action='store_true',
                     help='Enable profiler')
-parser.add_argument('--fsdir', default=None,
+parser.add_argument('--fsdir', '-f', default=None,
                     help='the file system dir (default: None)')
 parser.add_argument('--gloo', action='store_true', dest='use_gloo',
                     help='Run Horovod using the Gloo controller. This will '

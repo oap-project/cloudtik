@@ -79,7 +79,7 @@ function install_ml() {
         echo "Installing Intel MPI..."
         ONEAPI_MPI_HOME=/opt/intel/oneapi/mpi
         if [ ! -d "${ONEAPI_MPI_HOME}" ]; then
-            sudo apt-get -qq install -y intel-oneapi-mpi-2021.8.0 intel-oneapi-mpi-devel-2021.8.0
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install -y intel-oneapi-mpi-2021.8.0 intel-oneapi-mpi-devel-2021.8.0 > /dev/null
             echo "if [ -f '/opt/intel/oneapi/mpi/latest/env/vars.sh' ]; then . '/opt/intel/oneapi/mpi/latest/env/vars.sh'; fi" >> ~/.bashrc
         fi
         source ${ONEAPI_MPI_HOME}/latest/env/vars.sh
@@ -107,7 +107,7 @@ function install_ml() {
         ONEAPI_COMPILER_HOME=/opt/intel/oneapi/compiler
         ONEAPI_TBB_HOME=/opt/intel/oneapi/tbb
         if [ ! -d "${ONEAPI_COMPILER_HOME}" ]; then
-            sudo apt-get -qq install -y intel-oneapi-compiler-dpcpp-cpp-runtime-2023.0.0 intel-oneapi-compiler-shared-runtime-2023.0.0
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install -y intel-oneapi-compiler-dpcpp-cpp-runtime-2023.0.0 intel-oneapi-compiler-shared-runtime-2023.0.0 > /dev/null
             echo "if [ -f '/opt/intel/oneapi/tbb/latest/env/vars.sh' ]; then . '/opt/intel/oneapi/tbb/latest/env/vars.sh'; fi" >> ~/.bashrc
             echo "if [ -f '/opt/intel/oneapi/compiler/latest/env/vars.sh' ]; then . '/opt/intel/oneapi/compiler/latest/env/vars.sh'; fi" >> ~/.bashrc
         fi
@@ -116,10 +116,10 @@ function install_ml() {
 
         ONEAPI_CCL_HOME=/opt/intel/oneapi/ccl
         if [ ! -d "${ONEAPI_CCL_HOME}" ]; then
-            sudo apt-get -qq install -y intel-oneapi-ccl-2021.8.0 intel-oneapi-ccl-devel-2021.8.0
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install -y intel-oneapi-ccl-2021.8.0 intel-oneapi-ccl-devel-2021.8.0 > /dev/null
             echo "if [ -f '/opt/intel/oneapi/ccl/latest/env/vars.sh' ]; then . '/opt/intel/oneapi/ccl/latest/env/vars.sh'; fi" >> ~/.bashrc
         fi
-        source {ONEAPI_CCL_HOME}/latest/env/vars.sh
+        source ${ONEAPI_CCL_HOME}/latest/env/vars.sh
         # Configure Horovod to use CCL
         export HOROVOD_CPU_OPERATIONS=CCL
     fi

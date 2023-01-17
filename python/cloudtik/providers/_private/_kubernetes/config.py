@@ -489,7 +489,7 @@ def post_prepare_kubernetes(config: Dict[str, Any]) -> Dict[str, Any]:
         # Configure pod container resource should be done before fill resources
         # Because fill resources will use the pod resources as a source of truth to resources
         # and set the resources field in the node type for other usage
-        _configure_pod_container_resources(config)
+        _configure_pod_container(config)
         config = fill_resources_kubernetes(config)
     except Exception as exc:
         cli_logger.warning(
@@ -779,7 +779,7 @@ def _configure_pod_container_ports(config):
     container_data["ports"] = ports
 
 
-def _configure_pod_container_resources(config):
+def _configure_pod_container(config):
     if "available_node_types" not in config:
         return
 
@@ -791,6 +791,27 @@ def _configure_pod_container_resources(config):
             containers = node_config["pod"]["spec"]["containers"]
             for container in containers:
                 _configure_container_resources(resources, container)
+                _configure_container_options(container)
+                _configure_container_volume_mounts(container)
+            volumes = node_config["pod"]["spec"].get("volumes", [])
+            volumes += [{"name": 'devfuse', "hostPath": {"path": "/dev/fuse"}}]
+            node_config["pod"]["spec"]["volumes"] = volumes
+
+
+def _configure_container_options(container):
+    container["securityContext"] = {
+          "privileged": True,
+          "capabilities": {
+            "add": ["SYS_ADMIN"]
+          }
+        }
+
+
+def _configure_container_volume_mounts(container):
+    fuse_mount = [{"name": "devfuse", "mountPath": "/dev/fuse"}]
+    mounts = container.get("volumeMounts", [])
+    mounts += fuse_mount
+    container["volumeMounts"] = mounts
 
 
 def _configure_container_resources(resources, container):

@@ -805,7 +805,6 @@ def _configure_container_options(container):
             "add": ["SYS_ADMIN"]
           }
         }
-    pass
 
 
 def _configure_container_volume_mounts(container):

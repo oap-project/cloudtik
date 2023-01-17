@@ -18,7 +18,7 @@ parser.add_argument('--epochs', type=int, default=2,
                     help='number of epochs to train (default: 2)')
 parser.add_argument('--trials', type=int, default=2,
                     help='number of trails to parameter tuning (default: 2)')
-parser.add_argument('--fsdir', '-f', default=None,
+parser.add_argument('--fsdir', default=None,
                     help='the file system dir (default: None)')
 parser.add_argument('--gloo', action='store_true', dest='use_gloo',
                     help='Run Horovod using the Gloo controller. This will '
@@ -57,7 +57,7 @@ if __name__ == '__main__':
     if not fsdir:
         fsdir = default_storage.get("default.storage.uri") if default_storage else None
         if not fsdir:
-            print("Must specify storage filesystem dir using -f.")
+            print("Must specify storage filesystem dir using --fsdir.")
             sys.exit(1)
 
     ml_cluster = ThisMLCluster()

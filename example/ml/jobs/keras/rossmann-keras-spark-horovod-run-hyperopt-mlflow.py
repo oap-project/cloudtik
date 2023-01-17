@@ -48,7 +48,7 @@ parser.add_argument('--data-dir',
                     help='location of data on local filesystem (prefixed with file://) or on distributed storage')
 parser.add_argument('--work-dir',
                     help='temporary working directory to write intermediate files (prefix with hdfs:// to use HDFS)')
-parser.add_argument('--fsdir', '-f',
+parser.add_argument('--fsdir',
                     help='the file system dir (default: None)')
 parser.add_argument('--local-submission-csv', default='submission.csv',
                     help='output submission predictions CSV on local filesystem (without file:// prefix)')
@@ -89,7 +89,7 @@ if __name__ == '__main__':
     if not fsdir:
         fsdir = default_storage.get("default.storage.uri") if default_storage else None
         if not fsdir:
-            print("Must specify storage filesystem dir using -f.")
+            print("Must specify storage filesystem dir using --fsdir.")
             sys.exit(1)
 
     ml_cluster = ThisMLCluster()

@@ -1,6 +1,23 @@
 ARG BASE_IMAGE="nightly"
 FROM cloudtik/spark-ml-base:"$BASE_IMAGE"
 
+RUN wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB \
+        | gpg --dearmor | sudo tee /usr/share/keyrings/oneapi-archive-keyring.gpg > /dev/null \
+    # add signed entry to apt sources and configure the APT client to use Intel repository:
+    && echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg] https://apt.repos.intel.com/oneapi all main" \
+        | sudo tee /etc/apt/sources.list.d/oneAPI.list \
+    && sudo apt-get update -y \
+    && sudo apt-get install -y \
+        intel-oneapi-mpi-2021.8.0 \
+        intel-oneapi-mpi-devel-2021.8.0 \
+        intel-oneapi-compiler-dpcpp-cpp-runtime-2023.0.0 \
+        intel-oneapi-compiler-shared-runtime-2023.0.0 \
+        intel-oneapi-ccl-2021.8.0 \
+        intel-oneapi-ccl-devel-2021.8.0 \
+    && echo "if [ -f '/opt/intel/oneapi/mpi/latest/env/vars.sh' ]; then . '/opt/intel/oneapi/mpi/latest/env/vars.sh'; fi" >> ~/.bashrc \
+    && echo "if [ -f '/opt/intel/oneapi/compiler/latest/env/vars.sh' ]; then . '/opt/intel/oneapi/compiler/latest/env/vars.sh'; fi" >> ~/.bashrc \
+    && echo "if [ -f '/opt/intel/oneapi/ccl/latest/env/vars.sh' ]; then . '/opt/intel/oneapi/ccl/latest/env/vars.sh'; fi" >> ~/.bashrc
+
 WORKDIR /home/cloudtik/
 COPY requirements.txt /tmp/requirements.txt
 RUN export PATH="$HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH" \
@@ -9,9 +26,11 @@ RUN export PATH="$HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH" \
     && sudo rm /tmp/requirements.txt \
     # Install deep learning libraries (PyTorch and torch tools)
     && pip install torch==1.12.0 torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cpu \
-    # Install IntelMPI
-    && pip -qq install impi-rt==2021.8.0 impi-devel==2021.8.0 \
-    && source ${CONDA_ROOT}/bin/activate ${CLOUDTIK_ENV} \
+    # Source the mpi and ccl vars
+    && source /opt/intel/oneapi/mpi/latest/env/vars.sh \
+    && source /opt/intel/oneapi/compiler/latest/env/vars.sh \
+    && source /opt/intel/oneapi/ccl/latest/env/vars.sh \
     # Install Horovod
+    && export HOROVOD_CPU_OPERATIONS=CCL \
     && export CXX=/usr/bin/g++-9 \
     && HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITHOUT_MXNET=1 HOROVOD_WITH_GLOO=1 HOROVOD_WITH_MPI=1 pip install horovod[tensorflow,keras,pytorch,spark,pytorch-spark]==0.25.0

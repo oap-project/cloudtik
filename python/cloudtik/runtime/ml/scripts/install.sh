@@ -67,12 +67,15 @@ function install_ml() {
     CLOUDTIK_ENV_ROOT=$(dirname $(dirname $(which cloudtik)))
     conda install -q dlib=19.24.0 libffi=3.3 -p ${CLOUDTIK_ENV_ROOT} -c conda-forge -y > /dev/null
 
-    if [ "$ML_WITH_ONEAPI" == "true" ] || [ "$ML_WITH_ONECCL" == "true" ] || [ "$ML_WITH_ONECCL" == "true" ]; then
+    if [ "$ML_WITH_ONEAPI" == "true" ] || \
+       [ "$ML_WITH_INTEL_MPI" == "true" ] || \
+       [ "$ML_WITH_MPI" == "IntelMPI" ] || \
+       [ "$ML_WITH_ONECCL" == "true" ]; then
         setup_oneapi_repository
     fi
 
     # Installing MPI
-    if [ "$ML_WITH_ONEAPI" == "true" ] || [ "$ML_WITH_MPI" == "IntelMPI" ]; then
+    if [ "$ML_WITH_ONEAPI" == "true" ] || [ "$ML_WITH_INTEL_MPI" == "true" ] || [ "$ML_WITH_MPI" == "IntelMPI" ]; then
         echo "Installing Intel MPI..."
         ONEAPI_MPI_HOME=/opt/intel/oneapi/mpi
         if [ ! -d "${ONEAPI_MPI_HOME}" ]; then

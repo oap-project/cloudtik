@@ -102,10 +102,13 @@ function install_ml() {
     if [ "$ML_WITH_ONEAPI" == "true" ] || [ "$ML_WITH_ONECCL" == "true" ]; then
         echo "Installing oneCCL..."
         ONEAPI_COMPILER_HOME=/opt/intel/oneapi/compiler
+        ONEAPI_TBB_HOME=/opt/intel/oneapi/tbb
         if [ ! -d "${ONEAPI_COMPILER_HOME}" ]; then
             sudo apt-get -qq install -y intel-oneapi-compiler-dpcpp-cpp-runtime-2023.0.0 intel-oneapi-compiler-shared-runtime-2023.0.0
+            echo "if [ -f '/opt/intel/oneapi/tbb/latest/env/vars.sh' ]; then . '/opt/intel/oneapi/tbb/latest/env/vars.sh'; fi" >> ~/.bashrc
             echo "if [ -f '/opt/intel/oneapi/compiler/latest/env/vars.sh' ]; then . '/opt/intel/oneapi/compiler/latest/env/vars.sh'; fi" >> ~/.bashrc
         fi
+        source ${ONEAPI_TBB_HOME}/latest/env/vars.sh
         source ${ONEAPI_COMPILER_HOME}/latest/env/vars.sh
 
         ONEAPI_CCL_HOME=/opt/intel/oneapi/ccl

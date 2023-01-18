@@ -22,9 +22,9 @@ from azure.core.exceptions import ResourceNotFoundError
 from azure.storage.blob import BlobServiceClient
 from azure.storage.filedatalake import DataLakeServiceClient
 
-from cloudtik.providers._private._azure.utils import _get_node_info, get_azure_sdk_function, get_credential, \
-    construct_resource_client, construct_network_client, construct_storage_client, _construct_storage_client, \
-    construct_authorization_client, construct_manage_server_identity_client, construct_compute_client, \
+from cloudtik.providers._private._azure.utils import _get_node_info, get_credential, \
+    construct_resource_client, construct_network_client, _construct_storage_client, \
+    construct_authorization_client, construct_compute_client, \
     _construct_compute_client, _construct_resource_client, export_azure_cloud_storage_config, \
     get_azure_cloud_storage_config, get_azure_cloud_storage_config_for_update, get_azure_cloud_storage_uri, \
     _construct_manage_server_identity_client, _construct_authorization_client
@@ -1035,7 +1035,11 @@ def _create_workspace(config):
                 _create_role_assignments(config, resource_group_name)
 
             if managed_cloud_storage:
-                _create_workspace_cloud_storage(config, resource_group_name)
+                with cli_logger.group(
+                        "Creating managed cloud storage",
+                        _numbered=("[]", current_step, total_steps)):
+                    current_step += 1
+                    _create_workspace_cloud_storage(config, resource_group_name)
 
     except Exception as e:
         cli_logger.error("Failed to create workspace with the name {}. "
@@ -1506,7 +1510,7 @@ def _create_user_assigned_identity_for_worker(config, resource_group_name):
 
 
 def _create_user_assigned_identity(provider_config, resource_group_name, user_assigned_identity_name):
-    location = ["location"]
+    location = provider_config["location"]
     msi_client = _construct_manage_server_identity_client(provider_config)
 
     cli_logger.print("Creating workspace user assigned identity: {} on Azure...", user_assigned_identity_name)

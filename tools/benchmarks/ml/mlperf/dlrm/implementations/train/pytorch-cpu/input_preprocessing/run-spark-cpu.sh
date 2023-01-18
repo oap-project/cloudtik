@@ -31,10 +31,10 @@ export FREQUENCY_LIMIT=${3:-'15'}
 # spark local dir should have about 3TB
 # the temporary path used for spark shuffle write
 #export SPARK_LOCAL_DIRS='/tmp'
-#
-## below numbers should be adjusted according to the resource of your running environment
-## set the total number of CPU cores, spark can use
-#export TOTAL_CORES=88
+
+# below numbers should be adjusted according to the resource of your running environment
+# set the total number of CPU cores, spark can use
+export TOTAL_CORES=$(cloudtik resources --cpu)
 #
 ## set the number of executors
 #export NUM_EXECUTORS=8

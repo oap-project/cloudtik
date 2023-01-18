@@ -23,7 +23,8 @@ from typing import Sequence
 
 # Workaround to avoid duplicating code from the main module, without building it outright.
 import sys
-sys.path.append('/workspace/dlrm')
+sys.path.append("$HOME/DeepLearningExamples/PyTorch/Recommendation/DLRM/dlrm")
+
 from dlrm.data.defaults import get_categorical_feature_type
 from dlrm.data.feature_spec import FeatureSpec
 

@@ -36,6 +36,8 @@ else
     bash run-spark-cpu.sh $2 ${download_dir} ${output_path}
 fi
 
+hadoop fs -get $HOME/data/dlrm/output $HOME/data/dlrm/
+
 conversion_intermediate_dir=${conversion_intermediate_dir:-"$HOME/data/dlrm/intermediate_binary"}
 final_output_dir=${final_output_dir:-"$HOME/data/dlrm/binary_dataset"}
 
@@ -53,6 +55,7 @@ else
 
     cp "${output_path}/model_size.json" "${final_output_dir}/model_size.json"
 
+    git clone https://github.com/NVIDIA/DeepLearningExamples  $HOME/DeepLearningExamples
     python split_dataset.py --dataset "${final_output_dir}" --output "${final_output_dir}/split"
     rm ${final_output_dir}/train_data.bin
     rm ${final_output_dir}/validation_data.bin
@@ -63,7 +66,7 @@ else
     rm -rf ${final_output_dir}/split
 fi
 
-echo "Done preprocessing the Criteo Kaggle Dataset"
+echo "Done preprocessing the Criteo Terabyte dataset"
 
 
 

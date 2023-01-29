@@ -1,10 +1,12 @@
 import yaml
 import subprocess
+import os
 
-cluster_config_file = "~/cloudtik_bootstrap_config.yaml"
+home = os.environ['HOME']
+cluster_config_file = f"{home}/cloudtik_bootstrap_config.yaml"
 template_spark_yaml = "/tmp/default-spark.yaml.template"
 template_spark_yaml_url = "https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ml/tpcx-ai/confs/default-spark.yaml.template"
-tpcx_ai_default_spark_yaml = "~/runtime/benchmark-tools/tpcx-ai/driver/config/default-spark.yaml"
+tpcx_ai_default_spark_yaml = f"{home}/runtime/benchmark-tools/tpcx-ai/driver/config/default-spark.yaml"
 
 if __name__ == '__main__':
     from cloudtik.runtime.spark.api import ThisSparkCluster
@@ -45,14 +47,25 @@ if __name__ == '__main__':
     if worker_num < 2 and executor_cores_horovod == 1:
         executor_cores_horovod = 2
 
-    dict = {'{%case02_executor_cores_horovod%}': str(executor_cores_horovod),
+    threads_num = int(yarn_container_maximum_vcores / executor_cores_horovod)
+
+    dict = \
+    {
+            '{%case02_executor_cores_horovod%}': str(executor_cores_horovod),
             '{%case05_executor_cores_horovod%}': str(executor_cores_horovod),
             '{%case09_executor_cores_horovod%}': str(executor_cores_horovod),
             '{%spark.executor.cores%}': str(yarn_container_maximum_vcores),
             '{%spark.executor.instances%}': str(number_of_executors),
             '{%spark.driver.memory%}': str(spark_driver_memory),
             '{%spark.executor.memory%}': str(spark_executor_memory),
-            '{%spark.executor.memoryOverhead%}': str(spark_executor_memoryOverhead)}
+            '{%spark.executor.memoryOverhead%}': str(spark_executor_memoryOverhead),
+            '{%Case02_TF_NUM_INTEROP_THREADS%}': str(threads_num),
+            '{%Case02_TF_NUM_INTRAOP_THREADS%}': str(threads_num),
+            '{%Case05_TF_NUM_INTEROP_THREADS%}': str(threads_num),
+            '{%Case05_TF_NUM_INTRAOP_THREADS%}': str(threads_num),
+            '{%Case09_TF_NUM_INTEROP_THREADS%}': str(threads_num),
+            '{%Case09_TF_NUM_INTRAOP_THREADS%}': str(threads_num)
+    }
 
     download_template_spark_yaml()
     replace_conf_value(template_spark_yaml, dict)

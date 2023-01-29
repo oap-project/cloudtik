@@ -65,30 +65,42 @@ workload:
     --conf spark.rpc.message.maxSize=1024
     --deploy-mode client
     --driver-java-options '-Xss128m'
-    --driver-memory {%spark.driver.memory%}
+    --driver-memory {%spark.driver.memory%}M
     --master yarn"
   engine_executable: &ENGINE "$engine_base
     --num-executors {%spark.executor.instances%}
     --executor-cores {%spark.executor.cores%}
-    --executor-memory {%spark.executor.memory%}
+    --executor-memory {%spark.executor.memory%}M
     --conf spark.executor.memoryOverhead={%spark.executor.memoryOverhead%}
     --jars '$tpcxai_home/lib/*.jar'"
   engine_executable_dl2: &ENGINE_DL2 "$engine_base
     --num-executors {%spark.executor.instances%}
     --executor-cores {%spark.executor.cores%}
-    --executor-memory {%spark.executor.memory%}
+    --executor-memory {%spark.executor.memory%}M
     --conf spark.executor.memoryOverhead={%spark.executor.memoryOverhead%}
+    --conf spark.executorEnv.TF_NUM_INTEROP_THREADS={%Case02_TF_NUM_INTEROP_THREADS%}
+    --conf spark.executorEnv.TF_NUM_INTRAOP_THREADS={%Case02_TF_NUM_INTRAOP_THREADS%}
     --jars '$tpcxai_home/lib/*.jar'"
   engine_executable_dl5: &ENGINE_DL5 "$engine_base
     --num-executors {%spark.executor.instances%}
     --executor-cores {%case05_executor_cores_horovod%}
-    --executor-memory {%spark.executor.memory%}
+    --executor-memory {%spark.executor.memory%}M
     --conf spark.executor.memoryOverhead={%spark.executor.memoryOverhead%}
+    --conf spark.executorEnv.TF_NUM_INTEROP_THREADS={%Case05_TF_NUM_INTEROP_THREADS%}
+    --conf spark.executorEnv.TF_NUM_INTRAOP_THREADS={%Case05_TF_NUM_INTRAOP_THREADS%}
+    --jars '$tpcxai_home/lib/*.jar'"
+  engine_executable_dl9: &ENGINE_DL9 "$engine_base
+    --num-executors {%spark.executor.instances%}
+    --executor-cores {%spark.executor.cores%}
+    --executor-memory {%spark.executor.memory%}M
+    --conf spark.executor.memoryOverhead={%spark.executor.memoryOverhead%}
+    --conf spark.executorEnv.TF_NUM_INTEROP_THREADS={%Case09_TF_NUM_INTEROP_THREADS%}
+    --conf spark.executorEnv.TF_NUM_INTRAOP_THREADS={%Case09_TF_NUM_INTRAOP_THREADS%}
     --jars '$tpcxai_home/lib/*.jar'"
   engine_executable_9: &SERVING_9 "$engine_base
     --num-executors {%spark.executor.instances%}
     --executor-cores {%spark.executor.cores%}
-    --executor-memory {%spark.executor.memory%}
+    --executor-memory {%spark.executor.memory%}M
     --conf spark.executor.memoryOverhead={%spark.executor.memoryOverhead%}
     --conf spark.task.cpus=1
     --jars '$tpcxai_home/lib/*.jar'"
@@ -143,7 +155,7 @@ workload:
       output_datastore: *HDFS     # for storing the final output
       # templates
       datagen_template: "java -jar $pdgf -ns -sf $scale_factor -s $table"
-      training_template: "$training_engine $tpcxai_home/workload/spark/pyspark/workload-pyspark/$name --stage training --epochs 25 --batch 32 --executor_cores_horovod {%case02executor_cores_horovod%} --task_cpus_horovod 1 --workdir $output '$input/$file' $input/CONVERSATION_AUDIO.seq"
+      training_template: "$training_engine $tpcxai_home/workload/spark/pyspark/workload-pyspark/$name --stage training --epochs 25 --batch 32 --executor_cores_horovod {%case02_executor_cores_horovod%} --task_cpus_horovod 1 --workdir $output '$input/$file' $input/CONVERSATION_AUDIO.seq"
       serving_template: "$serving_engine $tpcxai_home/workload/spark/pyspark/workload-pyspark/$name --stage serving --batch 32 --workdir $model --output $model/$phase '$input/$file' $input/CONVERSATION_AUDIO.seq"
       serving_throughput_template: "$serving_engine $tpcxai_home/workload/spark/pyspark/workload-pyspark/$name --stage serving --batch 32 --workdir $model --output $model/$stream '$input/$file' $input/CONVERSATION_AUDIO.seq"
       # URLs
@@ -299,7 +311,7 @@ workload:
       # general
       name: "UseCase09.py"
       # engines
-      training_engine: *ENGINE_DL2
+      training_engine: *ENGINE_DL9
       serving_engine: *SERVING_9
       # data stores
       training_datastore: *HDFS   # for storing the training data

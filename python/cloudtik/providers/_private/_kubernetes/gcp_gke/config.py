@@ -89,12 +89,12 @@ def delete_configurations_for_gcp(config: Dict[str, Any], namespace, cloud_provi
     # Delete in a reverse way of creating
     if managed_cloud_storage and delete_managed_storage:
         with cli_logger.group(
-                "Deleting S3 bucket",
+                "Deleting GCS bucket",
                 _numbered=("[]", current_step, total_steps)):
             current_step += 1
             _delete_managed_cloud_storage(cloud_provider, workspace_name)
 
-    # Delete S3 IAM role based access for Kubernetes service accounts
+    # Delete GCS IAM role based access for Kubernetes service accounts
     with cli_logger.group(
             "Deleting IAM role based access for Kubernetes",
             _numbered=("[]", current_step, total_steps)):

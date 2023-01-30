@@ -72,6 +72,7 @@ setup_spec.extras = {
         "azure-identity==1.11.0",
         "azure-storage-blob==12.11.0",
         "azure-storage-file-datalake==12.6.0",
+        "azure-mgmt-containerservice",
         "adlfs==2022.2.0",
     ],
     "gcp": [

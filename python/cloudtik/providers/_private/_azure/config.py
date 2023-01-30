@@ -1546,7 +1546,7 @@ def _configure_peering_vnet_cidr_block(resource_client, network_client):
     current_virtual_network = get_virtual_network(current_resource_group_name, current_virtual_network_name, network_client)
     existing_vnet_cidr_blocks += current_virtual_network.address_space.address_prefixes
 
-    for  i in range(0, 256):
+    for i in range(0, 256):
         tmp_cidr_block = "10.{}.0.0/16".format(i)
 
         if check_cidr_conflict(tmp_cidr_block, existing_vnet_cidr_blocks):

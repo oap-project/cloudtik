@@ -699,7 +699,7 @@ def _configure_pods(config):
 
 def _configure_pod_name_and_labels(config):
     if "available_node_types" not in config:
-        return config
+        return
 
     cluster_name = config["cluster_name"]
     node_types = config["available_node_types"]
@@ -740,7 +740,7 @@ def _configure_pod_name(metadata, cluster_name, name_pattern):
 
 def _configure_pod_hostname(config):
     if "available_node_types" not in config:
-        return config
+        return
 
     cluster_name = config["cluster_name"]
     node_types = config["available_node_types"]
@@ -954,7 +954,7 @@ def _configure_head_external_service_ports(config):
 
 def _configure_pod_service_account(config):
     if "available_node_types" not in config:
-        return config
+        return
 
     provider_config = config["provider"]
 
@@ -979,7 +979,7 @@ def _configure_pod_service_account(config):
 
 def _configure_pod_image(config):
     if "available_node_types" not in config:
-        return config
+        return
 
     provider_config = config["provider"]
     node_types = config["available_node_types"]

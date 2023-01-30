@@ -166,6 +166,7 @@ def configure_kubernetes_for_azure(config: Dict[str, Any], namespace, cloud_prov
     # Optionally, if user choose to use managed cloud storage (Azure DataLake)
     # Configure the Azure DataLake container under cloud storage
     _configure_cloud_storage_for_azure(config, cloud_provider)
+    _configure_pod_label_for_use_workload_identity(config)
 
 
 def _configure_cloud_storage_for_azure(config: Dict[str, Any], cloud_provider):
@@ -177,6 +178,27 @@ def _configure_cloud_storage_for_azure(config: Dict[str, Any], cloud_provider):
             config, cloud_provider, resource_group_name)
 
     return config
+
+
+def _configure_pod_label_for_use_workload_identity(config):
+    if "available_node_types" not in config:
+        return
+
+    node_types = config["available_node_types"]
+    for node_type in node_types:
+        node_config = node_types[node_type]["node_config"]
+        pod = node_config["pod"]
+        if "metadata" not in pod:
+            pod["metadata"] = {}
+        metadata = pod["metadata"]
+        _configure_pod_label_for_use_workload_identity_of_type(metadata)
+
+
+def _configure_pod_label_for_use_workload_identity_of_type(metadata):
+    if "labels" not in metadata:
+        metadata["labels"] = {}
+    labels = metadata["labels"]
+    labels[AZURE_KUBERNETES_WORKLOAD_IDENTITY_LABEL_NAME] = "true"
 
 
 def _create_aks_resource_group(cloud_provider, workspace_name):

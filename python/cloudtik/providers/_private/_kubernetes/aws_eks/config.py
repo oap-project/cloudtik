@@ -316,6 +316,7 @@ def _associate_oidc_iam_role_with_service_account(config, cloud_provider, namesp
     with cli_logger.group(
             "Patching head service account with IAM role",
             _numbered=("[]", current_step, total_steps)):
+        current_step += 1
         head_service_account_name = _get_head_service_account_name(provider_config)
         _patch_service_account_with_iam_role(
             namespace,
@@ -327,6 +328,7 @@ def _associate_oidc_iam_role_with_service_account(config, cloud_provider, namesp
     with cli_logger.group(
             "Patching head service account with IAM role",
             _numbered=("[]", current_step, total_steps)):
+        current_step += 1
         worker_service_account_name = _get_worker_service_account_name(provider_config)
         _patch_service_account_with_iam_role(
             namespace,
@@ -439,6 +441,7 @@ def _dissociate_oidc_iam_role_with_service_account(config, cloud_provider, names
     with cli_logger.group(
             "Patching head service account without IAM role",
             _numbered=("[]", current_step, total_steps)):
+        current_step += 1
         head_service_account_name = _get_head_service_account_name(provider_config)
         _patch_service_account_without_iam_role(
             namespace,
@@ -448,6 +451,7 @@ def _dissociate_oidc_iam_role_with_service_account(config, cloud_provider, names
     with cli_logger.group(
             "Patching head service account without IAM role",
             _numbered=("[]", current_step, total_steps)):
+        current_step += 1
         worker_service_account_name = _get_worker_service_account_name(provider_config)
         _patch_service_account_without_iam_role(
             namespace,

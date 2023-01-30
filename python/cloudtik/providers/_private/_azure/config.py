@@ -1232,7 +1232,7 @@ def _create_resource_group(provider_config, resource_group_name, resource_client
     if not resource_client:
         resource_client = _construct_resource_client(provider_config)
 
-    cli_logger.print("Creating workspace resource group: {} on Azure...", resource_group_name)
+    cli_logger.print("Creating workspace resource group: {}...", resource_group_name)
     # create resource group
     try:
         resource_group = resource_client.resource_groups.create_or_update(
@@ -1268,7 +1268,7 @@ def create_role_assignment_for_storage_blob_data_owner(
 
 def _create_role_assignment_for_storage_blob_data_owner(
         provider_config, resource_group_name, user_assigned_identity, role_assignment_name):
-    cli_logger.print("Creating role assignment for Storage Blob Data Owner: {} on Azure...",
+    cli_logger.print("Creating role assignment for Storage Blob Data Owner: {}...",
                      role_assignment_name)
 
     authorization_client = _construct_authorization_client(provider_config)
@@ -1288,11 +1288,11 @@ def _create_role_assignment_for_storage_blob_data_owner(
                 "principalType": "ServicePrincipal"
             }
         )
-        cli_logger.print("Successfully created workspace role assignment for Storage Blob Data Owner: {}.".
+        cli_logger.print("Successfully created role assignment for Storage Blob Data Owner: {}.".
                          format(role_assignment_name))
     except Exception as e:
         cli_logger.error(
-            "Failed to create workspace role assignment for Storage Blob Data Owner. {}", str(e))
+            "Failed to create role assignment for Storage Blob Data Owner. {}", str(e))
         raise e
 
 
@@ -1301,7 +1301,7 @@ def _create_head_role_assignment_for_contributor(config, resource_group_name):
     subscription_id = config["provider"].get("subscription_id")
     role_assignment_name = str(uuid.uuid3(uuid.UUID(subscription_id), workspace_name + "contributor"))
 
-    cli_logger.print("Creating workspace role assignment: {} on Azure...", role_assignment_name)
+    cli_logger.print("Creating role assignment: {}...", role_assignment_name)
 
     authorization_client = construct_authorization_client(config)
     scope = "subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}".format(
@@ -1321,11 +1321,11 @@ def _create_head_role_assignment_for_contributor(config, resource_group_name):
                 "principalType": "ServicePrincipal"
             }
         )
-        cli_logger.print("Successfully created workspace role assignment: {}.".
+        cli_logger.print("Successfully created role assignment: {}.".
                          format(role_assignment_name))
     except Exception as e:
         cli_logger.error(
-            "Failed to create workspace role assignment. {}", str(e))
+            "Failed to create role assignment. {}", str(e))
         raise e
 
 
@@ -1398,7 +1398,7 @@ def _create_container_for_storage_account(provider_config, workspace_name, resou
 
     storage_client = _construct_storage_client(provider_config)
 
-    cli_logger.print("Creating container for storage account: {} on Azure...", account_name)
+    cli_logger.print("Creating container for storage account: {}...", account_name)
     # Create container for storage account
     try:
         blob_container = storage_client.blob_containers.create(
@@ -1435,7 +1435,7 @@ def _create_storage_account(provider_config, workspace_name, resource_group_name
     account_name = 'storage{}'.format(storage_suffix)
     storage_client = _construct_storage_client(provider_config)
 
-    cli_logger.print("Creating workspace storage account: {} on Azure...", account_name)
+    cli_logger.print("Creating workspace storage account: {}...", account_name)
     # Create storage account
     try:
         parameters = {
@@ -1514,7 +1514,7 @@ def _create_user_assigned_identity(provider_config, resource_group_name, user_as
     location = provider_config["location"]
     msi_client = _construct_manage_server_identity_client(provider_config)
 
-    cli_logger.print("Creating workspace user assigned identity: {} on Azure...", user_assigned_identity_name)
+    cli_logger.print("Creating user assigned identity: {}...", user_assigned_identity_name)
     # Create identity
     try:
         msi_client.user_assigned_identities.create_or_update(
@@ -1525,11 +1525,11 @@ def _create_user_assigned_identity(provider_config, resource_group_name, user_as
             }
         )
         time.sleep(20)
-        cli_logger.print("Successfully created workspace user assigned identity: {}.".
+        cli_logger.print("Successfully created user assigned identity: {}.".
                          format(user_assigned_identity_name))
     except Exception as e:
         cli_logger.error(
-            "Failed to create workspace user assigned identity. {}", str(e))
+            "Failed to create user assigned identity. {}", str(e))
         raise e
 
 
@@ -1546,7 +1546,7 @@ def _configure_peering_vnet_cidr_block(resource_client, network_client):
     current_virtual_network = get_virtual_network(current_resource_group_name, current_virtual_network_name, network_client)
     existing_vnet_cidr_blocks += current_virtual_network.address_space.address_prefixes
 
-    for  i in range(0, 256):
+    for i in range(0, 256):
         tmp_cidr_block = "10.{}.0.0/16".format(i)
 
         if check_cidr_conflict(tmp_cidr_block, existing_vnet_cidr_blocks):
@@ -1606,7 +1606,7 @@ def create_virtual_network(config, resource_client, network_client):
             AZURE_WORKSPACE_VERSION_TAG_NAME: AZURE_WORKSPACE_VERSION_CURRENT
         }
     }
-    cli_logger.print("Creating workspace virtual network: {} on Azure...", virtual_network_name)
+    cli_logger.print("Creating workspace virtual network: {}...", virtual_network_name)
     # create virtual network
     try:
         virtual_network = network_client.virtual_networks.begin_create_or_update(

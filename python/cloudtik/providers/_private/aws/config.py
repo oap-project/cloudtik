@@ -2846,7 +2846,7 @@ def get_managed_s3_bucket(provider_config, workspace_name):
             cli_logger.verbose("Successfully get the s3 bucket: {}.".format(bucket.name))
             return bucket
 
-    cli_logger.verbose("Failed to get the s3 bucket for workspace.")
+    cli_logger.verbose_error("Failed to get the s3 bucket for workspace.")
     return None
 
 

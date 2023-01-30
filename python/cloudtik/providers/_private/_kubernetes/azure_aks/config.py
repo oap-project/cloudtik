@@ -293,8 +293,8 @@ def _get_iam_user_assigned_identity(cloud_provider, workspace_name, account_type
     user_assigned_identity = _get_user_assigned_identity(
         cloud_provider, resource_group_name, iam_user_assigned_identity_name)
     if user_assigned_identity is None:
-        cli_logger.verbose("Failed to get user assigned identity: {}.",
-                           iam_user_assigned_identity_name)
+        cli_logger.verbose_error("Failed to get user assigned identity: {}.",
+                                 iam_user_assigned_identity_name)
     else:
         cli_logger.verbose("Successfully got user assigned identity: {}.",
                            iam_user_assigned_identity_name)

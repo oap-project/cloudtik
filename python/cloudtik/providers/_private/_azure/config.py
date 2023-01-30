@@ -497,7 +497,7 @@ def _get_container_for_storage_account(provider_config, workspace_name, resource
         cli_logger.verbose("Successfully get the workspace container: {}.".format(container.name))
         return container
 
-    cli_logger.verbose("Failed to get the container in storage account: {}", storage_account.name)
+    cli_logger.verbose_error("Failed to get the container in storage account: {}", storage_account.name)
     return None
 
 
@@ -521,7 +521,7 @@ def _get_storage_account(provider_config, storage_account_name):
         cli_logger.verbose("Successfully get the storage account: {}.".format(storage_account.name))
         return storage_account
 
-    cli_logger.verbose("Failed to get the storage account: {}.".format(storage_account_name))
+    cli_logger.verbose_error("Failed to get the storage account: {}.".format(storage_account_name))
     return None
 
 
@@ -613,7 +613,7 @@ def _get_role_assignment_for_storage_blob_data_owner(provider_config, resource_g
                            format(role_assignment_name))
         return role_assignment
     except Exception as e:
-        cli_logger.error("Failed to get the role assignment. {}", str(e))
+        cli_logger.verbose_error("Failed to get the role assignment. {}", str(e))
         return None
 
 
@@ -637,7 +637,7 @@ def get_head_role_assignment_for_contributor(config, resource_group_name):
                            format(role_assignment_name))
         return role_assignment_name
     except Exception as e:
-        cli_logger.error(
+        cli_logger.verbose_error(
             "Failed to get the role assignment for Contributor. {}", str(e))
         return None
 
@@ -1101,8 +1101,9 @@ def get_working_node_resource_group_name(resource_client):
 def get_working_node_resource_group(resource_client):
     metadata = get_azure_instance_metadata()
     if metadata is None:
-        cli_logger.error("Failed to get the metadata of the working node. "
-                         "Please check whether the working node is a Azure instance or not!")
+        cli_logger.verbose_error(
+            "Failed to get the metadata of the working node. "
+            "Please check whether the working node is a Azure instance or not!")
         return None
     resource_group_name = metadata.get("compute", {}).get("resourceGroupName", "")
     try:

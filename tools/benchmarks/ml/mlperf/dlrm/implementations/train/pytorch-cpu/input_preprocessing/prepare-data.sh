@@ -22,6 +22,7 @@ set -x
 
 ls -ltrash
 
+# specify download_dir to be the location directory of your downloaded dataset
 download_dir=${download_dir:-"$HOME/data/dlrm/criteo"}
 # ./verify-criteo-downloaded.sh ${download_dir}
 
@@ -33,9 +34,10 @@ if [ -f ${output_path}/train/_SUCCESS ] \
     echo "Spark preprocessing already carried out"
 else
     echo "Performing Spark preprocessing"
-    bash run-spark-cpu.sh $2 ${download_dir} ${output_path}
+    bash run-spark-cpu.sh ${download_dir} ${output_path}
 fi
 
+# download processed data and convert to custom binary format
 hadoop fs -get $HOME/data/dlrm/output $HOME/data/dlrm/
 
 conversion_intermediate_dir=${conversion_intermediate_dir:-"$HOME/data/dlrm/intermediate_binary"}
@@ -49,6 +51,7 @@ if [ -d ${final_output_dir}/train ] \
     echo "Final conversion already done"
 else
     echo "Performing final conversion to a custom data format"
+    export TOTAL_CORES=$(cloudtik resources --cpu)
     python parquet_to_binary.py --parallel_jobs ${TOTAL_CORES} --src_dir ${output_path} \
                                 --intermediate_dir  ${conversion_intermediate_dir} \
                                 --dst_dir ${final_output_dir}

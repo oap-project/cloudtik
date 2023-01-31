@@ -26,6 +26,7 @@ export INPUT_PATH=${1:-"$HOME/data/dlrm/criteo"}
 # the output folder should have more than 300GB
 export OUTPUT_PATH=${2:-"$HOME/data/dlrm/output"}
 
+# todo: set an appropriate default frequency_limit for CPU-only cluster
 export FREQUENCY_LIMIT=${3:-'15'}
 
 # spark local dir should have about 3TB

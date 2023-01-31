@@ -61,19 +61,24 @@ There is an example file **[default-spark.yaml](tpcx-ai/confs/default-spark.yaml
 
 After you've defined benchmark configuration file, you need to upload this file to head node:
 ```buildoutcfg
-cloudtik rsync-up your-cluster-config.yaml [local path for custom benchmark configuration] [remote path for custom benchmark configuration]
+cloudtik rsync-up your-cluster-config.yaml [local path for custom benchmark configuration] '$HOME/runtime/benchmark-tools/tpcx-ai/driver/config/default-spark.yaml'
 ```
+We also provide a script to help users easily configure default-spark.yaml. Execute the following command to update benchmark configuration instead of manual modification:
+```buildoutcfg
+cloudtik exec your-cluster-config.yaml 'wget -P ~/ https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ml/tpcx-ai/scripts/configure_default_spark_yaml.py && python ~/configure_default_spark_yaml.py'
+```
+
 Running training stage for useCase02: 
 ```buildoutcfg
-cloudtik exec your-cluster-config.yaml 'source ~/runtime/benchmark-tools/tpcx-ai/setenv.sh && cd $TPCx_AI_HOME_DIR && bash bin/tpcxai.sh --phase TRAINING -c [remote path for custom benchmark configuration] -uc 2'
+cloudtik exec your-cluster-config.yaml 'source ~/runtime/benchmark-tools/tpcx-ai/setenv.sh && cd $TPCx_AI_HOME_DIR && bash bin/tpcxai.sh --phase TRAINING -c $HOME/runtime/benchmark-tools/tpcx-ai/driver/config/default-spark.yaml -uc 2'
 ```
 Running serving stage for useCase02:
  ```buildoutcfg
-cloudtik exec your-cluster-config.yaml 'source ~/runtime/benchmark-tools/tpcx-ai/setenv.sh && cd $TPCx_AI_HOME_DIR && bash bin/tpcxai.sh --phase SERVING -c [remote path for custom benchmark configuration] -uc 2'
+cloudtik exec your-cluster-config.yaml 'source ~/runtime/benchmark-tools/tpcx-ai/setenv.sh && cd $TPCx_AI_HOME_DIR && bash bin/tpcxai.sh --phase SERVING -c $HOME/runtime/benchmark-tools/tpcx-ai/driver/config/default-spark.yaml -uc 2'
 ```
 Running training and serving stage for useCase02, useCase05, useCase09:
  ```buildoutcfg
-cloudtik exec your-cluster-config.yaml 'source ~/runtime/benchmark-tools/tpcx-ai/setenv.sh && cd $TPCx_AI_HOME_DIR && bash bin/tpcxai.sh --phase {TRAINING,SERVING} -c [remote path for custom benchmark configuration] -uc {2,5,9}'
+cloudtik exec your-cluster-config.yaml 'source ~/runtime/benchmark-tools/tpcx-ai/setenv.sh && cd $TPCx_AI_HOME_DIR && bash bin/tpcxai.sh --phase {TRAINING,SERVING} -c $HOME/runtime/benchmark-tools/tpcx-ai/driver/config/default-spark.yaml -uc {2,5,9}'
 ```
 The final result will be similar to the output below. Each line will display the time consumed by each stage of each case, and the time unit is seconds.
 ```buildoutcfg

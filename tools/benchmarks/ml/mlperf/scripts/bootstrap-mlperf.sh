@@ -37,7 +37,6 @@ function is_head_node() {
 function prepare() {
     source ~/.bashrc
     sudo apt-get update -y
-
     mkdir -p $BENCHMARK_TOOL_HOME
     sudo chown $(whoami) $BENCHMARK_TOOL_HOME
 }

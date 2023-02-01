@@ -3,6 +3,10 @@
 args=$(getopt -a -o h:: -l head:: -- "$@")
 eval set -- "${args}"
 
+USER_HOME=/home/$(whoami)
+BENCHMARK_TOOL_HOME=$USER_HOME/runtime/benchmark-tools
+TPCX_AI_HOME=$BENCHMARK_TOOL_HOME/tpcx-ai
+
 while true
 do
     case "$1" in
@@ -17,12 +21,9 @@ do
     shift
 done
 
-function prepare_prerequisite() {
+function prepare() {
     source ~/.bashrc
     sudo apt-get update -y
-    export USER_HOME=/home/$(whoami)
-    BENCHMARK_TOOL_HOME=$USER_HOME/runtime/benchmark-tools
-    TPCX_AI_HOME=$BENCHMARK_TOOL_HOME/tpcx-ai
     mkdir -p $BENCHMARK_TOOL_HOME
     sudo chown $(whoami) $BENCHMARK_TOOL_HOME
 }
@@ -35,7 +36,7 @@ function install_jdk8() {
     rm -rf /tmp/jdk-8u192-linux-x64.tar.gz
 }
 
-function check_jdk8() {
+function check_and_install_jdk8() {
     jdk_major_version=$(java -version 2>&1 | head -1 | cut -d'"' -f2 | sed '/^1\./s///' | cut -d'.' -f1)
     if [ ${jdk_major_version} -gt 8 ]; then
         install_jdk8
@@ -91,9 +92,9 @@ function is_head_node() {
     fi
 }
 
-prepare_prerequisite
+prepare
 install_tpcx_ai_benchmark
 configure_tpcx_ai_benchmark
-check_jdk8
+check_and_install_jdk8
 install_tools
 install_libaries

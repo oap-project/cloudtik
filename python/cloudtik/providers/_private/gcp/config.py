@@ -373,8 +373,9 @@ def _find_working_node_network_interface(provider_config, compute):
 def _find_working_node_vpc(provider_config, compute):
     network_interface = _find_working_node_network_interface(provider_config, compute)
     if network_interface is None:
-        cli_logger.error("Failed to get the VPC of the working node. "
-                         "Please check whether the working node is a GCP instance.")
+        cli_logger.verbose_error(
+            "Failed to get the VPC of the working node. "
+            "Please check whether the working node is a GCP instance.")
         return None
 
     network = network_interface.get("network").split("/")[-1]
@@ -1773,7 +1774,7 @@ def get_managed_gcs_bucket(cloud_provider, workspace_name):
             cli_logger.verbose("Successfully get the GCS bucket: {}.".format(bucket.name))
             return bucket
 
-    cli_logger.verbose("Failed to get the GCS bucket for workspace.")
+    cli_logger.verbose_error("Failed to get the GCS bucket for workspace.")
     return None
 
 

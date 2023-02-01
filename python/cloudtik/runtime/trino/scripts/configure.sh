@@ -1,6 +1,6 @@
 #!/bin/bash
 
-args=$(getopt -a -o h::p: -l head::,node_ip_address::,head_address:: -- "$@")
+args=$(getopt -a -o h:: -l head::,node_ip_address:,head_address: -- "$@")
 eval set -- "${args}"
 
 IS_HEAD_NODE=false
@@ -13,14 +13,14 @@ HADOOP_CREDENTIAL_PROPERTY="<property>\n      <name>hadoop.security.credential.p
 while true
 do
     case "$1" in
-    --head)
+    -h|--head)
         IS_HEAD_NODE=true
         ;;
     --node_ip_address)
         NODE_IP_ADDRESS=$2
         shift
         ;;
-    -h|--head_address)
+    --head_address)
         HEAD_ADDRESS=$2
         shift
         ;;

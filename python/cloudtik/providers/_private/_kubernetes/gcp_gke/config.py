@@ -89,12 +89,12 @@ def delete_configurations_for_gcp(config: Dict[str, Any], namespace, cloud_provi
     # Delete in a reverse way of creating
     if managed_cloud_storage and delete_managed_storage:
         with cli_logger.group(
-                "Deleting S3 bucket",
+                "Deleting GCS bucket",
                 _numbered=("[]", current_step, total_steps)):
             current_step += 1
             _delete_managed_cloud_storage(cloud_provider, workspace_name)
 
-    # Delete S3 IAM role based access for Kubernetes service accounts
+    # Delete GCS IAM role based access for Kubernetes service accounts
     with cli_logger.group(
             "Deleting IAM role based access for Kubernetes",
             _numbered=("[]", current_step, total_steps)):
@@ -159,12 +159,14 @@ def _create_iam_service_accounts(cloud_provider, workspace_name):
     with cli_logger.group(
             "Creating head IAM service account",
             _numbered=("[]", current_step, total_steps)):
+        current_step += 1
         _create_iam_service_account(
             cloud_provider, workspace_name, iam, AccountType.HEAD)
 
     with cli_logger.group(
             "Creating worker IAM service account",
             _numbered=("[]", current_step, total_steps)):
+        current_step += 1
         _create_iam_service_account(
             cloud_provider, workspace_name, iam, AccountType.WORKER)
 
@@ -191,12 +193,14 @@ def _delete_iam_service_accounts(cloud_provider, workspace_name):
     with cli_logger.group(
             "Deleting head IAM service account",
             _numbered=("[]", current_step, total_steps)):
+        current_step += 1
         _delete_iam_service_account(
             cloud_provider, workspace_name, iam, AccountType.HEAD)
 
     with cli_logger.group(
             "Deleting worker IAM service account",
             _numbered=("[]", current_step, total_steps)):
+        current_step += 1
         _delete_iam_service_account(
             cloud_provider, workspace_name, iam, AccountType.WORKER)
 
@@ -232,12 +236,14 @@ def _create_iam_service_accounts_role_binding(cloud_provider, workspace_name):
     with cli_logger.group(
             "Creating head IAM service account role binding",
             _numbered=("[]", current_step, total_steps)):
+        current_step += 1
         _create_iam_service_account_role_binding(
             cloud_provider, workspace_name, iam, crm, AccountType.HEAD)
 
     with cli_logger.group(
             "Creating worker IAM service account role binding",
             _numbered=("[]", current_step, total_steps)):
+        current_step += 1
         _create_iam_service_account_role_binding(
             cloud_provider, workspace_name, iam, crm, AccountType.WORKER)
 
@@ -272,12 +278,14 @@ def _delete_iam_service_accounts_role_binding(cloud_provider, workspace_name):
     with cli_logger.group(
             "Deleting head IAM service account role binding",
             _numbered=("[]", current_step, total_steps)):
+        current_step += 1
         _delete_iam_service_account_role_binding(
             cloud_provider, workspace_name, iam, crm, AccountType.HEAD)
 
     with cli_logger.group(
             "Deleting worker IAM service account role binding",
             _numbered=("[]", current_step, total_steps)):
+        current_step += 1
         _delete_iam_service_account_role_binding(
             cloud_provider, workspace_name, iam, crm, AccountType.WORKER)
 
@@ -332,6 +340,7 @@ def _create_iam_service_accounts_binding_with_kubernetes(
     with cli_logger.group(
             "Creating head IAM service account role binding with Kubernetes",
             _numbered=("[]", current_step, total_steps)):
+        current_step += 1
         _create_iam_service_account_binding_with_kubernetes(
             config, cloud_provider, workspace_name, namespace,
             iam, AccountType.HEAD)
@@ -339,6 +348,7 @@ def _create_iam_service_accounts_binding_with_kubernetes(
     with cli_logger.group(
             "Creating worker IAM service account role binding with Kubernetes",
             _numbered=("[]", current_step, total_steps)):
+        current_step += 1
         _create_iam_service_account_binding_with_kubernetes(
             config, cloud_provider, workspace_name, namespace,
             iam, AccountType.WORKER)
@@ -387,6 +397,7 @@ def _delete_iam_service_accounts_binding_with_kubernetes(
     with cli_logger.group(
             "Deleting head IAM service account role binding with Kubernetes",
             _numbered=("[]", current_step, total_steps)):
+        current_step += 1
         _delete_iam_service_account_binding_with_kubernetes(
             config, cloud_provider, workspace_name, namespace,
             iam, AccountType.HEAD)
@@ -394,6 +405,7 @@ def _delete_iam_service_accounts_binding_with_kubernetes(
     with cli_logger.group(
             "Deleting worker IAM service account role binding with Kubernetes",
             _numbered=("[]", current_step, total_steps)):
+        current_step += 1
         _delete_iam_service_account_binding_with_kubernetes(
             config, cloud_provider, workspace_name, namespace,
             iam, AccountType.WORKER)
@@ -469,6 +481,7 @@ def _associate_kubernetes_service_accounts_with_iam(
     with cli_logger.group(
             "Patching head service account with IAM",
             _numbered=("[]", current_step, total_steps)):
+        current_step += 1
         _patch_service_account_with_iam(
             config, cloud_provider, workspace_name, namespace,
             AccountType.HEAD
@@ -477,6 +490,7 @@ def _associate_kubernetes_service_accounts_with_iam(
     with cli_logger.group(
             "Patching head service account with IAM",
             _numbered=("[]", current_step, total_steps)):
+        current_step += 1
         _patch_service_account_with_iam(
             config, cloud_provider, workspace_name, namespace,
             AccountType.WORKER
@@ -581,6 +595,7 @@ def _dissociate_kubernetes_service_accounts_with_iam(config, cloud_provider, wor
     with cli_logger.group(
             "Patching head service account without IAM role",
             _numbered=("[]", current_step, total_steps)):
+        current_step += 1
         head_service_account_name = _get_head_service_account_name(provider_config)
         _patch_service_account_without_iam_service_account(
             namespace,
@@ -590,6 +605,7 @@ def _dissociate_kubernetes_service_accounts_with_iam(config, cloud_provider, wor
     with cli_logger.group(
             "Patching head service account without IAM role",
             _numbered=("[]", current_step, total_steps)):
+        current_step += 1
         worker_service_account_name = _get_worker_service_account_name(provider_config)
         _patch_service_account_without_iam_service_account(
             namespace,

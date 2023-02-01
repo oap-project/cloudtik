@@ -46,6 +46,7 @@ RUN sudo apt-get update -y && sudo apt-get upgrade -y \
         -O /tmp/miniconda.sh \
     && /bin/bash /tmp/miniconda.sh -b -u -p $HOME/anaconda3 \
     && $HOME/anaconda3/bin/conda init \ 
+    && echo 'export CONDA_ROOT=$HOME/anaconda3' >> $HOME/.bashrc \
     && echo 'export PATH=$HOME/anaconda3/bin:$PATH' >> $HOME/.bashrc \
     && rm /tmp/miniconda.sh \
     # Install kubectl
@@ -59,6 +60,7 @@ RUN sudo apt-get update -y && sudo apt-get upgrade -y \
     && sudo apt-get clean
 
 RUN $HOME/anaconda3/bin/conda create -n $CLOUDTIK_ENV -y python=$PYTHON_VERSION
+ENV CONDA_ROOT $HOME/anaconda3
 ENV PATH $HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH
 
 WORKDIR $HOME

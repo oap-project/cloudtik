@@ -4,7 +4,7 @@
 BIN_DIR=`dirname "$0"`
 ROOT_DIR="$(dirname "$(dirname "$BIN_DIR")")"
 
-args=$(getopt -a -o h::p: -l head:: -- "$@")
+args=$(getopt -a -o h:: -l head:: -- "$@")
 eval set -- "${args}"
 
 IS_HEAD_NODE=false
@@ -12,7 +12,7 @@ IS_HEAD_NODE=false
 while true
 do
     case "$1" in
-    --head)
+    -h|--head)
         IS_HEAD_NODE=true
         ;;
     --)
@@ -54,8 +54,8 @@ function install_spark() {
         echo "export PATH=\$SPARK_HOME/bin:\$PATH" >> ${USER_HOME}/.bashrc
         # Config for PySpark when Spark installed
         echo "export PYTHONPATH=\${SPARK_HOME}/python:\${SPARK_HOME}/python/lib/py4j-0.10.9-src.zip" >> ~/.bashrc
-        echo "export PYSPARK_PYTHON=\${CONDA_PREFIX}/envs/cloudtik_py37/bin/python" >> ~/.bashrc
-        echo "export PYSPARK_DRIVER_PYTHON=\${CONDA_PREFIX}/envs/cloudtik_py37/bin/python" >> ~/.bashrc
+        echo "export PYSPARK_PYTHON=\${CONDA_ROOT}/envs/cloudtik_py37/bin/python" >> ~/.bashrc
+        echo "export PYSPARK_DRIVER_PYTHON=\${CONDA_ROOT}/envs/cloudtik_py37/bin/python" >> ~/.bashrc
     fi
 
     if [ "$METASTORE_ENABLED" == "true" ] && [ "$HIVE_FOR_METASTORE_JARS" == "true" ] && [ $IS_HEAD_NODE == "true" ]; then
@@ -152,6 +152,11 @@ function install_spark_with_cloud_jars() {
     done
 }
 
+function install_hdfs_fuse() {
+    # install fuse_dfs
+    :
+}
+
 function install_s3_fuse() {
     if ! type s3fs >/dev/null 2>&1;then
       sudo apt-get update > /dev/null
@@ -178,7 +183,7 @@ function install_gcs_fuse() {
 }
 
 function install_cloud_fuse() {
-    cloud_storage_provider="none"
+    install_hdfs_fuse
     if [ "$AWS_CLOUD_STORAGE" == "true" ]; then
         install_s3_fuse
     elif [ "$AZURE_CLOUD_STORAGE" == "true" ]; then

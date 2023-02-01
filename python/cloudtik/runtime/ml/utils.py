@@ -38,10 +38,14 @@ def _with_runtime_environment_variables(runtime_config, config, provider, node_i
     runtime_envs = {"ML_ENABLED": True}
 
     ml_config = runtime_config.get(ML_RUNTIME_CONFIG_KEY, {})
-    # export yarn memory ratio to use if configured by user
-    with_mxnet = ml_config.get("with_mxnet", False)
-    if with_mxnet:
-        runtime_envs["ML_WITH_MXNET"] = with_mxnet
+
+    # export each flags started with 'with_'
+    for key in ml_config:
+        if key.startswith("with_"):
+            with_flag = ml_config.get(key)
+            if with_flag:
+                with_flag_var = "ML_{}".format(key.upper())
+                runtime_envs[with_flag_var] = with_flag
 
     return runtime_envs
 

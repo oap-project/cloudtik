@@ -15,7 +15,7 @@ the complexity of operating and running such a platform and lack of transparency
 CloudTik is designed for solving the above challenges by providing the following core capabilities:
 - Scalable, robust, and unified control plane and runtimes for all public clouds
 - Out of box optimized runtimes for analytics and AI (Spark, ...)
-- Support of major public cloud providers - AWS, Azure, GCP, Kubernetes (EKS, AKS, and GKE) and more
+- Support of major public cloud providers - AWS, Azure, GCP, Kubernetes (EKS, AKS and GKE) and more
 - A fully open architecture and open-sourced platform
 
 ### Who Will Use CloudTik
@@ -23,21 +23,15 @@ CloudTik enables researchers, data scientists, and enterprises to easily create 
 with out-of-box optimized functionalities and performance, and to go quickly to focus on running the business workloads
 in hours or in even minutes instead of spending months to construct and optimize the platform.
 
-## CloudTik Architecture
-
-Blow diagram shows the high level concept architecture of CloudTik.
-
-![Hive Level System Architecture](docs/image/system-architecture.jpg)
-
+## High Level Concepts
 User can use CloudTik through a command line interface (CLI) or a python application programming interface (API).
 Both CLI and API provides the management operations for both workspace and cluster, for example creating a workspace or
 starting a cluster.
 
-The same CLI and API can operate on different cloud providers with a unified workspace and cluster design shown
-in the right part of the diagram.
+The same CLI and API can operate on different cloud providers with a unified workspace and cluster design.
 
 The CLI or API interacts with Cloud through two channels. It will use Cloud API to create or manage cloud provider
-resources such as launching or terminating a VM instance on cloud. It will use SSH to interact with the VM instance
+resources such as launching or terminating a VM instance on cloud. It will also use SSH to interact with the VM instance
 to perform tasks like installing, configuring and managing the services running on the VM instance.
 
 When a workspace for specific cloud provider is created, all the shared resources for implementing the unified
@@ -87,6 +81,8 @@ pip install cloudtik[aws]
 ```
 
 Replace `cloudtik[aws]` with `clouditk[azure]` or `cloudtik[gcp]` if you want to create clusters on Azure or GCP.
+If you want to run on Kubernetes, install `cloudtik[kubernetes]`.
+Or  `clouditk[eks]` or `cloudtik[gke]` if you are running on AWS EKS or GCP GKE cluster.
 Use `cloudtik[all]` if you want to manage clusters with all supported Cloud providers.
 
 
@@ -124,6 +120,24 @@ on your working machine.
 
 If you are using user account authentication, refer to [User Guide: Login to Cloud](https://cloudtik.readthedocs.io/en/latest/UserGuide/login-to-cloud.html#gcp) for details.
 
+#### Kubernetes
+If you are running CloudTik on a generic Kubernetes cluster, the authentication setup is simple.
+You just need to authenticate your kubectl at your working machine to be able to access the Kubernetes cluster.
+
+##### AWS EKS
+If you are running CloudTik on AWS EKS, CloudTik has more integration with AWS EKS
+so that your CloudTik cluster running on EKS can access the S3 storage with IAM CloudTik workspace IAM roles.
+
+You need not only to authenticate your kubectl at your working machine to be able to access the Kubernetes cluster,
+but also setup your AWS credentials following the steps in [AWS](#aws) section above.
+
+##### GCP GKE
+If you are running CloudTik on GCP GKE, CloudTik has more integration with GCP GKE
+so that your CloudTik cluster running on GKE can access the GCS storage with IAM CloudTik workspace roles.
+
+You need not only to authenticate your kubectl at your working machine to be able to access the Kubernetes cluster,
+but also setup your GCP credentials following the steps in [GCP](#gcp) section above.
+
 ### 4. Creating a Workspace for Clusters.
 Once you authenticated with your cloud provider, you can start to create a Workspace.
 
@@ -159,7 +173,8 @@ Use the following command to create and provision a Workspace:
 cloudtik workspace create /path/to/your-workspace-config.yaml
 ```
 
-Check `example/cluster` folder for more Workspace configuration file examples.
+Check [Configuration Examples](https://github.com/oap-project/cloudtik/tree/main/example/cluster) folder for more Workspace configuration file examples
+for AWS, Azure, GCP, Kubernetes (AWS EKS or GCP GKE).
 
 If you encounter problems on creating a Workspace, a common cause is that your current login account
 for the cloud doesn't have enough privileges to create some resources such as VPC, storages, public ip and so on.

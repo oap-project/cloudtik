@@ -147,9 +147,9 @@ if __name__ == '__main__':
     cluster_info = cluster.get_info()
 
     if not args.num_proc:
-        total_workers = cluster_info.get("total-workers")
-        if total_workers:
-            args.num_proc = total_workers
+        total_worker_cpus = cluster_info.get("total-worker-cpus")
+        if total_worker_cpus:
+            args.num_proc = int(total_worker_cpus / 2)
         if not args.num_proc:
             args.num_proc = 1
 
@@ -163,7 +163,10 @@ if __name__ == '__main__':
     print("Train processes: {}".format(num_proc))
 
     # Generate the host list
-    host_slots = ["{}:1".format(worker_ip) for worker_ip in worker_ips]
+    worker_num_proc = int(num_proc / len(worker_ips))
+    if not worker_num_proc:
+        worker_num_proc = 1
+    host_slots = ["{}:{}".format(worker_ip, worker_num_proc) for worker_ip in worker_ips]
     hosts = ",".join(host_slots)
     print("Hosts to run:", hosts)
 

@@ -385,6 +385,9 @@ def get_kubernetes_workspace_info(config):
         elif cloud_provider_type == "gcp":
             from cloudtik.providers._private._kubernetes.gcp_gke.config import get_info_for_gcp
             get_info_for_gcp(config, namespace, cloud_provider, info)
+        elif cloud_provider_type == "azure":
+            from cloudtik.providers._private._kubernetes.azure_aks.config import get_info_for_azure
+            get_info_for_azure(config, namespace, cloud_provider, info)
 
     return info
 
@@ -696,7 +699,7 @@ def _configure_pods(config):
 
 def _configure_pod_name_and_labels(config):
     if "available_node_types" not in config:
-        return config
+        return
 
     cluster_name = config["cluster_name"]
     node_types = config["available_node_types"]
@@ -737,7 +740,7 @@ def _configure_pod_name(metadata, cluster_name, name_pattern):
 
 def _configure_pod_hostname(config):
     if "available_node_types" not in config:
-        return config
+        return
 
     cluster_name = config["cluster_name"]
     node_types = config["available_node_types"]
@@ -805,7 +808,6 @@ def _configure_container_options(container):
             "add": ["SYS_ADMIN"]
           }
         }
-    pass
 
 
 def _configure_container_volume_mounts(container):
@@ -952,7 +954,7 @@ def _configure_head_external_service_ports(config):
 
 def _configure_pod_service_account(config):
     if "available_node_types" not in config:
-        return config
+        return
 
     provider_config = config["provider"]
 
@@ -977,7 +979,7 @@ def _configure_pod_service_account(config):
 
 def _configure_pod_image(config):
     if "available_node_types" not in config:
-        return config
+        return
 
     provider_config = config["provider"]
     node_types = config["available_node_types"]
@@ -1576,8 +1578,8 @@ def with_kubernetes_environment_variables(provider_config, node_type_config: Dic
         with_gcp_environment_variables(provider_config, config_dict)
 
     if "azure_cloud_storage" in storage_config:
-        from cloudtik.providers._private._azure.utils import export_azure_cloud_storage_config
-        export_azure_cloud_storage_config(provider_config, config_dict)
+        from cloudtik.providers._private._kubernetes.azure_aks.config import with_azure_environment_variables
+        with_azure_environment_variables(provider_config, config_dict)
 
     return config_dict
 
@@ -1609,6 +1611,9 @@ def _create_configurations_for_cloud_provider(config, namespace):
     elif cloud_provider_type == "gcp":
         from cloudtik.providers._private._kubernetes.gcp_gke.config import create_configurations_for_gcp
         create_configurations_for_gcp(config, namespace, cloud_provider)
+    elif cloud_provider_type == "azure":
+        from cloudtik.providers._private._kubernetes.azure_aks.config import create_configurations_for_azure
+        create_configurations_for_azure(config, namespace, cloud_provider)
     else:
         cli_logger.print("No integration for {} cloud provider. Configuration skipped.", cloud_provider_type)
 
@@ -1631,6 +1636,10 @@ def _delete_configurations_for_cloud_provider(config, namespace,
         from cloudtik.providers._private._kubernetes.gcp_gke.config import delete_configurations_for_gcp
         delete_configurations_for_gcp(
             config, namespace, cloud_provider, delete_managed_storage)
+    elif cloud_provider_type == "azure":
+        from cloudtik.providers._private._kubernetes.azure_aks.config import delete_configurations_for_azure
+        delete_configurations_for_azure(
+            config, namespace, cloud_provider, delete_managed_storage)
     else:
         cli_logger.print("No integration for {} cloud provider. Configuration skipped.", cloud_provider_type)
 
@@ -1647,6 +1656,9 @@ def _configure_cloud_provider(config: Dict[str, Any], namespace):
     elif cloud_provider_type == "gcp":
         from cloudtik.providers._private._kubernetes.gcp_gke.config import configure_kubernetes_for_gcp
         configure_kubernetes_for_gcp(config, namespace, cloud_provider)
+    elif cloud_provider_type == "azure":
+        from cloudtik.providers._private._kubernetes.azure_aks.config import configure_kubernetes_for_azure
+        configure_kubernetes_for_azure(config, namespace, cloud_provider)
     else:
         cli_logger.verbose("No integration for {} cloud provider. Configuration skipped.", cloud_provider_type)
 
@@ -1666,6 +1678,9 @@ def _check_existence_for_cloud_provider(config: Dict[str, Any], namespace):
     elif cloud_provider_type == "gcp":
         from cloudtik.providers._private._kubernetes.gcp_gke.config import check_existence_for_gcp
         existence = check_existence_for_gcp(config, namespace, cloud_provider)
+    elif cloud_provider_type == "azure":
+        from cloudtik.providers._private._kubernetes.azure_aks.config import check_existence_for_azure
+        existence = check_existence_for_azure(config, namespace, cloud_provider)
     else:
         cli_logger.verbose("No integration for {} cloud provider.", cloud_provider_type)
         return None
@@ -1675,16 +1690,17 @@ def _check_existence_for_cloud_provider(config: Dict[str, Any], namespace):
 
 
 def get_default_kubernetes_cloud_storage(provider_config):
-    cloud_provider = _get_cloud_provider_config(provider_config)
-    if cloud_provider is None:
-        return None
+    storage_config = provider_config.get("storage", {})
 
-    cloud_provider_type = cloud_provider["type"]
-    if cloud_provider_type == "aws":
+    if "aws_s3_storage" in storage_config:
         from cloudtik.providers._private._kubernetes.aws_eks.config import get_default_kubernetes_cloud_storage_for_aws
-        return get_default_kubernetes_cloud_storage_for_aws(cloud_provider)
-    elif cloud_provider_type == "gcp":
+        return get_default_kubernetes_cloud_storage_for_aws(provider_config)
+    elif "gcp_cloud_storage" in storage_config:
         from cloudtik.providers._private._kubernetes.gcp_gke.config import get_default_kubernetes_cloud_storage_for_gcp
-        return get_default_kubernetes_cloud_storage_for_gcp(cloud_provider)
+        return get_default_kubernetes_cloud_storage_for_gcp(provider_config)
+    elif "azure_cloud_storage" in storage_config:
+        from cloudtik.providers._private._kubernetes.azure_aks.config import \
+            get_default_kubernetes_cloud_storage_for_azure
+        return get_default_kubernetes_cloud_storage_for_azure(provider_config)
     else:
         return None

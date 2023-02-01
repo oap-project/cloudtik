@@ -80,6 +80,9 @@ do
     --build-ml-mxnet)
         BUILD_ML_MXNET=YES
         ;;
+    --build-ml-oneapi)
+        BUILD_ML_ONEAPI=YES
+        ;;
     --build-ml-benchmark)
         BUILD_ML_BENCHMARK=YES
         ;;
@@ -96,7 +99,7 @@ do
         echo "Usage: build-docker.sh [ --base-image ] [ --no-cache-build ] [ --shas-only ] [ --wheel-to-use ] [ --python-version ] [ --image-tag ]"
         echo "Images to build options:"
         echo "[ --build-all ] [ --build-dev ] [ --build-spark ] [ --build-optimized ] [ --build-spark-native-sql ]"
-        echo "[ --build-ml ] [ --build-ml-mxnet ]"
+        echo "[ --build-ml ] [ --build-ml-mxnet ] [ --build-ml-oneapi ]"
         echo "[ --build-universe ] [ --build-presto ] [ --build-trino ]"
         echo "[ --build-spark-benchmark ] [ --build-optimized-benchmark ] [ --build-spark-native-sql-benchmark ]"
         exit 1
@@ -175,13 +178,21 @@ if [ $BUILD_TRINO ] || [ $BUILD_ALL ]; then
     docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG -t cloudtik/trino-runtime:$IMAGE_TAG docker/runtime/trino
 fi
 
+# Build the ML base image which is needed as the base image for all other ML image
+if [ $BUILD_ML ] || [ $BUILD_ML_MXNET ] || [ $BUILD_ML_ONEAPI ] || [ $BUILD_ALL ]; then
+    docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG -t cloudtik/spark-ml-base:$IMAGE_TAG docker/runtime/ml/base
+fi
+
 if [ $BUILD_ML ] || [ $BUILD_ALL ]; then
     docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG -t cloudtik/spark-ml-runtime:$IMAGE_TAG docker/runtime/ml
 fi
 
 if [ $BUILD_ML_MXNET ] || [ $BUILD_ALL ]; then
-    docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG -t cloudtik/spark-ml-base:$IMAGE_TAG docker/runtime/ml/base
     docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG -t cloudtik/spark-ml-mxnet:$IMAGE_TAG docker/runtime/ml/mxnet
+fi
+
+if [ $BUILD_ML_ONEAPI ] || [ $BUILD_ALL ]; then
+    docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG -t cloudtik/spark-ml-oneapi:$IMAGE_TAG docker/runtime/ml/oneapi
 fi
 
 if [ $BUILD_ML_BENCHMARK ] || [ $BUILD_ALL ]; then

@@ -59,9 +59,8 @@ function install_mlperf_tools() {
 function install_mlperf() {
   mkdir -p $MLPERF_TMP
   cd $MLPERF_TMP
-  if [ ! -d "cloudtik" ]; then
-    git clone https://github.com/oap-project/cloudtik.git
-  fi
+  rm -rf $MLPERF_TMP/*
+  git clone https://github.com/oap-project/cloudtik.git
   rm -rf $MLPERF_HOME/*
   cp -r cloudtik/tools/benchmarks/ml/mlperf/* $MLPERF_HOME/
   rm -rf $MLPERF_TMP/cloudtik

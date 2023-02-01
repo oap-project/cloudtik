@@ -1,6 +1,5 @@
 #!/bin/bash
 
-
 ACTIVATE_ENV=cloudtik_py37
 
 BENCHMARK_TOOL_HOME=/cloudtik/fs/benchmark-tools
@@ -11,8 +10,7 @@ BERT_MLPERF_HOME=$MLPERF_HOME/bert
 BERT_DATA_PATH=$BERT_MLPERF_HOME/data
 BERT_SCRIPT_DIR=$BERT_MLPERF_HOME/implementations/train/pytorch-cpu/input_preprocessing
 
-
-args=$(getopt -a -o h::p: -l outputdir:: -- "$@")
+args=$(getopt -a -o o: -l outputdir: -- "$@")
 eval set -- "${args}"
 
 while true
@@ -32,7 +30,6 @@ done
 function install_libaries() {
     source activate ${ACTIVATE_ENV}
     pip -qq install gdown transformers tensorflow
-
 }
 
 function prepare_data() {

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 
-ACTIVATE_ENV=gen_data
+ACTIVATE_ENV=cloudtik_py37
 
 BENCHMARK_TOOL_HOME=/cloudtik/fs/benchmark-tools
 MLPERF_HOME=$BENCHMARK_TOOL_HOME/mlperf
@@ -30,16 +30,15 @@ do
 done
 
 function install_libaries() {
-    conda create -n ${ACTIVATE_ENV} python=3.8
-    conda install -n ${ACTIVATE_ENV} h5py  -y
     source activate ${ACTIVATE_ENV}
-    pip install gdown transformers tensorflow
+    pip -qq install gdown transformers tensorflow
 
 }
 
 function prepare_data() {
   source activate ${ACTIVATE_ENV}
   cd ${BERT_SCRIPT_DIR}
+  chmod +x ${BERT_SCRIPT_DIR}/*
   bash ${BERT_SCRIPT_DIR}/prepare_data.sh --outputdir ${BERT_DATA_PATH}
 }
 

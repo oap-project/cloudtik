@@ -1,5 +1,6 @@
 # DL Frameworks
 tensorflow==2.9.3
+transformers==4.11.0
 
 # For deep learning cases about facial recognition
 tensorflow-addons==0.17.1

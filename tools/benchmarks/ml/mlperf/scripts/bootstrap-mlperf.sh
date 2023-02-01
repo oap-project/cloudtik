@@ -1,6 +1,6 @@
 #!/bin/bash
 
-args=$(getopt -a -o h::p: -l head:: -- "$@")
+args=$(getopt -a -o h:: -l head:: -- "$@")
 eval set -- "${args}"
 
 USER_HOME=/home/$(whoami)
@@ -64,7 +64,6 @@ function install_mlperf() {
   rm -rf $MLPERF_HOME/*
   cp -r cloudtik/tools/benchmarks/ml/mlperf/* $MLPERF_HOME/
   rm -rf $MLPERF_TMP/cloudtik
-
 }
 
 function configure_mlperf() {

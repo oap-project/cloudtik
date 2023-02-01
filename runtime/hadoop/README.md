@@ -7,9 +7,11 @@ by the default Hadoop distribution.
 To compiling CloudTik Hadoop easily, please follow the below steps.
 
 ## 1. Prepare the build environment
-The first thing we will do is to git clone the Apache Hadoop repository:
+The first thing we will do is to git clone the Apache Hadoop repository
+and checkout to the hadoop version branch to build:
 ```
 git clone https://github.com/apache/hadoop.git && cd hadoop
+git checkout rel/release-${HADOOP_VERSION}
 ```
 Notice the start-build-env.sh file at the root of the project.
 It is a very convenient script that builds and runs a Docker container
@@ -17,8 +19,11 @@ in which everything needed for building and testing Hadoop is included.
 
 Execute the following to build the docker image and start it in interactive mode.
 ```
-start-build-env.sh
+bash ./start-build-env.sh
 ```
+The above command will build the docker image for hadoop build environment and
+run the image with your current user. It suggests you configure your docker to
+be able to run without root.
 
 ## 2. Compiling Hadoop with CloudTik patches
 After the first step is completed. You are in the docker environment which is ready to compile.

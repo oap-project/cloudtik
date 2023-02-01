@@ -1,0 +1,251 @@
+From 479b06e40d16dcc85d319d5471c878d33af06e00 Mon Sep 17 00:00:00 2001
+From: Chen Haifeng <haifeng.chen@intel.com>
+Date: Wed, 1 Feb 2023 09:41:36 +0000
+Subject: [PATCH] Hadoop Azure Support: Azure Workload Identity support for
+ OAuth2
+
+---
+ .../hadoop/fs/azurebfs/AbfsConfiguration.java |  14 +++
+ .../constants/AuthConfigurations.java         |   4 +
+ .../azurebfs/constants/ConfigurationKeys.java |   2 +
+ .../azurebfs/oauth2/AzureADAuthenticator.java |  42 +++++++
+ .../oauth2/WorkloadIdentityTokenProvider.java | 107 ++++++++++++++++++
+ 5 files changed, 169 insertions(+)
+ create mode 100644 hadoop-tools/hadoop-azure/src/main/java/org/apache/hadoop/fs/azurebfs/oauth2/WorkloadIdentityTokenProvider.java
+
+diff --git a/hadoop-tools/hadoop-azure/src/main/java/org/apache/hadoop/fs/azurebfs/AbfsConfiguration.java b/hadoop-tools/hadoop-azure/src/main/java/org/apache/hadoop/fs/azurebfs/AbfsConfiguration.java
+index 1c4a09be3c9..67d0d4ac02a 100644
+--- a/hadoop-tools/hadoop-azure/src/main/java/org/apache/hadoop/fs/azurebfs/AbfsConfiguration.java
++++ b/hadoop-tools/hadoop-azure/src/main/java/org/apache/hadoop/fs/azurebfs/AbfsConfiguration.java
+@@ -56,6 +56,7 @@
+ import org.apache.hadoop.fs.azurebfs.oauth2.MsiTokenProvider;
+ import org.apache.hadoop.fs.azurebfs.oauth2.RefreshTokenBasedTokenProvider;
+ import org.apache.hadoop.fs.azurebfs.oauth2.UserPasswordTokenProvider;
++import org.apache.hadoop.fs.azurebfs.oauth2.WorkloadIdentityTokenProvider;
+ import org.apache.hadoop.fs.azurebfs.security.AbfsDelegationTokenManager;
+ import org.apache.hadoop.fs.azurebfs.services.AuthType;
+ import org.apache.hadoop.fs.azurebfs.services.ExponentialRetryPolicy;
+@@ -777,6 +778,19 @@ public AccessTokenProvider getTokenProvider() throws TokenAccessProviderExceptio
+           tokenProvider = new RefreshTokenBasedTokenProvider(authEndpoint,
+               clientId, refreshToken);
+           LOG.trace("RefreshTokenBasedTokenProvider initialized");
++        } else if (tokenProviderClass == WorkloadIdentityTokenProvider.class) {
++          String authority = getTrimmedPasswordString(
++              FS_AZURE_ACCOUNT_OAUTH_MSI_AUTHORITY,
++              AuthConfigurations.DEFAULT_FS_AZURE_ACCOUNT_OAUTH_MSI_AUTHORITY);
++          authority = appendSlashIfNeeded(authority);
++          String tenantId = getPasswordString(FS_AZURE_ACCOUNT_OAUTH_MSI_TENANT);
++          String clientId = getPasswordString(FS_AZURE_ACCOUNT_OAUTH_CLIENT_ID);
++          String tokenFile = getTrimmedPasswordString(
++              FS_AZURE_ACCOUNT_OAUTH_TOKEN_FILE,
++              AuthConfigurations.DEFAULT_FS_AZURE_ACCOUNT_OAUTH_TOKEN_FILE);
++          tokenProvider = new WorkloadIdentityTokenProvider(authority, tenantId,
++              clientId, tokenFile);
++          LOG.trace("WorkloadIdentityTokenProvider initialized");
+         } else {
+           throw new IllegalArgumentException("Failed to initialize " + tokenProviderClass);
+         }
+diff --git a/hadoop-tools/hadoop-azure/src/main/java/org/apache/hadoop/fs/azurebfs/constants/AuthConfigurations.java b/hadoop-tools/hadoop-azure/src/main/java/org/apache/hadoop/fs/azurebfs/constants/AuthConfigurations.java
+index 4fd8ddf0b4f..5daab03d14e 100644
+--- a/hadoop-tools/hadoop-azure/src/main/java/org/apache/hadoop/fs/azurebfs/constants/AuthConfigurations.java
++++ b/hadoop-tools/hadoop-azure/src/main/java/org/apache/hadoop/fs/azurebfs/constants/AuthConfigurations.java
+@@ -39,6 +39,10 @@
+   public static final String
+       DEFAULT_FS_AZURE_ACCOUNT_OAUTH_REFRESH_TOKEN_ENDPOINT =
+       "https://login.microsoftonline.com/Common/oauth2/token";
++  /** Default OAuth token file path for the workload identity flow. */
++  public static final String
++      DEFAULT_FS_AZURE_ACCOUNT_OAUTH_TOKEN_FILE =
++      "/var/run/secrets/azure/tokens/azure-identity-token";
+ 
+   private AuthConfigurations() {
+   }
+diff --git a/hadoop-tools/hadoop-azure/src/main/java/org/apache/hadoop/fs/azurebfs/constants/ConfigurationKeys.java b/hadoop-tools/hadoop-azure/src/main/java/org/apache/hadoop/fs/azurebfs/constants/ConfigurationKeys.java
+index 2dbb2b9b08d..0105ba9dd94 100644
+--- a/hadoop-tools/hadoop-azure/src/main/java/org/apache/hadoop/fs/azurebfs/constants/ConfigurationKeys.java
++++ b/hadoop-tools/hadoop-azure/src/main/java/org/apache/hadoop/fs/azurebfs/constants/ConfigurationKeys.java
+@@ -172,6 +172,8 @@
+   public static final String FS_AZURE_ACCOUNT_OAUTH_REFRESH_TOKEN = "fs.azure.account.oauth2.refresh.token";
+   /** Key for oauth AAD refresh token endpoint: {@value}. */
+   public static final String FS_AZURE_ACCOUNT_OAUTH_REFRESH_TOKEN_ENDPOINT = "fs.azure.account.oauth2.refresh.token.endpoint";
++  /** Key for oauth AAD workload identity token file path: {@value}. */
++  public static final String FS_AZURE_ACCOUNT_OAUTH_TOKEN_FILE = "fs.azure.account.oauth2.token.file";
+   /** Key for enabling the tracking of ABFS API latency and sending the latency numbers to the ABFS API service */
+   public static final String FS_AZURE_ABFS_LATENCY_TRACK = "fs.azure.abfs.latency.track";
+ 
+diff --git a/hadoop-tools/hadoop-azure/src/main/java/org/apache/hadoop/fs/azurebfs/oauth2/AzureADAuthenticator.java b/hadoop-tools/hadoop-azure/src/main/java/org/apache/hadoop/fs/azurebfs/oauth2/AzureADAuthenticator.java
+index 49f90feb22e..6a7e436b11b 100644
+--- a/hadoop-tools/hadoop-azure/src/main/java/org/apache/hadoop/fs/azurebfs/oauth2/AzureADAuthenticator.java
++++ b/hadoop-tools/hadoop-azure/src/main/java/org/apache/hadoop/fs/azurebfs/oauth2/AzureADAuthenticator.java
+@@ -56,6 +56,7 @@
+   private static final Logger LOG = LoggerFactory.getLogger(AzureADAuthenticator.class);
+   private static final String RESOURCE_NAME = "https://storage.azure.com/";
+   private static final String SCOPE = "https://storage.azure.com/.default";
++  private static final String JWT_BEARER_ASSERTION = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer";
+   private static final int CONNECT_TIMEOUT = 30 * 1000;
+   private static final int READ_TIMEOUT = 30 * 1000;
+ 
+@@ -110,6 +111,47 @@ public static AzureADToken getTokenUsingClientCreds(String authEndpoint,
+     return getTokenCall(authEndpoint, qp.serialize(), null, null);
+   }
+ 
++  /**
++   * gets Azure Active Directory token using the user ID and a JWT assertion
++   * generated by a federated authentication process.
++   *
++   * The federation process uses a feature from Azure Active Directory
++   * called workload identity. A workload identity is an identity used
++   * by a software workload (such as an application, service, script,
++   * or container) to authenticate and access other services and resources.
++   *
++   *
++   * @param authEndpoint the OAuth 2.0 token endpoint associated
++   *                     with the user's directory (obtain from
++   *                     Active Directory configuration)
++   * @param clientId     the client ID (GUID) of the client web app
++   *                     btained from Azure Active Directory configuration
++   * @param clientAssertion the JWT assertion token
++   * @return {@link AzureADToken} obtained using the creds
++   * @throws IOException throws IOException if there is a failure in connecting to Azure AD
++   */
++  public static AzureADToken getTokenUsingJWTAssertion(String authEndpoint,
++      String clientId, String clientAssertion) throws IOException {
++    Preconditions.checkNotNull(authEndpoint, "authEndpoint");
++    Preconditions.checkNotNull(clientId, "clientId");
++    Preconditions.checkNotNull(clientAssertion, "clientAssertion");
++    boolean isVersion2AuthenticationEndpoint = authEndpoint.contains("/oauth2/v2.0/");
++
++    QueryParams qp = new QueryParams();
++    if (isVersion2AuthenticationEndpoint) {
++      qp.add("scope", SCOPE);
++    } else {
++      qp.add("resource", RESOURCE_NAME);
++    }
++    qp.add("grant_type", "client_credentials");
++    qp.add("client_id", clientId);
++    qp.add("client_assertion", clientAssertion);
++    qp.add("client_assertion_type", JWT_BEARER_ASSERTION);
++    LOG.debug("AADToken: starting to fetch token using client assertion for client ID " + clientId);
++
++    return getTokenCall(authEndpoint, qp.serialize(), null, null);
++  }
++
+   /**
+    * Gets AAD token from the local virtual machine's VM extension. This only works on
+    * an Azure VM with MSI extension
+diff --git a/hadoop-tools/hadoop-azure/src/main/java/org/apache/hadoop/fs/azurebfs/oauth2/WorkloadIdentityTokenProvider.java b/hadoop-tools/hadoop-azure/src/main/java/org/apache/hadoop/fs/azurebfs/oauth2/WorkloadIdentityTokenProvider.java
+new file mode 100644
+index 00000000000..6b7783e4942
+--- /dev/null
++++ b/hadoop-tools/hadoop-azure/src/main/java/org/apache/hadoop/fs/azurebfs/oauth2/WorkloadIdentityTokenProvider.java
+@@ -0,0 +1,107 @@
++/**
++ * Licensed to the Apache Software Foundation (ASF) under one
++ * or more contributor license agreements.  See the NOTICE file
++ * distributed with this work for additional information
++ * regarding copyright ownership.  The ASF licenses this file
++ * to you under the Apache License, Version 2.0 (the
++ * "License"); you may not use this file except in compliance
++ * with the License.  You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package org.apache.hadoop.fs.azurebfs.oauth2;
++
++import java.io.File;
++import java.io.IOException;
++
++import org.apache.hadoop.thirdparty.com.google.common.base.Preconditions;
++import org.apache.hadoop.thirdparty.com.google.common.base.Strings;
++import org.slf4j.Logger;
++import org.slf4j.LoggerFactory;
++
++import org.apache.commons.io.FileUtils;
++
++
++/**
++ * Provides tokens based on Azure AD Workload Identity.
++ */
++public class WorkloadIdentityTokenProvider extends AccessTokenProvider {
++
++  private final String authEndpoint;
++
++  private final String clientId;
++
++  private final String tokenFile;
++
++  private long tokenFetchTime = -1;
++
++  private static final long ONE_HOUR = 3600 * 1000;
++
++  private static final Logger LOG = LoggerFactory.getLogger(AccessTokenProvider.class);
++
++  public WorkloadIdentityTokenProvider(final String authority, final String tenantId,
++      final String clientId, final String tokenFile) {
++    Preconditions.checkNotNull(authority, "authority");
++    Preconditions.checkNotNull(tenantId, "tenantId");
++    Preconditions.checkNotNull(clientId, "clientId");
++    Preconditions.checkNotNull(tokenFile, "tokenFile");
++
++    this.authEndpoint = authority + tenantId + "/oauth2/v2.0/token";
++    this.clientId = clientId;
++    this.tokenFile = tokenFile;
++  }
++
++  @Override
++  protected AzureADToken refreshToken() throws IOException {
++    LOG.debug("AADToken: refreshing token from JWT Assertion");
++    String clientAssertion = getClientAssertion(tokenFile);
++    AzureADToken token = AzureADAuthenticator
++        .getTokenUsingJWTAssertion(authEndpoint, clientId, clientAssertion);
++    tokenFetchTime = System.currentTimeMillis();
++    return token;
++  }
++
++  /**
++   * Checks if the token is about to expire as per base expiry logic.
++   * Otherwise try to expire every 1 hour
++   *
++   * @return true if the token is expiring in next 1 hour or if a token has
++   * never been fetched
++   */
++  @Override
++  protected boolean isTokenAboutToExpire() {
++    if (tokenFetchTime == -1 || super.isTokenAboutToExpire()) {
++      return true;
++    }
++
++    boolean expiring = false;
++    long elapsedTimeSinceLastTokenRefreshInMillis =
++        System.currentTimeMillis() - tokenFetchTime;
++    expiring = elapsedTimeSinceLastTokenRefreshInMillis >= ONE_HOUR
++        || elapsedTimeSinceLastTokenRefreshInMillis < 0;
++    // In case of, Token is not refreshed for 1 hr or any clock skew issues,
++    // refresh token.
++    if (expiring) {
++      LOG.debug("JWTToken: token renewing. Time elapsed since last token fetch:"
++          + " {} milli seconds", elapsedTimeSinceLastTokenRefreshInMillis);
++    }
++
++    return expiring;
++  }
++
++  private static String getClientAssertion(String tokenFile)
++      throws IOException {
++    File file = new File(tokenFile);
++    String clientAssertion = FileUtils.readFileToString(file, "UTF-8");
++    if (Strings.isNullOrEmpty(clientAssertion))
++        throw new IOException("Empty token file.");
++    return clientAssertion;
++  }
++}
+-- 
+2.25.1
+

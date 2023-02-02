@@ -54,3 +54,10 @@ alibabacloud_vpcpeer20220101 == 1.0.6
 alibabacloud_ecs20140526 == 3.0.4
 alibabacloud_ram20150501 == 1.0.3
 alibabacloud_oss20190517 == 1.0.5
+## for huaweicloud
+huaweicloudsdkecs == 3.1.24
+huaweicloudsdkvpc == 3.1.24
+huaweicloudsdknat == 3.1.24
+huaweicloudsdkeip == 3.1.24
+huaweicloudsdkiam == 3.1.24
+esdk-obs-python == 3.22.2

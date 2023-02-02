@@ -56,6 +56,13 @@ def _import_kubernetes(provider_config):
     return KubernetesNodeProvider
 
 
+# TODO(ChenRui): implement NodeProvider
+def _import_huaweicloud(provider_config):
+    from cloudtik.providers._private.huaweicloud.node_provider import \
+        HUAWEICLOUDNodeProvider
+    return HUAWEICLOUDNodeProvider
+
+
 def _load_local_provider_home():
     import cloudtik.providers.local as local_provider
     return os.path.dirname(local_provider.__file__)
@@ -86,6 +93,11 @@ def _load_aliyun_provider_home():
     return os.path.dirname(aliyun_provider.__file__)
 
 
+def _load_huaweicloud_provider_home():
+    import cloudtik.providers.huaweicloud as huaweicloud_provider
+    return os.path.dirname(huaweicloud_provider.__file__)
+
+
 def _load_local_defaults_config():
     return os.path.join(_load_local_provider_home(), "defaults.yaml")
 
@@ -110,6 +122,10 @@ def _load_aliyun_defaults_config():
     return os.path.join(_load_aliyun_provider_home(), "defaults.yaml")
 
 
+def _load_huaweicloud_defaults_config():
+    return os.path.join(_load_huaweicloud_provider_home(), "defaults.yaml")
+
+
 def _import_external(provider_config):
     provider_cls = _load_class(path=provider_config["provider_class"])
     return provider_cls
@@ -122,6 +138,7 @@ _NODE_PROVIDERS = {
     "azure": _import_azure,
     "aliyun": _import_aliyun,
     "kubernetes": _import_kubernetes,
+    "huaweicloud": _import_huaweicloud,
     "external": _import_external  # Import an external module
 }
 
@@ -132,6 +149,7 @@ _PROVIDER_PRETTY_NAMES = {
     "azure": "Azure",
     "aliyun": "Aliyun",
     "kubernetes": "Kubernetes",
+    "huaweicloud": "HUAWEI CLOUD",
     "external": "External"
 }
 
@@ -142,6 +160,7 @@ _PROVIDER_HOMES = {
     "azure": _load_azure_provider_home,
     "aliyun": _load_aliyun_provider_home,
     "kubernetes": _load_kubernetes_provider_home,
+    "huaweicloud": _load_huaweicloud_provider_home,
 }
 
 _DEFAULT_CONFIGS = {
@@ -151,6 +170,7 @@ _DEFAULT_CONFIGS = {
     "azure": _load_azure_defaults_config,
     "aliyun": _load_aliyun_defaults_config,
     "kubernetes": _load_kubernetes_defaults_config,
+    "huaweicloud": _load_huaweicloud_defaults_config,
 }
 
 # For caching workspace provider instantiations across API calls of one python session
@@ -189,6 +209,12 @@ def _import_kubernetes_workspace(provider_config):
     return KubernetesWorkspaceProvider
 
 
+def _import_huaweicloud_workspace(provider_config):
+    from cloudtik.providers._private.huaweicloud.workspace_provider import \
+        HUAWEICLOUDWorkspaceProvider
+    return HUAWEICLOUDWorkspaceProvider
+
+
 _WORKSPACE_PROVIDERS = {
     "local": _import_local_workspace,
     "aws": _import_aws_workspace,
@@ -196,6 +222,7 @@ _WORKSPACE_PROVIDERS = {
     "azure": _import_azure_workspace,
     "aliyun": _import_aliyun_workspace,
     "kubernetes": _import_kubernetes_workspace,
+    "huaweicloud": _import_huaweicloud_workspace,
     "external": _import_external  # Import an external module
 }
 

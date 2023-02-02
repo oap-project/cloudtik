@@ -39,6 +39,11 @@ def _import_azure(provider_config):
     return AzureNodeProvider
 
 
+def _import_aliyun(provider_config):
+    from cloudtik.providers._private.aliyun.node_provider import AliyunNodeProvider
+    return AliyunNodeProvider
+
+
 def _import_local(provider_config):
     from cloudtik.providers._private.local.node_provider import (
         CloudSimulatorNodeProvider)
@@ -76,6 +81,11 @@ def _load_azure_provider_home():
     return os.path.dirname(azure_provider.__file__)
 
 
+def _load_aliyun_provider_home():
+    import cloudtik.providers.aliyun as aliyun_provider
+    return os.path.dirname(aliyun_provider.__file__)
+
+
 def _load_local_defaults_config():
     return os.path.join(_load_local_provider_home(), "defaults.yaml")
 
@@ -96,6 +106,10 @@ def _load_azure_defaults_config():
     return os.path.join(_load_azure_provider_home(), "defaults.yaml")
 
 
+def _load_aliyun_defaults_config():
+    return os.path.join(_load_aliyun_provider_home(), "defaults.yaml")
+
+
 def _import_external(provider_config):
     provider_cls = _load_class(path=provider_config["provider_class"])
     return provider_cls
@@ -106,6 +120,7 @@ _NODE_PROVIDERS = {
     "aws": _import_aws,
     "gcp": _import_gcp,
     "azure": _import_azure,
+    "aliyun": _import_aliyun,
     "kubernetes": _import_kubernetes,
     "external": _import_external  # Import an external module
 }
@@ -115,6 +130,7 @@ _PROVIDER_PRETTY_NAMES = {
     "aws": "AWS",
     "gcp": "GCP",
     "azure": "Azure",
+    "aliyun": "Aliyun",
     "kubernetes": "Kubernetes",
     "external": "External"
 }
@@ -124,6 +140,7 @@ _PROVIDER_HOMES = {
     "aws": _load_aws_provider_home,
     "gcp": _load_gcp_provider_home,
     "azure": _load_azure_provider_home,
+    "aliyun": _load_aliyun_provider_home,
     "kubernetes": _load_kubernetes_provider_home,
 }
 
@@ -132,6 +149,7 @@ _DEFAULT_CONFIGS = {
     "aws": _load_aws_defaults_config,
     "gcp": _load_gcp_defaults_config,
     "azure": _load_azure_defaults_config,
+    "aliyun": _load_aliyun_defaults_config,
     "kubernetes": _load_kubernetes_defaults_config,
 }
 
@@ -154,6 +172,11 @@ def _import_azure_workspace(provider_config):
     return AzureWorkspaceProvider
 
 
+def _import_aliyun_workspace(provider_config):
+    from cloudtik.providers._private.aliyun.workspace_provider import AliyunWorkspaceProvider
+    return AliyunWorkspaceProvider
+
+
 def _import_local_workspace(provider_config):
     from cloudtik.providers._private.local.workspace_provider import \
         LocalWorkspaceProvider
@@ -171,6 +194,7 @@ _WORKSPACE_PROVIDERS = {
     "aws": _import_aws_workspace,
     "gcp": _import_gcp_workspace,
     "azure": _import_azure_workspace,
+    "aliyun": _import_aliyun_workspace,
     "kubernetes": _import_kubernetes_workspace,
     "external": _import_external  # Import an external module
 }

@@ -41,3 +41,9 @@ gcsfs == 2022.10.0
 ## for kubernetes
 kubernetes
 urllib3
+## for aliyun
+aliyun-python-sdk-core
+aliyun-python-sdk-ecs
+aliyun-python-sdk-vpc
+aliyun-python-sdk-ram
+oss2

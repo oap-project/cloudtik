@@ -938,6 +938,7 @@ def get_info_for_azure(config: Dict[str, Any], namespace, cloud_provider, info):
 
 def with_azure_environment_variables(provider_config, config_dict: Dict[str, Any]):
     export_azure_cloud_storage_config(provider_config, config_dict)
+    config_dict["AZURE_WORKLOAD_IDENTITY"] = True
 
 
 def get_default_kubernetes_cloud_storage_for_azure(provider_config):

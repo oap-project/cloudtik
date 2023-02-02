@@ -18,7 +18,7 @@ function update_credential_config_for_aws() {
     sed -i "s#{%fs.s3a.access.key%}#${AWS_S3_ACCESS_KEY_ID}#g" `grep "{%fs.s3a.access.key%}" -rl ./`
 
     if [ ! -z "${AWS_S3_SECRET_ACCESS_KEY}" ]; then
-        ${HADOOP_HOME}/bin/hadoop credential create fs.s3a.secret.key -value ${AWS_S3_SECRET_ACCESS_KEY} -provider ${HADOOP_CREDENTIAL_TEP_PROVIDER_PATH} > /dev/null
+        ${HADOOP_HOME}/bin/hadoop credential create fs.s3a.secret.key -value ${AWS_S3_SECRET_ACCESS_KEY} -provider ${HADOOP_CREDENTIAL_TMP_PROVIDER_PATH} > /dev/null
         sed -i "s#{%hadoop.credential.property%}#${HADOOP_CREDENTIAL_PROPERTY}#g" `grep "{%hadoop.credential.property%}" -rl ./`
     else
         sed -i "s#{%hadoop.credential.property%}#""#g" `grep "{%hadoop.credential.property%}" -rl ./`
@@ -32,7 +32,7 @@ function update_credential_config_for_gcp() {
     sed -i "s#{%fs.gs.auth.service.account.private.key.id%}#${GCP_GCS_SERVICE_ACCOUNT_PRIVATE_KEY_ID}#g" `grep "{%fs.gs.auth.service.account.private.key.id%}" -rl ./`
 
     if [ ! -z "${GCP_GCS_SERVICE_ACCOUNT_PRIVATE_KEY}" ]; then
-        ${HADOOP_HOME}/bin/hadoop credential create fs.gs.auth.service.account.private.key -value ${GCP_GCS_SERVICE_ACCOUNT_PRIVATE_KEY} -provider ${HADOOP_CREDENTIAL_TEP_PROVIDER_PATH} > /dev/null
+        ${HADOOP_HOME}/bin/hadoop credential create fs.gs.auth.service.account.private.key -value ${GCP_GCS_SERVICE_ACCOUNT_PRIVATE_KEY} -provider ${HADOOP_CREDENTIAL_TMP_PROVIDER_PATH} > /dev/null
         sed -i "s#{%hadoop.credential.property%}#${HADOOP_CREDENTIAL_PROPERTY}#g" `grep "{%hadoop.credential.property%}" -rl ./`
     else
         sed -i "s#{%hadoop.credential.property%}#""#g" `grep "{%hadoop.credential.property%}" -rl ./`
@@ -60,21 +60,49 @@ function update_credential_config_for_azure() {
     fi
 
     HAS_HADOOP_CREDENTIAL=false
+
+    if [ "$AZURE_WORKLOAD_IDENTITY" == "true" ]; then
+        # Replace with MsiTokenProvider with WorkloadIdentityTokenProvider for Kubernetes
+        sed -i "s#MsiTokenProvider#WorkloadIdentityTokenProvider#g" `grep "MsiTokenProvider" -rl ./`
+
+        if [ ! -z "${AZURE_TENANT_ID}" ]; then
+            # Update AZURE_MANAGED_IDENTITY_TENANT_ID from the projected AZURE_TENANT_ID env in pod
+            export AZURE_MANAGED_IDENTITY_TENANT_ID=${AZURE_TENANT_ID}
+        fi
+
+        if [ ! -z "${AZURE_CLIENT_ID}" ]; then
+            # Update AZURE_MANAGED_IDENTITY_CLIENT_ID from the projected AZURE_CLIENT_ID env in pod
+            export AZURE_MANAGED_IDENTITY_CLIENT_ID=${AZURE_CLIENT_ID}
+        fi
+
+        if [ ! -z "${AZURE_AUTHORITY_HOST}" ]; then
+            FS_KEY_NAME_AUTHORITY="fs.azure.account.oauth2.msi.authority"
+            ${HADOOP_HOME}/bin/hadoop credential create ${FS_KEY_NAME_AUTHORITY} -value ${AZURE_AUTHORITY_HOST} -provider ${HADOOP_CREDENTIAL_TMP_PROVIDER_PATH} > /dev/null
+            HAS_HADOOP_CREDENTIAL=true
+        fi
+
+        if [ ! -z "${AZURE_FEDERATED_TOKEN_FILE}" ]; then
+            FS_KEY_NAME_TOKEN_FILE="fs.azure.account.oauth2.token.file"
+            ${HADOOP_HOME}/bin/hadoop credential create ${FS_KEY_NAME_TOKEN_FILE} -value ${AZURE_FEDERATED_TOKEN_FILE} -provider ${HADOOP_CREDENTIAL_TMP_PROVIDER_PATH} > /dev/null
+            HAS_HADOOP_CREDENTIAL=true
+        fi
+    fi
+
     if [ ! -z "${AZURE_ACCOUNT_KEY}" ]; then
         FS_KEY_NAME_ACCOUNT_KEY="fs.azure.account.key.${AZURE_STORAGE_ACCOUNT}.${AZURE_ENDPOINT}.core.windows.net"
-        ${HADOOP_HOME}/bin/hadoop credential create ${FS_KEY_NAME_ACCOUNT_KEY} -value ${AZURE_ACCOUNT_KEY} -provider ${HADOOP_CREDENTIAL_TEP_PROVIDER_PATH} > /dev/null
+        ${HADOOP_HOME}/bin/hadoop credential create ${FS_KEY_NAME_ACCOUNT_KEY} -value ${AZURE_ACCOUNT_KEY} -provider ${HADOOP_CREDENTIAL_TMP_PROVIDER_PATH} > /dev/null
         HAS_HADOOP_CREDENTIAL=true
     fi
 
     if [ ! -z "${AZURE_MANAGED_IDENTITY_TENANT_ID}" ]; then
         FS_KEY_NAME_TENANT_ID="fs.azure.account.oauth2.msi.tenant"
-        ${HADOOP_HOME}/bin/hadoop credential create ${FS_KEY_NAME_TENANT_ID} -value ${AZURE_MANAGED_IDENTITY_TENANT_ID} -provider ${HADOOP_CREDENTIAL_TEP_PROVIDER_PATH} > /dev/null
+        ${HADOOP_HOME}/bin/hadoop credential create ${FS_KEY_NAME_TENANT_ID} -value ${AZURE_MANAGED_IDENTITY_TENANT_ID} -provider ${HADOOP_CREDENTIAL_TMP_PROVIDER_PATH} > /dev/null
         HAS_HADOOP_CREDENTIAL=true
     fi
 
     if [ ! -z "${AZURE_MANAGED_IDENTITY_CLIENT_ID}" ]; then
         FS_KEY_NAME_CLIENT_ID="fs.azure.account.oauth2.client.id"
-        ${HADOOP_HOME}/bin/hadoop credential create ${FS_KEY_NAME_CLIENT_ID} -value ${AZURE_MANAGED_IDENTITY_CLIENT_ID} -provider ${HADOOP_CREDENTIAL_TEP_PROVIDER_PATH} > /dev/null
+        ${HADOOP_HOME}/bin/hadoop credential create ${FS_KEY_NAME_CLIENT_ID} -value ${AZURE_MANAGED_IDENTITY_CLIENT_ID} -provider ${HADOOP_CREDENTIAL_TMP_PROVIDER_PATH} > /dev/null
         echo "${AZURE_MANAGED_IDENTITY_CLIENT_ID}" > ~/azure_managed_identity.config
         HAS_HADOOP_CREDENTIAL=true
     fi
@@ -88,7 +116,7 @@ function update_credential_config_for_azure() {
 
 function update_credential_config_for_provider() {
     HADOOP_CREDENTIAL_TMP_FILE="${output_dir}/credential.jceks"
-    HADOOP_CREDENTIAL_TEP_PROVIDER_PATH="jceks://file@${HADOOP_CREDENTIAL_TMP_FILE}"
+    HADOOP_CREDENTIAL_TMP_PROVIDER_PATH="jceks://file@${HADOOP_CREDENTIAL_TMP_FILE}"
     if [ "${cloud_storage_provider}" == "aws" ]; then
         update_credential_config_for_aws
     elif [ "${cloud_storage_provider}" == "azure" ]; then

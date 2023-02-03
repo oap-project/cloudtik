@@ -17,20 +17,20 @@ do
         # Remove the local images for the image tag.
         DO_CLEAN=YES
         ;;
-    --build)
-        # Build with the image tag
-        DO_BUILD=YES
-        ;;
     --tag-nightly)
         # Tag nightly to the specified image tag
         TAG_NIGHTLY=YES
+        ;;
+    --no-build)
+        # Build with the image tag
+        NO_BUILD=YES
         ;;
     --no-push)
         # Do build only, no push
         NO_PUSH=YES
         ;;
     *)
-        echo "Usage: release-docker.sh [ --image-tag ] --clean --build --tag-nightly --no-push"
+        echo "Usage: release-docker.sh [ --image-tag ] --clean --tag-nightly --no-build --no-push"
         exit 1
     esac
     shift
@@ -62,8 +62,8 @@ if [ $TAG_NIGHTLY ]; then
     sudo docker tag cloudtik/cloudtik-base:nightly cloudtik/cloudtik-base:$IMAGE_TAG
 fi
 
-if [ $DO_BUILD ]; then
-    # default, do build and push
+# Default build
+if [ ! $NO_BUILD ]; then
     sudo bash ./build-docker.sh --image-tag $IMAGE_TAG --build-spark --build-ml --build-ml-mxnet --build-spark-benchmark
 fi
 

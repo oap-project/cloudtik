@@ -10,7 +10,7 @@ This step will create the branch and tag based on main. Execute:
 bash ./dev/release-branch
 ```
 The version information is retrieved from python code "__version__" variable.
-Username and the token for github is needed when prompt. 
+Username and the token for Github is needed when prompt. 
 
 ### Step 2: Build the wheels and release to AWS S3 bucket
 This step will build the wheels for different python versions
@@ -36,3 +36,6 @@ Execute:
 bash ./dev/release-pip
 ```
 When prompt, input the username and password.
+
+### Step 5: Create a release at Github
+Finally, we create a release for Github CloudTik repository.

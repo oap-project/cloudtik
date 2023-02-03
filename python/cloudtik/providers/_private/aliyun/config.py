@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 ALIYUN_WORKSPACE_NUM_CREATION_STEPS = 8
 ALIYUN_WORKSPACE_NUM_DELETION_STEPS = 9
 ALIYUN_WORKSPACE_TARGET_RESOURCES = 10
+ALIYUN_VPC_SWITCHES_COUNT=2
 
 ALIYUN_RESOURCE_NAME_PREFIX = "cloudtik"
 ALIYUN_WORKSPACE_VPC_NAME = ALIYUN_RESOURCE_NAME_PREFIX + "-{}-vpc"
@@ -132,6 +133,24 @@ def _get_or_import_key_pair(config):
                 return
 
 
+def  _create_network_resources(config, acs_client, current_step, total_steps):
+    # TODO
+    asc_client = _client(config)
+    _create_vpc(config, asc_client)
+
+    return current_step
+
+
+def _create_workspace_instance_profile(config, workspace_name):
+    # TODO
+    pass
+
+
+def _create_workspace_cloud_storage(config, workspace_name):
+    # TODO
+    pass
+
+
 def _create_workspace(config):
     acs_client = _client(config)
     workspace_name = config["workspace_name"]
@@ -212,8 +231,8 @@ def _delete_vpc(config, asc_client):
     """ Delete the VPC """
     cli_logger.print("Deleting the VPC: {}...".format(vpc_name))
 
-    requestId = asc_client.delete_vpc(vpc_id)
-    if requestId is None:
+    response = asc_client.delete_vpc(vpc_id)
+    if response is None:
         cli_logger.print("Successfully deleted the VPC: {}.".format(vpc_name))
     else:
         cli_logger.abort("Failed to delete the VPC: {}.")
@@ -223,25 +242,174 @@ def get_workspace_vpc_id(config, asc_client):
     return _get_workspace_vpc_id(config["workspace_name"], asc_client)
 
 
-def _get_workspace_vpc_id(workspace_name, asc_client):
+def get_workspace_vpc(config, asc_client):
+    return _get_workspace_vpc(config["workspace_name"], asc_client)
+
+
+def _get_workspace_vpc(workspace_name, asc_client):
     vpc_name = _get_workspace_vpc_name(workspace_name)
-    cli_logger.verbose("Getting the VPC Id for workspace: {}...".format(vpc_name))
+    cli_logger.verbose("Getting the VPC for workspace: {}...".format(vpc_name))
     vpcs = asc_client.describe_vpcs()
     if vpcs is None:
         cli_logger.verbose("The VPC for workspace is not found: {}.".format(vpc_name))
         return None
 
-    vpc_ids = [vpc.get('VpcId') for vpc in asc_client.describe_vpcs() if vpc.get('VpcName') == vpc_name]
-    if len(vpc_ids) == 0:
+    vpcs = [vpc for vpc in asc_client.describe_vpcs() if vpc.get('VpcName') == vpc_name]
+    if len(vpcs) == 0:
         cli_logger.verbose("The VPC for workspace is not found: {}.".format(vpc_name))
         return None
     else:
         cli_logger.verbose_error("Successfully get the VPC Id of {} for workspace.".format(vpc_name))
-        return vpc_ids[0]
+        return vpcs[0]
+
+
+def _get_workspace_vpc_id(workspace_name, asc_client):
+    vpc = _get_workspace_vpc(workspace_name, asc_client)
+    return vpc.get('VpcId')
+
 
 
 def _get_workspace_vpc_name(workspace_name):
     return ALIYUN_WORKSPACE_VPC_NAME.format(workspace_name)
+
+
+def _configure_vswitches_cidr(vpc, asc_client):
+    cidr_list = []
+    vswitches = asc_client.describe_v_switches(vpc.get("VpcId"))
+
+    vpc_cidr = vpc.get("CidrBlock")
+    ip = vpc_cidr.split("/")[0].split(".")
+
+    if len(vswitches) == 0:
+        for i in range(0, ALIYUN_VPC_SWITCHES_COUNT):
+            cidr_list.append(ip[0] + "." + ip[1] + "." + str(i) + ".0/24")
+    else:
+        cidr_blocks = [vswitch.get("CidrBlock") for vswitch in vswitches]
+        for i in range(0, 256):
+            tmp_cidr_block = ip[0] + "." + ip[1] + "." + str(i) + ".0/24"
+
+            if check_cidr_conflict(tmp_cidr_block, cidr_blocks):
+                cidr_list.append(tmp_cidr_block)
+
+            if len(cidr_list) == ALIYUN_VPC_SWITCHES_COUNT:
+                break
+
+    return cidr_list
+
+
+def _create_and_configure_vswitches(config, asc_client):
+    workspace_name = config["workspace_name"]
+    vpc = get_workspace_vpc(config, asc_client)
+    vpc_id = get_workspace_vpc_id(config, asc_client)
+    asc_client.describe_vpcs()
+
+    vswitches = []
+    cidr_list = _configure_vswitches_cidr(vpc, asc_client)
+    cidr_len = len(cidr_list)
+
+    zones = asc_client.describe_zones()
+    if zones is None:
+        cli_logger.abort("No available zones found.")
+    availability_zones = [zone for zone in zones if len(zone['AvailableInstanceTypes']['InstanceTypes']) > 0]
+    default_availability_zone = availability_zones[0]
+    availability_zones = set(availability_zones)
+    used_availability_zones = set()
+    last_availability_zone = None
+
+    for i in range(0, cidr_len):
+        cidr_block = cidr_list[i]
+        vswitch_type = "public" if i == 0 else "private"
+        with cli_logger.group(
+                "Creating {} vswitch", vswitch_type,
+                _numbered=("()", i + 1, cidr_len)):
+            try:
+                if i == 0:
+                    vswitch = _create_vswitch(asc_client, default_availability_zone, workspace_name, vpc_id, cidr_block, isPrivate=False)
+                else:
+                    if last_availability_zone is None:
+                        last_availability_zone = default_availability_zone
+
+                        vswitch = _create_vswitch(asc_client, last_availability_zone, workspace_name, vpc_id, cidr_block)
+
+                    last_availability_zone = _next_availability_zone(
+                        availability_zones, used_availability_zones, last_availability_zone)
+
+            except Exception as e:
+                cli_logger.error("Failed to create {} vswitch. {}", vswitch_type, str(e))
+                raise e
+            vswitches.append(vswitch)
+
+    assert len(vswitches) == ALIYUN_VPC_SWITCHES_COUNT, "We must create {} vswitches for VPC: {}!".format(
+        ALIYUN_VPC_SWITCHES_COUNT, vpc_id)
+    return vswitches
+
+
+def _create_vswitch(asc_client, zone_id, workspace_name, vpc_id, cidr_block, isPrivate=True):
+    vswitch_type = "private" if isPrivate else "public"
+    cli_logger.print("Creating {} vswitch for VPC: {} with CIDR: {}...".format(vswitch_type, vpc_id, cidr_block))
+    vswitch_name = 'cloudtik-{}-{}-vswitch'.format(workspace_name, vswitch_type)
+    vswitch_id = asc_client.create_v_switch(vpc_id, zone_id, cidr_block, vswitch_name)
+    if vswitch_id is None:
+        cli_logger.abort("Failed to create {} vswitch: {}.".format(vswitch_type, vswitch_name))
+    else:
+        cli_logger.print("Successfully created {} vswitch: {}.".format(vswitch_type, vswitch_name))
+        return vswitch_id
+
+
+def _delete_private_vswitches(workspace_name, vpc_id, subnet_cli):
+    _delete_vswitches(workspace_name, vpc_id, subnet_cli, isPrivate=True)
+
+
+def _delete_public_vswitches(workspace_name, vpc_id, subnet_cli):
+    _delete_vswitches(workspace_name, vpc_id, subnet_cli, isPrivate=False)
+
+
+def get_workspace_private_vswitches(workspace_name, vpc_id, asc_client):
+    return _get_workspace_vswitches(workspace_name, vpc_id, asc_client, "cloudtik-{}-private-vswitch")
+
+
+def get_workspace_public_vswitches(workspace_name, vpc_id, asc_client):
+    return _get_workspace_vswitches(workspace_name, vpc_id, asc_client, "cloudtik-{}-public-vswitch")
+
+
+def _get_workspace_vswitches(workspace_name, vpc_id, asc_client, name_pattern):
+    vswitches = [vswitch for vswitch in asc_client.describe_v_switches(vpc_id)
+               if vswitch.get("VSwitchName").startswith(name_pattern.format(workspace_name))]
+    return vswitches
+
+
+def _delete_vswitches(workspace_name, vpc_id, asc_client, isPrivate=True):
+    vswitch_type = "private" if isPrivate else "public"
+    """ Delete custom vswitches """
+    vswitches =  get_workspace_private_vswitches(workspace_name, vpc_id, asc_client) \
+        if isPrivate else get_workspace_public_vswitches(workspace_name, vpc_id, asc_client)
+
+    if len(vswitches) == 0:
+        cli_logger.print("No vswitches for workspace were found under this VPC: {}...".format(vpc_id))
+        return
+
+    for vswitch in vswitches:
+        vswitch_id = vswitch.get("VSwitchId")
+        cli_logger.print("Deleting {} vswitch: {}...".format(vswitch_type, vswitch_id))
+        response = asc_client.delete_v_switch(vswitch_id)
+        if response is None:
+            cli_logger.abort("Failed to delete {} vswitch.".format(vswitch_type))
+        else:
+            cli_logger.print("Successfully deleted {} vswitch: {}.".format(vswitch_type, vswitch_id))
+
+
+def _next_availability_zone(availability_zones: set, used: set, last_availability_zone):
+    used.add(last_availability_zone)
+    unused = availability_zones.difference(used)
+    if len(unused) > 0:
+        return unused.pop()
+
+    # Used all, restart
+    used.clear()
+    if len(availability_zones) > 0:
+        return next(iter(availability_zones))
+
+    return None
 
 
 def create_aliyun_workspace(config):

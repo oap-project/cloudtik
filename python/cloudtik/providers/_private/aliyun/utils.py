@@ -17,6 +17,7 @@ from aliyunsdkecs.request.v20140526.CreateSecurityGroupRequest import (
 from aliyunsdkecs.request.v20140526.CreateVpcRequest import CreateVpcRequest
 from aliyunsdkecs.request.v20140526.DeleteVpcRequest import DeleteVpcRequest
 from aliyunsdkecs.request.v20140526.CreateVSwitchRequest import CreateVSwitchRequest
+from aliyunsdkecs.request.v20140526.DeleteVSwitchRequest import DeleteVSwitchRequest
 from aliyunsdkecs.request.v20140526.DeleteInstanceRequest import DeleteInstanceRequest
 from aliyunsdkecs.request.v20140526.DeleteInstancesRequest import DeleteInstancesRequest
 from aliyunsdkecs.request.v20140526.DeleteKeyPairsRequest import DeleteKeyPairsRequest
@@ -33,6 +34,7 @@ from aliyunsdkecs.request.v20140526.DescribeVpcsRequest import DescribeVpcsReque
 from aliyunsdkecs.request.v20140526.DescribeVSwitchesRequest import (
     DescribeVSwitchesRequest,
 )
+from aliyunsdkecs.request.v20140526.DescribeZonesRequest import DescribeZonesRequest
 from aliyunsdkecs.request.v20140526.ImportKeyPairRequest import ImportKeyPairRequest
 from aliyunsdkecs.request.v20140526.RunInstancesRequest import RunInstancesRequest
 from aliyunsdkecs.request.v20140526.StartInstanceRequest import StartInstanceRequest
@@ -246,26 +248,28 @@ class AcsClient:
         request.set_SourceCidrIp(source_cidr_ip)
         self._send_request(request)
 
-    def create_v_switch(self, vpc_id, zone_id, cidr_block):
+    def create_v_switch(self, vpc_id, zone_id, cidr_block, vswitch_name):
         """Create vSwitches to divide the VPC into one or more subnets
 
         :param vpc_id: The ID of the VPC to which the VSwitch belongs.
         :param zone_id: The ID of the zone to which
                         the target VSwitch belongs.
         :param cidr_block: The CIDR block of the VSwitch.
+        :param vswitch_name: The name of VSwitch
         :return:
         """
         request = CreateVSwitchRequest()
         request.set_ZoneId(zone_id)
         request.set_VpcId(vpc_id)
         request.set_CidrBlock(cidr_block)
+        request.set_VSwitchName(vswitch_name)
         response = self._send_request(request)
         if response is not None:
             return response.get("VSwitchId")
         else:
             logging.error("create_v_switch vpc_id %s failed.", vpc_id)
         return None
-
+    
     def create_vpc(self, vpc_name, cidr_block):
         """Creates a virtual private cloud (VPC).
 
@@ -282,14 +286,11 @@ class AcsClient:
     def delete_vpc(self, vpc_id):
         """Delete virtual private cloud (VPC).
 
-                :return: The request Id.
+                :return: The request response.
                 """
         request = DeleteVpcRequest()
         request.set_VpcId(vpc_id)
-        response = self._send_request(request)
-        if response is not None:
-            return response.get("RequestId")
-        return None
+        return self._send_request(request)
 
     def describe_vpcs(self):
         """Queries one or more VPCs in a region.
@@ -301,7 +302,7 @@ class AcsClient:
         if response is not None:
             return response.get("Vpcs").get("Vpc")
         return None
-
+        
     def tag_resource(self, resource_ids, tags, resource_type="instance"):
         """Create and bind tags to specified ECS resources.
 
@@ -465,6 +466,29 @@ class AcsClient:
             logging.error("Describe VSwitches Failed.")
             return None
 
+    def delete_v_switch(self, vswitch_id):
+        """Delete virtual switch (VSwitch).
+
+                :return: The request response.
+                """
+        request = DeleteVSwitchRequest()
+        request.set_VSwitchId(vswitch_id)
+        return self._send_request(request)
+
+    def describe_zones(self):
+        """Queries all available zones in a region.
+
+        :return: Zone list.
+        """
+        request = DescribeZonesRequest()
+        request.set_AcceptLanguage("en-US")
+        response = self._send_request(request)
+        if response is not None:
+            return response.get("Zones").get("Zone")
+        else:
+            logging.error("Describe Zones Failed.")
+            return None
+    
     def _send_request(self, request):
         """send open api request"""
         request.set_accept_format("json")

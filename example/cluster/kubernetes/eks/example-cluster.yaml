@@ -4,7 +4,7 @@ from: kubernetes/eks/small
 cluster_name: example-cluster
 
 # Workspace name
-workspace_name: exmaple-workspace
+workspace_name: example-workspace
 
 # Kubernetes provider specific configurations
 provider:

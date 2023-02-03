@@ -7,7 +7,9 @@ provider:
 
     # Cloud-provider specific configuration.
     cloud_provider:
-        type: gcp
-        region: us-central1
-        project_id: your_gcp_project_id
+        type: azure
+        location: eastus
+        subscription_id: your-subscription-id
+        aks_resource_group: your-aks-resource-group
+        aks_cluster_name: your-aks-cluster
         managed_cloud_storage: True

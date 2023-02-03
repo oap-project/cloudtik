@@ -1,5 +1,5 @@
 # A unique identifier for the workspace
-workspace_name: exmaple-workspace
+workspace_name: example-workspace
 
 # Kubernetes provider specific configurations
 provider:

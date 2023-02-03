@@ -1,4 +1,4 @@
-from: kubernetes/gke/small
+from: kubernetes/aks/small
 
 # A unique identifier for the head node and workers of this cluster.
 cluster_name: example-cluster
@@ -12,9 +12,11 @@ provider:
 
     # Cloud-provider specific configuration.
     cloud_provider:
-        type: gcp
-        region: us-central1
-        project_id: your_gcp_project_id
+        type: azure
+        location: eastus
+        subscription_id: your-subscription-id
+        aks_resource_group: your-aks-resource-group
+        aks_cluster_name: your-aks-cluster
         use_managed_cloud_storage: True
 
 available_node_types:

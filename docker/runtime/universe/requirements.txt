@@ -6,12 +6,16 @@ jupyterlab==3.4.3
 nbclassic==0.3.7
 spylon-kernel==0.4.1
 
-# dl frameworks
-mxnet==1.9.1
-tensorflow==2.9.3
-
+# ML Tools
 mlflow==1.27.0
-# for mlflow
+# Note: mlflow (1.27.0) will fail with latest SQLAlchemy package
+sqlalchemy==1.4.46
 pyarrow==8.0.0
 hyperopt==0.2.7
+
+# ML Frameworks
 scikit-learn==1.0.2
+
+# DL Frameworks
+mxnet==1.9.1
+tensorflow==2.9.3

@@ -1,5 +1,7 @@
 # ML Tools
 mlflow==1.27.0
+# Note: mlflow (1.27.0) will fail with latest SQLAlchemy package
+sqlalchemy==1.4.46
 pyarrow==8.0.0
 hyperopt==0.2.7
 

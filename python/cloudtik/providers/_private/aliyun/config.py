@@ -1,9 +1,17 @@
 import logging
+import copy
 import os
 import stat
 from typing import Any, Dict, Optional
 
+from cloudtik.core._private.cli_logger import cli_logger, cf
+from cloudtik.core._private.utils import check_cidr_conflict, get_cluster_uri, is_use_internal_ip, \
+    is_managed_cloud_storage, is_use_managed_cloud_storage, is_worker_role_for_cloud_storage, is_use_working_vpc, \
+    is_use_peering_vpc, is_peering_firewall_allow_ssh_only, is_peering_firewall_allow_working_subnet
+from cloudtik.core.workspace_provider import Existence, CLOUDTIK_MANAGED_CLOUD_STORAGE, \
+    CLOUDTIK_MANAGED_CLOUD_STORAGE_URI
 from cloudtik.providers._private.aliyun.utils import AcsClient
+
 
 # instance status
 PENDING = "Pending"
@@ -14,11 +22,18 @@ STOPPED = "Stopped"
 
 logger = logging.getLogger(__name__)
 
+ALIYUN_WORKSPACE_NUM_CREATION_STEPS = 8
+ALIYUN_WORKSPACE_NUM_DELETION_STEPS = 9
+ALIYUN_WORKSPACE_TARGET_RESOURCES = 10
+
+ALIYUN_RESOURCE_NAME_PREFIX = "cloudtik"
+ALIYUN_WORKSPACE_VPC_NAME = ALIYUN_RESOURCE_NAME_PREFIX + "-{}-vpc"
 
 def bootstrap_aliyun(config):
     # print(config["provider"])
     # create vpc
-    _get_or_create_vpc(config)
+    # _get_or_create_vpc(config)
+
     # create security group id
     _get_or_create_security_group(config)
     # create vswitch
@@ -117,7 +132,125 @@ def _get_or_import_key_pair(config):
                 return
 
 
+def _create_workspace(config):
+    acs_client = _client(config)
+    workspace_name = config["workspace_name"]
+    managed_cloud_storage = is_managed_cloud_storage(config)
+    use_peering_vpc = is_use_peering_vpc(config)
+
+    current_step = 1
+    total_steps = ALIYUN_WORKSPACE_NUM_CREATION_STEPS
+    if managed_cloud_storage:
+        total_steps += 1
+    if use_peering_vpc:
+        total_steps += 1
+
+    try:
+        with cli_logger.group("Creating workspace: {}", workspace_name):
+            current_step = _create_network_resources(config, acs_client,
+                                                     current_step, total_steps)
+
+            with cli_logger.group(
+                    "Creating instance profile",
+                    _numbered=("[]", current_step, total_steps)):
+                current_step += 1
+                _create_workspace_instance_profile(config, workspace_name)
+
+            if managed_cloud_storage:
+                with cli_logger.group(
+                        "Creating S3 from cloudtik.providers._private.aliyun.utils import AcsClientbucket",
+                        _numbered=("[]", current_step, total_steps)):
+                    current_step += 1
+                    _create_workspace_cloud_storage(config, workspace_name)
+
+    except Exception as e:
+        cli_logger.error("Failed to create workspace with the name {}. "
+                         "You need to delete and try create again. {}", workspace_name, str(e))
+        raise e
+
+    cli_logger.print(
+        "Successfully created workspace: {}.",
+        cf.bold(workspace_name))
+
+    return config
+
+
+def _create_vpc(config, asc_client):
+    workspace_name = config["workspace_name"]
+    vpc_name = _get_workspace_vpc_name(workspace_name)
+
+    cli_logger.print("Creating workspace VPC: {}...", vpc_name)
+    # create vpc
+    cidr_block = '10.0.0.0/16'
+    if is_use_peering_vpc(config):
+        # TODO
+        return
+        # current_vpc = get_current_vpc(config)
+        # cidr_block = _configure_peering_vpc_cidr_block(current_vpc)
+
+    vpc_id = asc_client.create_vpc(vpc_name, cidr_block)
+    if vpc_id is None:
+        cli_logger.print("Successfully created workspace VPC: {}.", vpc_name)
+        return vpc_id
+    else:
+        cli_logger.abort("Failed to create workspace VPC.")
+
+
+def _delete_vpc(config, asc_client):
+    use_working_vpc = is_use_working_vpc(config)
+    if use_working_vpc:
+        cli_logger.print("Will not delete the current working VPC.")
+        return
+
+    vpc_id = get_workspace_vpc_id(config, asc_client)
+    vpc_name = _get_workspace_vpc_name(config["workspace_name"])
+
+    if vpc_id is None:
+        cli_logger.print("The VPC: {} doesn't exist.".format(vpc_name))
+        return
+
+    """ Delete the VPC """
+    cli_logger.print("Deleting the VPC: {}...".format(vpc_name))
+
+    requestId = asc_client.delete_vpc(vpc_id)
+    if requestId is None:
+        cli_logger.print("Successfully deleted the VPC: {}.".format(vpc_name))
+    else:
+        cli_logger.abort("Failed to delete the VPC: {}.")
+
+
+def get_workspace_vpc_id(config, asc_client):
+    return _get_workspace_vpc_id(config["workspace_name"], asc_client)
+
+
+def _get_workspace_vpc_id(workspace_name, asc_client):
+    vpc_name = _get_workspace_vpc_name(workspace_name)
+    cli_logger.verbose("Getting the VPC Id for workspace: {}...".format(vpc_name))
+    vpcs = asc_client.describe_vpcs()
+    if vpcs is None:
+        cli_logger.verbose("The VPC for workspace is not found: {}.".format(vpc_name))
+        return None
+
+    vpc_ids = [vpc.get('VpcId') for vpc in asc_client.describe_vpcs() if vpc.get('VpcName') == vpc_name]
+    if len(vpc_ids) == 0:
+        cli_logger.verbose("The VPC for workspace is not found: {}.".format(vpc_name))
+        return None
+    else:
+        cli_logger.verbose_error("Successfully get the VPC Id of {} for workspace.".format(vpc_name))
+        return vpc_ids[0]
+
+
+def _get_workspace_vpc_name(workspace_name):
+    return ALIYUN_WORKSPACE_VPC_NAME.format(workspace_name)
+
+
 def create_aliyun_workspace(config):
+    # create a copy of the input config to modify
+    config = copy.deepcopy(config)
+
+    # create workspace
+    config = _create_workspace(config)
+
     return config
 
 

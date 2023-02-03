@@ -15,6 +15,7 @@ from aliyunsdkecs.request.v20140526.CreateSecurityGroupRequest import (
     CreateSecurityGroupRequest,
 )
 from aliyunsdkecs.request.v20140526.CreateVpcRequest import CreateVpcRequest
+from aliyunsdkecs.request.v20140526.DeleteVpcRequest import DeleteVpcRequest
 from aliyunsdkecs.request.v20140526.CreateVSwitchRequest import CreateVSwitchRequest
 from aliyunsdkecs.request.v20140526.DeleteInstanceRequest import DeleteInstanceRequest
 from aliyunsdkecs.request.v20140526.DeleteInstancesRequest import DeleteInstancesRequest
@@ -39,8 +40,8 @@ from aliyunsdkecs.request.v20140526.StopInstanceRequest import StopInstanceReque
 from aliyunsdkecs.request.v20140526.StopInstancesRequest import StopInstancesRequest
 from aliyunsdkecs.request.v20140526.TagResourcesRequest import TagResourcesRequest
 
-from cloudtik.core._private.constants import env_integer
-ACS_MAX_RETRIES = env_integer("ACS_MAX_RETRIES", 12)
+# from cloudtik.core._private.constants import env_integer
+# ACS_MAX_RETRIES = env_integer("ACS_MAX_RETRIES", 12)
 
 class AcsClient:
     """
@@ -265,15 +266,29 @@ class AcsClient:
             logging.error("create_v_switch vpc_id %s failed.", vpc_id)
         return None
 
-    def create_vpc(self):
+    def create_vpc(self, vpc_name, cidr_block):
         """Creates a virtual private cloud (VPC).
 
         :return: The created VPC ID.
         """
         request = CreateVpcRequest()
+        request.set_VpcName(vpc_name)
+        request.set_CidrBlock(cidr_block)
         response = self._send_request(request)
         if response is not None:
             return response.get("VpcId")
+        return None
+
+    def delete_vpc(self, vpc_id):
+        """Delete virtual private cloud (VPC).
+
+                :return: The request Id.
+                """
+        request = DeleteVpcRequest()
+        request.set_VpcId(vpc_id)
+        response = self._send_request(request)
+        if response is not None:
+            return response.get("RequestId")
         return None
 
     def describe_vpcs(self):

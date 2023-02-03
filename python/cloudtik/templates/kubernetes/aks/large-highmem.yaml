@@ -1,0 +1,13 @@
+from: kubernetes/aks/large
+
+# Cloud-provider specific configuration.
+provider:
+    type: kubernetes
+
+# The instance configuration for a standard instance type
+available_node_types:
+    worker.default:
+        node_config:
+            resources:
+                # 256GB - 13.26GB
+                memory: 240Gi

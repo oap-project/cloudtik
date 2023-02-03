@@ -1,0 +1,13 @@
+from: kubernetes/aks/small
+
+# Cloud-provider specific configuration.
+provider:
+    type: kubernetes
+
+# The instance configuration for a standard instance type
+available_node_types:
+    worker.default:
+        node_config:
+            resources:
+                # 32GB - 4.31GB (3.35G + 0.96GB)
+                memory: 27Gi

@@ -1,0 +1,28 @@
+# Cloud-provider specific configuration.
+provider:
+    type: kubernetes
+
+    cloud_provider:
+        type: azure
+
+# The instance configuration for a standard instance type
+available_node_types:
+    head.default:
+        node_config:
+            resources:
+                cpu: 3
+                # 16G - 3.35G (0.75GB + 4GB * 0.25 + 4GB * 0.2 + 8GB * 0.1)
+                memory: 12Gi
+            dataDisks:
+              - name: data-disk-1
+                storageClass: "managed-csi"
+                diskSize: 100Gi
+    worker.default:
+        node_config:
+            resources:
+                cpu: 3
+                memory: 12Gi
+            dataDisks:
+              - name: data-disk-1
+                storageClass: "managed-csi"
+                diskSize: 200Gi

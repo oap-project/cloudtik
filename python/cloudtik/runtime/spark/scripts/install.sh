@@ -91,6 +91,9 @@ function install_jupyter_for_spark() {
             pip -qq install spylon-kernel==0.4.1;
             python -m spylon_kernel install --user;
         fi
+
+        # Creating the jupyter data folders
+        mkdir -p $RUNTIME_PATH/jupyter
     fi
 }
 

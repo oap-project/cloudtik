@@ -56,6 +56,12 @@ function set_head_address() {
     fi
 }
 
+function configure_system_folders() {
+    # Create dirs for data
+    mkdir -p ${RUNTIME_PATH}/mlflow/logs
+    mkdir -p ${RUNTIME_PATH}/mlflow/mlruns
+}
+
 function configure_ml() {
     # Do necessary configurations for Machine Learning
     prepare_base_conf
@@ -123,6 +129,7 @@ function configure_ml() {
 }
 
 set_head_address
+configure_system_folders
 configure_ml
 
 exit 0

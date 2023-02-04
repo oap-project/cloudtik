@@ -14,6 +14,8 @@ if [ ! -n "${SPARK_HOME}" ]; then
     exit 1
 fi
 
+USER_HOME=/home/$(whoami)
+RUNTIME_PATH=$USER_HOME/runtime
 export CLOUD_FS_MOUNT_PATH=/cloudtik/fs
 
 # import util functions
@@ -135,7 +137,7 @@ start-head)
     echo "Starting Spark History Server..."
     export SPARK_LOCAL_IP=${CLOUDTIK_NODE_IP}; $SPARK_HOME/sbin/start-history-server.sh > /dev/null
     echo "Starting Jupyter..."
-    nohup jupyter lab --no-browser > /tmp/logs/jupyterlab.log 2>&1 &
+    nohup jupyter lab --no-browser > $RUNTIME_PATH/jupyter/logs/jupyterlab.log 2>&1 &
     ;;
 stop-head)
     IS_HEAD_NODE=true

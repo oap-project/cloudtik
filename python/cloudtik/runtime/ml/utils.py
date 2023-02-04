@@ -11,7 +11,7 @@ RUNTIME_PROCESSES = [
     # The second element, if True, is to filter ps results by command name.
     # The third element is the process name.
     # The forth element, if node, the process should on all nodes,if head, the process should on head node.
-    ["proc_ml", False, "MLflow", "head"],
+    ["mlflow.server:app", False, "MLflow", "head"],
 ]
 
 RUNTIME_ROOT_PATH = os.path.abspath(os.path.dirname(__file__))
@@ -64,7 +64,10 @@ def publish_service_uri(cluster_config: Dict[str, Any], head_node_id: str) -> No
 
 
 def _get_runtime_logs():
-    return {}
+    mlflow_logs_dir = os.path.join(os.getenv("HOME"), "runtime", "mlflow", "logs")
+    all_logs = {"mlflow": mlflow_logs_dir
+                }
+    return all_logs
 
 
 def _validate_config(config: Dict[str, Any], provider):

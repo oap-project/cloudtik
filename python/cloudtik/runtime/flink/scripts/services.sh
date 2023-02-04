@@ -10,6 +10,9 @@ if [ ! -n "${FLINK_HOME}" ]; then
     exit 1
 fi
 
+USER_HOME=/home/$(whoami)
+RUNTIME_PATH=$USER_HOME/runtime
+
 case "$1" in
 start-head)
     echo "Starting Resource Manager..."
@@ -19,7 +22,7 @@ start-head)
     export HADOOP_CLASSPATH=`$HADOOP_HOME/bin/hadoop classpath`
     $FLINK_HOME/bin/historyserver.sh start > /dev/null
     echo "Starting Jupyter..."
-    nohup jupyter lab --no-browser > /tmp/logs/jupyterlab.log 2>&1 &
+    nohup jupyter lab --no-browser > $RUNTIME_PATH/jupyter/logs/jupyterlab.log 2>&1 &
     ;;
 stop-head)
     $HADOOP_HOME/bin/yarn --daemon stop resourcemanager

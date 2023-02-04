@@ -2,6 +2,12 @@
 
 function install_jdk() {
     # Install JDK
+    if [ -z "${USER_HOME}" ]; then
+        USER_HOME=/home/$(whoami)
+    fi
+    if [ -z "${RUNTIME_PATH}" ]; then
+        RUNTIME_PATH=$USER_HOME/runtime
+    fi
     export JAVA_HOME=$RUNTIME_PATH/jdk
 
     if [ ! -d "${JAVA_HOME}" ]; then

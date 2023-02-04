@@ -2,11 +2,12 @@
 
 USER_HOME=/home/$(whoami)
 RUNTIME_PATH=$USER_HOME/runtime
+MLFLOW_DATA=$RUNTIME_PATH/mlflow
 
 case "$1" in
 start-head)
     # Start MLflow service
-    nohup mlflow server --backend-store-uri sqlite:///mlflow.db --default-artifact-root $RUNTIME_PATH/mlflow --host 0.0.0.0  -p 5001 >mlflow.log 2>&1 &
+    nohup mlflow server --backend-store-uri sqlite:///${MLFLOW_DATA}/mlflow.db --default-artifact-root ${MLFLOW_DATA}/mlruns --host 0.0.0.0 -p 5001 >${MLFLOW_DATA}/mlflow.log 2>&1 &
     ;;
 stop-head)
     # Stop MLflow service

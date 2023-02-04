@@ -59,8 +59,8 @@ function check_flink_installed() {
 }
 
 function configure_system_folders() {
-    # Create logs in tmp for any application logs to include
-    mkdir -p /tmp/logs
+    # Create dirs for data
+    mkdir -p ${RUNTIME_PATH}/jupyter/logs
 }
 
 function set_head_address() {

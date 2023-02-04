@@ -91,7 +91,7 @@ function install_jupyter_for_flink() {
         fi
 
         # Creating the jupyter data folders
-        mkdir -p $RUNTIME_PATH/jupyter/notebooks
+        mkdir -p $RUNTIME_PATH/jupyter
     fi
 }
 

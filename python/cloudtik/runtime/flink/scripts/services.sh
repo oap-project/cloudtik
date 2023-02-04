@@ -22,7 +22,7 @@ start-head)
     export HADOOP_CLASSPATH=`$HADOOP_HOME/bin/hadoop classpath`
     $FLINK_HOME/bin/historyserver.sh start > /dev/null
     echo "Starting Jupyter..."
-    nohup jupyter lab --no-browser > $RUNTIME_PATH/jupyter/jupyterlab.log 2>&1 &
+    nohup jupyter lab --no-browser > $RUNTIME_PATH/jupyter/logs/jupyterlab.log 2>&1 &
     ;;
 stop-head)
     $HADOOP_HOME/bin/yarn --daemon stop resourcemanager

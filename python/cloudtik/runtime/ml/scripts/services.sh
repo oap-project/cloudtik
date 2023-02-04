@@ -1,5 +1,8 @@
 #!/bin/bash
 
+USER_HOME=/home/$(whoami)
+RUNTIME_PATH=$USER_HOME/runtime
+
 case "$1" in
 start-head)
     # Start MLflow service

@@ -2,6 +2,15 @@
 
 function install_hadoop() {
     # Install Hadoop
+    if [ -z "${USER_HOME}" ]; then
+        USER_HOME=/home/$(whoami)
+    fi
+    if [ -z "${RUNTIME_PATH}" ]; then
+        RUNTIME_PATH=$USER_HOME/runtime
+    fi
+    if [ -z "${HADOOP_VERSION}" ]; then
+        HADOOP_VERSION=3.3.1
+    fi
     export HADOOP_HOME=$RUNTIME_PATH/hadoop
 
     if [ ! -d "${HADOOP_HOME}" ]; then

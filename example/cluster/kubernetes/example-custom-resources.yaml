@@ -1,0 +1,34 @@
+# A unique identifier for the head node and workers of this cluster.
+cluster_name: example-cluster
+
+# Workspace name
+workspace_name: example-workspace
+
+# Kubernetes provider specific configurations
+provider:
+    type: kubernetes
+
+available_node_types:
+    head.default:
+        node_config:
+            resources:
+                cpu: 7
+                memory: 27Gi
+            dataDisks:
+              - name: data-disk-1
+                storageClass: "your-storage-class"
+                diskSize: 100Gi
+    worker.default:
+        node_config:
+            resources:
+                cpu: 7
+                memory: 27Gi
+            dataDisks:
+              - name: data-disk-1
+                storageClass: "your-storage-class"
+                diskSize: 200Gi
+        # The minimum number of worker nodes to launch.
+        min_workers: 3
+
+runtime:
+    types: [ganglia, hdfs, spark]

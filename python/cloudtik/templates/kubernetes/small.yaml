@@ -1,0 +1,16 @@
+# Cloud-provider specific configuration.
+provider:
+    type: kubernetes
+
+# The instance configuration for a standard instance type
+available_node_types:
+    head.default:
+        node_config:
+            resources:
+                cpu: 3
+                memory: 13Gi
+    worker.default:
+        node_config:
+            resources:
+                cpu: 3
+                memory: 13Gi

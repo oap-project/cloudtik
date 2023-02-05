@@ -1,0 +1,12 @@
+from: kubernetes/large
+
+# Cloud-provider specific configuration.
+provider:
+    type: kubernetes
+
+# The instance configuration for a standard instance type
+available_node_types:
+    worker.default:
+        node_config:
+            resources:
+                memory: 240Gi

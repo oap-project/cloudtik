@@ -56,24 +56,54 @@ the details for run job in background.
 
 ## 4. Run TPCx-AI Deep Learing cases
 
-To run deep learning cases you need to provide custom benchmark configuration file which should be properly defined according to your cluster resources.
-There is an example file **[default-spark.yaml](tpcx-ai/confs/default-spark.yaml)**  and you need to tune the spark parameters for useCase02, useCase05, useCase09.
+Before running benchmark, TPCx-AI need users to provide custom configuration file according to the cluster resources. 
+We provide a script to help user do this manual step and user can also custom define this configuration.
+There is an example file **[default-spark.yaml.template](tpcx-ai/confs/default-spark.yaml.template)** . You need to tune the following spark parameters for useCase02, useCase05, useCase09.
+```buildoutcfg
+# The parameters that CloudTik can tune according to the cluster hardware,
+number_of_executors: "{%spark.executor.instances%}"
+spark_executor_cores: "{%spark.executor.cores%}"
+spark_executor_memory: "{%spark.executor.memory%M}"
+spark_executor_memoryOverhead: "{%spark.executor.memoryOverhead%}"
+spark_driver_memory: "{%spark.driver.memory%M}"
+case02_executor_cores_horovod: "{%case02_executor_cores_horovod%}"
+case05_executor_cores_horovod: "{%case05_executor_cores_horovod%}"
+case09_executor_cores_horovod: "{%case09_executor_cores_horovod%}"
+Case02_TF_NUM_INTEROP_THREADS: "{%Case02_TF_NUM_INTEROP_THREADS%}"
+Case02_TF_NUM_INTRAOP_THREADS: "{%Case02_TF_NUM_INTRAOP_THREADS%}"
+Case05_TF_NUM_INTEROP_THREADS: "{%Case05_TF_NUM_INTEROP_THREADS%}"
+Case05_TF_NUM_INTRAOP_THREADS: "{%Case05_TF_NUM_INTRAOP_THREADS%}"
+Case09_TF_NUM_INTEROP_THREADS: "{%Case09_TF_NUM_INTEROP_THREADS%}"
+Case09_TF_NUM_INTRAOP_THREADS: "{%Case09_TF_NUM_INTRAOP_THREADS%}"
+```
 
-After you've defined benchmark configuration file, you need to upload this file to head node:
+Download the script  **[configure_default-_park_yaml.py](tpcx-ai/scripts/configure_default-_park_yaml.py)** to head node: 
+```buildoutcfg
+cloudtik exec your-cluster-config.yaml 'wget -P ~/ https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ml/tpcx-ai/scripts/configure_default_spark_yaml.py && python ~/configure_default_spark_yaml.py'
+```
+
+After you've defined benchmark configuration file, you can run the following commands to update the configuration:
 ```buildoutcfg
 cloudtik rsync-up your-cluster-config.yaml [local path for custom benchmark configuration] [remote path for custom benchmark configuration]
+cloudtik exec your-cluster-config.yaml 'python ~/configure_default_spark_yaml.py --config [remote path for custom benchmark configuration]'
 ```
+
+If you want to use  default spark parameters of CloudTik, you can run the following commands to update the configuration:
+```buildoutcfg
+cloudtik exec your-cluster-config.yaml 'python ~/configure_default_spark_yaml.py'
+```
+
 Running training stage for useCase02: 
 ```buildoutcfg
-cloudtik exec your-cluster-config.yaml 'source ~/runtime/benchmark-tools/tpcx-ai/setenv.sh && cd $TPCx_AI_HOME_DIR && bash bin/tpcxai.sh --phase TRAINING -c [remote path for custom benchmark configuration] -uc 2'
+cloudtik exec your-cluster-config.yaml 'source ~/runtime/benchmark-tools/tpcx-ai/setenv.sh && cd $TPCx_AI_HOME_DIR && bash bin/tpcxai.sh --phase TRAINING -c $HOME/runtime/benchmark-tools/tpcx-ai/driver/config/default-spark.yaml -uc 2'
 ```
 Running serving stage for useCase02:
  ```buildoutcfg
-cloudtik exec your-cluster-config.yaml 'source ~/runtime/benchmark-tools/tpcx-ai/setenv.sh && cd $TPCx_AI_HOME_DIR && bash bin/tpcxai.sh --phase SERVING -c [remote path for custom benchmark configuration] -uc 2'
+cloudtik exec your-cluster-config.yaml 'source ~/runtime/benchmark-tools/tpcx-ai/setenv.sh && cd $TPCx_AI_HOME_DIR && bash bin/tpcxai.sh --phase SERVING -c $HOME/runtime/benchmark-tools/tpcx-ai/driver/config/default-spark.yaml -uc 2'
 ```
 Running training and serving stage for useCase02, useCase05, useCase09:
  ```buildoutcfg
-cloudtik exec your-cluster-config.yaml 'source ~/runtime/benchmark-tools/tpcx-ai/setenv.sh && cd $TPCx_AI_HOME_DIR && bash bin/tpcxai.sh --phase {TRAINING,SERVING} -c [remote path for custom benchmark configuration] -uc {2,5,9}'
+cloudtik exec your-cluster-config.yaml 'source ~/runtime/benchmark-tools/tpcx-ai/setenv.sh && cd $TPCx_AI_HOME_DIR && bash bin/tpcxai.sh --phase {TRAINING,SERVING} -c $HOME/runtime/benchmark-tools/tpcx-ai/driver/config/default-spark.yaml -uc {2,5,9}'
 ```
 The final result will be similar to the output below. Each line will display the time consumed by each stage of each case, and the time unit is seconds.
 ```buildoutcfg

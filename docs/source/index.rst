@@ -32,6 +32,7 @@ CloudTik provides:
    UserGuide/creating-workspace.md
    UserGuide/creating-cluster.md
    UserGuide/managing-cluster.md
+   UserGuide/configuring-kubernetes-integration.md
    UserGuide/running-optimized-analytics.rst
    UserGuide/running-optimized-ai.rst
    UserGuide/advanced-configurations.rst

@@ -64,6 +64,8 @@ function download_tpcx_ai_files() {
     wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ml/tpcx-ai/confs/parallel-data-gen.sh.patch -O $TPCX_AI_HOME/tools/parallel-data-gen.sh
     wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ml/tpcx-ai/confs/parallel-data-load.sh.patch -O $TPCX_AI_HOME/tools/parallel-data-load.sh
     wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ml/tpcx-ai/confs/default-spark.yaml -O $TPCX_AI_HOME/driver/config/default-spark.yaml
+    wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ml/tpcx-ai/confs/default-spark.yaml.template -O $TPCX_AI_HOME/driver/config/default-spark.yaml.template
+    wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ml/tpcx-ai/scripts/configure_default_spark_yaml.py -O $TPCX_AI_HOME/configure_default_spark_yaml.py
     wget https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ml/tpcx-ai/confs/UseCase09.py.patch -O $TPCX_AI_HOME/workload/spark/pyspark/workload-pyspark/UseCase09.py
 }
 

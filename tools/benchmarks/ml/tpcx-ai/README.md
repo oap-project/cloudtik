@@ -46,7 +46,7 @@ Execute the following command to run the datagen script on the cluster:
 cloudtik exec your-cluster-config.yaml 'source ~/runtime/benchmark-tools/tpcx-ai/setenv.sh && cd $TPCx_AI_HOME_DIR && bash bin/tpcxai.sh --phase {DATA_GENERATION,LOADING} -sf 1 -c $TPCx_AI_HOME_DIR/driver/config/default-spark.yaml -uc {2,5,9}'
 ```
 Replace the cluster configuration file, scale factor(-sf), useCase(-uc) values in the above command for your case. 
-Please note that TPCx-AI supports three deep learning cases(useCase02, useCase05, useCase09), you can seperately generated data for any cases.
+Please note that TPCx-AI supports three deep learning cases(useCase02, useCase05, useCase09), you can separately generated data for any cases.
 
 The above command will submit and run the job in foreground and possible need a long time.
 you may need to run the command with --tmux option for background execution
@@ -54,11 +54,26 @@ for avoiding terminal disconnection in the middle. And you don't get the command
 Please refer to [CloudTik Submitting Jobs](https://cloudtik.readthedocs.io/en/latest/UserGuide/AdvancedConfigurations/submitting-jobs.html) for
 the details for run job in background.
 
-## 4. Run TPCx-AI Deep Learing cases
+## 4. Run TPCx-AI Deep Learning cases
 
-Before running benchmark, TPCx-AI need users to provide custom configuration file according to the cluster resources. 
-We provide a script to help user do this manual step and user can also custom define this configuration.
-There is an example file **[default-spark.yaml.template](tpcx-ai/confs/default-spark.yaml.template)** . You need to tune the following spark parameters for useCase02, useCase05, useCase09.
+### Configuring parameters
+Before running benchmark, you need to configure the parameters for TPCx-AI.
+You can choose one of following two options based on whether you need to do any customizations
+to the configuration values.
+
+#### Option 1: If you don't need any customizations
+You can run the following commands to ask CloudTik to help generate the default configuration
+based on cluster resources.
+```buildoutcfg
+cloudtik exec your-cluster-config.yaml 'python ~/runtime/benchmark-tools/tpcx-ai/configure_default_spark_yaml.py'
+```
+The final configuration file generated is stored to '$HOME/runtime/benchmark-tools/tpcx-ai/driver/config/default-spark.yaml'
+at the cluster head which you can use later.
+
+#### Option 2: If you need to customize any parameters
+You can customize the parameters using a configuration template provided by
+CloudTik - **[default-spark.yaml.template](tpcx-ai/confs/default-spark.yaml.template)**.
+Download and tune the following spark parameters for useCase02, useCase05, useCase09.
 ```buildoutcfg
 # The parameters that CloudTik can tune according to the cluster hardware,
 number_of_executors: "{%spark.executor.instances%}"
@@ -76,28 +91,24 @@ Case05_TF_NUM_INTRAOP_THREADS: "{%Case05_TF_NUM_INTRAOP_THREADS%}"
 Case09_TF_NUM_INTEROP_THREADS: "{%Case09_TF_NUM_INTEROP_THREADS%}"
 Case09_TF_NUM_INTRAOP_THREADS: "{%Case09_TF_NUM_INTRAOP_THREADS%}"
 ```
-
-Download the script  **[configure_default-_park_yaml.py](tpcx-ai/scripts/configure_default-_park_yaml.py)** to head node: 
+After you've updated the parameters in the configuration file,
+run the following commands to generate the final configuration file:
 ```buildoutcfg
-cloudtik exec your-cluster-config.yaml 'wget -P ~/ https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ml/tpcx-ai/scripts/configure_default_spark_yaml.py && python ~/configure_default_spark_yaml.py'
+# Upload the customized template to head
+cloudtik rsync-up your-cluster-config.yaml [your-local-path-for-configuration] [the-remote-path-for-configuration]
+# Generate the final configuration based on the customized template
+cloudtik exec your-cluster-config.yaml 'python ~/runtime/benchmark-tools/tpcx-ai/configure_default_spark_yaml.py --config [the-remote-path-for-configuration]'
 ```
+You can customize portion of the parameters and leave the other parameters updated automatically
+by CloudTik.
+The final configuration file generated is stored to '$HOME/runtime/benchmark-tools/tpcx-ai/driver/config/default-spark.yaml'
+at the cluster head which you can use later.
 
-After you've defined benchmark configuration file, you can run the following commands to update the configuration:
-```buildoutcfg
-cloudtik rsync-up your-cluster-config.yaml [local path for custom benchmark configuration] [remote path for custom benchmark configuration]
-cloudtik exec your-cluster-config.yaml 'python ~/configure_default_spark_yaml.py --config [remote path for custom benchmark configuration]'
-```
-
-If you want to use  default spark parameters of CloudTik, you can run the following commands to update the configuration:
-```buildoutcfg
-cloudtik exec your-cluster-config.yaml 'python ~/configure_default_spark_yaml.py'
-```
-
-Running training stage for useCase02: 
+### Running training stage for useCase02:
 ```buildoutcfg
 cloudtik exec your-cluster-config.yaml 'source ~/runtime/benchmark-tools/tpcx-ai/setenv.sh && cd $TPCx_AI_HOME_DIR && bash bin/tpcxai.sh --phase TRAINING -c $HOME/runtime/benchmark-tools/tpcx-ai/driver/config/default-spark.yaml -uc 2'
 ```
-Running serving stage for useCase02:
+### Running serving stage for useCase02:
  ```buildoutcfg
 cloudtik exec your-cluster-config.yaml 'source ~/runtime/benchmark-tools/tpcx-ai/setenv.sh && cd $TPCx_AI_HOME_DIR && bash bin/tpcxai.sh --phase SERVING -c $HOME/runtime/benchmark-tools/tpcx-ai/driver/config/default-spark.yaml -uc 2'
 ```

@@ -2,36 +2,20 @@ import argparse
 import subprocess
 import os
 
-
-template_spark_yaml = "/tmp/default-spark.yaml.template"
-template_spark_yaml_url = "https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ml/tpcx-ai/confs/default-spark.yaml.template"
-tpcx_ai_default_spark_yaml = os.path.expanduser("~runtime/benchmark-tools/tpcx-ai/driver/config/default-spark.yaml")
+config_home = os.path.expanduser("~/runtime/benchmark-tools/tpcx-ai/driver/config")
+default_spark_yaml = os.path.join(config_home, "default-spark.yaml")
+default_spark_yaml_template = os.path.join(config_home, "default-spark.yaml.template")
+spark_yaml_output = "/tmp/default-spark.yaml.template"
 
 parser = argparse.ArgumentParser(description='Tuning the Spark parameters for TPCx-AI')
 parser.add_argument('--config', default=None,
                     help='the template spark  (default: None)')
 
-
 if __name__ == '__main__':
     args = parser.parse_args()
-    user_template_spark_yaml = args.config
-
-    def download_template_spark_yaml():
-        try:
-            subprocess.check_call(f"rm -f {template_spark_yaml}", shell=True)
-            subprocess.check_call(f"wget {template_spark_yaml_url} -O {template_spark_yaml}", shell=True)
-        except Exception as e:
-            print(f"Failed to download template spark yaml config file. The exception is {e}")
-            exit(1)
-
-    if user_template_spark_yaml is None:
-        download_template_spark_yaml()
-    else:
-        try:
-            subprocess.check_call(f"cp -r  {user_template_spark_yaml} {template_spark_yaml}", shell=True)
-        except Exception as e:
-            print("Please input right path for your template_spark_yaml file!")
-            exit(1)
+    spark_yaml_template = args.config
+    if spark_yaml_template is None:
+        spark_yaml_template = default_spark_yaml_template
 
     from cloudtik.runtime.spark.api import ThisSparkCluster
 
@@ -56,7 +40,7 @@ if __name__ == '__main__':
 
     threads_num = int(yarn_container_maximum_vcores / executor_cores_horovod)
 
-    dict = \
+    conf_dict = \
     {
             '{%case02_executor_cores_horovod%}': str(executor_cores_horovod),
             '{%case05_executor_cores_horovod%}': str(executor_cores_horovod),
@@ -74,18 +58,18 @@ if __name__ == '__main__':
             '{%Case09_TF_NUM_INTRAOP_THREADS%}': str(threads_num)
     }
 
-    def replace_conf_value(conf_file, dict):
-        with open(conf_file) as f:
+    def replace_conf_value(template_file, conf_file, conf_dict):
+        with open(template_file) as f:
             read = f.read()
         with open(conf_file, 'w') as f:
-            for key, val in dict.items():
+            for key, val in conf_dict.items():
                 read = read.replace(key, val)
             f.write(read)
 
-    replace_conf_value(template_spark_yaml, dict)
+    replace_conf_value(spark_yaml_template, spark_yaml_output, conf_dict)
 
     try:
-        subprocess.check_call(f"cp -r {template_spark_yaml} {tpcx_ai_default_spark_yaml}", shell=True)
+        subprocess.check_call(f"cp -r {spark_yaml_output} {default_spark_yaml}", shell=True)
         print("Successfully updated spark configuration for tpcx-ai")
     except Exception as e:
-        print("Faild to update spark configuration for tpcx-ai")
+        print("Failed to update spark configuration for tpcx-ai")

@@ -137,6 +137,7 @@ def  _create_network_resources(config, acs_client, current_step, total_steps):
     # TODO
     asc_client = _client(config)
     _create_vpc(config, asc_client)
+    
 
     return current_step
 
@@ -301,7 +302,6 @@ def _create_and_configure_vswitches(config, asc_client):
     workspace_name = config["workspace_name"]
     vpc = get_workspace_vpc(config, asc_client)
     vpc_id = get_workspace_vpc_id(config, asc_client)
-    asc_client.describe_vpcs()
 
     vswitches = []
     cidr_list = _configure_vswitches_cidr(vpc, asc_client)
@@ -310,11 +310,11 @@ def _create_and_configure_vswitches(config, asc_client):
     zones = asc_client.describe_zones()
     if zones is None:
         cli_logger.abort("No available zones found.")
-    availability_zones = [zone for zone in zones if len(zone['AvailableInstanceTypes']['InstanceTypes']) > 0]
-    default_availability_zone = availability_zones[0]
-    availability_zones = set(availability_zones)
-    used_availability_zones = set()
-    last_availability_zone = None
+    availability_zones_id = [zone.get("ZoneId") for zone in zones if len(zone['AvailableInstanceTypes']['InstanceTypes']) > 0]
+    default_availability_zone_id = availability_zones_id[0]
+    availability_zones_id = set(availability_zones_id)
+    used_availability_zones_id = set()
+    last_availability_zone_id = None
 
     for i in range(0, cidr_len):
         cidr_block = cidr_list[i]
@@ -324,15 +324,15 @@ def _create_and_configure_vswitches(config, asc_client):
                 _numbered=("()", i + 1, cidr_len)):
             try:
                 if i == 0:
-                    vswitch = _create_vswitch(asc_client, default_availability_zone, workspace_name, vpc_id, cidr_block, isPrivate=False)
+                    vswitch = _create_vswitch(asc_client, default_availability_zone_id, workspace_name, vpc_id, cidr_block, isPrivate=False)
                 else:
-                    if last_availability_zone is None:
-                        last_availability_zone = default_availability_zone
+                    if last_availability_zone_id is None:
+                        last_availability_zone_id = default_availability_zone_id
 
-                        vswitch = _create_vswitch(asc_client, last_availability_zone, workspace_name, vpc_id, cidr_block)
+                        vswitch = _create_vswitch(asc_client, default_availability_zone_id, workspace_name, vpc_id, cidr_block)
 
-                    last_availability_zone = _next_availability_zone(
-                        availability_zones, used_availability_zones, last_availability_zone)
+                        last_availability_zone_id = _next_availability_zone(
+                            availability_zones_id, used_availability_zones_id, last_availability_zone_id)
 
             except Exception as e:
                 cli_logger.error("Failed to create {} vswitch. {}", vswitch_type, str(e))

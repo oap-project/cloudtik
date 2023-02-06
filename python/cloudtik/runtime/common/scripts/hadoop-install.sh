@@ -1,5 +1,15 @@
 #!/bin/bash
 
+function install_fuse_dfs() {
+    if [ -z "${HADOOP_VERSION}" ]; then
+        HADOOP_VERSION=3.3.1
+    fi
+    sudo wget  -q --show-progress https://d30257nes7d4fq.cloudfront.net/downloads/hadoop/fuse_dfs-${HADOOP_VERSION} -O /usr/bin/fuse_dfs
+    sudo wget  -q --show-progress https://d30257nes7d4fq.cloudfront.net/downloads/hadoop/fuse_dfs_wrapper-${HADOOP_VERSION}.sh -O /usr/bin/fuse_dfs_wrapper.sh
+    sudo chmod +x /usr/bin/fuse_dfs
+    sudo chmod +x /usr/bin/fuse_dfs_wrapper.sh
+}
+
 function install_hadoop() {
     # Install Hadoop
     if [ -z "${USER_HOME}" ]; then
@@ -34,4 +44,5 @@ function install_hadoop() {
         #Add share/hadoop/tools/lib/* into classpath
         echo "export HADOOP_CLASSPATH=\$HADOOP_CLASSPATH:\$HADOOP_HOME/share/hadoop/tools/lib/*" >> ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh
     fi
+    install_fuse_dfs
 }

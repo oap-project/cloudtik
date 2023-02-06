@@ -32,8 +32,6 @@ function check_hdfs_storage() {
 function mount_local_hdfs_fs() {
     fs_default_dir="dfs://${HEAD_ADDRESS}:9000"
     # Mount local hdfs fuse here
-    # fuse_dfs ${fs_default_dir}
-    sudo sed -i 's?#user_allow_other?user_allow_other?' /etc/fuse.conf
 
     mkdir -p ${CLOUD_FS_MOUNT_PATH}
     echo "Mounting HDFS ${fs_default_dir} to ${CLOUD_FS_MOUNT_PATH}..."
@@ -43,7 +41,6 @@ function mount_local_hdfs_fs() {
 function mount_hdfs_fs() {
     fs_default_dir="${HDFS_NAMENODE_URI:1}"
     # Mount remote hdfs fuse here
-    sudo sed -i 's?#user_allow_other?user_allow_other?' /etc/fuse.conf
     mkdir -p ${CLOUD_FS_MOUNT_PATH}
     echo "Mounting HDFS ${fs_default_dir} to ${CLOUD_FS_MOUNT_PATH}..."
     fuse_dfs_wrapper.sh  -oinitchecks ${fs_default_dir}  ${CLOUD_FS_MOUNT_PATH}

@@ -390,13 +390,11 @@ function configure_jupyter_for_spark() {
 }
 
 function configure_local_hdfs_fs() {
-    # Nothing to do now
-    :
+    sudo sed -i 's?#user_allow_other?user_allow_other?' /etc/fuse.conf
 }
 
 function configure_hdfs_fs() {
-    # Nothing to do now
-    :
+    sudo sed -i 's?#user_allow_other?user_allow_other?' /etc/fuse.conf
 }
 
 function configure_s3_fs() {

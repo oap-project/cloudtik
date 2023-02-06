@@ -2544,13 +2544,6 @@ def _configure_ami(config):
     return config
 
 
-def _upsert_security_groups(config, node_types):
-    security_groups = _get_or_create_vpc_security_groups(config, node_types)
-    _upsert_security_group_rules(config, security_groups)
-
-    return security_groups
-
-
 def _upsert_security_group(config, vpc_id):
     current_step = 1
     total_steps = 2

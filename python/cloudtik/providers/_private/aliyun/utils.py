@@ -30,6 +30,9 @@ from aliyunsdkecs.request.v20140526.DescribeKeyPairsRequest import (
 from aliyunsdkecs.request.v20140526.DescribeSecurityGroupsRequest import (
     DescribeSecurityGroupsRequest,
 )
+from aliyunsdkecs.request.v20140526.DescribeSecurityGroupAttributeRequest import DescribeSecurityGroupAttributeRequest
+from aliyunsdkecs.request.v20140526.RevokeSecurityGroupRequest import RevokeSecurityGroupRequest
+from aliyunsdkecs.request.v20140526.DeleteSecurityGroupRequest import DeleteSecurityGroupRequest
 from aliyunsdkecs.request.v20140526.DescribeVpcsRequest import DescribeVpcsRequest
 from aliyunsdkecs.request.v20140526.DescribeVSwitchesRequest import (
     DescribeVSwitchesRequest,
@@ -195,7 +198,7 @@ class AcsClient:
         logging.error("instance created failed.")
         return None
 
-    def create_security_group(self, vpc_id):
+    def create_security_group(self, vpc_id, name):
         """Create a security group
 
         :param vpc_id: The ID of the VPC in which to create
@@ -204,6 +207,7 @@ class AcsClient:
         """
         request = CreateSecurityGroupRequest()
         request.set_VpcId(vpc_id)
+        request.set_SecurityGroupName(name)
         response = self._send_request(request)
         if response is not None:
             security_group_id = response.get("SecurityGroupId")
@@ -228,6 +232,39 @@ class AcsClient:
             return security_groups
         logging.error("describe security group failed.")
         return None
+    
+    def revoke_security_group(self, ip_protocol, port_range, security_group_id, source_cidr_ip):
+        """Revoke an inbound security group rule.
+
+                :param ip_protocol: The transport layer protocol.
+                :param port_range: The range of destination ports relevant to
+                                   the transport layer protocol.
+                :param security_group_id: The ID of the destination security group.
+                :param source_cidr_ip: The range of source IPv4 addresses.
+                                       CIDR blocks and IPv4 addresses are supported.
+                """
+        request = RevokeSecurityGroupRequest()
+        request.set_IpProtocol(ip_protocol)
+        request.set_PortRange(port_range)
+        request.set_SecurityGroupId(security_group_id)
+        request.set_SourceCidrIp(source_cidr_ip)
+        self._send_request(request)
+    
+    def describe_security_group_attribute(self, security_group_id, tags=None):
+        """Query basic information of security groups.
+
+        :param vpc_id: The ID of the VPC to which the security group belongs.
+        :param tags: The tags of the security group.
+        :return: Security group list.
+        """
+        request = DescribeSecurityGroupAttributeRequest()
+        request.set_SecurityGroupId(security_group_id)
+        response = self._send_request(request)
+        if response is not None:
+            security_groups = response.get("SecurityGroups").get("SecurityGroup")
+            return security_groups
+        logging.error("describe security group attribute failed.")
+        return None
 
     def authorize_security_group(
         self, ip_protocol, port_range, security_group_id, source_cidr_ip
@@ -247,6 +284,15 @@ class AcsClient:
         request.set_SecurityGroupId(security_group_id)
         request.set_SourceCidrIp(source_cidr_ip)
         self._send_request(request)
+
+    def delete_security_group(self, security_group_id):
+        """Delete security group.
+
+                :return: The request response.
+                """
+        request = DeleteSecurityGroupRequest()
+        request.set_SecurityGroupId(security_group_id)
+        return self._send_request(request)
 
     def create_v_switch(self, vpc_id, zone_id, cidr_block, vswitch_name):
         """Create vSwitches to divide the VPC into one or more subnets

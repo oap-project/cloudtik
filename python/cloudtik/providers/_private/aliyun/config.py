@@ -2,6 +2,7 @@ import logging
 import copy
 import os
 import stat
+import itertools
 from typing import Any, Dict, Optional
 
 from cloudtik.core._private.cli_logger import cli_logger, cf
@@ -29,6 +30,7 @@ ALIYUN_VPC_SWITCHES_COUNT=2
 
 ALIYUN_RESOURCE_NAME_PREFIX = "cloudtik"
 ALIYUN_WORKSPACE_VPC_NAME = ALIYUN_RESOURCE_NAME_PREFIX + "-{}-vpc"
+ALIYUN_WORKSPACE_SECURITY_GROUP_NAME = ALIYUN_RESOURCE_NAME_PREFIX + "-{}-security-group"
 
 def bootstrap_aliyun(config):
     # print(config["provider"])
@@ -412,6 +414,162 @@ def _next_availability_zone(availability_zones: set, used: set, last_availabilit
     return None
 
 
+def _create_workspace_security_group(config, vpc_id, asc_client):
+    security_group_name = ALIYUN_WORKSPACE_SECURITY_GROUP_NAME.format(config["workspace_name"])
+    cli_logger.print("Creating security group for VPC: {} ...".format(vpc_id))
+    security_group_id = asc_client.create_security_group(vpc_id, security_group_name)
+    if security_group_id is None:
+        cli_logger.abort("Failed to create security group for VPC: {}...".format(security_group_name))
+    else:
+        cli_logger.print("Successfully created security group: {}.".format(security_group_name))
+        return security_group_id
+
+    # security_group_id = cli.create_security_group(vpc_id=config["provider"]["vpc_id"])
+    #
+    # for rule in config["provider"].get("security_group_rule", {}):
+    #     cli.authorize_security_group(
+    #         security_group_id=security_group_id,
+    #         port_range=rule["port_range"],
+    #         source_cidr_ip=rule["source_cidr_ip"],
+    #         ip_protocol=rule["ip_protocol"],
+    #     )
+
+
+def _add_security_group_rules(config, security_group_id, asc_client):
+    cli_logger.print("Updating rules for security group: {}...".format(security_group_id))
+    _update_inbound_rules(security_group_id, config, asc_client)
+    cli_logger.print("Successfully updated rules for security group.")
+
+
+def _update_inbound_rules(target_security_group_id, config, asc_client):
+    extended_rules = config["provider"] \
+        .get("security_group_rule", [])
+    new_permissions = _create_default_inbound_rules(config, asc_client, extended_rules)
+    security_group_attribute = asc_client.describe_security_group_attribute(target_security_group_id)
+    old_permissions = security_group_attribute.get('Permissions').get('Permission')
+    
+    # revoke old permissions
+    for old_permission in old_permissions:
+        asc_client.revoke_security_group(
+            ip_protocol=old_permission.get("IpProtocol"),
+            port_range=old_permission.get("PortRange"),
+            security_group_id=old_permission.get("SecurityGroupRuleId"),
+            source_cidr_ip=old_permission.get("SourceCidrIp"))
+    # revoke old permissions
+    for new_permission in new_permissions:
+        asc_client.authorize_security_group(
+            ip_protocol=new_permission.get("IpProtocol"),
+            port_range=new_permission.get("PortRange"),
+            security_group_id=target_security_group_id,
+            source_cidr_ip=new_permission.get("SourceCidrIp"))
+    
+
+def _create_default_inbound_rules(config, asc_client, extended_rules=None):
+    if extended_rules is None:
+        extended_rules = []
+    intra_cluster_rules = _create_default_intra_cluster_inbound_rules(asc_client, config)
+    # ssh_rules = _create_default_ssh_inbound_rules(asc_client, config)
+
+    # TODO: support VPC peering
+    # if is_use_peering_vpc(config) and is_peering_firewall_allow_working_subnet(config):
+    #     extended_rules += _create_allow_working_node_inbound_rules(config)
+
+    merged_rules = itertools.chain(
+        intra_cluster_rules,
+        extended_rules,
+    )
+    return list(merged_rules)
+
+
+def get_workspace_security_group(config, asc_client, vpc_id):
+    return _get_security_group(config, vpc_id, asc_client, get_workspace_security_group_name(config["workspace_name"]))
+
+
+def _get_security_group(config, vpc_id, asc_client, group_name):
+    security_group = _get_security_groups(config, asc_client, [vpc_id], [group_name])
+    return None if not security_group else security_group[0]
+
+
+def _get_security_groups(config, asc_client, vpc_ids, group_names):
+    unique_vpc_ids = list(set(vpc_ids))
+    unique_group_names = set(group_names)
+    filtered_groups = []
+    for vpc_id in unique_vpc_ids:
+        security_groups = [security_group for security_group in asc_client.describe_security_groups(vpc_id=vpc_id)
+                           if security_group.get("SecurityGroupName") in unique_group_names]
+        filtered_groups.extend(security_groups)
+    return filtered_groups
+
+
+def get_workspace_security_group_name(workspace_name):
+    return ALIYUN_WORKSPACE_SECURITY_GROUP_NAME.format(workspace_name)
+
+
+def _update_security_group(config, asc_client):
+    vpc_id = get_workspace_vpc_id(config, asc_client)
+    security_group = get_workspace_security_group(config, asc_client, vpc_id)
+    _add_security_group_rules(config, security_group.get("SecurityGroupId"), asc_client)
+    return security_group
+
+
+def _upsert_security_group(config, vpc_id, asc_client):
+    current_step = 1
+    total_steps = 2
+
+    with cli_logger.group(
+            "Creating security group for VPC",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        security_group_id = _create_workspace_security_group(config, vpc_id, asc_client)
+
+    with cli_logger.group(
+            "Configuring rules for security group",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _add_security_group_rules(config, security_group_id, asc_client)
+
+    return security_group_id
+
+
+def _delete_security_group(config, vpc_id, asc_client):
+    """ Delete any security-groups """
+    workspace_security_group = get_workspace_security_group(config, asc_client, vpc_id)
+    if workspace_security_group is None:
+        cli_logger.print("No security groups for workspace were found under this VPC: {}...".format(vpc_id))
+        return
+    security_group_id = workspace_security_group.get("SecurityGroupId")
+    cli_logger.print("Deleting security group: {}...".format(security_group_id))
+    response = asc_client.delete_security_group(security_group_id)
+    if response is None:
+        cli_logger.abort("Failed to delete security group.")
+    else:
+        cli_logger.print("Successfully deleted security group: {}.".format(security_group_id))
+
+
+# def _create_default_intra_cluster_inbound_rules(intra_cluster_sgids):
+#     return [{
+#         "port_range": '-1/-1',
+#         "ip_protocol": "all",
+#         "UserIdGroupPairs": [
+#             {
+#                 "GroupId": security_group_id
+#             } for security_group_id in sorted(intra_cluster_sgids)
+#             # sort security group IDs for deterministic IpPermission models
+#             # (mainly supports more precise stub-based boto3 unit testing)
+#         ]
+#     }]
+
+
+def _create_default_intra_cluster_inbound_rules(asc_client, config):
+    vpc = get_workspace_vpc(config, asc_client)
+    vpc_cidr = vpc.get("CidrBlock")
+    return [{
+        "port_range": "-1/-1",
+        "source_cidr_ip": vpc_cidr,
+        "ip_protocol": "all"
+    }]
+
+
 def create_aliyun_workspace(config):
     # create a copy of the input config to modify
     config = copy.deepcopy(config)
@@ -433,7 +591,33 @@ def check_aliyun_workspace_integrity(config):
 
 
 def update_aliyun_workspace_firewalls(config):
-    pass
+    workspace_name = config["workspace_name"]
+    asc_client = _client(config)
+    vpc_id = get_workspace_vpc_id(config, asc_client)
+    if vpc_id is None:
+        cli_logger.print("The workspace: {} doesn't exist!".format(config["workspace_name"]))
+        return
+
+    current_step = 1
+    total_steps = 1
+
+    try:
+
+        with cli_logger.group(
+                "Updating workspace firewalls",
+                _numbered=("[]", current_step, total_steps)):
+            current_step += 1
+            _update_security_group(config, asc_client)
+
+    except Exception as e:
+        cli_logger.error(
+            "Failed to update the firewalls of workspace {}. {}", workspace_name, str(e))
+        raise e
+
+    cli_logger.print(
+        "Successfully updated the firewalls of workspace: {}.",
+        cf.bold(workspace_name))
+    return None
 
 
 def _get_workspace_head_nodes(provider_config, workspace_name):

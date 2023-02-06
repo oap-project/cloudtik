@@ -35,10 +35,6 @@ class NodeProvider:
         self._internal_ip_cache: Dict[str, str] = {}
         self._external_ip_cache: Dict[str, str] = {}
 
-    def with_environment_variables(self, node_type_config: Dict[str, Any], node_id: str):
-        """Export necessary environment variables for running node commands"""
-        raise NotImplementedError
-
     def non_terminated_nodes(self, tag_filters: Dict[str, str]) -> List[str]:
         """Return a list of node ids filtered by the specified tags dict.
 
@@ -51,27 +47,6 @@ class NodeProvider:
         Examples:
             >>> provider.non_terminated_nodes({CLOUDTIK_TAG_NODE_KIND: "worker"})
             ["node-1", "node-2"]
-        """
-        raise NotImplementedError
-
-    def get_node_info(self, node_id: str) -> Dict[str, str]:
-        """Return the node detail information  of a instance by instance id .
-        Examples:
-            >>> provider.get_node_info("i-01206b67a0bf03dee")
-            {
-                "node_id": "i-01206b67a0bf03dee",
-                "instance_type": "m5.large",
-                "private_ip": "172.31.53.194",
-                "public_ip": "44.242.153.247",
-                "instance_status": "running",
-                "cloudtik-launch-config": "be65513f591bd85758abb1e3dc4e8c51e26bd69a",
-                "cloudtik-user-node-type": "worker.default",
-                "cloudtik-node-kind": "worker",
-                "cloudtik-node-status": "up-to-date",
-                "Name": "cloudtik-example-worker",
-                "cloudtik-cluster-name": "example",
-                "cloudtik-runtime-config": "63611285826253d8672bbc3a0bad3405ae8891d7"
-            }
         """
         raise NotImplementedError
 
@@ -194,25 +169,6 @@ class NodeProvider:
         """
         return None
 
-    @staticmethod
-    def prepare_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-        """Prepare the necessary configs for user before merge with system defaults and validation"""
-        return cluster_config
-
-    @staticmethod
-    def bootstrap_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-        """Bootstraps the cluster config by adding env defaults if needed."""
-        return cluster_config
-
-    def cleanup_cluster(self, cluster_config: Dict[str, Any]):
-        """Cleanup the cluster by deleting additional resources other than the nodes."""
-        pass
-
-    @staticmethod
-    def bootstrap_config_for_api(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-        """Bootstraps the cluster config for node provider api access."""
-        return cluster_config
-
     def get_command_executor(self,
                              call_context: CallContext,
                              log_prefix: str,
@@ -260,24 +216,80 @@ class NodeProvider:
         The cluster config may also be updated for setting up the head"""
         return remote_config
 
+    def cleanup_cluster(self, cluster_config: Dict[str, Any]):
+        """Cleanup the cluster by deleting additional resources other than the nodes."""
+        pass
+
+    def get_node_info(self, node_id: str) -> Dict[str, str]:
+        """Return the node detail information  of a instance by instance id .
+        Examples:
+            >>> provider.get_node_info("i-01206b67a0bf03dee")
+            {
+                "node_id": "i-01206b67a0bf03dee",
+                "instance_type": "m5.large",
+                "private_ip": "172.31.53.194",
+                "public_ip": "44.242.153.247",
+                "instance_status": "running",
+                "cloudtik-launch-config": "be65513f591bd85758abb1e3dc4e8c51e26bd69a",
+                "cloudtik-user-node-type": "worker.default",
+                "cloudtik-node-kind": "worker",
+                "cloudtik-node-status": "up-to-date",
+                "Name": "cloudtik-example-worker",
+                "cloudtik-cluster-name": "example",
+                "cloudtik-runtime-config": "63611285826253d8672bbc3a0bad3405ae8891d7"
+            }
+        """
+        raise NotImplementedError
+
+    def with_environment_variables(self, node_type_config: Dict[str, Any], node_id: str):
+        """Export necessary environment variables for running node commands"""
+        raise NotImplementedError
+
+    def get_default_cloud_storage(self):
+        """Return the managed cloud storage if configured."""
+        return None
+
+    @staticmethod
+    def prepare_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Prepare the necessary configs for user before merge with system defaults
+        This is the first process after the config is loaded.
+        """
+        return cluster_config
+
     @staticmethod
     def post_prepare(
             cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-        """Fills out missing fields after the user config is merged with defaults and before validate"""
+        """Fills out missing fields after the user config is merged with defaults
+        This happens after prepare_config is done.
+        """
         return cluster_config
 
     @staticmethod
     def validate_config(
             provider_config: Dict[str, Any]) -> None:
-        """Check the provider configuration validation."""
+        """Check the provider configuration validation.
+        This happens after post_prepare is done and before bootstrap_config
+        """
         return None
+
+    @staticmethod
+    def bootstrap_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Bootstraps the cluster config by adding env defaults if needed.
+        This happens after validate_config is done.
+        """
+        return cluster_config
+
+    @staticmethod
+    def bootstrap_config_for_api(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Bootstraps the cluster config for node provider api access.
+        This happens after validate_config is done.
+        """
+        return cluster_config
 
     @staticmethod
     def verify_config(
             provider_config: Dict[str, Any]) -> None:
-        """Verify provider configuration. Verification usually means to check it is working."""
-        return None
-
-    def get_default_cloud_storage(self):
-        """Return the managed cloud storage if configured."""
+        """Verify provider configuration. Verification usually means to check it is working.
+        This happens after bootstrap_config is done.
+        """
         return None

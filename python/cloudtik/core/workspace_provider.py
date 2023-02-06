@@ -34,13 +34,18 @@ class WorkspaceProvider:
         self.workspace_name = workspace_name
 
     def create_workspace(self, config: Dict[str, Any]):
+        """Create a workspace and all the resources needed for the workspace based on the config."""
         pass
 
     def delete_workspace(self, config: Dict[str, Any],
                          delete_managed_storage: bool = False):
+        """Delete all the resources created for the workspace.
+        Managed cloud storage is not deleted by default unless delete_managed_storage is specified.
+        """
         pass
 
     def update_workspace_firewalls(self, config: Dict[str, Any]):
+        """Update the workspace firewalls based on the latest information in config"""
         pass
 
     def check_workspace_existence(self, config: Dict[str, Any]) -> Existence:
@@ -54,6 +59,9 @@ class WorkspaceProvider:
         return False
 
     def list_clusters(self, config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Get a list of clusters belongs to the workspace specified by the workspace config
+        The mapping is keyed by the cluster name with the value of node info of head node.
+        """
         return None
 
     def publish_global_variables(self, cluster_config: Dict[str, Any],
@@ -65,11 +73,15 @@ class WorkspaceProvider:
         """Workspace provide a way to subscribe global variables and can be subscribed anybody"""
         return {}
 
-    def validate_config(self, provider_config: Dict[str, Any]):
-        pass
-
     def get_workspace_info(self, config: Dict[str, Any]):
+        """Get a dictionary of key value pairs shown for workspace info command."""
         return {}
+
+    def validate_config(self, provider_config: Dict[str, Any]):
+        """Check the workspace configuration validation.
+        This happens before bootstrap_workspace_config
+        """
+        pass
 
     @staticmethod
     def bootstrap_workspace_config(config: Dict[str, Any]) -> Dict[str, Any]:

@@ -22,15 +22,20 @@ class Runtime:
         self.runtime_config = runtime_config
 
     def prepare_config(self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-        """Prepare runtime specific configurations"""
+        """Prepare runtime specific configurations
+        This happens after provider post_prepare is done.
+        """
         return cluster_config
 
     def validate_config(self, cluster_config: Dict[str, Any], provider: NodeProvider):
-        """Validate cluster configuration from runtime perspective."""
+        """Validate cluster configuration from runtime perspective.
+        This happens after runtime prepare_config is done and before provider bootstrap_config
+        """
         pass
 
     def verify_config(self, cluster_config: Dict[str, Any], provider: NodeProvider):
         """Verify cluster configuration at the last stage of bootstrap.
+        This happens after provider bootstrap_config is done.
         The verification may mean a slow process to check with a server"""
         pass
 
@@ -44,6 +49,8 @@ class Runtime:
 
     def cluster_booting_completed(
             self, cluster_config: Dict[str, Any], head_node_id: str) -> None:
+        """This method is called after the cluster head is completed all the setup steps.
+        """
         pass
 
     def get_runnable_command(self, target: str, runtime_options: Optional[List[str]]):

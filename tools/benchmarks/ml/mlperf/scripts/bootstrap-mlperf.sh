@@ -61,12 +61,14 @@ function install_mlperf() {
   rm -rf $MLPERF_TMP/*
   git clone https://github.com/oap-project/cloudtik.git
   rm -rf $MLPERF_HOME/*
+  mkdir -p $MLPERF_HOME
   cp -r cloudtik/tools/benchmarks/ml/mlperf/* $MLPERF_HOME/
   rm -rf $MLPERF_TMP/cloudtik
 }
 
 function configure_mlperf() {
-
+    # Nothing to do now
+    :
 }
 
 prepare

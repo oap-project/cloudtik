@@ -2,7 +2,8 @@
 
 ACTIVATE_ENV=cloudtik_py37
 
-BENCHMARK_TOOL_HOME=/cloudtik/fs/benchmark-tools
+USER_HOME=/home/$(whoami)
+BENCHMARK_TOOL_HOME=$USER_HOME/runtime/benchmark-tools
 MLPERF_HOME=$BENCHMARK_TOOL_HOME/mlperf
 
 BERT_MLPERF_HOME=$MLPERF_HOME/bert

@@ -620,6 +620,28 @@ def update_aliyun_workspace_firewalls(config):
     return None
 
 
+def _configure_allowed_ssh_sources(config):
+    provider_config = config["provider"]
+    if "allowed_ssh_sources" not in provider_config:
+        return
+
+    allowed_ssh_sources = provider_config["allowed_ssh_sources"]
+    if len(allowed_ssh_sources) == 0:
+        return
+
+    if "security_group_rule" not in provider_config:
+        provider_config["security_group_rule"] = []
+    security_group_rule_config = provider_config["security_group_rule"]
+
+    for allowed_ssh_source in allowed_ssh_sources:
+        permission = {
+            "IpProtocol": "tcp",
+            "PortRange": "22/22",
+            "SourceCidrIp": allowed_ssh_source
+        }
+        security_group_rule_config.append(permission)
+
+
 def _get_workspace_head_nodes(provider_config, workspace_name):
     pass
 
@@ -629,7 +651,10 @@ def list_aliyun_clusters(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 
 
 def bootstrap_aliyun_workspace(config):
-    pass
+    # create a copy of the input config to modify
+    config = copy.deepcopy(config)
+    _configure_allowed_ssh_sources(config)
+    return config
 
 
 def check_aliyun_workspace_existence(config):

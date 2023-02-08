@@ -15,3 +15,4 @@ Advanced Configurations
    AdvancedConfigurations/configuring-spot-instances.md
    AdvancedConfigurations/configuring-user-tags.md
    AdvancedConfigurations/waiting-for-job-completion.md
+   AdvancedConfigurations/mount-cloud-storage.md

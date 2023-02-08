@@ -120,7 +120,7 @@ folder for more completed examples.
 Since workload identity on an Azure Kubernetes Service (AKS) is still in public preview,
 you need to follow the "Install the aks-preview Azure CLI extension" step and
 "Register the 'EnableWorkloadIdentityPreview' feature flag" step in
-[Deploy and configure workload identity on AKS] (https://learn.microsoft.com/en-us/azure/aks/workload-identity-deploy-cluster)
+[Deploy and configure workload identity on AKS](https://learn.microsoft.com/en-us/azure/aks/workload-identity-deploy-cluster)
 for using preview features.
 
 And then create an AKS cluster with "--enable-oidc-issuer" and "--enable-workload-identity" parameters, for example

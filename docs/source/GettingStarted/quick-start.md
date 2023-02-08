@@ -193,6 +193,13 @@ auth:
     ssh_private_key: ~/.ssh/my_cluster_rsa_key
     ssh_public_key: ~/.ssh/my_cluster_rsa_key.pub
 ```
+If you need different runtime components in the cluster,
+in the cluster configuration file, you can set the runtime types. For example,
+```
+runtime:
+    types: [ganglia, hdfs, spark, ml]
+```
+It will run a cluster with ganglia, hdfs, spark and ml runtimes.
 
 Refer to `example/cluster` directory for more cluster configurations examples.
 
@@ -200,6 +207,10 @@ Refer to `example/cluster` directory for more cluster configurations examples.
 
 Once the cluster is started, you can run Spark analytics and AI workloads
 which are designed to be distributed and large scale in nature.
+
+Below provides the information of some basic examples to start with.
+As to running optimized Spark and AI, you can refer to [Running Optimized Analytics with Spark](https://cloudtik.readthedocs.io/en/latest/UserGuide/running-optimized-ai.html)
+and [Running Optimized AI](https://cloudtik.readthedocs.io/en/latest/UserGuide/running-optimized-ai.html) for more information.
 
 #### Running spark PI example
 

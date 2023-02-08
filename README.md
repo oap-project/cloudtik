@@ -14,7 +14,9 @@ the complexity of operating and running such a platform and lack of transparency
 ### CloudTik Solution
 CloudTik is designed for solving the above challenges by providing the following core capabilities:
 - Scalable, robust, and unified control plane and runtimes for all public clouds
-- Out of box optimized runtimes for analytics and AI (Spark, ...)
+- Out of box optimized runtimes for analytics and AI
+  - Optimized Spark runtime with CloudTik optimizations and native SQL
+  - Optimized ML/DL runtime with Intel oneAPI
 - Support of major public cloud providers - AWS, Azure, GCP, Kubernetes (EKS, AKS and GKE) and more
 - A fully open architecture and open-sourced platform
 
@@ -181,7 +183,7 @@ for the cloud doesn't have enough privileges to create some resources such as VP
 Make sure your current account have enough privileges. An admin or owner role will give the latest chance to have
 all these privileges.
 
-### 5. Starting a cluster with Spark runtime
+### 5. Starting a cluster with runtimes
 
 Now you can start a cluster running Spark by default:
 
@@ -241,12 +243,24 @@ auth:
     ssh_public_key: ~/.ssh/my_cluster_rsa_key.pub
 ```
 
+If you need different runtime components in the cluster,
+in the cluster configuration file, you can set the runtime types. For example,
+```
+runtime:
+    types: [ganglia, hdfs, spark, ml]
+```
+It will run a cluster with ganglia, hdfs, spark and ml runtimes.
+
 Refer to `example/cluster` directory for more cluster configurations examples.
 
 ### 6. Running analytics and AI workloads
 
 Once the cluster is started, you can run Spark analytics and AI workloads
 which are designed to be distributed and large scale in nature.
+
+Below provides the information of some basic examples to start with.
+As to running optimized Spark and AI, you can refer to [Running Optimized Analytics with Spark](https://cloudtik.readthedocs.io/en/latest/UserGuide/running-optimized-ai.html)
+and [Running Optimized AI](https://cloudtik.readthedocs.io/en/latest/UserGuide/running-optimized-ai.html) for more information.
 
 #### Running spark PI example
 

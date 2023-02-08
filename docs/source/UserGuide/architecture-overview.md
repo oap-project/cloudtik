@@ -5,6 +5,7 @@ more easily if such knowledge is in mind.
 
 - [High Level Architecture](#high-level-architecture)
 - [Cluster Architecture](#cluster-architecture)
+- [Cluster Networking](#cluster-networking)
 - [Head and Worker Services](#head-and-worker-services)
 - [Cluster Controller](#cluster-controller)
 - [Runtime Design](#runtime-design)
@@ -52,6 +53,49 @@ The process of starting a cluster:
 - Once the head instance is launched, CLI/API connect to head node through SSH, install and configure the head node. And run all head services on head node. Once head node is ready and running, the cluster launch from CLI/API is finished.
 - Cluster controller from head node calls Cloud API to launch worker instances.
 - For each worker instance launched, Cluster Controller connects to the worker node through SSH, install and configure the worker node, run all worker services, all in parallel.
+
+## Cluster Networking
+CloudTik designed to support two useful network scenarios.
+- VPC with public IP for head and private IPs for workers
+- VPC with private IPs and VPC Peering
+- VPC with private IPs and VPC Sharing
+
+### VPC with public IP for head and private IPs for workers
+For this network topology, the head node of the cluster will has a public IP
+through which you can access from public Internet.
+And all the workers have only private IPs. The head node also has a private IP.
+CloudTik is designed to allow you to access (attach to) workers through head node.
+When your working machine (CloudTik CLI client) is at your home or company network,
+you choose this network topology so that your working machine gain access to the cluster.
+
+Below diagram shows this networking scenario:
+![VPC with Public IP for Head](../../image/vpc-with-public-ip-for-head.jpg)
+
+### VPC with private IPs and VPC Peering
+For this network topology, the head node and all the workers have only private IPs.
+And your working machine (CloudTik CLI client) should be also at the same Cloud.
+CloudTik will setup a VPC peering with your working machine VPC
+and the workspace VPC so that your working machine is able to access the cluster through head node.
+Of course, your working machine may still need a public IP so that you can access it from
+your home or company network.
+
+Below diagram shows this networking scenario:
+![VPC with Private IP and Peering](../../image/vpc-with-private-ip-and-peering.jpg)
+
+### VPC with private IPs and VPC sharing
+For this network topology, the head node and all the workers have only private IPs.
+And your working machine (CloudTik CLI client) should be also at the same Cloud.
+CloudTik will share the existing VPC for your working machine
+and your working machine gain direct access the cluster.
+Of course, your working machine may still need a public IP so that you can access it from
+your home or company network.
+
+For this scenario, all the workspace network resources will be created at the existing VPC
+which makes the resource isolation is not ideal.
+
+Below diagram shows this networking scenario:
+![VPC with Private IP and VPC Sharing](../../image/vpc-with-private-ip-and-sharing.jpg)
+
 
 ## Head and Worker Services
 Let's have a look to what services are running on head node and worker nodes.

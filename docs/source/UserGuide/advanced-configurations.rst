@@ -5,6 +5,7 @@ Advanced Configurations
    :maxdepth: 1
 
    AdvancedConfigurations/configuring-container-mode.md
+   AdvancedConfigurations/configuring-cluster-networking.md
    AdvancedConfigurations/using-custom-commands.md
    AdvancedConfigurations/using-templates.md
    AdvancedConfigurations/submitting-jobs.md

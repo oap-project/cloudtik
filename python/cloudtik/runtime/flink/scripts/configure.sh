@@ -108,17 +108,6 @@ function check_hdfs_storage() {
     fi
 }
 
-function set_cloud_storage_provider() {
-    cloud_storage_provider="none"
-    if [ "$AWS_CLOUD_STORAGE" == "true" ]; then
-        cloud_storage_provider="aws"
-    elif [ "$AZURE_CLOUD_STORAGE" == "true" ]; then
-        cloud_storage_provider="azure"
-    elif [ "$GCP_CLOUD_STORAGE" == "true" ]; then
-        cloud_storage_provider="gcp"
-    fi
-}
-
 function update_cloud_storage_credential_config() {
     # update hadoop credential config
     update_credential_config_for_provider
@@ -225,6 +214,26 @@ function update_config_for_azure() {
     update_config_for_flink_dirs
 }
 
+function update_config_for_aliyun() {
+    fs_default_dir="oss://${ALIYUN_OSS_BUCKET}"
+    sed -i "s!{%fs.default.name%}!${fs_default_dir}!g" `grep "{%fs.default.name%}" -rl ./`
+
+    update_cloud_storage_credential_config
+
+    # checkpoints dir
+    if [ -z "${ALIYUN_OSS_BUCKET}" ]; then
+        checkpoints_dir="file:///tmp/flink-checkpoints"
+        savepoints_dir="file:///tmp/flink-savepoints"
+        historyserver_archive_dir="file:///tmp/history-server"
+    else
+        checkpoints_dir="${fs_default_dir}/${PATH_CHECKPOINTS}"
+        savepoints_dir="${fs_default_dir}/${PATH_SAVEPOINTS}"
+        historyserver_archive_dir="${fs_default_dir}/${PATH_HISTORY_SERVER}"
+    fi
+
+    update_config_for_flink_dirs
+}
+
 function update_config_for_remote_storage() {
     if [ "$HDFS_STORAGE" == "true" ]; then
         update_config_for_hdfs
@@ -234,6 +243,8 @@ function update_config_for_remote_storage() {
         update_config_for_azure
     elif [ "${cloud_storage_provider}" == "gcp" ]; then
         update_config_for_gcp
+    elif [ "${cloud_storage_provider}" == "aliyun" ]; then
+        update_config_for_aliyun
     fi
 }
 

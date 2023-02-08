@@ -45,7 +45,20 @@ from aliyunsdkecs.request.v20140526.StopInstanceRequest import StopInstanceReque
 from aliyunsdkecs.request.v20140526.StopInstancesRequest import StopInstancesRequest
 from aliyunsdkecs.request.v20140526.TagResourcesRequest import TagResourcesRequest
 
-# from cloudtik.core._private.constants import env_integer
+from aliyunsdkvpc.request.v20160428.CreateNatGatewayRequest import CreateNatGatewayRequest
+from aliyunsdkvpc.request.v20160428.DescribeNatGatewaysRequest import DescribeNatGatewaysRequest
+from aliyunsdkvpc.request.v20160428.DeleteNatGatewayRequest import DeleteNatGatewayRequest
+
+from aliyunsdkvpc.request.v20160428.AllocateEipAddressRequest import AllocateEipAddressRequest
+from aliyunsdkvpc.request.v20160428.AssociateEipAddressRequest import AssociateEipAddressRequest
+from aliyunsdkvpc.request.v20160428.DescribeEipAddressesRequest import DescribeEipAddressesRequest
+from aliyunsdkvpc.request.v20160428.UnassociateEipAddressRequest import UnassociateEipAddressRequest
+from aliyunsdkvpc.request.v20160428.ReleaseEipAddressRequest import ReleaseEipAddressRequest
+
+from aliyunsdkvpc.request.v20160428.CreateSnatEntryRequest import CreateSnatEntryRequest
+from aliyunsdkvpc.request.v20160428.DescribeSnatTableEntriesRequest import DescribeSnatTableEntriesRequest
+from aliyunsdkvpc.request.v20160428.DeleteSnatEntryRequest import DeleteSnatEntryRequest
+
 # ACS_MAX_RETRIES = env_integer("ACS_MAX_RETRIES", 12)
 
 class AcsClient:
@@ -534,7 +547,148 @@ class AcsClient:
         else:
             logging.error("Describe Zones Failed.")
             return None
-    
+
+    def describe_nat_gateways(self, vpc_id):
+        """Queries all available nat-gateway.
+        :return: Zone list.
+        """
+        request = DescribeNatGatewaysRequest()
+        request.set_VpcId(vpc_id)
+        response = self._send_request(request)
+        if response is not None:
+            return response.get("NatGateways").get("NatGateway")
+        else:
+            logging.error("Describe NatGateways Failed.")
+            return None
+
+    def delete_nat_gateway(self, nat_gateway_id):
+        """Delete Nat Gateway.
+        :return: The request response.
+        """
+        request = DeleteNatGatewayRequest()
+        request.set_NatGatewayId(nat_gateway_id)
+        return self._send_request(request)
+
+    def create_nat_gateway(self, vpc_id, vswitch_id, nat_gateway_name):
+        """Create Nat Gateway.
+        :return: The Nat Gateway Id.
+        """
+        request = CreateNatGatewayRequest()
+        request.set_VpcId(vpc_id)
+        request.set_Name(nat_gateway_name)
+        request.set_NatType("Enhanced")
+        request.set_VSwitchId(vswitch_id)
+        response = self._send_request(request)
+        if response is not None:
+            return response.get("NatGatewayId")
+        return None
+
+    def allocate_eip_address(self, eip_name):
+        """Allocate elastic ip address
+        :return allocation_id:
+        """
+        request = AllocateEipAddressRequest()
+        request.set_Name(eip_name)
+        response = self._send_request(request)
+        if response is not None:
+            return response.get("AllocationId")
+        return None
+
+    def associate_eip_address(self, eip_allocation_id, instance_type, instance_id):
+        """Bind elastic ip address to cloud instance
+        :return The request response:
+        """
+        request = AssociateEipAddressRequest()
+        request.set_AllocationId(eip_allocation_id)
+        request.set_InstanceType(instance_type)
+        request.set_InstanceId(instance_id)
+        return self._send_request(request)
+
+    def describe_eip_addresses(self):
+        """Queries all available eip.
+
+        :return eips:
+        """
+        request = DescribeEipAddressesRequest()
+        response = self._send_request(request)
+        if response is not None:
+            return response.get("EipAddresses").get("EipAddress")
+        else:
+            logging.error("Describe EIP Failed.")
+            return None
+
+    def dissociate_eip_address(self, eip_allocation_id, instance_type, instance_id):
+        """
+
+        :param eip_allocation_id:
+        :param instance_type:
+        :param instance_id:
+        :return:
+        """
+        request = UnassociateEipAddressRequest()
+        request.set_AllocationId(eip_allocation_id)
+        request.set_InstanceType(instance_type)
+        request.set_InstanceId(instance_id)
+        return self._send_request(request)
+
+    def release_eip_address(self, eip_allocation_id):
+        """
+        Release EIP resource
+        :param eip_allocation_id:
+        :return:
+        """
+        request = ReleaseEipAddressRequest()
+        request.set_AllocationId(eip_allocation_id)
+        return self._send_request(request)
+
+    def create_snat_entry(self, snat_table_id, vswitch_id, snat_ip, snat_entry_name):
+        """
+
+        :param snat_table_id:
+        :param vswitch_id:
+        :param snat_ip:
+        :param snat_entry_name:
+        :return:
+        """
+        request = CreateSnatEntryRequest()
+        request.set_SnatTableId(snat_table_id)
+        request.set_SourceVSwitchId(vswitch_id)
+        request.set_SnatIp(snat_ip)
+        request.set_SnatEntryName(snat_entry_name)
+        response = self._send_request(request)
+        if response is not None:
+            return response.get("SnatEntryId")
+        else:
+            logging.error("Failed to create SNAT Entry.")
+            return None
+
+    def describe_snat_entries(self, snat_table_id):
+        """
+
+        :param snat_table_id:
+        :return:
+        """
+        request = DescribeSnatTableEntriesRequest()
+        request.set_SnatTableId(snat_table_id)
+        response = self._send_request(request)
+        if response is not None:
+            return response.get("SnatTableEntries").get("SnatTableEntry")
+        else:
+            logging.error("Failed to describe SNAT Entries.")
+            return None
+
+
+    def delete_snat_entry(self, snat_table_id, snat_entry_id):
+        """
+        :param snat_table_id:
+        :param snap_entry_id:
+        :return:
+        """
+        request = DeleteSnatEntryRequest()
+        request.set_SnatTableId(snat_table_id)
+        request.set_SnatEntryId(snat_entry_id)
+        return self._send_request(request)
+
     def _send_request(self, request):
         """send open api request"""
         request.set_accept_format("json")

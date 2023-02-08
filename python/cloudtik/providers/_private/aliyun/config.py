@@ -31,6 +31,9 @@ ALIYUN_VPC_SWITCHES_COUNT=2
 ALIYUN_RESOURCE_NAME_PREFIX = "cloudtik"
 ALIYUN_WORKSPACE_VPC_NAME = ALIYUN_RESOURCE_NAME_PREFIX + "-{}-vpc"
 ALIYUN_WORKSPACE_SECURITY_GROUP_NAME = ALIYUN_RESOURCE_NAME_PREFIX + "-{}-security-group"
+ALIYUN_WORKSPACE_EIP_NAME = ALIYUN_RESOURCE_NAME_PREFIX + "-{}-eip"
+ALIYUN_WORKSPACE_NAT_GATEWAY_NAME = ALIYUN_RESOURCE_NAME_PREFIX + "-{}-nat"
+ALIYUN_WORKSPACE_SNAT_ENTRY_NAME = ALIYUN_RESOURCE_NAME_PREFIX + "-{}-snat"
 
 def bootstrap_aliyun(config):
     # print(config["provider"])
@@ -252,12 +255,12 @@ def get_workspace_vpc(config, asc_client):
 def _get_workspace_vpc(workspace_name, asc_client):
     vpc_name = _get_workspace_vpc_name(workspace_name)
     cli_logger.verbose("Getting the VPC for workspace: {}...".format(vpc_name))
-    vpcs = asc_client.describe_vpcs()
-    if vpcs is None:
+    all_vpcs = asc_client.describe_vpcs()
+    if all_vpcs is None:
         cli_logger.verbose("The VPC for workspace is not found: {}.".format(vpc_name))
         return None
 
-    vpcs = [vpc for vpc in asc_client.describe_vpcs() if vpc.get('VpcName') == vpc_name]
+    vpcs = [vpc for vpc in all_vpcs if vpc.get('VpcName') == vpc_name]
     if len(vpcs) == 0:
         cli_logger.verbose("The VPC for workspace is not found: {}.".format(vpc_name))
         return None
@@ -570,6 +573,198 @@ def _create_default_intra_cluster_inbound_rules(asc_client, config):
     }]
 
 
+def _delete_nat_gateway(config, asc_client):
+    current_step = 1
+    total_steps = 3
+
+    with cli_logger.group(
+            "Dissociating elastic ip",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _dissociate_elastic_ip(config, asc_client)
+
+    with cli_logger.group(
+            "Deleting NAT Gateway",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _delete_nat_gateway_resource(config, asc_client)
+
+    with cli_logger.group(
+            "Releasing Elastic IP",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        release_elastic_ip(config, asc_client)
+
+
+def _create_and_configure_nat_gateway(config, asc_client):
+    current_step = 1
+    total_steps = 3
+
+    with cli_logger.group(
+            "Creating Elastic IP",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _create_elastic_ip(config, asc_client)
+
+    with cli_logger.group(
+            "Creating NAT Gateway",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _create_nat_gateway(config, asc_client)
+
+    with cli_logger.group(
+            "Creating SNAT Entry",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _create_snat_entry(config, asc_client)
+
+
+def get_workspace_snat_entry_name(workspace_name):
+    return ALIYUN_WORKSPACE_SNAT_ENTRY_NAME.format(workspace_name)
+
+
+def  _create_snat_entry(config, asc_client):
+    workspace_name = config["workspace_name"]
+    snat_entry_name = get_workspace_snat_entry_name(workspace_name)
+    vpc_id = get_workspace_vpc_id(config, asc_client)
+    private_vswitch = get_workspace_private_vswitches(workspace_name, vpc_id, asc_client)[0]
+    nat_gateway = get_workspace_nat_gateway(config, asc_client)
+    snat_table_id = nat_gateway.get("SnatTableIds").get("SnatTableId")[0]
+    elastic_ip = get_workspace_elastic_ip(config, asc_client)
+    snat_ip = elastic_ip.get("IpAddress")
+    cli_logger.print("Creating SNAT Entry: {}...".format(snat_entry_name))
+    response = asc_client.create_snat_entry(snat_table_id, private_vswitch["VSwitchId"], snat_ip, snat_entry_name)
+    if response is None:
+        cli_logger.abort("Failed to create SNAT Entry: {}.".format(snat_entry_name))
+    else:
+        cli_logger.print("Successfully created SNAT Entry: {}.".format(snat_entry_name))
+
+
+def _delete_nat_gateway_resource(config, asc_client):
+    """ Delete custom nat_gateway """
+    nat_gateway = get_workspace_nat_gateway(config, asc_client)
+    if nat_gateway is None:
+        cli_logger.print("No Nat Gateway for workspace were found...")
+        return
+    nat_gateway_id = nat_gateway.get("NatGatewayId")
+    nat_gateway_name = nat_gateway.get("Name")
+    cli_logger.print("Deleting Nat Gateway: {}...".format(nat_gateway.get("Name")))
+    response = asc_client.delete_nat_gateway(nat_gateway_id)
+    if response is None:
+        cli_logger.abort("Failed to delete Nat Gateway: {}.".format(nat_gateway_name))
+    else:
+        cli_logger.print("Successfully deleted Nat Gateway: {}.".format(nat_gateway_name))
+
+
+def get_workspace_nat_gateway(config, asc_client):
+    return _get_workspace_nat_gateway(config, asc_client)
+
+
+def _get_workspace_nat_gateway(config, asc_client):
+    workspace_name = config["workspace_name"]
+    nat_gateway_name = get_workspace_nat_gateway_name(workspace_name)
+    vpc_id = get_workspace_vpc_id(config, asc_client)
+    cli_logger.verbose("Getting the Nat Gateway for workspace: {}...".format(nat_gateway_name))
+    nat_gateways = asc_client.describe_nat_gateways(vpc_id)
+    if nat_gateways is None:
+        cli_logger.verbose("The Nat Gateway for workspace is not found: {}.".format(nat_gateway_name))
+        return None
+
+    nat_gateways = [nat_gateway for nat_gateway in nat_gateways if nat_gateway.get('Name') == nat_gateway_name]
+    if len(nat_gateways) == 0:
+        cli_logger.verbose("The Nat Gateway for workspace is not found: {}.".format(nat_gateway_name))
+        return None
+    else:
+        cli_logger.verbose_error("Successfully get the Nat Gateway: {} for workspace.".format(nat_gateway_name))
+        return nat_gateways[0]
+
+
+def get_workspace_nat_gateway_name(workspace_name):
+    return ALIYUN_WORKSPACE_NAT_GATEWAY_NAME.format(workspace_name)
+
+
+def _create_nat_gateway(config, asc_client):
+    workspace_name = config["workspace_name"]
+    vpc_id =  get_workspace_vpc_id(config, asc_client)
+    nat_gateway_name = get_workspace_nat_gateway_name(workspace_name)
+    vswitch_id = get_workspace_public_vswitches(workspace_name, vpc_id, asc_client)
+    cli_logger.print("Creating nat-gateway: {}...".format(nat_gateway_name))
+    nat_gateway_id = asc_client.create_nat_gateway(vpc_id, nat_gateway_name, vswitch_id)
+    if nat_gateway_id is None:
+        cli_logger.abort("Failed to create nat-gateway.")
+    else:
+        cli_logger.print("Successfully created nat-gateway: {}.".format(nat_gateway_name))
+
+
+def get_workspace_elastic_ip_name(workspace_name):
+    return ALIYUN_WORKSPACE_EIP_NAME.format(workspace_name)
+
+
+def _create_elastic_ip(config, asc_client):
+    eip_name = get_workspace_elastic_ip_name(config["workspace_name"])
+    allocation_id = asc_client.allocate_eip_address(eip_name)
+    if allocation_id is None:
+        cli_logger.abort("Faild to allocate Elastic IP.")
+    else:
+        cli_logger.print("Successfully to allocate Elastic IP.")
+        return allocation_id
+
+
+def get_workspace_elastic_ip(config, asc_client):
+    return _get_workspace_elastic_ip(config, asc_client)
+
+
+def _get_workspace_elastic_ip(config, asc_client):
+    workspace_name = config["workspace_name"]
+    elastic_ip_name = get_workspace_elastic_ip_name(workspace_name)
+    cli_logger.verbose("Getting the Elastic IP for workspace: {}...".format(elastic_ip_name))
+    eip_addresses = asc_client.describe_eip_addresses()
+    if eip_addresses is None:
+        cli_logger.verbose("The Elastic IP for workspace is not found: {}.".format(elastic_ip_name))
+        return None
+
+    eip_addresses = [eip_address for eip_address in eip_addresses if eip_address.get('Name') == elastic_ip_name]
+    if len(eip_addresses) == 0:
+        cli_logger.verbose("The Elastic IP for workspace is not found: {}.".format(elastic_ip_name))
+        return None
+    else:
+        cli_logger.verbose_error("Successfully get the Elastic IP: {} for workspace.".format(elastic_ip_name))
+        return eip_addresses[0]
+
+
+def release_elastic_ip(config, asc_client):
+    """ Delete Elastic IP """
+    elastic_ip = get_workspace_elastic_ip(config, asc_client)
+    if elastic_ip is None:
+        cli_logger.print("No Elastic IP for workspace were found...")
+        return
+    allocation_id = elastic_ip.get("AllocationId")
+    elastic_ip_name = elastic_ip.get("Name")
+    cli_logger.print("Releasing Elastic IP: {}...".format(elastic_ip_name))
+    response = asc_client.release_eip_address(allocation_id)
+    if response is None:
+        cli_logger.abort("Faild to release Elastic IP: {}.".format(elastic_ip_name))
+    else:
+        cli_logger.print("Successfully to release Elastic IP:{}.".format(elastic_ip_name))
+
+
+def _dissociate_elastic_ip(config, asc_client):
+    elastic_ip = get_workspace_elastic_ip(config, asc_client)
+    if elastic_ip is None:
+        return
+    eip_allocation_id = elastic_ip.get("AllocationId")
+    instance_id = elastic_ip.get("InstanceId")
+    if instance_id is None:
+        return
+    elastic_ip_name = elastic_ip.get("Name")
+    cli_logger.print("Dissociating Elastic IP: {}...".format(elastic_ip_name))
+    response = asc_client.dissociate_eip_address(eip_allocation_id, "Nat", instance_id)
+    if response is None:
+        cli_logger.abort("Faild to dissociate Elastic IP: {}.".format(elastic_ip_name))
+    else:
+        cli_logger.print("Successfully to dissociate Elastic IP:{}.".format(elastic_ip_name))
+
+
 def create_aliyun_workspace(config):
     # create a copy of the input config to modify
     config = copy.deepcopy(config)
@@ -602,7 +797,6 @@ def update_aliyun_workspace_firewalls(config):
     total_steps = 1
 
     try:
-
         with cli_logger.group(
                 "Updating workspace firewalls",
                 _numbered=("[]", current_step, total_steps)):

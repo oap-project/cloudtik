@@ -69,6 +69,7 @@ When your working machine (CloudTik CLI client) is at your home or company netwo
 you choose this network topology so that your working machine gain access to the cluster.
 
 Below diagram shows this networking scenario:
+
 ![VPC with Public IP for Head](../../image/vpc-with-public-ip-for-head.jpg)
 
 ### VPC with private IPs and VPC Peering
@@ -80,6 +81,7 @@ Of course, your working machine may still need a public IP so that you can acces
 your home or company network.
 
 Below diagram shows this networking scenario:
+
 ![VPC with Private IP and Peering](../../image/vpc-with-private-ip-and-peering.jpg)
 
 ### VPC with private IPs and VPC sharing
@@ -94,6 +96,7 @@ For this scenario, all the workspace network resources will be created at the ex
 which makes the resource isolation is not ideal.
 
 Below diagram shows this networking scenario:
+
 ![VPC with Private IP and VPC Sharing](../../image/vpc-with-private-ip-and-sharing.jpg)
 
 

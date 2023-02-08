@@ -168,8 +168,11 @@ function install_spark_with_cloud_jars() {
 }
 
 function install_hdfs_fuse() {
-    # install fuse_dfs
-    :
+    arch=$(uname -m)
+    sudo wget  -q --show-progress https://d30257nes7d4fq.cloudfront.net/downloads/hadoop/fuse_dfs-${HADOOP_VERSION}-${arch} -O /usr/bin/fuse_dfs
+    sudo wget  -q --show-progress https://d30257nes7d4fq.cloudfront.net/downloads/hadoop/fuse_dfs_wrapper-${HADOOP_VERSION}.sh -O /usr/bin/fuse_dfs_wrapper.sh
+    sudo chmod +x /usr/bin/fuse_dfs
+    sudo chmod +x /usr/bin/fuse_dfs_wrapper.sh
 }
 
 function install_s3_fuse() {

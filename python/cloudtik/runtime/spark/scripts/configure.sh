@@ -398,14 +398,20 @@ function configure_jupyter_for_spark() {
   fi
 }
 
+function configure_fuse_options() {
+    FUSE_CONF_FILE="/etc/fuse.conf"
+    FIND_STR="^user_allow_other"
+    if [ `grep -c "$FIND_STR" $FUSE_CONF_FILE` -eq '0' ];then
+        sudo sed -i '$auser_allow_other' $FUSE_CONF_FILE
+    fi
+}
+
 function configure_local_hdfs_fs() {
-    # Nothing to do now
-    :
+    configure_fuse_options
 }
 
 function configure_hdfs_fs() {
-    # Nothing to do now
-    :
+    configure_fuse_options
 }
 
 function configure_s3_fs() {

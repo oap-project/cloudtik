@@ -32,3 +32,8 @@ fi
 
 # Create binary distribution without native code and without documentation:
 mvn package -Pdist -DskipTests -Dtar -Dmaven.javadoc.skip=true
+
+# Build fuse-dfs executable
+cd hadoop-hdfs-project
+mvn clean package -Pnative -pl hadoop-hdfs-native-client -am -Drequire.fuse=true -DskipTests -Dmaven.javadoc.skip=true
+cp hadoop-hdfs-native-client/target/main/native/fuse-dfs/fuse_dfs ${HADOOP_SRC_DIR}

@@ -55,7 +55,7 @@ The process of starting a cluster:
 - For each worker instance launched, Cluster Controller connects to the worker node through SSH, install and configure the worker node, run all worker services, all in parallel.
 
 ## Cluster Networking
-CloudTik designed to support two useful network scenarios.
+CloudTik designed to support three useful network scenarios.
 - VPC with public IP for head and private IPs for workers
 - VPC with private IPs and VPC Peering
 - VPC with private IPs and VPC Sharing

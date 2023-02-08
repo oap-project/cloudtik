@@ -114,6 +114,53 @@ function update_credential_config_for_azure() {
     fi
 }
 
+function update_credential_config_for_aliyun() {
+    if [ ! -z "${ALIYUN_OSS_ACCESS_KEY_ID}" ] && [ ! -z "${ALIYUN_OSS_ACCESS_KEY_ID}" ]; then
+        sed -i "s#{%fs.oss.credentials.provider%}##g" `grep "{%fs.oss.credentials.provider%}" -rl ./`
+    else
+        sed -i "s#{%fs.oss.credentials.provider%}#org.apache.hadoop.fs.aliyun.oss.InstanceProfileCredentialsProvider#g" `grep "{%fs.oss.credentials.provider%}" -rl ./`
+    fi
+
+    HAS_HADOOP_CREDENTIAL=false
+
+    if [ ! -z "${ALIYUN_OSS_ACCESS_KEY_ID}" ]; then
+        FS_OSS_ACCESS_KEY_ID="fs.oss.accessKeyId"
+        ${HADOOP_HOME}/bin/hadoop credential create ${FS_OSS_ACCESS_KEY_ID} -value ${ALIYUN_OSS_ACCESS_KEY_ID} -provider ${HADOOP_CREDENTIAL_TMP_PROVIDER_PATH} > /dev/null
+        HAS_HADOOP_CREDENTIAL=true
+    fi
+
+    if [ ! -z "${ALIYUN_OSS_ACCESS_KEY_SECRET}" ]; then
+        FS_OSS_ACCESS_KEY_SECRET="fs.oss.accessKeySecret"
+        ${HADOOP_HOME}/bin/hadoop credential create ${FS_OSS_ACCESS_KEY_SECRET} -value ${ALIYUN_OSS_ACCESS_KEY_SECRET} -provider ${HADOOP_CREDENTIAL_TMP_PROVIDER_PATH} > /dev/null
+        HAS_HADOOP_CREDENTIAL=true
+    fi
+
+    if [ ! -z "${ALIYUN_OSS_INSTANCE_ROLE_NAME}" ]; then
+        FS_OSS_INSTANCE_ROLE_NAME="fs.oss.instance.roleName"
+        ${HADOOP_HOME}/bin/hadoop credential create ${FS_OSS_INSTANCE_ROLE_NAME} -value ${ALIYUN_OSS_INSTANCE_ROLE_NAME} -provider ${HADOOP_CREDENTIAL_TMP_PROVIDER_PATH} > /dev/null
+        HAS_HADOOP_CREDENTIAL=true
+    fi
+
+    if [ "${HAS_HADOOP_CREDENTIAL}" == "true" ]; then
+        sed -i "s#{%hadoop.credential.property%}#${HADOOP_CREDENTIAL_PROPERTY}#g" `grep "{%hadoop.credential.property%}" -rl ./`
+    else
+        sed -i "s#{%hadoop.credential.property%}#""#g" `grep "{%hadoop.credential.property%}" -rl ./`
+    fi
+}
+
+function set_cloud_storage_provider() {
+    cloud_storage_provider="none"
+    if [ "$AWS_CLOUD_STORAGE" == "true" ]; then
+        cloud_storage_provider="aws"
+    elif [ "$AZURE_CLOUD_STORAGE" == "true" ]; then
+        cloud_storage_provider="azure"
+    elif [ "$GCP_CLOUD_STORAGE" == "true" ]; then
+        cloud_storage_provider="gcp"
+    elif [ "$ALIYUN_CLOUD_STORAGE" == "true" ]; then
+        cloud_storage_provider="aliyun"
+    fi
+}
+
 function update_credential_config_for_provider() {
     HADOOP_CREDENTIAL_TMP_FILE="${output_dir}/credential.jceks"
     HADOOP_CREDENTIAL_TMP_PROVIDER_PATH="jceks://file@${HADOOP_CREDENTIAL_TMP_FILE}"
@@ -123,6 +170,8 @@ function update_credential_config_for_provider() {
         update_credential_config_for_azure
     elif [ "${cloud_storage_provider}" == "gcp" ]; then
         update_credential_config_for_gcp
+    elif [ "${cloud_storage_provider}" == "aliyun" ]; then
+        update_credential_config_for_aliyun
     fi
     if [  -f "$HADOOP_CREDENTIAL_TMP_FILE"  ]; then
         cp  ${HADOOP_CREDENTIAL_TMP_FILE} ${HADOOP_CREDENTIAL_FILE}

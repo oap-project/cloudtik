@@ -107,17 +107,6 @@ function check_hdfs_storage() {
     fi
 }
 
-function set_cloud_storage_provider() {
-    cloud_storage_provider="none"
-    if [ "$AWS_CLOUD_STORAGE" == "true" ]; then
-        cloud_storage_provider="aws"
-    elif [ "$AZURE_CLOUD_STORAGE" == "true" ]; then
-        cloud_storage_provider="azure"
-    elif [ "$GCP_CLOUD_STORAGE" == "true" ]; then
-        cloud_storage_provider="gcp"
-    fi
-}
-
 function update_spark_credential_config_for_aws() {
     if [ "$AWS_WEB_IDENTITY" == "true" ]; then
         if [ ! -z "${AWS_ROLE_ARN}" ] && [ ! -z "${AWS_WEB_IDENTITY_TOKEN_FILE}" ]; then
@@ -230,6 +219,24 @@ function update_config_for_azure() {
     update_config_for_spark_dirs
 }
 
+function update_config_for_aliyun() {
+    fs_default_dir="gs://${ALIYUN_OSS_BUCKET}"
+    sed -i "s!{%fs.default.name%}!${fs_default_dir}!g" `grep "{%fs.default.name%}" -rl ./`
+
+    update_cloud_storage_credential_config
+
+    # event log dir
+    if [ -z "${ALIYUN_OSS_BUCKET}" ]; then
+        event_log_dir="file:///tmp/spark-events"
+        sql_warehouse_dir="$USER_HOME/shared/spark-warehouse"
+    else
+        event_log_dir="${fs_default_dir}/shared/spark-events"
+        sql_warehouse_dir="${fs_default_dir}/shared/spark-warehouse"
+    fi
+
+    update_config_for_spark_dirs
+}
+
 function update_config_for_remote_storage() {
     if [ "$HDFS_STORAGE" == "true" ]; then
         update_config_for_hdfs
@@ -239,6 +246,8 @@ function update_config_for_remote_storage() {
         update_config_for_azure
     elif [ "${cloud_storage_provider}" == "gcp" ]; then
         update_config_for_gcp
+    elif [ "${cloud_storage_provider}" == "aliyun" ]; then
+        update_config_for_aliyun
     fi
 }
 

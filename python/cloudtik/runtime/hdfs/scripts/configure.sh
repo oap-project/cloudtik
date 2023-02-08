@@ -93,17 +93,6 @@ function update_hdfs_data_disks_config() {
     sed -i "s!{%dfs.datanode.data.dir%}!${hdfs_dn_dirs}!g" `grep "{%dfs.datanode.data.dir%}" -rl ./`
 }
 
-function set_cloud_storage_provider() {
-    cloud_storage_provider="none"
-    if [ "$AWS_CLOUD_STORAGE" == "true" ]; then
-        cloud_storage_provider="aws"
-    elif [ "$AZURE_CLOUD_STORAGE" == "true" ]; then
-        cloud_storage_provider="azure"
-    elif [ "$GCP_CLOUD_STORAGE" == "true" ]; then
-        cloud_storage_provider="gcp"
-    fi
-}
-
 function update_cloud_storage_credential_config() {
     set_cloud_storage_provider
 

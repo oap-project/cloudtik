@@ -35,6 +35,16 @@ ALIYUN_WORKSPACE_EIP_NAME = ALIYUN_RESOURCE_NAME_PREFIX + "-{}-eip"
 ALIYUN_WORKSPACE_NAT_GATEWAY_NAME = ALIYUN_RESOURCE_NAME_PREFIX + "-{}-nat"
 ALIYUN_WORKSPACE_SNAT_ENTRY_NAME = ALIYUN_RESOURCE_NAME_PREFIX + "-{}-snat"
 
+HEAD_ROLE_ATTACH_POLICIES = [
+    "AliyunECSFullAccess",
+    "AliyunOSSFullAccess",
+    "AliyunRAMFullAccess"
+]
+
+WORKER_ROLE_ATTACH_POLICIES = [
+    "AliyunOSSFullAccess",
+]
+
 def bootstrap_aliyun(config):
     # print(config["provider"])
     # create vpc
@@ -147,11 +157,6 @@ def  _create_network_resources(config, acs_client, current_step, total_steps):
     return current_step
 
 
-def _create_workspace_instance_profile(config, workspace_name):
-    # TODO
-    pass
-
-
 def _create_workspace_cloud_storage(config, workspace_name):
     # TODO
     pass
@@ -179,11 +184,11 @@ def _create_workspace(config):
                     "Creating instance profile",
                     _numbered=("[]", current_step, total_steps)):
                 current_step += 1
-                _create_workspace_instance_profile(config, workspace_name)
+                _create_workspace_instance_role(config, workspace_name)
 
             if managed_cloud_storage:
                 with cli_logger.group(
-                        "Creating S3 from cloudtik.providers._private.aliyun.utils import AcsClientbucket",
+                        "Creating OSS  from cloudtik.providers._private.aliyun.utils import AcsClientbucket",
                         _numbered=("[]", current_step, total_steps)):
                     current_step += 1
                     _create_workspace_cloud_storage(config, workspace_name)
@@ -763,6 +768,115 @@ def _dissociate_elastic_ip(config, asc_client):
         cli_logger.abort("Faild to dissociate Elastic IP: {}.".format(elastic_ip_name))
     else:
         cli_logger.print("Successfully to dissociate Elastic IP:{}.".format(elastic_ip_name))
+
+
+def _delete_instance_profile(config, asc_client, instance_role_name):
+    cli_logger.print("Deleting instance role: {}...".format(instance_role_name))
+    role = asc_client.get_role(instance_role_name)
+    if role is None:
+        cli_logger.warning("No instance role was found.")
+        return
+
+    policies = asc_client.list_policy_for_role(instance_role_name)
+
+    # Detach all policies from instance role
+    for policy in policies:
+        policy_type = policy.get("PolicyType")
+        policy_name = policy.get("PolicyName")
+        asc_client.detach_policy_from_role(instance_role_name, policy_type, policy_name)
+
+    # Delete the specified instance role. The instance role must not have an associated policies.
+    asc_client.delete_role(instance_role_name)
+
+    cli_logger.print("Successfully deleted instance role.")
+
+
+def _delete_instance_role_for_head(config, asc_client):
+    head_instance_role_name = "cloudtik-{}-head-role".format(config["workspace_name"])
+    _delete_instance_profile(config, asc_client, head_instance_role_name)
+
+
+def _delete_instance_role_for_worker(config, asc_client):
+    worker_instance_role_name = "cloudtik-{}-worker-role".format(config["workspace_name"])
+    _delete_instance_profile(config, asc_client, worker_instance_role_name)
+
+
+def _delete_workspace_instance_role(config, asc_client):
+    current_step = 1
+    total_steps = 2
+
+    with cli_logger.group(
+            "Deleting instance role for head",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _delete_instance_role_for_head(config, asc_client)
+
+    with cli_logger.group(
+            "Deleting instance role for worker",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _delete_instance_role_for_worker(config, asc_client)
+
+
+def _create_or_update_instance_role(config, asc_client, instance_role_name, is_head=True):
+    role = asc_client.get_role(instance_role_name)
+
+    if role is None:
+        cli_logger.verbose(
+            "Creating new RAM instance role {} for use as the default.",
+            cf.bold(instance_role_name))
+        assume_role_policy_document = {
+            "Statement": [
+                {
+                    "Action": "sts:AssumeRole",
+                    "Effect": "Allow",
+                    "Principal": {
+                        "Service": [
+                            "ecs.aliyuncs.com"
+                        ]
+                    }
+                }
+            ],
+            "Version": "1"
+        }
+        asc_client.create_role(instance_role_name, assume_role_policy_document)
+        role = asc_client.get_role(instance_role_name)
+        assert role is not None, "Failed to create role"
+
+        attach_policies = HEAD_ROLE_ATTACH_POLICIES if is_head else WORKER_ROLE_ATTACH_POLICIES
+        for policy in attach_policies:
+            asc_client.attach_policy_to_role(instance_role_name, "System", policy)
+
+
+def _create_instance_role_for_head(config, asc_client):
+    head_instance_role_name = "cloudtik-{}-head-role".format(config["workspace_name"])
+    cli_logger.print("Creating head instance role: {}...".format(head_instance_role_name))
+    _create_or_update_instance_role(config, asc_client, head_instance_role_name)
+    cli_logger.print("Successfully created and configured head instance role.")
+
+
+def _create_instance_role_for_worker(config, asc_client):
+    head_instance_role_name = "cloudtik-{}-head-role".format(config["workspace_name"])
+    cli_logger.print("Creating head instance role: {}...".format(head_instance_role_name))
+    _create_or_update_instance_role(config, asc_client, head_instance_role_name, is_head=False)
+    cli_logger.print("Successfully created and configured head instance role.")
+
+
+def _create_workspace_instance_role(config, asc_client):
+    current_step = 1
+    total_steps = 2
+
+    with cli_logger.group(
+            "Creating instance role for head",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _create_instance_role_for_head(config, asc_client)
+
+    with cli_logger.group(
+            "Creating instance role for worker",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _create_instance_role_for_worker(config, asc_client)
 
 
 def create_aliyun_workspace(config):

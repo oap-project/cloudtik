@@ -59,6 +59,13 @@ from aliyunsdkvpc.request.v20160428.CreateSnatEntryRequest import CreateSnatEntr
 from aliyunsdkvpc.request.v20160428.DescribeSnatTableEntriesRequest import DescribeSnatTableEntriesRequest
 from aliyunsdkvpc.request.v20160428.DeleteSnatEntryRequest import DeleteSnatEntryRequest
 
+from aliyunsdkram.request.v20150501.CreateRoleRequest import CreateRoleRequest
+from aliyunsdkram.request.v20150501.GetRoleRequest import GetRoleRequest
+from aliyunsdkram.request.v20150501.DeleteRoleRequest import DeleteRoleRequest
+from aliyunsdkram.request.v20150501.AttachPolicyToRoleRequest import AttachPolicyToRoleRequest
+from aliyunsdkram.request.v20150501.DetachPolicyFromRoleRequest import DetachPolicyFromRoleRequest
+from aliyunsdkram.request.v20150501.ListPoliciesForRoleRequest import ListPoliciesForRoleRequest
+
 # ACS_MAX_RETRIES = env_integer("ACS_MAX_RETRIES", 12)
 
 class AcsClient:
@@ -677,7 +684,6 @@ class AcsClient:
             logging.error("Failed to describe SNAT Entries.")
             return None
 
-
     def delete_snat_entry(self, snat_table_id, snat_entry_id):
         """
         :param snat_table_id:
@@ -688,6 +694,86 @@ class AcsClient:
         request.set_SnatTableId(snat_table_id)
         request.set_SnatEntryId(snat_entry_id)
         return self._send_request(request)
+
+    def create_role(self, role_name, assume_role_policy_document):
+        """
+
+        :param role_name:
+        :param assume_role_policy_document:
+        :return:
+        """
+        request = CreateRoleRequest()
+        request.set_RoleName(role_name)
+        request.set_AssumeRolePolicyDocument(assume_role_policy_document)
+        response = self._send_request(request)
+        if response is not None:
+            return response.get("Role")
+        else:
+            logging.error("Failed to create Role.")
+            return None
+
+    def get_role(self, role_name):
+        """
+
+        :param role_name:
+        :return:
+        """
+        request = GetRoleRequest()
+        request.set_RoleName(role_name)
+        response = self._send_request(request)
+        if response is not None:
+            return response.get("Role")
+        else:
+            logging.error("Failed to get Role.")
+            return None
+
+    def delete_role(self, role_name):
+        """
+
+        :param role_name:
+        :return:
+        """
+        request = DeleteRoleRequest()
+        request.set_RoleName(role_name)
+        return self._send_request(request)
+
+    def attach_policy_to_role(self, role_name, policy_type, policy_name):
+        """
+
+        :param role_name:
+        :param policy_type:
+        :param policy_name:
+        :return:
+        """
+        request = AttachPolicyToRoleRequest()
+        request.set_RoleName(role_name)
+        request.set_PolicyType(policy_type)
+        request.set_PolicyName(policy_name)
+        return self._send_request(request)
+
+    def detach_policy_from_role(self, role_name, policy_type, policy_name):
+        """
+
+        :param role_name:
+        :param policy_type:
+        :param policy_name:
+        :return:
+        """
+        request = DetachPolicyFromRoleRequest()
+        request.set_RoleName(role_name)
+        request.set_PolicyType(policy_type)
+        request.set_PolicyName(policy_name)
+        return self._send_request(request)
+
+    def list_policy_for_role(self, role_name):
+        request = ListPoliciesForRoleRequest()
+        request.set_RoleName(role_name)
+        response = self._send_request(request)
+        if response is not None:
+            return response.get("Policies").get("Policy")
+        else:
+            logging.error("Failed to list policy for role.")
+            return None
 
     def _send_request(self, request):
         """send open api request"""

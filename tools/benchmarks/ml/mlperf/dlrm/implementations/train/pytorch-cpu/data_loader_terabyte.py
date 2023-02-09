@@ -1,17 +1,3 @@
-# Copyright 2019-2020 Intel Corporation
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-# ****************************************************************************
 # Copyright (c) 2019, NVIDIA CORPORATION.  All rights reserved.
 #
 # This source code is licensed under the MIT license found in the
@@ -206,12 +192,91 @@ def _test():
             )
         )
 
+class HybridParallelCriteoBinDataset(Dataset):
+    """Hybrid parallel binary version of criteo dataset."""
+    def __init__(self, data_file, counts_file,
+        batch_size=1, max_ind_range=-1, bytes_per_feature=4, sparse_dense_boundary=2048):
+        # dataset
+        self.tar_fea = 1   # single target
+        self.den_fea = 13  # 13 dense  features
+        with np.load(counts_file) as data:
+            self.counts = data["counts"]
+        self.global_sparse_embs = []
+        self.global_dense_embs = []
+        num = 0
+        for count in self.counts:
+            if count >= sparse_dense_boundary:
+                self.global_sparse_embs.append(num)
+            else:
+                self.global_dense_embs.append(num)
+            num +=1
+        data_file_size = os.path.getsize(data_file)
+        self.bytes_per_feature = bytes_per_feature
+        self.sparse_index_bytes_per_rank = batch_size * bytes_per_feature
+        self.ddp_tot_fea = self.tar_fea + self.den_fea + len(self.global_dense_embs)
+
+        self.max_ind_range = max_ind_range
+        self.ddp_bytes_per_sample = self.bytes_per_feature * (self.tar_fea + self.den_fea + len(self.global_dense_embs))
+        self.ddp_bytes_per_rank = batch_size // ext_dist.my_size * self.ddp_bytes_per_sample
+        self.num_samples = data_file_size // self.ddp_bytes_per_sample
+        self.ddp_bytes_per_batch = self.ddp_bytes_per_sample * batch_size
+        self.num_batches = math.ceil(data_file_size / self.ddp_bytes_per_batch)
+        if ext_dist.my_size > 1 and self.num_batches * self.ddp_bytes_per_batch > data_file_size:
+            self.last_batch = (data_file_size % self.ddp_bytes_per_batch) // self.ddp_bytes_per_sample
+            self.ddp_bytes_last_batch = self.last_batch // ext_dist.my_size * self.ddp_bytes_per_sample
+        self.my_rank = ext_dist.dist.get_rank() if ext_dist.my_size > 1 else 0
+        n_emb_sparse = len(self.global_sparse_embs)
+        self.num_grps = ext_dist.my_size // len(self.global_sparse_embs)
+        self.n_local_emb_sparse, self.n_sparse_emb_per_rank = ext_dist.get_split_lengths(n_emb_sparse, split=True)
+        self.local_ln_emb_sparse_slice = ext_dist.get_my_slice(n_emb_sparse)
+        self.local_ln_emb_sparse = self.global_sparse_embs[self.local_ln_emb_sparse_slice]
+
+        self.file = open(data_file, 'rb')
+        self.emb_num_2_fd = dict()
+
+        for num in self.local_ln_emb_sparse:
+            emb_index_file = data_file.split('_data_parallel')[0] + '_sparse_embedding_index_{}.bin'.format(num)
+            self.emb_num_2_fd[num] = open(emb_index_file, 'rb')
+            index_num_batches =  math.ceil(os.path.getsize(emb_index_file) / (batch_size * self.bytes_per_feature))
+            assert(index_num_batches == self.num_batches)
+        # hardcoded for now
+        self.m_den = 13
+
+    def __len__(self):
+        return self.num_batches
+
+    def __getitem__(self, idx):
+        with torch.autograd.profiler.record_function("HybridParallelCriteoBinDataset:__getitem__"):
+            rank_ddp_size = self.ddp_bytes_last_batch if idx == (self.num_batches - 1) else self.ddp_bytes_per_rank
+            rank_sparse_index_size = (self.last_batch // ext_dist.my_size) * ext_dist.my_size * self.bytes_per_feature if idx == (self.num_batches - 1) else self.sparse_index_bytes_per_rank
+            self.file.seek(idx * self.ddp_bytes_per_batch + rank_ddp_size * self.my_rank, 0)
+            raw_ddp_data = self.file.read(rank_ddp_size)
+
+            array_ddp = np.frombuffer(raw_ddp_data, dtype=np.int32)
+            tensor = torch.from_numpy(array_ddp).view((-1, self.ddp_tot_fea))
+            for num in self.local_ln_emb_sparse:
+                self.emb_num_2_fd[num].seek(idx * self.sparse_index_bytes_per_rank, 0)
+                global_emb_index = self.emb_num_2_fd[num].read(rank_sparse_index_size)
+                index_numpy  = np.frombuffer(global_emb_index, dtype = np.int32)
+                index_tensor = torch.from_numpy(index_numpy).reshape(ext_dist.my_size, -1).t()
+                tensor = torch.cat((tensor, index_tensor), dim=1)
+
+            x_int_batch=tensor[:, 1:14]
+            x_cat_batch=tensor[:, 14:]
+            y_batch=tensor[:, 0]
+            #if self.max_ind_range > 0:
+            #    x_cat_batch = x_cat_batch % self.max_ind_range
+
+            x_int_batch = torch.log(x_int_batch.type(torch.float) + 1)
+            x_cat_batch = x_cat_batch.type(torch.long)
+            y_batch = y_batch.type(torch.float32).view(-1, 1)
+            return x_int_batch, x_cat_batch.t(), y_batch
 
 class CriteoBinDataset(Dataset):
     """Binary version of criteo dataset."""
 
     def __init__(self, data_file, counts_file,
-                 batch_size=1, max_ind_range=-1, bytes_per_feature=4):
+                 batch_size=1, max_ind_range=-1, bytes_per_feature=4, drop_last=True):
         # dataset
         self.tar_fea = 1   # single target
         self.den_fea = 13  # 13 dense  features
@@ -224,7 +289,10 @@ class CriteoBinDataset(Dataset):
         self.bytes_per_batch = (bytes_per_feature * self.tot_fea * batch_size)
 
         data_file_size = os.path.getsize(data_file)
-        self.num_batches = math.ceil(data_file_size / self.bytes_per_batch)
+        if drop_last:
+            self.num_batches = math.floor(data_file_size / self.bytes_per_batch)
+        else:
+            self.num_batches = math.ceil(data_file_size / self.bytes_per_batch)
 
         bytes_per_sample = bytes_per_feature * self.tot_fea
         self.num_samples = data_file_size // bytes_per_sample
@@ -244,7 +312,7 @@ class CriteoBinDataset(Dataset):
             self.num_batches = self.num_batches - 1
             self.bytes_last_batch = self.bytes_per_rank
 
-        print('data file:', data_file, 'number of batches:', self.num_batches)
+        self.my_rank = ext_dist.dist.get_rank() if ext_dist.my_size > 1 else 0
         self.file = open(data_file, 'rb')
 
         with np.load(counts_file) as data:
@@ -257,19 +325,22 @@ class CriteoBinDataset(Dataset):
         return self.num_batches
 
     def __getitem__(self, idx):
-        my_rank = ext_dist.dist.get_rank() if ext_dist.my_size > 1 else 0
-        rank_size = self.bytes_last_batch if idx == (self.num_batches - 1) else self.bytes_per_rank 
-        self.file.seek(idx * self.bytes_per_batch + rank_size * my_rank, 0)
-        raw_data = self.file.read(rank_size)
-        array = np.frombuffer(raw_data, dtype=np.int32)
-        tensor = torch.from_numpy(array).view((-1, self.tot_fea))
-
-        return _transform_features(x_int_batch=tensor[:, 1:14],
-                                   x_cat_batch=tensor[:, 14:],
-                                   y_batch=tensor[:, 0],
-                                   max_ind_range=self.max_ind_range,
-                                   flag_input_torch_tensor=True)
-
+        with torch.autograd.profiler.record_function("CriteoBinDataset:__readdata__"):
+            rank_size = self.bytes_last_batch if idx == (self.num_batches - 1) else self.bytes_per_rank
+            self.file.seek(idx * self.bytes_per_batch + rank_size * self.my_rank, 0)
+            raw_data = self.file.read(rank_size)
+            array = np.frombuffer(raw_data, dtype=np.int32)
+        with torch.autograd.profiler.record_function("CriteoBinDataset:__to_tensor__"):
+            tensor = torch.from_numpy(array).view((-1, self.tot_fea))
+            x_int_batch=tensor[:, 1:14]
+            x_cat_batch=tensor[:, 14:]
+            y_batch=tensor[:, 0]
+            #if self.max_ind_range > 0:
+            #    x_cat_batch = x_cat_batch % self.max_ind_range
+            x_int_batch = torch.log(x_int_batch.type(torch.float) + 1)
+            x_cat_batch = x_cat_batch.type(torch.long)
+            y_batch = y_batch.type(torch.float32).view(-1, 1)
+            return x_int_batch, x_cat_batch.t(), y_batch
 
 def numpy_to_binary(input_files, output_file_path, split='train'):
     """Convert the data to a binary format to be read with CriteoBinDataset."""

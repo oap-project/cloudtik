@@ -1,17 +1,3 @@
-# Copyright 2019-2020 Intel Corporation
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#-------------------------------------------------------------------------------
 # Copyright (c) Facebook, Inc. and its affiliates.
 #
 # This source code is licensed under the MIT license found in the
@@ -47,10 +33,11 @@ from numpy import random as ra
 # pytorch
 import torch
 from torch.utils.data import Dataset, RandomSampler
+import extend_distributed as ext_dist
+
 
 import data_loader_terabyte
 import mlperf_logger
-import extend_distributed as ext_dist
 
 
 # Kaggle Display Advertising Challenge Dataset
@@ -89,7 +76,6 @@ class CriteoDataset(Dataset):
             raise(ValueError("Data set option is not supported"))
         self.max_ind_range = max_ind_range
         self.memory_map = memory_map
-
         # split the datafile into path and filename
         lstr = raw_path.split("/")
         self.d_path = "/".join(lstr[0:-1]) + "/"
@@ -397,26 +383,54 @@ def make_criteo_data_and_loaders(args):
     if args.mlperf_logging and args.memory_map and args.data_set == "terabyte":
         # more efficient for larger batches
         data_directory = path.dirname(args.raw_data_file)
-
         if args.mlperf_bin_loader:
             lstr = args.processed_data_file.split("/")
             d_path = "/".join(lstr[0:-1]) + "/" + lstr[-1].split(".")[0]
             train_file = d_path + "_train.bin"
             test_file = d_path + "_test.bin"
+            if ext_dist.my_size > 1 and args.use_hybridparallel_dataset:
+               train_file = d_path + "_train_data_parallel.bin"
+               test_file = d_path + "_test_data_parallel.bin"
             # val_file = d_path + "_val.bin"
             counts_file = args.raw_data_file + '_fea_count.npz'
-
             if any(not path.exists(p) for p in [train_file,
                                                 test_file,
                                                 counts_file]):
                 ensure_dataset_preprocessed(args, d_path)
 
-            train_data = data_loader_terabyte.CriteoBinDataset(
-                data_file=train_file,
-                counts_file=counts_file,
-                batch_size=args.mini_batch_size,
-                max_ind_range=args.max_ind_range
-            )
+            train_data = None
+            test_data = None
+            if ext_dist.my_size > 1 and args.use_hybridparallel_dataset:
+                train_data = data_loader_terabyte.HybridParallelCriteoBinDataset(
+                    data_file=train_file,
+                    counts_file=counts_file,
+                    batch_size=args.mini_batch_size,
+                    max_ind_range=args.max_ind_range,
+                    sparse_dense_boundary=args.sparse_dense_boundary
+                )
+                test_data = data_loader_terabyte.HybridParallelCriteoBinDataset(
+                    data_file=test_file,
+                    counts_file=counts_file,
+                    batch_size=args.test_mini_batch_size,
+                    max_ind_range=args.max_ind_range,
+                    sparse_dense_boundary=args.sparse_dense_boundary
+                    
+                )
+
+            else:
+                train_data = data_loader_terabyte.CriteoBinDataset(
+                    data_file=train_file,
+                    counts_file=counts_file,
+                    batch_size=args.mini_batch_size,
+                    max_ind_range=args.max_ind_range,
+                    drop_last=True
+                )
+                test_data = data_loader_terabyte.CriteoBinDataset(
+                    data_file=test_file,
+                    counts_file=counts_file,
+                    batch_size=args.test_mini_batch_size,
+                    max_ind_range=args.max_ind_range
+                )
 
             mlperf_logger.log_event(key=mlperf_logger.constants.TRAIN_SAMPLES,
                                     value=train_data.num_samples)
@@ -433,12 +447,7 @@ def make_criteo_data_and_loaders(args):
                 sampler=RandomSampler(train_data) if args.mlperf_bin_shuffle else None
             )
 
-            test_data = data_loader_terabyte.CriteoBinDataset(
-                data_file=test_file,
-                counts_file=counts_file,
-                batch_size=args.test_mini_batch_size,
-                max_ind_range=args.max_ind_range
-            )
+
 
             mlperf_logger.log_event(key=mlperf_logger.constants.EVAL_SAMPLES,
                                     value=test_data.num_samples)
@@ -604,9 +613,6 @@ class RandomDataset(Dataset):
 
         # number of data points in a batch
         n = min(self.mini_batch_size, self.data_size - (index * self.mini_batch_size))
-
-        if ext_dist.my_size > 1:
-            n = n // ext_dist.my_size
 
         # generate a batch of dense and sparse features
         if self.data_generation == "random":

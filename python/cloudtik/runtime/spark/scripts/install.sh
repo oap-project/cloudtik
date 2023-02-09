@@ -169,34 +169,49 @@ function install_spark_with_cloud_jars() {
 
 function install_hdfs_fuse() {
     arch=$(uname -m)
-    sudo wget  -q --show-progress https://d30257nes7d4fq.cloudfront.net/downloads/hadoop/fuse_dfs-${HADOOP_VERSION}-${arch} -O /usr/bin/fuse_dfs
-    sudo wget  -q --show-progress https://d30257nes7d4fq.cloudfront.net/downloads/hadoop/fuse_dfs_wrapper-${HADOOP_VERSION}.sh -O /usr/bin/fuse_dfs_wrapper.sh
+    sudo wget -q --show-progress https://d30257nes7d4fq.cloudfront.net/downloads/hadoop/fuse_dfs-${HADOOP_VERSION}-${arch} -O /usr/bin/fuse_dfs
+    sudo wget -q --show-progress https://d30257nes7d4fq.cloudfront.net/downloads/hadoop/fuse_dfs_wrapper-${HADOOP_VERSION}.sh -O /usr/bin/fuse_dfs_wrapper.sh
     sudo chmod +x /usr/bin/fuse_dfs
     sudo chmod +x /usr/bin/fuse_dfs_wrapper.sh
 }
 
 function install_s3_fuse() {
     if ! type s3fs >/dev/null 2>&1;then
-      sudo apt-get update > /dev/null
-      sudo apt install -qq s3fs -y > /dev/null
+      echo "Installing S3 Fuse..."
+      sudo apt-get -qq update -y > /dev/null
+      sudo apt-get install -qq s3fs -y > /dev/null
     fi
 }
 
 function install_azure_blob_fuse() {
     if ! type blobfuse >/dev/null 2>&1; then
+      echo "Installing Azure Blob Fuse..."
       wget -q -N https://packages.microsoft.com/config/ubuntu/20.04/packages-microsoft-prod.deb
       sudo dpkg -i packages-microsoft-prod.deb > /dev/null
-      sudo apt-get update > /dev/null
+      sudo apt-get -qq update -y > /dev/null
       sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq blobfuse -y > /dev/null
     fi
 }
 
 function install_gcs_fuse() {
     if ! type gcsfuse >/dev/null 2>&1; then
+      echo "Installing GCS Fuse..."
       echo "deb http://packages.cloud.google.com/apt gcsfuse-bionic main" | sudo tee /etc/apt/sources.list.d/gcsfuse.list > /dev/null
       wget -O - -q https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
-      sudo apt-get update > /dev/null
+      sudo apt-get -qq update -y > /dev/null
       sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq gcsfuse -y > /dev/null
+    fi
+}
+
+function install_aliyun_oss_fuse() {
+    if ! type ossfs >/dev/null 2>&1; then
+      echo "Installing Aliyun OSS Fuse..."
+      OSS_PACKAGE="ossfs_1.80.7_ubuntu20.04_amd64.deb"
+      wget -q -N https://gosspublic.alicdn.com/ossfs/${OSS_PACKAGE}
+      sudo apt-get -qq update -y > /dev/null
+      sudo apt-get install -qq gdebi-core -y > /dev/null
+      sudo gdebi --q --n ${OSS_PACKAGE} > /dev/null
+      rm ${OSS_PACKAGE}
     fi
 }
 
@@ -208,6 +223,8 @@ function install_cloud_fuse() {
         install_azure_blob_fuse
     elif [ "$GCP_CLOUD_STORAGE" == "true" ]; then
         install_gcs_fuse
+    elif [ "$ALIYUN_CLOUD_STORAGE" == "true" ]; then
+        install_aliyun_oss_fuse
     fi
 }
 

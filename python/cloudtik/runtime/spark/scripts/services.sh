@@ -48,7 +48,7 @@ function mount_hdfs_fs() {
 
 function mount_s3_fs() {
     if [ -z "${AWS_S3_BUCKET}" ]; then
-        echo "AWS_S3A_BUCKET environment variable is not set."
+        echo "AWS_S3_BUCKET environment variable is not set."
         return
     fi
 
@@ -100,6 +100,26 @@ function mount_gcs_fs() {
     gcsfuse ${GCP_GCS_BUCKET} ${CLOUD_FS_MOUNT_PATH} > /dev/null
 }
 
+function mount_aliyun_oss_fs() {
+    if [ -z "${ALIYUN_OSS_BUCKET}" ]; then
+        echo "ALIYUN_OSS_BUCKET environment variable is not set."
+        return
+    fi
+
+    PASSWD_FILE_FLAG=""
+    RAM_ROLE_FLAG=""
+    if [ ! -z "${ALIYUN_OSS_ACCESS_KEY_ID}" ] && [ ! -z "${ALIYUN_OSS_ACCESS_KEY_SECRET}" ]; then
+        PASSWD_FILE_FLAG="-o passwd_file=${USER_HOME}/.passwd-ossfs"
+    else
+        RAM_ROLE_FLAG="-o ram_role=${ALIYUN_OSS_INSTANCE_ROLE_NAME}"
+    fi
+
+    mkdir -p ${CLOUD_FS_MOUNT_PATH}
+    echo "Mounting Aliyun OSS bucket ${ALIYUN_OSS_BUCKET} to ${CLOUD_FS_MOUNT_PATH}..."
+    # TODO: Endpoint setup for ECS for network going internally (for example, oss-cn-hangzhou-internal.aliyuncs.com)
+    ossfs ${ALIYUN_OSS_BUCKET} ${CLOUD_FS_MOUNT_PATH} -o use_cache=/tmp -o mp_umask=002 ${PASSWD_FILE_FLAG} ${RAM_ROLE_FLAG} > /dev/null
+}
+
 function mount_cloud_fs() {
     if [ "$HDFS_ENABLED" == "true" ]; then
         mount_local_hdfs_fs
@@ -113,6 +133,8 @@ function mount_cloud_fs() {
             mount_azure_blob_fs
         elif [ "$GCP_CLOUD_STORAGE" == "true" ]; then
             mount_gcs_fs
+        elif [ "$ALIYUN_CLOUD_STORAGE" == "true" ]; then
+            mount_aliyun_oss_fs
         fi
     fi
 }

@@ -23,6 +23,10 @@ RUN sudo apt-get update -y \
          s3fs \
          blobfuse \
          gcsfuse \
+         gdebi-core \
+    && wget -N https://gosspublic.alicdn.com/ossfs/ossfs_1.80.7_ubuntu20.04_amd64.deb \
+    && sudo gdebi --n ossfs_1.80.7_ubuntu20.04_amd64.deb \
+    && rm -rf ossfs_1.80.7_ubuntu20.04_amd64.deb \
     && rm -rf packages-microsoft-prod.deb \
     && sudo rm -rf /var/lib/apt/lists/* \
     && sudo apt-get clean

@@ -1,12 +1,11 @@
 #!/bin/bash
 
 # Assumptions for using the functions of this script:
-# 1. $XXX_CLOUD_STORAGE variable is set if the cloud storage is in use
+# 1. HDFS_ENABLED, HDFS_NAMENODE_URI, $XXX_CLOUD_STORAGE variable is set correspondingly.
 # 2. Credential values are exported through the environment variables through provider.with_environment_variables.
 # 3. USER_HOME is set to the current user home.
 # 4. For service functions, CLOUD_FS_MOUNT_PATH is set to the target path for mounting.
 #    For service functions for local hdfs, HEAD_ADDRESS is set.
-#    For service functions for remote hdfs, HDFS_NAMENODE_URI is set
 
 # Configuring functions
 function configure_fuse_options() {
@@ -85,75 +84,76 @@ function configure_cloud_fs() {
     sudo chown $(whoami) /cloudtik
     if [ "$HDFS_ENABLED" == "true" ]; then
         configure_local_hdfs_fs
-    else
-        if [ "$HDFS_STORAGE" == "true" ]; then
-            configure_hdfs_fs
-        elif [ "$AWS_CLOUD_STORAGE" == "true" ]; then
-            configure_s3_fs
-        elif [ "$AZURE_CLOUD_STORAGE" == "true" ]; then
-            configure_azure_blob_fs
-        elif [ "$GCP_CLOUD_STORAGE" == "true" ]; then
-            configure_gcs_fs
-        elif [ "$ALIYUN_CLOUD_STORAGE" == "true" ]; then
-            configure_aliyun_oss_fs
-        fi
+    elif [ ! -z "${HDFS_NAMENODE_URI}" ]; then
+        configure_hdfs_fs
+    elif [ "$AWS_CLOUD_STORAGE" == "true" ]; then
+        configure_s3_fs
+    elif [ "$AZURE_CLOUD_STORAGE" == "true" ]; then
+        configure_azure_blob_fs
+    elif [ "$GCP_CLOUD_STORAGE" == "true" ]; then
+        configure_gcs_fs
+    elif [ "$ALIYUN_CLOUD_STORAGE" == "true" ]; then
+        configure_aliyun_oss_fs
     fi
 }
 
 # Installing functions
 function install_hdfs_fuse() {
     if ! type fuse_dfs >/dev/null 2>&1;then
-      arch=$(uname -m)
-      sudo wget -q --show-progress https://d30257nes7d4fq.cloudfront.net/downloads/hadoop/fuse_dfs-${HADOOP_VERSION}-${arch} -O /usr/bin/fuse_dfs
-      sudo wget -q --show-progress https://d30257nes7d4fq.cloudfront.net/downloads/hadoop/fuse_dfs_wrapper-${HADOOP_VERSION}.sh -O /usr/bin/fuse_dfs_wrapper.sh
-      sudo chmod +x /usr/bin/fuse_dfs
-      sudo chmod +x /usr/bin/fuse_dfs_wrapper.sh
+        arch=$(uname -m)
+        sudo wget -q --show-progress https://d30257nes7d4fq.cloudfront.net/downloads/hadoop/fuse_dfs-${HADOOP_VERSION}-${arch} -O /usr/bin/fuse_dfs
+        sudo wget -q --show-progress https://d30257nes7d4fq.cloudfront.net/downloads/hadoop/fuse_dfs_wrapper-${HADOOP_VERSION}.sh -O /usr/bin/fuse_dfs_wrapper.sh
+        sudo chmod +x /usr/bin/fuse_dfs
+        sudo chmod +x /usr/bin/fuse_dfs_wrapper.sh
     fi
 }
 
 function install_s3_fuse() {
     if ! type s3fs >/dev/null 2>&1;then
-      echo "Installing S3 Fuse..."
-      sudo apt-get -qq update -y > /dev/null
-      sudo apt-get install -qq s3fs -y > /dev/null
+        echo "Installing S3 Fuse..."
+        sudo apt-get -qq update -y > /dev/null
+        sudo apt-get install -qq s3fs -y > /dev/null
     fi
 }
 
 function install_azure_blob_fuse() {
     if ! type blobfuse >/dev/null 2>&1; then
-      echo "Installing Azure Blob Fuse..."
-      wget -q -N https://packages.microsoft.com/config/ubuntu/20.04/packages-microsoft-prod.deb
-      sudo dpkg -i packages-microsoft-prod.deb > /dev/null
-      sudo apt-get -qq update -y > /dev/null
-      sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq blobfuse -y > /dev/null
+        echo "Installing Azure Blob Fuse..."
+        wget -q -N https://packages.microsoft.com/config/ubuntu/20.04/packages-microsoft-prod.deb
+        sudo dpkg -i packages-microsoft-prod.deb > /dev/null
+        sudo apt-get -qq update -y > /dev/null
+        sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq blobfuse -y > /dev/null
     fi
 }
 
 function install_gcs_fuse() {
     if ! type gcsfuse >/dev/null 2>&1; then
-      echo "Installing GCS Fuse..."
-      echo "deb http://packages.cloud.google.com/apt gcsfuse-bionic main" | sudo tee /etc/apt/sources.list.d/gcsfuse.list > /dev/null
-      wget -O - -q https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
-      sudo apt-get -qq update -y > /dev/null
-      sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq gcsfuse -y > /dev/null
+        echo "Installing GCS Fuse..."
+        echo "deb http://packages.cloud.google.com/apt gcsfuse-bionic main" | sudo tee /etc/apt/sources.list.d/gcsfuse.list > /dev/null
+        wget -O - -q https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+        sudo apt-get -qq update -y > /dev/null
+        sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq gcsfuse -y > /dev/null
     fi
 }
 
 function install_aliyun_oss_fuse() {
     if ! type ossfs >/dev/null 2>&1; then
-      echo "Installing Aliyun OSS Fuse..."
-      OSS_PACKAGE="ossfs_1.80.7_ubuntu20.04_amd64.deb"
-      wget -q -N https://gosspublic.alicdn.com/ossfs/${OSS_PACKAGE}
-      sudo apt-get -qq update -y > /dev/null
-      sudo apt-get install -qq gdebi-core -y > /dev/null
-      sudo gdebi --q --n ${OSS_PACKAGE} > /dev/null
-      rm ${OSS_PACKAGE}
+        echo "Installing Aliyun OSS Fuse..."
+        OSS_PACKAGE="ossfs_1.80.7_ubuntu20.04_amd64.deb"
+        wget -q -N https://gosspublic.alicdn.com/ossfs/${OSS_PACKAGE}
+        sudo apt-get -qq update -y > /dev/null
+        sudo apt-get install -qq gdebi-core -y > /dev/null
+        sudo gdebi --q --n ${OSS_PACKAGE} > /dev/null
+        rm ${OSS_PACKAGE}
     fi
 }
 
 function install_cloud_fuse() {
-    install_hdfs_fuse
-    if [ "$AWS_CLOUD_STORAGE" == "true" ]; then
+    if [ "$HDFS_ENABLED" == "true" ]; then
+        install_hdfs_fuse
+    elif [ ! -z "${HDFS_NAMENODE_URI}" ]; then
+        install_hdfs_fuse
+    elif [ "$AWS_CLOUD_STORAGE" == "true" ]; then
         install_s3_fuse
     elif [ "$AZURE_CLOUD_STORAGE" == "true" ]; then
         install_azure_blob_fuse
@@ -259,23 +259,16 @@ function mount_aliyun_oss_fs() {
 function mount_cloud_fs() {
     if [ "$HDFS_ENABLED" == "true" ]; then
         mount_local_hdfs_fs
-    else
-        if [ ! -z  "${HDFS_NAMENODE_URI}" ];then
-            HDFS_STORAGE="true"
-        else
-            HDFS_STORAGE="false"
-        fi
-        if [ "$HDFS_STORAGE" == "true" ]; then
-            mount_hdfs_fs
-        elif [ "$AWS_CLOUD_STORAGE" == "true" ]; then
-            mount_s3_fs
-        elif [ "$AZURE_CLOUD_STORAGE" == "true" ]; then
-            mount_azure_blob_fs
-        elif [ "$GCP_CLOUD_STORAGE" == "true" ]; then
-            mount_gcs_fs
-        elif [ "$ALIYUN_CLOUD_STORAGE" == "true" ]; then
-            mount_aliyun_oss_fs
-        fi
+    elif [ ! -z "${HDFS_NAMENODE_URI}" ]; then
+        mount_hdfs_fs
+    elif [ "$AWS_CLOUD_STORAGE" == "true" ]; then
+        mount_s3_fs
+    elif [ "$AZURE_CLOUD_STORAGE" == "true" ]; then
+        mount_azure_blob_fs
+    elif [ "$GCP_CLOUD_STORAGE" == "true" ]; then
+        mount_gcs_fs
+    elif [ "$ALIYUN_CLOUD_STORAGE" == "true" ]; then
+        mount_aliyun_oss_fs
     fi
 }
 

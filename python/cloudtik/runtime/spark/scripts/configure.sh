@@ -36,6 +36,9 @@ done
 # Hadoop cloud credential configuration functions
 . "$ROOT_DIR"/common/scripts/hadoop-cloud-credential.sh
 
+# Cloud storage fuse functions
+. "$ROOT_DIR"/common/scripts/cloud-storage-fuse.sh
+
 function prepare_base_conf() {
     source_dir=$(cd $(dirname ${BASH_SOURCE[0]})/..;pwd)/conf
     output_dir=/tmp/spark/conf
@@ -396,97 +399,6 @@ function configure_jupyter_for_spark() {
       sed -i  "1 ic.NotebookApp.notebook_dir = '${JUPYTER_WORKSPACE}'" ~/.jupyter/jupyter_lab_config.py
       sed -i  "1 ic.NotebookApp.ip = '${HEAD_ADDRESS}'" ~/.jupyter/jupyter_lab_config.py
   fi
-}
-
-function configure_fuse_options() {
-    FUSE_CONF_FILE="/etc/fuse.conf"
-    FIND_STR="^user_allow_other"
-    if [ `grep -c "$FIND_STR" $FUSE_CONF_FILE` -eq '0' ];then
-        sudo sed -i '$auser_allow_other' $FUSE_CONF_FILE
-    fi
-}
-
-function configure_local_hdfs_fs() {
-    configure_fuse_options
-}
-
-function configure_hdfs_fs() {
-    configure_fuse_options
-}
-
-function configure_s3_fs() {
-    if [ -z "${AWS_S3_BUCKET}" ]; then
-        echo "AWS_S3A_BUCKET environment variable is not set."
-        return
-    fi
-
-    if [ ! -z "${AWS_S3_ACCESS_KEY_ID}" ] && [ ! -z "${AWS_S3_SECRET_ACCESS_KEY}" ]; then
-        echo "${AWS_S3_ACCESS_KEY_ID}:${AWS_S3_SECRET_ACCESS_KEY}" > ${USER_HOME}/.passwd-s3fs
-        chmod 600 ${USER_HOME}/.passwd-s3fs
-    fi
-}
-
-function configure_azure_blob_fs() {
-    if [ -z "${AZURE_CONTAINER}" ]; then
-        echo "AZURE_CONTAINER environment variable is not set."
-        return
-    fi
-
-    if [ -z "${AZURE_MANAGED_IDENTITY_CLIENT_ID}" ]; then
-        echo "AZURE_MANAGED_IDENTITY_CLIENT_ID environment variable is not set."
-        return
-    fi
-
-    if [ -z "${AZURE_STORAGE_ACCOUNT}" ]; then
-        echo "AZURE_STORAGE_ACCOUNT environment variable is not set."
-        return
-    fi
-
-    fuse_connection_cfg=${USER_HOME}/fuse_connection.cfg
-    echo "accountName ${AZURE_STORAGE_ACCOUNT}" > ${fuse_connection_cfg}
-    echo "authType MSI" >> ${fuse_connection_cfg}
-    echo "identityClientId ${AZURE_MANAGED_IDENTITY_CLIENT_ID}" >> ${fuse_connection_cfg}
-    echo "containerName ${AZURE_CONTAINER}" >> ${fuse_connection_cfg}
-    chmod 600 ${fuse_connection_cfg}
-}
-
-function configure_gcs_fs() {
-    if [ -z "${GCP_GCS_BUCKET}" ]; then
-        echo "GCP_GCS_BUCKET environment variable is not set."
-        return
-    fi
-}
-
-function configure_aliyun_oss_fs() {
-    if [ -z "${ALIYUN_OSS_BUCKET}" ]; then
-        echo "ALIYUN_OSS_BUCKET environment variable is not set."
-        return
-    fi
-
-    if [ ! -z "${ALIYUN_OSS_ACCESS_KEY_ID}" ] && [ ! -z "${ALIYUN_OSS_ACCESS_KEY_SECRET}" ]; then
-        echo "${ALIYUN_OSS_BUCKET}:${ALIYUN_OSS_ACCESS_KEY_ID}:${ALIYUN_OSS_ACCESS_KEY_SECRET}" > ${USER_HOME}/.passwd-ossfs
-        chmod 600 ${USER_HOME}/.passwd-ossfs
-    fi
-}
-
-function configure_cloud_fs() {
-    sudo mkdir /cloudtik
-    sudo chown $(whoami) /cloudtik
-    if [ "$HDFS_ENABLED" == "true" ]; then
-        configure_local_hdfs_fs
-    else
-        if [ "$HDFS_STORAGE" == "true" ]; then
-            configure_hdfs_fs
-        elif [ "$AWS_CLOUD_STORAGE" == "true" ]; then
-            configure_s3_fs
-        elif [ "$AZURE_CLOUD_STORAGE" == "true" ]; then
-            configure_azure_blob_fs
-        elif [ "$GCP_CLOUD_STORAGE" == "true" ]; then
-            configure_gcs_fs
-        elif [ "$ALIYUN_CLOUD_STORAGE" == "true" ]; then
-            configure_aliyun_oss_fs
-        fi
-    fi
 }
 
 check_spark_installed

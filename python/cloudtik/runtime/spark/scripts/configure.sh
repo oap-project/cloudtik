@@ -457,6 +457,18 @@ function configure_gcs_fs() {
     fi
 }
 
+function configure_aliyun_oss_fs() {
+    if [ -z "${ALIYUN_OSS_BUCKET}" ]; then
+        echo "ALIYUN_OSS_BUCKET environment variable is not set."
+        return
+    fi
+
+    if [ ! -z "${ALIYUN_OSS_ACCESS_KEY_ID}" ] && [ ! -z "${ALIYUN_OSS_ACCESS_KEY_SECRET}" ]; then
+        echo "${ALIYUN_OSS_BUCKET}:${ALIYUN_OSS_ACCESS_KEY_ID}:${ALIYUN_OSS_ACCESS_KEY_SECRET}" > ${USER_HOME}/.passwd-ossfs
+        chmod 600 ${USER_HOME}/.passwd-ossfs
+    fi
+}
+
 function configure_cloud_fs() {
     sudo mkdir /cloudtik
     sudo chown $(whoami) /cloudtik
@@ -471,6 +483,8 @@ function configure_cloud_fs() {
             configure_azure_blob_fs
         elif [ "$GCP_CLOUD_STORAGE" == "true" ]; then
             configure_gcs_fs
+        elif [ "$ALIYUN_CLOUD_STORAGE" == "true" ]; then
+            configure_aliyun_oss_fs
         fi
     fi
 }

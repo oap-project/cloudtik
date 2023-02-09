@@ -770,9 +770,34 @@ def _dissociate_elastic_ip(config, asc_client):
         cli_logger.print("Successfully to dissociate Elastic IP:{}.".format(elastic_ip_name))
 
 
+def _get_instance_role(asc_client, role_name):
+    return asc_client.get_role(role_name)
+
+
+def _get_head_instance_role_name(workspace_name):
+    return "cloudtik-{}-head-role".format(workspace_name)
+
+
+def _get_worker_instance_role_name(workspace_name):
+    return "cloudtik-{}-worker-role".format(workspace_name)
+
+
+def _get_head_instance_role(config, asc_client):
+    workspace_name = config["workspace_name"]
+    head_instance_role_name = _get_head_instance_role_name(workspace_name)
+    return _get_instance_role(asc_client, head_instance_role_name)
+
+
+def _get_worker_instance_role(config, asc_client):
+    workspace_name = config["workspace_name"]
+    worker_instance_role_name = _get_worker_instance_role_name(workspace_name)
+    return _get_instance_role(asc_client, worker_instance_role_name)
+
+
 def _delete_instance_profile(config, asc_client, instance_role_name):
     cli_logger.print("Deleting instance role: {}...".format(instance_role_name))
-    role = asc_client.get_role(instance_role_name)
+    role = _get_instance_role(asc_client, instance_role_name)
+
     if role is None:
         cli_logger.warning("No instance role was found.")
         return
@@ -792,12 +817,12 @@ def _delete_instance_profile(config, asc_client, instance_role_name):
 
 
 def _delete_instance_role_for_head(config, asc_client):
-    head_instance_role_name = "cloudtik-{}-head-role".format(config["workspace_name"])
+    head_instance_role_name = _get_head_instance_role_name(config["workspace_name"])
     _delete_instance_profile(config, asc_client, head_instance_role_name)
 
 
 def _delete_instance_role_for_worker(config, asc_client):
-    worker_instance_role_name = "cloudtik-{}-worker-role".format(config["workspace_name"])
+    worker_instance_role_name = _get_worker_instance_role_name(config["workspace_name"])
     _delete_instance_profile(config, asc_client, worker_instance_role_name)
 
 
@@ -819,7 +844,7 @@ def _delete_workspace_instance_role(config, asc_client):
 
 
 def _create_or_update_instance_role(config, asc_client, instance_role_name, is_head=True):
-    role = asc_client.get_role(instance_role_name)
+    role = _get_instance_role(asc_client, instance_role_name)
 
     if role is None:
         cli_logger.verbose(
@@ -840,7 +865,7 @@ def _create_or_update_instance_role(config, asc_client, instance_role_name, is_h
             "Version": "1"
         }
         asc_client.create_role(instance_role_name, assume_role_policy_document)
-        role = asc_client.get_role(instance_role_name)
+        role = _get_instance_role(asc_client, instance_role_name)
         assert role is not None, "Failed to create role"
 
         attach_policies = HEAD_ROLE_ATTACH_POLICIES if is_head else WORKER_ROLE_ATTACH_POLICIES
@@ -849,17 +874,17 @@ def _create_or_update_instance_role(config, asc_client, instance_role_name, is_h
 
 
 def _create_instance_role_for_head(config, asc_client):
-    head_instance_role_name = "cloudtik-{}-head-role".format(config["workspace_name"])
+    head_instance_role_name = _get_head_instance_role_name(config["workspace_name"])
     cli_logger.print("Creating head instance role: {}...".format(head_instance_role_name))
     _create_or_update_instance_role(config, asc_client, head_instance_role_name)
     cli_logger.print("Successfully created and configured head instance role.")
 
 
 def _create_instance_role_for_worker(config, asc_client):
-    head_instance_role_name = "cloudtik-{}-head-role".format(config["workspace_name"])
-    cli_logger.print("Creating head instance role: {}...".format(head_instance_role_name))
+    head_instance_role_name = _get_worker_instance_role_name(config["workspace_name"])
+    cli_logger.print("Creating worker instance role: {}...".format(head_instance_role_name))
     _create_or_update_instance_role(config, asc_client, head_instance_role_name, is_head=False)
-    cli_logger.print("Successfully created and configured head instance role.")
+    cli_logger.print("Successfully created and configured worker instance role.")
 
 
 def _create_workspace_instance_role(config, asc_client):

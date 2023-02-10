@@ -201,7 +201,7 @@ class AliyunNodeProvider(NodeProvider):
                 if k == CLOUDTIK_TAG_NODE_NAME:
                     k = "Name"
 
-                self.acs.tag_resource(node_ids, [{"Key": k, "Value": v}])
+                self.acs.tag_ecs_resource(node_ids, [{"Key": k, "Value": v}])
 
     def create_node(
         self, node_config: Dict[str, Any], tags: Dict[str, str], count: int

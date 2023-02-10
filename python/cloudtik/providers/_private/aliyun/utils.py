@@ -14,8 +14,7 @@ from aliyunsdkecs.request.v20140526.CreateKeyPairRequest import CreateKeyPairReq
 from aliyunsdkecs.request.v20140526.CreateSecurityGroupRequest import (
     CreateSecurityGroupRequest,
 )
-from aliyunsdkecs.request.v20140526.CreateVpcRequest import CreateVpcRequest
-from aliyunsdkecs.request.v20140526.DeleteVpcRequest import DeleteVpcRequest
+
 from aliyunsdkecs.request.v20140526.CreateVSwitchRequest import CreateVSwitchRequest
 from aliyunsdkecs.request.v20140526.DeleteVSwitchRequest import DeleteVSwitchRequest
 from aliyunsdkecs.request.v20140526.DeleteInstanceRequest import DeleteInstanceRequest
@@ -33,7 +32,6 @@ from aliyunsdkecs.request.v20140526.DescribeSecurityGroupsRequest import (
 from aliyunsdkecs.request.v20140526.DescribeSecurityGroupAttributeRequest import DescribeSecurityGroupAttributeRequest
 from aliyunsdkecs.request.v20140526.RevokeSecurityGroupRequest import RevokeSecurityGroupRequest
 from aliyunsdkecs.request.v20140526.DeleteSecurityGroupRequest import DeleteSecurityGroupRequest
-from aliyunsdkecs.request.v20140526.DescribeVpcsRequest import DescribeVpcsRequest
 from aliyunsdkecs.request.v20140526.DescribeVSwitchesRequest import (
     DescribeVSwitchesRequest,
 )
@@ -48,16 +46,18 @@ from aliyunsdkecs.request.v20140526.TagResourcesRequest import TagResourcesReque
 from aliyunsdkvpc.request.v20160428.CreateNatGatewayRequest import CreateNatGatewayRequest
 from aliyunsdkvpc.request.v20160428.DescribeNatGatewaysRequest import DescribeNatGatewaysRequest
 from aliyunsdkvpc.request.v20160428.DeleteNatGatewayRequest import DeleteNatGatewayRequest
-
 from aliyunsdkvpc.request.v20160428.AllocateEipAddressRequest import AllocateEipAddressRequest
 from aliyunsdkvpc.request.v20160428.AssociateEipAddressRequest import AssociateEipAddressRequest
 from aliyunsdkvpc.request.v20160428.DescribeEipAddressesRequest import DescribeEipAddressesRequest
 from aliyunsdkvpc.request.v20160428.UnassociateEipAddressRequest import UnassociateEipAddressRequest
 from aliyunsdkvpc.request.v20160428.ReleaseEipAddressRequest import ReleaseEipAddressRequest
-
 from aliyunsdkvpc.request.v20160428.CreateSnatEntryRequest import CreateSnatEntryRequest
 from aliyunsdkvpc.request.v20160428.DescribeSnatTableEntriesRequest import DescribeSnatTableEntriesRequest
 from aliyunsdkvpc.request.v20160428.DeleteSnatEntryRequest import DeleteSnatEntryRequest
+from aliyunsdkvpc.request.v20160428.CreateVpcRequest import CreateVpcRequest
+from aliyunsdkvpc.request.v20160428.DeleteVpcRequest import DeleteVpcRequest
+from aliyunsdkvpc.request.v20160428.DescribeVpcsRequest import DescribeVpcsRequest
+from aliyunsdkvpc.request.v20160428.TagResourcesRequest import TagResourcesRequest
 
 from aliyunsdkram.request.v20150501.CreateRoleRequest import CreateRoleRequest
 from aliyunsdkram.request.v20150501.GetRoleRequest import GetRoleRequest
@@ -65,6 +65,8 @@ from aliyunsdkram.request.v20150501.DeleteRoleRequest import DeleteRoleRequest
 from aliyunsdkram.request.v20150501.AttachPolicyToRoleRequest import AttachPolicyToRoleRequest
 from aliyunsdkram.request.v20150501.DetachPolicyFromRoleRequest import DetachPolicyFromRoleRequest
 from aliyunsdkram.request.v20150501.ListPoliciesForRoleRequest import ListPoliciesForRoleRequest
+
+
 
 # ACS_MAX_RETRIES = env_integer("ACS_MAX_RETRIES", 12)
 
@@ -358,18 +360,29 @@ class AcsClient:
         request.set_VpcId(vpc_id)
         return self._send_request(request)
 
-    def describe_vpcs(self):
+    def describe_vpcs(self, vpc_id=None, vpc_name=None):
         """Queries one or more VPCs in a region.
 
         :return: VPC list.
         """
         request = DescribeVpcsRequest()
+        if vpc_id is not None:
+            request.set_VpcId(vpc_id)
+        if vpc_name is None:
+            request.set_VpcName(vpc_name)
         response = self._send_request(request)
         if response is not None:
             return response.get("Vpcs").get("Vpc")
         return None
-        
-    def tag_resource(self, resource_ids, tags, resource_type="instance"):
+
+    def tag_vpc_resource(self, resource_id, resource_type, tags):
+        request = TagResourcesRequest()
+        request.set_ResourceIds(resource_id)
+        request.set_ResourceType(resource_type)
+        request.set_Tags(tags)
+        return self._send_request(request)
+
+    def tag_ecs_resource(self, resource_ids, tags, resource_type="instance"):
         """Create and bind tags to specified ECS resources.
 
         :param resource_ids: The IDs of N resources.

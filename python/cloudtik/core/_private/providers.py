@@ -154,6 +154,11 @@ def _import_azure_workspace(provider_config):
     return AzureWorkspaceProvider
 
 
+def _import_baiduyun_workspace(provider_config):
+    from cloudtik.providers._private.baiduyun.workspace_provider import BaiduyunWorkspaceProvider
+    return BaiduyunWorkspaceProvider
+
+
 def _import_local_workspace(provider_config):
     from cloudtik.providers._private.local.workspace_provider import \
         LocalWorkspaceProvider
@@ -171,6 +176,7 @@ _WORKSPACE_PROVIDERS = {
     "aws": _import_aws_workspace,
     "gcp": _import_gcp_workspace,
     "azure": _import_azure_workspace,
+    "baiduyun": _import_baiduyun_workspace,
     "kubernetes": _import_kubernetes_workspace,
     "external": _import_external  # Import an external module
 }

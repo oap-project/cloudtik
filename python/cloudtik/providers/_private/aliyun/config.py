@@ -231,8 +231,6 @@ def get_managed_oss_bucket(provider_config, workspace_name):
     cli_logger.verbose_error("Failed to get the OSS bucket for workspace.")
     return None
 
-    # bucket = oss2.Bucket(auth, oss_endpoint, 'examplebucket')
-
 
 def _delete_workspace_cloud_storage(config, workspace_name):
     _delete_managed_cloud_storage(config["provider"], workspace_name)
@@ -249,7 +247,9 @@ def _delete_managed_cloud_storage(cloud_provider, workspace_name):
         cli_logger.print("Deleting OSS bucket: {}...".format(bucket_info.name))
 
         bucket = oss2.Bucket(auth, bucket_info.extranet_endpoint, bucket_info.name)
-        # ToDo: delete all objects before deleting the bucket
+        # Delete all objects before deleting the bucket
+        for obj in oss2.ObjectIterator(bucket, prefix=""):
+            bucket.delete_object(obj.key)
         bucket.delete_bucket()
         cli_logger.print("Successfully deleted OSS bucket: {}.".format(bucket_info.name))
     except Exception as e:

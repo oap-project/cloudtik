@@ -177,13 +177,6 @@ def  _create_network_resources(config, acs_client, current_step, total_steps):
         current_step += 1
         _create_and_configure_nat_gateway(config, acs_client)
 
-    # # create VPC endpoint for S3
-    # with cli_logger.group(
-    #         "Creating VPC endpoint for S3",
-    #         _numbered=("[]", current_step, total_steps)):
-    #     current_step += 1
-    #     _create_vpc_endpoint_for_s3(config, ec2, ec2_client, vpc)
-
     with cli_logger.group(
             "Creating security group",
             _numbered=("[]", current_step, total_steps)):
@@ -538,12 +531,12 @@ def _create_vswitch(acs_client, zone_id, workspace_name, vpc_id, cidr_block, isP
         return vswitch_id
 
 
-def _delete_private_vswitches(workspace_name, vpc_id, subnet_cli):
-    _delete_vswitches(workspace_name, vpc_id, subnet_cli, isPrivate=True)
+def _delete_private_vswitches(workspace_name, vpc_id, acs_client):
+    _delete_vswitches(workspace_name, vpc_id, acs_client, isPrivate=True)
 
 
-def _delete_public_vswitches(workspace_name, vpc_id, subnet_cli):
-    _delete_vswitches(workspace_name, vpc_id, subnet_cli, isPrivate=False)
+def _delete_public_vswitches(workspace_name, vpc_id, acs_client):
+    _delete_vswitches(workspace_name, vpc_id, acs_client, isPrivate=False)
 
 
 def get_workspace_private_vswitches(workspace_name, vpc_id, acs_client):
@@ -1087,7 +1080,135 @@ def create_aliyun_workspace(config):
 
 
 def delete_aliyun_workspace(config, delete_managed_storage: bool = False):
-    pass
+    acs_client = _client(config)
+    workspace_name = config["workspace_name"]
+    use_peering_vpc = is_use_peering_vpc(config)
+    managed_cloud_storage = is_managed_cloud_storage(config)
+    vpc_id = get_workspace_vpc_id(workspace_name, acs_client)
+
+    current_step = 1
+    total_steps = ALIYUN_WORKSPACE_NUM_DELETION_STEPS
+    if vpc_id is None:
+        total_steps = 1
+    else:
+        if use_peering_vpc:
+            total_steps += 1
+    if managed_cloud_storage and delete_managed_storage:
+        total_steps += 1
+
+    try:
+
+        with cli_logger.group("Deleting workspace: {}", workspace_name):
+            # Delete in a reverse way of creating
+            if managed_cloud_storage and delete_managed_storage:
+                with cli_logger.group(
+                        "Deleting OSS bucket",
+                        _numbered=("[]", current_step, total_steps)):
+                    current_step += 1
+                    _delete_workspace_cloud_storage(config, workspace_name)
+
+            with cli_logger.group(
+                    "Deleting instance role",
+                    _numbered=("[]", current_step, total_steps)):
+                current_step += 1
+                _delete_workspace_instance_role(config, acs_client)
+
+            if vpc_id:
+                _delete_network_resources(config, workspace_name,
+                                          acs_client, vpc_id,
+                                          current_step, total_steps)
+
+    except Exception as e:
+        cli_logger.error(
+            "Failed to delete workspace {}. {}", workspace_name, str(e))
+        raise e
+
+    cli_logger.print(
+            "Successfully deleted workspace: {}.",
+            cf.bold(workspace_name))
+    return None
+
+
+def _delete_network_resources(config, workspace_name,
+                              acs_client, vpc_id,
+                              current_step, total_steps):
+    use_working_vpc = is_use_working_vpc(config)
+    use_peering_vpc = is_use_peering_vpc(config)
+
+    """
+         Do the work - order of operation:
+         Delete vpc peering connection
+         Delete private vswitches
+         Delete nat-gateway for private subnets
+         Delete public vswitches
+         Delete security group
+         Delete vpc
+    """
+
+    # delete vpc peering connection
+    if use_peering_vpc:
+        with cli_logger.group(
+                "Deleting VPC peering connection",
+                _numbered=("[]", current_step, total_steps)):
+            current_step += 1
+            # _delete_workspace_vpc_peering_connection_and_routes(config, ec2, ec2_client)
+
+    # delete private vswitches
+    with cli_logger.group(
+            "Deleting private vswitches",
+            _numbered=("[]", current_step, total_steps)):
+        current_step += 1
+        _delete_private_vswitches(workspace_name, vpc_id, acs_client)
+
+    # delete nat-gateway
+    with cli_logger.group(
+            "Deleting NAT gateway",
+            _numbered=("[]", current_step, total_steps)):
+        current_step += 1
+        _delete_nat_gateway(config, acs_client)
+
+    # delete public vswitches
+    with cli_logger.group(
+            "Deleting public vswitches",
+            _numbered=("[]", current_step, total_steps)):
+        current_step += 1
+        _delete_public_vswitches(workspace_name, vpc_id, acs_client)
+
+    # delete security group
+    with cli_logger.group(
+            "Deleting security group",
+            _numbered=("[]", current_step, total_steps)):
+        current_step += 1
+        _delete_security_group(config, vpc_id, acs_client)
+
+    # delete vpc
+    with cli_logger.group(
+            "Deleting VPC",
+            _numbered=("[]", current_step, total_steps)):
+        current_step += 1
+        if not use_working_vpc:
+            _delete_vpc(config, acs_client)
+        else:
+            # deleting the tags we created on working vpc
+            _delete_vpc_tags(acs_client, vpc_id)
+
+
+def _delete_vpc_tags(acs_client, vpc_id):
+    vpc = acs_client.describe_vpcs(vpc_id=vpc_id)
+    if vpc is None:
+        cli_logger.print("The VPC: {} doesn't exist.".format(vpc_id))
+        return
+
+    cli_logger.print("Deleting VPC tags: {}...".format(vpc.id))
+    response = acs_client.untag_vpc_resource(
+        resource_id=vpc_id,
+        resource_type="VPC",
+        tag_keys=['Name', ALIYUN_WORKSPACE_VERSION_TAG_NAME]
+    )
+    if response is None:
+        cli_logger.abort("Failed to delete VPC tags.")
+    else:
+        cli_logger.print("Successfully deleted VPC tags: {}.".format(vpc.id))
 
 
 def check_aliyun_workspace_integrity(config):

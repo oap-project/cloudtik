@@ -58,6 +58,7 @@ from aliyunsdkvpc.request.v20160428.CreateVpcRequest import CreateVpcRequest
 from aliyunsdkvpc.request.v20160428.DeleteVpcRequest import DeleteVpcRequest
 from aliyunsdkvpc.request.v20160428.DescribeVpcsRequest import DescribeVpcsRequest
 from aliyunsdkvpc.request.v20160428.TagResourcesRequest import TagResourcesRequest
+from aliyunsdkvpc.request.v20160428.UnTagResourcesRequest import UnTagResourcesRequest
 
 from aliyunsdkram.request.v20150501.CreateRoleRequest import CreateRoleRequest
 from aliyunsdkram.request.v20150501.GetRoleRequest import GetRoleRequest
@@ -376,11 +377,31 @@ class AcsClient:
         return None
 
     def tag_vpc_resource(self, resource_id, resource_type, tags):
+        """
+
+        :param resource_id:
+        :param resource_type:
+        :param tags:
+        :return:
+        """
         request = TagResourcesRequest()
         request.set_ResourceIds(resource_id)
         request.set_ResourceType(resource_type)
         request.set_Tags(tags)
         return self._send_request(request)
+
+    def untag_vpc_resource(self, resource_id, resource_type, tag_keys):
+        """
+
+        :param resource_id:
+        :param resource_type:
+        :param tag_keys:
+        :return:
+        """
+        request = UnTagResourcesRequest()
+        request.set_ResourceIds(resource_id)
+        request.set_ResourceType(resource_type)
+        request.set_TagKeys(tag_keys)
 
     def tag_ecs_resource(self, resource_ids, tags, resource_type="instance"):
         """Create and bind tags to specified ECS resources.

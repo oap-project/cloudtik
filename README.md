@@ -26,6 +26,29 @@ with out-of-box optimized functionalities and performance, and to go quickly to 
 in hours or in even minutes instead of spending months to construct and optimize the platform.
 
 ## High Level Concepts
+### Workspace
+Workspace is the CloudTik concept to act as the container of a set of clusters and the shared Cloud
+resources among these clusters.
+
+When a workspace for specific cloud provider is created, all the shared resources for implementing the unified
+design are created. These include network resources (like VPC, subnets, NAT gateways, firewall rules),
+instance profiles, cloud storage and so on. Although the actual resources varies between cloud providers while
+the design the resources achieved is consistent.
+
+### Cluster
+Within a workspace, one or more clusters with needed services(runtimes) can be started.
+These clusters will share a lot of common configurations
+such as network (they are in the same VPC) but vary on other aspects including instance types, scale of the cluster,
+services running and so on. The services provided by one cluster can be discovered by other clusters
+and be consumed.
+
+### Runtimes
+For each cluster started, user can configure very easily which runtimes
+(such as Spark runtime or Machine Learning/Deep Learning runtime) are needed.
+CloudTik has designed the runtimes with the optimized configurations and libraries.
+And when the cluster is running, the runtimes are properly configured and ready for running your workload.
+
+### CLI and API
 User can use CloudTik through a command line interface (CLI) or a python application programming interface (API).
 Both CLI and API provides the management operations for both workspace and cluster, for example creating a workspace or
 starting a cluster.
@@ -35,21 +58,6 @@ The same CLI and API can operate on different cloud providers with a unified wor
 The CLI or API interacts with Cloud through two channels. It will use Cloud API to create or manage cloud provider
 resources such as launching or terminating a VM instance on cloud. It will also use SSH to interact with the VM instance
 to perform tasks like installing, configuring and managing the services running on the VM instance.
-
-When a workspace for specific cloud provider is created, all the shared resources for implementing the unified
-design are created. These include network resources (like VPC, subnets, NAT gateways, firewall rules),
-instance profiles, cloud storage and so on. Although the actual resources varies between cloud providers while
-the design the resources achieved is consistent.
-
-Within a workspace, one or more clusters can be started. These clusters will share a lot of common configurations
-such as network (they are in the same VPC) but vary on other aspects including instance types, scale of the cluster,
-services running and so on. The services provided by one cluster can be discovered by other clusters
-and be consumed.
-
-For each cluster started, user can configure very easily which runtimes
-(such as Spark runtime or Machine Learning runtime) are needed.
-CloudTik has designed the runtime with the optimized configurations and libraries.
-And when the cluster is running, the runtimes are properly configured and ready for running your workload.
 
 ## Getting Started with CloudTik
 

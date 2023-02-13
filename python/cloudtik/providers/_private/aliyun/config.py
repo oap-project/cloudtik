@@ -2,6 +2,7 @@ import logging
 import copy
 import os
 import stat
+import subprocess
 import random
 import string
 import itertools
@@ -38,6 +39,8 @@ ALIYUN_WORKSPACE_SECURITY_GROUP_NAME = ALIYUN_RESOURCE_NAME_PREFIX + "-{}-securi
 ALIYUN_WORKSPACE_EIP_NAME = ALIYUN_RESOURCE_NAME_PREFIX + "-{}-eip"
 ALIYUN_WORKSPACE_NAT_GATEWAY_NAME = ALIYUN_RESOURCE_NAME_PREFIX + "-{}-nat"
 ALIYUN_WORKSPACE_SNAT_ENTRY_NAME = ALIYUN_RESOURCE_NAME_PREFIX + "-{}-snat"
+ALIYUN_WORKSPACE_VPC_PEERING_ROUTE_ENTRY_NAME = ALIYUN_RESOURCE_NAME_PREFIX + "-{}-route-entry"
+ALIYUN_WORKSPACE_VPC_PEERING_NAME = ALIYUN_RESOURCE_NAME_PREFIX + "-{}-vpc-peering-connection"
 
 ALIYUN_WORKSPACE_VERSION_TAG_NAME = "cloudtik-workspace-version"
 ALIYUN_WORKSPACE_VERSION_CURRENT = "1"
@@ -72,6 +75,16 @@ def _client(config):
         access_key=config["provider"].get("access_key"),
         access_key_secret=config["provider"].get("access_key_secret"),
         region_id=config["provider"]["region"],
+        max_retries=1,
+    )
+
+
+def _working_node_client(config):
+    region_id = get_current_instance_region()
+    return AcsClient(
+        access_key=config["provider"].get("access_key"),
+        access_key_secret=config["provider"].get("access_key_secret"),
+        region_id=region_id,
         max_retries=1,
     )
 
@@ -155,6 +168,118 @@ def _get_or_import_key_pair(config):
                 return
 
 
+def get_workspace_vpc_peering_name(workspace_name):
+    return ALIYUN_WORKSPACE_VPC_PEERING_NAME.format(workspace_name)
+
+
+def _create_workspace_vpc_peering_connection(config, acs_client):
+    current_acs_client = _working_node_client(config)
+    current_region_id = get_current_instance_region()
+    owner_account_id = get_current_instance_owner_account_id
+    workspace_name = config["workspace_name"]
+    vpc_peer_name = get_workspace_vpc_peering_name(workspace_name)
+    region = config["provider"]["region"]
+    current_vpc = get_current_vpc(config)
+    workspace_vpc = get_workspace_vpc(workspace_name, acs_client)
+    cli_logger.print("Creating VPC peering connection.")
+
+    instance_id = current_acs_client.create_vpc_peering_connection(
+        region_id=current_region_id,
+        vpc_id=current_vpc.get("VpcId"),
+        accepted_ali_uid=owner_account_id,
+        accepted_vpc_id=workspace_vpc.get("VpcId"),
+        accepted_region_id=region,
+        name=vpc_peer_name)
+    if instance_id is None:
+        cli_logger.abort("Failed to create VPC peering connection.")
+    else:
+        cli_logger.print(
+            "Successfully created VPC peering connection: {}.", vpc_peer_name)
+
+
+def get_vpc_route_tables(vpc, acs_client):
+    route_tables = acs_client.describe_route_tables(vpc.get("VpcId"))
+    return route_tables
+
+
+def get_workspace_vpc_peering_connection(config):
+    workspace_name = config["workspace_name"]
+    vpc_peer_name = get_workspace_vpc_peering_name(workspace_name)
+    current_acs_client = _working_node_client(config)
+    current_vpc_id = get_current_vpc_id(config)
+
+    vpc_peering_connections = current_acs_client.describe_vpc_peering_connections(vpc_id=current_vpc_id, vpc_peering_connection_name=vpc_peer_name)
+    return None if len(vpc_peering_connections) == 0 else vpc_peering_connections[0]
+
+
+def get_workspace_vpc_peering_connection_route_entry_name(workspace_name):
+    return ALIYUN_WORKSPACE_VPC_PEERING_ROUTE_ENTRY_NAME.format(workspace_name)
+
+def _update_route_tables_for_workspace_vpc_peering_connection(config, acs_client):
+    current_acs_client = _working_node_client(config)
+    workspace_name = config["workspace_name"]
+    current_vpc = get_current_vpc(config)
+    workspace_vpc = get_workspace_vpc(workspace_name, acs_client)
+
+    current_vpc_route_tables = get_vpc_route_tables(current_vpc, current_acs_client)
+    workspace_vpc_route_tables = get_vpc_route_tables(workspace_vpc, acs_client)
+
+    vpc_peering_connection = get_workspace_vpc_peering_connection(config)
+    if vpc_peering_connection is None:
+        cli_logger.abort(
+            "No vpc_peering_connection found for workspace: {}.".format(workspace_name))
+
+    for current_vpc_route_table in current_vpc_route_tables:
+        response = current_acs_client.create_route_entry(
+            route_table_id=current_vpc_route_table.get("RouteTableId"),
+            cidr_block=workspace_vpc.get("CidrBlock"),
+            next_hop_id=vpc_peering_connection.get("InstanceId"),
+            next_hop_type="VpcPeer",
+            name=get_workspace_vpc_peering_connection_route_entry_name(workspace_name))
+        
+        if response is None:
+            cli_logger.abort(
+                "Failed to add route destination to current VPC route table with workspace VPC CIDR block.")
+        else:
+            cli_logger.print(
+                "Successfully add route destination to current VPC route table {} with workspace VPC CIDR block.".format(
+                    current_vpc_route_table.get("RouteTableId")))
+
+    for workspace_vpc_route_table in workspace_vpc_route_tables:
+
+        response = acs_client.create_route_entry(
+            route_table_id=workspace_vpc_route_table.get("RouteTableId"),
+            cidr_block=current_vpc.get("CidrBlock"),
+            next_hop_id=vpc_peering_connection.get("InstanceId"),
+            next_hop_type="VpcPeer",
+            name="cloudtik-{}-vpc-peering-connection-route-entry".format(workspace_name))
+
+        if response is None:
+            cli_logger.abort(
+                "Failed to add route destination to current VPC route table with workspace VPC CIDR block.")
+        else:
+            cli_logger.print(
+                "Successfully add route destination to current VPC route table {} with workspace VPC CIDR block.".format(
+                    workspace_vpc_route_table.get("RouteTableId")))
+
+
+def _create_and_configure_vpc_peering_connection(config, acs_client):
+    current_step = 1
+    total_steps = 2
+
+    with cli_logger.group(
+            "Creating VPC peering connection",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _create_workspace_vpc_peering_connection(config, acs_client)
+
+    with cli_logger.group(
+            "Update route tables for the VPC peering connection",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _update_route_tables_for_workspace_vpc_peering_connection(config, acs_client)
+
+
 def  _create_network_resources(config, acs_client, current_step, total_steps):
     # create VPC
     with cli_logger.group(
@@ -184,12 +309,12 @@ def  _create_network_resources(config, acs_client, current_step, total_steps):
 
         _upsert_security_group(config, vpc_id, acs_client)
 
-    # if is_use_peering_vpc(config):
-    #     with cli_logger.group(
-    #             "Creating VPC peering connection",
-    #             _numbered=("[]", current_step, total_steps)):
-    #         current_step += 1
-    #         _create_and_configure_vpc_peering_connection(config, ec2, ec2_client)
+    if is_use_peering_vpc(config):
+        with cli_logger.group(
+                "Creating VPC peering connection",
+                _numbered=("[]", current_step, total_steps)):
+            current_step += 1
+            _create_and_configure_vpc_peering_connection(config, acs_client)
 
     return current_step
 
@@ -333,7 +458,7 @@ def _configure_vpc(config, acs_client):
     if use_working_vpc:
         # No need to create new vpc
         vpc_name = _get_workspace_vpc_name(workspace_name)
-        vpc_id = get_current_vpc_id(acs_client)
+        vpc_id = get_current_vpc_id(config)
         acs_client.tag_vpc_resource(resource_id=vpc_id, resource_type="VPC", tags=[
             {'Key': 'Name', 'Value': vpc_name},
             {'Key': ALIYUN_WORKSPACE_VERSION_TAG_NAME, 'Value': ALIYUN_WORKSPACE_VERSION_CURRENT}
@@ -351,16 +476,52 @@ def _configure_vpc(config, acs_client):
     return vpc_id
 
 
-def get_current_vpc(acs_client):
-    current_vpc_id = get_current_vpc_id(acs_client)
-    current_vpc = acs_client.describe_vpcs(vpc_id=current_vpc_id)[0]
+def get_current_instance_region():
+    try:
+        output = subprocess.Popen("curl http://100.100.100.200/latest/meta-data/region-id", shell=True)
+        region_id = output.stdout.readline().decode()
+        return region_id
+    except Exception as e:
+        cli_logger.abort("Failed to get instance region: {}. "
+                         "Please make sure your current machine is an Aliyun virtual machine", str(e))
+        return None
+
+
+def get_current_instance_owner_account_id():
+    try:
+        output = subprocess.Popen("curl http://100.100.100.200/latest/meta-data/owner-account-id", shell=True)
+        owner_account_id = output.stdout.readline().decode()
+        return owner_account_id
+    except Exception as e:
+        cli_logger.abort("Failed to get instance owner-account-id: {}. "
+                         "Please make sure your current machine is an Aliyun virtual machine", str(e))
+        return None
+
+
+def get_current_instance(acs_client):
+    ip_address = get_node_ip_address(address="8.8.8.8:53")
+    for instance in acs_client.describe_instances():
+        for network_interface in instance.get("NetworkInterfaces").get("NetworkInterface"):
+
+            if network_interface.get("PrimaryIpAddress", "") == ip_address:
+                return instance
+
+    raise RuntimeError("Failed to get the instance metadata for the current machine. "
+                           "Please make sure your current machine is an Aliyun virtual machine.")
+
+
+def get_current_vpc(config):
+    current_acs_client= _working_node_client(config)
+    current_vpc_id = get_current_vpc_id(config)
+    current_vpc = current_acs_client.describe_vpcs(vpc_id=current_vpc_id)[0]
     return current_vpc
 
 
-def get_current_vpc_id(acs_client):
+def get_current_vpc_id(config):
+    current_acs_client = _working_node_client(config)
     ip_address = get_node_ip_address(address="8.8.8.8:53")
     vpc_id = None
-    for instance in acs_client.describe_instances():
+    for instance in current_acs_client.describe_instances():
         for network_interface in instance.get("NetworkInterfaces").get("NetworkInterface"):
 
             if network_interface.get("PrimaryIpAddress", "") == ip_address:
@@ -371,6 +532,37 @@ def get_current_vpc_id(acs_client):
                            "Please make sure your current machine is an Aliyun virtual machine.")
     return vpc_id
 
+
+def get_existing_routes_cidr_block(acs_client, route_tables):
+    existing_routes_cidr_block = set()
+    for route_table in route_tables:
+        for route_entry in acs_client.describe_route_entry_list(route_table.get("RouteTableId")):
+            if route_entry.get("DestinationCidrBlock") != '0.0.0.0/0':
+                existing_routes_cidr_block.add(route_entry.get("DestinationCidrBlock"))
+
+    return existing_routes_cidr_block
+
+
+def _configure_peering_vpc_cidr_block(config, current_vpc):
+    current_vpc_cidr_block = current_vpc.get("CidrBlock")
+    current_acs_client = _working_node_client(config)
+    current_vpc_route_tables = get_vpc_route_tables(current_vpc, current_acs_client)
+
+    existing_routes_cidr_block = get_existing_routes_cidr_block(current_acs_client, current_vpc_route_tables)
+    existing_routes_cidr_block.add(current_vpc_cidr_block)
+
+    ip = current_vpc_cidr_block.split("/")[0].split(".")
+
+    for  i in range(0, 256):
+        tmp_cidr_block = ip[0] + "." + str(i) + ".0.0/16"
+
+        if check_cidr_conflict(tmp_cidr_block, existing_routes_cidr_block):
+            cli_logger.print("Successfully found cidr block for peering VPC.")
+            return tmp_cidr_block
+
+    cli_logger.abort("Failed to find non-conflicted cidr block for peering VPC.")
+
+
 def _create_vpc(config, acs_client):
     workspace_name = config["workspace_name"]
     vpc_name = _get_workspace_vpc_name(workspace_name)
@@ -379,10 +571,8 @@ def _create_vpc(config, acs_client):
     # create vpc
     cidr_block = '10.0.0.0/16'
     if is_use_peering_vpc(config):
-        # TODO
-        return
-        # current_vpc = get_current_vpc(config)
-        # cidr_block = _configure_peering_vpc_cidr_block(current_vpc)
+        current_vpc = get_current_vpc(config)
+        cidr_block = _configure_peering_vpc_cidr_block(config, current_vpc)
 
     vpc_id = acs_client.create_vpc(vpc_name, cidr_block)
     if vpc_id is None:
@@ -857,7 +1047,7 @@ def _create_nat_gateway(config, acs_client):
     workspace_name = config["workspace_name"]
     vpc_id =  get_workspace_vpc_id(config, acs_client)
     nat_gateway_name = get_workspace_nat_gateway_name(workspace_name)
-    vswitch_id = get_workspace_public_vswitches(workspace_name, vpc_id, acs_client)
+    vswitch_id = get_workspace_private_vswitches(workspace_name, vpc_id, acs_client)
     cli_logger.print("Creating nat-gateway: {}...".format(nat_gateway_name))
     nat_gateway_id = acs_client.create_nat_gateway(vpc_id, nat_gateway_name, vswitch_id)
     if nat_gateway_id is None:
@@ -1129,6 +1319,81 @@ def delete_aliyun_workspace(config, delete_managed_storage: bool = False):
     return None
 
 
+def _delete_routes_for_workspace_vpc_peering_connection(config, acs_client):
+    workspace_name = config["workspace_name"]
+    current_acs_client = _working_node_client(config)
+    current_vpc = get_current_vpc(config)
+    workspace_vpc = get_workspace_vpc(config, acs_client)
+
+    current_vpc_route_tables = get_vpc_route_tables(current_vpc, current_acs_client)
+    workspace_vpc_route_tables = get_vpc_route_tables(workspace_vpc, acs_client)
+
+    vpc_peering_connection = get_workspace_vpc_peering_connection(config)
+    if vpc_peering_connection is None:
+        cli_logger.print("No VPC peering connection was found in workspace. Skip delete "
+                         "routes for workspace vpc peering connection.")
+        return
+    route_entry_name = get_workspace_vpc_peering_connection_route_entry_name(workspace_name)
+    for current_vpc_route_table in current_vpc_route_tables:
+        for route_entry in current_acs_client.describe_route_entry_list(
+                route_table_id=current_vpc_route_table.get("RouteTableId"),
+                cidr_block=workspace_vpc.get("VpcId"),
+                entry_name=route_entry_name):
+            response = current_acs_client.delete_route_entry(route_entry.get("RouteEntryId"))
+            if response is not None:
+                cli_logger.print(
+                    "Successfully delete the route entry about VPC peering connection for current VPC route table {}.".format(
+                        current_vpc_route_table.get("RouteTableId")))
+            else:
+                cli_logger.abort(
+                    "Failed to delete the route entry about VPC peering connection for current VPC route table.")
+
+    for workspace_vpc_route_table in workspace_vpc_route_tables:
+        for route_entry in acs_client.describe_route_entry_list(
+                route_table_id=workspace_vpc_route_table.get("RouteTableId"),
+                cidr_block=current_vpc.get("VpcId"),
+                entry_name=route_entry_name):
+            response = acs_client.delete_route_entry(route_entry.get("RouteEntryId"))
+            if response is not None:
+                cli_logger.print(
+                    "Successfully delete the route about VPC peering connection for workspace VPC route table {}.".format(
+                        workspace_vpc_route_table.get("RouteTableId")))
+            else:
+                cli_logger.abort(
+                    "Failed to delete the route about VPC peering connection for workspace VPC route table.")
+
+
+def _delete_workspace_vpc_peering_connection(config, acs_client):
+    vpc_peering_connection = get_workspace_vpc_peering_connection(config)
+    if vpc_peering_connection is None:
+        cli_logger.print("No VPC peering connection was found in workspace.")
+        return
+    vpc_peering_connection_id = vpc_peering_connection['InstanceId']
+
+    response = acs_client.delete_vpc_peering_connection(vpc_peering_connection_id)
+    if response is not None:
+        cli_logger.print("Successfully deleted VPC peering connection for: {}.".format(vpc_peering_connection_id))
+    else:
+        cli_logger.abort("Failed to delete VPC peering connection.")
+
+
+def _delete_workspace_vpc_peering_connection_and_routes(config, acs_client):
+    current_step = 1
+    total_steps = 2
+
+    with cli_logger.group(
+            "Deleting routes for VPC peering connection",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _delete_routes_for_workspace_vpc_peering_connection(config, acs_client)
+
+    with cli_logger.group(
+            "Deleting VPC peering connection",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _delete_workspace_vpc_peering_connection(config, acs_client)
+
+
 def _delete_network_resources(config, workspace_name,
                               acs_client, vpc_id,
                               current_step, total_steps):
@@ -1139,7 +1404,7 @@ def _delete_network_resources(config, workspace_name,
          Do the work - order of operation:
          Delete vpc peering connection
          Delete private vswitches
-         Delete nat-gateway for private subnets
+         Delete nat-gateway for private vswitches
          Delete public vswitches
          Delete security group
          Delete vpc
@@ -1151,7 +1416,7 @@ def _delete_network_resources(config, workspace_name,
                 "Deleting VPC peering connection",
                 _numbered=("[]", current_step, total_steps)):
             current_step += 1
-            # _delete_workspace_vpc_peering_connection_and_routes(config, ec2, ec2_client)
+            _delete_workspace_vpc_peering_connection_and_routes(config, acs_client)
 
     # delete private vswitches
     with cli_logger.group(
@@ -1212,9 +1477,8 @@ def _delete_vpc_tags(acs_client, vpc_id):
 
 
 def check_aliyun_workspace_integrity(config):
-    # existence = check_azure_workspace_existence(config)
-    # return True if existence == Existence.COMPLETED else False
-    pass
+    existence = check_aliyun_workspace_existence(config)
+    return True if existence == Existence.COMPLETED else False
 
 
 def update_aliyun_workspace_firewalls(config):
@@ -1268,6 +1532,10 @@ def _configure_allowed_ssh_sources(config):
         security_group_rule_config.append(permission)
 
 
+def get_workspace_oss_bucket(config, workspace_name):
+    return get_managed_oss_bucket(config["provider"], workspace_name)
+
+
 def _get_workspace_head_nodes(provider_config, workspace_name):
     pass
 
@@ -1284,7 +1552,67 @@ def bootstrap_aliyun_workspace(config):
 
 
 def check_aliyun_workspace_existence(config):
-    pass
+    acs_client = _client(config)
+    workspace_name = config["workspace_name"]
+    managed_cloud_storage = is_managed_cloud_storage(config)
+    use_peering_vpc = is_use_peering_vpc(config)
+
+    existing_resources = 0
+    target_resources = ALIYUN_WORKSPACE_TARGET_RESOURCES
+    if managed_cloud_storage:
+        target_resources += 1
+    if use_peering_vpc:
+        target_resources += 1
+
+    """
+         Do the work - order of operation:
+         Check VPC
+         Check private vswitches
+         Check public vswitches
+         Check nat-gateways
+         Check security-group
+         Check VPC peering if needed
+         Instance roles
+         Check OSS bucket
+    """
+    skipped_resources = 0
+    vpc_id = get_workspace_vpc_id(workspace_name, acs_client)
+    if vpc_id is not None:
+        existing_resources += 1
+        # Network resources that depending on VPC
+        if len(get_workspace_private_vswitches(workspace_name, vpc_id, acs_client)) >= ALIYUN_VPC_SWITCHES_COUNT - 1:
+            existing_resources += 1
+        if len(get_workspace_public_vswitches(workspace_name, vpc_id, acs_client)) > 0:
+            existing_resources += 1
+        if len(get_workspace_nat_gateway(workspace_name, acs_client)) > 0:
+            existing_resources += 1
+        if get_workspace_security_group(config, vpc_id, workspace_name) is not None:
+            existing_resources += 1
+        if use_peering_vpc:
+            if get_workspace_vpc_peering_connection(config) is not None:
+                existing_resources += 1
+
+    if _get_head_instance_role(config, acs_client) is not None:
+        existing_resources += 1
+
+    if _get_worker_instance_role(config, acs_client) is not None:
+        existing_resources += 1
+
+    cloud_storage_existence = False
+    if managed_cloud_storage:
+        if get_workspace_oss_bucket(config, workspace_name) is not None:
+            existing_resources += 1
+            cloud_storage_existence = True
+
+    if existing_resources <= skipped_resources:
+        return Existence.NOT_EXIST
+    elif existing_resources == target_resources:
+        return Existence.COMPLETED
+    else:
+        if existing_resources == skipped_resources + 1 and cloud_storage_existence:
+            return Existence.STORAGE_ONLY
+        return Existence.IN_COMPLETED
+
 
 
 def get_aliyun_workspace_info(config):

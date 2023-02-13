@@ -2,7 +2,9 @@ import json
 import logging
 
 from aliyunsdkcore import client
+from aliyunsdkcore.request import CommonRequest
 from aliyunsdkcore.acs_exception.exceptions import ClientException, ServerException
+
 from aliyunsdkecs.request.v20140526.AllocatePublicIpAddressRequest import (
     AllocatePublicIpAddressRequest,
 )
@@ -59,6 +61,10 @@ from aliyunsdkvpc.request.v20160428.DeleteVpcRequest import DeleteVpcRequest
 from aliyunsdkvpc.request.v20160428.DescribeVpcsRequest import DescribeVpcsRequest
 from aliyunsdkvpc.request.v20160428.TagResourcesRequest import TagResourcesRequest
 from aliyunsdkvpc.request.v20160428.UnTagResourcesRequest import UnTagResourcesRequest
+from aliyunsdkvpc.request.v20160428.DescribeRouteTableListRequest import DescribeRouteTableListRequest
+from aliyunsdkvpc.request.v20160428.CreateRouteEntryRequest import CreateRouteEntryRequest
+from aliyunsdkvpc.request.v20160428.DescribeRouteEntryListRequest import DescribeRouteEntryListRequest
+from aliyunsdkvpc.request.v20160428.DeleteRouteEntryRequest import DeleteRouteEntryRequest
 
 from aliyunsdkram.request.v20150501.CreateRoleRequest import CreateRoleRequest
 from aliyunsdkram.request.v20150501.GetRoleRequest import GetRoleRequest
@@ -338,7 +344,97 @@ class AcsClient:
         else:
             logging.error("create_v_switch vpc_id %s failed.", vpc_id)
         return None
-    
+
+    def create_vpc_peering_connection(self, region_id, vpc_id, accepted_ali_uid, accepted_vpc_id, accepted_region_id, name):
+        request = CommonRequest()
+        request.set_accept_format('json')
+        request.set_domain('vpcpeer.aliyuncs.com')
+        request.set_method('POST')
+        request.set_protocol_type('https')  # https | http
+        request.set_version('2022-01-01')
+        request.set_action_name('CreateVpcPeerConnection')
+        request.add_query_param('RegionId', region_id)
+        request.add_query_param('VpcId', vpc_id)
+        request.add_query_param('AcceptingAliUid', accepted_ali_uid)
+        request.add_query_param('AcceptingVpcId', accepted_vpc_id)
+        request.add_query_param('AcceptingRegionId', accepted_region_id)
+        request.add_query_param('Name', name)
+        response = self._send_request(request)
+        if response is not None:
+            return response.get("InstanceId")
+        return None
+
+    def delete_vpc_peering_connection(self, instance_id):
+        request = CommonRequest()
+        request.set_accept_format('json')
+        request.set_domain('vpcpeer.aliyuncs.com')
+        request.set_method('POST')
+        request.set_protocol_type('https')  # https | http
+        request.set_version('2022-01-01')
+        request.set_action_name('CreateVpcPeerConnection')
+        request.add_query_param('InstanceId', instance_id)
+        return self._send_request(request)
+
+    def describe_vpc_peering_connections(self, vpc_id=None, vpc_peering_connection_name=None):
+        """Queries VPC peering connection.
+
+        :return: VPC peering connection list.
+        """
+        request = CommonRequest()
+        request.set_accept_format('json')
+        request.set_domain('vpcpeer.aliyuncs.com')
+        request.set_method('POST')
+        request.set_protocol_type('https')  # https | http
+        request.set_version('2022-01-01')
+        request.set_action_name('ListVpcPeerConnections')
+        if vpc_peering_connection_name is  not None:
+            request.add_query_param('Name', vpc_peering_connection_name)
+        if vpc_id is not None:
+            request.add_query_param('VpcId.1', vpc_id)
+        response = self._send_request(request)
+        if response is not None:
+            return response.get("VpcPeerConnects")
+        return None
+
+    def describe_route_tables(self, vpc_id=None):
+        request = DescribeRouteTableListRequest()
+        if vpc_id is not None:
+            request.set_VpcId(vpc_id)
+        response = self._send_request(request)
+        if response is not None:
+            return response.get("RouterTableList").get("RouterTableListType")
+        return None
+
+    def create_route_entry(self, route_table_id, cidr_block, next_hop_id, next_hop_type, name):
+        request = CreateRouteEntryRequest()
+        request.set_RouteTableId(route_table_id)
+        request.set_DestinationCidrBlock(cidr_block)
+        request.set_NextHopId(next_hop_id)
+        request.set_NextHopType(next_hop_type)
+        request.set_RouteEntryName(name)
+        return self._send_request(request)
+
+    def describe_route_entry_list(self, route_table_id, cidr_block=None, entry_name=None):
+        request = DescribeRouteEntryListRequest()
+        request.set_RouteTableId(route_table_id)
+        if cidr_block is not None:
+            request.set_DestinationCidrBlock(cidr_block)
+        if entry_name is not None:
+            request.set_RouteEntryName(entry_name)
+        response = self._send_request(request)
+        if response is not None:
+            return response.get("RouteEntrys").get("RouteEntry")
+        return None
+
+    def delete_route_entry(self, route_entry_id, route_table_id=None, cidr_block=None):
+        request = DeleteRouteEntryRequest()
+        request.set_RouteEntryId(route_entry_id)
+        if route_table_id is None:
+            request.set_RouteTableId(route_table_id)
+        if cidr_block is None:
+            request.set_DestinationCidrBlock(cidr_block)
+        return self._send_request(request)
+
     def create_vpc(self, vpc_name, cidr_block):
         """Creates a virtual private cloud (VPC).
 
@@ -369,7 +465,7 @@ class AcsClient:
         request = DescribeVpcsRequest()
         if vpc_id is not None:
             request.set_VpcId(vpc_id)
-        if vpc_name is None:
+        if vpc_name is not None:
             request.set_VpcName(vpc_name)
         response = self._send_request(request)
         if response is not None:

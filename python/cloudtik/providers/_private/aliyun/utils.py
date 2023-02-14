@@ -950,30 +950,30 @@ def get_credential(provider_config):
     return credential
 
 
-def make_vpc_client(config):
-    credential = get_credential(config["provider_config"])
+def make_vpc_client(provider_config):
+    credential = get_credential(provider_config)
     config = open_api_models.Config(credential=credential)
     config.endpoint = f'vpc.aliyuncs.com'
     return VpcClient(config)
 
 
-def make_vpc_peer_client(config):
-    credential = get_credential(config["provider_config"])
+def make_vpc_peer_client(provider_config):
+    credential = get_credential(provider_config)
     config = open_api_models.Config(credential=credential)
     config.endpoint = f'vpcpeer.aliyuncs.com'
     return VpcPeerClient(config)
 
 
-def make_ecs_client(config):
-    region_id = config["provider_config"]["region"]
-    credential = get_credential(config["provider_config"])
+def make_ecs_client(provider_config):
+    region_id = provider_config["region"]
+    credential = get_credential(provider_config)
     config = open_api_models.Config(credential=credential)
     config.endpoint = f'ecs.{region_id}.aliyuncs.com'
     return EcsClient(config)
 
 
-def make_ram_client(config):
-    credential = get_credential(config["provider_config"])
+def make_ram_client(provider_config):
+    credential = get_credential(provider_config)
     config = open_api_models.Config(credential=credential)
     config.endpoint = f'ram.aliyuncs.com'
     return RamClient(config)

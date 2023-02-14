@@ -79,8 +79,9 @@ ACS_MAX_RETRIES = env_integer("ACS_MAX_RETRIES", 12)
 
 
 from alibabacloud_vpc20160428.client import Client as VpcClient
-from alibabacloud_credentials.client import CredentialClient
+from alibabacloud_credentials.client import Client as CredentialClient
 from alibabacloud_credentials.models import Config
+from alibabacloud_tea_openapi import models as open_api_models
 
 
 class AcsClient:
@@ -943,3 +944,13 @@ def get_credential(provider_config):
         credential = CredentialClient()
 
     return credential
+
+
+def construct_vpc_client(config):
+    credential = get_credential(config["provider_config"])
+    config = open_api_models.Config(
+        credential=credential
+    )
+    config.endpoint = f'vpc.aliyuncs.com'
+    return VpcClient(config)
+

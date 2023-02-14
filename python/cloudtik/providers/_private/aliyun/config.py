@@ -59,7 +59,7 @@ WORKER_ROLE_ATTACH_POLICIES = [
 def bootstrap_aliyun(config):
     # print(config["provider"])
     # create vpc
-    # _get_or_create_vpc(config)
+    _get_or_create_vpc(config)
 
     # create security group id
     _get_or_create_security_group(config)
@@ -788,16 +788,6 @@ def _create_workspace_security_group(config, vpc_id, acs_client):
         cli_logger.print("Successfully created security group: {}.".format(security_group_name))
         return security_group_id
 
-    # security_group_id = cli.create_security_group(vpc_id=config["provider"]["vpc_id"])
-    #
-    # for rule in config["provider"].get("security_group_rule", {}):
-    #     cli.authorize_security_group(
-    #         security_group_id=security_group_id,
-    #         port_range=rule["port_range"],
-    #         source_cidr_ip=rule["source_cidr_ip"],
-    #         ip_protocol=rule["ip_protocol"],
-    #     )
-
 
 def _add_security_group_rules(config, security_group_id, acs_client):
     cli_logger.print("Updating rules for security group: {}...".format(security_group_id))
@@ -828,15 +818,25 @@ def _update_inbound_rules(target_security_group_id, config, acs_client):
             source_cidr_ip=new_permission.get("SourceCidrIp"))
     
 
+def _create_allow_working_node_inbound_rules(config):
+    allow_ssh_only = is_peering_firewall_allow_ssh_only(config)
+    vpc = get_current_vpc(config)
+    working_vpc_cidr = vpc.get("CidrBlock")
+    return [{
+        "port_range": "22/22" if allow_ssh_only else "-1/-1",
+        "source_cidr_ip": working_vpc_cidr,
+        "ip_protocol": "tcp" if allow_ssh_only else "all"
+    }]
+
+
 def _create_default_inbound_rules(config, acs_client, extended_rules=None):
     if extended_rules is None:
         extended_rules = []
     intra_cluster_rules = _create_default_intra_cluster_inbound_rules(acs_client, config)
-    # ssh_rules = _create_default_ssh_inbound_rules(acs_client, config)
 
     # TODO: support VPC peering
-    # if is_use_peering_vpc(config) and is_peering_firewall_allow_working_subnet(config):
-    #     extended_rules += _create_allow_working_node_inbound_rules(config)
+    if is_use_peering_vpc(config) and is_peering_firewall_allow_working_subnet(config):
+        extended_rules += _create_allow_working_node_inbound_rules(config)
 
     merged_rules = itertools.chain(
         intra_cluster_rules,
@@ -908,20 +908,6 @@ def _delete_security_group(config, vpc_id, acs_client):
         cli_logger.abort("Failed to delete security group.")
     else:
         cli_logger.print("Successfully deleted security group: {}.".format(security_group_id))
-
-
-# def _create_default_intra_cluster_inbound_rules(intra_cluster_sgids):
-#     return [{
-#         "port_range": '-1/-1',
-#         "ip_protocol": "all",
-#         "UserIdGroupPairs": [
-#             {
-#                 "GroupId": security_group_id
-#             } for security_group_id in sorted(intra_cluster_sgids)
-#             # sort security group IDs for deterministic IpPermission models
-#             # (mainly supports more precise stub-based boto3 unit testing)
-#         ]
-#     }]
 
 
 def _create_default_intra_cluster_inbound_rules(acs_client, config):

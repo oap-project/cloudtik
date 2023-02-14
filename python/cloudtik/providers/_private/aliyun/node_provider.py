@@ -37,8 +37,8 @@ class AliyunNodeProvider(NodeProvider):
         NodeProvider.__init__(self, provider_config, cluster_name)
         self.cache_stopped_nodes = provider_config.get("cache_stopped_nodes", True)
         self.acs = AcsClient(
-            access_key=provider_config["access_key"],
-            access_key_secret=provider_config["access_key_secret"],
+            access_key=provider_config.get("aliyun_credentials", {}).get("aliyun_access_key_id"),
+            access_key_secret=provider_config.get("aliyun_credentials", {}).get("aliyun_secret_key_secret"),
             region_id=provider_config["region"],
             max_retries=ACS_MAX_RETRIES,
         )

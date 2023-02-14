@@ -9,6 +9,7 @@ import itertools
 from typing import Any, Dict, Optional
 
 import oss2
+
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.services import get_node_ip_address
 from cloudtik.core._private.utils import check_cidr_conflict, get_cluster_uri, is_use_internal_ip, \
@@ -72,8 +73,8 @@ def bootstrap_aliyun(config):
 
 def _client(config):
     return AcsClient(
-        access_key=config["provider"].get("access_key"),
-        access_key_secret=config["provider"].get("access_key_secret"),
+        access_key=config["provider"].get("aliyun_credentials",{}).get("aliyun_access_key_id"),
+        access_key_secret=config["provider"].get("aliyun_credentials", {}).get("aliyun_secret_key_secret"),
         region_id=config["provider"]["region"],
         max_retries=1,
     )
@@ -82,8 +83,8 @@ def _client(config):
 def _working_node_client(config):
     region_id = get_current_instance_region()
     return AcsClient(
-        access_key=config["provider"].get("access_key"),
-        access_key_secret=config["provider"].get("access_key_secret"),
+        access_key=config["provider"].get("aliyun_credentials", {}).get("aliyun_access_key_id"),
+        access_key_secret=config["provider"].get("aliyun_credentials", {}).get("aliyun_secret_key_secret"),
         region_id=region_id,
         max_retries=1,
     )
@@ -1612,7 +1613,6 @@ def check_aliyun_workspace_existence(config):
         if existing_resources == skipped_resources + 1 and cloud_storage_existence:
             return Existence.STORAGE_ONLY
         return Existence.IN_COMPLETED
-
 
 
 def get_aliyun_workspace_info(config):

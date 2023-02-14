@@ -74,12 +74,12 @@ from aliyunsdkram.request.v20150501.DetachPolicyFromRoleRequest import DetachPol
 from aliyunsdkram.request.v20150501.ListPoliciesForRoleRequest import ListPoliciesForRoleRequest
 
 
-
-# ACS_MAX_RETRIES = env_integer("ACS_MAX_RETRIES", 12)
+from cloudtik.core._private.constants import env_integer
+ACS_MAX_RETRIES = env_integer("ACS_MAX_RETRIES", 12)
 
 class AcsClient:
     """
-    A wrapper around Aliyun SDK. We use this wrapper in aliyun node provider.
+    A wrapper around Aliyun SDK.
 
     Parameters:
         access_key: The AccessKey ID of your aliyun account.
@@ -90,13 +90,17 @@ class AcsClient:
         max_retries: The maximum number of retries each connection.
     """
 
-    def __init__(self, access_key, access_key_secret, region_id, max_retries):
-        self.cli = client.AcsClient(
-            ak=access_key,
-            secret=access_key_secret,
-            max_retry_time=max_retries,
-            region_id=region_id,
-        )
+    def __init__(self, region_id, max_retries, access_key=None, access_key_secret=None):
+        if (access_key and access_key_secret):
+            self.cli = client.AcsClient(
+                ak=access_key,
+                secret=access_key_secret,
+                max_retry_time=max_retries,
+                region_id=region_id)
+        else:
+            client.AcsClient(
+                max_retry_time=max_retries,
+                region_id=region_id)
 
     def describe_instances(self, tags=None, instance_ids=None):
         """Query the details of one or more Elastic Compute Service (ECS) instances.

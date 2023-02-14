@@ -82,6 +82,10 @@ from alibabacloud_vpc20160428.client import Client as VpcClient
 from alibabacloud_credentials.client import Client as CredentialClient
 from alibabacloud_credentials.models import Config
 from alibabacloud_tea_openapi import models as open_api_models
+from alibabacloud_ecs20140526.client import Client as EcsClient
+from alibabacloud_vpcpeer20220101.client import Client as VpcPeerClient
+from alibabacloud_ram20150501.client import Client as RamClient
+
 
 
 class AcsClient:
@@ -946,11 +950,30 @@ def get_credential(provider_config):
     return credential
 
 
-def construct_vpc_client(config):
+def make_vpc_client(config):
     credential = get_credential(config["provider_config"])
-    config = open_api_models.Config(
-        credential=credential
-    )
+    config = open_api_models.Config(credential=credential)
     config.endpoint = f'vpc.aliyuncs.com'
     return VpcClient(config)
 
+
+def make_vpc_peer_client(config):
+    credential = get_credential(config["provider_config"])
+    config = open_api_models.Config(credential=credential)
+    config.endpoint = f'vpcpeer.aliyuncs.com'
+    return VpcPeerClient(config)
+
+
+def make_ecs_client(config):
+    region_id = config["provider_config"]["region"]
+    credential = get_credential(config["provider_config"])
+    config = open_api_models.Config(credential=credential)
+    config.endpoint = f'ecs.{region_id}.aliyuncs.com'
+    return EcsClient(config)
+
+
+def make_ram_client(config):
+    credential = get_credential(config["provider_config"])
+    config = open_api_models.Config(credential=credential)
+    config.endpoint = f'ram.aliyuncs.com'
+    return RamClient(config)

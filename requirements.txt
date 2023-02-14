@@ -50,6 +50,7 @@ oss2
 
 alibabacloud_tea_openapi
 alibabacloud_vpc20160428
+alibabacloud_vpcpeer20220101
 alibabacloud_credentials
 alibabacloud_ecs20140526
 alibabacloud_ram20150501

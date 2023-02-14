@@ -26,7 +26,7 @@
             "properties": {
                 "type": {
                     "type": "string",
-                    "description": "e.g. aws, azure, gcp,..."
+                    "description": "e.g. aws, azure, gcp, aliyun..."
                 },
                 "region": { 
                     "type": "string",
@@ -156,6 +156,22 @@
                                     "description": "The client secret field for ClientSecret credential."
                                 }
                             }
+                        }
+                    }
+                },
+                "aliyun_credentials": {
+                    "type": "object",
+                    "description": "Credentials for authenticating with the Alibaba Cloud. If not specified, will use environment default.",
+                    "required": [ "type" ],
+                    "additionalProperties": false,
+                    "properties": {
+                        "aliyun_access_key_id": {
+                            "type": "string",
+                            "description": "The access key to use when creating the client."
+                        },
+                        "aliyun_access_key_secret": {
+                            "type": "string",
+                            "description": "The secret key to use when creating the client."
                         }
                     }
                 },

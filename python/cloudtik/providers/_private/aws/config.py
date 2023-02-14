@@ -2287,8 +2287,8 @@ def _get_head_instance_profile(config):
 
 def _get_worker_instance_profile(config):
     workspace_name = config["workspace_name"]
-    head_instance_profile_name = _get_worker_instance_profile_name(workspace_name)
-    return _get_instance_profile(head_instance_profile_name, config)
+    worker_instance_profile_name = _get_worker_instance_profile_name(workspace_name)
+    return _get_instance_profile(worker_instance_profile_name, config)
 
 
 def _create_network_resources(config, ec2, ec2_client,
@@ -2542,13 +2542,6 @@ def _configure_ami(config):
             node_config["ImageId"] = default_ami
 
     return config
-
-
-def _upsert_security_groups(config, node_types):
-    security_groups = _get_or_create_vpc_security_groups(config, node_types)
-    _upsert_security_group_rules(config, security_groups)
-
-    return security_groups
 
 
 def _upsert_security_group(config, vpc_id):

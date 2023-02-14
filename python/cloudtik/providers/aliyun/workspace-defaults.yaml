@@ -1,0 +1,13 @@
+# Include the common workspace defaults
+from: workspace-defaults
+
+# Cloud-provider specific configuration.
+provider:
+    type: aliyun
+    region: cn-hangzhou
+    zone_id: cn-hangzhou-b
+    # Decide whether to require public IP for head node.
+    # When setting to False, Head node will require a public IP. Default to False
+    use_internal_ips: False
+    # Whether to create managed cloud storage of workspace.
+    managed_cloud_storage: True

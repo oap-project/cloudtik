@@ -47,3 +47,10 @@ aliyun-python-sdk-ecs
 aliyun-python-sdk-vpc
 aliyun-python-sdk-ram
 oss2
+
+alibabacloud_tea_openapi
+alibabacloud_vpc20160428
+alibabacloud_credentials
+alibabacloud_ecs20140526
+alibabacloud_ram20150501
+alibabacloud_oss20190517

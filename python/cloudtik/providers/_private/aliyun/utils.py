@@ -77,6 +77,12 @@ from aliyunsdkram.request.v20150501.ListPoliciesForRoleRequest import ListPolici
 from cloudtik.core._private.constants import env_integer
 ACS_MAX_RETRIES = env_integer("ACS_MAX_RETRIES", 12)
 
+
+from alibabacloud_vpc20160428.client import Client as VpcClient
+from alibabacloud_credentials.client import CredentialClient
+from alibabacloud_credentials.models import Config
+
+
 class AcsClient:
     """
     A wrapper around Aliyun SDK.
@@ -920,3 +926,20 @@ class AcsClient:
             logging.error(request.get_action_name())
             logging.error(e)
             return None
+
+
+def get_credential(provider_config):
+    aliyun_credentials = provider_config.get("aliyun_credentials")
+    if aliyun_credentials is not None:
+        ak = aliyun_credentials.get("aliyun_access_key_id")
+        sk = aliyun_credentials.get("aliyun_access_key_secret")
+        credential_config = Config(
+            type='access_key',  # credential type
+            access_key_id=ak,  # AccessKeyId
+            access_key_secret=sk,  # AccessKeySecret
+        )
+        credential = CredentialClient(credential_config)
+    else:
+        credential = CredentialClient()
+
+    return credential

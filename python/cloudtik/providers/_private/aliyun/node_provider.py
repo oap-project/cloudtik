@@ -92,6 +92,24 @@ class EcsClient:
             return response.body
         return None
 
+    def describe_launch_template_versions(self, query_params):
+        """Query the details of launch template
+        :return: The launch template details
+        """
+        describe_launch_template_versions_request = ecs_models.DescribeLaunchTemplateVersionsRequest(
+            region_id=self.region_id
+        )
+        describe_launch_template_versions_request.from_map(query_params)
+        response = self.client.describe_launch_template_versions_with_options(
+            describe_launch_template_versions_request, self.runtime_options)
+        if (response is not None
+                and response.body is not None
+                and response.body.launch_template_version_sets is not None
+                and response.body.launch_template_version_sets.launch_template_version_set is not None):
+
+            return response.body.launch_template_version_sets.launch_template_version_set
+        return None
+
     def describe_instances(self, tags=None, instance_ids=None):
         """Query the details of one or more Elastic Compute Service (ECS) instances.
 

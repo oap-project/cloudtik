@@ -6,7 +6,7 @@ import subprocess
 import random
 import string
 import itertools
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 
 import oss2
 
@@ -87,15 +87,88 @@ def verify_oss_storage(provider_config: Dict[str, Any]):
 
 def post_prepare_aliyun(config: Dict[str, Any]) -> Dict[str, Any]:
     try:
-        # config = fill_available_node_types_resources(config)
-        # TODO
-        pass
+        config = fill_available_node_types_resources(config)
     except Exception as exc:
         cli_logger.warning(
             "Failed to detect node resources. Make sure you have properly configured the Alibaba Cloud credentials: {}.",
             str(exc))
         raise
     return config
+
+
+def list_ecs_instances(provider_config) -> List[Dict[str, Any]]:
+    """Get all instance-types/resources available.
+    Args:
+        provider_config: the provider config of the Alibaba Cloud.
+    Returns:
+        final_instance_types: a list of instances.
+
+    """
+    final_instance_types = []
+    ecs_client = EcsClient(provider_config)
+    instance_types_body = ecs_client.describe_instance_types()
+    if (instance_types_body.instance_types is not None
+            and instance_types_body.instance_types.instance_type is not None):
+        final_instance_types.extend(
+            copy.deepcopy(instance_types_body.instance_types.instance_type))
+    while instance_types_body.next_token is not None:
+        instance_types_body = ecs_client.describe_instance_types(
+            next_token=instance_types_body.next_token)
+        if (instance_types_body.instance_types is not None
+                and instance_types_body.instance_types.instance_type is not None):
+            final_instance_types.extend(
+                copy.deepcopy(instance_types_body.instance_types.instance_type))
+    return final_instance_types
+
+
+def fill_available_node_types_resources(
+        cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+    """Fills out missing "resources" field for available_node_types."""
+    if "available_node_types" not in cluster_config:
+        return cluster_config
+    cluster_config = copy.deepcopy(cluster_config)
+
+    # Get instance information from cloud provider
+    instances_list = list_ecs_instances(cluster_config["provider"])
+    instances_dict = {
+        instance.instance_type_id: instance
+        for instance in instances_list
+    }
+
+    # Update the instance information to node type
+    available_node_types = cluster_config["available_node_types"]
+    for node_type in available_node_types:
+        instance_type = available_node_types[node_type]["node_config"][
+            "InstanceType"]
+        if instance_type in instances_dict:
+            cpus = instances_dict[instance_type].cpu_core_count
+            detected_resources = {"CPU": cpus}
+
+            # memory_size is in GB float
+            memory_total = int(instances_dict[instance_type].memory_size * 1024)
+            memory_total_in_bytes = int(memory_total) * 1024 * 1024
+            detected_resources["memory"] = memory_total_in_bytes
+
+            gpuamount = instances_dict[instance_type].gpuamount
+            if gpuamount:
+                gpu_name = instances_dict[instance_type].gpuspec
+                detected_resources.update({
+                    "GPU": gpuamount,
+                    f"accelerator_type:{gpu_name}": 1
+                })
+
+            detected_resources.update(
+                available_node_types[node_type].get("resources", {}))
+            if detected_resources != \
+                    available_node_types[node_type].get("resources", {}):
+                available_node_types[node_type][
+                    "resources"] = detected_resources
+                logger.debug("Updating the resources of {} to {}.".format(
+                    node_type, detected_resources))
+        else:
+            raise ValueError("Instance type " + instance_type +
+                             " is not available.")
+    return cluster_config
 
 
 def with_aliyun_environment_variables(provider_config, node_type_config: Dict[str, Any], node_id: str):

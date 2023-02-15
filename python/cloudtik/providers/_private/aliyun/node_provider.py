@@ -78,6 +78,20 @@ class EcsClient:
             if not exists:
                 tags += [user_tag]
 
+    def describe_instance_types(self, next_token: str = None):
+        """Query the details of instance types
+        :return: ECS instance type list
+        """
+        describe_instance_types_request = ecs_models.DescribeInstanceTypesRequest(
+            next_token=next_token
+        )
+        response = self.client.describe_instance_types_with_options(
+            describe_instance_types_request, self.runtime_options)
+        if (response is not None
+                and response.body is not None):
+            return response.body
+        return None
+
     def describe_instances(self, tags=None, instance_ids=None):
         """Query the details of one or more Elastic Compute Service (ECS) instances.
 

@@ -81,13 +81,13 @@ ACS_MAX_RETRIES = env_integer("ACS_MAX_RETRIES", 12)
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.providers._private.aliyun.node_provider import EcsClient
 
-from alibabacloud_vpc20160428.client import Client as VpcClient
+from alibabacloud_vpc20160428.client import Client as vpc_client
 from alibabacloud_credentials.client import Client as CredentialClient
 from alibabacloud_credentials.models import Config
 from alibabacloud_tea_openapi import models as open_api_models
 from alibabacloud_ecs20140526.client import Client as EcsClient
-from alibabacloud_vpcpeer20220101.client import Client as VpcPeerClient
-from alibabacloud_ram20150501.client import Client as RamClient
+from alibabacloud_vpcpeer20220101.client import Client as vpc_peer_client
+from alibabacloud_ram20150501.client import Client as ram_client
 from alibabacloud_ram20150501 import models as ram_models
 from alibabacloud_tea_util import models as util_models
 from alibabacloud_vpc20160428 import models as vpc_models
@@ -960,14 +960,14 @@ def make_vpc_client(provider_config):
     credential = get_credential(provider_config)
     config = open_api_models.Config(credential=credential)
     config.endpoint = f'vpc.aliyuncs.com'
-    return VpcClient(config)
+    return vpc_client(config)
 
 
 def make_vpc_peer_client(provider_config):
     credential = get_credential(provider_config)
     config = open_api_models.Config(credential=credential)
     config.endpoint = f'vpcpeer.aliyuncs.com'
-    return VpcPeerClient(config)
+    return vpc_peer_client(config)
 
 
 def make_ecs_client(provider_config, region_id=None):
@@ -989,7 +989,7 @@ def make_ram_client(provider_config):
     credential = get_credential(provider_config)
     config = open_api_models.Config(credential=credential)
     config.endpoint = f'ram.aliyuncs.com'
-    return RamClient(config)
+    return ram_client(config)
 
 
 class VpcClient:
@@ -1405,7 +1405,7 @@ class VpcPeerClient:
             instance_id=instance_id
         )
         try:
-            self.client.client.delete_vpc_peer_connection_with_options(
+            self.client.delete_vpc_peer_connection_with_options(
                 delete_vpc_peer_connection_request, self.runtime_options)
         except Exception as e:
             cli_logger.error("Failed to delete vpc peer connection. {}".format(e))
@@ -1520,3 +1520,4 @@ class RamClient:
         except Exception as e:
             cli_logger.error("Failed to list the policies for RAM role. {}".format(e))
             raise e
+        

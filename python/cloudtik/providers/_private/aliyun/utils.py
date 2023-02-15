@@ -88,6 +88,7 @@ from cloudtik.providers._private.aliyun.node_provider import EcsClient
 
 from alibabacloud_credentials.client import Client as CredentialClient
 from alibabacloud_credentials.models import Config
+from alibabacloud_ecs20140526.client import Client as ecs_client
 from alibabacloud_ram20150501 import models as ram_models
 from alibabacloud_ram20150501.client import Client as ram_client
 from alibabacloud_tea_openapi import models as open_api_models
@@ -1064,14 +1065,7 @@ def make_ecs_client(provider_config, region_id=None):
     credential = get_credential(provider_config)
     config = open_api_models.Config(credential=credential)
     config.endpoint = f'ecs.{region_id}.aliyuncs.com'
-    return EcsClient(config)
-
-
-def make_current_ecs_client(provider_config, region_id):
-    credential = get_credential(provider_config)
-    config = open_api_models.Config(credential=credential)
-    config.endpoint = f'ecs.{region_id}.aliyuncs.com'
-    return EcsClient(config)
+    return ecs_client(config)
 
 
 def make_ram_client(provider_config):

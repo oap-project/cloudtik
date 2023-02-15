@@ -92,6 +92,26 @@ class EcsClient:
             return response.body
         return None
 
+    def describe_images(self, image_family):
+        """List the images available
+        :return: The list of images matched
+        """
+        describe_images_request = ecs_models.DescribeImagesRequest(
+            region_id=self.region_id,
+            architecture='x86_64',
+            ostype='linux',
+            status='Available',
+            image_family=image_family
+        )
+        response = self.client.describe_images_with_options(
+            describe_images_request, self.runtime_options)
+        if (response is not None
+                and response.body is not None
+                and response.body.images is not None
+                and response.body.images.image is not None):
+            return response.body.images.image
+        return None
+
     def describe_launch_template_versions(self, query_params):
         """Query the details of launch template
         :return: The launch template details

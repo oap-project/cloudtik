@@ -37,6 +37,12 @@ STOPPED = "Stopped"
 
 logger = logging.getLogger(__name__)
 
+ALIYUN_DEFAULT_IMAGE_FAMILY = "acs:ubuntu_20_04_64"
+
+ALIYUN_DEFAULT_IMAGE_BY_REGION = {
+}
+ALIYUN_DEFAULT_IMAGE_ID = "ubuntu_20_04_x64_20G_alibase_20221228.vhd"
+
 ALIYUN_WORKSPACE_NUM_CREATION_STEPS = 8
 ALIYUN_WORKSPACE_NUM_DELETION_STEPS = 9
 ALIYUN_WORKSPACE_TARGET_RESOURCES = 10
@@ -117,8 +123,7 @@ def bootstrap_aliyun_from_workspace(config):
     config = _configure_security_group_from_workspace(config)
 
     # Provide a helpful message for missing AMI.
-    # TODO (haifeng)
-    # config = _configure_ami(config)
+    config = _configure_image(config)
 
     config = _configure_prefer_spot_node(config)
     return config
@@ -409,6 +414,51 @@ def _configure_security_group_from_workspace(config):
         node_config = config["available_node_types"][node_type_key][
             "node_config"]
         node_config["SecurityGroupId"] = security_group.security_group_id
+
+    return config
+
+
+def get_latest_image_id(config: Dict[str, Any]):
+    try:
+        ecs_client = EcsClient(config["provider"])
+        images = ecs_client.describe_images(ALIYUN_DEFAULT_IMAGE_FAMILY)
+        if images is not None and len(images) > 0:
+            images.sort(key=lambda item: item.creation_time, reverse=True)
+            image_id = images[0].image_id
+            return image_id
+        else:
+            return None
+    except Exception as e:
+        cli_logger.warning(
+            "Error when getting latest image information.", str(e))
+        return None
+
+
+def _get_default_image(config, default_image):
+    if default_image is not None:
+        return default_image
+
+    default_image = get_latest_image_id(config)
+    if not default_image:
+        region = config["provider"]["region"]
+        cli_logger.warning(
+            "Can not get latest image information in this region: {}. Will use default image id".format(region))
+        default_image = ALIYUN_DEFAULT_IMAGE_BY_REGION.get(region)
+        if not default_image:
+            return ALIYUN_DEFAULT_IMAGE_ID
+    return default_image
+
+
+def _configure_image(config):
+    """Provide helpful message for missing ImageId for node configuration."""
+    default_image = None
+    for key, node_type in config["available_node_types"].items():
+        node_config = node_type["node_config"]
+        image_id = node_config.get("ImageId")
+        if not image_id:
+            # Only set to default image if not specified by the user
+            default_image = _get_default_image(config, default_image)
+            node_config["ImageId"] = default_image
 
     return config
 

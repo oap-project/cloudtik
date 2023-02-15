@@ -19,6 +19,12 @@ from cloudtik.core.workspace_provider import Existence, CLOUDTIK_MANAGED_CLOUD_S
     CLOUDTIK_MANAGED_CLOUD_STORAGE_URI
 from cloudtik.providers._private.aliyun.utils import AcsClient
 
+from cloudtik.providers._private.aliyun.utils import make_vpc_client, make_ram_client, make_vpc_peer_client, make_ecs_client
+from cloudtik.providers._private.aliyun.node_provider import EcsClient
+from alibabacloud_ram20150501 import models as ram_models
+from alibabacloud_tea_util import models as util_models
+from alibabacloud_vpc20160428 import models as vpc_models
+from alibabacloud_vpcpeer20220101 import models as vpc_peer_models
 
 # instance status
 PENDING = "Pending"
@@ -281,13 +287,13 @@ def _create_and_configure_vpc_peering_connection(config, acs_client):
         _update_route_tables_for_workspace_vpc_peering_connection(config, acs_client)
 
 
-def  _create_network_resources(config, acs_client, current_step, total_steps):
+def  _create_network_resources(config, current_step, total_steps):
     # create VPC
     with cli_logger.group(
             "Creating VPC",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
-        vpc_id = _configure_vpc(config, acs_client)
+        vpc_id = _configure_vpc(config)
 
     # create subnets
     with cli_logger.group(
@@ -411,7 +417,7 @@ def _create_managed_cloud_storage(cloud_provider, workspace_name):
 
 
 def _create_workspace(config):
-    acs_client = _client(config)
+    # acs_client = _client(config)
     workspace_name = config["workspace_name"]
     managed_cloud_storage = is_managed_cloud_storage(config)
     use_peering_vpc = is_use_peering_vpc(config)
@@ -425,8 +431,7 @@ def _create_workspace(config):
 
     try:
         with cli_logger.group("Creating workspace: {}", workspace_name):
-            current_step = _create_network_resources(config, acs_client,
-                                                     current_step, total_steps)
+            current_step = _create_network_resources(config, current_step, total_steps)
 
             with cli_logger.group(
                     "Creating instance role",
@@ -453,18 +458,22 @@ def _create_workspace(config):
     return config
 
 
-def _configure_vpc(config, acs_client):
+def _configure_vpc(config):
+    vpc_client = VpcClient(config["provider_config"])
     workspace_name = config["workspace_name"]
     use_working_vpc = is_use_working_vpc(config)
     if use_working_vpc:
         # No need to create new vpc
         vpc_name = _get_workspace_vpc_name(workspace_name)
         vpc_id = get_current_vpc_id(config)
-        acs_client.tag_vpc_resource(resource_id=vpc_id, resource_type="VPC", tags=[
-            {'Key': 'Name', 'Value': vpc_name},
-            {'Key': ALIYUN_WORKSPACE_VERSION_TAG_NAME, 'Value': ALIYUN_WORKSPACE_VERSION_CURRENT}
-        ])
-
+        vpc_client.tag_vpc_resource(
+            resource_id=vpc_id,
+            resource_type="VPC",
+            tags=[
+                {'Key': 'Name', 'Value': vpc_name},
+                {'Key': ALIYUN_WORKSPACE_VERSION_TAG_NAME, 'Value': ALIYUN_WORKSPACE_VERSION_CURRENT}
+            ]
+        )
         cli_logger.print("Using the existing VPC: {} for workspace. Skip creation.".format(vpc_id))
     else:
         # Need to create a new vpc
@@ -512,17 +521,19 @@ def get_current_instance(acs_client):
 
 
 def get_current_vpc(config):
-    current_acs_client= _working_node_client(config)
+    current_region_id = get_current_instance_region()
+    current_ecs_client = EcsClient(config["provider_config"], current_region_id)
     current_vpc_id = get_current_vpc_id(config)
-    current_vpc = current_acs_client.describe_vpcs(vpc_id=current_vpc_id)[0]
+    current_vpc = current_ecs_client.describe_vpcs(vpc_id=current_vpc_id)[0]
     return current_vpc
 
 
 def get_current_vpc_id(config):
-    current_acs_client = _working_node_client(config)
+    current_region_id = get_current_instance_region()
+    current_ecs_client = EcsClient(config["provider_config"], current_region_id)
     ip_address = get_node_ip_address(address="8.8.8.8:53")
     vpc_id = None
-    for instance in current_acs_client.describe_instances():
+    for instance in current_ecs_client.describe_instances():
         for network_interface in instance.get("NetworkInterfaces").get("NetworkInterface"):
 
             if network_interface.get("PrimaryIpAddress", "") == ip_address:
@@ -1603,3 +1614,5 @@ def check_aliyun_workspace_existence(config):
 
 def get_aliyun_workspace_info(config):
     pass
+
+

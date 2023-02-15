@@ -249,7 +249,7 @@ class EcsClient:
             vpc_id=vpc_id
         )
         try:
-            response = self.client.delete_instances_with_options(
+            response = self.client.create_security_group_with_options(
                 create_security_group_request, self.runtime_options)
             return response.get("SecurityGroupId")
         except Exception as e:
@@ -268,7 +268,7 @@ class EcsClient:
             security_group_name=name
         )
         try:
-            response = self.client.delete_instances_with_options(
+            response = self.client.describe_security_groups_with_options(
                 describe_security_groups_request, self.runtime_options)
             security_groups = response.get("SecurityGroups").get("SecurityGroup")
             return security_groups
@@ -296,7 +296,7 @@ class EcsClient:
             ]
         )
         try:
-            self.client.delete_instances_with_options(
+            self.client.revoke_security_group_with_options(
                 revoke_security_group_request, self.runtime_options)
         except Exception as e:
             cli_logger.error("Failed to revoke security group rule. {}".format(e))
@@ -313,7 +313,7 @@ class EcsClient:
             security_group_id=security_group_id
         )
         try:
-            response = self.client.delete_instances_with_options(
+            response = self.client.describe_security_group_attribute_with_options(
                 describe_security_group_attribute_request, self.runtime_options)
             security_groups = response.get("SecurityGroups").get("SecurityGroup")
             return security_groups
@@ -344,7 +344,7 @@ class EcsClient:
             ]
         )
         try:
-            response = self.client.delete_instances_with_options(
+            response = self.client.authorize_security_group_with_options(
                 authorize_security_group_request, self.runtime_options)
             security_groups = response.get("SecurityGroups").get("SecurityGroup")
             return security_groups
@@ -359,7 +359,7 @@ class EcsClient:
             security_group_id=security_group_id
         )
         try:
-            response = self.client.delete_instances_with_options(
+            response = self.client.delete_security_group_with_options(
                 delete_security_group_request, self.runtime_options)
             security_groups = response.get("SecurityGroups").get("SecurityGroup")
             return security_groups

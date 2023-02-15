@@ -49,10 +49,32 @@ class EcsClient:
         self.runtime_options = util_models.RuntimeOptions()
 
     @staticmethod
-    def get_request_instance_ids(instance_ids):
+    def _get_request_instance_ids(instance_ids):
         if not instance_ids:
             return None
         return "[" + ",".join(['"' + instance_id + '"' for instance_id in instance_ids]) + "]"
+
+    @staticmethod
+    def _merge_tags(tags: List[Dict[str, Any]],
+                    user_tags: List[Dict[str, Any]]) -> None:
+        """
+        Merges user-provided node config tag specifications into a base
+        list of node provider tag specifications. The base list of
+        node provider tag specs is modified in-place.
+
+        Args:
+            tags (List[Dict[str, Any]]): base node provider tag specs
+            user_tags (List[Dict[str, Any]]): user's node config tag specs
+        """
+        for user_tag in user_tags:
+            exists = False
+            for tag in tags:
+                if user_tag["Key"] == tag["Key"]:
+                    exists = True
+                    tag["Value"] = user_tag["Value"]
+                    break
+            if not exists:
+                tags += [user_tag]
 
     def describe_instances(self, tags=None, instance_ids=None):
         """Query the details of one or more Elastic Compute Service (ECS) instances.
@@ -65,7 +87,7 @@ class EcsClient:
             key=tag["Key"],
             value=tag["Value"]
         ) for tag in tags] if tags else None
-        request_instance_ids = self.get_request_instance_id(instance_ids)
+        request_instance_ids = self._get_request_instance_ids(instance_ids)
         describe_instances_request = ecs_models.DescribeInstancesRequest(
             region_id=self.region_id,
             tag=request_tags,
@@ -81,64 +103,32 @@ class EcsClient:
 
     def run_instances(
             self,
-            instance_type,
-            image_id,
+            node_config: dict,
             tags,
-            security_group_id,
-            vswitch_id,
-            key_pair_name,
-            amount=1,
-            optimized="optimized",
-            instance_charge_type="PostPaid",
-            spot_strategy="SpotWithPriceLimit",
-            internet_charge_type="PayByTraffic",
-            internet_max_bandwidth_out=1,
+            count=1
     ):
         """Create one or more pay-as-you-go or subscription
             Elastic Compute Service (ECS) instances
-
-        :param instance_type: The instance type of the ECS.
-        :param image_id: The ID of the image used to create the instance.
+        :param node_config: The base config map of the instance.
         :param tags: The tags of the instance.
-        :param security_group_id: The ID of the security group to which to
-                                  assign the instance. Instances in the same
-                                  security group can communicate with
-                                  each other.
-        :param vswitch_id: The ID of the vSwitch to which to connect
-                           the instance.
-        :param key_pair_name: The name of the key pair to be bound to
-                              the instance.
-        :param amount: The number of instances that you want to create.
-        :param optimized: Specifies whether the instance is I/O optimized
-        :param instance_charge_type: The billing method of the instance.
-                                     Default value: PostPaid.
-        :param spot_strategy: The preemption policy for the pay-as-you-go
-                              instance.
-        :param internet_charge_type: The billing method for network usage.
-                                     Default value: PayByTraffic.
-        :param internet_max_bandwidth_out: The maximum inbound public
-                                           bandwidth. Unit: Mbit/s.
+        :param count: The number of instances that you want to create.
         :return: The created instance IDs.
         """
-        request_tags = [ecs_models.RunInstancesRequestTag(
-            key=tag["Key"],
-            value=tag["Value"]
-        ) for tag in tags] if tags else None
+        # Update tags and count to the config
+        conf_map = node_config.copy()
+        conf_map["Amount"] = count
+
+        instance_tags = tags.copy()
+        # TODO: handling instance Name with Tag
+        user_tags = conf_map.get("Tag", [])
+        self._merge_tags(instance_tags, user_tags)
+        conf_map["Tag"] = instance_tags
+
         run_instances_request = ecs_models.RunInstancesRequest(
-            region_id=self.region_id,
-            instance_type=instance_type,
-            image_id=image_id,
-            tag=request_tags,
-            security_group_id=security_group_id,
-            v_switch_id=vswitch_id,
-            amount=amount,
-            key_pair_name=key_pair_name,
-            io_optimized=optimized,
-            instance_charge_type=instance_charge_type,
-            spot_strategy=spot_strategy,
-            internet_charge_type=internet_charge_type,
-            internet_max_bandwidth_out=internet_max_bandwidth_out
+            region_id=self.region_id
         )
+        run_instances_request.from_map(conf_map)
+
         response = self.client.run_instances_with_options(
             run_instances_request, self.runtime_options)
         if response is not None:
@@ -147,15 +137,25 @@ class EcsClient:
         logging.error("instance created failed.")
         return None
 
-    def tag_ecs_resource(self, resource_ids, tags, resource_type="instance"):
+    def tag_ecs_resource(self, resource_ids, tags, resource_type="Instance"):
         """Create and bind tags to specified ECS resources.
 
         :param resource_ids: The IDs of N resources.
         :param tags: The tags of the resource.
         :param resource_type: The type of the resource.
         """
-        # TODO
-        response = None
+        request_tags = [ecs_models.TagResourcesRequestTag(
+            key=tag.get("Key"),
+            value=tag.get("Value")
+        ) for tag in tags]
+        tag_resources_request = ecs_models.TagResourcesRequest(
+            region_id=self.region_id,
+            resource_id=resource_ids,
+            resource_type=resource_type,
+            tag=request_tags
+        )
+        response = self.client.tag_resources_with_options(
+            tag_resources_request, self.runtime_options)
         if response is not None:
             logging.info("instance %s create tag successfully.", resource_ids)
         else:
@@ -455,13 +455,9 @@ class AliyunNodeProvider(NodeProvider):
                 {"Key": CLOUDTIK_TAG_NODE_STATUS, "Value": tags[CLOUDTIK_TAG_NODE_STATUS]}
             )
             instance_id_sets = self.ecs.run_instances(
-                instance_type=node_config["InstanceType"],
-                image_id=node_config["ImageId"],
+                node_config=node_config,
                 tags=filter_tags,
-                amount=count,
-                vswitch_id=self.provider_config["v_switch_id"],
-                security_group_id=self.provider_config["security_group_id"],
-                key_pair_name=self.provider_config["key_name"],
+                count=count
             )
             instances = self.ecs.describe_instances(instance_ids=instance_id_sets)
 

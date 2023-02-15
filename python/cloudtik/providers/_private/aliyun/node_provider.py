@@ -110,6 +110,39 @@ class EcsClient:
             return response.body.launch_template_version_sets.launch_template_version_set
         return None
 
+    def describe_key_pair(self, key_pair_name):
+        """Query the details of a key pair
+        :return: The key pair details
+        """
+        describe_key_pairs_request = ecs_models.DescribeKeyPairsRequest(
+            region_id=self.region_id,
+            key_pair_name=key_pair_name
+        )
+        response = self.client.describe_key_pairs_with_options(
+            describe_key_pairs_request, self.runtime_options)
+        if (response is not None
+                and response.body is not None
+                and response.body.key_pairs is not None
+                and response.body.key_pairs.key_pair is not None
+                and len(response.body.key_pairs.key_pair) > 0):
+            return response.body.key_pairs.key_pair[0]
+        return None
+
+    def create_key_pair(self, key_pair_name):
+        """Create a new key pair
+        :return: The key pair details with the private key
+        """
+        create_key_pair_request = ecs_models.CreateKeyPairRequest(
+            region_id=self.region_id,
+            key_pair_name=key_pair_name
+        )
+        response = self.client.create_key_pair_with_options(
+            create_key_pair_request, self.runtime_options)
+        if (response is not None
+                and response.body is not None):
+            return response.body
+        return None
+
     def describe_instances(self, tags=None, instance_ids=None):
         """Query the details of one or more Elastic Compute Service (ECS) instances.
 

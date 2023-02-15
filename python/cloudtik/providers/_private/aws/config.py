@@ -1031,7 +1031,7 @@ def _configure_iam_role_for_head(config):
     head_node_type = config["head_node_type"]
     head_node_config = config["available_node_types"][head_node_type][
         "node_config"]
-    if "IamInstanceProfile" in head_node_config and "":
+    if "IamInstanceProfile" in head_node_config:
         _set_config_info(head_instance_profile_src="config")
         return config
     _set_config_info(head_instance_profile_src="workspace")

@@ -1230,7 +1230,7 @@ def _create_or_update_instance_role(config, acs_client, instance_role_name, is_h
         cli_logger.verbose(
             "Creating new RAM instance role {} for use as the default.",
             cf.bold(instance_role_name))
-        assume_role_policy_document = {
+        assume_role_policy_document = '''{
             "Statement": [
                 {
                     "Action": "sts:AssumeRole",
@@ -1243,7 +1243,7 @@ def _create_or_update_instance_role(config, acs_client, instance_role_name, is_h
                 }
             ],
             "Version": "1"
-        }
+        }'''
         acs_client.create_role(instance_role_name, assume_role_policy_document)
         role = _get_instance_role(acs_client, instance_role_name)
         assert role is not None, "Failed to create role"
@@ -1261,9 +1261,9 @@ def _create_instance_role_for_head(config, acs_client):
 
 
 def _create_instance_role_for_worker(config, acs_client):
-    head_instance_role_name = _get_worker_instance_role_name(config["workspace_name"])
-    cli_logger.print("Creating worker instance role: {}...".format(head_instance_role_name))
-    _create_or_update_instance_role(config, acs_client, head_instance_role_name, is_head=False)
+    worker_instance_role_name = _get_worker_instance_role_name(config["workspace_name"])
+    cli_logger.print("Creating worker instance role: {}...".format(worker_instance_role_name))
+    _create_or_update_instance_role(config, acs_client, worker_instance_role_name, is_head=False)
     cli_logger.print("Successfully created and configured worker instance role.")
 
 

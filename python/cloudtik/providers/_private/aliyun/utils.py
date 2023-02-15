@@ -1068,7 +1068,10 @@ def make_current_ecs_client(provider_config, region_id):
 
 def make_ram_client(provider_config):
     credential = get_credential(provider_config)
-    config = open_api_models.Config(credential=credential)
+    config = open_api_models.Config(credential=credential
+                                    # http_proxy='http://child-prc.intel.com:913',
+                                    # https_proxy='http://child-prc.intel.com:913'
+                                    )
     config.endpoint = f'ram.aliyuncs.com'
     return ram_client(config)
 
@@ -1531,7 +1534,7 @@ class RamClient:
         try:
             response = self.client.create_role_with_options(
                 create_role_request, self.runtime_options)
-            return response.get("Role")
+            return response.body.role
         except Exception as e:
             cli_logger.error("Failed to create RAM role. {}".format(e))
             raise e
@@ -1544,7 +1547,7 @@ class RamClient:
         try:
             response = self.client.get_role_with_options(
                 get_role_request, self.runtime_options)
-            return response.get("Role")
+            return response.body.role
         except Exception as e:
             cli_logger.error("Failed to get RAM role. {}".format(e))
             raise e
@@ -1597,7 +1600,7 @@ class RamClient:
         try:
             response = self.client.list_policies_for_role_with_options(
                 list_policies_for_role_request, self.runtime_options)
-            return response.get("Policies").get("Policy")
+            return response.body.policies.policy
         except Exception as e:
             cli_logger.error("Failed to list the policies for RAM role. {}".format(e))
             raise e

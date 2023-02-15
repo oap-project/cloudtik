@@ -36,7 +36,7 @@ available_node_types:
         # https://next.api.aliyun.com/document/Ecs/2014-05-26/CreateInstance
         node_config:
             InstanceType: ecs.n4.2xlarge
-            ImageId: ubuntu_20_04_x64_20G_alibase_20210420.vhd
+            # ImageId: ubuntu_20_04_x64_20G_alibase_20221228.vhd
             # Additional options for the node
             # SecurityGroupId:
             # VSwitchId:
@@ -74,7 +74,7 @@ available_node_types:
         # https://next.api.aliyun.com/document/Ecs/2014-05-26/CreateInstance
         node_config:
             InstanceType: ecs.n4.2xlarge
-            ImageId: ubuntu_20_04_x64_20G_alibase_20210420.vhd
+            # ImageId: ubuntu_20_04_x64_20G_alibase_20221228.vhd
             # Additional options for the node
             # SecurityGroupId:
             # VSwitchId:

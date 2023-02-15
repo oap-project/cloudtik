@@ -16,7 +16,7 @@ from cloudtik.providers._private.aliyun.config import (
     bootstrap_aliyun, verify_oss_storage, post_prepare_aliyun, with_aliyun_environment_variables,
 )
 from cloudtik.providers._private.aliyun.utils import make_ecs_client, get_default_aliyun_cloud_storage, \
-    get_aliyun_oss_storage_config, _get_node_info
+    get_aliyun_oss_storage_config, _get_node_info, tags_list_to_dict
 from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.providers._private.aliyun.utils import ACS_MAX_RETRIES
 from cloudtik.core._private.log_timer import LogTimer
@@ -98,9 +98,11 @@ class EcsClient:
 
         response = self.client.describe_instances_with_options(
             describe_instances_request, self.runtime_options)
-        if response is not None:
-            instance_list = response.get("Instances").get("Instance")
-            return instance_list
+        if (response is not None
+                and response.body is not None
+                and response.body.instances is not None
+                and response.body.instances.instance is not None):
+            return response.body.instances.instance
         return None
 
     def run_instances(
@@ -121,7 +123,6 @@ class EcsClient:
         conf_map["Amount"] = count
 
         instance_tags = tags.copy()
-        # TODO: handling instance Name with Tag
         user_tags = conf_map.get("Tag", [])
         self._merge_tags(instance_tags, user_tags)
         conf_map["Tag"] = instance_tags
@@ -133,9 +134,11 @@ class EcsClient:
 
         response = self.client.run_instances_with_options(
             run_instances_request, self.runtime_options)
-        if response is not None:
-            instance_ids = response.get("InstanceIdSets").get("InstanceIdSet")
-            return instance_ids
+        if (response is not None
+                and response.body is not None
+                and response.body.instance_id_sets is not None
+                and response.body.instance_id_sets.instance_id_set is not None):
+            return response.body.instance_id_sets.instance_id_set
         logging.error("instance created failed.")
         return None
 
@@ -414,76 +417,70 @@ class AliyunNodeProvider(NodeProvider):
         instances = self.ecs.describe_instances(tags=tags)
         non_terminated_instance = []
         for instance in instances:
-            if instance.get("Status") == RUNNING or instance.get("Status") == PENDING:
-                non_terminated_instance.append(instance.get("InstanceId"))
-                self.cached_nodes[instance.get("InstanceId")] = instance
+            if instance.status == RUNNING or instance.status == PENDING:
+                non_terminated_instance.append(instance.instance_id)
+                self.cached_nodes[instance.instance_id] = instance
         return non_terminated_instance
 
     def is_running(self, node_id: str) -> bool:
         instances = self.ecs.describe_instances(instance_ids=[node_id])
-        if instances is not None:
+        if instances:
+            assert len(instances) == 1
             instance = instances[0]
-            return instance.get("Status") == "Running"
+            return instance.status == RUNNING
         cli_logger.error("Invalid node id: %s", node_id)
         return False
 
     def is_terminated(self, node_id: str) -> bool:
         instances = self.ecs.describe_instances(instance_ids=[node_id])
-        if instances is not None:
+        if instances:
             assert len(instances) == 1
             instance = instances[0]
-            return instance.get("Status") == "Stopped"
+            return instance.status == STOPPED
         cli_logger.error("Invalid node id: %s", node_id)
         return False
 
     def node_tags(self, node_id: str) -> Dict[str, str]:
         instances = self.ecs.describe_instances(instance_ids=[node_id])
-        if instances is not None:
+        if instances:
             assert len(instances) == 1
             instance = instances[0]
-            if instance.get("Tags") is not None:
+            if instance.tags is not None \
+                    and instance.tags.tag is not None:
                 node_tags = dict()
-                for tag in instance.get("Tags").get("Tag"):
-                    node_tags[tag.get("TagKey")] = tag.get("TagValue")
+                for tag in instance.tags.tag:
+                    node_tags[tag.tag_key] = tag.tag_value
                 return node_tags
         return dict()
 
     def external_ip(self, node_id: str) -> str:
         while True:
             instances = self.ecs.describe_instances(instance_ids=[node_id])
-            if instances is not None:
-                assert len(instances)
+            if instances:
+                assert len(instances) == 1
                 instance = instances[0]
                 if (
-                    instance.get("PublicIpAddress") is not None
-                    and instance.get("PublicIpAddress").get("IpAddress") is not None
+                    instance.public_ip_address is not None
+                    and instance.public_ip_address.ip_address is not None
                 ):
-                    if len(instance.get("PublicIpAddress").get("IpAddress")) > 0:
-                        return instance.get("PublicIpAddress").get("IpAddress")[0]
+                    if len(instance.public_ip_address.ip_address) > 0:
+                        return instance.public_ip_address.ip_address[0]
             cli_logger.error("PublicIpAddress attribute is not exist. %s" % instance)
             time.sleep(STOPPING_NODE_DELAY)
 
     def internal_ip(self, node_id: str) -> str:
         while True:
             instances = self.ecs.describe_instances(instance_ids=[node_id])
-            if instances is not None:
+            if instances:
                 assert len(instances) == 1
                 instance = instances[0]
                 if (
-                    instance.get("VpcAttributes") is not None
-                    and instance.get("VpcAttributes").get("PrivateIpAddress")
-                    is not None
-                    and len(
-                        instance.get("VpcAttributes")
-                        .get("PrivateIpAddress")
-                        .get("IpAddress")
-                    )
-                    > 0
+                    instance.vpc_attributes is not None
+                    and instance.vpc_attributes.private_ip_address is not None
+                    and len(instance.vpc_attributes.private_ip_address) > 0
                 ):
                     return (
-                        instance.get("VpcAttributes")
-                        .get("PrivateIpAddress")
-                        .get("IpAddress")[0]
+                        instance.vpc_attributes.private_ip_address[0]
                     )
             cli_logger.error("InnerIpAddress attribute is not exist. %s" % instance)
             time.sleep(STOPPING_NODE_DELAY)
@@ -557,8 +554,8 @@ class AliyunNodeProvider(NodeProvider):
                 with cli_logger.group("Stopping instances to reuse"):
                     reuse_node_ids = []
                     for node in reuse_nodes_candidate:
-                        node_id = node.get("InstanceId")
-                        status = node.get("Status")
+                        node_id = node.instance_id
+                        status = node.status
                         if status != STOPPING and status != STOPPED:
                             continue
                         if status == STOPPING:
@@ -566,16 +563,19 @@ class AliyunNodeProvider(NodeProvider):
                             while (
                                 self.ecs.describe_instances(instance_ids=[node_id])[
                                     0
-                                ].get("Status")
-                                == STOPPING
+                                ].status == STOPPING
                             ):
                                 logging.info("wait for %s stop" % node_id)
                                 time.sleep(STOPPING_NODE_DELAY)
                         # logger.info("reuse %s" % node_id)
                         reuse_node_ids.append(node_id)
-                        reused_nodes_dict[node.get("InstanceId")] = node
+                        reused_nodes_dict[node.instance_id] = node
                         self.ecs.start_instance(node_id)
-                        self.tag_cache[node_id] = node.get("Tags")
+                        node_tags = None
+                        if (node.tags is not None and
+                                node.tags.tag is not None):
+                            node_tags = tags_list_to_dict(node.tags.tag)
+                        self.tag_cache[node_id] = node_tags
                         self.set_node_tags(node_id, tags)
                         if len(reuse_node_ids) == count:
                             break
@@ -595,7 +595,7 @@ class AliyunNodeProvider(NodeProvider):
 
             if instances is not None:
                 for instance in instances:
-                    created_nodes_dict[instance.get("InstanceId")] = instance
+                    created_nodes_dict[instance.instance_id] = instance
 
         all_created_nodes = reused_nodes_dict
         all_created_nodes.update(created_nodes_dict)
@@ -692,10 +692,10 @@ class AliyunNodeProvider(NodeProvider):
         storage_config = get_aliyun_oss_storage_config(provider_config)
         if storage_config is not None:
             config_dict = {
-                "s3.bucket": storage_config.get("s3.bucket"),
+                "oss.bucket": storage_config.get("oss.bucket"),
                 # The access key is no longer a must since we have role access
-                # "s3.access.key.id": storage_config.get("s3.access.key.id"),
-                # "s3.secret.access.key": storage_config.get("s3.secret.access.key")
+                # "oss.access.key.id": storage_config.get("oss.access.key.id"),
+                # "oss.access.key.secret": storage_config.get("oss.access.key.secret")
             }
 
             validate_config_dict(provider_config["type"], config_dict)

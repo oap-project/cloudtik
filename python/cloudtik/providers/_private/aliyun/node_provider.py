@@ -43,9 +43,9 @@ class EcsClient:
         provider_config: The cloud provider configuration from which to create client.
     """
 
-    def __init__(self, provider_config):
-        self.region_id = provider_config["region"]
-        self.client = make_ecs_client(provider_config)
+    def __init__(self, provider_config, region_id=None):
+        self.region_id = provider_config["region"] if region_id is None else region_id
+        self.client = make_ecs_client(provider_config, region_id)
         self.runtime_options = util_models.RuntimeOptions()
 
     @staticmethod
@@ -236,6 +236,136 @@ class EcsClient:
         )
         self.client.delete_instances_with_options(
             delete_instances_request, self.runtime_options)
+
+    def create_security_group(self, vpc_id, name):
+        """Create a security group
+        :param vpc_id: The ID of the VPC in which to create
+                       the security group.
+        :return: The created security group ID.
+        """
+        create_security_group_request = ecs_models.CreateSecurityGroupRequest(
+            region_id=self.region_id,
+            security_group_name=name,
+            vpc_id=vpc_id
+        )
+        try:
+            response = self.client.create_security_group_with_options(
+                create_security_group_request, self.runtime_options)
+            return response.get("SecurityGroupId")
+        except Exception as e:
+            cli_logger.error("Failed to create security group. {}".format(e))
+            raise e
+
+    def describe_security_groups(self, vpc_id=None, name=None):
+        """Query basic information of security groups.
+        :param vpc_id: The ID of the VPC to which the security group belongs.
+        :param tags: The tags of the security group.
+        :return: Security group list.
+        """
+        describe_security_groups_request = ecs_models.DescribeSecurityGroupsRequest(
+            region_id=self.region_id,
+            vpc_id=vpc_id,
+            security_group_name=name
+        )
+        try:
+            response = self.client.describe_security_groups_with_options(
+                describe_security_groups_request, self.runtime_options)
+            security_groups = response.get("SecurityGroups").get("SecurityGroup")
+            return security_groups
+        except Exception as e:
+            cli_logger.error("Failed to describe security groups. {}".format(e))
+            raise e
+    
+    def revoke_security_group(self, ip_protocol, port_range, security_group_id, source_cidr_ip):
+        """Revoke an inbound security group rule.
+                :param ip_protocol: The transport layer protocol.
+                :param port_range: The range of destination ports relevant to
+                                   the transport layer protocol.
+                :param security_group_id: The ID of the destination security group.
+                :param source_cidr_ip: The range of source IPv4 addresses.
+                                       CIDR blocks and IPv4 addresses are supported.
+                """
+        revoke_security_group_request = ecs_models.RevokeSecurityGroupRequest(
+            region_id=self.region_id,
+            security_group_id=security_group_id,
+            permissions=[
+                ecs_models.RevokeSecurityGroupRequestPermissions(
+                    ip_protocol=ip_protocol, 
+                    source_cidr_ip=source_cidr_ip, 
+                    port_range=port_range)
+            ]
+        )
+        try:
+            self.client.revoke_security_group_with_options(
+                revoke_security_group_request, self.runtime_options)
+        except Exception as e:
+            cli_logger.error("Failed to revoke security group rule. {}".format(e))
+            raise e
+
+    def describe_security_group_attribute(self, security_group_id):
+        """Query basic information of security groups.
+        :param vpc_id: The ID of the VPC to which the security group belongs.
+        :param tags: The tags of the security group.
+        :return: Security group list.
+        """
+        describe_security_group_attribute_request = ecs_models.DescribeSecurityGroupAttributeRequest(
+            region_id=self.region_id,
+            security_group_id=security_group_id
+        )
+        try:
+            response = self.client.describe_security_group_attribute_with_options(
+                describe_security_group_attribute_request, self.runtime_options)
+            security_groups = response.get("SecurityGroups").get("SecurityGroup")
+            return security_groups
+        except Exception as e:
+            cli_logger.error("Failed to describe security group attribute. {}".format(e))
+            raise e
+
+    def authorize_security_group(
+        self, ip_protocol, port_range, security_group_id, source_cidr_ip
+    ):
+        """Create an inbound security group rule.
+        :param ip_protocol: The transport layer protocol.
+        :param port_range: The range of destination ports relevant to
+                           the transport layer protocol.
+        :param security_group_id: The ID of the destination security group.
+        :param source_cidr_ip: The range of source IPv4 addresses.
+                               CIDR blocks and IPv4 addresses are supported.
+        """
+        authorize_security_group_request = ecs_models.AuthorizeSecurityGroupRequest(
+            region_id=self.region_id,
+            security_group_id=security_group_id,
+            permissions=[
+                ecs_models.AuthorizeSecurityGroupRequestPermissions(
+                    ip_protocol=ip_protocol,
+                    source_cidr_ip=source_cidr_ip,
+                    port_range=port_range
+                )
+            ]
+        )
+        try:
+            response = self.client.authorize_security_group_with_options(
+                authorize_security_group_request, self.runtime_options)
+            security_groups = response.get("SecurityGroups").get("SecurityGroup")
+            return security_groups
+        except Exception as e:
+            cli_logger.error("Failed to authorize security group rule. {}".format(e))
+            raise e
+
+    def delete_security_group(self, security_group_id):
+        """Delete security group."""
+        delete_security_group_request = ecs_models.DeleteSecurityGroupRequest(
+            region_id=self.region_id,
+            security_group_id=security_group_id
+        )
+        try:
+            response = self.client.delete_security_group_with_options(
+                delete_security_group_request, self.runtime_options)
+            security_groups = response.get("SecurityGroups").get("SecurityGroup")
+            return security_groups
+        except Exception as e:
+            cli_logger.error("Failed to delete security group. {}".format(e))
+            raise e
 
 
 class AliyunNodeProvider(NodeProvider):

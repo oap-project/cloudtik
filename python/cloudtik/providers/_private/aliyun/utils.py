@@ -77,6 +77,23 @@ from aliyunsdkram.request.v20150501.ListPoliciesForRoleRequest import ListPolici
 from cloudtik.core._private.constants import env_integer
 ACS_MAX_RETRIES = env_integer("ACS_MAX_RETRIES", 12)
 
+
+from cloudtik.core._private.cli_logger import cli_logger, cf
+from cloudtik.providers._private.aliyun.node_provider import EcsClient
+
+from alibabacloud_vpc20160428.client import Client as VpcClient
+from alibabacloud_credentials.client import Client as CredentialClient
+from alibabacloud_credentials.models import Config
+from alibabacloud_tea_openapi import models as open_api_models
+from alibabacloud_ecs20140526.client import Client as EcsClient
+from alibabacloud_vpcpeer20220101.client import Client as VpcPeerClient
+from alibabacloud_ram20150501.client import Client as RamClient
+from alibabacloud_ram20150501 import models as ram_models
+from alibabacloud_tea_util import models as util_models
+from alibabacloud_vpc20160428 import models as vpc_models
+from alibabacloud_vpcpeer20220101 import models as vpc_peer_models
+
+
 class AcsClient:
     """
     A wrapper around Aliyun SDK.
@@ -920,3 +937,586 @@ class AcsClient:
             logging.error(request.get_action_name())
             logging.error(e)
             return None
+
+
+def get_credential(provider_config):
+    aliyun_credentials = provider_config.get("aliyun_credentials")
+    if aliyun_credentials is not None:
+        ak = aliyun_credentials.get("aliyun_access_key_id")
+        sk = aliyun_credentials.get("aliyun_access_key_secret")
+        credential_config = Config(
+            type='access_key',  # credential type
+            access_key_id=ak,  # AccessKeyId
+            access_key_secret=sk,  # AccessKeySecret
+        )
+        credential = CredentialClient(credential_config)
+    else:
+        credential = CredentialClient()
+
+    return credential
+
+
+def make_vpc_client(provider_config):
+    credential = get_credential(provider_config)
+    config = open_api_models.Config(credential=credential)
+    config.endpoint = f'vpc.aliyuncs.com'
+    return VpcClient(config)
+
+
+def make_vpc_peer_client(provider_config):
+    credential = get_credential(provider_config)
+    config = open_api_models.Config(credential=credential)
+    config.endpoint = f'vpcpeer.aliyuncs.com'
+    return VpcPeerClient(config)
+
+
+def make_ecs_client(provider_config, region_id=None):
+    region_id = region_id if region_id is not None else provider_config["region"]
+    credential = get_credential(provider_config)
+    config = open_api_models.Config(credential=credential)
+    config.endpoint = f'ecs.{region_id}.aliyuncs.com'
+    return EcsClient(config)
+
+
+def make_current_ecs_client(provider_config, region_id):
+    credential = get_credential(provider_config)
+    config = open_api_models.Config(credential=credential)
+    config.endpoint = f'ecs.{region_id}.aliyuncs.com'
+    return EcsClient(config)
+
+
+def make_ram_client(provider_config):
+    credential = get_credential(provider_config)
+    config = open_api_models.Config(credential=credential)
+    config.endpoint = f'ram.aliyuncs.com'
+    return RamClient(config)
+
+
+class VpcClient:
+    """
+    A wrapper around Aliyun VPC client.
+    Parameters:
+        provider_config: The cloud provider configuration from which to create client.
+    """
+
+    def __init__(self, provider_config):
+        self.region_id = provider_config["region"]
+        self.client = make_vpc_client(provider_config)
+        self.runtime_options = util_models.RuntimeOptions()
+
+    def describe_vpcs(self, vpc_id=None, vpc_name=None):
+        """Queries one or more VPCs in a region.
+        :return: VPC list.
+        """
+        describe_vpcs_request = vpc_models.DescribeVpcsRequest(vpc_id=vpc_id, vpc_name=vpc_name)
+        try:
+            response = self.client.describe_vpcs_with_options(describe_vpcs_request, self.runtime_options)
+            return response.get("Vpcs").get("Vpc")
+        except Exception as e:
+            cli_logger.error("Failed to describe VPCs. {}".format(e))
+            raise e
+
+    def create_vpc(self, vpc_name, cidr_block):
+        """Creates a virtual private cloud (VPC).
+        :return: The created VPC ID.
+        """
+        create_vpc_request = vpc_models.CreateVpcRequest(
+            region_id=self.region_id,
+            cidr_block=cidr_block,
+            vpc_name=vpc_name
+        )
+        try:
+            response = self.client.create_vpc_with_options(create_vpc_request, self.runtime_options)
+            return response.get("VpcId")
+        except Exception as e:
+            cli_logger.error("Failed to create VPC. {}".format(e))
+            raise e
+
+    def delete_vpc(self, vpc_id):
+        """Delete virtual private cloud (VPC)."""
+        delete_vpc_request = vpc_models.DeleteVpcRequest(
+            vpc_id=vpc_id
+        )
+        try:
+            self.client.delete_vpc_with_options(delete_vpc_request, self.runtime_options)
+        except Exception as e:
+            cli_logger.error("Failed to delete VPC. {}".format(e))
+            raise e
+
+    def tag_vpc_resource(self, resource_id, tags, resource_type="VPC"):
+        """Create and bind tags to specified VPC resource.
+        :param resource_id: The ID of resource.
+        :param tags: The tags of the resource.
+        :param resource_type: The type of the resource.
+        """
+        request_tags = [vpc_models.TagResourcesRequestTag(
+            key=tag["Key"],
+            value=tag["Value"]
+        ) for tag in tags] if tags else None
+        tag_resources_request = vpc_models.TagResourcesRequest(
+            resource_type=resource_type,
+            resource_id=[resource_id],
+            region_id=self.region_id,
+            tag=request_tags
+        )
+        try:
+            self.client.tag_resources_with_options(tag_resources_request, self.runtime_options)
+        except Exception as e:
+            cli_logger.error("Failed to tag VPC. {}".format(e))
+            raise e
+
+    def untag_vpc_resource(self, resource_id, tag_keys, resource_type="VPC"):
+        """Untag from specified VPC resource"""
+        un_tag_resources_request = vpc_models.UnTagResourcesRequest(
+            resource_type=resource_type,
+            resource_id=[resource_id],
+            tag_key=tag_keys,
+            region_id=self.region_id
+        )
+        try:
+            self.client.un_tag_resources_with_options(
+                un_tag_resources_request, self.runtime_options)
+        except Exception as e:
+            cli_logger.error("Failed to untag VPC. {}".format(e))
+            raise e
+
+    def describe_route_tables(self, vpc_id=None):
+        describe_route_table_list_request = vpc_models.DescribeRouteTableListRequest(
+            vpc_id=vpc_id
+        )
+        try:
+            response = self.client.describe_route_table_list_with_options(
+                describe_route_table_list_request, self.runtime_options)
+            return response.get("RouterTableList").get("RouterTableListType")
+        except Exception as e:
+            cli_logger.error("Failed to describe route tables. {}".format(e))
+            raise e
+
+    def create_route_entry(self, route_table_id, cidr_block, next_hop_id, next_hop_type, name):
+        create_route_entry_request = vpc_models.CreateRouteEntryRequest(
+            route_table_id=route_table_id,
+            destination_cidr_block=cidr_block,
+            next_hop_id=next_hop_id,
+            route_entry_name=name,
+            next_hop_type=next_hop_type
+        )
+        try:
+            self.client.create_route_entry_with_options(
+                create_route_entry_request, self.runtime_options)
+        except Exception as e:
+            cli_logger.error("Failed to create route entry. {}".format(e))
+            raise e
+
+    def describe_route_entry_list(self, route_table_id, cidr_block=None, entry_name=None):
+        describe_route_entry_list_request = vpc_models.DescribeRouteEntryListRequest(
+            region_id=self.region_id,
+            route_table_id=route_table_id,
+            destination_cidr_block=cidr_block,
+            route_entry_name=entry_name
+        )
+        try:
+            response = self.client.describe_route_entry_list_with_options(
+                describe_route_entry_list_request, self.runtime_options)
+            return response.get("RouteEntrys").get("RouteEntry")
+        except Exception as e:
+            cli_logger.error("Failed to describe route entries. {}".format(e))
+            raise e
+
+    def delete_route_entry(self, route_entry_id, route_table_id=None, cidr_block=None):
+        delete_route_entry_request = vpc_models.DeleteRouteEntryRequest(
+            route_entry_id=route_entry_id,
+            route_table_id=route_table_id,
+            destination_cidr_block=cidr_block
+        )
+        try:
+            self.client.delete_route_entry_with_options(
+                delete_route_entry_request, self.runtime_options)
+        except Exception as e:
+            cli_logger.error("Failed to delete route entry. {}".format(e))
+            raise e
+
+    def describe_vswitches(self, vpc_id=None):
+        """Queries one or more VSwitches.
+        :param vpc_id: The ID of the VPC to which the VSwitch belongs.
+        :return: VSwitch list.
+        """
+        describe_vswitches_request = vpc_models.DescribeVSwitchesRequest(
+            vpc_id=vpc_id
+        )
+        try:
+            response = self.client.describe_vswitches_with_options(
+                describe_vswitches_request, self.runtime_options)
+            return response.get("VSwitches").get("VSwitch")
+        except Exception as e:
+            cli_logger.error("Failed to describe vswitches. {}".format(e))
+            raise e
+
+    def delete_vswitch(self, vswitch_id):
+        """Delete virtual switch (VSwitch)."""
+        delete_vswitch_request = vpc_models.DeleteVSwitchRequest(
+            v_switch_id=vswitch_id
+        )
+        try:
+            self.client.delete_vswitch_with_options(
+                delete_vswitch_request, self.runtime_options)
+        except Exception as e:
+            cli_logger.error("Failed to delete vswitch. {}".format(e))
+            raise e
+
+    def create_vswitch(self, vpc_id, zone_id, cidr_block, vswitch_name):
+        """Create vSwitches to divide the VPC into one or more subnets
+        :param vpc_id: The ID of the VPC to which the VSwitch belongs.
+        :param zone_id: The ID of the zone to which
+                        the target VSwitch belongs.
+        :param cidr_block: The CIDR block of the VSwitch.
+        :param vswitch_name: The name of VSwitch
+        :return:
+        """
+        create_vswitch_request = vpc_models.CreateVSwitchRequest(
+            vpc_id=vpc_id,
+            zone_id=zone_id,
+            cidr_block=cidr_block,
+            v_switch_name=vswitch_name
+        )
+        try:
+            response = self.client.create_vswitch_with_options(
+                create_vswitch_request, self.runtime_options)
+            return response.get("VSwitchId")
+        except Exception as e:
+            cli_logger.error("Failed to create vswitch. {}".format(e))
+            raise e
+
+    def describe_zones(self):
+        """Queries all available zones in a region.
+        :return: Zone list.
+        """
+        describe_zones_request = vpc_models.DescribeZonesRequest(
+            region_id=self.region_id,
+            accept_language='en-us'
+        )
+        try:
+            response = self.client.describe_zones_with_options(
+                describe_zones_request, self.runtime_options)
+            return response.get("Zones").get("Zone")
+        except Exception as e:
+            cli_logger.error("Failed to describe zones. {}".format(e))
+            raise e
+
+    def describe_nat_gateways(self, vpc_id, name):
+        """Queries all available nat-gateway.
+        :return: nat-gateway list.
+        """
+        describe_nat_gateways_request = vpc_models.DescribeNatGatewaysRequest(
+            region_id=self.region_id,
+            vpc_id=vpc_id,
+            name=name
+        )
+        try:
+            response = self.client.describe_nat_gateways_with_options(
+                describe_nat_gateways_request, self.runtime_options)
+            return response.get("NatGateways").get("NatGateway")
+        except Exception as e:
+            cli_logger.error("Failed to describe nat-gateways. {}".format(e))
+            raise e
+
+    def delete_nat_gateway(self, nat_gateway_id):
+        """Delete Nat Gateway.
+        :return: The request response.
+        """
+        delete_nat_gateway_request = vpc_models.DeleteNatGatewayRequest(
+            region_id=self.region_id,
+            nat_gateway_id=nat_gateway_id
+        )
+        try:
+            self.client.delete_nat_gateway_with_options(
+                delete_nat_gateway_request, self.runtime_options)
+        except Exception as e:
+            cli_logger.error("Failed to delete nat-gateway. {}".format(e))
+            raise e
+
+    def create_nat_gateway(self, vpc_id, vswitch_id, nat_gateway_name):
+        """Create Nat Gateway.
+        :return: The Nat Gateway Id.
+        """
+        create_nat_gateway_request = vpc_models.CreateNatGatewayRequest(
+            region_id=self.region_id,
+            vpc_id=vpc_id,
+            v_switch_id=vswitch_id,
+            name=nat_gateway_name,
+            nat_type='"Enhanced"'
+        )
+        try:
+            self.client.create_nat_gateway_with_options(
+                create_nat_gateway_request, self.runtime_options)
+        except Exception as e:
+            cli_logger.error("Failed to create nat-gateway. {}".format(e))
+            raise e
+
+    def allocate_eip_address(self, name):
+        """Allocate elastic ip address
+        :return allocation_id:
+        """
+        allocate_eip_address_request = vpc_models.AllocateEipAddressRequest(
+            region_id=self.region_id,
+            name=name
+        )
+        try:
+            response = self.client.allocate_eip_address_with_options(
+                allocate_eip_address_request, self.runtime_options)
+            return response.get("AllocationId")
+        except Exception as e:
+            cli_logger.error("Failed to allocate EIP. {}".format(e))
+            raise e
+
+    def associate_eip_address(self, eip_allocation_id, instance_id, instance_type):
+        """Bind elastic ip address to cloud instance"""
+        associate_eip_address_request = vpc_models.AssociateEipAddressRequest(
+            region_id=self.region_id,
+            allocation_id=eip_allocation_id,
+            instance_id=instance_id,
+            instance_type=instance_type
+        )
+        try:
+            self.client.associate_eip_address_with_options(
+                associate_eip_address_request, self.runtime_options)
+        except Exception as e:
+            cli_logger.error("Failed to associate EIP to instance. {}".format(e))
+            raise e
+
+    def describe_eip_addresses(self, eip_name):
+        """Queries all available eip.
+        :return eips:
+        """
+        describe_eip_addresses_request = vpc_models.DescribeEipAddressesRequest(
+            region_id=self.region_id,
+            eip_name=eip_name
+        )
+        try:
+            response = self.client.describe_eip_addresses_with_options(
+                describe_eip_addresses_request, self.runtime_options)
+            return response.get("EipAddresses").get("EipAddress")
+        except Exception as e:
+            cli_logger.error("Failed to describe EIP addresses. {}".format(e))
+            raise e
+
+    def unassociate_eip_address(self, allocation_id, instance_id, instance_type):
+        """Dissociate eip address from instance"""
+        unassociate_eip_address_request = vpc_models.UnassociateEipAddressRequest(
+            allocation_id=allocation_id,
+            instance_id=instance_id,
+            instance_type=instance_type
+        )
+        try:
+            self.client.unassociate_eip_address_with_options(
+                unassociate_eip_address_request, self.runtime_options)
+        except Exception as e:
+            cli_logger.error("Failed to unassociate EIP address from instance. {}".format(e))
+            raise e
+
+    def release_eip_address(self, allocation_id):
+        """Release EIP resource"""
+        release_eip_address_request = vpc_models.ReleaseEipAddressRequest(
+            allocation_id=allocation_id
+        )
+        try:
+            self.client.release_eip_address_with_options(
+                release_eip_address_request, self.runtime_options)
+        except Exception as e:
+            cli_logger.error("Failed to release EIP address. {}".format(e))
+            raise e
+
+    def create_snat_entry(self, snat_table_id, vswitch_id, snat_ip, snat_entry_name):
+        """Create snat entry for nat-gateway"""
+        create_snat_entry_request = vpc_models.CreateSnatEntryRequest(
+            region_id=self.region_id,
+            source_vswitch_id=vswitch_id,
+            snat_ip=snat_ip,
+            snat_entry_name=snat_entry_name
+        )
+        try:
+            response = self.client.create_snat_entry_with_options(
+                create_snat_entry_request, self.runtime_options)
+            return response.get("SnatEntryId")
+        except Exception as e:
+            cli_logger.error("Failed to create SNAT Entry. {}".format(e))
+            raise e
+
+    def describe_snat_entries(self, snat_table_id):
+        """Describe snat entries for snat table"""
+        describe_snat_table_entries_request = vpc_models.DescribeSnatTableEntriesRequest(
+            region_id=self.region_id,
+            snat_table_id=snat_table_id
+        )
+        try:
+            response = self.client.describe_snat_table_entries_with_options(
+                describe_snat_table_entries_request, self.runtime_options)
+            return response.get("SnatTableEntries").get("SnatTableEntry")
+        except Exception as e:
+            cli_logger.error("Failed to describe SNAT Entries. {}".format(e))
+            raise e
+
+    def delete_snat_entry(self, snat_table_id, snat_entry_id):
+        """Delete snat entry"""
+        delete_snat_entry_request = vpc_models.DeleteSnatEntryRequest(
+            region_id=self.region_id,
+            snat_table_id=snat_table_id,
+            snat_entry_id=snat_entry_id
+        )
+        try:
+            self.client.delete_snat_entry_with_options(
+                delete_snat_entry_request, self.runtime_options)
+        except Exception as e:
+            cli_logger.error("Failed to delete SNAT Entry. {}".format(e))
+            raise e
+
+
+class VpcPeerClient:
+    """
+    A wrapper around Aliyun VPC Peer client.
+    Parameters:
+        provider_config: The cloud provider configuration from which to create client.
+    """
+
+    def __init__(self, provider_config):
+        self.region_id = provider_config["region"]
+        self.client = make_vpc_peer_client(provider_config)
+        self.runtime_options = util_models.RuntimeOptions()
+
+    def create_vpc_peer_connection(
+            self, region_id, vpc_id, accepted_ali_uid, accepted_vpc_id, accepted_region_id, name):
+        create_vpc_peer_connection_request = vpc_peer_models.CreateVpcPeerConnectionRequest(
+            region_id=region_id,
+            vpc_id=vpc_id,
+            accepting_ali_uid=accepted_ali_uid,
+            accepting_region_id=accepted_region_id,
+            accepting_vpc_id=accepted_vpc_id,
+            name=name
+        )
+        try:
+            response = self.client.create_vpc_peer_connection_with_options(
+                create_vpc_peer_connection_request, self.runtime_options)
+            return response.get("InstanceId")
+        except Exception as e:
+            cli_logger.error("Failed to create vpc peer connection. {}".format(e))
+            raise e
+
+    def delete_vpc_peer_connection(self, instance_id):
+        delete_vpc_peer_connection_request = vpc_peer_models.DeleteVpcPeerConnectionRequest(
+            instance_id=instance_id
+        )
+        try:
+            self.client.client.delete_vpc_peer_connection_with_options(
+                delete_vpc_peer_connection_request, self.runtime_options)
+        except Exception as e:
+            cli_logger.error("Failed to delete vpc peer connection. {}".format(e))
+            raise e
+
+    def describe_vpc_peer_connections(self, vpc_id=None, vpc_peer_connection_name=None):
+        """Queries VPC peering connection.
+        :return: VPC peering connection list.
+        """
+        list_vpc_peer_connections_request = vpc_peer_models.ListVpcPeerConnectionsRequest(
+            region_id=self.region_id,
+            name=vpc_peer_connection_name,
+            vpc_id=[vpc_id]
+        )
+        try:
+            response = self.client.client.list_vpc_peer_connections_with_options(
+                list_vpc_peer_connections_request, self.runtime_options)
+            return response.get("VpcPeerConnects")
+        except Exception as e:
+            cli_logger.error("Failed to describe vpc peer connections. {}".format(e))
+            raise e
+
+
+class RamClient:
+    """
+    A wrapper around Aliyun RAM client.
+    Parameters:
+        provider_config: The cloud provider configuration from which to create client.
+    """
+
+    def __init__(self, provider_config):
+        self.region_id = provider_config["region"]
+        self.client = make_ram_client(provider_config)
+        self.runtime_options = util_models.RuntimeOptions()
+
+    def create_role(self, role_name, assume_role_policy_document):
+        """Create RAM role"""
+        create_role_request = ram_models.CreateRoleRequest(
+            role_name=role_name,
+            assume_role_policy_document=assume_role_policy_document
+        )
+        try:
+            response = self.client.create_role_with_options(
+                create_role_request, self.runtime_options)
+            return response.get("Role")
+        except Exception as e:
+            cli_logger.error("Failed to create RAM role. {}".format(e))
+            raise e
+
+    def get_role(self, role_name):
+        """get RAM role"""
+        get_role_request = ram_models.GetRoleRequest(
+            role_name=role_name
+        )
+        try:
+            response = self.client.get_role_with_options(
+                get_role_request, self.runtime_options)
+            return response.get("Role")
+        except Exception as e:
+            cli_logger.error("Failed to get RAM role. {}".format(e))
+            raise e
+
+    def delete_role(self, role_name):
+        """Delete RAM role"""
+        delete_role_request = ram_models.DeleteRoleRequest(
+            role_name=role_name
+        )
+        try:
+            self.client.delete_role_with_options(
+                delete_role_request, self.runtime_options)
+        except Exception as e:
+            cli_logger.error("Failed to delete RAM role. {}".format(e))
+            raise e
+
+    def attach_policy_to_role(self, role_name, policy_type, policy_name):
+        """Attach policy to RAM role"""
+        attach_policy_to_role_request = ram_models.AttachPolicyToRoleRequest(
+            policy_type=policy_type,
+            policy_name=policy_name,
+            role_name=role_name
+        )
+        try:
+            self.client.attach_policy_to_role_with_options(
+                attach_policy_to_role_request, self.runtime_options)
+        except Exception as e:
+            cli_logger.error("Failed to attach the policy to RAM role. {}".format(e))
+            raise e
+
+    def detach_policy_from_role(self, role_name, policy_type, policy_name):
+        """Detach the policy from RAM role"""
+        detach_policy_from_role_request = ram_models.DetachPolicyFromRoleRequest(
+            policy_type=policy_type,
+            policy_name=policy_name,
+            role_name=role_name
+        )
+        try:
+            self.client.detach_policy_from_role_with_options(
+                detach_policy_from_role_request, self.runtime_options)
+        except Exception as e:
+            cli_logger.error("Failed to detach the policy from RAM role. {}".format(e))
+            raise e
+
+    def list_policy_for_role(self, role_name):
+        """List the policies for RAM role"""
+        list_policies_for_role_request = ram_models.ListPoliciesForRoleRequest(
+            role_name=role_name
+        )
+        try:
+            response = self.client.list_policies_for_role_with_options(
+                list_policies_for_role_request, self.runtime_options)
+            return response.get("Policies").get("Policy")
+        except Exception as e:
+            cli_logger.error("Failed to list the policies for RAM role. {}".format(e))
+            raise e

@@ -1008,14 +1008,23 @@ def tags_list_to_dict(tags: list):
 
 
 def _get_node_info(node):
-    private_ip = node.inner_ip_address.ip_address if node.inner_ip_address else None
-    public_ip = node.public_ip_address.ip_address if node.public_ip_address else None
+    private_ip = None
+    if (node.vpc_attributes is not None
+            and node.vpc_attributes.private_ip_address is not None
+            and len(node.vpc_attributes.private_ip_address) > 0):
+        private_ip = node.vpc_attributes.private_ip_address[0]
+    public_ip = None
+    if (node.public_ip_address is not None
+        and node.public_ip_address.ip_address is not None
+            and len(node.public_ip_address.ip_address) > 0):
+        public_ip = node.public_ip_address.ip_address[0]
     node_info = {"node_id": node.instance_id,
                  "instance_type": node.instance_type,
                  "private_ip": private_ip,
                  "public_ip": public_ip,
                  "instance_status": node.status}
-    if node.tags:
+    if (node.tags is not None and
+            node.tags.tag is not None):
         node_info.update(tags_list_to_dict(node.tags.tag))
     return node_info
 

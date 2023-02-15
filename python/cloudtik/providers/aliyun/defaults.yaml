@@ -1,0 +1,101 @@
+# Include the common defaults
+from: defaults
+
+# Cloud-provider specific configuration.
+provider:
+    type: aliyun
+    region: cn-hangzhou
+    # Whether to allow node reuse. If set to False, nodes will be terminated
+    # instead of stopped.
+    cache_stopped_nodes: False # If not present, the default is False.
+    # Whether to use managed cloud storage of workspace.
+    use_managed_cloud_storage: True
+
+# How we will authenticate with newly launched nodes.
+auth:
+    ssh_user: ubuntu
+    # By default we creates a new private keypair, but you can also use your own.
+    # If you do so, make sure to also set "KeyName" in the head and worker node
+    # configurations below.
+    # ssh_private_key: /path/to/your/key.pem
+
+# Tell the cluster scaler the allowed node types and the resources they provide.
+# The key is the name of the node type, which is just for debugging purposes.
+# The node config specifies the launch config and physical instance type.
+available_node_types:
+    head.default:
+        # The node type's CPU and GPU resources are auto-detected based on instance type.
+        # If desired, you can override the autodetected CPU and GPU resources advertised to the cluster scaler.
+        # You can also set custom resources.
+        # For example, to mark a node type as having 1 CPU, 1 GPU, and 5 units of a resource called "custom", set
+        # resources: {"CPU": 1, "GPU": 1, "custom": 5}
+        resources: {}
+        # Provider-specific config for this node type, e.g. instance type. By default
+        # We will auto-configure unspecified fields such as SubnetId and KeyName.
+        # For more documentation on available fields, see:
+        # https://next.api.aliyun.com/document/Ecs/2014-05-26/CreateInstance
+        node_config:
+            InstanceType: ecs.n4.2xlarge
+            ImageId: ubuntu_20_04_x64_20G_alibase_20210420.vhd
+            # Additional options for the node
+            # SecurityGroupId:
+            # VSwitchId:
+            # ZoneId:
+            # KeyPairName:
+            IoOptimized: optimized
+            InstanceChargeType: PostPaid
+            # SpotStrategy: NoSpot
+            InternetChargeType: PayByTraffic
+            # InternetMaxBandwidthOut: 1
+            # You can provision additional disk space with a conf as follows
+            SystemDisk:
+                DiskName: os-disk
+                Category: cloud_ssd
+                Size: 100
+            # Data disks
+            # DataDisk:
+            #    - DiskName: data-disk-1
+            #      Category: cloud_ssd
+            #      Size: 200
+            #      PerformanceLevel: PL0
+    worker.default:
+        # The minimum number of nodes of this type to launch.
+        # This number should be >= 0.
+        min_workers: 1
+        # The node type's CPU and GPU resources are auto-detected based on instance type.
+        # If desired, you can override the autodetected CPU and GPU resources advertised to the cluster scaler.
+        # You can also set custom resources.
+        # For example, to mark a node type as having 1 CPU, 1 GPU, and 5 units of a resource called "custom", set
+        # resources: {"CPU": 1, "GPU": 1, "custom": 5}
+        resources: {}
+        # Provider-specific config for this node type, e.g. instance type. By default
+        # We will auto-configure unspecified fields such as SubnetId and KeyName.
+        # For more documentation on available fields, see:
+        # https://next.api.aliyun.com/document/Ecs/2014-05-26/CreateInstance
+        node_config:
+            InstanceType: ecs.n4.2xlarge
+            ImageId: ubuntu_20_04_x64_20G_alibase_20210420.vhd
+            # Additional options for the node
+            # SecurityGroupId:
+            # VSwitchId:
+            # ZoneId:
+            # KeyPairName:
+            IoOptimized: optimized
+            InstanceChargeType: PostPaid
+            # SpotStrategy: SpotAsPriceGo
+            InternetChargeType: PayByTraffic
+            # InternetMaxBandwidthOut: 1
+            # You can provision additional disk space with a conf as follows
+            SystemDisk:
+                DiskName: os-disk
+                Category: cloud_ssd
+                Size: 100
+            # Data disks
+            # DataDisk:
+            #    - DiskName: data-disk-1
+            #      Category: cloud_ssd
+            #      Size: 200
+            #      PerformanceLevel: PL0
+
+# Specify the node type of the head node (as configured above).
+head_node_type: head.default

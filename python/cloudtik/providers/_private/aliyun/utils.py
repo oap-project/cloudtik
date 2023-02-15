@@ -86,17 +86,16 @@ ACS_MAX_RETRIES = env_integer("ACS_MAX_RETRIES", 12)
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.providers._private.aliyun.node_provider import EcsClient
 
-from alibabacloud_vpc20160428.client import Client as vpc_client
 from alibabacloud_credentials.client import Client as CredentialClient
 from alibabacloud_credentials.models import Config
-from alibabacloud_tea_openapi import models as open_api_models
-from alibabacloud_ecs20140526.client import Client as EcsClient
-from alibabacloud_vpcpeer20220101.client import Client as vpc_peer_client
-from alibabacloud_ram20150501.client import Client as ram_client
 from alibabacloud_ram20150501 import models as ram_models
+from alibabacloud_ram20150501.client import Client as ram_client
+from alibabacloud_tea_openapi import models as open_api_models
 from alibabacloud_tea_util import models as util_models
 from alibabacloud_vpc20160428 import models as vpc_models
+from alibabacloud_vpc20160428.client import Client as vpc_client
 from alibabacloud_vpcpeer20220101 import models as vpc_peer_models
+from alibabacloud_vpcpeer20220101.client import Client as vpc_peer_client
 
 
 class AcsClient:
@@ -1068,10 +1067,7 @@ def make_current_ecs_client(provider_config, region_id):
 
 def make_ram_client(provider_config):
     credential = get_credential(provider_config)
-    config = open_api_models.Config(credential=credential
-                                    # http_proxy='http://child-prc.intel.com:913',
-                                    # https_proxy='http://child-prc.intel.com:913'
-                                    )
+    config = open_api_models.Config(credential=credential)
     config.endpoint = f'ram.aliyuncs.com'
     return ram_client(config)
 
@@ -1092,10 +1088,15 @@ class VpcClient:
         """Queries one or more VPCs in a region.
         :return: VPC list.
         """
-        describe_vpcs_request = vpc_models.DescribeVpcsRequest(vpc_id=vpc_id, vpc_name=vpc_name)
+        describe_vpcs_request = vpc_models.DescribeVpcsRequest(
+            region_id=self.region_id,
+            vpc_id=vpc_id,
+            vpc_name=vpc_name
+        )
         try:
-            response = self.client.describe_vpcs_with_options(describe_vpcs_request, self.runtime_options)
-            return response.get("Vpcs").get("Vpc")
+            response = self.client.describe_vpcs_with_options(
+                describe_vpcs_request, self.runtime_options)
+            return response.body.vpcs.vpc
         except Exception as e:
             cli_logger.error("Failed to describe VPCs. {}".format(e))
             raise e
@@ -1110,8 +1111,9 @@ class VpcClient:
             vpc_name=vpc_name
         )
         try:
-            response = self.client.create_vpc_with_options(create_vpc_request, self.runtime_options)
-            return response.get("VpcId")
+            response = self.client.create_vpc_with_options(
+                create_vpc_request, self.runtime_options)
+            return response.body.vpc_id
         except Exception as e:
             cli_logger.error("Failed to create VPC. {}".format(e))
             raise e
@@ -1122,7 +1124,8 @@ class VpcClient:
             vpc_id=vpc_id
         )
         try:
-            self.client.delete_vpc_with_options(delete_vpc_request, self.runtime_options)
+            self.client.delete_vpc_with_options(
+                delete_vpc_request, self.runtime_options)
         except Exception as e:
             cli_logger.error("Failed to delete VPC. {}".format(e))
             raise e
@@ -1144,7 +1147,8 @@ class VpcClient:
             tag=request_tags
         )
         try:
-            self.client.tag_resources_with_options(tag_resources_request, self.runtime_options)
+            self.client.tag_resources_with_options(
+                tag_resources_request, self.runtime_options)
         except Exception as e:
             cli_logger.error("Failed to tag VPC. {}".format(e))
             raise e
@@ -1164,59 +1168,20 @@ class VpcClient:
             cli_logger.error("Failed to untag VPC. {}".format(e))
             raise e
 
-    def describe_route_tables(self, vpc_id=None):
-        describe_route_table_list_request = vpc_models.DescribeRouteTableListRequest(
-            vpc_id=vpc_id
-        )
-        try:
-            response = self.client.describe_route_table_list_with_options(
-                describe_route_table_list_request, self.runtime_options)
-            return response.get("RouterTableList").get("RouterTableListType")
-        except Exception as e:
-            cli_logger.error("Failed to describe route tables. {}".format(e))
-            raise e
-
-    def create_route_entry(self, route_table_id, cidr_block, next_hop_id, next_hop_type, name):
-        create_route_entry_request = vpc_models.CreateRouteEntryRequest(
-            route_table_id=route_table_id,
-            destination_cidr_block=cidr_block,
-            next_hop_id=next_hop_id,
-            route_entry_name=name,
-            next_hop_type=next_hop_type
-        )
-        try:
-            self.client.create_route_entry_with_options(
-                create_route_entry_request, self.runtime_options)
-        except Exception as e:
-            cli_logger.error("Failed to create route entry. {}".format(e))
-            raise e
-
-    def describe_route_entry_list(self, route_table_id, cidr_block=None, entry_name=None):
-        describe_route_entry_list_request = vpc_models.DescribeRouteEntryListRequest(
+    def describe_zones(self):
+        """Queries all available zones in a region.
+        :return: Zone list.
+        """
+        describe_zones_request = vpc_models.DescribeZonesRequest(
             region_id=self.region_id,
-            route_table_id=route_table_id,
-            destination_cidr_block=cidr_block,
-            route_entry_name=entry_name
+            accept_language='en-us'
         )
         try:
-            response = self.client.describe_route_entry_list_with_options(
-                describe_route_entry_list_request, self.runtime_options)
-            return response.get("RouteEntrys").get("RouteEntry")
+            response = self.client.describe_zones_with_options(
+                describe_zones_request, self.runtime_options)
+            return response.body.zones.zone
         except Exception as e:
-            cli_logger.error("Failed to describe route entries. {}".format(e))
-            raise e
-
-    def delete_route_entry(self, route_entry_id, route_table_id=None, cidr_block=None):
-        delete_route_entry_request = vpc_models.DeleteRouteEntryRequest(
-            route_entry_id=route_entry_id,
-            route_table_id=route_table_id,
-            destination_cidr_block=cidr_block
-        )
-        try:
-            self.client.delete_route_entry_with_options(
-                delete_route_entry_request, self.runtime_options)
-        except Exception as e:
-            cli_logger.error("Failed to delete route entry. {}".format(e))
+            cli_logger.error("Failed to describe zones. {}".format(e))
             raise e
 
     def describe_vswitches(self, vpc_id=None):
@@ -1230,7 +1195,7 @@ class VpcClient:
         try:
             response = self.client.describe_vswitches_with_options(
                 describe_vswitches_request, self.runtime_options)
-            return response.get("VSwitches").get("VSwitch")
+            return response.body.v_switches.v_switch
         except Exception as e:
             cli_logger.error("Failed to describe vswitches. {}".format(e))
             raise e
@@ -1265,27 +1230,24 @@ class VpcClient:
         try:
             response = self.client.create_vswitch_with_options(
                 create_vswitch_request, self.runtime_options)
-            return response.get("VSwitchId")
+            return response.body.v_switch_id
         except Exception as e:
             cli_logger.error("Failed to create vswitch. {}".format(e))
             raise e
-
-    def describe_zones(self):
-        """Queries all available zones in a region.
-        :return: Zone list.
-        """
-        describe_zones_request = vpc_models.DescribeZonesRequest(
+    
+    def describe_route_tables(self, vpc_id=None):
+        describe_route_table_list_request = vpc_models.DescribeRouteTableListRequest(
             region_id=self.region_id,
-            accept_language='en-us'
+            vpc_id=vpc_id
         )
         try:
-            response = self.client.describe_zones_with_options(
-                describe_zones_request, self.runtime_options)
-            return response.get("Zones").get("Zone")
+            response = self.client.describe_route_table_list_with_options(
+                describe_route_table_list_request, self.runtime_options)
+            return response.body.router_table_list.router_table_list_type
         except Exception as e:
-            cli_logger.error("Failed to describe zones. {}".format(e))
+            cli_logger.error("Failed to describe route tables. {}".format(e))
             raise e
-
+    
     def describe_nat_gateways(self, vpc_id, name):
         """Queries all available nat-gateway.
         :return: nat-gateway list.
@@ -1298,7 +1260,7 @@ class VpcClient:
         try:
             response = self.client.describe_nat_gateways_with_options(
                 describe_nat_gateways_request, self.runtime_options)
-            return response.get("NatGateways").get("NatGateway")
+            return response.body.nat_gateways.nat_gateway
         except Exception as e:
             cli_logger.error("Failed to describe nat-gateways. {}".format(e))
             raise e
@@ -1327,11 +1289,12 @@ class VpcClient:
             vpc_id=vpc_id,
             v_switch_id=vswitch_id,
             name=nat_gateway_name,
-            nat_type='"Enhanced"'
+            nat_type="Enhanced"
         )
         try:
-            self.client.create_nat_gateway_with_options(
+            response = self.client.create_nat_gateway_with_options(
                 create_nat_gateway_request, self.runtime_options)
+            return response.body.nat_gateway_id
         except Exception as e:
             cli_logger.error("Failed to create nat-gateway. {}".format(e))
             raise e
@@ -1347,7 +1310,7 @@ class VpcClient:
         try:
             response = self.client.allocate_eip_address_with_options(
                 allocate_eip_address_request, self.runtime_options)
-            return response.get("AllocationId")
+            return response.body.allocation_id
         except Exception as e:
             cli_logger.error("Failed to allocate EIP. {}".format(e))
             raise e
@@ -1378,15 +1341,15 @@ class VpcClient:
         try:
             response = self.client.describe_eip_addresses_with_options(
                 describe_eip_addresses_request, self.runtime_options)
-            return response.get("EipAddresses").get("EipAddress")
+            return response.body.eip_addresses.eip_address
         except Exception as e:
             cli_logger.error("Failed to describe EIP addresses. {}".format(e))
             raise e
 
-    def unassociate_eip_address(self, allocation_id, instance_id, instance_type):
+    def unassociate_eip_address(self, eip_allocation_id, instance_id, instance_type):
         """Dissociate eip address from instance"""
         unassociate_eip_address_request = vpc_models.UnassociateEipAddressRequest(
-            allocation_id=allocation_id,
+            allocation_id=eip_allocation_id,
             instance_id=instance_id,
             instance_type=instance_type
         )
@@ -1397,10 +1360,10 @@ class VpcClient:
             cli_logger.error("Failed to unassociate EIP address from instance. {}".format(e))
             raise e
 
-    def release_eip_address(self, allocation_id):
+    def release_eip_address(self, eip_allocation_id):
         """Release EIP resource"""
         release_eip_address_request = vpc_models.ReleaseEipAddressRequest(
-            allocation_id=allocation_id
+            allocation_id=eip_allocation_id
         )
         try:
             self.client.release_eip_address_with_options(
@@ -1414,19 +1377,20 @@ class VpcClient:
         create_snat_entry_request = vpc_models.CreateSnatEntryRequest(
             region_id=self.region_id,
             source_vswitch_id=vswitch_id,
+            snat_table_id=snat_table_id,
             snat_ip=snat_ip,
             snat_entry_name=snat_entry_name
         )
         try:
             response = self.client.create_snat_entry_with_options(
                 create_snat_entry_request, self.runtime_options)
-            return response.get("SnatEntryId")
+            return response.body.snat_entry_id
         except Exception as e:
             cli_logger.error("Failed to create SNAT Entry. {}".format(e))
             raise e
 
     def describe_snat_entries(self, snat_table_id):
-        """Describe snat entries for snat table"""
+        """Describe SNAT Entries for snat table"""
         describe_snat_table_entries_request = vpc_models.DescribeSnatTableEntriesRequest(
             region_id=self.region_id,
             snat_table_id=snat_table_id
@@ -1434,7 +1398,7 @@ class VpcClient:
         try:
             response = self.client.describe_snat_table_entries_with_options(
                 describe_snat_table_entries_request, self.runtime_options)
-            return response.get("SnatTableEntries").get("SnatTableEntry")
+            return response.body.snat_table_entries.snat_table_entry
         except Exception as e:
             cli_logger.error("Failed to describe SNAT Entries. {}".format(e))
             raise e
@@ -1451,6 +1415,49 @@ class VpcClient:
                 delete_snat_entry_request, self.runtime_options)
         except Exception as e:
             cli_logger.error("Failed to delete SNAT Entry. {}".format(e))
+            raise e
+    
+    def create_route_entry(self, route_table_id, cidr_block, next_hop_id, next_hop_type, name):
+        create_route_entry_request = vpc_models.CreateRouteEntryRequest(
+            route_table_id=route_table_id,
+            destination_cidr_block=cidr_block,
+            next_hop_id=next_hop_id,
+            route_entry_name=name,
+            next_hop_type=next_hop_type
+        )
+        try:
+            self.client.create_route_entry_with_options(
+                create_route_entry_request, self.runtime_options)
+        except Exception as e:
+            cli_logger.error("Failed to create route entry. {}".format(e))
+            raise e
+
+    def describe_route_entry_list(self, route_table_id, cidr_block=None, entry_name=None):
+        describe_route_entry_list_request = vpc_models.DescribeRouteEntryListRequest(
+            region_id=self.region_id,
+            route_table_id=route_table_id,
+            destination_cidr_block=cidr_block,
+            route_entry_name=entry_name
+        )
+        try:
+            response = self.client.describe_route_entry_list_with_options(
+                describe_route_entry_list_request, self.runtime_options)
+            return response.body.route_entrys.route_entry
+        except Exception as e:
+            cli_logger.error("Failed to describe route entries. {}".format(e))
+            raise e
+
+    def delete_route_entry(self, route_entry_id, route_table_id=None, cidr_block=None):
+        delete_route_entry_request = vpc_models.DeleteRouteEntryRequest(
+            route_entry_id=route_entry_id,
+            route_table_id=route_table_id,
+            destination_cidr_block=cidr_block
+        )
+        try:
+            self.client.delete_route_entry_with_options(
+                delete_route_entry_request, self.runtime_options)
+        except Exception as e:
+            cli_logger.error("Failed to delete route entry. {}".format(e))
             raise e
 
 
@@ -1479,7 +1486,7 @@ class VpcPeerClient:
         try:
             response = self.client.create_vpc_peer_connection_with_options(
                 create_vpc_peer_connection_request, self.runtime_options)
-            return response.get("InstanceId")
+            return response.body.instance_id
         except Exception as e:
             cli_logger.error("Failed to create vpc peer connection. {}".format(e))
             raise e
@@ -1505,9 +1512,9 @@ class VpcPeerClient:
             vpc_id=[vpc_id]
         )
         try:
-            response = self.client.client.list_vpc_peer_connections_with_options(
+            response = self.client.list_vpc_peer_connections_with_options(
                 list_vpc_peer_connections_request, self.runtime_options)
-            return response.get("VpcPeerConnects")
+            return response.body.vpc_peer_connects
         except Exception as e:
             cli_logger.error("Failed to describe vpc peer connections. {}".format(e))
             raise e

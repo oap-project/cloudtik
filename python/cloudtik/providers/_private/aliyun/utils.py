@@ -1,5 +1,6 @@
 import json
 import logging
+from typing import Any, Dict
 
 from aliyunsdkcore import client
 from aliyunsdkcore.request import CommonRequest
@@ -74,7 +75,11 @@ from aliyunsdkram.request.v20150501.DetachPolicyFromRoleRequest import DetachPol
 from aliyunsdkram.request.v20150501.ListPoliciesForRoleRequest import ListPoliciesForRoleRequest
 
 
-from cloudtik.core._private.constants import env_integer
+from cloudtik.core._private.constants import env_integer, CLOUDTIK_DEFAULT_CLOUD_STORAGE_URI
+from cloudtik.core._private.utils import get_storage_config_for_update
+
+ALIYUN_OSS_BUCKET = "oss.bucket"
+
 ACS_MAX_RETRIES = env_integer("ACS_MAX_RETRIES", 12)
 
 
@@ -937,6 +942,82 @@ class AcsClient:
             logging.error(request.get_action_name())
             logging.error(e)
             return None
+
+
+def get_aliyun_oss_storage_config(provider_config: Dict[str, Any]):
+    if "storage" in provider_config and "aliyun_oss_storage" in provider_config["storage"]:
+        return provider_config["storage"]["aliyun_oss_storage"]
+
+    return None
+
+
+def get_aliyun_oss_storage_config_for_update(provider_config: Dict[str, Any]):
+    storage_config = get_storage_config_for_update(provider_config)
+    if "aliyun_oss_storage" not in storage_config:
+        storage_config["aliyun_oss_storage"] = {}
+    return storage_config["aliyun_oss_storage"]
+
+
+def export_aliyun_oss_storage_config(provider_config, config_dict: Dict[str, Any]):
+    cloud_storage = get_aliyun_oss_storage_config(provider_config)
+    if cloud_storage is None:
+        return
+    config_dict["ALIYUN_CLOUD_STORAGE"] = True
+
+    oss_bucket = cloud_storage.get(ALIYUN_OSS_BUCKET)
+    if oss_bucket:
+        config_dict["ALIYUN_OSS_BUCKET"] = oss_bucket
+
+    oss_access_key_id = cloud_storage.get("oss.access.key.id")
+    if oss_access_key_id:
+        config_dict["ALIYUN_OSS_ACCESS_KEY_ID"] = oss_access_key_id
+
+    oss_access_key_secret = cloud_storage.get("oss.access.key.secret")
+    if oss_access_key_secret:
+        config_dict["ALIYUN_OSS_ACCESS_KEY_SECRET"] = oss_access_key_secret
+
+
+def get_aliyun_cloud_storage_uri(aliyun_cloud_storage):
+    oss_bucket = aliyun_cloud_storage.get(ALIYUN_OSS_BUCKET)
+    if oss_bucket is None:
+        return None
+
+    return "oss://{}".format(oss_bucket)
+
+
+def get_default_aliyun_cloud_storage(provider_config):
+    cloud_storage = get_aliyun_oss_storage_config(provider_config)
+    if cloud_storage is None:
+        return None
+
+    cloud_storage_info = {}
+    cloud_storage_info.update(cloud_storage)
+
+    cloud_storage_uri = get_aliyun_cloud_storage_uri(cloud_storage)
+    if cloud_storage_uri:
+        cloud_storage_info[CLOUDTIK_DEFAULT_CLOUD_STORAGE_URI] = cloud_storage_uri
+
+    return cloud_storage_info
+
+
+def tags_list_to_dict(tags: list):
+    tags_dict = {}
+    for item in tags:
+        tags_dict[item.tag_key] = item.tag_value
+    return tags_dict
+
+
+def _get_node_info(node):
+    private_ip = node.inner_ip_address.ip_address if node.inner_ip_address else None
+    public_ip = node.public_ip_address.ip_address if node.public_ip_address else None
+    node_info = {"node_id": node.instance_id,
+                 "instance_type": node.instance_type,
+                 "private_ip": private_ip,
+                 "public_ip": public_ip,
+                 "instance_status": node.status}
+    if node.tags:
+        node_info.update(tags_list_to_dict(node.tags.tag))
+    return node_info
 
 
 def get_credential(provider_config):

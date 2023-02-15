@@ -17,7 +17,8 @@ from cloudtik.core._private.utils import check_cidr_conflict, get_cluster_uri, i
     is_use_peering_vpc, is_peering_firewall_allow_ssh_only, is_peering_firewall_allow_working_subnet
 from cloudtik.core.workspace_provider import Existence, CLOUDTIK_MANAGED_CLOUD_STORAGE, \
     CLOUDTIK_MANAGED_CLOUD_STORAGE_URI
-from cloudtik.providers._private.aliyun.utils import AcsClient
+from cloudtik.providers._private.aliyun.utils import AcsClient, export_aliyun_oss_storage_config, \
+    get_aliyun_oss_storage_config
 
 from cloudtik.providers._private.aliyun.utils import make_vpc_client, make_ram_client, make_vpc_peer_client, make_ecs_client
 from cloudtik.providers._private.aliyun.node_provider import EcsClient
@@ -62,6 +63,7 @@ WORKER_ROLE_ATTACH_POLICIES = [
     "AliyunOSSFullAccess",
 ]
 
+
 def bootstrap_aliyun(config):
     # print(config["provider"])
     # create vpc
@@ -75,6 +77,31 @@ def bootstrap_aliyun(config):
     _get_or_import_key_pair(config)
     # print(config["provider"])
     return config
+
+
+def verify_oss_storage(provider_config: Dict[str, Any]):
+    s3_storage = get_aliyun_oss_storage_config(provider_config)
+    if s3_storage is None:
+        return
+
+
+def post_prepare_aliyun(config: Dict[str, Any]) -> Dict[str, Any]:
+    try:
+        # config = fill_available_node_types_resources(config)
+        # TODO
+        pass
+    except Exception as exc:
+        cli_logger.warning(
+            "Failed to detect node resources. Make sure you have properly configured the Alibaba Cloud credentials: {}.",
+            str(exc))
+        raise
+    return config
+
+
+def with_aliyun_environment_variables(provider_config, node_type_config: Dict[str, Any], node_id: str):
+    config_dict = {}
+    export_aliyun_oss_storage_config(provider_config, config_dict)
+    return config_dict
 
 
 def _client(config):

@@ -281,6 +281,25 @@
                         }
                     }
                 },
+                "aliyun_credentials": {
+                    "type": "object",
+                    "description": "Credentials for authenticating with the Aliyun. If not specified, will use environment default.",
+                    "additionalProperties": true,
+                    "properties": {
+                        "aliyun_access_key_id": {
+                            "type": "string",
+                            "description": "The access key to use when creating the client."
+                        },
+                        "aliyun_access_key_secret": {
+                            "type": "string",
+                            "description": "The secret key to use when creating the client."
+                        },
+                        "aliyun_security_token": {
+                            "type": "string",
+                            "description": "The optional session token to use when creating the client."
+                        }
+                    }
+                },
                 "storage": {
                     "type": "object",
                     "description": "The cloud storage configurations",
@@ -349,6 +368,25 @@
                               "s3.secret.access.key": {
                                 "type": "string",
                                 "description": "secret access key of s3"
+                              }
+                            }
+                        },
+                        "aliyun_oss_storage": {
+                            "type": "object",
+                            "description": "Aliyun OSS storage configurations",
+                            "additionalProperties": false,
+                            "properties": {
+                              "oss.bucket": {
+                                "type": "string",
+                                "description": "the OSS bucket name"
+                              },
+                              "oss.access.key.id": {
+                                "type": "string",
+                                "description": "access key id of accessing OSS"
+                              },
+                              "oss.access.key.secret": {
+                                "type": "string",
+                                "description": "access key secret of accessing OSS"
                               }
                             }
                         }

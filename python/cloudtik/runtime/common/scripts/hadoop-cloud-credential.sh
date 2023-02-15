@@ -115,7 +115,7 @@ function update_credential_config_for_azure() {
 }
 
 function update_credential_config_for_aliyun() {
-    if [ ! -z "${ALIYUN_OSS_ACCESS_KEY_ID}" ] && [ ! -z "${ALIYUN_OSS_ACCESS_KEY_ID}" ]; then
+    if [ ! -z "${ALIYUN_OSS_ACCESS_KEY_ID}" ] && [ ! -z "${ALIYUN_OSS_ACCESS_KEY_SECRET}" ]; then
         sed -i "s#{%fs.oss.credentials.provider%}##g" `grep "{%fs.oss.credentials.provider%}" -rl ./`
     else
         sed -i "s#{%fs.oss.credentials.provider%}#org.apache.hadoop.fs.aliyun.oss.InstanceProfileCredentialsProvider#g" `grep "{%fs.oss.credentials.provider%}" -rl ./`

@@ -10,4 +10,4 @@ provider:
     # Default to False
     use_internal_ips: False
     # Whether to create managed cloud storage of workspace.
-    managed_cloud_storage: False
+    managed_cloud_storage: True

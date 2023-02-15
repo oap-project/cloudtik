@@ -13,9 +13,10 @@ from cloudtik.providers._private.aliyun.config import (
     RUNNING,
     STOPPED,
     STOPPING,
-    bootstrap_aliyun,
+    bootstrap_aliyun, verify_oss_storage, post_prepare_aliyun, with_aliyun_environment_variables,
 )
-from cloudtik.providers._private.aliyun.utils import make_ecs_client
+from cloudtik.providers._private.aliyun.utils import make_ecs_client, get_default_aliyun_cloud_storage, \
+    get_aliyun_oss_storage_config, _get_node_info
 from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.providers._private.aliyun.utils import ACS_MAX_RETRIES
 from cloudtik.core._private.log_timer import LogTimer
@@ -28,6 +29,7 @@ from cloudtik.core.tags import (
     CLOUDTIK_TAG_USER_NODE_TYPE,
     CLOUDTIK_TAG_NODE_STATUS
 )
+from cloudtik.providers._private.utils import validate_config_dict
 
 logger = logging.getLogger(__name__)
 
@@ -646,6 +648,74 @@ class AliyunNodeProvider(NodeProvider):
 
         return self._get_node(node_id)
 
+    def prepare_for_head_node(
+            self, cluster_config: Dict[str, Any], remote_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Returns a new remote cluster config with custom configs for head node.
+        The cluster config may also be updated for setting up the head"""
+        # Since the head will use the instance profile and role to access cloud,
+        # remove the client credentials from config
+        if "aliyun_credentials" in remote_config["provider"]:
+            remote_config.pop("aliyun_credentials", None)
+
+        return remote_config
+
+    def get_node_info(self, node_id: str) -> Dict[str, str]:
+        node = self._get_cached_node(node_id)
+        return _get_node_info(node)
+
+    def with_environment_variables(self, node_type_config: Dict[str, Any], node_id: str):
+        """Export necessary environment variables for running node commands"""
+        return with_aliyun_environment_variables(self.provider_config, node_type_config, node_id)
+
+    def get_default_cloud_storage(self):
+        """Return the managed cloud storage if configured."""
+        return get_default_aliyun_cloud_storage(self.provider_config)
+
     @staticmethod
-    def bootstrap_config(cluster_config):
+    def post_prepare(
+            cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Fills out missing fields after the user config is merged with defaults
+        This happens after prepare_config is done.
+        """
+        return post_prepare_aliyun(cluster_config)
+
+    @staticmethod
+    def validate_config(
+            provider_config: Dict[str, Any]) -> None:
+        """Check the provider configuration validation.
+        This happens after post_prepare is done and before bootstrap_config
+        """
+        config_dict = {
+            "region": provider_config.get("region")}
+        validate_config_dict(provider_config["type"], config_dict)
+
+        storage_config = get_aliyun_oss_storage_config(provider_config)
+        if storage_config is not None:
+            config_dict = {
+                "s3.bucket": storage_config.get("s3.bucket"),
+                # The access key is no longer a must since we have role access
+                # "s3.access.key.id": storage_config.get("s3.access.key.id"),
+                # "s3.secret.access.key": storage_config.get("s3.secret.access.key")
+            }
+
+            validate_config_dict(provider_config["type"], config_dict)
+
+    @staticmethod
+    def bootstrap_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Bootstraps the cluster config by adding env defaults if needed.
+        This happens after validate_config is done.
+        """
         return bootstrap_aliyun(cluster_config)
+
+    @staticmethod
+    def verify_config(
+            provider_config: Dict[str, Any]) -> None:
+        """Verify provider configuration. Verification usually means to check it is working.
+        This happens after bootstrap_config is done.
+        """
+        verify_cloud_storage = provider_config.get("verify_cloud_storage", True)
+        cloud_storage = get_aliyun_oss_storage_config(provider_config)
+        if verify_cloud_storage and cloud_storage is not None:
+            cli_logger.verbose("Verifying OSS storage configurations...")
+            verify_oss_storage(provider_config)
+            cli_logger.verbose("Successfully verified OSS storage configurations.")

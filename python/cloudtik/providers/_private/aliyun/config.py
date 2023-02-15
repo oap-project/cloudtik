@@ -1,4 +1,5 @@
 import logging
+from functools import partial
 import copy
 import os
 import stat
@@ -98,15 +99,14 @@ def bootstrap_aliyun_from_workspace(config):
     config = _configure_from_launch_template(config)
 
     # The head node needs to have an RAM role that allows it to create further
-    # EC2 instances.
+    # ECS instances.
     config = _configure_ram_role_from_workspace(config)
 
     # Set oss.bucket if use_managed_cloud_storage
     config = _configure_cloud_storage_from_workspace(config)
 
     # Configure SSH access, using an existing key pair if possible.
-    # TODO (haifeng)
-    # config = _configure_key_pair(config)
+    config = _configure_key_pair(config)
 
     # Pick a reasonable subnet if not specified by the user.
     # TODO (haifeng)
@@ -259,6 +259,97 @@ def _configure_managed_cloud_storage_from_workspace(config, cloud_provider):
 
     cloud_storage = get_aliyun_oss_storage_config_for_update(config["provider"])
     cloud_storage[ALIYUN_OSS_BUCKET] = oss_bucket.name
+
+
+def _key_assert_msg(node_type: str) -> str:
+    return ("`KeyPairName` missing from the `node_config` of"
+            f" node type `{node_type}`.")
+
+
+def _key_pair(i, region, key_name):
+    """
+    If key_name is not None, key_pair will be named after key_name.
+    Returns the ith default (aws_key_pair_name, key_pair_path).
+    """
+    if i == 0:
+        key_pair_name = ("{}_aliyun_{}".format(ALIYUN_RESOURCE_NAME_PREFIX, region)
+                         if key_name is None else key_name)
+        return (key_pair_name,
+                os.path.expanduser("~/.ssh/{}.pem".format(key_pair_name)))
+
+    key_pair_name = ("{}_aliyun_{}_{}".format(ALIYUN_RESOURCE_NAME_PREFIX, region, i)
+                     if key_name is None else key_name + "_key-{}".format(i))
+    return (key_pair_name,
+            os.path.expanduser("~/.ssh/{}.pem".format(key_pair_name)))
+
+
+def _configure_key_pair(config):
+    node_types = config["available_node_types"]
+
+    if "ssh_private_key" in config["auth"]:
+        # If the key is not configured via the cloudinit
+        # UserData, it should be configured via KeyName or
+        # else we will risk starting a node that we cannot
+        # SSH into:
+        for node_type in node_types:
+            node_config = node_types[node_type]["node_config"]
+            if "UserData" not in node_config:
+                cli_logger.doassert("KeyPairName" in node_config,
+                                    _key_assert_msg(node_type))
+                assert "KeyPairName" in node_config
+
+        return config
+
+    ecs_client = EcsClient(config["provider"])
+
+    # Writing the new ssh key to the filesystem fails if the ~/.ssh
+    # directory doesn't already exist.
+    os.makedirs(os.path.expanduser("~/.ssh"), exist_ok=True)
+
+    # Try a few times to get or create a good key pair.
+    MAX_NUM_KEYS = 30
+    for i in range(MAX_NUM_KEYS):
+        key_name = config["provider"].get("key_pair", {}).get("key_name")
+        key_name, key_path = _key_pair(
+            i, config["provider"]["region"], key_name)
+        key = ecs_client.describe_key_pair(key_name)
+        # Found a good key.
+        if key and os.path.exists(key_path):
+            break
+
+        # We can safely create a new key.
+        if not key and not os.path.exists(key_path):
+            cli_logger.verbose(
+                "Creating new key pair {} for use as the default.",
+                cf.bold(key_name))
+            key = ecs_client.create_key_pair(key_name)
+
+            # We need to make sure to _create_ the file with the right
+            # permissions. In order to do that we need to change the default
+            # os.open behavior to include the mode we want.
+            with open(key_path, "w", opener=partial(os.open, mode=0o600)) as f:
+                f.write(key.private_key_body)
+            break
+
+    if not key:
+        cli_logger.abort(
+            "No matching local key file for any of the key pairs in this "
+            "account with ids from 0..{}. "
+            "Consider deleting some unused keys pairs from your account.",
+            key_name)
+
+    cli_logger.doassert(
+        os.path.exists(key_path), "Private key file " + cf.bold("{}") +
+        " not found for " + cf.bold("{}"), key_path, key_name)
+    assert os.path.exists(key_path), \
+        "Private key file {} not found for {}".format(key_path, key_name)
+
+    config["auth"]["ssh_private_key"] = key_path
+    for node_type in node_types.values():
+        node_config = node_type["node_config"]
+        node_config["KeyPairName"] = key_name
+
+    return config
 
 
 def _configure_ram_role_from_workspace(config):

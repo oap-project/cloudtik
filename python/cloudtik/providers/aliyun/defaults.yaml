@@ -15,7 +15,7 @@ provider:
 auth:
     ssh_user: ubuntu
     # By default we creates a new private keypair, but you can also use your own.
-    # If you do so, make sure to also set "KeyName" in the head and worker node
+    # If you do so, make sure to also set "KeyPairName" in the head and worker node
     # configurations below.
     # ssh_private_key: /path/to/your/key.pem
 

@@ -80,6 +80,14 @@ setup_spec.extras = {
         "google-cloud-storage==2.3.0",
         "gcsfs==2022.10.0",
     ],
+    "aliyun": [
+        "alibabacloud_tea_openapi == 0.3.7",
+        "alibabacloud_vpc20160428 == 2.0.20",
+        "alibabacloud_vpcpeer20220101 == 1.0.6",
+        "alibabacloud_ecs20140526 == 3.0.4",
+        "alibabacloud_ram20150501 == 1.0.3",
+        "alibabacloud_oss20190517 == 1.0.5",
+    ],
     "kubernetes": [
         "kubernetes",
         "urllib3",

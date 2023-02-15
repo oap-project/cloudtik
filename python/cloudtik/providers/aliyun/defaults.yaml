@@ -43,7 +43,7 @@ available_node_types:
             # ZoneId:
             # KeyPairName:
             IoOptimized: optimized
-            InstanceChargeType: PostPaid
+            # InstanceChargeType: PostPaid
             # SpotStrategy: NoSpot
             InternetChargeType: PayByTraffic
             # InternetMaxBandwidthOut: 1
@@ -81,7 +81,7 @@ available_node_types:
             # ZoneId:
             # KeyPairName:
             IoOptimized: optimized
-            InstanceChargeType: PostPaid
+            # InstanceChargeType: PostPaid
             # SpotStrategy: SpotAsPriceGo
             InternetChargeType: PayByTraffic
             # InternetMaxBandwidthOut: 1

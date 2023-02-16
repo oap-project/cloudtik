@@ -87,12 +87,8 @@ def _client_cache(region: str = None, ak: str = None, sk: str = None) -> Dict[
     return client_map
 
 
-def make_ecs_client(config: Dict[str, Any]) -> Any:
-    return _make_ecs_client(config['provider'])
-
-
-def _make_ecs_client(config_provider: Dict[str, Any]) -> Any:
-    region = config_provider.get('region')
+def _make_client(config_provider: Dict[str, Any], client_type, region=None):
+    region = config_provider.get('region') if region is None else region
     credentials = config_provider.get('huaweicloud_credentials')
     if credentials:
         ak = credentials.get('huaweicloud_access_key')
@@ -100,87 +96,55 @@ def _make_ecs_client(config_provider: Dict[str, Any]) -> Any:
         _client_cache_map = _client_cache(region, ak, sk)
     else:
         _client_cache_map = _client_cache(region)
-    return _client_cache_map['ecs']
+    return _client_cache_map[client_type]
 
 
-def make_vpc_client(config: Dict[str, Any]) -> Any:
-    return _make_vpc_client(config['provider'])
+def make_ecs_client(config: Dict[str, Any], region=None) -> Any:
+    return _make_ecs_client(config['provider'], region)
 
 
-def _make_vpc_client(config_provider: Dict[str, Any]) -> Any:
-    region = config_provider.get('region')
-    credentials = config_provider.get('huaweicloud_credentials')
-    if credentials:
-        ak = credentials.get('huaweicloud_access_key')
-        sk = credentials.get('huaweicloud_secret_key')
-        _client_cache_map = _client_cache(region, ak, sk)
-    else:
-        _client_cache_map = _client_cache(region)
-    return _client_cache_map['vpc']
+def _make_ecs_client(config_provider: Dict[str, Any], region=None) -> Any:
+    return _make_client(config_provider, 'ecs', region)
 
 
-def make_nat_client(config: Dict[str, Any]) -> Any:
-    return _make_nat_client(config['provider'])
+def make_vpc_client(config: Dict[str, Any], region=None) -> Any:
+    return _make_vpc_client(config['provider'], region)
 
 
-def _make_nat_client(config_provider: Dict[str, Any]) -> Any:
-    region = config_provider.get('region')
-    credentials = config_provider.get('huaweicloud_credentials')
-    if credentials:
-        ak = credentials.get('huaweicloud_access_key')
-        sk = credentials.get('huaweicloud_secret_key')
-        _client_cache_map = _client_cache(region, ak, sk)
-    else:
-        _client_cache_map = _client_cache(region)
-    return _client_cache_map['nat']
+def _make_vpc_client(config_provider: Dict[str, Any], region=None) -> Any:
+    return _make_client(config_provider, 'vpc', region)
 
 
-def make_eip_client(config: Dict[str, Any]) -> Any:
-    return _make_eip_client(config['provider'])
+def make_nat_client(config: Dict[str, Any], region=None) -> Any:
+    return _make_nat_client(config['provider'], region)
 
 
-def _make_eip_client(config_provider: Dict[str, Any]) -> Any:
-    region = config_provider.get('region')
-    credentials = config_provider.get('huaweicloud_credentials')
-    if credentials:
-        ak = credentials.get('huaweicloud_access_key')
-        sk = credentials.get('huaweicloud_secret_key')
-        _client_cache_map = _client_cache(region, ak, sk)
-    else:
-        _client_cache_map = _client_cache(region)
-    return _client_cache_map['eip']
+def _make_nat_client(config_provider: Dict[str, Any], region=None) -> Any:
+    return _make_client(config_provider, 'nat', region)
 
 
-def make_iam_client(config: Dict[str, Any]) -> Any:
-    return _make_iam_client(config['provider'])
+def make_eip_client(config: Dict[str, Any], region=None) -> Any:
+    return _make_eip_client(config['provider'], region)
 
 
-def _make_iam_client(config_provider: Dict[str, Any]) -> Any:
-    region = config_provider.get('region')
-    credentials = config_provider.get('huaweicloud_credentials')
-    if credentials:
-        ak = credentials.get('huaweicloud_access_key')
-        sk = credentials.get('huaweicloud_secret_key')
-        _client_cache_map = _client_cache(region, ak, sk)
-    else:
-        _client_cache_map = _client_cache(region)
-    return _client_cache_map['iam']
+def _make_eip_client(config_provider: Dict[str, Any], region=None) -> Any:
+    return _make_client(config_provider, 'eip', region)
 
 
-def make_obs_client(config: Dict[str, Any]) -> Any:
-    return _make_obs_client(config["provider"])
+def make_iam_client(config: Dict[str, Any], region=None) -> Any:
+    return _make_iam_client(config['provider'], region)
 
 
-def _make_obs_client(config_provider: Dict[str, Any]) -> Any:
-    region = config_provider.get('region')
-    credentials = config_provider.get('huaweicloud_credentials')
-    if credentials:
-        ak = credentials.get('huaweicloud_access_key')
-        sk = credentials.get('huaweicloud_secret_key')
-        _client_cache_map = _client_cache(region, ak, sk)
-    else:
-        _client_cache_map = _client_cache(region)
-    return _client_cache_map['obs']
+def _make_iam_client(config_provider: Dict[str, Any], region=None) -> Any:
+    return _make_client(config_provider, 'iam', region)
+
+
+def make_obs_client(config: Dict[str, Any], region=None) -> Any:
+    return _make_obs_client(config["provider"], region)
+
+
+def _make_obs_client(config_provider: Dict[str, Any], region=None) -> Any:
+    return _make_client(config_provider, 'obs', region)
 
 
 def get_huaweicloud_obs_storage_config(provider_config: Dict[str, Any]):

@@ -6,7 +6,7 @@ from cloudtik.providers._private.huaweicloud.config import \
     bootstrap_huaweicloud_workspace, check_huaweicloud_workspace_existence, \
     create_huaweicloud_workspace, \
     delete_huaweicloud_workspace, get_huaweicloud_workspace_info, \
-    list_huaweicloud_clusters, update_huaweicloud_workspace_firewalls
+    list_huaweicloud_clusters, update_huaweicloud_workspace_firewalls, check_huaweicloud_workspace_integrity
 
 HUAWEICLOUD_WORKSPACE_NAME_MAX_LEN = 32
 
@@ -31,8 +31,7 @@ class HUAWEICLOUDWorkspaceProvider(WorkspaceProvider):
         return check_huaweicloud_workspace_existence(config)
 
     def check_workspace_integrity(self, config: Dict[str, Any]) -> bool:
-        existence = check_huaweicloud_workspace_existence(config)
-        return True if existence == Existence.COMPLETED else False
+        return check_huaweicloud_workspace_integrity(config)
 
     def list_clusters(self, config: Dict[str, Any]) -> Optional[
         Dict[str, Any]]:

@@ -1,6 +1,7 @@
 import copy
 import logging
 import time
+from typing import Any, Dict
 
 import requests
 from huaweicloudsdkecs.v2 import ListServersDetailsRequest
@@ -47,13 +48,14 @@ from cloudtik.core._private.utils import check_cidr_conflict, \
     is_managed_cloud_storage, \
     is_peering_firewall_allow_ssh_only, \
     is_peering_firewall_allow_working_subnet, is_use_peering_vpc, \
-    is_use_working_vpc
+    is_use_working_vpc, is_use_managed_cloud_storage
 from cloudtik.core.workspace_provider import \
     CLOUDTIK_MANAGED_CLOUD_STORAGE, CLOUDTIK_MANAGED_CLOUD_STORAGE_URI, \
     Existence
 from cloudtik.providers._private.huaweicloud.utils import make_ecs_client, \
     make_eip_client, make_iam_client, make_nat_client, make_obs_client, \
-    make_vpc_client
+    make_vpc_client, export_huaweicloud_obs_storage_config, get_huaweicloud_obs_storage_config, \
+    get_huaweicloud_obs_storage_config_for_update, HUAWEICLOUD_OBS_BUCKET, _make_obs_client
 
 logger = logging.getLogger(__name__)
 
@@ -1016,6 +1018,11 @@ def check_huaweicloud_workspace_existence(config):
         return Existence.IN_COMPLETED
 
 
+def check_huaweicloud_workspace_integrity(config):
+    existence = check_huaweicloud_workspace_existence(config)
+    return True if existence == Existence.COMPLETED else False
+
+
 def _get_instance_profile(config, workspace_name, for_head):
     iam_client = make_iam_client(config)
     _prefix = 'head' if for_head else 'worker'
@@ -1067,3 +1074,116 @@ def _configure_allowed_ssh_sources(config):
                      allowed_ssh_sources]
     }
     ip_permissions.append(ip_permission)
+
+
+def with_huaweicloud_environment_variables(provider_config, node_type_config: Dict[str, Any], node_id: str):
+    config_dict = {}
+    export_huaweicloud_obs_storage_config(provider_config, config_dict)
+
+    if node_type_config is not None:
+        node_config = node_type_config.get("node_config")
+        agency_name = node_config.get("metadata", {}).get("agency_name")
+        if agency_name:
+            config_dict["HUAWEICLOUD_ECS_AGENCY_NAME"] = agency_name
+
+    return config_dict
+
+
+def post_prepare_huaweicloud(config: Dict[str, Any]) -> Dict[str, Any]:
+    try:
+        config = fill_available_node_types_resources(config)
+    except Exception as exc:
+        cli_logger.warning(
+            "Failed to detect node resources. Make sure you have properly configured the Alibaba Cloud credentials: {}.",
+            str(exc))
+        raise
+    return config
+
+
+def fill_available_node_types_resources(
+        cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+    """Fills out missing "resources" field for available_node_types."""
+    if "available_node_types" not in cluster_config:
+        return cluster_config
+    cluster_config = copy.deepcopy(cluster_config)
+
+    # TODO: fill in the CPU and memory resources in config based on the instance type of each node type
+    return cluster_config
+
+
+def bootstrap_huaweicloud(config):
+    workspace_name = config.get("workspace_name", "")
+    if workspace_name == "":
+        raise RuntimeError("Workspace name is not specified in cluster configuration.")
+
+    config = bootstrap_huaweicloud_from_workspace(config)
+    return config
+
+
+def verify_obs_storage(provider_config: Dict[str, Any]):
+    s3_storage = get_huaweicloud_obs_storage_config(provider_config)
+    if s3_storage is None:
+        return
+
+    # TODO: verify the configuration of obs to make sure the credential and info are correct
+
+
+def bootstrap_huaweicloud_from_workspace(config):
+    if not check_huaweicloud_workspace_integrity(config):
+        workspace_name = config["workspace_name"]
+        cli_logger.abort("Huawei Cloud workspace {} doesn't exist or is in wrong state.", workspace_name)
+
+    # create a copy of the input config to modify
+    config = copy.deepcopy(config)
+
+    # Used internally to store head IAM role.
+    config["head_node"] = {}
+
+    # TODO: implement the boostrap steps
+    # If a LaunchTemplate is provided, extract the necessary fields for the
+    # config stages below.
+    # config = _configure_from_launch_template(config)
+
+    # The head node needs to have an RAM role that allows it to create further
+    # ECS instances.
+    # config = _configure_ram_role_from_workspace(config)
+
+    # Set obs.bucket if use_managed_cloud_storage
+    config = _configure_cloud_storage_from_workspace(config)
+
+    # Configure SSH access, using an existing key pair if possible.
+    # config = _configure_key_pair(config)
+
+    # Pick a reasonable subnet if not specified by the user.
+    # config = _configure_vswitch_from_workspace(config)
+
+    # Cluster workers should be in a security group that permits traffic within
+    # the group, and also SSH access from outside.
+    # config = _configure_security_group_from_workspace(config)
+
+    # Provide a helpful message for missing AMI.
+    # config = _configure_image(config)
+
+    # Set the spot preference based on user option
+    # config = _configure_prefer_spot_node(config)
+    return config
+
+
+def _configure_cloud_storage_from_workspace(config):
+    use_managed_cloud_storage = is_use_managed_cloud_storage(config)
+    if use_managed_cloud_storage:
+        _configure_managed_cloud_storage_from_workspace(config, config["provider"])
+
+    return config
+
+
+def _configure_managed_cloud_storage_from_workspace(config, cloud_provider):
+    workspace_name = config["workspace_name"]
+    obs_client = _make_obs_client(cloud_provider)
+    obs_bucket_name = _get_managed_obs_bucket(obs_client, workspace_name)
+    if obs_bucket_name is None:
+        cli_logger.abort("No managed OBS bucket was found. If you want to use managed OBS bucket, "
+                         "you should set managed_cloud_storage equal to True when you creating workspace.")
+
+    cloud_storage = get_huaweicloud_obs_storage_config_for_update(config["provider"])
+    cloud_storage[HUAWEICLOUD_OBS_BUCKET] = obs_bucket_name

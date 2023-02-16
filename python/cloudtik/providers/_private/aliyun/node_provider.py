@@ -288,7 +288,7 @@ class EcsClient:
         try:
             response = self.client.create_security_group_with_options(
                 create_security_group_request, self.runtime_options)
-            return response.get("SecurityGroupId")
+            return response.body.security_group_id
         except Exception as e:
             cli_logger.error("Failed to create security group. {}".format(e))
             raise e
@@ -307,7 +307,7 @@ class EcsClient:
         try:
             response = self.client.describe_security_groups_with_options(
                 describe_security_groups_request, self.runtime_options)
-            security_groups = response.get("SecurityGroups").get("SecurityGroup")
+            security_groups = response.body.security_groups.security_group
             return security_groups
         except Exception as e:
             cli_logger.error("Failed to describe security groups. {}".format(e))
@@ -340,11 +340,7 @@ class EcsClient:
             raise e
 
     def describe_security_group_attribute(self, security_group_id):
-        """Query basic information of security groups.
-        :param vpc_id: The ID of the VPC to which the security group belongs.
-        :param tags: The tags of the security group.
-        :return: Security group list.
-        """
+        """Query basic information of security group"""
         describe_security_group_attribute_request = ecs_models.DescribeSecurityGroupAttributeRequest(
             region_id=self.region_id,
             security_group_id=security_group_id
@@ -352,8 +348,7 @@ class EcsClient:
         try:
             response = self.client.describe_security_group_attribute_with_options(
                 describe_security_group_attribute_request, self.runtime_options)
-            security_groups = response.get("SecurityGroups").get("SecurityGroup")
-            return security_groups
+            return response.body
         except Exception as e:
             cli_logger.error("Failed to describe security group attribute. {}".format(e))
             raise e
@@ -381,10 +376,8 @@ class EcsClient:
             ]
         )
         try:
-            response = self.client.authorize_security_group_with_options(
+            self.client.authorize_security_group_with_options(
                 authorize_security_group_request, self.runtime_options)
-            security_groups = response.get("SecurityGroups").get("SecurityGroup")
-            return security_groups
         except Exception as e:
             cli_logger.error("Failed to authorize security group rule. {}".format(e))
             raise e
@@ -396,10 +389,8 @@ class EcsClient:
             security_group_id=security_group_id
         )
         try:
-            response = self.client.delete_security_group_with_options(
+            self.client.delete_security_group_with_options(
                 delete_security_group_request, self.runtime_options)
-            security_groups = response.get("SecurityGroups").get("SecurityGroup")
-            return security_groups
         except Exception as e:
             cli_logger.error("Failed to delete security group. {}".format(e))
             raise e

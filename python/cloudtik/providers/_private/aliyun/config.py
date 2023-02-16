@@ -20,12 +20,8 @@ from cloudtik.core.workspace_provider import Existence, CLOUDTIK_MANAGED_CLOUD_S
 from cloudtik.providers._private.aliyun.utils import AcsClient, export_aliyun_oss_storage_config, \
     get_aliyun_oss_storage_config, get_aliyun_oss_storage_config_for_update, ALIYUN_OSS_BUCKET
 
-from cloudtik.providers._private.aliyun.utils import make_vpc_client, make_ram_client, make_vpc_peer_client, make_ecs_client
+from cloudtik.providers._private.aliyun.utils import VpcClient, VpcPeerClient, RamClient
 from cloudtik.providers._private.aliyun.node_provider import EcsClient
-from alibabacloud_ram20150501 import models as ram_models
-from alibabacloud_tea_util import models as util_models
-from alibabacloud_vpc20160428 import models as vpc_models
-from alibabacloud_vpcpeer20220101 import models as vpc_peer_models
 
 # instance status
 PENDING = "Pending"
@@ -498,7 +494,7 @@ def _get_or_create_vpc(config):
     cli = _client(config)
     vpcs = cli.describe_vpcs()
     if vpcs is not None and len(vpcs) > 0:
-        config["provider"]["vpc_id"] = vpcs[0].get("VpcId")
+        config["provider"]["vpc_id"] = vpcs[0].vpc_id
         return
 
     vpc_id = cli.create_vpc()
@@ -510,7 +506,7 @@ def _get_or_create_vswitch(config):
     cli = _client(config)
     vswitches = cli.describe_v_switches(vpc_id=config["provider"]["vpc_id"])
     if vswitches is not None and len(vswitches) > 0:
-        config["provider"]["v_switch_id"] = vswitches[0].get("VSwitchId")
+        config["provider"]["v_switch_id"] = vswitches[0].v_switch_id
         return
 
     v_switch_id = cli.create_v_switch(
@@ -557,70 +553,78 @@ def get_workspace_vpc_peering_name(workspace_name):
     return ALIYUN_WORKSPACE_VPC_PEERING_NAME.format(workspace_name)
 
 
-def _create_workspace_vpc_peering_connection(config, acs_client):
-    current_acs_client = _working_node_client(config)
+def _create_workspace_vpc_peer_connection(config, vpc_peer_cli):
+    provider_config = config["provider"]
     current_region_id = get_current_instance_region()
+    current_vpc_peer_cli = VpcPeerClient(provider_config, current_region_id)
+    
     owner_account_id = get_current_instance_owner_account_id
     workspace_name = config["workspace_name"]
     vpc_peer_name = get_workspace_vpc_peering_name(workspace_name)
-    region = config["provider"]["region"]
+    region = provider_config["region"]
     current_vpc = get_current_vpc(config)
-    workspace_vpc = get_workspace_vpc(workspace_name, acs_client)
+    vpc_cli = VpcClient(provider_config)
+    workspace_vpc = get_workspace_vpc(workspace_name, vpc_cli)
     cli_logger.print("Creating VPC peering connection.")
 
-    instance_id = current_acs_client.create_vpc_peering_connection(
+    instance_id = current_vpc_peer_cli.create_vpc_peer_connection(
         region_id=current_region_id,
-        vpc_id=current_vpc.get("VpcId"),
+        vpc_id=current_vpc.vpc_id,
         accepted_ali_uid=owner_account_id,
-        accepted_vpc_id=workspace_vpc.get("VpcId"),
+        accepted_vpc_id=workspace_vpc.vpc_id,
         accepted_region_id=region,
         name=vpc_peer_name)
-    if instance_id is None:
-        cli_logger.abort("Failed to create VPC peering connection.")
-    else:
-        cli_logger.print(
-            "Successfully created VPC peering connection: {}.", vpc_peer_name)
+    cli_logger.print("Successfully created VPC peering connection: {}.", vpc_peer_name)
+    return instance_id
 
 
-def get_vpc_route_tables(vpc, acs_client):
-    route_tables = acs_client.describe_route_tables(vpc.get("VpcId"))
+def get_vpc_route_tables(vpc, vpc_cli):
+    route_tables = vpc_cli.describe_route_tables(vpc.vpc_id)
     return route_tables
 
 
-def get_workspace_vpc_peering_connection(config):
+def get_workspace_vpc_peer_connection(config):
     workspace_name = config["workspace_name"]
     vpc_peer_name = get_workspace_vpc_peering_name(workspace_name)
-    current_acs_client = _working_node_client(config)
+    current_region_id = get_current_instance_region()
+    current_vpc_peer_cli =VpcPeerClient(config["provider"], current_region_id)
     current_vpc_id = get_current_vpc_id(config)
 
-    vpc_peering_connections = current_acs_client.describe_vpc_peering_connections(vpc_id=current_vpc_id, vpc_peering_connection_name=vpc_peer_name)
-    return None if len(vpc_peering_connections) == 0 else vpc_peering_connections[0]
+    vpc_peer_connections = current_vpc_peer_cli.describe_vpc_peer_connections(
+        vpc_id=current_vpc_id,
+        vpc_peer_connection_name=vpc_peer_name
+    )
+    return None if len(vpc_peer_connections) == 0 else vpc_peer_connections[0]
 
 
-def get_workspace_vpc_peering_connection_route_entry_name(workspace_name):
+def get_workspace_vpc_peer_connection_route_entry_name(workspace_name):
     return ALIYUN_WORKSPACE_VPC_PEERING_ROUTE_ENTRY_NAME.format(workspace_name)
 
-def _update_route_tables_for_workspace_vpc_peering_connection(config, acs_client):
-    current_acs_client = _working_node_client(config)
+def _update_route_tables_for_workspace_vpc_peer_connection(config, vpc_peer_cli):
+    provider_config = config["provider"]
     workspace_name = config["workspace_name"]
+    current_region_id = get_current_instance_region()
+    current_vpc_peer_cli = VpcPeerClient(provider_config, current_region_id)
+    current_vpc_cli = VpcClient(provider_config, current_region_id)
     current_vpc = get_current_vpc(config)
-    workspace_vpc = get_workspace_vpc(workspace_name, acs_client)
+    vpc_cli = VpcClient(provider_config)
+    workspace_vpc = get_workspace_vpc(workspace_name, vpc_cli)
 
-    current_vpc_route_tables = get_vpc_route_tables(current_vpc, current_acs_client)
-    workspace_vpc_route_tables = get_vpc_route_tables(workspace_vpc, acs_client)
+    current_vpc_route_tables = get_vpc_route_tables(current_vpc, current_vpc_cli)
+    workspace_vpc_route_tables = get_vpc_route_tables(workspace_vpc, vpc_cli)
 
-    vpc_peering_connection = get_workspace_vpc_peering_connection(config)
-    if vpc_peering_connection is None:
+    vpc_peer_connection = get_workspace_vpc_peer_connection(config)
+    if vpc_peer_connection is None:
         cli_logger.abort(
-            "No vpc_peering_connection found for workspace: {}.".format(workspace_name))
+            "No vpc peer connection found for workspace: {}.".format(workspace_name))
 
     for current_vpc_route_table in current_vpc_route_tables:
-        response = current_acs_client.create_route_entry(
-            route_table_id=current_vpc_route_table.get("RouteTableId"),
-            cidr_block=workspace_vpc.get("CidrBlock"),
-            next_hop_id=vpc_peering_connection.get("InstanceId"),
+        response = current_vpc_cli.create_route_entry(
+            route_table_id=current_vpc_route_table.route_table_id,
+            cidr_block=workspace_vpc.cidr_block,
+            next_hop_id=vpc_peer_connection.instance_id,
             next_hop_type="VpcPeer",
-            name=get_workspace_vpc_peering_connection_route_entry_name(workspace_name))
+            name=get_workspace_vpc_peer_connection_route_entry_name(workspace_name))
         
         if response is None:
             cli_logger.abort(
@@ -628,14 +632,14 @@ def _update_route_tables_for_workspace_vpc_peering_connection(config, acs_client
         else:
             cli_logger.print(
                 "Successfully add route destination to current VPC route table {} with workspace VPC CIDR block.".format(
-                    current_vpc_route_table.get("RouteTableId")))
+                    current_vpc_route_table.route_table_id))
 
     for workspace_vpc_route_table in workspace_vpc_route_tables:
 
-        response = acs_client.create_route_entry(
-            route_table_id=workspace_vpc_route_table.get("RouteTableId"),
-            cidr_block=current_vpc.get("CidrBlock"),
-            next_hop_id=vpc_peering_connection.get("InstanceId"),
+        response = vpc_cli.create_route_entry(
+            route_table_id=workspace_vpc_route_table.route_table_id,
+            cidr_block=current_vpc.cidr_block,
+            next_hop_id=vpc_peer_connection.instance_id,
             next_hop_type="VpcPeer",
             name="cloudtik-{}-vpc-peering-connection-route-entry".format(workspace_name))
 
@@ -645,61 +649,66 @@ def _update_route_tables_for_workspace_vpc_peering_connection(config, acs_client
         else:
             cli_logger.print(
                 "Successfully add route destination to current VPC route table {} with workspace VPC CIDR block.".format(
-                    workspace_vpc_route_table.get("RouteTableId")))
+                    workspace_vpc_route_table.route_table_id))
 
 
-def _create_and_configure_vpc_peering_connection(config, acs_client):
+def _create_and_configure_vpc_peer_connection(config, vpc_peer_cli):
     current_step = 1
     total_steps = 2
 
     with cli_logger.group(
-            "Creating VPC peering connection",
+            "Creating VPC peer connection",
             _numbered=("()", current_step, total_steps)):
         current_step += 1
-        _create_workspace_vpc_peering_connection(config, acs_client)
+        _create_workspace_vpc_peer_connection(config, vpc_peer_cli)
 
     with cli_logger.group(
-            "Update route tables for the VPC peering connection",
+            "Update route tables for the VPC peer connection",
             _numbered=("()", current_step, total_steps)):
         current_step += 1
-        _update_route_tables_for_workspace_vpc_peering_connection(config, acs_client)
+        _update_route_tables_for_workspace_vpc_peer_connection(config, vpc_peer_cli)
 
 
 def  _create_network_resources(config, current_step, total_steps):
+    provider_config = config["provider"]
+    ecs_cli = EcsClient(provider_config)
+    vpc_cli= VpcClient(provider_config)
+    vpc_peer_cli= VpcPeerClient(provider_config)
+
     # create VPC
     with cli_logger.group(
             "Creating VPC",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
-        vpc_id = _configure_vpc(config)
+        vpc_id = _configure_vpc(config, vpc_cli)
 
-    # create subnets
+    # create vswitches
     with cli_logger.group(
-            "Creating subnets",
+            "Creating vswitches",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
-        _create_and_configure_vswitches(config, acs_client)
+        _create_and_configure_vswitches(config, vpc_cli)
 
     # create NAT gateway for public subnets
     with cli_logger.group(
             "Creating Internet gateway",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
-        _create_and_configure_nat_gateway(config, acs_client)
+        _create_and_configure_nat_gateway(config, vpc_cli)
 
     with cli_logger.group(
             "Creating security group",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
 
-        _upsert_security_group(config, vpc_id, acs_client)
+        _upsert_security_group(config, vpc_id, ecs_cli)
 
     if is_use_peering_vpc(config):
         with cli_logger.group(
                 "Creating VPC peering connection",
                 _numbered=("[]", current_step, total_steps)):
             current_step += 1
-            _create_and_configure_vpc_peering_connection(config, acs_client)
+            _create_and_configure_vpc_peer_connection(config, vpc_peer_cli)
 
     return current_step
 
@@ -795,7 +804,6 @@ def _create_managed_cloud_storage(cloud_provider, workspace_name):
 
 
 def _create_workspace(config):
-    # acs_client = _client(config)
     workspace_name = config["workspace_name"]
     managed_cloud_storage = is_managed_cloud_storage(config)
     use_peering_vpc = is_use_peering_vpc(config)
@@ -815,7 +823,7 @@ def _create_workspace(config):
                     "Creating instance role",
                     _numbered=("[]", current_step, total_steps)):
                 current_step += 1
-                _create_workspace_instance_role(config, workspace_name)
+                _create_workspace_instance_role(config)
 
             if managed_cloud_storage:
                 with cli_logger.group(
@@ -836,15 +844,14 @@ def _create_workspace(config):
     return config
 
 
-def _configure_vpc(config):
-    vpc_client = VpcClient(config["provider_config"])
+def _configure_vpc(config, vpc_cli):
     workspace_name = config["workspace_name"]
     use_working_vpc = is_use_working_vpc(config)
     if use_working_vpc:
         # No need to create new vpc
         vpc_name = _get_workspace_vpc_name(workspace_name)
         vpc_id = get_current_vpc_id(config)
-        vpc_client.tag_vpc_resource(
+        vpc_cli.tag_resource(
             resource_id=vpc_id,
             resource_type="VPC",
             tags=[
@@ -855,8 +862,8 @@ def _configure_vpc(config):
         cli_logger.print("Using the existing VPC: {} for workspace. Skip creation.".format(vpc_id))
     else:
         # Need to create a new vpc
-        if get_workspace_vpc_id(config, acs_client) is None:
-            vpc_id = _create_vpc(config, acs_client)
+        if get_workspace_vpc_id(config, vpc_cli) is None:
+            vpc_id = _create_vpc(config, vpc_cli)
         else:
             raise RuntimeError("There is a same name VPC for workspace: {}, "
                                "if you want to create a new workspace with the same name, "
@@ -889,9 +896,8 @@ def get_current_instance_owner_account_id():
 def get_current_instance(acs_client):
     ip_address = get_node_ip_address(address="8.8.8.8:53")
     for instance in acs_client.describe_instances():
-        for network_interface in instance.get("NetworkInterfaces").get("NetworkInterface"):
-
-            if network_interface.get("PrimaryIpAddress", "") == ip_address:
+        for network_interface in instance.network_interfaces.network_interface:
+            if network_interface.primary_ip_address == ip_address:
                 return instance
 
     raise RuntimeError("Failed to get the instance metadata for the current machine. "
@@ -900,9 +906,9 @@ def get_current_instance(acs_client):
 
 def get_current_vpc(config):
     current_region_id = get_current_instance_region()
-    current_ecs_client = EcsClient(config["provider_config"], current_region_id)
+    current_vpc_cli = VpcClient(config["provider_config"], current_region_id)
     current_vpc_id = get_current_vpc_id(config)
-    current_vpc = current_ecs_client.describe_vpcs(vpc_id=current_vpc_id)[0]
+    current_vpc = current_vpc_cli.describe_vpcs(vpc_id=current_vpc_id)[0]
     return current_vpc
 
 
@@ -912,10 +918,9 @@ def get_current_vpc_id(config):
     ip_address = get_node_ip_address(address="8.8.8.8:53")
     vpc_id = None
     for instance in current_ecs_client.describe_instances():
-        for network_interface in instance.get("NetworkInterfaces").get("NetworkInterface"):
-
-            if network_interface.get("PrimaryIpAddress", "") == ip_address:
-                vpc_id = instance["VpcAttributes"]["VpcId"]
+        for network_interface in instance.network_interfaces.network_interface:
+            if network_interface.primary_ip_address == ip_address:
+                vpc_id = instance.vpc_attributes.vpc_id
 
     if vpc_id is None:
         raise RuntimeError("Failed to get the VPC for the current machine. "
@@ -923,26 +928,25 @@ def get_current_vpc_id(config):
     return vpc_id
 
 
-def get_existing_routes_cidr_block(acs_client, route_tables):
+def get_existing_routes_cidr_block(current_vpc_cli, route_tables):
     existing_routes_cidr_block = set()
     for route_table in route_tables:
-        for route_entry in acs_client.describe_route_entry_list(route_table.get("RouteTableId")):
-            if route_entry.get("DestinationCidrBlock") != '0.0.0.0/0':
-                existing_routes_cidr_block.add(route_entry.get("DestinationCidrBlock"))
+        for route_entry in current_vpc_cli.describe_route_entry_list(route_table.route_table_id):
+            if route_entry.destination_cidr_block != '0.0.0.0/0':
+                existing_routes_cidr_block.add(route_entry.destination_cidr_block)
 
     return existing_routes_cidr_block
 
 
 def _configure_peering_vpc_cidr_block(config, current_vpc):
-    current_vpc_cidr_block = current_vpc.get("CidrBlock")
-    current_acs_client = _working_node_client(config)
-    current_vpc_route_tables = get_vpc_route_tables(current_vpc, current_acs_client)
-
-    existing_routes_cidr_block = get_existing_routes_cidr_block(current_acs_client, current_vpc_route_tables)
+    current_vpc_cidr_block = current_vpc.cidr_block
+    current_region_id = get_current_instance_region()
+    current_vpc_cli = VpcClient(config["provider"], current_region_id)
+    current_vpc_route_tables = get_vpc_route_tables(current_vpc, current_vpc_cli)
+    existing_routes_cidr_block = get_existing_routes_cidr_block(current_vpc_cli, current_vpc_route_tables)
     existing_routes_cidr_block.add(current_vpc_cidr_block)
 
     ip = current_vpc_cidr_block.split("/")[0].split(".")
-
     for  i in range(0, 256):
         tmp_cidr_block = ip[0] + "." + str(i) + ".0.0/16"
 
@@ -953,7 +957,7 @@ def _configure_peering_vpc_cidr_block(config, current_vpc):
     cli_logger.abort("Failed to find non-conflicted cidr block for peering VPC.")
 
 
-def _create_vpc(config, acs_client):
+def _create_vpc(config, vpc_cli):
     workspace_name = config["workspace_name"]
     vpc_name = _get_workspace_vpc_name(workspace_name)
 
@@ -964,12 +968,9 @@ def _create_vpc(config, acs_client):
         current_vpc = get_current_vpc(config)
         cidr_block = _configure_peering_vpc_cidr_block(config, current_vpc)
 
-    vpc_id = acs_client.create_vpc(vpc_name, cidr_block)
-    if vpc_id is None:
-        cli_logger.print("Successfully created workspace VPC: {}.", vpc_name)
-        return vpc_id
-    else:
-        cli_logger.abort("Failed to create workspace VPC.")
+    vpc_id = vpc_cli.create_vpc(vpc_name, cidr_block)
+    cli_logger.print("Successfully created workspace VPC: {}.", vpc_name)
+    return vpc_id
 
 
 def _delete_vpc(config, acs_client):
@@ -995,23 +996,18 @@ def _delete_vpc(config, acs_client):
         cli_logger.abort("Failed to delete the VPC: {}.")
 
 
-def get_workspace_vpc_id(config, acs_client):
-    return _get_workspace_vpc_id(config["workspace_name"], acs_client)
+def get_workspace_vpc_id(config, vpc_cli):
+    return _get_workspace_vpc_id(config["workspace_name"], vpc_cli)
 
 
-def get_workspace_vpc(config, acs_client):
-    return _get_workspace_vpc(config["workspace_name"], acs_client)
+def get_workspace_vpc(config, vpc_cli):
+    return _get_workspace_vpc(config["workspace_name"], vpc_cli)
 
 
-def _get_workspace_vpc(workspace_name, acs_client):
+def _get_workspace_vpc(workspace_name, vpc_cli):
     vpc_name = _get_workspace_vpc_name(workspace_name)
     cli_logger.verbose("Getting the VPC for workspace: {}...".format(vpc_name))
-    all_vpcs = acs_client.describe_vpcs()
-    if all_vpcs is None:
-        cli_logger.verbose("The VPC for workspace is not found: {}.".format(vpc_name))
-        return None
-
-    vpcs = [vpc for vpc in all_vpcs if vpc.get('VpcName') == vpc_name]
+    vpcs = vpc_cli.describe_vpcs(vpc_name=vpc_name)
     if len(vpcs) == 0:
         cli_logger.verbose("The VPC for workspace is not found: {}.".format(vpc_name))
         return None
@@ -1020,27 +1016,27 @@ def _get_workspace_vpc(workspace_name, acs_client):
         return vpcs[0]
 
 
-def _get_workspace_vpc_id(workspace_name, acs_client):
-    vpc = _get_workspace_vpc(workspace_name, acs_client)
-    return None if vpc is None else vpc.get('VpcId')
+def _get_workspace_vpc_id(workspace_name, vpc_cli):
+    vpc = _get_workspace_vpc(workspace_name, vpc_cli)
+    return None if vpc is None else vpc.vpc_id
 
 
 def _get_workspace_vpc_name(workspace_name):
     return ALIYUN_WORKSPACE_VPC_NAME.format(workspace_name)
 
 
-def _configure_vswitches_cidr(vpc, acs_client):
+def _configure_vswitches_cidr(vpc, vpc_cli):
     cidr_list = []
-    vswitches = acs_client.describe_v_switches(vpc.get("VpcId"))
+    vswitches = vpc_cli.describe_vswitches(vpc.vpc_id)
 
-    vpc_cidr = vpc.get("CidrBlock")
+    vpc_cidr = vpc.cidr_block
     ip = vpc_cidr.split("/")[0].split(".")
 
     if len(vswitches) == 0:
         for i in range(0, ALIYUN_VPC_SWITCHES_COUNT):
             cidr_list.append(ip[0] + "." + ip[1] + "." + str(i) + ".0/24")
     else:
-        cidr_blocks = [vswitch.get("CidrBlock") for vswitch in vswitches]
+        cidr_blocks = [vswitch.cidr_block for vswitch in vswitches]
         for i in range(0, 256):
             tmp_cidr_block = ip[0] + "." + ip[1] + "." + str(i) + ".0/24"
 
@@ -1053,19 +1049,16 @@ def _configure_vswitches_cidr(vpc, acs_client):
     return cidr_list
 
 
-def _create_and_configure_vswitches(config, acs_client):
+def _create_and_configure_vswitches(config, vpc_cli):
     workspace_name = config["workspace_name"]
-    vpc = get_workspace_vpc(config, acs_client)
-    vpc_id = get_workspace_vpc_id(config, acs_client)
+    vpc = get_workspace_vpc(config, vpc_cli)
+    vpc_id = get_workspace_vpc_id(config, vpc_cli)
 
     vswitches = []
-    cidr_list = _configure_vswitches_cidr(vpc, acs_client)
+    cidr_list = _configure_vswitches_cidr(vpc, vpc_cli)
     cidr_len = len(cidr_list)
 
-    zones = acs_client.describe_zones()
-    if zones is None:
-        cli_logger.abort("No available zones found.")
-    availability_zones_id = [zone.get("ZoneId") for zone in zones if len(zone['AvailableInstanceTypes']['InstanceTypes']) > 0]
+    availability_zones_id = [zone.zone_id for zone in vpc_cli.describe_zones()]
     default_availability_zone_id = availability_zones_id[0]
     availability_zones_id = set(availability_zones_id)
     used_availability_zones_id = set()
@@ -1079,12 +1072,12 @@ def _create_and_configure_vswitches(config, acs_client):
                 _numbered=("()", i + 1, cidr_len)):
             try:
                 if i == 0:
-                    vswitch = _create_vswitch(acs_client, default_availability_zone_id, workspace_name, vpc_id, cidr_block, isPrivate=False)
+                    vswitch = _create_vswitch(vpc_cli, default_availability_zone_id, workspace_name, vpc_id, cidr_block, isPrivate=False)
                 else:
                     if last_availability_zone_id is None:
                         last_availability_zone_id = default_availability_zone_id
 
-                        vswitch = _create_vswitch(acs_client, default_availability_zone_id, workspace_name, vpc_id, cidr_block)
+                        vswitch = _create_vswitch(vpc_cli, default_availability_zone_id, workspace_name, vpc_id, cidr_block)
 
                         last_availability_zone_id = _next_availability_zone(
                             availability_zones_id, used_availability_zones_id, last_availability_zone_id)
@@ -1099,11 +1092,11 @@ def _create_and_configure_vswitches(config, acs_client):
     return vswitches
 
 
-def _create_vswitch(acs_client, zone_id, workspace_name, vpc_id, cidr_block, isPrivate=True):
+def _create_vswitch(vpc_cli, zone_id, workspace_name, vpc_id, cidr_block, isPrivate=True):
     vswitch_type = "private" if isPrivate else "public"
     cli_logger.print("Creating {} vswitch for VPC: {} with CIDR: {}...".format(vswitch_type, vpc_id, cidr_block))
     vswitch_name = 'cloudtik-{}-{}-vswitch'.format(workspace_name, vswitch_type)
-    vswitch_id = acs_client.create_v_switch(vpc_id, zone_id, cidr_block, vswitch_name)
+    vswitch_id = vpc_cli.create_v_switch(vpc_id, zone_id, cidr_block, vswitch_name)
     if vswitch_id is None:
         cli_logger.abort("Failed to create {} vswitch: {}.".format(vswitch_type, vswitch_name))
     else:
@@ -1111,46 +1104,43 @@ def _create_vswitch(acs_client, zone_id, workspace_name, vpc_id, cidr_block, isP
         return vswitch_id
 
 
-def _delete_private_vswitches(workspace_name, vpc_id, acs_client):
-    _delete_vswitches(workspace_name, vpc_id, acs_client, isPrivate=True)
+def _delete_private_vswitches(workspace_name, vpc_id, vpc_cli):
+    _delete_vswitches(workspace_name, vpc_id, vpc_cli, isPrivate=True)
 
 
-def _delete_public_vswitches(workspace_name, vpc_id, acs_client):
-    _delete_vswitches(workspace_name, vpc_id, acs_client, isPrivate=False)
+def _delete_public_vswitches(workspace_name, vpc_id, vpc_cli):
+    _delete_vswitches(workspace_name, vpc_id, vpc_cli, isPrivate=False)
 
 
-def get_workspace_private_vswitches(workspace_name, vpc_id, acs_client):
-    return _get_workspace_vswitches(workspace_name, vpc_id, acs_client, "cloudtik-{}-private-vswitch")
+def get_workspace_private_vswitches(workspace_name, vpc_id, vpc_cli):
+    return _get_workspace_vswitches(workspace_name, vpc_id, vpc_cli, "cloudtik-{}-private-vswitch")
 
 
-def get_workspace_public_vswitches(workspace_name, vpc_id, acs_client):
-    return _get_workspace_vswitches(workspace_name, vpc_id, acs_client, "cloudtik-{}-public-vswitch")
+def get_workspace_public_vswitches(workspace_name, vpc_id, vpc_cli):
+    return _get_workspace_vswitches(workspace_name, vpc_id, vpc_cli, "cloudtik-{}-public-vswitch")
 
 
-def _get_workspace_vswitches(workspace_name, vpc_id, acs_client, name_pattern):
-    vswitches = [vswitch for vswitch in acs_client.describe_v_switches(vpc_id)
-               if vswitch.get("VSwitchName").startswith(name_pattern.format(workspace_name))]
+def _get_workspace_vswitches(workspace_name, vpc_id, vpc_cli, name_pattern):
+    vswitches = [vswitch for vswitch in vpc_cli.describe_vswitches(vpc_id)
+               if vswitch.v_switch_name.startswith(name_pattern.format(workspace_name))]
     return vswitches
 
 
-def _delete_vswitches(workspace_name, vpc_id, acs_client, isPrivate=True):
+def _delete_vswitches(workspace_name, vpc_id, vpc_cli, isPrivate=True):
     vswitch_type = "private" if isPrivate else "public"
     """ Delete custom vswitches """
-    vswitches =  get_workspace_private_vswitches(workspace_name, vpc_id, acs_client) \
-        if isPrivate else get_workspace_public_vswitches(workspace_name, vpc_id, acs_client)
+    vswitches =  get_workspace_private_vswitches(workspace_name, vpc_id, vpc_cli) \
+        if isPrivate else get_workspace_public_vswitches(workspace_name, vpc_id, vpc_cli)
 
     if len(vswitches) == 0:
         cli_logger.print("No vswitches for workspace were found under this VPC: {}...".format(vpc_id))
         return
 
     for vswitch in vswitches:
-        vswitch_id = vswitch.get("VSwitchId")
+        vswitch_id = vswitch.v_switch_id
         cli_logger.print("Deleting {} vswitch: {}...".format(vswitch_type, vswitch_id))
-        response = acs_client.delete_v_switch(vswitch_id)
-        if response is None:
-            cli_logger.abort("Failed to delete {} vswitch.".format(vswitch_type))
-        else:
-            cli_logger.print("Successfully deleted {} vswitch: {}.".format(vswitch_type, vswitch_id))
+        vpc_cli.delete_vswitch(vswitch_id)
+        cli_logger.print("Successfully deleted {} vswitch: {}.".format(vswitch_type, vswitch_id))
 
 
 def _next_availability_zone(availability_zones: set, used: set, last_availability_zone):
@@ -1167,40 +1157,37 @@ def _next_availability_zone(availability_zones: set, used: set, last_availabilit
     return None
 
 
-def _create_workspace_security_group(config, vpc_id, acs_client):
+def _create_workspace_security_group(config, vpc_id, ecs_cli):
     security_group_name = ALIYUN_WORKSPACE_SECURITY_GROUP_NAME.format(config["workspace_name"])
     cli_logger.print("Creating security group for VPC: {} ...".format(vpc_id))
-    security_group_id = acs_client.create_security_group(vpc_id, security_group_name)
-    if security_group_id is None:
-        cli_logger.abort("Failed to create security group for VPC: {}...".format(security_group_name))
-    else:
-        cli_logger.print("Successfully created security group: {}.".format(security_group_name))
-        return security_group_id
+    security_group_id = ecs_cli.create_security_group(vpc_id, security_group_name)
+    cli_logger.print("Successfully created security group: {}.".format(security_group_name))
+    return security_group_id
 
 
-def _add_security_group_rules(config, security_group_id, acs_client):
+def _add_security_group_rules(config, security_group_id, ecs_cli):
     cli_logger.print("Updating rules for security group: {}...".format(security_group_id))
-    _update_inbound_rules(security_group_id, config, acs_client)
+    _update_inbound_rules(security_group_id, config, ecs_cli)
     cli_logger.print("Successfully updated rules for security group.")
 
 
-def _update_inbound_rules(target_security_group_id, config, acs_client):
+def _update_inbound_rules(target_security_group_id, config, ecs_cli):
     extended_rules = config["provider"] \
         .get("security_group_rule", [])
-    new_permissions = _create_default_inbound_rules(config, acs_client, extended_rules)
-    security_group_attribute = acs_client.describe_security_group_attribute(target_security_group_id)
-    old_permissions = security_group_attribute.get('Permissions').get('Permission')
+    new_permissions = _create_default_inbound_rules(config, extended_rules)
+    security_group_attribute = ecs_cli.describe_security_group_attribute(target_security_group_id)
+    old_permissions = security_group_attribute.permissions.permission
     
     # revoke old permissions
     for old_permission in old_permissions:
-        acs_client.revoke_security_group(
+        ecs_cli.revoke_security_group(
             ip_protocol=old_permission.get("IpProtocol"),
             port_range=old_permission.get("PortRange"),
             security_group_id=old_permission.get("SecurityGroupRuleId"),
             source_cidr_ip=old_permission.get("SourceCidrIp"))
     # revoke old permissions
     for new_permission in new_permissions:
-        acs_client.authorize_security_group(
+        ecs_cli.authorize_security_group(
             ip_protocol=new_permission.get("IpProtocol"),
             port_range=new_permission.get("PortRange"),
             security_group_id=target_security_group_id,
@@ -1210,7 +1197,7 @@ def _update_inbound_rules(target_security_group_id, config, acs_client):
 def _create_allow_working_node_inbound_rules(config):
     allow_ssh_only = is_peering_firewall_allow_ssh_only(config)
     vpc = get_current_vpc(config)
-    working_vpc_cidr = vpc.get("CidrBlock")
+    working_vpc_cidr = vpc.cidr_block
     return [{
         "port_range": "22/22" if allow_ssh_only else "-1/-1",
         "source_cidr_ip": working_vpc_cidr,
@@ -1218,10 +1205,10 @@ def _create_allow_working_node_inbound_rules(config):
     }]
 
 
-def _create_default_inbound_rules(config, acs_client, extended_rules=None):
+def _create_default_inbound_rules(config, extended_rules=None):
     if extended_rules is None:
         extended_rules = []
-    intra_cluster_rules = _create_default_intra_cluster_inbound_rules(acs_client, config)
+    intra_cluster_rules = _create_default_intra_cluster_inbound_rules(config)
 
     # TODO: support VPC peering
     if is_use_peering_vpc(config) and is_peering_firewall_allow_working_subnet(config):
@@ -1261,11 +1248,11 @@ def get_workspace_security_group_name(workspace_name):
 def _update_security_group(config, acs_client):
     vpc_id = get_workspace_vpc_id(config, acs_client)
     security_group = get_workspace_security_group(config, acs_client, vpc_id)
-    _add_security_group_rules(config, security_group.get("SecurityGroupId"), acs_client)
+    _add_security_group_rules(config, security_group.security_group_id, acs_client)
     return security_group
 
 
-def _upsert_security_group(config, vpc_id, acs_client):
+def _upsert_security_group(config, vpc_id, ecs_cli):
     current_step = 1
     total_steps = 2
 
@@ -1273,13 +1260,13 @@ def _upsert_security_group(config, vpc_id, acs_client):
             "Creating security group for VPC",
             _numbered=("()", current_step, total_steps)):
         current_step += 1
-        security_group_id = _create_workspace_security_group(config, vpc_id, acs_client)
+        security_group_id = _create_workspace_security_group(config, vpc_id, ecs_cli)
 
     with cli_logger.group(
             "Configuring rules for security group",
             _numbered=("()", current_step, total_steps)):
         current_step += 1
-        _add_security_group_rules(config, security_group_id, acs_client)
+        _add_security_group_rules(config, security_group_id, ecs_cli)
 
     return security_group_id
 
@@ -1299,9 +1286,10 @@ def _delete_security_group(config, vpc_id, acs_client):
         cli_logger.print("Successfully deleted security group: {}.".format(security_group_id))
 
 
-def _create_default_intra_cluster_inbound_rules(acs_client, config):
-    vpc = get_workspace_vpc(config, acs_client)
-    vpc_cidr = vpc.get("CidrBlock")
+def _create_default_intra_cluster_inbound_rules(config):
+    vpc_cli = VpcClient(config)
+    vpc = get_workspace_vpc(config, vpc_cli)
+    vpc_cidr = vpc.cidr_block
     return [{
         "port_range": "-1/-1",
         "source_cidr_ip": vpc_cidr,
@@ -1309,7 +1297,7 @@ def _create_default_intra_cluster_inbound_rules(acs_client, config):
     }]
 
 
-def _delete_nat_gateway(config, acs_client):
+def _delete_nat_gateway(config, vpc_cli):
     current_step = 1
     total_steps = 3
 
@@ -1317,7 +1305,7 @@ def _delete_nat_gateway(config, acs_client):
             "Dissociating elastic ip",
             _numbered=("()", current_step, total_steps)):
         current_step += 1
-        _dissociate_elastic_ip(config, acs_client)
+        _dissociate_elastic_ip(config, vpc_cli)
 
     with cli_logger.group(
             "Deleting NAT Gateway",
@@ -1332,7 +1320,7 @@ def _delete_nat_gateway(config, acs_client):
         release_elastic_ip(config, acs_client)
 
 
-def _create_and_configure_nat_gateway(config, acs_client):
+def _create_and_configure_nat_gateway(config, vpc_cli):
     current_step = 1
     total_steps = 3
 
@@ -1340,36 +1328,36 @@ def _create_and_configure_nat_gateway(config, acs_client):
             "Creating Elastic IP",
             _numbered=("()", current_step, total_steps)):
         current_step += 1
-        _create_elastic_ip(config, acs_client)
+        _create_elastic_ip(config, vpc_cli)
 
     with cli_logger.group(
             "Creating NAT Gateway",
             _numbered=("()", current_step, total_steps)):
         current_step += 1
-        _create_nat_gateway(config, acs_client)
+        _create_nat_gateway(config, vpc_cli)
 
     with cli_logger.group(
             "Creating SNAT Entry",
             _numbered=("()", current_step, total_steps)):
         current_step += 1
-        _create_snat_entry(config, acs_client)
+        _create_snat_entry(config, vpc_cli)
 
 
 def get_workspace_snat_entry_name(workspace_name):
     return ALIYUN_WORKSPACE_SNAT_ENTRY_NAME.format(workspace_name)
 
 
-def  _create_snat_entry(config, acs_client):
+def  _create_snat_entry(config, vpc_cli):
     workspace_name = config["workspace_name"]
     snat_entry_name = get_workspace_snat_entry_name(workspace_name)
-    vpc_id = get_workspace_vpc_id(config, acs_client)
-    private_vswitch = get_workspace_private_vswitches(workspace_name, vpc_id, acs_client)[0]
-    nat_gateway = get_workspace_nat_gateway(config, acs_client)
-    snat_table_id = nat_gateway.get("SnatTableIds").get("SnatTableId")[0]
-    elastic_ip = get_workspace_elastic_ip(config, acs_client)
+    vpc_id = get_workspace_vpc_id(config, vpc_cli)
+    private_vswitch = get_workspace_private_vswitches(workspace_name, vpc_id, vpc_cli)[0]
+    nat_gateway = get_workspace_nat_gateway(config, vpc_cli)
+    snat_table_id = nat_gateway.snat_table_ids.snat_table_id[0]
+    elastic_ip = get_workspace_elastic_ip(config, vpc_cli)
     snat_ip = elastic_ip.get("IpAddress")
     cli_logger.print("Creating SNAT Entry: {}...".format(snat_entry_name))
-    response = acs_client.create_snat_entry(snat_table_id, private_vswitch["VSwitchId"], snat_ip, snat_entry_name)
+    response = vpc_cli.create_snat_entry(snat_table_id, private_vswitch.v_switch_id, snat_ip, snat_entry_name)
     if response is None:
         cli_logger.abort("Failed to create SNAT Entry: {}.".format(snat_entry_name))
     else:
@@ -1392,21 +1380,21 @@ def _delete_nat_gateway_resource(config, acs_client):
         cli_logger.print("Successfully deleted Nat Gateway: {}.".format(nat_gateway_name))
 
 
-def get_workspace_nat_gateway(config, acs_client):
-    return _get_workspace_nat_gateway(config, acs_client)
+def get_workspace_nat_gateway(config, vpc_cli):
+    return _get_workspace_nat_gateway(config, vpc_cli)
 
 
-def _get_workspace_nat_gateway(config, acs_client):
+def _get_workspace_nat_gateway(config, vpc_cli):
     workspace_name = config["workspace_name"]
     nat_gateway_name = get_workspace_nat_gateway_name(workspace_name)
-    vpc_id = get_workspace_vpc_id(config, acs_client)
+    vpc_id = get_workspace_vpc_id(config, vpc_cli)
     cli_logger.verbose("Getting the Nat Gateway for workspace: {}...".format(nat_gateway_name))
-    nat_gateways = acs_client.describe_nat_gateways(vpc_id)
+    nat_gateways = vpc_cli.describe_nat_gateways(vpc_id)
     if nat_gateways is None:
         cli_logger.verbose("The Nat Gateway for workspace is not found: {}.".format(nat_gateway_name))
         return None
 
-    nat_gateways = [nat_gateway for nat_gateway in nat_gateways if nat_gateway.get('Name') == nat_gateway_name]
+    nat_gateways = [nat_gateway for nat_gateway in nat_gateways if nat_gateway.name == nat_gateway_name]
     if len(nat_gateways) == 0:
         cli_logger.verbose("The Nat Gateway for workspace is not found: {}.".format(nat_gateway_name))
         return None
@@ -1419,13 +1407,13 @@ def get_workspace_nat_gateway_name(workspace_name):
     return ALIYUN_WORKSPACE_NAT_GATEWAY_NAME.format(workspace_name)
 
 
-def _create_nat_gateway(config, acs_client):
+def _create_nat_gateway(config, vpc_cli):
     workspace_name = config["workspace_name"]
-    vpc_id =  get_workspace_vpc_id(config, acs_client)
+    vpc_id =  get_workspace_vpc_id(config, vpc_cli)
     nat_gateway_name = get_workspace_nat_gateway_name(workspace_name)
-    vswitch_id = get_workspace_private_vswitches(workspace_name, vpc_id, acs_client)
+    vswitch_id = get_workspace_private_vswitches(workspace_name, vpc_id, vpc_cli)
     cli_logger.print("Creating nat-gateway: {}...".format(nat_gateway_name))
-    nat_gateway_id = acs_client.create_nat_gateway(vpc_id, nat_gateway_name, vswitch_id)
+    nat_gateway_id = vpc_cli.create_nat_gateway(vpc_id, vswitch_id, nat_gateway_name)
     if nat_gateway_id is None:
         cli_logger.abort("Failed to create nat-gateway.")
     else:
@@ -1436,9 +1424,9 @@ def get_workspace_elastic_ip_name(workspace_name):
     return ALIYUN_WORKSPACE_EIP_NAME.format(workspace_name)
 
 
-def _create_elastic_ip(config, acs_client):
+def _create_elastic_ip(config, vpc_cli):
     eip_name = get_workspace_elastic_ip_name(config["workspace_name"])
-    allocation_id = acs_client.allocate_eip_address(eip_name)
+    allocation_id = vpc_cli.allocate_eip_address(eip_name)
     if allocation_id is None:
         cli_logger.abort("Faild to allocate Elastic IP.")
     else:
@@ -1446,20 +1434,15 @@ def _create_elastic_ip(config, acs_client):
         return allocation_id
 
 
-def get_workspace_elastic_ip(config, acs_client):
-    return _get_workspace_elastic_ip(config, acs_client)
+def get_workspace_elastic_ip(config, vpc_cli):
+    return _get_workspace_elastic_ip(config, vpc_cli)
 
 
-def _get_workspace_elastic_ip(config, acs_client):
+def _get_workspace_elastic_ip(config, vpc_cli):
     workspace_name = config["workspace_name"]
     elastic_ip_name = get_workspace_elastic_ip_name(workspace_name)
     cli_logger.verbose("Getting the Elastic IP for workspace: {}...".format(elastic_ip_name))
-    eip_addresses = acs_client.describe_eip_addresses()
-    if eip_addresses is None:
-        cli_logger.verbose("The Elastic IP for workspace is not found: {}.".format(elastic_ip_name))
-        return None
-
-    eip_addresses = [eip_address for eip_address in eip_addresses if eip_address.get('Name') == elastic_ip_name]
+    eip_addresses = vpc_cli.describe_eip_addresses(elastic_ip_name)
     if len(eip_addresses) == 0:
         cli_logger.verbose("The Elastic IP for workspace is not found: {}.".format(elastic_ip_name))
         return None
@@ -1484,15 +1467,15 @@ def release_elastic_ip(config, acs_client):
         cli_logger.print("Successfully to release Elastic IP:{}.".format(elastic_ip_name))
 
 
-def _dissociate_elastic_ip(config, acs_client):
-    elastic_ip = get_workspace_elastic_ip(config, acs_client)
+def _dissociate_elastic_ip(config, vpc_cli):
+    elastic_ip = get_workspace_elastic_ip(config, vpc_cli)
     if elastic_ip is None:
         return
-    eip_allocation_id = elastic_ip.get("AllocationId")
-    instance_id = elastic_ip.get("InstanceId")
+    eip_allocation_id = elastic_ip.allocation_id
+    instance_id = elastic_ip.instance_id
     if instance_id is None:
         return
-    elastic_ip_name = elastic_ip.get("Name")
+    elastic_ip_name = elastic_ip.name
     cli_logger.print("Dissociating Elastic IP: {}...".format(elastic_ip_name))
     response = acs_client.dissociate_eip_address(eip_allocation_id, "Nat", instance_id)
     if response is None:
@@ -1501,8 +1484,8 @@ def _dissociate_elastic_ip(config, acs_client):
         cli_logger.print("Successfully to dissociate Elastic IP:{}.".format(elastic_ip_name))
 
 
-def _get_instance_role(acs_client, role_name):
-    return acs_client.get_role(role_name)
+def _get_instance_role(ram_cli, role_name):
+    return ram_cli.get_role(role_name)
 
 
 def _get_head_instance_role_name(workspace_name):
@@ -1525,57 +1508,58 @@ def _get_worker_instance_role(config, acs_client):
     return _get_instance_role(acs_client, worker_instance_role_name)
 
 
-def _delete_instance_profile(config, acs_client, instance_role_name):
+def _delete_instance_profile(config, ram_cli, instance_role_name):
     cli_logger.print("Deleting instance role: {}...".format(instance_role_name))
-    role = _get_instance_role(acs_client, instance_role_name)
+    role = _get_instance_role(ram_cli, instance_role_name)
 
     if role is None:
         cli_logger.warning("No instance role was found.")
         return
 
-    policies = acs_client.list_policy_for_role(instance_role_name)
+    policies = ram_cli.list_policy_for_role(instance_role_name)
 
     # Detach all policies from instance role
     for policy in policies:
         policy_type = policy.get("PolicyType")
         policy_name = policy.get("PolicyName")
-        acs_client.detach_policy_from_role(instance_role_name, policy_type, policy_name)
+        ram_cli.detach_policy_from_role(instance_role_name, policy_type, policy_name)
 
     # Delete the specified instance role. The instance role must not have an associated policies.
-        acs_client.delete_role(instance_role_name)
+        ram_cli.delete_role(instance_role_name)
 
     cli_logger.print("Successfully deleted instance role.")
 
 
-def _delete_instance_role_for_head(config, acs_client):
+def _delete_instance_role_for_head(config, ram_cli):
     head_instance_role_name = _get_head_instance_role_name(config["workspace_name"])
-    _delete_instance_profile(config, acs_client, head_instance_role_name)
+    _delete_instance_profile(config, ram_cli, head_instance_role_name)
 
 
-def _delete_instance_role_for_worker(config, acs_client):
+def _delete_instance_role_for_worker(config, ram_cli):
     worker_instance_role_name = _get_worker_instance_role_name(config["workspace_name"])
-    _delete_instance_profile(config, acs_client, worker_instance_role_name)
+    _delete_instance_profile(config, ram_cli, worker_instance_role_name)
 
 
-def _delete_workspace_instance_role(config, acs_client):
+def _delete_workspace_instance_role(config):
     current_step = 1
     total_steps = 2
+    ram_cli = RamClient(config["provider"])
 
     with cli_logger.group(
             "Deleting instance role for head",
             _numbered=("()", current_step, total_steps)):
         current_step += 1
-        _delete_instance_role_for_head(config, acs_client)
+        _delete_instance_role_for_head(config, ram_cli)
 
     with cli_logger.group(
             "Deleting instance role for worker",
             _numbered=("()", current_step, total_steps)):
         current_step += 1
-        _delete_instance_role_for_worker(config, acs_client)
+        _delete_instance_role_for_worker(config, ram_cli)
 
 
-def _create_or_update_instance_role(config, acs_client, instance_role_name, is_head=True):
-    role = _get_instance_role(acs_client, instance_role_name)
+def _create_or_update_instance_role(config, ram_cli, instance_role_name, is_head=True):
+    role = _get_instance_role(ram_cli, instance_role_name)
 
     if role is None:
         cli_logger.verbose(
@@ -1595,44 +1579,45 @@ def _create_or_update_instance_role(config, acs_client, instance_role_name, is_h
             ],
             "Version": "1"
         }'''
-        acs_client.create_role(instance_role_name, assume_role_policy_document)
-        role = _get_instance_role(acs_client, instance_role_name)
+        ram_cli.create_role(instance_role_name, assume_role_policy_document)
+        role = _get_instance_role(ram_cli, instance_role_name)
         assert role is not None, "Failed to create role"
 
         attach_policies = HEAD_ROLE_ATTACH_POLICIES if is_head else WORKER_ROLE_ATTACH_POLICIES
         for policy in attach_policies:
-            acs_client.attach_policy_to_role(instance_role_name, "System", policy)
+            ram_cli.attach_policy_to_role(instance_role_name, "System", policy)
 
 
-def _create_instance_role_for_head(config, acs_client):
+def _create_instance_role_for_head(config, ram_cli):
     head_instance_role_name = _get_head_instance_role_name(config["workspace_name"])
     cli_logger.print("Creating head instance role: {}...".format(head_instance_role_name))
-    _create_or_update_instance_role(config, acs_client, head_instance_role_name)
+    _create_or_update_instance_role(config, ram_cli, head_instance_role_name)
     cli_logger.print("Successfully created and configured head instance role.")
 
 
-def _create_instance_role_for_worker(config, acs_client):
+def _create_instance_role_for_worker(config, ram_cli):
     worker_instance_role_name = _get_worker_instance_role_name(config["workspace_name"])
     cli_logger.print("Creating worker instance role: {}...".format(worker_instance_role_name))
-    _create_or_update_instance_role(config, acs_client, worker_instance_role_name, is_head=False)
+    _create_or_update_instance_role(config, ram_cli, worker_instance_role_name, is_head=False)
     cli_logger.print("Successfully created and configured worker instance role.")
 
 
-def _create_workspace_instance_role(config, acs_client):
+def _create_workspace_instance_role(config):
     current_step = 1
     total_steps = 2
-
+    ram_cli = RamClient(config["provider"])
+    
     with cli_logger.group(
             "Creating instance role for head",
             _numbered=("()", current_step, total_steps)):
         current_step += 1
-        _create_instance_role_for_head(config, acs_client)
+        _create_instance_role_for_head(config, ram_cli)
 
     with cli_logger.group(
             "Creating instance role for worker",
             _numbered=("()", current_step, total_steps)):
         current_step += 1
-        _create_instance_role_for_worker(config, acs_client)
+        _create_instance_role_for_worker(config, ram_cli)
 
 
 def create_aliyun_workspace(config):
@@ -1646,11 +1631,11 @@ def create_aliyun_workspace(config):
 
 
 def delete_aliyun_workspace(config, delete_managed_storage: bool = False):
-    acs_client = _client(config)
     workspace_name = config["workspace_name"]
     use_peering_vpc = is_use_peering_vpc(config)
     managed_cloud_storage = is_managed_cloud_storage(config)
-    vpc_id = get_workspace_vpc_id(workspace_name, acs_client)
+    vpc_cli = VpcClient(config["provider"])
+    vpc_id = get_workspace_vpc_id(workspace_name, vpc_cli)
 
     current_step = 1
     total_steps = ALIYUN_WORKSPACE_NUM_DELETION_STEPS
@@ -1677,11 +1662,10 @@ def delete_aliyun_workspace(config, delete_managed_storage: bool = False):
                     "Deleting instance role",
                     _numbered=("[]", current_step, total_steps)):
                 current_step += 1
-                _delete_workspace_instance_role(config, acs_client)
+                _delete_workspace_instance_role(config)
 
             if vpc_id:
-                _delete_network_resources(config, workspace_name,
-                                          acs_client, vpc_id,
+                _delete_network_resources(config, workspace_name, vpc_id,
                                           current_step, total_steps)
 
     except Exception as e:
@@ -1695,65 +1679,58 @@ def delete_aliyun_workspace(config, delete_managed_storage: bool = False):
     return None
 
 
-def _delete_routes_for_workspace_vpc_peering_connection(config, acs_client):
+def _delete_routes_for_workspace_vpc_peering_connection(config, vpc_peer_cli):
     workspace_name = config["workspace_name"]
-    current_acs_client = _working_node_client(config)
+    provider_config = config["provider"]
+    current_region_id = get_current_instance_region()
+    current_vpc_cli = VpcClient(provider_config, current_region_id)
     current_vpc = get_current_vpc(config)
-    workspace_vpc = get_workspace_vpc(config, acs_client)
+    vpc_cli = VpcClient(provider_config)
+    workspace_vpc = get_workspace_vpc(config, vpc_cli)
 
-    current_vpc_route_tables = get_vpc_route_tables(current_vpc, current_acs_client)
-    workspace_vpc_route_tables = get_vpc_route_tables(workspace_vpc, acs_client)
+    current_vpc_route_tables = get_vpc_route_tables(current_vpc, current_vpc_cli)
+    workspace_vpc_route_tables = get_vpc_route_tables(workspace_vpc, vpc_cli)
 
-    vpc_peering_connection = get_workspace_vpc_peering_connection(config)
-    if vpc_peering_connection is None:
+    vpc_peer_connection = get_workspace_vpc_peer_connection(config)
+    if vpc_peer_connection is None:
         cli_logger.print("No VPC peering connection was found in workspace. Skip delete "
                          "routes for workspace vpc peering connection.")
         return
-    route_entry_name = get_workspace_vpc_peering_connection_route_entry_name(workspace_name)
+    route_entry_name = get_workspace_vpc_peer_connection_route_entry_name(workspace_name)
     for current_vpc_route_table in current_vpc_route_tables:
-        for route_entry in current_acs_client.describe_route_entry_list(
-                route_table_id=current_vpc_route_table.get("RouteTableId"),
-                cidr_block=workspace_vpc.get("VpcId"),
+        for route_entry in current_vpc_cli.describe_route_entry_list(
+                route_table_id=current_vpc_route_table.route_table_id,
+                cidr_block=workspace_vpc.vpc_id,
                 entry_name=route_entry_name):
-            response = current_acs_client.delete_route_entry(route_entry.get("RouteEntryId"))
-            if response is not None:
-                cli_logger.print(
-                    "Successfully delete the route entry about VPC peering connection for current VPC route table {}.".format(
-                        current_vpc_route_table.get("RouteTableId")))
-            else:
-                cli_logger.abort(
-                    "Failed to delete the route entry about VPC peering connection for current VPC route table.")
+            current_vpc_cli.delete_route_entry(route_entry.route_entry_id)
+            cli_logger.print(
+                "Successfully delete the route entry about VPC peering connection for current VPC route table {}.".format(
+                    current_vpc_route_table.route_table_id))
 
     for workspace_vpc_route_table in workspace_vpc_route_tables:
-        for route_entry in acs_client.describe_route_entry_list(
-                route_table_id=workspace_vpc_route_table.get("RouteTableId"),
-                cidr_block=current_vpc.get("VpcId"),
+        for route_entry in vpc_cli.describe_route_entry_list(
+                route_table_id=workspace_vpc_route_table.route_table_id,
+                cidr_block=current_vpc.vpc_id,
                 entry_name=route_entry_name):
-            response = acs_client.delete_route_entry(route_entry.get("RouteEntryId"))
-            if response is not None:
-                cli_logger.print(
-                    "Successfully delete the route about VPC peering connection for workspace VPC route table {}.".format(
-                        workspace_vpc_route_table.get("RouteTableId")))
-            else:
-                cli_logger.abort(
-                    "Failed to delete the route about VPC peering connection for workspace VPC route table.")
+            vpc_cli.delete_route_entry(route_entry.route_entry_id)
+            cli_logger.print(
+                "Successfully delete the route about VPC peering connection for workspace VPC route table {}.".format(
+                    workspace_vpc_route_table.route_table_id))
 
 
-def _delete_workspace_vpc_peering_connection(config, acs_client):
-    vpc_peering_connection = get_workspace_vpc_peering_connection(config)
+def _delete_workspace_vpc_peering_connection(config, vpc_peer_cli):
+    vpc_peering_connection = get_workspace_vpc_peer_connection(config)
     if vpc_peering_connection is None:
         cli_logger.print("No VPC peering connection was found in workspace.")
         return
-    vpc_peering_connection_id = vpc_peering_connection['InstanceId']
-
-    response = acs_client.delete_vpc_peering_connection(vpc_peering_connection_id)
-    if response is not None:
-        cli_logger.print("Successfully deleted VPC peering connection for: {}.".format(vpc_peering_connection_id))
-    else:
-        cli_logger.abort("Failed to delete VPC peering connection.")
+    vpc_peering_connection_id = vpc_peering_connection.instance_id
+    current_region_id = get_current_instance_region()
+    current_vpc_peer_cli = VpcPeerClient(config["provider"], current_region_id)
+    current_vpc_peer_cli.delete_vpc_peer_connection(vpc_peering_connection_id)
+    cli_logger.print("Successfully deleted VPC peering connection for: {}.".format(vpc_peering_connection_id))
 
 
-def _delete_workspace_vpc_peering_connection_and_routes(config, acs_client):
+def _delete_workspace_vpc_peer_connection_and_routes(config, vpc_peer_cli):
     current_step = 1
     total_steps = 2
 
@@ -1761,24 +1738,27 @@ def _delete_workspace_vpc_peering_connection_and_routes(config, acs_client):
             "Deleting routes for VPC peering connection",
             _numbered=("()", current_step, total_steps)):
         current_step += 1
-        _delete_routes_for_workspace_vpc_peering_connection(config, acs_client)
+        _delete_routes_for_workspace_vpc_peering_connection(config, vpc_peer_cli)
 
     with cli_logger.group(
             "Deleting VPC peering connection",
             _numbered=("()", current_step, total_steps)):
         current_step += 1
-        _delete_workspace_vpc_peering_connection(config, acs_client)
+        _delete_workspace_vpc_peering_connection(config, vpc_peer_cli)
 
 
-def _delete_network_resources(config, workspace_name,
-                              acs_client, vpc_id,
+def _delete_network_resources(config, workspace_name, vpc_id,
                               current_step, total_steps):
     use_working_vpc = is_use_working_vpc(config)
     use_peering_vpc = is_use_peering_vpc(config)
+    provider_config = config["provider"]
+    ecs_cli = EcsClient(provider_config)
+    vpc_cli = VpcClient(provider_config)
+    vpc_peer_cli = VpcPeerClient(provider_config)
 
     """
          Do the work - order of operation:
-         Delete vpc peering connection
+         Delete vpc peer connection
          Delete private vswitches
          Delete nat-gateway for private vswitches
          Delete public vswitches
@@ -1789,31 +1769,31 @@ def _delete_network_resources(config, workspace_name,
     # delete vpc peering connection
     if use_peering_vpc:
         with cli_logger.group(
-                "Deleting VPC peering connection",
+                "Deleting VPC peer connection",
                 _numbered=("[]", current_step, total_steps)):
             current_step += 1
-            _delete_workspace_vpc_peering_connection_and_routes(config, acs_client)
+            _delete_workspace_vpc_peer_connection_and_routes(config, vpc_peer_cli)
 
     # delete private vswitches
     with cli_logger.group(
             "Deleting private vswitches",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
-        _delete_private_vswitches(workspace_name, vpc_id, acs_client)
+        _delete_private_vswitches(workspace_name, vpc_id, vpc_cli)
 
     # delete nat-gateway
     with cli_logger.group(
             "Deleting NAT gateway",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
-        _delete_nat_gateway(config, acs_client)
+        _delete_nat_gateway(config, vpc_cli)
 
     # delete public vswitches
     with cli_logger.group(
             "Deleting public vswitches",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
-        _delete_public_vswitches(workspace_name, vpc_id, acs_client)
+        _delete_public_vswitches(workspace_name, vpc_id, vpc_cli)
 
     # delete security group
     with cli_logger.group(
@@ -1841,7 +1821,7 @@ def _delete_vpc_tags(acs_client, vpc_id):
         return
 
     cli_logger.print("Deleting VPC tags: {}...".format(vpc.id))
-    response = acs_client.untag_vpc_resource(
+    response = acs_client.untag_resource(
         resource_id=vpc_id,
         resource_type="VPC",
         tag_keys=['Name', ALIYUN_WORKSPACE_VERSION_TAG_NAME]
@@ -1965,7 +1945,7 @@ def check_aliyun_workspace_existence(config):
         if get_workspace_security_group(config, vpc_id, workspace_name) is not None:
             existing_resources += 1
         if use_peering_vpc:
-            if get_workspace_vpc_peering_connection(config) is not None:
+            if get_workspace_vpc_peer_connection(config) is not None:
                 existing_resources += 1
 
     if _get_head_instance_role(config, acs_client) is not None:

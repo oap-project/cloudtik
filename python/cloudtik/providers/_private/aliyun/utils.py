@@ -1082,8 +1082,8 @@ class VpcClient:
         provider_config: The cloud provider configuration from which to create client.
     """
 
-    def __init__(self, provider_config):
-        self.region_id = provider_config["region"]
+    def __init__(self, provider_config, region_id=None):
+        self.region_id = provider_config["region"] if region_id is None else region_id
         self.client = make_vpc_client(provider_config)
         self.runtime_options = util_models.RuntimeOptions()
 
@@ -1133,7 +1133,7 @@ class VpcClient:
             cli_logger.error("Failed to delete VPC. {}".format(e))
             raise e
 
-    def tag_vpc_resource(self, resource_id, tags, resource_type="VPC"):
+    def tag_resource(self, resource_id, tags, resource_type="VPC"):
         """Create and bind tags to specified VPC resource.
         :param resource_id: The ID of resource.
         :param tags: The tags of the resource.
@@ -1156,7 +1156,7 @@ class VpcClient:
             cli_logger.error("Failed to tag VPC. {}".format(e))
             raise e
 
-    def untag_vpc_resource(self, resource_id, tag_keys, resource_type="VPC"):
+    def untag_resource(self, resource_id, tag_keys, resource_type="VPC"):
         """Untag from specified VPC resource"""
         un_tag_resources_request = vpc_models.UnTagResourcesRequest(
             resource_type=resource_type,
@@ -1471,8 +1471,8 @@ class VpcPeerClient:
         provider_config: The cloud provider configuration from which to create client.
     """
 
-    def __init__(self, provider_config):
-        self.region_id = provider_config["region"]
+    def __init__(self, provider_config, region_id=None):
+        self.region_id = provider_config["region"] if region_id is None else region_id
         self.client = make_vpc_peer_client(provider_config)
         self.runtime_options = util_models.RuntimeOptions()
 
@@ -1560,7 +1560,7 @@ class RamClient:
             return response.body.role
         except Exception as e:
             cli_logger.error("Failed to get RAM role. {}".format(e))
-            raise e
+            return None
 
     def delete_role(self, role_name):
         """Delete RAM role"""

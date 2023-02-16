@@ -9,8 +9,6 @@ import string
 import itertools
 from typing import Any, Dict, Optional, List
 
-import oss2
-
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.services import get_node_ip_address
 from cloudtik.core._private.utils import check_cidr_conflict, get_cluster_uri, is_use_internal_ip, \
@@ -21,7 +19,7 @@ from cloudtik.core.workspace_provider import Existence, CLOUDTIK_MANAGED_CLOUD_S
 from cloudtik.providers._private.aliyun.utils import AcsClient, export_aliyun_oss_storage_config, \
     get_aliyun_oss_storage_config, get_aliyun_oss_storage_config_for_update, ALIYUN_OSS_BUCKET
 
-from cloudtik.providers._private.aliyun.utils import VpcClient, VpcPeerClient, RamClient
+from cloudtik.providers._private.aliyun.utils import OssClient, RamClient, VpcClient, VpcPeerClient
 from cloudtik.providers._private.aliyun.node_provider import EcsClient
 
 # instance status
@@ -833,33 +831,18 @@ def  _create_network_resources(config, current_step, total_steps):
     return current_step
 
 
-def _get_oss_endpoint(region):
-    return f"https://oss-{region}.aliyuncs.com"
-
-
-def _get_oss_auth(provider_config):
-    return oss2.Auth(
-        access_key_id=provider_config.get("access_key"),
-        access_key_secret=provider_config.get("access_key_secret"))
-
-
 def get_managed_oss_bucket(provider_config, workspace_name):
-    auth = _get_oss_auth(provider_config)
+    oss_cli = OssClient(provider_config)
     region = provider_config["region"]
-    oss_endpoint = _get_oss_endpoint(region)
-    service = oss2.Service(auth, oss_endpoint)
-
     bucket_name_prefix = "cloudtik-{workspace_name}-{region}-".format(
         workspace_name=workspace_name,
         region=region
     )
-
     cli_logger.verbose("Getting OSS bucket with prefix: {}.".format(bucket_name_prefix))
-    for bucket in oss2.BucketIterator(service):
+    for bucket in oss_cli.list_buckets():
         if bucket_name_prefix in bucket.name:
             cli_logger.verbose("Successfully get the OSS bucket: {}.".format(bucket.name))
             return bucket
-
     cli_logger.verbose_error("Failed to get the OSS bucket for workspace.")
     return None
 
@@ -869,21 +852,21 @@ def _delete_workspace_cloud_storage(config, workspace_name):
 
 
 def _delete_managed_cloud_storage(cloud_provider, workspace_name):
-    bucket_info = get_managed_oss_bucket(cloud_provider, workspace_name)
-    auth = _get_oss_auth(cloud_provider)
-    if bucket_info is None:
+    bucket = get_managed_oss_bucket(cloud_provider, workspace_name)
+    if bucket is None:
         cli_logger.warning("No OSS bucket with the name found.")
         return
 
     try:
-        cli_logger.print("Deleting OSS bucket: {}...".format(bucket_info.name))
-
-        bucket = oss2.Bucket(auth, bucket_info.extranet_endpoint, bucket_info.name)
+        cli_logger.print("Deleting OSS bucket: {}...".format(bucket.name))
+        oss_cli = OssClient(cloud_provider)
+        objects = oss_cli.list_objects(bucket.name)
         # Delete all objects before deleting the bucket
-        for obj in oss2.ObjectIterator(bucket, prefix=""):
-            bucket.delete_object(obj.key)
-        bucket.delete_bucket()
-        cli_logger.print("Successfully deleted OSS bucket: {}.".format(bucket_info.name))
+        for object in objects:
+            oss_cli.delete_object(bucket.name, object.key)
+        # Delete the bucket
+        oss_cli.delete_bucket(bucket.name)
+        cli_logger.print("Successfully deleted OSS bucket: {}.".format(bucket.name))
     except Exception as e:
         cli_logger.error("Failed to delete OSS bucket. {}", str(e))
         raise e
@@ -897,6 +880,7 @@ def _create_workspace_cloud_storage(config, workspace_name):
 def _create_managed_cloud_storage(cloud_provider, workspace_name):
     # If the managed cloud storage for the workspace already exists
     # Skip the creation step
+    oss_cli = OssClient(cloud_provider)
     bucket = get_managed_oss_bucket(cloud_provider, workspace_name)
     if bucket is not None:
         cli_logger.print("OSS bucket for the workspace already exists. Skip creation.")
@@ -909,18 +893,10 @@ def _create_managed_cloud_storage(cloud_provider, workspace_name):
         region=region,
         suffix=suffix
     )
-    auth = _get_oss_auth(cloud_provider)
-    oss_endpoint = _get_oss_endpoint(region)
+
     cli_logger.print("Creating OSS bucket for the workspace: {}...".format(workspace_name))
-    try:
-        bucket = oss2.Bucket(auth, oss_endpoint, bucket_name)
-        bucketConfig = oss2.models.BucketCreateConfig(oss2.BUCKET_STORAGE_CLASS_STANDARD)
-        bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE, bucketConfig)
-        cli_logger.print(
-            "Successfully created OSS bucket: {}.".format(bucket_name))
-    except Exception as e:
-        cli_logger.abort("Failed to create OSS bucket. {}", str(e))
-    return
+    oss_cli.put_bucket(bucket_name)
+    cli_logger.print("Successfully created OSS bucket: {}.".format(bucket_name))
 
 
 def _create_workspace(config):

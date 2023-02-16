@@ -89,6 +89,8 @@ from cloudtik.providers._private.aliyun.node_provider import EcsClient
 from alibabacloud_credentials.client import Client as CredentialClient
 from alibabacloud_credentials.models import Config
 from alibabacloud_ecs20140526.client import Client as ecs_client
+from alibabacloud_oss20190517 import models as oss_models
+from alibabacloud_oss20190517.client import Client as oss_client
 from alibabacloud_ram20150501 import models as ram_models
 from alibabacloud_ram20150501.client import Client as ram_client
 from alibabacloud_tea_openapi import models as open_api_models
@@ -97,6 +99,7 @@ from alibabacloud_vpc20160428 import models as vpc_models
 from alibabacloud_vpc20160428.client import Client as vpc_client
 from alibabacloud_vpcpeer20220101 import models as vpc_peer_models
 from alibabacloud_vpcpeer20220101.client import Client as vpc_peer_client
+from Tea.exceptions import TeaException 
 
 
 class AcsClient:
@@ -1073,6 +1076,71 @@ def make_ram_client(provider_config):
     config = open_api_models.Config(credential=credential)
     config.endpoint = f'ram.aliyuncs.com'
     return ram_client(config)
+
+
+def make_oss_client(provider_config, region_id=None):
+    region_id = region_id if region_id is not None else provider_config["region"]
+    credential = get_credential(provider_config)
+    config = open_api_models.Config(credential=credential)
+    config.endpoint = f"oss-{region_id}.aliyuncs.com"
+    return oss_client(config)
+
+
+class OssClient:
+    """
+    A wrapper around Aliyun OSS client.
+    Parameters:
+        provider_config: The cloud provider configuration from which to create client.
+    """
+
+    def __init__(self, provider_config, region_id=None):
+        self.region_id = provider_config["region"] if region_id is None else region_id
+        self.client = make_oss_client(provider_config)
+        self.runtime_options = util_models.RuntimeOptions()
+
+    def put_bucket(self, name):
+        put_bucket_request = oss_models.PutBucketRequest(oss_models.CreateBucketConfiguration())
+        try:
+            response = self.client.put_bucket(name, put_bucket_request)
+            # return response
+        except TeaException as e:
+            cli_logger.error("Failed to create bucket. {}".format(e))
+            raise e
+        except Exception as e:
+            cli_logger.error("Ignore the exception. {}".format(e))
+
+    def delete_bucket(self, name):
+        try:
+            self.client.delete_bucket(name)
+        except Exception as e:
+            cli_logger.error("Failed to delete bucket. {}".format(e))
+            raise e
+    
+    def list_buckets(self):
+        list_bucket_request = oss_models.ListBucketsRequest()
+        try:
+            response = self.client.list_buckets(list_bucket_request)
+            return response.body.buckets.buckets
+        except Exception as e:
+            cli_logger.error("Failed to list buckets. {}".format(e))
+            raise e
+        
+    def list_objects(self, bucket_name):
+        list_objects_request = oss_models.ListObjectsRequest()
+        try:
+            response = self.client.list_objects(bucket_name, list_objects_request)
+            return response.body.contents
+        except Exception as e:
+            cli_logger.error("Failed to list objects of the bucket: {}. {}".format(bucket_name, e))
+            raise e
+
+    def delete_object(self, bucket_name, object_key):
+        delete_object_request = oss_models.DeleteObjectRequest()
+        try:
+            self.client.delete_object(bucket_name, object_key, delete_object_request)
+        except Exception as e:
+            cli_logger.error("Failed to delete the object: {} of the bucket: {}. {}".format(object_key, bucket_name, e))
+            raise e
 
 
 class VpcClient:

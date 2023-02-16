@@ -135,9 +135,9 @@ function update_credential_config_for_aliyun() {
         HAS_HADOOP_CREDENTIAL=true
     fi
 
-    if [ ! -z "${ALIYUN_OSS_ECS_RAM_ROLE_NAME}" ]; then
+    if [ ! -z "${ALIYUN_ECS_RAM_ROLE_NAME}" ]; then
         FS_OSS_ECS_RAM_ROLE_NAME="fs.oss.ecs.ramRoleName"
-        ${HADOOP_HOME}/bin/hadoop credential create ${FS_OSS_ECS_RAM_ROLE_NAME} -value ${ALIYUN_OSS_ECS_RAM_ROLE_NAME} -provider ${HADOOP_CREDENTIAL_TMP_PROVIDER_PATH} > /dev/null
+        ${HADOOP_HOME}/bin/hadoop credential create ${FS_OSS_ECS_RAM_ROLE_NAME} -value ${ALIYUN_ECS_RAM_ROLE_NAME} -provider ${HADOOP_CREDENTIAL_TMP_PROVIDER_PATH} > /dev/null
         HAS_HADOOP_CREDENTIAL=true
     fi
 

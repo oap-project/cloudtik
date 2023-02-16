@@ -593,6 +593,13 @@ def fill_available_node_types_resources(
 def with_aliyun_environment_variables(provider_config, node_type_config: Dict[str, Any], node_id: str):
     config_dict = {}
     export_aliyun_oss_storage_config(provider_config, config_dict)
+
+    if node_type_config is not None:
+        node_config = node_type_config.get("node_config")
+        ram_role_name = node_config.get("RamRoleName")
+        if ram_role_name:
+            config_dict["ALIYUN_ECS_RAM_ROLE_NAME"] = ram_role_name
+
     return config_dict
 
 

@@ -87,7 +87,8 @@ def _client_cache(region: str = None, ak: str = None, sk: str = None) -> Dict[
     return client_map
 
 
-def _make_client(config_provider: Dict[str, Any], client_type, region=None):
+def _make_client(
+        config_provider: Dict[str, Any], client_type: str, region=None):
     region = config_provider.get('region') if region is None else region
     credentials = config_provider.get('huaweicloud_credentials')
     if credentials:

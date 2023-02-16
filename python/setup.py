@@ -93,6 +93,14 @@ setup_spec.extras = {
         "urllib3",
         "kopf",
     ],
+    "huaweicloud": [
+        "huaweicloudsdkecs == 3.1.24",
+        "huaweicloudsdkvpc == 3.1.24",
+        "huaweicloudsdknat == 3.1.24",
+        "huaweicloudsdkeip == 3.1.24",
+        "huaweicloudsdkiam == 3.1.24",
+        "esdk-obs-python == 3.22.2",
+    ],
 }
 
 setup_spec.extras["all"] = list(

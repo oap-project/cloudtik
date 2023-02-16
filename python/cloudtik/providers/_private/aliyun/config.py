@@ -110,7 +110,7 @@ def bootstrap_aliyun_from_workspace(config):
 
     # Pick a reasonable subnet if not specified by the user.
     # TODO (haifeng)
-    # config = _configure_subnet_from_workspace(config)
+    config = _configure_vswitch_from_workspace(config)
 
     # Cluster workers should be in a security group that permits traffic within
     # the group, and also SSH access from outside.
@@ -408,6 +408,41 @@ def _configure_security_group_from_workspace(config):
         node_config = config["available_node_types"][node_type_key][
             "node_config"]
         node_config["SecurityGroupId"] = security_group.security_group_id
+
+    return config
+
+
+def _configure_vswitch_from_workspace(config):
+    workspace_name = config["workspace_name"]
+    use_internal_ips = is_use_internal_ip(config)
+
+    vpc_cli = VpcClient(config["provider"])
+    vpc_id = get_workspace_vpc_id(workspace_name, vpc_cli)
+
+    public_vswitches = get_workspace_public_vswitches(workspace_name, vpc_id, vpc_cli)
+    private_vswitches = get_workspace_private_vswitches(workspace_name, vpc_id, vpc_cli)
+
+    public_vswitch_ids = [public_vswitch.v_switch_id for public_vswitch in public_vswitches]
+    private_vswitch_ids = [private_vswitch.v_switch_id for private_vswitch in private_vswitches]
+
+    # We need to make sure the first private vswitch is the same availability zone with the first public vswitch
+    if not use_internal_ips and len(public_vswitch_ids) > 0:
+        availability_zone = public_vswitches[0].zone_id
+        for private_vswitch in private_vswitches:
+            if availability_zone == private_vswitch.zone_id:
+                private_vswitch_ids.remove(private_vswitch.v_switch_id)
+                private_vswitch_ids.insert(0, private_vswitch.v_switch_id)
+                break
+
+    for key, node_type in config["available_node_types"].items():
+        node_config = node_type["node_config"]
+        if key == config["head_node_type"]:
+            if use_internal_ips:
+                node_config["v_switch_id"] = private_vswitch_ids[0]
+            else:
+                node_config["v_switch_id"] = public_vswitch_ids[0]
+        else:
+            node_config["v_switch_id"] = private_vswitch_ids[0]
 
     return config
 

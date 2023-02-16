@@ -1727,7 +1727,7 @@ def delete_aliyun_workspace(config, delete_managed_storage: bool = False):
     use_peering_vpc = is_use_peering_vpc(config)
     managed_cloud_storage = is_managed_cloud_storage(config)
     vpc_cli = VpcClient(config["provider"])
-    vpc_id = get_workspace_vpc_id(workspace_name, vpc_cli)
+    vpc_id = _get_workspace_vpc_id(workspace_name, vpc_cli)
 
     current_step = 1
     total_steps = ALIYUN_WORKSPACE_NUM_DELETION_STEPS
@@ -2021,7 +2021,7 @@ def check_aliyun_workspace_existence(config):
          Check OSS bucket
     """
     skipped_resources = 0
-    vpc_id = get_workspace_vpc_id(workspace_name, vpc_cli)
+    vpc_id = _get_workspace_vpc_id(workspace_name, vpc_cli)
     if vpc_id is not None:
         existing_resources += 1
         # Network resources that depending on VPC

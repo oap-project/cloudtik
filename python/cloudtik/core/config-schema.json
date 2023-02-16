@@ -389,6 +389,25 @@
                                 "description": "access key secret of accessing OSS"
                               }
                             }
+                        },
+                        "huaweicloud_obs_storage": {
+                            "type": "object",
+                            "description": "Huawei Cloud OBS storage configurations",
+                            "additionalProperties": false,
+                            "properties": {
+                              "obs.bucket": {
+                                "type": "string",
+                                "description": "the OBS bucket name"
+                              },
+                              "obs.access.key": {
+                                "type": "string",
+                                "description": "access key id of accessing OBS"
+                              },
+                              "obs.secret.key": {
+                                "type": "string",
+                                "description": "secret key of accessing OBS"
+                              }
+                            }
                         }
                     }
                 },

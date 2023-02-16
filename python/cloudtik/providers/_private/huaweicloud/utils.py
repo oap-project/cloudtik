@@ -17,9 +17,11 @@ from huaweicloudsdkvpc.v2 import VpcClient
 from huaweicloudsdkvpc.v2.region.vpc_region import VpcRegion
 from obs import ObsClient
 
-from cloudtik.core._private.constants import env_bool
+from cloudtik.core._private.constants import env_bool, CLOUDTIK_DEFAULT_CLOUD_STORAGE_URI
+from cloudtik.core._private.utils import get_storage_config_for_update
 
 OBS_SERVICES_URL = 'https://obs.myhuaweicloud.com'
+HUAWEICLOUD_OBS_BUCKET = "obs.bucket"
 
 logger = logging.getLogger(__name__)
 
@@ -86,7 +88,10 @@ def _client_cache(region: str = None, ak: str = None, sk: str = None) -> Dict[
 
 
 def make_ecs_client(config: Dict[str, Any]) -> Any:
-    config_provider = config['provider']
+    return _make_ecs_client(config['provider'])
+
+
+def _make_ecs_client(config_provider: Dict[str, Any]) -> Any:
     region = config_provider.get('region')
     credentials = config_provider.get('huaweicloud_credentials')
     if credentials:
@@ -99,7 +104,10 @@ def make_ecs_client(config: Dict[str, Any]) -> Any:
 
 
 def make_vpc_client(config: Dict[str, Any]) -> Any:
-    config_provider = config['provider']
+    return _make_vpc_client(config['provider'])
+
+
+def _make_vpc_client(config_provider: Dict[str, Any]) -> Any:
     region = config_provider.get('region')
     credentials = config_provider.get('huaweicloud_credentials')
     if credentials:
@@ -112,7 +120,10 @@ def make_vpc_client(config: Dict[str, Any]) -> Any:
 
 
 def make_nat_client(config: Dict[str, Any]) -> Any:
-    config_provider = config['provider']
+    return _make_nat_client(config['provider'])
+
+
+def _make_nat_client(config_provider: Dict[str, Any]) -> Any:
     region = config_provider.get('region')
     credentials = config_provider.get('huaweicloud_credentials')
     if credentials:
@@ -125,7 +136,10 @@ def make_nat_client(config: Dict[str, Any]) -> Any:
 
 
 def make_eip_client(config: Dict[str, Any]) -> Any:
-    config_provider = config['provider']
+    return _make_eip_client(config['provider'])
+
+
+def _make_eip_client(config_provider: Dict[str, Any]) -> Any:
     region = config_provider.get('region')
     credentials = config_provider.get('huaweicloud_credentials')
     if credentials:
@@ -138,7 +152,10 @@ def make_eip_client(config: Dict[str, Any]) -> Any:
 
 
 def make_iam_client(config: Dict[str, Any]) -> Any:
-    config_provider = config['provider']
+    return _make_iam_client(config['provider'])
+
+
+def _make_iam_client(config_provider: Dict[str, Any]) -> Any:
     region = config_provider.get('region')
     credentials = config_provider.get('huaweicloud_credentials')
     if credentials:
@@ -151,7 +168,10 @@ def make_iam_client(config: Dict[str, Any]) -> Any:
 
 
 def make_obs_client(config: Dict[str, Any]) -> Any:
-    config_provider = config['provider']
+    return _make_obs_client(config["provider"])
+
+
+def _make_obs_client(config_provider: Dict[str, Any]) -> Any:
     region = config_provider.get('region')
     credentials = config_provider.get('huaweicloud_credentials')
     if credentials:
@@ -161,3 +181,59 @@ def make_obs_client(config: Dict[str, Any]) -> Any:
     else:
         _client_cache_map = _client_cache(region)
     return _client_cache_map['obs']
+
+
+def get_huaweicloud_obs_storage_config(provider_config: Dict[str, Any]):
+    if "storage" in provider_config and "huaweicloud_obs_storage" in provider_config["storage"]:
+        return provider_config["storage"]["huaweicloud_obs_storage"]
+
+    return None
+
+
+def get_huaweicloud_obs_storage_config_for_update(provider_config: Dict[str, Any]):
+    storage_config = get_storage_config_for_update(provider_config)
+    if "huaweicloud_obs_storage" not in storage_config:
+        storage_config["huaweicloud_obs_storage"] = {}
+    return storage_config["huaweicloud_obs_storage"]
+
+
+def export_huaweicloud_obs_storage_config(provider_config, config_dict: Dict[str, Any]):
+    cloud_storage = get_huaweicloud_obs_storage_config(provider_config)
+    if cloud_storage is None:
+        return
+    config_dict["HUAWEICLOUD_CLOUD_STORAGE"] = True
+
+    obs_bucket = cloud_storage.get(HUAWEICLOUD_OBS_BUCKET)
+    if obs_bucket:
+        config_dict["HUAWEICLOUD_OBS_BUCKET"] = obs_bucket
+
+    obs_access_key = cloud_storage.get("obs.access.key")
+    if obs_access_key:
+        config_dict["HUAWEICLOUD_OBS_ACCESS_KEY"] = obs_access_key
+
+    obs_secret_key = cloud_storage.get("obs.secret.key")
+    if obs_secret_key:
+        config_dict["HUAWEICLOUD_OBS_SECRET_KEY"] = obs_secret_key
+
+
+def get_huaweicloud_cloud_storage_uri(huaweicloud_cloud_storage):
+    obs_bucket = huaweicloud_cloud_storage.get(HUAWEICLOUD_OBS_BUCKET)
+    if obs_bucket is None:
+        return None
+
+    return "obs://{}".format(obs_bucket)
+
+
+def get_default_huaweicloud_cloud_storage(provider_config):
+    cloud_storage = get_huaweicloud_obs_storage_config(provider_config)
+    if cloud_storage is None:
+        return None
+
+    cloud_storage_info = {}
+    cloud_storage_info.update(cloud_storage)
+
+    cloud_storage_uri = get_huaweicloud_cloud_storage_uri(cloud_storage)
+    if cloud_storage_uri:
+        cloud_storage_info[CLOUDTIK_DEFAULT_CLOUD_STORAGE_URI] = cloud_storage_uri
+
+    return cloud_storage_info

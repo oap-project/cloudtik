@@ -307,8 +307,8 @@ def _configure_security_group_from_workspace(config):
     vpc_client = VpcClient(config["provider"])
     vpc_id = get_workspace_vpc_id(config, vpc_client)
 
-    ecs_client = EcsClient(config["provider"])
-    security_group = get_workspace_security_group(config, ecs_client, vpc_id)
+    ecs_cli = EcsClient(config["provider"])
+    security_group = get_workspace_security_group(config, ecs_cli, vpc_id)
 
     for node_type_key in config["available_node_types"].keys():
         node_config = config["available_node_types"][node_type_key][
@@ -973,13 +973,13 @@ def _create_vpc(config, vpc_cli):
     return vpc_id
 
 
-def _delete_vpc(config, acs_client):
+def _delete_vpc(config, vpc_cli):
     use_working_vpc = is_use_working_vpc(config)
     if use_working_vpc:
         cli_logger.print("Will not delete the current working VPC.")
         return
 
-    vpc_id = get_workspace_vpc_id(config, acs_client)
+    vpc_id = get_workspace_vpc_id(config, vpc_cli)
     vpc_name = _get_workspace_vpc_name(config["workspace_name"])
 
     if vpc_id is None:
@@ -988,12 +988,8 @@ def _delete_vpc(config, acs_client):
 
     """ Delete the VPC """
     cli_logger.print("Deleting the VPC: {}...".format(vpc_name))
-
-    response = acs_client.delete_vpc(vpc_id)
-    if response is None:
-        cli_logger.print("Successfully deleted the VPC: {}.".format(vpc_name))
-    else:
-        cli_logger.abort("Failed to delete the VPC: {}.")
+    vpc_cli.delete_vpc(vpc_id)
+    cli_logger.print("Successfully deleted the VPC: {}.".format(vpc_name))
 
 
 def get_workspace_vpc_id(config, vpc_cli):
@@ -1221,21 +1217,21 @@ def _create_default_inbound_rules(config, extended_rules=None):
     return list(merged_rules)
 
 
-def get_workspace_security_group(config, acs_client, vpc_id):
-    return _get_security_group(config, vpc_id, acs_client, get_workspace_security_group_name(config["workspace_name"]))
+def get_workspace_security_group(config, ecs_cli, vpc_id):
+    return _get_security_group(config, vpc_id, ecs_cli, get_workspace_security_group_name(config["workspace_name"]))
 
 
-def _get_security_group(config, vpc_id, acs_client, group_name):
-    security_group = _get_security_groups(config, acs_client, [vpc_id], [group_name])
+def _get_security_group(config, vpc_id, ecs_cli, group_name):
+    security_group = _get_security_groups(config, ecs_cli, [vpc_id], [group_name])
     return None if not security_group else security_group[0]
 
 
-def _get_security_groups(config, acs_client, vpc_ids, group_names):
+def _get_security_groups(config, ecs_cli, vpc_ids, group_names):
     unique_vpc_ids = list(set(vpc_ids))
     unique_group_names = set(group_names)
     filtered_groups = []
     for vpc_id in unique_vpc_ids:
-        security_groups = [security_group for security_group in acs_client.describe_security_groups(vpc_id=vpc_id)
+        security_groups = [security_group for security_group in ecs_cli.describe_security_groups(vpc_id=vpc_id)
                            if security_group.get("SecurityGroupName") in unique_group_names]
         filtered_groups.extend(security_groups)
     return filtered_groups
@@ -1271,19 +1267,16 @@ def _upsert_security_group(config, vpc_id, ecs_cli):
     return security_group_id
 
 
-def _delete_security_group(config, vpc_id, acs_client):
+def _delete_security_group(config, vpc_id, ecs_cli):
     """ Delete any security-groups """
-    workspace_security_group = get_workspace_security_group(config, acs_client, vpc_id)
+    workspace_security_group = get_workspace_security_group(config, ecs_cli, vpc_id)
     if workspace_security_group is None:
         cli_logger.print("No security groups for workspace were found under this VPC: {}...".format(vpc_id))
         return
-    security_group_id = workspace_security_group.get("SecurityGroupId")
+    security_group_id = workspace_security_group.security_group_id
     cli_logger.print("Deleting security group: {}...".format(security_group_id))
-    response = acs_client.delete_security_group(security_group_id)
-    if response is None:
-        cli_logger.abort("Failed to delete security group.")
-    else:
-        cli_logger.print("Successfully deleted security group: {}.".format(security_group_id))
+    ecs_cli.delete_security_group(security_group_id)
+    cli_logger.print("Successfully deleted security group: {}.".format(security_group_id))
 
 
 def _create_default_intra_cluster_inbound_rules(config):
@@ -1311,13 +1304,13 @@ def _delete_nat_gateway(config, vpc_cli):
             "Deleting NAT Gateway",
             _numbered=("()", current_step, total_steps)):
         current_step += 1
-        _delete_nat_gateway_resource(config, acs_client)
+        _delete_nat_gateway_resource(config, vpc_cli)
 
     with cli_logger.group(
             "Releasing Elastic IP",
             _numbered=("()", current_step, total_steps)):
         current_step += 1
-        release_elastic_ip(config, acs_client)
+        release_elastic_ip(config, vpc_cli)
 
 
 def _create_and_configure_nat_gateway(config, vpc_cli):
@@ -1364,20 +1357,17 @@ def  _create_snat_entry(config, vpc_cli):
         cli_logger.print("Successfully created SNAT Entry: {}.".format(snat_entry_name))
 
 
-def _delete_nat_gateway_resource(config, acs_client):
+def _delete_nat_gateway_resource(config, vpc_cli):
     """ Delete custom nat_gateway """
-    nat_gateway = get_workspace_nat_gateway(config, acs_client)
+    nat_gateway = get_workspace_nat_gateway(config, vpc_cli)
     if nat_gateway is None:
         cli_logger.print("No Nat Gateway for workspace were found...")
         return
-    nat_gateway_id = nat_gateway.get("NatGatewayId")
-    nat_gateway_name = nat_gateway.get("Name")
-    cli_logger.print("Deleting Nat Gateway: {}...".format(nat_gateway.get("Name")))
-    response = acs_client.delete_nat_gateway(nat_gateway_id)
-    if response is None:
-        cli_logger.abort("Failed to delete Nat Gateway: {}.".format(nat_gateway_name))
-    else:
-        cli_logger.print("Successfully deleted Nat Gateway: {}.".format(nat_gateway_name))
+    nat_gateway_id = nat_gateway.nat_gateway_id
+    nat_gateway_name = nat_gateway.name
+    cli_logger.print("Deleting Nat Gateway: {}...".format(nat_gateway_name))
+    vpc_cli.delete_nat_gateway(nat_gateway_id)
+    cli_logger.print("Successfully deleted Nat Gateway: {}.".format(nat_gateway_name))
 
 
 def get_workspace_nat_gateway(config, vpc_cli):
@@ -1389,12 +1379,7 @@ def _get_workspace_nat_gateway(config, vpc_cli):
     nat_gateway_name = get_workspace_nat_gateway_name(workspace_name)
     vpc_id = get_workspace_vpc_id(config, vpc_cli)
     cli_logger.verbose("Getting the Nat Gateway for workspace: {}...".format(nat_gateway_name))
-    nat_gateways = vpc_cli.describe_nat_gateways(vpc_id)
-    if nat_gateways is None:
-        cli_logger.verbose("The Nat Gateway for workspace is not found: {}.".format(nat_gateway_name))
-        return None
-
-    nat_gateways = [nat_gateway for nat_gateway in nat_gateways if nat_gateway.name == nat_gateway_name]
+    nat_gateways = vpc_cli.describe_nat_gateways(vpc_id, nat_gateway_name)
     if len(nat_gateways) == 0:
         cli_logger.verbose("The Nat Gateway for workspace is not found: {}.".format(nat_gateway_name))
         return None
@@ -1451,20 +1436,17 @@ def _get_workspace_elastic_ip(config, vpc_cli):
         return eip_addresses[0]
 
 
-def release_elastic_ip(config, acs_client):
-    """ Delete Elastic IP """
-    elastic_ip = get_workspace_elastic_ip(config, acs_client)
+def release_elastic_ip(config, vpc_cli):
+    """ Release Elastic IP """
+    elastic_ip = get_workspace_elastic_ip(config, vpc_cli)
     if elastic_ip is None:
         cli_logger.print("No Elastic IP for workspace were found...")
         return
-    allocation_id = elastic_ip.get("AllocationId")
-    elastic_ip_name = elastic_ip.get("Name")
+    allocation_id = elastic_ip.allocation_id
+    elastic_ip_name = elastic_ip.name
     cli_logger.print("Releasing Elastic IP: {}...".format(elastic_ip_name))
-    response = acs_client.release_eip_address(allocation_id)
-    if response is None:
-        cli_logger.abort("Faild to release Elastic IP: {}.".format(elastic_ip_name))
-    else:
-        cli_logger.print("Successfully to release Elastic IP:{}.".format(elastic_ip_name))
+    vpc_cli.release_eip_address(allocation_id)
+    cli_logger.print("Successfully to release Elastic IP:{}.".format(elastic_ip_name))
 
 
 def _dissociate_elastic_ip(config, vpc_cli):
@@ -1473,15 +1455,10 @@ def _dissociate_elastic_ip(config, vpc_cli):
         return
     eip_allocation_id = elastic_ip.allocation_id
     instance_id = elastic_ip.instance_id
-    if instance_id is None:
-        return
     elastic_ip_name = elastic_ip.name
     cli_logger.print("Dissociating Elastic IP: {}...".format(elastic_ip_name))
-    response = acs_client.dissociate_eip_address(eip_allocation_id, "Nat", instance_id)
-    if response is None:
-        cli_logger.abort("Faild to dissociate Elastic IP: {}.".format(elastic_ip_name))
-    else:
-        cli_logger.print("Successfully to dissociate Elastic IP:{}.".format(elastic_ip_name))
+    vpc_cli.unassociate_eip_address(eip_allocation_id, instance_id, "Nat")
+    cli_logger.print("Successfully to dissociate Elastic IP:{}.".format(elastic_ip_name))
 
 
 def _get_instance_role(ram_cli, role_name):
@@ -1800,7 +1777,7 @@ def _delete_network_resources(config, workspace_name, vpc_id,
             "Deleting security group",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
-        _delete_security_group(config, vpc_id, acs_client)
+        _delete_security_group(config, vpc_id, ecs_cli)
 
     # delete vpc
     with cli_logger.group(
@@ -1808,28 +1785,21 @@ def _delete_network_resources(config, workspace_name, vpc_id,
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
         if not use_working_vpc:
-            _delete_vpc(config, acs_client)
+            _delete_vpc(config, vpc_cli)
         else:
             # deleting the tags we created on working vpc
-            _delete_vpc_tags(acs_client, vpc_id)
+            _delete_vpc_tags(vpc_cli, vpc_id)
 
 
-def _delete_vpc_tags(acs_client, vpc_id):
-    vpc = acs_client.describe_vpcs(vpc_id=vpc_id)
-    if vpc is None:
-        cli_logger.print("The VPC: {} doesn't exist.".format(vpc_id))
-        return
-
+def _delete_vpc_tags(vpc_cli, vpc_id):
+    vpc = vpc_cli.describe_vpcs(vpc_id=vpc_id)[0]
     cli_logger.print("Deleting VPC tags: {}...".format(vpc.id))
-    response = acs_client.untag_resource(
+    vpc_cli.untag_resource(
         resource_id=vpc_id,
         resource_type="VPC",
         tag_keys=['Name', ALIYUN_WORKSPACE_VERSION_TAG_NAME]
     )
-    if response is None:
-        cli_logger.abort("Failed to delete VPC tags.")
-    else:
-        cli_logger.print("Successfully deleted VPC tags: {}.".format(vpc.id))
+    cli_logger.print("Successfully deleted VPC tags: {}.".format(vpc.id))
 
 
 def check_aliyun_workspace_integrity(config):

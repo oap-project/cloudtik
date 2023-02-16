@@ -234,6 +234,26 @@ function update_config_for_aliyun() {
     update_config_for_flink_dirs
 }
 
+function update_config_for_huaweicloud() {
+    fs_default_dir="obs://${HUAWEICLOUD_OBS_BUCKET}"
+    sed -i "s!{%fs.default.name%}!${fs_default_dir}!g" `grep "{%fs.default.name%}" -rl ./`
+
+    update_cloud_storage_credential_config
+
+    # checkpoints dir
+    if [ -z "${HUAWEICLOUD_OBS_BUCKET}" ]; then
+        checkpoints_dir="file:///tmp/flink-checkpoints"
+        savepoints_dir="file:///tmp/flink-savepoints"
+        historyserver_archive_dir="file:///tmp/history-server"
+    else
+        checkpoints_dir="${fs_default_dir}/${PATH_CHECKPOINTS}"
+        savepoints_dir="${fs_default_dir}/${PATH_SAVEPOINTS}"
+        historyserver_archive_dir="${fs_default_dir}/${PATH_HISTORY_SERVER}"
+    fi
+
+    update_config_for_flink_dirs
+}
+
 function update_config_for_remote_storage() {
     if [ "$HDFS_STORAGE" == "true" ]; then
         update_config_for_hdfs
@@ -245,6 +265,8 @@ function update_config_for_remote_storage() {
         update_config_for_gcp
     elif [ "${cloud_storage_provider}" == "aliyun" ]; then
         update_config_for_aliyun
+    elif [ "${cloud_storage_provider}" == "huaweicloud" ]; then
+        update_config_for_huaweicloud
     fi
 }
 

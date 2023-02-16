@@ -8,6 +8,7 @@
 
 HADOOP_CREDENTIAL_FILE="${HADOOP_HOME}/etc/hadoop/credential.jceks"
 HADOOP_CREDENTIAL_PROPERTY="<property>\n      <name>hadoop.security.credential.provider.path</name>\n      <value>jceks://file@${HADOOP_CREDENTIAL_FILE}</value>\n    </property>"
+FS_OBS_SECURITY_PROVIDER_PROPERTY_FOR_ECS="<property>\n      <name>fs.obs.security.provider</name>\n      <value>com.obs.services.EcsObsCredentialsProvider</value>\n    </property>"
 
 function update_credential_config_for_aws() {
     if [ "$AWS_WEB_IDENTITY" == "true" ]; then
@@ -148,6 +149,34 @@ function update_credential_config_for_aliyun() {
     fi
 }
 
+function update_credential_config_for_huaweicloud() {
+    if [ ! -z "${HUAWEICLOUD_OBS_ACCESS_KEY}" ] && [ ! -z "${HUAWEICLOUD_OBS_SECRET_KEY}" ]; then
+        sed -i "s#{%fs.obs.security.provider.property%}#""#g" `grep "{%fs.obs.security.provider.property%}" -rl ./`
+    else
+        sed -i "s#{%fs.obs.security.provider.property%}#${FS_OBS_SECURITY_PROVIDER_PROPERTY_FOR_ECS}#g" `grep "{%fs.obs.security.provider.property%}" -rl ./`
+    fi
+
+    HAS_HADOOP_CREDENTIAL=false
+
+    if [ ! -z "${HUAWEICLOUD_OBS_ACCESS_KEY}" ]; then
+        FS_OBS_ACCESS_KEY="fs.obs.access.key"
+        ${HADOOP_HOME}/bin/hadoop credential create ${FS_OBS_ACCESS_KEY} -value ${HUAWEICLOUD_OBS_ACCESS_KEY} -provider ${HADOOP_CREDENTIAL_TMP_PROVIDER_PATH} > /dev/null
+        HAS_HADOOP_CREDENTIAL=true
+    fi
+
+    if [ ! -z "${HUAWEICLOUD_OBS_SECRET_KEY}" ]; then
+        FS_OBS_SECRET_KEY="fs.obs.secret.key"
+        ${HADOOP_HOME}/bin/hadoop credential create ${FS_OBS_SECRET_KEY} -value ${HUAWEICLOUD_OBS_SECRET_KEY} -provider ${HADOOP_CREDENTIAL_TMP_PROVIDER_PATH} > /dev/null
+        HAS_HADOOP_CREDENTIAL=true
+    fi
+
+    if [ "${HAS_HADOOP_CREDENTIAL}" == "true" ]; then
+        sed -i "s#{%hadoop.credential.property%}#${HADOOP_CREDENTIAL_PROPERTY}#g" `grep "{%hadoop.credential.property%}" -rl ./`
+    else
+        sed -i "s#{%hadoop.credential.property%}#""#g" `grep "{%hadoop.credential.property%}" -rl ./`
+    fi
+}
+
 function set_cloud_storage_provider() {
     cloud_storage_provider="none"
     if [ "$AWS_CLOUD_STORAGE" == "true" ]; then
@@ -158,6 +187,8 @@ function set_cloud_storage_provider() {
         cloud_storage_provider="gcp"
     elif [ "$ALIYUN_CLOUD_STORAGE" == "true" ]; then
         cloud_storage_provider="aliyun"
+    elif [ "$HUAWEICLOUD_CLOUD_STORAGE" == "true" ]; then
+        cloud_storage_provider="huaweicloud"
     fi
 }
 
@@ -172,6 +203,8 @@ function update_credential_config_for_provider() {
         update_credential_config_for_gcp
     elif [ "${cloud_storage_provider}" == "aliyun" ]; then
         update_credential_config_for_aliyun
+    elif [ "${cloud_storage_provider}" == "huaweicloud" ]; then
+        update_credential_config_for_huaweicloud
     fi
     if [  -f "$HADOOP_CREDENTIAL_TMP_FILE"  ]; then
         cp  ${HADOOP_CREDENTIAL_TMP_FILE} ${HADOOP_CREDENTIAL_FILE}

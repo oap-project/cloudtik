@@ -223,13 +223,31 @@ function update_config_for_azure() {
 }
 
 function update_config_for_aliyun() {
-    fs_default_dir="gs://${ALIYUN_OSS_BUCKET}"
+    fs_default_dir="oss://${ALIYUN_OSS_BUCKET}"
     sed -i "s!{%fs.default.name%}!${fs_default_dir}!g" `grep "{%fs.default.name%}" -rl ./`
 
     update_cloud_storage_credential_config
 
     # event log dir
     if [ -z "${ALIYUN_OSS_BUCKET}" ]; then
+        event_log_dir="file:///tmp/spark-events"
+        sql_warehouse_dir="$USER_HOME/shared/spark-warehouse"
+    else
+        event_log_dir="${fs_default_dir}/shared/spark-events"
+        sql_warehouse_dir="${fs_default_dir}/shared/spark-warehouse"
+    fi
+
+    update_config_for_spark_dirs
+}
+
+function update_config_for_huaweicloud() {
+    fs_default_dir="obs://${HUAWEICLOUD_OBS_BUCKET}"
+    sed -i "s!{%fs.default.name%}!${fs_default_dir}!g" `grep "{%fs.default.name%}" -rl ./`
+
+    update_cloud_storage_credential_config
+
+    # event log dir
+    if [ -z "${HUAWEICLOUD_OBS_BUCKET}" ]; then
         event_log_dir="file:///tmp/spark-events"
         sql_warehouse_dir="$USER_HOME/shared/spark-warehouse"
     else
@@ -251,6 +269,8 @@ function update_config_for_remote_storage() {
         update_config_for_gcp
     elif [ "${cloud_storage_provider}" == "aliyun" ]; then
         update_config_for_aliyun
+    elif [ "${cloud_storage_provider}" == "huaweicloud" ]; then
+        update_config_for_huaweicloud
     fi
 }
 

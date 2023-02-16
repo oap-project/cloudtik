@@ -160,6 +160,7 @@ function install_spark_with_cloud_jars() {
         'hadoop-aliyun-[0-9]*[0-9].jar' \
         'aliyun-java-sdk-*.jar' \
         'aliyun-sdk-oss-*.jar' \
+        'hadoop-huaweicloud-[0-9]*[0-9].jar' \
         'wildfly-openssl-[0-9]*[0-9].Final.jar' \
         'jetty-util-ajax-[0-9]*[0-9].v[0-9]*[0-9].jar' \
         'jetty-util-[0-9]*[0-9].v[0-9]*[0-9].jar' \

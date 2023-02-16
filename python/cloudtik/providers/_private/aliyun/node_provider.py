@@ -87,8 +87,7 @@ class EcsClient:
         )
         response = self.client.describe_instance_types_with_options(
             describe_instance_types_request, self.runtime_options)
-        if (response is not None
-                and response.body is not None):
+        if response is not None:
             return response.body
         return None
 
@@ -107,8 +106,7 @@ class EcsClient:
             describe_images_request, self.runtime_options)
         if (response is not None
                 and response.body is not None
-                and response.body.images is not None
-                and response.body.images.image is not None):
+                and response.body.images is not None):
             return response.body.images.image
         return None
 
@@ -124,9 +122,7 @@ class EcsClient:
             describe_launch_template_versions_request, self.runtime_options)
         if (response is not None
                 and response.body is not None
-                and response.body.launch_template_version_sets is not None
-                and response.body.launch_template_version_sets.launch_template_version_set is not None):
-
+                and response.body.launch_template_version_sets is not None):
             return response.body.launch_template_version_sets.launch_template_version_set
         return None
 
@@ -158,16 +154,18 @@ class EcsClient:
         )
         response = self.client.create_key_pair_with_options(
             create_key_pair_request, self.runtime_options)
-        if (response is not None
-                and response.body is not None):
+        if response is not None:
             return response.body
         return None
 
-    def describe_instances(self, tags=None, instance_ids=None):
+    def describe_instances(
+            self, tags=None, instance_ids=None, vpc_id=None, status=None):
         """Query the details of one or more Elastic Compute Service (ECS) instances.
 
         :param tags: The tags of the instance.
         :param instance_ids: The IDs of ECS instances
+        :param vpc_id: The VPC of the instances
+        :param status: The status of the instances
         :return: ECS instance list
         """
         request_tags = [ecs_models.DescribeInstancesRequestTag(
@@ -178,15 +176,16 @@ class EcsClient:
         describe_instances_request = ecs_models.DescribeInstancesRequest(
             region_id=self.region_id,
             tag=request_tags,
-            instance_ids=request_instance_ids
+            instance_ids=request_instance_ids,
+            vpc_id=vpc_id,
+            status=status
         )
 
         response = self.client.describe_instances_with_options(
             describe_instances_request, self.runtime_options)
         if (response is not None
                 and response.body is not None
-                and response.body.instances is not None
-                and response.body.instances.instance is not None):
+                and response.body.instances is not None):
             return response.body.instances.instance
         return None
 
@@ -221,8 +220,7 @@ class EcsClient:
             run_instances_request, self.runtime_options)
         if (response is not None
                 and response.body is not None
-                and response.body.instance_id_sets is not None
-                and response.body.instance_id_sets.instance_id_set is not None):
+                and response.body.instance_id_sets is not None):
             return response.body.instance_id_sets.instance_id_set
         logging.error("instance created failed.")
         return None

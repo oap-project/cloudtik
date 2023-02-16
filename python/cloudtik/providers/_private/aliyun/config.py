@@ -16,10 +16,12 @@ from cloudtik.core._private.services import get_node_ip_address
 from cloudtik.core._private.utils import check_cidr_conflict, get_cluster_uri, is_use_internal_ip, \
     is_managed_cloud_storage, is_use_managed_cloud_storage, is_worker_role_for_cloud_storage, is_use_working_vpc, \
     is_use_peering_vpc, is_peering_firewall_allow_ssh_only, is_peering_firewall_allow_working_subnet
+from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD
 from cloudtik.core.workspace_provider import Existence, CLOUDTIK_MANAGED_CLOUD_STORAGE, \
     CLOUDTIK_MANAGED_CLOUD_STORAGE_URI
 from cloudtik.providers._private.aliyun.utils import AcsClient, export_aliyun_oss_storage_config, \
-    get_aliyun_oss_storage_config, get_aliyun_oss_storage_config_for_update, ALIYUN_OSS_BUCKET
+    get_aliyun_oss_storage_config, get_aliyun_oss_storage_config_for_update, ALIYUN_OSS_BUCKET, _get_node_info, \
+    get_aliyun_cloud_storage_uri
 
 from cloudtik.providers._private.aliyun.utils import VpcClient, VpcPeerClient, RamClient
 from cloudtik.providers._private.aliyun.node_provider import EcsClient
@@ -55,6 +57,8 @@ ALIYUN_WORKSPACE_VPC_PEERING_NAME = ALIYUN_RESOURCE_NAME_PREFIX + "-{}-vpc-peeri
 
 ALIYUN_WORKSPACE_VERSION_TAG_NAME = "cloudtik-workspace-version"
 ALIYUN_WORKSPACE_VERSION_CURRENT = "1"
+
+ALIYUN_MANAGED_STORAGE_OSS_BUCKET = "aliyun.managed.storage.oss.bucket"
 
 HEAD_ROLE_ATTACH_POLICIES = [
     "AliyunECSFullAccess",
@@ -1979,11 +1983,50 @@ def get_workspace_oss_bucket(config, workspace_name):
 
 
 def _get_workspace_head_nodes(provider_config, workspace_name):
-    pass
+    vpc_client = VpcClient(provider_config)
+    vpc_id = _get_workspace_vpc_id(workspace_name, vpc_client)
+    if vpc_id is None:
+        raise RuntimeError(
+            "Failed to get the VPC. The workspace {} doesn't exist or is in the wrong state.".format(
+                workspace_name
+            ))
+
+    # List the nodes filtering the vpc_id and running state and head tag
+    ecs_client = EcsClient(provider_config)
+    tag_filters = [
+        {
+            "Key": CLOUDTIK_TAG_NODE_KIND,
+            "Value": NODE_KIND_HEAD
+        }
+    ]
+    nodes = list(ecs_client.describe_instances(
+        tags=tag_filters, vpc_id=vpc_id, status="Running"))
+    return nodes
+
+
+def get_workspace_head_nodes(config):
+    return _get_workspace_head_nodes(
+        config["provider"], config["workspace_name"])
+
+
+def get_cluster_name_from_head(head_node) -> Optional[str]:
+    if (head_node.tags is not None
+            and head_node.tags.tag is not None):
+        for tag in head_node.tags.tag:
+            tag_key = tag.tag_key
+            if tag_key == CLOUDTIK_TAG_CLUSTER_NAME:
+                return tag.tag_value
+    return None
 
 
 def list_aliyun_clusters(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    pass
+    head_nodes = get_workspace_head_nodes(config)
+    clusters = {}
+    for head_node in head_nodes:
+        cluster_name = get_cluster_name_from_head(head_node)
+        if cluster_name:
+            clusters[cluster_name] = _get_node_info(head_node)
+    return clusters
 
 
 def bootstrap_aliyun_workspace(config):
@@ -2060,6 +2103,18 @@ def check_aliyun_workspace_existence(config):
 
 
 def get_aliyun_workspace_info(config):
-    pass
+    info = {}
+    get_aliyun_managed_cloud_storage_info(config, config["provider"], info)
+    return info
 
 
+def get_aliyun_managed_cloud_storage_info(config, cloud_provider, info):
+    workspace_name = config["workspace_name"]
+    bucket = get_managed_oss_bucket(cloud_provider, workspace_name)
+    managed_bucket_name = None if bucket is None else bucket.name
+
+    if managed_bucket_name is not None:
+        oss_cloud_storage = {ALIYUN_OSS_BUCKET, managed_bucket_name}
+        managed_cloud_storage = {ALIYUN_MANAGED_STORAGE_OSS_BUCKET: managed_bucket_name,
+                                 CLOUDTIK_MANAGED_CLOUD_STORAGE_URI: get_aliyun_cloud_storage_uri(oss_cloud_storage)}
+        info[CLOUDTIK_MANAGED_CLOUD_STORAGE] = managed_cloud_storage

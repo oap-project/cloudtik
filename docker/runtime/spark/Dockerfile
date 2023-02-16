@@ -53,6 +53,7 @@ RUN wget http://archive.apache.org/dist/hadoop/common/hadoop-${HADOOP_VERSION}/h
     rm hadoop.tar.gz && \
     wget -nc -P "${HADOOP_HOME}/share/hadoop/tools/lib" https://storage.googleapis.com/hadoop-lib/gcs/gcs-connector-hadoop3-latest.jar && \
     wget -O "$HADOOP_HOME/share/hadoop/tools/lib/hadoop-azure-${HADOOP_VERSION}.jar" https://d30257nes7d4fq.cloudfront.net/downloads/hadoop/hadoop-azure-${HADOOP_VERSION}.jar && \
+    wget -O "$HADOOP_HOME/share/hadoop/tools/lib/hadoop-aliyun-${HADOOP_VERSION}.jar" https://d30257nes7d4fq.cloudfront.net/downloads/hadoop/hadoop-aliyun-${HADOOP_VERSION}.jar && \
     echo "export HADOOP_CLASSPATH=\$HADOOP_CLASSPATH:\$HADOOP_HOME/share/hadoop/tools/lib/*" >> ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh
 
 # Install Spark

@@ -36,28 +36,17 @@ arch=$(uname -m)
 cp ./build/thirdparty/ganglia/modpython.so ./build/thirdparty/ganglia/modpython-${arch}.so
 aws s3 cp ./build/thirdparty/ganglia/modpython-${arch}.so s3://cloudtik/downloads/ganglia/
 
-source $CONDA_HOME/bin/activate cloudtik_py38 || conda create -n cloudtik_py38 -y python=3.8
-source $CONDA_HOME/bin/activate cloudtik_py38
-bash ./build.sh --no-build-redis --no-build-ganglia
-CLOUDTIK_PY38_WHEEL=cloudtik-${CLOUDTIK_VERSION}-cp38-cp38-manylinux2014_${arch}.whl
-aws s3 cp ./python/dist/$CLOUDTIK_PY38_WHEEL s3://cloudtik/downloads/cloudtik/
+INVALIDATION_PATHS=""
+for PYTHON_VERSION in "3.8" "3.9" "3.10" "3.11"
+do
+    echo "Building CloudTik for Python ${PYTHON_VERSION}...."
+    PYTHON_TAG=${PYTHON_VERSION//./}
+    source $CONDA_HOME/bin/activate cloudtik_py${PYTHON_TAG} || conda create -n cloudtik_py${PYTHON_TAG} -y python=${PYTHON_VERSION}
+    source $CONDA_HOME/bin/activate cloudtik_py${PYTHON_TAG}
+    bash ./build.sh --no-build-redis --no-build-ganglia
+    CLOUDTIK_WHEEL=cloudtik-${CLOUDTIK_VERSION}-cp${PYTHON_TAG}-cp${PYTHON_TAG}-manylinux2014_${arch}.whl
+    aws s3 cp ./python/dist/$CLOUDTIK_WHEEL s3://cloudtik/downloads/cloudtik/
+    INVALIDATION_PATHS="${INVALIDATION_PATHS} /downloads/cloudtik/${CLOUDTIK_WHEEL}"
+done
 
-source $CONDA_HOME/bin/activate cloudtik_py39 || conda create -n cloudtik_py39 -y python=3.9
-source $CONDA_HOME/bin/activate cloudtik_py39
-bash ./build.sh --no-build-redis --no-build-ganglia
-CLOUDTIK_PY39_WHEEL=cloudtik-${CLOUDTIK_VERSION}-cp39-cp39-manylinux2014_${arch}.whl
-aws s3 cp ./python/dist/$CLOUDTIK_PY39_WHEEL s3://cloudtik/downloads/cloudtik/
-
-source $CONDA_HOME/bin/activate cloudtik_py310 || conda create -n cloudtik_py310 -y python=3.10
-source $CONDA_HOME/bin/activate cloudtik_py310
-bash ./build.sh --no-build-redis --no-build-ganglia
-CLOUDTIK_PY310_WHEEL=cloudtik-${CLOUDTIK_VERSION}-cp310-cp310-manylinux2014_${arch}.whl
-aws s3 cp ./python/dist/$CLOUDTIK_PY310_WHEEL s3://cloudtik/downloads/cloudtik/
-
-source $CONDA_HOME/bin/activate cloudtik_py311 || conda create -n cloudtik_py310 -y python=3.11
-source $CONDA_HOME/bin/activate cloudtik_py311
-bash ./build.sh --no-build-redis --no-build-ganglia
-CLOUDTIK_PY311_WHEEL=cloudtik-${CLOUDTIK_VERSION}-cp311-cp311-manylinux2014_${arch}.whl
-aws s3 cp ./python/dist/$CLOUDTIK_PY311_WHEEL s3://cloudtik/downloads/cloudtik/
-
-aws cloudfront create-invalidation --distribution-id E3703BSG9BICN1 --paths "/downloads/cloudtik/cloudtik-${CLOUDTIK_VERSION}-cp38-cp38-manylinux2014_${arch}.whl" "/downloads/cloudtik/cloudtik-${CLOUDTIK_VERSION}-cp39-cp39-manylinux2014_${arch}.whl" "/downloads/cloudtik/cloudtik-${CLOUDTIK_VERSION}-cp310-cp310-manylinux2014_${arch}.whl" "/downloads/cloudtik/cloudtik-${CLOUDTIK_VERSION}-cp311-cp311-manylinux2014_${arch}.whl"
+aws cloudfront create-invalidation --distribution-id E3703BSG9BICN1 --paths ${INVALIDATION_PATHS}

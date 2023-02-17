@@ -23,6 +23,7 @@ from cloudtik.providers._private.aliyun.utils import AcsClient, export_aliyun_os
 
 from cloudtik.providers._private.aliyun.utils import OssClient, RamClient, VpcClient, VpcPeerClient
 from cloudtik.providers._private.aliyun.node_provider import EcsClient
+from cloudtik.providers._private.utils import StorageTestingError
 
 # instance status
 PENDING = "Pending"
@@ -113,7 +114,6 @@ def bootstrap_aliyun_from_workspace(config):
     config = _configure_key_pair(config)
 
     # Pick a reasonable subnet if not specified by the user.
-    # TODO (haifeng)
     config = _configure_vswitch_from_workspace(config)
 
     # Cluster workers should be in a security group that permits traffic within
@@ -532,9 +532,28 @@ def _configure_prefer_spot_node(config):
 
 
 def verify_oss_storage(provider_config: Dict[str, Any]):
-    s3_storage = get_aliyun_oss_storage_config(provider_config)
-    if s3_storage is None:
+    oss_storage = get_aliyun_oss_storage_config(provider_config)
+    if oss_storage is None:
         return
+
+    credentials_config = None
+    oss_access_key_id = oss_storage.get("oss.access.key.id")
+    oss_access_key_secret = oss_storage.get("oss.access.key.secret")
+    if oss_access_key_id and oss_access_key_secret:
+        credentials_config = {
+            "aliyun_access_key_id": oss_access_key_id,
+            "aliyun_access_key_secret": oss_access_key_secret
+        }
+
+    oss_client = OssClient(provider_config, credentials_config)
+
+    try:
+        oss_client.list_objects(oss_storage[ALIYUN_OSS_BUCKET])
+    except Exception as e:
+        raise StorageTestingError("Error happens when verifying OSS storage configurations. "
+                                  "If you want to go without passing the verification, "
+                                  "set 'verify_cloud_storage' to False under provider config. "
+                                  "Error: {}.".format(e.message)) from None
 
 
 def post_prepare_aliyun(config: Dict[str, Any]) -> Dict[str, Any]:

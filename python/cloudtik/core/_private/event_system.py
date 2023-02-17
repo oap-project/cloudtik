@@ -10,8 +10,7 @@ class CreateClusterEvent(Enum):
 
     Attributes:
         up_started : Invoked at the beginning of create_or_update_cluster.
-        ssh_keypair_downloaded : Invoked when the ssh keypair is downloaded.
-        cluster_booting_started : Invoked when when the cluster booting starts.
+        cluster_booting_started : Invoked when the cluster booting starts.
         acquiring_new_head_node : Invoked before the head node is acquired.
         head_node_acquired : Invoked after the head node is acquired.
         ssh_control_acquired : Invoked when the node is being updated.
@@ -27,7 +26,6 @@ class CreateClusterEvent(Enum):
     """
 
     up_started = auto()
-    ssh_keypair_downloaded = auto()
     cluster_booting_started = auto()
     acquiring_new_head_node = auto()
     head_node_acquired = auto()

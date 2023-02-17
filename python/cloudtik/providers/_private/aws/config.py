@@ -915,10 +915,6 @@ def bootstrap_aws_from_workspace(config):
 
     # Configure SSH access, using an existing key pair if possible.
     config = _configure_key_pair(config)
-    global_event_system.execute_callback(
-        get_cluster_uri(config),
-        CreateClusterEvent.ssh_keypair_downloaded,
-        {"ssh_key_path": config["auth"]["ssh_private_key"]})
 
     # Pick a reasonable subnet if not specified by the user.
     config = _configure_subnet_from_workspace(config)

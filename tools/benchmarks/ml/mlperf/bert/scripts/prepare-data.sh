@@ -1,6 +1,6 @@
 #!/bin/bash
 
-ACTIVATE_ENV=cloudtik_py37
+ACTIVATE_ENV=${CLOUDTIK_ENV}
 
 USER_HOME=/home/$(whoami)
 BENCHMARK_TOOL_HOME=$USER_HOME/runtime/benchmark-tools

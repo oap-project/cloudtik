@@ -54,13 +54,13 @@ RUN wget https://d30257nes7d4fq.cloudfront.net/downloads/spark/spark-${SPARK_VER
     rm spark.tgz && \
     wget -nc -P "${SPARK_HOME}/jars" https://repo1.maven.org/maven2/org/apache/spark/spark-hadoop-cloud_2.12/${SPARK_VERSION}/spark-hadoop-cloud_2.12-${SPARK_VERSION}.jar && \
     echo "export PYTHONPATH=\${SPARK_HOME}/python:\${SPARK_HOME}/python/lib/py4j-0.10.9-src.zip" >> ~/.bashrc && \
-    echo "export PYSPARK_PYTHON=\${CONDA_ROOT}/envs/cloudtik_py37/bin/python" >> ~/.bashrc && \
-    echo "export PYSPARK_DRIVER_PYTHON=\${CONDA_ROOT}/envs/cloudtik_py37/bin/python" >> ~/.bashrc
+    echo "export PYSPARK_PYTHON=\${CONDA_ROOT}/envs/\${CLOUDTIK_ENV}/bin/python" >> ~/.bashrc && \
+    echo "export PYSPARK_DRIVER_PYTHON=\${CONDA_ROOT}/envs/\${CLOUDTIK_ENV}/bin/python" >> ~/.bashrc
 
 # Install python packages
 WORKDIR /home/cloudtik/
 COPY requirements.txt /tmp/requirements.txt
-RUN export PATH="$HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH" \
+RUN export PATH="$HOME/anaconda3/envs/${CLOUDTIK_ENV}/bin:$PATH" \
     && pip install -r  /tmp/requirements.txt \
     && sudo rm /tmp/requirements.txt \
     && python -m spylon_kernel install --user

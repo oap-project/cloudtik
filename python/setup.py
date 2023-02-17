@@ -18,6 +18,8 @@ TEMPLATES_SUBDIR = os.path.join("cloudtik", "templates")
 
 RUNTIME_SUBDIR = os.path.join("cloudtik", "runtime")
 
+MINIMUM_SUPPORTED_PYTHON_VERSION = "3.8"
+
 
 def find_version(*filepath):
     # Extract version information from filepath
@@ -219,10 +221,9 @@ setuptools.setup(
     url="https://github.com/oap-project/cloudtik.git",
     keywords="Distributed Cloud Analytic AI Spark",
     classifiers=[
-        "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
+        f"Programming Language :: Python :: {MINIMUM_SUPPORTED_PYTHON_VERSION}",
     ],
+    python_requires=f">={MINIMUM_SUPPORTED_PYTHON_VERSION}",
     packages=setup_spec.get_packages(),
     cmdclass={"build_ext": BuildExt},
     # The BinaryDistribution argument triggers build_ext.

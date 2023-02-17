@@ -220,7 +220,7 @@ CLOUDTIK_DATA_DISK_MOUNT_POINT = "/mnt/cloudtik"
 CLOUDTIK_WHEELS = "https://d30257nes7d4fq.cloudfront.net/downloads/cloudtik"
 
 # The installed python version installed for head and workers
-CLOUDTIK_CLUSTER_PYTHON_VERSION = "3.7"
+CLOUDTIK_CLUSTER_PYTHON_VERSION = "3.8"
 
 # The default global max workers if not set
 CLOUDTIK_DEFAULT_MAX_WORKERS = env_integer("CLOUDTIK_DEFAULT_MAX_WORKERS", 32)

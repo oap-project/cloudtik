@@ -2,6 +2,9 @@
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 CLOUDTIK_HOME=$( cd -- "$( dirname -- "${SCRIPT_DIR}" )" &> /dev/null && pwd )
 
+# Import the default vars
+. "$SCRIPT_DIR"/set-default-vars.sh
+
 IMAGE_TAG="nightly"
 
 while [[ $# -gt 0 ]]
@@ -12,6 +15,16 @@ do
         # Override for the image tag.
         shift
         IMAGE_TAG=$1
+        ;;
+    --python-version)
+        # Python version
+        shift
+        PYTHON_VERSION=$1
+        ;;
+    --python-release)
+        # Python release to install.
+        shift
+        PYTHON_RELEASE=$1
         ;;
     --clean)
         # Remove the local images for the image tag.
@@ -30,15 +43,16 @@ do
         NO_PUSH=YES
         ;;
     *)
-        echo "Usage: release-docker.sh [ --image-tag ] --clean --tag-nightly --no-build --no-push"
+        echo "Usage: release-docker.sh [ --image-tag ] [ --python-version ] [ --python-release ] --clean --tag-nightly --no-build --no-push"
         exit 1
     esac
     shift
 done
 
+PYTHON_TAG=${PYTHON_VERSION//./}
 
 cd $CLOUDTIK_HOME
-source /home/ubuntu/anaconda3/bin/activate cloudtik_py37
+source /home/ubuntu/anaconda3/bin/activate cloudtik_py${PYTHON_TAG}
 
 if [ $DO_CLEAN ]; then
     sudo docker rmi cloudtik/spark-runtime-benchmark:$IMAGE_TAG
@@ -64,7 +78,7 @@ fi
 
 # Default build
 if [ ! $NO_BUILD ]; then
-    sudo bash ./build-docker.sh --image-tag $IMAGE_TAG --build-spark --build-ml --build-ml-mxnet --build-spark-benchmark
+    sudo bash ./build-docker.sh --image-tag $IMAGE_TAG --python-version ${PYTHON_VERSION} --python-release ${PYTHON_RELEASE} --build-spark --build-ml --build-ml-mxnet --build-spark-benchmark
 fi
 
 # Default push

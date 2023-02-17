@@ -57,8 +57,8 @@ function install_spark() {
         echo "export PATH=\$SPARK_HOME/bin:\$PATH" >> ${USER_HOME}/.bashrc
         # Config for PySpark when Spark installed
         echo "export PYTHONPATH=\${SPARK_HOME}/python:\${SPARK_HOME}/python/lib/py4j-0.10.9-src.zip" >> ~/.bashrc
-        echo "export PYSPARK_PYTHON=\${CONDA_ROOT}/envs/cloudtik_py37/bin/python" >> ~/.bashrc
-        echo "export PYSPARK_DRIVER_PYTHON=\${CONDA_ROOT}/envs/cloudtik_py37/bin/python" >> ~/.bashrc
+        echo "export PYSPARK_PYTHON=\${CONDA_ROOT}/envs/\${CLOUDTIK_ENV}/bin/python" >> ~/.bashrc
+        echo "export PYSPARK_DRIVER_PYTHON=\${CONDA_ROOT}/envs/\${CLOUDTIK_ENV}/bin/python" >> ~/.bashrc
     fi
 
     if [ "$METASTORE_ENABLED" == "true" ] && [ "$HIVE_FOR_METASTORE_JARS" == "true" ] && [ $IS_HEAD_NODE == "true" ]; then

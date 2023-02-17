@@ -3,6 +3,9 @@ SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 CLOUDTIK_HOME=$( cd -- "$( dirname -- "${SCRIPT_DIR}" )" &> /dev/null && pwd )
 CONDA_HOME=$( cd -- "$( dirname -- "$( dirname -- "$(which conda)" )" )" &> /dev/null && pwd )
 
+# Import the default vars
+. "$SCRIPT_DIR"/set-default-vars.sh
+
 CLOUDTIK_VERSION=""
 
 while [[ $# -gt 0 ]]
@@ -33,6 +36,7 @@ do
     shift
 done
 
+PYTHON_TAG=${PYTHON_VERSION//./}
 
 if [ $REINSTALL ]; then
     #conda activate cloudtik
@@ -45,7 +49,7 @@ else
     conda env remove -n cloudtik
     
     # creae env and install cloudtik
-    conda create -n cloudtik -y python=3.7
+    conda create -n cloudtik -y python=${PYTHON_VERSION}
     #conda activate cloudtik
     source $CONDA_HOME/bin/activate cloudtik
 fi
@@ -60,15 +64,15 @@ fi
 
 if [ $FROM_NIGHTLY ]; then
     if [ $FROM_LOCAL ]; then
-        pip install -U "cloudtik[all] @ file://${CLOUDTIK_HOME}/python/dist/cloudtik-${CLOUDTIK_VERSION}-cp37-cp37m-manylinux2014_${arch}.nightly.whl"
+        pip install -U "cloudtik[all] @ file://${CLOUDTIK_HOME}/python/dist/cloudtik-${CLOUDTIK_VERSION}-cp${PYTHON_TAG}-cp${PYTHON_TAG}-manylinux2014_${arch}.nightly.whl"
     else
-        pip install -U "cloudtik[all] @ https://d30257nes7d4fq.cloudfront.net/downloads/cloudtik/cloudtik-${CLOUDTIK_VERSION}-cp37-cp37m-manylinux2014_${arch}.nightly.whl"
+        pip install -U "cloudtik[all] @ https://d30257nes7d4fq.cloudfront.net/downloads/cloudtik/cloudtik-${CLOUDTIK_VERSION}-cp${PYTHON_TAG}-cp${PYTHON_TAG}-manylinux2014_${arch}.nightly.whl"
     fi
 else
     if [ $FROM_LOCAL ]; then
-        pip install -U "cloudtik[all] @ file://${CLOUDTIK_HOME}/python/dist/cloudtik-${CLOUDTIK_VERSION}-cp37-cp37m-manylinux2014_${arch}.whl"
+        pip install -U "cloudtik[all] @ file://${CLOUDTIK_HOME}/python/dist/cloudtik-${CLOUDTIK_VERSION}-cp${PYTHON_TAG}-cp${PYTHON_TAG}-manylinux2014_${arch}.whl"
     elif [ $FROM_CLOUD ]; then
-        pip install -U "cloudtik[all] @ https://d30257nes7d4fq.cloudfront.net/downloads/cloudtik/cloudtik-${CLOUDTIK_VERSION}-cp37-cp37m-manylinux2014_${arch}.whl"
+        pip install -U "cloudtik[all] @ https://d30257nes7d4fq.cloudfront.net/downloads/cloudtik/cloudtik-${CLOUDTIK_VERSION}-cp${PYTHON_TAG}-cp${PYTHON_TAG}-manylinux2014_${arch}.whl"
     else
     	if [ "$CLOUDTIK_VERSION" == "" ]; then
             pip install cloudtik[all]

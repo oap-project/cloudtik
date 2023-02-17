@@ -1,15 +1,18 @@
 #!/bin/bash
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
+# Import the default vars
+. "$SCRIPT_DIR"/dev/set-default-vars.sh
+
 # This script is for users to build docker images locally. It is most useful for users wishing to edit the
 # cloudtik-base, cloudtik-deps, or cloudtik images. 
 
 set -x
 
 CLOUDTIK_VERSION=$(sed -n 's/__version__ = \"\(..*\)\"/\1/p' ./python/cloudtik/__init__.py)
+CONDA_ENV_NAME="cloudtik"
 GPU=""
 BASE_IMAGE="ubuntu:focal"
-WHEEL_URL="https://d30257nes7d4fq.cloudfront.net/downloads/cloudtik/cloudtik-${CLOUDTIK_VERSION}-cp37-cp37m-manylinux2014_x86_64.whl"
-PYTHON_VERSION="3.7.7"
-CONDA_ENV_NAME="cloudtik_py37"
 IMAGE_TAG="nightly"
 
 while [[ $# -gt 0 ]]
@@ -35,16 +38,20 @@ do
         OUTPUT_SHA=YES
         ;;
     --wheel-to-use)
-        # Which wheel to use. This defaults to the latest nightly on python 3.7
+        # Which wheel to use. This defaults to the latest nightly on minimum supported python version of CloudTik
         echo "not implemented, just hardcode me :'("
         exit 1
         ;;
     --python-version)
-        # Python version to install. e.g. 3.7.7.
-        # Changing python versions may require a different wheel.
-        # If not provided defaults to 3.7.7
+        # Python version
         shift
         PYTHON_VERSION=$1
+        ;;
+    --python-release)
+        # Python release to install.
+        # Changing python versions may require a different wheel.
+        shift
+        PYTHON_RELEASE=$1
         ;;
     --image-tag)
         shift
@@ -96,7 +103,7 @@ do
         BUILD_SPARK_OPTIMIZED_BENCHMARK=YES
         ;;
     *)
-        echo "Usage: build-docker.sh [ --base-image ] [ --no-cache-build ] [ --shas-only ] [ --wheel-to-use ] [ --python-version ] [ --image-tag ]"
+        echo "Usage: build-docker.sh [ --base-image ] [ --no-cache-build ] [ --shas-only ] [ --wheel-to-use ] [ --python-version ] [ --python-release ] [ --image-tag ]"
         echo "Images to build options:"
         echo "[ --build-all ] [ --build-dev ] [ --build-spark ] [ --build-optimized ] [ --build-spark-native-sql ]"
         echo "[ --build-ml ] [ --build-ml-mxnet ] [ --build-ml-oneapi ]"
@@ -107,8 +114,12 @@ do
     shift
 done
 
+PYTHON_TAG=${PYTHON_VERSION//./}
+
 if [ "$IMAGE_TAG" == "nightly" ]; then
-    WHEEL_URL="https://d30257nes7d4fq.cloudfront.net/downloads/cloudtik/cloudtik-${CLOUDTIK_VERSION}-cp37-cp37m-manylinux2014_x86_64.nightly.whl"
+    WHEEL_URL="https://d30257nes7d4fq.cloudfront.net/downloads/cloudtik/cloudtik-${CLOUDTIK_VERSION}-cp${PYTHON_TAG}-cp${PYTHON_TAG}-manylinux2014_x86_64.nightly.whl"
+else
+    WHEEL_URL="https://d30257nes7d4fq.cloudfront.net/downloads/cloudtik/cloudtik-${CLOUDTIK_VERSION}-cp${PYTHON_TAG}-cp${PYTHON_TAG}-manylinux2014_x86_64.whl"
 fi
 
 WHEEL_DIR=$(mktemp -d)
@@ -119,10 +130,10 @@ for IMAGE in "cloudtik-base"
 do
     cp "$WHEEL" "docker/$IMAGE/$(basename "$WHEEL")"
     if [ $OUTPUT_SHA ]; then
-        IMAGE_SHA=$(docker build $NO_CACHE --build-arg GPU="$GPU" --build-arg BASE_IMAGE="$BASE_IMAGE" --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_VERSION="$PYTHON_VERSION" --build-arg CONDA_ENV_NAME="$CONDA_ENV_NAME" -q -t cloudtik/$IMAGE:$IMAGE_TAG$GPU docker/$IMAGE)
+        IMAGE_SHA=$(docker build $NO_CACHE --build-arg GPU="$GPU" --build-arg BASE_IMAGE="$BASE_IMAGE" --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_RELEASE="$PYTHON_RELEASE" --build-arg CONDA_ENV_NAME="$CONDA_ENV_NAME" -q -t cloudtik/$IMAGE:$IMAGE_TAG$GPU docker/$IMAGE)
         echo "cloudtik/$IMAGE:$IMAGE_TAG$GPU SHA:$IMAGE_SHA"
     else
-        docker build $NO_CACHE --build-arg GPU="$GPU" --build-arg BASE_IMAGE="$BASE_IMAGE" --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_VERSION="$PYTHON_VERSION" --build-arg CONDA_ENV_NAME="$CONDA_ENV_NAME" -t cloudtik/$IMAGE:$IMAGE_TAG$GPU docker/$IMAGE
+        docker build $NO_CACHE --build-arg GPU="$GPU" --build-arg BASE_IMAGE="$BASE_IMAGE" --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_RELEASE="$PYTHON_RELEASE" --build-arg CONDA_ENV_NAME="$CONDA_ENV_NAME" -t cloudtik/$IMAGE:$IMAGE_TAG$GPU docker/$IMAGE
     fi
     rm "docker/$IMAGE/$(basename "$WHEEL")"
 done 
@@ -131,10 +142,10 @@ for IMAGE in "cloudtik-deps" "cloudtik"
 do
     cp "$WHEEL" "docker/$IMAGE/$(basename "$WHEEL")"
     if [ $OUTPUT_SHA ]; then
-        IMAGE_SHA=$(docker build $NO_CACHE --build-arg GPU="$GPU" --build-arg BASE_IMAGE=$IMAGE_TAG --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_VERSION="$PYTHON_VERSION" -q -t cloudtik/$IMAGE:$IMAGE_TAG$GPU docker/$IMAGE)
+        IMAGE_SHA=$(docker build $NO_CACHE --build-arg GPU="$GPU" --build-arg BASE_IMAGE=$IMAGE_TAG --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_RELEASE="$PYTHON_RELEASE" -q -t cloudtik/$IMAGE:$IMAGE_TAG$GPU docker/$IMAGE)
         echo "cloudtik/$IMAGE:$IMAGE_TAG$GPU SHA:$IMAGE_SHA"
     else
-        docker build $NO_CACHE --build-arg GPU="$GPU" --build-arg BASE_IMAGE=$IMAGE_TAG --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_VERSION="$PYTHON_VERSION" -t cloudtik/$IMAGE:$IMAGE_TAG$GPU docker/$IMAGE
+        docker build $NO_CACHE --build-arg GPU="$GPU" --build-arg BASE_IMAGE=$IMAGE_TAG --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_RELEASE="$PYTHON_RELEASE" -t cloudtik/$IMAGE:$IMAGE_TAG$GPU docker/$IMAGE
     fi
     rm "docker/$IMAGE/$(basename "$WHEEL")"
 done 

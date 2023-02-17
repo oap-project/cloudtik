@@ -1031,18 +1031,14 @@ def filter_commands_of_runtimes(commands_to_run, runtimes: Optional[List[str]] =
 
 
 def get_default_cloudtik_wheel_url() -> str:
+    python_tag = CLOUDTIK_CLUSTER_PYTHON_VERSION.replace(".", "")
     wheel_url = CLOUDTIK_WHEELS
     wheel_url += "/cloudtik-"
     wheel_url += cloudtik.__version__
-
-    if CLOUDTIK_CLUSTER_PYTHON_VERSION == "3.8":
-        wheel_url += "-cp38-cp38"
-    elif CLOUDTIK_CLUSTER_PYTHON_VERSION == "3.9":
-        wheel_url += "-cp39-cp39"
-    else:
-        # Default python 3.7
-        wheel_url += "-cp37-cp37m"
-
+    wheel_url += "-"
+    wheel_url += "cp{}".format(python_tag)
+    wheel_url += "-"
+    wheel_url += "cp{}".format(python_tag)
     wheel_url += "-manylinux2014_${arch}.whl"
     return wheel_url
 

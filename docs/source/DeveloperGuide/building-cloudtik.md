@@ -11,11 +11,11 @@ cd cloudtik && bash dev/install-conda.sh
 ```
 
 Once Conda is installed, create an environment specify a Python version as below. 
-CloudTik currently supports Python 3.6, 3.7, 3.8, 3.9. Here we take Python 3.7 as example.
+CloudTik currently supports Python 3.8 or above. Take Python 3.8 as an example,
 
 ```
-conda create -n cloudtik -y python=3.7;
-conda activate cloudtik;
+conda create -n cloudtik -y python=3.8
+conda activate cloudtik
 ```
 
 ### Building CloudTik wheels with our provided script

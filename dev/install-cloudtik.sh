@@ -48,7 +48,7 @@ else
     source $CONDA_HOME/bin/activate base
     conda env remove -n cloudtik
     
-    # creae env and install cloudtik
+    # create env and install cloudtik
     conda create -n cloudtik -y python=${PYTHON_VERSION}
     #conda activate cloudtik
     source $CONDA_HOME/bin/activate cloudtik

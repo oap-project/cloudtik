@@ -39,13 +39,16 @@ ALIYUN_DEFAULT_IMAGE_BY_REGION = {
 }
 ALIYUN_DEFAULT_IMAGE_ID = "ubuntu_20_04_x64_20G_alibase_20221228.vhd"
 
-ALIYUN_WORKSPACE_NUM_CREATION_STEPS = 5
-ALIYUN_WORKSPACE_NUM_DELETION_STEPS = 6
-ALIYUN_WORKSPACE_TARGET_RESOURCES = 7
+ALIYUN_WORKSPACE_NUM_CREATION_STEPS = 6
+ALIYUN_WORKSPACE_NUM_DELETION_STEPS = 7
+ALIYUN_WORKSPACE_TARGET_RESOURCES = 8
 ALIYUN_VPC_SWITCHES_COUNT=2
 
 ALIYUN_RESOURCE_NAME_PREFIX = "cloudtik"
 ALIYUN_WORKSPACE_VPC_NAME = ALIYUN_RESOURCE_NAME_PREFIX + "-{}-vpc"
+ALIYUN_WORKSPACE_PUBLIC_VSWITCH_NAME = ALIYUN_RESOURCE_NAME_PREFIX + "-{}-public-vswitch"
+ALIYUN_WORKSPACE_PRIVATE_VSWITCH_NAME = ALIYUN_RESOURCE_NAME_PREFIX + "-{}-private-vswitch"
+ALIYUN_WORKSPACE_NAT_VSWITCH_NAME = ALIYUN_RESOURCE_NAME_PREFIX + "-{}-nat-vswitch"
 ALIYUN_WORKSPACE_SECURITY_GROUP_NAME = ALIYUN_RESOURCE_NAME_PREFIX + "-{}-security-group"
 ALIYUN_WORKSPACE_EIP_NAME = ALIYUN_RESOURCE_NAME_PREFIX + "-{}-eip"
 ALIYUN_WORKSPACE_NAT_GATEWAY_NAME = ALIYUN_RESOURCE_NAME_PREFIX + "-{}-nat"
@@ -1181,7 +1184,7 @@ def _get_workspace_vpc_name(workspace_name):
     return ALIYUN_WORKSPACE_VPC_NAME.format(workspace_name)
 
 
-def _configure_vswitches_cidr(vpc, vpc_cli):
+def _configure_vswitches_cidr(vpc, vpc_cli, vswitches_count):
     cidr_list = []
     vswitches = vpc_cli.describe_vswitches(vpc.vpc_id)
 
@@ -1199,10 +1202,22 @@ def _configure_vswitches_cidr(vpc, vpc_cli):
             if check_cidr_conflict(tmp_cidr_block, cidr_blocks):
                 cidr_list.append(tmp_cidr_block)
 
-            if len(cidr_list) == ALIYUN_VPC_SWITCHES_COUNT:
+            if len(cidr_list) == vswitches_count:
                 break
 
     return cidr_list
+
+
+def _create_vswitch_for_nat_gateway(config, vpc_cli):
+    workspace_name = config["workspace_name"]
+    vpc = get_workspace_vpc(config, vpc_cli)
+    vpc_id = vpc.vpc_id
+    cidr_list = _configure_vswitches_cidr(vpc, vpc_cli, 1)
+    availability_zones_id = [zone.zone_id for zone in vpc_cli.list_enhanced_nat_gateway_available_zones()]
+    vswitch_name = ALIYUN_WORKSPACE_NAT_VSWITCH_NAME.format(workspace_name)
+    cli_logger.print("Creating vswitch for NAT gateway: {} with CIDR: {}...".format(vswitch_name, cidr_list[0]))
+    vpc_cli.create_vswitch(vpc_id, availability_zones_id[0], cidr_list[0], vswitch_name)
+    cli_logger.print("Successfully created vswitch: {}.".format(vswitch_name))
 
 
 def _create_and_configure_vswitches(config, vpc_cli):
@@ -1211,7 +1226,7 @@ def _create_and_configure_vswitches(config, vpc_cli):
     vpc_id = vpc.vpc_id
 
     vswitches = []
-    cidr_list = _configure_vswitches_cidr(vpc, vpc_cli)
+    cidr_list = _configure_vswitches_cidr(vpc, vpc_cli, ALIYUN_VPC_SWITCHES_COUNT)
     cidr_len = len(cidr_list)
 
     availability_zones_id = [zone.zone_id for zone in vpc_cli.describe_zones()]
@@ -1227,53 +1242,50 @@ def _create_and_configure_vswitches(config, vpc_cli):
                 "Creating {} vswitch", vswitch_type,
                 _numbered=("()", i + 1, cidr_len)):
             try:
+                cli_logger.print("Creating vswitch for VPC: {} with CIDR: {}...".format(vpc_id, cidr_block))
                 if i == 0:
-                    vswitch = _create_vswitch(vpc_cli, default_availability_zone_id, workspace_name, vpc_id, cidr_block, isPrivate=False)
+                    vswitch_name = ALIYUN_WORKSPACE_PUBLIC_VSWITCH_NAME.format(workspace_name)
+                    vswitch_id = vpc_cli.create_vswitch(vpc_id, default_availability_zone_id, cidr_block, vswitch_name)
                 else:
                     if last_availability_zone_id is None:
+                        vswitch_name = ALIYUN_WORKSPACE_PRIVATE_VSWITCH_NAME.format(workspace_name)
                         last_availability_zone_id = default_availability_zone_id
-
-                        vswitch = _create_vswitch(vpc_cli, default_availability_zone_id, workspace_name, vpc_id, cidr_block)
-
+                        vswitch_id = vpc_cli.create_vswitch(vpc_id, default_availability_zone_id, cidr_block, vswitch_name)
                         last_availability_zone_id = _next_availability_zone(
                             availability_zones_id, used_availability_zones_id, last_availability_zone_id)
-
+                cli_logger.print("Successfully created vswitch: {}.".format(vswitch_name))
             except Exception as e:
                 cli_logger.error("Failed to create {} vswitch. {}", vswitch_type, str(e))
                 raise e
-            vswitches.append(vswitch)
+            vswitches.append(vswitch_id)
 
     assert len(vswitches) == ALIYUN_VPC_SWITCHES_COUNT, "We must create {} vswitches for VPC: {}!".format(
         ALIYUN_VPC_SWITCHES_COUNT, vpc_id)
     return vswitches
 
 
-def _create_vswitch(vpc_cli, zone_id, workspace_name, vpc_id, cidr_block, isPrivate=True):
-    vswitch_type = "private" if isPrivate else "public"
-    cli_logger.print("Creating {} vswitch for VPC: {} with CIDR: {}...".format(vswitch_type, vpc_id, cidr_block))
-    vswitch_name = 'cloudtik-{}-{}-vswitch'.format(workspace_name, vswitch_type)
-    vswitch_id = vpc_cli.create_vswitch(vpc_id, zone_id, cidr_block, vswitch_name)
-    if vswitch_id is None:
-        cli_logger.abort("Failed to create {} vswitch: {}.".format(vswitch_type, vswitch_name))
-    else:
-        cli_logger.print("Successfully created {} vswitch: {}.".format(vswitch_type, vswitch_name))
-        return vswitch_id
-
-
 def _delete_private_vswitches(workspace_name, vpc_id, vpc_cli):
-    _delete_vswitches(workspace_name, vpc_id, vpc_cli, isPrivate=True)
+    _delete_vswitches(workspace_name, vpc_id, vpc_cli, ALIYUN_WORKSPACE_PRIVATE_VSWITCH_NAME)
 
 
 def _delete_public_vswitches(workspace_name, vpc_id, vpc_cli):
-    _delete_vswitches(workspace_name, vpc_id, vpc_cli, isPrivate=False)
+    _delete_vswitches(workspace_name, vpc_id, vpc_cli, ALIYUN_WORKSPACE_PUBLIC_VSWITCH_NAME)
+
+
+def _delete_nat_vswitches(workspace_name, vpc_id, vpc_cli):
+    _delete_vswitches(workspace_name, vpc_id, vpc_cli, ALIYUN_WORKSPACE_NAT_VSWITCH_NAME)
 
 
 def get_workspace_private_vswitches(workspace_name, vpc_id, vpc_cli):
-    return _get_workspace_vswitches(workspace_name, vpc_id, vpc_cli, "cloudtik-{}-private-vswitch")
+    return _get_workspace_vswitches(workspace_name, vpc_id, vpc_cli, ALIYUN_WORKSPACE_PRIVATE_VSWITCH_NAME)
 
 
 def get_workspace_public_vswitches(workspace_name, vpc_id, vpc_cli):
-    return _get_workspace_vswitches(workspace_name, vpc_id, vpc_cli, "cloudtik-{}-public-vswitch")
+    return _get_workspace_vswitches(workspace_name, vpc_id, vpc_cli, ALIYUN_WORKSPACE_PUBLIC_VSWITCH_NAME)
+
+
+def get_workspace_nat_vswitches(workspace_name, vpc_id, vpc_cli):
+    return _get_workspace_vswitches(workspace_name, vpc_id, vpc_cli, ALIYUN_WORKSPACE_NAT_VSWITCH_NAME)
 
 
 def _get_workspace_vswitches(workspace_name, vpc_id, vpc_cli, name_pattern):
@@ -1282,11 +1294,9 @@ def _get_workspace_vswitches(workspace_name, vpc_id, vpc_cli, name_pattern):
     return vswitches
 
 
-def _delete_vswitches(workspace_name, vpc_id, vpc_cli, isPrivate=True):
-    vswitch_type = "private" if isPrivate else "public"
+def _delete_vswitches(workspace_name, vpc_id, vpc_cli, name_pattern):
     """ Delete custom vswitches """
-    vswitches =  get_workspace_private_vswitches(workspace_name, vpc_id, vpc_cli) \
-        if isPrivate else get_workspace_public_vswitches(workspace_name, vpc_id, vpc_cli)
+    vswitches = _get_workspace_vswitches(workspace_name, vpc_id, vpc_cli, name_pattern)
 
     if len(vswitches) == 0:
         cli_logger.print("No vswitches for workspace were found under this VPC: {}...".format(vpc_id))
@@ -1294,9 +1304,9 @@ def _delete_vswitches(workspace_name, vpc_id, vpc_cli, isPrivate=True):
 
     for vswitch in vswitches:
         vswitch_id = vswitch.v_switch_id
-        cli_logger.print("Deleting {} vswitch: {}...".format(vswitch_type, vswitch_id))
+        cli_logger.print("Deleting vswitch: {}...".format(vswitch_id))
         vpc_cli.delete_vswitch(vswitch_id)
-        cli_logger.print("Successfully deleted {} vswitch: {}.".format(vswitch_type, vswitch_id))
+        cli_logger.print("Successfully deleted vswitch: {}.".format(vswitch_id))
 
 
 def _next_availability_zone(availability_zones: set, used: set, last_availability_zone):
@@ -1475,7 +1485,7 @@ def _delete_nat_gateway(config, vpc_cli):
 
 def _create_and_configure_nat_gateway(config, vpc_cli):
     current_step = 1
-    total_steps = 3
+    total_steps = 5
 
     with cli_logger.group(
             "Creating Elastic IP",
@@ -1484,10 +1494,22 @@ def _create_and_configure_nat_gateway(config, vpc_cli):
         _create_elastic_ip(config, vpc_cli)
 
     with cli_logger.group(
+            "Creating VSwitch for NAT Gateway",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _create_vswitch_for_nat_gateway(config, vpc_cli)
+
+    with cli_logger.group(
             "Creating NAT Gateway",
             _numbered=("()", current_step, total_steps)):
         current_step += 1
         _create_nat_gateway(config, vpc_cli)
+
+    with cli_logger.group(
+            "Associate NAT Gateway with EIP",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _associate_nat_gateway_with_elastic_ip(config, vpc_cli)
 
     with cli_logger.group(
             "Creating SNAT Entry",
@@ -1504,13 +1526,14 @@ def  _create_snat_entry(config, vpc_cli):
     workspace_name = config["workspace_name"]
     snat_entry_name = get_workspace_snat_entry_name(workspace_name)
     vpc_id = get_workspace_vpc_id(config, vpc_cli)
-    private_vswitch = get_workspace_private_vswitches(workspace_name, vpc_id, vpc_cli)[0]
+    private_vswitches = get_workspace_private_vswitches(workspace_name, vpc_id, vpc_cli)
     nat_gateway = get_workspace_nat_gateway(config, vpc_cli)
     snat_table_id = nat_gateway.snat_table_ids.snat_table_id[0]
     elastic_ip = get_workspace_elastic_ip(config, vpc_cli)
     snat_ip = elastic_ip.ip_address
     cli_logger.print("Creating SNAT Entry: {}...".format(snat_entry_name))
-    vpc_cli.create_snat_entry(snat_table_id, private_vswitch.v_switch_id, snat_ip, snat_entry_name)
+    for private_vswitch in private_vswitches:
+        vpc_cli.create_snat_entry(snat_table_id, private_vswitch.v_switch_id, snat_ip, snat_entry_name)
     cli_logger.print("Successfully created SNAT Entry: {}.".format(snat_entry_name))
 
 
@@ -1553,12 +1576,22 @@ def _create_nat_gateway(config, vpc_cli):
     workspace_name = config["workspace_name"]
     vpc_id =  get_workspace_vpc_id(config, vpc_cli)
     nat_gateway_name = get_workspace_nat_gateway_name(workspace_name)
-    private_vswitch = get_workspace_private_vswitches(workspace_name, vpc_id, vpc_cli)[0]
-    private_vswitch_id = private_vswitch.v_switch_id
+    nat_switch = get_workspace_nat_vswitches(workspace_name, vpc_id, vpc_cli)[0]
+    nat_switch_id = nat_switch.v_switch_id
     cli_logger.print("Creating nat-gateway: {}...".format(nat_gateway_name))
-    nat_gateway_id = vpc_cli.create_nat_gateway(vpc_id, private_vswitch_id, nat_gateway_name)
+    nat_gateway_id = vpc_cli.create_nat_gateway(vpc_id, nat_switch_id, nat_gateway_name)
     cli_logger.print("Successfully created nat-gateway: {}.".format(nat_gateway_name))
     return nat_gateway_id
+
+
+def _associate_nat_gateway_with_elastic_ip(config, vpc_cli):
+    elastic_ip = get_workspace_elastic_ip(config, vpc_cli)
+    eip_allocation_id = elastic_ip.allocation_id
+    nat_gateway = get_workspace_nat_gateway(config, vpc_cli)
+    instance_id = nat_gateway.nat_gateway_id
+    cli_logger.print("Associating NAT gateway with Elastic IP: {}...")
+    vpc_cli.associate_eip_address(eip_allocation_id, instance_id, "Nat")
+    cli_logger.print("Successfully  associated Elastic IP:{}.")
 
 
 def get_workspace_elastic_ip_name(workspace_name):
@@ -1617,7 +1650,7 @@ def _dissociate_elastic_ip(config, vpc_cli):
     elastic_ip_name = elastic_ip.name
     cli_logger.print("Dissociating Elastic IP: {}...".format(elastic_ip_name))
     vpc_cli.unassociate_eip_address(eip_allocation_id, instance_id, "Nat")
-    cli_logger.print("Successfully to dissociate Elastic IP:{}.".format(elastic_ip_name))
+    cli_logger.print("Successfully dissociated Elastic IP:{}.".format(elastic_ip_name))
 
 
 def _get_instance_role(ram_cli, role_name):
@@ -1897,6 +1930,7 @@ def _delete_network_resources(config, workspace_name, vpc_id,
          Delete vpc peer connection
          Delete private vswitches
          Delete nat-gateway for private vswitches
+         Delete vswitches for nat-gateway
          Delete public vswitches
          Delete security group
          Delete vpc
@@ -1923,6 +1957,13 @@ def _delete_network_resources(config, workspace_name, vpc_id,
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
         _delete_nat_gateway(config, vpc_cli)
+
+    # delete nat-gateway
+    with cli_logger.group(
+            "Deleting nat vswitches",
+            _numbered=("[]", current_step, total_steps)):
+        current_step += 1
+        _delete_nat_vswitches(workspace_name, vpc_id, vpc_cli)
 
     # delete public vswitches
     with cli_logger.group(
@@ -2097,6 +2138,7 @@ def check_aliyun_workspace_existence(config):
          Check VPC
          Check private vswitches
          Check public vswitches
+         Check vswitches for nat-gateways
          Check nat-gateways
          Check security-group
          Check VPC peering if needed
@@ -2111,6 +2153,8 @@ def check_aliyun_workspace_existence(config):
         if len(get_workspace_private_vswitches(workspace_name, vpc_id, vpc_cli)) >= ALIYUN_VPC_SWITCHES_COUNT - 1:
             existing_resources += 1
         if len(get_workspace_public_vswitches(workspace_name, vpc_id, vpc_cli)) > 0:
+            existing_resources += 1
+        if len(get_workspace_nat_vswitches(workspace_name, vpc_id, vpc_cli)) > 0:
             existing_resources += 1
         if get_workspace_nat_gateway(config, vpc_cli) is not None:
             existing_resources += 1

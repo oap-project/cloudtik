@@ -1268,6 +1268,20 @@ class VpcClient:
             cli_logger.error("Failed to describe zones. {}".format(format_exception_message(str(e))))
             raise e
 
+    def list_enhanced_nat_gateway_available_zones(self):
+        list_enhanhced_nat_gateway_available_zones_request = vpc_models.ListEnhanhcedNatGatewayAvailableZonesRequest(
+            region_id=self.region_id,
+            accept_language='en-us'
+        )
+        try:
+            response = self.client.list_enhanhced_nat_gateway_available_zones_with_options(
+                list_enhanhced_nat_gateway_available_zones_request, self.runtime_options)
+            return response.body.zones
+        except Exception as e:
+            cli_logger.error("Failed to list enhanced nat gate-way available zones. {}".
+                             format(format_exception_message(str(e))))
+            raise e
+
     def describe_vswitches(self, vpc_id=None):
         """Queries one or more VSwitches.
         :param vpc_id: The ID of the VPC to which the VSwitch belongs.

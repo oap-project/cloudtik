@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from typing import Any, Dict, List
 
 from aliyunsdkcore import client
@@ -1095,6 +1096,18 @@ def _make_oss_client(credentials_config, region_id):
     return oss_client(config)
 
 
+def check_status(time_default_out, default_time, describe_attribute_func, check_status, *args):
+    for i in range(time_default_out):
+        time.sleep(default_time)
+        resource_attributes = describe_attribute_func(args)
+        if isinstance(resource_attributes, list):
+            resource_attributes = resource_attributes[0]
+        status = resource_attributes.to_map().get("Status", "")
+        if status == check_status:
+            return True
+    return False
+
+
 class OssClient:
     """
     A wrapper around Aliyun OSS client.
@@ -1183,6 +1196,22 @@ class VpcClient:
             return response.body.vpcs.vpc
         except Exception as e:
             cli_logger.error("Failed to describe VPCs. {}".format(format_exception_message(str(e))))
+            raise e
+
+    def describe_vpc_attribute(self, vpc_id):
+        """Queries attribute of the VPC in a region.
+        :return: VPC attribute.
+        """
+        describe_vpc_attribute_request = vpc_models.DescribeVpcAttributeRequest(
+            region_id=self.region_id,
+            vpc_id=vpc_id
+        )
+        try:
+            response = self.client.describe_vpc_attribute_with_options(
+                describe_vpc_attribute_request, self.runtime_options)
+            return response.body
+        except Exception as e:
+            cli_logger.error("Failed to get the attribute of the VPC. {}".format(format_exception_message(str(e))))
             raise e
 
     def create_vpc(self, vpc_name, cidr_block):
@@ -1282,6 +1311,20 @@ class VpcClient:
                              format(format_exception_message(str(e))))
             raise e
 
+    def describe_vswitch_attributes(self, vswitch_id):
+        describe_vswitch_attributes_request = vpc_models.DescribeVSwitchAttributesRequest(
+            region_id=self.region_id,
+            v_switch_id=vswitch_id
+        )
+        try:
+            response = self.client.describe_vswitch_attributes_with_options(
+                describe_vswitch_attributes_request, self.runtime_options)
+            return response.body
+        except Exception as e:
+            cli_logger.error("Failed to describe the attributes of the vswitch. {}".
+                             format(format_exception_message(str(e))))
+            raise e
+
     def describe_vswitches(self, vpc_id=None):
         """Queries one or more VSwitches.
         :param vpc_id: The ID of the VPC to which the VSwitch belongs.
@@ -1360,7 +1403,22 @@ class VpcClient:
                 describe_nat_gateways_request, self.runtime_options)
             return response.body.nat_gateways.nat_gateway
         except Exception as e:
-            cli_logger.error("Failed to describe nat-gateways. {}".format(format_exception_message(str(e))))
+            cli_logger.error("Failed to describe nat-gateways. {}".
+                             format(format_exception_message(str(e))))
+            raise e
+
+    def get_nat_gateway_attribute(self, nat_gateway_id):
+        get_nat_gateway_attribute_request = vpc_models.GetNatGatewayAttributeRequest(
+            region_id=self.region_id,
+            nat_gateway_id=nat_gateway_id
+        )
+        try:
+            response = self.client.get_nat_gateway_attribute_with_options(
+                get_nat_gateway_attribute_request, self.runtime_options)
+            return response.body
+        except Exception as e:
+            cli_logger.error("Failed to get the attribute of the nat-gateway. {}".
+                             format(format_exception_message(str(e))))
             raise e
 
     def delete_nat_gateway(self, nat_gateway_id):
@@ -1428,13 +1486,14 @@ class VpcClient:
             cli_logger.error("Failed to associate EIP to instance. {}".format(format_exception_message(str(e))))
             raise e
 
-    def describe_eip_addresses(self, eip_name):
+    def describe_eip_addresses(self, eip_allocation_id=None, eip_name=None):
         """Queries all available eip.
         :return eips:
         """
         describe_eip_addresses_request = vpc_models.DescribeEipAddressesRequest(
             region_id=self.region_id,
-            eip_name=eip_name
+            eip_name=eip_name,
+            allocation_id=eip_allocation_id
         )
         try:
             response = self.client.describe_eip_addresses_with_options(
@@ -1487,11 +1546,12 @@ class VpcClient:
             cli_logger.error("Failed to create SNAT Entry. {}".format(format_exception_message(str(e))))
             raise e
 
-    def describe_snat_entries(self, snat_table_id):
+    def describe_snat_entries(self, snat_entry_id=None, snat_table_id=None):
         """Describe SNAT Entries for snat table"""
         describe_snat_table_entries_request = vpc_models.DescribeSnatTableEntriesRequest(
             region_id=self.region_id,
-            snat_table_id=snat_table_id
+            snat_table_id=snat_table_id,
+            snat_entry_id=snat_entry_id
         )
         try:
             response = self.client.describe_snat_table_entries_with_options(

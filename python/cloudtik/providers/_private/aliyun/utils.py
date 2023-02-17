@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from aliyunsdkcore import client
 from aliyunsdkcore.request import CommonRequest
@@ -84,10 +84,10 @@ ACS_MAX_RETRIES = env_integer("ACS_MAX_RETRIES", 12)
 
 
 from cloudtik.core._private.cli_logger import cli_logger, cf
-from cloudtik.providers._private.aliyun.node_provider import EcsClient
 
 from alibabacloud_credentials.client import Client as CredentialClient
 from alibabacloud_credentials.models import Config
+from alibabacloud_ecs20140526 import models as ecs_models
 from alibabacloud_ecs20140526.client import Client as ecs_client
 from alibabacloud_oss20190517 import models as oss_models
 from alibabacloud_oss20190517.client import Client as oss_client
@@ -1682,4 +1682,413 @@ class RamClient:
         except Exception as e:
             cli_logger.error("Failed to list the policies for RAM role. {}".format(e))
             raise e
-        
+
+
+class EcsClient:
+    """
+    A wrapper around Aliyun ECS client.
+
+    Parameters:
+        provider_config: The cloud provider configuration from which to create client.
+    """
+
+    def __init__(self, provider_config, region_id=None):
+        self.region_id = provider_config["region"] if region_id is None else region_id
+        self.client = make_ecs_client(provider_config, region_id)
+        self.runtime_options = util_models.RuntimeOptions()
+
+    @staticmethod
+    def _get_request_instance_ids(instance_ids):
+        if not instance_ids:
+            return None
+        return "[" + ",".join(['"' + instance_id + '"' for instance_id in instance_ids]) + "]"
+
+    @staticmethod
+    def _merge_tags(tags: List[Dict[str, Any]],
+                    user_tags: List[Dict[str, Any]]) -> None:
+        """
+        Merges user-provided node config tag specifications into a base
+        list of node provider tag specifications. The base list of
+        node provider tag specs is modified in-place.
+
+        Args:
+            tags (List[Dict[str, Any]]): base node provider tag specs
+            user_tags (List[Dict[str, Any]]): user's node config tag specs
+        """
+        for user_tag in user_tags:
+            exists = False
+            for tag in tags:
+                if user_tag["Key"] == tag["Key"]:
+                    exists = True
+                    tag["Value"] = user_tag["Value"]
+                    break
+            if not exists:
+                tags += [user_tag]
+
+    def describe_instance_types(self, next_token: str = None):
+        """Query the details of instance types
+        :return: ECS instance type list
+        """
+        describe_instance_types_request = ecs_models.DescribeInstanceTypesRequest(
+            next_token=next_token
+        )
+        response = self.client.describe_instance_types_with_options(
+            describe_instance_types_request, self.runtime_options)
+        if response is not None:
+            return response.body
+        return None
+
+    def describe_images(self, image_family):
+        """List the images available
+        :return: The list of images matched
+        """
+        describe_images_request = ecs_models.DescribeImagesRequest(
+            region_id=self.region_id,
+            architecture='x86_64',
+            ostype='linux',
+            status='Available',
+            image_family=image_family
+        )
+        response = self.client.describe_images_with_options(
+            describe_images_request, self.runtime_options)
+        if (response is not None
+                and response.body is not None
+                and response.body.images is not None):
+            return response.body.images.image
+        return None
+
+    def describe_launch_template_versions(self, query_params):
+        """Query the details of launch template
+        :return: The launch template details
+        """
+        describe_launch_template_versions_request = ecs_models.DescribeLaunchTemplateVersionsRequest(
+            region_id=self.region_id
+        )
+        describe_launch_template_versions_request.from_map(query_params)
+        response = self.client.describe_launch_template_versions_with_options(
+            describe_launch_template_versions_request, self.runtime_options)
+        if (response is not None
+                and response.body is not None
+                and response.body.launch_template_version_sets is not None):
+            return response.body.launch_template_version_sets.launch_template_version_set
+        return None
+
+    def describe_key_pair(self, key_pair_name):
+        """Query the details of a key pair
+        :return: The key pair details
+        """
+        describe_key_pairs_request = ecs_models.DescribeKeyPairsRequest(
+            region_id=self.region_id,
+            key_pair_name=key_pair_name
+        )
+        response = self.client.describe_key_pairs_with_options(
+            describe_key_pairs_request, self.runtime_options)
+        if (response is not None
+                and response.body is not None
+                and response.body.key_pairs is not None
+                and response.body.key_pairs.key_pair is not None
+                and len(response.body.key_pairs.key_pair) > 0):
+            return response.body.key_pairs.key_pair[0]
+        return None
+
+    def create_key_pair(self, key_pair_name):
+        """Create a new key pair
+        :return: The key pair details with the private key
+        """
+        create_key_pair_request = ecs_models.CreateKeyPairRequest(
+            region_id=self.region_id,
+            key_pair_name=key_pair_name
+        )
+        response = self.client.create_key_pair_with_options(
+            create_key_pair_request, self.runtime_options)
+        if response is not None:
+            return response.body
+        return None
+
+    def describe_instances(
+            self, tags=None, instance_ids=None, vpc_id=None, status=None):
+        """Query the details of one or more Elastic Compute Service (ECS) instances.
+
+        :param tags: The tags of the instance.
+        :param instance_ids: The IDs of ECS instances
+        :param vpc_id: The VPC of the instances
+        :param status: The status of the instances
+        :return: ECS instance list
+        """
+        request_tags = [ecs_models.DescribeInstancesRequestTag(
+            key=tag["Key"],
+            value=tag["Value"]
+        ) for tag in tags] if tags else None
+        request_instance_ids = self._get_request_instance_ids(instance_ids)
+        describe_instances_request = ecs_models.DescribeInstancesRequest(
+            region_id=self.region_id,
+            tag=request_tags,
+            instance_ids=request_instance_ids,
+            vpc_id=vpc_id,
+            status=status
+        )
+
+        response = self.client.describe_instances_with_options(
+            describe_instances_request, self.runtime_options)
+        if (response is not None
+                and response.body is not None
+                and response.body.instances is not None):
+            return response.body.instances.instance
+        return None
+
+    def run_instances(
+            self,
+            node_config: dict,
+            tags,
+            count=1
+    ):
+        """Create one or more pay-as-you-go or subscription
+            Elastic Compute Service (ECS) instances
+        :param node_config: The base config map of the instance.
+        :param tags: The tags of the instance.
+        :param count: The number of instances that you want to create.
+        :return: The created instance IDs.
+        """
+        # Update tags and count to the config
+        conf_map = node_config.copy()
+        conf_map["Amount"] = count
+
+        instance_tags = tags.copy()
+        user_tags = conf_map.get("Tag", [])
+        self._merge_tags(instance_tags, user_tags)
+        conf_map["Tag"] = instance_tags
+
+        run_instances_request = ecs_models.RunInstancesRequest(
+            region_id=self.region_id
+        )
+        run_instances_request.from_map(conf_map)
+
+        response = self.client.run_instances_with_options(
+            run_instances_request, self.runtime_options)
+        if (response is not None
+                and response.body is not None
+                and response.body.instance_id_sets is not None):
+            return response.body.instance_id_sets.instance_id_set
+        logging.error("instance created failed.")
+        return None
+
+    def tag_ecs_resource(self, resource_ids, tags, resource_type="Instance"):
+        """Create and bind tags to specified ECS resources.
+
+        :param resource_ids: The IDs of N resources.
+        :param tags: The tags of the resource.
+        :param resource_type: The type of the resource.
+        """
+        request_tags = [ecs_models.TagResourcesRequestTag(
+            key=tag.get("Key"),
+            value=tag.get("Value")
+        ) for tag in tags]
+        tag_resources_request = ecs_models.TagResourcesRequest(
+            region_id=self.region_id,
+            resource_id=resource_ids,
+            resource_type=resource_type,
+            tag=request_tags
+        )
+        response = self.client.tag_resources_with_options(
+            tag_resources_request, self.runtime_options)
+        if response is not None:
+            logging.info("instance %s create tag successfully.", resource_ids)
+        else:
+            logging.error("instance %s create tag failed.", resource_ids)
+
+    def start_instance(self, instance_id):
+        """Start an ECS instance.
+
+        :param instance_id: The Ecs instance ID.
+        """
+        start_instance_request = ecs_models.StartInstanceRequest(
+            instance_id=instance_id
+        )
+        response = self.client.start_instance_with_options(
+            start_instance_request, self.runtime_options)
+        if response is not None:
+            logging.info("instance %s start successfully.", instance_id)
+        else:
+            logging.error("instance %s start failed.", instance_id)
+
+    def stop_instance(self, instance_id, force_stop=False):
+        """Stop an ECS instance that is in the Running state.
+
+        :param instance_id: The Ecs instance ID.
+        :param force_stop: Specifies whether to forcibly stop the instance.
+        :return:
+        """
+        stop_instance_request = ecs_models.StopInstanceRequest(
+            instance_id=instance_id,
+            force_stop=force_stop
+        )
+
+        self.client.stop_instance_with_options(
+            stop_instance_request, self.runtime_options)
+        logging.info("Stop %s command successfully.", instance_id)
+
+    def stop_instances(self, instance_ids, stopped_mode="StopCharging"):
+        """Stop one or more ECS instances that are in the Running state.
+
+        :param instance_ids: The IDs of instances.
+        :param stopped_mode: Specifies whether billing for the instance
+                             continues after the instance is stopped.
+        """
+        stop_instances_request = ecs_models.StopInstancesRequest(
+            region_id=self.region_id,
+            stopped_mode=stopped_mode,
+            instance_id=instance_ids
+        )
+        response = self.client.stop_instances_with_options(
+            stop_instances_request, self.runtime_options)
+        if response is None:
+            logging.error("stop_instances failed")
+
+    def delete_instance(self, instance_id):
+        """Release a pay-as-you-go instance or
+            an expired subscription instance.
+
+        :param instance_id: The ID of the instance that you want to release.
+        """
+        delete_instance_request = ecs_models.DeleteInstanceRequest(
+            instance_id=instance_id,
+            force=True
+        )
+        self.client.delete_instance_with_options(
+            delete_instance_request, self.runtime_options)
+        logging.info("Delete %s command successfully", instance_id)
+
+    def delete_instances(self, instance_ids):
+        """Release one or more pay-as-you-go instances or
+            expired subscription instances.
+
+        :param instance_ids: The IDs of instances that you want to release.
+        """
+        delete_instances_request = ecs_models.DeleteInstancesRequest(
+            region_id=self.region_id,
+            instance_id=instance_ids,
+            force=True
+        )
+        self.client.delete_instances_with_options(
+            delete_instances_request, self.runtime_options)
+
+    def create_security_group(self, vpc_id, name):
+        """Create a security group
+        :param vpc_id: The ID of the VPC in which to create
+                       the security group.
+        :return: The created security group ID.
+        """
+        create_security_group_request = ecs_models.CreateSecurityGroupRequest(
+            region_id=self.region_id,
+            security_group_name=name,
+            vpc_id=vpc_id
+        )
+        try:
+            response = self.client.create_security_group_with_options(
+                create_security_group_request, self.runtime_options)
+            return response.body.security_group_id
+        except Exception as e:
+            cli_logger.error("Failed to create security group. {}".format(e))
+            raise e
+
+    def describe_security_groups(self, vpc_id=None, name=None):
+        """Query basic information of security groups.
+        :param vpc_id: The ID of the VPC to which the security group belongs.
+        :param tags: The tags of the security group.
+        :return: Security group list.
+        """
+        describe_security_groups_request = ecs_models.DescribeSecurityGroupsRequest(
+            region_id=self.region_id,
+            vpc_id=vpc_id,
+            security_group_name=name
+        )
+        try:
+            response = self.client.describe_security_groups_with_options(
+                describe_security_groups_request, self.runtime_options)
+            security_groups = response.body.security_groups.security_group
+            return security_groups
+        except Exception as e:
+            cli_logger.error("Failed to describe security groups. {}".format(e))
+            raise e
+
+    def revoke_security_group(self, ip_protocol, port_range, security_group_id, source_cidr_ip):
+        """Revoke an inbound security group rule.
+                :param ip_protocol: The transport layer protocol.
+                :param port_range: The range of destination ports relevant to
+                                   the transport layer protocol.
+                :param security_group_id: The ID of the destination security group.
+                :param source_cidr_ip: The range of source IPv4 addresses.
+                                       CIDR blocks and IPv4 addresses are supported.
+                """
+        revoke_security_group_request = ecs_models.RevokeSecurityGroupRequest(
+            region_id=self.region_id,
+            security_group_id=security_group_id,
+            permissions=[
+                ecs_models.RevokeSecurityGroupRequestPermissions(
+                    ip_protocol=ip_protocol,
+                    source_cidr_ip=source_cidr_ip,
+                    port_range=port_range)
+            ]
+        )
+        try:
+            self.client.revoke_security_group_with_options(
+                revoke_security_group_request, self.runtime_options)
+        except Exception as e:
+            cli_logger.error("Failed to revoke security group rule. {}".format(e))
+            raise e
+
+    def describe_security_group_attribute(self, security_group_id):
+        """Query basic information of security group"""
+        describe_security_group_attribute_request = ecs_models.DescribeSecurityGroupAttributeRequest(
+            region_id=self.region_id,
+            security_group_id=security_group_id
+        )
+        try:
+            response = self.client.describe_security_group_attribute_with_options(
+                describe_security_group_attribute_request, self.runtime_options)
+            return response.body
+        except Exception as e:
+            cli_logger.error("Failed to describe security group attribute. {}".format(e))
+            raise e
+
+    def authorize_security_group(
+            self, ip_protocol, port_range, security_group_id, source_cidr_ip
+    ):
+        """Create an inbound security group rule.
+        :param ip_protocol: The transport layer protocol.
+        :param port_range: The range of destination ports relevant to
+                           the transport layer protocol.
+        :param security_group_id: The ID of the destination security group.
+        :param source_cidr_ip: The range of source IPv4 addresses.
+                               CIDR blocks and IPv4 addresses are supported.
+        """
+        authorize_security_group_request = ecs_models.AuthorizeSecurityGroupRequest(
+            region_id=self.region_id,
+            security_group_id=security_group_id,
+            permissions=[
+                ecs_models.AuthorizeSecurityGroupRequestPermissions(
+                    ip_protocol=ip_protocol,
+                    source_cidr_ip=source_cidr_ip,
+                    port_range=port_range
+                )
+            ]
+        )
+        try:
+            self.client.authorize_security_group_with_options(
+                authorize_security_group_request, self.runtime_options)
+        except Exception as e:
+            cli_logger.error("Failed to authorize security group rule. {}".format(e))
+            raise e
+
+    def delete_security_group(self, security_group_id):
+        """Delete security group."""
+        delete_security_group_request = ecs_models.DeleteSecurityGroupRequest(
+            region_id=self.region_id,
+            security_group_id=security_group_id
+        )
+        try:
+            self.client.delete_security_group_with_options(
+                delete_security_group_request, self.runtime_options)
+        except Exception as e:
+            cli_logger.error("Failed to delete security group. {}".format(e))
+            raise e

@@ -21,8 +21,7 @@ from cloudtik.providers._private.aliyun.utils import AcsClient, export_aliyun_os
     get_aliyun_oss_storage_config, get_aliyun_oss_storage_config_for_update, ALIYUN_OSS_BUCKET, _get_node_info, \
     get_aliyun_cloud_storage_uri
 
-from cloudtik.providers._private.aliyun.utils import OssClient, RamClient, VpcClient, VpcPeerClient
-from cloudtik.providers._private.aliyun.node_provider import EcsClient
+from cloudtik.providers._private.aliyun.utils import OssClient, EcsClient, RamClient, VpcClient, VpcPeerClient
 
 # instance status
 PENDING = "Pending"

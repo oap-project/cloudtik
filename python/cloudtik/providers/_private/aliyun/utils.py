@@ -1115,16 +1115,16 @@ class OssClient:
             response = self.client.put_bucket(name, put_bucket_request)
             # return response
         except TeaException as e:
-            cli_logger.error("Failed to create bucket. {}".format(e))
+            cli_logger.error("Failed to create bucket. {}".format(str(e)))
             raise e
         except Exception as e:
-            cli_logger.error("Ignore the exception. {}".format(e))
+            cli_logger.error("Ignore the exception. {}".format(str(e)))
 
     def delete_bucket(self, name):
         try:
             self.client.delete_bucket(name)
         except Exception as e:
-            cli_logger.error("Failed to delete bucket. {}".format(e))
+            cli_logger.error("Failed to delete bucket. {}".format(str(e)))
             raise e
     
     def list_buckets(self):
@@ -1133,7 +1133,7 @@ class OssClient:
             response = self.client.list_buckets(list_bucket_request)
             return response.body.buckets.buckets
         except Exception as e:
-            cli_logger.error("Failed to list buckets. {}".format(e))
+            cli_logger.error("Failed to list buckets. {}".format(str(e)))
             raise e
         
     def list_objects(self, bucket_name):
@@ -1180,7 +1180,7 @@ class VpcClient:
                 describe_vpcs_request, self.runtime_options)
             return response.body.vpcs.vpc
         except Exception as e:
-            cli_logger.error("Failed to describe VPCs. {}".format(e))
+            cli_logger.error("Failed to describe VPCs. {}".format(str(e)))
             raise e
 
     def create_vpc(self, vpc_name, cidr_block):
@@ -1197,7 +1197,7 @@ class VpcClient:
                 create_vpc_request, self.runtime_options)
             return response.body.vpc_id
         except Exception as e:
-            cli_logger.error("Failed to create VPC. {}".format(e))
+            cli_logger.error("Failed to create VPC. {}".format(str(e)))
             raise e
 
     def delete_vpc(self, vpc_id):
@@ -1209,7 +1209,7 @@ class VpcClient:
             self.client.delete_vpc_with_options(
                 delete_vpc_request, self.runtime_options)
         except Exception as e:
-            cli_logger.error("Failed to delete VPC. {}".format(e))
+            cli_logger.error("Failed to delete VPC. {}".format(str(e)))
             raise e
 
     def tag_resource(self, resource_id, tags, resource_type="VPC"):
@@ -1232,7 +1232,7 @@ class VpcClient:
             self.client.tag_resources_with_options(
                 tag_resources_request, self.runtime_options)
         except Exception as e:
-            cli_logger.error("Failed to tag VPC. {}".format(e))
+            cli_logger.error("Failed to tag VPC. {}".format(str(e)))
             raise e
 
     def untag_resource(self, resource_id, tag_keys, resource_type="VPC"):
@@ -1247,7 +1247,7 @@ class VpcClient:
             self.client.un_tag_resources_with_options(
                 un_tag_resources_request, self.runtime_options)
         except Exception as e:
-            cli_logger.error("Failed to untag VPC. {}".format(e))
+            cli_logger.error("Failed to untag VPC. {}".format(str(e)))
             raise e
 
     def describe_zones(self):
@@ -1263,7 +1263,7 @@ class VpcClient:
                 describe_zones_request, self.runtime_options)
             return response.body.zones.zone
         except Exception as e:
-            cli_logger.error("Failed to describe zones. {}".format(e))
+            cli_logger.error("Failed to describe zones. {}".format(str(e)))
             raise e
 
     def describe_vswitches(self, vpc_id=None):
@@ -1279,7 +1279,7 @@ class VpcClient:
                 describe_vswitches_request, self.runtime_options)
             return response.body.v_switches.v_switch
         except Exception as e:
-            cli_logger.error("Failed to describe vswitches. {}".format(e))
+            cli_logger.error("Failed to describe vswitches. {}".format(str(e)))
             raise e
 
     def delete_vswitch(self, vswitch_id):
@@ -1291,7 +1291,7 @@ class VpcClient:
             self.client.delete_vswitch_with_options(
                 delete_vswitch_request, self.runtime_options)
         except Exception as e:
-            cli_logger.error("Failed to delete vswitch. {}".format(e))
+            cli_logger.error("Failed to delete vswitch. {}".format(str(e)))
             raise e
 
     def create_vswitch(self, vpc_id, zone_id, cidr_block, vswitch_name):
@@ -1314,7 +1314,7 @@ class VpcClient:
                 create_vswitch_request, self.runtime_options)
             return response.body.v_switch_id
         except Exception as e:
-            cli_logger.error("Failed to create vswitch. {}".format(e))
+            cli_logger.error("Failed to create vswitch. {}".format(str(e)))
             raise e
     
     def describe_route_tables(self, vpc_id=None):
@@ -1327,7 +1327,7 @@ class VpcClient:
                 describe_route_table_list_request, self.runtime_options)
             return response.body.router_table_list.router_table_list_type
         except Exception as e:
-            cli_logger.error("Failed to describe route tables. {}".format(e))
+            cli_logger.error("Failed to describe route tables. {}".format(str(e)))
             raise e
     
     def describe_nat_gateways(self, vpc_id, name):
@@ -1344,7 +1344,7 @@ class VpcClient:
                 describe_nat_gateways_request, self.runtime_options)
             return response.body.nat_gateways.nat_gateway
         except Exception as e:
-            cli_logger.error("Failed to describe nat-gateways. {}".format(e))
+            cli_logger.error("Failed to describe nat-gateways. {}".format(str(e)))
             raise e
 
     def delete_nat_gateway(self, nat_gateway_id):
@@ -1359,7 +1359,7 @@ class VpcClient:
             self.client.delete_nat_gateway_with_options(
                 delete_nat_gateway_request, self.runtime_options)
         except Exception as e:
-            cli_logger.error("Failed to delete nat-gateway. {}".format(e))
+            cli_logger.error("Failed to delete nat-gateway. {}".format(str(e)))
             raise e
 
     def create_nat_gateway(self, vpc_id, vswitch_id, nat_gateway_name):
@@ -1378,7 +1378,7 @@ class VpcClient:
                 create_nat_gateway_request, self.runtime_options)
             return response.body.nat_gateway_id
         except Exception as e:
-            cli_logger.error("Failed to create nat-gateway. {}".format(e))
+            cli_logger.error("Failed to create nat-gateway. {}".format(str(e)))
             raise e
 
     def allocate_eip_address(self, name):
@@ -1394,7 +1394,7 @@ class VpcClient:
                 allocate_eip_address_request, self.runtime_options)
             return response.body.allocation_id
         except Exception as e:
-            cli_logger.error("Failed to allocate EIP. {}".format(e))
+            cli_logger.error("Failed to allocate EIP. {}".format(str(e)))
             raise e
 
     def associate_eip_address(self, eip_allocation_id, instance_id, instance_type):
@@ -1409,7 +1409,7 @@ class VpcClient:
             self.client.associate_eip_address_with_options(
                 associate_eip_address_request, self.runtime_options)
         except Exception as e:
-            cli_logger.error("Failed to associate EIP to instance. {}".format(e))
+            cli_logger.error("Failed to associate EIP to instance. {}".format(str(e)))
             raise e
 
     def describe_eip_addresses(self, eip_name):
@@ -1425,7 +1425,7 @@ class VpcClient:
                 describe_eip_addresses_request, self.runtime_options)
             return response.body.eip_addresses.eip_address
         except Exception as e:
-            cli_logger.error("Failed to describe EIP addresses. {}".format(e))
+            cli_logger.error("Failed to describe EIP addresses. {}".format(str(e)))
             raise e
 
     def unassociate_eip_address(self, eip_allocation_id, instance_id, instance_type):
@@ -1439,7 +1439,7 @@ class VpcClient:
             self.client.unassociate_eip_address_with_options(
                 unassociate_eip_address_request, self.runtime_options)
         except Exception as e:
-            cli_logger.error("Failed to unassociate EIP address from instance. {}".format(e))
+            cli_logger.error("Failed to unassociate EIP address from instance. {}".format(str(e)))
             raise e
 
     def release_eip_address(self, eip_allocation_id):
@@ -1451,7 +1451,7 @@ class VpcClient:
             self.client.release_eip_address_with_options(
                 release_eip_address_request, self.runtime_options)
         except Exception as e:
-            cli_logger.error("Failed to release EIP address. {}".format(e))
+            cli_logger.error("Failed to release EIP address. {}".format(str(e)))
             raise e
 
     def create_snat_entry(self, snat_table_id, vswitch_id, snat_ip, snat_entry_name):
@@ -1468,7 +1468,7 @@ class VpcClient:
                 create_snat_entry_request, self.runtime_options)
             return response.body.snat_entry_id
         except Exception as e:
-            cli_logger.error("Failed to create SNAT Entry. {}".format(e))
+            cli_logger.error("Failed to create SNAT Entry. {}".format(str(e)))
             raise e
 
     def describe_snat_entries(self, snat_table_id):
@@ -1482,7 +1482,7 @@ class VpcClient:
                 describe_snat_table_entries_request, self.runtime_options)
             return response.body.snat_table_entries.snat_table_entry
         except Exception as e:
-            cli_logger.error("Failed to describe SNAT Entries. {}".format(e))
+            cli_logger.error("Failed to describe SNAT Entries. {}".format(str(e)))
             raise e
 
     def delete_snat_entry(self, snat_table_id, snat_entry_id):
@@ -1496,7 +1496,7 @@ class VpcClient:
             self.client.delete_snat_entry_with_options(
                 delete_snat_entry_request, self.runtime_options)
         except Exception as e:
-            cli_logger.error("Failed to delete SNAT Entry. {}".format(e))
+            cli_logger.error("Failed to delete SNAT Entry. {}".format(str(e)))
             raise e
     
     def create_route_entry(self, route_table_id, cidr_block, next_hop_id, next_hop_type, name):
@@ -1511,7 +1511,7 @@ class VpcClient:
             self.client.create_route_entry_with_options(
                 create_route_entry_request, self.runtime_options)
         except Exception as e:
-            cli_logger.error("Failed to create route entry. {}".format(e))
+            cli_logger.error("Failed to create route entry. {}".format(str(e)))
             raise e
 
     def describe_route_entry_list(self, route_table_id, cidr_block=None, entry_name=None):
@@ -1526,7 +1526,7 @@ class VpcClient:
                 describe_route_entry_list_request, self.runtime_options)
             return response.body.route_entrys.route_entry
         except Exception as e:
-            cli_logger.error("Failed to describe route entries. {}".format(e))
+            cli_logger.error("Failed to describe route entries. {}".format(str(e)))
             raise e
 
     def delete_route_entry(self, route_entry_id, route_table_id=None, cidr_block=None):
@@ -1539,7 +1539,7 @@ class VpcClient:
             self.client.delete_route_entry_with_options(
                 delete_route_entry_request, self.runtime_options)
         except Exception as e:
-            cli_logger.error("Failed to delete route entry. {}".format(e))
+            cli_logger.error("Failed to delete route entry. {}".format(str(e)))
             raise e
 
 
@@ -1570,7 +1570,7 @@ class VpcPeerClient:
                 create_vpc_peer_connection_request, self.runtime_options)
             return response.body.instance_id
         except Exception as e:
-            cli_logger.error("Failed to create vpc peer connection. {}".format(e))
+            cli_logger.error("Failed to create vpc peer connection. {}".format(str(e)))
             raise e
 
     def delete_vpc_peer_connection(self, instance_id):
@@ -1581,7 +1581,7 @@ class VpcPeerClient:
             self.client.delete_vpc_peer_connection_with_options(
                 delete_vpc_peer_connection_request, self.runtime_options)
         except Exception as e:
-            cli_logger.error("Failed to delete vpc peer connection. {}".format(e))
+            cli_logger.error("Failed to delete vpc peer connection. {}".format(str(e)))
             raise e
 
     def describe_vpc_peer_connections(self, vpc_id=None, vpc_peer_connection_name=None):
@@ -1598,7 +1598,7 @@ class VpcPeerClient:
                 list_vpc_peer_connections_request, self.runtime_options)
             return response.body.vpc_peer_connects
         except Exception as e:
-            cli_logger.error("Failed to describe vpc peer connections. {}".format(e))
+            cli_logger.error("Failed to describe vpc peer connections. {}".format(str(e)))
             raise e
 
 
@@ -1625,7 +1625,7 @@ class RamClient:
                 create_role_request, self.runtime_options)
             return response.body.role
         except Exception as e:
-            cli_logger.error("Failed to create RAM role. {}".format(e))
+            cli_logger.error("Failed to create RAM role. {}".format(str(e)))
             raise e
 
     def get_role(self, role_name):
@@ -1638,7 +1638,7 @@ class RamClient:
                 get_role_request, self.runtime_options)
             return response.body.role
         except Exception as e:
-            cli_logger.error("Failed to get RAM role. {}".format(e))
+            cli_logger.error("Failed to get RAM role. {}".format(str(e)))
             return None
 
     def delete_role(self, role_name):
@@ -1650,7 +1650,7 @@ class RamClient:
             self.client.delete_role_with_options(
                 delete_role_request, self.runtime_options)
         except Exception as e:
-            cli_logger.error("Failed to delete RAM role. {}".format(e))
+            cli_logger.error("Failed to delete RAM role. {}".format(str(e)))
             raise e
 
     def attach_policy_to_role(self, role_name, policy_type, policy_name):
@@ -1664,7 +1664,7 @@ class RamClient:
             self.client.attach_policy_to_role_with_options(
                 attach_policy_to_role_request, self.runtime_options)
         except Exception as e:
-            cli_logger.error("Failed to attach the policy to RAM role. {}".format(e))
+            cli_logger.error("Failed to attach the policy to RAM role. {}".format(str(e)))
             raise e
 
     def detach_policy_from_role(self, role_name, policy_type, policy_name):
@@ -1678,7 +1678,7 @@ class RamClient:
             self.client.detach_policy_from_role_with_options(
                 detach_policy_from_role_request, self.runtime_options)
         except Exception as e:
-            cli_logger.error("Failed to detach the policy from RAM role. {}".format(e))
+            cli_logger.error("Failed to detach the policy from RAM role. {}".format(str(e)))
             raise e
 
     def list_policy_for_role(self, role_name):
@@ -1691,7 +1691,7 @@ class RamClient:
                 list_policies_for_role_request, self.runtime_options)
             return response.body.policies.policy
         except Exception as e:
-            cli_logger.error("Failed to list the policies for RAM role. {}".format(e))
+            cli_logger.error("Failed to list the policies for RAM role. {}".format(str(e)))
             raise e
 
 
@@ -1999,7 +1999,7 @@ class EcsClient:
                 create_security_group_request, self.runtime_options)
             return response.body.security_group_id
         except Exception as e:
-            cli_logger.error("Failed to create security group. {}".format(e))
+            cli_logger.error("Failed to create security group. {}".format(str(e)))
             raise e
 
     def describe_security_groups(self, vpc_id=None, name=None):
@@ -2019,7 +2019,7 @@ class EcsClient:
             security_groups = response.body.security_groups.security_group
             return security_groups
         except Exception as e:
-            cli_logger.error("Failed to describe security groups. {}".format(e))
+            cli_logger.error("Failed to describe security groups. {}".format(str(e)))
             raise e
 
     def revoke_security_group(self, ip_protocol, port_range, security_group_id, source_cidr_ip):
@@ -2045,7 +2045,7 @@ class EcsClient:
             self.client.revoke_security_group_with_options(
                 revoke_security_group_request, self.runtime_options)
         except Exception as e:
-            cli_logger.error("Failed to revoke security group rule. {}".format(e))
+            cli_logger.error("Failed to revoke security group rule. {}".format(str(e)))
             raise e
 
     def describe_security_group_attribute(self, security_group_id):
@@ -2059,7 +2059,7 @@ class EcsClient:
                 describe_security_group_attribute_request, self.runtime_options)
             return response.body
         except Exception as e:
-            cli_logger.error("Failed to describe security group attribute. {}".format(e))
+            cli_logger.error("Failed to describe security group attribute. {}".format(str(e)))
             raise e
 
     def authorize_security_group(
@@ -2088,7 +2088,7 @@ class EcsClient:
             self.client.authorize_security_group_with_options(
                 authorize_security_group_request, self.runtime_options)
         except Exception as e:
-            cli_logger.error("Failed to authorize security group rule. {}".format(e))
+            cli_logger.error("Failed to authorize security group rule. {}".format(str(e)))
             raise e
 
     def delete_security_group(self, security_group_id):
@@ -2101,5 +2101,5 @@ class EcsClient:
             self.client.delete_security_group_with_options(
                 delete_security_group_request, self.runtime_options)
         except Exception as e:
-            cli_logger.error("Failed to delete security group. {}".format(e))
+            cli_logger.error("Failed to delete security group. {}".format(str(e)))
             raise e

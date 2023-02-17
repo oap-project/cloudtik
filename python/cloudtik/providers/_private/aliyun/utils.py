@@ -1034,6 +1034,10 @@ def _get_node_info(node):
 
 def get_credential(provider_config):
     aliyun_credentials = provider_config.get("aliyun_credentials")
+    return _get_credential(aliyun_credentials)
+
+
+def _get_credential(aliyun_credentials=None):
     if aliyun_credentials is not None:
         ak = aliyun_credentials.get("aliyun_access_key_id")
         sk = aliyun_credentials.get("aliyun_access_key_secret")
@@ -1079,8 +1083,13 @@ def make_ram_client(provider_config):
 
 
 def make_oss_client(provider_config, region_id=None):
+    credentials_config = provider_config.get("aliyun_credentials")
     region_id = region_id if region_id is not None else provider_config["region"]
-    credential = get_credential(provider_config)
+    return _make_oss_client(credentials_config, region_id)
+
+
+def _make_oss_client(credentials_config, region_id):
+    credential = _get_credential(credentials_config)
     config = open_api_models.Config(credential=credential)
     config.endpoint = f"oss-{region_id}.aliyuncs.com"
     return oss_client(config)
@@ -1093,9 +1102,11 @@ class OssClient:
         provider_config: The cloud provider configuration from which to create client.
     """
 
-    def __init__(self, provider_config, region_id=None):
+    def __init__(self, provider_config, credentials_config=None, region_id=None):
         self.region_id = provider_config["region"] if region_id is None else region_id
-        self.client = make_oss_client(provider_config)
+        if credentials_config is None:
+            credentials_config = provider_config.get("aliyun_credentials")
+        self.client = _make_oss_client(credentials_config, self.region_id)
         self.runtime_options = util_models.RuntimeOptions()
 
     def put_bucket(self, name):

@@ -39,9 +39,9 @@ ALIYUN_DEFAULT_IMAGE_BY_REGION = {
 }
 ALIYUN_DEFAULT_IMAGE_ID = "ubuntu_20_04_x64_20G_alibase_20221228.vhd"
 
-ALIYUN_WORKSPACE_NUM_CREATION_STEPS = 8
-ALIYUN_WORKSPACE_NUM_DELETION_STEPS = 9
-ALIYUN_WORKSPACE_TARGET_RESOURCES = 10
+ALIYUN_WORKSPACE_NUM_CREATION_STEPS = 5
+ALIYUN_WORKSPACE_NUM_DELETION_STEPS = 6
+ALIYUN_WORKSPACE_TARGET_RESOURCES = 7
 ALIYUN_VPC_SWITCHES_COUNT=2
 
 ALIYUN_RESOURCE_NAME_PREFIX = "cloudtik"
@@ -1208,7 +1208,7 @@ def _configure_vswitches_cidr(vpc, vpc_cli):
 def _create_and_configure_vswitches(config, vpc_cli):
     workspace_name = config["workspace_name"]
     vpc = get_workspace_vpc(config, vpc_cli)
-    vpc_id = get_workspace_vpc_id(config, vpc_cli)
+    vpc_id = vpc.vpc_id
 
     vswitches = []
     cidr_list = _configure_vswitches_cidr(vpc, vpc_cli)
@@ -1252,7 +1252,7 @@ def _create_vswitch(vpc_cli, zone_id, workspace_name, vpc_id, cidr_block, isPriv
     vswitch_type = "private" if isPrivate else "public"
     cli_logger.print("Creating {} vswitch for VPC: {} with CIDR: {}...".format(vswitch_type, vpc_id, cidr_block))
     vswitch_name = 'cloudtik-{}-{}-vswitch'.format(workspace_name, vswitch_type)
-    vswitch_id = vpc_cli.create_v_switch(vpc_id, zone_id, cidr_block, vswitch_name)
+    vswitch_id = vpc_cli.create_vswitch(vpc_id, zone_id, cidr_block, vswitch_name)
     if vswitch_id is None:
         cli_logger.abort("Failed to create {} vswitch: {}.".format(vswitch_type, vswitch_name))
     else:
@@ -1553,9 +1553,10 @@ def _create_nat_gateway(config, vpc_cli):
     workspace_name = config["workspace_name"]
     vpc_id =  get_workspace_vpc_id(config, vpc_cli)
     nat_gateway_name = get_workspace_nat_gateway_name(workspace_name)
-    vswitch_id = get_workspace_private_vswitches(workspace_name, vpc_id, vpc_cli)
+    private_vswitch = get_workspace_private_vswitches(workspace_name, vpc_id, vpc_cli)[0]
+    private_vswitch_id = private_vswitch.v_switch_id
     cli_logger.print("Creating nat-gateway: {}...".format(nat_gateway_name))
-    nat_gateway_id = vpc_cli.create_nat_gateway(vpc_id, vswitch_id, nat_gateway_name)
+    nat_gateway_id = vpc_cli.create_nat_gateway(vpc_id, private_vswitch_id, nat_gateway_name)
     cli_logger.print("Successfully created nat-gateway: {}.".format(nat_gateway_name))
     return nat_gateway_id
 
@@ -1610,6 +1611,9 @@ def _dissociate_elastic_ip(config, vpc_cli):
         return
     eip_allocation_id = elastic_ip.allocation_id
     instance_id = elastic_ip.instance_id
+    if instance_id == "":
+        cli_logger.print("No instance associated with this EIP.")
+        return
     elastic_ip_name = elastic_ip.name
     cli_logger.print("Dissociating Elastic IP: {}...".format(elastic_ip_name))
     vpc_cli.unassociate_eip_address(eip_allocation_id, instance_id, "Nat")
@@ -2108,7 +2112,7 @@ def check_aliyun_workspace_existence(config):
             existing_resources += 1
         if len(get_workspace_public_vswitches(workspace_name, vpc_id, vpc_cli)) > 0:
             existing_resources += 1
-        if get_workspace_nat_gateway(workspace_name, vpc_cli) is not None:
+        if get_workspace_nat_gateway(config, vpc_cli) is not None:
             existing_resources += 1
         if get_workspace_security_group(config, ecs_cli, vpc_id) is not None:
             existing_resources += 1

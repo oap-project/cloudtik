@@ -16,4 +16,4 @@ RUN export PATH="$HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH" \
     && pip install -r /tmp/requirements.txt \
     && sudo rm /tmp/requirements.txt \
     # Install deep learning libraries for facial recognition
-    && conda install dlib=19.24.0 libffi=3.3 -p $HOME/anaconda3/envs/$CLOUDTIK_ENV -c conda-forge -y
+    && conda install dlib=19.24.0 libffi=3.4.2 -p $HOME/anaconda3/envs/$CLOUDTIK_ENV -c conda-forge -y

@@ -66,7 +66,7 @@ function install_ml() {
         pip -qq install tensorflow-addons==0.17.1
     fi
     CLOUDTIK_ENV_ROOT=$(dirname $(dirname $(which cloudtik)))
-    conda install -q dlib=19.24.0 libffi=3.3 -p ${CLOUDTIK_ENV_ROOT} -c conda-forge -y > /dev/null
+    conda install -q dlib=19.24.0 libffi=3.4.2 -p ${CLOUDTIK_ENV_ROOT} -c conda-forge -y > /dev/null
 
     if [ "$ML_WITH_ONEAPI" == "true" ] || \
        [ "$ML_WITH_INTEL_MPI" == "true" ] || \

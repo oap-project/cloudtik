@@ -247,7 +247,7 @@ function mount_aliyun_oss_fs() {
     if [ ! -z "${ALIYUN_OSS_ACCESS_KEY_ID}" ] && [ ! -z "${ALIYUN_OSS_ACCESS_KEY_SECRET}" ]; then
         PASSWD_FILE_FLAG="-o passwd_file=${USER_HOME}/.passwd-ossfs"
     else
-        RAM_ROLE_FLAG="-o ram_role=${ALIYUN_OSS_INSTANCE_ROLE_NAME}"
+        RAM_ROLE_FLAG="-o ram_role=${ALIYUN_ECS_RAM_ROLE_NAME}"
     fi
 
     mkdir -p ${CLOUD_FS_MOUNT_PATH}

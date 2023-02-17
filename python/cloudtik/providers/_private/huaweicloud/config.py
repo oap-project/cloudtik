@@ -42,6 +42,7 @@ from huaweicloudsdkvpc.v2 import AcceptVpcPeeringRequest, \
     ListVpcPeeringsRequest, ListVpcsRequest, RouteTableRoute, ShowVpcRequest, \
     UpdateRouteTableReq, UpdateRoutetableReqBody, UpdateRouteTableRequest, \
     VpcInfo
+from obs import CreateBucketHeader
 
 from cloudtik.core._private.cli_logger import cf, cli_logger
 from cloudtik.core._private.utils import check_cidr_conflict, \
@@ -264,8 +265,10 @@ def _check_and_create_cloud_storage_bucket(obs_client, workspace_name):
         return
     else:
         bucket_name = HWC_WORKSPACE_OBS_BUCKET_NAME.format(workspace_name)
-    # Create new bucket
-    resp = obs_client.createBucket(bucket_name, location=obs_client.region)
+    # Create new bucket with parallel file system enable
+    resp = obs_client.createBucket(bucket_name,
+                                   header=CreateBucketHeader(isPFS=True),
+                                   location=obs_client.region)
     if resp.status < 300:
         cli_logger.print(
             "Successfully created OBS bucket: {}.".format(bucket_name))

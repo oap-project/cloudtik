@@ -33,6 +33,7 @@ git pull
 
 CLOUDTIK_VERSION=$(sed -n 's/__version__ = \"\(..*\)\"/\1/p' ./python/cloudtik/__init__.py)
 
+source $CONDA_HOME/bin/activate cloudtik_py${PYTHON_TAG} || conda create -n cloudtik_py${PYTHON_TAG} -y python=${PYTHON_VERSION}
 source $CONDA_HOME/bin/activate cloudtik_py${PYTHON_TAG}
 bash ./build.sh --no-build-redis --no-build-ganglia
 

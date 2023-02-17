@@ -162,7 +162,7 @@
                 "aliyun_credentials": {
                     "type": "object",
                     "description": "Credentials for authenticating with the Alibaba Cloud. If not specified, will use environment default.",
-                    "required": [ "type" ],
+                    "required": [ "aliyun_access_key_id", "aliyun_access_key_secret" ],
                     "additionalProperties": false,
                     "properties": {
                         "aliyun_access_key_id": {

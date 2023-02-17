@@ -21,7 +21,7 @@ from cloudtik.core._private.constants import env_bool, CLOUDTIK_DEFAULT_CLOUD_ST
 from cloudtik.core._private.utils import get_storage_config_for_update
 
 OBS_SERVICES_URL = 'https://obs.myhuaweicloud.com'
-HUAWEICLOUD_OBS_BUCKET = "obs.bucket"
+HWC_OBS_BUCKET = "obs.bucket"
 
 logger = logging.getLogger(__name__)
 
@@ -168,7 +168,7 @@ def export_huaweicloud_obs_storage_config(provider_config, config_dict: Dict[str
         return
     config_dict["HUAWEICLOUD_CLOUD_STORAGE"] = True
 
-    obs_bucket = cloud_storage.get(HUAWEICLOUD_OBS_BUCKET)
+    obs_bucket = cloud_storage.get(HWC_OBS_BUCKET)
     if obs_bucket:
         config_dict["HUAWEICLOUD_OBS_BUCKET"] = obs_bucket
 
@@ -182,7 +182,7 @@ def export_huaweicloud_obs_storage_config(provider_config, config_dict: Dict[str
 
 
 def get_huaweicloud_cloud_storage_uri(huaweicloud_cloud_storage):
-    obs_bucket = huaweicloud_cloud_storage.get(HUAWEICLOUD_OBS_BUCKET)
+    obs_bucket = huaweicloud_cloud_storage.get(HWC_OBS_BUCKET)
     if obs_bucket is None:
         return None
 

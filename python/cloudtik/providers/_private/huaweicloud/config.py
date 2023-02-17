@@ -55,7 +55,7 @@ from cloudtik.core.workspace_provider import \
 from cloudtik.providers._private.huaweicloud.utils import make_ecs_client, \
     make_eip_client, make_iam_client, make_nat_client, make_obs_client, \
     make_vpc_client, export_huaweicloud_obs_storage_config, get_huaweicloud_obs_storage_config, \
-    get_huaweicloud_obs_storage_config_for_update, HUAWEICLOUD_OBS_BUCKET, _make_obs_client
+    get_huaweicloud_obs_storage_config_for_update, HWC_OBS_BUCKET, _make_obs_client
 
 logger = logging.getLogger(__name__)
 
@@ -259,7 +259,7 @@ def _check_and_create_cloud_storage_bucket(obs_client, workspace_name):
     # Skip the creation step
     bucket_name = _get_managed_obs_bucket(obs_client, workspace_name)
     if bucket_name:
-        cli_logger.print("S3 bucket for the workspace already exists. "
+        cli_logger.print("OBS bucket for the workspace already exists. "
                          "Skip creation.")
         return
     else:
@@ -268,9 +268,9 @@ def _check_and_create_cloud_storage_bucket(obs_client, workspace_name):
     resp = obs_client.createBucket(bucket_name, location=obs_client.region)
     if resp.status < 300:
         cli_logger.print(
-            "Successfully created S3 bucket: {}.".format(bucket_name))
+            "Successfully created OBS bucket: {}.".format(bucket_name))
     else:
-        cli_logger.abort("Failed to create S3 bucket. {}", str(resp))
+        cli_logger.abort("Failed to create OBS bucket. {}", str(resp))
 
 
 def _get_managed_obs_bucket(obs_client, workspace_name):
@@ -689,9 +689,9 @@ def _check_and_delete_cloud_storage_bucket(obs_client, workspace_name):
     resp = obs_client.deleteBucket(bucket_name)
     if resp.status < 300:
         cli_logger.print(
-            "Successfully deleted S3 bucket: {}.".format(bucket_name))
+            "Successfully deleted OBS bucket: {}.".format(bucket_name))
     else:
-        cli_logger.abort("Failed to delete S3 bucket. {}".format(bucket_name))
+        cli_logger.abort("Failed to delete OBS bucket. {}".format(bucket_name))
 
 
 def _check_and_delete_bucket_objects(obs_client, bucket_name):
@@ -1121,8 +1121,8 @@ def bootstrap_huaweicloud(config):
 
 
 def verify_obs_storage(provider_config: Dict[str, Any]):
-    s3_storage = get_huaweicloud_obs_storage_config(provider_config)
-    if s3_storage is None:
+    obs_storage = get_huaweicloud_obs_storage_config(provider_config)
+    if obs_storage is None:
         return
 
     # TODO: verify the configuration of obs to make sure the credential and info are correct
@@ -1155,7 +1155,7 @@ def bootstrap_huaweicloud_from_workspace(config):
     # config = _configure_key_pair(config)
 
     # Pick a reasonable subnet if not specified by the user.
-    # config = _configure_vswitch_from_workspace(config)
+    # config = _configure_subnet_from_workspace(config)
 
     # Cluster workers should be in a security group that permits traffic within
     # the group, and also SSH access from outside.
@@ -1186,4 +1186,4 @@ def _configure_managed_cloud_storage_from_workspace(config, cloud_provider):
                          "you should set managed_cloud_storage equal to True when you creating workspace.")
 
     cloud_storage = get_huaweicloud_obs_storage_config_for_update(config["provider"])
-    cloud_storage[HUAWEICLOUD_OBS_BUCKET] = obs_bucket_name
+    cloud_storage[HWC_OBS_BUCKET] = obs_bucket_name

@@ -100,7 +100,7 @@ from alibabacloud_vpc20160428 import models as vpc_models
 from alibabacloud_vpc20160428.client import Client as vpc_client
 from alibabacloud_vpcpeer20220101 import models as vpc_peer_models
 from alibabacloud_vpcpeer20220101.client import Client as vpc_peer_client
-from Tea.exceptions import TeaException 
+from Tea.exceptions import TeaException, UnretryableException
 
 
 class AcsClient:
@@ -1096,15 +1096,20 @@ def _make_oss_client(credentials_config, region_id):
     return oss_client(config)
 
 
-def check_status(time_default_out, default_time, describe_attribute_func, check_status, *args):
+def check_resource_status(time_default_out, default_time, describe_attribute_func, check_status, resource_id):
     for i in range(time_default_out):
         time.sleep(default_time)
-        resource_attributes = describe_attribute_func(args)
-        if isinstance(resource_attributes, list):
-            resource_attributes = resource_attributes[0]
-        status = resource_attributes.to_map().get("Status", "")
-        if status == check_status:
-            return True
+        try:
+            resource_attributes = describe_attribute_func(resource_id)
+            if isinstance(resource_attributes, list):
+                status = "" if len(resource_attributes) == 0 else resource_attributes[0].to_map().get("Status", "")
+            else:
+                status = resource_attributes.to_map().get("Status", "")
+            if status == check_status:
+                return True
+        except UnretryableException as e:
+            cli_logger.error("Failed to get attributes of resource. {}".format(format_exception_message(str(e))))
+            continue
     return False
 
 
@@ -1546,7 +1551,7 @@ class VpcClient:
             cli_logger.error("Failed to create SNAT Entry. {}".format(format_exception_message(str(e))))
             raise e
 
-    def describe_snat_entries(self, snat_entry_id=None, snat_table_id=None):
+    def describe_snat_entries(self, snat_table_id=None, snat_entry_id=None):
         """Describe SNAT Entries for snat table"""
         describe_snat_table_entries_request = vpc_models.DescribeSnatTableEntriesRequest(
             region_id=self.region_id,

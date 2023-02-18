@@ -1770,7 +1770,7 @@ def _delete_instance_role(config, ram_cli, instance_role_name):
         ram_cli.detach_policy_from_role(instance_role_name, policy_type, policy_name)
 
     # Delete the specified instance role. The instance role must not have an associated policies.
-        ram_cli.delete_role(instance_role_name)
+    ram_cli.delete_role(instance_role_name)
 
     cli_logger.print("Successfully deleted instance role.")
 

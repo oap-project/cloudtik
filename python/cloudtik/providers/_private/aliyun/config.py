@@ -1372,10 +1372,10 @@ def _update_inbound_rules(target_security_group_id, config, ecs_cli):
     # revoke old permissions
     for new_permission in new_permissions:
         ecs_cli.authorize_security_group(
-            ip_protocol=new_permission.get("ip_protocol"),
-            port_range=new_permission.get("port_range"),
+            ip_protocol=new_permission.get("IpProtocol"),
+            port_range=new_permission.get("PortRange"),
             security_group_id=target_security_group_id,
-            source_cidr_ip=new_permission.get("source_cidr_ip"))
+            source_cidr_ip=new_permission.get("SourceCidrIp"))
     
 
 def _create_allow_working_node_inbound_rules(config):
@@ -1383,9 +1383,9 @@ def _create_allow_working_node_inbound_rules(config):
     vpc = get_current_vpc(config)
     working_vpc_cidr = vpc.cidr_block
     return [{
-        "port_range": "22/22" if allow_ssh_only else "-1/-1",
-        "source_cidr_ip": working_vpc_cidr,
-        "ip_protocol": "TCP" if allow_ssh_only else "All"
+        "PortRange": "22/22" if allow_ssh_only else "-1/-1",
+        "SourceCidrIp": working_vpc_cidr,
+        "IpProtocol": "TCP" if allow_ssh_only else "All"
     }]
 
 
@@ -1472,9 +1472,9 @@ def _create_default_intra_cluster_inbound_rules(config):
     vpc = get_workspace_vpc(config, vpc_cli)
     vpc_cidr = vpc.cidr_block
     return [{
-        "port_range": "-1/-1",
-        "source_cidr_ip": vpc_cidr,
-        "ip_protocol": "All"
+        "PortRange": "-1/-1",
+        "SourceCidrIp": vpc_cidr,
+        "IpProtocol": "All"
     }]
 
 

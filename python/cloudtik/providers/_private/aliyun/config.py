@@ -16,7 +16,7 @@ from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.services import get_node_ip_address
 from cloudtik.core._private.utils import check_cidr_conflict, get_cluster_uri, is_use_internal_ip, \
     is_managed_cloud_storage, is_use_managed_cloud_storage, is_worker_role_for_cloud_storage, is_use_working_vpc, \
-    is_use_peering_vpc, is_peering_firewall_allow_ssh_only, is_peering_firewall_allow_working_subnet
+    is_use_peering_vpc, is_peering_firewall_allow_ssh_only, is_peering_firewall_allow_working_subnet, format_exception_message
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD
 from cloudtik.core.workspace_provider import Existence, CLOUDTIK_MANAGED_CLOUD_STORAGE, \
     CLOUDTIK_MANAGED_CLOUD_STORAGE_URI
@@ -42,7 +42,7 @@ ALIYUN_DEFAULT_IMAGE_BY_REGION = {
 }
 ALIYUN_DEFAULT_IMAGE_ID = "ubuntu_20_04_x64_20G_alibase_20221228.vhd"
 
-ALIYUN_WORKSPACE_NUM_CREATION_STEPS = 6
+ALIYUN_WORKSPACE_NUM_CREATION_STEPS = 5
 ALIYUN_WORKSPACE_NUM_DELETION_STEPS = 7
 ALIYUN_WORKSPACE_TARGET_RESOURCES = 8
 ALIYUN_VPC_SWITCHES_COUNT=2
@@ -74,6 +74,9 @@ WORKER_ROLE_ATTACH_POLICIES = [
     "AliyunOSSFullAccess",
 ]
 
+MAX_POLLS = 15
+MAX_POLLS_NAT = MAX_POLLS * 8
+POLL_INTERVAL = 1
 
 def bootstrap_aliyun(config):
     workspace_name = config.get("workspace_name", "")
@@ -1135,7 +1138,7 @@ def _create_vpc(config, vpc_cli):
         cidr_block = _configure_peering_vpc_cidr_block(config, current_vpc)
 
     vpc_id = vpc_cli.create_vpc(vpc_name, cidr_block)
-    if check_resource_status(15, 1, vpc_cli.describe_vpc_attribute, "Available", vpc_id):
+    if check_resource_status(MAX_POLLS, POLL_INTERVAL, vpc_cli.describe_vpc_attribute, "Available", vpc_id):
         cli_logger.print("Successfully created workspace VPC: {}.", vpc_name)
     else:
         cli_logger.abort("Failed to create workspace VPC. {}", vpc_name)
@@ -1225,7 +1228,7 @@ def _create_vswitch_for_nat_gateway(config, vpc_cli):
 
     vswitch_id = vpc_cli.create_vswitch(vpc_id, availability_zones_id[0], cidr_list[0], vswitch_name)
 
-    if check_resource_status(15, 1, vpc_cli.describe_vswitch_attributes, "Available", vswitch_id):
+    if check_resource_status(MAX_POLLS, POLL_INTERVAL, vpc_cli.describe_vswitch_attributes, "Available", vswitch_id):
         cli_logger.print("Successfully created vswitch: {}.".format(vswitch_name))
     else:
         cli_logger.abort("Failed to create vswitch: {}.".format(vswitch_name))
@@ -1265,7 +1268,7 @@ def _create_and_configure_vswitches(config, vpc_cli):
                         vswitch_id = vpc_cli.create_vswitch(vpc_id, default_availability_zone_id, cidr_block, vswitch_name)
                         last_availability_zone_id = _next_availability_zone(
                             availability_zones_id, used_availability_zones_id, last_availability_zone_id)
-                if check_resource_status(15, 1, vpc_cli.describe_vswitch_attributes, "Available", vswitch_id):
+                if check_resource_status(MAX_POLLS, POLL_INTERVAL, vpc_cli.describe_vswitch_attributes, "Available", vswitch_id):
                     cli_logger.print("Successfully created vswitch: {}.".format(vswitch_name))
                 else:
                     cli_logger.abort("Failed to create vswitch: {}.".format(vswitch_name))
@@ -1321,7 +1324,7 @@ def _delete_vswitches(workspace_name, vpc_id, vpc_cli, name_pattern):
         vswitch_id = vswitch.v_switch_id
         cli_logger.print("Deleting vswitch: {}...".format(vswitch_id))
         vpc_cli.delete_vswitch(vswitch_id)
-        if check_resource_status(15, 1, vpc_cli.describe_vswitch_attributes, "", vswitch_id):
+        if check_resource_status(MAX_POLLS, POLL_INTERVAL, vpc_cli.describe_vswitch_attributes, "", vswitch_id):
             cli_logger.print("Successfully deleted vswitch: {}.".format(vswitch_id))
         else:
             cli_logger.abort("Failed to delete vswitch: {}.".format(vswitch_id))
@@ -1572,7 +1575,7 @@ def _create_snat_entries(config, vpc_cli):
     cli_logger.print("Creating SNAT Entries: {}...".format(snat_entry_name))
     for private_vswitch in private_vswitches:
         snat_entry_id = vpc_cli.create_snat_entry(snat_table_id, private_vswitch.v_switch_id, snat_ip, snat_entry_name)
-        if check_snat_entry_status(120, 1, "Available", vpc_cli, snat_table_id, snat_entry_id):
+        if check_snat_entry_status(MAX_POLLS, POLL_INTERVAL, "Available", vpc_cli, snat_table_id, snat_entry_id):
             cli_logger.print("Successfully created SNAT Entry: {}.".format(snat_entry_id))
         else:
             cli_logger.abort("Failed to create SNAT Entry: {}.".format(snat_entry_id))
@@ -1591,7 +1594,7 @@ def _delete_snat_entries(config, vpc_cli):
     cli_logger.print("Deleting SNAT Entries: {}...".format(snat_entry_name))
     for snat_table_entry in vpc_cli.describe_snat_entries(snat_table_id=snat_table_id):
         vpc_cli.delete_snat_entry(snat_table_id, snat_table_entry.snat_entry_id)
-        if check_snat_entry_status(120, 1, "", vpc_cli, snat_table_id, snat_table_entry.snat_entry_id):
+        if check_snat_entry_status(MAX_POLLS, POLL_INTERVAL, "", vpc_cli, snat_table_id, snat_table_entry.snat_entry_id):
             cli_logger.print("Successfully deleted SNAT Entry: {}.".format(snat_table_entry.snat_entry_id))
         else:
             cli_logger.abort("Failed to delete SNAT Entry: {}.".format(snat_table_entry.snat_entry_id))
@@ -1608,7 +1611,7 @@ def _delete_nat_gateway_resource(config, vpc_cli):
     nat_gateway_name = nat_gateway.name
     cli_logger.print("Deleting Nat Gateway: {}...".format(nat_gateway_name))
     vpc_cli.delete_nat_gateway(nat_gateway_id)
-    if check_resource_status(120, 1, vpc_cli.get_nat_gateway_attribute, "", nat_gateway_id):
+    if check_resource_status(MAX_POLLS_NAT, POLL_INTERVAL, vpc_cli.get_nat_gateway_attribute, "", nat_gateway_id):
         cli_logger.print("Successfully deleted Nat Gateway: {}.".format(nat_gateway_name))
     else:
         cli_logger.abort("Failed to delete Nat Gateway: {}.".format(nat_gateway_name))
@@ -1644,7 +1647,7 @@ def _create_nat_gateway(config, vpc_cli):
     nat_switch_id = nat_switch.v_switch_id
     cli_logger.print("Creating nat-gateway: {}...".format(nat_gateway_name))
     nat_gateway_id = vpc_cli.create_nat_gateway(vpc_id, nat_switch_id, nat_gateway_name)
-    if check_resource_status(120, 1, vpc_cli.get_nat_gateway_attribute, "Available", nat_gateway_id):
+    if check_resource_status(MAX_POLLS_NAT, POLL_INTERVAL, vpc_cli.get_nat_gateway_attribute, "Available", nat_gateway_id):
         cli_logger.print("Successfully created Nat Gateway: {}.".format(nat_gateway_name))
     else:
         cli_logger.abort("Failed to create Nat Gateway: {}.".format(nat_gateway_name))
@@ -1658,7 +1661,7 @@ def _associate_nat_gateway_with_elastic_ip(config, vpc_cli):
     instance_id = nat_gateway.nat_gateway_id
     cli_logger.print("Associating NAT gateway with Elastic IP...")
     vpc_cli.associate_eip_address(eip_allocation_id, instance_id, "Nat")
-    if check_resource_status(120, 1, vpc_cli.describe_eip_addresses, "InUse", eip_allocation_id):
+    if check_resource_status(MAX_POLLS_NAT, POLL_INTERVAL, vpc_cli.describe_eip_addresses, "InUse", eip_allocation_id):
         cli_logger.print("Successfully associated NAT gateway with Elastic IP.")
     else:
         cli_logger.abort("Faild to associate NAT gateway with Elastic IP.")
@@ -1671,7 +1674,7 @@ def get_workspace_elastic_ip_name(workspace_name):
 def _create_elastic_ip(config, vpc_cli):
     eip_name = get_workspace_elastic_ip_name(config["workspace_name"])
     allocation_id = vpc_cli.allocate_eip_address(eip_name)
-    if check_resource_status(120, 1, vpc_cli.describe_eip_addresses, "Available", allocation_id):
+    if check_resource_status(MAX_POLLS_NAT, POLL_INTERVAL, vpc_cli.describe_eip_addresses, "Available", allocation_id):
         cli_logger.print("Successfully allocate Elastic IP:{}.".format(eip_name))
     else:
         cli_logger.print("Faild to allocate Elastic IP:{}.".format(eip_name))
@@ -1720,7 +1723,7 @@ def _dissociate_elastic_ip(config, vpc_cli):
     cli_logger.print("Dissociating Elastic IP: {}...".format(elastic_ip_name))
     vpc_cli.unassociate_eip_address(eip_allocation_id, instance_id, "Nat")
 
-    if check_resource_status(120, 1, vpc_cli.describe_eip_addresses, "Available", eip_allocation_id):
+    if check_resource_status(MAX_POLLS_NAT, POLL_INTERVAL, vpc_cli.describe_eip_addresses, "Available", eip_allocation_id):
         cli_logger.print("Successfully dissociated Elastic IP:{}.".format(elastic_ip_name))
     else:
         cli_logger.print("Faild to dissociate Elastic IP:{}.".format(elastic_ip_name))

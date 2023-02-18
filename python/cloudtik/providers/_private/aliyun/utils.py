@@ -81,9 +81,6 @@ from cloudtik.core._private.utils import get_storage_config_for_update, format_e
 
 ALIYUN_OSS_BUCKET = "oss.bucket"
 
-ACS_MAX_RETRIES = env_integer("ACS_MAX_RETRIES", 12)
-
-
 from cloudtik.core._private.cli_logger import cli_logger, cf
 
 from alibabacloud_credentials.client import Client as CredentialClient

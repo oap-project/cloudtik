@@ -95,4 +95,4 @@ $SPARK_HOME/bin/spark-submit \
     "$@" \
     --name spark-pi \
     --class org.apache.spark.examples.SparkPi \
-    local:///opt/runtime/spark/examples/jars/spark-examples_2.12-3.2.1.jar ${PARTITIONS}
+    local:///opt/runtime/spark/examples/jars/spark-examples.jar ${PARTITIONS}

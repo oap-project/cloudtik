@@ -52,6 +52,7 @@ function install_spark() {
      (cd $RUNTIME_PATH && wget -q --show-progress https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop3.2.tgz -O spark.tgz && \
         mkdir -p "$SPARK_HOME" && \
         tar --extract --file spark.tgz --directory "$SPARK_HOME" --strip-components 1 --no-same-owner && \
+        ln -rs $SPARK_HOME/examples/jars/spark-examples_*.jar $SPARK_HOME/examples/jars/spark-examples.jar && \
         rm spark.tgz)
         echo "export SPARK_HOME=$SPARK_HOME">> ${USER_HOME}/.bashrc
         echo "export PATH=\$SPARK_HOME/bin:\$PATH" >> ${USER_HOME}/.bashrc

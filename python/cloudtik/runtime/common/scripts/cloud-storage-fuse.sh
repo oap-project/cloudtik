@@ -39,9 +39,11 @@ function configure_s3_fs() {
 function configure_azure_blob_fs() {
     if [ "$AZURE_STORAGE_TYPE" == "blob" ];then
         AZURE_ENDPOINT="blob"
+        BLOBFUSE_STORAGE_TYPE="adls"
     else
         # Default to datalake
         AZURE_ENDPOINT="dfs"
+        BLOBFUSE_STORAGE_TYPE="block"
     fi
 
     if [ -z "${AZURE_CONTAINER}" ]; then
@@ -73,6 +75,7 @@ file_cache:
 attr_cache:
   timeout-sec: 7200
 azstorage:
+    type: ${BLOBFUSE_STORAGE_TYPE}
     account-name: ${AZURE_STORAGE_ACCOUNT}
     appid: ${AZURE_MANAGED_IDENTITY_CLIENT_ID}
     endpoint: https://${AZURE_CONTAINER}.${AZURE_ENDPOINT}.core.windows.net

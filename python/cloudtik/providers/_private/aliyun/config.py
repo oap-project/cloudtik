@@ -2,7 +2,6 @@ import logging
 from functools import partial
 import copy
 import os
-import stat
 import subprocess
 import random
 import string
@@ -14,13 +13,13 @@ from Tea.exceptions import UnretryableException
 
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.services import get_node_ip_address
-from cloudtik.core._private.utils import check_cidr_conflict, get_cluster_uri, is_use_internal_ip, \
+from cloudtik.core._private.utils import check_cidr_conflict, is_use_internal_ip, \
     is_managed_cloud_storage, is_use_managed_cloud_storage, is_worker_role_for_cloud_storage, is_use_working_vpc, \
     is_use_peering_vpc, is_peering_firewall_allow_ssh_only, is_peering_firewall_allow_working_subnet
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD
 from cloudtik.core.workspace_provider import Existence, CLOUDTIK_MANAGED_CLOUD_STORAGE, \
     CLOUDTIK_MANAGED_CLOUD_STORAGE_URI
-from cloudtik.providers._private.aliyun.utils import AcsClient, export_aliyun_oss_storage_config, \
+from cloudtik.providers._private.aliyun.utils import export_aliyun_oss_storage_config, \
     get_aliyun_oss_storage_config, get_aliyun_oss_storage_config_for_update, ALIYUN_OSS_BUCKET, _get_node_info, \
     get_aliyun_cloud_storage_uri
 
@@ -78,6 +77,7 @@ MAX_POLLS = 15
 MAX_POLLS_NAT = MAX_POLLS * 8
 POLL_INTERVAL = 1
 
+
 def bootstrap_aliyun(config):
     workspace_name = config.get("workspace_name", "")
     if workspace_name == "":
@@ -91,15 +91,6 @@ def bootstrap_aliyun_from_workspace(config):
     if not check_aliyun_workspace_integrity(config):
         workspace_name = config["workspace_name"]
         cli_logger.abort("Alibaba Cloud workspace {} doesn't exist or is in wrong state.", workspace_name)
-
-    # create vpc
-    # _get_or_create_vpc(config)
-    # create security group id
-    # _get_or_create_security_group(config)
-    # create vswitch
-    # _get_or_create_vswitch(config)
-    # create key pair
-    # _get_or_import_key_pair(config)
 
     # create a copy of the input config to modify
     config = copy.deepcopy(config)
@@ -663,94 +654,6 @@ def with_aliyun_environment_variables(provider_config, node_type_config: Dict[st
     return config_dict
 
 
-def _client(config):
-    return AcsClient(
-        access_key=config["provider"].get("aliyun_credentials",{}).get("aliyun_access_key_id"),
-        access_key_secret=config["provider"].get("aliyun_credentials", {}).get("aliyun_secret_key_secret"),
-        region_id=config["provider"]["region"],
-        max_retries=1,
-    )
-
-
-def _get_or_create_security_group(config):
-    cli = _client(config)
-    security_groups = cli.describe_security_groups(vpc_id=config["provider"]["vpc_id"])
-    if security_groups is not None and len(security_groups) > 0:
-        config["provider"]["security_group_id"] = security_groups[0]["SecurityGroupId"]
-        return config
-
-    security_group_id = cli.create_security_group(vpc_id=config["provider"]["vpc_id"])
-
-    for rule in config["provider"].get("security_group_rule", {}):
-        cli.authorize_security_group(
-            security_group_id=security_group_id,
-            port_range=rule["port_range"],
-            source_cidr_ip=rule["source_cidr_ip"],
-            ip_protocol=rule["ip_protocol"],
-        )
-    config["provider"]["security_group_id"] = security_group_id
-    return
-
-
-def _get_or_create_vpc(config):
-    cli = _client(config)
-    vpcs = cli.describe_vpcs()
-    if vpcs is not None and len(vpcs) > 0:
-        config["provider"]["vpc_id"] = vpcs[0].vpc_id
-        return
-
-    vpc_id = cli.create_vpc()
-    if vpc_id is not None:
-        config["provider"]["vpc_id"] = vpc_id
-
-
-def _get_or_create_vswitch(config):
-    cli = _client(config)
-    vswitches = cli.describe_v_switches(vpc_id=config["provider"]["vpc_id"])
-    if vswitches is not None and len(vswitches) > 0:
-        config["provider"]["v_switch_id"] = vswitches[0].v_switch_id
-        return
-
-    v_switch_id = cli.create_v_switch(
-        vpc_id=config["provider"]["vpc_id"],
-        zone_id=config["provider"]["zone_id"],
-        cidr_block=config["provider"]["cidr_block"],
-    )
-
-    if v_switch_id is not None:
-        config["provider"]["v_switch_id"] = v_switch_id
-
-
-def _get_or_import_key_pair(config):
-    cli = _client(config)
-    key_name = config["provider"].get("key_name", "ray")
-    key_path = os.path.expanduser("~/.ssh/{}".format(key_name))
-    keypairs = cli.describe_key_pairs(key_pair_name=key_name)
-
-    if keypairs is not None and len(keypairs) > 0:
-        if "ssh_private_key" not in config["auth"]:
-            logger.info(
-                "{} keypair exists, use {} as local ssh key".format(key_name, key_path)
-            )
-            config["auth"]["ssh_private_key"] = key_path
-    else:
-        if "ssh_private_key" not in config["auth"]:
-            # create new keypair
-            resp = cli.create_key_pair(key_pair_name=key_name)
-            if resp is not None:
-                with open(key_path, "w+") as f:
-                    f.write(resp.get("PrivateKeyBody"))
-                os.chmod(key_path, stat.S_IRUSR)
-                config["auth"]["ssh_private_key"] = key_path
-        else:
-            public_key_file = config["auth"]["ssh_private_key"] + ".pub"
-            # create new keypair, from local file
-            with open(public_key_file) as f:
-                public_key = f.readline().strip("\n")
-                cli.import_key_pair(key_pair_name=key_name, public_key_body=public_key)
-                return
-
-
 def get_workspace_vpc_peering_name(workspace_name):
     return ALIYUN_WORKSPACE_VPC_PEERING_NAME.format(workspace_name)
 
@@ -996,7 +899,7 @@ def _create_workspace(config):
 
             if managed_cloud_storage:
                 with cli_logger.group(
-                        "Creating OSS  from cloudtik.providers._private.aliyun.utils import AcsClientbucket",
+                        "Creating OSS bucket",
                         _numbered=("[]", current_step, total_steps)):
                     current_step += 1
                     _create_workspace_cloud_storage(config, workspace_name)

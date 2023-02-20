@@ -4,7 +4,7 @@ from cloudtik.core.api import Cluster
 cluster_config = "./your-cluster-config.yaml"
 
 # The cmd to run: change to your cmd
-job_cmd = "spark-submit --master yarn --deploy-mode cluster --name spark-pi --class org.apache.spark.examples.SparkPi --conf spark.yarn.submit.waitAppCompletion=false $SPARK_HOME/examples/jars/spark-examples_2.12-3.2.1.jar 100"
+job_cmd = "spark-submit --master yarn --deploy-mode cluster --name spark-pi --class org.apache.spark.examples.SparkPi --conf spark.yarn.submit.waitAppCompletion=false $SPARK_HOME/examples/jars/spark-examples.jar 100"
 
 # Create a new cluster client object to operate
 cluster = Cluster(cluster_config)

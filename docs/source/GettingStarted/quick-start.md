@@ -217,7 +217,7 @@ and [Running Optimized AI](https://cloudtik.readthedocs.io/en/latest/UserGuide/r
 Running a Spark job is very straight forward. Spark PI job for example,
 
 ```
-cloudtik exec ./your-cluster-config.yaml "spark-submit --master yarn --deploy-mode cluster --name spark-pi --class org.apache.spark.examples.SparkPi --conf spark.yarn.submit.waitAppCompletion=false \$SPARK_HOME/examples/jars/spark-examples_2.12-3.2.1.jar 12345" --job-waiter=spark
+cloudtik exec ./your-cluster-config.yaml "spark-submit --master yarn --deploy-mode cluster --name spark-pi --class org.apache.spark.examples.SparkPi --conf spark.yarn.submit.waitAppCompletion=false \$SPARK_HOME/examples/jars/spark-examples.jar 12345" --job-waiter=spark
 ```
 
 Refer to [Run Spark PI Example](https://github.com/oap-project/cloudtik/tree/main/example/spark) for more details.

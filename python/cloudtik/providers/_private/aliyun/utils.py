@@ -1,6 +1,7 @@
 import json
 import logging
-from typing import Any, Dict
+import time
+from typing import Any, Dict, List
 
 from aliyunsdkcore import client
 from aliyunsdkcore.request import CommonRequest
@@ -80,14 +81,11 @@ from cloudtik.core._private.utils import get_storage_config_for_update
 
 ALIYUN_OSS_BUCKET = "oss.bucket"
 
-ACS_MAX_RETRIES = env_integer("ACS_MAX_RETRIES", 12)
-
-
 from cloudtik.core._private.cli_logger import cli_logger, cf
-from cloudtik.providers._private.aliyun.node_provider import EcsClient
 
 from alibabacloud_credentials.client import Client as CredentialClient
 from alibabacloud_credentials.models import Config
+from alibabacloud_ecs20140526 import models as ecs_models
 from alibabacloud_ecs20140526.client import Client as ecs_client
 from alibabacloud_oss20190517 import models as oss_models
 from alibabacloud_oss20190517.client import Client as oss_client
@@ -99,7 +97,7 @@ from alibabacloud_vpc20160428 import models as vpc_models
 from alibabacloud_vpc20160428.client import Client as vpc_client
 from alibabacloud_vpcpeer20220101 import models as vpc_peer_models
 from alibabacloud_vpcpeer20220101.client import Client as vpc_peer_client
-from Tea.exceptions import TeaException 
+from Tea.exceptions import TeaException, UnretryableException
 
 
 class AcsClient:
@@ -1095,6 +1093,23 @@ def _make_oss_client(credentials_config, region_id):
     return oss_client(config)
 
 
+def check_resource_status(time_default_out, default_time, describe_attribute_func, check_status, resource_id):
+    for i in range(time_default_out):
+        time.sleep(default_time)
+        try:
+            resource_attributes = describe_attribute_func(resource_id)
+            if isinstance(resource_attributes, list):
+                status = "" if len(resource_attributes) == 0 else resource_attributes[0].to_map().get("Status", "")
+            else:
+                status = resource_attributes.to_map().get("Status", "")
+            if status == check_status:
+                return True
+        except UnretryableException as e:
+            cli_logger.error("Failed to get attributes of resource. {}", str(e))
+            continue
+    return False
+
+
 class OssClient:
     """
     A wrapper around Aliyun OSS client.
@@ -1115,16 +1130,16 @@ class OssClient:
             response = self.client.put_bucket(name, put_bucket_request)
             # return response
         except TeaException as e:
-            cli_logger.error("Failed to create bucket. {}".format(e))
+            cli_logger.error("Failed to create bucket. {}", str(e))
             raise e
         except Exception as e:
-            cli_logger.error("Ignore the exception. {}".format(e))
+            cli_logger.error("Ignore the exception. {}", str(e))
 
     def delete_bucket(self, name):
         try:
             self.client.delete_bucket(name)
         except Exception as e:
-            cli_logger.error("Failed to delete bucket. {}".format(e))
+            cli_logger.error("Failed to delete bucket. {}", str(e))
             raise e
     
     def list_buckets(self):
@@ -1133,7 +1148,7 @@ class OssClient:
             response = self.client.list_buckets(list_bucket_request)
             return response.body.buckets.buckets
         except Exception as e:
-            cli_logger.error("Failed to list buckets. {}".format(e))
+            cli_logger.error("Failed to list buckets. {}", str(e))
             raise e
         
     def list_objects(self, bucket_name):
@@ -1142,7 +1157,7 @@ class OssClient:
             response = self.client.list_objects(bucket_name, list_objects_request)
             return response.body.contents
         except Exception as e:
-            cli_logger.error("Failed to list objects of the bucket: {}. {}".format(bucket_name, e))
+            cli_logger.error("Failed to list objects of the bucket: {}. {}", bucket_name, str(e))
             raise e
 
     def delete_object(self, bucket_name, object_key):
@@ -1150,7 +1165,8 @@ class OssClient:
         try:
             self.client.delete_object(bucket_name, object_key, delete_object_request)
         except Exception as e:
-            cli_logger.error("Failed to delete the object: {} of the bucket: {}. {}".format(object_key, bucket_name, e))
+            cli_logger.error("Failed to delete the object: {} of the bucket: {}. {}",
+                             object_key, bucket_name, str(e))
             raise e
 
 
@@ -1180,7 +1196,23 @@ class VpcClient:
                 describe_vpcs_request, self.runtime_options)
             return response.body.vpcs.vpc
         except Exception as e:
-            cli_logger.error("Failed to describe VPCs. {}".format(e))
+            cli_logger.error("Failed to describe VPCs. {}", str(e))
+            raise e
+
+    def describe_vpc_attribute(self, vpc_id):
+        """Queries attribute of the VPC in a region.
+        :return: VPC attribute.
+        """
+        describe_vpc_attribute_request = vpc_models.DescribeVpcAttributeRequest(
+            region_id=self.region_id,
+            vpc_id=vpc_id
+        )
+        try:
+            response = self.client.describe_vpc_attribute_with_options(
+                describe_vpc_attribute_request, self.runtime_options)
+            return response.body
+        except Exception as e:
+            cli_logger.error("Failed to get the attribute of the VPC. {}", str(e))
             raise e
 
     def create_vpc(self, vpc_name, cidr_block):
@@ -1197,7 +1229,7 @@ class VpcClient:
                 create_vpc_request, self.runtime_options)
             return response.body.vpc_id
         except Exception as e:
-            cli_logger.error("Failed to create VPC. {}".format(e))
+            cli_logger.error("Failed to create VPC. {}", str(e))
             raise e
 
     def delete_vpc(self, vpc_id):
@@ -1209,7 +1241,7 @@ class VpcClient:
             self.client.delete_vpc_with_options(
                 delete_vpc_request, self.runtime_options)
         except Exception as e:
-            cli_logger.error("Failed to delete VPC. {}".format(e))
+            cli_logger.error("Failed to delete VPC. {}", str(e))
             raise e
 
     def tag_resource(self, resource_id, tags, resource_type="VPC"):
@@ -1232,7 +1264,7 @@ class VpcClient:
             self.client.tag_resources_with_options(
                 tag_resources_request, self.runtime_options)
         except Exception as e:
-            cli_logger.error("Failed to tag VPC. {}".format(e))
+            cli_logger.error("Failed to tag VPC. {}", str(e))
             raise e
 
     def untag_resource(self, resource_id, tag_keys, resource_type="VPC"):
@@ -1247,7 +1279,7 @@ class VpcClient:
             self.client.un_tag_resources_with_options(
                 un_tag_resources_request, self.runtime_options)
         except Exception as e:
-            cli_logger.error("Failed to untag VPC. {}".format(e))
+            cli_logger.error("Failed to untag VPC. {}", str(e))
             raise e
 
     def describe_zones(self):
@@ -1263,7 +1295,33 @@ class VpcClient:
                 describe_zones_request, self.runtime_options)
             return response.body.zones.zone
         except Exception as e:
-            cli_logger.error("Failed to describe zones. {}".format(e))
+            cli_logger.error("Failed to describe zones. {}", str(e))
+            raise e
+
+    def list_enhanced_nat_gateway_available_zones(self):
+        list_enhanhced_nat_gateway_available_zones_request = vpc_models.ListEnhanhcedNatGatewayAvailableZonesRequest(
+            region_id=self.region_id,
+            accept_language='en-us'
+        )
+        try:
+            response = self.client.list_enhanhced_nat_gateway_available_zones_with_options(
+                list_enhanhced_nat_gateway_available_zones_request, self.runtime_options)
+            return response.body.zones
+        except Exception as e:
+            cli_logger.error("Failed to list enhanced nat gate-way available zones. {}", str(e))
+            raise e
+
+    def describe_vswitch_attributes(self, vswitch_id):
+        describe_vswitch_attributes_request = vpc_models.DescribeVSwitchAttributesRequest(
+            region_id=self.region_id,
+            v_switch_id=vswitch_id
+        )
+        try:
+            response = self.client.describe_vswitch_attributes_with_options(
+                describe_vswitch_attributes_request, self.runtime_options)
+            return response.body
+        except Exception as e:
+            cli_logger.error("Failed to describe the attributes of the vswitch. {}", str(e))
             raise e
 
     def describe_vswitches(self, vpc_id=None):
@@ -1279,7 +1337,7 @@ class VpcClient:
                 describe_vswitches_request, self.runtime_options)
             return response.body.v_switches.v_switch
         except Exception as e:
-            cli_logger.error("Failed to describe vswitches. {}".format(e))
+            cli_logger.error("Failed to describe vswitches. {}", str(e))
             raise e
 
     def delete_vswitch(self, vswitch_id):
@@ -1291,7 +1349,7 @@ class VpcClient:
             self.client.delete_vswitch_with_options(
                 delete_vswitch_request, self.runtime_options)
         except Exception as e:
-            cli_logger.error("Failed to delete vswitch. {}".format(e))
+            cli_logger.error("Failed to delete vswitch. {}", str(e))
             raise e
 
     def create_vswitch(self, vpc_id, zone_id, cidr_block, vswitch_name):
@@ -1314,7 +1372,7 @@ class VpcClient:
                 create_vswitch_request, self.runtime_options)
             return response.body.v_switch_id
         except Exception as e:
-            cli_logger.error("Failed to create vswitch. {}".format(e))
+            cli_logger.error("Failed to create vswitch. {}", str(e))
             raise e
     
     def describe_route_tables(self, vpc_id=None):
@@ -1327,7 +1385,7 @@ class VpcClient:
                 describe_route_table_list_request, self.runtime_options)
             return response.body.router_table_list.router_table_list_type
         except Exception as e:
-            cli_logger.error("Failed to describe route tables. {}".format(e))
+            cli_logger.error("Failed to describe route tables. {}", str(e))
             raise e
     
     def describe_nat_gateways(self, vpc_id, name):
@@ -1344,7 +1402,20 @@ class VpcClient:
                 describe_nat_gateways_request, self.runtime_options)
             return response.body.nat_gateways.nat_gateway
         except Exception as e:
-            cli_logger.error("Failed to describe nat-gateways. {}".format(e))
+            cli_logger.error("Failed to describe nat-gateways. {}", str(e))
+            raise e
+
+    def get_nat_gateway_attribute(self, nat_gateway_id):
+        get_nat_gateway_attribute_request = vpc_models.GetNatGatewayAttributeRequest(
+            region_id=self.region_id,
+            nat_gateway_id=nat_gateway_id
+        )
+        try:
+            response = self.client.get_nat_gateway_attribute_with_options(
+                get_nat_gateway_attribute_request, self.runtime_options)
+            return response.body
+        except Exception as e:
+            cli_logger.error("Failed to get the attribute of the nat-gateway. {}", str(e))
             raise e
 
     def delete_nat_gateway(self, nat_gateway_id):
@@ -1359,7 +1430,7 @@ class VpcClient:
             self.client.delete_nat_gateway_with_options(
                 delete_nat_gateway_request, self.runtime_options)
         except Exception as e:
-            cli_logger.error("Failed to delete nat-gateway. {}".format(e))
+            cli_logger.error("Failed to delete nat-gateway. {}", str(e))
             raise e
 
     def create_nat_gateway(self, vpc_id, vswitch_id, nat_gateway_name):
@@ -1378,7 +1449,7 @@ class VpcClient:
                 create_nat_gateway_request, self.runtime_options)
             return response.body.nat_gateway_id
         except Exception as e:
-            cli_logger.error("Failed to create nat-gateway. {}".format(e))
+            cli_logger.error("Failed to create nat-gateway. {}", str(e))
             raise e
 
     def allocate_eip_address(self, name):
@@ -1394,7 +1465,7 @@ class VpcClient:
                 allocate_eip_address_request, self.runtime_options)
             return response.body.allocation_id
         except Exception as e:
-            cli_logger.error("Failed to allocate EIP. {}".format(e))
+            cli_logger.error("Failed to allocate EIP. {}", str(e))
             raise e
 
     def associate_eip_address(self, eip_allocation_id, instance_id, instance_type):
@@ -1409,23 +1480,24 @@ class VpcClient:
             self.client.associate_eip_address_with_options(
                 associate_eip_address_request, self.runtime_options)
         except Exception as e:
-            cli_logger.error("Failed to associate EIP to instance. {}".format(e))
+            cli_logger.error("Failed to associate EIP to instance. {}", str(e))
             raise e
 
-    def describe_eip_addresses(self, eip_name):
+    def describe_eip_addresses(self, eip_allocation_id=None, eip_name=None):
         """Queries all available eip.
         :return eips:
         """
         describe_eip_addresses_request = vpc_models.DescribeEipAddressesRequest(
             region_id=self.region_id,
-            eip_name=eip_name
+            eip_name=eip_name,
+            allocation_id=eip_allocation_id
         )
         try:
             response = self.client.describe_eip_addresses_with_options(
                 describe_eip_addresses_request, self.runtime_options)
             return response.body.eip_addresses.eip_address
         except Exception as e:
-            cli_logger.error("Failed to describe EIP addresses. {}".format(e))
+            cli_logger.error("Failed to describe EIP addresses. {}", str(e))
             raise e
 
     def unassociate_eip_address(self, eip_allocation_id, instance_id, instance_type):
@@ -1439,7 +1511,7 @@ class VpcClient:
             self.client.unassociate_eip_address_with_options(
                 unassociate_eip_address_request, self.runtime_options)
         except Exception as e:
-            cli_logger.error("Failed to unassociate EIP address from instance. {}".format(e))
+            cli_logger.error("Failed to unassociate EIP address from instance. {}", str(e))
             raise e
 
     def release_eip_address(self, eip_allocation_id):
@@ -1451,7 +1523,7 @@ class VpcClient:
             self.client.release_eip_address_with_options(
                 release_eip_address_request, self.runtime_options)
         except Exception as e:
-            cli_logger.error("Failed to release EIP address. {}".format(e))
+            cli_logger.error("Failed to release EIP address. {}", str(e))
             raise e
 
     def create_snat_entry(self, snat_table_id, vswitch_id, snat_ip, snat_entry_name):
@@ -1468,21 +1540,22 @@ class VpcClient:
                 create_snat_entry_request, self.runtime_options)
             return response.body.snat_entry_id
         except Exception as e:
-            cli_logger.error("Failed to create SNAT Entry. {}".format(e))
+            cli_logger.error("Failed to create SNAT Entry. {}", str(e))
             raise e
 
-    def describe_snat_entries(self, snat_table_id):
+    def describe_snat_entries(self, snat_table_id=None, snat_entry_id=None):
         """Describe SNAT Entries for snat table"""
         describe_snat_table_entries_request = vpc_models.DescribeSnatTableEntriesRequest(
             region_id=self.region_id,
-            snat_table_id=snat_table_id
+            snat_table_id=snat_table_id,
+            snat_entry_id=snat_entry_id
         )
         try:
             response = self.client.describe_snat_table_entries_with_options(
                 describe_snat_table_entries_request, self.runtime_options)
             return response.body.snat_table_entries.snat_table_entry
         except Exception as e:
-            cli_logger.error("Failed to describe SNAT Entries. {}".format(e))
+            cli_logger.error("Failed to describe SNAT Entries. {}", str(e))
             raise e
 
     def delete_snat_entry(self, snat_table_id, snat_entry_id):
@@ -1496,7 +1569,7 @@ class VpcClient:
             self.client.delete_snat_entry_with_options(
                 delete_snat_entry_request, self.runtime_options)
         except Exception as e:
-            cli_logger.error("Failed to delete SNAT Entry. {}".format(e))
+            cli_logger.error("Failed to delete SNAT Entry. {}", str(e))
             raise e
     
     def create_route_entry(self, route_table_id, cidr_block, next_hop_id, next_hop_type, name):
@@ -1511,7 +1584,7 @@ class VpcClient:
             self.client.create_route_entry_with_options(
                 create_route_entry_request, self.runtime_options)
         except Exception as e:
-            cli_logger.error("Failed to create route entry. {}".format(e))
+            cli_logger.error("Failed to create route entry. {}", str(e))
             raise e
 
     def describe_route_entry_list(self, route_table_id, cidr_block=None, entry_name=None):
@@ -1526,7 +1599,7 @@ class VpcClient:
                 describe_route_entry_list_request, self.runtime_options)
             return response.body.route_entrys.route_entry
         except Exception as e:
-            cli_logger.error("Failed to describe route entries. {}".format(e))
+            cli_logger.error("Failed to describe route entries. {}", str(e))
             raise e
 
     def delete_route_entry(self, route_entry_id, route_table_id=None, cidr_block=None):
@@ -1539,7 +1612,7 @@ class VpcClient:
             self.client.delete_route_entry_with_options(
                 delete_route_entry_request, self.runtime_options)
         except Exception as e:
-            cli_logger.error("Failed to delete route entry. {}".format(e))
+            cli_logger.error("Failed to delete route entry. {}", str(e))
             raise e
 
 
@@ -1570,7 +1643,7 @@ class VpcPeerClient:
                 create_vpc_peer_connection_request, self.runtime_options)
             return response.body.instance_id
         except Exception as e:
-            cli_logger.error("Failed to create vpc peer connection. {}".format(e))
+            cli_logger.error("Failed to create vpc peer connection. {}", str(e))
             raise e
 
     def delete_vpc_peer_connection(self, instance_id):
@@ -1581,7 +1654,7 @@ class VpcPeerClient:
             self.client.delete_vpc_peer_connection_with_options(
                 delete_vpc_peer_connection_request, self.runtime_options)
         except Exception as e:
-            cli_logger.error("Failed to delete vpc peer connection. {}".format(e))
+            cli_logger.error("Failed to delete vpc peer connection. {}", str(e))
             raise e
 
     def describe_vpc_peer_connections(self, vpc_id=None, vpc_peer_connection_name=None):
@@ -1598,7 +1671,7 @@ class VpcPeerClient:
                 list_vpc_peer_connections_request, self.runtime_options)
             return response.body.vpc_peer_connects
         except Exception as e:
-            cli_logger.error("Failed to describe vpc peer connections. {}".format(e))
+            cli_logger.error("Failed to describe vpc peer connections. {}", str(e))
             raise e
 
 
@@ -1625,7 +1698,7 @@ class RamClient:
                 create_role_request, self.runtime_options)
             return response.body.role
         except Exception as e:
-            cli_logger.error("Failed to create RAM role. {}".format(e))
+            cli_logger.error("Failed to create RAM role. {}", str(e))
             raise e
 
     def get_role(self, role_name):
@@ -1638,7 +1711,7 @@ class RamClient:
                 get_role_request, self.runtime_options)
             return response.body.role
         except Exception as e:
-            cli_logger.error("Failed to get RAM role. {}".format(e))
+            cli_logger.error("Failed to get RAM role. {}", str(e))
             return None
 
     def delete_role(self, role_name):
@@ -1650,7 +1723,7 @@ class RamClient:
             self.client.delete_role_with_options(
                 delete_role_request, self.runtime_options)
         except Exception as e:
-            cli_logger.error("Failed to delete RAM role. {}".format(e))
+            cli_logger.error("Failed to delete RAM role. {}", str(e))
             raise e
 
     def attach_policy_to_role(self, role_name, policy_type, policy_name):
@@ -1664,7 +1737,7 @@ class RamClient:
             self.client.attach_policy_to_role_with_options(
                 attach_policy_to_role_request, self.runtime_options)
         except Exception as e:
-            cli_logger.error("Failed to attach the policy to RAM role. {}".format(e))
+            cli_logger.error("Failed to attach the policy to RAM role. {}", str(e))
             raise e
 
     def detach_policy_from_role(self, role_name, policy_type, policy_name):
@@ -1678,7 +1751,7 @@ class RamClient:
             self.client.detach_policy_from_role_with_options(
                 detach_policy_from_role_request, self.runtime_options)
         except Exception as e:
-            cli_logger.error("Failed to detach the policy from RAM role. {}".format(e))
+            cli_logger.error("Failed to detach the policy from RAM role. {}", str(e))
             raise e
 
     def list_policy_for_role(self, role_name):
@@ -1691,6 +1764,415 @@ class RamClient:
                 list_policies_for_role_request, self.runtime_options)
             return response.body.policies.policy
         except Exception as e:
-            cli_logger.error("Failed to list the policies for RAM role. {}".format(e))
+            cli_logger.error("Failed to list the policies for RAM role. {}", str(e))
             raise e
-        
+
+
+class EcsClient:
+    """
+    A wrapper around Aliyun ECS client.
+
+    Parameters:
+        provider_config: The cloud provider configuration from which to create client.
+    """
+
+    def __init__(self, provider_config, region_id=None):
+        self.region_id = provider_config["region"] if region_id is None else region_id
+        self.client = make_ecs_client(provider_config, region_id)
+        self.runtime_options = util_models.RuntimeOptions()
+
+    @staticmethod
+    def _get_request_instance_ids(instance_ids):
+        if not instance_ids:
+            return None
+        return "[" + ",".join(['"' + instance_id + '"' for instance_id in instance_ids]) + "]"
+
+    @staticmethod
+    def _merge_tags(tags: List[Dict[str, Any]],
+                    user_tags: List[Dict[str, Any]]) -> None:
+        """
+        Merges user-provided node config tag specifications into a base
+        list of node provider tag specifications. The base list of
+        node provider tag specs is modified in-place.
+
+        Args:
+            tags (List[Dict[str, Any]]): base node provider tag specs
+            user_tags (List[Dict[str, Any]]): user's node config tag specs
+        """
+        for user_tag in user_tags:
+            exists = False
+            for tag in tags:
+                if user_tag["Key"] == tag["Key"]:
+                    exists = True
+                    tag["Value"] = user_tag["Value"]
+                    break
+            if not exists:
+                tags += [user_tag]
+
+    def describe_instance_types(self, next_token: str = None):
+        """Query the details of instance types
+        :return: ECS instance type list
+        """
+        describe_instance_types_request = ecs_models.DescribeInstanceTypesRequest(
+            next_token=next_token
+        )
+        response = self.client.describe_instance_types_with_options(
+            describe_instance_types_request, self.runtime_options)
+        if response is not None:
+            return response.body
+        return None
+
+    def describe_images(self, image_family):
+        """List the images available
+        :return: The list of images matched
+        """
+        describe_images_request = ecs_models.DescribeImagesRequest(
+            region_id=self.region_id,
+            architecture='x86_64',
+            ostype='linux',
+            status='Available',
+            image_family=image_family
+        )
+        response = self.client.describe_images_with_options(
+            describe_images_request, self.runtime_options)
+        if (response is not None
+                and response.body is not None
+                and response.body.images is not None):
+            return response.body.images.image
+        return None
+
+    def describe_launch_template_versions(self, query_params):
+        """Query the details of launch template
+        :return: The launch template details
+        """
+        describe_launch_template_versions_request = ecs_models.DescribeLaunchTemplateVersionsRequest(
+            region_id=self.region_id
+        )
+        describe_launch_template_versions_request.from_map(query_params)
+        response = self.client.describe_launch_template_versions_with_options(
+            describe_launch_template_versions_request, self.runtime_options)
+        if (response is not None
+                and response.body is not None
+                and response.body.launch_template_version_sets is not None):
+            return response.body.launch_template_version_sets.launch_template_version_set
+        return None
+
+    def describe_key_pair(self, key_pair_name):
+        """Query the details of a key pair
+        :return: The key pair details
+        """
+        describe_key_pairs_request = ecs_models.DescribeKeyPairsRequest(
+            region_id=self.region_id,
+            key_pair_name=key_pair_name
+        )
+        response = self.client.describe_key_pairs_with_options(
+            describe_key_pairs_request, self.runtime_options)
+        if (response is not None
+                and response.body is not None
+                and response.body.key_pairs is not None
+                and response.body.key_pairs.key_pair is not None
+                and len(response.body.key_pairs.key_pair) > 0):
+            return response.body.key_pairs.key_pair[0]
+        return None
+
+    def create_key_pair(self, key_pair_name):
+        """Create a new key pair
+        :return: The key pair details with the private key
+        """
+        create_key_pair_request = ecs_models.CreateKeyPairRequest(
+            region_id=self.region_id,
+            key_pair_name=key_pair_name
+        )
+        response = self.client.create_key_pair_with_options(
+            create_key_pair_request, self.runtime_options)
+        if response is not None:
+            return response.body
+        return None
+
+    def describe_instances(
+            self, tags=None, instance_ids=None, vpc_id=None, status=None):
+        """Query the details of one or more Elastic Compute Service (ECS) instances.
+
+        :param tags: The tags of the instance.
+        :param instance_ids: The IDs of ECS instances
+        :param vpc_id: The VPC of the instances
+        :param status: The status of the instances
+        :return: ECS instance list
+        """
+        request_tags = [ecs_models.DescribeInstancesRequestTag(
+            key=tag["Key"],
+            value=tag["Value"]
+        ) for tag in tags] if tags else None
+        request_instance_ids = self._get_request_instance_ids(instance_ids)
+        describe_instances_request = ecs_models.DescribeInstancesRequest(
+            region_id=self.region_id,
+            tag=request_tags,
+            instance_ids=request_instance_ids,
+            vpc_id=vpc_id,
+            status=status
+        )
+
+        response = self.client.describe_instances_with_options(
+            describe_instances_request, self.runtime_options)
+        if (response is not None
+                and response.body is not None
+                and response.body.instances is not None):
+            return response.body.instances.instance
+        return None
+
+    def run_instances(
+            self,
+            node_config: dict,
+            tags,
+            count=1
+    ):
+        """Create one or more pay-as-you-go or subscription
+            Elastic Compute Service (ECS) instances
+        :param node_config: The base config map of the instance.
+        :param tags: The tags of the instance.
+        :param count: The number of instances that you want to create.
+        :return: The created instance IDs.
+        """
+        # Update tags and count to the config
+        conf_map = node_config.copy()
+        conf_map["Amount"] = count
+
+        instance_tags = tags.copy()
+        user_tags = conf_map.get("Tag", [])
+        self._merge_tags(instance_tags, user_tags)
+        conf_map["Tag"] = instance_tags
+
+        run_instances_request = ecs_models.RunInstancesRequest(
+            region_id=self.region_id
+        )
+        run_instances_request.from_map(conf_map)
+
+        response = self.client.run_instances_with_options(
+            run_instances_request, self.runtime_options)
+        if (response is not None
+                and response.body is not None
+                and response.body.instance_id_sets is not None):
+            return response.body.instance_id_sets.instance_id_set
+        logging.error("instance created failed.")
+        return None
+
+    def tag_ecs_resource(self, resource_ids, tags, resource_type="Instance"):
+        """Create and bind tags to specified ECS resources.
+
+        :param resource_ids: The IDs of N resources.
+        :param tags: The tags of the resource.
+        :param resource_type: The type of the resource.
+        """
+        request_tags = [ecs_models.TagResourcesRequestTag(
+            key=tag.get("Key"),
+            value=tag.get("Value")
+        ) for tag in tags]
+        tag_resources_request = ecs_models.TagResourcesRequest(
+            region_id=self.region_id,
+            resource_id=resource_ids,
+            resource_type=resource_type,
+            tag=request_tags
+        )
+        response = self.client.tag_resources_with_options(
+            tag_resources_request, self.runtime_options)
+        if response is not None:
+            logging.info("instance %s create tag successfully.", resource_ids)
+        else:
+            logging.error("instance %s create tag failed.", resource_ids)
+
+    def start_instance(self, instance_id):
+        """Start an ECS instance.
+
+        :param instance_id: The Ecs instance ID.
+        """
+        start_instance_request = ecs_models.StartInstanceRequest(
+            instance_id=instance_id
+        )
+        response = self.client.start_instance_with_options(
+            start_instance_request, self.runtime_options)
+        if response is not None:
+            logging.info("instance %s start successfully.", instance_id)
+        else:
+            logging.error("instance %s start failed.", instance_id)
+
+    def stop_instance(self, instance_id, force_stop=False):
+        """Stop an ECS instance that is in the Running state.
+
+        :param instance_id: The Ecs instance ID.
+        :param force_stop: Specifies whether to forcibly stop the instance.
+        :return:
+        """
+        stop_instance_request = ecs_models.StopInstanceRequest(
+            instance_id=instance_id,
+            force_stop=force_stop
+        )
+
+        self.client.stop_instance_with_options(
+            stop_instance_request, self.runtime_options)
+        logging.info("Stop %s command successfully.", instance_id)
+
+    def stop_instances(self, instance_ids, stopped_mode="StopCharging"):
+        """Stop one or more ECS instances that are in the Running state.
+
+        :param instance_ids: The IDs of instances.
+        :param stopped_mode: Specifies whether billing for the instance
+                             continues after the instance is stopped.
+        """
+        stop_instances_request = ecs_models.StopInstancesRequest(
+            region_id=self.region_id,
+            stopped_mode=stopped_mode,
+            instance_id=instance_ids
+        )
+        response = self.client.stop_instances_with_options(
+            stop_instances_request, self.runtime_options)
+        if response is None:
+            logging.error("stop_instances failed")
+
+    def delete_instance(self, instance_id):
+        """Release a pay-as-you-go instance or
+            an expired subscription instance.
+
+        :param instance_id: The ID of the instance that you want to release.
+        """
+        delete_instance_request = ecs_models.DeleteInstanceRequest(
+            instance_id=instance_id,
+            force=True
+        )
+        self.client.delete_instance_with_options(
+            delete_instance_request, self.runtime_options)
+        logging.info("Delete %s command successfully", instance_id)
+
+    def delete_instances(self, instance_ids):
+        """Release one or more pay-as-you-go instances or
+            expired subscription instances.
+
+        :param instance_ids: The IDs of instances that you want to release.
+        """
+        delete_instances_request = ecs_models.DeleteInstancesRequest(
+            region_id=self.region_id,
+            instance_id=instance_ids,
+            force=True
+        )
+        self.client.delete_instances_with_options(
+            delete_instances_request, self.runtime_options)
+
+    def create_security_group(self, vpc_id, name):
+        """Create a security group
+        :param vpc_id: The ID of the VPC in which to create
+                       the security group.
+        :return: The created security group ID.
+        """
+        create_security_group_request = ecs_models.CreateSecurityGroupRequest(
+            region_id=self.region_id,
+            security_group_name=name,
+            vpc_id=vpc_id
+        )
+        try:
+            response = self.client.create_security_group_with_options(
+                create_security_group_request, self.runtime_options)
+            return response.body.security_group_id
+        except Exception as e:
+            cli_logger.error("Failed to create security group. {}", str(e))
+            raise e
+
+    def describe_security_groups(self, vpc_id=None, name=None):
+        """Query basic information of security groups.
+        :param vpc_id: The ID of the VPC to which the security group belongs.
+        :param tags: The tags of the security group.
+        :return: Security group list.
+        """
+        describe_security_groups_request = ecs_models.DescribeSecurityGroupsRequest(
+            region_id=self.region_id,
+            vpc_id=vpc_id,
+            security_group_name=name
+        )
+        try:
+            response = self.client.describe_security_groups_with_options(
+                describe_security_groups_request, self.runtime_options)
+            security_groups = response.body.security_groups.security_group
+            return security_groups
+        except Exception as e:
+            cli_logger.error("Failed to describe security groups. {}", str(e))
+            raise e
+
+    def revoke_security_group(self, ip_protocol, port_range, security_group_id, source_cidr_ip):
+        """Revoke an inbound security group rule.
+                :param ip_protocol: The transport layer protocol.
+                :param port_range: The range of destination ports relevant to
+                                   the transport layer protocol.
+                :param security_group_id: The ID of the destination security group.
+                :param source_cidr_ip: The range of source IPv4 addresses.
+                                       CIDR blocks and IPv4 addresses are supported.
+                """
+        revoke_security_group_request = ecs_models.RevokeSecurityGroupRequest(
+            region_id=self.region_id,
+            security_group_id=security_group_id,
+            permissions=[
+                ecs_models.RevokeSecurityGroupRequestPermissions(
+                    ip_protocol=ip_protocol,
+                    source_cidr_ip=source_cidr_ip,
+                    port_range=port_range)
+            ]
+        )
+        try:
+            self.client.revoke_security_group_with_options(
+                revoke_security_group_request, self.runtime_options)
+        except Exception as e:
+            cli_logger.error("Failed to revoke security group rule. {}", str(e))
+            raise e
+
+    def describe_security_group_attribute(self, security_group_id):
+        """Query basic information of security group"""
+        describe_security_group_attribute_request = ecs_models.DescribeSecurityGroupAttributeRequest(
+            region_id=self.region_id,
+            security_group_id=security_group_id
+        )
+        try:
+            response = self.client.describe_security_group_attribute_with_options(
+                describe_security_group_attribute_request, self.runtime_options)
+            return response.body
+        except Exception as e:
+            cli_logger.error("Failed to describe security group attribute. {}", str(e))
+            raise e
+
+    def authorize_security_group(
+            self, ip_protocol, port_range, security_group_id, source_cidr_ip
+    ):
+        """Create an inbound security group rule.
+        :param ip_protocol: The transport layer protocol.
+        :param port_range: The range of destination ports relevant to
+                           the transport layer protocol.
+        :param security_group_id: The ID of the destination security group.
+        :param source_cidr_ip: The range of source IPv4 addresses.
+                               CIDR blocks and IPv4 addresses are supported.
+        """
+        authorize_security_group_request = ecs_models.AuthorizeSecurityGroupRequest(
+            region_id=self.region_id,
+            security_group_id=security_group_id,
+            permissions=[
+                ecs_models.AuthorizeSecurityGroupRequestPermissions(
+                    ip_protocol=ip_protocol,
+                    source_cidr_ip=source_cidr_ip,
+                    port_range=port_range
+                )
+            ]
+        )
+        try:
+            self.client.authorize_security_group_with_options(
+                authorize_security_group_request, self.runtime_options)
+        except Exception as e:
+            cli_logger.error("Failed to authorize security group rule. {}", str(e))
+            raise e
+
+    def delete_security_group(self, security_group_id):
+        """Delete security group."""
+        delete_security_group_request = ecs_models.DeleteSecurityGroupRequest(
+            region_id=self.region_id,
+            security_group_id=security_group_id
+        )
+        try:
+            self.client.delete_security_group_with_options(
+                delete_security_group_request, self.runtime_options)
+        except Exception as e:
+            cli_logger.error("Failed to delete security group. {}", str(e))
+            raise e

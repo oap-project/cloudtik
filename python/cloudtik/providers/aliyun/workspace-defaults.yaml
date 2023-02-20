@@ -5,7 +5,6 @@ from: workspace-defaults
 provider:
     type: aliyun
     region: cn-hangzhou
-    zone_id: cn-hangzhou-b
     # Decide whether to require public IP for head node.
     # When setting to False, Head node will require a public IP. Default to False
     use_internal_ips: False

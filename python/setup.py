@@ -66,21 +66,21 @@ cloudtik_files += [
 setup_spec.extras = {
     "aws": [
         "boto3==1.24.59",
-        "s3fs==2022.10.0",
+        "s3fs==2022.11.0",
         "botocore",
     ],
     "azure": [
         "azure-cli==2.40.0",
         "azure-identity==1.11.0",
-        "azure-storage-blob==12.11.0",
+        "azure-storage-blob==12.14.1",
         "azure-storage-file-datalake==12.6.0",
         "azure-mgmt-containerservice",
-        "adlfs==2022.2.0",
+        "adlfs==2023.1.0",
     ],
     "gcp": [
         "google-api-python-client==2.48.0",
         "google-cloud-storage==2.3.0",
-        "gcsfs==2022.10.0",
+        "gcsfs==2022.11.0",
     ],
     "aliyun": [
         "alibabacloud_tea_openapi == 0.3.7",
@@ -89,6 +89,7 @@ setup_spec.extras = {
         "alibabacloud_ecs20140526 == 3.0.4",
         "alibabacloud_ram20150501 == 1.0.3",
         "alibabacloud_oss20190517 == 1.0.5",
+        "ossfs == 2023.1.0",
     ],
     "kubernetes": [
         "kubernetes",

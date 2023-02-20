@@ -20,8 +20,11 @@ RUN sudo apt-get update -y \
     && sudo dpkg -i packages-microsoft-prod.deb \
     && echo "deb http://packages.cloud.google.com/apt gcsfuse-bionic main" |sudo tee /etc/apt/sources.list.d/gcsfuse.list \
     && sudo apt-get update -y && sudo apt-get install -y \
+         libfuse3-dev \
+         fuse3 \
+    && sudo apt-get update -y && sudo apt-get install -y \
          s3fs \
-         blobfuse \
+         blobfuse2 \
          gcsfuse \
          gdebi-core \
     && wget -N https://gosspublic.alicdn.com/ossfs/ossfs_1.80.7_ubuntu20.04_amd64.deb \

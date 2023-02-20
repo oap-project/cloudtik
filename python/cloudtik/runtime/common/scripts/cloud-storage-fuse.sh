@@ -37,6 +37,13 @@ function configure_s3_fs() {
 }
 
 function configure_azure_blob_fs() {
+    if [ "$AZURE_STORAGE_TYPE" == "blob" ];then
+        AZURE_ENDPOINT="blob"
+    else
+        # Default to datalake
+        AZURE_ENDPOINT="dfs"
+    fi
+
     if [ -z "${AZURE_CONTAINER}" ]; then
         echo "AZURE_CONTAINER environment variable is not set."
         return
@@ -52,12 +59,36 @@ function configure_azure_blob_fs() {
         return
     fi
 
-    fuse_connection_cfg=${USER_HOME}/fuse_connection.cfg
-    echo "accountName ${AZURE_STORAGE_ACCOUNT}" > ${fuse_connection_cfg}
-    echo "authType MSI" >> ${fuse_connection_cfg}
-    echo "identityClientId ${AZURE_MANAGED_IDENTITY_CLIENT_ID}" >> ${fuse_connection_cfg}
-    echo "containerName ${AZURE_CONTAINER}" >> ${fuse_connection_cfg}
+    fuse_connection_cfg=${USER_HOME}/blobfuse2_config.yaml
+    cat>${fuse_connection_cfg}<<EOF
+allow-other: true
+logging:
+    type: syslog
+libfuse:
+    attribute-expiration-sec: 240
+    entry-expiration-sec: 240
+    negative-entry-expiration-sec: 120
+file_cache:
+    path: /mnt/ramdisk/blobfusetmp
+attr_cache:
+  timeout-sec: 7200
+azstorage:
+    account-name: ${AZURE_STORAGE_ACCOUNT}
+    appid: ${AZURE_MANAGED_IDENTITY_CLIENT_ID}
+    endpoint: https://${AZURE_CONTAINER}.${AZURE_ENDPOINT}.core.windows.net
+    mode: msi
+    container: ${AZURE_CONTAINER}
+    update-md5: false
+    validate-md5: false
+    virtual-directory: true
+components:
+    - libfuse
+    - file_cache
+    - attr_cache
+    - azstorage
+EOF
     chmod 600 ${fuse_connection_cfg}
+    configure_fuse_options
 }
 
 function configure_gcs_fs() {
@@ -122,7 +153,8 @@ function install_azure_blob_fuse() {
         wget -q -N https://packages.microsoft.com/config/ubuntu/20.04/packages-microsoft-prod.deb
         sudo dpkg -i packages-microsoft-prod.deb > /dev/null
         sudo apt-get -qq update -y > /dev/null
-        sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq blobfuse -y > /dev/null
+        sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq libfuse3-dev fuse3 -y > /dev/null
+        sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq blobfuse2 -y > /dev/null
     fi
 }
 
@@ -214,15 +246,13 @@ function mount_azure_blob_fs() {
         return
     fi
 
-    #Use a ramdisk for the temporary path
-    sudo mkdir /mnt/ramdisk
-    sudo mount -t tmpfs -o size=16g tmpfs /mnt/ramdisk
-    sudo mkdir /mnt/ramdisk/blobfusetmp
+
+    sudo mkdir -p /mnt/ramdisk/blobfusetmp
     sudo chown $(whoami) /mnt/ramdisk/blobfusetmp
 
     mkdir -p ${CLOUD_FS_MOUNT_PATH}
     echo "Mounting Azure blob container ${AZURE_CONTAINER}@${AZURE_STORAGE_ACCOUNT} to ${CLOUD_FS_MOUNT_PATH}..."
-    blobfuse ${CLOUD_FS_MOUNT_PATH} --tmp-path=/mnt/ramdisk/blobfusetmp --config-file=${USER_HOME}/fuse_connection.cfg -o attr_timeout=240 -o entry_timeout=240 -o negative_timeout=120 > /dev/null
+    blobfuse2 mount ${CLOUD_FS_MOUNT_PATH}  --config-file=${USER_HOME}/blobfuse2_config.yaml > /dev/null
 }
 
 function mount_gcs_fs() {

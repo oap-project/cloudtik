@@ -55,11 +55,11 @@ class AliyunWorkspaceProvider(WorkspaceProvider):
         head_nodes = _get_workspace_head_nodes(
             self.provider_config, self.workspace_name)
         for head in head_nodes:
-            for tag in head.tags:
-                tag_key = tag.get("Key")
+            for tag in head.tags.tag:
+                tag_key = tag.tag_key
                 if tag_key.startswith(CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX):
                     global_variable_name = tag_key[len(CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX):]
-                    global_variables[global_variable_name] = tag.get("Value")
+                    global_variables[global_variable_name] = tag.tag_value
 
         return global_variables
 

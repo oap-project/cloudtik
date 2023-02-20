@@ -137,10 +137,10 @@ class AliyunNodeProvider(NodeProvider):
                 if (
                     instance.vpc_attributes is not None
                     and instance.vpc_attributes.private_ip_address is not None
-                    and len(instance.vpc_attributes.private_ip_address) > 0
+                    and len(instance.vpc_attributes.private_ip_address.ip_address) > 0
                 ):
                     return (
-                        instance.vpc_attributes.private_ip_address[0]
+                        instance.vpc_attributes.private_ip_address.ip_address[0]
                     )
             cli_logger.error("InnerIpAddress attribute is not exist. %s" % instance)
             time.sleep(STOPPING_NODE_DELAY)
@@ -196,19 +196,16 @@ class AliyunNodeProvider(NodeProvider):
     def create_node(
         self, node_config: Dict[str, Any], tags: Dict[str, str], count: int
     ) -> Optional[Dict[str, Any]]:
-        filter_tags = [
-            {
-                "Key": CLOUDTIK_TAG_CLUSTER_NAME,
-                "Value": self.cluster_name,
-            },
-            {"Key": CLOUDTIK_TAG_NODE_KIND, "Value": tags[CLOUDTIK_TAG_NODE_KIND]},
-            {"Key": CLOUDTIK_TAG_USER_NODE_TYPE, "Value": tags[CLOUDTIK_TAG_USER_NODE_TYPE]},
-            {"Key": CLOUDTIK_TAG_LAUNCH_CONFIG, "Value": tags[CLOUDTIK_TAG_LAUNCH_CONFIG]},
-            {"Key": CLOUDTIK_TAG_NODE_NAME, "Value": tags[CLOUDTIK_TAG_NODE_NAME]},
-        ]
 
         reused_nodes_dict = {}
         if self.cache_stopped_nodes:
+            filter_tags = [
+                {"Key": CLOUDTIK_TAG_CLUSTER_NAME, "Value": self.cluster_name},
+                {"Key": CLOUDTIK_TAG_NODE_KIND, "Value": tags[CLOUDTIK_TAG_NODE_KIND]},
+                {"Key": CLOUDTIK_TAG_USER_NODE_TYPE, "Value": tags[CLOUDTIK_TAG_USER_NODE_TYPE]},
+                {"Key": CLOUDTIK_TAG_LAUNCH_CONFIG, "Value": tags[CLOUDTIK_TAG_LAUNCH_CONFIG]},
+                {"Key": CLOUDTIK_TAG_NODE_NAME, "Value": tags[CLOUDTIK_TAG_NODE_NAME]},
+            ]
             reuse_nodes_candidate = self.ecs.describe_instances(tags=filter_tags)
             if reuse_nodes_candidate:
                 with cli_logger.group("Stopping instances to reuse"):
@@ -243,12 +240,13 @@ class AliyunNodeProvider(NodeProvider):
 
         created_nodes_dict = {}
         if count > 0:
-            filter_tags.append(
-                {"Key": CLOUDTIK_TAG_NODE_STATUS, "Value": tags[CLOUDTIK_TAG_NODE_STATUS]}
+            aliyun_format_tags = [{"Key": key, "Value": value} for key, value in tags.items()]
+            aliyun_format_tags.append(
+                {"Key": CLOUDTIK_TAG_CLUSTER_NAME, "Value": self.cluster_name},
             )
             instance_id_sets = self.ecs.run_instances(
                 node_config=node_config,
-                tags=filter_tags,
+                tags=aliyun_format_tags,
                 count=count
             )
             instances = self.ecs.describe_instances(instance_ids=instance_id_sets)

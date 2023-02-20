@@ -16,7 +16,7 @@ from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.services import get_node_ip_address
 from cloudtik.core._private.utils import check_cidr_conflict, get_cluster_uri, is_use_internal_ip, \
     is_managed_cloud_storage, is_use_managed_cloud_storage, is_worker_role_for_cloud_storage, is_use_working_vpc, \
-    is_use_peering_vpc, is_peering_firewall_allow_ssh_only, is_peering_firewall_allow_working_subnet, format_exception_message
+    is_use_peering_vpc, is_peering_firewall_allow_ssh_only, is_peering_firewall_allow_working_subnet
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD
 from cloudtik.core.workspace_provider import Existence, CLOUDTIK_MANAGED_CLOUD_STORAGE, \
     CLOUDTIK_MANAGED_CLOUD_STORAGE_URI
@@ -1558,7 +1558,7 @@ def check_snat_entry_status(time_default_out, default_time, check_status, vpc_cl
             if status == check_status:
                 return True
         except UnretryableException as e:
-            cli_logger.error("Failed to get attributes of resource. {}".format(format_exception_message(str(e))))
+            cli_logger.error("Failed to get attributes of resource. {}", str(e))
             continue
     return False
 

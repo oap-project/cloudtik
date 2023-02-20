@@ -2817,7 +2817,3 @@ def get_command_session_name(cmd: str, timestamp: int):
     hasher.update(cmd.encode("utf-8"))
     hasher.update(timestamp_str.encode("utf-8"))
     return "cloudtik-" + hasher.hexdigest()
-
-
-def format_exception_message(message):
-    return message.replace("{", "{{").replace("}", "}}")

@@ -13,7 +13,7 @@ provider:
 
 # How we will authenticate with newly launched nodes.
 auth:
-    ssh_user: ubuntu
+    ssh_user: root
     # By default we creates a new private keypair, but you can also use your own.
     # If you do so, make sure to also set "KeyPairName" in the head and worker node
     # configurations below.

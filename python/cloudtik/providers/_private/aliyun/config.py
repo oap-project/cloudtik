@@ -90,7 +90,7 @@ def bootstrap_aliyun(config):
 def bootstrap_aliyun_from_workspace(config):
     if not check_aliyun_workspace_integrity(config):
         workspace_name = config["workspace_name"]
-        cli_logger.abort("Alibaba Cloud workspace {} doesn't exist or is in wrong state.", workspace_name)
+        cli_logger.abort("Alibaba Cloud workspace {} doesn't exist or is in wrong state.".format(workspace_name))
 
     # create a copy of the input config to modify
     config = copy.deepcopy(config)
@@ -420,7 +420,7 @@ def _configure_vswitch_from_workspace(config):
     use_internal_ips = is_use_internal_ip(config)
 
     vpc_cli = VpcClient(config["provider"])
-    vpc_id = get_workspace_vpc_id(workspace_name, vpc_cli)
+    vpc_id = _get_workspace_vpc_id(workspace_name, vpc_cli)
 
     public_vswitches = get_workspace_public_vswitches(workspace_name, vpc_id, vpc_cli)
     private_vswitches = get_workspace_private_vswitches(workspace_name, vpc_id, vpc_cli)
@@ -441,11 +441,13 @@ def _configure_vswitch_from_workspace(config):
         node_config = node_type["node_config"]
         if key == config["head_node_type"]:
             if use_internal_ips:
-                node_config["v_switch_id"] = private_vswitch_ids[0]
+                node_config["VSwitchId"] = private_vswitch_ids[0]
             else:
-                node_config["v_switch_id"] = public_vswitch_ids[0]
+                node_config["VSwitchId"] = public_vswitch_ids[0]
+                node_config["InternetMaxBandwidthOut"] = node_config.get("InternetMaxBandwidthOut", 1)
         else:
-            node_config["v_switch_id"] = private_vswitch_ids[0]
+            node_config["VSwitchId"] = private_vswitch_ids[0]
+            # node_config["AllocatePublicIpAddress"] = False
 
     return config
 
@@ -581,13 +583,15 @@ def list_ecs_instances(provider_config) -> List[Dict[str, Any]]:
             and instance_types_body.instance_types.instance_type is not None):
         final_instance_types.extend(
             copy.deepcopy(instance_types_body.instance_types.instance_type))
-    while instance_types_body.next_token is not None:
+
+    while instance_types_body.next_token != "":
         instance_types_body = ecs_client.describe_instance_types(
             next_token=instance_types_body.next_token)
         if (instance_types_body.instance_types is not None
                 and instance_types_body.instance_types.instance_type is not None):
             final_instance_types.extend(
                 copy.deepcopy(instance_types_body.instance_types.instance_type))
+
     return final_instance_types
 
 

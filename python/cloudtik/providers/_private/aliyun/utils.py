@@ -93,8 +93,8 @@ def _get_node_info(node):
     private_ip = None
     if (node.vpc_attributes is not None
             and node.vpc_attributes.private_ip_address is not None
-            and len(node.vpc_attributes.private_ip_address) > 0):
-        private_ip = node.vpc_attributes.private_ip_address[0]
+            and len(node.vpc_attributes.private_ip_address.ip_address) > 0):
+        private_ip = node.vpc_attributes.private_ip_address.ip_address[0]
     public_ip = None
     if (node.public_ip_address is not None
         and node.public_ip_address.ip_address is not None

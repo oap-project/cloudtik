@@ -126,6 +126,13 @@ function configure_ml() {
     if [ -f "$GCSFS_CORE_FILE" ]; then
         cp $output_dir/gcsfs_core.py.patch ${GCSFS_CORE_FILE}
     fi
+
+    # Fix the ECS RAM role authentication for path from ossfs
+    OSSFS_PYTHON_HOME="${ROOT_DIR}/../../ossfs"
+    OSSFS_CORE_FILE="${GCSFS_PYTHON_HOME}/core.py"
+    if [ -f "$OSSFS_CORE_FILE" ]; then
+        cp $output_dir/ossfs_core.py.patch ${$OSSFS_CORE_FILE}
+    fi
 }
 
 set_head_address

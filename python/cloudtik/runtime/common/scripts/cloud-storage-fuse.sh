@@ -39,11 +39,11 @@ function configure_s3_fs() {
 function configure_azure_blob_fs() {
     if [ "$AZURE_STORAGE_TYPE" == "blob" ];then
         AZURE_ENDPOINT="blob"
-        BLOBFUSE_STORAGE_TYPE="adls"
+        BLOBFUSE_STORAGE_TYPE="block"
     else
         # Default to datalake
         AZURE_ENDPOINT="dfs"
-        BLOBFUSE_STORAGE_TYPE="block"
+        BLOBFUSE_STORAGE_TYPE="adls"
     fi
 
     if [ -z "${AZURE_CONTAINER}" ]; then
@@ -51,8 +51,16 @@ function configure_azure_blob_fs() {
         return
     fi
 
-    if [ -z "${AZURE_MANAGED_IDENTITY_CLIENT_ID}" ]; then
-        echo "AZURE_MANAGED_IDENTITY_CLIENT_ID environment variable is not set."
+    if [  $AZURE_MANAGED_IDENTITY_CLIENT_ID ]; then
+        AUTH_TYPE="msi"
+        AUTH_KEY_NAME="appid"
+        AUTH_VALUE=$AZURE_MANAGED_IDENTITY_CLIENT_ID
+    elif [ $AZURE_ACCOUNT_KEY ]; then
+        AUTH_TYPE="key"
+        AUTH_KEY_NAME="account-key"
+        AUTH_VALUE=$AZURE_ACCOUNT_KEY
+    else
+        echo "AZURE_MANAGED_IDENTITY_CLIENT_ID or AZURE_ACCOUNT_KEY environment variable is not set."
         return
     fi
 
@@ -71,15 +79,15 @@ libfuse:
     entry-expiration-sec: 240
     negative-entry-expiration-sec: 120
 file_cache:
-    path: /mnt/ramdisk/blobfusetmp
+    path: /mnt/resource/blobfuse2tmp
 attr_cache:
   timeout-sec: 7200
 azstorage:
     type: ${BLOBFUSE_STORAGE_TYPE}
     account-name: ${AZURE_STORAGE_ACCOUNT}
-    appid: ${AZURE_MANAGED_IDENTITY_CLIENT_ID}
+    ${AUTH_KEY_NAME}: ${AUTH_VALUE}
     endpoint: https://${AZURE_CONTAINER}.${AZURE_ENDPOINT}.core.windows.net
-    mode: msi
+    mode: ${AUTH_TYPE}
     container: ${AZURE_CONTAINER}
     update-md5: false
     validate-md5: false
@@ -250,8 +258,8 @@ function mount_azure_blob_fs() {
     fi
 
 
-    sudo mkdir -p /mnt/ramdisk/blobfusetmp
-    sudo chown $(whoami) /mnt/ramdisk/blobfusetmp
+    sudo mkdir -p /mnt/resource/blobfuse2tmp
+    sudo chown $(whoami) /mnt/resource/blobfuse2tmp
 
     mkdir -p ${CLOUD_FS_MOUNT_PATH}
     echo "Mounting Azure blob container ${AZURE_CONTAINER}@${AZURE_STORAGE_ACCOUNT} to ${CLOUD_FS_MOUNT_PATH}..."

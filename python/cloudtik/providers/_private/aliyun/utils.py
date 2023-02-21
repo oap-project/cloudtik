@@ -24,7 +24,7 @@ from alibabacloud_vpcpeer20220101.client import Client as vpc_peer_client
 from Tea.exceptions import TeaException, UnretryableException
 
 ALIYUN_OSS_BUCKET = "oss.bucket"
-CLIENT_MAX_CONNECT_TIME_OUT = 10000
+CLIENT_MAX_RETRY_ATTEMPTS = 3
 
 def get_aliyun_oss_storage_config(provider_config: Dict[str, Any]):
     if "storage" in provider_config and "aliyun_oss_storage" in provider_config["storage"]:
@@ -143,7 +143,6 @@ def make_vpc_client(provider_config):
     credential = get_credential(provider_config)
     config = open_api_models.Config(credential=credential)
     config.endpoint = f'vpc.aliyuncs.com'
-    config.connect_timeout = CLIENT_MAX_CONNECT_TIME_OUT
     return vpc_client(config)
 
 
@@ -151,7 +150,6 @@ def make_vpc_peer_client(provider_config):
     credential = get_credential(provider_config)
     config = open_api_models.Config(credential=credential)
     config.endpoint = f'vpcpeer.aliyuncs.com'
-    config.connect_timeout = CLIENT_MAX_CONNECT_TIME_OUT
     return vpc_peer_client(config)
 
 
@@ -160,7 +158,6 @@ def make_ecs_client(provider_config, region_id=None):
     credential = get_credential(provider_config)
     config = open_api_models.Config(credential=credential)
     config.endpoint = f'ecs.{region_id}.aliyuncs.com'
-    config.connect_timeout = CLIENT_MAX_CONNECT_TIME_OUT
     return ecs_client(config)
 
 
@@ -168,7 +165,6 @@ def make_ram_client(provider_config):
     credential = get_credential(provider_config)
     config = open_api_models.Config(credential=credential)
     config.endpoint = f'ram.aliyuncs.com'
-    config.connect_timeout = CLIENT_MAX_CONNECT_TIME_OUT
     return ram_client(config)
 
 
@@ -182,7 +178,6 @@ def _make_oss_client(credentials_config, region_id):
     credential = _get_credential(credentials_config)
     config = open_api_models.Config(credential=credential)
     config.endpoint = f"oss-{region_id}.aliyuncs.com"
-    config.connect_timeout = CLIENT_MAX_CONNECT_TIME_OUT
     return oss_client(config)
 
 
@@ -215,13 +210,15 @@ class OssClient:
         if credentials_config is None:
             credentials_config = provider_config.get("aliyun_credentials")
         self.client = _make_oss_client(credentials_config, self.region_id)
-        self.runtime_options = util_models.RuntimeOptions()
+        self.runtime_options = util_models.RuntimeOptions(
+            autoretry=True,
+            max_attempts=CLIENT_MAX_RETRY_ATTEMPTS
+        )
 
     def put_bucket(self, name):
         put_bucket_request = oss_models.PutBucketRequest(oss_models.CreateBucketConfiguration())
         try:
-            response = self.client.put_bucket(name, put_bucket_request)
-            # return response
+            self.client.put_bucket(name, put_bucket_request)
         except TeaException as e:
             cli_logger.error("Failed to create bucket. {}", str(e))
             raise e
@@ -273,7 +270,10 @@ class VpcClient:
     def __init__(self, provider_config, region_id=None):
         self.region_id = provider_config["region"] if region_id is None else region_id
         self.client = make_vpc_client(provider_config)
-        self.runtime_options = util_models.RuntimeOptions()
+        self.runtime_options = util_models.RuntimeOptions(
+            autoretry=True,
+            max_attempts=CLIENT_MAX_RETRY_ATTEMPTS
+        )
 
     def describe_vpcs(self, vpc_id=None, vpc_name=None):
         """Queries one or more VPCs in a region.
@@ -719,7 +719,10 @@ class VpcPeerClient:
     def __init__(self, provider_config, region_id=None):
         self.region_id = provider_config["region"] if region_id is None else region_id
         self.client = make_vpc_peer_client(provider_config)
-        self.runtime_options = util_models.RuntimeOptions()
+        self.runtime_options = util_models.RuntimeOptions(
+            autoretry=True,
+            max_attempts=CLIENT_MAX_RETRY_ATTEMPTS
+        )
 
     def create_vpc_peer_connection(
             self, region_id, vpc_id, accepted_ali_uid, accepted_vpc_id, accepted_region_id, name):
@@ -778,7 +781,10 @@ class RamClient:
     def __init__(self, provider_config):
         self.region_id = provider_config["region"]
         self.client = make_ram_client(provider_config)
-        self.runtime_options = util_models.RuntimeOptions()
+        self.runtime_options = util_models.RuntimeOptions(
+            autoretry=True,
+            max_attempts=CLIENT_MAX_RETRY_ATTEMPTS
+        )
 
     def create_role(self, role_name, assume_role_policy_document):
         """Create RAM role"""
@@ -872,7 +878,10 @@ class EcsClient:
     def __init__(self, provider_config, region_id=None):
         self.region_id = provider_config["region"] if region_id is None else region_id
         self.client = make_ecs_client(provider_config, region_id)
-        self.runtime_options = util_models.RuntimeOptions()
+        self.runtime_options = util_models.RuntimeOptions(
+            autoretry=True,
+            max_attempts=CLIENT_MAX_RETRY_ATTEMPTS
+        )
 
     @staticmethod
     def _get_request_instance_ids(instance_ids):

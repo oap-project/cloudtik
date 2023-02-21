@@ -380,6 +380,9 @@ def _configure_ram_role_for_head(config):
     # Add IAM role to "head_node" field so that it is applied only to
     # the head node -- not to workers with the same node type as the head.
     config["head_node"]["RamRoleName"] = head_instance_ram_role_name
+    # Add IAM role to "provider" filed so that node_provider for head
+    # can construct client by ecs_ram_role credential
+    config["provider"]["ram_role_name"] = head_instance_ram_role_name
 
 
 def _configure_ram_role_for_worker(config):

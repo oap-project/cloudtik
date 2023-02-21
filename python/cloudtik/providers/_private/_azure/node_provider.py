@@ -309,7 +309,7 @@ class AzureNodeProvider(NodeProvider):
         # Since the head will use the instance profile and role to access cloud,
         # remove the client credentials from config
         if "azure_credentials" in remote_config["provider"]:
-            remote_config.pop("azure_credentials", None)
+            remote_config["provider"].pop("azure_credentials", None)
 
         return remote_config
 

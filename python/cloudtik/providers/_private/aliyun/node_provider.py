@@ -313,7 +313,7 @@ class AliyunNodeProvider(NodeProvider):
         # Since the head will use the instance profile and role to access cloud,
         # remove the client credentials from config
         if "aliyun_credentials" in remote_config["provider"]:
-            remote_config.pop("aliyun_credentials", None)
+            remote_config["provider"].pop("aliyun_credentials", None)
 
         return remote_config
 

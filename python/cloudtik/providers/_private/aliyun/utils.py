@@ -24,7 +24,7 @@ from alibabacloud_vpcpeer20220101.client import Client as vpc_peer_client
 from Tea.exceptions import TeaException, UnretryableException
 
 ALIYUN_OSS_BUCKET = "oss.bucket"
-
+CLIENT_MAX_CONNECT_TIME_OUT = 10000
 
 def get_aliyun_oss_storage_config(provider_config: Dict[str, Any]):
     if "storage" in provider_config and "aliyun_oss_storage" in provider_config["storage"]:
@@ -113,10 +113,11 @@ def _get_node_info(node):
 
 def get_credential(provider_config):
     aliyun_credentials = provider_config.get("aliyun_credentials")
-    return _get_credential(aliyun_credentials)
+    aliyun_ram_role_name = provider_config.get("ram_role_name")
+    return _get_credential(aliyun_credentials, aliyun_ram_role_name)
 
 
-def _get_credential(aliyun_credentials=None):
+def _get_credential(aliyun_credentials=None, ram_role_name=None):
     if aliyun_credentials is not None:
         ak = aliyun_credentials.get("aliyun_access_key_id")
         sk = aliyun_credentials.get("aliyun_access_key_secret")
@@ -124,6 +125,12 @@ def _get_credential(aliyun_credentials=None):
             type='access_key',  # credential type
             access_key_id=ak,  # AccessKeyId
             access_key_secret=sk,  # AccessKeySecret
+        )
+        credential = CredentialClient(credential_config)
+    elif ram_role_name is not None:
+        credential_config = Config(
+            type='ecs_ram_role',
+            role_name=ram_role_name
         )
         credential = CredentialClient(credential_config)
     else:
@@ -136,6 +143,7 @@ def make_vpc_client(provider_config):
     credential = get_credential(provider_config)
     config = open_api_models.Config(credential=credential)
     config.endpoint = f'vpc.aliyuncs.com'
+    config.connect_timeout = CLIENT_MAX_CONNECT_TIME_OUT
     return vpc_client(config)
 
 
@@ -143,6 +151,7 @@ def make_vpc_peer_client(provider_config):
     credential = get_credential(provider_config)
     config = open_api_models.Config(credential=credential)
     config.endpoint = f'vpcpeer.aliyuncs.com'
+    config.connect_timeout = CLIENT_MAX_CONNECT_TIME_OUT
     return vpc_peer_client(config)
 
 
@@ -151,6 +160,7 @@ def make_ecs_client(provider_config, region_id=None):
     credential = get_credential(provider_config)
     config = open_api_models.Config(credential=credential)
     config.endpoint = f'ecs.{region_id}.aliyuncs.com'
+    config.connect_timeout = CLIENT_MAX_CONNECT_TIME_OUT
     return ecs_client(config)
 
 
@@ -158,6 +168,7 @@ def make_ram_client(provider_config):
     credential = get_credential(provider_config)
     config = open_api_models.Config(credential=credential)
     config.endpoint = f'ram.aliyuncs.com'
+    config.connect_timeout = CLIENT_MAX_CONNECT_TIME_OUT
     return ram_client(config)
 
 
@@ -171,6 +182,7 @@ def _make_oss_client(credentials_config, region_id):
     credential = _get_credential(credentials_config)
     config = open_api_models.Config(credential=credential)
     config.endpoint = f"oss-{region_id}.aliyuncs.com"
+    config.connect_timeout = CLIENT_MAX_CONNECT_TIME_OUT
     return oss_client(config)
 
 

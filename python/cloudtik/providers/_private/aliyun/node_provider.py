@@ -240,13 +240,13 @@ class AliyunNodeProvider(NodeProvider):
 
         created_nodes_dict = {}
         if count > 0:
-            aliyun_format_tags = [{"Key": key, "Value": value} for key, value in tags.items()]
-            aliyun_format_tags.append(
+            tags_for_creation = [{"Key": key, "Value": value} for key, value in tags.items()]
+            tags_for_creation.append(
                 {"Key": CLOUDTIK_TAG_CLUSTER_NAME, "Value": self.cluster_name},
             )
             instance_id_sets = self.ecs.run_instances(
                 node_config=node_config,
-                tags=aliyun_format_tags,
+                tags=tags_for_creation,
                 count=count
             )
             instances = self.ecs.describe_instances(instance_ids=instance_id_sets)

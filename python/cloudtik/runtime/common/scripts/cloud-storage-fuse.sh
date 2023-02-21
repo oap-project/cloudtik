@@ -159,7 +159,7 @@ function install_s3_fuse() {
 }
 
 function install_azure_blob_fuse() {
-    if ! type blobfuse >/dev/null 2>&1; then
+    if ! type blobfuse2 >/dev/null 2>&1; then
         echo "Installing Azure Blob Fuse..."
         wget -q -N https://packages.microsoft.com/config/ubuntu/20.04/packages-microsoft-prod.deb
         sudo dpkg -i packages-microsoft-prod.deb > /dev/null

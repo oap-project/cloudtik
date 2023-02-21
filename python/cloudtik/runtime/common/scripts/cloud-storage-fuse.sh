@@ -86,7 +86,7 @@ azstorage:
     type: ${BLOBFUSE_STORAGE_TYPE}
     account-name: ${AZURE_STORAGE_ACCOUNT}
     ${AUTH_KEY_NAME}: ${AUTH_VALUE}
-    endpoint: https://${AZURE_CONTAINER}.${AZURE_ENDPOINT}.core.windows.net
+    endpoint: https://${AZURE_STORAGE_ACCOUNT}.${AZURE_ENDPOINT}.core.windows.net
     mode: ${AUTH_TYPE}
     container: ${AZURE_CONTAINER}
     update-md5: false

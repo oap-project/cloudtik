@@ -16,6 +16,22 @@ function configure_fuse_options() {
     fi
 }
 
+function get_fuse_cache_path() {
+  fuse_cache_dir=""
+  if [ -d "/mnt/cloudtik" ]; then
+      for data_disk in /mnt/cloudtik/*; do
+          [ -d "$data_disk" ] || continue
+          fuse_cache_dir=$data_disk
+          break
+      done
+  fi
+
+  if [ -z $fuse_cache_dir ]; then
+      fuse_cache_dir="/mnt/cache/"
+  fi
+  echo $fuse_cache_dir
+}
+
 function configure_local_hdfs_fs() {
     configure_fuse_options
 }
@@ -51,11 +67,11 @@ function configure_azure_blob_fs() {
         return
     fi
 
-    if [  $AZURE_MANAGED_IDENTITY_CLIENT_ID ]; then
+    if [ -n "$AZURE_MANAGED_IDENTITY_CLIENT_ID" ]; then
         AUTH_TYPE="msi"
         AUTH_KEY_NAME="appid"
         AUTH_VALUE=$AZURE_MANAGED_IDENTITY_CLIENT_ID
-    elif [ $AZURE_ACCOUNT_KEY ]; then
+    elif [ -n "$AZURE_ACCOUNT_KEY" ]; then
         AUTH_TYPE="key"
         AUTH_KEY_NAME="account-key"
         AUTH_VALUE=$AZURE_ACCOUNT_KEY
@@ -69,6 +85,10 @@ function configure_azure_blob_fs() {
         return
     fi
 
+    BLOBFUSE_FILE_CACHE_PATH="$(get_fuse_cache_path)/blobfuse2"
+    sudo mkdir -p ${BLOBFUSE_FILE_CACHE_PATH}
+    sudo chown $(whoami) ${BLOBFUSE_FILE_CACHE_PATH}
+
     fuse_connection_cfg=${USER_HOME}/blobfuse2_config.yaml
     cat>${fuse_connection_cfg}<<EOF
 allow-other: true
@@ -79,7 +99,7 @@ libfuse:
     entry-expiration-sec: 240
     negative-entry-expiration-sec: 120
 file_cache:
-    path: /mnt/resource/blobfuse2tmp
+    path: ${BLOBFUSE_FILE_CACHE_PATH}
 attr_cache:
   timeout-sec: 7200
 azstorage:
@@ -257,13 +277,9 @@ function mount_azure_blob_fs() {
         return
     fi
 
-
-    sudo mkdir -p /mnt/resource/blobfuse2tmp
-    sudo chown $(whoami) /mnt/resource/blobfuse2tmp
-
     mkdir -p ${CLOUD_FS_MOUNT_PATH}
     echo "Mounting Azure blob container ${AZURE_CONTAINER}@${AZURE_STORAGE_ACCOUNT} to ${CLOUD_FS_MOUNT_PATH}..."
-    blobfuse2 mount ${CLOUD_FS_MOUNT_PATH}  --config-file=${USER_HOME}/blobfuse2_config.yaml > /dev/null
+    blobfuse2 mount ${CLOUD_FS_MOUNT_PATH} --config-file=${USER_HOME}/blobfuse2_config.yaml > /dev/null
 }
 
 function mount_gcs_fs() {

@@ -24,7 +24,7 @@ from alibabacloud_vpcpeer20220101.client import Client as vpc_peer_client
 from Tea.exceptions import TeaException, UnretryableException
 
 ALIYUN_OSS_BUCKET = "oss.bucket"
-CLIENT_MAX_RETRY_ATTEMPTS = 3
+CLIENT_MAX_RETRY_ATTEMPTS = 5
 
 def get_aliyun_oss_storage_config(provider_config: Dict[str, Any]):
     if "storage" in provider_config and "aliyun_oss_storage" in provider_config["storage"]:

@@ -313,7 +313,7 @@ class AliyunNodeProvider(NodeProvider):
     
         ram_role_name = cluster_config.get("head_node", {}).get("RamRoleName")
         if ram_role_name:
-            remote_config["provider"]["ram_role_name "] = ram_role_name
+            remote_config["provider"]["ram_role_name"] = ram_role_name
 
         # Since the head will use the instance profile and role to access cloud,
         # remove the client credentials from config

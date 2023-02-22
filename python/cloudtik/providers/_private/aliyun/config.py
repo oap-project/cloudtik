@@ -584,7 +584,7 @@ def list_ecs_instances(provider_config) -> List[Dict[str, Any]]:
         final_instance_types.extend(
             copy.deepcopy(instance_types_body.instance_types.instance_type))
 
-    while instance_types_body.next_token != "":
+    while instance_types_body.next_token:
         instance_types_body = ecs_client.describe_instance_types(
             next_token=instance_types_body.next_token)
         if (instance_types_body.instance_types is not None

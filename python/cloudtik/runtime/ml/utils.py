@@ -57,7 +57,7 @@ def publish_service_uri(cluster_config: Dict[str, Any], head_node_id: str) -> No
 
     provider = _get_node_provider(cluster_config["provider"], cluster_config["cluster_name"])
     head_internal_ip = provider.internal_ip(head_node_id)
-    service_uris = {"mlflow-service-uri": "http://{}:5001".format(head_internal_ip)}
+    service_uris = {"mlflow-service-uri": "{}:5001".format(head_internal_ip)}
 
     workspace_provider = _get_workspace_provider(cluster_config["provider"], workspace_name)
     workspace_provider.publish_global_variables(cluster_config, service_uris)

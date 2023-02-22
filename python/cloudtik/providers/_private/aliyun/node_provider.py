@@ -311,7 +311,7 @@ class AliyunNodeProvider(NodeProvider):
         """Returns a new remote cluster config with custom configs for head node.
         The cluster config may also be updated for setting up the head"""
     
-        ram_role_name = remote_config.get("head_node", {}).get("RamRoleName")
+        ram_role_name = cluster_config.get("head_node", {}).get("RamRoleName")
         if ram_role_name:
             remote_config["provider"]["ram_role_name "] = ram_role_name
 

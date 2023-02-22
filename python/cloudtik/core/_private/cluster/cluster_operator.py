@@ -1096,7 +1096,8 @@ def _exec_cluster(config: Dict[str, Any],
                   port_forward: Optional[Port_forward] = None,
                   with_output: bool = False,
                   _allow_uninitialized_state: bool = False,
-                  job_waiter: Optional[JobWaiter] = None) -> str:
+                  job_waiter: Optional[JobWaiter] = None,
+                  session_name: Optional[str] = None) -> str:
     """Runs a command on the specified cluster.
 
     Arguments:
@@ -1111,6 +1112,7 @@ def _exec_cluster(config: Dict[str, Any],
         _allow_uninitialized_state: whether to execute on an uninitialized head
             node.
         job_waiter: The waiter object to check the job is done
+        session_name: The session name of the job
     """
     assert not (screen and tmux), "Can specify only one of `screen` or `tmux`."
     assert run_env in RUN_ENV_TYPES, "--run_env must be in {}".format(
@@ -1147,7 +1149,9 @@ def _exec_cluster(config: Dict[str, Any],
 
     # Only when there is no job waiter we hold the tmux or screen session
     hold_session = False if job_waiter else True
-    timestamp = time.time_ns()
+    if not session_name:
+        session_name = get_command_session_name(cmd, time.time_ns())
+
     result = _exec(
         updater,
         cmd,
@@ -1156,12 +1160,12 @@ def _exec_cluster(config: Dict[str, Any],
         port_forward=port_forward,
         with_output=with_output,
         run_env=run_env,
-        hold_session=hold_session,
-        timestamp=timestamp)
+        session_name=session_name,
+        hold_session=hold_session)
 
     # if a job waiter is specified, we always wait for its completion.
     if job_waiter is not None:
-        job_waiter.wait_for_completion(head_node, cmd, timestamp)
+        job_waiter.wait_for_completion(head_node, cmd, session_name)
 
     # if the cmd is not run with screen or tmux
     # or in the future we can check the screen or tmux session completion
@@ -1183,18 +1187,20 @@ def _exec(updater: NodeUpdaterThread,
           run_env: str = "auto",
           shutdown_after_run: bool = False,
           exit_on_fail: bool = False,
-          hold_session: bool = True,
-          timestamp: int = time.time_ns()) -> str:
+          session_name: str = None,
+          hold_session: bool = True) -> str:
     if cmd:
         if screen:
-            session_name = get_command_session_name(cmd, timestamp)
+            if not session_name:
+                session_name = get_command_session_name(cmd, time.time_ns())
             wrapped_cmd = [
                 "screen", "-S", session_name, "-L", "-dm", "bash", "-c",
                 quote(cmd + "; exec bash") if hold_session else quote(cmd)
             ]
             cmd = " ".join(wrapped_cmd)
         elif tmux:
-            session_name = get_command_session_name(cmd, timestamp)
+            if not session_name:
+                session_name = get_command_session_name(cmd, time.time_ns())
             wrapped_cmd = [
                 "tmux", "new", "-s", session_name, "-d", "bash", "-c",
                 quote(cmd + "; exec bash") if hold_session else quote(cmd)
@@ -2460,7 +2466,7 @@ def exec_cmd_on_head(config,
         use_internal_ip=True)
 
     hold_session = False if job_waiter else True
-    timestamp = time.time_ns()
+    session_name = get_command_session_name(cmd, time.time_ns())
     result = _exec(
         updater,
         cmd,
@@ -2470,12 +2476,12 @@ def exec_cmd_on_head(config,
         with_output=with_output,
         run_env=run_env,
         shutdown_after_run=False,
-        hold_session=hold_session,
-        timestamp=timestamp)
+        session_name=session_name,
+        hold_session=hold_session)
 
     # if a job waiter is specified, we always wait for its completion.
     if job_waiter is not None:
-        job_waiter.wait_for_completion(node_id, cmd, timestamp)
+        job_waiter.wait_for_completion(node_id, cmd, session_name)
 
     return result
 
@@ -3122,6 +3128,7 @@ def submit_and_exec(config: Dict[str, Any],
                     with_output: bool = False,
                     yes: bool = False,
                     job_waiter_name: Optional[str] = None,
+                    job_log: bool = False,
                     runtime: Optional[str] = None,
                     runtime_options: Optional[List[str]] = None,
                     ):
@@ -3153,10 +3160,10 @@ def submit_and_exec(config: Dict[str, Any],
     )
 
     target_name = os.path.basename(script)
-    target = os.path.join("~", "jobs", target_name)
+    target = os.path.join("~", "user", "jobs", target_name)
 
-    # Create the "jobs" folder before do upload
-    cmd_mkdir = "mkdir -p ~/jobs"
+    # Create the "user/jobs" and "user/logs" folder before do upload
+    cmd_mkdir = "mkdir -p ~/user/jobs; mkdir -p ~/user/logs"
     _exec_cmd_on_cluster(
         config,
         call_context=call_context,
@@ -3164,7 +3171,7 @@ def submit_and_exec(config: Dict[str, Any],
     )
     command_parts = []
     if urllib.parse.urlparse(script).scheme in ("http", "https"):
-        command_parts = ["wget", quote(script), "-O", f"~/jobs/{target_name};"]
+        command_parts = ["wget", quote(script), "-O", f"~/user/jobs/{target_name};"]
     else:
         # upload the script to cluster
         _rsync(
@@ -3175,7 +3182,7 @@ def submit_and_exec(config: Dict[str, Any],
             down=False)
 
     # Use new target with $HOME instead of ~ for exec
-    target = os.path.join("$HOME", "jobs", target_name)
+    target = os.path.join("$HOME", "user", "jobs", target_name)
     if runtime is not None:
         runtime_commands = get_runnable_command(
             config.get(RUNTIME_CONFIG_KEY), target, runtime, runtime_options)
@@ -3194,6 +3201,14 @@ def submit_and_exec(config: Dict[str, Any],
 
     with_script_args(command_parts, script_args)
 
+    # If user uses screen or tmux and job waiter is used
+    # which means to not hold the tmux or screen session, we redirect log with the session name
+    user_cmd = " ".join(command_parts)
+    session_name = get_command_session_name(user_cmd, time.time_ns())
+    if job_log or ((screen or tmux) and job_waiter is not None):
+        redirect_output = f">$HOME/user/logs/{session_name}.log"
+        command_parts += [redirect_output, "2>&1"]
+
     cmd = " ".join(command_parts)
     return _exec_cluster(
         config,
@@ -3205,7 +3220,8 @@ def submit_and_exec(config: Dict[str, Any],
         start=False,
         port_forward=port_forward,
         with_output=with_output,
-        job_waiter=job_waiter)
+        job_waiter=job_waiter,
+        session_name=session_name)
 
 
 def _sum_min_workers(config: Dict[str, Any]):

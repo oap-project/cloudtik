@@ -809,6 +809,11 @@ def exec(cluster_config_file, cmd, cluster_name, run_env, screen, tmux, stop, st
     type=str,
     help="The job waiter to be used to check the completion of the job.")
 @click.option(
+    "--job-log",
+    is_flag=True,
+    default=False,
+    help="Whether redirect the output of the job to log file in ~/user/logs.")
+@click.option(
     "--runtime",
     required=False,
     type=str,
@@ -824,7 +829,7 @@ def exec(cluster_config_file, cmd, cluster_name, run_env, screen, tmux, stop, st
 @add_click_logging_options
 def submit(cluster_config_file, cluster_name, screen, tmux, stop, start,
            force_update, wait_for_workers, min_workers, wait_timeout,
-           no_config_cache, port_forward, yes, job_waiter, runtime, runtime_options,
+           no_config_cache, port_forward, yes, job_waiter, job_log, runtime, runtime_options,
            script, script_args):
     """Uploads and runs a script on the specified cluster.
 
@@ -858,6 +863,7 @@ def submit(cluster_config_file, cluster_name, screen, tmux, stop, start,
         port_forward=port_forward,
         yes=yes,
         job_waiter_name=job_waiter,
+        job_log=job_log,
         runtime=runtime,
         runtime_options=runtime_options,
         )

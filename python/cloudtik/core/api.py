@@ -197,7 +197,8 @@ class Cluster:
                wait_timeout: Optional[int] = None,
                port_forward: Optional[cluster_operator.Port_forward] = None,
                with_output: bool = False,
-               job_waiter: Optional[str] = None) -> Optional[str]:
+               job_waiter: Optional[str] = None,
+               job_log: bool = False) -> Optional[str]:
         """Submit a script file to cluster and run.
 
         Args:
@@ -214,6 +215,7 @@ class Cluster:
             port_forward ( (int,int) or list[(int,int)]): port(s) to forward.
             with_output (bool): Whether to capture command output.
             job_waiter (str): The job waiter to use for waiting an async job to complete.
+            job_log (bool): Send the output of the job to log file in ~/user/logs.
         Returns:
             The output of the command as a string.
         """
@@ -233,7 +235,9 @@ class Cluster:
             port_forward=port_forward,
             with_output=with_output,
             yes=True,
-            job_waiter_name=job_waiter)
+            job_waiter_name=job_waiter,
+            job_log=job_log
+        )
 
     def rsync(self,
               *,

@@ -67,7 +67,9 @@ Internally, we use YARN to check all the YARN application's completion.
 
 You need Spark job waiter only when you submit an async Spark job which means a YARN cluster mode application.
 
-## A useful example
+## Useful examples
+
+### Spark job example
 Assume you are submitting a Spark job with cluster mode and also specifying --tmux parameter when executing,
 And you want to stop the cluster after the job completed.
 
@@ -80,3 +82,27 @@ cloudtik exec your-cluster-config.yaml \
 Because you used --tmux parameter, you need tmux job waiter in the chain to wait for the tmux session completion
 which means the spark job submitting completion. From this point, we need a Spark job waiter to wait for the submitted
 application completion. Specifying --stop to stop the cluster after the job completed.
+
+### Deep learning job example
+Assume you are submitting a deep learning job to a machine learning cluster to do AI training,
+
+You may start with this command, for example,
+```
+cloudtik submit your-cluster-config.yaml \
+    ./cloudtik/example/ml/jobs/keras/mnist-keras-spark-horovod-hyperopt-mlflow.py
+```
+You will find that the training job will run quite a long time.
+And you want it to run in background, so you submit the job as the following,
+```
+cloudtik submit your-cluster-config.yaml \
+    ./cloudtik/example/ml/jobs/keras/mnist-keras-spark-horovod-hyperopt-mlflow.py \
+    --tmux
+```
+Since the training job output a lot of information.
+And you want to check the results afterwards, so you submit the job as the following,
+```
+cloudtik submit your-cluster-config.yaml \
+    ./cloudtik/example/ml/jobs/keras/mnist-keras-spark-horovod-hyperopt-mlflow.py \
+    --tmux --job-log
+```
+The --job-log parameter will redirect the job script output to the log file at ~/user/logs.

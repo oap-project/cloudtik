@@ -7,7 +7,6 @@ from cloudtik.core._private.call_context import CallContext
 from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core._private.cluster.cluster_utils import run_on_node
 from cloudtik.core._private.constants import CLOUDTIK_WAIT_FOR_JOB_FINISHED_INTERVAL_S, CLOUDTIK_JOB_WAITER_TIMEOUT_MAX
-from cloudtik.core._private.utils import get_command_session_name
 from cloudtik.core.job_waiter import JobWaiter
 
 logger = logging.getLogger(__name__)
@@ -56,13 +55,12 @@ class SessionJobWaiter(JobWaiter):
                     raise e
         return False
 
-    def wait_for_completion(self, node_id: str, cmd: str, timestamp: int, timeout: Optional[int] = None):
+    def wait_for_completion(self, node_id: str, cmd: str, session_name: str, timeout: Optional[int] = None):
         start_time = time.time()
         if timeout is None:
             timeout = CLOUDTIK_JOB_WAITER_TIMEOUT_MAX
         interval = CLOUDTIK_WAIT_FOR_JOB_FINISHED_INTERVAL_S
 
-        session_name = get_command_session_name(cmd, timestamp)
         session_exists = self._check_session(node_id, session_name)
         while time.time() - start_time < timeout:
             if not session_exists:

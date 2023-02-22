@@ -20,7 +20,9 @@ RUN apt-get update -y && apt-get install --yes \
     wget \
     libdigest-sha-perl \
     bzip2 \
-    && mkdir -p ${RUNTIME_PATH}
+    && mkdir -p ${RUNTIME_PATH} \
+    && sudo rm -rf /var/lib/apt/lists/* \
+    && sudo apt-get clean
 
 # Download miniconda 4.5.12, then upgrade it to 4.8.4
 RUN wget --quiet --output-document miniconda.sh https://repo.continuum.io/miniconda/Miniconda3-4.5.12-Linux-x86_64.sh \

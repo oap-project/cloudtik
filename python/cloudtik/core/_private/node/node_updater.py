@@ -7,7 +7,7 @@ from typing import Dict
 from threading import Thread
 
 from cloudtik.core._private.utils import with_runtime_environment_variables, with_node_ip_environment_variables, \
-    _get_cluster_uri, _is_use_internal_ip, get_node_type, with_environment_variables_from_config
+    _get_cluster_uri, _is_use_internal_ip, get_node_type
 from cloudtik.core.command_executor import get_cmd_to_print
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_STATUS, CLOUDTIK_TAG_RUNTIME_CONFIG, \
     CLOUDTIK_TAG_FILE_MOUNTS_CONTENTS, \
@@ -20,9 +20,9 @@ from cloudtik.core._private.log_timer import LogTimer
 from cloudtik.core._private.cli_logger import cf, CliLogger
 import cloudtik.core._private.subprocess_output_util as cmd_output_util
 from cloudtik.core._private.constants import CLOUDTIK_RESOURCES_ENV, CLOUDTIK_RUNTIME_ENV_NODE_NUMBER, \
-    CLOUDTIK_RUNTIME_ENV_NODE_TYPE, CLOUDTIK_RUNTIME_ENV_PROVIDER_TYPE
-from cloudtik.core._private.event_system import (CreateClusterEvent,
-                                                  global_event_system)
+    CLOUDTIK_RUNTIME_ENV_NODE_TYPE, CLOUDTIK_RUNTIME_ENV_PROVIDER_TYPE, CLOUDTIK_RUNTIME_ENV_PYTHON_VERSION, \
+    CLOUDTIK_CLUSTER_PYTHON_VERSION
+from cloudtik.core._private.event_system import (CreateClusterEvent, global_event_system)
 
 logger = logging.getLogger(__name__)
 
@@ -343,6 +343,8 @@ class NodeUpdater:
 
         if self.provider_type is not None:
             node_envs[CLOUDTIK_RUNTIME_ENV_PROVIDER_TYPE] = self.provider_type
+
+        node_envs[CLOUDTIK_RUNTIME_ENV_PYTHON_VERSION] = CLOUDTIK_CLUSTER_PYTHON_VERSION
         return node_envs
 
     def do_update(self):

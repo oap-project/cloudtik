@@ -8,7 +8,7 @@ ARG BASE_IMAGE
 ENV TZ=America/Los_Angeles
 ENV PATH "/home/cloudtik/anaconda3/bin:$PATH"
 ARG DEBIAN_FRONTEND=noninteractive
-ARG PYTHON_RELEASE=3.8.16
+ARG PYTHON_VERSION=3.8
 ARG CONDA_ENV_NAME=cloudtik
 ARG CLOUDTIK_UID=1000
 ARG CLOUDTIK_GID=100
@@ -60,7 +60,7 @@ RUN sudo apt-get update -y && sudo apt-get upgrade -y \
     && sudo rm -rf /var/lib/apt/lists/* \
     && sudo apt-get clean
 
-RUN $HOME/anaconda3/bin/conda create -n $CLOUDTIK_ENV -y python=$PYTHON_RELEASE
+RUN $HOME/anaconda3/bin/conda create -n $CLOUDTIK_ENV -y python=$PYTHON_VERSION
 ENV CONDA_ROOT $HOME/anaconda3
 ENV PATH $HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH
 

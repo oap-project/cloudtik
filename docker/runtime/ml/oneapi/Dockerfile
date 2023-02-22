@@ -17,7 +17,9 @@ RUN wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRO
     && echo "if [ -f '/opt/intel/oneapi/mpi/latest/env/vars.sh' ]; then . '/opt/intel/oneapi/mpi/latest/env/vars.sh'; fi" >> ~/.bashrc \
     && echo "if [ -f '/opt/intel/oneapi/tbb/latest/env/vars.sh' ]; then . '/opt/intel/oneapi/tbb/latest/env/vars.sh'; fi" >> ~/.bashrc \
     && echo "if [ -f '/opt/intel/oneapi/compiler/latest/env/vars.sh' ]; then . '/opt/intel/oneapi/compiler/latest/env/vars.sh'; fi" >> ~/.bashrc \
-    && echo "if [ -f '/opt/intel/oneapi/ccl/latest/env/vars.sh' ]; then . '/opt/intel/oneapi/ccl/latest/env/vars.sh'; fi" >> ~/.bashrc
+    && echo "if [ -f '/opt/intel/oneapi/ccl/latest/env/vars.sh' ]; then . '/opt/intel/oneapi/ccl/latest/env/vars.sh'; fi" >> ~/.bashrc \
+    && sudo rm -rf /var/lib/apt/lists/* \
+    && sudo apt-get clean
 
 WORKDIR /home/cloudtik/
 COPY requirements.txt /tmp/requirements.txt
@@ -28,10 +30,10 @@ RUN export PATH="$HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH" \
     # Install deep learning libraries (PyTorch and torch tools)
     && pip install torch==1.12.0 torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cpu \
     # Source the mpi and ccl vars
-    && source /opt/intel/oneapi/mpi/latest/env/vars.sh \
-    && source /opt/intel/oneapi/tbb/latest/env/vars.sh \
-    && source /opt/intel/oneapi/compiler/latest/env/vars.sh \
-    && source /opt/intel/oneapi/ccl/latest/env/vars.sh \
+    && . /opt/intel/oneapi/mpi/latest/env/vars.sh \
+    && . /opt/intel/oneapi/tbb/latest/env/vars.sh \
+    && . /opt/intel/oneapi/compiler/latest/env/vars.sh \
+    && . /opt/intel/oneapi/ccl/latest/env/vars.sh \
     # Install Horovod
     && export HOROVOD_CPU_OPERATIONS=CCL \
     && export CXX=/usr/bin/g++-9 \

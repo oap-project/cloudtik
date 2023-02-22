@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 CLOUDTIK_HOME=$( cd -- "$( dirname -- "${SCRIPT_DIR}" )" &> /dev/null && pwd )
-CONDA_HOME=$( cd -- "$( dirname -- "$( dirname -- "$(which conda)" )" )" &> /dev/null && pwd )
 
 # Import the default vars
 . "$SCRIPT_DIR"/set-default-vars.sh
@@ -48,9 +47,6 @@ done
 PYTHON_TAG=${PYTHON_VERSION//./}
 
 cd $CLOUDTIK_HOME
-
-source $CONDA_HOME/bin/activate cloudtik_py${PYTHON_TAG} || conda create -n cloudtik_py${PYTHON_TAG} -y python=${PYTHON_VERSION}
-source $CONDA_HOME/bin/activate cloudtik_py${PYTHON_TAG}
 
 if [ $DO_CLEAN ]; then
     sudo docker rmi cloudtik/spark-runtime-benchmark:$IMAGE_TAG

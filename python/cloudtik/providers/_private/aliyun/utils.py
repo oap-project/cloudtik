@@ -24,7 +24,7 @@ from alibabacloud_vpcpeer20220101.client import Client as vpc_peer_client
 from Tea.exceptions import TeaException, UnretryableException
 
 ALIYUN_OSS_BUCKET = "oss.bucket"
-
+CLIENT_MAX_RETRY_ATTEMPTS = 3
 
 def get_aliyun_oss_storage_config(provider_config: Dict[str, Any]):
     if "storage" in provider_config and "aliyun_oss_storage" in provider_config["storage"]:
@@ -113,10 +113,11 @@ def _get_node_info(node):
 
 def get_credential(provider_config):
     aliyun_credentials = provider_config.get("aliyun_credentials")
-    return _get_credential(aliyun_credentials)
+    aliyun_ram_role_name = provider_config.get("ram_role_name")
+    return _get_credential(aliyun_credentials, aliyun_ram_role_name)
 
 
-def _get_credential(aliyun_credentials=None):
+def _get_credential(aliyun_credentials=None, ram_role_name=None):
     if aliyun_credentials is not None:
         ak = aliyun_credentials.get("aliyun_access_key_id")
         sk = aliyun_credentials.get("aliyun_access_key_secret")
@@ -124,6 +125,12 @@ def _get_credential(aliyun_credentials=None):
             type='access_key',  # credential type
             access_key_id=ak,  # AccessKeyId
             access_key_secret=sk,  # AccessKeySecret
+        )
+        credential = CredentialClient(credential_config)
+    elif ram_role_name is not None:
+        credential_config = Config(
+            type='ecs_ram_role',
+            role_name=ram_role_name
         )
         credential = CredentialClient(credential_config)
     else:
@@ -203,13 +210,15 @@ class OssClient:
         if credentials_config is None:
             credentials_config = provider_config.get("aliyun_credentials")
         self.client = _make_oss_client(credentials_config, self.region_id)
-        self.runtime_options = util_models.RuntimeOptions()
+        self.runtime_options = util_models.RuntimeOptions(
+            autoretry=True,
+            max_attempts=CLIENT_MAX_RETRY_ATTEMPTS
+        )
 
     def put_bucket(self, name):
         put_bucket_request = oss_models.PutBucketRequest(oss_models.CreateBucketConfiguration())
         try:
-            response = self.client.put_bucket(name, put_bucket_request)
-            # return response
+            self.client.put_bucket(name, put_bucket_request)
         except TeaException as e:
             cli_logger.error("Failed to create bucket. {}", str(e))
             raise e
@@ -261,7 +270,10 @@ class VpcClient:
     def __init__(self, provider_config, region_id=None):
         self.region_id = provider_config["region"] if region_id is None else region_id
         self.client = make_vpc_client(provider_config)
-        self.runtime_options = util_models.RuntimeOptions()
+        self.runtime_options = util_models.RuntimeOptions(
+            autoretry=True,
+            max_attempts=CLIENT_MAX_RETRY_ATTEMPTS
+        )
 
     def describe_vpcs(self, vpc_id=None, vpc_name=None):
         """Queries one or more VPCs in a region.
@@ -707,7 +719,10 @@ class VpcPeerClient:
     def __init__(self, provider_config, region_id=None):
         self.region_id = provider_config["region"] if region_id is None else region_id
         self.client = make_vpc_peer_client(provider_config)
-        self.runtime_options = util_models.RuntimeOptions()
+        self.runtime_options = util_models.RuntimeOptions(
+            autoretry=True,
+            max_attempts=CLIENT_MAX_RETRY_ATTEMPTS
+        )
 
     def create_vpc_peer_connection(
             self, region_id, vpc_id, accepted_ali_uid, accepted_vpc_id, accepted_region_id, name):
@@ -766,7 +781,10 @@ class RamClient:
     def __init__(self, provider_config):
         self.region_id = provider_config["region"]
         self.client = make_ram_client(provider_config)
-        self.runtime_options = util_models.RuntimeOptions()
+        self.runtime_options = util_models.RuntimeOptions(
+            autoretry=True,
+            max_attempts=CLIENT_MAX_RETRY_ATTEMPTS
+        )
 
     def create_role(self, role_name, assume_role_policy_document):
         """Create RAM role"""
@@ -860,7 +878,10 @@ class EcsClient:
     def __init__(self, provider_config, region_id=None):
         self.region_id = provider_config["region"] if region_id is None else region_id
         self.client = make_ecs_client(provider_config, region_id)
-        self.runtime_options = util_models.RuntimeOptions()
+        self.runtime_options = util_models.RuntimeOptions(
+            autoretry=True,
+            max_attempts=CLIENT_MAX_RETRY_ATTEMPTS
+        )
 
     @staticmethod
     def _get_request_instance_ids(instance_ids):

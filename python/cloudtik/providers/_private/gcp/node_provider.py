@@ -214,7 +214,7 @@ class GCPNodeProvider(NodeProvider):
         # Since the head will use the instance profile and role to access cloud,
         # remove the client credentials from config
         if "gcp_credentials" in remote_config["provider"]:
-            remote_config.pop("gcp_credentials", None)
+            remote_config["provider"].pop("gcp_credentials", None)
 
         return remote_config
 

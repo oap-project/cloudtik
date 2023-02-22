@@ -310,11 +310,16 @@ class AliyunNodeProvider(NodeProvider):
             self, cluster_config: Dict[str, Any], remote_config: Dict[str, Any]) -> Dict[str, Any]:
         """Returns a new remote cluster config with custom configs for head node.
         The cluster config may also be updated for setting up the head"""
+    
+        ram_role_name = remote_config.get("head_node", {}).get("RamRoleName")
+        if ram_role_name:
+            remote_config["provider"]["ram_role_name "] = ram_role_name
+
         # Since the head will use the instance profile and role to access cloud,
         # remove the client credentials from config
         if "aliyun_credentials" in remote_config["provider"]:
-            remote_config.pop("aliyun_credentials", None)
-
+            remote_config["provider"].pop("aliyun_credentials", None)
+        
         return remote_config
 
     def get_node_info(self, node_id: str) -> Dict[str, str]:

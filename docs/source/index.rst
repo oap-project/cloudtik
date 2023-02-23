@@ -39,7 +39,7 @@ CloudTik provides:
    UserGuide/configuring-kubernetes-integration.md
    UserGuide/running-optimized-analytics.rst
    UserGuide/running-optimized-ai.rst
-   UserGuide/advanced-configurations.rst
+   UserGuide/advanced-configuring.rst
 
 
 .. toctree::

@@ -15,19 +15,21 @@ Please follow these steps to use for On-Premise clusters .
 
 ## Prepare the machines
 For the machines used for CloudTik, there are a few requirements. 
-1. All the machines needs to have a non-root user with sudo privilege and private key login, for example 'cloudtik'.
+1. All the machines needs to have a user with sudo privilege and private key login. A non-root user is suggegested, for example 'cloudtik'.
 2. Setup host resolution for all the nodes
 3. Prepare the local disks
 
 For public cloud providers, the virtual machines are created with #1 and #2 already satisfied.
 For #3 (disks) on the public cloud, CloudTik will list all raw block devices,
 create a file system for them and mount to /mnt/cloudtik/data_disk_#.
+CloudTik runtime will automatically search disks under /mnt/cloudtik.
+And use these disks as data disks.
 
-For local provider, user need to make sure these requirements are satisfied manually or through
+For on-premise clusters, user need to make sure these requirements are satisfied manually or through
 utility scripts.
 
 ### Create a new sudo user and setup login with private key
-Cloudtik does not allow root user to manage the cluster, 
+Cloudtik doesn't suggest to use root user to manage the cluster, 
 so you need to create a normal user with sudo privileges for each of your machines.
 and you need setup login with the same private key.
 If such a user already exists, you can skip this step.
@@ -41,9 +43,13 @@ If such a user already exists, you can skip this step.
 
 
 ### Prepare local disks
-Cloudtik will automatically detect the disks on each node, format the disks without partitions and mount these disks in the directory "/mnt/cloudtik/data_disk_[number]" specified by Cloudtik.
-So please make sure that the required data disk has cleared the partition information,and mount the redundant disk to a directory other than "/mnt/cloudtik". 
-For the disk information below, Cloudtik will use nvme0n1, nvme1n1 and nvme2n1 as storage disks.
+Cloudtik will automatically detect raw block devices on each node, format the disks without partitions
+and mount these disks in the directory "/mnt/cloudtik/data_disk_[number]" specified by Cloudtik.
+
+So you can either leave the data disks as raw block devices and CloudTik will do all for you
+in the same way as we do for public cloud virtual machines.
+
+For example, the disk information below, Cloudtik will use nvme0n1, nvme1n1 and nvme2n1 as storage disks.
 ```buildoutcfg
 (base) ubuntu@worker01:~$ lsblk
 NAME                      MAJ:MIN RM   SIZE RO TYPE MOUNTPOINT
@@ -67,6 +73,20 @@ nvme5n1                   259:9    0   3.7T  0 disk /mnt/disk_3
 nvme6n1                   259:10   0   3.7T  0 disk /mnt/disk_4
 
 ```
+
+Or if the data disks have already been formatted and mounted at other paths,
+you can create a symbolic link from your paths to /mnt/cloudtik/data_disk_#.
+By utilizing custom initialization command provided by CloudTik, you can easily to do these
+in your cluster without manually doing this. For example,
+
+```
+initialization_commands:
+    - sudo ln -s /mnt/your/disk_1 /mnt/cloudtik/data_disk_1
+    - sudo ln -s /mnt/your/disk_2 /mnt/cloudtik/data_disk_2
+```
+
+Note: please sure your data disk paths set the right permission for read/write by all users.
+If not, you can add the corresponding commands to initialization command as well.
 
 ## Configure and start CloudTik Cloud Simulator
 You need prepare the CloudTik Cloud Simulator configure file and

@@ -22,7 +22,7 @@ copyright = '2022, Intel Corporation'
 author = 'CloudTik Developers'
 
 # The full version, including alpha/beta/rc tags
-release = '0.9.0'
+release = '1.0.3'
 
 # -- General configuration ---------------------------------------------------
 

@@ -32,6 +32,9 @@ mkdir -p $RUNTIME_PATH
 # JDK install function
 . "$ROOT_DIR"/common/scripts/jdk-install.sh
 
+# Util functions
+. "$ROOT_DIR"/common/scripts/util-functions.sh
+
 function install_zookeeper() {
     # install zookeeper
     export ZOOKEEPER_HOME=$RUNTIME_PATH/zookeeper
@@ -48,3 +51,4 @@ function install_zookeeper() {
 
 install_jdk
 install_zookeeper
+clean_install_cache

@@ -41,6 +41,9 @@ mkdir -p $RUNTIME_PATH
 # Hadoop install function
 . "$ROOT_DIR"/common/scripts/hadoop-install.sh
 
+# Util functions
+. "$ROOT_DIR"/common/scripts/util-functions.sh
+
 function install_mariadb() {
     sudo apt-get -qq update -y > /dev/null
     sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install -y mariadb-server > /dev/null
@@ -65,3 +68,4 @@ install_jdk
 install_hadoop
 install_mariadb
 install_hive_metastore
+clean_install_cache

@@ -41,6 +41,9 @@ mkdir -p $RUNTIME_PATH
 # Hadoop install function
 . "$ROOT_DIR"/common/scripts/hadoop-install.sh
 
+# Util functions
+. "$ROOT_DIR"/common/scripts/util-functions.sh
+
 function install_flink() {
     # install Flink
     export FLINK_HOME=$RUNTIME_PATH/flink
@@ -162,3 +165,4 @@ install_jupyter_for_flink
 install_tools
 install_hadoop_with_cloud_jars
 #install_flink_with_cloud_jars
+clean_install_cache

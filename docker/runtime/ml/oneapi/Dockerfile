@@ -25,10 +25,10 @@ WORKDIR /home/cloudtik/
 COPY requirements.txt /tmp/requirements.txt
 RUN export PATH="$HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH" \
     # Install deep learning libraries (Tensorflow, Keras)
-    && pip install -r /tmp/requirements.txt \
+    && pip --no-cache-dir install -r /tmp/requirements.txt \
     && sudo rm /tmp/requirements.txt \
     # Install deep learning libraries (PyTorch and torch tools)
-    && pip install torch==1.12.0 torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cpu \
+    && pip --no-cache-dir install torch==1.12.0 torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cpu \
     # Source the mpi and ccl vars
     && . /opt/intel/oneapi/mpi/latest/env/vars.sh \
     && . /opt/intel/oneapi/tbb/latest/env/vars.sh \

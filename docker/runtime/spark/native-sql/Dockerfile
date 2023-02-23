@@ -63,7 +63,7 @@ RUN wget https://d30257nes7d4fq.cloudfront.net/downloads/spark/spark-${SPARK_VER
 WORKDIR /home/cloudtik/
 COPY requirements.txt /tmp/requirements.txt
 RUN export PATH="$HOME/anaconda3/envs/${CLOUDTIK_ENV}/bin:$PATH" \
-    && pip install -r  /tmp/requirements.txt \
+    && pip --no-cache-dir install -r /tmp/requirements.txt \
     && sudo rm /tmp/requirements.txt \
     && python -m spylon_kernel install --user
 
@@ -77,4 +77,5 @@ ENV LIBARROW_DIR      $HOME/runtime/oap/
 ENV CC                         $HOME/runtime/oap/bin/x86_64-conda_cos6-linux-gnu-cc
 
 # Install OAP by Conda
-RUN $HOME/anaconda3/bin/conda create -p "${OAP_HOME}" -c conda-forge -c intel-bigdata -c intel -y oap=${OAP_VERSION}
+RUN $HOME/anaconda3/bin/conda create -p "${OAP_HOME}" -c conda-forge -c intel-bigdata -c intel -y oap=${OAP_VERSION} \
+    && $HOME/anaconda3/bin/conda clean -itqy

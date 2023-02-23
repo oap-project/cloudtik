@@ -23,6 +23,8 @@ do
     shift
 done
 
+# Util functions
+. "$ROOT_DIR"/common/scripts/util-functions.sh
 
 function install_ganglia_monitor_python() {
     GANGLIA_LIB=/usr/lib/ganglia
@@ -59,3 +61,4 @@ function install_ganglia() {
 }
 
 install_ganglia
+clean_install_cache

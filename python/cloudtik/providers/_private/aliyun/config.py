@@ -444,10 +444,11 @@ def _configure_vswitch_from_workspace(config):
                 node_config["VSwitchId"] = private_vswitch_ids[0]
             else:
                 node_config["VSwitchId"] = public_vswitch_ids[0]
-                node_config["InternetMaxBandwidthOut"] = node_config.get("InternetMaxBandwidthOut", 1)
+                # Set the value of InternetMaxBandwidthOut greater than 0 when the instance requires public ip address
+                node_config["InternetMaxBandwidthOut"] = node_config.get("InternetMaxBandwidthOut", 10)
+                node_config["InternetMaxBandwidthIn"] = node_config.get("InternetMaxBandwidthIn", 200)
         else:
             node_config["VSwitchId"] = private_vswitch_ids[0]
-            # node_config["AllocatePublicIpAddress"] = False
 
     return config
 

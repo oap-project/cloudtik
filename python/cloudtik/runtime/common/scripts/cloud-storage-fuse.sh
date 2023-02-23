@@ -299,18 +299,23 @@ function mount_aliyun_oss_fs() {
         return
     fi
 
+    if [ -z "${ALIYUN_OSS_INTERNAL_ENDPOINT}" ]; then
+        echo "ALIYUN_OSS_INTERNAL_ENDPOINT environment variable is not set."
+        return
+    fi
+
     PASSWD_FILE_FLAG=""
     RAM_ROLE_FLAG=""
     if [ ! -z "${ALIYUN_OSS_ACCESS_KEY_ID}" ] && [ ! -z "${ALIYUN_OSS_ACCESS_KEY_SECRET}" ]; then
         PASSWD_FILE_FLAG="-o passwd_file=${USER_HOME}/.passwd-ossfs"
     else
-        RAM_ROLE_FLAG="-o ram_role=${ALIYUN_ECS_RAM_ROLE_NAME}"
+        RAM_ROLE_FLAG="-o ram_role=http://100.100.100.200/latest/meta-data/ram/security-credentials/${ALIYUN_ECS_RAM_ROLE_NAME}"
     fi
 
     mkdir -p ${CLOUD_FS_MOUNT_PATH}
     echo "Mounting Aliyun OSS bucket ${ALIYUN_OSS_BUCKET} to ${CLOUD_FS_MOUNT_PATH}..."
     # TODO: Endpoint setup for ECS for network going internally (for example, oss-cn-hangzhou-internal.aliyuncs.com)
-    ossfs ${ALIYUN_OSS_BUCKET} ${CLOUD_FS_MOUNT_PATH} -o use_cache=/tmp -o mp_umask=002 ${PASSWD_FILE_FLAG} ${RAM_ROLE_FLAG} > /dev/null
+    ossfs ${ALIYUN_OSS_BUCKET} ${CLOUD_FS_MOUNT_PATH} -o use_cache=/tmp -o mp_umask=002 -o url=${ALIYUN_OSS_INTERNAL_ENDPOINT} ${PASSWD_FILE_FLAG} ${RAM_ROLE_FLAG} > /dev/null
 }
 
 function mount_cloud_fs() {

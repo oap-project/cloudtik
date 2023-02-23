@@ -1,7 +1,2 @@
 # Developer API
-
-## Node Provider
-
-## Workspace Provider
-
-## Runtime
+TO DO

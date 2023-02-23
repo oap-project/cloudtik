@@ -35,5 +35,9 @@ mkdir -p $RUNTIME_PATH
 # Hadoop install function
 . "$ROOT_DIR"/common/scripts/hadoop-install.sh
 
+# Util functions
+. "$ROOT_DIR"/common/scripts/util-functions.sh
+
 install_jdk
 install_hadoop
+clean_install_cache

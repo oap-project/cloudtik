@@ -33,6 +33,9 @@ mkdir -p $RUNTIME_PATH
 # JDK install function
 . "$ROOT_DIR"/common/scripts/jdk-install.sh
 
+# Util functions
+. "$ROOT_DIR"/common/scripts/util-functions.sh
+
 function install_kafka() {
     # install kafka
     export KAFKA_HOME=$RUNTIME_PATH/kafka
@@ -49,3 +52,4 @@ function install_kafka() {
 
 install_jdk
 install_kafka
+clean_install_cache

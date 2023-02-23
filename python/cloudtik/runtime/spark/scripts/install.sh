@@ -44,6 +44,9 @@ mkdir -p $RUNTIME_PATH
 # Cloud storage fuse functions
 . "$ROOT_DIR"/common/scripts/cloud-storage-fuse.sh
 
+# Util functions
+. "$ROOT_DIR"/common/scripts/util-functions.sh
+
 function install_spark() {
     # install Spark
     export SPARK_HOME=$RUNTIME_PATH/spark
@@ -86,13 +89,13 @@ function install_jupyter_for_spark() {
         # Install Jupyter and spylon-kernel for Spark
         if ! type jupyter >/dev/null 2>&1; then
           echo "Install JupyterLab..."
-          pip -qq install jupyter_server==1.19.1 jupyterlab==3.4.3
+          pip --no-cache-dir -qq install jupyter_server==1.19.1 jupyterlab==3.4.3
         fi
 
         export SPYLON_KERNEL=$USER_HOME/.local/share/jupyter/kernels/spylon-kernel
 
         if  [ ! -d "${SPYLON_KERNEL}" ]; then
-            pip -qq install spylon-kernel==0.4.1;
+            pip --no-cache-dir -qq install spylon-kernel==0.4.1;
             python -m spylon_kernel install --user;
         fi
 
@@ -181,3 +184,4 @@ install_yarn_with_spark_jars
 install_hadoop_with_cloud_jars
 install_spark_with_cloud_jars
 install_cloud_fuse
+clean_install_cache

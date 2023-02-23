@@ -28,3 +28,9 @@ function set_node_ip_address() {
         fi
     fi
 }
+
+function clean_install_cache() {
+    (sudo rm -rf /var/lib/apt/lists/* \
+        && sudo apt-get clean \
+        && which conda > /dev/null && conda clean -itqy)
+}

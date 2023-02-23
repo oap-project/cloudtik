@@ -32,6 +32,9 @@ mkdir -p $RUNTIME_PATH
 # JDK install function
 . "$ROOT_DIR"/common/scripts/jdk-install.sh
 
+# Util functions
+. "$ROOT_DIR"/common/scripts/util-functions.sh
+
 function install_tools() {
     which uuid > /dev/null || sudo apt-get -qq update -y > /dev/null; sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install uuid -y > /dev/null
 }
@@ -63,3 +66,4 @@ function install_presto() {
 install_jdk
 install_tools
 install_presto
+clean_install_cache

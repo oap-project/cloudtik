@@ -20,8 +20,8 @@ from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_KIND
 from cloudtik.core.workspace_provider import Existence, CLOUDTIK_MANAGED_CLOUD_STORAGE, \
     CLOUDTIK_MANAGED_CLOUD_STORAGE_URI
 from cloudtik.providers._private.aliyun.utils import export_aliyun_oss_storage_config, \
-    get_aliyun_oss_storage_config, get_aliyun_oss_storage_config_for_update, ALIYUN_OSS_BUCKET, _get_node_info, \
-    get_aliyun_cloud_storage_uri
+    get_aliyun_oss_storage_config, get_aliyun_oss_storage_config_for_update, ALIYUN_OSS_BUCKET, ALIYUN_OSS_INTERNAL_ENDPOINT, _get_node_info, \
+    get_aliyun_cloud_storage_uri, _get_oss_internal_endpoint
 
 from cloudtik.providers._private.aliyun.utils import OssClient, EcsClient, RamClient, VpcClient, VpcPeerClient, check_resource_status
 from cloudtik.providers._private.utils import StorageTestingError
@@ -261,6 +261,7 @@ def _configure_managed_cloud_storage_from_workspace(config, cloud_provider):
 
     cloud_storage = get_aliyun_oss_storage_config_for_update(config["provider"])
     cloud_storage[ALIYUN_OSS_BUCKET] = oss_bucket.name
+    cloud_storage[ALIYUN_OSS_INTERNAL_ENDPOINT] = _get_oss_internal_endpoint(config)
 
 
 def _key_assert_msg(node_type: str) -> str:
@@ -377,9 +378,7 @@ def _configure_ram_role_for_head(config):
     if not head_instance_ram_role_name:
         raise RuntimeError("Head instance ram role: {} not found!".format(head_instance_ram_role_name))
 
-    # Add IAM role to "head_node" field so that it is applied only to
-    # the head node -- not to workers with the same node type as the head.
-    config["head_node"]["RamRoleName"] = head_instance_ram_role_name
+    head_node_config["RamRoleName"] = head_instance_ram_role_name
 
 
 def _configure_ram_role_for_worker(config):

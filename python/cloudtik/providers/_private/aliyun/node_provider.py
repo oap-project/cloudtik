@@ -310,8 +310,10 @@ class AliyunNodeProvider(NodeProvider):
             self, cluster_config: Dict[str, Any], remote_config: Dict[str, Any]) -> Dict[str, Any]:
         """Returns a new remote cluster config with custom configs for head node.
         The cluster config may also be updated for setting up the head"""
-    
-        ram_role_name = cluster_config.get("head_node", {}).get("RamRoleName")
+
+        head_node_type = cluster_config["head_node_type"]
+        head_node_config = cluster_config["available_node_types"][head_node_type]["node_config"]
+        ram_role_name = head_node_config.get("RamRoleName")
         if ram_role_name:
             remote_config["provider"]["ram_role_name"] = ram_role_name
 

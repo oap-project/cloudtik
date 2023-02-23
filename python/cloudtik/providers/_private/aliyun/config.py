@@ -261,7 +261,7 @@ def _configure_managed_cloud_storage_from_workspace(config, cloud_provider):
 
     cloud_storage = get_aliyun_oss_storage_config_for_update(config["provider"])
     cloud_storage[ALIYUN_OSS_BUCKET] = oss_bucket.name
-    cloud_storage[ALIYUN_OSS_INTERNAL_ENDPOINT] = _get_oss_internal_endpoint(config)
+    cloud_storage[ALIYUN_OSS_INTERNAL_ENDPOINT] = _get_oss_internal_endpoint(config["provider"]["region"])
 
 
 def _key_assert_msg(node_type: str) -> str:

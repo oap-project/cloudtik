@@ -1580,7 +1580,7 @@ def get_workspace_elastic_ip_name(workspace_name):
 
 def _create_elastic_ip(config, vpc_cli):
     eip_name = get_workspace_elastic_ip_name(config["workspace_name"])
-    allocation_id = vpc_cli.allocate_eip_address(eip_name)
+    allocation_id = vpc_cli.allocate_eip_address(name=eip_name)
     if check_resource_status(MAX_POLLS_NAT, POLL_INTERVAL, vpc_cli.describe_eip_addresses, "Available", allocation_id):
         cli_logger.print("Successfully allocate Elastic IP:{}.".format(eip_name))
     else:

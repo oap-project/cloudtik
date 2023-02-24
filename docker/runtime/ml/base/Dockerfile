@@ -14,7 +14,4 @@ COPY requirements.txt /tmp/requirements.txt
 RUN export PATH="$HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH" \
     # Install machine learning and basic libraries
     && pip --no-cache-dir install -r /tmp/requirements.txt \
-    && sudo rm /tmp/requirements.txt \
-    # Install deep learning libraries for facial recognition
-    && conda install dlib=19.24.0 libffi=3.4.2 -p $HOME/anaconda3/envs/$CLOUDTIK_ENV -c conda-forge -y \
-    && conda clean -itqy
+    && sudo rm /tmp/requirements.txt

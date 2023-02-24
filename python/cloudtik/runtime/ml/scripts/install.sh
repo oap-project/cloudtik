@@ -45,9 +45,11 @@ function setup_oneapi_repository() {
 }
 
 function install_ml() {
+    CLOUDTIK_ENV_ROOT=$(dirname $(dirname $(which cloudtik)))
+
     # Install Machine Learning libraries and components
     echo "Installing machine learning tools: mlflow, hyperopt..."
-    pip --no-cache-dir -qq install mlflow==1.27.0 sqlalchemy==1.4.46 pyarrow==8.0.0 hyperopt==0.2.7 scikit-learn==1.0.2
+    pip --no-cache-dir -qq install mlflow==2.1.1 pyarrow==8.0.0 hyperopt==0.2.7 scikit-learn==1.0.2
     mkdir -p $RUNTIME_PATH/mlflow
 
     if [ "$ML_WITH_MXNET" == "true" ]; then
@@ -56,7 +58,14 @@ function install_ml() {
     else
         echo "Installing deep learning frameworks: tensorflow, pytorch..."
         pip --no-cache-dir -qq install tensorflow==2.9.3
-        pip --no-cache-dir -qq install torch==1.12.0 torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cpu
+
+        if [ "$ML_WITH_ONEAPI" == "true" ]; then
+            conda install -q pytorch=1.13.0 torchvision=0.14.1 \
+              oneccl_bind_pt=1.13.0 intel-extension-for-pytorch=1.13.10 -p ${CLOUDTIK_ENV_ROOT} -c intel -y > /dev/null
+        else
+            pip --no-cache-dir -qq install torch==1.13.0 torchvision==0.14.1 \
+              --extra-index-url https://download.pytorch.org/whl/cpu
+        fi
         pip --no-cache-dir -qq install transformers==4.11.0
     fi
 
@@ -68,8 +77,6 @@ function install_ml() {
     if [ "$ML_WITH_MXNET" != "true" ]; then
         pip --no-cache-dir -qq install tensorflow-addons==0.17.1
     fi
-    CLOUDTIK_ENV_ROOT=$(dirname $(dirname $(which cloudtik)))
-    conda install -q dlib=19.24.0 libffi=3.4.2 -p ${CLOUDTIK_ENV_ROOT} -c conda-forge -y > /dev/null
 
     if [ "$ML_WITH_ONEAPI" == "true" ] || \
        [ "$ML_WITH_INTEL_MPI" == "true" ] || \

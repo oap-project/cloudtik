@@ -28,7 +28,10 @@ RUN export PATH="$HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH" \
     && pip --no-cache-dir install -r /tmp/requirements.txt \
     && sudo rm /tmp/requirements.txt \
     # Install deep learning libraries (PyTorch and torch tools)
-    && pip --no-cache-dir install torch==1.12.0 torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cpu \
+    && conda install -c intel pytorch=1.13.0 torchvision=0.14.1 \
+        intel-extension-for-pytorch=1.13.10 oneccl_bind_pt=1.13.0 \
+        -p $HOME/anaconda3/envs/$CLOUDTIK_ENV -y \
+    && conda clean -itqy \
     # Source the mpi and ccl vars
     && . /opt/intel/oneapi/mpi/latest/env/vars.sh \
     && . /opt/intel/oneapi/tbb/latest/env/vars.sh \

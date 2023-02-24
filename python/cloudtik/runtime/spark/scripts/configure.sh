@@ -225,6 +225,7 @@ function update_config_for_azure() {
 function update_config_for_aliyun() {
     fs_default_dir="oss://${ALIYUN_OSS_BUCKET}"
     sed -i "s!{%fs.default.name%}!${fs_default_dir}!g" `grep "{%fs.default.name%}" -rl ./`
+    sed -i "s!{%fs.oss.endpoint%}!${ALIYUN_OSS_INTERNAL_ENDPOINT}!g" `grep "{%fs.oss.endpoint%}" -rl ./`
 
     update_cloud_storage_credential_config
 

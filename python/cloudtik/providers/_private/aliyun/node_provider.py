@@ -10,6 +10,7 @@ from cloudtik.providers._private.aliyun.config import (
     RUNNING,
     STOPPED,
     STOPPING,
+    STARTING,
     bootstrap_aliyun, verify_oss_storage, post_prepare_aliyun, with_aliyun_environment_variables,
 )
 from cloudtik.providers._private.aliyun.utils import get_default_aliyun_cloud_storage, \
@@ -77,7 +78,7 @@ class AliyunNodeProvider(NodeProvider):
         instances = self.ecs.describe_instances(tags=tags)
         non_terminated_instance = []
         for instance in instances:
-            if instance.status == RUNNING or instance.status == PENDING:
+            if instance.status in [RUNNING, PENDING, STARTING] :
                 non_terminated_instance.append(instance.instance_id)
                 self.cached_nodes[instance.instance_id] = instance
         return non_terminated_instance
@@ -196,7 +197,6 @@ class AliyunNodeProvider(NodeProvider):
     def create_node(
         self, node_config: Dict[str, Any], tags: Dict[str, str], count: int
     ) -> Optional[Dict[str, Any]]:
-
         reused_nodes_dict = {}
         if self.cache_stopped_nodes:
             filter_tags = [
@@ -310,8 +310,10 @@ class AliyunNodeProvider(NodeProvider):
             self, cluster_config: Dict[str, Any], remote_config: Dict[str, Any]) -> Dict[str, Any]:
         """Returns a new remote cluster config with custom configs for head node.
         The cluster config may also be updated for setting up the head"""
-    
-        ram_role_name = cluster_config.get("head_node", {}).get("RamRoleName")
+
+        head_node_type = cluster_config["head_node_type"]
+        head_node_config = cluster_config["available_node_types"][head_node_type]["node_config"]
+        ram_role_name = head_node_config.get("RamRoleName")
         if ram_role_name:
             remote_config["provider"]["ram_role_name"] = ram_role_name
 

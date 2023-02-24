@@ -24,6 +24,7 @@ from alibabacloud_vpcpeer20220101.client import Client as vpc_peer_client
 from Tea.exceptions import TeaException, UnretryableException
 
 ALIYUN_OSS_BUCKET = "oss.bucket"
+ALIYUN_OSS_INTERNAL_ENDPOINT = "oss.internal.endpoint"
 CLIENT_MAX_RETRY_ATTEMPTS = 5
 
 def get_aliyun_oss_storage_config(provider_config: Dict[str, Any]):
@@ -49,6 +50,10 @@ def export_aliyun_oss_storage_config(provider_config, config_dict: Dict[str, Any
     oss_bucket = cloud_storage.get(ALIYUN_OSS_BUCKET)
     if oss_bucket:
         config_dict["ALIYUN_OSS_BUCKET"] = oss_bucket
+
+    oss_internal_endpoint = cloud_storage.get(ALIYUN_OSS_INTERNAL_ENDPOINT)
+    if oss_internal_endpoint:
+        config_dict["ALIYUN_OSS_INTERNAL_ENDPOINT"] = oss_internal_endpoint
 
     oss_access_key_id = cloud_storage.get("oss.access.key.id")
     if oss_access_key_id:
@@ -177,8 +182,16 @@ def make_oss_client(provider_config, region_id=None):
 def _make_oss_client(credentials_config, region_id):
     credential = _get_credential(credentials_config)
     config = open_api_models.Config(credential=credential)
-    config.endpoint = f"oss-{region_id}.aliyuncs.com"
+    config.endpoint = _get_oss_public_endpoint(region_id)
     return oss_client(config)
+
+
+def _get_oss_internal_endpoint(region_id):
+    return f"oss-{region_id}-internal.aliyuncs.com"
+
+
+def _get_oss_public_endpoint(region_id):
+    return f"oss-{region_id}.aliyuncs.com"
 
 
 def check_resource_status(time_default_out, default_time, describe_attribute_func, check_status, resource_id):
@@ -245,7 +258,7 @@ class OssClient:
         list_objects_request = oss_models.ListObjectsRequest()
         try:
             response = self.client.list_objects(bucket_name, list_objects_request)
-            return response.body.contents
+            return response.body.contents if response.body is not None else []
         except Exception as e:
             cli_logger.error("Failed to list objects of the bucket: {}. {}", bucket_name, str(e))
             raise e
@@ -545,14 +558,16 @@ class VpcClient:
             cli_logger.error("Failed to create nat-gateway. {}", str(e))
             raise e
 
-    def allocate_eip_address(self, name, bandwidth='100'):
+    def allocate_eip_address(self, name, bandwidth='100', instance_charge_type='PostPaid', internet_charge_type='PayByTraffic'):
         """Allocate elastic ip address
         :return allocation_id:
         """
         allocate_eip_address_request = vpc_models.AllocateEipAddressRequest(
             region_id=self.region_id,
             name=name,
-            bandwidth=bandwidth
+            bandwidth=bandwidth,
+            instance_charge_type=instance_charge_type,
+            internet_charge_type=internet_charge_type
         )
         try:
             response = self.client.allocate_eip_address_with_options(

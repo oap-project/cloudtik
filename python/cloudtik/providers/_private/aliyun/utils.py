@@ -558,14 +558,16 @@ class VpcClient:
             cli_logger.error("Failed to create nat-gateway. {}", str(e))
             raise e
 
-    def allocate_eip_address(self, name, bandwidth='100'):
+    def allocate_eip_address(self, name, bandwidth='100', instance_charge_type='PostPaid', internet_charge_type='PayByTraffic'):
         """Allocate elastic ip address
         :return allocation_id:
         """
         allocate_eip_address_request = vpc_models.AllocateEipAddressRequest(
             region_id=self.region_id,
             name=name,
-            bandwidth=bandwidth
+            bandwidth=bandwidth,
+            instance_charge_type=instance_charge_type,
+            internet_charge_type=internet_charge_type
         )
         try:
             response = self.client.allocate_eip_address_with_options(

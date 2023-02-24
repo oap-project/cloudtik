@@ -10,6 +10,7 @@ from cloudtik.providers._private.aliyun.config import (
     RUNNING,
     STOPPED,
     STOPPING,
+    STARTING,
     bootstrap_aliyun, verify_oss_storage, post_prepare_aliyun, with_aliyun_environment_variables,
 )
 from cloudtik.providers._private.aliyun.utils import get_default_aliyun_cloud_storage, \
@@ -77,7 +78,7 @@ class AliyunNodeProvider(NodeProvider):
         instances = self.ecs.describe_instances(tags=tags)
         non_terminated_instance = []
         for instance in instances:
-            if instance.status == RUNNING or instance.status == PENDING:
+            if instance.status in [RUNNING, PENDING, STARTING] :
                 non_terminated_instance.append(instance.instance_id)
                 self.cached_nodes[instance.instance_id] = instance
         return non_terminated_instance
@@ -196,7 +197,6 @@ class AliyunNodeProvider(NodeProvider):
     def create_node(
         self, node_config: Dict[str, Any], tags: Dict[str, str], count: int
     ) -> Optional[Dict[str, Any]]:
-
         reused_nodes_dict = {}
         if self.cache_stopped_nodes:
             filter_tags = [

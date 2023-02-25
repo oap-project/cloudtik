@@ -44,14 +44,10 @@ ALIYUN_DEFAULT_IMAGE_ID = "ubuntu_20_04_x64_20G_alibase_20221228.vhd"
 ALIYUN_WORKSPACE_NUM_CREATION_STEPS = 4
 ALIYUN_WORKSPACE_NUM_DELETION_STEPS = 6
 ALIYUN_WORKSPACE_TARGET_RESOURCES = 7
-ALIYUN_VPC_SWITCHES_COUNT=2
 
 ALIYUN_RESOURCE_NAME_PREFIX = "cloudtik"
 ALIYUN_WORKSPACE_VPC_NAME = ALIYUN_RESOURCE_NAME_PREFIX + "-{}-vpc"
-ALIYUN_WORKSPACE_PUBLIC_VSWITCH_NAME = ALIYUN_RESOURCE_NAME_PREFIX + "-{}-public-vswitch"
-ALIYUN_WORKSPACE_PRIVATE_VSWITCH_NAME = ALIYUN_RESOURCE_NAME_PREFIX + "-{}-private-vswitch"
-ALIYUN_WORKSPACE_VSWITCH_NAME = ALIYUN_RESOURCE_NAME_PREFIX + "-{}-vswitch"
-
+ALIYUN_WORKSPACE_INSTANCE_VSWITCH_NAME = ALIYUN_RESOURCE_NAME_PREFIX + "-{}-instance-vswitch"
 ALIYUN_WORKSPACE_NAT_VSWITCH_NAME = ALIYUN_RESOURCE_NAME_PREFIX + "-{}-nat-vswitch"
 ALIYUN_WORKSPACE_SECURITY_GROUP_NAME = ALIYUN_RESOURCE_NAME_PREFIX + "-{}-security-group"
 ALIYUN_WORKSPACE_EIP_NAME = ALIYUN_RESOURCE_NAME_PREFIX + "-{}-eip"
@@ -1139,7 +1135,7 @@ def _create_and_configure_vswitches(config, vpc_cli):
                 "Creating vswitch", _numbered=("()", i + 1, availability_zone_num)):
             try:
                 cli_logger.print("Creating vswitch for VPC: {} with CIDR: {}...".format(vpc_id, cidr_block))
-                vswitch_name = ALIYUN_WORKSPACE_VSWITCH_NAME.format(workspace_name)
+                vswitch_name = ALIYUN_WORKSPACE_INSTANCE_VSWITCH_NAME.format(workspace_name)
                 vswitch_id = vpc_cli.create_vswitch(vpc_id, zone_id, cidr_block, vswitch_name)
 
                 if check_resource_status(MAX_POLLS, POLL_INTERVAL, vpc_cli.describe_vswitch_attributes, "Available", vswitch_id):
@@ -1157,7 +1153,7 @@ def _create_and_configure_vswitches(config, vpc_cli):
 
 
 def _delete_instance_vswitches(workspace_name, vpc_id, vpc_cli):
-    _delete_vswitches(workspace_name, vpc_id, vpc_cli, ALIYUN_WORKSPACE_VSWITCH_NAME)
+    _delete_vswitches(workspace_name, vpc_id, vpc_cli, ALIYUN_WORKSPACE_INSTANCE_VSWITCH_NAME)
 
 
 def _delete_nat_vswitches(workspace_name, vpc_id, vpc_cli):
@@ -1165,7 +1161,7 @@ def _delete_nat_vswitches(workspace_name, vpc_id, vpc_cli):
 
 
 def get_workspace_instance_vswitches(workspace_name, vpc_id, vpc_cli):
-    return _get_workspace_vswitches(workspace_name, vpc_id, vpc_cli, ALIYUN_WORKSPACE_VSWITCH_NAME)
+    return _get_workspace_vswitches(workspace_name, vpc_id, vpc_cli, ALIYUN_WORKSPACE_INSTANCE_VSWITCH_NAME)
 
 
 def get_workspace_nat_vswitches(workspace_name, vpc_id, vpc_cli):
@@ -1194,20 +1190,6 @@ def _delete_vswitches(workspace_name, vpc_id, vpc_cli, name_pattern):
             cli_logger.print("Successfully deleted vswitch: {}.".format(vswitch_id))
         else:
             cli_logger.abort("Failed to delete vswitch: {}.".format(vswitch_id))
-
-
-def _next_availability_zone(availability_zones: set, used: set, last_availability_zone):
-    used.add(last_availability_zone)
-    unused = availability_zones.difference(used)
-    if len(unused) > 0:
-        return unused.pop()
-
-    # Used all, restart
-    used.clear()
-    if len(availability_zones) > 0:
-        return next(iter(availability_zones))
-
-    return None
 
 
 def _create_workspace_security_group(config, vpc_id, ecs_cli):

@@ -41,15 +41,17 @@ ALIYUN_DEFAULT_IMAGE_BY_REGION = {
 }
 ALIYUN_DEFAULT_IMAGE_ID = "ubuntu_20_04_x64_20G_alibase_20221228.vhd"
 
-ALIYUN_WORKSPACE_NUM_CREATION_STEPS = 5
-ALIYUN_WORKSPACE_NUM_DELETION_STEPS = 7
-ALIYUN_WORKSPACE_TARGET_RESOURCES = 8
+ALIYUN_WORKSPACE_NUM_CREATION_STEPS = 4
+ALIYUN_WORKSPACE_NUM_DELETION_STEPS = 6
+ALIYUN_WORKSPACE_TARGET_RESOURCES = 7
 ALIYUN_VPC_SWITCHES_COUNT=2
 
 ALIYUN_RESOURCE_NAME_PREFIX = "cloudtik"
 ALIYUN_WORKSPACE_VPC_NAME = ALIYUN_RESOURCE_NAME_PREFIX + "-{}-vpc"
 ALIYUN_WORKSPACE_PUBLIC_VSWITCH_NAME = ALIYUN_RESOURCE_NAME_PREFIX + "-{}-public-vswitch"
 ALIYUN_WORKSPACE_PRIVATE_VSWITCH_NAME = ALIYUN_RESOURCE_NAME_PREFIX + "-{}-private-vswitch"
+ALIYUN_WORKSPACE_VSWITCH_NAME = ALIYUN_RESOURCE_NAME_PREFIX + "-{}-vswitch"
+
 ALIYUN_WORKSPACE_NAT_VSWITCH_NAME = ALIYUN_RESOURCE_NAME_PREFIX + "-{}-nat-vswitch"
 ALIYUN_WORKSPACE_SECURITY_GROUP_NAME = ALIYUN_RESOURCE_NAME_PREFIX + "-{}-security-group"
 ALIYUN_WORKSPACE_EIP_NAME = ALIYUN_RESOURCE_NAME_PREFIX + "-{}-eip"
@@ -421,33 +423,15 @@ def _configure_vswitch_from_workspace(config):
     vpc_cli = VpcClient(config["provider"])
     vpc_id = _get_workspace_vpc_id(workspace_name, vpc_cli)
 
-    public_vswitches = get_workspace_public_vswitches(workspace_name, vpc_id, vpc_cli)
-    private_vswitches = get_workspace_private_vswitches(workspace_name, vpc_id, vpc_cli)
-
-    public_vswitch_ids = [public_vswitch.v_switch_id for public_vswitch in public_vswitches]
-    private_vswitch_ids = [private_vswitch.v_switch_id for private_vswitch in private_vswitches]
-
-    # We need to make sure the first private vswitch is the same availability zone with the first public vswitch
-    if not use_internal_ips and len(public_vswitch_ids) > 0:
-        availability_zone = public_vswitches[0].zone_id
-        for private_vswitch in private_vswitches:
-            if availability_zone == private_vswitch.zone_id:
-                private_vswitch_ids.remove(private_vswitch.v_switch_id)
-                private_vswitch_ids.insert(0, private_vswitch.v_switch_id)
-                break
+    instance_vswitches = get_workspace_instance_vswitches(workspace_name, vpc_id, vpc_cli)
+    instance_vswitch_ids = [instance_vswitch.v_switch_id for instance_vswitch in instance_vswitches]
 
     for key, node_type in config["available_node_types"].items():
         node_config = node_type["node_config"]
-        if key == config["head_node_type"]:
-            if use_internal_ips:
-                node_config["VSwitchId"] = private_vswitch_ids[0]
-            else:
-                node_config["VSwitchId"] = public_vswitch_ids[0]
-                # Set the value of InternetMaxBandwidthOut greater than 0 when the instance requires public ip address
-                node_config["InternetMaxBandwidthOut"] = node_config.get("InternetMaxBandwidthOut", 10)
-                node_config["InternetMaxBandwidthIn"] = node_config.get("InternetMaxBandwidthIn", 200)
-        else:
-            node_config["VSwitchId"] = private_vswitch_ids[0]
+        node_config["VSwitchIds"] = instance_vswitch_ids
+        if key == config["head_node_type"] and not use_internal_ips:
+            node_config["InternetMaxBandwidthOut"] = node_config.get("InternetMaxBandwidthOut", 10)
+            node_config["InternetMaxBandwidthIn"] = node_config.get("InternetMaxBandwidthIn", 200)
 
     return config
 
@@ -1107,19 +1091,15 @@ def _configure_vswitches_cidr(vpc, vpc_cli, vswitches_count):
     vpc_cidr = vpc.cidr_block
     ip = vpc_cidr.split("/")[0].split(".")
 
-    if len(vswitches) == 0:
-        for i in range(0, ALIYUN_VPC_SWITCHES_COUNT):
-            cidr_list.append(ip[0] + "." + ip[1] + "." + str(i) + ".0/24")
-    else:
-        cidr_blocks = [vswitch.cidr_block for vswitch in vswitches]
-        for i in range(0, 256):
-            tmp_cidr_block = ip[0] + "." + ip[1] + "." + str(i) + ".0/24"
+    cidr_blocks = [vswitch.cidr_block for vswitch in vswitches]
+    for i in range(0, 256):
+        tmp_cidr_block = ip[0] + "." + ip[1] + "." + str(i) + ".0/24"
 
-            if check_cidr_conflict(tmp_cidr_block, cidr_blocks):
-                cidr_list.append(tmp_cidr_block)
+        if check_cidr_conflict(tmp_cidr_block, cidr_blocks):
+            cidr_list.append(tmp_cidr_block)
 
-            if len(cidr_list) == vswitches_count:
-                break
+        if len(cidr_list) == vswitches_count:
+            break
 
     return cidr_list
 
@@ -1148,65 +1128,44 @@ def _create_and_configure_vswitches(config, vpc_cli):
     vpc_id = vpc.vpc_id
 
     vswitches = []
-    cidr_list = _configure_vswitches_cidr(vpc, vpc_cli, ALIYUN_VPC_SWITCHES_COUNT)
-    cidr_len = len(cidr_list)
-
     availability_zones_id = [zone.zone_id for zone in vpc_cli.describe_zones()]
-    default_availability_zone_id = availability_zones_id[0]
-    availability_zones_id = set(availability_zones_id)
-    used_availability_zones_id = set()
-    last_availability_zone_id = None
+    availability_zone_num = len(availability_zones_id)
+    cidr_list = _configure_vswitches_cidr(vpc, vpc_cli, availability_zone_num)
 
-    for i in range(0, cidr_len):
+    for i in range(0, availability_zone_num):
         cidr_block = cidr_list[i]
-        vswitch_type = "public" if i == 0 else "private"
+        zone_id = availability_zones_id[i]
         with cli_logger.group(
-                "Creating {} vswitch", vswitch_type,
-                _numbered=("()", i + 1, cidr_len)):
+                "Creating vswitch", _numbered=("()", i + 1, availability_zone_num)):
             try:
                 cli_logger.print("Creating vswitch for VPC: {} with CIDR: {}...".format(vpc_id, cidr_block))
-                if i == 0:
-                    vswitch_name = ALIYUN_WORKSPACE_PUBLIC_VSWITCH_NAME.format(workspace_name)
-                    vswitch_id = vpc_cli.create_vswitch(vpc_id, default_availability_zone_id, cidr_block, vswitch_name)
-                else:
-                    if last_availability_zone_id is None:
-                        vswitch_name = ALIYUN_WORKSPACE_PRIVATE_VSWITCH_NAME.format(workspace_name)
-                        last_availability_zone_id = default_availability_zone_id
-                        vswitch_id = vpc_cli.create_vswitch(vpc_id, default_availability_zone_id, cidr_block, vswitch_name)
-                        last_availability_zone_id = _next_availability_zone(
-                            availability_zones_id, used_availability_zones_id, last_availability_zone_id)
+                vswitch_name = ALIYUN_WORKSPACE_VSWITCH_NAME.format(workspace_name)
+                vswitch_id = vpc_cli.create_vswitch(vpc_id, zone_id, cidr_block, vswitch_name)
+
                 if check_resource_status(MAX_POLLS, POLL_INTERVAL, vpc_cli.describe_vswitch_attributes, "Available", vswitch_id):
                     cli_logger.print("Successfully created vswitch: {}.".format(vswitch_name))
                 else:
                     cli_logger.abort("Failed to create vswitch: {}.".format(vswitch_name))
             except Exception as e:
-                cli_logger.error("Failed to create {} vswitch. {}", vswitch_type, str(e))
+                cli_logger.error("Failed to create vswitch. {}", str(e))
                 raise e
             vswitches.append(vswitch_id)
 
-    assert len(vswitches) == ALIYUN_VPC_SWITCHES_COUNT, "We must create {} vswitches for VPC: {}!".format(
-        ALIYUN_VPC_SWITCHES_COUNT, vpc_id)
+    assert len(vswitches) == availability_zone_num, "We must create {} vswitches for VPC: {}!".format(
+        availability_zone_num, vpc_id)
     return vswitches
 
 
-def _delete_private_vswitches(workspace_name, vpc_id, vpc_cli):
-    _delete_vswitches(workspace_name, vpc_id, vpc_cli, ALIYUN_WORKSPACE_PRIVATE_VSWITCH_NAME)
-
-
-def _delete_public_vswitches(workspace_name, vpc_id, vpc_cli):
-    _delete_vswitches(workspace_name, vpc_id, vpc_cli, ALIYUN_WORKSPACE_PUBLIC_VSWITCH_NAME)
+def _delete_instance_vswitches(workspace_name, vpc_id, vpc_cli):
+    _delete_vswitches(workspace_name, vpc_id, vpc_cli, ALIYUN_WORKSPACE_VSWITCH_NAME)
 
 
 def _delete_nat_vswitches(workspace_name, vpc_id, vpc_cli):
     _delete_vswitches(workspace_name, vpc_id, vpc_cli, ALIYUN_WORKSPACE_NAT_VSWITCH_NAME)
 
 
-def get_workspace_private_vswitches(workspace_name, vpc_id, vpc_cli):
-    return _get_workspace_vswitches(workspace_name, vpc_id, vpc_cli, ALIYUN_WORKSPACE_PRIVATE_VSWITCH_NAME)
-
-
-def get_workspace_public_vswitches(workspace_name, vpc_id, vpc_cli):
-    return _get_workspace_vswitches(workspace_name, vpc_id, vpc_cli, ALIYUN_WORKSPACE_PUBLIC_VSWITCH_NAME)
+def get_workspace_instance_vswitches(workspace_name, vpc_id, vpc_cli):
+    return _get_workspace_vswitches(workspace_name, vpc_id, vpc_cli, ALIYUN_WORKSPACE_VSWITCH_NAME)
 
 
 def get_workspace_nat_vswitches(workspace_name, vpc_id, vpc_cli):
@@ -1474,14 +1433,14 @@ def _create_snat_entries(config, vpc_cli):
     workspace_name = config["workspace_name"]
     snat_entry_name = get_workspace_snat_entry_name(workspace_name)
     vpc_id = get_workspace_vpc_id(config, vpc_cli)
-    private_vswitches = get_workspace_private_vswitches(workspace_name, vpc_id, vpc_cli)
+    workspace_vswitches = get_workspace_instance_vswitches(workspace_name, vpc_id, vpc_cli)
     nat_gateway = get_workspace_nat_gateway(config, vpc_cli)
     snat_table_id = nat_gateway.snat_table_ids.snat_table_id[0]
     elastic_ip = get_workspace_elastic_ip(config, vpc_cli)
     snat_ip = elastic_ip.ip_address
     cli_logger.print("Creating SNAT Entries: {}...".format(snat_entry_name))
-    for private_vswitch in private_vswitches:
-        snat_entry_id = vpc_cli.create_snat_entry(snat_table_id, private_vswitch.v_switch_id, snat_ip, snat_entry_name)
+    for workspace_vswitch in workspace_vswitches:
+        snat_entry_id = vpc_cli.create_snat_entry(snat_table_id, workspace_vswitch.v_switch_id, snat_ip, snat_entry_name)
         if check_snat_entry_status(MAX_POLLS, POLL_INTERVAL, "Available", vpc_cli, snat_table_id, snat_entry_id):
             cli_logger.print("Successfully created SNAT Entry: {}.".format(snat_entry_id))
         else:
@@ -1911,10 +1870,9 @@ def _delete_network_resources(config, workspace_name, vpc_id,
     """
          Do the work - order of operation:
          Delete vpc peer connection
-         Delete private vswitches
-         Delete nat-gateway for private vswitches
+         Delete nat-gateway for instance vswitches
          Delete vswitches for nat-gateway
-         Delete public vswitches
+         Delete vswitches for instances
          Delete security group
          Delete vpc
     """
@@ -1934,13 +1892,6 @@ def _delete_network_resources(config, workspace_name, vpc_id,
         current_step += 1
         _delete_nat_gateway(config, vpc_cli)
 
-    # delete private vswitches
-    with cli_logger.group(
-            "Deleting private vswitches",
-            _numbered=("[]", current_step, total_steps)):
-        current_step += 1
-        _delete_private_vswitches(workspace_name, vpc_id, vpc_cli)
-
     # delete nat-gateway
     with cli_logger.group(
             "Deleting nat vswitches",
@@ -1950,10 +1901,10 @@ def _delete_network_resources(config, workspace_name, vpc_id,
 
     # delete public vswitches
     with cli_logger.group(
-            "Deleting public vswitches",
+            "Deleting instance vswitches",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
-        _delete_public_vswitches(workspace_name, vpc_id, vpc_cli)
+        _delete_instance_vswitches(workspace_name, vpc_id, vpc_cli)
 
     # delete security group
     with cli_logger.group(
@@ -2119,8 +2070,7 @@ def check_aliyun_workspace_existence(config):
     """
          Do the work - order of operation:
          Check VPC
-         Check private vswitches
-         Check public vswitches
+         Check vswitches for instance
          Check vswitches for nat-gateways
          Check nat-gateways
          Check security-group
@@ -2133,9 +2083,7 @@ def check_aliyun_workspace_existence(config):
     if vpc_id is not None:
         existing_resources += 1
         # Network resources that depending on VPC
-        if len(get_workspace_private_vswitches(workspace_name, vpc_id, vpc_cli)) >= ALIYUN_VPC_SWITCHES_COUNT - 1:
-            existing_resources += 1
-        if len(get_workspace_public_vswitches(workspace_name, vpc_id, vpc_cli)) > 0:
+        if len(get_workspace_instance_vswitches(workspace_name, vpc_id, vpc_cli)) >0:
             existing_resources += 1
         if len(get_workspace_nat_vswitches(workspace_name, vpc_id, vpc_cli)) > 0:
             existing_resources += 1

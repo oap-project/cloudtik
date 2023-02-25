@@ -41,7 +41,7 @@ ALIYUN_DEFAULT_IMAGE_BY_REGION = {
 }
 ALIYUN_DEFAULT_IMAGE_ID = "ubuntu_20_04_x64_20G_alibase_20221228.vhd"
 
-ALIYUN_WORKSPACE_NUM_CREATION_STEPS = 4
+ALIYUN_WORKSPACE_NUM_CREATION_STEPS = 5
 ALIYUN_WORKSPACE_NUM_DELETION_STEPS = 6
 ALIYUN_WORKSPACE_TARGET_RESOURCES = 7
 
@@ -762,14 +762,14 @@ def  _create_network_resources(config, current_step, total_steps):
 
     # create vswitches
     with cli_logger.group(
-            "Creating vswitches",
+            "Creating VSwitches for instances",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
         _create_and_configure_vswitches(config, vpc_cli)
 
     # create NAT gateway for public subnets
     with cli_logger.group(
-            "Creating Internet gateway",
+            "Creating Nat Gateway",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
         _create_and_configure_nat_gateway(config, vpc_cli)
@@ -1134,20 +1134,20 @@ def _create_and_configure_vswitches(config, vpc_cli):
         with cli_logger.group(
                 "Creating vswitch", _numbered=("()", i + 1, availability_zone_num)):
             try:
-                cli_logger.print("Creating vswitch for VPC: {} with CIDR: {}...".format(vpc_id, cidr_block))
+                cli_logger.print("Creating instance vswitch for VPC: {} with CIDR: {}...".format(vpc_id, cidr_block))
                 vswitch_name = ALIYUN_WORKSPACE_INSTANCE_VSWITCH_NAME.format(workspace_name)
                 vswitch_id = vpc_cli.create_vswitch(vpc_id, zone_id, cidr_block, vswitch_name)
 
                 if check_resource_status(MAX_POLLS, POLL_INTERVAL, vpc_cli.describe_vswitch_attributes, "Available", vswitch_id):
-                    cli_logger.print("Successfully created vswitch: {}.".format(vswitch_name))
+                    cli_logger.print("Successfully created instance vswitch with the id:{}.".format(vswitch_id))
                 else:
-                    cli_logger.abort("Failed to create vswitch: {}.".format(vswitch_name))
+                    cli_logger.abort("Failed to create instance vswitch: {}.".format(vswitch_name))
             except Exception as e:
-                cli_logger.error("Failed to create vswitch. {}", str(e))
+                cli_logger.error("Failed to create instance  vswitch. {}", str(e))
                 raise e
             vswitches.append(vswitch_id)
 
-    assert len(vswitches) == availability_zone_num, "We must create {} vswitches for VPC: {}!".format(
+    assert len(vswitches) == availability_zone_num, "We must create {} instance vswitches for all zones of VPC: {}!".format(
         availability_zone_num, vpc_id)
     return vswitches
 

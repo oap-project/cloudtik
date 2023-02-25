@@ -78,7 +78,7 @@ class AliyunNodeProvider(NodeProvider):
         instances = self.ecs.describe_instances(tags=tags)
         non_terminated_instance = []
         for instance in instances:
-            if instance.status in [RUNNING, PENDING, STARTING] :
+            if instance.status in [RUNNING, PENDING, STARTING]:
                 non_terminated_instance.append(instance.instance_id)
                 self.cached_nodes[instance.instance_id] = instance
         return non_terminated_instance
@@ -249,13 +249,11 @@ class AliyunNodeProvider(NodeProvider):
             # VSwitchIds is not a real config key: we must resolve to a
             # single VSwitchId before invoking the Aliyun API.
             vswitch_ids = conf.pop("VSwitchIds")
-
             vswitch_idx = 0
             cli_logger_tags = {}
             # NOTE: This ensures that we try ALL availability zones before
             # throwing an error.
             max_tries = max(CLIENT_MAX_RETRY_ATTEMPTS, len(vswitch_ids))
-
             for attempt in range(1, max_tries + 1):
                 try:
                     vswitch_id = vswitch_ids[vswitch_idx % len(vswitch_ids)]
@@ -280,9 +278,9 @@ class AliyunNodeProvider(NodeProvider):
                         break
                 except Exception as e:
                     if attempt == max_tries:
-                        cli_logger.abort("Failed to launch instances. Max attempts exceeded.", exc=e)
+                        cli_logger.abort("Failed to launch instances. Max attempts exceeded.", str(e))
                     else:
-                        cli_logger.warning("create_instances: Attempt failed with {}, retrying.", exc=e)
+                        cli_logger.warning("create_instances: Attempt failed with {}, retrying.", str(e))
                     # Launch failure may be due to instance type availability in
                     # the given AZ
                     vswitch_idx += 1

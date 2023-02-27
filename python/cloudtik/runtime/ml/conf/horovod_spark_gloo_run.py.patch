@@ -49,11 +49,11 @@ def gloo_run(executable, settings, nics, driver, env, stdout=None, stderr=None):
     if env is None:
         env = {}
 
-     # CloudTik: patch start
+    # CloudTik: patch start
     # We cannot use loopback for server ip. Remove loopback.
     if len(nics) > 1 and "lo" in nics:
         nics.remove("lo")
-     # CloudTik: patch end
+    # CloudTik: patch end
 
     # we don't want the key to be serialized along with settings from here on
     key = settings.key

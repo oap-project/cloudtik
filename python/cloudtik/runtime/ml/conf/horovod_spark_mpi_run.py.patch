@@ -15,6 +15,9 @@
 
 import copy
 import sys
+# CloudTik: patch start
+import os
+# CloudTik: patch end
 
 from horovod.runner.mpi_run import mpi_run as hr_mpi_run, is_intel_mpi, is_mpich
 from horovod.runner.common.util import codec, secret
@@ -35,7 +38,10 @@ def mpi_run(executable, settings, nics, driver, env, stdout=None, stderr=None):
     :param stderr: Stderr of the mpi process.
                    Only used when settings.run_func_mode is True.
     """
-    env = {} if env is None else copy.copy(env)  # copy env so we do not leak env modifications
+    # CloudTik: patch start
+    # If there is no env specified, copy the os environment
+    env = os.environ.copy() if env is None else copy.copy(env)  # copy env so we do not leak env modifications
+    # CloudTik: patch end
 
     # Pass secret key through the environment variables.
     env[secret.HOROVOD_SECRET_KEY] = codec.dumps_base64(settings.key)

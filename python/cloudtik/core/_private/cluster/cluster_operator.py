@@ -1462,7 +1462,7 @@ def _get_worker_node_ips(
 
     if node_status:
         nodes_info = get_nodes_info(provider, nodes)
-        nodes_info_in_status = _get_nodes_info_in_status(nodes_info)
+        nodes_info_in_status = _get_nodes_info_in_status(nodes_info, node_status)
         nodes = [node_info["node_id"] for node_info in nodes_info_in_status]
 
     return [get_node_cluster_ip(provider, node) for node in nodes]

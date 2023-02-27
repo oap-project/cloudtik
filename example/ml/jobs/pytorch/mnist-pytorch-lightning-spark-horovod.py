@@ -3,6 +3,7 @@ import os
 import subprocess
 import sys
 import numpy as np
+from distutils.version import LooseVersion
 
 parser = argparse.ArgumentParser(description='PyTorch Spark MNIST Example',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -97,20 +98,19 @@ def train_model(args):
     try:
         # tensorflow has to be imported BEFORE pytorch_lightning, otherwise we see the segfault right away
         import tensorflow as tf
-        from distutils.version import LooseVersion
         if LooseVersion('2.5.0') <= LooseVersion(tf.__version__) < LooseVersion('2.7.0'):
             print('Skipping test as Pytorch Lightning conflicts with present Tensorflow 2.6.x', file=sys.stderr)
             sys.exit(0)
     except ImportError:
         pass
 
-    # do not run this test for pytorch lightning below min supported verson
+    # do not run this test for pytorch lightning below min supported version
     import pytorch_lightning as pl
     from horovod.spark.lightning.estimator import MIN_PL_VERSION
     if LooseVersion(pl.__version__) < LooseVersion(MIN_PL_VERSION):
         print(
             "Skip test for pytorch_ligthning=={}, min support version is {}".format(pl.__version__, MIN_PL_VERSION))
-        returnx
+        return
 
     from pytorch_lightning import LightningModule
 
@@ -248,17 +248,33 @@ def train_model(args):
 
         callbacks = [MyDummyCallback()]
 
-        # added EarlyStopping and ModelCheckpoint
-        from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
-        callbacks.append(ModelCheckpoint(monitor='val_loss', mode="min",
-                                         save_top_k=1, verbose=True))
-
-        from pytorch_lightning.callbacks.early_stopping import EarlyStopping
-        callbacks.append(EarlyStopping(monitor='val_loss',
-                                       min_delta=0.001,
-                                       patience=3,
-                                       verbose=True,
-                                       mode='min'))
+        if LooseVersion(torch.__version__) < LooseVersion('1.13'):
+            """
+            torch.distributed.ReduceOp is used in ModelCheckpoint and EarlyStopping.
+            Since torch 1.13, it doesn't support condition check in Lightning code.
+            Broken line in lightning code (https://github.com/Lightning-AI/lightning/blob/master/src/pytorch_lightning/strategies/horovod.py#L179)
+            Below error will be thrown:
+            >>> from torch.distributed import ReduceOp
+            >>> op = None
+            >>> op in (ReduceOp.SUM, None)
+            Traceback (most recent call last):
+                File "<stdin>", line 1, in <module>
+                TypeError: __eq__(): incompatible function arguments. The following argument types are supported:
+                1. (self: torch._C._distributed_c10d.ReduceOp, arg0: c10d::ReduceOp::RedOpType) -> bool
+                2. (self: torch._C._distributed_c10d.ReduceOp, arg0: torch._C._distributed_c10d.ReduceOp) -> bool
+            Invoked with: <torch.distributed.distributed_c10d.ReduceOp object at 0x7fba78c9e0b0>, None
+            """
+            # ModelCheckpoint
+            from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
+            callbacks.append(ModelCheckpoint(monitor='val_loss', mode="min",
+                                             save_top_k=1, verbose=True))
+            # EarlyStopping
+            from pytorch_lightning.callbacks.early_stopping import EarlyStopping
+            callbacks.append(EarlyStopping(monitor='val_loss',
+                                           min_delta=0.001,
+                                           patience=3,
+                                           verbose=True,
+                                           mode='min'))
 
         torch_estimator = hvd.TorchEstimator(backend=backend,
                                              store=store,

@@ -47,6 +47,16 @@ function setup_oneapi_repository() {
 function install_ml() {
     CLOUDTIK_ENV_ROOT=$(dirname $(dirname $(which cloudtik)))
 
+    if ([ "$ML_WITH_ONEAPI" == "true" ] \
+       || [ "$ML_WITH_INTEL_MPI" == "true" ] \
+       ||[ "$ML_WITH_ONECCL" == "true" ] \
+       || [ "$ML_WITH_INTEL_PYTORCH" == "true" ]) \
+       && ([ "$ML_WITH_INTEL_MPI" != "false" ] \
+       || [ "$ML_WITH_ONECCL" != "false" ] \
+       || [ "$ML_WITH_INTEL_PYTORCH" != "false" ]); then
+        setup_oneapi_repository
+    fi
+
     # Install Machine Learning libraries and components
     echo "Installing machine learning tools: mlflow, hyperopt..."
     pip --no-cache-dir -qq install mlflow==2.1.1 pyarrow==8.0.0 hyperopt==0.2.7 scikit-learn==1.0.2
@@ -59,7 +69,8 @@ function install_ml() {
         echo "Installing deep learning frameworks: tensorflow, pytorch..."
         pip --no-cache-dir -qq install tensorflow==2.9.3
 
-        if [ "$ML_WITH_ONEAPI" == "true" ]; then
+        if ([ "$ML_WITH_ONEAPI" == "true" ] || [ "$ML_WITH_INTEL_PYTORCH" == "true" ]) \
+            && [ "$ML_WITH_INTEL_PYTORCH" != "false" ]; then
             conda install -q pytorch=1.13.0 torchvision=0.14.1 \
               oneccl_bind_pt=1.13.0 intel-extension-for-pytorch=1.13.10 -p ${CLOUDTIK_ENV_ROOT} -c intel -y > /dev/null
         else
@@ -78,15 +89,9 @@ function install_ml() {
         pip --no-cache-dir -qq install tensorflow-addons==0.17.1
     fi
 
-    if [ "$ML_WITH_ONEAPI" == "true" ] || \
-       [ "$ML_WITH_INTEL_MPI" == "true" ] || \
-       [ "$ML_WITH_MPI" == "IntelMPI" ] || \
-       [ "$ML_WITH_ONECCL" == "true" ]; then
-        setup_oneapi_repository
-    fi
-
     # Installing MPI
-    if [ "$ML_WITH_ONEAPI" == "true" ] || [ "$ML_WITH_INTEL_MPI" == "true" ] || [ "$ML_WITH_MPI" == "IntelMPI" ]; then
+    if ([ "$ML_WITH_ONEAPI" == "true" ] || [ "$ML_WITH_INTEL_MPI" == "true" ]) \
+        && [ "$ML_WITH_INTEL_MPI" != "false" ]; then
         echo "Installing Intel MPI..."
         ONEAPI_MPI_HOME=/opt/intel/oneapi/mpi
         if [ ! -d "${ONEAPI_MPI_HOME}" ]; then
@@ -113,7 +118,8 @@ function install_ml() {
         && sudo rm -rf /tmp/openmpi)
     fi
 
-    if [ "$ML_WITH_ONEAPI" == "true" ] || [ "$ML_WITH_ONECCL" == "true" ]; then
+    if ([ "$ML_WITH_ONEAPI" == "true" ] || [ "$ML_WITH_ONECCL" == "true" ]) \
+        && [ "$ML_WITH_ONECCL" != "false" ]; then
         echo "Installing oneCCL..."
         ONEAPI_COMPILER_HOME=/opt/intel/oneapi/compiler
         ONEAPI_TBB_HOME=/opt/intel/oneapi/tbb

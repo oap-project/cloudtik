@@ -292,10 +292,18 @@ def head_ip(public):
     type=str,
     default=None,
     help="Get the worker ips for specific runtime.")
-def worker_ips(runtime):
+@click.option(
+    "--node-status",
+    required=False,
+    type=str,
+    default=None,
+    help="The node status of the workers. values: setting-up, up-to-date, update-failed."
+    " If not specified, return all the workers.")
+def worker_ips(runtime, node_status):
     """Return the list of worker IPs of a cluster."""
     config = load_head_cluster_config()
-    workers = _get_worker_node_ips(config, runtime=runtime)
+    workers = _get_worker_node_ips(
+        config, runtime=runtime, node_status=node_status)
     if len(workers) > 0:
         click.echo("\n".join(workers))
 

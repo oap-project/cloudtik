@@ -1436,18 +1436,21 @@ def get_head_node_ip(config_file: str,
 
 def get_worker_node_ips(config_file: str,
                         override_cluster_name: Optional[str] = None,
-                        runtime: str = None
+                        runtime: str = None,
+                        node_status: str = None
                         ) -> List[str]:
     """Returns worker node IPs for given configuration file."""
     config = _load_cluster_config(config_file, override_cluster_name)
-    return _get_worker_node_ips(config, runtime)
+    return _get_worker_node_ips(config, runtime, node_status=node_status)
 
 
 def _get_head_node_ip(config: Dict[str, Any], public: bool = False) -> str:
     return get_cluster_head_ip(config, public)
 
 
-def _get_worker_node_ips(config: Dict[str, Any], runtime: str = None) -> List[str]:
+def _get_worker_node_ips(
+        config: Dict[str, Any], runtime: str = None,
+        node_status: str = None) -> List[str]:
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     nodes = provider.non_terminated_nodes({
         CLOUDTIK_TAG_NODE_KIND: NODE_KIND_WORKER
@@ -1456,6 +1459,11 @@ def _get_worker_node_ips(config: Dict[str, Any], runtime: str = None) -> List[st
     if runtime is not None:
         # Filter the nodes for the specific runtime only
         nodes = get_nodes_for_runtime(config, nodes, runtime)
+
+    if node_status:
+        nodes_info = get_nodes_info(provider, nodes)
+        nodes_info_in_status = _get_nodes_info_in_status(nodes_info)
+        nodes = [node_info["node_id"] for node_info in nodes_info_in_status]
 
     return [get_node_cluster_ip(provider, node) for node in nodes]
 
@@ -1900,8 +1908,8 @@ def _show_cluster_status(config: Dict[str, Any]) -> None:
     tb.field_names = ["node-id", "node-ip", "node-type", "node-status", "instance-type",
                       "public-ip", "instance-status"]
     for node_info in nodes_info:
-        tb.add_row([node_info["node_id"], node_info["private_ip"], node_info["cloudtik-node-kind"],
-                    node_info["cloudtik-node-status"], node_info["instance_type"], node_info["public_ip"],
+        tb.add_row([node_info["node_id"], node_info["private_ip"], node_info[CLOUDTIK_TAG_NODE_KIND],
+                    node_info[CLOUDTIK_TAG_NODE_STATUS], node_info["instance_type"], node_info["public_ip"],
                     node_info["instance_status"]
                     ])
 
@@ -1913,9 +1921,13 @@ def _show_cluster_status(config: Dict[str, Any]) -> None:
 def _get_nodes_in_status(node_info_list, status):
     num_nodes = 0
     for node_info in node_info_list:
-        if status == node_info["cloudtik-node-status"]:
+        if status == node_info.get(CLOUDTIK_TAG_NODE_STATUS):
             num_nodes += 1
     return num_nodes
+
+
+def _get_nodes_info_in_status(node_info_list, status):
+    return [node_info for node_info in node_info_list if status == node_info.get(CLOUDTIK_TAG_NODE_STATUS)]
 
 
 def _get_cluster_nodes_info(config: Dict[str, Any]):
@@ -1929,7 +1941,7 @@ def _get_cluster_nodes_info(config: Dict[str, Any]):
         if node_ip is None:
             node_ip = ""
 
-        return node_info["cloudtik-node-kind"] + node_ip
+        return node_info[CLOUDTIK_TAG_NODE_KIND] + node_ip
 
     nodes_info.sort(key=node_info_sort)
     return nodes_info
@@ -1975,7 +1987,8 @@ def _get_cluster_info(config: Dict[str, Any],
         workers_info = get_nodes_info(provider, workers)
 
     # get working nodes which are ready
-    workers_ready = _get_nodes_in_status(workers_info, STATUS_UP_TO_DATE)
+    worker_nodes_ready = _get_nodes_info_in_status(workers_info, STATUS_UP_TO_DATE)
+    workers_ready = len(worker_nodes_ready)
     workers_failed = _get_nodes_in_status(workers_info, STATUS_UPDATE_FAILED)
 
     cluster_info["total-workers"] = worker_count
@@ -1987,6 +2000,8 @@ def _get_cluster_info(config: Dict[str, Any],
         worker_memory = sum_worker_memory(workers_info)
         cluster_info["total-worker-cpus"] = worker_cpus
         cluster_info["total-worker-memory"] = worker_memory
+        cluster_info["total-worker-cpus-ready"] = sum_worker_cpus(worker_nodes_ready)
+        cluster_info["total-worker-memory-ready"] = sum_worker_memory(worker_nodes_ready)
 
     if not simple_config:
         default_cloud_storage = get_default_cloud_storage(config)

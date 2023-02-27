@@ -374,7 +374,7 @@ class Cluster:
         return cluster_operator._get_head_node_ip(config=self.config, public=public)
 
     def get_worker_node_ips(self,
-                            runtime: str = None) -> List[str]:
+                            runtime: str = None, node_status: str = None) -> List[str]:
         """Returns worker node IPs for given configuration file.
         Returns:
             List of worker node ip addresses.
@@ -382,7 +382,8 @@ class Cluster:
         Raises:
             RuntimeError if the cluster is not found.
         """
-        return cluster_operator._get_worker_node_ips(config=self.config, runtime=runtime)
+        return cluster_operator._get_worker_node_ips(
+            config=self.config, runtime=runtime, node_status=node_status)
 
     def get_nodes(self) -> List[Dict[str, Any]]:
         """Returns a list of info for each cluster node
@@ -599,7 +600,7 @@ class ThisCluster:
         return cluster_operator._get_head_node_ip(config=self.config, public=public)
 
     def get_worker_node_ips(self,
-                            runtime: str = None) -> List[str]:
+                            runtime: str = None, node_status: str = None) -> List[str]:
         """Returns worker node IPs for given configuration file.
         Returns:
             List of worker node ip addresses.
@@ -607,7 +608,8 @@ class ThisCluster:
         Raises:
             RuntimeError if the cluster is not found.
         """
-        return cluster_operator._get_worker_node_ips(config=self.config, runtime=runtime)
+        return cluster_operator._get_worker_node_ips(
+            config=self.config, runtime=runtime, node_status=node_status)
 
     def get_nodes(self) -> List[Dict[str, Any]]:
         """Returns a list of info for each cluster node

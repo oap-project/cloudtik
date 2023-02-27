@@ -15,6 +15,9 @@
 
 import sys
 import time
+# CloudTik: patch start
+import os
+# CloudTik: patch end
 
 from horovod.runner.common.util import codec, secret
 from horovod.runner.gloo_run import launch_gloo, launch_gloo_elastic
@@ -46,8 +49,10 @@ def gloo_run(executable, settings, nics, driver, env, stdout=None, stderr=None):
     :param stdout: Horovod stdout is redirected to this stream.
     :param stderr: Horovod stderr is redirected to this stream.
     """
+    # CloudTik: patch start
     if env is None:
-        env = {}
+        env = os.environ.copy()
+    # CloudTik: patch end
 
     # CloudTik: patch start
     # We cannot use loopback for server ip. Remove loopback.
@@ -85,8 +90,10 @@ def gloo_run_elastic(settings, driver, env, stdout=None, stderr=None):
     :param stdout: Horovod stdout is redirected to this stream.
     :param stderr: Horovod stderr is redirected to this stream.
     """
+    # CloudTik: patch start
     if env is None:
-        env = {}
+        env = os.environ.copy()
+    # CloudTik: patch end
 
     # Each thread will use SparkTaskClient to launch the job on each remote host. If an
     # error occurs in one thread, entire process will be terminated. Otherwise,

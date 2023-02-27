@@ -69,6 +69,11 @@ def train_model(args):
     from pyspark.sql import SparkSession
 
     conf = SparkConf().setAppName('mnist-pytorch-lightning-spark').set('spark.sql.shuffle.partitions', '16')
+    # This is Spark tasks from Estimator.transform to be able to pick up system libraries
+    # TODO: A better way to configure this automatically for user
+    ld_library_path = os.environ.get("LD_LIBRARY_PATH")
+    if ld_library_path:
+        conf.set("spark.executorEnv.LD_LIBRARY_PATH", ld_library_path)
     spark = SparkSession.builder.config(conf=conf).getOrCreate()
 
     # Download MNIST dataset and upload to storage

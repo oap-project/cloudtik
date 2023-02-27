@@ -828,9 +828,9 @@
                             "type": "boolean",
                             "description": "Whether to use oneCCL. If with_oneapi is set, this is default true"
                         },
-                        "with_mpi": {
-                            "type": "string",
-                            "description": "Select the MPI implementation values (OpenMPI, IntelMPI, MPICH)"
+                        "with_intel_pytorch": {
+                            "type": "boolean",
+                            "description": "Whether to use Intel Optimizations of PyTorch. If with_oneapi is set, this is default true"
                         }
                     }
                 },

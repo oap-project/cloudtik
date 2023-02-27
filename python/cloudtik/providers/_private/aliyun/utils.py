@@ -453,7 +453,7 @@ class VpcClient:
                 for page_num in range(2, total_page_num + 1):
                     describe_vswitches_request = vpc_models.DescribeVSwitchesRequest(
                         vpc_id=vpc_id,
-                        page_number=page_num,
+                        page_number=page_num
                     )
                     response = self.client.describe_vswitches_with_options(
                         describe_vswitches_request, self.runtime_options)
@@ -692,7 +692,7 @@ class VpcClient:
                         region_id=self.region_id,
                         snat_table_id=snat_table_id,
                         snat_entry_id=snat_entry_id,
-                        page_number=page_nums
+                        page_number=page_num
                     )
                     response = self.client.describe_snat_table_entries_with_options(
                         describe_snat_table_entries_request, self.runtime_options)

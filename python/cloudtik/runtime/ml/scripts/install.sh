@@ -63,7 +63,7 @@ function install_ml() {
             conda install -q pytorch=1.13.0 torchvision=0.14.1 \
               oneccl_bind_pt=1.13.0 intel-extension-for-pytorch=1.13.10 -p ${CLOUDTIK_ENV_ROOT} -c intel -y > /dev/null
         else
-            pip --no-cache-dir -qq install torch==1.13.0 torchvision==0.14.1 \
+            pip --no-cache-dir -qq install torch==1.13.1 torchvision==0.14.1 \
               --extra-index-url https://download.pytorch.org/whl/cpu
         fi
         pip --no-cache-dir -qq install transformers==4.11.0

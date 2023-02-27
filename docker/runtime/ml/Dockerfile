@@ -8,7 +8,7 @@ RUN export PATH="$HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH" \
     && pip --no-cache-dir install -r /tmp/requirements.txt \
     && sudo rm /tmp/requirements.txt \
     # Install deep learning libraries (PyTorch and torch tools)
-    && pip --no-cache-dir install torch==1.13.0 torchvision==0.14.1 \
+    && pip --no-cache-dir install torch==1.13.1 torchvision==0.14.1 \
         --extra-index-url https://download.pytorch.org/whl/cpu \
     # Install OpenMPI
     && mkdir /tmp/openmpi \

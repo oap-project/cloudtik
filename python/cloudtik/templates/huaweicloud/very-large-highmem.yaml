@@ -1,0 +1,11 @@
+from: huaweicloud/very-large
+
+# Cloud-provider specific configuration.
+provider:
+    type: huaweicloud
+
+# The instance configuration for a standard server flavor
+available_node_types:
+    worker.default:
+        node_config:
+            flavor_ref: e3.26xlarge.14

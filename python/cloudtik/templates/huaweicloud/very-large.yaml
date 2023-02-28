@@ -1,0 +1,27 @@
+# Cloud-provider specific configuration.
+provider:
+    type: huaweicloud
+
+# The instance configuration for a standard server flavor
+available_node_types:
+    head.default:
+        node_config:
+            flavor_ref: ai1.4xlarge.4
+            root_volume:
+                volumetype: SSD
+                size: 100
+    worker.default:
+        node_config:
+            flavor_ref: i3.12xlarge.8
+            root_volume:
+                volumetype: SSD
+                size: 100
+            data_volumes:
+                - volumetype: ESSD
+                  size: 200
+                - volumetype: ESSD
+                  size: 200
+                - volumetype: ESSD
+                  size: 200
+                - volumetype: ESSD
+                  size: 200

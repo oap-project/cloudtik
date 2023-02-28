@@ -13,7 +13,7 @@ from cloudtik.providers._private.aliyun.config import (
     STARTING,
     bootstrap_aliyun, verify_oss_storage, post_prepare_aliyun, with_aliyun_environment_variables,
 )
-from cloudtik.providers._private.aliyun.utils import get_default_aliyun_cloud_storage, \
+from cloudtik.providers._private.aliyun.utils import CLIENT_MAX_RETRY_ATTEMPTS, get_default_aliyun_cloud_storage, \
     get_aliyun_oss_storage_config, _get_node_info, tags_list_to_dict, EcsClient
 from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core._private.log_timer import LogTimer
@@ -78,7 +78,7 @@ class AliyunNodeProvider(NodeProvider):
         instances = self.ecs.describe_instances(tags=tags)
         non_terminated_instance = []
         for instance in instances:
-            if instance.status in [RUNNING, PENDING, STARTING] :
+            if instance.status in [RUNNING, PENDING, STARTING]:
                 non_terminated_instance.append(instance.instance_id)
                 self.cached_nodes[instance.instance_id] = instance
         return non_terminated_instance
@@ -244,16 +244,46 @@ class AliyunNodeProvider(NodeProvider):
             tags_for_creation.append(
                 {"Key": CLOUDTIK_TAG_CLUSTER_NAME, "Value": self.cluster_name},
             )
-            instance_id_sets = self.ecs.run_instances(
-                node_config=node_config,
-                tags=tags_for_creation,
-                count=count
-            )
-            instances = self.ecs.describe_instances(instance_ids=instance_id_sets)
 
-            if instances is not None:
-                for instance in instances:
-                    created_nodes_dict[instance.instance_id] = instance
+            conf = node_config.copy()
+            # VSwitchIds is not a real config key: we must resolve to a
+            # single VSwitchId before invoking the Aliyun API.
+            vswitch_ids = conf.pop("VSwitchIds")
+            vswitch_idx = 0
+            cli_logger_tags = {}
+            # NOTE: This ensures that we try ALL availability zones before
+            # throwing an error.
+            max_tries = max(CLIENT_MAX_RETRY_ATTEMPTS, len(vswitch_ids))
+            for attempt in range(1, max_tries + 1):
+                try:
+                    vswitch_id = vswitch_ids[vswitch_idx % len(vswitch_ids)]
+                    conf["VSwitchId"] = vswitch_id
+                    cli_logger_tags["vswitch_id"] = vswitch_id
+                    instance_id_sets = self.ecs.run_instances(
+                        node_config=conf,
+                        tags=tags_for_creation,
+                        count=count
+                    )
+                    instances = self.ecs.describe_instances(instance_ids=instance_id_sets)
+                    with cli_logger.group(
+                            "Launched {} nodes", count, _tags=cli_logger_tags):
+                        for instance in instances:
+                            created_nodes_dict[instance.instance_id] = instance
+                            cli_logger.print(
+                                "Launched instance {}",
+                                instance.instance_id,
+                                _tags=dict(
+                                    type=instance.instance_type,
+                                    status=instance.status))
+                        break
+                except Exception as e:
+                    if attempt == max_tries:
+                        cli_logger.abort("Failed to launch instances. Max attempts exceeded.", str(e))
+                    else:
+                        cli_logger.warning("create_instances: Attempt failed with {}, retrying.", str(e))
+                    # Launch failure may be due to instance type availability in
+                    # the given AZ
+                    vswitch_idx += 1
 
         all_created_nodes = reused_nodes_dict
         all_created_nodes.update(created_nodes_dict)

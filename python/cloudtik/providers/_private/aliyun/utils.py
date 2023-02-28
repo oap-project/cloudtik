@@ -1,5 +1,7 @@
 import logging
+import copy
 import time
+import math
 from typing import Any, Dict, List
 
 from cloudtik.core._private.constants import CLOUDTIK_DEFAULT_CLOUD_STORAGE_URI
@@ -435,13 +437,29 @@ class VpcClient:
         :param vpc_id: The ID of the VPC to which the VSwitch belongs.
         :return: VSwitch list.
         """
-        describe_vswitches_request = vpc_models.DescribeVSwitchesRequest(
-            vpc_id=vpc_id
-        )
+        vswitches_list = []
         try:
+            describe_vswitches_request = vpc_models.DescribeVSwitchesRequest(
+                vpc_id=vpc_id,
+            )
             response = self.client.describe_vswitches_with_options(
                 describe_vswitches_request, self.runtime_options)
-            return response.body.v_switches.v_switch
+            vswitches_list.extend(
+                copy.deepcopy(response.body.v_switches.v_switch))
+            total_count = response.body.total_count
+            page_size =  response.body.page_size
+            total_page_num =  math.ceil(float(total_count / page_size))
+            if total_page_num > 1:
+                for page_num in range(2, total_page_num + 1):
+                    describe_vswitches_request = vpc_models.DescribeVSwitchesRequest(
+                        vpc_id=vpc_id,
+                        page_number=page_num
+                    )
+                    response = self.client.describe_vswitches_with_options(
+                        describe_vswitches_request, self.runtime_options)
+                    vswitches_list.extend(
+                        copy.deepcopy(response.body.v_switches.v_switch))
+            return vswitches_list
         except Exception as e:
             cli_logger.error("Failed to describe vswitches. {}", str(e))
             raise e
@@ -654,15 +672,33 @@ class VpcClient:
 
     def describe_snat_entries(self, snat_table_id=None, snat_entry_id=None):
         """Describe SNAT Entries for snat table"""
-        describe_snat_table_entries_request = vpc_models.DescribeSnatTableEntriesRequest(
-            region_id=self.region_id,
-            snat_table_id=snat_table_id,
-            snat_entry_id=snat_entry_id
-        )
+        snat_table_entry_list = []
         try:
+            describe_snat_table_entries_request = vpc_models.DescribeSnatTableEntriesRequest(
+                region_id=self.region_id,
+                snat_table_id=snat_table_id,
+                snat_entry_id=snat_entry_id
+            )
             response = self.client.describe_snat_table_entries_with_options(
                 describe_snat_table_entries_request, self.runtime_options)
-            return response.body.snat_table_entries.snat_table_entry
+            snat_table_entry_list.extend(
+                copy.deepcopy(response.body.snat_table_entries.snat_table_entry))
+            total_count = response.body.total_count
+            page_size = response.body.page_size
+            total_page_num = math.ceil(float(total_count / page_size))
+            if total_page_num > 1:
+                for page_num in range(2, total_page_num + 1):
+                    describe_snat_table_entries_request = vpc_models.DescribeSnatTableEntriesRequest(
+                        region_id=self.region_id,
+                        snat_table_id=snat_table_id,
+                        snat_entry_id=snat_entry_id,
+                        page_number=page_num
+                    )
+                    response = self.client.describe_snat_table_entries_with_options(
+                        describe_snat_table_entries_request, self.runtime_options)
+                    snat_table_entry_list.extend(
+                        copy.deepcopy(response.body.snat_table_entries.snat_table_entry))
+            return snat_table_entry_list
         except Exception as e:
             cli_logger.error("Failed to describe SNAT Entries. {}", str(e))
             raise e

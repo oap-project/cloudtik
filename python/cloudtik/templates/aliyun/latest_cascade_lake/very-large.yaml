@@ -1,0 +1,33 @@
+# Cloud-provider specific configuration.
+provider:
+    type: aws
+
+# The instance configuration for a very large instance type
+available_node_types:
+    head.default:
+        node_config:
+            InstanceType: ecs.g6.4xlarge
+            SystemDisk:
+                DiskName: os-disk
+                Category: cloud_ssd
+                Size: 100
+    worker.default:
+        node_config:
+            InstanceType: ecs.g6.26xlarge
+            SystemDisk:
+                DiskName: os-disk
+                Category: cloud_ssd
+                Size: 100
+            DataDisk:
+                - DiskName: data-disk-1
+                  Category: cloud_ssd
+                  Size: 200
+                - DiskName: data-disk-2
+                  Category: cloud_ssd
+                  Size: 200
+                - DiskName: data-disk-3
+                  Category: cloud_ssd
+                  Size: 200
+                - DiskName: data-disk-4
+                  Category: cloud_ssd
+                  Size: 200

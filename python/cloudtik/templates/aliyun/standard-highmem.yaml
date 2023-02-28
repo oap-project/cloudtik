@@ -1,0 +1,11 @@
+from: aws/standard
+
+# Cloud-provider specific configuration.
+provider:
+    type: aws
+
+# The instance configuration for a standard instance type
+available_node_types:
+    worker.default:
+        node_config:
+            InstanceType: ecs.r5.2xlarge

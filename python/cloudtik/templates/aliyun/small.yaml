@@ -1,0 +1,20 @@
+# Cloud-provider specific configuration.
+provider:
+    type: aliyun
+
+# The instance configuration for a small instance type
+available_node_types:
+    head.default:
+        node_config:
+            InstanceType: ecs.g5.xlarge
+            SystemDisk:
+                DiskName: os-disk
+                Category: cloud_ssd
+                Size: 100
+    worker.default:
+        node_config:
+            InstanceType: ecs.g5.xlarge
+            SystemDisk:
+                DiskName: os-disk
+                Category: cloud_ssd
+                Size: 100

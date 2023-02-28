@@ -710,8 +710,8 @@ class SSHCommandExecutor(CommandExecutor):
         mount_point = CLOUDTIK_DATA_DISK_MOUNT_POINT
         mount_path = f"{mount_point}/data_disk_{data_disk_index}"
 
+        self.run("which mkfs.xfs > /dev/null || (sudo apt-get -qq update -y && sudo apt-get -qq install -y xfsprogs > /dev/null)")
         self.cli_logger.print("Formatting device {} and mount to {}...", device_name, mount_path)
-
         # Execute the format commands on the block device
         self.run(f"sudo mkfs -t xfs -f {device_name}")
         self.run(f"sudo mkdir -p {mount_path}")

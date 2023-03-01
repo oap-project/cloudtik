@@ -263,7 +263,7 @@ def _delete_instance_profile(config, workspace_name, for_head):
     ).agencies
 
     if not target_agencies:
-        cli_logger.print("No instance profile found for {}. Skip deletion.".format(_prefix))
+        cli_logger.print("No instance profile found for {}. Skip deletion.", _prefix)
         return
 
     for _agency in target_agencies:
@@ -822,7 +822,7 @@ def _delete_subnets_until_empty(vpc_client, workspace_vpc, workspace_name):
                 break
         time.sleep(1)
     cli_logger.print(
-        "Successfully deleted subnets for VPC: {}.", workspace_vpc.id)
+        "Successfully deleted subnets for VPC: {}.", workspace_vpc.name)
 
 
 def _get_workspace_vpc_subnets(vpc_client, _workspace_vpc, workspace_name,

@@ -51,7 +51,7 @@ def train_model(args):
     cluster_info = cluster.get_info()
 
     if not args.num_proc:
-        total_worker_cpus = cluster_info.get("total-worker-cpus")
+        total_worker_cpus = cluster_info.get("total-worker-cpus-ready")
         if total_worker_cpus:
             args.num_proc = int(total_worker_cpus / 1)
         if not args.num_proc:

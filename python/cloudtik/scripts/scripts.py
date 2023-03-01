@@ -1070,7 +1070,7 @@ def head_ip(cluster_config_file, cluster_name, public):
     required=False,
     type=str,
     default=None,
-    help="The node status of the workers. values: setting-up, up-to-date, update-failed."
+    help="The node status of the workers. Values: setting-up, up-to-date, update-failed."
     " If not specified, return all the workers.")
 @add_click_logging_options
 def worker_ips(cluster_config_file, cluster_name, runtime, node_status):

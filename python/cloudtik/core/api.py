@@ -376,6 +376,9 @@ class Cluster:
     def get_worker_node_ips(self,
                             runtime: str = None, node_status: str = None) -> List[str]:
         """Returns worker node IPs for given configuration file.
+        Args:
+            runtime (str): Comma separated list of runtimes on which the workers run
+            node_status (str): The node status of the workers. Values: setting-up, up-to-date, update-failed
         Returns:
             List of worker node ip addresses.
 
@@ -602,6 +605,9 @@ class ThisCluster:
     def get_worker_node_ips(self,
                             runtime: str = None, node_status: str = None) -> List[str]:
         """Returns worker node IPs for given configuration file.
+        Args:
+            runtime (str): Comma separated list of runtimes on which the workers run
+            node_status (str): The node status of the workers. Values: setting-up, up-to-date, update-failed
         Returns:
             List of worker node ip addresses.
 

@@ -109,13 +109,13 @@ if __name__ == '__main__':
     cluster_info = cluster.get_info()
 
     if not args.num_proc:
-        total_worker_cpus = cluster_info.get("total-worker-cpus")
+        total_worker_cpus = cluster_info.get("total-worker-cpus-ready")
         if total_worker_cpus:
             args.num_proc = int(total_worker_cpus / 2)
         if not args.num_proc:
             args.num_proc = 1
 
-    worker_ips = cluster.get_worker_node_ips()
+    worker_ips = cluster.get_worker_node_ips(node_status="up-to-date")
 
     # Checkpoint utilities
     CHECKPOINT_HOME = "/tmp/ml/checkpoints"

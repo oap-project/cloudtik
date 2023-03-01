@@ -1794,6 +1794,7 @@ def _show_cluster_info(config: Dict[str, Any],
     # Check the running worker nodes
     worker_count = cluster_info["total-workers"]
     cli_logger.print(cf.bold("{} worker(s) are running"), worker_count)
+    cli_logger.print(cf.bold("{} worker(s) are ready"), cluster_info["total-workers-ready"])
 
     cli_logger.newline()
     cli_logger.print(cf.bold("Runtimes: {}"), ", ".join(cluster_info["runtimes"]))

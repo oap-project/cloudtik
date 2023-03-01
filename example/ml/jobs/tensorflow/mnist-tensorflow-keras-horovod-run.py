@@ -145,13 +145,13 @@ if __name__ == '__main__':
     cluster_info = cluster.get_info()
 
     if not args.num_proc:
-        total_workers = cluster_info.get("total-workers")
+        total_workers = cluster_info.get("total-workers-ready")
         if total_workers:
             args.num_proc = total_workers
         if not args.num_proc:
             args.num_proc = 1
 
-    worker_ips = cluster.get_worker_node_ips()
+    worker_ips = cluster.get_worker_node_ips(node_status="up-to-date")
 
     #  Hyperopt training function
     import horovod

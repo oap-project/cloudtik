@@ -29,6 +29,7 @@ ALIYUN_OSS_BUCKET = "oss.bucket"
 ALIYUN_OSS_INTERNAL_ENDPOINT = "oss.internal.endpoint"
 CLIENT_MAX_RETRY_ATTEMPTS = 5
 
+
 def get_aliyun_oss_storage_config(provider_config: Dict[str, Any]):
     if "storage" in provider_config and "aliyun_oss_storage" in provider_config["storage"]:
         return provider_config["storage"]["aliyun_oss_storage"]
@@ -451,8 +452,8 @@ class VpcClient:
             vswitches_list.extend(
                 copy.deepcopy(response.body.v_switches.v_switch))
             total_count = response.body.total_count
-            page_size =  response.body.page_size
-            total_page_num =  math.ceil(float(total_count / page_size))
+            page_size = response.body.page_size
+            total_page_num = math.ceil(float(total_count / page_size))
             if total_page_num > 1:
                 for page_num in range(2, total_page_num + 1):
                     describe_vswitches_request = vpc_models.DescribeVSwitchesRequest(
@@ -580,7 +581,8 @@ class VpcClient:
             cli_logger.error("Failed to create nat-gateway. {}", str(e))
             raise e
 
-    def allocate_eip_address(self, name, bandwidth='100', instance_charge_type='PostPaid', internet_charge_type='PayByTraffic'):
+    def allocate_eip_address(
+            self, name, bandwidth='100', instance_charge_type='PostPaid', internet_charge_type='PayByTraffic'):
         """Allocate elastic ip address
         :return allocation_id:
         """
@@ -865,9 +867,13 @@ class RamClient:
             response = self.client.get_role_with_options(
                 get_role_request, self.runtime_options)
             return response.body.role
+        except TeaException as e:
+            if e.code == "EntityNotExist.Role":
+                return None
+            raise e
         except Exception as e:
             cli_logger.error("Failed to get RAM role. {}", str(e))
-            return None
+            raise e
 
     def delete_role(self, role_name):
         """Delete RAM role"""

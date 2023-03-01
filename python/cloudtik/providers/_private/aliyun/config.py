@@ -548,7 +548,7 @@ def post_prepare_aliyun(config: Dict[str, Any]) -> Dict[str, Any]:
     return config
 
 
-def list_ecs_instances(provider_config) -> List[Dict[str, Any]]:
+def list_ecs_instances(provider_config) -> List[Any]:
     """Get all instance-types/resources available.
     Args:
         provider_config: the provider config of the Alibaba Cloud.
@@ -676,7 +676,7 @@ def get_workspace_vpc_peer_connection(config):
     workspace_name = config["workspace_name"]
     vpc_peer_name = get_workspace_vpc_peering_name(workspace_name)
     current_region_id = get_current_instance_region()
-    current_vpc_peer_cli =VpcPeerClient(config["provider"], current_region_id)
+    current_vpc_peer_cli = VpcPeerClient(config["provider"], current_region_id)
     current_vpc_id = get_current_vpc_id(config)
 
     vpc_peer_connections = current_vpc_peer_cli.describe_vpc_peer_connections(
@@ -688,6 +688,7 @@ def get_workspace_vpc_peer_connection(config):
 
 def get_workspace_vpc_peer_connection_route_entry_name(workspace_name):
     return ALIYUN_WORKSPACE_VPC_PEERING_ROUTE_ENTRY_NAME.format(workspace_name)
+
 
 def _update_route_tables_for_workspace_vpc_peer_connection(config, vpc_peer_cli):
     provider_config = config["provider"]
@@ -747,7 +748,7 @@ def _create_and_configure_vpc_peer_connection(config, vpc_peer_cli):
         _update_route_tables_for_workspace_vpc_peer_connection(config, vpc_peer_cli)
 
 
-def  _create_network_resources(config, current_step, total_steps):
+def _create_network_resources(config, current_step, total_steps):
     provider_config = config["provider"]
     ecs_cli = EcsClient(provider_config)
     vpc_cli = VpcClient(provider_config)
@@ -957,7 +958,7 @@ def get_current_instance(ecs_cli):
                 return instance
 
     raise RuntimeError("Failed to get the instance metadata for the current machine. "
-                           "Please make sure your current machine is an Aliyun virtual machine.")
+                       "Please make sure your current machine is an Aliyun virtual machine.")
 
 
 def get_current_vpc(config):
@@ -1003,7 +1004,7 @@ def _configure_peering_vpc_cidr_block(config, current_vpc):
     existing_routes_cidr_block.add(current_vpc_cidr_block)
 
     ip = current_vpc_cidr_block.split("/")[0].split(".")
-    for  i in range(0, 256):
+    for i in range(0, 256):
         tmp_cidr_block = ip[0] + "." + str(i) + ".0.0/16"
 
         if check_cidr_conflict(tmp_cidr_block, existing_routes_cidr_block):
@@ -1350,7 +1351,7 @@ def _delete_nat_gateway(config, vpc_cli):
         _delete_snat_entries(config, vpc_cli)
 
     with cli_logger.group(
-            "Dissociating elastic ip",
+            "Dissociating Elastic IP",
             _numbered=("()", current_step, total_steps)):
         current_step += 1
         _dissociate_elastic_ip(config, vpc_cli)
@@ -1397,7 +1398,7 @@ def _create_and_configure_nat_gateway(config, vpc_cli):
         _associate_nat_gateway_with_elastic_ip(config, vpc_cli)
 
     with cli_logger.group(
-            "Creating SNAT Entries",
+            "Creating SNAT entries",
             _numbered=("()", current_step, total_steps)):
         current_step += 1
         _create_snat_entries(config, vpc_cli)
@@ -1430,15 +1431,16 @@ def _create_snat_entries(config, vpc_cli):
     snat_table_id = nat_gateway.snat_table_ids.snat_table_id[0]
     elastic_ip = get_workspace_elastic_ip(config, vpc_cli)
     snat_ip = elastic_ip.ip_address
-    cli_logger.print("Creating SNAT Entries: {}...".format(snat_entry_name))
+    cli_logger.print("Creating SNAT entries: {}...".format(snat_entry_name))
     for workspace_vswitch in workspace_vswitches:
-        snat_entry_id = vpc_cli.create_snat_entry(snat_table_id, workspace_vswitch.v_switch_id, snat_ip, snat_entry_name)
+        snat_entry_id = vpc_cli.create_snat_entry(
+            snat_table_id, workspace_vswitch.v_switch_id, snat_ip, snat_entry_name)
         if check_snat_entry_status(MAX_POLLS, POLL_INTERVAL, "Available", vpc_cli, snat_table_id, snat_entry_id):
-            cli_logger.verbose("Successfully created SNAT Entry: {}.".format(snat_entry_id))
+            cli_logger.verbose("Successfully created SNAT entry: {}.".format(snat_entry_id))
         else:
-            cli_logger.abort("Failed to create SNAT Entry: {}.".format(snat_entry_id))
+            cli_logger.abort("Failed to create SNAT entry: {}.".format(snat_entry_id))
 
-    cli_logger.print("Successfully created SNAT Entries: {}.".format(snat_entry_name))
+    cli_logger.print("Successfully created SNAT entries: {}.".format(snat_entry_name))
 
 
 def _delete_snat_entries(config, vpc_cli):
@@ -1446,17 +1448,18 @@ def _delete_snat_entries(config, vpc_cli):
     snat_entry_name = get_workspace_snat_entry_name(workspace_name)
     nat_gateway = get_workspace_nat_gateway(config, vpc_cli)
     if nat_gateway is None:
-        cli_logger.print("NAT gateway does not exist and no need to delete SNAT Entries.")
+        cli_logger.print("NAT gateway does not exist and no need to delete SNAT entries.")
         return
     snat_table_id = nat_gateway.snat_table_ids.snat_table_id[0]
-    cli_logger.print("Deleting SNAT Entries: {}...".format(snat_entry_name))
+    cli_logger.print("Deleting SNAT entries: {}...".format(snat_entry_name))
     for snat_table_entry in vpc_cli.describe_snat_entries(snat_table_id=snat_table_id):
         vpc_cli.delete_snat_entry(snat_table_id, snat_table_entry.snat_entry_id)
-        if check_snat_entry_status(MAX_POLLS, POLL_INTERVAL, "", vpc_cli, snat_table_id, snat_table_entry.snat_entry_id):
-            cli_logger.verbose("Successfully deleted SNAT Entry: {}.".format(snat_table_entry.snat_entry_id))
+        if check_snat_entry_status(
+                MAX_POLLS, POLL_INTERVAL, "", vpc_cli, snat_table_id, snat_table_entry.snat_entry_id):
+            cli_logger.verbose("Successfully deleted SNAT entry: {}.".format(snat_table_entry.snat_entry_id))
         else:
-            cli_logger.abort("Failed to delete SNAT Entry: {}.".format(snat_table_entry.snat_entry_id))
-    cli_logger.print("Successfully deleted SNAT Entries: {}.".format(snat_entry_name))
+            cli_logger.abort("Failed to delete SNAT entry: {}.".format(snat_table_entry.snat_entry_id))
+    cli_logger.print("Successfully deleted SNAT entries: {}.".format(snat_entry_name))
 
 
 def _delete_nat_gateway_resource(config, vpc_cli):
@@ -1499,13 +1502,14 @@ def get_workspace_nat_gateway_name(workspace_name):
 
 def _create_nat_gateway(config, vpc_cli):
     workspace_name = config["workspace_name"]
-    vpc_id =  get_workspace_vpc_id(config, vpc_cli)
+    vpc_id = get_workspace_vpc_id(config, vpc_cli)
     nat_gateway_name = get_workspace_nat_gateway_name(workspace_name)
     nat_switch = get_workspace_nat_vswitches(workspace_name, vpc_id, vpc_cli)[0]
     nat_switch_id = nat_switch.v_switch_id
     cli_logger.print("Creating NAT gateway: {}...".format(nat_gateway_name))
     nat_gateway_id = vpc_cli.create_nat_gateway(vpc_id, nat_switch_id, nat_gateway_name)
-    if check_resource_status(MAX_POLLS_NAT, POLL_INTERVAL, vpc_cli.get_nat_gateway_attribute, "Available", nat_gateway_id):
+    if check_resource_status(
+            MAX_POLLS_NAT, POLL_INTERVAL, vpc_cli.get_nat_gateway_attribute, "Available", nat_gateway_id):
         cli_logger.print("Successfully created NAT gateway: {}.".format(nat_gateway_name))
     else:
         cli_logger.abort("Failed to create NAT gateway: {}.".format(nat_gateway_name))
@@ -1522,7 +1526,7 @@ def _associate_nat_gateway_with_elastic_ip(config, vpc_cli):
     if check_resource_status(MAX_POLLS_NAT, POLL_INTERVAL, vpc_cli.describe_eip_addresses, "InUse", eip_allocation_id):
         cli_logger.print("Successfully associated NAT gateway with Elastic IP.")
     else:
-        cli_logger.abort("Faild to associate NAT gateway with Elastic IP.")
+        cli_logger.abort("Failed to associate NAT gateway with Elastic IP.")
 
 
 def get_workspace_elastic_ip_name(workspace_name):
@@ -1535,7 +1539,7 @@ def _create_elastic_ip(config, vpc_cli):
     if check_resource_status(MAX_POLLS_NAT, POLL_INTERVAL, vpc_cli.describe_eip_addresses, "Available", allocation_id):
         cli_logger.print("Successfully allocate Elastic IP:{}.".format(eip_name))
     else:
-        cli_logger.print("Faild to allocate Elastic IP:{}.".format(eip_name))
+        cli_logger.print("Failed to allocate Elastic IP:{}.".format(eip_name))
 
 
 def get_workspace_elastic_ip(config, vpc_cli):
@@ -1581,10 +1585,11 @@ def _dissociate_elastic_ip(config, vpc_cli):
     cli_logger.print("Dissociating Elastic IP: {}...".format(elastic_ip_name))
     vpc_cli.unassociate_eip_address(eip_allocation_id, instance_id, "Nat")
 
-    if check_resource_status(MAX_POLLS_NAT, POLL_INTERVAL, vpc_cli.describe_eip_addresses, "Available", eip_allocation_id):
+    if check_resource_status(
+            MAX_POLLS_NAT, POLL_INTERVAL, vpc_cli.describe_eip_addresses, "Available", eip_allocation_id):
         cli_logger.print("Successfully dissociated Elastic IP:{}.".format(elastic_ip_name))
     else:
-        cli_logger.print("Faild to dissociate Elastic IP:{}.".format(elastic_ip_name))
+        cli_logger.print("Failed to dissociate Elastic IP:{}.".format(elastic_ip_name))
 
 
 def _get_instance_role(ram_cli, role_name):
@@ -1807,7 +1812,7 @@ def _delete_routes_for_workspace_vpc_peering_connection(config, vpc_peer_cli):
                 entry_name=route_entry_name):
             current_vpc_cli.delete_route_entry(route_entry.route_entry_id)
             cli_logger.print(
-                "Successfully delete the route entry about VPC peering connection for current VPC route table {}.".format(
+                "Successfully deleted the route entry of VPC peering connection for current VPC route table {}.".format(
                     current_vpc_route_table.route_table_id))
 
     for workspace_vpc_route_table in workspace_vpc_route_tables:

@@ -1242,15 +1242,15 @@ def _configure_allowed_ssh_sources(config):
 
     if "rules" not in security_group_config:
         security_group_config["rules"] = []
-    ip_permissions = security_group_config["rules"]
+    rules = security_group_config["rules"]
     for allowed_ssh_source in allowed_ssh_sources:
-        ip_permission = {
+        rule = {
             "protocol": "tcp",
             "port_range_min": 22,
             "port_range_max": 22,
             "remote_ip_prefix": allowed_ssh_source
         }
-        ip_permissions.append(ip_permission)
+        rules.append(rule)
 
 
 def with_huaweicloud_environment_variables(provider_config,

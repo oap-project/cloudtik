@@ -42,7 +42,7 @@ if __name__ == '__main__':
     cluster_info = cluster.get_info()
 
     if not args.num_proc:
-        total_worker_cpus = cluster_info.get("total-worker-cpus")
+        total_worker_cpus = cluster_info.get("total-worker-cpus-ready")
         if total_worker_cpus:
             args.num_proc = int(total_worker_cpus / 2)
         if not args.num_proc:

@@ -297,7 +297,7 @@ def head_ip(public):
     required=False,
     type=str,
     default=None,
-    help="The node status of the workers. values: setting-up, up-to-date, update-failed."
+    help="The node status of the workers. Values: setting-up, up-to-date, update-failed."
     " If not specified, return all the workers.")
 def worker_ips(runtime, node_status):
     """Return the list of worker IPs of a cluster."""

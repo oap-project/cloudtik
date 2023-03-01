@@ -1,6 +1,6 @@
 # Cloud-provider specific configuration.
 provider:
-    type: aws
+    type: aliyun
 
 # The instance configuration for a very large instance type
 available_node_types:

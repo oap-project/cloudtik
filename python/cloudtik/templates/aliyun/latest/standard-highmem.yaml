@@ -1,4 +1,4 @@
-from: aliyun/latest_ice_lake/standard
+from: aliyun/latest/standard
 
 # Cloud-provider specific configuration.
 provider:

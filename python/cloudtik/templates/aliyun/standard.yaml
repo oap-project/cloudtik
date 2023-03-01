@@ -6,14 +6,14 @@ provider:
 available_node_types:
     head.default:
         node_config:
-            InstanceType: ecs.g5.2xlarge
+            InstanceType: ecs.g6.2xlarge
             SystemDisk:
                 DiskName: os-disk
                 Category: cloud_ssd
                 Size: 100
     worker.default:
         node_config:
-            InstanceType: ecs.g5.2xlarge
+            InstanceType: ecs.g6.2xlarge
             SystemDisk:
                 DiskName: os-disk
                 Category: cloud_ssd

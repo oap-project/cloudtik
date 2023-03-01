@@ -1,4 +1,4 @@
-from: aliyun/latest_cascade_lake/very-large
+from: aliyun/very-large
 
 # Cloud-provider specific configuration.
 provider:

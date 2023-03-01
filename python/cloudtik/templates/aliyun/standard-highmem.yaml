@@ -1,11 +1,11 @@
-from: aws/standard
+from: aliyun/standard
 
 # Cloud-provider specific configuration.
 provider:
-    type: aws
+    type: aliyun
 
 # The instance configuration for a standard instance type
 available_node_types:
     worker.default:
         node_config:
-            InstanceType: ecs.r5.2xlarge
+            InstanceType: ecs.r6.2xlarge

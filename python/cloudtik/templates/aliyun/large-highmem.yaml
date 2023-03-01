@@ -8,4 +8,4 @@ provider:
 available_node_types:
     worker.default:
         node_config:
-            InstanceType: ecs.r5.16xlarge
+            InstanceType: ecs.r6.13xlarge

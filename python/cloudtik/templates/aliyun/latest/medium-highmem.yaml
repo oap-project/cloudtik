@@ -1,4 +1,4 @@
-from: aliyun/latest_cascade_lake/medium
+from: aliyun/latest/medium
 
 # Cloud-provider specific configuration.
 provider:
@@ -8,4 +8,4 @@ provider:
 available_node_types:
     worker.default:
         node_config:
-            InstanceType: ecs.r6.8xlarge
+            InstanceType: ecs.r7.8xlarge

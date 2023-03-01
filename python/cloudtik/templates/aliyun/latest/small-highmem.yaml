@@ -1,11 +1,11 @@
-from: aliyun/standard
+from: aliyun/latest/small
 
 # Cloud-provider specific configuration.
 provider:
     type: aliyun
 
-# The instance configuration for a standard instance type
+# The instance configuration for a small instance type
 available_node_types:
     worker.default:
         node_config:
-            InstanceType: ecs.g6.2xlarge
+            InstanceType: ecs.r7.xlarge

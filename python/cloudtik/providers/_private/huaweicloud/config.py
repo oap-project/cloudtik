@@ -422,14 +422,14 @@ def _update_security_group_rules(config, sg, vpc, vpc_client):
     _clean_security_group_rules(sg, vpc_client)
     # Add new rules
     extended_rules = config["provider"].get("security_group", {}) \
-        .get("IpPermissions", [])
+        .get("rules", [])
     for _ext_rule in extended_rules:
         vpc_client.create_security_group_rule(
             CreateSecurityGroupRuleRequest(
                 CreateSecurityGroupRuleRequestBody(
                     CreateSecurityGroupRuleOption(sg.id,
                                                   direction='ingress',
-                                                  remote_ip_prefix=_ext_rule)))
+                                                  **_ext_rule)))
         )
     # Create SSH rule
     vpc_client.create_security_group_rule(
@@ -1240,17 +1240,17 @@ def _configure_allowed_ssh_sources(config):
         provider_config["security_group"] = {}
     security_group_config = provider_config["security_group"]
 
-    if "IpPermissions" not in security_group_config:
-        security_group_config["IpPermissions"] = []
-    ip_permissions = security_group_config["IpPermissions"]
-    ip_permission = {
-        "IpProtocol": "tcp",
-        "FromPort": 22,
-        "ToPort": 22,
-        "IpRanges": [{"CidrIp": allowed_ssh_source} for allowed_ssh_source in
-                     allowed_ssh_sources]
-    }
-    ip_permissions.append(ip_permission)
+    if "rules" not in security_group_config:
+        security_group_config["rules"] = []
+    ip_permissions = security_group_config["rules"]
+    for allowed_ssh_source in allowed_ssh_sources:
+        ip_permission = {
+            "protocol": "tcp",
+            "port_range_min": 22,
+            "port_range_max": 22,
+            "remote_ip_prefix": allowed_ssh_source
+        }
+        ip_permissions.append(ip_permission)
 
 
 def with_huaweicloud_environment_variables(provider_config,

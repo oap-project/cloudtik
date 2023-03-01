@@ -611,7 +611,7 @@ def get_aws_managed_cloud_storage_info(config, cloud_provider, info):
     managed_bucket_name = None if bucket is None else bucket.name
 
     if managed_bucket_name is not None:
-        aws_cloud_storage = {AWS_S3_BUCKET, managed_bucket_name}
+        aws_cloud_storage = {AWS_S3_BUCKET: managed_bucket_name}
         managed_cloud_storage = {AWS_MANAGED_STORAGE_S3_BUCKET: managed_bucket_name,
                                  CLOUDTIK_MANAGED_CLOUD_STORAGE_URI: get_aws_cloud_storage_uri(aws_cloud_storage)}
         info[CLOUDTIK_MANAGED_CLOUD_STORAGE] = managed_cloud_storage

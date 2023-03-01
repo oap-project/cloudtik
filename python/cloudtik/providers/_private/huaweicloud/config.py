@@ -129,8 +129,7 @@ def create_huaweicloud_workspace(config):
                                      vpc.name)
                 else:
                     vpc = _check_and_create_vpc(vpc_client, workspace_name)
-                    cli_logger.print("Successfully created workspace VPC: {}.",
-                                     vpc.name)
+
             # Step2: create subnet
             with cli_logger.group("Creating subnets",
                                   _numbered=("[]", current_step, total_steps)):
@@ -138,11 +137,11 @@ def create_huaweicloud_workspace(config):
                 subnets = _check_and_create_subnets(vpc, vpc_client,
                                                     workspace_name)
             # Step3: create NAT and SNAT rules
-            with cli_logger.group("Creating NAT Gateway for subnets",
+            with cli_logger.group("Creating NAT gateway for subnets",
                                   _numbered=("[]", current_step, total_steps)):
                 current_step += 1
-                _check_and_create_nat_gateway(config, subnets, vpc,
-                                              workspace_name)
+                _check_and_create_nat_gateway_and_eip(
+                    config, subnets, vpc, workspace_name)
             # Step4: create security group
             with cli_logger.group("Creating security group",
                                   _numbered=("[]", current_step, total_steps)):
@@ -202,6 +201,8 @@ def _create_instance_profile(config, workspace_name, for_head):
     _prefix = 'head' if for_head else 'worker'
     profile_name = HWC_WORKSPACE_INSTANCE_PROFILE_NAME.format(workspace_name,
                                                               _prefix)
+    cli_logger.print(
+        "Creating instance profile: {}...", profile_name)
     domain_id = _get_current_domain_id(iam_client)
     # Instance profile is named as IAM agency in Huawei Cloud
     target_agency = iam_client.create_agency(
@@ -213,6 +214,8 @@ def _create_instance_profile(config, workspace_name, for_head):
 
     _associate_instance_profile_with_permission(for_head, iam_client,
                                                 target_agency)
+    cli_logger.print(
+        "Successfully created instance profile: {}.", profile_name)
 
 
 def _associate_instance_profile_with_permission(for_head, iam_client,
@@ -258,8 +261,17 @@ def _delete_instance_profile(config, workspace_name, for_head):
     target_agencies = iam_client.list_agencies(
         ListAgenciesRequest(name=profile_name, domain_id=domain_id)
     ).agencies
+
+    if not target_agencies:
+        cli_logger.print("No instance profile found for {}. Skip deletion.", _prefix)
+        return
+
     for _agency in target_agencies:
+        cli_logger.print(
+            "Deleting instance profile: {}...", _agency.name)
         iam_client.delete_agency(DeleteAgencyRequest(agency_id=_agency.id))
+        cli_logger.print(
+            "Successfully deleted instance profile: {}.", _agency.name)
 
 
 def _get_current_domain_id(iam_client):
@@ -389,6 +401,9 @@ def _create_and_accept_vpc_peering(config, _workspace_vpc, vpc_client,
 def _check_and_create_security_group(config, vpc, vpc_client, workspace_name):
     # Create security group
     sg_name = HWC_WORKSPACE_SG_NAME.format(workspace_name)
+
+    cli_logger.print(
+        "Creating and updating security group: {}...", sg_name)
     sg = vpc_client.create_security_group(
         CreateSecurityGroupRequest(
             CreateSecurityGroupRequestBody(
@@ -397,6 +412,9 @@ def _check_and_create_security_group(config, vpc, vpc_client, workspace_name):
 
     # Create sg rules in config
     _update_security_group_rules(config, sg, vpc, vpc_client)
+
+    cli_logger.print(
+        "Successfully created and updated security group: {}.", sg_name)
 
 
 def _update_security_group_rules(config, sg, vpc, vpc_client):
@@ -453,59 +471,87 @@ def _clean_security_group_rules(sg, vpc_client):
             DeleteSecurityGroupRuleRequest(_rule.id))
 
 
-def _check_and_create_nat_gateway(config, subnets, vpc, workspace_name):
+def _check_and_create_nat_gateway_and_eip(config, subnets, vpc, workspace_name):
     current_step = 1
     total_steps = 3
-    with cli_logger.group("Creating NAT Gateway",
+    with cli_logger.group("Creating NAT gateway",
                           _numbered=("()", current_step, total_steps)):
         current_step += 1
-        nat_client = make_nat_client(config)
-        nat_name = HWC_WORKSPACE_NAT_NAME.format(workspace_name)
-        pub_net = subnets[0].id
-        nat_gateway = nat_client.create_nat_gateway(
-            CreateNatGatewayRequest(
-                CreateNatGatewayRequestBody(
-                    CreateNatGatewayOption(name=nat_name,
-                                           router_id=vpc.id,
-                                           internal_network_id=pub_net,
-                                           spec='1')))
-        ).nat_gateway
+        nat_gateway = _check_and_create_nat_gateway(
+            config, subnets, vpc, workspace_name)
+
     with cli_logger.group("Creating NAT EIP",
                           _numbered=("()", current_step, total_steps)):
         current_step += 1
-        # Create EIP
-        _bw_name = HWC_WORKSPACE_EIP_BANDWIDTH_NAME.format(workspace_name)
-        _eip_name = HWC_WORKSPACE_EIP_NAME.format(workspace_name)
-        eip_client = make_eip_client(config)
-        eip = eip_client.create_publicip(
-            CreatePublicipRequest(
-                CreatePublicipRequestBody(
-                    # Dedicated bandwidth 5 Mbit
-                    bandwidth=CreatePublicipBandwidthOption(name=_bw_name,
-                                                            share_type='PER',
-                                                            size=5),
-                    publicip=CreatePublicipOption(type='5_bgp',
-                                                  alias=_eip_name)))
-        ).publicip
-        cli_logger.print("Successfully created workspace EIP: {}.",
-                         eip.public_ip_address)
+        eip = _check_and_create_eip(config, workspace_name)
+
     with cli_logger.group("Creating SNAT Rules",
                           _numbered=("()", current_step, total_steps)):
         current_step += 1
-        # Check workspace NAT gateway util active, then to add rules
-        _wait_util_nat_gateway_active(nat_client, nat_gateway)
-        # Create SNAT rule for public and private subnets
-        for _subnet in subnets:
-            nat_client.create_nat_gateway_snat_rule(
-                CreateNatGatewaySnatRuleRequest(
-                    CreateNatGatewaySnatRuleRequestOption(
-                        CreateNatGatewaySnatRuleOption(
-                            nat_gateway_id=nat_gateway.id,
-                            network_id=_subnet.id,
-                            floating_ip_id=eip.id)))
-            )
+        _check_and_create_snat_rules(
+            config, subnets, nat_gateway, eip
+        )
 
+
+def _check_and_create_nat_gateway(config, subnets, vpc, workspace_name):
+    nat_client = make_nat_client(config)
+    nat_name = HWC_WORKSPACE_NAT_NAME.format(workspace_name)
+    pub_net = subnets[0].id
+
+    cli_logger.print("Creating NAT gateway: {}...", nat_name)
+    nat_gateway = nat_client.create_nat_gateway(
+        CreateNatGatewayRequest(
+            CreateNatGatewayRequestBody(
+                CreateNatGatewayOption(name=nat_name,
+                                       router_id=vpc.id,
+                                       internal_network_id=pub_net,
+                                       spec='1')))
+    ).nat_gateway
+    cli_logger.print("Successfully created NAT gateway: {}.", nat_name)
     return nat_gateway
+
+
+def _check_and_create_eip(config, workspace_name):
+    # Create EIP
+    _bw_name = HWC_WORKSPACE_EIP_BANDWIDTH_NAME.format(workspace_name)
+    _eip_name = HWC_WORKSPACE_EIP_NAME.format(workspace_name)
+    eip_client = make_eip_client(config) \
+
+    cli_logger.print("Creating elastic IP: {}...", _eip_name)
+    eip = eip_client.create_publicip(
+        CreatePublicipRequest(
+            CreatePublicipRequestBody(
+                # Dedicated bandwidth 5 Mbit
+                bandwidth=CreatePublicipBandwidthOption(name=_bw_name,
+                                                        share_type='PER',
+                                                        size=5),
+                publicip=CreatePublicipOption(type='5_bgp',
+                                              alias=_eip_name)))
+    ).publicip
+    cli_logger.print("Successfully created elastic IP: {}.",
+                     eip.public_ip_address)
+    return eip
+
+
+def _check_and_create_snat_rules(config, subnets, nat_gateway, eip):
+    nat_client = make_nat_client(config)
+
+    cli_logger.print(
+        "Creating SNAT rules for NAT gateway: {}...", nat_gateway.name)
+    # Check workspace NAT gateway util active, then to add rules
+    _wait_util_nat_gateway_active(nat_client, nat_gateway)
+    # Create SNAT rule for public and private subnets
+    for _subnet in subnets:
+        nat_client.create_nat_gateway_snat_rule(
+            CreateNatGatewaySnatRuleRequest(
+                CreateNatGatewaySnatRuleRequestOption(
+                    CreateNatGatewaySnatRuleOption(
+                        nat_gateway_id=nat_gateway.id,
+                        network_id=_subnet.id,
+                        floating_ip_id=eip.id)))
+        )
+    cli_logger.print(
+        "Successfully created SNAT rules for NAT gateway: {}.", nat_gateway.name)
 
 
 def _wait_util_nat_gateway_active(nat_client, nat_gateway):
@@ -555,12 +601,16 @@ def _check_and_create_vpc(vpc_client, workspace_name):
                                "the same name, you need to execute workspace "
                                "delete first!".format(workspace_name))
     # Create new vpc
+    cli_logger.print("Creating workspace VPC: {}...",
+                     vpc_name)
     default_cidr = HWC_WORKSPACE_VPC_DEFAULT_CIDR
     request = CreateVpcRequest(
         CreateVpcRequestBody(
             vpc=CreateVpcOption(name=vpc_name,
                                 cidr=default_cidr)))
     vpc = vpc_client.create_vpc(request).vpc
+    cli_logger.print("Successfully created workspace VPC: {}.",
+                     vpc.name)
     return vpc
 
 
@@ -577,6 +627,7 @@ def _check_and_create_subnets(vpc, vpc_client, workspace_name):
                               _numbered=("()", i,
                                          len(subnet_cidr_list))):
             try:
+                cli_logger.print("Creating subnet: {}...", subnet_name)
                 _subnet = vpc_client.create_subnet(
                     CreateSubnetRequest(
                         CreateSubnetRequestBody(
@@ -585,6 +636,7 @@ def _check_and_create_subnets(vpc, vpc_client, workspace_name):
                                                gateway_ip=_gateway_ip,
                                                vpc_id=vpc.id)))
                 ).subnet
+                cli_logger.print("Successfully created subnet: {}.", subnet_name)
             except Exception as e:
                 cli_logger.error("Failed to create {} subnet. {}",
                                  subnet_type, str(e))
@@ -648,7 +700,7 @@ def delete_huaweicloud_workspace(config, delete_managed_storage):
                                                              workspace_name)
 
             # Step2: delete security group
-            with cli_logger.group("Deleting Security group",
+            with cli_logger.group("Deleting security group",
                                   _numbered=("[]", current_step, total_steps)):
                 current_step += 1
                 _check_and_delete_security_group(vpc_client, workspace_name)
@@ -657,7 +709,7 @@ def delete_huaweicloud_workspace(config, delete_managed_storage):
             with cli_logger.group("Deleting NAT, SNAT rules and EIP",
                                   _numbered=("[]", current_step, total_steps)):
                 current_step += 1
-                _check_and_delete_nat_gateway(config, workspace_name)
+                _check_and_delete_nat_gateway_and_eip(config, workspace_name)
 
             # Step4: delete subnets
             with cli_logger.group("Deleting private and public subnets",
@@ -728,13 +780,16 @@ def _check_and_delete_bucket_objects(obs_client, bucket_name):
 def _check_and_delete_vpc(config, use_working_vpc, vpc_client, _workspace_vpc):
     if not use_working_vpc:
         if _workspace_vpc:
+            cli_logger.print(
+                "Deleting VPC: {}...", _workspace_vpc.name)
             vpc_client.delete_vpc(DeleteVpcRequest(vpc_id=_workspace_vpc.id))
+            cli_logger.print(
+                "Successfully deleted VPC: {}.", _workspace_vpc.name)
         else:
             cli_logger.print("Can't find workspace VPC")
     else:
         _current_vpc = _get_current_vpc(config)
-        cli_logger.print("Skip to delete working VPC {}".format(
-            _current_vpc.name))
+        cli_logger.print("Skip to delete working VPC {}", _current_vpc.name)
 
 
 def _check_and_delete_subnets(vpc_client, workspace_name):
@@ -747,6 +802,8 @@ def _check_and_delete_subnets(vpc_client, workspace_name):
 
 
 def _delete_subnets_until_empty(vpc_client, workspace_vpc, workspace_name):
+    cli_logger.print(
+        "Deleting subnets for VPC: {}...", workspace_vpc.name)
     while True:
         subnets = _get_workspace_vpc_subnets(vpc_client, workspace_vpc,
                                              workspace_name)
@@ -764,6 +821,8 @@ def _delete_subnets_until_empty(vpc_client, workspace_vpc, workspace_name):
                 # maybe raise exception, try to delete in next time.
                 break
         time.sleep(1)
+    cli_logger.print(
+        "Successfully deleted subnets for VPC: {}.", workspace_vpc.name)
 
 
 def _get_workspace_vpc_subnets(vpc_client, _workspace_vpc, workspace_name,
@@ -791,9 +850,19 @@ def _check_and_delete_security_group(vpc_client, workspace_name):
     workspace_vpc = get_workspace_vpc(vpc_client, workspace_name)
     if workspace_vpc:
         target_sgs = _get_workspace_security_group(vpc_client, workspace_name)
+        if len(target_sgs) == 0:
+            cli_logger.print(
+                "No security groups for workspace were found under this VPC: {}. Skip deletion.",
+                workspace_vpc.name)
+            return
+
         for _sg in target_sgs:
+            cli_logger.print(
+                "Deleting security group: {}...", _sg.name)
             vpc_client.delete_security_group(
                 DeleteSecurityGroupRequest(_sg.id))
+            cli_logger.print(
+                "Successfully deleted security group: {}.", _sg.name)
 
 
 def _get_workspace_security_group(vpc_client, workspace_name):
@@ -814,11 +883,16 @@ def _check_and_delete_eip(config, workspace_name):
     _found = False
     for _public_ip in public_ips:
         if _public_ip.alias == _eip_name:
+            cli_logger.print(
+                "Deleting elastic IP: {}...", _eip_name)
             eip_client.delete_publicip(
                 DeletePublicipRequest(publicip_id=_public_ip.id))
+            cli_logger.print(
+                "Successfully deleted elastic IP: {}.", _eip_name)
             _found = True
     if not _found:
-        cli_logger.print("Can't fine EIP {}".format(_eip_name))
+        cli_logger.print(
+            "No elastic IP with the name found: {}. Skip deletion.", _eip_name)
 
 
 def _check_and_delete_vpc_peering_connection(config, vpc_client,
@@ -881,20 +955,62 @@ def _get_vpc_peering_conn(vpc_client, workspace_name):
     return peerings
 
 
+def _check_and_delete_nat_gateway_and_eip(config, workspace_name):
+    current_step = 1
+    total_steps = 3
+
+    with cli_logger.group("Deleting SNAT rules",
+                          _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _check_and_delete_snat_rules(config, workspace_name)
+
+    with cli_logger.group("Deleting NAT gateway",
+                          _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _check_and_delete_nat_gateway(config, workspace_name)
+
+    with cli_logger.group("Deleting elastic IP",
+                          _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        # Delete EIP
+        _check_and_delete_eip(config, workspace_name)
+
+
+def _check_and_delete_snat_rules(config, workspace_name):
+    nat_client = make_nat_client(config)
+    nat_gateways = _get_workspace_nat(nat_client, workspace_name)
+    if not nat_gateways:
+        cli_logger.print(
+            "No NAT gateway found for workspace: {}. Skip deletion.".format(
+                workspace_name))
+        return
+
+    for _nat_gateway in nat_gateways:
+        _check_and_delete_snat_rules_of_nat_gateway(nat_client, _nat_gateway)
+
+
 def _check_and_delete_nat_gateway(config, workspace_name):
     nat_client = make_nat_client(config)
     nat_gateways = _get_workspace_nat(nat_client, workspace_name)
+    if not nat_gateways:
+        cli_logger.print(
+            "No NAT gateway found for workspace: {}. Skip deletion.", workspace_name)
+        return
+
     for _nat_gateway in nat_gateways:
-        _check_and_delete_snat_rules(nat_client, _nat_gateway)
         # Delete NAT
+        cli_logger.print(
+            "Deleting NAT gateway: {}...", _nat_gateway.name)
         nat_client.delete_nat_gateway(DeleteNatGatewayRequest(
             nat_gateway_id=_nat_gateway.id))
-    # Delete EIP
-    _check_and_delete_eip(config, workspace_name)
+        cli_logger.print(
+            "Successfully deleted NAT gateway: {}.", _nat_gateway.name)
 
 
-def _check_and_delete_snat_rules(nat_client, nat_gateway):
+def _check_and_delete_snat_rules_of_nat_gateway(nat_client, nat_gateway):
     # Delete SNAT rules and wait util empty
+    cli_logger.print(
+        "Deleting SNAT rules for NAT gateway: {}...", nat_gateway.name)
     while True:
         _snat_rules = nat_client.list_nat_gateway_snat_rules(
             ListNatGatewaySnatRulesRequest(nat_gateway_id=[nat_gateway.id])
@@ -908,6 +1024,8 @@ def _check_and_delete_snat_rules(nat_client, nat_gateway):
                     snat_rule_id=_rule.id)
             )
         time.sleep(1)
+    cli_logger.print(
+        "Successfully deleted SNAT rules for NAT gateway: {}.", nat_gateway.name)
 
 
 def _get_workspace_nat(nat_client, workspace_name=None, nat_id=None):

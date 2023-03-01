@@ -1,0 +1,23 @@
+# An example of standard 1 + 3 nodes cluster with standard server flavor
+from: huaweicloud/standard
+
+# A unique identifier for the cluster.
+cluster_name: example-standard
+
+# Workspace into which to launch the cluster
+workspace_name: example-workspace
+
+# Cloud-provider specific configuration.
+provider:
+    type: huaweicloud
+    region: cn-east-2
+
+auth:
+    ssh_user: ubuntu
+    # Set proxy if you are in corporation network. For example,
+    # ssh_proxy_command: "ncat --proxy-type socks5 --proxy your_proxy_host:your_proxy_port %h %p"
+
+available_node_types:
+    worker.default:
+        # The minimum number of worker nodes to launch.
+        min_workers: 3

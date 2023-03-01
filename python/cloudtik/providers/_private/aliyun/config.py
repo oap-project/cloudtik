@@ -750,8 +750,8 @@ def _create_and_configure_vpc_peer_connection(config, vpc_peer_cli):
 def  _create_network_resources(config, current_step, total_steps):
     provider_config = config["provider"]
     ecs_cli = EcsClient(provider_config)
-    vpc_cli= VpcClient(provider_config)
-    vpc_peer_cli= VpcPeerClient(provider_config)
+    vpc_cli = VpcClient(provider_config)
+    vpc_peer_cli = VpcPeerClient(provider_config)
 
     # create VPC
     with cli_logger.group(
@@ -762,14 +762,14 @@ def  _create_network_resources(config, current_step, total_steps):
 
     # create vswitches
     with cli_logger.group(
-            "Creating VSwitches for instances",
+            "Creating VSwitches",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
         _create_and_configure_vswitches(config, vpc_cli)
 
     # create NAT gateway for public subnets
     with cli_logger.group(
-            "Creating Nat Gateway",
+            "Creating NAT gateway",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
         _create_and_configure_nat_gateway(config, vpc_cli)
@@ -1107,14 +1107,14 @@ def _create_vswitch_for_nat_gateway(config, vpc_cli):
     cidr_list = _configure_vswitches_cidr(vpc, vpc_cli, 1)
     availability_zones_id = [zone.zone_id for zone in vpc_cli.list_enhanced_nat_gateway_available_zones()]
     vswitch_name = ALIYUN_WORKSPACE_NAT_VSWITCH_NAME.format(workspace_name)
-    cli_logger.print("Creating vswitch for NAT gateway: {} with CIDR: {}...".format(vswitch_name, cidr_list[0]))
+    cli_logger.print("Creating VSwitch for NAT gateway: {} with CIDR: {}...".format(vswitch_name, cidr_list[0]))
 
     vswitch_id = vpc_cli.create_vswitch(vpc_id, availability_zones_id[0], cidr_list[0], vswitch_name)
 
     if check_resource_status(MAX_POLLS, POLL_INTERVAL, vpc_cli.describe_vswitch_attributes, "Available", vswitch_id):
-        cli_logger.print("Successfully created vswitch: {}.".format(vswitch_name))
+        cli_logger.print("Successfully created VSwitch: {}.".format(vswitch_name))
     else:
-        cli_logger.abort("Failed to create vswitch: {}.".format(vswitch_name))
+        cli_logger.abort("Failed to create VSwitch: {}.".format(vswitch_name))
     return vswitch_id
 
 
@@ -1128,27 +1128,31 @@ def _create_and_configure_vswitches(config, vpc_cli):
     availability_zone_num = len(availability_zones_id)
     cidr_list = _configure_vswitches_cidr(vpc, vpc_cli, availability_zone_num)
 
+    cli_logger.print("Creating {} VSwitches for VPC: {} ...".format(
+        availability_zone_num, vpc_id))
+
     for i in range(0, availability_zone_num):
         cidr_block = cidr_list[i]
         zone_id = availability_zones_id[i]
-        with cli_logger.group(
-                "Creating vswitch", _numbered=("()", i + 1, availability_zone_num)):
-            try:
-                cli_logger.print("Creating instance vswitch for VPC: {} with CIDR: {}...".format(vpc_id, cidr_block))
-                vswitch_name = ALIYUN_WORKSPACE_INSTANCE_VSWITCH_NAME.format(workspace_name)
-                vswitch_id = vpc_cli.create_vswitch(vpc_id, zone_id, cidr_block, vswitch_name)
 
-                if check_resource_status(MAX_POLLS, POLL_INTERVAL, vpc_cli.describe_vswitch_attributes, "Available", vswitch_id):
-                    cli_logger.print("Successfully created instance vswitch with the id:{}.".format(vswitch_id))
-                else:
-                    cli_logger.abort("Failed to create instance vswitch: {}.".format(vswitch_name))
-            except Exception as e:
-                cli_logger.error("Failed to create instance  vswitch. {}", str(e))
-                raise e
-            vswitches.append(vswitch_id)
+        try:
+            cli_logger.verbose("Creating VSwitch for VPC {} in zone {} with CIDR {}...".format(
+                vpc_id, cidr_block, zone_id))
+            vswitch_name = ALIYUN_WORKSPACE_INSTANCE_VSWITCH_NAME.format(workspace_name)
+            vswitch_id = vpc_cli.create_vswitch(vpc_id, zone_id, cidr_block, vswitch_name)
 
-    assert len(vswitches) == availability_zone_num, "We must create {} instance vswitches for all zones of VPC: {}!".format(
-        availability_zone_num, vpc_id)
+            if check_resource_status(
+                    MAX_POLLS, POLL_INTERVAL, vpc_cli.describe_vswitch_attributes, "Available", vswitch_id):
+                cli_logger.verbose("Successfully created VSwitch with the id:{}.".format(vswitch_id))
+            else:
+                cli_logger.abort("Failed to create VSwitch: {}.".format(vswitch_name))
+        except Exception as e:
+            cli_logger.error("Failed to create VSwitch. {}", str(e))
+            raise e
+        vswitches.append(vswitch_id)
+
+    cli_logger.print("Successfully created {} VSwitches for VPC: {} ...".format(
+        availability_zone_num, vpc_id))
     return vswitches
 
 
@@ -1179,17 +1183,23 @@ def _delete_vswitches(workspace_name, vpc_id, vpc_cli, name_pattern):
     vswitches = _get_workspace_vswitches(workspace_name, vpc_id, vpc_cli, name_pattern)
 
     if len(vswitches) == 0:
-        cli_logger.print("No vswitches for workspace were found under this VPC: {}...".format(vpc_id))
+        cli_logger.print("No VSwitches were found under this VPC: {}...".format(vpc_id))
         return
+
+    cli_logger.print("Deleting {} VSwitches for VPC {}.".format(
+        len(vswitches), vpc_id))
 
     for vswitch in vswitches:
         vswitch_id = vswitch.v_switch_id
-        cli_logger.print("Deleting vswitch: {}...".format(vswitch_id))
+        cli_logger.verbose("Deleting VSwitch: {}...".format(vswitch_id))
         vpc_cli.delete_vswitch(vswitch_id)
         if check_resource_status(MAX_POLLS, POLL_INTERVAL, vpc_cli.describe_vswitch_attributes, "", vswitch_id):
-            cli_logger.print("Successfully deleted vswitch: {}.".format(vswitch_id))
+            cli_logger.verbose("Successfully deleted VSwitch: {}.".format(vswitch_id))
         else:
-            cli_logger.abort("Failed to delete vswitch: {}.".format(vswitch_id))
+            cli_logger.abort("Failed to delete VSwitch: {}.".format(vswitch_id))
+
+    cli_logger.print("Successfully deleted {} VSwitches for VPC {}.".format(
+        len(vswitches), vpc_id))
 
 
 def _create_workspace_security_group(config, vpc_id, ecs_cli):
@@ -1334,7 +1344,7 @@ def _delete_nat_gateway(config, vpc_cli):
     total_steps = 4
 
     with cli_logger.group(
-            "Deleting SNAT Entries",
+            "Deleting SNAT entries",
             _numbered=("()", current_step, total_steps)):
         current_step += 1
         _delete_snat_entries(config, vpc_cli)
@@ -1346,7 +1356,7 @@ def _delete_nat_gateway(config, vpc_cli):
         _dissociate_elastic_ip(config, vpc_cli)
 
     with cli_logger.group(
-            "Deleting NAT Gateway",
+            "Deleting NAT gateway",
             _numbered=("()", current_step, total_steps)):
         current_step += 1
         _delete_nat_gateway_resource(config, vpc_cli)
@@ -1369,25 +1379,25 @@ def _create_and_configure_nat_gateway(config, vpc_cli):
         _create_elastic_ip(config, vpc_cli)
 
     with cli_logger.group(
-            "Creating VSwitch for NAT Gateway",
+            "Creating VSwitch for NAT gateway",
             _numbered=("()", current_step, total_steps)):
         current_step += 1
         _create_vswitch_for_nat_gateway(config, vpc_cli)
 
     with cli_logger.group(
-            "Creating NAT Gateway",
+            "Creating NAT gateway",
             _numbered=("()", current_step, total_steps)):
         current_step += 1
         _create_nat_gateway(config, vpc_cli)
 
     with cli_logger.group(
-            "Associate NAT Gateway with EIP",
+            "Associate NAT gateway with EIP",
             _numbered=("()", current_step, total_steps)):
         current_step += 1
         _associate_nat_gateway_with_elastic_ip(config, vpc_cli)
 
     with cli_logger.group(
-            "Creating SNAT Entry",
+            "Creating SNAT Entries",
             _numbered=("()", current_step, total_steps)):
         current_step += 1
         _create_snat_entries(config, vpc_cli)
@@ -1424,7 +1434,7 @@ def _create_snat_entries(config, vpc_cli):
     for workspace_vswitch in workspace_vswitches:
         snat_entry_id = vpc_cli.create_snat_entry(snat_table_id, workspace_vswitch.v_switch_id, snat_ip, snat_entry_name)
         if check_snat_entry_status(MAX_POLLS, POLL_INTERVAL, "Available", vpc_cli, snat_table_id, snat_entry_id):
-            cli_logger.print("Successfully created SNAT Entry: {}.".format(snat_entry_id))
+            cli_logger.verbose("Successfully created SNAT Entry: {}.".format(snat_entry_id))
         else:
             cli_logger.abort("Failed to create SNAT Entry: {}.".format(snat_entry_id))
 
@@ -1436,14 +1446,14 @@ def _delete_snat_entries(config, vpc_cli):
     snat_entry_name = get_workspace_snat_entry_name(workspace_name)
     nat_gateway = get_workspace_nat_gateway(config, vpc_cli)
     if nat_gateway is None:
-        cli_logger.print("Nat gateway does not exist and no need to delete SNAT Entries.")
+        cli_logger.print("NAT gateway does not exist and no need to delete SNAT Entries.")
         return
     snat_table_id = nat_gateway.snat_table_ids.snat_table_id[0]
     cli_logger.print("Deleting SNAT Entries: {}...".format(snat_entry_name))
     for snat_table_entry in vpc_cli.describe_snat_entries(snat_table_id=snat_table_id):
         vpc_cli.delete_snat_entry(snat_table_id, snat_table_entry.snat_entry_id)
         if check_snat_entry_status(MAX_POLLS, POLL_INTERVAL, "", vpc_cli, snat_table_id, snat_table_entry.snat_entry_id):
-            cli_logger.print("Successfully deleted SNAT Entry: {}.".format(snat_table_entry.snat_entry_id))
+            cli_logger.verbose("Successfully deleted SNAT Entry: {}.".format(snat_table_entry.snat_entry_id))
         else:
             cli_logger.abort("Failed to delete SNAT Entry: {}.".format(snat_table_entry.snat_entry_id))
     cli_logger.print("Successfully deleted SNAT Entries: {}.".format(snat_entry_name))
@@ -1453,16 +1463,16 @@ def _delete_nat_gateway_resource(config, vpc_cli):
     """ Delete custom nat_gateway """
     nat_gateway = get_workspace_nat_gateway(config, vpc_cli)
     if nat_gateway is None:
-        cli_logger.print("No Nat Gateway for workspace were found...")
+        cli_logger.print("No NAT gateway for workspace were found...")
         return
     nat_gateway_id = nat_gateway.nat_gateway_id
     nat_gateway_name = nat_gateway.name
-    cli_logger.print("Deleting Nat Gateway: {}...".format(nat_gateway_name))
+    cli_logger.print("Deleting NAT gateway: {}...".format(nat_gateway_name))
     vpc_cli.delete_nat_gateway(nat_gateway_id)
     if check_resource_status(MAX_POLLS_NAT, POLL_INTERVAL, vpc_cli.get_nat_gateway_attribute, "", nat_gateway_id):
-        cli_logger.print("Successfully deleted Nat Gateway: {}.".format(nat_gateway_name))
+        cli_logger.print("Successfully deleted NAT gateway: {}.".format(nat_gateway_name))
     else:
-        cli_logger.abort("Failed to delete Nat Gateway: {}.".format(nat_gateway_name))
+        cli_logger.abort("Failed to delete NAT gateway: {}.".format(nat_gateway_name))
 
 
 def get_workspace_nat_gateway(config, vpc_cli):
@@ -1473,13 +1483,13 @@ def _get_workspace_nat_gateway(config, vpc_cli):
     workspace_name = config["workspace_name"]
     nat_gateway_name = get_workspace_nat_gateway_name(workspace_name)
     vpc_id = get_workspace_vpc_id(config, vpc_cli)
-    cli_logger.verbose("Getting the Nat Gateway for workspace: {}...".format(nat_gateway_name))
+    cli_logger.verbose("Getting the NAT gateway for workspace: {}...".format(nat_gateway_name))
     nat_gateways = vpc_cli.describe_nat_gateways(vpc_id, nat_gateway_name)
     if len(nat_gateways) == 0:
-        cli_logger.verbose("The Nat Gateway for workspace is not found: {}.".format(nat_gateway_name))
+        cli_logger.verbose("The NAT gateway for workspace is not found: {}.".format(nat_gateway_name))
         return None
     else:
-        cli_logger.verbose_error("Successfully get the Nat Gateway: {} for workspace.".format(nat_gateway_name))
+        cli_logger.verbose_error("Successfully get the NAT gateway: {} for workspace.".format(nat_gateway_name))
         return nat_gateways[0]
 
 
@@ -1493,12 +1503,12 @@ def _create_nat_gateway(config, vpc_cli):
     nat_gateway_name = get_workspace_nat_gateway_name(workspace_name)
     nat_switch = get_workspace_nat_vswitches(workspace_name, vpc_id, vpc_cli)[0]
     nat_switch_id = nat_switch.v_switch_id
-    cli_logger.print("Creating nat-gateway: {}...".format(nat_gateway_name))
+    cli_logger.print("Creating NAT gateway: {}...".format(nat_gateway_name))
     nat_gateway_id = vpc_cli.create_nat_gateway(vpc_id, nat_switch_id, nat_gateway_name)
     if check_resource_status(MAX_POLLS_NAT, POLL_INTERVAL, vpc_cli.get_nat_gateway_attribute, "Available", nat_gateway_id):
-        cli_logger.print("Successfully created Nat Gateway: {}.".format(nat_gateway_name))
+        cli_logger.print("Successfully created NAT gateway: {}.".format(nat_gateway_name))
     else:
-        cli_logger.abort("Failed to create Nat Gateway: {}.".format(nat_gateway_name))
+        cli_logger.abort("Failed to create NAT gateway: {}.".format(nat_gateway_name))
     return nat_gateway_id
 
 
@@ -1853,7 +1863,7 @@ def _delete_network_resources(config, workspace_name, vpc_id,
          Do the work - order of operation:
          Delete vpc peer connection
          Delete nat-gateway for instance vswitches
-         Delete vswitches for nat-gateway
+         Delete vswitch for nat-gateway
          Delete vswitches for instances
          Delete security group
          Delete vpc
@@ -1876,14 +1886,14 @@ def _delete_network_resources(config, workspace_name, vpc_id,
 
     # delete nat-gateway
     with cli_logger.group(
-            "Deleting nat vswitches",
+            "Deleting NAT VSwitch",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
         _delete_nat_vswitches(workspace_name, vpc_id, vpc_cli)
 
     # delete public vswitches
     with cli_logger.group(
-            "Deleting instance vswitches",
+            "Deleting VSwitches",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
         _delete_instance_vswitches(workspace_name, vpc_id, vpc_cli)

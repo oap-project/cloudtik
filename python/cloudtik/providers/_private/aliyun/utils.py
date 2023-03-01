@@ -251,7 +251,11 @@ class OssClient:
         list_bucket_request = oss_models.ListBucketsRequest()
         try:
             response = self.client.list_buckets(list_bucket_request)
-            return response.body.buckets.buckets
+            if (response is not None
+                    and response.body is not None
+                    and response.body.buckets is not None):
+                return response.body.buckets.buckets
+            return []
         except Exception as e:
             cli_logger.error("Failed to list buckets. {}", str(e))
             raise e

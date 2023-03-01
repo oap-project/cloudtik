@@ -2126,7 +2126,7 @@ def get_aliyun_managed_cloud_storage_info(config, cloud_provider, info):
     managed_bucket_name = None if bucket is None else bucket.name
 
     if managed_bucket_name is not None:
-        oss_cloud_storage = {ALIYUN_OSS_BUCKET, managed_bucket_name}
+        oss_cloud_storage = {ALIYUN_OSS_BUCKET: managed_bucket_name}
         managed_cloud_storage = {ALIYUN_MANAGED_STORAGE_OSS_BUCKET: managed_bucket_name,
                                  CLOUDTIK_MANAGED_CLOUD_STORAGE_URI: get_aliyun_cloud_storage_uri(oss_cloud_storage)}
         info[CLOUDTIK_MANAGED_CLOUD_STORAGE] = managed_cloud_storage

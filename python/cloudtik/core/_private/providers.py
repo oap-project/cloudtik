@@ -56,7 +56,6 @@ def _import_kubernetes(provider_config):
     return KubernetesNodeProvider
 
 
-# TODO(ChenRui): implement NodeProvider
 def _import_huaweicloud(provider_config):
     from cloudtik.providers._private.huaweicloud.node_provider import \
         HUAWEICLOUDNodeProvider

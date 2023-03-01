@@ -1,12 +1,19 @@
 from typing import Any, Dict, Optional
 
-from cloudtik.core._private.utils import check_workspace_name_format
+from cloudtik.core._private.providers import _get_node_provider
+from cloudtik.core._private.utils import check_workspace_name_format, \
+    get_running_head_node
+from cloudtik.core.tags import CLOUDTIK_GLOBAL_VARIABLE_KEY, \
+    CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX
 from cloudtik.core.workspace_provider import Existence, WorkspaceProvider
 from cloudtik.providers._private.huaweicloud.config import \
-    bootstrap_huaweicloud_workspace, check_huaweicloud_workspace_existence, \
-    create_huaweicloud_workspace, \
+    _get_workspace_head_nodes, bootstrap_huaweicloud_workspace, \
+    check_huaweicloud_workspace_existence, \
+    check_huaweicloud_workspace_integrity, create_huaweicloud_workspace, \
     delete_huaweicloud_workspace, get_huaweicloud_workspace_info, \
-    list_huaweicloud_clusters, update_huaweicloud_workspace_firewalls, check_huaweicloud_workspace_integrity
+    list_huaweicloud_clusters, \
+    update_huaweicloud_workspace_firewalls
+from cloudtik.providers._private.huaweicloud.utils import tags_list_to_dict
 
 HUAWEICLOUD_WORKSPACE_NAME_MAX_LEN = 32
 
@@ -39,12 +46,32 @@ class HUAWEICLOUDWorkspaceProvider(WorkspaceProvider):
 
     def publish_global_variables(self, cluster_config: Dict[str, Any],
                                  global_variables: Dict[str, Any]):
-        # TODO(ChenRui): implement node provider
-        pass
+        # Add prefix to the variables
+        global_variables_prefixed = {}
+        for name in global_variables:
+            prefixed_name = CLOUDTIK_GLOBAL_VARIABLE_KEY.format(name)
+            global_variables_prefixed[prefixed_name] = global_variables[name]
+
+        provider = _get_node_provider(cluster_config['provider'],
+                                      cluster_config['cluster_name'])
+        head_node_id = get_running_head_node(cluster_config, provider)
+        provider.set_node_tags(head_node_id, global_variables_prefixed)
 
     def subscribe_global_variables(self, cluster_config: Dict[str, Any]):
-        # TODO(ChenRui): implement node provider
-        pass
+        global_variables = {}
+        head_nodes = _get_workspace_head_nodes(self.provider_config,
+                                               self.workspace_name)
+        for head in head_nodes:
+            # Huawei Cloud server tags format:
+            # ['key1=value1', 'key2=value2', 'key3=value3']
+            tags_dict = tags_list_to_dict(head.tags)
+            for tag_key, tag_value in tags_dict.items():
+                _prefix = CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX
+                if tag_key.startswith(_prefix):
+                    global_variable_name = tag_key[len(_prefix):]
+                    global_variables[global_variable_name] = tag_value
+
+        return global_variables
 
     def validate_config(self, provider_config: Dict[str, Any]):
         if len(self.workspace_name) > HUAWEICLOUD_WORKSPACE_NAME_MAX_LEN or \

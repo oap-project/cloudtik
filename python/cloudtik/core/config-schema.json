@@ -86,7 +86,7 @@
             "properties": {
                 "type": {
                     "type": "string",
-                    "description": "e.g. aws, azure, gcp,..."
+                    "description": "e.g. aws, azure, gcp, huaweicloud,..."
                 },
                 "region": { 
                     "type": "string",
@@ -170,7 +170,7 @@
                     "properties": {
                         "type": {
                             "type": "string",
-                            "description": "e.g. aws, azure, gcp,..."
+                            "description": "e.g. aws, azure, gcp, huaweicloud,..."
                         },
                         "region": {
                             "type": "string",
@@ -297,6 +297,22 @@
                         "aliyun_security_token": {
                             "type": "string",
                             "description": "The optional session token to use when creating the client."
+                        }
+                    }
+                },
+                "huaweicloud_credentials": {
+                    "type": "object",
+                    "description": "Credentials for authenticating with HUAWEI CLOUD. If not specified, will use environment default.",
+                    "required": [ "huaweicloud_access_key", "huaweicloud_secret_key" ],
+                    "additionalProperties": false,
+                    "properties": {
+                        "huaweicloud_access_key": {
+                            "type": "string",
+                            "description": "The access key to use when creating the client."
+                        },
+                        "huaweicloud_secret_key": {
+                            "type": "string",
+                            "description": "The secret key to use when creating the client."
                         }
                     }
                 },

@@ -1,10 +1,18 @@
 import copy
+import json
 import logging
+import os
 import time
-from typing import Any, Dict
+from functools import partial
+from typing import Any, Dict, Optional
 
 import requests
-from huaweicloudsdkecs.v2 import ListServersDetailsRequest
+from huaweicloudsdkcore.exceptions.exceptions import ServiceResponseException
+from huaweicloudsdkecs.v2 import ListFlavorsRequest, ListServersDetailsRequest, \
+    NovaCreateKeypairOption, \
+    NovaCreateKeypairRequest, \
+    NovaCreateKeypairRequestBody, \
+    NovaShowKeypairRequest
 from huaweicloudsdkeip.v2 import CreatePublicipBandwidthOption, \
     CreatePublicipOption, CreatePublicipRequest, \
     CreatePublicipRequestBody, DeletePublicipRequest, ListPublicipsRequest
@@ -48,15 +56,26 @@ from cloudtik.core._private.cli_logger import cf, cli_logger
 from cloudtik.core._private.utils import check_cidr_conflict, \
     is_managed_cloud_storage, \
     is_peering_firewall_allow_ssh_only, \
-    is_peering_firewall_allow_working_subnet, is_use_peering_vpc, \
-    is_use_working_vpc, is_use_managed_cloud_storage
+    is_peering_firewall_allow_working_subnet, is_use_internal_ip, \
+    is_use_managed_cloud_storage, \
+    is_use_peering_vpc, \
+    is_use_working_vpc, is_worker_role_for_cloud_storage
+from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, \
+    CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD
 from cloudtik.core.workspace_provider import \
     CLOUDTIK_MANAGED_CLOUD_STORAGE, CLOUDTIK_MANAGED_CLOUD_STORAGE_URI, \
     Existence
-from cloudtik.providers._private.huaweicloud.utils import make_ecs_client, \
-    make_eip_client, make_iam_client, make_nat_client, make_obs_client, \
-    make_vpc_client, export_huaweicloud_obs_storage_config, get_huaweicloud_obs_storage_config, \
-    get_huaweicloud_obs_storage_config_for_update, HWC_OBS_BUCKET, _make_obs_client
+from cloudtik.providers._private.huaweicloud.utils import _get_node_info, \
+    _make_ecs_client, _make_obs_client, \
+    _make_vpc_client, export_huaweicloud_obs_storage_config, flat_tags_map, \
+    get_huaweicloud_obs_storage_config, \
+    get_huaweicloud_obs_storage_config_for_update, HWC_OBS_BUCKET, \
+    HWC_SERVER_STATUS_ACTIVE, make_ecs_client, \
+    make_eip_client, \
+    make_iam_client, \
+    make_nat_client, \
+    make_obs_client, make_obs_client_aksk, make_vpc_client, tags_list_to_dict
+from cloudtik.providers._private.utils import StorageTestingError
 
 logger = logging.getLogger(__name__)
 
@@ -76,9 +95,11 @@ HWC_WORKSPACE_EIP_NAME = HWC_RESOURCE_NAME_PREFIX + '-eip'
 HWC_WORKSPACE_OBS_BUCKET_NAME = HWC_RESOURCE_NAME_PREFIX + '-obs-bucket'
 HWC_WORKSPACE_INSTANCE_PROFILE_NAME = HWC_RESOURCE_NAME_PREFIX + '-{}-profile'
 HWC_WORKSPACE_VPC_SUBNETS_COUNT = 2
-HWC_VM_METADATA_URL = 'http://169.254.169.254/latest/metadata/'
+HWC_VM_METADATA_URL = 'http://169.254.169.254/openstack/latest/meta_data.json'
 HWC_MANAGED_CLOUD_STORAGE_OBS_BUCKET = "huaweicloud.managed.cloud.storage." \
                                        "obs.bucket"
+HWC_KEY_PAIR_NAME = 'cloudtik_huaweicloud_keypair_{}'
+HWC_KEY_PATH_TEMPLATE = '~/.ssh/{}.pem'
 
 
 def create_huaweicloud_workspace(config):
@@ -103,7 +124,7 @@ def create_huaweicloud_workspace(config):
                 vpc_client = make_vpc_client(config)
                 use_working_vpc = is_use_working_vpc(config)
                 if use_working_vpc:
-                    vpc = _get_current_vpc(config, vpc_client)
+                    vpc = _get_current_vpc(config)
                     cli_logger.print("Use working workspace VPC: {}...",
                                      vpc.name)
                 else:
@@ -276,15 +297,16 @@ def _check_and_create_cloud_storage_bucket(obs_client, workspace_name):
         cli_logger.abort("Failed to create OBS bucket. {}", str(resp))
 
 
-def _get_managed_obs_bucket(obs_client, workspace_name):
-    bucket_name = HWC_WORKSPACE_OBS_BUCKET_NAME.format(workspace_name)
+def _get_managed_obs_bucket(obs_client, workspace_name=None, bucket_name=None):
+    if not bucket_name:
+        bucket_name = HWC_WORKSPACE_OBS_BUCKET_NAME.format(workspace_name)
     resp = obs_client.headBucket(bucket_name)
     if resp.status < 300:
         return bucket_name
     elif resp.status == 404:
         return None
     else:
-        raise Exception("HUAWEICLOUD OBS service error {}".format(resp))
+        raise Exception("HUAWEI CLOUD OBS service error {}".format(resp))
 
 
 def _create_and_accept_vpc_peering(config, _workspace_vpc, vpc_client,
@@ -294,7 +316,7 @@ def _create_and_accept_vpc_peering(config, _workspace_vpc, vpc_client,
     with cli_logger.group("Creating VPC peering connection",
                           _numbered=("()", current_step, total_steps)):
         current_step += 1
-        _current_vpc = _get_current_vpc(config, vpc_client)
+        _current_vpc = _get_current_vpc(config)
         _vpc_peering_name = HWC_WORKSPACE_VPC_PEERING_NAME.format(
             workspace_name)
         vpc_peering = vpc_client.create_vpc_peering(
@@ -406,7 +428,7 @@ def _update_security_group_rules(config, sg, vpc, vpc_client):
     if is_use_peering_vpc(config) and \
             is_peering_firewall_allow_working_subnet(config):
         allow_ssh_only = is_peering_firewall_allow_ssh_only(config)
-        _current_vpc = _get_current_vpc(config, vpc_client)
+        _current_vpc = _get_current_vpc(config)
         _vpc_cidr = _current_vpc.cidr
         _port_min = 22 if allow_ssh_only else 1
         _port_max = 22 if allow_ssh_only else 65535
@@ -571,11 +593,9 @@ def _check_and_create_subnets(vpc, vpc_client, workspace_name):
     return subnets
 
 
-def _get_workspace_vpc(config, vpc_client=None):
-    vpc_client = vpc_client or make_vpc_client(config)
+def get_workspace_vpc(vpc_client, workspace_name):
     _vpcs = vpc_client.list_vpcs(ListVpcsRequest()).vpcs
-    _workspace_vpc_name = HWC_WORKSPACE_VPC_NAME.format(
-        config['workspace_name'])
+    _workspace_vpc_name = HWC_WORKSPACE_VPC_NAME.format(workspace_name)
     for _vpc in _vpcs:
         if _workspace_vpc_name == _vpc.name:
             workspace_vpc = _vpc
@@ -585,22 +605,20 @@ def _get_workspace_vpc(config, vpc_client=None):
     return workspace_vpc
 
 
-def _get_current_vpc(config, vpc_client=None):
-    vm_loca_ip_url = HWC_VM_METADATA_URL + 'local-ipv4'
-    response = requests.get(vm_loca_ip_url)
-    vm_local_ip = response.text
-    ecs_client = make_ecs_client(config)
-    response = ecs_client.list_servers_details(
-        ListServersDetailsRequest(ip=vm_local_ip))
-    if response.servers:
-        vpc_id = response.servers[0].metadata['vpc_id']
-        vpc_client = vpc_client or make_vpc_client(config)
+def _get_current_vpc(config):
+    try:
+        response = requests.get(HWC_VM_METADATA_URL)
+        metadata_json = json.loads(response.text)
+        vpc_id = metadata_json["meta"]["vpc_id"]
+        region_id = metadata_json["region_id"]
+        # current region maybe different with workspace region when VPC peering
+        vpc_client = make_vpc_client(config, region=region_id)
         vpc = vpc_client.show_vpc(ShowVpcRequest(vpc_id=vpc_id)).vpc
-    else:
+        return vpc
+    except Exception as e:
         raise RuntimeError("Failed to get the VPC for the current machine. "
                            "Please make sure your current machine is"
-                           "a HUAWEICLOUD virtual machine.")
-    return vpc
+                           "a HUAWEICLOUD virtual machine. {}".format(e))
 
 
 def delete_huaweicloud_workspace(config, delete_managed_storage):
@@ -633,8 +651,7 @@ def delete_huaweicloud_workspace(config, delete_managed_storage):
             with cli_logger.group("Deleting Security group",
                                   _numbered=("[]", current_step, total_steps)):
                 current_step += 1
-                _check_and_delete_security_group(config, vpc_client,
-                                                 workspace_name)
+                _check_and_delete_security_group(vpc_client, workspace_name)
 
             # Step3: delete NAT and SNAT rules
             with cli_logger.group("Deleting NAT, SNAT rules and EIP",
@@ -646,7 +663,7 @@ def delete_huaweicloud_workspace(config, delete_managed_storage):
             with cli_logger.group("Deleting private and public subnets",
                                   _numbered=("[]", current_step, total_steps)):
                 current_step += 1
-                _workspace_vpc = _check_and_delete_subnets(vpc_client, config,
+                _workspace_vpc = _check_and_delete_subnets(vpc_client,
                                                            workspace_name)
             # Step5: delete VPC
             with cli_logger.group("Deleting VPC",
@@ -715,13 +732,13 @@ def _check_and_delete_vpc(config, use_working_vpc, vpc_client, _workspace_vpc):
         else:
             cli_logger.print("Can't find workspace VPC")
     else:
-        _current_vpc = _get_current_vpc(config, vpc_client)
+        _current_vpc = _get_current_vpc(config)
         cli_logger.print("Skip to delete working VPC {}".format(
             _current_vpc.name))
 
 
-def _check_and_delete_subnets(vpc_client, config, workspace_name):
-    _workspace_vpc = _get_workspace_vpc(config, vpc_client)
+def _check_and_delete_subnets(vpc_client, workspace_name):
+    _workspace_vpc = get_workspace_vpc(vpc_client, workspace_name)
     if _workspace_vpc:
         _delete_subnets_until_empty(vpc_client, _workspace_vpc, workspace_name)
     else:
@@ -738,11 +755,14 @@ def _delete_subnets_until_empty(vpc_client, workspace_vpc, workspace_name):
             break
         # Delete target subnets
         for _subnet in subnets:
-            if _subnet.status == 'ACTIVE' and \
-                    _subnet.vpc_id == workspace_vpc.id:
+            try:
                 vpc_client.delete_subnet(
                     DeleteSubnetRequest(vpc_id=workspace_vpc.id,
                                         subnet_id=_subnet.id))
+            except ServiceResponseException:
+                # if delete a subnet in deleting workflow,
+                # maybe raise exception, try to delete in next time.
+                break
         time.sleep(1)
 
 
@@ -767,8 +787,8 @@ def _get_workspace_vpc_subnets(vpc_client, _workspace_vpc, workspace_name,
     return target_subnets
 
 
-def _check_and_delete_security_group(config, vpc_client, workspace_name):
-    workspace_vpc = _get_workspace_vpc(config, vpc_client)
+def _check_and_delete_security_group(vpc_client, workspace_name):
+    workspace_vpc = get_workspace_vpc(vpc_client, workspace_name)
     if workspace_vpc:
         target_sgs = _get_workspace_security_group(vpc_client, workspace_name)
         for _sg in target_sgs:
@@ -815,8 +835,8 @@ def _check_and_delete_vpc_peering_connection(config, vpc_client,
                 _peering_conn.name))
 
     # Delete route table rule from current VPC to workspace VPC
-    _current_vpc = _get_current_vpc(config, vpc_client)
-    _workspace_vpc = _get_workspace_vpc(config, vpc_client)
+    _current_vpc = _get_current_vpc(config)
+    _workspace_vpc = get_workspace_vpc(vpc_client, workspace_name)
     if _workspace_vpc and _current_vpc:
         # Delete route table from current vpc to workspace vpc
         _current_vpc_rts = vpc_client.list_route_tables(
@@ -902,7 +922,7 @@ def _get_workspace_nat(nat_client, workspace_name=None, nat_id=None):
 def update_huaweicloud_workspace_firewalls(config):
     vpc_client = make_vpc_client(config)
     workspace_name = config["workspace_name"]
-    workspace_vpc = _get_workspace_vpc(config, vpc_client)
+    workspace_vpc = get_workspace_vpc(vpc_client, workspace_name)
     if not workspace_vpc:
         cli_logger.print("Can't find workspace VPC")
         return
@@ -962,9 +982,9 @@ def check_huaweicloud_workspace_existence(config):
 
     vpc_client = make_vpc_client(config)
     if use_working_vpc:
-        workspace_vpc = _get_current_vpc(config, vpc_client)
+        workspace_vpc = _get_current_vpc(config)
     else:
-        workspace_vpc = _get_workspace_vpc(config, vpc_client)
+        workspace_vpc = get_workspace_vpc(vpc_client, workspace_name)
     # workspace VPC check
     if workspace_vpc:
         existing_resources += 1
@@ -1042,8 +1062,44 @@ def _get_instance_profile(config, workspace_name, for_head):
 
 
 def list_huaweicloud_clusters(config):
-    # TODO(ChenRui): implement node provider
+    head_nodes = get_workspace_head_nodes(config)
+    clusters = {}
+    for head_node in head_nodes:
+        cluster_name = get_cluster_name_from_head(head_node)
+        if cluster_name:
+            clusters[cluster_name] = _get_node_info(head_node)
+    return clusters
+
+
+def get_cluster_name_from_head(head_node) -> Optional[str]:
+    tags = tags_list_to_dict(head_node.tags)
+    for tag_k, tag_v in tags.items():
+        if tag_k == CLOUDTIK_TAG_CLUSTER_NAME:
+            return tag_v
     return None
+
+
+def get_workspace_head_nodes(config):
+    return _get_workspace_head_nodes(config['provider'],
+                                     config['workspace_name'])
+
+
+def _get_workspace_head_nodes(provider_config, workspace_name):
+    vpc_client = _make_vpc_client(provider_config)
+    workspace_vpc = get_workspace_vpc(vpc_client, workspace_name)
+    if not workspace_vpc:
+        raise RuntimeError(
+            "Failed to get the VPC. The workspace {} doesn't exist or is in "
+            "the wrong state.".format(workspace_name))
+
+    ecs_client = _make_ecs_client(provider_config)
+    _tags = flat_tags_map({CLOUDTIK_TAG_NODE_KIND: NODE_KIND_HEAD, })
+    head_nodes = ecs_client.list_servers_details(
+        ListServersDetailsRequest(status=HWC_SERVER_STATUS_ACTIVE,
+                                  tags=_tags)).servers
+
+    return [head_node for head_node in head_nodes if
+            head_node.metadata.get('vpc_id') == workspace_vpc.id]
 
 
 def bootstrap_huaweicloud_workspace(config):
@@ -1079,7 +1135,9 @@ def _configure_allowed_ssh_sources(config):
     ip_permissions.append(ip_permission)
 
 
-def with_huaweicloud_environment_variables(provider_config, node_type_config: Dict[str, Any], node_id: str):
+def with_huaweicloud_environment_variables(provider_config,
+                                           node_type_config: Dict[str, Any],
+                                           node_id: str):
     config_dict = {}
     export_huaweicloud_obs_storage_config(provider_config, config_dict)
 
@@ -1097,8 +1155,8 @@ def post_prepare_huaweicloud(config: Dict[str, Any]) -> Dict[str, Any]:
         config = fill_available_node_types_resources(config)
     except Exception as exc:
         cli_logger.warning(
-            "Failed to detect node resources. Make sure you have properly configured the Alibaba Cloud credentials: {}.",
-            str(exc))
+            "Failed to detect node resources. Make sure you have properly "
+            "configured the Huawei Cloud credentials: {}.", str(exc))
         raise
     return config
 
@@ -1110,73 +1168,287 @@ def fill_available_node_types_resources(
         return cluster_config
     cluster_config = copy.deepcopy(cluster_config)
 
-    # TODO: fill in the CPU and memory resources in config based on the instance type of each node type
+    # Get instance flavor information from cloud provider
+    ecs_client = _make_ecs_client(cluster_config['provider'])
+    flavors = ecs_client.list_flavors(ListFlavorsRequest()).flavors
+    flavor_dict = {flavor.id: flavor for flavor in flavors}
+    # resource format of node_type:
+    # {'CPU': x, 'memory': y, 'GPU': z, 'Ascend': t, 'FPGA': u,
+    #  'accelerator_type:{acc_name}': w}
+    available_node_types = cluster_config['available_node_types']
+    for key, node_type in available_node_types.items():
+        detected_resources = {}
+        flavor_ref = node_type['node_config']['flavor_ref']
+        if flavor_ref in flavor_dict:
+            provider_flavor = flavor_dict[flavor_ref]
+            cpus = provider_flavor.vcpus
+            detected_resources['CPU'] = int(cpus)
+
+            memory_total = provider_flavor.ram
+            memory_total_in_bytes = int(memory_total) * 1024 * 1024
+            detected_resources['memory'] = memory_total_in_bytes
+
+            # Update GPU, Ascend, FPGA and other accelerator if exist
+            os_extra_specs = provider_flavor.os_extra_specs
+            if os_extra_specs and os_extra_specs.resource_type:
+                _name = os_extra_specs.resource_type
+                detected_resources[f'accelerator_type:{_name}'] = 1
+                if os_extra_specs.ecsperformancetype == 'gpu':
+                    detected_resources['GPU'] = 1
+                if os_extra_specs.ecsperformancetype == 'ascend':
+                    detected_resources['Ascend'] = 1
+                if os_extra_specs.ecsperformancetype == 'fpga':
+                    detected_resources['FPGA'] = 1
+
+            config_resources = node_type.get('resources', {})
+            # Override by config resources
+            detected_resources.update(config_resources)
+            # Merge back when find new resources
+            if detected_resources != config_resources:
+                node_type['resources'] = detected_resources
+                logger.debug('Updating the resources of {} to {}.'.format(
+                    key, detected_resources))
+        else:
+            region = cluster_config['provider']['region']
+            raise ValueError('Server flavor {} is not available in Huawei '
+                             'Cloud {}'.format(flavor_ref, region))
+
     return cluster_config
 
 
 def bootstrap_huaweicloud(config):
-    workspace_name = config.get("workspace_name", "")
-    if workspace_name == "":
-        raise RuntimeError("Workspace name is not specified in cluster configuration.")
-
-    config = bootstrap_huaweicloud_from_workspace(config)
-    return config
+    return bootstrap_huaweicloud_from_workspace(config)
 
 
 def verify_obs_storage(provider_config: Dict[str, Any]):
     obs_storage = get_huaweicloud_obs_storage_config(provider_config)
     if obs_storage is None:
         return
-
-    # TODO: verify the configuration of obs to make sure the credential and info are correct
+    obs_client = make_obs_client_aksk(obs_storage.get('obs.access.key'),
+                                      obs_storage.get('obs.secret.key'),
+                                      region=provider_config.get('region'))
+    bucket_name = obs_storage.get(HWC_OBS_BUCKET)
+    try:
+        _get_managed_obs_bucket(obs_client, bucket_name=bucket_name)
+    except Exception as e:
+        raise StorageTestingError("Error happens when verifying OBS storage "
+                                  "configurations. If you want to go without "
+                                  "passing the verification, set "
+                                  "'verify_cloud_storage' to False under "
+                                  "provider config. Error: {}.".format(
+            e.message)) from None
 
 
 def bootstrap_huaweicloud_from_workspace(config):
+    workspace_name = config.get("workspace_name", "")
+    if not workspace_name:
+        raise RuntimeError(
+            "Workspace name is not specified in cluster configuration.")
     if not check_huaweicloud_workspace_integrity(config):
-        workspace_name = config["workspace_name"]
-        cli_logger.abort("Huawei Cloud workspace {} doesn't exist or is in wrong state.", workspace_name)
+        cli_logger.abort(
+            "HUAWEI CLOUD workspace {} doesn't exist or is in wrong state.",
+            workspace_name)
 
     # create a copy of the input config to modify
     config = copy.deepcopy(config)
 
-    # Used internally to store head IAM role.
+    # Used internally to store head instance profile.
     config["head_node"] = {}
 
-    # TODO: implement the boostrap steps
-    # If a LaunchTemplate is provided, extract the necessary fields for the
-    # config stages below.
-    # config = _configure_from_launch_template(config)
+    # The head node needs to have an instance profile that allows it to create
+    # further ECS instances.
+    config = _configure_instance_profile_from_workspace(config)
 
-    # The head node needs to have an RAM role that allows it to create further
-    # ECS instances.
-    # config = _configure_ram_role_from_workspace(config)
-
-    # Set obs.bucket if use_managed_cloud_storage
+    # Set obs.bucket if use_managed_cloud_storage=True
     config = _configure_cloud_storage_from_workspace(config)
 
     # Configure SSH access, using an existing key pair if possible.
-    # config = _configure_key_pair(config)
+    config = _configure_key_pair(config)
 
     # Pick a reasonable subnet if not specified by the user.
-    # config = _configure_subnet_from_workspace(config)
+    config = _configure_subnet_from_workspace(config)
 
     # Cluster workers should be in a security group that permits traffic within
     # the group, and also SSH access from outside.
-    # config = _configure_security_group_from_workspace(config)
+    config = _configure_security_group_from_workspace(config)
 
-    # Provide a helpful message for missing AMI.
-    # config = _configure_image(config)
+    config = _configure_prefer_spot_node(config)
 
-    # Set the spot preference based on user option
-    # config = _configure_prefer_spot_node(config)
     return config
+
+
+def _configure_prefer_spot_node(config):
+    prefer_spot_node = config["provider"].get("prefer_spot_node")
+
+    # if no such key, we consider user don't want to override
+    if not prefer_spot_node:
+        return config
+
+    # User override, set or remove spot settings for worker node types
+    for key, node_type in config["available_node_types"].items():
+        # Skip head node
+        if key != config["head_node_type"]:
+            node_config = node_type["node_config"]
+            node_config.setdefault("extendparam", {})
+            if prefer_spot_node:
+                # Add spot instruction
+                node_config["extendparam"]["market_type"] = "spot"
+            else:
+                # Remove spot instruction
+                node_config["extendparam"].pop("market_type")
+
+    return config
+
+
+def _configure_security_group_from_workspace(config):
+    workspace_name = config["workspace_name"]
+    vpc_client = make_vpc_client(config)
+    workspace_vpc = get_workspace_vpc(vpc_client, workspace_name)
+
+    if not workspace_vpc:
+        error_msg = "Can't find workspace VPC in {}".format(workspace_name)
+        cli_logger.abort(msg=error_msg, exc=RuntimeError(error_msg))
+
+    sgs = _get_workspace_security_group(vpc_client, workspace_name)
+
+    for _, node_type in config["available_node_types"].items():
+        node_config = node_type["node_config"]
+        node_config["security_groups"] = [{"id": sg.id} for sg in sgs]
+
+    return config
+
+
+def _configure_subnet_from_workspace(config):
+    workspace_name = config["workspace_name"]
+    use_internal_ips = is_use_internal_ip(config)
+    vpc_client = make_vpc_client(config)
+    workspace_vpc = get_workspace_vpc(vpc_client, workspace_name)
+
+    if not workspace_vpc:
+        error_msg = "Can't find workspace VPC in {}".format(workspace_name)
+        cli_logger.abort(msg=error_msg, exc=RuntimeError(error_msg))
+
+    private_subnets = _get_workspace_vpc_subnets(vpc_client, workspace_vpc,
+                                                 workspace_name,
+                                                 category='private')
+    public_subnets = _get_workspace_vpc_subnets(vpc_client, workspace_vpc,
+                                                workspace_name,
+                                                category='public')
+
+    public_subnet_ids = [{"subnet_id": public_subnet.id} for public_subnet
+                         in public_subnets]
+    private_subnet_ids = [{"subnet_id": private_subnet.id} for private_subnet
+                          in private_subnets]
+
+    for key, node_type in config["available_node_types"].items():
+        node_config = node_type["node_config"]
+        node_config["vpcid"] = workspace_vpc.id
+        # head node
+        if key == config["head_node_type"]:
+            if use_internal_ips:
+                node_config["nics"] = private_subnet_ids
+            else:
+                node_config["nics"] = public_subnet_ids
+        # worker nodes
+        else:
+            node_config["nics"] = private_subnet_ids
+    return config
+
+
+def _configure_key_pair(config):
+    # Two ways to configure cluster key in HUAWEI CLOUD provider.
+    # 1. Explicit cluster private key: specify ssh_private_key in config, and
+    # you also need to explicitly specify HUAWEI CLOUD key pair name of the
+    # private key through 'key_name' in the 'node_config' of each node types
+    # defined in 'available_node_types'
+    # 2. Implicit cluster private key: don't specify ssh_private_key in config,
+    # provider will create new key pair with name pattern of
+    # cloudtik_huaweicloud_{index} and download private key file of the
+    # key pair to ~/.ssh/cloudtik_huaweicloud_{index}.pem. If you create
+    # multiple clusters on the same machine, CloudTik will use the same private
+    # key, if you don't want this, you should specify explicitly key pair
+    # as following.
+    node_types = config["available_node_types"]
+    if 'ssh_private_key' in config['auth']:
+        # Explicit cluster private key
+        # Use ssh_private_key and key_name in config
+        for node_type_key, value in node_types.items():
+            if 'key_name' not in value['node_config']:
+                error_msg = 'No key_name in node_config of ' \
+                            'available_node_types {}'.format(node_type_key)
+                cli_logger.abort(msg=error_msg, exc=RuntimeError(error_msg))
+        return config
+    else:
+        # Try a few times to get or create a good key pair.
+        key_name, key_path = _get_available_key_pair(config)
+        if key_name and key_path:
+            config["auth"]["ssh_private_key"] = key_path
+            for node_type in node_types.values():
+                node_config = node_type["node_config"]
+                node_config["key_name"] = key_name
+
+            return config
+        else:
+            error_msg = "Can't find available key pair in cloud and local. " \
+                        "Consider deleting some unused keys pairs " \
+                        "from your account."
+            cli_logger.abort(msg=error_msg, exc=RuntimeError(error_msg))
+
+
+def _get_available_key_pair(config):
+    key_name = key_path = None
+    ecs_client = make_ecs_client(config)
+    MAX_NUM_KEYS = 30
+    for i in range(MAX_NUM_KEYS):
+        key_name = HWC_KEY_PAIR_NAME.format(i)
+        key_path = os.path.expanduser(
+            HWC_KEY_PATH_TEMPLATE.format(key_name))
+        if os.path.exists(key_path) and _check_key_pair_exist(ecs_client,
+                                                              key_name):
+            cli_logger.print(
+                "find key pair {} in cloud and local {}".format(key_name,
+                                                                key_path))
+            break
+        elif not os.path.exists(key_path) and not _check_key_pair_exist(
+                ecs_client, key_name):
+            # create new key pair
+            target_key = ecs_client.nova_create_keypair(
+                NovaCreateKeypairRequest(
+                    body=NovaCreateKeypairRequestBody(
+                        NovaCreateKeypairOption(name=key_name)))).keypair
+            # Implicit cluster private key
+            # Find available key pair and create new key pair
+            os.makedirs(os.path.expanduser("~/.ssh"), exist_ok=True)
+            # We need to make sure to _create_ the file with the right
+            # permissions. In order to do that we need to change the
+            # default os.open behavior to include the mode we want.
+            with open(key_path, "w",
+                      opener=partial(os.open, mode=0o600)) as f:
+                f.write(target_key.private_key)
+            break
+        else:
+            # find next key
+            key_name = key_path = None
+            continue
+    return key_name, key_path
+
+
+def _check_key_pair_exist(ecs_client, key_name):
+    # check key pair in HUAWEI CLOUD
+    try:
+        target_key = ecs_client.nova_show_keypair(
+            NovaShowKeypairRequest(keypair_name=key_name)).keypair
+    except ServiceResponseException:
+        # 404 not found
+        target_key = None
+    return target_key
 
 
 def _configure_cloud_storage_from_workspace(config):
     use_managed_cloud_storage = is_use_managed_cloud_storage(config)
     if use_managed_cloud_storage:
-        _configure_managed_cloud_storage_from_workspace(config, config["provider"])
-
+        _configure_managed_cloud_storage_from_workspace(config,
+                                                        config["provider"])
     return config
 
 
@@ -1185,8 +1457,39 @@ def _configure_managed_cloud_storage_from_workspace(config, cloud_provider):
     obs_client = _make_obs_client(cloud_provider)
     obs_bucket_name = _get_managed_obs_bucket(obs_client, workspace_name)
     if obs_bucket_name is None:
-        cli_logger.abort("No managed OBS bucket was found. If you want to use managed OBS bucket, "
-                         "you should set managed_cloud_storage equal to True when you creating workspace.")
+        cli_logger.abort(
+            "No managed OBS bucket was found. If you want to use managed OBS "
+            "bucket, you should set managed_cloud_storage equal to True when "
+            "you creating workspace.")
 
-    cloud_storage = get_huaweicloud_obs_storage_config_for_update(config["provider"])
+    cloud_storage = get_huaweicloud_obs_storage_config_for_update(
+        config["provider"])
     cloud_storage[HWC_OBS_BUCKET] = obs_bucket_name
+
+
+def _configure_instance_profile_from_workspace(config):
+    worker_for_cloud_storage = is_worker_role_for_cloud_storage(config)
+    workspace_name = config["workspace_name"]
+    head_profile = _get_instance_profile(config,
+                                         workspace_name=workspace_name,
+                                         for_head=True)
+    if worker_for_cloud_storage:
+        worker_profile = _get_instance_profile(config,
+                                               workspace_name=workspace_name,
+                                               for_head=False)
+
+    if not head_profile:
+        raise RuntimeError("Workspace head instance profile not found!")
+    if worker_for_cloud_storage and not worker_profile:
+        raise RuntimeError("Workspace worker instance profile not found!")
+
+    for key, node_type in config["available_node_types"].items():
+        node_config = node_type["node_config"]
+        node_config.setdefault("metadata", {})
+        if key == config["head_node_type"]:
+            node_config["metadata"]["agency_name"] = head_profile.name
+            config["head_node"]["agency_name"] = head_profile.name
+        elif worker_for_cloud_storage:
+            node_config["metadata"]["agency_name"] = worker_profile.name
+
+    return config

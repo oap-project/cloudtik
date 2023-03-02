@@ -1,6 +1,7 @@
 import logging
 from functools import lru_cache
 from typing import Any, Dict, List
+import os
 
 from huaweicloudsdkcore.auth.credentials import BasicCredentials, \
     GlobalCredentials
@@ -80,7 +81,7 @@ def _client_cache(region: str = None, ak: str = None, sk: str = None) -> Dict[
         .build()
     client_map['iam'] = iam_client
 
-    _ssl_verify = not env_bool('HWC_IGNORE_SSL_VERIFICATION', False)
+    _ssl_verify = os.path.join(os.path.dirname(__file__), "cacert.pem")
     if ak and sk:
         obs_client = ObsClient(access_key_id=ak, secret_access_key=sk,
                                server=OBS_SERVICES_URL, ssl_verify=_ssl_verify,

@@ -45,19 +45,24 @@ function prepare_trainint_data() {
     export SEQ_LEN=128
     ./parallel_create_hdf5.sh
     python3 ./chop_hdf5_files.py
+    mv 2048_shards_uncompressed_128 $BERT_DATA/
 
     # For phase2 the seq_len=512:
     export SEQ_LEN=512
     ./parallel_create_hdf5.sh
     python3 ./chop_hdf5_files.py
-
+    mv 2048_shards_uncompressed_512 $BERT_DATA/
 }
 
 function prepare_model() {
     cd $BERT_INPUT_PREPROCESSING
-    python convert_tf_checkpoint.py --tf_checkpoint $BERT_MODEL/model.ckpt-28252 --bert_config_path $BERT_MODEL/bert_config.json --output_checkpoint $BERT_MODEL/model.ckpt-28252.pt
+    wget https://raw.githubusercontent.com/mlcommons/training_results_v2.1/main/Intel/benchmarks/bert/implementations/pytorch-cpu/convert_checkpoint_tf2torch.py
+    wget https://raw.githubusercontent.com/mlcommons/training_results_v2.1/main/Intel/benchmarks/bert/implementations/pytorch-cpu/modeling_bert_patched.py
+    python convert_checkpoint_tf2torch.py --tf_checkpoint $BERT_MODEL/model.ckpt-28252 --bert_config_path $BERT_MODEL/bert_config.json --output_checkpoint $BERT_MODEL/model.ckpt-28252.pt
 
 }
 
 download_bert_models
 prepare_model
+download_bert_data
+prepare_trainint_data

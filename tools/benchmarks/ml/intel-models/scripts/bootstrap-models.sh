@@ -81,4 +81,5 @@ prepare
 install_tools
 install_libaries
 install_models
+install_models_scripts
 configure_models

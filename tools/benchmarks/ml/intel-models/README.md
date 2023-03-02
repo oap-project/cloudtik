@@ -34,7 +34,7 @@ for avoiding terminal disconnection in the middle. And you don't know its comple
 ## 2. Prepare data and run Models benchmark for a specific workload
 CloudTik Models benchmark support the following specific Models cases:
 - Bert ([README](./bert/README.md))
-- ResNet ([README](./resnet/README.md))
+- ResNet50 ([README](./resnet50/README.md))
 - DLRM ([README](./dlrm/README.md))
 
 Refer to the corresponding README for detail instructions as to

@@ -20,5 +20,10 @@ export BERT_MODEL_CONFIG=$BERT_MODEL/bert_config.json
 
 # Run the phase 1 quickstart script for fp32 (or bf16)
 cd ${MODEL_DIR}/quickstart/language_modeling/pytorch/bert_large/training/cpu
+
+# Remove dense_seq_output option
+line_number=`grep -n "dense_seq_output" run_bert_pretrain_phase1.sh | cut -d: -f1`
+sed -i -e $line_number"d" run_bert_pretrain_phase1.sh
+
 bash run_bert_pretrain_phase1.sh bf16
 

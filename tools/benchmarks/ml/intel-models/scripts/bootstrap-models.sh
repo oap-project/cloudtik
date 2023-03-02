@@ -50,6 +50,16 @@ function install_models() {
   echo "export MODEL_DIR=${MODELS_HOME}" >> ~/.bashrc
 }
 
+function install_tools() {
+    #Installl cmake, GCC 9.0
+    sudo apt-get install numactl -y
+}
+
+function install_libaries() {
+    pip -qq install gdown
+    pip -qq install intel-extension-for-pytorch==1.12.0
+}
+
 
 function install_models_scripts() {
   mkdir -p $MODELS_TMP
@@ -57,8 +67,8 @@ function install_models_scripts() {
   rm -rf $MODELS_TMP/*
   git clone https://github.com/oap-project/cloudtik.git
   rm -rf MODELS_SCRIPTS_HOME/*
-  mkdir -p MODELS_SCRIPTS_HOME
-  cp -r cloudtik/tools/benchmarks/ml/intel-models/* MODELS_SCRIPTS_HOME/
+  mkdir -p $MODELS_SCRIPTS_HOME
+  cp -r cloudtik/tools/benchmarks/ml/intel-models/* $MODELS_SCRIPTS_HOME/
   rm -rf $MODELS_TMP/cloudtik
 }
 
@@ -68,5 +78,7 @@ function configure_models() {
 }
 
 prepare
+install_tools
+install_libaries
 install_models
 configure_models

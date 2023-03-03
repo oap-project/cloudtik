@@ -5,9 +5,9 @@ eval set -- "${args}"
 
 USER_HOME=/home/$(whoami)
 BENCHMARK_TOOL_HOME=$USER_HOME/runtime/benchmark-tools
-MODELS_HOME=$BENCHMARK_TOOL_HOME/models
-MODELS_SCRIPTS_HOME=$BENCHMARK_TOOL_HOME/models_scripts
-MODELS_TMP=$USER_HOME/models/tmp
+MODELS_HOME=$BENCHMARK_TOOL_HOME/intelai_models
+MODELS_SCRIPTS_HOME=$BENCHMARK_TOOL_HOME/intelai_models_scripts
+MODELS_TMP=$USER_HOME/intelai_models/tmp
 
 while true
 do
@@ -43,7 +43,7 @@ function prepare() {
 }
 
 
-function install_models() {
+function install_intelai_models() {
   cd $BENCHMARK_TOOL_HOME
   rm -rf models
   git clone https://github.com/IntelAI/models.git
@@ -51,28 +51,27 @@ function install_models() {
 }
 
 function install_tools() {
-    #Installl cmake, GCC 9.0
     sudo apt-get install numactl -y
 }
 
 function install_libaries() {
     pip -qq install gdown
-    pip -qq install intel-extension-for-pytorch==1.12.0
+    pip -qq install intel-extension-for-pytorch==1.13.0
 }
 
 
-function install_models_scripts() {
+function install_intelai_models_scripts() {
   mkdir -p $MODELS_TMP
   cd $MODELS_TMP
   rm -rf $MODELS_TMP/*
   git clone https://github.com/oap-project/cloudtik.git
   rm -rf MODELS_SCRIPTS_HOME/*
   mkdir -p $MODELS_SCRIPTS_HOME
-  cp -r cloudtik/tools/benchmarks/ml/intel-models/* $MODELS_SCRIPTS_HOME/
+  cp -r cloudtik/tools/benchmarks/ml/intelai-models/* $MODELS_SCRIPTS_HOME/
   rm -rf $MODELS_TMP/cloudtik
 }
 
-function configure_models() {
+function configure_intelai_models() {
     # Nothing to do now
     :
 }
@@ -80,6 +79,6 @@ function configure_models() {
 prepare
 install_tools
 install_libaries
-install_models
-install_models_scripts
-configure_models
+install_intelai_models
+install_intelai_models_scripts
+configure_intelai_models

@@ -282,18 +282,18 @@ class AliyunNodeProvider(NodeProvider):
                     if attempt == max_tries:
                         cli_logger.abort("Failed to launch instances. Max attempts exceeded.", str(e))
                     if e.code == "InvalidDiskCategory.NotSupported":
-                        cli_logger.warning("Create instances failed, the specified disk category"
-                                           " for instances is not supported. Retrying another region...")
+                        cli_logger.warning("Create instances attempt failed: the specified disk category"
+                                           " is not supported. Retrying...")
                     elif e.code =="InvalidResourceType.NotSupported":
-                        cli_logger.warning("Create instances failed.{}. Retrying another region...", e.message)
+                        cli_logger.warning("Create instances attempt failed: {}. Retrying...", e.message)
                     else:
-                        cli_logger.warning("Create instances failed. Retrying another region...")
+                        cli_logger.warning("Create instances attempt failed. Retrying...", str(e))
                     vswitch_idx += 1
                 except Exception as e:
                     if attempt == max_tries:
                         cli_logger.abort("Failed to launch instances. Max attempts exceeded.", str(e))
                     else:
-                        cli_logger.warning("Create instances failed, Retrying another region...")
+                        cli_logger.warning("Create instances attempt failed: {}. Retrying...", str(e))
                     # Launch failure may be due to instance type availability in
                     # the given AZ
                     vswitch_idx += 1

@@ -265,18 +265,24 @@ class AliyunNodeProvider(NodeProvider):
                         tags=tags_for_creation,
                         count=count
                     )
-                    instances = self.ecs.describe_instances(instance_ids=instance_id_sets)
-                    with cli_logger.group(
-                            "Launched {} nodes", count, _tags=cli_logger_tags):
-                        for instance in instances:
-                            created_nodes_dict[instance.instance_id] = instance
-                            cli_logger.print(
-                                "Launched instance {}",
-                                instance.instance_id,
-                                _tags=dict(
-                                    type=instance.instance_type,
-                                    status=instance.status))
-                        break
+                    # Make sure the status of all instances running before return all created nodes info.
+                    while True:
+                        instances = self.ecs.describe_instances(instance_ids=instance_id_sets, status=RUNNING)
+                        if instances and len(instances) == len(instance_id_sets):
+                            with cli_logger.group(
+                                    "Launched {} nodes", count, _tags=cli_logger_tags):
+                                for instance in instances:
+                                    created_nodes_dict[instance.instance_id] = instance
+                                    cli_logger.print(
+                                        "Launched instance {}",
+                                        instance.instance_id,
+                                        _tags=dict(
+                                            type=instance.instance_type,
+                                            status=instance.status))
+                            break
+                        cli_logger.error("Waiting for all the status of created instances running.")
+                        time.sleep(STARTING_NODE_DELAY)
+                    break
                 except TeaException as e:
                     if attempt == max_tries:
                         cli_logger.abort("Failed to launch instances. Max attempts exceeded.", str(e))
@@ -299,15 +305,6 @@ class AliyunNodeProvider(NodeProvider):
 
         all_created_nodes = reused_nodes_dict
         all_created_nodes.update(created_nodes_dict)
-
-        # Make sure the status of all instances running before return all created nodes info.
-        while True:
-            instances = self.ecs.describe_instances(instance_ids=all_created_nodes.keys(), status=RUNNING)
-            if instances and len(instances) == len(all_created_nodes):
-                break
-            cli_logger.error("Waiting for all the status of instances is running.")
-            time.sleep(STARTING_NODE_DELAY)
-
         return all_created_nodes
 
     def terminate_node(self, node_id: str) -> None:

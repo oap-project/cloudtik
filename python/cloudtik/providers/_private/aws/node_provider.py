@@ -400,7 +400,7 @@ class AWSNodeProvider(NodeProvider):
                     )
                 else:
                     cli_logger.warning(
-                        "create_instances: Attempt failed with {}, retrying.",
+                        "Create instances attempt failed: {}. Retrying...",
                         exc)
 
                 error_code = get_boto_error_code(exc)

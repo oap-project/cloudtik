@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 
 TAG_BATCH_DELAY = 1
 STOPPING_NODE_DELAY = 1
+STARTING_NODE_DELAY = 1
 
 
 class AliyunNodeProvider(NodeProvider):
@@ -220,9 +221,7 @@ class AliyunNodeProvider(NodeProvider):
                         if status == STOPPING:
                             # wait for node stopped
                             while (
-                                self.ecs.describe_instances(instance_ids=[node_id])[
-                                    0
-                                ].status == STOPPING
+                                self.ecs.describe_instances(instance_ids=[node_id])[0].status == STOPPING
                             ):
                                 logging.info("wait for %s stop" % node_id)
                                 time.sleep(STOPPING_NODE_DELAY)
@@ -266,18 +265,24 @@ class AliyunNodeProvider(NodeProvider):
                         tags=tags_for_creation,
                         count=count
                     )
-                    instances = self.ecs.describe_instances(instance_ids=instance_id_sets)
-                    with cli_logger.group(
-                            "Launched {} nodes", count, _tags=cli_logger_tags):
-                        for instance in instances:
-                            created_nodes_dict[instance.instance_id] = instance
-                            cli_logger.print(
-                                "Launched instance {}",
-                                instance.instance_id,
-                                _tags=dict(
-                                    type=instance.instance_type,
-                                    status=instance.status))
-                        break
+                    # Make sure the status of all instances running before return all created nodes info.
+                    while True:
+                        instances = self.ecs.describe_instances(instance_ids=instance_id_sets, status=RUNNING)
+                        if instances and len(instances) == len(instance_id_sets):
+                            with cli_logger.group(
+                                    "Launched {} nodes", count, _tags=cli_logger_tags):
+                                for instance in instances:
+                                    created_nodes_dict[instance.instance_id] = instance
+                                    cli_logger.print(
+                                        "Launched instance {}",
+                                        instance.instance_id,
+                                        _tags=dict(
+                                            type=instance.instance_type,
+                                            status=instance.status))
+                            break
+                        cli_logger.error("Waiting for all the status of created instances running.")
+                        time.sleep(STARTING_NODE_DELAY)
+                    break
                 except TeaException as e:
                     if attempt == max_tries:
                         cli_logger.abort("Failed to launch instances. Max attempts exceeded.", str(e))

@@ -5,6 +5,8 @@ import time
 from collections import defaultdict
 from typing import Any, Dict, List, Optional
 
+from Tea.exceptions import TeaException
+
 from cloudtik.providers._private.aliyun.config import (
     PENDING,
     RUNNING,
@@ -276,11 +278,22 @@ class AliyunNodeProvider(NodeProvider):
                                     type=instance.instance_type,
                                     status=instance.status))
                         break
+                except TeaException as e:
+                    if attempt == max_tries:
+                        cli_logger.abort("Failed to launch instances. Max attempts exceeded.", str(e))
+                    if e.code == "InvalidDiskCategory.NotSupported":
+                        cli_logger.warning("Create instances failed, the specified disk category"
+                                           " for instances is not supported. Retrying another region...")
+                    elif e.code =="InvalidResourceType.NotSupported":
+                        cli_logger.warning("Create instances failed.{}. Retrying another region...", e.message)
+                    else:
+                        cli_logger.warning("Create instances failed. Retrying another region...")
+                    vswitch_idx += 1
                 except Exception as e:
                     if attempt == max_tries:
                         cli_logger.abort("Failed to launch instances. Max attempts exceeded.", str(e))
                     else:
-                        cli_logger.warning("create_instances: Attempt failed with {}, retrying.", str(e))
+                        cli_logger.warning("Create instances failed, try to create in another zone, retrying.")
                     # Launch failure may be due to instance type availability in
                     # the given AZ
                     vswitch_idx += 1

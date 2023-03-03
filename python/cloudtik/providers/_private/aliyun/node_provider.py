@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 
 TAG_BATCH_DELAY = 1
 STOPPING_NODE_DELAY = 1
+STARTING_NODE_DELAY = 1
 
 
 class AliyunNodeProvider(NodeProvider):
@@ -220,9 +221,7 @@ class AliyunNodeProvider(NodeProvider):
                         if status == STOPPING:
                             # wait for node stopped
                             while (
-                                self.ecs.describe_instances(instance_ids=[node_id])[
-                                    0
-                                ].status == STOPPING
+                                self.ecs.describe_instances(instance_ids=[node_id])[0].status == STOPPING
                             ):
                                 logging.info("wait for %s stop" % node_id)
                                 time.sleep(STOPPING_NODE_DELAY)
@@ -300,6 +299,15 @@ class AliyunNodeProvider(NodeProvider):
 
         all_created_nodes = reused_nodes_dict
         all_created_nodes.update(created_nodes_dict)
+
+        # Make sure the status of all instances running before return all created nodes info.
+        while True:
+            instances = self.ecs.describe_instances(instance_ids=all_created_nodes.keys(), status=RUNNING)
+            if instances and len(instances) == len(all_created_nodes):
+                break
+            cli_logger.error("Waiting for all the status of instances is running.")
+            time.sleep(STARTING_NODE_DELAY)
+
         return all_created_nodes
 
     def terminate_node(self, node_id: str) -> None:

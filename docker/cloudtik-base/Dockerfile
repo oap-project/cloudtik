@@ -25,7 +25,7 @@ USER $CLOUDTIK_UID
 ENV HOME=/home/cloudtik
 ENV CLOUDTIK_ENV=$CONDA_ENV_NAME
 
-RUN if [ "${CLOUDTIK_REGION}" == "PRC" ]; then sudo sed -i 's/archive.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list ; fi
+RUN if [ "${CLOUDTIK_REGION}" = "PRC" ]; then sudo sed -i 's/archive.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list ; fi
 
 RUN sudo apt-get update -y && sudo apt-get upgrade -y \
     && sudo apt-get install -y \

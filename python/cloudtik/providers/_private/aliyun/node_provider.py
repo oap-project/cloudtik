@@ -293,7 +293,7 @@ class AliyunNodeProvider(NodeProvider):
                     if attempt == max_tries:
                         cli_logger.abort("Failed to launch instances. Max attempts exceeded.", str(e))
                     else:
-                        cli_logger.warning("Create instances failed, try to create in another zone, retrying.")
+                        cli_logger.warning("Create instances failed, Retrying another region...")
                     # Launch failure may be due to instance type availability in
                     # the given AZ
                     vswitch_idx += 1

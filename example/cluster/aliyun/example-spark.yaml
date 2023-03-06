@@ -1,23 +1,15 @@
-# An example of standard 1 + 3 nodes cluster with standard instance type
 from: aliyun/standard
 
-# A unique identifier for the cluster.
-cluster_name: example-oss
+# A unique identifier for the head node and workers of this cluster.
+cluster_name: example-spark
 
-# Workspace into which to launch the cluster
+# Workspace name
 workspace_name: example-workspace
 
 # Cloud-provider specific configuration.
 provider:
     type: aliyun
     region: cn-shanghai
-    use_managed_cloud_storage: False
-    storage:
-        # OSS configurations for storage
-        aliyun_oss_storage:
-            oss.bucket: your_oss_bucket
-            oss.access.key.id: your_oss_access_key_id
-            oss.access.key.secret: your_oss_access_key_secret
 
 auth:
     ssh_user: root

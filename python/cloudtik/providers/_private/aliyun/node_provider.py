@@ -5,6 +5,8 @@ import time
 from collections import defaultdict
 from typing import Any, Dict, List, Optional
 
+from Tea.exceptions import TeaException
+
 from cloudtik.providers._private.aliyun.config import (
     PENDING,
     RUNNING,
@@ -32,6 +34,8 @@ logger = logging.getLogger(__name__)
 
 TAG_BATCH_DELAY = 1
 STOPPING_NODE_DELAY = 1
+STARTING_NODE_DELAY = 1
+MAX_CREATE_STATUS_ATTEMPTS = 30
 
 
 class AliyunNodeProvider(NodeProvider):
@@ -218,9 +222,7 @@ class AliyunNodeProvider(NodeProvider):
                         if status == STOPPING:
                             # wait for node stopped
                             while (
-                                self.ecs.describe_instances(instance_ids=[node_id])[
-                                    0
-                                ].status == STOPPING
+                                self.ecs.describe_instances(instance_ids=[node_id])[0].status == STOPPING
                             ):
                                 logging.info("wait for %s stop" % node_id)
                                 time.sleep(STOPPING_NODE_DELAY)
@@ -264,23 +266,58 @@ class AliyunNodeProvider(NodeProvider):
                         tags=tags_for_creation,
                         count=count
                     )
-                    instances = self.ecs.describe_instances(instance_ids=instance_id_sets)
-                    with cli_logger.group(
-                            "Launched {} nodes", count, _tags=cli_logger_tags):
-                        for instance in instances:
-                            created_nodes_dict[instance.instance_id] = instance
-                            cli_logger.print(
-                                "Launched instance {}",
-                                instance.instance_id,
-                                _tags=dict(
-                                    type=instance.instance_type,
-                                    status=instance.status))
-                        break
+                    # The status checking is for workaround one issue of Alibaba Cloud
+                    # After a node is created, it will go through the following status
+                    # Pending -> Stopped -> Starting -> Running
+                    # The Stopped status in the middle causes problem because a node created
+                    # will be considered to be stopped status. So we wait here until they are
+                    # at least in Starting status.
+                    status_attempt = 0
+                    while status_attempt < MAX_CREATE_STATUS_ATTEMPTS:
+                        instances = self.ecs.describe_instances(instance_ids=instance_id_sets)
+                        if instances:
+                            # Counting on both STARTING and RUNNING nodes
+                            started_nodes = 0
+                            for instance in instances:
+                                status = instance.status
+                                if status == STARTING or status == RUNNING:
+                                    started_nodes += 1
+                            if started_nodes == len(instance_id_sets):
+                                # All in starting or running status
+                                with cli_logger.group(
+                                        "Launched {} nodes", count, _tags=cli_logger_tags):
+                                    for instance in instances:
+                                        created_nodes_dict[instance.instance_id] = instance
+                                        cli_logger.print(
+                                            "Launched instance {}",
+                                            instance.instance_id,
+                                            _tags=dict(
+                                                type=instance.instance_type,
+                                                status=instance.status))
+                                break
+                        if status_attempt >= int(MAX_CREATE_STATUS_ATTEMPTS / 2):
+                            # Show a message only for abnormal cases
+                            cli_logger.warning(
+                                "Bad status for node creation after {} attempts.", status_attempt)
+                        status_attempt += 1
+                        time.sleep(STARTING_NODE_DELAY)
+                    break
+                except TeaException as e:
+                    if attempt == max_tries:
+                        cli_logger.abort("Failed to launch instances. Max attempts exceeded.", str(e))
+                    if e.code == "InvalidDiskCategory.NotSupported":
+                        cli_logger.warning("Create instances attempt failed: the specified disk category"
+                                           " is not supported. Retrying...")
+                    elif e.code =="InvalidResourceType.NotSupported":
+                        cli_logger.warning("Create instances attempt failed: {}. Retrying...", e.message)
+                    else:
+                        cli_logger.warning("Create instances attempt failed. Retrying...", str(e))
+                    vswitch_idx += 1
                 except Exception as e:
                     if attempt == max_tries:
                         cli_logger.abort("Failed to launch instances. Max attempts exceeded.", str(e))
                     else:
-                        cli_logger.warning("create_instances: Attempt failed with {}, retrying.", str(e))
+                        cli_logger.warning("Create instances attempt failed: {}. Retrying...", str(e))
                     # Launch failure may be due to instance type availability in
                     # the given AZ
                     vswitch_idx += 1

@@ -4,7 +4,7 @@ workspace_name: example-workspace
 # Cloud-provider specific configuration.
 provider:
     type: aliyun
-    region: cn-hangzhou
+    region: cn-shanghai
     # Use allowed_ssh_sources to allow SSH access from your client machine
     allowed_ssh_sources:
       - 0.0.0.0/0

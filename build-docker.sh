@@ -14,6 +14,7 @@ CONDA_ENV_NAME="cloudtik"
 GPU=""
 BASE_IMAGE="ubuntu:focal"
 IMAGE_TAG="nightly"
+CLOUDTIK_REGION="GLOBAL"
 
 while [[ $# -gt 0 ]]
 do
@@ -27,6 +28,12 @@ do
         # Override for the base image.
         shift
         BASE_IMAGE=$1
+        ;;
+    --region)
+        # The region for cloud instance.
+        # If equals to PRC, the download server for apt will be replaced by "mirrors.aliyun.com"
+        shift
+        CLOUDTIK_REGION=$1
         ;;
     --no-cache-build)
         NO_CACHE="--no-cache"
@@ -97,7 +104,7 @@ do
         BUILD_SPARK_OPTIMIZED_BENCHMARK=YES
         ;;
     *)
-        echo "Usage: build-docker.sh [ --base-image ] [ --no-cache-build ] [ --shas-only ] [ --wheel-to-use ] [ --python-version ] [ --image-tag ]"
+        echo "Usage: build-docker.sh [ --base-image ] [ --region ] [ --no-cache-build ] [ --shas-only ] [ --wheel-to-use ] [ --python-version ] [ --image-tag ]"
         echo "Images to build options:"
         echo "[ --build-all ] [ --build-dev ] [ --build-spark ] [ --build-optimized ] [ --build-spark-native-sql ]"
         echo "[ --build-ml ] [ --build-ml-mxnet ] [ --build-ml-oneapi ]"
@@ -124,10 +131,10 @@ for IMAGE in "cloudtik-base"
 do
     cp "$WHEEL" "docker/$IMAGE/$(basename "$WHEEL")"
     if [ $OUTPUT_SHA ]; then
-        IMAGE_SHA=$(docker build $NO_CACHE --build-arg GPU="$GPU" --build-arg BASE_IMAGE="$BASE_IMAGE" --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_VERSION="$PYTHON_VERSION" --build-arg CONDA_ENV_NAME="$CONDA_ENV_NAME" -q -t cloudtik/$IMAGE:$IMAGE_TAG$GPU docker/$IMAGE)
+        IMAGE_SHA=$(docker build $NO_CACHE --build-arg GPU="$GPU" --build-arg BASE_IMAGE="$BASE_IMAGE" --build-arg CLOUDTIK_REGION="$CLOUDTIK_REGION" --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_VERSION="$PYTHON_VERSION" --build-arg CONDA_ENV_NAME="$CONDA_ENV_NAME" -q -t cloudtik/$IMAGE:$IMAGE_TAG$GPU docker/$IMAGE)
         echo "cloudtik/$IMAGE:$IMAGE_TAG$GPU SHA:$IMAGE_SHA"
     else
-        docker build $NO_CACHE --build-arg GPU="$GPU" --build-arg BASE_IMAGE="$BASE_IMAGE" --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_VERSION="$PYTHON_VERSION" --build-arg CONDA_ENV_NAME="$CONDA_ENV_NAME" -t cloudtik/$IMAGE:$IMAGE_TAG$GPU docker/$IMAGE
+        docker build $NO_CACHE --build-arg GPU="$GPU" --build-arg BASE_IMAGE="$BASE_IMAGE" --build-arg CLOUDTIK_REGION="$CLOUDTIK_REGION" --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_VERSION="$PYTHON_VERSION" --build-arg CONDA_ENV_NAME="$CONDA_ENV_NAME" -t cloudtik/$IMAGE:$IMAGE_TAG$GPU docker/$IMAGE
     fi
     rm "docker/$IMAGE/$(basename "$WHEEL")"
 done 

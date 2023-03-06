@@ -129,11 +129,20 @@ def _get_credential(aliyun_credentials=None, ram_role_name=None):
     if aliyun_credentials is not None:
         ak = aliyun_credentials.get("aliyun_access_key_id")
         sk = aliyun_credentials.get("aliyun_access_key_secret")
-        credential_config = Config(
-            type='access_key',  # credential type
-            access_key_id=ak,  # AccessKeyId
-            access_key_secret=sk,  # AccessKeySecret
-        )
+        st = aliyun_credentials.get("aliyun_security_token")
+        if st:
+            credential_config = Config(
+                type='sts',  # credential type
+                access_key_id=ak,  # AccessKeyId
+                access_key_secret=sk,  # AccessKeySecret
+                security_token=st,  # Security Token
+            )
+        else:
+            credential_config = Config(
+                type='access_key',  # credential type
+                access_key_id=ak,  # AccessKeyId
+                access_key_secret=sk,  # AccessKeySecret
+            )
         credential = CredentialClient(credential_config)
     elif ram_role_name is not None:
         credential_config = Config(

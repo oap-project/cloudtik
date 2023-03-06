@@ -17,7 +17,7 @@ CloudTik is designed for solving the above challenges by providing the following
 - Out of box optimized runtimes for analytics and AI
   - Optimized Spark runtime with CloudTik optimizations and native SQL
   - Optimized ML/DL runtime with Intel oneAPI
-- Support of major public cloud providers - AWS, Azure, GCP, Kubernetes (EKS, AKS and GKE) and more
+- Support of major public cloud providers - AWS, Azure, GCP, Alibaba Cloud, Kubernetes (EKS, AKS and GKE) and more
 - A fully open architecture and open-sourced platform
 
 ### Who Will Use CloudTik
@@ -73,10 +73,10 @@ bash dev/install-conda.sh
 ```
 
 Once Conda is installed, create an environment with a specific Python version as below.
-CloudTik currently supports Python 3.8 or above. Take Python 3.8 as an example,
+CloudTik currently supports Python 3.8 or above. Take Python 3.9 as an example,
 
 ```
-conda create -n cloudtik -y python=3.8
+conda create -n cloudtik -y python=3.9
 conda activate cloudtik
 ```
 
@@ -90,7 +90,8 @@ Take AWS for example,
 pip install cloudtik[aws]
 ```
 
-Replace `cloudtik[aws]` with `clouditk[azure]` or `cloudtik[gcp]` if you want to create clusters on Azure or GCP.
+Replace `cloudtik[aws]` with `clouditk[azure]`, `cloudtik[gcp]`, `cloudtik[aliyun]`
+if you want to create clusters on Azure, GCP, Alibaba Cloud respectively.
 If you want to run on Kubernetes, install `cloudtik[kubernetes]`.
 Or  `clouditk[eks]` or `cloudtik[gke]` if you are running on AWS EKS or GCP GKE cluster.
 Use `cloudtik[all]` if you want to manage clusters with all supported Cloud providers.
@@ -130,23 +131,30 @@ on your working machine.
 
 If you are using user account authentication, refer to [User Guide: Login to Cloud](https://cloudtik.readthedocs.io/en/latest/UserGuide/login-to-cloud.html#gcp) for details.
 
+#### Alibaba Cloud
+The simple way to set up Alibaba Cloud credentials for CloudTik use is
+to export the access key ID and access key secret of your cloud account:
+
+```
+export ALIBABA_CLOUD_ACCESS_KEY_ID=xxxxxxxxxxxxxxxxxxxxxxxx
+export ALIBABA_CLOUD_ACCESS_KEY_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+For more options of Alibaba Cloud credentials configuration in CloudTik,
+refer to [User Guide: Login to Cloud](https://cloudtik.readthedocs.io/en/latest/UserGuide/login-to-cloud.html#alibaba-cloud).
+
+Note: please activate OSS through Alibaba Cloud Console before going to the next step.
+
 #### Kubernetes
 If you are running CloudTik on a generic Kubernetes cluster, the authentication setup is simple.
 You just need to authenticate your kubectl at your working machine to be able to access the Kubernetes cluster.
 
-##### AWS EKS
-If you are running CloudTik on AWS EKS, CloudTik has more integration with AWS EKS
-so that your CloudTik cluster running on EKS can access the S3 storage with IAM CloudTik workspace IAM roles.
+If you are running cloud Kubernetes engine (such as AWS EKS, GCP GKE or Azure AKE)
+with cloud integrations with access to cloud resources such as cloud storage,
+you need both kubectl authentication to cloud Kubernetes cluster and cloud API credentials configuration above.
 
-You need not only to authenticate your kubectl at your working machine to be able to access the Kubernetes cluster,
-but also setup your AWS credentials following the steps in [AWS](#aws) section above.
-
-##### GCP GKE
-If you are running CloudTik on GCP GKE, CloudTik has more integration with GCP GKE
-so that your CloudTik cluster running on GKE can access the GCS storage with IAM CloudTik workspace roles.
-
-You need not only to authenticate your kubectl at your working machine to be able to access the Kubernetes cluster,
-but also setup your GCP credentials following the steps in [GCP](#gcp) section above.
+For detailed information of how configure Kubernetes with cloud integrations,
+refer to [User Guide: Login to Cloud - Kubernetes](https://cloudtik.readthedocs.io/en/latest/UserGuide/login-to-cloud.html#kubernetes)
 
 ### 4. Creating a Workspace for Clusters.
 Once you authenticated with your cloud provider, you can start to create a Workspace.

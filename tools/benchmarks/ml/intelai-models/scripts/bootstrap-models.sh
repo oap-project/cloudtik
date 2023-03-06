@@ -51,7 +51,7 @@ function install_intelai_models() {
 }
 
 function install_tools() {
-    sudo apt-get install numactl -y
+    sudo apt-get install numactl gcc g++ cmake -y
 }
 
 function install_libaries() {

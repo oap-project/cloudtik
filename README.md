@@ -135,8 +135,10 @@ If you are using user account authentication, refer to [User Guide: Login to Clo
 The simple way to set up Alibaba Cloud credentials for CloudTik use is
 to export the access key ID and access key secret of your cloud account:
 
+```
 export ALIBABA_CLOUD_ACCESS_KEY_ID=xxxxxxxxxxxxxxxxxxxxxxxx
 export ALIBABA_CLOUD_ACCESS_KEY_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
 
 For more options of Alibaba Cloud credentials configuration in CloudTik,
 refer to [User Guide: Login to Cloud](https://cloudtik.readthedocs.io/en/latest/UserGuide/login-to-cloud.html#alibaba-cloud).
@@ -150,6 +152,9 @@ You just need to authenticate your kubectl at your working machine to be able to
 If you are running cloud Kubernetes engine (such as AWS EKS, GCP GKE or Azure AKE)
 with cloud integrations with access to cloud resources such as cloud storage,
 you need both kubectl authentication to cloud Kubernetes cluster and cloud API credentials configuration above.
+
+For detailed information of how configure Kubernetes with cloud integrations,
+refer to [User Guide: Login to Cloud - Kubernetes](https://cloudtik.readthedocs.io/en/latest/UserGuide/login-to-cloud.html#kubernetes)
 
 ### 4. Creating a Workspace for Clusters.
 Once you authenticated with your cloud provider, you can start to create a Workspace.

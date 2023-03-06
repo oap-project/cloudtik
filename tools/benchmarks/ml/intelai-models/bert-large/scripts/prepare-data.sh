@@ -34,6 +34,8 @@ function download_bert_data() {
     gdown https://drive.google.com/uc?id=14xV2OUGSQDG_yDBrmbSdcDC-QGeqpfs_
     # unpack results and verify md5sums
     tar -xzf results_text.tar.gz && (cd results4 && md5sum --check ../bert_reference_results_text_md5.txt)
+
+    wget https://rajpurkar.github.io/SQuAD-explorer/dataset/dev-v1.1.json
 }
 
 

@@ -1,15 +1,18 @@
 from: aliyun/standard
 
 # A unique identifier for the head node and workers of this cluster.
-cluster_name: example-standard
+cluster_name: example-ml
 
 # Workspace name
 workspace_name: example-workspace
 
+docker:
+    image: "cloudtik/spark-ml-oneapi:nightly"
+
 # Cloud-provider specific configuration.
 provider:
     type: aliyun
-    region: cn-hangzhou
+    region: cn-shanghai
 
 auth:
     ssh_user: root
@@ -20,3 +23,8 @@ available_node_types:
     worker.default:
         # The minimum number of worker nodes to launch.
         min_workers: 3
+
+runtime:
+    types: [ganglia, spark, ml]
+    ml:
+        with_oneapi: True

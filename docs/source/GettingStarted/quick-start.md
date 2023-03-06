@@ -70,23 +70,25 @@ on your working machine.
 
 If you use user account authentication, refer to [User Guide: Login to Cloud](../UserGuide/login-to-cloud.md#gcp) for details.
 
+#### Alibaba Cloud
+The simple way to set up Alibaba Cloud credentials for CloudTik use is
+to export the access key ID and access key secret of your cloud account:
+
+export ALIBABA_CLOUD_ACCESS_KEY_ID=xxxxxxxxxxxxxxxxxxxxxxxx
+export ALIBABA_CLOUD_ACCESS_KEY_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+For more options of Alibaba Cloud credentials configuration in CloudTik,
+refer to [User Guide: Login to Cloud](../UserGuide/login-to-cloud.html#alibaba-cloud).
+
+Note: please activate OSS through Alibaba Cloud Console before going to the next step.
+
 #### Kubernetes
 If you are running CloudTik on a generic Kubernetes cluster, the authentication setup is simple.
 You just need to authenticate your kubectl at your working machine to be able to access the Kubernetes cluster.
 
-##### AWS EKS
-If you are running CloudTik on AWS EKS, CloudTik has more integration with AWS EKS
-so that your CloudTik cluster running on EKS can access the S3 storage with IAM CloudTik workspace IAM roles.
-
-You need not only to authenticate your kubectl at your working machine to be able to access the Kubernetes cluster,
-but also setup your AWS credentials following the steps in [AWS](#aws) section above.
-
-##### GCP GKE
-If you are running CloudTik on GCP GKE, CloudTik has more integration with GCP GKE
-so that your CloudTik cluster running on GKE can access the GCS storage with IAM CloudTik workspace roles.
-
-You need not only to authenticate your kubectl at your working machine to be able to access the Kubernetes cluster,
-but also setup your GCP credentials following the steps in [GCP](#gcp) section above.
+If you are running cloud Kubernetes engine (such as AWS EKS, GCP GKE or Azure AKE)
+with cloud integrations with access to cloud resources such as cloud storage,
+you need both kubectl authentication to cloud Kubernetes cluster and cloud API credentials configuration above.
 
 ### 4. Creating a Workspace for Clusters.
 Once you authenticated with your cloud provider, you can start to create a Workspace.

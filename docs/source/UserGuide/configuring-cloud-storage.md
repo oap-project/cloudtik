@@ -4,6 +4,7 @@
 - [AWS S3](#aws-s3)
 - [Azure Storage](#azure-storage)
 - [Google GCS](#google-gcs)
+- [Alibaba Cloud OSS](#alibaba-cloud-oss)
 
 ## Managed Cloud Storage
 To make storage management and configuration simple for user, CloudTik does two good things for you
@@ -140,3 +141,30 @@ A JSON file should be safely downloaded and kept after a service account is crea
 
 `gcs.service.account.private.key`: "private_key" in the JSON file, 
 in the format of `-----BEGIN PRIVATE KEY-----\n......\n-----END PRIVATE KEY-----\n`
+
+## Alibaba Cloud OSS
+By default, CloudTik will create a workspace managed OSS bucket for use out of box without any user configurations.
+The following applies only when you want to create or use your own storage and configurations.
+
+### Creating a OSS bucket
+If you don't want to use managed OSS bucket, you can create you own bucket
+and configure to use in Cloudtik.
+
+Please refer to OSS [Creating buckets](https://www.alibabacloud.com/help/en/object-storage-service/latest/oss-console-create-buckets) for instructions.
+
+### Configuring OSS in CloudTik
+Once you have your OSS bucket, configure the OSS bucket name,
+the OSS access key id and the OSS access key secret like following in your cluster configuration file.
+
+```
+# Cloud-provider specific configuration.
+provider:
+    type: aliyun
+    region: cn-shanghai
+    storage:
+        # OSS configurations for storage
+        aliyun_oss_storage:
+            oss.bucket: your_oss_bucket
+            oss.access.key.id: your_oss_access_key_id
+            oss.access.key.secret: your_oss_access_key_secret
+```

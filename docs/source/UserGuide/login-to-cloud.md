@@ -3,6 +3,7 @@
 - [AWS](#aws)
 - [Azure](#azure)
 - [GCP](#gcp)
+- [Alibaba Cloud](#alibaba-cloud)
 
 ## AWS
 
@@ -107,6 +108,54 @@ provider:
             refresh_token: "your_refresh_token"
 ```
 
+## Alibaba Cloud
+
+CloudTik will try a few credentials options and use them automatically
+if one of them is found.
+- Environment variables for access key id and secret
+- CloudTik configuration file
+- Alibaba Cloud API Configuration file
+
+Please note that Aliyun CLI login credentials will not be used by CloudTik.
+
+### Environment variables
+The simple way to set up Alibaba Cloud credentials for CloudTik use is
+to export the access key ID and access key secret of your cloud account:
+
+export ALIBABA_CLOUD_ACCESS_KEY_ID=xxxxxxxxxxxxxxxxxxxxxxxx
+export ALIBABA_CLOUD_ACCESS_KEY_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+### CloudTik configuration file
+You can specify the access key id and secret in CloudTik workspace or cluster configuration file.
+
+For example,
+```
+# Cloud-provider specific configuration.
+provider:
+    type: aliyun
+    region: cn-shanghai
+    aliyun_credentials:
+        aliyun_access_key_id: your-access-key-id
+        aliyun_access_key_secret: your-access-key-secret
+```
+
+or with the optional security token for STS authentication,
+```
+# Cloud-provider specific configuration.
+provider:
+    type: aliyun
+    region: cn-shanghai
+    aliyun_credentials:
+        aliyun_access_key_id: your-access-key-id
+        aliyun_access_key_secret: your-access-key-secret
+        aliyun_security_token: your-security-token
+```
+
+### Alibaba Cloud API Configuration file
+You can also use a configuration file to cover many other cases.
+
+Please refer to [Configure credentials: Configuration file](https://www.alibabacloud.com/help/en/alibaba-cloud-sdk-262060/latest/configure-credentials-378659)
+section for more details.
 
 #### Kubernetes
 If you are running CloudTik on a generic Kubernetes cluster, the authentication setup is simple.

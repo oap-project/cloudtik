@@ -128,8 +128,9 @@ def _delete_workspace(config: Dict[str, Any],
 def create_workspace(
         config_file: str, yes: bool,
         override_workspace_name: Optional[str] = None,
-        no_config_cache: bool = False):
-    """Creates or updates an scaling cluster from a config json."""
+        no_config_cache: bool = False,
+        delete_in_completed: bool = True):
+    """Creates a new workspace from a config json."""
 
     def handle_yaml_error(e):
         cli_logger.error("Workspace config invalid")
@@ -188,17 +189,26 @@ def create_workspace(
 
     config = _bootstrap_workspace_config(config,
                                          no_config_cache=no_config_cache)
-    _create_workspace(config, yes)
+    _create_workspace(config, yes=yes, delete_in_completed=delete_in_completed)
 
 
-def _create_workspace(config: Dict[str, Any], yes: bool = False):
+def _create_workspace(config: Dict[str, Any], yes: bool = False,
+                      delete_in_completed: bool = False):
     workspace_name = config["workspace_name"]
     provider = _get_workspace_provider(config["provider"], workspace_name)
     existence = provider.check_workspace_existence(config)
     if existence == Existence.COMPLETED:
         raise RuntimeError(f"A completed workspace with the name {workspace_name} already exists!")
     elif existence == Existence.IN_COMPLETED:
-        raise RuntimeError(f"A workspace with the name {workspace_name} already exists but not completed!")
+        if delete_in_completed:
+            cli_logger.confirm(yes, "An in-completed workspace with the same name exists.\n"
+                                    "Do you want to delete and then create workspace {}?",
+                               config["workspace_name"], _abort=True)
+            provider.delete_workspace(config, delete_managed_storage=False)
+            cli_logger.newline()
+            provider.create_workspace(config)
+        else:
+            raise RuntimeError(f"A workspace with the name {workspace_name} already exists but not completed!")
     else:
         cli_logger.confirm(yes, "Are you sure that you want to create workspace {}?",
                            config["workspace_name"], _abort=True)

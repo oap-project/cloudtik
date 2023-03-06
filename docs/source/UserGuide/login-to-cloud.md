@@ -4,6 +4,7 @@
 - [Azure](#azure)
 - [GCP](#gcp)
 - [Alibaba Cloud](#alibaba-cloud)
+- [Kubernetes](#kubernetes)
 
 ## AWS
 
@@ -122,8 +123,10 @@ Please note that Aliyun CLI login credentials will not be used by CloudTik.
 The simple way to set up Alibaba Cloud credentials for CloudTik use is
 to export the access key ID and access key secret of your cloud account:
 
+```
 export ALIBABA_CLOUD_ACCESS_KEY_ID=xxxxxxxxxxxxxxxxxxxxxxxx
 export ALIBABA_CLOUD_ACCESS_KEY_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
 
 ### CloudTik configuration file
 You can specify the access key id and secret in CloudTik workspace or cluster configuration file.
@@ -157,11 +160,11 @@ You can also use a configuration file to cover many other cases.
 Please refer to [Configure credentials: Configuration file](https://www.alibabacloud.com/help/en/alibaba-cloud-sdk-262060/latest/configure-credentials-378659)
 section for more details.
 
-#### Kubernetes
+## Kubernetes
 If you are running CloudTik on a generic Kubernetes cluster, the authentication setup is simple.
 You just need to authenticate your kubectl at your working machine to be able to access the Kubernetes cluster.
 
-##### AWS EKS
+### AWS EKS
 If you are running CloudTik on AWS EKS, CloudTik has more integration with AWS EKS
 so that your CloudTik cluster running on EKS can access the S3 storage with IAM CloudTik workspace IAM roles.
 
@@ -185,7 +188,7 @@ provider:
         managed_cloud_storage: True
 ```
 
-##### GCP GKE
+### GCP GKE
 If you are running CloudTik on GCP GKE, CloudTik has more integration with GCP GKE
 so that your CloudTik cluster running on GKE can access the GCS storage with IAM CloudTik workspace roles.
 
@@ -206,5 +209,32 @@ provider:
         type: gcp
         region: us-central1
         project_id: your_gcp_project_id
+        managed_cloud_storage: True
+```
+
+### Azure AKS
+If you are running CloudTik on Azure AKS, CloudTik has more integration with Azure AKS
+so that your CloudTik cluster running on AKS can access the Azure data lake storage
+with managed user identities of CloudTik workspace.
+
+You need not only to authenticate your kubectl at your working machine to be able to access the Kubernetes cluster,
+but also setup your Azure credentials following the steps in [Azure](#azure) section above.
+
+Instead of setting the cloud provider configurations at 'provider" section,
+for AKS, you set the cloud provider configurations at 'cloud_provider' section under 'provider' configuration key,
+For example,
+
+```
+# Kubernetes provider specific configurations
+provider:
+    type: kubernetes
+
+    # Cloud-provider specific configuration.
+    cloud_provider:
+        type: azure
+        location: eastus
+        subscription_id: your-subscription-id
+        aks_resource_group: your-aks-resource-group
+        aks_cluster_name: your-aks-cluster
         managed_cloud_storage: True
 ```

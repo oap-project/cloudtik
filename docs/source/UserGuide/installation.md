@@ -12,10 +12,10 @@ bash dev/install-conda.sh
 ```
 
 Once Conda is installed, create an environment with a specific Python version as below.
-CloudTik currently supports Python 3.8 or above. Take Python 3.8 as an example,
+CloudTik currently supports Python 3.8 or above. Take Python 3.9 as an example,
 
 ```
-conda create -n cloudtik -y python=3.8
+conda create -n cloudtik -y python=3.9
 conda activate cloudtik
 ```
 
@@ -28,7 +28,8 @@ Take AWS for example,
 pip install cloudtik[aws]
 ```
 
-Replace `cloudtik[aws]` with `clouditk[azure]` or `cloudtik[gcp]` if you want to create clusters on Azure or GCP.
+Replace `cloudtik[aws]` with `clouditk[azure]`, `cloudtik[gcp]`, `cloudtik[aliyun]`
+if you want to create clusters on Azure, GCP, Alibaba Cloud respectively.
 If you want to run on Kubernetes, install `cloudtik[kubernetes]`.
 Or  `clouditk[eks]` or `cloudtik[gke]` if you are running on AWS EKS or GCP GKE cluster.
 Use `cloudtik[all]` if you want to manage clusters with all supported Cloud providers.

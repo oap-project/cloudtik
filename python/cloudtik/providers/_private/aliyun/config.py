@@ -15,7 +15,7 @@ from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.services import get_node_ip_address
 from cloudtik.core._private.utils import check_cidr_conflict, is_use_internal_ip, \
     is_managed_cloud_storage, is_use_managed_cloud_storage, is_worker_role_for_cloud_storage, is_use_working_vpc, \
-    is_use_peering_vpc, is_peering_firewall_allow_ssh_only, is_peering_firewall_allow_working_subnet
+    is_use_peering_vpc, is_peering_firewall_allow_ssh_only, is_peering_firewall_allow_working_subnet, DOCKER_CONFIG_KEY
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD
 from cloudtik.core.workspace_provider import Existence, CLOUDTIK_MANAGED_CLOUD_STORAGE, \
     CLOUDTIK_MANAGED_CLOUD_STORAGE_URI
@@ -120,7 +120,11 @@ def bootstrap_aliyun_from_workspace(config):
     # Provide a helpful message for missing AMI.
     config = _configure_image(config)
 
+    # Configure spot instance based on user prefer options
     config = _configure_prefer_spot_node(config)
+
+    # Configure docker image registry for built-in images
+    config = _configure_docker_registry(config)
     return config
 
 
@@ -510,6 +514,46 @@ def _configure_prefer_spot_node(config):
             node_type_data, prefer_spot_node)
 
     return config
+
+
+def _configure_docker_registry(config):
+    # Check whether the region in China
+    auto_optimize_docker_registry = config["provider"].get(
+        "auto_optimize_docker_registry", True)
+    if not auto_optimize_docker_registry:
+        return config
+
+    region = config["provider"].get("region")
+    if region and region.startswith("cn-"):
+        # Set for top docker config
+        if DOCKER_CONFIG_KEY in config:
+            _configure_docker_registry_for_china(
+                config[DOCKER_CONFIG_KEY])
+
+        # Set for node type specific docker config
+        node_types = config["available_node_types"]
+        for node_type_name in node_types:
+            node_type_data = node_types[node_type_name]
+            if DOCKER_CONFIG_KEY in node_type_data:
+                _configure_docker_registry_for_china(
+                    node_type_data[DOCKER_CONFIG_KEY])
+
+    return config
+
+
+def _configure_docker_registry_for_china(docker_config):
+    _configure_docker_registry_for_key(docker_config, "image")
+    _configure_docker_registry_for_key(docker_config, "head_image")
+    _configure_docker_registry_for_key(docker_config, "worker_image")
+
+
+def _configure_docker_registry_for_key(docker_config, image_key):
+    if image_key not in docker_config:
+        return
+
+    image = docker_config[image_key]
+    if image.startswith("cloudtik/"):
+        docker_config[image_key] = "registry.cn-shanghai.aliyuncs.com/" + image
 
 
 def verify_oss_storage(provider_config: Dict[str, Any]):

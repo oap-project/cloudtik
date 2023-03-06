@@ -4,7 +4,7 @@ from: defaults
 # Cloud-provider specific configuration.
 provider:
     type: aliyun
-    region: cn-hangzhou
+    region: cn-shanghai
     # Whether to allow node reuse. If set to False, nodes will be terminated
     # instead of stopped.
     cache_stopped_nodes: False # If not present, the default is False.

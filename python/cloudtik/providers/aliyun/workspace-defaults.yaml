@@ -4,7 +4,7 @@ from: workspace-defaults
 # Cloud-provider specific configuration.
 provider:
     type: aliyun
-    region: cn-hangzhou
+    region: cn-shanghai
     # Decide whether to require public IP for head node.
     # When setting to False, Head node will require a public IP. Default to False
     use_internal_ips: False

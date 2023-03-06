@@ -60,7 +60,7 @@ RUN sudo apt-get update -y && sudo apt-get install -y \
           then \
             wget -O - -q https://mirrors.aliyun.com/kubernetes/apt/doc/apt-key.gpg | sudo apt-key add - \
             && sudo touch /etc/apt/sources.list.d/kubernetes.list \
-            && echo "deb https://mirrors.aliyun.com/kubernetes/apt/ kubernetes-xenial main" | sudo tee -a /etc/apt/sources.list.d/kubernetes.list \
+            && echo "deb https://mirrors.aliyun.com/kubernetes/apt/ kubernetes-xenial main" | sudo tee -a /etc/apt/sources.list.d/kubernetes.list; \
           else \
             wget -O - -q https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add - \
             && sudo touch /etc/apt/sources.list.d/kubernetes.list \

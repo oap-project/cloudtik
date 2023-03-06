@@ -32,6 +32,8 @@ RUN sudo apt-get update -y \
     && rm -rf ossfs_1.80.7_ubuntu20.04_amd64.deb \
     && rm -rf packages-microsoft-prod.deb \
     && sudo rm -rf /var/lib/apt/lists/* \
+    && sudo rm -rf /etc/apt/sources.list.d/gcsfuse.list \
+    && sudo rm -rf /etc/apt/sources.list.d/microsoft-prod.list
     && sudo apt-get clean
 
 # Install JDK

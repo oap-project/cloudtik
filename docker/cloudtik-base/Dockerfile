@@ -25,10 +25,13 @@ USER $CLOUDTIK_UID
 ENV HOME=/home/cloudtik
 ENV CLOUDTIK_ENV=$CONDA_ENV_NAME
 
-RUN if [ "${CLOUDTIK_REGION}" = "PRC" ]; then sudo sed -i 's/archive.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list ; fi
+RUN if [ "${CLOUDTIK_REGION}" = "PRC" ]; \
+        then \
+            sudo sed -i 's/archive.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list \
+            && sudo sed -i 's/security.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list; \
+        fi
 
-RUN sudo apt-get update -y && sudo apt-get upgrade -y \
-    && sudo apt-get install -y \
+RUN sudo apt-get update -y && sudo apt-get install -y \
         vim \
         git \
         wget \
@@ -53,9 +56,16 @@ RUN sudo apt-get update -y && sudo apt-get upgrade -y \
     && echo 'export PATH=$HOME/anaconda3/bin:$PATH' >> $HOME/.bashrc \
     && rm /tmp/miniconda.sh \
     # Install kubectl
-    && wget -O - -q https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add - \
-    && sudo touch /etc/apt/sources.list.d/kubernetes.list \
-    && echo "deb http://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee -a /etc/apt/sources.list.d/kubernetes.list \
+    && if [ "${CLOUDTIK_REGION}" = "PRC" ]; \
+          then \
+            wget -O - -q https://mirrors.aliyun.com/kubernetes/apt/doc/apt-key.gpg | sudo apt-key add - \
+            && sudo touch /etc/apt/sources.list.d/kubernetes.list \
+            && echo "deb https://mirrors.aliyun.com/kubernetes/apt/ kubernetes-xenial main" | sudo tee -a /etc/apt/sources.list.d/kubernetes.list \
+          else \
+            wget -O - -q https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add - \
+            && sudo touch /etc/apt/sources.list.d/kubernetes.list \
+            && echo "deb http://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee -a /etc/apt/sources.list.d/kubernetes.list \
+          fi \
     && sudo apt-get update \
     && sudo apt-get install kubectl \
     # Clean up

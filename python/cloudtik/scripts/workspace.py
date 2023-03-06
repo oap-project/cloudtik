@@ -39,13 +39,13 @@ def workspace():
     default=False,
     help="Disable the local workspace config cache.")
 @click.option(
-    "--delete-in-completed/--no-delete-in-completed",
+    "--delete-incomplete/--no-delete-incomplete",
     is_flag=True,
     default=True,
     help="Delete in completed workspace if exists.")
 @add_click_logging_options
 def create(workspace_config_file, yes, workspace_name, no_config_cache,
-           delete_in_completed):
+           delete_incomplete):
     """Create a workspace on cloud using the workspace configuration file."""
     if urllib.parse.urlparse(workspace_config_file).scheme in ("http", "https"):
         try:
@@ -65,7 +65,7 @@ def create(workspace_config_file, yes, workspace_name, no_config_cache,
         yes=yes,
         override_workspace_name=workspace_name,
         no_config_cache=no_config_cache,
-        delete_in_completed=delete_in_completed)
+        delete_incomplete=delete_incomplete)
 
 
 @workspace.command()

@@ -1,8 +1,7 @@
 #!/bin/bash
 
 
-USER_HOME=/home/$(whoami)
-ML_WORKSPACE=$USER_HOME/runtime/ml_workspace
+ML_WORKSPACE=/mnt/cloudtik/data_disk_1/ml_workspace
 SSD-RESNET34_HOME=$ML_WORKSPACE/ssd-resnet34
 SSD-RESNET34_MODEL=$SSD-RESNET34_HOME/model
 SSD-RESNET34_DATA=$SSD-RESNET34_HOME/data

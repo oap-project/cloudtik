@@ -19,8 +19,16 @@ platform. These resources include
 These resources are usually created once and shared among different clusters. CloudTik provides the commands to help user
 create or delete a workspace on a specific Cloud, which will provision and configured the right resources to be ready to use.
 
-User can create one or more workspaces on a Cloud provider as long as the resources limits are not reached. Within each workspace
-User can start one or more clusters with necessary runtime components provisioned and configured in use.
+**Note: Some resources like NAT gateway or elastic IP resources in Workspace cost money.
+The price policy may vary among cloud providers.
+Please check the price policy of the specific cloud provider to avoid undesired cost.**
+
+User can create one or more workspaces on a Cloud provider as long as the resources limits are not reached.
+Since some resources in Workspace cost money on time basis,
+to save your cost, don't create unnecessary workspaces.
+
+Within each workspace, user can start one or more clusters with necessary runtime components provisioned and configured in use.
+
 
 ## Cluster
 

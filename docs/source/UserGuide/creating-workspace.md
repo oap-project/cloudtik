@@ -6,6 +6,10 @@ The key information in the workspace configuration file usually includes:
 - A few provider specific key properties such as provider type, region/location
 - One or more allowed ssh sources which allowing your working machine SSH to cloud
 
+**Note: Some resources like NAT gateway or elastic IP resources in Workspace cost money.
+The price policy may vary among cloud providers.
+Please check the price policy of the specific cloud provider to avoid undesired cost.**
+
 ## Creating a Workspace Configuration File
 
 A typical workspace configuration file is simple. Specify the unique workspace name, cloud provider type

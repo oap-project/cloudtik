@@ -2,6 +2,7 @@ ARG BASE_IMAGE="nightly"
 FROM cloudtik/cloudtik-deps:"$BASE_IMAGE"
 
 ARG PRESTO_VERSION=0.276
+ARG CLOUDTIK_REGION=""
 
 ENV RUNTIME_PATH /home/cloudtik/runtime
 RUN mkdir -p $RUNTIME_PATH
@@ -40,5 +41,12 @@ RUN wget https://repo1.maven.org/maven2/com/facebook/presto/presto-server/${PRES
     && wget https://repo1.maven.org/maven2/com/facebook/presto/presto-cli/${PRESTO_VERSION}/presto-cli-${PRESTO_VERSION}-executable.jar \
     && mv presto-cli-${PRESTO_VERSION}-executable.jar $PRESTO_HOME/bin/presto \
     && chmod +x $PRESTO_HOME/bin/presto
+
+RUN if [ "${CLOUDTIK_REGION}" = "PRC" ]; \
+        then \
+            sudo sed -i 's/archive.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list \
+            && sudo sed -i 's/security.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list \
+            && pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple/; \
+        fi
 
 WORKDIR /home/cloudtik/

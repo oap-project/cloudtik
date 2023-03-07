@@ -4,10 +4,14 @@ FROM cloudtik/cloudtik:"$BASE_IMAGE"
 # Install spark based Analytics + AI platform components
 ARG SPARK_VERSION=3.2.1
 ARG HADOOP_VERSION=3.3.1
+ARG CLOUDTIK_REGION=""
 
 ENV RUNTIME_PATH /home/cloudtik/runtime
 RUN mkdir -p $RUNTIME_PATH
 WORKDIR /home/cloudtik/runtime
+
+RUN sudo sed -i 's/mirrors.aliyun.com/archive.ubuntu.com/' /etc/apt/sources.list \
+    && pip config unset global.index-url
 
 # Ganglia
 RUN sudo apt-get update -y \
@@ -79,3 +83,10 @@ ENV CC                         $HOME/runtime/oap/bin/x86_64-conda_cos6-linux-gnu
 # Install OAP by Conda
 RUN $HOME/anaconda3/bin/conda create -p "${OAP_HOME}" -c conda-forge -c intel-bigdata -c intel -y oap=${OAP_VERSION} \
     && $HOME/anaconda3/bin/conda clean -itqy
+
+RUN if [ "${CLOUDTIK_REGION}" = "PRC" ]; \
+        then \
+            sudo sed -i 's/archive.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list \
+            && sudo sed -i 's/security.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list \
+            && pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple/; \
+        fi

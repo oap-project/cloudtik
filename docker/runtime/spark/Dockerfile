@@ -4,7 +4,7 @@ FROM cloudtik/cloudtik-deps:"$BASE_IMAGE"
 # Install spark based Analytics + AI platform components
 ARG SPARK_VERSION=3.2.1
 ARG HADOOP_VERSION=3.3.1
-
+ARG CLOUDTIK_REGION=""
 ENV RUNTIME_PATH /home/cloudtik/runtime
 RUN mkdir -p $RUNTIME_PATH
 WORKDIR /home/cloudtik/runtime
@@ -32,6 +32,8 @@ RUN sudo apt-get update -y \
     && rm -rf ossfs_1.80.7_ubuntu20.04_amd64.deb \
     && rm -rf packages-microsoft-prod.deb \
     && sudo rm -rf /var/lib/apt/lists/* \
+    && sudo rm -rf /etc/apt/sources.list.d/gcsfuse.list \
+    && sudo rm -rf /etc/apt/sources.list.d/microsoft-prod.list \
     && sudo apt-get clean
 
 # Install JDK
@@ -82,3 +84,10 @@ RUN export PATH="$HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH" \
     && pip --no-cache-dir install -r /tmp/requirements.txt \
     && sudo rm /tmp/requirements.txt \
     && python -m spylon_kernel install --user
+
+RUN if [ "${CLOUDTIK_REGION}" = "PRC" ]; \
+        then \
+            sudo sed -i 's/archive.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list \
+            && sudo sed -i 's/security.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list \
+            && pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple/; \
+        fi

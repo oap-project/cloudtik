@@ -1,6 +1,12 @@
 ARG BASE_IMAGE="nightly"
 FROM cloudtik/spark-ml-base:"$BASE_IMAGE"
 
+ARG CLOUDTIK_REGION=""
+
+RUN sudo sed -i 's/mirrors.aliyun.com/archive.ubuntu.com/' /etc/apt/sources.list \
+    && sudo sed -i 's/mirrors.aliyun.com/security.ubuntu.com/' /etc/apt/sources.list \
+    && pip config unset global.index-url
+
 WORKDIR /home/cloudtik/
 COPY requirements.txt /tmp/requirements.txt
 RUN export PATH="$HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH" \
@@ -22,3 +28,10 @@ RUN export PATH="$HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH" \
     # Install Horovod
     && export CXX=/usr/bin/g++-9 \
     && HOROVOD_WITHOUT_TENSORFLOW=1 HOROVOD_WITHOUT_PYTORCH=1 HOROVOD_WITH_MXNET=1 HOROVOD_WITH_GLOO=1 HOROVOD_WITH_MPI=1 pip --no-cache-dir install horovod[mxnet,spark]==0.25.0
+
+RUN if [ "${CLOUDTIK_REGION}" = "PRC" ]; \
+        then \
+            sudo sed -i 's/archive.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list \
+            && sudo sed -i 's/security.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list \
+            && pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple/; \
+        fi

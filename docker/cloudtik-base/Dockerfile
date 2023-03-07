@@ -4,7 +4,6 @@
 ARG BASE_IMAGE="ubuntu:focal"
 FROM ${BASE_IMAGE}
 # FROM directive resets ARG
-ARG CLOUDTIK_REGION=""
 ENV TZ=America/Los_Angeles
 ENV PATH "/home/cloudtik/anaconda3/bin:$PATH"
 ARG DEBIAN_FRONTEND=noninteractive
@@ -51,32 +50,19 @@ RUN sudo apt-get update -y && sudo apt-get upgrade -y \
     && echo 'export PATH=$HOME/anaconda3/bin:$PATH' >> $HOME/.bashrc \
     && rm /tmp/miniconda.sh \
     # Install kubectl
-    && if [ "${CLOUDTIK_REGION}" = "PRC" ]; \
-          then \
-            wget -O - -q https://mirrors.aliyun.com/kubernetes/apt/doc/apt-key.gpg | sudo apt-key add - \
-            && sudo touch /etc/apt/sources.list.d/kubernetes.list \
-            && echo "deb https://mirrors.aliyun.com/kubernetes/apt/ kubernetes-xenial main" | sudo tee -a /etc/apt/sources.list.d/kubernetes.list; \
-          else \
-            wget -O - -q https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add - \
-            && sudo touch /etc/apt/sources.list.d/kubernetes.list \
-            && echo "deb http://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee -a /etc/apt/sources.list.d/kubernetes.list; \
-          fi \
+    && wget -O - -q https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add - \
+    && sudo touch /etc/apt/sources.list.d/kubernetes.list \
+    && echo "deb http://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee -a /etc/apt/sources.list.d/kubernetes.list \
     && sudo apt-get update \
     && sudo apt-get install kubectl \
     # Clean up
     && sudo rm -rf /var/lib/apt/lists/* \
+    && sudo rm -rf /etc/apt/sources.list.d/kubernetes.list \
     && sudo apt-get clean
 
 RUN $HOME/anaconda3/bin/conda create -n $CLOUDTIK_ENV -y python=$PYTHON_VERSION \
     && $HOME/anaconda3/bin/conda clean -itqy
 ENV CONDA_ROOT $HOME/anaconda3
 ENV PATH $HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH
-
-RUN if [ "${CLOUDTIK_REGION}" = "PRC" ]; \
-        then \
-            sudo sed -i 's/archive.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list \
-            && sudo sed -i 's/security.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list \
-            && pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple/; \
-        fi
 
 WORKDIR $HOME

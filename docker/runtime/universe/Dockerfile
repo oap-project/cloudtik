@@ -5,10 +5,15 @@ ARG ZOOKEEPER_VERSION=3.7.1
 ARG KAFKA_VERSION=3.2.3
 ARG KAFKA_SCALA_VERSION=2.13
 ARG PRESTO_VERSION=0.276
+ARG CLOUDTIK_REGION=""
 
 HEALTHCHECK CMD exit 0
 
 WORKDIR /home/cloudtik/runtime
+
+RUN sudo sed -i 's/mirrors.aliyun.com/archive.ubuntu.com/' /etc/apt/sources.list \
+    && sudo sed -i 's/mirrors.aliyun.com/security.ubuntu.com/' /etc/apt/sources.list \
+    && pip config unset global.index-url
 
 # ZooKeeper
 ENV ZOOKEEPER_VERSION    ${ZOOKEEPER_VERSION}
@@ -63,3 +68,10 @@ RUN export PATH="$HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH" \
     && pip --no-cache-dir install torch==1.12.0 torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cpu \
     && export CXX=/usr/bin/g++-9 \
     && HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_MXNET=1 HOROVOD_WITH_GLOO=1 pip --no-cache-dir install horovod[all-frameworks]==0.25.0
+
+RUN if [ "${CLOUDTIK_REGION}" = "PRC" ]; \
+        then \
+            sudo sed -i 's/archive.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list \
+            && sudo sed -i 's/security.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list \
+            && pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple/; \
+        fi

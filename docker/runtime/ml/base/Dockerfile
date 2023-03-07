@@ -4,7 +4,6 @@ FROM cloudtik/spark-runtime:"$BASE_IMAGE"
 ARG CLOUDTIK_REGION=""
 
 RUN sudo sed -i 's/mirrors.aliyun.com/archive.ubuntu.com/' /etc/apt/sources.list \
-    && sudo sed -i 's/mirrors.aliyun.com/security.ubuntu.com/' /etc/apt/sources.list \
     && pip config unset global.index-url
 
 RUN sudo apt-get update -y \

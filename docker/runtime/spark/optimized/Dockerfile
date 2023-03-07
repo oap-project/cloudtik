@@ -11,7 +11,6 @@ RUN mkdir -p $RUNTIME_PATH
 WORKDIR /home/cloudtik/runtime
 
 RUN sudo sed -i 's/mirrors.aliyun.com/archive.ubuntu.com/' /etc/apt/sources.list \
-    && sudo sed -i 's/mirrors.aliyun.com/security.ubuntu.com/' /etc/apt/sources.list \
     && pip config unset global.index-url
 
 # Ganglia

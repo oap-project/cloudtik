@@ -25,12 +25,6 @@ USER $CLOUDTIK_UID
 ENV HOME=/home/cloudtik
 ENV CLOUDTIK_ENV=$CONDA_ENV_NAME
 
-RUN if [ "${CLOUDTIK_REGION}" = "PRC" ]; \
-        then \
-            sudo sed -i 's/archive.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list \
-            && sudo sed -i 's/security.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list; \
-        fi
-
 RUN sudo apt-get update -y && sudo apt-get upgrade -y \
         && sudo apt-get install -y \
         vim \
@@ -77,5 +71,12 @@ RUN $HOME/anaconda3/bin/conda create -n $CLOUDTIK_ENV -y python=$PYTHON_VERSION 
     && $HOME/anaconda3/bin/conda clean -itqy
 ENV CONDA_ROOT $HOME/anaconda3
 ENV PATH $HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH
+
+RUN if [ "${CLOUDTIK_REGION}" = "PRC" ]; \
+        then \
+            sudo sed -i 's/archive.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list \
+            && sudo sed -i 's/security.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list \
+            && pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple/; \
+        fi
 
 WORKDIR $HOME

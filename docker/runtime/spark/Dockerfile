@@ -5,6 +5,7 @@ FROM cloudtik/cloudtik-deps:"$BASE_IMAGE"
 ARG SPARK_VERSION=3.2.1
 ARG HADOOP_VERSION=3.3.1
 ARG CLOUDTIK_REGION=""
+
 ENV RUNTIME_PATH /home/cloudtik/runtime
 RUN mkdir -p $RUNTIME_PATH
 WORKDIR /home/cloudtik/runtime
@@ -87,7 +88,5 @@ RUN export PATH="$HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH" \
 
 RUN if [ "${CLOUDTIK_REGION}" = "PRC" ]; \
         then \
-            sudo sed -i 's/archive.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list \
-            && sudo sed -i 's/security.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list \
-            && pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple/; \
+            pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple/; \
         fi

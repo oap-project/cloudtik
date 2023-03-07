@@ -31,7 +31,8 @@ RUN if [ "${CLOUDTIK_REGION}" = "PRC" ]; \
             && sudo sed -i 's/security.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list; \
         fi
 
-RUN sudo apt-get update -y && sudo apt-get install -y \
+RUN sudo apt-get update -y && sudo apt-get upgrade -y \
+        && sudo apt-get install -y \
         vim \
         git \
         wget \

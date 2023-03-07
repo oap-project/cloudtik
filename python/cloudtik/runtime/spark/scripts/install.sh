@@ -163,6 +163,8 @@ function install_spark_with_cloud_jars() {
         'azure-storage-[0-9]*[0-9].jar' \
         'hadoop-aliyun-[0-9]*[0-9].jar' \
         'aliyun-java-sdk-*.jar' \
+        'jdom-*.jar' \
+        'jettison-*.jar' \
         'aliyun-sdk-oss-*.jar' \
         'hadoop-huaweicloud-[0-9]*[0-9].jar' \
         'wildfly-openssl-[0-9]*[0-9].Final.jar' \
@@ -172,6 +174,7 @@ function install_spark_with_cloud_jars() {
     for jar in ${cloud_storge_jars[@]};
     do
 	    find "${HADOOP_HOME}"/share/hadoop/tools/lib/ -name $jar | xargs -i cp {} "${SPARK_HOME}"/jars;
+	    find "${HADOOP_HOME}"/share/hadoop/common/lib/ -name $jar | xargs -i cp {} "${SPARK_HOME}"/jars;
     done
 }
 

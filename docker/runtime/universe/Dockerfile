@@ -11,8 +11,10 @@ HEALTHCHECK CMD exit 0
 
 WORKDIR /home/cloudtik/runtime
 
-RUN sudo sed -i 's/mirrors.aliyun.com/archive.ubuntu.com/' /etc/apt/sources.list \
-    && pip config unset global.index-url
+RUN if [ "${CLOUDTIK_REGION}" = "PRC" ]; \
+        then \
+            pip config unset global.index-url; \
+        fi
 
 # ZooKeeper
 ENV ZOOKEEPER_VERSION    ${ZOOKEEPER_VERSION}
@@ -85,7 +87,5 @@ RUN export PATH="$HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH" \
 
 RUN if [ "${CLOUDTIK_REGION}" = "PRC" ]; \
         then \
-            sudo sed -i 's/archive.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list \
-            && sudo sed -i 's/security.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list \
-            && pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple/; \
+            pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple/; \
         fi

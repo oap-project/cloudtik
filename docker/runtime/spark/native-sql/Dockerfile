@@ -10,9 +10,6 @@ ENV RUNTIME_PATH /home/cloudtik/runtime
 RUN mkdir -p $RUNTIME_PATH
 WORKDIR /home/cloudtik/runtime
 
-RUN sudo sed -i 's/mirrors.aliyun.com/archive.ubuntu.com/' /etc/apt/sources.list \
-    && pip config unset global.index-url
-
 # Ganglia
 RUN sudo apt-get update -y \
     && sudo apt-get install -y ganglia-monitor \
@@ -86,7 +83,5 @@ RUN $HOME/anaconda3/bin/conda create -p "${OAP_HOME}" -c conda-forge -c intel-bi
 
 RUN if [ "${CLOUDTIK_REGION}" = "PRC" ]; \
         then \
-            sudo sed -i 's/archive.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list \
-            && sudo sed -i 's/security.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list \
-            && pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple/; \
+            pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple/; \
         fi

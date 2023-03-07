@@ -59,9 +59,7 @@ RUN wget https://repo1.maven.org/maven2/io/trino/trino-server/${TRINO_VERSION}/t
 
 RUN if [ "${CLOUDTIK_REGION}" = "PRC" ]; \
         then \
-            sudo sed -i 's/archive.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list \
-            && sudo sed -i 's/security.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list \
-            && pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple/; \
+            pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple/; \
         fi
 
 WORKDIR /home/cloudtik/

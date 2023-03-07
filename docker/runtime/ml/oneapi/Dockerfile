@@ -3,9 +3,6 @@ FROM cloudtik/spark-ml-base:"$BASE_IMAGE"
 
 ARG CLOUDTIK_REGION=""
 
-RUN sudo sed -i 's/mirrors.aliyun.com/archive.ubuntu.com/' /etc/apt/sources.list \
-    && pip config unset global.index-url
-
 RUN wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB \
         | gpg --dearmor | sudo tee /usr/share/keyrings/oneapi-archive-keyring.gpg > /dev/null \
     # add signed entry to apt sources and configure the APT client to use Intel repository:
@@ -49,7 +46,5 @@ RUN export PATH="$HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH" \
 
 RUN if [ "${CLOUDTIK_REGION}" = "PRC" ]; \
         then \
-            sudo sed -i 's/archive.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list \
-            && sudo sed -i 's/security.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list \
-            && pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple/; \
+            pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple/; \
         fi

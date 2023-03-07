@@ -59,7 +59,7 @@ function install_ml() {
 
     # Install Machine Learning libraries and components
     echo "Installing machine learning tools: mlflow, hyperopt..."
-    pip --no-cache-dir -qq install mlflow==2.1.1 pyarrow==8.0.0 hyperopt==0.2.7 scikit-learn==1.0.2
+    pip --no-cache-dir -qq install mlflow==2.2.1 SQLAlchemy==1.4.46 alembic==1.10.1 pyarrow==8.0.0 hyperopt==0.2.7 scikit-learn==1.0.2
     mkdir -p $RUNTIME_PATH/mlflow
 
     if [ "$ML_WITH_MXNET" == "true" ]; then

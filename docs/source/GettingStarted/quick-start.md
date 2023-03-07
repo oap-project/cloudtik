@@ -101,6 +101,11 @@ CloudTik uses **Workspace** concept to easily manage shared Cloud resources such
 identity and role resources, firewall or security groups, and cloud storage resources.
 By default, CloudTik will create a workspace managed cloud storage
 (S3 for AWS, Data Lake Storage Gen 2 for Azure, GCS for GCP) for use without any user configurations.
+
+**Note: Some resources like NAT gateway or elastic IP resources in Workspace cost money.
+The price policy may vary among cloud providers.
+Please check the price policy of the specific cloud provider to avoid undesired cost.**
+
 Within a workspace, you can start one or more clusters with different combination of runtime services.
 
 Create a configuration workspace yaml file to specify the unique workspace name, cloud provider type and a few cloud 

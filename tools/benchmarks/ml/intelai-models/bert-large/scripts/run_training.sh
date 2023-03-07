@@ -26,4 +26,3 @@ line_number=`grep -n "dense_seq_output" run_bert_pretrain_phase1.sh | cut -d: -f
 sed -i -e $line_number"d" run_bert_pretrain_phase1.sh
 
 bash run_bert_pretrain_phase1.sh bf16
-

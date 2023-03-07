@@ -7,7 +7,7 @@ execute the following procedure to finish a release.
 ### Step 1: Create the branch and tag for the release version
 This step will create the branch and tag based on main. Execute:
 ```
-bash ./dev/release-branch
+bash ./dev/release-branch.sh
 ```
 The version information is retrieved from python code "__version__" variable.
 Username and the token for Github is needed when prompt. 
@@ -17,7 +17,7 @@ This step will build the wheels for different python versions
 and upload the wheels to AWS S3 as the backup download location. 
 Execute:
 ```
-bash ./dev/release --branch branch-<version>
+bash ./dev/release.sh --branch branch-<version>
 ```
 
 ### Step 3: Release docker images (if necessary)
@@ -25,7 +25,11 @@ This step will build all the docker images and upload to docker hub
 of cloudtik account.
 Execute:
 ```
-bash ./dev/release-docker --image-tag <version>
+bash ./dev/release-docker.sh --image-tag <version>
+```
+For build images and push to registry in China,
+```
+bash ./dev/release-docker.sh --image-tag <version> --region PRC
 ```
 
 ### Step 4: Release wheels to PyPI
@@ -33,7 +37,7 @@ This step will upload all the wheels in the dist folder under python folder
 to PyPI with cloudtik account.
 Execute:
 ```
-bash ./dev/release-pip
+bash ./dev/release-pip.sh
 ```
 When prompt, input the username and password.
 

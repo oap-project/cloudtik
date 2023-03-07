@@ -57,6 +57,8 @@ function install_tools() {
 function install_libaries() {
     pip -qq install gdown
     pip -qq install intel-extension-for-pytorch==1.13.0
+    pip install --no-cache-dir https://github.com/mlperf/logging/archive/9ea0afa.zip
+
 }
 
 

@@ -296,12 +296,12 @@ if __name__ == '__main__':
     # Train final model with the best parameters
     best_model = load_model_of_checkpoint(checkpoint_dir, argmin.get('learning_rate'))
     model_name = 'mnist-keras-spark-horovod-run'
-    mlflow.keras.log_model(best_model, model_name, registered_model_name=model_name)
+    mlflow.tensorflow.log_model(best_model, model_name, registered_model_name=model_name)
 
     # Load the model from MLflow and run a transformation
     model_uri = "models:/{}/latest".format(model_name)
     print('Inference with model: {}'.format(model_uri))
-    saved_model = mlflow.keras.load_model(model_uri)
+    saved_model = mlflow.tensorflow.load_model(model_uri)
     test_model(saved_model)
 
     # Clean up

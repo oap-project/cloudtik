@@ -3,7 +3,6 @@ FROM cloudtik/cloudtik-deps:"$BASE_IMAGE"
 
 ARG TRINO_VERSION=389
 ARG HADOOP_VERSION=3.3.1
-ARG CLOUDTIK_REGION=""
 
 ENV RUNTIME_PATH /home/cloudtik/runtime
 RUN mkdir -p $RUNTIME_PATH
@@ -56,10 +55,5 @@ RUN wget https://repo1.maven.org/maven2/io/trino/trino-server/${TRINO_VERSION}/t
     wget https://repo1.maven.org/maven2/io/trino/trino-cli/${TRINO_VERSION}/trino-cli-${TRINO_VERSION}-executable.jar && \
     mv trino-cli-${TRINO_VERSION}-executable.jar $TRINO_HOME/bin/trino && \
     chmod +x $TRINO_HOME/bin/trino
-
-RUN if [ "${CLOUDTIK_REGION}" = "PRC" ]; \
-        then \
-            pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple/; \
-        fi
 
 WORKDIR /home/cloudtik/

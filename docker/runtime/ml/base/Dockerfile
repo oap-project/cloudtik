@@ -1,13 +1,6 @@
 ARG BASE_IMAGE="nightly"
 FROM cloudtik/spark-runtime:"$BASE_IMAGE"
 
-ARG CLOUDTIK_REGION=""
-
-RUN if [ "${CLOUDTIK_REGION}" = "PRC" ]; \
-        then \
-            pip config unset global.index-url; \
-        fi
-
 RUN sudo apt-get update -y \
     && sudo apt-get install -y \
         cmake \

@@ -12,5 +12,6 @@ export DATASET_DIR=$SSD_RESNET34_DATA
 export CHECKPOINT_DIR=$SSD_RESNET34_MODEL
 export OUTPUT_DIR=$SSD_RESNET34_OUTPUT
 mkdir $OUTPUT_DIR
-cd ${MODEL_DIR}/quickstart/object_detection/pytorch/ssd-resnet34/inference/cpu
-bash inference_throughput.sh fp32
+
+cd ${MODEL_DIR}/quickstart/object_detection/pytorch/ssd-resnet34/training/cpu
+bash throughput.sh fp32

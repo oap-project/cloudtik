@@ -6,19 +6,49 @@ RESNET50_HOME=$ML_WORKSPACE/resnet50
 RESNET50_MODEL=$RESNET50_HOME/model
 RESNET50_DATA=$RESNET50_HOME/data
 
-function download_data() {
+PHASE="inference"
+
+if [ ! -n "${MODEL_DIR}" ]; then
+  echo "Please set environment variable '\${MODEL_DIR}'."
+  exit 1
+fi
+
+function usage(){
+    echo "Usage: prepare-data.sh  [ --phase training | inference] "
+    exit 1
+}
+
+while [[ $# -gt 0 ]]
+do
+    key="$1"
+    case $key in
+    --phase)
+        # training or inference
+        shift
+        PHASE=$1
+        ;;
+    *)
+        usage
+    esac
+    shift
+done
+
+function download_inference_data() {
+    wget https://image-net.org/data/ILSVRC/2012/ILSVRC2012_img_val.tar
+}
+
+function download_training_data() {
     
     mkdir -p $RESNET50_DATA
     cd $RESNET50_DATA
     wget https://image-net.org/data/ILSVRC/2012/ILSVRC2012_img_train.tar
-    wget https://image-net.org/data/ILSVRC/2012/ILSVRC2012_img_train_t3.tar
-    wget https://image-net.org/data/ILSVRC/2012/ILSVRC2012_img_val.tar
-    wget https://image-net.org/data/ILSVRC/2012/ILSVRC2012_img_test_v10102019.tar
+#    wget https://image-net.org/data/ILSVRC/2012/ILSVRC2012_img_train_t3.tar
+#    wget https://image-net.org/data/ILSVRC/2012/ILSVRC2012_img_test_v10102019.tar
 
 }
 
 
-function prepare_train_data() {
+function prepare_training_data() {
     mkdir -p $RESNET50_DATA/train
     cd $RESNET50_DATA
     tar -xvf ILSVRC2012_img_train.tar -C $RESNET50_DATA/train
@@ -42,6 +72,14 @@ function prepare_val_data() {
     bash valprep.sh
 }
 
-download_data
-prepare_train_data
-prepare_val_data
+if [ "${PHASE}" = "training" ]; then
+    download_training_data
+    download_inference_data
+    prepare_training_data
+    prepare_val_data
+elif [ "${PHASE}" != "inference" ]; then
+    download_inference_data
+    prepare_val_data
+else
+    usage
+fi

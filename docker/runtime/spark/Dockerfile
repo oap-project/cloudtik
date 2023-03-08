@@ -4,7 +4,6 @@ FROM cloudtik/cloudtik-deps:"$BASE_IMAGE"
 # Install spark based Analytics + AI platform components
 ARG SPARK_VERSION=3.2.1
 ARG HADOOP_VERSION=3.3.1
-ARG CLOUDTIK_REGION=""
 
 ENV RUNTIME_PATH /home/cloudtik/runtime
 RUN mkdir -p $RUNTIME_PATH
@@ -85,8 +84,3 @@ RUN export PATH="$HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH" \
     && pip --no-cache-dir install -r /tmp/requirements.txt \
     && sudo rm /tmp/requirements.txt \
     && python -m spylon_kernel install --user
-
-RUN if [ "${CLOUDTIK_REGION}" = "PRC" ]; \
-        then \
-            pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple/; \
-        fi

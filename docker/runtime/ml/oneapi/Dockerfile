@@ -1,8 +1,6 @@
 ARG BASE_IMAGE="nightly"
 FROM cloudtik/spark-ml-base:"$BASE_IMAGE"
 
-ARG CLOUDTIK_REGION=""
-
 RUN wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB \
         | gpg --dearmor | sudo tee /usr/share/keyrings/oneapi-archive-keyring.gpg > /dev/null \
     # add signed entry to apt sources and configure the APT client to use Intel repository:
@@ -43,8 +41,3 @@ RUN export PATH="$HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH" \
     && export HOROVOD_CPU_OPERATIONS=CCL \
     && export CXX=/usr/bin/g++-9 \
     && HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITHOUT_MXNET=1 HOROVOD_WITH_GLOO=1 HOROVOD_WITH_MPI=1 pip install horovod[tensorflow,keras,pytorch,spark,pytorch-spark]==0.25.0
-
-RUN if [ "${CLOUDTIK_REGION}" = "PRC" ]; \
-        then \
-            pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple/; \
-        fi

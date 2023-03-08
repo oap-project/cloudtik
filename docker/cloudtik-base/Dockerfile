@@ -11,7 +11,6 @@ ARG PYTHON_VERSION=3.9
 ARG CONDA_ENV_NAME=cloudtik
 ARG CLOUDTIK_UID=1000
 ARG CLOUDTIK_GID=100
-ARG CLOUDTIK_REGION=""
 
 RUN apt-get update -y \
     && apt-get install -y sudo tzdata \
@@ -60,12 +59,6 @@ RUN sudo apt-get update -y && sudo apt-get upgrade -y \
     && sudo rm -rf /var/lib/apt/lists/* \
     && sudo rm -rf /etc/apt/sources.list.d/kubernetes.list \
     && sudo apt-get clean
-
-RUN if [ "${CLOUDTIK_REGION}" = "PRC" ]; \
-        then \
-            sudo sed -i 's/archive.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list \
-            && sudo sed -i 's/security.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list; \
-        fi
 
 RUN $HOME/anaconda3/bin/conda create -n $CLOUDTIK_ENV -y python=$PYTHON_VERSION \
     && $HOME/anaconda3/bin/conda clean -itqy

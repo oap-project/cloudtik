@@ -131,10 +131,10 @@ for IMAGE in "cloudtik-base"
 do
     cp "$WHEEL" "docker/$IMAGE/$(basename "$WHEEL")"
     if [ $OUTPUT_SHA ]; then
-        IMAGE_SHA=$(docker build $NO_CACHE --build-arg GPU="$GPU" --build-arg BASE_IMAGE="$BASE_IMAGE" --build-arg CLOUDTIK_REGION="$CLOUDTIK_REGION" --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_VERSION="$PYTHON_VERSION" --build-arg CONDA_ENV_NAME="$CONDA_ENV_NAME" -q -t cloudtik/$IMAGE:$IMAGE_TAG$GPU docker/$IMAGE)
+        IMAGE_SHA=$(docker build $NO_CACHE --build-arg GPU="$GPU" --build-arg BASE_IMAGE="$BASE_IMAGE" --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_VERSION="$PYTHON_VERSION" --build-arg CONDA_ENV_NAME="$CONDA_ENV_NAME" -q -t cloudtik/$IMAGE:$IMAGE_TAG$GPU docker/$IMAGE)
         echo "cloudtik/$IMAGE:$IMAGE_TAG$GPU SHA:$IMAGE_SHA"
     else
-        docker build $NO_CACHE --build-arg GPU="$GPU" --build-arg BASE_IMAGE="$BASE_IMAGE" --build-arg CLOUDTIK_REGION="$CLOUDTIK_REGION" --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_VERSION="$PYTHON_VERSION" --build-arg CONDA_ENV_NAME="$CONDA_ENV_NAME" -t cloudtik/$IMAGE:$IMAGE_TAG$GPU docker/$IMAGE
+        docker build $NO_CACHE --build-arg GPU="$GPU" --build-arg BASE_IMAGE="$BASE_IMAGE" --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_VERSION="$PYTHON_VERSION" --build-arg CONDA_ENV_NAME="$CONDA_ENV_NAME" -t cloudtik/$IMAGE:$IMAGE_TAG$GPU docker/$IMAGE
     fi
     rm "docker/$IMAGE/$(basename "$WHEEL")"
 done 
@@ -166,59 +166,102 @@ fi
 
 rm -rf "$WHEEL_DIR"
 
-if [ $BUILD_SPARK ] || [ $BUILD_ALL ]; then
-    docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG -t cloudtik/spark-runtime:$IMAGE_TAG docker/runtime/spark
+registry_regions=('GLOBAL')
+if [ "${CLOUDTIK_REGION}" == "PRC" ]; then
+    registry_regions[1]='PRC'
 fi
 
-if [ $BUILD_SPARK_NATIVE_SQL ] || [ $BUILD_ALL ]; then
-    docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG -t cloudtik/spark-native-sql:$IMAGE_TAG docker/runtime/spark/native-sql
-fi
+for registry_region in ${registry_regions[@]};
+do
+    DOCKER_REGISTRY=""
+    DOCKER_FILE_PATH=""
+    if [ "${registry_region}" == "PRC" ]; then
+        DOCKER_REGISTRY="registry.cn-shanghai.aliyuncs.com/"
+        DOCKER_FILE_PATH="localize/PRC/"
+    fi
 
-if [ $BUILD_SPARK_OPTIMIZED ] || [ $BUILD_ALL ]; then
-    docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG -t cloudtik/spark-optimized:$IMAGE_TAG docker/runtime/spark/optimized
-fi
+    if [ -d "docker/${DOCKER_FILE_PATH}runtime/spark" ] && ([ $BUILD_SPARK ] || [ $BUILD_ALL ]); then
+        docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG \
+          -t ${DOCKER_REGISTRY}cloudtik/spark-runtime:$IMAGE_TAG \
+          docker/${DOCKER_FILE_PATH}runtime/spark
+    fi
 
-if [ $BUILD_UNIVERSE ] || [ $BUILD_ALL ]; then
-    docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG -t cloudtik/universe-runtime:$IMAGE_TAG docker/runtime/universe
-fi
+    if [ -d "docker/${DOCKER_FILE_PATH}runtime/spark/native-sql" ] && ([ $BUILD_SPARK_NATIVE_SQL ] || [ $BUILD_ALL ]); then
+        docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG \
+          -t ${DOCKER_REGISTRY}cloudtik/spark-native-sql:$IMAGE_TAG \
+          docker/${DOCKER_FILE_PATH}runtime/spark/native-sql
+    fi
 
-if [ $BUILD_PRESTO ] || [ $BUILD_ALL ]; then
-    docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG -t cloudtik/presto-runtime:$IMAGE_TAG docker/runtime/presto
-fi
+    if [ -d "docker/${DOCKER_FILE_PATH}runtime/spark/optimized" ] && ([ $BUILD_SPARK_OPTIMIZED ] || [ $BUILD_ALL ]); then
+        docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG \
+          -t ${DOCKER_REGISTRY}cloudtik/spark-optimized:$IMAGE_TAG \
+          docker/${DOCKER_FILE_PATH}runtime/spark/optimized
+    fi
 
-if [ $BUILD_TRINO ] || [ $BUILD_ALL ]; then
-    docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG -t cloudtik/trino-runtime:$IMAGE_TAG docker/runtime/trino
-fi
+    if [ -d "docker/${DOCKER_FILE_PATH}runtime/universe" ] && ([ $BUILD_UNIVERSE ] || [ $BUILD_ALL ]); then
+        docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG \
+          -t ${DOCKER_REGISTRY}cloudtik/universe-runtime:$IMAGE_TAG \
+          docker/${DOCKER_FILE_PATH}runtime/universe
+    fi
 
-# Build the ML base image which is needed as the base image for all other ML image
-if [ $BUILD_ML ] || [ $BUILD_ML_MXNET ] || [ $BUILD_ML_ONEAPI ] || [ $BUILD_ALL ]; then
-    docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG -t cloudtik/spark-ml-base:$IMAGE_TAG docker/runtime/ml/base
-fi
+    if [ -d "docker/${DOCKER_FILE_PATH}runtime/presto" ] && ([ $BUILD_PRESTO ] || [ $BUILD_ALL ]); then
+        docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG \
+          -t ${DOCKER_REGISTRY}cloudtik/presto-runtime:$IMAGE_TAG \
+          docker/${DOCKER_FILE_PATH}runtime/presto
+    fi
 
-if [ $BUILD_ML ] || [ $BUILD_ALL ]; then
-    docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG -t cloudtik/spark-ml-runtime:$IMAGE_TAG docker/runtime/ml
-fi
+    if [ -d "docker/${DOCKER_FILE_PATH}runtime/trino" ] && ([ $BUILD_TRINO ] || [ $BUILD_ALL ]); then
+        docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG \
+          -t ${DOCKER_REGISTRY}cloudtik/trino-runtime:$IMAGE_TAG \
+          docker/${DOCKER_FILE_PATH}runtime/trino
+    fi
 
-if [ $BUILD_ML_MXNET ] || [ $BUILD_ALL ]; then
-    docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG -t cloudtik/spark-ml-mxnet:$IMAGE_TAG docker/runtime/ml/mxnet
-fi
+    # Build the ML base image which is needed as the base image for all other ML image
+    if [ -d "docker/${DOCKER_FILE_PATH}runtime/ml/base" ] && ([ $BUILD_ML ] || [ $BUILD_ML_MXNET ] || [ $BUILD_ML_ONEAPI ] || [ $BUILD_ALL ]); then
+        docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG \
+          -t ${DOCKER_REGISTRY}cloudtik/spark-ml-base:$IMAGE_TAG \
+          docker/${DOCKER_FILE_PATH}runtime/ml/base
+    fi
 
-if [ $BUILD_ML_ONEAPI ] || [ $BUILD_ALL ]; then
-    docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG -t cloudtik/spark-ml-oneapi:$IMAGE_TAG docker/runtime/ml/oneapi
-fi
+    if [ -d "docker/${DOCKER_FILE_PATH}runtime/ml" ] && ([ $BUILD_ML ] || [ $BUILD_ALL ]); then
+        docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG \
+          -t ${DOCKER_REGISTRY}cloudtik/spark-ml-runtime:$IMAGE_TAG \
+          docker/${DOCKER_FILE_PATH}runtime/ml
+    fi
 
-if [ $BUILD_ML_BENCHMARK ] || [ $BUILD_ALL ]; then
-    docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG -t cloudtik/spark-ml-runtime-benchmark:$IMAGE_TAG docker/runtime/ml/benchmark
-fi
+    if [ -d "docker/${DOCKER_FILE_PATH}runtime/ml/mxnet" ] && ([ $BUILD_ML_MXNET ] || [ $BUILD_ALL ]); then
+        docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG \
+          -t ${DOCKER_REGISTRY}cloudtik/spark-ml-mxnet:$IMAGE_TAG \
+          docker/${DOCKER_FILE_PATH}runtime/ml/mxnet
+    fi
 
-if [ $BUILD_SPARK_BENCHMARK ] || [ $BUILD_ALL ]; then
-    docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG -t cloudtik/spark-runtime-benchmark:$IMAGE_TAG docker/runtime/spark/benchmark
-fi
+    if [ -d "docker/${DOCKER_FILE_PATH}runtime/ml/oneapi" ] && ([ $BUILD_ML_ONEAPI ] || [ $BUILD_ALL ]); then
+        docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG \
+          -t ${DOCKER_REGISTRY}cloudtik/spark-ml-oneapi:$IMAGE_TAG \
+          docker/${DOCKER_FILE_PATH}runtime/ml/oneapi
+    fi
 
-if [ $BUILD_SPARK_NATIVE_SQL_BENCHMARK ] || [ $BUILD_ALL ]; then
-    docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG -t cloudtik/spark-native-sql-benchmark:$IMAGE_TAG docker/runtime/spark/benchmark/native-sql
-fi
+    if [ -d "docker/${DOCKER_FILE_PATH}runtime/spark/benchmark" ] && ([ $BUILD_SPARK_BENCHMARK ] || [ $BUILD_ALL ]); then
+        docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG \
+          -t ${DOCKER_REGISTRY}cloudtik/spark-runtime-benchmark:$IMAGE_TAG \
+          docker/${DOCKER_FILE_PATH}runtime/spark/benchmark
+    fi
 
-if [ $BUILD_SPARK_OPTIMIZED_BENCHMARK ] || [ $BUILD_ALL ]; then
-    docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG -t cloudtik/spark-optimized-benchmark:$IMAGE_TAG docker/runtime/spark/benchmark/optimized
-fi
+    if [ -d "docker/${DOCKER_FILE_PATH}runtime/spark/benchmark/native-sql" ] && ([ $BUILD_SPARK_NATIVE_SQL_BENCHMARK ] || [ $BUILD_ALL ]); then
+        docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG \
+          -t ${DOCKER_REGISTRY}cloudtik/spark-native-sql-benchmark:$IMAGE_TAG \
+          docker/${DOCKER_FILE_PATH}runtime/spark/benchmark/native-sql
+    fi
+
+    if [ -d "docker/${DOCKER_FILE_PATH}runtime/spark/benchmark/optimized" ] && ([ $BUILD_SPARK_OPTIMIZED_BENCHMARK ] || [ $BUILD_ALL ]); then
+        docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG \
+          -t ${DOCKER_REGISTRY}cloudtik/spark-optimized-benchmark:$IMAGE_TAG \
+          docker/${DOCKER_FILE_PATH}runtime/spark/benchmark/optimized
+    fi
+
+    if [ -d "docker/${DOCKER_FILE_PATH}runtime/ml/benchmark" ] && ([ $BUILD_ML_BENCHMARK ] || [ $BUILD_ALL ]); then
+        docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG \
+          -t ${DOCKER_REGISTRY}cloudtik/spark-ml-runtime-benchmark:$IMAGE_TAG \
+          docker/${DOCKER_FILE_PATH}runtime/ml/benchmark
+    fi
+done

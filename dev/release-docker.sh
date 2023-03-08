@@ -50,62 +50,73 @@ do
 done
 
 PYTHON_TAG=${PYTHON_VERSION//./}
-
-DOCKER_REGISTRY=""
-if [ "${CLOUDTIK_REGION}" == "PRC" ]; then
-    DOCKER_REGISTRY="registry.cn-shanghai.aliyuncs.com/"
-fi
+DOCKER_REGISTRY_PRC="registry.cn-shanghai.aliyuncs.com/"
 
 cd $CLOUDTIK_HOME
 
+registry_regions=('GLOBAL')
+if [ "${CLOUDTIK_REGION}" == "PRC" ]; then
+    registry_regions[1]='PRC'
+fi
+
 if [ $DO_CLEAN ]; then
-    sudo docker rmi ${DOCKER_REGISTRY}cloudtik/spark-runtime-benchmark:$IMAGE_TAG
-    sudo docker rmi ${DOCKER_REGISTRY}cloudtik/spark-ml-oneapi:$IMAGE_TAG
-    sudo docker rmi ${DOCKER_REGISTRY}cloudtik/spark-ml-mxnet:$IMAGE_TAG
-    sudo docker rmi ${DOCKER_REGISTRY}cloudtik/spark-ml-runtime:$IMAGE_TAG
-    sudo docker rmi ${DOCKER_REGISTRY}cloudtik/spark-ml-base:$IMAGE_TAG
-    sudo docker rmi ${DOCKER_REGISTRY}cloudtik/spark-runtime:$IMAGE_TAG
-    sudo docker rmi ${DOCKER_REGISTRY}cloudtik/cloudtik:$IMAGE_TAG
-    sudo docker rmi ${DOCKER_REGISTRY}cloudtik/cloudtik-deps:$IMAGE_TAG
-    sudo docker rmi ${DOCKER_REGISTRY}cloudtik/cloudtik-base:$IMAGE_TAG
+    for registry_region in ${registry_regions[@]};
+    do
+        DOCKER_REGISTRY=""
+        if [ "${registry_region}" == "PRC" ]; then
+            DOCKER_REGISTRY=${DOCKER_REGISTRY_PRC}
+        fi
+
+        for image_name in "spark-runtime-benchmark" "spark-ml-mxnet" "spark-ml-oneapi" "spark-ml-runtime" "spark-ml-base" "spark-runtime" "cloudtik" "cloudtik-deps" "cloudtik-base"
+        do
+            image=${DOCKER_REGISTRY}cloudtik/$image_name:$IMAGE_TAG
+            if [ "$(sudo docker images -q $image 2> /dev/null)" != "" ]; then
+                sudo docker rmi $image
+            fi
+        done
+    done
 fi
 
 if [ $TAG_NIGHTLY ]; then
-    sudo docker tag ${DOCKER_REGISTRY}cloudtik/spark-runtime-benchmark:nightly ${DOCKER_REGISTRY}cloudtik/spark-runtime-benchmark:$IMAGE_TAG
-    sudo docker tag ${DOCKER_REGISTRY}cloudtik/spark-ml-oneapi:nightly ${DOCKER_REGISTRY}cloudtik/spark-ml-oneapi:$IMAGE_TAG
-    sudo docker tag ${DOCKER_REGISTRY}cloudtik/spark-ml-mxnet:nightly ${DOCKER_REGISTRY}cloudtik/spark-ml-mxnet:$IMAGE_TAG
-    sudo docker tag ${DOCKER_REGISTRY}cloudtik/spark-ml-runtime:nightly ${DOCKER_REGISTRY}cloudtik/spark-ml-runtime:$IMAGE_TAG
-    sudo docker tag ${DOCKER_REGISTRY}cloudtik/spark-ml-base:nightly ${DOCKER_REGISTRY}cloudtik/spark-ml-base:$IMAGE_TAG
-    sudo docker tag ${DOCKER_REGISTRY}cloudtik/spark-runtime:nightly ${DOCKER_REGISTRY}cloudtik/spark-runtime:$IMAGE_TAG
-    sudo docker tag ${DOCKER_REGISTRY}cloudtik/cloudtik:nightly ${DOCKER_REGISTRY}cloudtik/cloudtik:$IMAGE_TAG
-    sudo docker tag ${DOCKER_REGISTRY}cloudtik/cloudtik-deps:nightly ${DOCKER_REGISTRY}cloudtik/cloudtik-deps:$IMAGE_TAG
-    sudo docker tag ${DOCKER_REGISTRY}cloudtik/cloudtik-base:nightly ${DOCKER_REGISTRY}cloudtik/cloudtik-base:$IMAGE_TAG
+    for registry_region in ${registry_regions[@]};
+    do
+        DOCKER_REGISTRY=""
+        if [ "${registry_region}" == "PRC" ]; then
+            DOCKER_REGISTRY=${DOCKER_REGISTRY_PRC}
+        fi
+
+        for image_name in "cloudtik-base" "cloudtik-deps" "cloudtik" "spark-runtime" "spark-ml-base" "spark-ml-runtime" "spark-ml-oneapi" "spark-ml-mxnet" "spark-runtime-benchmark"
+        do
+            image_nightly=${DOCKER_REGISTRY}cloudtik/$image_name:nightly
+            image=${DOCKER_REGISTRY}cloudtik/$image_name:$IMAGE_TAG
+            if [ "$(sudo docker images -q $image_nightly 2> /dev/null)" != "" ]; then
+                sudo docker tag $image_nightly $image
+            fi
+        done
+    done
 fi
 
 # Default build
 if [ ! $NO_BUILD ]; then
     sudo bash ./build-docker.sh --image-tag $IMAGE_TAG --region ${CLOUDTIK_REGION} --python-version ${PYTHON_VERSION} \
-        --build-spark --build-ml --build-ml-mxnet --build-ml-oneapi --build-spark-benchmark
-
-    if [ "${DOCKER_REGISTRY}" != "" ]; then
-        sudo docker tag cloudtik/spark-runtime-benchmark:$IMAGE_TAG ${DOCKER_REGISTRY}cloudtik/spark-runtime-benchmark:$IMAGE_TAG
-        sudo docker tag cloudtik/spark-ml-oneapi:$IMAGE_TAG ${DOCKER_REGISTRY}cloudtik/spark-ml-oneapi:$IMAGE_TAG
-        sudo docker tag cloudtik/spark-ml-mxnet:$IMAGE_TAG ${DOCKER_REGISTRY}cloudtik/spark-ml-mxnet:$IMAGE_TAG
-        sudo docker tag cloudtik/spark-ml-runtime:$IMAGE_TAG ${DOCKER_REGISTRY}cloudtik/spark-ml-runtime:$IMAGE_TAG
-        sudo docker tag cloudtik/spark-ml-base:$IMAGE_TAG ${DOCKER_REGISTRY}cloudtik/spark-ml-base:$IMAGE_TAG
-        sudo docker tag cloudtik/spark-runtime:$IMAGE_TAG ${DOCKER_REGISTRY}cloudtik/spark-runtime:$IMAGE_TAG
-        sudo docker tag cloudtik/cloudtik:$IMAGE_TAG ${DOCKER_REGISTRY}cloudtik/cloudtik:$IMAGE_TAG
-        sudo docker tag cloudtik/cloudtik-deps:$IMAGE_TAG ${DOCKER_REGISTRY}cloudtik/cloudtik-deps:$IMAGE_TAG
-        sudo docker tag cloudtik/cloudtik-base:$IMAGE_TAG ${DOCKER_REGISTRY}cloudtik/cloudtik-base:$IMAGE_TAG
-    fi
+        --build-spark --build-ml --build-ml-oneapi --build-spark-benchmark
 fi
 
 # Default push
 if [ ! $NO_PUSH ]; then
-    sudo docker push ${DOCKER_REGISTRY}cloudtik/cloudtik:$IMAGE_TAG
-    sudo docker push ${DOCKER_REGISTRY}cloudtik/spark-runtime:$IMAGE_TAG
-    sudo docker push ${DOCKER_REGISTRY}cloudtik/spark-ml-runtime:$IMAGE_TAG
-    sudo docker push ${DOCKER_REGISTRY}cloudtik/spark-ml-mxnet:$IMAGE_TAG
-    sudo docker push ${DOCKER_REGISTRY}cloudtik/spark-ml-oneapi:$IMAGE_TAG
-    sudo docker push ${DOCKER_REGISTRY}cloudtik/spark-runtime-benchmark:$IMAGE_TAG
+    for registry_region in ${registry_regions[@]};
+    do
+        DOCKER_REGISTRY=""
+        if [ "${registry_region}" == "PRC" ]; then
+            DOCKER_REGISTRY=${DOCKER_REGISTRY_PRC}
+        fi
+
+        for image_name in "cloudtik" "spark-runtime" "spark-ml-runtime" "spark-ml-oneapi" "spark-runtime-benchmark"
+        do
+            image=${DOCKER_REGISTRY}cloudtik/$image_name:$IMAGE_TAG
+            if [ "$(sudo docker images -q $image 2> /dev/null)" != "" ]; then
+                sudo docker push $image
+            fi
+        done
+    done
 fi

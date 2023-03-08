@@ -5,7 +5,7 @@ eval set -- "${args}"
 
 USER_HOME=/home/$(whoami)
 BENCHMARK_TOOL_HOME=$USER_HOME/runtime/benchmark-tools
-MODELS_HOME=$BENCHMARK_TOOL_HOME/intelai_models
+MODELS_HOME=$BENCHMARK_TOOL_HOME/models
 MODELS_SCRIPTS_HOME=$BENCHMARK_TOOL_HOME/intelai_models_scripts
 MODELS_TMP=$USER_HOME/intelai_models/tmp
 

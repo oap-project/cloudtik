@@ -2,9 +2,9 @@
 
 
 ML_WORKSPACE=/mnt/cloudtik/data_disk_1/ml_workspace
-SSD-RESNET34_HOME=$ML_WORKSPACE/ssd-resnet34
-SSD-RESNET34_MODEL=$SSD-RESNET34_HOME/model
-SSD-RESNET34_DATA=$SSD-RESNET34_HOME/data
+SSD_RESNET34_HOME=$ML_WORKSPACE/ssd-resnet34
+SSD_RESNET34_MODEL=$SSD_RESNET34_HOME/model
+SSD_RESNET34_DATA=$SSD_RESNET34_HOME/data
 
 
 function install_libraries() {
@@ -15,8 +15,8 @@ function install_libraries() {
 
 function download_data() {
     
-    mkdir -p $SSD-RESNET34_DATA
-    export DATASET_DIR=$SSD-RESNET34_DATA
+    mkdir -p $SSD_RESNET34_DATA
+    export DATASET_DIR=$SSD_RESNET34_DATA
 
     cd $MODEL_DIR/quickstart/object_detection/pytorch/ssd-resnet34/inference/cpu
     bash download_dataset.sh
@@ -26,7 +26,7 @@ function download_data() {
 
 
 function prepare_model() {
-    export CHECKPOINT_DIR=$RESNET34_MODEL
+    export CHECKPOINT_DIR=$SSD_RESNET34_MODEL
 
     cd $MODEL_DIR/quickstart/object_detection/pytorch/ssd-resnet34/inference/cpu
     bash download_model.sh

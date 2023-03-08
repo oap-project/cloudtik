@@ -13,7 +13,7 @@ export OUTPUT_DIR=$RESNET50_OUTPUT
 
 #(fp32, int8, avx-int8, bf16, bf32 or fp16)
 export PRECISION=fp32
-
+mkdir $OUTPUT_DIR
 cd ${MODEL_DIR}/quickstart/image_recognition/pytorch/resnet50/inference/cpu
 
 bash accuracy.sh

@@ -45,7 +45,7 @@ Cloudtik will use this private key to login in the cluster.
 
 ### Prepare the private key file
 We need to specify the private key file for logining to the clusters.
-Use the command`ssh-keygen -t rsa -b 4096` to generate a new ssh key pair on working node.
+Use the command `ssh-keygen -t rsa -b 4096` to generate a new ssh key pair on working node.
 Then add working node SSH public key to each nodes. For example: ssh-copy-id -i ~/.ssh/id_rsa.pub [sudo user]@[node-ip]
 
 

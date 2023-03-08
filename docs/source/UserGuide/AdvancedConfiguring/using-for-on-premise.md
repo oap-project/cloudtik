@@ -33,7 +33,7 @@ utility scripts.
 Cloudtik doesn't suggest to use root user to manage the cluster, 
 so you need to create a normal user with sudo privileges for each of your machines.
 If such a user already exists, you can skip this step.
-For example to cloudtik user:
+For example to create cloudtik user:
 ```buildoutcfg
 sudo useradd -ms /bin/bash -d /home/cloudtik cloudtik;
 sudo usermod -aG sudo haojin;

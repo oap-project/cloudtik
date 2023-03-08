@@ -170,8 +170,8 @@ You also need to provide ssh_proxy_command if the head node needs to access the 
 auth:
     ssh_user: [sudo user]
     # Specify the private key file for login to the nodes
-    # use `ssh-keygen -t rsa -b 4096` to generate a new ssh key pair on head node.
-    # Then add head SSH public key to each workers. For example: ssh-copy-id -i ~/.ssh/id_rsa [sudo user]@[worker-ip]
+    # use `ssh-keygen -t rsa -b 4096` to generate a new ssh key pair on working node.
+    # Then add working node SSH public key to each nodes. For example: ssh-copy-id -i ~/.ssh/id_rsa [sudo user]@[node-ip]
     ssh_private_key: ~/.ssh/id_rsa
     # Set proxy if you are in corporation network. For example,
     # ssh_proxy_command: "ncat --proxy-type socks5 --proxy your_proxy_host:your_proxy_port %h %p"

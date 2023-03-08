@@ -656,12 +656,12 @@ if __name__ == '__main__':
     # Load final model with the best parameters
     best_model, best_model_bytes = load_model_of_checkpoint(checkpoint_dir, argmin.get('learning_rate'))
     model_name = 'rossmann-keras-spark-horovod-run'
-    mlflow.keras.log_model(best_model, model_name, registered_model_name=model_name)
+    mlflow.tensorflow.log_model(best_model, model_name, registered_model_name=model_name)
 
     # Load the model from MLflow and run a transformation
     model_uri = "models:/{}/latest".format(model_name)
     print('Inference with model: {}'.format(model_uri))
-    saved_model = mlflow.keras.load_model(model_uri, custom_objects=CUSTOM_OBJECTS)
+    saved_model = mlflow.tensorflow.load_model(model_uri, custom_objects=CUSTOM_OBJECTS)
 
     # Stop the training Spark session
     spark.stop()

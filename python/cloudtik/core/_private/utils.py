@@ -2030,6 +2030,21 @@ def with_runtime_environment_variables(runtime_config, config, provider, node_id
     return all_runtime_envs
 
 
+def get_runtime_shared_memory_ratio(runtime_config, config, provider, node_id: str):
+    total_shared_memory_ratio = 0.0
+
+    # Iterate through all the runtimes
+    runtime_types = runtime_config.get(RUNTIME_TYPES_CONFIG_KEY, [])
+    for runtime_type in runtime_types:
+        runtime = _get_runtime(runtime_type, runtime_config)
+        runtime_shared_memory_ratio = runtime.get_runtime_shared_memory_ratio(
+            config, provider=provider, node_id=node_id)
+        if runtime_shared_memory_ratio > 0:
+            total_shared_memory_ratio += runtime_shared_memory_ratio
+
+    return total_shared_memory_ratio
+
+
 def runtime_validate_config(runtime_config, config, provider):
     if runtime_config is None:
         return

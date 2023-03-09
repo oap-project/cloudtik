@@ -16,6 +16,9 @@ RUNTIME_PROCESSES = [
 RUNTIME_ROOT_PATH = os.path.abspath(os.path.dirname(__file__))
 RAY_RUNTIME_CONFIG_KEY = "ray"
 
+# The default proportion of available memory allocated to system and runtime overhead
+RAY_DEFAULT_SHARED_MEMORY_PROPORTION = 0.3
+
 
 def _config_runtime_resources(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
     return cluster_config
@@ -52,6 +55,10 @@ def _with_runtime_environment_variables(runtime_config, config, provider, node_i
     runtime_envs.update(provider_envs)
 
     return runtime_envs
+
+
+def _get_runtime_shared_memory_ratio(runtime_config, config):
+    return RAY_DEFAULT_SHARED_MEMORY_PROPORTION
 
 
 def _get_runtime_logs():

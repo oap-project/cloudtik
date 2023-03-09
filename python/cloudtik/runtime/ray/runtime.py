@@ -6,7 +6,8 @@ from cloudtik.core.runtime import Runtime
 from cloudtik.runtime.ray.utils import _config_runtime_resources, _with_runtime_environment_variables, \
     _is_runtime_scripts, _get_runnable_command, _get_runtime_processes, _validate_config, \
     _verify_config, _get_runtime_logs, _get_runtime_commands, \
-    _get_defaults_config, _get_runtime_services, _config_depended_services, _get_runtime_service_ports
+    _get_defaults_config, _get_runtime_services, _config_depended_services, _get_runtime_service_ports, \
+    _get_runtime_shared_memory_ratio
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +41,14 @@ class RayRuntime(Runtime):
         """
         return _with_runtime_environment_variables(
             self.runtime_config, config=config, provider=provider, node_id=node_id)
+
+    def get_runtime_shared_memory_ratio(
+            self, config: Dict[str, Any], provider: NodeProvider,
+            node_id: str) -> float:
+        """Return the shared memory ratio for /dev/shm if needed.
+        """
+        return _get_runtime_shared_memory_ratio(
+            self.runtime_config, config=config)
 
     def get_runnable_command(self, target: str, runtime_options: Optional[List[str]]):
         """Return the runnable command for the target script.

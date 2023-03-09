@@ -7,7 +7,7 @@ from typing import Dict
 from threading import Thread
 
 from cloudtik.core._private.utils import with_runtime_environment_variables, with_node_ip_environment_variables, \
-    _get_cluster_uri, _is_use_internal_ip, get_node_type
+    _get_cluster_uri, _is_use_internal_ip, get_node_type, get_runtime_shared_memory_ratio
 from cloudtik.core.command_executor import get_cmd_to_print
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_STATUS, CLOUDTIK_TAG_RUNTIME_CONFIG, \
     CLOUDTIK_TAG_FILE_MOUNTS_CONTENTS, \
@@ -347,6 +347,11 @@ class NodeUpdater:
         node_envs[CLOUDTIK_RUNTIME_ENV_PYTHON_VERSION] = CLOUDTIK_CLUSTER_PYTHON_VERSION
         return node_envs
 
+    def get_shared_memory_ratio(self):
+        return get_runtime_shared_memory_ratio(
+            self.runtime_config, config=self.config,
+            provider=self.provider, node_id=self.node_id)
+
     def do_update(self):
         self.provider.set_node_tags(
             self.node_id, {CLOUDTIK_TAG_NODE_STATUS: STATUS_WAITING_FOR_SSH})
@@ -363,12 +368,16 @@ class NodeUpdater:
         node_tags = self.provider.node_tags(self.node_id)
         logger.debug("Node tags: {}".format(str(node_tags)))
 
+        # The share memory ratio for /dev/shm
+        shared_memory_ratio = self.get_shared_memory_ratio()
+
         if node_tags.get(CLOUDTIK_TAG_RUNTIME_CONFIG) == self.runtime_hash:
             # When resuming from a stopped instance the runtime_hash may be the
             # same, but the container will not be started.
             init_required = self.cmd_executor.run_init(
                 as_head=self.is_head_node,
                 file_mounts=self.file_mounts,
+                shared_memory_ratio=shared_memory_ratio,
                 sync_run_yet=False)
             if init_required:
                 node_tags[CLOUDTIK_TAG_RUNTIME_CONFIG] += "-invalidate"
@@ -429,16 +438,15 @@ class NodeUpdater:
                         _numbered=("[]", 5, NUM_SETUP_STEPS))
                 with self.cli_logger.group(
                         "Initializing command runner",
-                        # todo: fix command numbering
                         _numbered=("[]", 6, NUM_SETUP_STEPS)):
                     self.cmd_executor.run_init(
                         as_head=self.is_head_node,
                         file_mounts=self.file_mounts,
+                        shared_memory_ratio=shared_memory_ratio,
                         sync_run_yet=True)
                 if self.setup_commands:
                     with self.cli_logger.group(
                             "Running setup commands",
-                            # todo: fix command numbering
                             _numbered=("[]", 7, NUM_SETUP_STEPS)):
                         self._exec_setup_commands(runtime_envs)
                 else:

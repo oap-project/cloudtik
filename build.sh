@@ -22,7 +22,7 @@ if [ "${OSTYPE}" = msys ]; then
     echo "WARNING: ${0##*/} is not recommended on MSYS2, as MSYS2 alters the build environment."
 fi
 
-# and copy the binary to python/cloudtik/core/thirdparty/redis/redis-server
+# and copy the binary to python/cloudtik/core/thirdparty/redis/cloudtik-redis-server
 BUILD_DIR=${SCRIPT_DIR}/build
 THIRDPARTY_DIR=${BUILD_DIR}/thirdparty
 mkdir -p ${THIRDPARTY_DIR}
@@ -39,8 +39,8 @@ function compile_redis_server() {
 
     # copy executable to target folder
     mkdir -p ${SCRIPT_DIR}/python/cloudtik/core/thirdparty/redis
-    mv ${REDIS_BUILD_DIR}/src/redis-server  ${SCRIPT_DIR}/python/cloudtik/core/thirdparty/redis/redis-server
-    chmod +x ${SCRIPT_DIR}/python/cloudtik/core/thirdparty/redis/redis-server
+    mv ${REDIS_BUILD_DIR}/src/redis-server  ${SCRIPT_DIR}/python/cloudtik/core/thirdparty/redis/cloudtik-redis-server
+    chmod +x ${SCRIPT_DIR}/python/cloudtik/core/thirdparty/redis/cloudtik-redis-server
 
     # clear up the build directory
     rm -r -f -- ${REDIS_BUILD_DIR}

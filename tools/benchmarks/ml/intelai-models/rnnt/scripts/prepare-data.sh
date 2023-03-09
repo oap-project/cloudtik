@@ -42,7 +42,7 @@ done
 
 if [ "${PHASE}" = "training" ]; then
     bash ${MODEL_DIR}/quickstart/language_modeling/pytorch/rnnt/training/cpu/download_dataset.sh
-elif [ "${PHASE}" != "inference" ]; then
+elif [ "${PHASE}" = "inference" ]; then
     bash ${MODEL_DIR}/quickstart/language_modeling/pytorch/rnnt/inference/cpu/download_dataset.sh
     bash ${MODEL_DIR}/quickstart/language_modeling/pytorch/rnnt/inference/cpu/download_model.sh
 else

@@ -58,7 +58,7 @@ function download_training_data() {
 
 
 function prepare_training_model() {
-    export CHECKPOINT_DIR=$RESNET34_MODEL
+    export CHECKPOINT_DIR=$MASKRCNN_MODEL
     # Install model
     cd models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/
     python setup.py develop
@@ -75,9 +75,9 @@ function download_inference_data() {
 
 
 function prepare_inference_model() {
-    export CHECKPOINT_DIR=$RESNET34_MODEL
+    export CHECKPOINT_DIR=$MASKRCNN_MODEL
     # Install model
-    cd models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/
+    cd $MODEL_DIR/models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/
     python setup.py develop
 
     cd $MODEL_DIR/quickstart/object_detection/pytorch/maskrcnn/inference/cpu

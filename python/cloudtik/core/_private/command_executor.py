@@ -16,7 +16,6 @@ from cloudtik.core.command_executor import CommandExecutor
 from cloudtik.core._private.constants import \
     CLOUDTIK_NODE_SSH_INTERVAL_S, \
     CLOUDTIK_DEFAULT_SHARED_MEMORY_MAX_BYTES, \
-    CLOUDTIK_DEFAULT_SHARED_MEMORY_PROPORTION, \
     CLOUDTIK_NODE_START_WAIT_S, \
     CLOUDTIK_DATA_DISK_MOUNT_POINT, PRIVACY_REPLACEMENT, PRIVACY_REPLACEMENT_TEMPLATE
 from cloudtik.core._private.docker import check_bind_mounts_cmd, \
@@ -940,7 +939,7 @@ class DockerCommandExecutor(CommandExecutor):
         return re_init_required
 
     def run_init(self, *, as_head: bool, file_mounts: Dict[str, str],
-                 sync_run_yet: bool):
+                 shared_memory_ratio: float, sync_run_yet: bool):
         BOOTSTRAP_MOUNTS = [
             "~/cloudtik_bootstrap_config.yaml", "~/cloudtik_bootstrap_key.pem"
         ]
@@ -1013,7 +1012,8 @@ class DockerCommandExecutor(CommandExecutor):
                 self.ssh_command_executor.ssh_user, specific_image,
                 cleaned_bind_mounts, host_data_disks, self.container_name,
                 self._configure_runtime(
-                    self._auto_configure_shm(user_docker_run_options)),
+                    self._auto_configure_shm(user_docker_run_options,
+                                             shared_memory_ratio)),
                 self.ssh_command_executor.cluster_name, home_directory,
                 self.docker_cmd)
             self.run(start_command, run_env="host")
@@ -1088,7 +1088,8 @@ class DockerCommandExecutor(CommandExecutor):
 
         return run_options
 
-    def _auto_configure_shm(self, run_options: List[str]) -> List[str]:
+    def _auto_configure_shm(self, run_options: List[str],
+                            shared_memory_ratio: float) -> List[str]:
         if self.docker_config.get("disable_shm_size_detection"):
             return run_options
         for run_opt in run_options:
@@ -1106,7 +1107,7 @@ class DockerCommandExecutor(CommandExecutor):
             available_memory_bytes = available_memory * 1024
             # Overestimate SHM size by 10%
             shm_size = int(min((available_memory_bytes *
-                                CLOUDTIK_DEFAULT_SHARED_MEMORY_PROPORTION * 1.1),
+                                shared_memory_ratio * 1.1),
                                CLOUDTIK_DEFAULT_SHARED_MEMORY_MAX_BYTES))
             if shm_size <= 0:
                 return run_options

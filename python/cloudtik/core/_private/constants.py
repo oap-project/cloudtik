@@ -64,9 +64,6 @@ CLOUDTIK_KV_NAMESPACE_HEALTHCHECK = "healthcheck"
 # The default maximum number of bytes to reserved for object storage 
 CLOUDTIK_DEFAULT_SHARED_MEMORY_MAX_BYTES = 200 * 10 ** 9
 
-# The default proportion of available memory allocated to system and runtime overhead
-CLOUDTIK_DEFAULT_SHARED_MEMORY_PROPORTION = 0.0
-
 # The default maximum number of bytes that the non-primary Redis shards are
 # allowed to use unless overridden by the user.
 CLOUDTIK_DEFAULT_REDIS_MEMORY_MAX_BYTES = 2 * 1024 * 1024 * 1024  # 2GB

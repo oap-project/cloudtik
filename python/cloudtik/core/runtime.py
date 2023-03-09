@@ -47,6 +47,13 @@ class Runtime:
         """
         return {}
 
+    def get_runtime_shared_memory_ratio(
+            self, config: Dict[str, Any], provider: NodeProvider,
+            node_id: str) -> float:
+        """Return the shared memory ratio for /dev/shm if needed.
+        """
+        return 0.0
+
     def cluster_booting_completed(
             self, cluster_config: Dict[str, Any], head_node_id: str) -> None:
         """This method is called after the cluster head is completed all the setup steps.

@@ -109,7 +109,7 @@ if [ "${PHASE}" = "training" ]; then
     prepare_trainint_data
     download_bert_training_model
     prepare_training_model
-elif [ "${PHASE}" != "inference" ]; then
+elif [ "${PHASE}" = "inference" ]; then
     download_bert_inference_data
     prepare_inference_model
 else

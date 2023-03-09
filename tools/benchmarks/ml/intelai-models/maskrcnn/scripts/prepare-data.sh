@@ -90,7 +90,7 @@ install_libraries
 if [ "${PHASE}" = "training" ]; then
     download_training_data
     prepare_training_model
-elif [ "${PHASE}" != "inference" ]; then
+elif [ "${PHASE}" = "inference" ]; then
     download_inference_data
     prepare_inference_model
 else

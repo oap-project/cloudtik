@@ -36,7 +36,7 @@ done
 function install_libraries() {
     pip install --no-cache-dir cython
     pip install matplotlib Pillow pycocotools defusedxml
-    pip install --no-cache-dir pytz==2018.5
+    pip install --no-cache-dir pytz
 }
 
 function download_inference_data() {
@@ -80,7 +80,7 @@ install_libraries
 if [ "${PHASE}" = "training" ]; then
     download_training_data
     prepare_training_model
-elif [ "${PHASE}" != "inference" ]; then
+elif [ "${PHASE}" = "inference" ]; then
     download_inference_data
     prepare_inference_model
 else

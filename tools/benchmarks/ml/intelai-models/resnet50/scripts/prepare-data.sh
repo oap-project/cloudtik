@@ -77,7 +77,7 @@ if [ "${PHASE}" = "training" ]; then
     download_inference_data
     prepare_training_data
     prepare_val_data
-elif [ "${PHASE}" != "inference" ]; then
+elif [ "${PHASE}" = "inference" ]; then
     download_inference_data
     prepare_val_data
 else

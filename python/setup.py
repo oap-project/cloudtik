@@ -49,7 +49,7 @@ setup_spec = SetupSpec("cloudtik", "CloudTik: a cloud scale platform for distrib
 
 # NOTE: The lists below must be kept in sync with cloudtik build(.sh)
 cloudtik_files = [
-    "cloudtik/core/thirdparty/redis/redis-server",
+    "cloudtik/core/thirdparty/redis/cloudtik-redis-server",
 ]
 
 # cloudtik default yaml files

@@ -23,6 +23,7 @@ BUILT_IN_RUNTIME_ZOOKEEPER = "zookeeper"
 BUILT_IN_RUNTIME_KAFKA = "kafka"
 BUILT_IN_RUNTIME_ML = "ml"
 BUILT_IN_RUNTIME_FLINK = "flink"
+BUILT_IN_RUNTIME_RAY = "ray"
 
 DEFAULT_RUNTIMES = [BUILT_IN_RUNTIME_GANGLIA, BUILT_IN_RUNTIME_SPARK]
 
@@ -127,6 +128,16 @@ def _load_flink_runtime_home():
     return os.path.dirname(flink.__file__)
 
 
+def _import_ray():
+    from cloudtik.runtime.ray.runtime import RayRuntime
+    return RayRuntime
+
+
+def _load_ray_runtime_home():
+    import cloudtik.runtime.ray as ray
+    return os.path.dirname(ray.__file__)
+
+
 _RUNTIMES = {
     "ganglia": _import_ganglia,
     "spark": _import_spark,
@@ -138,6 +149,7 @@ _RUNTIMES = {
     "kafka": _import_kafka,
     "ml": _import_ml,
     "flink": _import_flink,
+    "ray": _import_ray,
 }
 
 _RUNTIME_HOMES = {
@@ -151,6 +163,7 @@ _RUNTIME_HOMES = {
     "kafka": _load_kafka_runtime_home,
     "ml": _load_ml_runtime_home,
     "flink": _load_flink_runtime_home,
+    "ray": _load_ray_runtime_home,
 }
 
 

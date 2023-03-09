@@ -15,12 +15,13 @@ Please follow these steps to use for On-Premise clusters .
 
 ## Prepare the machines
 For the machines used for CloudTik, there are a few requirements. 
-1. All the machines needs to have a user with sudo privilege and private key login. A non-root user is suggegested, for example 'cloudtik'.
-2. Setup host resolution for all the nodes
-3. Prepare the local disks
+1. All the machines needs to have a user with sudo privilege. A non-root user is suggegested, for example 'cloudtik'.
+2. Prepare the private key file for the clusters
+3. Setup host resolution for all the nodes
+4. Prepare the local disks
 
-For public cloud providers, the virtual machines are created with #1 and #2 already satisfied.
-For #3 (disks) on the public cloud, CloudTik will list all raw block devices,
+For public cloud providers, the virtual machines are created with #1, #2 and #3 already satisfied.
+For #4 (disks) on the public cloud, CloudTik will list all raw block devices,
 create a file system for them and mount to /mnt/cloudtik/data_disk_#.
 CloudTik runtime will automatically search disks under /mnt/cloudtik.
 And use these disks as data disks.
@@ -28,18 +29,29 @@ And use these disks as data disks.
 For on-premise clusters, user need to make sure these requirements are satisfied manually or through
 utility scripts.
 
-### Create a new sudo user and setup login with private key
+### Create a new sudo user
 Cloudtik doesn't suggest to use root user to manage the cluster, 
 so you need to create a normal user with sudo privileges for each of your machines.
-and you need setup login with the same private key.
 If such a user already exists, you can skip this step.
+For example to create cloudtik user:
+```buildoutcfg
+sudo useradd -ms /bin/bash -d /home/cloudtik cloudtik;
+sudo usermod -aG sudo haojin;
+echo 'cloudtik ALL=NOPASSWD: ALL' | sudo tee -a /etc/sudoer;
+sudo passwd cloudtik;
+```
+
+### Prepare the private key file
+We need to specify the private key file for logining to the clusters.
+Use the command `ssh-keygen -t rsa -b 4096` to generate a new ssh key pair on working node.
+Then add working node SSH public key to each nodes. For example: ssh-copy-id -i ~/.ssh/id_rsa.pub [sudo user]@[node-ip]
 
 
 ### Set up host resolution
- We need to make sure that the host resolution is configured and working properly. 
- This resolution can be done by using a DNS server or by configuring the "/etc/hosts" file on each node we use for cluster setting up. 
- Then you also need to generate a new ssh key pair on working node and add this SSH public key to each nodes. 
- Cloudtik will use this private key to login in the cluster.
+We need to make sure that the host resolution is configured and working properly. 
+This resolution can be done by using a DNS server or by configuring the "/etc/hosts" file on each node we use for cluster setting up. 
+Then you also need to generate a new ssh key pair on working node and add this SSH public key to each nodes. 
+Cloudtik will use this private key to login in the cluster.
 
 
 ### Prepare local disks
@@ -170,8 +182,6 @@ You also need to provide ssh_proxy_command if the head node needs to access the 
 auth:
     ssh_user: [sudo user]
     # Specify the private key file for login to the nodes
-    # use `ssh-keygen -t rsa -b 4096` to generate a new ssh key pair on head node.
-    # Then add head SSH public key to each workers. For example: ssh-copy-id -i ~/.ssh/id_rsa [sudo user]@[worker-ip]
     ssh_private_key: ~/.ssh/id_rsa
     # Set proxy if you are in corporation network. For example,
     # ssh_proxy_command: "ncat --proxy-type socks5 --proxy your_proxy_host:your_proxy_port %h %p"

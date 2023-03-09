@@ -4,7 +4,6 @@
 ARG BASE_IMAGE="ubuntu:focal"
 FROM ${BASE_IMAGE}
 # FROM directive resets ARG
-ARG CLOUDTIK_REGION=""
 ENV TZ=America/Los_Angeles
 ENV PATH "/home/cloudtik/anaconda3/bin:$PATH"
 ARG DEBIAN_FRONTEND=noninteractive
@@ -24,8 +23,6 @@ RUN apt-get update -y \
 USER $CLOUDTIK_UID
 ENV HOME=/home/cloudtik
 ENV CLOUDTIK_ENV=$CONDA_ENV_NAME
-
-RUN if [ "${CLOUDTIK_REGION}" = "PRC" ]; then sudo sed -i 's/archive.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list ; fi
 
 RUN sudo apt-get update -y && sudo apt-get upgrade -y \
     && sudo apt-get install -y \
@@ -60,6 +57,7 @@ RUN sudo apt-get update -y && sudo apt-get upgrade -y \
     && sudo apt-get install kubectl \
     # Clean up
     && sudo rm -rf /var/lib/apt/lists/* \
+    && sudo rm -rf /etc/apt/sources.list.d/kubernetes.list \
     && sudo apt-get clean
 
 RUN $HOME/anaconda3/bin/conda create -n $CLOUDTIK_ENV -y python=$PYTHON_VERSION \

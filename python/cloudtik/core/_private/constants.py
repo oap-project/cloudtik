@@ -175,7 +175,7 @@ CLOUDTIK_PROCESSES = [
     ["cloudtik_node_controller.py", False, "NodeController", "node"],
     ["cloudtik_log_monitor.py", False, "LogMonitor", "node"],
     ["cloudtik_process_reaper.py", False, "ProcessReaper", "node"],
-    ["redis-server", False, "RedisServer", "head"],
+    ["cloudtik-redis-server", False, "RedisServer", "head"],
 ]
 
 

@@ -556,12 +556,12 @@ if __name__ == '__main__':
     metadata = best_model._get_metadata()
     floatx = best_model._get_floatx()
     model_name = 'rossmann-keras-spark-horovod'
-    mlflow.keras.log_model(best_model.getModel(), model_name, registered_model_name=model_name)
+    mlflow.tensorflow.log_model(best_model.getModel(), model_name, registered_model_name=model_name)
 
     # Load the model from MLflow and run a transformation
     model_uri = "models:/{}/latest".format(model_name)
     print('Inference with model: {}'.format(model_uri))
-    saved_keras_model = mlflow.keras.load_model(model_uri, custom_objects=CUSTOM_OBJECTS)
+    saved_keras_model = mlflow.tensorflow.load_model(model_uri, custom_objects=CUSTOM_OBJECTS)
     saved_model = hvd.KerasModel(
         model=saved_keras_model,
         feature_columns=all_cols,

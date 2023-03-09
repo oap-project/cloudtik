@@ -22,7 +22,7 @@ docker:
 CloudTik runs with container mode by default if it is not explicitly disabled like above.
 
 There are a few other advanced options for container mode.
-For details, please refer to [Advanced Configurations: Configuring Container Mode](./AdvancedConfigurations/configuring-container-mode.md)
+For details, please refer to [Advanced Configuring: Configuring Container Mode](./AdvancedConfiguring/configuring-container-mode.md)
 
 ## Controlling the Number of Workers
 
@@ -77,7 +77,7 @@ bootstrap_commands:
         bash ~/bootstrap-benchmark.sh  --tpcds
 ```
 CloudTik allows user to custom as mang commands as CloudTik itself does.
-For more advanced commands customization, please refer to [Advanced Configurations: Using Custom Commands](./AdvancedConfigurations/using-custom-commands.md)
+For more advanced commands customization, please refer to [Advanced Configuring: Using Custom Commands](./AdvancedConfiguring/using-custom-commands.md)
 
 ## Mounting Files or Directories to Nodes
 
@@ -111,7 +111,7 @@ from: aws/standard
 For a list of CloudTik defined system templates, please refer to `python/cloudtik/templates` directory
 under the cloudtik pip installation.
 
-For more details as to templates, please refer to [Advanced Configurations: Using Templates](./AdvancedConfigurations/using-templates.md)
+For more details as to templates, please refer to [Advanced Configuring: Using Templates](./AdvancedConfiguring/using-templates.md)
 
 
 ## Configuring Cluster Key
@@ -126,7 +126,7 @@ auth:
     ssh_public_key: ~/.ssh/my_cluster_rsa_key.pub
 ```
 
-For more details as to cluster key configuration, refer to [Advanced Configurations: Understanding Cluster Key](./AdvancedConfigurations/understanding-cluster-key.md)
+For more details as to cluster key configuration, refer to [Advanced Configuring: Understanding Cluster Key](./AdvancedConfiguring/understanding-cluster-key.md)
 
 ## Starting the cluster
 

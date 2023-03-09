@@ -247,11 +247,11 @@ if __name__ == '__main__':
     # Train final model with the best parameters and save the model
     best_model = load_model_of_checkpoint(checkpoint_dir, argmin.get('learning_rate'))
     model_name = "mnist-keras-single-node"
-    mlflow.keras.log_model(
+    mlflow.tensorflow.log_model(
         best_model, model_name, registered_model_name=model_name)
 
     # Load the model from MLflow and run an evaluation
     model_uri = "models:/{}/latest".format(model_name)
     print('Inference with model: {}'.format(model_uri))
-    saved_model = mlflow.keras.load_model(model_uri)
+    saved_model = mlflow.tensorflow.load_model(model_uri)
     test_model(saved_model)

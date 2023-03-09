@@ -49,7 +49,7 @@ setup_spec = SetupSpec("cloudtik", "CloudTik: a cloud scale platform for distrib
 
 # NOTE: The lists below must be kept in sync with cloudtik build(.sh)
 cloudtik_files = [
-    "cloudtik/core/thirdparty/redis/redis-server",
+    "cloudtik/core/thirdparty/redis/cloudtik-redis-server",
 ]
 
 # cloudtik default yaml files
@@ -247,6 +247,7 @@ setuptools.setup(
             "cloudtik-kafka=cloudtik.runtime.kafka.scripts:main",
             "cloudtik-ml=cloudtik.runtime.ml.scripts:main",
             "cloudtik-flink=cloudtik.runtime.flink.scripts:main",
+            "cloudtik-ray=cloudtik.runtime.ray.scripts:main",
         ]
     },
     include_package_data=True,

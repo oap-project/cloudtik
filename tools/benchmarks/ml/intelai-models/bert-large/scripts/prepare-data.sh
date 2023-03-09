@@ -4,10 +4,38 @@ ML_WORKSPACE=/mnt/cloudtik/data_disk_1/ml_workspace
 BERT_HOME=$ML_WORKSPACE/bert
 BERT_MODEL=$BERT_HOME/model
 BERT_DATA=$BERT_HOME/data
-
+SQUAD_DATA=$BERT_DATA/squad
+SQUAD_MODEL=$BERT_MODEL/bert_squad_model
 BERT_INPUT_PREPROCESSING=${MODEL_DIR}/models/language_modeling/pytorch/bert_large/training/input_preprocessing/
 
-function download_bert_models() {
+PHASE="inference"
+
+if [ ! -n "${MODEL_DIR}" ]; then
+  echo "Please set environment variable '\${MODEL_DIR}'."
+  exit 1
+fi
+
+function usage(){
+    echo "Usage: prepare-data.sh  [ --phase training | inference] "
+    exit 1
+}
+
+while [[ $# -gt 0 ]]
+do
+    key="$1"
+    case $key in
+    --phase)
+        # training or inference
+        shift
+        PHASE=$1
+        ;;
+    *)
+        usage
+    esac
+    shift
+done
+
+function download_bert_training_model() {
     mkdir -p $BERT_MODEL
     cd $BERT_MODEL
     ### Download
@@ -26,7 +54,7 @@ function download_bert_models() {
 
 }
 
-function download_bert_data() {
+function download_bert_training_data() {
     cd $BERT_INPUT_PREPROCESSING
     # md5 sums
     gdown https://drive.google.com/uc?id=1tmMgLwoBvbEJEHXh77sqrXYw5RpqT8R_
@@ -35,9 +63,14 @@ function download_bert_data() {
     # unpack results and verify md5sums
     tar -xzf results_text.tar.gz && (cd results4 && md5sum --check ../bert_reference_results_text_md5.txt)
 
-    wget https://rajpurkar.github.io/SQuAD-explorer/dataset/dev-v1.1.json
 }
 
+function download_bert_inference_data() {
+    mkdir $SQUAD_DATA
+    cd $SQUAD_DATA
+    wget https://rajpurkar.github.io/SQuAD-explorer/dataset/dev-v1.1.json
+
+}
 
 function prepare_trainint_data() {
     cd $BERT_INPUT_PREPROCESSING
@@ -55,7 +88,7 @@ function prepare_trainint_data() {
     mv 2048_shards_uncompressed_512 $BERT_DATA/
 }
 
-function prepare_model() {
+function prepare_training_model() {
     cd $BERT_INPUT_PREPROCESSING
     wget https://raw.githubusercontent.com/mlcommons/training_results_v2.1/main/Intel/benchmarks/bert/implementations/pytorch-cpu/convert_checkpoint_tf2torch.py
     wget https://raw.githubusercontent.com/mlcommons/training_results_v2.1/main/Intel/benchmarks/bert/implementations/pytorch-cpu/modeling_bert_patched.py
@@ -63,7 +96,22 @@ function prepare_model() {
 
 }
 
-download_bert_models
-prepare_model
-download_bert_data
-prepare_trainint_data
+function prepare_inference_model() {
+  mkdir -p $SQUAD_MODEL
+  cd $BERT_MODEL
+  wget https://s3.amazonaws.com/models.huggingface.co/bert/bert-large-uncased-whole-word-masking-finetuned-squad-config.json -O bert_squad_model/config.json
+  wget https://cdn.huggingface.co/bert-large-uncased-whole-word-masking-finetuned-squad-pytorch_model.bin  -O bert_squad_model/pytorch_model.bin
+  wget https://s3.amazonaws.com/models.huggingface.co/bert/bert-large-uncased-whole-word-masking-finetuned-squad-vocab.txt -O bert_squad_model/vocab.txt
+}
+
+if [ "${PHASE}" = "training" ]; then
+    download_bert_training_data
+    prepare_trainint_data
+    download_bert_training_model
+    prepare_training_model
+elif [ "${PHASE}" = "inference" ]; then
+    download_bert_inference_data
+    prepare_inference_model
+else
+    usage
+fi

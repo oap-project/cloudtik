@@ -1,19 +1,46 @@
 #!/bin/bash
 
 
-USER_HOME=/home/$(whoami)
-ML_WORKSPACE=$USER_HOME/runtime/ml_workspace
+ML_WORKSPACE=/mnt/cloudtik/data_disk_1/ml_workspace
 RESNET50_HOME=$ML_WORKSPACE/resnet50
 RESNET50_MODEL=$RESNET50_HOME/model
 RESNET50_DATA=$RESNET50_HOME/data
 RESNET50_OUTPUT=$RESNET50_HOME/output
+
+PRECISION=fp32
+TRAINING_EPOCHS=5
+function usage(){
+    echo "Usage: run-training.sh  [--precision fp32 | bf16 | bf32]  [--training_epochs]"
+    exit 1
+}
+
+while [[ $# -gt 0 ]]
+do
+    key="$1"
+    case $key in
+    --precision)
+        # training or inference
+        shift
+        PRECISION=$1
+        ;;
+    --training_epochs)
+        # num for steps
+        shift
+        TRAINING_EPOCHS=$1
+        ;;
+    *)
+        usage
+    esac
+    shift
+done
+
 # Env vars
 export DATASET_DIR=$RESNET50_DATA
 export OUTPUT_DIR=$RESNET50_OUTPUT
+mkdir -p $OUTPUT_DIR
 
-
-export PRECISION=bf16
-export TRAINING_EPOCHS=5
+export PRECISION=$PRECISION
+export TRAINING_EPOCHS=$TRAINING_EPOCHS
 
 # Run the training quickstart script
 cd ${MODEL_DIR}/quickstart/image_recognition/pytorch/resnet50/training/cpu

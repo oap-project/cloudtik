@@ -14,7 +14,6 @@ docker:
     enabled: True
     image: "cloudtik/spark-runtime:1.0.6"
     container_name: "cloudtik-spark"
-    disable_shm_size_detection: True
 
 # How CloudTik will authenticate with newly launched nodes.
 auth:

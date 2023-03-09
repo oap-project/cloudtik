@@ -1097,6 +1097,9 @@ class DockerCommandExecutor(CommandExecutor):
                 logger.info("Bypassing automatic SHM-Detection because of "
                             f"`run_option`: {run_opt}")
                 return run_options
+
+        if shared_memory_ratio == 0:
+            return run_options
         try:
             shm_output = self.ssh_command_executor.run(
                 "cat /proc/meminfo || true",

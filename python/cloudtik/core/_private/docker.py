@@ -116,7 +116,7 @@ def docker_start_cmds(user, image, mount_dict, data_disks, container_name, user_
 
     docker_run = [
         docker_cmd, "run", "--rm", "--name {}".format(container_name), "-d",
-        "-it", mount_flags, env_flags, fuse_flags, user_options_str, "--net=host", image,
+        "-it", mount_flags, env_flags, fuse_flags, user_options_str, "--privileged", "--net=host", image,
         "bash"
     ]
     return " ".join(docker_run)

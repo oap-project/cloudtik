@@ -66,7 +66,7 @@ function download_bert_training_data() {
 }
 
 function download_bert_inference_data() {
-    mkdir $SQUAD_DATA
+    mkdir -p $SQUAD_DATA
     cd $SQUAD_DATA
     wget https://rajpurkar.github.io/SQuAD-explorer/dataset/dev-v1.1.json
 
@@ -104,6 +104,17 @@ function prepare_inference_model() {
   wget https://s3.amazonaws.com/models.huggingface.co/bert/bert-large-uncased-whole-word-masking-finetuned-squad-vocab.txt -O bert_squad_model/vocab.txt
 }
 
+function prepare_inference_libraries() {
+  # Clone the Transformers repo in the BERT large inference directory
+  cd ${MODEL_DIR}/quickstart/language_modeling/pytorch/bert_large/inference/cpu
+  rm -rf transformers
+  git clone https://github.com/huggingface/transformers.git
+  cd transformers
+  git checkout v4.18.0
+  git apply ../enable_ipex_for_squad.diff
+  pip install -e ./
+}
+
 if [ "${PHASE}" = "training" ]; then
     download_bert_training_data
     prepare_trainint_data
@@ -112,6 +123,7 @@ if [ "${PHASE}" = "training" ]; then
 elif [ "${PHASE}" = "inference" ]; then
     download_bert_inference_data
     prepare_inference_model
+    prepare_inference_libraries
 else
     usage
 fi

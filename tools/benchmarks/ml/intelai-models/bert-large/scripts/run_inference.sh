@@ -1,8 +1,8 @@
 #!/bin/bash
 
 
-ML_WORKSPACE=/mnt/cloudtik/data_disk_1/ml_workspace
-BERT_HOME=$ML_WORKSPACE/bert
+
+BERT_HOME=$INTELAI_MODELS_WORKSPACE/bert
 BERT_MODEL=$BERT_HOME/model
 BERT_DATA=$BERT_HOME/data
 BERT_OUTPUT=$BERT_HOME/output

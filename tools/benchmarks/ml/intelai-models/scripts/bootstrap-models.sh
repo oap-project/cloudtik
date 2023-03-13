@@ -42,37 +42,50 @@ function prepare() {
     sudo chown $(whoami) $BENCHMARK_TOOL_HOME
 }
 
-
 function install_intelai_models() {
   cd $BENCHMARK_TOOL_HOME
   rm -rf models
   git clone https://github.com/IntelAI/models.git
-  echo "export MODEL_DIR=${MODELS_HOME}" >> ~/.bashrc
 }
 
 function install_tools() {
-
     sudo apt-get install curl unzip -y
     sudo apt-get install numactl gcc g++ cmake -y
+    sudo apt-get install autoconf -y
 }
 
 function install_libaries() {
     pip -qq install gdown
     pip -qq install intel-extension-for-pytorch==1.13.0
     pip install --no-cache-dir https://github.com/mlperf/logging/archive/9ea0afa.zip
-
+    pip install sklearn onnx
+    pip install lark-parser hypothesis
+    CLOUDTIK_CONDA_ENV=$(dirname $(dirname $(which cloudtik)))
+    conda install numpy ninja pyyaml mkl mkl-include setuptools cmake cffi typing_extensions future six requests dataclasses psutil -p $CLOUDTIK_CONDA_ENV
+    install_jemalloc
 }
 
+function install_jemalloc() {
+    cd /tmp
+    git clone  https://github.com/jemalloc/jemalloc.git
+    cd jemalloc
+    git checkout c8209150f9d219a137412b06431c9d52839c7272
+    ./autogen.sh
+    ./configure --prefix=$HOME/runtime/benchmark-tools/jemalloc
+    make
+    make install
+    rm -rf /tmp/jemalloc
+}
 
 function install_intelai_models_scripts() {
-  mkdir -p $MODELS_TMP
-  cd $MODELS_TMP
-  rm -rf $MODELS_TMP/*
-  git clone https://github.com/oap-project/cloudtik.git
-  rm -rf MODELS_SCRIPTS_HOME/*
-  mkdir -p $MODELS_SCRIPTS_HOME
-  cp -r cloudtik/tools/benchmarks/ml/intelai-models/* $MODELS_SCRIPTS_HOME/
-  rm -rf $MODELS_TMP/cloudtik
+    mkdir -p $MODELS_TMP
+    cd $MODELS_TMP
+    rm -rf $MODELS_TMP/*
+    git clone https://github.com/oap-project/cloudtik.git
+    rm -rf MODELS_SCRIPTS_HOME/*
+    mkdir -p $MODELS_SCRIPTS_HOME
+    cp -r cloudtik/tools/benchmarks/ml/intelai-models/* $MODELS_SCRIPTS_HOME/
+    rm -rf $MODELS_TMP/cloudtik
 }
 
 function configure_intelai_models() {

@@ -1,5 +1,7 @@
 #!/bin/bash
 
+source ../../common/scripts/setenv.sh
+
 ML_WORKSPACE=/mnt/cloudtik/data_disk_1/ml_workspace
 RESNEXT101_HOME=$ML_WORKSPACE/resnext-32x16d
 RESNEXT101_MODEL=$RESNEXT101_HOME/model

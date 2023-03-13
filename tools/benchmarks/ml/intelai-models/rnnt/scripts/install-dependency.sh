@@ -1,5 +1,7 @@
 #!/bin/bash
 
+source ../../common/scripts/setenv.sh
+
 ML_WORKSPACE=/mnt/cloudtik/data_disk_1/ml_workspace
 RNNT_HOME=$ML_WORKSPACE/rnn-t
 RNNT_OUTPUT_DIR=$RNNT_HOME/output

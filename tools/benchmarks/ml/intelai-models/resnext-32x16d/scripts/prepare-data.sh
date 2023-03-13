@@ -4,14 +4,16 @@ source ../../common/scripts/setenv.sh
 
 ML_WORKSPACE=/mnt/cloudtik/data_disk_1/ml_workspace
 RESNEXT101_HOME=$ML_WORKSPACE/resnext-32x16d
-RESNEXT101_MODEL=$RESNEXT101_HOME/model
 RESNEXT101_DATA=$RESNEXT101_HOME/data
+
+mkdir -p $RESNEXT101_DATA
+
 
 function download_data() {
     mkdir -p $RESNEXT101_DATA
     cd $RESNEXT101_DATA
     wget https://image-net.org/data/ILSVRC/2012/ILSVRC2012_img_val.tar
-    wget https://image-net.org/data/ILSVRC/2012/ILSVRC2012_img_test_v10102019.tar
+    #wget https://image-net.org/data/ILSVRC/2012/ILSVRC2012_img_test_v10102019.tar
 }
 
 function prepare_val_data() {

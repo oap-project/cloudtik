@@ -24,6 +24,7 @@ class NodeLauncher(threading.Thread):
                  queue,
                  pending,
                  event_summarizer,
+                 session_name: Optional[str] = None,
                  prometheus_metrics=None,
                  node_types=None,
                  index=None,
@@ -31,7 +32,8 @@ class NodeLauncher(threading.Thread):
                  **kwargs):
         self.queue = queue
         self.pending = pending
-        self.prometheus_metrics = prometheus_metrics or ClusterPrometheusMetrics()
+        self.prometheus_metrics = prometheus_metrics or ClusterPrometheusMetrics(
+            session_name=session_name)
         self.provider = provider
         self.node_types = node_types
         self.index = str(index) if index is not None else ""

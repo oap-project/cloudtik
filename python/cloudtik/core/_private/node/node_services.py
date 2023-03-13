@@ -149,16 +149,6 @@ class NodeServicesStarter:
         # Start processes.
         if head:
             self.start_head_processes()
-            # Make sure redis is up
-            self.get_state_client().kv_put(
-                b"session_name", self.session_name.encode(), True,
-                constants.KV_NAMESPACE_SESSION)
-            self.get_state_client().kv_put(
-                b"session_dir", self._session_dir.encode(), True,
-                constants.KV_NAMESPACE_SESSION)
-            self.get_state_client().kv_put(
-                b"temp_dir", self._temp_dir.encode(), True,
-                constants.KV_NAMESPACE_SESSION)
 
         if not connect_only:
             self.start_node_processes()
@@ -632,6 +622,8 @@ class NodeServicesStarter:
         assert self._redis_address is None
         # If this is the head node, start the relevant head node processes.
         self.start_redis()
+        self._write_cluster_info_to_state()
+
         if not self._start_params.no_controller:
             self.start_cluster_controller()
 
@@ -643,6 +635,18 @@ class NodeServicesStarter:
         self.start_node_controller()
         if self._start_params.include_log_monitor:
             self.start_log_monitor()
+
+    def _write_cluster_info_to_state(self):
+        # Make sure redis is up
+        self.get_state_client().kv_put(
+            b"session_name", self.session_name.encode(), True,
+            constants.KV_NAMESPACE_SESSION)
+        self.get_state_client().kv_put(
+            b"session_dir", self._session_dir.encode(), True,
+            constants.KV_NAMESPACE_SESSION)
+        self.get_state_client().kv_put(
+            b"temp_dir", self._temp_dir.encode(), True,
+            constants.KV_NAMESPACE_SESSION)
 
     def _kill_process_type(self,
                            process_type,

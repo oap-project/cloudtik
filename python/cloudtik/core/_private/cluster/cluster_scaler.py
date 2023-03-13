@@ -139,6 +139,7 @@ class ClusterScaler:
             cluster_metrics: ClusterMetrics,
             cluster_metrics_updater: ClusterMetricsUpdater,
             resource_scaling_policy: ResourceScalingPolicy,
+            session_name: Optional[str] = None,
             max_launch_batch: int = CLOUDTIK_MAX_LAUNCH_BATCH,
             max_concurrent_launches: int = CLOUDTIK_MAX_CONCURRENT_LAUNCHES,
             max_failures: int = CLOUDTIK_MAX_NUM_FAILURES,
@@ -153,6 +154,7 @@ class ClusterScaler:
             config_reader: Path to a cluster config yaml, or a function to read
                 and return the latest config.
             cluster_metrics: Provides metrics for the cluster.
+            session_name: The session name of the cluster this cluster scaler.
             max_launch_batch: Max number of nodes to launch in one request.
             max_concurrent_launches: Max number of nodes that can be
                 concurrently launched. This value and `max_launch_batch`
@@ -191,7 +193,8 @@ class ClusterScaler:
         # Keep this before self.reset (if an exception occurs in reset
         # then prometheus_metrics must be instantiated to increment the
         # exception counter)
-        self.prometheus_metrics = prometheus_metrics or ClusterPrometheusMetrics()
+        self.prometheus_metrics = prometheus_metrics or ClusterPrometheusMetrics(
+            session_name=session_name)
         self.resource_demand_scheduler = None
 
         # These are records of publish for performance
@@ -265,9 +268,10 @@ class ClusterScaler:
                 queue=self.launch_queue,
                 index=i,
                 pending=self.pending_launches,
+                event_summarizer=self.event_summarizer,
+                session_name=session_name,
                 node_types=self.available_node_types,
-                prometheus_metrics=self.prometheus_metrics,
-                event_summarizer=self.event_summarizer)
+                prometheus_metrics=self.prometheus_metrics)
             node_launcher.daemon = True
             node_launcher.start()
 

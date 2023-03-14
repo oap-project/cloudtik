@@ -131,6 +131,13 @@ function install_ml() {
         source ${ONEAPI_TBB_HOME}/latest/env/vars.sh
         source ${ONEAPI_COMPILER_HOME}/latest/env/vars.sh
 
+        ONEAPI_MKL_HOME=/opt/intel/oneapi/mkl
+        if [ ! -d "${ONEAPI_MKL_HOME}" ]; then
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install -y intel-oneapi-mkl-2023.0.0 > /dev/null
+            echo "if [ -f '/opt/intel/oneapi/mkl/latest/env/vars.sh' ]; then . '/opt/intel/oneapi/mkl/latest/env/vars.sh'; fi" >> ~/.bashrc
+        fi
+        source ${ONEAPI_MKL_HOME}/latest/env/vars.sh
+
         ONEAPI_CCL_HOME=/opt/intel/oneapi/ccl
         if [ ! -d "${ONEAPI_CCL_HOME}" ]; then
             sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install -y intel-oneapi-ccl-2021.8.0 intel-oneapi-ccl-devel-2021.8.0 > /dev/null

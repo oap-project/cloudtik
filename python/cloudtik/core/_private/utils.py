@@ -30,7 +30,6 @@ from cloudtik.core._private import constants, services
 from cloudtik.core._private.call_context import CallContext
 from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core._private.cluster.cluster_metrics import ClusterMetricsSummary
-from cloudtik.core._private.cluster.scaling_policies import _create_scaling_policy
 from cloudtik.core._private.concurrent_cache import ConcurrentObjectCache
 from cloudtik.core._private.constants import CLOUDTIK_WHEELS, CLOUDTIK_CLUSTER_PYTHON_VERSION, \
     CLOUDTIK_DEFAULT_MAX_WORKERS, CLOUDTIK_NODE_SSH_INTERVAL_S, CLOUDTIK_NODE_START_WAIT_S, MAX_PARALLEL_EXEC_NODES, \
@@ -2747,11 +2746,6 @@ def _get_runtime_scaling_policies(config, head_ip):
     if user_scaling_policy is not None:
         scaling_policies.append(user_scaling_policy)
 
-    # Check whether there are any built-in scaling policies configured
-    system_scaling_policy = _get_system_scaling_policy(runtime_config, config, head_ip)
-    if system_scaling_policy is not None:
-        scaling_policies.append(system_scaling_policy)
-
     return scaling_policies
 
 
@@ -2776,19 +2770,6 @@ def _get_user_scaling_policy(runtime_config, config, head_ip):
 
     scaling_policy_cls = _get_scaling_policy_cls(scaling_config["scaling_policy_class"])
     return scaling_policy_cls(config, head_ip)
-
-
-def _get_system_scaling_policy(runtime_config, config, head_ip):
-    if "scaling" not in runtime_config:
-        return None
-
-    scaling_config = runtime_config["scaling"]
-    scaling_policy_name = scaling_config.get("scaling_policy")
-    if not scaling_policy_name:
-        return None
-
-    return _create_scaling_policy(
-        scaling_policy_name, config, head_ip)
 
 
 def merge_optional_dict(config, updates):

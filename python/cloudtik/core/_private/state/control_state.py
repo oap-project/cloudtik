@@ -212,6 +212,12 @@ class ControlState:
         node_table = self.control_state_accessor.get_node_table()
         return node_table
 
+    def get_node_metrics_table(self):
+        self._check_connected()
+        node_metrics_table = self.control_state_accessor.get_user_state_table(
+            "node_metrics_table")
+        return node_metrics_table
+
     def get_user_state_table(self, table_name):
         self._check_connected()
         state_table = self.control_state_accessor.get_user_state_table(table_name)

@@ -1,8 +1,9 @@
 import logging
 from typing import Optional
 
+from cloudtik.core._private.cluster.scaling_policies import _create_scaling_policy
 from cloudtik.core._private.state.scaling_state import ScalingStateClient, ScalingState
-from cloudtik.core._private.utils import _get_runtime_scaling_policies, merge_scaling_state
+from cloudtik.core._private.utils import _get_runtime_scaling_policies, merge_scaling_state, RUNTIME_CONFIG_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,14 @@ class ResourceScalingPolicy:
         self.scaling_policies = self._create_scaling_policies(self.config)
 
     def _create_scaling_policies(self, config):
-        return _get_runtime_scaling_policies(config, self.head_ip)
+        scaling_policies = _get_runtime_scaling_policies(config, self.head_ip)
+
+        # Check whether there are any built-in scaling policies configured
+        system_scaling_policy = self._get_system_scaling_policy(config, self.head_ip)
+        if system_scaling_policy is not None:
+            scaling_policies.append(system_scaling_policy)
+
+        return scaling_policies
 
     def update(self):
         # Pulling data from resource management system
@@ -52,3 +60,18 @@ class ResourceScalingPolicy:
                 # TODO: currently we use a simple override method for scaling state merge
                 scaling_state = merge_scaling_state(scaling_state, new_scaling_state)
             return scaling_state
+
+    def _get_system_scaling_policy(self, config, head_ip):
+        runtime_config = config.get(RUNTIME_CONFIG_KEY)
+        if runtime_config is None:
+            return None
+
+        if "scaling" not in runtime_config:
+            return None
+
+        scaling_config = runtime_config["scaling"]
+        scaling_policy_name = scaling_config.get("scaling_policy")
+        if not scaling_policy_name:
+            return None
+
+        return _create_scaling_policy(scaling_policy_name, config, head_ip)

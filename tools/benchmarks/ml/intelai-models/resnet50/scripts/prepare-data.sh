@@ -34,6 +34,8 @@ do
 done
 
 function download_inference_data() {
+    mkdir -p $RESNET50_DATA/val
+    cd $RESNET50_DATA
     wget https://image-net.org/data/ILSVRC/2012/ILSVRC2012_img_val.tar
 }
 

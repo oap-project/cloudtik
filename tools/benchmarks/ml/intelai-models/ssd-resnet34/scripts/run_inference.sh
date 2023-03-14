@@ -9,9 +9,10 @@ SSD_RESNET34_OUTPUT=$SSD_RESNET34_HOME/output
 
 
 PRECISION=fp32
+METRIC=throughput
 
 function usage(){
-    echo "Usage: run-inference.sh  [ --precision fp32 | bf16 | bf32] "
+    echo "Usage: run-inference.sh  [ --precision fp32 | bf16 | bf32]  [--metric throughput | realtime]"
     exit 1
 }
 
@@ -23,6 +24,11 @@ do
         # training or inference
         shift
         PRECISION=$1
+        ;;
+    --metric)
+        # training or inference
+        shift
+        METRIC=$1
         ;;
     *)
         usage
@@ -37,4 +43,11 @@ export OUTPUT_DIR=$SSD_RESNET34_OUTPUT
 mkdir -p $OUTPUT_DIR
 
 cd ${MODEL_DIR}/quickstart/object_detection/pytorch/ssd-resnet34/inference/cpu
-bash inference_throughput.sh $PRECISION
+
+if [ "${METRIC}" = "throughput" ]; then
+    bash inference_throughput.sh $PRECISION
+elif [ "${METRIC}" = "realtime" ]; then
+    bash inference_realtime.sh $PRECISION
+else
+    usage
+fi

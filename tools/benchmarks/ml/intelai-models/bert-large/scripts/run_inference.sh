@@ -10,9 +10,10 @@ SQUAD_DATA=$BERT_DATA/squad/dev-v1.1.json
 SQUAD_MODEL=$BERT_MODEL/bert_squad_model
 
 PRECISION=fp32
+METRIC=throughput
 
 function usage(){
-    echo "Usage: run-inference.sh  [ --precision fp32 | bf16 | bf32] "
+    echo "Usage: run-inference.sh  [ --precision fp32 | bf16 | bf32] [--metric throughput | realtime] "
     exit 1
 }
 
@@ -24,6 +25,10 @@ do
         # training or inference
         shift
         PRECISION=$1
+        ;;
+    --metric)
+        shift
+        METRIC=$1
         ;;
     *)
         usage
@@ -40,4 +45,11 @@ mkdir -p $OUTPUT_DIR
 cd ${MODEL_DIR}/quickstart/language_modeling/pytorch/bert_large/inference/cpu
 
 # Run a quickstart script (for example, FP32 multi-instance realtime inference)
-bash run_multi_instance_realtime.sh $PRECISION
+
+if [ "${METRIC}" = "throughput" ]; then
+    bash run_multi_instance_throughput.sh $PRECISION
+elif [ "${METRIC}" = "realtime" ]; then
+    bash run_multi_instance_realtime.sh $PRECISION
+else
+    usage
+fi

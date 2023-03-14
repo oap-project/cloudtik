@@ -14,8 +14,9 @@ import psutil
 import subprocess
 
 import cloudtik
-from cloudtik.core._private import constants, services
+from cloudtik.core._private import constants
 from cloudtik.core._private.logging_utils import setup_component_logger
+from cloudtik.core._private.metrics.metrics_collector import MetricsCollector
 from cloudtik.core._private.state.control_state import ControlState
 from cloudtik.core._private.utils import get_runtime_processes, make_node_id
 
@@ -24,9 +25,6 @@ logger = logging.getLogger(__name__)
 
 class NodeController:
     """Node Controller for node management
-
-    Attributes:
-        redis: A connection to the Redis server.
     """
 
     def __init__(self,
@@ -41,10 +39,7 @@ class NodeController:
         if node_id is None:
             node_id = make_node_id(node_ip)
         self.node_id = node_id
-        # Initialize the Redis clients.
-        self.redis = services.create_redis_client(
-            redis_address, password=redis_password)
-        (ip, port) = redis_address.split(":")
+        (redis_ip, redis_port) = redis_address.split(":")
 
         self.redis_address = redis_address
         self.redis_password = redis_password
@@ -52,23 +47,35 @@ class NodeController:
         self.node_type = node_type
         self.static_resource_list = static_resource_list
         # node_info store the resource, process and other details of the current node
+        self.old_processes = {}
         self.node_info = {
             "node_id": node_id,
             "node_ip": node_ip,
             "node_type": node_type,
-            "resource": self._parse_resource_list(),
+            "process": self.old_processes
         }
-        self.old_processes = []
+
+        self.node_metrics = {
+            "node_id": node_id,
+            "node_ip": node_ip,
+            "node_type": node_type,
+            "metrics": {},
+        }
+        self.metrics_collector = None
 
         # Can be used to signal graceful exit from controller loop.
         self.stop_event = stop_event  # type: Optional[Event]
 
         self.control_state = ControlState()
-        self.control_state.initialize_control_state(ip, port, redis_password)
+        self.control_state.initialize_control_state(redis_ip, redis_port, redis_password)
         self.node_table = self.control_state.get_node_table()
+        self.node_metrics_table = self.control_state.get_node_metrics_table()
+
         self.processes_to_check = constants.CLOUDTIK_PROCESSES
         runtime_list = runtimes.split(",") if runtimes and len(runtimes) > 0 else None
         self.processes_to_check.extend(get_runtime_processes(runtime_list))
+        self.node_info_lock = threading.Lock()
+
         logger.info("Controller: Started")
 
     def _run(self):
@@ -81,7 +88,9 @@ class NodeController:
             # Wait for update interval before processing the next
             # round of messages.
             try:
-                self._check_process()
+                self._update_process_status()
+                self._update_metrics()
+                self._send_node_metrics()
             except Exception as e:
                 logger.exception("Error happened when checking processes: " + str(e))
             time.sleep(constants.CLOUDTIK_UPDATE_INTERVAL_S)
@@ -104,7 +113,8 @@ class NodeController:
         while True:
             time.sleep(constants.CLOUDTIK_HEARTBEAT_PERIOD_SECONDS)
             now = time.time()
-            node_info = self.node_info.copy()
+            with self.node_info_lock:
+                node_info = self.node_info.copy()
             node_info.update({"last_heartbeat_time": now})
             node_info_as_json = json.dumps(node_info)
             try:
@@ -120,7 +130,7 @@ class NodeController:
             node_resource_dict[resource_split[2 * i]] = float(resource_split[2 * i + 1])
         return node_resource_dict
 
-    def _check_process(self):
+    def _update_process_status(self):
         """check CloudTik runtime processes on the local machine."""
         process_infos = []
         for proc in psutil.process_iter(["name", "cmdline"]):
@@ -150,8 +160,30 @@ class NodeController:
 
         if found_process != self.old_processes:
             logger.info("Cloudtik processes status changed, latest process information: {}".format(str(found_process)))
-        self.node_info["process"] = found_process
-        self.old_processes = found_process
+            # lock write
+            with self.node_info_lock:
+                self.node_info["process"] = found_process
+            self.old_processes = found_process
+
+    def _update_metrics(self):
+        if self.metrics_collector is None:
+            self.metrics_collector = MetricsCollector()
+
+        metrics = self.metrics_collector.get_all_metrics()
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug("Metrics collected for node: {}".format(metrics))
+        self.node_metrics["metrics"] = metrics
+
+    def _send_node_metrics(self):
+        now = time.time()
+        node_metrics = self.node_metrics
+        node_metrics.update({"metrics_time": now})
+        node_metrics_as_json = json.dumps(node_metrics)
+        try:
+            self.node_metrics_table.put(self.node_id, node_metrics_as_json)
+        except Exception as e:
+            logger.exception("Failed sending node metrics: " + str(e))
+            logger.exception(traceback.format_exc())
 
     def run(self):
         # Register signal handlers for cluster scaler termination.

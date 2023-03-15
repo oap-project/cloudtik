@@ -3554,6 +3554,7 @@ def check_node_processes(
 
     tb = pt.PrettyTable()
     tb.field_names = ["process-name", "process-status", "runtime"]
+    tb.align = "l"
 
     # Check core processes
     runtime_type = CLOUDTIK_RUNTIME_NAME

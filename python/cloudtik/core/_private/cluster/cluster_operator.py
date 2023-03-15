@@ -2225,7 +2225,7 @@ def cluster_process_status_on_head(redis_address, redis_password):
     node_table = control_state.get_node_table()
 
     tb = pt.PrettyTable()
-    tb.field_names = ["node-ip", "node-type", "n-controller", "n-manager", "l-monitor",
+    tb.field_names = ["node-ip", "node-type", "n-monitor", "n-manager", "l-monitor",
                       "c-controller", "r-manager", "r-server"]
     all_nodes = node_table.get_all().values()
     nodes_info = []
@@ -2243,7 +2243,7 @@ def cluster_process_status_on_head(redis_address, redis_password):
     for node_info in nodes_info:
         process_info = node_info["process"]
         tb.add_row([node_info["node_ip"], node_info["node_type"],
-                    process_info.get("NodeController", "-"), process_info.get("NodeManager", "-"),
+                    process_info.get("NodeMonitor", "-"), process_info.get("NodeManager", "-"),
                     process_info.get("LogMonitor", "-"), process_info.get("ClusterController", "-"),
                     process_info.get("ResourceManager", "-"), process_info.get("RedisServer", "-")
                     ])

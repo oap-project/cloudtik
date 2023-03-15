@@ -113,7 +113,7 @@ class LogMonitor:
             try:
                 # Test if the worker process that generated the log file
                 # is still alive. Only applies to worker processes.
-                if (file_info.worker_pid != "cloudtik_node_controller"
+                if (file_info.worker_pid != "cloudtik_node_monitor"
                         and file_info.worker_pid != "cloudtik_cluster_controller"
                         and file_info.worker_pid is not None):
                     assert not isinstance(file_info.worker_pid, str), (
@@ -144,14 +144,14 @@ class LogMonitor:
         # output of user code is written here
         log_file_paths = glob.glob(f"{self.logs_dir}/worker*[.out|.err]")
         # segfaults and other serious errors are logged here
-        node_controller_log_paths = glob.glob(f"{self.logs_dir}/cloudtik_node_controller*[.out|.err]")
+        node_monitor_log_paths = glob.glob(f"{self.logs_dir}/cloudtik_node_monitor*[.out|.err]")
         # monitor logs are needed to report cluster scaler events
         cluster_controller_log_paths = glob.glob(f"{self.logs_dir}/cloudtik_cluster_controller*[.out|.err]")
         # runtime_env setup process is logged here
         runtime_env_setup_paths = glob.glob(
             f"{self.logs_dir}/runtime_env*.log")
         total_files = 0
-        for file_path in (log_file_paths + node_controller_log_paths +
+        for file_path in (log_file_paths + node_monitor_log_paths +
                           cluster_controller_log_paths + runtime_env_setup_paths):
             if os.path.isfile(
                     file_path) and file_path not in self.log_filenames:
@@ -297,8 +297,8 @@ class LogMonitor:
 
             # TODO (haifeng) : correct and add the processes we will have
             if file_info.file_position == 0:
-                if "/cloudtik_node_controller" in file_info.filename:
-                    file_info.worker_pid = "cloudtik_node_controller"
+                if "/cloudtik_node_monitor" in file_info.filename:
+                    file_info.worker_pid = "cloudtik_node_monitor"
                 elif "/cloudtik_cluster_controller" in file_info.filename:
                     file_info.worker_pid = "cloudtik_cluster_controller"
 

@@ -23,8 +23,8 @@ from cloudtik.core._private.utils import get_runtime_processes, make_node_id
 logger = logging.getLogger(__name__)
 
 
-class NodeController:
-    """Node Controller for node management
+class NodeMonitor:
+    """Node Monitor for node management
     """
 
     def __init__(self,
@@ -105,7 +105,7 @@ class NodeController:
 
     def create_heart_beat_thread(self):
         thread = threading.Thread(target=self.send_heart_beat)
-        # ensure when node_controller exits, the thread will stop automatically.
+        # ensure when node_monitor exits, the thread will stop automatically.
         thread.setDaemon(True)
         thread.start()
 
@@ -198,8 +198,7 @@ class NodeController:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description=("Parse Redis server for the "
-                     "controller to connect to."))
+        description="Parse the arguments of the Node Monitor")
     parser.add_argument(
         "--node-type",
         required=True,
@@ -233,10 +232,10 @@ if __name__ == "__main__":
         "--logging-filename",
         required=False,
         type=str,
-        default=constants.LOG_FILE_NAME_NODE_CONTROLLER,
+        default=constants.LOG_FILE_NAME_NODE_MONITOR,
         help="Specify the name of log file, "
         "log to stdout if set empty, default is "
-        f"\"{constants.LOG_FILE_NAME_NODE_CONTROLLER}\"")
+        f"\"{constants.LOG_FILE_NAME_NODE_MONITOR}\"")
     parser.add_argument(
         "--logs-dir",
         required=True,
@@ -265,11 +264,11 @@ if __name__ == "__main__":
         default=None,
         help="The unique node id to use to for this node.")
     parser.add_argument(
-        "--controller-ip",
+        "--monitor-ip",
         required=False,
         type=str,
         default=None,
-        help="The IP address of the machine hosting the controller process.")
+        help="The IP address of the machine hosting the monitor process.")
     parser.add_argument(
         "--static_resource_list",
         required=False,
@@ -291,18 +290,18 @@ if __name__ == "__main__":
         max_bytes=args.logging_rotate_bytes,
         backup_count=args.logging_rotate_backup_count)
 
-    logger.info(f"Starting Node Controller using CloudTik installation: {cloudtik.__file__}")
+    logger.info(f"Starting Node Monitor using CloudTik installation: {cloudtik.__file__}")
     logger.info(f"CloudTik version: {cloudtik.__version__}")
     logger.info(f"CloudTik commit: {cloudtik.__commit__}")
-    logger.info(f"Node Controller started with command: {sys.argv}")
+    logger.info(f"Node Monitor started with command: {sys.argv}")
 
-    controller = NodeController(
+    node_monitor = NodeMonitor(
         args.node_id,
-        args.controller_ip,
+        args.monitor_ip,
         args.node_type,
         args.redis_address,
         redis_password=args.redis_password,
         static_resource_list=args.static_resource_list,
         runtimes=args.runtimes)
 
-    controller.run()
+    node_monitor.run()

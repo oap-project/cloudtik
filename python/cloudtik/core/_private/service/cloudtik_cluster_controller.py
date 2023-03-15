@@ -236,8 +236,7 @@ class ClusterController:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description=("Parse Redis server for the "
-                     "controller to connect to."))
+        description="Parse the arguments of the Cluster Controller.")
     parser.add_argument(
         "--redis-address",
         required=True,

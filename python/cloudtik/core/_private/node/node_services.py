@@ -588,16 +588,16 @@ class NodeServicesStarter:
         assert constants.PROCESS_TYPE_CLUSTER_CONTROLLER not in self.all_processes
         self.all_processes[constants.PROCESS_TYPE_CLUSTER_CONTROLLER] = [process_info]
 
-    def start_node_controller(self):
-        """Start the node controller.
+    def start_node_monitor(self):
+        """Start the Node Monitor.
 
         Controller output goes to these controller.err/out files, and
         any modification to these files may break existing
         cluster launching commands.
         """
         stdout_file, stderr_file = self.get_log_file_handles(
-            "cloudtik_node_controller", unique=True)
-        process_info = services.start_node_controller(
+            "cloudtik_node_monitor", unique=True)
+        process_info = services.start_node_monitor(
             self.head,
             self._redis_address,
             self._logs_dir,
@@ -609,11 +609,11 @@ class NodeServicesStarter:
             logging_level=self.logging_level,
             max_bytes=self.max_bytes,
             backup_count=self.backup_count,
-            controller_ip=self._node_ip_address,
+            monitor_ip=self._node_ip_address,
             runtimes=self._start_params.runtimes
         )
-        assert constants.PROCESS_TYPE_NODE_CONTROLLER not in self.all_processes
-        self.all_processes[constants.PROCESS_TYPE_NODE_CONTROLLER] = [process_info]
+        assert constants.PROCESS_TYPE_NODE_MONITOR not in self.all_processes
+        self.all_processes[constants.PROCESS_TYPE_NODE_MONITOR] = [process_info]
 
     def start_head_processes(self):
         """Start head processes on the node."""
@@ -632,7 +632,7 @@ class NodeServicesStarter:
         logger.debug(f"Process STDOUT and STDERR is being "
                      f"redirected to {self._logs_dir}.")
         # TODO (haifeng): any service needs start on each worker node management
-        self.start_node_controller()
+        self.start_node_monitor()
         if self._start_params.include_log_monitor:
             self.start_log_monitor()
 

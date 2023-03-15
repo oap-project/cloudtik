@@ -158,8 +158,9 @@ class ClusterMetrics:
 
     def _is_node_idle(self, ip):
         # TODO: We may need some tolerance when making such comparisons
-        if self.static_resources_by_ip[ip] != self.dynamic_resources_by_ip[ip]:
-            return False
+        # before enable this check
+        # if self.static_resources_by_ip[ip] != self.dynamic_resources_by_ip[ip]:
+        #    return False
         return True
 
     def mark_active(self, ip, last_heartbeat_time=None):

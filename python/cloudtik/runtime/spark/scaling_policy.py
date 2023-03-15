@@ -48,7 +48,6 @@ class SparkScalingPolicy(ScalingPolicy):
         ScalingPolicy.__init__(self, config, head_ip)
         self.scaling_config = {}
 
-        self.auto_scaling = False
         # scaling parameters
         self.scaling_mode = SPARK_SCALING_MODE_APPS_PENDING
         self.scaling_step = SPARK_SCALING_STEP_DEFAULT
@@ -65,12 +64,14 @@ class SparkScalingPolicy(ScalingPolicy):
         self.last_resource_demands_time = 0
         self.last_resource_state_snapshot = None
 
+    def name(self):
+        return "scaling-with-spark"
+
     def reset(self, config):
         self.config = config
         spark_config = config.get(RUNTIME_CONFIG_KEY, {}).get("spark", {})
         self.scaling_config = spark_config.get("scaling", {})
 
-        self.auto_scaling = self.scaling_config.get("auto_scaling", False)
         # Update the scaling parameters
         self.scaling_mode = self.scaling_config.get("scaling_mode", SPARK_SCALING_MODE_APPS_PENDING)
         self.scaling_step = self.scaling_config.get("scaling_step", SPARK_SCALING_STEP_DEFAULT)
@@ -86,7 +87,7 @@ class SparkScalingPolicy(ScalingPolicy):
 
     def get_scaling_state(self) -> Optional[ScalingState]:
         self.last_state_time = time.time()
-        autoscaling_instructions = self._get_autoscaling_instructions() if self.auto_scaling else None
+        autoscaling_instructions = self._get_autoscaling_instructions()
         node_resource_states, lost_nodes = self._get_node_resource_states()
 
         scaling_state = ScalingState()
@@ -329,5 +330,10 @@ class SparkScalingPolicy(ScalingPolicy):
                 # logger.debug("Node metrics: {}".format(node))
                 # logger.debug("Node resources: {}".format(node_resource_state))
                 node_resource_states[node_id] = node_resource_state
+
+        # if the lost nodes appears in RUNNING, exclude it
+        lost_nodes = {
+            node_id: lost_nodes[node_id] for node_id in lost_nodes if node_id not in node_resource_states
+        }
 
         return node_resource_states, lost_nodes

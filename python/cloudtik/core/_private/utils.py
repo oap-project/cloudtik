@@ -2726,12 +2726,10 @@ def decrypt_config_value(v, cipher):
     return cipher.decrypt(target_bytes)
 
 
-def _get_runtime_scaling_policies(config, head_ip):
-    scaling_policies = []
-
+def _get_runtime_scaling_policy(config, head_ip):
     runtime_config = config.get(RUNTIME_CONFIG_KEY)
     if runtime_config is None:
-        return scaling_policies
+        return None
 
     runtime_types = runtime_config.get(RUNTIME_TYPES_CONFIG_KEY, [])
     if len(runtime_types) > 0:
@@ -2739,14 +2737,14 @@ def _get_runtime_scaling_policies(config, head_ip):
             runtime = _get_runtime(runtime_type, runtime_config)
             scaling_policy = runtime.get_scaling_policy(config, head_ip)
             if scaling_policy is not None:
-                scaling_policies.append(scaling_policy)
+                return scaling_policy
 
     # Check whether there are any user scaling policies configured
     user_scaling_policy = _get_user_scaling_policy(runtime_config, config, head_ip)
     if user_scaling_policy is not None:
-        scaling_policies.append(user_scaling_policy)
+        return user_scaling_policy
 
-    return scaling_policies
+    return None
 
 
 def _get_scaling_policy_cls(class_path):

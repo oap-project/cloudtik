@@ -12,6 +12,7 @@ import prettytable as pt
 import yaml
 
 from cloudtik.core._private.cluster.cluster_operator import _get_cluster_info
+from cloudtik.core.tags import CLOUDTIK_TAG_NODE_STATUS
 from cloudtik.core.workspace_provider import Existence, CLOUDTIK_MANAGED_CLOUD_STORAGE, \
     CLOUDTIK_MANAGED_CLOUD_STORAGE_URI
 
@@ -22,7 +23,7 @@ except ImportError:  # py2
 
 
 from cloudtik.core._private.utils import validate_workspace_config, prepare_workspace_config, is_managed_cloud_storage, \
-    print_dict_info, decrypt_config, encrypt_config
+    print_dict_info, decrypt_config, encrypt_config, NODE_INFO_NODE_IP
 from cloudtik.core._private.providers import _get_workspace_provider_cls, _get_workspace_provider, \
     _WORKSPACE_PROVIDERS, _PROVIDER_PRETTY_NAMES, _get_node_provider_cls
 
@@ -265,8 +266,8 @@ def _show_clusters(clusters_info):
     tb.field_names = ["cluster-name", "head-node-ip", "head-status", "head-public-ip",
                       "total-workers", "workers-ready", "workers-failed"]
     for cluster_info in clusters_info:
-        tb.add_row([cluster_info["cluster_name"], cluster_info["head_node"]["private_ip"],
-                    cluster_info["head_node"]["cloudtik-node-status"], cluster_info["head_node"]["public_ip"],
+        tb.add_row([cluster_info["cluster_name"], cluster_info["head_node"][NODE_INFO_NODE_IP],
+                    cluster_info["head_node"][CLOUDTIK_TAG_NODE_STATUS], cluster_info["head_node"]["public_ip"],
                     cluster_info["total-workers"], cluster_info["total-workers-ready"],
                     cluster_info["total-workers-failed"]
                     ])

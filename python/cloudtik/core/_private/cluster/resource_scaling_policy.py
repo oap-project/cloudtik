@@ -24,13 +24,13 @@ class ResourceScalingPolicy:
         # Reset is called when the configuration changed
         # Always recreate the scaling policy when config is changed
         # in the case that the scaling policy is disabled in the change
-        self.scaling_policy = self._create_scaling_policies(self.config)
+        self.scaling_policy = self._create_scaling_policy(self.config)
         if self.scaling_policy is not None:
             logger.info(f"CloudTik scaling with: {self.scaling_policy.name()}")
         else:
             logger.info("CloudTik: No scaling policy is used.")
 
-    def _create_scaling_policies(self, config):
+    def _create_scaling_policy(self, config):
         scaling_policy = _get_runtime_scaling_policy(config, self.head_ip)
         if scaling_policy is not None:
             return scaling_policy
@@ -50,7 +50,7 @@ class ResourceScalingPolicy:
                 scaling_state)
 
     def get_scaling_state(self) -> Optional[ScalingState]:
-        if self.scaling_policies is None:
+        if self.scaling_policy is None:
             return None
 
         return self.scaling_policy.get_scaling_state()

@@ -766,6 +766,7 @@
                         },
                         "scaling_resource": {
                             "type": "string",
+                            "default": "CPU",
                             "description": "The resource type to check for scale: CPU or memory"
                         },
                         "cpu_load_threshold": {
@@ -797,6 +798,47 @@
                         "config": {
                             "type": "object",
                             "description": "Map of spark configurations, e.g. {\"spark.executor.cores\": \"45\"}"
+                        },
+                        "scaling:": {
+                            "type": "object",
+                            "description": "Spark scaling configurations",
+                            "additionalProperties": true,
+                            "properties": {
+                                "scaling_mode": {
+                                    "type": "string",
+                                    "description": "The Spark scaling mode. Values: apps-pending, aggressive"
+                                },
+                                "scaling_step": {
+                                    "type": "integer",
+                                    "default": 1,
+                                    "description": "The number of nodes for each scale up step."
+                                },
+                                "scaling_resource": {
+                                    "type": "string",
+                                    "default": "memory",
+                                    "description": "The resource type to check for scale: CPU or memory"
+                                },
+                                "apps_pending_threshold": {
+                                    "type": "integer",
+                                    "default": 1,
+                                    "description": "The number of pending apps threshold to trigger scaling."
+                                },
+                                "apps_pending_free_cores_threshold": {
+                                    "type": "integer",
+                                    "default": 4,
+                                    "description": "The number of free cores threshold below which to trigger scaling."
+                                },
+                                "apps_pending_free_memory_threshold": {
+                                    "type": "integer",
+                                    "default": 1024,
+                                    "description": "The size of free memory threshold in MB below which to trigger scaling."
+                                },
+                                "aggressive_free_cores_ratio_threshold": {
+                                    "type": "number",
+                                    "default": 0.1,
+                                    "description": "The free cores ratio below which to trigger scaling for aggressive mode."
+                                }
+                            }
                         },
                         "spark_executor_resource": {
                             "type": "object",

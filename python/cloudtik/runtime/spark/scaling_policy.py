@@ -327,8 +327,8 @@ class SparkScalingPolicy(ScalingPolicy):
                     "available_resources": free_resources,
                     "resource_load": resource_load
                 }
-                # logger.debug("Node metrics: {}".format(node))
-                # logger.debug("Node resources: {}".format(node_resource_state))
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug("Node resources: {}".format(node_resource_state))
                 node_resource_states[node_id] = node_resource_state
 
         # if the lost nodes appears in RUNNING, exclude it

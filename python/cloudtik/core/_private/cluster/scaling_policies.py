@@ -227,8 +227,10 @@ class ScalingWithLoad(ScalingPolicy):
                 "available_resources": free_resources,
                 "resource_load": resource_load
             }
-            logger.debug("Node metrics: {}".format(node_metrics))
-            logger.debug("Node resources: {}".format(node_resource_state))
+
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug("Node metrics: {}".format(node_metrics))
+                logger.debug("Node resources: {}".format(node_resource_state))
             node_resource_states[node_id] = node_resource_state
 
         return node_resource_states, lost_nodes

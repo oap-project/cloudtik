@@ -265,7 +265,7 @@ class ScalingWithLoad(ScalingPolicy):
             total_cpus = cpu_counts[0]
 
             load_avg = metrics.get("load_avg")
-            load_avg_all = load_avg[1]
+            load_avg_all = load_avg[0]
             load_avg_all_1 = load_avg_all[0]
 
             memory = metrics.get("mem")
@@ -287,11 +287,11 @@ class ScalingWithLoad(ScalingPolicy):
         return {
             "total_cpus": cluster_total_cpus,
             "used_cpus": cluster_used_cpus,
-            "available_cpus": min(0, cluster_total_cpus - cluster_used_cpus),
+            "available_cpus": max(0, cluster_total_cpus - cluster_used_cpus),
             "cpu_load": cluster_cpu_load_1,
             "total_memory": cluster_total_memory,
             "used_memory": cluster_used_memory,
-            "available_memory": min(0, cluster_total_memory - cluster_used_memory),
+            "available_memory": max(0, cluster_total_memory - cluster_used_memory),
             "memory_load": cluster_memory_load,
         }
 

@@ -79,7 +79,7 @@ class MetricsCollector:
         total = get_system_memory()
         used = get_used_memory()
         available = total - used
-        percent = round(used / total, 3) * 100
+        percent = round(used / total, 3)
         return total, available, percent, used
 
     @staticmethod

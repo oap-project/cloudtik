@@ -1,4 +1,5 @@
 import copy
+import sys
 import urllib
 import urllib.parse
 import datetime
@@ -23,7 +24,9 @@ from cloudtik.core._private.cluster.cluster_config import _load_cluster_config, 
 from cloudtik.core._private.cluster.cluster_utils import create_node_updater_for_exec
 from cloudtik.core._private.core_utils import kill_process_tree, double_quote
 from cloudtik.core._private.job_waiter.job_waiter_factory import create_job_waiter
+from cloudtik.core._private.runtime_factory import _get_runtime_cls
 from cloudtik.core._private.services import validate_redis_address
+from cloudtik.core._private.state import kv_store
 from cloudtik.core.job_waiter import JobWaiter
 
 try:  # py3
@@ -38,7 +41,7 @@ from cloudtik.core._private.constants import \
     CLOUDTIK_RESOURCE_REQUEST_CHANNEL, \
     MAX_PARALLEL_SHUTDOWN_WORKERS, \
     CLOUDTIK_REDIS_DEFAULT_PASSWORD, CLOUDTIK_CLUSTER_STATUS_STOPPED, CLOUDTIK_CLUSTER_STATUS_RUNNING, \
-    CLOUDTIK_RUNTIME_NAME
+    CLOUDTIK_RUNTIME_NAME, CLOUDTIK_KV_NAMESPACE_HEALTHCHECK
 from cloudtik.core._private.utils import hash_runtime_conf, \
     hash_launch_conf, get_free_port, \
     get_proxy_info_file, get_safe_proxy_process_info, \
@@ -53,7 +56,9 @@ from cloudtik.core._private.utils import hash_runtime_conf, \
     get_node_specific_commands_of_runtimes, _get_node_specific_runtime_config, \
     RUNTIME_CONFIG_KEY, DOCKER_CONFIG_KEY, get_running_head_node, \
     get_nodes_for_runtime, with_script_args, encrypt_config, get_resource_requests_for_cpu, convert_nodes_to_cpus, \
-    HeadNotRunningError, get_cluster_head_ip, get_command_session_name, ParallelTaskSkipped
+    HeadNotRunningError, get_cluster_head_ip, get_command_session_name, ParallelTaskSkipped, \
+    CLOUDTIK_CLUSTER_SCALING_STATUS, decode_cluster_scaling_time, RUNTIME_TYPES_CONFIG_KEY, get_node_info, \
+    NODE_INFO_NODE_IP
 
 from cloudtik.core._private.providers import _get_node_provider, _NODE_PROVIDERS
 from cloudtik.core.tags import (
@@ -1916,7 +1921,7 @@ def _show_cluster_status(config: Dict[str, Any]) -> None:
     tb.field_names = ["node-id", "node-ip", "node-type", "node-status", "instance-type",
                       "public-ip", "instance-status"]
     for node_info in nodes_info:
-        tb.add_row([node_info["node_id"], node_info["private_ip"], node_info[CLOUDTIK_TAG_NODE_KIND],
+        tb.add_row([node_info["node_id"], node_info[NODE_INFO_NODE_IP], node_info[CLOUDTIK_TAG_NODE_KIND],
                     node_info[CLOUDTIK_TAG_NODE_STATUS], node_info["instance_type"], node_info["public_ip"],
                     node_info["instance_status"]
                     ])
@@ -1941,11 +1946,15 @@ def _get_nodes_info_in_status(node_info_list, status):
 def _get_cluster_nodes_info(config: Dict[str, Any]):
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     nodes = provider.non_terminated_nodes({})
+    return _get_sorted_nodes_info(provider, nodes)
+
+
+def _get_sorted_nodes_info(provider, nodes):
     nodes_info = get_nodes_info(provider, nodes)
 
     # sort nodes info based on node type and then node ip for workers
     def node_info_sort(node_info):
-        node_ip = node_info["private_ip"]
+        node_ip = node_info[NODE_INFO_NODE_IP]
         if node_ip is None:
             node_ip = ""
 
@@ -3303,3 +3312,212 @@ def get_default_cloud_storage(
         config: Dict[str, Any]):
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     return provider.get_default_cloud_storage()
+
+
+def do_health_check(
+        address, redis_password, component, detailed):
+    if not address:
+        redis_address = services.get_address_to_use_or_die()
+    else:
+        redis_address = services.address_to_ip(address)
+
+    if not component:
+        do_core_health_check(
+            redis_address, redis_password, detailed)
+    else:
+        do_component_health_check(
+            redis_address, redis_password, component, detailed)
+
+
+def do_component_health_check(
+        redis_address, redis_password, component, detailed=False):
+    kv_initialize_with_address(redis_address, redis_password)
+    report_str = kv_store.kv_get(
+        component, namespace=CLOUDTIK_KV_NAMESPACE_HEALTHCHECK)
+    if not report_str:
+        # Status was never updated
+        cli_logger.print("{} is not healthy! No status reported.", component)
+        sys.exit(1)
+
+    report = json.loads(report_str)
+    report_time = float(report["time"])
+    time_ok = is_alive_time(report_time)
+    if not time_ok:
+        cli_logger.print("{} is not healthy! Last status time {}",
+                         component, report_time)
+        sys.exit(1)
+
+    cli_logger.print("{} is healthy.", component)
+    sys.exit(0)
+
+
+def do_core_health_check(redis_address, redis_password, detailed=False):
+    redis_client = kv_initialize_with_address(redis_address, redis_password)
+
+    # If no component is specified, we are health checking the core. If
+    # client creation or ping fails, we will still exit with a non-zero
+    # exit code.
+    redis_client.ping()
+
+    try:
+        # check cluster controller live status through scaling status time
+        status = kv_store.kv_get(CLOUDTIK_CLUSTER_SCALING_STATUS)
+        if not status:
+            cli_logger.print("Cluster is not healthy! No status reported.")
+            sys.exit(1)
+
+        report_time = decode_cluster_scaling_time(status)
+        time_ok = is_alive_time(report_time)
+        if not time_ok:
+            cli_logger.print("Cluster is not healthy! Last status time {}", report_time)
+            sys.exit(1)
+
+        # check the process status
+        nodes_ok = do_nodes_health_check(
+            redis_address, redis_password, detailed)
+        if not nodes_ok:
+            cli_logger.print("Cluster is not healthy! One or more nodes are not healthy.")
+            sys.exit(1)
+
+        cli_logger.print("Cluster is healthy.")
+        sys.exit(0)
+    except Exception as e:
+        cli_logger.error("Health check failed." + str(e))
+        pass
+
+    sys.exit(1)
+
+
+def _index_node_states(raw_node_states):
+    node_states = {}
+    if raw_node_states:
+        for raw_node_state in raw_node_states:
+            node_state = eval(raw_node_state)
+            if not is_alive_time(node_state.get("last_heartbeat_time", 0)):
+                continue
+            node_states[node_state["node_ip"]] = node_state
+    return node_states
+
+
+def do_nodes_health_check(redis_address, redis_password, detailed=False):
+    config = load_head_cluster_config()
+    provider = _get_node_provider(config["provider"], config["cluster_name"])
+
+    nodes_ok = True
+    # Check whether the head node is running
+    try:
+        head_node = _get_running_head_node(config)
+    except HeadNotRunningError:
+        head_node = None
+
+    if head_node is None:
+        cli_logger.print("Head node is not running.")
+        nodes_ok = False
+        return nodes_ok
+
+    control_state = ControlState()
+    _, redis_ip_address, redis_port = validate_redis_address(redis_address)
+    control_state.initialize_control_state(redis_ip_address, redis_port,
+                                           redis_password)
+    node_table = control_state.get_node_table()
+    raw_node_states = node_table.get_all().values()
+    node_states = _index_node_states(raw_node_states)
+
+    head_node_info = get_node_info(provider, head_node)
+
+    # checking head node processes
+    node_process_ok = check_node_processes(
+        config, provider, head_node_info,
+        node_states, detailed)
+    if not node_process_ok:
+        cli_logger.print("Head node is not healthy. One or more process are not running.")
+        nodes_ok = False
+
+    # checking worker node process
+    workers = provider.non_terminated_nodes({
+        CLOUDTIK_TAG_NODE_KIND: NODE_KIND_WORKER,
+        CLOUDTIK_TAG_NODE_STATUS: STATUS_UP_TO_DATE
+    })
+    workers_info = _get_sorted_nodes_info(provider, workers)
+    for worker_info in workers_info:
+        node_process_ok = check_node_processes(
+            config, provider, worker_info, node_states)
+        if not node_process_ok:
+            cli_logger.print("Worker node {} is not healthy. One or more process are not running.",
+                             worker_info[NODE_INFO_NODE_IP])
+            nodes_ok = False
+
+    return nodes_ok
+
+
+def check_node_processes(
+        config, provider, node_info, node_states, detailed=False):
+    node_process_ok = True
+    node_ip = node_info[NODE_INFO_NODE_IP]
+    node_kind = node_info[CLOUDTIK_TAG_NODE_KIND]
+    node_state = node_states.get(node_ip)
+    if not node_state:
+        cli_logger.print("No states reported for {} node: {}.",
+                         node_kind, node_ip)
+        return False
+
+    process_info = node_state["process"]
+    unhealthy_processes = []
+
+    if detailed:
+        cli_logger.print("{} node {} process details:",
+                         node_kind, node_ip)
+        tb = pt.PrettyTable()
+        tb.field_names = ["runtime", "process-name", "process-status"]
+
+    # Check core processes
+    runtime_type = CLOUDTIK_RUNTIME_NAME
+    core_processes = constants.CLOUDTIK_PROCESSES
+    for process_meta in core_processes:
+        process_name = process_meta[2]
+        process_kind = process_meta[3]
+        if process_kind != node_kind and process_kind != "node":
+            continue
+
+        process_status = process_info.get(process_name)
+        if process_status and (
+                process_status != "running" or process_status != "sleeping"):
+            unhealthy_processes.append(process_name)
+        if detailed:
+            tb.add_row(
+                [runtime_type, process_name, process_info.get(process_name, "-")])
+
+    runtime_config = _get_node_specific_runtime_config(
+        config, provider, node_info["node"])
+
+    runtime_types = runtime_config.get(RUNTIME_TYPES_CONFIG_KEY, [])
+    for runtime_type in runtime_types:
+        runtime_cls = _get_runtime_cls(runtime_type)
+        runtime_processes = runtime_cls.get_processes()
+        if not runtime_processes:
+            continue
+
+        for process_meta in runtime_processes:
+            process_name = process_meta[2]
+            process_kind = process_meta[3]
+            if process_kind != node_kind and process_kind != "node":
+                continue
+
+            process_status = process_info.get(process_name)
+            if process_status and (
+                    process_status != "running" or process_status != "sleeping"):
+                unhealthy_processes.append(process_name)
+            if detailed:
+                tb.add_row(
+                    [runtime_type, process_name, process_info.get(process_name, "-")])
+
+    if unhealthy_processes:
+        cli_logger.print("{} node {} has {} unhealthy processes: {}.",
+                         node_kind, node_ip,
+                         len(unhealthy_processes), unhealthy_processes)
+        node_process_ok = False
+    else:
+        cli_logger.print("{} node {} processes are healthy.",
+                         node_kind, node_ip)
+
+    return node_process_ok

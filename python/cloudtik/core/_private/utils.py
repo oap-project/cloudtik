@@ -111,6 +111,9 @@ RUNTIME_TYPES_CONFIG_KEY = "types"
 
 PRIVACY_CONFIG_KEYS = ["credentials", "account.key", "secret", "access.key", "private.key"]
 
+NODE_INFO_NODE_IP = "private_ip"
+NODE_INFO_PUBLIC_IP = "public_ip"
+
 logger = logging.getLogger(__name__)
 
 # Prefix for the node id resource that is automatically added to each node.
@@ -1917,6 +1920,7 @@ def get_nodes_info(provider, nodes, extras: bool = False,
 def get_node_info(provider, node, extras: bool = False,
                   available_node_types: Dict[str, Any] = None):
     node_info = provider.get_node_info(node)
+    node_info["node"] = node
 
     if extras:
         node_type = node_info.get(CLOUDTIK_TAG_USER_NODE_TYPE)

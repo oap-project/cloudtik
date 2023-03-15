@@ -3602,8 +3602,8 @@ def check_node_processes(
                          node_kind_name, node_ip)
 
     if with_details:
-        cli_logger.newline()
-        cli_logger.print("{} ({}) process details:", node_kind_name, node_ip)
+        cli_logger.print("Process details:", node_kind_name, node_ip)
         cli_logger.print(tb)
+        cli_logger.newline()
 
     return node_process_ok

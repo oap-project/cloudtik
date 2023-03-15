@@ -49,8 +49,13 @@ class ScalingPolicy:
         self.config = config
         self.head_ip = head_ip
 
+    def name(self):
+        """Return the name of the scaling policy"""
+        raise NotImplementedError
+
     def reset(self, config):
         self.config = config
 
     def get_scaling_state(self) -> Optional[ScalingState]:
+        """Return the scaling state including scaling instructions and resource states"""
         raise NotImplementedError

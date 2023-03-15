@@ -48,6 +48,9 @@ class ScalingWithLoad(ScalingPolicy):
         self.control_state.initialize_control_state(
             head_ip, constants.CLOUDTIK_DEFAULT_PORT, constants.CLOUDTIK_REDIS_DEFAULT_PASSWORD)
 
+    def name(self):
+        return "scaling-with-load"
+
     def reset(self, config):
         self.config = config
         runtime_config = config.get(RUNTIME_CONFIG_KEY, {})
@@ -191,7 +194,6 @@ class ScalingWithLoad(ScalingPolicy):
                 continue
 
             cpu_counts = metrics.get("cpus")
-            cpu_percent = metrics.get("cpu")
             total_cpus = cpu_counts[0]
 
             load_avg = metrics.get("load_avg")
@@ -206,7 +208,7 @@ class ScalingWithLoad(ScalingPolicy):
                 constants.CLOUDTIK_RESOURCE_MEMORY: total_memory
             }
             free_resources = {
-                constants.CLOUDTIK_RESOURCE_CPU: int(total_cpus * (100 - cpu_percent)),
+                constants.CLOUDTIK_RESOURCE_CPU: round(total_cpus * (1 - load_avg_per_cpu_1)),
                 constants.CLOUDTIK_RESOURCE_MEMORY: available_memory
             }
 

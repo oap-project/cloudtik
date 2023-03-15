@@ -65,6 +65,9 @@ class SparkScalingPolicy(ScalingPolicy):
         self.last_resource_demands_time = 0
         self.last_resource_state_snapshot = None
 
+    def name(self):
+        return "scaling-with-spark"
+
     def reset(self, config):
         self.config = config
         spark_config = config.get(RUNTIME_CONFIG_KEY, {}).get("spark", {})

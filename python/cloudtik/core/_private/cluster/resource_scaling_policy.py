@@ -33,6 +33,13 @@ class ResourceScalingPolicy:
         if system_scaling_policy is not None:
             scaling_policies.append(system_scaling_policy)
 
+        if scaling_policies:
+            logger.info(f"CloudTik scaling with:")
+            for scaling_policy in scaling_policies:
+                logger.info(f"Scaling policy: {scaling_policy.name()}")
+        else:
+            logger.info("CloudTik: No scaling policy is used.")
+
         return scaling_policies
 
     def update(self):

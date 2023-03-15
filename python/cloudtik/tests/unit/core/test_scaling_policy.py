@@ -6,7 +6,7 @@ import pytest
 
 from cloudtik.core._private.cluster.resource_scaling_policy import ResourceScalingPolicy
 from cloudtik.core._private.utils import merge_scaling_state
-from cloudtik.core.scaling_policy import ScalingState
+from cloudtik.core.scaling_policy import ScalingState, ScalingPolicy
 
 test_now = time.time()
 
@@ -40,12 +40,15 @@ lost_nodes = {
 }
 
 
-class ScalingPolicyForTest:
+class ScalingPolicyForTest(ScalingPolicy):
     def __init__(self,
                  config: Dict[str, Any],
                  head_ip: str) -> None:
         self.config = config
         self.head_ip = head_ip
+
+    def name(self):
+        return "scaling-for-test"
 
     def reset(self, config):
         self.config = config

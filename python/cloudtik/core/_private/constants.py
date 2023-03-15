@@ -169,7 +169,7 @@ CLOUDTIK_PROCESSES = [
     # The third element is the process name.
     # The forth element, if node, the process should on all nodes,if head, the process should on head node.
     ["cloudtik_cluster_controller.py", False, "ClusterController", "head"],
-    ["cloudtik_node_controller.py", False, "NodeController", "node"],
+    ["cloudtik_node_monitor.py", False, "NodeMonitor", "node"],
     ["cloudtik_log_monitor.py", False, "LogMonitor", "node"],
     ["cloudtik_process_reaper.py", False, "ProcessReaper", "node"],
     ["cloudtik-redis-server", False, "RedisServer", "head"],
@@ -184,21 +184,21 @@ MAX_PARALLEL_EXEC_NODES = env_integer("MAX_PARALLEL_EXEC_NODES", 50)
 
 # Constants used to define the different process types.
 PROCESS_TYPE_CLUSTER_CONTROLLER = "cloudtik_cluster_controller"
-PROCESS_TYPE_NODE_CONTROLLER = "cloudtik_node_controller"
+PROCESS_TYPE_NODE_MONITOR = "cloudtik_node_monitor"
 PROCESS_TYPE_LOG_MONITOR = "cloudtik_log_monitor"
 PROCESS_TYPE_REAPER = "cloudtik_process_reaper"
 PROCESS_TYPE_REDIS_SERVER = "redis_server"
 
 # Log file names
 LOG_FILE_NAME_CLUSTER_CONTROLLER = f"{PROCESS_TYPE_CLUSTER_CONTROLLER}.log"
-LOG_FILE_NAME_NODE_CONTROLLER = f"{PROCESS_TYPE_NODE_CONTROLLER}.log"
+LOG_FILE_NAME_NODE_MONITOR = f"{PROCESS_TYPE_NODE_MONITOR}.log"
 LOG_FILE_NAME_LOG_MONITOR = f"{PROCESS_TYPE_LOG_MONITOR}.log"
 
 # Cluster Scaler events are denoted by the ":event_summary:" magic token.
 LOG_PREFIX_EVENT_SUMMARY = ":event_summary:"
 
 ERROR_CLUSTER_CONTROLLER_DIED = "cluster_controller_died"
-ERROR_NODE_CONTROLLER_DIED = "node_controller_died"
+ERROR_NODE_MONITOR_DIED = "node_monitor_died"
 ERROR_LOG_MONITOR_DIED = "log_monitor_died"
 
 # kv namespaces

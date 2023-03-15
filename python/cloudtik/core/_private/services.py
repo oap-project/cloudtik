@@ -181,7 +181,7 @@ def find_redis_address(address=None):
             # `os.path.basename(cmdline[0]) == "abc"` here.
             # TODO: use the right way to detect the redis
             if utils.find_name_in_command(cmdline, "cloudtik_cluster_controller") or \
-                    utils.find_name_in_command(cmdline, "cloudtik_node_controller") or \
+                    utils.find_name_in_command(cmdline, "cloudtik_node_monitor") or \
                     utils.find_name_in_command(cmdline, "cloudtik_log_monitor"):
                 for arglist in cmdline:
                     # Given we're merely seeking --redis-address, we just split
@@ -1195,7 +1195,7 @@ def start_cluster_controller(redis_address,
     return process_info
 
 
-def start_node_controller(head, redis_address,
+def start_node_monitor(head, redis_address,
                           logs_dir,
                           resource_spec,
                           stdout_file=None,
@@ -1205,7 +1205,7 @@ def start_node_controller(head, redis_address,
                           logging_level=None,
                           max_bytes=0,
                           backup_count=0,
-                          controller_ip=None,
+                          monitor_ip=None,
                           runtimes=None):
     """Run a process to controller the other processes.
 
@@ -1224,13 +1224,13 @@ def start_node_controller(head, redis_address,
             RotatingFileHandler's maxBytes.
         backup_count (int): Log rotation parameter. Corresponding to
             RotatingFileHandler's backupCount.
-        controller_ip (str): IP address of the machine that the controller will be
+        monitor_ip (str): IP address of the machine that the monitor will be
             run on. Can be excluded, but required for scaler metrics.
-        runtimes (str): List of runtimes to pass to node controller
+        runtimes (str): List of runtimes to pass to Node Monitor
     Returns:
         ProcessInfo for the process that was started.
     """
-    controller_path = os.path.join(CLOUDTIK_PATH, CLOUDTIK_CORE_PRIVATE_SERVICE, "cloudtik_node_controller.py")
+    controller_path = os.path.join(CLOUDTIK_PATH, CLOUDTIK_CORE_PRIVATE_SERVICE, "cloudtik_node_monitor.py")
     command = [
         sys.executable,
         "-u",
@@ -1248,8 +1248,8 @@ def start_node_controller(head, redis_address,
 
     if redis_password:
         command.append("--redis-password=" + redis_password)
-    if controller_ip:
-        command.append("--controller-ip=" + controller_ip)
+    if monitor_ip:
+        command.append("--monitor-ip=" + monitor_ip)
 
     assert resource_spec.resolved()
     static_resources = resource_spec.to_resource_dict()
@@ -1265,7 +1265,7 @@ def start_node_controller(head, redis_address,
 
     process_info = start_cloudtik_process(
         command,
-        constants.PROCESS_TYPE_NODE_CONTROLLER,
+        constants.PROCESS_TYPE_NODE_MONITOR,
         stdout_file=stdout_file,
         stderr_file=stderr_file,
         fate_share=fate_share)

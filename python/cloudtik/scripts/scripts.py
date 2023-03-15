@@ -1234,13 +1234,20 @@ def wait_for_ready(cluster_config_file, cluster_name, no_config_cache,
     required=False,
     type=str,
     help="Override the configured cluster name.")
+@click.option(
+    "--runtimes",
+    required=False,
+    type=str,
+    default=None,
+    help="The list of runtimes to show process status for. If not specified, will all.")
 @add_click_logging_options
-def process_status(cluster_config_file, cluster_name):
+def process_status(cluster_config_file, cluster_name, runtimes):
     """Show process status of cluster nodes."""
     try:
         cluster_process_status(
             cluster_config_file,
-            cluster_name)
+            cluster_name,
+            runtimes)
     except RuntimeError as re:
         cli_logger.error("Cluster process status failed. " + str(re))
         if cli_logger.verbosity == 0:
@@ -1278,11 +1285,17 @@ def debug_status(cluster_config_file, cluster_name):
     required=False,
     type=str,
     help="Override the configured cluster name.")
+@click.option(
+    "--with-details",
+    is_flag=True,
+    default=False,
+    help="Whether to show detailed information.")
 @add_click_logging_options
-def health_check(cluster_config_file, cluster_name):
+def health_check(cluster_config_file, cluster_name, with_details):
     """Do cluster health check."""
     try:
-        cluster_health_check(cluster_config_file, cluster_name)
+        cluster_health_check(
+            cluster_config_file, cluster_name, with_details)
     except RuntimeError as re:
         cli_logger.error("Cluster health check failed. " + str(re))
         if cli_logger.verbosity == 0:

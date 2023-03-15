@@ -461,13 +461,19 @@ def debug_status(address, redis_password):
     type=str,
     default=CLOUDTIK_REDIS_DEFAULT_PASSWORD,
     help="Connect with redis password.")
+@click.option(
+    "--runtimes",
+    required=False,
+    type=str,
+    default=None,
+    help="The list of runtimes to show process status for. If not specified, will all.")
 @add_click_logging_options
-def process_status(address, redis_password):
+def process_status(address, redis_password, runtimes):
     """Show cluster process status."""
     if not address:
         address = services.get_address_to_use_or_die()
     cluster_process_status_on_head(
-        address, redis_password)
+        address, redis_password, runtimes)
 
 
 @head.command()
@@ -489,17 +495,17 @@ def process_status(address, redis_password):
     help="Health check for a specific component. Currently supports: "
     "[None]")
 @click.option(
-    "--detailed",
+    "--with-details",
     is_flag=True,
     default=False,
     help="Whether to show detailed information.")
 @add_click_logging_options
-def health_check(address, redis_password, component, detailed):
+def health_check(address, redis_password, component, with_details):
     """
     Health check a cluster or a specific component. Exit code 0 is healthy.
     """
     do_health_check(
-        address, redis_password, component, detailed)
+        address, redis_password, component, with_details)
 
 
 @head.command()

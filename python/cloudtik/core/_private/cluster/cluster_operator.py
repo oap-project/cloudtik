@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import prettytable as pt
 from functools import partial
 import click
+import psutil
 import yaml
 
 from cloudtik.core._private import services, constants
@@ -2196,10 +2197,13 @@ def cluster_debug_status(config_file: str,
 
 
 def cluster_health_check(config_file: str,
-                         override_cluster_name: Optional[str]) -> None:
+                         override_cluster_name: Optional[str],
+                         with_details = False) -> None:
     """Do a health check on head node and return the results"""
 
     cmd = f"cloudtik head health-check"
+    if with_details:
+        cmd += " --with-details"
     exec_cmd_on_cluster(config_file, cmd, override_cluster_name)
 
 
@@ -2226,45 +2230,111 @@ def teardown_cluster_on_head(yes: bool = False,
                            hard=hard)
 
 
-def cluster_process_status_on_head(redis_address, redis_password):
+def _get_combined_runtimes(config, provider, nodes, runtimes):
+    valid_runtime_set = {CLOUDTIK_RUNTIME_NAME}
+    for node in nodes:
+        runtime_config = _get_node_specific_runtime_config(
+            config, provider, node)
+        runtime_types = runtime_config.get(RUNTIME_TYPES_CONFIG_KEY, [])
+        for runtime_type in runtime_types:
+            valid_runtime_set.add(runtime_type)
+
+    if runtimes:
+        runtime_filtered = set()
+        filtering_runtime_list = runtimes.split(",")
+        for filtering_runtime in filtering_runtime_list:
+            if filtering_runtime in valid_runtime_set:
+                runtime_filtered.add(filtering_runtime)
+
+        return runtime_filtered
+    else:
+        return valid_runtime_set
+
+
+def _get_sorted_combined_runtimes(config, provider, nodes, runtimes):
+    combined_runtimes = _get_combined_runtimes(config, provider, nodes, runtimes)
+
+    # sort and put cloudtik at the first
+    if CLOUDTIK_RUNTIME_NAME in combined_runtimes:
+        combined_runtimes.discard(CLOUDTIK_RUNTIME_NAME)
+        sorted_runtimes = sorted(combined_runtimes)
+        sorted_runtimes.insert(0, CLOUDTIK_RUNTIME_NAME)
+        return sorted_runtimes
+    else:
+        return sorted(combined_runtimes)
+
+
+def get_runtime_processes(runtime_type):
+    if runtime_type == CLOUDTIK_RUNTIME_NAME:
+        return constants.CLOUDTIK_PROCESSES
+
+    runtime_cls = _get_runtime_cls(runtime_type)
+    return runtime_cls.get_processes()
+
+
+def cluster_process_status_on_head(
+        redis_address, redis_password, runtimes):
+    config = load_head_cluster_config()
+    provider = _get_node_provider(config["provider"], config["cluster_name"])
+
     control_state = ControlState()
     _, redis_ip_address, redis_port = validate_redis_address(redis_address)
     control_state.initialize_control_state(redis_ip_address, redis_port,
                                            redis_password)
     node_table = control_state.get_node_table()
+    raw_node_states = node_table.get_all().values()
+    node_states = _index_node_states(raw_node_states)
+    cli_logger.print("Total {} live nodes reported.", len(node_states))
 
-    tb = pt.PrettyTable()
-    tb.field_names = ["node-ip", "node-type", "n-monitor", "n-manager", "l-monitor",
-                      "c-controller", "r-manager", "r-server"]
-    all_nodes = node_table.get_all().values()
-    nodes_info = []
-    for value in all_nodes:
-        node_info = eval(value)
-        if not is_alive_time(node_info.get("last_heartbeat_time", 0)):
+    # checking worker node process
+    nodes = provider.non_terminated_nodes({
+        CLOUDTIK_TAG_NODE_STATUS: STATUS_UP_TO_DATE
+    })
+    nodes_info = _get_sorted_nodes_info(provider, nodes)
+
+    combined_runtimes = _get_sorted_combined_runtimes(
+        config, provider, nodes, runtimes)
+
+    for runtime in combined_runtimes:
+        runtime_processes = get_runtime_processes(runtime)
+        if not runtime_processes:
             continue
-        nodes_info.append(node_info)
 
-    # sort nodes info based on node type and then node ip for workers
-    def node_info_sort(node_info):
-        return node_info["node_type"] + node_info["node_ip"]
-    nodes_info.sort(key=node_info_sort)
+        cli_logger.newline()
+        cli_logger.print("Processes status for: {}.", runtime)
 
-    for node_info in nodes_info:
-        process_info = node_info["process"]
-        tb.add_row([node_info["node_ip"], node_info["node_type"],
-                    process_info.get("NodeMonitor", "-"), process_info.get("NodeManager", "-"),
-                    process_info.get("LogMonitor", "-"), process_info.get("ClusterController", "-"),
-                    process_info.get("ResourceManager", "-"), process_info.get("RedisServer", "-")
-                    ])
-    cli_logger.print("Total {} live nodes reported.", len(nodes_info))
-    cli_logger.print(tb)
+        tb = pt.PrettyTable()
+        field_names = ["node-ip", "node-type"]
+        for process_meta in runtime_processes:
+            field_names.append(process_meta[2])
+        tb.field_names = field_names
+
+        for node_info in nodes_info:
+            node_ip = node_info[NODE_INFO_NODE_IP]
+            node_state = node_states.get(node_ip)
+            if node_state:
+                process_info = node_state["process"]
+            else:
+                process_info = {}
+
+            row = [node_ip, node_info[CLOUDTIK_TAG_NODE_KIND]]
+            for process_meta in runtime_processes:
+                process_name = process_meta[2]
+                row.append(process_info.get(process_name, "-"))
+            tb.add_row(row)
+
+        cli_logger.print(tb)
 
 
 def cluster_process_status(config_file: str,
-                           override_cluster_name: Optional[str]) -> None:
+                           override_cluster_name: Optional[str],
+                           runtimes=None) -> None:
     """Do a health check on head node and return the results"""
 
     cmd = f"cloudtik head process-status"
+    if runtimes:
+        cmd += " --runtimes=" + quote(runtimes)
+
     exec_cmd_on_cluster(config_file, cmd, override_cluster_name)
 
 
@@ -3315,7 +3385,7 @@ def get_default_cloud_storage(
 
 
 def do_health_check(
-        address, redis_password, component, detailed):
+        address, redis_password, component, with_details):
     if not address:
         redis_address = services.get_address_to_use_or_die()
     else:
@@ -3323,14 +3393,14 @@ def do_health_check(
 
     if not component:
         do_core_health_check(
-            redis_address, redis_password, detailed)
+            redis_address, redis_password, with_details)
     else:
         do_component_health_check(
-            redis_address, redis_password, component, detailed)
+            redis_address, redis_password, component, with_details)
 
 
 def do_component_health_check(
-        redis_address, redis_password, component, detailed=False):
+        redis_address, redis_password, component, with_details=False):
     kv_initialize_with_address(redis_address, redis_password)
     report_str = kv_store.kv_get(
         component, namespace=CLOUDTIK_KV_NAMESPACE_HEALTHCHECK)
@@ -3351,41 +3421,45 @@ def do_component_health_check(
     sys.exit(0)
 
 
-def do_core_health_check(redis_address, redis_password, detailed=False):
+def do_core_health_check(redis_address, redis_password, with_details=False):
     redis_client = kv_initialize_with_address(redis_address, redis_password)
 
-    # If no component is specified, we are health checking the core. If
-    # client creation or ping fails, we will still exit with a non-zero
-    # exit code.
-    redis_client.ping()
-
+    check_ok = True
     try:
+        # We are health checking the core. If
+        # client creation or ping fails, we will still exit with a non-zero
+        # exit code.
+        redis_client.ping()
+
         # check cluster controller live status through scaling status time
         status = kv_store.kv_get(CLOUDTIK_CLUSTER_SCALING_STATUS)
         if not status:
-            cli_logger.print("Cluster is not healthy! No status reported.")
-            sys.exit(1)
-
-        report_time = decode_cluster_scaling_time(status)
-        time_ok = is_alive_time(report_time)
-        if not time_ok:
-            cli_logger.print("Cluster is not healthy! Last status time {}", report_time)
-            sys.exit(1)
+            cli_logger.print("No scaling status reported from the Cluster Controller.")
+            check_ok = False
+        else:
+            report_time = decode_cluster_scaling_time(status)
+            time_ok = is_alive_time(report_time)
+            if not time_ok:
+                cli_logger.print("Last scaling status is too old. Status time: {}", report_time)
+                check_ok = False
 
         # check the process status
-        nodes_ok = do_nodes_health_check(
-            redis_address, redis_password, detailed)
-        if not nodes_ok:
-            cli_logger.print("Cluster is not healthy! One or more nodes are not healthy.")
-            sys.exit(1)
-
-        cli_logger.print("Cluster is healthy.")
-        sys.exit(0)
+        failed_nodes = do_nodes_health_check(
+            redis_address, redis_password, with_details)
+        if failed_nodes:
+            cli_logger.print("{} nodes are not healthy.", len(failed_nodes))
+            check_ok = False
     except Exception as e:
         cli_logger.error("Health check failed." + str(e))
+        check_ok = False
         pass
 
-    sys.exit(1)
+    if check_ok:
+        cli_logger.print("Cluster is healthy.")
+        sys.exit(0)
+    else:
+        cli_logger.print("Cluster is not healthy. Please check the details above.")
+        sys.exit(1)
 
 
 def _index_node_states(raw_node_states):
@@ -3399,11 +3473,11 @@ def _index_node_states(raw_node_states):
     return node_states
 
 
-def do_nodes_health_check(redis_address, redis_password, detailed=False):
+def do_nodes_health_check(redis_address, redis_password, with_details=False):
     config = load_head_cluster_config()
     provider = _get_node_provider(config["provider"], config["cluster_name"])
 
-    nodes_ok = True
+    failed_nodes = {}
     # Check whether the head node is running
     try:
         head_node = _get_running_head_node(config)
@@ -3412,8 +3486,8 @@ def do_nodes_health_check(redis_address, redis_password, detailed=False):
 
     if head_node is None:
         cli_logger.print("Head node is not running.")
-        nodes_ok = False
-        return nodes_ok
+        failed_nodes[head_node] = head_node
+        return failed_nodes
 
     control_state = ControlState()
     _, redis_ip_address, redis_port = validate_redis_address(redis_address)
@@ -3423,15 +3497,14 @@ def do_nodes_health_check(redis_address, redis_password, detailed=False):
     raw_node_states = node_table.get_all().values()
     node_states = _index_node_states(raw_node_states)
 
-    head_node_info = get_node_info(provider, head_node)
-
     # checking head node processes
+    head_node_info = get_node_info(provider, head_node)
     node_process_ok = check_node_processes(
         config, provider, head_node_info,
-        node_states, detailed)
+        node_states, with_details)
     if not node_process_ok:
         cli_logger.print("Head node is not healthy. One or more process are not running.")
-        nodes_ok = False
+        failed_nodes[head_node] = head_node
 
     # checking worker node process
     workers = provider.non_terminated_nodes({
@@ -3440,21 +3513,36 @@ def do_nodes_health_check(redis_address, redis_password, detailed=False):
     })
     workers_info = _get_sorted_nodes_info(provider, workers)
     for worker_info in workers_info:
+        worker = worker_info["node"]
         node_process_ok = check_node_processes(
-            config, provider, worker_info, node_states)
+            config, provider, worker_info,
+            node_states, with_details)
         if not node_process_ok:
             cli_logger.print("Worker node {} is not healthy. One or more process are not running.",
                              worker_info[NODE_INFO_NODE_IP])
-            nodes_ok = False
+            failed_nodes[worker] = worker
 
-    return nodes_ok
+    return failed_nodes
+
+
+def is_process_status_healthy(process_status):
+    if process_status and (
+            process_status == psutil.STATUS_RUNNING or
+            process_status == psutil.STATUS_SLEEPING or
+            process_status == psutil.STATUS_IDLE or
+            process_status == psutil.STATUS_WAKING):
+        return True
+    return False
 
 
 def check_node_processes(
-        config, provider, node_info, node_states, detailed=False):
+        config, provider, node_info, node_states, with_details=False):
     node_process_ok = True
     node_ip = node_info[NODE_INFO_NODE_IP]
     node_kind = node_info[CLOUDTIK_TAG_NODE_KIND]
+    node_kind_name = "Worker"
+    if node_kind == NODE_KIND_HEAD:
+        node_kind_name = "Head"
     node_state = node_states.get(node_ip)
     if not node_state:
         cli_logger.print("No states reported for {} node: {}.",
@@ -3464,11 +3552,8 @@ def check_node_processes(
     process_info = node_state["process"]
     unhealthy_processes = []
 
-    if detailed:
-        cli_logger.print("{} node {} process details:",
-                         node_kind, node_ip)
-        tb = pt.PrettyTable()
-        tb.field_names = ["runtime", "process-name", "process-status"]
+    tb = pt.PrettyTable()
+    tb.field_names = ["process-name", "process-status", "runtime"]
 
     # Check core processes
     runtime_type = CLOUDTIK_RUNTIME_NAME
@@ -3480,12 +3565,10 @@ def check_node_processes(
             continue
 
         process_status = process_info.get(process_name)
-        if process_status and (
-                process_status != "running" or process_status != "sleeping"):
+        if not is_process_status_healthy(process_status):
             unhealthy_processes.append(process_name)
-        if detailed:
-            tb.add_row(
-                [runtime_type, process_name, process_info.get(process_name, "-")])
+        tb.add_row(
+            [process_name, process_info.get(process_name, "-"), runtime_type])
 
     runtime_config = _get_node_specific_runtime_config(
         config, provider, node_info["node"])
@@ -3504,20 +3587,23 @@ def check_node_processes(
                 continue
 
             process_status = process_info.get(process_name)
-            if process_status and (
-                    process_status != "running" or process_status != "sleeping"):
+            if not is_process_status_healthy(process_status):
                 unhealthy_processes.append(process_name)
-            if detailed:
-                tb.add_row(
-                    [runtime_type, process_name, process_info.get(process_name, "-")])
+            tb.add_row(
+                [process_name, process_info.get(process_name, "-"), runtime_type])
 
     if unhealthy_processes:
-        cli_logger.print("{} node {} has {} unhealthy processes: {}.",
-                         node_kind, node_ip,
+        cli_logger.print("{} ({}) has {} unhealthy processes: {}.",
+                         node_kind_name, node_ip,
                          len(unhealthy_processes), unhealthy_processes)
         node_process_ok = False
     else:
-        cli_logger.print("{} node {} processes are healthy.",
-                         node_kind, node_ip)
+        cli_logger.print("{} ({}) all processes are healthy.",
+                         node_kind_name, node_ip)
+
+    if with_details:
+        cli_logger.newline()
+        cli_logger.print("{} ({}) process details:", node_kind_name, node_ip)
+        cli_logger.print(tb)
 
     return node_process_ok

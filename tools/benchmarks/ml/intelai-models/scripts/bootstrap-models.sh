@@ -42,12 +42,10 @@ function prepare() {
     sudo chown $(whoami) $BENCHMARK_TOOL_HOME
 }
 
-
 function install_intelai_models() {
   cd $BENCHMARK_TOOL_HOME
   rm -rf models
   git clone https://github.com/IntelAI/models.git
-  echo "export MODEL_DIR=${MODELS_HOME}" >> ~/.bashrc
 
   if test -e "/mnt/cloudtik/data_disk_1/"
   then
@@ -56,33 +54,34 @@ function install_intelai_models() {
       INTELAI_MODELS_WORKSPACE=$USER_HOME/intelai_models_workspace
   fi
   mkdir -p $INTELAI_MODELS_WORKSPACE
-  echo "export INTELAI_MODELS_WORKSPACE=$INTELAI_MODELS_WORKSPACE"  >> ~/.bashrc
-  source ~/.bashrc
+
 }
 
 function install_tools() {
-
     sudo apt-get install curl unzip -y
     sudo apt-get install numactl gcc g++ cmake -y
+    sudo apt-get install autoconf -y
 }
 
 function install_libaries() {
     pip -qq install gdown
     pip -qq install intel-extension-for-pytorch==1.13.0
     pip install --no-cache-dir https://github.com/mlperf/logging/archive/9ea0afa.zip
-
+    pip install sklearn onnx
+    pip install lark-parser hypothesis
+    CLOUDTIK_CONDA_ENV=$(dirname $(dirname $(which cloudtik)))
+    conda install jemalloc numpy ninja pyyaml mkl mkl-include setuptools cmake cffi typing_extensions future six requests dataclasses psutil -p $CLOUDTIK_CONDA_ENV
 }
 
-
 function install_intelai_models_scripts() {
-  mkdir -p $MODELS_TMP
-  cd $MODELS_TMP
-  rm -rf $MODELS_TMP/*
-  git clone https://github.com/oap-project/cloudtik.git
-  rm -rf MODELS_SCRIPTS_HOME/*
-  mkdir -p $MODELS_SCRIPTS_HOME
-  cp -r cloudtik/tools/benchmarks/ml/intelai-models/* $MODELS_SCRIPTS_HOME/
-  rm -rf $MODELS_TMP/cloudtik
+    mkdir -p $MODELS_TMP
+    cd $MODELS_TMP
+    rm -rf $MODELS_TMP/*
+    git clone https://github.com/oap-project/cloudtik.git
+    rm -rf MODELS_SCRIPTS_HOME/*
+    mkdir -p $MODELS_SCRIPTS_HOME
+    cp -r cloudtik/tools/benchmarks/ml/intelai-models/* $MODELS_SCRIPTS_HOME/
+    rm -rf $MODELS_TMP/cloudtik
 }
 
 function configure_intelai_models() {

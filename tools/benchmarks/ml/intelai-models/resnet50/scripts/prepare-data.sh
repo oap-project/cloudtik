@@ -1,8 +1,8 @@
 #!/bin/bash
 
 
-ML_WORKSPACE=/mnt/cloudtik/data_disk_1/ml_workspace
-RESNET50_HOME=$ML_WORKSPACE/resnet50
+
+RESNET50_HOME=$INTELAI_MODELS_WORKSPACE/resnet50
 RESNET50_MODEL=$RESNET50_HOME/model
 RESNET50_DATA=$RESNET50_HOME/data
 
@@ -34,6 +34,8 @@ do
 done
 
 function download_inference_data() {
+    mkdir -p $RESNET50_DATA/val
+    cd $RESNET50_DATA
     wget https://image-net.org/data/ILSVRC/2012/ILSVRC2012_img_val.tar
 }
 

@@ -14,13 +14,12 @@ from cloudtik.core._private.cluster.cluster_operator import (
     start_node_on_head, stop_node_on_head, kill_node_on_head, scale_cluster_on_head,
     _wait_for_ready, _get_worker_node_ips, _get_head_node_ip,
     _show_cluster_status, _monitor_cluster, _show_cluster_info, _show_worker_cpus, _show_worker_memory,
-    cli_call_context, _exec_node_on_head)
-from cloudtik.core._private.constants import CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
-    CLOUDTIK_KV_NAMESPACE_HEALTHCHECK
+    cli_call_context, _exec_node_on_head, do_health_check, cluster_resource_metrics_on_head)
+from cloudtik.core._private.constants import CLOUDTIK_REDIS_DEFAULT_PASSWORD
 from cloudtik.core._private.state import kv_store
 from cloudtik.core._private.state.kv_store import kv_initialize_with_address
 from cloudtik.core._private.utils import CLOUDTIK_CLUSTER_SCALING_ERROR, \
-    CLOUDTIK_CLUSTER_SCALING_STATUS, decode_cluster_scaling_time, is_alive_time, get_head_bootstrap_config, \
+    CLOUDTIK_CLUSTER_SCALING_STATUS, get_head_bootstrap_config, \
     load_head_cluster_config
 from cloudtik.scripts.utils import NaturalOrderGroup, add_command_alias
 
@@ -462,12 +461,39 @@ def debug_status(address, redis_password):
     type=str,
     default=CLOUDTIK_REDIS_DEFAULT_PASSWORD,
     help="Connect with redis password.")
+@click.option(
+    "--runtimes",
+    required=False,
+    type=str,
+    default=None,
+    help="The list of runtimes to show process status for. If not specified, will all.")
 @add_click_logging_options
-def process_status(address, redis_password):
+def process_status(address, redis_password, runtimes):
     """Show cluster process status."""
     if not address:
         address = services.get_address_to_use_or_die()
     cluster_process_status_on_head(
+        address, redis_password, runtimes)
+
+
+@head.command()
+@click.option(
+    "--address",
+    required=False,
+    type=str,
+    help="Override the address to connect to.")
+@click.option(
+    "--redis-password",
+    required=False,
+    type=str,
+    default=CLOUDTIK_REDIS_DEFAULT_PASSWORD,
+    help="Connect with redis password.")
+@add_click_logging_options
+def resource_metrics(address, redis_password):
+    """Show cluster resource metrics."""
+    if not address:
+        address = services.get_address_to_use_or_die()
+    cluster_resource_metrics_on_head(
         address, redis_password)
 
 
@@ -489,62 +515,18 @@ def process_status(address, redis_password):
     type=str,
     help="Health check for a specific component. Currently supports: "
     "[None]")
+@click.option(
+    "--with-details",
+    is_flag=True,
+    default=False,
+    help="Whether to show detailed information.")
 @add_click_logging_options
-def health_check(address, redis_password, component):
+def health_check(address, redis_password, component, with_details):
     """
     Health check a cluster or a specific component. Exit code 0 is healthy.
     """
-
-    if not address:
-        address = services.get_address_to_use_or_die()
-    else:
-        address = services.address_to_ip(address)
-
-    redis_client = kv_initialize_with_address(address, redis_password)
-
-    if not component:
-        # If no component is specified, we are health checking the core. If
-        # client creation or ping fails, we will still exit with a non-zero
-        # exit code.
-        redis_client.ping()
-
-        try:
-            # check cluster controller live status through scaling status time
-            status = kv_store.kv_get(CLOUDTIK_CLUSTER_SCALING_STATUS)
-            if not status:
-                cli_logger.print("Cluster is not healthy! No status reported.")
-                sys.exit(1)
-
-            report_time = decode_cluster_scaling_time(status)
-            time_ok = is_alive_time(report_time)
-            if not time_ok:
-                cli_logger.print("Cluster is not healthy! Last status time {}", report_time)
-                sys.exit(1)
-
-            cli_logger.print("Cluster is healthy.")
-            sys.exit(0)
-        except Exception as e:
-            cli_logger.error("Health check failed." + str(e))
-            pass
-        sys.exit(1)
-
-    report_str = kv_store.kv_get(
-        component, namespace=CLOUDTIK_KV_NAMESPACE_HEALTHCHECK)
-    if not report_str:
-        # Status was never updated
-        cli_logger.print("{} is not healthy! No status reported.", component)
-        sys.exit(1)
-
-    report = json.loads(report_str)
-    report_time = float(report["time"])
-    time_ok = is_alive_time(report_time)
-    if not time_ok:
-        cli_logger.print("{} is not healthy! Last status time {}",
-                         component, report_time)
-        sys.exit(1)
-
-    cli_logger.print("{} is healthy.", component)
-    sys.exit(0)
+    do_health_check(
+        address, redis_password, component, with_details)
 
 
 @head.command()
@@ -775,5 +757,6 @@ head.add_command(runtime)
 
 head.add_command(debug_status)
 head.add_command(process_status)
+head.add_command(resource_metrics)
 head.add_command(health_check)
 head.add_command(cluster_dump)

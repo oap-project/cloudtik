@@ -83,7 +83,7 @@ def _get_service_account(namespace, name):
         assert len(accounts) == 1
         cli_logger.verbose("Successfully get the service account: {} {}.", namespace, name)
         return accounts[0]
-    cli_logger.verbose("Failed to get the service account: {} {}.", namespace, name)
+    cli_logger.verbose_error("Failed to get the service account: {} {}.", namespace, name)
     return None
 
 

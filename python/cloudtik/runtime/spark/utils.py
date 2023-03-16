@@ -4,7 +4,7 @@ from typing import Any, Dict, Optional
 
 from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core._private.cluster.cluster_config import _load_cluster_config
-from cloudtik.core._private.cluster.cluster_rest_request import _request_rest_to_head
+from cloudtik.core._private.cluster.cluster_tunnel_request import _request_rest_to_head
 from cloudtik.core._private.core_utils import double_quote
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_HDFS, BUILT_IN_RUNTIME_METASTORE, \
     BUILT_IN_RUNTIME_SPARK
@@ -390,11 +390,7 @@ def _get_scaling_policy(
         cluster_config: Dict[str, Any],
         head_ip: str) -> Optional[ScalingPolicy]:
     spark_config = runtime_config.get(SPARK_RUNTIME_CONFIG_KEY, {})
-    scaling_config = spark_config.get("scaling", {})
-
-    node_resource_states = scaling_config.get("node_resource_states", True)
-    auto_scaling = scaling_config.get("auto_scaling", False)
-    if not node_resource_states and not auto_scaling:
+    if "scaling" not in spark_config:
         return None
 
     return SparkScalingPolicy(

@@ -938,7 +938,7 @@ def _create_workspace(config):
                          "You need to delete and try create again. {}", workspace_name, str(e))
         raise e
 
-    cli_logger.print(
+    cli_logger.success(
         "Successfully created workspace: {}.",
         cf.bold(workspace_name))
 
@@ -1583,7 +1583,7 @@ def _create_elastic_ip(config, vpc_cli):
     if check_resource_status(MAX_POLLS_NAT, POLL_INTERVAL, vpc_cli.describe_eip_addresses, "Available", allocation_id):
         cli_logger.print("Successfully allocate Elastic IP:{}.".format(eip_name))
     else:
-        cli_logger.print("Failed to allocate Elastic IP:{}.".format(eip_name))
+        cli_logger.abort("Failed to allocate Elastic IP:{}.".format(eip_name))
 
 
 def get_workspace_elastic_ip(config, vpc_cli):
@@ -1633,7 +1633,7 @@ def _dissociate_elastic_ip(config, vpc_cli):
             MAX_POLLS_NAT, POLL_INTERVAL, vpc_cli.describe_eip_addresses, "Available", eip_allocation_id):
         cli_logger.print("Successfully dissociated Elastic IP:{}.".format(elastic_ip_name))
     else:
-        cli_logger.print("Failed to dissociate Elastic IP:{}.".format(elastic_ip_name))
+        cli_logger.abort("Failed to dissociate Elastic IP:{}.".format(elastic_ip_name))
 
 
 def _get_instance_role(ram_cli, role_name):
@@ -1825,7 +1825,7 @@ def delete_aliyun_workspace(config, delete_managed_storage: bool = False):
             "Failed to delete workspace {}. {}", workspace_name, str(e))
         raise e
 
-    cli_logger.print(
+    cli_logger.success(
             "Successfully deleted workspace: {}.",
             cf.bold(workspace_name))
     return None
@@ -1988,7 +1988,7 @@ def update_aliyun_workspace_firewalls(config):
     vpc_cli = VpcClient(config["provider"])
     vpc_id = get_workspace_vpc_id(config, vpc_cli)
     if vpc_id is None:
-        cli_logger.print("The workspace: {} doesn't exist!".format(config["workspace_name"]))
+        cli_logger.error("The workspace: {} doesn't exist!".format(config["workspace_name"]))
         return
 
     current_step = 1
@@ -2006,7 +2006,7 @@ def update_aliyun_workspace_firewalls(config):
             "Failed to update the firewalls of workspace {}. {}", workspace_name, str(e))
         raise e
 
-    cli_logger.print(
+    cli_logger.success(
         "Successfully updated the firewalls of workspace: {}.",
         cf.bold(workspace_name))
     return None

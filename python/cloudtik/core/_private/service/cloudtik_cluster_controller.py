@@ -75,6 +75,9 @@ class ClusterController:
         state_client = StateClient.create_from_redis(self.redis)
         kv_initialize(state_client)
 
+        self._session_name = self.get_session_name(state_client)
+        logger.info(f"session_name: {self._session_name}")
+
         self.scaling_state_client = ScalingStateClient.create_from(control_state)
 
         self.head_ip = redis_address.split(":")[0]
@@ -93,7 +96,8 @@ class ClusterController:
         self.cluster_metrics_updater = ClusterMetricsUpdater(
             self.cluster_metrics, self.event_summarizer, self.scaling_state_client)
 
-        self.prometheus_metrics = ClusterPrometheusMetrics()
+        self.prometheus_metrics = ClusterPrometheusMetrics(
+            session_name=self._session_name)
         if prometheus_client:
             try:
                 logger.info(
@@ -111,6 +115,19 @@ class ClusterController:
                            "not be exported.")
 
         logger.info("Controller: Started")
+
+    def get_session_name(self, state_client) -> Optional[str]:
+        """Obtain the session name from the state store.
+        """
+        session_name = state_client.kv_get(
+            b"session_name",
+            constants.KV_NAMESPACE_SESSION
+        )
+
+        if session_name:
+            session_name = session_name.decode()
+
+        return session_name
 
     def _initialize_cluster_scaler(self):
         self.cluster_scaler = ClusterScaler(
@@ -219,8 +236,7 @@ class ClusterController:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description=("Parse Redis server for the "
-                     "controller to connect to."))
+        description="Parse the arguments of the Cluster Controller.")
     parser.add_argument(
         "--redis-address",
         required=True,

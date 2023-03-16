@@ -361,7 +361,12 @@ def kill_process_tree(pid, include_parent=True):
             pass
 
 
-def get_system_memory():
+def get_system_memory(
+    # For cgroups v1:
+    memory_limit_filename="/sys/fs/cgroup/memory/memory.limit_in_bytes",
+    # For cgroups v2:
+    memory_limit_filename_v2="/sys/fs/cgroup/memory.max",
+):
     """Return the total amount of system memory in bytes.
 
     Returns:
@@ -371,10 +376,18 @@ def get_system_memory():
     # container. Note that this file is not specific to Docker and its value is
     # often much larger than the actual amount of memory.
     docker_limit = None
-    memory_limit_filename = "/sys/fs/cgroup/memory/memory.limit_in_bytes"
     if os.path.exists(memory_limit_filename):
         with open(memory_limit_filename, "r") as f:
-            docker_limit = int(f.read())
+            docker_limit = int(f.read().strip())
+    elif os.path.exists(memory_limit_filename_v2):
+        with open(memory_limit_filename_v2, "r") as f:
+            # Don't forget to strip() the newline:
+            max_file = f.read().strip()
+            if max_file.isnumeric():
+                docker_limit = int(max_file)
+            else:
+                # max_file is "max", i.e. is unset.
+                docker_limit = None
 
     # Use psutil if it is available.
     psutil_memory_in_bytes = psutil.virtual_memory().total
@@ -387,6 +400,47 @@ def get_system_memory():
     return psutil_memory_in_bytes
 
 
+def get_cgroupv1_used_memory(filename):
+    with open(filename, "r") as f:
+        lines = f.readlines()
+        cache_bytes = -1
+        rss_bytes = -1
+        inactive_file_bytes = -1
+        working_set = -1
+        for line in lines:
+            if "total_rss " in line:
+                rss_bytes = int(line.split()[1])
+            elif "cache " in line:
+                cache_bytes = int(line.split()[1])
+            elif "inactive_file" in line:
+                inactive_file_bytes = int(line.split()[1])
+        if cache_bytes >= 0 and rss_bytes >= 0 and inactive_file_bytes >= 0:
+            working_set = rss_bytes + cache_bytes - inactive_file_bytes
+            assert working_set >= 0
+            return working_set
+        return None
+
+
+def get_cgroupv2_used_memory(stat_file, usage_file):
+    # Uses same calculation as libcontainer, that is:
+    # memory.current - memory.stat[inactive_file]
+    # Source: https://github.com/google/cadvisor/blob/24dd1de08a72cfee661f6178454db995900c0fee/container/libcontainer/handler.go#L836  # noqa: E501
+    inactive_file_bytes = -1
+    current_usage = -1
+    with open(usage_file, "r") as f:
+        current_usage = int(f.read().strip())
+    with open(stat_file, "r") as f:
+        lines = f.readlines()
+        for line in lines:
+            if "inactive_file" in line:
+                inactive_file_bytes = int(line.split()[1])
+        if current_usage >= 0 and inactive_file_bytes >= 0:
+            working_set = current_usage - inactive_file_bytes
+            assert working_set >= 0
+            return working_set
+        return None
+
+
 def get_used_memory():
     """Return the currently used system memory in bytes
 
@@ -396,20 +450,23 @@ def get_used_memory():
     # Try to accurately figure out the memory usage if we are in a docker
     # container.
     docker_usage = None
-    memory_usage_filename = "/sys/fs/cgroup/memory/memory.usage_in_bytes"
+    # For cgroups v1:
+    memory_usage_filename = "/sys/fs/cgroup/memory/memory.stat"
+    # For cgroups v2:
+    memory_usage_filename_v2 = "/sys/fs/cgroup/memory.current"
+    memory_stat_filename_v2 = "/sys/fs/cgroup/memory.stat"
     if os.path.exists(memory_usage_filename):
-        with open(memory_usage_filename, "r") as f:
-            docker_usage = int(f.read())
-
-    # Use psutil if it is available.
-    psutil_memory_in_bytes = psutil.virtual_memory().used
+        docker_usage = get_cgroupv1_used_memory(memory_usage_filename)
+    elif os.path.exists(memory_usage_filename_v2) and os.path.exists(
+        memory_stat_filename_v2
+    ):
+        docker_usage = get_cgroupv2_used_memory(
+            memory_stat_filename_v2, memory_usage_filename_v2
+        )
 
     if docker_usage is not None:
-        # We take the min because the cgroup limit is very large if we aren't
-        # in Docker.
-        return min(docker_usage, psutil_memory_in_bytes)
-
-    return psutil_memory_in_bytes
+        return docker_usage
+    return psutil.virtual_memory().used
 
 
 def estimate_available_memory():
@@ -446,11 +503,11 @@ def get_shared_memory_bytes():
 
 
 def _get_docker_cpus(
-        cpu_quota_file_name="/sys/fs/cgroup/cpu/cpu.cfs_quota_us",
-        cpu_period_file_name="/sys/fs/cgroup/cpu/cpu.cfs_period_us",
-        cpuset_file_name="/sys/fs/cgroup/cpuset/cpuset.cpus"
+    cpu_quota_file_name="/sys/fs/cgroup/cpu/cpu.cfs_quota_us",
+    cpu_period_file_name="/sys/fs/cgroup/cpu/cpu.cfs_period_us",
+    cpuset_file_name="/sys/fs/cgroup/cpuset/cpuset.cpus",
+    cpu_max_file_name="/sys/fs/cgroup/cpu.max",
 ) -> Optional[float]:
-    # TODO: Don't implement this logic oursleves.
     # Docker has 2 underyling ways of implementing CPU limits:
     # https://docs.docker.com/config/containers/resource_constraints/#configure-the-default-cfs-scheduler
     # 1. --cpuset-cpus 2. --cpus or --cpu-quota/--cpu-period (--cpu-shares is a
@@ -460,18 +517,31 @@ def _get_docker_cpus(
 
     cpu_quota = None
     # See: https://bugs.openjdk.java.net/browse/JDK-8146115
-    if os.path.exists(cpu_quota_file_name) and os.path.exists(
-            cpu_quota_file_name):
+    if os.path.exists(cpu_quota_file_name) and os.path.exists(cpu_period_file_name):
         try:
             with open(cpu_quota_file_name, "r") as quota_file, open(
-                    cpu_period_file_name, "r") as period_file:
-                cpu_quota = float(quota_file.read()) / float(
-                    period_file.read())
-        except Exception as e:
-            logger.exception("Unexpected error calculating docker cpu quota.",
-                             e)
+                cpu_period_file_name, "r"
+            ) as period_file:
+                cpu_quota = float(quota_file.read()) / float(period_file.read())
+        except Exception:
+            logger.exception("Unexpected error calculating docker cpu quota.")
+    # Look at cpu.max for cgroups v2
+    elif os.path.exists(cpu_max_file_name):
+        try:
+            max_file = open(cpu_max_file_name).read()
+            quota_str, period_str = max_file.split()
+            if quota_str.isnumeric() and period_str.isnumeric():
+                cpu_quota = float(quota_str) / float(period_str)
+            else:
+                # quota_str is "max" meaning the cpu quota is unset
+                cpu_quota = None
+        except Exception:
+            logger.exception("Unexpected error calculating docker cpu quota.")
     if (cpu_quota is not None) and (cpu_quota < 0):
         cpu_quota = None
+    elif cpu_quota == 0:
+        # Round up in case the cpu limit is less than 1.
+        cpu_quota = 1
 
     cpuset_num = None
     if os.path.exists(cpuset_file_name):
@@ -487,40 +557,21 @@ def _get_docker_cpus(
                     else:
                         cpu_ids.append(int(num_or_range))
                 cpuset_num = len(cpu_ids)
-        except Exception as e:
-            logger.exception("Unexpected error calculating docker cpuset ids.",
-                             e)
+        except Exception:
+            logger.exception("Unexpected error calculating docker cpuset ids.")
+    # Possible to-do: Parse cgroups v2's cpuset.cpus.effective for the number
+    # of accessible CPUs.
 
     if cpu_quota and cpuset_num:
         return min(cpu_quota, cpuset_num)
-    else:
-        return cpu_quota or cpuset_num
-
-
-def get_k8s_cpus(cpu_share_file_name="/sys/fs/cgroup/cpu/cpu.shares") -> float:
-    """Get number of CPUs available for use by this container, in terms of
-    cgroup cpu shares.
-
-    This is the number of CPUs K8s has assigned to the container based
-    on pod spec requests and limits.
-
-    Note: using cpu_quota as in _get_docker_cpus() works
-    only if the user set CPU limit in their pod spec (in addition to CPU
-    request). Otherwise, the quota is unset.
-    """
-    try:
-        cpu_shares = int(open(cpu_share_file_name).read())
-        container_num_cpus = cpu_shares / 1024
-        return container_num_cpus
-    except Exception as e:
-        logger.exception("Error computing CPU limit of Kubernetes pod.", e)
-        return 1.0
+    return cpu_quota or cpuset_num
 
 
 def get_num_cpus() -> int:
-    if "KUBERNETES_SERVICE_HOST" in os.environ:
-        # If in a K8S pod, use cgroup cpu shares and round up.
-        return int(math.ceil(get_k8s_cpus()))
+    """
+    Get the number of CPUs available on this node.
+    Depending on the situation, use multiprocessing.cpu_count() or cgroups.
+    """
     cpu_count = multiprocessing.cpu_count()
     if os.environ.get("CLOUDTIK_USE_MULTIPROCESSING_CPU_COUNT"):
         logger.info(
@@ -528,7 +579,8 @@ def get_num_cpus() -> int:
             "multiprocessing.cpu_count() to detect the number of CPUs. "
             "This may be inconsistent when used inside docker. "
             "To correctly detect CPUs, unset the env var: "
-            "`CLOUDTIK_USE_MULTIPROCESSING_CPU_COUNT`.")
+            "`CLOUDTIK_USE_MULTIPROCESSING_CPU_COUNT`."
+        )
         return cpu_count
     try:
         # Not easy to get cpu count in docker, see:
@@ -538,10 +590,11 @@ def get_num_cpus() -> int:
             # TODO: We should probably add support for fractional cpus.
             if int(docker_count) != float(docker_count):
                 logger.warning(
-                    f"We currently does not support initializing "
+                    f"CloudTik currently does not support initializing "
                     f"with fractional cpus. Your num_cpus will be "
                     f"truncated from {docker_count} to "
-                    f"{int(docker_count)}.")
+                    f"{int(docker_count)}."
+                )
             docker_count = int(docker_count)
             cpu_count = docker_count
 

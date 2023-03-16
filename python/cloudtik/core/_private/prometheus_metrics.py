@@ -1,3 +1,22 @@
+from typing import Optional
+
+
+class NullMetric:
+    """Mock metric class to be used in case of prometheus_client import error."""
+
+    def set(self, *args, **kwargs):
+        pass
+
+    def observe(self, *args, **kwargs):
+        pass
+
+    def inc(self, *args, **kwargs):
+        pass
+
+    def labels(self, *args, **kwargs):
+        return self
+
+
 try:
 
     from prometheus_client import (
@@ -9,10 +28,11 @@ try:
 
 
     class ClusterPrometheusMetrics:
-        def __init__(self, registry: CollectorRegistry = None):
+        def __init__(self, session_name: str = None, registry: Optional[CollectorRegistry] = None):
             self.registry: CollectorRegistry = registry or \
                                                CollectorRegistry(
                                                    auto_describe=True)
+            self._session_name = session_name
             # Buckets: 5 seconds, 10 seconds, 20 seconds, 30 seconds,
             #          45 seconds, 1 minute, 1.5 minutes, 2 minutes,
             #          3 minutes, 4 minutes, 5 minutes, 6 minutes,
@@ -34,138 +54,174 @@ try:
                 "batch will be observed once for *each* node in that batch. "
                 "For example, if 8 nodes are launched in 3 minutes, a launch "
                 "time of 3 minutes will be observed 8 times.",
+                labelnames=("SessionName",),
                 unit="seconds",
                 namespace="cloudtik",
                 registry=self.registry,
-                buckets=histogram_buckets)
+                buckets=histogram_buckets,
+            ).labels(SessionName=session_name)
             self.worker_update_time: Histogram = Histogram(
                 "worker_update_time_seconds",
                 "Worker update time. This is the time between when an updater "
                 "thread begins executing and when it exits successfully. This "
                 "metric only observes times for successful updates.",
+                labelnames=("SessionName",),
                 unit="seconds",
                 namespace="cloudtik",
                 registry=self.registry,
-                buckets=histogram_buckets)
+                buckets=histogram_buckets,
+            ).labels(SessionName=session_name)
             self.update_time: Histogram = Histogram(
                 "update_time",
                 "Scaler update time. This is the time for a scaler "
                 "update iteration to complete.",
+                labelnames=("SessionName",),
                 unit="seconds",
                 namespace="cloudtik",
                 registry=self.registry,
-                buckets=update_time_buckets)
+                buckets=update_time_buckets,
+            ).labels(SessionName=session_name)
             self.pending_nodes: Gauge = Gauge(
                 "pending_nodes",
                 "Number of nodes pending to be started.",
+                labelnames=("SessionName",),
                 unit="nodes",
                 namespace="cloudtik",
-                registry=self.registry)
+                registry=self.registry,
+            ).labels(SessionName=session_name)
             self.started_nodes: Counter = Counter(
                 "started_nodes",
                 "Number of nodes started.",
+                labelnames=("SessionName",),
                 unit="nodes",
                 namespace="cloudtik",
-                registry=self.registry)
+                registry=self.registry,
+            ).labels(SessionName=session_name)
             self.stopped_nodes: Counter = Counter(
                 "stopped_nodes",
                 "Number of nodes stopped.",
+                labelnames=("SessionName",),
                 unit="nodes",
                 namespace="cloudtik",
-                registry=self.registry)
+                registry=self.registry,
+            ).labels(SessionName=session_name)
             self.updating_nodes: Gauge = Gauge(
                 "updating_nodes",
                 "Number of nodes in the process of updating.",
+                labelnames=("SessionName",),
                 unit="nodes",
                 namespace="cloudtik",
-                registry=self.registry)
+                registry=self.registry,
+            ).labels(SessionName=session_name)
             self.recovering_nodes: Gauge = Gauge(
                 "recovering_nodes",
                 "Number of nodes in the process of recovering.",
+                labelnames=("SessionName",),
                 unit="nodes",
                 namespace="cloudtik",
-                registry=self.registry)
+                registry=self.registry,
+            ).labels(SessionName=session_name)
             self.running_workers: Gauge = Gauge(
                 "running_workers",
                 "Number of worker nodes running.",
+                labelnames=("SessionName",),
                 unit="nodes",
                 namespace="cloudtik",
-                registry=self.registry)
+                registry=self.registry,
+            ).labels(SessionName=session_name)
             self.failed_create_nodes: Counter = Counter(
                 "failed_create_nodes",
                 "Number of nodes that failed to be created due to an "
                 "exception in the node provider's create_node method.",
+                labelnames=("SessionName",),
                 unit="nodes",
                 namespace="cloudtik",
-                registry=self.registry)
+                registry=self.registry,
+            ).labels(SessionName=session_name)
             self.failed_updates: Counter = Counter(
                 "failed_updates",
                 "Number of failed worker node updates.",
+                labelnames=("SessionName",),
                 unit="updates",
                 namespace="cloudtik",
-                registry=self.registry)
+                registry=self.registry,
+            ).labels(SessionName=session_name)
             self.successful_updates: Counter = Counter(
                 "successful_updates",
                 "Number of succesfful worker node updates.",
+                labelnames=("SessionName",),
                 unit="updates",
                 namespace="cloudtik",
-                registry=self.registry)
+                registry=self.registry,
+            ).labels(SessionName=session_name)
             self.failed_recoveries: Counter = Counter(
                 "failed_recoveries",
                 "Number of failed node recoveries.",
+                labelnames=("SessionName",),
                 unit="recoveries",
                 namespace="cloudtik",
-                registry=self.registry)
+                registry=self.registry,
+            ).labels(SessionName=session_name)
             self.successful_recoveries: Counter = Counter(
                 "successful_recoveries",
                 "Number of successful node recoveries.",
+                labelnames=("SessionName",),
                 unit="recoveries",
                 namespace="cloudtik",
-                registry=self.registry)
+                registry=self.registry,
+            ).labels(SessionName=session_name)
             self.update_loop_exceptions: Counter = Counter(
                 "update_loop_exceptions",
                 "Number of exceptions raised in the update loop of the scaler.",
+                labelnames=("SessionName",),
                 unit="exceptions",
                 namespace="cloudtik",
-                registry=self.registry)
+                registry=self.registry,
+            ).labels(SessionName=session_name)
             self.node_launch_exceptions: Counter = Counter(
                 "node_launch_exceptions",
                 "Number of exceptions raised while launching nodes.",
+                labelnames=("SessionName",),
                 unit="exceptions",
                 namespace="cloudtik",
-                registry=self.registry)
+                registry=self.registry,
+            ).labels(SessionName=session_name)
             self.reset_exceptions: Counter = Counter(
                 "reset_exceptions",
                 "Number of exceptions raised while resetting the scaler.",
+                labelnames=("SessionName",),
                 unit="exceptions",
                 namespace="cloudtik",
-                registry=self.registry)
+                registry=self.registry,
+            ).labels(SessionName=session_name)
             self.config_validation_exceptions: Counter = Counter(
                 "config_validation_exceptions",
                 "Number of exceptions raised while validating the config "
                 "during a reset.",
+                labelnames=("SessionName",),
                 unit="exceptions",
                 namespace="cloudtik",
-                registry=self.registry)
+                registry=self.registry,
+            ).labels(SessionName=session_name)
             self.drain_node_exceptions: Counter = Counter(
                 "drain_node_exceptions",
                 "Number of exceptions raised when making a DrainNode rpc"
                 "prior to node termination.",
+                labelnames=("SessionName",),
                 unit="exceptions",
                 namespace="cloudtik",
-                registry=self.registry)
+                registry=self.registry,
+            ).labels(SessionName=session_name)
+
+        @property
+        def session_name(self):
+            return self._session_name
+
 except ImportError:
 
-    class NullMetric:
-        def set(self, value):
-            pass
-
-        def observe(self, value):
-            pass
-
-        def inc(self):
-            pass
-
     class ClusterPrometheusMetrics(object):
+        def __init__(self, session_name: str = None):
+            pass
+
         def __getattr__(self, attr):
             return NullMetric()

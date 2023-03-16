@@ -28,7 +28,7 @@ from cloudtik.core._private.cluster.cluster_operator import (
     show_worker_cpus, show_worker_memory, show_cluster_info, show_cluster_status,
     start_proxy, stop_proxy, cluster_debug_status,
     cluster_health_check, cluster_process_status, attach_worker, scale_cluster,
-    exec_on_nodes, submit_and_exec, _wait_for_ready, _rsync, cli_call_context)
+    exec_on_nodes, submit_and_exec, _wait_for_ready, _rsync, cli_call_context, cluster_resource_metrics)
 from cloudtik.core._private.constants import CLOUDTIK_PROCESSES, \
     CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
     CLOUDTIK_DEFAULT_PORT
@@ -1234,13 +1234,24 @@ def wait_for_ready(cluster_config_file, cluster_name, no_config_cache,
     required=False,
     type=str,
     help="Override the configured cluster name.")
+@click.option(
+    "--no-config-cache",
+    is_flag=True,
+    default=False,
+    help="Disable the local cluster config cache.")
+@click.option(
+    "--runtimes",
+    required=False,
+    type=str,
+    default=None,
+    help="The list of runtimes to show process status for. If not specified, will all.")
 @add_click_logging_options
-def process_status(cluster_config_file, cluster_name):
+def process_status(cluster_config_file, cluster_name, no_config_cache, runtimes):
     """Show process status of cluster nodes."""
     try:
         cluster_process_status(
-            cluster_config_file,
-            cluster_name)
+            cluster_config_file, cluster_name,
+            no_config_cache, runtimes)
     except RuntimeError as re:
         cli_logger.error("Cluster process status failed. " + str(re))
         if cli_logger.verbosity == 0:
@@ -1257,11 +1268,46 @@ def process_status(cluster_config_file, cluster_name):
     required=False,
     type=str,
     help="Override the configured cluster name.")
+@click.option(
+    "--no-config-cache",
+    is_flag=True,
+    default=False,
+    help="Disable the local cluster config cache.")
 @add_click_logging_options
-def debug_status(cluster_config_file, cluster_name):
+def resource_metrics(cluster_config_file, cluster_name, no_config_cache):
+    """Show cluster resource metrics and the metrics for each node."""
+    try:
+        cluster_resource_metrics(
+            cluster_config_file, cluster_name,
+            no_config_cache)
+    except RuntimeError as re:
+        cli_logger.error("Cluster resource metrics failed. " + str(re))
+        if cli_logger.verbosity == 0:
+            cli_logger.print("For more details, please run with -v flag.")
+        else:
+            traceback.print_exc()
+
+
+@cli.command()
+@click.argument("cluster_config_file", required=True, type=str)
+@click.option(
+    "--cluster-name",
+    "-n",
+    required=False,
+    type=str,
+    help="Override the configured cluster name.")
+@click.option(
+    "--no-config-cache",
+    is_flag=True,
+    default=False,
+    help="Disable the local cluster config cache.")
+@add_click_logging_options
+def debug_status(cluster_config_file, cluster_name, no_config_cache):
     """Show debug status of cluster scaling."""
     try:
-        cluster_debug_status(cluster_config_file, cluster_name)
+        cluster_debug_status(
+            cluster_config_file, cluster_name,
+            no_config_cache,)
     except RuntimeError as re:
         cli_logger.error("Cluster debug status failed. " + str(re))
         if cli_logger.verbosity == 0:
@@ -1278,11 +1324,23 @@ def debug_status(cluster_config_file, cluster_name):
     required=False,
     type=str,
     help="Override the configured cluster name.")
+@click.option(
+    "--no-config-cache",
+    is_flag=True,
+    default=False,
+    help="Disable the local cluster config cache.")
+@click.option(
+    "--with-details",
+    is_flag=True,
+    default=False,
+    help="Whether to show detailed information.")
 @add_click_logging_options
-def health_check(cluster_config_file, cluster_name):
+def health_check(cluster_config_file, cluster_name, no_config_cache, with_details):
     """Do cluster health check."""
     try:
-        cluster_health_check(cluster_config_file, cluster_name)
+        cluster_health_check(
+            cluster_config_file, cluster_name,
+            no_config_cache, with_details)
     except RuntimeError as re:
         cli_logger.error("Cluster health check failed. " + str(re))
         if cli_logger.verbosity == 0:
@@ -1613,6 +1671,7 @@ cli.add_command(wait_for_ready)
 
 # commands running on working node for debug
 cli.add_command(process_status)
+cli.add_command(resource_metrics)
 cli.add_command(debug_status)
 cli.add_command(health_check)
 

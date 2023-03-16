@@ -313,7 +313,7 @@ def update_azure_workspace_firewalls(config):
     resource_group_name = get_resource_group_name(config, resource_client, use_working_vpc)
 
     if resource_group_name is None:
-        cli_logger.print("Workspace: {} doesn't exist!".format(config["workspace_name"]))
+        cli_logger.error("The workspace: {} doesn't exist!".format(config["workspace_name"]))
         return
 
     current_step = 1
@@ -332,7 +332,7 @@ def update_azure_workspace_firewalls(config):
             "Failed to update the firewalls of workspace {}. {}", workspace_name, str(e))
         raise e
 
-    cli_logger.print(
+    cli_logger.success(
         "Successfully updated the firewalls of workspace: {}.",
         cf.bold(workspace_name))
 
@@ -346,7 +346,7 @@ def delete_azure_workspace(config, delete_managed_storage: bool = False):
     resource_group_name = get_resource_group_name(config, resource_client, use_working_vpc)
 
     if resource_group_name is None:
-        cli_logger.print("Workspace: {} doesn't exist!".format(config["workspace_name"]))
+        cli_logger.error("The workspace: {} doesn't exist!".format(config["workspace_name"]))
         return
 
     current_step = 1
@@ -396,7 +396,7 @@ def delete_azure_workspace(config, delete_managed_storage: bool = False):
             "Failed to delete workspace {}. {}", workspace_name, str(e))
         raise e
 
-    cli_logger.print(
+    cli_logger.success(
         "Successfully deleted workspace: {}.",
         cf.bold(workspace_name))
 
@@ -1046,7 +1046,7 @@ def _create_workspace(config):
                          "You need to delete and try create again. {}", workspace_name, str(e))
         raise e
 
-    cli_logger.print(
+    cli_logger.success(
         "Successfully created workspace: {}.",
         cf.bold(workspace_name))
 

@@ -2,8 +2,8 @@
 
 source ../../common/scripts/setenv.sh
 
-ML_WORKSPACE=/mnt/cloudtik/data_disk_1/ml_workspace
-RESNEXT101_HOME=$ML_WORKSPACE/resnext-32x16d
+RESNEXT101_HOME=$INTELAI_MODELS_WORKSPACE/resnext-32x16d
+RESNEXT101_MODEL=$RESNEXT101_HOME/model
 RESNEXT101_DATA=$RESNEXT101_HOME/data
 
 mkdir -p $RESNEXT101_DATA

@@ -3601,7 +3601,7 @@ def check_node_processes(
         node_process_ok = False
     else:
         cli_logger.success(
-            "{} ({}) all processes are healthy.",
+            "{} ({}) is healthy.",
             node_kind_name, node_ip)
 
     if with_details:

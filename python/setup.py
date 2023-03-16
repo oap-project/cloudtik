@@ -144,6 +144,7 @@ setup_spec.install_requires = [
     "pycryptodomex",
     "pyopenssl",
     "sshtunnel",
+    "colorful",
 ]
 
 

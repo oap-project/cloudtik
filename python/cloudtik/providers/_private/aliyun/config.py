@@ -1825,7 +1825,7 @@ def delete_aliyun_workspace(config, delete_managed_storage: bool = False):
             "Failed to delete workspace {}. {}", workspace_name, str(e))
         raise e
 
-    cli_logger.successs(
+    cli_logger.success(
             "Successfully deleted workspace: {}.",
             cf.bold(workspace_name))
     return None
@@ -2006,7 +2006,7 @@ def update_aliyun_workspace_firewalls(config):
             "Failed to update the firewalls of workspace {}. {}", workspace_name, str(e))
         raise e
 
-    cli_logger.successs(
+    cli_logger.success(
         "Successfully updated the firewalls of workspace: {}.",
         cf.bold(workspace_name))
     return None

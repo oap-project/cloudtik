@@ -284,7 +284,7 @@ def delete_kubernetes_workspace(config, delete_managed_storage: bool = False):
             "Failed to delete workspace {}. {}", workspace_name, str(e))
         raise e
 
-    cli_logger.successs(
+    cli_logger.success(
         "Successfully deleted workspace: {}.",
         cf.bold(workspace_name))
 

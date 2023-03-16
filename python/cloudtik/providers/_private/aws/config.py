@@ -641,7 +641,7 @@ def update_aws_workspace_firewalls(config):
             "Failed to update the firewalls of workspace {}. {}", workspace_name, str(e))
         raise e
 
-    cli_logger.successs(
+    cli_logger.success(
         "Successfully updated the firewalls of workspace: {}.",
         cf.bold(workspace_name))
     return None
@@ -691,7 +691,7 @@ def delete_aws_workspace(config, delete_managed_storage: bool = False):
             "Failed to delete workspace {}. {}", workspace_name, str(e))
         raise e
 
-    cli_logger.successs(
+    cli_logger.success(
             "Successfully deleted workspace: {}.",
             cf.bold(workspace_name))
     return None
@@ -2185,7 +2185,7 @@ def _create_workspace(config):
                          "You need to delete and try create again. {}", workspace_name, str(e))
         raise e
 
-    cli_logger.successs(
+    cli_logger.success(
         "Successfully created workspace: {}.",
         cf.bold(workspace_name))
 

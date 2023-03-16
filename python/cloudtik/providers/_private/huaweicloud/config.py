@@ -745,7 +745,7 @@ def delete_huaweicloud_workspace(config, delete_managed_storage):
                          "{}. \n{}", workspace_name, current_step - 1, str(e))
         raise e
 
-    cli_logger.successs("Successfully deleted workspace: {}.",
+    cli_logger.success("Successfully deleted workspace: {}.",
                      cf.bold(workspace_name))
 
 
@@ -1064,7 +1064,7 @@ def update_huaweicloud_workspace_firewalls(config):
                          workspace_name, str(e))
         raise e
 
-    cli_logger.successs("Successfully updated the firewalls of workspace: {}.",
+    cli_logger.success("Successfully updated the firewalls of workspace: {}.",
                      cf.bold(workspace_name))
 
 

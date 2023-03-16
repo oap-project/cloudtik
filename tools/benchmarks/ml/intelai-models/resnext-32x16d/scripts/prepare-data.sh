@@ -13,7 +13,6 @@ function download_data() {
     mkdir -p $RESNEXT101_DATA
     cd $RESNEXT101_DATA
     wget https://image-net.org/data/ILSVRC/2012/ILSVRC2012_img_val.tar
-    #wget https://image-net.org/data/ILSVRC/2012/ILSVRC2012_img_test_v10102019.tar
 }
 
 function prepare_val_data() {

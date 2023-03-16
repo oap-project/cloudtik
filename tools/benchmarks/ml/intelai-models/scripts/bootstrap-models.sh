@@ -61,20 +61,7 @@ function install_libaries() {
     pip install sklearn onnx
     pip install lark-parser hypothesis
     CLOUDTIK_CONDA_ENV=$(dirname $(dirname $(which cloudtik)))
-    conda install numpy ninja pyyaml mkl mkl-include setuptools cmake cffi typing_extensions future six requests dataclasses psutil -p $CLOUDTIK_CONDA_ENV
-    install_jemalloc
-}
-
-function install_jemalloc() {
-    cd /tmp
-    git clone  https://github.com/jemalloc/jemalloc.git
-    cd jemalloc
-    git checkout c8209150f9d219a137412b06431c9d52839c7272
-    ./autogen.sh
-    ./configure --prefix=$HOME/runtime/benchmark-tools/jemalloc
-    make
-    make install
-    rm -rf /tmp/jemalloc
+    conda install jemalloc numpy ninja pyyaml mkl mkl-include setuptools cmake cffi typing_extensions future six requests dataclasses psutil -p $CLOUDTIK_CONDA_ENV
 }
 
 function install_intelai_models_scripts() {

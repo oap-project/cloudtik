@@ -234,7 +234,7 @@ function mount_local_hdfs_fs() {
     # Mount local hdfs fuse here
     mkdir -p ${CLOUD_FS_MOUNT_PATH}
     echo "Mounting HDFS ${fs_default_dir} to ${CLOUD_FS_MOUNT_PATH}..."
-    fuse_dfs_wrapper.sh -oinitchecks ${fs_default_dir} ${CLOUD_FS_MOUNT_PATH}
+    fuse_dfs_wrapper.sh -oinitchecks ${fs_default_dir} ${CLOUD_FS_MOUNT_PATH} > /dev/null
 }
 
 function mount_hdfs_fs() {
@@ -242,7 +242,7 @@ function mount_hdfs_fs() {
     # Mount remote hdfs fuse here
     mkdir -p ${CLOUD_FS_MOUNT_PATH}
     echo "Mounting HDFS ${fs_default_dir} to ${CLOUD_FS_MOUNT_PATH}..."
-    fuse_dfs_wrapper.sh -oinitchecks ${fs_default_dir} ${CLOUD_FS_MOUNT_PATH}
+    fuse_dfs_wrapper.sh -oinitchecks ${fs_default_dir} ${CLOUD_FS_MOUNT_PATH} > /dev/null
 }
 
 function mount_s3_fs() {
@@ -336,5 +336,5 @@ function mount_cloud_fs() {
 
 function unmount_cloud_fs() {
     echo "Unmounting cloud fs at ${CLOUD_FS_MOUNT_PATH}..."
-    fusermount -u ${CLOUD_FS_MOUNT_PATH}
+    fusermount -u ${CLOUD_FS_MOUNT_PATH} > /dev/null
 }

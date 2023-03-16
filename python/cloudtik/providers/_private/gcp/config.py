@@ -1652,8 +1652,8 @@ def _configure_key_pair(config, compute):
         "Private key file {} not found for user {}"
         "".format(private_key_path, ssh_user))
 
-    cli_logger.print("Private key not specified in config, using "
-                     "{}".format(private_key_path))
+    cli_logger.print("Private key not specified in config, using: {}",
+                     cf.bold(private_key_path))
 
     config["auth"]["ssh_private_key"] = private_key_path
 

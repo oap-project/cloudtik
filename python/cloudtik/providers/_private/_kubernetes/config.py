@@ -284,7 +284,7 @@ def delete_kubernetes_workspace(config, delete_managed_storage: bool = False):
             "Failed to delete workspace {}. {}", workspace_name, str(e))
         raise e
 
-    cli_logger.print(
+    cli_logger.successs(
         "Successfully deleted workspace: {}.",
         cf.bold(workspace_name))
 
@@ -1134,7 +1134,7 @@ def _create_workspace(config):
                          "You need to delete and try create again. {}", workspace_name, str(e))
         raise e
 
-    cli_logger.print(
+    cli_logger.success(
         "Successfully created workspace: {}.",
         cf.bold(workspace_name))
 
@@ -1153,7 +1153,7 @@ def _get_namespace(namespace: str):
         cli_logger.verbose("Successfully get the namespace: {}.", namespace)
         return namespaces[0]
 
-    cli_logger.verbose("Failed to get the namespace: {}.", namespace)
+    cli_logger.verbose_error("Failed to get the namespace: {}.", namespace)
     return None
 
 
@@ -1256,7 +1256,7 @@ def _get_role(namespace, name):
         cli_logger.verbose("Successfully get the role: {} {}.", namespace, name)
         return roles[0]
 
-    cli_logger.verbose("Failed to get the role: {} {}.", namespace, name)
+    cli_logger.verbose_error("Failed to get the role: {} {}.", namespace, name)
     return None
 
 
@@ -1306,7 +1306,7 @@ def _get_role_binding(namespace, name):
         cli_logger.verbose("Successfully get the role binding: {} {}.", namespace, name)
         return role_bindings[0]
 
-    cli_logger.verbose("Failed to get the role binding: {} {}", namespace, name)
+    cli_logger.verbose_error("Failed to get the role binding: {} {}", namespace, name)
     return None
 
 
@@ -1498,7 +1498,7 @@ def _get_service(namespace, name):
         cli_logger.verbose("Successfully get the service: {} {}.", namespace, name)
         return service_list[0]
 
-    cli_logger.verbose("Failed to get the service: {} {}", namespace, name)
+    cli_logger.verbose_error("Failed to get the service: {} {}", namespace, name)
     return None
 
 
@@ -1519,7 +1519,7 @@ def get_head_external_service_address(namespace, cluster_name):
     try:
         service = core_api().read_namespaced_service(namespace=namespace, name=service_name)
     except ApiException as e:
-        cli_logger.verbose("Failed to get head external service: {}.", str(e))
+        cli_logger.verbose_error("Failed to get head external service: {}.", str(e))
         return None
 
     if (service.status is None) or (

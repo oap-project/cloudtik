@@ -263,7 +263,7 @@ def _create_workspace(config):
                          "You need to delete and try create again. {}", workspace_name, str(e))
         raise e
 
-    cli_logger.print(
+    cli_logger.success(
         "Successfully created workspace: {}.",
         cf.bold(workspace_name))
 
@@ -824,7 +824,7 @@ def update_gcp_workspace_firewalls(config):
     use_working_vpc = is_use_working_vpc(config)
     vpc_id = get_gcp_vpc_id(config, compute, use_working_vpc)
     if vpc_id is None:
-        cli_logger.print("Workspace: {} doesn't exist!".format(config["workspace_name"]))
+        cli_logger.error("The workspace: {} doesn't exist!".format(config["workspace_name"]))
         return
 
     current_step = 1
@@ -843,7 +843,7 @@ def update_gcp_workspace_firewalls(config):
             "Failed to update the firewalls of workspace {}. {}", workspace_name, str(e))
         raise e
 
-    cli_logger.print(
+    cli_logger.successs(
         "Successfully updated the firewalls of workspace: {}.",
         cf.bold(workspace_name))
 
@@ -892,7 +892,7 @@ def delete_gcp_workspace(config, delete_managed_storage: bool = False):
             "Failed to delete workspace {}. {}", workspace_name, str(e))
         raise e
 
-    cli_logger.print(
+    cli_logger.successs(
             "Successfully deleted workspace: {}.",
             cf.bold(workspace_name))
 

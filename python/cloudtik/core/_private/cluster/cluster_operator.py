@@ -548,7 +548,7 @@ def teardown_cluster_nodes(config: Dict[str, Any],
                 head, A = remaining_nodes()
                 _cli_logger.print("{} {} remaining after {} second(s).",
                                  cf.bold(len(A)), node_type, POLL_INTERVAL)
-            _cli_logger.success("No {} remaining.", node_type)
+            _cli_logger.print(cf.bold("No {} remaining."), node_type)
 
 
 def _stop_docker_on_nodes(
@@ -596,7 +596,7 @@ def _stop_docker_on_nodes(
                                  call_context=call_context,
                                  nodes=container_nodes,
                                  max_workers=MAX_PARALLEL_SHUTDOWN_WORKERS)
-        _cli_logger.print("Done stopping docker containers.")
+        _cli_logger.print(cf.bold("Done stopping docker containers."))
 
 
 def kill_node_from_head(config_file: str, yes: bool, hard: bool,
@@ -1771,7 +1771,7 @@ def show_worker_cpus(config_file: str,
 def _show_worker_cpus(config: Dict[str, Any]):
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     worker_cpus = get_worker_cpus(config, provider)
-    cli_logger.print(cf.bold(worker_cpus))
+    cli_logger.print(worker_cpus)
 
 
 def show_worker_memory(config_file: str,
@@ -1783,7 +1783,7 @@ def show_worker_memory(config_file: str,
 def _show_worker_memory(config: Dict[str, Any]):
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     memory_in_gb = int(get_worker_memory(config, provider))
-    cli_logger.print(cf.bold("{}GB"), memory_in_gb)
+    cli_logger.print("{}GB", memory_in_gb)
 
 
 def show_cluster_info(config_file: str,
@@ -1846,7 +1846,7 @@ def show_useful_commands(call_context: CallContext,
     if private_key_file is not None or public_key_file is not None:
         with _cli_logger.group("Key information:"):
             if private_key_file is not None:
-                _cli_logger.print("Cluster private key file: {}", private_key_file)
+                _cli_logger.labeled_value("Cluster private key file", private_key_file)
                 _cli_logger.print("Please keep the cluster private key file safe.")
 
             if public_key_file is not None:
@@ -1905,7 +1905,7 @@ def show_useful_commands(call_context: CallContext,
                     service_desc = "{}, {}".format(runtime_service["url"], runtime_service["info"])
                 else:
                     service_desc = runtime_service["url"]
-                _cli_logger.print(service_desc)
+                _cli_logger.print(cf.bold(service_desc))
 
 
 def show_cluster_status(config_file: str,
@@ -2284,7 +2284,7 @@ def cluster_process_status_on_head(
     node_table = control_state.get_node_table()
     raw_node_states = node_table.get_all().values()
     node_states = _index_node_states(raw_node_states)
-    cli_logger.print("Total {} live nodes reported.", len(node_states))
+    cli_logger.print(cf.bold("Total {} live nodes reported."), len(node_states))
 
     # checking worker node process
     nodes = provider.non_terminated_nodes({
@@ -2301,7 +2301,7 @@ def cluster_process_status_on_head(
             continue
 
         cli_logger.newline()
-        cli_logger.print("Processes status for: {}.", runtime)
+        cli_logger.print(cf.bold("Processes status for: {}."), runtime)
 
         tb = pt.PrettyTable()
         field_names = ["node-ip", "node-type"]
@@ -3434,20 +3434,20 @@ def do_core_health_check(redis_address, redis_password, with_details=False):
         # check cluster controller live status through scaling status time
         status = kv_store.kv_get(CLOUDTIK_CLUSTER_SCALING_STATUS)
         if not status:
-            cli_logger.print("No scaling status reported from the Cluster Controller.")
+            cli_logger.warning("No scaling status reported from the Cluster Controller.")
             check_ok = False
         else:
             report_time = decode_cluster_scaling_time(status)
             time_ok = is_alive_time(report_time)
             if not time_ok:
-                cli_logger.print("Last scaling status is too old. Status time: {}", report_time)
+                cli_logger.warning("Last scaling status is too old. Status time: {}", report_time)
                 check_ok = False
 
         # check the process status
         failed_nodes = do_nodes_health_check(
             redis_address, redis_password, with_details)
         if failed_nodes:
-            cli_logger.print("{} nodes are not healthy.", len(failed_nodes))
+            cli_logger.warning("{} nodes are not healthy.", len(failed_nodes))
             check_ok = False
     except Exception as e:
         cli_logger.error("Health check failed." + str(e))
@@ -3455,10 +3455,10 @@ def do_core_health_check(redis_address, redis_password, with_details=False):
         pass
 
     if check_ok:
-        cli_logger.print("Cluster is healthy.")
+        cli_logger.success("Cluster is healthy.")
         sys.exit(0)
     else:
-        cli_logger.print("Cluster is not healthy. Please check the details above.")
+        cli_logger.error("Cluster is not healthy. Please check the details above.")
         sys.exit(1)
 
 
@@ -3485,7 +3485,7 @@ def do_nodes_health_check(redis_address, redis_password, with_details=False):
         head_node = None
 
     if head_node is None:
-        cli_logger.print("Head node is not running.")
+        cli_logger.warning("Head node is not running.")
         failed_nodes[head_node] = head_node
         return failed_nodes
 
@@ -3503,7 +3503,7 @@ def do_nodes_health_check(redis_address, redis_password, with_details=False):
         config, provider, head_node_info,
         node_states, with_details)
     if not node_process_ok:
-        cli_logger.print("Head node is not healthy. One or more process are not running.")
+        cli_logger.warning("Head node is not healthy. One or more process are not running.")
         failed_nodes[head_node] = head_node
 
     # checking worker node process
@@ -3518,7 +3518,7 @@ def do_nodes_health_check(redis_address, redis_password, with_details=False):
             config, provider, worker_info,
             node_states, with_details)
         if not node_process_ok:
-            cli_logger.print("Worker node {} is not healthy. One or more process are not running.",
+            cli_logger.warning("Worker node {} is not healthy. One or more process are not running.",
                              worker_info[NODE_INFO_NODE_IP])
             failed_nodes[worker] = worker
 
@@ -3545,7 +3545,7 @@ def check_node_processes(
         node_kind_name = "Head"
     node_state = node_states.get(node_ip)
     if not node_state:
-        cli_logger.print("No states reported for {} node: {}.",
+        cli_logger.warning("No states reported for {} node: {}.",
                          node_kind, node_ip)
         return False
 
@@ -3594,13 +3594,15 @@ def check_node_processes(
                 [process_name, process_info.get(process_name, "-"), runtime_type])
 
     if unhealthy_processes:
-        cli_logger.print("{} ({}) has {} unhealthy processes: {}.",
-                         node_kind_name, node_ip,
-                         len(unhealthy_processes), unhealthy_processes)
+        cli_logger.warning(
+            "{} ({}) has {} unhealthy processes: {}.",
+            node_kind_name, node_ip,
+            len(unhealthy_processes), unhealthy_processes)
         node_process_ok = False
     else:
-        cli_logger.print("{} ({}) all processes are healthy.",
-                         node_kind_name, node_ip)
+        cli_logger.success(
+            "{} ({}) all processes are healthy.",
+            node_kind_name, node_ip)
 
     if with_details:
         cli_logger.print("Process details:", node_kind_name, node_ip)

@@ -252,9 +252,10 @@ class NodeUpdater:
                     do_sync(path, path, allow_non_existing_paths=True)
                 current_step += 1
         else:
-            self.cli_logger.print(
-                "No worker file mounts to sync",
-                _numbered=("[]", current_step, total_steps))
+            with self.cli_logger.group(
+                    "No worker file mounts to sync",
+                    _numbered=("[]", current_step, total_steps)):
+                pass
 
     def wait_ready(self, deadline):
         with self.cli_logger.group(
@@ -550,7 +551,7 @@ class NodeUpdater:
             {"node_id": self.node_id, "command": cmd})
 
         cmd_to_print = self.get_cmd_to_print(cmd)
-        self.cli_logger.print("- {}", cmd_to_print)
+        self.cli_logger.print(cf.bold("- {}"), cmd_to_print)
 
         try:
             # Runs in the container if docker is in use
@@ -607,7 +608,7 @@ class NodeUpdater:
         env_vars.update(runtime_envs)
 
         cmd_to_print = self.get_cmd_to_print(cmd)
-        self.cli_logger.print("- {}", cmd_to_print)
+        self.cli_logger.print(cf.bold("- {}"), cmd_to_print)
 
         try:
             old_redirected = self.call_context.is_output_redirected()
@@ -646,7 +647,7 @@ class NodeUpdater:
             env_vars.update(envs)
 
         cmd_to_print = self.get_cmd_to_print(cmd)
-        self.cli_logger.print("- {}", cmd_to_print)
+        self.cli_logger.print(cf.bold("- {}"), cmd_to_print)
 
         try:
             # Runs in the container if docker is in use

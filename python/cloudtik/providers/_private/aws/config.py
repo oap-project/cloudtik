@@ -622,7 +622,7 @@ def update_aws_workspace_firewalls(config):
     workspace_name = config["workspace_name"]
     vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
     if vpc_id is None:
-        cli_logger.print("The workspace: {} doesn't exist!".format(config["workspace_name"]))
+        cli_logger.error("The workspace: {} doesn't exist!".format(config["workspace_name"]))
         return
 
     current_step = 1
@@ -641,7 +641,7 @@ def update_aws_workspace_firewalls(config):
             "Failed to update the firewalls of workspace {}. {}", workspace_name, str(e))
         raise e
 
-    cli_logger.print(
+    cli_logger.successs(
         "Successfully updated the firewalls of workspace: {}.",
         cf.bold(workspace_name))
     return None
@@ -666,7 +666,6 @@ def delete_aws_workspace(config, delete_managed_storage: bool = False):
         total_steps += 1
 
     try:
-
         with cli_logger.group("Deleting workspace: {}", workspace_name):
             # Delete in a reverse way of creating
             if managed_cloud_storage and delete_managed_storage:
@@ -692,7 +691,7 @@ def delete_aws_workspace(config, delete_managed_storage: bool = False):
             "Failed to delete workspace {}. {}", workspace_name, str(e))
         raise e
 
-    cli_logger.print(
+    cli_logger.successs(
             "Successfully deleted workspace: {}.",
             cf.bold(workspace_name))
     return None
@@ -2186,7 +2185,7 @@ def _create_workspace(config):
                          "You need to delete and try create again. {}", workspace_name, str(e))
         raise e
 
-    cli_logger.print(
+    cli_logger.successs(
         "Successfully created workspace: {}.",
         cf.bold(workspace_name))
 

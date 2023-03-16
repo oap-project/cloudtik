@@ -1,9 +1,9 @@
 #!/bin/bash
 
-source ../../common/scripts/setenv.sh
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+source ${SCRIPT_DIR}/../../common/scripts/setenv.sh
 
 RESNEXT101_HOME=$INTELAI_MODELS_WORKSPACE/resnext-32x16d
-RESNEXT101_MODEL=$RESNEXT101_HOME/model
 
 RESNEXT101_DATA=$RESNEXT101_HOME/data
 RESNEXT101_OUTPUT=$RESNEXT101_HOME/output

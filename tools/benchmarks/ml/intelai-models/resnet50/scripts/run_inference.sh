@@ -1,6 +1,7 @@
 #!/bin/bash
 
-
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+source ${SCRIPT_DIR}/../../common/scripts/setenv.sh
 
 RESNET50_HOME=$INTELAI_MODELS_WORKSPACE/resnet50
 RESNET50_MODEL=$RESNET50_HOME/model

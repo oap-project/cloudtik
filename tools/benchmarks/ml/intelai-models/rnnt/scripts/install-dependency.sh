@@ -1,6 +1,7 @@
 #!/bin/bash
 
-source ../../common/scripts/setenv.sh
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+source ${SCRIPT_DIR}/../../common/scripts/setenv.sh
 
 RNNT_HOME=$INTELAI_MODELS_WORKSPACE/rnn-t
 

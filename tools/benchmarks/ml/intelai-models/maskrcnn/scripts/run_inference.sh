@@ -1,16 +1,18 @@
 #!/bin/bash
 
 
-ML_WORKSPACE=/mnt/cloudtik/data_disk_1/ml_workspace
-MASKRCNN_HOME=$ML_WORKSPACE/maskrcnn
+
+MASKRCNN_HOME=$INTELAI_MODELS_WORKSPACE/maskrcnn
 MASKRCNN_MODEL=$MASKRCNN_HOME/model
 MASKRCNN_DATA=$MASKRCNN_HOME/data
 MASKRCNN_OUTPUT=$MASKRCNN_HOME/output
 
 PRECISION=fp32
 MODE=jit
+METRIC=throughput
+
 function usage(){
-    echo "Usage: run-inference.sh  [ --precision fp32 | bf16 | bf32 ] [ --mode jit or imperative]"
+    echo "Usage: run-inference.sh  [ --precision fp32 | bf16 | bf32 ] [ --mode jit or imperative]  [--metric throughput | realtime] "
     exit 1
 }
 
@@ -24,9 +26,13 @@ do
         PRECISION=$1
         ;;
     --mode)
-        # training or inference
         shift
         MODE=$1
+        ;;
+    --metric)
+        # training or inference
+        shift
+        METRIC=$1
         ;;
     *)
         usage
@@ -43,4 +49,11 @@ set MODE=$MODE
 mkdir -p $OUTPUT_DIR
 
 cd ${MODEL_DIR}/quickstart/object_detection/pytorch/maskrcnn/inference/cpu
-batch_inference_baremetal.sh $PRECISION $MODE
+
+if [ "${METRIC}" = "throughput" ]; then
+    bash inference_throughput.sh $PRECISION $MODE
+elif [ "${METRIC}" = "realtime" ]; then
+    bash inference_realtime.sh $PRECISION $MODE
+else
+    usage
+fi

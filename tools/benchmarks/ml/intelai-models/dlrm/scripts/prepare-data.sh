@@ -1,7 +1,7 @@
 #!/bin/bash
 
-ML_WORKSPACE=/mnt/cloudtik/data_disk_1/ml_workspace
-DLRM_HOME=$ML_WORKSPACE/dlrm
+
+DLRM_HOME=$INTELAI_MODELS_WORKSPACE/dlrm
 DLRM_MODEL=$BERT_HOME/model
 DLRM_DATA=$BERT_HOME/data
 

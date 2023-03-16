@@ -48,6 +48,16 @@ function install_intelai_models() {
   rm -rf models
   git clone https://github.com/IntelAI/models.git
   echo "export MODEL_DIR=${MODELS_HOME}" >> ~/.bashrc
+
+  if test -e "/mnt/cloudtik/data_disk_1/"
+  then
+      INTELAI_MODELS_WORKSPACE=/mnt/cloudtik/data_disk_1/intelai_models_workspace
+  else
+      INTELAI_MODELS_WORKSPACE=$USER_HOME/intelai_models_workspace
+  fi
+  mkdir -p $INTELAI_MODELS_WORKSPACE
+  echo "export INTELAI_MODELS_WORKSPACE=$INTELAI_MODELS_WORKSPACE"  >> ~/.bashrc
+  source ~/.bashrc
 }
 
 function install_tools() {

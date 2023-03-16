@@ -218,7 +218,7 @@ def _get_iam_service_account(cloud_provider, workspace_name, iam, account_type: 
                        iam_service_account_name)
     sa = _get_service_account_by_id(cloud_provider, iam_service_account_name, iam)
     if sa is None:
-        cli_logger.verbose("Failed to get IAM service account: {}.",
+        cli_logger.verbose_error("Failed to get IAM service account: {}.",
                            iam_service_account_name)
     else:
         cli_logger.verbose("Successfully got IAM service account: {}.",

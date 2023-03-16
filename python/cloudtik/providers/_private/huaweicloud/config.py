@@ -177,7 +177,7 @@ def create_huaweicloud_workspace(config):
                          "{}. \n{}", workspace_name, current_step - 1, str(e))
         raise e
 
-    cli_logger.print("Successfully created workspace: {}.",
+    cli_logger.success("Successfully created workspace: {}.",
                      cf.bold(workspace_name))
 
 
@@ -745,7 +745,7 @@ def delete_huaweicloud_workspace(config, delete_managed_storage):
                          "{}. \n{}", workspace_name, current_step - 1, str(e))
         raise e
 
-    cli_logger.print("Successfully deleted workspace: {}.",
+    cli_logger.successs("Successfully deleted workspace: {}.",
                      cf.bold(workspace_name))
 
 
@@ -1042,8 +1042,9 @@ def update_huaweicloud_workspace_firewalls(config):
     workspace_name = config["workspace_name"]
     workspace_vpc = get_workspace_vpc(vpc_client, workspace_name)
     if not workspace_vpc:
-        cli_logger.print("Can't find workspace VPC")
+        cli_logger.error("The workspace: {} doesn't exist!".format(workspace_name))
         return
+
     current_step = 1
     total_steps = 1
     try:
@@ -1063,7 +1064,7 @@ def update_huaweicloud_workspace_firewalls(config):
                          workspace_name, str(e))
         raise e
 
-    cli_logger.print("Successfully updated the firewalls of workspace: {}.",
+    cli_logger.successs("Successfully updated the firewalls of workspace: {}.",
                      cf.bold(workspace_name))
 
 

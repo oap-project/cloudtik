@@ -119,7 +119,8 @@ def _delete_workspace(config: Dict[str, Any],
                 cli_logger.warning("WARNING: The managed cloud storage associated with this workspace "
                                    "and the data in it will all be deleted!")
             else:
-                cli_logger.print("The managed cloud storage associated with this workspace will not be deleted.")
+                cli_logger.print(
+                    cf.bold("The managed cloud storage associated with this workspace will not be deleted."))
 
         cli_logger.confirm(yes, "Are you sure that you want to delete workspace {}?",
                            config["workspace_name"], _abort=True)
@@ -223,9 +224,9 @@ def list_workspace_clusters(
     config = _load_workspace_config(config_file, override_workspace_name)
     clusters = _list_workspace_clusters(config)
     if clusters is None:
-        cli_logger.print("Workspace {} is not correctly configured.", config["workspace_name"])
+        cli_logger.error("Workspace {} is not correctly configured.", config["workspace_name"])
     elif len(clusters) == 0:
-        cli_logger.print("Workspace {} has no cluster in running.", config["workspace_name"])
+        cli_logger.print(cf.bold("Workspace {} has no cluster in running."), config["workspace_name"])
     else:
         # Get cluster info by the cluster name
         clusters_info = _get_clusters_info(config, clusters)
@@ -272,7 +273,7 @@ def _show_clusters(clusters_info):
                     cluster_info["total-workers-failed"]
                     ])
 
-    cli_logger.print("{} cluster(s) are running.", len(clusters_info))
+    cli_logger.print(cf.bold("{} cluster(s) are running."), len(clusters_info))
     cli_logger.print(tb)
 
 
@@ -292,13 +293,13 @@ def show_status(
     workspace_name = config["workspace_name"]
     existence = _get_workspace_status(config)
     if existence == Existence.NOT_EXIST:
-        cli_logger.print(f"Workspace {workspace_name}: NOT EXIST.")
+        cli_logger.labeled_value(f"Workspace {workspace_name}", "NOT EXIST")
     elif existence == Existence.STORAGE_ONLY:
-        cli_logger.print(f"Workspace {workspace_name}: STORAGE ONLY.")
+        cli_logger.labeled_value(f"Workspace {workspace_name}", "STORAGE ONLY")
     elif existence == Existence.IN_COMPLETED:
-        cli_logger.print(f"Workspace {workspace_name}: NOT COMPLETED.")
+        cli_logger.labeled_value(f"Workspace {workspace_name}", "NOT COMPLETED")
     else:
-        cli_logger.print(f"Workspace {workspace_name}: COMPLETED.")
+        cli_logger.labeled_value(f"Workspace {workspace_name}", "COMPLETED")
 
 
 def _get_workspace_status(config):

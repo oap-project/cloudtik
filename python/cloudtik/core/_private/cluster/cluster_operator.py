@@ -1,4 +1,5 @@
 import copy
+import math
 import sys
 import urllib
 import urllib.parse
@@ -19,9 +20,11 @@ import click
 import psutil
 import yaml
 
+from cloudtik.core import tags
 from cloudtik.core._private import services, constants
 from cloudtik.core._private.call_context import CallContext
 from cloudtik.core._private.cluster.cluster_config import _load_cluster_config, _bootstrap_config, try_logging_config
+from cloudtik.core._private.cluster.cluster_tunnel_request import request_tunnel_to_head
 from cloudtik.core._private.cluster.cluster_utils import create_node_updater_for_exec
 from cloudtik.core._private.core_utils import kill_process_tree, double_quote
 from cloudtik.core._private.job_waiter.job_waiter_factory import create_job_waiter
@@ -2189,22 +2192,26 @@ def _exec_cmd_on_cluster(config: Dict[str, Any],
 
 
 def cluster_debug_status(config_file: str,
-                         override_cluster_name: Optional[str]) -> None:
+                         override_cluster_name: Optional[str],
+                         no_config_cache: bool = False) -> None:
     """Return the debug status of a cluster scaling from head node"""
 
     cmd = f"cloudtik head debug-status"
-    exec_cmd_on_cluster(config_file, cmd, override_cluster_name)
+    exec_cmd_on_cluster(config_file, cmd,
+                        override_cluster_name, no_config_cache)
 
 
 def cluster_health_check(config_file: str,
                          override_cluster_name: Optional[str],
-                         with_details = False) -> None:
+                         no_config_cache: bool = False,
+                         with_details=False) -> None:
     """Do a health check on head node and return the results"""
 
     cmd = f"cloudtik head health-check"
     if with_details:
         cmd += " --with-details"
-    exec_cmd_on_cluster(config_file, cmd, override_cluster_name)
+    exec_cmd_on_cluster(config_file, cmd,
+                        override_cluster_name, no_config_cache)
 
 
 def teardown_cluster_on_head(yes: bool = False,
@@ -2328,14 +2335,16 @@ def cluster_process_status_on_head(
 
 def cluster_process_status(config_file: str,
                            override_cluster_name: Optional[str],
+                           no_config_cache: bool = False,
                            runtimes=None) -> None:
-    """Do a health check on head node and return the results"""
+    """List process status on head node and return the results"""
 
     cmd = f"cloudtik head process-status"
     if runtimes:
         cmd += " --runtimes=" + quote(runtimes)
 
-    exec_cmd_on_cluster(config_file, cmd, override_cluster_name)
+    exec_cmd_on_cluster(config_file, cmd,
+                        override_cluster_name, no_config_cache)
 
 
 def exec_on_nodes(
@@ -3610,3 +3619,228 @@ def check_node_processes(
         cli_logger.newline()
 
     return node_process_ok
+
+
+def cluster_resource_metrics(
+        config_file: str,
+        override_cluster_name: Optional[str],
+        no_config_cache: bool = False) -> None:
+    """Show cluster resource metrics from head node"""
+
+    cmd = f"cloudtik head resource-metrics"
+    exec_cmd_on_cluster(config_file, cmd,
+                        override_cluster_name, no_config_cache)
+
+
+def cluster_resource_metrics_on_head(
+        redis_address, redis_password):
+    config = load_head_cluster_config()
+    _, redis_ip_address, redis_port = validate_redis_address(redis_address)
+    call_context = cli_call_context()
+
+    show_cluster_metrics(
+        config=config,
+        call_context=call_context,
+        redis_port=redis_port,
+        redis_password=redis_password,
+        on_head=True
+    )
+
+
+def memory_to_gb_string(mem_bytes):
+    mem_gb = round(mem_bytes/(1024 * 1024 * 1024), 2)
+    return "{}GB".format(mem_gb)
+
+
+def show_cluster_metrics(
+        config: Dict[str, Any],
+        call_context: CallContext,
+        redis_port, redis_password,
+        on_head=False):
+    resource_metrics = get_cluster_metrics(
+        config=config,
+        redis_port=redis_port,
+        redis_password=redis_password,
+        on_head=on_head)
+
+    _cli_logger = call_context.cli_logger
+
+    # print the metrics
+    cli_logger.print(cf.bold("Cluster resource metrics (workers):"))
+    cli_logger.labeled_value("Total Cores", resource_metrics["total_cpus"])
+    cli_logger.labeled_value("Used Cores", resource_metrics["used_cpus"])
+    cli_logger.labeled_value("Free Cores", resource_metrics["available_cpus"])
+    cli_logger.labeled_value("CPU Utilization", resource_metrics["cpu_load"])
+    cli_logger.labeled_value("Total Memory", memory_to_gb_string(resource_metrics["total_memory"]))
+    cli_logger.labeled_value("Used Memory", memory_to_gb_string(resource_metrics["used_memory"]))
+    cli_logger.labeled_value("Free Memory", memory_to_gb_string(resource_metrics["available_memory"]))
+    cli_logger.labeled_value("Memory Utilization", resource_metrics["cpu_load"])
+
+    cli_logger.newline()
+    cli_logger.print(cf.bold("Node resource metrics:"))
+
+    tb = pt.PrettyTable()
+    tb.field_names = ["node-ip", "node-type",
+                      "Total Cores", "Used Cores", "Free Cores", "CPU Load",
+                      "Total Mem", "Used Mem", "Free Mem", "Mem Load"
+                      ]
+    tb.align = "l"
+
+    nodes_resource_metrics = resource_metrics["nodes"]
+
+    def node_resource_sort(node_resource):
+        node_ip = node_resource["node_ip"]
+        return node_resource["node_type"] + node_ip
+
+    nodes_resource_metrics.sort(key=node_resource_sort)
+
+    for node_resource_metrics in nodes_resource_metrics:
+        tb.add_row(
+            [node_resource_metrics["node_ip"], node_resource_metrics["node_type"],
+             resource_metrics["total_cpus"], resource_metrics["used_cpus"],
+             resource_metrics["available_cpus"], resource_metrics["cpu_load"],
+             memory_to_gb_string(resource_metrics["total_memory"]),
+             memory_to_gb_string(resource_metrics["used_memory"]),
+             memory_to_gb_string(resource_metrics["available_memory"]),
+             resource_metrics["cpu_load"]
+             ])
+    cli_logger.print(tb)
+
+
+def get_cluster_metrics(
+        config: Dict[str, Any],
+        redis_port, redis_password,
+        on_head=False
+):
+    def get_node_states(ip_address, port):
+        control_state = ControlState()
+        control_state.initialize_control_state(
+            ip_address, port, redis_password)
+        node_metrics_table = control_state.get_node_metrics_table()
+        return node_metrics_table.get_all().values()
+
+    node_metrics_rows = request_tunnel_to_head(
+        config=config,
+        target_port=redis_port,
+        on_head=on_head,
+        request_fn=get_node_states
+    )
+
+    # Organize the node resource state
+    nodes_metrics = _get_nodes_metrics(node_metrics_rows)
+    nodes_resource_metrics = get_nodes_resource_metrics(
+        nodes_metrics
+    )
+    resource_metrics = get_cluster_resource_metrics(
+        nodes_metrics
+    )
+    resource_metrics["nodes"] = nodes_resource_metrics
+    return resource_metrics
+
+
+def _get_nodes_metrics(node_metrics_rows):
+    nodes_metrics = []
+    for node_metrics_row in node_metrics_rows:
+        node_metrics = json.loads(node_metrics_row)
+        node_id = node_metrics["node_id"]
+        node_ip = node_metrics["node_ip"]
+        if not node_id or not node_ip:
+            continue
+
+        # Filter out the stale record in the node table
+        last_metrics_time = node_metrics.get("metrics_time", 0)
+        delta = time.time() - last_metrics_time
+        if delta >= constants.CLOUDTIK_HEARTBEAT_TIMEOUT_S:
+            continue
+
+        metrics = node_metrics.get("metrics")
+        if not metrics:
+            continue
+
+        nodes_metrics.append(node_metrics)
+
+    return nodes_metrics
+
+
+def get_nodes_resource_metrics(nodes_metrics):
+    nodes_resource_metrics = []
+    for node_metrics in nodes_metrics:
+        node_ip = node_metrics["node_ip"]
+        node_type = node_metrics["node_type"]
+        metrics = node_metrics["metrics"]
+
+        cpu_counts = metrics.get("cpus")
+        total_cpus = cpu_counts[0]
+
+        load_avg = metrics.get("load_avg")
+        load_avg_per_cpu = load_avg[1]
+        load_avg_per_cpu_1 = load_avg_per_cpu[0]
+        load_avg_all_1 = load_avg[0][0]
+
+        used_cpus = math.ceil(load_avg_all_1)
+
+        memory = metrics.get("mem")
+        (total_memory, available_memory, percent_memory, used_memory) = memory
+
+        node_resource_metrics = {
+            "node_ip": node_ip,
+            "node_type": node_type,
+            "total_cpus": total_cpus,
+            "used_cpus": used_cpus,
+            "available_cpus": max(0, total_cpus - used_cpus),
+            "cpu_load": load_avg_per_cpu_1,
+            "total_memory": total_memory,
+            "used_memory": used_memory,
+            "available_memory": max(0, total_memory - used_memory),
+            "memory_load": percent_memory,
+        }
+
+        nodes_resource_metrics.append(node_resource_metrics)
+    return nodes_resource_metrics
+
+
+def get_cluster_resource_metrics(nodes_metrics):
+    cluster_total_cpus = 0
+    cluster_total_memory = 0
+    cluster_used_memory = 0
+    cluster_load_avg_all_1 = 0.0
+    for node_metrics in nodes_metrics:
+        # filter out the head node
+        if node_metrics["node_type"] == tags.NODE_KIND_HEAD:
+            continue
+
+        metrics = node_metrics["metrics"]
+
+        cpu_counts = metrics.get("cpus")
+        total_cpus = cpu_counts[0]
+
+        load_avg = metrics.get("load_avg")
+        load_avg_all = load_avg[0]
+        load_avg_all_1 = load_avg_all[0]
+
+        memory = metrics.get("mem")
+        (total_memory, available_memory, percent_memory, used_memory) = memory
+
+        cluster_total_cpus += total_cpus
+        cluster_load_avg_all_1 += load_avg_all_1
+        cluster_total_memory += total_memory
+        cluster_used_memory += used_memory
+
+    cluster_used_cpus = math.ceil(cluster_load_avg_all_1)
+    cluster_cpu_load_1 = 0.0
+    if cluster_total_cpus > 0:
+        cluster_cpu_load_1 = round(cluster_load_avg_all_1 / cluster_total_cpus, 2)
+
+    cluster_memory_load = 0.0
+    if cluster_total_memory > 0:
+        cluster_memory_load = round(cluster_used_memory / cluster_total_memory, 2)
+    return {
+        "total_cpus": cluster_total_cpus,
+        "used_cpus": cluster_used_cpus,
+        "available_cpus": max(0, cluster_total_cpus - cluster_used_cpus),
+        "cpu_load": cluster_cpu_load_1,
+        "total_memory": cluster_total_memory,
+        "used_memory": cluster_used_memory,
+        "available_memory": max(0, cluster_total_memory - cluster_used_memory),
+        "memory_load": cluster_memory_load,
+    }

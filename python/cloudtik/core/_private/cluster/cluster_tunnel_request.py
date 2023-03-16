@@ -79,3 +79,38 @@ def request_rest_direct(rest_api_ip: str, rest_api_port: int, endpoint: str):
 
     response = urllib.request.urlopen(endpoint_url, timeout=REST_REQUEST_TIMEOUT)
     return response.read()
+
+
+def request_tunnel_to_server(
+        config, server_ip, remote_ip: str, remote_port: int,
+        request_fn, args=(), kwargs={}):
+    auth_config = config.get("auth", {})
+    ssh_proxy_command = auth_config.get("ssh_proxy_command", None)
+    ssh_private_key = auth_config.get("ssh_private_key", None)
+    ssh_user = auth_config["ssh_user"]
+    ssh_port = auth_config.get("ssh_port", 22)
+    ssh_proxy = ssh_proxy_wrapper(ssh_proxy_command, server_ip, ssh_port, ssh_user)
+    with sshtunnel.open_tunnel(
+            server_ip,
+            ssh_username=ssh_user,
+            ssh_port=ssh_port,
+            ssh_pkey=ssh_private_key,
+            ssh_proxy=ssh_proxy,
+            remote_bind_address=(remote_ip, remote_port)
+    ) as tunnel:
+        return request_fn("127.0.0.1", tunnel.local_bind_port, *args, **kwargs)
+
+
+def request_tunnel_to_head(
+        config: Dict[str, Any], target_port: int,
+        request_fn, args=(), kwargs={},
+        on_head: bool = False):
+    head_node_ip = get_cluster_head_ip(config, False)
+    if on_head:
+        return request_fn(head_node_ip, target_port, *args, **kwargs)
+    else:
+        head_public_ip = get_cluster_head_ip(config, True)
+        return request_tunnel_to_server(
+            config=config, server_ip=head_public_ip,
+            remote_ip=head_node_ip, remote_port=target_port,
+            request_fn=request_fn, args=args, kwargs=kwargs)

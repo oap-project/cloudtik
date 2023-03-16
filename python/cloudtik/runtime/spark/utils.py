@@ -4,7 +4,7 @@ from typing import Any, Dict, Optional
 
 from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core._private.cluster.cluster_config import _load_cluster_config
-from cloudtik.core._private.cluster.cluster_rest_request import _request_rest_to_head
+from cloudtik.core._private.cluster.cluster_tunnel_request import _request_rest_to_head
 from cloudtik.core._private.core_utils import double_quote
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_HDFS, BUILT_IN_RUNTIME_METASTORE, \
     BUILT_IN_RUNTIME_SPARK

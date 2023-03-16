@@ -14,7 +14,7 @@ from cloudtik.core._private.cluster.cluster_operator import (
     start_node_on_head, stop_node_on_head, kill_node_on_head, scale_cluster_on_head,
     _wait_for_ready, _get_worker_node_ips, _get_head_node_ip,
     _show_cluster_status, _monitor_cluster, _show_cluster_info, _show_worker_cpus, _show_worker_memory,
-    cli_call_context, _exec_node_on_head, do_health_check)
+    cli_call_context, _exec_node_on_head, do_health_check, cluster_resource_metrics_on_head)
 from cloudtik.core._private.constants import CLOUDTIK_REDIS_DEFAULT_PASSWORD
 from cloudtik.core._private.state import kv_store
 from cloudtik.core._private.state.kv_store import kv_initialize_with_address
@@ -488,6 +488,27 @@ def process_status(address, redis_password, runtimes):
     type=str,
     default=CLOUDTIK_REDIS_DEFAULT_PASSWORD,
     help="Connect with redis password.")
+@add_click_logging_options
+def resource_metrics(address, redis_password):
+    """Show cluster resource metrics."""
+    if not address:
+        address = services.get_address_to_use_or_die()
+    cluster_resource_metrics_on_head(
+        address, redis_password)
+
+
+@head.command()
+@click.option(
+    "--address",
+    required=False,
+    type=str,
+    help="Override the address to connect to.")
+@click.option(
+    "--redis-password",
+    required=False,
+    type=str,
+    default=CLOUDTIK_REDIS_DEFAULT_PASSWORD,
+    help="Connect with redis password.")
 @click.option(
     "--component",
     required=False,
@@ -736,5 +757,6 @@ head.add_command(runtime)
 
 head.add_command(debug_status)
 head.add_command(process_status)
+head.add_command(resource_metrics)
 head.add_command(health_check)
 head.add_command(cluster_dump)

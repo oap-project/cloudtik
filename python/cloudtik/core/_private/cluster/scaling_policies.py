@@ -4,6 +4,7 @@ from typing import Any, Dict, Optional
 import time
 import math
 
+from cloudtik.core import tags
 from cloudtik.core._private import constants
 from cloudtik.core._private.state.control_state import ControlState
 from cloudtik.core._private.utils import get_resource_demands_for_cpu, RUNTIME_CONFIG_KEY, \
@@ -241,7 +242,7 @@ class ScalingWithLoad(ScalingPolicy):
         for node_metrics_as_json in node_metrics_rows:
             node_metrics = json.loads(node_metrics_as_json)
             # filter out the head node
-            if node_metrics["node_type"] == "head":
+            if node_metrics["node_type"] == tags.NODE_KIND_HEAD:
                 continue
 
             all_node_metrics.append(node_metrics)

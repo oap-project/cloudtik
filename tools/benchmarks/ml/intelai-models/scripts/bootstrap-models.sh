@@ -58,6 +58,7 @@ function install_intelai_models() {
 }
 
 function install_tools() {
+    sudo apt-get update -y
     sudo apt-get install curl unzip -y
     sudo apt-get install numactl gcc g++ cmake -y
     sudo apt-get install autoconf -y
@@ -66,10 +67,10 @@ function install_tools() {
 function install_libaries() {
     pip -qq install gdown
     pip install --no-cache-dir https://github.com/mlperf/logging/archive/9ea0afa.zip
-    pip install sklearn onnx
+    pip install onnx==1.12.0
     pip install lark-parser hypothesis
     CLOUDTIK_CONDA_ENV=$(dirname $(dirname $(which cloudtik)))
-    conda install numpy ninja pyyaml setuptools cmake cffi typing_extensions future six requests dataclasses psutil -p $CLOUDTIK_CONDA_ENV
+    conda install ninja dataclasses -p $CLOUDTIK_CONDA_ENV -y
 }
 
 function install_intelai_models_scripts() {

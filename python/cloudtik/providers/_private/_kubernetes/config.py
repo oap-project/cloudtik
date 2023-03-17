@@ -12,6 +12,7 @@ from kubernetes import client
 from kubernetes.client.rest import ApiException
 
 from cloudtik.core._private.cli_logger import cli_logger, cf
+from cloudtik.core._private.docker import get_versioned_image
 from cloudtik.core._private.providers import _get_node_provider
 from cloudtik.core._private.utils import is_use_internal_ip, get_running_head_node, binary_to_hex, hex_to_binary, \
     get_runtime_service_ports, _is_use_managed_cloud_storage, _is_use_internal_ip
@@ -983,9 +984,14 @@ def _configure_pod_image(config):
     node_types = config["available_node_types"]
     for node_type in node_types:
         node_type_config = node_types[node_type]
-        image = get_node_type_image(config, provider_config, node_type_config)
+        image = get_versioned_node_type_image(config, provider_config, node_type_config)
         if image is not None:
             _configure_pod_image_for_node_type(node_type_config, image)
+
+
+def get_versioned_node_type_image(config, provider_config, node_type_config):
+    image = get_node_type_image(config, provider_config, node_type_config)
+    return get_versioned_image(image)
 
 
 def get_node_type_image(config, provider_config, node_type_config):

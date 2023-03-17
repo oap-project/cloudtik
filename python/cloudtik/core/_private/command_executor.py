@@ -19,10 +19,10 @@ from cloudtik.core._private.constants import \
     CLOUDTIK_NODE_START_WAIT_S, \
     CLOUDTIK_DATA_DISK_MOUNT_POINT, PRIVACY_REPLACEMENT, PRIVACY_REPLACEMENT_TEMPLATE
 from cloudtik.core._private.docker import check_bind_mounts_cmd, \
-                                  check_docker_running_cmd, \
-                                  check_docker_image, \
-                                  docker_start_cmds, \
-                                  with_docker_exec
+    check_docker_running_cmd, \
+    check_docker_image, \
+    docker_start_cmds, \
+    with_docker_exec, get_configured_docker_image
 from cloudtik.core._private.log_timer import LogTimer
 
 from cloudtik.core._private.subprocess_output_util import (
@@ -944,9 +944,7 @@ class DockerCommandExecutor(CommandExecutor):
             "~/cloudtik_bootstrap_config.yaml", "~/cloudtik_bootstrap_key.pem"
         ]
 
-        specific_image = self.docker_config.get(
-            f"{'head' if as_head else 'worker'}_image",
-            self.docker_config.get("image"))
+        specific_image = get_configured_docker_image(self.docker_config, as_head)
 
         self._check_docker_installed()
         if self.docker_config.get("pull_before_run", True):

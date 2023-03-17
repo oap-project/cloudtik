@@ -1,5 +1,8 @@
 from pathlib import Path
 from typing import Any, Dict
+
+import cloudtik
+
 try:  # py3
     from shlex import quote
 except ImportError:  # py2
@@ -121,3 +124,24 @@ def docker_start_cmds(user, image, mount_dict, data_disks, container_name, user_
         "bash"
     ]
     return " ".join(docker_run)
+
+
+def get_configured_docker_image(docker_config, as_head):
+    image = docker_config.get(
+            f"{'head' if as_head else 'worker'}_image",
+            docker_config.get("image"))
+
+    return get_versioned_image(image)
+
+
+def get_versioned_image(image):
+    if not image:
+        return image
+
+    # check whether the image tag is specified
+    # if image tag is not specified, the current CloudTik version as tag
+
+    if image.find(":") >= 0:
+        return image
+
+    return "{}:{}".format(image, cloudtik.__version__)

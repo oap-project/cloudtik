@@ -12,7 +12,7 @@ upscaling_speed: 1.0
 # Turn on or off container by set enabled to True or False.
 docker:
     enabled: True
-    image: "cloudtik/spark-runtime:1.0.6"
+    image: "cloudtik/spark-runtime"
     container_name: "cloudtik-spark"
 
 # How CloudTik will authenticate with newly launched nodes.

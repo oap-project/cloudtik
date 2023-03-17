@@ -20,7 +20,7 @@ of your cluster configuration file:
 ```
 
 docker:
-    image: "cloudtik/spark-optimized:nightly"
+    image: "cloudtik/spark-optimized"
 
 ```
 
@@ -35,7 +35,7 @@ of your cluster configuration file:
 ```
 
 docker:
-    image: "cloudtik/spark-native-sql:nightly"
+    image: "cloudtik/spark-native-sql"
 
 ```
 

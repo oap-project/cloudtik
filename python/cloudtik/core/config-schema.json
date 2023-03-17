@@ -481,8 +481,8 @@
                 },
                 "image": {
                     "type": "string",
-                    "description": "the docker image name",
-                    "default": "cloudtik/spark-runtime:nightly"
+                    "description": "the docker image name. If there is no tag specified, will use current CloudTik version as tag.",
+                    "default": "cloudtik/spark-runtime"
                 },
                 "container_name": {
                     "type": "string",

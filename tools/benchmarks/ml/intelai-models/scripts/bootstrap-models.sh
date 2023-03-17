@@ -65,12 +65,11 @@ function install_tools() {
 
 function install_libaries() {
     pip -qq install gdown
-    pip -qq install intel-extension-for-pytorch==1.13.0
     pip install --no-cache-dir https://github.com/mlperf/logging/archive/9ea0afa.zip
     pip install sklearn onnx
     pip install lark-parser hypothesis
     CLOUDTIK_CONDA_ENV=$(dirname $(dirname $(which cloudtik)))
-    conda install jemalloc numpy ninja pyyaml mkl mkl-include setuptools cmake cffi typing_extensions future six requests dataclasses psutil -p $CLOUDTIK_CONDA_ENV
+    conda install numpy ninja pyyaml setuptools cmake cffi typing_extensions future six requests dataclasses psutil -p $CLOUDTIK_CONDA_ENV
 }
 
 function install_intelai_models_scripts() {

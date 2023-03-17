@@ -3072,27 +3072,41 @@ def _do_stop_node_on_head(
 
     _cli_logger = call_context.cli_logger
 
+    total_workers = len(node_workers)
+    total_steps = 0
+    if node_head:
+        total_steps += 1
+    if parallel and total_workers > 1:
+        total_steps += 1
+    else:
+        total_steps += total_workers
+    current_step = 0
+
     # First stop the head service
     if node_head:
         with _cli_logger.group(
-                "Stopping on head: {}", head_node_ip):
+                "Stopping on head: {}", head_node_ip,
+                _numbered=("()", current_step + 1, total_steps)):
             try:
+                current_step += 1
                 stop_single_node_on_head(node_head, call_context=call_context)
             except ParallelTaskSkipped as e:
                 _cli_logger.print(str(e))
 
-    total_workers = len(node_workers)
     if parallel and total_workers > 1:
-        _cli_logger.print("Stopping on {} workers in parallel...", total_workers)
-        run_in_parallel_on_nodes(stop_single_node_on_head,
-                                 call_context=call_context,
-                                 nodes=node_workers)
+        with _cli_logger.group(
+                "Stopping on {} workers in parallel...", total_workers,
+                _numbered=("()", current_step + 1, total_steps)):
+            current_step += 1
+            run_in_parallel_on_nodes(stop_single_node_on_head,
+                                     call_context=call_context,
+                                     nodes=node_workers)
     else:
         for i, node_id in enumerate(node_workers):
             node_ip = provider.internal_ip(node_id)
             with _cli_logger.group(
                     "Stopping on worker: {}", node_ip,
-                    _numbered=("()", i + 1, total_workers)):
+                    _numbered=("()", current_step + i + 1, total_steps)):
                 try:
                     stop_single_node_on_head(node_id, call_context=call_context)
                 except ParallelTaskSkipped as e:

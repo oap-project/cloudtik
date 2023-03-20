@@ -37,7 +37,7 @@ class ScalingWithResources(ScalingPolicy):
 
         self.scaling_config = {}
         self.in_use_cpu_load_threshold = SCALING_WITH_LOAD_IN_USE_CPU_LOAD_THRESHOLD_DEFAULT
-        self._reset_resources_config(config)
+        self._reset_resources_config()
 
     def name(self):
         return "scaling-with-resources"

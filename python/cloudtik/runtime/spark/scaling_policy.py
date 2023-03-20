@@ -16,6 +16,7 @@ SPARK_YARN_REST_ENDPOINT_CLUSTER_METRICS = "http://{}:{}/ws/v1/cluster/metrics"
 
 SPARK_SCALING_MODE_APPS_PENDING = "apps-pending"
 SPARK_SCALING_MODE_AGGRESSIVE = "aggressive"
+SPARK_SCALING_MODE_NONE = "none"
 
 SPARK_SCALING_RESOURCE_MEMORY = constants.CLOUDTIK_RESOURCE_MEMORY
 SPARK_SCALING_RESOURCE_CPU = constants.CLOUDTIK_RESOURCE_CPU
@@ -49,7 +50,7 @@ class SparkScalingPolicy(ScalingPolicy):
         self.scaling_config = {}
 
         # scaling parameters
-        self.scaling_mode = SPARK_SCALING_MODE_APPS_PENDING
+        self.scaling_mode = SPARK_SCALING_MODE_NONE
         self.scaling_step = SPARK_SCALING_STEP_DEFAULT
         self.scaling_resource = SPARK_SCALING_RESOURCE_MEMORY
         self.apps_pending_threshold = 1
@@ -73,7 +74,7 @@ class SparkScalingPolicy(ScalingPolicy):
         self.scaling_config = spark_config.get("scaling", {})
 
         # Update the scaling parameters
-        self.scaling_mode = self.scaling_config.get("scaling_mode", SPARK_SCALING_MODE_APPS_PENDING)
+        self.scaling_mode = self.scaling_config.get("scaling_mode", SPARK_SCALING_MODE_NONE)
         self.scaling_step = self.scaling_config.get("scaling_step", SPARK_SCALING_STEP_DEFAULT)
         self.scaling_resource = self.scaling_config.get("scaling_resource", SPARK_SCALING_RESOURCE_MEMORY)
         self.apps_pending_threshold = self.scaling_config.get(
@@ -83,7 +84,7 @@ class SparkScalingPolicy(ScalingPolicy):
         self.apps_pending_free_memory_threshold = self.scaling_config.get(
             "apps_pending_free_memory_threshold", APP_PENDING_FREE_MEMORY_THRESHOLD_DEFAULT)
         self.aggressive_free_ratio_threshold = self.scaling_config.get(
-            "aggressive_free_cores_ratio_threshold", AGGRESSIVE_FREE_RATIO_THRESHOLD_DEFAULT)
+            "aggressive_free_ratio_threshold", AGGRESSIVE_FREE_RATIO_THRESHOLD_DEFAULT)
 
     def get_scaling_state(self) -> Optional[ScalingState]:
         self.last_state_time = time.time()
@@ -173,6 +174,9 @@ class SparkScalingPolicy(ScalingPolicy):
             "containersReserved": 0,
             "containersPending": 0,
         """
+
+        if not self.scaling_mode or self.scaling_mode == SPARK_SCALING_MODE_NONE:
+            return None
 
         cluster_metrics_url = SPARK_YARN_REST_ENDPOINT_CLUSTER_METRICS.format(
             self.head_ip, self.rest_port)

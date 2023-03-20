@@ -6,6 +6,7 @@ Advanced Configuring
 
    AdvancedConfiguring/configuring-container-mode.md
    AdvancedConfiguring/configuring-cluster-networking.md
+   AdvancedConfiguring/configuring-cluster-scaling.md
    AdvancedConfiguring/using-custom-commands.md
    AdvancedConfiguring/using-templates.md
    AdvancedConfiguring/submitting-jobs.md
@@ -16,3 +17,4 @@ Advanced Configuring
    AdvancedConfiguring/configuring-user-tags.md
    AdvancedConfiguring/waiting-for-job-completion.md
    AdvancedConfiguring/mount-cloud-storage-for-use.md
+   AdvancedConfiguring/configuring-custom-environment-variables.md

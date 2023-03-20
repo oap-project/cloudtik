@@ -3688,7 +3688,7 @@ def show_cluster_metrics(
     cli_logger.labeled_value("Total Memory", memory_to_gb_string(resource_metrics["total_memory"]))
     cli_logger.labeled_value("Used Memory", memory_to_gb_string(resource_metrics["used_memory"]))
     cli_logger.labeled_value("Free Memory", memory_to_gb_string(resource_metrics["available_memory"]))
-    cli_logger.labeled_value("Memory Utilization", resource_metrics["cpu_load"])
+    cli_logger.labeled_value("Memory Utilization", resource_metrics["memory_load"])
 
     cli_logger.newline()
     cli_logger.print(cf.bold("Node resource metrics:"))
@@ -3716,7 +3716,7 @@ def show_cluster_metrics(
              memory_to_gb_string(resource_metrics["total_memory"]),
              memory_to_gb_string(resource_metrics["used_memory"]),
              memory_to_gb_string(resource_metrics["available_memory"]),
-             resource_metrics["cpu_load"]
+             resource_metrics["memory_load"]
              ])
     cli_logger.print(tb)
 

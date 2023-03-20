@@ -133,3 +133,14 @@ runtime:
 - apps_pending_free_cores_threshold: The number of free cores threshold below which to trigger scaling
 - apps_pending_free_memory_threshold: The size of free memory threshold in MB below which to trigger scaling
 - aggressive_free_ratio_threshold: The free cores or memory ratio below which to trigger scaling for aggressive mode
+
+### Scaling down
+When an auto-scaling policy is used and the cluster is scaled up based on
+the configured conditions, the auto-scaling down will happen if there are no more
+resource requests. Any nodes in idle status will be terminated to reach
+the minimum number of workers or manually scaled number of workers.
+
+The auto-scaling policy will override the way of deciding a worker's idle status.
+For example, for Scaling with Load, the CPU utilization is used to decide whether
+a node is idle or not; for Scaling with Spark, if there is no YARN container running
+on a node, the worker is considered to be idle.

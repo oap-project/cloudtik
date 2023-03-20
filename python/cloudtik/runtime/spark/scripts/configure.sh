@@ -64,6 +64,7 @@ function check_spark_installed() {
 function configure_system_folders() {
     # Create dirs for data
     mkdir -p ${RUNTIME_PATH}/jupyter/logs
+    mkdir -p ${HADOOP_HOME}/logs
 }
 
 function set_head_address() {

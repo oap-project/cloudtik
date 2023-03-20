@@ -242,7 +242,7 @@ class ClusterMetrics:
             avail_resources = self.dynamic_resources_by_ip[ip]
             resource_load = self.resource_load_by_ip[ip]
             max_frac = 0.0
-            for resource_id, amount in resource_load.get("utilization", {}).items():
+            for resource_id, amount in resource_load.get("load", {}).items():
                 if amount > 0:
                     max_frac = 1.0  # the resource is saturated
             for resource_id, amount in max_resources.items():

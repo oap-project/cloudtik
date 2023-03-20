@@ -144,3 +144,25 @@ The auto-scaling policy will override the way of deciding a worker's idle status
 For example, for Scaling with Load, the CPU utilization is used to decide whether
 a node is idle or not; for Scaling with Spark, if there is no YARN container running
 on a node, the worker is considered to be idle.
+
+## Configuring idle time for node termination
+For either Manual scaling or Auto scaling, CloudTik detects worker idle state
+for removing to scale down.
+
+Just described above the scaling policy and CloudTik default provide
+ways to decide whether a node is in use (not idle) or not by CPU utilization
+or runtime metrics.
+
+While it doesn't mean a node is in idle state for one or two seconds
+will be removed immediately. For robust, we used an idle timeout setting
+which is default to 5 minutes which means a worker will be the candidate
+to be removed only if the worker is idle in at least last 5 minutes.
+
+User can override the value in cluster configuration.
+For example, you in cluster configuration, add following to override
+the idle timeout to 10 minutes.
+
+```
+# If a node is idle for this many minutes, it will be removed.
+idle_timeout_minutes: 10
+```

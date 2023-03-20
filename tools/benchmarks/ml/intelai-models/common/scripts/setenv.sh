@@ -6,7 +6,7 @@ if test -e "/mnt/cloudtik/data_disk_1/"
 then
     INTELAI_MODELS_WORKSPACE=/mnt/cloudtik/data_disk_1/intelai_models_workspace
 else
-    INTELAI_MODELS_WORKSPACE=$USER_HOME/intelai_models_workspace
+    INTELAI_MODELS_WORKSPACE=$HOME/intelai_models_workspace
 fi
 
 export INTELAI_MODELS_WORKSPACE=$INTELAI_MODELS_WORKSPACE

@@ -25,46 +25,30 @@ SCALING_WITH_LOAD_MEMORY_LOAD_THRESHOLD_DEFAULT = 0.85
 SCALING_WITH_LOAD_IN_USE_CPU_LOAD_THRESHOLD_DEFAULT = 0.10
 
 
-class ScalingWithLoad(ScalingPolicy):
+class ScalingWithResources(ScalingPolicy):
     def __init__(self,
                  config: Dict[str, Any],
                  head_ip: str) -> None:
         ScalingPolicy.__init__(self, config, head_ip)
-        self.scaling_config = {}
-
-        # scaling parameters
-        self.scaling_step = SCALING_WITH_LOAD_STEP_DEFAULT
-        self.scaling_resource = SCALING_WITH_LOAD_RESOURCE_CPU
-        self.cpu_load_threshold = SCALING_WITH_LOAD_CPU_LOAD_THRESHOLD_DEFAULT
-        self.memory_load_threshold = SCALING_WITH_LOAD_MEMORY_LOAD_THRESHOLD_DEFAULT
-        self.in_use_cpu_load_threshold = SCALING_WITH_LOAD_IN_USE_CPU_LOAD_THRESHOLD_DEFAULT
-
-        self.reset(config)
-
         self.last_state_time = 0
-        self.last_resource_demands_time = 0
-        self.last_resource_state_snapshot = None
-
         self.control_state = ControlState()
         self.control_state.initialize_control_state(
             head_ip, constants.CLOUDTIK_DEFAULT_PORT, constants.CLOUDTIK_REDIS_DEFAULT_PASSWORD)
 
+        self.scaling_config = {}
+        self.in_use_cpu_load_threshold = SCALING_WITH_LOAD_IN_USE_CPU_LOAD_THRESHOLD_DEFAULT
+        self._reset_resources_config()
+
     def name(self):
-        return "scaling-with-load"
+        return "scaling-with-resources"
 
     def reset(self, config):
-        self.config = config
-        runtime_config = config.get(RUNTIME_CONFIG_KEY, {})
-        self.scaling_config = runtime_config.get("scaling", {})
+        super().reset(config)
+        self._reset_resources_config()
 
-        self.scaling_step = self.scaling_config.get(
-            "scaling_step", SCALING_WITH_LOAD_STEP_DEFAULT)
-        self.scaling_resource = self.scaling_config.get(
-            "scaling_resource", SCALING_WITH_LOAD_RESOURCE_CPU)
-        self.cpu_load_threshold = self.scaling_config.get(
-            "cpu_load_threshold", SCALING_WITH_LOAD_CPU_LOAD_THRESHOLD_DEFAULT)
-        self.memory_load_threshold = self.scaling_config.get(
-            "memory_load_threshold", SCALING_WITH_LOAD_MEMORY_LOAD_THRESHOLD_DEFAULT)
+    def _reset_resources_config(self):
+        runtime_config = self.config.get(RUNTIME_CONFIG_KEY, {})
+        self.scaling_config = runtime_config.get("scaling", {})
         self.in_use_cpu_load_threshold = self.scaling_config.get(
             "in_use_cpu_load_threshold", SCALING_WITH_LOAD_IN_USE_CPU_LOAD_THRESHOLD_DEFAULT)
 
@@ -84,6 +68,118 @@ class ScalingWithLoad(ScalingPolicy):
         scaling_state.set_node_resource_states(node_resource_states)
         scaling_state.set_lost_nodes(lost_nodes)
         return scaling_state
+
+    def _get_autoscaling_instructions(self, all_node_metrics):
+        return None
+
+    def _get_node_resource_states(self, all_node_metrics):
+        node_resource_states = {}
+        lost_nodes = {}
+
+        for node_metrics in all_node_metrics:
+            node_id = node_metrics["node_id"]
+            node_ip = node_metrics["node_ip"]
+            if not node_id or not node_ip:
+                continue
+
+            # Filter out the stale record in the node table
+            last_metrics_time = node_metrics.get("metrics_time", 0)
+            delta = time.time() - last_metrics_time
+            if delta >= constants.CLOUDTIK_HEARTBEAT_TIMEOUT_S:
+                lost_nodes[node_id] = node_ip
+                continue
+
+            metrics = node_metrics.get("metrics")
+            if not metrics:
+                continue
+
+            cpu_counts = metrics.get("cpus")
+            total_cpus = cpu_counts[0]
+
+            load_avg = metrics.get("load_avg")
+            load_avg_per_cpu = load_avg[1]
+            load_avg_per_cpu_1 = load_avg_per_cpu[0]
+
+            memory = metrics.get("mem")
+            (total_memory, available_memory, percent_memory, used_memory) = memory
+
+            total_resources = {
+                constants.CLOUDTIK_RESOURCE_CPU: total_cpus,
+                constants.CLOUDTIK_RESOURCE_MEMORY: total_memory
+            }
+            free_resources = {
+                constants.CLOUDTIK_RESOURCE_CPU: round(total_cpus * (1 - load_avg_per_cpu_1)),
+                constants.CLOUDTIK_RESOURCE_MEMORY: available_memory
+            }
+
+            resource_load = {
+                "utilization": {
+                    constants.CLOUDTIK_RESOURCE_CPU: load_avg_per_cpu_1,
+                    constants.CLOUDTIK_RESOURCE_MEMORY: percent_memory,
+                },
+                "in_use": True if load_avg_per_cpu_1 > self.in_use_cpu_load_threshold else False
+            }
+            node_resource_state = {
+                "node_id": node_id,
+                "node_ip": node_ip,
+                "resource_time": last_metrics_time,
+                "total_resources": total_resources,
+                "available_resources": free_resources,
+                "resource_load": resource_load
+            }
+
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug("Node metrics: {}".format(node_metrics))
+                logger.debug("Node resources: {}".format(node_resource_state))
+            node_resource_states[node_id] = node_resource_state
+
+        return node_resource_states, lost_nodes
+
+    def _get_all_node_metrics(self, node_metrics_table):
+        node_metrics_rows = node_metrics_table.get_all().values()
+        all_node_metrics = []
+        for node_metrics_as_json in node_metrics_rows:
+            node_metrics = json.loads(node_metrics_as_json)
+            # filter out the head node
+            if node_metrics["node_type"] == tags.NODE_KIND_HEAD:
+                continue
+
+            all_node_metrics.append(node_metrics)
+        return all_node_metrics
+
+
+class ScalingWithLoad(ScalingWithResources):
+    def __init__(self,
+                 config: Dict[str, Any],
+                 head_ip: str) -> None:
+        ScalingWithResources.__init__(self, config, head_ip)
+
+        self.last_resource_demands_time = 0
+        self.last_resource_state_snapshot = None
+
+        # scaling parameters
+        self.scaling_step = SCALING_WITH_LOAD_STEP_DEFAULT
+        self.scaling_resource = SCALING_WITH_LOAD_RESOURCE_CPU
+        self.cpu_load_threshold = SCALING_WITH_LOAD_CPU_LOAD_THRESHOLD_DEFAULT
+        self.memory_load_threshold = SCALING_WITH_LOAD_MEMORY_LOAD_THRESHOLD_DEFAULT
+        self._reset_load_config()
+
+    def name(self):
+        return "scaling-with-load"
+
+    def reset(self, config):
+        super().reset(config)
+        self._reset_load_config()
+
+    def _reset_load_config(self):
+        self.scaling_step = self.scaling_config.get(
+            "scaling_step", SCALING_WITH_LOAD_STEP_DEFAULT)
+        self.scaling_resource = self.scaling_config.get(
+            "scaling_resource", SCALING_WITH_LOAD_RESOURCE_CPU)
+        self.cpu_load_threshold = self.scaling_config.get(
+            "cpu_load_threshold", SCALING_WITH_LOAD_CPU_LOAD_THRESHOLD_DEFAULT)
+        self.memory_load_threshold = self.scaling_config.get(
+            "memory_load_threshold", SCALING_WITH_LOAD_MEMORY_LOAD_THRESHOLD_DEFAULT)
 
     def _need_more_cores(self, cluster_metrics):
         num_cores = 0
@@ -172,81 +268,6 @@ class ScalingWithLoad(ScalingPolicy):
             logger.debug("Resource demands: {}".format(resource_demands))
 
         return autoscaling_instructions
-
-    def _get_node_resource_states(self, all_node_metrics):
-        node_resource_states = {}
-        lost_nodes = {}
-
-        for node_metrics in all_node_metrics:
-            node_id = node_metrics["node_id"]
-            node_ip = node_metrics["node_ip"]
-            if not node_id or not node_ip:
-                continue
-
-            # Filter out the stale record in the node table
-            last_metrics_time = node_metrics.get("metrics_time", 0)
-            delta = time.time() - last_metrics_time
-            if delta >= constants.CLOUDTIK_HEARTBEAT_TIMEOUT_S:
-                lost_nodes[node_id] = node_ip
-                continue
-
-            metrics = node_metrics.get("metrics")
-            if not metrics:
-                continue
-
-            cpu_counts = metrics.get("cpus")
-            total_cpus = cpu_counts[0]
-
-            load_avg = metrics.get("load_avg")
-            load_avg_per_cpu = load_avg[1]
-            load_avg_per_cpu_1 = load_avg_per_cpu[0]
-
-            memory = metrics.get("mem")
-            (total_memory, available_memory, percent_memory, used_memory) = memory
-
-            total_resources = {
-                constants.CLOUDTIK_RESOURCE_CPU: total_cpus,
-                constants.CLOUDTIK_RESOURCE_MEMORY: total_memory
-            }
-            free_resources = {
-                constants.CLOUDTIK_RESOURCE_CPU: round(total_cpus * (1 - load_avg_per_cpu_1)),
-                constants.CLOUDTIK_RESOURCE_MEMORY: available_memory
-            }
-
-            resource_load = {
-                "utilization": {
-                    constants.CLOUDTIK_RESOURCE_CPU: load_avg_per_cpu_1,
-                    constants.CLOUDTIK_RESOURCE_MEMORY: percent_memory,
-                },
-                "in_use": True if load_avg_per_cpu_1 > self.in_use_cpu_load_threshold else False
-            }
-            node_resource_state = {
-                "node_id": node_id,
-                "node_ip": node_ip,
-                "resource_time": last_metrics_time,
-                "total_resources": total_resources,
-                "available_resources": free_resources,
-                "resource_load": resource_load
-            }
-
-            if logger.isEnabledFor(logging.DEBUG):
-                logger.debug("Node metrics: {}".format(node_metrics))
-                logger.debug("Node resources: {}".format(node_resource_state))
-            node_resource_states[node_id] = node_resource_state
-
-        return node_resource_states, lost_nodes
-
-    def _get_all_node_metrics(self, node_metrics_table):
-        node_metrics_rows = node_metrics_table.get_all().values()
-        all_node_metrics = []
-        for node_metrics_as_json in node_metrics_rows:
-            node_metrics = json.loads(node_metrics_as_json)
-            # filter out the head node
-            if node_metrics["node_type"] == tags.NODE_KIND_HEAD:
-                continue
-
-            all_node_metrics.append(node_metrics)
-        return all_node_metrics
 
     def _get_cluster_metrics(self, all_node_metrics):
         cluster_total_cpus = 0

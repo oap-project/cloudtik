@@ -23,7 +23,7 @@ docker:
 setup_commands:
     - (arch=$(uname -m) && [ "${arch}" == "aarch64" ] && (which gcc > /dev/null || (sudo apt-get -qq update -y && sudo apt-get -qq install -y gcc > /dev/null))) || true
     - >-
-        which conda || (arch=$(uname -m) && wget -q --show-progress "https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-${arch}.sh" -O /tmp/miniconda.sh &&
+        which conda > /dev/null 2>&1 || (arch=$(uname -m) && wget -q --show-progress "https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-${arch}.sh" -O /tmp/miniconda.sh &&
         /bin/bash /tmp/miniconda.sh -b -u -p ~/anaconda3 && ~/anaconda3/bin/conda init && rm -rf /tmp/miniconda.sh)
     - ((! grep -Fxq 'export CONDA_ROOT=$HOME/anaconda3' ~/.bashrc) &&
         echo 'export CONDA_ROOT=$HOME/anaconda3' >> ~/.bashrc) || true

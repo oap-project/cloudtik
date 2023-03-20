@@ -109,14 +109,14 @@ def _with_shutdown(cmd, cmd_to_print=None):
 def _with_interactive(cmd):
     force_interactive = (
         f"true && source ~/.bashrc && "
-        f"export OMP_NUM_THREADS=1 PYTHONWARNINGS=ignore && ({cmd})")
+        f"export PYTHONWARNINGS=ignore && ({cmd})")
     return ["bash", "--login", "-c", "-i", quote(force_interactive)]
 
 
 def _with_login_shell(cmd, interactive=True):
     force_interactive = (
         f"true && source ~/.bashrc && "
-        f"export OMP_NUM_THREADS=1 PYTHONWARNINGS=ignore && ({cmd})")
+        f"export PYTHONWARNINGS=ignore && ({cmd})")
     shell_cmd = ["bash", "--login", "-c"]
     if interactive:
         shell_cmd += ["-i"]

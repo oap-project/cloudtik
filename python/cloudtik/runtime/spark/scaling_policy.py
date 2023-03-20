@@ -318,7 +318,7 @@ class SparkScalingPolicy(ScalingPolicy):
                 if "resourceUtilization" in node:
                     cpu_load = node["resourceUtilization"].get("nodeCPUUsage", 0.0)
                 resource_load = {
-                    "utilization": {
+                    "load": {
                         constants.CLOUDTIK_RESOURCE_CPU: cpu_load
                     },
                     "in_use": True if node["numContainers"] > 0 else False

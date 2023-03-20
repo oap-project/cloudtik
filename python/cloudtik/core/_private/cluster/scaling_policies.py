@@ -99,6 +99,8 @@ class ScalingWithResources(ScalingPolicy):
             load_avg = metrics.get("load_avg")
             load_avg_per_cpu = load_avg[1]
             load_avg_per_cpu_1 = load_avg_per_cpu[0]
+            load_avg_all_1 = load_avg[0][0]
+            used_cpus = min(round(load_avg_all_1), total_cpus)
 
             memory = metrics.get("mem")
             (total_memory, available_memory, percent_memory, used_memory) = memory
@@ -108,12 +110,12 @@ class ScalingWithResources(ScalingPolicy):
                 constants.CLOUDTIK_RESOURCE_MEMORY: total_memory
             }
             free_resources = {
-                constants.CLOUDTIK_RESOURCE_CPU: round(total_cpus * (1 - load_avg_per_cpu_1)),
+                constants.CLOUDTIK_RESOURCE_CPU: max(0, total_cpus - used_cpus),
                 constants.CLOUDTIK_RESOURCE_MEMORY: available_memory
             }
 
             resource_load = {
-                "utilization": {
+                "load": {
                     constants.CLOUDTIK_RESOURCE_CPU: load_avg_per_cpu_1,
                     constants.CLOUDTIK_RESOURCE_MEMORY: percent_memory,
                 },
@@ -271,6 +273,7 @@ class ScalingWithLoad(ScalingWithResources):
 
     def _get_cluster_metrics(self, all_node_metrics):
         cluster_total_cpus = 0
+        cluster_used_cpus = 0
         cluster_total_memory = 0
         cluster_used_memory = 0
         cluster_load_avg_all_1 = 0.0
@@ -296,11 +299,11 @@ class ScalingWithLoad(ScalingWithResources):
             (total_memory, available_memory, percent_memory, used_memory) = memory
 
             cluster_total_cpus += total_cpus
+            cluster_used_cpus += min(round(load_avg_all_1), total_cpus)
             cluster_load_avg_all_1 += load_avg_all_1
             cluster_total_memory += total_memory
             cluster_used_memory += used_memory
 
-        cluster_used_cpus = math.ceil(cluster_load_avg_all_1)
         cluster_cpu_load_1 = 0.0
         if cluster_total_cpus > 0:
             cluster_cpu_load_1 = round(cluster_load_avg_all_1 / cluster_total_cpus, 2)

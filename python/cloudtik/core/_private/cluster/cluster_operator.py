@@ -3790,8 +3790,7 @@ def get_nodes_resource_metrics(nodes_metrics):
         load_avg_per_cpu = load_avg[1]
         load_avg_per_cpu_1 = load_avg_per_cpu[0]
         load_avg_all_1 = load_avg[0][0]
-
-        used_cpus = math.ceil(load_avg_all_1)
+        used_cpus = min(round(load_avg_all_1), total_cpus)
 
         memory = metrics.get("mem")
         (total_memory, available_memory, percent_memory, used_memory) = memory
@@ -3815,6 +3814,7 @@ def get_nodes_resource_metrics(nodes_metrics):
 
 def get_cluster_resource_metrics(nodes_metrics):
     cluster_total_cpus = 0
+    cluster_used_cpus = 0
     cluster_total_memory = 0
     cluster_used_memory = 0
     cluster_load_avg_all_1 = 0.0
@@ -3836,11 +3836,11 @@ def get_cluster_resource_metrics(nodes_metrics):
         (total_memory, available_memory, percent_memory, used_memory) = memory
 
         cluster_total_cpus += total_cpus
+        cluster_used_cpus += min(round(load_avg_all_1), total_cpus)
         cluster_load_avg_all_1 += load_avg_all_1
         cluster_total_memory += total_memory
         cluster_used_memory += used_memory
 
-    cluster_used_cpus = math.ceil(cluster_load_avg_all_1)
     cluster_cpu_load_1 = 0.0
     if cluster_total_cpus > 0:
         cluster_cpu_load_1 = round(cluster_load_avg_all_1 / cluster_total_cpus, 2)

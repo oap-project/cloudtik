@@ -1,7 +1,7 @@
 import logging
 from typing import Optional
 
-from cloudtik.core._private.cluster.scaling_policies import _create_scaling_policy
+from cloudtik.core._private.cluster.scaling_policies import _create_scaling_policy, ScalingWithResources
 from cloudtik.core._private.state.scaling_state import ScalingStateClient, ScalingState
 from cloudtik.core._private.utils import merge_scaling_state, RUNTIME_CONFIG_KEY, \
     _get_runtime_scaling_policy
@@ -40,7 +40,7 @@ class ResourceScalingPolicy:
         if system_scaling_policy is not None:
             return system_scaling_policy
 
-        return None
+        return self._get_default_scaling_policy(config, self.head_ip)
 
     def update(self):
         # Pulling data from resource management system
@@ -69,3 +69,6 @@ class ResourceScalingPolicy:
             return None
 
         return _create_scaling_policy(scaling_policy_name, config, head_ip)
+
+    def _get_default_scaling_policy(self, config, head_ip):
+        return ScalingWithResources(config, head_ip)

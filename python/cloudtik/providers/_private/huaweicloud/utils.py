@@ -98,7 +98,10 @@ def _client_cache(region: str = None, ak: str = None, sk: str = None) -> Dict[
                                server=OBS_SERVICES_URL, ssl_verify=_ssl_verify,
                                region=region)
     else:
-        obs_client = ObsClient(server=OBS_SERVICES_URL, ssl_verify=_ssl_verify,
+        # Enable OBSClient (ENV, ECS) security provider policy chain, see
+        # https://support.huaweicloud.com/sdk-python-devg-obs/obs_22_0601.html
+        obs_client = ObsClient(security_provider_policy='OBS_DEFAULT',
+                               server=OBS_SERVICES_URL, ssl_verify=_ssl_verify,
                                region=region)
     client_map['obs'] = obs_client
 

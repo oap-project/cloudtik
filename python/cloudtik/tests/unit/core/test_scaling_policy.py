@@ -40,6 +40,23 @@ lost_nodes = {
     "node-1.1.1.2": "1.1.1.2"
 }
 
+CONFIG = {
+    "head_node_type": "head.default",
+    "available_node_types": {
+        "head.default": {
+            "resources": {
+                "CPU": 4
+            }
+        },
+        "worker.default": {
+            "min_workers": 3,
+            "resources": {
+                "CPU": 4
+            }
+        }
+    }
+}
+
 
 class ScalingPolicyForTest(ScalingPolicy):
     def __init__(self, config: Dict[str, Any], head_ip: str) -> None:
@@ -114,24 +131,18 @@ class TestScalingPolicy:
         assert result_scaling_sate.node_resource_states["node-1.1.1.1"]["available_resources"]["CPU"] == 0
 
     def test_scaling_with_time(self):
-        config = {
-            "available_node_types": {
-                "worker.default": {
-                    "min_workers": 3
+        config = copy.deepcopy(CONFIG)
+        config["runtime"] = {
+            "types": ["ganglia"],
+            "scaling": {
+                "scaling_policy": "scale-with-time",
+                "scaling_time_table": {
+                    "00:00:01": 2,
+                    "00:00:02": 3,
+                    "00:00:03": "2x",
+                    "00:00:04": "3.0x"
                 }
-            },
-            "runtime": {
-                "types": ["ganglia"],
-                "scaling": {
-                    "scaling_policy": "scale-with-time",
-                    "scaling_time_table": {
-                        "00:00:01": 2,
-                        "00:00:02": 3,
-                        "00:00:03": "2x",
-                        "00:00:04": "3.0x"
-                    }
-                }
-            },
+            }
         }
 
         scaling_with_time = ScalingWithTimeTest(config, "127.0.0.1")
@@ -149,24 +160,18 @@ class TestScalingPolicy:
         assert scaling_with_time.scaling_time_table[3][1] == 18
 
     def test_scaling_with_time_reorder(self):
-        config = {
-            "available_node_types": {
-                "worker.default": {
-                    "min_workers": 3
+        config = copy.deepcopy(CONFIG)
+        config["runtime"] = {
+            "types": ["ganglia"],
+            "scaling": {
+                "scaling_policy": "scale-with-time",
+                "scaling_time_table": {
+                    "00:00:04": "3.0x",
+                    "00:00:03": "2x",
+                    "00:00:02": 3,
+                    "00:00:01": 2,
                 }
-            },
-            "runtime": {
-                "types": ["ganglia"],
-                "scaling": {
-                    "scaling_policy": "scale-with-time",
-                    "scaling_time_table": {
-                        "00:00:04": "3.0x",
-                        "00:00:03": "2x",
-                        "00:00:02": 3,
-                        "00:00:01": 2,
-                    }
-                }
-            },
+            }
         }
 
         scaling_with_time = ScalingWithTimeTest(config, "127.0.0.1")
@@ -184,24 +189,18 @@ class TestScalingPolicy:
         assert scaling_with_time.scaling_time_table[3][1] == 18
 
     def test_scaling_with_time_expanding(self):
-        config = {
-            "available_node_types": {
-                "worker.default": {
-                    "min_workers": 3
+        config = copy.deepcopy(CONFIG)
+        config["runtime"] = {
+            "types": ["ganglia"],
+            "scaling": {
+                "scaling_policy": "scale-with-time",
+                "scaling_time_table": {
+                    "00:00:01": "2x",
+                    "00:00:02": 0,
+                    "00:00:03": "3.0x",
+                    "00:00:04": "3"
                 }
-            },
-            "runtime": {
-                "types": ["ganglia"],
-                "scaling": {
-                    "scaling_policy": "scale-with-time",
-                    "scaling_time_table": {
-                        "00:00:01": "2x",
-                        "00:00:02": 0,
-                        "00:00:03": "3.0x",
-                        "00:00:04": "3"
-                    }
-                }
-            },
+            }
         }
 
         scaling_with_time = ScalingWithTimeTest(config, "127.0.0.1")
@@ -217,6 +216,46 @@ class TestScalingPolicy:
         assert scaling_with_time.scaling_time_table[1][1] == 3
         assert scaling_with_time.scaling_time_table[2][1] == 9
         assert scaling_with_time.scaling_time_table[3][1] == 3
+
+    def test_scaling_with_time_nodes_request(self):
+        config = copy.deepcopy(CONFIG)
+        config["runtime"] = {
+            "types": ["ganglia"],
+            "scaling": {
+                "scaling_policy": "scale-with-time",
+                "scaling_time_table": {
+                    "00:00:03": "2x",
+                    "00:00:06": 0,
+                    "00:00:09": "3.0x",
+                    "00:00:12": "3"
+                }
+            }
+        }
+
+        scaling_with_time = ScalingWithTimeTest(config, "127.0.0.1")
+        result_scaling_sate = scaling_with_time.get_scaling_state()
+
+        assert result_scaling_sate is not None
+        assert scaling_with_time.min_workers == 3
+        assert scaling_with_time.scaling_time_table[0][0] == 3
+        assert scaling_with_time.scaling_time_table[1][0] == 6
+        assert scaling_with_time.scaling_time_table[2][0] == 9
+        assert scaling_with_time.scaling_time_table[3][0] == 12
+        assert scaling_with_time.scaling_time_table[0][1] == 6
+        assert scaling_with_time.scaling_time_table[1][1] == 3
+        assert scaling_with_time.scaling_time_table[2][1] == 9
+        assert scaling_with_time.scaling_time_table[3][1] == 3
+
+        assert scaling_with_time._get_nodes_request(1) == 3
+        assert scaling_with_time._get_nodes_request(2) == 3
+        assert scaling_with_time._get_nodes_request(3) == 6
+        assert scaling_with_time._get_nodes_request(4) == 6
+        assert scaling_with_time._get_nodes_request(6) == 3
+        assert scaling_with_time._get_nodes_request(7) == 3
+        assert scaling_with_time._get_nodes_request(9) == 9
+        assert scaling_with_time._get_nodes_request(10) == 9
+        assert scaling_with_time._get_nodes_request(12) == 3
+        assert scaling_with_time._get_nodes_request(13) == 3
 
 
 if __name__ == "__main__":

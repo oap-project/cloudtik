@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export MODEL_DIR=$HOME/runtime/benchmark-tools/models
+export MODEL_DIR=$HOME/runtime/benchmark-tools/intelai_models/models
 
 if test -e "/mnt/cloudtik/data_disk_1/"
 then

@@ -459,11 +459,17 @@ class ScalingWithTime(ScalingWithResources):
         if not self.scaling_time_table:
             return None
 
+        prev_time_slot = self.scaling_time_table[-1]
         for time_slot in self.scaling_time_table:
-            if time_slot[0] < seconds_in_day:
+            if time_slot[0] <= seconds_in_day:
+                prev_time_slot = time_slot
                 continue
-            # Match the time slot
-            return time_slot[1]
+
+            # This is the first timeslot greater than seconds_in_day
+            return prev_time_slot[1]
+
+        # if there is no time slot found, the time should circle to last timeslot
+        return prev_time_slot[1]
 
     def _get_resource_requests_with_time(self):
         current_time = time.time()

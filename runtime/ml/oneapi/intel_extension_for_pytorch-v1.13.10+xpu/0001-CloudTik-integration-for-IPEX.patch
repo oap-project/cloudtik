@@ -1,0 +1,110 @@
+From 33e8aac553ff5ba83b404c9bfa222ecd600a703f Mon Sep 17 00:00:00 2001
+From: Chen Haifeng <haifeng.chen@intel.com>
+Date: Thu, 23 Mar 2023 05:27:08 +0000
+Subject: [PATCH] CloudTik integration for IPEX
+
+---
+ intel_extension_for_pytorch/cpu/launch.py | 57 +++++++++++++++++++----
+ 1 file changed, 48 insertions(+), 9 deletions(-)
+
+diff --git a/intel_extension_for_pytorch/cpu/launch.py b/intel_extension_for_pytorch/cpu/launch.py
+index 19fcb89c..fa343b41 100644
+--- a/intel_extension_for_pytorch/cpu/launch.py
++++ b/intel_extension_for_pytorch/cpu/launch.py
+@@ -593,10 +593,10 @@ class DistributedTrainingLauncher(Launcher):
+         '''
+         Set ENVs and launch MPI process for distributed training.
+         '''
+-        if args.nnodes > 1 and not os.path.exists(args.hostfile):
++        if not args.hosts and args.nnodes > 1 and not os.path.exists(args.hostfile):
+             raise ValueError("hostfile is necessary when you use multi-node distributed training,"
+                              "Please create hostfile which include the ip list you used for distributed running")
+-        elif args.nnodes > 1:
++        elif not args.hosts and args.nnodes > 1:
+             ipv4_addr_pattern = r"^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
+             ip_list = []
+             with open(args.hostfile) as f:
+@@ -632,10 +632,24 @@ class DistributedTrainingLauncher(Launcher):
+                     exit(-1)
+                 else:
+                     logger.info("connection from master node {} to slave node {} is OK".format(args.master_addr, ip))
+-
+-        total_cores_per_node = self.cpuinfo.physical_core_nums()
+-        if args.use_logical_core:
+-            total_cores_per_node = self.cpuinfo.logical_core_nums()
++        else:
++            # CloudTik: patch start
++            if arg.hosts:
++                host_list = args.hosts.split(',')
++                args.nnodes = len(host_list)
++                args.master_addr = host_list[0]
++            # CloudTik: patch end
++
++        if not arg.hosts:
++            total_cores_per_node = self.cpuinfo.physical_core_nums()
++            if args.use_logical_core:
++                total_cores_per_node = self.cpuinfo.logical_core_nums()
++        else:
++            # CloudTik: patch start
++            total_cores_per_node = args.cores_per_node
++            if not total_cores_per_node:
++                total_cores_per_node = self.cpuinfo.logical_core_nums()
++            # CloudTik: patch end
+ 
+         # set distributed related environmental variables
+         self.set_env("MASTER_ADDR", args.master_addr)
+@@ -662,8 +676,24 @@ class DistributedTrainingLauncher(Launcher):
+         cmd = ['mpiexec.hydra']
+         mpi_config = "-l -np {} -ppn {} -genv I_MPI_PIN_DOMAIN={} -genv OMP_NUM_THREADS={} ".format(args.nnodes * args.nproc_per_node, args.nproc_per_node, mpi_pin_domain, omp_num_threads)
+         mpi_config += args.more_mpi_params
+-        if args.nnodes > 1:
+-            mpi_config += " -hostfile {}".format(args.hostfile)
++
++        # CloudTik: patch start
++        if args.hosts:
++            mpi_config += " -hosts {}".format(args.hosts)
++        else:
++            if args.nnodes > 1:
++                mpi_config += " -hostfile {}".format(args.hostfile)
++
++        def get_cloudtik_rsh():
++            cloudtik_home = os.path.join(
++                os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'cloudtik')
++            return os.path.join(cloudtik_home, "runtime/ml/scripts", "cloudtik-rsh.sh")
++
++        if "-launcher-exec" not in mpi_config:
++            mpi_config += (
++                ' -launcher rsh -launcher-exec "{launcher_exec}"'.format(launcher_exec=get_cloudtik_rsh()))
++        # CloudTik: patch end
++
+         cmd.extend(mpi_config.split())
+         with_python = not args.no_python
+         if with_python:
+@@ -713,6 +743,15 @@ def add_distributed_training_params(parser):
+                             "training. hostfile includes the node address list "
+                             "node address which should be either the IP address"
+                             "or the hostname.")
++    # CloudTik: patch start
++    group.add_argument("--hosts", metavar='\b', default="", type=str,
++                       help="List of hosts separated with comma for launching tasks. "
++                            "When hosts is specified, it implies distributed training. "
++                            "node address which should be either the IP address"
++                            "or the hostname.")
++    group.add_argument("--cores_per_node", metavar='\b', type=int, default=0,
++                       help="The number of cores for each node")
++    # CloudTik: patch end
+     group.add_argument("--more_mpi_params", metavar='\b', default="", type=str,
+                        help="User can pass more parameters for mpiexec.hydra "
+                             "except for -np -ppn -hostfile and -genv I_MPI_PIN_DOMAIN")
+@@ -849,7 +888,7 @@ def main():
+     if args.latency_mode and args.throughput_mode:
+         raise RuntimeError("Either args.latency_mode or args.throughput_mode should be set")
+ 
+-    if args.nnodes > 1:
++    if args.nnodes > 1 || args.hosts:
+         args.distributed = True
+ 
+     if not args.no_python and not args.program.endswith(".py"):
+-- 
+2.25.1
+

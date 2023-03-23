@@ -28,7 +28,7 @@ OUTPUT_DIR=$MASKRCNN_HOME/output
 PRECISION=fp32
 
 function usage(){
-    echo "Usage: run-inference.sh  [ --precision fp32 | bf16 | bf32] "
+    echo "Usage: run-training_multinode.sh  [ --precision fp32 | bf16 | bf32] "
     exit 1
 }
 
@@ -37,7 +37,6 @@ do
     key="$1"
     case $key in
     --precision)
-        # training or inference
         shift
         PRECISION=$1
         ;;
@@ -85,8 +84,8 @@ else
 fi
 
 
-CORE_PRE_NODE=$(python -c "from cloudtik.core._private.cli_logger import cli_logger;from cloudtik.runtime.spark.api import ThisSparkCluster; cli_logger.set_verbosity(0); cluster=ThisSparkCluster(); cluster_info=cluster.get_info(); print(int(cluster_info['total-worker-cpus']/(cluster_info['total-workers-ready']*2)))")
-HOSTS=$(python -c "from cloudtik.core._private.cli_logger import cli_logger;from cloudtik.runtime.spark.api import ThisSparkCluster; cli_logger.set_verbosity(0); cluster=ThisSparkCluster(); print(':'.join(cluster.get_worker_node_ips(node_status='up-to-date')))")
+CORES_PRE_NODE=$(cloudtik head --physical-core-num)
+HOSTS=$(cloudtik head worker-ips --format)
 
 
 export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
@@ -107,8 +106,8 @@ rm -rf ${OUTPUT_DIR}/distributed_throughput_log_${PRECISION}*
 
 python -m intel_extension_for_pytorch.cpu.launch \
     --distributed \
-    --cores_per_node ${CORE_PRE_NODE} \
-    --hosts ${HOSTFILE} \
+    --cores_per_node ${CORES_PRE_NODE} \
+    --hosts ${HOSTS} \
     --nproc_per_node $SOCKETS \
     --log_path=${OUTPUT_DIR} \
     --log_file_prefix="./distributed_throughput_log_${PRECISION}" \

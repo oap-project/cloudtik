@@ -11,7 +11,7 @@ BERT_OUTPUT=$BERT_HOME/output
 PRECISION=fp32
 
 function usage(){
-    echo "Usage: run-inference.sh  [ --precision fp32 | bf16 | bf32] "
+    echo "Usage: run-training.sh  [ --precision fp32 | bf16 | bf32] "
     exit 1
 }
 
@@ -20,7 +20,6 @@ do
     key="$1"
     case $key in
     --precision)
-        # training or inference
         shift
         PRECISION=$1
         ;;

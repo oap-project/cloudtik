@@ -21,7 +21,6 @@ do
     key="$1"
     case $key in
     --precision)
-        # training or inference
         shift
         PRECISION=$1
         ;;

@@ -22,7 +22,6 @@ do
     key="$1"
     case $key in
     --precision)
-        # training or inference
         shift
         PRECISION=$1
         ;;
@@ -31,7 +30,6 @@ do
         MODE=$1
         ;;
     --metric)
-        # training or inference
         shift
         METRIC=$1
         ;;

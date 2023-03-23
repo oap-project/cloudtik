@@ -62,7 +62,7 @@ from cloudtik.core._private.utils import hash_runtime_conf, \
     get_nodes_for_runtime, with_script_args, encrypt_config, get_resource_requests_for_cpu, convert_nodes_to_cpus, \
     HeadNotRunningError, get_cluster_head_ip, get_command_session_name, ParallelTaskSkipped, \
     CLOUDTIK_CLUSTER_SCALING_STATUS, decode_cluster_scaling_time, RUNTIME_TYPES_CONFIG_KEY, get_node_info, \
-    NODE_INFO_NODE_IP
+    NODE_INFO_NODE_IP, calc_worker_physical_cores
 
 from cloudtik.core._private.providers import _get_node_provider, _NODE_PROVIDERS
 from cloudtik.core.tags import (
@@ -1428,6 +1428,12 @@ def get_worker_cpus(config, provider):
     return sum_worker_cpus(workers_info)
 
 
+def get_worker_physical_cores(config, provider):
+    workers = _get_worker_nodes(config)
+    workers_info = get_nodes_info(provider, workers, True, config["available_node_types"])
+    return calc_worker_physical_cores(workers_info)
+
+
 def get_worker_memory(config, provider):
     workers = _get_worker_nodes(config)
     workers_info = get_nodes_info(provider, workers, True, config["available_node_types"])
@@ -1774,6 +1780,18 @@ def show_worker_cpus(config_file: str,
 def _show_worker_cpus(config: Dict[str, Any]):
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     worker_cpus = get_worker_cpus(config, provider)
+    cli_logger.print(worker_cpus)
+
+
+def show_worker_physical_cores(config_file: str,
+                     override_cluster_name: Optional[str] = None) -> None:
+    config = _load_cluster_config(config_file, override_cluster_name)
+    _show_worker_physical_cores(config)
+
+
+def _show_worker_physical_cores(config: Dict[str, Any]):
+    provider = _get_node_provider(config["provider"], config["cluster_name"])
+    worker_cpus = get_worker_physical_cores(config, provider)
     cli_logger.print(worker_cpus)
 
 

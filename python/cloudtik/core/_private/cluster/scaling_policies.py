@@ -376,7 +376,13 @@ class ScalingWithTime(ScalingWithResources):
 
     def _time_spec_to_seconds(self, time_spec):
         # convert 07:23:02
-        t = time.strptime(time_spec, '%H:%M:%S')
+        c = time_spec.count(':')
+        if c == 0:
+            t = time.strptime(time_spec, '%H')
+        elif c == 1:
+            t = time.strptime(time_spec, '%H:%M')
+        else:
+            t = time.strptime(time_spec, '%H:%M:%S')
         return t.tm_hour * 3600 + t.tm_min * 60 + t.tm_sec
 
     @staticmethod

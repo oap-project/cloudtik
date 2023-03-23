@@ -3711,12 +3711,12 @@ def show_cluster_metrics(
     for node_resource_metrics in nodes_resource_metrics:
         tb.add_row(
             [node_resource_metrics["node_ip"], node_resource_metrics["node_type"],
-             resource_metrics["total_cpus"], resource_metrics["used_cpus"],
-             resource_metrics["available_cpus"], resource_metrics["cpu_load"],
-             memory_to_gb_string(resource_metrics["total_memory"]),
-             memory_to_gb_string(resource_metrics["used_memory"]),
-             memory_to_gb_string(resource_metrics["available_memory"]),
-             resource_metrics["memory_load"]
+             node_resource_metrics["total_cpus"], node_resource_metrics["used_cpus"],
+             node_resource_metrics["available_cpus"], node_resource_metrics["cpu_load"],
+             memory_to_gb_string(node_resource_metrics["total_memory"]),
+             memory_to_gb_string(node_resource_metrics["used_memory"]),
+             memory_to_gb_string(node_resource_metrics["available_memory"]),
+             node_resource_metrics["memory_load"]
              ])
     cli_logger.print(tb)
 
@@ -3790,7 +3790,7 @@ def get_nodes_resource_metrics(nodes_metrics):
         load_avg_per_cpu = load_avg[1]
         load_avg_per_cpu_1 = load_avg_per_cpu[0]
         load_avg_all_1 = load_avg[0][0]
-        used_cpus = min(round(load_avg_all_1), total_cpus)
+        used_cpus = min(math.ceil(load_avg_all_1), total_cpus)
 
         memory = metrics.get("mem")
         (total_memory, available_memory, percent_memory, used_memory) = memory
@@ -3836,7 +3836,7 @@ def get_cluster_resource_metrics(nodes_metrics):
         (total_memory, available_memory, percent_memory, used_memory) = memory
 
         cluster_total_cpus += total_cpus
-        cluster_used_cpus += min(round(load_avg_all_1), total_cpus)
+        cluster_used_cpus += min(math.ceil(load_avg_all_1), total_cpus)
         cluster_load_avg_all_1 += load_avg_all_1
         cluster_total_memory += total_memory
         cluster_used_memory += used_memory

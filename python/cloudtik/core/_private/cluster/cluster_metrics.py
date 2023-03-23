@@ -95,9 +95,10 @@ class ClusterMetrics:
         self.resource_load_by_ip = {}
 
         # Resource requests (on demand or autoscale)
-        self.last_demanding_time = 0
         self.autoscaling_instructions = {}
+        self.last_demanding_time = 0
         self.resource_demands = []
+        self.last_requesting_time = 0
         self.resource_requests = []
 
     def update_heartbeat(self,
@@ -111,6 +112,11 @@ class ClusterMetrics:
                                         autoscaling_instructions: Dict[str, Any]):
         self.autoscaling_instructions = autoscaling_instructions
 
+        self._update_resource_demands(autoscaling_instructions)
+        self._update_resource_requests(autoscaling_instructions)
+
+    def _update_resource_demands(self,
+                                 autoscaling_instructions: Dict[str, Any]):
         # resource_demands is a List[Dict[str, float]]
         resource_demands = []
         if autoscaling_instructions is not None:
@@ -123,6 +129,15 @@ class ClusterMetrics:
                 self.last_demanding_time = demanding_time
 
         self.resource_demands = resource_demands
+
+    def _update_resource_requests(self, autoscaling_instructions: Dict[str, Any]):
+        if autoscaling_instructions is not None:
+            resource_requests = autoscaling_instructions.get("resource_requests")
+            if resource_requests is not None:
+                # Only update the resource request when there is one
+                # This is different with resource demands
+                demanding_time = autoscaling_instructions.get("demanding_time")
+                self.set_resource_requests(demanding_time, resource_requests)
 
     def update_node_resources(self,
                               ip: str,
@@ -322,12 +337,16 @@ class ClusterMetrics:
             request_demand=summarized_resource_requests,
             node_types=nodes_summary)
 
-    def set_resource_requests(self, requested_resources):
+    def set_resource_requests(self, requesting_time, requested_resources):
         if requested_resources is not None:
             assert isinstance(requested_resources, list), requested_resources
-        self.resource_requests = [
-            request for request in requested_resources if len(request) > 0
-        ]
+
+            # Check for valid requesting time
+            if requesting_time > self.last_requesting_time:
+                self.resource_requests = [
+                    request for request in requested_resources if len(request) > 0
+                ]
+                self.last_requesting_time = requesting_time
 
     def info_string(self):
         return " - " + "\n - ".join(

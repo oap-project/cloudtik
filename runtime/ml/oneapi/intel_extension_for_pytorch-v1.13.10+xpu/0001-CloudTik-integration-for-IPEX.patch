@@ -101,7 +101,7 @@ index 19fcb89c..fa343b41 100644
          raise RuntimeError("Either args.latency_mode or args.throughput_mode should be set")
  
 -    if args.nnodes > 1:
-+    if args.nnodes > 1 || args.hosts:
++    if args.nnodes > 1 or args.hosts:
          args.distributed = True
  
      if not args.no_python and not args.program.endswith(".py"):

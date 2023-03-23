@@ -133,6 +133,13 @@ function configure_ml() {
     if [ -f "${OSSFS_CORE_FILE}" ]; then
         cp $output_dir/ossfs_core.py.patch ${OSSFS_CORE_FILE}
     fi
+
+    # Patch IPEX for integration
+    IPEX_PYTHON_HOME="${ROOT_DIR}/../../intel_extension_for_pytorch"
+    IPEX_CPU_LAUCNH_FILE="${IPEX_PYTHON_HOME}/cpu/launch.py"
+    if [ -f "${IPEX_CPU_LAUCNH_FILE}" ]; then
+        cp $output_dir/ipex_cpu_launch.py.patch ${IPEX_CPU_LAUCNH_FILE}
+    fi
 }
 
 set_head_address

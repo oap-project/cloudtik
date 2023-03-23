@@ -22,7 +22,7 @@ You only need to add the following bootstrap_commands in the cluster configurati
 ```buildoutcfg
 
 bootstrap_commands:
-    - wget -P ~/ https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/spark/scripts/bootstrap-benchmark.sh &&
+    - wget -O ~/bootstrap-benchmark.sh https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/spark/scripts/bootstrap-benchmark.sh &&
         bash ~/bootstrap-benchmark.sh  --workload=tpcds
 ```
 Please note that the toolkit compiling usually takes a long time which will make the cluster ready time much longer than usual.
@@ -31,7 +31,7 @@ Please note that the toolkit compiling usually takes a long time which will make
 If you cluster already started, you can run the compiling and installing command on all nodes to achieve the same.
 ```buildoutcfg
 
-cloudtik exec your-cluster-config.yaml "wget -P ~/ https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/spark/scripts/bootstrap-benchmark.sh && bash ~/bootstrap-benchmark.sh --workload=tpcds" --all-nodes
+cloudtik exec your-cluster-config.yaml "wget -O ~/bootstrap-benchmark.sh https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/spark/scripts/bootstrap-benchmark.sh && bash ~/bootstrap-benchmark.sh --workload=tpcds" --all-nodes
 
 ```
 

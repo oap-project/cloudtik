@@ -6,7 +6,7 @@ To install OAP packages by Conda when creating a new CloudTik cluster, please ad
 
 ```buildoutcfg
 bootstrap_commands:
-    - wget -P ~/ https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/integrations/oap/bootstrap_oap.sh &&
+    - wget -O ~/bootstrap_oap.sh https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/integrations/oap/bootstrap_oap.sh &&
         bash ~/bootstrap_oap.sh 1.4.0.spark32
 ```
 

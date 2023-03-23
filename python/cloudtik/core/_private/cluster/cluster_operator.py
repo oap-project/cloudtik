@@ -42,7 +42,7 @@ from cloudtik.core._private.state.kv_store import kv_put, kv_initialize_with_add
 
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core._private.constants import \
-    CLOUDTIK_RESOURCE_REQUEST_CHANNEL, \
+    CLOUDTIK_RESOURCE_REQUESTS, \
     MAX_PARALLEL_SHUTDOWN_WORKERS, \
     CLOUDTIK_REDIS_DEFAULT_PASSWORD, CLOUDTIK_CLUSTER_STATUS_STOPPED, CLOUDTIK_CLUSTER_STATUS_RUNNING, \
     CLOUDTIK_RUNTIME_NAME, CLOUDTIK_KV_NAMESPACE_HEALTHCHECK
@@ -152,9 +152,14 @@ def _request_resources(cpus: Optional[List[dict]] = None,
         to_request += cpus
     if bundles:
         to_request += bundles
+    request_time = time.time()
+    resource_requests = {
+        "request_time": request_time,
+        "requests": to_request
+    }
     kv_put(
-        CLOUDTIK_RESOURCE_REQUEST_CHANNEL,
-        json.dumps(to_request),
+        CLOUDTIK_RESOURCE_REQUESTS,
+        json.dumps(resource_requests),
         overwrite=True)
 
 

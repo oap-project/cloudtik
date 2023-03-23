@@ -78,7 +78,7 @@ class ScalingStateClient:
                 scaling_state.add_node_resource_state(node_id, resource_state)
         return scaling_state
 
-    def update_scaling_state(self,scaling_state: ScalingState):
+    def update_scaling_state(self, scaling_state: ScalingState):
         autoscaling_instructions = scaling_state.autoscaling_instructions
         if autoscaling_instructions is not None:
             as_json = json.dumps(autoscaling_instructions)

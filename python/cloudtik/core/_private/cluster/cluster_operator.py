@@ -62,7 +62,7 @@ from cloudtik.core._private.utils import hash_runtime_conf, \
     get_nodes_for_runtime, with_script_args, encrypt_config, get_resource_requests_for_cpu, convert_nodes_to_cpus, \
     HeadNotRunningError, get_cluster_head_ip, get_command_session_name, ParallelTaskSkipped, \
     CLOUDTIK_CLUSTER_SCALING_STATUS, decode_cluster_scaling_time, RUNTIME_TYPES_CONFIG_KEY, get_node_info, \
-    NODE_INFO_NODE_IP
+    NODE_INFO_NODE_IP, _sum_min_workers
 
 from cloudtik.core._private.providers import _get_node_provider, _NODE_PROVIDERS
 from cloudtik.core.tags import (
@@ -3352,15 +3352,6 @@ def submit_and_exec(config: Dict[str, Any],
         with_output=with_output,
         job_waiter=job_waiter,
         session_name=session_name)
-
-
-def _sum_min_workers(config: Dict[str, Any]):
-    sum_min_workers = 0
-    if "available_node_types" in config:
-        sum_min_workers = sum(
-            config["available_node_types"][node_type].get("min_workers", 0)
-            for node_type in config["available_node_types"])
-    return sum_min_workers
 
 
 def _get_workers_ready(config: Dict[str, Any], provider):

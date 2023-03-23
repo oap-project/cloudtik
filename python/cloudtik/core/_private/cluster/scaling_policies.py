@@ -8,7 +8,8 @@ from cloudtik.core import tags
 from cloudtik.core._private import constants
 from cloudtik.core._private.state.control_state import ControlState
 from cloudtik.core._private.utils import get_resource_demands_for_cpu, RUNTIME_CONFIG_KEY, \
-    convert_nodes_to_cpus, get_resource_demands_for_memory, convert_nodes_to_memory
+    convert_nodes_to_cpus, get_resource_demands_for_memory, convert_nodes_to_memory, get_resource_requests_for_cpu, \
+    _sum_min_workers
 from cloudtik.core.scaling_policy import ScalingPolicy, ScalingState
 
 logger = logging.getLogger(__name__)
@@ -323,7 +324,160 @@ class ScalingWithLoad(ScalingWithResources):
         }
 
 
+class ScalingWithTime(ScalingWithResources):
+    def __init__(self,
+                 config: Dict[str, Any],
+                 head_ip: str) -> None:
+        ScalingWithResources.__init__(self, config, head_ip)
+
+        # scaling parameters
+        self.min_workers = 0
+        self.scaling_time_table = []
+        self._reset_time_config()
+
+    def name(self):
+        return "scaling-with-time"
+
+    def reset(self, config):
+        super().reset(config)
+        self._reset_time_config()
+
+    def _reset_time_config(self):
+        self.min_workers = self._get_min_workers()
+        self.scaling_time_table = self._formalize_time_table(
+            self.scaling_config.get("scaling_time_table", {}))
+
+    def _get_resource_requests_for(self, number_of_nodes):
+        requested_cores = self.get_number_of_cores_to_scale(number_of_nodes)
+        return get_resource_requests_for_cpu(requested_cores, self.config)
+
+    def get_number_of_cores_to_scale(self, nodes):
+        return convert_nodes_to_cpus(self.config, nodes)
+
+    def get_memory_to_scale(self, nodes):
+        return convert_nodes_to_memory(self.config, nodes)
+
+    def _get_min_workers(self):
+        return _sum_min_workers(self.config)
+
+    def _get_autoscaling_instructions(self, all_node_metrics):
+        # Use the time table to make the decisions
+        resource_requests = self._get_resource_requests_with_time()
+        if resource_requests is None:
+            return None
+
+        autoscaling_instructions = {
+            "demanding_time": self.last_state_time,
+            "resource_requests": resource_requests}
+        if resource_requests is not None and logger.isEnabledFor(logging.DEBUG):
+            logger.debug("Resource requests: {}".format(resource_requests))
+
+        return autoscaling_instructions
+
+    def _time_spec_to_seconds(self, time_spec):
+        # convert 07:23:02
+        c = time_spec.count(':')
+        if c == 0:
+            t = time.strptime(time_spec, '%H')
+        elif c == 1:
+            t = time.strptime(time_spec, '%H:%M')
+        else:
+            t = time.strptime(time_spec, '%H:%M:%S')
+        return t.tm_hour * 3600 + t.tm_min * 60 + t.tm_sec
+
+    @staticmethod
+    def isfloat(nodes_spec):
+        try:
+            float(nodes_spec)
+            return True
+        except ValueError:
+            return False
+
+    def get_multiplier(self, nodes_spec):
+        if nodes_spec.endswith('x') or nodes_spec.endswith('X'):
+            nodes_spec = nodes_spec[:-1]
+            if self.isfloat(nodes_spec):
+                return float(nodes_spec)
+        raise ValueError("Invalid node specification for multiplier: {}".format(nodes_spec))
+
+    def _expand_time_table(self, expanding_time_table):
+        remaining = 0
+        prev_expanding_slot = expanding_time_table[-1] if expanding_time_table else None
+        for expanding_slot in expanding_time_table:
+            if expanding_slot[1] < 0:
+                # not expanded
+                nodes_spec = expanding_slot[2]
+                if isinstance(nodes_spec, int) or (
+                        isinstance(nodes_spec, str) and nodes_spec.isdigit()):
+                    nodes = int(nodes_spec)
+                    if nodes == 0:
+                        # Set nodes to minimal workers
+                        nodes = self.min_workers
+                    expanding_slot[1] = nodes
+                elif isinstance(nodes_spec, str):
+                    # if it is not digit, multiplier
+                    # we need expand base on its nodes of previous time slot
+                    if prev_expanding_slot is not None and prev_expanding_slot[1] >= 0:
+                        nodes = round(prev_expanding_slot[1] * self.get_multiplier(nodes_spec))
+                        expanding_slot[1] = nodes
+                    else:
+                        # cannot expand by now
+                        remaining += 1
+                else:
+                    raise ValueError("Invalid node specification: {}".format(nodes_spec))
+            prev_expanding_slot = expanding_slot
+        return remaining
+
+    def _formalize_time_table(self, time_table):
+        try :
+            scaling_time_table = []
+            for time_spec, nodes_spec in time_table.items():
+                seconds = self._time_spec_to_seconds(time_spec)
+                if nodes_spec is None:
+                    continue
+                expanding_time_slot = [seconds, -1, nodes_spec]
+                scaling_time_table.append(expanding_time_slot)
+
+            def seconds_sort(time_slot):
+                return time_slot[0]
+            scaling_time_table.sort(key=seconds_sort)
+
+            remaining = self._expand_time_table(scaling_time_table)
+            while remaining > 0:
+                remaining = self._expand_time_table(scaling_time_table)
+            return scaling_time_table
+        except Exception as e:
+            logger.error(
+                "Failed to parse the scaling time table: {}".format(str(e)))
+            return []
+
+    def _get_seconds_in_day(self, t):
+        local_time = time.localtime(t)
+        return local_time.tm_hour * 3600 + local_time.tm_min * 60 + local_time.tm_sec
+
+    def _get_nodes_request(self, seconds_in_day):
+        if not self.scaling_time_table:
+            return None
+
+        for time_slot in self.scaling_time_table:
+            if time_slot[0] < seconds_in_day:
+                continue
+            # Match the time slot
+            return time_slot[1]
+
+    def _get_resource_requests_with_time(self):
+        current_time = time.time()
+        seconds_in_day = self._get_seconds_in_day(current_time)
+        number_of_nodes = self._get_nodes_request(seconds_in_day)
+        if number_of_nodes is None:
+            return None
+        return self._get_resource_requests_for(number_of_nodes)
+
+
 def _create_scaling_policy(scaling_policy_name: str, config, head_ip):
     if SCALING_WITH_LOAD == scaling_policy_name:
         return ScalingWithLoad(config, head_ip)
+    elif SCALING_WITH_TIME == scaling_policy_name:
+        return ScalingWithTime(config, head_ip)
+
     return None

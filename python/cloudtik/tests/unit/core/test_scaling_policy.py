@@ -5,6 +5,7 @@ from typing import Dict, Optional, Any
 import pytest
 
 from cloudtik.core._private.cluster.resource_scaling_policy import ResourceScalingPolicy
+from cloudtik.core._private.cluster.scaling_policies import ScalingWithTime
 from cloudtik.core._private.utils import merge_scaling_state
 from cloudtik.core.scaling_policy import ScalingState, ScalingPolicy
 
@@ -41,20 +42,38 @@ lost_nodes = {
 
 
 class ScalingPolicyForTest(ScalingPolicy):
-    def __init__(self,
-                 config: Dict[str, Any],
-                 head_ip: str) -> None:
-        self.config = config
-        self.head_ip = head_ip
+    def __init__(self, config: Dict[str, Any], head_ip: str) -> None:
+        super().__init__(config, head_ip)
 
     def name(self):
         return "scaling-for-test"
 
     def reset(self, config):
-        self.config = config
+        super().reset(config)
 
     def get_scaling_state(self) -> Optional[ScalingState]:
         return ScalingState(autoscaling_instructions, node_resource_states, lost_nodes)
+
+
+class ScalingWithTimeTest(ScalingWithTime):
+    def __init__(self,
+                 config: Dict[str, Any],
+                 head_ip: str) -> None:
+        ScalingWithTime.__init__(self, config, head_ip)
+
+    def get_scaling_state(self) -> Optional[ScalingState]:
+        self.last_state_time = time.time()
+
+        all_node_metrics = {}
+        _autoscaling_instructions = self._get_autoscaling_instructions(
+            all_node_metrics)
+        _node_resource_states = None
+
+        scaling_state = ScalingState()
+        scaling_state.set_autoscaling_instructions(_autoscaling_instructions)
+        scaling_state.set_node_resource_states(_node_resource_states)
+        scaling_state.set_lost_nodes(lost_nodes)
+        return scaling_state
 
 
 class TestScalingPolicy:
@@ -93,6 +112,111 @@ class TestScalingPolicy:
         assert result_scaling_sate.autoscaling_instructions["demanding_time"] == test_now
         assert len(result_scaling_sate.autoscaling_instructions["resource_demands"]) == 1
         assert result_scaling_sate.node_resource_states["node-1.1.1.1"]["available_resources"]["CPU"] == 0
+
+    def test_scaling_with_time(self):
+        config = {
+            "available_node_types": {
+                "worker.default": {
+                    "min_workers": 3
+                }
+            },
+            "runtime": {
+                "types": ["ganglia"],
+                "scaling": {
+                    "scaling_policy": "scale-with-time",
+                    "scaling_time_table": {
+                        "00:00:01": 2,
+                        "00:00:02": 3,
+                        "00:00:03": "2x",
+                        "00:00:04": "3.0x"
+                    }
+                }
+            },
+        }
+
+        scaling_with_time = ScalingWithTimeTest(config, "127.0.0.1")
+        result_scaling_sate = scaling_with_time.get_scaling_state()
+
+        assert result_scaling_sate is not None
+        assert scaling_with_time.min_workers == 3
+        assert scaling_with_time.scaling_time_table[0][0] == 1
+        assert scaling_with_time.scaling_time_table[1][0] == 2
+        assert scaling_with_time.scaling_time_table[2][0] == 3
+        assert scaling_with_time.scaling_time_table[3][0] == 4
+        assert scaling_with_time.scaling_time_table[0][1] == 2
+        assert scaling_with_time.scaling_time_table[1][1] == 3
+        assert scaling_with_time.scaling_time_table[2][1] == 6
+        assert scaling_with_time.scaling_time_table[3][1] == 18
+
+    def test_scaling_with_time_reorder(self):
+        config = {
+            "available_node_types": {
+                "worker.default": {
+                    "min_workers": 3
+                }
+            },
+            "runtime": {
+                "types": ["ganglia"],
+                "scaling": {
+                    "scaling_policy": "scale-with-time",
+                    "scaling_time_table": {
+                        "00:00:04": "3.0x",
+                        "00:00:03": "2x",
+                        "00:00:02": 3,
+                        "00:00:01": 2,
+                    }
+                }
+            },
+        }
+
+        scaling_with_time = ScalingWithTimeTest(config, "127.0.0.1")
+        result_scaling_sate = scaling_with_time.get_scaling_state()
+
+        assert result_scaling_sate is not None
+        assert scaling_with_time.min_workers == 3
+        assert scaling_with_time.scaling_time_table[0][0] == 1
+        assert scaling_with_time.scaling_time_table[1][0] == 2
+        assert scaling_with_time.scaling_time_table[2][0] == 3
+        assert scaling_with_time.scaling_time_table[3][0] == 4
+        assert scaling_with_time.scaling_time_table[0][1] == 2
+        assert scaling_with_time.scaling_time_table[1][1] == 3
+        assert scaling_with_time.scaling_time_table[2][1] == 6
+        assert scaling_with_time.scaling_time_table[3][1] == 18
+
+    def test_scaling_with_time_expanding(self):
+        config = {
+            "available_node_types": {
+                "worker.default": {
+                    "min_workers": 3
+                }
+            },
+            "runtime": {
+                "types": ["ganglia"],
+                "scaling": {
+                    "scaling_policy": "scale-with-time",
+                    "scaling_time_table": {
+                        "00:00:01": "2x",
+                        "00:00:02": 0,
+                        "00:00:03": "3.0x",
+                        "00:00:04": "3"
+                    }
+                }
+            },
+        }
+
+        scaling_with_time = ScalingWithTimeTest(config, "127.0.0.1")
+        result_scaling_sate = scaling_with_time.get_scaling_state()
+
+        assert result_scaling_sate is not None
+        assert scaling_with_time.min_workers == 3
+        assert scaling_with_time.scaling_time_table[0][0] == 1
+        assert scaling_with_time.scaling_time_table[1][0] == 2
+        assert scaling_with_time.scaling_time_table[2][0] == 3
+        assert scaling_with_time.scaling_time_table[3][0] == 4
+        assert scaling_with_time.scaling_time_table[0][1] == 6
+        assert scaling_with_time.scaling_time_table[1][1] == 3
+        assert scaling_with_time.scaling_time_table[2][1] == 9
+        assert scaling_with_time.scaling_time_table[3][1] == 3
 
 
 if __name__ == "__main__":

@@ -73,7 +73,7 @@ with specified scripts to set up nodes after all common setup commands finish.
 ```buildoutcfg
 
 bootstrap_commands:
-    - wget -P ~/ https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/spark/scripts/bootstrap-benchmark.sh &&
+    - wget -O ~/bootstrap-benchmark.sh https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/spark/scripts/bootstrap-benchmark.sh &&
         bash ~/bootstrap-benchmark.sh  --tpcds
 ```
 CloudTik allows user to custom as mang commands as CloudTik itself does.

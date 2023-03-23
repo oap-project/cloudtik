@@ -13,7 +13,7 @@ docker:
     image: "cloudtik/spark-ml-oneapi:nightly"
 
 bootstrap_commands:
-    - wget -P ~/ https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ml/intelai-models/scripts/bootstrap-models.sh &&
+    - wget -O ~/bootstrap-models.sh https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ml/intelai-models/scripts/bootstrap-models.sh &&
         bash ~/bootstrap-models.sh
 ```
 
@@ -28,9 +28,9 @@ docker:
     image: "cloudtik/spark-ml-runtime:nightly"
 
 bootstrap_commands:
-    - wget -P ~/ https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ml/intelai-models/scripts/bootstrap-ipex.sh &&
+    - wget -O ~/bootstrap-ipex.sh https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ml/intelai-models/scripts/bootstrap-ipex.sh &&
         bash ~/bootstrap-ipex.sh
-    - wget -P ~/ https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ml/intelai-models/scripts/bootstrap-models.sh &&
+    - wget -O ~/bootstrap-models.sh https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ml/intelai-models/scripts/bootstrap-models.sh &&
         bash ~/bootstrap-models.sh
 ```
 
@@ -40,12 +40,12 @@ If you cluster already started, you can run the installing command on all nodes 
 Run the following command for installing for Intel Extension for PyTorch.
 If you are using oneAPI ML runtime, you can skip this step.
 ```buildoutcfg
-cloudtik exec your-cluster-config.yaml "wget -P ~/ https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ml/intelai-models/scripts/bootstrap-ipex.sh && bash ~/bootstrap-ipex.sh" --all-nodes
+cloudtik exec your-cluster-config.yaml "wget -O ~/bootstrap-ipex.sh https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ml/intelai-models/scripts/bootstrap-ipex.sh && bash ~/bootstrap-ipex.sh" --all-nodes
 ```
 
 Run the following command for preparing for IntelAI Models.
 ```buildoutcfg
-cloudtik exec your-cluster-config.yaml "wget -P ~/ https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ml/intelai-models/scripts/bootstrap-models.sh && bash ~/bootstrap-models.sh" --all-nodes
+cloudtik exec your-cluster-config.yaml "wget -O ~/bootstrap-models.sh https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ml/intelai-models/scripts/bootstrap-models.sh && bash ~/bootstrap-models.sh" --all-nodes
 ```
 
 Please note that the toolkit installing may take a long time.

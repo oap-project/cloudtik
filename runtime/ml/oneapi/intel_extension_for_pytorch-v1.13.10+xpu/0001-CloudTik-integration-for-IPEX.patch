@@ -1,14 +1,14 @@
-From 6b6999c3544337a9f3006fcf1e0c0c735b0e7a76 Mon Sep 17 00:00:00 2001
+From 399569966ad15fb8a997fc3ac319f9e7b6ebe5aa Mon Sep 17 00:00:00 2001
 From: haojinIntel <hao.jin@intel.com>
-Date: Fri, 24 Mar 2023 17:06:19 +0800
+Date: Fri, 24 Mar 2023 17:28:26 +0800
 Subject: [PATCH] CloudTik integration for IPEX
 
 ---
- intel_extension_for_pytorch/cpu/launch.py | 128 +++++++++++++++++++---
- 1 file changed, 110 insertions(+), 18 deletions(-)
+ intel_extension_for_pytorch/cpu/launch.py | 111 ++++++++++++++++++----
+ 1 file changed, 93 insertions(+), 18 deletions(-)
 
 diff --git a/intel_extension_for_pytorch/cpu/launch.py b/intel_extension_for_pytorch/cpu/launch.py
-index 19fcb89c..81bcc0fb 100644
+index 19fcb89c..44edba4c 100644
 --- a/intel_extension_for_pytorch/cpu/launch.py
 +++ b/intel_extension_for_pytorch/cpu/launch.py
 @@ -123,14 +123,20 @@ rank 0: *(IP: 192.168.10.10, and has a free port: 295000)*
@@ -65,24 +65,12 @@ index 19fcb89c..81bcc0fb 100644
       Launcher for distributed traning with MPI launcher
       """
 -    def get_mpi_pin_domain(self, nproc_per_node, ccl_worker_count, total_cores):
-+    def get_mpi_pin_domain(self, nproc_per_node, ccl_worker_count, total_cores, node_cores=None):
++    def get_mpi_pin_domain(self, nproc_per_node, ccl_worker_count, total_cores, flatten_node_cores):
          '''
          I_MPI_PIN_DOMAIN specify the cores used for every MPI process.
          The first ccl_worker_count cores of every rank for ccl communication
-@@ -561,31 +576,58 @@ class DistributedTrainingLauncher(Launcher):
-         CCL_WORKER_AFFINITY="0,1,2,3,28,29,30,31"
-         I_MPI_PIN_DOMAIN=[0xffffff0,0xffffff0000000]
+@@ -563,18 +578,22 @@ class DistributedTrainingLauncher(Launcher):
          '''
-+        # CloudTik: patch start
-+        if node_cores is None:
-+            if self.cpuinfo.logical_core_nums() == total_cores:
-+                node_cores = self.cpuinfo.node_logical_cores
-+            else:
-+                node_cores = self.cpuinfo.node_physical_cores
-+        flatten_node_cores = []
-+        for node_numa_cores in node_cores:
-+            flatten_node_cores.extend(node_numa_cores)
-+        # CloudTik: patch end
          ppn = nproc_per_node
          cores_per_rank = total_cores // ppn
 +
@@ -102,24 +90,11 @@ index 19fcb89c..81bcc0fb 100644
          return pin_domain
  
 -    def get_ccl_worker_affinity(self, nproc_per_node, ccl_worker_count, total_cores):
-+    def get_ccl_worker_affinity(self, nproc_per_node, ccl_worker_count, total_cores, node_cores=None):
++    def get_ccl_worker_affinity(self, nproc_per_node, ccl_worker_count, total_cores, flatten_node_cores):
          '''
          Computation and communication use different cores when using oneCCL
          backend for distributed training. we use first ccl_worker_count cores of
-         every rank for ccl communication
-         '''
-+        # CloudTik: patch start
-+        if node_cores is None:
-+            if self.cpuinfo.logical_core_nums() == total_cores:
-+                node_cores = self.cpuinfo.node_logical_cores
-+            else:
-+                node_cores = self.cpuinfo.node_physical_cores
-+        flatten_node_cores = []
-+        for node_numa_cores in node_cores:
-+            flatten_node_cores.extend(node_numa_cores)
-+        # CloudTik: patch end
-         ppn = nproc_per_node
-         cores_per_rank = total_cores // ppn
+@@ -585,7 +604,10 @@ class DistributedTrainingLauncher(Launcher):
          affinity = ''
          for proc in range(ppn):
              for ccl_worker in range(ccl_worker_count):
@@ -131,7 +106,7 @@ index 19fcb89c..81bcc0fb 100644
          affinity = affinity[:-1]
          return affinity
  
-@@ -593,10 +635,10 @@ class DistributedTrainingLauncher(Launcher):
+@@ -593,10 +615,10 @@ class DistributedTrainingLauncher(Launcher):
          '''
          Set ENVs and launch MPI process for distributed training.
          '''
@@ -144,7 +119,7 @@ index 19fcb89c..81bcc0fb 100644
              ipv4_addr_pattern = r"^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
              ip_list = []
              with open(args.hostfile) as f:
-@@ -632,15 +674,40 @@ class DistributedTrainingLauncher(Launcher):
+@@ -632,15 +654,43 @@ class DistributedTrainingLauncher(Launcher):
                      exit(-1)
                  else:
                      logger.info("connection from master node {} to slave node {} is OK".format(args.master_addr, ip))
@@ -170,14 +145,17 @@ index 19fcb89c..81bcc0fb 100644
 +            # CloudTik: patch start
 +            total_cores_per_node = args.cores_per_node
 +            host_list = args.hosts.split(',')
-+            cpuinfo = CPUinfo(host_ip=host_list[-1])
-+            node_cores = cpuinfo.node_physical_cores
++            remote_cpuinfo = CPUinfo(host_ip=host_list[-1])
++            node_cores = remote_cpuinfo.node_physical_cores
 +            if args.use_logical_core:
-+                node_cores = cpuinfo.node_logical_cores
++                node_cores = remote_cpuinfo.node_logical_cores
 +            if not total_cores_per_node:
-+                total_cores_per_node = cpuinfo.physical_core_nums()
++                total_cores_per_node = remote_cpuinfo.physical_core_nums()
 +                if args.use_logical_core:
-+                    total_cores_per_node = cpuinfo.logical_core_nums()
++                    total_cores_per_node = remote_cpuinfo.logical_core_nums()
++        flatten_node_cores = []
++        for node_numa_cores in node_cores:
++            flatten_node_cores.extend(node_numa_cores)
 +            # CloudTik: patch end
  
          # set distributed related environmental variables
@@ -185,17 +163,17 @@ index 19fcb89c..81bcc0fb 100644
          self.set_env("MASTER_PORT", str(args.master_port))
 -        mpi_pin_domain = self.get_mpi_pin_domain(args.nproc_per_node, args.ccl_worker_count, total_cores_per_node)
 +        # CloudTik: patch start
-+        mpi_pin_domain = self.get_mpi_pin_domain(args.nproc_per_node, args.ccl_worker_count, total_cores_per_node, node_cores)
++        mpi_pin_domain = self.get_mpi_pin_domain(args.nproc_per_node, args.ccl_worker_count, total_cores_per_node, flatten_node_cores)
 +        # CloudTik: patch end
          self.set_env("I_MPI_PIN_DOMAIN", mpi_pin_domain)
  
          ppn = args.nproc_per_node
-@@ -655,15 +722,31 @@ class DistributedTrainingLauncher(Launcher):
+@@ -655,15 +705,31 @@ class DistributedTrainingLauncher(Launcher):
                                              args.use_default_allocator)
  
          self.set_env("CCL_WORKER_COUNT", str(args.ccl_worker_count))
 -        ccl_affinity = self.get_ccl_worker_affinity(args.nproc_per_node, args.ccl_worker_count, total_cores_per_node)
-+        ccl_affinity = self.get_ccl_worker_affinity(args.nproc_per_node, args.ccl_worker_count, total_cores_per_node, node_cores)
++        ccl_affinity = self.get_ccl_worker_affinity(args.nproc_per_node, args.ccl_worker_count, total_cores_per_node, flatten_node_cores)
          self.set_env("CCL_WORKER_AFFINITY", ccl_affinity)
  
          os.environ["LAUNCH_CMD"] = "#"
@@ -225,7 +203,7 @@ index 19fcb89c..81bcc0fb 100644
          cmd.extend(mpi_config.split())
          with_python = not args.no_python
          if with_python:
-@@ -713,6 +796,15 @@ def add_distributed_training_params(parser):
+@@ -713,6 +779,15 @@ def add_distributed_training_params(parser):
                              "training. hostfile includes the node address list "
                              "node address which should be either the IP address"
                              "or the hostname.")
@@ -241,7 +219,7 @@ index 19fcb89c..81bcc0fb 100644
      group.add_argument("--more_mpi_params", metavar='\b', default="", type=str,
                         help="User can pass more parameters for mpiexec.hydra "
                              "except for -np -ppn -hostfile and -genv I_MPI_PIN_DOMAIN")
-@@ -849,7 +941,7 @@ def main():
+@@ -849,7 +924,7 @@ def main():
      if args.latency_mode and args.throughput_mode:
          raise RuntimeError("Either args.latency_mode or args.throughput_mode should be set")
  

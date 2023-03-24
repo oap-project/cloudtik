@@ -376,6 +376,7 @@ class ScalingWithTime(ScalingWithResources):
             "scaling_time": self.last_state_time,
             "resource_requests": resource_requests}
         if resource_requests is not None and logger.isEnabledFor(logging.DEBUG):
+            logger.debug("Scaling time table: {}".format(self.scaling_time_table))
             logger.debug("Resource requests: {}".format(resource_requests))
 
         return autoscaling_instructions
@@ -447,7 +448,7 @@ class ScalingWithTime(ScalingWithResources):
         return remaining
 
     def _formalize_time_table(self, time_table):
-        try :
+        try:
             scaling_time_table = []
             for time_spec, nodes_spec in time_table.items():
                 seconds = self._time_spec_to_seconds(time_spec)
@@ -494,7 +495,7 @@ class ScalingWithTime(ScalingWithResources):
         return prev_time_slot[1]
 
     def _get_resource_requests_with_time(self):
-        current_time = time.time()
+        current_time = self.last_state_time
         seconds_in_day = self._get_seconds_in_day(current_time)
         return self._get_resource_requests_at_seconds(seconds_in_day)
 

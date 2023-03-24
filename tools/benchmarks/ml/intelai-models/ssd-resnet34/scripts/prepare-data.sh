@@ -3,7 +3,7 @@
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source ${SCRIPT_DIR}/../../common/scripts/setenv.sh
 
-SSD_RESNET34_HOME=$INTELAI_MODELS_WORKSPACE/ssd-resnet34
+SSD_RESNET34_HOME=$INTELAI_WORKSPACE/ssd-resnet34
 SSD_RESNET34_MODEL=$SSD_RESNET34_HOME/model
 SSD_RESNET34_DATA=$SSD_RESNET34_HOME/data
 
@@ -87,3 +87,5 @@ elif [ "${PHASE}" = "inference" ]; then
 else
     usage
 fi
+
+move_to_shared_dict $SSD_RESNET34_HOME

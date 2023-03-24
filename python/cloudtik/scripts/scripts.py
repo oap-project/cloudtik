@@ -28,7 +28,8 @@ from cloudtik.core._private.cluster.cluster_operator import (
     show_worker_cpus, show_worker_memory, show_cluster_info, show_cluster_status,
     start_proxy, stop_proxy, cluster_debug_status,
     cluster_health_check, cluster_process_status, attach_worker, scale_cluster,
-    exec_on_nodes, submit_and_exec, _wait_for_ready, _rsync, cli_call_context, cluster_resource_metrics)
+    exec_on_nodes, submit_and_exec, _wait_for_ready, _rsync, cli_call_context, cluster_resource_metrics,
+    show_cpus_per_worker, show_memory_per_worker)
 from cloudtik.core._private.constants import CLOUDTIK_PROCESSES, \
     CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
     CLOUDTIK_DEFAULT_PORT
@@ -1011,14 +1012,33 @@ def status(cluster_config_file, cluster_name):
     is_flag=True,
     default=False,
     help="Get the total memory for workers.")
+@click.option(
+    "--cpus-per-worker",
+    is_flag=True,
+    default=False,
+    help="Get the number of cpus per worker.")
+@click.option(
+    "--memory-per-worker",
+    is_flag=True,
+    default=False,
+    help="Get the size of memory per worker in GB.")
 @add_click_logging_options
-def info(cluster_config_file, cluster_name, worker_cpus, worker_memory):
+def info(
+        cluster_config_file, cluster_name,
+        worker_cpus, worker_memory,
+        cpus_per_worker, memory_per_worker):
     """Show cluster summary information and useful links to use the cluster."""
     if worker_cpus:
         return show_worker_cpus(cluster_config_file, cluster_name)
 
     if worker_memory:
         return show_worker_memory(cluster_config_file, cluster_name)
+
+    if cpus_per_worker:
+        return show_cpus_per_worker(cluster_config_file, cluster_name)
+
+    if memory_per_worker:
+        return show_memory_per_worker(cluster_config_file, cluster_name)
 
     show_cluster_info(
         cluster_config_file,
@@ -1072,13 +1092,24 @@ def head_ip(cluster_config_file, cluster_name, public):
     default=None,
     help="The node status of the workers. Values: setting-up, up-to-date, update-failed."
     " If not specified, return all the workers.")
+@click.option(
+    "--separator",
+    required=False,
+    type=str,
+    default=None,
+    help="The separator between worker ips. Default is change a line.")
 @add_click_logging_options
-def worker_ips(cluster_config_file, cluster_name, runtime, node_status):
+def worker_ips(
+        cluster_config_file, cluster_name,
+        runtime, node_status, separator):
     """Return the list of worker IPs of a cluster."""
     workers = get_worker_node_ips(
         cluster_config_file, cluster_name, runtime=runtime, node_status=node_status)
     if len(workers) > 0:
-        click.echo("\n".join(workers))
+        if separator:
+            click.echo(separator.join(workers))
+        else:
+            click.echo("\n".join(workers))
 
 
 @cli.command()

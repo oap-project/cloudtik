@@ -3,7 +3,7 @@
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source ${SCRIPT_DIR}/../../common/scripts/setenv.sh
 
-BERT_LOCAL_HOME=$INTELAI_LOCAL_WORKSPACE/bert
+BERT_LOCAL_HOME=$INTELAI_MODELS_LOCAL_WORKSPACE/bert
 BERT_MODEL=$BERT_LOCAL_HOME/model
 BERT_DATA=$BERT_LOCAL_HOME/data
 SQUAD_DATA=$BERT_DATA/squad

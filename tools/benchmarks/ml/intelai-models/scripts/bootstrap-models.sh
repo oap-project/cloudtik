@@ -9,26 +9,26 @@ BENCHMARK_TOOL_HOME=$USER_HOME/runtime/benchmark-tools
 
 if test -e "/mnt/cloudtik/data_disk_1/"
 then
-    INTELAI_LOCAL_PATH=/mnt/cloudtik/data_disk_1/intelai_local
+    INTELAI_MODELS_LOCAL_PATH=/mnt/cloudtik/data_disk_1/intelai_local
 else
-    INTELAI_LOCAL_PATH=$USER_HOME/intelai_local
+    INTELAI_MODELS_LOCAL_PATH=$USER_HOME/intelai_local
 fi
 
 if test -e "/cloudtik/fs"
 then
-    INTELAI_PATH="/cloudtik/fs/intelai"
+    INTELAI_MODELS_PATH="/cloudtik/fs/intelai"
 else
-    INTELAI_PATH=$INTELAI_LOCAL_PATH
+    INTELAI_MODELS_PATH=$INTELAI_MODELS_LOCAL_PATH
 fi
 
-mkdir -p $INTELAI_PATH
-mkdir -p $INTELAI_LOCAL_PATH
+mkdir -p $INTELAI_MODELS_PATH
+mkdir -p $INTELAI_MODELS_LOCAL_PATH
 
-INTELAI_LOCAL_WORKSPACE=$INTELAI_LOCAL_PATH/workspace
+INTELAI_MODELS_LOCAL_WORKSPACE=$INTELAI_MODELS_LOCAL_PATH/workspace
 
-MODELS_HOME=$INTELAI_PATH/models
-MODELS_SCRIPTS_HOME=$INTELAI_PATH/models_scripts
-MODELS_TMP=$INTELAI_LOCAL_PATH/tmp
+MODELS_HOME=$INTELAI_MODELS_LOCAL_PATH/models
+MODELS_SCRIPTS_HOME=$INTELAI_MODELS_LOCAL_PATH/scripts
+MODELS_TMP=$INTELAI_MODELS_LOCAL_PATH/tmp
 
 
 while true
@@ -61,17 +61,16 @@ function prepare() {
     source ~/.bashrc
     sudo apt-get update -y
     mkdir -p $BENCHMARK_TOOL_HOME
-    sudo chown $(whoami) $INTELAI_PATH
-    sudo chown $(whoami) $INTELAI_LOCAL_PATH
+    sudo chown $(whoami) $INTELAI_MODELS_PATH
+    sudo chown $(whoami) $INTELAI_MODELS_LOCAL_PATH
 }
 
 function install_intelai_models() {
-  mkdir -p $MODELS_TMP
-  cd $MODELS_TMP
+  mkdir -p $INTELAI_MODELS_LOCAL_PATH
+  cd $INTELAI_MODELS_LOCAL_PATH
 
   rm -rf models
   git clone https://github.com/IntelAI/models.git
-  cp -r models $INTELAI_PATH
 
 }
 

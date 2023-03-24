@@ -19,7 +19,7 @@
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source ${SCRIPT_DIR}/../../common/scripts/setenv.sh
 
-MASKRCNN_HOME=$INTELAI_WORKSPACE/maskrcnn
+MASKRCNN_HOME=$INTELAI_MODELS_WORKSPACE/maskrcnn
 MASKRCNN_MODEL=$MASKRCNN_HOME/model
 DATASET_DIR=$MASKRCNN_HOME/data
 OUTPUT_DIR=$MASKRCNN_HOME/output
@@ -87,6 +87,8 @@ fi
 CORES_PRE_NODE=$(cloudtik head --physical-core-num)
 HOSTS=$(cloudtik head worker-ips --format)
 
+# TODO
+SOCKETS=1
 
 export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
 export USE_IPEX=1

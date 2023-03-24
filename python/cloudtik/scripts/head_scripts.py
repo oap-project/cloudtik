@@ -13,7 +13,7 @@ from cloudtik.core._private.cluster.cluster_operator import (
     _wait_for_ready, _get_worker_node_ips, _get_head_node_ip,
     _show_cluster_status, _monitor_cluster, _show_cluster_info, _show_worker_cpus, _show_worker_memory,
     cli_call_context, _exec_node_on_head, do_health_check, cluster_resource_metrics_on_head,
-    _show_worker_physical_cores)
+    _show_cores_per_worker)
 from cloudtik.core._private.constants import CLOUDTIK_REDIS_DEFAULT_PASSWORD
 from cloudtik.core._private.state import kv_store
 from cloudtik.core._private.state.kv_store import kv_initialize_with_address
@@ -245,7 +245,7 @@ def status():
     default=False,
     help="Get the total number of cpus for workers.")
 @click.option(
-    "--physical-core-num",
+    "--cores-per-worker",
     is_flag=True,
     default=False,
     help="Get the physical core number of workers.")
@@ -255,7 +255,7 @@ def status():
     default=False,
     help="Get the total memory for workers.")
 @add_click_logging_options
-def info(worker_cpus, physical_core_num, worker_memory):
+def info(worker_cpus, cores_pre_worker, worker_memory):
     """Show cluster summary information and useful links to use the cluster."""
     cluster_config_file = get_head_bootstrap_config()
     config = load_head_cluster_config()
@@ -263,8 +263,8 @@ def info(worker_cpus, physical_core_num, worker_memory):
     if worker_cpus:
         return _show_worker_cpus(config)
 
-    if physical_core_num:
-        return _show_worker_physical_cores(config)
+    if cores_pre_worker:
+        return _show_cores_per_worker(config)
 
     if worker_memory:
         return _show_worker_memory(config)

@@ -3,7 +3,7 @@
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source ${SCRIPT_DIR}/../../common/scripts/setenv.sh
 
-DLRM_HOME=$INTELAI_WORKSPACE/dlrm
+DLRM_HOME=$INTELAI_MODELS_WORKSPACE/dlrm
 DLRM_MODEL=$BERT_HOME/model
 DLRM_DATA=$BERT_HOME/data
 DLRM_OUTPUT=$BERT_HOME/output

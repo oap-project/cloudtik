@@ -25,6 +25,9 @@ SCALING_WITH_LOAD_CPU_LOAD_THRESHOLD_DEFAULT = 0.85
 SCALING_WITH_LOAD_MEMORY_LOAD_THRESHOLD_DEFAULT = 0.85
 SCALING_WITH_LOAD_IN_USE_CPU_LOAD_THRESHOLD_DEFAULT = 0.10
 
+SCALING_WITH_TIME_MATH_ON_MIN_WORKERS = "on-min-workers"
+SCALING_WITH_TIME_MATH_ON_PREVIOUS_TIME = "on-previous-time"
+
 
 class ScalingWithResources(ScalingPolicy):
     def __init__(self,
@@ -265,7 +268,7 @@ class ScalingWithLoad(ScalingWithResources):
                         "resource_requesting": resource_requesting,
                     }
 
-        autoscaling_instructions["demanding_time"] = self.last_state_time
+        autoscaling_instructions["scaling_time"] = self.last_state_time
         autoscaling_instructions["resource_demands"] = resource_demands
         if len(resource_demands) > 0 and logger.isEnabledFor(logging.DEBUG):
             logger.debug("Resource demands: {}".format(resource_demands))
@@ -332,6 +335,7 @@ class ScalingWithTime(ScalingWithResources):
 
         # scaling parameters
         self.min_workers = 0
+        self.scaling_math_base = SCALING_WITH_TIME_MATH_ON_MIN_WORKERS
         self.scaling_time_table = []
         self._reset_time_config()
 
@@ -344,6 +348,8 @@ class ScalingWithTime(ScalingWithResources):
 
     def _reset_time_config(self):
         self.min_workers = self._get_min_workers()
+        self.scaling_math_base = self.scaling_config.get(
+            "scaling_math_base", SCALING_WITH_TIME_MATH_ON_MIN_WORKERS)
         self.scaling_time_table = self._formalize_time_table(
             self.scaling_config.get("scaling_time_table", {}))
 
@@ -367,9 +373,10 @@ class ScalingWithTime(ScalingWithResources):
             return None
 
         autoscaling_instructions = {
-            "demanding_time": self.last_state_time,
+            "scaling_time": self.last_state_time,
             "resource_requests": resource_requests}
         if resource_requests is not None and logger.isEnabledFor(logging.DEBUG):
+            logger.debug("Scaling time table: {}".format(self.scaling_time_table))
             logger.debug("Resource requests: {}".format(resource_requests))
 
         return autoscaling_instructions
@@ -393,11 +400,19 @@ class ScalingWithTime(ScalingWithResources):
         except ValueError:
             return False
 
-    def get_multiplier(self, nodes_spec):
-        if nodes_spec.endswith('x') or nodes_spec.endswith('X'):
-            nodes_spec = nodes_spec[:-1]
+    def get_nodes_from_base(self, nodes_spec, base_nodes):
+        if nodes_spec.startswith('*'):
+            nodes_spec = nodes_spec[1:]
             if self.isfloat(nodes_spec):
-                return float(nodes_spec)
+                return round(base_nodes * float(nodes_spec))
+        elif nodes_spec.startswith('+'):
+            nodes_spec = nodes_spec[1:]
+            if nodes_spec.isdigit():
+                return max(0, round(base_nodes + int(nodes_spec)))
+        elif nodes_spec.startswith('-'):
+            nodes_spec = nodes_spec[1:]
+            if nodes_spec.isdigit():
+                return max(0, round(base_nodes - int(nodes_spec)))
         raise ValueError("Invalid node specification for multiplier: {}".format(nodes_spec))
 
     def _expand_time_table(self, expanding_time_table):
@@ -415,21 +430,25 @@ class ScalingWithTime(ScalingWithResources):
                         nodes = self.min_workers
                     expanding_slot[1] = nodes
                 elif isinstance(nodes_spec, str):
-                    # if it is not digit, multiplier
+                    # if it is not digit, multiplier or addition or reduction
                     # we need expand base on its nodes of previous time slot
-                    if prev_expanding_slot is not None and prev_expanding_slot[1] >= 0:
-                        nodes = round(prev_expanding_slot[1] * self.get_multiplier(nodes_spec))
+                    if self.scaling_math_base == SCALING_WITH_TIME_MATH_ON_MIN_WORKERS:
+                        nodes = self.get_nodes_from_base(nodes_spec, self.min_workers)
                         expanding_slot[1] = nodes
                     else:
-                        # cannot expand by now
-                        remaining += 1
+                        if prev_expanding_slot is not None and prev_expanding_slot[1] >= 0:
+                            nodes = self.get_nodes_from_base(nodes_spec, prev_expanding_slot[1])
+                            expanding_slot[1] = nodes
+                        else:
+                            # cannot expand by now
+                            remaining += 1
                 else:
                     raise ValueError("Invalid node specification: {}".format(nodes_spec))
             prev_expanding_slot = expanding_slot
         return remaining
 
     def _formalize_time_table(self, time_table):
-        try :
+        try:
             scaling_time_table = []
             for time_spec, nodes_spec in time_table.items():
                 seconds = self._time_spec_to_seconds(time_spec)
@@ -443,8 +462,12 @@ class ScalingWithTime(ScalingWithResources):
             scaling_time_table.sort(key=seconds_sort)
 
             remaining = self._expand_time_table(scaling_time_table)
-            while remaining > 0:
+            if remaining > 0:
                 remaining = self._expand_time_table(scaling_time_table)
+                if remaining > 0:
+                    raise ValueError("Invalid node specification. For math based on previous time, "
+                                     "at least one time needs specific node number. "
+                                     "Use 0 to refer the minimum workers from cluster configuration.")
             return scaling_time_table
         except Exception as e:
             logger.error(
@@ -472,8 +495,11 @@ class ScalingWithTime(ScalingWithResources):
         return prev_time_slot[1]
 
     def _get_resource_requests_with_time(self):
-        current_time = time.time()
+        current_time = self.last_state_time
         seconds_in_day = self._get_seconds_in_day(current_time)
+        return self._get_resource_requests_at_seconds(seconds_in_day)
+
+    def _get_resource_requests_at_seconds(self, seconds_in_day):
         number_of_nodes = self._get_nodes_request(seconds_in_day)
         if number_of_nodes is None:
             return None

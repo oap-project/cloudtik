@@ -60,8 +60,9 @@ of deciding a worker's idle status.
 If user want to automatically scaling up or down based on system metrics such as
 the system load, user can use auto-scaling.
 
-CloudTik built-in with two auto-scaling policy for use:
+CloudTik built-in with 3 auto-scaling policy for use:
 - Scaling with Load
+- Scaling with Time
 - Scaling with Spark
 
 ### Scaling with Load
@@ -96,6 +97,76 @@ runtime:
 - memory_load_threshold: The memory load threshold above which to start scale
 - in_use_cpu_load_threshold: The minimum cpu load to consider the machine is in use
 
+
+### Scaling with Time
+If you want to scale the cluster based on the time of a day
+use this scaling policy.
+
+To use this scaling policy, specify the following runtime configuration.
+For example,
+
+```
+runtime:
+    scaling:
+        scaling_policy: scaling-with-time
+        scaling_math_base: on-min-workers
+        scaling_time_table:
+            "8:00": "+1"
+            "9:00": "+2"
+            "10:00": "*2"
+            "11:00": "-1"
+            "15:00": "*3"
+            "16:00": "+1"
+```
+
+This will enable and use scaling-with-time policy.
+
+- scaling_math_base: The base nodes used to do math such as *n or +n or -n.
+  - For on-min-workers, the min_workers of cluster will be used. if min workers is 3, "*3" will get 9 nodes.
+  - For on-previous-time, the nodes of previous time is used, if previous time is 2 nodes, "*3" will 6 nodes.
+    Please note that when this type is used, at least item in the time table must be a specific node number.
+- scaling_time_table: The time table for nodes to scale. The value can be:
+  - A specific node number. Use 0 to refer to the min workers.
+  - A multiplier, addition or reduction on a base. For example, "*2.5", "*3", "+4", "-5"
+
+
+Based on this understanding, the above time table with on-min-workers based math option
+will scale the cluster as following, if min_workers is 3:
+
+```
+            "8:00": 4 nodes
+            "9:00": 5 nodes
+            "10:00": 6 nodes
+            "11:00": 2 nodes
+            "15:00": 9 nodes
+            "16:00": 4 nodes
+```
+
+
+The following example uses on-previous-time for scaling_math_base option:
+```
+runtime:
+    scaling:
+        scaling_policy: scaling-with-time
+        scaling_math_base: on-previous-time
+        scaling_time_table:
+            "7:00": 5
+            "8:00": "+1"
+            "9:00": "+2"
+            "10:00": "*2"
+            "11:00": "-6"
+            "15:00": "*0.5"
+```
+
+The above time table will resolve to the following scaling schedule:
+```
+            "7:00": 5 nodes
+            "8:00": 6 nodes
+            "9:00": 8 nodes
+            "10:00": 16 nodes
+            "11:00": 10 nodes
+            "15:00": 5 nodes
+```
 
 ### Scaling with Spark
 If you want to scale the cluster based Spark application and resource utilization

@@ -9,14 +9,14 @@ BENCHMARK_TOOL_HOME=$USER_HOME/runtime/benchmark-tools
 
 if test -e "/mnt/cloudtik/data_disk_1/"
 then
-    INTELAI_MODELS_LOCAL_PATH=/mnt/cloudtik/data_disk_1/intelai_local
+    INTELAI_MODELS_LOCAL_PATH=/mnt/cloudtik/data_disk_1/intelai_models_local
 else
-    INTELAI_MODELS_LOCAL_PATH=$USER_HOME/intelai_local
+    INTELAI_MODELS_LOCAL_PATH=$USER_HOME/intelai_models_local
 fi
 
 if test -e "/cloudtik/fs"
 then
-    INTELAI_MODELS_PATH="/cloudtik/fs/intelai"
+    INTELAI_MODELS_PATH="/cloudtik/fs/intelai_models"
 else
     INTELAI_MODELS_PATH=$INTELAI_MODELS_LOCAL_PATH
 fi

@@ -3,14 +3,14 @@
 
 if test -e "/mnt/cloudtik/data_disk_1/"
 then
-    INTELAI_MODELS_LOCAL_PATH=/mnt/cloudtik/data_disk_1/intelai_local
+    INTELAI_MODELS_LOCAL_PATH=/mnt/cloudtik/data_disk_1/intelai_models_local
 else
-    INTELAI_MODELS_LOCAL_PATH=$USER_HOME/intelai_local
+    INTELAI_MODELS_LOCAL_PATH=$USER_HOME/intelai_models_local
 fi
 
 if test -e "/cloudtik/fs"
 then
-    INTELAI_MODELS_PATH="/cloudtik/fs/intelai"
+    INTELAI_MODELS_PATH="/cloudtik/fs/intelai_models"
 else
     INTELAI_MODELS_PATH=$INTELAI_MODELS_LOCAL_PATH
 fi
@@ -32,7 +32,7 @@ export LD_PRELOAD=$HOME/anaconda3/envs/cloudtik/lib/libiomp5.so:$LD_PRELOAD
 export DNNL_MAX_CPU_ISA=AVX512_CORE_AMX
 
 function move_to_shared_dict() {
-    if $INTELAI_MODELS_PATH != $INTELAI_MODELS_LOCAL_PATH; then
+    if [ $INTELAI_MODELS_PATH != $INTELAI_MODELS_LOCAL_PATH ]; then
       mkdir -p $INTELAI_MODELS_WORKSPACE
       cp -r -n $1 $INTELAI_MODELS_WORKSPACE
     fi

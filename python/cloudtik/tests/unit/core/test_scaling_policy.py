@@ -12,7 +12,7 @@ from cloudtik.core.scaling_policy import ScalingState, ScalingPolicy
 test_now = time.time()
 
 autoscaling_instructions = {
-    "demanding_time": test_now,
+    "scaling_time": test_now,
     "resource_demands": [
         {"CPU": 4},
         {"CPU": 4}
@@ -109,7 +109,7 @@ class TestScalingPolicy:
 
         scaling_state = resource_scaling_policy.get_scaling_state()
         assert scaling_state is not None
-        assert scaling_state.autoscaling_instructions["demanding_time"] == test_now
+        assert scaling_state.autoscaling_instructions["scaling_time"] == test_now
         assert len(scaling_state.autoscaling_instructions["resource_demands"]) == 2
         assert len(scaling_state.node_resource_states) == 1
         assert len(scaling_state.lost_nodes) == 1
@@ -126,7 +126,7 @@ class TestScalingPolicy:
 
         result_scaling_sate = merge_scaling_state(scaling_sate, new_scaling_state)
         assert result_scaling_sate is not None
-        assert result_scaling_sate.autoscaling_instructions["demanding_time"] == test_now
+        assert result_scaling_sate.autoscaling_instructions["scaling_time"] == test_now
         assert len(result_scaling_sate.autoscaling_instructions["resource_demands"]) == 1
         assert result_scaling_sate.node_resource_states["node-1.1.1.1"]["available_resources"]["CPU"] == 0
 
@@ -136,11 +136,12 @@ class TestScalingPolicy:
             "types": ["ganglia"],
             "scaling": {
                 "scaling_policy": "scale-with-time",
+                "scaling_math_base": "on-previous-time",
                 "scaling_time_table": {
                     "00:00:01": 2,
                     "00:00:02": 3,
-                    "00:00:03": "2x",
-                    "00:00:04": "3.0x"
+                    "00:00:03": "*2",
+                    "00:00:04": "*3.0"
                 }
             }
         }
@@ -165,9 +166,10 @@ class TestScalingPolicy:
             "types": ["ganglia"],
             "scaling": {
                 "scaling_policy": "scale-with-time",
+                "scaling_math_base": "on-previous-time",
                 "scaling_time_table": {
-                    "00:00:04": "3.0x",
-                    "00:00:03": "2x",
+                    "00:00:04": "*3.0",
+                    "00:00:03": "*2",
                     "00:00:02": 3,
                     "00:00:01": 2,
                 }
@@ -194,10 +196,11 @@ class TestScalingPolicy:
             "types": ["ganglia"],
             "scaling": {
                 "scaling_policy": "scale-with-time",
+                "scaling_math_base": "on-previous-time",
                 "scaling_time_table": {
-                    "00:00:01": "2x",
+                    "00:00:01": "*2",
                     "00:00:02": 0,
-                    "00:00:03": "3.0x",
+                    "00:00:03": "*3.0",
                     "00:00:04": "3"
                 }
             }
@@ -217,16 +220,47 @@ class TestScalingPolicy:
         assert scaling_with_time.scaling_time_table[2][1] == 9
         assert scaling_with_time.scaling_time_table[3][1] == 3
 
+    def test_scaling_with_time_base_on_min_workers(self):
+        config = copy.deepcopy(CONFIG)
+        config["runtime"] = {
+            "types": ["ganglia"],
+            "scaling": {
+                "scaling_policy": "scale-with-time",
+                "scaling_math_base": "on-min-workers",
+                "scaling_time_table": {
+                    "00:00:01": "*2",
+                    "00:00:02": "+2",
+                    "00:00:03": "*3.0",
+                    "00:00:04": "-1"
+                }
+            }
+        }
+
+        scaling_with_time = ScalingWithTimeTest(config, "127.0.0.1")
+        result_scaling_sate = scaling_with_time.get_scaling_state()
+
+        assert result_scaling_sate is not None
+        assert scaling_with_time.min_workers == 3
+        assert scaling_with_time.scaling_time_table[0][0] == 1
+        assert scaling_with_time.scaling_time_table[1][0] == 2
+        assert scaling_with_time.scaling_time_table[2][0] == 3
+        assert scaling_with_time.scaling_time_table[3][0] == 4
+        assert scaling_with_time.scaling_time_table[0][1] == 6
+        assert scaling_with_time.scaling_time_table[1][1] == 5
+        assert scaling_with_time.scaling_time_table[2][1] == 9
+        assert scaling_with_time.scaling_time_table[3][1] == 2
+
     def test_scaling_with_time_nodes_request(self):
         config = copy.deepcopy(CONFIG)
         config["runtime"] = {
             "types": ["ganglia"],
             "scaling": {
                 "scaling_policy": "scale-with-time",
+                "scaling_math_base": "on-previous-time",
                 "scaling_time_table": {
-                    "00:00:03": "2x",
+                    "00:00:03": "*2",
                     "00:00:06": 0,
-                    "00:00:09": "3.0x",
+                    "00:00:09": "*3.0",
                     "00:00:12": "3"
                 }
             }
@@ -256,6 +290,10 @@ class TestScalingPolicy:
         assert scaling_with_time._get_nodes_request(10) == 9
         assert scaling_with_time._get_nodes_request(12) == 3
         assert scaling_with_time._get_nodes_request(13) == 3
+
+        resource_requests = scaling_with_time._get_resource_requests_at_seconds(10)
+        assert resource_requests is not None
+        assert len(resource_requests) == 9 + 1
 
 
 if __name__ == "__main__":

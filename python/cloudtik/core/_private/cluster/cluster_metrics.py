@@ -120,13 +120,13 @@ class ClusterMetrics:
         # resource_demands is a List[Dict[str, float]]
         resource_demands = []
         if autoscaling_instructions is not None:
-            demanding_time = autoscaling_instructions.get("demanding_time")
+            scaling_time = autoscaling_instructions.get("scaling_time")
             _resource_demands = autoscaling_instructions.get("resource_demands")
 
             # Only the new demanding will be updated
-            if demanding_time > self.last_demanding_time and _resource_demands:
+            if scaling_time > self.last_demanding_time and _resource_demands:
                 resource_demands = _resource_demands
-                self.last_demanding_time = demanding_time
+                self.last_demanding_time = scaling_time
 
         self.resource_demands = resource_demands
 
@@ -136,8 +136,8 @@ class ClusterMetrics:
             if resource_requests is not None:
                 # Only update the resource request when there is one
                 # This is different with resource demands
-                demanding_time = autoscaling_instructions.get("demanding_time")
-                self.set_resource_requests(demanding_time, resource_requests)
+                scaling_time = autoscaling_instructions.get("scaling_time")
+                self.set_resource_requests(scaling_time, resource_requests)
 
     def update_node_resources(self,
                               ip: str,

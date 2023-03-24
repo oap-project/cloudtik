@@ -249,7 +249,7 @@ class SparkScalingPolicy(ScalingPolicy):
                         "resource_requesting": resource_requesting,
                     }
 
-        autoscaling_instructions["demanding_time"] = self.last_state_time
+        autoscaling_instructions["scaling_time"] = self.last_state_time
         autoscaling_instructions["resource_demands"] = resource_demands
         if len(resource_demands) > 0:
             logger.debug("Resource demands: {}".format(resource_demands))

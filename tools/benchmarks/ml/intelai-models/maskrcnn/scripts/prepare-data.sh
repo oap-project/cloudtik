@@ -3,7 +3,7 @@
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source ${SCRIPT_DIR}/../../common/scripts/setenv.sh
 
-MASKRCNN_HOME=$INTELAI_MODELS_WORKSPACE/maskrcnn
+MASKRCNN_HOME=$INTELAI_MODELS_LOCAL_WORKSPACE/maskrcnn
 MASKRCNN_MODEL=$MASKRCNN_HOME/model
 MASKRCNN_DATA=$MASKRCNN_HOME/data
 
@@ -97,3 +97,5 @@ elif [ "${PHASE}" = "inference" ]; then
 else
     usage
 fi
+
+move_to_shared_dict $MASKRCNN_HOME

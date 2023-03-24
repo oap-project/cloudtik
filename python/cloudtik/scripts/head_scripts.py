@@ -12,7 +12,8 @@ from cloudtik.core._private.cluster.cluster_operator import (
     start_node_on_head, stop_node_on_head, kill_node_on_head, scale_cluster_on_head,
     _wait_for_ready, _get_worker_node_ips, _get_head_node_ip,
     _show_cluster_status, _monitor_cluster, _show_cluster_info, _show_worker_cpus, _show_worker_memory,
-    cli_call_context, _exec_node_on_head, do_health_check, cluster_resource_metrics_on_head)
+    cli_call_context, _exec_node_on_head, do_health_check, cluster_resource_metrics_on_head,
+    _show_cores_per_worker)
 from cloudtik.core._private.constants import CLOUDTIK_REDIS_DEFAULT_PASSWORD
 from cloudtik.core._private.state import kv_store
 from cloudtik.core._private.state.kv_store import kv_initialize_with_address
@@ -244,18 +245,26 @@ def status():
     default=False,
     help="Get the total number of cpus for workers.")
 @click.option(
+    "--cores-per-worker",
+    is_flag=True,
+    default=False,
+    help="Get the physical core number of workers.")
+@click.option(
     "--worker-memory",
     is_flag=True,
     default=False,
     help="Get the total memory for workers.")
 @add_click_logging_options
-def info(worker_cpus, worker_memory):
+def info(worker_cpus, cores_pre_worker, worker_memory):
     """Show cluster summary information and useful links to use the cluster."""
     cluster_config_file = get_head_bootstrap_config()
     config = load_head_cluster_config()
 
     if worker_cpus:
         return _show_worker_cpus(config)
+
+    if cores_pre_worker:
+        return _show_cores_per_worker(config)
 
     if worker_memory:
         return _show_worker_memory(config)
@@ -296,13 +305,21 @@ def head_ip(public):
     default=None,
     help="The node status of the workers. Values: setting-up, up-to-date, update-failed."
     " If not specified, return all the workers.")
+@click.option(
+    "--format",
+    is_flag=True,
+    default=False,
+    help="Get the formatted worker ips.")
 def worker_ips(runtime, node_status):
     """Return the list of worker IPs of a cluster."""
     config = load_head_cluster_config()
     workers = _get_worker_node_ips(
         config, runtime=runtime, node_status=node_status)
     if len(workers) > 0:
-        click.echo("\n".join(workers))
+        if format:
+            click.echo(",".join(workers))
+        else:
+            click.echo("\n".join(workers))
 
 
 @head.command()

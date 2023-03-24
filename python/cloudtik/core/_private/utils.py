@@ -1959,6 +1959,11 @@ def sum_worker_cpus(workers_info):
     return total_cpus
 
 
+def get_cores_per_worker_by_workers_info(workers_info):
+    for worker_info in workers_info:
+        return int(worker_info["CPU"])
+
+
 def sum_worker_memory(workers_info):
     total_memory = 0
     for worker_info in workers_info:

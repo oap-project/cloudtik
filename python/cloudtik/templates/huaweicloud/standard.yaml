@@ -6,13 +6,13 @@ provider:
 available_node_types:
     head.default:
         node_config:
-            flavor_ref: ai1.2xlarge.4
+            flavor_ref: ai1s.2xlarge.4
             root_volume:
                 volumetype: SSD
                 size: 100
     worker.default:
         node_config:
-            flavor_ref: ai1.2xlarge.4
+            flavor_ref: ai1s.2xlarge.4
             root_volume:
                 volumetype: SSD
                 size: 100

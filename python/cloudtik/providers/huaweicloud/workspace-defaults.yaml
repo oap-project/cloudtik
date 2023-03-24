@@ -4,7 +4,7 @@ from: workspace-defaults
 # Cloud-provider specific configuration.
 provider:
     type: huaweicloud
-    region: cn-east-2
+    region: ap-southeast-3
     # Decide whether to require public IP for head node.
     # When setting to False, Head node will require a public IP.
     # Default to False

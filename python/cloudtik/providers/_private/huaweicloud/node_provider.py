@@ -8,12 +8,15 @@ from huaweicloudsdkecs.v2 import BatchCreateServerTagsRequest, \
     CreatePostPaidServersRequestBody, DeleteServersRequest, \
     DeleteServersRequestBody, \
     ListServersDetailsRequest, \
-    PostPaidServer, PostPaidServerDataVolume, PostPaidServerExtendParam, \
+    PostPaidServer, PostPaidServerDataVolume, PostPaidServerEip, \
+    PostPaidServerEipBandwidth, PostPaidServerExtendParam, \
     PostPaidServerNic, \
-    PostPaidServerRootVolume, \
+    PostPaidServerPublicip, PostPaidServerRootVolume, \
     PostPaidServerSecurityGroup, PostPaidServerTag, ServerId, ServerTag
 
 from cloudtik.core._private.cli_logger import cli_logger
+from cloudtik.core._private.utils import \
+    get_cluster_node_public_ip_bandwidth_conf
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, \
     CLOUDTIK_TAG_NODE_NAME
@@ -23,7 +26,8 @@ from cloudtik.providers._private.huaweicloud.config import \
 from cloudtik.providers._private.huaweicloud.utils import _get_node_info, \
     _get_node_private_and_public_ip, _make_ecs_client, \
     flat_tags_map, get_default_huaweicloud_cloud_storage, \
-    get_huaweicloud_obs_storage_config, HWC_SERVER_STATUS_ACTIVE, \
+    get_huaweicloud_obs_storage_config, \
+    HWC_SERVER_STATUS_ACTIVE, \
     HWC_SERVER_STATUS_NON_TERMINATED, HWC_SERVER_TAG_STR_FORMAT, \
     tags_list_to_dict
 from cloudtik.providers._private.utils import validate_config_dict
@@ -157,6 +161,18 @@ class HUAWEICLOUDNodeProvider(NodeProvider):
         nics = _node_config.pop('nics')
         _node_config['nics'] = [PostPaidServerNic(subnet_id=nic['subnet_id'])
                                 for nic in nics]
+        publicip = _node_config.pop('publicip')
+        if publicip:
+            bandwidth = get_cluster_node_public_ip_bandwidth_conf(
+                self.provider_config)
+            _node_config['publicip'] = PostPaidServerPublicip(
+                eip=PostPaidServerEip(
+                    iptype='5_bgp',
+                    bandwidth=PostPaidServerEipBandwidth(sharetype='PER',
+                                                         size=bandwidth)
+                ),
+                delete_on_termination=True
+            )
         sgs = _node_config.pop('security_groups')
         _node_config['security_groups'] = [
             PostPaidServerSecurityGroup(id=sg['id']) for sg in sgs]
@@ -236,12 +252,18 @@ class HUAWEICLOUDNodeProvider(NodeProvider):
 
     def external_ip(self, node_id: str) -> str:
         node = self._get_cached_node(node_id)
-        private_ip, public_ip = _get_node_private_and_public_ip(node)
+        _, public_ip = _get_node_private_and_public_ip(node)
+        if not public_ip:
+            node = self._get_node(node_id)
+            _, public_ip = _get_node_private_and_public_ip(node)
         return public_ip
 
     def internal_ip(self, node_id: str) -> str:
         node = self._get_cached_node(node_id)
-        private_ip, public_ip = _get_node_private_and_public_ip(node)
+        private_ip, _ = _get_node_private_and_public_ip(node)
+        if not private_ip:
+            node = self._get_node(node_id)
+            private_ip, _ = _get_node_private_and_public_ip(node)
         return private_ip
 
     def terminate_node(self, node_id: str) -> Optional[Dict[str, Any]]:

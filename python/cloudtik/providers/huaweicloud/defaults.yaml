@@ -4,13 +4,13 @@ from: defaults
 # Cloud-provider specific configuration.
 provider:
     type: huaweicloud
-    region: cn-east-2
+    region: ap-southeast-3
     # Whether to use managed cloud storage of workspace.
     use_managed_cloud_storage: True
 
 # How we will authenticate with newly launched nodes.
 auth:
-    ssh_user: ubuntu
+    ssh_user: root
 # By default, we create a new private keypair, but you can also use your own.
 # If you do so, make sure to also set "KeyName" in the head and worker node
 # configurations below.
@@ -26,8 +26,8 @@ available_node_types:
         resources: {}
         # Provider-specific config for this node type, e.g. instance flavor.
         node_config:
-            image_ref: d4f60377-bb01-4a27-b119-c6de54fd4042
-            flavor_ref: ai1.xlarge.4
+            image_ref: 019b09ea-b960-46cd-abd8-306529e5eaa0
+            flavor_ref: ai1s.xlarge.4
             # key_name: key_pair_name
             root_volume:
                 volumetype: SSD
@@ -41,8 +41,8 @@ available_node_types:
         resources: {}
         # Provider-specific config for this node type, e.g. instance flavor.
         node_config:
-            image_ref: d4f60377-bb01-4a27-b119-c6de54fd4042
-            flavor_ref: ai1.xlarge.4
+            image_ref: 019b09ea-b960-46cd-abd8-306529e5eaa0
+            flavor_ref: ai1s.xlarge.4
             # key_name: key_pair_name
             root_volume:
                 volumetype: SSD

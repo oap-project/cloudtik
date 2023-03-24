@@ -10,7 +10,7 @@ workspace_name: example-workspace
 # Cloud-provider specific configuration.
 provider:
     type: huaweicloud
-    region: cn-east-2
+    region: ap-southeast-3
     use_managed_cloud_storage: False
     storage:
         # OBS configurations for storage

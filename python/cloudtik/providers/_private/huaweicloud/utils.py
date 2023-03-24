@@ -1,7 +1,7 @@
 import logging
+import os
 from functools import lru_cache
 from typing import Any, Dict, List
-import os
 
 from huaweicloudsdkcore.auth.credentials import BasicCredentials, \
     GlobalCredentials
@@ -19,10 +19,11 @@ from huaweicloudsdkvpc.v2.region.vpc_region import VpcRegion
 from obs import ObsClient
 
 from cloudtik.core._private.constants import \
-    CLOUDTIK_DEFAULT_CLOUD_STORAGE_URI, env_bool
+    CLOUDTIK_DEFAULT_CLOUD_STORAGE_URI, env_bool, env_integer
 from cloudtik.core._private.utils import get_storage_config_for_update
 
-OBS_SERVICES_URL = 'https://obs.myhuaweicloud.com'
+OBS_SERVICES_URL = 'https://obs.{location}.myhuaweicloud.com'
+OBS_SERVICES_DEFAULT_URL = 'https://obs.myhuaweicloud.com'
 HWC_OBS_BUCKET = "obs.bucket"
 HWC_SERVER_TAG_STR_FORMAT = '{}={}'
 HWC_SERVER_STATUS_ACTIVE = 'ACTIVE'
@@ -93,15 +94,16 @@ def _client_cache(region: str = None, ak: str = None, sk: str = None) -> Dict[
             import certifi
             _ssl_verify = certifi.where()
 
+    _server = get_huaweicloud_obs_storage_endpoint(region)
     if ak and sk:
         obs_client = ObsClient(access_key_id=ak, secret_access_key=sk,
-                               server=OBS_SERVICES_URL, ssl_verify=_ssl_verify,
+                               server=_server, ssl_verify=_ssl_verify,
                                region=region)
     else:
         # Enable OBSClient (ENV, ECS) security provider policy chain, see
         # https://support.huaweicloud.com/sdk-python-devg-obs/obs_22_0601.html
         obs_client = ObsClient(security_provider_policy='OBS_DEFAULT',
-                               server=OBS_SERVICES_URL, ssl_verify=_ssl_verify,
+                               server=_server, ssl_verify=_ssl_verify,
                                region=region)
     client_map['obs'] = obs_client
 
@@ -185,6 +187,13 @@ def get_huaweicloud_obs_storage_config(provider_config: Dict[str, Any]):
     return None
 
 
+def get_huaweicloud_obs_storage_endpoint(region: str = None) -> str:
+    if region:
+        return OBS_SERVICES_URL.format(location=region)
+    else:
+        return OBS_SERVICES_DEFAULT_URL
+
+
 def get_huaweicloud_obs_storage_config_for_update(
         provider_config: Dict[str, Any]):
     storage_config = get_storage_config_for_update(provider_config)
@@ -203,6 +212,10 @@ def export_huaweicloud_obs_storage_config(provider_config,
     obs_bucket = cloud_storage.get(HWC_OBS_BUCKET)
     if obs_bucket:
         config_dict["HUAWEICLOUD_OBS_BUCKET"] = obs_bucket
+
+    obs_endpoint = get_huaweicloud_obs_storage_endpoint(
+        provider_config.get("region"))
+    config_dict["HUAWEICLOUD_OBS_ENDPOINT"] = obs_endpoint
 
     obs_access_key = cloud_storage.get("obs.access.key")
     if obs_access_key:
@@ -251,7 +264,7 @@ def tags_list_to_dict(tags: list) -> Dict[str, str]:
 
 
 def _get_node_private_and_public_ip(node) -> List[str]:
-    private_ip = public_ip = ''
+    private_ip = public_ip = None
     for _, addrs in node.addresses.items():
         for addr in addrs:
             if addr.os_ext_ip_stype == 'fixed' and not private_ip:

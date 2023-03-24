@@ -2855,3 +2855,13 @@ def get_command_session_name(cmd: str, timestamp: int):
     hasher.update(cmd.encode("utf-8"))
     hasher.update(timestamp_str.encode("utf-8"))
     return "cloudtik-" + hasher.hexdigest()
+
+
+def get_workspace_nat_public_ip_bandwidth_conf(
+        workspace_config: Dict[str, Any]) -> int:
+    return workspace_config.get('provider', {}).get('public_ip_bandwidth', 20)
+
+
+def get_cluster_node_public_ip_bandwidth_conf(
+        cluster_provider_config: Dict[str, Any]) -> int:
+    return cluster_provider_config.get('public_ip_bandwidth', 20)

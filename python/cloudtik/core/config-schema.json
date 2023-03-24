@@ -441,6 +441,11 @@
                     "type": "boolean",
                     "description": "Whether to assign worker with the role to access cloud storage.",
                     "default": true
+                },
+                "public_ip_bandwidth": {
+                    "type": "integer",
+                    "description": "Bandwidth of public ip in MB for node.",
+                    "default": 20
                 }
             }
         },

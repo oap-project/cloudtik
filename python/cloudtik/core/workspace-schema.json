@@ -202,6 +202,11 @@
                         "type": "string"
                     },
                     "description": "The list of CIDR definitions for hosts allowing ssh connection. For example, 0.0.0.0/0 for all hosts."
+                },
+                "public_ip_bandwidth": {
+                    "type": "integer",
+                    "description": "Bandwidth of public ip in MB for NAT.",
+                    "default": 20
                 }
             }
         }

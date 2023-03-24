@@ -245,6 +245,7 @@ function update_config_for_aliyun() {
 function update_config_for_huaweicloud() {
     fs_default_dir="obs://${HUAWEICLOUD_OBS_BUCKET}"
     sed -i "s!{%fs.default.name%}!${fs_default_dir}!g" `grep "{%fs.default.name%}" -rl ./`
+    sed -i "s!{%fs.obs.endpoint.property%}!${HUAWEICLOUD_OBS_ENDPOINT}!g" `grep "{%fs.obs.endpoint.property%}" -rl ./`
 
     update_cloud_storage_credential_config
 

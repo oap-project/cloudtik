@@ -46,5 +46,5 @@ do
     shift
 done
 
-cd ${MODEL_DIR}/quickstart/language_modeling/pytorch/rnnt/training/cpu
+cd ${MODELS_DIR}/quickstart/language_modeling/pytorch/rnnt/training/cpu
 NUM_STEPS=${NUM_STEPS} bash training.sh $PRECISION

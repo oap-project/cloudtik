@@ -32,7 +32,7 @@ done
 
 export OUTPUT_DIR=$BERT_OUTPUT
 export DATASET_DIR=$BERT_DATA
-export TRAIN_SCRIPT=${MODEL_DIR}/models/language_modeling/pytorch/bert_large/training/run_pretrain_mlperf.py
+export TRAIN_SCRIPT=${MODELS_DIR}/models/language_modeling/pytorch/bert_large/training/run_pretrain_mlperf.py
 mkdir -p $OUTPUT_DIR
 
 
@@ -41,7 +41,7 @@ mkdir -p $OUTPUT_DIR
 export BERT_MODEL_CONFIG=$BERT_MODEL/bert_config.json
 
 # Run the phase 1 quickstart script for fp32 (or bf16)
-cd ${MODEL_DIR}/quickstart/language_modeling/pytorch/bert_large/training/cpu
+cd ${MODELS_DIR}/quickstart/language_modeling/pytorch/bert_large/training/cpu
 
 # Remove dense_seq_output option
 line_number=`grep -n "dense_seq_output" run_bert_pretrain_phase1.sh | cut -d: -f1`

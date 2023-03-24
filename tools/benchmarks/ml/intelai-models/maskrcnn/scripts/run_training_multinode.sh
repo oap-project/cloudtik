@@ -47,9 +47,9 @@ do
 done
 
 
-if [ ! -e "${MODEL_DIR}/models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/tools/train_net.py" ]; then
-  echo "Could not find the script of train.py. Please set environment variable '\${MODEL_DIR}'."
-  echo "From which the train.py exist at the: \${MODEL_DIR}/models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/tools/train_net.py"
+if [ ! -e "${MODELS_DIR}/models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/tools/train_net.py" ]; then
+  echo "Could not find the script of train.py. Please set environment variable '\${MODELS_DIR}'."
+  echo "From which the train.py exist at the: \${MODELS_DIR}/models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/tools/train_net.py"
   exit 1
 fi
 
@@ -113,11 +113,11 @@ python -m intel_extension_for_pytorch.cpu.launch \
     --nproc_per_node $SOCKETS \
     --log_path=${OUTPUT_DIR} \
     --log_file_prefix="./distributed_throughput_log_${PRECISION}" \
-    ${MODEL_DIR}/models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/tools/train_net.py \
+    ${MODELS_DIR}/models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/tools/train_net.py \
     $ARGS \
     --iter-warmup 10 \
     -i 20 \
-    --config-file "${MODEL_DIR}/models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/configs/e2e_mask_rcnn_R_50_FPN_1x_coco2017_tra.yaml" \
+    --config-file "${MODELS_DIR}/models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/configs/e2e_mask_rcnn_R_50_FPN_1x_coco2017_tra.yaml" \
     --skip-test \
     --backend ccl \
     SOLVER.IMS_PER_BATCH ${BATCH_SIZE} \

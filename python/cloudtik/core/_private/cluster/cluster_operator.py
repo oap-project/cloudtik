@@ -468,7 +468,7 @@ def teardown_cluster_nodes(config: Dict[str, Any],
         })
 
         if keep_min_workers:
-            min_workers = config.get("min_workers", 0)
+            min_workers = _sum_min_workers(config)
             _cli_logger.print(
                 "{} random worker nodes will not be shut down. " +
                 cf.dimmed("(due to {})"), cf.bold(min_workers),

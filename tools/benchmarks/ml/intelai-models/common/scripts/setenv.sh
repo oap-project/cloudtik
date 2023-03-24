@@ -1,5 +1,6 @@
 #!/bin/bash
 
+
 if test -e "/mnt/cloudtik/data_disk_1/"
 then
     INTELAI_LOCAL_PATH=/mnt/cloudtik/data_disk_1/intelai_local

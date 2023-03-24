@@ -42,7 +42,7 @@ from cloudtik.core._private.state.kv_store import kv_put, kv_initialize_with_add
 
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core._private.constants import \
-    CLOUDTIK_RESOURCE_REQUEST_CHANNEL, \
+    CLOUDTIK_RESOURCE_REQUESTS, \
     MAX_PARALLEL_SHUTDOWN_WORKERS, \
     CLOUDTIK_REDIS_DEFAULT_PASSWORD, CLOUDTIK_CLUSTER_STATUS_STOPPED, CLOUDTIK_CLUSTER_STATUS_RUNNING, \
     CLOUDTIK_RUNTIME_NAME, CLOUDTIK_KV_NAMESPACE_HEALTHCHECK
@@ -62,7 +62,8 @@ from cloudtik.core._private.utils import hash_runtime_conf, \
     get_nodes_for_runtime, with_script_args, encrypt_config, get_resource_requests_for_cpu, convert_nodes_to_cpus, \
     HeadNotRunningError, get_cluster_head_ip, get_command_session_name, ParallelTaskSkipped, \
     CLOUDTIK_CLUSTER_SCALING_STATUS, decode_cluster_scaling_time, RUNTIME_TYPES_CONFIG_KEY, get_node_info, \
-    NODE_INFO_NODE_IP, calc_worker_physical_cores
+    NODE_INFO_NODE_IP, calc_worker_physical_cores, _sum_min_workers
+
 
 from cloudtik.core._private.providers import _get_node_provider, _NODE_PROVIDERS
 from cloudtik.core.tags import (
@@ -152,9 +153,14 @@ def _request_resources(cpus: Optional[List[dict]] = None,
         to_request += cpus
     if bundles:
         to_request += bundles
+    request_time = time.time()
+    resource_requests = {
+        "request_time": request_time,
+        "requests": to_request
+    }
     kv_put(
-        CLOUDTIK_RESOURCE_REQUEST_CHANNEL,
-        json.dumps(to_request),
+        CLOUDTIK_RESOURCE_REQUESTS,
+        json.dumps(resource_requests),
         overwrite=True)
 
 
@@ -3367,15 +3373,6 @@ def submit_and_exec(config: Dict[str, Any],
         session_name=session_name)
 
 
-def _sum_min_workers(config: Dict[str, Any]):
-    sum_min_workers = 0
-    if "available_node_types" in config:
-        sum_min_workers = sum(
-            config["available_node_types"][node_type].get("min_workers", 0)
-            for node_type in config["available_node_types"])
-    return sum_min_workers
-
-
 def _get_workers_ready(config: Dict[str, Any], provider):
     workers = _get_worker_nodes(config)
     workers_info = get_nodes_info(provider, workers)
@@ -3729,12 +3726,12 @@ def show_cluster_metrics(
     for node_resource_metrics in nodes_resource_metrics:
         tb.add_row(
             [node_resource_metrics["node_ip"], node_resource_metrics["node_type"],
-             resource_metrics["total_cpus"], resource_metrics["used_cpus"],
-             resource_metrics["available_cpus"], resource_metrics["cpu_load"],
-             memory_to_gb_string(resource_metrics["total_memory"]),
-             memory_to_gb_string(resource_metrics["used_memory"]),
-             memory_to_gb_string(resource_metrics["available_memory"]),
-             resource_metrics["memory_load"]
+             node_resource_metrics["total_cpus"], node_resource_metrics["used_cpus"],
+             node_resource_metrics["available_cpus"], node_resource_metrics["cpu_load"],
+             memory_to_gb_string(node_resource_metrics["total_memory"]),
+             memory_to_gb_string(node_resource_metrics["used_memory"]),
+             memory_to_gb_string(node_resource_metrics["available_memory"]),
+             node_resource_metrics["memory_load"]
              ])
     cli_logger.print(tb)
 
@@ -3808,7 +3805,7 @@ def get_nodes_resource_metrics(nodes_metrics):
         load_avg_per_cpu = load_avg[1]
         load_avg_per_cpu_1 = load_avg_per_cpu[0]
         load_avg_all_1 = load_avg[0][0]
-        used_cpus = min(round(load_avg_all_1), total_cpus)
+        used_cpus = min(math.ceil(load_avg_all_1), total_cpus)
 
         memory = metrics.get("mem")
         (total_memory, available_memory, percent_memory, used_memory) = memory
@@ -3854,7 +3851,7 @@ def get_cluster_resource_metrics(nodes_metrics):
         (total_memory, available_memory, percent_memory, used_memory) = memory
 
         cluster_total_cpus += total_cpus
-        cluster_used_cpus += min(round(load_avg_all_1), total_cpus)
+        cluster_used_cpus += min(math.ceil(load_avg_all_1), total_cpus)
         cluster_load_avg_all_1 += load_avg_all_1
         cluster_total_memory += total_memory
         cluster_used_memory += used_memory

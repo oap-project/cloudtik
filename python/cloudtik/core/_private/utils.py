@@ -1129,6 +1129,15 @@ def combine_stop_commands(config):
     config["worker_stop_commands"] = (stop_commands + config["worker_stop_commands"])
 
 
+def _sum_min_workers(config: Dict[str, Any]):
+    sum_min_workers = 0
+    if "available_node_types" in config:
+        sum_min_workers = sum(
+            config["available_node_types"][node_type].get("min_workers", 0)
+            for node_type in config["available_node_types"])
+    return sum_min_workers
+
+
 def fill_default_max_workers(config):
     if "max_workers" not in config:
         logger.debug("Global max workers not set. "

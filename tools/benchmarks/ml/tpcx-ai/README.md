@@ -17,14 +17,14 @@ We provide an installation script to simplify the installation of these dependen
 You only need to add the following bootstrap_commands in the cluster configuration file when you start a cluster.
 ```buildoutcfg
 bootstrap_commands:
-    - wget -P ~/ https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ml/tpcx-ai/scripts/bootstrap-tpcx-ai.sh &&
+    - wget -O ~/bootstrap-tpcx-ai.sh https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ml/tpcx-ai/scripts/bootstrap-tpcx-ai.sh &&
         bash ~/bootstrap-tpcx-ai.sh
 ```
 
 ### Option 3: Use exec commands to install the TPCx-AI toolkit on all nodes
 If you cluster already started, you can run the installing command on all nodes to achieve the same.
 ```buildoutcfg
-cloudtik exec your-cluster-config.yaml "wget -P ~/ https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ml/tpcx-ai/scripts/bootstrap-tpcx-ai.sh && bash ~/bootstrap-tpcx-ai.sh" --all-nodes
+cloudtik exec your-cluster-config.yaml "wget -O ~/bootstrap-tpcx-ai.sh https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ml/tpcx-ai/scripts/bootstrap-tpcx-ai.sh && bash ~/bootstrap-tpcx-ai.sh" --all-nodes
 ```
 
 Please note that the toolkit installing usually takes a long time.

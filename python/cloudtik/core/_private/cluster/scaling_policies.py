@@ -8,7 +8,8 @@ from cloudtik.core import tags
 from cloudtik.core._private import constants
 from cloudtik.core._private.state.control_state import ControlState
 from cloudtik.core._private.utils import get_resource_demands_for_cpu, RUNTIME_CONFIG_KEY, \
-    convert_nodes_to_cpus, get_resource_demands_for_memory, convert_nodes_to_memory
+    convert_nodes_to_cpus, get_resource_demands_for_memory, convert_nodes_to_memory, get_resource_requests_for_cpu, \
+    _sum_min_workers
 from cloudtik.core.scaling_policy import ScalingPolicy, ScalingState
 
 logger = logging.getLogger(__name__)
@@ -23,6 +24,9 @@ SCALING_WITH_LOAD_STEP_DEFAULT = 1
 SCALING_WITH_LOAD_CPU_LOAD_THRESHOLD_DEFAULT = 0.85
 SCALING_WITH_LOAD_MEMORY_LOAD_THRESHOLD_DEFAULT = 0.85
 SCALING_WITH_LOAD_IN_USE_CPU_LOAD_THRESHOLD_DEFAULT = 0.10
+
+SCALING_WITH_TIME_MATH_ON_MIN_WORKERS = "on-min-workers"
+SCALING_WITH_TIME_MATH_ON_PREVIOUS_TIME = "on-previous-time"
 
 
 class ScalingWithResources(ScalingPolicy):
@@ -100,7 +104,7 @@ class ScalingWithResources(ScalingPolicy):
             load_avg_per_cpu = load_avg[1]
             load_avg_per_cpu_1 = load_avg_per_cpu[0]
             load_avg_all_1 = load_avg[0][0]
-            used_cpus = min(round(load_avg_all_1), total_cpus)
+            used_cpus = min(math.ceil(load_avg_all_1), total_cpus)
 
             memory = metrics.get("mem")
             (total_memory, available_memory, percent_memory, used_memory) = memory
@@ -264,7 +268,7 @@ class ScalingWithLoad(ScalingWithResources):
                         "resource_requesting": resource_requesting,
                     }
 
-        autoscaling_instructions["demanding_time"] = self.last_state_time
+        autoscaling_instructions["scaling_time"] = self.last_state_time
         autoscaling_instructions["resource_demands"] = resource_demands
         if len(resource_demands) > 0 and logger.isEnabledFor(logging.DEBUG):
             logger.debug("Resource demands: {}".format(resource_demands))
@@ -299,7 +303,7 @@ class ScalingWithLoad(ScalingWithResources):
             (total_memory, available_memory, percent_memory, used_memory) = memory
 
             cluster_total_cpus += total_cpus
-            cluster_used_cpus += min(round(load_avg_all_1), total_cpus)
+            cluster_used_cpus += min(math.ceil(load_avg_all_1), total_cpus)
             cluster_load_avg_all_1 += load_avg_all_1
             cluster_total_memory += total_memory
             cluster_used_memory += used_memory
@@ -323,7 +327,189 @@ class ScalingWithLoad(ScalingWithResources):
         }
 
 
+class ScalingWithTime(ScalingWithResources):
+    def __init__(self,
+                 config: Dict[str, Any],
+                 head_ip: str) -> None:
+        ScalingWithResources.__init__(self, config, head_ip)
+
+        # scaling parameters
+        self.min_workers = 0
+        self.scaling_math_base = SCALING_WITH_TIME_MATH_ON_MIN_WORKERS
+        self.scaling_time_table = []
+        self._reset_time_config()
+
+    def name(self):
+        return "scaling-with-time"
+
+    def reset(self, config):
+        super().reset(config)
+        self._reset_time_config()
+
+    def _reset_time_config(self):
+        self.min_workers = self._get_min_workers()
+        self.scaling_math_base = self.scaling_config.get(
+            "scaling_math_base", SCALING_WITH_TIME_MATH_ON_MIN_WORKERS)
+        self.scaling_time_table = self._formalize_time_table(
+            self.scaling_config.get("scaling_time_table", {}))
+
+    def _get_resource_requests_for(self, number_of_nodes):
+        requested_cores = self.get_number_of_cores_to_scale(number_of_nodes)
+        return get_resource_requests_for_cpu(requested_cores, self.config)
+
+    def get_number_of_cores_to_scale(self, nodes):
+        return convert_nodes_to_cpus(self.config, nodes)
+
+    def get_memory_to_scale(self, nodes):
+        return convert_nodes_to_memory(self.config, nodes)
+
+    def _get_min_workers(self):
+        return _sum_min_workers(self.config)
+
+    def _get_autoscaling_instructions(self, all_node_metrics):
+        # Use the time table to make the decisions
+        resource_requests = self._get_resource_requests_with_time()
+        if resource_requests is None:
+            return None
+
+        autoscaling_instructions = {
+            "scaling_time": self.last_state_time,
+            "resource_requests": resource_requests}
+        if resource_requests is not None and logger.isEnabledFor(logging.DEBUG):
+            logger.debug("Scaling time table: {}".format(self.scaling_time_table))
+            logger.debug("Resource requests: {}".format(resource_requests))
+
+        return autoscaling_instructions
+
+    def _time_spec_to_seconds(self, time_spec):
+        # convert 07:23:02
+        c = time_spec.count(':')
+        if c == 0:
+            t = time.strptime(time_spec, '%H')
+        elif c == 1:
+            t = time.strptime(time_spec, '%H:%M')
+        else:
+            t = time.strptime(time_spec, '%H:%M:%S')
+        return t.tm_hour * 3600 + t.tm_min * 60 + t.tm_sec
+
+    @staticmethod
+    def isfloat(nodes_spec):
+        try:
+            float(nodes_spec)
+            return True
+        except ValueError:
+            return False
+
+    def get_nodes_from_base(self, nodes_spec, base_nodes):
+        if nodes_spec.startswith('*'):
+            nodes_spec = nodes_spec[1:]
+            if self.isfloat(nodes_spec):
+                return round(base_nodes * float(nodes_spec))
+        elif nodes_spec.startswith('+'):
+            nodes_spec = nodes_spec[1:]
+            if nodes_spec.isdigit():
+                return max(0, round(base_nodes + int(nodes_spec)))
+        elif nodes_spec.startswith('-'):
+            nodes_spec = nodes_spec[1:]
+            if nodes_spec.isdigit():
+                return max(0, round(base_nodes - int(nodes_spec)))
+        raise ValueError("Invalid node specification for multiplier: {}".format(nodes_spec))
+
+    def _expand_time_table(self, expanding_time_table):
+        remaining = 0
+        prev_expanding_slot = expanding_time_table[-1] if expanding_time_table else None
+        for expanding_slot in expanding_time_table:
+            if expanding_slot[1] < 0:
+                # not expanded
+                nodes_spec = expanding_slot[2]
+                if isinstance(nodes_spec, int) or (
+                        isinstance(nodes_spec, str) and nodes_spec.isdigit()):
+                    nodes = int(nodes_spec)
+                    if nodes == 0:
+                        # Set nodes to minimal workers
+                        nodes = self.min_workers
+                    expanding_slot[1] = nodes
+                elif isinstance(nodes_spec, str):
+                    # if it is not digit, multiplier or addition or reduction
+                    # we need expand base on its nodes of previous time slot
+                    if self.scaling_math_base == SCALING_WITH_TIME_MATH_ON_MIN_WORKERS:
+                        nodes = self.get_nodes_from_base(nodes_spec, self.min_workers)
+                        expanding_slot[1] = nodes
+                    else:
+                        if prev_expanding_slot is not None and prev_expanding_slot[1] >= 0:
+                            nodes = self.get_nodes_from_base(nodes_spec, prev_expanding_slot[1])
+                            expanding_slot[1] = nodes
+                        else:
+                            # cannot expand by now
+                            remaining += 1
+                else:
+                    raise ValueError("Invalid node specification: {}".format(nodes_spec))
+            prev_expanding_slot = expanding_slot
+        return remaining
+
+    def _formalize_time_table(self, time_table):
+        try:
+            scaling_time_table = []
+            for time_spec, nodes_spec in time_table.items():
+                seconds = self._time_spec_to_seconds(time_spec)
+                if nodes_spec is None:
+                    continue
+                expanding_time_slot = [seconds, -1, nodes_spec]
+                scaling_time_table.append(expanding_time_slot)
+
+            def seconds_sort(time_slot):
+                return time_slot[0]
+            scaling_time_table.sort(key=seconds_sort)
+
+            remaining = self._expand_time_table(scaling_time_table)
+            if remaining > 0:
+                remaining = self._expand_time_table(scaling_time_table)
+                if remaining > 0:
+                    raise ValueError("Invalid node specification. For math based on previous time, "
+                                     "at least one time needs specific node number. "
+                                     "Use 0 to refer the minimum workers from cluster configuration.")
+            return scaling_time_table
+        except Exception as e:
+            logger.error(
+                "Failed to parse the scaling time table: {}".format(str(e)))
+            return []
+
+    def _get_seconds_in_day(self, t):
+        local_time = time.localtime(t)
+        return local_time.tm_hour * 3600 + local_time.tm_min * 60 + local_time.tm_sec
+
+    def _get_nodes_request(self, seconds_in_day):
+        if not self.scaling_time_table:
+            return None
+
+        prev_time_slot = self.scaling_time_table[-1]
+        for time_slot in self.scaling_time_table:
+            if time_slot[0] <= seconds_in_day:
+                prev_time_slot = time_slot
+                continue
+
+            # This is the first timeslot greater than seconds_in_day
+            return prev_time_slot[1]
+
+        # if there is no time slot found, the time should circle to last timeslot
+        return prev_time_slot[1]
+
+    def _get_resource_requests_with_time(self):
+        current_time = self.last_state_time
+        seconds_in_day = self._get_seconds_in_day(current_time)
+        return self._get_resource_requests_at_seconds(seconds_in_day)
+
+    def _get_resource_requests_at_seconds(self, seconds_in_day):
+        number_of_nodes = self._get_nodes_request(seconds_in_day)
+        if number_of_nodes is None:
+            return None
+        return self._get_resource_requests_for(number_of_nodes)
+
+
 def _create_scaling_policy(scaling_policy_name: str, config, head_ip):
     if SCALING_WITH_LOAD == scaling_policy_name:
         return ScalingWithLoad(config, head_ip)
+    elif SCALING_WITH_TIME == scaling_policy_name:
+        return ScalingWithTime(config, head_ip)
+
     return None

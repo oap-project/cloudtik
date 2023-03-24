@@ -6,14 +6,14 @@ You only need to add the following bootstrap_commands in the cluster configurati
 ```buildoutcfg
 
 bootstrap_commands:
-    - wget -P ~/ https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/presto/scripts/tpcds-tpch-power-test.sh
+    - wget -O ~/tpcds-tpch-power-test.sh https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/presto/scripts/tpcds-tpch-power-test.sh
 ```
 
 ## 2. Run TPC-DS power test
 
 Execute the following command to run TPC-DS on the cluster:
 ```buildoutcfg
-cloudtik exec your-cluster-config.yaml "bash \$HOME/tpcds-tpch-power-test.sh --workload=tpcds --scale=1 --iteration=2"
+cloudtik exec your-cluster-config.yaml 'bash $HOME/tpcds-tpch-power-test.sh --workload=tpcds --scale=1 --iteration=2'
 ```
 Replace the cluster configuration file for your case. 
 
@@ -21,6 +21,6 @@ Replace the cluster configuration file for your case.
 
 Execute the following command to run TPC-DS on the cluster:
 ```buildoutcfg
-cloudtik exec your-cluster-config.yaml "bash \$HOME/tpcds-tpch-power-test.sh --workload=tpch --scale=1 --iteration=2"
+cloudtik exec your-cluster-config.yaml 'bash $HOME/tpcds-tpch-power-test.sh --workload=tpch --scale=1 --iteration=2'
 ```
 Replace the cluster configuration file for your case. 

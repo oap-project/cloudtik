@@ -6,7 +6,7 @@ from typing import Optional, Dict
 
 from cloudtik.core._private.cluster.cluster_metrics import ClusterMetrics
 from cloudtik.core._private.cluster.event_summarizer import EventSummarizer
-from cloudtik.core._private.constants import CLOUDTIK_RESOURCE_REQUEST_CHANNEL
+from cloudtik.core._private.constants import CLOUDTIK_RESOURCE_REQUESTS
 from cloudtik.core._private.state.kv_store import kv_initialized, kv_get
 from cloudtik.core._private.state.scaling_state import ScalingStateClient
 
@@ -107,11 +107,14 @@ class ClusterMetricsUpdater:
         """Fetches resource requests from the internal KV and updates load."""
         if not kv_initialized():
             return
-        data = kv_get(CLOUDTIK_RESOURCE_REQUEST_CHANNEL)
+        data = kv_get(CLOUDTIK_RESOURCE_REQUESTS)
         if data:
             try:
-                resource_request = json.loads(data)
-                self.cluster_metrics.set_resource_requests(resource_request)
+                resource_requests = json.loads(data)
+                request_resources = resource_requests.get("requests")
+                self.cluster_metrics.set_resource_requests(
+                    resource_requests["request_time"],
+                    request_resources)
             except Exception:
                 logger.exception("Error parsing resource requests")
 

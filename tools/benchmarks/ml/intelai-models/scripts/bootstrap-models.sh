@@ -6,6 +6,7 @@ eval set -- "${args}"
 USER_HOME=/home/$(whoami)
 BENCHMARK_TOOL_HOME=$USER_HOME/runtime/benchmark-tools
 
+
 if test -e "/mnt/cloudtik/data_disk_1/"
 then
     INTELAI_LOCAL_PATH=/mnt/cloudtik/data_disk_1/intelai_local
@@ -28,6 +29,7 @@ INTELAI_LOCAL_WORKSPACE=$INTELAI_LOCAL_PATH/workspace
 MODELS_HOME=$INTELAI_PATH/models
 MODELS_SCRIPTS_HOME=$INTELAI_PATH/models_scripts
 MODELS_TMP=$INTELAI_LOCAL_PATH/tmp
+
 
 while true
 do
@@ -66,6 +68,7 @@ function prepare() {
 function install_intelai_models() {
   mkdir -p $MODELS_TMP
   cd $MODELS_TMP
+
   rm -rf models
   git clone https://github.com/IntelAI/models.git
   cp -r models $INTELAI_PATH

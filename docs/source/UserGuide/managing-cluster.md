@@ -147,7 +147,7 @@ We provide a script to simplify the installation of these dependencies. You only
 ```buildoutcfg
 
 bootstrap_commands:
-    - wget -P ~/ https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/spark/scripts/bootstrap-benchmark.sh &&
+    - wget -O ~/bootstrap-benchmark.sh https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/spark/scripts/bootstrap-benchmark.sh &&
         bash ~/bootstrap-benchmark.sh  --tpcds
 ```
 

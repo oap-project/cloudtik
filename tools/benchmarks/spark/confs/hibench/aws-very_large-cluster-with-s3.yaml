@@ -30,5 +30,5 @@ runtime:
 
 bootstrap_commands:
     - sudo apt-get install bc
-    - wget -P ~/ https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/spark/scripts/bootstrap-benchmark.sh && bash ~/bootstrap-benchmark.sh --workload=hibench
-    - wget -P ~/ https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/integrations/oap/bootstrap_oap.sh && bash ~/bootstrap_oap.sh 1.4.0.spark32
+    - wget -O ~/bootstrap-benchmark.sh https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/spark/scripts/bootstrap-benchmark.sh && bash ~/bootstrap-benchmark.sh --workload=hibench
+    - wget -O ~/bootstrap_oap.sh https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/integrations/oap/bootstrap_oap.sh && bash ~/bootstrap_oap.sh 1.4.0.spark32

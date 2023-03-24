@@ -37,7 +37,7 @@ export DATASET_DIR=$RESNEXT101_DATA
 export OUTPUT_DIR=$RESNEXT101_OUTPUT
 export PRECISION=$PRECISION
 
-cd ${MODEL_DIR}/quickstart/image_recognition/pytorch/resnext-32x16d/inference/cpu
+cd ${MODELS_DIR}/quickstart/image_recognition/pytorch/resnext-32x16d/inference/cpu
 
 bash accuracy.sh
 bash inference_throughput.sh

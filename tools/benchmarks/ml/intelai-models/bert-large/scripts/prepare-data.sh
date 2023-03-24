@@ -3,17 +3,17 @@
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source ${SCRIPT_DIR}/../../common/scripts/setenv.sh
 
-BERT_LOCAL_HOME=$INTELAI_MODELS_LOCAL_WORKSPACE/bert
-BERT_MODEL=$BERT_LOCAL_HOME/model
-BERT_DATA=$BERT_LOCAL_HOME/data
+BERT_HOME=$INTELAI_MODELS_WORKING/bert
+BERT_MODEL=$BERT_HOME/model
+BERT_DATA=$BERT_HOME/data
 SQUAD_DATA=$BERT_DATA/squad
 SQUAD_MODEL=$BERT_MODEL/bert_squad_model
-BERT_INPUT_PREPROCESSING=${MODEL_DIR}/models/language_modeling/pytorch/bert_large/training/input_preprocessing/
+BERT_INPUT_PREPROCESSING=${MODELS_DIR}/models/language_modeling/pytorch/bert_large/training/input_preprocessing/
 
 PHASE="inference"
 
-if [ ! -n "${MODEL_DIR}" ]; then
-  echo "Please set environment variable '\${MODEL_DIR}'."
+if [ ! -n "${MODELS_DIR}" ]; then
+  echo "Please set environment variable '\${MODELS_DIR}'."
   exit 1
 fi
 
@@ -108,7 +108,7 @@ function prepare_inference_model() {
 
 function prepare_inference_libraries() {
   # Clone the Transformers repo in the BERT large inference directory
-  cd ${MODEL_DIR}/quickstart/language_modeling/pytorch/bert_large/inference/cpu
+  cd ${MODELS_DIR}/quickstart/language_modeling/pytorch/bert_large/inference/cpu
   rm -rf transformers
   git clone https://github.com/huggingface/transformers.git
   cd transformers
@@ -130,4 +130,4 @@ else
     usage
 fi
 
-move_to_shared_dict $BERT_LOCAL_HOME
+move_to_workspace $BERT_HOME

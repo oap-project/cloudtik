@@ -34,5 +34,5 @@ export CHECKPOINT_DIR=$SSD_RESNET34_MODEL
 export OUTPUT_DIR=$SSD_RESNET34_OUTPUT
 mkdir -p $OUTPUT_DIR
 
-cd ${MODEL_DIR}/quickstart/object_detection/pytorch/ssd-resnet34/training/cpu
+cd ${MODELS_DIR}/quickstart/object_detection/pytorch/ssd-resnet34/training/cpu
 bash throughput.sh $PRECISION

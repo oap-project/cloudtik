@@ -356,11 +356,7 @@ def _get_scaling_policy(
         cluster_config: Dict[str, Any],
         head_ip: str) -> Optional[ScalingPolicy]:
     flink_config = runtime_config.get(FLINK_RUNTIME_CONFIG_KEY, {})
-    scaling_config = flink_config.get("scaling", {})
-
-    node_resource_states = scaling_config.get("node_resource_states", True)
-    auto_scaling = scaling_config.get("auto_scaling", False)
-    if not node_resource_states and not auto_scaling:
+    if "scaling" not in flink_config:
         return None
 
     return FlinkScalingPolicy(

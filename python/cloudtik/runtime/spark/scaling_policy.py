@@ -47,9 +47,9 @@ class SparkScalingPolicy(ScalingPolicy):
                  head_ip: str,
                  rest_port) -> None:
         ScalingPolicy.__init__(self, config, head_ip)
-        self.scaling_config = {}
 
         # scaling parameters
+        self.scaling_config = {}
         self.scaling_mode = SPARK_SCALING_MODE_NONE
         self.scaling_step = SPARK_SCALING_STEP_DEFAULT
         self.scaling_resource = SPARK_SCALING_RESOURCE_MEMORY
@@ -58,7 +58,7 @@ class SparkScalingPolicy(ScalingPolicy):
         self.apps_pending_free_memory_threshold = APP_PENDING_FREE_MEMORY_THRESHOLD_DEFAULT
         self.aggressive_free_ratio_threshold = AGGRESSIVE_FREE_RATIO_THRESHOLD_DEFAULT
 
-        self.reset(config)
+        self._reset_spark_config()
 
         self.rest_port = rest_port
         self.last_state_time = 0
@@ -69,8 +69,11 @@ class SparkScalingPolicy(ScalingPolicy):
         return "scaling-with-spark"
 
     def reset(self, config):
-        self.config = config
-        spark_config = config.get(RUNTIME_CONFIG_KEY, {}).get("spark", {})
+        super().reset(config)
+        self._reset_spark_config()
+
+    def _reset_spark_config(self):
+        spark_config = self.config.get(RUNTIME_CONFIG_KEY, {}).get("spark", {})
         self.scaling_config = spark_config.get("scaling", {})
 
         # Update the scaling parameters

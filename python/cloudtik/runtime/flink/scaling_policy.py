@@ -16,6 +16,7 @@ FLINK_YARN_REST_ENDPOINT_CLUSTER_METRICS = "http://{}:{}/ws/v1/cluster/metrics"
 
 FLINK_SCALING_MODE_APPS_PENDING = "apps-pending"
 FLINK_SCALING_MODE_AGGRESSIVE = "aggressive"
+FLINK_SCALING_MODE_NONE = "none"
 
 FLINK_SCALING_RESOURCE_MEMORY = constants.CLOUDTIK_RESOURCE_MEMORY
 FLINK_SCALING_RESOURCE_CPU = constants.CLOUDTIK_RESOURCE_CPU
@@ -46,10 +47,9 @@ class FlinkScalingPolicy(ScalingPolicy):
                  head_ip: str,
                  rest_port) -> None:
         ScalingPolicy.__init__(self, config, head_ip)
-        self.scaling_config = {}
 
-        self.auto_scaling = False
         # scaling parameters
+        self.scaling_config = {}
         self.scaling_mode = FLINK_SCALING_MODE_APPS_PENDING
         self.scaling_step = FLINK_SCALING_STEP_DEFAULT
         self.scaling_resource = FLINK_SCALING_RESOURCE_MEMORY
@@ -58,7 +58,7 @@ class FlinkScalingPolicy(ScalingPolicy):
         self.apps_pending_free_memory_threshold = APP_PENDING_FREE_MEMORY_THRESHOLD_DEFAULT
         self.aggressive_free_ratio_threshold = AGGRESSIVE_FREE_RATIO_THRESHOLD_DEFAULT
 
-        self.reset(config)
+        self._reset_flink_config()
 
         self.rest_port = rest_port
         self.last_state_time = 0
@@ -69,11 +69,13 @@ class FlinkScalingPolicy(ScalingPolicy):
         return "scaling-with-flink"
 
     def reset(self, config):
-        self.config = config
-        flink_config = config.get(RUNTIME_CONFIG_KEY, {}).get("flink", {})
+        super().reset(config)
+        self._reset_flink_config()
+
+    def _reset_flink_config(self):
+        flink_config = self.config.get(RUNTIME_CONFIG_KEY, {}).get("flink", {})
         self.scaling_config = flink_config.get("scaling", {})
 
-        self.auto_scaling = self.scaling_config.get("auto_scaling", False)
         # Update the scaling parameters
         self.scaling_mode = self.scaling_config.get("scaling_mode", FLINK_SCALING_MODE_APPS_PENDING)
         self.scaling_step = self.scaling_config.get("scaling_step", FLINK_SCALING_STEP_DEFAULT)
@@ -85,11 +87,11 @@ class FlinkScalingPolicy(ScalingPolicy):
         self.apps_pending_free_memory_threshold = self.scaling_config.get(
             "apps_pending_free_memory_threshold", APP_PENDING_FREE_MEMORY_THRESHOLD_DEFAULT)
         self.aggressive_free_ratio_threshold = self.scaling_config.get(
-            "aggressive_free_cores_ratio_threshold", AGGRESSIVE_FREE_RATIO_THRESHOLD_DEFAULT)
+            "aggressive_free_ratio_threshold", AGGRESSIVE_FREE_RATIO_THRESHOLD_DEFAULT)
 
     def get_scaling_state(self) -> Optional[ScalingState]:
         self.last_state_time = time.time()
-        autoscaling_instructions = self._get_autoscaling_instructions() if self.auto_scaling else None
+        autoscaling_instructions = self._get_autoscaling_instructions()
         node_resource_states, lost_nodes = self._get_node_resource_states()
 
         scaling_state = ScalingState()
@@ -175,6 +177,8 @@ class FlinkScalingPolicy(ScalingPolicy):
             "containersReserved": 0,
             "containersPending": 0,
         """
+        if not self.scaling_mode or self.scaling_mode == FLINK_SCALING_MODE_NONE:
+            return None
 
         cluster_metrics_url = FLINK_YARN_REST_ENDPOINT_CLUSTER_METRICS.format(
             self.head_ip, self.rest_port)

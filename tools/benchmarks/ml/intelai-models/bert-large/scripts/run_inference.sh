@@ -42,7 +42,7 @@ export FINETUNED_MODEL=$SQUAD_MODEL
 export EVAL_DATA_FILE=$SQUAD_DATA
 export OUTPUT_DIR=$BERT_OUTPUT
 mkdir -p $OUTPUT_DIR
-cd ${MODELS_DIR}/quickstart/language_modeling/pytorch/bert_large/inference/cpu
+cd ${MODELS_HOME}/quickstart/language_modeling/pytorch/bert_large/inference/cpu
 
 # Run a quickstart script (for example, FP32 multi-instance realtime inference)
 

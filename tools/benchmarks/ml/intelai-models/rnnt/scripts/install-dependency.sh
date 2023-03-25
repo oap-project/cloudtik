@@ -15,8 +15,8 @@ export CHECKPOINT_DIR=$RNNT_CHECKPOINT_DIR
 
 PHASE="inference"
 
-if [ ! -n "${MODELS_DIR}" ]; then
-  echo "Please set environment variable '\${MODELS_DIR}'."
+if [ ! -n "${MODELS_HOME}" ]; then
+  echo "Please set environment variable '\${MODELS_HOME}'."
   exit 1
 fi
 
@@ -42,9 +42,9 @@ do
 done
 
 if [ "${PHASE}" = "training" ]; then
-    bash ${MODELS_DIR}/quickstart/language_modeling/pytorch/rnnt/training/cpu/install_dependency.sh
+    bash ${MODELS_HOME}/quickstart/language_modeling/pytorch/rnnt/training/cpu/install_dependency.sh
 elif [ "${PHASE}" = "inference" ]; then
-    bash ${MODELS_DIR}/quickstart/language_modeling/pytorch/rnnt/inference/cpu/install_dependency_baremetal.sh
+    bash ${MODELS_HOME}/quickstart/language_modeling/pytorch/rnnt/inference/cpu/install_dependency_baremetal.sh
 else
     usage
 fi

@@ -18,8 +18,8 @@ mkdir -p $CHECKPOINT_DIR
 
 PHASE="inference"
 
-if [ ! -n "${MODELS_DIR}" ]; then
-  echo "Please set environment variable '\${MODELS_DIR}'."
+if [ ! -n "${MODELS_HOME}" ]; then
+  echo "Please set environment variable '\${MODELS_HOME}'."
   exit 1
 fi
 
@@ -44,10 +44,10 @@ do
 done
 
 if [ "${PHASE}" = "training" ]; then
-    bash ${MODELS_DIR}/quickstart/language_modeling/pytorch/rnnt/training/cpu/download_dataset.sh
+    bash ${MODELS_HOME}/quickstart/language_modeling/pytorch/rnnt/training/cpu/download_dataset.sh
 elif [ "${PHASE}" = "inference" ]; then
-    bash ${MODELS_DIR}/quickstart/language_modeling/pytorch/rnnt/inference/cpu/download_dataset.sh
-    bash ${MODELS_DIR}/quickstart/language_modeling/pytorch/rnnt/inference/cpu/download_model.sh
+    bash ${MODELS_HOME}/quickstart/language_modeling/pytorch/rnnt/inference/cpu/download_dataset.sh
+    bash ${MODELS_HOME}/quickstart/language_modeling/pytorch/rnnt/inference/cpu/download_model.sh
 else
     usage
 fi

@@ -784,6 +784,16 @@
                             "default": 0.10,
                             "description": "The minimum cpu load to consider the machine is in use"
                         },
+                        "scaling_periodic": {
+                            "type": "string",
+                            "default": "daily",
+                            "description": "The periodic to use for scaling with time policy. Values: daily, weekly, monthly"
+                        },
+                        "scaling_math_base": {
+                            "type": "string",
+                            "default": "on-min-workers",
+                            "description": "The base number to use for arithmetic such as *2. Values: on-min-workers, on-previous-time"
+                        },
                         "scaling_policy_class": {
                             "type": "string",
                             "description": "The module and class path of the scaling policy class"

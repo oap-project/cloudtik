@@ -109,6 +109,37 @@ For example,
 runtime:
     scaling:
         scaling_policy: scaling-with-time
+        scaling_periodic: daily
+        scaling_math_base: on-min-workers
+        scaling_time_table:
+            "8:00": "+1"
+            "9:00": "*2"
+            "10:00": "*0.5"
+            "11:00": "-1"
+```
+
+This will enable and use scaling-with-time policy.
+
+- scaling_periodic: The periodic interval for a scaling cycle.
+  - daily: Each day will be a cycle. For daily cycle, the time format in the time table is HH:MM:SS. Minutes and seconds are optional.
+  - weekly: Each week will be a cycle. For weekly cycle, the time format in the time table is, for example "Tue 10:00:00"
+  - monthly: Each month will be a cycle. For monthly cycle, the time format in the time table is, for example "20 10:00:00"
+- scaling_math_base: The base nodes used to do math such as *n or +n or -n.
+  - on-min-workers: the min_workers of cluster will be used. if min workers is 3, "*3" will get 9 nodes.
+  - on-previous-time: the nodes of previous time is used, if previous time is 2 nodes, "*3" will 6 nodes.
+    Please note that when this type is used, at least item in the time table must be a specific node number.
+- scaling_time_table: The time table for nodes to scale. The value can be:
+  - A specific node number. Use 0 to refer to the min workers.
+  - A multiplier, addition or reduction on a base. For example, "*2.5", "*3", "+4", "-5"
+
+#### scaling_math_base examples
+
+The following example uses on-min-workers for scaling_math_base option:
+```
+runtime:
+    scaling:
+        scaling_policy: scaling-with-time
+        scaling_periodic: daily
         scaling_math_base: on-min-workers
         scaling_time_table:
             "8:00": "+1"
@@ -119,18 +150,6 @@ runtime:
             "16:00": "+1"
 ```
 
-This will enable and use scaling-with-time policy.
-
-- scaling_math_base: The base nodes used to do math such as *n or +n or -n.
-  - For on-min-workers, the min_workers of cluster will be used. if min workers is 3, "*3" will get 9 nodes.
-  - For on-previous-time, the nodes of previous time is used, if previous time is 2 nodes, "*3" will 6 nodes.
-    Please note that when this type is used, at least item in the time table must be a specific node number.
-- scaling_time_table: The time table for nodes to scale. The value can be:
-  - A specific node number. Use 0 to refer to the min workers.
-  - A multiplier, addition or reduction on a base. For example, "*2.5", "*3", "+4", "-5"
-
-
-Based on this understanding, the above time table with on-min-workers based math option
 will scale the cluster as following, if min_workers is 3:
 
 ```
@@ -142,12 +161,12 @@ will scale the cluster as following, if min_workers is 3:
             "16:00": 4 nodes
 ```
 
-
 The following example uses on-previous-time for scaling_math_base option:
 ```
 runtime:
     scaling:
         scaling_policy: scaling-with-time
+        scaling_periodic: daily
         scaling_math_base: on-previous-time
         scaling_time_table:
             "7:00": 5
@@ -167,6 +186,36 @@ The above time table will resolve to the following scaling schedule:
             "11:00": 10 nodes
             "15:00": 5 nodes
 ```
+
+#### scaling_periodic examples
+The following example uses weekly as cycle which on Monday 7:00, scale up
+double the size of the cluster and scale down to normal on weekends.
+
+```
+runtime:
+    scaling:
+        scaling_policy: scaling-with-time
+        scaling_periodic: weekly
+        scaling_math_base: on-min-workers
+        scaling_time_table:
+            "Mon 07:00": "*2"
+            "Fri 19:00": "*1"
+```
+
+The following example uses monthly as cycle which on 10 7:00 every month, scale up
+double the size of the cluster and scale down to normal on 20 19:00.
+
+```
+runtime:
+    scaling:
+        scaling_policy: scaling-with-time
+        scaling_periodic: weekly
+        scaling_math_base: on-min-workers
+        scaling_time_table:
+            "10 07:00": "*2"
+            "20 19:00": "*1"
+```
+
 
 ### Scaling with Spark
 If you want to scale the cluster based Spark application and resource utilization

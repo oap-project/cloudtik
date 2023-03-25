@@ -1116,7 +1116,7 @@ def start_log_monitor(redis_address,
         ProcessInfo for the process that was started.
     """
     log_monitor_filepath = os.path.join(CLOUDTIK_PATH, CLOUDTIK_CORE_PRIVATE_SERVICE,
-                                        "cloudtik_log_monitor.py")
+                                        "cloudtik_log_monitor_service.py")
     command = [
         sys.executable, "-u", log_monitor_filepath,
         f"--redis-address={redis_address}", f"--logs-dir={logs_dir}",
@@ -1230,11 +1230,11 @@ def start_node_monitor(head, redis_address,
     Returns:
         ProcessInfo for the process that was started.
     """
-    controller_path = os.path.join(CLOUDTIK_PATH, CLOUDTIK_CORE_PRIVATE_SERVICE, "cloudtik_node_monitor.py")
+    monitor_path = os.path.join(CLOUDTIK_PATH, CLOUDTIK_CORE_PRIVATE_SERVICE, "cloudtik_node_monitor_service.py")
     command = [
         sys.executable,
         "-u",
-        controller_path,
+        monitor_path,
         f"--logs-dir={logs_dir}",
         f"--redis-address={redis_address}",
         f"--logging-rotate-bytes={max_bytes}",

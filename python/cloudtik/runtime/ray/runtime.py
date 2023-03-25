@@ -8,7 +8,7 @@ from cloudtik.runtime.ray.utils import _config_runtime_resources, _with_runtime_
     _is_runtime_scripts, _get_runnable_command, _get_runtime_processes, _validate_config, \
     _verify_config, _get_runtime_logs, _get_runtime_commands, \
     _get_defaults_config, _get_runtime_services, _config_depended_services, _get_runtime_service_ports, \
-    _get_runtime_shared_memory_ratio
+    _get_runtime_shared_memory_ratio, _get_scaling_policy
 
 logger = logging.getLogger(__name__)
 

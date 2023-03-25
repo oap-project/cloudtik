@@ -63,7 +63,7 @@ class NodeMonitor:
         }
         self.metrics_collector = None
 
-        # Can be used to signal graceful exit from controller loop.
+        # Can be used to signal graceful exit from monitor loop.
         self.stop_event = stop_event  # type: Optional[Event]
 
         self.control_state = ControlState()
@@ -76,10 +76,10 @@ class NodeMonitor:
         self.processes_to_check.extend(get_runtime_processes(runtime_list))
         self.node_info_lock = threading.Lock()
 
-        logger.info("Controller: Started")
+        logger.info("Monitor: Started")
 
     def _run(self):
-        """Run the controller loop."""
+        """Run the monitor loop."""
         self.create_heart_beat_thread()
         while True:
             if self.stop_event and self.stop_event.is_set():
@@ -96,7 +96,8 @@ class NodeMonitor:
             time.sleep(constants.CLOUDTIK_UPDATE_INTERVAL_S)
 
     def _handle_failure(self, error):
-        logger.exception("Error in controller loop")
+        logger.exception("Error in node monitor loop")
+        logger.exception(f"The node monitor failed with the following error:\n{error}")
 
     def _signal_handler(self, sig, frame):
         self._handle_failure(f"Terminated with signal {sig}\n" +

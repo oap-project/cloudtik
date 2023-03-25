@@ -1,7 +1,9 @@
 import os
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from cloudtik.core._private.utils import merge_rooted_config_hierarchy, _get_runtime_config_object, get_node_type_config
+from cloudtik.core.scaling_policy import ScalingPolicy
+from cloudtik.runtime.ray.scaling_policy import RayScalingPolicy
 
 RUNTIME_PROCESSES = [
     # The first element is the substring to filter.
@@ -18,6 +20,8 @@ RAY_RUNTIME_CONFIG_KEY = "ray"
 
 # The default proportion of available memory allocated to system and runtime overhead
 RAY_DEFAULT_SHARED_MEMORY_PROPORTION = 0.3
+RAY_PORT = 6379
+RAY_DASHBOARD_PORT = 8265
 
 
 def _config_runtime_resources(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
@@ -95,11 +99,13 @@ def _get_runtime_services(cluster_head_ip):
     services = {
         "ray": {
             "name": "Ray",
-            "url": "{}:6379".format(cluster_head_ip)
+            "url": "{}:{}".format(
+                cluster_head_ip, RAY_PORT)
         },
         "dashboard": {
             "name": "Ray Dashboard",
-            "url": "http://{}:8265".format(cluster_head_ip)
+            "url": "http://{}:{}".format(
+                cluster_head_ip, RAY_DASHBOARD_PORT)
         }
     }
     return services
@@ -115,11 +121,24 @@ def _get_runtime_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]
     service_ports = {
         "ray": {
             "protocol": "TCP",
-            "port": 6379,
+            "port": RAY_PORT,
         },
         "dashboard": {
             "protocol": "TCP",
-            "port": 8265,
+            "port": RAY_DASHBOARD_PORT,
         },
     }
     return service_ports
+
+
+def _get_scaling_policy(
+        runtime_config: Dict[str, Any],
+        cluster_config: Dict[str, Any],
+        head_ip: str) -> Optional[ScalingPolicy]:
+    ray_config = runtime_config.get(RAY_RUNTIME_CONFIG_KEY, {})
+    if "scaling" not in ray_config:
+        return None
+
+    return RayScalingPolicy(
+        cluster_config, head_ip,
+        ray_port=RAY_PORT)

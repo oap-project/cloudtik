@@ -896,6 +896,25 @@
                         }
                     }
                 },
+                "ray": {
+                    "type": "object",
+                    "description": "Ray runtime related configurations",
+                    "additionalProperties": true,
+                    "properties": {
+                        "scaling:": {
+                            "type": "object",
+                            "description": "Ray scaling configurations",
+                            "additionalProperties": true,
+                            "properties": {
+                                "auto_scaling": {
+                                    "type": "boolean",
+                                    "default": false,
+                                    "description": "Whether to enable ray based auto scaling"
+                                }
+                            }
+                        }
+                    }
+                },
                 "flink": {
                     "type": "object",
                     "description": "Flink runtime related configurations",

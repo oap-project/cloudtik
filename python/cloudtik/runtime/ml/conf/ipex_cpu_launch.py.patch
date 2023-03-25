@@ -634,13 +634,13 @@ class DistributedTrainingLauncher(Launcher):
                     logger.info("connection from master node {} to slave node {} is OK".format(args.master_addr, ip))
         else:
             # CloudTik: patch start
-            if arg.hosts:
+            if args.hosts:
                 host_list = args.hosts.split(',')
                 args.nnodes = len(host_list)
                 args.master_addr = host_list[0]
             # CloudTik: patch end
 
-        if not arg.hosts:
+        if not args.hosts:
             total_cores_per_node = self.cpuinfo.physical_core_nums()
             if args.use_logical_core:
                 total_cores_per_node = self.cpuinfo.logical_core_nums()

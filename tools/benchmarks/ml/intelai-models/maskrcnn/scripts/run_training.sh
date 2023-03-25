@@ -34,6 +34,6 @@ export CHECKPOINT_DIR=$MASKRCNN_MODEL
 export OUTPUT_DIR=$MASKRCNN_OUTPUT
 mkdir -p $OUTPUT_DIR
 
-cd ${MODELS_DIR}/quickstart/object_detection/pytorch/maskrcnn/training/cpu
+cd ${MODELS_HOME}/quickstart/object_detection/pytorch/maskrcnn/training/cpu
 bash training.sh $PRECISION
 

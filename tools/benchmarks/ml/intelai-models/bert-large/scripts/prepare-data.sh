@@ -8,12 +8,12 @@ BERT_MODEL=$BERT_HOME/model
 BERT_DATA=$BERT_HOME/data
 SQUAD_DATA=$BERT_DATA/squad
 SQUAD_MODEL=$BERT_MODEL/bert_squad_model
-BERT_INPUT_PREPROCESSING=${MODELS_DIR}/models/language_modeling/pytorch/bert_large/training/input_preprocessing/
+BERT_INPUT_PREPROCESSING=${MODELS_HOME}/models/language_modeling/pytorch/bert_large/training/input_preprocessing/
 
 PHASE="inference"
 
-if [ ! -n "${MODELS_DIR}" ]; then
-  echo "Please set environment variable '\${MODELS_DIR}'."
+if [ ! -n "${MODELS_HOME}" ]; then
+  echo "Please set environment variable '\${MODELS_HOME}'."
   exit 1
 fi
 
@@ -108,7 +108,7 @@ function prepare_inference_model() {
 
 function prepare_inference_libraries() {
   # Clone the Transformers repo in the BERT large inference directory
-  cd ${MODELS_DIR}/quickstart/language_modeling/pytorch/bert_large/inference/cpu
+  cd ${MODELS_HOME}/quickstart/language_modeling/pytorch/bert_large/inference/cpu
   rm -rf transformers
   git clone https://github.com/huggingface/transformers.git
   cd transformers

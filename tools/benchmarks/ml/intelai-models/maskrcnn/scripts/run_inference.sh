@@ -47,7 +47,7 @@ set MODE=$MODE
 
 mkdir -p $OUTPUT_DIR
 
-cd ${MODELS_DIR}/quickstart/object_detection/pytorch/maskrcnn/inference/cpu
+cd ${MODELS_HOME}/quickstart/object_detection/pytorch/maskrcnn/inference/cpu
 
 if [ "${METRIC}" = "throughput" ]; then
     bash inference_throughput.sh $PRECISION $MODE

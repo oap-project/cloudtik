@@ -42,7 +42,7 @@ export OUTPUT_DIR=$RESNET50_OUTPUT
 #(fp32, int8, avx-int8, bf16, bf32 or fp16)
 export PRECISION=$PRECISION
 mkdir -p $OUTPUT_DIR
-cd ${MODELS_DIR}/quickstart/image_recognition/pytorch/resnet50/inference/cpu
+cd ${MODELS_HOME}/quickstart/image_recognition/pytorch/resnet50/inference/cpu
 
 if [ "${METRIC}" = "throughput" ]; then
     bash inference_throughput.sh

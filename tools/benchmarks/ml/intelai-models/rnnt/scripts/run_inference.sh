@@ -38,7 +38,7 @@ do
     shift
 done
 
-cd ${MODELS_DIR}/quickstart/language_modeling/pytorch/rnnt/inference/cpu
+cd ${MODELS_HOME}/quickstart/language_modeling/pytorch/rnnt/inference/cpu
 
 bash accuracy.sh $PRECISION
 bash inference_throughput.sh $PRECISION

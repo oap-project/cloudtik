@@ -9,8 +9,8 @@ RESNET50_DATA=$RESNET50_HOME/data
 
 PHASE="inference"
 
-if [ ! -n "${MODELS_DIR}" ]; then
-  echo "Please set environment variable '\${MODELS_DIR}'."
+if [ ! -n "${MODELS_HOME}" ]; then
+  echo "Please set environment variable '\${MODELS_HOME}'."
   exit 1
 fi
 

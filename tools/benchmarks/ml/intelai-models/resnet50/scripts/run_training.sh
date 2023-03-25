@@ -43,5 +43,5 @@ export PRECISION=$PRECISION
 export TRAINING_EPOCHS=$TRAINING_EPOCHS
 
 # Run the training quickstart script
-cd ${MODELS_DIR}/quickstart/image_recognition/pytorch/resnet50/training/cpu
+cd ${MODELS_HOME}/quickstart/image_recognition/pytorch/resnet50/training/cpu
 bash training.sh

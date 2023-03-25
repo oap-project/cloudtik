@@ -8,7 +8,7 @@ fi
 
 case "$1" in
 start-head)
-    ray start --head --node-ip-address=$CLOUDTIK_NODE_IP --port=6379 --disable-usage-stats > /dev/null
+    ray start --head --node-ip-address=$CLOUDTIK_NODE_IP --port=6379 --no-monitor --disable-usage-stats > /dev/null
     ;;
 stop-head)
     ray stop

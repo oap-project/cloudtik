@@ -663,6 +663,7 @@ class DistributedTrainingLauncher(Launcher):
             # CloudTik: patch end
 
         if not args.hosts:
+            node_cores = self.cpuinfo.node_physical_cores
             total_cores_per_node = self.cpuinfo.physical_core_nums()
             if args.use_logical_core:
                 node_cores = self.cpuinfo.node_logical_cores

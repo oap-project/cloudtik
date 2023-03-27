@@ -1,7 +1,7 @@
-From 399569966ad15fb8a997fc3ac319f9e7b6ebe5aa Mon Sep 17 00:00:00 2001
+From 8542cf4154c598bfe05ddf5b7324ffd6419ed556 Mon Sep 17 00:00:00 2001
 From: haojinIntel <hao.jin@intel.com>
-Date: Fri, 24 Mar 2023 17:28:26 +0800
-Subject: [PATCH] CloudTik integration for IPEX
+Date: Mon, 27 Mar 2023 17:41:43 +0800
+Subject: [PATCH] Enhance numactl for different platforms
 
 ---
  intel_extension_for_pytorch/cpu/launch.py | 111 ++++++++++++++++++----
@@ -136,6 +136,7 @@ index 19fcb89c..44edba4c 100644
 +            # CloudTik: patch end
 +
 +        if not args.hosts:
++            node_cores = self.cpuinfo.node_physical_cores
 +            total_cores_per_node = self.cpuinfo.physical_core_nums()
 +            if args.use_logical_core:
 +                node_cores = self.cpuinfo.node_logical_cores

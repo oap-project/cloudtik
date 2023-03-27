@@ -57,6 +57,8 @@ CONFIG = {
     }
 }
 
+SECONDS_OF_A_DAY = 3600 * 24
+
 
 class ScalingPolicyForTest(ScalingPolicy):
     def __init__(self, config: Dict[str, Any], head_ip: str) -> None:
@@ -292,6 +294,138 @@ class TestScalingPolicy:
         assert scaling_with_time._get_nodes_request(13) == 3
 
         resource_requests = scaling_with_time._get_resource_requests_at_seconds(10)
+        assert resource_requests is not None
+        assert len(resource_requests) == 9 + 1
+
+    def test_scaling_with_time_weekly(self):
+        config = copy.deepcopy(CONFIG)
+        config["runtime"] = {
+            "types": ["ganglia"],
+            "scaling": {
+                "scaling_policy": "scale-with-time",
+                "scaling_math_base": "on-min-workers",
+                "scaling_periodic": "weekly",
+                "scaling_time_table": {
+                    "Mon 00:00:01": "*2",
+                    "Tue 00:00:02": "+2",
+                    "Wed 00:00:03": "*3.0",
+                    "Thu 00:00:04": "-1"
+                }
+            }
+        }
+
+        scaling_with_time = ScalingWithTimeTest(config, "127.0.0.1")
+        result_scaling_sate = scaling_with_time.get_scaling_state()
+        assert result_scaling_sate is not None
+        assert scaling_with_time.min_workers == 3
+        assert scaling_with_time.scaling_time_table[0][0] == 1 + 0 * SECONDS_OF_A_DAY
+        assert scaling_with_time.scaling_time_table[1][0] == 2 + 1 * SECONDS_OF_A_DAY
+        assert scaling_with_time.scaling_time_table[2][0] == 3 + 2 * SECONDS_OF_A_DAY
+        assert scaling_with_time.scaling_time_table[3][0] == 4 + 3 * SECONDS_OF_A_DAY
+        assert scaling_with_time.scaling_time_table[0][1] == 6
+        assert scaling_with_time.scaling_time_table[1][1] == 5
+        assert scaling_with_time.scaling_time_table[2][1] == 9
+        assert scaling_with_time.scaling_time_table[3][1] == 2
+
+    def test_scaling_with_time_monthly(self):
+        config = copy.deepcopy(CONFIG)
+        config["runtime"] = {
+            "types": ["ganglia"],
+            "scaling": {
+                "scaling_policy": "scale-with-time",
+                "scaling_math_base": "on-min-workers",
+                "scaling_periodic": "monthly",
+                "scaling_time_table": {
+                    "20 00:00:01": "*2",
+                    "21 00:00:02": "+2",
+                    "22 00:00:03": "*3.0",
+                    "23 00:00:04": "-1"
+                }
+            }
+        }
+
+        scaling_with_time = ScalingWithTimeTest(config, "127.0.0.1")
+        result_scaling_sate = scaling_with_time.get_scaling_state()
+        assert result_scaling_sate is not None
+        assert scaling_with_time.min_workers == 3
+        assert scaling_with_time.scaling_time_table[0][0] == 1 + 19 * SECONDS_OF_A_DAY
+        assert scaling_with_time.scaling_time_table[1][0] == 2 + 20 * SECONDS_OF_A_DAY
+        assert scaling_with_time.scaling_time_table[2][0] == 3 + 21 * SECONDS_OF_A_DAY
+        assert scaling_with_time.scaling_time_table[3][0] == 4 + 22 * SECONDS_OF_A_DAY
+        assert scaling_with_time.scaling_time_table[0][1] == 6
+        assert scaling_with_time.scaling_time_table[1][1] == 5
+        assert scaling_with_time.scaling_time_table[2][1] == 9
+        assert scaling_with_time.scaling_time_table[3][1] == 2
+
+    def test_scaling_with_time_nodes_request_weekly(self):
+        config = copy.deepcopy(CONFIG)
+        config["runtime"] = {
+            "types": ["ganglia"],
+            "scaling": {
+                "scaling_policy": "scale-with-time",
+                "scaling_math_base": "on-previous-time",
+                "scaling_periodic": "weekly",
+                "scaling_time_table": {
+                    "Mon 00:00:03": "*2",
+                    "Tue 00:00:06": 0,
+                    "Wed 00:00:09": "*3.0",
+                    "Thu 00:00:12": "3"
+                }
+            }
+        }
+
+        scaling_with_time = ScalingWithTimeTest(config, "127.0.0.1")
+        result_scaling_sate = scaling_with_time.get_scaling_state()
+
+        assert result_scaling_sate is not None
+        assert scaling_with_time.min_workers == 3
+        assert scaling_with_time.scaling_time_table[0][0] == 3 + 0 * SECONDS_OF_A_DAY
+        assert scaling_with_time.scaling_time_table[1][0] == 6 + 1 * SECONDS_OF_A_DAY
+        assert scaling_with_time.scaling_time_table[2][0] == 9 + 2 * SECONDS_OF_A_DAY
+        assert scaling_with_time.scaling_time_table[3][0] == 12 + 3 * SECONDS_OF_A_DAY
+        assert scaling_with_time.scaling_time_table[0][1] == 6
+        assert scaling_with_time.scaling_time_table[1][1] == 3
+        assert scaling_with_time.scaling_time_table[2][1] == 9
+        assert scaling_with_time.scaling_time_table[3][1] == 3
+
+        resource_requests = scaling_with_time._get_resource_requests_at_seconds(
+            10 + 2 * SECONDS_OF_A_DAY)
+        assert resource_requests is not None
+        assert len(resource_requests) == 9 + 1
+
+    def test_scaling_with_time_nodes_request_monthly(self):
+        config = copy.deepcopy(CONFIG)
+        config["runtime"] = {
+            "types": ["ganglia"],
+            "scaling": {
+                "scaling_policy": "scale-with-time",
+                "scaling_math_base": "on-previous-time",
+                "scaling_periodic": "monthly",
+                "scaling_time_table": {
+                    "21 00:00:03": "*2",
+                    "22 00:00:06": 0,
+                    "23 00:00:09": "*3.0",
+                    "24 00:00:12": "3"
+                }
+            }
+        }
+
+        scaling_with_time = ScalingWithTimeTest(config, "127.0.0.1")
+        result_scaling_sate = scaling_with_time.get_scaling_state()
+
+        assert result_scaling_sate is not None
+        assert scaling_with_time.min_workers == 3
+        assert scaling_with_time.scaling_time_table[0][0] == 3 + 20 * SECONDS_OF_A_DAY
+        assert scaling_with_time.scaling_time_table[1][0] == 6 + 21 * SECONDS_OF_A_DAY
+        assert scaling_with_time.scaling_time_table[2][0] == 9 + 22 * SECONDS_OF_A_DAY
+        assert scaling_with_time.scaling_time_table[3][0] == 12 + 23 * SECONDS_OF_A_DAY
+        assert scaling_with_time.scaling_time_table[0][1] == 6
+        assert scaling_with_time.scaling_time_table[1][1] == 3
+        assert scaling_with_time.scaling_time_table[2][1] == 9
+        assert scaling_with_time.scaling_time_table[3][1] == 3
+
+        resource_requests = scaling_with_time._get_resource_requests_at_seconds(
+            10 + 22 * SECONDS_OF_A_DAY)
         assert resource_requests is not None
         assert len(resource_requests) == 9 + 1
 

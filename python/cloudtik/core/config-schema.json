@@ -784,6 +784,16 @@
                             "default": 0.10,
                             "description": "The minimum cpu load to consider the machine is in use"
                         },
+                        "scaling_periodic": {
+                            "type": "string",
+                            "default": "daily",
+                            "description": "The periodic to use for scaling with time policy. Values: daily, weekly, monthly"
+                        },
+                        "scaling_math_base": {
+                            "type": "string",
+                            "default": "on-min-workers",
+                            "description": "The base number to use for arithmetic such as *2. Values: on-min-workers, on-previous-time"
+                        },
                         "scaling_policy_class": {
                             "type": "string",
                             "description": "The module and class path of the scaling policy class"
@@ -833,44 +843,10 @@
                                     "default": 1024,
                                     "description": "The size of free memory threshold in MB below which to trigger scaling."
                                 },
-                                "aggressive_free_cores_ratio_threshold": {
+                                "aggressive_free_ratio_threshold": {
                                     "type": "number",
                                     "default": 0.1,
-                                    "description": "The free cores ratio below which to trigger scaling for aggressive mode."
-                                }
-                            }
-                        },
-                        "spark_executor_resource": {
-                            "type": "object",
-                            "description": "The resource of one executor. Internal use, don't override",
-                            "additionalProperties": false,
-                            "properties": {
-                                "spark_executor_cores": {
-                                    "type": "integer",
-                                    "default": 1
-                                },
-                                "spark_executor_memory": {
-                                    "type": "integer",
-                                    "default": 512
-                                },
-                                "spark_driver_memory": {
-                                    "type": "integer",
-                                    "default": 512
-                                }
-                            }
-                        },
-                        "yarn_container_resource": {
-                            "type": "object",
-                            "description": "The max resource of one container. Internal use, don't override",
-                            "additionalProperties": false,
-                            "properties": {
-                                "yarn_container_maximum_vcores": {
-                                    "type": "integer",
-                                    "default": 1
-                                },
-                                "yarn_container_maximum_memory": {
-                                    "type": "integer",
-                                    "default": 1024
+                                    "description": "The free cpu or memory ratio below which to trigger scaling for aggressive mode."
                                 }
                             }
                         },
@@ -917,6 +893,93 @@
                         "with_intel_pytorch": {
                             "type": "boolean",
                             "description": "Whether to use Intel Optimizations of PyTorch. If with_oneapi is set, this is default true"
+                        }
+                    }
+                },
+                "ray": {
+                    "type": "object",
+                    "description": "Ray runtime related configurations",
+                    "additionalProperties": true,
+                    "properties": {
+                        "scaling:": {
+                            "type": "object",
+                            "description": "Ray scaling configurations",
+                            "additionalProperties": true,
+                            "properties": {
+                                "auto_scaling": {
+                                    "type": "boolean",
+                                    "default": false,
+                                    "description": "Whether to enable ray based auto scaling"
+                                }
+                            }
+                        }
+                    }
+                },
+                "flink": {
+                    "type": "object",
+                    "description": "Flink runtime related configurations",
+                    "additionalProperties": true,
+                    "properties": {
+                        "config": {
+                            "type": "object",
+                            "description": "Map of flink configurations"
+                        },
+                        "scaling:": {
+                            "type": "object",
+                            "description": "Flink scaling configurations",
+                            "additionalProperties": true,
+                            "properties": {
+                                "scaling_mode": {
+                                    "type": "string",
+                                    "description": "The scaling mode. Values: apps-pending, aggressive"
+                                },
+                                "scaling_step": {
+                                    "type": "integer",
+                                    "default": 1,
+                                    "description": "The number of nodes for each scale up step."
+                                },
+                                "scaling_resource": {
+                                    "type": "string",
+                                    "default": "memory",
+                                    "description": "The resource type to check for scale: CPU or memory"
+                                },
+                                "apps_pending_threshold": {
+                                    "type": "integer",
+                                    "default": 1,
+                                    "description": "The number of pending apps threshold to trigger scaling."
+                                },
+                                "apps_pending_free_cores_threshold": {
+                                    "type": "integer",
+                                    "default": 4,
+                                    "description": "The number of free cores threshold below which to trigger scaling."
+                                },
+                                "apps_pending_free_memory_threshold": {
+                                    "type": "integer",
+                                    "default": 1024,
+                                    "description": "The size of free memory threshold in MB below which to trigger scaling."
+                                },
+                                "aggressive_free_ratio_threshold": {
+                                    "type": "number",
+                                    "default": 0.1,
+                                    "description": "The free cpu or memory ratio below which to trigger scaling for aggressive mode."
+                                }
+                            }
+                        },
+                        "hdfs_namenode_uri": {
+                            "type": "string",
+                            "description": "HDFS service endpoint if Flink need to access HDFS."
+                        },
+                        "hive_metastore_uri": {
+                            "type": "string",
+                            "description": "Metastore service endpoint for Flink to use."
+                        },
+                        "yarn_resource_memory_ratio": {
+                            "type": "number",
+                            "description": "The yarn node virtual memory ratio vs the available physical memory."
+                        },
+                        "yarn_scheduler": {
+                            "type": "string",
+                            "description": "The yarn scheduler to use: capacity or fair"
                         }
                     }
                 },

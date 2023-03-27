@@ -28,6 +28,10 @@ SCALING_WITH_LOAD_IN_USE_CPU_LOAD_THRESHOLD_DEFAULT = 0.10
 SCALING_WITH_TIME_MATH_ON_MIN_WORKERS = "on-min-workers"
 SCALING_WITH_TIME_MATH_ON_PREVIOUS_TIME = "on-previous-time"
 
+SCALING_WITH_TIME_PERIODIC_DAILY = "daily"
+SCALING_WITH_TIME_PERIODIC_WEEKLY = "weekly"
+SCALING_WITH_TIME_PERIODIC_MONTHLY = "monthly"
+
 
 class ScalingWithResources(ScalingPolicy):
     def __init__(self,
@@ -335,6 +339,7 @@ class ScalingWithTime(ScalingWithResources):
 
         # scaling parameters
         self.min_workers = 0
+        self.scaling_periodic = SCALING_WITH_TIME_PERIODIC_DAILY
         self.scaling_math_base = SCALING_WITH_TIME_MATH_ON_MIN_WORKERS
         self.scaling_time_table = []
         self._reset_time_config()
@@ -348,6 +353,8 @@ class ScalingWithTime(ScalingWithResources):
 
     def _reset_time_config(self):
         self.min_workers = self._get_min_workers()
+        self.scaling_periodic = self.scaling_config.get(
+            "scaling_periodic", SCALING_WITH_TIME_PERIODIC_DAILY)
         self.scaling_math_base = self.scaling_config.get(
             "scaling_math_base", SCALING_WITH_TIME_MATH_ON_MIN_WORKERS)
         self.scaling_time_table = self._formalize_time_table(
@@ -381,16 +388,40 @@ class ScalingWithTime(ScalingWithResources):
 
         return autoscaling_instructions
 
-    def _time_spec_to_seconds(self, time_spec):
-        # convert 07:23:02
+    @staticmethod
+    def _get_time_format(time_spec):
         c = time_spec.count(':')
         if c == 0:
-            t = time.strptime(time_spec, '%H')
+            time_format = '%H'
         elif c == 1:
-            t = time.strptime(time_spec, '%H:%M')
+            time_format = '%H:%M'
         else:
-            t = time.strptime(time_spec, '%H:%M:%S')
+            time_format = '%H:%M:%S'
+        return time_format
+
+    @staticmethod
+    def _get_seconds_in_day(t):
         return t.tm_hour * 3600 + t.tm_min * 60 + t.tm_sec
+
+    def _time_spec_to_seconds(self, time_spec):
+        if self.scaling_periodic == SCALING_WITH_TIME_PERIODIC_MONTHLY:
+            # convert 01 07:23:02
+            time_format = self._get_time_format(time_spec)
+            time_format = "%d " + time_format
+            t = time.strptime(time_spec, time_format)
+            return (t.tm_mday - 1) * 24 * 3600 + self._get_seconds_in_day(t)
+        elif self.scaling_periodic == SCALING_WITH_TIME_PERIODIC_WEEKLY:
+            # convert Mon 07:23:02
+            time_format = self._get_time_format(time_spec)
+            time_format = "%a " + time_format
+            t = time.strptime(time_spec, time_format)
+            return t.tm_wday * 24 * 3600 + self._get_seconds_in_day(t)
+        else:
+            # Daily
+            # convert 07:23:02
+            time_format = self._get_time_format(time_spec)
+            t = time.strptime(time_spec, time_format)
+            return self._get_seconds_in_day(t)
 
     @staticmethod
     def isfloat(nodes_spec):
@@ -474,21 +505,28 @@ class ScalingWithTime(ScalingWithResources):
                 "Failed to parse the scaling time table: {}".format(str(e)))
             return []
 
-    def _get_seconds_in_day(self, t):
+    def _get_seconds_in_period(self, t):
         local_time = time.localtime(t)
-        return local_time.tm_hour * 3600 + local_time.tm_min * 60 + local_time.tm_sec
+        seconds_in_period = 0
+        if self.scaling_periodic == SCALING_WITH_TIME_PERIODIC_MONTHLY:
+            # Make the first day is start from 0
+            seconds_in_period += (local_time.tm_mday - 1) * 24 * 3600
+        elif self.scaling_periodic == SCALING_WITH_TIME_PERIODIC_WEEKLY:
+            seconds_in_period += local_time.tm_wday * 24 * 3600
+        seconds_in_period += self._get_seconds_in_day(local_time)
+        return seconds_in_period
 
-    def _get_nodes_request(self, seconds_in_day):
+    def _get_nodes_request(self, seconds_in_period):
         if not self.scaling_time_table:
             return None
 
         prev_time_slot = self.scaling_time_table[-1]
         for time_slot in self.scaling_time_table:
-            if time_slot[0] <= seconds_in_day:
+            if time_slot[0] <= seconds_in_period:
                 prev_time_slot = time_slot
                 continue
 
-            # This is the first timeslot greater than seconds_in_day
+            # This is the first timeslot greater than seconds_in_period
             return prev_time_slot[1]
 
         # if there is no time slot found, the time should circle to last timeslot
@@ -496,11 +534,11 @@ class ScalingWithTime(ScalingWithResources):
 
     def _get_resource_requests_with_time(self):
         current_time = self.last_state_time
-        seconds_in_day = self._get_seconds_in_day(current_time)
-        return self._get_resource_requests_at_seconds(seconds_in_day)
+        seconds_in_period = self._get_seconds_in_period(current_time)
+        return self._get_resource_requests_at_seconds(seconds_in_period)
 
-    def _get_resource_requests_at_seconds(self, seconds_in_day):
-        number_of_nodes = self._get_nodes_request(seconds_in_day)
+    def _get_resource_requests_at_seconds(self, seconds_in_period):
+        number_of_nodes = self._get_nodes_request(seconds_in_period)
         if number_of_nodes is None:
             return None
         return self._get_resource_requests_for(number_of_nodes)

@@ -12,7 +12,8 @@ from cloudtik.core._private.cluster.cluster_operator import (
     start_node_on_head, stop_node_on_head, kill_node_on_head, scale_cluster_on_head,
     _wait_for_ready, _get_worker_node_ips, _get_head_node_ip,
     _show_cluster_status, _monitor_cluster, _show_cluster_info, _show_worker_cpus, _show_worker_memory,
-    cli_call_context, _exec_node_on_head, do_health_check, cluster_resource_metrics_on_head)
+    cli_call_context, _exec_node_on_head, do_health_check, cluster_resource_metrics_on_head,
+    _show_cpus_per_worker, _show_memory_per_worker)
 from cloudtik.core._private.constants import CLOUDTIK_REDIS_DEFAULT_PASSWORD
 from cloudtik.core._private.state import kv_store
 from cloudtik.core._private.state.kv_store import kv_initialize_with_address
@@ -248,8 +249,20 @@ def status():
     is_flag=True,
     default=False,
     help="Get the total memory for workers.")
+@click.option(
+    "--cpus-per-worker",
+    is_flag=True,
+    default=False,
+    help="Get the number of cpus per worker.")
+@click.option(
+    "--memory-per-worker",
+    is_flag=True,
+    default=False,
+    help="Get the size of memory per worker in GB.")
 @add_click_logging_options
-def info(worker_cpus, worker_memory):
+def info(
+        worker_cpus, worker_memory,
+        cpus_per_worker, memory_per_worker):
     """Show cluster summary information and useful links to use the cluster."""
     cluster_config_file = get_head_bootstrap_config()
     config = load_head_cluster_config()
@@ -259,6 +272,12 @@ def info(worker_cpus, worker_memory):
 
     if worker_memory:
         return _show_worker_memory(config)
+
+    if cpus_per_worker:
+        return _show_cpus_per_worker(config)
+
+    if memory_per_worker:
+        return _show_memory_per_worker(config)
 
     _show_cluster_info(config, cluster_config_file)
 
@@ -296,13 +315,22 @@ def head_ip(public):
     default=None,
     help="The node status of the workers. Values: setting-up, up-to-date, update-failed."
     " If not specified, return all the workers.")
-def worker_ips(runtime, node_status):
+@click.option(
+    "--separator",
+    required=False,
+    type=str,
+    default=None,
+    help="The separator between worker ips. Default is change a line.")
+def worker_ips(runtime, node_status, separator):
     """Return the list of worker IPs of a cluster."""
     config = load_head_cluster_config()
     workers = _get_worker_node_ips(
         config, runtime=runtime, node_status=node_status)
     if len(workers) > 0:
-        click.echo("\n".join(workers))
+        if separator:
+            click.echo(separator.join(workers))
+        else:
+            click.echo("\n".join(workers))
 
 
 @head.command()

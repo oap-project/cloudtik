@@ -169,8 +169,8 @@ CLOUDTIK_PROCESSES = [
     # The third element is the process name.
     # The forth element, if node, the process should on all nodes,if head, the process should on head node.
     ["cloudtik_cluster_controller.py", False, "ClusterController", "head"],
-    ["cloudtik_node_monitor.py", False, "NodeMonitor", "node"],
-    ["cloudtik_log_monitor.py", False, "LogMonitor", "node"],
+    ["cloudtik_node_monitor_service.py", False, "NodeMonitor", "node"],
+    ["cloudtik_log_monitor_service.py", False, "LogMonitor", "node"],
     ["cloudtik-redis-server", False, "RedisServer", "head"],
 ]
 

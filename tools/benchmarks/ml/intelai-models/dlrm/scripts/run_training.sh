@@ -40,6 +40,6 @@ export PRECISION=$PRECISION
 export DATASET_DIR=$DLRM_DATA
 export OUTPUT_DIR=$DLRM_OUTPUT
 mkdir -p $OUTPUT_DIR
-cd ${MODEL_DIR}/quickstart/recommendation/pytorch/dlrm/training/cpu
+cd ${MODELS_HOME}/quickstart/recommendation/pytorch/dlrm/training/cpu
 
 NUM_BATCH=$NUM_BATCH bash training.sh

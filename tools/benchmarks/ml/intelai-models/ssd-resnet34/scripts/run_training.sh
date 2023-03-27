@@ -11,7 +11,7 @@ SSD_RESNET34_OUTPUT=$SSD_RESNET34_HOME/output
 PRECISION=fp32
 
 function usage(){
-    echo "Usage: run-inference.sh  [ --precision fp32 | bf16 | bf32] "
+    echo "Usage: run-training.sh  [ --precision fp32 | bf16 | bf32] "
     exit 1
 }
 
@@ -20,7 +20,6 @@ do
     key="$1"
     case $key in
     --precision)
-        # training or inference
         shift
         PRECISION=$1
         ;;
@@ -35,5 +34,5 @@ export CHECKPOINT_DIR=$SSD_RESNET34_MODEL
 export OUTPUT_DIR=$SSD_RESNET34_OUTPUT
 mkdir -p $OUTPUT_DIR
 
-cd ${MODEL_DIR}/quickstart/object_detection/pytorch/ssd-resnet34/training/cpu
+cd ${MODELS_HOME}/quickstart/object_detection/pytorch/ssd-resnet34/training/cpu
 bash throughput.sh $PRECISION

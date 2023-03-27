@@ -3,11 +3,12 @@ from typing import Any, Dict, Optional, List
 
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.runtime import Runtime
+from cloudtik.core.scaling_policy import ScalingPolicy
 from cloudtik.runtime.ray.utils import _config_runtime_resources, _with_runtime_environment_variables, \
     _is_runtime_scripts, _get_runnable_command, _get_runtime_processes, _validate_config, \
     _verify_config, _get_runtime_logs, _get_runtime_commands, \
     _get_defaults_config, _get_runtime_services, _config_depended_services, _get_runtime_service_ports, \
-    _get_runtime_shared_memory_ratio
+    _get_runtime_shared_memory_ratio, _get_scaling_policy
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +73,10 @@ class RayRuntime(Runtime):
 
     def get_runtime_service_ports(self) -> Dict[str, Any]:
         return _get_runtime_service_ports(self.runtime_config)
+
+    def get_scaling_policy(
+            self, cluster_config: Dict[str, Any], head_ip: str) -> Optional[ScalingPolicy]:
+        return _get_scaling_policy(self.runtime_config, cluster_config, head_ip)
 
     @staticmethod
     def get_logs() -> Dict[str, str]:

@@ -20,7 +20,6 @@ do
     key="$1"
     case $key in
     --precision)
-        # training or inference
         shift
         PRECISION=$1
         ;;
@@ -44,5 +43,5 @@ export PRECISION=$PRECISION
 export TRAINING_EPOCHS=$TRAINING_EPOCHS
 
 # Run the training quickstart script
-cd ${MODEL_DIR}/quickstart/image_recognition/pytorch/resnet50/training/cpu
+cd ${MODELS_HOME}/quickstart/image_recognition/pytorch/resnet50/training/cpu
 bash training.sh

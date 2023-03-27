@@ -3,15 +3,15 @@
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source ${SCRIPT_DIR}/../../common/scripts/setenv.sh
 
-MASKRCNN_HOME=$INTELAI_MODELS_WORKSPACE/maskrcnn
+MASKRCNN_HOME=$INTELAI_MODELS_WORKING/maskrcnn
 MASKRCNN_MODEL=$MASKRCNN_HOME/model
 MASKRCNN_DATA=$MASKRCNN_HOME/data
 
 
 PHASE="inference"
 
-if [ ! -n "${MODEL_DIR}" ]; then
-  echo "Please set environment variable '\${MODEL_DIR}'."
+if [ ! -n "${MODELS_HOME}" ]; then
+  echo "Please set environment variable '\${MODELS_HOME}'."
   exit 1
 fi
 
@@ -53,7 +53,7 @@ function download_training_data() {
     mkdir -p $MASKRCNN_DATA
     export DATASET_DIR=$MASKRCNN_DATA
 
-    cd $MODEL_DIR/quickstart/object_detection/pytorch/maskrcnn/training/cpu
+    cd ${MODELS_HOME}/quickstart/object_detection/pytorch/maskrcnn/training/cpu
     bash download_dataset.sh
 }
 
@@ -61,7 +61,7 @@ function download_training_data() {
 function prepare_training_model() {
     export CHECKPOINT_DIR=$MASKRCNN_MODEL
     # Install model
-    cd $MODEL_DIR/models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/
+    cd ${MODELS_HOME}/models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/
     python setup.py develop
 }
 
@@ -70,7 +70,7 @@ function download_inference_data() {
     mkdir -p $MASKRCNN_DATA
     export DATASET_DIR=$MASKRCNN_DATA
 
-    cd $MODEL_DIR/quickstart/object_detection/pytorch/maskrcnn/inference/cpu
+    cd ${MODELS_HOME}/quickstart/object_detection/pytorch/maskrcnn/inference/cpu
     bash download_dataset.sh
 }
 
@@ -78,10 +78,10 @@ function download_inference_data() {
 function prepare_inference_model() {
     export CHECKPOINT_DIR=$MASKRCNN_MODEL
     # Install model
-    cd $MODEL_DIR/models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/
+    cd ${MODELS_HOME}/models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/
     python setup.py develop
 
-    cd $MODEL_DIR/quickstart/object_detection/pytorch/maskrcnn/inference/cpu
+    cd ${MODELS_HOME}/quickstart/object_detection/pytorch/maskrcnn/inference/cpu
     bash download_model.sh
 }
 
@@ -97,3 +97,5 @@ elif [ "${PHASE}" = "inference" ]; then
 else
     usage
 fi
+
+move_to_workspace $MASKRCNN_HOME

@@ -20,7 +20,6 @@ do
     key="$1"
     case $key in
     --precision)
-        # training or inference
         shift
         PRECISION=$1
         ;;
@@ -35,5 +34,5 @@ export DATASET_DIR=$DLRM_DATA
 export OUTPUT_DIR=$DLRM_OUTPUT
 mkdir -p $OUTPUT_DIR
 # Run a quickstart script (for example, bare metal performance)
-cd ${MODEL_DIR}/quickstart/recommendation/pytorch/dlrm/inference/cpu
+cd ${MODELS_HOME}/quickstart/recommendation/pytorch/dlrm/inference/cpu
 bash inference_performance.sh

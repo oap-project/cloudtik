@@ -29,7 +29,6 @@ do
     key="$1"
     case $key in
     --precision)
-        # training or inference
         shift
         PRECISION=$1
         ;;
@@ -39,7 +38,7 @@ do
     shift
 done
 
-cd ${MODEL_DIR}/quickstart/language_modeling/pytorch/rnnt/inference/cpu
+cd ${MODELS_HOME}/quickstart/language_modeling/pytorch/rnnt/inference/cpu
 
 bash accuracy.sh $PRECISION
 bash inference_throughput.sh $PRECISION

@@ -3,14 +3,14 @@
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source ${SCRIPT_DIR}/../../common/scripts/setenv.sh
 
-RESNET50_HOME=$INTELAI_MODELS_WORKSPACE/resnet50
+RESNET50_HOME=$INTELAI_MODELS_WORKING/resnet50
 RESNET50_MODEL=$RESNET50_HOME/model
 RESNET50_DATA=$RESNET50_HOME/data
 
 PHASE="inference"
 
-if [ ! -n "${MODEL_DIR}" ]; then
-  echo "Please set environment variable '\${MODEL_DIR}'."
+if [ ! -n "${MODELS_HOME}" ]; then
+  echo "Please set environment variable '\${MODELS_HOME}'."
   exit 1
 fi
 
@@ -86,3 +86,4 @@ elif [ "${PHASE}" = "inference" ]; then
 else
     usage
 fi
+move_to_workspace $RESNET50_HOME

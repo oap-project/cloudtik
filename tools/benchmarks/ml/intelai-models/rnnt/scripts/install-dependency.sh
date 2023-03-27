@@ -3,7 +3,7 @@
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source ${SCRIPT_DIR}/../../common/scripts/setenv.sh
 
-RNNT_HOME=$INTELAI_MODELS_WORKSPACE/rnn-t
+RNNT_HOME=$INTELAI_MODELS_WORKING/rnn-t
 
 RNNT_OUTPUT_DIR=$RNNT_HOME/output
 RNNT_DATASET_DIR=$RNNT_HOME/data
@@ -15,8 +15,8 @@ export CHECKPOINT_DIR=$RNNT_CHECKPOINT_DIR
 
 PHASE="inference"
 
-if [ ! -n "${MODEL_DIR}" ]; then
-  echo "Please set environment variable '\${MODEL_DIR}'."
+if [ ! -n "${MODELS_HOME}" ]; then
+  echo "Please set environment variable '\${MODELS_HOME}'."
   exit 1
 fi
 
@@ -42,9 +42,9 @@ do
 done
 
 if [ "${PHASE}" = "training" ]; then
-    bash ${MODEL_DIR}/quickstart/language_modeling/pytorch/rnnt/training/cpu/install_dependency.sh
+    bash ${MODELS_HOME}/quickstart/language_modeling/pytorch/rnnt/training/cpu/install_dependency.sh
 elif [ "${PHASE}" = "inference" ]; then
-    bash ${MODEL_DIR}/quickstart/language_modeling/pytorch/rnnt/inference/cpu/install_dependency_baremetal.sh
+    bash ${MODELS_HOME}/quickstart/language_modeling/pytorch/rnnt/inference/cpu/install_dependency_baremetal.sh
 else
     usage
 fi

@@ -22,7 +22,6 @@ do
     key="$1"
     case $key in
     --precision)
-        # training or inference
         shift
         PRECISION=$1
         ;;
@@ -31,7 +30,6 @@ do
         MODE=$1
         ;;
     --metric)
-        # training or inference
         shift
         METRIC=$1
         ;;
@@ -49,7 +47,7 @@ set MODE=$MODE
 
 mkdir -p $OUTPUT_DIR
 
-cd ${MODEL_DIR}/quickstart/object_detection/pytorch/maskrcnn/inference/cpu
+cd ${MODELS_HOME}/quickstart/object_detection/pytorch/maskrcnn/inference/cpu
 
 if [ "${METRIC}" = "throughput" ]; then
     bash inference_throughput.sh $PRECISION $MODE

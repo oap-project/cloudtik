@@ -1935,8 +1935,10 @@ def get_node_info(provider, node, extras: bool = False,
         node_type = node_info.get(CLOUDTIK_TAG_USER_NODE_TYPE)
         if node_type is not None and node_type in available_node_types:
             resources = available_node_types[node_type].get("resources", {})
-            node_info["CPU"] = resources.get("CPU", 0)
-            node_info["memory-GB"] = resources.get("memory", 0) / pow(1024, 3)
+            node_info[constants.CLOUDTIK_RESOURCE_CPU] = resources.get(
+                constants.CLOUDTIK_RESOURCE_CPU, 0)
+            node_info[constants.CLOUDTIK_RESOURCE_MEMORY] = resources.get(
+                constants.CLOUDTIK_RESOURCE_MEMORY, 0) / pow(1024, 3)
 
     return node_info
 
@@ -1955,15 +1957,29 @@ def get_nodes_for_runtime(config: Dict[str, Any], nodes: List[str], runtime: str
 def sum_worker_cpus(workers_info):
     total_cpus = 0
     for worker_info in workers_info:
-        total_cpus += worker_info["CPU"]
+        total_cpus += worker_info[constants.CLOUDTIK_RESOURCE_CPU]
     return total_cpus
 
 
 def sum_worker_memory(workers_info):
     total_memory = 0
     for worker_info in workers_info:
-        total_memory += worker_info["memory-GB"]
+        total_memory += worker_info[constants.CLOUDTIK_RESOURCE_MEMORY]
     return total_memory
+
+
+def get_cpus_of_node_info(node_info):
+    if node_info:
+        cpu_info = node_info.get(constants.CLOUDTIK_RESOURCE_CPU)
+        if cpu_info:
+            return int(cpu_info)
+    return None
+
+
+def get_memory_of_node_info(node_info):
+    if node_info:
+        return node_info.get(constants.CLOUDTIK_RESOURCE_MEMORY)
+    return None
 
 
 def unescape_private_key(private_key: str):

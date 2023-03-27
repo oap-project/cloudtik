@@ -68,7 +68,7 @@ from cloudtik.core.workspace_provider import \
 from cloudtik.providers._private.huaweicloud.utils import _get_node_info, \
     _make_ecs_client, _make_obs_client, \
     _make_vpc_client, export_huaweicloud_obs_storage_config, flat_tags_map, \
-    get_huaweicloud_obs_storage_config, \
+    get_huaweicloud_cloud_storage_uri, get_huaweicloud_obs_storage_config, \
     get_huaweicloud_obs_storage_config_for_update, HWC_OBS_BUCKET, \
     HWC_SERVER_STATUS_ACTIVE, make_ecs_client, \
     make_eip_client, \
@@ -1075,13 +1075,12 @@ def get_huaweicloud_workspace_info(config):
     bucket_name = _get_managed_obs_bucket(obs_client, workspace_name)
 
     if bucket_name:
-        resp = obs_client.getBucketLocation(bucket_name)
-        if resp.status < 300:
-            managed_cloud_storage_uri = resp.body.location
-            managed_cloud_storage = {
-                HWC_MANAGED_CLOUD_STORAGE_OBS_BUCKET: bucket_name,
-                CLOUDTIK_MANAGED_CLOUD_STORAGE_URI: managed_cloud_storage_uri}
-            info[CLOUDTIK_MANAGED_CLOUD_STORAGE] = managed_cloud_storage
+        cloud_storage_uri = get_huaweicloud_cloud_storage_uri(
+            {HWC_OBS_BUCKET: bucket_name})
+        managed_cloud_storage = {
+            HWC_MANAGED_CLOUD_STORAGE_OBS_BUCKET: bucket_name,
+            CLOUDTIK_MANAGED_CLOUD_STORAGE_URI: cloud_storage_uri}
+        info[CLOUDTIK_MANAGED_CLOUD_STORAGE] = managed_cloud_storage
 
     return info
 
@@ -1607,7 +1606,6 @@ def _configure_instance_profile_from_workspace(config):
         node_config.setdefault("metadata", {})
         if key == config["head_node_type"]:
             node_config["metadata"]["agency_name"] = head_profile.name
-            config["head_node"]["agency_name"] = head_profile.name
         elif worker_for_cloud_storage:
             node_config["metadata"]["agency_name"] = worker_profile.name
 

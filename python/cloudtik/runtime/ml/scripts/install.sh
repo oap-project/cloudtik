@@ -73,6 +73,8 @@ function install_ml() {
             && [ "$ML_WITH_INTEL_PYTORCH" != "false" ]; then
             conda install -q pytorch=1.13.0 torchvision=0.14.1 \
               oneccl_bind_pt=1.13.0 intel-extension-for-pytorch=1.13.10 -p ${CLOUDTIK_ENV_ROOT} -c intel -y > /dev/null
+            # Install Jemalloc for better performance
+            conda install jemalloc -p ${CLOUDTIK_ENV_ROOT} -y > /dev/null
         else
             pip --no-cache-dir -qq install torch==1.13.1 torchvision==0.14.1 \
               --extra-index-url https://download.pytorch.org/whl/cpu

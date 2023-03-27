@@ -84,7 +84,7 @@ else
 fi
 
 
-CORES_PRE_NODE=$(cloudtik head --cpus-per-worker)
+CORES_PRE_NODE=$(cloudtik head info --cpus-per-worker)
 HOSTS=$(cloudtik head worker-ips --separator ",")
 
 # TODO

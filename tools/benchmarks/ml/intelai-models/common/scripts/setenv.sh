@@ -6,6 +6,7 @@ BENCHMARK_TOOL_HOME=$USER_HOME/runtime/benchmark-tools
 # Tool path on local machine
 export INTELAI_MODELS_HOME=$BENCHMARK_TOOL_HOME/intelai_models
 export MODELS_HOME=$INTELAI_MODELS_HOME/models
+export MODEL_DIR=$MODELS_HOME
 export SCRIPTS_HOME=$INTELAI_MODELS_HOME/scripts
 
 if test -e "/mnt/cloudtik/data_disk_1/"

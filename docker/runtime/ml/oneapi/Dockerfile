@@ -30,12 +30,14 @@ RUN export PATH="$HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH" \
     && pip --no-cache-dir install -r /tmp/requirements.txt \
     && sudo rm /tmp/requirements.txt \
     # Install deep learning libraries (PyTorch and torch tools)
-    && conda install -c intel pytorch=1.13.0 torchvision=0.14.1 \
-        intel-extension-for-pytorch=1.13.10 oneccl_bind_pt=1.13.0 \
-        -p $HOME/anaconda3/envs/$CLOUDTIK_ENV -y \
-    # Install Jemalloc for better performance
+    && pip --no-cache-dir install torch==1.13.1 torchvision==0.14.1 \
+        --extra-index-url https://download.pytorch.org/whl/cpu \
+    # Install Jemalloc for better performance for Intel Extension for PyTorch
     && conda install jemalloc -p $HOME/anaconda3/envs/$CLOUDTIK_ENV -y \
     && conda clean -itqy \
+    # Install Intel Extension for PyTorch and oneCCL binding
+    && pip --no-cache-dir install intel-extension-for-pytorch==1.13.100+cpu \
+        oneccl_bind_pt==1.13.0+cpu -f https://developer.intel.com/ipex-whl-stable-cpu \
     # Source the mpi and ccl vars
     && . /opt/intel/oneapi/mpi/latest/env/vars.sh \
     && . /opt/intel/oneapi/tbb/latest/env/vars.sh \

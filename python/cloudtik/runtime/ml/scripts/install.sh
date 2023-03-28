@@ -68,16 +68,15 @@ function install_ml() {
     else
         echo "Installing deep learning frameworks: tensorflow, pytorch..."
         pip --no-cache-dir -qq install tensorflow==2.9.3
+        pip --no-cache-dir -qq install torch==1.13.1 torchvision==0.14.1 \
+            --extra-index-url https://download.pytorch.org/whl/cpu
 
         if ([ "$ML_WITH_ONEAPI" == "true" ] || [ "$ML_WITH_INTEL_PYTORCH" == "true" ]) \
             && [ "$ML_WITH_INTEL_PYTORCH" != "false" ]; then
-            conda install -q pytorch=1.13.0 torchvision=0.14.1 \
-              oneccl_bind_pt=1.13.0 intel-extension-for-pytorch=1.13.10 -p ${CLOUDTIK_ENV_ROOT} -c intel -y > /dev/null
             # Install Jemalloc for better performance
             conda install jemalloc -p ${CLOUDTIK_ENV_ROOT} -y > /dev/null
-        else
-            pip --no-cache-dir -qq install torch==1.13.1 torchvision==0.14.1 \
-              --extra-index-url https://download.pytorch.org/whl/cpu
+            pip --no-cache-dir -qq install intel-extension-for-pytorch==1.13.100+cpu \
+                oneccl_bind_pt==1.13.0+cpu -f https://developer.intel.com/ipex-whl-stable-cpu
         fi
         pip --no-cache-dir -qq install transformers==4.11.0
     fi

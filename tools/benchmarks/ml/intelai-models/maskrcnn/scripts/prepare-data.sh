@@ -36,18 +36,7 @@ do
 done
 
 
-function install_tools() {
-     sudo apt install build-essential -y
-     sudo apt-get install libgl1 -y
 
-}
-
-
-function install_libraries() {
-    pip install yacs opencv-python pycocotools defusedxml cityscapesscripts
-    conda install -n cloudtik intel-openmp -y
-
-}
 
 function download_training_data() {
     mkdir -p $MASKRCNN_DATA
@@ -85,8 +74,6 @@ function prepare_inference_model() {
     bash download_model.sh
 }
 
-install_tools
-install_libraries
 
 if [ "${PHASE}" = "training" ]; then
     download_training_data

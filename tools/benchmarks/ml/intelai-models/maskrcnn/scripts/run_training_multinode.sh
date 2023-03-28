@@ -19,16 +19,16 @@
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source ${SCRIPT_DIR}/../../common/scripts/setenv.sh
 
-MASKRCNN_HOME=$INTELAI_MODELS_WORKSPACE/maskrcnn
-MASKRCNN_MODEL=$MASKRCNN_HOME/model
-DATASET_DIR=$MASKRCNN_HOME/data
-OUTPUT_DIR=$MASKRCNN_HOME/output
+export MASKRCNN_HOME=$INTELAI_MODELS_WORKSPACE/maskrcnn
+export MASKRCNN_MODEL=$MASKRCNN_HOME/model
+export DATASET_DIR=$MASKRCNN_HOME/data
+export OUTPUT_DIR=$MASKRCNN_HOME/output
 
 
 PRECISION=fp32
-
+BACKEND=gloo
 function usage(){
-    echo "Usage: run-training_multinode.sh  [ --precision fp32 | bf16 | bf32] "
+    echo "Usage: run-training_multinode.sh  [ --precision fp32 | bf16 | bf32] [ --backend ccl | gloo] "
     exit 1
 }
 
@@ -39,6 +39,10 @@ do
     --precision)
         shift
         PRECISION=$1
+        ;;
+    --backend)
+        shift
+        BACKEND=$1
         ;;
     *)
         usage
@@ -119,7 +123,7 @@ python -m intel_extension_for_pytorch.cpu.launch \
     -i 20 \
     --config-file "${MODELS_HOME}/models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/configs/e2e_mask_rcnn_R_50_FPN_1x_coco2017_tra.yaml" \
     --skip-test \
-    --backend ccl \
+    --backend ${BACKEND} \
     SOLVER.IMS_PER_BATCH ${BATCH_SIZE} \
     SOLVER.MAX_ITER 720000 \
     SOLVER.STEPS '"(60000, 80000)"' \

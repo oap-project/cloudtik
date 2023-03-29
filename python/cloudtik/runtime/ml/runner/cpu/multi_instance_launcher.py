@@ -200,10 +200,7 @@ class MultiInstanceLauncher(Launcher):
             if args.log_path:
                 cmd_s = "{} 2>&1 | tee {}".format(cmd_s, log_name)
             logger.info(cmd_s)
-            if not args.disable_numactl:
-                process = subprocess.Popen(cmd_s, env=os.environ, shell=True)
-            elif enable_taskset:
-                process = subprocess.Popen(cmd, env=os.environ)
+            process = subprocess.Popen(cmd_s, env=os.environ, shell=True)
             processes.append(process)
 
             if args.instance_idx != -1: # launches single instance, instance_idx, only

@@ -668,6 +668,8 @@ class DistributedTrainingLauncher(Launcher):
             if args.use_logical_core:
                 node_cores = self.cpuinfo.node_logical_cores
                 total_cores_per_node = self.cpuinfo.logical_core_nums()
+            if args.nproc_per_node == 0:
+                args.nproc_per_node = self.cpuinfo.node_nums()
         else:
             # CloudTik: patch start
             total_cores_per_node = args.cores_per_node
@@ -680,6 +682,8 @@ class DistributedTrainingLauncher(Launcher):
                 total_cores_per_node = remote_cpuinfo.physical_core_nums()
                 if args.use_logical_core:
                     total_cores_per_node = remote_cpuinfo.logical_core_nums()
+            if args.nproc_per_node == 0:
+                args.nproc_per_node = remote_cpuinfo.node_nums()
         flatten_node_cores = []
         for node_numa_cores in node_cores:
             flatten_node_cores.extend(node_numa_cores)
@@ -752,14 +756,11 @@ class DistributedTrainingLauncher(Launcher):
 
 def add_distributed_training_params(parser):
 
-    cpuinfo = CPUinfo()
-    node_nums = cpuinfo.node_nums()
-
     group = parser.add_argument_group("Distributed Training Parameters With oneCCL backend")
     group.add_argument("--nnodes", metavar='\b', type=int, default=1,
                        help="The number of nodes to use for distributed "
                        "training")
-    group.add_argument("--nproc_per_node", metavar='\b', type=int, default=node_nums,
+    group.add_argument("--nproc_per_node", metavar='\b', type=int, default=0,
                        help="The number of processes to launch on each node")
     # ccl control
     group.add_argument("--ccl_worker_count", metavar='\b', default=4, type=int,

@@ -1838,6 +1838,19 @@ def _show_memory_per_worker(config: Dict[str, Any]):
     memory_per_worker = get_memory_per_worker(config, provider)
     cli_logger.print(memory_per_worker)
 
+def show_total_workers(
+        config_file: str,
+        override_cluster_name: Optional[str] = None) -> None:
+    config = _load_cluster_config(config_file, override_cluster_name)
+    _show_total_workers(config)
+
+
+def _show_total_workers(config: Dict[str, Any]):
+    provider = _get_node_provider(config["provider"], config["cluster_name"])
+    cluster_info = _get_cluster_info(config, provider)
+    worker_count = cluster_info["total-workers"]
+    cli_logger.print(worker_count)
+
 
 def show_cluster_info(config_file: str,
                       override_cluster_name: Optional[str] = None) -> None:

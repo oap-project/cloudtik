@@ -13,7 +13,7 @@ from cloudtik.core._private.cluster.cluster_operator import (
     _wait_for_ready, _get_worker_node_ips, _get_head_node_ip,
     _show_cluster_status, _monitor_cluster, _show_cluster_info, _show_worker_cpus, _show_worker_memory,
     cli_call_context, _exec_node_on_head, do_health_check, cluster_resource_metrics_on_head,
-    _show_cpus_per_worker, _show_memory_per_worker)
+    _show_cpus_per_worker, _show_memory_per_worker, _show_total_workers)
 from cloudtik.core._private.constants import CLOUDTIK_REDIS_DEFAULT_PASSWORD
 from cloudtik.core._private.state import kv_store
 from cloudtik.core._private.state.kv_store import kv_initialize_with_address
@@ -259,10 +259,15 @@ def status():
     is_flag=True,
     default=False,
     help="Get the size of memory per worker in GB.")
+@click.option(
+    "--total-workers",
+    is_flag=True,
+    default=False,
+    help="Get the size of updated workers.")
 @add_click_logging_options
 def info(
         worker_cpus, worker_memory,
-        cpus_per_worker, memory_per_worker):
+        cpus_per_worker, memory_per_worker, total_workers):
     """Show cluster summary information and useful links to use the cluster."""
     cluster_config_file = get_head_bootstrap_config()
     config = load_head_cluster_config()
@@ -278,6 +283,9 @@ def info(
 
     if memory_per_worker:
         return _show_memory_per_worker(config)
+
+    if total_workers:
+        return _show_total_workers(config)
 
     _show_cluster_info(config, cluster_config_file)
 

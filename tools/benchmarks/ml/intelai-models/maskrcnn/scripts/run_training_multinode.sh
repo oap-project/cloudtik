@@ -24,7 +24,7 @@ export MASKRCNN_MODEL=$MASKRCNN_HOME/model
 export DATASET_DIR=$MASKRCNN_HOME/data
 export OUTPUT_DIR=$MASKRCNN_HOME/output
 
-
+mkdir -p $OUTPUT_DIR
 PRECISION=fp32
 BACKEND=gloo
 function usage(){
@@ -67,7 +67,7 @@ if [ ! -d "${OUTPUT_DIR}" ]; then
   exit 1
 fi
 
-if [[ "$1" == *"avx"* ]]; then
+if [[ "$PRECISION" == *"avx"* ]]; then
     unset DNNL_MAX_CPU_ISA
 fi
 
@@ -100,8 +100,6 @@ export KMP_BLOCKTIME=1
 export KMP_AFFINITY=granularity=fine,compact,1,0
 
 export TRAIN=1
-
-PRECISION=$1
 
 oneccl_bindings_for_pytorch_path=$(python -c "import torch; import oneccl_bindings_for_pytorch; import os;  print(os.path.abspath(os.path.dirname(oneccl_bindings_for_pytorch.__file__)))")
 source $oneccl_bindings_for_pytorch_path/env/setvars.sh

@@ -36,18 +36,7 @@ do
 done
 
 
-function install_tools() {
-     sudo apt install build-essential -y
-     sudo apt-get install libgl1 -y
 
-}
-
-
-function install_libraries() {
-    pip install yacs opencv-python pycocotools defusedxml cityscapesscripts
-    conda install -n cloudtik intel-openmp -y
-
-}
 
 function download_training_data() {
     mkdir -p $MASKRCNN_DATA
@@ -57,13 +46,6 @@ function download_training_data() {
     bash download_dataset.sh
 }
 
-
-function prepare_training_model() {
-    export CHECKPOINT_DIR=$MASKRCNN_MODEL
-    # Install model
-    cd ${MODELS_HOME}/models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/
-    python setup.py develop
-}
 
 
 function download_inference_data() {
@@ -75,25 +57,19 @@ function download_inference_data() {
 }
 
 
-function prepare_inference_model() {
+function download_inference_model() {
     export CHECKPOINT_DIR=$MASKRCNN_MODEL
-    # Install model
-    cd ${MODELS_HOME}/models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/
-    python setup.py develop
 
     cd ${MODELS_HOME}/quickstart/object_detection/pytorch/maskrcnn/inference/cpu
     bash download_model.sh
 }
 
-install_tools
-install_libraries
 
 if [ "${PHASE}" = "training" ]; then
     download_training_data
-    prepare_training_model
 elif [ "${PHASE}" = "inference" ]; then
     download_inference_data
-    prepare_inference_model
+    download_inference_model
 else
     usage
 fi

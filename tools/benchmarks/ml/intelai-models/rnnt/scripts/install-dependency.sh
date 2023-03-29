@@ -13,7 +13,7 @@ export OUTPUT_DIR=$RNNT_OUTPUT_DIR
 export DATASET_DIR=$RNNT_DATASET_DIR
 export CHECKPOINT_DIR=$RNNT_CHECKPOINT_DIR
 
-PHASE="inference"
+PHASE="all"
 
 if [ ! -n "${MODELS_HOME}" ]; then
   echo "Please set environment variable '\${MODELS_HOME}'."
@@ -22,7 +22,7 @@ fi
 
 
 function usage(){
-    echo "Usage: install-dependency.sh  [ --phase training | inference] "
+    echo "Usage: install-dependency.sh  [ --phase training | inference | all] "
     exit 1
 }
 
@@ -44,6 +44,9 @@ done
 if [ "${PHASE}" = "training" ]; then
     bash ${MODELS_HOME}/quickstart/language_modeling/pytorch/rnnt/training/cpu/install_dependency.sh
 elif [ "${PHASE}" = "inference" ]; then
+    bash ${MODELS_HOME}/quickstart/language_modeling/pytorch/rnnt/inference/cpu/install_dependency_baremetal.sh
+elif [ "${PHASE}" = "all" ]; then
+    bash ${MODELS_HOME}/quickstart/language_modeling/pytorch/rnnt/training/cpu/install_dependency.sh
     bash ${MODELS_HOME}/quickstart/language_modeling/pytorch/rnnt/inference/cpu/install_dependency_baremetal.sh
 else
     usage

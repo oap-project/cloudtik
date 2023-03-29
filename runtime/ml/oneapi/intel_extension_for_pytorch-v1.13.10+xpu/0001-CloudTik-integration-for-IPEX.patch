@@ -1,14 +1,14 @@
-From 8542cf4154c598bfe05ddf5b7324ffd6419ed556 Mon Sep 17 00:00:00 2001
+From 4958281ec8959bf7edb5eae7551db2192d737068 Mon Sep 17 00:00:00 2001
 From: haojinIntel <hao.jin@intel.com>
-Date: Mon, 27 Mar 2023 17:41:43 +0800
+Date: Wed, 29 Mar 2023 11:52:42 +0800
 Subject: [PATCH] Enhance numactl for different platforms
 
 ---
- intel_extension_for_pytorch/cpu/launch.py | 111 ++++++++++++++++++----
- 1 file changed, 93 insertions(+), 18 deletions(-)
+ intel_extension_for_pytorch/cpu/launch.py | 120 ++++++++++++++++++----
+ 1 file changed, 98 insertions(+), 22 deletions(-)
 
 diff --git a/intel_extension_for_pytorch/cpu/launch.py b/intel_extension_for_pytorch/cpu/launch.py
-index 19fcb89c..44edba4c 100644
+index 19fcb89c..8fd7aab5 100644
 --- a/intel_extension_for_pytorch/cpu/launch.py
 +++ b/intel_extension_for_pytorch/cpu/launch.py
 @@ -123,14 +123,20 @@ rank 0: *(IP: 192.168.10.10, and has a free port: 295000)*
@@ -119,7 +119,7 @@ index 19fcb89c..44edba4c 100644
              ipv4_addr_pattern = r"^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
              ip_list = []
              with open(args.hostfile) as f:
-@@ -632,15 +654,43 @@ class DistributedTrainingLauncher(Launcher):
+@@ -632,15 +654,47 @@ class DistributedTrainingLauncher(Launcher):
                      exit(-1)
                  else:
                      logger.info("connection from master node {} to slave node {} is OK".format(args.master_addr, ip))
@@ -141,6 +141,8 @@ index 19fcb89c..44edba4c 100644
 +            if args.use_logical_core:
 +                node_cores = self.cpuinfo.node_logical_cores
 +                total_cores_per_node = self.cpuinfo.logical_core_nums()
++            if args.nproc_per_node == 0:
++                args.nproc_per_node = self.cpuinfo.node_nums()
 +        else:
 +            # CloudTik: patch start
 +            total_cores_per_node = args.cores_per_node
@@ -153,6 +155,8 @@ index 19fcb89c..44edba4c 100644
 +                total_cores_per_node = remote_cpuinfo.physical_core_nums()
 +                if args.use_logical_core:
 +                    total_cores_per_node = remote_cpuinfo.logical_core_nums()
++            if args.nproc_per_node == 0:
++                args.nproc_per_node = remote_cpuinfo.node_nums()
 +        flatten_node_cores = []
 +        for node_numa_cores in node_cores:
 +            flatten_node_cores.extend(node_numa_cores)
@@ -168,7 +172,7 @@ index 19fcb89c..44edba4c 100644
          self.set_env("I_MPI_PIN_DOMAIN", mpi_pin_domain)
  
          ppn = args.nproc_per_node
-@@ -655,15 +705,31 @@ class DistributedTrainingLauncher(Launcher):
+@@ -655,15 +709,31 @@ class DistributedTrainingLauncher(Launcher):
                                              args.use_default_allocator)
  
          self.set_env("CCL_WORKER_COUNT", str(args.ccl_worker_count))
@@ -203,7 +207,23 @@ index 19fcb89c..44edba4c 100644
          cmd.extend(mpi_config.split())
          with_python = not args.no_python
          if with_python:
-@@ -713,6 +779,15 @@ def add_distributed_training_params(parser):
+@@ -686,14 +756,11 @@ class DistributedTrainingLauncher(Launcher):
+ 
+ def add_distributed_training_params(parser):
+ 
+-    cpuinfo = CPUinfo()
+-    node_nums = cpuinfo.node_nums()
+-
+     group = parser.add_argument_group("Distributed Training Parameters With oneCCL backend")
+     group.add_argument("--nnodes", metavar='\b', type=int, default=1,
+                        help="The number of nodes to use for distributed "
+                        "training")
+-    group.add_argument("--nproc_per_node", metavar='\b', type=int, default=node_nums,
++    group.add_argument("--nproc_per_node", metavar='\b', type=int, default=0,
+                        help="The number of processes to launch on each node")
+     # ccl control
+     group.add_argument("--ccl_worker_count", metavar='\b', default=4, type=int,
+@@ -713,6 +780,15 @@ def add_distributed_training_params(parser):
                              "training. hostfile includes the node address list "
                              "node address which should be either the IP address"
                              "or the hostname.")
@@ -219,7 +239,7 @@ index 19fcb89c..44edba4c 100644
      group.add_argument("--more_mpi_params", metavar='\b', default="", type=str,
                         help="User can pass more parameters for mpiexec.hydra "
                              "except for -np -ppn -hostfile and -genv I_MPI_PIN_DOMAIN")
-@@ -849,7 +924,7 @@ def main():
+@@ -849,7 +925,7 @@ def main():
      if args.latency_mode and args.throughput_mode:
          raise RuntimeError("Either args.latency_mode or args.throughput_mode should be set")
  

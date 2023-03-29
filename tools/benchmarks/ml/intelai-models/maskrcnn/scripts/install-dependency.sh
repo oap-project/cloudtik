@@ -17,7 +17,8 @@ function install_tools() {
 function install_libraries() {
     pip install yacs opencv-python pycocotools defusedxml cityscapesscripts
     conda install -n cloudtik intel-openmp -y
-
+    cd ${MODELS_HOME}/models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/
+    python setup.py develop
 }
 
 install_tools

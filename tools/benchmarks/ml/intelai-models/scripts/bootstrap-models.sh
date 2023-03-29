@@ -106,9 +106,21 @@ function configure_intelai_models() {
     :
 }
 
+
+function install_models_dependency() {
+    find "$SCRIPTS_HOME"/* -maxdepth 0 -type d -print0 | while read -d $'\0' dir; do
+        install_dependency_script_path="$dir/scripts/install-dependency.sh"
+        if [ -e $install_dependency_script_path ]; then
+            bash install_dependency_script_path
+        fi
+    done
+}
+
+
 prepare
 install_tools
 install_libaries
 install_intelai_models
 install_intelai_models_scripts
+install_models_dependency
 configure_intelai_models

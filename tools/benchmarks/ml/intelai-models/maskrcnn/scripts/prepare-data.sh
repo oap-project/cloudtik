@@ -47,13 +47,6 @@ function download_training_data() {
 }
 
 
-function prepare_training_model() {
-    export CHECKPOINT_DIR=$MASKRCNN_MODEL
-    # Install model
-    cd ${MODELS_HOME}/models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/
-    python setup.py develop
-}
-
 
 function download_inference_data() {
     mkdir -p $MASKRCNN_DATA
@@ -64,11 +57,8 @@ function download_inference_data() {
 }
 
 
-function prepare_inference_model() {
+function download_inference_model() {
     export CHECKPOINT_DIR=$MASKRCNN_MODEL
-    # Install model
-    cd ${MODELS_HOME}/models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/
-    python setup.py develop
 
     cd ${MODELS_HOME}/quickstart/object_detection/pytorch/maskrcnn/inference/cpu
     bash download_model.sh
@@ -77,10 +67,9 @@ function prepare_inference_model() {
 
 if [ "${PHASE}" = "training" ]; then
     download_training_data
-    prepare_training_model
 elif [ "${PHASE}" = "inference" ]; then
     download_inference_data
-    prepare_inference_model
+    download_inference_model
 else
     usage
 fi

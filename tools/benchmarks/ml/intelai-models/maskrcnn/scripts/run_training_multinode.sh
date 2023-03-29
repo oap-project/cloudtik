@@ -91,8 +91,6 @@ fi
 CORES_PRE_NODE=$(cloudtik head info --cpus-per-worker)
 HOSTS=$(cloudtik head worker-ips --separator ",")
 
-# TODO
-SOCKETS=1
 
 export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
 export USE_IPEX=1
@@ -110,9 +108,7 @@ rm -rf ${OUTPUT_DIR}/distributed_throughput_log_${PRECISION}*
 
 python -m intel_extension_for_pytorch.cpu.launch \
     --distributed \
-    --cores_per_node ${CORES_PRE_NODE} \
     --hosts ${HOSTS} \
-    --nproc_per_node $SOCKETS \
     --log_path=${OUTPUT_DIR} \
     --log_file_prefix="./distributed_throughput_log_${PRECISION}" \
     ${MODELS_HOME}/models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/tools/train_net.py \

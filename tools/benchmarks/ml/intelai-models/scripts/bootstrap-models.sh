@@ -112,7 +112,7 @@ function install_models_dependency() {
         if [ -d ${dir} ]; then
             install_dependency_script_path="${dir}scripts/install-dependency.sh"
             if [ -e $install_dependency_script_path ]; then
-                bash install_dependency_script_path
+                bash $install_dependency_script_path
             fi
         fi
     done

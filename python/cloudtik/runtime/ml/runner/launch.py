@@ -6,8 +6,6 @@ from argparse import ArgumentParser, REMAINDER
 from argparse import RawTextHelpFormatter
 from datetime import datetime
 
-import intel_extension_for_pytorch.cpu.auto_ipex as auto_ipex
-
 from cloudtik.runtime.ml.runner.cpu.distributed_training_launcher import DistributedTrainingLauncher
 from cloudtik.runtime.ml.runner.cpu.multi_instance_launcher import MultiInstanceLauncher
 
@@ -208,6 +206,19 @@ def add_kmp_iomp_params(parser):
                        help="By default, we use Intel OpenMP and libiomp5.so will be add to LD_PRELOAD")
 
 
+def add_auto_ipex_params(parser, auto_ipex_default_enabled=False):
+    group = parser.add_argument_group("Code_Free Parameters")
+    group.add_argument("--auto_ipex", action='store_true', default=auto_ipex_default_enabled,
+                       help="Auto enabled the ipex optimization feature")
+    group.add_argument("--dtype", metavar='\b', default="float32", type=str,
+                       choices=['float32', 'bfloat16'],
+                       help="The data type to run inference. float32 or bfloat16 is allowed.")
+    group.add_argument("--auto_ipex_verbose", action='store_true', default=False,
+                       help="This flag is only used for debug and UT of auto ipex.")
+    group.add_argument("--disable_ipex_graph_mode", action='store_true', default=False,
+                       help="Enable the Graph Mode for ipex.optimize")
+
+
 def parse_args():
     """
     Helper function parsing the command line options
@@ -255,7 +266,7 @@ def parse_args():
     add_distributed_training_params(parser)
     add_multi_instance_params(parser)
 
-    auto_ipex.add_auto_ipex_params(parser)
+    add_auto_ipex_params(parser)
 
     # positional
     parser.add_argument("program", type=str,

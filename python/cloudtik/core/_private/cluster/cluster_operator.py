@@ -1021,7 +1021,7 @@ def _set_up_config_for_head_node(config: Dict[str, Any],
 
     # Set bootstrapped mark
     remote_config["bootstrapped"] = True
-    
+
     # drop proxy options if they exist, otherwise
     # head node won't be able to connect to workers
     remote_config["auth"].pop("ssh_proxy_command", None)
@@ -1449,6 +1449,22 @@ def get_cpus_per_worker(config, provider):
     return get_cpus_of_node_info(worker_info)
 
 
+def get_sockets_per_worker(config, provider):
+    workers = _get_worker_nodes(config)
+    if not workers:
+        return None
+    call_context = cli_call_context()
+
+    get_sockets_cmd = "lscpu | grep Socket | awk '{print $2}'"
+    sockets_per_worker = exec_cmd_on_head(config=config,
+                                          call_context=call_context,
+                                          provider=provider,
+                                          node_id=workers[0],
+                                          cmd=get_sockets_cmd,
+                                          with_output=True)
+    return sockets_per_worker
+
+
 def get_memory_per_worker(config, provider):
     workers = _get_worker_nodes(config)
     if not workers:
@@ -1824,6 +1840,18 @@ def _show_cpus_per_worker(config: Dict[str, Any]):
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     cpus_per_worker = get_cpus_per_worker(config, provider)
     cli_logger.print(cpus_per_worker)
+
+
+def show_sockets_per_worker(config_file: str,
+                         override_cluster_name: Optional[str] = None) -> None:
+    config = _load_cluster_config(config_file, override_cluster_name)
+    _show_sockets_per_worker(config)
+
+
+def _show_sockets_per_worker(config: Dict[str, Any]):
+    provider = _get_node_provider(config["provider"], config["cluster_name"])
+    sockets_per_worker = get_sockets_per_worker(config, provider)
+    cli_logger.print(sockets_per_worker)
 
 
 def show_memory_per_worker(

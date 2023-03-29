@@ -3,8 +3,6 @@ import os
 import subprocess
 import sys
 
-import intel_extension_for_pytorch.cpu.auto_ipex as auto_ipex
-
 from cloudtik.runtime.ml.runner.cpu.launcher import Launcher
 
 logger = logging.getLogger(__name__)
@@ -140,6 +138,7 @@ class MultiInstanceLauncher(Launcher):
         os.environ["LAUNCH_CMD"] = "#"
 
         if args.auto_ipex:
+            import intel_extension_for_pytorch.cpu.auto_ipex as auto_ipex
             args.program = auto_ipex.apply_monkey_patch(
                 args.program, args.dtype, args.auto_ipex_verbose, args.disable_ipex_graph_mode)
 

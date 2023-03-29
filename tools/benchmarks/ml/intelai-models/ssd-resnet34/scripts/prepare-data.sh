@@ -34,11 +34,6 @@ do
     shift
 done
 
-function install_libraries() {
-    pip install --no-cache-dir cython
-    pip install matplotlib Pillow pycocotools defusedxml
-    pip install --no-cache-dir pytz
-}
 
 function download_inference_data() {
     mkdir -p $SSD_RESNET34_DATA
@@ -77,7 +72,6 @@ function prepare_training_model() {
 }
 
 
-install_libraries
 if [ "${PHASE}" = "training" ]; then
     download_training_data
     prepare_training_model

@@ -23,6 +23,7 @@ export SSD_RESNET34_MODEL=$SSD_RESNET34_HOME/model
 export DATASET_DIR=$SSD_RESNET34_HOME/data
 export OUTPUT_DIR=$SSD_RESNET34_HOME/output
 
+export CHECKPOINT_DIR=$SSD_RESNET34_MODEL
 mkdir -p $OUTPUT_DIR
 
 if [ ! -e "${MODEL_DIR}/models/object_detection/pytorch/ssd-resnet34/training/cpu/train.py" ]; then
@@ -126,7 +127,7 @@ python -m intel_extension_for_pytorch.cpu.launch \
     -w 20 \
     -iter 100 \
     --world_size ${NUM_RANKS} \
-    --backend ccl \
+    --backend $BACKEND \
     $ARGS 2>&1 | tee ${OUTPUT_DIR}/train_ssdresnet34_${PRECISION}_throughput_dist.log
 
 # For the summary of results

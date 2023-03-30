@@ -54,20 +54,21 @@ else
 fi
 
 export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
-export KMP_BLOCKTIME=1
-export KMP_AFFINITY=granularity=fine,compact,1,0
 
-BATCH_SIZE=64
+BATCH_SIZE=448
 PRECISION=$1
 
 if [ "$USE_IPEX" == 1 ]; then
     IPEX="--ipex"
 fi
 
-rm -rf ${OUTPUT_DIR}/rnnt_${PRECISION}_inference_accuracy*
+rm -rf ${OUTPUT_DIR}/rnnt_${PRECISION}_inference_throughput*
 
-python -m intel_extension_for_pytorch.cpu.launch \
+python -m cloudtik-ml-run \
     --use_default_allocator \
+    --throughput_mode \
+    --log_path ${OUTPUT_DIR} \
+    --log_file_prefix rnnt_${PRECISION}_inference_throughput \
     ${MODEL_DIR}/models/language_modeling/pytorch/rnnt/inference/cpu/inference.py \
     --dataset_dir ${DATASET_DIR}/dataset/LibriSpeech/ \
     --val_manifest ${DATASET_DIR}/dataset/LibriSpeech/librispeech-dev-clean-wav.json \
@@ -76,12 +77,24 @@ python -m intel_extension_for_pytorch.cpu.launch \
     --batch_size $BATCH_SIZE \
     $IPEX \
     --jit \
-    $ARGS 2>&1 | tee ${OUTPUT_DIR}/rnnt_${PRECISION}_inference_accuracy.log
+    --warm_up 3 \
+    --sort_by_duration \
+    $ARGS
 
 # For the summary of results
 wait
 
-accuracy=$(grep 'Accuracy:' ${OUTPUT_DIR}/rnnt_${PRECISION}_inference_accuracy* |sed -e 's/.*Accuracy//;s/[^0-9.]//g')
-WER=$(grep 'Evaluation WER:' ${OUTPUT_DIR}/rnnt_${PRECISION}_inference_accuracy* |sed -e 's/.*Evaluation WER//;s/[^0-9.]//g')
-echo ""RNN-T";"accuracy";$1; ${BATCH_SIZE};${accuracy}" | tee -a ${OUTPUT_DIR}/summary.log
-echo ""RNN-T";"WER";$1; ${BATCH_SIZE};${WER}" | tee -a ${work_space}/summary.log
+throughput=$(grep 'Throughput:' ${OUTPUT_DIR}/rnnt_${PRECISION}_inference_throughput* |sed -e 's/.*Throughput//;s/[^0-9.]//g' |awk '
+BEGIN {
+        sum = 0;
+i = 0;
+      }
+      {
+        sum = sum + $1;
+i++;
+      }
+END   {
+sum = sum / i;
+        printf("%.3f", sum);
+}')
+echo ""RNN-T";"throughput";$1; ${BATCH_SIZE};${throughput}" | tee -a ${OUTPUT_DIR}/summary.log

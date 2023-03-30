@@ -15,58 +15,7 @@
 # limitations under the License.
 #
 
-SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-source ${SCRIPT_DIR}/../../common/scripts/setenv.sh
-
-RNNT_HOME=$INTELAI_MODELS_WORKSPACE/rnn-t
-
-RNNT_OUTPUT_DIR=$RNNT_HOME/output
-RNNT_DATASET_DIR=$RNNT_HOME/data
-RNNT_CHECKPOINT_DIR=$RNNT_HOME/checkpoint
-
-# Env vars
-export OUTPUT_DIR=$RNNT_OUTPUT_DIR
-export DATASET_DIR=$RNNT_DATASET_DIR
-export CHECKPOINT_DIR=$RNNT_CHECKPOINT_DIR
-
-mkdir -p $OUTPUT_DIR
-mkdir -p $CHECKPOINT_DIR
-
-#(fp32, bf16, bf32)
-PRECISION=fp32
-NUM_STEPS=100
-BACKEND=gloo
-
-HOSTS=$(cloudtik head worker-ips --separator ",")
-
-function usage(){
-    echo "Usage: run-training_multinode.sh  [--precision fp32 | bf16 | bf32]  [--num-steps 100]  [ --backend ccl | gloo]"
-    exit 1
-}
-
-while [[ $# -gt 0 ]]
-do
-    key="$1"
-    case $key in
-    --precision)
-        # training or inference
-        shift
-        PRECISION=$1
-        ;;
-    --num-steps)
-        # num for steps
-        shift
-        NUM_STEPS=$1
-        ;;
-    --backend)
-        shift
-        BACKEND=$1
-        ;;
-    *)
-        usage
-    esac
-    shift
-done
+MODEL_DIR=${MODEL_DIR-$PWD}
 
 if [ ! -e "${MODEL_DIR}/models/language_modeling/pytorch/rnnt/training/cpu/train.py" ]; then
   echo "Could not find the script of train.py. Please set environment variable '\${MODEL_DIR}'."
@@ -84,51 +33,43 @@ if [ ! -d "${OUTPUT_DIR}" ]; then
   exit 1
 fi
 
-
 MODEL_CONFIG=${5:-"${MODEL_DIR}/models/language_modeling/pytorch/rnnt/training/cpu/configs/rnnt.toml"}
 RESULT_DIR=${6:-"${MODEL_DIR}/models/language_modeling/pytorch/rnnt/training/cpu/results"}
 CHECKPOINT=${7:-"none"}
 CREATE_LOGFILE=${8:-"true"}
 CUDNN_BENCHMARK=${9:-"true"}
 NUM_GPUS=${10:-0}
+PRECISION=${11:-"fp32"}
 EPOCHS=${12:-1}
 SEED=${13:-2021}
-BATCH_SIZE=${14:-32}
+BATCH_SIZE=${14:-64}
 EVAL_BATCH_SIZE=${15:-2}
 LEARNING_RATE=${16:-"0.001"}
 LEARNING_RATE_WARMUP=${17:-"8000"}
 GRADIENT_ACCUMULATION_STEPS=${18:-1}
 LAUNCH_OPT=${LAUNCH_OPT:-"none"}
-SOCKETS=`lscpu | grep Socket | awk '{print $2}'`
-NNODES=${NNODES:-1}
-HOSTFILE=${HOSTFILE:-"${MODEL_DIR}/quickstart/language_modeling/pytorch/rnnt/training/cpu/hostfile"}
-NUM_RANKS=$(( NNODES * SOCKETS ))
 
-mkdir -p $RESULT_DIR
-
-if [[ "$PRECISION" == *"avx"* ]]; then
+if [[ $1 == "avx-fp32" ]]; then
     unset DNNL_MAX_CPU_ISA
 fi
 
 PREC=""
-if [ "$PRECISION" = "bf16" ]; then
+if [ "$1" = "bf16" ]; then
     PREC="--bf16"
     precision="bf16"
     echo "### running bf16 datatype"
-elif [ "$PRECISION" = "fp32" ] ; then
+elif [ "$1" = "fp32" ] ; then
     PREC="--fp32"
     precision="fp32"
     echo "### running fp32 datatype"
-elif [ "$PRECISION" = "bf32" ] ; then
+elif [ "$1" = "bf32" ]; then
     PREC="--bf32"
     precision="bf32"
     echo "### running bf32 datatype"
 else
-    echo "The specified precision '${PRECISION}' is unsupported."
+    echo "The specified precision '${1}' is unsupported."
     echo "Supported precisions now are: fp32, bf16 and bf32"
 fi
-
-HOSTS=$(cloudtik head worker-ips --separator ",")
 
 if [ "$USE_IPEX" == 1 ]; then
     IPEX="--ipex"
@@ -170,31 +111,30 @@ CMD+=" $PREC"
 CMD+=" $IPEX"
 CMD+=" --warmup=$WARMUP"
 CMD+=" $PROFILE"
-CMD+=" --backend=$BACKEND"
 # TODO: FP32 is still under development. For current validation,
 # in FP32, it only runs 100 iterations. NUM_STEPS is disabled in FP32.
-if [ "$PRECISION" = "fp32" ] ; then
+if [ "$1" = "fp32" ] ; then
     CMD+=" --num_steps=100"
 elif [[ ! -z "${NUM_STEPS}" ]]; then
     CMD+=" --num_steps=$NUM_STEPS"
 fi
 
-rm -rf ${OUTPUT_DIR}/distributed_throughput_log*
+export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
 
-oneccl_bindings_for_pytorch_path=$(python -c "import torch; import oneccl_bindings_for_pytorch; import os;  print(os.path.abspath(os.path.dirname(oneccl_bindings_for_pytorch.__file__)))")
-source $oneccl_bindings_for_pytorch_path/env/setvars.sh
+rm -rf ${OUTPUT_DIR}/throughput_log*
 
-python -m intel_extension_for_pytorch.cpu.launch \
-    --distributed \
-    --hosts ${HOSTS} \
+python -m cloudtik-ml-run \
+    --use_default_allocator \
+    --node_id=0 \
     --log_path=${OUTPUT_DIR} \
-    --log_file_prefix="./distributed_throughput_log_${precision}" \
+    --log_file_prefix="./throughput_log_${precision}" \
     ${MODEL_DIR}/models/language_modeling/pytorch/rnnt/training/cpu/train.py \
-    $CMD 2>&1 | tee ${OUTPUT_DIR}/distributed_throughput_log_${precision}.txt
+    $CMD
 
 # For the summary of results
 wait
-throughput=$(grep 'Throughput:' ${OUTPUT_DIR}/distributed_throughput_log* |sed -e 's/.*Throughput//;s/[^0-9.]//g' |awk '
+
+throughput=$(grep 'Throughput:' ${OUTPUT_DIR}/throughput_log* |sed -e 's/.*Throughput//;s/[^0-9.]//g' |awk '
 BEGIN {
         sum = 0;
         i = 0;
@@ -207,4 +147,4 @@ END   {
         sum = sum / i;
         printf("%.3f", sum);
 }')
-echo ""RNN-T";"training distributed throughput";${precision};${BATCH_SIZE};${throughput}" | tee -a ${OUTPUT_DIR}/summary.log
+echo ""RNN-T";"training throughput";${precision};${BATCH_SIZE};${throughput}" | tee -a ${OUTPUT_DIR}/summary.log

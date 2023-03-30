@@ -54,23 +54,18 @@ else
 fi
 
 export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
-export KMP_BLOCKTIME=1
-export KMP_AFFINITY=granularity=fine,compact,1,0
 
-BATCH_SIZE=1
+BATCH_SIZE=64
 PRECISION=$1
 
 if [ "$USE_IPEX" == 1 ]; then
     IPEX="--ipex"
 fi
 
-rm -rf ${OUTPUT_DIR}/rnnt_${PRECISION}_inference_realtime*
+rm -rf ${OUTPUT_DIR}/rnnt_${PRECISION}_inference_accuracy*
 
-python -m intel_extension_for_pytorch.cpu.launch \
+python -m cloudtik-ml-run \
     --use_default_allocator \
-    --latency_mode \
-    --log_path ${OUTPUT_DIR} \
-    --log_file_prefix rnnt_${PRECISION}_inference_realtime \
     ${MODEL_DIR}/models/language_modeling/pytorch/rnnt/inference/cpu/inference.py \
     --dataset_dir ${DATASET_DIR}/dataset/LibriSpeech/ \
     --val_manifest ${DATASET_DIR}/dataset/LibriSpeech/librispeech-dev-clean-wav.json \
@@ -79,42 +74,12 @@ python -m intel_extension_for_pytorch.cpu.launch \
     --batch_size $BATCH_SIZE \
     $IPEX \
     --jit \
-    --warm_up 10 \
-    $ARGS
+    $ARGS 2>&1 | tee ${OUTPUT_DIR}/rnnt_${PRECISION}_inference_accuracy.log
 
 # For the summary of results
 wait
 
-CORES=`lscpu | grep Core | awk '{print $4}'`
-CORES_PER_INSTANCE=4
-
-INSTANCES_THROUGHPUT_BENCHMARK_PER_SOCKET=`expr $CORES / $CORES_PER_INSTANCE`
-
-throughput=$(grep 'Throughput:' ${OUTPUT_DIR}/rnnt_${PRECISION}_inference_realtime* |sed -e 's/.*Throughput//;s/[^0-9.]//g' |awk -v INSTANCES_PER_SOCKET=$INSTANCES_THROUGHPUT_BENCHMARK_PER_SOCKET '
-BEGIN {
-        sum = 0;
-i = 0;
-      }
-      {
-        sum = sum + $1;
-i++;
-      }
-END   {
-sum = sum / i * INSTANCES_PER_SOCKET;
-        printf("%.2f", sum);
-}')
-p99_latency=$(grep 'P99 Latency' ${OUTPUT_DIR}/rnnt_${PRECISION}_inference_realtime* |sed -e 's/.*P99 Latency//;s/[^0-9.]//g' |awk -v INSTANCES_PER_SOCKET=$INSTANCES_THROUGHPUT_BENCHMARK_PER_SOCKET '
-BEGIN {
-    sum = 0;
-    i = 0;
-    }
-    {
-        sum = sum + $1;
-        i++;
-    }
-END   {
-    sum = sum / i;
-    printf("%.3f ms", sum);
-}')
-echo ""RNN-T";"latency";$1; ${BATCH_SIZE};${throughput}" | tee -a ${OUTPUT_DIR}/summary.log
-echo ""RNN-T";"p99_latency";$1; ${BATCH_SIZE};${p99_latency}" | tee -a ${OUTPUT_DIR}/summary.log
+accuracy=$(grep 'Accuracy:' ${OUTPUT_DIR}/rnnt_${PRECISION}_inference_accuracy* |sed -e 's/.*Accuracy//;s/[^0-9.]//g')
+WER=$(grep 'Evaluation WER:' ${OUTPUT_DIR}/rnnt_${PRECISION}_inference_accuracy* |sed -e 's/.*Evaluation WER//;s/[^0-9.]//g')
+echo ""RNN-T";"accuracy";$1; ${BATCH_SIZE};${accuracy}" | tee -a ${OUTPUT_DIR}/summary.log
+echo ""RNN-T";"WER";$1; ${BATCH_SIZE};${WER}" | tee -a ${work_space}/summary.log

@@ -195,14 +195,15 @@ class MultiInstanceLauncher(Launcher):
             if args.module:
                 cmd.append("-m")
             cmd.append(args.program)
-            log_name = args.log_file_prefix + "_instance_{}_cores_".format(
-                i) + cur_process_cores.replace(',', '_') + ".log"
-            log_name = os.path.join(args.log_path, log_name)
+
             cmd.extend(args.program_args)
             os.environ["LAUNCH_CMD"] += " ".join(cmd) + ",#"
             cmd_s = " ".join(cmd)
             if args.log_path:
-                cmd_s = "{} 2>&1 | tee {}".format(cmd_s, log_name)
+                log_name = args.log_file_prefix + "_instance_{}_cores_".format(
+                    i) + cur_process_cores.replace(',', '_') + ".log"
+                log_file = os.path.join(args.log_path, log_name)
+                cmd_s = "{} 2>&1 | tee {}".format(cmd_s, log_file)
             logger.info(cmd_s)
             if not args.disable_numactl:
                 process = subprocess.Popen(cmd_s, env=os.environ, shell=True)

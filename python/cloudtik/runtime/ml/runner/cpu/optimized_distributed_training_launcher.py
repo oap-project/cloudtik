@@ -114,9 +114,8 @@ class OptimizedDistributedTrainingLauncher(DistributedTrainingLauncher):
             mpi_config += " -hostfile {}".format(args.hostfile)
 
         def get_cloudtik_rsh():
-            cloudtik_home = os.path.join(
-                os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'cloudtik')
-            return os.path.join(cloudtik_home, "runtime/ml/scripts", "cloudtik-rsh.sh")
+            cloudtik_ml_home = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+            return os.path.join(cloudtik_ml_home, "scripts", "cloudtik-rsh.sh")
 
         # only add this for remote training
         if args.hosts or args.hostfile:
@@ -132,5 +131,6 @@ class OptimizedDistributedTrainingLauncher(DistributedTrainingLauncher):
             mpi_command=mpi_command,
             command=command
         )
+        logger.info("Final command run: {}".format(final_command))
         process = subprocess.Popen(final_command, env=os.environ, shell=True)
         process.wait()

@@ -54,10 +54,14 @@ class Launcher:
 
     def is_numactl_available(self):
         numactl_available = False
-        cmd = ["numactl", "-C", "0", "-m", "0", "ls"]
-        r = subprocess.run(cmd, env=os.environ, stdout=subprocess.DEVNULL)
-        if r.returncode == 0:
-            numactl_available = True
+        try:
+            cmd = ["numactl", "-C", "0", "-m", "0", "ls"]
+            r = subprocess.run(cmd, env=os.environ, stdout=subprocess.DEVNULL)
+            if r.returncode == 0:
+                numactl_available = True
+        except Exception as e:
+            logger.warning("Core binding with numactl is not available: {}".format(
+                str(e)))
         return numactl_available
 
     def set_memory_allocator(self, enable_tcmalloc=True, enable_jemalloc=False, use_default_allocator=False, benchmark=False):

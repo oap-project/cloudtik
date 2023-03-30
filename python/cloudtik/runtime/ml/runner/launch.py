@@ -131,18 +131,16 @@ def add_distributed_training_params(parser):
                        help="Master node (rank 0)'s free port that needs to "
                             "be used for communication during distributed "
                             "training")
-    group.add_argument("--hostfile", metavar='\b', default="hostfile", type=str,
+    group.add_argument("--hostfile", metavar='\b', default="", type=str,
                        help="Hostfile is necessary for multi-node multi-proc "
                             "training. hostfile includes the node address list "
                             "node address which should be either the IP address"
                             "or the hostname.")
-    # CloudTik: patch start
     group.add_argument("--hosts", metavar='\b', default="", type=str,
                        help="List of hosts separated with comma for launching tasks. "
                             "When hosts is specified, it implies distributed training. "
                             "node address which should be either the IP address"
                             "or the hostname.")
-    # CloudTik: patch end
     group.add_argument("--more_mpi_params", metavar='\b', default="", type=str,
                        help="User can pass more parameters for mpiexec.hydra "
                             "except for -np -ppn -hostfile and -genv I_MPI_PIN_DOMAIN")

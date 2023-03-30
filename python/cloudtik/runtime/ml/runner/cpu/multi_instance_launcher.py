@@ -12,7 +12,12 @@ class MultiInstanceLauncher(Launcher):
     r"""
      Launcher for single instance and multi-instance
      """
-    def launch(self, args):
+
+    def __init__(self, args):
+        super().__init__(args)
+
+    def launch(self):
+        args = self.args
         processes = []
         cores = []
         set_kmp_affinity = True

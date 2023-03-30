@@ -50,98 +50,13 @@ do
     shift
 done
 
+export PRECISION=$PRECISION
+export BACKEND=$BACKEND
 
-if [ ! -e "${MODELS_HOME}/models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/tools/train_net.py" ]; then
-  echo "Could not find the script of train.py. Please set environment variable '\${MODELS_HOME}'."
-  echo "From which the train.py exist at the: \${MODELS_HOME}/models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/tools/train_net.py"
-  exit 1
-fi
+export CORES=$(cloudtik head info --cpus-per-worker)
+export HOSTS=$(cloudtik head worker-ips --separator ",")
+export SOCKETS=$(cloudtik head info --sockets-per-worker)
 
-if [ ! -d "${DATASET_DIR}/coco" ]; then
-  echo "The DATASET_DIR \${DATASET_DIR}/coco does not exist"
-  exit 1
-fi
-
-if [ ! -d "${OUTPUT_DIR}" ]; then
-  echo "The OUTPUT_DIR '${OUTPUT_DIR}' does not exist"
-  exit 1
-fi
-
-if [[ "$PRECISION" == *"avx"* ]]; then
-    unset DNNL_MAX_CPU_ISA
-fi
-
-ARGS=""
-
-if [[ "$PRECISION" == "bf16" ]]; then
-    ARGS="$ARGS --bf16"
-    echo "### running bf16 datatype"
-elif [[ "$PRECISION" == "bf32" ]]; then
-    ARGS="$ARGS --bf32"
-    echo "### running bf32 datatype"
-elif [[ "$PRECISION" == "fp32" || "$PRECISION" == "avx-fp32" ]]; then
-    echo "### running fp32 datatype"
-else
-    echo "The specified precision '$PRECISION' is unsupported."
-    echo "Supported precisions are: fp32, avx-fp32, bf16, and bf32."
-    exit 1
-fi
-
-
-CORES_PER_INSTANCE=$(cloudtik head info --cpus-per-worker)
-HOSTS=$(cloudtik head worker-ips --separator ",")
-NNODES=$(cloudtik head info --total-workers)
-SOCKETS=$(cloudtik head info --sockets-per-worker)
-
-export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
-export USE_IPEX=1
-export KMP_BLOCKTIME=1
-export KMP_AFFINITY=granularity=fine,compact,1,0
-
-export TRAIN=1
-
-oneccl_bindings_for_pytorch_path=$(python -c "import torch; import oneccl_bindings_for_pytorch; import os;  print(os.path.abspath(os.path.dirname(oneccl_bindings_for_pytorch.__file__)))")
-source $oneccl_bindings_for_pytorch_path/env/setvars.sh
-
-BATCH_SIZE=${BATCH_SIZE-112}
-
-rm -rf ${OUTPUT_DIR}/distributed_throughput_log_${PRECISION}*
-
-python -m cloudtik-ml-run \
-    --distributed \
-    --hosts ${HOSTS} \
-    --log_path=${OUTPUT_DIR} \
-    --nproc_per_node ${SOCKETS} \
-    --nnodes ${NNODES} \
-    --log_file_prefix="./distributed_throughput_log_${PRECISION}" \
-    ${MODELS_HOME}/models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/tools/train_net.py \
-    $ARGS \
-    --iter-warmup 10 \
-    -i 20 \
-    --config-file "${MODELS_HOME}/models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/configs/e2e_mask_rcnn_R_50_FPN_1x_coco2017_tra.yaml" \
-    --skip-test \
-    --backend ${BACKEND} \
-    SOLVER.IMS_PER_BATCH ${BATCH_SIZE} \
-    SOLVER.MAX_ITER 720000 \
-    SOLVER.STEPS '"(60000, 80000)"' \
-    SOLVER.BASE_LR 0.0025 \
-    MODEL.DEVICE cpu \
-    2>&1 | tee ${OUTPUT_DIR}/distributed_throughput_log_${PRECISION}.txt
-
-# For the summary of results
-wait
-throughput=$(grep 'Training throughput:' ${OUTPUT_DIR}/distributed_throughput_log_${PRECISION}* |sed -e 's/.*Training throughput//;s/[^0-9.]//g' |awk '
-BEGIN {
-        sum = 0;
-        i = 0;
-      }
-      {
-        sum = sum + $1;
-        i++;
-      }
-END   {
-        sum = sum / i;
-        printf("%.3f", sum);
-}')
-echo ""maskrcnn";"training distributed throughput";${PRECISION};${BATCH_SIZE};${throughput}" | tee -a ${OUTPUT_DIR}/summary.log
+cd ${PATCHED_MODELS_HOME}/quickstart/image_recognition/pytorch/resnet50/training/cpu
+bash training_multinode.sh
 

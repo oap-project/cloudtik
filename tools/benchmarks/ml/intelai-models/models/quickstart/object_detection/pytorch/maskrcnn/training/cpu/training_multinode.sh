@@ -53,15 +53,16 @@ else
     exit 1
 fi
 
-CORES=`lscpu | grep Core | awk '{print $4}'`
-SOCKETS=`lscpu | grep Socket | awk '{print $2}'`
+CORES=${CORES:-`lscpu | grep Core | awk '{print $4}'`}
+SOCKETS=${SOCKETS:-`lscpu | grep Socket | awk '{print $2}'`}
 TOTAL_CORES=`expr $CORES \* $SOCKETS`
 
 CORES_PER_INSTANCE=$CORES
 
-NNODES=${NNODES:-1}
-HOSTFILE=${HOSTFILE:-"${MODEL_DIR}/quickstart/language_modeling/pytorch/rnnt/training/cpu/hostfile"}
+HOSTS=${HOSTS:-'127.0.0.1'}
+NNODES=$(echo $HOSTS | tr ',' '\n' | wc -l)
 NUM_RANKS=$(( NNODES * SOCKETS ))
+BACKEND=${BACKEND:-'ccl'}
 
 export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
 export USE_IPEX=1
@@ -79,10 +80,10 @@ BATCH_SIZE=${BATCH_SIZE-112}
 
 rm -rf ${OUTPUT_DIR}/distributed_throughput_log_${PRECISION}*
 
-python -m intel_extension_for_pytorch.cpu.launch \
+python -m cloudtik-ml-run \
     --distributed \
     --nnodes ${NNODES} \
-    --hostfile ${HOSTFILE} \
+    --hosts ${HOSTS} \
     --nproc_per_node $SOCKETS \
     --log_path=${OUTPUT_DIR} \
     --log_file_prefix="./distributed_throughput_log_${PRECISION}" \
@@ -92,7 +93,7 @@ python -m intel_extension_for_pytorch.cpu.launch \
     -i 20 \
     --config-file "${MODEL_DIR}/models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/configs/e2e_mask_rcnn_R_50_FPN_1x_coco2017_tra.yaml" \
     --skip-test \
-    --backend ccl \
+    --backend $BACKEND \
     SOLVER.IMS_PER_BATCH ${BATCH_SIZE} \
     SOLVER.MAX_ITER 720000 \
     SOLVER.STEPS '"(60000, 80000)"' \

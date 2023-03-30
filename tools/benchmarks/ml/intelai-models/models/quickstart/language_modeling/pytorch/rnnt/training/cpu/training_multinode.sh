@@ -48,10 +48,11 @@ LEARNING_RATE=${16:-"0.001"}
 LEARNING_RATE_WARMUP=${17:-"8000"}
 GRADIENT_ACCUMULATION_STEPS=${18:-1}
 LAUNCH_OPT=${LAUNCH_OPT:-"none"}
-SOCKETS=`lscpu | grep Socket | awk '{print $2}'`
-NNODES=${NNODES:-1}
-HOSTFILE=${HOSTFILE:-"${MODEL_DIR}/quickstart/language_modeling/pytorch/rnnt/training/cpu/hostfile"}
+SOCKETS=${SOCKETS:-`lscpu | grep Socket | awk '{print $2}'`}
+HOSTS=${HOSTS:-'127.0.0.1'}
+NNODES=$(echo $HOSTS | tr ',' '\n' | wc -l)
 NUM_RANKS=$(( NNODES * SOCKETS ))
+BACKEND=${BACKEND:-'ccl'}
 
 if [[ $1 == "avx-fp32" ]]; then
     unset DNNL_MAX_CPU_ISA
@@ -113,7 +114,7 @@ CMD+=" $PREC"
 CMD+=" $IPEX"
 CMD+=" --warmup=$WARMUP"
 CMD+=" $PROFILE"
-CMD+=" --backend=ccl"
+CMD+=" --backend=${BACKEND}"
 # TODO: FP32 is still under development. For current validation,
 # in FP32, it only runs 100 iterations. NUM_STEPS is disabled in FP32.
 if [ "$1" = "fp32" ] ; then
@@ -127,10 +128,10 @@ rm -rf ${OUTPUT_DIR}/distributed_throughput_log*
 oneccl_bindings_for_pytorch_path=$(python -c "import torch; import oneccl_bindings_for_pytorch; import os;  print(os.path.abspath(os.path.dirname(oneccl_bindings_for_pytorch.__file__)))")
 source $oneccl_bindings_for_pytorch_path/env/setvars.sh
 
-python -m intel_extension_for_pytorch.cpu.launch \
+python -m cloudtik-ml-run \
     --distributed \
     --nnodes ${NNODES} \
-    --hostfile ${HOSTFILE} \
+    --hosts ${HOSTS} \
     --nproc_per_node $SOCKETS \
     --log_path=${OUTPUT_DIR} \
     --log_file_prefix="./distributed_throughput_log_${precision}" \

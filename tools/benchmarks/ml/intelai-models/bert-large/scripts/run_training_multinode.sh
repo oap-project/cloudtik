@@ -22,6 +22,7 @@ export BERT_LARGE_HOME=$INTELAI_MODELS_WORKSPACE/ssd-resnet34
 export BERT_LARGE_MODEL=$BERT_LARGE_HOME/model
 export DATASET_DIR=$BERT_LARGE_HOME/data
 export OUTPUT_DIR=$BERT_LARGE_HOME/output
+export BERT_MODEL_CONFIG=${BERT_LARGE_MODEL}/config.json
 
 mkdir -p $OUTPUT_DIR
 
@@ -51,72 +52,13 @@ do
     shift
 done
 
-#export DNNL_MAX_CPU_ISA=AVX512_CORE_AMX
-ARGS="--benchmark"
-batch_size=224
-if [[ "$PRECISION" == "bf16" ]]
-then
-    ARGS="$ARGS --bf16"
-    precision=bf16
-    batch_size=448
-    echo "### running bf16 mode"
-elif [[ $PRECISION == "bf32" ]]; then
-    echo "### running BF32 mode"
-    ARGS="$ARGS --bf32"
-    precision=bf32
-elif [[ $PRECISION == "fp32" ]]; then
-    echo "### running FP32 mode"
+export PRECISION=$PRECISION
+export BACKEND=$BACKEND
 
-else
-    echo "The specified precision '$PRECISION' is unsupported."
-    echo "Supported precisions are: fp32, bf16, bf32"
-    exit 1
-fi
+export CORES=$(cloudtik head info --cpus-per-worker)
+export HOSTS=$(cloudtik head worker-ips --separator ",")
+export SOCKETS=$(cloudtik head info --sockets-per-worker)
 
-BERT_MODEL_CONFIG=${BERT_LARGE_MODEL}/config.json
-TRAIN_SCRIPT=${MODEL_DIR}/models/language_modeling/pytorch/bert_large/training/run_pretrain_mlperf.py
+cd ${PATCHED_MODELS_HOME}/quickstart/language_modeling/pytorch/bert_large/training/cpu
 
-HOSTS=$(cloudtik head worker-ips --separator ",")
-NNODES=$(cloudtik head info --total-workers)
-SOCKETS=$(cloudtik head info --sockets-per-worker)
-NUM_RANKS=$(( NNODES * SOCKETS ))
-
-LBS=$(( batch_size / NUM_RANKS ))
-
-rm -rf ${OUTPUT_DIR}/throughput_log_phase1_*
-
-params="--train_batch_size=$LBS     --learning_rate=3.5e-4     --opt_lamb_beta_1=0.9     --opt_lamb_beta_2=0.999     --warmup_proportion=0.0     --warmup_steps=0.0     --start_warmup_step=0     --max_steps=13700   --max_predictions_per_seq=76      --do_train     --skip_checkpoint     --train_mlm_accuracy_window_size=0     --target_mlm_accuracy=0.720     --weight_decay_rate=0.01     --max_samples_termination=4500000     --eval_iter_start_samples=150000 --eval_iter_samples=150000     --eval_batch_size=16  --gradient_accumulation_steps=1     --log_freq=0 "
-
-oneccl_bindings_for_pytorch_path=$(python -c "import torch; import oneccl_bindings_for_pytorch; import os;  print(os.path.abspath(os.path.dirname(oneccl_bindings_for_pytorch.__file__)))")
-source $oneccl_bindings_for_pytorch_path/env/setvars.sh
-
-python -m cloudtik-ml-run --distributed  \
-    --hosts ${HOSTS}  \
-    --nnodes ${NNODES} --nproc_per_node $SOCKETS
-    --log_path=${OUTPUT_DIR} --log_file_prefix="./throughput_log_phase1_${precision}" ${TRAIN_SCRIPT} \
-    --input_dir ${DATASET_DIR}/2048_shards_uncompressed_128/ \
-    --eval_dir ${DATASET_DIR}/eval_set_uncompressed/ \
-    --model_type 'bert' \
-    --output_dir model_save \
-    --dense_seq_output \
-    --config_name ${BERT_MODEL_CONFIG} \
-    $ARGS \
-    $params \
-    2>&1 | tee ${OUTPUT_DIR}/throughput_log_phase1_${precision}.log
-
-# For the summary of results
-wait
-throughput=$(grep 'Throughput:' ${OUTPUT_DIR}/throughput_log_phase1_${precision}* |sed -e 's/.*Throughput//;s/[^0-9.]//g' |awk '
-BEGIN {
-        sum = 0;
-        i = 0;
-      }
-      {
-        sum = sum + $1;
-i++;
-      }
-END   {
-sum = sum / i;
-printf("%.3f", sum);
-}')
-echo ""BERT";"training phase1 distributed throughput";${precision}; ${batch_size};${throughput}" | tee -a ${OUTPUT_DIR}/summary.log
+bash run_ddp_bert_pretrain_phase1.sh

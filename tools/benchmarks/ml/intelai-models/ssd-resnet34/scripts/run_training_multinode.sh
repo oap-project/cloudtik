@@ -26,26 +26,6 @@ export OUTPUT_DIR=$SSD_RESNET34_HOME/output
 export CHECKPOINT_DIR=$SSD_RESNET34_MODEL
 mkdir -p $OUTPUT_DIR
 
-if [ ! -e "${MODEL_DIR}/models/object_detection/pytorch/ssd-resnet34/training/cpu/train.py" ]; then
-  echo "Could not find the script of train.py. Please set environment variable '\${MODEL_DIR}'."
-  echo "From which the train.py exist at the: \${MODEL_DIR}/models/object_detection/pytorch/ssd-resnet34/training/cpu/train.py"
-  exit 1
-fi
-
-if [ ! -e "${CHECKPOINT_DIR}/ssd/resnet34-333f7ec4.pth" ]; then
-  echo "The pretrained model \${CHECKPOINT_DIR}/ssd/resnet34-333f7ec4.pth does not exist"
-  exit 1
-fi
-
-if [ ! -d "${DATASET_DIR}/coco" ]; then
-  echo "The DATASET_DIR \${DATASET_DIR}/coco does not exist"
-  exit 1
-fi
-
-if [ ! -d "${OUTPUT_DIR}" ]; then
-  echo "The OUTPUT_DIR '${OUTPUT_DIR}' does not exist"
-  exit 1
-fi
 
 
 PRECISION=fp32
@@ -78,77 +58,12 @@ if [[ "$PRECISION" == *"avx"* ]]; then
 fi
 
 
-ARGS=""
-if [ "$PRECISION" == "bf16" ]; then
-    ARGS="$ARGS --autocast"
-    echo "### running bf16 datatype"
-elif [[ $PRECISION == "fp32" || $PRECISION == "avx-fp32" ]]; then
-    echo "### running fp32 datatype"
-elif [[ "$PRECISION" == "bf32" ]]; then
-    ARGS="$ARGS --bf32"
-    echo "### running bf32 datatype"
-else
-    echo "The specified precision '$PRECISION' is unsupported."
-    echo "Supported precisions are: fp32, avx-fp32, bf32, and bf16"
-    exit 1
-fi
+export PRECISION=$PRECISION
+export BACKEND=$BACKEND
 
-HOSTS=$(cloudtik head worker-ips --separator ",")
-CORES_PER_INSTANCE=$(cloudtik head info --cpus-per-worker)
-NNODES=$(cloudtik head info --total-workers)
-SOCKETS=$(cloudtik head info --sockets-per-worker)
-NUM_RANKS=$(( NNODES * SOCKETS ))
+export CORES=$(cloudtik head info --cpus-per-worker)
+export HOSTS=$(cloudtik head worker-ips --separator ",")
+export SOCKETS=$(cloudtik head info --sockets-per-worker)
 
-export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
-export USE_IPEX=1
-export KMP_BLOCKTIME=1
-export KMP_AFFINITY=granularity=fine,compact,1,0
-
-BATCH_SIZE=224
-
-rm -rf ${OUTPUT_DIR}/train_ssdresnet34_${PRECISION}_throughput_dist*
-
-oneccl_bindings_for_pytorch_path=$(python -c "import torch; import oneccl_bindings_for_pytorch; import os;  print(os.path.abspath(os.path.dirname(oneccl_bindings_for_pytorch.__file__)))")
-source $oneccl_bindings_for_pytorch_path/env/setvars.sh
-
-python -m cloudtik-ml-run \
-    --use_default_allocator \
-    --distributed \
-    --hosts ${HOSTS} \
-    --nproc_per_node ${SOCKETS} \
-    --ncore_per_instance ${CORES_PER_INSTANCE} \
-    --nnodes ${NNODES} \
-    ${MODEL_DIR}/models/object_detection/pytorch/ssd-resnet34/training/cpu/train.py \
-    --epochs 70 \
-    --warmup-factor 0 \
-    --lr 2.5e-3 \
-    --threshold=0.23 \
-    --seed 2000 \
-    --log-interval 10 \
-    --data ${DATASET_DIR}/coco \
-    --batch-size ${BATCH_SIZE} \
-    --pretrained-backbone ${CHECKPOINT_DIR}/ssd/resnet34-333f7ec4.pth \
-    --performance_only \
-    -w 20 \
-    -iter 100 \
-    --world_size ${NUM_RANKS} \
-    --backend $BACKEND \
-    $ARGS 2>&1 | tee ${OUTPUT_DIR}/train_ssdresnet34_${PRECISION}_throughput_dist.log
-
-# For the summary of results
-wait
-
-throughput=$(grep 'Throughput:' ${OUTPUT_DIR}/train_ssdresnet34_${PRECISION}_throughput_dist* |sed -e 's/.*Throughput//;s/[^0-9.]//g' |awk '
-BEGIN {
-        sum = 0;
-i = 0;
-      }
-      {
-        sum = sum + $1;
-i++;
-      }
-END   {
-sum = sum / i;
-        printf("%.3f", sum);
-}')
-echo ""SSD-RN34";"training distributed throughput";$1; ${BATCH_SIZE};${throughput}" | tee -a ${OUTPUT_DIR}/summary.log
+cd ${PATCHED_MODELS_HOME}/quickstart/object_detection/pytorch/ssd-resnet34/training/cpu
+bash throughput_dist.sh $PRECISION

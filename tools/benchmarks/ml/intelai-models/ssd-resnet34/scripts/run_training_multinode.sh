@@ -94,8 +94,10 @@ else
 fi
 
 HOSTS=$(cloudtik head worker-ips --separator ",")
-NUM_RANKS=$(cloudtik head info --total-workers)
-
+CORES_PER_INSTANCE=$(cloudtik head info --cpus-per-worker)
+NNODES=$(cloudtik head info --total-workers)
+SOCKETS=$(cloudtik head info --sockets-per-worker)
+NUM_RANKS=$(( NNODES * SOCKETS ))
 
 export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
 export USE_IPEX=1
@@ -113,6 +115,9 @@ python -m intel_extension_for_pytorch.cpu.launch \
     --use_default_allocator \
     --distributed \
     --hosts ${HOSTS} \
+    --nproc_per_node ${SOCKETS} \
+    --ncore_per_instance ${CORES_PER_INSTANCE} \
+    --nnodes ${NNODES} \
     ${MODEL_DIR}/models/object_detection/pytorch/ssd-resnet34/training/cpu/train.py \
     --epochs 70 \
     --warmup-factor 0 \

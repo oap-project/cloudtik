@@ -1462,7 +1462,7 @@ def get_sockets_per_worker(config, provider):
                                           node_id=workers[0],
                                           cmd=get_sockets_cmd,
                                           with_output=True)
-    return sockets_per_worker
+    return sockets_per_worker.strip()
 
 
 def get_memory_per_worker(config, provider):

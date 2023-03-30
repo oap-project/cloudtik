@@ -110,10 +110,11 @@ else
 fi
 
 
-CORES=$(cloudtik head info --cpus-per-worker)
+CORES_PER_INSTANCE=$(cloudtik head info --cpus-per-worker)
 HOSTS=$(cloudtik head worker-ips --separator ",")
-NUM_RANKS=$(cloudtik head info --total-workers)
-
+NNODES=$(cloudtik head info --total-workers)
+SOCKETS=$(cloudtik head info --sockets-per-worker)
+NUM_RANKS=$(( NNODES * SOCKETS ))
 
 export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
 export USE_IPEX=1
@@ -130,6 +131,9 @@ source $oneccl_bindings_for_pytorch_path/env/setvars.sh
 python -m intel_extension_for_pytorch.cpu.launch \
     --use_default_allocator \
     --distributed \
+    --nnodes ${NNODES} \
+    --nproc_per_node ${SOCKETS} \
+    --ncore_per_instance ${CORES_PER_INSTANCE} \
     --hosts ${HOSTS} \
     ${MODEL_DIR}/models/image_recognition/pytorch/common/main.py \
     $ARGS \

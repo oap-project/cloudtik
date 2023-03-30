@@ -212,6 +212,16 @@ def add_auto_ipex_params(parser, auto_ipex_default_enabled=False):
                        help="Enable the Graph Mode for ipex.optimize")
 
 
+def add_horovod_params(parser):
+    group = parser.add_argument_group("Horovod Parameters")
+    group.add_argument('--gloo', action='store_true', dest='use_gloo',
+                       help='Run Horovod using the Gloo controller. This will '
+                            'be the default if Horovod was not built with MPI support.')
+    group.add_argument('--mpi', action='store_true', dest='use_mpi',
+                       help='Run Horovod using the MPI controller. This will '
+                            'be the default if Horovod was built with MPI support.')
+
+
 def parse_args():
     """
     Helper function parsing the command line options
@@ -271,6 +281,8 @@ def parse_args():
     add_multi_instance_params(parser)
 
     add_auto_ipex_params(parser)
+
+    add_horovod_params(parser)
 
     # positional
     parser.add_argument("program", type=str,

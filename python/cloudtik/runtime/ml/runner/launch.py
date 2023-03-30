@@ -106,9 +106,15 @@ rank 0: *(IP: 192.168.10.10, and has a free port: 295000)*
 
 *** Memory allocator  ***
 
-"--enable_tcmalloc" and "--enable_jemalloc" can be used to enable different memory allcator.
+"--enable_tcmalloc" and "--enable_jemalloc" can be used to enable different memory allocator.
 
 """
+
+
+def add_cpu_option_params(parser):
+    group = parser.add_argument_group("Parameters for CPU options")
+    group.add_argument("--use_logical_core", action='store_true', default=False,
+                       help="Whether only use physical cores")
 
 
 def add_distributed_training_params(parser):
@@ -175,8 +181,6 @@ def add_multi_instance_params(parser):
                        help="By default one instance per node and use all physical cores")
     group.add_argument("--node_id", metavar='\b', default=-1, type=int,
                        help="node id for multi-instance, by default all nodes will be used")
-    group.add_argument("--use_logical_core", action='store_true', default=False,
-                       help="Whether only use physical cores")
     group.add_argument("--disable_numactl", action='store_true', default=False,
                        help="Disable numactl")
     group.add_argument("--disable_taskset", action='store_true', default=False,
@@ -187,10 +191,6 @@ def add_multi_instance_params(parser):
                        help="Enable benchmark config. JeMalloc's MALLOC_CONF has been tuned for low latency. "
                             "Recommend to use this for benchmarking purpose; for other use cases, "
                             "this MALLOC_CONF may cause Out-of-Memory crash.")
-    group.add_argument("--log_path", metavar='\b', default="", type=str,
-                       help="The log file directory. Default path is '', which means disable logging to files.")
-    group.add_argument("--log_file_prefix", metavar='\b', default="run", type=str,
-                       help="log file prefix")
 
 
 def add_kmp_iomp_params(parser):
@@ -245,7 +245,7 @@ def parse_args():
     parser.add_argument('--distributed', action='store_true', default=False,
                         help='Enable distributed training.')
     parser.add_argument("--launcher", metavar='\b', default="", type=str,
-                        help="The launcher to use: default, optimized")
+                        help="The launcher to use: default, optimized, horovod")
     parser.add_argument("-m", "--module", default=False, action="store_true",
                         help="Changes each process to interpret the launch script "
                              "as a python module, executing with the same behavior as"
@@ -255,6 +255,12 @@ def parse_args():
                         help="Do not prepend the --program script with \"python\" - just exec "
                              "it directly. Useful when the script is not a Python script.")
 
+    parser.add_argument("--log_path", metavar='\b', default="", type=str,
+                        help="The log file directory. Default path is '', which means disable logging to files.")
+    parser.add_argument("--log_file_prefix", metavar='\b', default="run", type=str,
+                        help="log file prefix")
+
+    add_cpu_option_params(parser)
     add_memory_allocator_params(parser)
     add_kmp_iomp_params(parser)
 
@@ -312,35 +318,34 @@ def _setup_logger(args):
         root_logger.addHandler(fileHandler)
 
 
-def main():
-    env_before = set(os.environ.keys())
-    if platform.system() == "Windows":
-        raise RuntimeError("Windows platform is not supported!!!")
-
-    args = parse_args()
-    _setup_logger(args)
-
+def _run(args):
     if args.distributed and args.multi_instance:
         raise RuntimeError("Either args.distributed or args.multi_instance should be set")
-
-    if args.latency_mode and args.throughput_mode:
-        raise RuntimeError("Either args.latency_mode or args.throughput_mode should be set")
 
     if args.nnodes > 1 or args.hosts or args.hostfile:
         args.distributed = True
 
+    if not args.distribued:
+        if args.latency_mode and args.throughput_mode:
+            raise RuntimeError("Either args.latency_mode or args.throughput_mode should be set")
+
     if not args.no_python and not args.program.endswith(".py"):
-        logger.error("For non Python script, you should use '--no_python' parameter.")
-        exit()
+        raise RuntimeError("For non Python script, you should use '--no_python' parameter.")
+
+    env_before = set(os.environ.keys())
 
     # Verify LD_PRELOAD
     _verify_ld_preload()
 
     if args.distributed:
-        if args.launcher and args.launcher == "default":
-            from cloudtik.runtime.ml.runner.cpu.distributed_training_launcher \
-                import DistributedTrainingLauncher
-            launcher = DistributedTrainingLauncher(args)
+        if args.launcher == "default":
+            from cloudtik.runtime.ml.runner.cpu.default_training_launcher \
+                import DefaultTrainingLauncher
+            launcher = DefaultTrainingLauncher(args)
+        elif args.launcher == "horovod":
+            from cloudtik.runtime.ml.runner.horovod_training_launcher \
+                import HorovodTrainingLauncher
+            launcher = HorovodTrainingLauncher(args)
         else:
             from cloudtik.runtime.ml.runner.cpu.optimized_distributed_training_launcher \
                 import OptimizedDistributedTrainingLauncher
@@ -351,8 +356,19 @@ def main():
         launcher = MultiInstanceLauncher(args)
 
     launcher.launch()
+
     for x in sorted(set(os.environ.keys()) - env_before):
         logger.debug('{0}={1}'.format(x, os.environ[x]))
+
+
+def main():
+    if platform.system() == "Windows":
+        raise RuntimeError("Windows platform is not supported!!!")
+
+    args = parse_args()
+    _setup_logger(args)
+
+    _run(args)
 
 
 if __name__ == "__main__":

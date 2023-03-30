@@ -99,8 +99,8 @@ LEARNING_RATE=${16:-"0.001"}
 LEARNING_RATE_WARMUP=${17:-"8000"}
 GRADIENT_ACCUMULATION_STEPS=${18:-1}
 LAUNCH_OPT=${LAUNCH_OPT:-"none"}
-SOCKETS=`lscpu | grep Socket | awk '{print $2}'`
-NNODES=${NNODES:-1}
+SOCKETS=$(cloudtik head info --sockets-per-worker)
+NNODES=$(cloudtik head info --total-workers)
 HOSTFILE=${HOSTFILE:-"${MODEL_DIR}/quickstart/language_modeling/pytorch/rnnt/training/cpu/hostfile"}
 NUM_RANKS=$(( NNODES * SOCKETS ))
 
@@ -182,7 +182,7 @@ rm -rf ${OUTPUT_DIR}/distributed_throughput_log*
 oneccl_bindings_for_pytorch_path=$(python -c "import torch; import oneccl_bindings_for_pytorch; import os;  print(os.path.abspath(os.path.dirname(oneccl_bindings_for_pytorch.__file__)))")
 source $oneccl_bindings_for_pytorch_path/env/setvars.sh
 
-python -m intel_extension_for_pytorch.cpu.launch \
+python -m cloudtik-ml-run \
     --distributed \
     --hosts ${HOSTS} \
     --log_path=${OUTPUT_DIR} \

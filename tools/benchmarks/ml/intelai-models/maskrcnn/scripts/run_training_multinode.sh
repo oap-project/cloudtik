@@ -107,7 +107,7 @@ BATCH_SIZE=${BATCH_SIZE-112}
 
 rm -rf ${OUTPUT_DIR}/distributed_throughput_log_${PRECISION}*
 
-python -m intel_extension_for_pytorch.cpu.launch \
+python -m cloudtik-ml-run \
     --distributed \
     --hosts ${HOSTS} \
     --log_path=${OUTPUT_DIR} \

@@ -128,7 +128,7 @@ rm -rf ${OUTPUT_DIR}/resnet50_dist_training_log_*
 oneccl_bindings_for_pytorch_path=$(python -c "import torch; import oneccl_bindings_for_pytorch; import os;  print(os.path.abspath(os.path.dirname(oneccl_bindings_for_pytorch.__file__)))")
 source $oneccl_bindings_for_pytorch_path/env/setvars.sh
 
-python -m intel_extension_for_pytorch.cpu.launch \
+python -m cloudtik-ml-run \
     --use_default_allocator \
     --distributed \
     --nnodes ${NNODES} \

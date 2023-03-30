@@ -127,14 +127,13 @@ class DistributedTrainingLauncher(Launcher):
         env_list = ' '.join(
             '-x %s' % key for key in sorted(env.keys()) if utils.is_exportable(key))
 
-        # CloudTik: patch start
         def get_cloudtik_rsh():
             cloudtik_home = os.path.join(
                 os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'cloudtik')
             return os.path.join(cloudtik_home, "runtime/ml/scripts", "cloudtik-rsh.sh")
 
         extra_mpi_args = args.more_mpi_params
-        if not extra_mpi_args or "-mca plm_rsh_agent" not in extra_mpi_args:
+        if self.hosts and (not extra_mpi_args or "-mca plm_rsh_agent" not in extra_mpi_args):
             extra_mpi_args = (
                 '{extra_mpi_args} -mca plm_rsh_agent "{rsh_agent}"'
                 .format(extra_mpi_args=extra_mpi_args if extra_mpi_args else '',

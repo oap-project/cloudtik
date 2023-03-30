@@ -53,8 +53,9 @@ done
 export PRECISION=$PRECISION
 export BACKEND=$BACKEND
 
-export CORES=$(cloudtik head info --cpus-per-worker)
-export HOSTS=$(cloudtik head worker-ips --separator ",")
+LOGICAL_CORES=$(cloudtik head info --cpus-per-worker)
+export CORES=$(( LOGICAL_CORES / 2 ))
+export HOSTS=$(cloudtik head worker-ips --separator "," --node-status up-to-date)
 export SOCKETS=$(cloudtik head info --sockets-per-worker)
 
 cd ${PATCHED_MODELS_HOME}/quickstart/image_recognition/pytorch/resnet50/training/cpu

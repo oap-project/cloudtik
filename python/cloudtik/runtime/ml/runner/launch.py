@@ -276,7 +276,10 @@ def parse_args():
 
     # rest from the training program
     parser.add_argument('program_args', nargs=REMAINDER)
-    return parser.parse_args()
+    args = parser.parse_args()
+    args.run_func = None
+    args.executable = None
+    return args
 
 
 def _verify_ld_preload():
@@ -325,7 +328,7 @@ def _run(args):
     if args.nnodes > 1 or args.hosts or args.hostfile:
         args.distributed = True
 
-    if not args.distribued:
+    if not args.distributed:
         if args.latency_mode and args.throughput_mode:
             raise RuntimeError("Either args.latency_mode or args.throughput_mode should be set")
 

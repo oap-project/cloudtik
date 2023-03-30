@@ -20,8 +20,9 @@ class DefaultTrainingLauncher(CPULauncher, DistributedTrainingLauncher):
     def __init__(self, args):
         super().__init__(args)
 
-    def run(self, command):
+    def run(self):
         args = self.args
+        command = self.get_command_to_run()
 
         # default to use OpenMPI to launch
         _OMPI_FLAGS = ['-mca pml ob1', '-mca btl ^openib']

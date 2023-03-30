@@ -43,6 +43,7 @@ class DistributedTrainingLauncher(Launcher):
             # local single node training
             if not args.master_addr:
                 args.master_addr = "127.0.0.1"
+            args.nnodes = 1
         else:
             # either hosts or hostfile specified, remote training
             if args.hostfile:
@@ -90,11 +91,11 @@ class DistributedTrainingLauncher(Launcher):
             cmd.append("-m")
         cmd.append(args.program)
         cmd.extend(args.program_args)
-        log_name = args.log_file_prefix + ".log"
-        log_name = os.path.join(args.log_path, log_name)
         cmd_s = " ".join(cmd)
         if args.log_path:
-            cmd_s = "{} 2>&1 | tee {}".format(cmd_s, log_name)
+            log_name = args.log_file_prefix + ".log"
+            log_file = os.path.join(args.log_path, log_name)
+            cmd_s = "{} 2>&1 | tee {}".format(cmd_s, log_file)
         logger.info(cmd_s)
         return cmd_s
 
@@ -117,8 +118,9 @@ class DistributedTrainingLauncher(Launcher):
         # There is no need to specify localhost.
         if self.hosts:
             host_slots = ["{}:{}".format(host, args.nproc_per_node) for host in self.hosts]
+            host_slots_str = ",".join(host_slots)
             hosts_arg = '-{opt} {hosts}'.format(opt='H',
-                                                hosts=host_slots)
+                                                hosts=host_slots_str)
         else:
             hosts_arg = ''
         binding_args = ' '.join(_NO_BINDING_ARGS)
@@ -128,9 +130,8 @@ class DistributedTrainingLauncher(Launcher):
             '-x %s' % key for key in sorted(env.keys()) if utils.is_exportable(key))
 
         def get_cloudtik_rsh():
-            cloudtik_home = os.path.join(
-                os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'cloudtik')
-            return os.path.join(cloudtik_home, "runtime/ml/scripts", "cloudtik-rsh.sh")
+            cloudtik_ml_home = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+            return os.path.join(cloudtik_ml_home, "scripts", "cloudtik-rsh.sh")
 
         extra_mpi_args = args.more_mpi_params
         if self.hosts and (not extra_mpi_args or "-mca plm_rsh_agent" not in extra_mpi_args):
@@ -165,6 +166,8 @@ class DistributedTrainingLauncher(Launcher):
                 env = copy.copy(env)
                 # copy var over from os.environ
                 env[var] = os.environ[var]
+
+        logger.info("Final command run: {}".format(mpirun_command))
 
         # Execute the mpirun command.
         os.execve('/bin/sh', ['/bin/sh', '-c', mpirun_command], env)

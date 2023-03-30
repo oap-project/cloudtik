@@ -2,13 +2,13 @@ import logging
 import os
 import subprocess
 
-from cloudtik.runtime.ml.runner.cpu.distributed_training_launcher import DistributedTrainingLauncher
+from cloudtik.runtime.ml.runner.cpu.default_training_launcher import DefaultTrainingLauncher
 from cloudtik.runtime.ml.runner.cpu.utils import CPUinfo
 
 logger = logging.getLogger(__name__)
 
 
-class OptimizedDistributedTrainingLauncher(DistributedTrainingLauncher):
+class OptimizedDistributedTrainingLauncher(DefaultTrainingLauncher):
     r"""
      Launcher for distributed training with MPI launcher
      """
@@ -74,7 +74,7 @@ class OptimizedDistributedTrainingLauncher(DistributedTrainingLauncher):
         if args.use_logical_core:
             node_cores = cpuinfo.node_logical_cores
             total_cores_per_node = cpuinfo.logical_core_nums()
-        if args.nproc_per_node == 0:
+        if not args.nproc_per_node:
             args.nproc_per_node = cpuinfo.node_nums()
 
         flatten_node_cores = []

@@ -3,12 +3,12 @@ import os
 import subprocess
 import sys
 
-from cloudtik.runtime.ml.runner.cpu.launcher import Launcher
+from cloudtik.runtime.ml.runner.cpu.launcher import CPULauncher
 
 logger = logging.getLogger(__name__)
 
 
-class MultiInstanceLauncher(Launcher):
+class MultiInstanceLauncher(CPULauncher):
     r"""
      Launcher for single instance and multi-instance
      """

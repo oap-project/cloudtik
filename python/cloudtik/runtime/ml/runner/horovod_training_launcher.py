@@ -46,7 +46,8 @@ class HorovodTrainingLauncher(DistributedTrainingLauncher):
         else:
             hargs.hostfile = args.hostfile
         hargs.mpi_args = args.more_mpi_params
-        hargs.use_mpi = True
+        hargs.use_mpi = args.use_mpi
+        hargs.use_gloo = args.use_gloo
         hargs.verbose = args.verbose
 
         if args.run_func:

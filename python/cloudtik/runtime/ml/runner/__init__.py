@@ -43,7 +43,7 @@ class _LaunchArgs(object):
         self.enable_jemalloc = False
         self.use_default_allocator = False
 
-        # controller arguments
+        # Horovod controller arguments
         self.use_gloo = None
         self.use_mpi = None
 

@@ -56,7 +56,6 @@ def run(
         nproc_per_node=None,
         hosts=None,
         hostfile=None,
-        launcher=None,
         output_filename=None,
         verbose=None,
         use_gloo=None,
@@ -82,7 +81,6 @@ def run(
     :param hostfile: Path to a host file containing the list of host names and the number of
                      available slots. Each line of the file must be of the form:
                      <hostname> slots=<slots>
-    :param launcher: The launcher to use. Valid launchers are "default", "optimized", "horovod"
     :param output_filename: For Gloo, writes stdout / stderr of all processes to a filename of the form
                             <output_filename>/rank.<rank>/<stdout | stderr>. The <rank> will be padded with 0
                             characters to ensure lexicographical order.
@@ -119,7 +117,7 @@ def run(
     largs.nproc_per_node = nproc_per_node
     largs.hosts = hosts
     largs.hostfile = hostfile
-    largs.launcher = launcher
+    largs.launcher = "horovod"
     largs.more_mpi_args = mpi_args
     largs.output_filename = output_filename
     largs.verbose = verbose

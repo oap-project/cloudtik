@@ -23,8 +23,7 @@ class DistributedTrainingLauncher(Launcher):
         self.verify_hosts()
         self.set_master()
         self.set_environment()
-        command = self.get_command_to_run()
-        self.run(command)
+        self.run()
 
     def verify_hosts(self):
         args = self.args
@@ -94,5 +93,6 @@ class DistributedTrainingLauncher(Launcher):
         logger.info(cmd_s)
         return cmd_s
 
-    def run(self, command):
-        pass
+    def run(self):
+        command = self.get_command_to_run()
+        logger.info(command)

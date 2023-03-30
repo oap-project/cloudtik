@@ -255,6 +255,9 @@ def parse_args():
                         help="Do not prepend the --program script with \"python\" - just exec "
                              "it directly. Useful when the script is not a Python script.")
 
+    parser.add_argument("--verbose", default=False, action='store_true',
+                        dest='verbose',
+                        help='If this flag is set, extra messages will be printed.')
     parser.add_argument("--log_path", metavar='\b', default="", type=str,
                         help="The log file directory. Default path is '', which means disable logging to files.")
     parser.add_argument("--log_file_prefix", metavar='\b', default="run", type=str,
@@ -276,7 +279,10 @@ def parse_args():
 
     # rest from the training program
     parser.add_argument('program_args', nargs=REMAINDER)
-    return parser.parse_args()
+    args = parser.parse_args()
+    args.run_func = None
+    args.executable = None
+    return args
 
 
 def _verify_ld_preload():
@@ -325,7 +331,7 @@ def _run(args):
     if args.nnodes > 1 or args.hosts or args.hostfile:
         args.distributed = True
 
-    if not args.distribued:
+    if not args.distributed:
         if args.latency_mode and args.throughput_mode:
             raise RuntimeError("Either args.latency_mode or args.throughput_mode should be set")
 

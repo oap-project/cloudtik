@@ -101,8 +101,10 @@ class OptimizedDistributedTrainingLauncher(DefaultTrainingLauncher):
             args.nproc_per_node, args.ccl_worker_count, total_cores_per_node, flatten_node_cores)
         self.set_env("CCL_WORKER_AFFINITY", ccl_affinity)
 
-    def run(self, command):
+    def run(self):
         args = self.args
+        command = self.get_command_to_run()
+
         cmd = ['mpiexec.hydra']
         mpi_config = "-l -np {} -ppn {} ".format(
             args.nnodes * args.nproc_per_node, args.nproc_per_node)

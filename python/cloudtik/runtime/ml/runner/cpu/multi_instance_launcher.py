@@ -130,13 +130,11 @@ class MultiInstanceLauncher(Launcher):
         if not args.disable_taskset:
             enable_taskset = True
         if args.disable_numactl and args.disable_taskset:
-            # If numactl and taskset are both disabled, ncore_per_instance will equal to the number of total cores
+            # If numactl and taskset are both disabled, KMP_AFFINITY should be set False
             # so that all the cpu resource can be used.
-            ncore_per_instance = len(cores)
-        else:
-            ncore_per_instance = args.ncore_per_instance
+            set_kmp_affinity = False
 
-        self.set_multi_thread_and_allocator(ncore_per_instance,
+        self.set_multi_thread_and_allocator(args.ncore_per_instance,
                                             args.disable_iomp,
                                             set_kmp_affinity,
                                             args.enable_tcmalloc,

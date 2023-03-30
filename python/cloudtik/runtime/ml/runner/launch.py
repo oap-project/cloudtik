@@ -255,6 +255,9 @@ def parse_args():
                         help="Do not prepend the --program script with \"python\" - just exec "
                              "it directly. Useful when the script is not a Python script.")
 
+    parser.add_argument("--verbose", default=False, action='store_true',
+                        dest='verbose',
+                        help='If this flag is set, extra messages will be printed.')
     parser.add_argument("--log_path", metavar='\b', default="", type=str,
                         help="The log file directory. Default path is '', which means disable logging to files.")
     parser.add_argument("--log_file_prefix", metavar='\b', default="run", type=str,

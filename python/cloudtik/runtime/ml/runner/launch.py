@@ -6,9 +6,6 @@ from argparse import ArgumentParser, REMAINDER
 from argparse import RawTextHelpFormatter
 from datetime import datetime
 
-from cloudtik.runtime.ml.runner.cpu.distributed_training_launcher import DistributedTrainingLauncher
-from cloudtik.runtime.ml.runner.cpu.multi_instance_launcher import MultiInstanceLauncher
-
 logger = logging.getLogger(__name__)
 
 r"""
@@ -116,7 +113,7 @@ rank 0: *(IP: 192.168.10.10, and has a free port: 295000)*
 
 def add_distributed_training_params(parser):
     group = parser.add_argument_group("Distributed Training Parameters With oneCCL backend")
-    group.add_argument("--nnodes", metavar='\b', type=int, default=1,
+    group.add_argument("--nnodes", metavar='\b', type=int, default=0,
                        help="The number of nodes to use for distributed "
                        "training")
     group.add_argument("--nproc_per_node", metavar='\b', type=int, default=0,
@@ -145,8 +142,6 @@ def add_distributed_training_params(parser):
                             "When hosts is specified, it implies distributed training. "
                             "node address which should be either the IP address"
                             "or the hostname.")
-    group.add_argument("--cores_per_node", metavar='\b', type=int, default=0,
-                       help="The number of cores for each node")
     # CloudTik: patch end
     group.add_argument("--more_mpi_params", metavar='\b', default="", type=str,
                        help="User can pass more parameters for mpiexec.hydra "
@@ -251,6 +246,8 @@ def parse_args():
 
     parser.add_argument('--distributed', action='store_true', default=False,
                         help='Enable distributed training.')
+    parser.add_argument("--launcher", metavar='\b', default="", type=str,
+                        help="The launcher to use: default, optimized")
     parser.add_argument("-m", "--module", default=False, action="store_true",
                         help="Changes each process to interpret the launch script "
                              "as a python module, executing with the same behavior as"
@@ -331,7 +328,7 @@ def main():
     if args.latency_mode and args.throughput_mode:
         raise RuntimeError("Either args.latency_mode or args.throughput_mode should be set")
 
-    if args.nnodes > 1 or args.hosts:
+    if args.nnodes > 1 or args.hosts or args.hostfile:
         args.distributed = True
 
     if not args.no_python and not args.program.endswith(".py"):
@@ -342,11 +339,20 @@ def main():
     _verify_ld_preload()
 
     if args.distributed:
-        launcher = DistributedTrainingLauncher()
+        if args.launcher and args.launcher == "default":
+            from cloudtik.runtime.ml.runner.cpu.distributed_training_launcher \
+                import DistributedTrainingLauncher
+            launcher = DistributedTrainingLauncher(args)
+        else:
+            from cloudtik.runtime.ml.runner.cpu.optimized_distributed_training_launcher \
+                import OptimizedDistributedTrainingLauncher
+            launcher = OptimizedDistributedTrainingLauncher(args)
     else:
-        launcher = MultiInstanceLauncher()
+        from cloudtik.runtime.ml.runner.cpu.multi_instance_launcher \
+            import MultiInstanceLauncher
+        launcher = MultiInstanceLauncher(args)
 
-    launcher.launch(args)
+    launcher.launch()
     for x in sorted(set(os.environ.keys()) - env_before):
         logger.debug('{0}={1}'.format(x, os.environ[x]))
 

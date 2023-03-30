@@ -1,191 +1,87 @@
+import copy
 import logging
 import os
-import subprocess
 import sys
 
-import psutil
-
+from cloudtik.runtime.ml.runner.cpu import utils
 from cloudtik.runtime.ml.runner.cpu.launcher import Launcher
-from cloudtik.runtime.ml.runner.cpu.utils import CPUinfo
 
 logger = logging.getLogger(__name__)
+
+# Threshold for large cluster MPI issues:
+_LARGE_CLUSTER_THRESHOLD = 64
 
 
 class DistributedTrainingLauncher(Launcher):
     r"""
      Launcher for distributed training with MPI launcher
      """
-    def get_mpi_pin_domain(self, nproc_per_node, ccl_worker_count, total_cores, flatten_node_cores):
-        '''
-        I_MPI_PIN_DOMAIN specify the cores used for every MPI process.
-        The first ccl_worker_count cores of every rank for ccl communication
-        and the other cores will be used to do computation.
-        For example: on CascadeLake 8280 CPU, 2 ranks on one node. ccl_worker_count=4
-        CCL_WORKER_COUNT=4
-        CCL_WORKER_AFFINITY="0,1,2,3,28,29,30,31"
-        I_MPI_PIN_DOMAIN=[0xffffff0,0xffffff0000000]
-        '''
-        ppn = nproc_per_node
-        cores_per_rank = total_cores // ppn
 
-        pin_domain = "["
-        for proc in range(ppn):
-            domain_binary = 0
-            begin = proc * cores_per_rank + ccl_worker_count
-            end = proc * cores_per_rank + cores_per_rank - 1
-            for i in range(begin, end + 1):
-                # CloudTik: patch start
-                # domain_binary |= (1 << i)
-                domain_binary |= (1 << flatten_node_cores[i])
-                # CloudTik: patch end
-            pin_domain += hex(domain_binary) + ","
-        pin_domain += "]"
-        return pin_domain
+    def __init__(self, args):
+        super().__init__(args)
+        self.hosts = None
 
-    def get_ccl_worker_affinity(self, nproc_per_node, ccl_worker_count, total_cores, flatten_node_cores):
-        '''
-        Computation and communication use different cores when using oneCCL
-        backend for distributed training. we use first ccl_worker_count cores of
-        every rank for ccl communication
-        '''
-        ppn = nproc_per_node
-        cores_per_rank = total_cores // ppn
-        affinity = ''
-        for proc in range(ppn):
-            for ccl_worker in range(ccl_worker_count):
-                # CloudTik: patch start
-                affinity += str(flatten_node_cores[proc * cores_per_rank + ccl_worker]) + ","
-                # affinity += str(proc * cores_per_rank + ccl_worker) + ","
-                # CloudTik: patch end
-        affinity = affinity[:-1]
-        return affinity
-
-    def launch(self, args):
-        '''
+    def launch(self):
+        """
         Set ENVs and launch MPI process for distributed training.
-        '''
-        if not args.hosts and args.nnodes > 1 and not os.path.exists(args.hostfile):
-            raise ValueError("hostfile is necessary when you use multi-node distributed training,"
-                             "Please create hostfile which include the ip list you used for distributed running")
-        elif not args.hosts and args.nnodes > 1:
-            ip_list = []
-            with open(args.hostfile) as f:
-                for line in f:
-                    line = line.strip().strip("\n")
-                    ip_list.append(line)
-            if len(ip_list) < args.nnodes:
-                logger.error("The number of IP {} should greater than nnodes parameters {}".format(
-                    len(ip_list), args.nnodes))
-                exit(-1)
-            master_check = False
-            dic = psutil.net_if_addrs()
-            for adapter in dic:
-                snicList = dic[adapter]
-                for snic in snicList:
-                    if snic.address == ip_list[0]:
-                        master_check = True
-            if not master_check:
-                logger.error(
-                    "MASTER_ADDR is incorrect. "
-                    "Please make sure the first line {} in your hostfile is ip address of the current node".format(
-                        ip_list[0]))
-                exit(-1)
+        """
+        self.verify_hosts()
+        self.set_master()
+        self.set_environment()
+        command = self.get_command_to_run()
+        self.run(command)
 
-            logger.info("Begin to validate the ip connect")
-            args.master_addr = ip_list[0]
-            for ip in ip_list[1:]:
-                completed_process = subprocess.run("ssh -o PasswordAuthentication=no {} ':'".format(ip), shell=True)
-                if completed_process.returncode != 0:
-                    logger.error(
-                        "Passwordless SSH login to {} failed, please make sure you have setup SSH public key right")
-                    exit(-1)
-                else:
-                    logger.info("connection from master node {} to slave node {} is OK".format(args.master_addr, ip))
+    def verify_hosts(self):
+        args = self.args
+        # There are 3 cases
+        # 1. local single node training (args.nnodes <= 1, no args.hosts and no args.hostfile)
+        # 2. remote single node training (args.nnodes <= 1, args.hosts or args.hostfile)
+        # 3. remote multi-node training (args.nnodes == 0 or args.nnodes > 1, args.hosts or args.hostfile)
+        if not args.hosts and not os.path.exists(args.hostfile):
+            if args.nnodes > 1:
+                raise ValueError("hosts or hostfile is necessary when you use multi-node distributed training,")
+            # local single node training
+            if not args.master_addr:
+                args.master_addr = "127.0.0.1"
         else:
-            # CloudTik: patch start
-            if args.hosts:
+            # either hosts or hostfile specified, remote training
+            if args.hostfile:
+                host_list = []
+                with open(args.hostfile) as f:
+                    for line in f:
+                        line = line.strip().strip("\n")
+                        host_list.append(line)
+                if not host_list:
+                    raise ValueError("No IP listed in hostfile.")
+            else:
+                # hosts specified
                 host_list = args.hosts.split(',')
-                args.nnodes = len(host_list)
-                args.master_addr = host_list[0]
-            # CloudTik: patch end
 
-        if not args.hosts:
-            node_cores = self.cpuinfo.node_physical_cores
-            total_cores_per_node = self.cpuinfo.physical_core_nums()
-            if args.use_logical_core:
-                node_cores = self.cpuinfo.node_logical_cores
-                total_cores_per_node = self.cpuinfo.logical_core_nums()
-            if args.nproc_per_node == 0:
-                args.nproc_per_node = self.cpuinfo.node_nums()
-        else:
-            # CloudTik: patch start
-            total_cores_per_node = args.cores_per_node
-            host_list = args.hosts.split(',')
-            remote_cpuinfo = CPUinfo(host_ip=host_list[-1])
-            node_cores = remote_cpuinfo.node_physical_cores
-            if args.use_logical_core:
-                node_cores = remote_cpuinfo.node_logical_cores
-            if not total_cores_per_node:
-                total_cores_per_node = remote_cpuinfo.physical_core_nums()
-                if args.use_logical_core:
-                    total_cores_per_node = remote_cpuinfo.logical_core_nums()
-            if args.nproc_per_node == 0:
-                args.nproc_per_node = remote_cpuinfo.node_nums()
-        flatten_node_cores = []
-        for node_numa_cores in node_cores:
-            flatten_node_cores.extend(node_numa_cores)
-            # CloudTik: patch end
+            self.hosts = host_list
+            host_number = len(host_list)
+            if args.nnodes == 0:
+                args.nnodes = host_number
+            elif args.nnodes > host_number:
+                raise ValueError("nnodes {} cannot be greater than the number of hosts {}.".format(
+                    args.nnodes, host_number
+                ))
+            args.master_addr = host_list[0]
 
+    def set_master(self):
+        args = self.args
         # set distributed related environmental variables
         self.set_env("MASTER_ADDR", args.master_addr)
         self.set_env("MASTER_PORT", str(args.master_port))
-        # CloudTik: patch start
-        mpi_pin_domain = self.get_mpi_pin_domain(
-            args.nproc_per_node, args.ccl_worker_count, total_cores_per_node, flatten_node_cores)
-        # CloudTik: patch end
-        self.set_env("I_MPI_PIN_DOMAIN", mpi_pin_domain)
 
-        ppn = args.nproc_per_node
-        cores_per_rank = total_cores_per_node // ppn
+    def set_environment(self):
+        args = self.args
+        # Default we run single instance per node
+        if args.nproc_per_node == 0:
+            args.nproc_per_node = 1
 
-        omp_num_threads = cores_per_rank - args.ccl_worker_count
-        self.set_multi_thread_and_allocator(omp_num_threads,
-                                            args.disable_iomp,
-                                            True,
-                                            args.enable_tcmalloc,
-                                            args.enable_jemalloc,
-                                            args.use_default_allocator)
-
-        self.set_env("CCL_WORKER_COUNT", str(args.ccl_worker_count))
-        ccl_affinity = self.get_ccl_worker_affinity(
-            args.nproc_per_node, args.ccl_worker_count, total_cores_per_node, flatten_node_cores)
-        self.set_env("CCL_WORKER_AFFINITY", ccl_affinity)
-
-        os.environ["LAUNCH_CMD"] = "#"
-        cmd = ['mpiexec.hydra']
-        mpi_config = "-l -np {} -ppn {} -genv I_MPI_PIN_DOMAIN={} -genv OMP_NUM_THREADS={} ".format(
-            args.nnodes * args.nproc_per_node, args.nproc_per_node, mpi_pin_domain, omp_num_threads)
-        mpi_config += args.more_mpi_params
-
-        # CloudTik: patch start
-        if args.hosts:
-            mpi_config += " -hosts {}".format(args.hosts)
-        else:
-            if args.nnodes > 1:
-                mpi_config += " -hostfile {}".format(args.hostfile)
-
-        def get_cloudtik_rsh():
-            cloudtik_home = os.path.join(
-                os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'cloudtik')
-            return os.path.join(cloudtik_home, "runtime/ml/scripts", "cloudtik-rsh.sh")
-
-        if "-launcher-exec" not in mpi_config:
-            mpi_config += (
-                ' -launcher rsh -launcher-exec "{launcher_exec}"'.format(
-                    launcher_exec=get_cloudtik_rsh()))
-        # CloudTik: patch end
-
-        cmd.extend(mpi_config.split())
+    def get_command_to_run(self):
+        args = self.args
+        cmd = []
         with_python = not args.no_python
         if with_python:
             cmd.append(sys.executable)
@@ -200,7 +96,75 @@ class DistributedTrainingLauncher(Launcher):
         if args.log_path:
             cmd_s = "{} 2>&1 | tee {}".format(cmd_s, log_name)
         logger.info(cmd_s)
-        process = subprocess.Popen(cmd_s, env=os.environ, shell=True)
-        process.wait()
-        os.environ["LAUNCH_CMD"] += " ".join(cmd) + ",#"
-        os.environ["LAUNCH_CMD"] = os.environ["LAUNCH_CMD"][:-2]
+        return cmd_s
+
+    def run(self, command):
+        args = self.args
+
+        # default to use OpenMPI to launch
+        _OMPI_FLAGS = ['-mca pml ob1', '-mca btl ^openib']
+        _NO_BINDING_ARGS = ['-bind-to none', '-map-by slot']
+
+        num_proc = args.nnodes * args.nproc_per_node
+
+        mpi_impl_flags = _OMPI_FLAGS
+        if self.hosts and len(self.hosts) >= _LARGE_CLUSTER_THRESHOLD:
+            mpi_impl_flags.append('-mca plm_rsh_no_tree_spawn true')
+            mpi_impl_flags.append(
+                '-mca plm_rsh_num_concurrent {}'.format(len(self.hosts)))
+
+        # if user does not specify any hosts, mpirun by default uses local host.
+        # There is no need to specify localhost.
+        if self.hosts:
+            host_slots = ["{}:{}".format(host, args.nproc_per_node) for host in self.hosts]
+            hosts_arg = '-{opt} {hosts}'.format(opt='H',
+                                                hosts=host_slots)
+        else:
+            hosts_arg = ''
+        binding_args = ' '.join(_NO_BINDING_ARGS)
+        basic_args = '--allow-run-as-root --tag-output'
+        env = os.environ.copy()
+        env_list = ' '.join(
+            '-x %s' % key for key in sorted(env.keys()) if utils.is_exportable(key))
+
+        def get_cloudtik_rsh():
+            cloudtik_home = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'cloudtik')
+            return os.path.join(cloudtik_home, "runtime/ml/scripts", "cloudtik-rsh.sh")
+
+        extra_mpi_args = args.more_mpi_params
+        if self.hosts and (not extra_mpi_args or "-mca plm_rsh_agent" not in extra_mpi_args):
+            extra_mpi_args = (
+                '{extra_mpi_args} -mca plm_rsh_agent "{rsh_agent}"'
+                .format(extra_mpi_args=extra_mpi_args if extra_mpi_args else '',
+                        rsh_agent=get_cloudtik_rsh()))
+
+        # Pass all the env variables to the mpirun command.
+        mpirun_command = (
+            'mpirun {basic_args} '
+            '-np {num_proc} '
+            '{hosts_arg} '
+            '{binding_args} '
+            '{mpi_args} '
+            '{env} {extra_mpi_args} {command}'  # expect a lot of environment variables
+            .format(basic_args=basic_args,
+                    num_proc=num_proc,
+                    hosts_arg=hosts_arg,
+                    binding_args=binding_args,
+                    mpi_args=' '.join(mpi_impl_flags),
+                    env=env_list,
+                    extra_mpi_args=extra_mpi_args if extra_mpi_args else '',
+                    command=command)
+        )
+
+        # we need the driver's PATH and PYTHONPATH in env to run mpirun,
+        # env for mpirun is different to env encoded in mpirun_command
+        for var in ['PATH', 'PYTHONPATH']:
+            if var not in env and var in os.environ:
+                # copy env so we do not leak env modifications
+                env = copy.copy(env)
+                # copy var over from os.environ
+                env[var] = os.environ[var]
+
+        # Execute the mpirun command.
+        os.execve('/bin/sh', ['/bin/sh', '-c', mpirun_command], env)

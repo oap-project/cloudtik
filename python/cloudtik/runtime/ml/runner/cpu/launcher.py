@@ -13,10 +13,11 @@ class Launcher:
     r"""
      Base class for launcher
     """
-    def __init__(self):
+    def __init__(self, args):
         self.cpuinfo = CPUinfo()
+        self.args = args
 
-    def launch(self, args):
+    def launch(self):
         pass
 
     def add_lib_preload(self, lib_type=None):

@@ -78,7 +78,7 @@ function install_intelai_models() {
 function install_tools() {
     sudo apt-get update -y
     sudo apt-get install curl unzip -y
-    sudo apt-get install numactl gcc g++ cmake -y
+    sudo apt-get install gcc g++ cmake -y
     sudo apt-get install autoconf -y
 }
 

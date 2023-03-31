@@ -3,6 +3,7 @@ FROM cloudtik/spark-runtime:"$BASE_IMAGE"
 
 RUN sudo apt-get update -y \
     && sudo apt-get install -y \
+        numactl \
         cmake \
         g++-9 \
     # Clean up

@@ -100,9 +100,8 @@ class DefaultTrainingLauncher(CPULauncher, DistributedTrainingLauncher):
         # Execute the mpirun command.
         os.execve('/bin/sh', ['/bin/sh', '-c', mpirun_command], env)
 
-    def _run_command_impi(self):
+    def _run_command_impi(self, command):
         args = self.args
-        command = self.get_command_to_run()
 
         cmd = ['mpirun']
         mpi_config = "-l -np {} -ppn {} ".format(

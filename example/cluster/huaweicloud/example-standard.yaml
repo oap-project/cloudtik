@@ -10,10 +10,10 @@ workspace_name: example-workspace
 # Cloud-provider specific configuration.
 provider:
     type: huaweicloud
-    region: cn-east-2
+    region: ap-southeast-3
 
 auth:
-    ssh_user: ubuntu
+    ssh_user: root
     # Set proxy if you are in corporation network. For example,
     # ssh_proxy_command: "ncat --proxy-type socks5 --proxy your_proxy_host:your_proxy_port %h %p"
 

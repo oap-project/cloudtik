@@ -8,7 +8,8 @@ from typing import Any, Dict, Optional
 
 import requests
 from huaweicloudsdkcore.exceptions.exceptions import ServiceResponseException
-from huaweicloudsdkecs.v2 import ListFlavorsRequest, ListServersDetailsRequest, \
+from huaweicloudsdkecs.v2 import ListFlavorsRequest, \
+    ListServersDetailsRequest, \
     NovaCreateKeypairOption, \
     NovaCreateKeypairRequest, \
     NovaCreateKeypairRequestBody, \
@@ -54,7 +55,7 @@ from obs import CreateBucketHeader
 
 from cloudtik.core._private.cli_logger import cf, cli_logger
 from cloudtik.core._private.utils import check_cidr_conflict, \
-    is_managed_cloud_storage, \
+    get_workspace_nat_public_ip_bandwidth_conf, is_managed_cloud_storage, \
     is_peering_firewall_allow_ssh_only, \
     is_peering_firewall_allow_working_subnet, is_use_internal_ip, \
     is_use_managed_cloud_storage, \
@@ -69,11 +70,10 @@ from cloudtik.providers._private.huaweicloud.utils import _get_node_info, \
     _make_ecs_client, _make_obs_client, \
     _make_vpc_client, export_huaweicloud_obs_storage_config, flat_tags_map, \
     get_huaweicloud_cloud_storage_uri, get_huaweicloud_obs_storage_config, \
-    get_huaweicloud_obs_storage_config_for_update, HWC_OBS_BUCKET, \
-    HWC_SERVER_STATUS_ACTIVE, make_ecs_client, \
-    make_eip_client, \
-    make_iam_client, \
-    make_nat_client, \
+    get_huaweicloud_obs_storage_config_for_update, \
+    HWC_OBS_BUCKET, HWC_SERVER_STATUS_ACTIVE, \
+    make_ecs_client, make_eip_client, \
+    make_iam_client, make_nat_client, \
     make_obs_client, make_obs_client_aksk, make_vpc_client, tags_list_to_dict
 from cloudtik.providers._private.utils import StorageTestingError
 
@@ -442,6 +442,15 @@ def _update_security_group_rules(config, sg, vpc, vpc_client):
                                               protocol='tcp',
                                               remote_ip_prefix=vpc.cidr)))
     )
+    # Create egress rule
+    vpc_client.create_security_group_rule(
+        CreateSecurityGroupRuleRequest(
+            CreateSecurityGroupRuleRequestBody(
+                CreateSecurityGroupRuleOption(sg.id,
+                                              direction='egress',
+                                              remote_ip_prefix='0.0.0.0/0')))
+    )
+
     # Create peering vpc rule
     if is_use_peering_vpc(config) and \
             is_peering_firewall_allow_working_subnet(config):
@@ -518,13 +527,14 @@ def _check_and_create_eip(config, workspace_name):
     eip_client = make_eip_client(config) \
 
     cli_logger.print("Creating elastic IP: {}...", _eip_name)
+    bandwidth = get_workspace_nat_public_ip_bandwidth_conf(config)
     eip = eip_client.create_publicip(
         CreatePublicipRequest(
             CreatePublicipRequestBody(
                 # Dedicated bandwidth 5 Mbit
                 bandwidth=CreatePublicipBandwidthOption(name=_bw_name,
                                                         share_type='PER',
-                                                        size=5),
+                                                        size=bandwidth),
                 publicip=CreatePublicipOption(type='5_bgp',
                                               alias=_eip_name)))
     ).publicip
@@ -633,6 +643,8 @@ def _check_and_create_subnets(vpc, vpc_client, workspace_name):
                         CreateSubnetRequestBody(
                             CreateSubnetOption(name=subnet_name,
                                                cidr=_cidr,
+                                               primary_dns='114.114.114.114',
+                                               secondary_dns='8.8.8.8',
                                                gateway_ip=_gateway_ip,
                                                vpc_id=vpc.id)))
                 ).subnet
@@ -1467,6 +1479,7 @@ def _configure_subnet_from_workspace(config):
                 node_config["nics"] = private_subnet_ids
             else:
                 node_config["nics"] = public_subnet_ids
+                node_config["publicip"] = True
         # worker nodes
         else:
             node_config["nics"] = private_subnet_ids

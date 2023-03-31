@@ -4,7 +4,7 @@ workspace_name: example-workspace
 # Cloud-provider specific configuration.
 provider:
     type: huaweicloud
-    region: cn-east-2
+    region: ap-southeast-3
     # Use allowed_ssh_sources to allow SSH access from your client machine
     allowed_ssh_sources:
       - 0.0.0.0/0

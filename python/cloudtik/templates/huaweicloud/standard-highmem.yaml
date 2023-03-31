@@ -8,4 +8,4 @@ provider:
 available_node_types:
     worker.default:
         node_config:
-            flavor_ref: m6.2xlarge.8
+            flavor_ref: ai1s.4xlarge.4

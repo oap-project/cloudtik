@@ -25,6 +25,10 @@
         <name>fs.obs.impl</name>
         <value>org.apache.hadoop.fs.obs.OBSFileSystem</value>
     </property>
+    <property>
+        <name>fs.obs.endpoint</name>
+        <value>{%fs.obs.endpoint.property%}</value>
+    </property>
     {%fs.obs.security.provider.property%}
     {%hadoop.credential.property%}
     <property>

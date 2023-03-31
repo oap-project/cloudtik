@@ -365,9 +365,9 @@ def _run(args):
                 import HorovodTrainingLauncher
             launcher = HorovodTrainingLauncher(args)
         else:
-            from cloudtik.runtime.ml.runner.cpu.optimized_distributed_training_launcher \
-                import OptimizedDistributedTrainingLauncher
-            launcher = OptimizedDistributedTrainingLauncher(args)
+            from cloudtik.runtime.ml.runner.cpu.optimized_training_launcher \
+                import OptimizedTrainingLauncher
+            launcher = OptimizedTrainingLauncher(args)
     else:
         from cloudtik.runtime.ml.runner.cpu.multi_instance_launcher \
             import MultiInstanceLauncher

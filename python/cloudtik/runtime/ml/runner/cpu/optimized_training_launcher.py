@@ -1,6 +1,4 @@
 import logging
-import os
-import subprocess
 
 from cloudtik.runtime.ml.runner.cpu.default_training_launcher import DefaultTrainingLauncher
 from cloudtik.runtime.ml.runner.cpu.utils import CPUinfo
@@ -8,7 +6,7 @@ from cloudtik.runtime.ml.runner.cpu.utils import CPUinfo
 logger = logging.getLogger(__name__)
 
 
-class OptimizedDistributedTrainingLauncher(DefaultTrainingLauncher):
+class OptimizedTrainingLauncher(DefaultTrainingLauncher):
     r"""
      Launcher for distributed training with MPI launcher
      """
@@ -100,39 +98,3 @@ class OptimizedDistributedTrainingLauncher(DefaultTrainingLauncher):
         ccl_affinity = self.get_ccl_worker_affinity(
             args.nproc_per_node, args.ccl_worker_count, total_cores_per_node, flatten_node_cores)
         self.set_env("CCL_WORKER_AFFINITY", ccl_affinity)
-
-    def run(self):
-        args = self.args
-        command = self.get_command_to_run()
-
-        cmd = ['mpiexec.hydra']
-        mpi_config = "-l -np {} -ppn {} ".format(
-            args.nnodes * args.nproc_per_node, args.nproc_per_node)
-        mpi_config += args.more_mpi_params
-
-        if args.hosts:
-            mpi_config += " -hosts {}".format(args.hosts)
-        elif args.hostfile:
-            mpi_config += " -hostfile {}".format(args.hostfile)
-
-        def get_cloudtik_rsh():
-            cloudtik_ml_home = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-            return os.path.join(cloudtik_ml_home, "scripts", "cloudtik-rsh.sh")
-
-        # only add this for remote training
-        if args.hosts or args.hostfile:
-            if "-launcher-exec" not in mpi_config:
-                mpi_config += (
-                    ' -launcher rsh -launcher-exec "{launcher_exec}"'.format(
-                        launcher_exec=get_cloudtik_rsh()))
-
-        cmd.extend(mpi_config.split())
-        mpi_command = " ".join(cmd)
-
-        final_command = "{mpi_command} {command}".format(
-            mpi_command=mpi_command,
-            command=command
-        )
-        logger.info("Final command run: {}".format(final_command))
-        process = subprocess.Popen(final_command, env=os.environ, shell=True)
-        process.wait()

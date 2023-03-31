@@ -18,11 +18,11 @@
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source ${SCRIPT_DIR}/../../common/scripts/setenv.sh
 
-export BERT_LARGE_HOME=$INTELAI_MODELS_WORKSPACE/ssd-resnet34
+export BERT_LARGE_HOME=$INTELAI_MODELS_WORKSPACE/bert
 export BERT_LARGE_MODEL=$BERT_LARGE_HOME/model
 export DATASET_DIR=$BERT_LARGE_HOME/data
 export OUTPUT_DIR=$BERT_LARGE_HOME/output
-export BERT_MODEL_CONFIG=${BERT_LARGE_MODEL}/config.json
+export BERT_MODEL_CONFIG=${BERT_LARGE_MODEL}/bert_config.json
 
 mkdir -p $OUTPUT_DIR
 
@@ -62,4 +62,4 @@ export SOCKETS=$(cloudtik head info --sockets-per-worker)
 
 cd ${PATCHED_MODELS_HOME}/quickstart/language_modeling/pytorch/bert_large/training/cpu
 
-bash run_ddp_bert_pretrain_phase1.sh
+bash run_ddp_bert_pretrain_phase1.sh $PRECISION

@@ -75,8 +75,10 @@ oneccl_bindings_for_pytorch_path=$(python -c "import torch; import oneccl_bindin
 source $oneccl_bindings_for_pytorch_path/env/setvars.sh
 
 LOG_0="${LOG}/socket.log"
-python -m cloudtik-ml-run --enable_jemalloc --distributed \
-$MODEL_SCRIPT \
+cloudtik-ml-run \
+#python -m intel_extension_for_pytorch.cpu.launch \
+  --enable_jemalloc --distributed \
+  $MODEL_SCRIPT \
   --raw-data-file=${DATASET_DIR}/day --processed-data-file=${DATASET_DIR}/terabyte_processed.npz \
   --data-set=terabyte \
   --memory-map --mlperf-bin-loader --round-targets=True --learning-rate=1.0 \

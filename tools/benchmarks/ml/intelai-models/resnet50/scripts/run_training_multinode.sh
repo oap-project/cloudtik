@@ -19,7 +19,7 @@
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source ${SCRIPT_DIR}/../../common/scripts/setenv.sh
 
-export RESNET50_HOME=$INTELAI_MODELS_WORKSPACE/maskrcnn
+export RESNET50_HOME=$INTELAI_MODELS_WORKSPACE/resnet50
 export RESNET50_MODEL=$RESNET50_HOME/model
 export DATASET_DIR=$RESNET50_HOME/data
 export OUTPUT_DIR=$RESNET50_HOME/output
@@ -27,8 +27,9 @@ export OUTPUT_DIR=$RESNET50_HOME/output
 mkdir -p $OUTPUT_DIR
 PRECISION=fp32
 BACKEND=gloo
+TRAINING_EPOCHS=1
 function usage(){
-    echo "Usage: run-training_multinode.sh  [ --precision fp32 | bf16 | bf32] [ --backend ccl | gloo] "
+    echo "Usage: run-training_multinode.sh  [ --precision fp32 | bf16 | bf32] [ --backend ccl | gloo]  [--training_epochs]"
     exit 1
 }
 
@@ -44,6 +45,11 @@ do
         shift
         BACKEND=$1
         ;;
+    --training_epochs)
+        # num for steps
+        shift
+        TRAINING_EPOCHS=$1
+        ;;
     *)
         usage
     esac
@@ -52,6 +58,7 @@ done
 
 export PRECISION=$PRECISION
 export BACKEND=$BACKEND
+export TRAINING_EPOCHS=$TRAINING_EPOCHS
 
 LOGICAL_CORES=$(cloudtik head info --cpus-per-worker)
 export CORES=$(( LOGICAL_CORES / 2 ))

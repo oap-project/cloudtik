@@ -64,7 +64,7 @@ fi
 
 rm -rf ${OUTPUT_DIR}/rnnt_${PRECISION}_inference_realtime*
 
-python -m cloudtik-ml-run \
+cloudtik-ml-run \
     --use_default_allocator \
     --latency_mode \
     --log_path ${OUTPUT_DIR} \

@@ -76,7 +76,6 @@ source $oneccl_bindings_for_pytorch_path/env/setvars.sh
 
 LOG_0="${LOG}/socket.log"
 cloudtik-ml-run \
-#python -m intel_extension_for_pytorch.cpu.launch \
   --enable_jemalloc --distributed \
   $MODEL_SCRIPT \
   --raw-data-file=${DATASET_DIR}/day --processed-data-file=${DATASET_DIR}/terabyte_processed.npz \

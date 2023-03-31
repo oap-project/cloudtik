@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Copyright (c) 2020 Intel Corporation
+# Copyright (c) 2022 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,16 +15,19 @@
 # limitations under the License.
 #
 
-
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source ${SCRIPT_DIR}/../../common/scripts/setenv.sh
 
-export MASKRCNN_HOME=$INTELAI_MODELS_WORKSPACE/maskrcnn
-export MASKRCNN_MODEL=$MASKRCNN_HOME/model
-export DATASET_DIR=$MASKRCNN_HOME/data
-export OUTPUT_DIR=$MASKRCNN_HOME/output
+export SSD_RESNET34_HOME=$INTELAI_MODELS_WORKSPACE/ssd-resnet34
+export SSD_RESNET34_MODEL=$SSD_RESNET34_HOME/model
+export DATASET_DIR=$SSD_RESNET34_HOME/data
+export OUTPUT_DIR=$SSD_RESNET34_HOME/output
 
+export CHECKPOINT_DIR=$SSD_RESNET34_MODEL
 mkdir -p $OUTPUT_DIR
+
+
+
 PRECISION=fp32
 BACKEND=gloo
 function usage(){
@@ -50,6 +53,11 @@ do
     shift
 done
 
+if [[ "$PRECISION" == *"avx"* ]]; then
+    unset DNNL_MAX_CPU_ISA
+fi
+
+
 export PRECISION=$PRECISION
 export BACKEND=$BACKEND
 
@@ -58,6 +66,5 @@ export CORES=$(( LOGICAL_CORES / 2 ))
 export HOSTS=$(cloudtik head worker-ips --separator "," --node-status up-to-date)
 export SOCKETS=$(cloudtik head info --sockets-per-worker)
 
-cd ${PATCHED_MODELS_HOME}/quickstart/object_detection/pytorch/maskrcnn/training/cpu
-bash training_multinode.sh $RECISION
-
+cd ${PATCHED_MODELS_HOME}/quickstart/object_detection/pytorch/ssd-resnet34/training/cpu
+bash throughput_dist.sh $PRECISION

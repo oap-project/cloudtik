@@ -8,6 +8,7 @@ export INTELAI_MODELS_HOME=$BENCHMARK_TOOL_HOME/intelai_models
 export MODELS_HOME=$INTELAI_MODELS_HOME/models
 export MODEL_DIR=$MODELS_HOME
 export SCRIPTS_HOME=$INTELAI_MODELS_HOME/scripts
+export PATCHED_MODELS_HOME=$SCRIPTS_HOME/models
 
 if test -e "/mnt/cloudtik/data_disk_1/"
 then

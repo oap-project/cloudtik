@@ -19,16 +19,17 @@
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source ${SCRIPT_DIR}/../../common/scripts/setenv.sh
 
-export MASKRCNN_HOME=$INTELAI_MODELS_WORKSPACE/maskrcnn
-export MASKRCNN_MODEL=$MASKRCNN_HOME/model
-export DATASET_DIR=$MASKRCNN_HOME/data
-export OUTPUT_DIR=$MASKRCNN_HOME/output
+export RESNET50_HOME=$INTELAI_MODELS_WORKSPACE/resnet50
+export RESNET50_MODEL=$RESNET50_HOME/model
+export DATASET_DIR=$RESNET50_HOME/data
+export OUTPUT_DIR=$RESNET50_HOME/output
 
 mkdir -p $OUTPUT_DIR
 PRECISION=fp32
 BACKEND=gloo
+TRAINING_EPOCHS=1
 function usage(){
-    echo "Usage: run-training_multinode.sh  [ --precision fp32 | bf16 | bf32] [ --backend ccl | gloo] "
+    echo "Usage: run-training_multinode.sh  [ --precision fp32 | bf16 | bf32] [ --backend ccl | gloo]  [--training_epochs]"
     exit 1
 }
 
@@ -44,6 +45,11 @@ do
         shift
         BACKEND=$1
         ;;
+    --training_epochs)
+        # num for steps
+        shift
+        TRAINING_EPOCHS=$1
+        ;;
     *)
         usage
     esac
@@ -52,12 +58,14 @@ done
 
 export PRECISION=$PRECISION
 export BACKEND=$BACKEND
+export TRAINING_EPOCHS=$TRAINING_EPOCHS
 
 LOGICAL_CORES=$(cloudtik head info --cpus-per-worker)
 export CORES=$(( LOGICAL_CORES / 2 ))
 export HOSTS=$(cloudtik head worker-ips --separator "," --node-status up-to-date)
 export SOCKETS=$(cloudtik head info --sockets-per-worker)
 
-cd ${PATCHED_MODELS_HOME}/quickstart/object_detection/pytorch/maskrcnn/training/cpu
-bash training_multinode.sh $RECISION
+cd ${PATCHED_MODELS_HOME}/quickstart/image_recognition/pytorch/resnet50/training/cpu
+bash training_dist.sh
+
 

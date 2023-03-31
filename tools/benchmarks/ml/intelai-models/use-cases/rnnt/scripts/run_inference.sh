@@ -44,7 +44,7 @@ done
 
 export USE_IPEX
 
-cd ${WRAPPER_MODELS_HOME}/quickstart/language_modeling/pytorch/rnnt/inference/cpu
+cd ${CLOUDTIK_MODELS_HOME}/quickstart/language_modeling/pytorch/rnnt/inference/cpu
 
 bash accuracy.sh $PRECISION
 bash inference_throughput.sh $PRECISION

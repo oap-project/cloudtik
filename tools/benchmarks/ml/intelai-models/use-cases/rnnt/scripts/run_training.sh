@@ -23,7 +23,7 @@ NUM_STEPS=100
 USE_IPEX=0
 
 function usage(){
-    echo "Usage: run-training.sh  [--precision fp32 | bf16 | bf32]  [--num-steps] [--use-ipex]"
+    echo "Usage: run-training.sh  [--precision fp32 | bf16 | bf32]  [--num-steps 100] [--use-ipex]"
     exit 1
 }
 
@@ -51,7 +51,8 @@ do
 done
 
 export USE_IPEX
+export NUM_STEPS
 
-cd ${WRAPPER_MODELS_HOME}/quickstart/language_modeling/pytorch/rnnt/training/cpu
+cd ${CLOUDTIK_MODELS_HOME}/quickstart/language_modeling/pytorch/rnnt/training/cpu
 
-NUM_STEPS=${NUM_STEPS} bash training.sh $PRECISION
+bash training.sh $PRECISION

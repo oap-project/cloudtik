@@ -76,7 +76,9 @@ else
     echo "Supported precisions now are: fp32, bf16 and bf32"
 fi
 
-IPEX="--ipex"
+if [ "$USE_IPEX" == 1 ]; then
+    IPEX="--ipex"
+fi
 
 PROFILE=""
 if [ "$3" = profiling ]; then

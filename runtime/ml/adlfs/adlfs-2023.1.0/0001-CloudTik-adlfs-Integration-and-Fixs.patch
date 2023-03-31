@@ -1,0 +1,67 @@
+From abaf7dd0b3f3587be5ef15d65bf6f08c31adb717 Mon Sep 17 00:00:00 2001
+From: Chen Haifeng <haifeng.chen@intel.com>
+Date: Fri, 31 Mar 2023 18:02:51 +0800
+Subject: [PATCH] CloudTik adlfs Integration and Fixs
+
+---
+ adlfs/spec.py | 30 +++++++++++++++++++++++++++---
+ 1 file changed, 27 insertions(+), 3 deletions(-)
+
+diff --git a/adlfs/spec.py b/adlfs/spec.py
+index 345f06f..77279d6 100644
+--- a/adlfs/spec.py
++++ b/adlfs/spec.py
+@@ -377,6 +377,19 @@ class AzureBlobFileSystem(AsyncFileSystem):
+ 
+         return (async_credential, sync_credential)
+ 
++    # CloudTik: patch start
++    @staticmethod
++    def _get_azure_managed_identity_client_id():
++        filename = os.path.expanduser("~/azure_managed_identity.config")
++        if os.path.isfile(filename):
++            with open(filename, 'r') as f:
++                client_id = f.readline()
++                if client_id is not None:
++                    client_id = client_id.strip()
++                return client_id
++        return None
++    # CloudTik: patch end
++
+     def _get_default_azure_credential(self, **kwargs):
+ 
+         """
+@@ -392,8 +405,17 @@ class AzureBlobFileSystem(AsyncFileSystem):
+             DefaultAzureCredential as AIODefaultAzureCredential,
+         )
+ 
+-        async_credential = AIODefaultAzureCredential(**kwargs)
+-        sync_credential = DefaultAzureCredential(**kwargs)
++        # CloudTik: patch start
++        managed_identity_client_id = self._get_azure_managed_identity_client_id()
++        if managed_identity_client_id:
++            async_credential = AIODefaultAzureCredential(
++                managed_identity_client_id=managed_identity_client_id, **kwargs)
++            sync_credential = DefaultAzureCredential(
++                managed_identity_client_id=managed_identity_client_id, **kwargs)
++        else:
++            async_credential = AIODefaultAzureCredential(**kwargs)
++            sync_credential = DefaultAzureCredential(**kwargs)
++        # CloudTik: patch end
+ 
+         return (async_credential, sync_credential)
+ 
+@@ -1603,7 +1625,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
+         container_name, path, _ = self.split_path(rpath, delimiter=delimiter)
+ 
+         if os.path.isdir(lpath):
+-            self.makedirs(rpath, exist_ok=True)
++            # CloudTik: patch start
++            self._mkdir(rpath, exist_ok=True)
++            # CloudTik: patch end
+         else:
+             try:
+                 with open(lpath, "rb") as f1:
+-- 
+2.39.1.windows.1
+

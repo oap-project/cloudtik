@@ -1,0 +1,103 @@
+From 34fa65369615c7b4426fb31cdb5b850834b82c36 Mon Sep 17 00:00:00 2001
+From: Chen Haifeng <haifeng.chen@intel.com>
+Date: Fri, 31 Mar 2023 18:17:50 +0800
+Subject: [PATCH] CloudTik ossfs Integration
+
+---
+ src/ossfs/core.py | 55 +++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 55 insertions(+)
+
+diff --git a/src/ossfs/core.py b/src/ossfs/core.py
+index a56d7a4..9756895 100644
+--- a/src/ossfs/core.py
++++ b/src/ossfs/core.py
+@@ -9,6 +9,11 @@ from datetime import datetime
+ from hashlib import sha256
+ from typing import Dict, List, Optional, Tuple, Union
+ 
++# CloudTik: patch start
++import requests
++import threading
++# CloudTik: patch end
++
+ import oss2
+ from fsspec.spec import AbstractBufferedFile, AbstractFileSystem
+ from fsspec.utils import stringify_path
+@@ -37,6 +42,46 @@ def _as_progress_handler(callback):
+     return progress_handler
+ 
+ 
++# CloudTik: patch start
++class EcsRamRoleCredentialsProviderWrapper(oss2.CredentialsProvider):
++    def __init__(self, role_name: Optional[str] = None, timeout=10):
++        self.__url_in_ecs_metadata = "/latest/meta-data/ram/security-credentials/"
++        self.__ecs_metadata_fetch_error_msg = "Failed to get RAM session credentials from ECS metadata service."
++        self.__metadata_service_host = "100.100.100.200"
++        self.__lock = threading.Lock()
++        self.role_name = role_name
++        self.timeout = timeout
++        self.credential_provider = None
++
++    def _fetch_role_name(self, url=None):
++        url = url if url else f'http://{self.__metadata_service_host}{self.__url_in_ecs_metadata}'
++        response = requests.get(url, timeout=self.timeout)
++        if response.status_code != 200:
++            raise oss2.exceptions.RequestError(
++                self.__ecs_metadata_fetch_error_msg + " HttpCode=" + str(response.status_code))
++        response.encoding = 'utf-8'
++        self.role_name = response.text
++
++    def get_credentials(self):
++        if self.credential_provider is None:
++            with self.__lock:
++                if self.credential_provider is None:
++                    if not self.role_name:
++                        self._fetch_role_name()
++                    auth_host = f'http://{self.__metadata_service_host}{self.__url_in_ecs_metadata}{self.role_name}'
++                    self.credential_provider = oss2.EcsRamRoleCredentialsProvider(
++                        auth_host, timeout=self.timeout)
++        return self.credential_provider.get_credentials()
++
++
++class EcsRamRoleAuth(oss2.ProviderAuth):
++    def __init__(self, role_name: Optional[str] = None):
++        credentials_provider = EcsRamRoleCredentialsProviderWrapper(role_name)
++        super(EcsRamRoleAuth, self).__init__(credentials_provider)
++
++# CloudTik: patch end
++
++
+ class OSSFileSystem(
+     AbstractFileSystem
+ ):  # pylint:disable=too-many-public-methods
+@@ -54,6 +99,9 @@ class OSSFileSystem(
+         key: Optional[str] = None,
+         secret: Optional[str] = None,
+         token: Optional[str] = None,
++        # CloudTik: patch start
++        role_name: Optional[str] = "",
++        # CloudTik: patch end
+         default_cache_type: Optional[str] = "readahead",
+         **kwargs,  # pylint: disable=too-many-arguments
+     ):
+@@ -73,10 +121,17 @@ class OSSFileSystem(
+                         https://oss-me-east-1.aliyuncs.com
+         """
+         super().__init__(**kwargs)
++
+         if token:
+             self._auth = oss2.StsAuth(key, secret, token)
+         elif key:
+             self._auth = oss2.Auth(key, secret)
++        # CloudTik: patch start
++        elif role_name is not None:
++            # Use ECS RAM role authentication
++            # Empty role name is allowed for fetching from meta server
++            self._auth = EcsRamRoleAuth(role_name)
++        # CloudTik: patch start
+         else:
+             self._auth = oss2.AnonymousAuth()
+         self._endpoint = endpoint or os.getenv("OSS_ENDPOINT")
+-- 
+2.39.1.windows.1
+

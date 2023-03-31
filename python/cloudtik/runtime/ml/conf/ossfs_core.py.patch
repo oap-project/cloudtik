@@ -100,7 +100,7 @@ class OSSFileSystem(
         secret: Optional[str] = None,
         token: Optional[str] = None,
         # CloudTik: patch start
-        role_name: Optional[str] = None,
+        role_name: Optional[str] = "",
         # CloudTik: patch end
         default_cache_type: Optional[str] = "readahead",
         **kwargs,  # pylint: disable=too-many-arguments

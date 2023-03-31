@@ -1,0 +1,27 @@
+From 8c004e5d06847189331a526cf7a3fff5ea4276e5 Mon Sep 17 00:00:00 2001
+From: Chen Haifeng <haifeng.chen@intel.com>
+Date: Fri, 31 Mar 2023 18:07:06 +0800
+Subject: [PATCH] CloudTik gcsfs Fixes
+
+---
+ gcsfs/core.py | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/gcsfs/core.py b/gcsfs/core.py
+index b97c4a5..2d368b5 100644
+--- a/gcsfs/core.py
++++ b/gcsfs/core.py
+@@ -553,6 +553,10 @@ class GCSFileSystem(AsyncFileSystem):
+                 return [await self._get_object(path)]
+             else:
+                 return []
++        # CloudTik: patch begin
++        # Remove the file entry with the same name as path
++        items = [o for o in items if not o["name"].rstrip("/") == path]
++        # CloudTik: patch end
+         out = pseudodirs + items
+         # Don't cache prefixed/partial listings
+         if not prefix:
+-- 
+2.39.1.windows.1
+

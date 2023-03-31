@@ -18,9 +18,10 @@ mkdir -p $OUTPUT_DIR
 
 #(fp32, bf16, bf32)
 PRECISION=fp32
+USE_IPEX=0
 
 function usage(){
-    echo "Usage: run-inference.sh  [ --precision fp32 | bf16 | bf32] "
+    echo "Usage: run-inference.sh  [ --precision fp32 | bf16 | bf32] [--use-ipex]"
     exit 1
 }
 
@@ -32,13 +33,18 @@ do
         shift
         PRECISION=$1
         ;;
+    --use-ipex)
+        USE_IPEX=1
+        ;;
     *)
         usage
     esac
     shift
 done
 
-cd ${MODELS_HOME}/quickstart/language_modeling/pytorch/rnnt/inference/cpu
+export USE_IPEX
+
+cd ${WRAPPER_MODELS_HOME}/quickstart/language_modeling/pytorch/rnnt/inference/cpu
 
 bash accuracy.sh $PRECISION
 bash inference_throughput.sh $PRECISION

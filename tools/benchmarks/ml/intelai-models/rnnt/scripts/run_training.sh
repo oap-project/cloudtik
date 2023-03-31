@@ -20,9 +20,10 @@ mkdir -p $CHECKPOINT_DIR
 #(fp32, bf16, bf32)
 PRECISION=fp32
 NUM_STEPS=100
+USE_IPEX=0
 
 function usage(){
-    echo "Usage: run-training.sh  [--precision fp32 | bf16 | bf32]  [--num-steps]"
+    echo "Usage: run-training.sh  [--precision fp32 | bf16 | bf32]  [--num-steps] [--use-ipex]"
     exit 1
 }
 
@@ -40,11 +41,17 @@ do
         shift
         NUM_STEPS=$1
         ;;
+    --use-ipex)
+        USE_IPEX=1
+        ;;
     *)
         usage
     esac
     shift
 done
 
-cd ${MODELS_HOME}/quickstart/language_modeling/pytorch/rnnt/training/cpu
+export USE_IPEX
+
+cd ${WRAPPER_MODELS_HOME}/quickstart/language_modeling/pytorch/rnnt/training/cpu
+
 NUM_STEPS=${NUM_STEPS} bash training.sh $PRECISION

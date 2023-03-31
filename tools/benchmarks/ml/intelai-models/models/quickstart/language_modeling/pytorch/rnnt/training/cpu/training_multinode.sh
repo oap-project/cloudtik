@@ -129,7 +129,6 @@ oneccl_bindings_for_pytorch_path=$(python -c "import torch; import oneccl_bindin
 source $oneccl_bindings_for_pytorch_path/env/setvars.sh
 
 cloudtik-ml-run \
-#python -m intel_extension_for_pytorch.cpu.launch \
     --distributed \
     --nnodes ${NNODES} \
     --hosts ${HOSTS} \

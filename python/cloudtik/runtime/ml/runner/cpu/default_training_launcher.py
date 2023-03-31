@@ -3,10 +3,9 @@ import logging
 import os
 import subprocess
 
-from cloudtik.runtime.ml.runner import utils
+from cloudtik.runtime.ml.runner.util import utils
 from cloudtik.runtime.ml.runner.cpu.launcher import CPULauncher
 from cloudtik.runtime.ml.runner.distributed_training_launcher import DistributedTrainingLauncher
-from cloudtik.runtime.ml.runner.utils import is_impi_or_mpich
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +23,7 @@ class DefaultTrainingLauncher(CPULauncher, DistributedTrainingLauncher):
 
     def run(self):
         command = self.get_command_to_run()
-        if is_impi_or_mpich():
+        if utils.is_impi_or_mpich():
             self._run_command_impi(command)
         else:
             self._run_command_openmpi(command)

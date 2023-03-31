@@ -74,8 +74,8 @@ function install_ml() {
 
         if ([ "$ML_WITH_ONEAPI" == "true" ] || [ "$ML_WITH_INTEL_PYTORCH" == "true" ]) \
             && [ "$ML_WITH_INTEL_PYTORCH" != "false" ]; then
-            # Install Jemalloc for better performance
-            conda install jemalloc -p ${CLOUDTIK_ENV_ROOT} -y > /dev/null
+            # Install Jemalloc and Intel OpenMP for better performance
+            conda install jemalloc intel-openmp -p ${CLOUDTIK_ENV_ROOT} -y > /dev/null
             pip --no-cache-dir -qq install intel-extension-for-pytorch==1.13.100+cpu \
                 oneccl_bind_pt==1.13.0+cpu -f https://developer.intel.com/ipex-whl-stable-cpu
         fi

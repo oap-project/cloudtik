@@ -132,6 +132,10 @@ class MultiInstanceLauncher(CPULauncher):
 
         if not args.disable_taskset:
             enable_taskset = True
+        if args.disable_numactl and args.disable_taskset:
+            # If numactl and taskset are both disabled, KMP_AFFINITY should be set False
+            # so that all the cpu resource can be used.
+            set_kmp_affinity = False
 
         self.set_multi_thread_and_allocator(args.ncore_per_instance,
                                             args.disable_iomp,
@@ -205,10 +209,7 @@ class MultiInstanceLauncher(CPULauncher):
                 log_file = os.path.join(args.log_path, log_name)
                 cmd_s = "{} 2>&1 | tee {}".format(cmd_s, log_file)
             logger.info(cmd_s)
-            if not args.disable_numactl:
-                process = subprocess.Popen(cmd_s, env=os.environ, shell=True)
-            elif enable_taskset:
-                process = subprocess.Popen(cmd, env=os.environ)
+            process = subprocess.Popen(cmd_s, env=os.environ, shell=True)
             processes.append(process)
 
             if args.instance_idx != -1: # launches single instance, instance_idx, only

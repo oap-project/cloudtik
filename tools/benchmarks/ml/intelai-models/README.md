@@ -54,31 +54,31 @@ for avoiding terminal disconnection in the middle. And you don't know its comple
 
 ## 2. Prepare data and run Models benchmark for a specific workload
 We support the following specific Models cases:
-- BERT-large [model path: bert-large](./bert-large)
-- DLRM [model path: dlrm](./dlrm)
-- Mask R-CNN [model path: maskrcnn](./maskrcnn)
-- ResNet-50 [model path: resnet50](./resnet50)
-- ResNeXt101 [model path: resnext-32x16d](./resnext-32x16d)
-- RNN-T [model path: rnnt](./rnnt)
-- SSD-ResNet-34 [model path: ssd-resnet34](./ssd-resnet34)
+- BERT-large [model name: bert-large](./use-cases/bert-large)
+- DLRM [model name: dlrm](./use-cases/dlrm)
+- Mask R-CNN [model name: maskrcnn](./use-cases/maskrcnn)
+- ResNet-50 [model name: resnet50](./use-cases/resnet50)
+- ResNeXt101 [model name: resnext-32x16d](./use-cases/resnext-32x16d)
+- RNN-T [model name: rnnt](./use-cases/rnnt)
+- SSD-ResNet-34 [model name: ssd-resnet34](./use-cases/ssd-resnet34)
 
 ### Preparing data
 Run the following command for preparing data.
 ```buildoutcfg
-cloudtik exec your-cluster-config.yaml 'bash $HOME/runtime/benchmark-tools/intelai_models/scripts/model-name/scripts/prepare-data.sh'
+cloudtik exec your-cluster-config.yaml 'bash $HOME/runtime/benchmark-tools/intelai_models/cloudtik/use-cases/model-name/scripts/prepare-data.sh'
 ```
-Replace model-name to one of the model path above.
+Replace model-name to one of the model name above.
 
 ### Run inference
 Run the following command for inference if supported.
 ```buildoutcfg
-cloudtik exec your-cluster-config.yaml 'bash $HOME/runtime/benchmark-tools/intelai_models/scripts/model-name/scripts/run_inference.sh'
+cloudtik exec your-cluster-config.yaml 'bash $HOME/runtime/benchmark-tools/intelai_models/cloudtik/use-cases/model-name/scripts/run_inference.sh'
 ```
-Replace model-name to one of the model path above.
+Replace model-name to one of the model name above.
 
 ### Run training
 Run the following command for training if supported.
 ```buildoutcfg
-cloudtik exec your-cluster-config.yaml 'bash $HOME/runtime/benchmark-tools/intelai_models/scripts/model-name/scripts/run_training.sh'
+cloudtik exec your-cluster-config.yaml 'bash $HOME/runtime/benchmark-tools/intelai_models/cloudtik/use-cases/model-name/scripts/run_training.sh'
 ```
-Replace model-name to one of the model path above.
+Replace model-name to one of the model name above.

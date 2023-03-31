@@ -10,6 +10,7 @@ BENCHMARK_TOOL_HOME=$USER_HOME/runtime/benchmark-tools
 INTELAI_MODELS_HOME=$BENCHMARK_TOOL_HOME/intelai_models
 MODELS_HOME=$INTELAI_MODELS_HOME/models
 SCRIPTS_HOME=$INTELAI_MODELS_HOME/scripts
+USE_CASES_HOME=$SCRIPTS_HOME/use-cases
 MODELS_TMP=$INTELAI_MODELS_HOME/tmp
 
 # Working path on the local machine
@@ -108,7 +109,7 @@ function configure_intelai_models() {
 
 
 function install_models_dependency() {
-    for dir in $SCRIPTS_HOME/*/; do
+    for dir in $USE_CASES_HOME/*/; do
         if [ -d ${dir} ]; then
             install_dependency_script_path="${dir}scripts/install-dependency.sh"
             if [ -e $install_dependency_script_path ]; then

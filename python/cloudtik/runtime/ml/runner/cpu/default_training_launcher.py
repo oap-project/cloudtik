@@ -1,10 +1,12 @@
 import copy
 import logging
 import os
+import subprocess
 
 from cloudtik.runtime.ml.runner import utils
 from cloudtik.runtime.ml.runner.cpu.launcher import CPULauncher
 from cloudtik.runtime.ml.runner.distributed_training_launcher import DistributedTrainingLauncher
+from cloudtik.runtime.ml.runner.utils import is_impi_or_mpich
 
 logger = logging.getLogger(__name__)
 
@@ -21,9 +23,14 @@ class DefaultTrainingLauncher(CPULauncher, DistributedTrainingLauncher):
         super().__init__(args)
 
     def run(self):
-        args = self.args
         command = self.get_command_to_run()
+        if is_impi_or_mpich():
+            self._run_command_impi(command)
+        else:
+            self._run_command_openmpi(command)
 
+    def _run_command_openmpi(self, command):
+        args = self.args
         # default to use OpenMPI to launch
         _OMPI_FLAGS = ['-mca pml ob1', '-mca btl ^openib']
         _NO_BINDING_ARGS = ['-bind-to none', '-map-by slot']
@@ -93,3 +100,39 @@ class DefaultTrainingLauncher(CPULauncher, DistributedTrainingLauncher):
 
         # Execute the mpirun command.
         os.execve('/bin/sh', ['/bin/sh', '-c', mpirun_command], env)
+
+    def _run_command_impi(self):
+        args = self.args
+        command = self.get_command_to_run()
+
+        cmd = ['mpirun']
+        mpi_config = "-l -np {} -ppn {} ".format(
+            args.nnodes * args.nproc_per_node, args.nproc_per_node)
+        mpi_config += args.more_mpi_params
+
+        if args.hosts:
+            mpi_config += " -hosts {}".format(args.hosts)
+        elif args.hostfile:
+            mpi_config += " -hostfile {}".format(args.hostfile)
+
+        def get_cloudtik_rsh():
+            cloudtik_ml_home = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+            return os.path.join(cloudtik_ml_home, "scripts", "cloudtik-rsh.sh")
+
+        # only add this for remote training
+        if args.hosts or args.hostfile:
+            if "-launcher-exec" not in mpi_config:
+                mpi_config += (
+                    ' -launcher rsh -launcher-exec "{launcher_exec}"'.format(
+                        launcher_exec=get_cloudtik_rsh()))
+
+        cmd.extend(mpi_config.split())
+        mpi_command = " ".join(cmd)
+
+        final_command = "{mpi_command} {command}".format(
+            mpi_command=mpi_command,
+            command=command
+        )
+        logger.info("Final command run: {}".format(final_command))
+        process = subprocess.Popen(final_command, env=os.environ, shell=True)
+        process.wait()

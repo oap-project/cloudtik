@@ -42,21 +42,17 @@ NUM_GPUS=${10:-0}
 PRECISION=${11:-"fp32"}
 EPOCHS=${12:-1}
 SEED=${13:-2021}
-BATCH_SIZE=${14:-64}
+BATCH_SIZE=${14:-32}
 EVAL_BATCH_SIZE=${15:-2}
 LEARNING_RATE=${16:-"0.001"}
 LEARNING_RATE_WARMUP=${17:-"8000"}
 GRADIENT_ACCUMULATION_STEPS=${18:-1}
 LAUNCH_OPT=${LAUNCH_OPT:-"none"}
-<<<<<<< HEAD:tools/benchmarks/ml/intelai-models/models/quickstart/language_modeling/pytorch/rnnt/training/cpu/training.sh
-=======
-SOCKETS=$(cloudtik head info --sockets-per-worker)
-NNODES=$(cloudtik head info --total-workers)
-HOSTFILE=${HOSTFILE:-"${MODEL_DIR}/quickstart/language_modeling/pytorch/rnnt/training/cpu/hostfile"}
+SOCKETS=${SOCKETS:-`lscpu | grep Socket | awk '{print $2}'`}
+HOSTS=${HOSTS:-'127.0.0.1'}
+NNODES=$(echo $HOSTS | tr ',' '\n' | wc -l)
 NUM_RANKS=$(( NNODES * SOCKETS ))
-
-mkdir -p $RESULT_DIR
->>>>>>> 1bd207b9d6e2107a414081a2b6422d1442295283:tools/benchmarks/ml/intelai-models/rnnt/scripts/run_training_multinode.sh
+BACKEND=${BACKEND:-'ccl'}
 
 if [[ $1 == "avx-fp32" ]]; then
     unset DNNL_MAX_CPU_ISA
@@ -71,7 +67,7 @@ elif [ "$1" = "fp32" ] ; then
     PREC="--fp32"
     precision="fp32"
     echo "### running fp32 datatype"
-elif [ "$1" = "bf32" ]; then
+elif [ "$1" = "bf32" ] ; then
     PREC="--bf32"
     precision="bf32"
     echo "### running bf32 datatype"
@@ -80,9 +76,7 @@ else
     echo "Supported precisions now are: fp32, bf16 and bf32"
 fi
 
-if [ "$USE_IPEX" == 1 ]; then
-    IPEX="--ipex"
-fi
+IPEX="--ipex"
 
 PROFILE=""
 if [ "$3" = profiling ]; then
@@ -120,6 +114,7 @@ CMD+=" $PREC"
 CMD+=" $IPEX"
 CMD+=" --warmup=$WARMUP"
 CMD+=" $PROFILE"
+CMD+=" --backend=${BACKEND}"
 # TODO: FP32 is still under development. For current validation,
 # in FP32, it only runs 100 iterations. NUM_STEPS is disabled in FP32.
 if [ "$1" = "fp32" ] ; then
@@ -128,22 +123,25 @@ elif [[ ! -z "${NUM_STEPS}" ]]; then
     CMD+=" --num_steps=$NUM_STEPS"
 fi
 
-export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
+rm -rf ${OUTPUT_DIR}/distributed_throughput_log*
 
-rm -rf ${OUTPUT_DIR}/throughput_log*
+oneccl_bindings_for_pytorch_path=$(python -c "import torch; import oneccl_bindings_for_pytorch; import os;  print(os.path.abspath(os.path.dirname(oneccl_bindings_for_pytorch.__file__)))")
+source $oneccl_bindings_for_pytorch_path/env/setvars.sh
 
 cloudtik-ml-run \
-    --use_default_allocator \
-    --node_id=0 \
+#python -m intel_extension_for_pytorch.cpu.launch \
+    --distributed \
+    --nnodes ${NNODES} \
+    --hosts ${HOSTS} \
+    --nproc_per_node $SOCKETS \
     --log_path=${OUTPUT_DIR} \
-    --log_file_prefix="./throughput_log_${precision}" \
+    --log_file_prefix="./distributed_throughput_log_${precision}" \
     ${MODEL_DIR}/models/language_modeling/pytorch/rnnt/training/cpu/train.py \
-    $CMD
+    $CMD 2>&1 | tee ${OUTPUT_DIR}/distributed_throughput_log_${precision}.txt
 
 # For the summary of results
 wait
-
-throughput=$(grep 'Throughput:' ${OUTPUT_DIR}/throughput_log* |sed -e 's/.*Throughput//;s/[^0-9.]//g' |awk '
+throughput=$(grep 'Throughput:' ${OUTPUT_DIR}/distributed_throughput_log* |sed -e 's/.*Throughput//;s/[^0-9.]//g' |awk '
 BEGIN {
         sum = 0;
         i = 0;
@@ -156,4 +154,4 @@ END   {
         sum = sum / i;
         printf("%.3f", sum);
 }')
-echo ""RNN-T";"training throughput";${precision};${BATCH_SIZE};${throughput}" | tee -a ${OUTPUT_DIR}/summary.log
+echo ""RNN-T";"training distributed throughput";${precision};${BATCH_SIZE};${throughput}" | tee -a ${OUTPUT_DIR}/summary.log

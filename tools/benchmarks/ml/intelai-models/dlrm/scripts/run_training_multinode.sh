@@ -1,6 +1,4 @@
-#!/usr/bin/env bash
-#
-# Copyright (c) 2020 Intel Corporation
+# Copyright (c) 2021 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,14 +13,13 @@
 # limitations under the License.
 #
 
-
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source ${SCRIPT_DIR}/../../common/scripts/setenv.sh
 
-export MASKRCNN_HOME=$INTELAI_MODELS_WORKSPACE/maskrcnn
-export MASKRCNN_MODEL=$MASKRCNN_HOME/model
-export DATASET_DIR=$MASKRCNN_HOME/data
-export OUTPUT_DIR=$MASKRCNN_HOME/output
+export DLRM_HOME=$INTELAI_MODELS_WORKSPACE/maskrcnn
+export DLRM_MODEL=$DLRM_HOME/model
+export DATASET_DIR=$DLRM_HOME/data
+export OUTPUT_DIR=$DLRM_HOME/output
 
 mkdir -p $OUTPUT_DIR
 PRECISION=fp32
@@ -50,6 +47,7 @@ do
     shift
 done
 
+
 export PRECISION=$PRECISION
 export BACKEND=$BACKEND
 
@@ -58,6 +56,6 @@ export CORES=$(( LOGICAL_CORES / 2 ))
 export HOSTS=$(cloudtik head worker-ips --separator "," --node-status up-to-date)
 export SOCKETS=$(cloudtik head info --sockets-per-worker)
 
-cd ${PATCHED_MODELS_HOME}/quickstart/object_detection/pytorch/maskrcnn/training/cpu
-bash training_multinode.sh $RECISION
+cd ${PATCHED_MODELS_HOME}/quickstart/recommendation/pytorch/dlrm/training/cpu
 
+bash distribute_training.sh

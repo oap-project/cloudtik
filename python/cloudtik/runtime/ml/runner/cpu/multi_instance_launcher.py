@@ -3,16 +3,21 @@ import os
 import subprocess
 import sys
 
-from cloudtik.runtime.ml.runner.cpu.launcher import Launcher
+from cloudtik.runtime.ml.runner.cpu.launcher import CPULauncher
 
 logger = logging.getLogger(__name__)
 
 
-class MultiInstanceLauncher(Launcher):
+class MultiInstanceLauncher(CPULauncher):
     r"""
      Launcher for single instance and multi-instance
      """
-    def launch(self, args):
+
+    def __init__(self, args):
+        super().__init__(args)
+
+    def launch(self):
+        args = self.args
         processes = []
         cores = []
         set_kmp_affinity = True
@@ -127,6 +132,10 @@ class MultiInstanceLauncher(Launcher):
 
         if not args.disable_taskset:
             enable_taskset = True
+        if args.disable_numactl and args.disable_taskset:
+            # If numactl and taskset are both disabled, KMP_AFFINITY should be set False
+            # so that all the cpu resource can be used.
+            set_kmp_affinity = False
 
         self.set_multi_thread_and_allocator(args.ncore_per_instance,
                                             args.disable_iomp,
@@ -190,19 +199,17 @@ class MultiInstanceLauncher(Launcher):
             if args.module:
                 cmd.append("-m")
             cmd.append(args.program)
-            log_name = args.log_file_prefix + "_instance_{}_cores_".format(
-                i) + cur_process_cores.replace(',', '_') + ".log"
-            log_name = os.path.join(args.log_path, log_name)
+
             cmd.extend(args.program_args)
             os.environ["LAUNCH_CMD"] += " ".join(cmd) + ",#"
             cmd_s = " ".join(cmd)
             if args.log_path:
-                cmd_s = "{} 2>&1 | tee {}".format(cmd_s, log_name)
+                log_name = args.log_file_prefix + "_instance_{}_cores_".format(
+                    i) + cur_process_cores.replace(',', '_') + ".log"
+                log_file = os.path.join(args.log_path, log_name)
+                cmd_s = "{} 2>&1 | tee {}".format(cmd_s, log_file)
             logger.info(cmd_s)
-            if not args.disable_numactl:
-                process = subprocess.Popen(cmd_s, env=os.environ, shell=True)
-            elif enable_taskset:
-                process = subprocess.Popen(cmd, env=os.environ)
+            process = subprocess.Popen(cmd_s, env=os.environ, shell=True)
             processes.append(process)
 
             if args.instance_idx != -1: # launches single instance, instance_idx, only

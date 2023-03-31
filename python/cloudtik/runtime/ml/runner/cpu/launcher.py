@@ -1,62 +1,32 @@
-import glob
 import logging
 import os
 import subprocess
 from os.path import expanduser
 
 from cloudtik.runtime.ml.runner.cpu.utils import CPUinfo
+from cloudtik.runtime.ml.runner.launcher import Launcher
 
 logger = logging.getLogger(__name__)
 
 
-class Launcher:
+class CPULauncher(Launcher):
     r"""
      Base class for launcher
     """
-    def __init__(self):
+    def __init__(self, args):
+        super().__init__(args)
         self.cpuinfo = CPUinfo()
-
-    def launch(self, args):
-        pass
-
-    def add_lib_preload(self, lib_type=None):
-        '''
-        Enale TCMalloc/JeMalloc/intel OpenMP
-        '''
-        library_paths = []
-        if "CONDA_PREFIX" in os.environ:
-            library_paths.append(os.environ["CONDA_PREFIX"] + "/lib/")
-        if "VIRTUAL_ENV" in os.environ:
-            library_paths.append(os.environ["VIRTUAL_ENV"] + "/lib/")
-
-        library_paths += ["{}/.local/lib/".format(expanduser("~")), "/usr/local/lib/",
-                          "/usr/local/lib64/", "/usr/lib/", "/usr/lib64/"]
-
-        lib_find = False
-        lib_set = False
-        for item in os.getenv("LD_PRELOAD", "").split(":"):
-            if item.endswith('lib{}.so'.format(lib_type)):
-                lib_set = True
-                break
-        if not lib_set:
-            for lib_path in library_paths:
-                library_file = lib_path + "lib" + lib_type + ".so"
-                matches = glob.glob(library_file)
-                if len(matches) > 0:
-                    if "LD_PRELOAD" in os.environ:
-                        os.environ["LD_PRELOAD"] = matches[0] + ":" + os.environ["LD_PRELOAD"]
-                    else:
-                        os.environ["LD_PRELOAD"] = matches[0]
-                    lib_find = True
-                    break
-        return lib_set or lib_find
 
     def is_numactl_available(self):
         numactl_available = False
-        cmd = ["numactl", "-C", "0", "-m", "0", "ls"]
-        r = subprocess.run(cmd, env=os.environ, stdout=subprocess.DEVNULL)
-        if r.returncode == 0:
-            numactl_available = True
+        try:
+            cmd = ["numactl", "-C", "0", "-m", "0", "ls"]
+            r = subprocess.run(cmd, env=os.environ, stdout=subprocess.DEVNULL)
+            if r.returncode == 0:
+                numactl_available = True
+        except Exception as e:
+            logger.warning("Core binding with numactl is not available: {}".format(
+                str(e)))
         return numactl_available
 
     def set_memory_allocator(self, enable_tcmalloc=True, enable_jemalloc=False, use_default_allocator=False, benchmark=False):
@@ -66,8 +36,7 @@ class Launcher:
         memory resue and reduce page fault to improve performance.
         '''
         if enable_tcmalloc and enable_jemalloc:
-            logger.error("Unable to enable TCMalloc and JEMalloc at the same time")
-            exit(-1)
+            raise RuntimeError("Unable to enable TCMalloc and JEMalloc at the same time")
 
         if enable_tcmalloc:
             find_tc = self.add_lib_preload(lib_type="tcmalloc")
@@ -111,26 +80,16 @@ class Launcher:
                 return
             logger.warning("Neither TCMalloc nor JeMalloc is found in $CONDA_PREFIX/lib or $VIRTUAL_ENV/lib"
                            " or /.local/lib/ or /usr/local/lib/ or /usr/local/lib64/ or /usr/lib or /usr/lib64 or "
-                           "{}/.local/lib/ so the LD_PRELOAD environment variable will not be set. This may drop the performance"
+                           "{}/.local/lib/ so the LD_PRELOAD environment variable will not be set. "
+                           "This may drop the performance"
                            .format(expanduser("~")))
-
-    def logger_env(self, env_name=""):
-        if env_name in os.environ:
-            logger.info("{}={}".format(env_name, os.environ[env_name]))
-
-    def set_env(self, env_name, env_value=None):
-        if not env_value:
-            logger.warning("{} is None".format(env_name))
-        if env_name not in os.environ:
-            os.environ[env_name] = env_value
-        elif os.environ[env_name] != env_value:
-            logger.warning("{} in environment variable is {} while the value you set is {}".format(env_name, os.environ[env_name], env_value))
-        self.logger_env(env_name)
 
     # set_kmp_affinity is used to control whether to set KMP_AFFINITY or not.
     # In scenario that use all cores on all nodes, including logical cores,
     # setting KMP_AFFINITY disables logical cores. In this case, KMP_AFFINITY should not be set.
-    def set_multi_thread_and_allocator(self, ncore_per_instance, disable_iomp=False, set_kmp_affinity=True, enable_tcmalloc=True, enable_jemalloc=False, use_default_allocator=False, benchmark=False):
+    def set_multi_thread_and_allocator(
+            self, ncore_per_instance, disable_iomp=False, set_kmp_affinity=True,
+            enable_tcmalloc=True, enable_jemalloc=False, use_default_allocator=False, benchmark=False):
         '''
         Set multi-thread configuration and enable Intel openMP and TCMalloc/JeMalloc.
         By default, GNU openMP and PTMalloc are used in PyTorch. but Intel openMP and TCMalloc/JeMalloc are better alternatives
@@ -151,4 +110,4 @@ class Launcher:
                 if set_kmp_affinity:
                     self.set_env("KMP_AFFINITY", "granularity=fine,compact,1,0")
                 self.set_env("KMP_BLOCKTIME", "1")
-        self.logger_env("LD_PRELOAD")
+        self.log_env("LD_PRELOAD")

@@ -75,8 +75,7 @@ from transformers import (
 )
 
 from schedulers import LinearWarmUpScheduler, LinearWarmupPolyDecayScheduler
-#from lamb import Lamb
-from intel_extension_for_pytorch.optim._lamb import Lamb
+
 
 try:
     if torch.__version__[:6] >= '1.12.0':
@@ -86,7 +85,6 @@ try:
 
 except ImportError as e:
     oneccl_bindings_for_pytorch = False
-import intel_extension_for_pytorch as ipex
 
 
 logger = logging.getLogger(__name__)
@@ -396,6 +394,9 @@ def parse_args():
                         help="Total batch size for training.")
 
     parser.add_argument("--profile", action="store_true", help="Whether to enable profiling")
+    parser.add_argument("--ipex", action='store_true', default=False, help='use ipex')
+    parser.add_argument('--backend', default='gloo', type=str, help='DDP backend, default to gloo')
+
 
     args = parser.parse_args()
 
@@ -420,11 +421,10 @@ def setup_training(args):
     if oneccl_bindings_for_pytorch and int(os.environ.get('PMI_SIZE', '0')) > 1:
         os.environ['RANK'] = os.environ.get('PMI_RANK', '0')
         os.environ['WORLD_SIZE'] = os.environ.get('PMI_SIZE', '1')
-        torch.distributed.init_process_group(backend="ccl")
+        torch.distributed.init_process_group(backend=args.backend)
         device = torch.device("cpu")
         args.local_rank = torch.distributed.get_rank()
         args.world_size = torch.distributed.get_world_size()
-        print("##################Using CCL dist run", flush=True)
     if args.gradient_accumulation_steps < 1:
         raise ValueError("Invalid gradient_accumulation_steps parameter: {}, should be >= 1".format(
             args.gradient_accumulation_steps))
@@ -493,7 +493,15 @@ def prepare_model_and_optimizer(args, device):
     optimizer_grouped_parameters = [
         {'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)], 'weight_decay': args.weight_decay_rate},
         {'params': [p for n, p in param_optimizer if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}]
-    optimizer = Lamb(optimizer_grouped_parameters, lr=args.learning_rate,  betas=(args.opt_lamb_beta_1, args.opt_lamb_beta_2), fused=True)
+    if args.ipex:
+        from intel_extension_for_pytorch.optim._lamb import Lamb
+        optimizer = Lamb(optimizer_grouped_parameters, lr=args.learning_rate,
+                         betas=(args.opt_lamb_beta_1, args.opt_lamb_beta_2), fused=True)
+
+    else:
+        from lamb import Lamb
+        optimizer = Lamb(optimizer_grouped_parameters, lr=args.learning_rate,
+                         betas=(args.opt_lamb_beta_1, args.opt_lamb_beta_2))
 
     if args.warmup_steps == 0:
         warmup_steps = int(args.max_steps * args.warmup_proportion)
@@ -589,6 +597,9 @@ def calc_accuracy(outputs, masked_lm_labels, next_sentence_label, args):
 
 def main():
     args = parse_args()
+    if args.ipex:
+        import intel_extension_for_pytorch as ipex
+
     status = 'aborted'  # later set to 'success' if termination criteria met
     device, args = setup_training(args)
     total_batch_size = global_batch_size(args) 
@@ -605,14 +616,16 @@ def main():
     # Prepare optimizer
     model, optimizer, lr_scheduler, checkpoint, global_step = prepare_model_and_optimizer(args, device)
     model.train()
-    if args.bf32:
-        ipex.set_fp32_math_mode(mode=ipex.FP32MathMode.BF32, device="cpu")
-        model, optimizer = ipex.optimize(model, dtype=torch.float32, optimizer=optimizer, auto_kernel_selection=True)
-    elif args.fp16:
+    if args.fp16:
         scaler = torch.cpu.amp.GradScaler()
-        model, optimizer = ipex.optimize(model, optimizer=optimizer, dtype=torch.half, auto_kernel_selection=True, weights_prepack=True, fuse_update_step=False)
-    else:
-        model, optimizer = ipex.optimize(model, optimizer=optimizer, dtype=torch.bfloat16 if args.bf16 else torch.float32)
+    if args.ipex:
+        if args.bf32:
+            ipex.set_fp32_math_mode(mode=ipex.FP32MathMode.BF32, device="cpu")
+            model, optimizer = ipex.optimize(model, dtype=torch.float32, optimizer=optimizer, auto_kernel_selection=True)
+        elif args.fp16:
+            model, optimizer = ipex.optimize(model, optimizer=optimizer, dtype=torch.half, auto_kernel_selection=True, weights_prepack=True, fuse_update_step=False)
+        else:
+            model, optimizer = ipex.optimize(model, optimizer=optimizer, dtype=torch.bfloat16 if args.bf16 else torch.float32)
     worker_seeds, shuffling_seeds = utils.setup_seeds(args.seed, args.num_epochs_to_generate_seeds_for, device)
     worker_seed = worker_seeds[args.local_rank]
 

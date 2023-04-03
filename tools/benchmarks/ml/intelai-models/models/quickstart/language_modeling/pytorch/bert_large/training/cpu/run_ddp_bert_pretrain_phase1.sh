@@ -42,6 +42,11 @@ else
     exit 1
 fi
 
+
+if [[ "$ENABLE_IPEX" == "true" ]];then
+  ARGS="$ARGS --ipex"
+fi
+
 BERT_MODEL_CONFIG=${BERT_MODEL_CONFIG-~/dataset/checkpoint/config.json}
 DATASET_DIR=${DATASET_DIR:-~/dataset/}
 TRAIN_SCRIPT=${TRAIN_SCRIPT:-${MODEL_DIR}/models/language_modeling/pytorch/bert_large/training/run_pretrain_mlperf.py}
@@ -49,6 +54,7 @@ OUTPUT_DIR=${OUTPUT_DIR:-${PWD}}
 SOCKETS=${SOCKETS:-`lscpu | grep Socket | awk '{print $2}'`}
 HOSTS=${HOSTS:-'127.0.0.1'}
 NNODES=$(echo $HOSTS | tr ',' '\n' | wc -l)
+BACKEND=${BACKEND:-'ccl'}
 work_space=${work_space:-${OUTPUT_DIR}}
 rm -rf ${OUTPUT_DIR}/throughput_log_phase1_*
 
@@ -63,6 +69,7 @@ cloudtik-ml-run \
     --model_type 'bert' \
     --output_dir model_save \
     --config_name ${BERT_MODEL_CONFIG} \
+    --backend ${BACKEND} \
     $ARGS \
     $params \
     2>&1 | tee ${OUTPUT_DIR}/throughput_log_phase1_${precision}.log

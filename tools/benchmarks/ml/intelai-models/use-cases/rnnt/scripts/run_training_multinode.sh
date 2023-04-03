@@ -58,6 +58,10 @@ do
         shift
         NUM_STEPS=$1
         ;;
+    --use-ipex)
+        # use ipex for better performance
+        USE_IPEX=1
+        ;;
     --backend)
         shift
         BACKEND=$1
@@ -77,5 +81,5 @@ export CORES=$(( LOGICAL_CORES / 2 ))
 export HOSTS=$(cloudtik head worker-ips --separator "," --node-status up-to-date)
 export SOCKETS=$(cloudtik head info --sockets-per-worker)
 
-cd ${CLOUDTIK_MODELS_HOME}/quickstart/object_detection/pytorch/maskrcnn/training/cpu
+cd ${CLOUDTIK_MODELS_HOME}/quickstart/language_modeling/pytorch/rnnt/training/cpu
 bash training_multinode.sh $PRECISION

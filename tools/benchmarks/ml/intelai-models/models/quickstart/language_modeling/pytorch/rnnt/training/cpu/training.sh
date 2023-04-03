@@ -48,15 +48,12 @@ LEARNING_RATE=${16:-"0.001"}
 LEARNING_RATE_WARMUP=${17:-"8000"}
 GRADIENT_ACCUMULATION_STEPS=${18:-1}
 LAUNCH_OPT=${LAUNCH_OPT:-"none"}
-<<<<<<< HEAD:tools/benchmarks/ml/intelai-models/models/quickstart/language_modeling/pytorch/rnnt/training/cpu/training.sh
-=======
 SOCKETS=$(cloudtik head info --sockets-per-worker)
 NNODES=$(cloudtik head info --total-workers)
 HOSTFILE=${HOSTFILE:-"${MODEL_DIR}/quickstart/language_modeling/pytorch/rnnt/training/cpu/hostfile"}
 NUM_RANKS=$(( NNODES * SOCKETS ))
 
 mkdir -p $RESULT_DIR
->>>>>>> 1bd207b9d6e2107a414081a2b6422d1442295283:tools/benchmarks/ml/intelai-models/rnnt/scripts/run_training_multinode.sh
 
 if [[ $1 == "avx-fp32" ]]; then
     unset DNNL_MAX_CPU_ISA

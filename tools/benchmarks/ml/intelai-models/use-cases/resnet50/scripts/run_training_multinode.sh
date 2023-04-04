@@ -65,6 +65,7 @@ export PRECISION=$PRECISION
 export BACKEND=$BACKEND
 export TRAINING_EPOCHS=$TRAINING_EPOCHS
 export ENABLE_IPEX=$ENABLE_IPEX
+export TRAIN_SCRIPT=${CLOUDTIK_MODELS_HOME}/models/image_recognition/pytorch/common/main.py
 
 LOGICAL_CORES=$(cloudtik head info --cpus-per-worker)
 export CORES=$(( LOGICAL_CORES / 2 ))

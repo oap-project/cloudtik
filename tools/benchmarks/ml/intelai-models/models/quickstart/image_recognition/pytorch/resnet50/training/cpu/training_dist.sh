@@ -75,6 +75,10 @@ else
     exit 1
 fi
 
+if [[ "$ENABLE_IPEX" == "true" ]];then
+  ARGS="$ARGS --ipex"
+fi
+
 BACKEND=${BACKEND:-'ccl'}
 
 CORES=${CORES:-`lscpu | grep Core | awk '{print $4}'`}
@@ -107,7 +111,6 @@ cloudtik-ml-run \
     --ncore_per_instance ${CORES_PER_INSTANCE} \
     ${MODEL_DIR}/models/image_recognition/pytorch/common/main.py \
     $ARGS \
-    --ipex \
     -j 0 \
     --seed 2020 \
     --epochs $TRAINING_EPOCHS \

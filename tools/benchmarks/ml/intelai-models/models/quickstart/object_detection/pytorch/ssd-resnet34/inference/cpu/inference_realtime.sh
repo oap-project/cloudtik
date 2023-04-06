@@ -86,10 +86,10 @@ if [ "$weight_sharing" = true ]; then
     SOCKETS=`lscpu | grep Socket | awk '{print $2}'`
     export OMP_NUM_THREADS=$CORES_PER_INSTANCE
 
-    python -m intel_extension_for_pytorch.cpu.launch \
+    cloudtik-ml-run \
         --use_default_allocator \
         --ninstance ${SOCKETS} \
-        ${MODEL_DIR}/models/object_detection/pytorch/ssd-resnet34/inference/cpu/infer_weight_sharing.py \
+        ${CLOUDTIK_MODELS_HOME}/models/object_detection/pytorch/ssd-resnet34/inference/cpu/infer_weight_sharing.py \
         --data ${DATASET_DIR}/coco \
         --device 0 \
         --checkpoint ${CHECKPOINT_DIR}/pretrained/resnet34-ssd1200.pth \
@@ -103,10 +103,10 @@ if [ "$weight_sharing" = true ]; then
         $ARGS 2>&1 | tee ${OUTPUT_DIR}/latency_log_ssdresnet34_${PRECISION}.log
     wait
 else
-    python -m intel_extension_for_pytorch.cpu.launch \
+    cloudtik-ml-run \
         --use_default_allocator \
         --latency_mode \
-        ${MODEL_DIR}/models/object_detection/pytorch/ssd-resnet34/inference/cpu/infer.py \
+        ${CLOUDTIK_MODELS_HOME}/models/object_detection/pytorch/ssd-resnet34/inference/cpu/infer.py \
         --data ${DATASET_DIR}/coco \
         --device 0 \
         --checkpoint ${CHECKPOINT_DIR}/pretrained/resnet34-ssd1200.pth \

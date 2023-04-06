@@ -137,7 +137,7 @@ cloudtik-ml-run \
     --nproc_per_node $SOCKETS \
     --log_path=${OUTPUT_DIR} \
     --log_file_prefix="./distributed_throughput_log_${precision}" \
-    ${MODEL_DIR}/models/language_modeling/pytorch/rnnt/training/cpu/train.py \
+    ${CLOUDTIK_MODELS_HOME}/models/language_modeling/pytorch/rnnt/training/cpu/train.py \
     $CMD 2>&1 | tee ${OUTPUT_DIR}/distributed_throughput_log_${precision}.txt
 
 # For the summary of results

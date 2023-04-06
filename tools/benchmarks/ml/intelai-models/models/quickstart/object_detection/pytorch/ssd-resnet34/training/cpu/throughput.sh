@@ -70,10 +70,10 @@ BATCH_SIZE=224
 
 rm -rf ${OUTPUT_DIR}/train_ssdresnet34_${PRECISION}_throughput*
 
-python -m intel_extension_for_pytorch.cpu.launch \
+cloudtik-ml-run \
     --use_default_allocator \
     --node_id 0 \
-    ${MODEL_DIR}/models/object_detection/pytorch/ssd-resnet34/training/cpu/train.py \
+    ${CLOUDTIK_MODELS_HOME}/models/object_detection/pytorch/ssd-resnet34/training/cpu/train.py \
     --epochs 70 \
     --warmup-factor 0 \
     --lr 2.5e-3 \

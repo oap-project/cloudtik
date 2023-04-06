@@ -103,8 +103,10 @@ function install_intelai_models_scripts() {
 }
 
 function configure_intelai_models() {
-    # Nothing to do now
-    :
+    cd $SCRIPTS_HOME/models/models/
+    for file in `find * -name *.py`; do
+        cp $SCRIPTS_HOME/models/models/$file $MODELS_HOME/models/$file
+    done
 }
 
 

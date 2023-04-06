@@ -134,7 +134,7 @@ cloudtik-ml-run \
     --node_id=0 \
     --log_path=${OUTPUT_DIR} \
     --log_file_prefix="./throughput_log_${precision}" \
-    ${CLOUDTIK_MODELS_HOME}/models/language_modeling/pytorch/rnnt/training/cpu/train.py \
+    ${MODEL_DIR}/models/language_modeling/pytorch/rnnt/training/cpu/train.py \
     $CMD
 
 # For the summary of results

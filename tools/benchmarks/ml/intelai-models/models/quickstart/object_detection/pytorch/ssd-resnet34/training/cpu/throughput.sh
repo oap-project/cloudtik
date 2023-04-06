@@ -73,7 +73,7 @@ rm -rf ${OUTPUT_DIR}/train_ssdresnet34_${PRECISION}_throughput*
 cloudtik-ml-run \
     --use_default_allocator \
     --node_id 0 \
-    ${CLOUDTIK_MODELS_HOME}/models/object_detection/pytorch/ssd-resnet34/training/cpu/train.py \
+    ${MODEL_DIR}/models/object_detection/pytorch/ssd-resnet34/training/cpu/train.py \
     --epochs 70 \
     --warmup-factor 0 \
     --lr 2.5e-3 \

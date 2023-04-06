@@ -28,9 +28,9 @@ mkdir -p $OUTPUT_DIR
 
 PRECISION=fp32
 BACKEND=gloo
-
+ENABLE_IPEX="false"
 function usage(){
-    echo "Usage: run-training_multinode.sh  [ --precision fp32 | bf16 | bf32] [ --backend ccl | gloo] "
+    echo "Usage: run-training_multinode.sh  [ --precision fp32 | bf16 | bf32] [ --backend ccl | gloo] [ --ipex]"
     exit 1
 }
 
@@ -46,6 +46,10 @@ do
         shift
         BACKEND=$1
         ;;
+    --ipex)
+        shift
+        ENABLE_IPEX="true"
+        ;;
     *)
         usage
     esac
@@ -54,6 +58,8 @@ done
 
 export PRECISION=$PRECISION
 export BACKEND=$BACKEND
+export ENABLE_IPEX=$ENABLE_IPEX
+export TRAIN_SCRIPT=${CLOUDTIK_MODELS_HOME}/models/language_modeling/pytorch/bert_large/training/run_pretrain_mlperf.py
 
 LOGICAL_CORES=$(cloudtik head info --cpus-per-worker)
 export CORES=$(( LOGICAL_CORES / 2 ))

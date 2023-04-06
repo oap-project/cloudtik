@@ -6,7 +6,7 @@ source ${SCRIPT_DIR}/../../../common/scripts/setenv.sh
 
 function install_libraries() {
     pip install tqdm --upgrade
-
+    pip install tensorboardX
     # Clone the Transformers repo in the BERT large inference directory
     cd ${MODELS_HOME}/quickstart/language_modeling/pytorch/bert_large/inference/cpu
     rm -rf transformers

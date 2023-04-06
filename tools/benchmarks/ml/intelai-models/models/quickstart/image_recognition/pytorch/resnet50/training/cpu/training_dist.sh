@@ -75,6 +75,10 @@ else
     exit 1
 fi
 
+if [[ "$ENABLE_IPEX" == "true" ]];then
+  ARGS="$ARGS --ipex"
+fi
+
 BACKEND=${BACKEND:-'ccl'}
 
 CORES=${CORES:-`lscpu | grep Core | awk '{print $4}'`}
@@ -94,6 +98,7 @@ export KMP_AFFINITY=granularity=fine,compact,1,0
 BATCH_SIZE=128
 
 rm -rf ${OUTPUT_DIR}/resnet50_dist_training_log_*
+TRAIN_SCRIPT=${TRAIN_SCRIPT:-${MODEL_DIR}/models/image_recognition/pytorch/common/main.py}
 
 oneccl_bindings_for_pytorch_path=$(python -c "import torch; import oneccl_bindings_for_pytorch; import os;  print(os.path.abspath(os.path.dirname(oneccl_bindings_for_pytorch.__file__)))")
 source $oneccl_bindings_for_pytorch_path/env/setvars.sh
@@ -105,9 +110,8 @@ cloudtik-ml-run \
     --hosts ${HOSTS} \
     --nproc_per_node ${SOCKETS} \
     --ncore_per_instance ${CORES_PER_INSTANCE} \
-    ${MODEL_DIR}/models/image_recognition/pytorch/common/main.py \
+    ${TRAIN_SCRIPT} \
     $ARGS \
-    --ipex \
     -j 0 \
     --seed 2020 \
     --epochs $TRAINING_EPOCHS \

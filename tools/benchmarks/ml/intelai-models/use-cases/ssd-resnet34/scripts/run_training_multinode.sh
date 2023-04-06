@@ -26,10 +26,10 @@ export OUTPUT_DIR=$SSD_RESNET34_HOME/output
 export CHECKPOINT_DIR=$SSD_RESNET34_MODEL
 mkdir -p $OUTPUT_DIR
 
-
-
 PRECISION=fp32
 BACKEND=gloo
+USE_IPEX=0
+
 function usage(){
     echo "Usage: run-training_multinode.sh  [ --precision fp32 | bf16 | bf32] [ --backend ccl | gloo] "
     exit 1
@@ -47,6 +47,9 @@ do
         shift
         BACKEND=$1
         ;;
+    --use-ipex)
+        USE_IPEX=1
+        ;;
     *)
         usage
     esac
@@ -57,7 +60,7 @@ if [[ "$PRECISION" == *"avx"* ]]; then
     unset DNNL_MAX_CPU_ISA
 fi
 
-
+export USE_IPEX
 export PRECISION=$PRECISION
 export BACKEND=$BACKEND
 

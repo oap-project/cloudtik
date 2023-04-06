@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Copyright (c) 2022 Intel Corporation
+# Copyright (c) 2020 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -57,13 +57,9 @@ else
     exit 1
 fi
 
-CORES=${CORES:-`lscpu | grep Core | awk '{print $4}'`}
-SOCKETS=${SOCKETS:-`lscpu | grep Socket | awk '{print $2}'`}
+CORES=`lscpu | grep Core | awk '{print $4}'`
+SOCKETS=`lscpu | grep Socket | awk '{print $2}'`
 TOTAL_CORES=`expr $CORES \* $SOCKETS`
-HOSTS=${HOSTS:-'127.0.0.1'}
-NNODES=$(echo $HOSTS | tr ',' '\n' | wc -l)
-NUM_RANKS=$(( NNODES * SOCKETS ))
-BACKEND=${BACKEND:-'ccl'}
 
 CORES_PER_INSTANCE=$CORES
 
@@ -72,18 +68,11 @@ export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
 PRECISION=$1
 BATCH_SIZE=224
 
-rm -rf ${OUTPUT_DIR}/train_ssdresnet34_${PRECISION}_throughput_dist*
-
-oneccl_bindings_for_pytorch_path=$(python -c "import torch; import oneccl_bindings_for_pytorch; import os;  print(os.path.abspath(os.path.dirname(oneccl_bindings_for_pytorch.__file__)))")
-source $oneccl_bindings_for_pytorch_path/env/setvars.sh
+rm -rf ${OUTPUT_DIR}/train_ssdresnet34_${PRECISION}_throughput*
 
 cloudtik-ml-run \
     --use_default_allocator \
-    --ncore_per_instance ${CORES_PER_INSTANCE} \
-    --distributed \
-    --nnodes ${NNODES} \
-    --hosts ${HOSTS} \
-    --nproc_per_node ${SOCKETS} \
+    --node_id 0 \
     ${CLOUDTIK_MODELS_HOME}/models/object_detection/pytorch/ssd-resnet34/training/cpu/train.py \
     --epochs 70 \
     --warmup-factor 0 \
@@ -97,14 +86,12 @@ cloudtik-ml-run \
     --performance_only \
     -w 20 \
     -iter 100 \
-    --world_size ${NUM_RANKS} \
-    --backend ${BACKEND} \
-    $ARGS 2>&1 | tee ${OUTPUT_DIR}/train_ssdresnet34_${PRECISION}_throughput_dist.log
+    $ARGS 2>&1 | tee ${OUTPUT_DIR}/train_ssdresnet34_${PRECISION}_throughput.log
 
 # For the summary of results
 wait
 
-throughput=$(grep 'Throughput:' ${OUTPUT_DIR}/train_ssdresnet34_${PRECISION}_throughput_dist* |sed -e 's/.*Throughput//;s/[^0-9.]//g' |awk '
+throughput=$(grep 'Throughput:' ${OUTPUT_DIR}/train_ssdresnet34_${PRECISION}_throughput* |sed -e 's/.*Throughput//;s/[^0-9.]//g' |awk '
 BEGIN {
         sum = 0;
 i = 0;
@@ -117,4 +104,4 @@ END   {
 sum = sum / i;
         printf("%.3f", sum);
 }')
-echo ""SSD-RN34";"training distributed throughput";$1; ${BATCH_SIZE};${throughput}" | tee -a ${OUTPUT_DIR}/summary.log
+echo ""SSD-RN34";"training throughput";$1; ${BATCH_SIZE};${throughput}" | tee -a ${OUTPUT_DIR}/summary.log

@@ -42,8 +42,29 @@ do
         # Do build only, no push
         NO_PUSH=YES
         ;;
+    --release-all)
+        RELEASE_ALL=YES
+        ;;
+    --release-cloudtik)
+        RELEASE_CLOUDTIK=YES
+        ;;
+    --release-spark)
+        RELEASE_SPARK=YES
+        ;;
+    --release-ml-base)
+        RELEASE_ML_BASE=YES
+        ;;
+    --release-ml-runtime)
+        RELEASE_ML_RUNTIME=YES
+        ;;
+    --release-ml-oneapi)
+        RELEASE_ML_ONEAPI=YES
+        ;;
     *)
         echo "Usage: release-docker.sh [ --image-tag ] [ --region ] [ --python-version ] --clean --tag-nightly --no-build --no-push"
+        echo "Images to release options:"
+        echo "[ --release-all ] [ --release-cloudtik ] [ --release-spark ]"
+        echo "[ --release-ml-base ] [ --release-ml-runtime ] [ --release-ml-oneapi ]"
         exit 1
     esac
     shift
@@ -67,7 +88,24 @@ if [ $DO_CLEAN ]; then
             DOCKER_REGISTRY=${DOCKER_REGISTRY_PRC}
         fi
 
-        for image_name in "spark-runtime-benchmark" "spark-ml-mxnet" "spark-ml-oneapi" "spark-ml-runtime" "spark-ml-base" "spark-runtime" "cloudtik" "cloudtik-deps" "cloudtik-base"
+        CLEAN_IMAGE_NAMES=()
+        if [ $RELEASE_ML_ONEAPI ] || [ $RELEASE_ALL ]; then
+            CLEAN_IMAGE_NAMES+=("spark-ml-oneapi")
+        fi
+        if [ $RELEASE_ML_RUNTIME ] || [ $RELEASE_ALL ]; then
+            CLEAN_IMAGE_NAMES+=("spark-ml-runtime")
+        fi
+        if [ $RELEASE_ML_BASE ] || [ $RELEASE_ALL ]; then
+            CLEAN_IMAGE_NAMES+=("spark-ml-base")
+        fi
+        if [ $RELEASE_SPARK ] || [ $RELEASE_ALL ]; then
+            CLEAN_IMAGE_NAMES+=("spark-runtime-benchmark" "spark-runtime")
+        fi
+        if [ $RELEASE_CLOUDTIK ] || [ $RELEASE_ALL ]; then
+            CLEAN_IMAGE_NAMES+=("cloudtik" "cloudtik-deps" "cloudtik-base")
+        fi
+
+        for image_name in ${CLEAN_IMAGE_NAMES[@]}
         do
             image=${DOCKER_REGISTRY}cloudtik/$image_name:$IMAGE_TAG
             if [ "$(sudo docker images -q $image 2> /dev/null)" != "" ]; then
@@ -85,7 +123,24 @@ if [ $TAG_NIGHTLY ]; then
             DOCKER_REGISTRY=${DOCKER_REGISTRY_PRC}
         fi
 
-        for image_name in "cloudtik-base" "cloudtik-deps" "cloudtik" "spark-runtime" "spark-ml-base" "spark-ml-runtime" "spark-ml-oneapi" "spark-ml-mxnet" "spark-runtime-benchmark"
+        TAG_IMAGE_NAMES=()
+        if [ $RELEASE_CLOUDTIK ] || [ $RELEASE_ALL ]; then
+            TAG_IMAGE_NAMES+=("cloudtik-base" "cloudtik-deps" "cloudtik")
+        fi
+        if [ $RELEASE_SPARK ] || [ $RELEASE_ALL ]; then
+            TAG_IMAGE_NAMES+=("spark-runtime" "spark-runtime-benchmark")
+        fi
+        if [ $RELEASE_ML_BASE ] || [ $RELEASE_ALL ]; then
+            TAG_IMAGE_NAMES+=("spark-ml-base")
+        fi
+        if [ $RELEASE_ML_RUNTIME ] || [ $RELEASE_ALL ]; then
+            TAG_IMAGE_NAMES+=("spark-ml-runtime")
+        fi
+        if [ $RELEASE_ML_ONEAPI ] || [ $RELEASE_ALL ]; then
+            TAG_IMAGE_NAMES+=("spark-ml-oneapi")
+        fi
+
+        for image_name in ${TAG_IMAGE_NAMES[@]}
         do
             image_nightly=${DOCKER_REGISTRY}cloudtik/$image_name:nightly
             image=${DOCKER_REGISTRY}cloudtik/$image_name:$IMAGE_TAG
@@ -98,8 +153,24 @@ fi
 
 # Default build
 if [ ! $NO_BUILD ]; then
+    BUILD_FLAGS=""
+    if [ $RELEASE_CLOUDTIK ] || [ $RELEASE_ALL ]; then
+        BUILD_FLAGS="${BUILD_FLAGS} --build-cloudtik"
+    fi
+    if [ $RELEASE_SPARK ] || [ $RELEASE_ALL ]; then
+        BUILD_FLAGS="${BUILD_FLAGS} --build-spark --build-spark-benchmark"
+    fi
+    if [ $RELEASE_ML_BASE ] || [ $RELEASE_ALL ]; then
+        BUILD_FLAGS="${BUILD_FLAGS} --build-ml-base"
+    fi
+    if [ $RELEASE_ML_RUNTIME ] || [ $RELEASE_ALL ]; then
+        BUILD_FLAGS="${BUILD_FLAGS} --build-ml-runtime"
+    fi
+    if [ $RELEASE_ML_ONEAPI ] || [ $RELEASE_ALL ]; then
+        BUILD_FLAGS="${BUILD_FLAGS} --build-ml-oneapi"
+    fi
     sudo bash ./build-docker.sh --image-tag $IMAGE_TAG --region ${CLOUDTIK_REGION} --python-version ${PYTHON_VERSION} \
-        --build-spark --build-ml --build-ml-oneapi --build-spark-benchmark
+        ${BUILD_FLAGS}
 fi
 
 # Default push
@@ -111,7 +182,21 @@ if [ ! $NO_PUSH ]; then
             DOCKER_REGISTRY=${DOCKER_REGISTRY_PRC}
         fi
 
-        for image_name in "cloudtik" "spark-runtime" "spark-ml-runtime" "spark-ml-oneapi" "spark-runtime-benchmark"
+        PUSH_IMAGE_NAMES=()
+        if [ $RELEASE_CLOUDTIK ] || [ $RELEASE_ALL ]; then
+            PUSH_IMAGE_NAMES+=("cloudtik")
+        fi
+        if [ $RELEASE_SPARK ] || [ $RELEASE_ALL ]; then
+            PUSH_IMAGE_NAMES+=("spark-runtime" "spark-runtime-benchmark")
+        fi
+        if [ $RELEASE_ML_RUNTIME ] || [ $RELEASE_ALL ]; then
+            PUSH_IMAGE_NAMES+=("spark-ml-runtime")
+        fi
+        if [ $RELEASE_ML_ONEAPI ] || [ $RELEASE_ALL ]; then
+            PUSH_IMAGE_NAMES+=("spark-ml-oneapi")
+        fi
+
+        for image_name in ${PUSH_IMAGE_NAMES[@]}
         do
             image=${DOCKER_REGISTRY}cloudtik/$image_name:$IMAGE_TAG
             if [ "$(sudo docker images -q $image 2> /dev/null)" != "" ]; then

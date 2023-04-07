@@ -61,6 +61,9 @@ do
     --build-all)
         BUILD_ALL=YES
         ;;
+    --build-cloudtik)
+        BUILD_CLOUDTIK=YES
+        ;;
     --build-dev)
         BUILD_DEV=YES
         ;;
@@ -82,8 +85,11 @@ do
     --build-trino)
         BUILD_TRINO=YES
         ;;
-    --build-ml)
-        BUILD_ML=YES
+    --build-ml-base)
+        BUILD_ML_BASE=YES
+        ;;
+    --build-ml-runtime)
+        BUILD_ML_RUNTIME=YES
         ;;
     --build-ml-mxnet)
         BUILD_ML_MXNET=YES
@@ -106,8 +112,8 @@ do
     *)
         echo "Usage: build-docker.sh [ --base-image ] [ --region ] [ --no-cache-build ] [ --shas-only ] [ --wheel-to-use ] [ --python-version ] [ --image-tag ]"
         echo "Images to build options:"
-        echo "[ --build-all ] [ --build-dev ] [ --build-spark ] [ --build-optimized ] [ --build-spark-native-sql ]"
-        echo "[ --build-ml ] [ --build-ml-mxnet ] [ --build-ml-oneapi ]"
+        echo "[ --build-all ] [ --build-cloudtik ] [ --build-dev ] [ --build-spark ] [ --build-optimized ] [ --build-spark-native-sql ]"
+        echo "[ --build-ml-base ] [ --build-ml-runtime ] [ --build-ml-mxnet ] [ --build-ml-oneapi ]"
         echo "[ --build-universe ] [ --build-presto ] [ --build-trino ]"
         echo "[ --build-spark-benchmark ] [ --build-optimized-benchmark ] [ --build-spark-native-sql-benchmark ]"
         exit 1
@@ -126,30 +132,33 @@ fi
 WHEEL_DIR=$(mktemp -d)
 wget --quiet "$WHEEL_URL" -P "$WHEEL_DIR"
 WHEEL="$WHEEL_DIR/$(basename "$WHEEL_DIR"/*.whl)"
-# Build cloudtik-base, cloudtik-deps, and cloudtik.
-for IMAGE in "cloudtik-base"
-do
-    cp "$WHEEL" "docker/$IMAGE/$(basename "$WHEEL")"
-    if [ $OUTPUT_SHA ]; then
-        IMAGE_SHA=$(docker build $NO_CACHE --build-arg GPU="$GPU" --build-arg BASE_IMAGE="$BASE_IMAGE" --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_VERSION="$PYTHON_VERSION" --build-arg CONDA_ENV_NAME="$CONDA_ENV_NAME" -q -t cloudtik/$IMAGE:$IMAGE_TAG$GPU docker/$IMAGE)
-        echo "cloudtik/$IMAGE:$IMAGE_TAG$GPU SHA:$IMAGE_SHA"
-    else
-        docker build $NO_CACHE --build-arg GPU="$GPU" --build-arg BASE_IMAGE="$BASE_IMAGE" --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_VERSION="$PYTHON_VERSION" --build-arg CONDA_ENV_NAME="$CONDA_ENV_NAME" -t cloudtik/$IMAGE:$IMAGE_TAG$GPU docker/$IMAGE
-    fi
-    rm "docker/$IMAGE/$(basename "$WHEEL")"
-done 
 
-for IMAGE in "cloudtik-deps" "cloudtik"
-do
-    cp "$WHEEL" "docker/$IMAGE/$(basename "$WHEEL")"
-    if [ $OUTPUT_SHA ]; then
-        IMAGE_SHA=$(docker build $NO_CACHE --build-arg GPU="$GPU" --build-arg BASE_IMAGE=$IMAGE_TAG --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_VERSION="$PYTHON_VERSION" -q -t cloudtik/$IMAGE:$IMAGE_TAG$GPU docker/$IMAGE)
-        echo "cloudtik/$IMAGE:$IMAGE_TAG$GPU SHA:$IMAGE_SHA"
-    else
-        docker build $NO_CACHE --build-arg GPU="$GPU" --build-arg BASE_IMAGE=$IMAGE_TAG --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_VERSION="$PYTHON_VERSION" -t cloudtik/$IMAGE:$IMAGE_TAG$GPU docker/$IMAGE
-    fi
-    rm "docker/$IMAGE/$(basename "$WHEEL")"
-done 
+if [ $BUILD_CLOUDTIK ] || [ $BUILD_ALL ]; then
+    # Build cloudtik-base, cloudtik-deps, and cloudtik.
+    for IMAGE in "cloudtik-base"
+    do
+        cp "$WHEEL" "docker/$IMAGE/$(basename "$WHEEL")"
+        if [ $OUTPUT_SHA ]; then
+            IMAGE_SHA=$(docker build $NO_CACHE --build-arg GPU="$GPU" --build-arg BASE_IMAGE="$BASE_IMAGE" --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_VERSION="$PYTHON_VERSION" --build-arg CONDA_ENV_NAME="$CONDA_ENV_NAME" -q -t cloudtik/$IMAGE:$IMAGE_TAG$GPU docker/$IMAGE)
+            echo "cloudtik/$IMAGE:$IMAGE_TAG$GPU SHA:$IMAGE_SHA"
+        else
+            docker build $NO_CACHE --build-arg GPU="$GPU" --build-arg BASE_IMAGE="$BASE_IMAGE" --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_VERSION="$PYTHON_VERSION" --build-arg CONDA_ENV_NAME="$CONDA_ENV_NAME" -t cloudtik/$IMAGE:$IMAGE_TAG$GPU docker/$IMAGE
+        fi
+        rm "docker/$IMAGE/$(basename "$WHEEL")"
+    done
+
+    for IMAGE in "cloudtik-deps" "cloudtik"
+    do
+        cp "$WHEEL" "docker/$IMAGE/$(basename "$WHEEL")"
+        if [ $OUTPUT_SHA ]; then
+            IMAGE_SHA=$(docker build $NO_CACHE --build-arg GPU="$GPU" --build-arg BASE_IMAGE=$IMAGE_TAG --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_VERSION="$PYTHON_VERSION" -q -t cloudtik/$IMAGE:$IMAGE_TAG$GPU docker/$IMAGE)
+            echo "cloudtik/$IMAGE:$IMAGE_TAG$GPU SHA:$IMAGE_SHA"
+        else
+            docker build $NO_CACHE --build-arg GPU="$GPU" --build-arg BASE_IMAGE=$IMAGE_TAG --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_VERSION="$PYTHON_VERSION" -t cloudtik/$IMAGE:$IMAGE_TAG$GPU docker/$IMAGE
+        fi
+        rm "docker/$IMAGE/$(basename "$WHEEL")"
+    done
+fi
 
 # Build the current source
 if [ $BUILD_DEV ] || [ $BUILD_ALL ]; then
@@ -217,13 +226,13 @@ do
     fi
 
     # Build the ML base image which is needed as the base image for all other ML image
-    if [ -d "docker/${DOCKER_FILE_PATH}runtime/ml/base" ] && ([ $BUILD_ML ] || [ $BUILD_ML_MXNET ] || [ $BUILD_ML_ONEAPI ] || [ $BUILD_ALL ]); then
+    if [ -d "docker/${DOCKER_FILE_PATH}runtime/ml/base" ] && ([ $BUILD_ML_BASE ] || [ $BUILD_ML_RUNTIME ] || [ $BUILD_ML_MXNET ] || [ $BUILD_ML_ONEAPI ] || [ $BUILD_ALL ]); then
         docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG \
           -t ${DOCKER_REGISTRY}cloudtik/spark-ml-base:$IMAGE_TAG \
           docker/${DOCKER_FILE_PATH}runtime/ml/base
     fi
 
-    if [ -d "docker/${DOCKER_FILE_PATH}runtime/ml" ] && ([ $BUILD_ML ] || [ $BUILD_ALL ]); then
+    if [ -d "docker/${DOCKER_FILE_PATH}runtime/ml" ] && ([ $BUILD_ML_RUNTIME ] || [ $BUILD_ALL ]); then
         docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG \
           -t ${DOCKER_REGISTRY}cloudtik/spark-ml-runtime:$IMAGE_TAG \
           docker/${DOCKER_FILE_PATH}runtime/ml

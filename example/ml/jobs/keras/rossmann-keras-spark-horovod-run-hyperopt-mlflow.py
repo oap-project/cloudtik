@@ -390,6 +390,11 @@ if __name__ == '__main__':
     from tensorflow.keras.layers import Input, Embedding, Concatenate, Dense, Flatten, Reshape, BatchNormalization, Dropout
     import tensorflow.keras.backend as K
 
+    from packaging import version
+    if version.parse(tf.keras.__version__.replace("-tf", "+tf")) < version.parse("2.11"):
+        from tensorflow.keras import optimizers
+    else:
+        from tensorflow.keras.optimizers import legacy as optimizers
 
     def exp_rmspe(y_true, y_pred):
         """Competition evaluation metric, expects logarithic inputs."""
@@ -461,7 +466,7 @@ if __name__ == '__main__':
         model = build_model()
 
         # Horovod: add Distributed Optimizer.
-        opt = tf.keras.optimizers.Adam(lr=learning_rate, epsilon=1e-3)
+        opt = optimizers.Adam(lr=learning_rate, epsilon=1e-3)
         opt = hvd.DistributedOptimizer(opt)
         model.compile(opt, 'mae', metrics=[exp_rmspe])
         model_bytes = serialize_model(model)

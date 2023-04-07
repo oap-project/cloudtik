@@ -52,6 +52,12 @@ import tensorflow as tf
 import horovod.tensorflow.keras as hvd
 from tensorflow.keras import applications
 
+from packaging import version
+if version.parse(tf.keras.__version__.replace("-tf", "+tf")) < version.parse("2.11"):
+    from tensorflow.keras import optimizers
+else:
+    from tensorflow.keras.optimizers import legacy as optimizers
+
 
 def train_horovod(learning_rate):
     args.cuda = not args.no_cuda
@@ -77,7 +83,7 @@ def train_horovod(learning_rate):
 
     # Set up standard model.
     model = getattr(applications, args.model)(weights=None)
-    opt = tf.optimizers.SGD(learning_rate)
+    opt = optimizers.SGD(learning_rate)
 
     # Synthetic dataset
     data = tf.random.uniform([args.batch_size, 224, 224, 3])

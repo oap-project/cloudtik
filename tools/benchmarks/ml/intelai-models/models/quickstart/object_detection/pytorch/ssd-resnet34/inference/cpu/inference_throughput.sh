@@ -45,7 +45,7 @@ fi
 ARGS=""
 if [[ "$1" == "int8" || "$1" == "avx-int8" ]]; then
     ARGS="$ARGS --int8"
-    ARGS="$ARGS --seed 1 --threshold 0.2 --configure ${MODEL_DIR}/models/object_detection/pytorch/ssd-resnet34/inference/cpu/pytorch_default_recipe_ssd_configure.json"
+    ARGS="$ARGS --seed 1 --threshold 0.2 --configure ${CLOUDTIK_MODELS_HOME}/models/object_detection/pytorch/ssd-resnet34/inference/cpu/pytorch_default_recipe_ssd_configure.json"
     export DNNL_GRAPH_CONSTANT_CACHE=1
     echo "### running int8 datatype"
 elif [[ "$1" == "bf16" ]]; then

@@ -27,8 +27,10 @@ export OUTPUT_DIR=$MASKRCNN_HOME/output
 mkdir -p $OUTPUT_DIR
 PRECISION=fp32
 BACKEND=gloo
+USE_IPEX=0
+
 function usage(){
-    echo "Usage: run-training_multinode.sh  [ --precision fp32 | bf16 | bf32] [ --backend ccl | gloo] "
+    echo "Usage: run-training_multinode.sh  [ --precision fp32 | bf16 | bf32] [ --backend ccl | gloo] [ --ipex]"
     exit 1
 }
 
@@ -44,12 +46,16 @@ do
         shift
         BACKEND=$1
         ;;
+    --use-ipex)
+        USE_IPEX=1
+        ;;
     *)
         usage
     esac
     shift
 done
 
+export USE_IPEX
 export PRECISION=$PRECISION
 export BACKEND=$BACKEND
 

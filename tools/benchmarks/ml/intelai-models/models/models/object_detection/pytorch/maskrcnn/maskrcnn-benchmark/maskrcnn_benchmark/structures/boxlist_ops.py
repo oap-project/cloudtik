@@ -3,8 +3,6 @@ import torch
 
 from .bounding_box import BoxList
 
-import intel_extension_for_pytorch as ipex
-
 def _box_nms(dets, scores, threshold, sorted=False):
     return torch.ops.torch_ipex.nms(dets, scores, threshold, sorted)
 

@@ -70,8 +70,6 @@ else
 fi
 
 export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
-export KMP_BLOCKTIME=1
-export KMP_AFFINITY=granularity=fine,compact,1,0
 
 export TRAIN=0
 
@@ -89,15 +87,9 @@ BATCH_SIZE=`expr $CORES \* 2`
 
 rm -rf ${OUTPUT_DIR}/maskrcnn_${PRECISION}_inference_throughput*
 
-# check if stoch PYT or IPEX is installed on the system
-IPEX_ARGS=""
-pip list | grep intel-extension-for-pytorch
-if [[ "$?" == 0 ]]; then
-  IPEX_ARGS="-m intel_extension_for_pytorch.cpu.launch \
-    --enable_jemalloc --throughput_mode"
-fi
-
-python ${IPEX_ARGS} \
+cloudtik-ml-run \
+    --enable_jemalloc \
+    --throughput_mode \
     ${MODEL_DIR}/models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/tools/test_net.py \
     $ARGS \
     --iter-warmup 10 \

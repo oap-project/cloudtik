@@ -8,7 +8,6 @@ from maskrcnn_benchmark.structures.bounding_box import BoxList
 from maskrcnn_benchmark.structures.boxlist_ops import cat_boxlist
 from maskrcnn_benchmark.modeling.box_coder import BoxCoder
 
-import intel_extension_for_pytorch as ipex
 box_head_nms = torch.ops.torch_ipex.box_head_nms
 
 class PostProcessor(nn.Module):

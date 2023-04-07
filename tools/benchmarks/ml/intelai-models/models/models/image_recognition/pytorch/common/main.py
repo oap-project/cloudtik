@@ -238,9 +238,11 @@ def main_worker(gpu, ngpus_per_node, args):
                 import torch_ccl
 
         else:
+            # CloudTik patch start
             # dist.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
             #                         world_size=args.world_size, rank=args.rank)
             dist.init_process_group(backend=args.dist_backend)
+            # CloudTik patch end
 
     if args.hub:
         torch.set_flush_denormal(True)

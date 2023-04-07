@@ -394,8 +394,10 @@ def parse_args():
                         help="Total batch size for training.")
 
     parser.add_argument("--profile", action="store_true", help="Whether to enable profiling")
+    # CloudTik patch start
     parser.add_argument("--ipex", action='store_true', default=False, help='use ipex')
     parser.add_argument('--backend', default='gloo', type=str, help='DDP backend, default to gloo')
+    # CloudTik patch end
 
 
     args = parser.parse_args()
@@ -421,7 +423,10 @@ def setup_training(args):
     if oneccl_bindings_for_pytorch and int(os.environ.get('PMI_SIZE', '0')) > 1:
         os.environ['RANK'] = os.environ.get('PMI_RANK', '0')
         os.environ['WORLD_SIZE'] = os.environ.get('PMI_SIZE', '1')
+        # CloudTik patch start
         torch.distributed.init_process_group(backend=args.backend)
+        print(f"##################Using {args.backend} dist run", flush=True)
+        # CloudTik patch end
         device = torch.device("cpu")
         args.local_rank = torch.distributed.get_rank()
         args.world_size = torch.distributed.get_world_size()
@@ -493,6 +498,7 @@ def prepare_model_and_optimizer(args, device):
     optimizer_grouped_parameters = [
         {'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)], 'weight_decay': args.weight_decay_rate},
         {'params': [p for n, p in param_optimizer if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}]
+    # CloudTik patch start
     if args.ipex:
         from intel_extension_for_pytorch.optim._lamb import Lamb
         optimizer = Lamb(optimizer_grouped_parameters, lr=args.learning_rate,
@@ -502,6 +508,7 @@ def prepare_model_and_optimizer(args, device):
         from lamb import Lamb
         optimizer = Lamb(optimizer_grouped_parameters, lr=args.learning_rate,
                          betas=(args.opt_lamb_beta_1, args.opt_lamb_beta_2))
+    # CloudTik patch end
 
     if args.warmup_steps == 0:
         warmup_steps = int(args.max_steps * args.warmup_proportion)
@@ -597,8 +604,10 @@ def calc_accuracy(outputs, masked_lm_labels, next_sentence_label, args):
 
 def main():
     args = parse_args()
+    # CloudTik patch start
     if args.ipex:
         import intel_extension_for_pytorch as ipex
+    # CloudTik patch end
 
     status = 'aborted'  # later set to 'success' if termination criteria met
     device, args = setup_training(args)
@@ -616,6 +625,7 @@ def main():
     # Prepare optimizer
     model, optimizer, lr_scheduler, checkpoint, global_step = prepare_model_and_optimizer(args, device)
     model.train()
+    # CloudTik patch start
     if args.fp16:
         scaler = torch.cpu.amp.GradScaler()
     if args.ipex:
@@ -626,6 +636,7 @@ def main():
             model, optimizer = ipex.optimize(model, optimizer=optimizer, dtype=torch.half, auto_kernel_selection=True, weights_prepack=True, fuse_update_step=False)
         else:
             model, optimizer = ipex.optimize(model, optimizer=optimizer, dtype=torch.bfloat16 if args.bf16 else torch.float32)
+    # CloudTik patch end
     worker_seeds, shuffling_seeds = utils.setup_seeds(args.seed, args.num_epochs_to_generate_seeds_for, device)
     worker_seed = worker_seeds[args.local_rank]
 

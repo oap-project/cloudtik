@@ -68,7 +68,7 @@ function install_ml() {
         pip --no-cache-dir -qq install mxnet==1.9.1 gluoncv==0.10.5.post0
     else
         echo "Installing deep learning frameworks: tensorflow, pytorch..."
-        pip --no-cache-dir -qq install tensorflow==2.9.3
+        pip --no-cache-dir -qq install tensorflow==2.12.0
         pip --no-cache-dir -qq install torch==1.13.1 torchvision==0.14.1 \
             --extra-index-url https://download.pytorch.org/whl/cpu
 
@@ -152,9 +152,9 @@ function install_ml() {
 
     echo "Installing Horovod..."
     if [ "$ML_WITH_MXNET" == "true" ]; then
-        export CXX=/usr/bin/g++-9 && HOROVOD_WITHOUT_TENSORFLOW=1 HOROVOD_WITHOUT_PYTORCH=1 HOROVOD_WIT_MXNET=1 HOROVOD_WITH_GLOO=1 HOROVOD_WITH_MPI=1 pip --no-cache-dir -qq install horovod[mxnet,spark]==0.25.0
+        export CXX=/usr/bin/g++-9 && HOROVOD_WITHOUT_TENSORFLOW=1 HOROVOD_WITHOUT_PYTORCH=1 HOROVOD_WIT_MXNET=1 HOROVOD_WITH_GLOO=1 HOROVOD_WITH_MPI=1 pip --no-cache-dir -qq install horovod[mxnet,spark]==0.27.0
     else
-        export CXX=/usr/bin/g++-9 && HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITHOUT_MXNET=1 HOROVOD_WITH_GLOO=1 HOROVOD_WITH_MPI=1 pip --no-cache-dir -qq install horovod[tensorflow,keras,pytorch,spark,pytorch-spark]==0.25.0
+        export CXX=/usr/bin/g++-9 && HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITHOUT_MXNET=1 HOROVOD_WITH_GLOO=1 HOROVOD_WITH_MPI=1 pip --no-cache-dir -qq install horovod[tensorflow,keras,pytorch,spark,pytorch-spark]==0.27.0
     fi
 }
 

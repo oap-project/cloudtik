@@ -1,5 +1,5 @@
 # DL Frameworks
-tensorflow==2.9.3
+tensorflow==2.12.0
 transformers==4.11.0
 
 # For deep learning cases about facial recognition

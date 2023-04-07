@@ -373,6 +373,12 @@ if __name__ == '__main__':
     import tensorflow.keras.backend as K
     from tensorflow.keras.layers import Input, Embedding, Concatenate, Dense, Flatten, Reshape, BatchNormalization, Dropout
 
+    from packaging import version
+    if version.parse(tf.keras.__version__.replace("-tf", "+tf")) < version.parse("2.11"):
+        from tensorflow.keras import optimizers
+    else:
+        from tensorflow.keras.optimizers import legacy as optimizers
+
     print('==============')
     print('Model training')
     print('==============')
@@ -455,7 +461,7 @@ if __name__ == '__main__':
     #  Horovod distributed training
     def train(learning_rate):
         model = build_model()
-        opt = tf.keras.optimizers.Adam(lr=learning_rate, epsilon=1e-3)
+        opt = optimizers.Adam(lr=learning_rate, epsilon=1e-3)
 
         # Checkpoint callback to specify options for the returned Keras model
         ckpt_callback = BestModelCheckpoint(monitor='val_loss', mode='auto', save_freq='epoch')

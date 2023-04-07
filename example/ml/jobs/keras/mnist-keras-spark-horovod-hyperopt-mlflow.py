@@ -177,6 +177,14 @@ if __name__ == '__main__':
     from pyspark.ml.evaluation import MulticlassClassificationEvaluator
     from pyspark.sql.functions import udf
 
+    # The break change from Tensorflow keras 2.11:
+    # Horovod supported optimizers moved to legacy
+    from packaging import version
+    if version.parse(tf.keras.__version__.replace("-tf", "+tf")) < version.parse("2.11"):
+        from tensorflow.keras import optimizers
+    else:
+        from tensorflow.keras.optimizers import legacy as optimizers
+
     # Disable GPUs when building the model to prevent memory leaks
     if LooseVersion(tf.__version__) >= LooseVersion('2.0.0'):
         # See https://github.com/tensorflow/tensorflow/issues/33168
@@ -218,7 +226,7 @@ if __name__ == '__main__':
         model.add(Dropout(0.5))
         model.add(Dense(10, activation='softmax'))
 
-        optimizer = keras.optimizers.Adadelta(learning_rate)
+        optimizer = optimizers.Adadelta(learning_rate)
         loss = keras.losses.categorical_crossentropy
 
         backend = SparkBackend(num_proc=num_proc,

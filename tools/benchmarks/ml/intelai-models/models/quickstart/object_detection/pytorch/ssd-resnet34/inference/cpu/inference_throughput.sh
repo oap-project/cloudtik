@@ -103,7 +103,7 @@ if [ "$weight_sharing" = true ]; then
 
         echo "### running on instance $i, numa node $numa_node_i, core list {$start_core_i, $end_core_i}..."
         numactl --physcpubind=$start_core_i-$end_core_i --membind=$numa_node_i python -u \
-            ${MODEL_DIR}/models/object_detection/pytorch/ssd-resnet34/inference/cpu/infer_weight_sharing.py \
+            ${CLOUDTIK_MODELS_HOME}/models/object_detection/pytorch/ssd-resnet34/inference/cpu/infer_weight_sharing.py \
             --data ${DATASET_DIR}/coco \
             --device 0 \
             --checkpoint ${CHECKPOINT_DIR}/pretrained/resnet34-ssd1200.pth \
@@ -125,7 +125,7 @@ else
     cloudtik-ml-run \
         --use_default_allocator \
         --throughput_mode \
-        ${MODEL_DIR}/models/object_detection/pytorch/ssd-resnet34/inference/cpu/infer.py \
+        ${CLOUDTIK_MODELS_HOME}/models/object_detection/pytorch/ssd-resnet34/inference/cpu/infer.py \
         --data ${DATASET_DIR}/coco \
         --device 0 \
         --checkpoint ${CHECKPOINT_DIR}/pretrained/resnet34-ssd1200.pth \

@@ -84,7 +84,7 @@ cloudtik-ml-run \
     --nnodes ${NNODES} \
     --hosts ${HOSTS} \
     --nproc_per_node ${SOCKETS} \
-    ${MODEL_DIR}/models/object_detection/pytorch/ssd-resnet34/training/cpu/train.py \
+    ${CLOUDTIK_MODELS_HOME}/models/object_detection/pytorch/ssd-resnet34/training/cpu/train.py \
     --epochs 70 \
     --warmup-factor 0 \
     --lr 2.5e-3 \

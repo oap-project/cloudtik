@@ -103,12 +103,13 @@ function install_intelai_models_scripts() {
 }
 
 function configure_intelai_models() {
-    cd $SCRIPTS_HOME/models/models/
+    mv $SCRIPTS_HOME/models $SCRIPTS_HOME/models_tmp
+    git clone https://github.com/IntelAI/models.git $SCRIPTS_HOME/models
+    cd $SCRIPTS_HOME/models_tmp/models/
     for file in `find * -name *.py`; do
-        cp $SCRIPTS_HOME/models/models/$file $MODELS_HOME/models/$file
+        cp $SCRIPTS_HOME/models_tmp/models/$file $SCRIPTS_HOME/models/models/$file
     done
 }
-
 
 function install_models_dependency() {
     for dir in $USE_CASES_HOME/*/; do

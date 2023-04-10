@@ -22,7 +22,7 @@ from huaweicloudsdkiam.v3 import \
     CreateAgencyRequest, \
     CreateAgencyRequestBody, DeleteAgencyRequest, \
     KeystoneListPermissionsRequest, KeystoneListProjectsRequest, \
-    ListAgenciesRequest
+    ListAgenciesRequest, ListPermanentAccessKeysRequest
 from huaweicloudsdknat.v2 import CreateNatGatewayOption, \
     CreateNatGatewayRequest, \
     CreateNatGatewayRequestBody, CreateNatGatewaySnatRuleOption, \
@@ -281,6 +281,12 @@ def _get_current_domain_id(iam_client):
     return domain_id
 
 
+def _get_iam_user_id(iam_client):
+    user_id = iam_client.list_permanent_access_keys(
+        ListPermanentAccessKeysRequest()).credentials[0].user_id
+    return user_id
+
+
 def _get_cloud_services_access_role_id(iam_client, role_name):
     target_role = iam_client.keystone_list_permissions(
         KeystoneListPermissionsRequest(display_name=role_name)
@@ -431,7 +437,15 @@ def _update_security_group_rules(config, sg, vpc, vpc_client):
                                                   direction='ingress',
                                                   **_ext_rule)))
         )
-    # Create SSH rule
+    # Create default ingress rule in security group
+    vpc_client.create_security_group_rule(
+        CreateSecurityGroupRuleRequest(
+            CreateSecurityGroupRuleRequestBody(
+                CreateSecurityGroupRuleOption(sg.id,
+                                              direction='ingress',
+                                              remote_group_id=sg.id)))
+    )
+    # Create default ingress SSH rule in VPC
     vpc_client.create_security_group_rule(
         CreateSecurityGroupRuleRequest(
             CreateSecurityGroupRuleRequestBody(
@@ -1619,7 +1633,13 @@ def _configure_instance_profile_from_workspace(config):
         node_config.setdefault("metadata", {})
         if key == config["head_node_type"]:
             node_config["metadata"]["agency_name"] = head_profile.name
-        elif worker_for_cloud_storage:
-            node_config["metadata"]["agency_name"] = worker_profile.name
+        else:
+            # Should apply metadata userid for all worker nodes when head node
+            # create worker node server in agency use case so that worker can
+            # use keypair and others resources that belong to regular user.
+            node_config["metadata"]["op_svc_userid"] = _get_iam_user_id(
+                make_iam_client(config))
+            if worker_for_cloud_storage:
+                node_config["metadata"]["agency_name"] = worker_profile.name
 
     return config

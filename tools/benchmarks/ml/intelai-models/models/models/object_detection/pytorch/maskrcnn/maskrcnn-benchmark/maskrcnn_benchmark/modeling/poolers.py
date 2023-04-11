@@ -7,6 +7,7 @@ from torch import nn
 
 from .utils import cat
 
+# CloudTik patch start
 use_ipex = False
 import os
 if os.environ.get('USE_IPEX') == "1":
@@ -14,6 +15,7 @@ if os.environ.get('USE_IPEX') == "1":
     use_ipex = True
 else:
     from torchvision.ops.roi_align import RoIAlign as ROIAlign
+# CloudTik patch end
 
 class LevelMapper(object):
     """Determine which FPN level each RoI in a set of RoIs should map to based

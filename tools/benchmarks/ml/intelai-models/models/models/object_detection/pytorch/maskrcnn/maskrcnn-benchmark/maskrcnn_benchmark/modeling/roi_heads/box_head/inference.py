@@ -8,7 +8,16 @@ from maskrcnn_benchmark.structures.bounding_box import BoxList
 from maskrcnn_benchmark.structures.boxlist_ops import cat_boxlist
 from maskrcnn_benchmark.modeling.box_coder import BoxCoder
 
-box_head_nms = torch.ops.torch_ipex.box_head_nms
+# CloudTik patch start
+import os
+use_ipex = False
+if os.environ.get('USE_IPEX') == "1":
+    import intel_extension_for_pytorch as ipex
+    box_head_nms = torch.ops.torch_ipex.box_head_nms
+    use_ipex = True
+#import intel_extension_for_pytorch as ipex
+#box_head_nms = torch.ops.torch_ipex.box_head_nms
+# CloudTik patch end
 
 class PostProcessor(nn.Module):
     """
@@ -85,13 +94,32 @@ class PostProcessor(nn.Module):
         #     if not self.bbox_aug_enabled:  # If bbox aug is enabled, we will do it later
         #         boxlist = self.filter_results(boxlist, num_classes)
         #     results.append(boxlist)
-        new_boxes, new_scores, new_labels = box_head_nms(proposals, class_prob, image_shapes, self.score_thresh, self.nms, self.detections_per_img, num_classes)
-        for box, score, label, image_shape in zip(new_boxes, new_scores, new_labels, image_shapes):
-            boxlist_for_class = BoxList(box, image_shape, mode="xyxy")
-            boxlist_for_class.add_field("scores", score)
-            boxlist_for_class.add_field("labels", label)
-            results.append(boxlist_for_class)
-
+        # CloudTik patch start
+        if use_ipex:
+            new_boxes, new_scores, new_labels = box_head_nms(proposals, class_prob, image_shapes, self.score_thresh,
+                                                             self.nms, self.detections_per_img, num_classes)
+            for box, score, label, image_shape in zip(new_boxes, new_scores, new_labels, image_shapes):
+                boxlist_for_class = BoxList(box, image_shape, mode="xyxy")
+                boxlist_for_class.add_field("scores", score)
+                boxlist_for_class.add_field("labels", label)
+                results.append(boxlist_for_class)
+        else:
+            for prob, boxes_per_img, image_shape in zip(
+                    class_prob, proposals, image_shapes
+            ):
+                boxlist = self.prepare_boxlist(boxes_per_img, prob, image_shape)
+                boxlist = boxlist.clip_to_image(remove_empty=False)
+                if not self.bbox_aug_enabled:  # If bbox aug is enabled, we will do it later
+                    boxlist = self.filter_results(boxlist, num_classes)
+                results.append(boxlist)
+        # new_boxes, new_scores, new_labels = box_head_nms(proposals, class_prob, image_shapes, self.score_thresh,
+        #                                                 self.nms, self.detections_per_img, num_classes)
+        # for box, score, label, image_shape in zip(new_boxes, new_scores, new_labels, image_shapes):
+        #     boxlist_for_class = BoxList(box, image_shape, mode="xyxy")
+        #     boxlist_for_class.add_field("scores", score)
+        #     boxlist_for_class.add_field("labels", label)
+        #     results.append(boxlist_for_class)
+        # CloudTik patch end
         return results
 
     def prepare_boxlist(self, boxes, scores, image_shape):

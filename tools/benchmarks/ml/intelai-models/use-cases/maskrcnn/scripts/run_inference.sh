@@ -14,7 +14,7 @@ METRIC=throughput
 USE_IPEX=0
 
 function usage(){
-    echo "Usage: run-inference.sh  [ --precision fp32 | bf16 | bf32 ] [ --mode jit or imperative]  [--metric throughput | realtime] [ --ipex]"
+    echo "Usage: run-inference.sh  [ --precision fp32 | bf16 | bf32 ] [ --mode jit or imperative]  [--metric throughput | realtime] [ --use-ipex]"
     exit 1
 }
 

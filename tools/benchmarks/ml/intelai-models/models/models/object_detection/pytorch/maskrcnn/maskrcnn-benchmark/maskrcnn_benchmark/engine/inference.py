@@ -64,7 +64,7 @@ def compute_on_dataset(model, data_loader, device, bbox_aug, timer=None, bf16=Fa
 
     with torch.cpu.amp.autocast(enabled=bf16), torch.no_grad():
         # generate trace model
-        if use_ipex and jit:
+        if jit:
             print("generate trace model")
             for i, batch in enumerate(tqdm(data_loader)):
                 images, targets, image_ids = batch

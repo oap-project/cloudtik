@@ -3,8 +3,18 @@ import torch
 
 from .bounding_box import BoxList
 
+use_ipex = False
+import os
+import torchvision
+if os.environ.get('USE_IPEX') == "1":
+    import intel_extension_for_pytorch as ipex
+    use_ipex = True
+
 def _box_nms(dets, scores, threshold, sorted=False):
-    return torch.ops.torch_ipex.nms(dets, scores, threshold, sorted)
+    if use_ipex:
+        return torch.ops.torch_ipex.nms(dets, scores, threshold, sorted)
+    else:
+        return torchvision.ops.nms(dets, scores, threshold)
 
 def boxlist_nms(boxlist, nms_thresh, max_proposals=-1, score_field="scores"):
     """

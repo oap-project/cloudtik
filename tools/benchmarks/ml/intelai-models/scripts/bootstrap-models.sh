@@ -103,23 +103,18 @@ function install_intelai_models_scripts() {
 }
 
 function configure_intelai_models() {
-
-    rm -rf /tmp/models
-    git clone https://github.com/IntelAI/models.git /tmp/models
-
     # copy dependent code for rnnt
     mkdir -p $SCRIPTS_HOME/models/models/language_modeling/pytorch/rnnt/training/cpu/
-    cp -rn /tmp/models/models/language_modeling/pytorch/rnnt/training/cpu/* $SCRIPTS_HOME/models/models/language_modeling/pytorch/rnnt/training/cpu/
+    cp -rn $INTELAI_MODELS_HOME/models/models/language_modeling/pytorch/rnnt/training/cpu/* $SCRIPTS_HOME/models/models/language_modeling/pytorch/rnnt/training/cpu/
 
     # copy dependent code for ssd-resnet34
     mkdir -p $SCRIPTS_HOME/models/models/object_detection/pytorch/ssd-resnet34/inference/cpu/  $SCRIPTS_HOME/models/models/object_detection/pytorch/ssd-resnet34/training/cpu/
-    cp -rn /tmp/models/models/object_detection/pytorch/ssd-resnet34/inference/cpu/*  $SCRIPTS_HOME/models/models/object_detection/pytorch/ssd-resnet34/inference/cpu/
-    cp -rn /tmp/models/models/object_detection/pytorch/ssd-resnet34/training/cpu/*  $SCRIPTS_HOME/models/models/object_detection/pytorch/ssd-resnet34/training/cpu/
+    cp -rn $INTELAI_MODELS_HOME/models/models/object_detection/pytorch/ssd-resnet34/inference/cpu/*  $SCRIPTS_HOME/models/models/object_detection/pytorch/ssd-resnet34/inference/cpu/
+    cp -rn $INTELAI_MODELS_HOME/models/models/object_detection/pytorch/ssd-resnet34/training/cpu/*  $SCRIPTS_HOME/models/models/object_detection/pytorch/ssd-resnet34/training/cpu/
 
-    # copy dependent code for maskcnn
+    # copy dependent code for maskrcnn
     mkdir -p $SCRIPTS_HOME/models/models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/
-    cp -rn /tmp/models/models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/*  $SCRIPTS_HOME/models/models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/
-
+    cp -rn $INTELAI_MODELS_HOME/models/models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/*  $SCRIPTS_HOME/models/models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/
 }
 
 function install_models_dependency() {

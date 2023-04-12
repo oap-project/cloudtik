@@ -31,7 +31,7 @@ BACKEND=gloo
 USE_IPEX=0
 
 function usage(){
-    echo "Usage: run-training_multinode.sh  [ --precision fp32 | bf16 | bf32] [ --backend ccl | gloo] "
+    echo "Usage: run-training_multinode.sh  [ --precision fp32 | bf16 | bf32] [ --backend ccl | gloo] [--use-ipex] "
     exit 1
 }
 

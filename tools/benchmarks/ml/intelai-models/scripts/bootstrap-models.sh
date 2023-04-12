@@ -103,10 +103,19 @@ function install_intelai_models_scripts() {
 }
 
 function configure_intelai_models() {
-    # Nothing to do now
-    :
-}
+    # copy dependent code for rnnt
+    mkdir -p $SCRIPTS_HOME/models/models/language_modeling/pytorch/rnnt/training/cpu/
+    cp -rn $INTELAI_MODELS_HOME/models/models/language_modeling/pytorch/rnnt/training/cpu/* $SCRIPTS_HOME/models/models/language_modeling/pytorch/rnnt/training/cpu/
 
+    # copy dependent code for ssd-resnet34
+    mkdir -p $SCRIPTS_HOME/models/models/object_detection/pytorch/ssd-resnet34/inference/cpu/  $SCRIPTS_HOME/models/models/object_detection/pytorch/ssd-resnet34/training/cpu/
+    cp -rn $INTELAI_MODELS_HOME/models/models/object_detection/pytorch/ssd-resnet34/inference/cpu/*  $SCRIPTS_HOME/models/models/object_detection/pytorch/ssd-resnet34/inference/cpu/
+    cp -rn $INTELAI_MODELS_HOME/models/models/object_detection/pytorch/ssd-resnet34/training/cpu/*  $SCRIPTS_HOME/models/models/object_detection/pytorch/ssd-resnet34/training/cpu/
+
+    # copy dependent code for maskrcnn
+    mkdir -p $SCRIPTS_HOME/models/models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/
+    cp -rn $INTELAI_MODELS_HOME/models/models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/*  $SCRIPTS_HOME/models/models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/
+}
 
 function install_models_dependency() {
     for dir in $USE_CASES_HOME/*/; do

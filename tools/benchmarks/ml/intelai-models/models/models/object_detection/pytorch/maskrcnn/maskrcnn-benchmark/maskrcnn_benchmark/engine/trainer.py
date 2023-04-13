@@ -33,7 +33,11 @@ from maskrcnn_benchmark.utils.comm import get_world_size, synchronize
 from maskrcnn_benchmark.utils.metric_logger import MetricLogger
 from maskrcnn_benchmark.engine.inference import inference
 from ..utils.timer import Timer, get_time_str
-import intel_extension_for_pytorch as ipex
+
+use_ipex = False
+if os.environ.get('USE_IPEX') == "1":
+    import intel_extension_for_pytorch as ipex
+    use_ipex = True
 
 def reduce_loss_dict(loss_dict):
     """
@@ -94,11 +98,12 @@ def do_train(
         iou_types = iou_types + ("keypoints",)
     dataset_names = cfg.DATASETS.TEST
 
-    if bf32:
-        ipex.set_fp32_math_mode(mode=ipex.FP32MathMode.BF32, device="cpu")
-        model, optimizer = ipex.optimize(model, dtype=torch.float32, optimizer=optimizer, inplace=True, auto_kernel_selection=True)
-    else:
-        model, optimizer = ipex.optimize(model, dtype=torch.bfloat16 if bf16 else torch.float32, optimizer=optimizer, inplace=True)
+    if use_ipex:
+        if bf32:
+            ipex.set_fp32_math_mode(mode=ipex.FP32MathMode.BF32, device="cpu")
+            model, optimizer = ipex.optimize(model, dtype=torch.float32, optimizer=optimizer, inplace=True, auto_kernel_selection=True)
+        else:
+            model, optimizer = ipex.optimize(model, dtype=torch.bfloat16 if bf16 else torch.float32, optimizer=optimizer, inplace=True)
 
     for iteration, (images, targets, _) in enumerate(data_loader, start_iter):
 

@@ -9,9 +9,10 @@ MASKRCNN_DATA=$MASKRCNN_HOME/data
 MASKRCNN_OUTPUT=$MASKRCNN_HOME/output
 
 PRECISION=fp32
+USE_IPEX=0
 
 function usage(){
-    echo "Usage: run-training.sh  [ --precision fp32 | bf16 | bf32] "
+    echo "Usage: run-training.sh  [ --precision fp32 | bf16 | bf32] [ --use-ipex]"
     exit 1
 }
 
@@ -23,12 +24,16 @@ do
         shift
         PRECISION=$1
         ;;
+    --use-ipex)
+        USE_IPEX=1
+        ;;
     *)
         usage
     esac
     shift
 done
 
+export USE_IPEX
 export DATASET_DIR=$MASKRCNN_DATA
 export CHECKPOINT_DIR=$MASKRCNN_MODEL
 export OUTPUT_DIR=$MASKRCNN_OUTPUT

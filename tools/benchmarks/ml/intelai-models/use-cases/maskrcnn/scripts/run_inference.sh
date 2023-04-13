@@ -11,9 +11,10 @@ MASKRCNN_OUTPUT=$MASKRCNN_HOME/output
 PRECISION=fp32
 MODE=jit
 METRIC=throughput
+USE_IPEX=0
 
 function usage(){
-    echo "Usage: run-inference.sh  [ --precision fp32 | bf16 | bf32 ] [ --mode jit or imperative]  [--metric throughput | realtime] "
+    echo "Usage: run-inference.sh  [ --precision fp32 | bf16 | bf32 ] [ --mode jit or imperative]  [--metric throughput | realtime] [ --use-ipex]"
     exit 1
 }
 
@@ -33,12 +34,16 @@ do
         shift
         METRIC=$1
         ;;
+    --use-ipex)
+        USE_IPEX=1
+        ;;
     *)
         usage
     esac
     shift
 done
 
+export USE_IPEX
 export DATASET_DIR=$MASKRCNN_DATA
 export CHECKPOINT_DIR=$MASKRCNN_MODEL
 export OUTPUT_DIR=$MASKRCNN_OUTPUT

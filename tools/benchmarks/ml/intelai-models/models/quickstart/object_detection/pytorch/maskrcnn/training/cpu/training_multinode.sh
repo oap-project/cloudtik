@@ -65,9 +65,6 @@ NUM_RANKS=$(( NNODES * SOCKETS ))
 BACKEND=${BACKEND:-'ccl'}
 
 export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
-export USE_IPEX=1
-export KMP_BLOCKTIME=1
-export KMP_AFFINITY=granularity=fine,compact,1,0
 
 export TRAIN=1
 

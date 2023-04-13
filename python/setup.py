@@ -97,11 +97,12 @@ setup_spec.extras = {
         "kopf",
     ],
     "huaweicloud": [
-        "huaweicloudsdkecs == 3.1.24",
-        "huaweicloudsdkvpc == 3.1.24",
-        "huaweicloudsdknat == 3.1.24",
-        "huaweicloudsdkeip == 3.1.24",
-        "huaweicloudsdkiam == 3.1.24",
+        "huaweicloudsdkecs == 3.1.35",
+        "huaweicloudsdkvpc == 3.1.35",
+        "huaweicloudsdknat == 3.1.35",
+        "huaweicloudsdkeip == 3.1.35",
+        "huaweicloudsdkiam == 3.1.35",
+        "huaweicloudsdkims == 3.1.35",
         "esdk-obs-python == 3.22.2",
     ],
 }

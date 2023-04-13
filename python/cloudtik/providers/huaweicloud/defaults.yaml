@@ -26,8 +26,8 @@ available_node_types:
         resources: {}
         # Provider-specific config for this node type, e.g. instance flavor.
         node_config:
-            image_ref: 019b09ea-b960-46cd-abd8-306529e5eaa0
             flavor_ref: ai1s.xlarge.4
+            # image_ref: 019b09ea-b960-46cd-abd8-306529e5eaa0
             # key_name: key_pair_name
             root_volume:
                 volumetype: SSD
@@ -41,8 +41,8 @@ available_node_types:
         resources: {}
         # Provider-specific config for this node type, e.g. instance flavor.
         node_config:
-            image_ref: 019b09ea-b960-46cd-abd8-306529e5eaa0
             flavor_ref: ai1s.xlarge.4
+            # image_ref: 019b09ea-b960-46cd-abd8-306529e5eaa0
             # key_name: key_pair_name
             root_volume:
                 volumetype: SSD

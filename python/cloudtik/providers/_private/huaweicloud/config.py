@@ -23,6 +23,7 @@ from huaweicloudsdkiam.v3 import \
     CreateAgencyRequestBody, DeleteAgencyRequest, \
     KeystoneListPermissionsRequest, KeystoneListProjectsRequest, \
     ListAgenciesRequest, ListPermanentAccessKeysRequest
+from huaweicloudsdkims.v2 import ListImagesRequest
 from huaweicloudsdknat.v2 import CreateNatGatewayOption, \
     CreateNatGatewayRequest, \
     CreateNatGatewayRequestBody, CreateNatGatewaySnatRuleOption, \
@@ -73,7 +74,7 @@ from cloudtik.providers._private.huaweicloud.utils import _get_node_info, \
     get_huaweicloud_obs_storage_config_for_update, \
     HWC_OBS_BUCKET, HWC_SERVER_STATUS_ACTIVE, \
     make_ecs_client, make_eip_client, \
-    make_iam_client, make_nat_client, \
+    make_iam_client, make_ims_client, make_nat_client, \
     make_obs_client, make_obs_client_aksk, make_vpc_client, tags_list_to_dict
 from cloudtik.providers._private.utils import StorageTestingError
 
@@ -100,6 +101,26 @@ HWC_MANAGED_CLOUD_STORAGE_OBS_BUCKET = "huaweicloud.managed.cloud.storage." \
                                        "obs.bucket"
 HWC_KEY_PAIR_NAME = 'cloudtik_huaweicloud_keypair_{}'
 HWC_KEY_PATH_TEMPLATE = '~/.ssh/{}.pem'
+
+
+DEFAULT_IMAGE = {
+    'cn-east-2': '1a6a7a19-c39b-4d11-ae23-c8a5ef97919d',
+    'cn-east-3': 'b2b95cec-89d2-4807-9372-4c9982538fea',
+    'cn-north-1': '8bd0db1f-16cb-45dc-83b6-238b5810f654',
+    'cn-north-4': '96d54dc5-e592-429d-bb87-7bff715d71b1',
+    'cn-north-9': '4267b60d-4e4b-4878-91fb-c81c8db4858f',
+    'cn-south-1': '58c6a845-763b-476b-ba8d-85d1df54e1e1',
+    'cn-southwest-2': '65d210de-e73d-4e9f-9801-42469f92994d',
+    'ap-southeast-1': '291006b1-6cbd-4711-9340-70d96d23d0d4',
+    'ap-southeast-2': '42482a40-2ff8-41a5-ac02-01701c1b644f',
+    'ap-southeast-3': '019b09ea-b960-46cd-abd8-306529e5eaa0',
+    'ap-southeast-4': '410433ec-d070-47bc-ba19-df0366d723ef',
+    'af-south-1': 'ce36af6f-f9a7-4e17-b483-b2be51271673',
+    'na-mexico-1': 'c9f6ab45-1976-4491-87e5-303b1d0fdc08',
+    'la-north-2': '7d8e8da9-1d10-4a0d-8b3e-fef3ffcfc948',
+    'la-south-2': '89246c3c-d1dd-4a0c-9e39-7ca3f533e615',
+    'sa-brazil-1': '3075b5b0-bc15-4998-97b6-7c3d5eb5d911',
+}
 
 
 def create_huaweicloud_workspace(config):
@@ -178,7 +199,7 @@ def create_huaweicloud_workspace(config):
         raise e
 
     cli_logger.success("Successfully created workspace: {}.",
-                     cf.bold(workspace_name))
+                       cf.bold(workspace_name))
 
 
 def _create_workspace_instance_profile(config, workspace_name):
@@ -1416,9 +1437,53 @@ def bootstrap_huaweicloud_from_workspace(config):
     # the group, and also SSH access from outside.
     config = _configure_security_group_from_workspace(config)
 
+    # Pick a reasonable image if not specified by the user.
+    config = _configure_image(config)
+
     config = _configure_prefer_spot_node(config)
 
     return config
+
+
+def _configure_image(config):
+    for _, node_type in config["available_node_types"].items():
+        node_config = node_type["node_config"]
+        image_id = node_config.get("image_ref")
+        flavor_ref = node_config.get("flavor_ref")
+        # Only set to default image if not specified by the user
+        if not image_id:
+            default_image = _get_default_image(config, flavor_ref)
+            node_config["image_ref"] = default_image
+    return config
+
+
+def _get_default_image(config, flavor_ref):
+    default_image_ref = None
+    try:
+        ims_client = make_ims_client(config)
+        image_list = ims_client.list_images(
+            ListImagesRequest(flavor_id=flavor_ref,
+                              os_type='Linux', platform='Ubuntu', os_bit='64',
+                              imagetype='gold', isregistered='true',
+                              sort_key='created_at', limit=1)).images
+        if image_list:
+            default_image_ref = image_list[0].id
+    except Exception as e:
+        cli_logger.warning(
+            "Error when getting latest HUAWEICLOUD image information.", str(e))
+
+    if not default_image_ref:
+        region = config['provider']['region']
+        cli_logger.warning("Can not get latest image information in this "
+                           "region: {}. Will use default image id".format(
+                            region))
+        default_image_ref = DEFAULT_IMAGE.get(region)
+        if not default_image_ref:
+            cli_logger.abort("Not support on this region: {}. Please use one "
+                             "of these regions {}".format(
+                              region, sorted(DEFAULT_IMAGE.keys())))
+
+    return default_image_ref
 
 
 def _configure_prefer_spot_node(config):

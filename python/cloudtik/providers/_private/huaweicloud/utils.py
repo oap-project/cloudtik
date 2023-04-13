@@ -12,6 +12,8 @@ from huaweicloudsdkeip.v2 import EipClient
 from huaweicloudsdkeip.v2.region.eip_region import EipRegion
 from huaweicloudsdkiam.v3 import IamClient
 from huaweicloudsdkiam.v3.region.iam_region import IamRegion
+from huaweicloudsdkims.v2 import ImsClient
+from huaweicloudsdkims.v2.region.ims_region import ImsRegion
 from huaweicloudsdknat.v2 import NatClient
 from huaweicloudsdknat.v2.region.nat_region import NatRegion
 from huaweicloudsdkvpc.v2 import VpcClient
@@ -19,7 +21,7 @@ from huaweicloudsdkvpc.v2.region.vpc_region import VpcRegion
 from obs import ObsClient
 
 from cloudtik.core._private.constants import \
-    CLOUDTIK_DEFAULT_CLOUD_STORAGE_URI, env_bool, env_integer
+    CLOUDTIK_DEFAULT_CLOUD_STORAGE_URI, env_bool
 from cloudtik.core._private.utils import get_storage_config_for_update
 
 OBS_SERVICES_URL = 'https://obs.{location}.myhuaweicloud.com'
@@ -81,6 +83,13 @@ def _client_cache(region: str = None, ak: str = None, sk: str = None) -> Dict[
         .with_region(IamRegion.value_of(region) if region else None) \
         .build()
     client_map['iam'] = iam_client
+
+    ims_client = ImsClient.new_builder() \
+        .with_http_config(http_config) \
+        .with_credentials(credentials) \
+        .with_region(ImsRegion.value_of(region) if region else None) \
+        .build()
+    client_map['ims'] = ims_client
 
     ignore_ssl_verification = env_bool('HWC_IGNORE_SSL_VERIFICATION', False)
     if ignore_ssl_verification:
@@ -161,6 +170,14 @@ def make_iam_client(config: Dict[str, Any], region=None) -> Any:
 
 def _make_iam_client(config_provider: Dict[str, Any], region=None) -> Any:
     return _make_client(config_provider, 'iam', region)
+
+
+def make_ims_client(config: Dict[str, Any], region=None) -> Any:
+    return _make_ims_client(config['provider'], region)
+
+
+def _make_ims_client(config_provider: Dict[str, Any], region=None) -> Any:
+    return _make_client(config_provider, 'ims', region)
 
 
 def make_obs_client_aksk(ak: str, sk: str, region: str = None) -> Any:

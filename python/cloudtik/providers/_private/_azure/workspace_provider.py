@@ -23,7 +23,8 @@ class AzureWorkspaceProvider(WorkspaceProvider):
         create_azure_workspace(config)
 
     def delete_workspace(self, config,
-                         delete_managed_storage: bool = False):
+                         delete_managed_storage: bool = False,
+                         delete_managed_database:bool = False):
         delete_azure_workspace(config, delete_managed_storage)
     
     def update_workspace_firewalls(self, config):

@@ -28,7 +28,8 @@ class HUAWEICLOUDWorkspaceProvider(WorkspaceProvider):
         create_huaweicloud_workspace(config)
 
     def delete_workspace(self, config: Dict[str, Any],
-                         delete_managed_storage: bool = False):
+                         delete_managed_storage: bool = False,
+                         delete_managed_database:bool = False):
         delete_huaweicloud_workspace(config, delete_managed_storage)
 
     def update_workspace_firewalls(self, config: Dict[str, Any]):

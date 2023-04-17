@@ -23,8 +23,9 @@ class AWSWorkspaceProvider(WorkspaceProvider):
         create_aws_workspace(config)
 
     def delete_workspace(self, config,
-                         delete_managed_storage: bool = False):
-        delete_aws_workspace(config, delete_managed_storage)
+                         delete_managed_storage: bool = False,
+                         delete_managed_database: bool = False):
+        delete_aws_workspace(config, delete_managed_storage, delete_managed_database)
 
     def update_workspace_firewalls(self, config):
         update_aws_workspace_firewalls(config)

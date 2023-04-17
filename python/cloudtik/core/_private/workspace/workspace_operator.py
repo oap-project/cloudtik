@@ -22,7 +22,7 @@ except ImportError:  # py2
     from pipes import quote
 
 
-from cloudtik.core._private.utils import validate_workspace_config, prepare_workspace_config, is_managed_cloud_storage, \
+from cloudtik.core._private.utils import validate_workspace_config, prepare_workspace_config, is_managed_cloud_database, is_managed_cloud_storage, \
     print_dict_info, decrypt_config, encrypt_config, NODE_INFO_NODE_IP
 from cloudtik.core._private.providers import _get_workspace_provider_cls, _get_workspace_provider, \
     _WORKSPACE_PROVIDERS, _PROVIDER_PRETTY_NAMES, _get_node_provider_cls
@@ -88,15 +88,17 @@ def _update_workspace_firewalls(config: Dict[str, Any]):
 def delete_workspace(
         config_file: str, yes: bool,
         override_workspace_name: Optional[str] = None,
-        delete_managed_storage: bool = False):
+        delete_managed_storage: bool = False,
+        delete_managed_database: bool = False):
     """Destroys the workspace and associated Cloud resources."""
     config = _load_workspace_config(config_file, override_workspace_name)
-    _delete_workspace(config, yes, delete_managed_storage)
+    _delete_workspace(config, yes, delete_managed_storage, delete_managed_database)
 
 
 def _delete_workspace(config: Dict[str, Any],
                       yes: bool = False,
-                      delete_managed_storage: bool = False):
+                      delete_managed_storage: bool = False,
+                      delete_managed_database: bool = False):
     workspace_name = config["workspace_name"]
     provider = _get_workspace_provider(config["provider"], workspace_name)
     existence = provider.check_workspace_existence(config)
@@ -122,9 +124,18 @@ def _delete_workspace(config: Dict[str, Any],
                 cli_logger.print(
                     cf.bold("The managed cloud storage associated with this workspace will not be deleted."))
 
+        managed_cloud_database = is_managed_cloud_database(config)
+        if managed_cloud_database:
+            if delete_managed_database:
+                cli_logger.warning("WARNING: The managed cloud database associated with this workspace "
+                                   "and the data in it will all be deleted!")
+            else:
+                cli_logger.print(
+                    cf.bold("The managed cloud database associated with this workspace will not be deleted."))
+
         cli_logger.confirm(yes, "Are you sure that you want to delete workspace {}?",
                            config["workspace_name"], _abort=True)
-        provider.delete_workspace(config, delete_managed_storage)
+        provider.delete_workspace(config, delete_managed_storage, delete_managed_database)
 
 
 def create_workspace(

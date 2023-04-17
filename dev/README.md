@@ -33,7 +33,7 @@ bash ./dev/release-docker.sh --release-all --image-tag <version> --region PRC
 ```
 For build GPU images and push to registry for global and China:
 ```
-bash ./dev/release-docker.sh --release-all --gpu --image-tag <version> --region PRC
+bash ./dev/release-docker.sh --release-all --image-tag <version> --region PRC --gpu 
 ```
 
 ### Step 4: Release wheels to PyPI

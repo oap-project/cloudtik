@@ -54,8 +54,11 @@ do
     --release-ml-base)
         RELEASE_ML_BASE=YES
         ;;
-    --release-ml-runtime)
-        RELEASE_ML_RUNTIME=YES
+    --release-ml-cpu)
+        RELEASE_ML_CPU=YES
+        ;;
+    --release-ml-gpu)
+        RELEASE_ML_GPU=YES
         ;;
     --release-ml-oneapi)
         RELEASE_ML_ONEAPI=YES
@@ -64,7 +67,7 @@ do
         echo "Usage: release-docker.sh [ --image-tag ] [ --region ] [ --python-version ] --clean --tag-nightly --no-build --no-push"
         echo "Images to release options:"
         echo "[ --release-all ] [ --release-cloudtik ] [ --release-spark ]"
-        echo "[ --release-ml-base ] [ --release-ml-runtime ] [ --release-ml-oneapi ]"
+        echo "[ --release-ml-base ] [ --release-ml-cpu ] [ --release-ml-gpu ] [ --release-ml-oneapi ]"
         exit 1
     esac
     shift
@@ -92,7 +95,7 @@ if [ $DO_CLEAN ]; then
         if [ $RELEASE_ML_ONEAPI ] || [ $RELEASE_ALL ]; then
             CLEAN_IMAGE_NAMES+=("spark-ml-oneapi")
         fi
-        if [ $RELEASE_ML_RUNTIME ] || [ $RELEASE_ALL ]; then
+        if [ $RELEASE_ML_CPU ] || [ $RELEASE_ALL ]; then
             CLEAN_IMAGE_NAMES+=("spark-ml-runtime")
         fi
         if [ $RELEASE_ML_BASE ] || [ $RELEASE_ALL ]; then
@@ -133,7 +136,7 @@ if [ $TAG_NIGHTLY ]; then
         if [ $RELEASE_ML_BASE ] || [ $RELEASE_ALL ]; then
             TAG_IMAGE_NAMES+=("spark-ml-base")
         fi
-        if [ $RELEASE_ML_RUNTIME ] || [ $RELEASE_ALL ]; then
+        if [ $RELEASE_ML_CPU ] || [ $RELEASE_ALL ]; then
             TAG_IMAGE_NAMES+=("spark-ml-runtime")
         fi
         if [ $RELEASE_ML_ONEAPI ] || [ $RELEASE_ALL ]; then
@@ -163,8 +166,8 @@ if [ ! $NO_BUILD ]; then
     if [ $RELEASE_ML_BASE ] || [ $RELEASE_ALL ]; then
         BUILD_FLAGS="${BUILD_FLAGS} --build-ml-base"
     fi
-    if [ $RELEASE_ML_RUNTIME ] || [ $RELEASE_ALL ]; then
-        BUILD_FLAGS="${BUILD_FLAGS} --build-ml-runtime"
+    if [ $RELEASE_ML_CPU ] || [ $RELEASE_ALL ]; then
+        BUILD_FLAGS="${BUILD_FLAGS} --build-ml-cpu"
     fi
     if [ $RELEASE_ML_ONEAPI ] || [ $RELEASE_ALL ]; then
         BUILD_FLAGS="${BUILD_FLAGS} --build-ml-oneapi"
@@ -189,7 +192,7 @@ if [ ! $NO_PUSH ]; then
         if [ $RELEASE_SPARK ] || [ $RELEASE_ALL ]; then
             PUSH_IMAGE_NAMES+=("spark-runtime" "spark-runtime-benchmark")
         fi
-        if [ $RELEASE_ML_RUNTIME ] || [ $RELEASE_ALL ]; then
+        if [ $RELEASE_ML_CPU ] || [ $RELEASE_ALL ]; then
             PUSH_IMAGE_NAMES+=("spark-ml-runtime")
         fi
         if [ $RELEASE_ML_ONEAPI ] || [ $RELEASE_ALL ]; then

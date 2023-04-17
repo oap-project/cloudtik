@@ -1,3 +1,0 @@
-# DL Frameworks
-mxnet==1.9.1
-gluoncv==0.10.5.post0

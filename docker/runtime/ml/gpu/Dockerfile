@@ -4,9 +4,12 @@ FROM cloudtik/spark-ml-base:"$BASE_IMAGE"
 WORKDIR /home/cloudtik/
 COPY requirements.txt /tmp/requirements.txt
 RUN export PATH="$HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH" \
-    # Install deep learning libraries (MXNet)
+    # Install deep learning libraries (Tensorflow, Keras)
     && pip --no-cache-dir install -r /tmp/requirements.txt \
     && sudo rm /tmp/requirements.txt \
+    # Install deep learning libraries (PyTorch and torch tools)
+    && pip --no-cache-dir install torch==1.13.1+cu117 torchvision==0.14.1+cu117 \
+        --extra-index-url https://download.pytorch.org/whl/cu117 \
     # Install OpenMPI
     && mkdir /tmp/openmpi \
     && PREV_CUR_DIR=$(pwd) \
@@ -21,4 +24,6 @@ RUN export PATH="$HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH" \
     && sudo rm -rf /tmp/openmpi \
     # Install Horovod
     && export CXX=/usr/bin/g++-9 \
-    && HOROVOD_WITHOUT_TENSORFLOW=1 HOROVOD_WITHOUT_PYTORCH=1 HOROVOD_WITH_MXNET=1 HOROVOD_WITH_GLOO=1 HOROVOD_WITH_MPI=1 pip --no-cache-dir install horovod[mxnet,spark]==0.27.0
+    && HOROVOD_GPU_OPERATIONS=NCCL HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITHOUT_MXNET=1 HOROVOD_WITH_GLOO=1 HOROVOD_WITH_MPI=1 pip --no-cache-dir install horovod[tensorflow,keras,pytorch,spark,pytorch-spark]==0.27.0
+
+ENV ML_WITH_GPU True

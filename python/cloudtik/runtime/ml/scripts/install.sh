@@ -63,33 +63,32 @@ function install_ml() {
     pip --no-cache-dir -qq install mlflow==2.2.2 SQLAlchemy==1.4.46 alembic==1.10.1 pyarrow==8.0.0 hyperopt==0.2.7 scikit-learn==1.0.2
     mkdir -p $RUNTIME_PATH/mlflow
 
-    if [ "$ML_WITH_MXNET" == "true" ]; then
-        echo "Installing deep learning frameworks: mxnet..."
-        pip --no-cache-dir -qq install mxnet==1.9.1 gluoncv==0.10.5.post0
+    echo "Installing deep learning frameworks: tensorflow, pytorch..."
+    pip --no-cache-dir -qq install tensorflow==2.12.0
+
+    if [ "$ML_WITH_GPU" == "true" ]; then
+        pip --no-cache-dir -qq install torch==1.13.1+cu116 torchvision==0.14.1+cu116 \
+            --extra-index-url https://download.pytorch.org/whl/cu116
     else
-        echo "Installing deep learning frameworks: tensorflow, pytorch..."
-        pip --no-cache-dir -qq install tensorflow==2.12.0
         pip --no-cache-dir -qq install torch==1.13.1 torchvision==0.14.1 \
             --extra-index-url https://download.pytorch.org/whl/cpu
-
-        if ([ "$ML_WITH_ONEAPI" == "true" ] || [ "$ML_WITH_INTEL_PYTORCH" == "true" ]) \
-            && [ "$ML_WITH_INTEL_PYTORCH" != "false" ]; then
-            # Install Jemalloc and Intel OpenMP for better performance
-            conda install jemalloc intel-openmp -p ${CLOUDTIK_ENV_ROOT} -y > /dev/null
-            pip --no-cache-dir -qq install intel-extension-for-pytorch==1.13.100+cpu \
-                oneccl_bind_pt==1.13.0+cpu -f https://developer.intel.com/ipex-whl-stable-cpu
-        fi
-        pip --no-cache-dir -qq install transformers==4.11.0
     fi
+
+    if ([ "$ML_WITH_ONEAPI" == "true" ] || [ "$ML_WITH_INTEL_PYTORCH" == "true" ]) \
+        && [ "$ML_WITH_INTEL_PYTORCH" != "false" ]; then
+        # Install Jemalloc and Intel OpenMP for better performance
+        conda install jemalloc intel-openmp -p ${CLOUDTIK_ENV_ROOT} -y > /dev/null
+        pip --no-cache-dir -qq install intel-extension-for-pytorch==1.13.100+cpu \
+            oneccl_bind_pt==1.13.0+cpu -f https://developer.intel.com/ipex-whl-stable-cpu
+    fi
+
+    pip --no-cache-dir -qq install transformers==4.11.0
 
     echo "Installing deep learning libraries for music and audio analysis..."
     pip --no-cache-dir -qq install librosa==0.9.2
 
     echo "Installing deep learning libraries for facial recognition..."
-    pip --no-cache-dir -qq install opencv-python-headless==4.6.0.66
-    if [ "$ML_WITH_MXNET" != "true" ]; then
-        pip --no-cache-dir -qq install tensorflow-addons==0.17.1
-    fi
+    pip --no-cache-dir -qq install opencv-python-headless==4.6.0.66 tensorflow-addons==0.17.1
 
     # Installing MPI
     if ([ "$ML_WITH_ONEAPI" == "true" ] || [ "$ML_WITH_INTEL_MPI" == "true" ]) \
@@ -151,11 +150,7 @@ function install_ml() {
     fi
 
     echo "Installing Horovod..."
-    if [ "$ML_WITH_MXNET" == "true" ]; then
-        export CXX=/usr/bin/g++-9 && HOROVOD_WITHOUT_TENSORFLOW=1 HOROVOD_WITHOUT_PYTORCH=1 HOROVOD_WIT_MXNET=1 HOROVOD_WITH_GLOO=1 HOROVOD_WITH_MPI=1 pip --no-cache-dir -qq install horovod[mxnet,spark]==0.27.0
-    else
-        export CXX=/usr/bin/g++-9 && HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITHOUT_MXNET=1 HOROVOD_WITH_GLOO=1 HOROVOD_WITH_MPI=1 pip --no-cache-dir -qq install horovod[tensorflow,keras,pytorch,spark,pytorch-spark]==0.27.0
-    fi
+    export CXX=/usr/bin/g++-9 && HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITHOUT_MXNET=1 HOROVOD_WITH_GLOO=1 HOROVOD_WITH_MPI=1 pip --no-cache-dir -qq install horovod[tensorflow,keras,pytorch,spark,pytorch-spark]==0.27.0
 }
 
 install_tools

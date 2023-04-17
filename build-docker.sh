@@ -88,14 +88,11 @@ do
     --build-ml-base)
         BUILD_ML_BASE=YES
         ;;
-    --build-ml-cpu)
-        BUILD_ML_CPU=YES
+    --build-ml)
+        BUILD_ML=YES
         ;;
     --build-ml-oneapi)
         BUILD_ML_ONEAPI=YES
-        ;;
-    --build-ml-gpu)
-        BUILD_ML_GPU=YES
         ;;
     --build-ml-benchmark)
         BUILD_ML_BENCHMARK=YES
@@ -113,7 +110,7 @@ do
         echo "Usage: build-docker.sh [ --gpu ] [ --base-image ] [ --region ] [ --no-cache-build ] [ --shas-only ] [ --wheel-to-use ] [ --python-version ] [ --image-tag ]"
         echo "Images to build options:"
         echo "[ --build-all ] [ --build-cloudtik ] [ --build-dev ] [ --build-spark ] [ --build-optimized ] [ --build-spark-native-sql ]"
-        echo "[ --build-ml-base ] [ --build-ml-cpu ] [ --build-ml-gpu ] [ --build-ml-oneapi ]"
+        echo "[ --build-ml-base ] [ --build-ml ] [ --build-ml-oneapi ]"
         echo "[ --build-universe ] [ --build-presto ] [ --build-trino ]"
         echo "[ --build-spark-benchmark ] [ --build-optimized-benchmark ] [ --build-spark-native-sql-benchmark ]"
         exit 1
@@ -151,10 +148,10 @@ if [ $BUILD_CLOUDTIK ] || [ $BUILD_ALL ]; then
     do
         cp "$WHEEL" "docker/$IMAGE/$(basename "$WHEEL")"
         if [ $OUTPUT_SHA ]; then
-            IMAGE_SHA=$(docker build $NO_CACHE --build-arg GPU="$GPU" --build-arg BASE_IMAGE=$IMAGE_TAG --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_VERSION="$PYTHON_VERSION" -q -t cloudtik/$IMAGE:$IMAGE_TAG$GPU docker/$IMAGE)
+            IMAGE_SHA=$(docker build $NO_CACHE --build-arg GPU="$GPU" --build-arg BASE_IMAGE=$IMAGE_TAG$GPU --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_VERSION="$PYTHON_VERSION" -q -t cloudtik/$IMAGE:$IMAGE_TAG$GPU docker/$IMAGE)
             echo "cloudtik/$IMAGE:$IMAGE_TAG$GPU SHA:$IMAGE_SHA"
         else
-            docker build $NO_CACHE --build-arg GPU="$GPU" --build-arg BASE_IMAGE=$IMAGE_TAG --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_VERSION="$PYTHON_VERSION" -t cloudtik/$IMAGE:$IMAGE_TAG$GPU docker/$IMAGE
+            docker build $NO_CACHE --build-arg GPU="$GPU" --build-arg BASE_IMAGE=$IMAGE_TAG$GPU --build-arg WHEEL_PATH="$(basename "$WHEEL")" --build-arg PYTHON_VERSION="$PYTHON_VERSION" -t cloudtik/$IMAGE:$IMAGE_TAG$GPU docker/$IMAGE
         fi
         rm "docker/$IMAGE/$(basename "$WHEEL")"
     done
@@ -228,14 +225,14 @@ do
     fi
 
     # Build the ML base image which is needed as the base image for all other ML image
-    if [ -d "docker/${DOCKER_FILE_PATH}runtime/ml/base" ] && ([ $BUILD_ML_BASE ] || [ $BUILD_ML_CPU ] || [ $BUILD_ML_GPU ] || [ $BUILD_ML_ONEAPI ] || [ $BUILD_ALL ]); then
+    if [ -d "docker/${DOCKER_FILE_PATH}runtime/ml/base" ] && ([ $BUILD_ML_BASE ] || [ $BUILD_ML ] || [ $BUILD_ML_ONEAPI ] || [ $BUILD_ALL ]); then
         docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG$GPU \
           -t ${DOCKER_REGISTRY}cloudtik/spark-ml-base:$IMAGE_TAG$GPU \
           docker/${DOCKER_FILE_PATH}runtime/ml/base
     fi
 
     if [ "$GPU" == "" ]; then
-        if [ -d "docker/${DOCKER_FILE_PATH}runtime/ml/cpu" ] && ([ $BUILD_ML_CPU ] || [ $BUILD_ALL ]); then
+        if [ -d "docker/${DOCKER_FILE_PATH}runtime/ml/cpu" ] && ([ $BUILD_ML ] || [ $BUILD_ALL ]); then
             docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG \
               -t ${DOCKER_REGISTRY}cloudtik/spark-ml-runtime:$IMAGE_TAG \
               docker/${DOCKER_FILE_PATH}runtime/ml/cpu
@@ -247,7 +244,7 @@ do
               docker/${DOCKER_FILE_PATH}runtime/ml/oneapi
         fi
     else
-        if [ -d "docker/${DOCKER_FILE_PATH}runtime/ml/gpu" ] && ([ $BUILD_ML_GPU ] || [ $BUILD_ALL ]); then
+        if [ -d "docker/${DOCKER_FILE_PATH}runtime/ml/gpu" ] && ([ $BUILD_ML ] || [ $BUILD_ALL ]); then
             docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG$GPU \
               -t ${DOCKER_REGISTRY}cloudtik/spark-ml-runtime:$IMAGE_TAG$GPU \
               docker/${DOCKER_FILE_PATH}runtime/ml/gpu

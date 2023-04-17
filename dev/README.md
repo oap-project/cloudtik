@@ -25,11 +25,15 @@ This step will build all the docker images and upload to docker hub
 of cloudtik account.
 Execute:
 ```
-bash ./dev/release-docker.sh --image-tag <version>
+bash ./dev/release-docker.sh --release-all --image-tag <version>
 ```
-For build images and push to registry in China,
+For build images and push to registry for global and China:
 ```
-bash ./dev/release-docker.sh --image-tag <version> --region PRC
+bash ./dev/release-docker.sh --release-all --image-tag <version> --region PRC
+```
+For build GPU images and push to registry for global and China:
+```
+bash ./dev/release-docker.sh --release-all --image-tag <version> --region PRC --gpu 
 ```
 
 ### Step 4: Release wheels to PyPI

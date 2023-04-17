@@ -5,6 +5,7 @@ CLOUDTIK_HOME=$( cd -- "$( dirname -- "${SCRIPT_DIR}" )" &> /dev/null && pwd )
 # Import the default vars
 . "$SCRIPT_DIR"/set-default-vars.sh
 
+GPU=""
 IMAGE_TAG="nightly"
 CLOUDTIK_REGION="GLOBAL"
 
@@ -12,6 +13,9 @@ while [[ $# -gt 0 ]]
 do
     key="$1"
     case $key in
+    --gpu)
+        GPU="-gpu"
+        ;;
     --image-tag)
         # Override for the image tag.
         shift
@@ -54,20 +58,17 @@ do
     --release-ml-base)
         RELEASE_ML_BASE=YES
         ;;
-    --release-ml-cpu)
-        RELEASE_ML_CPU=YES
-        ;;
-    --release-ml-gpu)
-        RELEASE_ML_GPU=YES
+    --release-ml)
+        RELEASE_ML=YES
         ;;
     --release-ml-oneapi)
         RELEASE_ML_ONEAPI=YES
         ;;
     *)
-        echo "Usage: release-docker.sh [ --image-tag ] [ --region ] [ --python-version ] --clean --tag-nightly --no-build --no-push"
+        echo "Usage: release-docker.sh [ --gpu ] [ --image-tag ] [ --region ] [ --python-version ] --clean --tag-nightly --no-build --no-push"
         echo "Images to release options:"
         echo "[ --release-all ] [ --release-cloudtik ] [ --release-spark ]"
-        echo "[ --release-ml-base ] [ --release-ml-cpu ] [ --release-ml-gpu ] [ --release-ml-oneapi ]"
+        echo "[ --release-ml-base ] [ --release-ml ] [ --release-ml-oneapi ]"
         exit 1
     esac
     shift
@@ -95,7 +96,7 @@ if [ $DO_CLEAN ]; then
         if [ $RELEASE_ML_ONEAPI ] || [ $RELEASE_ALL ]; then
             CLEAN_IMAGE_NAMES+=("spark-ml-oneapi")
         fi
-        if [ $RELEASE_ML_CPU ] || [ $RELEASE_ALL ]; then
+        if [ $RELEASE_ML ] || [ $RELEASE_ALL ]; then
             CLEAN_IMAGE_NAMES+=("spark-ml-runtime")
         fi
         if [ $RELEASE_ML_BASE ] || [ $RELEASE_ALL ]; then
@@ -110,7 +111,7 @@ if [ $DO_CLEAN ]; then
 
         for image_name in ${CLEAN_IMAGE_NAMES[@]}
         do
-            image=${DOCKER_REGISTRY}cloudtik/$image_name:$IMAGE_TAG
+            image=${DOCKER_REGISTRY}cloudtik/$image_name:$IMAGE_TAG$GPU
             if [ "$(sudo docker images -q $image 2> /dev/null)" != "" ]; then
                 sudo docker rmi $image
             fi
@@ -136,7 +137,7 @@ if [ $TAG_NIGHTLY ]; then
         if [ $RELEASE_ML_BASE ] || [ $RELEASE_ALL ]; then
             TAG_IMAGE_NAMES+=("spark-ml-base")
         fi
-        if [ $RELEASE_ML_CPU ] || [ $RELEASE_ALL ]; then
+        if [ $RELEASE_ML ] || [ $RELEASE_ALL ]; then
             TAG_IMAGE_NAMES+=("spark-ml-runtime")
         fi
         if [ $RELEASE_ML_ONEAPI ] || [ $RELEASE_ALL ]; then
@@ -145,8 +146,8 @@ if [ $TAG_NIGHTLY ]; then
 
         for image_name in ${TAG_IMAGE_NAMES[@]}
         do
-            image_nightly=${DOCKER_REGISTRY}cloudtik/$image_name:nightly
-            image=${DOCKER_REGISTRY}cloudtik/$image_name:$IMAGE_TAG
+            image_nightly=${DOCKER_REGISTRY}cloudtik/$image_name:nightly$GPU
+            image=${DOCKER_REGISTRY}cloudtik/$image_name:$IMAGE_TAG$GPU
             if [ "$(sudo docker images -q $image_nightly 2> /dev/null)" != "" ]; then
                 sudo docker tag $image_nightly $image
             fi
@@ -157,6 +158,9 @@ fi
 # Default build
 if [ ! $NO_BUILD ]; then
     BUILD_FLAGS=""
+    if [ "$GPU" != "" ]; then
+        BUILD_FLAGS="${BUILD_FLAGS} --gpu"
+    fi
     if [ $RELEASE_CLOUDTIK ] || [ $RELEASE_ALL ]; then
         BUILD_FLAGS="${BUILD_FLAGS} --build-cloudtik"
     fi
@@ -166,13 +170,13 @@ if [ ! $NO_BUILD ]; then
     if [ $RELEASE_ML_BASE ] || [ $RELEASE_ALL ]; then
         BUILD_FLAGS="${BUILD_FLAGS} --build-ml-base"
     fi
-    if [ $RELEASE_ML_CPU ] || [ $RELEASE_ALL ]; then
-        BUILD_FLAGS="${BUILD_FLAGS} --build-ml-cpu"
+    if [ $RELEASE_ML ] || [ $RELEASE_ALL ]; then
+        BUILD_FLAGS="${BUILD_FLAGS} --build-ml"
     fi
     if [ $RELEASE_ML_ONEAPI ] || [ $RELEASE_ALL ]; then
         BUILD_FLAGS="${BUILD_FLAGS} --build-ml-oneapi"
     fi
-    sudo bash ./build-docker.sh --image-tag $IMAGE_TAG --region ${CLOUDTIK_REGION} --python-version ${PYTHON_VERSION} \
+    sudo bash ./build-docker.sh  --image-tag $IMAGE_TAG --region ${CLOUDTIK_REGION} --python-version ${PYTHON_VERSION} \
         ${BUILD_FLAGS}
 fi
 
@@ -192,7 +196,7 @@ if [ ! $NO_PUSH ]; then
         if [ $RELEASE_SPARK ] || [ $RELEASE_ALL ]; then
             PUSH_IMAGE_NAMES+=("spark-runtime" "spark-runtime-benchmark")
         fi
-        if [ $RELEASE_ML_CPU ] || [ $RELEASE_ALL ]; then
+        if [ $RELEASE_ML ] || [ $RELEASE_ALL ]; then
             PUSH_IMAGE_NAMES+=("spark-ml-runtime")
         fi
         if [ $RELEASE_ML_ONEAPI ] || [ $RELEASE_ALL ]; then
@@ -201,7 +205,7 @@ if [ ! $NO_PUSH ]; then
 
         for image_name in ${PUSH_IMAGE_NAMES[@]}
         do
-            image=${DOCKER_REGISTRY}cloudtik/$image_name:$IMAGE_TAG
+            image=${DOCKER_REGISTRY}cloudtik/$image_name:$IMAGE_TAG$GPU
             if [ "$(sudo docker images -q $image 2> /dev/null)" != "" ]; then
                 sudo docker push $image
             fi

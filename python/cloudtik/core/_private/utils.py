@@ -2074,6 +2074,20 @@ def get_runtime_shared_memory_ratio(runtime_config, config, provider, node_id: s
     return total_shared_memory_ratio
 
 
+def is_gpu_runtime(config):
+    runtime_config = config.get(RUNTIME_CONFIG_KEY)
+    if runtime_config is None:
+        return False
+    return _is_gpu_runtime(runtime_config)
+
+
+def _is_gpu_runtime(runtime_config):
+    runtime_types = runtime_config.get(RUNTIME_TYPES_CONFIG_KEY, [])
+    if "ml" not in runtime_types:
+        return False
+    return runtime_config.get("ml", {}).get("with_gpu", False)
+
+
 def runtime_validate_config(runtime_config, config, provider):
     if runtime_config is None:
         return
@@ -2136,7 +2150,7 @@ def get_runnable_command(
 
 def cluster_booting_completed(config, head_node_id):
     runtime_config = config.get(RUNTIME_CONFIG_KEY)
-    if runtime_config is not  None:
+    if runtime_config is not None:
         # Iterate through all the runtimes
         runtime_types = runtime_config.get(RUNTIME_TYPES_CONFIG_KEY, [])
         for runtime_type in runtime_types:

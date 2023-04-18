@@ -898,6 +898,10 @@
                         "with_intel_pytorch": {
                             "type": "boolean",
                             "description": "Whether to use Intel Optimizations of PyTorch. If with_oneapi is set, this is default true"
+                        },
+                        "with_gpu": {
+                            "type": "boolean",
+                            "description": "Whether to use GPU frameworks and libraries for ML/DL"
                         }
                     }
                 },

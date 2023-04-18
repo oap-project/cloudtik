@@ -21,7 +21,7 @@ from cloudtik.core._private.services import get_node_ip_address
 from cloudtik.core._private.utils import check_cidr_conflict, is_use_internal_ip, \
     is_managed_cloud_storage, is_use_managed_cloud_storage, is_managed_cloud_database, is_use_managed_cloud_database, \
     is_worker_role_for_cloud_storage, is_use_working_vpc, is_use_peering_vpc, is_peering_firewall_allow_ssh_only, \
-    is_peering_firewall_allow_working_subnet
+    is_peering_firewall_allow_working_subnet, is_gpu_runtime
 from cloudtik.core.workspace_provider import Existence, CLOUDTIK_MANAGED_CLOUD_STORAGE, \
     CLOUDTIK_MANAGED_CLOUD_STORAGE_URI
 from cloudtik.providers._private.aws.utils import LazyDefaultDict, \
@@ -54,15 +54,42 @@ DEFAULT_AMI = {
     "us-east-2": "ami-0d5bf08bc8017c83b",  # US East (Ohio)
     "us-west-1": "ami-03f6d497fceb40069",  # US West (N. California)
     "us-west-2": "ami-0c09c7eb16d3e8e70",  # US West (Oregon)
-    "af-souce-1": "ami-0fffe3a460634f60c", # Africa (Cape Town)
-    "ap-east-1": "ami-09800b995a7e41703", # Asia Pacific (Hong Kong)
-    "ap-south-1": "ami-024c319d5d14b463e", # # Asia Pacific (Mumbai)
-    "ap-northeast-1": "ami-09b18720cb71042df", # Asia Pacific (Tokyo)
-    "ap-northeast-2": "ami-07d16c043aa8e5153", # Asia Pacific (Seoul),
-    "ap-northeast-3": "ami-09d2f3a31110c6ad4", # Asia Pacific (Osaka),
-    "ap-southeast-1": "ami-00e912d13fbb4f225", # Asia Pacific (Singapore)
-    "ap-southeast-2": "ami-055166f8a8041fbf1", # Asia Pacific (Sydney),
-    "ap-southeast-3": "ami-06704743af22a1200", # Asia Pacific (Jakarta)
+    "af-south-1": "ami-0fffe3a460634f60c",  # Africa (Cape Town)
+    "ap-east-1": "ami-09800b995a7e41703",  # Asia Pacific (Hong Kong)
+    "ap-south-1": "ami-024c319d5d14b463e",  # Asia Pacific (Mumbai)
+    "ap-northeast-1": "ami-09b18720cb71042df",  # Asia Pacific (Tokyo)
+    "ap-northeast-2": "ami-07d16c043aa8e5153",  # Asia Pacific (Seoul),
+    "ap-northeast-3": "ami-09d2f3a31110c6ad4",  # Asia Pacific (Osaka),
+    "ap-southeast-1": "ami-00e912d13fbb4f225",  # Asia Pacific (Singapore)
+    "ap-southeast-2": "ami-055166f8a8041fbf1",  # Asia Pacific (Sydney),
+    "ap-southeast-3": "ami-06704743af22a1200",  # Asia Pacific (Jakarta)
+    "ca-central-1": "ami-043a72cf696697251",  # Canada (Central)
+    "eu-central-1": "ami-06148e0e81e5187c8",  # EU (Frankfurt)
+    "eu-west-1": "ami-0fd8802f94ed1c969",  # EU (Ireland)
+    "eu-west-2": "ami-04842bc62789b682e",  # EU (London)
+    "eu-west-3": "ami-064736ff8301af3ee",  # EU (Paris)
+    "eu-south-1": "ami-0e825b1b63ff6b36a",  # EU (Milan)
+    "eu-north-1": "ami-00b696228b0185ffe",  # EU (Stockholm)
+    "me-south-1": "ami-00df83d12eb4b3c4e",  # Middle East (Bahrain)
+    "sa-east-1": "ami-00742e66d44c13cd9",  # SA (Sao Paulo)
+}
+
+DEFAULT_AMI_NAME_PREFIX_GPU = "AWS Deep Learning Base AMI GPU CUDA 11 (Ubuntu 20.04)"
+
+DEFAULT_AMI_GPU = {
+    "us-east-1": "ami-063c373a70984f3d1",  # US East (N. Virginia)
+    "us-east-2": "ami-0bc3c221aef20fb80",  # US East (Ohio)
+    "us-west-1": "ami-0c936c23b91cb09f3",  # US West (N. California)
+    "us-west-2": "ami-04b6b881b172fda22",  # US West (Oregon)
+    "af-south-1": "ami-057c0d8ac71c6945a",  # Africa (Cape Town)
+    "ap-east-1": "ami-09800b995a7e41703",  # Asia Pacific (Hong Kong)
+    "ap-south-1": "ami-024c319d5d14b463e",  # Asia Pacific (Mumbai)
+    "ap-northeast-1": "ami-09b18720cb71042df",  # Asia Pacific (Tokyo)
+    "ap-northeast-2": "ami-07d16c043aa8e5153",  # Asia Pacific (Seoul),
+    "ap-northeast-3": "ami-09d2f3a31110c6ad4",  # Asia Pacific (Osaka),
+    "ap-southeast-1": "ami-00e912d13fbb4f225",  # Asia Pacific (Singapore)
+    "ap-southeast-2": "ami-055166f8a8041fbf1",  # Asia Pacific (Sydney),
+    "ap-southeast-3": "ami-06704743af22a1200",  # Asia Pacific (Jakarta)
     "ca-central-1": "ami-043a72cf696697251",  # Canada (Central)
     "eu-central-1": "ami-06148e0e81e5187c8",  # EU (Frankfurt)
     "eu-west-1": "ami-0fd8802f94ed1c969",  # EU (Ireland)
@@ -165,14 +192,15 @@ def list_ec2_instances(region: str, aws_credentials: Dict[str, Any] = None
     return final_instance_types
 
 
-def get_latest_ami_id(cluster_config: Dict[str, Any]):
+def get_latest_ami_id(cluster_config: Dict[str, Any], is_gpu):
+    name_filter = DEFAULT_AMI_NAME_PREFIX_GPU if is_gpu else DEFAULT_AMI_NAME_PREFIX
     try:
         ec2 = make_ec2_client(
             region=cluster_config["provider"]["region"],
             max_retries=BOTO_MAX_RETRIES,
             aws_credentials=cluster_config["provider"].get("aws_credentials"))
         response = ec2.describe_images(Owners=["amazon"],
-                                       Filters=[{'Name': 'name', 'Values': [DEFAULT_AMI_NAME_PREFIX + "*"]},
+                                       Filters=[{'Name': 'name', 'Values': [name_filter + "*"]},
                                                 {"Name": "is-public", "Values": ["true"]},
                                                 {"Name": "state", "Values": ["available"]}
                                                 ])
@@ -2717,16 +2745,16 @@ def _configure_security_group_from_workspace(config):
     return config
 
 
-def _get_default_ami(config, default_ami):
+def _get_default_ami(config, default_ami, is_gpu):
     if default_ami is not None:
         return default_ami
 
-    default_ami = get_latest_ami_id(config)
+    default_ami = get_latest_ami_id(config, is_gpu)
     if not default_ami:
         region = config["provider"]["region"]
         cli_logger.warning(
             "Can not get latest ami information in this region: {}. Will use default ami id".format(region))
-        default_ami = DEFAULT_AMI.get(region)
+        default_ami = DEFAULT_AMI_GPU.get(region) if is_gpu else DEFAULT_AMI.get(region)
         if not default_ami:
             cli_logger.abort("Not support on this region: {}. Please use one of these regions {}".
                              format(region, sorted(DEFAULT_AMI.keys())))
@@ -2740,13 +2768,15 @@ def _configure_ami(config):
     ami_src_info = {key: "config" for key in config["available_node_types"]}
     _set_config_info(ami_src=ami_src_info)
 
+    is_gpu = is_gpu_runtime(config)
+
     default_ami = None
     for key, node_type in config["available_node_types"].items():
         node_config = node_type["node_config"]
         image_id = node_config.get("ImageId", "")
         if image_id == "":
             # Only set to default ami if not specified by the user
-            default_ami = _get_default_ami(config, default_ami)
+            default_ami = _get_default_ami(config, default_ami, is_gpu)
             node_config["ImageId"] = default_ami
 
     return config

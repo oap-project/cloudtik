@@ -201,6 +201,29 @@
                     "description": "Whether to create managed cloud database of workspace.",
                     "default": false
                 },
+                "cloud_database": {
+                    "type": "object",
+                    "description": "Managed cloud database options",
+                    "additionalProperties": true,
+                    "properties": {
+                        "instance_class": {
+                            "type": "string",
+                            "description": "AWS RDS DBInstanceClass. default: db.t3.xlarge"
+                        },
+                        "storage_type": {
+                            "type": "string",
+                            "description": "AWS RDS StorageType. default: gp2"
+                        },
+                        "allocated_storage": {
+                            "type": "number",
+                            "description": "AWS RDS AllocatedStorage. default: 50"
+                        },
+                        "user_token": {
+                            "type": "string",
+                            "description": "AWS RDS MasterUserPassword. default: cloudtik"
+                        }
+                    }
+                },
                 "allowed_ssh_sources": {
                     "type": "array",
                     "items": {

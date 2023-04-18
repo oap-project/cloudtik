@@ -307,6 +307,10 @@ def show_status(
         cli_logger.labeled_value(f"Workspace {workspace_name}", "NOT EXIST")
     elif existence == Existence.STORAGE_ONLY:
         cli_logger.labeled_value(f"Workspace {workspace_name}", "STORAGE ONLY")
+    elif existence == Existence.DATABASE_ONLY:
+        cli_logger.labeled_value(f"Workspace {workspace_name}", "DATABASE ONLY")
+    elif existence == Existence.STORAGE_AND_DATABASE_ONLY:
+        cli_logger.labeled_value(f"Workspace {workspace_name}", "STORAGE AND DATABASE ONLY")
     elif existence == Existence.IN_COMPLETED:
         cli_logger.labeled_value(f"Workspace {workspace_name}", "NOT COMPLETED")
     else:

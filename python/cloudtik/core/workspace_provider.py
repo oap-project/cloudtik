@@ -13,6 +13,8 @@ class Existence(Enum):
     COMPLETED = 2
     IN_COMPLETED = 3
     STORAGE_ONLY = 4
+    DATABASE_ONLY = 5
+    STORAGE_AND_DATABASE_ONLY = 6
 
 
 class WorkspaceProvider:
@@ -38,7 +40,8 @@ class WorkspaceProvider:
         pass
 
     def delete_workspace(self, config: Dict[str, Any],
-                         delete_managed_storage: bool = False):
+                         delete_managed_storage: bool = False,
+                         delete_managed_database:bool = False):
         """Delete all the resources created for the workspace.
         Managed cloud storage is not deleted by default unless delete_managed_storage is specified.
         """

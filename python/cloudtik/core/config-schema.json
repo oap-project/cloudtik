@@ -442,6 +442,11 @@
                     "description": "Whether to assign worker with the role to access cloud storage.",
                     "default": true
                 },
+                "use_managed_cloud_database": {
+                    "type": "boolean",
+                    "description": "Whether to use managed cloud database of workspace.",
+                    "default": false
+                },
                 "public_ip_bandwidth": {
                     "type": "integer",
                     "description": "Bandwidth of public ip in MB for node.",

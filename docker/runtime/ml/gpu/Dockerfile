@@ -26,4 +26,4 @@ RUN export PATH="$HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH" \
     && export CXX=/usr/bin/g++-9 \
     && HOROVOD_GPU_OPERATIONS=NCCL HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITHOUT_MXNET=1 HOROVOD_WITH_GLOO=1 HOROVOD_WITH_MPI=1 pip --no-cache-dir install horovod[tensorflow,keras,pytorch,spark,pytorch-spark]==0.27.0
 
-ENV ML_WITH_GPU True
+ENV ML_WITH_GPU true

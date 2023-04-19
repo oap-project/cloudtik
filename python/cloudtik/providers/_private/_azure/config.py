@@ -11,8 +11,10 @@ from typing import Any, Dict, Optional
 
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, CLOUDTIK_TAG_CLUSTER_NAME
 from cloudtik.core._private.cli_logger import cli_logger, cf
-from cloudtik.core._private.utils import check_cidr_conflict, is_use_internal_ip, _is_use_working_vpc, is_use_working_vpc, is_use_peering_vpc, \
-    is_managed_cloud_storage, is_use_managed_cloud_storage, _is_use_managed_cloud_storage, update_nested_dict
+from cloudtik.core._private.utils import check_cidr_conflict, is_use_internal_ip, _is_use_working_vpc, \
+    is_use_working_vpc, is_use_peering_vpc, \
+    is_managed_cloud_storage, is_use_managed_cloud_storage, _is_use_managed_cloud_storage, update_nested_dict, \
+    is_gpu_runtime
 from cloudtik.core.workspace_provider import Existence, CLOUDTIK_MANAGED_CLOUD_STORAGE, \
     CLOUDTIK_MANAGED_CLOUD_STORAGE_URI
 
@@ -2009,6 +2011,7 @@ def bootstrap_azure_from_workspace(config):
     config = _configure_key_pair(config)
     config = _configure_workspace_resource(config)
     config = _configure_prefer_spot_node(config)
+    config = _configure_image(config)
     return config
 
 
@@ -2238,6 +2241,48 @@ def _configure_prefer_spot_node(config):
             node_type_data, prefer_spot_node)
 
     return config
+
+
+def _configure_image(config):
+    is_gpu = is_gpu_runtime(config)
+
+    default_image = None
+    for key, node_type in config["available_node_types"].items():
+        node_config = node_type["node_config"]
+        if "azure_arm_parameters" not in node_config:
+            node_config["azure_arm_parameters"] = {}
+        arm_parameters = node_config["azure_arm_parameters"]
+        image_offer = arm_parameters.get("imageOffer", "")
+        if image_offer == "":
+            # Only set to default image if not specified by the user
+            default_image = _get_default_image(default_image, is_gpu)
+            arm_parameters["imagePublisher"] = default_image["imagePublisher"]
+            arm_parameters["imageOffer"] = default_image["imageOffer"]
+            arm_parameters["imageSku"] = default_image["imageSku"]
+            arm_parameters["imageVersion"] = default_image["imageVersion"]
+
+    return config
+
+
+def _get_default_image(default_image, is_gpu):
+    if default_image is not None:
+        return default_image
+
+    if is_gpu:
+        default_image = {
+            "imagePublisher": "microsoft-dsvm",
+            "imageOffer": "ubuntu-2004",
+            "imageSku": "2004-gen2",
+            "imageVersion": "latest"
+        }
+    else:
+        default_image = {
+            "imagePublisher": "canonical",
+            "imageOffer": "0001-com-ubuntu-server-focal",
+            "imageSku": "20_04-lts-gen2",
+            "imageVersion": "latest"
+        }
+    return default_image
 
 
 def bootstrap_azure(config):

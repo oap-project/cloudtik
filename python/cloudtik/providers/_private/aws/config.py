@@ -77,28 +77,28 @@ DEFAULT_AMI = {
 DEFAULT_AMI_NAME_PREFIX_GPU = "AWS Deep Learning Base AMI GPU CUDA 11 (Ubuntu 20.04)"
 
 DEFAULT_AMI_GPU = {
-    "us-east-1": "ami-063c373a70984f3d1",  # US East (N. Virginia)
-    "us-east-2": "ami-0bc3c221aef20fb80",  # US East (Ohio)
-    "us-west-1": "ami-0c936c23b91cb09f3",  # US West (N. California)
-    "us-west-2": "ami-04b6b881b172fda22",  # US West (Oregon)
-    "af-south-1": "ami-057c0d8ac71c6945a",  # Africa (Cape Town)
-    "ap-east-1": "ami-09800b995a7e41703",  # Asia Pacific (Hong Kong)
-    "ap-south-1": "ami-024c319d5d14b463e",  # Asia Pacific (Mumbai)
-    "ap-northeast-1": "ami-09b18720cb71042df",  # Asia Pacific (Tokyo)
-    "ap-northeast-2": "ami-07d16c043aa8e5153",  # Asia Pacific (Seoul),
-    "ap-northeast-3": "ami-09d2f3a31110c6ad4",  # Asia Pacific (Osaka),
-    "ap-southeast-1": "ami-00e912d13fbb4f225",  # Asia Pacific (Singapore)
-    "ap-southeast-2": "ami-055166f8a8041fbf1",  # Asia Pacific (Sydney),
-    "ap-southeast-3": "ami-06704743af22a1200",  # Asia Pacific (Jakarta)
-    "ca-central-1": "ami-043a72cf696697251",  # Canada (Central)
-    "eu-central-1": "ami-06148e0e81e5187c8",  # EU (Frankfurt)
-    "eu-west-1": "ami-0fd8802f94ed1c969",  # EU (Ireland)
-    "eu-west-2": "ami-04842bc62789b682e",  # EU (London)
-    "eu-west-3": "ami-064736ff8301af3ee",  # EU (Paris)
-    "eu-south-1": "ami-0e825b1b63ff6b36a",  # EU (Milan)
-    "eu-north-1": "ami-00b696228b0185ffe",  # EU (Stockholm)
-    "me-south-1": "ami-00df83d12eb4b3c4e",  # Middle East (Bahrain)
-    "sa-east-1": "ami-00742e66d44c13cd9",  # SA (Sao Paulo)
+    "us-east-1": "ami-02ea7c238b7ba36af",
+    "us-east-2": "ami-0bc3c221aef20fb80",
+    "us-west-1": "ami-0c936c23b91cb09f3",
+    "us-west-2": "ami-0044186f8cba64624",
+    "af-south-1": "ami-057c0d8ac71c6945a",
+    "ap-east-1": "ami-04f68b82b64589073",
+    "ap-south-1": "ami-0a7218430dc6fb541",
+    "ap-northeast-1": "ami-051cb3b8c84c0fe88",
+    "ap-northeast-2": "ami-0d80b63a196840f6c",
+    "ap-northeast-3": "ami-0877936062e0e6ec4",
+    "ap-southeast-1": "ami-091708b0547aef03d",
+    "ap-southeast-2": "ami-0182289040a1ed516",
+    "ap-southeast-3": "ami-0126ebdde927850a6",
+    "ca-central-1": "ami-00eea8631708145cc",
+    "eu-central-1": "ami-09671ce2422ed8f83",
+    "eu-west-1": "ami-0ea7e93c8626716f4",
+    "eu-west-2": "ami-0246db3bcf68e5f9b",
+    "eu-west-3": "ami-0a8da46354e76997e",
+    "eu-south-1": "ami-0840c9dff1f1d6312",
+    "eu-north-1": "ami-018358e3bd01b00a3",
+    "me-south-1": "ami-0fecc2978a274d09f",
+    "sa-east-1": "ami-0cfdee64f7ca89369",
 }
 
 AWS_VPC_SUBNETS_COUNT = 2
@@ -213,7 +213,7 @@ def get_latest_ami_id(cluster_config: Dict[str, Any], is_gpu):
             return None
     except Exception as e:
         cli_logger.warning(
-            "Error when getting latest AWS AMI information.", str(e))
+            "Error when getting latest AWS AMI information: {}", str(e))
         return None
 
 

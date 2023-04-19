@@ -482,7 +482,7 @@
         "docker": {
             "type": "object",
             "description": "Docker configuration. If this is specified, all setup and start commands will be executed in the container.",
-            "additionalProperties": false,
+            "additionalProperties": true,
             "properties": {
                 "enabled": {
                     "type": "boolean",

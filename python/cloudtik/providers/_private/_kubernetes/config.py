@@ -15,7 +15,7 @@ from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.docker import get_versioned_image
 from cloudtik.core._private.providers import _get_node_provider
 from cloudtik.core._private.utils import is_use_internal_ip, get_running_head_node, binary_to_hex, hex_to_binary, \
-    get_runtime_service_ports, _is_use_managed_cloud_storage, _is_use_internal_ip
+    get_runtime_service_ports, _is_use_managed_cloud_storage, _is_use_internal_ip, is_gpu_runtime
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, \
     CLOUDTIK_GLOBAL_VARIABLE_KEY, CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX
 from cloudtik.core.workspace_provider import Existence
@@ -991,7 +991,8 @@ def _configure_pod_image(config):
 
 def get_versioned_node_type_image(config, provider_config, node_type_config):
     image = get_node_type_image(config, provider_config, node_type_config)
-    return get_versioned_image(image)
+    is_gpu = is_gpu_runtime(config)
+    return get_versioned_image(image, is_gpu)
 
 
 def get_node_type_image(config, provider_config, node_type_config):

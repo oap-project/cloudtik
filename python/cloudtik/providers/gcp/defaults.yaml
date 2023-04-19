@@ -35,7 +35,7 @@ available_node_types:
             # The sourceImage should under boot initializeParams
             # We will put here better inheritance handling and will fix to the place at runtime
             # See https://cloud.google.com/compute/docs/images for more images
-            sourceImage: projects/confidential-vm-images/global/images/ubuntu-2004-focal-v20220118
+            # sourceImage: projects/ubuntu-os-cloud/global/images/family/ubuntu-2004-lts
             disks:
               - boot: true
                 autoDelete: true
@@ -69,7 +69,7 @@ available_node_types:
             # The sourceImage should under boot initializeParams
             # We will put here better inheritance handling and will fix to the place at runtime
             # See https://cloud.google.com/compute/docs/images for more images
-            sourceImage: projects/confidential-vm-images/global/images/ubuntu-2004-focal-v20220118
+            # sourceImage: projects/ubuntu-os-cloud/global/images/family/ubuntu-2004-lts
             disks:
               - boot: true
                 autoDelete: true

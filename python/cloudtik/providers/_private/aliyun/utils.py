@@ -995,7 +995,7 @@ class EcsClient:
             return response.body
         return None
 
-    def describe_images(self, image_family):
+    def describe_images(self, image_family, image_name):
         """List the images available
         :return: The list of images matched
         """
@@ -1004,7 +1004,8 @@ class EcsClient:
             architecture='x86_64',
             ostype='linux',
             status='Available',
-            image_family=image_family
+            image_family=image_family,
+            image_name=image_name
         )
         response = self.client.describe_images_with_options(
             describe_images_request, self.runtime_options)

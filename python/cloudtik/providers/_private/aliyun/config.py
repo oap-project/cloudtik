@@ -15,7 +15,8 @@ from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.services import get_node_ip_address
 from cloudtik.core._private.utils import check_cidr_conflict, is_use_internal_ip, \
     is_managed_cloud_storage, is_use_managed_cloud_storage, is_worker_role_for_cloud_storage, is_use_working_vpc, \
-    is_use_peering_vpc, is_peering_firewall_allow_ssh_only, is_peering_firewall_allow_working_subnet, DOCKER_CONFIG_KEY
+    is_use_peering_vpc, is_peering_firewall_allow_ssh_only, is_peering_firewall_allow_working_subnet, DOCKER_CONFIG_KEY, \
+    is_gpu_runtime
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD
 from cloudtik.core.workspace_provider import Existence, CLOUDTIK_MANAGED_CLOUD_STORAGE, \
     CLOUDTIK_MANAGED_CLOUD_STORAGE_URI
@@ -35,11 +36,27 @@ STOPPED = "Stopped"
 
 logger = logging.getLogger(__name__)
 
+# CPU image
 ALIYUN_DEFAULT_IMAGE_FAMILY = "acs:ubuntu_20_04_64"
 
 ALIYUN_DEFAULT_IMAGE_BY_REGION = {
+
 }
-ALIYUN_DEFAULT_IMAGE_ID = "ubuntu_20_04_x64_20G_alibase_20221228.vhd"
+ALIYUN_DEFAULT_IMAGE_ID = "ubuntu_20_04_x64_20G_alibase_20230316.vhd"
+
+# GPU image
+ALIYUN_DEFAULT_IMAGE_NAME_GPU = "NVIDIA GPU Cloud VM Image 22.06.0"
+
+ALIYUN_DEFAULT_IMAGE_BY_REGION_GPU = {
+    "cn-qingdao": "m-m5ebd4ewu98c8xgajy3b",
+    "cn-beijing": "m-2zeaxtkrawqm0wjt0433",
+    "cn-zhangjiakou": "m-8vb4t5o9r39eo2faiwn1",
+    "cn-huhehaote": "m-hp3cmzgly7mzjl2h4rfm",
+    "cn-hangzhou": "m-bp1gt23x94u58oaybdfd",
+    "cn-shanghai": "m-uf69tasejyfpxj2irbtd",
+    "cn-shenzhen": "m-wz99qr28abtcxaf14r62",
+    "cn-hongkong": "m-j6c4ghaaduaqvaz61rbi"
+}
 
 ALIYUN_WORKSPACE_NUM_CREATION_STEPS = 5
 ALIYUN_WORKSPACE_NUM_DELETION_STEPS = 6
@@ -436,10 +453,12 @@ def _configure_vswitch_from_workspace(config):
     return config
 
 
-def get_latest_image_id(config: Dict[str, Any]):
+def get_latest_image_id(config: Dict[str, Any], is_gpu):
+    image_family = None if is_gpu else ALIYUN_DEFAULT_IMAGE_FAMILY
+    image_name = ALIYUN_DEFAULT_IMAGE_NAME_GPU if is_gpu else None
     try:
         ecs_client = EcsClient(config["provider"])
-        images = ecs_client.describe_images(ALIYUN_DEFAULT_IMAGE_FAMILY)
+        images = ecs_client.describe_images(image_family, image_name)
         if images is not None and len(images) > 0:
             images.sort(key=lambda item: item.creation_time, reverse=True)
             image_id = images[0].image_id
@@ -452,30 +471,37 @@ def get_latest_image_id(config: Dict[str, Any]):
         return None
 
 
-def _get_default_image(config, default_image):
+def _get_default_image(config, default_image, is_gpu):
     if default_image is not None:
         return default_image
 
-    default_image = get_latest_image_id(config)
+    default_image = get_latest_image_id(config, is_gpu)
     if not default_image:
         region = config["provider"]["region"]
         cli_logger.warning(
             "Can not get latest image information in this region: {}. Will use default image id".format(region))
-        default_image = ALIYUN_DEFAULT_IMAGE_BY_REGION.get(region)
+        default_image = ALIYUN_DEFAULT_IMAGE_BY_REGION_GPU.get(
+            region) if is_gpu else ALIYUN_DEFAULT_IMAGE_BY_REGION.get(region)
         if not default_image:
+            if is_gpu:
+                cli_logger.warning(
+                    "Can not get GPU supported image in this region: {}. "
+                    "Will use default image id without GPU support.".format(region))
             return ALIYUN_DEFAULT_IMAGE_ID
     return default_image
 
 
 def _configure_image(config):
     """Provide helpful message for missing ImageId for node configuration."""
+    is_gpu = is_gpu_runtime(config)
+
     default_image = None
     for key, node_type in config["available_node_types"].items():
         node_config = node_type["node_config"]
-        image_id = node_config.get("ImageId")
-        if not image_id:
+        image_id = node_config.get("ImageId", "")
+        if image_id == "":
             # Only set to default image if not specified by the user
-            default_image = _get_default_image(config, default_image)
+            default_image = _get_default_image(config, default_image, is_gpu)
             node_config["ImageId"] = default_image
 
     return config

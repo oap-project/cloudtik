@@ -1424,13 +1424,13 @@ def bootstrap_gcp_from_workspace(config):
     crm, iam, compute, tpu = \
         construct_clients_from_provider_config(config["provider"])
 
+    config = _configure_image(config)
     config = _fix_disk_info(config)
     config = _configure_iam_role_from_workspace(config, iam)
     config = _configure_cloud_storage_from_workspace(config)
     config = _configure_key_pair(config, compute)
     config = _configure_subnet_from_workspace(config, compute)
     config = _configure_prefer_spot_node(config)
-    config = _configure_image(config)
     return config
 
 

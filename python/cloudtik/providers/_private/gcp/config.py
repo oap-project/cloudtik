@@ -23,7 +23,7 @@ from cloudtik.core._private.services import get_node_ip_address
 from cloudtik.core._private.utils import check_cidr_conflict, unescape_private_key, is_use_internal_ip, \
     is_managed_cloud_storage, is_use_managed_cloud_storage, is_worker_role_for_cloud_storage, \
     _is_use_managed_cloud_storage, is_use_peering_vpc, is_use_working_vpc, _is_use_working_vpc, \
-    is_peering_firewall_allow_working_subnet, is_peering_firewall_allow_ssh_only
+    is_peering_firewall_allow_working_subnet, is_peering_firewall_allow_ssh_only, is_gpu_runtime
 from cloudtik.providers._private.gcp.node import GCPCompute
 from cloudtik.providers._private.gcp.utils import _get_node_info, construct_clients_from_provider_config, \
     wait_for_compute_global_operation, wait_for_compute_region_operation, _create_storage, \
@@ -1367,6 +1367,32 @@ def _configure_prefer_spot_node(config):
     return config
 
 
+def _configure_image(config):
+    is_gpu = is_gpu_runtime(config)
+
+    default_image = None
+    for key, node_type in config["available_node_types"].items():
+        node_config = node_type["node_config"]
+        source_image = node_config.get("sourceImage", "")
+        if source_image == "":
+            # Only set to default image if not specified by the user
+            default_image = _get_default_image(default_image, is_gpu)
+            node_config["sourceImage"] = default_image
+
+    return config
+
+
+def _get_default_image(default_image, is_gpu):
+    if default_image is not None:
+        return default_image
+
+    if is_gpu:
+        default_image = "projects/deeplearning-platform-release/global/images/family/common-cu110-ubuntu-2004"
+    else:
+        default_image = "projects/ubuntu-os-cloud/global/images/family/ubuntu-2004-lts"
+    return default_image
+
+
 def bootstrap_gcp(config):
     workspace_name = config.get("workspace_name", "")
     if workspace_name == "":
@@ -1404,6 +1430,7 @@ def bootstrap_gcp_from_workspace(config):
     config = _configure_key_pair(config, compute)
     config = _configure_subnet_from_workspace(config, compute)
     config = _configure_prefer_spot_node(config)
+    config = _configure_image(config)
     return config
 
 

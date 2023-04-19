@@ -367,9 +367,21 @@ def prepare_config(config: Dict[str, Any]) -> Dict[str, Any]:
 
     with_defaults = fillout_defaults(config)
     merge_cluster_config(with_defaults)
-    validate_docker_config(with_defaults)
+    prepare_docker_config(with_defaults)
     fill_node_type_min_max_workers(with_defaults)
     return with_defaults
+
+
+def prepare_docker_config(config: Dict[str, Any]):
+    # Set docker is_gpu flag so that the right image can be used if not specified by user
+    is_gpu = is_gpu_runtime(config)
+    if is_gpu:
+        if "docker" not in config:
+            config["docker"] = {}
+        docker_config = config["docker"]
+        docker_config["is_gpu"] = True
+
+    validate_docker_config(config)
 
 
 def encrypt_config(config: Dict[str, Any]) -> Dict[str, Any]:

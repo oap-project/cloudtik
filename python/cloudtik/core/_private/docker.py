@@ -28,24 +28,20 @@ def validate_docker_config(config: Dict[str, Any]) -> None:
     """Checks whether the Docker configuration is valid."""
     if "docker" not in config:
         return
-    
-    if config["docker"].get("enabled", False):
+
+    docker_config = config["docker"]
+    if docker_config.get("enabled", False):
         return
 
     _check_docker_file_mounts(config.get("file_mounts", {}))
 
-    docker_image = config["docker"].get("image")
-    cname = config["docker"].get("container_name")
-
-    head_docker_image = config["docker"].get("head_image", docker_image)
-
-    worker_docker_image = config["docker"].get("worker_image", docker_image)
-
+    docker_image = docker_config.get("image")
+    cname = docker_config.get("container_name")
+    head_docker_image = docker_config.get("head_image", docker_image)
+    worker_docker_image = docker_config.get("worker_image", docker_image)
     image_present = docker_image or (head_docker_image and worker_docker_image)
     
     assert cname and image_present, "Must provide a container & image name"
-
-    return None
 
 
 def with_docker_exec(cmds,
@@ -132,17 +128,21 @@ def get_configured_docker_image(docker_config, as_head):
             f"{'head' if as_head else 'worker'}_image",
             docker_config.get("image"))
 
-    return get_versioned_image(image)
+    is_gpu = docker_config.get("is_gpu", False)
+    return get_versioned_image(image, is_gpu)
 
 
-def get_versioned_image(image):
+def get_versioned_image(image, is_gpu: bool = False):
     if not image:
         return image
 
     # check whether the image tag is specified
     # if image tag is not specified, the current CloudTik version as tag
-
     if image.find(":") >= 0:
         return image
 
-    return "{}:{}".format(image, cloudtik.__version__)
+    version = cloudtik.__version__
+    image_template = "{}:{}"
+    if is_gpu:
+        image_template += "-gpu"
+    return image_template.format(image, version)

@@ -67,8 +67,8 @@ function install_ml() {
     pip --no-cache-dir -qq install tensorflow==2.12.0
 
     if [ "$ML_WITH_GPU" == "true" ]; then
-        pip --no-cache-dir -qq install torch==1.13.1+cu116 torchvision==0.14.1+cu116 \
-            --extra-index-url https://download.pytorch.org/whl/cu116
+        pip --no-cache-dir -qq install torch==1.13.1+cu117 torchvision==0.14.1+cu117 \
+            --extra-index-url https://download.pytorch.org/whl/cu117
     else
         pip --no-cache-dir -qq install torch==1.13.1 torchvision==0.14.1 \
             --extra-index-url https://download.pytorch.org/whl/cpu

@@ -1,0 +1,14 @@
+from: gcp/gpu/base-8
+
+# Cloud-provider specific configuration.
+provider:
+    type: gcp
+
+# The instance configuration for a small instance type
+available_node_types:
+    worker-default:
+        node_config:
+            machineType: n1-standard-32
+            guestAccelerators:
+              - acceleratorType: nvidia-tesla-v100
+                acceleratorCount: 4

@@ -1,0 +1,27 @@
+from: gcp/gpu/base
+
+# Cloud-provider specific configuration.
+provider:
+    type: gcp
+
+# The instance configuration for a small instance type
+available_node_types:
+    worker-default:
+        node_config:
+            disks:
+                - boot: true
+                  autoDelete: true
+                  type: PERSISTENT
+                  initializeParams:
+                      diskSizeGb: 256
+                      diskType: pd-ssd
+                - autoDelete: true
+                  type: SCRATCH
+                  interface: NVME
+                  initializeParams:
+                      diskType: local-ssd
+                - autoDelete: true
+                  type: SCRATCH
+                  interface: NVME
+                  initializeParams:
+                      diskType: local-ssd

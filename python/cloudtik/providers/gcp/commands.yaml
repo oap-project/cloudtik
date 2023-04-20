@@ -4,10 +4,10 @@ from: commands
 ++worker_initialization_commands:
     # Wait until nvidia drivers are installed
     - >-
-      [ "$ML_WITH_GPU" == "true" ] && timeout 600 bash -c "
+      ([ "$ML_WITH_GPU" == "true" ] && timeout 15 bash -c "
           command -v nvidia-smi && nvidia-smi
           until [ \$? -eq 0 ]; do
               echo \"Waiting 5 seconds for retrying...\"
               sleep 5
               command -v nvidia-smi && nvidia-smi
-          done"
+          done") || ([ "$ML_WITH_GPU" != "true" ])

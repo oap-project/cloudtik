@@ -1,7 +1,7 @@
 # Include the common built-in commands
 from: commands
 
-++initialization_commands:
+++worker_initialization_commands:
     # Wait until nvidia drivers are installed
     - >-
       [ "$ML_WITH_GPU" == "true" ] && timeout 600 bash -c "

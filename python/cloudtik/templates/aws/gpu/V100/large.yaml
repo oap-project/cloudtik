@@ -24,7 +24,15 @@ available_node_types:
                       DeleteOnTermination: True
                 - DeviceName: /dev/sdf
                   Ebs:
-                      VolumeSize: 256
+                      VolumeSize: 512
+                      VolumeType: gp3
+                      # gp3: 3,000-16,000 IOPS
+                      Iops: 8000
+                      Throughput: 300
+                      DeleteOnTermination: True
+                - DeviceName: /dev/sdg
+                  Ebs:
+                      VolumeSize: 512
                       VolumeType: gp3
                       # gp3: 3,000-16,000 IOPS
                       Iops: 8000

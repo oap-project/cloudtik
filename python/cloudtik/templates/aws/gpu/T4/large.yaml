@@ -22,11 +22,3 @@ available_node_types:
                       VolumeSize: 256
                       VolumeType: gp2
                       DeleteOnTermination: True
-                - DeviceName: /dev/sdf
-                  Ebs:
-                      VolumeSize: 256
-                      VolumeType: gp3
-                      # gp3: 3,000-16,000 IOPS
-                      Iops: 8000
-                      Throughput: 300
-                      DeleteOnTermination: True

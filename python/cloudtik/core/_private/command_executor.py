@@ -687,8 +687,8 @@ class SSHCommandExecutor(CommandExecutor):
         return True
 
     def _get_raw_block_devices(self):
-        self.run("touch ~/.sudo_as_admin_successful")
-        lsblk_output = self.run(
+        self.run_with_retry("touch ~/.sudo_as_admin_successful")
+        lsblk_output = self.run_with_retry(
             "lsblk -o name,ro,type,size,mountpoint -p --json || true",
             with_output=True).decode().strip()
         self.cli_logger.verbose("List of all block devices:\n{}", lsblk_output)
@@ -710,13 +710,16 @@ class SSHCommandExecutor(CommandExecutor):
         mount_point = CLOUDTIK_DATA_DISK_MOUNT_POINT
         mount_path = f"{mount_point}/data_disk_{data_disk_index}"
 
-        self.run("which mkfs.xfs > /dev/null || (sudo apt-get -qq update -y && sudo apt-get -qq install -y xfsprogs > /dev/null)")
+        self.run_with_retry(
+            "which mkfs.xfs > /dev/null || "
+            "(sudo apt-get -qq update -y && "
+            "sudo apt-get -qq install -y xfsprogs > /dev/null)")
         self.cli_logger.print("Formatting device {} and mount to {}...", device_name, mount_path)
         # Execute the format commands on the block device
-        self.run(f"sudo mkfs -t xfs -f {device_name}")
-        self.run(f"sudo mkdir -p {mount_path}")
-        self.run(f"sudo mount {device_name} {mount_path}")
-        self.run(f"sudo chmod a+w {mount_path}")
+        self.run_with_retry(f"sudo mkfs -t xfs -f {device_name}")
+        self.run_with_retry(f"sudo mkdir -p {mount_path}")
+        self.run_with_retry(f"sudo mount {device_name} {mount_path}")
+        self.run_with_retry(f"sudo chmod a+w {mount_path}")
 
 
 class DockerCommandExecutor(CommandExecutor):
@@ -1133,7 +1136,7 @@ class DockerCommandExecutor(CommandExecutor):
 
     def _get_host_data_disks(self):
         mount_point = CLOUDTIK_DATA_DISK_MOUNT_POINT
-        data_disks_string = self.run(
+        data_disks_string = self.run_with_retry(
             "([ -d {} ] && ls --color=no {}) || true".format(mount_point, mount_point),
             with_output=True,
             run_env="host").decode("utf-8").strip()

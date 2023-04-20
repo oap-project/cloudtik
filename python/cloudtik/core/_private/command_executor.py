@@ -40,6 +40,7 @@ KUBECTL_RSYNC = os.path.join(
     "providers/_private/_kubernetes/kubectl-rsync.sh")
 MAX_HOME_RETRIES = 3
 HOME_RETRY_DELAY_S = 5
+CHECK_DOCKER_RUNTIME_NUMBER_OF_RETRIES = 5
 
 PRIVACY_KEYWORDS = ["PASSWORD", "ACCOUNT", "SECRET", "ACCESS_KEY", "PRIVATE_KEY"]
 
@@ -686,8 +687,8 @@ class SSHCommandExecutor(CommandExecutor):
         return True
 
     def _get_raw_block_devices(self):
-        self.run("touch ~/.sudo_as_admin_successful")
-        lsblk_output = self.run(
+        self.run_with_retry("touch ~/.sudo_as_admin_successful")
+        lsblk_output = self.run_with_retry(
             "lsblk -o name,ro,type,size,mountpoint -p --json || true",
             with_output=True).decode().strip()
         self.cli_logger.verbose("List of all block devices:\n{}", lsblk_output)
@@ -709,13 +710,16 @@ class SSHCommandExecutor(CommandExecutor):
         mount_point = CLOUDTIK_DATA_DISK_MOUNT_POINT
         mount_path = f"{mount_point}/data_disk_{data_disk_index}"
 
-        self.run("which mkfs.xfs > /dev/null || (sudo apt-get -qq update -y && sudo apt-get -qq install -y xfsprogs > /dev/null)")
+        self.run_with_retry(
+            "which mkfs.xfs > /dev/null || "
+            "(sudo apt-get -qq update -y && "
+            "sudo apt-get -qq install -y xfsprogs > /dev/null)")
         self.cli_logger.print("Formatting device {} and mount to {}...", device_name, mount_path)
         # Execute the format commands on the block device
-        self.run(f"sudo mkfs -t xfs -f {device_name}")
-        self.run(f"sudo mkdir -p {mount_path}")
-        self.run(f"sudo mount {device_name} {mount_path}")
-        self.run(f"sudo chmod a+w {mount_path}")
+        self.run_with_retry(f"sudo mkfs -t xfs -f {device_name}")
+        self.run_with_retry(f"sudo mkdir -p {mount_path}")
+        self.run_with_retry(f"sudo mount {device_name} {mount_path}")
+        self.run_with_retry(f"sudo chmod a+w {mount_path}")
 
 
 class DockerCommandExecutor(CommandExecutor):
@@ -847,7 +851,7 @@ class DockerCommandExecutor(CommandExecutor):
 
     def _check_docker_installed(self):
         no_exist = "NoExist"
-        output = self.ssh_command_executor.run(
+        output = self.ssh_command_executor.run_with_retry(
             f"command -v {self.docker_cmd} || echo '{no_exist}'",
             with_output=True)
         cleaned_output = output.decode().strip()
@@ -872,7 +876,7 @@ class DockerCommandExecutor(CommandExecutor):
     def _check_container_status(self):
         if self.initialized:
             return True
-        output = self.ssh_command_executor.run(
+        output = self.ssh_command_executor.run_with_retry(
             check_docker_running_cmd(self.container_name, self.docker_cmd),
             with_output=True).decode("utf-8").strip()
         # Checks for the false positive where "true" is in the container name
@@ -883,7 +887,7 @@ class DockerCommandExecutor(CommandExecutor):
         user_pos = string.find("~")
         if user_pos > -1:
             if self.home_dir is None:
-                self.home_dir = self.ssh_command_executor.run(
+                self.home_dir = self.ssh_command_executor.run_with_retry(
                     f"{self.docker_cmd} exec {self.container_name} "
                     "printenv HOME",
                     with_output=True).decode("utf-8").strip()
@@ -899,7 +903,7 @@ class DockerCommandExecutor(CommandExecutor):
     def _check_if_container_restart_is_needed(
             self, image: str, cleaned_bind_mounts: Dict[str, str]) -> bool:
         re_init_required = False
-        running_image = self.run(
+        running_image = self.run_with_retry(
             check_docker_image(self.container_name, self.docker_cmd),
             with_output=True,
             run_env="host").decode("utf-8").strip()
@@ -908,7 +912,7 @@ class DockerCommandExecutor(CommandExecutor):
                 "A container with name {} is running image {} instead " +
                 "of {} (which was provided in the YAML)", self.container_name,
                 running_image, image)
-        mounts = self.run(
+        mounts = self.run_with_retry(
             check_bind_mounts_cmd(self.container_name, self.docker_cmd),
             with_output=True,
             run_env="host").decode("utf-8").strip()
@@ -950,14 +954,14 @@ class DockerCommandExecutor(CommandExecutor):
         if self.docker_config.get("pull_before_run", True):
             assert specific_image, "Image must be included in config if " + \
                 "pull_before_run is specified"
-            self.run(
+            self.run_with_retry(
                 "{} pull {}".format(self.docker_cmd, specific_image),
                 run_env="host")
         else:
-
-            self.run(f"{self.docker_cmd} image inspect {specific_image} "
-                     "1> /dev/null  2>&1 || "
-                     f"{self.docker_cmd} pull {specific_image}")
+            self.run_with_retry(
+                f"{self.docker_cmd} image inspect {specific_image} "
+                "1> /dev/null  2>&1 || "
+                f"{self.docker_cmd} pull {specific_image}")
 
         # Bootstrap files cannot be bind mounted because docker opens the
         # underlying inode. When the file is switched, docker becomes outdated.
@@ -973,7 +977,7 @@ class DockerCommandExecutor(CommandExecutor):
             requires_re_init = self._check_if_container_restart_is_needed(
                 specific_image, cleaned_bind_mounts)
             if requires_re_init:
-                self.run(
+                self.run_with_retry(
                     f"{self.docker_cmd} stop {self.container_name}",
                     run_env="host")
 
@@ -985,7 +989,7 @@ class DockerCommandExecutor(CommandExecutor):
                 # `root` as the owner.
                 return True
             # Get home directory
-            image_env = self.ssh_command_executor.run(
+            image_env = self.ssh_command_executor.run_with_retry(
                 f"{self.docker_cmd} " + "inspect -f '{{json .Config.Env}}' " +
                 specific_image,
                 with_output=True).decode().strip()
@@ -1014,7 +1018,8 @@ class DockerCommandExecutor(CommandExecutor):
                                              shared_memory_ratio)),
                 self.ssh_command_executor.cluster_name, home_directory,
                 self.docker_cmd)
-            self.run(start_command, run_env="host")
+            self.run_with_retry(
+                start_command, run_env="host")
             docker_run_executed = True
 
         # Explicitly copy in bootstrap files.
@@ -1025,7 +1030,7 @@ class DockerCommandExecutor(CommandExecutor):
                     #  a stopped instance,  /tmp may be deleted and `run_init`
                     # is called before the first `file_sync` happens
                     self.run_rsync_up(file_mounts[mount], mount)
-                self.ssh_command_executor.run(
+                self.ssh_command_executor.run_with_retry(
                     "rsync -e '{cmd} exec -i' -avz {src} {container}:{dst}".
                     format(
                         cmd=self.docker_cmd,
@@ -1037,10 +1042,11 @@ class DockerCommandExecutor(CommandExecutor):
                 try:
                     # Check if the current user has read permission.
                     # If they do not, try to change ownership!
-                    self.run(f"cat {mount} >/dev/null 2>&1 || "
-                             f"sudo chown $(id -u):$(id -g) {mount}")
+                    self.run_with_retry(
+                        f"cat {mount} >/dev/null 2>&1 || "
+                        f"sudo chown $(id -u):$(id -g) {mount}")
                 except Exception:
-                    lsl_string = self.run(
+                    lsl_string = self.run_with_retry(
                         f"ls -l {mount}",
                         with_output=True).decode("utf-8").strip()
                     # The string is of format <Permission> <Links>
@@ -1048,7 +1054,7 @@ class DockerCommandExecutor(CommandExecutor):
                     permissions = lsl_string.split(" ")[0]
                     owner = lsl_string.split(" ")[2]
                     group = lsl_string.split(" ")[3]
-                    current_user = self.run(
+                    current_user = self.run_with_retry(
                         "whoami", with_output=True).decode("utf-8").strip()
                     self.cli_logger.warning(
                         f"File ({mount}) is owned by user:{owner} and group:"
@@ -1071,12 +1077,15 @@ class DockerCommandExecutor(CommandExecutor):
         if self.docker_config.get("disable_automatic_runtime_detection"):
             return run_options
 
-        runtime_output = self.ssh_command_executor.run(
+        runtime_output = self.ssh_command_executor.run_with_retry(
             f"{self.docker_cmd} " + "info -f '{{.Runtimes}}' ",
             with_output=True).decode().strip()
         if "nvidia-container-runtime" in runtime_output:
             try:
-                self.ssh_command_executor.run("nvidia-smi", with_output=False)
+                self.ssh_command_executor.run_with_retry(
+                    "nvidia-smi", with_output=False,
+                    number_of_retries=CHECK_DOCKER_RUNTIME_NUMBER_OF_RETRIES
+                )
                 return run_options + ["--runtime=nvidia"]
             except Exception as e:
                 logger.warning(
@@ -1099,7 +1108,7 @@ class DockerCommandExecutor(CommandExecutor):
         if shared_memory_ratio == 0:
             return run_options
         try:
-            shm_output = self.ssh_command_executor.run(
+            shm_output = self.ssh_command_executor.run_with_retry(
                 "cat /proc/meminfo || true",
                 with_output=True).decode().strip()
             available_memory = int([
@@ -1127,7 +1136,7 @@ class DockerCommandExecutor(CommandExecutor):
 
     def _get_host_data_disks(self):
         mount_point = CLOUDTIK_DATA_DISK_MOUNT_POINT
-        data_disks_string = self.run(
+        data_disks_string = self.run_with_retry(
             "([ -d {} ] && ls --color=no {}) || true".format(mount_point, mount_point),
             with_output=True,
             run_env="host").decode("utf-8").strip()

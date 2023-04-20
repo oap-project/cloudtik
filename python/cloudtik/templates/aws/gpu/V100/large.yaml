@@ -1,0 +1,32 @@
+# Cloud-provider specific configuration.
+provider:
+    type: aws
+
+# The instance configuration for a large instance type
+available_node_types:
+    head.default:
+        node_config:
+            InstanceType: m5.4xlarge
+            BlockDeviceMappings:
+                - DeviceName: /dev/sda1
+                  Ebs:
+                      VolumeSize: 256
+                      VolumeType: gp2
+                      DeleteOnTermination: True
+    worker.default:
+        node_config:
+            InstanceType: p3.16xlarge
+            BlockDeviceMappings:
+                - DeviceName: /dev/sda1
+                  Ebs:
+                      VolumeSize: 256
+                      VolumeType: gp2
+                      DeleteOnTermination: True
+                - DeviceName: /dev/sdf
+                  Ebs:
+                      VolumeSize: 256
+                      VolumeType: gp3
+                      # gp3: 3,000-16,000 IOPS
+                      Iops: 8000
+                      Throughput: 300
+                      DeleteOnTermination: True

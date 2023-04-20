@@ -1856,7 +1856,42 @@ def _match_list_item_with_name(target_dict, k, v):
     return target_item, new_item
 
 
-def update_nested_dict(target_dict, new_dict, match_list_item_with_name: bool = True):
+def _is_list_appending(advanced_list_appending: bool, k, v):
+    if advanced_list_appending and isinstance(v, list) and (
+            k.endswith("++") or k.startswith("++")):
+        return True
+    return False
+
+
+def _append_list(target_dict, list_appending):
+    if not list_appending:
+        return
+
+    for k, v in list_appending.items():
+        if k.startswith("++"):
+            # Append before
+            to_key = k[2:]
+            if to_key in target_dict and target_dict[to_key] is not None:
+                to_value = target_dict[to_key]
+                new_value = v + to_value
+                target_dict[to_key] = new_value
+            else:
+                target_dict[to_key] = v
+        else:
+            # Append after
+            to_key = k[:-2]
+            if to_key in target_dict and target_dict[to_key] is not None:
+                to_value = target_dict[to_key]
+                new_value = to_value + v
+                target_dict[to_key] = new_value
+            else:
+                target_dict[to_key] = v
+
+
+def update_nested_dict(target_dict, new_dict,
+                       match_list_item_with_name: bool = True,
+                       advanced_list_appending: bool = True):
+    list_appending = {}
     for k, v in new_dict.items():
         if isinstance(v, collections.abc.Mapping):
             target_dict[k] = update_nested_dict(
@@ -1868,9 +1903,20 @@ def update_nested_dict(target_dict, new_dict, match_list_item_with_name: bool = 
                 target_dict[k][0] = update_nested_dict(
                     target_item, new_item, match_list_item_with_name)
             else:
-                target_dict[k] = v
+                if _is_list_appending(advanced_list_appending, k, v):
+                    list_appending[k] = v
+                else:
+                    target_dict[k] = v
         else:
-            target_dict[k] = v
+            if _is_list_appending(advanced_list_appending, k, v):
+                list_appending[k] = v
+            else:
+                target_dict[k] = v
+
+    # handling list appending
+    if advanced_list_appending:
+        _append_list(target_dict, list_appending)
+
     return target_dict
 
 

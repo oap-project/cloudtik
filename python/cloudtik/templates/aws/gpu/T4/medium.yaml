@@ -1,0 +1,24 @@
+# Cloud-provider specific configuration.
+provider:
+    type: aws
+
+# The instance configuration for a medium instance type
+available_node_types:
+    head.default:
+        node_config:
+            InstanceType: m5.4xlarge
+            BlockDeviceMappings:
+                - DeviceName: /dev/sda1
+                  Ebs:
+                      VolumeSize: 256
+                      VolumeType: gp2
+                      DeleteOnTermination: True
+    worker.default:
+        node_config:
+            InstanceType: g4dn.12xlarge
+            BlockDeviceMappings:
+                - DeviceName: /dev/sda1
+                  Ebs:
+                      VolumeSize: 256
+                      VolumeType: gp2
+                      DeleteOnTermination: True

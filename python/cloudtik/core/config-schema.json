@@ -541,6 +541,14 @@
                     "$ref": "#/definitions/commands",
                     "description": "List of commands that will be run before `setup_commands` on host for docker only"
                 },
+                "++initialization_commands": {
+                    "$ref": "#/definitions/commands",
+                    "description": "List of commands execute before the initialization_commands of its parent template."
+                },
+                "initialization_commands++": {
+                    "$ref": "#/definitions/commands",
+                    "description": "List of commands execute after the initialization_commands of its parent template."
+                },
                 "head_initialization_commands": {
                     "$ref": "#/definitions/commands",
                     "description": "List of commands that will be run before `setup_commands` on host for docker only"
@@ -586,6 +594,14 @@
         "initialization_commands": {
             "$ref": "#/definitions/commands",
             "description": "List of commands that will be run before `setup_commands`. If docker is enabled, these commands will run outside the container and before docker is setup."
+        },
+        "++initialization_commands": {
+            "$ref": "#/definitions/commands",
+            "description": "List of commands execute before the initialization_commands of its parent template."
+        },
+        "initialization_commands++": {
+            "$ref": "#/definitions/commands",
+            "description": "List of commands execute after the initialization_commands of its parent template."
         },
         "head_initialization_commands": {
             "$ref": "#/definitions/commands",

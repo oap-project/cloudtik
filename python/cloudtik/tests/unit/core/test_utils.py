@@ -55,6 +55,51 @@ NEW_DICT_WITHOUT_MATCHED_LIST_3 = {
 }
 
 
+TARGET_DICT_APPENDING_LIST = {
+    "test_list": [
+        "b",
+    ],
+    "test_list_1": [
+        "b1",
+    ]
+}
+
+NEW_DICT_APPENDING_LIST = {
+    "++test_list": [
+        "a",
+    ],
+    "test_list++": [
+        "c",
+    ],
+    "++test_list_1": [
+        "a1",
+    ],
+    "test_list_1++": [
+        "c1",
+    ]
+}
+
+NEW_DICT_APPENDING_LIST_1 = {
+    "++test_list": [
+        "a",
+    ],
+    "test_list": [
+        "B",
+    ],
+    "test_list++": [
+        "c",
+    ],
+    "++test_list_1": [
+        "a1",
+    ],
+    "test_list_1": [
+        "B1",
+    ],
+    "test_list_1++": [
+        "c1",
+    ]
+}
+
 TEST_CONFIG_WITH_PRIVACY = {
     "test_array": [
         {
@@ -112,6 +157,37 @@ class TestUtils:
 
         assert len(updated_dict["test_list"]) == 1
         assert updated_dict["test_list"][0] == "child-1"
+
+    def test_updated_nested_dict_advanced_list_appending(self):
+        updated_dict = update_nested_dict(
+            copy.deepcopy(TARGET_DICT_APPENDING_LIST),
+            copy.deepcopy(NEW_DICT_APPENDING_LIST),
+            match_list_item_with_name=True,
+            advanced_list_appending=True)
+
+        assert len(updated_dict["test_list"]) == 3
+        assert updated_dict["test_list"][0] == "a"
+        assert updated_dict["test_list"][1] == "b"
+        assert updated_dict["test_list"][2] == "c"
+        assert len(updated_dict["test_list_1"]) == 3
+        assert updated_dict["test_list_1"][0] == "a1"
+        assert updated_dict["test_list_1"][1] == "b1"
+        assert updated_dict["test_list_1"][2] == "c1"
+
+        updated_dict = update_nested_dict(
+            copy.deepcopy(TARGET_DICT_APPENDING_LIST),
+            copy.deepcopy(NEW_DICT_APPENDING_LIST_1),
+            match_list_item_with_name=True,
+            advanced_list_appending=True)
+
+        assert len(updated_dict["test_list"]) == 3
+        assert updated_dict["test_list"][0] == "a"
+        assert updated_dict["test_list"][1] == "B"
+        assert updated_dict["test_list"][2] == "c"
+        assert len(updated_dict["test_list_1"]) == 3
+        assert updated_dict["test_list_1"][0] == "a1"
+        assert updated_dict["test_list_1"][1] == "B1"
+        assert updated_dict["test_list_1"][2] == "c1"
 
     def test_process_config_with_privacy(self):
         config = copy.deepcopy(TEST_CONFIG_WITH_PRIVACY)

@@ -1,0 +1,11 @@
+from: gcp/gpu/base-8
+
+# Cloud-provider specific configuration.
+provider:
+    type: gcp
+
+# The instance configuration for a small instance type
+available_node_types:
+    worker-default:
+        node_config:
+            machineType: a2-highgpu-8g

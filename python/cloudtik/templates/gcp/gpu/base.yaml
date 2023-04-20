@@ -1,0 +1,25 @@
+# Cloud-provider specific configuration.
+provider:
+    type: gcp
+
+# The instance configuration for a large instance type
+available_node_types:
+    head-default:
+        node_config:
+            machineType: n2-standard-16
+            disks:
+                - boot: true
+                  autoDelete: true
+                  type: PERSISTENT
+                  initializeParams:
+                      diskSizeGb: 256
+                      diskType: pd-balanced
+    worker-default:
+        node_config:
+            # Make sure to set scheduling->onHostMaintenance to TERMINATE when GPUs are present
+            metadata:
+                items:
+                    - key: install-nvidia-driver
+                      value: "True"
+            scheduling:
+                - onHostMaintenance: TERMINATE

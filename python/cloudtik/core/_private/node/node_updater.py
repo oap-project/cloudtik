@@ -30,6 +30,7 @@ NUM_SETUP_STEPS = 8
 READY_CHECK_INTERVAL = 5
 
 SETUP_COMMAND_DEFAULT_NUMBER_OF_RETRIES = 5
+START_COMMAND_DEFAULT_NUMBER_OF_RETRIES = 3
 
 
 class NodeUpdater:
@@ -614,10 +615,20 @@ class NodeUpdater:
             old_redirected = self.call_context.is_output_redirected()
             self.call_context.set_output_redirected(False)
             # Runs in the container if docker is in use
-            self.cmd_executor.run(
-                cmd,
-                environment_variables=env_vars,
-                run_env="auto")
+            if self.config.get("retry_start_command", True):
+                self.cmd_executor.run_with_retry(
+                    cmd,
+                    environment_variables=runtime_envs,
+                    run_env="auto",
+                    number_of_retries=self.config.get(
+                        "number_of_retries", START_COMMAND_DEFAULT_NUMBER_OF_RETRIES),
+                    retry_interval=self.config.get("retry_interval")
+                )
+            else:
+                self.cmd_executor.run(
+                    cmd,
+                    environment_variables=env_vars,
+                    run_env="auto")
             self.call_context.set_output_redirected(old_redirected)
         except ProcessRunnerError as e:
             if e.msg_type == "ssh_command_failed":

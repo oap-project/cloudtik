@@ -70,6 +70,11 @@
             "description": "Whether to retry setup command if the command failed",
             "default": true
         },
+        "retry_start_command": {
+            "type": "boolean",
+            "description": "Whether to retry start command if the command failed",
+            "default": true
+        },
         "number_of_retries": {
             "type": "integer",
             "description": "The number of reties if the command failed"

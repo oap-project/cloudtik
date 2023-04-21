@@ -11,9 +11,8 @@ from cloudtik.core._private.cluster.cluster_operator import (
     RUN_ENV_TYPES, teardown_cluster_on_head, cluster_process_status_on_head, rsync_node_on_head, attach_node_on_head,
     start_node_on_head, stop_node_on_head, kill_node_on_head, scale_cluster_on_head,
     _wait_for_ready, _get_worker_node_ips, _get_head_node_ip,
-    _show_cluster_status, _monitor_cluster, _show_cluster_info, _show_worker_cpus, _show_worker_memory,
-    cli_call_context, _exec_node_on_head, do_health_check, cluster_resource_metrics_on_head,
-    _show_cpus_per_worker, _show_memory_per_worker, _show_total_workers, _show_sockets_per_worker)
+    _show_cluster_status, _monitor_cluster, cli_call_context, _exec_node_on_head,
+    do_health_check, cluster_resource_metrics_on_head, show_info)
 from cloudtik.core._private.constants import CLOUDTIK_REDIS_DEFAULT_PASSWORD
 from cloudtik.core._private.state import kv_store
 from cloudtik.core._private.state.kv_store import kv_initialize_with_address
@@ -243,7 +242,12 @@ def status():
     "--worker-cpus",
     is_flag=True,
     default=False,
-    help="Get the total number of cpus for workers.")
+    help="Get the total number of CPUs for workers.")
+@click.option(
+    "--worker-gpus",
+    is_flag=True,
+    default=False,
+    help="Get the total number of GPUs for workers.")
 @click.option(
     "--worker-memory",
     is_flag=True,
@@ -253,7 +257,12 @@ def status():
     "--cpus-per-worker",
     is_flag=True,
     default=False,
-    help="Get the number of cpus per worker.")
+    help="Get the number of CPUs per worker.")
+@click.option(
+    "--gpus-per-worker",
+    is_flag=True,
+    default=False,
+    help="Get the number of GPUs per worker.")
 @click.option(
     "--memory-per-worker",
     is_flag=True,
@@ -271,31 +280,16 @@ def status():
     help="Get the size of updated workers.")
 @add_click_logging_options
 def info(
-        worker_cpus, worker_memory,
-        cpus_per_worker, memory_per_worker, sockets_per_worker, total_workers):
+        worker_cpus, worker_gpus, worker_memory,
+        cpus_per_worker, gpus_per_worker, memory_per_worker,
+        sockets_per_worker, total_workers):
     """Show cluster summary information and useful links to use the cluster."""
     cluster_config_file = get_head_bootstrap_config()
     config = load_head_cluster_config()
-
-    if worker_cpus:
-        return _show_worker_cpus(config)
-
-    if worker_memory:
-        return _show_worker_memory(config)
-
-    if cpus_per_worker:
-        return _show_cpus_per_worker(config)
-
-    if sockets_per_worker:
-        return _show_sockets_per_worker(config)
-
-    if memory_per_worker:
-        return _show_memory_per_worker(config)
-
-    if total_workers:
-        return _show_total_workers(config)
-
-    _show_cluster_info(config, cluster_config_file)
+    show_info(config, cluster_config_file,
+              worker_cpus, worker_gpus, worker_memory,
+              cpus_per_worker, gpus_per_worker, memory_per_worker,
+              sockets_per_worker, total_workers)
 
 
 @head.command()

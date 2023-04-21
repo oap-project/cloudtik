@@ -62,7 +62,9 @@ from cloudtik.core._private.utils import hash_runtime_conf, \
     get_nodes_for_runtime, with_script_args, encrypt_config, get_resource_requests_for_cpu, convert_nodes_to_cpus, \
     HeadNotRunningError, get_cluster_head_ip, get_command_session_name, ParallelTaskSkipped, \
     CLOUDTIK_CLUSTER_SCALING_STATUS, decode_cluster_scaling_time, RUNTIME_TYPES_CONFIG_KEY, get_node_info, \
-    NODE_INFO_NODE_IP, get_cpus_of_node_info, _sum_min_workers, get_memory_of_node_info
+    NODE_INFO_NODE_IP, get_cpus_of_node_info, _sum_min_workers, get_memory_of_node_info, sum_worker_gpus, \
+    sum_nodes_resource, get_gpus_of_node_info, get_resource_of_node_info, get_resource_info_of_node_type, \
+    get_worker_node_type
 
 from cloudtik.core._private.providers import _get_node_provider, _NODE_PROVIDERS
 from cloudtik.core.tags import (
@@ -1428,25 +1430,48 @@ def rsync_node_on_head(config: Dict[str, Any],
 
 
 def get_worker_cpus(config, provider):
-    workers = _get_worker_nodes(config)
-    workers_info = get_nodes_info(provider, workers, True, config["available_node_types"])
-    return sum_worker_cpus(workers_info)
+    return get_worker_resource(
+        config, provider, constants.CLOUDTIK_RESOURCE_CPU)
+
+
+def get_worker_gpus(config, provider):
+    return get_worker_resource(
+        config, provider, constants.CLOUDTIK_RESOURCE_GPU)
 
 
 def get_worker_memory(config, provider):
+    return get_worker_resource(
+        config, provider, constants.CLOUDTIK_RESOURCE_MEMORY)
+
+
+def get_worker_resource(config, provider, resource_name):
     workers = _get_worker_nodes(config)
     workers_info = get_nodes_info(provider, workers, True, config["available_node_types"])
-    return sum_worker_memory(workers_info)
+    return sum_nodes_resource(workers_info, resource_name)
 
 
 def get_cpus_per_worker(config, provider):
-    workers = _get_worker_nodes(config)
-    if not workers:
-        return None
-    # Get node info of any worker
-    worker_info = get_node_info(
-        provider, workers[0], True, config["available_node_types"])
-    return get_cpus_of_node_info(worker_info)
+    return get_resource_per_worker(
+        config, provider, constants.CLOUDTIK_RESOURCE_CPU)
+
+
+def get_gpus_per_worker(config, provider):
+    return get_resource_per_worker(
+        config, provider, constants.CLOUDTIK_RESOURCE_GPU)
+
+
+def get_memory_per_worker(config, provider):
+    return get_resource_per_worker(
+        config, provider, constants.CLOUDTIK_RESOURCE_MEMORY)
+
+
+def get_resource_per_worker(config, provider, resource_name):
+    # Assume all the worker nodes are the same
+    node_type = get_worker_node_type(config)
+    available_node_types = config["available_node_types"]
+    resource_info = get_resource_info_of_node_type(
+        node_type, available_node_types)
+    return get_resource_of_node_info(resource_info, resource_name)
 
 
 def get_sockets_per_worker(config, provider):
@@ -1463,16 +1488,6 @@ def get_sockets_per_worker(config, provider):
                                           cmd=get_sockets_cmd,
                                           with_output=True)
     return sockets_per_worker.strip()
-
-
-def get_memory_per_worker(config, provider):
-    workers = _get_worker_nodes(config)
-    if not workers:
-        return None
-    # Get node info of any worker
-    worker_info = get_node_info(
-        provider, workers[0], True, config["available_node_types"])
-    return get_memory_of_node_info(worker_info)
 
 
 def get_head_node_ip(config_file: str,
@@ -1806,22 +1821,16 @@ def get_cluster_dump_archive(config_file: Optional[str] = None,
     return output
 
 
-def show_worker_cpus(config_file: str,
-                     override_cluster_name: Optional[str] = None) -> None:
-    config = _load_cluster_config(config_file, override_cluster_name)
-    _show_worker_cpus(config)
-
-
 def _show_worker_cpus(config: Dict[str, Any]):
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     worker_cpus = get_worker_cpus(config, provider)
     cli_logger.print(worker_cpus)
 
 
-def show_worker_memory(config_file: str,
-                       override_cluster_name: Optional[str] = None) -> None:
-    config = _load_cluster_config(config_file, override_cluster_name)
-    _show_worker_memory(config)
+def _show_worker_gpus(config: Dict[str, Any]):
+    provider = _get_node_provider(config["provider"], config["cluster_name"])
+    worker_gpus = get_worker_gpus(config, provider)
+    cli_logger.print(worker_gpus)
 
 
 def _show_worker_memory(config: Dict[str, Any]):
@@ -1830,22 +1839,16 @@ def _show_worker_memory(config: Dict[str, Any]):
     cli_logger.print("{}GB", memory_in_gb)
 
 
-def show_cpus_per_worker(config_file: str,
-                         override_cluster_name: Optional[str] = None) -> None:
-    config = _load_cluster_config(config_file, override_cluster_name)
-    _show_cpus_per_worker(config)
-
-
 def _show_cpus_per_worker(config: Dict[str, Any]):
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     cpus_per_worker = get_cpus_per_worker(config, provider)
     cli_logger.print(cpus_per_worker)
 
 
-def show_sockets_per_worker(config_file: str,
-                         override_cluster_name: Optional[str] = None) -> None:
-    config = _load_cluster_config(config_file, override_cluster_name)
-    _show_sockets_per_worker(config)
+def _show_gpus_per_worker(config: Dict[str, Any]):
+    provider = _get_node_provider(config["provider"], config["cluster_name"])
+    gpus_per_worker = get_gpus_per_worker(config, provider)
+    cli_logger.print(gpus_per_worker)
 
 
 def _show_sockets_per_worker(config: Dict[str, Any]):
@@ -1854,23 +1857,10 @@ def _show_sockets_per_worker(config: Dict[str, Any]):
     cli_logger.print(sockets_per_worker)
 
 
-def show_memory_per_worker(
-        config_file: str,
-        override_cluster_name: Optional[str] = None) -> None:
-    config = _load_cluster_config(config_file, override_cluster_name)
-    _show_memory_per_worker(config)
-
-
 def _show_memory_per_worker(config: Dict[str, Any]):
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     memory_per_worker = get_memory_per_worker(config, provider)
     cli_logger.print(memory_per_worker)
-
-def show_total_workers(
-        config_file: str,
-        override_cluster_name: Optional[str] = None) -> None:
-    config = _load_cluster_config(config_file, override_cluster_name)
-    _show_total_workers(config)
 
 
 def _show_total_workers(config: Dict[str, Any]):
@@ -1878,6 +1868,38 @@ def _show_total_workers(config: Dict[str, Any]):
     cluster_info = _get_cluster_info(config, provider)
     worker_count = cluster_info["total-workers"]
     cli_logger.print(worker_count)
+
+
+def show_info(
+        config: Dict[str, Any], config_file,
+        worker_cpus, worker_gpus, worker_memory,
+        cpus_per_worker, gpus_per_worker, memory_per_worker,
+        sockets_per_worker, total_workers):
+    if worker_cpus:
+        return _show_worker_cpus(config)
+
+    if worker_gpus:
+        return _show_worker_gpus(config)
+
+    if worker_memory:
+        return _show_worker_memory(config)
+
+    if cpus_per_worker:
+        return _show_cpus_per_worker(config)
+
+    if gpus_per_worker:
+        return _show_gpus_per_worker(config)
+
+    if memory_per_worker:
+        return _show_memory_per_worker(config)
+
+    if sockets_per_worker:
+        return _show_sockets_per_worker(config)
+
+    if total_workers:
+        return _show_total_workers(config)
+
+    _show_cluster_info(config, config_file)
 
 
 def show_cluster_info(config_file: str,
@@ -2109,16 +2131,24 @@ def _get_cluster_info(config: Dict[str, Any],
 
     if not simple_config:
         worker_cpus = sum_worker_cpus(workers_info)
+        worker_gpus = sum_worker_gpus(workers_info)
         worker_memory = sum_worker_memory(workers_info)
+
         any_worker_info = workers_info[0] if workers_info else None
         cpus_per_worker = get_cpus_of_node_info(any_worker_info)
+        gpus_per_worker = get_gpus_of_node_info(any_worker_info)
         memory_per_worker = get_memory_of_node_info(any_worker_info)
 
         cluster_info["total-worker-cpus"] = worker_cpus
+        cluster_info["total-worker-gpus"] = worker_gpus
         cluster_info["total-worker-memory"] = worker_memory
+
         cluster_info["total-worker-cpus-ready"] = sum_worker_cpus(worker_nodes_ready)
+        cluster_info["total-worker-gpus-ready"] = sum_worker_gpus(worker_nodes_ready)
         cluster_info["total-worker-memory-ready"] = sum_worker_memory(worker_nodes_ready)
+
         cluster_info["cpus-per-worker"] = cpus_per_worker
+        cluster_info["gpus-per-worker"] = gpus_per_worker
         cluster_info["memory-per-worker"] = memory_per_worker
 
     if not simple_config:

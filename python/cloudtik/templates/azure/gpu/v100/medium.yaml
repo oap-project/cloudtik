@@ -1,0 +1,13 @@
+from: azure/gpu/base
+
+# Cloud-provider specific configuration.
+provider:
+    type: azure
+
+# The instance configuration for a medium instance type
+available_node_types:
+    worker.default:
+        node_config:
+            azure_arm_parameters:
+                vmSize: Standard_NC12s_v3
+                osDiskSizeGB: 256

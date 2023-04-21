@@ -155,6 +155,15 @@ def fill_available_node_types_resources(
             memory_total_in_bytes = int(memory_total) * 1024 * 1024
             detected_resources["memory"] = memory_total_in_bytes
 
+            gpus = instances_dict[instance_type].get("accelerators")
+            if gpus:
+                # Current we consider only one accelerator type
+                gpu_name = gpus[0]["guestAcceleratorType"]
+                detected_resources.update({
+                    "GPU": gpus[0]["guestAcceleratorCount"],
+                    f"accelerator_type:{gpu_name}": 1
+                })
+
             detected_resources.update(
                 available_node_types[node_type].get("resources", {}))
             if detected_resources != \

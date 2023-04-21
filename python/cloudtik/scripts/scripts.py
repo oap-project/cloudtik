@@ -25,11 +25,10 @@ from cloudtik.core._private.cluster.cluster_operator import (
     attach_cluster, create_or_update_cluster, monitor_cluster,
     teardown_cluster, get_head_node_ip, kill_node_from_head, get_worker_node_ips,
     get_cluster_dump_archive, get_local_dump_archive, RUN_ENV_TYPES,
-    show_worker_cpus, show_worker_memory, show_cluster_info, show_cluster_status,
-    start_proxy, stop_proxy, cluster_debug_status,
+    show_cluster_status, start_proxy, stop_proxy, cluster_debug_status,
     cluster_health_check, cluster_process_status, attach_worker, scale_cluster,
     exec_on_nodes, submit_and_exec, _wait_for_ready, _rsync, cli_call_context, cluster_resource_metrics,
-    show_cpus_per_worker, show_memory_per_worker)
+    show_info)
 from cloudtik.core._private.constants import CLOUDTIK_PROCESSES, \
     CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
     CLOUDTIK_DEFAULT_PORT
@@ -1006,7 +1005,12 @@ def status(cluster_config_file, cluster_name):
     "--worker-cpus",
     is_flag=True,
     default=False,
-    help="Get the total number of cpus for workers.")
+    help="Get the total number of CPUs for workers.")
+@click.option(
+    "--worker-gpus",
+    is_flag=True,
+    default=False,
+    help="Get the total number of GPUs for workers.")
 @click.option(
     "--worker-memory",
     is_flag=True,
@@ -1016,33 +1020,39 @@ def status(cluster_config_file, cluster_name):
     "--cpus-per-worker",
     is_flag=True,
     default=False,
-    help="Get the number of cpus per worker.")
+    help="Get the number of CPUs per worker.")
+@click.option(
+    "--gpus-per-worker",
+    is_flag=True,
+    default=False,
+    help="Get the number of GPUs per worker.")
 @click.option(
     "--memory-per-worker",
     is_flag=True,
     default=False,
     help="Get the size of memory per worker in GB.")
+@click.option(
+    "--sockets-per-worker",
+    is_flag=True,
+    default=False,
+    help="Get the number of cpu sockets per worker.")
+@click.option(
+    "--total-workers",
+    is_flag=True,
+    default=False,
+    help="Get the size of updated workers.")
 @add_click_logging_options
 def info(
         cluster_config_file, cluster_name,
-        worker_cpus, worker_memory,
-        cpus_per_worker, memory_per_worker):
+        worker_cpus, worker_gpus, worker_memory,
+        cpus_per_worker, gpus_per_worker, memory_per_worker,
+        sockets_per_worker, total_workers):
     """Show cluster summary information and useful links to use the cluster."""
-    if worker_cpus:
-        return show_worker_cpus(cluster_config_file, cluster_name)
-
-    if worker_memory:
-        return show_worker_memory(cluster_config_file, cluster_name)
-
-    if cpus_per_worker:
-        return show_cpus_per_worker(cluster_config_file, cluster_name)
-
-    if memory_per_worker:
-        return show_memory_per_worker(cluster_config_file, cluster_name)
-
-    show_cluster_info(
-        cluster_config_file,
-        cluster_name)
+    config = _load_cluster_config(cluster_config_file, cluster_name)
+    show_info(config, cluster_config_file,
+              worker_cpus, worker_gpus, worker_memory,
+              cpus_per_worker, gpus_per_worker, memory_per_worker,
+              sockets_per_worker, total_workers)
 
 
 @cli.command()

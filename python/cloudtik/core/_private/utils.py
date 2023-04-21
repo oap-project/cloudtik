@@ -1991,14 +1991,24 @@ def get_node_info(provider, node, extras: bool = False,
 
     if extras:
         node_type = node_info.get(CLOUDTIK_TAG_USER_NODE_TYPE)
-        if node_type is not None and node_type in available_node_types:
-            resources = available_node_types[node_type].get("resources", {})
-            node_info[constants.CLOUDTIK_RESOURCE_CPU] = resources.get(
-                constants.CLOUDTIK_RESOURCE_CPU, 0)
-            node_info[constants.CLOUDTIK_RESOURCE_MEMORY] = resources.get(
-                constants.CLOUDTIK_RESOURCE_MEMORY, 0) / pow(1024, 3)
+        resource_info = get_resource_info_of_node_type(
+            node_type, available_node_types)
+        node_info.update(resource_info)
 
     return node_info
+
+
+def get_resource_info_of_node_type(node_type, available_node_types):
+    resource_info = {}
+    if node_type is not None and node_type in available_node_types:
+        resources = available_node_types[node_type].get("resources", {})
+        resource_info[constants.CLOUDTIK_RESOURCE_CPU] = resources.get(
+            constants.CLOUDTIK_RESOURCE_CPU, 0)
+        resource_info[constants.CLOUDTIK_RESOURCE_GPU] = resources.get(
+            constants.CLOUDTIK_RESOURCE_GPU, 0)
+        resource_info[constants.CLOUDTIK_RESOURCE_MEMORY] = resources.get(
+            constants.CLOUDTIK_RESOURCE_MEMORY, 0) / pow(1024, 3)
+    return resource_info
 
 
 def is_node_for_runtime(config: Dict[str, Any], node_id: str, runtime: str) -> bool:
@@ -2013,30 +2023,43 @@ def get_nodes_for_runtime(config: Dict[str, Any], nodes: List[str], runtime: str
 
 
 def sum_worker_cpus(workers_info):
-    total_cpus = 0
-    for worker_info in workers_info:
-        total_cpus += worker_info[constants.CLOUDTIK_RESOURCE_CPU]
-    return total_cpus
+    return sum_nodes_resource(workers_info, constants.CLOUDTIK_RESOURCE_CPU)
+
+
+def sum_worker_gpus(workers_info):
+    return sum_nodes_resource(workers_info, constants.CLOUDTIK_RESOURCE_GPU)
 
 
 def sum_worker_memory(workers_info):
-    total_memory = 0
-    for worker_info in workers_info:
-        total_memory += worker_info[constants.CLOUDTIK_RESOURCE_MEMORY]
-    return total_memory
+    return sum_nodes_resource(workers_info, constants.CLOUDTIK_RESOURCE_MEMORY)
+
+
+def sum_nodes_resource(nodes_info, resource_name):
+    total_resource = 0
+    for node_info in nodes_info:
+        amount = node_info.get(resource_name, 0)
+        total_resource += amount
+    return total_resource
 
 
 def get_cpus_of_node_info(node_info):
-    if node_info:
-        cpu_info = node_info.get(constants.CLOUDTIK_RESOURCE_CPU)
-        if cpu_info:
-            return int(cpu_info)
-    return None
+    return get_resource_of_node_info(
+        node_info, constants.CLOUDTIK_RESOURCE_CPU)
+
+
+def get_gpus_of_node_info(node_info):
+    return get_resource_of_node_info(
+        node_info, constants.CLOUDTIK_RESOURCE_GPU)
 
 
 def get_memory_of_node_info(node_info):
+    return get_resource_of_node_info(
+        node_info, constants.CLOUDTIK_RESOURCE_MEMORY)
+
+
+def get_resource_of_node_info(node_info, resource_name):
     if node_info:
-        return node_info.get(constants.CLOUDTIK_RESOURCE_MEMORY)
+        return node_info.get(resource_name)
     return None
 
 
@@ -2356,6 +2379,18 @@ def check_for_single_worker_type(config: Dict[str, Any]):
         raise ValueError("There are more than one worker types defined.")
 
 
+def get_worker_node_type(config: Dict[str, Any]):
+    # Get any worker node type.
+    # Usually we consider there is only one worker node type
+    available_node_types = config["available_node_types"]
+    head_node_type = config["head_node_type"]
+    for node_type in available_node_types:
+        if node_type != head_node_type:
+            return node_type
+
+    raise ValueError("No worker node type defined.")
+
+
 def _gcd_of_numbers(numbers):
     num1 = numbers[0]
     num2 = numbers[1]
@@ -2367,6 +2402,10 @@ def _gcd_of_numbers(numbers):
 
 def get_preferred_cpu_bundle_size(config: Dict[str, Any]) -> Optional[int]:
     return get_preferred_bundle_size(config, constants.CLOUDTIK_RESOURCE_CPU)
+
+
+def get_preferred_gpu_bundle_size(config: Dict[str, Any]) -> Optional[int]:
+    return get_preferred_bundle_size(config, constants.CLOUDTIK_RESOURCE_GPU)
 
 
 def get_preferred_memory_bundle_size(config: Dict[str, Any]) -> Optional[int]:
@@ -2437,6 +2476,11 @@ def _get_node_type_resource_requests(config, node_type, resource_id):
 def get_resource_demands_for_cpu(num_cpus, config):
     return get_resource_demands(
         num_cpus, constants.CLOUDTIK_RESOURCE_CPU, config, 1)
+
+
+def get_resource_demands_for_gpu(num_gpus, config):
+    return get_resource_demands(
+        num_gpus, constants.CLOUDTIK_RESOURCE_GPU, config, 1)
 
 
 def get_resource_demands_for_memory(memory_in_bytes, config):
@@ -2911,6 +2955,22 @@ def convert_nodes_to_cpus(config: Dict[str, Any], nodes: int) -> int:
 
 def convert_nodes_to_memory(config: Dict[str, Any], nodes: int) -> int:
     return convert_nodes_to_resource(config, nodes, constants.CLOUDTIK_RESOURCE_MEMORY)
+
+
+def convert_nodes_to_gpus(config: Dict[str, Any], nodes: int) -> int:
+    return convert_nodes_to_resource(config, nodes, constants.CLOUDTIK_RESOURCE_GPU)
+
+
+def convert_nodes_to_resource(config: Dict[str, Any], nodes: int, resource_id) -> int:
+    available_node_types = config["available_node_types"]
+    head_node_type = config["head_node_type"]
+    for node_type in available_node_types:
+        if node_type != head_node_type:
+            resources = available_node_types[node_type].get("resources", {})
+            resource_total = resources.get(resource_id, 0)
+            if resource_total > 0:
+                return nodes * resource_total
+    return 0
 
 
 def convert_nodes_to_resource(config: Dict[str, Any], nodes: int, resource_id) -> int:

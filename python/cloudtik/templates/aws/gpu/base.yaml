@@ -13,12 +13,3 @@ available_node_types:
                       VolumeSize: 256
                       VolumeType: gp2
                       DeleteOnTermination: True
-    worker.default:
-        node_config:
-            InstanceType: g5.8xlarge
-            BlockDeviceMappings:
-                - DeviceName: /dev/sda1
-                  Ebs:
-                      VolumeSize: 256
-                      VolumeType: gp2
-                      DeleteOnTermination: True

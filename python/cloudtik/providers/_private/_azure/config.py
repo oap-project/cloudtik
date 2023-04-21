@@ -83,28 +83,43 @@ def fill_available_node_types_resources(
     # Get instance information from cloud provider
     provider_config = cluster_config["provider"]
     subscription_id = provider_config["subscription_id"]
-    vm_location = provider_config["location"]
+    location = provider_config["location"]
 
     credential = get_credential(provider_config)
     compute_client = ComputeManagementClient(credential, subscription_id)
 
-    vmsizes = compute_client.virtual_machine_sizes.list(vm_location)
-    instances_dict = {
-        instance.name: {"memory": instance.memory_in_mb, "cpu": instance.number_of_cores}
-        for instance in vmsizes
-    }
+    location_filter = f"location eq '{location}'"
+    resource_skus = compute_client.resource_skus.list(filter=location_filter)
+    instances_dict = {}
+    for resource_sku in resource_skus:
+        if resource_sku.resource_type == "virtualMachines" and resource_sku.capabilities:
+            capability_map = {}
+            for capability in resource_sku.capabilities:
+                if capability.name:
+                    capability_map[capability.name] = capability.value
+            instances_dict[resource_sku.name] = capability_map
 
     # Update the instance information to node type
     available_node_types = cluster_config["available_node_types"]
     for node_type in available_node_types:
         instance_type = available_node_types[node_type]["node_config"]["azure_arm_parameters"]["vmSize"]
         if instance_type in instances_dict:
-            cpus = instances_dict[instance_type]["cpu"]
-            detected_resources = {"CPU": cpus}
+            capability_map = instances_dict[instance_type]
 
-            memory_total = instances_dict[instance_type]["memory"]
-            memory_total_in_bytes = int(memory_total) * 1024 * 1024
+            cpus = capability_map.get("vCPUs", "0")
+            detected_resources = {"CPU": int(cpus)}
+
+            memory_total = capability_map.get("MemoryGB", "0")
+            memory_total_in_bytes = int(memory_total) * 1024 * 1024 * 1024
             detected_resources["memory"] = memory_total_in_bytes
+
+            gpus = capability_map.get("GPUs")
+            if gpus:
+                # Current we consider only GPU accelerator type
+                detected_resources.update({
+                    "GPU": int(gpus),
+                    f"accelerator_type:GPU": 1
+                })
 
             detected_resources.update(
                 available_node_types[node_type].get("resources", {}))
@@ -117,7 +132,7 @@ def fill_available_node_types_resources(
         else:
             raise ValueError("Instance type " + instance_type +
                              " is not available in Azure location: " +
-                             vm_location + ".")
+                             location + ".")
     return cluster_config
 
 

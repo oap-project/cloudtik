@@ -73,6 +73,8 @@ function install_intelai_models() {
   cd $INTELAI_MODELS_HOME
   rm -rf models
   git clone https://github.com/IntelAI/models.git
+  cd $MODELS_HOME
+  git checkout 92bc6044e5047a2ca55920d9cfec3bcf9a8bf23d
 }
 
 function install_tools() {

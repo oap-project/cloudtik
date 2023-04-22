@@ -4,7 +4,7 @@
 cluster_config="./your-cluster-config.yaml"
 
 # The python job: change to your job file
-job_file="./cloudtik/example/ml/jobs/spark-mlflow-hyperopt-horovod-tensorflow.py"
+job_file="./cloudtik/example/ml/jobs/keras/mnist-keras-spark-horovod-run-hyperopt-mlflow.py"
 
 # Start a cluster
 cloudtik start $cluster_config -y

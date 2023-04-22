@@ -1430,6 +1430,12 @@ class ClusterScaler:
                 self._print_info_waiting_for(minimal_nodes_info, 0, "minimal")
                 return True
 
+            if minimal_nodes_info["quorum"] and self._exists_a_quorum(node_type):
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug("Cluster Controller: Quorum exists for operating {}. No waiting.".format(
+                        node_type))
+                continue
+
             nodes_info = nodes_info_map[node_type]
             nodes_number = len(nodes_info)
             if minimal_nodes_info["minimal"] > nodes_number:
@@ -1501,6 +1507,17 @@ class ClusterScaler:
         minimal_nodes_info = self.minimal_nodes_before_update[node_type]
         return minimal_nodes_info["quorum"]
 
+    def _exists_a_quorum(self, node_type: str):
+        quorum, minimal = self._get_quorum(node_type)
+        quorum_id_to_nodes = self.node_types_quorum_id_to_nodes.get(
+            node_type, {})
+        for node_quorum_id in quorum_id_to_nodes:
+            quorum_id_nodes = quorum_id_to_nodes[node_quorum_id]
+            remaining = len(quorum_id_nodes)
+            if remaining >= quorum:
+                return True
+        return False
+
     def _form_a_quorum(self, node_type: str, quorum_id):
         if not self._is_quorum_minimal_nodes(node_type):
             return
@@ -1538,10 +1555,11 @@ class ClusterScaler:
         for node_quorum_id in quorum_id_to_nodes:
             quorum_id_nodes = quorum_id_to_nodes[node_quorum_id]
             if node_id in quorum_id_nodes:
-                if len(quorum_id_nodes) < quorum:
+                remaining = len(quorum_id_nodes)
+                if remaining < quorum:
                     if logger.isEnabledFor(logging.DEBUG):
                         logger.debug("Node {} is not bad quorum member: {} ({}/{}). Will be terminated".format(
-                            node_id, node_quorum_id, quorum, minimal))
+                            node_id, node_quorum_id, remaining, minimal))
                     return True
                 return False
         return False
@@ -1584,11 +1602,12 @@ class ClusterScaler:
             node_type, {})
         for node_quorum_id in quorum_id_to_nodes:
             quorum_id_nodes = quorum_id_to_nodes[node_quorum_id]
-            if len(quorum_id_nodes) >= quorum:
+            remaining = len(quorum_id_nodes)
+            if remaining >= quorum:
                 # One quorum id exceed the quorum
                 if logger.isEnabledFor(logging.DEBUG):
                     logger.debug("No new node launch allowed with the existence of a valid quorum: {} ({}/{}).".format(
-                        node_quorum_id, quorum, minimal))
+                        node_quorum_id, remaining, minimal))
                 return False
 
         # none of the quorum_id exceeding a quorum

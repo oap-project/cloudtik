@@ -1482,11 +1482,11 @@ class ClusterScaler:
             self.config, node_type, nodes_info, minimal_nodes_info)
 
     def is_launch_allowed(self, node_type: str):
-        if (not self._is_minimal_nodes(node_type)) or (
-                not self._is_quorum_minimal_nodes(node_type)) or (
+        if self._is_minimal_nodes(node_type) and (
+                self._is_quorum_minimal_nodes(node_type)) and (
                 not self._is_quorum_minimal_nodes_in_launch(node_type)):
-            return True
-        return False
+            return False
+        return True
 
     def _is_minimal_nodes(self, node_type: str):
         if not self.minimal_nodes_before_update:

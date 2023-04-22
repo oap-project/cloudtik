@@ -1015,7 +1015,8 @@ class DockerCommandExecutor(CommandExecutor):
                 cleaned_bind_mounts, host_data_disks, self.container_name,
                 self._configure_runtime(
                     self._auto_configure_shm(user_docker_run_options,
-                                             shared_memory_ratio)),
+                                             shared_memory_ratio),
+                    as_head),
                 self.ssh_command_executor.cluster_name, home_directory,
                 self.docker_cmd)
             self.run_with_retry(
@@ -1073,8 +1074,10 @@ class DockerCommandExecutor(CommandExecutor):
         # For docker command executor, call directly on host command executor
         self.ssh_command_executor.bootstrap_data_disks()
 
-    def _configure_runtime(self, run_options: List[str]) -> List[str]:
-        if self.docker_config.get("disable_automatic_runtime_detection"):
+    def _configure_runtime(self, run_options: List[str], as_head: bool) -> List[str]:
+        if self.docker_config.get("disable_automatic_runtime_detection") or (
+                as_head and self.docker_config.get("disable_head_automatic_runtime_detection", True)
+        ):
             return run_options
 
         runtime_output = self.ssh_command_executor.run_with_retry(

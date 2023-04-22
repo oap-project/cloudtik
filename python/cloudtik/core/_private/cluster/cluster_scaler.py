@@ -1502,6 +1502,9 @@ class ClusterScaler:
         return minimal_nodes_info["quorum"]
 
     def _form_a_quorum(self, node_type: str, quorum_id):
+        if not self._is_quorum_minimal_nodes(node_type):
+            return
+
         for node_id in self.non_terminated_nodes.worker_ids:
             tags = self.provider.node_tags(node_id)
             this_node_type = tags.get(CLOUDTIK_TAG_USER_NODE_TYPE)
@@ -1514,6 +1517,8 @@ class ClusterScaler:
             # New node, assign the quorum_id
             self.provider.set_node_tags(
                 node_id, {CLOUDTIK_TAG_QUORUM_ID: quorum_id})
+            self._update_quorum_id_to_nodes(
+                node_type, node_quorum_id, node_id)
 
     def _get_quorum(self, node_type: str):
         minimal_nodes_info = self.minimal_nodes_before_update[node_type]
@@ -1541,6 +1546,16 @@ class ClusterScaler:
                 return False
         return False
 
+    def _update_quorum_id_to_nodes(
+            self, node_type: str, node_quorum_id: str, node_id: str):
+        if node_type not in self.node_types_quorum_id_to_nodes:
+            self.node_types_quorum_id_to_nodes[node_type] = {}
+        quorum_id_to_nodes = self.node_types_quorum_id_to_nodes[node_type]
+        if node_quorum_id not in quorum_id_to_nodes:
+            quorum_id_to_nodes[node_quorum_id] = set()
+        quorum_id_nodes = quorum_id_to_nodes[node_quorum_id]
+        quorum_id_nodes.add(node_id)
+
     def collect_quorum_minimal_nodes(self):
         if not self.minimal_nodes_before_update:
             # No need
@@ -1558,13 +1573,8 @@ class ClusterScaler:
             if not node_quorum_id:
                 continue
 
-            if node_type not in self.node_types_quorum_id_to_nodes:
-                self.node_types_quorum_id_to_nodes[node_type] = {}
-            quorum_id_to_nodes = self.node_types_quorum_id_to_nodes[node_type]
-            if node_quorum_id not in quorum_id_to_nodes:
-                quorum_id_to_nodes[node_quorum_id] = set()
-            quorum_id_nodes = quorum_id_to_nodes[node_quorum_id]
-            quorum_id_nodes.add(node_id)
+            self._update_quorum_id_to_nodes(
+                node_type, node_quorum_id, node_id)
 
     def _is_quorum_minimal_nodes_in_launch(self, node_type: str):
         quorum, minimal = self._get_quorum(node_type)

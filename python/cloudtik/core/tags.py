@@ -45,3 +45,6 @@ CLOUDTIK_GLOBAL_VARIABLE_KEY = CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX + "{}"
 CLOUDTIK_TAG_NODE_NUMBER = "cloudtik-node-number"
 # The head node will always be assigned with number 1
 CLOUDTIK_TAG_HEAD_NODE_NUMBER = 1
+
+# Quorum generation of the node when managing a Quorum of minimal nodes
+CLOUDTIK_TAG_QUORUM_ID = "cloudtik-quorum-id"

@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 NUM_SETUP_STEPS = 8
 READY_CHECK_INTERVAL = 5
 
+INITIALIZATION_COMMAND_DEFAULT_NUMBER_OF_RETRIES = 30
 SETUP_COMMAND_DEFAULT_NUMBER_OF_RETRIES = 5
 START_COMMAND_DEFAULT_NUMBER_OF_RETRIES = 3
 
@@ -512,7 +513,8 @@ class NodeUpdater:
                 environment_variables=runtime_envs,
                 ssh_options_override_ssh_key=self.auth_config.get("ssh_private_key"),
                 run_env="host",
-                number_of_retries=self.config.get("number_of_retries"),
+                number_of_retries=self.config.get(
+                    "number_of_retries", INITIALIZATION_COMMAND_DEFAULT_NUMBER_OF_RETRIES),
                 retry_interval=self.config.get("retry_interval")
             )
         except ProcessRunnerError as e:
@@ -559,7 +561,8 @@ class NodeUpdater:
             if self.config.get("retry_setup_command", True):
                 self.cmd_executor.run_with_retry(
                     cmd, environment_variables=runtime_envs, run_env="auto",
-                    number_of_retries=self.config.get("number_of_retries", SETUP_COMMAND_DEFAULT_NUMBER_OF_RETRIES),
+                    number_of_retries=self.config.get(
+                        "number_of_retries", SETUP_COMMAND_DEFAULT_NUMBER_OF_RETRIES),
                     retry_interval=self.config.get("retry_interval")
                 )
             else:

@@ -532,6 +532,11 @@
                     "description": "disable automatically using the NVIDIA runtime if available",
                     "default": false
                 },
+                "disable_head_automatic_runtime_detection" : {
+                    "type": "boolean",
+                    "description": "disable automatically using the NVIDIA runtime if available for head",
+                    "default": true
+                },
                 "disable_shm_size_detection" : {
                     "type": "boolean",
                     "description": "disable automatically detecting /dev/shm size for the container",

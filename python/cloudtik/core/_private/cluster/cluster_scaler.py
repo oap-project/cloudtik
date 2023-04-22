@@ -34,7 +34,8 @@ from cloudtik.core.tags import (
     CLOUDTIK_TAG_LAUNCH_CONFIG, CLOUDTIK_TAG_RUNTIME_CONFIG,
     CLOUDTIK_TAG_FILE_MOUNTS_CONTENTS, CLOUDTIK_TAG_NODE_STATUS, CLOUDTIK_TAG_NODE_KIND,
     CLOUDTIK_TAG_USER_NODE_TYPE, STATUS_UP_TO_DATE, STATUS_UPDATE_FAILED,
-    NODE_KIND_WORKER, NODE_KIND_UNMANAGED, NODE_KIND_HEAD, CLOUDTIK_TAG_NODE_NUMBER, CLOUDTIK_TAG_HEAD_NODE_NUMBER)
+    NODE_KIND_WORKER, NODE_KIND_UNMANAGED, NODE_KIND_HEAD, CLOUDTIK_TAG_NODE_NUMBER, CLOUDTIK_TAG_HEAD_NODE_NUMBER,
+    CLOUDTIK_TAG_QUORUM_ID)
 from cloudtik.core._private.cluster.event_summarizer import EventSummarizer
 from cloudtik.core._private.cluster.cluster_metrics import ClusterMetrics
 from cloudtik.core._private.prometheus_metrics import ClusterPrometheusMetrics
@@ -52,7 +53,7 @@ from cloudtik.core._private.utils import validate_config, \
     _get_node_specific_docker_config, _get_node_specific_runtime_config, \
     _has_node_type_specific_runtime_config, get_runtime_config_key, RUNTIME_CONFIG_KEY, \
     _get_minimal_nodes_before_update, CLOUDTIK_CLUSTER_NODES_INFO_NODE_TYPE, _notify_minimal_nodes_reached, \
-    process_config_with_privacy, decrypt_config, CLOUDTIK_CLUSTER_SCALING_STATUS, CLOUDTIK_CLUSTER_NODES_INFO_HASHES
+    process_config_with_privacy, decrypt_config, CLOUDTIK_CLUSTER_SCALING_STATUS
 from cloudtik.core._private.constants import CLOUDTIK_MAX_NUM_FAILURES, \
     CLOUDTIK_MAX_LAUNCH_BATCH, CLOUDTIK_MAX_CONCURRENT_LAUNCHES, \
     CLOUDTIK_UPDATE_INTERVAL_S, CLOUDTIK_HEARTBEAT_TIMEOUT_S, CLOUDTIK_RUNTIME_ENV_SECRETS
@@ -209,6 +210,7 @@ class ClusterScaler:
         self.file_mounts_contents_hash = None
         self.runtime_hash_for_node_types = {}
         self.minimal_nodes_before_update = {}
+        self.node_types_quorum_id_to_nodes = {}
         self.available_node_types = None
 
         # The next node number to assign
@@ -279,9 +281,6 @@ class ClusterScaler:
         # failed nodes. It is best effort only.
         self.node_tracker = NodeTracker()
 
-        # Initialize the node info hashes from state
-        self._init_nodes_info_hashes()
-
         # Expand local file_mounts to allow ~ in the paths. This can't be done
         # earlier when the config is written since we might be on different
         # platform and the expansion would result in wrong path.
@@ -295,17 +294,6 @@ class ClusterScaler:
         config_to_log = copy.deepcopy(self.config)
         process_config_with_privacy(config_to_log)
         logger.info("Cluster Controller: {}".format(config_to_log))
-
-    def _init_nodes_info_hashes(self):
-        try:
-            nodes_info_hashes_data = kv_get(CLOUDTIK_CLUSTER_NODES_INFO_HASHES)
-            if nodes_info_hashes_data:
-                nodes_info_hashes = json.loads(nodes_info_hashes_data)
-                self.published_nodes_info_hashes.update(
-                    nodes_info_hashes
-                )
-        except Exception:
-            logger.exception("Error loading nodes info hashes from state store.")
 
     def run(self):
         self.reset(errors_fatal=False)
@@ -383,6 +371,7 @@ class ClusterScaler:
         # Update status strings
         logger.info(self.info_string())
 
+        self.collect_quorum_minimal_nodes()
         self.terminate_nodes_to_enforce_config_constraints(now)
 
         if not self.disable_node_number:
@@ -827,6 +816,10 @@ class ClusterScaler:
         tags = self.provider.node_tags(node_id)
         if CLOUDTIK_TAG_USER_NODE_TYPE in tags:
             node_type = tags[CLOUDTIK_TAG_USER_NODE_TYPE]
+
+            # terminate the nodes which are not belongs to a quorum
+            if self._terminate_for_quorum(node_type, node_id):
+                return KeepOrTerminate.terminate, "not a quorum member"
 
             min_workers = self.available_node_types.get(node_type, {}).get(
                 "min_workers", 0)
@@ -1399,7 +1392,8 @@ class ClusterScaler:
             self._init_next_node_number()
 
         for node_id in self.non_terminated_nodes.worker_ids:
-            node_number_tag = self.provider.node_tags(node_id).get(CLOUDTIK_TAG_NODE_NUMBER)
+            node_number_tag = self.provider.node_tags(
+                node_id).get(CLOUDTIK_TAG_NODE_NUMBER)
             if node_number_tag is None:
                 # New node, assign the node number
                 self.provider.set_node_tags(
@@ -1424,7 +1418,7 @@ class ClusterScaler:
         return nodes_info_map
 
     def wait_for_minimal_nodes_before_update(self):
-        if not bool(self.minimal_nodes_before_update):
+        if not self.minimal_nodes_before_update:
             # No need to wait
             return False
 
@@ -1469,16 +1463,15 @@ class ClusterScaler:
             return False
         self.published_nodes_info_hashes[node_type] = new_nodes_info_hash
 
+        # Minimal number of the nodes reached, set the quorum id of the new joined nodes
+        self._form_a_quorum(node_type, new_nodes_info_hash)
+
         logger.info(
             "Cluster Controller: Publish and notify nodes info for {}".format(
                 node_type))
 
         nodes_info_key = CLOUDTIK_CLUSTER_NODES_INFO_NODE_TYPE.format(node_type)
         kv_put(nodes_info_key, nodes_info_data, overwrite=True)
-
-        # Update the nodes_info hashes
-        nodes_info_hashes_data = json.dumps(self.published_nodes_info_hashes, sort_keys=True)
-        kv_put(CLOUDTIK_CLUSTER_NODES_INFO_HASHES, nodes_info_hashes_data, overwrite=True)
 
         # Notify runtime of these
         self._notify_minimal_nodes_reached(node_type, nodes_info, minimal_nodes_info)
@@ -1490,29 +1483,119 @@ class ClusterScaler:
 
     def is_launch_allowed(self, node_type: str):
         if (not self._is_minimal_nodes(node_type)) or (
-                not self._is_minimal_nodes_fixed(node_type)) or (
-                not self._is_minimal_nodes_reached(node_type)):
+                not self._is_quorum_minimal_nodes(node_type)) or (
+                not self._is_quorum_minimal_nodes_in_launch(node_type)):
             return True
         return False
 
     def _is_minimal_nodes(self, node_type: str):
-        if node_type in self.minimal_nodes_before_update:
-            return True
-        return False
-
-    def _is_minimal_nodes_fixed(self, node_type: str):
-        # Usually, for the cases to control minimal nodes for update
-        # We are targeting for fixed nodes once it started
+        if not self.minimal_nodes_before_update:
+            return False
         if node_type not in self.minimal_nodes_before_update:
             return False
-        minimal_nodes_info = self.minimal_nodes_before_update[node_type]
-        return minimal_nodes_info["fixed"]
+        return True
 
-    def _is_minimal_nodes_reached(self, node_type: str):
-        # If the node type has published nodes info, the minimal workers reached
-        if node_type in self.published_nodes_info_hashes:
-            return True
+    def _is_quorum_minimal_nodes(self, node_type: str):
+        # Usually, for the cases to control minimal nodes for update
+        # We are targeting for fixed nodes once it started
+        minimal_nodes_info = self.minimal_nodes_before_update[node_type]
+        return minimal_nodes_info["quorum"]
+
+    def _form_a_quorum(self, node_type: str, quorum_id):
+        if not self._is_quorum_minimal_nodes(node_type):
+            return
+
+        for node_id in self.non_terminated_nodes.worker_ids:
+            tags = self.provider.node_tags(node_id)
+            this_node_type = tags.get(CLOUDTIK_TAG_USER_NODE_TYPE)
+            if node_type != this_node_type:
+                continue
+            node_quorum_id = tags.get(CLOUDTIK_TAG_QUORUM_ID)
+            if node_quorum_id:
+                continue
+
+            # New node, assign the quorum_id
+            self.provider.set_node_tags(
+                node_id, {CLOUDTIK_TAG_QUORUM_ID: quorum_id})
+            self._update_quorum_id_to_nodes(
+                node_type, node_quorum_id, node_id)
+
+    def _get_quorum(self, node_type: str):
+        minimal_nodes_info = self.minimal_nodes_before_update[node_type]
+        minimal = minimal_nodes_info["minimal"]
+        quorum = int(minimal / 2) + 1
+        return quorum, minimal
+
+    def _terminate_for_quorum(self, node_type: str, node_id):
+        if (not self._is_minimal_nodes(node_type)) or (
+                not self._is_quorum_minimal_nodes(node_type)):
+            return False
+
+        quorum, minimal = self._get_quorum(node_type)
+        # Check whether the node is an invalid quorum member
+        quorum_id_to_nodes = self.node_types_quorum_id_to_nodes.get(
+            node_type, {})
+        for node_quorum_id in quorum_id_to_nodes:
+            quorum_id_nodes = quorum_id_to_nodes[node_quorum_id]
+            if node_id in quorum_id_nodes:
+                if len(quorum_id_nodes) < quorum:
+                    if logger.isEnabledFor(logging.DEBUG):
+                        logger.debug("Node {} is not bad quorum member: {} ({}/{}). Will be terminated".format(
+                            node_id, node_quorum_id, quorum, minimal))
+                    return True
+                return False
         return False
+
+    def _update_quorum_id_to_nodes(
+            self, node_type: str, node_quorum_id: str, node_id: str):
+        if node_type not in self.node_types_quorum_id_to_nodes:
+            self.node_types_quorum_id_to_nodes[node_type] = {}
+        quorum_id_to_nodes = self.node_types_quorum_id_to_nodes[node_type]
+        if node_quorum_id not in quorum_id_to_nodes:
+            quorum_id_to_nodes[node_quorum_id] = set()
+        quorum_id_nodes = quorum_id_to_nodes[node_quorum_id]
+        quorum_id_nodes.add(node_id)
+
+    def collect_quorum_minimal_nodes(self):
+        if not self.minimal_nodes_before_update:
+            # No need
+            return
+
+        self.node_types_quorum_id_to_nodes = {}
+        for node_id in self.non_terminated_nodes.worker_ids:
+            tags = self.provider.node_tags(node_id)
+            node_type = tags.get(CLOUDTIK_TAG_USER_NODE_TYPE)
+            if not node_type:
+                continue
+            if node_type not in self.minimal_nodes_before_update:
+                continue
+            node_quorum_id = tags.get(CLOUDTIK_TAG_QUORUM_ID)
+            if not node_quorum_id:
+                continue
+
+            self._update_quorum_id_to_nodes(
+                node_type, node_quorum_id, node_id)
+
+    def _is_quorum_minimal_nodes_in_launch(self, node_type: str):
+        quorum, minimal = self._get_quorum(node_type)
+        # Only when a quorum of the minimal nodes dead,
+        # we can launch new nodes and form a new quorum
+        quorum_id_to_nodes = self.node_types_quorum_id_to_nodes.get(
+            node_type, {})
+        for node_quorum_id in quorum_id_to_nodes:
+            quorum_id_nodes = quorum_id_to_nodes[node_quorum_id]
+            if len(quorum_id_nodes) >= quorum:
+                # One quorum id exceed the quorum
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug("No new node launch allowed with the existence of a valid quorum: {} ({}/{}).".format(
+                        node_quorum_id, quorum, minimal))
+                return False
+
+        # none of the quorum_id exceeding a quorum
+        logger.info(
+            "Cluster Controller: None of the quorum id of {} forms a quorum ({}/{})."
+            " Quorum launch.".format(node_type, quorum, minimal))
+        return True
 
     @staticmethod
     def _print_info_waiting_for(minimal_nodes_info, nodes_number, for_what):

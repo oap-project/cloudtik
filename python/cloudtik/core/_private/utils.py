@@ -64,6 +64,7 @@ CLOUDTIK_CLUSTER_SCALING_STATUS = "__cluster_scaling_status"
 CLOUDTIK_CLUSTER_RUNTIME_CONFIG = "__cluster_runtime_config"
 CLOUDTIK_CLUSTER_RUNTIME_CONFIG_NODE_TYPE = "__cluster_runtime_config_{}"
 CLOUDTIK_CLUSTER_NODES_INFO_NODE_TYPE = "__cluster_nodes_info_{}"
+CLOUDTIK_CLUSTER_NODES_INFO_HASHES = "__cluster_nodes_info_hashes"
 CLOUDTIK_CLUSTER_VARIABLE = "__cluster_variable_{}"
 
 PLACEMENT_GROUP_RESOURCE_BUNDLED_PATTERN = re.compile(
@@ -2599,16 +2600,23 @@ def _get_minimal_nodes_before_update(config: Dict[str, Any], node_type: str):
     # For each
     runtimes_require_minimal_nodes = []
     runtime_types = runtime_config.get(RUNTIME_TYPES_CONFIG_KEY, [])
+    fixed_minimal_nodes = False
     for runtime_type in runtime_types:
         runtime = _get_runtime(runtime_type, runtime_config)
-        if runtime.require_minimal_nodes(config):
+        runtime_require_minimal_nodes, runtime_fixed_minimal_nodes = runtime.require_minimal_nodes(config)
+        if runtime_require_minimal_nodes:
             runtimes_require_minimal_nodes += [runtime_type]
+            if runtime_fixed_minimal_nodes:
+                fixed_minimal_nodes = runtime_fixed_minimal_nodes
 
     if len(runtimes_require_minimal_nodes) > 0:
         node_type_config = config["available_node_types"][node_type]
         min_workers = node_type_config.get("min_workers", 0)
         if min_workers > 0:
-            return {"minimal": min_workers, "runtimes": runtimes_require_minimal_nodes}
+            return {
+                "minimal": min_workers,
+                "fixed": fixed_minimal_nodes,
+                "runtimes": runtimes_require_minimal_nodes}
     return None
 
 

@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, Optional, List, Tuple
 
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.runtime import Runtime
@@ -64,11 +64,11 @@ class ZooKeeperRuntime(Runtime):
     def get_runtime_services(self, cluster_head_ip: str):
         return _get_runtime_services(cluster_head_ip)
 
-    def require_minimal_nodes(self, cluster_config: Dict[str, Any]) -> bool:
+    def require_minimal_nodes(self, cluster_config: Dict[str, Any]) -> Tuple[int, int]:
         """Whether the runtime nodes need minimal nodes launch before going to setup.
         Usually this is because the setup of the nodes need to know each other.
         """
-        return True
+        return True, True
 
     def minimal_nodes_reached(self, cluster_config: Dict[str, Any], nodes_info: Dict[str, Any]):
         """If the require_minimal_nodes method returns True and runtime will be notified on head

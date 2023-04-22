@@ -22,7 +22,7 @@ from cloudtik.core._private.cluster.cluster_metrics_updater import ClusterMetric
 from cloudtik.core._private.cluster.resource_scaling_policy import ResourceScalingPolicy
 from cloudtik.core._private.core_utils import ConcurrentCounter
 from cloudtik.core._private.crypto import AESCipher
-from cloudtik.core._private.state.kv_store import kv_put, kv_del, kv_initialized
+from cloudtik.core._private.state.kv_store import kv_put, kv_del, kv_initialized, kv_get
 
 try:
     from urllib3.exceptions import MaxRetryError
@@ -52,7 +52,7 @@ from cloudtik.core._private.utils import validate_config, \
     _get_node_specific_docker_config, _get_node_specific_runtime_config, \
     _has_node_type_specific_runtime_config, get_runtime_config_key, RUNTIME_CONFIG_KEY, \
     _get_minimal_nodes_before_update, CLOUDTIK_CLUSTER_NODES_INFO_NODE_TYPE, _notify_minimal_nodes_reached, \
-    process_config_with_privacy, decrypt_config, CLOUDTIK_CLUSTER_SCALING_STATUS
+    process_config_with_privacy, decrypt_config, CLOUDTIK_CLUSTER_SCALING_STATUS, CLOUDTIK_CLUSTER_NODES_INFO_HASHES
 from cloudtik.core._private.constants import CLOUDTIK_MAX_NUM_FAILURES, \
     CLOUDTIK_MAX_LAUNCH_BATCH, CLOUDTIK_MAX_CONCURRENT_LAUNCHES, \
     CLOUDTIK_UPDATE_INTERVAL_S, CLOUDTIK_HEARTBEAT_TIMEOUT_S, CLOUDTIK_RUNTIME_ENV_SECRETS
@@ -279,6 +279,9 @@ class ClusterScaler:
         # failed nodes. It is best effort only.
         self.node_tracker = NodeTracker()
 
+        # Initialize the node info hashes from state
+        self._init_nodes_info_hashes()
+
         # Expand local file_mounts to allow ~ in the paths. This can't be done
         # earlier when the config is written since we might be on different
         # platform and the expansion would result in wrong path.
@@ -292,6 +295,17 @@ class ClusterScaler:
         config_to_log = copy.deepcopy(self.config)
         process_config_with_privacy(config_to_log)
         logger.info("Cluster Controller: {}".format(config_to_log))
+
+    def _init_nodes_info_hashes(self):
+        try:
+            nodes_info_hashes_data = kv_get(CLOUDTIK_CLUSTER_NODES_INFO_HASHES)
+            if nodes_info_hashes_data:
+                nodes_info_hashes = json.loads(nodes_info_hashes_data)
+                self.published_nodes_info_hashes.update(
+                    nodes_info_hashes
+                )
+        except Exception:
+            logger.exception("Error loading nodes info hashes from state store.")
 
     def run(self):
         self.reset(errors_fatal=False)
@@ -562,7 +576,8 @@ class ClusterScaler:
     def launch_required_nodes(self, to_launch: Dict[NodeType, int]) -> None:
         if to_launch:
             for node_type, count in to_launch.items():
-                self.launch_new_node(count, node_type=node_type)
+                if self.is_launch_allowed(node_type):
+                    self.launch_new_node(count, node_type=node_type)
 
     def update_nodes(self):
         """Run NodeUpdaterThreads to run setup commands, sync files,
@@ -1443,15 +1458,15 @@ class ClusterScaler:
         return False
 
     def _publish_nodes_info(self, node_type: str, nodes_info, minimal_nodes_info):
-        nodes_info_str = json.dumps(nodes_info, sort_keys=True)
+        nodes_info_data = json.dumps(nodes_info, sort_keys=True)
 
         hasher = hashlib.sha1()
-        hasher.update(nodes_info_str.encode("utf-8"))
+        hasher.update(nodes_info_data.encode("utf-8"))
         new_nodes_info_hash = hasher.hexdigest()
 
         published_nodes_info_hash = self.published_nodes_info_hashes.get(node_type)
         if published_nodes_info_hash and new_nodes_info_hash == published_nodes_info_hash:
-            return
+            return False
         self.published_nodes_info_hashes[node_type] = new_nodes_info_hash
 
         logger.info(
@@ -1459,14 +1474,45 @@ class ClusterScaler:
                 node_type))
 
         nodes_info_key = CLOUDTIK_CLUSTER_NODES_INFO_NODE_TYPE.format(node_type)
-        kv_put(nodes_info_key, nodes_info_str, overwrite=True)
+        kv_put(nodes_info_key, nodes_info_data, overwrite=True)
+
+        # Update the nodes_info hashes
+        nodes_info_hashes_data = json.dumps(self.published_nodes_info_hashes, sort_keys=True)
+        kv_put(CLOUDTIK_CLUSTER_NODES_INFO_HASHES, nodes_info_hashes_data, overwrite=True)
 
         # Notify runtime of these
         self._notify_minimal_nodes_reached(node_type, nodes_info, minimal_nodes_info)
+        return True
 
     def _notify_minimal_nodes_reached(self, node_type: str, nodes_info, minimal_nodes_info):
         _notify_minimal_nodes_reached(
             self.config, node_type, nodes_info, minimal_nodes_info)
+
+    def is_launch_allowed(self, node_type: str):
+        if (not self._is_minimal_nodes(node_type)) or (
+                not self._is_minimal_nodes_fixed(node_type)) or (
+                not self._is_minimal_nodes_reached(node_type)):
+            return True
+        return False
+
+    def _is_minimal_nodes(self, node_type: str):
+        if node_type in self.minimal_nodes_before_update:
+            return True
+        return False
+
+    def _is_minimal_nodes_fixed(self, node_type: str):
+        # Usually, for the cases to control minimal nodes for update
+        # We are targeting for fixed nodes once it started
+        if node_type not in self.minimal_nodes_before_update:
+            return False
+        minimal_nodes_info = self.minimal_nodes_before_update[node_type]
+        return minimal_nodes_info["fixed"]
+
+    def _is_minimal_nodes_reached(self, node_type: str):
+        # If the node type has published nodes info, the minimal workers reached
+        if node_type in self.published_nodes_info_hashes:
+            return True
+        return False
 
     @staticmethod
     def _print_info_waiting_for(minimal_nodes_info, nodes_number, for_what):

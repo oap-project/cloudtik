@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, Optional, List, Tuple
 
 from cloudtik.core.job_waiter import JobWaiter
 from cloudtik.core.node_provider import NodeProvider
@@ -100,11 +100,12 @@ class Runtime:
         """
         return None
 
-    def require_minimal_nodes(self, cluster_config: Dict[str, Any]) -> bool:
+    def require_minimal_nodes(self, cluster_config: Dict[str, Any]) -> Tuple[bool, bool]:
         """Whether the runtime nodes need minimal nodes launch before going to setup.
         Usually this is because the setup of the nodes need to know each other.
+        Return a tuple (whether to require minimal nodes, whether to fix the number of minimal nodes)
         """
-        return False
+        return False, False
 
     def minimal_nodes_reached(self, cluster_config: Dict[str, Any], nodes_info: Dict[str, Any]):
         """If the require_minimal_nodes_before_setup method returns True and runtime will be notified on head

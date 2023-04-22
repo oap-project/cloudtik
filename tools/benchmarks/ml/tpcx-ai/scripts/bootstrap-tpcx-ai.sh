@@ -54,6 +54,10 @@ function install_libaries() {
     sudo apt-get install libsndfile1 libsndfile-dev libxxf86vm1 libxxf86vm-dev libglvnd0 libgl-dev -y
 }
 
+function install_python_libraries() {
+    pip -qq install dlib==19.24.0
+}
+
 function install_tpcx_ai_benchmark() {
     sudo apt-get install zip -y
     wget https://d30257nes7d4fq.cloudfront.net/downloads/tpcx-ai/tpcx-ai-tool-v1.0.2.zip -O /tmp/tpcx-ai-tool.zip
@@ -100,3 +104,4 @@ configure_tpcx_ai_benchmark
 check_and_install_jdk8
 install_tools
 install_libaries
+install_python_libraries

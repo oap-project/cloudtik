@@ -7,6 +7,6 @@ provider:
 # 1 * T4
 # The instance configuration for a small instance type
 available_node_types:
-    worker-default:
+    worker.default:
         node_config:
             InstanceType: ecs.gn6i-c8g1.2xlarge

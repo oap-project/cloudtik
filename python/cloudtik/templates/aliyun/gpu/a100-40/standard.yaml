@@ -7,6 +7,6 @@ provider:
 # 1 * A100-40GB
 # The instance configuration for a standard instance type
 available_node_types:
-    worker-default:
+    worker.default:
         node_config:
             InstanceType: ecs.gn7-c12g1.3xlarge

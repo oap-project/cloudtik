@@ -7,6 +7,6 @@ provider:
 # 8 * V100-16GB
 # The instance configuration for a very large instance type
 available_node_types:
-    worker-default:
+    worker.default:
         node_config:
             InstanceType: ecs.gn6v-c8g1.16xlarge

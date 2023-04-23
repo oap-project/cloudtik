@@ -4,12 +4,12 @@ from: aws/gpu/base
 provider:
     type: aws
 
-# 4 * T4
-# The instance configuration for a large instance type
+# 8 * T4
+# The instance configuration for a very large instance type
 available_node_types:
     worker.default:
         node_config:
-            InstanceType: g4dn.12xlarge
+            InstanceType: g4dn.metal
             BlockDeviceMappings:
                 - DeviceName: /dev/sda1
                   Ebs:

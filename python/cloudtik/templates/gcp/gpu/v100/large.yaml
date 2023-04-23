@@ -4,6 +4,7 @@ from: gcp/gpu/base-8
 provider:
     type: gcp
 
+# 4 * V100-16GB
 # The instance configuration for a small instance type
 available_node_types:
     worker-default:

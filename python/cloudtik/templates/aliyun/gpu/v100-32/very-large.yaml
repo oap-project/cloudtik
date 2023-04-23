@@ -1,0 +1,12 @@
+from: aliyun/gpu/base-4
+
+# Cloud-provider specific configuration.
+provider:
+    type: aliyun
+
+# 8 * V100-32GB
+# The instance configuration for a large instance type
+available_node_types:
+    worker-default:
+        node_config:
+            InstanceType: ecs.gn6e-c12g1.24xlarge

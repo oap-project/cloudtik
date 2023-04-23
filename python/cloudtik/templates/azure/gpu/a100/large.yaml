@@ -4,6 +4,7 @@ from: azure/gpu/base
 provider:
     type: azure
 
+# 4 * A100-80GB
 # The instance configuration for a large instance type
 available_node_types:
     worker.default:

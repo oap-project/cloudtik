@@ -4,6 +4,7 @@ from: azure/gpu/base
 provider:
     type: azure
 
+# 1 * T4
 # The instance configuration for a small instance type
 available_node_types:
     worker.default:

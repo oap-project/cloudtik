@@ -1,0 +1,12 @@
+from: aliyun/gpu/base-2
+
+# Cloud-provider specific configuration.
+provider:
+    type: aliyun
+
+# 1 * A100-40GB
+# The instance configuration for a standard instance type
+available_node_types:
+    worker-default:
+        node_config:
+            InstanceType: ecs.gn7e-c16g1.4xlarge

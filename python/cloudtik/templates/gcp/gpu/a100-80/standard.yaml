@@ -4,12 +4,9 @@ from: gcp/gpu/base-2
 provider:
     type: gcp
 
-# 1 * T4
+# 1 * A100-80GB
 # The instance configuration for a small instance type
 available_node_types:
     worker-default:
         node_config:
-            machineType: n1-standard-16
-            guestAccelerators:
-                - acceleratorType: nvidia-tesla-t4
-                  acceleratorCount: 1
+            machineType: a2-ultragpu-1g

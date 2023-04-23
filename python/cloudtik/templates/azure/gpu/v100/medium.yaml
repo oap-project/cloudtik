@@ -4,6 +4,7 @@ from: azure/gpu/base
 provider:
     type: azure
 
+# 2 * V100-16GB
 # The instance configuration for a medium instance type
 available_node_types:
     worker.default:

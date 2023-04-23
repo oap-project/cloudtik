@@ -59,6 +59,7 @@ class ClusterRuntimeTest:
                                                     with_output=True)
         print(cmd_output)
 
+
 class ClusterScaleTest:
 
     @pytest.mark.parametrize("scale_cpus", SCALE_CPUS_LIST)
@@ -90,4 +91,3 @@ def create_workspace(conf_file):
     print("\nCreate Workspace {}".format(conf["workspace_name"]))
     workspace.create()
     return workspace
-

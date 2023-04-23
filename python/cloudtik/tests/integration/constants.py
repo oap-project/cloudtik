@@ -6,6 +6,8 @@ AZURE_BASIC_CLUSTER_CONF_FILE = "example/cluster/azure/example-standard.yaml"
 AZURE_BASIC_WORKSPACE_CONF_FILE = "example/cluster/azure/example-workspace.yaml"
 GCP_BASIC_CLUSTER_CONF_FILE = "example/cluster/gcp/example-standard.yaml"
 GCP_BASIC_WORKSPACE_CONF_FILE = "example/cluster/gcp/example-workspace.yaml"
+ALIYUN_BASIC_CLUSTER_CONF_FILE = "example/cluster/aliyun/example-standard.yaml"
+ALIYUN_BASIC_WORKSPACE_CONF_FILE = "example/cluster/aliyun/example-workspace.yaml"
 HUAWEICLOUD_BASIC_CLUSTER_CONF_FILE = "example/cluster/huaweicloud/example-standard.yaml"
 HUAWEICLOUD_BASIC_WORKSPACE_CONF_FILE = "example/cluster/huaweicloud/example-workspace.yaml"
 

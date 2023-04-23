@@ -1,9 +1,10 @@
-from: aliyun/standard
+# An example of standard 1 + 3 nodes cluster with standard instance type
+from: azure/standard
 
 # A unique identifier for the head node and workers of this cluster.
 cluster_name: example-ml
 
-# Workspace name
+# Workspace into which to launch the cluster
 workspace_name: example-workspace
 
 # Specify the ML runtime image
@@ -12,11 +13,18 @@ docker:
 
 # Cloud-provider specific configuration.
 provider:
-    type: aliyun
-    region: cn-shanghai
+    type: azure
+    location: westus
+    subscription_id: your_subscription_id
 
+# How CloudTik will authenticate with newly launched nodes.
 auth:
-    ssh_user: root
+    ssh_user: ubuntu
+    # you must specify paths to matching private and public key pair files
+    # use `ssh-keygen -t rsa -b 4096` to generate a new ssh key pair
+    ssh_private_key: ~/.ssh/id_rsa
+    # changes to this should match what is specified in file_mounts
+    ssh_public_key: ~/.ssh/id_rsa.pub
     # Set proxy if you are in corporation network. For example,
     # ssh_proxy_command: "ncat --proxy-type socks5 --proxy your_proxy_host:your_proxy_port %h %p"
 

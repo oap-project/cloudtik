@@ -1,22 +1,23 @@
-from: aliyun/standard
+# An example of standard 1 + 3 nodes cluster with standard instance type
+from: aws/standard
 
-# A unique identifier for the head node and workers of this cluster.
-cluster_name: example-ml
+# A unique identifier for the cluster.
+cluster_name: example-ml-oneapi
 
-# Workspace name
+# Workspace into which to launch the cluster
 workspace_name: example-workspace
 
-# Specify the ML runtime image
+# Specify the ML runtime image with oneAPI
 docker:
-    image: "cloudtik/spark-ml-runtime"
+    image: "cloudtik/spark-ml-oneapi"
 
 # Cloud-provider specific configuration.
 provider:
-    type: aliyun
-    region: cn-shanghai
+    type: aws
+    region: us-west-2
 
 auth:
-    ssh_user: root
+    ssh_user: ubuntu
     # Set proxy if you are in corporation network. For example,
     # ssh_proxy_command: "ncat --proxy-type socks5 --proxy your_proxy_host:your_proxy_port %h %p"
 
@@ -25,6 +26,8 @@ available_node_types:
         # The minimum number of worker nodes to launch.
         min_workers: 3
 
-# Specify the ML runtime with CPU
+# Specify the ML runtime with oneAPI for CPU
 runtime:
     types: [ganglia, spark, ml]
+    ml:
+        with_oneapi: True

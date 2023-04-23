@@ -1,0 +1,12 @@
+from: aliyun/gpu/base
+
+# Cloud-provider specific configuration.
+provider:
+    type: aliyun
+
+# 1 * T4
+# The instance configuration for a very small instance type
+available_node_types:
+    worker.default:
+        node_config:
+            InstanceType: ecs.gn6i-c4g1.xlarge

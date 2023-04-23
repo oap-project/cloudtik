@@ -23,3 +23,15 @@ available_node_types:
                       value: "True"
             scheduling:
                 - onHostMaintenance: TERMINATE
+            disks:
+                - boot: true
+                  autoDelete: true
+                  type: PERSISTENT
+                  initializeParams:
+                      diskSizeGb: 256
+                      diskType: pd-ssd
+                - autoDelete: true
+                  type: SCRATCH
+                  interface: NVME
+                  initializeParams:
+                      diskType: local-ssd

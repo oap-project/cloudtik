@@ -1,7 +1,7 @@
-from: aliyun/standard
+from: aliyun/gpu/t4/standard
 
 # A unique identifier for the head node and workers of this cluster.
-cluster_name: example-ml
+cluster_name: example-ml-gpu
 
 # Workspace name
 workspace_name: example-workspace
@@ -25,6 +25,8 @@ available_node_types:
         # The minimum number of worker nodes to launch.
         min_workers: 3
 
-# Specify the ML runtime with CPU
+# Specify the ML runtime with GPU
 runtime:
     types: [ganglia, spark, ml]
+    ml:
+        with_gpu: True

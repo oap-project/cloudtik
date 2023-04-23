@@ -36,6 +36,19 @@ parser.add_argument('--mpi', action='store_true', dest='use_mpi',
                     help='Run Horovod using the MPI controller. This will '
                          'be the default if Horovod was built with MPI support.')
 
+parser.add_argument('--ipex', action='store_true', default=False,
+                    help='use intel pytorch extension')
+parser.add_argument('--int8', action='store_true', default=False,
+                    help='enable ipex int8 path')
+parser.add_argument('--bf16', action='store_true', default=False,
+                    help='enable ipex bf16 path')
+parser.add_argument('--bf32', action='store_true', default=False,
+                    help='enable ipex bf32 path')
+parser.add_argument('--fp16', action='store_true', default=False,
+                    help='enable ipex fp16 path')
+parser.add_argument('--jit', action='store_true', default=False,
+                    help='enable ipex jit fusion path')
+
 # Since we don't have cuda:cudnn in the runtime
 # import torch.backends.cudnn as cudnn
 import torch.nn.functional as F
@@ -44,6 +57,32 @@ import torch.utils.data.distributed
 from torchvision import models
 import horovod.torch as hvd
 import numpy as np
+
+# WARNING: Several fixes needed for IPEX to work
+# 1. IPEX will generate non-contiguous state and Horovod requires contiguous state
+#   a. Workaround fix for PyTorch: /nn/modules/module.py in _load_from_state_dict
+#       param.copy_(input_param) -> param.set_(input_param)
+#   b. Workaround fix for IPEX: /nn/utils/_weight_prepack.py _save_weight_bias_to_state_dict
+#       self.ctx.to_public(weight.detach()) -> self.ctx.to_public(weight.detach()).contiguous()
+# 2. IPEX: named parameters problem. Some parameters in optimizer param_groups are not in named parameters.
+
+
+def make_contiguous(module):
+    with torch.no_grad():
+        for name, param in module.named_parameters():
+            if not param.is_contiguous():
+                param.set_(param.contiguous())
+
+    modified = False
+    with torch.no_grad():
+        state_dict = module.state_dict()
+        for name, param in state_dict.items():
+            if not param.is_contiguous():
+                state_dict[name] = param.contiguous()
+                modified = True
+
+    if modified:
+        module.load_state_dict(state_dict)
 
 
 def train_horovod(learning_rate):
@@ -70,14 +109,58 @@ def train_horovod(learning_rate):
         if args.use_adasum and hvd.nccl_built():
             lr_scaler = hvd.local_size()
 
+    if args.ipex:
+        import intel_extension_for_pytorch as ipex
+
+        # for ipex path, always convert model to channels_last for bf16, fp32.
+        # TODO: int8 path: https://jira.devtools.intel.com/browse/MFDNN-6103
+        if not args.int8:
+            model = model.to(memory_format=torch.channels_last)
+
+        if args.bf32:
+            ipex.set_fp32_math_mode(mode=ipex.FP32MathMode.BF32, device="cpu")
+            print("using bf32 fmath mode\n")
+
+        if args.jit and args.int8:
+            assert False, "jit path is not available for int8 path using ipex"
+    else:
+        # for official pytorch, int8 and jit path is not enabled.
+        assert not args.int8, "int8 path is not enabled for official pytorch"
+        assert not args.jit, "jit path is not enabled for official pytorch"
+
     optimizer = optim.SGD(model.parameters(), lr=learning_rate * lr_scaler)
+    named_parameters = model.named_parameters()
+
+    scaler = None
+    if args.ipex:
+        # for bf32 path, calling ipex.optimize to calling ipex conv which enabled bf32 path
+        if args.bf32:
+            sample_input = torch.randn(args.batch_size, 3, 224, 224).contiguous(memory_format=torch.channels_last)
+            model, optimizer = ipex.optimize(model, dtype=torch.float32,
+                                             optimizer=optimizer, sample_input=sample_input)
+
+        if args.bf16:
+            sample_input = torch.randn(args.batch_size, 3, 224, 224).contiguous(memory_format=torch.channels_last)
+            model, optimizer = ipex.optimize(model, dtype=torch.bfloat16, optimizer=optimizer,
+                                             weights_prepack=True, split_master_weight_for_bf16=False,
+                                             sample_input=sample_input)
+
+        if args.fp16:
+            scaler = torch.cpu.amp.GradScaler()
+            model, optimizer = ipex.optimize(model, optimizer=optimizer, dtype=torch.half, auto_kernel_selection=True,
+                                             fuse_update_step=False)
+
+        make_contiguous(model)
+
+        # IPEX: named parameters problem
+        named_parameters = None
 
     # Horovod: (optional) compression algorithm.
     compression = hvd.Compression.fp16 if args.fp16_allreduce else hvd.Compression.none
 
     # Horovod: wrap optimizer with DistributedOptimizer.
     optimizer = hvd.DistributedOptimizer(optimizer,
-                                         named_parameters=model.named_parameters(),
+                                         named_parameters=named_parameters,
                                          compression=compression,
                                          op=hvd.Adasum if args.use_adasum else hvd.Average)
 
@@ -86,17 +169,43 @@ def train_horovod(learning_rate):
     hvd.broadcast_optimizer_state(optimizer, root_rank=0)
 
     # Set up fixed fake data
-    data = torch.randn(args.batch_size, 3, 224, 224)
+    if args.ipex:
+        data = torch.randn(args.batch_size, 3, 224, 224).contiguous(memory_format=torch.channels_last)
+        if args.bf16:
+            data = data.to(torch.bfloat16)
+        if args.fp16:
+            data = data.to(torch.half)
+    else:
+        data = torch.randn(args.batch_size, 3, 224, 224)
     target = torch.LongTensor(args.batch_size).random_() % 1000
     if args.cuda:
         data, target = data.cuda(), target.cuda()
 
     def benchmark_step():
         optimizer.zero_grad()
-        output = model(data)
+
+        if args.ipex:
+            if args.bf16:
+                with torch.cpu.amp.autocast(dtype=torch.bfloat16):
+                    output = model(data)
+                output = output.to(torch.float32)
+            elif args.fp16:
+                with torch.cpu.amp.autocast(dtype=torch.half):
+                    output = model(data)
+                output = output.to(torch.float32)
+            else:
+                output = model(data)
+        else:
+            output = model(data)
         loss = F.cross_entropy(output, target)
-        loss.backward()
-        optimizer.step()
+
+        if args.ipex and args.fp16:
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+        else:
+            loss.backward()
+            optimizer.step()
 
     def log(s, nl=True):
         if hvd.rank() != 0:

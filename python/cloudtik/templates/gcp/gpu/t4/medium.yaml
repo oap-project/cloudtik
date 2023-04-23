@@ -4,6 +4,7 @@ from: gcp/gpu/base-2
 provider:
     type: gcp
 
+# 2 * T4
 # The instance configuration for a small instance type
 available_node_types:
     worker-default:

@@ -1,0 +1,17 @@
+from: aliyun/gpu/base
+
+# Cloud-provider specific configuration.
+provider:
+    type: aliyun
+
+# The instance configuration for a small instance type
+available_node_types:
+    worker.default:
+        node_config:
+            DataDisk:
+              - DiskName: data-disk-1
+                Category: cloud_ssd
+                Size: 500
+              - DiskName: data-disk-2
+                Category: cloud_ssd
+                Size: 500

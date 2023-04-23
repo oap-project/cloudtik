@@ -1,11 +1,12 @@
-from: gcp/gpu/base-2
+from: gcp/gpu/base-4
 
 # Cloud-provider specific configuration.
 provider:
     type: gcp
 
+# 2 * A100-80GB
 # The instance configuration for a small instance type
 available_node_types:
     worker-default:
         node_config:
-            machineType: a2-highgpu-1g
+            machineType: a2-ultragpu-2g

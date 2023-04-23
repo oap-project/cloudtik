@@ -4,6 +4,7 @@ from: aws/gpu/base
 provider:
     type: aws
 
+# 1 * V100-16GB
 # The instance configuration for a standard instance type
 available_node_types:
     worker.default:

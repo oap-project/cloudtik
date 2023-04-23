@@ -1,14 +1,12 @@
-from: azure/gpu/base
+from: aliyun/gpu/base-4
 
 # Cloud-provider specific configuration.
 provider:
-    type: azure
+    type: aliyun
 
-# 4 * T4
+# 8 * V100-32GB
 # The instance configuration for a large instance type
 available_node_types:
     worker.default:
         node_config:
-            azure_arm_parameters:
-                vmSize: Standard_NC64as_T4_v3
-                osDiskSizeGB: 256
+            InstanceType: ecs.gn6e-c12g1.24xlarge

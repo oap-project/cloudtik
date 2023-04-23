@@ -4,11 +4,12 @@ from: aws/gpu/base
 provider:
     type: aws
 
+# 4 * V100-16GB
 # The instance configuration for a large instance type
 available_node_types:
     worker.default:
         node_config:
-            InstanceType: p3.16xlarge
+            InstanceType: p3.8xlarge
             BlockDeviceMappings:
                 - DeviceName: /dev/sda1
                   Ebs:

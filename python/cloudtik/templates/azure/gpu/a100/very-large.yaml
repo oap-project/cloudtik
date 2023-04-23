@@ -4,11 +4,11 @@ from: azure/gpu/base
 provider:
     type: azure
 
-# 1 * A100-80GB
-# The instance configuration for a standard instance type
+# 8 * A100-80GB
+# The instance configuration for a large instance type
 available_node_types:
     worker.default:
         node_config:
             azure_arm_parameters:
-                vmSize: Standard_NC24ads_A100_v4
+                vmSize: Standard_ND96amsr_A100_v4
                 osDiskSizeGB: 256

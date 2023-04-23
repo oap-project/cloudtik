@@ -5,11 +5,11 @@ provider:
     type: aws
 
 # 1 * T4
-# The instance configuration for a small instance type
+# The instance configuration for a very small instance type
 available_node_types:
     worker.default:
         node_config:
-            InstanceType: g4dn.2xlarge
+            InstanceType: g4dn.xlarge
             BlockDeviceMappings:
                 - DeviceName: /dev/sda1
                   Ebs:

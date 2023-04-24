@@ -317,8 +317,8 @@ def launch_gloo_elastic(command_or_func, exec_command, settings, env, get_common
     global_rendezv_port = rendezvous.start(handler)
     driver.wait_for_available_slots(settings.num_proc)
 
-    nics = get_common_interfaces(driver)
-    server_ip = network.get_driver_ip(nics)
+    nics, driver_nics = get_common_interfaces(driver)
+    server_ip = network.get_driver_ip(driver_nics)
     run_func_server = None
     run_func_server_port = None
 

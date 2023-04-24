@@ -1,15 +1,15 @@
 CLUSTER_TIMEOUT = 60 * 10
 
-AWS_BASIC_CLUSTER_CONF_FILE = "example/cluster/aws/example-standard.yaml"
-AWS_BASIC_WORKSPACE_CONF_FILE = "example/cluster/aws/example-workspace.yaml"
-AZURE_BASIC_CLUSTER_CONF_FILE = "example/cluster/azure/example-standard.yaml"
-AZURE_BASIC_WORKSPACE_CONF_FILE = "example/cluster/azure/example-workspace.yaml"
-GCP_BASIC_CLUSTER_CONF_FILE = "example/cluster/gcp/example-standard.yaml"
-GCP_BASIC_WORKSPACE_CONF_FILE = "example/cluster/gcp/example-workspace.yaml"
-ALIYUN_BASIC_CLUSTER_CONF_FILE = "example/cluster/aliyun/example-standard.yaml"
-ALIYUN_BASIC_WORKSPACE_CONF_FILE = "example/cluster/aliyun/example-workspace.yaml"
-HUAWEICLOUD_BASIC_CLUSTER_CONF_FILE = "example/cluster/huaweicloud/example-standard.yaml"
-HUAWEICLOUD_BASIC_WORKSPACE_CONF_FILE = "example/cluster/huaweicloud/example-workspace.yaml"
+AWS_BASIC_CLUSTER_CONF_FILE = "examples/cluster/aws/example-standard.yaml"
+AWS_BASIC_WORKSPACE_CONF_FILE = "examples/cluster/aws/example-workspace.yaml"
+AZURE_BASIC_CLUSTER_CONF_FILE = "examples/cluster/azure/example-standard.yaml"
+AZURE_BASIC_WORKSPACE_CONF_FILE = "examples/cluster/azure/example-workspace.yaml"
+GCP_BASIC_CLUSTER_CONF_FILE = "examples/cluster/gcp/example-standard.yaml"
+GCP_BASIC_WORKSPACE_CONF_FILE = "examples/cluster/gcp/example-workspace.yaml"
+ALIYUN_BASIC_CLUSTER_CONF_FILE = "examples/cluster/aliyun/example-standard.yaml"
+ALIYUN_BASIC_WORKSPACE_CONF_FILE = "examples/cluster/aliyun/example-workspace.yaml"
+HUAWEICLOUD_BASIC_CLUSTER_CONF_FILE = "examples/cluster/huaweicloud/example-standard.yaml"
+HUAWEICLOUD_BASIC_WORKSPACE_CONF_FILE = "examples/cluster/huaweicloud/example-workspace.yaml"
 
 TPCDS_BENCHMARK = {
     "script_file": "https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/spark/scripts/tpcds-power-test.scala",

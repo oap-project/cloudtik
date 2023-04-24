@@ -63,7 +63,7 @@ When configured with "cloud_provider" section, the workspace creation
 will perform all the deployment and configuration steps including OIDC provider
 federation with IAM.
 
-Check [EKS Examples](https://github.com/oap-project/cloudtik/tree/main/example/cluster/kubernetes/eks)
+Check [EKS Examples](https://github.com/oap-project/cloudtik/tree/main/examples/cluster/kubernetes/eks)
 folder for more completed examples.
 
 ### Limitations
@@ -111,7 +111,7 @@ provider:
         managed_cloud_storage: True
 ```
 
-Check [GKE Examples](https://github.com/oap-project/cloudtik/tree/main/example/cluster/kubernetes/gke)
+Check [GKE Examples](https://github.com/oap-project/cloudtik/tree/main/examples/cluster/kubernetes/gke)
 folder for more completed examples.
 
 ## Integration with Azure AKS
@@ -154,7 +154,7 @@ provider:
         managed_cloud_storage: True
 ```
 
-Check [AKS Examples](https://github.com/oap-project/cloudtik/tree/main/example/cluster/kubernetes/aks)
+Check [AKS Examples](https://github.com/oap-project/cloudtik/tree/main/examples/cluster/kubernetes/aks)
 folder for more completed examples.
 
 ### Limitations

@@ -196,7 +196,7 @@ Use the following command to create and provision a Workspace:
 cloudtik workspace create /path/to/your-workspace-config.yaml
 ```
 
-Check [Configuration Examples](https://github.com/oap-project/cloudtik/tree/main/example/cluster) folder for more Workspace configuration file examples
+Check [Configuration Examples](https://github.com/oap-project/cloudtik/tree/main/examples/cluster) folder for more Workspace configuration file examples
 for AWS, Azure, GCP, Kubernetes (AWS EKS or GCP GKE).
 
 If you encounter problems on creating a Workspace, a common cause is that your current login account
@@ -241,7 +241,7 @@ available_node_types:
         # The minimum number of worker nodes to launch.
         min_workers: 3
 ```
-This example can be found in CloudTik source code folder `example/cluster/aws/example-standard.yaml`.
+This example can be found in CloudTik source code folder `examples/cluster/aws/example-standard.yaml`.
 
 You need only a few key settings in the configuration file to launch a Spark cluster.
 
@@ -272,7 +272,7 @@ runtime:
 ```
 It will run a cluster with ganglia, hdfs, spark and ml runtimes.
 
-Refer to `example/cluster` directory for more cluster configurations examples.
+Refer to `examples/cluster` directory for more cluster configurations examples.
 
 ### 6. Running analytics and AI workloads
 
@@ -291,7 +291,7 @@ Running a Spark job is very straight forward. Spark PI job for example,
 cloudtik exec ./your-cluster-config.yaml "spark-submit --master yarn --deploy-mode cluster --name spark-pi --class org.apache.spark.examples.SparkPi --conf spark.yarn.submit.waitAppCompletion=false \$SPARK_HOME/examples/jars/spark-examples.jar 12345" --job-waiter=spark
 ```
 
-Refer to [Run Spark PI Example](example/spark) for more details.
+Refer to [Run Spark PI Example](examples/spark) for more details.
 
 #### Running analytics benchmarks
 
@@ -307,14 +307,14 @@ CloudTik provides ready to run examples for demonstrating
 how distributed machine learning and deep learning jobs can be implemented
 in CloudTik Spark and ML runtime cluster.
 
-Refer to [Distributed Machine Learning and Deep Learning Examples](example/ml)
+Refer to [Distributed Machine Learning and Deep Learning Examples](examples/ml)
 for a detailed step-by-step guide.
 
 #### Workflow examples
 User can integrate CloudTik with external workflows using bash scripts or python
 for running on-demand cluster and jobs.
 
-Refer to [Workflow Integration Examples](example/workflows) for example scripts.
+Refer to [Workflow Integration Examples](examples/workflows) for example scripts.
 
 ### 7. Managing clusters
 

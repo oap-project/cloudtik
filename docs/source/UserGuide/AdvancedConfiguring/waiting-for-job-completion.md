@@ -89,20 +89,20 @@ Assume you are submitting a deep learning job to a machine learning cluster to d
 You may start with this command, for example,
 ```
 cloudtik submit your-cluster-config.yaml \
-    ./cloudtik/example/ml/jobs/keras/mnist-keras-spark-horovod-hyperopt-mlflow.py
+    ./cloudtik/examples/ml/jobs/keras/mnist-keras-spark-horovod-hyperopt-mlflow.py
 ```
 You will find that the training job will run quite a long time.
 And you want it to run in background, so you submit the job as the following,
 ```
 cloudtik submit your-cluster-config.yaml \
-    ./cloudtik/example/ml/jobs/keras/mnist-keras-spark-horovod-hyperopt-mlflow.py \
+    ./cloudtik/examples/ml/jobs/keras/mnist-keras-spark-horovod-hyperopt-mlflow.py \
     --tmux
 ```
 Since the training job output a lot of information.
 And you want to check the results afterwards, so you submit the job as the following,
 ```
 cloudtik submit your-cluster-config.yaml \
-    ./cloudtik/example/ml/jobs/keras/mnist-keras-spark-horovod-hyperopt-mlflow.py \
+    ./cloudtik/examples/ml/jobs/keras/mnist-keras-spark-horovod-hyperopt-mlflow.py \
     --tmux --job-log
 ```
 The --job-log parameter will redirect the job script output to the log file at ~/user/logs.

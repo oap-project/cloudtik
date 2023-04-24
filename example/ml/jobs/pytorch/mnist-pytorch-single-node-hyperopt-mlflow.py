@@ -14,6 +14,8 @@ parser.add_argument('--trials', type=int, default=2,
                     help='number of trails to parameter tuning (default: 2)')
 parser.add_argument('--fsdir', default=None,
                     help='the file system dir (default: None)')
+parser.add_argument('--no-cuda', action='store_true', default=False,
+                    help='disables CUDA training')
 
 if __name__ == '__main__':
     args = parser.parse_args()
@@ -76,6 +78,8 @@ if __name__ == '__main__':
     epochs = args.epochs
     print("Train epochs: {}".format(epochs))
 
+    args.cuda = not args.no_cuda and torch.cuda.is_available()
+
     # Define the PyTorch model
     class Net(nn.Module):
         def __init__(self):
@@ -122,7 +126,7 @@ if __name__ == '__main__':
     import torch.optim as optim
     from torchvision import datasets, transforms
 
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cuda' if args.cuda else 'cpu')
 
 
     def train(learning_rate):

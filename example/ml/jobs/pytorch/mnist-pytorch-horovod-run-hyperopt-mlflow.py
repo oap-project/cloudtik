@@ -22,15 +22,22 @@ parser.add_argument('--gloo', action='store_true', dest='use_gloo',
 parser.add_argument('--mpi', action='store_true', dest='use_mpi',
                     help='Run Horovod using the MPI controller. This will '
                          'be the default if Horovod was built with MPI support.')
+parser.add_argument('--no-cuda', action='store_true', default=False,
+                    help='disables CUDA training')
+parser.add_argument('--seed', type=int, default=42, metavar='S',
+                    help='random seed (default: 42)')
 parser.add_argument('--log-interval', type=int, default=100, metavar='N',
                     help='how many batches to wait before logging training status')
 parser.add_argument('--fp16-allreduce', action='store_true', default=False,
                     help='use fp16 compression during allreduce')
+parser.add_argument('--use-mixed-precision', action='store_true', default=False,
+                    help='use mixed precision for training')
 parser.add_argument('--use-adasum', action='store_true', default=False,
                     help='use adasum algorithm to do reduction')
 parser.add_argument('--gradient-predivide-factor', type=float, default=1.0,
                     help='apply gradient predivide factor in optimizer (default: 1.0)')
-
+parser.add_argument('--local-cuda', action='store_true', default=False,
+                    help='Enables local node with CUDA')
 
 if __name__ == '__main__':
     args = parser.parse_args()
@@ -104,6 +111,7 @@ if __name__ == '__main__':
     import torch
     import torch.nn as nn
     import torch.nn.functional as F
+    import torch.multiprocessing as mp
 
     num_proc = args.num_proc
     print("Train processes: {}".format(num_proc))
@@ -141,8 +149,13 @@ if __name__ == '__main__':
             return output
 
 
-    def train_one_epoch(model, device, data_loader, optimizer, epoch):
+    def train_one_epoch(
+            model, device,
+            data_loader, train_sampler,
+            optimizer, epoch):
         model.train()
+        # Horovod: set epoch to sampler for shuffling.
+        train_sampler.set_epoch(epoch)
         for batch_idx, (data, target) in enumerate(data_loader):
             data, target = data.to(device), target.to(device)
             optimizer.zero_grad()
@@ -151,9 +164,43 @@ if __name__ == '__main__':
             loss.backward()
             optimizer.step()
             if batch_idx % args.log_interval == 0:
+                # Horovod: use train_sampler to determine the number of examples in
+                # this worker's partition.
                 print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                    epoch, batch_idx * len(data), len(data_loader) * len(data),
+                    epoch, batch_idx * len(data), len(train_sampler),
                     100. * batch_idx / len(data_loader), loss.item()))
+
+
+    def train_mixed_precision(
+            model, device,
+            data_loader, train_sampler,
+            optimizer, epoch, scaler):
+        model.train()
+        # Horovod: set epoch to sampler for shuffling.
+        train_sampler.set_epoch(epoch)
+        for batch_idx, (data, target) in enumerate(data_loader):
+            data, target = data.to(device), target.to(device)
+            optimizer.zero_grad()
+            with torch.cuda.amp.autocast():
+                output = model(data)
+                loss = F.nll_loss(output, target)
+
+            scaler.scale(loss).backward()
+            # Make sure all async allreduces are done
+            optimizer.synchronize()
+            # In-place unscaling of all gradients before weights update
+            scaler.unscale_(optimizer)
+            with optimizer.skip_synchronize():
+                scaler.step(optimizer)
+            # Update scaler in case of overflow/underflow
+            scaler.update()
+
+            if batch_idx % args.log_interval == 0:
+                # Horovod: use train_sampler to determine the number of examples in
+                # this worker's partition.
+                print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\tLoss Scale: {}'.format(
+                    epoch, batch_idx * len(data), len(train_sampler),
+                    100. * batch_idx / len(data_loader), loss.item(), scaler.get_scale()))
 
 
     # Horovod train function passed to horovod.run
@@ -164,13 +211,31 @@ if __name__ == '__main__':
 
 
     def train_horovod(learning_rate):
+        use_cuda = not args.no_cuda and torch.cuda.is_available()
+
         # Initialize Horovod
         hvd.init()
+        torch.manual_seed(args.seed)
 
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        device = torch.device('cuda' if use_cuda else 'cpu')
         if device.type == 'cuda':
             # Pin GPU to local rank
             torch.cuda.set_device(hvd.local_rank())
+            torch.cuda.manual_seed(args.seed)
+        else:
+            if args.use_mixed_precision:
+                raise ValueError("Mixed precision is only supported with cuda enabled.")
+
+        # Horovod: limit # of CPU threads to be used per worker.
+        # TODO: what's the proper number?
+        # torch.set_num_threads(1)
+
+        kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
+        # When supported, use 'forkserver' to spawn dataloader workers instead of 'fork' to prevent
+        # issues with Infiniband implementations that are not fork-safe
+        if (kwargs.get('num_workers', 0) > 0 and hasattr(mp, '_supports_context') and
+                mp._supports_context and 'forkserver' in mp.get_all_start_methods()):
+            kwargs['multiprocessing_context'] = 'forkserver'
 
         train_dataset = datasets.MNIST(
             # Use different root directory for each worker to avoid conflicts
@@ -215,11 +280,24 @@ if __name__ == '__main__':
                                              op=hvd.Adasum if args.use_adasum else hvd.Average,
                                              gradient_predivide_factor=args.gradient_predivide_factor)
 
+        if args.use_mixed_precision:
+            # Initialize scaler in global scale
+            scaler = torch.cuda.amp.GradScaler()
+
         local_checkpoint_dir = create_log_dir('pytorch-mnist-local')
         print("Log directory:", local_checkpoint_dir)
 
         for epoch in range(1, epochs + 1):
-            train_one_epoch(model, device, train_loader, optimizer, epoch)
+            if args.use_mixed_precision:
+                train_mixed_precision(
+                    model, device,
+                    train_loader, train_sampler,
+                    optimizer, epoch, scaler)
+            else:
+                train_one_epoch(
+                    model, device,
+                    train_loader, train_sampler,
+                    optimizer, epoch)
             # Save checkpoints only on worker 0 to prevent conflicts between workers
             if hvd.rank() == 0:
                 save_checkpoint(local_checkpoint_dir, model, optimizer, epoch)
@@ -230,12 +308,7 @@ if __name__ == '__main__':
             with open(checkpoint_file, 'rb') as f:
                 return f.read()
 
-
-    # Local test functions
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-
-    def test_model(model):
+    def test_model(model, device):
         model.eval()
 
         test_dataset = datasets.MNIST(
@@ -256,15 +329,15 @@ if __name__ == '__main__':
         return test_loss
 
 
-    def load_model_of_checkpoint(log_dir, file_id):
+    def load_model_of_checkpoint(device, log_dir, file_id):
         model = Net().to(device)
         checkpoint = load_checkpoint(log_dir, file_id)
         model.load_state_dict(checkpoint['model'])
         return model
 
 
-    def test_checkpoint(log_dir, file_id):
-        model = load_model_of_checkpoint(log_dir, file_id)
+    def test_checkpoint(device, log_dir, file_id):
+        model = load_model_of_checkpoint(device, log_dir, file_id)
         return test_model(model)
 
 
@@ -283,6 +356,10 @@ if __name__ == '__main__':
     hosts = ",".join(host_slots)
     print("Hosts to run:", hosts)
 
+    # Local test functions
+    local_use_cuda = args.local_cuda and torch.cuda.is_available()
+    local_device = torch.device('cuda' if local_use_cuda else 'cpu')
+
     def hyper_objective(learning_rate):
         with mlflow.start_run():
             model_bytes = horovod.run(
@@ -297,8 +374,9 @@ if __name__ == '__main__':
                 f.write(model_bytes)
             print('Written checkpoint to {}'.format(checkpoint_file))
 
-            model = load_model_of_checkpoint(checkpoint_dir, learning_rate)
-            test_loss = test_model(model)
+            model = load_model_of_checkpoint(
+                local_device, checkpoint_dir, learning_rate)
+            test_loss = test_model(model, local_device)
 
             mlflow.log_metric("learning_rate", learning_rate)
             mlflow.log_metric("loss", test_loss)
@@ -307,7 +385,7 @@ if __name__ == '__main__':
 
 
     # Do a super parameter tuning with hyperopt
-    from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
+    from hyperopt import fmin, tpe, hp, STATUS_OK
 
     trials = args.trials
     print("Hyper parameter tuning trials: {}".format(trials))
@@ -323,7 +401,8 @@ if __name__ == '__main__':
     print("Best parameter found: ", argmin)
 
     # Train final model with the best parameters and save the model
-    best_model = load_model_of_checkpoint(checkpoint_dir, argmin.get('learning_rate'))
+    best_model = load_model_of_checkpoint(
+        local_device, checkpoint_dir, argmin.get('learning_rate'))
     model_name = "mnist-pytorch-horovod-run"
     mlflow.pytorch.log_model(
         best_model, model_name, registered_model_name=model_name)
@@ -332,4 +411,4 @@ if __name__ == '__main__':
     model_uri = "models:/{}/latest".format(model_name)
     print('Inference with model: {}'.format(model_uri))
     saved_model = mlflow.pytorch.load_model(model_uri)
-    test_model(saved_model)
+    test_model(saved_model, local_device)

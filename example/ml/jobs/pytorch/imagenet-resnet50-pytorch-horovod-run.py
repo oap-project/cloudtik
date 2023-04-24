@@ -56,8 +56,6 @@ parser.add_argument('--mpi', action='store_true', dest='use_mpi',
                          'be the default if Horovod was built with MPI support.')
 
 import torch
-# Since we don't have cuda:cudnn in the runtime
-# import torch.backends.cudnn as cudnn
 import torch.multiprocessing as mp
 import torch.nn.functional as F
 import torch.optim as optim
@@ -69,6 +67,8 @@ from tqdm import tqdm
 
 
 def train_horovod(learning_rate):
+    import torch
+
     args.cuda = args.cuda and torch.cuda.is_available()
     allreduce_batch_size = args.batch_size * args.batches_per_allreduce
 
@@ -80,8 +80,7 @@ def train_horovod(learning_rate):
         torch.cuda.set_device(hvd.local_rank())
         torch.cuda.manual_seed(args.seed)
 
-        # Since we don't have cuda:cudnn in the runtime
-        # cudnn.benchmark = True
+        torch.backends.cudnn.benchmark = True
 
     # If set > 0, will resume training from a given checkpoint.
     resume_from_epoch = 0

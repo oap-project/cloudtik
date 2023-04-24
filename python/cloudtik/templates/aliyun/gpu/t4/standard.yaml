@@ -7,6 +7,9 @@ provider:
 # 1 * T4
 # The instance configuration for a standard instance type
 available_node_types:
+    head.default:
+        node_config:
+            InstanceType: ecs.g6.2xlarge
     worker.default:
         node_config:
             InstanceType: ecs.gn6i-c16g1.4xlarge

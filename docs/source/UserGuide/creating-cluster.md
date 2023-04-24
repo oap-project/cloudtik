@@ -3,7 +3,7 @@
 The cluster configuration is defined within a YAML file. It will be used by CloudTik to launch head node, and its cluster
 controller on head node to launch worker nodes.
 
-CloudTik provides cluster configuration yaml examples, which are located under CloudTik's `example/cluster/` directory.
+CloudTik provides cluster configuration yaml examples, which are located under CloudTik's `examples/cluster/` directory.
  
 Please follow instructions below to customize your cluster configuration.
 

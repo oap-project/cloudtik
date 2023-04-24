@@ -17,7 +17,7 @@ and a few provider-specific properties.
 
 ### AWS
 
-Here is an AWS workspace configuration yaml example, which is located at CloudTik's `example/cluster/aws/example-workspace.yaml` 
+Here is an AWS workspace configuration yaml example, which is located at CloudTik's `examples/cluster/aws/example-workspace.yaml`
 
 ```
 # A unique identifier for the workspace.
@@ -38,7 +38,7 @@ For more security, make sure to change from `0.0.0.0/0` to restricted CIDR range
 
 ### Azure
 
-Here is an Azure workspace configuration yaml example, which is located at CloudTik's `example/cluster/azure/example-workspace.yaml`
+Here is an Azure workspace configuration yaml example, which is located at CloudTik's `examples/cluster/azure/example-workspace.yaml`
 
 ```
 # A unique identifier for the workspace.
@@ -94,4 +94,4 @@ Use the following command to delete a workspace:
 cloudtik workspace delete /path/to/<your-workspace-config>.yaml
 ```
 
-Check `./example/cluster` folder for more Workspace configuration file examples.
+Check `./examples/cluster` folder for more Workspace configuration file examples.

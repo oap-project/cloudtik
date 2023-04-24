@@ -103,7 +103,7 @@ if __name__ == '__main__':
 
     def create_log_dir(experiment_name):
         log_dir = os.path.join(CHECKPOINT_HOME, str(time()), experiment_name)
-        os.makedirs(log_dir)
+        os.makedirs(log_dir, True)
         return log_dir
 
 
@@ -284,7 +284,8 @@ if __name__ == '__main__':
             # Initialize scaler in global scale
             scaler = torch.cuda.amp.GradScaler()
 
-        local_checkpoint_dir = create_log_dir('pytorch-mnist-local')
+        local_checkpoint_dir = create_log_dir(
+            "pytorch-mnist-{}".format(hvd.rank()))
         print("Log directory:", local_checkpoint_dir)
 
         for epoch in range(1, epochs + 1):

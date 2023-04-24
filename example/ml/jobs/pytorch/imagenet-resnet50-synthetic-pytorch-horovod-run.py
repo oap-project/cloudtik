@@ -93,6 +93,7 @@ def train_horovod(learning_rate):
     if args.cuda:
         # Horovod: pin GPU to local rank.
         torch.cuda.set_device(hvd.local_rank())
+
         torch.backends.cudnn.benchmark = True
 
     # Set up standard model.

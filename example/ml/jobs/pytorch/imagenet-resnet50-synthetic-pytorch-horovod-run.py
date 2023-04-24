@@ -49,8 +49,6 @@ parser.add_argument('--fp16', action='store_true', default=False,
 parser.add_argument('--jit', action='store_true', default=False,
                     help='enable ipex jit fusion path')
 
-# Since we don't have cuda:cudnn in the runtime
-# import torch.backends.cudnn as cudnn
 import torch.nn.functional as F
 import torch.optim as optim
 import torch.utils.data.distributed
@@ -86,6 +84,8 @@ def make_contiguous(module):
 
 
 def train_horovod(learning_rate):
+    import torch
+
     args.cuda = not args.no_cuda and torch.cuda.is_available()
 
     hvd.init()
@@ -93,8 +93,8 @@ def train_horovod(learning_rate):
     if args.cuda:
         # Horovod: pin GPU to local rank.
         torch.cuda.set_device(hvd.local_rank())
-        # Since we don't have cuda:cudnn in the runtime
-        # cudnn.benchmark = True
+
+        torch.backends.cudnn.benchmark = True
 
     # Set up standard model.
     model = getattr(models, args.model)()

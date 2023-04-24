@@ -1,0 +1,347 @@
+From 69be359f6deb5821911d2310b545299ff22e0fd2 Mon Sep 17 00:00:00 2001
+From: Chen Haifeng <haifeng.chen@intel.com>
+Date: Mon, 24 Apr 2023 18:29:31 +0800
+Subject: [PATCH] Driver NIC Fix
+
+---
+ horovod/ray/utils.py                          |  4 ++--
+ .../runner/common/service/driver_service.py   | 21 ++++++++++++++++---
+ horovod/runner/driver/driver_service.py       | 18 ++++++++++++----
+ horovod/runner/gloo_run.py                    |  4 ++--
+ horovod/runner/launch.py                      | 15 ++++++-------
+ horovod/spark/driver/driver_service.py        | 15 +++++++++++--
+ horovod/spark/gloo_run.py                     | 12 ++++++-----
+ horovod/spark/runner.py                       | 15 ++++++++++---
+ test/integration/test_spark.py                |  4 ++--
+ 9 files changed, 78 insertions(+), 30 deletions(-)
+
+diff --git a/horovod/ray/utils.py b/horovod/ray/utils.py
+index 2f9c059..730791c 100644
+--- a/horovod/ray/utils.py
++++ b/horovod/ray/utils.py
+@@ -68,8 +68,8 @@ def detect_nics(settings,
+                     print('Testing interfaces on all hosts.')
+ 
+                 local_host_names = set(all_host_names) - set(remote_host_names)
+-                nics = _driver_fn(workers, all_host_names, local_host_names,
+-                                  settings)
++                nics, driver_nics = _driver_fn(
++                    workers, all_host_names, local_host_names, settings)
+ 
+                 if settings.verbose >= 2:
+                     print('Interfaces on all hosts were successfully checked.')
+diff --git a/horovod/runner/common/service/driver_service.py b/horovod/runner/common/service/driver_service.py
+index 3951c3e..116bdb7 100644
+--- a/horovod/runner/common/service/driver_service.py
++++ b/horovod/runner/common/service/driver_service.py
+@@ -47,6 +47,7 @@ class BasicDriverService(network.BasicService):
+         self._all_task_addresses = {}
+         self._task_addresses_for_driver = {}
+         self._task_addresses_for_tasks = {}
++        self._driver_addresses_for_tasks = {}
+         self._task_index_host_hash = {}
+         self._task_host_hash_indices = {}
+         self._wait_cond = threading.Condition()
+@@ -70,6 +71,9 @@ class BasicDriverService(network.BasicService):
+                           ''.format(index=req.index, task_addresses=req.task_addresses,
+                                     source=client_address[0]))
+ 
++                # The driver addresses reached from the task
++                self._driver_addresses_for_tasks[req.index] = req.driver_addresses
++
+                 # Remove host hash earlier registered under this index.
+                 if req.index in self._task_index_host_hash:
+                     earlier_host_hash = self._task_index_host_hash[req.index]
+@@ -127,6 +131,13 @@ class BasicDriverService(network.BasicService):
+         finally:
+             self._wait_cond.release()
+ 
++    def driver_addresses_for_tasks(self, index):
++        self._wait_cond.acquire()
++        try:
++            return self._driver_addresses_for_tasks[index].copy()
++        finally:
++            self._wait_cond.release()
++
+     def register_task_to_task_addresses(self, index, task_addresses):
+         self._wait_cond.acquire()
+         try:
+@@ -179,7 +190,7 @@ class BasicDriverService(network.BasicService):
+ 
+ 
+ class RegisterTaskRequest(object):
+-    def __init__(self, index, task_addresses, host_hash):
++    def __init__(self, index, task_addresses, host_hash, driver_addresses):
+         self.index = index
+         """Task index."""
+ 
+@@ -191,7 +202,10 @@ class RegisterTaskRequest(object):
+         Hash of the host that helps to determine which tasks
+         have shared memory access to each other.
+         """
+-
++        self.driver_addresses = driver_addresses
++        """
++        The driver address from which the task can reach.
++        """
+ 
+ class BasicDriverClient(network.BasicClient):
+     def __init__(self, name, driver_addresses, key, verbose, match_intf=False):
+@@ -202,7 +216,8 @@ class BasicDriverClient(network.BasicClient):
+                                                 match_intf=match_intf)
+ 
+     def register_task(self, index, task_addresses, host_hash):
+-        self._send(RegisterTaskRequest(index, task_addresses, host_hash))
++        self._send(RegisterTaskRequest(index, task_addresses, host_hash,
++                                       self._addresses))
+ 
+     def all_task_addresses(self, index):
+         resp = self._send(AllTaskAddressesRequest(index))
+diff --git a/horovod/runner/driver/driver_service.py b/horovod/runner/driver/driver_service.py
+index fbd93bc..ef0a9c8 100644
+--- a/horovod/runner/driver/driver_service.py
++++ b/horovod/runner/driver/driver_service.py
+@@ -155,7 +155,16 @@ def _run_probe(driver, settings, num_hosts):
+             'Unable to find a set of common task-to-task communication interfaces: %s'
+             % [(index, driver.task_addresses_for_tasks(index))
+                for index in range(num_hosts)])
+-    return nics
++    driver_nics = set(driver.driver_addresses_for_tasks(0).keys())
++    for index in range(1, num_hosts):
++        driver_nics.intersection_update(
++            driver.driver_addresses_for_tasks(index).keys())
++    if not driver_nics:
++        raise Exception(
++            'Unable to find a set of common task-to-driver communication interfaces: %s'
++            % [(index, driver.driver_addresses_for_tasks(index))
++               for index in range(num_hosts)])
++    return nics, driver_nics
+ 
+ 
+ @cache.use_cache()
+@@ -230,7 +239,7 @@ def get_common_interfaces(settings, all_host_names, remote_host_names=None, fn_c
+     '''
+     # Skipping interface discovery for LSF cluster as it slows down considerably the job start
+     if lsf.LSFUtils.using_lsf():
+-        return None
++        return None, None
+ 
+     if remote_host_names is None:
+         remote_host_names = network.filter_local_addresses(all_host_names)
+@@ -249,7 +258,7 @@ def get_common_interfaces(settings, all_host_names, remote_host_names=None, fn_c
+                 print('Testing interfaces on all the hosts.')
+ 
+             local_host_names = set(all_host_names) - set(remote_host_names)
+-            nics = _driver_fn(all_host_names, local_host_names, settings, fn_cache=fn_cache)
++            nics, driver_nics = _driver_fn(all_host_names, local_host_names, settings, fn_cache=fn_cache)
+ 
+             # CloudTik: patch start
+             # We cannot use loopback for server ip. Remove loopback.
+@@ -262,6 +271,7 @@ def get_common_interfaces(settings, all_host_names, remote_host_names=None, fn_c
+                 print('Interfaces on all the hosts were successfully checked.')
+                 print('Common interface found: ' + ' '.join(nics))
+ 
++            return nics, driver_nics
+     else:
+         nics = get_local_interfaces(settings)
+-    return nics
++    return nics, nics
+diff --git a/horovod/runner/gloo_run.py b/horovod/runner/gloo_run.py
+index 9f6e977..2d96c09 100644
+--- a/horovod/runner/gloo_run.py
++++ b/horovod/runner/gloo_run.py
+@@ -317,8 +317,8 @@ def launch_gloo_elastic(command_or_func, exec_command, settings, env, get_common
+     global_rendezv_port = rendezvous.start(handler)
+     driver.wait_for_available_slots(settings.num_proc)
+ 
+-    nics = get_common_interfaces(driver)
+-    server_ip = network.get_driver_ip(nics)
++    nics, driver_nics = get_common_interfaces(driver)
++    server_ip = network.get_driver_ip(driver_nics)
+     run_func_server = None
+     run_func_server_port = None
+ 
+diff --git a/horovod/runner/launch.py b/horovod/runner/launch.py
+index ab47a1e..625e872 100644
+--- a/horovod/runner/launch.py
++++ b/horovod/runner/launch.py
+@@ -656,12 +656,13 @@ def _run_static(args):
+         if settings.verbose >= 2:
+             print('SSH was successful into all the remote hosts.')
+ 
+-    nics = driver_service.get_common_interfaces(settings, all_host_names,
+-                                                remote_host_names, fn_cache)
++    nics, driver_nics = driver_service.get_common_interfaces(
++        settings, all_host_names,
++        remote_host_names, fn_cache)
+ 
+     if args.run_func:
+         # get the driver IPv4 address
+-        driver_ip = network.get_driver_ip(nics)
++        driver_ip = network.get_driver_ip(driver_nics)
+         run_func_server = KVStoreServer(verbose=settings.verbose)
+         run_func_server_port = run_func_server.start_server()
+         put_data_into_kvstore(driver_ip, run_func_server_port,
+@@ -671,7 +672,7 @@ def _run_static(args):
+         command = [executable, '-m', 'horovod.runner.run_task', str(driver_ip), str(run_func_server_port)]
+ 
+         try:
+-            _launch_job(args, settings, nics, command)
++            _launch_job(args, settings, nics, driver_nics, command)
+             results = [None] * args.num_proc
+             # TODO: make it parallel to improve performance
+             for i in range(args.num_proc):
+@@ -682,7 +683,7 @@ def _run_static(args):
+             run_func_server.shutdown_server()
+     else:
+         command = args.command
+-        _launch_job(args, settings, nics, command)
++        _launch_job(args, settings, nics, driver_nics, command)
+         return None
+ 
+ 
+@@ -783,12 +784,12 @@ def _is_elastic(args):
+     return args.host_discovery_script is not None or args.min_num_proc is not None
+ 
+ 
+-def _launch_job(args, settings, nics, command):
++def _launch_job(args, settings, nics, driver_nics, command):
+     env = os.environ.copy()
+     config_parser.set_env_from_args(env, args)
+ 
+     def gloo_run_fn():
+-        driver_ip = network.get_driver_ip(nics)
++        driver_ip = network.get_driver_ip(driver_nics)
+         gloo_run(settings, nics, env, driver_ip, command)
+ 
+     def mpi_run_fn():
+diff --git a/horovod/spark/driver/driver_service.py b/horovod/spark/driver/driver_service.py
+index a48e317..e4cf8e6 100644
+--- a/horovod/spark/driver/driver_service.py
++++ b/horovod/spark/driver/driver_service.py
+@@ -194,7 +194,7 @@ class SparkDriverService(driver_service.BasicDriverService):
+ 
+     def get_common_interfaces(self):
+         if self._nics is not None:
+-            return self._nics
++            return self._nics, self._nics
+ 
+         nics = None
+         if len(self._task_addresses_for_tasks) > 0:
+@@ -211,7 +211,18 @@ class SparkDriverService(driver_service.BasicDriverService):
+                             % [(index, self._task_addresses_for_tasks[index])
+                                for index in self._task_addresses_for_tasks])
+ 
+-        return nics
++        driver_nics = None
++        if len(self._driver_addresses_for_tasks) > 0:
++            indices = list(self._driver_addresses_for_tasks.keys())
++            driver_nics = set(self._driver_addresses_for_tasks[indices[0]].keys())
++            for index in indices[1:]:
++                driver_nics.intersection_update(self._driver_addresses_for_tasks[index].keys())
++
++        if not driver_nics:
++            raise Exception('Unable to find a set of common task-to-driver communication interfaces: %s'
++                            % [(index, self._driver_addresses_for_tasks[index])
++                               for index in self._driver_addresses_for_tasks])
++        return nics, driver_nics
+ 
+     def shutdown_tasks(self):
+         self._task_shutdown.set()
+diff --git a/horovod/spark/gloo_run.py b/horovod/spark/gloo_run.py
+index df10e05..91d0fd2 100644
+--- a/horovod/spark/gloo_run.py
++++ b/horovod/spark/gloo_run.py
+@@ -36,7 +36,7 @@ def _exec_command_fn(driver, key, settings, env, stdout, stderr, prefix_output_w
+     return _exec_command
+ 
+ 
+-def gloo_run(executable, settings, nics, driver, env, stdout=None, stderr=None):
++def gloo_run(executable, settings, nics, driver, env, server_ip, stdout=None, stderr=None):
+     """
+     Run distributed gloo jobs.
+ 
+@@ -46,6 +46,7 @@ def gloo_run(executable, settings, nics, driver, env, stdout=None, stderr=None):
+     :param nics: Interfaces to use by gloo.
+     :param driver: The Spark driver service that tasks are connected to.
+     :param env: Environment dictionary to use for running gloo jobs.  Can be None.
++    :param server_ip: The server ip for task to communicate.
+     :param stdout: Horovod stdout is redirected to this stream.
+     :param stderr: Horovod stderr is redirected to this stream.
+     """
+@@ -67,8 +68,6 @@ def gloo_run(executable, settings, nics, driver, env, stdout=None, stderr=None):
+     # Each thread will use SparkTaskClient to launch the job on each remote host. If an
+     # error occurs in one thread, entire process will be terminated. Otherwise,
+     # threads will keep running and ssh session.
+-    iface = list(nics)[0]
+-    server_ip = driver.addresses()[iface][0][0]
+     command = (executable,
+                '-m', 'horovod.spark.task.gloo_exec_fn',
+                codec.dumps_base64(driver.addresses()),
+@@ -107,9 +106,12 @@ def gloo_run_elastic(settings, driver, env, stdout=None, stderr=None):
+     env[secret.HOROVOD_SECRET_KEY] = codec.dumps_base64(settings.key)
+ 
+     # get common interfaces from driver
+-    nics = driver.get_common_interfaces()
++    nics, driver_nics = driver.get_common_interfaces()
++
++    def get_common_interfaces(driver):
++        return nics, driver_nics
+ 
+     exec_command = _exec_command_fn(driver, settings.key, settings, env,
+                                     stdout, stderr, settings.prefix_output_with_timestamp)
+     rendezvous = SparkRendezvousServer(driver, settings.verbose)
+-    launch_gloo_elastic(command, exec_command, settings, env, lambda _: nics, rendezvous, sys.executable)
++    launch_gloo_elastic(command, exec_command, settings, env, get_common_interfaces, rendezvous, sys.executable)
+diff --git a/horovod/spark/runner.py b/horovod/spark/runner.py
+index a92acdc..e7a726d 100644
+--- a/horovod/spark/runner.py
++++ b/horovod/spark/runner.py
+@@ -150,10 +150,19 @@ def _make_spark_thread(spark_context, spark_job_group, driver, result_queue,
+ 
+ 
+ def _launch_job(use_mpi, use_gloo, settings, driver, env, stdout=None, stderr=None, executable=None):
+-    nics = driver.get_common_interfaces()
++    nics, driver_nics = driver.get_common_interfaces()
+     executable = executable or sys.executable
+-    run_controller(use_gloo, lambda: gloo_run(executable, settings, nics, driver, env, stdout, stderr),
+-                   use_mpi, lambda: mpi_run(executable, settings, nics, driver, env, stdout, stderr),
++
++    def gloo_run_fn():
++        iface = list(driver_nics)[0]
++        driver_ip = driver.addresses()[iface][0][0]
++        gloo_run(executable, settings, nics, driver, env, driver_ip, stdout, stderr)
++
++    def mpi_run_fn():
++        mpi_run(executable, settings, nics, driver, env, stdout, stderr)
++
++    run_controller(use_gloo, gloo_run_fn,
++                   use_mpi, mpi_run_fn,
+                    False, lambda: None,
+                    settings.verbose)
+ 
+diff --git a/test/integration/test_spark.py b/test/integration/test_spark.py
+index 4a57f07..dafa136 100644
+--- a/test/integration/test_spark.py
++++ b/test/integration/test_spark.py
+@@ -140,7 +140,7 @@ class SparkTests(unittest.TestCase):
+             client.register_task_to_task_addresses(0, {'lo': [('127.0.0.1', 31321)], 'eth0': [('192.168.0.1', 31321)]})
+             client.register_task_to_task_addresses(1, {'eth1': [('10.0.0.1', 31322)], 'eth0': [('192.168.0.2', 31322)]})
+ 
+-            nics = driver.get_common_interfaces()
++            nics, _ = driver.get_common_interfaces()
+             self.assertEqual({'eth0'}, nics)
+ 
+     def test_driver_common_interfaces_from_settings(self):
+@@ -153,7 +153,7 @@ class SparkTests(unittest.TestCase):
+             client.register_task_to_task_addresses(0, {'eth0': [('192.168.0.1', 31321)]})
+             client.register_task_to_task_addresses(1, {'eth1': [('10.0.0.1', 31322)]})
+ 
+-            nics = driver.get_common_interfaces()
++            nics, _ = driver.get_common_interfaces()
+             self.assertEqual({nic}, nics)
+ 
+     def test_driver_common_interfaces_fails(self):
+-- 
+2.39.1.windows.1
+

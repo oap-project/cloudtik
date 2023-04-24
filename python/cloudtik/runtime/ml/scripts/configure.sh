@@ -69,48 +69,73 @@ function configure_ml() {
 
     HOROVOD_PYTHON_HOME="${ROOT_DIR}/../../horovod"
 
-    if [ $IS_HEAD_NODE == "true" ];then
-        # Fix the Horovod on Spark bug for handling network interfaces of loopback
-        HOROVOD_SPARK_GLOO_RUN_FILE="${HOROVOD_PYTHON_HOME}/spark/gloo_run.py"
-        if [ -f "${HOROVOD_SPARK_GLOO_RUN_FILE}" ]; then
-           cp $output_dir/horovod_spark_gloo_run.py.patch ${HOROVOD_SPARK_GLOO_RUN_FILE}
-        fi
+    # Fix the Horovod on Spark bug for handling network interfaces of loopback
+    HOROVOD_SPARK_GLOO_RUN_FILE="${HOROVOD_PYTHON_HOME}/spark/gloo_run.py"
+    if [ -f "${HOROVOD_SPARK_GLOO_RUN_FILE}" ]; then
+       cp $output_dir/horovod_spark_gloo_run.py.patch ${HOROVOD_SPARK_GLOO_RUN_FILE}
+    fi
 
-        # Improve Horovod on Spark for support MPICH and IMPI
-        HOROVOD_SPARK_MPI_RUN_FILE="${HOROVOD_PYTHON_HOME}/spark/mpi_run.py"
-        if [ -f "${HOROVOD_SPARK_MPI_RUN_FILE}" ]; then
-           cp $output_dir/horovod_spark_mpi_run.py.patch ${HOROVOD_SPARK_MPI_RUN_FILE}
-        fi
+    # Improve Horovod on Spark for support MPICH and IMPI
+    HOROVOD_SPARK_MPI_RUN_FILE="${HOROVOD_PYTHON_HOME}/spark/mpi_run.py"
+    if [ -f "${HOROVOD_SPARK_MPI_RUN_FILE}" ]; then
+       cp $output_dir/horovod_spark_mpi_run.py.patch ${HOROVOD_SPARK_MPI_RUN_FILE}
+    fi
 
-        # CloudTik remote command execution for Gloo
-        HOROVOD_RUNNER_UTIL_REMOTE_FILE="${HOROVOD_PYTHON_HOME}/runner/util/remote.py"
-        if [ -f "$HOROVOD_RUNNER_UTIL_REMOTE_FILE" ]; then
-           cp $output_dir/horovod_runner_util_remote.py.patch ${HOROVOD_RUNNER_UTIL_REMOTE_FILE}
-        fi
+    # Fix the Horovod driver NIC issue
+    HOROVOD_SPARK_RUNNER_FILE="${HOROVOD_PYTHON_HOME}/spark/runner.py"
+    if [ -f "${HOROVOD_SPARK_RUNNER_FILE}" ]; then
+       cp $output_dir/horovod_spark_runner.py.patch ${HOROVOD_SPARK_RUNNER_FILE}
+    fi
 
-        # Fix the remote command quote handling
-        HOROVOD_RUNNER_GLOO_RUN_FILE="${HOROVOD_PYTHON_HOME}/runner/gloo_run.py"
-        if [ -f "$HOROVOD_RUNNER_GLOO_RUN_FILE" ]; then
-           cp $output_dir/horovod_runner_gloo_run.py.patch ${HOROVOD_RUNNER_GLOO_RUN_FILE}
-        fi
+    HOROVOD_SPARK_DRIVER_DRIVER_SERVICE_FILE="${HOROVOD_PYTHON_HOME}/spark/driver/driver_service.py"
+    if [ -f "${HOROVOD_SPARK_DRIVER_DRIVER_SERVICE_FILE}" ]; then
+       cp $output_dir/horovod_spark_driver_driver_service.py.patch ${HOROVOD_SPARK_DRIVER_DRIVER_SERVICE_FILE}
+    fi
 
-        # CloudTik remote command execution for MPI
-        HOROVOD_RUNNER_MPI_RUN_FILE="${HOROVOD_PYTHON_HOME}/runner/mpi_run.py"
-        if [ -f "$HOROVOD_RUNNER_MPI_RUN_FILE" ]; then
-           cp $output_dir/horovod_runner_mpi_run.py.patch ${HOROVOD_RUNNER_MPI_RUN_FILE}
-        fi
+    # CloudTik remote command execution for Gloo
+    HOROVOD_RUNNER_UTIL_REMOTE_FILE="${HOROVOD_PYTHON_HOME}/runner/util/remote.py"
+    if [ -f "$HOROVOD_RUNNER_UTIL_REMOTE_FILE" ]; then
+       cp $output_dir/horovod_runner_util_remote.py.patch ${HOROVOD_RUNNER_UTIL_REMOTE_FILE}
+    fi
 
-        # Fix the Horovod bug for handling network interfaces of loopback
-        HOROVOD_RUNNER_DRIVER_SERVICE_FILE="${HOROVOD_PYTHON_HOME}/runner/driver/driver_service.py"
-        if [ -f "$HOROVOD_RUNNER_DRIVER_SERVICE_FILE" ]; then
-           cp $output_dir/horovod_runner_driver_service.py.patch ${HOROVOD_RUNNER_DRIVER_SERVICE_FILE}
-        fi
+    # Fix the remote command quote handling
+    HOROVOD_RUNNER_GLOO_RUN_FILE="${HOROVOD_PYTHON_HOME}/runner/gloo_run.py"
+    if [ -f "$HOROVOD_RUNNER_GLOO_RUN_FILE" ]; then
+       cp $output_dir/horovod_runner_gloo_run.py.patch ${HOROVOD_RUNNER_GLOO_RUN_FILE}
+    fi
+
+    # CloudTik remote command execution for MPI
+    HOROVOD_RUNNER_MPI_RUN_FILE="${HOROVOD_PYTHON_HOME}/runner/mpi_run.py"
+    if [ -f "$HOROVOD_RUNNER_MPI_RUN_FILE" ]; then
+       cp $output_dir/horovod_runner_mpi_run.py.patch ${HOROVOD_RUNNER_MPI_RUN_FILE}
+    fi
+
+    # Fix the Horovod driver NIC issue
+    HOROVOD_RUNNER_LAUNCH_FILE="${HOROVOD_PYTHON_HOME}/runner/launch.py"
+    if [ -f "${HOROVOD_RUNNER_LAUNCH_FILE}" ]; then
+       cp $output_dir/horovod_runner_launch.py.patch ${HOROVOD_RUNNER_LAUNCH_FILE}
+    fi
+
+    HOROVOD_RUNNER_COMMON_SERVICE_DRIVER_SERVICE_FILE="${HOROVOD_PYTHON_HOME}/runner/common/service/driver_service.py"
+    if [ -f "${HOROVOD_RUNNER_COMMON_SERVICE_DRIVER_SERVICE_FILE}" ]; then
+       cp $output_dir/horovod_runner_common_service_driver_service.py.patch ${HOROVOD_RUNNER_COMMON_SERVICE_DRIVER_SERVICE_FILE}
+    fi
+
+    # Fix the Horovod bug for handling network interfaces of loopback
+    HOROVOD_RUNNER_DRIVER_SERVICE_FILE="${HOROVOD_PYTHON_HOME}/runner/driver/driver_service.py"
+    if [ -f "$HOROVOD_RUNNER_DRIVER_SERVICE_FILE" ]; then
+       cp $output_dir/horovod_runner_driver_driver_service.py.patch ${HOROVOD_RUNNER_DRIVER_SERVICE_FILE}
     fi
 
     # Improve Horovod on Spark for support MPICH and IMPI
     HOROVOD_SPARK_MPIRUN_EXEC_FN_FILE="${HOROVOD_PYTHON_HOME}/spark/task/mpirun_exec_fn.py"
     if [ -f "${HOROVOD_SPARK_MPIRUN_EXEC_FN_FILE}" ]; then
-       cp $output_dir/horovod_spark_mpirun_exec_fn.py.patch ${HOROVOD_SPARK_MPIRUN_EXEC_FN_FILE}
+       cp $output_dir/horovod_spark_task_mpirun_exec_fn.py.patch ${HOROVOD_SPARK_MPIRUN_EXEC_FN_FILE}
+    fi
+
+    HOROVOD_RAY_UTILS_FILE="${HOROVOD_PYTHON_HOME}/ray/utils.py"
+    if [ -f "${HOROVOD_RAY_UTILS_FILE}" ]; then
+       cp $output_dir/horovod_ray_utils.py.patch ${HOROVOD_RAY_UTILS_FILE}
     fi
 
     # Fix the Azure managed identity from adlfs

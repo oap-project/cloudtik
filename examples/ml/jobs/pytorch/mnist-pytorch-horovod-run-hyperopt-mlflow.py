@@ -103,7 +103,7 @@ if __name__ == '__main__':
 
     def create_log_dir(experiment_name):
         log_dir = os.path.join(CHECKPOINT_HOME, str(time()), experiment_name)
-        os.makedirs(log_dir, True)
+        os.makedirs(log_dir, exist_ok=True)
         return log_dir
 
 

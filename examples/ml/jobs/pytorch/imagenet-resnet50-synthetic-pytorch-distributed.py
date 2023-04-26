@@ -23,6 +23,8 @@ parser.add_argument('--num-batches-per-iter', type=int, default=10,
 parser.add_argument('--num-iters', type=int, default=10,
                     help='number of benchmark iterations')
 
+parser.add_argument('--backend', default='', type=str,
+                    help='Distributed PyTorch backend')
 parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disables CUDA training')
 
@@ -51,36 +53,9 @@ parser.add_argument('--jit', action='store_true', default=False,
 
 import torch.nn.functional as F
 import torch.optim as optim
-import torch.utils.data.distributed
 from torchvision import models
 import horovod.torch as hvd
 import numpy as np
-
-# WARNING: Several fixes needed for IPEX to work
-# 1. IPEX will generate non-contiguous state and Horovod requires contiguous state
-#   a. Workaround fix for PyTorch: /nn/modules/module.py in _load_from_state_dict
-#       param.copy_(input_param) -> param.set_(input_param)
-#   b. Workaround fix for IPEX: /nn/utils/_weight_prepack.py _save_weight_bias_to_state_dict
-#       self.ctx.to_public(weight.detach()) -> self.ctx.to_public(weight.detach()).contiguous()
-# 2. IPEX: named parameters problem. Some parameters in optimizer param_groups are not in named parameters.
-
-
-def make_contiguous(module):
-    with torch.no_grad():
-        for name, param in module.named_parameters():
-            if not param.is_contiguous():
-                param.set_(param.contiguous())
-
-    modified = False
-    with torch.no_grad():
-        state_dict = module.state_dict()
-        for name, param in state_dict.items():
-            if not param.is_contiguous():
-                state_dict[name] = param.contiguous()
-                modified = True
-
-    if modified:
-        module.load_state_dict(state_dict)
 
 
 def train_distributed(learning_rate):
@@ -89,6 +64,9 @@ def train_distributed(learning_rate):
     import torch.distributed as dist
 
     args.cuda = not args.no_cuda and torch.cuda.is_available()
+    backend = args.backend if args.backend else "gloo"
+    if args.cuda and not args.backend:
+        backend = "nccl"
 
     # Just use Horovod to get the world_size and rank
     hvd.init()
@@ -99,7 +77,7 @@ def train_distributed(learning_rate):
     os.environ['MASTER_ADDR'] = master_addr
     os.environ['MASTER_PORT'] = "29500"
 
-    dist.init_process_group("gloo", rank=hvd.rank(), world_size=hvd.size())
+    dist.init_process_group(backend, rank=hvd.rank(), world_size=hvd.size())
 
     if args.cuda:
         # Horovod: pin GPU to local rank.
@@ -140,7 +118,6 @@ def train_distributed(learning_rate):
         assert not args.jit, "jit path is not enabled for official pytorch"
 
     optimizer = optim.SGD(model.parameters(), lr=learning_rate * lr_scaler)
-    named_parameters = model.named_parameters()
 
     scaler = None
     if args.ipex:
@@ -160,11 +137,6 @@ def train_distributed(learning_rate):
             scaler = torch.cpu.amp.GradScaler()
             model, optimizer = ipex.optimize(model, optimizer=optimizer, dtype=torch.half, auto_kernel_selection=True,
                                              fuse_update_step=False)
-
-        make_contiguous(model)
-
-        # IPEX: named parameters problem
-        named_parameters = None
 
     model = torch.nn.parallel.DistributedDataParallel(model)
 

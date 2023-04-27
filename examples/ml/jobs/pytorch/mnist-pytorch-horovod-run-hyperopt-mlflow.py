@@ -85,7 +85,8 @@ if __name__ == '__main__':
         return os.path.join(log_dir, 'checkpoint-{file_id}.pth.tar'.format(file_id=file_id))
 
 
-    def save_checkpoint(log_dir, model, optimizer, file_id):
+    def save_checkpoint(log_dir, model, optimizer, file_id, use_cuda):
+        model.cpu()
         filepath = get_checkpoint_file(log_dir, file_id)
         print('Written checkpoint to {}'.format(filepath))
         state = {
@@ -94,6 +95,8 @@ if __name__ == '__main__':
         if optimizer is not None:
             state['optimizer'] = optimizer.state_dict()
         torch.save(state, filepath)
+        if use_cuda:
+            model.cuda()
 
 
     def load_checkpoint(log_dir, file_id):
@@ -301,7 +304,10 @@ if __name__ == '__main__':
                     optimizer, epoch)
             # Save checkpoints only on worker 0 to prevent conflicts between workers
             if hvd.rank() == 0:
-                save_checkpoint(local_checkpoint_dir, model, optimizer, epoch)
+                save_checkpoint(
+                    local_checkpoint_dir, model, optimizer, epoch,
+                    use_cuda
+                )
 
         if hvd.rank() == 0:
             # Return the model bytes of the last checkpoint

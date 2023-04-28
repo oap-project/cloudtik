@@ -4,8 +4,8 @@ from typing import Any, Dict, Optional
 from cloudtik.core._private.utils import binary_to_hex, hex_to_binary, get_running_head_node, check_workspace_name_format
 from cloudtik.providers._private.aliyun.config import create_aliyun_workspace, \
     delete_aliyun_workspace, check_aliyun_workspace_integrity, \
-    update_aliyun_workspace_firewalls, list_aliyun_clusters, _get_workspace_head_nodes, bootstrap_aliyun_workspace, \
-    check_aliyun_workspace_existence, get_aliyun_workspace_info
+    list_aliyun_clusters, _get_workspace_head_nodes, bootstrap_aliyun_workspace, \
+    check_aliyun_workspace_existence, get_aliyun_workspace_info, update_aliyun_workspace
 from cloudtik.core._private.providers import _get_node_provider
 from cloudtik.core.tags import CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX, CLOUDTIK_GLOBAL_VARIABLE_KEY
 from cloudtik.core.workspace_provider import WorkspaceProvider
@@ -27,8 +27,8 @@ class AliyunWorkspaceProvider(WorkspaceProvider):
                          delete_managed_database:bool = False):
         delete_aliyun_workspace(config, delete_managed_storage)
 
-    def update_workspace_firewalls(self, config):
-        update_aliyun_workspace_firewalls(config)
+    def update_workspace(self, config):
+        update_aliyun_workspace(config)
 
     def check_workspace_existence(self, config: Dict[str, Any]):
         return check_aliyun_workspace_existence(config)

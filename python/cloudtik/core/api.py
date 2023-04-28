@@ -43,9 +43,9 @@ class Workspace:
         workspace_operator._delete_workspace(
             self.config, yes=True, delete_managed_storage=delete_managed_storage)
 
-    def update_firewalls(self) -> None:
-        """Update the firewall rules for the workspace."""
-        workspace_operator._update_workspace_firewalls(self.config)
+    def update(self) -> None:
+        """Update the workspace based on new configurations."""
+        workspace_operator._update_workspace(self.config, yes=True)
 
     def get_status(self) -> Existence:
         """Return the existence status of the workspace."""

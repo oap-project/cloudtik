@@ -61,7 +61,7 @@ from cloudtik.core._private.utils import check_cidr_conflict, \
     is_peering_firewall_allow_working_subnet, is_use_internal_ip, \
     is_use_managed_cloud_storage, \
     is_use_peering_vpc, \
-    is_use_working_vpc, is_worker_role_for_cloud_storage
+    is_use_working_vpc, is_worker_role_for_cloud_storage, is_managed_cloud_database
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, \
     CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD
 from cloudtik.core.workspace_provider import \
@@ -82,6 +82,7 @@ logger = logging.getLogger(__name__)
 
 HWC_WORKSPACE_NUM_CREATION_STEPS = 5
 HWC_WORKSPACE_NUM_DELETION_STEPS = 5
+HWC_WORKSPACE_NUM_UPDATE_STEPS = 1
 HWC_WORKSPACE_TARGET_RESOURCES = 7
 HWC_RESOURCE_NAME_PREFIX = 'cloudtik-{}'
 HWC_WORKSPACE_VPC_NAME = HWC_RESOURCE_NAME_PREFIX + '-vpc'
@@ -190,9 +191,7 @@ def create_huaweicloud_workspace(config):
                                       _numbered=("[]", current_step,
                                                  total_steps)):
                     current_step += 1
-                    obs_client = make_obs_client(config)
-                    _check_and_create_cloud_storage_bucket(obs_client,
-                                                           workspace_name)
+                    _create_workspace_cloud_storage(config, workspace_name)
     except Exception as e:
         cli_logger.error("Failed to create workspace with the name {} at step"
                          "{}. \n{}", workspace_name, current_step - 1, str(e))
@@ -313,6 +312,12 @@ def _get_cloud_services_access_role_id(iam_client, role_name):
         KeystoneListPermissionsRequest(display_name=role_name)
     ).roles[0]
     return target_role.id
+
+
+def _create_workspace_cloud_storage(config, workspace_name):
+    obs_client = make_obs_client(config)
+    _check_and_create_cloud_storage_bucket(obs_client,
+                                           workspace_name)
 
 
 def _check_and_create_cloud_storage_bucket(obs_client, workspace_name):
@@ -1084,35 +1089,74 @@ def _get_workspace_nat(nat_client, workspace_name=None, nat_id=None):
     return nat_gateways
 
 
-def update_huaweicloud_workspace_firewalls(config):
+def update_huaweicloud_workspace(config):
+    workspace_name = config["workspace_name"]
+    managed_cloud_storage = is_managed_cloud_storage(config)
+    managed_cloud_database = is_managed_cloud_database(config)
+
+    current_step = 1
+    total_steps = HWC_WORKSPACE_NUM_UPDATE_STEPS
+    if managed_cloud_storage:
+        total_steps += 1
+    if managed_cloud_database:
+        total_steps += 1
+
+    try:
+        with cli_logger.group("Updating workspace: {}", workspace_name):
+            with cli_logger.group(
+                    "Updating workspace firewalls",
+                    _numbered=("[]", current_step, total_steps)):
+                current_step += 1
+                update_workspace_firewalls(config)
+
+            if managed_cloud_storage:
+                with cli_logger.group(
+                        "Creating managed cloud storage...",
+                        _numbered=("[]", current_step, total_steps)):
+                    current_step += 1
+                    _create_workspace_cloud_storage(config, workspace_name)
+
+            if managed_cloud_database:
+                with cli_logger.group(
+                        "Creating managed database",
+                        _numbered=("[]", current_step, total_steps)):
+                    current_step += 1
+                    # _create_workspace_cloud_database(config, workspace_name)
+
+    except Exception as e:
+        cli_logger.error("Failed to update workspace with the name {}. "
+                         "You need to delete and try create again. {}", workspace_name, str(e))
+        raise e
+
+    cli_logger.success(
+        "Successfully updated workspace: {}.",
+        cf.bold(workspace_name))
+
+
+def update_workspace_firewalls(config):
     vpc_client = make_vpc_client(config)
     workspace_name = config["workspace_name"]
     workspace_vpc = get_workspace_vpc(vpc_client, workspace_name)
     if not workspace_vpc:
-        cli_logger.error("The workspace: {} doesn't exist!".format(workspace_name))
-        return
+        raise RuntimeError("The workspace: {} doesn't exist!".format(workspace_name))
 
-    current_step = 1
-    total_steps = 1
     try:
-
-        with cli_logger.group("Updating workspace firewalls",
-                              _numbered=("[]", current_step, total_steps)):
-            current_step += 1
-            _sgs = vpc_client.list_security_groups(
-                ListSecurityGroupsRequest()).security_groups
-            _sg_name = HWC_WORKSPACE_SG_NAME.format(workspace_name)
-            for _sg in _sgs:
-                if _sg.name == _sg_name:
-                    _update_security_group_rules(config, _sg, workspace_vpc,
-                                                 vpc_client)
+        cli_logger.print("Updating the firewalls of workspace...")
+        _sgs = vpc_client.list_security_groups(
+            ListSecurityGroupsRequest()).security_groups
+        _sg_name = HWC_WORKSPACE_SG_NAME.format(workspace_name)
+        for _sg in _sgs:
+            if _sg.name == _sg_name:
+                _update_security_group_rules(config, _sg, workspace_vpc,
+                                             vpc_client)
     except Exception as e:
         cli_logger.error("Failed to update the firewalls of workspace {}. {}",
                          workspace_name, str(e))
         raise e
 
-    cli_logger.success("Successfully updated the firewalls of workspace: {}.",
-                     cf.bold(workspace_name))
+    cli_logger.success(
+        "Successfully updated the firewalls of workspace: {}.",
+        cf.bold(workspace_name))
 
 
 def get_huaweicloud_workspace_info(config):

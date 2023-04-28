@@ -868,7 +868,6 @@ def _delete_workspace_db_subnet_group(config, workspace_name):
     except boto3.exceptions.Boto3Error as e:
         cli_logger.error("Failed to delete DB subnet group. {}", str(e))
         raise e
-    return
 
 
 def _delete_managed_database_instance(config, workspace_name):
@@ -3184,7 +3183,7 @@ def get_managed_database_instance(provider_config, workspace_name):
 def get_workspace_db_subnet_group(provider_config, workspace_name):
     rds_client = _make_client("rds", provider_config)
     db_subnet_groups = [db_subnet_group for db_subnet_group in rds_client.describe_db_subnet_groups().get(
-        "DBSubnetGroups", []) if db_subnet_group.get('DBInstanceStatus') == 'Complete']
+        "DBSubnetGroups", []) if db_subnet_group.get('SubnetGroupStatus') == 'Complete']
     db_subnet_group_name = AWS_WORKSPACE_DB_SUBNET_GROUP_NAME.format(workspace_name)
     cli_logger.verbose("Getting the workspace DB subnet group: {}.".format(db_subnet_group_name))
     for db_subnet_group in db_subnet_groups:
@@ -3194,8 +3193,8 @@ def get_workspace_db_subnet_group(provider_config, workspace_name):
 
     cli_logger.verbose_error("Failed to get the workspace DB subnet group.")
     return None
-    
-    
+
+
 def _get_key(key_name, config):
     ec2 = _resource("ec2", config)
     try:

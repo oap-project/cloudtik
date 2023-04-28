@@ -228,17 +228,26 @@ def _create_workspace(config: Dict[str, Any], yes: bool = False,
 def update_workspace(
         config_file: str, yes: bool,
         override_workspace_name: Optional[str] = None,
-        no_config_cache: bool = False):
+        no_config_cache: bool = False,
+        delete_managed_storage: bool = False,
+        delete_managed_database: bool = False
+):
     """Update the workspace from a config json."""
     config = _load_workspace_config(
         config_file, override_workspace_name,
         no_config_cache=no_config_cache)
     _update_workspace(
-        config, yes)
+        config, yes,
+        delete_managed_storage=delete_managed_storage,
+        delete_managed_database=delete_managed_database
+    )
 
 
 def _update_workspace(config: Dict[str, Any],
-                      yes: bool = False):
+                      yes: bool = False,
+                      delete_managed_storage: bool = False,
+                      delete_managed_database: bool = False
+                      ):
     workspace_name = config["workspace_name"]
     provider = _get_workspace_provider(config["provider"], workspace_name)
     existence = provider.check_workspace_existence(config)
@@ -255,7 +264,8 @@ def _update_workspace(config: Dict[str, Any],
 
         cli_logger.confirm(yes, "Are you sure that you want to update workspace {}?",
                            config["workspace_name"], _abort=True)
-        provider.update_workspace(config)
+        provider.update_workspace(
+            config, delete_managed_storage, delete_managed_database)
 
 
 def list_workspace_clusters(

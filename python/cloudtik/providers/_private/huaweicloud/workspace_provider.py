@@ -32,8 +32,11 @@ class HUAWEICLOUDWorkspaceProvider(WorkspaceProvider):
                          delete_managed_database:bool = False):
         delete_huaweicloud_workspace(config, delete_managed_storage)
 
-    def update_workspace(self, config: Dict[str, Any]):
-        update_huaweicloud_workspace(config)
+    def update_workspace(self, config: Dict[str, Any],
+                         delete_managed_storage: bool = False,
+                         delete_managed_database: bool = False):
+        update_huaweicloud_workspace(
+            config, delete_managed_storage, delete_managed_database)
 
     def check_workspace_existence(self, config: Dict[str, Any]) -> Existence:
         return check_huaweicloud_workspace_existence(config)

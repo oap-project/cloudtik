@@ -789,9 +789,7 @@ def delete_huaweicloud_workspace(config, delete_managed_storage):
                                       _numbered=("[]",
                                                  current_step, total_steps)):
                     current_step += 1
-                    obs_client = make_obs_client(config)
-                    _check_and_delete_cloud_storage_bucket(obs_client,
-                                                           workspace_name)
+                    _delete_workspace_cloud_storage(config, workspace_name)
     except Exception as e:
         cli_logger.error("Failed to delete workspace with the name {} at step"
                          "{}. \n{}", workspace_name, current_step - 1, str(e))
@@ -799,6 +797,12 @@ def delete_huaweicloud_workspace(config, delete_managed_storage):
 
     cli_logger.success("Successfully deleted workspace: {}.",
                      cf.bold(workspace_name))
+
+
+def _delete_workspace_cloud_storage(config, workspace_name):
+    obs_client = make_obs_client(config)
+    _check_and_delete_cloud_storage_bucket(
+        obs_client, workspace_name)
 
 
 def _check_and_delete_cloud_storage_bucket(obs_client, workspace_name):
@@ -1089,16 +1093,16 @@ def _get_workspace_nat(nat_client, workspace_name=None, nat_id=None):
     return nat_gateways
 
 
-def update_huaweicloud_workspace(config):
+def update_huaweicloud_workspace(
+        config,
+        delete_managed_storage: bool = False,
+        delete_managed_database: bool = False):
     workspace_name = config["workspace_name"]
     managed_cloud_storage = is_managed_cloud_storage(config)
-    managed_cloud_database = is_managed_cloud_database(config)
 
     current_step = 1
     total_steps = HWC_WORKSPACE_NUM_UPDATE_STEPS
-    if managed_cloud_storage:
-        total_steps += 1
-    if managed_cloud_database:
+    if managed_cloud_storage or delete_managed_storage:
         total_steps += 1
 
     try:
@@ -1116,13 +1120,19 @@ def update_huaweicloud_workspace(config):
                     current_step += 1
                     _create_workspace_cloud_storage(config, workspace_name)
 
-            if managed_cloud_database:
+            if managed_cloud_storage:
                 with cli_logger.group(
-                        "Creating managed database",
+                        "Creating managed cloud storage...",
                         _numbered=("[]", current_step, total_steps)):
                     current_step += 1
-                    # _create_workspace_cloud_database(config, workspace_name)
-
+                    _create_workspace_cloud_storage(config, workspace_name)
+            else:
+                if delete_managed_storage:
+                    with cli_logger.group(
+                            "Deleting managed cloud storage",
+                            _numbered=("[]", current_step, total_steps)):
+                        current_step += 1
+                        _delete_workspace_cloud_storage(config, workspace_name)
     except Exception as e:
         cli_logger.error("Failed to update workspace with the name {}. "
                          "You need to delete and try create again. {}", workspace_name, str(e))

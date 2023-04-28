@@ -7,11 +7,15 @@ fi
 
 case "$1" in
 start-head)
-    sudo service mysql start
+    if [ "${CLOUD_DATABASE}" != "true" ]; then
+        sudo service mysql start
+    fi
     nohup $METASTORE_HOME/bin/start-metastore >${METASTORE_HOME}/logs/start-metastore.log 2>&1 &
     ;;
 stop-head)
-    sudo service mysql stop
+    if [ "${CLOUD_DATABASE}" != "true" ]; then
+        sudo service mysql stop
+    fi
     pkill -f 'HiveMetaStore'
     ;;
 start-worker)

@@ -23,7 +23,7 @@
     </property>
     <property>
         <name>javax.jdo.option.ConnectionURL</name>
-        <value>jdbc:mysql://localhost/{%DATABASE_NAME%}?createDatabaseIfNotExist=true</value>
+        <value>jdbc:mysql://{%DATABASE_ADDRESS%}/{%DATABASE_NAME%}?createDatabaseIfNotExist=true</value>
     </property>
     <property>
         <name>javax.jdo.option.ConnectionDriverName</name>

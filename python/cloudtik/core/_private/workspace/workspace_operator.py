@@ -63,36 +63,33 @@ def try_reload_log_state(provider_config: Dict[str, Any],
         return reload_log_state(log_state)
 
 
-def update_workspace_firewalls(
-        config_file: str, yes: bool,
-        override_workspace_name: Optional[str] = None):
-    """Update the firewall rules of the workspace."""
-    config = _load_workspace_config(config_file, override_workspace_name)
-
-    cli_logger.confirm(yes, "Are you sure that you want to update the firewalls of  workspace {}?",
-                       config["workspace_name"], _abort=True)
-
-    _update_workspace_firewalls(config)
-
-
-def _update_workspace_firewalls(config: Dict[str, Any]):
-    provider = _get_workspace_provider(config["provider"], config["workspace_name"])
-
-    if provider.check_workspace_integrity(config):
-        provider.update_workspace_firewalls(config)
+def _get_existence_name(existence):
+    if existence == Existence.NOT_EXIST:
+        return "NOT EXIST"
+    elif existence == Existence.STORAGE_ONLY:
+        return "STORAGE ONLY"
+    elif existence == Existence.DATABASE_ONLY:
+        return "DATABASE ONLY"
+    elif existence == Existence.STORAGE_AND_DATABASE_ONLY:
+        return "STORAGE AND DATABASE ONLY"
+    elif existence == Existence.IN_COMPLETED:
+        return "NOT COMPLETED"
     else:
-        raise RuntimeError(
-            "Workspace with the name '{}' doesn't exist! ".format(config["workspace_name"]))
+        return "COMPLETED"
 
 
 def delete_workspace(
         config_file: str, yes: bool,
         override_workspace_name: Optional[str] = None,
+        no_config_cache: bool = False,
         delete_managed_storage: bool = False,
         delete_managed_database: bool = False):
     """Destroys the workspace and associated Cloud resources."""
-    config = _load_workspace_config(config_file, override_workspace_name)
-    _delete_workspace(config, yes, delete_managed_storage, delete_managed_database)
+    config = _load_workspace_config(
+        config_file, override_workspace_name,
+        no_config_cache=no_config_cache)
+    _delete_workspace(
+        config, yes, delete_managed_storage, delete_managed_database)
 
 
 def _delete_workspace(config: Dict[str, Any],
@@ -228,6 +225,39 @@ def _create_workspace(config: Dict[str, Any], yes: bool = False,
         provider.create_workspace(config)
 
 
+def update_workspace(
+        config_file: str, yes: bool,
+        override_workspace_name: Optional[str] = None,
+        no_config_cache: bool = False):
+    """Update the workspace from a config json."""
+    config = _load_workspace_config(
+        config_file, override_workspace_name,
+        no_config_cache=no_config_cache)
+    _update_workspace(
+        config, yes)
+
+
+def _update_workspace(config: Dict[str, Any],
+                      yes: bool = False):
+    workspace_name = config["workspace_name"]
+    provider = _get_workspace_provider(config["provider"], workspace_name)
+    existence = provider.check_workspace_existence(config)
+    if existence == Existence.NOT_EXIST:
+        raise RuntimeError(f"Workspace with the name {workspace_name} doesn't exist!")
+    else:
+        # Only workspace in completed or in-completed status can be possibly updated.
+        if existence != Existence.COMPLETED and existence != Existence.IN_COMPLETED:
+            status_name = _get_existence_name(existence)
+            raise RuntimeError(
+                "Workspace {} in ({}) status cannot be updated.".format(
+                    workspace_name, status_name
+                ))
+
+        cli_logger.confirm(yes, "Are you sure that you want to update workspace {}?",
+                           config["workspace_name"], _abort=True)
+        provider.update_workspace(config)
+
+
 def list_workspace_clusters(
         config_file: str,
         override_workspace_name: Optional[str] = None):
@@ -303,18 +333,8 @@ def show_status(
     config = _load_workspace_config(config_file, override_workspace_name)
     workspace_name = config["workspace_name"]
     existence = _get_workspace_status(config)
-    if existence == Existence.NOT_EXIST:
-        cli_logger.labeled_value(f"Workspace {workspace_name}", "NOT EXIST")
-    elif existence == Existence.STORAGE_ONLY:
-        cli_logger.labeled_value(f"Workspace {workspace_name}", "STORAGE ONLY")
-    elif existence == Existence.DATABASE_ONLY:
-        cli_logger.labeled_value(f"Workspace {workspace_name}", "DATABASE ONLY")
-    elif existence == Existence.STORAGE_AND_DATABASE_ONLY:
-        cli_logger.labeled_value(f"Workspace {workspace_name}", "STORAGE AND DATABASE ONLY")
-    elif existence == Existence.IN_COMPLETED:
-        cli_logger.labeled_value(f"Workspace {workspace_name}", "NOT COMPLETED")
-    else:
-        cli_logger.labeled_value(f"Workspace {workspace_name}", "COMPLETED")
+    existence_name = _get_existence_name(existence)
+    cli_logger.labeled_value(f"Workspace {workspace_name}", existence_name)
 
 
 def _get_workspace_status(config):

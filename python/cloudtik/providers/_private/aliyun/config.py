@@ -16,7 +16,7 @@ from cloudtik.core._private.services import get_node_ip_address
 from cloudtik.core._private.utils import check_cidr_conflict, is_use_internal_ip, \
     is_managed_cloud_storage, is_use_managed_cloud_storage, is_worker_role_for_cloud_storage, is_use_working_vpc, \
     is_use_peering_vpc, is_peering_firewall_allow_ssh_only, is_peering_firewall_allow_working_subnet, DOCKER_CONFIG_KEY, \
-    is_gpu_runtime
+    is_gpu_runtime, is_managed_cloud_database
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD
 from cloudtik.core.workspace_provider import Existence, CLOUDTIK_MANAGED_CLOUD_STORAGE, \
     CLOUDTIK_MANAGED_CLOUD_STORAGE_URI
@@ -60,6 +60,7 @@ ALIYUN_DEFAULT_IMAGE_BY_REGION_GPU = {
 
 ALIYUN_WORKSPACE_NUM_CREATION_STEPS = 5
 ALIYUN_WORKSPACE_NUM_DELETION_STEPS = 6
+ALIYUN_WORKSPACE_NUM_UPDATE_STEPS = 1
 ALIYUN_WORKSPACE_TARGET_RESOURCES = 7
 
 ALIYUN_RESOURCE_NAME_PREFIX = "cloudtik"
@@ -2008,25 +2009,61 @@ def check_aliyun_workspace_integrity(config):
     return True if existence == Existence.COMPLETED else False
 
 
-def update_aliyun_workspace_firewalls(config):
+def update_aliyun_workspace(config):
+    workspace_name = config["workspace_name"]
+    managed_cloud_storage = is_managed_cloud_storage(config)
+    managed_cloud_database = is_managed_cloud_database(config)
+
+    current_step = 1
+    total_steps = ALIYUN_WORKSPACE_NUM_UPDATE_STEPS
+    if managed_cloud_storage:
+        total_steps += 1
+    if managed_cloud_database:
+        total_steps += 1
+
+    try:
+        with cli_logger.group("Updating workspace: {}", workspace_name):
+            with cli_logger.group(
+                    "Updating workspace firewalls",
+                    _numbered=("[]", current_step, total_steps)):
+                current_step += 1
+                update_workspace_firewalls(config)
+
+            if managed_cloud_storage:
+                with cli_logger.group(
+                        "Creating managed cloud storage...",
+                        _numbered=("[]", current_step, total_steps)):
+                    current_step += 1
+                    _create_workspace_cloud_storage(config, workspace_name)
+
+            if managed_cloud_database:
+                with cli_logger.group(
+                        "Creating managed database",
+                        _numbered=("[]", current_step, total_steps)):
+                    current_step += 1
+                    # _create_workspace_cloud_database(config, workspace_name)
+
+    except Exception as e:
+        cli_logger.error("Failed to update workspace with the name {}. "
+                         "You need to delete and try create again. {}", workspace_name, str(e))
+        raise e
+
+    cli_logger.success(
+        "Successfully updated workspace: {}.",
+        cf.bold(workspace_name))
+
+
+def update_workspace_firewalls(config):
     workspace_name = config["workspace_name"]
     ecs_cli = EcsClient(config["provider"])
     vpc_cli = VpcClient(config["provider"])
     vpc_id = get_workspace_vpc_id(config, vpc_cli)
     if vpc_id is None:
-        cli_logger.error("The workspace: {} doesn't exist!".format(config["workspace_name"]))
-        return
-
-    current_step = 1
-    total_steps = 1
+        raise RuntimeError("The workspace: {} doesn't exist!".format(config["workspace_name"]))
 
     try:
-        with cli_logger.group(
-                "Updating workspace firewalls",
-                _numbered=("[]", current_step, total_steps)):
-            current_step += 1
-            _update_security_group(config, ecs_cli, vpc_cli)
-
+        cli_logger.print("Updating the firewalls of workspace...")
+        _update_security_group(config, ecs_cli, vpc_cli)
     except Exception as e:
         cli_logger.error(
             "Failed to update the firewalls of workspace {}. {}", workspace_name, str(e))
@@ -2035,7 +2072,6 @@ def update_aliyun_workspace_firewalls(config):
     cli_logger.success(
         "Successfully updated the firewalls of workspace: {}.",
         cf.bold(workspace_name))
-    return None
 
 
 def _configure_allowed_ssh_sources(config):

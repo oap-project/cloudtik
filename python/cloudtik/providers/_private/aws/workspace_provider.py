@@ -4,8 +4,8 @@ from typing import Any, Dict, Optional
 from cloudtik.core._private.utils import get_running_head_node, check_workspace_name_format
 from cloudtik.providers._private.aws.config import create_aws_workspace, \
     delete_aws_workspace, check_aws_workspace_integrity, \
-    update_aws_workspace_firewalls, list_aws_clusters, _get_workspace_head_nodes, bootstrap_aws_workspace, \
-    check_aws_workspace_existence, get_aws_workspace_info
+    list_aws_clusters, _get_workspace_head_nodes, bootstrap_aws_workspace, \
+    check_aws_workspace_existence, get_aws_workspace_info, update_aws_workspace
 from cloudtik.core._private.providers import _get_node_provider
 from cloudtik.core.tags import CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX, CLOUDTIK_GLOBAL_VARIABLE_KEY
 from cloudtik.core.workspace_provider import WorkspaceProvider
@@ -27,8 +27,8 @@ class AWSWorkspaceProvider(WorkspaceProvider):
                          delete_managed_database: bool = False):
         delete_aws_workspace(config, delete_managed_storage, delete_managed_database)
 
-    def update_workspace_firewalls(self, config):
-        update_aws_workspace_firewalls(config)
+    def update_workspace(self, config: Dict[str, Any]):
+        update_aws_workspace(config)
 
     def check_workspace_existence(self, config: Dict[str, Any]):
         return check_aws_workspace_existence(config)

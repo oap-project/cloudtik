@@ -14,7 +14,7 @@ from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.utils import check_cidr_conflict, is_use_internal_ip, _is_use_working_vpc, \
     is_use_working_vpc, is_use_peering_vpc, \
     is_managed_cloud_storage, is_use_managed_cloud_storage, _is_use_managed_cloud_storage, update_nested_dict, \
-    is_gpu_runtime
+    is_gpu_runtime, is_managed_cloud_database
 from cloudtik.core.workspace_provider import Existence, CLOUDTIK_MANAGED_CLOUD_STORAGE, \
     CLOUDTIK_MANAGED_CLOUD_STORAGE_URI
 
@@ -53,6 +53,7 @@ AZURE_WORKSPACE_VERSION_CURRENT = "1"
 
 AZURE_WORKSPACE_NUM_CREATION_STEPS = 9
 AZURE_WORKSPACE_NUM_DELETION_STEPS = 9
+AZURE_WORKSPACE_NUM_UPDATE_STEPS = 1
 AZURE_WORKSPACE_TARGET_RESOURCES = 12
 
 AZURE_MANAGED_STORAGE_TYPE = "azure.managed.storage.type"
@@ -322,7 +323,51 @@ def get_virtual_network_name(config, resource_client, network_client, use_workin
     return virtual_network_name
 
 
-def update_azure_workspace_firewalls(config):
+def update_azure_workspace(config):
+    workspace_name = config["workspace_name"]
+    managed_cloud_storage = is_managed_cloud_storage(config)
+    managed_cloud_database = is_managed_cloud_database(config)
+
+    current_step = 1
+    total_steps = AZURE_WORKSPACE_NUM_UPDATE_STEPS
+    if managed_cloud_storage:
+        total_steps += 1
+    if managed_cloud_database:
+        total_steps += 1
+
+    try:
+        with cli_logger.group("Updating workspace: {}", workspace_name):
+            with cli_logger.group(
+                    "Updating workspace firewalls",
+                    _numbered=("[]", current_step, total_steps)):
+                current_step += 1
+                update_workspace_firewalls(config)
+
+            if managed_cloud_storage:
+                with cli_logger.group(
+                        "Creating managed cloud storage...",
+                        _numbered=("[]", current_step, total_steps)):
+                    current_step += 1
+                    _create_workspace_cloud_storage(config, workspace_name)
+
+            if managed_cloud_database:
+                with cli_logger.group(
+                        "Creating managed database",
+                        _numbered=("[]", current_step, total_steps)):
+                    current_step += 1
+                    # _create_workspace_cloud_database(config, workspace_name)
+
+    except Exception as e:
+        cli_logger.error("Failed to update workspace with the name {}. "
+                         "You need to delete and try create again. {}", workspace_name, str(e))
+        raise e
+
+    cli_logger.success(
+        "Successfully updated workspace: {}.",
+        cf.bold(workspace_name))
+
+
+def update_workspace_firewalls(config):
     resource_client = construct_resource_client(config)
     network_client = construct_network_client(config)
     workspace_name = config["workspace_name"]
@@ -330,20 +375,12 @@ def update_azure_workspace_firewalls(config):
     resource_group_name = get_resource_group_name(config, resource_client, use_working_vpc)
 
     if resource_group_name is None:
-        cli_logger.error("The workspace: {} doesn't exist!".format(config["workspace_name"]))
-        return
-
-    current_step = 1
-    total_steps = 1
+        raise RuntimeError("The workspace: {} doesn't exist!".format(config["workspace_name"]))
 
     try:
 
-        with cli_logger.group(
-                "Updating workspace firewalls",
-                _numbered=("[]", current_step, total_steps)):
-            current_step += 1
-            _create_or_update_network_security_group(config, network_client, resource_group_name)
-            
+        cli_logger.print("Updating the firewalls of workspace...")
+        _create_or_update_network_security_group(config, network_client, resource_group_name)
     except Exception as e:
         cli_logger.error(
             "Failed to update the firewalls of workspace {}. {}", workspace_name, str(e))

@@ -106,6 +106,7 @@ AWS_VPC_PUBLIC_SUBNET_INDEX = 0
 
 AWS_WORKSPACE_NUM_CREATION_STEPS = 8
 AWS_WORKSPACE_NUM_DELETION_STEPS = 9
+AWS_WORKSPACE_NUM_UPDATE_STEPS = 1
 AWS_WORKSPACE_TARGET_RESOURCES = 10
 
 AWS_MANAGED_STORAGE_S3_BUCKET = "aws.managed.storage.s3.bucket"
@@ -431,6 +432,7 @@ def describe_workspace_vpc(workspace_name, ec2_client):
     else:
         raise RuntimeError("The workspace {} should not have more than one VPC.".format(workspace_name))
 
+
 def get_workspace_private_subnets(workspace_name, ec2, vpc_id):
     vpc = ec2.Vpc(vpc_id)
     return _get_workspace_private_subnets(workspace_name, vpc)
@@ -661,25 +663,60 @@ def get_aws_managed_cloud_storage_info(config, cloud_provider, info):
         info[CLOUDTIK_MANAGED_CLOUD_STORAGE] = managed_cloud_storage
 
 
-def update_aws_workspace_firewalls(config):
+def update_aws_workspace(config):
+    workspace_name = config["workspace_name"]
+    managed_cloud_storage = is_managed_cloud_storage(config)
+    managed_cloud_database = is_managed_cloud_database(config)
+
+    current_step = 1
+    total_steps = AWS_WORKSPACE_NUM_UPDATE_STEPS
+    if managed_cloud_storage:
+        total_steps += 1
+    if managed_cloud_database:
+        total_steps += 1
+
+    try:
+        with cli_logger.group("Updating workspace: {}", workspace_name):
+            with cli_logger.group(
+                    "Updating workspace firewalls",
+                    _numbered=("[]", current_step, total_steps)):
+                current_step += 1
+                update_workspace_firewalls(config)
+
+            if managed_cloud_storage:
+                with cli_logger.group(
+                        "Creating managed cloud storage...",
+                        _numbered=("[]", current_step, total_steps)):
+                    current_step += 1
+                    _create_workspace_cloud_storage(config, workspace_name)
+
+            if managed_cloud_database:
+                with cli_logger.group(
+                        "Creating managed database",
+                        _numbered=("[]", current_step, total_steps)):
+                    current_step += 1
+                    _create_workspace_cloud_database(config, workspace_name)
+
+    except Exception as e:
+        cli_logger.error("Failed to update workspace with the name {}. "
+                         "You need to delete and try create again. {}", workspace_name, str(e))
+        raise e
+
+    cli_logger.success(
+        "Successfully updated workspace: {}.",
+        cf.bold(workspace_name))
+
+
+def update_workspace_firewalls(config):
     ec2_client = _resource_client("ec2", config)
     workspace_name = config["workspace_name"]
     vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
     if vpc_id is None:
-        cli_logger.error("The workspace: {} doesn't exist!".format(config["workspace_name"]))
-        return
-
-    current_step = 1
-    total_steps = 1
+        raise RuntimeError("The workspace: {} doesn't exist!".format(config["workspace_name"]))
 
     try:
-
-        with cli_logger.group(
-                "Updating workspace firewalls",
-                _numbered=("[]", current_step, total_steps)):
-            current_step += 1
-            _update_security_group(config, vpc_id)
-
+        cli_logger.print("Updating the firewalls of workspace...")
+        _update_security_group(config, vpc_id)
     except Exception as e:
         cli_logger.error(
             "Failed to update the firewalls of workspace {}. {}", workspace_name, str(e))
@@ -688,7 +725,6 @@ def update_aws_workspace_firewalls(config):
     cli_logger.success(
         "Successfully updated the firewalls of workspace: {}.",
         cf.bold(workspace_name))
-    return None
 
 
 def delete_aws_workspace(config, delete_managed_storage: bool = False, delete_managed_database: bool = False):

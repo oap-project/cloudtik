@@ -22,9 +22,6 @@ class KubernetesWorkspaceProvider(WorkspaceProvider):
                          delete_managed_database:bool = False):
         delete_kubernetes_workspace(config, delete_managed_storage)
 
-    def update_workspace_firewalls(self, config):
-        pass
-
     def check_workspace_existence(self, config: Dict[str, Any]):
         return check_kubernetes_workspace_existence(config)
 

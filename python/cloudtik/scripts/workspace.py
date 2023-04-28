@@ -4,8 +4,8 @@ import logging
 import urllib
 
 from cloudtik.core._private.workspace.workspace_operator import (
-    create_workspace, delete_workspace, update_workspace_firewalls, list_workspace_clusters, show_status,
-    show_workspace_info, show_managed_cloud_storage, show_managed_cloud_storage_uri)
+    create_workspace, delete_workspace, list_workspace_clusters, show_status,
+    show_workspace_info, show_managed_cloud_storage, show_managed_cloud_storage_uri, update_workspace)
 from cloudtik.core._private.cli_logger import (add_click_logging_options, cli_logger)
 from cloudtik.scripts.utils import NaturalOrderGroup
 
@@ -58,7 +58,7 @@ def create(workspace_config_file, yes, workspace_name, no_config_cache,
         except urllib.error.HTTPError as e:
             cli_logger.warning("{}", str(e))
             cli_logger.warning(
-                "Could not download remote cluster configuration file.")
+                "Could not download remote workspace configuration file.")
 
     create_workspace(
         config_file=workspace_config_file,
@@ -83,14 +83,21 @@ def create(workspace_config_file, yes, workspace_name, no_config_cache,
     type=str,
     help="Override the configured workspace name.")
 @click.option(
-    "--delete-managed-storage/--no-delete-managed-storage",
+    "--no-config-cache",
     is_flag=True,
     default=False,
-    help="Whether to delete the managed cloud storage")
+    help="Disable the local workspace config cache.")
 @add_click_logging_options
-def delete(workspace_config_file, yes, workspace_name, delete_managed_storage):
-    """Delete a workspace and the associated cloud resources."""
-    delete_workspace(workspace_config_file, yes, workspace_name, delete_managed_storage)
+def update(workspace_config_file, yes, workspace_name, no_config_cache):
+    """Update a workspace on cloud using the workspace configuration file.
+    Only limited configurations can be updated such as firewalls IPs,
+    use of cloud storage and database.
+    """
+    update_workspace(
+        config_file=workspace_config_file,
+        yes=yes,
+        override_workspace_name=workspace_name,
+        no_config_cache=no_config_cache)
 
 
 @workspace.command()
@@ -107,10 +114,24 @@ def delete(workspace_config_file, yes, workspace_name, delete_managed_storage):
     required=False,
     type=str,
     help="Override the configured workspace name.")
+@click.option(
+    "--no-config-cache",
+    is_flag=True,
+    default=False,
+    help="Disable the local workspace config cache.")
+@click.option(
+    "--delete-managed-storage/--no-delete-managed-storage",
+    is_flag=True,
+    default=False,
+    help="Whether to delete the managed cloud storage")
 @add_click_logging_options
-def update_firewalls(workspace_config_file, yes, workspace_name):
-    """Update the firewalls for workspace."""
-    update_workspace_firewalls(workspace_config_file, yes, workspace_name)
+def delete(workspace_config_file, yes, workspace_name,
+           no_config_cache, delete_managed_storage):
+    """Delete a workspace and the associated cloud resources."""
+    delete_workspace(
+        workspace_config_file, yes, workspace_name,
+        no_config_cache=no_config_cache,
+        delete_managed_database=delete_managed_storage)
 
 
 @workspace.command()
@@ -182,7 +203,7 @@ def _add_command_alias(command, name, hidden):
 # core commands working on workspace
 workspace.add_command(create)
 workspace.add_command(delete)
-workspace.add_command(update_firewalls)
+workspace.add_command(update)
 
 # commands for workspace info
 workspace.add_command(status)

@@ -12,7 +12,7 @@ from cloudtik.providers._private.huaweicloud.config import \
     check_huaweicloud_workspace_integrity, create_huaweicloud_workspace, \
     delete_huaweicloud_workspace, get_huaweicloud_workspace_info, \
     list_huaweicloud_clusters, \
-    update_huaweicloud_workspace_firewalls
+    update_huaweicloud_workspace
 from cloudtik.providers._private.huaweicloud.utils import tags_list_to_dict
 
 HUAWEICLOUD_WORKSPACE_NAME_MAX_LEN = 32
@@ -32,8 +32,8 @@ class HUAWEICLOUDWorkspaceProvider(WorkspaceProvider):
                          delete_managed_database:bool = False):
         delete_huaweicloud_workspace(config, delete_managed_storage)
 
-    def update_workspace_firewalls(self, config: Dict[str, Any]):
-        update_huaweicloud_workspace_firewalls(config)
+    def update_workspace(self, config: Dict[str, Any]):
+        update_huaweicloud_workspace(config)
 
     def check_workspace_existence(self, config: Dict[str, Any]) -> Existence:
         return check_huaweicloud_workspace_existence(config)

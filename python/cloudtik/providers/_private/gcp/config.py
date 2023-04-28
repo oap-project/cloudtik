@@ -23,7 +23,8 @@ from cloudtik.core._private.services import get_node_ip_address
 from cloudtik.core._private.utils import check_cidr_conflict, unescape_private_key, is_use_internal_ip, \
     is_managed_cloud_storage, is_use_managed_cloud_storage, is_worker_role_for_cloud_storage, \
     _is_use_managed_cloud_storage, is_use_peering_vpc, is_use_working_vpc, _is_use_working_vpc, \
-    is_peering_firewall_allow_working_subnet, is_peering_firewall_allow_ssh_only, is_gpu_runtime
+    is_peering_firewall_allow_working_subnet, is_peering_firewall_allow_ssh_only, is_gpu_runtime, \
+    is_managed_cloud_database
 from cloudtik.providers._private.gcp.node import GCPCompute
 from cloudtik.providers._private.gcp.utils import _get_node_info, construct_clients_from_provider_config, \
     wait_for_compute_global_operation, wait_for_compute_region_operation, _create_storage, \
@@ -69,6 +70,7 @@ TPU_SERVICE_ACCOUNT_ROLES = ["roles/tpu.admin"]
 
 GCP_WORKSPACE_NUM_CREATION_STEPS = 7
 GCP_WORKSPACE_NUM_DELETION_STEPS = 6
+GCP_WORKSPACE_NUM_UPDATE_STEPS = 1
 GCP_WORKSPACE_TARGET_RESOURCES = 8
 
 GCP_MANAGED_STORAGE_GCS_BUCKET = "gcp.managed.storage.gcs.bucket"
@@ -825,7 +827,51 @@ def _get_gcp_vpc_id(provider_config, workspace_name, compute, use_working_vpc):
     return vpc_id
 
 
-def update_gcp_workspace_firewalls(config):
+def update_gcp_workspace(config):
+    workspace_name = config["workspace_name"]
+    managed_cloud_storage = is_managed_cloud_storage(config)
+    managed_cloud_database = is_managed_cloud_database(config)
+
+    current_step = 1
+    total_steps = GCP_WORKSPACE_NUM_UPDATE_STEPS
+    if managed_cloud_storage:
+        total_steps += 1
+    if managed_cloud_database:
+        total_steps += 1
+
+    try:
+        with cli_logger.group("Updating workspace: {}", workspace_name):
+            with cli_logger.group(
+                    "Updating workspace firewalls",
+                    _numbered=("[]", current_step, total_steps)):
+                current_step += 1
+                update_workspace_firewalls(config)
+
+            if managed_cloud_storage:
+                with cli_logger.group(
+                        "Creating managed cloud storage...",
+                        _numbered=("[]", current_step, total_steps)):
+                    current_step += 1
+                    _create_workspace_cloud_storage(config, workspace_name)
+
+            if managed_cloud_database:
+                with cli_logger.group(
+                        "Creating managed database",
+                        _numbered=("[]", current_step, total_steps)):
+                    current_step += 1
+                    # _create_workspace_cloud_database(config, workspace_name)
+
+    except Exception as e:
+        cli_logger.error("Failed to update workspace with the name {}. "
+                         "You need to delete and try create again. {}", workspace_name, str(e))
+        raise e
+
+    cli_logger.success(
+        "Successfully updated workspace: {}.",
+        cf.bold(workspace_name))
+
+
+def update_workspace_firewalls(config):
     crm, iam, compute, tpu = \
         construct_clients_from_provider_config(config["provider"])
 
@@ -833,20 +879,11 @@ def update_gcp_workspace_firewalls(config):
     use_working_vpc = is_use_working_vpc(config)
     vpc_id = get_gcp_vpc_id(config, compute, use_working_vpc)
     if vpc_id is None:
-        cli_logger.error("The workspace: {} doesn't exist!".format(config["workspace_name"]))
-        return
-
-    current_step = 1
-    total_steps = 1
+        raise RuntimeError("The workspace: {} doesn't exist!".format(config["workspace_name"]))
 
     try:
-
-        with cli_logger.group(
-                "Updating workspace firewalls",
-                _numbered=("[]", current_step, total_steps)):
-            current_step += 1
-            _create_or_update_firewalls(config, compute, vpc_id)
-
+        cli_logger.print("Updating the firewalls of workspace...")
+        _create_or_update_firewalls(config, compute, vpc_id)
     except Exception as e:
         cli_logger.error(
             "Failed to update the firewalls of workspace {}. {}", workspace_name, str(e))

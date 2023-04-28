@@ -47,8 +47,11 @@ class WorkspaceProvider:
         """
         pass
 
-    def update_workspace_firewalls(self, config: Dict[str, Any]):
-        """Update the workspace firewalls based on the latest information in config"""
+    def update_workspace(self, config: Dict[str, Any]):
+        """Update the workspace based on the latest information in config
+        The configurations could be updated is provider dependent
+        and is not guaranteed to be successful.
+        """
         pass
 
     def check_workspace_existence(self, config: Dict[str, Any]) -> Existence:

@@ -2998,6 +2998,12 @@ def get_storage_config_for_update(provider_config):
     return provider_config["storage"]
 
 
+def get_database_config_for_update(provider_config):
+    if "database" not in provider_config:
+        provider_config["database"] = {}
+    return provider_config["database"]
+
+
 def print_json_formatted(json_bytes):
     json_object = json.loads(json_bytes)
     formatted_response = json.dumps(json_object, indent=4)

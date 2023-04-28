@@ -71,10 +71,18 @@ function configure_hive_metastore() {
     mkdir -p ${METASTORE_HOME}/logs
 
     DATABASE_NAME=hive_metastore
-    DATABASE_USER=hive
-    DATABASE_PASSWORD=hive
+    if [ "${CLOUD_DATABASE}" == "true" ]; then
+        DATABASE_ADDRESS=${CLOUD_DATABASE_HOSTNAME}:${CLOUD_DATABASE_PORT}
+        DATABASE_USER=${CLOUD_DATABASE_USERNAME}
+        DATABASE_PASSWORD=${CLOUD_DATABASE_PASSWORD}
+    else
+        DATABASE_ADDRESS=localhost
+        DATABASE_USER=hive
+        DATABASE_PASSWORD=hive
+    fi
 
     sed -i "s/{%HEAD_ADDRESS%}/${HEAD_ADDRESS}/g" `grep "{%HEAD_ADDRESS%}" -rl ./`
+    sed -i "s/{%DATABASE_ADDRESS%}/${DATABASE_ADDRESS}/g" `grep "{%DATABASE_ADDRESS%}" -rl ./`
     sed -i "s/{%DATABASE_NAME%}/${DATABASE_NAME}/g" `grep "{%DATABASE_NAME%}" -rl ./`
     sed -i "s/{%DATABASE_USER%}/${DATABASE_USER}/g" `grep "{%DATABASE_USER%}" -rl ./`
     sed -i "s/{%DATABASE_PASSWORD%}/${DATABASE_PASSWORD}/g" `grep "{%DATABASE_PASSWORD%}" -rl ./`
@@ -86,24 +94,29 @@ function configure_hive_metastore() {
 
     cp -r ${output_dir}/hive/metastore-site.xml  ${METASTORE_HOME}/conf/metastore-site.xml
 
-    # Start mariadb
-    sudo service mysql start
-    # Do we need wait a few seconds for mysql to startup?
+    if [ "${CLOUD_DATABASE}" == "true" ]; then
+        # Start mariadb
+        sudo service mysql start
+        # Do we need wait a few seconds for mysql to startup?
 
-    # We may not need to create database as hive can create if it not exist
-    # create user
-    sudo mysql -u root -e "
-        DROP DATABASE IF EXISTS ${DATABASE_NAME};
-        CREATE DATABASE ${DATABASE_NAME};
-        CREATE USER '${DATABASE_USER}'@localhost IDENTIFIED BY '${DATABASE_PASSWORD}';
-        GRANT ALL PRIVILEGES ON *.* TO '${DATABASE_USER}'@'localhost';
-        FLUSH PRIVILEGES;" > ${METASTORE_HOME}/logs/configure.log
+        # We may not need to create database as hive can create if it not exist
+        # create user
+        sudo mysql -u root -e "
+            DROP DATABASE IF EXISTS ${DATABASE_NAME};
+            CREATE DATABASE ${DATABASE_NAME};
+            CREATE USER '${DATABASE_USER}'@localhost IDENTIFIED BY '${DATABASE_PASSWORD}';
+            GRANT ALL PRIVILEGES ON *.* TO '${DATABASE_USER}'@'localhost';
+            FLUSH PRIVILEGES;" > ${METASTORE_HOME}/logs/configure.log
 
-    # initialize the metastore database schema
-    ${METASTORE_HOME}/bin/schematool -initSchema -dbType mysql > ${METASTORE_HOME}/logs/configure.log 2>&1
+        # initialize the metastore database schema
+        ${METASTORE_HOME}/bin/schematool -initSchema -dbType mysql > ${METASTORE_HOME}/logs/configure.log 2>&1
 
-    # Stop mariadb after configured
-    sudo service mysql stop
+        # Stop mariadb after configured
+        sudo service mysql stop
+    else
+        # initialize the metastore database schema
+        ${METASTORE_HOME}/bin/schematool -initSchema -dbType mysql > ${METASTORE_HOME}/logs/configure.log 2>&1
+    fi
 }
 
 check_hive_metastore_installed

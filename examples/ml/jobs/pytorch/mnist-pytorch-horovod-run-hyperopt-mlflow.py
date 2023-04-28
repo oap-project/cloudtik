@@ -85,8 +85,7 @@ if __name__ == '__main__':
         return os.path.join(log_dir, 'checkpoint-{file_id}.pth.tar'.format(file_id=file_id))
 
 
-    def save_checkpoint(log_dir, model, optimizer, file_id, use_cuda):
-        model.cpu()
+    def save_checkpoint(log_dir, model, optimizer, file_id):
         filepath = get_checkpoint_file(log_dir, file_id)
         print('Written checkpoint to {}'.format(filepath))
         state = {
@@ -95,13 +94,11 @@ if __name__ == '__main__':
         if optimizer is not None:
             state['optimizer'] = optimizer.state_dict()
         torch.save(state, filepath)
-        if use_cuda:
-            model.cuda()
 
 
-    def load_checkpoint(log_dir, file_id):
+    def load_checkpoint(log_dir, file_id, device):
         filepath = get_checkpoint_file(log_dir, file_id)
-        return torch.load(filepath)
+        return torch.load(filepath, map_location=device)
 
 
     def create_log_dir(experiment_name):
@@ -304,10 +301,7 @@ if __name__ == '__main__':
                     optimizer, epoch)
             # Save checkpoints only on worker 0 to prevent conflicts between workers
             if hvd.rank() == 0:
-                save_checkpoint(
-                    local_checkpoint_dir, model, optimizer, epoch,
-                    use_cuda
-                )
+                save_checkpoint(local_checkpoint_dir, model, optimizer, epoch)
 
         if hvd.rank() == 0:
             # Return the model bytes of the last checkpoint
@@ -336,16 +330,16 @@ if __name__ == '__main__':
         return test_loss
 
 
-    def load_model_of_checkpoint(device, log_dir, file_id):
+    def load_model_of_checkpoint(log_dir, file_id, device):
         model = Net().to(device)
-        checkpoint = load_checkpoint(log_dir, file_id)
+        checkpoint = load_checkpoint(log_dir, file_id, device)
         model.load_state_dict(checkpoint['model'])
         return model
 
 
-    def test_checkpoint(device, log_dir, file_id):
-        model = load_model_of_checkpoint(device, log_dir, file_id)
-        return test_model(model)
+    def test_checkpoint(log_dir, file_id, device):
+        model = load_model_of_checkpoint(log_dir, file_id, device)
+        return test_model(model, device)
 
 
     #  Hyperopt training function
@@ -382,7 +376,7 @@ if __name__ == '__main__':
             print('Written checkpoint to {}'.format(checkpoint_file))
 
             model = load_model_of_checkpoint(
-                local_device, checkpoint_dir, learning_rate)
+                checkpoint_dir, learning_rate, local_device)
             test_loss = test_model(model, local_device)
 
             mlflow.log_metric("learning_rate", learning_rate)
@@ -409,7 +403,7 @@ if __name__ == '__main__':
 
     # Train final model with the best parameters and save the model
     best_model = load_model_of_checkpoint(
-        local_device, checkpoint_dir, argmin.get('learning_rate'))
+        checkpoint_dir, argmin.get('learning_rate'), local_device)
     model_name = "mnist-pytorch-horovod-run"
     mlflow.pytorch.log_model(
         best_model, model_name, registered_model_name=model_name)

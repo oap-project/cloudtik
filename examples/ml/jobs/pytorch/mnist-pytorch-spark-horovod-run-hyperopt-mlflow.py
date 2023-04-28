@@ -23,6 +23,11 @@ parser.add_argument('--mpi', action='store_true', dest='use_mpi',
                     help='Run Horovod using the MPI controller. This will '
                          'be the default if Horovod was built with MPI support.')
 
+parser.add_argument('--no-cuda', action='store_true', default=False,
+                    help='disables CUDA training')
+parser.add_argument('--local-cuda', action='store_true', default=False,
+                    help='Enables local node with CUDA')
+
 if __name__ == '__main__':
     args = parser.parse_args()
     fsdir = args.fsdir
@@ -84,10 +89,9 @@ if __name__ == '__main__':
             state['optimizer'] = optimizer.state_dict()
         torch.save(state, filepath)
 
-
-    def load_checkpoint(log_dir, file_id):
+    def load_checkpoint(log_dir, file_id, device):
         filepath = get_checkpoint_file(log_dir, file_id)
-        return torch.load(filepath)
+        return torch.load(filepath, map_location=device)
 
 
     def create_log_dir(experiment_name):
@@ -160,10 +164,12 @@ if __name__ == '__main__':
 
 
     def train_horovod(learning_rate):
+        use_cuda = not args.no_cuda and torch.cuda.is_available()
+
         # Initialize Horovod
         hvd.init()
 
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        device = torch.device('cuda' if use_cuda else 'cpu')
         if device.type == 'cuda':
             # Pin GPU to local rank
             torch.cuda.set_device(hvd.local_rank())
@@ -213,10 +219,11 @@ if __name__ == '__main__':
 
 
     # Local test functions
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    local_use_cuda = args.local_cuda and torch.cuda.is_available()
+    local_device = torch.device('cuda' if local_use_cuda else 'cpu')
 
 
-    def test_model(model):
+    def test_model(model, device):
         model.eval()
 
         test_dataset = datasets.MNIST(
@@ -237,16 +244,16 @@ if __name__ == '__main__':
         return test_loss
 
 
-    def load_model_of_checkpoint(log_dir, file_id):
+    def load_model_of_checkpoint(log_dir, file_id, device):
         model = Net().to(device)
-        checkpoint = load_checkpoint(log_dir, file_id)
+        checkpoint = load_checkpoint(log_dir, file_id, device)
         model.load_state_dict(checkpoint['model'])
         return model
 
 
-    def test_checkpoint(log_dir, file_id):
-        model = load_model_of_checkpoint(log_dir, file_id)
-        return test_model(model)
+    def test_checkpoint(log_dir, file_id, device):
+        model = load_model_of_checkpoint(log_dir, file_id, device)
+        return test_model(model, device)
 
 
     #  Hyperopt training function
@@ -271,8 +278,9 @@ if __name__ == '__main__':
                 f.write(model_bytes)
             print('Written checkpoint to {}'.format(checkpoint_file))
 
-            model = load_model_of_checkpoint(checkpoint_dir, learning_rate)
-            test_loss = test_model(model)
+            model = load_model_of_checkpoint(
+                checkpoint_dir, learning_rate, local_device)
+            test_loss = test_model(model, local_device)
 
             mlflow.log_metric("learning_rate", learning_rate)
             mlflow.log_metric("loss", test_loss)
@@ -281,7 +289,7 @@ if __name__ == '__main__':
 
 
     # Do a super parameter tuning with hyperopt
-    from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
+    from hyperopt import fmin, tpe, hp, STATUS_OK
 
     trials = args.trials
     print("Hyper parameter tuning trials: {}".format(trials))
@@ -297,7 +305,8 @@ if __name__ == '__main__':
     print("Best parameter found: ", argmin)
 
     # Train final model with the best parameters and save the model
-    best_model = load_model_of_checkpoint(checkpoint_dir, argmin.get('learning_rate'))
+    best_model = load_model_of_checkpoint(
+        checkpoint_dir, argmin.get('learning_rate'), local_device)
     model_name = "mnist-pytorch-spark-horovod-run"
     mlflow.pytorch.log_model(
         best_model, model_name, registered_model_name=model_name)
@@ -306,4 +315,4 @@ if __name__ == '__main__':
     model_uri = "models:/{}/latest".format(model_name)
     print('Inference with model: {}'.format(model_uri))
     saved_model = mlflow.pytorch.load_model(model_uri)
-    test_model(saved_model)
+    test_model(saved_model, local_device)

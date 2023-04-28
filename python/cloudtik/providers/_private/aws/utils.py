@@ -10,7 +10,7 @@ from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.constants import env_integer, CLOUDTIK_DEFAULT_CLOUD_STORAGE_URI
 
 # Max number of retries to AWS (default is 5, time increases exponentially)
-from cloudtik.core._private.utils import get_storage_config_for_update
+from cloudtik.core._private.utils import get_storage_config_for_update, get_database_config_for_update
 
 BOTO_MAX_RETRIES = env_integer("BOTO_MAX_RETRIES", 12)
 
@@ -18,6 +18,7 @@ BOTO_MAX_RETRIES = env_integer("BOTO_MAX_RETRIES", 12)
 BOTO_CREATE_MAX_RETRIES = env_integer("BOTO_CREATE_MAX_RETRIES", 5)
 
 AWS_S3_BUCKET = "s3.bucket"
+AWS_DATABASE_ENDPOINT = "endpoint"
 
 
 class LazyDefaultDict(defaultdict):
@@ -204,6 +205,34 @@ def get_default_aws_cloud_storage(provider_config):
         cloud_storage_info[CLOUDTIK_DEFAULT_CLOUD_STORAGE_URI] = cloud_storage_uri
 
     return cloud_storage_info
+
+
+def get_aws_database_config(provider_config: Dict[str, Any], default=None):
+    if "database" in provider_config and "aws.rds" in provider_config["database"]:
+        return provider_config["database"]["aws.rds"]
+
+    return default
+
+
+def get_aws_database_config_for_update(provider_config: Dict[str, Any]):
+    database_config = get_database_config_for_update(provider_config)
+    if "aws.rds" not in database_config:
+        database_config["aws.rds"] = {}
+    return database_config["aws.rds"]
+
+
+def export_aws_database_config(provider_config, config_dict: Dict[str, Any]):
+    database_config = get_aws_database_config(provider_config)
+    if database_config is None:
+        return
+
+    database_hostname = database_config.get(AWS_DATABASE_ENDPOINT)
+    if database_hostname:
+        config_dict["CLOUD_DATABASE"] = True
+        config_dict["CLOUD_DATABASE_HOSTNAME"] = database_hostname
+        config_dict["CLOUD_DATABASE_PORT"] = database_config.get("port", 3306)
+        config_dict["CLOUD_DATABASE_USERNAME"] = database_config.get("username", "cloudtik")
+        config_dict["CLOUD_DATABASE_PASSWORD"] = database_config.get("password", "cloudtik")
 
 
 def tags_list_to_dict(tags: list):

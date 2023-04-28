@@ -28,7 +28,8 @@ from cloudtik.providers._private.aws.utils import LazyDefaultDict, \
     handle_boto_error, get_boto_error_code, _get_node_info, BOTO_MAX_RETRIES, _resource, \
     _resource_client, _make_resource, _make_resource_client, make_ec2_client, export_aws_s3_storage_config, \
     get_aws_s3_storage_config, get_aws_s3_storage_config_for_update, _working_node_client, _working_node_resource, \
-    get_aws_cloud_storage_uri, AWS_S3_BUCKET, _make_client
+    get_aws_cloud_storage_uri, AWS_S3_BUCKET, _make_client, get_aws_database_config, export_aws_database_config, \
+    get_aws_database_config_for_update, AWS_DATABASE_ENDPOINT
 from cloudtik.providers._private.utils import StorageTestingError
 
 logger = logging.getLogger(__name__)
@@ -1077,6 +1078,9 @@ def bootstrap_aws_from_workspace(config):
     # Set s3.bucket if use_managed_cloud_storage=False
     config = _configure_cloud_storage_from_workspace(config)
 
+    # Set database parameters if use_managed_cloud_database=False
+    config = _configure_cloud_database_from_workspace(config)
+
     # Configure SSH access, using an existing key pair if possible.
     config = _configure_key_pair(config)
 
@@ -1177,6 +1181,30 @@ def _configure_managed_cloud_storage_from_workspace(config, cloud_provider):
 
     cloud_storage = get_aws_s3_storage_config_for_update(config["provider"])
     cloud_storage[AWS_S3_BUCKET] = s3_bucket.name
+
+
+def _configure_cloud_database_from_workspace(config):
+    use_managed_cloud_database = is_use_managed_cloud_database(config)
+    if use_managed_cloud_database:
+        _configure_managed_cloud_database_from_workspace(
+            config, config["provider"])
+
+    return config
+
+
+def _configure_managed_cloud_database_from_workspace(config, cloud_provider):
+    workspace_name = config["workspace_name"]
+    database_instance = get_managed_database_instance(cloud_provider, workspace_name)
+    if database_instance is None:
+        cli_logger.abort("No managed database was found. If you want to use managed database, "
+                         "you should set managed_cloud_database equal to True when you creating workspace.")
+
+    endpoint = database_instance['Endpoint']
+    database_config = get_aws_database_config_for_update(config["provider"])
+    database_config[AWS_DATABASE_ENDPOINT] = endpoint['Address']
+    database_config["port"] = endpoint['Port']
+    if "username" not in database_config:
+        database_config["username"] = database_instance['MasterUsername']
 
 
 def _configure_iam_role_from_workspace(config):
@@ -2534,7 +2562,7 @@ def _create_managed_database_instance(config, workspace_name):
     rds_client = _make_client("rds", cloud_provider)
     db_instance_identifier = AWS_WORKSPACE_DATABASE_NAME.format(workspace_name)
     db_subnet_group = AWS_WORKSPACE_DB_SUBNET_GROUP_NAME.format(workspace_name)
-    database_config = cloud_provider.get("cloud_database", {})
+    database_config = get_aws_database_config(cloud_provider, {})
 
     ec2_client = _resource_client("ec2", config)
     vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
@@ -2548,8 +2576,8 @@ def _create_managed_database_instance(config, workspace_name):
             Engine="mysql",
             StorageType=database_config.get("storage_type", "gp2"),
             AllocatedStorage=database_config.get("allocated_storage", 50),
-            MasterUsername='cloudtik',
-            MasterUserPassword=database_config.get('user_token', "cloudtik"),
+            MasterUsername=database_config.get('username', "cloudtik"),
+            MasterUserPassword=database_config.get('password', "cloudtik"),
             VpcSecurityGroupIds=[
                 security_group.id
             ],
@@ -3339,4 +3367,5 @@ def list_aws_clusters(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 def with_aws_environment_variables(provider_config, node_type_config: Dict[str, Any], node_id: str):
     config_dict = {}
     export_aws_s3_storage_config(provider_config, config_dict)
+    export_aws_database_config(provider_config, config_dict)
     return config_dict

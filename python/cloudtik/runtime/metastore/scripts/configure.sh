@@ -117,7 +117,7 @@ function configure_hive_metastore() {
 
     cp -r ${output_dir}/hive/metastore-site.xml  ${METASTORE_HOME}/conf/metastore-site.xml
 
-    if [ "${CLOUD_DATABASE}" == "true" ]; then
+    if [ "${CLOUD_DATABASE}" != "true" ]; then
         # Start mariadb
         sudo service mysql start
         # Do we need wait a few seconds for mysql to startup?

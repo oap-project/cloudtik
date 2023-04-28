@@ -64,6 +64,29 @@ function set_head_address() {
     fi
 }
 
+function init_or_upgrade_schema() {
+    METASTORE_SCHEMA_OK=true
+    ${METASTORE_HOME}/bin/schematool -validate -dbType mysql > ${METASTORE_HOME}/logs/configure.log 2>&1
+    if [ $? != 0 ]; then
+        # Either we need to initSchema or we need upgradeSchema
+        echo "Trying to initialize the metastore schema..."
+        ${METASTORE_HOME}/bin/schematool -initSchema -dbType mysql > ${METASTORE_HOME}/logs/configure.log 2>&1
+        if [ $? != 0 ]; then
+            # Failed to init the schema, it may already exists
+            echo "Trying to upgrade the metastore schema..."
+            ${METASTORE_HOME}/bin/schematool -upgradeSchema -dbType mysql > ${METASTORE_HOME}/logs/configure.log 2>&1
+            if [ $? != 0 ]; then
+                echo "Metastore schema initialization or upgrade failed."
+                METASTORE_SCHEMA_OK=false
+            else
+                echo "Successfully upgraded the metastore schema."
+            fi
+        else
+            echo "Successfully initialized the metastore schema."
+        fi
+    fi
+}
+
 function configure_hive_metastore() {
     prepare_base_conf
     cd $output_dir
@@ -109,13 +132,17 @@ function configure_hive_metastore() {
             FLUSH PRIVILEGES;" > ${METASTORE_HOME}/logs/configure.log
 
         # initialize the metastore database schema
-        ${METASTORE_HOME}/bin/schematool -initSchema -dbType mysql > ${METASTORE_HOME}/logs/configure.log 2>&1
+        init_or_upgrade_schema
 
         # Stop mariadb after configured
         sudo service mysql stop
     else
         # initialize the metastore database schema
-        ${METASTORE_HOME}/bin/schematool -initSchema -dbType mysql > ${METASTORE_HOME}/logs/configure.log 2>&1
+        init_or_upgrade_schema
+    fi
+
+    if [ "${METASTORE_SCHEMA_OK}" != "true" ]; then
+        exit 1
     fi
 }
 

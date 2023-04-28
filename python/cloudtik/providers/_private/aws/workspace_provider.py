@@ -25,10 +25,14 @@ class AWSWorkspaceProvider(WorkspaceProvider):
     def delete_workspace(self, config,
                          delete_managed_storage: bool = False,
                          delete_managed_database: bool = False):
-        delete_aws_workspace(config, delete_managed_storage, delete_managed_database)
+        delete_aws_workspace(
+            config, delete_managed_storage, delete_managed_database)
 
-    def update_workspace(self, config: Dict[str, Any]):
-        update_aws_workspace(config)
+    def update_workspace(self, config: Dict[str, Any],
+                         delete_managed_storage: bool = False,
+                         delete_managed_database: bool = False):
+        update_aws_workspace(
+            config, delete_managed_storage, delete_managed_database)
 
     def check_workspace_existence(self, config: Dict[str, Any]):
         return check_aws_workspace_existence(config)

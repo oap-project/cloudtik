@@ -2,7 +2,7 @@ import logging
 from typing import Any, Dict, Optional
 
 from cloudtik.providers._private.gcp.config import create_gcp_workspace, \
-    delete_gcp_workspace, check_gcp_workspace_integrity, update_gcp_workspace_firewalls, \
+    delete_gcp_workspace, check_gcp_workspace_integrity, \
     get_workspace_head_nodes, list_gcp_clusters, bootstrap_gcp_workspace, check_gcp_workspace_existence, \
     get_gcp_workspace_info, update_gcp_workspace
 from cloudtik.core._private.providers import _get_node_provider
@@ -27,8 +27,11 @@ class GCPWorkspaceProvider(WorkspaceProvider):
                          delete_managed_database: bool = False):
         delete_gcp_workspace(config, delete_managed_storage)
 
-    def update_workspace(self, config: Dict[str, Any]):
-        update_gcp_workspace(config)
+    def update_workspace(self, config: Dict[str, Any],
+                         delete_managed_storage: bool = False,
+                         delete_managed_database: bool = False):
+        update_gcp_workspace(
+            config, delete_managed_storage, delete_managed_database)
 
     def check_workspace_existence(self, config: Dict[str, Any]):
         return check_gcp_workspace_existence(config)

@@ -47,7 +47,9 @@ class WorkspaceProvider:
         """
         pass
 
-    def update_workspace(self, config: Dict[str, Any]):
+    def update_workspace(self, config: Dict[str, Any],
+                         delete_managed_storage: bool = False,
+                         delete_managed_database: bool = False):
         """Update the workspace based on the latest information in config
         The configurations could be updated is provider dependent
         and is not guaranteed to be successful.

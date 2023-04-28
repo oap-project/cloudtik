@@ -87,8 +87,19 @@ def create(workspace_config_file, yes, workspace_name, no_config_cache,
     is_flag=True,
     default=False,
     help="Disable the local workspace config cache.")
+@click.option(
+    "--delete-managed-storage/--no-delete-managed-storage",
+    is_flag=True,
+    default=False,
+    help="Whether to delete the managed cloud storage")
+@click.option(
+    "--delete-managed-database/--no-delete-managed-database",
+    is_flag=True,
+    default=False,
+    help="Whether to delete the managed database")
 @add_click_logging_options
-def update(workspace_config_file, yes, workspace_name, no_config_cache):
+def update(workspace_config_file, yes, workspace_name, no_config_cache,
+           delete_managed_storage, delete_managed_database):
     """Update a workspace on cloud using the workspace configuration file.
     Only limited configurations can be updated such as firewalls IPs,
     use of cloud storage and database.
@@ -97,7 +108,10 @@ def update(workspace_config_file, yes, workspace_name, no_config_cache):
         config_file=workspace_config_file,
         yes=yes,
         override_workspace_name=workspace_name,
-        no_config_cache=no_config_cache)
+        no_config_cache=no_config_cache,
+        delete_managed_storage=delete_managed_storage,
+        delete_managed_database=delete_managed_database
+    )
 
 
 @workspace.command()
@@ -124,14 +138,20 @@ def update(workspace_config_file, yes, workspace_name, no_config_cache):
     is_flag=True,
     default=False,
     help="Whether to delete the managed cloud storage")
+@click.option(
+    "--delete-managed-database/--no-delete-managed-database",
+    is_flag=True,
+    default=False,
+    help="Whether to delete the managed database")
 @add_click_logging_options
 def delete(workspace_config_file, yes, workspace_name,
-           no_config_cache, delete_managed_storage):
+           no_config_cache, delete_managed_storage, delete_managed_database):
     """Delete a workspace and the associated cloud resources."""
     delete_workspace(
         workspace_config_file, yes, workspace_name,
         no_config_cache=no_config_cache,
-        delete_managed_database=delete_managed_storage)
+        delete_managed_storage=delete_managed_storage,
+        delete_managed_database=delete_managed_database)
 
 
 @workspace.command()

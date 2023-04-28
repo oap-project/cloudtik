@@ -663,16 +663,19 @@ def get_aws_managed_cloud_storage_info(config, cloud_provider, info):
         info[CLOUDTIK_MANAGED_CLOUD_STORAGE] = managed_cloud_storage
 
 
-def update_aws_workspace(config):
+def update_aws_workspace(
+        config,
+        delete_managed_storage: bool = False,
+        delete_managed_database: bool = False):
     workspace_name = config["workspace_name"]
     managed_cloud_storage = is_managed_cloud_storage(config)
     managed_cloud_database = is_managed_cloud_database(config)
 
     current_step = 1
     total_steps = AWS_WORKSPACE_NUM_UPDATE_STEPS
-    if managed_cloud_storage:
+    if managed_cloud_storage or delete_managed_storage:
         total_steps += 1
-    if managed_cloud_database:
+    if managed_cloud_database or delete_managed_database:
         total_steps += 1
 
     try:
@@ -689,6 +692,13 @@ def update_aws_workspace(config):
                         _numbered=("[]", current_step, total_steps)):
                     current_step += 1
                     _create_workspace_cloud_storage(config, workspace_name)
+            else:
+                if delete_managed_storage:
+                    with cli_logger.group(
+                            "Deleting managed cloud storage",
+                            _numbered=("[]", current_step, total_steps)):
+                        current_step += 1
+                        _delete_workspace_cloud_storage(config, workspace_name)
 
             if managed_cloud_database:
                 with cli_logger.group(
@@ -696,6 +706,13 @@ def update_aws_workspace(config):
                         _numbered=("[]", current_step, total_steps)):
                     current_step += 1
                     _create_workspace_cloud_database(config, workspace_name)
+            else:
+                if delete_managed_database:
+                    with cli_logger.group(
+                            "Deleting managed database",
+                            _numbered=("[]", current_step, total_steps)):
+                        current_step += 1
+                        _delete_workspace_cloud_database(config, workspace_name)
 
     except Exception as e:
         cli_logger.error("Failed to update workspace with the name {}. "
@@ -837,7 +854,7 @@ def _delete_workspace_db_subnet_group(config, workspace_name):
     rds_client = _make_client("rds", config["provider"])
     db_subnet_group = get_workspace_db_subnet_group(config["provider"], workspace_name)
     if db_subnet_group is not None:
-        cli_logger.print("No DB subnet group for the workspace were found.")
+        cli_logger.print("No DB subnet group for the workspace were found. Skip deletion.")
         return
     
     try:
@@ -858,7 +875,7 @@ def _delete_managed_database_instance(config, workspace_name):
     rds_client = _make_client("rds", provider_config)
     db_instance = get_managed_database_instance(provider_config, workspace_name)
     if db_instance is None:
-        cli_logger.warning("No managed database instance were found for workspace.")
+        cli_logger.warning("No managed database instance were found for workspace. Skip deletion.")
         return
 
     try:

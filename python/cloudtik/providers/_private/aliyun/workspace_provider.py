@@ -27,8 +27,11 @@ class AliyunWorkspaceProvider(WorkspaceProvider):
                          delete_managed_database:bool = False):
         delete_aliyun_workspace(config, delete_managed_storage)
 
-    def update_workspace(self, config):
-        update_aliyun_workspace(config)
+    def update_workspace(self, config: Dict[str, Any],
+                         delete_managed_storage: bool = False,
+                         delete_managed_database: bool = False):
+        update_aliyun_workspace(
+            config, delete_managed_storage, delete_managed_database)
 
     def check_workspace_existence(self, config: Dict[str, Any]):
         return check_aliyun_workspace_existence(config)

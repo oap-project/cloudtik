@@ -28,7 +28,7 @@ from cloudtik.providers._private.aws.utils import LazyDefaultDict, \
     handle_boto_error, get_boto_error_code, _get_node_info, BOTO_MAX_RETRIES, _resource, \
     _resource_client, _make_resource, _make_resource_client, make_ec2_client, export_aws_s3_storage_config, \
     get_aws_s3_storage_config, get_aws_s3_storage_config_for_update, _working_node_client, _working_node_resource, \
-    get_aws_cloud_storage_uri, AWS_S3_BUCKET
+    get_aws_cloud_storage_uri, AWS_S3_BUCKET, _make_client
 from cloudtik.providers._private.utils import StorageTestingError
 
 logger = logging.getLogger(__name__)
@@ -834,7 +834,7 @@ def _delete_workspace_cloud_database(config, workspace_name):
 
 
 def _delete_workspace_db_subnet_group(config, workspace_name):
-    rds_client = _make_resource_client("rds", config["provider"])
+    rds_client = _make_client("rds", config["provider"])
     db_subnet_group = get_workspace_db_subnet_group(config["provider"], workspace_name)
     if db_subnet_group is not None:
         cli_logger.print("No DB subnet group for the workspace were found.")
@@ -855,7 +855,7 @@ def _delete_workspace_db_subnet_group(config, workspace_name):
 
 def _delete_managed_database_instance(config, workspace_name):
     provider_config = config["provider"]
-    rds_client = _make_resource_client("rds", provider_config)
+    rds_client = _make_client("rds", provider_config)
     db_instance = get_managed_database_instance(provider_config, workspace_name)
     if db_instance is None:
         cli_logger.warning("No managed database instance were found for workspace.")
@@ -2463,7 +2463,7 @@ def _create_managed_cloud_storage(cloud_provider, workspace_name):
 
 
 def _create_workspace_db_subnet_group(config, workspace_name):
-    rds_client = _make_resource_client("rds", config["provider"])
+    rds_client = _make_client("rds", config["provider"])
     db_subnet_group = get_workspace_db_subnet_group(config["provider"], workspace_name)
     if db_subnet_group is not None:
         cli_logger.print("The DB subnet group for the workspace already exists. Skip creation.")
@@ -2514,7 +2514,7 @@ def _create_managed_database_instance(config, workspace_name):
         cli_logger.print("Managed database instance for the workspace already exists. Skip creation.")
         return
 
-    rds_client = _make_resource_client("rds", cloud_provider)
+    rds_client = _make_client("rds", cloud_provider)
     db_instance_identifier = AWS_WORKSPACE_DATABASE_NAME.format(workspace_name)
     db_subnet_group = AWS_WORKSPACE_DB_SUBNET_GROUP_NAME.format(workspace_name)
     database_config = cloud_provider.get("cloud_database", {})
@@ -3122,7 +3122,7 @@ def get_workspace_database_instance(config, workspace_name):
 
 
 def get_managed_database_instance(provider_config, workspace_name):
-    rds_client = _make_resource_client("rds", provider_config)
+    rds_client = _make_client("rds", provider_config)
     db_instances = [db_instance for db_instance in rds_client.describe_db_instances().get("DBInstances", [])
                     if db_instance.get('DBInstanceStatus') == 'available']
     db_instance_identifier = AWS_WORKSPACE_DATABASE_NAME.format(workspace_name)
@@ -3137,7 +3137,7 @@ def get_managed_database_instance(provider_config, workspace_name):
 
 
 def get_workspace_db_subnet_group(provider_config, workspace_name):
-    rds_client = _make_resource_client("rds", provider_config)
+    rds_client = _make_client("rds", provider_config)
     db_subnet_groups = [db_subnet_group for db_subnet_group in rds_client.describe_db_subnet_groups().get(
         "DBSubnetGroups", []) if db_subnet_group.get('DBInstanceStatus') == 'Complete']
     db_subnet_group_name = AWS_WORKSPACE_DB_SUBNET_GROUP_NAME.format(workspace_name)

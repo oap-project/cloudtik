@@ -10,6 +10,7 @@ from azure.mgmt.compute import ComputeManagementClient
 from azure.mgmt.msi import ManagedServiceIdentityClient
 from azure.mgmt.authorization import AuthorizationManagementClient
 from azure.mgmt.rdbms.mysql_flexibleservers import MySQLManagementClient
+from azure.mgmt.privatedns import PrivateDnsManagementClient
 
 from cloudtik.core._private.constants import CLOUDTIK_DEFAULT_CLOUD_STORAGE_URI
 from cloudtik.core._private.utils import get_storage_config_for_update, get_database_config_for_update
@@ -172,6 +173,19 @@ def _construct_authorization_client(provider_config):
         api_version="2018-01-01-preview"
     )
     return authorization_client
+
+
+def construct_private_dns_client(config):
+    return _construct_private_dns_client(config["provider"])
+
+
+def _construct_private_dns_client(provider_config):
+    subscription_id = provider_config.get("subscription_id")
+    if subscription_id is None:
+        subscription_id = get_cli_profile().get_subscription_id()
+    credential = get_client_credential(provider_config)
+    storage_client = PrivateDnsManagementClient(credential, subscription_id)
+    return storage_client
 
 
 def get_azure_cloud_storage_config(provider_config: Dict[str, Any]):

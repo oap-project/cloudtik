@@ -780,14 +780,14 @@ def _delete_managed_database_private_dns_zone(
     total_steps = 2
 
     with cli_logger.group(
-            "Creating link with virtual network",
+            "Deleting DNS link with virtual network",
             _numbered=("()", current_step, total_steps)):
         current_step += 1
         _delete_private_dns_zone_link(
             provider_config, workspace_name, resource_group_name)
 
     with cli_logger.group(
-            "Creating private DNS zone",
+            "Deleting private DNS zone",
             _numbered=("()", current_step, total_steps)):
         current_step += 1
         _delete_private_dns_zone(
@@ -1902,7 +1902,7 @@ def _create_managed_database_private_dns_zone(
             cloud_provider, workspace_name, resource_group_name)
 
     with cli_logger.group(
-            "Creating link with virtual network",
+            "Creating DNS link with virtual network",
             _numbered=("()", current_step, total_steps)):
         current_step += 1
         _create_private_dns_zone_link(

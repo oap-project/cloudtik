@@ -1,7 +1,7 @@
 from typing import Any, Callable, Dict
 
 from azure.common.credentials import get_cli_profile
-from azure.identity import AzureCliCredential, DefaultAzureCredential, ClientSecretCredential, CertificateCredential,\
+from azure.identity import DefaultAzureCredential, ClientSecretCredential, \
     ManagedIdentityCredential
 from azure.mgmt.resource import ResourceManagementClient
 from azure.mgmt.storage import StorageManagementClient
@@ -9,10 +9,13 @@ from azure.mgmt.network import NetworkManagementClient
 from azure.mgmt.compute import ComputeManagementClient
 from azure.mgmt.msi import ManagedServiceIdentityClient
 from azure.mgmt.authorization import AuthorizationManagementClient
+from azure.mgmt.rdbms.mysql import MySQLManagementClient
 
 from cloudtik.core._private.constants import CLOUDTIK_DEFAULT_CLOUD_STORAGE_URI
-from cloudtik.core._private.utils import get_storage_config_for_update
+from cloudtik.core._private.utils import get_storage_config_for_update, get_database_config_for_update
 from cloudtik.providers._private._azure.azure_identity_credential_adapter import AzureIdentityCredentialAdapter
+
+AZURE_DATABASE_ENDPOINT = "server"
 
 
 def get_azure_sdk_function(client: Any, function_name: str) -> Callable:
@@ -96,6 +99,19 @@ def _construct_storage_client(provider_config):
         subscription_id = get_cli_profile().get_subscription_id()
     credential = get_client_credential(provider_config)
     storage_client = StorageManagementClient(credential, subscription_id)
+    return storage_client
+
+
+def construct_rdbms_client(config):
+    return _construct_rdbms_client(config["provider"])
+
+
+def _construct_rdbms_client(provider_config):
+    subscription_id = provider_config.get("subscription_id")
+    if subscription_id is None:
+        subscription_id = get_cli_profile().get_subscription_id()
+    credential = get_client_credential(provider_config)
+    storage_client = MySQLManagementClient(credential, subscription_id)
     return storage_client
 
 
@@ -232,6 +248,34 @@ def get_default_azure_cloud_storage(provider_config):
         cloud_storage_info[CLOUDTIK_DEFAULT_CLOUD_STORAGE_URI] = cloud_storage_uri
 
     return cloud_storage_info
+
+
+def get_azure_database_config(provider_config: Dict[str, Any], default=None):
+    if "database" in provider_config and "azure.rdbms" in provider_config["database"]:
+        return provider_config["database"]["azure.rdbms"]
+
+    return default
+
+
+def get_azure_database_config_for_update(provider_config: Dict[str, Any]):
+    database_config = get_database_config_for_update(provider_config)
+    if "azure.rdbms" not in database_config:
+        database_config["azure.rdbms"] = {}
+    return database_config["azure.rdbms"]
+
+
+def export_azure_database_config(provider_config, config_dict: Dict[str, Any]):
+    database_config = get_azure_database_config(provider_config)
+    if database_config is None:
+        return
+
+    database_hostname = database_config.get(AZURE_DATABASE_ENDPOINT)
+    if database_hostname:
+        config_dict["CLOUD_DATABASE"] = True
+        config_dict["CLOUD_DATABASE_HOSTNAME"] = database_hostname
+        config_dict["CLOUD_DATABASE_PORT"] = database_config.get("port", 3306)
+        config_dict["CLOUD_DATABASE_USERNAME"] = database_config.get("username", "cloudtik")
+        config_dict["CLOUD_DATABASE_PASSWORD"] = database_config.get("password", "cloudtik")
 
 
 def _get_node_info(node):

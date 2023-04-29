@@ -23,8 +23,7 @@ from azure.core.exceptions import ResourceNotFoundError
 
 from azure.storage.blob import BlobServiceClient
 from azure.storage.filedatalake import DataLakeServiceClient
-
-from azure.mgmt.rdbms.mysql.models import *
+from azure.mgmt.rdbms.mysql_flexibleservers.models import Server, Sku, Storage, ServerVersion
 
 from cloudtik.providers._private._azure.utils import _get_node_info, get_credential, \
     construct_resource_client, construct_network_client, _construct_storage_client, \
@@ -697,7 +696,7 @@ def _delete_managed_cloud_database(
         provider_config, workspace_name, resource_group_name):
     db_instance = get_managed_database_instance(
         provider_config, workspace_name, resource_group_name)
-    if db_instance is not None:
+    if db_instance is None:
         cli_logger.print("Managed database instance for the workspace doesn't exist. Skip deletion.")
         return
 
@@ -1661,23 +1660,23 @@ def _create_managed_cloud_database(
 
     cli_logger.print("Creating database instance for the workspace: {}...".format(workspace_name))
     try:
-        server_creation_poller = rdbms_client.servers.create(
+        server_params = Server(
+                administrator_login=database_config.get('username', "cloudtik"),
+                administrator_login_password=database_config.get('password', "1kiTdUoLc!"),
+                version=ServerVersion.EIGHT0_21,
+                storage=Storage(
+                    storage_size_gb=database_config.get("storage_gb", 50),
+                    auto_grow="Enabled"),
+                sku=Sku(
+                    name=database_config.get("instance_sku", "Standard_D4ds_v4"),
+                    tier='GeneralPurpose'),
+                create_mode="Default",
+                location=location,
+            )
+        server_creation_poller = rdbms_client.servers.begin_create(
             resource_group_name,
             server_name,
-            ServerForCreate(
-                properties=ServerPropertiesForDefaultCreate(
-                    administrator_login=database_config.get('username', "cloudtik"),
-                    administrator_login_password=database_config.get('password', "cloudtik"),
-                    version=ServerVersion.one_one,
-                    storage_profile=StorageProfile(
-                        storage_mb=database_config.get("storage_mb", 51200),
-                    )
-                ),
-                location=location,
-                sku=Sku(
-                    name=database_config.get("instance_sku", "GP_Gen5_4")
-                )
-            )
+            server_params
         )
         server = server_creation_poller.result()
         cli_logger.print("Successfully created database instance for the workspace: {}.".format(server_name))

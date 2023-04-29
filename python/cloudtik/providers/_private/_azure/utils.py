@@ -9,7 +9,7 @@ from azure.mgmt.network import NetworkManagementClient
 from azure.mgmt.compute import ComputeManagementClient
 from azure.mgmt.msi import ManagedServiceIdentityClient
 from azure.mgmt.authorization import AuthorizationManagementClient
-from azure.mgmt.rdbms.mysql import MySQLManagementClient
+from azure.mgmt.rdbms.mysql_flexibleservers import MySQLManagementClient
 
 from cloudtik.core._private.constants import CLOUDTIK_DEFAULT_CLOUD_STORAGE_URI
 from cloudtik.core._private.utils import get_storage_config_for_update, get_database_config_for_update
@@ -275,7 +275,7 @@ def export_azure_database_config(provider_config, config_dict: Dict[str, Any]):
         config_dict["CLOUD_DATABASE_HOSTNAME"] = database_hostname
         config_dict["CLOUD_DATABASE_PORT"] = database_config.get("port", 3306)
         config_dict["CLOUD_DATABASE_USERNAME"] = database_config.get("username", "cloudtik")
-        config_dict["CLOUD_DATABASE_PASSWORD"] = database_config.get("password", "cloudtik")
+        config_dict["CLOUD_DATABASE_PASSWORD"] = database_config.get("password", "1kiTdUoLc!")
 
 
 def _get_node_info(node):

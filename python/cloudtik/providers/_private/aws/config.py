@@ -1077,7 +1077,7 @@ def bootstrap_aws_from_workspace(config):
     # Set s3.bucket if use_managed_cloud_storage=False
     config = _configure_cloud_storage_from_workspace(config)
 
-    # Set database parameters if use_managed_cloud_database=False
+    # Set database parameters if use_managed_cloud_database
     config = _configure_cloud_database_from_workspace(config)
 
     # Configure SSH access, using an existing key pair if possible.

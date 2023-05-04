@@ -1082,9 +1082,7 @@ def _delete_managed_cloud_database(
         provider_config, workspace_name,
         delete_for_update: bool = False):
     current_step = 1
-    total_steps = 1
-    if not delete_for_update:
-        total_steps += 2
+    total_steps = 3
 
     with cli_logger.group(
             "Deleting managed database instance",
@@ -1092,18 +1090,36 @@ def _delete_managed_cloud_database(
         current_step += 1
         _delete_managed_database_instance(provider_config, workspace_name)
 
-    if not delete_for_update:
-        with cli_logger.group(
-                "Deleting private connection",
-                _numbered=("()", current_step, total_steps)):
-            current_step += 1
+    private_connection_deleted = False
+    with cli_logger.group(
+            "Deleting private connection",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        try:
             _delete_private_connection(provider_config, workspace_name)
+            private_connection_deleted = True
+        except Exception as e:
+            # skip the error for update delete
+            if delete_for_update:
+                cli_logger.warning("Cannot delete the private connection: {}", str(e))
+            else:
+                raise e
 
-        with cli_logger.group(
-                "Deleting global address",
-                _numbered=("()", current_step, total_steps)):
-            current_step += 1
-            _delete_global_address(provider_config, workspace_name)
+    with cli_logger.group(
+            "Deleting global address",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        if not private_connection_deleted:
+            cli_logger.warning("Skip deletion of the global address: in use.")
+        else:
+            try:
+                _delete_global_address(provider_config, workspace_name)
+            except Exception as e:
+                # skip the error for update delete
+                if delete_for_update:
+                    cli_logger.warning("Cannot delete the global address: {}", str(e))
+                else:
+                    raise e
 
 
 def _delete_global_address(provider_config, workspace_name):

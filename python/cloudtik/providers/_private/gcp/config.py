@@ -852,14 +852,14 @@ def update_gcp_workspace(
                         "Creating managed cloud storage...",
                         _numbered=("[]", current_step, total_steps)):
                     current_step += 1
-                    _create_workspace_cloud_storage(config, workspace_name)
+                    _create_workspace_cloud_storage(config)
             else:
                 if delete_managed_storage:
                     with cli_logger.group(
                             "Deleting managed cloud storage",
                             _numbered=("[]", current_step, total_steps)):
                         current_step += 1
-                        _delete_workspace_cloud_storage(config, workspace_name)
+                        _delete_workspace_cloud_storage(config)
     except Exception as e:
         cli_logger.error("Failed to update workspace with the name {}. "
                          "You need to delete and try create again. {}", workspace_name, str(e))
@@ -921,7 +921,7 @@ def delete_gcp_workspace(config, delete_managed_storage: bool = False):
                         "Deleting GCS bucket",
                         _numbered=("[]", current_step, total_steps)):
                     current_step += 1
-                    _delete_workspace_cloud_storage(config, workspace_name)
+                    _delete_workspace_cloud_storage(config)
 
             with cli_logger.group(
                     "Deleting service accounts",
@@ -991,8 +991,8 @@ def _delete_service_account(cloud_provider, service_account_id, iam):
         raise e
 
 
-def _delete_workspace_cloud_storage(config, workspace_name):
-    _delete_managed_cloud_storage(config["provider"], workspace_name)
+def _delete_workspace_cloud_storage(config):
+    _delete_managed_cloud_storage(config["provider"], config["workspace_name"])
 
 
 def _delete_managed_cloud_storage(cloud_provider, workspace_name):

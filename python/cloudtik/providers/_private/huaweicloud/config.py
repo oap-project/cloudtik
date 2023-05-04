@@ -1164,7 +1164,7 @@ def update_workspace_firewalls(config):
                          workspace_name, str(e))
         raise e
 
-    cli_logger.success(
+    cli_logger.print(
         "Successfully updated the firewalls of workspace: {}.",
         cf.bold(workspace_name))
 

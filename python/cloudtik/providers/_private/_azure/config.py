@@ -2051,7 +2051,7 @@ def _get_managed_database_instance(
         cli_logger.verbose("Successfully get database instance: {}.".format(server_name))
         return server_instance
     except Exception as e:
-        cli_logger.verbose_error("Failed to create database instance. {}", str(e))
+        cli_logger.verbose_error("Failed to get database instance. {}", str(e))
         return None
 
 

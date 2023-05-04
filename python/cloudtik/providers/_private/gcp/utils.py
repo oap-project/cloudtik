@@ -59,9 +59,9 @@ def _create_sql_admin(gcp_credentials=None):
         "sqladmin", "v1", credentials=gcp_credentials, cache_discovery=False)
 
 
-def _create_network_services(gcp_credentials=None):
+def _create_service_networking(gcp_credentials=None):
     return discovery.build(
-        "networkservices", "v1", credentials=gcp_credentials, cache_discovery=False)
+        "servicenetworking", "v1", credentials=gcp_credentials, cache_discovery=False)
 
 
 def _create_tpu(gcp_credentials=None):
@@ -178,12 +178,12 @@ def construct_sql_admin(provider_config):
     return _create_sql_admin(credentials)
 
 
-def construct_network_services(provider_config):
+def construct_service_networking(provider_config):
     credentials = _get_gcp_credentials(provider_config)
     if credentials is None:
-        return _create_network_services()
+        return _create_service_networking()
 
-    return _create_network_services(credentials)
+    return _create_service_networking(credentials)
 
 
 def construct_storage_client(provider_config):
@@ -266,15 +266,35 @@ def wait_for_sql_admin_operation(project_id, operation, sql_admin):
     cli_logger.verbose("wait_for_sql_admin_operation: "
                        "Waiting for operation {} to finish...".format(operation["name"]))
 
-    for _ in range(MAX_POLLS):
+    for _ in range(MAX_POLLS * 5):
         result = sql_admin.operations().get(
             project=project_id,
             operation=operation["name"]).execute()
         if "error" in result:
             raise Exception(result["error"])
 
-        if "done" in result and result["done"]:
+        if result["status"] == "DONE":
             cli_logger.verbose("wait_for_sql_admin_operation: Operation done.")
+            break
+
+        time.sleep(POLL_INTERVAL)
+
+    return result
+
+
+def wait_for_service_networking_operation(operation, service_networking):
+    """Poll for cloud resource manager operation until finished."""
+    cli_logger.verbose("wait_for_service_networking_operation: "
+                       "Waiting for operation {} to finish...".format(operation["name"]))
+
+    for _ in range(MAX_POLLS * 5):
+        result = service_networking.operations().get(
+            name=operation["name"]).execute()
+        if "error" in result:
+            raise Exception(result["error"])
+
+        if "done" in result and result["done"]:
+            cli_logger.verbose("wait_for_service_networking_operation: Operation done.")
             break
 
         time.sleep(POLL_INTERVAL)

@@ -11,7 +11,7 @@ from google.oauth2.credentials import Credentials as OAuthCredentials
 
 from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core._private.constants import CLOUDTIK_DEFAULT_CLOUD_STORAGE_URI
-from cloudtik.core._private.utils import get_storage_config_for_update
+from cloudtik.core._private.utils import get_storage_config_for_update, get_database_config_for_update
 from cloudtik.providers._private.gcp.node import (GCPNodeType, MAX_POLLS,
                                                   POLL_INTERVAL)
 from cloudtik.providers._private.gcp.node import GCPNode
@@ -28,6 +28,7 @@ SERVICE_ACCOUNT_EMAIL_TEMPLATE = (
     "{account_id}@{project_id}.iam.gserviceaccount.com")
 
 GCP_GCS_BUCKET = "gcs.bucket"
+GCP_DATABASE_ENDPOINT = "server"
 
 
 def _create_crm(gcp_credentials=None):
@@ -51,6 +52,16 @@ def _create_compute(gcp_credentials=None):
 def _create_storage(gcp_credentials=None):
     return discovery.build(
         "storage", "v1", credentials=gcp_credentials, cache_discovery=False)
+
+
+def _create_sql_admin(gcp_credentials=None):
+    return discovery.build(
+        "sqladmin", "v1", credentials=gcp_credentials, cache_discovery=False)
+
+
+def _create_network_services(gcp_credentials=None):
+    return discovery.build(
+        "networkservices", "v1", credentials=gcp_credentials, cache_discovery=False)
 
 
 def _create_tpu(gcp_credentials=None):
@@ -159,6 +170,22 @@ def construct_storage(provider_config):
     return _create_storage(credentials)
 
 
+def construct_sql_admin(provider_config):
+    credentials = _get_gcp_credentials(provider_config)
+    if credentials is None:
+        return _create_sql_admin()
+
+    return _create_sql_admin(credentials)
+
+
+def construct_network_services(provider_config):
+    credentials = _get_gcp_credentials(provider_config)
+    if credentials is None:
+        return _create_network_services()
+
+    return _create_network_services(credentials)
+
+
 def construct_storage_client(provider_config):
     credentials = _get_gcp_credentials(provider_config)
     project_id = provider_config.get("project_id")
@@ -171,7 +198,7 @@ def construct_storage_client(provider_config):
 def wait_for_crm_operation(operation, crm):
     """Poll for cloud resource manager operation until finished."""
     cli_logger.verbose("wait_for_crm_operation: "
-                       "Waiting for operation {} to finish...".format(operation))
+                       "Waiting for operation {} to finish...".format(operation["name"]))
 
     for _ in range(MAX_POLLS):
         result = crm.operations().get(name=operation["name"]).execute()
@@ -227,6 +254,27 @@ def wait_for_compute_global_operation(project_name, operation, compute):
         if result["status"] == "DONE":
             cli_logger.verbose("wait_for_compute_global_operation: "
                                "Operation done.")
+            break
+
+        time.sleep(POLL_INTERVAL)
+
+    return result
+
+
+def wait_for_sql_admin_operation(project_id, operation, sql_admin):
+    """Poll for cloud resource manager operation until finished."""
+    cli_logger.verbose("wait_for_sql_admin_operation: "
+                       "Waiting for operation {} to finish...".format(operation["name"]))
+
+    for _ in range(MAX_POLLS):
+        result = sql_admin.operations().get(
+            project=project_id,
+            operation=operation["name"]).execute()
+        if "error" in result:
+            raise Exception(result["error"])
+
+        if "done" in result and result["done"]:
+            cli_logger.verbose("wait_for_sql_admin_operation: Operation done.")
             break
 
         time.sleep(POLL_INTERVAL)
@@ -348,6 +396,34 @@ def get_default_gcp_cloud_storage(provider_config):
         cloud_storage_info[CLOUDTIK_DEFAULT_CLOUD_STORAGE_URI] = cloud_storage_uri
 
     return cloud_storage_info
+
+
+def get_gcp_database_config(provider_config: Dict[str, Any], default=None):
+    if "database" in provider_config and "gcp.cloudsql" in provider_config["database"]:
+        return provider_config["database"]["gcp.cloudsql"]
+
+    return default
+
+
+def get_gcp_database_config_for_update(provider_config: Dict[str, Any]):
+    database_config = get_database_config_for_update(provider_config)
+    if "gcp.cloudsql" not in database_config:
+        database_config["gcp.cloudsql"] = {}
+    return database_config["gcp.cloudsql"]
+
+
+def export_gcp_database_config(provider_config, config_dict: Dict[str, Any]):
+    database_config = get_gcp_database_config(provider_config)
+    if database_config is None:
+        return
+
+    database_hostname = database_config.get(GCP_DATABASE_ENDPOINT)
+    if database_hostname:
+        config_dict["CLOUD_DATABASE"] = True
+        config_dict["CLOUD_DATABASE_HOSTNAME"] = database_hostname
+        config_dict["CLOUD_DATABASE_PORT"] = database_config.get("port", 3306)
+        config_dict["CLOUD_DATABASE_USERNAME"] = database_config.get("username", "root")
+        config_dict["CLOUD_DATABASE_PASSWORD"] = database_config.get("password", "cloudtik")
 
 
 def _get_node_info(node: GCPNode):

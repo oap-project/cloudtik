@@ -745,7 +745,10 @@ def update_workspace_firewalls(config):
         cf.bold(workspace_name))
 
 
-def delete_aws_workspace(config, delete_managed_storage: bool = False, delete_managed_database: bool = False):
+def delete_aws_workspace(
+        config,
+        delete_managed_storage: bool = False,
+        delete_managed_database: bool = False):
     ec2 = _resource("ec2", config)
     ec2_client = _resource_client("ec2", config)
     workspace_name = config["workspace_name"]

@@ -10,7 +10,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.backends import default_backend
 
-from googleapiclient import discovery, errors
+from googleapiclient import errors
 
 from google.oauth2 import service_account
 
@@ -24,13 +24,15 @@ from cloudtik.core._private.utils import check_cidr_conflict, unescape_private_k
     is_managed_cloud_storage, is_use_managed_cloud_storage, is_worker_role_for_cloud_storage, \
     _is_use_managed_cloud_storage, is_use_peering_vpc, is_use_working_vpc, _is_use_working_vpc, \
     is_peering_firewall_allow_working_subnet, is_peering_firewall_allow_ssh_only, is_gpu_runtime, \
-    is_managed_cloud_database
+    is_managed_cloud_database, is_use_managed_cloud_database
 from cloudtik.providers._private.gcp.node import GCPCompute
 from cloudtik.providers._private.gcp.utils import _get_node_info, construct_clients_from_provider_config, \
     wait_for_compute_global_operation, wait_for_compute_region_operation, _create_storage, \
     wait_for_crm_operation, HAS_TPU_PROVIDER_FIELD, _is_head_node_a_tpu, _has_tpus_in_node_configs, \
     export_gcp_cloud_storage_config, get_service_account_email, construct_storage_client, construct_storage, \
-    get_gcp_cloud_storage_config, get_gcp_cloud_storage_config_for_update, GCP_GCS_BUCKET, get_gcp_cloud_storage_uri
+    get_gcp_cloud_storage_config, get_gcp_cloud_storage_config_for_update, GCP_GCS_BUCKET, get_gcp_cloud_storage_uri, \
+    GCP_DATABASE_ENDPOINT, get_gcp_database_config_for_update, construct_sql_admin, get_gcp_database_config, \
+    wait_for_sql_admin_operation, export_gcp_database_config
 from cloudtik.providers._private.utils import StorageTestingError
 
 logger = logging.getLogger(__name__)
@@ -55,6 +57,8 @@ GCP_WORKSPACE_VPC_NAME = GCP_RESOURCE_NAME_PREFIX + "-{}-vpc"
 
 GCP_WORKSPACE_VPC_PEERING_NAME = GCP_RESOURCE_NAME_PREFIX + "-{}-a-peer"
 GCP_WORKING_VPC_PEERING_NAME = GCP_RESOURCE_NAME_PREFIX + "-{}-b-peer"
+
+GCP_WORKSPACE_DATABASE_NAME = GCP_RESOURCE_NAME_PREFIX + "-{}-db"
 
 # Those roles will always be added.
 WORKER_SERVICE_ACCOUNT_ROLES = [
@@ -237,11 +241,14 @@ def _create_workspace(config):
         construct_clients_from_provider_config(config["provider"])
     workspace_name = config["workspace_name"]
     managed_cloud_storage = is_managed_cloud_storage(config)
+    managed_cloud_database = is_managed_cloud_database(config)
     use_peering_vpc = is_use_peering_vpc(config)
 
     current_step = 1
     total_steps = GCP_WORKSPACE_NUM_CREATION_STEPS
     if managed_cloud_storage:
+        total_steps += 1
+    if managed_cloud_database:
         total_steps += 1
     if use_peering_vpc:
         total_steps += 1
@@ -269,6 +276,12 @@ def _create_workspace(config):
                     current_step += 1
                     config = _create_workspace_cloud_storage(config)
 
+            if managed_cloud_database:
+                with cli_logger.group(
+                        "Creating managed database",
+                        _numbered=("[]", current_step, total_steps)):
+                    current_step += 1
+                    _create_workspace_cloud_database(config)
     except Exception as e:
         cli_logger.error("Failed to create workspace with the name {}. "
                          "You need to delete and try create again. {}", workspace_name, str(e))
@@ -298,10 +311,10 @@ def _get_workspace_vpc_id(provider_config, workspace_name, compute):
     vpc_ids = [vpc["id"] for vpc in compute.networks().list(project=project_id).execute().get("items", "")
                if vpc["name"] == vpc_name]
     if len(vpc_ids) == 0:
-        cli_logger.verbose("The VPC for workspace is not found: {}.".format(vpc_name))
+        cli_logger.verbose_error("The VPC for workspace is not found: {}.".format(vpc_name))
         return None
     else:
-        cli_logger.verbose_error("Successfully get the VPC Id of {} for workspace.".format(vpc_name))
+        cli_logger.verbose("Successfully get the VPC Id of {} for workspace.".format(vpc_name))
         return vpc_ids[0]
 
 
@@ -833,10 +846,13 @@ def update_gcp_workspace(
         delete_managed_database: bool = False):
     workspace_name = config["workspace_name"]
     managed_cloud_storage = is_managed_cloud_storage(config)
+    managed_cloud_database = is_managed_cloud_database(config)
 
     current_step = 1
     total_steps = GCP_WORKSPACE_NUM_UPDATE_STEPS
     if managed_cloud_storage or delete_managed_storage:
+        total_steps += 1
+    if managed_cloud_database or delete_managed_database:
         total_steps += 1
 
     try:
@@ -860,6 +876,20 @@ def update_gcp_workspace(
                             _numbered=("[]", current_step, total_steps)):
                         current_step += 1
                         _delete_workspace_cloud_storage(config)
+
+            if managed_cloud_database:
+                with cli_logger.group(
+                        "Creating managed database",
+                        _numbered=("[]", current_step, total_steps)):
+                    current_step += 1
+                    _create_workspace_cloud_database(config)
+            else:
+                if delete_managed_database:
+                    with cli_logger.group(
+                            "Deleting managed database",
+                            _numbered=("[]", current_step, total_steps)):
+                        current_step += 1
+                        _delete_workspace_cloud_database(config)
     except Exception as e:
         cli_logger.error("Failed to update workspace with the name {}. "
                          "You need to delete and try create again. {}", workspace_name, str(e))
@@ -893,12 +923,16 @@ def update_workspace_firewalls(config):
         cf.bold(workspace_name))
 
 
-def delete_gcp_workspace(config, delete_managed_storage: bool = False):
+def delete_gcp_workspace(
+        config,
+        delete_managed_storage: bool = False,
+        delete_managed_database: bool = False):
     crm, iam, compute, tpu = \
         construct_clients_from_provider_config(config["provider"])
 
     workspace_name = config["workspace_name"]
     managed_cloud_storage = is_managed_cloud_storage(config)
+    managed_cloud_database = is_managed_cloud_database(config)
     use_working_vpc = is_use_working_vpc(config)
     use_peering_vpc = is_use_peering_vpc(config)
     vpc_id = get_gcp_vpc_id(config, compute, use_working_vpc)
@@ -912,6 +946,8 @@ def delete_gcp_workspace(config, delete_managed_storage: bool = False):
             total_steps += 1
     if managed_cloud_storage and delete_managed_storage:
         total_steps += 1
+    if managed_cloud_database and delete_managed_database:
+        total_steps += 1
 
     try:
         with cli_logger.group("Deleting workspace: {}", workspace_name):
@@ -922,6 +958,13 @@ def delete_gcp_workspace(config, delete_managed_storage: bool = False):
                         _numbered=("[]", current_step, total_steps)):
                     current_step += 1
                     _delete_workspace_cloud_storage(config)
+
+            if managed_cloud_database and delete_managed_database:
+                with cli_logger.group(
+                        "Deleting managed database",
+                        _numbered=("[]", current_step, total_steps)):
+                    current_step += 1
+                    _delete_workspace_cloud_database(config)
 
             with cli_logger.group(
                     "Deleting service accounts",
@@ -1007,6 +1050,40 @@ def _delete_managed_cloud_storage(cloud_provider, workspace_name):
         cli_logger.print("Successfully deleted GCS bucket.")
     except Exception as e:
         cli_logger.error("Failed to delete GCS bucket. {}", str(e))
+        raise e
+
+
+def _delete_workspace_cloud_database(config):
+    _delete_managed_cloud_database(config["provider"], config["workspace_name"])
+
+
+def _delete_managed_cloud_database(provider_config, workspace_name):
+    current_step = 1
+    total_steps = 1
+
+    with cli_logger.group(
+            "Deleting managed database instance",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _delete_managed_database_instance(provider_config, workspace_name)
+
+
+def _delete_managed_database_instance(provider_config, workspace_name):
+    db_instance = get_managed_database_instance(provider_config, workspace_name)
+    if db_instance is None:
+        cli_logger.warning("No managed database instance were found for workspace. Skip deletion.")
+        return
+
+    sql_admin = construct_sql_admin(provider_config)
+    project_id = provider_config["project_id"]
+    db_instance_identifier = GCP_WORKSPACE_DATABASE_NAME.format(workspace_name)
+    try:
+        operation = sql_admin.instances().delete(
+            project=project_id, instance=db_instance_identifier).execute()
+        wait_for_sql_admin_operation(project_id, operation, sql_admin)
+        cli_logger.print("Successfully deleted database instance: {}.".format(db_instance_identifier))
+    except Exception as e:
+        cli_logger.error("Failed to delete database instance. {}", str(e))
         raise e
 
 
@@ -1188,6 +1265,80 @@ def _create_managed_cloud_storage(cloud_provider, workspace_name):
         raise e
 
 
+def _create_workspace_cloud_database(config):
+    _create_managed_cloud_database(config["provider"], config["workspace_name"])
+
+
+def _create_managed_cloud_database(provider_config, workspace_name):
+    current_step = 1
+    total_steps = 1
+
+    with cli_logger.group(
+            "Creating managed database instance",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _create_managed_database_instance(provider_config, workspace_name)
+
+
+def _create_managed_database_instance(provider_config, workspace_name):
+    # If the managed cloud database for the workspace already exists
+    # Skip the creation step
+    db_instance = get_managed_database_instance(provider_config, workspace_name)
+    if db_instance is not None:
+        cli_logger.print("Managed database instance for the workspace already exists. Skip creation.")
+        return
+
+    sql_admin = construct_sql_admin(provider_config)
+    db_instance_identifier = GCP_WORKSPACE_DATABASE_NAME.format(workspace_name)
+    region = provider_config["region"]
+    database_config = get_gcp_database_config(provider_config, {})
+
+    project_id = provider_config.get("project_id")
+    create_body = {
+        "name": db_instance_identifier,
+        "region": region,
+        "databaseVersion": "MYSQL_8_0",
+        "rootPassword": database_config.get('password', "cloudtik"),
+        "settings": {
+            "tier": database_config.get("machine_type", "db-custom-4-15360"),
+            "dataDiskType": database_config.get("storage_type", "PD_SSD"),
+            "dataDiskSizeGb": str(database_config.get("storage_gb", 50)),
+            "ipConfiguration": {
+                "ipv4Enabled": True,
+                "authorizedNetworks": [
+                    {
+                        "name": "1",
+                        "value": "34.223.252.68/32",
+                        "expiration_time": "3021-11-15T16:19:00.094Z"
+                    }
+                ]
+            },
+        }
+    }
+
+    """
+    "ipConfiguration": {
+              "privateNetwork": "TODO",
+              "ipv4Enabled": False,
+              "enablePrivatePathForGoogleCloudServices": True
+            },
+    """
+
+    cli_logger.print("Creating database instance for the workspace: {}...".format(workspace_name))
+    try:
+        operation = sql_admin.instances().insert(
+            project=project_id, body=create_body).execute()
+        result = wait_for_sql_admin_operation(project_id, operation, sql_admin)
+        if "done" in result and result["done"]:
+            cli_logger.print(
+                "Successfully created database instance: {}.".format(db_instance_identifier))
+        else:
+            raise RuntimeError("Error in result.")
+    except Exception as e:
+        cli_logger.error("Failed to create database instance. {}", str(e))
+        raise e
+
+
 def _create_network_resources(config, current_step, total_steps):
     crm, iam, compute, tpu = \
         construct_clients_from_provider_config(config["provider"])
@@ -1242,12 +1393,15 @@ def check_gcp_workspace_existence(config):
         construct_clients_from_provider_config(config["provider"])
     workspace_name = config["workspace_name"]
     managed_cloud_storage = is_managed_cloud_storage(config)
+    managed_cloud_database = is_managed_cloud_database(config)
     use_working_vpc = is_use_working_vpc(config)
     use_peering_vpc = is_use_peering_vpc(config)
 
     existing_resources = 0
     target_resources = GCP_WORKSPACE_TARGET_RESOURCES
     if managed_cloud_storage:
+        target_resources += 1
+    if managed_cloud_database:
         target_resources += 1
     if use_peering_vpc:
         target_resources += 1
@@ -1263,9 +1417,11 @@ def check_gcp_workspace_existence(config):
          Check VPC peering if needed
          Check GCS bucket
          Check service accounts
+         Check cloud database
     """
     project_existence = False
     cloud_storage_existence = False
+    cloud_database_existence = False
     if get_workspace_project(config, crm) is not None:
         existing_resources += 1
         project_existence = True
@@ -1292,6 +1448,11 @@ def check_gcp_workspace_existence(config):
                 existing_resources += 1
                 cloud_storage_existence = True
 
+        if managed_cloud_database:
+            if get_workspace_database_instance(config) is not None:
+                existing_resources += 1
+                cloud_database_existence = True
+
         if _get_workspace_service_account(config, iam, GCP_HEAD_SERVICE_ACCOUNT_ID) is not None:
             existing_resources += 1
         if _get_workspace_service_account(config, iam, GCP_WORKER_SERVICE_ACCOUNT_ID) is not None:
@@ -1303,8 +1464,14 @@ def check_gcp_workspace_existence(config):
     elif existing_resources == target_resources:
         return Existence.COMPLETED
     else:
-        if existing_resources == 2 and cloud_storage_existence:
+        skipped_resources = 1
+        if existing_resources == skipped_resources + 1 and cloud_storage_existence:
             return Existence.STORAGE_ONLY
+        elif existing_resources == skipped_resources + 1 and cloud_database_existence:
+            return Existence.DATABASE_ONLY
+        elif existing_resources == skipped_resources + 2 and cloud_storage_existence \
+                and cloud_database_existence:
+            return Existence.STORAGE_AND_DATABASE_ONLY
         return Existence.IN_COMPLETED
 
 
@@ -1473,6 +1640,7 @@ def bootstrap_gcp_from_workspace(config):
     config = _fix_disk_info(config)
     config = _configure_iam_role_from_workspace(config, iam)
     config = _configure_cloud_storage_from_workspace(config)
+    config = _configure_cloud_database_from_workspace(config)
     config = _configure_key_pair(config, compute)
     config = _configure_subnet_from_workspace(config, compute)
     config = _configure_prefer_spot_node(config)
@@ -1573,6 +1741,45 @@ def _configure_managed_cloud_storage_from_workspace(config, cloud_provider):
 
     cloud_storage = get_gcp_cloud_storage_config_for_update(config["provider"])
     cloud_storage[GCP_GCS_BUCKET] = gcs_bucket.name
+
+
+def _configure_cloud_database_from_workspace(config):
+    use_managed_cloud_database = is_use_managed_cloud_database(config)
+    if use_managed_cloud_database:
+        _configure_managed_cloud_database_from_workspace(
+            config, config["provider"])
+
+    return config
+
+
+def _get_managed_database_address(database_instance):
+    if "ipAddresses" not in database_instance:
+        return None
+
+    ip_addresses = database_instance["ipAddresses"]
+    for ip_addr in ip_addresses:
+        addr_type = ip_addr.get("type")
+        if "PRIVATE" == addr_type or "PRIMARY" == addr_type:
+            return ip_addr["ipAddress"]
+
+    return None
+
+
+def _configure_managed_cloud_database_from_workspace(config, cloud_provider):
+    workspace_name = config["workspace_name"]
+    database_instance = get_managed_database_instance(cloud_provider, workspace_name)
+    if database_instance is None:
+        cli_logger.abort("No managed database was found. If you want to use managed database, "
+                         "you should set managed_cloud_database equal to True when you creating workspace.")
+
+    db_address = _get_managed_database_address(database_instance)
+    if not db_address:
+        raise RuntimeError("No IP address for managed database instance.")
+
+    database_config = get_gcp_database_config_for_update(config["provider"])
+    database_config[GCP_DATABASE_ENDPOINT] = db_address
+    if "username" not in database_config:
+        database_config["username"] = "root"
 
 
 def _get_workspace_service_account(config, iam, service_account_id_template):
@@ -1848,6 +2055,25 @@ def get_managed_gcs_bucket(cloud_provider, workspace_name):
 
     cli_logger.verbose_error("Failed to get the GCS bucket for workspace.")
     return None
+
+
+def get_workspace_database_instance(config):
+    return get_managed_database_instance(config["provider"], config["workspace_name"])
+
+
+def get_managed_database_instance(provider_config, workspace_name):
+    sql_admin = construct_sql_admin(provider_config)
+    project_id = provider_config["project_id"]
+    db_instance_identifier = GCP_WORKSPACE_DATABASE_NAME.format(workspace_name)
+    cli_logger.verbose("Getting the database instance: {}.".format(db_instance_identifier))
+    try:
+        db_instance = sql_admin.instances().get(
+            project=project_id, instance=db_instance_identifier).execute()
+        cli_logger.verbose("Successfully get database instance: {}.".format(db_instance_identifier))
+        return db_instance
+    except Exception as e:
+        cli_logger.verbose_error("Failed to get database instance. {}", str(e))
+        return None
 
 
 def _create_project(project_id, crm):
@@ -2200,9 +2426,11 @@ def list_gcp_clusters(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     return clusters
 
 
-def with_gcp_environment_variables(provider_config, node_type_config: Dict[str, Any], node_id: str):
+def with_gcp_environment_variables(
+        provider_config, node_type_config: Dict[str, Any], node_id: str):
     config_dict = {}
     export_gcp_cloud_storage_config(provider_config, config_dict)
+    export_gcp_database_config(provider_config, config_dict)
 
     if "GCP_PROJECT_ID" not in config_dict:
         project_id = provider_config.get("project_id")

@@ -60,7 +60,7 @@ function install_ml() {
 
     # Install Machine Learning libraries and components
     echo "Installing machine learning tools: mlflow, hyperopt..."
-    pip --no-cache-dir -qq install mlflow==2.3.1 SQLAlchemy==1.4.46 alembic==1.10.1 pyarrow==8.0.0 hyperopt==0.2.7 scikit-learn==1.0.2
+    pip --no-cache-dir -qq install mlflow==2.3.1 SQLAlchemy==1.4.46 alembic==1.10.1 pymysql==1.0.3 pyarrow==8.0.0 hyperopt==0.2.7 scikit-learn==1.0.2
     mkdir -p $RUNTIME_PATH/mlflow
 
     echo "Installing deep learning frameworks: tensorflow, pytorch..."

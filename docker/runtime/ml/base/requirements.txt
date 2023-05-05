@@ -1,5 +1,5 @@
 # ML Tools
-mlflow==2.2.2
+mlflow==2.3.1
 # Fixed SQLAlchemy and alembic version for avoiding problem causing by newer versions
 SQLAlchemy==1.4.46
 alembic==1.10.1

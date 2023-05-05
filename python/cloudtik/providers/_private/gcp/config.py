@@ -1101,7 +1101,8 @@ def _delete_managed_cloud_database(
         except Exception as e:
             # skip the error for update delete
             if delete_for_update:
-                cli_logger.warning("Cannot delete the private connection: {}", str(e))
+                cli_logger.warning(
+                    "Failed to delete the global address. It might be in use. Please retry later.")
             else:
                 raise e
 
@@ -1117,7 +1118,8 @@ def _delete_managed_cloud_database(
             except Exception as e:
                 # skip the error for update delete
                 if delete_for_update:
-                    cli_logger.warning("Cannot delete the global address: {}", str(e))
+                    cli_logger.warning(
+                        "Failed to delete the global address. It might be in use. Please retry later.")
                 else:
                     raise e
 

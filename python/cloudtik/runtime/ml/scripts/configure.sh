@@ -58,15 +58,12 @@ function set_head_address() {
 
 function configure_system_folders() {
     # Create dirs for data
-    mkdir -p ${RUNTIME_PATH}/mlflow/logs
-    mkdir -p ${RUNTIME_PATH}/mlflow/mlruns
+    MLFLOW_DATA=$RUNTIME_PATH/mlflow
+    mkdir -p ${MLFLOW_DATA}/logs
+    mkdir -p ${MLFLOW_DATA}/mlruns
 }
 
-function configure_ml() {
-    # Do necessary configurations for Machine Learning
-    prepare_base_conf
-    cd $output_dir
-
+function patch_libraries() {
     HOROVOD_PYTHON_HOME="${ROOT_DIR}/../../horovod"
 
     # Fix the Horovod on Spark bug for handling network interfaces of loopback
@@ -166,6 +163,30 @@ function configure_ml() {
         cp $output_dir/ipex_cpu_launch.py.patch ${IPEX_CPU_LAUCNH_FILE}
     fi
 }
+
+function prepare_database_schema() {
+    DATABASE_NAME=mlflow
+    mysql --host=${CLOUD_DATABASE_HOSTNAME} --port=${CLOUD_DATABASE_PORT} --user=${CLOUD_DATABASE_USERNAME} --password=${CLOUD_DATABASE_PASSWORD}  -e "
+            CREATE DATABASE IF NOT EXISTS ${DATABASE_NAME};" > ${MLFLOW_DATA}/logs/configure.log
+
+    # Future improvement: mlflow db upgrade [db_uri]
+}
+
+function configure_ml() {
+    # Do necessary configurations for Machine Learning
+    prepare_base_conf
+    cd $output_dir
+
+    if [ "$IS_HEAD_NODE" == "true" ]; then
+        # Preparing database if external database used
+        if [ "${CLOUD_DATABASE}" == "true" ] && [ "$ML_WITH_CLOUD_DATABASE" != "false" ]; then
+            prepare_database_schema
+        fi
+    fi
+
+    patch_libraries
+}
+
 
 set_head_address
 configure_system_folders

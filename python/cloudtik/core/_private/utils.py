@@ -3026,3 +3026,13 @@ def get_workspace_nat_public_ip_bandwidth_conf(
 def get_cluster_node_public_ip_bandwidth_conf(
         cluster_provider_config: Dict[str, Any]) -> int:
     return cluster_provider_config.get('public_ip_bandwidth', 20)
+
+
+def export_runtime_flags(runtime_config, prefix, runtime_envs):
+    # export each flags started with 'with_'
+    for key in runtime_config:
+        if key.startswith("with_"):
+            with_flag = runtime_config.get(key)
+            if with_flag:
+                with_flag_var = "{}_{}".format(prefix.upper(), key.upper())
+                runtime_envs[with_flag_var] = with_flag

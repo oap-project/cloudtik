@@ -69,7 +69,7 @@ function set_mlflow_server_config() {
         set_artifact_config_for_cloud_storage
     fi
 
-    if [ "${DEFAULT_ARTIFACT_ROOT}" == "" ]
+    if [ "${DEFAULT_ARTIFACT_ROOT}" == "" ]; then
         DEFAULT_ARTIFACT_ROOT=${MLFLOW_DATA}/mlruns
     fi
 }

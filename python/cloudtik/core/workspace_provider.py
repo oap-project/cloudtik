@@ -7,6 +7,10 @@ logger = logging.getLogger(__name__)
 CLOUDTIK_MANAGED_CLOUD_STORAGE = "managed.cloud.storage"
 CLOUDTIK_MANAGED_CLOUD_STORAGE_URI = "cloud.storage.uri"
 
+CLOUDTIK_MANAGED_CLOUD_DATABASE = "managed.cloud.database"
+CLOUDTIK_MANAGED_CLOUD_DATABASE_ENDPOINT = "cloud.database.endpoint"
+CLOUDTIK_MANAGED_CLOUD_DATABASE_PORT = "cloud.database.port"
+
 
 class Existence(Enum):
     NOT_EXIST = 1

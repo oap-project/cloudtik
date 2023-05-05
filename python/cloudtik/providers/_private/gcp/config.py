@@ -15,7 +15,8 @@ from googleapiclient import errors
 from google.oauth2 import service_account
 
 from cloudtik.core.workspace_provider import Existence, CLOUDTIK_MANAGED_CLOUD_STORAGE, \
-    CLOUDTIK_MANAGED_CLOUD_STORAGE_URI
+    CLOUDTIK_MANAGED_CLOUD_STORAGE_URI, CLOUDTIK_MANAGED_CLOUD_DATABASE, CLOUDTIK_MANAGED_CLOUD_DATABASE_ENDPOINT, \
+    CLOUDTIK_MANAGED_CLOUD_DATABASE_PORT
 
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, CLOUDTIK_TAG_CLUSTER_NAME
 from cloudtik.core._private.cli_logger import cli_logger, cf
@@ -1677,8 +1678,17 @@ def check_gcp_workspace_integrity(config):
 
 
 def get_gcp_workspace_info(config):
+    managed_cloud_storage = is_managed_cloud_storage(config)
+    managed_cloud_database = is_managed_cloud_database(config)
+
     info = {}
-    get_gcp_managed_cloud_storage_info(config, config["provider"], info)
+    if managed_cloud_storage:
+        get_gcp_managed_cloud_storage_info(
+            config, config["provider"], info)
+
+    if managed_cloud_database:
+        get_gcp_managed_cloud_database_info(
+            config, config["provider"], info)
     return info
 
 
@@ -1691,6 +1701,18 @@ def get_gcp_managed_cloud_storage_info(config, cloud_provider, info):
         managed_cloud_storage = {GCP_MANAGED_STORAGE_GCS_BUCKET: managed_bucket_name,
                                  CLOUDTIK_MANAGED_CLOUD_STORAGE_URI: get_gcp_cloud_storage_uri(gcp_cloud_storage)}
         info[CLOUDTIK_MANAGED_CLOUD_STORAGE] = managed_cloud_storage
+
+
+def get_gcp_managed_cloud_database_info(config, cloud_provider, info):
+    workspace_name = config["workspace_name"]
+    database_instance = get_managed_database_instance(
+        cloud_provider, workspace_name)
+    if database_instance is not None:
+        db_address = _get_managed_database_address(database_instance)
+        managed_cloud_database_info = {
+            CLOUDTIK_MANAGED_CLOUD_DATABASE_ENDPOINT: db_address,
+        }
+        info[CLOUDTIK_MANAGED_CLOUD_DATABASE] = managed_cloud_database_info
 
 
 def _fix_disk_type_for_disk(zone, disk):

@@ -23,7 +23,8 @@ from cloudtik.core._private.utils import check_cidr_conflict, is_use_internal_ip
     is_worker_role_for_cloud_storage, is_use_working_vpc, is_use_peering_vpc, is_peering_firewall_allow_ssh_only, \
     is_peering_firewall_allow_working_subnet, is_gpu_runtime
 from cloudtik.core.workspace_provider import Existence, CLOUDTIK_MANAGED_CLOUD_STORAGE, \
-    CLOUDTIK_MANAGED_CLOUD_STORAGE_URI
+    CLOUDTIK_MANAGED_CLOUD_STORAGE_URI, CLOUDTIK_MANAGED_CLOUD_DATABASE, CLOUDTIK_MANAGED_CLOUD_DATABASE_ENDPOINT, \
+    CLOUDTIK_MANAGED_CLOUD_DATABASE_PORT
 from cloudtik.providers._private.aws.utils import LazyDefaultDict, \
     handle_boto_error, get_boto_error_code, _get_node_info, BOTO_MAX_RETRIES, _resource, \
     _resource_client, _make_resource, _make_resource_client, make_ec2_client, export_aws_s3_storage_config, \
@@ -647,8 +648,17 @@ def check_aws_workspace_integrity(config):
 
 
 def get_aws_workspace_info(config):
+    managed_cloud_storage = is_managed_cloud_storage(config)
+    managed_cloud_database = is_managed_cloud_database(config)
+
     info = {}
-    get_aws_managed_cloud_storage_info(config, config["provider"], info)
+    if managed_cloud_storage:
+        get_aws_managed_cloud_storage_info(
+            config, config["provider"], info)
+
+    if managed_cloud_database:
+        get_aws_managed_cloud_database_info(
+            config, config["provider"], info)
     return info
 
 
@@ -659,9 +669,24 @@ def get_aws_managed_cloud_storage_info(config, cloud_provider, info):
 
     if managed_bucket_name is not None:
         aws_cloud_storage = {AWS_S3_BUCKET: managed_bucket_name}
-        managed_cloud_storage = {AWS_MANAGED_STORAGE_S3_BUCKET: managed_bucket_name,
-                                 CLOUDTIK_MANAGED_CLOUD_STORAGE_URI: get_aws_cloud_storage_uri(aws_cloud_storage)}
+        managed_cloud_storage = {
+            AWS_MANAGED_STORAGE_S3_BUCKET: managed_bucket_name,
+            CLOUDTIK_MANAGED_CLOUD_STORAGE_URI: get_aws_cloud_storage_uri(aws_cloud_storage)
+        }
         info[CLOUDTIK_MANAGED_CLOUD_STORAGE] = managed_cloud_storage
+
+
+def get_aws_managed_cloud_database_info(config, cloud_provider, info):
+    workspace_name = config["workspace_name"]
+    database_instance = get_managed_database_instance(
+        cloud_provider, workspace_name)
+    if database_instance is not None:
+        endpoint = database_instance['Endpoint']
+        managed_cloud_database_info = {
+            CLOUDTIK_MANAGED_CLOUD_DATABASE_ENDPOINT: endpoint['Address'],
+            CLOUDTIK_MANAGED_CLOUD_DATABASE_PORT: endpoint['Port']
+        }
+        info[CLOUDTIK_MANAGED_CLOUD_DATABASE] = managed_cloud_database_info
 
 
 def update_aws_workspace(

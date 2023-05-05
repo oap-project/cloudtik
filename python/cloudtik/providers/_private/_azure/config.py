@@ -16,7 +16,7 @@ from cloudtik.core._private.utils import check_cidr_conflict, is_use_internal_ip
     is_managed_cloud_storage, is_use_managed_cloud_storage, _is_use_managed_cloud_storage, update_nested_dict, \
     is_gpu_runtime, is_managed_cloud_database, is_use_managed_cloud_database
 from cloudtik.core.workspace_provider import Existence, CLOUDTIK_MANAGED_CLOUD_STORAGE, \
-    CLOUDTIK_MANAGED_CLOUD_STORAGE_URI
+    CLOUDTIK_MANAGED_CLOUD_STORAGE_URI, CLOUDTIK_MANAGED_CLOUD_DATABASE, CLOUDTIK_MANAGED_CLOUD_DATABASE_ENDPOINT
 
 from azure.mgmt.compute import ComputeManagementClient
 from azure.core.exceptions import ResourceNotFoundError
@@ -314,9 +314,17 @@ def get_azure_workspace_info(config):
     use_working_vpc = is_use_working_vpc(config)
     resource_client = construct_resource_client(config)
     resource_group_name = get_resource_group_name(config, resource_client, use_working_vpc)
+    managed_cloud_storage = is_managed_cloud_storage(config)
+    managed_cloud_database = is_managed_cloud_database(config)
+
     info = {}
-    get_azure_managed_cloud_storage_info(
-        config, config["provider"], resource_group_name, info)
+    if managed_cloud_storage:
+        get_azure_managed_cloud_storage_info(
+            config, config["provider"], resource_group_name, info)
+
+    if managed_cloud_database:
+        get_azure_managed_cloud_database_info(
+            config, config["provider"], resource_group_name, info)
     return info
 
 
@@ -327,11 +335,25 @@ def get_azure_managed_cloud_storage_info(
         cloud_provider, workspace_name, resource_group_name)
     if azure_cloud_storage is not None:
         storage_uri = get_azure_cloud_storage_uri(azure_cloud_storage)
-        managed_cloud_storage = {AZURE_MANAGED_STORAGE_TYPE: azure_cloud_storage.get("azure.storage.type"),
-                                 AZURE_MANAGED_STORAGE_ACCOUNT: azure_cloud_storage.get("azure.storage.account"),
-                                 AZURE_MANAGED_STORAGE_CONTAINER: azure_cloud_storage.get("azure.container"),
-                                 CLOUDTIK_MANAGED_CLOUD_STORAGE_URI: storage_uri}
+        managed_cloud_storage = {
+            AZURE_MANAGED_STORAGE_TYPE: azure_cloud_storage.get("azure.storage.type"),
+            AZURE_MANAGED_STORAGE_ACCOUNT: azure_cloud_storage.get("azure.storage.account"),
+            AZURE_MANAGED_STORAGE_CONTAINER: azure_cloud_storage.get("azure.container"),
+            CLOUDTIK_MANAGED_CLOUD_STORAGE_URI: storage_uri}
         info[CLOUDTIK_MANAGED_CLOUD_STORAGE] = managed_cloud_storage
+
+
+def get_azure_managed_cloud_database_info(
+        config, cloud_provider, resource_group_name, info):
+    workspace_name = config["workspace_name"]
+    database_instance = get_managed_database_instance(
+        cloud_provider, workspace_name, resource_group_name)
+    if database_instance is not None:
+        server_endpoint = AZURE_DATABASE_SERVER_ENDPOINT.format(
+            database_instance.name)
+        managed_cloud_storage = {
+            CLOUDTIK_MANAGED_CLOUD_DATABASE_ENDPOINT: server_endpoint}
+        info[CLOUDTIK_MANAGED_CLOUD_DATABASE] = managed_cloud_storage
 
 
 def get_resource_group_name(config, resource_client, use_working_vpc):

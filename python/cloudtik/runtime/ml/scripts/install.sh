@@ -35,6 +35,9 @@ function install_tools() {
     which numactl > /dev/null || sudo apt-get -qq update -y > /dev/null; sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install numactl -y > /dev/null
     which cmake > /dev/null || sudo apt-get -qq update -y > /dev/null; sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install cmake -y > /dev/null
     which g++-9 > /dev/null || sudo apt-get -qq update -y > /dev/null; sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install g++-9 -y > /dev/null
+    if [ "$IS_HEAD_NODE" == "true" ]; then
+        which mysql > /dev/null || sudo apt-get -qq update -y > /dev/null; sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install mysql-client -y > /dev/null
+    fi
 }
 
 function setup_oneapi_repository() {
@@ -50,7 +53,7 @@ function install_ml() {
 
     if ([ "$ML_WITH_ONEAPI" == "true" ] \
        || [ "$ML_WITH_INTEL_MPI" == "true" ] \
-       ||[ "$ML_WITH_ONECCL" == "true" ] \
+       || [ "$ML_WITH_ONECCL" == "true" ] \
        || [ "$ML_WITH_INTEL_PYTORCH" == "true" ]) \
        && ([ "$ML_WITH_INTEL_MPI" != "false" ] \
        || [ "$ML_WITH_ONECCL" != "false" ] \

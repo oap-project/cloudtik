@@ -3,7 +3,7 @@ from typing import Any, Dict
 
 from cloudtik.core._private.providers import _get_node_provider, _get_workspace_provider
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_ML
-from cloudtik.core._private.utils import merge_rooted_config_hierarchy, _get_runtime_config_object
+from cloudtik.core._private.utils import merge_rooted_config_hierarchy, _get_runtime_config_object, export_runtime_flags
 from cloudtik.runtime.common.utils import get_runtime_services_of
 
 RUNTIME_PROCESSES = [
@@ -15,7 +15,7 @@ RUNTIME_PROCESSES = [
 ]
 
 RUNTIME_ROOT_PATH = os.path.abspath(os.path.dirname(__file__))
-ML_RUNTIME_CONFIG_KEY = "ml"
+RUNTIME_CONFIG_KEY = "ml"
 
 
 def _config_runtime_resources(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
@@ -37,15 +37,9 @@ def _get_runnable_command(target):
 def _with_runtime_environment_variables(runtime_config, config, provider, node_id: str):
     runtime_envs = {"ML_ENABLED": True}
 
-    ml_config = runtime_config.get(ML_RUNTIME_CONFIG_KEY, {})
-
-    # export each flags started with 'with_'
-    for key in ml_config:
-        if key.startswith("with_"):
-            with_flag = ml_config.get(key)
-            if with_flag:
-                with_flag_var = "ML_{}".format(key.upper())
-                runtime_envs[with_flag_var] = with_flag
+    ml_config = runtime_config.get(RUNTIME_CONFIG_KEY, {})
+    export_runtime_flags(
+        ml_config, RUNTIME_CONFIG_KEY, runtime_envs)
 
     return runtime_envs
 

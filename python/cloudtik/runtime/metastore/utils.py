@@ -2,7 +2,7 @@ import os
 from typing import Any, Dict
 
 from cloudtik.core._private.providers import _get_node_provider, _get_workspace_provider
-from cloudtik.core._private.utils import merge_rooted_config_hierarchy, _get_runtime_config_object
+from cloudtik.core._private.utils import merge_rooted_config_hierarchy, _get_runtime_config_object, export_runtime_flags
 
 RUNTIME_PROCESSES = [
     # The first element is the substring to filter.
@@ -14,6 +14,7 @@ RUNTIME_PROCESSES = [
 ]
 
 RUNTIME_ROOT_PATH = os.path.abspath(os.path.dirname(__file__))
+RUNTIME_CONFIG_KEY = "metastore"
 
 
 def _config_runtime_resources(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
@@ -34,6 +35,10 @@ def _get_runnable_command(target):
 
 def _with_runtime_environment_variables(runtime_config, config, provider, node_id: str):
     runtime_envs = {"METASTORE_ENABLED": True}
+
+    metastore_config = runtime_config.get(RUNTIME_CONFIG_KEY, {})
+    export_runtime_flags(
+        metastore_config, RUNTIME_CONFIG_KEY, runtime_envs)
     return runtime_envs
 
 

@@ -882,7 +882,8 @@ def _delete_private_dns_zone_link(
         ).result()
         cli_logger.print("Successfully deleted private DNS zone link: {}.".format(link_name))
     except Exception as e:
-        cli_logger.abort("Failed to delete private DNS zone link. {}", str(e))
+        cli_logger.error("Failed to delete private DNS zone link. {}", str(e))
+        raise e
 
 
 def _delete_managed_database_delegated_subnet(
@@ -1956,7 +1957,8 @@ def _create_private_dns_zone(
         result = creation_poller.result()
         cli_logger.print("Successfully created private DNS zone: {}.".format(private_dns_zone_name))
     except Exception as e:
-        cli_logger.abort("Failed to create private DNS zone. {}", str(e))
+        cli_logger.error("Failed to create private DNS zone. {}", str(e))
+        raise e
 
 
 def _create_private_dns_zone_link(
@@ -1993,7 +1995,8 @@ def _create_private_dns_zone_link(
         result = creation_poller.result()
         cli_logger.print("Successfully created private DNS zone link: {}.".format(link_name))
     except Exception as e:
-        cli_logger.abort("Failed to create private DNS zone link. {}", str(e))
+        cli_logger.error("Failed to create private DNS zone link. {}", str(e))
+        raise e
 
 
 def _create_managed_database_instance(
@@ -2046,7 +2049,8 @@ def _create_managed_database_instance(
         server = server_creation_poller.result()
         cli_logger.print("Successfully created database instance for the workspace: {}.".format(server_name))
     except Exception as e:
-        cli_logger.abort("Failed to create database instance. {}", str(e))
+        cli_logger.error("Failed to create database instance. {}", str(e))
+        raise e
 
 
 def get_workspace_database_instance(

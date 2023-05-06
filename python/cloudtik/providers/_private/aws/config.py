@@ -863,6 +863,11 @@ def _delete_instance_profile_for_worker(config, workspace_name):
 
 
 def _delete_workspace_cloud_database(config, workspace_name):
+    _delete_managed_cloud_database(
+        config["provider"], workspace_name)
+
+
+def _delete_managed_cloud_database(provider_config, workspace_name):
     current_step = 1
     total_steps = 2
 
@@ -870,22 +875,22 @@ def _delete_workspace_cloud_database(config, workspace_name):
             "Deleting managed database instance",
             _numbered=("()", current_step, total_steps)):
         current_step += 1
-        _delete_managed_database_instance(config, workspace_name)
+        _delete_managed_database_instance(provider_config, workspace_name)
 
     with cli_logger.group(
             "Deleting DB subnet group",
             _numbered=("()", current_step, total_steps)):
         current_step += 1
-        _delete_workspace_db_subnet_group(config, workspace_name)
+        _delete_db_subnet_group(provider_config, workspace_name)
 
 
-def _delete_workspace_db_subnet_group(config, workspace_name):
-    rds_client = _make_client("rds", config["provider"])
-    db_subnet_group = get_workspace_db_subnet_group(config["provider"], workspace_name)
-    if db_subnet_group is not None:
+def _delete_db_subnet_group(provider_config, workspace_name):
+    db_subnet_group = get_workspace_db_subnet_group(provider_config, workspace_name)
+    if db_subnet_group is None:
         cli_logger.print("No DB subnet group for the workspace were found. Skip deletion.")
         return
-    
+
+    rds_client = _make_client("rds", provider_config)
     try:
         db_subnet_group_name = db_subnet_group.get("DBSubnetGroupName")
         cli_logger.print("Deleting DB subnet group: {}...".format(db_subnet_group_name))
@@ -898,8 +903,7 @@ def _delete_workspace_db_subnet_group(config, workspace_name):
         raise e
 
 
-def _delete_managed_database_instance(config, workspace_name):
-    provider_config = config["provider"]
+def _delete_managed_database_instance(provider_config, workspace_name):
     rds_client = _make_client("rds", provider_config)
     db_instance = get_managed_database_instance(provider_config, workspace_name)
     if db_instance is None:
@@ -2530,24 +2534,20 @@ def _create_managed_cloud_storage(cloud_provider, workspace_name):
         cli_logger.print(
             "Successfully created S3 bucket: {}.".format(bucket_name))
     except Exception as e:
-        cli_logger.abort("Failed to create S3 bucket. {}", str(e))
-    return
+        cli_logger.error("Failed to create S3 bucket. {}", str(e))
+        raise e
 
 
-def _create_workspace_db_subnet_group(config, workspace_name):
-    rds_client = _make_client("rds", config["provider"])
-    db_subnet_group = get_workspace_db_subnet_group(config["provider"], workspace_name)
+def _create_db_subnet_group(
+        cloud_provider, workspace_name, subnet_ids):
+    rds_client = _make_client("rds", cloud_provider)
+    db_subnet_group = get_workspace_db_subnet_group(cloud_provider, workspace_name)
     if db_subnet_group is not None:
         cli_logger.print("The DB subnet group for the workspace already exists. Skip creation.")
         return
 
     db_subnet_group_name = AWS_WORKSPACE_DB_SUBNET_GROUP_NAME.format(workspace_name)
 
-    ec2 = _make_resource("ec2", config["provider"])
-    ec2_client = _make_resource_client("ec2", config["provider"])
-    vpc = get_workspace_vpc(workspace_name, ec2_client, ec2)
-
-    subnet_ids = [subnet.id for subnet in vpc.subnets.all()]
     cli_logger.print("Creating DB subnet group for workspace: {}...".format(workspace_name))
     try:
         rds_client.create_db_subnet_group(
@@ -2556,11 +2556,29 @@ def _create_workspace_db_subnet_group(config, workspace_name):
             SubnetIds=subnet_ids
         )
     except Exception as e:
-        cli_logger.abort("Failed to create DB subnet group. {}", str(e))
-    return
+        cli_logger.error("Failed to create DB subnet group. {}", str(e))
+        raise e
 
 
 def _create_workspace_cloud_database(config, workspace_name):
+    cloud_provider = config["provider"]
+
+    ec2 = _make_resource("ec2", cloud_provider)
+    ec2_client = _make_resource_client("ec2", cloud_provider)
+    vpc = get_workspace_vpc(workspace_name, ec2_client, ec2)
+    subnet_ids = [subnet.id for subnet in vpc.subnets.all()]
+    security_group = get_workspace_security_group(
+        config, vpc.vpc_id, workspace_name)
+
+    _create_managed_cloud_database(
+        cloud_provider, workspace_name,
+        subnet_ids, security_group.id
+    )
+
+
+def _create_managed_cloud_database(
+        cloud_provider, workspace_name,
+        subnet_ids, security_group_id):
     current_step = 1
     total_steps = 2
 
@@ -2568,19 +2586,21 @@ def _create_workspace_cloud_database(config, workspace_name):
             "Creating DB subnet group",
             _numbered=("()", current_step, total_steps)):
         current_step += 1
-        _create_workspace_db_subnet_group(config, workspace_name)
+        _create_db_subnet_group(
+            cloud_provider, workspace_name, subnet_ids)
 
     with cli_logger.group(
             "Creating managed database instance",
             _numbered=("()", current_step, total_steps)):
         current_step += 1
-        _create_managed_database_instance(config, workspace_name)
+        _create_managed_database_instance(
+            cloud_provider, workspace_name, security_group_id)
 
 
-def _create_managed_database_instance(config, workspace_name):
+def _create_managed_database_instance(
+        cloud_provider, workspace_name, security_group_id):
     # If the managed cloud database for the workspace already exists
     # Skip the creation step
-    cloud_provider = config["provider"]
     db_instance = get_managed_database_instance(cloud_provider, workspace_name)
     if db_instance is not None:
         cli_logger.print("Managed database instance for the workspace already exists. Skip creation.")
@@ -2590,10 +2610,6 @@ def _create_managed_database_instance(config, workspace_name):
     db_instance_identifier = AWS_WORKSPACE_DATABASE_NAME.format(workspace_name)
     db_subnet_group = AWS_WORKSPACE_DB_SUBNET_GROUP_NAME.format(workspace_name)
     database_config = get_aws_database_config(cloud_provider, {})
-
-    ec2_client = _resource_client("ec2", config)
-    vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
-    security_group = get_workspace_security_group(config, vpc_id, workspace_name)
 
     cli_logger.print("Creating database instance for the workspace: {}...".format(workspace_name))
     try:
@@ -2606,13 +2622,15 @@ def _create_managed_database_instance(config, workspace_name):
             MasterUsername=database_config.get('username', "cloudtik"),
             MasterUserPassword=database_config.get('password', "cloudtik"),
             VpcSecurityGroupIds=[
-                security_group.id
+                security_group_id
             ],
-            DBSubnetGroupName=db_subnet_group
+            DBSubnetGroupName=db_subnet_group,
+            PubliclyAccessible=False
         )
         wait_db_instance_creation(rds_client, db_instance_identifier)
     except Exception as e:
-        cli_logger.abort("Failed to create database instance. {}", str(e))
+        cli_logger.error("Failed to create database instance. {}", str(e))
+        raise e
 
 
 def _get_head_instance_profile_name(workspace_name):

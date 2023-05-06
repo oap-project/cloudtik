@@ -1074,13 +1074,21 @@ def _delete_managed_cloud_storage(cloud_provider, workspace_name):
 
 def _delete_workspace_cloud_database(
         config, delete_for_update: bool = False):
+    provider_config = config["provider"]
+    workspace_name = config["workspace_name"]
+
+    compute = construct_compute_client(provider_config)
+    use_working_vpc = _is_use_working_vpc(provider_config)
+    vpc_name = _get_gcp_vpc_name(
+        provider_config, workspace_name, compute, use_working_vpc)
+
     _delete_managed_cloud_database(
-        config["provider"], config["workspace_name"],
+        provider_config, workspace_name, vpc_name,
         delete_for_update)
 
 
 def _delete_managed_cloud_database(
-        provider_config, workspace_name,
+        provider_config, workspace_name, vpc_name,
         delete_for_update: bool = False):
     current_step = 1
     total_steps = 3
@@ -1097,7 +1105,9 @@ def _delete_managed_cloud_database(
             _numbered=("()", current_step, total_steps)):
         current_step += 1
         try:
-            _delete_private_connection(provider_config, workspace_name)
+            _delete_private_connection(
+                provider_config, workspace_name,
+                vpc_name)
             private_connection_deleted = True
         except Exception as e:
             # skip the error for update delete
@@ -1135,6 +1145,7 @@ def _delete_global_address(provider_config, workspace_name):
     project_id = provider_config["project_id"]
     global_address_name = GCP_WORKSPACE_DATABASE_GLOBAL_ADDRESS_NAME.format(workspace_name)
     try:
+        cli_logger.print("Deleting global address: {}...".format(global_address_name))
         operation = compute.globalAddresses().delete(
             project=project_id, address=global_address_name).execute()
         result = wait_for_compute_global_operation(project_id, operation, compute)
@@ -1148,17 +1159,16 @@ def _delete_global_address(provider_config, workspace_name):
         raise e
 
 
-def _delete_private_connection(provider_config, workspace_name):
-    private_connection = get_private_connection(provider_config, workspace_name)
+def _delete_private_connection(
+        provider_config, workspace_name, vpc_name):
+    private_connection = get_private_connection(
+        provider_config, workspace_name, vpc_name)
     if private_connection is None:
         cli_logger.warning("No private connection was found for network. Skip deletion.")
         return
 
     service_networking = construct_service_networking(provider_config)
-    compute = construct_compute_client(provider_config)
-    use_working_vpc = _is_use_working_vpc(provider_config)
-    vpc_name = _get_gcp_vpc_name(
-        provider_config, workspace_name, compute, use_working_vpc)
+
     network = private_connection["network"]
     vpc_peering_name = private_connection["peering"]
     name = "services/{}/connections/{}".format(
@@ -1193,6 +1203,7 @@ def _delete_managed_database_instance(provider_config, workspace_name):
     project_id = provider_config["project_id"]
     db_instance_identifier = GCP_WORKSPACE_DATABASE_NAME.format(workspace_name)
     try:
+        cli_logger.print("Deleting private database instance: {}...".format(db_instance_identifier))
         operation = sql_admin.instances().delete(
             project=project_id, instance=db_instance_identifier).execute()
         result = wait_for_sql_admin_operation(project_id, operation, sql_admin)
@@ -1386,10 +1397,21 @@ def _create_managed_cloud_storage(cloud_provider, workspace_name):
 
 
 def _create_workspace_cloud_database(config):
-    _create_managed_cloud_database(config["provider"], config["workspace_name"])
+    provider_config = config["provider"]
+    workspace_name = config["workspace_name"]
+
+    compute = construct_compute_client(provider_config)
+    use_working_vpc = _is_use_working_vpc(provider_config)
+    vpc_name = _get_gcp_vpc_name(
+        provider_config, workspace_name, compute, use_working_vpc)
+
+    _create_managed_cloud_database(
+        provider_config, workspace_name,
+        vpc_name)
 
 
-def _create_managed_cloud_database(provider_config, workspace_name):
+def _create_managed_cloud_database(
+        provider_config, workspace_name, vpc_name):
     current_step = 1
     total_steps = 3
 
@@ -1397,40 +1419,42 @@ def _create_managed_cloud_database(provider_config, workspace_name):
             "Creating global address",
             _numbered=("()", current_step, total_steps)):
         current_step += 1
-        _create_global_address(provider_config, workspace_name)
+        _create_global_address(
+            provider_config, workspace_name, vpc_name)
 
     with cli_logger.group(
             "Creating private connection",
             _numbered=("()", current_step, total_steps)):
         current_step += 1
-        _create_private_connection(provider_config, workspace_name)
+        _create_private_connection(
+            provider_config, workspace_name, vpc_name)
 
     with cli_logger.group(
             "Creating managed database instance",
             _numbered=("()", current_step, total_steps)):
         current_step += 1
-        _create_managed_database_instance(provider_config, workspace_name)
+        _create_managed_database_instance(
+            provider_config, workspace_name, vpc_name)
 
 
-def _create_global_address(provider_config, workspace_name):
+def _create_global_address(
+        provider_config, workspace_name, vpc_name):
     global_address = get_global_address(provider_config, workspace_name)
     if global_address is not None:
         cli_logger.print("Global global address for database already exists. Skip creation.")
         return
 
     compute = construct_compute_client(provider_config)
-    use_working_vpc = _is_use_working_vpc(provider_config)
-    vpc_id = _get_gcp_vpc_id(
-        provider_config, workspace_name, compute, use_working_vpc)
 
     global_address_name = GCP_WORKSPACE_DATABASE_GLOBAL_ADDRESS_NAME.format(workspace_name)
     project_id = provider_config.get("project_id")
+    network = "projects/{}/global/networks/{}".format(project_id, vpc_name)
     create_body = {
         "name": global_address_name,
         "purpose": "VPC_PEERING",
         "addressType": "INTERNAL",
         "prefixLength": 16,
-        "network": "projects/{}/global/networks/{}".format(project_id, vpc_id),
+        "network": network,
     }
 
     cli_logger.print("Creating global address for the database: {}...".format(global_address_name))
@@ -1448,17 +1472,15 @@ def _create_global_address(provider_config, workspace_name):
         raise e
 
 
-def _create_private_connection(provider_config, workspace_name):
-    private_connection = get_private_connection(provider_config, workspace_name)
+def _create_private_connection(provider_config, workspace_name, vpc_name):
+    private_connection = get_private_connection(
+        provider_config, workspace_name, vpc_name)
     if private_connection is not None:
         cli_logger.print("Private connection for network already exists. Skip creation.")
         return
 
     service_networking = construct_service_networking(provider_config)
-    compute = construct_compute_client(provider_config)
-    use_working_vpc = _is_use_working_vpc(provider_config)
-    vpc_name = _get_gcp_vpc_name(
-        provider_config, workspace_name, compute, use_working_vpc)
+
     project_id = provider_config.get("project_id")
     network = "projects/{}/global/networks/{}".format(project_id, vpc_name)
     service_name = "services/{}".format(GCP_SERVICE_NETWORKING_NAME)
@@ -1483,18 +1505,16 @@ def _create_private_connection(provider_config, workspace_name):
         raise e
 
 
-def _create_managed_database_instance(provider_config, workspace_name):
+def _create_managed_database_instance(
+        provider_config, workspace_name, vpc_name):
     # If the managed cloud database for the workspace already exists
     # Skip the creation step
-    db_instance = get_managed_database_instance(provider_config, workspace_name)
+    db_instance = get_managed_database_instance(
+        provider_config, workspace_name)
     if db_instance is not None:
         cli_logger.print("Managed database instance for the workspace already exists. Skip creation.")
         return
 
-    compute = construct_compute_client(provider_config)
-    use_working_vpc = _is_use_working_vpc(provider_config)
-    vpc_name = _get_gcp_vpc_name(
-        provider_config, workspace_name, compute, use_working_vpc)
     project_id = provider_config.get("project_id")
     network = "projects/{}/global/networks/{}".format(project_id, vpc_name)
 
@@ -2276,7 +2296,8 @@ def get_managed_gcs_bucket(cloud_provider, workspace_name):
 
 
 def get_workspace_database_instance(config):
-    return get_managed_database_instance(config["provider"], config["workspace_name"])
+    return get_managed_database_instance(
+        config["provider"], config["workspace_name"])
 
 
 def get_managed_database_instance(provider_config, workspace_name):
@@ -2294,13 +2315,8 @@ def get_managed_database_instance(provider_config, workspace_name):
         return None
 
 
-def get_private_connection(provider_config, workspace_name):
+def get_private_connection(provider_config, workspace_name, vpc_name):
     service_networking = construct_service_networking(provider_config)
-    compute = construct_compute_client(provider_config)
-
-    use_working_vpc = _is_use_working_vpc(provider_config)
-    vpc_name = _get_gcp_vpc_name(
-        provider_config, workspace_name, compute, use_working_vpc)
     project_id = provider_config.get("project_id")
     network = "projects/{}/global/networks/{}".format(project_id, vpc_name)
     service_name = "services/{}".format(GCP_SERVICE_NETWORKING_NAME)

@@ -32,6 +32,10 @@ do
     shift
 done
 
+
+# API cloud credential configuration functions
+. "$ROOT_DIR"/common/scripts/api-credential.sh
+
 function prepare_base_conf() {
     output_dir=/tmp/ml/conf
     rm -rf  $output_dir
@@ -176,6 +180,8 @@ function configure_ml() {
     # Do necessary configurations for Machine Learning
     prepare_base_conf
     cd $output_dir
+
+    update_api_credential_for_provider
 
     if [ "$IS_HEAD_NODE" == "true" ]; then
         # Preparing database if external database used

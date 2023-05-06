@@ -69,6 +69,14 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
 
         # CloudTik: patch start
         if credential is None:
+            try:
+                from azure.identity import DefaultAzureCredential
+            except ImportError as exc:
+                raise ImportError(
+                    "Using DefaultAzureCredential requires the azure-identity package. "
+                    "Please install it via: pip install azure-identity"
+                ) from exc
+
             managed_identity_client_id = self._get_azure_managed_identity_client_id()
             if managed_identity_client_id:
                 credential = DefaultAzureCredential(

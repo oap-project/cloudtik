@@ -160,6 +160,24 @@ function patch_libraries() {
         cp $output_dir/ossfs_core.py.patch ${OSSFS_CORE_FILE}
     fi
 
+    # MLflow patches for Azure Data Lake Gen2
+    MLFLOW_PYTHON_HOME="${ROOT_DIR}/../../mlflow"
+
+    MLFLOW_ARTIFACT_REPOSITORY_REGISTRY_FILE="${MLFLOW_PYTHON_HOME}/store/artifact/artifact_repository_registry.py"
+    if [ -f "${MLFLOW_ARTIFACT_REPOSITORY_REGISTRY_FILE}" ]; then
+        cp $output_dir/mlflow_store_artifact_artifact_repository_registry.py.patch ${MLFLOW_ARTIFACT_REPOSITORY_REGISTRY_FILE}
+    fi
+
+    MLFLOW_AZURE_BLOB_ARTIFACT_REPO_FILE="${MLFLOW_PYTHON_HOME}/store/artifact/azure_blob_artifact_repo.py"
+    if [ -f "${MLFLOW_AZURE_BLOB_ARTIFACT_REPO_FILE}" ]; then
+        cp $output_dir/mlflow_store_artifact_azure_blob_artifact_repo.py.patch ${MLFLOW_AZURE_BLOB_ARTIFACT_REPO_FILE}
+    fi
+
+    MLFLOW_AZURE_DATA_LAKE_ARTIFACT_REPO_FILE="${MLFLOW_PYTHON_HOME}/store/artifact/azure_data_lake_artifact_repo.py"
+    if [ -f "${MLFLOW_AZURE_DATA_LAKE_ARTIFACT_REPO_FILE}" ]; then
+        cp $output_dir/mlflow_store_artifact_azure_data_lake_artifact_repo.py.patch ${MLFLOW_AZURE_DATA_LAKE_ARTIFACT_REPO_FILE}
+    fi
+
     # Patch IPEX for integration
     IPEX_PYTHON_HOME="${ROOT_DIR}/../../intel_extension_for_pytorch"
     IPEX_CPU_LAUCNH_FILE="${IPEX_PYTHON_HOME}/cpu/launch.py"

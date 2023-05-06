@@ -1,13 +1,13 @@
-From 1cd69f44c0af44fd79917bc94bcb013c3dd24d35 Mon Sep 17 00:00:00 2001
+From 38d845f38e59775fd0c37cdd4e7f558c892a05ba Mon Sep 17 00:00:00 2001
 From: Chen Haifeng <haifeng.chen@intel.com>
-Date: Sat, 6 May 2023 11:35:19 +0800
+Date: Sat, 6 May 2023 12:13:22 +0800
 Subject: [PATCH] Azure data lake artifact repository
 
 ---
  .../artifact/artifact_repository_registry.py  |  2 ++
- .../artifact/azure_blob_artifact_repo.py      | 25 +++++++++++++++++-
- .../artifact/azure_data_lake_artifact_repo.py | 26 ++++++++++++++++++-
- 3 files changed, 51 insertions(+), 2 deletions(-)
+ .../artifact/azure_blob_artifact_repo.py      | 25 +++++++++++++-
+ .../artifact/azure_data_lake_artifact_repo.py | 34 ++++++++++++++++++-
+ 3 files changed, 59 insertions(+), 2 deletions(-)
 
 diff --git a/mlflow/store/artifact/artifact_repository_registry.py b/mlflow/store/artifact/artifact_repository_registry.py
 index 5e583ea0a..495ee222d 100644
@@ -71,7 +71,7 @@ index b78c34f2e..c6dbf00e9 100644
      def parse_wasbs_uri(uri):
          """Parse a wasbs:// URI, returning (container, storage_account, path, api_uri_suffix)."""
 diff --git a/mlflow/store/artifact/azure_data_lake_artifact_repo.py b/mlflow/store/artifact/azure_data_lake_artifact_repo.py
-index e42130f73..d442f1f55 100644
+index e42130f73..fac1614c7 100644
 --- a/mlflow/store/artifact/azure_data_lake_artifact_repo.py
 +++ b/mlflow/store/artifact/azure_data_lake_artifact_repo.py
 @@ -58,7 +58,7 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
@@ -83,13 +83,21 @@ index e42130f73..d442f1f55 100644
          super().__init__(artifact_uri)
          _DEFAULT_TIMEOUT = 600  # 10 minutes
          self.write_timeout = MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT.get() or _DEFAULT_TIMEOUT
-@@ -66,10 +66,34 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
+@@ -66,10 +66,42 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
          (filesystem, account_name, path) = _parse_abfss_uri(artifact_uri)
  
          account_url = f"https://{account_name}.dfs.core.windows.net"
 +
 +        # CloudTik: patch start
 +        if credential is None:
++            try:
++                from azure.identity import DefaultAzureCredential
++            except ImportError as exc:
++                raise ImportError(
++                    "Using DefaultAzureCredential requires the azure-identity package. "
++                    "Please install it via: pip install azure-identity"
++                ) from exc
++
 +            managed_identity_client_id = self._get_azure_managed_identity_client_id()
 +            if managed_identity_client_id:
 +                credential = DefaultAzureCredential(

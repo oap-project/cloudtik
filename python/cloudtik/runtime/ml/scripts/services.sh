@@ -31,12 +31,13 @@ function set_artifact_config_for_azure_data_lake() {
     else
         # Default to datalake
         # Must be Azure storage kind must be blob (Azure Blob Storage) or datalake (Azure Data Lake Storage Gen 2)
-        AZURE_SCHEMA="abfs"
+        # MLflow uses abfss instead of abfs
+        AZURE_SCHEMA="abfss"
         AZURE_ENDPOINT="dfs"
     fi
 
-    fs_default_dir="${AZURE_SCHEMA}://${AZURE_CONTAINER}@${AZURE_STORAGE_ACCOUNT}.${AZURE_ENDPOINT}.core.windows.net"
-    DEFAULT_ARTIFACT_ROOT="${fs_default_dir}/${MLFLOW_ARTIFACT_PATH}"
+    fs_dir="${AZURE_SCHEMA}://${AZURE_CONTAINER}@${AZURE_STORAGE_ACCOUNT}.${AZURE_ENDPOINT}.core.windows.net"
+    DEFAULT_ARTIFACT_ROOT="${fs_dir}/${MLFLOW_ARTIFACT_PATH}"
 }
 
 function set_artifact_config_for_gcs() {

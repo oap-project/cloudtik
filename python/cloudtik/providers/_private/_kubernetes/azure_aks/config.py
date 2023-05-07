@@ -23,7 +23,7 @@ from cloudtik.providers._private._azure.config import _configure_managed_cloud_s
     _create_managed_cloud_database, _delete_managed_cloud_database, _configure_managed_cloud_database_from_workspace, \
     get_managed_database_instance
 from cloudtik.providers._private._azure.utils import export_azure_cloud_storage_config, \
-    get_default_azure_cloud_storage, export_azure_cloud_database_config
+    get_default_azure_cloud_storage, export_azure_cloud_database_config, _construct_compute_client
 
 AZURE_KUBERNETES_ANNOTATION_NAME = "azure.workload.identity/client-id"
 AZURE_KUBERNETES_ANNOTATION_VALUE = "{user_assigned_identity_client_id}"
@@ -63,6 +63,9 @@ def _get_kubernetes_service_account_iam_subject(
 def _get_aks_oidc_issuer_url(cloud_provider):
     # Implement the get of issuer url through container service
     managed_cluster = _get_managed_cluster(cloud_provider)
+    if not managed_cluster:
+        raise RuntimeError("AKS cluster {} doesn't exist.".format(
+            managed_cluster.name))
     if not managed_cluster.oidc_issuer_profile.enabled:
         raise RuntimeError("AKS cluster {} is not enabled with OIDC provider.".format(
             managed_cluster.name))
@@ -70,7 +73,7 @@ def _get_aks_oidc_issuer_url(cloud_provider):
     return managed_cluster.oidc_issuer_profile.issuer_url
 
 
-def _get_managed_cluster(cloud_provider):
+def _get_managed_cluster(cloud_provider, container_service_client=None):
     aks_resource_group = cloud_provider.get("aks_resource_group")
     aks_cluster_name = cloud_provider.get("aks_cluster_name")
     if not aks_resource_group:
@@ -78,7 +81,8 @@ def _get_managed_cluster(cloud_provider):
     if not aks_cluster_name:
         raise RuntimeError("AKS cluster name must specified with aks_cluster_name key in cloud provider.")
 
-    container_service_client = _construct_container_service_client(cloud_provider)
+    if container_service_client is None:
+        container_service_client = _construct_container_service_client(cloud_provider)
     cli_logger.verbose("Getting AKS cluster information: {}.{}...".format(
         aks_resource_group, aks_cluster_name))
     try:
@@ -86,7 +90,7 @@ def _get_managed_cluster(cloud_provider):
             aks_resource_group,
             aks_cluster_name
         )
-        cli_logger.verbose("Successfully get AKS cluster information: {}.".format(
+        cli_logger.verbose("Successfully get AKS cluster information: {}.{}.".format(
             aks_resource_group, aks_cluster_name))
         return managed_cluster
     except ResourceNotFoundError as e:
@@ -137,20 +141,137 @@ def create_configurations_for_azure(config: Dict[str, Any], namespace, cloud_pro
                 _numbered=("[]", current_step, total_steps)):
             current_step += 1
             _create_managed_cloud_database_for_aks(
-                cloud_provider, workspace_name, resource_group_name)
+                cloud_provider, workspace_name)
 
 
-def _get_aks_virtual_network_name(cloud_provider):
-    # TO IMPROVE: retrieve the virtual network name from AKS node pool information
-    return cloud_provider.get("vnet_name")
+def _get_aks_virtual_network(cloud_provider):
+    container_service_client = _construct_container_service_client(
+        cloud_provider)
+    managed_cluster = _get_managed_cluster(
+        cloud_provider, container_service_client)
+    if not managed_cluster:
+        raise RuntimeError("AKS cluster {} doesn't exist.".format(
+            managed_cluster.name))
+
+    # try to get the vnet resource group and virtual network from vnet_subnet_id of node pool
+    resource_group_and_vnet = _get_aks_virtual_network_from_node_pool(
+        cloud_provider, container_service_client)
+    if resource_group_and_vnet:
+        return resource_group_and_vnet
+
+    # try getting subnet info from VMSS in node_resource_group
+    resource_group_and_vnet = _get_aks_virtual_network_from_vmss(
+        cloud_provider, managed_cluster.node_resource_group)
+    if resource_group_and_vnet:
+        return resource_group_and_vnet
+
+    # finally use configuration
+    vnet_resource_group_name = cloud_provider.get("aks_vnet_resource_group")
+    if not vnet_resource_group_name:
+        raise RuntimeError("AKS vnet resource group name must specified "
+                           "with aks_vnet_resource_group key in cloud provider.")
+    virtual_network_name = cloud_provider.get("aks_vnet")
+    if not virtual_network_name:
+        raise RuntimeError("AKS vnet name must specified "
+                           "with aks_vnet key in cloud provider.")
+    return vnet_resource_group_name, virtual_network_name
+
+
+def _get_aks_virtual_network_from_node_pool(cloud_provider, container_service_client):
+    vnet_subnet_id = _get_aks_vnet_subnet_from_node_pool(
+        cloud_provider, container_service_client)
+    if not vnet_subnet_id:
+        return None
+
+    return _parse_id_for_vnet(vnet_subnet_id)
+
+
+def _parse_id_for_vnet(vnet_subnet_id):
+    # parsing
+    # /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/
+    # providers/Microsoft.Network/virtualNetworks/{virtualNetworkName}/subnets/{subnetName}
+    parsed_vnet_subnet_id = vnet_subnet_id.split("/")
+    if len(parsed_vnet_subnet_id) != 11:
+        raise RuntimeError("Invalid vnet_subnet_id: {}".format(vnet_subnet_id))
+    return parsed_vnet_subnet_id[4], parsed_vnet_subnet_id[8]
+
+
+def _get_aks_vnet_subnet_from_node_pool(cloud_provider, container_service_client):
+    aks_resource_group = cloud_provider.get("aks_resource_group")
+    aks_cluster_name = cloud_provider.get("aks_cluster_name")
+    try:
+        agent_pools = container_service_client.agent_pools.list(
+            aks_resource_group,
+            aks_cluster_name
+        )
+        for agent_pool in agent_pools:
+            if agent_pool.vnet_subnet_id:
+                return agent_pool.vnet_subnet_id
+    except Exception as e:
+        cli_logger.verbose_error(
+            "Failed to get AKS cluster node pools:: {}.{}. {}",
+            aks_resource_group, aks_cluster_name, str(e))
+    return None
+
+
+def _get_aks_virtual_network_from_vmss(cloud_provider, node_resource_group):
+    vnet_subnet_id = _get_aks_vnet_subnet_from_vmss(
+        cloud_provider, node_resource_group)
+    if not vnet_subnet_id:
+        return None
+
+    return _parse_id_for_vnet(vnet_subnet_id)
+
+
+def _get_aks_vnet_subnet_from_vmss(cloud_provider, node_resource_group):
+    if not node_resource_group:
+        return None
+    compute_client = _construct_compute_client(cloud_provider)
+    try:
+        virtual_machine_scale_sets = compute_client.virtual_machine_scale_sets.list(
+            resource_group_name=node_resource_group)
+        for virtual_machine_scale_set in virtual_machine_scale_sets:
+            vnet_subnet_id = _get_subnet_id_of_vmss(virtual_machine_scale_set)
+            if vnet_subnet_id:
+                return vnet_subnet_id
+    except Exception as e:
+        cli_logger.verbose_error(
+            "Failed to list virtual machine scale sets of: {}. {}",
+            node_resource_group, str(e))
+    return None
+
+
+def _get_subnet_id_of_vmss(virtual_machine_scale_set):
+    virtual_machine_profile = virtual_machine_scale_set.virtual_machine_profile
+    if virtual_machine_profile is None:
+        return None
+
+    network_profile = virtual_machine_profile.network_profile
+    if network_profile is None:
+        return None
+
+    network_interface_configurations = network_profile.network_interface_configurations
+    if not network_interface_configurations:
+        return None
+
+    ip_configurations = network_interface_configurations[0].ip_configurations
+    if not ip_configurations:
+        return None
+
+    subnet = ip_configurations[0].subnet
+    if subnet is None:
+        return None
+
+    return subnet.id
 
 
 def _create_managed_cloud_database_for_aks(
-        cloud_provider, workspace_name, resource_group_name):
-    virtual_network_name = _get_aks_virtual_network_name(cloud_provider)
+        cloud_provider, workspace_name):
+    vnet_resource_group_name, virtual_network_name = _get_aks_virtual_network(
+        cloud_provider)
     _create_managed_cloud_database(
         cloud_provider, workspace_name,
-        resource_group_name, virtual_network_name
+        vnet_resource_group_name, virtual_network_name
     )
 
 
@@ -177,7 +298,7 @@ def delete_configurations_for_azure(
                 _numbered=("[]", current_step, total_steps)):
             current_step += 1
             _delete_managed_cloud_database_for_aks(
-                cloud_provider, workspace_name, resource_group_name)
+                cloud_provider, workspace_name)
 
     if managed_cloud_storage and delete_managed_storage:
         with cli_logger.group(
@@ -203,11 +324,12 @@ def delete_configurations_for_azure(
 
 
 def _delete_managed_cloud_database_for_aks(
-        cloud_provider, workspace_name, resource_group_name):
-    virtual_network_name = _get_aks_virtual_network_name(cloud_provider)
+        cloud_provider, workspace_name):
+    vnet_resource_group_name, virtual_network_name = _get_aks_virtual_network(
+        cloud_provider)
     _delete_managed_cloud_database(
         cloud_provider, workspace_name,
-        resource_group_name, virtual_network_name)
+        vnet_resource_group_name, virtual_network_name)
 
 
 def configure_kubernetes_for_azure(config: Dict[str, Any], namespace, cloud_provider):
@@ -232,10 +354,10 @@ def _configure_cloud_storage_for_azure(config: Dict[str, Any], cloud_provider):
 def _configure_cloud_database_for_azure(config: Dict[str, Any], cloud_provider):
     use_managed_cloud_database = _is_use_managed_cloud_database(cloud_provider)
     if use_managed_cloud_database:
-        workspace_name = config["workspace_name"]
-        resource_group_name = get_aks_workspace_resource_group_name(workspace_name)
+        vnet_resource_group_name, _ = _get_aks_virtual_network(
+            cloud_provider)
         _configure_managed_cloud_database_from_workspace(
-            config, cloud_provider, resource_group_name)
+            config, cloud_provider, vnet_resource_group_name)
 
     return config
 
@@ -974,8 +1096,9 @@ def check_existence_for_azure(config: Dict[str, Any], namespace, cloud_provider)
                 cloud_storage_existence = True
 
         if managed_cloud_database:
+            vnet_resource_group_name, _ = _get_aks_virtual_network(cloud_provider)
             if get_managed_database_instance(
-                    cloud_provider, workspace_name, resource_group_name) is not None:
+                    cloud_provider, workspace_name, vnet_resource_group_name) is not None:
                 existing_resources += 1
                 cloud_database_existence = True
 

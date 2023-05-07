@@ -1,5 +1,9 @@
 from enum import Enum
 
+from google.cloud import container_v1
+
+from cloudtik.providers._private.gcp.utils import _get_gcp_credentials
+
 GCP_KUBERNETES_HEAD_IAM_SERVICE_ACCOUNT_NAME = "cloudtik-gke-{}-head"
 GCP_KUBERNETES_WORKER_IAM_SERVICE_ACCOUNT_NAME = "cloudtik-gke-{}-worker"
 
@@ -36,3 +40,15 @@ def _get_iam_service_account_display_name(workspace_name, account_type: AccountT
         return GCP_KUBERNETES_HEAD_SERVICE_ACCOUNT_DISPLAY_NAME.format(workspace_name)
     else:
         return GCP_KUBERNETES_WORKER_SERVICE_ACCOUNT_DISPLAY_NAME.format(workspace_name)
+
+
+def construct_container_client(provider_config):
+    credentials = _get_gcp_credentials(provider_config)
+    if credentials is None:
+        return _create_container_client()
+
+    return _create_container_client(credentials)
+
+
+def _create_container_client(gcp_credentials=None):
+    return container_v1.ClusterManagerClient(credentials=gcp_credentials)

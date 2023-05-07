@@ -1651,7 +1651,8 @@ def _delete_configurations_for_cloud_provider(config, namespace,
     elif cloud_provider_type == "azure":
         from cloudtik.providers._private._kubernetes.azure_aks.config import delete_configurations_for_azure
         delete_configurations_for_azure(
-            config, namespace, cloud_provider, delete_managed_storage)
+            config, namespace, cloud_provider,
+            delete_managed_storage, delete_managed_database)
     else:
         cli_logger.print("No integration for {} cloud provider. Configuration skipped.", cloud_provider_type)
 

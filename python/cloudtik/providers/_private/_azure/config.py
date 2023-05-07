@@ -34,7 +34,7 @@ from cloudtik.providers._private._azure.utils import _get_node_info, get_credent
     get_azure_cloud_storage_config, get_azure_cloud_storage_config_for_update, get_azure_cloud_storage_uri, \
     _construct_manage_server_identity_client, _construct_authorization_client, AZURE_DATABASE_ENDPOINT, \
     get_azure_database_config_for_update, _construct_rdbms_client, get_azure_database_config, \
-    export_azure_database_config, _construct_network_client, _construct_private_dns_client
+    export_azure_cloud_database_config, _construct_network_client, _construct_private_dns_client
 from cloudtik.providers._private.utils import StorageTestingError
 
 AZURE_RESOURCE_NAME_PREFIX = "cloudtik"
@@ -3145,7 +3145,7 @@ def list_azure_clusters(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 def with_azure_environment_variables(provider_config, node_type_config: Dict[str, Any], node_id: str):
     config_dict = {}
     export_azure_cloud_storage_config(provider_config, config_dict)
-    export_azure_database_config(provider_config, config_dict)
+    export_azure_cloud_database_config(provider_config, config_dict)
 
     if node_type_config is not None:
         node_config = node_type_config.get("node_config")

@@ -33,7 +33,7 @@ from cloudtik.providers._private.gcp.utils import _get_node_info, construct_clie
     export_gcp_cloud_storage_config, get_service_account_email, construct_storage_client, construct_storage, \
     get_gcp_cloud_storage_config, get_gcp_cloud_storage_config_for_update, GCP_GCS_BUCKET, get_gcp_cloud_storage_uri, \
     GCP_DATABASE_ENDPOINT, get_gcp_database_config_for_update, construct_sql_admin, get_gcp_database_config, \
-    wait_for_sql_admin_operation, export_gcp_database_config, construct_compute_client, construct_service_networking, \
+    wait_for_sql_admin_operation, export_gcp_cloud_database_config, construct_compute_client, construct_service_networking, \
     wait_for_service_networking_operation
 from cloudtik.providers._private.utils import StorageTestingError
 
@@ -2704,7 +2704,7 @@ def with_gcp_environment_variables(
         provider_config, node_type_config: Dict[str, Any], node_id: str):
     config_dict = {}
     export_gcp_cloud_storage_config(provider_config, config_dict)
-    export_gcp_database_config(provider_config, config_dict)
+    export_gcp_cloud_database_config(provider_config, config_dict)
 
     if "GCP_PROJECT_ID" not in config_dict:
         project_id = provider_config.get("project_id")

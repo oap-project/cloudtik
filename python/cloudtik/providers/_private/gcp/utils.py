@@ -432,7 +432,7 @@ def get_gcp_database_config_for_update(provider_config: Dict[str, Any]):
     return database_config["gcp.cloudsql"]
 
 
-def export_gcp_database_config(provider_config, config_dict: Dict[str, Any]):
+def export_gcp_cloud_database_config(provider_config, config_dict: Dict[str, Any]):
     database_config = get_gcp_database_config(provider_config)
     if database_config is None:
         return

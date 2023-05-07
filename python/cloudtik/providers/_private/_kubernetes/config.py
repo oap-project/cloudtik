@@ -1647,7 +1647,8 @@ def _delete_configurations_for_cloud_provider(config, namespace,
     elif cloud_provider_type == "gcp":
         from cloudtik.providers._private._kubernetes.gcp_gke.config import delete_configurations_for_gcp
         delete_configurations_for_gcp(
-            config, namespace, cloud_provider, delete_managed_storage)
+            config, namespace, cloud_provider,
+            delete_managed_storage, delete_managed_database)
     elif cloud_provider_type == "azure":
         from cloudtik.providers._private._kubernetes.azure_aks.config import delete_configurations_for_azure
         delete_configurations_for_azure(

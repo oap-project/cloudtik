@@ -1,7 +1,8 @@
 from typing import Any, Dict
 
 from cloudtik.core._private.cli_logger import cli_logger
-from cloudtik.core._private.utils import _is_use_managed_cloud_storage, _is_managed_cloud_storage
+from cloudtik.core._private.utils import _is_use_managed_cloud_storage, _is_managed_cloud_storage, \
+    _is_managed_cloud_database, _is_use_managed_cloud_database
 from cloudtik.core.workspace_provider import Existence
 from cloudtik.providers._private._kubernetes import core_api, log_prefix
 from cloudtik.providers._private._kubernetes.gcp_gke.utils import get_project_id, \
@@ -13,9 +14,11 @@ from cloudtik.providers._private.gcp.config import _configure_managed_cloud_stor
     _delete_service_account, _get_service_account_by_id, _add_iam_role_binding, WORKER_SERVICE_ACCOUNT_ROLES, \
     _remove_iam_role_binding, _has_iam_role_binding, _add_service_account_iam_role_binding, \
     _remove_service_account_iam_role_binding, _has_service_account_iam_role_binding, _get_service_account_of_project, \
-    get_gcp_managed_cloud_storage_info
+    get_gcp_managed_cloud_storage_info, _create_managed_cloud_database, _delete_managed_cloud_database, \
+    _configure_managed_cloud_database_from_workspace, get_managed_database_instance
 from cloudtik.providers._private.gcp.utils import get_gcp_project, construct_iam_client, construct_crm_client, \
-    get_service_account_email, export_gcp_cloud_storage_config, get_default_gcp_cloud_storage
+    get_service_account_email, export_gcp_cloud_storage_config, get_default_gcp_cloud_storage, \
+    export_gcp_cloud_database_config
 
 GCP_KUBERNETES_ANNOTATION_NAME = "iam.gke.io/gcp-service-account"
 GCP_KUBERNETES_ANNOTATION_VALUE = "{service_account}@{project_id}.iam.gserviceaccount.com"
@@ -54,10 +57,13 @@ def _get_kubernetes_service_account_iam_member_id(
 def create_configurations_for_gcp(config: Dict[str, Any], namespace, cloud_provider):
     workspace_name = config["workspace_name"]
     managed_cloud_storage = _is_managed_cloud_storage(cloud_provider)
+    managed_cloud_database = _is_managed_cloud_database(cloud_provider)
 
     current_step = 1
     total_steps = GCP_KUBERNETES_NUM_CREATION_STEPS
     if managed_cloud_storage:
+        total_steps += 1
+    if managed_cloud_database:
         total_steps += 1
 
     # Configure IAM based access for Kubernetes service accounts
@@ -75,18 +81,53 @@ def create_configurations_for_gcp(config: Dict[str, Any], namespace, cloud_provi
             current_step += 1
             _create_managed_cloud_storage(cloud_provider, workspace_name)
 
+    if managed_cloud_database:
+        with cli_logger.group(
+                "Creating managed cloud database",
+                _numbered=("[]", current_step, total_steps)):
+            current_step += 1
+            _create_managed_cloud_database_for_gke(
+                cloud_provider, workspace_name)
 
-def delete_configurations_for_gcp(config: Dict[str, Any], namespace, cloud_provider,
-                                  delete_managed_storage: bool = False):
+
+def _get_gke_vpc_name(cloud_provider):
+    # TO IMPROVE: retrieve the vpc name from GKE cluster information
+    return cloud_provider.get("vpc_name")
+
+
+def _create_managed_cloud_database_for_gke(
+        cloud_provider, workspace_name):
+    vpc_name = _get_gke_vpc_name(cloud_provider)
+    _create_managed_cloud_database(
+        cloud_provider, workspace_name,
+        vpc_name
+    )
+
+
+def delete_configurations_for_gcp(
+        config: Dict[str, Any], namespace, cloud_provider,
+        delete_managed_storage: bool = False,
+        delete_managed_database: bool = False):
     workspace_name = config["workspace_name"]
     managed_cloud_storage = _is_managed_cloud_storage(cloud_provider)
+    managed_cloud_database = _is_managed_cloud_database(cloud_provider)
 
     current_step = 1
     total_steps = GCP_KUBERNETES_NUM_DELETION_STEPS
     if managed_cloud_storage and delete_managed_storage:
         total_steps += 1
+    if managed_cloud_database and delete_managed_database:
+        total_steps += 1
 
     # Delete in a reverse way of creating
+    if managed_cloud_database and delete_managed_database:
+        with cli_logger.group(
+                "Deleting managed cloud database",
+                _numbered=("[]", current_step, total_steps)):
+            current_step += 1
+            _delete_managed_cloud_database_for_gke(
+                cloud_provider, workspace_name)
+
     if managed_cloud_storage and delete_managed_storage:
         with cli_logger.group(
                 "Deleting GCS bucket",
@@ -102,16 +143,33 @@ def delete_configurations_for_gcp(config: Dict[str, Any], namespace, cloud_provi
         _delete_iam_based_access_for_kubernetes(config, namespace, cloud_provider)
 
 
+def _delete_managed_cloud_database_for_gke(
+        cloud_provider, workspace_name):
+    vpc_name = _get_gke_vpc_name(cloud_provider)
+    _delete_managed_cloud_database(
+        cloud_provider, workspace_name,
+        vpc_name)
+
+
 def configure_kubernetes_for_gcp(config: Dict[str, Any], namespace, cloud_provider):
     # Optionally, if user choose to use managed cloud storage (gcs bucket)
     # Configure the gcs bucket under cloud storage
     _configure_cloud_storage_for_gcp(config, cloud_provider)
+    _configure_cloud_database_for_gcp(config, cloud_provider)
 
 
 def _configure_cloud_storage_for_gcp(config: Dict[str, Any], cloud_provider):
     use_managed_cloud_storage = _is_use_managed_cloud_storage(cloud_provider)
     if use_managed_cloud_storage:
         _configure_managed_cloud_storage_from_workspace(config, cloud_provider)
+
+    return config
+
+
+def _configure_cloud_database_for_gcp(config: Dict[str, Any], cloud_provider):
+    use_managed_cloud_database = _is_use_managed_cloud_database(cloud_provider)
+    if use_managed_cloud_database:
+        _configure_managed_cloud_database_from_workspace(config, cloud_provider)
 
     return config
 
@@ -661,10 +719,13 @@ def check_existence_for_gcp(config: Dict[str, Any], namespace, cloud_provider):
 
     workspace_name = config["workspace_name"]
     managed_cloud_storage = _is_managed_cloud_storage(cloud_provider)
+    managed_cloud_database = _is_managed_cloud_database(cloud_provider)
 
     existing_resources = 0
     target_resources = GCP_KUBERNETES_TARGET_RESOURCES
     if managed_cloud_storage:
+        target_resources += 1
+    if managed_cloud_database:
         target_resources += 1
 
     """
@@ -675,6 +736,8 @@ def check_existence_for_gcp(config: Dict[str, Any], namespace, cloud_provider):
          3. Kubernetes service accounts association(+2)
     """
     project_existence = False
+    cloud_storage_existence = False
+    cloud_database_existence = False
     project = get_gcp_project(cloud_provider, get_project_id(cloud_provider))
     if project is not None:
         existing_resources += 1
@@ -714,11 +777,16 @@ def check_existence_for_gcp(config: Dict[str, Any], namespace, cloud_provider):
                 config, cloud_provider, namespace, AccountType.WORKER):
             existing_resources += 1
 
-    cloud_storage_existence = False
-    if managed_cloud_storage:
-        if get_managed_gcs_bucket(cloud_provider, workspace_name) is not None:
-            existing_resources += 1
-            cloud_storage_existence = True
+        if managed_cloud_storage:
+            if get_managed_gcs_bucket(cloud_provider, workspace_name) is not None:
+                existing_resources += 1
+                cloud_storage_existence = True
+
+        if managed_cloud_database:
+            if get_managed_database_instance(
+                    cloud_provider, workspace_name) is not None:
+                existing_resources += 1
+                cloud_database_existence = True
 
     if existing_resources == 0 or (
             existing_resources == 1 and project_existence):
@@ -726,8 +794,14 @@ def check_existence_for_gcp(config: Dict[str, Any], namespace, cloud_provider):
     elif existing_resources == target_resources:
         return Existence.COMPLETED
     else:
-        if existing_resources == 2 and cloud_storage_existence:
+        skipped_resources = 1
+        if existing_resources == skipped_resources + 1 and cloud_storage_existence:
             return Existence.STORAGE_ONLY
+        elif existing_resources == skipped_resources + 1 and cloud_database_existence:
+            return Existence.DATABASE_ONLY
+        elif existing_resources == skipped_resources + 2 and cloud_storage_existence \
+                and cloud_database_existence:
+            return Existence.STORAGE_AND_DATABASE_ONLY
         return Existence.IN_COMPLETED
 
 
@@ -746,6 +820,7 @@ def get_info_for_gcp(config: Dict[str, Any], namespace, cloud_provider, info):
 
 def with_gcp_environment_variables(provider_config, config_dict: Dict[str, Any]):
     export_gcp_cloud_storage_config(provider_config, config_dict)
+    export_gcp_cloud_database_config(provider_config, config_dict)
 
 
 def get_default_kubernetes_cloud_storage_for_gcp(provider_config):

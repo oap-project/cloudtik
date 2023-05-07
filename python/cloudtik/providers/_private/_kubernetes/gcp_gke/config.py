@@ -1,7 +1,5 @@
 from typing import Any, Dict
 
-from google.cloud.container_v1 import GetClusterRequest
-
 from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core._private.utils import _is_use_managed_cloud_storage, _is_managed_cloud_storage, \
     _is_managed_cloud_database, _is_use_managed_cloud_database

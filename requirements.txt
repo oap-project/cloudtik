@@ -33,10 +33,14 @@ azure-cli == 2.40.0
 azure-identity == 1.11.0
 azure-storage-blob == 12.11.0
 azure-storage-file-datalake == 12.6.0
+azure-mgmt-containerservice
+azure-mgmt-privatedns
+azure-mgmt-rdbms
 adlfs == 2022.2.0
 ## for gcp
 google-api-python-client == 2.48.0
 google-cloud-storage == 2.3.0
+google-cloud-container == 2.21.0
 gcsfs == 2022.10.0
 ## for kubernetes
 kubernetes

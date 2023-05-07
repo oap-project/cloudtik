@@ -6,7 +6,7 @@ from cloudtik.core._private.utils import _is_use_managed_cloud_storage, _is_mana
 from cloudtik.core.workspace_provider import Existence
 from cloudtik.providers._private._kubernetes import core_api, log_prefix
 from cloudtik.providers._private._kubernetes.gcp_gke.utils import get_project_id, \
-    AccountType, _get_iam_service_account_name, _get_iam_service_account_display_name
+    AccountType, _get_iam_service_account_name, _get_iam_service_account_display_name, construct_container_client
 from cloudtik.providers._private._kubernetes.utils import _get_head_service_account_name, \
     _get_worker_service_account_name, _get_service_account
 from cloudtik.providers._private.gcp.config import _configure_managed_cloud_storage_from_workspace, \
@@ -91,8 +91,33 @@ def create_configurations_for_gcp(config: Dict[str, Any], namespace, cloud_provi
 
 
 def _get_gke_vpc_name(cloud_provider):
-    # TO IMPROVE: retrieve the vpc name from GKE cluster information
-    return cloud_provider.get("vpc_name")
+    # retrieve the network name from GKE cluster information
+    container_client = construct_container_client(cloud_provider)
+
+    project_id = cloud_provider["project_id"]
+    availability_zone = cloud_provider.get("availability_zone")
+    if not availability_zone:
+        raise RuntimeError("GKE zone is not specified in cloud provider section.")
+    gke_cluster_name = cloud_provider.get("gke_cluster_name")
+    if not gke_cluster_name:
+        raise RuntimeError("GKE cluster name is not specified in cloud provider section.")
+
+    name = "projects/{}/locations/{}/clusters/{}".format(
+        project_id, availability_zone, gke_cluster_name
+    )
+    try:
+        cluster = container_client.get_cluster(name=name)
+        return cluster.network
+    except Exception as e:
+        cli_logger.warning(
+            "Failed to get GKE cluster: {}. {}",
+            gke_cluster_name, str(e))
+
+    vpc_name = cloud_provider.get("gke_network")
+    if not vpc_name:
+        raise RuntimeError("GKE network name must specified "
+                           "with gke_network key in cloud provider.")
+    return vpc_name
 
 
 def _create_managed_cloud_database_for_gke(

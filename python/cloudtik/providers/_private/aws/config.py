@@ -520,7 +520,8 @@ def get_workspace_public_route_tables(workspace_name, ec2, vpc_id):
 
 
 def get_workspace_security_group(config, vpc_id, workspace_name):
-    return _get_security_group(config, vpc_id, SECURITY_GROUP_TEMPLATE.format(workspace_name))
+    return _get_security_group(
+        config["provider"], vpc_id, SECURITY_GROUP_TEMPLATE.format(workspace_name))
 
 
 def get_workspace_internet_gateways(workspace_name, ec2, vpc_id):
@@ -1011,7 +1012,7 @@ def _delete_network_resources(config, workspace_name,
             "Deleting security group",
             _numbered=("[]", current_step, total_steps)):
         current_step += 1
-        _delete_security_group(config, vpc_id)
+        _delete_workspace_security_group(config, vpc_id)
 
     # delete vpc endpoint for s3
     with cli_logger.group(
@@ -1618,9 +1619,17 @@ def _delete_nat_gateway(nat, ec2_client):
         _delete_elastic_ip_address(nat, ec2_client)
 
 
-def _delete_security_group(config, vpc_id):
+def _delete_workspace_security_group(config, vpc_id):
+    security_group_name = SECURITY_GROUP_TEMPLATE.format(config["workspace_name"])
+    _delete_security_group(
+        config["provider"], vpc_id, security_group_name
+    )
+
+
+def _delete_security_group(provider_config, vpc_id, security_group_name):
     """ Delete any security-groups """
-    sg = _get_security_group(config, vpc_id, SECURITY_GROUP_TEMPLATE.format(config["workspace_name"]))
+    sg = _get_security_group(
+        provider_config, vpc_id, security_group_name)
     if sg is None:
         cli_logger.print("No security groups for workspace were found under this VPC: {}...".format(vpc_id))
         return
@@ -2929,56 +2938,13 @@ def _upsert_security_group(config, vpc_id):
 
 def _create_workspace_security_group(config, vpc_id):
     group_name = SECURITY_GROUP_TEMPLATE.format(config["workspace_name"])
-    cli_logger.print("Creating security group for VPC: {}...".format(group_name))
-    security_group = _create_security_group(config, vpc_id, group_name)
-    cli_logger.print("Successfully created security group: {}.".format(group_name))
-    return security_group
+    return _create_security_group(config["provider"], vpc_id, group_name)
 
 
 def _update_security_group(config, vpc_id):
     security_group = get_workspace_security_group(config, vpc_id, config["workspace_name"])
     _add_security_group_rules(config, security_group)
     return security_group
-
-
-def _get_or_create_vpc_security_groups(conf, node_types):
-    # Figure out which VPC each node_type is in...
-    ec2 = _resource("ec2", conf)
-    node_type_to_vpc = {
-        node_type: _get_vpc_id_or_die(
-            ec2,
-            conf["available_node_types"][node_type]["node_config"]["SubnetIds"]
-            [0],
-        )
-        for node_type in node_types
-    }
-
-    # Generate the name of the security group we're looking for...
-    expected_sg_name = conf["provider"] \
-        .get("security_group", {}) \
-        .get("GroupName", SECURITY_GROUP_TEMPLATE.format(conf["cluster_name"]))
-
-    # Figure out which security groups with this name exist for each VPC...
-    vpc_to_existing_sg = {
-        sg.vpc_id: sg
-        for sg in _get_security_groups(
-            conf,
-            node_type_to_vpc.values(),
-            [expected_sg_name],
-        )
-    }
-
-    # Lazily create any security group we're missing for each VPC...
-    vpc_to_sg = LazyDefaultDict(
-        partial(_create_security_group, conf, group_name=expected_sg_name),
-        vpc_to_existing_sg,
-    )
-
-    # Then return a mapping from each node_type to its security group...
-    return {
-        node_type: vpc_to_sg[vpc_id]
-        for node_type, vpc_id in node_type_to_vpc.items()
-    }
 
 
 @lru_cache()
@@ -2996,16 +2962,16 @@ def _get_vpc_id_or_die(ec2, subnet_id):
     return subnet.vpc_id
 
 
-def _get_security_group(config, vpc_id, group_name):
-    security_group = _get_security_groups(config, [vpc_id], [group_name])
+def _get_security_group(provider_config, vpc_id, group_name):
+    security_group = _get_security_groups(provider_config, [vpc_id], [group_name])
     return None if not security_group else security_group[0]
 
 
-def _get_security_groups(config, vpc_ids, group_names):
+def _get_security_groups(provider_config, vpc_ids, group_names):
     unique_vpc_ids = list(set(vpc_ids))
     unique_group_names = set(group_names)
 
-    ec2 = _resource("ec2", config)
+    ec2 = _make_resource("ec2", provider_config)
     existing_groups = list(
         ec2.security_groups.filter(Filters=[{
             "Name": "vpc-id",
@@ -3031,8 +2997,9 @@ def wait_security_group_creation(ec2_client, vpc_id, group_name):
     ])
 
 
-def _create_security_group(config, vpc_id, group_name):
-    client = _resource_client("ec2", config)
+def _create_security_group(provider_config, vpc_id, group_name):
+    cli_logger.print("Creating security group for VPC: {}...".format(group_name))
+    client = _make_resource_client("ec2", provider_config)
     client.create_security_group(
         Description="Auto-created security group for workers",
         GroupName=group_name,
@@ -3041,46 +3008,28 @@ def _create_security_group(config, vpc_id, group_name):
     # Wait for creation
     wait_security_group_creation(client, vpc_id, group_name)
 
-    security_group = _get_security_group(config, vpc_id, group_name)
+    security_group = _get_security_group(
+        provider_config, vpc_id, group_name)
     cli_logger.doassert(security_group,
                         "Failed to create security group")
 
-    cli_logger.verbose(
-        "Created new security group {}",
-        cf.bold(security_group.group_name),
-        _tags=dict(id=security_group.id))
+    cli_logger.print("Successfully created security group: {}.".format(group_name))
     return security_group
 
 
-def _upsert_security_group_rules(conf, security_groups):
-    sgids = {sg.id for sg in security_groups.values()}
-
-    # Update sgids to include user-specified security groups.
-    # This is necessary if the user specifies the head node type's security
-    # groups but not the worker's, or vice-versa.
-    for node_type in conf["available_node_types"]:
-        sgids.update(conf["available_node_types"][node_type].get(
-            "SecurityGroupIds", []))
-
-    # sort security group items for deterministic inbound rule config order
-    # (mainly supports more precise stub-based boto3 unit testing)
-    for node_type, sg in sorted(security_groups.items()):
-        sg = security_groups[node_type]
-        if not sg.ip_permissions:
-            _update_inbound_rules(sg, sgids, conf)
-
-
-def _add_security_group_rules(conf, security_group):
+def _add_security_group_rules(config, security_group):
     cli_logger.print("Updating rules for security group: {}...".format(security_group.id))
-    _update_inbound_rules(security_group, {security_group.id}, conf)
-    cli_logger.print("Successfully updated rules for security group.")
-
-
-def _update_inbound_rules(target_security_group, sgids, config):
+    security_group_ids = {security_group.id}
     extended_rules = config["provider"] \
         .get("security_group", {}) \
         .get("IpPermissions", [])
-    ip_permissions = _create_default_inbound_rules(config, sgids, extended_rules)
+    ip_permissions = _create_default_inbound_rules(
+        config, security_group_ids, extended_rules)
+    _update_inbound_rules(security_group, ip_permissions)
+    cli_logger.print("Successfully updated rules for security group.")
+
+
+def _update_inbound_rules(target_security_group, ip_permissions):
     old_ip_permissions = target_security_group.ip_permissions
     if len(old_ip_permissions) != 0:
         target_security_group.revoke_ingress(IpPermissions=old_ip_permissions)

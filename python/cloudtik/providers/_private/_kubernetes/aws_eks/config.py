@@ -8,7 +8,8 @@ from typing import Any, Dict
 import botocore
 
 from cloudtik.core._private.cli_logger import cli_logger
-from cloudtik.core._private.utils import _is_use_managed_cloud_storage, _is_managed_cloud_storage
+from cloudtik.core._private.utils import _is_use_managed_cloud_storage, _is_managed_cloud_storage, \
+    _is_managed_cloud_database, _is_use_managed_cloud_database
 from cloudtik.core.workspace_provider import Existence
 from cloudtik.providers._private._kubernetes import core_api, log_prefix
 from cloudtik.providers._private._kubernetes.aws_eks.utils import get_root_ca_cert_thumbprint
@@ -16,9 +17,13 @@ from cloudtik.providers._private._kubernetes.utils import _get_head_service_acco
     _get_worker_service_account_name, _get_service_account
 from cloudtik.providers._private.aws.config import _configure_managed_cloud_storage_from_workspace, \
     _create_managed_cloud_storage, _delete_managed_cloud_storage, _get_iam_role, _delete_iam_role, \
-    get_managed_s3_bucket, get_aws_managed_cloud_storage_info
+    get_managed_s3_bucket, get_aws_managed_cloud_storage_info, get_managed_database_instance, \
+    _configure_managed_cloud_database_from_workspace, _create_managed_cloud_database, _create_security_group, \
+    _create_default_intra_cluster_inbound_rules, _update_inbound_rules, _get_security_group, \
+    _delete_managed_cloud_database, _delete_security_group
 from cloudtik.providers._private.aws.utils import _make_resource_client, _make_resource, get_current_account_id, \
-    handle_boto_error, _make_client, export_aws_s3_storage_config, get_default_aws_cloud_storage
+    handle_boto_error, _make_client, export_aws_s3_storage_config, get_default_aws_cloud_storage, \
+    export_aws_database_config
 
 HTTP_DEFAULT_PORT = 80
 HTTPS_DEFAULT_PORT = 443
@@ -26,6 +31,8 @@ HTTPS_DEFAULT_PORT = 443
 HTTPS_URL_PREFIX = "https://"
 
 AWS_KUBERNETES_IAM_ROLE_NAME_TEMPLATE = "cloudtik-eks-{}-role"
+AWS_KUBERNETES_SECURITY_GROUP_TEMPLATE = "cloudtik-eks-{}-sg"
+
 AWS_KUBERNETES_OPEN_ID_IDENTITY_PROVIDER_ARN = "arn:aws:iam::{}:oidc-provider/{}"
 AWS_KUBERNETES_ANNOTATION_NAME = "eks.amazonaws.com/role-arn"
 AWS_KUBERNETES_ANNOTATION_VALUE = "arn:aws:iam::{}:role/{}"
@@ -52,10 +59,13 @@ def _check_eks_cluster_name(cloud_provider):
 def create_configurations_for_aws(config: Dict[str, Any], namespace, cloud_provider):
     workspace_name = config["workspace_name"]
     managed_cloud_storage = _is_managed_cloud_storage(cloud_provider)
+    managed_cloud_database = _is_managed_cloud_database(cloud_provider)
 
     current_step = 1
     total_steps = AWS_KUBERNETES_NUM_CREATION_STEPS
     if managed_cloud_storage:
+        total_steps += 1
+    if managed_cloud_database:
         total_steps += 1
 
     # Configure IAM based access for Kubernetes service accounts
@@ -73,18 +83,121 @@ def create_configurations_for_aws(config: Dict[str, Any], namespace, cloud_provi
             current_step += 1
             _create_managed_cloud_storage(cloud_provider, workspace_name)
 
+    if managed_cloud_database:
+        with cli_logger.group(
+                "Creating managed cloud database",
+                _numbered=("[]", current_step, total_steps)):
+            current_step += 1
+            _create_managed_cloud_database_for_eks(
+                cloud_provider, workspace_name)
+
+
+def _create_managed_cloud_database_for_eks(cloud_provider, workspace_name):
+    current_step = 1
+    total_steps = 2
+
+    vpc_id, subnet_ids = get_eks_vpc_and_subnet_ids(cloud_provider)
+
+    with cli_logger.group(
+            "Creating database security group",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _create_database_security_group(
+            cloud_provider, workspace_name)
+
+    with cli_logger.group(
+            "Creating managed database instance",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        security_group_id = _get_database_security_group_id(
+            cloud_provider, workspace_name, vpc_id)
+        _create_managed_cloud_database(
+            cloud_provider, workspace_name,
+            subnet_ids, security_group_id
+        )
+
+
+def _get_database_security_group_id(cloud_provider, workspace_name, vpc_id):
+    group_name = AWS_KUBERNETES_SECURITY_GROUP_TEMPLATE.format(workspace_name)
+    security_group = _get_security_group(
+        cloud_provider, vpc_id, group_name)
+    if security_group is None:
+        return None
+    return security_group.id
+
+
+def _create_database_security_group(cloud_provider, workspace_name, vpc_id):
+    current_step = 1
+    total_steps = 2
+
+    with cli_logger.group(
+            "Creating security group for VPC",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        group_name = AWS_KUBERNETES_SECURITY_GROUP_TEMPLATE.format(workspace_name)
+        security_group = _create_security_group(cloud_provider, vpc_id, group_name)
+
+    with cli_logger.group(
+            "Configuring rules for security group",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _add_security_group_rules(cloud_provider, security_group)
+
+    return security_group
+
+
+def _add_security_group_rules(cloud_provider, security_group):
+    cli_logger.print("Updating rules for security group: {}...".format(
+        security_group.id))
+    security_group_ids = {security_group.id}
+    ip_permissions = _create_default_intra_cluster_inbound_rules(security_group_ids)
+    _update_inbound_rules(security_group, ip_permissions)
+    cli_logger.print("Successfully updated rules for security group.")
+
+
+def get_eks_vpc_and_subnet_ids(cloud_provider):
+    eks_cluster_name = cloud_provider["eks_cluster_name"]
+    eks_client = _make_client("eks", cloud_provider)
+
+    eks_cluster_info = eks_client.describe_cluster(
+        name=eks_cluster_name
+    )
+
+    eks_cluster = eks_cluster_info["cluster"]
+    if "resourcesVpcConfig" not in eks_cluster:
+        raise RuntimeError("No VPC config found for EKS cluster: {}".format(
+            eks_cluster_name))
+
+    vpc_config = eks_cluster["resourcesVpcConfig"]
+    if "subnetIds" not in vpc_config or "vpcId" not in vpc_config:
+        raise RuntimeError("No vpc or subnets information found for EKS cluster: {}".format(
+            eks_cluster_name))
+
+    return vpc_config["vpcId"], vpc_config["subnetIds"]
+
 
 def delete_configurations_for_aws(config: Dict[str, Any], namespace, cloud_provider,
-                                  delete_managed_storage: bool = False):
+                                  delete_managed_storage: bool = False,
+                                  delete_managed_database: bool = False):
     workspace_name = config["workspace_name"]
     managed_cloud_storage = _is_managed_cloud_storage(cloud_provider)
+    managed_cloud_database = _is_managed_cloud_database(cloud_provider)
 
     current_step = 1
     total_steps = AWS_KUBERNETES_NUM_DELETION_STEPS
     if managed_cloud_storage and delete_managed_storage:
         total_steps += 1
+    if managed_cloud_database and delete_managed_database:
+        total_steps += 1
 
     # Delete in a reverse way of creating
+    if managed_cloud_database and delete_managed_database:
+        with cli_logger.group(
+                "Deleting managed cloud database",
+                _numbered=("[]", current_step, total_steps)):
+            current_step += 1
+            _delete_managed_cloud_database_for_eks(cloud_provider, workspace_name)
+
     if managed_cloud_storage and delete_managed_storage:
         with cli_logger.group(
                 "Deleting S3 bucket",
@@ -100,16 +213,54 @@ def delete_configurations_for_aws(config: Dict[str, Any], namespace, cloud_provi
         _delete_iam_based_access_for_kubernetes(config, namespace, cloud_provider)
 
 
+def _delete_managed_cloud_database_for_eks(cloud_provider, workspace_name):
+    current_step = 1
+    total_steps = 2
+
+    vpc_id, _ = get_eks_vpc_and_subnet_ids(cloud_provider)
+
+    with cli_logger.group(
+            "Deleting managed database instance",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _delete_managed_cloud_database(
+            cloud_provider, workspace_name)
+
+    with cli_logger.group(
+            "Creating database security group",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        _delete_database_security_group(
+            cloud_provider, workspace_name, vpc_id)
+
+
+def _delete_database_security_group(
+        cloud_provider, workspace_name, vpc_id):
+    security_group_name = AWS_KUBERNETES_SECURITY_GROUP_TEMPLATE.format(workspace_name)
+    _delete_security_group(
+        cloud_provider, vpc_id, security_group_name
+    )
+
+
 def configure_kubernetes_for_aws(config: Dict[str, Any], namespace, cloud_provider):
     # Optionally, if user choose to use managed cloud storage (s3 bucket)
     # Configure the s3 bucket under cloud storage
     _configure_cloud_storage_for_aws(config, cloud_provider)
+    _configure_cloud_database_for_aws(config, cloud_provider)
 
 
 def _configure_cloud_storage_for_aws(config: Dict[str, Any], cloud_provider):
     use_managed_cloud_storage = _is_use_managed_cloud_storage(cloud_provider)
     if use_managed_cloud_storage:
         _configure_managed_cloud_storage_from_workspace(config, cloud_provider)
+
+    return config
+
+
+def _configure_cloud_database_for_aws(config: Dict[str, Any], cloud_provider):
+    use_managed_cloud_database = _is_use_managed_cloud_database(cloud_provider)
+    if use_managed_cloud_database:
+        _configure_managed_cloud_database_from_workspace(config, cloud_provider)
 
     return config
 
@@ -533,10 +684,13 @@ def _is_service_account_associated(cloud_provider, namespace, name):
 def check_existence_for_aws(config: Dict[str, Any], namespace, cloud_provider):
     workspace_name = config["workspace_name"]
     managed_cloud_storage = _is_managed_cloud_storage(cloud_provider)
+    managed_cloud_database = _is_managed_cloud_database(cloud_provider)
 
     existing_resources = 0
     target_resources = AWS_KUBERNETES_TARGET_RESOURCES
     if managed_cloud_storage:
+        target_resources += 1
+    if managed_cloud_database:
         target_resources += 1
 
     """
@@ -569,14 +723,26 @@ def check_existence_for_aws(config: Dict[str, Any], namespace, cloud_provider):
             existing_resources += 1
             cloud_storage_existence = True
 
+    cloud_database_existence = False
+    if managed_cloud_database:
+        if get_managed_database_instance(cloud_provider, workspace_name) is not None:
+            existing_resources += 1
+            cloud_database_existence = True
+
     if existing_resources == 0 or (
             existing_resources == 1 and oidc_identity_provider_existence):
         return Existence.NOT_EXIST
     elif existing_resources == target_resources:
         return Existence.COMPLETED
     else:
-        if existing_resources == 2 and cloud_storage_existence:
+        skipped_resources = 1
+        if existing_resources == skipped_resources + 1 and cloud_storage_existence:
             return Existence.STORAGE_ONLY
+        elif existing_resources == skipped_resources + 1 and cloud_database_existence:
+            return Existence.DATABASE_ONLY
+        elif existing_resources == skipped_resources + 2 and cloud_storage_existence \
+                and cloud_database_existence:
+            return Existence.STORAGE_AND_DATABASE_ONLY
         return Existence.IN_COMPLETED
 
 
@@ -593,6 +759,7 @@ def get_info_for_aws(config: Dict[str, Any], namespace, cloud_provider, info):
 
 def with_aws_environment_variables(provider_config, config_dict: Dict[str, Any]):
     export_aws_s3_storage_config(provider_config, config_dict)
+    export_aws_database_config(provider_config, config_dict)
     config_dict["AWS_WEB_IDENTITY"] = True
 
 

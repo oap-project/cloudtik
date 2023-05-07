@@ -242,7 +242,10 @@ def create_kubernetes_workspace(config):
     return config
 
 
-def delete_kubernetes_workspace(config, delete_managed_storage: bool = False):
+def delete_kubernetes_workspace(
+        config,
+        delete_managed_storage: bool = False,
+        delete_managed_database: bool = False):
     workspace_name = config["workspace_name"]
 
     current_step = 1
@@ -254,7 +257,9 @@ def delete_kubernetes_workspace(config, delete_managed_storage: bool = False):
                     "Deleting cloud provider configurations",
                     _numbered=("[]", current_step, total_steps)):
                 current_step += 1
-                _delete_configurations_for_cloud_provider(config, workspace_name, delete_managed_storage)
+                _delete_configurations_for_cloud_provider(
+                    config, workspace_name,
+                    delete_managed_storage, delete_managed_database)
 
             with cli_logger.group(
                     "Deleting role binding",
@@ -1624,7 +1629,8 @@ def _create_configurations_for_cloud_provider(config, namespace):
 
 
 def _delete_configurations_for_cloud_provider(config, namespace,
-                                              delete_managed_storage: bool = False):
+                                              delete_managed_storage: bool = False,
+                                              delete_managed_database: bool = False):
     provider_config = config["provider"]
     cloud_provider = _get_cloud_provider_config(provider_config)
     if cloud_provider is None:
@@ -1636,7 +1642,8 @@ def _delete_configurations_for_cloud_provider(config, namespace,
     if cloud_provider_type == "aws":
         from cloudtik.providers._private._kubernetes.aws_eks.config import delete_configurations_for_aws
         delete_configurations_for_aws(
-            config, namespace, cloud_provider, delete_managed_storage)
+            config, namespace, cloud_provider,
+            delete_managed_storage, delete_managed_database)
     elif cloud_provider_type == "gcp":
         from cloudtik.providers._private._kubernetes.gcp_gke.config import delete_configurations_for_gcp
         delete_configurations_for_gcp(

@@ -18,7 +18,7 @@ BOTO_MAX_RETRIES = env_integer("BOTO_MAX_RETRIES", 12)
 BOTO_CREATE_MAX_RETRIES = env_integer("BOTO_CREATE_MAX_RETRIES", 5)
 
 AWS_S3_BUCKET = "s3.bucket"
-AWS_DATABASE_ENDPOINT = "endpoint"
+AWS_DATABASE_ENDPOINT = "server_address"
 
 
 class LazyDefaultDict(defaultdict):

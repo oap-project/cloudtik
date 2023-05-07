@@ -201,26 +201,83 @@
                     "description": "Whether to create managed cloud database of workspace.",
                     "default": false
                 },
-                "cloud_database": {
+                "database": {
                     "type": "object",
                     "description": "Managed cloud database options",
                     "additionalProperties": true,
                     "properties": {
-                        "instance_class": {
-                            "type": "string",
-                            "description": "AWS RDS DBInstanceClass. default: db.t3.xlarge"
+                        "aws.rds": {
+                            "type": "object",
+                            "description": "AWS RDS for MySQL options",
+                            "additionalProperties": true,
+                            "properties": {
+                                "instance_type": {
+                                    "type": "string",
+                                    "description": "AWS RDS DBInstanceClass. default: db.t3.xlarge"
+                                },
+                                "storage_type": {
+                                    "type": "string",
+                                    "description": "AWS RDS StorageType. default: gp2"
+                                },
+                                "storage_size": {
+                                    "type": "number",
+                                    "description": "AWS RDS AllocatedStorage size in GB. default: 50"
+                                },
+                                "username": {
+                                    "type": "string",
+                                    "description": "AWS RDS MasterUserPassword. default: cloudtik"
+                                },
+                                "password": {
+                                    "type": "string",
+                                    "description": "AWS RDS MasterUserPassword."
+                                }
+                            }
                         },
-                        "storage_type": {
-                            "type": "string",
-                            "description": "AWS RDS StorageType. default: gp2"
+                        "azure.database": {
+                            "type": "object",
+                            "description": "Azure Database for MySQL options",
+                            "additionalProperties": true,
+                            "properties": {
+                                "instance_type": {
+                                    "type": "string",
+                                    "description": "Azure Database InstanceSku. default: Standard_D4ds_v4"
+                                },
+                                "storage_size": {
+                                    "type": "number",
+                                    "description": "Azure Database storage size in GB. default: 50"
+                                },
+                                "username": {
+                                    "type": "string",
+                                    "description": "Azure Database administrator login name. default: cloudtik"
+                                },
+                                "password": {
+                                    "type": "string",
+                                    "description": "Azure Database administrator password."
+                                }
+                            }
                         },
-                        "allocated_storage": {
-                            "type": "number",
-                            "description": "AWS RDS AllocatedStorage. default: 50"
-                        },
-                        "user_token": {
-                            "type": "string",
-                            "description": "AWS RDS MasterUserPassword. default: cloudtik"
+                        "gcp.cloudsql": {
+                            "type": "object",
+                            "description": "GCP Cloud SQL for MySQL options",
+                            "additionalProperties": true,
+                            "properties": {
+                                "instance_type": {
+                                    "type": "string",
+                                    "description": "GCP Cloud SQL machine type. default: db-custom-4-15360"
+                                },
+                                "storage_type": {
+                                    "type": "string",
+                                    "description": "GCP Cloud SQL storage type. default: PD_SSD"
+                                },
+                                "storage_size": {
+                                    "type": "number",
+                                    "description": "GCP Cloud SQL storage size in GB. default: 50"
+                                },
+                                "password": {
+                                    "type": "string",
+                                    "description": "GCP Cloud SQL root password."
+                                }
+                            }
                         }
                     }
                 },

@@ -28,7 +28,7 @@ SERVICE_ACCOUNT_EMAIL_TEMPLATE = (
     "{account_id}@{project_id}.iam.gserviceaccount.com")
 
 GCP_GCS_BUCKET = "gcs.bucket"
-GCP_DATABASE_ENDPOINT = "server"
+GCP_DATABASE_ENDPOINT = "server_address"
 
 
 def _create_crm(gcp_credentials=None):

@@ -16,7 +16,7 @@ from cloudtik.core._private.constants import CLOUDTIK_DEFAULT_CLOUD_STORAGE_URI
 from cloudtik.core._private.utils import get_storage_config_for_update, get_database_config_for_update
 from cloudtik.providers._private._azure.azure_identity_credential_adapter import AzureIdentityCredentialAdapter
 
-AZURE_DATABASE_ENDPOINT = "server"
+AZURE_DATABASE_ENDPOINT = "server_address"
 
 
 def get_azure_sdk_function(client: Any, function_name: str) -> Callable:
@@ -265,17 +265,17 @@ def get_default_azure_cloud_storage(provider_config):
 
 
 def get_azure_database_config(provider_config: Dict[str, Any], default=None):
-    if "database" in provider_config and "azure.rdbms" in provider_config["database"]:
-        return provider_config["database"]["azure.rdbms"]
+    if "database" in provider_config and "azure.database" in provider_config["database"]:
+        return provider_config["database"]["azure.database"]
 
     return default
 
 
 def get_azure_database_config_for_update(provider_config: Dict[str, Any]):
     database_config = get_database_config_for_update(provider_config)
-    if "azure.rdbms" not in database_config:
-        database_config["azure.rdbms"] = {}
-    return database_config["azure.rdbms"]
+    if "azure.database" not in database_config:
+        database_config["azure.database"] = {}
+    return database_config["azure.database"]
 
 
 def export_azure_cloud_database_config(provider_config, config_dict: Dict[str, Any]):

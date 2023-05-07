@@ -278,7 +278,7 @@ def get_azure_database_config_for_update(provider_config: Dict[str, Any]):
     return database_config["azure.rdbms"]
 
 
-def export_azure_database_config(provider_config, config_dict: Dict[str, Any]):
+def export_azure_cloud_database_config(provider_config, config_dict: Dict[str, Any]):
     database_config = get_azure_database_config(provider_config)
     if database_config is None:
         return

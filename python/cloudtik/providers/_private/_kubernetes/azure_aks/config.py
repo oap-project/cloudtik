@@ -4,7 +4,8 @@ import time
 from azure.core.exceptions import ResourceNotFoundError
 
 from cloudtik.core._private.cli_logger import cli_logger
-from cloudtik.core._private.utils import _is_use_managed_cloud_storage, _is_managed_cloud_storage
+from cloudtik.core._private.utils import _is_use_managed_cloud_storage, _is_managed_cloud_storage, \
+    _is_managed_cloud_database, _is_use_managed_cloud_database
 from cloudtik.core.workspace_provider import Existence
 from cloudtik.providers._private._kubernetes import core_api, log_prefix
 from cloudtik.providers._private._kubernetes.azure_aks.utils import get_aks_workspace_resource_group_name, \
@@ -18,9 +19,11 @@ from cloudtik.providers._private._azure.config import _configure_managed_cloud_s
     get_azure_managed_cloud_storage_info, _create_user_assigned_identity, _delete_user_assigned_identity, \
     _get_user_assigned_identity, _create_role_assignment_for_storage_blob_data_owner, \
     _delete_role_assignment_for_storage_blob_data_owner, _get_role_assignment_for_storage_blob_data_owner, \
-    _create_resource_group, _delete_resource_group, _get_resource_group_by_name, _get_container_for_storage_account
+    _create_resource_group, _delete_resource_group, _get_resource_group_by_name, _get_container_for_storage_account, \
+    _create_managed_cloud_database, _delete_managed_cloud_database, _configure_managed_cloud_database_from_workspace, \
+    get_managed_database_instance
 from cloudtik.providers._private._azure.utils import export_azure_cloud_storage_config, \
-    get_default_azure_cloud_storage
+    get_default_azure_cloud_storage, export_azure_cloud_database_config
 
 AZURE_KUBERNETES_ANNOTATION_NAME = "azure.workload.identity/client-id"
 AZURE_KUBERNETES_ANNOTATION_VALUE = "{user_assigned_identity_client_id}"
@@ -96,10 +99,13 @@ def _get_managed_cluster(cloud_provider):
 def create_configurations_for_azure(config: Dict[str, Any], namespace, cloud_provider):
     workspace_name = config["workspace_name"]
     managed_cloud_storage = _is_managed_cloud_storage(cloud_provider)
+    managed_cloud_database = _is_managed_cloud_database(cloud_provider)
 
     current_step = 1
     total_steps = AZURE_KUBERNETES_NUM_CREATION_STEPS
     if managed_cloud_storage:
+        total_steps += 1
+    if managed_cloud_database:
         total_steps += 1
 
     # create resource group
@@ -125,20 +131,54 @@ def create_configurations_for_azure(config: Dict[str, Any], namespace, cloud_pro
             _create_managed_cloud_storage(
                 cloud_provider, workspace_name, resource_group_name)
 
+    if managed_cloud_database:
+        with cli_logger.group(
+                "Creating managed cloud database",
+                _numbered=("[]", current_step, total_steps)):
+            current_step += 1
+            _create_managed_cloud_database_for_aks(
+                cloud_provider, workspace_name, resource_group_name)
+
+
+def _get_aks_virtual_network_name(cloud_provider):
+    # TO IMPROVE: retrieve the virtual network name from AKS node pool information
+    return cloud_provider.get("vnet_name")
+
+
+def _create_managed_cloud_database_for_aks(
+        cloud_provider, workspace_name, resource_group_name):
+    virtual_network_name = _get_aks_virtual_network_name(cloud_provider)
+    _create_managed_cloud_database(
+        cloud_provider, workspace_name,
+        resource_group_name, virtual_network_name
+    )
+
 
 def delete_configurations_for_azure(
         config: Dict[str, Any], namespace, cloud_provider,
-        delete_managed_storage: bool = False):
+        delete_managed_storage: bool = False,
+        delete_managed_database: bool = False):
     workspace_name = config["workspace_name"]
     resource_group_name = get_aks_workspace_resource_group_name(workspace_name)
     managed_cloud_storage = _is_managed_cloud_storage(cloud_provider)
+    managed_cloud_database = _is_managed_cloud_database(cloud_provider)
 
     current_step = 1
     total_steps = AZURE_KUBERNETES_NUM_DELETION_STEPS
     if managed_cloud_storage and delete_managed_storage:
         total_steps += 1
+    if managed_cloud_database and delete_managed_database:
+        total_steps += 1
 
     # Delete in a reverse way of creating
+    if managed_cloud_database and delete_managed_database:
+        with cli_logger.group(
+                "Deleting managed cloud database",
+                _numbered=("[]", current_step, total_steps)):
+            current_step += 1
+            _delete_managed_cloud_database_for_aks(
+                cloud_provider, workspace_name, resource_group_name)
+
     if managed_cloud_storage and delete_managed_storage:
         with cli_logger.group(
                 "Deleting Azure Datalake storage",
@@ -162,10 +202,19 @@ def delete_configurations_for_azure(
         _delete_aks_resource_group(cloud_provider, workspace_name)
 
 
+def _delete_managed_cloud_database_for_aks(
+        cloud_provider, workspace_name, resource_group_name):
+    virtual_network_name = _get_aks_virtual_network_name(cloud_provider)
+    _delete_managed_cloud_database(
+        cloud_provider, workspace_name,
+        resource_group_name, virtual_network_name)
+
+
 def configure_kubernetes_for_azure(config: Dict[str, Any], namespace, cloud_provider):
     # Optionally, if user choose to use managed cloud storage (Azure DataLake)
     # Configure the Azure DataLake container under cloud storage
     _configure_cloud_storage_for_azure(config, cloud_provider)
+    _configure_cloud_database_for_azure(config, cloud_provider)
     _configure_pod_label_for_use_workload_identity(config)
 
 
@@ -175,6 +224,17 @@ def _configure_cloud_storage_for_azure(config: Dict[str, Any], cloud_provider):
         workspace_name = config["workspace_name"]
         resource_group_name = get_aks_workspace_resource_group_name(workspace_name)
         _configure_managed_cloud_storage_from_workspace(
+            config, cloud_provider, resource_group_name)
+
+    return config
+
+
+def _configure_cloud_database_for_azure(config: Dict[str, Any], cloud_provider):
+    use_managed_cloud_database = _is_use_managed_cloud_database(cloud_provider)
+    if use_managed_cloud_database:
+        workspace_name = config["workspace_name"]
+        resource_group_name = get_aks_workspace_resource_group_name(workspace_name)
+        _configure_managed_cloud_database_from_workspace(
             config, cloud_provider, resource_group_name)
 
     return config
@@ -848,10 +908,13 @@ def check_existence_for_azure(config: Dict[str, Any], namespace, cloud_provider)
     workspace_name = config["workspace_name"]
     resource_group_name = get_aks_workspace_resource_group_name(workspace_name)
     managed_cloud_storage = _is_managed_cloud_storage(cloud_provider)
+    managed_cloud_database = _is_managed_cloud_database(cloud_provider)
 
     existing_resources = 0
     target_resources = AZURE_KUBERNETES_TARGET_RESOURCES
     if managed_cloud_storage:
+        target_resources += 1
+    if managed_cloud_database:
         target_resources += 1
 
     """
@@ -863,6 +926,7 @@ def check_existence_for_azure(config: Dict[str, Any], namespace, cloud_provider)
     """
     resource_group_existence = False
     cloud_storage_existence = False
+    cloud_database_existence = False
     resource_group = _get_resource_group_by_name(
         resource_group_name, resource_client=None, provider_config=cloud_provider)
     if resource_group is not None:
@@ -909,14 +973,26 @@ def check_existence_for_azure(config: Dict[str, Any], namespace, cloud_provider)
                 existing_resources += 1
                 cloud_storage_existence = True
 
+        if managed_cloud_database:
+            if get_managed_database_instance(
+                    cloud_provider, workspace_name, resource_group_name) is not None:
+                existing_resources += 1
+                cloud_database_existence = True
+
     if existing_resources == 0 or (
             existing_resources == 1 and resource_group_existence):
         return Existence.NOT_EXIST
     elif existing_resources == target_resources:
         return Existence.COMPLETED
     else:
-        if existing_resources == 2 and cloud_storage_existence:
+        skipped_resources = 1
+        if existing_resources == skipped_resources + 1 and cloud_storage_existence:
             return Existence.STORAGE_ONLY
+        elif existing_resources == skipped_resources + 1 and cloud_database_existence:
+            return Existence.DATABASE_ONLY
+        elif existing_resources == skipped_resources + 2 and cloud_storage_existence \
+                and cloud_database_existence:
+            return Existence.STORAGE_AND_DATABASE_ONLY
         return Existence.IN_COMPLETED
 
 
@@ -938,6 +1014,7 @@ def get_info_for_azure(config: Dict[str, Any], namespace, cloud_provider, info):
 
 def with_azure_environment_variables(provider_config, config_dict: Dict[str, Any]):
     export_azure_cloud_storage_config(provider_config, config_dict)
+    export_azure_cloud_database_config(provider_config, config_dict)
     config_dict["AZURE_WORKLOAD_IDENTITY"] = True
 
 

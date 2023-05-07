@@ -432,6 +432,82 @@
                         }
                     }
                 },
+                "database": {
+                    "type": "object",
+                    "description": "Managed cloud database options",
+                    "additionalProperties": true,
+                    "properties": {
+                        "aws.rds": {
+                            "type": "object",
+                            "description": "AWS RDS for MySQL options",
+                            "additionalProperties": true,
+                            "properties": {
+                                "server_address": {
+                                    "type": "string",
+                                    "description": "AWS RDS server address"
+                                },
+                                "port": {
+                                    "type": "number",
+                                    "description": "AWS RDS server port. default: 3306"
+                                },
+                                "username": {
+                                    "type": "string",
+                                    "description": "AWS RDS MasterUserPassword. default: cloudtik"
+                                },
+                                "password": {
+                                    "type": "string",
+                                    "description": "AWS RDS MasterUserPassword."
+                                }
+                            }
+                        },
+                        "azure.database": {
+                            "type": "object",
+                            "description": "Azure Database for MySQL options",
+                            "additionalProperties": true,
+                            "properties": {
+                                "server_address": {
+                                    "type": "string",
+                                    "description": "Azure Database server address"
+                                },
+                                "port": {
+                                    "type": "number",
+                                    "description": "Azure Database server port. default: 3306"
+                                },
+                                "username": {
+                                    "type": "string",
+                                    "description": "Azure Database administrator login name. default: cloudtik"
+                                },
+                                "password": {
+                                    "type": "string",
+                                    "description": "Azure Database administrator login password."
+                                }
+                            }
+                        },
+                        "gcp.cloudsql": {
+                            "type": "object",
+                            "description": "GCP Cloud SQL for MySQL options",
+                            "additionalProperties": true,
+                            "properties": {
+                                "server_address": {
+                                    "type": "string",
+                                    "description": "GCP Cloud SQL server address"
+                                },
+                                "port": {
+                                    "type": "number",
+                                    "description": "GCP Cloud SQL server port. default: 3306"
+                                },
+                                "username": {
+                                    "type": "string",
+                                    "description": "GCP Cloud SQL user name. default: root"
+                                },
+                                "password": {
+                                    "type": "string",
+                                    "description": "Azure Database password."
+                                }
+                            }
+                        }
+                    }
+                },
                 "verify_cloud_storage": {
                     "type": "boolean",
                     "description": "Whether to verify the cloud storage configurations.",

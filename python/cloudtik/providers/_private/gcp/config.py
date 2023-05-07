@@ -1530,9 +1530,9 @@ def _create_managed_database_instance(
         "databaseVersion": "MYSQL_8_0",
         "rootPassword": database_config.get('password', "cloudtik"),
         "settings": {
-            "tier": database_config.get("machine_type", "db-custom-4-15360"),
+            "tier": database_config.get("instance_type", "db-custom-4-15360"),
             "dataDiskType": database_config.get("storage_type", "PD_SSD"),
-            "dataDiskSizeGb": str(database_config.get("storage_gb", 50)),
+            "dataDiskSizeGb": str(database_config.get("storage_size", 50)),
             "ipConfiguration": {
                 "ipv4Enabled": False,
                 "privateNetwork": network,

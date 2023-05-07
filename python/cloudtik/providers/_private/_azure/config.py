@@ -2030,10 +2030,10 @@ def _create_managed_database_instance(
                 administrator_login_password=database_config.get('password', "1kiTdUoLc!"),
                 version=ServerVersion.EIGHT0_21,
                 storage=Storage(
-                    storage_size_gb=database_config.get("storage_gb", 50),
+                    storage_size_gb=database_config.get("storage_size", 50),
                     auto_grow="Enabled"),
                 sku=Sku(
-                    name=database_config.get("instance_sku", "Standard_D4ds_v4"),
+                    name=database_config.get("instance_type", "Standard_D4ds_v4"),
                     tier='GeneralPurpose'),
                 network=Network(
                     delegated_subnet_resource_id=delegated_subnet_resource_id,

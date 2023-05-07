@@ -2624,10 +2624,10 @@ def _create_managed_database_instance(
     try:
         rds_client.create_db_instance(
             DBInstanceIdentifier=db_instance_identifier,
-            DBInstanceClass=database_config.get("instance_class", "db.t3.xlarge"),
+            DBInstanceClass=database_config.get("instance_type", "db.t3.xlarge"),
             Engine="mysql",
             StorageType=database_config.get("storage_type", "gp2"),
-            AllocatedStorage=database_config.get("allocated_storage", 50),
+            AllocatedStorage=database_config.get("storage_size", 50),
             MasterUsername=database_config.get('username', "cloudtik"),
             MasterUserPassword=database_config.get('password', "cloudtik"),
             VpcSecurityGroupIds=[

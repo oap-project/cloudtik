@@ -490,7 +490,7 @@ def _delete_subnet(config, compute, is_private=True):
                                                      subnet_attribute)
 
     if get_subnet(config, subnet_name, compute) is None:
-        cli_logger.print("The {} subnet {} isn't found in workspace."
+        cli_logger.print("The {} subnet {} doesn't exist in workspace."
                          .format(subnet_attribute, subnet_name))
         return
 
@@ -612,6 +612,8 @@ def _delete_router(config, compute):
     router_name = "cloudtik-{}-private-router".format(workspace_name)
 
     if get_router(config, router_name, compute) is None:
+        cli_logger.print("The router doesn't exist: {}. Skip deletion."
+                         .format(router_name))
         return
 
     # """ Delete custom subnet """
@@ -821,10 +823,14 @@ def _delete_firewalls(config, compute):
     project_id = config["provider"]["project_id"]
     workspace_name = config["workspace_name"]
     cloudtik_firewalls = [firewall.get("name")
-        for firewall in compute.firewalls().list(project=project_id).execute().get("items")
-            if "cloudtik-{}".format(workspace_name) in firewall.get("name")]
+                          for firewall in compute.firewalls().list(project=project_id).execute().get("items")
+                          if "cloudtik-{}".format(workspace_name) in firewall.get("name")]
 
     total_steps = len(cloudtik_firewalls)
+    if total_steps == 0:
+        cli_logger.print("No firewall exists for workspace. Skip deletion.")
+        return
+
     for i, cloudtik_firewall in enumerate(cloudtik_firewalls):
         with cli_logger.group(
                 "Deleting firewall",
@@ -1040,7 +1046,7 @@ def _delete_service_account(cloud_provider, service_account_id, iam):
         project_id=project_id)
     service_account = _get_service_account(cloud_provider, email, iam)
     if service_account is None:
-        cli_logger.warning("No service account with id {} found.".format(service_account_id))
+        cli_logger.print("No service account with id {} found.".format(service_account_id))
         return
 
     try:
@@ -1060,7 +1066,7 @@ def _delete_workspace_cloud_storage(config):
 def _delete_managed_cloud_storage(cloud_provider, workspace_name):
     bucket = get_managed_gcs_bucket(cloud_provider, workspace_name)
     if bucket is None:
-        cli_logger.warning("No GCS bucket with the name found.")
+        cli_logger.print("No GCS bucket with the name found. Skip Deletion.")
         return
 
     try:
@@ -1138,7 +1144,7 @@ def _delete_managed_cloud_database(
 def _delete_global_address(provider_config, workspace_name):
     global_address = get_global_address(provider_config, workspace_name)
     if global_address is None:
-        cli_logger.warning("No global address were found for workspace. Skip deletion.")
+        cli_logger.print("No global address was found for workspace. Skip deletion.")
         return
 
     compute = construct_compute_client(provider_config)
@@ -1164,7 +1170,7 @@ def _delete_private_connection(
     private_connection = get_private_connection(
         provider_config, workspace_name, vpc_name)
     if private_connection is None:
-        cli_logger.warning("No private connection was found for network. Skip deletion.")
+        cli_logger.print("No private connection was found for network. Skip deletion.")
         return
 
     service_networking = construct_service_networking(provider_config)
@@ -1196,7 +1202,7 @@ def _delete_private_connection(
 def _delete_managed_database_instance(provider_config, workspace_name):
     db_instance = get_managed_database_instance(provider_config, workspace_name)
     if db_instance is None:
-        cli_logger.warning("No managed database instance were found for workspace. Skip deletion.")
+        cli_logger.print("No managed database instance was found for workspace. Skip deletion.")
         return
 
     sql_admin = construct_sql_admin(provider_config)

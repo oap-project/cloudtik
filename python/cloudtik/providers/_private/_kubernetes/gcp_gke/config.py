@@ -95,15 +95,15 @@ def _get_gke_vpc_name(cloud_provider):
     container_client = construct_container_client(cloud_provider)
 
     project_id = cloud_provider["project_id"]
-    availability_zone = cloud_provider.get("availability_zone")
-    if not availability_zone:
-        raise RuntimeError("GKE zone is not specified in cloud provider section.")
+    region = cloud_provider.get("region")
+    if not region:
+        raise RuntimeError("GKE region is not specified in cloud provider section.")
     gke_cluster_name = cloud_provider.get("gke_cluster_name")
     if not gke_cluster_name:
         raise RuntimeError("GKE cluster name is not specified in cloud provider section.")
 
     name = "projects/{}/locations/{}/clusters/{}".format(
-        project_id, availability_zone, gke_cluster_name
+        project_id, region, gke_cluster_name
     )
     try:
         cluster = container_client.get_cluster(name=name)

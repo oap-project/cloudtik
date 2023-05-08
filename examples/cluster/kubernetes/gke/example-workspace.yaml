@@ -9,7 +9,6 @@ provider:
     cloud_provider:
         type: gcp
         region: us-central1
-        availability_zone: us-central1-a
         project_id: your_gcp_project_id
         gke_cluster_name: your-gke-cluster-name
         managed_cloud_storage: True

@@ -1203,7 +1203,7 @@ def _delete_managed_database_instance(provider_config, workspace_name):
     project_id = provider_config["project_id"]
     db_instance_identifier = GCP_WORKSPACE_DATABASE_NAME.format(workspace_name)
     try:
-        cli_logger.print("Deleting private database instance: {}...".format(db_instance_identifier))
+        cli_logger.print("Deleting database instance: {}...".format(db_instance_identifier))
         operation = sql_admin.instances().delete(
             project=project_id, instance=db_instance_identifier).execute()
         result = wait_for_sql_admin_operation(project_id, operation, sql_admin)

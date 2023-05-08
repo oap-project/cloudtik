@@ -31,6 +31,7 @@ GCP_KUBERNETES_WORKER_IAM_SERVICE_ACCOUNT_INFO = "gcp.kubernetes.worker.iam.serv
 
 GCP_KUBERNETES_NUM_CREATION_STEPS = 1
 GCP_KUBERNETES_NUM_DELETION_STEPS = 1
+GCP_KUBERNETES_NUM_UPDATE_STEPS = 0
 
 GCP_KUBERNETES_IAM_ROLE_CREATION_NUM_STEPS = 4
 GCP_KUBERNETES_IAM_ROLE_DELETION_NUM_STEPS = 4
@@ -169,11 +170,62 @@ def delete_configurations_for_gcp(
 
 
 def _delete_managed_cloud_database_for_gke(
-        cloud_provider, workspace_name):
+        cloud_provider, workspace_name,
+        delete_for_update: bool = False):
     vpc_name = _get_gke_vpc_name(cloud_provider)
     _delete_managed_cloud_database(
         cloud_provider, workspace_name,
-        vpc_name)
+        vpc_name, delete_for_update=delete_for_update)
+
+
+def update_configurations_for_gcp(
+        config: Dict[str, Any], namespace, cloud_provider,
+        delete_managed_storage: bool = False,
+        delete_managed_database: bool = False):
+    workspace_name = config["workspace_name"]
+    managed_cloud_storage = _is_managed_cloud_storage(cloud_provider)
+    managed_cloud_database = _is_managed_cloud_database(cloud_provider)
+
+    current_step = 1
+    total_steps = GCP_KUBERNETES_NUM_UPDATE_STEPS
+    if managed_cloud_storage or delete_managed_storage:
+        total_steps += 1
+    if managed_cloud_database or delete_managed_database:
+        total_steps += 1
+
+    if total_steps == 0:
+        cli_logger.print("No configurations needed for update. Skip update.")
+        return
+
+    if managed_cloud_storage:
+        with cli_logger.group(
+                "Creating managed cloud storage...",
+                _numbered=("[]", current_step, total_steps)):
+            current_step += 1
+            _create_managed_cloud_storage(cloud_provider, workspace_name)
+    else:
+        if delete_managed_storage:
+            with cli_logger.group(
+                    "Deleting managed cloud storage",
+                    _numbered=("[]", current_step, total_steps)):
+                current_step += 1
+                _delete_managed_cloud_storage(cloud_provider, workspace_name)
+
+    if managed_cloud_database:
+        with cli_logger.group(
+                "Creating managed database",
+                _numbered=("[]", current_step, total_steps)):
+            current_step += 1
+            _create_managed_cloud_database_for_gke(
+                cloud_provider, workspace_name)
+    else:
+        if delete_managed_database:
+            with cli_logger.group(
+                    "Deleting managed database",
+                    _numbered=("[]", current_step, total_steps)):
+                current_step += 1
+                _delete_managed_cloud_database_for_gke(
+                    cloud_provider, workspace_name, delete_for_update=True)
 
 
 def configure_kubernetes_for_gcp(config: Dict[str, Any], namespace, cloud_provider):

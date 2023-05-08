@@ -70,6 +70,7 @@ KUBERNETES_HEAD_ROLE_BINDING_CONFIG_KEY = "head_role_binding"
 
 KUBERNETES_WORKSPACE_NUM_CREATION_STEPS = 5
 KUBERNETES_WORKSPACE_NUM_DELETION_STEPS = 5
+KUBERNETES_WORKSPACE_NUM_UPDATE_STEPS = 1
 KUBERNETES_WORKSPACE_TARGET_RESOURCES = 5
 
 KUBERNETES_RESOURCE_OP_MAX_POLLS = 12
@@ -292,6 +293,35 @@ def delete_kubernetes_workspace(
 
     cli_logger.success(
         "Successfully deleted workspace: {}.",
+        cf.bold(workspace_name))
+
+
+def update_kubernetes_workspace(
+        config,
+        delete_managed_storage: bool = False,
+        delete_managed_database: bool = False):
+    workspace_name = config["workspace_name"]
+
+    current_step = 1
+    total_steps = KUBERNETES_WORKSPACE_NUM_UPDATE_STEPS
+
+    try:
+        with cli_logger.group("Updating workspace: {}", workspace_name):
+            with cli_logger.group(
+                    "Updating cloud provider configurations",
+                    _numbered=("[]", current_step, total_steps)):
+                current_step += 1
+                _update_configurations_for_cloud_provider(
+                    config, workspace_name,
+                    delete_managed_storage, delete_managed_database)
+
+    except Exception as e:
+        cli_logger.error("Failed to update workspace with the name {}. "
+                         "You need to delete and try create again. {}", workspace_name, str(e))
+        raise e
+
+    cli_logger.success(
+        "Successfully updated workspace: {}.",
         cf.bold(workspace_name))
 
 
@@ -1652,6 +1682,36 @@ def _delete_configurations_for_cloud_provider(config, namespace,
     elif cloud_provider_type == "azure":
         from cloudtik.providers._private._kubernetes.azure_aks.config import delete_configurations_for_azure
         delete_configurations_for_azure(
+            config, namespace, cloud_provider,
+            delete_managed_storage, delete_managed_database)
+    else:
+        cli_logger.print("No integration for {} cloud provider. Configuration skipped.", cloud_provider_type)
+
+
+def _update_configurations_for_cloud_provider(config, namespace,
+                                              delete_managed_storage: bool = False,
+                                              delete_managed_database: bool = False):
+    provider_config = config["provider"]
+    cloud_provider = _get_cloud_provider_config(provider_config)
+    if cloud_provider is None:
+        cli_logger.print("No cloud provider configured. Skipped cloud provider configurations.")
+        return
+    cloud_provider_type = cloud_provider["type"]
+
+    cli_logger.print("Configuring {} cloud provider for Kubernetes.", cloud_provider_type)
+    if cloud_provider_type == "aws":
+        from cloudtik.providers._private._kubernetes.aws_eks.config import update_configurations_for_aws
+        update_configurations_for_aws(
+            config, namespace, cloud_provider,
+            delete_managed_storage, delete_managed_database)
+    elif cloud_provider_type == "gcp":
+        from cloudtik.providers._private._kubernetes.gcp_gke.config import update_configurations_for_gcp
+        update_configurations_for_gcp(
+            config, namespace, cloud_provider,
+            delete_managed_storage, delete_managed_database)
+    elif cloud_provider_type == "azure":
+        from cloudtik.providers._private._kubernetes.azure_aks.config import update_configurations_for_azure
+        update_configurations_for_azure(
             config, namespace, cloud_provider,
             delete_managed_storage, delete_managed_database)
     else:

@@ -20,7 +20,7 @@ from cloudtik.providers._private.aws.config import _configure_managed_cloud_stor
     get_managed_s3_bucket, get_aws_managed_cloud_storage_info, get_managed_database_instance, \
     _configure_managed_cloud_database_from_workspace, _create_managed_cloud_database, _create_security_group, \
     _create_default_intra_cluster_inbound_rules, _update_inbound_rules, _get_security_group, \
-    _delete_managed_cloud_database, _delete_security_group
+    _delete_managed_cloud_database, _delete_security_group, get_aws_managed_cloud_database_info
 from cloudtik.providers._private.aws.utils import _make_resource_client, _make_resource, get_current_account_id, \
     handle_boto_error, _make_client, export_aws_s3_storage_config, get_default_aws_cloud_storage, \
     export_aws_database_config, get_default_aws_cloud_database
@@ -806,6 +806,10 @@ def get_info_for_aws(config: Dict[str, Any], namespace, cloud_provider, info):
     managed_cloud_storage = _is_managed_cloud_storage(cloud_provider)
     if managed_cloud_storage:
         get_aws_managed_cloud_storage_info(config, cloud_provider, info)
+
+    managed_cloud_database = _is_managed_cloud_database(cloud_provider)
+    if managed_cloud_database:
+        get_aws_managed_cloud_database_info(config, cloud_provider, info)
 
 
 def with_aws_environment_variables(provider_config, config_dict: Dict[str, Any]):

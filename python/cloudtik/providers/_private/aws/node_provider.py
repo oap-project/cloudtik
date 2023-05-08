@@ -18,7 +18,8 @@ from cloudtik.providers._private.aws.config import verify_s3_storage, bootstrap_
     with_aws_environment_variables
 from cloudtik.providers._private.aws.utils import boto_exception_handler, \
     get_boto_error_code, BOTO_MAX_RETRIES, BOTO_CREATE_MAX_RETRIES, \
-    _get_node_info, make_ec2_resource, get_aws_s3_storage_config, get_default_aws_cloud_storage
+    _get_node_info, make_ec2_resource, get_aws_s3_storage_config, get_default_aws_cloud_storage, \
+    get_default_aws_cloud_database
 from cloudtik.providers._private.utils import validate_config_dict
 
 logger = logging.getLogger(__name__)
@@ -531,6 +532,10 @@ class AWSNodeProvider(NodeProvider):
     def get_default_cloud_storage(self):
         """Return the managed cloud storage if configured."""
         return get_default_aws_cloud_storage(self.provider_config)
+
+    def get_default_cloud_database(self):
+        """Return the configured cloud storage if configured."""
+        return get_default_aws_cloud_database(self.provider_config)
 
     @staticmethod
     def bootstrap_config(cluster_config):

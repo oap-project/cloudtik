@@ -240,11 +240,10 @@ def get_default_aws_cloud_database(provider_config):
     if cloud_database is None:
         return None
 
-    cloud_storage_info = {}
-    cloud_storage_info.update(cloud_database)
-    cloud_storage_info.pop("password")
-
-    return cloud_storage_info
+    cloud_database_info = {}
+    cloud_database_info.update(cloud_database)
+    cloud_database_info.pop("password")
+    return cloud_database_info
 
 
 def tags_list_to_dict(tags: list):

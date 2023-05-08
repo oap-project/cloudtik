@@ -1206,5 +1206,5 @@ def get_default_kubernetes_cloud_storage_for_azure(provider_config):
     return get_default_azure_cloud_storage(provider_config)
 
 
-def get_default_kubernetes_cloud_storage_for_azure(provider_config):
+def get_default_kubernetes_cloud_database_for_azure(provider_config):
     return get_default_azure_cloud_database(provider_config)

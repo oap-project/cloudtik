@@ -104,7 +104,7 @@ def _create_managed_cloud_database_for_eks(cloud_provider, workspace_name):
             _numbered=("()", current_step, total_steps)):
         current_step += 1
         _create_database_security_group(
-            cloud_provider, workspace_name)
+            cloud_provider, workspace_name, vpc_id)
 
     with cli_logger.group(
             "Creating managed database instance",

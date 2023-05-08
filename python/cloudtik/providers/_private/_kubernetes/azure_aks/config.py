@@ -21,9 +21,10 @@ from cloudtik.providers._private._azure.config import _configure_managed_cloud_s
     _delete_role_assignment_for_storage_blob_data_owner, _get_role_assignment_for_storage_blob_data_owner, \
     _create_resource_group, _delete_resource_group, _get_resource_group_by_name, _get_container_for_storage_account, \
     _create_managed_cloud_database, _delete_managed_cloud_database, _configure_managed_cloud_database_from_workspace, \
-    get_managed_database_instance
+    get_managed_database_instance, get_azure_managed_cloud_database_info
 from cloudtik.providers._private._azure.utils import export_azure_cloud_storage_config, \
-    get_default_azure_cloud_storage, export_azure_cloud_database_config, _construct_compute_client
+    get_default_azure_cloud_storage, export_azure_cloud_database_config, _construct_compute_client, \
+    get_default_azure_cloud_database
 
 AZURE_KUBERNETES_ANNOTATION_NAME = "azure.workload.identity/client-id"
 AZURE_KUBERNETES_ANNOTATION_VALUE = "{user_assigned_identity_client_id}"
@@ -1188,6 +1189,12 @@ def get_info_for_azure(config: Dict[str, Any], namespace, cloud_provider, info):
         get_azure_managed_cloud_storage_info(
             config, cloud_provider, resource_group_name, info)
 
+    managed_cloud_database = _is_managed_cloud_database(cloud_provider)
+    if managed_cloud_database:
+        vnet_resource_group_name, _ = _get_aks_virtual_network(cloud_provider)
+        get_azure_managed_cloud_database_info(
+            config, cloud_provider, vnet_resource_group_name, info)
+
 
 def with_azure_environment_variables(provider_config, config_dict: Dict[str, Any]):
     export_azure_cloud_storage_config(provider_config, config_dict)
@@ -1197,3 +1204,7 @@ def with_azure_environment_variables(provider_config, config_dict: Dict[str, Any
 
 def get_default_kubernetes_cloud_storage_for_azure(provider_config):
     return get_default_azure_cloud_storage(provider_config)
+
+
+def get_default_kubernetes_cloud_database_for_azure(provider_config):
+    return get_default_azure_cloud_database(provider_config)

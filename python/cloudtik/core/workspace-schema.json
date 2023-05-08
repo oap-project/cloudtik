@@ -206,7 +206,7 @@
                     "description": "Managed cloud database options",
                     "additionalProperties": true,
                     "properties": {
-                        "aws.rds": {
+                        "aws.database": {
                             "type": "object",
                             "description": "AWS RDS for MySQL options",
                             "additionalProperties": true,
@@ -256,7 +256,7 @@
                                 }
                             }
                         },
-                        "gcp.cloudsql": {
+                        "gcp.database": {
                             "type": "object",
                             "description": "GCP Cloud SQL for MySQL options",
                             "additionalProperties": true,

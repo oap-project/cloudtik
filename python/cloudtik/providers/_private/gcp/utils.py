@@ -418,17 +418,17 @@ def get_default_gcp_cloud_storage(provider_config):
 
 
 def get_gcp_database_config(provider_config: Dict[str, Any], default=None):
-    if "database" in provider_config and "gcp.cloudsql" in provider_config["database"]:
-        return provider_config["database"]["gcp.cloudsql"]
+    if "database" in provider_config and "gcp.database" in provider_config["database"]:
+        return provider_config["database"]["gcp.database"]
 
     return default
 
 
 def get_gcp_database_config_for_update(provider_config: Dict[str, Any]):
     database_config = get_database_config_for_update(provider_config)
-    if "gcp.cloudsql" not in database_config:
-        database_config["gcp.cloudsql"] = {}
-    return database_config["gcp.cloudsql"]
+    if "gcp.database" not in database_config:
+        database_config["gcp.database"] = {}
+    return database_config["gcp.database"]
 
 
 def export_gcp_cloud_database_config(provider_config, config_dict: Dict[str, Any]):
@@ -443,6 +443,17 @@ def export_gcp_cloud_database_config(provider_config, config_dict: Dict[str, Any
         config_dict["CLOUD_DATABASE_PORT"] = database_config.get("port", 3306)
         config_dict["CLOUD_DATABASE_USERNAME"] = database_config.get("username", "root")
         config_dict["CLOUD_DATABASE_PASSWORD"] = database_config.get("password", "cloudtik")
+
+
+def get_default_gcp_cloud_database(provider_config):
+    cloud_database = get_gcp_database_config(provider_config)
+    if cloud_database is None:
+        return None
+
+    cloud_database_info = {}
+    cloud_database_info.update(cloud_database)
+    cloud_database_info.pop("password")
+    return cloud_database_info
 
 
 def _get_node_info(node: GCPNode):

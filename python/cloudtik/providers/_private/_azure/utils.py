@@ -292,6 +292,17 @@ def export_azure_cloud_database_config(provider_config, config_dict: Dict[str, A
         config_dict["CLOUD_DATABASE_PASSWORD"] = database_config.get("password", "1kiTdUoLc!")
 
 
+def get_default_azure_cloud_database(provider_config):
+    cloud_database = get_azure_database_config(provider_config)
+    if cloud_database is None:
+        return None
+
+    cloud_database_info = {}
+    cloud_database_info.update(cloud_database)
+    cloud_database_info.pop("password")
+    return cloud_database_info
+
+
 def _get_node_info(node):
     node_info = {"node_id": node["name"].split("-")[-1],
                  "instance_type": node["vm_size"],

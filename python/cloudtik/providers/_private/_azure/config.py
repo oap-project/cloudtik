@@ -2358,7 +2358,7 @@ def _get_free_subnet_cidr(virtual_network, subnet_prefix_len, existed_cidr_block
     address_prefixes = virtual_network.address_space.address_prefixes
     for address_prefix in address_prefixes:
         subnet_cidr = _get_free_subnet_cidr_of_address_space(
-            address_prefix, existed_cidr_blocks, subnet_prefix_len)
+            address_prefix, subnet_prefix_len, existed_cidr_blocks)
         if subnet_cidr:
             return subnet_cidr
     raise RuntimeError(
@@ -2384,7 +2384,8 @@ def _get_free_subnet_cidr_of_address_space(
 
 
 def _create_vnet_peering_connection(network_client, subscription_id, current_resource_group_name,
-                                    current_virtual_network_name , remote_resource_group_name, remote_virtual_network_name, virtual_network_peering_name):
+                                    current_virtual_network_name, remote_resource_group_name,
+                                    remote_virtual_network_name, virtual_network_peering_name):
     # Create virtual network peering
     cli_logger.print("Creating virtual network peering: {}... ", virtual_network_peering_name)
     try:

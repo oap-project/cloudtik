@@ -23,7 +23,7 @@ from cloudtik.providers._private.aws.config import _configure_managed_cloud_stor
     _delete_managed_cloud_database, _delete_security_group
 from cloudtik.providers._private.aws.utils import _make_resource_client, _make_resource, get_current_account_id, \
     handle_boto_error, _make_client, export_aws_s3_storage_config, get_default_aws_cloud_storage, \
-    export_aws_database_config
+    export_aws_database_config, get_default_aws_cloud_database
 
 HTTP_DEFAULT_PORT = 80
 HTTPS_DEFAULT_PORT = 443
@@ -816,3 +816,7 @@ def with_aws_environment_variables(provider_config, config_dict: Dict[str, Any])
 
 def get_default_kubernetes_cloud_storage_for_aws(provider_config):
     return get_default_aws_cloud_storage(provider_config)
+
+
+def get_default_kubernetes_cloud_database_for_aws(provider_config):
+    return get_default_aws_cloud_database(provider_config)

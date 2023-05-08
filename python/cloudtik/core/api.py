@@ -418,6 +418,9 @@ class Cluster:
         """Get the managed cloud storage information."""
         return cluster_operator.get_default_cloud_storage(config=self.config)
 
+    def get_default_cloud_database(self):
+        """Get configured cloud database information."""
+        return cluster_operator.get_default_cloud_database(config=self.config)
 
     def register_callback(self,
                           event_name: str,
@@ -646,6 +649,10 @@ class ThisCluster:
     def get_default_cloud_storage(self):
         """Get the default cloud storage information."""
         return cluster_operator.get_default_cloud_storage(config=self.config)
+
+    def get_default_cloud_database(self):
+        """Get the default cloud storage information."""
+        return cluster_operator.get_default_cloud_database(config=self.config)
 
 
 def configure_logging(log_style: Optional[str] = None,

@@ -2156,6 +2156,10 @@ def _get_cluster_info(config: Dict[str, Any],
         if default_cloud_storage:
             cluster_info["default-cloud-storage"] = default_cloud_storage
 
+        default_cloud_database = get_default_cloud_database(config)
+        if default_cloud_database:
+            cluster_info["default-cloud-database"] = default_cloud_database
+
     return cluster_info
 
 
@@ -3523,6 +3527,12 @@ def get_default_cloud_storage(
         config: Dict[str, Any]):
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     return provider.get_default_cloud_storage()
+
+
+def get_default_cloud_database(
+        config: Dict[str, Any]):
+    provider = _get_node_provider(config["provider"], config["cluster_name"])
+    return provider.get_default_cloud_database()
 
 
 def do_health_check(

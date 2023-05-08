@@ -103,7 +103,7 @@ DEFAULT_AMI_GPU = {
     "sa-east-1": "ami-0cfdee64f7ca89369",
 }
 
-AWS_VPC_SUBNETS_COUNT = 2
+AWS_VPC_SUBNETS_COUNT = 3
 AWS_VPC_PUBLIC_SUBNET_INDEX = 0
 
 AWS_WORKSPACE_NUM_CREATION_STEPS = 8
@@ -888,7 +888,7 @@ def _delete_managed_cloud_database(provider_config, workspace_name):
 def _delete_db_subnet_group(provider_config, workspace_name):
     db_subnet_group = get_workspace_db_subnet_group(provider_config, workspace_name)
     if db_subnet_group is None:
-        cli_logger.print("No DB subnet group for the workspace were found. Skip deletion.")
+        cli_logger.print("No DB subnet group for the workspace was found. Skip deletion.")
         return
 
     rds_client = _make_client("rds", provider_config)
@@ -908,7 +908,7 @@ def _delete_managed_database_instance(provider_config, workspace_name):
     rds_client = _make_client("rds", provider_config)
     db_instance = get_managed_database_instance(provider_config, workspace_name)
     if db_instance is None:
-        cli_logger.warning("No managed database instance were found for workspace. Skip deletion.")
+        cli_logger.print("No managed database instance was found for workspace. Skip deletion.")
         return
 
     try:
@@ -932,7 +932,7 @@ def _delete_workspace_cloud_storage(config, workspace_name):
 def _delete_managed_cloud_storage(cloud_provider, workspace_name):
     bucket = get_managed_s3_bucket(cloud_provider, workspace_name)
     if bucket is None:
-        cli_logger.warning("No S3 bucket with the name found.")
+        cli_logger.print("No S3 bucket with the name found. Skip deletion.")
         return
 
     try:
@@ -1361,13 +1361,13 @@ def _create_or_update_instance_profile(config, instance_profile_name, instance_r
 
 
 def _delete_instance_profile(config, instance_profile_name, instance_profile_role):
-    cli_logger.print("Deleting instance profile: {}...".format(instance_profile_name))
-
     profile = _get_instance_profile(instance_profile_name, config)
     if profile is None:
-        cli_logger.warning("No instance profile with the name found.")
+        cli_logger.print("No instance profile with the name found: {}.",
+                         instance_profile_name)
         return
 
+    cli_logger.print("Deleting instance profile: {}...".format(instance_profile_name))
     # Remove all roles from instance profile
     if profile.roles:
         for role in profile.roles:
@@ -2574,10 +2574,12 @@ def _create_workspace_cloud_database(config, workspace_name):
 
     ec2 = _make_resource("ec2", cloud_provider)
     ec2_client = _make_resource_client("ec2", cloud_provider)
-    vpc = get_workspace_vpc(workspace_name, ec2_client, ec2)
-    subnet_ids = [subnet.id for subnet in vpc.subnets.all()]
+    vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
+    private_subnets = get_workspace_private_subnets(workspace_name, ec2, vpc_id)
+    subnet_ids = [private_subnet.id for private_subnet in private_subnets]
+
     security_group = get_workspace_security_group(
-        config, vpc.vpc_id, workspace_name)
+        config, vpc_id, workspace_name)
 
     _create_managed_cloud_database(
         cloud_provider, workspace_name,

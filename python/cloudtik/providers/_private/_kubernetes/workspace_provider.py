@@ -4,7 +4,8 @@ from typing import Any, Dict, Optional
 from cloudtik.providers._private._kubernetes.config import bootstrap_kubernetes_workspace, create_kubernetes_workspace, \
     delete_kubernetes_workspace, check_kubernetes_workspace_existence, check_kubernetes_workspace_integrity, \
     list_kubernetes_clusters, get_kubernetes_workspace_info, \
-    publish_kubernetes_global_variables, subscribe_kubernetes_global_variables, validate_kubernetes_config
+    publish_kubernetes_global_variables, subscribe_kubernetes_global_variables, validate_kubernetes_config, \
+    update_kubernetes_workspace
 from cloudtik.core.workspace_provider import WorkspaceProvider
 
 logger = logging.getLogger(__name__)
@@ -21,6 +22,12 @@ class KubernetesWorkspaceProvider(WorkspaceProvider):
                          delete_managed_storage: bool = False,
                          delete_managed_database: bool = False):
         delete_kubernetes_workspace(
+            config, delete_managed_storage, delete_managed_database)
+
+    def update_workspace(self, config: Dict[str, Any],
+                         delete_managed_storage: bool = False,
+                         delete_managed_database: bool = False):
+        update_kubernetes_workspace(
             config, delete_managed_storage, delete_managed_database)
 
     def check_workspace_existence(self, config: Dict[str, Any]):

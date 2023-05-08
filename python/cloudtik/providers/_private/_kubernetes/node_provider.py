@@ -21,7 +21,7 @@ from cloudtik.providers._private._kubernetes.config import bootstrap_kubernetes,
     post_prepare_kubernetes, _add_service_name_to_service_port, head_service_selector, \
     bootstrap_kubernetes_for_api, cleanup_kubernetes_cluster, with_kubernetes_environment_variables, get_head_hostname, \
     get_worker_hostname, prepare_kubernetes_config, get_head_external_service_address, _get_node_info, \
-    _get_node_public_ip, get_default_kubernetes_cloud_storage
+    _get_node_public_ip, get_default_kubernetes_cloud_storage, get_default_kubernetes_cloud_database
 from cloudtik.providers._private._kubernetes.utils import to_label_selector, \
     create_and_configure_pvc_for_pod, delete_persistent_volume_claims, get_pod_persistent_volume_claims, \
     delete_persistent_volume_claims_by_name
@@ -250,6 +250,10 @@ class KubernetesNodeProvider(NodeProvider):
         """Return the managed cloud storage if configured."""
         return get_default_kubernetes_cloud_storage(self.provider_config)
 
+    def get_default_cloud_database(self):
+        """Return the managed cloud storage if configured."""
+        return get_default_kubernetes_cloud_database(self.provider_config)
+
     @staticmethod
     def bootstrap_config(cluster_config):
         return bootstrap_kubernetes(cluster_config)
@@ -265,7 +269,6 @@ class KubernetesNodeProvider(NodeProvider):
     @staticmethod
     def prepare_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         return prepare_kubernetes_config(cluster_config)
-
 
     @staticmethod
     def post_prepare(cluster_config):

@@ -1778,3 +1778,22 @@ def get_default_kubernetes_cloud_storage(provider_config):
         return get_default_kubernetes_cloud_storage_for_azure(provider_config)
     else:
         return None
+
+
+def get_default_kubernetes_cloud_database(provider_config):
+    database_config = provider_config.get("database", {})
+
+    if "aws.database" in database_config:
+        from cloudtik.providers._private._kubernetes.aws_eks.config import \
+            get_default_kubernetes_cloud_database_for_aws
+        return get_default_kubernetes_cloud_database_for_aws(provider_config)
+    elif "gcp.database" in database_config:
+        from cloudtik.providers._private._kubernetes.gcp_gke.config import \
+            get_default_kubernetes_cloud_database_for_gcp
+        return get_default_kubernetes_cloud_database_for_gcp(provider_config)
+    elif "azure.database" in database_config:
+        from cloudtik.providers._private._kubernetes.azure_aks.config import \
+            get_default_kubernetes_cloud_database_for_azure
+        return get_default_kubernetes_cloud_database_for_azure(provider_config)
+    else:
+        return None

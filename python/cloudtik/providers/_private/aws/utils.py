@@ -208,17 +208,17 @@ def get_default_aws_cloud_storage(provider_config):
 
 
 def get_aws_database_config(provider_config: Dict[str, Any], default=None):
-    if "database" in provider_config and "aws.rds" in provider_config["database"]:
-        return provider_config["database"]["aws.rds"]
+    if "database" in provider_config and "aws.database" in provider_config["database"]:
+        return provider_config["database"]["aws.database"]
 
     return default
 
 
 def get_aws_database_config_for_update(provider_config: Dict[str, Any]):
     database_config = get_database_config_for_update(provider_config)
-    if "aws.rds" not in database_config:
-        database_config["aws.rds"] = {}
-    return database_config["aws.rds"]
+    if "aws.database" not in database_config:
+        database_config["aws.database"] = {}
+    return database_config["aws.database"]
 
 
 def export_aws_database_config(provider_config, config_dict: Dict[str, Any]):
@@ -233,6 +233,18 @@ def export_aws_database_config(provider_config, config_dict: Dict[str, Any]):
         config_dict["CLOUD_DATABASE_PORT"] = database_config.get("port", 3306)
         config_dict["CLOUD_DATABASE_USERNAME"] = database_config.get("username", "cloudtik")
         config_dict["CLOUD_DATABASE_PASSWORD"] = database_config.get("password", "cloudtik")
+
+
+def get_default_aws_cloud_database(provider_config):
+    cloud_database = get_aws_database_config(provider_config)
+    if cloud_database is None:
+        return None
+
+    cloud_storage_info = {}
+    cloud_storage_info.update(cloud_database)
+    cloud_storage_info.pop("password")
+
+    return cloud_storage_info
 
 
 def tags_list_to_dict(tags: list):

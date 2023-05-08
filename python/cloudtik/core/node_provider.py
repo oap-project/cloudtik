@@ -249,6 +249,10 @@ class NodeProvider:
         """Return the managed cloud storage if configured."""
         return None
 
+    def get_default_cloud_database(self):
+        """Return the configured cloud database if configured."""
+        return None
+
     @staticmethod
     def prepare_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         """Prepare the necessary configs for user before merge with system defaults

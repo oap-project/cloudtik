@@ -9,6 +9,8 @@ import random
 
 from typing import Any, Dict, Optional
 
+import ipaddr
+
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, CLOUDTIK_TAG_CLUSTER_NAME
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.utils import check_cidr_conflict, is_use_internal_ip, _is_use_working_vpc, \
@@ -2134,24 +2136,25 @@ def _create_user_assigned_identity(provider_config, resource_group_name, user_as
 def _configure_peering_vnet_cidr_block(resource_client, network_client):
     current_resource_group_name = get_working_node_resource_group_name(resource_client)
     current_virtual_network_name = get_working_node_virtual_network_name(resource_client, network_client)
-    current_vnet_peering_connections = list(network_client.virtual_network_peerings.list(current_resource_group_name, current_virtual_network_name))
+    current_vnet_peering_connections = list(network_client.virtual_network_peerings.list(
+        current_resource_group_name, current_virtual_network_name))
     current_remote_peering_cidr_blocks = [current_vnet_peering_connection.remote_address_space.address_prefixes
-                                          for current_vnet_peering_connection in current_vnet_peering_connections ]
+                                          for current_vnet_peering_connection in current_vnet_peering_connections]
     existing_vnet_cidr_blocks = []
     for current_remote_peering_cidr_block in current_remote_peering_cidr_blocks:
         existing_vnet_cidr_blocks += current_remote_peering_cidr_block
 
-    current_virtual_network = get_virtual_network(current_resource_group_name, current_virtual_network_name, network_client)
+    current_virtual_network = get_virtual_network(
+        current_resource_group_name, current_virtual_network_name, network_client)
     existing_vnet_cidr_blocks += current_virtual_network.address_space.address_prefixes
 
     for i in range(0, 256):
         tmp_cidr_block = "10.{}.0.0/16".format(i)
-
         if check_cidr_conflict(tmp_cidr_block, existing_vnet_cidr_blocks):
             cli_logger.print("Successfully found cidr block for peering vnet.")
             return tmp_cidr_block
 
-    cli_logger.abort("Failed to find non-conflicted cidr block for peering vnet.")
+    raise RuntimeError("Failed to find non-conflicted cidr block for peering vnet.")
 
 
 def _create_vnet(config, resource_client, network_client):
@@ -2336,23 +2339,48 @@ def _delete_subnet(config, network_client, resource_group_name, virtual_network_
 def _configure_azure_subnet_cidr(network_client, resource_group_name, virtual_network_name):
     virtual_network = network_client.virtual_networks.get(
         resource_group_name=resource_group_name, virtual_network_name=virtual_network_name)
-    ip = virtual_network.address_space.address_prefixes[0].split("/")[0].split(".")
-    subnets = virtual_network.subnets
-    cidr_block = None
 
+    subnet_prefix_len = 24
+    subnets = virtual_network.subnets
     if len(subnets) == 0:
         existed_cidr_blocks = []
     else:
+        # default to one of subnet
+        subnet_net = ipaddr.IPNetwork(subnets[0].address_prefix)
+        subnet_prefix_len = subnet_net.prefixlen
         existed_cidr_blocks = [subnet.address_prefix for subnet in subnets]
 
-    # choose a random subnet, skipping most common value of 0
-    random.seed(virtual_network_name)
-    while cidr_block is None:
-        tmp_cidr_block = ip[0] + "." + ip[1] + "." + str(random.randint(1, 254)) + ".0/24"
-        if check_cidr_conflict(tmp_cidr_block, existed_cidr_blocks):
-            cidr_block = tmp_cidr_block
+    return _get_free_subnet_cidr(
+        virtual_network, subnet_prefix_len, existed_cidr_blocks)
 
-    return cidr_block
+
+def _get_free_subnet_cidr(virtual_network, subnet_prefix_len, existed_cidr_blocks):
+    address_prefixes = virtual_network.address_space.address_prefixes
+    for address_prefix in address_prefixes:
+        subnet_cidr = _get_free_subnet_cidr_of_address_space(
+            address_prefix, existed_cidr_blocks, subnet_prefix_len)
+        if subnet_cidr:
+            return subnet_cidr
+    raise RuntimeError(
+        "Failed to get a free subnet CIDR in address space: {}".format(
+            str(address_prefixes)))
+
+
+def _get_free_subnet_cidr_of_address_space(
+        address_prefix, subnet_prefix_len, existed_cidr_blocks):
+    super_net = ipaddr.IPNetwork(address_prefix)
+    if super_net.prefixlen >= subnet_prefix_len:
+        raise RuntimeError(
+            "The subnet prefix length {} should be greater than virtual network prefix length {}".format(
+                subnet_prefix_len, super_net.prefixlen))
+
+    iter_subnets = super_net.iter_subnets(new_prefix=subnet_prefix_len)
+    for next_subnet in iter_subnets:
+        next_address_prefix = next_subnet.with_prefixlen
+        if check_cidr_conflict(next_address_prefix, existed_cidr_blocks):
+            return next_address_prefix
+
+    return None
 
 
 def _create_vnet_peering_connection(network_client, subscription_id, current_resource_group_name,

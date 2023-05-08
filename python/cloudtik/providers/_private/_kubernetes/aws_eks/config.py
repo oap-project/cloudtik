@@ -41,6 +41,7 @@ AWS_KUBERNETES_IAM_ROLE_NAME_INFO = "aws.kubernetes.iam.role"
 
 AWS_KUBERNETES_NUM_CREATION_STEPS = 1
 AWS_KUBERNETES_NUM_DELETION_STEPS = 1
+AWS_KUBERNETES_NUM_UPDATE_STEPS = 0
 
 AWS_KUBERNETES_IAM_ROLE_CREATION_NUM_STEPS = 3
 AWS_KUBERNETES_IAM_ROLE_DELETION_NUM_STEPS = 2
@@ -240,6 +241,56 @@ def _delete_database_security_group(
     _delete_security_group(
         cloud_provider, vpc_id, security_group_name
     )
+
+
+def update_configurations_for_aws(
+        config: Dict[str, Any], namespace, cloud_provider,
+        delete_managed_storage: bool = False,
+        delete_managed_database: bool = False):
+    workspace_name = config["workspace_name"]
+    managed_cloud_storage = _is_managed_cloud_storage(cloud_provider)
+    managed_cloud_database = _is_managed_cloud_database(cloud_provider)
+
+    current_step = 1
+    total_steps = AWS_KUBERNETES_NUM_UPDATE_STEPS
+    if managed_cloud_storage or delete_managed_storage:
+        total_steps += 1
+    if managed_cloud_database or delete_managed_database:
+        total_steps += 1
+
+    if total_steps == 0:
+        cli_logger.print("No configurations needed for update. Skip update.")
+        return
+
+    if managed_cloud_storage:
+        with cli_logger.group(
+                "Creating managed cloud storage...",
+                _numbered=("[]", current_step, total_steps)):
+            current_step += 1
+            _create_managed_cloud_storage(cloud_provider, workspace_name)
+    else:
+        if delete_managed_storage:
+            with cli_logger.group(
+                    "Deleting managed cloud storage",
+                    _numbered=("[]", current_step, total_steps)):
+                current_step += 1
+                _delete_managed_cloud_storage(cloud_provider, workspace_name)
+
+    if managed_cloud_database:
+        with cli_logger.group(
+                "Creating managed database",
+                _numbered=("[]", current_step, total_steps)):
+            current_step += 1
+            _create_managed_cloud_database_for_eks(
+                cloud_provider, workspace_name)
+    else:
+        if delete_managed_database:
+            with cli_logger.group(
+                    "Deleting managed database",
+                    _numbered=("[]", current_step, total_steps)):
+                current_step += 1
+                _delete_managed_cloud_database_for_eks(
+                    cloud_provider, workspace_name)
 
 
 def configure_kubernetes_for_aws(config: Dict[str, Any], namespace, cloud_provider):

@@ -37,6 +37,7 @@ AZURE_KUBERNETES_WORKER_IAM_USER_ASSIGNED_IDENTITY_INFO = "azure.kubernetes.work
 
 AZURE_KUBERNETES_NUM_CREATION_STEPS = 2
 AZURE_KUBERNETES_NUM_DELETION_STEPS = 2
+AZURE_KUBERNETES_NUM_UPDATE_STEPS = 0
 
 AZURE_KUBERNETES_IAM_ROLE_CREATION_NUM_STEPS = 4
 AZURE_KUBERNETES_IAM_ROLE_DELETION_NUM_STEPS = 4
@@ -330,6 +331,59 @@ def _delete_managed_cloud_database_for_aks(
     _delete_managed_cloud_database(
         cloud_provider, workspace_name,
         vnet_resource_group_name, virtual_network_name)
+
+
+def update_configurations_for_azure(
+        config: Dict[str, Any], namespace, cloud_provider,
+        delete_managed_storage: bool = False,
+        delete_managed_database: bool = False):
+    workspace_name = config["workspace_name"]
+    resource_group_name = get_aks_workspace_resource_group_name(workspace_name)
+    managed_cloud_storage = _is_managed_cloud_storage(cloud_provider)
+    managed_cloud_database = _is_managed_cloud_database(cloud_provider)
+
+    current_step = 1
+    total_steps = AZURE_KUBERNETES_NUM_UPDATE_STEPS
+    if managed_cloud_storage or delete_managed_storage:
+        total_steps += 1
+    if managed_cloud_database or delete_managed_database:
+        total_steps += 1
+
+    if total_steps == 0:
+        cli_logger.print("No configurations needed for update. Skip update.")
+        return
+
+    if managed_cloud_storage:
+        with cli_logger.group(
+                "Creating managed cloud storage...",
+                _numbered=("[]", current_step, total_steps)):
+            current_step += 1
+            _create_managed_cloud_storage(
+                cloud_provider, workspace_name, resource_group_name)
+    else:
+        if delete_managed_storage:
+            with cli_logger.group(
+                    "Deleting managed cloud storage",
+                    _numbered=("[]", current_step, total_steps)):
+                current_step += 1
+                _delete_managed_cloud_storage(
+                    cloud_provider, workspace_name, resource_group_name)
+
+    if managed_cloud_database:
+        with cli_logger.group(
+                "Creating managed database",
+                _numbered=("[]", current_step, total_steps)):
+            current_step += 1
+            _create_managed_cloud_database_for_aks(
+                cloud_provider, workspace_name)
+    else:
+        if delete_managed_database:
+            with cli_logger.group(
+                    "Deleting managed database",
+                    _numbered=("[]", current_step, total_steps)):
+                current_step += 1
+                _delete_managed_cloud_database_for_aks(
+                    cloud_provider, workspace_name)
 
 
 def configure_kubernetes_for_azure(config: Dict[str, Any], namespace, cloud_provider):

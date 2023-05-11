@@ -149,6 +149,7 @@ setup_spec.install_requires = [
     "pyopenssl",
     "sshtunnel",
     "colorful",
+    "gpustat",
 ]
 
 

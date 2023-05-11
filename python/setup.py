@@ -150,6 +150,7 @@ setup_spec.install_requires = [
     "sshtunnel",
     "colorful",
     "gpustat",
+    "gputil",
 ]
 
 

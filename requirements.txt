@@ -22,6 +22,8 @@ smart_open
 pycryptodomex
 pyopenssl
 sshtunnel
+gpustat
+gputil
 
 # setup.py extras
 ## for aws

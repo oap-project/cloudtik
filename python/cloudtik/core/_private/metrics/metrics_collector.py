@@ -1,10 +1,13 @@
 import logging
 import os
+import warnings
+
 import psutil
 import datetime
 import sys
 
 from cloudtik.core._private.core_utils import get_num_cpus, get_system_memory, get_used_memory
+from cloudtik.core._private.debug import log_once
 from cloudtik.core._private.metrics import k8s_utils
 
 logger = logging.getLogger(__name__)
@@ -15,6 +18,26 @@ IN_KUBERNETES_POD = "KUBERNETES_SERVICE_HOST" in os.environ
 # Try to determine if we're in a container.
 # Using existence of /sys/fs/cgroup as the criterion is consistent with existing logic
 IN_CONTAINER = os.path.exists("/sys/fs/cgroup")
+
+enable_gpu_usage_check = True
+
+try:
+    import gpustat.core as gpustat
+except ModuleNotFoundError:
+    gpustat = None
+    if log_once("gpustat_import_warning"):
+        warnings.warn(
+            "`gpustat` package is not installed. GPU monitoring is "
+            "not available. To have full functionality of the "
+            "dashboard please install `pip install gpustat`.)"
+        )
+except ImportError as e:
+    gpustat = None
+    if log_once("gpustat_import_warning"):
+        warnings.warn(
+            "Importing gpustat failed, fix this to have full "
+            "functionality of the dashboard. The original error was:\n\n" + e.msg
+        )
 
 
 def to_posix_time(dt):
@@ -65,6 +88,7 @@ class MetricsCollector:
             "disk_io_speed": disk_speed_stats,
             "network": network_stats,
             "network_speed": network_speed_stats,
+            "gpu": self._get_gpu_usage(),
         }
 
     @staticmethod
@@ -73,6 +97,33 @@ class MetricsCollector:
             return k8s_utils.cpu_percent()
         else:
             return psutil.cpu_percent()
+
+    @staticmethod
+    def _get_gpu_usage():
+        global enable_gpu_usage_check
+        if gpustat is None or not enable_gpu_usage_check:
+            return []
+        gpu_utilizations = []
+        gpus = []
+        try:
+            gpus = gpustat.new_query().gpus
+        except Exception as e:
+            logger.debug(f"gpustat failed to retrieve GPU information: {e}")
+
+            # gpustat calls pynvml.nvmlInit()
+            # On machines without GPUs, this can run subprocesses that spew to
+            # stderr. Then with log_to_driver=True, we get log spew from every
+            # single process. To avoid this, disable the GPU usage check on
+            # certain errors.
+            if type(e).__name__ == "NVMLError_DriverNotLoaded":
+                enable_gpu_usage_check = False
+
+        for gpu in gpus:
+            # Note the keys in this dict have periods which throws
+            # off javascript so we change .s to _s
+            gpu_data = {"_".join(key.split(".")): val for key, val in gpu.entry.items()}
+            gpu_utilizations.append(gpu_data)
+        return gpu_utilizations
 
     @staticmethod
     def _get_mem_usage():

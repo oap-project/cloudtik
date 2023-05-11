@@ -1,4 +1,5 @@
 from collections import namedtuple
+import importlib.util
 import logging
 import os
 import re
@@ -8,6 +9,11 @@ import sys
 import cloudtik.core._private.constants as constants
 from cloudtik.core._private.core_utils import get_num_cpus, get_cuda_visible_devices, get_system_memory, \
     estimate_available_memory
+
+try:
+    import GPUtil
+except ImportError:
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -127,8 +133,11 @@ class ResourceSpec(
                 num_gpus = min(num_gpus, len(gpu_ids))
 
         try:
-            info_string = _get_gpu_info_string()
-            gpu_types = _constraints_from_gpu_info(info_string)
+            if importlib.util.find_spec("GPUtil") is not None:
+                gpu_types = _get_gpu_types_gputil()
+            else:
+                info_string = _get_gpu_info_string()
+                gpu_types = _constraints_from_gpu_info(info_string)
             resources.update(gpu_types)
         except Exception:
             logger.exception("Could not parse gpu information.")
@@ -174,17 +183,16 @@ class ResourceSpec(
 def _autodetect_num_gpus():
     """Attempt to detect the number of GPUs on this machine.
 
-    TODO: This currently assumes NVIDIA GPUs on Linux.
-    TODO: This currently does not work on macOS.
-    TODO: Use a better mechanism for Windows.
-
-    Possibly useful: tensorflow.config.list_physical_devices()
+    TODO: Only detects NVidia GPUs (except when using WMIC on windows)
 
     Returns:
         The number of GPUs if any were detected, otherwise 0.
     """
     result = 0
-    if sys.platform.startswith("linux"):
+    if importlib.util.find_spec("GPUtil"):
+        gpu_list = GPUtil.getGPUs()
+        result = len(gpu_list)
+    elif sys.platform.startswith("linux"):
         proc_gpus_path = "/proc/driver/nvidia/gpus"
         if os.path.isdir(proc_gpus_path):
             result = len(os.listdir(proc_gpus_path))
@@ -196,12 +204,26 @@ def _autodetect_num_gpus():
     return result
 
 
-def _constraints_from_gpu_info(info_str):
+def _get_gpu_types_gputil():
+    gpu_list = GPUtil.getGPUs()
+    if len(gpu_list) > 0:
+        gpu_list_names = [gpu.name for gpu in gpu_list]
+        info_str = gpu_list_names.pop()
+        pretty_name = _pretty_gpu_name(info_str)
+        if pretty_name:
+            constraint_name = (
+                f"{constants.CLOUDTIK_RESOURCE_CONSTRAINT_PREFIX}" f"{pretty_name}"
+            )
+            return {constraint_name: 1}
+    return {}
+
+
+def _constraints_from_gpu_info(info_str: str):
     """Parse the contents of a /proc/driver/nvidia/gpus/*/information to get the
-gpu model type.
+    gpu model type.
 
     Args:
-        info_str (str): The contents of the file.
+        info_str: The contents of the file.
 
     Returns:
         (str) The full model name.
@@ -220,8 +242,7 @@ gpu model type.
             break
     pretty_name = _pretty_gpu_name(full_model_name)
     if pretty_name:
-        constraint_name = (f"{constants.CLOUDTIK_RESOURCE_CONSTRAINT_PREFIX}"
-                           f"{pretty_name}")
+        constraint_name = f"{constants.CLOUDTIK_RESOURCE_CONSTRAINT_PREFIX}" f"{pretty_name}"
         return {constraint_name: 1}
     return {}
 
@@ -229,8 +250,7 @@ gpu model type.
 def _get_gpu_info_string():
     """Get the gpu type for this machine.
 
-    TODO: All the caveats of _autodetect_num_gpus and we assume only one
-    gpu type.
+    TODO: Detects maximum one Nvidia gpu type on linux
 
     Returns:
         (str) The gpu's model name.

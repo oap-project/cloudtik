@@ -2796,7 +2796,7 @@ def _exec_node_on_head(
     nodes += node_workers
 
     def run_exec_cmd_on_head(node_id, call_context):
-        exec_cmd_on_head(
+        return exec_cmd_on_head(
             config,
             call_context=call_context,
             provider=provider,
@@ -2808,6 +2808,10 @@ def _exec_node_on_head(
             job_waiter_name=job_waiter_name)
 
     total_nodes = len(nodes)
+    if total_nodes == 1:
+        return run_exec_cmd_on_head(
+            node_id=nodes[0], call_context=call_context)
+
     if parallel and total_nodes > 1:
         cli_logger.print("Executing on {} nodes in parallel...", total_nodes)
         run_in_parallel_on_nodes(run_exec_cmd_on_head,

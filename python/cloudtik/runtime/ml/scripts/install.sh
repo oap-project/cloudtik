@@ -63,7 +63,22 @@ function install_ml() {
 
     # Install Machine Learning libraries and components
     echo "Installing machine learning tools: mlflow, hyperopt..."
-    pip --no-cache-dir -qq install mlflow==2.3.1 SQLAlchemy==1.4.46 alembic==1.10.1 pymysql==1.0.3 pyarrow==8.0.0 hyperopt==0.2.7 scikit-learn==1.0.2
+    # chardet==3.0.4 from azure-cli
+    pip --no-cache-dir -qq install \
+        mlflow==2.3.1 \
+        SQLAlchemy==1.4.46 \
+        alembic==1.10.1 \
+        pymysql==1.0.3 \
+        pyarrow==8.0.0 \
+        hyperopt==0.2.7 \
+        scikit-learn==1.0.2 \
+        xgboost==1.7.5 \
+        transformers==4.29.1 \
+        pandas==2.0.1 \
+        category-encoders==2.6.0 \
+        h5py==3.8.0 \
+        lightgbm=3.3.5
+
     mkdir -p $RUNTIME_PATH/mlflow
 
     echo "Installing deep learning frameworks: tensorflow, pytorch..."

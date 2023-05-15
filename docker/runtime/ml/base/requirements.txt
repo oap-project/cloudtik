@@ -8,10 +8,18 @@ pymysql==1.0.3
 pyarrow==8.0.0
 hyperopt==0.2.7
 
+# chardet==3.0.4 from azure-cli
+pandas==2.0.1
+category-encoders==2.6.0
+h5py==3.8.0
+
 # ML Frameworks
 scikit-learn==1.0.2
+xgboost==1.7.5
+lightgbm=3.3.5
 
 # DL Frameworks
+transformers==4.29.1
 
 # For deep learning cases about music and audio analysis
 librosa==0.9.2

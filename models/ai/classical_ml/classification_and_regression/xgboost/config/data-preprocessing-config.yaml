@@ -1,4 +1,4 @@
-data_transformation:
+data_transform:
   - normalize_feature_names: 
     - replace_chars: {' ': '_'} 
     - lowercase: True
@@ -48,7 +48,7 @@ data_splitting:
     # random_split:
     #     test_ratio: 0.1
         
-post_transformation:
+post_transform:
     - target_encoding:  
         target_col: is_fraud?
         feature_cols: ["merchant_city", "merchant_state", "zip", "mcc"]

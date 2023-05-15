@@ -11,7 +11,7 @@ def read_raw_data(raw_data_path, data_engine):
 
 def transform_data(data, transform_spec, data_engine):
     print("transforming data...")
-    from data_processing.data_transformation import DataTransformer
+    from data_processing.data_transform import DataTransformer
     data_transformer = DataTransformer(data, transform_spec, data_engine)
     return data_transformer.transform()
 
@@ -26,7 +26,7 @@ def split_data(data, data_splitting_rule, data_engine):
 
 def post_transform(train_data, test_data, post_transform_spec, data_engine):
     print("transform pre-splitting data...")
-    from data_processing.post_transformation import PostTransformer
+    from data_processing.post_transform import PostTransformer
     data_transformer = PostTransformer(
         train_data, test_data, post_transform_spec, data_engine)
     train_data, test_data = data_transformer.transform()
@@ -49,9 +49,9 @@ def process_data(raw_data_path, data_engine,
                  data_processing_config,
                  output_file):
     config = load_config(data_processing_config)
-    transform_spec = config['data_transformation']
+    transform_spec = config['data_transform']
     split_spec = config['data_splitting']
-    post_transform_spec = config['post_transformation']
+    post_transform_spec = config['post_transform']
 
     dp_start = time.time()
     start = time.time()

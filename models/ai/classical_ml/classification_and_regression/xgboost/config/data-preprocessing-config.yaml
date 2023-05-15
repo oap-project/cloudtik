@@ -1,0 +1,55 @@
+data_transform:
+  - normalize_feature_names: 
+    - replace_chars: {' ': '_'} 
+    - lowercase: True
+  - categorify:
+      merchant_name: merchant_id # merchant_name is the current column, merchant_id is the new column created after categorify
+      is_fraud?: is_fraud?
+  - strip_chars:
+      amount: {'amount':'$'}
+  - combine_cols:
+      card_id: {'concatenate_strings': ['user','card']} # card_id is the new column created by concatenating the string columns `user` and `card`
+  - time_to_seconds:
+      time: time
+  - change_datatype:
+      merchant_city: category
+      merchant_state: category
+      mcc: category 
+      zip: ['str','category'] # this means 2 astype operations 
+      amount: float32
+      time: uint8 
+      card_id: float32
+  - min_max_normalization:
+      time: time  
+  - one_hot_encoding: 
+      use_chip: True 
+  - string_to_list:
+      errors?: {'errors?': ','} 
+  - multi_hot_encoding: 
+      errors?: True 
+  - add_constant_feature:
+      split: 0
+  - modify_on_conditions: # modify the column split and replace the values based on the following conditions
+      split: 
+        'df.year == 2018': 1
+        'df.year > 2018': 2
+  - define_variable:
+      train_card_ids: 'df.loc[df["split"] == 0, "card_id"]'
+      train_merch_ids: 'df.loc[df["split"] == 0, "merchant_id"]'
+  - modify_on_conditions:
+      split:
+        '(df["split"] != 0) & ~df["card_id"].isin(tmp["train_card_ids"])': 3
+        '(df["split"] != 0) & ~df["merchant_id"].isin(tmp["train_merch_ids"])': 3
+    
+data_splitting:
+    custom_rules: # create 2 datasets called train and test using the following conditions
+        train: 'df["split"] == 0'
+        test: '(df["split"] == 1) | (df["split"] == 2)'
+    # random_split:
+    #     test_ratio: 0.1
+        
+post_transform:
+    - target_encoding:  
+        target_col: is_fraud?
+        feature_cols: ["merchant_city", "merchant_state", "zip", "mcc"]
+        smoothing: 0.001

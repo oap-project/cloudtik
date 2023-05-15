@@ -1,0 +1,54 @@
+data_spec:
+  target_col: is_fraud?
+  ignore_cols: ['merchant_name','user', 'card', 'split']
+  data_split:
+    train: df[df["year"]<2018]
+    valid: df[df["year"]==2018]
+    test: df[df["year"]>2018]
+
+model_spec:
+  model_type: xgboost
+  model_params:
+    learning_rate: 0.1
+    eval_metric: 'aucpr'
+    objective: 'binary:logistic'
+  training_params:
+    num_boost_round: 1000
+    verbose_eval: 100
+  test_metric: 'aucpr'
+
+# hpo_spec:
+#   model_type: xgboost 
+#   model_params:
+#     fixed:
+#       objective: 'binary:logistic'
+#       tree_method: 'hist'
+#       eval_metric: 'aucpr'
+#       random_state: 42
+#     search_space:
+#       eta: 
+#         type: discrete #Sample from a given list    
+#         boundary: [0.001, 0.01, 0.1, 0.2] 
+#       max_depth:
+#         type: int #Sample a integer uniformly between 1 (inclusive) and 9 (exclusive)
+#         boundary: [1, 9]
+#       subsample: 
+#         type: float 
+#         boundary: [0.5, 1.0] #Sample a float uniformly between 0.5 and 1.0
+#       colsample_bytree:
+#         type: float
+#         boundary: [0.2, 1]
+#       lambda:
+#         type: float
+#         boundary: [0.00000001, 1]
+#       alpha:
+#         type: float
+#         boundary: [0.00000001, 1]
+#       min_child_weight:
+#         type: int
+#         boundary: [2, 10]
+#   training_params: 
+#     num_boost_round: 1000
+#   test_metric: 'aucpr'
+#   search_mode: 'max'
+#   num_trials: 10

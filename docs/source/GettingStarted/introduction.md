@@ -12,7 +12,7 @@ CloudTik provides:
 - Scalable, robust, and unified control plane and runtimes for all public clouds
 - Out of box optimized runtimes for analytics and AI
   - Optimized Spark runtime with CloudTik optimizations and native SQL
-  - Optimized ML/DL runtime with Intel oneAPI
+  - Optimized AI runtime with Intel oneAPI
 - Support of major public cloud providers - AWS, Azure, GCP, Alibaba Cloud, Kubernetes (EKS, AKS and GKE) and more
 - A fully open architecture and open-sourced platform
 

@@ -252,8 +252,8 @@ setuptools.setup(
             "cloudtik-trino=cloudtik.runtime.trino.scripts:main",
             "cloudtik-zookeeper=cloudtik.runtime.zookeeper.scripts:main",
             "cloudtik-kafka=cloudtik.runtime.kafka.scripts:main",
-            "cloudtik-ml=cloudtik.runtime.ml.scripts:main",
-            "cloudtik-ml-run=cloudtik.runtime.ml.runner.launch:main",
+            "cloudtik-ai=cloudtik.runtime.ai.scripts:main",
+            "cloudtik-ai-run=cloudtik.runtime.ai.runner.launch:main",
             "cloudtik-flink=cloudtik.runtime.flink.scripts:main",
             "cloudtik-ray=cloudtik.runtime.ray.scripts:main",
         ]

@@ -55,20 +55,20 @@ do
     --release-spark)
         RELEASE_SPARK=YES
         ;;
-    --release-ml-base)
-        RELEASE_ML_BASE=YES
+    --release-ai-base)
+        RELEASE_AI_BASE=YES
         ;;
-    --release-ml)
-        RELEASE_ML=YES
+    --release-ai)
+        RELEASE_AI=YES
         ;;
-    --release-ml-oneapi)
-        RELEASE_ML_ONEAPI=YES
+    --release-ai-oneapi)
+        RELEASE_AI_ONEAPI=YES
         ;;
     *)
         echo "Usage: release-docker.sh [ --gpu ] [ --image-tag ] [ --region ] [ --python-version ] --clean --tag-nightly --no-build --no-push"
         echo "Images to release options:"
         echo "[ --release-all ] [ --release-cloudtik ] [ --release-spark ]"
-        echo "[ --release-ml-base ] [ --release-ml ] [ --release-ml-oneapi ]"
+        echo "[ --release-ai-base ] [ --release-ai ] [ --release-ai-oneapi ]"
         exit 1
     esac
     shift
@@ -93,14 +93,14 @@ if [ $DO_CLEAN ]; then
         fi
 
         CLEAN_IMAGE_NAMES=()
-        if [ $RELEASE_ML_ONEAPI ] || [ $RELEASE_ALL ]; then
-            CLEAN_IMAGE_NAMES+=("spark-ml-oneapi")
+        if [ $RELEASE_AI_ONEAPI ] || [ $RELEASE_ALL ]; then
+            CLEAN_IMAGE_NAMES+=("spark-ai-oneapi")
         fi
-        if [ $RELEASE_ML ] || [ $RELEASE_ALL ]; then
-            CLEAN_IMAGE_NAMES+=("spark-ml-runtime")
+        if [ $RELEASE_AI ] || [ $RELEASE_ALL ]; then
+            CLEAN_IMAGE_NAMES+=("spark-ai-runtime")
         fi
-        if [ $RELEASE_ML_BASE ] || [ $RELEASE_ALL ]; then
-            CLEAN_IMAGE_NAMES+=("spark-ml-base")
+        if [ $RELEASE_AI_BASE ] || [ $RELEASE_ALL ]; then
+            CLEAN_IMAGE_NAMES+=("spark-ai-base")
         fi
         if [ $RELEASE_SPARK ] || [ $RELEASE_ALL ]; then
             CLEAN_IMAGE_NAMES+=("spark-runtime-benchmark" "spark-runtime")
@@ -134,14 +134,14 @@ if [ $TAG_NIGHTLY ]; then
         if [ $RELEASE_SPARK ] || [ $RELEASE_ALL ]; then
             TAG_IMAGE_NAMES+=("spark-runtime" "spark-runtime-benchmark")
         fi
-        if [ $RELEASE_ML_BASE ] || [ $RELEASE_ALL ]; then
-            TAG_IMAGE_NAMES+=("spark-ml-base")
+        if [ $RELEASE_AI_BASE ] || [ $RELEASE_ALL ]; then
+            TAG_IMAGE_NAMES+=("spark-ai-base")
         fi
-        if [ $RELEASE_ML ] || [ $RELEASE_ALL ]; then
-            TAG_IMAGE_NAMES+=("spark-ml-runtime")
+        if [ $RELEASE_AI ] || [ $RELEASE_ALL ]; then
+            TAG_IMAGE_NAMES+=("spark-ai-runtime")
         fi
-        if [ $RELEASE_ML_ONEAPI ] || [ $RELEASE_ALL ]; then
-            TAG_IMAGE_NAMES+=("spark-ml-oneapi")
+        if [ $RELEASE_AI_ONEAPI ] || [ $RELEASE_ALL ]; then
+            TAG_IMAGE_NAMES+=("spark-ai-oneapi")
         fi
 
         for image_name in ${TAG_IMAGE_NAMES[@]}
@@ -167,14 +167,14 @@ if [ ! $NO_BUILD ]; then
     if [ $RELEASE_SPARK ] || [ $RELEASE_ALL ]; then
         BUILD_FLAGS="${BUILD_FLAGS} --build-spark --build-spark-benchmark"
     fi
-    if [ $RELEASE_ML_BASE ] || [ $RELEASE_ALL ]; then
-        BUILD_FLAGS="${BUILD_FLAGS} --build-ml-base"
+    if [ $RELEASE_AI_BASE ] || [ $RELEASE_ALL ]; then
+        BUILD_FLAGS="${BUILD_FLAGS} --build-ai-base"
     fi
-    if [ $RELEASE_ML ] || [ $RELEASE_ALL ]; then
-        BUILD_FLAGS="${BUILD_FLAGS} --build-ml"
+    if [ $RELEASE_AI ] || [ $RELEASE_ALL ]; then
+        BUILD_FLAGS="${BUILD_FLAGS} --build-ai"
     fi
-    if [ $RELEASE_ML_ONEAPI ] || [ $RELEASE_ALL ]; then
-        BUILD_FLAGS="${BUILD_FLAGS} --build-ml-oneapi"
+    if [ $RELEASE_AI_ONEAPI ] || [ $RELEASE_ALL ]; then
+        BUILD_FLAGS="${BUILD_FLAGS} --build-ai-oneapi"
     fi
     sudo bash ./build-docker.sh  --image-tag $IMAGE_TAG --region ${CLOUDTIK_REGION} --python-version ${PYTHON_VERSION} \
         ${BUILD_FLAGS}
@@ -196,11 +196,11 @@ if [ ! $NO_PUSH ]; then
         if [ $RELEASE_SPARK ] || [ $RELEASE_ALL ]; then
             PUSH_IMAGE_NAMES+=("spark-runtime" "spark-runtime-benchmark")
         fi
-        if [ $RELEASE_ML ] || [ $RELEASE_ALL ]; then
-            PUSH_IMAGE_NAMES+=("spark-ml-runtime")
+        if [ $RELEASE_AI ] || [ $RELEASE_ALL ]; then
+            PUSH_IMAGE_NAMES+=("spark-ai-runtime")
         fi
-        if [ $RELEASE_ML_ONEAPI ] || [ $RELEASE_ALL ]; then
-            PUSH_IMAGE_NAMES+=("spark-ml-oneapi")
+        if [ $RELEASE_AI_ONEAPI ] || [ $RELEASE_ALL ]; then
+            PUSH_IMAGE_NAMES+=("spark-ai-oneapi")
         fi
 
         for image_name in ${PUSH_IMAGE_NAMES[@]}

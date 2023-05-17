@@ -5,4 +5,4 @@ Running Optimized AI
    :maxdepth: 1
 
    RunningOptimizedAI/running-optimized-ai.md
-   RunningOptimizedAI/running-ml-examples.md
+   RunningOptimizedAI/running-ai-examples.md

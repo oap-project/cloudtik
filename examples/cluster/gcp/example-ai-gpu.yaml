@@ -1,0 +1,36 @@
+# An example of standard 1 + 3 nodes cluster with standard instance type
+from: gcp/gpu/t4/standard
+
+# A unique identifier for the cluster.
+cluster_name: example-ai-gpu
+
+# Workspace into which to launch the cluster
+workspace_name: example-workspace
+
+# Specify the AI runtime image
+docker:
+    image: "cloudtik/spark-ai-runtime"
+
+# Cloud-provider specific configuration.
+provider:
+    type: gcp
+    region: us-central1
+    availability_zone: us-central1-a
+    project_id: your_project_id
+
+# How CloudTik will authenticate with newly launched nodes.
+auth:
+    ssh_user: ubuntu
+    # Set proxy if you are in corporation network. For example,
+    # ssh_proxy_command: "ncat --proxy-type socks5 --proxy your_proxy_host:your_proxy_port %h %p"
+
+available_node_types:
+    worker-default:
+        # The minimum number of worker nodes to launch.
+        min_workers: 3
+
+# Specify the AI runtime with GPU
+runtime:
+    types: [ganglia, spark, ai]
+    ml:
+        with_gpu: True

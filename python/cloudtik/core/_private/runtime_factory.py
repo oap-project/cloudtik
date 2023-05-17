@@ -21,7 +21,7 @@ BUILT_IN_RUNTIME_PRESTO = "presto"
 BUILT_IN_RUNTIME_TRINO = "trino"
 BUILT_IN_RUNTIME_ZOOKEEPER = "zookeeper"
 BUILT_IN_RUNTIME_KAFKA = "kafka"
-BUILT_IN_RUNTIME_ML = "ml"
+BUILT_IN_RUNTIME_AI = "ai"
 BUILT_IN_RUNTIME_FLINK = "flink"
 BUILT_IN_RUNTIME_RAY = "ray"
 
@@ -108,14 +108,14 @@ def _load_kafka_runtime_home():
     return os.path.dirname(kafka.__file__)
 
 
-def _import_ml():
-    from cloudtik.runtime.ml.runtime import MLRuntime
-    return MLRuntime
+def _import_ai():
+    from cloudtik.runtime.ai.runtime import AIRuntime
+    return AIRuntime
 
 
-def _load_ml_runtime_home():
-    import cloudtik.runtime.ml as ml
-    return os.path.dirname(ml.__file__)
+def _load_ai_runtime_home():
+    import cloudtik.runtime.ai as ai
+    return os.path.dirname(ai.__file__)
 
 
 def _import_flink():
@@ -147,7 +147,7 @@ _RUNTIMES = {
     "trino": _import_trino,
     "zookeeper": _import_zookeeper,
     "kafka": _import_kafka,
-    "ml": _import_ml,
+    "ai": _import_ai,
     "flink": _import_flink,
     "ray": _import_ray,
 }
@@ -161,7 +161,7 @@ _RUNTIME_HOMES = {
     "trino": _load_trino_runtime_home,
     "zookeeper": _load_zookeeper_runtime_home,
     "kafka": _load_kafka_runtime_home,
-    "ml": _load_ml_runtime_home,
+    "ai": _load_ai_runtime_home,
     "flink": _load_flink_runtime_home,
     "ray": _load_ray_runtime_home,
 }

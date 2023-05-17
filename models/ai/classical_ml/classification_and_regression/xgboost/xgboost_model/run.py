@@ -20,17 +20,12 @@ def train_on_ray(
     else:
         print("Do training without hyper parameter optimization (HPO).")
 
-    from .train_ray import Trainer
-    trainer = Trainer(train_data_spec, df,
-                      train_model_spec, in_memory,
-                      tmp_path=temp_dir, on_ray=on_ray,
-                      ray_params=ray_params, hpo_spec=hpo_spec)
-
-    if hpo_spec is not None:
-        trainer.train_hpo()
-    else:
-        trainer.train()
-        trainer.save_model(model_file)
+    from .train_ray import train_ray
+    train_ray(
+        train_data_spec, df,
+        train_model_spec, in_memory,
+        tmp_path=temp_dir, model_file=model_file,
+        on_ray=on_ray, ray_params=ray_params, hpo_spec=hpo_spec)
 
 
 def get_ray_params(args):

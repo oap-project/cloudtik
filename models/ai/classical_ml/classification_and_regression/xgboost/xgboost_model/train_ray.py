@@ -411,4 +411,29 @@ class XGBoostRay:
             else:
                 raise NotImplementedError(
                     f"{name} is currently not supported.")
-        return defined_search_params 
+        return defined_search_params
+
+
+def train_ray(
+        data_spec, df, model_spec,
+        in_memory, tmp_path, model_file,
+        on_ray=False, ray_params=None, hpo_spec=None):
+    # start ray client
+    import ray
+    ray.init(
+        'auto', runtime_env={'env_vars': {'__MODIN_AUTOIMPORT_PANDAS__': '1'}}, log_to_driver=False)
+
+    trainer = Trainer(data_spec, df,
+                      model_spec, in_memory,
+                      tmp_path=tmp_path, on_ray=on_ray,
+                      ray_params=ray_params, hpo_spec=hpo_spec)
+
+    if hpo_spec is not None:
+        trainer.train_hpo()
+    else:
+        trainer.train()
+        if model_file:
+            trainer.save_model(model_file)
+
+    # shutdown ray client
+    ray.shutdown()

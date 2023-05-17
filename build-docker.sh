@@ -89,7 +89,7 @@ do
         BUILD_AI_BASE=YES
         ;;
     --build-ai)
-        BUILD_ML=YES
+        BUILD_AI=YES
         ;;
     --build-ai-oneapi)
         BUILD_AI_ONEAPI=YES
@@ -224,15 +224,15 @@ do
         fi
     fi
 
-    # Build the ML base image which is needed as the base image for all other ML image
-    if [ -d "docker/${DOCKER_FILE_PATH}runtime/ai/base" ] && ([ $BUILD_AI_BASE ] || [ $BUILD_ML ] || [ $BUILD_AI_ONEAPI ] || [ $BUILD_ALL ]); then
+    # Build the AI base image which is needed as the base image for all other AI runtime image
+    if [ -d "docker/${DOCKER_FILE_PATH}runtime/ai/base" ] && ([ $BUILD_AI_BASE ] || [ $BUILD_AI ] || [ $BUILD_AI_ONEAPI ] || [ $BUILD_ALL ]); then
         docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG$GPU \
           -t ${DOCKER_REGISTRY}cloudtik/spark-ai-base:$IMAGE_TAG$GPU \
           docker/${DOCKER_FILE_PATH}runtime/ai/base
     fi
 
     if [ "$GPU" == "" ]; then
-        if [ -d "docker/${DOCKER_FILE_PATH}runtime/ai/cpu" ] && ([ $BUILD_ML ] || [ $BUILD_ALL ]); then
+        if [ -d "docker/${DOCKER_FILE_PATH}runtime/ai/cpu" ] && ([ $BUILD_AI ] || [ $BUILD_ALL ]); then
             docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG \
               -t ${DOCKER_REGISTRY}cloudtik/spark-ai-runtime:$IMAGE_TAG \
               docker/${DOCKER_FILE_PATH}runtime/ai/cpu
@@ -244,7 +244,7 @@ do
               docker/${DOCKER_FILE_PATH}runtime/ai/oneapi
         fi
     else
-        if [ -d "docker/${DOCKER_FILE_PATH}runtime/ai/gpu" ] && ([ $BUILD_ML ] || [ $BUILD_ALL ]); then
+        if [ -d "docker/${DOCKER_FILE_PATH}runtime/ai/gpu" ] && ([ $BUILD_AI ] || [ $BUILD_ALL ]); then
             docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG$GPU \
               -t ${DOCKER_REGISTRY}cloudtik/spark-ai-runtime:$IMAGE_TAG$GPU \
               docker/${DOCKER_FILE_PATH}runtime/ai/gpu

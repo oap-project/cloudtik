@@ -15,8 +15,8 @@ the complexity of operating and running such a platform and lack of transparency
 CloudTik is designed for solving the above challenges by providing the following core capabilities:
 - Scalable, robust, and unified control plane and runtimes for all public clouds
 - Out of box optimized runtimes for analytics and AI
-  - Optimized Spark runtime with CloudTik optimizations and native SQL
-  - Optimized ML/DL runtime with Intel oneAPI
+  - Optimized Spark runtime with CloudTik optimizations
+  - Optimized AI runtime with Intel oneAPI
 - Support of major public cloud providers - AWS, Azure, GCP, Alibaba Cloud, Kubernetes (EKS, AKS and GKE) and more
 - A fully open architecture and open-sourced platform
 
@@ -304,10 +304,9 @@ for a detailed step-by-step guide.
 #### Running machine learning and deep learning examples
 
 CloudTik provides ready to run examples for demonstrating
-how distributed machine learning and deep learning jobs can be implemented
-in CloudTik Spark and ML runtime cluster.
+how distributed AI jobs can be implemented in CloudTik Spark and AI runtime cluster.
 
-Refer to [Distributed Machine Learning and Deep Learning Examples](examples/ml)
+Refer to [Distributed AI Examples](examples/ai)
 for a detailed step-by-step guide.
 
 #### Workflow examples

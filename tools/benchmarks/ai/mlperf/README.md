@@ -4,8 +4,8 @@
 To prepare data and run MLPerf on Cloudtik cluster, some tools must be installed in advance.
 You have several options to do this.
 
-### Option 1: Use a CloudTik Spark ML runtime image with MLPerf toolkit installed (Recommended)
-In your cluster config under docker key, configure the ML runtime image with MLPerf toolkit installed.
+### Option 1: Use a CloudTik Spark AI runtime image with MLPerf toolkit installed (Recommended)
+In your cluster config under docker key, configure the AI runtime image with MLPerf toolkit installed.
 
 ```buildoutcfg
 docker:

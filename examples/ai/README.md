@@ -1,6 +1,6 @@
 # Distributed Machine Learning and Deep Learning Examples
 
-Here we provide a guide for you to run ML/DL related examples based on CloudTik ML runtime
+Here we provide a guide for you to run AI related examples based on CloudTik AI runtime
 which includes selected ML/DL frameworks and libraries.
 
 We provide these examples in two forms:

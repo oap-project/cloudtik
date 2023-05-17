@@ -25,7 +25,7 @@ available_node_types:
         # The minimum number of worker nodes to launch.
         min_workers: 3
 
-# Specify the ML runtime with GPU
+# Specify the AI runtime with GPU
 runtime:
     types: [ganglia, spark, ai]
     ml:

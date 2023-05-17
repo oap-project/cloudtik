@@ -4,8 +4,8 @@
 To prepare data and run Models on Cloudtik cluster, some tools must be installed in advance.
 You have several options to do this.
 
-### Option 1: Use a CloudTik oneAPI ML runtime and bootstrap IntelAI Models (Recommended)
-In your cluster config under docker key, configure the oneAPI ML runtime image
+### Option 1: Use a CloudTik oneAPI AI runtime and bootstrap IntelAI Models (Recommended)
+In your cluster config under docker key, configure the oneAPI AI runtime image
 and in bootstrap_commands, configure the command for preparing IntelAI Models.
 
 ```buildoutcfg
@@ -17,8 +17,8 @@ bootstrap_commands:
         bash ~/bootstrap-models.sh
 ```
 
-### Option 2: Use a CloudTik Spark ML runtime and bootstrap IntelAI Models
-In your cluster config under docker key, configure the Spark ML runtime image
+### Option 2: Use a CloudTik Spark AI runtime and bootstrap IntelAI Models
+In your cluster config under docker key, configure the Spark AI runtime image
 and in bootstrap_commands, configure the command for installing Intel Extension for PyTorch
 and the command for preparing for IntelAI Models.
 
@@ -38,7 +38,7 @@ bootstrap_commands:
 If you cluster already started, you can run the installing command on all nodes to achieve the same.
 
 Run the following command for installing for Intel Extension for PyTorch.
-If you are using oneAPI ML runtime, you can skip this step.
+If you are using oneAPI AI runtime, you can skip this step.
 ```buildoutcfg
 cloudtik exec your-cluster-config.yaml "wget -O ~/bootstrap-ipex.sh https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ai/intelai-models/scripts/bootstrap-ipex.sh && bash ~/bootstrap-ipex.sh" --all-nodes
 ```

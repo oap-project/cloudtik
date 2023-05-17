@@ -4,8 +4,8 @@
 To generate data and run TPCx-AI benchmark on Cloudtik cluster, some tools must be installed in advance.
 You have several options to do this.
 
-### Option 1: Use a CloudTik Spark ML runtime image with TPCx-AI toolkit installed (Recommended)
-In your cluster config under docker key, configure the ML runtime image with TPCx-AI toolkit installed.
+### Option 1: Use a CloudTik Spark AI runtime image with TPCx-AI toolkit installed (Recommended)
+In your cluster config under docker key, configure the AI runtime image with TPCx-AI toolkit installed.
 
 ```buildoutcfg
 docker:

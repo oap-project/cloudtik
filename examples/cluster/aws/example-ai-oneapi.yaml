@@ -26,7 +26,7 @@ available_node_types:
         # The minimum number of worker nodes to launch.
         min_workers: 3
 
-# Specify the ML runtime with oneAPI for CPU
+# Specify the AI runtime with oneAPI for CPU
 runtime:
     types: [ganglia, spark, ai]
     ml:

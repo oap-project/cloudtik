@@ -1,0 +1,18 @@
+{
+    "imdb_reviews": {
+        "dataset_hub": "tfhub",
+        "url": "https://www.tensorflow.org/datasets/catalog/imdb_reviews"
+    },
+    "ag_news_subset": {
+        "dataset_hub": "tfhub",
+        "url": "https://www.tensorflow.org/datasets/catalog/ag_news_subset"
+    },
+        "glue/sst2": {
+        "dataset_hub": "tfhub",
+        "url": "https://www.tensorflow.org/datasets/catalog/glue"
+    },
+        "glue/cola": {
+        "dataset_hub": "tfhub",
+        "url": "https://www.tensorflow.org/datasets/catalog/glue"
+    }
+}

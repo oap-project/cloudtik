@@ -1,0 +1,134 @@
+{
+    "resnet_v1_50": {
+        "model_hub": "TFHub",
+        "imagenet_model": "https://tfhub.dev/google/imagenet/resnet_v1_50/classification/5",
+        "feature_vector": "https://tfhub.dev/google/imagenet/resnet_v1_50/feature_vector/5",
+        "image_size": 224,
+        "original_dataset": "ImageNet (ILSVRC-2012-CLS)"
+    },
+    "resnet_v2_50": {
+        "model_hub": "TFHub",
+        "imagenet_model": "https://tfhub.dev/google/imagenet/resnet_v2_50/classification/5",
+        "feature_vector": "https://tfhub.dev/google/imagenet/resnet_v2_50/feature_vector/5",
+        "image_size": 224,
+        "original_dataset": "ImageNet (ILSVRC-2012-CLS)"
+    },
+    "resnet_v2_101": {
+        "model_hub": "TFHub",
+        "imagenet_model": "https://tfhub.dev/google/imagenet/resnet_v2_101/classification/5",
+        "feature_vector": "https://tfhub.dev/google/imagenet/resnet_v2_101/feature_vector/5",
+        "image_size": 224,
+        "original_dataset": "ImageNet (ILSVRC-2012-CLS)"
+    },
+    "mobilenet_v2_100_224": {
+        "model_hub": "TFHub",
+        "imagenet_model": "https://tfhub.dev/google/imagenet/mobilenet_v2_100_224/classification/5",
+        "feature_vector": "https://tfhub.dev/google/imagenet/mobilenet_v2_100_224/feature_vector/4",
+        "image_size": 224,
+        "original_dataset": "ImageNet (ILSVRC-2012-CLS)"
+    },
+    "efficientnetv2-s": {
+        "model_hub": "TFHub",
+        "imagenet_model": "https://tfhub.dev/google/imagenet/efficientnet_v2_imagenet1k_s/classification/2",
+        "feature_vector": "https://tfhub.dev/google/imagenet/efficientnet_v2_imagenet1k_s/feature_vector/2",
+        "image_size": 384,
+        "original_dataset": "ImageNet (ILSVRC-2012-CLS)"
+    },
+    "efficientnet_b0": {
+        "model_hub": "TFHub",
+        "imagenet_model": "https://tfhub.dev/google/efficientnet/b0/classification/1",
+        "feature_vector": "https://tfhub.dev/google/efficientnet/b0/feature-vector/1",
+        "image_size": 224,
+        "original_dataset": "ImageNet (ILSVRC-2012-CLS)"
+    },
+    "efficientnet_b1": {
+        "model_hub": "TFHub",
+        "imagenet_model": "https://tfhub.dev/google/efficientnet/b1/classification/1",
+        "feature_vector": "https://tfhub.dev/google/efficientnet/b1/feature-vector/1",
+        "image_size": 240,
+        "original_dataset": "ImageNet (ILSVRC-2012-CLS)"
+    },
+    "efficientnet_b2": {
+        "model_hub": "TFHub",
+        "imagenet_model": "https://tfhub.dev/google/efficientnet/b2/classification/1",
+        "feature_vector": "https://tfhub.dev/google/efficientnet/b2/feature-vector/1",
+        "image_size": 260,
+        "original_dataset": "ImageNet (ILSVRC-2012-CLS)"
+    },
+    "efficientnet_b3": {
+        "model_hub": "TFHub",
+        "imagenet_model": "https://tfhub.dev/google/efficientnet/b3/classification/1",
+        "feature_vector": "https://tfhub.dev/google/efficientnet/b3/feature-vector/1",
+        "image_size": 300,
+        "original_dataset": "ImageNet (ILSVRC-2012-CLS)"
+    },
+    "efficientnet_b4": {
+        "model_hub": "TFHub",
+        "imagenet_model": "https://tfhub.dev/google/efficientnet/b4/classification/1",
+        "feature_vector": "https://tfhub.dev/google/efficientnet/b4/feature-vector/1",
+        "image_size": 380,
+        "original_dataset": "ImageNet (ILSVRC-2012-CLS)"
+    },
+    "efficientnet_b5": {
+        "model_hub": "TFHub",
+        "imagenet_model": "https://tfhub.dev/google/efficientnet/b5/classification/1",
+        "feature_vector": "https://tfhub.dev/google/efficientnet/b5/feature-vector/1",
+        "image_size": 456,
+        "original_dataset": "ImageNet (ILSVRC-2012-CLS)"
+    },
+    "efficientnet_b6": {
+        "model_hub": "TFHub",
+        "imagenet_model": "https://tfhub.dev/google/efficientnet/b6/classification/1",
+        "feature_vector": "https://tfhub.dev/google/efficientnet/b6/feature-vector/1",
+        "image_size": 528
+    },
+    "efficientnet_b7": {
+        "model_hub": "TFHub",
+        "imagenet_model": "https://tfhub.dev/google/efficientnet/b7/classification/1",
+        "feature_vector": "https://tfhub.dev/google/efficientnet/b7/feature-vector/1",
+        "image_size": 600,
+        "original_dataset": "ImageNet (ILSVRC-2012-CLS)"
+    },
+    "efficientnetv2-b0": {
+        "model_hub": "TFHub",
+        "imagenet_model": "https://tfhub.dev/google/imagenet/efficientnet_v2_imagenet1k_b0/classification/2",
+        "feature_vector": "https://tfhub.dev/google/imagenet/efficientnet_v2_imagenet1k_b0/feature_vector/2",
+        "image_size": 224,
+        "original_dataset": "ImageNet (ILSVRC-2012-CLS)"
+    },
+    "efficientnetv2-b1": {
+        "model_hub": "TFHub",
+        "imagenet_model": "https://tfhub.dev/google/imagenet/efficientnet_v2_imagenet1k_b1/classification/2",
+        "feature_vector": "https://tfhub.dev/google/imagenet/efficientnet_v2_imagenet1k_b1/feature_vector/2",
+        "image_size": 240,
+        "original_dataset": "ImageNet (ILSVRC-2012-CLS)"
+    },
+    "efficientnetv2-b2": {
+        "model_hub": "TFHub",
+        "imagenet_model": "https://tfhub.dev/google/imagenet/efficientnet_v2_imagenet1k_b2/classification/2",
+        "feature_vector": "https://tfhub.dev/google/imagenet/efficientnet_v2_imagenet1k_b2/feature_vector/2",
+        "image_size": 260,
+        "original_dataset": "ImageNet (ILSVRC-2012-CLS)"
+    },
+    "efficientnetv2-b3": {
+        "model_hub": "TFHub",
+        "imagenet_model": "https://tfhub.dev/google/imagenet/efficientnet_v2_imagenet1k_b3/classification/2",
+        "feature_vector": "https://tfhub.dev/google/imagenet/efficientnet_v2_imagenet1k_b3/feature_vector/2",
+        "image_size": 300,
+        "original_dataset": "ImageNet (ILSVRC-2012-CLS)"
+    },
+    "inception_v3": {
+        "model_hub": "TFHub",
+        "imagenet_model": "https://tfhub.dev/google/imagenet/inception_v3/classification/5",
+        "feature_vector": "https://tfhub.dev/google/imagenet/inception_v3/feature_vector/5",
+        "image_size": 299,
+        "original_dataset": "ImageNet (ILSVRC-2012-CLS)"
+    },
+    "nasnet_large": {
+        "model_hub": "TFHub",
+        "imagenet_model": "https://tfhub.dev/google/imagenet/nasnet_large/classification/5",
+        "feature_vector": "https://tfhub.dev/google/imagenet/nasnet_large/feature_vector/5",
+        "image_size": 331,
+        "original_dataset": "ImageNet (ILSVRC-2012-CLS)"
+    }
+}

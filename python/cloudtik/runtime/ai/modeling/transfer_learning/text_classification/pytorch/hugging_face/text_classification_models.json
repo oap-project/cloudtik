@@ -1,0 +1,27 @@
+{
+    "bert-base-cased": {
+        "model_hub": "huggingface",
+        "hub_name": "bert-base-cased",
+        "original_dataset": "Wikipedia and BooksCorpus (English)",
+        "classification_layer": ["classifier"]
+
+    },
+    "distilbert-base-uncased": {
+        "model_hub": "huggingface",
+        "hub_name": "distilbert-base-uncased",
+        "original_dataset": "Wikipedia and BooksCorpus (English)",
+        "classification_layer": ["classifier"]
+    },
+    "clinical-bert": {
+        "model_hub": "huggingface",
+        "hub_name": "emilyalsentzer/Bio_ClinicalBERT",
+        "original_dataset": "Publicly Available Clinical BERT Embeddings",
+        "classification_layer": ["classifier"]
+    },
+    "bert-large-uncased": {
+	      "model_hub": "huggingface",
+	      "hub_name": "bert-large-uncased",
+	      "original_dataset": "Wikipedia and BooksCorpus (English)",
+        "classification_layer": ["classifier"]
+    }
+}

@@ -1,0 +1,192 @@
+{
+    "Xception": {
+        "model_hub": "Keras",
+        "image_size": 299,
+        "original_dataset": "ImageNet"
+    },
+    "VGG16": {
+        "model_hub": "Keras",
+        "image_size": 224,
+        "original_dataset": "ImageNet"
+    },
+    "VGG19": {
+        "model_hub": "Keras",
+        "image_size": 224,
+        "original_dataset": "ImageNet"
+    },
+    "ResNet50": {
+        "model_hub": "Keras",
+        "image_size": 224,
+        "original_dataset": "ImageNet"
+    },
+    "ResNet50V2": {
+        "model_hub": "Keras",
+        "image_size": 224,
+        "original_dataset": "ImageNet"
+    },
+    "ResNet101": {
+        "model_hub": "Keras",
+        "image_size": 224,
+        "original_dataset": "ImageNet"
+    },
+    "ResNet101V2": {
+        "model_hub": "Keras",
+        "image_size": 224,
+        "original_dataset": "ImageNet"
+    },
+    "ResNet152": {
+        "model_hub": "Keras",
+        "image_size": 224,
+        "original_dataset": "ImageNet"
+    },
+    "ResNet152V2": {
+        "model_hub": "Keras",
+        "image_size": 224,
+        "original_dataset": "ImageNet"
+    },
+    "InceptionV3": {
+        "model_hub": "Keras",
+        "image_size": 299,
+        "original_dataset": "ImageNet"
+    },
+    "InceptionResNetV2": {
+        "model_hub": "Keras",
+        "image_size": 224,
+        "original_dataset": "ImageNet"
+    },
+    "MobileNet": {
+        "model_hub": "Keras",
+        "image_size": 224,
+        "original_dataset": "ImageNet"
+    },
+    "MobileNetV2": {
+        "model_hub": "Keras",
+        "image_size": 224,
+        "original_dataset": "ImageNet"
+    },
+    "DenseNet121": {
+        "model_hub": "Keras",
+        "image_size": 224,
+        "original_dataset": "ImageNet"
+    },
+    "DenseNet169": {
+        "model_hub": "Keras",
+        "image_size": 224,
+        "original_dataset": "ImageNet"
+    },
+    "DenseNet201": {
+        "model_hub": "Keras",
+        "image_size": 224,
+        "original_dataset": "ImageNet"
+    },
+    "NASNetMobile": {
+        "model_hub": "Keras",
+        "image_size": 224,
+        "original_dataset": "ImageNet"
+    },
+    "NASNetLarge": {
+        "model_hub": "Keras",
+        "image_size": 331,
+        "original_dataset": "ImageNet"
+    },
+    "EfficientNetB0": {
+        "model_hub": "Keras",
+        "image_size": 224,
+        "original_dataset": "ImageNet"
+    },
+    "EfficientNetB1": {
+        "model_hub": "Keras",
+        "image_size": 240,
+        "original_dataset": "ImageNet"
+    },
+    "EfficientNetB2": {
+        "model_hub": "Keras",
+        "image_size": 260,
+        "original_dataset": "ImageNet"
+    },
+    "EfficientNetB3": {
+        "model_hub": "Keras",
+        "image_size": 300,
+        "original_dataset": "ImageNet"
+    },
+    "EfficientNetB4": {
+        "model_hub": "Keras",
+        "image_size": 380,
+        "original_dataset": "ImageNet"
+    },
+    "EfficientNetB5": {
+        "model_hub": "Keras",
+        "image_size": 456,
+        "original_dataset": "ImageNet"
+    },
+    "EfficientNetB6": {
+        "model_hub": "Keras",
+        "image_size": 528,
+        "original_dataset": "ImageNet"
+    },
+    "EfficientNetB7": {
+        "model_hub": "Keras",
+        "image_size": 600,
+        "original_dataset": "ImageNet"
+    },
+    "EfficientNetV2B0": {
+        "model_hub": "Keras",
+        "image_size": 224,
+        "original_dataset": "ImageNet"
+    },
+    "EfficientNetV2B1": {
+        "model_hub": "Keras",
+        "image_size": 240,
+        "original_dataset": "ImageNet"
+    },
+    "EfficientNetV2B2": {
+        "model_hub": "Keras",
+        "image_size": 260,
+        "original_dataset": "ImageNet"
+    },
+    "EfficientNetV2B3": {
+        "model_hub": "Keras",
+        "image_size": 300,
+        "original_dataset": "ImageNet"
+    },
+    "EfficientNetV2S": {
+        "model_hub": "Keras",
+        "image_size": 384,
+        "original_dataset": "ImageNet"
+    },
+    "EfficientNetV2M": {
+        "model_hub": "Keras",
+        "image_size": 224,
+        "original_dataset": "ImageNet"
+    },
+    "EfficientNetV2L": {
+        "model_hub": "Keras",
+        "image_size": 224,
+        "original_dataset": "ImageNet"
+    },
+    "ConvNeXtTiny": {
+        "model_hub": "Keras",
+        "image_size": 224,
+        "original_dataset": "ImageNet"
+    },
+    "ConvNeXtSmall": {
+        "model_hub": "Keras",
+        "image_size": 224,
+        "original_dataset": "ImageNet"
+    },
+    "ConvNeXtBase": {
+        "model_hub": "Keras",
+        "image_size": 224,
+        "original_dataset": "ImageNet"
+    },
+    "ConvNeXtLarge": {
+        "model_hub": "Keras",
+        "image_size": 224,
+        "original_dataset": "ImageNet"
+    },
+    "ConvNeXtXLarge": {
+        "model_hub": "Keras",
+        "image_size": 224,
+        "original_dataset": "ImageNet"
+    }
+}

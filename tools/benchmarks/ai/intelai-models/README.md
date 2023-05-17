@@ -10,7 +10,7 @@ and in bootstrap_commands, configure the command for preparing IntelAI Models.
 
 ```buildoutcfg
 docker:
-    image: "cloudtik/spark-ml-oneapi:nightly"
+    image: "cloudtik/spark-ai-oneapi:nightly"
 
 bootstrap_commands:
     - wget -O ~/bootstrap-models.sh https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ai/intelai-models/scripts/bootstrap-models.sh &&
@@ -25,7 +25,7 @@ and the command for preparing for IntelAI Models.
 ```buildoutcfg
 ```buildoutcfg
 docker:
-    image: "cloudtik/spark-ml-runtime:nightly"
+    image: "cloudtik/spark-ai-runtime:nightly"
 
 bootstrap_commands:
     - wget -O ~/bootstrap-ipex.sh https://raw.githubusercontent.com/oap-project/cloudtik/main/tools/benchmarks/ai/intelai-models/scripts/bootstrap-ipex.sh &&

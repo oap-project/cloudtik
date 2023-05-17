@@ -103,7 +103,7 @@ TRAIN_SCRIPT=${TRAIN_SCRIPT:-${MODEL_DIR}/models/image_recognition/pytorch/commo
 oneccl_bindings_for_pytorch_path=$(python -c "import torch; import oneccl_bindings_for_pytorch; import os;  print(os.path.abspath(os.path.dirname(oneccl_bindings_for_pytorch.__file__)))")
 source $oneccl_bindings_for_pytorch_path/env/setvars.sh
 
-cloudtik-ml-run \
+cloudtik-ai-run \
     --use_default_allocator \
     --distributed \
     --nnodes ${NNODES} \

@@ -86,7 +86,7 @@ if [ "$weight_sharing" = true ]; then
     SOCKETS=`lscpu | grep Socket | awk '{print $2}'`
     export OMP_NUM_THREADS=$CORES_PER_INSTANCE
 
-    cloudtik-ml-run \
+    cloudtik-ai-run \
         --use_default_allocator \
         --ninstance ${SOCKETS} \
         ${CLOUDTIK_MODELS_HOME}/models/object_detection/pytorch/ssd-resnet34/inference/cpu/infer_weight_sharing.py \
@@ -103,7 +103,7 @@ if [ "$weight_sharing" = true ]; then
         $ARGS 2>&1 | tee ${OUTPUT_DIR}/latency_log_ssdresnet34_${PRECISION}.log
     wait
 else
-    cloudtik-ml-run \
+    cloudtik-ai-run \
         --use_default_allocator \
         --latency_mode \
         ${CLOUDTIK_MODELS_HOME}/models/object_detection/pytorch/ssd-resnet34/inference/cpu/infer.py \

@@ -130,7 +130,7 @@ rm -rf ${OUTPUT_DIR}/distributed_throughput_log*
 oneccl_bindings_for_pytorch_path=$(python -c "import torch; import oneccl_bindings_for_pytorch; import os;  print(os.path.abspath(os.path.dirname(oneccl_bindings_for_pytorch.__file__)))")
 source $oneccl_bindings_for_pytorch_path/env/setvars.sh
 
-cloudtik-ml-run \
+cloudtik-ai-run \
     --distributed \
     --nnodes ${NNODES} \
     --hosts ${HOSTS} \

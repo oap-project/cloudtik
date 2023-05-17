@@ -64,7 +64,7 @@ fi
 
 rm -rf ${OUTPUT_DIR}/rnnt_${PRECISION}_inference_accuracy*
 
-cloudtik-ml-run \
+cloudtik-ai-run \
     --use_default_allocator \
     ${MODEL_DIR}/models/language_modeling/pytorch/rnnt/inference/cpu/inference.py \
     --dataset_dir ${DATASET_DIR}/dataset/LibriSpeech/ \

@@ -129,7 +129,7 @@ export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
 
 rm -rf ${OUTPUT_DIR}/throughput_log*
 
-cloudtik-ml-run \
+cloudtik-ai-run \
     --use_default_allocator \
     --node_id=0 \
     --log_path=${OUTPUT_DIR} \

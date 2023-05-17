@@ -70,7 +70,7 @@ BATCH_SIZE=224
 
 rm -rf ${OUTPUT_DIR}/train_ssdresnet34_${PRECISION}_throughput*
 
-cloudtik-ml-run \
+cloudtik-ai-run \
     --use_default_allocator \
     --node_id 0 \
     ${CLOUDTIK_MODELS_HOME}/models/object_detection/pytorch/ssd-resnet34/training/cpu/train.py \

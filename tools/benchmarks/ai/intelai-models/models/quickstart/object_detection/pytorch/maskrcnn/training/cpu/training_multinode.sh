@@ -77,7 +77,7 @@ BATCH_SIZE=${BATCH_SIZE-112}
 
 rm -rf ${OUTPUT_DIR}/distributed_throughput_log_${PRECISION}*
 
-cloudtik-ml-run \
+cloudtik-ai-run \
     --distributed \
     --nnodes ${NNODES} \
     --hosts ${HOSTS} \

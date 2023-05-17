@@ -9,7 +9,7 @@ In your cluster config under docker key, configure the AI runtime image with TPC
 
 ```buildoutcfg
 docker:
-    image: "cloudtik/spark-ml-runtime-benchmark:nightly"
+    image: "cloudtik/spark-ai-runtime-benchmark:nightly"
 ```
 
 ### Option 2: Use bootstrap commands to install the TPCx-AI toolkit

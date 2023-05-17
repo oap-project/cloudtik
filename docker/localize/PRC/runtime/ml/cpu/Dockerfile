@@ -1,5 +1,5 @@
 ARG BASE_IMAGE="nightly"
-FROM cloudtik/spark-ml-runtime:"$BASE_IMAGE"
+FROM cloudtik/spark-ai-runtime:"$BASE_IMAGE"
 
 RUN sudo sed -i 's/archive.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list \
     && sudo sed -i 's/security.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list \

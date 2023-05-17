@@ -1,12 +1,12 @@
 # Running Optimized AI
 
-By using cloudtik/spark-ml-runtime image,
+By using cloudtik/spark-ai-runtime image,
 you get the basic machine learning and deep learning performance
 through the open source frameworks like TensorFlow or PyTorch.
 
 ```
 docker:
-    image: "cloudtik/spark-ml-runtime"
+    image: "cloudtik/spark-ai-runtime"
 ```
 
 To gain better performance and make full use of modern hardware features,
@@ -21,7 +21,7 @@ of your cluster configuration file:
 
 ```
 docker:
-    image: "cloudtik/spark-ml-oneapi"
+    image: "cloudtik/spark-ai-oneapi"
 ```
 
 This will use the docker image which is built with oneAPI optimizations for AI.

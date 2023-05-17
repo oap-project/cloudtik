@@ -1,0 +1,32 @@
+from: aliyun/standard
+
+# A unique identifier for the head node and workers of this cluster.
+cluster_name: example-ai-oneapi
+
+# Workspace name
+workspace_name: example-workspace
+
+# Specify the AI runtime image with oneAPI
+docker:
+    image: "cloudtik/spark-ai-oneapi"
+
+# Cloud-provider specific configuration.
+provider:
+    type: aliyun
+    region: cn-shanghai
+
+auth:
+    ssh_user: root
+    # Set proxy if you are in corporation network. For example,
+    # ssh_proxy_command: "ncat --proxy-type socks5 --proxy your_proxy_host:your_proxy_port %h %p"
+
+available_node_types:
+    worker.default:
+        # The minimum number of worker nodes to launch.
+        min_workers: 3
+
+# Specify the ML runtime with oneAPI for CPU
+runtime:
+    types: [ganglia, spark, ai]
+    ml:
+        with_oneapi: True

@@ -2164,9 +2164,9 @@ def is_gpu_runtime(config):
 
 def _is_gpu_runtime(runtime_config):
     runtime_types = runtime_config.get(RUNTIME_TYPES_CONFIG_KEY, [])
-    if "ml" not in runtime_types:
+    if "ai" not in runtime_types:
         return False
-    return runtime_config.get("ml", {}).get("with_gpu", False)
+    return runtime_config.get("ai", {}).get("with_gpu", False)
 
 
 def runtime_validate_config(runtime_config, config, provider):

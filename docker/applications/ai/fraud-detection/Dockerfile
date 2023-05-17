@@ -1,5 +1,5 @@
 ARG BASE_IMAGE="nightly"
-FROM cloudtik/spark-ml-runtime:"$BASE_IMAGE"
+FROM cloudtik/spark-ai-runtime:"$BASE_IMAGE"
 
 COPY requirements.txt /tmp/requirements.txt
 RUN export PATH="$HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH" \

@@ -208,9 +208,9 @@ If you need different runtime components in the cluster,
 in the cluster configuration file, you can set the runtime types. For example,
 ```
 runtime:
-    types: [ganglia, hdfs, spark, ml]
+    types: [ganglia, hdfs, spark, ai]
 ```
-It will run a cluster with ganglia, hdfs, spark and ml runtimes.
+It will run a cluster with ganglia, hdfs, spark and ai runtimes.
 
 Refer to `examples/cluster` directory for more cluster configurations examples.
 
@@ -245,9 +245,9 @@ for a detailed step-by-step guide.
 
 CloudTik provides ready to run examples for demonstrating
 how distributed machine learning and deep learning jobs can be implemented
-in CloudTik Spark and ML runtime cluster.
+in CloudTik Spark and AI runtime cluster.
 
-Refer to [Distributed Machine Learning and Deep Learning Examples](https://github.com/oap-project/cloudtik/tree/main/examples/ml)
+Refer to [Distributed AI Examples](https://github.com/oap-project/cloudtik/tree/main/examples/ai)
 for a detailed step-by-step guide.
 
 #### Workflow examples

@@ -1,22 +1,5 @@
 #!/bin/bash
 
-args=$(getopt -a -o h:: -l head:: -- "$@")
-eval set -- "${args}"
-
-while true
-do
-    case "$1" in
-    --head)
-        IS_HEAD_NODE=true
-        ;;
-    --)
-        shift
-        break
-        ;;
-    esac
-    shift
-done
-
 USER_HOME=/home/$(whoami)
 APPLICATIONS_HOME=$USER_HOME/applications
 
@@ -40,18 +23,6 @@ else
     FRAUD_DETECTION_WORKSPACE=$FRAUD_DETECTION_WORKING
 fi
 
-function is_head_node() {
-    if [ -n $IS_HEAD_NODE ]; then
-        cloudtik head head-ip
-        GET_HEAD_IP_CODE=$?
-        if [ ${GET_HEAD_IP_CODE} -eq "0" ]; then
-            IS_HEAD_NODE=true
-        else
-            IS_HEAD_NODE=false
-        fi
-    fi
-}
-
 function prepare() {
     source ~/.bashrc
     sudo apt-get update -y
@@ -71,7 +42,7 @@ function install_tools() {
 }
 
 function install_libaries() {
-    pip install --no-cache-dir torchmetrics tqdm cmake pyyaml ogb chardet
+    pip install --no-cache-dir -qq optuna sigopt modin
     pip install --no-cache-dir --pre dgl -f https://data.dgl.ai/wheels/repo.html && \
     pip install --no-cache-dir --pre dglgo -f https://data.dgl.ai/wheels-test/repo.html
 }

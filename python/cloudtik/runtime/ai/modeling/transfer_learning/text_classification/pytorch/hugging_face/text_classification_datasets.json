@@ -1,0 +1,62 @@
+{
+    "imdb": {
+        "dataset_hub": "huggingface",
+        "url": "https://huggingface.co/datasets/imdb"
+    },
+    "tweet_eval/emoji": {
+        "dataset_hub":"huggingface",
+        "url": "https://huggingface.co/datasets/tweet_eval"
+    },
+    "tweet_eval/emotion": {
+        "dataset_hub":"huggingface",
+        "url": "https://huggingface.co/datasets/tweet_eval"
+    },
+    "tweet_eval/hate": {
+        "dataset_hub":"huggingface",
+        "url": "https://huggingface.co/datasets/tweet_eval"
+    },
+    "tweet_eval/irony": {
+        "dataset_hub":"huggingface",
+        "url": "https://huggingface.co/datasets/tweet_eval"
+    },
+    "tweet_eval/offensive": {
+        "dataset_hub":"huggingface",
+        "url": "https://huggingface.co/datasets/tweet_eval"
+    },
+    "tweet_eval/sentiment": {
+        "dataset_hub":"huggingface",
+        "url": "https://huggingface.co/datasets/tweet_eval"
+    },
+    "tweet_eval/stance_abortion": {
+        "dataset_hub":"huggingface",
+        "url": "https://huggingface.co/datasets/tweet_eval"
+    },
+    "tweet_eval/stance_atheism": {
+        "dataset_hub":"huggingface",
+        "url": "https://huggingface.co/datasets/tweet_eval"
+    },
+    "tweet_eval/stance_climate": {
+        "dataset_hub":"huggingface",
+        "url": "https://huggingface.co/datasets/tweet_eval"
+    },
+    "tweet_eval/stance_feminist": {
+        "dataset_hub":"huggingface",
+        "url": "https://huggingface.co/datasets/tweet_eval"
+    },
+    "tweet_eval/stance_hillary": {
+        "dataset_hub":"huggingface",
+        "url": "https://huggingface.co/datasets/tweet_eval"
+    },
+    "rotten_tomatoes": {
+        "dataset_hub": "huggingface",
+        "url": "https://huggingface.co/datasets/rotten_tomatoes"
+    },
+    "ag_news": {
+        "dataset_hub": "huggingface",
+        "url": "https://huggingface.co/datasets/ag_news"
+    },
+    "sst2": {
+        "dataset_hub": "huggingface",
+        "url": "https://huggingface.co/datasets/sst2"
+    }
+}

@@ -1,0 +1,138 @@
+{
+    "resnext101_32x8d_wsl": {
+        "model_hub": "pytorch_hub",
+        "repo": "facebookresearch/WSL-Images",
+        "pretrained_default": "True",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V1"
+    },
+    "resnext101_32x16d_wsl": {
+        "model_hub": "pytorch_hub",
+        "repo": "facebookresearch/WSL-Images",
+        "pretrained_default": "True",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V1"
+    },
+    "resnext101_32x32d_wsl": {
+        "model_hub": "pytorch_hub",
+        "repo": "facebookresearch/WSL-Images",
+        "pretrained_default": "True",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V1"
+    },
+    "resnext101_32x48d_wsl": {
+        "model_hub": "pytorch_hub",
+        "repo": "facebookresearch/WSL-Images",
+        "pretrained_default": "True",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V1"
+    },
+    "resnet18_swsl": {
+        "model_hub": "pytorch_hub",
+        "repo": "facebookresearch/semi-supervised-ImageNet1K-models",
+        "pretrained_default": "True",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "940 Hashtagged Public Content"
+    },
+    "resnet50_swsl": {
+        "model_hub": "pytorch_hub",
+        "repo": "facebookresearch/semi-supervised-ImageNet1K-models",
+        "pretrained_default": "True",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "940 Hashtagged Public Content"
+    },
+    "resnext50_32x4d_swsl": {
+        "model_hub": "pytorch_hub",
+        "repo": "facebookresearch/semi-supervised-ImageNet1K-models",
+        "pretrained_default": "True",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "940 Hashtagged Public Content"
+    },
+    "resnext101_32x4d_swsl": {
+        "model_hub": "pytorch_hub",
+        "repo": "facebookresearch/semi-supervised-ImageNet1K-models",
+        "pretrained_default": "True",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "940 Hashtagged Public Content"
+    },
+    "resnext101_32x8d_swsl": {
+        "model_hub": "pytorch_hub",
+        "repo": "facebookresearch/semi-supervised-ImageNet1K-models",
+        "pretrained_default": "True",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "940 Hashtagged Public Content"
+    },
+    "resnext101_32x16d_swsl": {
+        "model_hub": "pytorch_hub",
+        "repo": "facebookresearch/semi-supervised-ImageNet1K-models",
+        "pretrained_default": "True",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "940 Hashtagged Public Content"
+    },
+    "resnet18_ssl": {
+        "model_hub": "pytorch_hub",
+        "repo": "facebookresearch/semi-supervised-ImageNet1K-models",
+        "pretrained_default": "True",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "YFCC100M"
+    },
+    "resnet50_ssl": {
+        "model_hub": "pytorch_hub",
+        "repo": "facebookresearch/semi-supervised-ImageNet1K-models",
+        "pretrained_default": "True",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "YFCC100M"
+    },
+    "resnext50_32x4d_ssl": {
+        "model_hub": "pytorch_hub",
+        "repo": "facebookresearch/semi-supervised-ImageNet1K-models",
+        "pretrained_default": "True",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "YFCC100M"
+    },
+    "resnext101_32x4d_ssl": {
+        "model_hub": "pytorch_hub",
+        "repo": "facebookresearch/semi-supervised-ImageNet1K-models",
+        "pretrained_default": "True",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "YFCC100M"
+    },
+    "resnext101_32x8d_ssl": {
+        "model_hub": "pytorch_hub",
+        "repo": "facebookresearch/semi-supervised-ImageNet1K-models",
+        "pretrained_default": "True",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "YFCC100M"
+    },
+    "resnext101_32x16d_ssl": {
+        "model_hub": "pytorch_hub",
+        "repo": "facebookresearch/semi-supervised-ImageNet1K-models",
+        "pretrained_default": "True",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "YFCC100M"
+    },
+    "proxyless_cpu": {
+        "model_hub": "pytorch_hub",
+        "repo": "mit-han-lab/ProxylessNAS",
+        "pretrained_default": "False",
+        "classification_layer": ["classifier"],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V1"
+    }
+}

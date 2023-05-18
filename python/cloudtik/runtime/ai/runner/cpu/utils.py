@@ -80,13 +80,13 @@ class CPUinfo:
             # CloudTik: patch end
             self.node_logical_cores.append(cur_node_logical_core)
 
-    def node_nums(self):
+    def sockets(self):
         return self.nodes
 
-    def physical_core_nums(self):
+    def physical_cores(self):
         return len(self.node_physical_cores) * len(self.node_physical_cores[0])
 
-    def logical_core_nums(self):
+    def logical_cores(self):
         return len(self.node_logical_cores) * len(self.node_logical_cores[0])
 
     def get_node_physical_cores(self, node_id):

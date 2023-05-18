@@ -1,0 +1,362 @@
+{
+    "resnet18": {
+        "model_hub": "torchvision",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V1"
+    },
+    "resnet34": {
+        "model_hub": "torchvision",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V1"
+    },
+    "resnet50": {
+        "model_hub": "torchvision",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V2"
+    },
+    "resnet101": {
+        "model_hub": "torchvision",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V2"
+    },
+    "resnet152": {
+        "model_hub": "torchvision",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V2"
+    },
+    "efficientnet_b0": {
+        "model_hub": "torchvision",
+        "classification_layer": ["classifier", 1],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V1"
+    },
+    "efficientnet_b1": {
+        "model_hub": "torchvision",
+        "classification_layer": ["classifier", 1],
+        "image_size": 240,
+        "original_dataset": "IMAGENET1K_V2"
+    },
+    "efficientnet_b2": {
+        "model_hub": "torchvision",
+        "classification_layer": ["classifier", 1],
+        "image_size": 288,
+        "original_dataset": "IMAGENET1K_V1"
+    },
+    "efficientnet_b3": {
+        "model_hub": "torchvision",
+        "classification_layer": ["classifier", 1],
+        "image_size": 300,
+        "original_dataset": "IMAGENET1K_V1"
+    },
+    "efficientnet_b4": {
+        "model_hub": "torchvision",
+        "classification_layer": ["classifier", 1],
+        "image_size": 380,
+        "original_dataset": "IMAGENET1K_V1"
+    },
+    "efficientnet_b5": {
+        "model_hub": "torchvision",
+        "classification_layer": ["classifier", 1],
+        "image_size": 456,
+        "original_dataset": "IMAGENET1K_V1"
+    },
+    "efficientnet_b6": {
+        "model_hub": "torchvision",
+        "classification_layer": ["classifier", 1],
+        "image_size": 528,
+        "original_dataset": "IMAGENET1K_V1"
+    },
+    "efficientnet_b7": {
+        "model_hub": "torchvision",
+        "classification_layer": ["classifier", 1],
+        "image_size": 600,
+        "original_dataset": "IMAGENET1K_V1"
+    },
+    "densenet121": {
+        "model_hub": "torchvision",
+        "classification_layer": ["classifier"],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V1"
+    },
+    "densenet161": {
+        "model_hub": "torchvision",
+        "classification_layer": ["classifier"],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V1"
+    },
+    "densenet169": {
+        "model_hub": "torchvision",
+        "classification_layer": ["classifier"],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V1"
+    },
+    "densenet201": {
+        "model_hub": "torchvision",
+        "classification_layer": ["classifier"],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V1"
+    },
+    "googlenet": {
+        "model_hub": "torchvision",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V1"
+    },
+    "shufflenet_v2_x0_5": {
+        "model_hub": "torchvision",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V1"
+    },
+    "shufflenet_v2_x1_0": {
+        "model_hub": "torchvision",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V1"
+    },
+    "mobilenet_v2": {
+        "model_hub": "torchvision",
+        "classification_layer": ["classifier", 1],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V2"
+    },
+    "mobilenet_v3_small": {
+        "model_hub": "torchvision",
+        "classification_layer": ["classifier", 3],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V2"
+    },
+    "mobilenet_v3_large": {
+        "model_hub": "torchvision",
+        "classification_layer": ["classifier", 3],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V2"
+    },
+    "alexnet": {
+        "model_hub": "torchvision",
+        "classification_layer": ["classifier", 6],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V2"
+    },
+    "convnext_tiny": {
+        "model_hub": "torchvision",
+        "classification_layer": ["classifier", 2],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V2"
+    },
+    "convnext_base": {
+        "model_hub": "torchvision",
+        "classification_layer": ["classifier", 2],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V2"
+    },
+    "convnext_small": {
+        "model_hub": "torchvision",
+        "classification_layer": ["classifier", 2],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V2"
+    },
+    "convnext_large": {
+        "model_hub": "torchvision",
+        "classification_layer": ["classifier", 2],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V2"
+    },
+    "mnasnet0_5": {
+        "model_hub": "torchvision",
+        "classification_layer": ["classifier", 1],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V2"
+    },
+    "mnasnet1_0": {
+        "model_hub": "torchvision",
+        "classification_layer": ["classifier", 1],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V2"
+    },
+    "resnext50_32x4d": {
+        "model_hub": "torchvision",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V2"
+    },
+    "resnext101_32x8d": {
+        "model_hub": "torchvision",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V2"
+    },
+    "regnet_y_400mf": {
+        "model_hub": "torchvision",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V2"   
+    },
+    "regnet_y_800mf": {
+        "model_hub": "torchvision",
+        "classification_layer": ["fc"],
+        "image_size": 232,
+        "original_dataset": "IMAGENET1K_V2"   
+    },
+    "regnet_y_1_6gf": {
+        "model_hub": "torchvision",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V2"   
+    },
+    "regnet_y_3_2gf": {
+        "model_hub": "torchvision",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V2"   
+    },
+    "regnet_y_8gf": {
+        "model_hub": "torchvision",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V2"   
+    },
+    "regnet_y_16gf": {
+        "model_hub": "torchvision",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V2"   
+    },
+    "regnet_y_32gf": {
+        "model_hub": "torchvision",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V2"   
+    },
+    "regnet_x_400mf": {
+        "model_hub": "torchvision",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V2"   
+    },
+    "regnet_x_800mf": {
+        "model_hub": "torchvision",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V2"   
+    },
+    "regnet_x_1_6gf": {
+        "model_hub": "torchvision",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V2"   
+    },
+    "regnet_x_3_2gf": {
+        "model_hub": "torchvision",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V2"   
+    },
+    "regnet_x_8gf": {
+        "model_hub": "torchvision",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V2"   
+    },
+    "regnet_x_16gf": {
+        "model_hub": "torchvision",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V2"   
+    },
+    "regnet_x_32gf": {
+        "model_hub": "torchvision",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V2"   
+    },
+    "vgg11": {
+        "model_hub": "torchvision",
+        "classification_layer": ["classifier", 6],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V2"   
+    },
+    "vgg11_bn": {
+        "model_hub": "torchvision",
+        "classification_layer": ["classifier", 6],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V2"   
+    },
+    "vgg13": {
+        "model_hub": "torchvision",
+        "classification_layer": ["classifier", 6],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V2"   
+    },
+    "vgg13_bn": {
+        "model_hub": "torchvision",
+        "classification_layer": ["classifier", 6],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V2"   
+    },
+    "vgg16": {
+        "model_hub": "torchvision",
+        "classification_layer": ["classifier", 6],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V2"   
+    },
+    "vgg16_bn": {
+        "model_hub": "torchvision",
+        "classification_layer": ["classifier", 6],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V2"   
+    },
+    "vgg19": {
+        "model_hub": "torchvision",
+        "classification_layer": ["classifier", 6],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V2"   
+    },
+    "vgg19_bn": {
+        "model_hub": "torchvision",
+        "classification_layer": ["classifier", 6],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V2"   
+    },
+    "wide_resnet50_2": {
+        "model_hub": "torchvision",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V2"   
+    },
+    "wide_resnet101_2": {
+        "model_hub": "torchvision",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V2"   
+    },
+    "vit_b_16": {
+    	"model_hub": "torchvision",
+	"classification_layer": ["heads"],
+	"image_size": 224,
+	"original_dataset": "IMAGENET1K_V1"
+    },
+    "vit_b_32": {
+	"model_hub": "torchvision",
+	"classification_layer": ["heads"],
+	"image_size": 224,
+	"original_dataset": "IMAGENET1K_V1"
+    },
+    "vit_l_16": {
+	"model_hub": "torchvision",
+	"classification_layer": ["heads"],
+	"image_size": 224,
+	"original_dataset": "IMAGENET1K_V1"
+    },
+    "vit_l_32": {
+	"model_hub": "torchvision",
+	"classification_layer": ["heads"],
+	"image_size": 224,
+	"original_dataset": "IMAGENET1K_V1"
+    }	    
+}

@@ -107,7 +107,7 @@ class MultiInstanceLauncher(CPULauncher):
             if args.throughput_mode:
                 logger.warning('--throughput_mode is exclusive to --ninstances, --ncore_per_instance, --node_id '
                                'and --use_logical_core. They won\'t take effect even if they are set explicitly.')
-                args.ninstances = self.cpuinfo.node_nums()
+                args.ninstances = self.cpuinfo.sockets()
                 cores = self.cpuinfo.get_all_physical_cores()
                 args.ncore_per_instance = len(cores) // args.ninstances
 

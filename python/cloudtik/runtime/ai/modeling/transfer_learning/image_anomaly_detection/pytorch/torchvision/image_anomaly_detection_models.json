@@ -1,0 +1,32 @@
+{
+    "resnet18": {
+        "model_hub": "torchvision",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V1"
+    },
+    "resnet34": {
+        "model_hub": "torchvision",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V1"
+    },
+    "resnet50": {
+        "model_hub": "torchvision",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V2"
+    },
+    "resnet101": {
+        "model_hub": "torchvision",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V2"
+    },
+    "resnet152": {
+        "model_hub": "torchvision",
+        "classification_layer": ["fc"],
+        "image_size": 224,
+        "original_dataset": "IMAGENET1K_V2"
+    }
+}

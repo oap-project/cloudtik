@@ -1,0 +1,16 @@
+model:
+  name:
+  framework:
+
+device: cpu
+
+quantization:
+  approach: post_training_dynamic_quant
+
+tuning:
+  accuracy_criterion:
+    relative: 0.01
+  exit_policy:
+    timeout: 0
+    max_trials: 300
+  random_seed: 9527

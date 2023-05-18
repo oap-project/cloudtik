@@ -68,12 +68,12 @@ class OptimizedTrainingLauncher(DefaultTrainingLauncher):
             cpuinfo = CPUinfo(host_ip=args.master_addr)
 
         node_cores = cpuinfo.node_physical_cores
-        total_cores_per_node = cpuinfo.physical_core_nums()
+        total_cores_per_node = cpuinfo.physical_cores()
         if args.use_logical_core:
             node_cores = cpuinfo.node_logical_cores
-            total_cores_per_node = cpuinfo.logical_core_nums()
+            total_cores_per_node = cpuinfo.logical_cores()
         if not args.nproc_per_node:
-            args.nproc_per_node = cpuinfo.node_nums()
+            args.nproc_per_node = cpuinfo.sockets()
 
         flatten_node_cores = []
         for node_numa_cores in node_cores:

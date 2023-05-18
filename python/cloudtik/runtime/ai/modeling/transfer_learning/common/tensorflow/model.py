@@ -31,6 +31,7 @@ import tensorflow as tf
 from cloudtik.runtime.ai.modeling.transfer_learning.model import PretrainedModel
 from cloudtik.runtime.ai.modeling.transfer_learning.common.utils import \
     verify_directory, validate_model_name
+from cloudtik.runtime.ai.runner.cpu.platform_utils import PlatformUtil
 
 
 class TensorflowModel(PretrainedModel):
@@ -123,7 +124,7 @@ class TensorflowModel(PretrainedModel):
         auto_mixed_precision_supported = (tf_major_version == 2 and tf_minor_version >= 9) or tf_major_version > 2
 
         if enable_auto_mixed_precision is None:
-            # Determine whether or not to enable this based on the CPU type
+            # Determine whether to enable this based on the CPU type
             try:
                 # Only enable auto mixed precision for SPR
                 enable_auto_mixed_precision = PlatformUtil(args=None).cpu_type == 'SPR'

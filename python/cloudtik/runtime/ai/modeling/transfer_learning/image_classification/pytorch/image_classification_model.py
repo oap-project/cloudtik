@@ -103,10 +103,6 @@ class PyTorchImageClassificationModel(ImageClassificationModel, PyTorchModel):
         """
         return self._num_classes
 
-    @property
-    def framework(self):
-        return "pytorch"
-
     def _fit(self, output_dir, dataset, epochs, do_eval, early_stopping, lr_decay):
         """Main PyTorch training loop"""
         since = time.time()

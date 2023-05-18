@@ -44,6 +44,10 @@ class TensorflowModel(PretrainedModel):
         os.environ["TF_ENABLE_ONEDNN_OPTS"] = "1"
         self._history = {}
 
+    @property
+    def framework(self):
+        return "tensorflow"
+
     def _set_seed(self, seed):
         if seed is not None:
             os.environ['PYTHONHASHSEED'] = str(seed)
@@ -171,33 +175,40 @@ class TensorflowModel(PretrainedModel):
             raise ValueError("Unable to export the model, because it hasn't been loaded or trained yet")
 
     def export_for_distributed(self, train_data, val_data):
+        # TODO: handle distributed training
+        distributed_data_dir = ""
+
         # Save the model
         tf.keras.models.save_model(
             model=self._model,
-            filepath=TLT_DISTRIBUTED_DIR,
+            filepath=distributed_data_dir,
             overwrite=True,
             include_optimizer=False
         )
 
         # Save the optimizer object
-        tf.train.Checkpoint(optimizer=self._optimizer).save(os.path.join(TLT_DISTRIBUTED_DIR, 'saved_optimizer'))
+        tf.train.Checkpoint(optimizer=self._optimizer).save(
+            os.path.join(distributed_data_dir, 'saved_optimizer'))
 
         # Save the loss class name and its args
-        with open(os.path.join(TLT_DISTRIBUTED_DIR, 'saved_loss'), 'wb') as f:
+        with open(os.path.join(distributed_data_dir, 'saved_loss'), 'wb') as f:
             dill.dump((self._loss_class, self._loss_args), f)
 
         # Save the dataset(s)
-        train_data.save(os.path.join(TLT_DISTRIBUTED_DIR, 'train_data'))
+        train_data.save(os.path.join(distributed_data_dir, 'train_data'))
         print(type(train_data))
         if val_data:
-            val_data.save(os.path.join(TLT_DISTRIBUTED_DIR, 'val_data'))
+            val_data.save(os.path.join(distributed_data_dir, 'val_data'))
 
     def cleanup_saved_objects_for_distributed(self):
+        # TODO: handle distributed training
+        distributed_data_dir = ""
+
         dirs = ['train_data', 'val_data', 'variables', 'assets', 'model_checkpoints']
         files = ['checkpoint', 'keras_metadata.pb']
 
-        for f in os.listdir(TLT_DISTRIBUTED_DIR):
-            full_path = os.path.join(TLT_DISTRIBUTED_DIR, f)
+        for f in os.listdir(distributed_data_dir):
+            full_path = os.path.join(distributed_data_dir, f)
             if os.path.isdir(full_path) and f in dirs:
                 try:
                     shutil.rmtree(full_path)

@@ -75,7 +75,7 @@ class ImageClassificationModel(PretrainedModel):
         """
         Returns a dictionary for a config template compatible with the Intel Neural Compressor.
 
-        It loads the yaml file tlt/models/configs/inc/image_classification_template.yaml and then fills in parameters
+        It loads the yaml file image_classification_template.yaml and then fills in parameters
         that the model knows about (like framework and model name). There are still more parameters that need to be
         filled in before using the config with INC (like the dataset information, image size, etc).
         """

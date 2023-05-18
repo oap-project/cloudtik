@@ -47,6 +47,10 @@ class PyTorchModel(PretrainedModel):
             sys.stdout.write(warnings.formatwarning(message, category, filename, lineno))
         warnings.showwarning = customwarn
 
+    @property
+    def framework(self):
+        return "pytorch"
+
     def _set_seed(self, seed):
         if seed is not None:
             os.environ['PYTHONHASHSEED'] = str(seed)

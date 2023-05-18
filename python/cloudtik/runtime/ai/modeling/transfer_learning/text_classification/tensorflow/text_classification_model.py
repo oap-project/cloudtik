@@ -24,19 +24,20 @@ import yaml
 
 import tensorflow as tf
 
-from cloudtik.runtime.ai.modeling.transfer_learning.text_classification.tensorflow.user_text_classification_dataset \
-    import UserTextClassificationDataset
+from cloudtik.runtime.ai.modeling.transfer_learning.text_classification.tensorflow.text_classification_dataset \
+    import TensorflowTextClassificationDataset
 from cloudtik.runtime.ai.modeling.transfer_learning.text_classification.text_classification_dataset \
     import TextClassificationDataset
 from cloudtik.runtime.ai.modeling.transfer_learning.text_classification.text_classification_model \
     import TextClassificationModel
 from cloudtik.runtime.ai.modeling.transfer_learning.common.tensorflow.model import TensorflowModel
+from cloudtik.runtime.ai.modeling.transfer_learning.common.utils \
+    import validate_model_name, verify_directory
+
 
 # Note that tensorflow_text isn't used directly but the import is required to register ops used by the
 # BERT text preprocessor
 import tensorflow_text  # noqa: F401
-
-from ...common.utils import validate_model_name, verify_directory
 
 
 class TensorflowTextClassificationModel(TextClassificationModel, TensorflowModel):
@@ -391,8 +392,8 @@ class TensorflowTextClassificationModel(TextClassificationModel, TensorflowModel
 
         # They don't have a Tensorflow Dataset option, so for now, we only support custom datasets for quantization
 
-        if not isinstance(dataset, UserTextClassificationDataset) or \
-                dataset.__class__ is not UserTextClassificationDataset:
+        if not isinstance(dataset, TensorflowTextClassificationDataset) or \
+                dataset.__class__ is not TensorflowTextClassificationDataset:
             raise NotImplementedError('quantization has only been implemented for tensorflow text classification '
                                       'models with custom datasets')
 

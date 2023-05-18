@@ -137,7 +137,7 @@ class HuggingFaceTextClassificationModel(TextClassificationModel, HuggingFaceMod
         validation_data_loader = None
 
         if isinstance(dataset, HuggingFaceTextClassificationDataset) or \
-                isinstance(dataset, UserTextClassificationDataset):
+                isinstance(dataset, PyTorchTextClassificationDataset):
             if not dataset._preprocessed:
                 raise ValueError("dataset is not preprocessed yet")
             self._tokenizer = dataset._tokenizer
@@ -515,7 +515,7 @@ class HuggingFaceTextClassificationModel(TextClassificationModel, HuggingFaceMod
                 dataloader = dataset_or_dataloader
                 validation_data_length = len(dataloader) * dataloader.batch_size
             elif isinstance(dataset_or_dataloader, HuggingFaceTextClassificationDataset) or \
-                    isinstance(dataset_or_dataloader, UserTextClassificationDataset):
+                    isinstance(dataset_or_dataloader, PyTorchTextClassificationDataset):
                 dataloader = dataset_or_dataloader.validation_loader
                 validation_data_length = len(dataset_or_dataloader)
             else:
@@ -586,7 +586,7 @@ class HuggingFaceTextClassificationModel(TextClassificationModel, HuggingFaceMod
             encoded_input = {k: v for k, v in input_samples.items() if k in required_keys}
         # If 'input_samples' is of type HuggingFaceTextClassificationDataset
         elif isinstance(input_samples, HuggingFaceTextClassificationDataset) or\
-                isinstance(input_samples, UserTextClassificationDataset):
+                isinstance(input_samples, PyTorchTextClassificationDataset):
             if input_samples._preprocessed:
                 encoded_input = {
                     'input_ids': input_samples['input_ids'],
@@ -691,8 +691,8 @@ class HuggingFaceTextClassificationModel(TextClassificationModel, HuggingFaceMod
 
         # They don't have a PyTorch Dataset option, so for now, we only support custom datasets for quantization
 
-        if not isinstance(dataset, UserTextClassificationDataset) or \
-                dataset.__class__ is not UserTextClassificationDataset:
+        if not isinstance(dataset, PyTorchTextClassificationDataset) or \
+                dataset.__class__ is not PyTorchTextClassificationDataset:
             raise NotImplementedError('quantization has only been implemented for huggingface text classification '
                                       'models with custom datasets')
 

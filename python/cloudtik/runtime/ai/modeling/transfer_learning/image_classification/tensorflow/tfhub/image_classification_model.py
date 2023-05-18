@@ -23,13 +23,14 @@ import numpy as np
 
 import tensorflow as tf
 
-from ...image_classification_dataset import ImageClassificationDataset
+from cloudtik.runtime.ai.modeling.transfer_learning.image_classification.image_classification_dataset \
+    import ImageClassificationDataset
 from cloudtik.runtime.ai.modeling.transfer_learning.common.downloader.models \
     import ModelDownloader
 from cloudtik.runtime.ai.modeling.transfer_learning.common.utils \
     import read_json_file
-from ..image_classification_model import \
-    TensorflowImageClassificationModel
+from cloudtik.runtime.ai.modeling.transfer_learning.image_classification.tensorflow.image_classification_model \
+    import TensorflowImageClassificationModel
 
 
 class TFHubImageClassificationModel(TensorflowImageClassificationModel):

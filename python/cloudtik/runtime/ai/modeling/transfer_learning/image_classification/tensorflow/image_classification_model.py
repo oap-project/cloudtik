@@ -26,8 +26,8 @@ import yaml
 
 import tensorflow as tf
 
-from cloudtik.runtime.ai.modeling.transfer_learning.image_classification.tensorflow.user_image_classification_dataset \
-    import UserImageClassificationDataset
+from cloudtik.runtime.ai.modeling.transfer_learning.image_classification.tensorflow.image_classification_dataset \
+    import TensorflowImageClassificationDataset
 from cloudtik.runtime.ai.modeling.transfer_learning.image_classification.image_classification_dataset \
     import ImageClassificationDataset
 from cloudtik.runtime.ai.modeling.transfer_learning.image_classification.image_classification_model \
@@ -370,7 +370,7 @@ class TensorflowImageClassificationModel(ImageClassificationModel, TensorflowMod
 
         # We can setup the a custom dataset to use the ImageFolder dataset option in INC. They don't have a TFDS option,
         # so for now, we only support custom datasets for quantization
-        if dataset is not UserImageClassificationDataset and type(dataset) != UserImageClassificationDataset:
+        if dataset is not TensorflowImageClassificationDataset and type(dataset) != TensorflowImageClassificationDataset:
             raise NotImplementedError('Quantization has only been implemented for TF image classification models '
                                       'with custom datasets')
 

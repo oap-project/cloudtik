@@ -45,8 +45,8 @@ from datasets.arrow_dataset import Dataset
 
 from cloudtik.runtime.ai.modeling.transfer_learning.text_classification.pytorch.hugging_face.text_classification_dataset \
     import HuggingFaceTextClassificationDataset
-from cloudtik.runtime.ai.modeling.transfer_learning.text_classification.pytorch.hugging_face.user_text_classification_dataset \
-    import UserTextClassificationDataset
+from cloudtik.runtime.ai.modeling.transfer_learning.text_classification.pytorch.text_classification_dataset \
+    import PyTorchTextClassificationDataset
 from cloudtik.runtime.ai.modeling.transfer_learning.text_classification.text_classification_dataset \
     import TextClassificationDataset
 from cloudtik.runtime.ai.modeling.transfer_learning.text_classification.text_classification_model \

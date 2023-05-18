@@ -1,6 +1,6 @@
 {
     "bert_en_wwm_uncased_L-24_H-1024_A-16": {
-        "model_hub": "TFHub",
+        "model_hub": "tfhub",
         "preprocessor": "https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3",
         "encoder": "https://tfhub.dev/tensorflow/bert_en_wwm_uncased_L-24_H-1024_A-16/4",
         "hidden_size": 1024,
@@ -10,7 +10,7 @@
         "original_dataset": "Wikipedia and BooksCorpus (English)"
     },
     "bert_en_uncased_L-12_H-768_A-12": {
-        "model_hub": "TFHub",
+        "model_hub": "tfhub",
         "preprocessor": "https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3",
         "encoder": "https://tfhub.dev/tensorflow/bert_en_uncased_L-12_H-768_A-12/3",
         "hidden_size": 768,
@@ -20,7 +20,7 @@
         "original_dataset": "Wikipedia and BooksCorpus (English)"
     },
     "small_bert/bert_en_uncased_L-2_H-128_A-2": {
-        "model_hub": "TFHub",
+        "model_hub": "tfhub",
         "preprocessor": "https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3",
         "encoder": "https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-2_H-128_A-2/1",
         "hidden_size": 128,
@@ -30,7 +30,7 @@
         "original_dataset": "Wikipedia and BooksCorpus (English)"
     },
     "small_bert/bert_en_uncased_L-2_H-256_A-4": {
-        "model_hub": "TFHub",
+        "model_hub": "tfhub",
         "preprocessor": "https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3",
         "encoder": "https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-2_H-256_A-4/2",
         "hidden_size": 256,
@@ -40,7 +40,7 @@
         "original_dataset": "Wikipedia and BooksCorpus (English)"
     },
     "small_bert/bert_en_uncased_L-2_H-512_A-8": {
-        "model_hub": "TFHub",
+        "model_hub": "tfhub",
         "preprocessor": "https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3",
         "encoder": "https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-2_H-512_A-8/2",
         "hidden_size": 512,
@@ -50,7 +50,7 @@
         "original_dataset": "Wikipedia and BooksCorpus (English)"
     },
     "small_bert/bert_en_uncased_L-2_H-768_A-12": {
-        "model_hub": "TFHub",
+        "model_hub": "tfhub",
         "preprocessor": "https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3",
         "encoder": "https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-2_H-768_A-12/2",
         "hidden_size": 768,
@@ -60,7 +60,7 @@
         "original_dataset": "Wikipedia and BooksCorpus (English)"
     },
     "small_bert/bert_en_uncased_L-4_H-128_A-2": {
-        "model_hub": "TFHub",
+        "model_hub": "tfhub",
         "preprocessor": "https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3",
         "encoder": "https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-4_H-128_A-2/2",
         "hidden_size": 128,
@@ -70,7 +70,7 @@
         "original_dataset": "Wikipedia and BooksCorpus (English)"
     },
     "small_bert/bert_en_uncased_L-4_H-256_A-4": {
-        "model_hub": "TFHub",
+        "model_hub": "tfhub",
         "preprocessor": "https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3",
         "encoder": "https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-4_H-256_A-4/2",
         "hidden_size": 256,
@@ -80,7 +80,7 @@
         "original_dataset": "Wikipedia and BooksCorpus (English)"
     },
     "small_bert/bert_en_uncased_L-4_H-512_A-8": {
-        "model_hub": "TFHub",
+        "model_hub": "tfhub",
         "preprocessor": "https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3",
         "encoder": "https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-4_H-512_A-8/2",
         "hidden_size": 512,
@@ -90,7 +90,7 @@
         "original_dataset": "Wikipedia and BooksCorpus (English)"
     },
     "small_bert/bert_en_uncased_L-4_H-768_A-12": {
-        "model_hub": "TFHub",
+        "model_hub": "tfhub",
         "preprocessor": "https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3",
         "encoder": "https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-4_H-768_A-12/2",
         "hidden_size": 768,
@@ -100,7 +100,7 @@
         "original_dataset": "Wikipedia and BooksCorpus (English)"
     },
     "small_bert/bert_en_uncased_L-6_H-128_A-2": {
-        "model_hub": "TFHub",
+        "model_hub": "tfhub",
         "preprocessor": "https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3",
         "encoder": "https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-6_H-128_A-2/2",
         "hidden_size": 128,
@@ -110,7 +110,7 @@
         "original_dataset": "Wikipedia and BooksCorpus (English)"
     },
     "small_bert/bert_en_uncased_L-6_H-256_A-4": {
-        "model_hub": "TFHub",
+        "model_hub": "tfhub",
         "preprocessor": "https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3",
         "encoder": "https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-6_H-256_A-4/2",
         "hidden_size": 256,
@@ -120,7 +120,7 @@
         "original_dataset": "Wikipedia and BooksCorpus (English)"
     },
     "small_bert/bert_en_uncased_L-6_H-512_A-8": {
-        "model_hub": "TFHub",
+        "model_hub": "tfhub",
         "preprocessor": "https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3",
         "encoder": "https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-6_H-512_A-8/2",
         "hidden_size": 512,
@@ -130,7 +130,7 @@
         "original_dataset": "Wikipedia and BooksCorpus (English)"
     },
     "small_bert/bert_en_uncased_L-6_H-768_A-12": {
-        "model_hub": "TFHub",
+        "model_hub": "tfhub",
         "preprocessor": "https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3",
         "encoder": "https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-6_H-768_A-12/2",
         "hidden_size": 768,
@@ -140,7 +140,7 @@
         "original_dataset": "Wikipedia and BooksCorpus (English)"
     },
     "small_bert/bert_en_uncased_L-8_H-128_A-2": {
-        "model_hub": "TFHub",
+        "model_hub": "tfhub",
         "preprocessor": "https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3",
         "encoder": "https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-8_H-128_A-2/2",
         "hidden_size": 128,
@@ -150,7 +150,7 @@
         "original_dataset": "Wikipedia and BooksCorpus (English)"
     },
     "small_bert/bert_en_uncased_L-8_H-256_A-4": {
-        "model_hub": "TFHub",
+        "model_hub": "tfhub",
         "preprocessor": "https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3",
         "encoder": "https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-8_H-256_A-4/2",
         "hidden_size": 256,
@@ -160,7 +160,7 @@
         "original_dataset": "Wikipedia and BooksCorpus (English)"
     },
     "small_bert/bert_en_uncased_L-8_H-512_A-8": {
-        "model_hub": "TFHub",
+        "model_hub": "tfhub",
         "preprocessor": "https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3",
         "encoder": "https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-8_H-512_A-8/2",
         "hidden_size": 512,
@@ -170,7 +170,7 @@
         "original_dataset": "Wikipedia and BooksCorpus (English)"
     },
     "small_bert/bert_en_uncased_L-8_H-768_A-12": {
-        "model_hub": "TFHub",
+        "model_hub": "tfhub",
         "preprocessor": "https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3",
         "encoder": "https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-8_H-768_A-12/2",
         "hidden_size": 768,
@@ -180,7 +180,7 @@
         "original_dataset": "Wikipedia and BooksCorpus (English)"
     },
     "small_bert/bert_en_uncased_L-10_H-128_A-2": {
-        "model_hub": "TFHub",
+        "model_hub": "tfhub",
         "preprocessor": "https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3",
         "encoder": "https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-10_H-128_A-2/2",
         "hidden_size": 128,
@@ -190,7 +190,7 @@
         "original_dataset": "Wikipedia and BooksCorpus (English)"
     },
     "small_bert/bert_en_uncased_L-10_H-256_A-4": {
-        "model_hub": "TFHub",
+        "model_hub": "tfhub",
         "preprocessor": "https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3",
         "encoder": "https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-10_H-256_A-4/2",
         "hidden_size": 256,
@@ -200,7 +200,7 @@
         "original_dataset": "Wikipedia and BooksCorpus (English)"
     },
     "small_bert/bert_en_uncased_L-10_H-512_A-8": {
-        "model_hub": "TFHub",
+        "model_hub": "tfhub",
         "preprocessor": "https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3",
         "encoder": "https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-10_H-512_A-8/2",
         "hidden_size": 512,
@@ -210,7 +210,7 @@
         "original_dataset": "Wikipedia and BooksCorpus (English)"
     },
     "small_bert/bert_en_uncased_L-10_H-768_A-12": {
-        "model_hub": "TFHub",
+        "model_hub": "tfhub",
         "preprocessor": "https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3",
         "encoder": "https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-10_H-768_A-12/2",
         "hidden_size": 768,
@@ -220,7 +220,7 @@
         "original_dataset": "Wikipedia and BooksCorpus (English)"
     },
     "small_bert/bert_en_uncased_L-12_H-128_A-2": {
-        "model_hub": "TFHub",
+        "model_hub": "tfhub",
         "preprocessor": "https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3",
         "encoder": "https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-12_H-128_A-2/2",
         "hidden_size": 128,
@@ -230,7 +230,7 @@
         "original_dataset": "Wikipedia and BooksCorpus (English)"
     },
     "small_bert/bert_en_uncased_L-12_H-256_A-4": {
-        "model_hub": "TFHub",
+        "model_hub": "tfhub",
         "preprocessor": "https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3",
         "encoder": "https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-12_H-256_A-4/2",
         "hidden_size": 256,
@@ -240,7 +240,7 @@
         "original_dataset": "Wikipedia and BooksCorpus (English)"
     },
     "small_bert/bert_en_uncased_L-12_H-512_A-8": {
-        "model_hub": "TFHub",
+        "model_hub": "tfhub",
         "preprocessor": "https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3",
         "encoder": "https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-12_H-512_A-8/2",
         "hidden_size": 512,
@@ -250,7 +250,7 @@
         "original_dataset": "Wikipedia and BooksCorpus (English)"
     },
     "small_bert/bert_en_uncased_L-12_H-768_A-12": {
-        "model_hub": "TFHub",
+        "model_hub": "tfhub",
         "preprocessor": "https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3",
         "encoder": "https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-12_H-768_A-12/2",
         "hidden_size": 768,

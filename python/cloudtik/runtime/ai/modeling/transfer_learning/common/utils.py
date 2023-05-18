@@ -143,3 +143,16 @@ def validate_model_name(model_name):
         model_name = " ".join(model_name.split())
         model_name = re.sub('[^a-zA-Z\d_-]', '_', model_name)  # noqa: W605
         return model_name
+
+
+def get_framework_name(framework):
+    if "pytorch" == framework:
+        return "PyTorch"
+    elif "tensorflow" == framework:
+        return "Tensorflow"
+    raise ValueError("Unknown framework type.")
+
+
+def get_category_name(category):
+    parts = category.split('_')
+    return ''.join(part.title() for part in parts)

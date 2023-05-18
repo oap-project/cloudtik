@@ -5,11 +5,11 @@ import pandas as pd
 from datasets.arrow_dataset import Dataset
 
 from cloudtik.runtime.ai.modeling.transfer_learning.common.pytorch.hugging_face.dataset import HuggingFaceDataset
-from ....text_classification.text_classification_dataset import \
-    TextClassificationDataset
+from cloudtik.runtime.ai.modeling.transfer_learning.text_classification.text_classification_dataset \
+    import TextClassificationDataset
 
 
-class UserTextClassificationDataset(TextClassificationDataset, HuggingFaceDataset):
+class PyTorchTextClassificationDataset(TextClassificationDataset, HuggingFaceDataset):
     """
     A user custom text classification dataset that can be used with Transformer models.
     """

@@ -53,150 +53,6 @@ KNOWN_CPU_TYPES = [
 ]
 
 
-class CPUInfo:
-    """CPU information class."""
-
-    def __init__(self):
-        """Initialize CPU information class."""
-        self._binding_data = CPUInfo._sort_membind_info(self._get_core_membind_info())
-
-    @staticmethod
-    def _get_core_membind_info():
-        """
-        Return sorted information about cores and memory binding.
-        E.g.
-        CPU ID, Socket ID, Node ID, HT CPU ID,
-        0  ,     0    ,    0   ,     0
-        1  ,     0    ,    0   ,     1
-        :return: list with cpu, sockets, ht core and memory binding information
-        :rtype: List[List[str, Any]]
-        """
-        args = ["lscpu", "--parse=CPU,Core,Socket,Node"]
-        process_lscpu = subprocess.check_output(args, universal_newlines=True).split("\n")
-
-        # Get information about core, node, socket and cpu. On a machine with no NUMA nodes, the last column is empty
-        # so regex also check for empty string on the last column
-        bind_info = []
-        for line in process_lscpu:
-            pattern = r"^([\d]+,[\d]+,[\d]+,([\d]+|$))"
-            regex_out = re.search(pattern, line)
-            if regex_out:
-                bind_info.append(regex_out.group(1).strip().split(","))
-
-        return bind_info
-
-    @staticmethod
-    def _sort_membind_info(membind_bind_info):
-        """
-        Sore membind info data.
-        :param membind_bind_info: raw membind info data
-        :type membind_bind_info: List[List[str]]
-        :return: sorted membind info
-        :rtype: List[List[Dict[str, int]]]
-        """
-        membind_cpu_list = []
-        nodes_count = int(max(element[2] for element in membind_bind_info)) + 1
-        # Sort list by Node id
-        for node_number in range(nodes_count):
-            node_core_list = []
-            core_info = {}
-            for entry in membind_bind_info:
-                cpu_id = int(entry[0])
-                core_id = int(entry[1])
-                node_id = int(entry[2])
-                # On a machine where there is no NUMA nodes, entry[3] could be empty, so set socket_id = -1
-                if entry[3] != "":
-                    socket_id = int(entry[3])
-                else:
-                    socket_id = -1
-
-                # Skip nodes other than current node number
-                if node_number != node_id:
-                    continue
-
-                # Add core info
-                if cpu_id == core_id:
-                    core_info.update({
-                        core_id: {
-                            "cpu_id": cpu_id,
-                            "node_id": node_id,
-                            "socket_id": socket_id,
-                        },
-                    })
-                else:
-                    # Add information about Hyper Threading
-                    core_info[core_id]["ht_cpu_id"] = cpu_id
-
-            # Change dict of dicts to list of dicts
-            for iterator in range(len(core_info)):
-                curr_core_id = len(core_info) * node_number + iterator
-                single_core_info = core_info.get(curr_core_id)
-                if single_core_info:
-                    node_core_list.append(single_core_info)
-
-            membind_cpu_list.append(node_core_list)
-
-        return membind_cpu_list
-
-    @property
-    def sockets(self):
-        """
-        Return count of sockets available on server.
-        :return: available cores
-        :rtype: int
-        """
-        available_sockets = len(self._binding_data)
-        return int(available_sockets)
-
-    @property
-    def cores(self):
-        """
-        Return amount of cores available on server.
-        :return: amount of cores
-        :rtype: int
-        """
-        available_cores = self.cores_per_socket * self.sockets
-        return int(available_cores)  # type: ignore
-
-    @property
-    def cores_per_socket(self):
-        """
-        Return amount of available cores per socket.
-        :return: amount of cores
-        :rtype: int
-        """
-        available_cores_per_socket = len(self._binding_data[0])
-        return available_cores_per_socket
-
-    @property
-    def binding_information(self):
-        """
-        Return information about cores and memory binding.
-        Format:
-        [
-            [ # socket 0
-                { # Core 0
-                    "cpu_id": 0,
-                    "node_id": 0,
-                    "socket_id": 0,
-                    "ht_cpu_id": 56
-                }
-            ],
-            [ # socket 1
-                { # Core 0
-                    "cpu_id": 28,
-                    "node_id": 1,
-                    "socket_id": 1,
-                    "ht_cpu_id": 84
-                }
-            ]
-        ]
-        :return: dict with cpu, sockets, ht core and memory binding information
-        :rtype: List[List[Dict[str, int]]]
-        """
-        return self._binding_data
-
-
 class PlatformUtil:
     """
     This module implements a platform utility that exposes functions that
@@ -488,3 +344,147 @@ class PlatformUtil:
         :rtype: int
         """
         return int(self.num_numa_nodes)  # type: ignore
+
+
+class CPUInfo:
+    """CPU information class."""
+
+    def __init__(self):
+        """Initialize CPU information class."""
+        self._binding_data = CPUInfo._sort_membind_info(self._get_core_membind_info())
+
+    @staticmethod
+    def _get_core_membind_info():
+        """
+        Return sorted information about cores and memory binding.
+        E.g.
+        CPU ID, Socket ID, Node ID, HT CPU ID,
+        0  ,     0    ,    0   ,     0
+        1  ,     0    ,    0   ,     1
+        :return: list with cpu, sockets, ht core and memory binding information
+        :rtype: List[List[str, Any]]
+        """
+        args = ["lscpu", "--parse=CPU,Core,Socket,Node"]
+        process_lscpu = subprocess.check_output(args, universal_newlines=True).split("\n")
+
+        # Get information about core, node, socket and cpu. On a machine with no NUMA nodes, the last column is empty
+        # so regex also check for empty string on the last column
+        bind_info = []
+        for line in process_lscpu:
+            pattern = r"^([\d]+,[\d]+,[\d]+,([\d]+|$))"
+            regex_out = re.search(pattern, line)
+            if regex_out:
+                bind_info.append(regex_out.group(1).strip().split(","))
+
+        return bind_info
+
+    @staticmethod
+    def _sort_membind_info(membind_bind_info):
+        """
+        Sore membind info data.
+        :param membind_bind_info: raw membind info data
+        :type membind_bind_info: List[List[str]]
+        :return: sorted membind info
+        :rtype: List[List[Dict[str, int]]]
+        """
+        membind_cpu_list = []
+        nodes_count = int(max(element[2] for element in membind_bind_info)) + 1
+        # Sort list by Node id
+        for node_number in range(nodes_count):
+            node_core_list = []
+            core_info = {}
+            for entry in membind_bind_info:
+                cpu_id = int(entry[0])
+                core_id = int(entry[1])
+                node_id = int(entry[2])
+                # On a machine where there is no NUMA nodes, entry[3] could be empty, so set socket_id = -1
+                if entry[3] != "":
+                    socket_id = int(entry[3])
+                else:
+                    socket_id = -1
+
+                # Skip nodes other than current node number
+                if node_number != node_id:
+                    continue
+
+                # Add core info
+                if cpu_id == core_id:
+                    core_info.update({
+                        core_id: {
+                            "cpu_id": cpu_id,
+                            "node_id": node_id,
+                            "socket_id": socket_id,
+                        },
+                    })
+                else:
+                    # Add information about Hyper Threading
+                    core_info[core_id]["ht_cpu_id"] = cpu_id
+
+            # Change dict of dicts to list of dicts
+            for iterator in range(len(core_info)):
+                curr_core_id = len(core_info) * node_number + iterator
+                single_core_info = core_info.get(curr_core_id)
+                if single_core_info:
+                    node_core_list.append(single_core_info)
+
+            membind_cpu_list.append(node_core_list)
+
+        return membind_cpu_list
+
+    @property
+    def sockets(self):
+        """
+        Return count of sockets available on server.
+        :return: available cores
+        :rtype: int
+        """
+        available_sockets = len(self._binding_data)
+        return int(available_sockets)
+
+    @property
+    def cores(self):
+        """
+        Return amount of cores available on server.
+        :return: amount of cores
+        :rtype: int
+        """
+        available_cores = self.cores_per_socket * self.sockets
+        return int(available_cores)  # type: ignore
+
+    @property
+    def cores_per_socket(self):
+        """
+        Return amount of available cores per socket.
+        :return: amount of cores
+        :rtype: int
+        """
+        available_cores_per_socket = len(self._binding_data[0])
+        return available_cores_per_socket
+
+    @property
+    def binding_information(self):
+        """
+        Return information about cores and memory binding.
+        Format:
+        [
+            [ # socket 0
+                { # Core 0
+                    "cpu_id": 0,
+                    "node_id": 0,
+                    "socket_id": 0,
+                    "ht_cpu_id": 56
+                }
+            ],
+            [ # socket 1
+                { # Core 0
+                    "cpu_id": 28,
+                    "node_id": 1,
+                    "socket_id": 1,
+                    "ht_cpu_id": 84
+                }
+            ]
+        ]
+        :return: dict with cpu, sockets, ht core and memory binding information
+        :rtype: List[List[Dict[str, int]]]
+        """
+        return self._binding_data

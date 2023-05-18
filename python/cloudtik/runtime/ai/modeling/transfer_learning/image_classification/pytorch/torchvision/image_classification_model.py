@@ -22,11 +22,13 @@ import os
 from tqdm import tqdm
 import torch
 
-from ...image_classification_dataset import ImageClassificationDataset
-from ....common.downloader.models import ModelDownloader
-from ....common.utils import read_json_file
-from ....image_classification.pytorch.image_classification_model import \
-    PyTorchImageClassificationModel
+from cloudtik.runtime.ai.modeling.transfer_learning.image_classification.image_classification_dataset \
+    import ImageClassificationDataset
+from cloudtik.runtime.ai.modeling.transfer_learning.common.downloader.models \
+    import ModelDownloader
+from cloudtik.runtime.ai.modeling.transfer_learning.common.utils import read_json_file
+from cloudtik.runtime.ai.modeling.transfer_learning.image_classification.pytorch.image_classification_model \
+    import PyTorchImageClassificationModel
 
 
 class TorchvisionImageClassificationModel(PyTorchImageClassificationModel):

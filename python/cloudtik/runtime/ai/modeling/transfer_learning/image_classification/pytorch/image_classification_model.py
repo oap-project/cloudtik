@@ -29,14 +29,14 @@ import subprocess
 from tqdm import tqdm
 import torch
 
-from ...common.utils import \
+from cloudtik.runtime.ai.modeling.transfer_learning.common.utils import \
     verify_directory, validate_model_name
-from ...common.pytorch.model import PyTorchModel
-from ...image_classification.image_classification_dataset import \
+from cloudtik.runtime.ai.modeling.transfer_learning.common.pytorch.model import PyTorchModel
+from cloudtik.runtime.ai.modeling.transfer_learning.image_classification.image_classification_dataset import \
     ImageClassificationDataset
-from ...image_classification.image_classification_model import \
+from cloudtik.runtime.ai.modeling.transfer_learning.image_classification.image_classification_model import \
     ImageClassificationModel
-from ...image_classification.pytorch.image_classification_dataset import \
+from cloudtik.runtime.ai.modeling.transfer_learning.image_classification.pytorch.image_classification_dataset import \
     PyTorchImageClassificationDataset
 
 

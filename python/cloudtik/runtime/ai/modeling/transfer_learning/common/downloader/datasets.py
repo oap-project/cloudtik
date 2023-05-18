@@ -23,8 +23,8 @@ from pydoc import locate
 import tarfile
 import zipfile
 
-from .sources import DatasetSource
-from .. import utils
+from cloudtik.runtime.ai.modeling.transfer_learning.common.downloader.sources import DatasetSource
+from cloudtik.runtime.ai.modeling.transfer_learning.common import utils
 
 
 class DataDownloader:

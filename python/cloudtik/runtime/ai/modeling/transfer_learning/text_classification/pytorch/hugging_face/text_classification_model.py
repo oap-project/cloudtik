@@ -43,13 +43,20 @@ from transformers import (
 
 from datasets.arrow_dataset import Dataset
 
-from .text_classification_dataset import HuggingFaceTextClassificationDataset
-from .user_text_classification_dataset import UserTextClassificationDataset
-from ...text_classification_dataset import TextClassificationDataset
-from ...text_classification_model import TextClassificationModel
-from ....common.downloader.models import ModelDownloader
-from ....common.pytorch.hugging_face.model import HuggingFaceModel
-from ....common.utils import read_json_file, validate_model_name, verify_directory
+from cloudtik.runtime.ai.modeling.transfer_learning.text_classification.pytorch.hugging_face.text_classification_dataset \
+    import HuggingFaceTextClassificationDataset
+from cloudtik.runtime.ai.modeling.transfer_learning.text_classification.pytorch.hugging_face.user_text_classification_dataset \
+    import UserTextClassificationDataset
+from cloudtik.runtime.ai.modeling.transfer_learning.text_classification.text_classification_dataset \
+    import TextClassificationDataset
+from cloudtik.runtime.ai.modeling.transfer_learning.text_classification.text_classification_model \
+    import TextClassificationModel
+from cloudtik.runtime.ai.modeling.transfer_learning.common.downloader.models \
+    import ModelDownloader
+from cloudtik.runtime.ai.modeling.transfer_learning.common.pytorch.hugging_face.model \
+    import HuggingFaceModel
+from cloudtik.runtime.ai.modeling.transfer_learning.common.utils \
+    import read_json_file, validate_model_name, verify_directory
 
 
 class HuggingFaceTextClassificationModel(TextClassificationModel, HuggingFaceModel):

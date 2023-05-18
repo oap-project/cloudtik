@@ -23,11 +23,13 @@ import os
 from datasets import concatenate_datasets
 from datasets.arrow_dataset import Dataset
 
-from ....common.downloader.datasets import DataDownloader
-from ....common.pytorch.hugging_face.dataset import HuggingFaceDataset
-from ....common.utils import read_json_file
-from ....text_classification.text_classification_dataset import \
-    TextClassificationDataset
+from cloudtik.runtime.ai.modeling.transfer_learning.common.downloader.datasets \
+    import DataDownloader
+from cloudtik.runtime.ai.modeling.transfer_learning.common.pytorch.hugging_face.dataset \
+    import HuggingFaceDataset
+from cloudtik.runtime.ai.modeling.transfer_learning.common.utils import read_json_file
+from cloudtik.runtime.ai.modeling.transfer_learning.text_classification.text_classification_dataset \
+    import TextClassificationDataset
 
 
 class HuggingFaceTextClassificationDataset(TextClassificationDataset, HuggingFaceDataset):

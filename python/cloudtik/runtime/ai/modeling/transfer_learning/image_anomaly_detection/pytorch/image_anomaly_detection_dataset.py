@@ -30,10 +30,10 @@ from torchvision.datasets import DatasetFolder
 import torchvision.transforms as T
 from torchvision.datasets.folder import default_loader, IMG_EXTENSIONS
 
-from .simsiam import loader as ssloader
-from .cutpaste.cutpaste import CutPasteNormal, CutPasteScar,\
-    CutPaste3Way, CutPasteUnion, get_cutpaste_transforms
-from ...common.pytorch.dataset import PyTorchDataset
+from cloudtik.runtime.ai.modeling.transfer_learning.image_anomaly_detection.pytorch.simsiam import loader as ssloader
+from cloudtik.runtime.ai.modeling.transfer_learning.image_anomaly_detection.pytorch.cutpaste.cutpaste import \
+    CutPasteNormal, CutPasteScar,CutPaste3Way, CutPasteUnion, get_cutpaste_transforms
+from cloudtik.runtime.ai.modeling.transfer_learning.common.pytorch.dataset import PyTorchDataset
 
 
 class AnomalyImageFolder(DatasetFolder):

@@ -26,11 +26,16 @@ import yaml
 
 import tensorflow as tf
 
-from .user_image_classification_dataset import UserImageClassificationDataset
-from ..image_classification_dataset import ImageClassificationDataset
-from ..image_classification_model import ImageClassificationModel
-from ...common.tensorflow.model import TensorflowModel
-from ...common.utils import validate_model_name, verify_directory
+from cloudtik.runtime.ai.modeling.transfer_learning.image_classification.tensorflow.user_image_classification_dataset \
+    import UserImageClassificationDataset
+from cloudtik.runtime.ai.modeling.transfer_learning.image_classification.image_classification_dataset \
+    import ImageClassificationDataset
+from cloudtik.runtime.ai.modeling.transfer_learning.image_classification.image_classification_model \
+    import ImageClassificationModel
+from cloudtik.runtime.ai.modeling.transfer_learning.common.tensorflow.model \
+    import TensorflowModel
+from cloudtik.runtime.ai.modeling.transfer_learning.common.utils \
+    import validate_model_name, verify_directory
 
 
 class TensorflowImageClassificationModel(ImageClassificationModel, TensorflowModel):

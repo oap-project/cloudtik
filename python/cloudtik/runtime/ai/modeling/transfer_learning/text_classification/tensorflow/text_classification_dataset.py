@@ -21,10 +21,11 @@
 import os
 import tensorflow as tf
 
-from ..text_classification_dataset import TextClassificationDataset
-from ...common.downloader.datasets import DataDownloader
-from ...common.tensorflow.dataset import TensorflowDataset
-from ...common.utils import read_json_file
+from cloudtik.runtime.ai.modeling.transfer_learning.text_classification.text_classification_dataset \
+    import TextClassificationDataset
+from cloudtik.runtime.ai.modeling.transfer_learning.common.downloader.datasets import DataDownloader
+from cloudtik.runtime.ai.modeling.transfer_learning.common.tensorflow.dataset import TensorflowDataset
+from cloudtik.runtime.ai.modeling.transfer_learning.common.utils import read_json_file
 
 
 class TensorflowTextClassificationDataset(TensorflowDataset, TextClassificationDataset):

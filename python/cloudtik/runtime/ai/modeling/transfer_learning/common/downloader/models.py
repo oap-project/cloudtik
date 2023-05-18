@@ -21,7 +21,7 @@
 import os
 from pydoc import locate
 
-from .sources import ModelSource
+from cloudtik.runtime.ai.modeling.transfer_learning.common.downloader.sources import ModelSource
 
 
 class ModelDownloader:

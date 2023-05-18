@@ -22,8 +22,8 @@ import os
 import inspect
 import torch
 
-from ...model import PretrainedModel
-from ...utils import verify_directory
+from cloudtik.runtime.ai.modeling.transfer_learning.model import PretrainedModel
+from cloudtik.runtime.ai.modeling.transfer_learning.common.utils import verify_directory
 
 
 class HuggingFaceModel(PretrainedModel):

@@ -22,7 +22,7 @@ import abc
 import os
 import yaml
 
-from ..common.model import PretrainedModel
+from cloudtik.runtime.ai.modeling.transfer_learning.model import PretrainedModel
 
 
 class ImageClassificationModel(PretrainedModel):

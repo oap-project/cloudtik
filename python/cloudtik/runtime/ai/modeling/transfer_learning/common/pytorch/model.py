@@ -25,7 +25,7 @@ import numpy
 import random
 import torch
 
-from cloudtik.runtime.ai.modeling.transfer_learning.common.model import PretrainedModel
+from cloudtik.runtime.ai.modeling.transfer_learning.model import PretrainedModel
 from cloudtik.runtime.ai.modeling.transfer_learning.common.utils import verify_directory
 
 

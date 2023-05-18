@@ -21,8 +21,9 @@
 import os
 import tensorflow as tf
 
-from ..text_classification_dataset import TextClassificationDataset
-from ...common.tensorflow.dataset import TensorflowDataset
+from cloudtik.runtime.ai.modeling.transfer_learning.text_classification.text_classification_dataset \
+    import TextClassificationDataset
+from cloudtik.runtime.ai.modeling.transfer_learning.common.tensorflow.dataset import TensorflowDataset
 
 
 class UserTextClassificationDataset(TextClassificationDataset, TensorflowDataset):

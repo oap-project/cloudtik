@@ -31,16 +31,21 @@ import torch.optim
 import torch.optim.lr_scheduler as lr_scheduler
 from torchvision.models import resnet18, resnet50
 
-from .image_anomaly_detection_dataset import PyTorchImageAnomalyDetectionDataset
-from .simsiam import builder
-from . import utils
+from cloudtik.runtime.ai.modeling.transfer_learning.image_anomaly_detection.pytorch.image_anomaly_detection_dataset \
+    import PyTorchImageAnomalyDetectionDataset
+from cloudtik.runtime.ai.modeling.transfer_learning.image_anomaly_detection.pytorch.simsiam \
+    import builder
+from cloudtik.runtime.ai.modeling.transfer_learning.common import utils
 
-from .cutpaste.model import ProjectionNet
-from .cutpaste.cutpaste import CutPasteNormal,\
-    CutPasteScar, CutPaste3Way, CutPasteUnion
+from cloudtik.runtime.ai.modeling.transfer_learning.image_anomaly_detection.pytorch.cutpaste.model \
+    import ProjectionNet
+from cloudtik.runtime.ai.modeling.transfer_learning.image_anomaly_detection.pytorch.cutpaste.cutpaste \
+    import CutPasteNormal,CutPasteScar, CutPaste3Way, CutPasteUnion
 
-from ...common.utils import verify_directory, validate_model_name
-from ...image_classification.pytorch.image_classification_model import PyTorchImageClassificationModel
+from cloudtik.runtime.ai.modeling.transfer_learning.common.utils \
+    import verify_directory, validate_model_name
+from cloudtik.runtime.ai.modeling.transfer_learning.image_classification.pytorch.image_classification_model \
+    import PyTorchImageClassificationModel
 
 
 def extract_features(model, data, layer_name, pooling):

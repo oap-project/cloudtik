@@ -20,10 +20,10 @@
 
 import os
 
-from ....common.downloader.models import ModelDownloader
-from ....common.utils import read_json_file
-from ..image_anomaly_detection_model import \
-    PyTorchImageAnomalyDetectionModel
+from cloudtik.runtime.ai.modeling.transfer_learning.common.downloader.models import ModelDownloader
+from cloudtik.runtime.ai.modeling.transfer_learning.common.utils import read_json_file
+from cloudtik.runtime.ai.modeling.transfer_learning.image_anomaly_detection.pytorch.image_anomaly_detection_model \
+    import PyTorchImageAnomalyDetectionModel
 
 
 class TorchvisionImageAnomalyDetectionModel(PyTorchImageAnomalyDetectionModel):

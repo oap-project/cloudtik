@@ -24,8 +24,10 @@ import numpy as np
 import tensorflow as tf
 
 from ...image_classification_dataset import ImageClassificationDataset
-from ....common.downloader.models import ModelDownloader
-from ....common.utils import read_json_file
+from cloudtik.runtime.ai.modeling.transfer_learning.common.downloader.models \
+    import ModelDownloader
+from cloudtik.runtime.ai.modeling.transfer_learning.common.utils \
+    import read_json_file
 from ..image_classification_model import \
     TensorflowImageClassificationModel
 

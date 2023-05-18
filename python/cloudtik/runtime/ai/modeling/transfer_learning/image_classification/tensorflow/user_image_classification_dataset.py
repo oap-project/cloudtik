@@ -21,8 +21,10 @@
 import os
 import tensorflow as tf
 
-from ..image_classification_dataset import ImageClassificationDataset
-from ...common.tensorflow.dataset import TensorflowDataset
+from cloudtik.runtime.ai.modeling.transfer_learning.image_classification.image_classification_dataset \
+    import ImageClassificationDataset
+from cloudtik.runtime.ai.modeling.transfer_learning.common.tensorflow.dataset \
+    import TensorflowDataset
 
 
 class UserImageClassificationDataset(ImageClassificationDataset, TensorflowDataset):

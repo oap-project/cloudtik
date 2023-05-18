@@ -22,9 +22,9 @@ import os
 import torch
 from torchvision import datasets
 
-from ...common.pytorch.dataset import PyTorchDataset
-from ...image_classification.image_classification_dataset import \
-    ImageClassificationDataset
+from cloudtik.runtime.ai.modeling.transfer_learning.common.pytorch.dataset import PyTorchDataset
+from cloudtik.runtime.ai.modeling.transfer_learning.image_classification.image_classification_dataset \
+    import ImageClassificationDataset
 
 
 class PyTorchImageClassificationDataset(ImageClassificationDataset, PyTorchDataset):

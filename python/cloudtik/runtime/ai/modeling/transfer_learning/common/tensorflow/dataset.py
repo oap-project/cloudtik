@@ -20,7 +20,7 @@
 
 import tensorflow as tf
 
-from ..dataset import Dataset
+from cloudtik.runtime.ai.modeling.transfer_learning.dataset import Dataset
 
 
 class TensorflowDataset(Dataset):

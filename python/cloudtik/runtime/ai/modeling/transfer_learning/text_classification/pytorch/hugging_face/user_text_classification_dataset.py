@@ -4,7 +4,7 @@ from typing import List, Optional
 import pandas as pd
 from datasets.arrow_dataset import Dataset
 
-from ....common.pytorch.hugging_face.dataset import HuggingFaceDataset
+from cloudtik.runtime.ai.modeling.transfer_learning.common.pytorch.hugging_face.dataset import HuggingFaceDataset
 from ....text_classification.text_classification_dataset import \
     TextClassificationDataset
 

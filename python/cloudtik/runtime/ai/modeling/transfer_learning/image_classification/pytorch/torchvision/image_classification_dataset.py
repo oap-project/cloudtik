@@ -21,10 +21,12 @@
 import torch
 
 
-from ....common.downloader.datasets import DataDownloader
-from ....common.pytorch.dataset import PyTorchDataset
-from ....image_classification.image_classification_dataset import \
-    ImageClassificationDataset
+from cloudtik.runtime.ai.modeling.transfer_learning.common.downloader.datasets \
+    import DataDownloader
+from cloudtik.runtime.ai.modeling.transfer_learning.common.pytorch.dataset \
+    import PyTorchDataset
+from cloudtik.runtime.ai.modeling.transfer_learning.image_classification.image_classification_dataset \
+    import ImageClassificationDataset
 
 DATASETS = ["CIFAR10", "Food101", "Country211", "DTD", "FGVCAircraft", "RenderedSST2"]
 

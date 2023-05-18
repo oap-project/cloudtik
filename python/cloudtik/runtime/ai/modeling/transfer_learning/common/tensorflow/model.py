@@ -28,8 +28,9 @@ import numpy as np
 
 import tensorflow as tf
 
-from ..model import PretrainedModel
-from ..utils import verify_directory, validate_model_name
+from cloudtik.runtime.ai.modeling.transfer_learning.model import PretrainedModel
+from cloudtik.runtime.ai.modeling.transfer_learning.common.utils import \
+    verify_directory, validate_model_name
 
 
 class TensorflowModel(PretrainedModel):

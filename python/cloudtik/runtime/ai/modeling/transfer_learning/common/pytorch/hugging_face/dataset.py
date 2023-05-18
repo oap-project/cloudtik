@@ -28,7 +28,7 @@ import torch
 from torch.utils.data import DataLoader as loader
 from transformers import AutoTokenizer
 
-from ...dataset import Dataset
+from cloudtik.runtime.ai.modeling.transfer_learning.dataset import Dataset
 
 
 class HuggingFaceDataset(Dataset):

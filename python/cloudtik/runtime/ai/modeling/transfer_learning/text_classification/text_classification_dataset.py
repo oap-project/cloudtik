@@ -20,7 +20,7 @@
 
 import abc
 
-from ..common.dataset import Dataset
+from cloudtik.runtime.ai.modeling.transfer_learning.dataset import Dataset
 
 
 class TextClassificationDataset(Dataset):

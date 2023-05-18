@@ -24,10 +24,13 @@ import yaml
 
 import tensorflow as tf
 
-from .user_text_classification_dataset import UserTextClassificationDataset
-from ..text_classification_dataset import TextClassificationDataset
-from ..text_classification_model import TextClassificationModel
-from ...common.tensorflow.model import TensorflowModel
+from cloudtik.runtime.ai.modeling.transfer_learning.text_classification.tensorflow.user_text_classification_dataset \
+    import UserTextClassificationDataset
+from cloudtik.runtime.ai.modeling.transfer_learning.text_classification.text_classification_dataset \
+    import TextClassificationDataset
+from cloudtik.runtime.ai.modeling.transfer_learning.text_classification.text_classification_model \
+    import TextClassificationModel
+from cloudtik.runtime.ai.modeling.transfer_learning.common.tensorflow.model import TensorflowModel
 
 # Note that tensorflow_text isn't used directly but the import is required to register ops used by the
 # BERT text preprocessor

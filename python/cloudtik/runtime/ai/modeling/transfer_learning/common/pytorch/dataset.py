@@ -24,7 +24,7 @@ import torch
 import torchvision.transforms as T
 from torch.utils.data import DataLoader as loader
 
-from ..dataset import Dataset
+from cloudtik.runtime.ai.modeling.transfer_learning.dataset import Dataset
 
 
 class PyTorchDataset(Dataset):

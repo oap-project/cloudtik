@@ -17,37 +17,47 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 #
-
+import os
 from pydoc import locate
 
-from cloudtik.runtime.ai.modeling.transfer_learning.common.utils import get_framework_name, get_category_name
+from cloudtik.runtime.ai.modeling.transfer_learning.common.utils \
+    import get_framework_name, get_category_name, list_matched_dirs, list_matched_files, read_json_file
 
+"""
+    A registry entry can be in the form of:
+    {
+        "module": "cloudtik.runtime.ai.modeling.transfer_learning.xxx",
+        "class": "XXXModel"
+    }
+    if module is not specified, it will be formatted in the form of:
+    cloudtik.runtime.ai.modeling.transfer_learning.{category}.{framework}.{source}.{category}_model
+"""
 model_map = {
     "image_classification": {
         "pytorch": {
-            "torchvision": "TorchvisionImageClassificationModel",
-            "pytorch_hub": "PyTorchHubImageClassificationModel",
-            "user": "PyTorchImageClassificationModel",
+            "torchvision": {"class": "TorchvisionImageClassificationModel"},
+            "pytorch_hub": {"class": "PyTorchHubImageClassificationModel"},
+            "user": {"class": "PyTorchImageClassificationModel"},
         },
         "tensorflow": {
-            "tfhub": "TFHubImageClassificationModel",
-            "keras": "KerasImageClassificationModel",
-            "user": "TensorflowImageClassificationModel"
+            "tfhub": {"class": "TFHubImageClassificationModel"},
+            "keras": {"class": "KerasImageClassificationModel"},
+            "user": {"class": "TensorflowImageClassificationModel"},
         }
     },
     "text_classification": {
         "pytorch": {
-            "hugging_face": "HuggingFaceTextClassificationModel"
+            "hugging_face": {"class": "HuggingFaceTextClassificationModel"},
         },
         "tensorflow": {
-            "tfhub": "TFHubTextClassificationModel",
-            "user": "TensorflowTextClassificationModel",
+            "tfhub": {"class": "TFHubTextClassificationModel"},
+            "user": {"class": "TensorflowTextClassificationModel"},
         },
     },
     "image_anomaly_detection": {
         "pytorch": {
-            "torchvision": "TorchvisionImageAnomalyDetectionModel",
-            "user": "PyTorchImageAnomalyDetectionModel",
+            "torchvision": {"class": "TorchvisionImageAnomalyDetectionModel"},
+            "user": {"class": "PyTorchImageAnomalyDetectionModel"},
         },
     }
 }
@@ -59,6 +69,16 @@ def _get_default_model_class_name(category, framework):
     return "{}{}Model".format(framework_name, category_name)
 
 
+def _get_default_model_module_name(category, framework, source):
+    if source is None or source != "user":
+        module_name = "{category}.{framework}.{source}.{category}_model".format(
+            category=category, framework=framework, source=source)
+    else:
+        module_name = "{category}.{framework}.{category}_model".format(
+            category=category, framework=framework)
+    return "cloudtik.runtime.ai.modeling.transfer_learning." + module_name
+
+
 def _get_model_module_class(category: str, framework: str, source: str = None):
     if not category:
         raise ValueError("Category parameter must be specified.")
@@ -68,19 +88,17 @@ def _get_model_module_class(category: str, framework: str, source: str = None):
     category = category.lower()
     framework = framework.lower()
     source = "user" if source is None else source.lower()
-    if source != "user":
-        module = ("cloudtik.runtime.ai.modeling.transfer_learning."
-                  "{category}.{framework}.{source}.{category}_model").format(
-            category=category, framework=framework, source=source)
-    else:
-        module = ("cloudtik.runtime.ai.modeling.transfer_learning."
-                  "{category}.{framework}.{category}_model").format(
-            category=category, framework=framework)
     if category in model_map and (
             framework in model_map[category]) and (
             source in model_map[category][framework]):
-        model_class_name = model_map[category][framework][source]
+        model_registry = model_map[category][framework][source]
+        if 'module' in model_registry:
+            module = model_registry['module']
+        else:
+            module = _get_default_model_module_name(category, framework, source)
+        model_class_name = model_registry['class']
     else:
+        module = _get_default_model_module_name(category, framework, source)
         model_class_name = _get_default_model_class_name(category, framework)
 
     return '{}.{}'.format(module, model_class_name)
@@ -106,7 +124,7 @@ def load_model(model_name: str, model, category: str, framework: str, **kwargs):
         Examples:
             >>> from tensorflow.keras import Sequential, Input
             >>> from tensorflow.keras.layers import Dense
-            >>> from cloudtik.runtime.ai.modeling.model_factory import load_model
+            >>> from cloudtik.runtime.ai.modeling.transfer_learning.model_factory import load_model
             >>> my_model = Sequential([Input(shape=(3,)), Dense(4, activation='relu'), Dense(5, activation='softmax')])
             >>> model = load_model('my_model', my_model, 'image_classification', 'tensorflow')
 
@@ -138,7 +156,7 @@ def get_model(model_name: str, category: str, framework: str, source: str = None
             NotImplementedError if the model requested is not supported yet
 
         Example:
-            >>> from cloudtik.runtime.ai.modeling.model_factory import get_model
+            >>> from cloudtik.runtime.ai.modeling.transfer_learning.model_factory import get_model
             >>> model = get_model('efficientnet_b0', 'tensorflow')
             >>> model.image_size
             224
@@ -196,11 +214,41 @@ def search_model(model_name, category: str = None, framework: str = None, source
 
 def search_models(category: str = None, framework: str = None, source: str = None):
     """
+    Search 3 levels of folder: category, framework and source for models json file.
     Returns a dictionary of supported models organized by category, model name, and framework.
     The leaf items in the dictionary are attributes about the pretrained model.
     """
-    # Models dictionary with keys for category / model name / framework / model info
+    # Models dictionary with keys for category / model name / framework / source / model info
     models = {}
 
-    # TODO: search models with the information
+    # search models with the information
+    # list the categories from this dir
+    this_dir = os.path.dirname(__file__)
+    for category_candidate in list_matched_dirs(this_dir, category):
+        category_dir = os.path.join(this_dir, category_candidate)
+        for framework_candidate in list_matched_dirs(category_dir, framework):
+            framework_dir = os.path.join(category_dir, framework_candidate)
+            for source_candidate in list_matched_dirs(framework_dir, source):
+                source_dir = os.path.join(framework_dir, source_candidate)
+                for models_file in list_matched_files(source_dir, "models.json"):
+                    _add_models(
+                        models, category_candidate, framework_candidate, source_candidate,
+                        os.path.join(source_dir, models_file)
+                    )
     return models
+
+
+def _add_models(
+        models, category: str, framework: str, source: str, models_config_file):
+    models_map = read_json_file(models_config_file)
+    if category not in models:
+        models[category] = {}
+    models_category = models[category]
+    for model_name in models_map.keys():
+        if model_name not in models_category:
+            models_category[model_name] = {}
+        models_model = models_category[model_name]
+        if framework not in models_model:
+            models_model[framework] = {}
+        models_framework = models_model[framework]
+        models_framework[source] = models_map[model_name]

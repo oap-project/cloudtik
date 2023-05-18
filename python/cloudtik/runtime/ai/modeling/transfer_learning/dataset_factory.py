@@ -22,30 +22,39 @@ from pydoc import locate
 
 from cloudtik.runtime.ai.modeling.transfer_learning.common.utils import get_framework_name, get_category_name
 
+"""
+    A registry entry can be in the form of:
+    {
+        "module": "cloudtik.runtime.ai.modeling.transfer_learning.xxx",
+        "class": "XXXDataset"
+    }
+    if module is not specified, it will be formatted in the form of:
+    cloudtik.runtime.ai.modeling.transfer_learning.{category}.{framework}.{source}.{category}_dataset
+"""
 dataset_map = {
     "image_classification": {
         "pytorch": {
-            "torchvision": "TorchvisionImageClassificationDataset",
-            "user": "PyTorchImageClassificationDataset",
+            "torchvision": {"class": "TorchvisionImageClassificationDataset"},
+            "user": {"class": "PyTorchImageClassificationDataset"},
         },
         "tensorflow": {
-            "tfds": "TFDSImageClassificationDataset",
-            "user": "TensorflowImageClassificationDataset"
+            "tfds": {"class": "TFDSImageClassificationDataset"},
+            "user": {"class": "TensorflowImageClassificationDataset"},
         }
     },
     "text_classification": {
         "pytorch": {
-            "hugging_face": "HuggingFaceTextClassificationDataset",
-            "user": "PyTorchTextClassificationDataset"
+            "hugging_face": {"class": "HuggingFaceTextClassificationDataset"},
+            "user": {"class": "PyTorchTextClassificationDataset"},
         },
         "tensorflow": {
-            "tfds": "TFDSTextClassificationDataset",
-            "user": "TensorflowTextClassificationDataset",
+            "tfds": {"class": "TFDSTextClassificationDataset"},
+            "user": {"class": "TensorflowTextClassificationDataset"},
         },
     },
     "image_anomaly_detection": {
         "pytorch": {
-            "user": "PyTorchImageAnomalyDetectionDataset",
+            "user": {"class": "PyTorchImageAnomalyDetectionDataset"},
         },
     }
 }
@@ -57,23 +66,32 @@ def _get_default_dataset_class_name(category, framework):
     return "{}{}Dataset".format(framework_name, category_name)
 
 
+def _get_default_dataset_module_name(category, framework, source):
+    if source is None or source != "user":
+        module_name = "{category}.{framework}.{source}.{category}_dataset".format(
+            category=category, framework=framework, source=source)
+    else:
+        module_name = "{category}.{framework}.{category}_dataset".format(
+            category=category, framework=framework)
+    return "cloudtik.runtime.ai.modeling.transfer_learning." + module_name
+
+
 def _get_dataset_module_class(category: str, framework: str, source: str = None):
     category = category.lower()
     framework = framework.lower()
     source = "user" if source is None else source.lower()
-    if source != "user":
-        module = ("cloudtik.runtime.ai.modeling.transfer_learning."
-                  "{category}.{framework}.{source}.{category}_dataset").format(
-            category=category, framework=framework, source=source)
-    else:
-        module = ("cloudtik.runtime.ai.modeling.transfer_learning."
-                  "{category}.{framework}.{category}_dataset").format(
-            category=category, framework=framework)
+
     if category in dataset_map and (
             framework in dataset_map[category]) and (
             source in dataset_map[category][framework]):
-        dataset_class_name = dataset_map[category][framework][source]
+        dataset_registry = dataset_map[category][framework][source]
+        if 'module' in dataset_registry:
+            module = dataset_registry['module']
+        else:
+            module = _get_default_dataset_module_name(category, framework, source)
+        dataset_class_name = dataset_registry['class']
     else:
+        module = _get_default_dataset_module_name(category, framework, source)
         dataset_class_name = _get_default_dataset_class_name(category, framework)
 
     return '{}.{}'.format(module, dataset_class_name)
@@ -137,7 +155,7 @@ def load_dataset(
         NotImplementedError if the type of dataset being loaded is not supported
 
     Example:
-        >>> from cloudtik.runtime.ai.modeling.dataset_factory import load_dataset
+        >>> from cloudtik.runtime.ai.modeling.transfer_learning.dataset_factory import load_dataset
         >>> data = load_dataset('/tmp/data/flower_photos', 'image_classification', 'tensorflow')
         Found 3670 files belonging to 5 classes.
         >>> data.class_names
@@ -177,7 +195,7 @@ def get_dataset(dataset_dir: str, category: str, framework: str,
         NotImplementedError if the dataset requested is not supported yet
 
     Example:
-        >>> from cloudtik.runtime.ai.modeling.dataset_factory import get_dataset
+        >>> from cloudtik.runtime.ai.modeling.transfer_learning.dataset_factory import get_dataset
         >>> data = get_dataset('/tmp/data/', 'image_classification', 'tensorflow', 'tf_flowers', 'tfds')
         >>> sorted(data.class_names)
         ['daisy', 'dandelion', 'roses', 'sunflowers', 'tulips']

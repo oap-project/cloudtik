@@ -156,3 +156,13 @@ def get_framework_name(framework):
 def get_category_name(category):
     parts = category.split('_')
     return ''.join(part.title() for part in parts)
+
+
+def list_matched_dirs(root_dir, name):
+    return [x for x in os.listdir(root_dir) if os.path.isdir(
+        os.path.join(root_dir, x)) and (not name or name == x)]
+
+
+def list_matched_files(root_dir, suffix):
+    return [x for x in os.listdir(root_dir) if os.path.isfile(
+        os.path.join(root_dir, x)) and x.endswith(suffix)]

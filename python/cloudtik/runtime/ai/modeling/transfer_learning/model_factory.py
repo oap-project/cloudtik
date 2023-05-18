@@ -67,8 +67,7 @@ def _get_model_module_class(category: str, framework: str, source: str = None):
 
     category = category.lower()
     framework = framework.lower()
-    if source is None:
-        source = "user"
+    source = "user" if source is None else source.lower()
     if source != "user":
         module = ("cloudtik.runtime.ai.modeling.transfer_learning."
                   "{category}.{framework}.{source}.{category}_model").format(

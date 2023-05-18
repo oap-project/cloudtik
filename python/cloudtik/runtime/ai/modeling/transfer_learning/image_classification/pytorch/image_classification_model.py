@@ -477,7 +477,7 @@ class PyTorchImageClassificationModel(ImageClassificationModel, PyTorchModel):
 
         Args:
             config_file_path (str): Destination path on where to write the .yaml config file.
-            dataset (BaseDataset): A tlt dataset object
+            dataset (Dataset): A dataset object
             batch_size (int): Batch size to use for quantization and evaluation
             overwrite (bool): Specify whether or not to overwrite the config_file_path, if it already exists
                               (default: False)

@@ -341,7 +341,7 @@ class TensorflowImageClassificationModel(ImageClassificationModel, TensorflowMod
 
         Args:
             config_file_path (str): Destination path on where to write the .yaml config file.
-            dataset (BaseDataset): A tlt dataset object
+            dataset (Dataset): A dataset object
             batch_size (int): Batch size to use for quantization and evaluation
             overwrite (bool): Specify whether or not to overwrite the config_file_path, if it already exists
                               (default: False)
@@ -371,7 +371,7 @@ class TensorflowImageClassificationModel(ImageClassificationModel, TensorflowMod
         # We can setup the a custom dataset to use the ImageFolder dataset option in INC. They don't have a TFDS option,
         # so for now, we only support custom datasets for quantization
         if dataset is not UserImageClassificationDataset and type(dataset) != UserImageClassificationDataset:
-            raise NotImplementedError('tlt quantization has only been implemented for TF image classification models '
+            raise NotImplementedError('Quantization has only been implemented for TF image classification models '
                                       'with custom datasets')
 
         if batch_size and not isinstance(batch_size, int) or batch_size < 1:

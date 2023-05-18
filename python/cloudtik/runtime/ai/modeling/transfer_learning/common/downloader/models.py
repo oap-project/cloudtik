@@ -21,7 +21,9 @@
 import os
 from pydoc import locate
 
+from cloudtik.runtime.ai.modeling.transfer_learning import BASE_DIR
 from cloudtik.runtime.ai.modeling.transfer_learning.common.downloader.sources import ModelSource
+from cloudtik.runtime.ai.modeling.transfer_learning.common.utils import read_json_file
 
 
 class ModelDownloader:
@@ -74,14 +76,14 @@ class ModelDownloader:
             return pretrained_model_class(**self._args)
 
         elif self._source == ModelSource.PYTORCH_HUB:
-            from ..utils import read_json_file
-            from ... import BASE_DIR
             import torch
 
             if self._model_dir is not None:
                 os.environ['TORCH_HOME'] = self._model_dir
 
-            config_file = os.path.join(BASE_DIR, "image_classification/pytorch/torchvision/pytorch_hub/models.json")
+            config_file = os.path.join(
+                BASE_DIR,
+                "image_classification/pytorch/torchvision/pytorch_hub/image_classification_models.json")
             pytorch_hub_model_map = read_json_file(config_file)
             self._repo = pytorch_hub_model_map[self._model_name]["repo"]
 

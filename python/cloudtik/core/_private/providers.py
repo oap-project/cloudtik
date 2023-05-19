@@ -44,10 +44,10 @@ def _import_aliyun(provider_config):
     return AliyunNodeProvider
 
 
-def _import_local(provider_config):
-    from cloudtik.providers._private.local.node_provider import (
-        CloudSimulatorNodeProvider)
-    return CloudSimulatorNodeProvider
+def _import_onprem(provider_config):
+    from cloudtik.providers._private.onprem.node_provider import (
+        OnpremNodeProvider)
+    return OnpremNodeProvider
 
 
 def _import_kubernetes(provider_config):
@@ -62,9 +62,9 @@ def _import_huaweicloud(provider_config):
     return HUAWEICLOUDNodeProvider
 
 
-def _load_local_provider_home():
-    import cloudtik.providers.local as local_provider
-    return os.path.dirname(local_provider.__file__)
+def _load_onprem_provider_home():
+    import cloudtik.providers.onprem as onprem_provider
+    return os.path.dirname(onprem_provider.__file__)
 
 
 def _load_kubernetes_provider_home():
@@ -97,8 +97,8 @@ def _load_huaweicloud_provider_home():
     return os.path.dirname(huaweicloud_provider.__file__)
 
 
-def _load_local_defaults_config():
-    return os.path.join(_load_local_provider_home(), "defaults.yaml")
+def _load_onprem_defaults_config():
+    return os.path.join(_load_onprem_provider_home(), "defaults.yaml")
 
 
 def _load_kubernetes_defaults_config():
@@ -131,7 +131,7 @@ def _import_external(provider_config):
 
 
 _NODE_PROVIDERS = {
-    "local": _import_local,
+    "onprem": _import_onprem,
     "aws": _import_aws,
     "gcp": _import_gcp,
     "azure": _import_azure,
@@ -142,7 +142,7 @@ _NODE_PROVIDERS = {
 }
 
 _PROVIDER_PRETTY_NAMES = {
-    "local": "Local",
+    "onprem": "Onprem",
     "aws": "AWS",
     "gcp": "GCP",
     "azure": "Azure",
@@ -153,7 +153,7 @@ _PROVIDER_PRETTY_NAMES = {
 }
 
 _PROVIDER_HOMES = {
-    "local": _load_local_provider_home,
+    "onprem": _load_onprem_provider_home,
     "aws": _load_aws_provider_home,
     "gcp": _load_gcp_provider_home,
     "azure": _load_azure_provider_home,
@@ -163,7 +163,7 @@ _PROVIDER_HOMES = {
 }
 
 _DEFAULT_CONFIGS = {
-    "local": _load_local_defaults_config,
+    "onprem": _load_onprem_defaults_config,
     "aws": _load_aws_defaults_config,
     "gcp": _load_gcp_defaults_config,
     "azure": _load_azure_defaults_config,
@@ -196,10 +196,10 @@ def _import_aliyun_workspace(provider_config):
     return AliyunWorkspaceProvider
 
 
-def _import_local_workspace(provider_config):
-    from cloudtik.providers._private.local.workspace_provider import \
-        LocalWorkspaceProvider
-    return LocalWorkspaceProvider
+def _import_onprem_workspace(provider_config):
+    from cloudtik.providers._private.onprem.workspace_provider import \
+        OnpremWorkspaceProvider
+    return OnpremWorkspaceProvider
 
 
 def _import_kubernetes_workspace(provider_config):
@@ -215,7 +215,7 @@ def _import_huaweicloud_workspace(provider_config):
 
 
 _WORKSPACE_PROVIDERS = {
-    "local": _import_local_workspace,
+    "onprem": _import_onprem_workspace,
     "aws": _import_aws_workspace,
     "gcp": _import_gcp_workspace,
     "azure": _import_azure_workspace,

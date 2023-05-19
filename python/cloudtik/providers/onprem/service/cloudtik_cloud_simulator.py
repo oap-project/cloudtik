@@ -1,7 +1,7 @@
-"""Web server that runs on local/private clusters to simulate cloud operations and manage
+"""Web server that runs on on-premise/private clusters to simulate cloud operations and manage
 different clusters for multiple users. It receives node provider function calls
-through HTTP requests from remote CloudSimulatorNodeProvider and runs them
-locally in LocalNodeProvider. To start the webserver the user runs:
+through HTTP requests from remote OnpremNodeProvider and runs them
+locally in CloudSimulatorNodeProvider. To start the webserver the user runs:
 `python cloudtik_cloud_simulator.py --ips <comma separated ips> --port <PORT>`."""
 import argparse
 import logging
@@ -12,8 +12,9 @@ import socket
 
 import yaml
 
-from cloudtik.providers._private.local.config import DEFAULT_CLOUD_SIMULATOR_PORT
-from cloudtik.providers._private.local.local_node_provider import LocalNodeProvider
+from cloudtik.providers._private.onprem.config import DEFAULT_CLOUD_SIMULATOR_PORT
+from cloudtik.providers._private.onprem.cloud_simulator_node_provider \
+    import CloudSimulatorNodeProvider
 
 
 logger = logging.getLogger(__name__)
@@ -78,7 +79,7 @@ class CloudSimulator(threading.Thread):
     """Initializes HTTPServer and serves CloudSimulatorNodeProvider forever.
 
     It handles requests from the remote CloudSimulatorNodeProvider. The
-    requests are forwarded to LocalNodeProvider function calls.
+    requests are forwarded to CloudSimulatorNodeProvider function calls.
     """
 
     def __init__(self, config, host, port):
@@ -94,7 +95,7 @@ class CloudSimulator(threading.Thread):
         provider_config = load_provider_config(config)
         self._server = HTTPServer(
             address,
-            runner_handler(LocalNodeProvider(provider_config, cluster_name=None)),
+            runner_handler(CloudSimulatorNodeProvider(provider_config, cluster_name=None)),
         )
         self.start()
 
@@ -111,7 +112,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="Please provide a config file and port.")
     parser.add_argument(
-        "config", help="A config file for nodes. The same format of local provider section at top level.")
+        "config", help="A config file for nodes. The same format of onprem provider section at top level.")
     parser.add_argument(
         "--bind-address",
         type=str,

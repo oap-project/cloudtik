@@ -5,12 +5,12 @@ from cloudtik.core._private.providers import _get_node_provider
 from cloudtik.core._private.utils import get_running_head_node
 from cloudtik.core.tags import CLOUDTIK_GLOBAL_VARIABLE_KEY, CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX
 from cloudtik.core.workspace_provider import WorkspaceProvider
-from cloudtik.providers._private.local.config import get_workspace_head_nodes, list_local_clusters, _get_node_tags
+from cloudtik.providers._private.onprem.config import get_workspace_head_nodes, list_onprem_clusters, _get_node_tags
 
 logger = logging.getLogger(__name__)
 
 
-class LocalWorkspaceProvider(WorkspaceProvider):
+class OnpremWorkspaceProvider(WorkspaceProvider):
     def __init__(self, provider_config, workspace_name):
         WorkspaceProvider.__init__(self, provider_config, workspace_name)
 
@@ -19,7 +19,7 @@ class LocalWorkspaceProvider(WorkspaceProvider):
         return True
 
     def list_clusters(self, config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        return list_local_clusters(self.provider_config)
+        return list_onprem_clusters(self.provider_config)
 
     def publish_global_variables(self, cluster_config: Dict[str, Any],
                                  global_variables: Dict[str, Any]):

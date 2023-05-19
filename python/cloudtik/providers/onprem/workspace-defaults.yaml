@@ -2,4 +2,4 @@
 workspace_name: default
 
 provider:
-    type: local
+    type: onprem

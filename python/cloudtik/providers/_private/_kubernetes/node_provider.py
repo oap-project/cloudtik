@@ -13,14 +13,15 @@ from cloudtik.core.tags import NODE_KIND_HEAD
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND
 
-from cloudtik.core._private.command_executor import KubernetesCommandExecutor
+from cloudtik.core._private.command_executor.kubernetes_command_executor \
+    import KubernetesCommandExecutor
 
 from cloudtik.providers._private._kubernetes import core_api, log_prefix, \
     networking_api
 from cloudtik.providers._private._kubernetes.config import bootstrap_kubernetes, \
     post_prepare_kubernetes, _add_service_name_to_service_port, head_service_selector, \
     bootstrap_kubernetes_for_api, cleanup_kubernetes_cluster, with_kubernetes_environment_variables, get_head_hostname, \
-    get_worker_hostname, prepare_kubernetes_config, get_head_external_service_address, _get_node_info, \
+    get_worker_hostname, prepare_kubernetes_config, _get_node_info, \
     _get_node_public_ip, get_default_kubernetes_cloud_storage, get_default_kubernetes_cloud_database
 from cloudtik.providers._private._kubernetes.utils import to_label_selector, \
     create_and_configure_pvc_for_pod, delete_persistent_volume_claims, get_pod_persistent_volume_claims, \

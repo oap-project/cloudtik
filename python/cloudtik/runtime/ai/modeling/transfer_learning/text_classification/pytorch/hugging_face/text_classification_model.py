@@ -524,7 +524,7 @@ class HuggingFaceTextClassificationModel(TextClassificationModel, HuggingFaceMod
             if not self._model:
                 # The model hasn't been trained yet, use the original transformers model
                 self._num_classes = len(dataset_or_dataloader.class_names)
-                downloader = ModelDownloader(self.hub_name, hub='hugging_face', model_dir=None,
+                downloader = ModelDownloader(self.hub_name, source='hugging_face', model_dir=None,
                                              num_labels=self._num_classes)
                 self._model = downloader.download()
 

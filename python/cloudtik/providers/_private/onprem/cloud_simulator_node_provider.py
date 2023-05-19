@@ -8,7 +8,7 @@ from typing import Any, Dict
 
 from cloudtik.core.node_provider import NodeProvider
 
-from cloudtik.providers._private.local.config import get_cloud_simulator_lock_path, \
+from cloudtik.providers._private.onprem.config import get_cloud_simulator_lock_path, \
     get_cloud_simulator_state_path, _get_instance_types, \
     get_list_of_node_ips, _get_request_instance_type, _get_node_id_mapping, _get_node_instance_type
 
@@ -73,8 +73,8 @@ class ClusterState:
                     f.write(json.dumps(nodes))
 
 
-class LocalNodeProvider(NodeProvider):
-    """NodeProvider for private/local clusters.
+class CloudSimulatorNodeProvider(NodeProvider):
+    """NodeProvider for private/onprem clusters.
 
     `node_id` is overloaded to also be `node_ip` in this class.
 
@@ -84,14 +84,14 @@ class LocalNodeProvider(NodeProvider):
 
     The current use case of managing multiple clusters is by
     CloudSimulator which receives node provider HTTP requests
-    from CloudSimulatorNodeProvider and uses LocalNodeProvider to get
+    from OnpremNodeProvider and uses CloudSimulatorNodeProvider to get
     the responses.
     """
 
     def __init__(self, provider_config, cluster_name):
         NodeProvider.__init__(self, provider_config, cluster_name)
 
-        # LocalNodeProvider with a Cloud Simulator.
+        # CloudSimulatorNodeProvider with a Cloud Simulator.
         self.state = ClusterState(
             get_cloud_simulator_lock_path(), get_cloud_simulator_state_path(),
             provider_config)
@@ -129,7 +129,7 @@ class LocalNodeProvider(NodeProvider):
         if the cluster exists in an AWS VPC and we're interacting with
         the cluster from a laptop (where using an internal_ip will not work).
 
-        Useful for debugging the local node provider with cloud VMs."""
+        Useful for debugging the onprem node provider with cloud VMs."""
 
         node = self.node_id_mapping[node_id]
         ext_ip = node.get("external_ip")

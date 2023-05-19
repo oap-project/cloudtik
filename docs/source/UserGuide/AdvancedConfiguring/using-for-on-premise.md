@@ -2,8 +2,8 @@
 CloudTik can easily manage and scale the resources on public cloud through the cloud API/SDK.
 While users sometimes want to do some performance tests on their local machines. 
 In order to manage local machine resources conveniently, CloudTik has developed a Cloud Simulator service 
-that runs on local/private clusters to simulate cloud operations and create one or more clusters on a local machine pool.
-With the cloud-simulator, CloudTik implements a local provider which calls into Cloud Simulator
+that runs on on-premise/private clusters to simulate cloud operations and create one or more clusters on a local machine pool.
+With the cloud-simulator, CloudTik implements an on-premise provider which calls into Cloud Simulator
 to create and release nodes from the machine pool.
 
 Please follow these steps to use for On-Premise clusters .
@@ -36,7 +36,7 @@ If such a user already exists, you can skip this step.
 For example to create cloudtik user:
 ```buildoutcfg
 sudo useradd -ms /bin/bash -d /home/cloudtik cloudtik;
-sudo usermod -aG sudo haojin;
+sudo usermod -aG sudo cloudtik;
 echo 'cloudtik ALL=NOPASSWD: ALL' | sudo tee -a /etc/sudoer;
 sudo passwd cloudtik;
 ```
@@ -150,12 +150,12 @@ cloudtik-simulator [--bind-address BIND_ADDRESS] [--port PORT] your_cloudtik_sim
 
 
 ## Configure and start cluster
-You need prepare the cluster configure file using local provider and
+You need prepare the cluster configure file using on-prem provider and
 start the cluster with the cluster configure file.
 
 ### Create and configure a YAML file for cluster
 
-1. Local provider support both docker mode and host node. 
+1. On-prem provider support both docker mode and host node. 
 When using docker mode and the OS of machines is RedHat-based Linux Distributions, you need to additional initialization_command to install jq.
 For example,
 
@@ -165,13 +165,13 @@ docker:
     initialization_command:
 	    - which jq || (sudo yum -qq update -y && sudo yum -qq install -y jq > /dev/null) 
 ```
-2. Define cloud_simulator_address for local provider. (Default port is 8282)
+2. Define cloud_simulator_address for on-prem provider. (Default port is 8282)
 ```buildoutcfg
 # Cloud-provider specific configuration.
 provider:
-    type: local
+    type: onprem
 
-    # We need to use Cloud Simulator for the best local cluster management
+    # We need to use Cloud Simulator for the best on-premise cluster management
     # You can launch multiple clusters on the same set of machines, and the cloud simulator
     # will assign individual nodes to clusters as needed.
     cloud_simulator_address: your-cloud-simulator-ip:port
@@ -180,7 +180,8 @@ provider:
 You also need to provide ssh_proxy_command if the head node needs to access the worker node through proxy.
 ```buildoutcfg
 auth:
-    ssh_user: [sudo user]
+    # The ssh user configured above with sudo privilege
+    ssh_user: cloudtik
     # Specify the private key file for login to the nodes
     ssh_private_key: ~/.ssh/id_rsa
     # Set proxy if you are in corporation network. For example,

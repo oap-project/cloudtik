@@ -3,20 +3,20 @@ from typing import Any, Dict
 
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME
-from cloudtik.providers._private.local.config import prepare_local, set_node_types_resources, \
-    _get_cloud_simulator_address, _get_http_response_from_simulator, post_prepare_local
+from cloudtik.providers._private.onprem.config import prepare_onprem, \
+    _get_cloud_simulator_address, _get_http_response_from_simulator, post_prepare_onprem
 
 logger = logging.getLogger(__name__)
 
 
-class CloudSimulatorNodeProvider(NodeProvider):
-    """NodeProvider for automatically managed private/local clusters.
+class OnpremNodeProvider(NodeProvider):
+    """NodeProvider for automatically managed private/on-premise clusters.
 
     The cluster management is handled by a remote Cloud Simulator.
     The server listens on <cloud_simulator_address>, therefore, the address
     should be provided in the provider section in the cluster config.
     The server receives HTTP requests from this class and uses
-    LocalNodeProvider to get their responses.
+    OnpremNodeProvider to get their responses.
     """
 
     def __init__(self, provider_config, cluster_name):
@@ -88,10 +88,10 @@ class CloudSimulatorNodeProvider(NodeProvider):
 
     @staticmethod
     def prepare_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-        return prepare_local(cluster_config)
+        return prepare_onprem(cluster_config)
 
     @staticmethod
     def post_prepare(
             cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         """Fills out missing fields after the user config is merged with defaults and before validate"""
-        return post_prepare_local(cluster_config)
+        return post_prepare_onprem(cluster_config)

@@ -56,9 +56,9 @@ def _get_http_response_from_simulator(cloud_simulator_address, request):
     return response
 
 
-def prepare_local(config: Dict[str, Any]) -> Dict[str, Any]:
+def prepare_onprem(config: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Prepare local cluster config for ingestion by cluster launcher and scaler.
+    Prepare onprem cluster config for ingestion by cluster launcher and scaler.
     """
     if "cloud_simulator_address" not in config["provider"]:
         cli_logger.abort("No Cloud Simulator address specified. "
@@ -75,9 +75,9 @@ def get_cloud_simulator_state_path() -> str:
     return os.path.join(utils.get_user_temp_dir(), "cloudtik-cloud-simulator.state")
 
 
-def get_local_nodes(provider_config: Dict[str, Any]):
+def get_onprem_nodes(provider_config: Dict[str, Any]):
     if "nodes" not in provider_config:
-        raise RuntimeError("No 'nodes' defined in local provider configuration.")
+        raise RuntimeError("No 'nodes' defined in onprem provider configuration.")
 
     return provider_config["nodes"]
 
@@ -90,7 +90,7 @@ def _get_request_instance_type(node_config):
 
 
 def _get_node_id_mapping(provider_config: Dict[str, Any]):
-    nodes = get_local_nodes(provider_config)
+    nodes = get_onprem_nodes(provider_config)
     node_id_mapping = {}
     for node in nodes:
         node_id_mapping[node["ip"]] = node
@@ -105,13 +105,13 @@ def _get_node_instance_type(node_id_mapping, node_ip):
 
 
 def get_list_of_node_ips(provider_config: Dict[str, Any]):
-    nodes = get_local_nodes(provider_config)
+    nodes = get_onprem_nodes(provider_config)
     node_ips = [node["ip"] for node in nodes]
     return node_ips
 
 
 def _get_num_node_of_instance_type(provider_config: Dict[str, Any], instance_type) -> int:
-    nodes = get_local_nodes(provider_config)
+    nodes = get_onprem_nodes(provider_config)
     num_node_of_instance_type = 0
     for node in nodes:
         if instance_type == node[instance_type]:
@@ -144,7 +144,7 @@ def set_node_types_resources(
                     node_type, detected_resources))
         else:
             raise ValueError("Instance type " + instance_type +
-                             " is not available in local configuration.")
+                             " is not available in onprem configuration.")
 
 
 def _get_instance_types(provider_config: Dict[str, Any]) -> Dict[str, Any]:
@@ -184,7 +184,7 @@ def get_cluster_name_from_head(node_info) -> Optional[str]:
     return None
 
 
-def list_local_clusters(provider_config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+def list_onprem_clusters(provider_config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     head_nodes = get_workspace_head_nodes(provider_config)
     clusters = {}
     for head_node in head_nodes:
@@ -195,7 +195,7 @@ def list_local_clusters(provider_config: Dict[str, Any]) -> Optional[Dict[str, A
     return clusters
 
 
-def post_prepare_local(config: Dict[str, Any]) -> Dict[str, Any]:
+def post_prepare_onprem(config: Dict[str, Any]) -> Dict[str, Any]:
     config = fill_available_node_types_resources(config)
     return config
 

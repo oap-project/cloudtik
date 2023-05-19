@@ -1,3 +1,5 @@
+import copy
+
 from filelock import FileLock
 from threading import RLock
 import json
@@ -10,29 +12,26 @@ from cloudtik.core.node_provider import NodeProvider
 
 from cloudtik.providers._private.onprem.config import get_cloud_simulator_lock_path, \
     get_cloud_simulator_state_path, _get_instance_types, \
-    get_list_of_node_ips, _get_request_instance_type, _get_node_id_mapping, _get_node_instance_type
+    get_list_of_node_ips, _get_request_instance_type, _get_node_id_mapping, _get_node_instance_type, \
+    set_node_types_resources
 
 logger = logging.getLogger(__name__)
 
-filelock_logger = logging.getLogger("filelock")
-filelock_logger.setLevel(logging.WARNING)
-
 
 class ClusterState:
-    def __init__(self, lock_path, save_path, provider_config):
+    def __init__(self, lock_path, state_path, provider_config):
         self.lock = RLock()
         self.file_lock = FileLock(lock_path)
-        self.save_path = save_path
+        self.state_path = state_path
 
         with self.lock:
             with self.file_lock:
                 list_of_node_ips = get_list_of_node_ips(provider_config)
-                if os.path.exists(self.save_path):
-                    nodes = json.loads(open(self.save_path).read())
+                if os.path.exists(self.state_path):
+                    nodes = json.loads(open(self.state_path).read())
                 else:
                     nodes = {}
                 logger.info(
-                    "Cluster State: "
                     "Loaded cluster state: {}".format(nodes))
 
                 # Filter removed node ips.
@@ -47,34 +46,44 @@ class ClusterState:
                             "state": "terminated",
                         }
                 assert len(nodes) == len(list_of_node_ips)
-                with open(self.save_path, "w") as f:
-                    logger.info(
-                        "Cluster State: "
-                        "Writing cluster state: {}".format(nodes))
+                with open(self.state_path, "w") as f:
+                    logger.info("Writing cluster state: {}".format(nodes))
                     f.write(json.dumps(nodes))
+                self.cached_nodes = nodes
 
     def get(self):
         with self.lock:
             with self.file_lock:
-                nodes = json.loads(open(self.save_path).read())
-                return nodes
+                return copy.deepcopy(self.cached_nodes)
 
-    def put(self, node_id, info):
-        assert "tags" in info
-        assert "state" in info
+    def get_safe(self):
+        return self.cached_nodes
+
+    def get_node(self, node_id):
         with self.lock:
             with self.file_lock:
-                nodes = self.get()
-                nodes[node_id] = info
-                with open(self.save_path, "w") as f:
-                    logger.debug("Cluster State: "
-                                 "Writing cluster state: {}".format(
-                                    list(nodes)))
+                nodes = self.cached_nodes
+                if node_id not in nodes:
+                    return None
+                return copy.deepcopy(nodes[node_id])
+
+    def put(self, node_id, node):
+        assert "tags" in node
+        assert "state" in node
+        with self.lock:
+            with self.file_lock:
+                nodes = self.cached_nodes
+                nodes[node_id] = node
+                with open(self.state_path, "w") as f:
+                    if logger.isEnabledFor(logging.DEBUG):
+                        logger.debug("Writing cluster state: {}".format(list(nodes)))
                     f.write(json.dumps(nodes))
 
 
 class CloudSimulatorNodeProvider(NodeProvider):
-    """NodeProvider for private/onprem clusters.
+    """NodeProvider for private/on-promise clusters.
+    This is not a real Node Provider that will be used by core (which
+    may be instanced multiple times and on different environment)
 
     `node_id` is overloaded to also be `node_ip` in this class.
 
@@ -84,7 +93,7 @@ class CloudSimulatorNodeProvider(NodeProvider):
 
     The current use case of managing multiple clusters is by
     CloudSimulator which receives node provider HTTP requests
-    from OnpremNodeProvider and uses CloudSimulatorNodeProvider to get
+    from OnPremNodeProvider and uses CloudSimulatorNodeProvider to get
     the responses.
     """
 
@@ -100,12 +109,12 @@ class CloudSimulatorNodeProvider(NodeProvider):
     def non_terminated_nodes(self, tag_filters):
         nodes = self.state.get()
         matching_ips = []
-        for node_ip, info in nodes.items():
-            if info["state"] == "terminated":
+        for node_ip, node in nodes.items():
+            if node["state"] == "terminated":
                 continue
             ok = True
             for k, v in tag_filters.items():
-                if info["tags"].get(k) != v:
+                if node["tags"].get(k) != v:
                     ok = False
                     break
             if ok:
@@ -113,13 +122,19 @@ class CloudSimulatorNodeProvider(NodeProvider):
         return matching_ips
 
     def is_running(self, node_id):
-        return self.state.get()[node_id]["state"] == "running"
+        node = self.state.get_node(node_id)
+        if node is None:
+            return False
+        return node["state"] == "running"
 
     def is_terminated(self, node_id):
         return not self.is_running(node_id)
 
     def node_tags(self, node_id):
-        return self.state.get()[node_id]["tags"]
+        node = self.state.get_node(node_id)
+        if node is None:
+            raise RuntimeError("Node with id {} doesn't exist.".format(node_id))
+        return node["tags"]
 
     def external_ip(self, node_id):
         """Returns an external ip if the user has supplied one.
@@ -143,38 +158,48 @@ class CloudSimulatorNodeProvider(NodeProvider):
 
     def set_node_tags(self, node_id, tags):
         with self.state.file_lock:
-            info = self.state.get()[node_id]
-            info["tags"].update(tags)
-            self.state.put(node_id, info)
+            node = self.state.get_node(node_id)
+            if node is None:
+                raise RuntimeError("Node with id {} doesn't exist.".format(node_id))
+            node["tags"].update(tags)
+            self.state.put(node_id, node)
 
     def create_node(self, node_config, tags, count):
         """Creates min(count, currently available) nodes."""
+        launched = 0
         instance_type = _get_request_instance_type(node_config)
         with self.state.file_lock:
-            nodes = self.state.get()
-            for node_id, info in nodes.items():
-                if info["state"] != "terminated":
+            nodes = self.state.get_safe()
+            for node_id, node in nodes.items():
+                if node["state"] != "terminated":
                     continue
 
                 node_instance_type = self.get_node_instance_type(node_id)
                 if instance_type != node_instance_type:
                     continue
 
-                info["tags"] = tags
-                info["state"] = "running"
-                self.state.put(node_id, info)
-                count = count - 1
-                if count == 0:
+                node["tags"] = tags
+                node["state"] = "running"
+                self.state.put(node_id, node)
+                launched = launched + 1
+                if count == launched:
                     return
+        if launched < count:
+            raise RuntimeError(
+                "No enough free nodes. {} nodes requested / {} launched.".format(
+                    count, launched))
 
     def terminate_node(self, node_id):
-        nodes = self.state.get()
-        info = nodes[node_id]
-        info["state"] = "terminated"
-        self.state.put(node_id, info)
+        node = self.state.get_node(node_id)
+        if node is None:
+            raise RuntimeError("Node with id {} doesn't exist.".format(node_id))
+        node["state"] = "terminated"
+        self.state.put(node_id, node)
 
     def get_node_info(self, node_id):
-        node = self.state.get()[node_id]
+        node = self.state.get_node(node_id)
+        if node is None:
+            raise RuntimeError("Node with id {} doesn't exist.".format(node_id))
         node_instance_type = self.get_node_instance_type(node_id)
         node_info = {"node_id": node_id,
                      "instance_type": node_instance_type,
@@ -186,6 +211,14 @@ class CloudSimulatorNodeProvider(NodeProvider):
 
     def with_environment_variables(self, node_type_config: Dict[str, Any], node_id: str):
         return {}
+
+    @staticmethod
+    def post_prepare(
+            cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Fills out missing fields after the user config is merged with defaults and before validate"""
+        instance_types = _get_instance_types(cluster_config["provider"])
+        set_node_types_resources(cluster_config, instance_types)
+        return cluster_config
 
     def get_instance_types(self):
         """Return the all instance types information"""

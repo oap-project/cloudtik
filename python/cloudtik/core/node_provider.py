@@ -208,7 +208,8 @@ class NodeProvider:
             "use_internal_ip": use_internal_ip
         }
         if docker_config and docker_config.get("enabled", False):
-            return DockerCommandExecutor(call_context, docker_config, **common_args)
+            return DockerCommandExecutor(
+                call_context, docker_config, True, **common_args)
         else:
             return SSHCommandExecutor(call_context, **common_args)
 

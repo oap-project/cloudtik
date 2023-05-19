@@ -9,14 +9,14 @@ from cloudtik.providers._private.onprem.config import prepare_onprem, \
 logger = logging.getLogger(__name__)
 
 
-class OnpremNodeProvider(NodeProvider):
+class OnPremNodeProvider(NodeProvider):
     """NodeProvider for automatically managed private/on-premise clusters.
 
     The cluster management is handled by a remote Cloud Simulator.
     The server listens on <cloud_simulator_address>, therefore, the address
     should be provided in the provider section in the cluster config.
     The server receives HTTP requests from this class and uses
-    OnpremNodeProvider to get their responses.
+    OnPremNodeProvider to get their responses.
     """
 
     def __init__(self, provider_config, cluster_name):

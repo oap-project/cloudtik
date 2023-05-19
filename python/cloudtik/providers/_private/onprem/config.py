@@ -75,9 +75,9 @@ def get_cloud_simulator_state_path() -> str:
     return os.path.join(utils.get_user_temp_dir(), "cloudtik-cloud-simulator.state")
 
 
-def get_onprem_nodes(provider_config: Dict[str, Any]):
+def get_available_nodes(provider_config: Dict[str, Any]):
     if "nodes" not in provider_config:
-        raise RuntimeError("No 'nodes' defined in onprem provider configuration.")
+        raise RuntimeError("No 'nodes' defined in cloud simulator configuration.")
 
     return provider_config["nodes"]
 
@@ -90,7 +90,7 @@ def _get_request_instance_type(node_config):
 
 
 def _get_node_id_mapping(provider_config: Dict[str, Any]):
-    nodes = get_onprem_nodes(provider_config)
+    nodes = get_available_nodes(provider_config)
     node_id_mapping = {}
     for node in nodes:
         node_id_mapping[node["ip"]] = node
@@ -105,13 +105,13 @@ def _get_node_instance_type(node_id_mapping, node_ip):
 
 
 def get_list_of_node_ips(provider_config: Dict[str, Any]):
-    nodes = get_onprem_nodes(provider_config)
+    nodes = get_available_nodes(provider_config)
     node_ips = [node["ip"] for node in nodes]
     return node_ips
 
 
 def _get_num_node_of_instance_type(provider_config: Dict[str, Any], instance_type) -> int:
-    nodes = get_onprem_nodes(provider_config)
+    nodes = get_available_nodes(provider_config)
     num_node_of_instance_type = 0
     for node in nodes:
         if instance_type == node[instance_type]:

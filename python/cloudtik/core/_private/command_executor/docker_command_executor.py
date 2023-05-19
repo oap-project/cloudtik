@@ -5,6 +5,7 @@ import os
 
 from cloudtik.core._private.command_executor.command_executor import _with_environment_variables, _with_interactive, \
     _with_shutdown
+from cloudtik.core._private.command_executor.local_command_executor import LocalCommandExecutor
 from cloudtik.core._private.command_executor.ssh_command_executor import SSHCommandExecutor
 from cloudtik.core.command_executor import CommandExecutor
 from cloudtik.core._private.constants import \
@@ -23,9 +24,10 @@ CHECK_DOCKER_RUNTIME_NUMBER_OF_RETRIES = 5
 
 
 class DockerCommandExecutor(CommandExecutor):
-    def __init__(self, call_context, docker_config, **common_args):
+    def __init__(self, call_context, docker_config, remote, **common_args):
         CommandExecutor.__init__(self, call_context)
-        self.ssh_command_executor = SSHCommandExecutor(call_context, **common_args)
+        self.host_command_executor = SSHCommandExecutor(
+            call_context, **common_args) if remote else LocalCommandExecutor(call_context, **common_args)
         self.container_name = docker_config["container_name"]
         self.docker_config = docker_config
         self.home_dir = None
@@ -70,7 +72,7 @@ class DockerCommandExecutor(CommandExecutor):
 
         # Do not pass shutdown_after_run argument to ssh_command_runner.run()
         # since it is handled above.
-        return self.ssh_command_executor.run(
+        return self.host_command_executor.run(
             cmd,
             timeout=timeout,
             exit_on_fail=exit_on_fail,
@@ -84,15 +86,15 @@ class DockerCommandExecutor(CommandExecutor):
         options = options or {}
         host_destination = os.path.join(
             self._get_docker_host_mount_location(
-                self.ssh_command_executor.cluster_name), target.lstrip("/"))
+                self.host_command_executor.cluster_name), target.lstrip("/"))
 
         host_mount_location = os.path.dirname(host_destination.rstrip("/"))
-        self.ssh_command_executor.run(
+        self.host_command_executor.run(
             f"mkdir -p {host_mount_location} && chown -R "
-            f"{self.ssh_command_executor.ssh_user} {host_mount_location}",
+            f"{self.host_command_executor.ssh_user} {host_mount_location}",
             silent=self.call_context.is_rsync_silent())
 
-        self.ssh_command_executor.run_rsync_up(
+        self.host_command_executor.run_rsync_up(
             source, host_destination, options=options)
         if self._check_container_status() and not options.get(
                 "docker_mount_if_possible", False):
@@ -112,7 +114,7 @@ class DockerCommandExecutor(CommandExecutor):
                 with_interactive=self.call_context.is_using_login_shells(),
                 docker_cmd=self.docker_cmd)[0]
 
-            self.ssh_command_executor.run(
+            self.host_command_executor.run(
                 "{} && rsync -e '{} exec -i' -avz {} {}:{}".format(
                     prefix, self.docker_cmd, host_destination,
                     self.container_name, self._docker_expand_user(target)),
@@ -122,11 +124,11 @@ class DockerCommandExecutor(CommandExecutor):
         options = options or {}
         host_source = os.path.join(
             self._get_docker_host_mount_location(
-                self.ssh_command_executor.cluster_name), source.lstrip("/"))
+                self.host_command_executor.cluster_name), source.lstrip("/"))
         host_mount_location = os.path.dirname(host_source.rstrip("/"))
-        self.ssh_command_executor.run(
+        self.host_command_executor.run(
             f"mkdir -p {host_mount_location} && chown -R "
-            f"{self.ssh_command_executor.ssh_user} {host_mount_location}",
+            f"{self.host_command_executor.ssh_user} {host_mount_location}",
             silent=self.call_context.is_rsync_silent())
         if source[-1] == "/":
             source += "."
@@ -135,23 +137,23 @@ class DockerCommandExecutor(CommandExecutor):
         if not options.get("docker_mount_if_possible", False):
             # NOTE: `--delete` is okay here because the container is the source
             # of truth.
-            self.ssh_command_executor.run(
+            self.host_command_executor.run(
                 "rsync -e '{} exec -i' -avz --delete {}:{} {}".format(
                     self.docker_cmd, self.container_name,
                     self._docker_expand_user(source), host_source),
                 silent=self.call_context.is_rsync_silent())
-        self.ssh_command_executor.run_rsync_down(
+        self.host_command_executor.run_rsync_down(
             host_source, target, options=options)
 
     def remote_shell_command_str(self):
-        inner_str = self.ssh_command_executor.remote_shell_command_str().replace(
+        inner_str = self.host_command_executor.remote_shell_command_str().replace(
             "ssh", "ssh -tt", 1).strip("\n")
         return inner_str + " {} exec -it {} /bin/bash\n".format(
             self.docker_cmd, self.container_name)
 
     def _check_docker_installed(self):
         no_exist = "NoExist"
-        output = self.ssh_command_executor.run_with_retry(
+        output = self.host_command_executor.run_with_retry(
             f"command -v {self.docker_cmd} || echo '{no_exist}'",
             with_output=True)
         cleaned_output = output.decode().strip()
@@ -176,7 +178,7 @@ class DockerCommandExecutor(CommandExecutor):
     def _check_container_status(self):
         if self.initialized:
             return True
-        output = self.ssh_command_executor.run_with_retry(
+        output = self.host_command_executor.run_with_retry(
             check_docker_running_cmd(self.container_name, self.docker_cmd),
             with_output=True).decode("utf-8").strip()
         # Checks for the false positive where "true" is in the container name
@@ -187,7 +189,7 @@ class DockerCommandExecutor(CommandExecutor):
         user_pos = string.find("~")
         if user_pos > -1:
             if self.home_dir is None:
-                self.home_dir = self.ssh_command_executor.run_with_retry(
+                self.home_dir = self.host_command_executor.run_with_retry(
                     f"{self.docker_cmd} exec {self.container_name} "
                     "printenv HOME",
                     with_output=True).decode("utf-8").strip()
@@ -289,7 +291,7 @@ class DockerCommandExecutor(CommandExecutor):
                 # `root` as the owner.
                 return True
             # Get home directory
-            image_env = self.ssh_command_executor.run_with_retry(
+            image_env = self.host_command_executor.run_with_retry(
                 f"{self.docker_cmd} " + "inspect -f '{{json .Config.Env}}' " +
                 specific_image,
                 with_output=True).decode().strip()
@@ -311,13 +313,13 @@ class DockerCommandExecutor(CommandExecutor):
                 "run_options", []) + self.docker_config.get(
                     f"{'head' if as_head else 'worker'}_run_options", [])
             start_command = docker_start_cmds(
-                self.ssh_command_executor.ssh_user, specific_image,
+                self.host_command_executor.ssh_user, specific_image,
                 cleaned_bind_mounts, host_data_disks, self.container_name,
                 self._configure_runtime(
                     self._auto_configure_shm(user_docker_run_options,
                                              shared_memory_ratio),
                     as_head),
-                self.ssh_command_executor.cluster_name, home_directory,
+                self.host_command_executor.cluster_name, home_directory,
                 self.docker_cmd)
             self.run_with_retry(
                 start_command, run_env="host")
@@ -331,13 +333,13 @@ class DockerCommandExecutor(CommandExecutor):
                     #  a stopped instance,  /tmp may be deleted and `run_init`
                     # is called before the first `file_sync` happens
                     self.run_rsync_up(file_mounts[mount], mount)
-                self.ssh_command_executor.run_with_retry(
+                self.host_command_executor.run_with_retry(
                     "rsync -e '{cmd} exec -i' -avz {src} {container}:{dst}".
                     format(
                         cmd=self.docker_cmd,
                         src=os.path.join(
                             self._get_docker_host_mount_location(
-                                self.ssh_command_executor.cluster_name), mount),
+                                self.host_command_executor.cluster_name), mount),
                         container=self.container_name,
                         dst=self._docker_expand_user(mount)))
                 try:
@@ -372,7 +374,7 @@ class DockerCommandExecutor(CommandExecutor):
     def bootstrap_data_disks(self) -> None:
         """Used to format and mount data disks on host."""
         # For docker command executor, call directly on host command executor
-        self.ssh_command_executor.bootstrap_data_disks()
+        self.host_command_executor.bootstrap_data_disks()
 
     def _configure_runtime(self, run_options: List[str], as_head: bool) -> List[str]:
         if self.docker_config.get("disable_automatic_runtime_detection") or (
@@ -380,12 +382,12 @@ class DockerCommandExecutor(CommandExecutor):
         ):
             return run_options
 
-        runtime_output = self.ssh_command_executor.run_with_retry(
+        runtime_output = self.host_command_executor.run_with_retry(
             f"{self.docker_cmd} " + "info -f '{{.Runtimes}}' ",
             with_output=True).decode().strip()
         if "nvidia-container-runtime" in runtime_output:
             try:
-                self.ssh_command_executor.run_with_retry(
+                self.host_command_executor.run_with_retry(
                     "nvidia-smi", with_output=False,
                     number_of_retries=CHECK_DOCKER_RUNTIME_NUMBER_OF_RETRIES
                 )
@@ -411,7 +413,7 @@ class DockerCommandExecutor(CommandExecutor):
         if shared_memory_ratio == 0:
             return run_options
         try:
-            shm_output = self.ssh_command_executor.run_with_retry(
+            shm_output = self.host_command_executor.run_with_retry(
                 "cat /proc/meminfo || true",
                 with_output=True).decode().strip()
             available_memory = int([

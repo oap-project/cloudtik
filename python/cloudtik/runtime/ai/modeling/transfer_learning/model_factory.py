@@ -40,7 +40,7 @@ model_map = {
             "user": {"class": "PyTorchImageClassificationModel"},
         },
         "tensorflow": {
-            "tfhub": {"class": "TFHubImageClassificationModel"},
+            "tf_hub": {"class": "TFHubImageClassificationModel"},
             "keras": {"class": "KerasImageClassificationModel"},
             "user": {"class": "TensorflowImageClassificationModel"},
         }
@@ -50,7 +50,7 @@ model_map = {
             "hugging_face": {"class": "HuggingFaceTextClassificationModel"},
         },
         "tensorflow": {
-            "tfhub": {"class": "TFHubTextClassificationModel"},
+            "tf_hub": {"class": "TFHubTextClassificationModel"},
             "user": {"class": "TensorflowTextClassificationModel"},
         },
     },

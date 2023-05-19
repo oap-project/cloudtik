@@ -27,7 +27,7 @@ from cloudtik.runtime.ai.modeling.transfer_learning.common.downloader.models \
     import ModelDownloader
 from cloudtik.runtime.ai.modeling.transfer_learning.common.utils \
     import read_json_file
-from cloudtik.runtime.ai.modeling.transfer_learning.image_classification.tensorflow.tfhub.image_classification_model \
+from cloudtik.runtime.ai.modeling.transfer_learning.image_classification.tensorflow.tf_hub.image_classification_model \
     import TFHubImageClassificationModel
 
 

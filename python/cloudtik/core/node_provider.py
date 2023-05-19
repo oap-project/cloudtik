@@ -5,8 +5,10 @@ from typing import Any, Dict, List, Optional
 from cloudtik.core._private.call_context import CallContext
 from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core.command_executor import CommandExecutor
-from cloudtik.core._private.command_executor import \
-    SSHCommandExecutor, DockerCommandExecutor
+from cloudtik.core._private.command_executor.ssh_command_executor import \
+    SSHCommandExecutor
+from cloudtik.core._private.command_executor.docker_command_executor import \
+    DockerCommandExecutor
 
 logger = logging.getLogger(__name__)
 

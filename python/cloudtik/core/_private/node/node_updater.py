@@ -13,15 +13,13 @@ from cloudtik.core.tags import CLOUDTIK_TAG_NODE_STATUS, CLOUDTIK_TAG_RUNTIME_CO
     CLOUDTIK_TAG_FILE_MOUNTS_CONTENTS, \
     STATUS_UP_TO_DATE, STATUS_UPDATE_FAILED, STATUS_WAITING_FOR_SSH, \
     STATUS_SETTING_UP, STATUS_SYNCING_FILES, STATUS_BOOTSTRAPPING_DATA_DISKS, CLOUDTIK_TAG_NODE_NUMBER
-from cloudtik.core._private.command_executor import \
-    CLOUDTIK_NODE_START_WAIT_S, \
-    ProcessRunnerError
+from cloudtik.core._private.subprocess_output_util import ProcessRunnerError
 from cloudtik.core._private.log_timer import LogTimer
 from cloudtik.core._private.cli_logger import cf, CliLogger
 import cloudtik.core._private.subprocess_output_util as cmd_output_util
 from cloudtik.core._private.constants import CLOUDTIK_RESOURCES_ENV, CLOUDTIK_RUNTIME_ENV_NODE_NUMBER, \
     CLOUDTIK_RUNTIME_ENV_NODE_TYPE, CLOUDTIK_RUNTIME_ENV_PROVIDER_TYPE, CLOUDTIK_RUNTIME_ENV_PYTHON_VERSION, \
-    CLOUDTIK_CLUSTER_PYTHON_VERSION
+    CLOUDTIK_CLUSTER_PYTHON_VERSION, CLOUDTIK_NODE_START_WAIT_S
 from cloudtik.core._private.event_system import (CreateClusterEvent, global_event_system)
 
 logger = logging.getLogger(__name__)

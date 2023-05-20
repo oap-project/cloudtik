@@ -222,8 +222,8 @@ def _import_local_workspace(provider_config):
 
 def _import_onprem_workspace(provider_config):
     from cloudtik.providers._private.onprem.workspace_provider import \
-        OnpremWorkspaceProvider
-    return OnpremWorkspaceProvider
+        OnPremWorkspaceProvider
+    return OnPremWorkspaceProvider
 
 
 def _import_kubernetes_workspace(provider_config):

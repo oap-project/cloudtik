@@ -1,5 +1,5 @@
 import copy
-
+import yaml
 from filelock import FileLock
 from threading import RLock
 import json
@@ -18,38 +18,20 @@ from cloudtik.providers._private.onprem.config import get_cloud_simulator_lock_p
 logger = logging.getLogger(__name__)
 
 
+def load_provider_config(config_file):
+    with open(config_file) as f:
+        config_object = yaml.safe_load(f) or {}
+
+    return config_object
+
+
 class ClusterState:
     def __init__(self, lock_path, state_path, provider_config):
         self.lock = RLock()
         self.file_lock = FileLock(lock_path)
         self.state_path = state_path
-
-        with self.lock:
-            with self.file_lock:
-                list_of_node_ips = get_list_of_node_ips(provider_config)
-                if os.path.exists(self.state_path):
-                    nodes = json.loads(open(self.state_path).read())
-                else:
-                    nodes = {}
-                logger.info(
-                    "Loaded cluster state: {}".format(nodes))
-
-                # Filter removed node ips.
-                for node_ip in list(nodes):
-                    if node_ip not in list_of_node_ips:
-                        del nodes[node_ip]
-
-                for node_ip in list_of_node_ips:
-                    if node_ip not in nodes:
-                        nodes[node_ip] = {
-                            "tags": {},
-                            "state": "terminated",
-                        }
-                assert len(nodes) == len(list_of_node_ips)
-                with open(self.state_path, "w") as f:
-                    logger.info("Writing cluster state: {}".format(nodes))
-                    f.write(json.dumps(nodes))
-                self.cached_nodes = nodes
+        self.cached_nodes = {}
+        self.load_config(provider_config)
 
     def get(self):
         with self.lock:
@@ -78,6 +60,34 @@ class ClusterState:
                     if logger.isEnabledFor(logging.DEBUG):
                         logger.debug("Writing cluster state: {}".format(list(nodes)))
                     f.write(json.dumps(nodes))
+
+    def load_config(self, provider_config):
+        with self.lock:
+            with self.file_lock:
+                list_of_node_ips = get_list_of_node_ips(provider_config)
+                if os.path.exists(self.state_path):
+                    nodes = json.loads(open(self.state_path).read())
+                else:
+                    nodes = {}
+                logger.info(
+                    "Loaded cluster state: {}".format(nodes))
+
+                # Filter removed node ips.
+                for node_ip in list(nodes):
+                    if node_ip not in list_of_node_ips:
+                        del nodes[node_ip]
+
+                for node_ip in list_of_node_ips:
+                    if node_ip not in nodes:
+                        nodes[node_ip] = {
+                            "tags": {},
+                            "state": "terminated",
+                        }
+                assert len(nodes) == len(list_of_node_ips)
+                with open(self.state_path, "w") as f:
+                    logger.info("Writing cluster state: {}".format(nodes))
+                    f.write(json.dumps(nodes))
+                self.cached_nodes = nodes
 
 
 class CloudSimulatorNodeProvider(NodeProvider):
@@ -144,7 +154,7 @@ class CloudSimulatorNodeProvider(NodeProvider):
         if the cluster exists in an AWS VPC and we're interacting with
         the cluster from a laptop (where using an internal_ip will not work).
 
-        Useful for debugging the onprem node provider with cloud VMs."""
+        Useful for debugging the on-prem node provider with cloud VMs."""
 
         node = self.node_id_mapping[node_id]
         ext_ip = node.get("external_ip")
@@ -226,3 +236,7 @@ class CloudSimulatorNodeProvider(NodeProvider):
 
     def get_node_instance_type(self, node_id):
         return _get_node_instance_type(self.node_id_mapping, node_id)
+
+    def reload(self, config_file):
+        provider_config = load_provider_config(config_file)
+        self.state.load_config(provider_config)

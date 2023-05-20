@@ -10,7 +10,7 @@ from cloudtik.providers._private.onprem.config import get_workspace_head_nodes, 
 logger = logging.getLogger(__name__)
 
 
-class OnpremWorkspaceProvider(WorkspaceProvider):
+class OnPremWorkspaceProvider(WorkspaceProvider):
     def __init__(self, provider_config, workspace_name):
         WorkspaceProvider.__init__(self, provider_config, workspace_name)
 

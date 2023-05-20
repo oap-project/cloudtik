@@ -10,22 +10,12 @@ from http.server import SimpleHTTPRequestHandler, HTTPServer
 import json
 import socket
 
-import yaml
-
-from cloudtik.providers._private.onprem.config import DEFAULT_CLOUD_SIMULATOR_PORT
+from cloudtik.providers._private.onprem.config import DEFAULT_CLOUD_SIMULATOR_PORT, _get_http_response_from_simulator
 from cloudtik.providers.onprem.service.cloud_simulator_node_provider \
-    import CloudSimulatorNodeProvider
-
+    import CloudSimulatorNodeProvider, load_provider_config
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
-
-
-def load_provider_config(config_file):
-    with open(config_file) as f:
-        config_object = yaml.safe_load(f) or {}
-
-    return config_object
 
 
 def runner_handler(node_provider):
@@ -108,9 +98,52 @@ class CloudSimulator(threading.Thread):
         self._server.server_close()
 
 
-def main():
+def start_server(
+        config_file, bind_address, port):
+    if bind_address is None:
+        bind_address = socket.gethostbyname(socket.gethostname())
+    if port is None:
+        port = DEFAULT_CLOUD_SIMULATOR_PORT
+    CloudSimulator(
+        config=config_file,
+        host=bind_address,
+        port=port,
+    )
+
+
+def reload_config(
+        config_file, bind_address, port):
+    if bind_address is None:
+        bind_address = socket.gethostbyname(socket.gethostname())
+    if port is None:
+        port = DEFAULT_CLOUD_SIMULATOR_PORT
+
+    cloud_simulator_address = "{}:{}".format(bind_address, port)
+
+    def _get_http_response(request):
+        return _get_http_response_from_simulator(cloud_simulator_address, request)
+
+    try:
+        # make a HTTP request to reload the config
+        request = {"type": "reload", "args": (config_file,)}
+        _get_http_response(request)
+        print("Configuration reloaded successfully.")
+    except Exception as e:
+        print("Failed to reload the configurations: {}".format(str(e)))
+
+
+def main(args):
+    if args.reload:
+        reload_config(
+            args.config, args.bind_address, args.port)
+    else:
+        start_server(
+            args.config, args.bind_address, args.port)
+
+
+if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Please provide a config file and port.")
+        description="Please provide a config file.")
     parser.add_argument(
         "config", help="A config file for nodes. The same format of on-prem provider section at top level.")
     parser.add_argument(
@@ -123,19 +156,9 @@ def main():
         type=int,
         required=False,
         help="The port on which the Cloud Simulator listens. Default: {}".format(DEFAULT_CLOUD_SIMULATOR_PORT))
-    args = parser.parse_args()
-    bind_address = args.bind_address
-    port = args.port
-    if bind_address is None:
-        bind_address = socket.gethostbyname(socket.gethostname())
-    if port is None:
-        port = DEFAULT_CLOUD_SIMULATOR_PORT
-    CloudSimulator(
-        config=args.config,
-        host=bind_address,
-        port=port,
-    )
 
+    parser.add_argument(
+        "--reload", default=False, action="store_true",
+        help="Request the running cloud simulator service to reload the configuration for applying a change.")
 
-if __name__ == "__main__":
-    main()
+    main(parser.parse_args())

@@ -15,7 +15,7 @@ from typing import Dict
 import psutil
 
 from cloudtik.core._private.cli_logger import cli_logger, cf
-from cloudtik.core._private.core_utils import check_process_exists, kill_process_tree
+from cloudtik.core._private.core_utils import kill_process_tree
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD
 from cloudtik.core.workspace_provider import Existence
 from cloudtik.providers._private.local.config import get_cluster_name_from_node
@@ -135,18 +135,6 @@ def _get_ssh_server_process(ssh_server_process_file: str):
                     ssh_server_process.get("bind_address"),
                     ssh_server_process["port"])
     return None, None, None
-
-
-def get_safe_ssh_server_process(ssh_server_process_file: str):
-    pid, bind_address, port = _get_ssh_server_process(
-        ssh_server_process_file)
-    if pid is None:
-        return None, None, None
-
-    if not check_process_exists(pid):
-        return None, None, None
-
-    return pid, bind_address, port
 
 
 def _find_ssh_server_process_for_workspace(workspace_name):

@@ -1,14 +1,15 @@
 import logging
-from typing import Any, Dict
+from types import ModuleType
+from typing import Any, Dict, Optional
 
+from cloudtik.core._private.call_context import CallContext
 from cloudtik.core._private.utils import is_docker_enabled
+from cloudtik.core.command_executor import CommandExecutor
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME
-from cloudtik.providers._private.local.config import prepare_local, \
-    _get_bridge_address, post_prepare_local
+from cloudtik.providers._private.local.config import prepare_local, post_prepare_local
 from cloudtik.providers._private.local.local_container_scheduler import LocalContainerScheduler
 from cloudtik.providers._private.local.local_host_scheduler import LocalHostScheduler
-from cloudtik.providers._private.local.local_scheduler import LocalScheduler
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +71,28 @@ class LocalNodeProvider(NodeProvider):
     def with_environment_variables(
             self, node_type_config: Dict[str, Any], node_id: str):
         return {}
+
+    def get_command_executor(self,
+                             call_context: CallContext,
+                             log_prefix: str,
+                             node_id: str,
+                             auth_config: Dict[str, Any],
+                             cluster_name: str,
+                             process_runner: ModuleType,
+                             use_internal_ip: bool,
+                             docker_config: Optional[Dict[str, Any]] = None
+                             ) -> CommandExecutor:
+
+        return self.local_scheduler.get_command_executor(
+            call_context=call_context,
+            log_prefix=log_prefix,
+            node_id=node_id,
+            auth_config=auth_config,
+            cluster_name=cluster_name,
+            process_runner=process_runner,
+            use_internal_ip=use_internal_ip,
+            docker_config=docker_config
+        )
 
     @staticmethod
     def prepare_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:

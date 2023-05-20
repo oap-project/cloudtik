@@ -1,8 +1,7 @@
 # A unique identifier for the workspace.
 workspace_name: example-workspace
 
-# Cloud-provider specific configuration.
+# For local, a workspace is degraded to a concept with a few options.
 provider:
     type: local
 
-# For local, a workspace is degraded to a concept.

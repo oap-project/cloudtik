@@ -6,4 +6,9 @@ provider:
     type: local
 
 auth:
+    # The user is current user with sudo privilege on local host
     ssh_user: ubuntu
+
+# Disable docker for local host mode
+docker:
+    enabled: False

@@ -1,4 +1,9 @@
 import logging
+from types import ModuleType
+from typing import Dict, Optional, Any
+
+from cloudtik.core._private.call_context import CallContext
+from cloudtik.core.command_executor import CommandExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -32,4 +37,16 @@ class LocalScheduler:
         raise NotImplementedError
 
     def get_node_info(self, node_id):
+        raise NotImplementedError
+
+    def get_command_executor(self,
+                             call_context: CallContext,
+                             log_prefix: str,
+                             node_id: str,
+                             auth_config: Dict[str, Any],
+                             cluster_name: str,
+                             process_runner: ModuleType,
+                             use_internal_ip: bool,
+                             docker_config: Optional[Dict[str, Any]] = None
+                             ) -> CommandExecutor:
         raise NotImplementedError

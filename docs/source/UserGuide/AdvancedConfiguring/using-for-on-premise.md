@@ -15,8 +15,8 @@ Please follow these steps to use for On-Premise clusters .
 
 ## Prepare the machines
 For the machines used for CloudTik, there are a few requirements. 
-1. All the machines needs to have a user with sudo privilege. A non-root user is suggegested, for example 'cloudtik'.
-2. Prepare the private key file for the clusters
+1. All the machines needs to have a user with sudo privilege. A non-root user is suggested, for example 'cloudtik'.
+2. Prepare the private key login for the nodes
 3. Setup host resolution for all the nodes
 4. Prepare the local disks
 
@@ -41,11 +41,19 @@ echo 'cloudtik ALL=NOPASSWD: ALL' | sudo tee -a /etc/sudoer;
 sudo passwd cloudtik;
 ```
 
-### Prepare the private key file
-We need to specify the private key file for logining to the clusters.
-Use the command `ssh-keygen -t rsa -b 4096` to generate a new ssh key pair on working node.
-Then add working node SSH public key to each nodes. For example: ssh-copy-id -i ~/.ssh/id_rsa.pub [sudo user]@[node-ip]
+### Prepare the private key file login for nodes
+We need to configure the private key file login for each participating nodes.
+Use the command `ssh-keygen` to generate a new ssh key pair on working node.
+For example:
 
+`ssh-keygen -t rsa -b 4096`
+
+Then add the generated ssh public key to each node for enabling its private key file login.
+One simple way to do this is to use `ssh-copy-id` command. For example:
+
+```
+ssh-copy-id -i ~/.ssh/id_rsa.pub [sudo user]@[node-ip]
+```
 
 ### Set up host resolution
 We need to make sure that the host resolution is configured and working properly. 

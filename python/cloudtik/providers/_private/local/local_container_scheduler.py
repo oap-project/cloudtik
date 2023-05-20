@@ -23,7 +23,7 @@ class LocalContainerScheduler(LocalScheduler):
 
     def get_non_terminated_nodes(self, tag_filters):
         # TODO
-        pass
+        return []
 
     def is_running(self, node_id):
         # TODO

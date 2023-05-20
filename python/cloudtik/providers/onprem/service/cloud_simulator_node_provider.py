@@ -203,6 +203,8 @@ class CloudSimulatorNodeProvider(NodeProvider):
         node = self.state.get_node(node_id)
         if node is None:
             raise RuntimeError("Node with id {} doesn't exist.".format(node_id))
+        if node["state"] != "running":
+            raise RuntimeError("Node with id {} is not running.".format(node_id))
         node["state"] = "terminated"
         self.state.put(node_id, node)
 

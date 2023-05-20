@@ -1,19 +1,23 @@
 import socket
-
+from types import ModuleType
+from typing import Dict, Optional, Any
 from filelock import FileLock
 from threading import RLock
 import json
 import os
 import logging
 
+from cloudtik.core._private.call_context import CallContext
+from cloudtik.core._private.command_executor.local_command_executor import LocalCommandExecutor
+from cloudtik.core.command_executor import CommandExecutor
 from cloudtik.providers._private.local.config \
-    import get_host_scheduler_lock_path, get_host_scheduler_state_path
+    import get_host_scheduler_lock_path, get_host_scheduler_state_path, _get_request_instance_type, \
+    get_instance_type_name
 from cloudtik.providers._private.local.local_scheduler import LocalScheduler
 
 logger = logging.getLogger(__name__)
 
 LOCAL_HOST_ID = "localhost"
-LOCAL_HOST_INSTANCE_TYPE = "local"
 
 
 class LocalHostState:
@@ -21,7 +25,9 @@ class LocalHostState:
         self.lock = RLock()
         self.file_lock = FileLock(lock_path)
         self.state_path = save_path
+        self._init_state()
 
+    def _init_state(self):
         with self.lock:
             with self.file_lock:
                 list_of_node_ids = [LOCAL_HOST_ID]
@@ -84,6 +90,7 @@ class LocalHostScheduler(LocalScheduler):
 
     def create_node(self, cluster_name, node_config, tags, count):
         launched = 0
+        instance_type = _get_request_instance_type(node_config)
         with self.state.file_lock:
             nodes = self.state.get()
             for node_id, node in nodes.items():
@@ -92,6 +99,7 @@ class LocalHostScheduler(LocalScheduler):
 
                 node["tags"] = tags
                 node["state"] = "running"
+                node["instance_type"] = instance_type
                 self.state.put(node_id, node)
                 launched = launched + 1
                 if count == launched:
@@ -152,7 +160,8 @@ class LocalHostScheduler(LocalScheduler):
         node = self.state.get_node(node_id)
         if node is None:
             raise RuntimeError("Node with id {} doesn't exist.".format(node_id))
-        node_instance_type = LOCAL_HOST_INSTANCE_TYPE
+        instance_type = node.get("instance_type", {})
+        node_instance_type = get_instance_type_name(instance_type)
         node_info = {"node_id": node_id,
                      "instance_type": node_instance_type,
                      "private_ip": self.get_internal_ip(node_id),
@@ -160,3 +169,24 @@ class LocalHostScheduler(LocalScheduler):
                      "instance_status": node["state"]}
         node_info.update(node["tags"])
         return node_info
+
+    def get_command_executor(self,
+                             call_context: CallContext,
+                             log_prefix: str,
+                             node_id: str,
+                             auth_config: Dict[str, Any],
+                             cluster_name: str,
+                             process_runner: ModuleType,
+                             use_internal_ip: bool,
+                             docker_config: Optional[Dict[str, Any]] = None
+                             ) -> CommandExecutor:
+        common_args = {
+            "log_prefix": log_prefix,
+            "node_id": node_id,
+            "provider": self,
+            "auth_config": auth_config,
+            "cluster_name": cluster_name,
+            "process_runner": process_runner,
+            "use_internal_ip": use_internal_ip
+        }
+        return LocalCommandExecutor(call_context, **common_args)

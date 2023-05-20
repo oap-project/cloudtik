@@ -1,5 +1,10 @@
 import logging
+from types import ModuleType
+from typing import Dict, Optional, Any
 
+from cloudtik.core._private.call_context import CallContext
+from cloudtik.core._private.command_executor.docker_command_executor import DockerCommandExecutor
+from cloudtik.core.command_executor import CommandExecutor
 from cloudtik.providers._private.local.config import \
     _get_bridge_address
 from cloudtik.providers._private.local.local_scheduler import LocalScheduler
@@ -47,3 +52,25 @@ class LocalContainerScheduler(LocalScheduler):
     def get_node_info(self, node_id):
         # TODO
         pass
+
+    def get_command_executor(self,
+                             call_context: CallContext,
+                             log_prefix: str,
+                             node_id: str,
+                             auth_config: Dict[str, Any],
+                             cluster_name: str,
+                             process_runner: ModuleType,
+                             use_internal_ip: bool,
+                             docker_config: Optional[Dict[str, Any]] = None
+                             ) -> CommandExecutor:
+        common_args = {
+            "log_prefix": log_prefix,
+            "node_id": node_id,
+            "provider": self,
+            "auth_config": auth_config,
+            "cluster_name": cluster_name,
+            "process_runner": process_runner,
+            "use_internal_ip": use_internal_ip
+        }
+        return DockerCommandExecutor(
+            call_context, docker_config, True, **common_args)

@@ -4,9 +4,10 @@ from typing import Any, Dict, Optional
 from cloudtik.core._private.providers import _get_node_provider
 from cloudtik.core._private.utils import get_running_head_node
 from cloudtik.core.tags import CLOUDTIK_GLOBAL_VARIABLE_KEY, CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX
-from cloudtik.core.workspace_provider import WorkspaceProvider
+from cloudtik.core.workspace_provider import WorkspaceProvider, Existence
 from cloudtik.providers._private.local.workspace_config \
-    import get_workspace_head_nodes, list_local_clusters, _get_node_tags
+    import get_workspace_head_nodes, list_local_clusters, _get_node_tags, create_local_workspace, \
+    delete_local_workspace, check_local_workspace_existence, check_local_workspace_integrity
 
 logger = logging.getLogger(__name__)
 
@@ -15,9 +16,27 @@ class LocalWorkspaceProvider(WorkspaceProvider):
     def __init__(self, provider_config, workspace_name):
         WorkspaceProvider.__init__(self, provider_config, workspace_name)
 
+    def create_workspace(self, config: Dict[str, Any]):
+        """Create a workspace and all the resources needed for the workspace based on the config."""
+        create_local_workspace(config)
+
+    def delete_workspace(self, config: Dict[str, Any],
+                         delete_managed_storage: bool = False,
+                         delete_managed_database:bool = False):
+        """Delete all the resources created for the workspace.
+        Managed cloud storage is not deleted by default unless delete_managed_storage is specified.
+        """
+        delete_local_workspace(config)
+
     def check_workspace_integrity(self, config: Dict[str, Any]) -> bool:
         """Check whether the workspace is correctly configured"""
-        return True
+        return check_local_workspace_integrity(config)
+
+    def check_workspace_existence(self, config: Dict[str, Any]) -> Existence:
+        """Check whether the workspace with the same name exists.
+        The existing workspace may be in incomplete state.
+        """
+        return check_local_workspace_existence(config)
 
     def list_clusters(self, config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         return list_local_clusters(self.provider_config)

@@ -14,7 +14,7 @@ DEFAULT_BRIDGE_SSH_PORT = 8282
 
 
 def _get_bridge_address(provider_config):
-    bridge_address = provider_config["bridge_address"]
+    bridge_address = provider_config.get("bridge_address")
     if bridge_address:
         # within the cluster
         # Add the default port if not specified

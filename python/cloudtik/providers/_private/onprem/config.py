@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 DEFAULT_CLOUD_SIMULATOR_PORT = 8282
+TAG_WORKSPACE_NAME = "workspace-name"
 
 
 def _get_cloud_simulator_address(provider_config):
@@ -54,6 +55,15 @@ def _get_http_response_from_simulator(cloud_simulator_address, request):
 
     response = r.json()
     return response
+
+
+def bootstrap_onprem(config):
+    workspace_name = config.get("workspace_name", "")
+    if workspace_name == "":
+        raise RuntimeError("Workspace name is not specified in cluster configuration.")
+
+    config["provider"]["workspace_name"] = workspace_name
+    return config
 
 
 def prepare_onprem(config: Dict[str, Any]) -> Dict[str, Any]:

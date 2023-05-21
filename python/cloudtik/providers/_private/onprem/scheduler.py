@@ -1,19 +1,15 @@
-import copy
-import yaml
-from filelock import FileLock
-from threading import RLock
-import json
-import os
-import socket
 import logging
+import socket
 from typing import Any, Dict
 
-from cloudtik.core.node_provider import NodeProvider
+import yaml
 
+from cloudtik.core.node_provider import NodeProvider
 from cloudtik.providers._private.onprem.config import get_cloud_simulator_lock_path, \
     get_cloud_simulator_state_path, _get_instance_types, \
-    get_list_of_node_ips, _get_request_instance_type, _get_node_id_mapping, _get_node_instance_type, \
+    _get_request_instance_type, _get_node_id_mapping, _get_node_instance_type, \
     set_node_types_resources
+from cloudtik.providers._private.onprem.state_store import FileStateStore
 
 logger = logging.getLogger(__name__)
 
@@ -25,72 +21,7 @@ def load_provider_config(config_file):
     return config_object
 
 
-class ClusterState:
-    def __init__(self, lock_path, state_path, provider_config):
-        self.lock = RLock()
-        self.file_lock = FileLock(lock_path)
-        self.state_path = state_path
-        self.cached_nodes = {}
-        self.load_config(provider_config)
-
-    def get(self):
-        with self.lock:
-            with self.file_lock:
-                return copy.deepcopy(self.cached_nodes)
-
-    def get_safe(self):
-        return self.cached_nodes
-
-    def get_node(self, node_id):
-        with self.lock:
-            with self.file_lock:
-                nodes = self.cached_nodes
-                if node_id not in nodes:
-                    return None
-                return copy.deepcopy(nodes[node_id])
-
-    def put(self, node_id, node):
-        assert "tags" in node
-        assert "state" in node
-        with self.lock:
-            with self.file_lock:
-                nodes = self.cached_nodes
-                nodes[node_id] = node
-                with open(self.state_path, "w") as f:
-                    if logger.isEnabledFor(logging.DEBUG):
-                        logger.debug("Writing cluster state: {}".format(list(nodes)))
-                    f.write(json.dumps(nodes))
-
-    def load_config(self, provider_config):
-        with self.lock:
-            with self.file_lock:
-                list_of_node_ips = get_list_of_node_ips(provider_config)
-                if os.path.exists(self.state_path):
-                    nodes = json.loads(open(self.state_path).read())
-                else:
-                    nodes = {}
-                logger.info(
-                    "Loaded cluster state: {}".format(nodes))
-
-                # Filter removed node ips.
-                for node_ip in list(nodes):
-                    if node_ip not in list_of_node_ips:
-                        del nodes[node_ip]
-
-                for node_ip in list_of_node_ips:
-                    if node_ip not in nodes:
-                        nodes[node_ip] = {
-                            "tags": {},
-                            "state": "terminated",
-                        }
-                assert len(nodes) == len(list_of_node_ips)
-                with open(self.state_path, "w") as f:
-                    logger.info("Writing cluster state: {}".format(nodes))
-                    f.write(json.dumps(nodes))
-                self.cached_nodes = nodes
-
-
-class CloudSimulatorNodeProvider(NodeProvider):
+class CloudSimulatorScheduler(NodeProvider):
     """NodeProvider for private/on-promise clusters.
     This is not a real Node Provider that will be used by core (which
     may be instanced multiple times and on different environment)
@@ -103,17 +34,18 @@ class CloudSimulatorNodeProvider(NodeProvider):
 
     The current use case of managing multiple clusters is by
     CloudSimulator which receives node provider HTTP requests
-    from OnPremNodeProvider and uses CloudSimulatorNodeProvider to get
+    from OnPremNodeProvider and uses CloudSimulatorScheduler to get
     the responses.
     """
 
     def __init__(self, provider_config, cluster_name):
         NodeProvider.__init__(self, provider_config, cluster_name)
 
-        # CloudSimulatorNodeProvider with a Cloud Simulator.
-        self.state = ClusterState(
-            get_cloud_simulator_lock_path(), get_cloud_simulator_state_path(),
-            provider_config)
+        # CloudSimulatorScheduler with a Cloud Simulator.
+        self.state = FileStateStore(
+            provider_config,
+            get_cloud_simulator_lock_path(),
+            get_cloud_simulator_state_path())
         self.node_id_mapping = _get_node_id_mapping(provider_config)
 
     def non_terminated_nodes(self, tag_filters):
@@ -167,18 +99,18 @@ class CloudSimulatorNodeProvider(NodeProvider):
         return socket.gethostbyname(node_id)
 
     def set_node_tags(self, node_id, tags):
-        with self.state.file_lock:
-            node = self.state.get_node(node_id)
+        with self.state.transaction():
+            node = self.state.get_node_safe(node_id)
             if node is None:
                 raise RuntimeError("Node with id {} doesn't exist.".format(node_id))
             node["tags"].update(tags)
-            self.state.put(node_id, node)
+            self.state.put_safe(node_id, node)
 
     def create_node(self, node_config, tags, count):
         """Creates min(count, currently available) nodes."""
         launched = 0
         instance_type = _get_request_instance_type(node_config)
-        with self.state.file_lock:
+        with self.state.transaction():
             nodes = self.state.get_safe()
             for node_id, node in nodes.items():
                 if node["state"] != "terminated":
@@ -190,7 +122,7 @@ class CloudSimulatorNodeProvider(NodeProvider):
 
                 node["tags"] = tags
                 node["state"] = "running"
-                self.state.put(node_id, node)
+                self.state.put_safe(node_id, node)
                 launched = launched + 1
                 if count == launched:
                     return
@@ -200,13 +132,14 @@ class CloudSimulatorNodeProvider(NodeProvider):
                     count, launched))
 
     def terminate_node(self, node_id):
-        node = self.state.get_node(node_id)
-        if node is None:
-            raise RuntimeError("Node with id {} doesn't exist.".format(node_id))
-        if node["state"] != "running":
-            raise RuntimeError("Node with id {} is not running.".format(node_id))
-        node["state"] = "terminated"
-        self.state.put(node_id, node)
+        with self.state.transaction():
+            node = self.state.get_node_safe(node_id)
+            if node is None:
+                raise RuntimeError("Node with id {} doesn't exist.".format(node_id))
+            if node["state"] != "running":
+                raise RuntimeError("Node with id {} is not running.".format(node_id))
+            node["state"] = "terminated"
+            self.state.put_safe(node_id, node)
 
     def get_node_info(self, node_id):
         node = self.state.get_node(node_id)
@@ -242,3 +175,14 @@ class CloudSimulatorNodeProvider(NodeProvider):
     def reload(self, config_file):
         provider_config = load_provider_config(config_file)
         self.state.load_config(provider_config)
+
+    def create_workspace(self, workspace_name):
+        self.state.create_workspace(workspace_name)
+        return {"name": workspace_name}
+
+    def delete_workspace(self, workspace_name):
+        self.state.delete_workspace(workspace_name)
+        return {"name": workspace_name}
+
+    def get_workspace(self, workspace_name):
+        return self.state.get_workspace(workspace_name)

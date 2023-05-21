@@ -15,7 +15,7 @@ from cloudtik.core._private.docker import check_bind_mounts_cmd, \
     check_docker_running_cmd, \
     check_docker_image, \
     docker_start_cmds, \
-    with_docker_exec, get_configured_docker_image
+    with_docker_exec, get_configured_docker_image, get_docker_cmd
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +36,7 @@ class DockerCommandExecutor(CommandExecutor):
         # Optionally use 'podman' instead of 'docker'
         use_podman = docker_config.get("use_podman", False)
         self.docker_cmd = "podman" if use_podman else "docker"
+        self.docker_with_sudo = docker_config.get("docker_with_sudo", False)
 
     def run(
             self,
@@ -53,7 +54,7 @@ class DockerCommandExecutor(CommandExecutor):
     ):
         if run_env == "auto":
             run_env = "host" if (not bool(cmd) or cmd.find(
-                self.docker_cmd) == 0) else self.docker_cmd
+                self.docker_cmd) == 0) else "docker"
 
         if environment_variables:
             cmd, cmd_to_print = _with_environment_variables(
@@ -113,11 +114,11 @@ class DockerCommandExecutor(CommandExecutor):
                 ],
                 container_name=self.container_name,
                 with_interactive=self.call_context.is_using_login_shells(),
-                docker_cmd=self.docker_cmd)[0]
+                docker_cmd=self.get_docker_cmd())[0]
 
             self.host_command_executor.run(
                 "{} && rsync -e '{} exec -i' -avz {} {}:{}".format(
-                    prefix, self.docker_cmd, host_destination,
+                    prefix, self.get_docker_cmd(), host_destination,
                     self.container_name, self._docker_expand_user(target)),
                 silent=self.call_context.is_rsync_silent())
 
@@ -140,7 +141,7 @@ class DockerCommandExecutor(CommandExecutor):
             # of truth.
             self.host_command_executor.run(
                 "rsync -e '{} exec -i' -avz --delete {}:{} {}".format(
-                    self.docker_cmd, self.container_name,
+                    self.get_docker_cmd(), self.container_name,
                     self._docker_expand_user(source), host_source),
                 silent=self.call_context.is_rsync_silent())
         self.host_command_executor.run_rsync_down(
@@ -150,7 +151,10 @@ class DockerCommandExecutor(CommandExecutor):
         inner_str = self.host_command_executor.remote_shell_command_str().replace(
             "ssh", "ssh -tt", 1).strip("\n")
         return inner_str + " {} exec -it {} /bin/bash\n".format(
-            self.docker_cmd, self.container_name)
+            self.get_docker_cmd(), self.container_name)
+
+    def get_docker_cmd(self):
+        return get_docker_cmd(self.docker_cmd, self.docker_with_sudo)
 
     def _check_docker_installed(self):
         no_exist = "NoExist"
@@ -180,7 +184,7 @@ class DockerCommandExecutor(CommandExecutor):
         if self.initialized:
             return True
         output = self.host_command_executor.run_with_retry(
-            check_docker_running_cmd(self.container_name, self.docker_cmd),
+            check_docker_running_cmd(self.container_name, self.get_docker_cmd()),
             with_output=True).decode("utf-8").strip()
         # Checks for the false positive where "true" is in the container name
         return ("true" in output.lower()
@@ -191,8 +195,8 @@ class DockerCommandExecutor(CommandExecutor):
         if user_pos > -1:
             if self.home_dir is None:
                 self.home_dir = self.host_command_executor.run_with_retry(
-                    f"{self.docker_cmd} exec {self.container_name} "
-                    "printenv HOME",
+                    "{} exec {} printenv HOME".format(
+                        self.get_docker_cmd(), self.container_name),
                     with_output=True).decode("utf-8").strip()
 
             if any_char:
@@ -207,7 +211,7 @@ class DockerCommandExecutor(CommandExecutor):
             self, image: str, cleaned_bind_mounts: Dict[str, str]) -> bool:
         re_init_required = False
         running_image = self.run_with_retry(
-            check_docker_image(self.container_name, self.docker_cmd),
+            check_docker_image(self.container_name, self.get_docker_cmd()),
             with_output=True,
             run_env="host").decode("utf-8").strip()
         if running_image != image:
@@ -216,7 +220,7 @@ class DockerCommandExecutor(CommandExecutor):
                 "of {} (which was provided in the YAML)", self.container_name,
                 running_image, image)
         mounts = self.run_with_retry(
-            check_bind_mounts_cmd(self.container_name, self.docker_cmd),
+            check_bind_mounts_cmd(self.container_name, self.get_docker_cmd()),
             with_output=True,
             run_env="host").decode("utf-8").strip()
         try:
@@ -247,7 +251,7 @@ class DockerCommandExecutor(CommandExecutor):
 
     def run_init(self, *, as_head: bool, file_mounts: Dict[str, str],
                  shared_memory_ratio: float, sync_run_yet: bool):
-        BOOTSTRAP_MOUNTS = [
+        bootstrap_mounts = [
             "~/cloudtik_bootstrap_config.yaml", "~/cloudtik_bootstrap_key.pem"
         ]
 
@@ -258,18 +262,19 @@ class DockerCommandExecutor(CommandExecutor):
             assert specific_image, "Image must be included in config if " + \
                 "pull_before_run is specified"
             self.run_with_retry(
-                "{} pull {}".format(self.docker_cmd, specific_image),
+                "{} pull {}".format(self.get_docker_cmd(), specific_image),
                 run_env="host")
         else:
             self.run_with_retry(
-                f"{self.docker_cmd} image inspect {specific_image} "
+                "{docker_cmd} image inspect {specific_image} "
                 "1> /dev/null  2>&1 || "
-                f"{self.docker_cmd} pull {specific_image}")
+                "{docker_cmd} pull {specific_image}".format(
+                    docker_cmd=self.get_docker_cmd(), specific_image=specific_image))
 
         # Bootstrap files cannot be bind mounted because docker opens the
         # underlying inode. When the file is switched, docker becomes outdated.
         cleaned_bind_mounts = file_mounts.copy()
-        for mnt in BOOTSTRAP_MOUNTS:
+        for mnt in bootstrap_mounts:
             cleaned_bind_mounts.pop(mnt, None)
 
         docker_run_executed = False
@@ -281,7 +286,8 @@ class DockerCommandExecutor(CommandExecutor):
                 specific_image, cleaned_bind_mounts)
             if requires_re_init:
                 self.run_with_retry(
-                    f"{self.docker_cmd} stop {self.container_name}",
+                    "{} stop {}".format(
+                        self.get_docker_cmd(), self.container_name),
                     run_env="host")
 
         if (not container_running) or requires_re_init:
@@ -293,7 +299,7 @@ class DockerCommandExecutor(CommandExecutor):
                 return True
             # Get home directory
             image_env = self.host_command_executor.run_with_retry(
-                f"{self.docker_cmd} " + "inspect -f '{{json .Config.Env}}' " +
+                "{} ".format(self.get_docker_cmd()) + "inspect -f '{{json .Config.Env}}' " +
                 specific_image,
                 with_output=True).decode().strip()
             home_directory = "/root"
@@ -321,13 +327,13 @@ class DockerCommandExecutor(CommandExecutor):
                                              shared_memory_ratio),
                     as_head),
                 self.host_command_executor.cluster_name, home_directory,
-                self.docker_cmd)
+                self.get_docker_cmd())
             self.run_with_retry(
                 start_command, run_env="host")
             docker_run_executed = True
 
         # Explicitly copy in bootstrap files.
-        for mount in BOOTSTRAP_MOUNTS:
+        for mount in bootstrap_mounts:
             if mount in file_mounts:
                 if not sync_run_yet:
                     # NOTE(ilr) This rsync is needed because when starting from
@@ -337,7 +343,7 @@ class DockerCommandExecutor(CommandExecutor):
                 self.host_command_executor.run_with_retry(
                     "rsync -e '{cmd} exec -i' -avz {src} {container}:{dst}".
                     format(
-                        cmd=self.docker_cmd,
+                        cmd=self.get_docker_cmd(),
                         src=os.path.join(
                             self._get_docker_host_mount_location(
                                 self.host_command_executor.cluster_name), mount),
@@ -384,7 +390,7 @@ class DockerCommandExecutor(CommandExecutor):
             return run_options
 
         runtime_output = self.host_command_executor.run_with_retry(
-            f"{self.docker_cmd} " + "info -f '{{.Runtimes}}' ",
+            "{} ".format(self.get_docker_cmd()) + "info -f '{{.Runtimes}}' ",
             with_output=True).decode().strip()
         if "nvidia-container-runtime" in runtime_output:
             try:
@@ -457,10 +463,10 @@ class DockerCommandExecutor(CommandExecutor):
             [cmd],
             container_name=self.container_name,
             with_interactive=self.call_context.is_using_login_shells(),
-            docker_cmd=self.docker_cmd)[0]
+            docker_cmd=self.get_docker_cmd())[0]
         cmd_to_print = with_docker_exec(
             [cmd_to_print],
             container_name=self.container_name,
             with_interactive=self.call_context.is_using_login_shells(),
-            docker_cmd=self.docker_cmd)[0] if cmd_to_print else None
+            docker_cmd=self.get_docker_cmd())[0] if cmd_to_print else None
         return cmd, cmd_to_print

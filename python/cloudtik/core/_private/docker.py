@@ -55,13 +55,20 @@ def with_docker_exec(cmds,
         env_str = " ".join(
             ["-e {env}=${env}".format(env=env) for env in env_vars])
     return [
-        "docker exec {interactive} {env} {container} /bin/bash -c {cmd} ".
+        "{docker_cmd} exec {interactive} {env} {container} /bin/bash -c {cmd} ".
         format(
+            docker_cmd=docker_cmd,
             interactive="-it" if with_interactive else "",
             env=env_str,
             container=container_name,
             cmd=quote(cmd)) for cmd in cmds
     ]
+
+
+def get_docker_cmd(docker_cmd, with_sudo=False):
+    return "{sudo}{docker_cmd}".format(
+        sudo="sudo " if with_sudo else "",
+        docker_cmd=docker_cmd)
 
 
 def _check_helper(cname, template, docker_cmd):

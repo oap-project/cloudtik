@@ -48,7 +48,7 @@ from cloudtik.core._private.constants import \
     CLOUDTIK_RUNTIME_NAME, CLOUDTIK_KV_NAMESPACE_HEALTHCHECK
 from cloudtik.core._private.utils import hash_runtime_conf, \
     hash_launch_conf, get_free_port, \
-    get_proxy_info_file, get_safe_proxy_process_info, \
+    get_proxy_process_file, get_safe_proxy_process, \
     get_head_working_ip, get_node_cluster_ip, is_use_internal_ip, \
     get_attach_command, is_alive_time, is_docker_enabled, get_proxy_bind_address_to_show, \
     with_runtime_environment_variables, get_nodes_info, \
@@ -2002,8 +2002,8 @@ def show_useful_commands(call_context: CallContext,
 
     _cli_logger.newline()
     with _cli_logger.group("Useful addresses:"):
-        proxy_info_file = get_proxy_info_file(cluster_name)
-        pid, address, port = get_safe_proxy_process_info(proxy_info_file)
+        proxy_process_file = get_proxy_process_file(cluster_name)
+        pid, address, port = get_safe_proxy_process(proxy_process_file)
         if pid is not None:
             bind_address_show = get_proxy_bind_address_to_show(address)
             with _cli_logger.group("The SOCKS5 proxy to access the cluster Web UI from local browsers:"):
@@ -2191,8 +2191,8 @@ def _start_proxy(config: Dict[str, Any],
                  restart: bool = False,
                  bind_address: str = None):
     cluster_name = config["cluster_name"]
-    proxy_info_file = get_proxy_info_file(cluster_name)
-    pid, address, port = get_safe_proxy_process_info(proxy_info_file)
+    proxy_process_file = get_proxy_process_file(cluster_name)
+    pid, address, port = get_safe_proxy_process(proxy_process_file)
     if pid is not None:
         if restart:
             # stop the proxy first
@@ -2228,7 +2228,7 @@ def _start_proxy(config: Dict[str, Any],
 
 def _start_proxy_process(head_node_ip, config,
                          bind_address: str = None):
-    proxy_info_file = get_proxy_info_file(config["cluster_name"])
+    proxy_process_file = get_proxy_process_file(config["cluster_name"])
     cmd = "ssh -o \'StrictHostKeyChecking no\'"
 
     auth_config = config["auth"]
@@ -2237,14 +2237,19 @@ def _start_proxy_process(head_node_ip, config,
     ssh_user = auth_config["ssh_user"]
     ssh_port = auth_config.get("ssh_port", None)
 
-    proxy_port = get_free_port()
+    if not bind_address:
+        proxy_port = get_free_port(
+            '127.0.0.1', constants.DEFAULT_PROXY_PORT)
+    else:
+        proxy_port = get_free_port(
+            bind_address, constants.DEFAULT_PROXY_PORT)
     if ssh_private_key:
         cmd += " -i {}".format(ssh_private_key)
     if ssh_proxy_command:
         cmd += " -o ProxyCommand=\'{}\'".format(ssh_proxy_command)
     if ssh_port:
         cmd += " -p {}".format(ssh_port)
-    if bind_address is None or bind_address == "":
+    if not bind_address:
         bind_string = "{}".format(proxy_port)
     else:
         bind_string = "{}:{}".format(bind_address, proxy_port)
@@ -2253,13 +2258,13 @@ def _start_proxy_process(head_node_ip, config,
 
     cli_logger.verbose("Running `{}`", cf.bold(cmd))
     p = subprocess.Popen(cmd, shell=True, stderr=subprocess.DEVNULL)
-    if os.path.exists(proxy_info_file):
-        process_info = json.loads(open(proxy_info_file).read())
+    if os.path.exists(proxy_process_file):
+        proxy_process = json.loads(open(proxy_process_file).read())
     else:
-        process_info = {}
-    process_info["proxy"] = {"pid": p.pid, "bind_address": bind_address, "port": proxy_port}
-    with open(proxy_info_file, "w", opener=partial(os.open, mode=0o600)) as f:
-        f.write(json.dumps(process_info))
+        proxy_process = {}
+    proxy_process["proxy"] = {"pid": p.pid, "bind_address": bind_address, "port": proxy_port}
+    with open(proxy_process_file, "w", opener=partial(os.open, mode=0o600)) as f:
+        f.write(json.dumps(proxy_process))
     return p.pid, bind_address, proxy_port
 
 
@@ -2272,16 +2277,18 @@ def stop_proxy(config_file: str,
 def _stop_proxy(config: Dict[str, Any]):
     cluster_name = config["cluster_name"]
 
-    proxy_info_file = get_proxy_info_file(cluster_name)
-    pid, address, port = get_safe_proxy_process_info(proxy_info_file)
+    proxy_process_file = get_proxy_process_file(cluster_name)
+    pid, address, port = get_safe_proxy_process(proxy_process_file)
     if pid is None:
-        cli_logger.print(cf.bold("The SOCKS5 proxy of cluster {} was not started."), cluster_name)
+        cli_logger.print(
+            cf.bold("The SOCKS5 proxy of cluster {} was not started."), cluster_name)
         return
 
     kill_process_tree(pid)
-    with open(proxy_info_file, "w", opener=partial(os.open, mode=0o600)) as f:
+    with open(proxy_process_file, "w", opener=partial(os.open, mode=0o600)) as f:
         f.write(json.dumps({"proxy": {}}))
-    cli_logger.print(cf.bold("Successfully stopped the SOCKS5 proxy of cluster {}."), cluster_name)
+    cli_logger.print(
+        cf.bold("Successfully stopped the SOCKS5 proxy of cluster {}."), cluster_name)
 
 
 def exec_cmd_on_cluster(config_file: str,

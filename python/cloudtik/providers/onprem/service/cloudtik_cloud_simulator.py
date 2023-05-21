@@ -1,7 +1,7 @@
 """Web server that runs on on-premise/private clusters to simulate cloud operations and manage
 different clusters for multiple users. It receives node provider function calls
 through HTTP requests from remote OnPremNodeProvider and runs them
-locally in CloudSimulatorNodeProvider. To start the webserver the user runs:
+locally in CloudSimulatorScheduler. To start the webserver the user runs:
 `python cloudtik_cloud_simulator.py --ips <comma separated ips> --port <PORT>`."""
 import argparse
 import logging
@@ -11,8 +11,8 @@ import json
 import socket
 
 from cloudtik.providers._private.onprem.config import DEFAULT_CLOUD_SIMULATOR_PORT, _get_http_response_from_simulator
-from cloudtik.providers.onprem.service.cloud_simulator_node_provider \
-    import CloudSimulatorNodeProvider, load_provider_config
+from cloudtik.providers._private.onprem.scheduler \
+    import CloudSimulatorScheduler, load_provider_config
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -23,7 +23,7 @@ def runner_handler(node_provider):
         """A custom handler for Cloud Simulator.
 
         Handles all requests and responses coming into and from the
-        remote CloudSimulatorNodeProvider.
+        remote CloudSimulatorScheduler.
         """
 
         def _do_header(self, response_code=200, headers=None):
@@ -46,7 +46,7 @@ def runner_handler(node_provider):
             self._do_header()
 
         def do_GET(self):
-            """Processes requests from remote CloudSimulatorNodeProvider."""
+            """Processes requests from remote CloudSimulatorScheduler."""
             if self.headers["content-length"]:
                 raw_data = (self.rfile.read(
                     int(self.headers["content-length"]))).decode("utf-8")
@@ -66,10 +66,10 @@ def runner_handler(node_provider):
 
 
 class CloudSimulator(threading.Thread):
-    """Initializes HTTPServer and serves CloudSimulatorNodeProvider forever.
+    """Initializes HTTPServer and serves CloudSimulatorScheduler forever.
 
-    It handles requests from the remote CloudSimulatorNodeProvider. The
-    requests are forwarded to CloudSimulatorNodeProvider function calls.
+    It handles requests from the remote CloudSimulatorScheduler. The
+    requests are forwarded to CloudSimulatorScheduler function calls.
     """
 
     def __init__(self, config, host, port):
@@ -85,7 +85,7 @@ class CloudSimulator(threading.Thread):
         provider_config = load_provider_config(config)
         self._server = HTTPServer(
             address,
-            runner_handler(CloudSimulatorNodeProvider(provider_config, cluster_name=None)),
+            runner_handler(CloudSimulatorScheduler(provider_config, cluster_name=None)),
         )
         self.start()
 

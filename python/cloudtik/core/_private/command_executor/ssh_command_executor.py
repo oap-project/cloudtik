@@ -22,9 +22,10 @@ HASH_MAX_LENGTH = 10
 
 
 class SSHOptions:
-    def __init__(self, call_context, ssh_key, control_path=None, **kwargs):
+    def __init__(self, call_context, ssh_key, ssh_port=None, control_path=None, **kwargs):
         self.call_context = call_context
         self.ssh_key = ssh_key
+        self.ssh_port = ssh_port
         self.arg_dict = {
             # Supresses initial fingerprint verification.
             "StrictHostKeyChecking": "no",
@@ -57,7 +58,8 @@ class SSHOptions:
     def to_ssh_options_list(self, *, timeout=60):
         self.arg_dict["ConnectTimeout"] = "{}s".format(timeout)
         ssh_key_option = ["-i", self.ssh_key] if self.ssh_key else []
-        return ssh_key_option + [
+        ssh_port_option = ["-p", self.ssh_port] if self.ssh_port else []
+        return ssh_key_option + ssh_port_option + [
             x for y in (["-o", "{}={}".format(k, v)]
                         for k, v in self.arg_dict.items()
                         if v is not None) for x in y
@@ -65,11 +67,16 @@ class SSHOptions:
 
 
 class SSHCommandExecutor(HostCommandExecutor):
-    def __init__(self, call_context, log_prefix, node_id, provider, auth_config,
-                 cluster_name, process_runner, use_internal_ip):
+    def __init__(self, call_context, log_prefix, auth_config,
+                 cluster_name, process_runner, use_internal_ip,
+                 provider, node_id, ssh_ip=None, ssh_port=None):
+        """If ssh_ip provided, the node_id and provider can be none and will not be used.
+        or if ssh_ip is None and provider and node_ip will be used to retrieve ssh_ip.
+        """
         HostCommandExecutor.__init__(
-            self, call_context, log_prefix, node_id, provider, auth_config,
-            cluster_name, process_runner, use_internal_ip)
+            self, call_context, log_prefix, auth_config,
+            cluster_name, process_runner, use_internal_ip,
+            provider, node_id)
 
         ssh_control_hash = hashlib.md5(cluster_name.encode()).hexdigest()
         ssh_user_hash = hashlib.md5(getuser().encode()).hexdigest()
@@ -78,12 +85,14 @@ class SSHCommandExecutor(HostCommandExecutor):
             ssh_control_hash[:HASH_MAX_LENGTH])
         self.ssh_private_key = auth_config.get("ssh_private_key")
         self.ssh_control_path = ssh_control_path
-        self.ssh_ip = None
+        self.ssh_ip = ssh_ip
+        self.ssh_port = ssh_port
         self.ssh_proxy_command = auth_config.get("ssh_proxy_command", None)
         self.ssh_options = SSHOptions(
             self.call_context,
             self.ssh_private_key,
-            self.ssh_control_path,
+            ssh_port=self.ssh_port,
+            control_path=self.ssh_control_path,
             ProxyCommand=self.ssh_proxy_command)
 
     def _set_ssh_ip_if_required(self):
@@ -128,6 +137,7 @@ class SSHCommandExecutor(HostCommandExecutor):
         if ssh_options_override_ssh_key:
             ssh_options = SSHOptions(
                 self.call_context, ssh_options_override_ssh_key,
+                ssh_port=self.ssh_port,
                 ProxyCommand=self.ssh_proxy_command)
         else:
             ssh_options = self.ssh_options

@@ -21,7 +21,7 @@ class LocalContainerScheduler(LocalScheduler):
         # TODO
         pass
 
-    def get_non_terminated_nodes(self, tag_filters):
+    def non_terminated_nodes(self, tag_filters):
         # TODO
         return []
 
@@ -37,7 +37,7 @@ class LocalContainerScheduler(LocalScheduler):
         # TODO
         pass
 
-    def get_internal_ip(self, node_id):
+    def internal_ip(self, node_id):
         # TODO
         pass
 
@@ -73,4 +73,4 @@ class LocalContainerScheduler(LocalScheduler):
             "use_internal_ip": use_internal_ip
         }
         return DockerCommandExecutor(
-            call_context, docker_config, True, **common_args)
+            call_context, docker_config, False, **common_args)

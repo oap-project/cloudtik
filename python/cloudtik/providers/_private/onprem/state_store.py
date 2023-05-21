@@ -136,6 +136,8 @@ class FileStateStore(StateStore):
                     "state": "terminated",
                 }
         assert len(nodes) == len(list_of_node_ips)
+        logger.info(
+            "Initial cluster state: {}".format(state))
         self.cached_state = state
         self._save_state()
 

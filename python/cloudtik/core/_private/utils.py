@@ -1687,41 +1687,27 @@ def check_cidr_conflict(cidr_block, cidr_blocks):
     return True
 
 
-def get_free_port():
-    """ Get free port"""
-    with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
-        test_port = constants.DEFAULT_PROXY_PORT
-        while True:
-            result = s.connect_ex(('127.0.0.1', test_port))
-            if result != 0:
-                return test_port
-            else:
-                test_port += 1
+def get_proxy_process_file(cluster_name: str):
+    proxy_process_file = os.path.join(
+        tempfile.gettempdir(), "cloudtik-proxy-{}".format(cluster_name))
+    return proxy_process_file
 
 
-def get_proxy_info_file(cluster_name: str):
-    proxy_info_file = os.path.join(tempfile.gettempdir(),
-                                   "cloudtik-proxy-{}".format(cluster_name))
-    return proxy_info_file
-
-
-def _get_proxy_process_info(proxy_info_file: str):
-    if os.path.exists(proxy_info_file):
-        process_info = json.loads(open(proxy_info_file).read())
-        if process_info.get("proxy") and process_info["proxy"].get("pid"):
-            proxy_info = process_info["proxy"]
+def _get_proxy_process(proxy_process_file: str):
+    if os.path.exists(proxy_process_file):
+        proxy_process = json.loads(open(proxy_process_file).read())
+        if proxy_process.get("proxy") and proxy_process["proxy"].get("pid"):
+            proxy_info = proxy_process["proxy"]
             return proxy_info["pid"], proxy_info.get("bind_address"), proxy_info["port"]
     return None, None, None
 
 
-def get_safe_proxy_process_info(proxy_info_file: str):
-    pid, bind_address, port = _get_proxy_process_info(proxy_info_file)
+def get_safe_proxy_process(proxy_process_file: str):
+    pid, bind_address, port = _get_proxy_process(proxy_process_file)
     if pid is None:
         return None, None, None
-
     if not check_process_exists(pid):
         return None, None, None
-
     return pid, bind_address, port
 
 
@@ -3067,7 +3053,7 @@ def get_host_address(address_type="all"):
     return addresses
 
 
-def get_free_port(bind_address, default_port):
+def get_free_port(bind_address='127.0.0.1', default_port=6000):
     """ Get free port"""
     with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
         test_port = default_port

@@ -200,12 +200,12 @@ class NodeProvider:
         """
         common_args = {
             "log_prefix": log_prefix,
-            "node_id": node_id,
-            "provider": self,
             "auth_config": auth_config,
             "cluster_name": cluster_name,
             "process_runner": process_runner,
-            "use_internal_ip": use_internal_ip
+            "use_internal_ip": use_internal_ip,
+            "provider": self,
+            "node_id": node_id,
         }
         if docker_config and docker_config.get("enabled", False):
             return DockerCommandExecutor(

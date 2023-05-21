@@ -11,11 +11,13 @@ logger = logging.getLogger(__name__)
 
 
 class LocalCommandExecutor(HostCommandExecutor):
-    def __init__(self, call_context, log_prefix, node_id, provider, auth_config,
-                 cluster_name, process_runner, use_internal_ip):
+    def __init__(self, call_context, log_prefix, auth_config,
+                 cluster_name, process_runner, use_internal_ip,
+                 provider, node_id):
         HostCommandExecutor.__init__(
-            self, call_context, log_prefix, node_id, provider, auth_config,
-            cluster_name, process_runner, use_internal_ip)
+            self, call_context, log_prefix, auth_config,
+            cluster_name, process_runner, use_internal_ip,
+            provider, node_id)
 
     def run(
             self,

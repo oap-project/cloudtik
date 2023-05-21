@@ -49,10 +49,8 @@ class LocalHostState:
                             "state": "terminated",
                         }
                 assert len(nodes) == len(list_of_node_ids)
-                with open(self.state_path, "w") as f:
-                    logger.info(
-                        "Writing cluster state: {}".format(nodes))
-                    f.write(json.dumps(nodes))
+                logger.info("Initial cluster state: {}".format(nodes))
+                self._save_state(nodes)
 
     def _load(self):
         return json.loads(open(self.state_path).read())
@@ -75,10 +73,13 @@ class LocalHostState:
             with self.file_lock:
                 nodes = self._load()
                 nodes[node_id] = node
-                with open(self.state_path, "w") as f:
-                    if logger.isEnabledFor(logging.DEBUG):
-                        logger.debug("Writing cluster state: {}".format(list(nodes)))
-                    f.write(json.dumps(nodes))
+                self._save_state(nodes)
+
+    def _save_state(self, state):
+        with open(self.state_path, "w") as f:
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug("Writing cluster state: {}".format(list(state)))
+            f.write(json.dumps(state))
 
 
 class LocalHostScheduler(LocalScheduler):
@@ -109,7 +110,7 @@ class LocalHostScheduler(LocalScheduler):
                 "No enough free nodes. {} nodes requested / {} launched.".format(
                     count, launched))
 
-    def get_non_terminated_nodes(self, tag_filters):
+    def non_terminated_nodes(self, tag_filters):
         nodes = self.state.get()
         matching_nodes = []
         for node_id, node in nodes.items():
@@ -135,7 +136,7 @@ class LocalHostScheduler(LocalScheduler):
         node = self.state.get_node(node_id)
         return node["tags"] if node else None
 
-    def get_internal_ip(self, node_id):
+    def internal_ip(self, node_id):
         return socket.gethostbyname(socket.gethostname())
 
     def set_node_tags(self, node_id, tags):
@@ -164,8 +165,8 @@ class LocalHostScheduler(LocalScheduler):
         node_instance_type = get_instance_type_name(instance_type)
         node_info = {"node_id": node_id,
                      "instance_type": node_instance_type,
-                     "private_ip": self.get_internal_ip(node_id),
-                     "public_ip": self.get_internal_ip(node_id),
+                     "private_ip": self.internal_ip(node_id),
+                     "public_ip": None,
                      "instance_status": node["state"]}
         node_info.update(node["tags"])
         return node_info
@@ -182,11 +183,11 @@ class LocalHostScheduler(LocalScheduler):
                              ) -> CommandExecutor:
         common_args = {
             "log_prefix": log_prefix,
-            "node_id": node_id,
-            "provider": self,
             "auth_config": auth_config,
             "cluster_name": cluster_name,
             "process_runner": process_runner,
-            "use_internal_ip": use_internal_ip
+            "use_internal_ip": use_internal_ip,
+            "provider": self,
+            "node_id": node_id,
         }
         return LocalCommandExecutor(call_context, **common_args)

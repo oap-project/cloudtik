@@ -15,7 +15,7 @@ class LocalScheduler:
     def create_node(self, cluster_name, node_config, tags, count):
         raise NotImplementedError
 
-    def get_non_terminated_nodes(self, tag_filters):
+    def non_terminated_nodes(self, tag_filters):
         raise NotImplementedError
 
     def is_running(self, node_id):
@@ -27,7 +27,7 @@ class LocalScheduler:
     def get_node_tags(self, node_id):
         raise NotImplementedError
 
-    def get_internal_ip(self, node_id):
+    def internal_ip(self, node_id):
         raise NotImplementedError
 
     def set_node_tags(self, node_id, tags):

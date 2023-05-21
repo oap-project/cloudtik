@@ -24,10 +24,11 @@ CHECK_DOCKER_RUNTIME_NUMBER_OF_RETRIES = 5
 
 
 class DockerCommandExecutor(CommandExecutor):
-    def __init__(self, call_context, docker_config, remote: bool = True, **common_args):
+    def __init__(self, call_context, docker_config, remote_host: bool = True, **common_args):
         CommandExecutor.__init__(self, call_context)
         self.host_command_executor = SSHCommandExecutor(
-            call_context, **common_args) if remote else LocalCommandExecutor(call_context, **common_args)
+            call_context, **common_args) if remote_host else LocalCommandExecutor(
+            call_context, **common_args)
         self.container_name = docker_config["container_name"]
         self.docker_config = docker_config
         self.home_dir = None

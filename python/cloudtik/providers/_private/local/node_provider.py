@@ -35,7 +35,7 @@ class LocalNodeProvider(NodeProvider):
     def non_terminated_nodes(self, tag_filters):
         # Only get the non terminated nodes associated with this cluster name.
         tag_filters[CLOUDTIK_TAG_CLUSTER_NAME] = self.cluster_name
-        return self.local_scheduler.get_non_terminated_nodes(tag_filters)
+        return self.local_scheduler.non_terminated_nodes(tag_filters)
 
     def is_running(self, node_id):
         return self.local_scheduler.is_running(node_id)
@@ -50,7 +50,7 @@ class LocalNodeProvider(NodeProvider):
         return None
 
     def internal_ip(self, node_id):
-        return self.local_scheduler.get_internal_ip(node_id)
+        return self.local_scheduler.internal_ip(node_id)
 
     def create_node(self, node_config, tags, count):
         # Tag the newly created node with this cluster name. Helps to get

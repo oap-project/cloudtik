@@ -19,16 +19,17 @@ logger = logging.getLogger(__name__)
 
 
 class HostCommandExecutor(CommandExecutor):
-    def __init__(self, call_context, log_prefix, node_id, provider, auth_config,
-                 cluster_name, process_runner, use_internal_ip):
+    def __init__(self, call_context, log_prefix, auth_config,
+                 cluster_name, process_runner, use_internal_ip,
+                 provider, node_id):
         CommandExecutor.__init__(self, call_context)
         self.cluster_name = cluster_name
         self.log_prefix = log_prefix
         self.process_runner = process_runner
-        self.node_id = node_id
         self.use_internal_ip = use_internal_ip
-        self.provider = provider
         self.ssh_user = auth_config["ssh_user"]
+        self.provider = provider
+        self.node_id = node_id
 
     def _get_node_ip(self):
         if self.use_internal_ip:

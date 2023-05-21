@@ -3,8 +3,8 @@
 # This works on ubuntu with a sudo capable user
 
 # Update the apt package index and install packages to allow apt to use a repository over HTTPS
-sudo apt-get update
-sudo apt-get install \
+sudo apt-get update -y
+sudo apt-get install -y \
     ca-certificates \
     curl \
     gnupg \
@@ -19,5 +19,5 @@ echo \
   $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
 # Update the apt package index, and install the latest version of Docker Engine and containerd
-sudo apt-get update
-sudo apt-get install docker-ce docker-ce-cli containerd.io
+sudo apt-get update -y
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io

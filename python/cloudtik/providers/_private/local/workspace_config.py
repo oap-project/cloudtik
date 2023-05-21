@@ -3,11 +3,9 @@ import json
 import logging
 import os
 import shutil
-import socket
 import subprocess
 import tempfile
 import uuid
-from contextlib import closing
 from functools import partial
 from typing import Any, Optional
 from typing import Dict
@@ -16,6 +14,7 @@ import psutil
 
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.core_utils import kill_process_tree
+from cloudtik.core._private.utils import exec_with_output, get_host_address, get_free_port
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD
 from cloudtik.core.workspace_provider import Existence
 from cloudtik.providers._private.local.config import get_cluster_name_from_node
@@ -29,6 +28,22 @@ LOCAL_DOCKER_WORKSPACE_NUM_DELETION_STEPS = 2
 LOCAL_DOCKER_WORKSPACE_TARGET_RESOURCES = 2
 
 DEFAULT_SSH_SERVER_PORT = 3371
+
+
+def is_rootless_docker():
+    # run docker image list for a test
+    try:
+        exec_with_output("docker image list")
+        return True
+    except:
+        return False
+
+
+def with_sudo(docker_cmd):
+    # check whether we need to run as sudo based whether we run rootless docker
+    if is_rootless_docker():
+        return docker_cmd
+    return "sudo " + docker_cmd
 
 
 def _get_expanded_path(path):
@@ -106,18 +121,6 @@ def list_local_clusters(provider_config: Dict[str, Any]) -> Optional[Dict[str, A
         if cluster_name:
             clusters[cluster_name] = node_info
     return clusters
-
-
-def get_free_ssh_server_port(default_port):
-    """ Get free port"""
-    with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
-        test_port = default_port
-        while True:
-            result = s.connect_ex(('127.0.0.1', test_port))
-            if result != 0:
-                return test_port
-            else:
-                test_port += 1
 
 
 def get_ssh_server_process_file(workspace_name: str):
@@ -201,12 +204,13 @@ def _create_docker_bridge_network(config, workspace_name):
     network_name = _get_network_name(workspace_name)
     interface_name = _get_bridge_interface_name(workspace_name)
     # create a docker bridge network for workspace
-    cmd = ("sudo docker network create -d bridge {network_name} "
-           "-o \"com.docker.network.bridge.name\"=\"{interface_name}\"").format(
+    docker_cmd = ("docker network create -d bridge {network_name} "
+                  "-o \"com.docker.network.bridge.name\"=\"{interface_name}\"").format(
         network_name=network_name, interface_name=interface_name)
+    cmd = with_sudo(docker_cmd)
     try:
         cli_logger.print("Creating docker bridge network: {}.", network_name)
-        subprocess.check_output(cmd, shell=True)
+        exec_with_output(cmd)
         cli_logger.print("Successfully created docker bridge network.")
     except subprocess.CalledProcessError as e:
         cli_logger.error("Failed to create bridge network: {}", str(e))
@@ -236,29 +240,25 @@ def _prepare_ssh_server_keys_and_config(config, workspace_name):
     authorized_keys_file = _get_authorized_keys_file(workspace_name)
     host_key_file = _get_host_key_file(workspace_name)
     if not os.path.exists(ssh_private_key_file):
-        subprocess.check_output(
+        exec_with_output(
             f'ssh-keygen -b 2048 -t rsa -q -N "" '
             f"-f {ssh_private_key_file} "
-            f"&& sudo chmod 600 {ssh_private_key_file}",
-            shell=True,
+            f"&& chmod 600 {ssh_private_key_file}"
         )
         cli_logger.print("Successfully created SSH control key.")
     if not os.path.exists(authorized_keys_file):
-        subprocess.check_output(
+        exec_with_output(
             f"ssh-keygen -y "
             f"-f {ssh_private_key_file} "
             f"> {authorized_keys_file} "
-            f"&& sudo chmod 600 {authorized_keys_file}",
-            shell=True,
+            f"&& chmod 600 {authorized_keys_file}"
         )
         cli_logger.print("Successfully created SSH authorized keys.")
     if not os.path.exists(host_key_file):
-        cli_logger.print("Creating SSH host key...")
-        subprocess.check_output(
+        exec_with_output(
             f'ssh-keygen -b 2048 -t rsa -q -N "" '
             f"-f {host_key_file} "
-            f"&& sudo chmod 600 {host_key_file}",
-            shell=True,
+            f"&& chmod 600 {host_key_file}"
         )
         cli_logger.print("Successfully created SSH host key.")
 
@@ -275,7 +275,7 @@ def _start_bridge_ssh_server(config, workspace_name):
     host_key_file = _get_host_key_file(workspace_name)
 
     bridge_address = _get_bridge_address(workspace_name)
-    ssh_server_port = get_free_ssh_server_port(DEFAULT_SSH_SERVER_PORT)
+    ssh_server_port = get_free_port(bridge_address, DEFAULT_SSH_SERVER_PORT)
     ssh_server_process_file = get_ssh_server_process_file(workspace_name)
     sshd_path = shutil.which("sshd")
 
@@ -304,22 +304,36 @@ def _start_bridge_ssh_server(config, workspace_name):
 
 def _get_bridge_address(workspace_name):
     network_name = _get_network_name(workspace_name)
-    cmd = (f"sudo docker network inspect {network_name} "
-           "-f '{{ (index .IPAM.Config 0).Gateway }}'")
-    bridge_address = subprocess.check_output(
-        cmd,
-        shell=True,
+    docker_cmd = (f"docker network inspect {network_name} "
+                  "-f '{{ (index .IPAM.Config 0).Gateway }}'")
+    cmd = with_sudo(docker_cmd)
+    bridge_address = exec_with_output(
+        cmd
     ).decode().strip()
+
+    # check whether the bridge address is appearing the IP list of host
+    # for rootless docker, there is no interface created at the host
+    private_addresses = get_host_address(address_type="private")
+    if bridge_address not in private_addresses:
+        # choose any private ip address
+        if private_addresses:
+            return sorted(private_addresses)[0]
+        else:
+            # use public IP
+            public_addresses = get_host_address(address_type="public")
+            if not public_addresses:
+                raise RuntimeError("No proper ip address found for the host.")
+            return sorted(public_addresses)[0]
     return bridge_address
 
 
 def _is_bridge_network_exists(workspace_name):
     network_name = _get_network_name(workspace_name)
-    cmd = (f"sudo docker network ls --filter name={network_name} "
-           "--format '{{.Name}}'")
-    list_network_name = subprocess.check_output(
-        cmd,
-        shell=True,
+    docker_cmd = (f"docker network ls --filter name={network_name} "
+                  "--format '{{.Name}}'")
+    cmd = with_sudo(docker_cmd)
+    list_network_name = exec_with_output(
+        cmd
     ).decode().strip()
     return True if list_network_name else False
 
@@ -364,10 +378,11 @@ def _delete_docker_bridge_network(config, workspace_name):
 
     network_name = _get_network_name(workspace_name)
     # delete a docker bridge network for workspace
-    cmd = "sudo docker network rm {network_name} ".format(network_name=network_name)
+    docker_cmd = "docker network rm {network_name} ".format(network_name=network_name)
+    cmd = with_sudo(docker_cmd)
     try:
         cli_logger.print("Deleting docker bridge network: {}.", network_name)
-        subprocess.check_output(cmd, shell=True)
+        exec_with_output(cmd)
         cli_logger.print("Successfully deleted docker bridge network.")
     except subprocess.CalledProcessError as e:
         cli_logger.error("Failed to delete docker bridge network: {}", str(e))

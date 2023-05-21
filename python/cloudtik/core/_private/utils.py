@@ -2,6 +2,7 @@ import base64
 import collections
 import collections.abc
 import copy
+import subprocess
 from datetime import datetime
 import logging
 import hashlib
@@ -23,6 +24,7 @@ from contextlib import closing
 from concurrent.futures import ThreadPoolExecutor
 from shlex import quote
 
+import psutil
 import yaml
 
 import cloudtik
@@ -3036,3 +3038,42 @@ def export_runtime_flags(runtime_config, prefix, runtime_envs):
             if with_flag:
                 with_flag_var = "{}_{}".format(prefix.upper(), key.upper())
                 runtime_envs[with_flag_var] = with_flag
+
+
+def exec_with_output(cmd):
+    return subprocess.check_output(
+        cmd,
+        shell=True,
+    )
+
+
+def is_private_ip(ip_addr):
+    return ipaddr.IPv4Address(ip_addr).is_private
+
+
+def get_host_address(address_type="all"):
+    addresses = set()
+    for iface, addrs in psutil.net_if_addrs().items():
+        for addr in addrs:
+            if addr.family == socket.AF_INET and addr.address != '127.0.0.1':
+                if address_type == "private":
+                    if is_private_ip(addr.address):
+                        addresses.add(addr.address)
+                elif address_type == "public":
+                    if not is_private_ip(addr.address):
+                        addresses.add(addr.address)
+                else:
+                    addresses.add(addr.address)
+    return addresses
+
+
+def get_free_port(bind_address, default_port):
+    """ Get free port"""
+    with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
+        test_port = default_port
+        while True:
+            result = s.connect_ex((bind_address, test_port))
+            if result != 0:
+                return test_port
+            else:
+                test_port += 1

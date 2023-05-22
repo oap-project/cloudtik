@@ -2940,8 +2940,8 @@ def _get_default_image(default_image, is_gpu):
 
 
 def bootstrap_azure(config):
-    workspace_name = config.get("workspace_name", "")
-    if workspace_name == "":
+    workspace_name = config.get("workspace_name")
+    if not workspace_name:
         raise RuntimeError("Workspace name is not specified in cluster configuration.")
 
     config = bootstrap_azure_from_workspace(config)
@@ -2949,8 +2949,8 @@ def bootstrap_azure(config):
 
 
 def bootstrap_azure_for_api(config):
-    workspace_name = config.get("workspace_name", "")
-    if workspace_name == "":
+    workspace_name = config.get("workspace_name")
+    if not workspace_name:
         raise ValueError(f"Workspace name is not specified.")
 
     return _configure_resource_group_from_workspace(config)

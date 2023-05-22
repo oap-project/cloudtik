@@ -1459,7 +1459,7 @@ def verify_obs_storage(provider_config: Dict[str, Any]):
 
 
 def bootstrap_huaweicloud_from_workspace(config):
-    workspace_name = config.get("workspace_name", "")
+    workspace_name = config.get("workspace_name")
     if not workspace_name:
         raise RuntimeError(
             "Workspace name is not specified in cluster configuration.")

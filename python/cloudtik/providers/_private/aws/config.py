@@ -1080,8 +1080,8 @@ def _configure_prefer_spot_node(config):
 
 
 def bootstrap_aws(config):
-    workspace_name = config.get("workspace_name", "")
-    if workspace_name == "":
+    workspace_name = config.get("workspace_name")
+    if not workspace_name:
         raise RuntimeError("Workspace name is not specified in cluster configuration.")
 
     config = bootstrap_aws_from_workspace(config)

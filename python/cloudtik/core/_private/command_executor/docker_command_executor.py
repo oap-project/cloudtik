@@ -37,7 +37,7 @@ class DockerCommandExecutor(CommandExecutor):
         use_podman = docker_config.get("use_podman", False)
         self.docker_cmd = "podman" if use_podman else "docker"
         # flag set at bootstrap
-        self.docker_with_sudo = docker_config.get("local_docker_with_sudo", False)
+        self.docker_with_sudo = docker_config.get("docker_with_sudo", False)
 
     def run(
             self,

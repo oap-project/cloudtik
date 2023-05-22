@@ -71,6 +71,12 @@ def get_docker_cmd(docker_cmd, with_sudo=False):
         docker_cmd=docker_cmd)
 
 
+def with_docker_cmd(cmd, docker_cmd, with_sudo=False):
+    return "{docker_cmd} {cmd}".format(
+        docker_cmd=get_docker_cmd(docker_cmd, with_sudo),
+        cmd=cmd)
+
+
 def _check_helper(cname, template, docker_cmd):
     return " ".join([
         docker_cmd, "inspect", "-f", "'{{" + template + "}}'", cname, "||",
@@ -91,7 +97,8 @@ def check_docker_image(cname, docker_cmd):
 
 
 def docker_start_cmds(user, image, mount_dict, data_disks, container_name, user_options,
-                      cluster_name, home_directory, docker_cmd):
+                      cluster_name, home_directory, docker_cmd,
+                      network=None, cpus=None, memory=None):
     # Imported here due to circular dependency.
     from cloudtik.core.api import get_docker_host_mount_location
     docker_mount_prefix = get_docker_host_mount_location(cluster_name)
@@ -121,11 +128,22 @@ def docker_start_cmds(user, image, mount_dict, data_disks, container_name, user_
     fuse_flags = "--cap-add SYS_ADMIN --device /dev/fuse --security-opt apparmor:unconfined"
     numactl_flag = "--cap-add SYS_NICE"
     ipc_flag = "--ipc=host"
+    network_flag = "--network={}}".format(network) if network else "--network=host"
 
     docker_run = [
         docker_cmd, "run", "--rm", "--name {}".format(container_name), "-d",
-        "-it", mount_flags, env_flags, fuse_flags, user_options_str, numactl_flag, ipc_flag, "--net=host", image,
-        "bash"
+        "-it", mount_flags, env_flags, fuse_flags, user_options_str,
+        numactl_flag, ipc_flag, network_flag
+    ]
+    if cpus:
+        cpus_flag = "--cpus={}".format(cpus)
+        docker_run += [cpus_flag]
+    if memory:
+        memory_flag = "--memory={}".format(memory)
+        docker_run += [memory_flag]
+
+    docker_run += [
+        image, "bash"
     ]
     return " ".join(docker_run)
 

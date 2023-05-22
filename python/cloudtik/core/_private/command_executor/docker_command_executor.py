@@ -15,7 +15,7 @@ from cloudtik.core._private.docker import check_bind_mounts_cmd, \
     check_docker_running_cmd, \
     check_docker_image, \
     docker_start_cmds, \
-    with_docker_exec, get_configured_docker_image, get_docker_cmd
+    with_docker_exec, get_configured_docker_image, get_docker_cmd, with_docker_cmd
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +36,7 @@ class DockerCommandExecutor(CommandExecutor):
         # Optionally use 'podman' instead of 'docker'
         use_podman = docker_config.get("use_podman", False)
         self.docker_cmd = "podman" if use_podman else "docker"
+        # flag set at bootstrap
         self.docker_with_sudo = docker_config.get("docker_with_sudo", False)
 
     def run(
@@ -156,6 +157,9 @@ class DockerCommandExecutor(CommandExecutor):
     def get_docker_cmd(self):
         return get_docker_cmd(self.docker_cmd, self.docker_with_sudo)
 
+    def with_docker_cmd(self, cmd):
+        return with_docker_cmd(cmd, self.docker_cmd, self.docker_with_sudo)
+
     def _check_docker_installed(self):
         no_exist = "NoExist"
         output = self.host_command_executor.run_with_retry(
@@ -183,8 +187,11 @@ class DockerCommandExecutor(CommandExecutor):
     def _check_container_status(self):
         if self.initialized:
             return True
+        return self._is_container_running(self.container_name)
+
+    def _is_container_running(self, container_name):
         output = self.host_command_executor.run_with_retry(
-            check_docker_running_cmd(self.container_name, self.get_docker_cmd()),
+            check_docker_running_cmd(container_name, self.get_docker_cmd()),
             with_output=True).decode("utf-8").strip()
         # Checks for the false positive where "true" is in the container name
         return ("true" in output.lower()
@@ -327,7 +334,10 @@ class DockerCommandExecutor(CommandExecutor):
                                              shared_memory_ratio),
                     as_head),
                 self.host_command_executor.cluster_name, home_directory,
-                self.get_docker_cmd())
+                self.get_docker_cmd(),
+                network=self.docker_config.get("network"),
+                cpus=self.docker_config.get("cpus"),
+                memory=self.docker_config.get("memory"))
             self.run_with_retry(
                 start_command, run_env="host")
             docker_run_executed = True
@@ -377,6 +387,16 @@ class DockerCommandExecutor(CommandExecutor):
                         "your `setup_commands`.")
         self.initialized = True
         return docker_run_executed
+
+    def run_terminate(self):
+        """Stop the container if it is running"""
+        container_running = self._check_container_status()
+        if container_running:
+            self.run_with_retry(
+                "{} stop {}".format(
+                    self.get_docker_cmd(), self.container_name),
+                run_env="host")
+        self.initialized = False
 
     def bootstrap_data_disks(self) -> None:
         """Used to format and mount data disks on host."""

@@ -80,6 +80,10 @@ class LocalCommandExecutor(HostCommandExecutor):
         self._run_rsync(source, target, options)
 
     def _run_rsync(self, source, target, options=None):
+        # this is on the same host, check whether source target is the same
+        if source == target:
+            return
+
         command = ["rsync"]
         command += ["-avz"]
         command += self._create_rsync_filter_args(options=options)

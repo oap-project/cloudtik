@@ -1850,8 +1850,8 @@ def _get_default_image(default_image, is_gpu):
 
 
 def bootstrap_gcp(config):
-    workspace_name = config.get("workspace_name", "")
-    if workspace_name == "":
+    workspace_name = config.get("workspace_name")
+    if not workspace_name:
         raise RuntimeError("Workspace name is not specified in cluster configuration.")
 
     config = bootstrap_gcp_from_workspace(config)

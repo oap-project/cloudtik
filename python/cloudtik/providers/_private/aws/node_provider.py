@@ -436,7 +436,7 @@ class AWSNodeProvider(NodeProvider):
         else:
             node.terminate()
 
-        # TODO (Alex): We are leaking the tag cache here. Naively, we would
+        # TODO: We are leaking the tag cache here. Naively, we would
         # want to just remove the cache entry here, but terminating can be
         # asyncrhonous or error, which would result in a use after free error.
         # If this leak becomes bad, we can garbage collect the tag cache when

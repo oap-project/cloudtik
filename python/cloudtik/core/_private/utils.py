@@ -109,6 +109,8 @@ TEMPORARY_COMMAND_KEYS = [
 MERGED_COMMAND_KEY = "merged_commands"
 RUNTIME_CONFIG_KEY = "runtime"
 DOCKER_CONFIG_KEY = "docker"
+AUTH_CONFIG_KEY = "auth"
+FILE_MOUNTS_CONFIG_KEY = "file_mounts"
 RUNTIME_TYPES_CONFIG_KEY = "types"
 
 PRIVACY_CONFIG_KEYS = ["credentials", "account.key", "secret", "access.key", "private.key"]
@@ -929,10 +931,10 @@ def _get_node_type_config(config, node_type: str) -> Any:
 def _get_node_type_specific_fields(config, node_type: str,
                                    fields_key: str) -> Any:
     fields = None
-    node_specific_config = _get_node_type_config(config, node_type)
-    if (node_specific_config is not None) and (
-            fields_key in node_specific_config):
-        fields = node_specific_config[fields_key]
+    node_type_config = _get_node_type_config(config, node_type)
+    if (node_type_config is not None) and (
+            fields_key in node_type_config):
+        fields = node_type_config[fields_key]
 
     return fields
 
@@ -974,16 +976,27 @@ def _get_node_specific_fields(config, provider, node_id: str,
     return fields
 
 
+def _merge_node_type_specific_config(
+        global_config, node_type_config):
+    if node_type_config is not None:
+        global_config = copy.deepcopy(global_config)
+        return merge_config(global_config, node_type_config)
+    return global_config
+
+
 def _get_node_specific_docker_config(config, provider, node_id):
+    node_type = get_node_type(provider, node_id)
+    return _get_node_type_specific_docker_config(config, node_type)
+
+
+def _get_node_type_specific_docker_config(config, node_type: str):
     if DOCKER_CONFIG_KEY not in config:
         return {}
     docker_config = config[DOCKER_CONFIG_KEY]
-    node_specific_docker = _get_node_specific_fields(
-        config, provider, node_id, DOCKER_CONFIG_KEY)
-    if node_specific_docker is not None:
-        docker_config = copy.deepcopy(docker_config)
-        return merge_config(docker_config, node_specific_docker)
-    return docker_config
+    node_specific_docker = _get_node_type_specific_fields(
+        config, node_type, DOCKER_CONFIG_KEY)
+    return _merge_node_type_specific_config(
+        docker_config, node_specific_docker)
 
 
 def _get_node_specific_runtime_config(config, provider, node_id):
@@ -1009,10 +1022,8 @@ def _get_node_type_specific_runtime_config(config, node_type: str):
     runtime_config = config[RUNTIME_CONFIG_KEY]
     node_specific_runtime = _get_node_type_specific_fields(
         config, node_type, RUNTIME_CONFIG_KEY)
-    if node_specific_runtime is not None:
-        runtime_config = copy.deepcopy(runtime_config)
-        return merge_config(runtime_config, node_specific_runtime)
-    return runtime_config
+    return _merge_node_type_specific_config(
+        runtime_config, node_specific_runtime)
 
 
 def get_commands_to_run(config, commands_key):

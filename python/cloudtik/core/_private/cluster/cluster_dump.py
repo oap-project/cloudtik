@@ -802,6 +802,7 @@ def _info_from_params(
 
     Note: This returns a list of hosts, not a comma separated string!
     """
+    # TODO: handling advanced cases for ssh_ip, ssh_port and container name
     head, workers, u, k, d, cluster_name = \
         get_info_from_cluster_config(config)
 

@@ -162,6 +162,10 @@ class CommandExecutor:
         """
         pass
 
+    def run_terminate(self):
+        """Used to run extra terminate commands."""
+        pass
+
     def bootstrap_data_disks(self) -> None:
         """Used to format and mount data disks on host."""
         pass

@@ -15,6 +15,7 @@
     },
     "required": [
         "cluster_name",
+        "workspace_name",
         "provider"
     ],
     "additionalProperties": false,

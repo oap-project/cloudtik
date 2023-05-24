@@ -1034,13 +1034,10 @@ def _set_up_config_for_head_node(config: Dict[str, Any],
     remote_config["file_mounts"] = new_mounts
     remote_config["no_restart"] = no_restart
 
-    remote_config = provider.prepare_for_head_node(config, remote_config)
-    remote_config = encrypt_config(remote_config)
     # Now inject the rewritten config and SSH key into the head node
     remote_config_file = tempfile.NamedTemporaryFile(
         "w", prefix="cloudtik-bootstrap-")
-    remote_config_file.write(json.dumps(remote_config))
-    remote_config_file.flush()
+
     config["file_mounts"].update({
         "~/cloudtik_bootstrap_config.yaml": remote_config_file.name
     })
@@ -1050,6 +1047,11 @@ def _set_up_config_for_head_node(config: Dict[str, Any],
             remote_key_path: config["auth"]["ssh_private_key"],
         })
 
+    remote_config = provider.prepare_for_head_node(config, remote_config)
+    remote_config = encrypt_config(remote_config)
+
+    remote_config_file.write(json.dumps(remote_config))
+    remote_config_file.flush()
     return config, remote_config_file
 
 

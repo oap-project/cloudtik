@@ -98,7 +98,7 @@ def check_docker_image(cname, docker_cmd):
 
 def docker_start_cmds(user, image, mount_dict, data_disks, container_name, user_options,
                       cluster_name, home_directory, docker_cmd,
-                      network=None, cpus=None, memory=None):
+                      network=None, cpus=None, memory=None, labels=None):
     # Imported here due to circular dependency.
     from cloudtik.core.api import get_docker_host_mount_location
     docker_mount_prefix = get_docker_host_mount_location(cluster_name)
@@ -141,6 +141,9 @@ def docker_start_cmds(user, image, mount_dict, data_disks, container_name, user_
     if memory:
         memory_flag = "--memory={}".format(memory)
         docker_run += [memory_flag]
+    if labels:
+        docker_run += ["--label {name}={val}".format(
+            name=k, val=v) for k, v in labels.items()]
 
     docker_run += [
         image, "bash"

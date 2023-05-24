@@ -337,7 +337,8 @@ class DockerCommandExecutor(CommandExecutor):
                 self.get_docker_cmd(),
                 network=self.docker_config.get("network"),
                 cpus=self.docker_config.get("cpus"),
-                memory=self.docker_config.get("memory"))
+                memory=self.docker_config.get("memory"),
+                labels=self.docker_config.get("labels"))
             self.run_with_retry(
                 start_command, run_env="host")
             docker_run_executed = True

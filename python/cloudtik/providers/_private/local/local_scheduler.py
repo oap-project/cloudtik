@@ -9,10 +9,11 @@ logger = logging.getLogger(__name__)
 
 
 class LocalScheduler:
-    def __init__(self, provider_config):
+    def __init__(self, provider_config, cluster_name):
         self.provider_config = provider_config
+        self.cluster_name = cluster_name
 
-    def create_node(self, cluster_name, node_config, tags, count):
+    def create_node(self, node_config, tags, count):
         raise NotImplementedError
 
     def non_terminated_nodes(self, tag_filters):
@@ -24,7 +25,7 @@ class LocalScheduler:
     def is_terminated(self, node_id):
         raise NotImplementedError
 
-    def get_node_tags(self, node_id):
+    def node_tags(self, node_id):
         raise NotImplementedError
 
     def internal_ip(self, node_id):
@@ -49,4 +50,8 @@ class LocalScheduler:
                              use_internal_ip: bool,
                              docker_config: Optional[Dict[str, Any]] = None
                              ) -> CommandExecutor:
+        raise NotImplementedError
+
+    def list_nodes(self, workspace_name, tag_filters):
+        # List nodes that are not cluster specific, ignoring the cluster name
         raise NotImplementedError

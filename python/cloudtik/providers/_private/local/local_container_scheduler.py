@@ -332,6 +332,10 @@ class LocalContainerScheduler(LocalScheduler):
             if memory_gb:
                 docker_config["memory"] = str(memory_gb) + "g"
 
+    def _get_provider_cluster_state_path(self):
+        # the cluster data path is set at boostrap
+        return self.provider_config["state_path"]
+
     def _setup_docker_file_mounts(
             self, node_config, scheduler_executor):
         # Handling mounts
@@ -344,8 +348,7 @@ class LocalContainerScheduler(LocalScheduler):
         container_name = scheduler_executor.container_name
 
         # The bootstrap process has updated the permission
-        state_path = get_docker_cluster_data_path(
-            self.provider_config["workspace_name"], self.cluster_name)
+        state_path = self._get_provider_cluster_state_path()
         scheduler_executor.run(
             "mkdir -p '{path}' && chmod -R 777 '{path}'".format(
                 path=state_path),

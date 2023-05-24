@@ -17,8 +17,13 @@ do
         shift
         CLOUDTIK_BRANCH=$1
         ;;
+    --copy)
+        # Copy the nightly to a directory
+        shift
+        COPY_DIR=$1
+        ;;
     *)
-        echo "Usage: build.sh [ --branch main ]"
+        echo "Usage: build.sh [ --branch main ] [ --copy copy_to_dir]"
         exit 1
     esac
     shift
@@ -43,3 +48,7 @@ CLOUDTIK_WHEEL=cloudtik-${CLOUDTIK_VERSION}-cp${PYTHON_TAG}-cp${PYTHON_TAG}-many
 CLOUDTIK_WHEEL_NIGHTLY=cloudtik-${CLOUDTIK_VERSION}-cp${PYTHON_TAG}-cp${PYTHON_TAG}-manylinux2014_${arch}.nightly.whl
 
 cp ./python/dist/$CLOUDTIK_WHEEL ./python/dist/$CLOUDTIK_WHEEL_NIGHTLY
+
+if [ "${COPY_DIR}" != "" ];then
+    cp ./python/dist/$CLOUDTIK_WHEEL_NIGHTLY ${COPY_DIR}/$CLOUDTIK_WHEEL_NIGHTLY
+fi

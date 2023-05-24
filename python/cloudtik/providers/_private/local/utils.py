@@ -8,12 +8,12 @@ def get_instance_type_name(instance_type):
     num_cpus = instance_type.get("CPU", 0)
     memory_gb = instance_type.get("memory", 0)
     if num_cpus and memory_gb:
-        return "{}CPU:{}GB".format(num_cpus, memory_gb)
+        return "{}CPU/{}GB".format(num_cpus, memory_gb)
     elif num_cpus:
         return "{}CPU".format(num_cpus)
     elif memory_gb:
         return "{}GB".format(memory_gb)
-    return "unknown_type"
+    return "Unknown"
 
 
 def _get_tags(node):

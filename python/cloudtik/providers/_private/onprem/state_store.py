@@ -146,12 +146,15 @@ class FileStateStore(StateStore):
 
         list_of_node_ips = get_list_of_node_ips(provider_config)
 
-        # TODO: if a node is running but removed from the provider
         # Filter removed node ips.
         for node_ip in list(nodes):
             if node_ip not in list_of_node_ips:
-                del nodes[node_ip]
+                node = nodes[node_ip]
+                # remove node only if it is terminated (not in use)
+                if node == "terminated":
+                    del nodes[node_ip]
 
+        # new nodes set to terminated
         for node_ip in list_of_node_ips:
             if node_ip not in nodes:
                 nodes[node_ip] = {

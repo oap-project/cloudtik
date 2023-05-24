@@ -2139,7 +2139,7 @@ def with_runtime_environment_variables(runtime_config, config, provider, node_id
     return all_runtime_envs
 
 
-def get_runtime_shared_memory_ratio(runtime_config, config, provider, node_id: str):
+def get_runtime_shared_memory_ratio(runtime_config, config, node_type: str):
     total_shared_memory_ratio = 0.0
 
     # Iterate through all the runtimes
@@ -2147,7 +2147,7 @@ def get_runtime_shared_memory_ratio(runtime_config, config, provider, node_id: s
     for runtime_type in runtime_types:
         runtime = _get_runtime(runtime_type, runtime_config)
         runtime_shared_memory_ratio = runtime.get_runtime_shared_memory_ratio(
-            config, provider=provider, node_id=node_id)
+            config, node_type=node_type)
         if runtime_shared_memory_ratio > 0:
             total_shared_memory_ratio += runtime_shared_memory_ratio
 

@@ -409,8 +409,7 @@ class LocalContainerScheduler(LocalScheduler):
 
         # check CLOUDTIK_TAG_NODE_KIND: NODE_KIND_HEAD tag for head
         is_head_node = _is_head_node(tags)
-        # TODO: allow shared memory ratio in the future
-        shared_memory_ratio = 0
+        shared_memory_ratio = node_config.get("shared_memory_ratio", 0)
 
         # prepare docker config
         docker_config = _get_merged_docker_config_from_node_config(

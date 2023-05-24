@@ -44,8 +44,7 @@ class RayRuntime(Runtime):
             self.runtime_config, config=config, provider=provider, node_id=node_id)
 
     def get_runtime_shared_memory_ratio(
-            self, config: Dict[str, Any], provider: NodeProvider,
-            node_id: str) -> float:
+            self, config: Dict[str, Any], node_type: str) -> float:
         """Return the shared memory ratio for /dev/shm if needed.
         """
         return _get_runtime_shared_memory_ratio(

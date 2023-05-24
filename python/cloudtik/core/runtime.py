@@ -48,8 +48,7 @@ class Runtime:
         return {}
 
     def get_runtime_shared_memory_ratio(
-            self, config: Dict[str, Any], provider: NodeProvider,
-            node_id: str) -> float:
+            self, config: Dict[str, Any], node_type: str) -> float:
         """Return the shared memory ratio for /dev/shm if needed.
         """
         return 0.0

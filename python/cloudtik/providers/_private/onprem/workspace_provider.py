@@ -39,7 +39,7 @@ class OnPremWorkspaceProvider(WorkspaceProvider):
         return check_onprem_workspace_existence(config)
 
     def list_clusters(self, config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        return list_onprem_clusters(self.provider_config, self.workspace_name)
+        return list_onprem_clusters(self.workspace_name, self.provider_config)
 
     def publish_global_variables(self, cluster_config: Dict[str, Any],
                                  global_variables: Dict[str, Any]):
@@ -55,7 +55,7 @@ class OnPremWorkspaceProvider(WorkspaceProvider):
 
     def subscribe_global_variables(self, cluster_config: Dict[str, Any]):
         global_variables = {}
-        head_nodes = get_workspace_head_nodes(self.provider_config, self.workspace_name)
+        head_nodes = get_workspace_head_nodes(self.workspace_name, self.provider_config)
         for head in head_nodes:
             node_tags = _get_node_tags(self.provider_config, head)
             for key, value in node_tags.items():

@@ -29,6 +29,7 @@ class OnPremNodeProvider(NodeProvider):
 
     def non_terminated_nodes(self, tag_filters):
         # Only get the non terminated nodes associated with this cluster name.
+        tag_filters = {} if tag_filters is None else tag_filters
         tag_filters[CLOUDTIK_TAG_CLUSTER_NAME] = self.cluster_name
         tag_filters[TAG_WORKSPACE_NAME] = self.provider_config["workspace_name"]
         request = {"type": "non_terminated_nodes", "args": (tag_filters, )}

@@ -25,7 +25,7 @@ DEFAULT_SSH_SERVER_PORT = 3371
 TAG_WORKSPACE_NAME = "workspace-name"
 
 
-def _get_cluster_bridge_address(provider_config):
+def _get_provider_bridge_address(provider_config):
     bridge_address = provider_config.get("bridge_address")
     if bridge_address:
         # within container

@@ -15,7 +15,7 @@ from cloudtik.core._private.utils import DOCKER_CONFIG_KEY, AUTH_CONFIG_KEY, FIL
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, CLOUDTIK_TAG_CLUSTER_NAME, \
     CLOUDTIK_TAG_USER_NODE_TYPE
 from cloudtik.providers._private.local.config import \
-    _get_cluster_bridge_address, _get_request_instance_type, get_docker_scheduler_lock_path, \
+    _get_provider_bridge_address, _get_request_instance_type, get_docker_scheduler_lock_path, \
     get_docker_scheduler_state_path, TAG_WORKSPACE_NAME, \
     get_docker_scheduler_state_file_name
 from cloudtik.providers._private.local.local_docker_command_executor import LocalDockerCommandExecutor
@@ -56,20 +56,43 @@ def _is_terminated(container):
 
 
 def _get_state(container_object):
-    running = container_object.get("State", {}).get("Running", False)
+    running = False
+    state = container_object.get("State")
+    if state:
+        running = state.get("Running", False)
     return "running" if running else "terminated"
 
 
 def _get_ip(container_object, network_name):
-    return container_object.get(
-        "NetworkSettings", {}).get("Networks", {}).get(
-        network_name, {}).get("IPAddress")
+    network_settings = container_object.get(
+        "NetworkSettings")
+    if network_settings:
+        networks = network_settings.get("Networks")
+        if networks:
+            network = networks.get(network_name)
+            if network:
+                return network.get("IPAddress")
+    return None
 
 
 def _get_tags_from_labels(container_object):
-    if "Config" in container_object:
-        return container_object["Config"].get("Labels", {})
+    config = container_object.get("Config")
+    if config:
+        return config.get("Labels", {})
     return {}
+
+
+def _get_container_resources(container_object):
+    host_config = container_object.get("HostConfig")
+    resources = {}
+    if host_config:
+        nano_cpus = host_config.get("NanoCpus", 0)
+        if nano_cpus:
+            resources["CPU"] = round(nano_cpus / (10 ** 9), 2)
+        memory_bytes = host_config.get("Memory", 0)
+        if memory_bytes:
+            resources["memory"] = round(memory_bytes / (1024 * 1024 * 1024), 2)
+    return resources
 
 
 def _map_by_clusters(containers):
@@ -115,7 +138,7 @@ class LocalContainerScheduler(LocalScheduler):
     def __init__(self, provider_config, cluster_name):
         LocalScheduler.__init__(self, provider_config, cluster_name)
 
-        bridge_address = _get_cluster_bridge_address(provider_config)
+        bridge_address = _get_provider_bridge_address(provider_config)
         if bridge_address:
             # address in the form of IP:port
             address_parts = bridge_address.split(':')
@@ -321,7 +344,7 @@ class LocalContainerScheduler(LocalScheduler):
         return f"{workspace_name}_{cluster_name}_{random_id}"
 
     @staticmethod
-    def _set_docker_resources(node_config, docker_config):
+    def _set_container_resources(node_config, docker_config):
         instance_type = _get_request_instance_type(node_config)
         if instance_type:
             cpus = instance_type.get("CPU", 0)
@@ -400,7 +423,7 @@ class LocalContainerScheduler(LocalScheduler):
         if tags:
             docker_config["labels"] = tags
 
-        self._set_docker_resources(node_config, docker_config)
+        self._set_container_resources(node_config, docker_config)
 
         scheduler_executor = self._get_scheduler_executor(
             container_name, docker_config=docker_config)
@@ -453,11 +476,13 @@ class LocalContainerScheduler(LocalScheduler):
         node_ip = _get_ip(container_object, network)
         node_state = _get_state(container_object)
         tags = _get_tags_from_labels(container_object)
+        resources = _get_container_resources(container_object)
         container = {
             "name": container_name,
             "ip": node_ip,
             "state": node_state,
             "tags": tags,
+            "instance_type": resources,
             "object": container_object,
         }
         return container

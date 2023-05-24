@@ -21,14 +21,14 @@ class MetastoreRuntime(Runtime):
         """Prepare runtime specific configurations"""
         return _config_runtime_resources(cluster_config)
 
-    def validate_config(self, cluster_config: Dict[str, Any], provider: NodeProvider):
+    def validate_config(self, cluster_config: Dict[str, Any]):
         """Validate cluster configuration from runtime perspective."""
-        _validate_config(cluster_config, provider)
+        _validate_config(cluster_config)
 
-    def verify_config(self, cluster_config: Dict[str, Any], provider: NodeProvider):
+    def verify_config(self, cluster_config: Dict[str, Any]):
         """Verify cluster configuration at the last stage of bootstrap.
         The verification may mean a slow process to check with a server"""
-        _verify_config(cluster_config, provider)
+        _verify_config(cluster_config)
 
     def with_environment_variables(
             self, config: Dict[str, Any], provider: NodeProvider,

@@ -17,9 +17,17 @@ available_node_types:
             instance_type:
                 CPU: 4 # number of cores
                 memory: 4  # memory in GB
+            data_disks:
+                - your-path-for-data-disks
+            data_dirs:
+                - your-path-for-shared-data
     worker.default:
         node_config:
             instance_type:
                 CPU: 4 # number of cores
                 memory: 4  # memory in GB
+            data_disks:
+                - your-path-for-data-disks
+            data_dirs:
+                - your-path-for-shared-data
         min_workers: 3

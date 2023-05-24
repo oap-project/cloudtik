@@ -94,6 +94,8 @@ class SSHCommandExecutor(HostCommandExecutor):
             ssh_port=self.ssh_port,
             control_path=self.ssh_control_path,
             ProxyCommand=self.ssh_proxy_command)
+        if self.ssh_ip:
+            self._init_ssh_control_path()
 
     def _set_ssh_ip_if_required(self):
         if self.ssh_ip is not None:
@@ -110,7 +112,9 @@ class SSHCommandExecutor(HostCommandExecutor):
             assert ip is not None, "Unable to find IP of node"
 
         self.ssh_ip = ip
+        self._init_ssh_control_path()
 
+    def _init_ssh_control_path(self):
         # This should run before any SSH commands and therefore ensure that
         #   the ControlPath directory exists, allowing SSH to maintain
         #   persistent sessions later on.

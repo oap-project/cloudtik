@@ -1,2 +1,9 @@
 # Include the common built-in commands
 from: commands
+
+# Docker configurations
+docker:
+    # Initialization commands running on host for only docker enabled
+    # don't need docker registry things
+    head_initialization_commands: []
+    worker_initialization_commands: []

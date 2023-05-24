@@ -23,6 +23,9 @@ class LocalDockerCommandExecutor(DockerCommandExecutor):
                  shared_memory_ratio: float, sync_run_yet: bool) -> Optional[bool]:
         pass
 
+    def run_terminate(self):
+        pass
+
     def start_container(
             self, as_head: bool, file_mounts: Dict[str, str],
             shared_memory_ratio: float) -> Optional[bool]:
@@ -31,6 +34,9 @@ class LocalDockerCommandExecutor(DockerCommandExecutor):
             file_mounts=file_mounts,
             shared_memory_ratio=shared_memory_ratio,
             sync_run_yet=True)
+
+    def stop_container(self):
+        return super().run_terminate()
 
     def run_docker_cmd(self, cmd, with_output=True):
         final_cmd = self.with_docker_cmd(cmd)

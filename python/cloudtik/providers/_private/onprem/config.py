@@ -82,7 +82,17 @@ def get_cloud_simulator_lock_path() -> str:
 
 
 def get_cloud_simulator_state_path() -> str:
-    return os.path.join(utils.get_user_temp_dir(), "cloudtik-cloud-simulator.state")
+    return os.path.join(_get_data_path(), "cloudtik-cloud-simulator.state")
+
+
+def _get_data_path():
+    return os.path.expanduser("~/.cloudtik/cloud-simulator")
+
+
+def _make_sure_data_path():
+    data_path = _get_data_path()
+    if not os.path.exists(data_path):
+        os.makedirs(data_path, exist_ok=True)
 
 
 def get_available_nodes(provider_config: Dict[str, Any]):

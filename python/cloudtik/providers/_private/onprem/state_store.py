@@ -15,20 +15,20 @@ class StateStore:
     def __init__(self, provider_config):
         self.provider_config = provider_config
 
-    def get(self):
+    def get_nodes(self):
         raise NotImplementedError
 
     def get_node(self, node_id):
         raise NotImplementedError
 
-    def put(self, node_id, node):
+    def put_node(self, node_id, node):
         raise NotImplementedError
 
     def transaction(self):
         """Open and return a transaction object which can be used by with statement"""
         raise NotImplementedError
 
-    def get_safe(self):
+    def get_nodes_safe(self):
         # already in transaction, no need to handle lock
         raise NotImplementedError
 
@@ -36,7 +36,7 @@ class StateStore:
         # already in transaction, no need to handle lock
         raise NotImplementedError
 
-    def put_safe(self, node_id, node):
+    def put_node_safe(self, node_id, node):
         # already in transaction, no need to handle lock
         raise NotImplementedError
 
@@ -53,59 +53,87 @@ class StateStore:
         raise NotImplementedError
 
 
+class TransactionContext(object):
+    def __init__(self, lock_path):
+        self.lock = RLock()
+        self.file_lock = FileLock(lock_path)
+
+    def __enter__(self):
+        self.lock.acquire()
+        self.file_lock.acquire()
+        return self
+
+    def __exit__(self, *args):
+        self.file_lock.release()
+        self.lock.release()
+
+
 class FileStateStore(StateStore):
     def __init__(self, provider_config, lock_path, state_path):
         super().__init__(provider_config)
 
-        self.lock = RLock()
-        self.file_lock = FileLock(lock_path)
+        os.makedirs(os.path.dirname(lock_path), exist_ok=True)
+        os.makedirs(os.path.dirname(state_path), exist_ok=True)
+
+        self.ctx = TransactionContext(lock_path)
         self.state_path = state_path
         self.cached_state = {}
         self._load_config(provider_config)
 
-    def get(self):
-        with self.lock:
-            with self.file_lock:
-                return copy.deepcopy(self.get_safe())
+    def get_nodes(self):
+        with self.ctx:
+            return copy.deepcopy(self.get_nodes_safe())
 
     def get_node(self, node_id):
-        with self.lock:
-            with self.file_lock:
-                node = self.get_node_safe(node_id)
-                if node is None:
-                    return node
-                return copy.deepcopy(node)
+        with self.ctx:
+            node = self.get_node_safe(node_id)
+            if node is None:
+                return node
+            return copy.deepcopy(node)
 
-    def put(self, node_id, node):
+    def put_node(self, node_id, node):
         assert "tags" in node
         assert "state" in node
-        with self.lock:
-            with self.file_lock:
-                self.put_safe(node_id, node)
+        with self.ctx:
+            self.put_node_safe(node_id, node)
 
     def transaction(self):
-        return self.file_lock
+        return self.ctx
 
-    def get_safe(self):
+    def get_nodes_safe(self):
         return self.cached_state["nodes"]
 
     def get_node_safe(self, node_id):
-        nodes = self.get_safe()
+        nodes = self.get_nodes_safe()
         if node_id not in nodes:
             return None
         return nodes[node_id]
 
-    def put_safe(self, node_id, node):
-        nodes = self.get_safe()
+    def put_node_safe(self, node_id, node):
+        nodes = self.get_nodes_safe()
         nodes[node_id] = node
-        self._save_state()
+        self._save()
 
     def load_config(self, provider_config):
-        with self.lock:
-            with self.file_lock:
-                self._load_config(provider_config)
+        with self.ctx:
+            self._load_config(provider_config)
 
-    def _save_state(self):
+    def _load(self):
+        if os.path.exists(self.state_path):
+            state = json.loads(open(self.state_path).read())
+        else:
+            state = {}
+
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                "Loaded cluster state: {}".format(state))
+
+        if "nodes" not in state:
+            state["nodes"] = {}
+        self.cached_state = state
+        return state
+
+    def _save(self):
         state = self.cached_state
         with open(self.state_path, "w") as f:
             if logger.isEnabledFor(logging.DEBUG):
@@ -113,17 +141,12 @@ class FileStateStore(StateStore):
             f.write(json.dumps(state))
 
     def _load_config(self, provider_config):
-        list_of_node_ips = get_list_of_node_ips(provider_config)
-        if os.path.exists(self.state_path):
-            state = json.loads(open(self.state_path).read())
-        else:
-            state = {}
-        logger.info(
-            "Loaded cluster state: {}".format(state))
-
-        if "nodes" not in state:
-            state["nodes"] = {}
+        state = self._load()
         nodes = state["nodes"]
+
+        list_of_node_ips = get_list_of_node_ips(provider_config)
+
+        # TODO: if a node is running but removed from the provider
         # Filter removed node ips.
         for node_ip in list(nodes):
             if node_ip not in list_of_node_ips:
@@ -136,10 +159,7 @@ class FileStateStore(StateStore):
                     "state": "terminated",
                 }
         assert len(nodes) == len(list_of_node_ips)
-        logger.info(
-            "Initial cluster state: {}".format(state))
-        self.cached_state = state
-        self._save_state()
+        self._save()
 
     def _get_workspaces(self):
         if "workspaces" not in self.cached_state:
@@ -147,29 +167,28 @@ class FileStateStore(StateStore):
         return self.cached_state["workspaces"]
 
     def create_workspace(self, workspace_name):
-        with self.lock:
-            with self.file_lock:
-                workspaces = self._get_workspaces()
-                if workspace_name in workspaces:
-                    raise RuntimeError(
-                        "Workspace with name {} already exists.".format(workspace_name))
-                workspaces[workspace_name] = {
-                    "name": workspace_name
-                }
+        with self.ctx:
+            workspaces = self._get_workspaces()
+            if workspace_name in workspaces:
+                raise RuntimeError(
+                    "Workspace with name {} already exists.".format(workspace_name))
+            workspaces[workspace_name] = {
+                "name": workspace_name
+            }
+            self._save()
 
     def delete_workspace(self, workspace_name):
-        with self.lock:
-            with self.file_lock:
-                workspaces = self._get_workspaces()
-                if workspace_name not in workspaces:
-                    raise RuntimeError(
-                        "Workspace with name {} doesn't exist.".format(workspace_name))
-                workspaces.pop(workspace_name)
+        with self.ctx:
+            workspaces = self._get_workspaces()
+            if workspace_name not in workspaces:
+                raise RuntimeError(
+                    "Workspace with name {} doesn't exist.".format(workspace_name))
+            workspaces.pop(workspace_name)
+            self._save()
 
     def get_workspace(self, workspace_name):
-        with self.lock:
-            with self.file_lock:
-                workspaces = self._get_workspaces()
-                if workspace_name not in workspaces:
-                    return None
-                return copy.deepcopy(workspaces[workspace_name])
+        with self.ctx:
+            workspaces = self._get_workspaces()
+            if workspace_name not in workspaces:
+                return None
+            return copy.deepcopy(workspaces[workspace_name])

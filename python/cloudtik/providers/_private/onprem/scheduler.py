@@ -49,7 +49,7 @@ class CloudSimulatorScheduler(NodeProvider):
         self.node_id_mapping = _get_node_id_mapping(provider_config)
 
     def non_terminated_nodes(self, tag_filters):
-        nodes = self.state.get()
+        nodes = self.state.get_nodes()
         matching_ips = []
         for node_ip, node in nodes.items():
             if node["state"] == "terminated":
@@ -104,14 +104,14 @@ class CloudSimulatorScheduler(NodeProvider):
             if node is None:
                 raise RuntimeError("Node with id {} doesn't exist.".format(node_id))
             node["tags"].update(tags)
-            self.state.put_safe(node_id, node)
+            self.state.put_node_safe(node_id, node)
 
     def create_node(self, node_config, tags, count):
         """Creates min(count, currently available) nodes."""
         launched = 0
         instance_type = _get_request_instance_type(node_config)
         with self.state.transaction():
-            nodes = self.state.get_safe()
+            nodes = self.state.get_nodes_safe()
             for node_id, node in nodes.items():
                 if node["state"] != "terminated":
                     continue
@@ -122,7 +122,7 @@ class CloudSimulatorScheduler(NodeProvider):
 
                 node["tags"] = tags
                 node["state"] = "running"
-                self.state.put_safe(node_id, node)
+                self.state.put_node_safe(node_id, node)
                 launched = launched + 1
                 if count == launched:
                     return
@@ -139,7 +139,7 @@ class CloudSimulatorScheduler(NodeProvider):
             if node["state"] != "running":
                 raise RuntimeError("Node with id {} is not running.".format(node_id))
             node["state"] = "terminated"
-            self.state.put_safe(node_id, node)
+            self.state.put_node_safe(node_id, node)
 
     def get_node_info(self, node_id):
         node = self.state.get_node(node_id)

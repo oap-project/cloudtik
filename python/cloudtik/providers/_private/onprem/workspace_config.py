@@ -16,7 +16,7 @@ ON_PREM_WORKSPACE_NUM_DELETION_STEPS = 1
 ON_PREM_WORKSPACE_TARGET_RESOURCES = 1
 
 
-def get_workspace_head_nodes(provider_config: Dict[str, Any], workspace_name):
+def get_workspace_head_nodes(workspace_name, provider_config: Dict[str, Any]):
     tag_filters = {
         CLOUDTIK_TAG_NODE_KIND: NODE_KIND_HEAD,
         TAG_WORKSPACE_NAME: workspace_name}
@@ -41,8 +41,9 @@ def _get_node_tags(provider_config: Dict[str, Any], node_id):
 
 
 def list_onprem_clusters(
-        provider_config: Dict[str, Any], workspace_name) -> Optional[Dict[str, Any]]:
-    head_nodes = get_workspace_head_nodes(provider_config, workspace_name)
+        workspace_name,
+        provider_config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    head_nodes = get_workspace_head_nodes(workspace_name, provider_config)
     clusters = {}
     for head_node in head_nodes:
         node_info = _get_node_info(provider_config, head_node)

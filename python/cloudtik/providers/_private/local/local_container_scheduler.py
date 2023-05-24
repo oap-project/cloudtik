@@ -17,7 +17,7 @@ from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, CLOUDTIK_
 from cloudtik.providers._private.local.config import \
     _get_cluster_bridge_address, _get_request_instance_type, get_docker_scheduler_lock_path, \
     get_docker_scheduler_state_path, TAG_WORKSPACE_NAME, \
-    get_docker_scheduler_state_file_name, get_docker_cluster_data_path
+    get_docker_scheduler_state_file_name
 from cloudtik.providers._private.local.local_docker_command_executor import LocalDockerCommandExecutor
 from cloudtik.providers._private.local.local_scheduler import LocalScheduler
 from cloudtik.providers._private.local.state_store import LocalContainerStateStore

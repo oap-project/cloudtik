@@ -318,7 +318,7 @@ def get_runtime_logs():
     return all_logs
 
 
-def _validate_config(config: Dict[str, Any], provider):
+def _validate_config(config: Dict[str, Any]):
     # if HDFS enabled, we ignore the cloud storage configurations
     if not is_runtime_enabled(config.get(RUNTIME_CONFIG_KEY), "hdfs"):
         # Check any cloud storage is configured
@@ -328,7 +328,7 @@ def _validate_config(config: Dict[str, Any], provider):
             raise ValueError("No storage configuration found for Spark.")
 
 
-def _verify_config(config: Dict[str, Any], provider):
+def _verify_config(config: Dict[str, Any]):
     pass
 
 

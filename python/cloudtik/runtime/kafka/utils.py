@@ -69,7 +69,7 @@ def _get_runtime_logs():
     return all_logs
 
 
-def _validate_config(config: Dict[str, Any], provider):
+def _validate_config(config: Dict[str, Any]):
     if not is_runtime_enabled(config.get(RUNTIME_CONFIG_KEY), "zookeeper"):
         # Check zookeeper connect configured
         runtime_config = config.get(RUNTIME_CONFIG_KEY)
@@ -79,7 +79,7 @@ def _validate_config(config: Dict[str, Any], provider):
             raise ValueError("Zookeeper connect must be configured!")
 
 
-def _verify_config(config: Dict[str, Any], provider):
+def _verify_config(config: Dict[str, Any]):
     pass
 
 

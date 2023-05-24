@@ -39,11 +39,11 @@ def _get_runtime_logs():
     return {}
 
 
-def _validate_config(config: Dict[str, Any], provider):
+def _validate_config(config: Dict[str, Any]):
     pass
 
 
-def _verify_config(config: Dict[str, Any], provider):
+def _verify_config(config: Dict[str, Any]):
     pass
 
 

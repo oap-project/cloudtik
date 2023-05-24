@@ -4,7 +4,7 @@ from types import ModuleType
 from typing import Any, Dict, Optional
 
 from cloudtik.core._private.call_context import CallContext
-from cloudtik.core._private.utils import is_docker_enabled, FILE_MOUNTS_CONFIG_KEY
+from cloudtik.core._private.utils import is_docker_enabled, FILE_MOUNTS_CONFIG_KEY, AUTH_CONFIG_KEY
 from cloudtik.core.command_executor import CommandExecutor
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME
@@ -107,6 +107,11 @@ class LocalNodeProvider(NodeProvider):
         if self._is_docker_enabled():
             # Set in cluster flag
             remote_config["provider"]["local_in_cluster"] = True
+
+            # auth was changed for remote config too
+            if AUTH_CONFIG_KEY in remote_config:
+                remote_config["provider"][AUTH_CONFIG_KEY] = copy.deepcopy(
+                    remote_config[AUTH_CONFIG_KEY])
 
             # copy file mounts to provider since file_mounts updated for head
             if FILE_MOUNTS_CONFIG_KEY in remote_config:

@@ -27,13 +27,13 @@ class Runtime:
         """
         return cluster_config
 
-    def validate_config(self, cluster_config: Dict[str, Any], provider: NodeProvider):
+    def validate_config(self, cluster_config: Dict[str, Any]):
         """Validate cluster configuration from runtime perspective.
         This happens after runtime prepare_config is done and before provider bootstrap_config
         """
         pass
 
-    def verify_config(self, cluster_config: Dict[str, Any], provider: NodeProvider):
+    def verify_config(self, cluster_config: Dict[str, Any]):
         """Verify cluster configuration at the last stage of bootstrap.
         This happens after provider bootstrap_config is done.
         The verification may mean a slow process to check with a server"""

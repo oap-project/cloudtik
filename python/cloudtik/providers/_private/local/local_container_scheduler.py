@@ -12,12 +12,13 @@ from cloudtik.core._private.call_context import CallContext
 from cloudtik.core._private.command_executor.docker_command_executor import DockerCommandExecutor
 from cloudtik.core._private.utils import DOCKER_CONFIG_KEY, AUTH_CONFIG_KEY, FILE_MOUNTS_CONFIG_KEY, \
     _merge_node_type_specific_config
-from cloudtik.core.command_executor import CommandExecutor
-from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, CLOUDTIK_TAG_CLUSTER_NAME
+from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, CLOUDTIK_TAG_CLUSTER_NAME, \
+    CLOUDTIK_TAG_USER_NODE_TYPE
 from cloudtik.providers._private.local.config import \
     _get_cluster_bridge_address, _get_request_instance_type, get_docker_scheduler_lock_path, \
-    get_docker_scheduler_state_path, TAG_WORKSPACE_NAME, get_docker_scheduler_lock_file_name, \
+    get_docker_scheduler_state_path, TAG_WORKSPACE_NAME, \
     get_docker_scheduler_state_file_name, get_docker_cluster_data_path
+from cloudtik.providers._private.local.local_docker_command_executor import LocalDockerCommandExecutor
 from cloudtik.providers._private.local.local_scheduler import LocalScheduler
 from cloudtik.providers._private.local.state_store import LocalContainerStateStore
 from cloudtik.providers._private.local.utils import _get_node_info, _get_tags
@@ -108,25 +109,6 @@ def _apply_filters_with_state(
             node["tags"] = node_tags
             matching_nodes.append(node)
     return matching_nodes
-
-
-class LocalDockerCommandExecutor(DockerCommandExecutor):
-    def __init__(
-            self, call_context, docker_config, remote_host: bool = True, **common_args):
-        super().__init__(call_context, docker_config, remote_host, **common_args)
-
-    def run_init(self, *, as_head: bool, file_mounts: Dict[str, str],
-                 shared_memory_ratio: float, sync_run_yet: bool) -> Optional[bool]:
-        pass
-
-    def start_container(
-            self, as_head: bool, file_mounts: Dict[str, str],
-            shared_memory_ratio: float) -> Optional[bool]:
-        return super().run_init(
-            as_head=as_head,
-            file_mounts=file_mounts,
-            shared_memory_ratio=shared_memory_ratio,
-            sync_run_yet=True)
 
 
 class LocalContainerScheduler(LocalScheduler):
@@ -287,16 +269,17 @@ class LocalContainerScheduler(LocalScheduler):
 
     @staticmethod
     def _get_state_store(workspace_name, cluster_name):
+        docker_scheduler_lock_path = get_docker_scheduler_lock_path(
+            workspace_name, cluster_name)
         return LocalContainerStateStore(
-            get_docker_scheduler_lock_path(
-                workspace_name, cluster_name),
+            docker_scheduler_lock_path,
             get_docker_scheduler_state_path(
                 workspace_name, cluster_name))
 
     @staticmethod
     def _get_state_store_in_cluster(workspace_name, cluster_name):
-        docker_scheduler_lock_path = os.path.join(
-            STATE_MOUNT_PATH, get_docker_scheduler_lock_file_name())
+        docker_scheduler_lock_path = get_docker_scheduler_lock_path(
+            workspace_name, cluster_name)
         docker_scheduler_state_path = os.path.join(
             STATE_MOUNT_PATH, get_docker_scheduler_state_file_name())
         return LocalContainerStateStore(
@@ -334,7 +317,7 @@ class LocalContainerScheduler(LocalScheduler):
         # with a random string of 8 digits
         workspace_name = self.provider_config["workspace_name"].replace("-", "_")
         cluster_name = self.cluster_name.replace("-", "_")
-        random_id = uuid.uuid1()[:8]
+        random_id = str(uuid.uuid1())[:8]
         return f"{workspace_name}_{cluster_name}_{random_id}"
 
     @staticmethod
@@ -359,9 +342,15 @@ class LocalContainerScheduler(LocalScheduler):
 
         file_mounts = {}
         container_name = scheduler_executor.container_name
-        host_state_path = get_docker_cluster_data_path(
+
+        # The bootstrap process has updated the permission
+        state_path = get_docker_cluster_data_path(
             self.provider_config["workspace_name"], self.cluster_name)
-        file_mounts[host_state_path] = STATE_MOUNT_PATH
+        scheduler_executor.run(
+            "mkdir -p '{path}' && chmod -R 777 '{path}'".format(
+                path=state_path),
+            run_env="host")
+        file_mounts[STATE_MOUNT_PATH] = state_path
         data_disks = node_config.get("data_disks")
         if data_disks:
             disk_index = 1
@@ -369,21 +358,23 @@ class LocalContainerScheduler(LocalScheduler):
                 host_container_data_disk = os.path.join(
                     data_disk, container_name)
                 scheduler_executor.run(
-                    "mkdir -p '{}'".format(host_container_data_disk),
+                    "mkdir -p '{path}' && chmod -R a+w '{path}'".format(
+                        path=host_container_data_disk),
                     run_env="host")
                 # create a data disk for node
                 target_data_disk = os.path.join(
                     DATA_DISK_MOUNT_PATH, "data_disk_{}".format(disk_index))
-                file_mounts[host_container_data_disk] = target_data_disk
+                file_mounts[target_data_disk] = host_container_data_disk
                 disk_index += 1
 
         data_dirs = node_config.get("data_dirs")
         if data_dirs:
             for data_dir in data_dirs:
+                # the bootstrap process has updated the permission
                 data_dir_name = os.path.basename(data_dir)
                 target_data_dir = os.path.join(
                     DATA_MOUNT_PATH, data_dir_name)
-                file_mounts[data_dir] = target_data_dir
+                file_mounts[target_data_dir] = data_dir
 
         return file_mounts
 
@@ -400,6 +391,7 @@ class LocalContainerScheduler(LocalScheduler):
             self.docker_config, node_config)
         # make a copy before change it
         docker_config = copy.deepcopy(docker_config)
+        docker_config["mounts_mapping"] = False
 
         # set labels
         if tags:
@@ -446,13 +438,13 @@ class LocalContainerScheduler(LocalScheduler):
         return True if container else False
 
     def _get_container(self, container_name):
-        cmd = self.scheduler_executor.with_docker_cmd(
-            "inspect --format='{{json .}}' || true" + container_name)
-        output = self.scheduler_executor.run_with_retry(
-            cmd,
-            run_env="host").decode("utf-8").strip()
+        output = self.scheduler_executor.run_docker_cmd(
+            "inspect --format='{{json .}}' " + container_name + " || true")
+        if not output:
+            return None
         if output.startswith("Error: No such object:"):
             return None
+
         container_object = json.loads(output)
         network = self.docker_config["network"]
         node_ip = _get_ip(container_object, network)
@@ -479,7 +471,10 @@ class LocalContainerScheduler(LocalScheduler):
         containers = []
 
         effective_filters = {}
-        for name in [TAG_WORKSPACE_NAME, CLOUDTIK_TAG_CLUSTER_NAME]:
+        for name in [TAG_WORKSPACE_NAME,
+                     CLOUDTIK_TAG_CLUSTER_NAME,
+                     CLOUDTIK_TAG_NODE_KIND,
+                     CLOUDTIK_TAG_USER_NODE_TYPE]:
             if name in tag_filters:
                 effective_filters[name] = tag_filters[name]
 
@@ -490,10 +485,7 @@ class LocalContainerScheduler(LocalScheduler):
         if effective_filters:
             for label, label_value in effective_filters.items():
                 op_str += ' --filter "label={}={}"'.format(label, label_value)
-        cmd = self.scheduler_executor.with_docker_cmd(op_str)
-        output = self.scheduler_executor.run_with_retry(
-            cmd,
-            run_env="host").decode("utf-8").strip()
+        output = self.scheduler_executor.run_docker_cmd(op_str)
         if not output:
             return containers
 
@@ -502,6 +494,7 @@ class LocalContainerScheduler(LocalScheduler):
             container = self._get_container(container_name)
             if container:
                 containers.append(container)
+        return containers
 
     def _set_node_tags(self, node_id, tags):
         # Will use state: set labels to state

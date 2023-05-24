@@ -340,11 +340,11 @@ def validate_config(config: Dict[str, Any]) -> None:
                 "The specified global `max_workers` is smaller than the "
                 "sum of `min_workers` of all the available node types.")
 
-    provider = _get_node_provider(config["provider"], config["cluster_name"])
-    provider.validate_config(config["provider"])
+    provider_cls = _get_node_provider_cls(config["provider"])
+    provider_cls.validate_config(config)
 
     # add runtime config validate and testing
-    runtime_validate_config(config.get(RUNTIME_CONFIG_KEY), config, provider)
+    runtime_validate_config(config.get(RUNTIME_CONFIG_KEY), config)
 
 
 def verify_config(config: Dict[str, Any]):
@@ -2168,7 +2168,7 @@ def _is_gpu_runtime(runtime_config):
     return runtime_config.get("ai", {}).get("with_gpu", False)
 
 
-def runtime_validate_config(runtime_config, config, provider):
+def runtime_validate_config(runtime_config, config):
     if runtime_config is None:
         return
 
@@ -2176,7 +2176,7 @@ def runtime_validate_config(runtime_config, config, provider):
     runtime_types = runtime_config.get(RUNTIME_TYPES_CONFIG_KEY, [])
     for runtime_type in runtime_types:
         runtime = _get_runtime(runtime_type, runtime_config)
-        runtime.validate_config(config, provider)
+        runtime.validate_config(config)
 
 
 def runtime_prepare_config(

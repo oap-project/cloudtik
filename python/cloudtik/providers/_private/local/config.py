@@ -105,12 +105,26 @@ def _configure_docker(config):
     for key, node_type in config["available_node_types"].items():
         if DOCKER_CONFIG_KEY in node_type:
             node_config = node_type["node_config"]
-            node_config[DOCKER_CONFIG_KEY] = node_type[DOCKER_CONFIG_KEY]
+            node_config[DOCKER_CONFIG_KEY] = copy.deepcopy(
+                node_type[DOCKER_CONFIG_KEY])
 
     return config
 
 
 def _configure_file_mounts(config):
+    state_path = get_docker_cluster_data_path(
+        config.get("workspace_name"), config.get("cluster_name"))
+    exec_with_output(
+        "mkdir -p '{path}' && chmod -R 777 '{path}'".format(path=state_path))
+
+    for key, node_type in config["available_node_types"].items():
+        node_config = node_type["node_config"]
+        data_dirs = node_config.get("data_dirs")
+        if data_dirs:
+            for data_dir in data_dirs:
+                # the bootstrap process has updated the permission
+                exec_with_output(f"chmod -R 777 '{data_dir}'")
+
     # copy docker to provider section
     config["provider"][FILE_MOUNTS_CONFIG_KEY] = copy.deepcopy(
         config[FILE_MOUNTS_CONFIG_KEY])
@@ -162,8 +176,8 @@ def get_docker_cluster_data_path(workspace, cluster_name) -> str:
 
 def get_docker_scheduler_lock_path(workspace, cluster_name) -> str:
     return os.path.join(
-        get_docker_cluster_data_path(workspace, cluster_name),
-        get_docker_scheduler_lock_file_name())
+        utils.get_user_temp_dir(),
+        get_docker_scheduler_lock_file_name(workspace, cluster_name))
 
 
 def get_docker_scheduler_state_path(workspace, cluster_name) -> str:
@@ -172,8 +186,9 @@ def get_docker_scheduler_state_path(workspace, cluster_name) -> str:
         get_docker_scheduler_state_file_name())
 
 
-def get_docker_scheduler_lock_file_name() -> str:
-    return "cloudtik-docker-scheduler.lock"
+def get_docker_scheduler_lock_file_name(workspace, cluster_name) -> str:
+    return "cloudtik-docker-scheduler-{}-{}.lock".format(
+            workspace, cluster_name)
 
 
 def get_docker_scheduler_state_file_name() -> str:

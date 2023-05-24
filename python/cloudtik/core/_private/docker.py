@@ -98,15 +98,30 @@ def check_docker_image(cname, docker_cmd):
 
 def docker_start_cmds(user, image, mount_dict, data_disks, container_name, user_options,
                       cluster_name, home_directory, docker_cmd,
+                      network=None, cpus=None, memory=None, labels=None,
+                      mounts_mapping=False):
+    mounts = mount_dict
+    if mounts_mapping:
+        # Imported here due to circular dependency.
+        from cloudtik.core.api import get_docker_host_mount_location
+        docker_mount_prefix = get_docker_host_mount_location(cluster_name)
+        mounts = {dst: f"{docker_mount_prefix}/{dst}" for dst in mount_dict}
+
+    return _docker_start_cmds(
+        user, image, mounts, data_disks, container_name,
+        user_options, home_directory, docker_cmd,
+        network, cpus, memory, labels
+    )
+
+
+def _docker_start_cmds(user, image, mounts, data_disks, container_name,
+                       user_options, home_directory, docker_cmd,
                       network=None, cpus=None, memory=None, labels=None):
-    # Imported here due to circular dependency.
-    from cloudtik.core.api import get_docker_host_mount_location
-    docker_mount_prefix = get_docker_host_mount_location(cluster_name)
-    mount = {f"{docker_mount_prefix}/{dst}": dst for dst in mount_dict}
+    # mounts mapping: target -> source
     file_mounts = [
         "-v {src}:{dest}".format(
-            src=k, dest=v.replace("~/", home_directory + "/"))
-        for k, v in mount.items()
+            src=v, dest=k.replace("~/", home_directory + "/"))
+        for k, v in mounts.items()
     ]
     data_disk_mounts = [
         "-v {src}:{dest}".format(
@@ -128,7 +143,7 @@ def docker_start_cmds(user, image, mount_dict, data_disks, container_name, user_
     fuse_flags = "--cap-add SYS_ADMIN --device /dev/fuse --security-opt apparmor:unconfined"
     numactl_flag = "--cap-add SYS_NICE"
     ipc_flag = "--ipc=host"
-    network_flag = "--network={}}".format(network) if network else "--network=host"
+    network_flag = "--network={}".format(network) if network else "--network=host"
 
     docker_run = [
         docker_cmd, "run", "--rm", "--name {}".format(container_name), "-d",

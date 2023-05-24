@@ -1,4 +1,5 @@
 import copy
+import subprocess
 from typing import Dict
 import logging
 
@@ -10,6 +11,12 @@ from cloudtik.core._private.cli_logger import cf
 logger = logging.getLogger(__name__)
 
 
+def _with_local_interactive(cmd):
+    return (
+        f"true && "
+        f"export PYTHONWARNINGS=ignore && ({cmd})")
+
+
 class LocalCommandExecutor(HostCommandExecutor):
     def __init__(self, call_context, log_prefix, auth_config,
                  cluster_name, process_runner, use_internal_ip,
@@ -18,6 +25,14 @@ class LocalCommandExecutor(HostCommandExecutor):
             self, call_context, log_prefix, auth_config,
             cluster_name, process_runner, use_internal_ip,
             provider, node_id)
+
+    def _run_local_shell(self, cmd: str, with_output=False):
+        if with_output:
+            return self.process_runner.check_output(
+                cmd, shell=True)
+        else:
+            self.process_runner.check_call(
+                cmd, shell=True)
 
     def run(
             self,
@@ -31,11 +46,12 @@ class LocalCommandExecutor(HostCommandExecutor):
             ssh_options_override_ssh_key="",  # Unused argument.
             shutdown_after_run=False,
             cmd_to_print=None,
-            silent=False):
+            silent=False,  # Unused argument
+    ):
         if shutdown_after_run:
             cmd, cmd_to_print = _with_shutdown(cmd, cmd_to_print)
 
-        final_cmd = []
+        final_cmd = ""
         final_cmd_to_print = None
         if cmd:
             if environment_variables:
@@ -44,34 +60,32 @@ class LocalCommandExecutor(HostCommandExecutor):
             if cmd_to_print:
                 final_cmd_to_print = copy.deepcopy(final_cmd)
             if self.call_context.is_using_login_shells():
-                final_cmd += _with_interactive(cmd)
+                final_cmd = _with_local_interactive(cmd)
                 if cmd_to_print:
-                    final_cmd_to_print += _with_interactive(cmd_to_print)
+                    final_cmd_to_print = _with_local_interactive(cmd_to_print)
             else:
-                final_cmd += [cmd]
+                final_cmd = cmd
                 if cmd_to_print:
-                    final_cmd_to_print += [cmd_to_print]
+                    final_cmd_to_print = cmd_to_print
         else:
             # We do this because `-o ControlMaster` causes the `-N` flag to
             # still create an interactive shell in some ssh versions.
-            final_cmd.append("while true; do sleep 86400; done")
+            final_cmd = "true"
 
         self.cli_logger.verbose(
             "Running `{}`", cf.bold(cmd if cmd_to_print is None else cmd_to_print))
         with self.cli_logger.indented():
             self.cli_logger.verbose(
                 "Full command is `{}`",
-                cf.bold(" ".join(final_cmd if final_cmd_to_print is None else final_cmd_to_print)))
+                cf.bold(final_cmd if final_cmd_to_print is None else final_cmd_to_print))
 
         if self.cli_logger.verbosity > 0:
             with self.cli_logger.indented():
-                return self._run_helper(
-                    final_cmd, with_output, exit_on_fail,
-                    silent=silent, cmd_to_print=final_cmd_to_print)
+                return self._run_local_shell(
+                    final_cmd, with_output=with_output)
         else:
-            return self._run_helper(
-                final_cmd, with_output, exit_on_fail,
-                silent=silent, cmd_to_print=final_cmd_to_print)
+            return self._run_local_shell(
+                final_cmd, with_output=with_output)
 
     def run_rsync_up(self, source, target, options=None):
         self._run_rsync(source, target, options)

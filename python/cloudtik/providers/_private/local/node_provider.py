@@ -1,13 +1,15 @@
+import copy
 import logging
 from types import ModuleType
 from typing import Any, Dict, Optional
 
 from cloudtik.core._private.call_context import CallContext
-from cloudtik.core._private.utils import is_docker_enabled
+from cloudtik.core._private.utils import is_docker_enabled, FILE_MOUNTS_CONFIG_KEY
 from cloudtik.core.command_executor import CommandExecutor
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME
-from cloudtik.providers._private.local.config import prepare_local, post_prepare_local
+from cloudtik.providers._private.local.config import prepare_local, post_prepare_local, bootstrap_local, \
+    TAG_WORKSPACE_NAME
 from cloudtik.providers._private.local.local_container_scheduler import LocalContainerScheduler
 from cloudtik.providers._private.local.local_host_scheduler import LocalHostScheduler
 
@@ -28,13 +30,16 @@ class LocalNodeProvider(NodeProvider):
     def __init__(self, provider_config, cluster_name):
         NodeProvider.__init__(self, provider_config, cluster_name)
         if self._is_docker_enabled():
-            self.local_scheduler = LocalContainerScheduler(provider_config)
+            self.local_scheduler = LocalContainerScheduler(
+                provider_config, cluster_name)
         else:
-            self.local_scheduler = LocalHostScheduler(provider_config)
+            self.local_scheduler = LocalHostScheduler(
+                provider_config, cluster_name)
 
     def non_terminated_nodes(self, tag_filters):
         # Only get the non terminated nodes associated with this cluster name.
         tag_filters[CLOUDTIK_TAG_CLUSTER_NAME] = self.cluster_name
+        tag_filters[TAG_WORKSPACE_NAME] = self.provider_config["workspace_name"]
         return self.local_scheduler.non_terminated_nodes(tag_filters)
 
     def is_running(self, node_id):
@@ -44,7 +49,7 @@ class LocalNodeProvider(NodeProvider):
         return self.local_scheduler.is_terminated(node_id)
 
     def node_tags(self, node_id):
-        return self.local_scheduler.get_node_tags(node_id)
+        return self.local_scheduler.node_tags(node_id)
 
     def external_ip(self, node_id):
         return None
@@ -56,8 +61,9 @@ class LocalNodeProvider(NodeProvider):
         # Tag the newly created node with this cluster name. Helps to get
         # the right nodes when calling non_terminated_nodes.
         tags[CLOUDTIK_TAG_CLUSTER_NAME] = self.cluster_name
+        tags[TAG_WORKSPACE_NAME] = self.provider_config["workspace_name"]
         self.local_scheduler.create_node(
-            self.cluster_name, node_config, tags, count)
+            node_config, tags, count)
 
     def set_node_tags(self, node_id, tags):
         self.local_scheduler.set_node_tags(node_id, tags)
@@ -93,6 +99,34 @@ class LocalNodeProvider(NodeProvider):
             use_internal_ip=use_internal_ip,
             docker_config=docker_config
         )
+
+    def prepare_for_head_node(
+            self, cluster_config: Dict[str, Any],
+            remote_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Returns a new cluster config with custom configs for head node."""
+        if self._is_docker_enabled():
+            # Set in cluster flag
+            remote_config["provider"]["local_in_cluster"] = True
+
+            # copy file mounts to provider since file_mounts updated for head
+            if FILE_MOUNTS_CONFIG_KEY in remote_config:
+                remote_config["provider"][FILE_MOUNTS_CONFIG_KEY] = copy.deepcopy(
+                    remote_config[FILE_MOUNTS_CONFIG_KEY])
+
+            # copy file mounts to provider since file_mounts updated for local
+            if FILE_MOUNTS_CONFIG_KEY in cluster_config:
+                cluster_config["provider"][FILE_MOUNTS_CONFIG_KEY] = copy.deepcopy(
+                    cluster_config[FILE_MOUNTS_CONFIG_KEY])
+
+        return remote_config
+
+    @staticmethod
+    def bootstrap_config(cluster_config):
+        return bootstrap_local(cluster_config)
+
+    @staticmethod
+    def bootstrap_config_for_api(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+        return bootstrap_local(cluster_config)
 
     @staticmethod
     def prepare_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:

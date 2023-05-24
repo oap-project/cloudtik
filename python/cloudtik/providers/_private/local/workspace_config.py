@@ -4,84 +4,32 @@ import logging
 import os
 import shutil
 import subprocess
-import tempfile
-import uuid
 from functools import partial
 from typing import Any, Optional
 from typing import Dict
-
-import psutil
 
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.core_utils import kill_process_tree
 from cloudtik.core._private.utils import exec_with_output, get_host_address, get_free_port
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD
 from cloudtik.core.workspace_provider import Existence
-from cloudtik.providers._private.local.config import get_cluster_name_from_node
+from cloudtik.providers._private.local.config import get_cluster_name_from_node, with_sudo, _safe_remove_file, \
+    _get_network_name, _get_bridge_interface_name, _get_sshd_config_file, _get_ssh_control_key_file, \
+    _get_authorized_keys_file, _get_host_key_file, _get_expanded_path, _make_sure_data_path, \
+    get_ssh_server_process_file, _find_ssh_server_process_for_workspace, DEFAULT_SSH_SERVER_PORT
 from cloudtik.providers._private.local.local_container_scheduler import LocalContainerScheduler
 from cloudtik.providers._private.local.local_host_scheduler import LocalHostScheduler
+from cloudtik.providers._private.local.utils import _get_node_info
 
 logger = logging.getLogger(__name__)
+
+LOCAL_HOST_WORKSPACE_TARGET_RESOURCES = 1
+LOCAL_HOST_WORKSPACE_NUM_CREATION_STEPS = 1
+LOCAL_HOST_WORKSPACE_NUM_DELETION_STEPS = 1
 
 LOCAL_DOCKER_WORKSPACE_NUM_CREATION_STEPS = 2
 LOCAL_DOCKER_WORKSPACE_NUM_DELETION_STEPS = 2
 LOCAL_DOCKER_WORKSPACE_TARGET_RESOURCES = 2
-
-DEFAULT_SSH_SERVER_PORT = 3371
-
-
-def is_rootless_docker():
-    # run docker image list for a test
-    try:
-        exec_with_output("docker image list")
-        return True
-    except:
-        return False
-
-
-def with_sudo(docker_cmd):
-    # check whether we need to run as sudo based whether we run rootless docker
-    if is_rootless_docker():
-        return docker_cmd
-    return "sudo " + docker_cmd
-
-
-def _get_expanded_path(path):
-    return os.path.expanduser(path)
-
-
-def _safe_remove_file(file_to_remove):
-    if os.path.exists(file_to_remove):
-        os.remove(file_to_remove)
-
-
-def _get_network_name(workspace_name):
-    return "cloudtik-{}".format(workspace_name)
-
-
-def _get_bridge_interface_name(workspace_name):
-    interface_suffix = str(uuid.uuid3(uuid.NAMESPACE_OID, workspace_name))[:8]
-    return "tik-{}".format(interface_suffix)
-
-
-def _get_sshd_config_file(workspace_name):
-    return _get_expanded_path(
-        "~/.ssh/cloudtik-{}-sshd_config".format(workspace_name))
-
-
-def _get_ssh_control_key_file(workspace_name):
-    return _get_expanded_path(
-        "~/.ssh/cloudtik-{}-control_key".format(workspace_name))
-
-
-def _get_authorized_keys_file(workspace_name):
-    return _get_expanded_path(
-        "~/.ssh/cloudtik-{}-authorized_keys".format(workspace_name))
-
-
-def _get_host_key_file(workspace_name):
-    return _get_expanded_path(
-        "~/.ssh/cloudtik-{}-host_key".format(workspace_name))
 
 
 def is_docker_workspace(provider_config: Dict[str, Any]) -> bool:
@@ -90,67 +38,32 @@ def is_docker_workspace(provider_config: Dict[str, Any]) -> bool:
 
 def _create_local_scheduler(provider_config):
     if is_docker_workspace(provider_config):
-        local_scheduler = LocalContainerScheduler(provider_config)
+        local_scheduler = LocalContainerScheduler(provider_config, None)
     else:
-        local_scheduler = LocalHostScheduler(provider_config)
+        local_scheduler = LocalHostScheduler(provider_config, None)
     return local_scheduler
 
 
-def get_workspace_head_nodes(provider_config: Dict[str, Any]):
+def get_workspace_head_nodes(workspace_name, provider_config: Dict[str, Any]):
     tag_filters = {CLOUDTIK_TAG_NODE_KIND: NODE_KIND_HEAD}
+    # The provider config is workspace provider
+    # while scheduler expect cluster provider with bootstrap
+    # we need to make sure of that
     local_scheduler = _create_local_scheduler(provider_config)
-    return local_scheduler.get_non_terminated_nodes(tag_filters)
+    return local_scheduler.list_nodes(workspace_name, tag_filters)
 
 
-def _get_node_info(provider_config: Dict[str, Any], node_id):
-    local_scheduler = _create_local_scheduler(provider_config)
-    return local_scheduler.get_node_info(node_id)
-
-
-def _get_node_tags(provider_config: Dict[str, Any], node_id):
-    local_scheduler = _create_local_scheduler(provider_config)
-    return local_scheduler.get_node_tags(node_id)
-
-
-def list_local_clusters(provider_config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    head_nodes = get_workspace_head_nodes(provider_config)
+def list_local_clusters(
+        workspace_name,
+        provider_config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    head_nodes = get_workspace_head_nodes(workspace_name, provider_config)
     clusters = {}
     for head_node in head_nodes:
-        node_info = _get_node_info(provider_config, head_node)
+        node_info = _get_node_info(head_node)
         cluster_name = get_cluster_name_from_node(node_info)
         if cluster_name:
             clusters[cluster_name] = node_info
     return clusters
-
-
-def get_ssh_server_process_file(workspace_name: str):
-    ssh_server_process_file = os.path.join(
-        tempfile.gettempdir(), "cloudtik-{}-sshd".format(workspace_name))
-    return ssh_server_process_file
-
-
-def _get_ssh_server_process(ssh_server_process_file: str):
-    if os.path.exists(ssh_server_process_file):
-        process_info = json.loads(open(ssh_server_process_file).read())
-        if process_info.get("process") and process_info["process"].get("pid"):
-            ssh_server_process = process_info["process"]
-            return (ssh_server_process["pid"],
-                    ssh_server_process.get("bind_address"),
-                    ssh_server_process["port"])
-    return None, None, None
-
-
-def _find_ssh_server_process_for_workspace(workspace_name):
-    sshd_config = _get_sshd_config_file(workspace_name)
-    for proc in psutil.process_iter(["name", "cmdline"]):
-        try:
-            args = subprocess.list2cmdline(proc.cmdline())
-            cmd_name = proc.name()
-            if "sshd" in cmd_name and sshd_config in args:
-                return proc.pid
-        except psutil.Error:
-            pass
-    return None
 
 
 def create_local_workspace(config):
@@ -165,8 +78,57 @@ def create_local_workspace(config):
 def _create_workspace(config):
     provider_config = config["provider"]
     if not is_docker_workspace(provider_config):
-        return config
+        return create_host_workspace(config)
+    else:
+        return create_docker_workspace(config)
 
+
+def create_host_workspace(config):
+    provider_config = config["provider"]
+    workspace_name = config["workspace_name"]
+
+    current_step = 1
+    total_steps = LOCAL_HOST_WORKSPACE_NUM_CREATION_STEPS
+
+    try:
+        with cli_logger.group("Creating workspace: {}", workspace_name):
+            with cli_logger.group(
+                    "Creating host workspace",
+                    _numbered=("[]", current_step, total_steps)):
+                current_step += 1
+                _create_host_workspace(provider_config, workspace_name)
+
+    except Exception as e:
+        cli_logger.error("Failed to update workspace with the name {}. "
+                         "You need to delete and try create again. {}", workspace_name, str(e))
+        raise e
+
+    cli_logger.success(
+        "Successfully updated workspace: {}.",
+        cf.bold(workspace_name))
+    return config
+
+
+def _create_host_workspace(provider_config, workspace_name):
+    if _is_host_workspace_exists(provider_config, workspace_name):
+        cli_logger.print("Local host workspace already exists. Skip creation.")
+        return
+
+    try:
+        cli_logger.print("Creating local host workspace: {}.", workspace_name)
+
+        _make_sure_data_path()
+
+        local_scheduler = _create_local_scheduler(provider_config)
+        local_scheduler.create_workspace(workspace_name)
+
+        cli_logger.print("Successfully created local host workspace.")
+    except Exception as e:
+        cli_logger.error("Failed to create local host workspace: {}", str(e))
+        raise e
+
+
+def create_docker_workspace(config):
     workspace_name = config["workspace_name"]
 
     current_step = 1
@@ -235,6 +197,13 @@ def _create_bridge_ssh_server(config, workspace_name):
 
 
 def _prepare_ssh_server_keys_and_config(config, workspace_name):
+    # make sure the ~/.ssh folder exists and with the right permission
+    ssh_path = _get_expanded_path("~/.ssh")
+    if not os.path.exists(ssh_path):
+        os.makedirs(ssh_path, mode=0o700, exist_ok=True)
+
+    _make_sure_data_path()
+
     # Create private key
     ssh_private_key_file = _get_ssh_control_key_file(workspace_name)
     authorized_keys_file = _get_authorized_keys_file(workspace_name)
@@ -342,8 +311,53 @@ def delete_local_workspace(
         config):
     provider_config = config["provider"]
     if not is_docker_workspace(provider_config):
-        return config
+        return delete_host_workspace(config)
+    else:
+        return delete_docker_workspace(config)
 
+
+def delete_host_workspace(
+        config):
+    provider_config = config["provider"]
+    workspace_name = config["workspace_name"]
+
+    current_step = 1
+    total_steps = LOCAL_HOST_WORKSPACE_NUM_DELETION_STEPS
+    try:
+        with cli_logger.group("Deleting workspace: {}", workspace_name):
+            with cli_logger.group(
+                    "Deleting host workspace",
+                    _numbered=("[]", current_step, total_steps)):
+                current_step += 1
+                _delete_host_workspace(provider_config, workspace_name)
+    except Exception as e:
+        cli_logger.error(
+            "Failed to delete workspace {}. {}", workspace_name, str(e))
+        raise e
+
+    cli_logger.success(
+            "Successfully deleted workspace: {}.",
+            cf.bold(workspace_name))
+
+
+def _delete_host_workspace(provider_config, workspace_name):
+    if not _is_host_workspace_exists(provider_config, workspace_name):
+        cli_logger.print("Local host workspace doesn't exist. Skip deletion.")
+        return
+
+    try:
+        cli_logger.print("Deleting local host workspace: {}.", workspace_name)
+
+        local_scheduler = _create_local_scheduler(provider_config)
+        local_scheduler.delete_workspace(workspace_name)
+
+        cli_logger.print("Successfully deleted local host workspace.")
+    except Exception as e:
+        cli_logger.error("Failed to delete local host workspace: {}", str(e))
+        raise e
+
+
+def delete_docker_workspace(config):
     workspace_name = config["workspace_name"]
 
     current_step = 1
@@ -453,8 +467,39 @@ def check_local_workspace_integrity(config):
 def check_local_workspace_existence(config):
     provider_config = config["provider"]
     if not is_docker_workspace(provider_config):
-        return Existence.NOT_EXIST
+        return check_host_workspace_existence(config)
+    else:
+        return check_docker_workspace_existence(config)
 
+
+def check_host_workspace_existence(config):
+    provider_config = config["provider"]
+    workspace_name = config["workspace_name"]
+
+    skipped_resources = 0
+    target_resources = LOCAL_HOST_WORKSPACE_TARGET_RESOURCES
+    existing_resources = 0
+
+    # check docker bridge network
+    if _is_host_workspace_exists(provider_config, workspace_name):
+        existing_resources += 1
+
+    if existing_resources <= skipped_resources:
+        return Existence.NOT_EXIST
+    elif existing_resources == target_resources:
+        return Existence.COMPLETED
+    else:
+        return Existence.IN_COMPLETED
+
+
+def _is_host_workspace_exists(provider_config, workspace_name):
+    # use local host state file for recording workspace
+    local_scheduler = _create_local_scheduler(provider_config)
+    workspace = local_scheduler.get_workspace(workspace_name)
+    return True if workspace else False
+
+
+def check_docker_workspace_existence(config):
     workspace_name = config["workspace_name"]
 
     skipped_resources = 0

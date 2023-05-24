@@ -349,9 +349,9 @@ class NodeUpdater:
         return node_envs
 
     def get_shared_memory_ratio(self):
+        node_type = get_node_type(self.provider, self.node_id)
         return get_runtime_shared_memory_ratio(
-            self.runtime_config, config=self.config,
-            provider=self.provider, node_id=self.node_id)
+            self.runtime_config, config=self.config, node_type=node_type)
 
     def do_update(self):
         self.provider.set_node_tags(

@@ -49,6 +49,7 @@ def bootstrap_local(config):
         config = _configure_auth(config)
         config = _configure_docker(config)
         config = _configure_file_mounts(config)
+        config = _configure_shared_memory_ratio(config)
     else:
         config = _configure_workers(config)
 
@@ -130,6 +131,21 @@ def _configure_file_mounts(config):
     # copy docker to provider section
     config["provider"][FILE_MOUNTS_CONFIG_KEY] = copy.deepcopy(
         config[FILE_MOUNTS_CONFIG_KEY])
+    return config
+
+
+def _configure_shared_memory_ratio(config):
+    # configure shared memory ratio to node config for each type
+    runtime_config = config.get(utils.RUNTIME_CONFIG_KEY)
+    if not runtime_config:
+        return config
+    for node_type, node_type_config in config["available_node_types"].items():
+        shared_memory_ratio = utils.get_runtime_shared_memory_ratio(
+            runtime_config, config, node_type)
+        if shared_memory_ratio != 0:
+            node_config = node_type_config["node_config"]
+            node_config["shared_memory_ratio"] = shared_memory_ratio
+
     return config
 
 

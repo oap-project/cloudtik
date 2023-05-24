@@ -17,7 +17,7 @@ from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, CLOUDTIK_
 from cloudtik.providers._private.local.config import \
     _get_cluster_bridge_address, _get_request_instance_type, get_docker_scheduler_lock_path, \
     get_docker_scheduler_state_path, TAG_WORKSPACE_NAME, \
-    get_docker_scheduler_state_file_name, get_docker_cluster_data_path
+    get_docker_scheduler_state_file_name
 from cloudtik.providers._private.local.local_docker_command_executor import LocalDockerCommandExecutor
 from cloudtik.providers._private.local.local_scheduler import LocalScheduler
 from cloudtik.providers._private.local.state_store import LocalContainerStateStore
@@ -332,6 +332,10 @@ class LocalContainerScheduler(LocalScheduler):
             if memory_gb:
                 docker_config["memory"] = str(memory_gb) + "g"
 
+    def _get_provider_cluster_state_path(self):
+        # the cluster data path is set at boostrap
+        return self.provider_config["state_path"]
+
     def _setup_docker_file_mounts(
             self, node_config, scheduler_executor):
         # Handling mounts
@@ -344,8 +348,7 @@ class LocalContainerScheduler(LocalScheduler):
         container_name = scheduler_executor.container_name
 
         # The bootstrap process has updated the permission
-        state_path = get_docker_cluster_data_path(
-            self.provider_config["workspace_name"], self.cluster_name)
+        state_path = self._get_provider_cluster_state_path()
         scheduler_executor.run(
             "mkdir -p '{path}' && chmod -R 777 '{path}'".format(
                 path=state_path),

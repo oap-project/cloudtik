@@ -117,6 +117,8 @@ def _configure_file_mounts(config):
     exec_with_output(
         "mkdir -p '{path}' && chmod -R 777 '{path}'".format(path=state_path))
 
+    config["provider"]["state_path"] = state_path
+
     for key, node_type in config["available_node_types"].items():
         node_config = node_type["node_config"]
         data_dirs = node_config.get("data_dirs")

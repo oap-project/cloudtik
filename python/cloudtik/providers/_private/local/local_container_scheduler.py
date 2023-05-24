@@ -489,7 +489,7 @@ class LocalContainerScheduler(LocalScheduler):
     def _stop_container(self, container_name):
         scheduler_executor = self._get_scheduler_executor(
             container_name, docker_config=self.docker_config)
-        scheduler_executor.run_terminate()
+        scheduler_executor.stop_container()
 
     def _list_containers(self, tag_filters, include_stopped=False):
         # list container tag filters only handles workspace and cluster name

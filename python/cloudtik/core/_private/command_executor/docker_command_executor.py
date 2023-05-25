@@ -293,7 +293,7 @@ class DockerCommandExecutor(CommandExecutor):
                 specific_image, cleaned_bind_mounts)
             if requires_re_init:
                 self.run_with_retry(
-                    "{} stop {}".format(
+                    "{} stop {} > /dev/null".format(
                         self.get_docker_cmd(), self.container_name),
                     run_env="host")
 
@@ -396,7 +396,7 @@ class DockerCommandExecutor(CommandExecutor):
         container_running = self._check_container_status()
         if container_running:
             self.run_with_retry(
-                "{} stop {}".format(
+                "{} stop {} > /dev/null".format(
                     self.get_docker_cmd(), self.container_name),
                 run_env="host")
         self.initialized = False

@@ -341,7 +341,7 @@ def validate_config(config: Dict[str, Any]) -> None:
                 "sum of `min_workers` of all the available node types.")
 
     provider_cls = _get_node_provider_cls(config["provider"])
-    provider_cls.validate_config(config)
+    provider_cls.validate_config(config["provider"])
 
     # add runtime config validate and testing
     runtime_validate_config(config.get(RUNTIME_CONFIG_KEY), config)

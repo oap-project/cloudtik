@@ -529,7 +529,7 @@ def update_local_workspace(
             provider_config = config["provider"]
             if is_docker_workspace(provider_config):
                 cli_logger.print(
-                    "No operation needed for local host workspace.")
+                    "No update operation needed for local host workspace.")
             else:
                 update_docker_workspace(config, workspace_name)
     except Exception as e:

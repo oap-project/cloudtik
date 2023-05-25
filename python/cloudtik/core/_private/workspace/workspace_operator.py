@@ -291,6 +291,8 @@ def _get_clusters_info(config: Dict[str, Any], clusters):
                         "head_node": clusters[cluster_name]}
 
         # Retrieve other information through cluster operator
+        # This is a trick that use the workspace config to act some part of cluster config
+        # The provider implementation must be careful that this is working
         cluster_config = copy.deepcopy(config)
         cluster_config["cluster_name"] = cluster_name
 

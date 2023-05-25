@@ -151,11 +151,7 @@ class LocalContainerScheduler(LocalScheduler):
         self.call_context = CallContext()
         self.call_context.set_call_from_api(True)
 
-        # bootstrapped from config
-        # ssh_user and ssh_private_key need set properly at bootstrap
-        # both for working node and head node
-        self.auth_config = self.provider_config[AUTH_CONFIG_KEY]
-        self.docker_config = self.provider_config[DOCKER_CONFIG_KEY]
+        self.docker_config = self.provider_config.get(DOCKER_CONFIG_KEY, {})
         self.file_mounts = self.provider_config.get(FILE_MOUNTS_CONFIG_KEY, {})
 
         self.lock = RLock()
@@ -314,11 +310,15 @@ class LocalContainerScheduler(LocalScheduler):
         if self.cluster_name:
             log_prefix = log_prefix + "{}: ".format(self.cluster_name)
 
+        # bootstrapped from config
+        # ssh_user and ssh_private_key need set properly at bootstrap
+        # both for working node and head node
+        auth_config = self.provider_config.get(AUTH_CONFIG_KEY, {})
         return self.get_command_executor(
             self.call_context,
             log_prefix=log_prefix,
             node_id=container_name,
-            auth_config=self.auth_config,
+            auth_config=auth_config,
             cluster_name=self.cluster_name,
             process_runner=subprocess,
             use_internal_ip=True,

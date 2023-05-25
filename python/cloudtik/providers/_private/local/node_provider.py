@@ -9,7 +9,7 @@ from cloudtik.core.command_executor import CommandExecutor
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME
 from cloudtik.providers._private.local.config import prepare_local, post_prepare_local, bootstrap_local, \
-    TAG_WORKSPACE_NAME
+    TAG_WORKSPACE_NAME, bootstrap_local_for_api
 from cloudtik.providers._private.local.local_container_scheduler import LocalContainerScheduler
 from cloudtik.providers._private.local.local_host_scheduler import LocalHostScheduler
 
@@ -131,7 +131,7 @@ class LocalNodeProvider(NodeProvider):
 
     @staticmethod
     def bootstrap_config_for_api(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-        return bootstrap_local(cluster_config)
+        return bootstrap_local_for_api(cluster_config)
 
     @staticmethod
     def prepare_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:

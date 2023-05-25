@@ -8,7 +8,7 @@
         "workspace_name",
         "provider"
     ],
-    "additionalProperties": false,
+    "additionalProperties": true,
 	"properties": {
         "workspace_name": {
             "description": "A unique identifier for the workspace.",

@@ -524,12 +524,12 @@ def teardown_cluster_nodes(config: Dict[str, Any],
                     parallel=True
                 )
 
-        # Step 2: stop docker containers
+        # Step 2: Running termination
         with _cli_logger.group(
-                "Stopping docker container for nodes...",
+                "Running termination for nodes...",
                 _numbered=("()", current_step, total_steps)):
             current_step += 1
-            _stop_docker_on_nodes(
+            _run_termination_on_nodes(
                 config=config,
                 call_context=call_context,
                 provider=provider,
@@ -561,7 +561,7 @@ def teardown_cluster_nodes(config: Dict[str, Any],
             _cli_logger.print(cf.bold("No {} remaining."), node_type)
 
 
-def _stop_docker_on_nodes(
+def _run_termination_on_nodes(
         config: Dict[str, Any],
         call_context: CallContext,
         provider: NodeProvider,
@@ -571,7 +571,7 @@ def _stop_docker_on_nodes(
         nodes: List[str]):
     use_internal_ip = True if on_head else False
 
-    def run_docker_stop(node_id, call_context):
+    def run_termination(node_id, call_context):
         try:
             updater = create_node_updater_for_exec(
                 config=config,
@@ -583,24 +583,23 @@ def _stop_docker_on_nodes(
                 use_internal_ip=use_internal_ip)
             updater.cmd_executor.run_terminate()
         except Exception:
-            raise RuntimeError(f"Docker stop failed on {node_id}") from None
+            raise RuntimeError(f"Run termination failed on {node_id}") from None
 
     _cli_logger = call_context.cli_logger
-    docker_enabled = is_docker_enabled(config)
-    if docker_enabled and (on_head or not workers_only):
+    if on_head or not workers_only:
         if on_head:
-            _cli_logger.print("Stopping docker containers on workers...")
-            container_nodes = nodes
+            _cli_logger.print("Running termination on workers...")
+            running_nodes = nodes
         else:
-            _cli_logger.print("Stopping docker container on head...")
-            container_nodes = head
+            _cli_logger.print("Running termination on head...")
+            running_nodes = head
         # This is to ensure that the parallel SSH calls below do not mess with
         # the users terminal.
-        run_in_parallel_on_nodes(run_docker_stop,
+        run_in_parallel_on_nodes(run_termination,
                                  call_context=call_context,
-                                 nodes=container_nodes,
+                                 nodes=running_nodes,
                                  max_workers=MAX_PARALLEL_SHUTDOWN_WORKERS)
-        _cli_logger.print(cf.bold("Done stopping docker containers."))
+        _cli_logger.print(cf.bold("Done running termination."))
 
 
 def kill_node_from_head(config_file: str, yes: bool, hard: bool,

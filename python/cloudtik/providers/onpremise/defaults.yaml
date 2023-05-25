@@ -2,7 +2,7 @@
 from: defaults
 
 provider:
-    type: onprem
+    type: onpremise
 
     # We need to use Cloud Simulator for the best local cluster management
     # You can launch multiple clusters on the same set of machines, and the cloud simulator

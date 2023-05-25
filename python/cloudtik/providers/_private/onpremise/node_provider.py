@@ -3,21 +3,21 @@ from typing import Any, Dict
 
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME
-from cloudtik.providers._private.onprem.config import prepare_onprem, \
-    _get_cloud_simulator_address, _get_http_response_from_simulator, post_prepare_onprem, \
-    TAG_WORKSPACE_NAME, bootstrap_onprem
+from cloudtik.providers._private.onpremise.config import prepare_onpremise, \
+    _get_cloud_simulator_address, _get_http_response_from_simulator, post_prepare_onpremise, \
+    TAG_WORKSPACE_NAME, bootstrap_onpremise
 
 logger = logging.getLogger(__name__)
 
 
-class OnPremNodeProvider(NodeProvider):
+class OnPremiseNodeProvider(NodeProvider):
     """NodeProvider for automatically managed private/on-premise clusters.
 
     The cluster management is handled by a remote Cloud Simulator.
     The server listens on <cloud_simulator_address>, therefore, the address
     should be provided in the provider section in the cluster config.
     The server receives HTTP requests from this class and uses
-    OnPremNodeProvider to get their responses.
+    OnPremiseNodeProvider to get their responses.
     """
 
     def __init__(self, provider_config, cluster_name):
@@ -92,18 +92,18 @@ class OnPremNodeProvider(NodeProvider):
 
     @staticmethod
     def bootstrap_config(cluster_config):
-        return bootstrap_onprem(cluster_config)
+        return bootstrap_onpremise(cluster_config)
 
     @staticmethod
     def bootstrap_config_for_api(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-        return bootstrap_onprem(cluster_config)
+        return bootstrap_onpremise(cluster_config)
 
     @staticmethod
     def prepare_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-        return prepare_onprem(cluster_config)
+        return prepare_onpremise(cluster_config)
 
     @staticmethod
     def post_prepare(
             cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         """Fills out missing fields after the user config is merged with defaults and before validate"""
-        return post_prepare_onprem(cluster_config)
+        return post_prepare_onpremise(cluster_config)

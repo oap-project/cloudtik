@@ -6,7 +6,7 @@ from typing import Dict
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD
 from cloudtik.core.workspace_provider import Existence
-from cloudtik.providers._private.onprem.config import _get_cloud_simulator_address, _get_http_response_from_simulator, \
+from cloudtik.providers._private.onpremise.config import _get_cloud_simulator_address, _get_http_response_from_simulator, \
     get_cluster_name_from_node, TAG_WORKSPACE_NAME
 
 logger = logging.getLogger(__name__)
@@ -40,7 +40,7 @@ def _get_node_tags(provider_config: Dict[str, Any], node_id):
     return node_tags
 
 
-def list_onprem_clusters(
+def list_onpremise_clusters(
         workspace_name,
         provider_config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     head_nodes = get_workspace_head_nodes(workspace_name, provider_config)
@@ -53,12 +53,12 @@ def list_onprem_clusters(
     return clusters
 
 
-def check_onprem_workspace_integrity(config):
-    existence = check_onprem_workspace_existence(config)
+def check_onpremise_workspace_integrity(config):
+    existence = check_onpremise_workspace_existence(config)
     return True if existence == Existence.COMPLETED else False
 
 
-def check_onprem_workspace_existence(config):
+def check_onpremise_workspace_existence(config):
     provider_config = config["provider"]
     workspace_name = config["workspace_name"]
 
@@ -121,7 +121,7 @@ def _delete_simulator_workspace(provider_config, workspace_name):
         raise e
 
 
-def create_onprem_workspace(config):
+def create_onpremise_workspace(config):
     # create a copy of the input config to modify
     config = copy.deepcopy(config)
 
@@ -156,7 +156,7 @@ def _create_workspace(config):
     return config
 
 
-def delete_onprem_workspace(
+def delete_onpremise_workspace(
         config):
     provider_config = config["provider"]
     workspace_name = config["workspace_name"]

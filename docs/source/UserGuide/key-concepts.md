@@ -46,11 +46,16 @@ All clusters within the same workspace are network connected and are accessible 
 ## Provider
 
 In the high level, provider refers a public cloud provider which provide the infrastructure as a service
-for CloudTik to run on. We currently support 3 public cloud providers and 1 special provider for on-premise clusters. More provider implementations will be added soon.
+for CloudTik to run on. We currently support many public cloud providers and several special providers for on-premise clusters.
+More provider implementations will be added soon.
 - AWS
 - Azure
 - GCP
-- On-premise
+- Alibaba Cloud
+- On-premise: cloud simulating on on-premise nodes
+- Local: local clustering with multiple nodes
+- Virtual: virtual clustering with docker containers on a single node
+
 
 In the design level, provider is a concept to abstract out the difference of public providers. With this abstraction, CloudTik is designed to share
 the same user experiences among different cloud providers as much as possible. Internally, we have two aspects of abstraction

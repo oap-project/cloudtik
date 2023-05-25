@@ -255,7 +255,7 @@ def node_start(node_ip_address, address, port, head,
         if temp_dir is None:
             # Default temp directory.
             temp_dir = utils.get_user_temp_dir()
-        # Using the user-supplied temp dir unblocks on-prem
+        # Using the user-supplied temp dir unblocks
         # users who can't write to the default temp.
         current_cluster_path = os.path.join(temp_dir, "cloudtik_current_cluster")
         # TODO: Consider using the custom temp_dir for this file across the

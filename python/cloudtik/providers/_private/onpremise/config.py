@@ -57,7 +57,7 @@ def _get_http_response_from_simulator(cloud_simulator_address, request):
     return response
 
 
-def bootstrap_onprem(config):
+def bootstrap_onpremise(config):
     workspace_name = config.get("workspace_name")
     if not workspace_name:
         raise RuntimeError("Workspace name is not specified in cluster configuration.")
@@ -66,9 +66,9 @@ def bootstrap_onprem(config):
     return config
 
 
-def prepare_onprem(config: Dict[str, Any]) -> Dict[str, Any]:
+def prepare_onpremise(config: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Prepare onprem cluster config for ingestion by cluster launcher and scaler.
+    Prepare onpremise cluster config for ingestion by cluster launcher and scaler.
     """
     if "cloud_simulator_address" not in config["provider"]:
         cli_logger.abort("No Cloud Simulator address specified. "
@@ -164,7 +164,7 @@ def set_node_types_resources(
                     node_type, detected_resources))
         else:
             raise ValueError("Instance type " + instance_type +
-                             " is not available in onprem configuration.")
+                             " is not available in onpremise configuration.")
 
 
 def _get_instance_types(provider_config: Dict[str, Any]) -> Dict[str, Any]:
@@ -182,7 +182,7 @@ def get_cluster_name_from_node(node_info) -> Optional[str]:
     return None
 
 
-def post_prepare_onprem(config: Dict[str, Any]) -> Dict[str, Any]:
+def post_prepare_onpremise(config: Dict[str, Any]) -> Dict[str, Any]:
     config = fill_available_node_types_resources(config)
     return config
 

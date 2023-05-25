@@ -3,8 +3,8 @@ workspace_name: example-workspace
 
 # Cloud-provider specific configuration.
 provider:
-    type: onprem
-    # We need to use Cloud Simulator for the best on-prem cluster management
+    type: onpremise
+    # We need to use Cloud Simulator for the best on-premise cluster management
     # You can launch multiple clusters on the same set of machines, and the cloud simulator
     # will assign individual nodes to clusters as needed.
     cloud_simulator_address: your-cloud-simulator-ip:port

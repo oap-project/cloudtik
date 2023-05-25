@@ -1,6 +1,6 @@
 """Web server that runs on on-premise/private clusters to simulate cloud operations and manage
 different clusters for multiple users. It receives node provider function calls
-through HTTP requests from remote OnPremNodeProvider and runs them
+through HTTP requests from remote OnPremiseNodeProvider and runs them
 locally in CloudSimulatorScheduler. To start the webserver the user runs:
 `python cloudtik_cloud_simulator.py --ips <comma separated ips> --port <PORT>`."""
 import argparse
@@ -10,8 +10,8 @@ from http.server import SimpleHTTPRequestHandler, HTTPServer
 import json
 import socket
 
-from cloudtik.providers._private.onprem.config import DEFAULT_CLOUD_SIMULATOR_PORT, _get_http_response_from_simulator
-from cloudtik.providers._private.onprem.scheduler \
+from cloudtik.providers._private.onpremise.config import DEFAULT_CLOUD_SIMULATOR_PORT, _get_http_response_from_simulator
+from cloudtik.providers._private.onpremise.cloud_simulator_scheduler \
     import CloudSimulatorScheduler, load_provider_config
 
 logger = logging.getLogger(__name__)
@@ -145,7 +145,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Please provide a config file.")
     parser.add_argument(
-        "config", help="A config file for nodes. The same format of on-prem provider section at top level.")
+        "config", help="A config file for nodes. The same format of on-premise provider section at top level.")
     parser.add_argument(
         "--bind-address",
         type=str,

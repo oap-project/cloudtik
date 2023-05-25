@@ -20,7 +20,7 @@ from cloudtik.providers._private.local.config import \
     get_docker_scheduler_state_file_name
 from cloudtik.providers._private.local.local_docker_command_executor import LocalDockerCommandExecutor
 from cloudtik.providers._private.local.local_scheduler import LocalScheduler
-from cloudtik.providers._private.local.state_store import LocalContainerStateStore
+from cloudtik.providers._private.local.state_store import LocalContainerStateStore, _update_node_tags
 from cloudtik.providers._private.local.utils import _get_node_info, _get_tags
 
 logger = logging.getLogger(__name__)
@@ -230,11 +230,19 @@ class LocalContainerScheduler(LocalScheduler):
 
     def set_node_tags(self, node_id, tags):
         with self.lock:
+            # update the cached node tags, although it will refresh at next non_terminated_nodes
+            node = self._get_cached_node(node_id)
+            _update_node_tags(node, tags)
             self._set_node_tags(node_id, tags=tags)
 
     def terminate_node(self, node_id):
         with self.lock:
+            node = self._get_cached_node(node_id)
             self._stop_container(node_id)
+            # shall we remove the node from cached node
+            # the cached node list will be refreshed at next non_terminated_nodes
+            # usually not problem, at least we set to "terminated"
+            node["state"] = "terminated"
 
     def get_node_info(self, node_id):
         with self.lock:
@@ -449,6 +457,8 @@ class LocalContainerScheduler(LocalScheduler):
                 return self.cached_nodes[node_id]
 
             node = self._get_container(container_name=node_id)
+            if node is None:
+                raise RuntimeError("No node found with id: {}.")
             tags = self._get_node_tags(node_id, node)
             node["tags"] = tags
             return node

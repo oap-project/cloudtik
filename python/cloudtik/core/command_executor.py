@@ -6,7 +6,7 @@ from cloudtik.core._private.call_context import CallContext
 COMMAND_RUN_DEFAULT_NUMBER_OF_RETRIES = 30
 COMMAND_RUN_DEFAULT_RETRY_DELAY_S = 5
 
-MAX_COMMAND_LENGTH_TO_PRINT = 96
+MAX_COMMAND_LENGTH_TO_PRINT = 64
 
 
 def get_cmd_to_print(cmd, verbose=False):

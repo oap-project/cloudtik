@@ -31,6 +31,16 @@ STATE_MOUNT_PATH = "/cloudtik/state"
 DATA_MOUNT_PATH = "/cloudtik/data"
 DATA_DISK_MOUNT_PATH = "/mnt/cloudtik"
 
+INSPECT_FORMAT = (
+    '{'
+    '"name":{{json .Name}},'
+    '"status":{{json .State.Status}},'
+    '"labels":{{json .Config.Labels}},'
+    '"ip":{{range .NetworkSettings.Networks}}{{json .IPAddress}}{{end}},'
+    '"cpus":{{json .HostConfig.NanoCpus}},'
+    '"memory":{{json .HostConfig.Memory}}'
+    '}')
+
 
 def _is_head_node(tags):
     if not tags or CLOUDTIK_TAG_NODE_KIND not in tags:
@@ -48,50 +58,29 @@ def _get_merged_docker_config_from_node_config(
 def _is_running(container):
     if container is None:
         return False
-    return container["state"] == "running"
+    # all status:
+    # created
+    # running
+    # restarting
+    # exited
+    # paused
+    # dead
+    state = container["state"]
+    return state == "created" or state == "running" or state == "restarting"
 
 
 def _is_terminated(container):
     return not _is_running(container)
 
 
-def _get_state(container_object):
-    running = False
-    state = container_object.get("State")
-    if state:
-        running = state.get("Running", False)
-    return "running" if running else "terminated"
-
-
-def _get_ip(container_object, network_name):
-    network_settings = container_object.get(
-        "NetworkSettings")
-    if network_settings:
-        networks = network_settings.get("Networks")
-        if networks:
-            network = networks.get(network_name)
-            if network:
-                return network.get("IPAddress")
-    return None
-
-
-def _get_tags_from_labels(container_object):
-    config = container_object.get("Config")
-    if config:
-        return config.get("Labels", {})
-    return {}
-
-
 def _get_container_resources(container_object):
-    host_config = container_object.get("HostConfig")
     resources = {}
-    if host_config:
-        nano_cpus = host_config.get("NanoCpus", 0)
-        if nano_cpus:
-            resources["CPU"] = round(nano_cpus / (10 ** 9), 2)
-        memory_bytes = host_config.get("Memory", 0)
-        if memory_bytes:
-            resources["memory"] = round(memory_bytes / (1024 * 1024 * 1024), 2)
+    nano_cpus = container_object.get("cpus", 0)
+    if nano_cpus:
+        resources["CPU"] = round(nano_cpus / (10 ** 9), 2)
+    memory_bytes = container_object.get("memory", 0)
+    if memory_bytes:
+        resources["memory"] = round(memory_bytes / (1024 * 1024 * 1024), 2)
     return resources
 
 
@@ -114,7 +103,7 @@ def _apply_filters_with_state(
     state_nodes = state.get_nodes()
     matching_nodes = []
     for node in nodes:
-        if node["state"] == "terminated":
+        if not _is_running(node):
             continue
         node_id = node["name"]
         state_node = state_nodes.get(node_id)
@@ -474,27 +463,12 @@ class LocalContainerScheduler(LocalScheduler):
 
     def _get_container(self, container_name):
         output = self.scheduler_executor.run_docker_cmd(
-            "inspect --format='{{json .}}' " + container_name + " || true")
+            "inspect --format='" + INSPECT_FORMAT + "' " + container_name + " || true")
         if not output:
             return None
         if output.startswith("Error: No such object:"):
             return None
-
-        container_object = json.loads(output)
-        network = self.docker_config["network"]
-        node_ip = _get_ip(container_object, network)
-        node_state = _get_state(container_object)
-        tags = _get_tags_from_labels(container_object)
-        resources = _get_container_resources(container_object)
-        container = {
-            "name": container_name,
-            "ip": node_ip,
-            "state": node_state,
-            "tags": tags,
-            "instance_type": resources,
-            "object": container_object,
-        }
-        return container
+        return self._load_container(output)
 
     def _stop_container(self, container_name):
         scheduler_executor = self._get_scheduler_executor(
@@ -505,8 +479,6 @@ class LocalContainerScheduler(LocalScheduler):
         # list container tag filters only handles workspace and cluster name
         # These names are set when created which was set as docker labels
         # other filters will not be handled
-        containers = []
-
         effective_filters = {}
         for name in [TAG_WORKSPACE_NAME,
                      CLOUDTIK_TAG_CLUSTER_NAME,
@@ -524,14 +496,51 @@ class LocalContainerScheduler(LocalScheduler):
                 op_str += ' --filter "label={}={}"'.format(label, label_value)
         output = self.scheduler_executor.run_docker_cmd(op_str)
         if not output:
-            return containers
+            return []
 
         container_names = output.splitlines()
-        for container_name in container_names:
-            container = self._get_container(container_name)
+        return self._inspect_containers(container_names)
+
+    def _inspect_containers(self, container_names):
+        containers = []
+        if not container_names:
+            return containers
+
+        name_option = " ".join(container_names)
+        output = self.scheduler_executor.run_docker_cmd(
+            "inspect --format='" + INSPECT_FORMAT + "' " + name_option + " || true")
+        if not output:
+            return containers
+
+        lines = output.splitlines()
+        for line in lines:
+            if line.startswith("Error: No such object:"):
+                continue
+            container = self._load_container(line)
             if container:
                 containers.append(container)
+
         return containers
+
+    @staticmethod
+    def _load_container(output):
+        container_object = json.loads(output)
+        name = container_object.get("name")
+        if name and name.startswith("/"):
+            name = name[1:]
+        node_ip = container_object.get("ip")
+        container_status = container_object.get("status")
+        tags = container_object.get("labels", {})
+        resources = _get_container_resources(container_object)
+        container = {
+            "name": name,
+            "ip": node_ip,
+            "state": container_status,
+            "tags": tags,
+            "instance_type": resources,
+            "object": container_object,
+        }
+        return container
 
     def _set_node_tags(self, node_id, tags):
         # Will use state: set labels to state

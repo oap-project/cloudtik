@@ -91,13 +91,18 @@ class LocalStateStore:
     def cleanup_safe(self, valid_ids):
         state = self._load()
         nodes = state["nodes"]
+        updated = False
         if not valid_ids:
-            state["nodes"] = {}
+            if nodes:
+                state["nodes"] = {}
+                updated = True
         else:
             for node_id in list(nodes):
                 if node_id not in valid_ids:
                     del nodes[node_id]
-        self._save()
+                    updated = True
+        if updated:
+            self._save()
 
     def set_node_tags(self, node_id, tags, non_exists_ok=True):
         with self.ctx:

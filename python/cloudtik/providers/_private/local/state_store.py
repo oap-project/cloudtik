@@ -72,6 +72,38 @@ class LocalStateStore:
         nodes[node_id] = node
         self._save()
 
+    def remove_node(self, node_id):
+        with self.ctx:
+            self.remove_node_safe(node_id)
+
+    def remove_node_safe(self, node_id):
+        state = self._load()
+        nodes = state["nodes"]
+        if node_id not in nodes:
+            return
+        del nodes[node_id]
+        self._save()
+
+    def cleanup(self, valid_ids):
+        with self.ctx:
+            self.cleanup_safe(valid_ids)
+
+    def cleanup_safe(self, valid_ids):
+        state = self._load()
+        nodes = state["nodes"]
+        updated = False
+        if not valid_ids:
+            if nodes:
+                state["nodes"] = {}
+                updated = True
+        else:
+            for node_id in list(nodes):
+                if node_id not in valid_ids:
+                    del nodes[node_id]
+                    updated = True
+        if updated:
+            self._save()
+
     def set_node_tags(self, node_id, tags, non_exists_ok=True):
         with self.ctx:
             state = self._load()

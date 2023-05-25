@@ -188,7 +188,12 @@ class LocalContainerScheduler(LocalScheduler):
         if self.cluster_name:
             tag_filters[CLOUDTIK_TAG_CLUSTER_NAME] = self.cluster_name
         with self.lock:
-            containers = self._list_containers(tag_filters)
+            # list all containers include stopped
+            containers = self._list_containers(tag_filters, True)
+
+            # use this container list for clean up the state
+            all_node_ids = {container["name"] for container in containers}
+            self.state.cleanup(all_node_ids)
 
             # apply the filters again
             containers = self._apply_filters(containers, tag_filters)

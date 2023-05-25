@@ -30,6 +30,7 @@ MAX_CONTAINER_NAME_RETRIES = 10
 STATE_MOUNT_PATH = "/cloudtik/state"
 DATA_MOUNT_PATH = "/cloudtik/data"
 DATA_DISK_MOUNT_PATH = "/mnt/cloudtik"
+DATA_DISK_MOUNT_PATH_PATTERN = DATA_DISK_MOUNT_PATH + "/data_disk_"
 
 INSPECT_FORMAT = (
     '{'
@@ -38,7 +39,8 @@ INSPECT_FORMAT = (
     '"labels":{{json .Config.Labels}},'
     '"ip":{{range .NetworkSettings.Networks}}{{json .IPAddress}}{{end}},'
     '"cpus":{{json .HostConfig.NanoCpus}},'
-    '"memory":{{json .HostConfig.Memory}}'
+    '"memory":{{json .HostConfig.Memory}},'
+    '"binds":{{json .HostConfig.Binds}}'
     '}')
 
 
@@ -227,7 +229,7 @@ class LocalContainerScheduler(LocalScheduler):
     def terminate_node(self, node_id):
         with self.lock:
             node = self._get_cached_node(node_id)
-            self._stop_container(node_id)
+            self._stop_container(node_id, node)
             # shall we remove the node from cached node
             # the cached node list will be refreshed at next non_terminated_nodes
             # usually not problem, at least we set to "terminated"
@@ -470,10 +472,35 @@ class LocalContainerScheduler(LocalScheduler):
             return None
         return self._load_container(output)
 
-    def _stop_container(self, container_name):
+    def _stop_container(self, container_name, container):
         scheduler_executor = self._get_scheduler_executor(
             container_name, docker_config=self.docker_config)
         scheduler_executor.stop_container()
+
+        delete_on_termination = self.provider_config.get(
+            "data_disks.delete_on_termination", True)
+        if delete_on_termination:
+            self._delete_data_disks(container)
+
+    def _delete_data_disks(self, container):
+        container_object = container["object"]
+        binds = container_object.get("binds")
+        if not binds:
+            return
+
+        name = container["name"]
+        for bind in binds:
+            bind_parts = bind.split(":")
+            bind_src = bind_parts[0]
+            bind_dst = bind_parts[1]
+            if not bind_dst.startswith(
+                    DATA_DISK_MOUNT_PATH_PATTERN) or not bind_src.endswith(name):
+                continue
+
+            # delete bind src
+            self.scheduler_executor.run(
+                "rm -rf '{path}'".format(path=bind_src),
+                run_env="host")
 
     def _list_containers(self, tag_filters, include_stopped=False):
         # list container tag filters only handles workspace and cluster name
@@ -529,13 +556,13 @@ class LocalContainerScheduler(LocalScheduler):
         if name and name.startswith("/"):
             name = name[1:]
         node_ip = container_object.get("ip")
-        container_status = container_object.get("status")
+        status = container_object.get("status")
         tags = container_object.get("labels", {})
         resources = _get_container_resources(container_object)
         container = {
             "name": name,
             "ip": node_ip,
-            "state": container_status,
+            "state": status,
             "tags": tags,
             "instance_type": resources,
             "object": container_object,

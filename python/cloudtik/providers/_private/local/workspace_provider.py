@@ -8,7 +8,7 @@ from cloudtik.core.workspace_provider import WorkspaceProvider, Existence
 from cloudtik.providers._private.local.utils import _get_tags
 from cloudtik.providers._private.local.workspace_config \
     import get_workspace_head_nodes, list_local_clusters, create_local_workspace, \
-    delete_local_workspace, check_local_workspace_existence, check_local_workspace_integrity
+    delete_local_workspace, check_local_workspace_existence, check_local_workspace_integrity, update_local_workspace
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +28,11 @@ class LocalWorkspaceProvider(WorkspaceProvider):
         Managed cloud storage is not deleted by default unless delete_managed_storage is specified.
         """
         delete_local_workspace(config)
+
+    def update_workspace(self, config: Dict[str, Any],
+                         delete_managed_storage: bool = False,
+                         delete_managed_database: bool = False):
+        update_local_workspace(config)
 
     def check_workspace_integrity(self, config: Dict[str, Any]) -> bool:
         """Check whether the workspace is correctly configured"""

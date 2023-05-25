@@ -519,3 +519,40 @@ def check_docker_workspace_existence(config):
         return Existence.COMPLETED
     else:
         return Existence.IN_COMPLETED
+
+
+def update_local_workspace(
+        config):
+    workspace_name = config["workspace_name"]
+    try:
+        with cli_logger.group("Updating workspace: {}", workspace_name):
+            provider_config = config["provider"]
+            if is_docker_workspace(provider_config):
+                cli_logger.print(
+                    "No update operation needed for local host workspace.")
+            else:
+                update_docker_workspace(config, workspace_name)
+    except Exception as e:
+        cli_logger.error("Failed to update workspace with the name {}. "
+                         "You need to delete and try create again. {}", workspace_name, str(e))
+        raise e
+
+    cli_logger.success(
+        "Successfully updated workspace: {}.",
+        cf.bold(workspace_name))
+
+
+def update_docker_workspace(
+        config, workspace_name):
+    current_step = 1
+    total_steps = 1
+
+    with cli_logger.group(
+            "Starting bridge SSH server",
+            _numbered=("()", current_step, total_steps)):
+        current_step += 1
+        if _is_bridge_ssh_server_running(workspace_name):
+            cli_logger.print(
+                "Workspace bridge SSH server is already running. Skip update.")
+        else:
+            _start_bridge_ssh_server(config, workspace_name)

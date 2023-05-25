@@ -11,7 +11,12 @@ MAX_COMMAND_LENGTH_TO_PRINT = 96
 
 def get_cmd_to_print(cmd, verbose=False):
     if not verbose and len(cmd) > MAX_COMMAND_LENGTH_TO_PRINT:
-        cmd_to_print = cmd[:MAX_COMMAND_LENGTH_TO_PRINT] + "..."
+        # find the next space for truncate
+        space = cmd.find(" ", MAX_COMMAND_LENGTH_TO_PRINT)
+        if space < 0:
+            cmd_to_print = cmd
+        else:
+            cmd_to_print = cmd[:space] + "..."
     else:
         cmd_to_print = cmd
     return cmd_to_print

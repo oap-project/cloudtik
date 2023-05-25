@@ -1,5 +1,7 @@
 import copy
+import click
 import subprocess
+import sys
 from typing import Dict
 import logging
 
@@ -7,6 +9,7 @@ from cloudtik.core._private.command_executor.command_executor \
     import _with_shutdown, _with_environment_variables, _with_interactive
 from cloudtik.core._private.command_executor.host_command_executor import HostCommandExecutor
 from cloudtik.core._private.cli_logger import cf
+from cloudtik.core._private.subprocess_output_util import ProcessRunnerError
 
 logger = logging.getLogger(__name__)
 
@@ -26,13 +29,45 @@ class LocalCommandExecutor(HostCommandExecutor):
             cluster_name, process_runner, use_internal_ip,
             provider, node_id)
 
-    def _run_local_shell(self, cmd: str, with_output=False):
-        if with_output:
-            return self.process_runner.check_output(
-                cmd, shell=True)
-        else:
-            self.process_runner.check_call(
-                cmd, shell=True)
+    def _run_local_shell(self, cmd: str,
+                         with_output=False,
+                         exit_on_fail=False,
+                         cmd_to_print=None):
+        try:
+            if with_output:
+                return self.process_runner.check_output(
+                    cmd, shell=True)
+            else:
+                self.process_runner.check_call(
+                    cmd, shell=True)
+        except subprocess.CalledProcessError as e:
+            cmd_to_print = cmd if cmd_to_print is None else cmd_to_print
+            if (not self.call_context.is_using_login_shells()) or (
+                    self.call_context.is_call_from_api()):
+                raise ProcessRunnerError(
+                    "Command failed",
+                    "command_failed",
+                    code=e.returncode,
+                    command=cmd_to_print,
+                    output=e.output)
+
+            if exit_on_fail:
+                msg = "Command failed"
+                if self.cli_logger.verbosity > 0:
+                    msg += ":\n\n  {}\n".format(cmd_to_print)
+                else:
+                    msg += ". Use -v for more details.".format(cmd_to_print)
+                raise click.ClickException(
+                    msg) from None
+            else:
+                fail_msg = "Command failed."
+                if self.call_context.is_output_redirected():
+                    fail_msg += " See above for the output from the failure."
+                raise click.ClickException(fail_msg) from None
+        finally:
+            # Do our best to flush output to terminal.
+            sys.stdout.flush()
+            sys.stderr.flush()
 
     def run(
             self,
@@ -82,10 +117,14 @@ class LocalCommandExecutor(HostCommandExecutor):
         if self.cli_logger.verbosity > 0:
             with self.cli_logger.indented():
                 return self._run_local_shell(
-                    final_cmd, with_output=with_output)
+                    final_cmd, with_output=with_output,
+                    exit_on_fail=exit_on_fail,
+                    cmd_to_print=final_cmd_to_print)
         else:
             return self._run_local_shell(
-                final_cmd, with_output=with_output)
+                final_cmd, with_output=with_output,
+                exit_on_fail=exit_on_fail,
+                cmd_to_print=final_cmd_to_print)
 
     def run_rsync_up(self, source, target, options=None):
         self._run_rsync(source, target, options)

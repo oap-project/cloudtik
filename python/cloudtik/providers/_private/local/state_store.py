@@ -10,6 +10,13 @@ from filelock import FileLock
 logger = logging.getLogger(__name__)
 
 
+def _update_node_tags(node, tags):
+    if "tags" not in node:
+        node["tags"] = tags
+    else:
+        node["tags"].update(tags)
+
+
 class TransactionContext(object):
     def __init__(self, lock_path):
         self.lock = RLock()
@@ -74,10 +81,7 @@ class LocalStateStore:
                     raise RuntimeError("Node with id {} doesn't exist.".format(node_id))
                 nodes[node_id] = {}
             node = nodes[node_id]
-            if "tags" not in node:
-                node["tags"] = tags
-            else:
-                node["tags"].update(tags)
+            _update_node_tags(node, tags)
             self._save()
 
     def get_node_tags(self, node_id):

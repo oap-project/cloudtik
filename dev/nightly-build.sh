@@ -17,6 +17,9 @@ do
         shift
         CLOUDTIK_BRANCH=$1
         ;;
+    --no-pull)
+        NO_PULL=YES
+        ;;
     --copy)
         # Copy the nightly to a directory
         shift
@@ -32,9 +35,12 @@ done
 PYTHON_TAG=${PYTHON_VERSION//./}
 
 cd $CLOUDTIK_HOME
-git reset --hard
-git checkout ${CLOUDTIK_BRANCH}
-git pull
+
+if [ ! $NO_PULL ]; then
+    git reset --hard
+    git checkout ${CLOUDTIK_BRANCH}
+    git pull
+fi
 
 CLOUDTIK_VERSION=$(sed -n 's/__version__ = \"\(..*\)\"/\1/p' ./python/cloudtik/__init__.py)
 
@@ -51,4 +57,5 @@ cp ./python/dist/$CLOUDTIK_WHEEL ./python/dist/$CLOUDTIK_WHEEL_NIGHTLY
 
 if [ "${COPY_DIR}" != "" ];then
     cp ./python/dist/$CLOUDTIK_WHEEL_NIGHTLY ${COPY_DIR}/$CLOUDTIK_WHEEL_NIGHTLY
+    echo "Copied to ${COPY_DIR}/$CLOUDTIK_WHEEL_NIGHTLY"
 fi

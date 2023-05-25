@@ -598,7 +598,7 @@ class NodeUpdater:
 
     def _exec_start_command(self, cmd, runtime_envs):
         # Add a resource override env variable if needed:
-        if self.provider_type == "onprem":
+        if self.provider_type == "onpremise":
             # Local NodeProvider doesn't need resource override.
             env_vars = {}
         elif self.node_resources:

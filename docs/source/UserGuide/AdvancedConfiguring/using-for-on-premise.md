@@ -158,12 +158,12 @@ cloudtik-simulator [--bind-address BIND_ADDRESS] [--port PORT] your_cloudtik_sim
 
 
 ## Configure and start cluster
-You need prepare the cluster configure file using on-prem provider and
+You need prepare the cluster configure file using on-premise provider and
 start the cluster with the cluster configure file.
 
 ### Create and configure a YAML file for cluster
 
-1. On-prem provider support both docker mode and host node. 
+1. On-premise provider support both docker mode and host node. 
 When using docker mode and the OS of machines is RedHat-based Linux Distributions, you need to additional initialization_command to install jq.
 For example,
 
@@ -173,11 +173,11 @@ docker:
     initialization_command:
 	    - which jq || (sudo yum -qq update -y && sudo yum -qq install -y jq > /dev/null) 
 ```
-2. Define cloud_simulator_address for on-prem provider. (Default port is 8282)
+2. Define cloud_simulator_address for on-premise provider. (Default port is 8282)
 ```buildoutcfg
 # Cloud-provider specific configuration.
 provider:
-    type: onprem
+    type: onpremise
 
     # We need to use Cloud Simulator for the best on-premise cluster management
     # You can launch multiple clusters on the same set of machines, and the cloud simulator

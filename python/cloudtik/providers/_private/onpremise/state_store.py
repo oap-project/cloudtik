@@ -6,7 +6,7 @@ from threading import RLock
 
 from filelock import FileLock
 
-from cloudtik.providers._private.onprem.config import get_list_of_node_ips
+from cloudtik.providers._private.onpremise.config import get_list_of_node_ips
 
 logger = logging.getLogger(__name__)
 

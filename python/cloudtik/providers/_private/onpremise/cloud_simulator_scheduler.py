@@ -5,11 +5,11 @@ from typing import Any, Dict
 import yaml
 
 from cloudtik.core.node_provider import NodeProvider
-from cloudtik.providers._private.onprem.config import get_cloud_simulator_lock_path, \
+from cloudtik.providers._private.onpremise.config import get_cloud_simulator_lock_path, \
     get_cloud_simulator_state_path, _get_instance_types, \
     _get_request_instance_type, _get_node_id_mapping, _get_node_instance_type, \
     set_node_types_resources
-from cloudtik.providers._private.onprem.state_store import FileStateStore
+from cloudtik.providers._private.onpremise.state_store import FileStateStore
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ class CloudSimulatorScheduler(NodeProvider):
 
     The current use case of managing multiple clusters is by
     CloudSimulator which receives node provider HTTP requests
-    from OnPremNodeProvider and uses CloudSimulatorScheduler to get
+    from OnPremiseNodeProvider and uses CloudSimulatorScheduler to get
     the responses.
     """
 
@@ -86,7 +86,7 @@ class CloudSimulatorScheduler(NodeProvider):
         if the cluster exists in an AWS VPC and we're interacting with
         the cluster from a laptop (where using an internal_ip will not work).
 
-        Useful for debugging the on-prem node provider with cloud VMs."""
+        Useful for debugging the on-premise node provider with cloud VMs."""
 
         node = self.node_id_mapping[node_id]
         ext_ip = node.get("external_ip")

@@ -50,10 +50,10 @@ def _import_local(provider_config):
     return LocalNodeProvider
 
 
-def _import_onprem(provider_config):
-    from cloudtik.providers._private.onprem.node_provider import (
-        OnPremNodeProvider)
-    return OnPremNodeProvider
+def _import_onpremise(provider_config):
+    from cloudtik.providers._private.onpremise.node_provider import (
+        OnPremiseNodeProvider)
+    return OnPremiseNodeProvider
 
 
 def _import_kubernetes(provider_config):
@@ -68,9 +68,9 @@ def _import_huaweicloud(provider_config):
     return HUAWEICLOUDNodeProvider
 
 
-def _load_onprem_provider_home():
-    import cloudtik.providers.onprem as onprem_provider
-    return os.path.dirname(onprem_provider.__file__)
+def _load_onpremise_provider_home():
+    import cloudtik.providers.onpremise as onpremise_provider
+    return os.path.dirname(onpremise_provider.__file__)
 
 
 def _load_local_provider_home():
@@ -108,8 +108,8 @@ def _load_huaweicloud_provider_home():
     return os.path.dirname(huaweicloud_provider.__file__)
 
 
-def _load_onprem_defaults_config():
-    return os.path.join(_load_onprem_provider_home(), "defaults.yaml")
+def _load_onpremise_defaults_config():
+    return os.path.join(_load_onpremise_provider_home(), "defaults.yaml")
 
 
 def _load_local_defaults_config():
@@ -147,7 +147,7 @@ def _import_external(provider_config):
 
 _NODE_PROVIDERS = {
     "local": _import_local,  # Run clusters on single local node
-    "onprem": _import_onprem, # Run clusters with on-premise nodes
+    "onpremise": _import_onpremise, # Run clusters with on-premise nodes
     "aws": _import_aws,
     "gcp": _import_gcp,
     "azure": _import_azure,
@@ -159,7 +159,7 @@ _NODE_PROVIDERS = {
 
 _PROVIDER_PRETTY_NAMES = {
     "local": "Local",
-    "onprem": "On-Premise",
+    "onpremise": "On-Premise",
     "aws": "AWS",
     "gcp": "GCP",
     "azure": "Azure",
@@ -171,7 +171,7 @@ _PROVIDER_PRETTY_NAMES = {
 
 _PROVIDER_HOMES = {
     "local": _load_local_provider_home,
-    "onprem": _load_onprem_provider_home,
+    "onpremise": _load_onpremise_provider_home,
     "aws": _load_aws_provider_home,
     "gcp": _load_gcp_provider_home,
     "azure": _load_azure_provider_home,
@@ -182,7 +182,7 @@ _PROVIDER_HOMES = {
 
 _DEFAULT_CONFIGS = {
     "local": _load_local_defaults_config,
-    "onprem": _load_onprem_defaults_config,
+    "onpremise": _load_onpremise_defaults_config,
     "aws": _load_aws_defaults_config,
     "gcp": _load_gcp_defaults_config,
     "azure": _load_azure_defaults_config,
@@ -220,10 +220,10 @@ def _import_local_workspace(provider_config):
     return LocalWorkspaceProvider
 
 
-def _import_onprem_workspace(provider_config):
-    from cloudtik.providers._private.onprem.workspace_provider import \
-        OnPremWorkspaceProvider
-    return OnPremWorkspaceProvider
+def _import_onpremise_workspace(provider_config):
+    from cloudtik.providers._private.onpremise.workspace_provider import \
+        OnPremiseWorkspaceProvider
+    return OnPremiseWorkspaceProvider
 
 
 def _import_kubernetes_workspace(provider_config):
@@ -240,7 +240,7 @@ def _import_huaweicloud_workspace(provider_config):
 
 _WORKSPACE_PROVIDERS = {
     "local": _import_local_workspace,
-    "onprem": _import_onprem_workspace,
+    "onpremise": _import_onpremise_workspace,
     "aws": _import_aws_workspace,
     "gcp": _import_gcp_workspace,
     "azure": _import_azure_workspace,

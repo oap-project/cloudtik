@@ -10,13 +10,15 @@ from typing import Dict
 
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.core_utils import kill_process_tree
-from cloudtik.core._private.utils import exec_with_output, get_host_address, get_free_port
+from cloudtik.core._private.utils import exec_with_output, get_host_address, get_free_port, DOCKER_CONFIG_KEY, \
+    is_docker_enabled
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD
 from cloudtik.core.workspace_provider import Existence
 from cloudtik.providers._private.local.config import get_cluster_name_from_node, with_sudo, _safe_remove_file, \
     _get_network_name, _get_bridge_interface_name, _get_sshd_config_file, _get_ssh_control_key_file, \
     _get_authorized_keys_file, _get_host_key_file, _get_expanded_path, _make_sure_data_path, \
-    get_ssh_server_process_file, _find_ssh_server_process_for_workspace, DEFAULT_SSH_SERVER_PORT
+    get_ssh_server_process_file, _find_ssh_server_process_for_workspace, DEFAULT_SSH_SERVER_PORT, is_rootless_docker, \
+    _configure_docker
 from cloudtik.providers._private.local.local_container_scheduler import LocalContainerScheduler
 from cloudtik.providers._private.local.local_host_scheduler import LocalHostScheduler
 from cloudtik.providers._private.local.utils import _get_node_info
@@ -32,12 +34,12 @@ LOCAL_DOCKER_WORKSPACE_NUM_DELETION_STEPS = 2
 LOCAL_DOCKER_WORKSPACE_TARGET_RESOURCES = 2
 
 
-def is_docker_workspace(provider_config: Dict[str, Any]) -> bool:
-    return provider_config.get("docker", False)
+def is_docker_workspace(config: Dict[str, Any]) -> bool:
+    return is_docker_enabled(config)
 
 
 def _create_local_scheduler(provider_config):
-    if is_docker_workspace(provider_config):
+    if is_docker_enabled(provider_config):
         local_scheduler = LocalContainerScheduler(provider_config, None)
     else:
         local_scheduler = LocalHostScheduler(provider_config, None)
@@ -76,15 +78,13 @@ def create_local_workspace(config):
 
 
 def _create_workspace(config):
-    provider_config = config["provider"]
-    if not is_docker_workspace(provider_config):
+    if not is_docker_workspace(config):
         return create_host_workspace(config)
     else:
         return create_docker_workspace(config)
 
 
 def create_host_workspace(config):
-    provider_config = config["provider"]
     workspace_name = config["workspace_name"]
 
     current_step = 1
@@ -96,7 +96,7 @@ def create_host_workspace(config):
                     "Creating host workspace",
                     _numbered=("[]", current_step, total_steps)):
                 current_step += 1
-                _create_host_workspace(provider_config, workspace_name)
+                _create_host_workspace(config, workspace_name)
 
     except Exception as e:
         cli_logger.error("Failed to update workspace with the name {}. "
@@ -109,8 +109,8 @@ def create_host_workspace(config):
     return config
 
 
-def _create_host_workspace(provider_config, workspace_name):
-    if _is_host_workspace_exists(provider_config, workspace_name):
+def _create_host_workspace(config, workspace_name):
+    if _is_host_workspace_exists(config, workspace_name):
         cli_logger.print("Local host workspace already exists. Skip creation.")
         return
 
@@ -119,6 +119,7 @@ def _create_host_workspace(provider_config, workspace_name):
 
         _make_sure_data_path()
 
+        provider_config = config["provider"]
         local_scheduler = _create_local_scheduler(provider_config)
         local_scheduler.create_workspace(workspace_name)
 
@@ -309,8 +310,7 @@ def _is_bridge_network_exists(workspace_name):
 
 def delete_local_workspace(
         config):
-    provider_config = config["provider"]
-    if not is_docker_workspace(provider_config):
+    if not is_docker_workspace(config):
         return delete_host_workspace(config)
     else:
         return delete_docker_workspace(config)
@@ -318,7 +318,6 @@ def delete_local_workspace(
 
 def delete_host_workspace(
         config):
-    provider_config = config["provider"]
     workspace_name = config["workspace_name"]
 
     current_step = 1
@@ -329,7 +328,7 @@ def delete_host_workspace(
                     "Deleting host workspace",
                     _numbered=("[]", current_step, total_steps)):
                 current_step += 1
-                _delete_host_workspace(provider_config, workspace_name)
+                _delete_host_workspace(config, workspace_name)
     except Exception as e:
         cli_logger.error(
             "Failed to delete workspace {}. {}", workspace_name, str(e))
@@ -340,14 +339,15 @@ def delete_host_workspace(
             cf.bold(workspace_name))
 
 
-def _delete_host_workspace(provider_config, workspace_name):
-    if not _is_host_workspace_exists(provider_config, workspace_name):
+def _delete_host_workspace(config, workspace_name):
+    if not _is_host_workspace_exists(config, workspace_name):
         cli_logger.print("Local host workspace doesn't exist. Skip deletion.")
         return
 
     try:
         cli_logger.print("Deleting local host workspace: {}.", workspace_name)
 
+        provider_config = config["provider"]
         local_scheduler = _create_local_scheduler(provider_config)
         local_scheduler.delete_workspace(workspace_name)
 
@@ -465,15 +465,13 @@ def check_local_workspace_integrity(config):
 
 
 def check_local_workspace_existence(config):
-    provider_config = config["provider"]
-    if not is_docker_workspace(provider_config):
+    if not is_docker_workspace(config):
         return check_host_workspace_existence(config)
     else:
         return check_docker_workspace_existence(config)
 
 
 def check_host_workspace_existence(config):
-    provider_config = config["provider"]
     workspace_name = config["workspace_name"]
 
     skipped_resources = 0
@@ -481,7 +479,7 @@ def check_host_workspace_existence(config):
     existing_resources = 0
 
     # check docker bridge network
-    if _is_host_workspace_exists(provider_config, workspace_name):
+    if _is_host_workspace_exists(config, workspace_name):
         existing_resources += 1
 
     if existing_resources <= skipped_resources:
@@ -492,8 +490,9 @@ def check_host_workspace_existence(config):
         return Existence.IN_COMPLETED
 
 
-def _is_host_workspace_exists(provider_config, workspace_name):
+def _is_host_workspace_exists(config, workspace_name):
     # use local host state file for recording workspace
+    provider_config = config["provider"]
     local_scheduler = _create_local_scheduler(provider_config)
     workspace = local_scheduler.get_workspace(workspace_name)
     return True if workspace else False
@@ -526,12 +525,11 @@ def update_local_workspace(
     workspace_name = config["workspace_name"]
     try:
         with cli_logger.group("Updating workspace: {}", workspace_name):
-            provider_config = config["provider"]
-            if is_docker_workspace(provider_config):
+            if is_docker_workspace(config):
+                update_docker_workspace(config, workspace_name)
+            else:
                 cli_logger.print(
                     "No update operation needed for local host workspace.")
-            else:
-                update_docker_workspace(config, workspace_name)
     except Exception as e:
         cli_logger.error("Failed to update workspace with the name {}. "
                          "You need to delete and try create again. {}", workspace_name, str(e))
@@ -556,3 +554,14 @@ def update_docker_workspace(
                 "Workspace bridge SSH server is already running. Skip update.")
         else:
             _start_bridge_ssh_server(config, workspace_name)
+
+
+def bootstrap_local_workspace_config(config):
+    config["provider"]["workspace_name"] = config["workspace_name"]
+
+    if is_docker_workspace(config):
+        # create a copy of the input config to modify
+        config = copy.deepcopy(config)
+        config = _configure_docker(config)
+    return config
+

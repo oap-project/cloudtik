@@ -8,7 +8,8 @@ from cloudtik.core.workspace_provider import WorkspaceProvider, Existence
 from cloudtik.providers._private.local.utils import _get_tags
 from cloudtik.providers._private.local.workspace_config \
     import get_workspace_head_nodes, list_local_clusters, create_local_workspace, \
-    delete_local_workspace, check_local_workspace_existence, check_local_workspace_integrity, update_local_workspace
+    delete_local_workspace, check_local_workspace_existence, check_local_workspace_integrity, update_local_workspace, \
+    bootstrap_local_workspace_config
 
 logger = logging.getLogger(__name__)
 
@@ -70,3 +71,8 @@ class LocalWorkspaceProvider(WorkspaceProvider):
                     global_variables[global_variable_name] = value
 
         return global_variables
+
+    @staticmethod
+    def bootstrap_workspace_config(config: Dict[str, Any]) -> Dict[str, Any]:
+        """Bootstraps the workspace config by adding env defaults if needed."""
+        return bootstrap_local_workspace_config(config)

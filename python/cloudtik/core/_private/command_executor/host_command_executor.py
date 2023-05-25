@@ -27,7 +27,7 @@ class HostCommandExecutor(CommandExecutor):
         self.log_prefix = log_prefix
         self.process_runner = process_runner
         self.use_internal_ip = use_internal_ip
-        self.ssh_user = auth_config["ssh_user"]
+        self.ssh_user = auth_config.get("ssh_user")
         self.provider = provider
         self.node_id = node_id
 

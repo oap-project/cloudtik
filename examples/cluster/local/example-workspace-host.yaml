@@ -5,7 +5,8 @@ workspace_name: example-workspace
 provider:
     type: local
 
-    # Option whether the workspace is targets to clusters for dockers or host
-    # We consider local clusters run on docker or host are in different workspace.
-    # This will affect only the result of command such as list-clusters
-    docker: True
+# Option whether the workspace is targets to clusters for dockers or host
+# We consider local clusters run on docker or host are in different workspace.
+# This will affect only the result of command such as list-clusters
+docker:
+    enabled: False

@@ -45,13 +45,28 @@ def bootstrap_local(config):
 
     # only do this for docker workspace
     if is_docker_enabled(config):
+        config = _configure_docker(config)
         config = _configure_bridge_address(config)
         config = _configure_auth(config)
-        config = _configure_docker(config)
+        config = _configure_docker_of_node_types(config)
         config = _configure_file_mounts(config)
         config = _configure_shared_memory_ratio(config)
     else:
         config = _configure_workers(config)
+
+    return config
+
+
+def bootstrap_local_for_api(config):
+    workspace_name = config.get("workspace_name")
+    if not workspace_name:
+        raise RuntimeError("Workspace name is not specified.")
+
+    config["provider"]["workspace_name"] = workspace_name
+
+    # only do this for docker workspace
+    if is_docker_enabled(config):
+        config = _configure_docker(config)
 
     return config
 
@@ -101,14 +116,16 @@ def _configure_docker(config):
     # copy docker to provider section
     config["provider"][DOCKER_CONFIG_KEY] = copy.deepcopy(
         config[DOCKER_CONFIG_KEY])
+    return config
 
+
+def _configure_docker_of_node_types(config):
     # copy node specific docker config to node_config
     for key, node_type in config["available_node_types"].items():
         if DOCKER_CONFIG_KEY in node_type:
             node_config = node_type["node_config"]
             node_config[DOCKER_CONFIG_KEY] = copy.deepcopy(
                 node_type[DOCKER_CONFIG_KEY])
-
     return config
 
 

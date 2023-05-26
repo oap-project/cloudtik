@@ -8,6 +8,8 @@ provider:
     type: local
 
     # List of worker nodes with the ip and its node type defined in the above list
+    # The local node will be included by default.
+    # If you want running on a specific IP of local node, you can also list in this nodes list.
     nodes:
         - ip: node_1_ip
         - ip: node_2_ip
@@ -16,6 +18,8 @@ provider:
 auth:
     # The user is current user with sudo privilege on local host
     ssh_user: ubuntu
+    # The private key to SSH to all nodes include local node
+    ssh_private_key: ~/.ssh/id_rsa
 
 available_node_types:
     worker.default:

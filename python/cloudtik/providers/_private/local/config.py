@@ -19,6 +19,7 @@ CONFIG_KEY_NODES = "nodes"
 def bootstrap_local(config):
     config = _configure_workspace_name(config)
     config = _configure_local_node_id(config)
+    config = _configure_node_instance_types(config)
     config = _configure_docker(config)
 
     return config
@@ -43,7 +44,7 @@ def _configure_local_node_id(config):
             local_ip = socket.gethostbyname(socket.gethostname())
         if not local_ip:
             raise RuntimeError("Failed to get local ip.")
-        provider["local_ip"] = local_ip
+    provider["local_node_id"] = local_ip
 
     # we also need to add the local ip to the nodes list of provider
     if not listed_local_ip:
@@ -56,7 +57,7 @@ def _get_listed_local_ip(provider):
     nodes = provider[CONFIG_KEY_NODES]
     host_ips = utils.get_host_address(address_type="all")
     for node in nodes:
-        node_ip = node.get["ip"]
+        node_ip = node["ip"]
         if node_ip in host_ips:
             return node_ip
     return None
@@ -103,6 +104,15 @@ def _make_default_instance_type(config):
         "resources": local_resources
     }
     instance_types[LOCAL_INSTANCE_TYPE] = local_instance_type
+
+
+def _configure_node_instance_types(config):
+    provider = config["provider"]
+    nodes = provider[CONFIG_KEY_NODES]
+    for node in nodes:
+        if "instance_type" not in node:
+            node["instance_type"] = LOCAL_INSTANCE_TYPE
+    return config
 
 
 def _configure_docker(config):

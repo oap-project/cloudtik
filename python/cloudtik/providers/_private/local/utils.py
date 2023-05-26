@@ -23,10 +23,8 @@ def _get_tags(node):
 
 
 def _get_node_info(node):
-    instance_type = node.get("instance_type", {})
-    node_instance_type = get_instance_type_name(instance_type)
     node_info = {"node_id": node["name"],
-                 "instance_type": node_instance_type,
+                 "instance_type": node.get("instance_type"),
                  "private_ip": node["ip"],
                  "public_ip": None,
                  "instance_status": node["state"]}

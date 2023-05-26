@@ -1,5 +1,6 @@
 import logging
 import os
+import socket
 from typing import Any, Optional
 from typing import Dict
 
@@ -10,22 +11,117 @@ from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME
 
 logger = logging.getLogger(__name__)
 
+LOCAL_WORKSPACE_NAME = "default"
+LOCAL_INSTANCE_TYPE = "default"
+CONFIG_KEY_NODES = "nodes"
+
 
 def bootstrap_local(config):
-    workspace_name = config.get("workspace_name")
-    if not workspace_name:
-        raise RuntimeError("Workspace name is not specified in cluster configuration.")
+    config = _configure_workspace_name(config)
+    config = _configure_local_node_id(config)
+    config = _configure_docker(config)
 
-    config["provider"]["workspace_name"] = workspace_name
+    return config
+
+
+def _configure_local_node_id(config):
+    # if the config has a local ip specified
+    # use this one, else use a default ip
+    provider = config["provider"]
+
+    # in case that user don't specify any other nodes
+    if CONFIG_KEY_NODES not in provider:
+        provider[CONFIG_KEY_NODES] = {}
+
+    local_ip = provider.get("local_ip")
+    listed_local_ip = None
+    if not local_ip:
+        # check whether there is local ip already list in the nodes list
+        listed_local_ip = _get_listed_local_ip(provider)
+        local_ip = listed_local_ip
+        if not local_ip:
+            local_ip = socket.gethostbyname(socket.gethostname())
+        if not local_ip:
+            raise RuntimeError("Failed to get local ip.")
+        provider["local_ip"] = local_ip
+
+    # we also need to add the local ip to the nodes list of provider
+    if not listed_local_ip:
+        _add_local_node_to_provider(provider, local_ip)
+
+    return config
+
+
+def _get_listed_local_ip(provider):
+    nodes = provider[CONFIG_KEY_NODES]
+    host_ips = utils.get_host_address(address_type="all")
+    for node in nodes:
+        node_ip = node.get["ip"]
+        if node_ip in host_ips:
+            return node_ip
+    return None
+
+
+def _add_local_node_to_provider(provider, local_node_ip):
+    nodes = provider[CONFIG_KEY_NODES]
+    node_ips = {node["ip"] for node in nodes}
+    if local_node_ip in node_ips:
+        return
+
+    local_node = {"ip": local_node_ip}
+    nodes.append(local_node)
+
+
+def _configure_instance_types(config):
+    for node_type, node_type_config in config["available_node_types"].items():
+        node_config = node_type_config["node_config"]
+        if "instance_type" not in node_config:
+            node_config["instance_type"] = LOCAL_INSTANCE_TYPE
+        instance_type = node_config["instance_type"]
+        if instance_type == LOCAL_INSTANCE_TYPE:
+            _make_default_instance_type(config)
+
+    return config
+
+
+def _make_default_instance_type(config):
+    provider = config["provider"]
+    if "instance_types" not in provider:
+        provider["instance_types"] = {}
+    instance_types = provider["instance_types"]
+    if LOCAL_INSTANCE_TYPE in instance_types:
+        return
+    resource_spec = ResourceSpec().resolve(available_memory=True)
+    memory_mb = int(resource_spec.memory / 1024 * 1024)
+    local_resources = {
+        "CPU": resource_spec.num_cpus,
+        "memory": memory_mb,
+    }
+    if resource_spec.num_gpus:
+        local_resources["GPU"] = resource_spec.num_gpus
+    local_instance_type = {
+        "resources": local_resources
+    }
+    instance_types[LOCAL_INSTANCE_TYPE] = local_instance_type
+
+
+def _configure_docker(config):
+    if not utils.is_docker_enabled(config):
+        return config
+    provider = config["provider"]
+    rootless = is_rootless_docker()
+    if not rootless:
+        provider["docker_with_sudo"] = True
     return config
 
 
 def bootstrap_local_for_api(config):
-    workspace_name = config.get("workspace_name")
-    if not workspace_name:
-        raise RuntimeError("Workspace name is not specified.")
+    config = _configure_workspace_name(config)
+    return config
 
-    config["provider"]["workspace_name"] = workspace_name
+
+def _configure_workspace_name(config):
+    config["provider"]["workspace_name"] = LOCAL_WORKSPACE_NAME
     return config
 
 
@@ -41,9 +137,17 @@ def get_local_scheduler_lock_path() -> str:
         utils.get_user_temp_dir(), "cloudtik-local-scheduler.lock")
 
 
+def get_state_path():
+    return _get_data_path()
+
+
 def get_local_scheduler_state_path() -> str:
     return os.path.join(
-        _get_data_path(), "cloudtik-local-scheduler.state")
+        _get_data_path(), get_local_scheduler_state_file_name())
+
+
+def get_local_scheduler_state_file_name() -> str:
+    return "cloudtik-local-scheduler.state"
 
 
 def get_cluster_name_from_node(node_info) -> Optional[str]:
@@ -54,10 +158,10 @@ def get_cluster_name_from_node(node_info) -> Optional[str]:
 
 
 def get_available_nodes(provider_config: Dict[str, Any]):
-    if "nodes" not in provider_config:
+    if CONFIG_KEY_NODES not in provider_config:
         raise RuntimeError("No 'nodes' defined in provider configuration.")
 
-    return provider_config["nodes"]
+    return provider_config[CONFIG_KEY_NODES]
 
 
 def _get_request_instance_type(node_config):
@@ -97,27 +201,35 @@ def _get_num_node_of_instance_type(provider_config: Dict[str, Any], instance_typ
 def set_node_types_resources(
             config: Dict[str, Any]):
     # Update the instance information to node type
+    provider = config["provider"]
+    instance_types = provider.get("instance_types", {})
+
     available_node_types = config["available_node_types"]
     for node_type in available_node_types:
-        instance_type = available_node_types[node_type]["node_config"].get("instance_type", {})
+        instance_type_name = available_node_types[node_type]["node_config"].get(
+            "instance_type", LOCAL_INSTANCE_TYPE)
+        instance_type = instance_types.get(instance_type_name)
+        if not instance_type:
+            raise RuntimeError("Instance type: {} is not defined.".format(instance_type_name))
+        instance_type_resource = instance_type.get("resources", {})
         resource_spec = ResourceSpec().resolve(available_memory=True)
         detected_resources = {}
 
-        num_cpus = instance_type.get("CPU", 0)
+        num_cpus = instance_type_resource.get("CPU", 0)
         if not num_cpus:
             # use the current host CPU number
             num_cpus = resource_spec.num_cpus
         detected_resources["CPU"] = num_cpus
 
-        num_gpus = instance_type.get("GPU", 0)
+        num_gpus = instance_type_resource.get("GPU", 0)
         if not num_gpus:
             # use the current host GPU number
             num_gpus = resource_spec.num_gpus
         if num_gpus > 0:
             detected_resources["GPU"] = num_gpus
 
-        memory_gb = instance_type.get("memory", 0)
-        memory_total_in_bytes = int(memory_gb) * 1024 * 1024 * 1024
+        memory_mb = instance_type_resource.get("memory", 0)
+        memory_total_in_bytes = int(memory_mb) * 1024 * 1024
         if not memory_total_in_bytes:
             # use the current host memory
             memory_total_in_bytes = resource_spec.memory
@@ -134,6 +246,7 @@ def set_node_types_resources(
 
 
 def post_prepare_local(config: Dict[str, Any]) -> Dict[str, Any]:
+    config = _configure_instance_types(config)
     config = fill_available_node_types_resources(config)
     return config
 

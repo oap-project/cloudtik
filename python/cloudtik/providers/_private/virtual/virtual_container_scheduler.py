@@ -188,8 +188,7 @@ class VirtualContainerScheduler:
                     count, launched))
 
     def non_terminated_nodes(self, tag_filters):
-        if tag_filters is None:
-            tag_filters = {}
+        tag_filters = {} if tag_filters is None else tag_filters
         if self.cluster_name:
             tag_filters[CLOUDTIK_TAG_CLUSTER_NAME] = self.cluster_name
         with self.lock:
@@ -303,22 +302,22 @@ class VirtualContainerScheduler:
 
     @staticmethod
     def _get_state_store(workspace_name, cluster_name):
-        docker_scheduler_lock_path = get_virtual_scheduler_lock_path(
+        virtual_scheduler_lock_path = get_virtual_scheduler_lock_path(
             workspace_name, cluster_name)
         return VirtualStateStore(
-            docker_scheduler_lock_path,
+            virtual_scheduler_lock_path,
             get_virtual_scheduler_state_path(
                 workspace_name, cluster_name))
 
     @staticmethod
     def _get_state_store_in_cluster(workspace_name, cluster_name):
-        docker_scheduler_lock_path = get_virtual_scheduler_lock_path(
+        virtual_scheduler_lock_path = get_virtual_scheduler_lock_path(
             workspace_name, cluster_name)
-        docker_scheduler_state_path = os.path.join(
+        virtual_scheduler_state_path = os.path.join(
             STATE_MOUNT_PATH, get_virtual_scheduler_state_file_name())
         return VirtualStateStore(
-            docker_scheduler_lock_path,
-            docker_scheduler_state_path)
+            virtual_scheduler_lock_path,
+            virtual_scheduler_state_path)
 
     def _get_scheduler_executor(self, container_name, docker_config):
         log_prefix = "ContainerScheduler: "

@@ -117,12 +117,11 @@ class CloudSimulatorScheduler(NodeProvider):
             # first trying node with external ip specified
             if is_head_node_by_tags(tags):
                 launched = self._launch_node(
-                    nodes, tags, count, instance_type, True)
+                    nodes, tags, count, launched, instance_type, True)
                 if count == launched:
                     return
             launched = self._launch_node(
-                nodes, tags, count, launched,
-                instance_type)
+                nodes, tags, count, launched, instance_type)
 
         if launched < count:
             raise RuntimeError(
@@ -141,7 +140,10 @@ class CloudSimulatorScheduler(NodeProvider):
                 continue
 
             if with_external_ip:
-                node = self.node_id_mapping[node_id]
+                # A previous running node was removed
+                node = self.node_id_mapping.get(node_id)
+                if not node:
+                    continue
                 external_ip = node.get("external_ip")
                 if not external_ip:
                     continue

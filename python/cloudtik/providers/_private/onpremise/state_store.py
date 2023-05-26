@@ -161,7 +161,7 @@ class FileStateStore(StateStore):
                     "tags": {},
                     "state": "terminated",
                 }
-        assert len(nodes) == len(list_of_node_ips)
+        # list_of_node_ips and nodes may not the same
         self._save()
 
     def _get_workspaces(self):

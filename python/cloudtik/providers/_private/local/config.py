@@ -53,11 +53,45 @@ def get_cluster_name_from_node(node_info) -> Optional[str]:
     return None
 
 
+def get_available_nodes(provider_config: Dict[str, Any]):
+    if "nodes" not in provider_config:
+        raise RuntimeError("No 'nodes' defined in provider configuration.")
+
+    return provider_config["nodes"]
+
+
 def _get_request_instance_type(node_config):
     if "instance_type" not in node_config:
         raise ValueError("Invalid node request. 'instance_type' is required.")
-
     return node_config["instance_type"]
+
+
+def _get_node_id_mapping(provider_config: Dict[str, Any]):
+    nodes = get_available_nodes(provider_config)
+    node_id_mapping = {node["ip"]: node for node in nodes}
+    return node_id_mapping
+
+
+def _get_node_instance_type(node_id_mapping, node_ip):
+    node = node_id_mapping.get(node_ip)
+    if node is None:
+        raise RuntimeError(f"Node with node ip {node_ip} is not found in the original node list.")
+    return node["instance_type"]
+
+
+def get_all_node_ips(provider_config: Dict[str, Any]):
+    nodes = get_available_nodes(provider_config)
+    node_ips = [node["ip"] for node in nodes]
+    return node_ips
+
+
+def _get_num_node_of_instance_type(provider_config: Dict[str, Any], instance_type) -> int:
+    nodes = get_available_nodes(provider_config)
+    num_node_of_instance_type = 0
+    for node in nodes:
+        if instance_type == node[instance_type]:
+            num_node_of_instance_type += 1
+    return num_node_of_instance_type
 
 
 def set_node_types_resources(

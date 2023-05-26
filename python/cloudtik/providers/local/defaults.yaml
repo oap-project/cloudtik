@@ -12,13 +12,13 @@ auth:
 
 available_node_types:
     head.default:
+        # Implementation assumes node_config key
         node_config:
-            instance_type:
-                CPU: 0
+            instance_type: default
     worker.default:
+        # Implementation assumes node_config key
         node_config:
-            instance_type:
-                CPU: 0
+            instance_type: default
 
 # Specify the node type of the head node (as configured above).
 head_node_type: head.default

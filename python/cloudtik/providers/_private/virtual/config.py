@@ -97,6 +97,8 @@ def _configure_auth(config):
 
 
 def _configure_docker(config):
+    if DOCKER_CONFIG_KEY not in config:
+        config[DOCKER_CONFIG_KEY] = {}
     docker_config = config[DOCKER_CONFIG_KEY]
     rootless = is_rootless_docker()
     if not rootless:

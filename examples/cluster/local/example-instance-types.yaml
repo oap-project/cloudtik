@@ -1,0 +1,37 @@
+# A unique identifier for the cluster.
+cluster_name: example
+
+# The workspace name will be always "default"
+
+# Cloud-provider specific configuration.
+provider:
+    type: local
+
+    # List of nodes with the ip and its node type defined in the above list
+    nodes:
+        - ip: node_1_ip
+          # Should be one of the instance types defined in instance_types
+          instance_type: your_instance_type
+        - ip: node_2_ip
+          instance_type: your_instance_type
+        - ip: node_3_ip
+          instance_type: your_instance_type
+
+    # Define instance types for node. If all nodes are the same with local node
+    # You can define a single one or simply don't define and specify instance_type
+    instance_types:
+        your_instance_type:
+            # Specify the resources of this instance type.
+            resources:
+                CPU: number-of-cores
+                memoryMb: size-in-mb
+auth:
+    # The user is current user with sudo privilege on local host
+    ssh_user: ubuntu
+
+available_node_types:
+    worker.default:
+        node_config:
+            instance_type: your_instance_type
+        # The minimum number of worker nodes to launch.
+        min_workers: 3

@@ -7,6 +7,17 @@ cluster_name: example
 provider:
     type: local
 
+    # List of worker nodes with the ip and its node type defined in the above list
+    nodes:
+        - ip: node_1_ip
+        - ip: node_2_ip
+        - ip: node_3_ip
+
 auth:
     # The user is current user with sudo privilege on local host
     ssh_user: ubuntu
+
+available_node_types:
+    worker.default:
+        # The minimum number of worker nodes to launch.
+        min_workers: 3

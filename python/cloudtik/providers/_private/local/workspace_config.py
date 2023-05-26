@@ -6,7 +6,8 @@ from typing import Dict
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD
 from cloudtik.core.workspace_provider import Existence
-from cloudtik.providers._private.local.config import get_cluster_name_from_node
+from cloudtik.providers._private.local.config import get_cluster_name_from_node, \
+    _configure_workspace_name
 from cloudtik.providers._private.local.local_scheduler import LocalScheduler
 from cloudtik.providers._private.local.utils import _get_node_info
 
@@ -132,5 +133,6 @@ def update_local_workspace(
 
 
 def bootstrap_local_workspace_config(config):
-    config["provider"]["workspace_name"] = "default"
+    config = _configure_workspace_name(config)
+    config["provider"]["from_workspace"] = True
     return config

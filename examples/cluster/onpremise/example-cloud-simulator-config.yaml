@@ -5,7 +5,7 @@ instance_types:
         # Specify the resources of this instance type.
         resources:
             CPU: number-of-cores
-            memoryMb: size-in-mb
+            memory: size-in-mb
 
 # List of nodes with the ip and its node type defined in the above list
 nodes:

@@ -149,7 +149,7 @@ def set_node_types_resources(
             resources = instance_types[instance_type]["resources"]
             detected_resources = {"CPU": resources["CPU"]}
 
-            memory_total = resources["memoryMb"]
+            memory_total = resources["memory"]
             memory_total_in_bytes = int(memory_total) * 1024 * 1024
             detected_resources["memory"] = memory_total_in_bytes
 

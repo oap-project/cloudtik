@@ -12,8 +12,8 @@ from cloudtik.core._private.call_context import CallContext
 from cloudtik.core._private.command_executor.docker_command_executor import DockerCommandExecutor
 from cloudtik.core._private.state.file_state_store import FileStateStore
 from cloudtik.core._private.utils import DOCKER_CONFIG_KEY, AUTH_CONFIG_KEY, FILE_MOUNTS_CONFIG_KEY, \
-    _merge_node_type_specific_config
-from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, CLOUDTIK_TAG_CLUSTER_NAME, \
+    _merge_node_type_specific_config, is_head_node_by_tags
+from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, CLOUDTIK_TAG_CLUSTER_NAME, \
     CLOUDTIK_TAG_USER_NODE_TYPE, CLOUDTIK_TAG_WORKSPACE_NAME
 from cloudtik.providers._private.virtual.config import \
     _get_provider_bridge_address, _get_request_instance_type, get_virtual_scheduler_lock_path, \
@@ -41,12 +41,6 @@ INSPECT_FORMAT = (
     '"memory":{{json .HostConfig.Memory}},'
     '"binds":{{json .HostConfig.Binds}}'
     '}')
-
-
-def _is_head_node(tags):
-    if not tags or CLOUDTIK_TAG_NODE_KIND not in tags:
-        return False
-    return True if tags[CLOUDTIK_TAG_NODE_KIND] == NODE_KIND_HEAD else False
 
 
 def _get_merged_docker_config_from_node_config(
@@ -180,22 +174,21 @@ class VirtualContainerScheduler:
             self.state = None
 
     def create_node(self, node_config, tags, count):
-        with self.lock:
-            launched = 0
-            while launched < count:
-                # create one container
-                self._start_container(node_config, tags)
-                launched = launched + 1
-                if count == launched:
-                    return
-            if launched < count:
-                raise RuntimeError(
-                    "No enough free nodes. {} nodes requested / {} launched.".format(
-                        count, launched))
+        # We should not lock here
+        launched = 0
+        while launched < count:
+            # create one container
+            self._start_container(node_config, tags)
+            launched = launched + 1
+            if count == launched:
+                return
+        if launched < count:
+            raise RuntimeError(
+                "No enough free nodes. {} nodes requested / {} launched.".format(
+                    count, launched))
 
     def non_terminated_nodes(self, tag_filters):
-        if tag_filters is None:
-            tag_filters = {}
+        tag_filters = {} if tag_filters is None else tag_filters
         if self.cluster_name:
             tag_filters[CLOUDTIK_TAG_CLUSTER_NAME] = self.cluster_name
         with self.lock:
@@ -243,13 +236,19 @@ class VirtualContainerScheduler:
             self._set_node_tags(node_id, tags=tags)
 
     def terminate_node(self, node_id):
+        # We shall not lock here
         with self.lock:
             node = self._get_cached_node(node_id)
-            self._stop_container(node_id, node)
-            # shall we remove the node from cached node
-            # the cached node list will be refreshed at next non_terminated_nodes
-            # usually not problem, at least we set to "terminated"
-            node["state"] = "terminated"
+
+        self._stop_container(node_id, node)
+
+        # shall we remove the node from cached node
+        # the cached node list will be refreshed at next non_terminated_nodes
+        # The node may already be removed
+        # usually not problem, at least we set to "terminated"
+        # with self.lock:
+        #   node = self._get_cached_node(node_id)
+        #   node["state"] = "terminated"
 
     def get_node_info(self, node_id):
         with self.lock:
@@ -303,22 +302,22 @@ class VirtualContainerScheduler:
 
     @staticmethod
     def _get_state_store(workspace_name, cluster_name):
-        docker_scheduler_lock_path = get_virtual_scheduler_lock_path(
+        virtual_scheduler_lock_path = get_virtual_scheduler_lock_path(
             workspace_name, cluster_name)
         return VirtualStateStore(
-            docker_scheduler_lock_path,
+            virtual_scheduler_lock_path,
             get_virtual_scheduler_state_path(
                 workspace_name, cluster_name))
 
     @staticmethod
     def _get_state_store_in_cluster(workspace_name, cluster_name):
-        docker_scheduler_lock_path = get_virtual_scheduler_lock_path(
+        virtual_scheduler_lock_path = get_virtual_scheduler_lock_path(
             workspace_name, cluster_name)
-        docker_scheduler_state_path = os.path.join(
+        virtual_scheduler_state_path = os.path.join(
             STATE_MOUNT_PATH, get_virtual_scheduler_state_file_name())
         return VirtualStateStore(
-            docker_scheduler_lock_path,
-            docker_scheduler_state_path)
+            virtual_scheduler_lock_path,
+            virtual_scheduler_state_path)
 
     def _get_scheduler_executor(self, container_name, docker_config):
         log_prefix = "ContainerScheduler: "
@@ -423,7 +422,7 @@ class VirtualContainerScheduler:
         container_name = self._get_new_container_name()
 
         # check CLOUDTIK_TAG_NODE_KIND: NODE_KIND_HEAD tag for head
-        is_head_node = _is_head_node(tags)
+        is_head_node = is_head_node_by_tags(tags)
         shared_memory_ratio = node_config.get("shared_memory_ratio", 0)
 
         # prepare docker config

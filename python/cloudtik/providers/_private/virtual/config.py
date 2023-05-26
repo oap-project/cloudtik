@@ -97,6 +97,8 @@ def _configure_auth(config):
 
 
 def _configure_docker(config):
+    if DOCKER_CONFIG_KEY not in config:
+        config[DOCKER_CONFIG_KEY] = {}
     docker_config = config[DOCKER_CONFIG_KEY]
     rootless = is_rootless_docker()
     if not rootless:
@@ -220,8 +222,8 @@ def set_node_types_resources(
         if num_gpus > 0:
             detected_resources["GPU"] = num_gpus
 
-        memory_gb = instance_type.get("memory", 0)
-        memory_total_in_bytes = int(memory_gb) * 1024 * 1024 * 1024
+        memory_mb = instance_type.get("memory", 0)
+        memory_total_in_bytes = int(memory_mb) * 1024 * 1024
         if not memory_total_in_bytes:
             # use the current host memory
             memory_total_in_bytes = resource_spec.memory

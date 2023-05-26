@@ -90,6 +90,8 @@ class LocalNodeProvider(NodeProvider):
             self, cluster_config: Dict[str, Any],
             remote_config: Dict[str, Any]) -> Dict[str, Any]:
         """Returns a new cluster config with custom configs for head node."""
+        # Set in cluster flag
+        remote_config["provider"]["local_in_cluster"] = True
         return remote_config
 
     @staticmethod

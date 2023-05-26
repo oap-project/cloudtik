@@ -3074,3 +3074,9 @@ def get_free_port(bind_address='127.0.0.1', default_port=6000):
                 return test_port
             else:
                 test_port += 1
+
+
+def is_head_node_by_tags(tags):
+    if not tags or CLOUDTIK_TAG_NODE_KIND not in tags:
+        return False
+    return True if tags[CLOUDTIK_TAG_NODE_KIND] == NODE_KIND_HEAD else False

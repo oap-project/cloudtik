@@ -4,6 +4,7 @@ from typing import Any, Dict
 
 import yaml
 
+from cloudtik.core._private.utils import is_head_node_by_tags
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.providers._private.onpremise.config import get_cloud_simulator_lock_path, \
     get_cloud_simulator_state_path, _get_instance_types, \
@@ -112,24 +113,48 @@ class CloudSimulatorScheduler(NodeProvider):
         instance_type = _get_request_instance_type(node_config)
         with self.state.transaction():
             nodes = self.state.get_nodes_safe()
-            for node_id, node in nodes.items():
-                if node["state"] != "terminated":
-                    continue
-
-                node_instance_type = self.get_node_instance_type(node_id)
-                if instance_type != node_instance_type:
-                    continue
-
-                node["tags"] = tags
-                node["state"] = "running"
-                self.state.put_node_safe(node_id, node)
-                launched = launched + 1
+            # head node prefer with node specified with external IP
+            # first trying node with external ip specified
+            if is_head_node_by_tags(tags):
+                launched = self._launch_node(
+                    nodes, tags, count, launched, instance_type, True)
                 if count == launched:
                     return
+            launched = self._launch_node(
+                nodes, tags, count, launched, instance_type)
+
         if launched < count:
             raise RuntimeError(
                 "No enough free nodes. {} nodes requested / {} launched.".format(
                     count, launched))
+
+    def _launch_node(
+            self, nodes, tags, count, launched,
+            instance_type, with_external_ip=False):
+        for node_id, node in nodes.items():
+            if node["state"] != "terminated":
+                continue
+
+            node_instance_type = self.get_node_instance_type(node_id)
+            if instance_type != node_instance_type:
+                continue
+
+            if with_external_ip:
+                # A previous running node was removed
+                node = self.node_id_mapping.get(node_id)
+                if not node:
+                    continue
+                external_ip = node.get("external_ip")
+                if not external_ip:
+                    continue
+
+            node["tags"] = tags
+            node["state"] = "running"
+            self.state.put_node_safe(node_id, node)
+            launched = launched + 1
+            if count == launched:
+                return launched
+        return launched
 
     def terminate_node(self, node_id):
         with self.state.transaction():

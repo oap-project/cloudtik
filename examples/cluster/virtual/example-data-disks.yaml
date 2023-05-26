@@ -16,7 +16,7 @@ available_node_types:
         node_config:
             instance_type:
                 CPU: 4 # number of cores
-                memory: 4  # memory in GB
+                memory: 4096  # memory in MB
             data_disks:
                 - your-path-for-data-disks
             data_dirs:
@@ -25,7 +25,7 @@ available_node_types:
         node_config:
             instance_type:
                 CPU: 4 # number of cores
-                memory: 4  # memory in GB
+                memory: 4096  # memory in MB
             data_disks:
                 - your-path-for-data-disks
             data_dirs:

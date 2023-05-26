@@ -10,18 +10,17 @@ from typing import Dict, Optional, Any
 
 from cloudtik.core._private.call_context import CallContext
 from cloudtik.core._private.command_executor.docker_command_executor import DockerCommandExecutor
+from cloudtik.core._private.state.file_state_store import FileStateStore
 from cloudtik.core._private.utils import DOCKER_CONFIG_KEY, AUTH_CONFIG_KEY, FILE_MOUNTS_CONFIG_KEY, \
     _merge_node_type_specific_config
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, CLOUDTIK_TAG_CLUSTER_NAME, \
-    CLOUDTIK_TAG_USER_NODE_TYPE
-from cloudtik.providers._private.local.config import \
-    _get_provider_bridge_address, _get_request_instance_type, get_docker_scheduler_lock_path, \
-    get_docker_scheduler_state_path, TAG_WORKSPACE_NAME, \
-    get_docker_scheduler_state_file_name
-from cloudtik.providers._private.local.local_docker_command_executor import LocalDockerCommandExecutor
-from cloudtik.providers._private.local.local_scheduler import LocalScheduler
-from cloudtik.providers._private.local.state_store import LocalContainerStateStore, _update_node_tags
-from cloudtik.providers._private.local.utils import _get_node_info, _get_tags
+    CLOUDTIK_TAG_USER_NODE_TYPE, CLOUDTIK_TAG_WORKSPACE_NAME
+from cloudtik.providers._private.virtual.config import \
+    _get_provider_bridge_address, _get_request_instance_type, get_virtual_scheduler_lock_path, \
+    get_virtual_scheduler_state_path, \
+    get_virtual_scheduler_state_file_name
+from cloudtik.providers._private.virtual.virtual_docker_command_executor import VirtualDockerCommandExecutor
+from cloudtik.providers._private.virtual.utils import _get_node_info, _get_tags
 
 logger = logging.getLogger(__name__)
 
@@ -125,9 +124,21 @@ def _apply_filters_with_state(
     return matching_nodes
 
 
-class LocalContainerScheduler(LocalScheduler):
+class VirtualStateStore(FileStateStore):
+    def __init__(self, lock_path, state_path):
+        super().__init__(lock_path, state_path)
+        self._init_state()
+
+    def _init_state(self):
+        with self.ctx:
+            self._load()
+            self._save()
+
+
+class VirtualContainerScheduler:
     def __init__(self, provider_config, cluster_name):
-        LocalScheduler.__init__(self, provider_config, cluster_name)
+        self.provider_config = provider_config
+        self.cluster_name = cluster_name
 
         bridge_address = _get_provider_bridge_address(provider_config)
         if bridge_address:
@@ -228,7 +239,7 @@ class LocalContainerScheduler(LocalScheduler):
         with self.lock:
             # update the cached node tags, although it will refresh at next non_terminated_nodes
             node = self._get_cached_node(node_id)
-            _update_node_tags(node, tags)
+            FileStateStore.update_node_tags(node, tags)
             self._set_node_tags(node_id, tags=tags)
 
     def terminate_node(self, node_id):
@@ -257,7 +268,7 @@ class LocalContainerScheduler(LocalScheduler):
                              use_internal_ip: bool,
                              docker_config: Optional[Dict[str, Any]] = None
                              ) -> DockerCommandExecutor:
-        # for local container scheduler, the node id is container name
+        # for container scheduler, the node id is container name
         # we should avoid non-provider code handling docker "container_name" in config
         # for command executor that is not specific container related, node_id is None
         # and the following method that related to specific container should not be executed.
@@ -280,32 +291,32 @@ class LocalContainerScheduler(LocalScheduler):
                 raise RuntimeError("Missing Docker bridge SSH server IP.")
             common_args["ssh_ip"] = self.bridge_ip
             common_args["ssh_port"] = self.bridge_port
-            return LocalDockerCommandExecutor(
+            return VirtualDockerCommandExecutor(
                 call_context, docker_config, True, **common_args)
         else:
-            return LocalDockerCommandExecutor(
+            return VirtualDockerCommandExecutor(
                 call_context, docker_config, False, **common_args)
 
     def _is_in_cluster(self):
         # flag set at boostrap cluster config
-        return self.provider_config.get("local_in_cluster", False)
+        return self.provider_config.get("virtual_in_cluster", False)
 
     @staticmethod
     def _get_state_store(workspace_name, cluster_name):
-        docker_scheduler_lock_path = get_docker_scheduler_lock_path(
+        docker_scheduler_lock_path = get_virtual_scheduler_lock_path(
             workspace_name, cluster_name)
-        return LocalContainerStateStore(
+        return VirtualStateStore(
             docker_scheduler_lock_path,
-            get_docker_scheduler_state_path(
+            get_virtual_scheduler_state_path(
                 workspace_name, cluster_name))
 
     @staticmethod
     def _get_state_store_in_cluster(workspace_name, cluster_name):
-        docker_scheduler_lock_path = get_docker_scheduler_lock_path(
+        docker_scheduler_lock_path = get_virtual_scheduler_lock_path(
             workspace_name, cluster_name)
         docker_scheduler_state_path = os.path.join(
-            STATE_MOUNT_PATH, get_docker_scheduler_state_file_name())
-        return LocalContainerStateStore(
+            STATE_MOUNT_PATH, get_virtual_scheduler_state_file_name())
+        return VirtualStateStore(
             docker_scheduler_lock_path,
             docker_scheduler_state_path)
 
@@ -512,7 +523,7 @@ class LocalContainerScheduler(LocalScheduler):
         # These names are set when created which was set as docker labels
         # other filters will not be handled
         effective_filters = {}
-        for name in [TAG_WORKSPACE_NAME,
+        for name in [CLOUDTIK_TAG_WORKSPACE_NAME,
                      CLOUDTIK_TAG_CLUSTER_NAME,
                      CLOUDTIK_TAG_NODE_KIND,
                      CLOUDTIK_TAG_USER_NODE_TYPE]:
@@ -600,7 +611,7 @@ class LocalContainerScheduler(LocalScheduler):
         # List nodes that are not cluster specific, ignoring the cluster name
         # each node have the node and tags filled
         tag_filters = {} if tag_filters is None else tag_filters
-        tag_filters[TAG_WORKSPACE_NAME] = workspace_name
+        tag_filters[CLOUDTIK_TAG_WORKSPACE_NAME] = workspace_name
 
         containers = self._list_containers(tag_filters)
         # we need to know tags of these containers

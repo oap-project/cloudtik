@@ -1,25 +1,12 @@
 # A unique identifier for the cluster.
 cluster_name: example
 
-# The workspace name
-workspace_name: example-workspace
+# The workspace name will be always "default"
 
 # Cloud-provider specific configuration.
 provider:
     type: local
 
 auth:
+    # The user is current user with sudo privilege on local host
     ssh_user: ubuntu
-
-available_node_types:
-    head.default:
-        node_config:
-            instance_type:
-                CPU: 4 # number of cores
-                memory: 4  # memory in GB
-    worker.default:
-        node_config:
-            instance_type:
-                CPU: 4 # number of cores
-                memory: 4  # memory in GB
-        min_workers: 3

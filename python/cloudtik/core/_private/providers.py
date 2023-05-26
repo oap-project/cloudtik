@@ -44,16 +44,22 @@ def _import_aliyun(provider_config):
     return AliyunNodeProvider
 
 
+def _import_onpremise(provider_config):
+    from cloudtik.providers._private.onpremise.node_provider import (
+        OnPremiseNodeProvider)
+    return OnPremiseNodeProvider
+
+
 def _import_local(provider_config):
     from cloudtik.providers._private.local.node_provider import (
         LocalNodeProvider)
     return LocalNodeProvider
 
 
-def _import_onpremise(provider_config):
-    from cloudtik.providers._private.onpremise.node_provider import (
-        OnPremiseNodeProvider)
-    return OnPremiseNodeProvider
+def _import_virtual(provider_config):
+    from cloudtik.providers._private.virtual.node_provider import (
+        VirtualNodeProvider)
+    return VirtualNodeProvider
 
 
 def _import_kubernetes(provider_config):
@@ -76,6 +82,11 @@ def _load_onpremise_provider_home():
 def _load_local_provider_home():
     import cloudtik.providers.local as local_provider
     return os.path.dirname(local_provider.__file__)
+
+
+def _load_virtual_provider_home():
+    import cloudtik.providers.virtual as virtual_provider
+    return os.path.dirname(virtual_provider.__file__)
 
 
 def _load_kubernetes_provider_home():
@@ -116,6 +127,10 @@ def _load_local_defaults_config():
     return os.path.join(_load_local_provider_home(), "defaults.yaml")
 
 
+def _load_virtual_defaults_config():
+    return os.path.join(_load_virtual_provider_home(), "defaults.yaml")
+
+
 def _load_kubernetes_defaults_config():
     return os.path.join(_load_kubernetes_provider_home(), "defaults.yaml")
 
@@ -146,8 +161,9 @@ def _import_external(provider_config):
 
 
 _NODE_PROVIDERS = {
-    "local": _import_local,  # Run clusters on single local node
-    "onpremise": _import_onpremise, # Run clusters with on-premise nodes
+    "onpremise": _import_onpremise,  # Run clusters with on-premise nodes using cloud simulating
+    "local": _import_local,  # Run a cluster on multiple local nodes
+    "virtual": _import_virtual,  # Run virtual clusters with docker containers on single node
     "aws": _import_aws,
     "gcp": _import_gcp,
     "azure": _import_azure,
@@ -158,8 +174,9 @@ _NODE_PROVIDERS = {
 }
 
 _PROVIDER_PRETTY_NAMES = {
-    "local": "Local",
     "onpremise": "On-Premise",
+    "local": "Local",
+    "virtual": "Virtual",
     "aws": "AWS",
     "gcp": "GCP",
     "azure": "Azure",
@@ -170,8 +187,9 @@ _PROVIDER_PRETTY_NAMES = {
 }
 
 _PROVIDER_HOMES = {
-    "local": _load_local_provider_home,
     "onpremise": _load_onpremise_provider_home,
+    "local": _load_local_provider_home,
+    "virtual": _load_virtual_provider_home,
     "aws": _load_aws_provider_home,
     "gcp": _load_gcp_provider_home,
     "azure": _load_azure_provider_home,
@@ -181,8 +199,9 @@ _PROVIDER_HOMES = {
 }
 
 _DEFAULT_CONFIGS = {
-    "local": _load_local_defaults_config,
     "onpremise": _load_onpremise_defaults_config,
+    "local": _load_local_defaults_config,
+    "virtual": _load_virtual_defaults_config,
     "aws": _load_aws_defaults_config,
     "gcp": _load_gcp_defaults_config,
     "azure": _load_azure_defaults_config,
@@ -214,16 +233,23 @@ def _import_aliyun_workspace(provider_config):
     from cloudtik.providers._private.aliyun.workspace_provider import AliyunWorkspaceProvider
     return AliyunWorkspaceProvider
 
+
+def _import_onpremise_workspace(provider_config):
+    from cloudtik.providers._private.onpremise.workspace_provider import \
+        OnPremiseWorkspaceProvider
+    return OnPremiseWorkspaceProvider
+
+
 def _import_local_workspace(provider_config):
     from cloudtik.providers._private.local.workspace_provider import \
         LocalWorkspaceProvider
     return LocalWorkspaceProvider
 
 
-def _import_onpremise_workspace(provider_config):
-    from cloudtik.providers._private.onpremise.workspace_provider import \
-        OnPremiseWorkspaceProvider
-    return OnPremiseWorkspaceProvider
+def _import_virtual_workspace(provider_config):
+    from cloudtik.providers._private.virtual.workspace_provider import \
+        VirtualWorkspaceProvider
+    return VirtualWorkspaceProvider
 
 
 def _import_kubernetes_workspace(provider_config):
@@ -239,8 +265,9 @@ def _import_huaweicloud_workspace(provider_config):
 
 
 _WORKSPACE_PROVIDERS = {
-    "local": _import_local_workspace,
     "onpremise": _import_onpremise_workspace,
+    "local": _import_local_workspace,
+    "virtual": _import_virtual_workspace,
     "aws": _import_aws_workspace,
     "gcp": _import_gcp_workspace,
     "azure": _import_azure_workspace,

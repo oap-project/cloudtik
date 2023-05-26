@@ -6,7 +6,7 @@ workspace_name: example-workspace
 
 # Cloud-provider specific configuration.
 provider:
-    type: local
+    type: virtual
 
 auth:
     ssh_user: ubuntu

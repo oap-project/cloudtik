@@ -33,3 +33,4 @@ def _get_node_info(node):
     labels = _get_tags(node)
     node_info.update(labels)
     return node_info
+

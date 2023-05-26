@@ -355,7 +355,7 @@ def verify_config(config: Dict[str, Any]):
     provider.verify_config(provider_config)
 
     # add runtime config validate and testing
-    runtime_verify_config(config.get(RUNTIME_CONFIG_KEY), config, provider)
+    runtime_verify_config(config.get(RUNTIME_CONFIG_KEY), config)
 
 
 def prepare_config(config: Dict[str, Any]) -> Dict[str, Any]:
@@ -2194,7 +2194,7 @@ def runtime_prepare_config(
     return config
 
 
-def runtime_verify_config(runtime_config, config, provider):
+def runtime_verify_config(runtime_config, config):
     if runtime_config is None:
         return
 
@@ -2202,7 +2202,7 @@ def runtime_verify_config(runtime_config, config, provider):
     runtime_types = runtime_config.get(RUNTIME_TYPES_CONFIG_KEY, [])
     for runtime_type in runtime_types:
         runtime = _get_runtime(runtime_type, runtime_config)
-        runtime.verify_config(config, provider)
+        runtime.verify_config(config)
 
 
 def get_runnable_command(

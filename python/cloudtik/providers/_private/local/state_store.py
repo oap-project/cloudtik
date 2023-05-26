@@ -34,7 +34,7 @@ class LocalStateStore(FileStateStore):
                     if node_id not in nodes:
                         nodes[node_id] = {
                             "name": node_id,
-                            "ip": socket.gethostbyname(node_id),
+                            "ip": node_id,
                             "tags": {},
                             "state": "terminated",
                         }

@@ -28,6 +28,8 @@ provider:
 auth:
     # The user is current user with sudo privilege on local host
     ssh_user: ubuntu
+    # The private key to SSH to all nodes include local node
+    ssh_private_key: ~/.ssh/id_rsa
 
 available_node_types:
     worker.default:

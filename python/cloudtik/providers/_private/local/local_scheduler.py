@@ -205,6 +205,8 @@ class LocalScheduler:
                 docker_config = copy.deepcopy(docker_config)
                 docker_config["docker_with_sudo"] = self.provider_config.get(
                     "docker_with_sudo", False)
+                # on local host, we don't need mounts mapping too
+                docker_config["mounts_mapping"] = False
                 local_file_mounts = self._get_local_file_mounts()
                 return LocalDockerCommandExecutor(
                     call_context, docker_config, False,

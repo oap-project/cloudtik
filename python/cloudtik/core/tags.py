@@ -6,6 +6,10 @@ CLOUDTIK_TAG_NODE_NAME = "cloudtik-node-name"
 # Tag uniquely identifying all nodes of a cluster
 CLOUDTIK_TAG_CLUSTER_NAME = "cloudtik-cluster-name"
 
+# Whether this tag is needed depends on provider
+# if provider can distinguish node without tag, it will not set
+CLOUDTIK_TAG_WORKSPACE_NAME = "cloudtik-workspace-name"
+
 # Tag for the kind of node (e.g. Head, Worker).
 CLOUDTIK_TAG_NODE_KIND = "cloudtik-node-kind"
 NODE_KIND_HEAD = "head"

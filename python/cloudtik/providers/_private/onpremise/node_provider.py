@@ -2,10 +2,10 @@ import logging
 from typing import Any, Dict
 
 from cloudtik.core.node_provider import NodeProvider
-from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME
+from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_WORKSPACE_NAME
 from cloudtik.providers._private.onpremise.config import prepare_onpremise, \
     _get_cloud_simulator_address, _get_http_response_from_simulator, post_prepare_onpremise, \
-    TAG_WORKSPACE_NAME, bootstrap_onpremise
+    bootstrap_onpremise
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ class OnPremiseNodeProvider(NodeProvider):
         # Only get the non terminated nodes associated with this cluster name.
         tag_filters = {} if tag_filters is None else tag_filters
         tag_filters[CLOUDTIK_TAG_CLUSTER_NAME] = self.cluster_name
-        tag_filters[TAG_WORKSPACE_NAME] = self.provider_config["workspace_name"]
+        tag_filters[CLOUDTIK_TAG_WORKSPACE_NAME] = self.provider_config["workspace_name"]
         request = {"type": "non_terminated_nodes", "args": (tag_filters, )}
         return self._get_http_response(request)
 
@@ -61,7 +61,7 @@ class OnPremiseNodeProvider(NodeProvider):
         # Tag the newly created node with this cluster name. Helps to get
         # the right nodes when calling non_terminated_nodes.
         tags[CLOUDTIK_TAG_CLUSTER_NAME] = self.cluster_name
-        tags[TAG_WORKSPACE_NAME] = self.provider_config["workspace_name"]
+        tags[CLOUDTIK_TAG_WORKSPACE_NAME] = self.provider_config["workspace_name"]
         request = {
             "type": "create_node",
             "args": (node_config, tags, count),

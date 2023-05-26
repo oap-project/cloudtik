@@ -4,22 +4,22 @@ from typing import Any, Optional
 from typing import Dict
 
 from cloudtik.core._private.cli_logger import cli_logger, cf
-from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD
+from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, CLOUDTIK_TAG_WORKSPACE_NAME
 from cloudtik.core.workspace_provider import Existence
 from cloudtik.providers._private.onpremise.config import _get_cloud_simulator_address, _get_http_response_from_simulator, \
-    get_cluster_name_from_node, TAG_WORKSPACE_NAME
+    get_cluster_name_from_node
 
 logger = logging.getLogger(__name__)
 
-ON_PREM_WORKSPACE_NUM_CREATION_STEPS = 1
-ON_PREM_WORKSPACE_NUM_DELETION_STEPS = 1
-ON_PREM_WORKSPACE_TARGET_RESOURCES = 1
+ON_PREMISE_WORKSPACE_NUM_CREATION_STEPS = 1
+ON_PREMISE_WORKSPACE_NUM_DELETION_STEPS = 1
+ON_PREMISE_WORKSPACE_TARGET_RESOURCES = 1
 
 
 def get_workspace_head_nodes(workspace_name, provider_config: Dict[str, Any]):
     tag_filters = {
         CLOUDTIK_TAG_NODE_KIND: NODE_KIND_HEAD,
-        TAG_WORKSPACE_NAME: workspace_name}
+        CLOUDTIK_TAG_WORKSPACE_NAME: workspace_name}
     request = {"type": "non_terminated_nodes", "args": (tag_filters,)}
     cloud_simulator_address = _get_cloud_simulator_address(provider_config)
     all_heads = _get_http_response_from_simulator(cloud_simulator_address, request)
@@ -63,7 +63,7 @@ def check_onpremise_workspace_existence(config):
     workspace_name = config["workspace_name"]
 
     skipped_resources = 0
-    target_resources = ON_PREM_WORKSPACE_TARGET_RESOURCES
+    target_resources = ON_PREMISE_WORKSPACE_TARGET_RESOURCES
     existing_resources = 0
 
     # check docker bridge network
@@ -135,7 +135,7 @@ def _create_workspace(config):
     workspace_name = config["workspace_name"]
 
     current_step = 1
-    total_steps = ON_PREM_WORKSPACE_NUM_CREATION_STEPS
+    total_steps = ON_PREMISE_WORKSPACE_NUM_CREATION_STEPS
 
     try:
         with cli_logger.group("Creating workspace: {}", workspace_name):
@@ -162,7 +162,7 @@ def delete_onpremise_workspace(
     workspace_name = config["workspace_name"]
 
     current_step = 1
-    total_steps = ON_PREM_WORKSPACE_NUM_DELETION_STEPS
+    total_steps = ON_PREMISE_WORKSPACE_NUM_DELETION_STEPS
     try:
         with cli_logger.group("Deleting workspace: {}", workspace_name):
             with cli_logger.group(

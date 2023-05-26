@@ -6,7 +6,7 @@ from cloudtik.core._private.command_executor.docker_command_executor import Dock
 logger = logging.getLogger(__name__)
 
 
-class LocalDockerCommandExecutor(DockerCommandExecutor):
+class VirtualDockerCommandExecutor(DockerCommandExecutor):
     def __init__(
             self, call_context, docker_config, remote_host: bool = True, **common_args):
         super().__init__(call_context, docker_config, remote_host, **common_args)

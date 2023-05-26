@@ -13,7 +13,6 @@ logger = logging.getLogger(__name__)
 
 
 DEFAULT_CLOUD_SIMULATOR_PORT = 8282
-TAG_WORKSPACE_NAME = "workspace-name"
 
 
 def _get_cloud_simulator_address(provider_config):

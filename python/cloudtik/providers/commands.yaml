@@ -12,10 +12,10 @@ docker:
         - docker ps -a > /dev/null 2>&1 || (sudo addgroup --system docker && sudo usermod -aG docker $USER && sudo systemctl restart docker -f)
         - which jq > /dev/null 2>&1 || (sudo apt-get -qq update -y && sudo apt-get -qq install -y jq > /dev/null)
     head_initialization_commands:
-        - sudo docker pull registry:2
+        - docker pull registry:2
         - "(stat /etc/docker/daemon.json &> /dev/null && jq '. + { \"registry-mirrors\": [$address] }' --arg address \"http://${CLOUDTIK_NODE_IP}:5000\" /etc/docker/daemon.json > /tmp/tmp.$$.json && sudo mv /tmp/tmp.$$.json /etc/docker/daemon.json) || (sudo mkdir -p /etc/docker && printf \"{\n  \\\"registry-mirrors\\\": [\\\"http://${CLOUDTIK_NODE_IP}:5000\\\"]\n}\" | sudo tee -a /etc/docker/daemon.json &> /dev/null) && sudo systemctl restart docker -f"
-        - (sudo docker container stop cloudtik-registry &> /dev/null && sudo docker container rm -v cloudtik-registry > /dev/null 2>&1) || true
-        - (sudo docker run -d -e REGISTRY_PROXY_REMOTEURL="https://registry-1.docker.io" -p 5000:5000 --restart=always --name cloudtik-registry registry:2) || true
+        - (docker container stop cloudtik-registry &> /dev/null && docker container rm -v cloudtik-registry > /dev/null 2>&1) || true
+        - (docker run -d -e REGISTRY_PROXY_REMOTEURL="https://registry-1.docker.io" -p 5000:5000 --restart=always --name cloudtik-registry registry:2) || true
     worker_initialization_commands:
         - "(stat /etc/docker/daemon.json &> /dev/null && jq '. + { \"registry-mirrors\": [$address] }' --arg address \"http://${CLOUDTIK_HEAD_IP}:5000\" /etc/docker/daemon.json > /tmp/tmp.$$.json && sudo mv /tmp/tmp.$$.json /etc/docker/daemon.json) || (sudo mkdir -p /etc/docker && printf \"{\n  \\\"registry-mirrors\\\": [\\\"http://${CLOUDTIK_HEAD_IP}:5000\\\"]\n}\" | sudo tee -a /etc/docker/daemon.json &> /dev/null) && sudo systemctl restart docker -f"
 

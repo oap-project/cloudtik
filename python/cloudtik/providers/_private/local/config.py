@@ -122,6 +122,10 @@ def _configure_docker(config):
     rootless = is_rootless_docker()
     if not rootless:
         provider["docker_with_sudo"] = True
+
+    state_path = get_state_path()
+    exec_with_output(
+        "mkdir -p '{path}' && chmod -R 777 '{path}'".format(path=state_path))
     return config
 
 

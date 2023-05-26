@@ -27,7 +27,7 @@ class LocalStateStore(FileStateStore):
                     if node_id not in list_of_node_ids:
                         node = nodes[node_id]
                         # remove node only if it is terminated (not in use)
-                        if node == "terminated":
+                        if node["state"] == "terminated":
                             del nodes[node_id]
 
                 for node_id in list_of_node_ids:
@@ -38,5 +38,4 @@ class LocalStateStore(FileStateStore):
                             "tags": {},
                             "state": "terminated",
                         }
-                assert len(nodes) == len(list_of_node_ids)
             self._save()

@@ -24,7 +24,7 @@ provider:
             # Specify the resources of this instance type.
             resources:
                 CPU: number-of-cores
-                memoryMb: size-in-mb
+                memory: size-in-mb
 auth:
     # The user is current user with sudo privilege on local host
     ssh_user: ubuntu

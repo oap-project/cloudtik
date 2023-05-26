@@ -135,6 +135,7 @@ def bootstrap_local_for_api(config):
 
 
 def _configure_workspace_name(config):
+    config["workspace_name"] = LOCAL_WORKSPACE_NAME
     config["provider"]["workspace_name"] = LOCAL_WORKSPACE_NAME
     return config
 

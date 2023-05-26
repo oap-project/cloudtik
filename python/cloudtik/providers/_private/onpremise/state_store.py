@@ -151,7 +151,7 @@ class FileStateStore(StateStore):
             if node_ip not in list_of_node_ips:
                 node = nodes[node_ip]
                 # remove node only if it is terminated (not in use)
-                if node == "terminated":
+                if node["state"] == "terminated":
                     del nodes[node_ip]
 
         # new nodes set to terminated

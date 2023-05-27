@@ -98,7 +98,7 @@ def _create_docker_bridge_network(config, workspace_name):
         return
 
     network_name = _get_network_name(workspace_name)
-    interface_name = _get_bridge_interface_name(workspace_name)
+    interface_name = _get_bridge_interface_name(network_name)
     # create a docker bridge network for workspace
     docker_cmd = ("docker network create -d bridge {network_name} "
                   "-o \"com.docker.network.bridge.name\"=\"{interface_name}\"").format(

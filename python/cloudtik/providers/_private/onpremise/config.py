@@ -117,17 +117,18 @@ def _get_node_id_mapping(provider_config: Dict[str, Any]):
     return node_id_mapping
 
 
-def _get_node_instance_type(node_id_mapping, node_ip):
-    node = node_id_mapping.get(node_ip)
+def _get_node_instance_type(node_id_mapping, node_id):
+    node = node_id_mapping.get(node_id)
     if node is None:
-        raise RuntimeError(f"Node with node ip {node_ip} is not found in the original node list.")
+        raise RuntimeError(f"Node with ip {node_id} is not found in the original node list.")
     return node["instance_type"]
 
 
-def get_list_of_node_ips(provider_config: Dict[str, Any]):
+def get_all_node_ids(provider_config: Dict[str, Any]):
     nodes = get_available_nodes(provider_config)
-    node_ips = [node["ip"] for node in nodes]
-    return node_ips
+    # ip here may the host ip or host name
+    node_ids = [node["ip"] for node in nodes]
+    return node_ids
 
 
 def _get_num_node_of_instance_type(provider_config: Dict[str, Any], instance_type) -> int:

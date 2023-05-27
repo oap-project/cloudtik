@@ -23,7 +23,7 @@ provider:
         your_instance_type:
             # Specify the resources of this instance type.
             CPU: 4  # number-of-cores
-            memory: 1024M # memory size, for example 1024M, 1G
+            memory: 4G # memory size, for example 1024M, 1G
 auth:
     # The user is current user with sudo privilege on local host
     ssh_user: ubuntu

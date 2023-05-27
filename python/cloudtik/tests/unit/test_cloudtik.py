@@ -340,6 +340,8 @@ class MockClusterScaler(ClusterScaler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fail_to_find_ip_during_drain = False
+        # Testing with maximum verbosity
+        self.call_context.cli_logger.set_verbosity(999)
 
     def _publish_runtime_config(self, *args):
         return

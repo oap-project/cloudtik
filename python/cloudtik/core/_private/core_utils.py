@@ -2,7 +2,6 @@ import collections
 import errno
 import importlib
 import logging
-import math
 import multiprocessing
 import os
 import re
@@ -664,3 +663,34 @@ def ensure_str(s, encoding="utf-8", errors="strict"):
         assert isinstance(s, bytes)
         return s.decode(encoding, errors)
 
+
+MEMORY_SIZE_UNITS = {
+    "K": 2**10,
+    "M": 2**20,
+    "G": 2**30,
+    "T": 2**40,
+    "P": 2**50
+}
+
+
+def parse_memory_resource(resource):
+    resource_str = str(resource)
+    try:
+        return int(resource_str)
+    except ValueError:
+        pass
+    memory_size = re.sub(r"([KMGTP]+)", r" \1", resource_str)
+    number, unit_index = [item.strip() for item in memory_size.split()]
+    unit_index = unit_index[0]
+    return float(number) * MEMORY_SIZE_UNITS[unit_index]
+
+
+def get_memory_in_bytes(memory_size):
+    if memory_size is None:
+        return 0
+
+    if isinstance(memory_size, int):
+        return memory_size
+
+    parsed_value = parse_memory_resource(memory_size)
+    return 0 if parsed_value == float("inf") else int(parsed_value)

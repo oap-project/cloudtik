@@ -2,10 +2,8 @@
 # Then you specify the instance type for each node in the node list
 instance_types:
     your_instance_type:
-        # Specify the resources of this instance type.
-        resources:
-            CPU: number-of-cores
-            memory: size-in-mb
+        CPU: 4 # number of cores
+        memory: 4G # memory, for example 1024M, 1G
 
 # List of nodes with the ip and its node type defined in the above list
 nodes:

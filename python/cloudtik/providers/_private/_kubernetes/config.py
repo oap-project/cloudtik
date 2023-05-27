@@ -2,7 +2,6 @@ import copy
 import logging
 import math
 import os
-import re
 import time
 from typing import Any, Dict, Optional
 import random
@@ -12,6 +11,7 @@ from kubernetes import client
 from kubernetes.client.rest import ApiException
 
 from cloudtik.core._private.cli_logger import cli_logger, cf
+from cloudtik.core._private.core_utils import parse_memory_resource
 from cloudtik.core._private.docker import get_versioned_image
 from cloudtik.core._private.providers import _get_node_provider
 from cloudtik.core._private.utils import is_use_internal_ip, get_running_head_node, binary_to_hex, hex_to_binary, \
@@ -30,13 +30,6 @@ from cloudtik.providers._private._kubernetes.utils import to_label_selector, \
 
 logger = logging.getLogger(__name__)
 
-MEMORY_SIZE_UNITS = {
-    "K": 2**10,
-    "M": 2**20,
-    "G": 2**30,
-    "T": 2**40,
-    "P": 2**50
-}
 
 CLOUDTIK_COMPONENT_LABEL = "cluster.cloudtik.io/component"
 CLOUDTIK_HEAD_POD_NAME_PREFIX = "cloudtik-{}-head-"
@@ -632,7 +625,7 @@ def _get_resource(container_resources, resource_name, field_name):
     resource_key = matching_keys.pop()
     resource_quantity = resources[resource_key]
     if resource_name == "memory":
-        return _parse_memory_resource(resource_quantity)
+        return parse_memory_resource(resource_quantity)
     else:
         return _parse_cpu_or_gpu_resource(resource_quantity)
 
@@ -644,18 +637,6 @@ def _parse_cpu_or_gpu_resource(resource):
         return math.ceil(int(resource_str[:-1]) / 1000)
     else:
         return int(resource_str)
-
-
-def _parse_memory_resource(resource):
-    resource_str = str(resource)
-    try:
-        return int(resource_str)
-    except ValueError:
-        pass
-    memory_size = re.sub(r"([KMGTP]+)", r" \1", resource_str)
-    number, unit_index = [item.strip() for item in memory_size.split()]
-    unit_index = unit_index[0]
-    return float(number) * MEMORY_SIZE_UNITS[unit_index]
 
 
 def _create_or_update_services(namespace, provider_config):

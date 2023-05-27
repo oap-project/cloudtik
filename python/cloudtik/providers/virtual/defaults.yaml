@@ -14,11 +14,13 @@ available_node_types:
     head.default:
         node_config:
             instance_type:
-                CPU: 0
+                CPU: 4
+                memory: 4G
     worker.default:
         node_config:
             instance_type:
-                CPU: 0
+                CPU: 4
+                memory: 4G
 
 # Specify the node type of the head node (as configured above).
 head_node_type: head.default

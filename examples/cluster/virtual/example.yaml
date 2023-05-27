@@ -16,10 +16,10 @@ available_node_types:
         node_config:
             instance_type:
                 CPU: 4 # number of cores
-                memory: 4096  # memory in MB
+                memory: 4G  # memory, for example 1024M, 1G
     worker.default:
         node_config:
             instance_type:
                 CPU: 4 # number of cores
-                memory: 4096  # memory in MB
+                memory: 4G # memory, for example 1024M, 1G
         min_workers: 3

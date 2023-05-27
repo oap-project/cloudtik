@@ -316,7 +316,7 @@ class CliLogger():
         logger = CliLogger()
         logger.indent_level = self.indent_level
         logger._verbosity = self._verbosity
-        logger._verbosity_overriden=  self._verbosity_overriden
+        logger._verbosity_overriden = self._verbosity_overriden
         logger._color_mode = self._color_mode
         logger._log_style = self._log_style
         logger.pretty = self.pretty

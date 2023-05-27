@@ -86,9 +86,7 @@ class OnPremiseNodeProvider(NodeProvider):
         return response
 
     def with_environment_variables(self, node_type_config: Dict[str, Any], node_id: str):
-        request = {"type": "with_environment_variables", "args": (node_type_config, node_id, )}
-        response = self._get_http_response(request)
-        return response
+        return {}
 
     @staticmethod
     def bootstrap_config(cluster_config):

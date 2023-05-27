@@ -1,11 +1,12 @@
 import logging
-import socket
 from typing import Any, Dict
 
 import yaml
 
+from cloudtik.core._private.core_utils import get_ip_by_name
 from cloudtik.core._private.utils import is_head_node_by_tags
 from cloudtik.core.node_provider import NodeProvider
+from cloudtik.core.tags import CLOUDTIK_TAG_WORKSPACE_NAME
 from cloudtik.providers._private.onpremise.config import get_cloud_simulator_lock_path, \
     get_cloud_simulator_state_path, _get_instance_types, \
     _get_request_instance_type, _get_node_id_mapping, _get_node_instance_type, \
@@ -49,10 +50,10 @@ class CloudSimulatorScheduler(NodeProvider):
             get_cloud_simulator_state_path())
         self.node_id_mapping = _get_node_id_mapping(provider_config)
 
-    def non_terminated_nodes(self, tag_filters):
+    def _list_nodes(self, tag_filters):
         nodes = self.state.get_nodes()
-        matching_ips = []
-        for node_ip, node in nodes.items():
+        matching_nodes = []
+        for node_id, node in nodes.items():
             if node["state"] == "terminated":
                 continue
             ok = True
@@ -61,8 +62,12 @@ class CloudSimulatorScheduler(NodeProvider):
                     ok = False
                     break
             if ok:
-                matching_ips.append(node_ip)
-        return matching_ips
+                matching_nodes.append(node)
+        return matching_nodes
+
+    def non_terminated_nodes(self, tag_filters):
+        matching_nodes = self._list_nodes(tag_filters)
+        return [node["name"] for node in matching_nodes]
 
     def is_running(self, node_id):
         node = self.state.get_node(node_id)
@@ -94,10 +99,10 @@ class CloudSimulatorScheduler(NodeProvider):
         if ext_ip:
             return ext_ip
         else:
-            return socket.gethostbyname(node_id)
+            return self.internal_ip(node_id)
 
     def internal_ip(self, node_id):
-        return socket.gethostbyname(node_id)
+        return get_ip_by_name(node_id)
 
     def set_node_tags(self, node_id, tags):
         with self.state.transaction():
@@ -179,9 +184,6 @@ class CloudSimulatorScheduler(NodeProvider):
         node_info.update(node["tags"])
         return node_info
 
-    def with_environment_variables(self, node_type_config: Dict[str, Any], node_id: str):
-        return {}
-
     @staticmethod
     def post_prepare(
             cluster_config: Dict[str, Any]) -> Dict[str, Any]:
@@ -189,6 +191,12 @@ class CloudSimulatorScheduler(NodeProvider):
         instance_types = _get_instance_types(cluster_config["provider"])
         set_node_types_resources(cluster_config, instance_types)
         return cluster_config
+
+    def list_nodes(self, workspace_name, tag_filters):
+        # List nodes that are not cluster specific, ignoring the cluster name
+        tag_filters = {} if tag_filters is None else tag_filters
+        tag_filters[CLOUDTIK_TAG_WORKSPACE_NAME] = workspace_name
+        return self._list_nodes(tag_filters)
 
     def get_instance_types(self):
         """Return the all instance types information"""

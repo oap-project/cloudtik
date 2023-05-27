@@ -6,6 +6,7 @@ import multiprocessing
 import os
 import re
 import signal
+import socket
 import subprocess
 import sys
 import threading
@@ -694,3 +695,7 @@ def get_memory_in_bytes(memory_size):
 
     parsed_value = parse_memory_resource(memory_size)
     return 0 if parsed_value == float("inf") else int(parsed_value)
+
+
+def get_ip_by_name(name):
+    return socket.gethostbyname(name)

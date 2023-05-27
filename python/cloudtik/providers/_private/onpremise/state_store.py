@@ -6,7 +6,8 @@ from threading import RLock
 
 from filelock import FileLock
 
-from cloudtik.providers._private.onpremise.config import get_list_of_node_ips
+from cloudtik.core._private.core_utils import get_ip_by_name
+from cloudtik.providers._private.onpremise.config import get_all_node_ids
 
 logger = logging.getLogger(__name__)
 
@@ -144,24 +145,29 @@ class FileStateStore(StateStore):
         state = self._load()
         nodes = state["nodes"]
 
-        list_of_node_ips = get_list_of_node_ips(provider_config)
+        list_of_node_ids = get_all_node_ids(provider_config)
 
         # Filter removed node ips.
-        for node_ip in list(nodes):
-            if node_ip not in list_of_node_ips:
-                node = nodes[node_ip]
+        for node_id in list(nodes):
+            if node_id not in list_of_node_ids:
+                node = nodes[node_id]
                 # remove node only if it is terminated (not in use)
                 if node["state"] == "terminated":
-                    del nodes[node_ip]
+                    del nodes[node_id]
 
         # new nodes set to terminated
-        for node_ip in list_of_node_ips:
-            if node_ip not in nodes:
-                nodes[node_ip] = {
+        for node_id in list_of_node_ids:
+            if node_id not in nodes:
+                # Don't cache here if we want to handle host IP change
+                node_ip = get_ip_by_name(node_id)
+                nodes[node_id] = {
+                    "name": node_id,
+                    "ip": node_ip,
                     "tags": {},
                     "state": "terminated",
                 }
-        # list_of_node_ips and nodes may not the same
+        # list_of_node_ids and nodes may not the same
+        # because we keep running removed nodes
         self._save()
 
     def _get_workspaces(self):

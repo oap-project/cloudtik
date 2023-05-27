@@ -9,6 +9,7 @@ from cloudtik.core._private.call_context import CallContext
 from cloudtik.core._private.command_executor.docker_command_executor import DockerCommandExecutor
 from cloudtik.core._private.command_executor.local_command_executor import LocalCommandExecutor
 from cloudtik.core._private.command_executor.ssh_command_executor import SSHCommandExecutor
+from cloudtik.core._private.core_utils import get_ip_by_name
 from cloudtik.core._private.state.file_state_store import FileStateStore
 from cloudtik.core._private.utils import is_head_node_by_tags
 from cloudtik.core.command_executor import CommandExecutor
@@ -120,11 +121,13 @@ class LocalScheduler:
         tag_filters = {} if tag_filters is None else tag_filters
         if self.cluster_name:
             tag_filters[CLOUDTIK_TAG_CLUSTER_NAME] = self.cluster_name
+        # list nodes is thread safe, put it out of the lock block
         matching_nodes = self._list_nodes(tag_filters)
-        self.cached_nodes = {
-            n["name"]: n for n in matching_nodes
-        }
-        return [node["name"] for node in matching_nodes]
+        with self.lock:
+            self.cached_nodes = {
+                n["name"]: n for n in matching_nodes
+            }
+            return [node["name"] for node in matching_nodes]
 
     def is_running(self, node_id):
         with self.lock:
@@ -140,9 +143,7 @@ class LocalScheduler:
             return node.get("tags", {}) if node else {}
 
     def internal_ip(self, node_id):
-        with self.lock:
-            node = self._get_cached_node(node_id)
-            return node.get("ip")
+        return get_ip_by_name(node_id)
 
     def set_node_tags(self, node_id, tags):
         with self.lock:

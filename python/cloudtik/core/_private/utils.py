@@ -1708,9 +1708,12 @@ def _get_proxy_process(proxy_process_file: str):
     server_process = get_server_process(proxy_process_file)
     if server_process is None:
         return None, None, None
+    pid = server_process.get("pid")
+    if not pid:
+        return None, None, None
     return (server_process["pid"],
             server_process.get("bind_address"),
-            server_process["port"])
+            server_process.get("port"))
 
 
 def get_safe_proxy_process(proxy_process_file: str):

@@ -1,4 +1,5 @@
 import json
+import socket
 from http.client import RemoteDisconnected
 import os
 from typing import Any, Optional
@@ -29,6 +30,8 @@ def _discover_cloud_simulator():
     bind_address = server_process.get("bind_address")
     port = server_process.get("port")
     if bind_address and port:
+        if "0.0.0.0" == bind_address:
+            bind_address = socket.gethostbyname(socket.gethostname())
         return "{}:{}".format(bind_address, port)
     return None
 
@@ -86,6 +89,14 @@ def bootstrap_onpremise(config):
         raise RuntimeError("Workspace name is not specified in cluster configuration.")
 
     config["provider"]["workspace_name"] = workspace_name
+    config = _configure_cloud_simulator(config)
+    return config
+
+
+def _configure_cloud_simulator(config):
+    provider = config["provider"]
+    if "cloud_simulator_address" not in provider:
+        provider["cloud_simulator_address"] = _get_cloud_simulator_address(provider)
     return config
 
 

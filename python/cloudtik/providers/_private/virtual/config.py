@@ -333,7 +333,7 @@ def _get_ssh_server_process(ssh_server_process_file: str):
         return None, None, None
     return (ssh_server_process["pid"],
             ssh_server_process.get("bind_address"),
-            ssh_server_process["port"])
+            ssh_server_process.get("port"))
 
 
 def _find_ssh_server_process_for_workspace(workspace_name):

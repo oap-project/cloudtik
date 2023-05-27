@@ -9,16 +9,18 @@ import os
 import threading
 from http.server import SimpleHTTPRequestHandler, HTTPServer
 import json
-import socket
 
-from cloudtik.core._private.utils import save_server_process
+from cloudtik.core._private import constants
+from cloudtik.core._private.logging_utils import setup_component_logger
+from cloudtik.core._private.utils import save_server_process, get_user_temp_dir
 from cloudtik.providers._private.onpremise.config import DEFAULT_CLOUD_SIMULATOR_PORT, \
-    _get_http_response_from_simulator, get_cloud_simulator_process_file
+    _get_http_response_from_simulator, get_cloud_simulator_process_file, _discover_cloud_simulator
 from cloudtik.providers._private.onpremise.cloud_simulator_scheduler \
     import CloudSimulatorScheduler, load_provider_config
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
+
+LOG_FILE_NAME_CLOUD_SIMULATOR = f"cloudtik_cloud_simulator.log"
 
 
 def runner_handler(node_provider):
@@ -28,6 +30,10 @@ def runner_handler(node_provider):
         Handles all requests and responses coming into and from the
         remote CloudSimulatorScheduler.
         """
+
+        def __init__(self, *args, directory=None, **kwargs):
+            super().__init__(*args, directory=directory, **kwargs)
+            self._http_server = None
 
         def _do_header(self, response_code=200, headers=None):
             """Sends the header portion of the HTTP response.
@@ -53,15 +59,32 @@ def runner_handler(node_provider):
             if self.headers["content-length"]:
                 raw_data = (self.rfile.read(
                     int(self.headers["content-length"]))).decode("utf-8")
-                logger.info("Cloud Simulator received request: " +
-                            str(raw_data))
+
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(
+                        "Cloud Simulator received request: " + str(raw_data))
                 request = json.loads(raw_data)
-                response = getattr(node_provider,
-                                   request["type"])(*request["args"])
-                logger.info("Cloud Simulator response content: " +
-                            str(raw_data))
+
+                if "shutdown" == request["type"]:
+                    logger.info("Cloud Simulator is going down...")
+
+                    def kill_me_please(server):
+                        server.shutdown()
+                        logger.info("Shutdown Cloud Simulator successfully.")
+
+                    shutdown_thread = threading.Thread(
+                        target=kill_me_please,
+                        args=(self._http_server,))
+                    shutdown_thread.start()
+                    response = None
+                else:
+                    response = getattr(node_provider,
+                                       request["type"])(*request["args"])
                 response_code = 200
                 message = json.dumps(response)
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(
+                        "Cloud Simulator response content: " + str(message))
                 self._do_header(response_code=response_code)
                 self.wfile.write(message.encode())
 
@@ -86,12 +109,16 @@ class CloudSimulator(threading.Thread):
         address = (host, self._port)
 
         provider_config = load_provider_config(config)
+        scheduler = CloudSimulatorScheduler(provider_config, cluster_name=None)
+        request_handler = runner_handler(scheduler)
         self._server = HTTPServer(
             address,
-            runner_handler(CloudSimulatorScheduler(provider_config, cluster_name=None)),
+            request_handler,
         )
+        request_handler._http_server = self._server
 
-        server_process = {"pid": os.getpid(), "bind_address": host, "port": self._port}
+        bind_address, bind_port = self._server.server_address
+        server_process = {"pid": os.getpid(), "bind_address": bind_address, "port": bind_port}
         process_file = get_cloud_simulator_process_file()
         save_server_process(process_file, server_process)
 
@@ -112,7 +139,7 @@ class CloudSimulator(threading.Thread):
 def start_server(
         config_file, bind_address, port):
     if bind_address is None:
-        bind_address = socket.gethostbyname(socket.gethostname())
+        bind_address = "0.0.0.0"
     if port is None:
         port = DEFAULT_CLOUD_SIMULATOR_PORT
     CloudSimulator(
@@ -122,14 +149,20 @@ def start_server(
     )
 
 
+def _get_cloud_simulator_address(bind_address, port):
+    if bind_address is None:
+        cloud_simulator_address = _discover_cloud_simulator()
+    else:
+        if port is None:
+            port = DEFAULT_CLOUD_SIMULATOR_PORT
+        cloud_simulator_address = "{}:{}".format(bind_address, port)
+    return cloud_simulator_address
+
+
 def reload_config(
         config_file, bind_address, port):
-    if bind_address is None:
-        bind_address = socket.gethostbyname(socket.gethostname())
-    if port is None:
-        port = DEFAULT_CLOUD_SIMULATOR_PORT
-
-    cloud_simulator_address = "{}:{}".format(bind_address, port)
+    cloud_simulator_address = _get_cloud_simulator_address(
+        bind_address, port)
 
     def _get_http_response(request):
         return _get_http_response_from_simulator(cloud_simulator_address, request)
@@ -141,6 +174,22 @@ def reload_config(
         print("Configuration reloaded successfully.")
     except Exception as e:
         print("Failed to reload the configurations: {}".format(str(e)))
+
+
+def shutdown_server(
+        config_file, bind_address, port):
+    cloud_simulator_address = _get_cloud_simulator_address(
+        bind_address, port)
+
+    def _get_http_response(request):
+        return _get_http_response_from_simulator(cloud_simulator_address, request)
+
+    try:
+        request = {"type": "shutdown", "args": ()}
+        _get_http_response(request)
+        print("Shutdown successfully.")
+    except Exception as e:
+        print("Failed to shutdown: {}".format(str(e)))
 
 
 def main():
@@ -163,9 +212,74 @@ def main():
         "--reload", default=False, action="store_true",
         help="Request the running cloud simulator service to reload the configuration for applying a change.")
 
+    parser.add_argument(
+        "--shutdown", default=False, action="store_true",
+        help="Request the running cloud simulator service to shutdown itself.")
+    parser.add_argument(
+        "--logging-level",
+        required=False,
+        type=str,
+        default=constants.LOGGER_LEVEL_INFO,
+        choices=constants.LOGGER_LEVEL_CHOICES,
+        help=constants.LOGGER_LEVEL_HELP)
+    parser.add_argument(
+        "--logging-format",
+        required=False,
+        type=str,
+        default=constants.LOGGER_FORMAT,
+        help=constants.LOGGER_FORMAT_HELP)
+    parser.add_argument(
+        "--logging-filename",
+        required=False,
+        type=str,
+        default=LOG_FILE_NAME_CLOUD_SIMULATOR,
+        help="Specify the name of log file, "
+             "log to stdout if set empty, default is "
+             f"\"{LOG_FILE_NAME_CLOUD_SIMULATOR}\"")
+    parser.add_argument(
+        "--logs-dir",
+        required=False,
+        type=str,
+        help="Specify the path of the temporary directory used by cloud simulator "
+             "processes.")
+    parser.add_argument(
+        "--logging-rotate-bytes",
+        required=False,
+        type=int,
+        default=constants.LOGGING_ROTATE_MAX_BYTES,
+        help="Specify the max bytes for rotating "
+             "log file, default is "
+             f"{constants.LOGGING_ROTATE_MAX_BYTES} bytes.")
+    parser.add_argument(
+        "--logging-rotate-backup-count",
+        required=False,
+        type=int,
+        default=constants.LOGGING_ROTATE_BACKUP_COUNT,
+        help="Specify the backup count of rotated log file, default is "
+             f"{constants.LOGGING_ROTATE_BACKUP_COUNT}.")
+
     args = parser.parse_args()
+    if args.reload and args.shutdown:
+        print("Can only specify one of the two options: --reload or --shutdown.")
+        return
+
+    if not args.logs_dir:
+        args.logs_dir = os.path.join(get_user_temp_dir(), "cloudtik", "cloud-simulator")
+    os.makedirs(args.logs_dir, exist_ok=True)
+
+    setup_component_logger(
+        logging_level=args.logging_level,
+        logging_format=args.logging_format,
+        log_dir=args.logs_dir,
+        filename=args.logging_filename,
+        max_bytes=args.logging_rotate_bytes,
+        backup_count=args.logging_rotate_backup_count)
+
     if args.reload:
         reload_config(
+            args.config, args.bind_address, args.port)
+    elif args.shutdown:
+        shutdown_server(
             args.config, args.bind_address, args.port)
     else:
         start_server(

@@ -189,12 +189,6 @@ class ClusterScaler:
         # The call context for node updater
         self.call_context = CallContext()
 
-        # Setup verbosity based on logging level
-        if logger.isEnabledFor(logging.DEBUG):
-            self.call_context.cli_logger.set_verbosity(1)
-        else:
-            self.call_context.cli_logger.set_verbosity(0)
-
         # Keep this before self.reset (self.provider needs to be created
         # exactly once).
         self.provider = None

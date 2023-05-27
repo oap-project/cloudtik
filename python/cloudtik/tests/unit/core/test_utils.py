@@ -4,6 +4,7 @@ import time
 import pytest
 
 from cloudtik.core._private.call_context import CallContext
+from cloudtik.core._private.core_utils import get_memory_in_bytes
 from cloudtik.core._private.utils import update_nested_dict, process_config_with_privacy, encrypt_config, \
     decrypt_config, hash_runtime_conf, run_in_parallel_on_nodes, ParallelTaskSkipped
 
@@ -327,6 +328,27 @@ class TestUtils:
         assert succeeded == 1
         assert failures == 1
         assert skipped == 1
+
+    def test_memory_size_parsing(self):
+        memory_size = None
+        value = get_memory_in_bytes(memory_size)
+        assert value == 0
+
+        memory_size = 1024
+        value = get_memory_in_bytes(memory_size)
+        assert value == 1024
+
+        memory_size = "4K"
+        value = get_memory_in_bytes(memory_size)
+        assert value == 4 * 1024
+
+        memory_size = "4M"
+        value = get_memory_in_bytes(memory_size)
+        assert value == 4 * 1024 * 1024
+
+        memory_size = "4G"
+        value = get_memory_in_bytes(memory_size)
+        assert value == 4 * 1024 * 1024 * 1024
 
 
 if __name__ == "__main__":

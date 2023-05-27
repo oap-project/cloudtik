@@ -1,16 +1,15 @@
 import copy
-import json
 import logging
 import os
 import shutil
 import subprocess
-from functools import partial
 from typing import Any, Optional
 from typing import Dict
 
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.core_utils import kill_process_tree
-from cloudtik.core._private.utils import exec_with_output, get_host_address, get_free_port
+from cloudtik.core._private.utils import exec_with_output, get_host_address, get_free_port, \
+    save_server_process
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD
 from cloudtik.core.workspace_provider import Existence
 from cloudtik.providers._private.virtual.config import get_cluster_name_from_node, with_sudo, _safe_remove_file, \
@@ -191,13 +190,9 @@ def _start_bridge_ssh_server(config, workspace_name):
         cli_logger.print("Starting bridge SSH server: {}.", network_name)
 
         p = subprocess.Popen(cmd, shell=True, stderr=subprocess.DEVNULL)
-        if os.path.exists(ssh_server_process_file):
-            process_info = json.loads(open(ssh_server_process_file).read())
-        else:
-            process_info = {}
-        process_info["process"] = {"pid": p.pid, "bind_address": bridge_address, "port": ssh_server_port}
-        with open(ssh_server_process_file, "w", opener=partial(os.open, mode=0o600)) as f:
-            f.write(json.dumps(process_info))
+
+        ssh_server_process = {"pid": p.pid, "bind_address": bridge_address, "port": ssh_server_port}
+        save_server_process(ssh_server_process_file, ssh_server_process)
 
         cli_logger.print("Successfully started bridge SSH server.")
     except subprocess.CalledProcessError as e:
@@ -320,8 +315,7 @@ def _stop_bridge_ssh_server(config, workspace_name):
     try:
         cli_logger.print("Stopping bridge SSH server: {}.", network_name)
         kill_process_tree(pid)
-        with open(ssh_server_process_file, "w", opener=partial(os.open, mode=0o600)) as f:
-            f.write(json.dumps({"proxy": {}}))
+        save_server_process(ssh_server_process_file, {})
         cli_logger.print("Successfully stopped bridge SSH server.")
     except subprocess.CalledProcessError as e:
         cli_logger.error("Failed to stop bridge SSH server: {}", str(e))

@@ -1,5 +1,4 @@
 import copy
-import json
 import os
 import subprocess
 import uuid
@@ -326,14 +325,15 @@ def get_ssh_server_process_file(workspace_name: str):
 
 
 def _get_ssh_server_process(ssh_server_process_file: str):
-    if os.path.exists(ssh_server_process_file):
-        process_info = json.loads(open(ssh_server_process_file).read())
-        if process_info.get("process") and process_info["process"].get("pid"):
-            ssh_server_process = process_info["process"]
-            return (ssh_server_process["pid"],
-                    ssh_server_process.get("bind_address"),
-                    ssh_server_process["port"])
-    return None, None, None
+    ssh_server_process = utils.get_server_process(ssh_server_process_file)
+    if ssh_server_process is None:
+        return None, None, None
+    pid = ssh_server_process.get("pid")
+    if not pid:
+        return None, None, None
+    return (ssh_server_process["pid"],
+            ssh_server_process.get("bind_address"),
+            ssh_server_process["port"])
 
 
 def _find_ssh_server_process_for_workspace(workspace_name):

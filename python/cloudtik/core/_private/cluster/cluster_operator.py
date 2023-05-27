@@ -15,7 +15,6 @@ import time
 from types import ModuleType
 from typing import Any, Dict, List, Optional, Tuple, Union
 import prettytable as pt
-from functools import partial
 import click
 import psutil
 import yaml
@@ -64,7 +63,7 @@ from cloudtik.core._private.utils import hash_runtime_conf, \
     CLOUDTIK_CLUSTER_SCALING_STATUS, decode_cluster_scaling_time, RUNTIME_TYPES_CONFIG_KEY, get_node_info, \
     NODE_INFO_NODE_IP, get_cpus_of_node_info, _sum_min_workers, get_memory_of_node_info, sum_worker_gpus, \
     sum_nodes_resource, get_gpus_of_node_info, get_resource_of_node_info, get_resource_info_of_node_type, \
-    get_worker_node_type
+    get_worker_node_type, save_server_process
 
 from cloudtik.core._private.providers import _get_node_provider, _NODE_PROVIDERS
 from cloudtik.core.tags import (
@@ -192,7 +191,8 @@ def create_or_update_cluster(
         _cli_logger.abort()
 
     try:
-        config = yaml.safe_load(open(config_file).read())
+        with open(config_file) as f:
+            config = yaml.safe_load(f.read())
     except FileNotFoundError:
         _cli_logger.abort(
             "Provided cluster configuration file ({}) does not exist",
@@ -2253,13 +2253,9 @@ def _start_proxy_process(head_node_ip, config,
 
     cli_logger.verbose("Running `{}`", cf.bold(cmd))
     p = subprocess.Popen(cmd, shell=True, stderr=subprocess.DEVNULL)
-    if os.path.exists(proxy_process_file):
-        proxy_process = json.loads(open(proxy_process_file).read())
-    else:
-        proxy_process = {}
-    proxy_process["proxy"] = {"pid": p.pid, "bind_address": bind_address, "port": proxy_port}
-    with open(proxy_process_file, "w", opener=partial(os.open, mode=0o600)) as f:
-        f.write(json.dumps(proxy_process))
+
+    proxy_process = {"pid": p.pid, "bind_address": bind_address, "port": proxy_port}
+    save_server_process(proxy_process_file, proxy_process)
     return p.pid, bind_address, proxy_port
 
 
@@ -2280,8 +2276,7 @@ def _stop_proxy(config: Dict[str, Any]):
         return
 
     kill_process_tree(pid)
-    with open(proxy_process_file, "w", opener=partial(os.open, mode=0o600)) as f:
-        f.write(json.dumps({"proxy": {}}))
+    save_server_process(proxy_process_file, {})
     cli_logger.print(
         cf.bold("Successfully stopped the SOCKS5 proxy of cluster {}."), cluster_name)
 

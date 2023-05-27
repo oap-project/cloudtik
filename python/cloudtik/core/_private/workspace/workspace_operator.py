@@ -153,7 +153,8 @@ def create_workspace(
         cli_logger.abort()
 
     try:
-        config = yaml.safe_load(open(config_file).read())
+        with open(config_file) as f:
+            config = yaml.safe_load(f.read())
     except FileNotFoundError:
         cli_logger.abort(
             "Provided workspace configuration file ({}) does not exist",
@@ -410,7 +411,8 @@ def _bootstrap_workspace_config(config: Dict[str, Any],
     provider_cls = _get_workspace_provider_cls(config["provider"])
 
     if os.path.exists(cache_key) and not no_config_cache:
-        config_cache = json.loads(open(cache_key).read())
+        with open(cache_key) as f:
+            config_cache = json.loads(f.read())
         if config_cache.get("_version", -1) == CONFIG_CACHE_VERSION:
             # todo: is it fine to re-resolve? afaik it should be.
             # we can have migrations otherwise or something
@@ -470,7 +472,8 @@ def _load_workspace_config(config_file: str,
                            override_workspace_name: Optional[str] = None,
                            should_bootstrap: bool = True,
                            no_config_cache: bool = False) -> Dict[str, Any]:
-    config = yaml.safe_load(open(config_file).read())
+    with open(config_file) as f:
+        config = yaml.safe_load(f.read())
     if override_workspace_name is not None:
         config["workspace_name"] = override_workspace_name
     if should_bootstrap:

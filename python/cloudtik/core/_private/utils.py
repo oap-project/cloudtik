@@ -15,7 +15,7 @@ import binascii
 import uuid
 import time
 import math
-
+from functools import partial
 import click
 import ipaddr
 import socket
@@ -1705,12 +1705,12 @@ def get_proxy_process_file(cluster_name: str):
 
 
 def _get_proxy_process(proxy_process_file: str):
-    if os.path.exists(proxy_process_file):
-        proxy_process = json.loads(open(proxy_process_file).read())
-        if proxy_process.get("proxy") and proxy_process["proxy"].get("pid"):
-            proxy_info = proxy_process["proxy"]
-            return proxy_info["pid"], proxy_info.get("bind_address"), proxy_info["port"]
-    return None, None, None
+    server_process = get_server_process(proxy_process_file)
+    if server_process is None:
+        return None, None, None
+    return (server_process["pid"],
+            server_process.get("bind_address"),
+            server_process["port"])
 
 
 def get_safe_proxy_process(proxy_process_file: str):
@@ -1947,7 +1947,8 @@ def get_head_bootstrap_config():
 
 def load_head_cluster_config() -> Dict[str, Any]:
     config_file = get_head_bootstrap_config()
-    config = yaml.safe_load(open(config_file).read())
+    with open(config_file) as f:
+        config = yaml.safe_load(f.read())
     config = decrypt_config(config)
     return config
 
@@ -3080,3 +3081,20 @@ def is_head_node_by_tags(tags):
     if not tags or CLOUDTIK_TAG_NODE_KIND not in tags:
         return False
     return True if tags[CLOUDTIK_TAG_NODE_KIND] == NODE_KIND_HEAD else False
+
+
+def get_server_process(server_process_file: str):
+    if os.path.exists(server_process_file):
+        with open(server_process_file) as file:
+            server_process = json.loads(file.read())
+            return server_process
+    return None
+
+
+def save_server_process(
+        server_process_file, server_process):
+    server_process_dir = os.path.dirname(server_process_file)
+    if not os.path.exists(server_process_dir):
+        os.makedirs(server_process_dir, exist_ok=True)
+    with open(server_process_file, "w", opener=partial(os.open, mode=0o600)) as f:
+        f.write(json.dumps(server_process))

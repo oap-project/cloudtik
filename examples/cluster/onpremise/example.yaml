@@ -25,7 +25,7 @@ available_node_types:
         node_config:
             # The instance type used here need to be defined in the instance_types
             # in the Cloud Simulator configuration file
-            instance_type: your_instance_type
+            instance_type: my_instance_type
     worker.default:
         node_config:
-            instance_type: your_instance_type
+            instance_type: my_instance_type

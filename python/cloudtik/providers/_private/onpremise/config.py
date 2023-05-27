@@ -16,8 +16,30 @@ logger = logging.getLogger(__name__)
 DEFAULT_CLOUD_SIMULATOR_PORT = 8282
 
 
+def get_cloud_simulator_process_file():
+    server_process_dir = os.path.expanduser("~/.cloudtik")
+    return os.path.join(server_process_dir, "cloudtik-cloud-simulator")
+
+
+def _discover_cloud_simulator():
+    cloud_simulator_process_file = get_cloud_simulator_process_file()
+    server_process = utils.get_server_process(cloud_simulator_process_file)
+    if server_process is None:
+        return None
+    bind_address = server_process.get("bind_address")
+    port = server_process.get("port")
+    if bind_address and port:
+        return "{}:{}".format(bind_address, port)
+    return None
+
+
 def _get_cloud_simulator_address(provider_config):
-    cloud_simulator_address = provider_config["cloud_simulator_address"]
+    cloud_simulator_address = provider_config.get("cloud_simulator_address")
+    if not cloud_simulator_address:
+        cloud_simulator_address = _discover_cloud_simulator()
+        if not cloud_simulator_address:
+            raise RuntimeError(
+                "Please configure cloud_simulator_address in provider configuration.")
     # Add the default port if not specified
     if ":" not in cloud_simulator_address:
         cloud_simulator_address += (":{}".format(DEFAULT_CLOUD_SIMULATOR_PORT))

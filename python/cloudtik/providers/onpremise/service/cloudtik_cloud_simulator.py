@@ -5,12 +5,15 @@ locally in CloudSimulatorScheduler. To start the webserver the user runs:
 `python cloudtik_cloud_simulator.py --ips <comma separated ips> --port <PORT>`."""
 import argparse
 import logging
+import os
 import threading
 from http.server import SimpleHTTPRequestHandler, HTTPServer
 import json
 import socket
 
-from cloudtik.providers._private.onpremise.config import DEFAULT_CLOUD_SIMULATOR_PORT, _get_http_response_from_simulator
+from cloudtik.core._private.utils import save_server_process
+from cloudtik.providers._private.onpremise.config import DEFAULT_CLOUD_SIMULATOR_PORT, \
+    _get_http_response_from_simulator, get_cloud_simulator_process_file
 from cloudtik.providers._private.onpremise.cloud_simulator_scheduler \
     import CloudSimulatorScheduler, load_provider_config
 
@@ -87,6 +90,12 @@ class CloudSimulator(threading.Thread):
             address,
             runner_handler(CloudSimulatorScheduler(provider_config, cluster_name=None)),
         )
+
+        server_process = {"pid": os.getpid(), "bind_address": host, "port": self._port}
+
+        process_file = get_cloud_simulator_process_file()
+        save_server_process(process_file, server_process)
+
         self.start()
 
     def run(self):
@@ -96,6 +105,9 @@ class CloudSimulator(threading.Thread):
         """Shutdown the underlying server."""
         self._server.shutdown()
         self._server.server_close()
+
+        process_file = get_cloud_simulator_process_file()
+        save_server_process(process_file, {})
 
 
 def start_server(
@@ -132,18 +144,9 @@ def reload_config(
         print("Failed to reload the configurations: {}".format(str(e)))
 
 
-def main(args):
-    if args.reload:
-        reload_config(
-            args.config, args.bind_address, args.port)
-    else:
-        start_server(
-            args.config, args.bind_address, args.port)
-
-
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser(
-        description="Please provide a config file.")
+        description="Please provide a config file for nodes to start cloud simulator.")
     parser.add_argument(
         "config", help="A config file for nodes. The same format of on-premise provider section at top level.")
     parser.add_argument(
@@ -161,4 +164,14 @@ if __name__ == "__main__":
         "--reload", default=False, action="store_true",
         help="Request the running cloud simulator service to reload the configuration for applying a change.")
 
-    main(parser.parse_args())
+    args = parser.parse_args()
+    if args.reload:
+        reload_config(
+            args.config, args.bind_address, args.port)
+    else:
+        start_server(
+            args.config, args.bind_address, args.port)
+
+
+if __name__ == "__main__":
+    main()

@@ -39,6 +39,7 @@ def _get_cloud_simulator_address(provider_config):
         cloud_simulator_address = _discover_cloud_simulator()
         if not cloud_simulator_address:
             raise RuntimeError(
+                "Failed to discover the cloud simulator address."
                 "Please configure cloud_simulator_address in provider configuration.")
     # Add the default port if not specified
     if ":" not in cloud_simulator_address:

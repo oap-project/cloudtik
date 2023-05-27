@@ -92,7 +92,6 @@ class CloudSimulator(threading.Thread):
         )
 
         server_process = {"pid": os.getpid(), "bind_address": host, "port": self._port}
-
         process_file = get_cloud_simulator_process_file()
         save_server_process(process_file, server_process)
 

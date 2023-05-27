@@ -9,7 +9,7 @@ import logging
 import psutil
 import tempfile
 
-
+from cloudtik.core._private.core_utils import get_memory_in_bytes
 from cloudtik.core._private.utils import AUTH_CONFIG_KEY, DOCKER_CONFIG_KEY, \
     FILE_MOUNTS_CONFIG_KEY, exec_with_output
 from cloudtik.core._private.resource_spec import ResourceSpec
@@ -222,8 +222,8 @@ def set_node_types_resources(
         if num_gpus > 0:
             detected_resources["GPU"] = num_gpus
 
-        memory_mb = instance_type.get("memory", 0)
-        memory_total_in_bytes = int(memory_mb) * 1024 * 1024
+        memory_total_in_bytes = get_memory_in_bytes(
+                instance_type.get("memory"))
         if not memory_total_in_bytes:
             # use the current host memory
             memory_total_in_bytes = resource_spec.memory

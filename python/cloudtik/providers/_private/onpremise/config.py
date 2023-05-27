@@ -7,6 +7,7 @@ import logging
 
 from cloudtik.core._private.cli_logger import cli_logger
 import cloudtik.core._private.utils as utils
+from cloudtik.core._private.core_utils import get_memory_in_bytes
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME
 
 logger = logging.getLogger(__name__)
@@ -146,11 +147,15 @@ def set_node_types_resources(
         instance_type = available_node_types[node_type]["node_config"][
             "instance_type"]
         if instance_type in instance_types:
-            resources = instance_types[instance_type]["resources"]
+            resources = instance_types[instance_type]
             detected_resources = {"CPU": resources["CPU"]}
 
-            memory_total = resources["memory"]
-            memory_total_in_bytes = int(memory_total) * 1024 * 1024
+            num_gpus = resources.get("GPU", 0)
+            if num_gpus > 0:
+                detected_resources["GPU"] = num_gpus
+
+            memory_total_in_bytes = get_memory_in_bytes(
+                resources.get("memory"))
             detected_resources["memory"] = memory_total_in_bytes
 
             detected_resources.update(

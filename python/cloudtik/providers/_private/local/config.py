@@ -5,6 +5,7 @@ from typing import Any, Optional
 from typing import Dict
 
 import cloudtik.core._private.utils as utils
+from cloudtik.core._private.core_utils import get_memory_in_bytes
 from cloudtik.core._private.resource_spec import ResourceSpec
 from cloudtik.core._private.utils import exec_with_output
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME
@@ -92,17 +93,13 @@ def _make_default_instance_type(config):
     instance_types = provider["instance_types"]
     if LOCAL_INSTANCE_TYPE in instance_types:
         return
-    resource_spec = ResourceSpec().resolve(available_memory=True)
-    memory_mb = int(resource_spec.memory / 1024 * 1024)
-    local_resources = {
+    resource_spec = ResourceSpec().resolve(available_memory=False)
+    local_instance_type = {
         "CPU": resource_spec.num_cpus,
-        "memory": memory_mb,
+        "memory": resource_spec.memory,
     }
     if resource_spec.num_gpus:
-        local_resources["GPU"] = resource_spec.num_gpus
-    local_instance_type = {
-        "resources": local_resources
-    }
+        local_instance_type["GPU"] = resource_spec.num_gpus
     instance_types[LOCAL_INSTANCE_TYPE] = local_instance_type
 
 
@@ -227,25 +224,24 @@ def set_node_types_resources(
         instance_type = instance_types.get(instance_type_name)
         if not instance_type:
             raise RuntimeError("Instance type: {} is not defined.".format(instance_type_name))
-        instance_type_resource = instance_type.get("resources", {})
         resource_spec = ResourceSpec().resolve(available_memory=True)
         detected_resources = {}
 
-        num_cpus = instance_type_resource.get("CPU", 0)
+        num_cpus = instance_type.get("CPU", 0)
         if not num_cpus:
             # use the current host CPU number
             num_cpus = resource_spec.num_cpus
         detected_resources["CPU"] = num_cpus
 
-        num_gpus = instance_type_resource.get("GPU", 0)
+        num_gpus = instance_type.get("GPU", 0)
         if not num_gpus:
             # use the current host GPU number
             num_gpus = resource_spec.num_gpus
         if num_gpus > 0:
             detected_resources["GPU"] = num_gpus
 
-        memory_mb = instance_type_resource.get("memory", 0)
-        memory_total_in_bytes = int(memory_mb) * 1024 * 1024
+        memory_total_in_bytes = get_memory_in_bytes(
+            instance_type.get("memory"))
         if not memory_total_in_bytes:
             # use the current host memory
             memory_total_in_bytes = resource_spec.memory

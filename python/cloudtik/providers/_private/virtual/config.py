@@ -284,8 +284,8 @@ def _get_network_name(workspace_name):
     return "cloudtik_{}".format(workspace_name)
 
 
-def _get_bridge_interface_name(workspace_name):
-    interface_suffix = str(uuid.uuid3(uuid.NAMESPACE_OID, workspace_name))[:8]
+def _get_bridge_interface_name(network_name):
+    interface_suffix = str(uuid.uuid3(uuid.NAMESPACE_OID, network_name))[:8]
     return "tik-{}".format(interface_suffix)
 
 

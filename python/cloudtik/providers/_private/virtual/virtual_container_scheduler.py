@@ -10,6 +10,7 @@ from typing import Dict, Optional, Any
 
 from cloudtik.core._private.call_context import CallContext
 from cloudtik.core._private.command_executor.docker_command_executor import DockerCommandExecutor
+from cloudtik.core._private.core_utils import get_memory_in_bytes
 from cloudtik.core._private.state.file_state_store import FileStateStore
 from cloudtik.core._private.utils import DOCKER_CONFIG_KEY, AUTH_CONFIG_KEY, FILE_MOUNTS_CONFIG_KEY, \
     _merge_node_type_specific_config, is_head_node_by_tags
@@ -365,9 +366,11 @@ class VirtualContainerScheduler:
             if cpus:
                 docker_config["cpus"] = cpus
 
-            memory_gb = instance_type.get("memory", 0)
-            if memory_gb:
-                docker_config["memory"] = str(memory_gb) + "g"
+            memory = get_memory_in_bytes(
+                instance_type.get("memory"))
+            memory_mb = int(memory / (1024 * 1024))
+            if memory_mb:
+                docker_config["memory"] = str(memory_mb) + "m"
 
     def _get_provider_cluster_state_path(self):
         # the cluster data path is set at boostrap

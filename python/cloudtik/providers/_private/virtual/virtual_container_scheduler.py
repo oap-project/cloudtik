@@ -122,12 +122,6 @@ def _apply_filters_with_state(
 class VirtualStateStore(FileStateStore):
     def __init__(self, lock_path, state_path):
         super().__init__(lock_path, state_path)
-        self._init_state()
-
-    def _init_state(self):
-        with self.ctx:
-            self._load()
-            self._save()
 
 
 class VirtualContainerScheduler:
@@ -196,9 +190,11 @@ class VirtualContainerScheduler:
             # list all containers include stopped
             containers = self._list_containers(tag_filters, True)
 
-            # use this container list for clean up the state
-            all_node_ids = {container["name"] for container in containers}
-            self.state.cleanup(all_node_ids)
+            # Cannot do cleanup if the tag filters has filters other than cluster name and workspace
+            if len(tag_filters) == 2 and (
+                    CLOUDTIK_TAG_CLUSTER_NAME in tag_filters and CLOUDTIK_TAG_WORKSPACE_NAME in tag_filters):
+                all_node_ids = {container["name"] for container in containers}
+                self.state.cleanup(all_node_ids)
 
             # apply the filters again
             containers = self._apply_filters(containers, tag_filters)

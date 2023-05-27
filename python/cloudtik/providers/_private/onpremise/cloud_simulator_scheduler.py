@@ -146,10 +146,10 @@ class CloudSimulatorScheduler(NodeProvider):
 
             if with_external_ip:
                 # A previous running node was removed
-                node = self.node_id_mapping.get(node_id)
-                if not node:
+                provider_node = self.node_id_mapping.get(node_id)
+                if not provider_node:
                     continue
-                external_ip = node.get("external_ip")
+                external_ip = provider_node.get("external_ip")
                 if not external_ip:
                     continue
 

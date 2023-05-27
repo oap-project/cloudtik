@@ -93,10 +93,6 @@ def prepare_onpremise(config: Dict[str, Any]) -> Dict[str, Any]:
     """
     Prepare onpremise cluster config for ingestion by cluster launcher and scaler.
     """
-    if "cloud_simulator_address" not in config["provider"]:
-        cli_logger.abort("No Cloud Simulator address specified. "
-                         "You must specify use cloud_simulator_address.")
-
     return config
 
 

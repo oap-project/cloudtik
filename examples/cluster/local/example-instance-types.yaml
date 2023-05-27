@@ -11,11 +11,11 @@ provider:
     nodes:
         - ip: node_1_ip
           # Should be one of the instance types defined in instance_types
-          instance_type: your_instance_type
+          instance_type: my_instance_type
         - ip: node_2_ip
-          instance_type: your_instance_type
+          instance_type: my_instance_type
         - ip: node_3_ip
-          instance_type: your_instance_type
+          instance_type: my_instance_type
 
     # Define instance types for node. If all nodes are the same with local node
     # You can define a single one or simply don't define and specify instance_type
@@ -33,6 +33,6 @@ auth:
 available_node_types:
     worker.default:
         node_config:
-            instance_type: your_instance_type
+            instance_type: my_instance_type
         # The minimum number of worker nodes to launch.
         min_workers: 3

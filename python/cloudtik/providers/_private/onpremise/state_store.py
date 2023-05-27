@@ -121,7 +121,8 @@ class FileStateStore(StateStore):
 
     def _load(self):
         if os.path.exists(self.state_path):
-            state = json.loads(open(self.state_path).read())
+            with open(self.state_path) as f:
+                state = json.loads(f.read())
         else:
             state = {}
 

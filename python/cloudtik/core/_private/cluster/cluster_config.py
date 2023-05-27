@@ -53,7 +53,8 @@ def _bootstrap_config(config: Dict[str, Any],
                              "cloudtik-config-{}".format(hasher.hexdigest()))
 
     if os.path.exists(cache_key) and not no_config_cache:
-        config_cache = json.loads(open(cache_key).read())
+        with open(cache_key) as f:
+            config_cache = json.loads(f.read())
         if config_cache.get("_version", -1) == CONFIG_CACHE_VERSION:
             # todo: is it fine to re-resolve? afaik it should be.
             # we can have migrations otherwise or something
@@ -124,7 +125,8 @@ def _load_cluster_config(config_file: str,
                          override_cluster_name: Optional[str] = None,
                          should_bootstrap: bool = True,
                          no_config_cache: bool = False) -> Dict[str, Any]:
-    config = yaml.safe_load(open(config_file).read())
+    with open(config_file) as f:
+        config = yaml.safe_load(f.read())
     if override_cluster_name is not None:
         config["cluster_name"] = override_cluster_name
     if should_bootstrap:

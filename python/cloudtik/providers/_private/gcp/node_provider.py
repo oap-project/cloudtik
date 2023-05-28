@@ -133,11 +133,8 @@ class GCPNodeProvider(NodeProvider):
         with self.lock:
             labels = tags
             node = self._get_node(node_id)
-
             resource = self._get_resource_depending_on_node_name(node_id)
-
             result = resource.set_labels(node=node, labels=labels)
-
             return result
 
     def external_ip(self, node_id: str):

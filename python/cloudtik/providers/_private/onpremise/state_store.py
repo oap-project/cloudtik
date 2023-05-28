@@ -7,7 +7,7 @@ from threading import RLock
 from filelock import FileLock
 
 from cloudtik.core._private.core_utils import get_ip_by_name
-from cloudtik.providers._private.onpremise.config import get_all_node_ids
+from cloudtik.providers._private.onpremise.config import get_all_node_ids, _get_node_id_mapping
 
 logger = logging.getLogger(__name__)
 
@@ -147,6 +147,7 @@ class FileStateStore(StateStore):
         nodes = state["nodes"]
 
         list_of_node_ids = get_all_node_ids(provider_config)
+        node_id_mapping = _get_node_id_mapping(provider_config)
 
         # Filter removed node ips.
         for node_id in list(nodes):
@@ -160,13 +161,19 @@ class FileStateStore(StateStore):
         for node_id in list_of_node_ids:
             if node_id not in nodes:
                 # Don't cache here if we want to handle host IP change
+                provider_node = node_id_mapping[node_id]
                 node_ip = get_ip_by_name(node_id)
                 nodes[node_id] = {
                     "name": node_id,
                     "ip": node_ip,
                     "tags": {},
                     "state": "terminated",
+                    "instance_type": provider_node["instance_type"]
                 }
+                external_ip = provider_node.get("external_ip")
+                if external_ip:
+                    nodes[node_id]["external_ip"] = external_ip
+
         # list_of_node_ids and nodes may not the same
         # because we keep running removed nodes
         self._save()

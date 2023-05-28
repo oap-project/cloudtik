@@ -5,8 +5,9 @@ from cloudtik.core._private.providers import _get_node_provider
 from cloudtik.core._private.utils import get_running_head_node
 from cloudtik.core.tags import CLOUDTIK_GLOBAL_VARIABLE_KEY, CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX
 from cloudtik.core.workspace_provider import WorkspaceProvider, Existence
+from cloudtik.providers._private.onpremise.config import _get_node_tags
 from cloudtik.providers._private.onpremise.workspace_config \
-    import get_workspace_head_nodes, list_onpremise_clusters, _get_node_tags, check_onpremise_workspace_integrity, \
+    import get_workspace_head_nodes, list_onpremise_clusters, check_onpremise_workspace_integrity, \
     check_onpremise_workspace_existence, create_onpremise_workspace, delete_onpremise_workspace
 
 logger = logging.getLogger(__name__)
@@ -56,8 +57,8 @@ class OnPremiseWorkspaceProvider(WorkspaceProvider):
     def subscribe_global_variables(self, cluster_config: Dict[str, Any]):
         global_variables = {}
         head_nodes = get_workspace_head_nodes(self.workspace_name, self.provider_config)
-        for head in head_nodes:
-            node_tags = _get_node_tags(self.provider_config, head)
+        for head_node in head_nodes:
+            node_tags = _get_node_tags(head_node)
             for key, value in node_tags.items():
                 if key.startswith(CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX):
                     global_variable_name = key[len(CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX):]

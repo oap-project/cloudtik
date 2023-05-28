@@ -4,6 +4,7 @@ through HTTP requests from remote OnPremiseNodeProvider and runs them
 locally in CloudSimulatorScheduler. To start the webserver the user runs:
 `python cloudtik_cloud_simulator.py --ips <comma separated ips> --port <PORT>`."""
 import argparse
+import datetime
 import logging
 import os
 import threading
@@ -11,8 +12,9 @@ from http.server import SimpleHTTPRequestHandler, HTTPServer
 import json
 
 from cloudtik.core._private import constants
+from cloudtik.core._private.core_utils import try_to_create_directory, try_to_symlink
 from cloudtik.core._private.logging_utils import setup_component_logger
-from cloudtik.core._private.utils import save_server_process, get_user_temp_dir
+from cloudtik.core._private.utils import save_server_process, get_user_temp_dir, get_cloudtik_temp_dir
 from cloudtik.providers._private.onpremise.config import DEFAULT_CLOUD_SIMULATOR_PORT, \
     _get_http_response_from_simulator, get_cloud_simulator_process_file, _discover_cloud_simulator
 from cloudtik.providers._private.onpremise.cloud_simulator_scheduler \
@@ -137,11 +139,43 @@ class CloudSimulator(threading.Thread):
 
 
 def start_server(
-        config_file, bind_address, port):
+        config_file, bind_address, port, args):
     if bind_address is None:
         bind_address = "0.0.0.0"
     if port is None:
         port = DEFAULT_CLOUD_SIMULATOR_PORT
+
+    if not args.logs_dir:
+        temp_dir = get_cloudtik_temp_dir()
+        args.logs_dir = os.path.join(temp_dir, "cloud-simulator")
+
+    try_to_create_directory(args.logs_dir)
+
+    # session
+    # date including microsecond
+    date_str = datetime.datetime.today().strftime(
+        "%Y-%m-%d_%H-%M-%S_%f")
+    session_name = f"session_{date_str}_{os.getpid()}"
+    session_dir = os.path.join(args.logs_dir, session_name)
+    session_symlink = os.path.join(args.logs_dir, "session_latest")
+
+    # Send a warning message if the session exists.
+    try_to_create_directory(session_dir)
+    try_to_symlink(session_symlink, session_dir)
+
+    # Create a directory to be used for process log files.
+    logs_dir = os.path.join(session_dir, "logs")
+    try_to_create_directory(logs_dir)
+
+    setup_component_logger(
+        logging_level=args.logging_level,
+        logging_format=args.logging_format,
+        log_dir=logs_dir,
+        filename=args.logging_filename,
+        max_bytes=args.logging_rotate_bytes,
+        backup_count=args.logging_rotate_backup_count)
+
+    print("Logging to: {}".format(logs_dir))
     CloudSimulator(
         config=config_file,
         host=bind_address,
@@ -263,18 +297,6 @@ def main():
         print("Can only specify one of the two options: --reload or --shutdown.")
         return
 
-    if not args.logs_dir:
-        args.logs_dir = os.path.join(get_user_temp_dir(), "cloudtik", "cloud-simulator")
-    os.makedirs(args.logs_dir, exist_ok=True)
-
-    setup_component_logger(
-        logging_level=args.logging_level,
-        logging_format=args.logging_format,
-        log_dir=args.logs_dir,
-        filename=args.logging_filename,
-        max_bytes=args.logging_rotate_bytes,
-        backup_count=args.logging_rotate_backup_count)
-
     if args.reload:
         reload_config(
             args.config, args.bind_address, args.port)
@@ -283,7 +305,7 @@ def main():
             args.config, args.bind_address, args.port)
     else:
         start_server(
-            args.config, args.bind_address, args.port)
+            args.config, args.bind_address, args.port, args)
 
 
 if __name__ == "__main__":

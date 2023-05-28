@@ -13,6 +13,7 @@ auth:
 provider:
     type: kubernetes
 
+    # For Kubernetes, we usually use internal ips for all the pods
     use_internal_ips: true
 
     # Namespace to use for all resources created.

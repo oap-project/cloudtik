@@ -159,9 +159,10 @@ class FileStateStore(StateStore):
 
         # new nodes set to terminated
         for node_id in list_of_node_ids:
+            provider_node = node_id_mapping[node_id]
             if node_id not in nodes:
                 # Don't cache here if we want to handle host IP change
-                provider_node = node_id_mapping[node_id]
+
                 node_ip = get_ip_by_name(node_id)
                 nodes[node_id] = {
                     "name": node_id,
@@ -170,6 +171,15 @@ class FileStateStore(StateStore):
                     "state": "terminated",
                     "instance_type": provider_node["instance_type"]
                 }
+                external_ip = provider_node.get("external_ip")
+                if external_ip:
+                    nodes[node_id]["external_ip"] = external_ip
+            else:
+                # for existing node, we may need to update its information if it is changed
+                node = nodes[node_id]
+                node_ip = get_ip_by_name(node_id)
+                node["ip"] = node_ip
+                node["instance_type"] = provider_node["instance_type"]
                 external_ip = provider_node.get("external_ip")
                 if external_ip:
                     nodes[node_id]["external_ip"] = external_ip

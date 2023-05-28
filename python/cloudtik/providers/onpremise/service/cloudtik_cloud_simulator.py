@@ -12,9 +12,9 @@ from http.server import SimpleHTTPRequestHandler, HTTPServer
 import json
 
 from cloudtik.core._private import constants
-from cloudtik.core._private.core_utils import try_to_create_directory, try_to_symlink
+from cloudtik.core._private.core_utils import try_to_create_directory, try_to_symlink, get_cloudtik_temp_dir
 from cloudtik.core._private.logging_utils import setup_component_logger
-from cloudtik.core._private.utils import save_server_process, get_user_temp_dir, get_cloudtik_temp_dir
+from cloudtik.core._private.utils import save_server_process
 from cloudtik.providers._private.onpremise.config import DEFAULT_CLOUD_SIMULATOR_PORT, \
     _get_http_response_from_simulator, get_cloud_simulator_process_file, _discover_cloud_simulator
 from cloudtik.providers._private.onpremise.cloud_simulator_scheduler \

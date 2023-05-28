@@ -5,7 +5,7 @@ from typing import Any, Optional
 from typing import Dict
 
 import cloudtik.core._private.utils as utils
-from cloudtik.core._private.core_utils import get_memory_in_bytes
+from cloudtik.core._private.core_utils import get_memory_in_bytes, get_cloudtik_temp_dir
 from cloudtik.core._private.resource_spec import ResourceSpec
 from cloudtik.core._private.utils import exec_with_output
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME
@@ -147,7 +147,7 @@ def prepare_local(config: Dict[str, Any]) -> Dict[str, Any]:
 
 def get_local_scheduler_lock_path() -> str:
     return os.path.join(
-        utils.get_user_temp_dir(), "cloudtik-local-scheduler.lock")
+        get_cloudtik_temp_dir(), "cloudtik-local-scheduler.lock")
 
 
 def get_state_path():

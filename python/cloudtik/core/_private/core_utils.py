@@ -9,6 +9,7 @@ import signal
 import socket
 import subprocess
 import sys
+import tempfile
 import threading
 from typing import Optional
 
@@ -699,3 +700,21 @@ def get_memory_in_bytes(memory_size):
 
 def get_ip_by_name(name):
     return socket.gethostbyname(name)
+
+
+def get_user_temp_dir():
+    if "CLOUDTIK_TMPDIR" in os.environ:
+        return os.environ["CLOUDTIK_TMPDIR"]
+    elif sys.platform.startswith("linux") and "TMPDIR" in os.environ:
+        return os.environ["TMPDIR"]
+    elif sys.platform.startswith("darwin") or sys.platform.startswith("linux"):
+        # Ideally we wouldn't need this fallback, but keep it for now for
+        # for compatibility
+        tempdir = os.path.join(os.sep, "tmp")
+    else:
+        tempdir = tempfile.gettempdir()
+    return tempdir
+
+
+def get_cloudtik_temp_dir():
+    return os.path.join(get_user_temp_dir(), "cloudtik")

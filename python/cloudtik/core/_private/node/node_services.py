@@ -21,13 +21,12 @@ import cloudtik
 import cloudtik.core._private.constants as constants
 import cloudtik.core._private.services as services
 from cloudtik.core._private.state.control_state import StateClient
-from cloudtik.core._private import utils
 from cloudtik.core._private import core_utils
 from cloudtik.core._private.state import kv_store
 from cloudtik.core._private.resource_spec import ResourceSpec
 
 from cloudtik.core._private.core_utils import try_to_create_directory, try_to_symlink, open_log, \
-    detect_fate_sharing_support, set_sigterm_handler
+    detect_fate_sharing_support, set_sigterm_handler, get_cloudtik_temp_dir
 
 # Logger for this module.
 logger = logging.getLogger(__name__)
@@ -96,7 +95,7 @@ class NodeServicesStarter:
 
         start_params.update_if_absent(
             include_log_monitor=True,
-            temp_dir=utils.get_cloudtik_temp_dir()
+            temp_dir=get_cloudtik_temp_dir()
             )
 
         self._resource_spec = None
@@ -375,7 +374,7 @@ class NodeServicesStarter:
                 "{directory_name}/{prefix}.{unique_index}{suffix}"
         """
         if directory_name is None:
-            directory_name = utils.get_cloudtik_temp_dir()
+            directory_name = get_cloudtik_temp_dir()
         directory_name = os.path.expanduser(directory_name)
         index = self._incremental_dict[suffix, prefix, directory_name]
         # `tempfile.TMP_MAX` could be extremely large,

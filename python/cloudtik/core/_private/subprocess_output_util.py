@@ -6,6 +6,7 @@ import time
 import sys
 
 from cloudtik.core._private.cli_logger import cli_logger, cf
+from cloudtik.core._private.core_utils import get_cloudtik_temp_dir
 
 CONN_REFUSED_PATIENCE = 30  # how long to wait for sshd to run
 
@@ -321,8 +322,11 @@ def run_cmd_redirected(cmd,
             output_redirected=output_redirected,
             cmd_to_print=cmd_to_print)
     else:
+        outputs_temp_dir = os.path.join(get_cloudtik_temp_dir(), "outputs")
+        # TODO: make dirs at some top level so that we don't need check creating everytime
+        os.makedirs(outputs_temp_dir, exist_ok=True)
         tmpfile_path = os.path.join(
-            tempfile.gettempdir(), "cloudtik-out-{}-{}.txt".format(
+            outputs_temp_dir, "{}-{}.txt".format(
                 cmd[0], time.time()))
         with open(
                 tmpfile_path,

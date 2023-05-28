@@ -6,9 +6,8 @@ from typing import Any, Optional
 from typing import Dict
 import logging
 import psutil
-import tempfile
 
-from cloudtik.core._private.core_utils import get_memory_in_bytes
+from cloudtik.core._private.core_utils import get_memory_in_bytes, get_cloudtik_temp_dir
 from cloudtik.core._private.utils import AUTH_CONFIG_KEY, DOCKER_CONFIG_KEY, \
     FILE_MOUNTS_CONFIG_KEY, exec_with_output
 from cloudtik.core._private.resource_spec import ResourceSpec
@@ -173,7 +172,7 @@ def get_virtual_cluster_data_path(workspace, cluster_name) -> str:
 
 def get_virtual_scheduler_lock_path(workspace, cluster_name) -> str:
     return os.path.join(
-        utils.get_user_temp_dir(),
+        get_cloudtik_temp_dir(),
         get_virtual_scheduler_lock_file_name(workspace, cluster_name))
 
 
@@ -320,7 +319,7 @@ def _make_sure_data_path():
 
 def get_ssh_server_process_file(workspace_name: str):
     ssh_server_process_file = os.path.join(
-        tempfile.gettempdir(), "cloudtik-{}-sshd".format(workspace_name))
+        get_cloudtik_temp_dir(), "cloudtik-{}-sshd".format(workspace_name))
     return ssh_server_process_file
 
 

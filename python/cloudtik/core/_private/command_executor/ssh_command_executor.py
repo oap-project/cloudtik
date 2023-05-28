@@ -80,7 +80,7 @@ class SSHCommandExecutor(HostCommandExecutor):
 
         ssh_control_hash = hashlib.md5(cluster_name.encode()).hexdigest()
         ssh_user_hash = hashlib.md5(getuser().encode()).hexdigest()
-        ssh_control_path = "/tmp/cloudtik_ssh_{}/{}".format(
+        ssh_control_path = "/tmp/cloudtik/ssh_control_paths/{}_{}".format(
             ssh_user_hash[:HASH_MAX_LENGTH],
             ssh_control_hash[:HASH_MAX_LENGTH])
         self.ssh_private_key = auth_config.get("ssh_private_key")

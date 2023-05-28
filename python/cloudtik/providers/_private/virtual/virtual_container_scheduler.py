@@ -227,10 +227,10 @@ class VirtualContainerScheduler:
 
     def set_node_tags(self, node_id, tags):
         with self.lock:
-            # update the cached node tags, although it will refresh at next non_terminated_nodes
             node = self._get_cached_node(node_id)
-            FileStateStore.update_node_tags(node, tags)
             self._set_node_tags(node_id, tags=tags)
+            # update the cached node tags, although it will refresh at next non_terminated_nodes
+            FileStateStore.update_node_tags(node, tags)
 
     def terminate_node(self, node_id):
         # We shall not lock here
@@ -463,7 +463,7 @@ class VirtualContainerScheduler:
 
             node = self._get_container(container_name=node_id)
             if node is None:
-                raise RuntimeError("No node found with id: {}.")
+                raise RuntimeError("No node found with id: {}.".format(node_id))
             tags = self._get_node_tags(node_id, node)
             node["tags"] = tags
             return node

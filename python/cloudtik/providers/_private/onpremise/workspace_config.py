@@ -6,8 +6,9 @@ from typing import Dict
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, CLOUDTIK_TAG_WORKSPACE_NAME
 from cloudtik.core.workspace_provider import Existence
-from cloudtik.providers._private.onpremise.config import _get_cloud_simulator_address, _get_http_response_from_simulator, \
-    get_cluster_name_from_node
+from cloudtik.providers._private.onpremise.config import _get_cloud_simulator_address, \
+    _get_http_response_from_simulator, \
+    get_cluster_name_from_node, _get_node_info
 
 logger = logging.getLogger(__name__)
 
@@ -18,26 +19,11 @@ ON_PREMISE_WORKSPACE_TARGET_RESOURCES = 1
 
 def get_workspace_head_nodes(workspace_name, provider_config: Dict[str, Any]):
     tag_filters = {
-        CLOUDTIK_TAG_NODE_KIND: NODE_KIND_HEAD,
-        CLOUDTIK_TAG_WORKSPACE_NAME: workspace_name}
-    request = {"type": "non_terminated_nodes", "args": (tag_filters,)}
+        CLOUDTIK_TAG_NODE_KIND: NODE_KIND_HEAD}
+    request = {"type": "list_nodes", "args": (workspace_name, tag_filters,)}
     cloud_simulator_address = _get_cloud_simulator_address(provider_config)
     all_heads = _get_http_response_from_simulator(cloud_simulator_address, request)
     return all_heads
-
-
-def _get_node_info(provider_config: Dict[str, Any], node_id):
-    request = {"type": "get_node_info", "args": (node_id,)}
-    cloud_simulator_address = _get_cloud_simulator_address(provider_config)
-    node_info = _get_http_response_from_simulator(cloud_simulator_address, request)
-    return node_info
-
-
-def _get_node_tags(provider_config: Dict[str, Any], node_id):
-    request = {"type": "node_tags", "args": (node_id, )}
-    cloud_simulator_address = _get_cloud_simulator_address(provider_config)
-    node_tags = _get_http_response_from_simulator(cloud_simulator_address, request)
-    return node_tags
 
 
 def list_onpremise_clusters(
@@ -46,7 +32,7 @@ def list_onpremise_clusters(
     head_nodes = get_workspace_head_nodes(workspace_name, provider_config)
     clusters = {}
     for head_node in head_nodes:
-        node_info = _get_node_info(provider_config, head_node)
+        node_info = _get_node_info(head_node)
         cluster_name = get_cluster_name_from_node(node_info)
         if cluster_name:
             clusters[cluster_name] = node_info

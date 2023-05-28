@@ -185,8 +185,7 @@ def _get_request_instance_type(node_config):
 
 def _get_node_id_mapping(provider_config: Dict[str, Any]):
     nodes = get_available_nodes(provider_config)
-    node_id_mapping = {node["ip"]: node for node in nodes}
-    return node_id_mapping
+    return {node["ip"]: node for node in nodes}
 
 
 def _get_node_instance_type(node_id_mapping, node_id):
@@ -199,17 +198,7 @@ def _get_node_instance_type(node_id_mapping, node_id):
 def get_all_node_ids(provider_config: Dict[str, Any]):
     nodes = get_available_nodes(provider_config)
     # ip here may the host ip or host name
-    node_ids = [node["ip"] for node in nodes]
-    return node_ids
-
-
-def _get_num_node_of_instance_type(provider_config: Dict[str, Any], instance_type) -> int:
-    nodes = get_available_nodes(provider_config)
-    num_node_of_instance_type = 0
-    for node in nodes:
-        if instance_type == node[instance_type]:
-            num_node_of_instance_type += 1
-    return num_node_of_instance_type
+    return [node["ip"] for node in nodes]
 
 
 def set_node_types_resources(

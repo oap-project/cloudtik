@@ -147,10 +147,10 @@ class LocalScheduler:
 
     def set_node_tags(self, node_id, tags):
         with self.lock:
-            # update the cached node tags, although it will refresh at next non_terminated_nodes
             node = self._get_cached_node(node_id)
-            FileStateStore.update_node_tags(node, tags)
             self._set_node_tags(node_id, tags)
+            # update the cached node tags, although it will refresh at next non_terminated_nodes
+            FileStateStore.update_node_tags(node, tags)
 
     def terminate_node(self, node_id):
         with self.lock:

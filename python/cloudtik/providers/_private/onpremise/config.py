@@ -141,10 +141,7 @@ def _get_request_instance_type(node_config):
 
 def _get_node_id_mapping(provider_config: Dict[str, Any]):
     nodes = get_available_nodes(provider_config)
-    node_id_mapping = {}
-    for node in nodes:
-        node_id_mapping[node["ip"]] = node
-    return node_id_mapping
+    return {node["ip"]: node for node in nodes}
 
 
 def _get_node_instance_type(node_id_mapping, node_id):
@@ -161,13 +158,20 @@ def get_all_node_ids(provider_config: Dict[str, Any]):
     return node_ids
 
 
-def _get_num_node_of_instance_type(provider_config: Dict[str, Any], instance_type) -> int:
-    nodes = get_available_nodes(provider_config)
-    num_node_of_instance_type = 0
-    for node in nodes:
-        if instance_type == node[instance_type]:
-            num_node_of_instance_type += 1
-    return num_node_of_instance_type
+def _get_node_tags(node):
+    if node is None:
+        return {}
+    return node.get("tags", {})
+
+
+def _get_node_info(node):
+    node_info = {"node_id": node["name"],
+                 "instance_type": node.get("instance_type"),
+                 "private_ip": node["ip"],
+                 "public_ip": node.get("external_ip"),
+                 "instance_status": node["state"]}
+    node_info.update(node["tags"])
+    return node_info
 
 
 def set_node_types_resources(

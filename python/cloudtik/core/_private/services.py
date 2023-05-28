@@ -26,7 +26,7 @@ import cloudtik.core._private.utils as utils
 from cloudtik.core._private import core_utils
 from cloudtik.core import tags
 from cloudtik.core._private.core_utils import detect_fate_sharing_support, set_kill_on_parent_death_linux, \
-    set_kill_child_on_death_win32
+    set_kill_child_on_death_win32, get_cloudtik_temp_dir
 from cloudtik.core._private.state.control_state import ControlState
 
 resource = None
@@ -494,7 +494,7 @@ def start_cloudtik_process(command,
                 "If 'use_gdb' is true, then 'use_tmux' must be true as well.")
 
         # TODO(suquark): Any better temp file creation here?
-        gdb_init_path = os.path.join(utils.get_cloudtik_temp_dir(),
+        gdb_init_path = os.path.join(get_cloudtik_temp_dir(),
                                      f"gdb_init_{process_type}_{time.time()}")
         process_path = command[0]
         process_args = command[1:]

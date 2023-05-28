@@ -6,6 +6,7 @@ from typing import Any, Dict, Optional
 from functools import partial
 import yaml
 
+from cloudtik.core._private.core_utils import get_cloudtik_temp_dir
 from cloudtik.core._private.debug import log_once
 from cloudtik.core._private.utils import prepare_config, decrypt_config, runtime_prepare_config, validate_config, \
     verify_config, encrypt_config, RUNTIME_CONFIG_KEY
@@ -49,7 +50,8 @@ def _bootstrap_config(config: Dict[str, Any],
 
     hasher = hashlib.sha1()
     hasher.update(json.dumps([config], sort_keys=True).encode("utf-8"))
-    cache_key = os.path.join(tempfile.gettempdir(),
+    config_cache_dir = os.path.join(get_cloudtik_temp_dir(), "configs")
+    cache_key = os.path.join(config_cache_dir,
                              "cloudtik-config-{}".format(hasher.hexdigest()))
 
     if os.path.exists(cache_key) and not no_config_cache:
@@ -109,6 +111,7 @@ def _bootstrap_config(config: Dict[str, Any],
     verify_config(resolved_config)
 
     if not no_config_cache or init_config_cache:
+        os.makedirs(config_cache_dir, exist_ok=True)
         with open(cache_key, "w", opener=partial(os.open, mode=0o600)) as f:
             encrypted_config = encrypt_config(resolved_config)
             config_cache = {

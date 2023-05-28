@@ -10,7 +10,6 @@ import json
 import os
 from typing import Any, Dict, Optional, Tuple, List, Union
 import sys
-import tempfile
 import binascii
 import uuid
 import time
@@ -39,7 +38,7 @@ from cloudtik.core._private.constants import CLOUDTIK_WHEELS, CLOUDTIK_CLUSTER_P
     CLOUDTIK_RUNTIME_ENV_SECRETS, CLOUDTIK_DEFAULT_PORT, CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
     CLOUDTIK_RUNTIME_ENV_NODE_TYPE, PRIVACY_REPLACEMENT_TEMPLATE, PRIVACY_REPLACEMENT, CLOUDTIK_CONFIG_SECRET, \
     CLOUDTIK_ENCRYPTION_PREFIX
-from cloudtik.core._private.core_utils import _load_class, double_quote, check_process_exists
+from cloudtik.core._private.core_utils import _load_class, double_quote, check_process_exists, get_cloudtik_temp_dir
 from cloudtik.core._private.crypto import AESCipher
 from cloudtik.core._private.runtime_factory import _get_runtime, _get_runtime_cls, DEFAULT_RUNTIMES
 from cloudtik.core.node_provider import NodeProvider
@@ -166,24 +165,6 @@ def run_bash_scripts(command: str, script_path, script_args):
     final_cmd = " ".join(cmds)
 
     run_system_command(final_cmd)
-
-
-def get_user_temp_dir():
-    if "CLOUDTIK_TMPDIR" in os.environ:
-        return os.environ["CLOUDTIK_TMPDIR"]
-    elif sys.platform.startswith("linux") and "TMPDIR" in os.environ:
-        return os.environ["TMPDIR"]
-    elif sys.platform.startswith("darwin") or sys.platform.startswith("linux"):
-        # Ideally we wouldn't need this fallback, but keep it for now for
-        # for compatibility
-        tempdir = os.path.join(os.sep, "tmp")
-    else:
-        tempdir = tempfile.gettempdir()
-    return tempdir
-
-
-def get_cloudtik_temp_dir():
-    return os.path.join(get_user_temp_dir(), "cloudtik")
 
 
 def binary_to_hex(identifier):
@@ -1700,7 +1681,7 @@ def check_cidr_conflict(cidr_block, cidr_blocks):
 
 def get_proxy_process_file(cluster_name: str):
     proxy_process_file = os.path.join(
-        tempfile.gettempdir(), "cloudtik-proxy-{}".format(cluster_name))
+        get_cloudtik_temp_dir(), "cloudtik-proxy-{}".format(cluster_name))
     return proxy_process_file
 
 

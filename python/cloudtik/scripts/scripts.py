@@ -16,8 +16,9 @@ from shlex import quote
 import click
 import psutil
 
+from cloudtik.core._private.core_utils import get_cloudtik_temp_dir
 from cloudtik.core._private import constants
-from cloudtik.core._private import services, utils, logging_utils
+from cloudtik.core._private import services, logging_utils
 from cloudtik.core._private.cli_logger import (add_click_logging_options,
                                                cli_logger, cf)
 from cloudtik.core._private.cluster.cluster_config import _load_cluster_config
@@ -254,9 +255,10 @@ def node_start(node_ip_address, address, port, head,
         redis_address = node.redis_address
         if temp_dir is None:
             # Default temp directory.
-            temp_dir = utils.get_user_temp_dir()
+            temp_dir = get_cloudtik_temp_dir()
         # Using the user-supplied temp dir unblocks
         # users who can't write to the default temp.
+        os.makedirs(temp_dir, exist_ok=True)
         current_cluster_path = os.path.join(temp_dir, "cloudtik_current_cluster")
         # TODO: Consider using the custom temp_dir for this file across the
         # code base.
@@ -401,7 +403,7 @@ def node_stop(force):
 
     try:
         os.remove(
-            os.path.join(utils.get_user_temp_dir(),
+            os.path.join(get_cloudtik_temp_dir(),
                          "cloudtik_current_cluster"))
     except OSError:
         # This just means the file doesn't exist.

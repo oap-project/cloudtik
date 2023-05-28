@@ -8,7 +8,7 @@ import logging
 
 from cloudtik.core._private.cli_logger import cli_logger
 import cloudtik.core._private.utils as utils
-from cloudtik.core._private.core_utils import get_memory_in_bytes
+from cloudtik.core._private.core_utils import get_memory_in_bytes, get_cloudtik_temp_dir
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME
 
 logger = logging.getLogger(__name__)
@@ -18,8 +18,7 @@ DEFAULT_CLOUD_SIMULATOR_PORT = 8282
 
 
 def get_cloud_simulator_process_file():
-    server_process_dir = os.path.expanduser("~/.cloudtik")
-    return os.path.join(server_process_dir, "cloudtik-cloud-simulator")
+    return os.path.join(get_cloudtik_temp_dir(), "cloudtik-cloud-simulator")
 
 
 def _discover_cloud_simulator():
@@ -108,7 +107,7 @@ def prepare_onpremise(config: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def get_cloud_simulator_lock_path() -> str:
-    return os.path.join(utils.get_user_temp_dir(), "cloudtik-cloud-simulator.lock")
+    return os.path.join(get_cloudtik_temp_dir(), "cloudtik-cloud-simulator.lock")
 
 
 def get_cloud_simulator_state_path() -> str:

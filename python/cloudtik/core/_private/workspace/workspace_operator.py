@@ -12,6 +12,7 @@ import prettytable as pt
 import yaml
 
 from cloudtik.core._private.cluster.cluster_operator import _get_cluster_info
+from cloudtik.core._private.core_utils import get_cloudtik_temp_dir
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_STATUS
 from cloudtik.core.workspace_provider import Existence, CLOUDTIK_MANAGED_CLOUD_STORAGE, \
     CLOUDTIK_MANAGED_CLOUD_STORAGE_URI
@@ -405,7 +406,8 @@ def _bootstrap_workspace_config(config: Dict[str, Any],
 
     hasher = hashlib.sha1()
     hasher.update(json.dumps([config], sort_keys=True).encode("utf-8"))
-    cache_key = os.path.join(tempfile.gettempdir(),
+    config_cache_dir = os.path.join(get_cloudtik_temp_dir(), "configs")
+    cache_key = os.path.join(config_cache_dir,
                              "cloudtik-workspace-config-{}".format(hasher.hexdigest()))
 
     provider_cls = _get_workspace_provider_cls(config["provider"])
@@ -456,6 +458,7 @@ def _bootstrap_workspace_config(config: Dict[str, Any],
     resolved_config = provider_cls.bootstrap_workspace_config(config)
 
     if not no_config_cache:
+        os.makedirs(config_cache_dir, exist_ok=True)
         with open(cache_key, "w", opener=partial(os.open, mode=0o600)) as f:
             encrypted_config = encrypt_config(resolved_config)
             config_cache = {

@@ -4,6 +4,9 @@ from: defaults
 provider:
     type: onpremise
 
+    # For On-premise, we usually use internal ips for all the nodes
+    use_internal_ips: true
+
     # We need to use Cloud Simulator for the best local cluster management
     # You can launch multiple clusters on the same set of machines, and the cloud simulator
     # will assign individual nodes to clusters as needed.

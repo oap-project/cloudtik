@@ -25,7 +25,7 @@ from cloudtik.core._private.call_context import CallContext
 from cloudtik.core._private.cluster.cluster_config import _load_cluster_config, _bootstrap_config, try_logging_config
 from cloudtik.core._private.cluster.cluster_tunnel_request import request_tunnel_to_head
 from cloudtik.core._private.cluster.cluster_utils import create_node_updater_for_exec
-from cloudtik.core._private.core_utils import kill_process_tree, double_quote
+from cloudtik.core._private.core_utils import kill_process_tree, double_quote, get_cloudtik_temp_dir
 from cloudtik.core._private.job_waiter.job_waiter_factory import create_job_waiter
 from cloudtik.core._private.runtime_factory import _get_runtime_cls
 from cloudtik.core._private.services import validate_redis_address
@@ -1034,8 +1034,9 @@ def _set_up_config_for_head_node(config: Dict[str, Any],
     remote_config["no_restart"] = no_restart
 
     # Now inject the rewritten config and SSH key into the head node
+    config_temp_dir = os.path.join(get_cloudtik_temp_dir(), "configs")
     remote_config_file = tempfile.NamedTemporaryFile(
-        "w", prefix="cloudtik-bootstrap-")
+        "w", dir=config_temp_dir, prefix="cloudtik-bootstrap-")
 
     config["file_mounts"].update({
         "~/cloudtik_bootstrap_config.yaml": remote_config_file.name

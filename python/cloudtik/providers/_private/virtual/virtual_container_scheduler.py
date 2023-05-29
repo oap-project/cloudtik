@@ -65,10 +65,6 @@ def _is_running(container):
     return state == "created" or state == "running" or state == "restarting"
 
 
-def _is_terminated(container):
-    return not _is_running(container)
-
-
 def _get_container_resources(container_object):
     resources = {}
     nano_cpus = container_object.get("cpus", 0)
@@ -206,14 +202,13 @@ class VirtualContainerScheduler:
             return [i["name"] for i in containers]
 
     def is_running(self, node_id):
-        with self.lock:
-            node = self._get_cached_node(node_id)
-            return _is_running(node)
+        # always get current status
+        node = self._get_node(node_id=node_id)
+        return _is_running(node)
 
     def is_terminated(self, node_id):
-        with self.lock:
-            node = self._get_cached_node(node_id)
-            return _is_terminated(node)
+        # always get current status
+        return not self.is_running(node_id)
 
     def node_tags(self, node_id):
         with self.lock:
@@ -250,8 +245,6 @@ class VirtualContainerScheduler:
     def get_node_info(self, node_id):
         with self.lock:
             node = self._get_cached_node(node_id)
-            if node is None:
-                raise RuntimeError("Node with id {} doesn't exist.".format(node_id))
             return _get_node_info(node)
 
     def get_command_executor(self,

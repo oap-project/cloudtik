@@ -9,7 +9,7 @@ import psutil
 
 from cloudtik.core._private.core_utils import get_memory_in_bytes, get_cloudtik_temp_dir
 from cloudtik.core._private.utils import AUTH_CONFIG_KEY, DOCKER_CONFIG_KEY, \
-    FILE_MOUNTS_CONFIG_KEY, exec_with_output
+    FILE_MOUNTS_CONFIG_KEY, exec_with_output, get_runtime_service_ports
 from cloudtik.core._private.resource_spec import ResourceSpec
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME
 
@@ -44,6 +44,7 @@ def bootstrap_virtual(config):
     config = _configure_bridge_address(config)
     config = _configure_auth(config)
     config = _configure_docker_of_node_types(config)
+    config = _configure_port_mappings(config)
     config = _configure_file_mounts(config)
     config = _configure_shared_memory_ratio(config)
 
@@ -118,6 +119,31 @@ def _configure_docker_of_node_types(config):
             node_config = node_type["node_config"]
             node_config[DOCKER_CONFIG_KEY] = copy.deepcopy(
                 node_type[DOCKER_CONFIG_KEY])
+    return config
+
+
+def _configure_port_mappings(config):
+    provider = config["provider"]
+    # TODO: to choose smartly a base on local host based clusters we are starting
+    port_mapping_base = provider.get("port_mapping_base", 0)
+    host_ip = provider["bridge_address"].split(":")[0]
+
+    # configure port mappings for head node
+    runtime_config = config.get("runtime", {})
+    service_ports = get_runtime_service_ports(runtime_config)
+
+    node_types = config["available_node_types"]
+    head_node_type = config["head_node_type"]
+    node_config = node_types[head_node_type]["node_config"]
+
+    port_mappings = {}
+    for port_name in service_ports:
+        port_config = service_ports[port_name]
+        container_port = port_config["port"]
+        host_port = port_mapping_base + container_port
+        port_mappings[str(container_port)] = "{}:{}".format(host_ip, host_port)
+    if port_mappings:
+        node_config["port_mappings"] = port_mappings
     return config
 
 

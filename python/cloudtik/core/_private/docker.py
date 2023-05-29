@@ -99,7 +99,7 @@ def check_docker_image(cname, docker_cmd):
 def docker_start_cmds(user, image, mount_dict, data_disks, container_name, user_options,
                       cluster_name, home_directory, docker_cmd,
                       network=None, cpus=None, memory=None, labels=None,
-                      mounts_mapping=False):
+                      port_mappings=None, mounts_mapping=False):
     mounts = mount_dict
     if mounts_mapping:
         # Imported here due to circular dependency.
@@ -110,13 +110,14 @@ def docker_start_cmds(user, image, mount_dict, data_disks, container_name, user_
     return _docker_start_cmds(
         user, image, mounts, data_disks, container_name,
         user_options, home_directory, docker_cmd,
-        network, cpus, memory, labels
+        network, cpus, memory, labels, port_mappings,
     )
 
 
 def _docker_start_cmds(user, image, mounts, data_disks, container_name,
                        user_options, home_directory, docker_cmd,
-                      network=None, cpus=None, memory=None, labels=None):
+                       network=None, cpus=None, memory=None, labels=None,
+                       port_mappings=None):
     # mounts mapping: target -> source
     file_mounts = [
         "-v {src}:{dest}".format(
@@ -159,6 +160,11 @@ def _docker_start_cmds(user, image, mounts, data_disks, container_name,
     if labels:
         docker_run += ["--label {name}={val}".format(
             name=k, val=v) for k, v in labels.items()]
+    if network and port_mappings:
+        # host net doesn't need port mapping
+        docker_run += ["-p {host_port}:{container_port}".format(
+            host_port=host_port, container_port=container_port
+        ) for container_port, host_port in port_mappings.items()]
 
     docker_run += [
         image, "bash"

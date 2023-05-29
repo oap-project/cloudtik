@@ -115,7 +115,7 @@ def get_cloud_simulator_state_path() -> str:
 
 
 def _get_data_path():
-    return os.path.expanduser("~/.cloudtik/cloud-simulator")
+    return os.path.expanduser("~/.cloudtik/onpremise")
 
 
 def _make_sure_data_path():

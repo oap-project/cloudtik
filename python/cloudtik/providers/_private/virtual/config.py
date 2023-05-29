@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 DEFAULT_SSH_SERVER_PORT = 3371
+MAX_PORT_MAPPING_BASE_RETRY = 20
 
 
 def _get_provider_bridge_address(provider_config):
@@ -122,15 +123,85 @@ def _configure_docker_of_node_types(config):
     return config
 
 
+def _is_port_mapping_base_usable(
+        port_mapping_base, service_ports, existing_port_mapping):
+    for port_name in service_ports:
+        port_config = service_ports[port_name]
+        host_port = port_mapping_base + port_config["port"]
+        if host_port in existing_port_mapping:
+            return False
+    return True
+
+
+def _get_port_mapping_base(provider, service_ports):
+    port_mapping_base = provider.get("port_mapping_base")
+    if port_mapping_base is not None:
+        return port_mapping_base
+
+    existing_port_mapping = _get_existing_port_mapping()
+    port_mapping_base = 0
+    retry = 0
+    while retry < MAX_PORT_MAPPING_BASE_RETRY:
+        if _is_port_mapping_base_usable(
+                port_mapping_base, service_ports, existing_port_mapping):
+            return port_mapping_base
+        port_mapping_base += 1000
+
+    raise RuntimeError("Failed to find a free port mapping base. "
+                       "You need specific port_mapping_base in provider configuration.")
+
+
+def _get_mapping(mapping):
+    # 172.18.0.1:80->80/tcp
+    # find last : and end with /
+    start = mapping.rfind(":")
+    if start < 0:
+        return None
+    start += 1
+    end = mapping.rfind("/")
+    if end < 0 or end <= start:
+        return None
+    port_to_port = mapping[start:end]
+    ports = port_to_port.split("->")
+    if len(ports) != 2:
+        return None
+    return int(ports[0]), int(ports[1])
+
+
+def _get_existing_port_mapping():
+    # Choose smartly a base on local host based clusters we are starting
+    docker_cmd = "docker container list --format '{{.Ports}}'"
+    cmd = with_sudo(docker_cmd)
+    output = exec_with_output(
+        cmd
+    ).decode().strip()
+    if not output:
+        return 0
+    existing_port_mappings = {}
+    lines = output.splitlines()
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        mappings = line.split(",")
+        for mapping in mappings:
+            mapping_pair = _get_mapping(mapping)
+            if mapping_pair is not None:
+                host_port, container_port= mapping_pair
+                existing_port_mappings[host_port] = container_port
+    return existing_port_mappings
+
+
 def _configure_port_mappings(config):
     provider = config["provider"]
-    # TODO: to choose smartly a base on local host based clusters we are starting
-    port_mapping_base = provider.get("port_mapping_base", 0)
-    host_ip = provider["bridge_address"].split(":")[0]
-
     # configure port mappings for head node
     runtime_config = config.get("runtime", {})
     service_ports = get_runtime_service_ports(runtime_config)
+
+    port_mapping_base = _get_port_mapping_base(
+        provider, service_ports)
+    host_ip = provider["bridge_address"].split(":")[0]
+    provider["port_mapping_base"] = port_mapping_base
 
     node_types = config["available_node_types"]
     head_node_type = config["head_node_type"]

@@ -339,6 +339,7 @@ class DockerCommandExecutor(CommandExecutor):
                 cpus=self.docker_config.get("cpus"),
                 memory=self.docker_config.get("memory"),
                 labels=self.docker_config.get("labels"),
+                port_mappings=self.docker_config.get("port_mappings"),
                 mounts_mapping=self.docker_config.get("mounts_mapping", True),
             )
             self.run_with_retry(

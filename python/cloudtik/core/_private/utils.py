@@ -2814,7 +2814,9 @@ def _get_runtime_service_ports(runtime_types, runtime_config):
     return service_ports
 
 
-def is_config_key_with_privacy(key: str):
+def is_config_key_with_privacy(key):
+    if not isinstance(key, str):
+        return False
     key = key.lower()
     for keyword in PRIVACY_CONFIG_KEYS:
         if keyword in key:

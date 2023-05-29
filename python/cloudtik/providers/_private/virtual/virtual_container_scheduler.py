@@ -424,6 +424,10 @@ class VirtualContainerScheduler:
         docker_config = copy.deepcopy(docker_config)
         docker_config["mounts_mapping"] = False
 
+        port_mappings = node_config.get("port_mappings")
+        if port_mappings:
+            docker_config["port_mappings"] = copy.deepcopy(port_mappings)
+
         # set labels
         if tags:
             docker_config["labels"] = tags

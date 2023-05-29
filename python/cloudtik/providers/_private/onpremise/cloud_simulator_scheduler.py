@@ -3,7 +3,7 @@ from typing import Any, Dict, Optional, List
 
 import yaml
 
-from cloudtik.core._private.utils import is_head_node_by_tags
+from cloudtik.core._private.utils import is_head_node_by_tags, _is_use_internal_ip
 from cloudtik.core.tags import CLOUDTIK_TAG_WORKSPACE_NAME
 from cloudtik.providers._private.onpremise.config import get_cloud_simulator_lock_path, \
     get_cloud_simulator_state_path, _get_instance_types, \
@@ -70,9 +70,9 @@ class CloudSimulatorScheduler:
         instance_type = _get_request_instance_type(node_config)
         with self.state.transaction():
             nodes = self.state.get_nodes_safe()
-            # head node prefer with node specified with external IP
-            # first trying node with external ip specified
-            if is_head_node_by_tags(tags):
+            if is_head_node_by_tags(tags) and not _is_use_internal_ip(self.provider_config):
+                # head node prefer with node specified with external IP
+                # first trying node with external ip specified
                 launched = self._launch_node(
                     nodes, tags, count, launched, instance_type, True)
                 if count == launched:

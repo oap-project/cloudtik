@@ -46,11 +46,12 @@ class OnPremiseNodeProvider(NodeProvider):
             return [node["name"] for node in matching_nodes]
 
     def is_running(self, node_id):
-        with self.lock:
-            node = self._get_cached_node(node_id)
-            return node["state"] == "running" if node else False
+        # always get current status
+        node = self._get_node(node_id=node_id)
+        return node["state"] == "running" if node else False
 
     def is_terminated(self, node_id):
+        # always get current status
         return not self.is_running(node_id)
 
     def node_tags(self, node_id):

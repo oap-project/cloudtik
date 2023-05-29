@@ -1,34 +1,29 @@
 import copy
-from typing import Any, Dict, Optional, List, Sequence, Tuple
-from shlex import quote
 import os
-
 import re
 import subprocess
-import sys
 import tarfile
 import tempfile
 import threading
-import yaml
-
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
-
-from cloudtik.core._private.utils import get_head_working_ip, get_node_cluster_ip, get_runtime_logs, \
-    get_runtime_processes, _get_node_specific_runtime_types, DOCKER_CONFIG_KEY
-from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, \
-    NODE_KIND_WORKER
-from cloudtik.core._private.cli_logger import cli_logger
-from cloudtik.core._private.providers import _get_node_provider
+from shlex import quote
+from typing import Any, Dict, Optional, List, Sequence, Tuple
 
 # Import psutil after cloudtik so the packaged version is used.
 import psutil
+import yaml
+
+from cloudtik.core._private.call_context import CallContext
+from cloudtik.core._private.cli_logger import cli_logger
+from cloudtik.core._private.cluster.cluster_exec import exec_cluster, exec_on_head, rsync_cluster, rsync_on_head
+from cloudtik.core._private.providers import _get_node_provider
+from cloudtik.core._private.utils import get_head_working_ip, get_node_cluster_ip, get_runtime_logs, \
+    get_runtime_processes, _get_node_specific_runtime_types
+from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, \
+    NODE_KIND_WORKER
 
 MAX_PARALLEL_SSH_WORKERS = 8
-DEFAULT_SSH_USER = "ubuntu"
-DEFAULT_SSH_KEYS = [
-    "~/cloudtik_bootstrap_key.pem"
-]
 
 
 class CommandFailed(RuntimeError):
@@ -70,15 +65,9 @@ class Node:
     def __init__(self,
                  node_id: str,
                  host: str,
-                 ssh_user: str = "ubuntu",
-                 ssh_key: str = "~/cloudtik_bootstrap_key.pem",
-                 docker_container: Optional[str] = None,
                  is_head: bool = False):
         self.node_id = node_id
         self.host = host
-        self.ssh_user = ssh_user
-        self.ssh_key = ssh_key
-        self.docker_container = docker_container
         self.is_head = is_head
 
 
@@ -172,6 +161,7 @@ def get_local_logs(
     """
     get_cloudtik_local_logs(archive, exclude)
     get_runtime_local_logs(archive, exclude, runtimes=runtimes)
+    return archive
 
 
 def get_cloudtik_local_logs(
@@ -180,6 +170,7 @@ def get_cloudtik_local_logs(
         session_log_dir: str = "/tmp/cloudtik/session_latest") -> Archive:
     log_dir = os.path.join(session_log_dir, "logs")
     get_local_logs_for(archive, "cloudtik", log_dir, exclude)
+    return archive
 
 
 def get_runtime_local_logs(
@@ -190,11 +181,12 @@ def get_runtime_local_logs(
     for category in runtime_logs:
         log_dir = runtime_logs[category]
         get_local_logs_for(archive, category, log_dir, exclude)
+    return archive
 
 
 def get_local_logs_for(
         archive: Archive,
-        category:str,
+        category: str,
         log_dir: str,
         exclude: Optional[Sequence[str]] = None) -> Archive:
     """Copy local log files into an archive.
@@ -398,43 +390,23 @@ def _wrap(items: List[str], quotes="'"):
     return f"{quotes}{' '.join(items)}{quotes}"
 
 
-def create_and_get_archive_from_remote_node(remote_node: Node,
-                                            parameters: GetParameters,
-                                            script_path: str = "cloudtik"
-                                            ) -> Optional[str]:
+def create_and_get_archive_from_remote_node(
+        config: Dict[str, Any],
+        call_context: CallContext,
+        remote_node: Node,
+        parameters: GetParameters
+) -> Optional[str]:
     """Create an archive containing logs on a remote node and transfer.
 
     This will call ``cloudtik local-dump --stream`` on the remote
     node. The resulting file will be saved locally in a temporary file and
     returned.
 
-    Args:
-        remote_node (Node): Remote node to gather archive from.
-        script_path (str): Path to this script on the remote node.
-        parameters (GetParameters): Parameters (settings) for getting data.
-
     Returns:
         Path to a temporary file containing the node's collected data.
 
     """
-    cmd = [
-        "ssh",
-        "-o StrictHostKeyChecking=no",
-        "-o UserKnownHostsFile=/dev/null",
-        "-o LogLevel=ERROR",
-        "-i",
-        remote_node.ssh_key,
-        f"{remote_node.ssh_user}@{remote_node.host}",
-    ]
-
-    if remote_node.docker_container:
-        cmd += [
-            "docker",
-            "exec",
-            remote_node.docker_container,
-        ]
-
-    collect_cmd = [script_path, "local-dump", "--verbosity=0", "--stream"]
+    collect_cmd = ["cloudtik", "local-dump", "--verbosity=0"]
     collect_cmd += ["--logs"] if parameters.logs else ["--no-logs"]
     collect_cmd += ["--debug-state"] if parameters.debug_state else [
         "--no-debug-state"
@@ -445,54 +417,75 @@ def create_and_get_archive_from_remote_node(remote_node: Node,
     ]
     if parameters.processes:
         collect_cmd += ["--processes-verbose"] \
-            if parameters.processes_verbose else ["--no-proccesses-verbose"]
+            if parameters.processes_verbose else ["--no-processes-verbose"]
 
     if parameters.runtimes and len(parameters.runtimes) > 0:
         runtime_arg = ",".join(parameters.runtimes)
         collect_cmd += ["--runtimes={}".format(quote(runtime_arg))]
 
-    # Specify --login and -i here to source bashrc and avoid command not found issue
-    cmd += ["/bin/bash", "--login", "-c", "-i", _wrap(collect_cmd, quotes="\"")]
-    cmd += ["2>/dev/null"]
+    kind = "node" if not remote_node.is_head else "head"
+    remote_temp_file = tempfile.mktemp(
+        prefix=f"cloudtik_{kind}_{remote_node.host}_", suffix=".tar.gz")
+    collect_cmd += ["--output"]
+    collect_cmd += [remote_temp_file]
 
-    cat = "node" if not remote_node.is_head else "head"
+    cmd = " ".join(collect_cmd)
 
-    cli_logger.verbose(f"Collecting data from remote node: {remote_node.host}")
-    tmp = tempfile.mktemp(
-        prefix=f"cloudtik_{cat}_{remote_node.host}_", suffix=".tar.gz")
-    with open(tmp, "wb") as fp:
-        try:
-            subprocess.check_call(cmd, stdout=fp, stderr=sys.stderr)
-        except subprocess.CalledProcessError as exc:
-            raise RemoteCommandFailed(
-                f"Gathering logs from remote node failed: {' '.join(cmd)}"
-            ) from exc
+    cli_logger.print(f"Collecting data from remote node: {remote_node.host}")
 
-    return tmp
+    # execute the command on head, and it will dump to the output file
+    exec_on_head(
+        config, call_context,
+        node_id=remote_node.node_id,
+        cmd=cmd)
+
+    # rsync the output file down to local temp
+    local_temp_file = tempfile.mktemp(
+        prefix=f"cloudtik_{kind}_{remote_node.host}_", suffix=".tar.gz")
+    rsync_on_head(
+        config, call_context, remote_node.node_id,
+        remote_temp_file, local_temp_file, True)
+
+    return local_temp_file
 
 
 def create_and_add_remote_data_to_local_archive(
-        archive: Archive, remote_node: Node, parameters: GetParameters):
+        config: Dict[str, Any],
+        call_context: CallContext,
+        archive: Archive,
+        remote_node: Node,
+        parameters: GetParameters):
     """Create and get data from remote node and add to local archive.
-
-    Args:
-        archive (Archive): Archive object to add remote data to.
-        remote_node (Node): Remote node to gather archive from.
-        parameters (GetParameters): Parameters (settings) for getting data.
 
     Returns:
         Open archive object.
     """
-    tmp = create_and_get_archive_from_remote_node(remote_node, parameters)
+    tmp = create_and_get_archive_from_remote_node(
+        config, call_context,
+        remote_node, parameters)
 
     if not archive.is_open:
         archive.open()
 
-    cat = "node" if not remote_node.is_head else "head"
+    kind = "node" if not remote_node.is_head else "head"
+    node_dir = f"{kind}_{remote_node.host}"
 
-    with archive.subdir("", root=os.path.dirname(tmp)) as sd:
-        sd.add(tmp, arcname=f"cloudtik_{cat}_{remote_node.host}.tar.gz")
+    add_archive_extracted(archive, node_dir, tmp)
+    return archive
 
+
+def add_archive_extracted(
+        archive: Archive,
+        subdir,
+        file_to_add):
+    with tempfile.TemporaryDirectory() as tmpdir:
+        with tarfile.open(file_to_add, "r:gz") as source_tar:
+            source_tar.extractall(path=tmpdir)
+        with archive.subdir(subdir, root=tmpdir) as sd:
+            for root, dirs, files in os.walk(tmpdir):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    sd.add(file_path)
     return archive
 
 
@@ -513,28 +506,19 @@ def create_and_add_local_data_to_local_archive(archive: Archive,
     if not archive.is_open:
         archive.open()
 
-    with archive.subdir(
-            "", root=os.path.dirname(local_data_archive.file)) as sd:
-        sd.add(local_data_archive.file, arcname="local_node.tar.gz")
-
+    add_archive_extracted(archive, "local", local_data_archive.file)
     os.remove(local_data_archive.file)
-
     return archive
 
 
 def create_archive_for_remote_nodes(config: Dict[str, Any],
+                                    call_context: CallContext,
                                     archive: Archive,
                                     remote_nodes: Sequence[Node],
                                     parameters: GetParameters):
     """Create an archive combining data from the remote nodes.
 
     This will parallelize calls to get data from remote nodes.
-
-    Args:
-        config (Dict[str, Any]): The cluster config
-        archive (Archive): Archive object to add remote data to.
-        remote_nodes (Sequence[Node]): Sequence of remote nodes.
-        parameters (GetParameters): Parameters (settings) for getting data.
 
     Returns:
         Open archive object.
@@ -551,6 +535,8 @@ def create_archive_for_remote_nodes(config: Dict[str, Any],
             node_parameters.set_runtimes(node_runtimes)
             executor.submit(
                 create_and_add_remote_data_to_local_archive,
+                config=config,
+                call_context=call_context.new_call_context(),
                 archive=archive,
                 remote_node=remote_node,
                 parameters=node_parameters)
@@ -559,18 +545,13 @@ def create_archive_for_remote_nodes(config: Dict[str, Any],
 
 
 def create_archive_for_local_and_remote_nodes(config: Dict[str, Any],
+                                              call_context: CallContext,
                                               archive: Archive,
                                               remote_nodes: Sequence[Node],
                                               parameters: GetParameters):
     """Create an archive combining data from the local and remote nodes.
 
     This will parallelize calls to get data from remote nodes.
-
-    Args:
-        config (Dict[str, Any]): The cluster config
-        archive (Archive): Archive object to add data to.
-        remote_nodes (Sequence[Node]): Sequence of remote nodes.
-        parameters (GetParameters): Parameters (settings) for getting data.
 
     Returns:
         Open archive object.
@@ -580,55 +561,39 @@ def create_archive_for_local_and_remote_nodes(config: Dict[str, Any],
         archive.open()
 
     try:
-        create_and_add_local_data_to_local_archive(archive, parameters)
+        create_and_add_local_data_to_local_archive(
+            archive, parameters)
     except CommandFailed as exc:
         cli_logger.error(exc)
 
     create_archive_for_remote_nodes(
-        config, archive, remote_nodes, parameters)
+        config, call_context,
+        archive, remote_nodes, parameters)
 
     cli_logger.print(f"Collected data from local node and {len(remote_nodes)} "
                      f"remote nodes.")
     return archive
 
 
-def create_and_get_archive_from_head_node(head_node: Node,
-                                          parameters: GetParameters,
-                                          script_path: str = "cloudtik"
-                                          ) -> Optional[str]:
+def create_and_get_archive_from_head_node(
+        config: Dict[str, Any],
+        call_context: CallContext,
+        head_node: Node,
+        worker_nodes: Optional[List[Node]],
+        parameters: GetParameters
+) -> Optional[str]:
     """Create an archive containing logs on a remote node and transfer.
 
     This will call ``cloudtik local-dump --stream`` on the remote
     node. The resulting file will be saved locally in a temporary file and
     returned.
 
-    Args:
-        head_node (Node): Remote node to gather archive from.
-        script_path (str): Path to this script on the remote node.
-        parameters (GetParameters): Parameters (settings) for getting data.
-
     Returns:
         Path to a temporary file containing the node's collected data.
 
     """
-    cmd = [
-        "ssh",
-        "-o StrictHostKeyChecking=no",
-        "-o UserKnownHostsFile=/dev/null",
-        "-o LogLevel=ERROR",
-        "-i",
-        head_node.ssh_key,
-        f"{head_node.ssh_user}@{head_node.host}",
-    ]
 
-    if head_node.docker_container:
-        cmd += [
-            "docker",
-            "exec",
-            head_node.docker_container,
-        ]
-
-    collect_cmd = [script_path, "head", "cluster-dump", "--verbosity=0", "--stream"]
+    collect_cmd = ["cloudtik", "head", "cluster-dump", "--verbosity=0"]
     collect_cmd += ["--logs"] if parameters.logs else ["--no-logs"]
     collect_cmd += ["--debug-state"] if parameters.debug_state else [
         "--no-debug-state"
@@ -639,67 +604,80 @@ def create_and_get_archive_from_head_node(head_node: Node,
     ]
     if parameters.processes:
         collect_cmd += ["--processes-verbose"] \
-            if parameters.processes_verbose else ["--no-proccesses-verbose"]
+            if parameters.processes_verbose else ["--no-processes-verbose"]
 
-    # Specify --login and -i here to source bashrc and avoid command not found issue
-    cmd += ["/bin/bash", "--login", "-c", "-i", _wrap(collect_cmd, quotes="\"")]
-    cmd += ["2>/dev/null"]
+    if worker_nodes:
+        # set hosts if worker list specified
+        collect_cmd += ["--hosts"]
+        collect_cmd += [",".join([worker_node.host for worker_node in worker_nodes])]
 
-    cat = "cluster"
+    kind = "cluster"
+    remote_temp_file = tempfile.mktemp(
+        prefix=f"cloudtik_{kind}_{head_node.host}_", suffix=".tar.gz")
+    collect_cmd += ["--output"]
+    collect_cmd += [remote_temp_file]
+
+    cmd = " ".join(collect_cmd)
 
     cli_logger.print(f"Collecting cluster data from head node: {head_node.host}")
-    tmp = tempfile.mktemp(
-        prefix=f"cloudtik_{cat}_{head_node.host}_", suffix=".tar.gz")
-    with open(tmp, "wb") as fp:
-        try:
-            cli_logger.verbose("Running `{}`", " ".join(collect_cmd))
-            cli_logger.verbose("Full command is `{}`", " ".join(cmd))
-            subprocess.check_call(cmd, stdout=fp, stderr=sys.stderr)
-        except subprocess.CalledProcessError as exc:
-            raise RemoteCommandFailed(
-                f"Gathering logs from head node failed: {' '.join(cmd)}"
-            ) from exc
 
-    return tmp
+    # execute the command on head, and it will dump to the output file
+    exec_cluster(
+        config, call_context,
+        cmd=cmd)
+
+    # rsync the output file down to local temp
+    local_temp_file = tempfile.mktemp(
+        prefix=f"cloudtik_{kind}_{head_node.host}_", suffix=".tar.gz")
+    rsync_cluster(
+        config, call_context,
+        remote_temp_file, local_temp_file, True)
+    return local_temp_file
 
 
 def create_and_add_workers_data_to_local_archive(
-        archive: Archive, head_node: Node, parameters: GetParameters):
+        config: Dict[str, Any],
+        call_context: CallContext,
+        archive: Archive,
+        head_node: Node,
+        worker_nodes: Optional[List[Node]],
+        parameters: GetParameters):
     """Create and get data from remote node and add to local archive.
-
-    Args:
-        archive (Archive): Archive object to add remote data to.
-        head_node (Node): Remote node to gather archive from.
-        parameters (GetParameters): Parameters (settings) for getting data.
 
     Returns:
         Open archive object.
     """
-    tmp = create_and_get_archive_from_head_node(head_node, parameters)
+    tmp = create_and_get_archive_from_head_node(
+        config, call_context,
+        head_node, worker_nodes, parameters)
 
     if not archive.is_open:
         archive.open()
 
-    cat = "workers"
-
-    with archive.subdir("", root=os.path.dirname(tmp)) as sd:
-        sd.add(tmp, arcname=f"cloudtik_{cat}.tar.gz")
-
+    add_archive_extracted(archive, "", tmp)
     return archive
 
 
-def create_archive_for_cluster_nodes(archive: Archive,
-                                     head_node: Node,
-                                     parameters: GetParameters,
-                                     head_only: bool = False):
+def create_archive_for_cluster_nodes(
+        config: Dict[str, Any],
+        call_context: CallContext,
+        archive: Archive,
+        head_node: Node,
+        worker_nodes: Optional[List[Node]],
+        parameters: GetParameters,
+        head_only: bool = False):
     """Create an archive combining data from the remote nodes.
 
     This will parallelize calls to get data from remote nodes.
 
     Args:
+        config: The config object.
+        call_context: The call context.
         archive (Archive): Archive object to add remote data to.
-        head_node (Node): The head node.
+        head_node (Node): Remote node to gather archive from.
+        worker_nodes (List[Node]): List of worker nodes to dump
         parameters (GetParameters): Parameters (settings) for getting data.
+        head_only: Dump the head node only
 
     Returns:
         Open archive object.
@@ -710,27 +688,28 @@ def create_archive_for_cluster_nodes(archive: Archive,
 
     # head node dump
     create_and_add_remote_data_to_local_archive(
+        config, call_context,
         archive, head_node, parameters)
 
     if not head_only:
         # workers dump
         create_and_add_workers_data_to_local_archive(
-            archive, head_node, parameters)
+            config, call_context,
+            archive, head_node, worker_nodes, parameters)
 
     return archive
 
 
-def create_archive_for_local_and_cluster_nodes(archive: Archive,
-                                               head_node: Node,
-                                               parameters: GetParameters):
+def create_archive_for_local_and_cluster_nodes(
+        config: Dict[str, Any],
+        call_context: CallContext,
+        archive: Archive,
+        head_node: Node,
+        worker_nodes: Optional[List[Node]],
+        parameters: GetParameters):
     """Create an archive combining data from the local and remote nodes.
 
     This will parallelize calls to get data from remote nodes.
-
-    Args:
-        archive (Archive): Archive object to add data to.
-        head_node (Node): The head node.
-        parameters (GetParameters): Parameters (settings) for getting data.
 
     Returns:
         Open archive object.
@@ -740,31 +719,30 @@ def create_archive_for_local_and_cluster_nodes(archive: Archive,
         archive.open()
 
     try:
-        create_and_add_local_data_to_local_archive(archive, parameters)
+        create_and_add_local_data_to_local_archive(
+            archive, parameters)
     except CommandFailed as exc:
         cli_logger.error(exc)
 
-    create_archive_for_cluster_nodes(archive, head_node, parameters)
+    create_archive_for_cluster_nodes(
+        config, call_context,
+        archive,
+        head_node, worker_nodes, parameters)
 
     cli_logger.print(f"Collected cluster data from local node and cluster nodes")
     return archive
 
 
 ###
-# cluster info
+# get cluster nodes information
 ###
-def get_info_from_cluster_config(config: Dict[str, Any]) \
-        -> Tuple[Tuple[str, str], List[Tuple[str, str]], str, str, Optional[str], Optional[str]]:
+def _get_cluster_nodes(config: Dict[str, Any]) \
+        -> Tuple[Tuple[str, str], List[Tuple[str, str]]]:
     """Get information from cluster config.
-
-    Return head ip, list of host IPs, ssh user, ssh key file, and optional docker
-    container.
-
     Args:
         config (dict): The config object
     Returns:
-        Tuple of list of host IPs, ssh user name, ssh key file path,
-            optional docker container name, optional cluster name.
+        (head node_id, head node_ip), list of workers (node_id, node_ip)
     """
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     head_nodes = provider.non_terminated_nodes({
@@ -776,65 +754,33 @@ def get_info_from_cluster_config(config: Dict[str, Any]) \
 
     head_node = head_nodes[0] if len(head_nodes) > 0 else None
     # TODO: check which ip address to use here
-    head_node_ip = get_head_working_ip(config, provider, head_node) if head_node else None
-    workers = [(node, get_node_cluster_ip(provider, node)) for node in worker_nodes]
-    ssh_user = config["auth"]["ssh_user"]
-    ssh_key = config["auth"]["ssh_private_key"]
+    head_node_ip = get_head_working_ip(
+        config, provider, head_node) if head_node else None
+    workers = [(node, get_node_cluster_ip(
+        provider, node)) for node in worker_nodes]
 
-    docker = None
-    docker_config = config.get(DOCKER_CONFIG_KEY, None)
-    if docker_config and docker_config.get("enabled", False):
-        docker = docker_config.get("container_name", None)
-
-    cluster_name = config.get("cluster_name", None)
-
-    return (head_node, head_node_ip), workers, ssh_user, ssh_key, docker, cluster_name
+    return (head_node, head_node_ip), workers
 
 
-def _info_from_params(
+def _get_nodes_to_dump(
         config: Dict[str, Any],
-        host: Optional[str] = None,
-        ssh_user: Optional[str] = None,
-        ssh_key: Optional[str] = None,
-        docker: Optional[str] = None,
+        hosts: Optional[str] = None
 ):
     """Parse command line arguments.
 
     Note: This returns a list of hosts, not a comma separated string!
     """
-    # TODO: handling advanced cases for ssh_ip, ssh_port and container name
-    head, workers, u, k, d, cluster_name = \
-        get_info_from_cluster_config(config)
+    head, workers = _get_cluster_nodes(config)
 
-    ssh_user = ssh_user or u
-    ssh_key = ssh_key or k
-    docker = docker or d
-    target_workers = workers
-    if host:
-        host_ips = host.split(",")
+    if hosts:
+        host_ips = hosts.split(",")
         target_workers = []
-        # build a set
-        workers_set = {}
-        for worker in workers:
-            workers_set[worker[1]] = worker
+        # build a set mapping node_ip to node information
+        workers_set = {worker[1]: worker for worker in workers}
         for host_ip in host_ips:
             if host_ip in workers_set:
                 target_workers.append(workers_set[host_ip])
+    else:
+        target_workers = workers
 
-    if not ssh_user:
-        ssh_user = DEFAULT_SSH_USER
-        cli_logger.warning(
-            f"Using default SSH user `{ssh_user}`. "
-            f"If this is incorrect, specify with `--ssh-user <user>`")
-
-    if not ssh_key:
-        for cand_key in DEFAULT_SSH_KEYS:
-            cand_key_file = os.path.expanduser(cand_key)
-            if os.path.exists(cand_key_file):
-                ssh_key = cand_key_file
-                cli_logger.warning(
-                    f"Auto detected SSH key file: {ssh_key}. "
-                    f"If this is incorrect, specify with `--ssh-key <key>`")
-                break
-
-    return head, target_workers, ssh_user, ssh_key, docker, cluster_name
+    return head, target_workers

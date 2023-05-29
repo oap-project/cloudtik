@@ -567,7 +567,7 @@ def health_check(address, redis_password, component, with_details):
 
 @head.command()
 @click.option(
-    "--host",
+    "--hosts",
     "-h",
     required=False,
     type=str,
@@ -626,7 +626,7 @@ def health_check(address, redis_password, component, with_details):
     type=int,
     help="The integer verbosity to set.")
 @add_click_logging_options
-def cluster_dump(host: Optional[str] = None,
+def cluster_dump(hosts: Optional[str] = None,
                  stream: bool = False,
                  output: Optional[str] = None,
                  logs: bool = True,
@@ -647,8 +647,11 @@ def cluster_dump(host: Optional[str] = None,
     if verbosity is not None:
         cli_logger.set_verbosity(verbosity)
 
+    config = load_head_cluster_config()
+    call_context = cli_call_context()
     get_cluster_dump_archive_on_head(
-        host=host,
+        config, call_context,
+        hosts=hosts,
         stream=stream,
         output=output,
         logs=logs,

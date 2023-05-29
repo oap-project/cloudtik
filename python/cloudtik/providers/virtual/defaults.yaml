@@ -4,6 +4,9 @@ from: defaults
 provider:
     type: virtual
 
+    # For virtual, we usually use internal ips for all the nodes
+    use_internal_ips: true
+
 # How will authenticate with newly launched nodes.
 auth:
     ssh_user: ubuntu
@@ -24,3 +27,6 @@ available_node_types:
 
 # Specify the node type of the head node (as configured above).
 head_node_type: head.default
+
+runtime:
+    types: [ganglia, hdfs, spark]

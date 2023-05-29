@@ -76,7 +76,7 @@ from cloudtik.core._private.node.node_updater import NodeUpdaterThread
 from cloudtik.core._private.event_system import (CreateClusterEvent, global_event_system)
 from cloudtik.core._private.log_timer import LogTimer
 from cloudtik.core._private.cluster.cluster_dump import Archive, \
-    GetParameters, Node, _info_from_params, \
+    GetParameters, Node, _get_nodes_to_dump, \
     create_archive_for_remote_nodes, get_all_local_data, \
     create_archive_for_cluster_nodes
 from cloudtik.core._private.state.control_state import ControlState
@@ -1665,31 +1665,27 @@ def get_local_dump_archive(stream: bool = False,
 
 
 def get_cluster_dump_archive_on_head(
-                             host: Optional[str] = None,
-                             stream: bool = False,
-                             output: Optional[str] = None,
-                             logs: bool = True,
-                             debug_state: bool = True,
-                             pip: bool = True,
-                             processes: bool = True,
-                             processes_verbose: bool = False,
-                             tempfile: Optional[str] = None) -> Optional[str]:
+        config: Dict[str, Any],
+        call_context: CallContext,
+        hosts: Optional[str] = None,
+        stream: bool = False,
+        output: Optional[str] = None,
+        logs: bool = True,
+        debug_state: bool = True,
+        pip: bool = True,
+        processes: bool = True,
+        processes_verbose: bool = False,
+        tempfile: Optional[str] = None) -> Optional[str]:
     if stream and output:
         raise ValueError(
             "You can only use either `--output` or `--stream`, but not both.")
 
-    # Parse arguments (e.g. fetch info from cluster config)
-    config = load_head_cluster_config()
-    head, workers, ssh_user, ssh_key, docker, cluster_name = \
-        _info_from_params(config, host, None, None, None)
+    head, workers, = _get_nodes_to_dump(config, hosts)
 
     nodes = [
         Node(
             node_id=worker[0],
-            host=worker[1],
-            ssh_user=ssh_user,
-            ssh_key=ssh_key,
-            docker_container=docker) for worker in workers
+            host=worker[1]) for worker in workers
     ]
 
     if not nodes:
@@ -1708,7 +1704,8 @@ def get_cluster_dump_archive_on_head(
 
     with Archive(file=tempfile) as archive:
         create_archive_for_remote_nodes(
-            config, archive, remote_nodes=nodes, parameters=parameters)
+            config, call_context,
+            archive, remote_nodes=nodes, parameters=parameters)
 
     tmp = archive.file
 
@@ -1725,12 +1722,9 @@ def get_cluster_dump_archive_on_head(
     return target
 
 
-def get_cluster_dump_archive(config_file: Optional[str] = None,
-                             override_cluster_name: str = None,
-                             host: Optional[str] = None,
-                             ssh_user: Optional[str] = None,
-                             ssh_key: Optional[str] = None,
-                             docker: Optional[str] = None,
+def get_cluster_dump_archive(config: Dict[str, Any],
+                             call_context: CallContext,
+                             hosts: Optional[str] = None,
                              head_only: Optional[bool] = None,
                              output: Optional[str] = None,
                              logs: bool = True,
@@ -1769,13 +1763,7 @@ def get_cluster_dump_archive(config_file: Optional[str] = None,
         f"the archive and inspect its contents before sharing it with "
         f"anyone.")
 
-    config_file = os.path.expanduser(config_file)
-    config = _load_cluster_config(
-        config_file, override_cluster_name, no_config_cache=True)
-
-    # Parse arguments (e.g. fetch info from cluster config)
-    head, workers, ssh_user, ssh_key, docker, cluster_name = \
-        _info_from_params(config, host, ssh_user, ssh_key, docker)
+    head, workers = _get_nodes_to_dump(config, hosts)
 
     if not head[0]:
         cli_logger.error(
@@ -1785,10 +1773,11 @@ def get_cluster_dump_archive(config_file: Optional[str] = None,
     head_node = Node(
             node_id=head[0],
             host=head[1],
-            ssh_user=ssh_user,
-            ssh_key=ssh_key,
-            docker_container=docker,
             is_head=True)
+
+    worker_nodes = [
+        Node(node_id=worker[0], host=worker[1]) for worker in workers
+    ]
 
     parameters = GetParameters(
         logs=logs,
@@ -1800,15 +1789,15 @@ def get_cluster_dump_archive(config_file: Optional[str] = None,
 
     with Archive(file=tempfile) as archive:
         create_archive_for_cluster_nodes(
-            archive, head_node=head_node, parameters=parameters, head_only=head_only)
+            config, call_context,
+            archive,
+            head_node=head_node, worker_nodes=worker_nodes,
+            parameters=parameters, head_only=head_only)
 
     if not output:
-        if cluster_name:
-            filename = f"{cluster_name}_" \
-                       f"{datetime.datetime.now():%Y-%m-%d_%H-%M-%S}.tar.gz"
-        else:
-            filename = f"collected_logs_" \
-                       f"{datetime.datetime.now():%Y-%m-%d_%H-%M-%S}.tar.gz"
+        cluster_name = config["cluster_name"]
+        filename = f"{cluster_name}_" \
+                   f"{datetime.datetime.now():%Y-%m-%d_%H-%M-%S}.tar.gz"
         output = os.path.join(os.getcwd(), filename)
     else:
         output = os.path.expanduser(output)

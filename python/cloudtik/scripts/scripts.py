@@ -1401,32 +1401,11 @@ def health_check(cluster_config_file, cluster_name, no_config_cache, with_detail
     type=str,
     help="Override the configured cluster name.")
 @click.option(
-    "--host",
+    "--hosts",
     "-h",
     required=False,
     type=str,
     help="Single or list of hosts, separated by comma.")
-@click.option(
-    "--ssh-user",
-    "-U",
-    required=False,
-    type=str,
-    default=None,
-    help="Username of the SSH user.")
-@click.option(
-    "--ssh-key",
-    "-K",
-    required=False,
-    type=str,
-    default=None,
-    help="Path to the SSH key file.")
-@click.option(
-    "--docker",
-    "-d",
-    required=False,
-    type=str,
-    default=None,
-    help="Name of the docker container, if applicable.")
 @click.option(
     "--head-only",
     required=False,
@@ -1473,13 +1452,15 @@ def health_check(cluster_config_file, cluster_name, no_config_cache, with_detail
     type=str,
     default=None,
     help="Temporary file to use")
+@click.option(
+    "--no-config-cache",
+    is_flag=True,
+    default=False,
+    help="Disable the local cluster config cache.")
 @add_click_logging_options
 def cluster_dump(cluster_config_file: Optional[str] = None,
                  cluster_name: str = None,
-                 host: Optional[str] = None,
-                 ssh_user: Optional[str] = None,
-                 ssh_key: Optional[str] = None,
-                 docker: Optional[str] = None,
+                 hosts: Optional[str] = None,
                  head_only: Optional[bool] = None,
                  output: Optional[str] = None,
                  logs: bool = True,
@@ -1487,7 +1468,8 @@ def cluster_dump(cluster_config_file: Optional[str] = None,
                  pip: bool = True,
                  processes: bool = True,
                  processes_verbose: bool = False,
-                 tempfile: Optional[str] = None):
+                 tempfile: Optional[str] = None,
+                 no_config_cache=False):
     """Get log data from one or more nodes.
 
     Best used with cluster configs:
@@ -1499,15 +1481,14 @@ def cluster_dump(cluster_config_file: Optional[str] = None,
     Missing fields will be tried to be auto-filled.
 
     You can also manually specify a list of hosts using the
-    ``--host <host1,host2,...>`` parameter.
+    ``--hosts <host1,host2,...>`` parameter.
     """
+    config = _load_cluster_config(cluster_config_file, cluster_name,
+                                  no_config_cache=no_config_cache)
     archive_path = get_cluster_dump_archive(
-        config_file=cluster_config_file,
-        override_cluster_name=cluster_name,
-        host=host,
-        ssh_user=ssh_user,
-        ssh_key=ssh_key,
-        docker=docker,
+        config=config,
+        call_context=cli_call_context(),
+        hosts=hosts,
         head_only=head_only,
         output=output,
         logs=logs,
@@ -1517,9 +1498,9 @@ def cluster_dump(cluster_config_file: Optional[str] = None,
         processes_verbose=processes_verbose,
         tempfile=tempfile)
     if archive_path:
-        click.echo(f"Created archive: {archive_path}")
+        click.echo(f"Created cluster dump archive: {archive_path}")
     else:
-        click.echo("Could not create archive.")
+        click.echo("Failed to create cluster dump archive.")
 
 
 @cli.command(hidden=True)

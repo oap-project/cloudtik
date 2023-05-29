@@ -28,3 +28,6 @@ available_node_types:
 
 # Specify the node type of the head node (as configured above).
 head_node_type: head.default
+
+runtime:
+    types: [ganglia, hdfs, spark]

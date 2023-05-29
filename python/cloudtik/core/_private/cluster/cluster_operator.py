@@ -1035,6 +1035,7 @@ def _set_up_config_for_head_node(config: Dict[str, Any],
 
     # Now inject the rewritten config and SSH key into the head node
     config_temp_dir = os.path.join(get_cloudtik_temp_dir(), "configs")
+    os.makedirs(config_temp_dir, exist_ok=True)
     remote_config_file = tempfile.NamedTemporaryFile(
         "w", dir=config_temp_dir, prefix="cloudtik-bootstrap-")
 

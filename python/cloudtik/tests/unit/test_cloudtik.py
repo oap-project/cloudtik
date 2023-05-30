@@ -886,10 +886,17 @@ class CloudTikTest(unittest.TestCase):
             self.fail("Test config did not pass validation test!")
 
         config["blah"] = "blah"
-        with pytest.raises(ValidationError):
+        try:
             validate_config(config)
+        except Exception:
+            self.fail("Config should allow additional properties!")
         del config["blah"]
 
+        del config["cluster_name"]
+        with pytest.raises(ValidationError):
+            validate_config(config)
+
+        config = copy.deepcopy(MOCK_DEFAULT_CONFIG)
         del config["provider"]
         with pytest.raises(ValidationError):
             validate_config(config)

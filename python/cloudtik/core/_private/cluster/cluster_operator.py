@@ -135,7 +135,7 @@ def request_resources(num_cpus: Optional[int] = None,
             config, constants.CLOUDTIK_RESOURCE_CPU, num_cpus)
     elif num_gpus:
         to_request = get_resource_requests_for(
-            config, constants.CLOUDTIK_RESOURCE_GPU, num_cpus)
+            config, constants.CLOUDTIK_RESOURCE_GPU, num_gpus)
     else:
         to_request = None
     _request_resources(resources=to_request, bundles=bundles)
@@ -3370,7 +3370,7 @@ def _scale_cluster_on_head(config: Dict[str, Any],
         cpus = convert_nodes_to_cpus(
             config, workers, worker_type)
         if cpus == 0:
-            raise RuntimeError("Error to convert number of workers to number of CPUs.")
+            raise RuntimeError("Not be able to convert number of workers to number of CPUs.")
 
     address = services.get_address_to_use_or_die()
     kv_initialize_with_address(address, CLOUDTIK_REDIS_DEFAULT_PASSWORD)

@@ -901,7 +901,6 @@ class CloudTikTest(unittest.TestCase):
         with pytest.raises(ValidationError):
             validate_config(config)
 
-
     def testGetRunningHeadNode(self):
         config = copy.deepcopy(SMALL_CLUSTER)
         self.provider = MockProvider()

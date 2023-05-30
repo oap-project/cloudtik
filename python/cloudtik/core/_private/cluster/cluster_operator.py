@@ -256,7 +256,7 @@ def create_or_update_cluster(
         use_login_shells=use_login_shells
     )
 
-    if not is_use_internal_ip(config):
+    if is_proxy_needed(config):
         # start proxy and bind to localhost
         _cli_logger.newline()
         with _cli_logger.group("Starting SOCKS5 proxy..."):
@@ -330,14 +330,14 @@ def _teardown_cluster(config: Dict[str, Any],
                       hard: bool = False) -> None:
     current_step = 1
     total_steps = NUM_TEARDOWN_CLUSTER_STEPS_BASE
-    if proxy_stop:
+    if proxy_stop and is_proxy_needed(config):
         total_steps += 1
     if not hard:
         total_steps += 1
         if not workers_only:
             total_steps += 2
 
-    if proxy_stop:
+    if proxy_stop and is_proxy_needed(config):
         with cli_logger.group(
                 "Stopping proxy",
                 _numbered=("[]", current_step, total_steps)):
@@ -2153,6 +2153,14 @@ def confirm(msg: str, yes: bool) -> Optional[bool]:
     return None if yes else click.confirm(msg, abort=True)
 
 
+def is_proxy_needed(config):
+    # A flag to force proxy start and stop in any case
+    provider = config["provider"]
+    if provider.get("proxy_internal_ips", False):
+        return True
+    return False if is_use_internal_ip(config) else True
+
+
 def start_proxy(config_file: str,
                 override_cluster_name: Optional[str] = None,
                 no_config_cache: bool = False,
@@ -2160,9 +2168,10 @@ def start_proxy(config_file: str,
     config = _load_cluster_config(config_file, override_cluster_name,
                                   no_config_cache=no_config_cache)
 
-    if is_use_internal_ip(config):
+    if not is_proxy_needed(config):
         cli_logger.print(cf.bold(
-            "SOCKS5 proxy is not needed. With use_internal_ips is True, you can access the cluster directly."),)
+            "SOCKS5 proxy is not needed. With use_internal_ips is True, "
+            "you can access the cluster directly."))
         return
 
     # Warning about bind_address
@@ -2253,6 +2262,13 @@ def _start_proxy_process(head_node_ip, config,
 def stop_proxy(config_file: str,
                override_cluster_name: Optional[str] = None):
     config = _load_cluster_config(config_file, override_cluster_name)
+
+    if not is_proxy_needed(config):
+        cli_logger.print(cf.bold(
+            "SOCKS5 proxy is not needed. With use_internal_ips is True, "
+            "you can access the cluster directly."))
+        return
+
     _stop_proxy(config)
 
 

@@ -47,7 +47,7 @@ class VirtualNodeProvider(NodeProvider):
         return self.virtual_scheduler.node_tags(node_id)
 
     def external_ip(self, node_id):
-        return None
+        return self.virtual_scheduler.external_ip(node_id)
 
     def internal_ip(self, node_id):
         return self.virtual_scheduler.internal_ip(node_id)

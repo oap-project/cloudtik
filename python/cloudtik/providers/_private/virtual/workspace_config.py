@@ -9,7 +9,7 @@ from typing import Dict
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.core_utils import kill_process_tree
 from cloudtik.core._private.utils import exec_with_output, get_host_address, get_free_port, \
-    save_server_process
+    save_server_process, is_use_internal_ip
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD
 from cloudtik.core.workspace_provider import Existence
 from cloudtik.providers._private.virtual.config import get_cluster_name_from_node, with_sudo, _safe_remove_file, \
@@ -176,7 +176,7 @@ def _start_bridge_ssh_server(config, workspace_name):
     authorized_keys_file = _get_authorized_keys_file(workspace_name)
     host_key_file = _get_host_key_file(workspace_name)
 
-    bridge_address = _get_bridge_address(workspace_name)
+    bridge_address = _get_bridge_address(config, workspace_name)
     ssh_server_port = get_free_port(bridge_address, DEFAULT_SSH_SERVER_PORT)
     ssh_server_process_file = get_ssh_server_process_file(workspace_name)
     sshd_path = shutil.which("sshd")
@@ -200,7 +200,14 @@ def _start_bridge_ssh_server(config, workspace_name):
         raise e
 
 
-def _get_bridge_address(workspace_name):
+def _get_bridge_address(config, workspace_name):
+    if is_use_internal_ip(config):
+        return _get_internal_bridge_address(workspace_name)
+    else:
+        return _get_host_bridge_address()
+
+
+def _get_internal_bridge_address(workspace_name):
     network_name = _get_network_name(workspace_name)
     docker_cmd = (f"docker network inspect {network_name} "
                   "-f '{{ (index .IPAM.Config 0).Gateway }}'")
@@ -211,18 +218,23 @@ def _get_bridge_address(workspace_name):
 
     # check whether the bridge address is appearing the IP list of host
     # for rootless docker, there is no interface created at the host
-    private_addresses = get_host_address(address_type="private")
+    private_addresses = get_host_address()
     if bridge_address not in private_addresses:
-        # choose any private ip address
-        if private_addresses:
-            return sorted(private_addresses)[0]
-        else:
-            # use public IP
-            public_addresses = get_host_address(address_type="public")
-            if not public_addresses:
-                raise RuntimeError("No proper ip address found for the host.")
-            return sorted(public_addresses)[0]
+        return _get_host_bridge_address()
     return bridge_address
+
+
+def _get_host_bridge_address():
+    private_addresses = get_host_address(address_type="private")
+    # choose any private ip address
+    if private_addresses:
+        return sorted(private_addresses)[0]
+    else:
+        # use public IP
+        public_addresses = get_host_address(address_type="public")
+        if not public_addresses:
+            raise RuntimeError("No proper ip address found for the host.")
+        return sorted(public_addresses)[0]
 
 
 def _is_bridge_network_exists(workspace_name):

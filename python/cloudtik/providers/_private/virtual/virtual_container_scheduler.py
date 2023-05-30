@@ -13,7 +13,7 @@ from cloudtik.core._private.command_executor.docker_command_executor import Dock
 from cloudtik.core._private.core_utils import get_memory_in_bytes
 from cloudtik.core._private.state.file_state_store import FileStateStore
 from cloudtik.core._private.utils import DOCKER_CONFIG_KEY, AUTH_CONFIG_KEY, FILE_MOUNTS_CONFIG_KEY, \
-    _merge_node_type_specific_config, is_head_node_by_tags
+    _merge_node_type_specific_config, is_head_node_by_tags, _is_use_internal_ip
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, CLOUDTIK_TAG_CLUSTER_NAME, \
     CLOUDTIK_TAG_USER_NODE_TYPE, CLOUDTIK_TAG_WORKSPACE_NAME
 from cloudtik.providers._private.virtual.config import \
@@ -26,6 +26,8 @@ from cloudtik.providers._private.virtual.utils import _get_node_info, _get_tags
 logger = logging.getLogger(__name__)
 
 MAX_CONTAINER_NAME_RETRIES = 10
+
+VIRTUAL_TAG_EXTERNAL_IP = "virtual-external-ip"
 
 STATE_MOUNT_PATH = "/cloudtik/state"
 DATA_MOUNT_PATH = "/cloudtik/data"
@@ -111,6 +113,10 @@ def _apply_filters_with_state(
         if ok:
             # update the merged tags to container
             node["tags"] = node_tags
+            # external ip
+            external_ip = node_tags.get(VIRTUAL_TAG_EXTERNAL_IP)
+            if external_ip:
+                node["external_ip"] = external_ip
             matching_nodes.append(node)
     return matching_nodes
 
@@ -214,6 +220,11 @@ class VirtualContainerScheduler:
         with self.lock:
             node = self._get_cached_node(node_id)
             return _get_tags(node)
+
+    def external_ip(self, node_id):
+        if _is_use_internal_ip(self.provider_config):
+            return None
+        return self.bridge_ip
 
     def internal_ip(self, node_id):
         with self.lock:
@@ -427,6 +438,11 @@ class VirtualContainerScheduler:
         port_mappings = node_config.get("port_mappings")
         if port_mappings:
             docker_config["port_mappings"] = copy.deepcopy(port_mappings)
+
+        if is_head_node and not _is_use_internal_ip(self.provider_config):
+            # set bridge ip as external ip store in tags
+            tags = {} if tags is None else tags
+            tags[VIRTUAL_TAG_EXTERNAL_IP] = self.bridge_ip
 
         # set labels
         if tags:

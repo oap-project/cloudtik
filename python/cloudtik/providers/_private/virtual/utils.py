@@ -28,7 +28,7 @@ def _get_node_info(node):
     node_info = {"node_id": node["name"],
                  "instance_type": node_instance_type,
                  "private_ip": node["ip"],
-                 "public_ip": None,
+                 "public_ip": node.get("external_ip"),
                  "instance_status": node["state"]}
     labels = _get_tags(node)
     node_info.update(labels)

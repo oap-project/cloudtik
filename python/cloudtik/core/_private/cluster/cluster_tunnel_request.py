@@ -8,8 +8,7 @@ import urllib.error
 from paramiko import ProxyCommand
 
 from cloudtik.core._private.cluster.cluster_config import _load_cluster_config
-from cloudtik.core._private.utils import get_cluster_head_ip
-
+from cloudtik.core._private.utils import get_cluster_head_ip, is_use_internal_ip
 
 REST_ENDPOINT_URL_FORMAT = "http://{}:{}/{}"
 REST_REQUEST_TIMEOUT = 60
@@ -28,7 +27,7 @@ def _request_rest_to_head(
         config: Dict[str, Any], endpoint: str, rest_api_port: int,
         on_head: bool = False):
     head_node_ip = get_cluster_head_ip(config, False)
-    if on_head:
+    if on_head or is_use_internal_ip(config):
         return request_rest_direct(
             rest_api_ip=head_node_ip, rest_api_port=rest_api_port, endpoint=endpoint)
     else:

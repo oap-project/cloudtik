@@ -91,6 +91,10 @@ def _configure_auth(config):
     auth_config = config[AUTH_CONFIG_KEY]
     auth_config["ssh_private_key"] = ssh_private_key_file
 
+    # The bridge_address in provider has been set
+    bridge_ssh_port = config["provider"]["bridge_address"].split(":")[1]
+    auth_config["ssh_port"] = bridge_ssh_port
+
     # copy auth to provider section
     config["provider"][AUTH_CONFIG_KEY] = copy.deepcopy(auth_config)
     return config
@@ -200,6 +204,7 @@ def _configure_port_mappings(config):
 
     port_mapping_base = _get_port_mapping_base(
         provider, service_ports)
+    # The bridge_address in provider has been set
     host_ip = provider["bridge_address"].split(":")[0]
     provider["port_mapping_base"] = port_mapping_base
 

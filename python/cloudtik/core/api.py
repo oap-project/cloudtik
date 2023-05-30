@@ -271,7 +271,11 @@ class Cluster:
             all_nodes=all_nodes,
             use_internal_ip=use_internal_ip)
 
-    def scale(self, num_cpus: Optional[int] = None, workers: Optional[int] = None,
+    def scale(self, num_cpus: Optional[int] = None,
+              num_gpus: Optional[int] = None,
+              workers: Optional[int] = None,
+              worker_type: Optional[str] = None,
+              up_only: bool = False,
               bundles: Optional[List[dict]] = None) -> None:
         """Reqeust to scale to accommodate the specified requests.
 
@@ -292,7 +296,11 @@ class Cluster:
             num_cpus (int): Scale the cluster to ensure this number of CPUs are
                 available. This request is persistent until another call to
                 request_resources() is made to override.
+            num_gpus (int): Scale the cluster to ensure this number of GPUs are
+                available
             workers (int): Scale to number of workers.
+            worker_type (str): The worker type if there were multiple workers available.
+            up_only (bool): Whether scale up only, no scale down.
             bundles (List[ResourceDict]): Scale the cluster to ensure this set of
                 resource shapes can fit. This request is persistent until another
                 call to request_resources() is made to override.
@@ -301,7 +309,10 @@ class Cluster:
             config=self.config,
             call_context=self.call_context,
             cpus=num_cpus,
-            workers=workers)
+            gpus=num_gpus,
+            workers=workers,
+            worker_type=worker_type,
+            up_only=up_only)
 
     def start_node(self,
                    node_ip: str = None,
@@ -526,14 +537,48 @@ class ThisCluster:
             node_ip=node_ip,
             all_workers=all_workers)
 
-    def scale(self, num_cpus: Optional[int] = None, workers: Optional[int] = None,
+    def scale(self, num_cpus: Optional[int] = None,
+              num_gpus: Optional[int] = None,
+              workers: Optional[int] = None,
+              worker_type: Optional[str] = None,
+              up_only: bool = False,
               bundles: Optional[List[dict]] = None) -> None:
-        """Reqeust to scale to accommodate the specified requests."""
+        """Reqeust to scale to accommodate the specified requests.
+
+        The cluster will immediately attempt to scale to accommodate the requested
+        resources, bypassing normal upscaling speed constraints. This takes into
+        account existing resource usage.
+
+        For example, suppose you call ``request_resources(num_cpus=100)`` and
+        there are 45 currently running tasks, each requiring 1 CPU. Then, enough
+        nodes will be added so up to 100 tasks can run concurrently. It does
+        **not** add enough nodes so that 145 tasks can run.
+
+        This call is only a hint. The actual resulting cluster
+        size may be slightly larger or smaller than expected depending on the
+        internal bin packing algorithm and max worker count restrictions.
+
+        Args:
+            num_cpus (int): Scale the cluster to ensure this number of CPUs are
+                available. This request is persistent until another call to
+                request_resources() is made to override.
+            num_gpus (int): Scale the cluster to ensure this number of GPUs are
+                available
+            workers (int): Scale to number of workers.
+            worker_type (str): The worker type if there were multiple workers available.
+            up_only (bool): Whether scale up only, no scale down.
+            bundles (List[ResourceDict]): Scale the cluster to ensure this set of
+                resource shapes can fit. This request is persistent until another
+                call to request_resources() is made to override.
+        """
         return cluster_operator._scale_cluster_on_head(
             config=self.config,
             call_context=self.call_context,
             cpus=num_cpus,
-            workers=workers)
+            gpus=num_gpus,
+            workers=workers,
+            worker_type=worker_type,
+            up_only=up_only)
 
     def start_node(self,
                    node_ip: str = None,

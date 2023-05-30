@@ -57,9 +57,8 @@ def request_rest_to_server(
     ssh_proxy = ssh_proxy_wrapper(ssh_proxy_command, server_ip, ssh_port, ssh_user)
 
     with sshtunnel.open_tunnel(
-            server_ip,
+            (server_ip, int(ssh_port)),
             ssh_username=ssh_user,
-            ssh_port=ssh_port,
             ssh_pkey=ssh_private_key,
             ssh_proxy=ssh_proxy,
             remote_bind_address=(rest_api_ip, rest_api_port)

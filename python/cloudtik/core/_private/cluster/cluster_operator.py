@@ -2161,10 +2161,10 @@ def is_proxy_needed(config):
     return False if is_use_internal_ip(config) else True
 
 
-def start_proxy(config_file: str,
-                override_cluster_name: Optional[str] = None,
-                no_config_cache: bool = False,
-                bind_address: str = None):
+def start_ssh_proxy(config_file: str,
+                    override_cluster_name: Optional[str] = None,
+                    no_config_cache: bool = False,
+                    bind_address: str = None):
     config = _load_cluster_config(config_file, override_cluster_name,
                                   no_config_cache=no_config_cache)
 
@@ -2259,8 +2259,8 @@ def _start_proxy_process(head_node_ip, config,
     return p.pid, bind_address, proxy_port
 
 
-def stop_proxy(config_file: str,
-               override_cluster_name: Optional[str] = None):
+def stop_ssh_proxy(config_file: str,
+                   override_cluster_name: Optional[str] = None):
     config = _load_cluster_config(config_file, override_cluster_name)
 
     if not is_proxy_needed(config):

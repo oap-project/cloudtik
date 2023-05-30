@@ -92,7 +92,7 @@ def _configure_auth(config):
     auth_config["ssh_private_key"] = ssh_private_key_file
 
     # The bridge_address in provider has been set
-    bridge_ssh_port = config["provider"]["bridge_address"].split(":")[1]
+    bridge_ssh_port = int(config["provider"]["bridge_address"].split(":")[1])
     auth_config["ssh_port"] = bridge_ssh_port
 
     # copy auth to provider section

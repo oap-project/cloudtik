@@ -26,7 +26,7 @@ from cloudtik.core._private.cluster.cluster_operator import (
     attach_cluster, create_or_update_cluster, monitor_cluster,
     teardown_cluster, get_head_node_ip, kill_node_from_head, get_worker_node_ips,
     get_cluster_dump_archive, get_local_dump_archive, RUN_ENV_TYPES,
-    show_cluster_status, start_proxy, stop_proxy, cluster_debug_status,
+    show_cluster_status, start_ssh_proxy, stop_ssh_proxy, cluster_debug_status,
     cluster_health_check, cluster_process_status, attach_worker, scale_cluster,
     exec_on_nodes, submit_and_exec, _wait_for_ready, _rsync, cli_call_context, cluster_resource_metrics,
     show_info)
@@ -1177,10 +1177,10 @@ def monitor(cluster_config_file, lines, cluster_name, file_type):
     default=None,
     help="The address to bind on local node.")
 @add_click_logging_options
-def enable_proxy(cluster_config_file, no_config_cache, cluster_name,
-                 bind_address):
+def start_proxy(cluster_config_file, no_config_cache, cluster_name,
+                bind_address):
     """Start the SOCKS5 proxy to the cluster through SSH tunnel forwarding to the head."""
-    start_proxy(
+    start_ssh_proxy(
         cluster_config_file,
         override_cluster_name=cluster_name,
         no_config_cache=no_config_cache,
@@ -1196,9 +1196,9 @@ def enable_proxy(cluster_config_file, no_config_cache, cluster_name,
     type=str,
     help="Override the configured cluster name.")
 @add_click_logging_options
-def disable_proxy(cluster_config_file, cluster_name):
+def stop_proxy(cluster_config_file, cluster_name):
     """Stop the SOCKS5 proxy to the cluster."""
-    stop_proxy(cluster_config_file, cluster_name)
+    stop_ssh_proxy(cluster_config_file, cluster_name)
 
 
 @cli.command()
@@ -1686,8 +1686,8 @@ _add_command_alias(worker_ips, name="worker_ips", hidden=True)
 cli.add_command(monitor)
 
 # commands for advanced management
-cli.add_command(enable_proxy)
-cli.add_command(disable_proxy)
+cli.add_command(start_proxy)
+cli.add_command(stop_proxy)
 
 cli.add_command(kill_node)
 _add_command_alias(kill_node, name="kill_node", hidden=True)

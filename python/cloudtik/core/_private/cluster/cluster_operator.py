@@ -63,7 +63,7 @@ from cloudtik.core._private.utils import hash_runtime_conf, \
     CLOUDTIK_CLUSTER_SCALING_STATUS, decode_cluster_scaling_time, RUNTIME_TYPES_CONFIG_KEY, get_node_info, \
     NODE_INFO_NODE_IP, get_cpus_of_node_info, _sum_min_workers, get_memory_of_node_info, sum_worker_gpus, \
     sum_nodes_resource, get_gpus_of_node_info, get_resource_of_node_info, get_resource_info_of_node_type, \
-    get_worker_node_type, save_server_process, get_resource_requests_for
+    get_worker_node_type, save_server_process, get_resource_requests_for, _get_head_resource_requests
 
 from cloudtik.core._private.providers import _get_node_provider, _NODE_PROVIDERS
 from cloudtik.core.tags import (
@@ -3400,10 +3400,16 @@ def _get_resource_requests():
     return None
 
 
-def _get_requested_resource(requested_resources, resource_id):
+def _get_requested_resource(config, requested_resources, resource_id):
     requested = 0
     for requested_resource in requested_resources:
         requested += requested_resource.get(resource_id, 0)
+
+    # remove head amount
+    head_resource_requests = _get_head_resource_requests(
+        config, resource_id)
+    for head_resource_request in head_resource_requests:
+        requested -= head_resource_request.get(resource_id, 0)
     return requested
 
 
@@ -3417,10 +3423,10 @@ def _is_resource_satisfied(
     requested_resources = _get_resource_requests()
     if requested_resources:
         if cpus and _get_requested_resource(
-                requested_resources, constants.CLOUDTIK_RESOURCE_CPU) >= cpus:
+                config, requested_resources, constants.CLOUDTIK_RESOURCE_CPU) >= cpus:
             return True
         if gpus and _get_requested_resource(
-                requested_resources, constants.CLOUDTIK_RESOURCE_GPU) >= gpus:
+                config, requested_resources, constants.CLOUDTIK_RESOURCE_GPU) >= gpus:
             return True
 
     # 2. whether running cluster resources already satisfied

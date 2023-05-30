@@ -142,7 +142,7 @@ function configure_aliyun_oss_fs() {
 }
 
 function configure_cloud_fs() {
-    sudo mkdir /cloudtik
+    sudo mkdir -p /cloudtik
     sudo chown $(whoami) /cloudtik
     if [ "$HDFS_ENABLED" == "true" ]; then
         configure_local_hdfs_fs

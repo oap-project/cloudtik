@@ -121,7 +121,7 @@ function install_ml() {
     else
         echo "Installing Open MPI..."
         which mpirun > /dev/null \
-        || (mkdir /tmp/openmpi \
+        || (mkdir -p /tmp/openmpi \
         && PREV_CUR_DIR=$(pwd) \
         && cd /tmp/openmpi \
         && wget -q --show-progress https://www.open-mpi.org/software/ompi/v4.1/downloads/openmpi-4.1.4.tar.gz -O openmpi.tar.gz  \

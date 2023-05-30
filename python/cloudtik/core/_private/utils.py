@@ -209,8 +209,8 @@ def format_error_message(exception_message, task_exception=False):
 
 
 def publish_error(error_type,
-                            message,
-                            redis_client=None):
+                  message,
+                  redis_client=None):
     """Push an error message to Redis.
 
     Args:
@@ -219,7 +219,7 @@ def publish_error(error_type,
             on the driver.
         redis_client: The redis client to use.
     """
-    # TODO (haifeng) : improve to the right format, current we simply use the string
+    # TODO : improve to the right format, current we simply use the string
     if redis_client:
         message = (f"ERROR: {time.time()}: {error_type}: \n"
                    f"{message}")
@@ -614,7 +614,7 @@ def merge_docker_initialization_commands(merged_commands, group_name, from_confi
     from_docker = from_config.get(DOCKER_CONFIG_KEY, {})
 
     for command_key in DOCKER_COMMAND_KEYS:
-      merge_command_key(docker, group_name, from_docker, command_key)
+        merge_command_key(docker, group_name, from_docker, command_key)
 
 
 def merge_cluster_config(config):
@@ -1177,7 +1177,7 @@ def fill_node_type_min_max_workers(config):
             else:
                 global_max_workers = config["max_workers"]
                 logger.debug(f"setting max workers for {node_type_name} to "
-                            f"{global_max_workers}")
+                             f"{global_max_workers}")
                 node_type_data.setdefault("max_workers", global_max_workers)
 
 
@@ -1780,7 +1780,7 @@ def wait_for_cluster_ip(call_context, provider, node_id, deadline):
 
 
 def get_node_working_ip(config: Dict[str, Any],
-                        provider:NodeProvider, node:str) -> str:
+                        provider: NodeProvider, node: str) -> str:
     if is_use_internal_ip(config):
         node_ip = provider.internal_ip(node)
     else:
@@ -2262,7 +2262,7 @@ def get_enabled_runtimes(config):
     return config.get(RUNTIME_CONFIG_KEY, {}).get(RUNTIME_TYPES_CONFIG_KEY, DEFAULT_RUNTIMES)
 
 
-def is_runtime_enabled(runtime_config, runtime_type:str):
+def is_runtime_enabled(runtime_config, runtime_type: str):
     if runtime_config is None:
         return False
 
@@ -2422,13 +2422,19 @@ def get_preferred_bundle_size(config: Dict[str, Any], resource_id: str) -> Optio
 
 
 def get_resource_requests_for_cpu(num_cpus, config):
+    return get_resource_requests_for(
+        config, constants.CLOUDTIK_RESOURCE_CPU, num_cpus)
+
+
+def get_resource_requests_for(
+        config, resource_id, amount, default_bundle_size=1):
     # For resource requests, it is the statically total resources of the cluster
-    # While num_cpus here is the number of worker cpus, we need to accounted into
-    # the head node cpus as the first resource request
+    # While amount here is the number of worker amount resource, we need to accounted into
+    # the head node as the first resource request if the head has such resource
     resource_requests = _get_head_resource_requests(
-        config, constants.CLOUDTIK_RESOURCE_CPU)
+        config, resource_id)
     resource_demands_for_workers = get_resource_demands(
-        num_cpus, constants.CLOUDTIK_RESOURCE_CPU, config, 1)
+        amount, resource_id, config, default_bundle_size)
     if resource_demands_for_workers is not None:
         resource_requests += resource_demands_for_workers
     return resource_requests
@@ -2469,7 +2475,7 @@ def get_resource_demands_for_gpu(num_gpus, config):
 
 def get_resource_demands_for_memory(memory_in_bytes, config):
     return get_resource_demands(
-        memory_in_bytes,constants.CLOUDTIK_RESOURCE_MEMORY, config, pow(1024, 3))
+        memory_in_bytes, constants.CLOUDTIK_RESOURCE_MEMORY, config, pow(1024, 3))
 
 
 def get_resource_demands(amount, resource_id, config, default_bundle_size):
@@ -2942,32 +2948,39 @@ def merge_scaling_state(scaling_state: ScalingState, new_scaling_state: ScalingS
     return ScalingState(autoscaling_instructions, node_resource_states, lost_nodes)
 
 
-def convert_nodes_to_cpus(config: Dict[str, Any], nodes: int) -> int:
-    return convert_nodes_to_resource(config, nodes, constants.CLOUDTIK_RESOURCE_CPU)
+def convert_nodes_to_cpus(config: Dict[str, Any], nodes: int,
+                          node_type: Optional[str] = None) -> int:
+    return convert_nodes_to_resource(
+        config, nodes, constants.CLOUDTIK_RESOURCE_CPU, node_type)
 
 
-def convert_nodes_to_memory(config: Dict[str, Any], nodes: int) -> int:
-    return convert_nodes_to_resource(config, nodes, constants.CLOUDTIK_RESOURCE_MEMORY)
+def convert_nodes_to_memory(config: Dict[str, Any], nodes: int,
+                            node_type: Optional[str] = None) -> int:
+    return convert_nodes_to_resource(
+        config, nodes, constants.CLOUDTIK_RESOURCE_MEMORY, node_type)
 
 
-def convert_nodes_to_gpus(config: Dict[str, Any], nodes: int) -> int:
-    return convert_nodes_to_resource(config, nodes, constants.CLOUDTIK_RESOURCE_GPU)
+def convert_nodes_to_gpus(config: Dict[str, Any], nodes: int,
+                          node_type: Optional[str] = None) -> int:
+    return convert_nodes_to_resource(
+        config, nodes, constants.CLOUDTIK_RESOURCE_GPU, node_type)
 
 
-def convert_nodes_to_resource(config: Dict[str, Any], nodes: int, resource_id) -> int:
+def convert_nodes_to_resource(
+        config: Dict[str, Any], nodes: int, resource_id,
+        node_type_name: Optional[str] = None) -> int:
     available_node_types = config["available_node_types"]
-    head_node_type = config["head_node_type"]
-    for node_type in available_node_types:
-        if node_type != head_node_type:
-            resources = available_node_types[node_type].get("resources", {})
-            resource_total = resources.get(resource_id, 0)
-            if resource_total > 0:
-                return nodes * resource_total
-    return 0
+    if node_type_name:
+        if node_type_name not in available_node_types:
+            raise RuntimeError(
+                "Node type {} is not defined in available_node_types.".format(node_type_name))
+        resources = available_node_types[node_type_name].get("resources", {})
+        resource_total = resources.get(resource_id, 0)
+        if resource_total <= 0:
+            raise ValueError("The amount of {} resource for {} is invalid {}".format(
+                resource_id, node_type_name, resource_total))
+        return nodes * resource_total
 
-
-def convert_nodes_to_resource(config: Dict[str, Any], nodes: int, resource_id) -> int:
-    available_node_types = config["available_node_types"]
     head_node_type = config["head_node_type"]
     for node_type in available_node_types:
         if node_type != head_node_type:

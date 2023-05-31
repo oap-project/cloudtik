@@ -3,6 +3,7 @@ import logging
 import os
 import subprocess
 import sys
+from shlex import quote
 from socket import socket
 from typing import Optional
 
@@ -20,6 +21,8 @@ from cloudtik.core._private.constants import CLOUDTIK_PROCESSES, \
 from cloudtik.core._private.core_utils import get_cloudtik_temp_dir
 from cloudtik.core._private.node.node_services import NodeServicesStarter
 from cloudtik.core._private.parameter import StartParams
+from cloudtik.core._private.resource_spec import ResourceSpec
+from cloudtik.core._private.utils import with_script_args
 from cloudtik.scripts.utils import NaturalOrderGroup
 
 logger = logging.getLogger(__name__)
@@ -292,7 +295,7 @@ def start(node_ip_address, address, port, head,
     help="If set, will send SIGKILL instead of SIGTERM.")
 @add_click_logging_options
 def stop(force):
-    """Stop CloudTik processes manually on the local machine."""
+    """Stop CloudTik processes on the local machine."""
 
     is_linux = sys.platform.startswith("linux")
     processes_to_kill = CLOUDTIK_PROCESSES
@@ -377,6 +380,44 @@ def stop(force):
         pass
     # Wait for the processes to actually stop.
     psutil.wait_procs(stopped, timeout=2)
+
+
+@node.command()
+@click.option(
+    "--cpu",
+    required=False,
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Show total CPU available in the current environment - considering docker or K8S.")
+@click.option(
+    "--memory",
+    required=False,
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Show total memory in the current environment - considering docker or K8S.")
+@click.option(
+    "--in-mb",
+    required=False,
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Show total memory in MB.")
+def resources(cpu, memory, in_mb):
+    """Show system resource information of the node"""
+    resource_spec = ResourceSpec().resolve(is_head=False, available_memory=False)
+    if cpu:
+        click.echo(resource_spec.num_cpus)
+    elif memory:
+        if in_mb:
+            memory_in_mb = int(resource_spec.memory / (1024 * 1024))
+            click.echo(memory_in_mb)
+        else:
+            click.echo(resource_spec.memory)
+    else:
+        static_resources = resource_spec.to_resource_dict()
+        click.echo(static_resources)
 
 
 @node.command()
@@ -475,9 +516,26 @@ def dump(
         runtimes=runtimes)
 
 
+@node.command(context_settings={"ignore_unknown_options": True})
+@click.argument("script", required=True, type=str)
+@click.argument("script_args", nargs=-1)
+def run_script(script, script_args):
+    """Runs a bash script within Cloudtik python package."""
+    root_path = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
+    target = os.path.join(root_path, script)
+    command_parts = ["bash", quote(target)]
+
+    with_script_args(command_parts, script_args)
+
+    final_cmd = " ".join(command_parts)
+    os.system(final_cmd)
+
+
 # core commands running on head and worker node
 node.add_command(start)
 node.add_command(stop)
+node.add_command(resources)
 
+node.add_command(run_script)
 # utility commands running on head or worker node for dump local data
 node.add_command(dump)

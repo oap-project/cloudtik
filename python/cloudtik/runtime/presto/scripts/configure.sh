@@ -44,7 +44,7 @@ function check_presto_installed() {
 }
 
 function retrieve_resources() {
-    jvm_max_memory=$(awk -v  total_physical_memory=$(cloudtik resources --memory --in-mb) 'BEGIN{print 0.8 * total_physical_memory}')
+    jvm_max_memory=$(awk -v total_physical_memory=$(cloudtik node resources --memory --in-mb) 'BEGIN{print 0.8 * total_physical_memory}')
     jvm_max_memory=${jvm_max_memory%.*}
     query_max_memory_per_node=$(echo $jvm_max_memory | awk '{print $1*0.5}')
     query_max_memory_per_node=${query_max_memory_per_node%.*}

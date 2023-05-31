@@ -1,27 +1,27 @@
 # Custom commands that will be run on the head node after common setup.
 head_setup_commands:
-    - cloudtik-trino install --head
-    - cloudtik-trino configure --head --node_ip_address=$CLOUDTIK_NODE_IP
+    - cloudtik runtime install trino --head
+    - cloudtik runtime configure trino --head
 
 # Custom commands that will be run on worker nodes after common setup.
 worker_setup_commands:
-    - cloudtik-trino install
-    - cloudtik-trino configure --node_ip_address=$CLOUDTIK_NODE_IP --head_address=$CLOUDTIK_HEAD_IP
+    - cloudtik runtime install trino
+    - cloudtik runtime configure trino
 
 # Command to start on the head node. You don't need to change this.
 head_start_commands:
-    - cloudtik-trino stop-head
-    - cloudtik-trino start-head
+    - cloudtik runtime services trino stop --head
+    - cloudtik runtime services trino start --head
 
 # Command to start on worker nodes. You don't need to change this.
 worker_start_commands:
-    - cloudtik-trino stop-worker
-    - cloudtik-trino start-worker
+    - cloudtik runtime services trino stop
+    - cloudtik runtime services trino start
 
 # Command to start on the head node. You don't need to change this.
 head_stop_commands:
-    - cloudtik-trino stop-head
+    - cloudtik runtime services trino stop --head
 
 # Command to start on worker nodes. You don't need to change this.
 worker_stop_commands:
-    - cloudtik-trino stop-worker
+    - cloudtik runtime services trino stop

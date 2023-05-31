@@ -33,7 +33,7 @@ def node():
     pass
 
 
-@node.command(hidden=True)
+@node.command()
 @click.option(
     "--node-ip-address",
     required=False,
@@ -284,7 +284,7 @@ def start(node_ip_address, address, port, head,
     cli_logger.flush()
 
 
-@node.command(hidden=True)
+@node.command()
 @click.option(
     "-f",
     "--force",
@@ -379,7 +379,7 @@ def stop(force):
     psutil.wait_procs(stopped, timeout=2)
 
 
-@node.command(hidden=True)
+@node.command()
 @click.option(
     "--stream",
     "-S",

@@ -398,7 +398,7 @@ def create_and_get_archive_from_remote_node(
 ) -> Optional[str]:
     """Create an archive containing logs on a remote node and transfer.
 
-    This will call ``cloudtik local-dump --stream`` on the remote
+    This will call ``cloudtik node dump --stream`` on the remote
     node. The resulting file will be saved locally in a temporary file and
     returned.
 
@@ -406,7 +406,7 @@ def create_and_get_archive_from_remote_node(
         Path to a temporary file containing the node's collected data.
 
     """
-    collect_cmd = ["cloudtik", "local-dump", "--verbosity=0"]
+    collect_cmd = ["cloudtik", "node", "dump", "--verbosity=0"]
     collect_cmd += ["--logs"] if parameters.logs else ["--no-logs"]
     collect_cmd += ["--debug-state"] if parameters.debug_state else [
         "--no-debug-state"
@@ -584,7 +584,7 @@ def create_and_get_archive_from_head_node(
 ) -> Optional[str]:
     """Create an archive containing logs on a remote node and transfer.
 
-    This will call ``cloudtik local-dump --stream`` on the remote
+    This will call ``cloudtik node dump --stream`` on the remote
     node. The resulting file will be saved locally in a temporary file and
     returned.
 

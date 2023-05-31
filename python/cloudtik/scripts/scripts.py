@@ -1,12 +1,10 @@
 import logging
-import os
 import shlex
 import traceback
 import urllib
 import urllib.error
 import urllib.parse
 import urllib.request
-from shlex import quote
 from typing import Optional
 
 import click
@@ -24,8 +22,6 @@ from cloudtik.core._private.cluster.cluster_operator import (
     cluster_health_check, cluster_process_status, attach_worker, scale_cluster,
     exec_on_nodes, submit_and_exec, _wait_for_ready, _rsync, cli_call_context, cluster_resource_metrics,
     show_info)
-from cloudtik.core._private.resource_spec import ResourceSpec
-from cloudtik.core._private.utils import with_script_args
 from cloudtik.scripts.head_scripts import head
 from cloudtik.scripts.node_scripts import node
 from cloudtik.scripts.runtime_scripts import runtime
@@ -1163,59 +1159,6 @@ def cluster_dump(cluster_config_file: Optional[str] = None,
         click.echo("Failed to create cluster dump archive.")
 
 
-@cli.command(hidden=True, context_settings={"ignore_unknown_options": True})
-@click.argument("script", required=True, type=str)
-@click.argument("script_args", nargs=-1)
-def run_script(script, script_args):
-    """Runs a bash script within this python package."""
-    root_path = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
-    target = os.path.join(root_path, script)
-    command_parts = ["bash", quote(target)]
-
-    with_script_args(command_parts, script_args)
-
-    final_cmd = " ".join(command_parts)
-    os.system(final_cmd)
-
-
-@cli.command()
-@click.option(
-    "--cpu",
-    required=False,
-    type=bool,
-    is_flag=True,
-    default=False,
-    help="Show total CPU available in the current environment - considering docker or K8S.")
-@click.option(
-    "--memory",
-    required=False,
-    type=bool,
-    is_flag=True,
-    default=False,
-    help="Show total memory in the current environment - considering docker or K8S.")
-@click.option(
-    "--in-mb",
-    required=False,
-    type=bool,
-    is_flag=True,
-    default=False,
-    help="Show total memory in MB.")
-def resources(cpu, memory, in_mb):
-    """Show system resource information"""
-    resource_spec = ResourceSpec().resolve(is_head=False, available_memory=False)
-    if cpu:
-        click.echo(resource_spec.num_cpus)
-    elif memory:
-        if in_mb:
-            memory_in_mb = int(resource_spec.memory / (1024 * 1024))
-            click.echo(memory_in_mb)
-        else:
-            click.echo(resource_spec.memory)
-    else:
-        static_resources = resource_spec.to_resource_dict()
-        click.echo(static_resources)
-
-
 def _add_command_alias(command, name, hidden):
     add_command_alias(cli, command, name, hidden)
 
@@ -1262,9 +1205,6 @@ cli.add_command(health_check)
 
 cli.add_command(cluster_dump)
 _add_command_alias(cluster_dump, name="cluster_dump", hidden=True)
-
-cli.add_command(run_script)
-cli.add_command(resources)
 
 # workspace commands
 cli.add_command(workspace)

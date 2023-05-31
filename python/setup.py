@@ -163,6 +163,16 @@ def walk_directory(directory, exclude_python: bool = False):
     return file_list
 
 
+def walk_directory_for_orphan_python_file(directory):
+    file_list = []
+    for (root, dirs, filenames) in os.walk(directory):
+        for name in filenames:
+            if name.endswith(".py"):
+                if not os.path.exists(os.path.join(root, "__init__.py")):
+                    file_list.append(os.path.join(root, name))
+    return file_list
+
+
 def copy_file(target_dir, filename, rootdir):
     # TODO: This feels very brittle. It may not handle all cases. See
     # https://github.com/apache/arrow/blob/master/python/setup.py for an
@@ -193,6 +203,7 @@ def pip_run(build_ext):
     # Include all the runtime conf and scripts files
     runtime_dir = os.path.join(ROOT_DIR, RUNTIME_SUBDIR)
     setup_spec.files_to_include += walk_directory(runtime_dir, True)
+    setup_spec.files_to_include += walk_directory_for_orphan_python_file(runtime_dir)
 
     copied_files = 0
     for filename in setup_spec.files_to_include:

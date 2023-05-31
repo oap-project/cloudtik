@@ -29,7 +29,7 @@ def _get_runtime_script_path(runtime_type: str, script_name: str):
 
 
 def _run_runtime_bash_script(script_path, command, head, script_args):
-    args = [command] or []
+    args = [command] if command else []
     if head:
         args += ["--head"]
     run_args = " ".join(args)
@@ -37,7 +37,7 @@ def _run_runtime_bash_script(script_path, command, head, script_args):
 
 
 def _run_runtime_python_script(script_path, command, head, script_args):
-    args = [command] or []
+    args = [command] if command else []
     if head:
         args += ["--head"]
     run_args = " ".join(args)

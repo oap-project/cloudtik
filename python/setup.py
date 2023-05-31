@@ -246,7 +246,6 @@ setuptools.setup(
             "cloudtik-operator=cloudtik.providers.kubernetes.cloudtik_operator.operator:main",
             "cloudtik-ganglia=cloudtik.runtime.ganglia.scripts:main",
             "cloudtik-spark=cloudtik.runtime.spark.scripts:main",
-            "cloudtik-hdfs=cloudtik.runtime.hdfs.scripts:main",
             "cloudtik-metastore=cloudtik.runtime.metastore.scripts:main",
             "cloudtik-presto=cloudtik.runtime.presto.scripts:main",
             "cloudtik-trino=cloudtik.runtime.trino.scripts:main",

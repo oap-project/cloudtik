@@ -5,24 +5,46 @@ if [ ! -n "${HADOOP_HOME}" ]; then
     exit 1
 fi
 
-case "$1" in
-start-head)
-    $HADOOP_HOME/bin/hdfs --daemon start namenode
+command=$1
+shift
+
+# Parsing arguments
+IS_HEAD_NODE=false
+
+while [[ $# -gt 0 ]]
+do
+    key="$1"
+    case $key in
+    -h|--head)
+        IS_HEAD_NODE=true
+        ;;
+    *)
+        echo "Unknown argument passed."
+        exit 1
+    esac
+    shift
+done
+
+case "$command" in
+start)
+    if [ $IS_HEAD_NODE == "true" ]; then
+        $HADOOP_HOME/bin/hdfs --daemon start namenode
+    else
+        $HADOOP_HOME/bin/hdfs --daemon start datanode
+    fi
     ;;
-stop-head)
-    $HADOOP_HOME/bin/hdfs --daemon stop namenode
-    ;;
-start-worker)
-    $HADOOP_HOME/bin/hdfs --daemon start datanode
-    ;;
-stop-worker)
-    $HADOOP_HOME/bin/hdfs --daemon stop datanode
+stop)
+    if [ $IS_HEAD_NODE == "true" ]; then
+        $HADOOP_HOME/bin/hdfs --daemon stop namenode
+    else
+        $HADOOP_HOME/bin/hdfs --daemon stop datanode
+    fi
     ;;
 -h|--help)
-    echo "Usage: $0 start-head|stop-head|start-worker|stop-worker" >&2
+    echo "Usage: $0 start|stop [--head]" >&2
     ;;
 *)
-    echo "Usage: $0 start-head|stop-head|start-worker|stop-worker" >&2
+    echo "Usage: $0 start|stop [--head]" >&2
     ;;
 esac
 

@@ -29,7 +29,7 @@ def _get_runtime_script_path(runtime_type: str, script_name: str):
 
 
 def _run_runtime_bash_script(script_path, command, head, script_args):
-    args = [command] or []
+    args = [command] if command else []
     if head:
         args += ["--head"]
     run_args = " ".join(args)
@@ -37,7 +37,7 @@ def _run_runtime_bash_script(script_path, command, head, script_args):
 
 
 def _run_runtime_python_script(script_path, command, head, script_args):
-    args = [command] or []
+    args = [command] if command else []
     if head:
         args += ["--head"]
     run_args = " ".join(args)
@@ -212,7 +212,7 @@ def stop(cluster_config_file, cluster_name, no_config_cache,
 @click.argument("script_args", nargs=-1)
 def install(runtime, head, script_args):
     _run_runtime_script(
-        runtime, head, script_args,
+        runtime, None, head, script_args,
         RUNTIME_INSTALL_SCRIPT_NAME)
 
 

@@ -4,7 +4,7 @@
 BIN_DIR=`dirname "$0"`
 ROOT_DIR="$(dirname "$(dirname "$BIN_DIR")")"
 
-args=$(getopt -a -o h:: -l head::,node_ip_address:,head_address: -- "$@")
+args=$(getopt -a -o h:: -l head:: -- "$@")
 eval set -- "${args}"
 
 IS_HEAD_NODE=false
@@ -16,14 +16,6 @@ do
     case "$1" in
     -h|--head)
         IS_HEAD_NODE=true
-        ;;
-    --node_ip_address)
-        NODE_IP_ADDRESS=$2
-        shift
-        ;;
-    --head_address)
-        HEAD_ADDRESS=$2
-        shift
         ;;
     --)
         shift
@@ -38,6 +30,9 @@ done
 
 # Cloud storage fuse functions
 . "$ROOT_DIR"/common/scripts/cloud-storage-fuse.sh
+
+# Util functions
+. "$ROOT_DIR"/common/scripts/util-functions.sh
 
 function prepare_base_conf() {
     source_dir=$(cd $(dirname ${BASH_SOURCE[0]})/..;pwd)/conf
@@ -65,22 +60,6 @@ function configure_system_folders() {
     # Create dirs for data
     mkdir -p ${RUNTIME_PATH}/jupyter/logs
     mkdir -p ${HADOOP_HOME}/logs
-}
-
-function set_head_address() {
-    if [ $IS_HEAD_NODE == "true" ]; then
-        if [ ! -n "${NODE_IP_ADDRESS}" ]; then
-            HEAD_ADDRESS=$(hostname -I | awk '{print $1}')
-        else
-            HEAD_ADDRESS=${NODE_IP_ADDRESS}
-        fi
-    else
-        if [ ! -n "${HEAD_ADDRESS}" ]; then
-            # Error: no head address passed
-            echo "Error: head ip address should be passed."
-            exit 1
-        fi
-    fi
 }
 
 function set_resources_for_spark() {

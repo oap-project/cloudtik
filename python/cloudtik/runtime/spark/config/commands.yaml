@@ -1,27 +1,27 @@
 # Custom commands that will be run on the head node after common setup.
 head_setup_commands:
-    - cloudtik-spark install --head
-    - cloudtik-spark configure --head --node_ip_address=$CLOUDTIK_NODE_IP
+    - cloudtik runtime install spark --head
+    - cloudtik runtime configure spark --head
 
 # Custom commands that will be run on worker nodes after common setup.
 worker_setup_commands:
-    - cloudtik-spark install
-    - cloudtik-spark configure --node_ip_address=$CLOUDTIK_NODE_IP --head_address=$CLOUDTIK_HEAD_IP
+    - cloudtik runtime install spark
+    - cloudtik runtime configure spark
 
 # Command to start on the head node. You don't need to change this.
 head_start_commands:
-    - cloudtik-spark stop-head
-    - cloudtik-spark start-head
+    - cloudtik runtime services spark stop --head
+    - cloudtik runtime services spark start --head
 
 # Command to start on worker nodes. You don't need to change this.
 worker_start_commands:
-    - cloudtik-spark stop-worker
-    - cloudtik-spark start-worker
+    - cloudtik runtime services spark stop
+    - cloudtik runtime services spark start
 
 # Command to start on the head node. You don't need to change this.
 head_stop_commands:
-    - cloudtik-spark stop-head
+    - cloudtik runtime services spark stop --head
 
 # Command to start on worker nodes. You don't need to change this.
 worker_stop_commands:
-    - cloudtik-spark stop-worker
+    - cloudtik runtime services spark stop

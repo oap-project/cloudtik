@@ -5,20 +5,38 @@ if [ ! -n "${KAFKA_HOME}" ]; then
     exit 1
 fi
 
-case "$1" in
-start-head)
+command=$1
+shift
+
+# Parsing arguments
+IS_HEAD_NODE=false
+
+while [[ $# -gt 0 ]]
+do
+    key="$1"
+    case $key in
+    -h|--head)
+        IS_HEAD_NODE=true
+        ;;
+    *)
+        echo "Unknown argument passed."
+        exit 1
+    esac
+    shift
+done
+
+case "$command" in
+start)
     # Do nothing for head. Kafka doesn't participate on head node
-    # nohup ${KAFKA_HOME}/bin/kafka-server-start.sh ${KAFKA_HOME}/config/server.properties >${KAFKA_HOME}/logs/kafka-server-start.log 2>&1 &
+    if [ $IS_HEAD_NODE == "false" ]; then
+        nohup ${KAFKA_HOME}/bin/kafka-server-start.sh ${KAFKA_HOME}/config/server.properties >${KAFKA_HOME}/logs/kafka-server-start.log 2>&1 &
+    fi
     ;;
-stop-head)
+stop)
     # Do nothing for head. Kafka doesn't participate on head node
-    # ${KAFKA_HOME}/bin/kafka-server-stop.sh stop
-    ;;
-start-worker)
-    nohup ${KAFKA_HOME}/bin/kafka-server-start.sh ${KAFKA_HOME}/config/server.properties >${KAFKA_HOME}/logs/kafka-server-start.log 2>&1 &
-    ;;
-stop-worker)
-    ${KAFKA_HOME}/bin/kafka-server-stop.sh stop
+    if [ $IS_HEAD_NODE == "false" ]; then
+        ${KAFKA_HOME}/bin/kafka-server-stop.sh stop
+    fi
     ;;
 -h|--help)
     echo "Usage: $0 start|stop --head" >&2

@@ -1,6 +1,10 @@
 #!/bin/bash
 
-args=$(getopt -a -o h:: -l head::,node_ip_address:,head_address:,zookeeper_connect: -- "$@")
+# Current bin directory
+BIN_DIR=`dirname "$0"`
+ROOT_DIR="$(dirname "$(dirname "$BIN_DIR")")"
+
+args=$(getopt -a -o h:: -l head::,zookeeper_connect: -- "$@")
 eval set -- "${args}"
 
 IS_HEAD_NODE=false
@@ -12,14 +16,6 @@ do
     case "$1" in
     -h|--head)
         IS_HEAD_NODE=true
-        ;;
-    --node_ip_address)
-        NODE_IP_ADDRESS=$2
-        shift
-        ;;
-    --head_address)
-        HEAD_ADDRESS=$2
-        shift
         ;;
     --zookeeper_connect)
         ZOOKEEPER_CONNECT=$2
@@ -33,6 +29,9 @@ do
     shift
 done
 
+# Util functions
+. "$ROOT_DIR"/common/scripts/util-functions.sh
+
 function prepare_base_conf() {
     source_dir=$(cd $(dirname ${BASH_SOURCE[0]})/..;pwd)/conf
     output_dir=/tmp/kafka/conf
@@ -45,22 +44,6 @@ function check_kafka_installed() {
     if [ ! -n "${KAFKA_HOME}" ]; then
         echo "KAFKA_HOME environment variable is not set."
         exit 1
-    fi
-}
-
-function set_head_address() {
-    if [ $IS_HEAD_NODE == "true" ]; then
-        if [ ! -n "${NODE_IP_ADDRESS}" ]; then
-            HEAD_ADDRESS=$(hostname -I | awk '{print $1}')
-        else
-            HEAD_ADDRESS=${NODE_IP_ADDRESS}
-        fi
-    else
-        if [ ! -n "${HEAD_ADDRESS}" ]; then
-            # Error: no head address passed
-            echo "Error: head ip address should be passed."
-            exit 1
-        fi
     fi
 }
 
@@ -128,6 +111,7 @@ if [ $IS_HEAD_NODE == "false" ];then
     # Zookeeper doesn't run on head node
     check_kafka_installed
     set_head_address
+    set_node_ip_address
     configure_kafka
 fi
 

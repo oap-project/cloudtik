@@ -212,7 +212,7 @@ def stop(cluster_config_file, cluster_name, no_config_cache,
 @click.argument("script_args", nargs=-1)
 def install(runtime, head, script_args):
     _run_runtime_script(
-        runtime, head, script_args,
+        runtime, None, head, script_args,
         RUNTIME_INSTALL_SCRIPT_NAME)
 
 

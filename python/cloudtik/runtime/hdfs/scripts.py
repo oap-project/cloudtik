@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 def run_services_command(command: str, script_args):
-    run_bash_scripts(command, SERVICES_SCRIPT_PATH, script_args)
+    run_bash_scripts(SERVICES_SCRIPT_PATH, command, script_args)
 
 
 @click.group()

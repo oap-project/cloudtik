@@ -154,13 +154,13 @@ def with_script_args(cmds, script_args):
         cmds += [double_quote(script_arg) for script_arg in list(script_args)]
 
 
-def run_bash_scripts(command: str, script_path, script_args):
+def run_bash_scripts(script_path: str, command: str, script_args):
     cmds = [
         "bash",
         quote(script_path),
     ]
-
-    cmds += [command]
+    if command:
+        cmds += [command]
     with_script_args(cmds, script_args)
     final_cmd = " ".join(cmds)
 

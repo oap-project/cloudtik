@@ -41,7 +41,7 @@ from cloudtik.core._private.utils import prepare_config, validate_config, fillou
     with_head_node_ip_environment_variables
 from cloudtik.core._private.cluster import cluster_operator
 from cloudtik.core._private.cluster.cluster_metrics import ClusterMetrics
-from cloudtik.core._private.providers import _NODE_PROVIDERS, _DEFAULT_CONFIGS, _get_node_provider, _PROVIDER_HOMES
+from cloudtik.core._private.providers import _NODE_PROVIDERS, _get_node_provider, _PROVIDER_HOMES
 from cloudtik.core.api import get_docker_host_mount_location
 
 from cloudtik.core.node_provider import NodeProvider
@@ -606,7 +606,6 @@ class CloudTikTest(unittest.TestCase):
     def setUp(self):
         _NODE_PROVIDERS["mock"] = lambda config: self.create_provider
         _PROVIDER_HOMES["mock"] = self._load_mock_provider_home
-        _DEFAULT_CONFIGS["mock"] = _DEFAULT_CONFIGS["aws"]
         self.provider = None
         self.tmpdir = tempfile.mkdtemp()
 

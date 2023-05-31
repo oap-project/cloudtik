@@ -1,9 +1,8 @@
-import copy
 import logging
 import json
 import os
 from typing import Any, Dict
-
+import inspect
 import yaml
 
 from cloudtik.core._private.concurrent_cache import ConcurrentObjectCache
@@ -13,15 +12,6 @@ logger = logging.getLogger(__name__)
 
 # For caching provider instantiations across API calls of one python session
 _node_provider_instances = ConcurrentObjectCache()
-
-# Minimal config for compatibility with legacy-style external configs.
-MINIMAL_EXTERNAL_CONFIG = {
-    "available_node_types": {
-        "head.default": {},
-        "worker.default": {},
-    },
-    "head_node_type": "head.default",
-}
 
 
 def _import_aws(provider_config):
@@ -119,42 +109,6 @@ def _load_huaweicloud_provider_home():
     return os.path.dirname(huaweicloud_provider.__file__)
 
 
-def _load_onpremise_defaults_config():
-    return os.path.join(_load_onpremise_provider_home(), "defaults.yaml")
-
-
-def _load_local_defaults_config():
-    return os.path.join(_load_local_provider_home(), "defaults.yaml")
-
-
-def _load_virtual_defaults_config():
-    return os.path.join(_load_virtual_provider_home(), "defaults.yaml")
-
-
-def _load_kubernetes_defaults_config():
-    return os.path.join(_load_kubernetes_provider_home(), "defaults.yaml")
-
-
-def _load_aws_defaults_config():
-    return os.path.join(_load_aws_provider_home(), "defaults.yaml")
-
-
-def _load_gcp_defaults_config():
-    return os.path.join(_load_gcp_provider_home(), "defaults.yaml")
-
-
-def _load_azure_defaults_config():
-    return os.path.join(_load_azure_provider_home(), "defaults.yaml")
-
-
-def _load_aliyun_defaults_config():
-    return os.path.join(_load_aliyun_provider_home(), "defaults.yaml")
-
-
-def _load_huaweicloud_defaults_config():
-    return os.path.join(_load_huaweicloud_provider_home(), "defaults.yaml")
-
-
 def _import_external(provider_config):
     provider_cls = _load_class(path=provider_config["provider_class"])
     return provider_cls
@@ -186,6 +140,8 @@ _PROVIDER_PRETTY_NAMES = {
     "external": "External"
 }
 
+# for external providers, we assume the provider home is
+# the folder contains the provider class
 _PROVIDER_HOMES = {
     "onpremise": _load_onpremise_provider_home,
     "local": _load_local_provider_home,
@@ -198,17 +154,6 @@ _PROVIDER_HOMES = {
     "huaweicloud": _load_huaweicloud_provider_home,
 }
 
-_DEFAULT_CONFIGS = {
-    "onpremise": _load_onpremise_defaults_config,
-    "local": _load_local_defaults_config,
-    "virtual": _load_virtual_defaults_config,
-    "aws": _load_aws_defaults_config,
-    "gcp": _load_gcp_defaults_config,
-    "azure": _load_azure_defaults_config,
-    "aliyun": _load_aliyun_defaults_config,
-    "kubernetes": _load_kubernetes_defaults_config,
-    "huaweicloud": _load_huaweicloud_defaults_config,
-}
 
 # For caching workspace provider instantiations across API calls of one python session
 _workspace_provider_instances = ConcurrentObjectCache()
@@ -332,21 +277,7 @@ def _clear_provider_cache():
 
 
 def _get_default_config(provider_config):
-    """Retrieve a node provider.
-
-    This is an INTERNAL API. It is not allowed to call this from outside.
-    """
-    if provider_config["type"] == "external":
-        return copy.deepcopy(MINIMAL_EXTERNAL_CONFIG)
-    load_config = _DEFAULT_CONFIGS.get(provider_config["type"])
-    if load_config is None:
-        raise NotImplementedError("Unsupported node provider: {}".format(
-            provider_config["type"]))
-    path_to_default = load_config()
-    with open(path_to_default) as f:
-        defaults = yaml.safe_load(f) or {}
-
-    return defaults
+    return _get_provider_config_object(provider_config, "defaults")
 
 
 def _get_workspace_provider_cls(provider_config: Dict[str, Any]):
@@ -406,21 +337,27 @@ def _get_default_workspace_config(provider_config):
     return _get_provider_config_object(provider_config, "workspace-defaults")
 
 
-def _get_provider_config_object(provider_config, object_name: str):
-    # For external provider, from the shared config object it there is one
-    if provider_config["type"] == "external":
-        return {"from": object_name}
+def _get_default_provider_home(provider_config):
+    provider_cls = _get_node_provider_cls(provider_config)
+    provider_module = inspect.getmodule(provider_cls)
+    return os.path.dirname(provider_module.__file__)
 
+
+def _get_provider_config_object(provider_config, object_name: str):
     if not object_name.endswith(".yaml"):
         object_name += ".yaml"
 
     load_config_home = _PROVIDER_HOMES.get(provider_config["type"])
     if load_config_home is None:
-        raise NotImplementedError("Unsupported provider: {}".format(
-            provider_config["type"]))
-    path_to_home = load_config_home()
+        # if there is no home registry, we use the default logic
+        path_to_home = _get_default_provider_home(provider_config)
+    else:
+        path_to_home = load_config_home()
     path_to_config_file = os.path.join(path_to_home, object_name)
-    with open(path_to_config_file) as f:
-        config_object = yaml.safe_load(f) or {}
-
-    return config_object
+    # if the config object file doesn't exist, from global defaults
+    if not os.path.exists(path_to_config_file):
+        return {"from": object_name}
+    else:
+        with open(path_to_config_file) as f:
+            config_object = yaml.safe_load(f) or {}
+        return config_object

@@ -25,10 +25,10 @@ stop-worker)
     # No need to run anything for worker node
     ;;
 -h|--help)
-    echo "Usage: $0 start-head|stop-head|start-worker|stop-worker" >&2
+    echo "Usage: $0 start|stop --head" >&2
     ;;
 *)
-    echo "Usage: $0 start-head|stop-head|start-worker|stop-worker" >&2
+    echo "Usage: $0 start|stop --head" >&2
     ;;
 esac
 

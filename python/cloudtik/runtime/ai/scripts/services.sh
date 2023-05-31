@@ -75,32 +75,49 @@ function set_mlflow_server_config() {
     fi
 }
 
-case "$1" in
-start-head)
-    IS_HEAD_NODE=true
-    set_head_address
+command=$1
+shift
 
-    # Will set BACKEND_STORE_URI and DEFAULT_ARTIFACT_ROOT
-    set_mlflow_server_config
+# Parsing arguments
+IS_HEAD_NODE=false
 
-    # Start MLflow service
-    nohup mlflow server --backend-store-uri ${BACKEND_STORE_URI} --default-artifact-root ${DEFAULT_ARTIFACT_ROOT} --host 0.0.0.0 -p 5001 >${MLFLOW_DATA}/logs/mlflow.log 2>&1 &
+while [[ $# -gt 0 ]]
+do
+    key="$1"
+    case $key in
+    -h|--head)
+        IS_HEAD_NODE=true
+        ;;
+    *)
+        echo "Unknown argument passed."
+        exit 1
+    esac
+    shift
+done
+
+case "$command" in
+start)
+    if [ $IS_HEAD_NODE == "true" ]; then
+        set_head_address
+
+        # Will set BACKEND_STORE_URI and DEFAULT_ARTIFACT_ROOT
+        set_mlflow_server_config
+
+        # Start MLflow service
+        nohup mlflow server --backend-store-uri ${BACKEND_STORE_URI} --default-artifact-root ${DEFAULT_ARTIFACT_ROOT} --host 0.0.0.0 -p 5001 >${MLFLOW_DATA}/logs/mlflow.log 2>&1 &
+    fi
     ;;
-stop-head)
-    # Stop MLflow service
-    ps aux | grep 'mlflow.server:app' | grep -v grep | awk '{print $2}' | xargs -r kill -9
-    ;;
-start-worker)
-    # No need to run anything for worker node
-    ;;
-stop-worker)
-    # No need to run anything for worker node
+stop)
+    if [ $IS_HEAD_NODE == "true" ]; then
+        # Stop MLflow service
+        ps aux | grep 'mlflow.server:app' | grep -v grep | awk '{print $2}' | xargs -r kill -9
+    fi
     ;;
 -h|--help)
-    echo "Usage: $0 start-head|stop-head|start-worker|stop-worker" >&2
+    echo "Usage: $0 start|stop --head" >&2
     ;;
 *)
-    echo "Usage: $0 start-head|stop-head|start-worker|stop-worker" >&2
+    echo "Usage: $0 start|stop --head" >&2
     ;;
 esac
 

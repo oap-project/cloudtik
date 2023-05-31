@@ -24,55 +24,66 @@ export CLOUD_FS_MOUNT_PATH=/cloudtik/fs
 # Cloud storage fuse functions
 . "$ROOT_DIR"/common/scripts/cloud-storage-fuse.sh
 
-case "$1" in
-start-head)
-    IS_HEAD_NODE=true
-    set_head_address
+command=$1
+shift
 
+# Parsing arguments
+IS_HEAD_NODE=false
+
+while [[ $# -gt 0 ]]
+do
+    key="$1"
+    case $key in
+    -h|--head)
+        IS_HEAD_NODE=true
+        ;;
+    *)
+        echo "Unknown argument passed."
+        exit 1
+    esac
+    shift
+done
+
+set_head_address
+
+case "$command" in
+start)
     # Mount cloud filesystem or hdfs
     mount_cloud_fs
 
-    echo "Starting Resource Manager..."
-    $HADOOP_HOME/bin/yarn --daemon start resourcemanager
-    echo "Starting Spark History Server..."
-    export SPARK_LOCAL_IP=${CLOUDTIK_NODE_IP}; $SPARK_HOME/sbin/start-history-server.sh > /dev/null
-    echo "Starting Jupyter..."
-    nohup jupyter lab --no-browser > $RUNTIME_PATH/jupyter/logs/jupyterlab.log 2>&1 &
+    if [ $IS_HEAD_NODE == "true" ]; then
+        echo "Starting Resource Manager..."
+        $HADOOP_HOME/bin/yarn --daemon start resourcemanager
+        echo "Starting Spark History Server..."
+        export SPARK_LOCAL_IP=${CLOUDTIK_NODE_IP}; $SPARK_HOME/sbin/start-history-server.sh > /dev/null
+        echo "Starting Jupyter..."
+        nohup jupyter lab --no-browser > $RUNTIME_PATH/jupyter/logs/jupyterlab.log 2>&1 &
+    else
+        $HADOOP_HOME/bin/yarn --daemon start nodemanager
+    fi
     ;;
-stop-head)
-    IS_HEAD_NODE=true
-    set_head_address
-
-    $HADOOP_HOME/bin/yarn --daemon stop resourcemanager
-    $SPARK_HOME/sbin/stop-history-server.sh
-    # workaround for stopping jupyter when password being set
-    JUPYTER_PID=$(pgrep jupyter)
-    if [ -n "$JUPYTER_PID" ]; then
-      echo "Stopping Jupyter..."
-      kill $JUPYTER_PID >/dev/null 2>&1
+stop)
+    if [ $IS_HEAD_NODE == "true" ]; then
+        $HADOOP_HOME/bin/yarn --daemon stop resourcemanager
+        $SPARK_HOME/sbin/stop-history-server.sh
+        # workaround for stopping jupyter when password being set
+        JUPYTER_PID=$(pgrep jupyter)
+        if [ -n "$JUPYTER_PID" ]; then
+          echo "Stopping Jupyter..."
+          kill $JUPYTER_PID >/dev/null 2>&1
+        fi
+    else
+        $HADOOP_HOME/bin/yarn --daemon stop nodemanager
     fi
 
-    unmount_cloud_fs
-    ;;
-start-worker)
-    IS_HEAD_NODE=false
-    set_head_address
-
-    mount_cloud_fs
-    $HADOOP_HOME/bin/yarn --daemon start nodemanager
-    ;;
-stop-worker)
-    IS_HEAD_NODE=false
-    set_head_address
-
-    $HADOOP_HOME/bin/yarn --daemon stop nodemanager
+    # Unmount cloud filesystem or hdfs
     unmount_cloud_fs
     ;;
 -h|--help)
-    echo "Usage: $0 start-head|stop-head|start-worker|stop-worker" >&2
+    echo "Usage: $0 start|stop --head" >&2
     ;;
 *)
-    echo "Usage: $0 start-head|stop-head|start-worker|stop-worker" >&2
+    echo "Usage: $0 start|stop --head" >&2
     ;;
 esac
 

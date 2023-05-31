@@ -1,27 +1,27 @@
 # Custom commands that will be run on the head node after common setup.
 head_setup_commands:
-    - cloudtik-ray install --head
-    - cloudtik-ray configure --head --node_ip_address=$CLOUDTIK_NODE_IP
+    - cloudtik runtime install ray --head
+    - cloudtik runtime configure ray --head
 
 # Custom commands that will be run on worker nodes after common setup.
 worker_setup_commands:
-    - cloudtik-ray install
-    - cloudtik-ray configure --node_ip_address=$CLOUDTIK_NODE_IP --head_address=$CLOUDTIK_HEAD_IP
+    - cloudtik runtime install ray
+    - cloudtik runtime configure ray
 
 # Command to start on the head node. You don't need to change this.
 head_start_commands:
-    - cloudtik-ray stop-head
-    - cloudtik-ray start-head
+    - cloudtik runtime services ray stop --head
+    - cloudtik runtime services ray start --head
 
 # Command to start on worker nodes. You don't need to change this.
 worker_start_commands:
-    - cloudtik-ray stop-worker
-    - cloudtik-ray start-worker
+    - cloudtik runtime services ray stop
+    - cloudtik runtime services ray start
 
 # Command to start on the head node. You don't need to change this.
 head_stop_commands:
-    - cloudtik-ray stop-head
+    - cloudtik runtime services ray stop --head
 
 # Command to start on worker nodes. You don't need to change this.
 worker_stop_commands:
-    - cloudtik-ray stop-worker
+    - cloudtik runtime services ray stop

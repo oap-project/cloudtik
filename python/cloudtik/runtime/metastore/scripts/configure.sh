@@ -1,6 +1,10 @@
 #!/bin/bash
 
-args=$(getopt -a -o h:: -l head::,node_ip_address:,head_address: -- "$@")
+# Current bin directory
+BIN_DIR=`dirname "$0"`
+ROOT_DIR="$(dirname "$(dirname "$BIN_DIR")")"
+
+args=$(getopt -a -o h:: -l head:: -- "$@")
 eval set -- "${args}"
 
 IS_HEAD_NODE=false
@@ -11,14 +15,6 @@ do
     case "$1" in
     -h|--head)
         IS_HEAD_NODE=true
-        ;;
-    --node_ip_address)
-        NODE_IP_ADDRESS=$2
-        shift
-        ;;
-    --head_address)
-        HEAD_ADDRESS=$2
-        shift
         ;;
     --)
         shift
@@ -33,6 +29,9 @@ if [ $IS_HEAD_NODE != "true" ]; then
     exit 0
 fi
 
+# Util functions
+. "$ROOT_DIR"/common/scripts/util-functions.sh
+
 function prepare_base_conf() {
     source_dir=$(cd $(dirname ${BASH_SOURCE[0]})/..;pwd)/conf
     output_dir=/tmp/metastore/conf
@@ -45,22 +44,6 @@ function check_hive_metastore_installed() {
     if [ ! -n "${METASTORE_HOME}" ]; then
         echo "Hive Metastore is not installed."
         exit 1
-    fi
-}
-
-function set_head_address() {
-    if [ $IS_HEAD_NODE == "true" ]; then
-        if [ ! -n "${NODE_IP_ADDRESS}" ]; then
-            HEAD_ADDRESS=$(hostname -I | awk '{print $1}')
-        else
-            HEAD_ADDRESS=${NODE_IP_ADDRESS}
-        fi
-    else
-        if [ ! -n "${HEAD_ADDRESS}" ]; then
-            # Error: no head address passed
-            echo "Error: head ip address should be passed."
-            exit 1
-        fi
     fi
 }
 

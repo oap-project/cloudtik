@@ -5,24 +5,38 @@ if [ ! -n "${PRESTO_HOME}" ]; then
     exit 1
 fi
 
-case "$1" in
-start-head)
+command=$1
+shift
+
+# Parsing arguments
+IS_HEAD_NODE=false
+
+while [[ $# -gt 0 ]]
+do
+    key="$1"
+    case $key in
+    -h|--head)
+        IS_HEAD_NODE=true
+        ;;
+    *)
+        echo "Unknown argument passed."
+        exit 1
+    esac
+    shift
+done
+
+case "$command" in
+start)
     $PRESTO_HOME/bin/launcher start
     ;;
-stop-head)
-    $PRESTO_HOME/bin/launcher stop
-    ;;
-start-worker)
-    $PRESTO_HOME/bin/launcher start
-    ;;
-stop-worker)
+stop)
     $PRESTO_HOME/bin/launcher stop
     ;;
 -h|--help)
-    echo "Usage: $0 start-head|stop-head|start-worker|stop-worker" >&2
+    echo "Usage: $0 start|stop --head" >&2
     ;;
 *)
-    echo "Usage: $0 start-head|stop-head|start-worker|stop-worker" >&2
+    echo "Usage: $0 start|stop --head" >&2
     ;;
 esac
 

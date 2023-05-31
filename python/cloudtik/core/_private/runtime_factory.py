@@ -1,9 +1,11 @@
+import inspect
 import logging
 import json
 import os
 from typing import Any, Dict
 
 from cloudtik.core._private.concurrent_cache import ConcurrentObjectCache
+from cloudtik.core._private.core_utils import _load_class
 from cloudtik.core.runtime import Runtime
 
 logger = logging.getLogger(__name__)
@@ -33,19 +35,9 @@ def _import_ganglia():
     return GangliaRuntime
 
 
-def _load_ganglia_runtime_home():
-    import cloudtik.runtime.ganglia as ganglia
-    return os.path.dirname(ganglia.__file__)
-
-
 def _import_spark():
     from cloudtik.runtime.spark.runtime import SparkRuntime
     return SparkRuntime
-
-
-def _load_spark_runtime_home():
-    import cloudtik.runtime.spark as spark
-    return os.path.dirname(spark.__file__)
 
 
 def _import_hdfs():
@@ -53,19 +45,9 @@ def _import_hdfs():
     return HDFSRuntime
 
 
-def _load_hdfs_runtime_home():
-    import cloudtik.runtime.hdfs as hdfs
-    return os.path.dirname(hdfs.__file__)
-
-
 def _import_metastore():
     from cloudtik.runtime.metastore.runtime import MetastoreRuntime
     return MetastoreRuntime
-
-
-def _load_metastore_runtime_home():
-    import cloudtik.runtime.metastore as metastore
-    return os.path.dirname(metastore.__file__)
 
 
 def _import_presto():
@@ -73,19 +55,9 @@ def _import_presto():
     return PrestoRuntime
 
 
-def _load_presto_runtime_home():
-    import cloudtik.runtime.presto as presto
-    return os.path.dirname(presto.__file__)
-
-
 def _import_trino():
     from cloudtik.runtime.trino.runtime import TrinoRuntime
     return TrinoRuntime
-
-
-def _load_trino_runtime_home():
-    import cloudtik.runtime.trino as trino
-    return os.path.dirname(trino.__file__)
 
 
 def _import_zookeeper():
@@ -93,19 +65,9 @@ def _import_zookeeper():
     return ZooKeeperRuntime
 
 
-def _load_zookeeper_runtime_home():
-    import cloudtik.runtime.zookeeper as zookeeper
-    return os.path.dirname(zookeeper.__file__)
-
-
 def _import_kafka():
     from cloudtik.runtime.kafka.runtime import KafkaRuntime
     return KafkaRuntime
-
-
-def _load_kafka_runtime_home():
-    import cloudtik.runtime.kafka as kafka
-    return os.path.dirname(kafka.__file__)
 
 
 def _import_ai():
@@ -113,29 +75,14 @@ def _import_ai():
     return AIRuntime
 
 
-def _load_ai_runtime_home():
-    import cloudtik.runtime.ai as ai
-    return os.path.dirname(ai.__file__)
-
-
 def _import_flink():
     from cloudtik.runtime.flink.runtime import FlinkRuntime
     return FlinkRuntime
 
 
-def _load_flink_runtime_home():
-    import cloudtik.runtime.flink as flink
-    return os.path.dirname(flink.__file__)
-
-
 def _import_ray():
     from cloudtik.runtime.ray.runtime import RayRuntime
     return RayRuntime
-
-
-def _load_ray_runtime_home():
-    import cloudtik.runtime.ray as ray
-    return os.path.dirname(ray.__file__)
 
 
 _RUNTIMES = {
@@ -152,20 +99,6 @@ _RUNTIMES = {
     "ray": _import_ray,
 }
 
-_RUNTIME_HOMES = {
-    "ganglia": _load_ganglia_runtime_home,
-    "spark": _load_spark_runtime_home,
-    "hdfs": _load_hdfs_runtime_home,
-    "metastore": _load_metastore_runtime_home,
-    "presto": _load_presto_runtime_home,
-    "trino": _load_trino_runtime_home,
-    "zookeeper": _load_zookeeper_runtime_home,
-    "kafka": _load_kafka_runtime_home,
-    "ai": _load_ai_runtime_home,
-    "flink": _load_flink_runtime_home,
-    "ray": _load_ray_runtime_home,
-}
-
 
 def _get_runtime_cls(runtime_type: str):
     """Get the runtime class for a given runtime config.
@@ -178,8 +111,15 @@ def _get_runtime_cls(runtime_type: str):
     """
     importer = _RUNTIMES.get(runtime_type)
     if importer is None:
-        raise NotImplementedError("Unsupported runtime: {}".format(
-            runtime_type))
+        # This is not a built-in runtime, it may be an external
+        # try load external runtime: runtime_type is the full class name with package
+        try:
+            runtime_cls = _load_class(runtime_type)
+            return runtime_cls
+        except (ModuleNotFoundError, ImportError) as e:
+            raise NotImplementedError("Unsupported runtime: {}.".format(
+                runtime_type))
+
     return importer()
 
 
@@ -218,10 +158,6 @@ def _clear_runtime_cache():
 
 
 def _get_runtime_home(runtime_type: str):
-    load_config_home = _RUNTIME_HOMES.get(runtime_type)
-    if load_config_home is None:
-        raise NotImplementedError("Unsupported runtime: {}".format(
-            runtime_type))
-    path_to_home = load_config_home()
-    return path_to_home
-
+    runtime_cls = _get_runtime_cls(runtime_type)
+    runtime_module = inspect.getmodule(runtime_cls)
+    return os.path.dirname(runtime_module.__file__)

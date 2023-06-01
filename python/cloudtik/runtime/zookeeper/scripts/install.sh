@@ -7,22 +7,6 @@ ROOT_DIR="$(dirname "$(dirname "$BIN_DIR")")"
 args=$(getopt -a -o h:: -l head:: -- "$@")
 eval set -- "${args}"
 
-IS_HEAD_NODE=false
-
-while true
-do
-    case "$1" in
-    -h|--head)
-        IS_HEAD_NODE=true
-        ;;
-    --)
-        shift
-        break
-        ;;
-    esac
-    shift
-done
-
 export ZOOKEEPER_VERSION=3.7.1
 
 export USER_HOME=/home/$(whoami)
@@ -49,6 +33,7 @@ function install_zookeeper() {
     fi
 }
 
+set_head_option "$@"
 install_jdk
 install_zookeeper
 clean_install_cache

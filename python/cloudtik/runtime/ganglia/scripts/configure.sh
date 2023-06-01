@@ -7,22 +7,7 @@ ROOT_DIR="$(dirname "$(dirname "$BIN_DIR")")"
 args=$(getopt -a -o h:: -l head:: -- "$@")
 eval set -- "${args}"
 
-IS_HEAD_NODE=false
 USER_HOME=/home/$(whoami)
-
-while true
-do
-    case "$1" in
-    -h|--head)
-        IS_HEAD_NODE=true
-        ;;
-    --)
-        shift
-        break
-        ;;
-    esac
-    shift
-done
 
 # Util functions
 . "$ROOT_DIR"/common/scripts/util-functions.sh
@@ -100,6 +85,7 @@ function configure_ganglia() {
     fi
 }
 
+set_head_option "$@"
 set_head_address
 set_node_ip_address
 configure_ganglia

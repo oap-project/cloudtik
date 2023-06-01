@@ -7,23 +7,8 @@ ROOT_DIR="$(dirname "$(dirname "$BIN_DIR")")"
 args=$(getopt -a -o h:: -l head:: -- "$@")
 eval set -- "${args}"
 
-IS_HEAD_NODE=false
 USER_HOME=/home/$(whoami)
 RUNTIME_PATH=$USER_HOME/runtime
-
-while true
-do
-    case "$1" in
-    -h|--head)
-        IS_HEAD_NODE=true
-        ;;
-    --)
-        shift
-        break
-        ;;
-    esac
-    shift
-done
 
 # Util functions
 . "$ROOT_DIR"/common/scripts/util-functions.sh
@@ -49,6 +34,7 @@ function configure_ray() {
     cd $output_dir
 }
 
+set_head_option "$@"
 check_ray_installed
 set_head_address
 # configure_ray

@@ -7,26 +7,11 @@ ROOT_DIR="$(dirname "$(dirname "$BIN_DIR")")"
 args=$(getopt -a -o h:: -l head:: -- "$@")
 eval set -- "${args}"
 
-IS_HEAD_NODE=false
 USER_HOME=/home/$(whoami)
 RUNTIME_PATH=$USER_HOME/runtime
 
 HADOOP_CREDENTIAL_FILE="${TRINO_HOME}/etc/catalog/hadoop_credential.jceks"
 HADOOP_CREDENTIAL_PROPERTY="<property>\n      <name>hadoop.security.credential.provider.path</name>\n      <value>jceks://file@${HADOOP_CREDENTIAL_FILE}</value>\n    </property>"
-
-while true
-do
-    case "$1" in
-    -h|--head)
-        IS_HEAD_NODE=true
-        ;;
-    --)
-        shift
-        break
-        ;;
-    esac
-    shift
-done
 
 # Util functions
 . "$ROOT_DIR"/common/scripts/util-functions.sh
@@ -272,6 +257,7 @@ function configure_trino() {
     cp ${output_dir}/trino/node.properties  ${TRINO_HOME}/etc/node.properties
 }
 
+set_head_option "$@"
 check_trino_installed
 set_head_address
 retrieve_resources

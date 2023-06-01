@@ -7,22 +7,6 @@ ROOT_DIR="$(dirname "$(dirname "$BIN_DIR")")"
 args=$(getopt -a -o h:: -l head:: -- "$@")
 eval set -- "${args}"
 
-IS_HEAD_NODE=false
-
-while true
-do
-    case "$1" in
-    -h|--head)
-        IS_HEAD_NODE=true
-        ;;
-    --)
-        shift
-        break
-        ;;
-    esac
-    shift
-done
-
 if [ -z "$SPARK_VERSION" ]; then
     # if SPARK_VERSION is not set, set a default Spark version
     export SPARK_VERSION=3.2.1
@@ -178,6 +162,7 @@ function install_spark_with_cloud_jars() {
     done
 }
 
+set_head_option "$@"
 install_jdk
 install_hadoop
 install_spark

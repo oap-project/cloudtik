@@ -7,27 +7,7 @@ ROOT_DIR="$(dirname "$(dirname "$BIN_DIR")")"
 args=$(getopt -a -o h:: -l head:: -- "$@")
 eval set -- "${args}"
 
-IS_HEAD_NODE=false
 USER_HOME=/home/$(whoami)
-
-while true
-do
-    case "$1" in
-    -h|--head)
-        IS_HEAD_NODE=true
-        ;;
-    --)
-        shift
-        break
-        ;;
-    esac
-    shift
-done
-
-if [ $IS_HEAD_NODE != "true" ]; then
-    # Do nothing for workers
-    exit 0
-fi
 
 # Util functions
 . "$ROOT_DIR"/common/scripts/util-functions.sh
@@ -129,8 +109,13 @@ function configure_hive_metastore() {
     fi
 }
 
-check_hive_metastore_installed
-set_head_address
-configure_hive_metastore
+set_head_option "$@"
+
+if [ $IS_HEAD_NODE == "true" ]; then
+    # Do nothing for workers
+    check_hive_metastore_installed
+    set_head_address
+    configure_hive_metastore
+fi
 
 exit 0

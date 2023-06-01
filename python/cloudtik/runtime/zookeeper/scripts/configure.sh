@@ -7,23 +7,8 @@ ROOT_DIR="$(dirname "$(dirname "$BIN_DIR")")"
 args=$(getopt -a -o h:: -l head:: -- "$@")
 eval set -- "${args}"
 
-IS_HEAD_NODE=false
 USER_HOME=/home/$(whoami)
 RUNTIME_PATH=$USER_HOME/runtime
-
-while true
-do
-    case "$1" in
-    -h|--head)
-        IS_HEAD_NODE=true
-        ;;
-    --)
-        shift
-        break
-        ;;
-    esac
-    shift
-done
 
 # Util functions
 . "$ROOT_DIR"/common/scripts/util-functions.sh
@@ -85,6 +70,8 @@ function configure_zookeeper() {
     cp -r ${output_dir}/zookeeper/zoo.cfg  ${ZOOKEEPER_HOME}/conf/zoo.cfg
     cp -r ${output_dir}/zookeeper/myid  $zookeeper_data_dir/myid
 }
+
+set_head_option "$@"
 
 if [ $IS_HEAD_NODE == "false" ];then
     # Zookeeper doesn't run on head node

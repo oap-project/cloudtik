@@ -7,27 +7,6 @@ ROOT_DIR="$(dirname "$(dirname "$BIN_DIR")")"
 args=$(getopt -a -o h:: -l head:: -- "$@")
 eval set -- "${args}"
 
-IS_HEAD_NODE=false
-
-while true
-do
-    case "$1" in
-    -h|--head)
-        IS_HEAD_NODE=true
-        ;;
-    --)
-        shift
-        break
-        ;;
-    esac
-    shift
-done
-
-if [ $IS_HEAD_NODE != "true" ]; then
-    # Do nothing for workers
-    exit 0
-fi
-
 export HADOOP_VERSION=3.3.1
 export HIVE_VERSION=3.1.2
 
@@ -63,8 +42,12 @@ function install_hive_metastore() {
     fi
 }
 
-install_jdk
-install_hadoop
-install_mariadb
-install_hive_metastore
-clean_install_cache
+set_head_option "$@"
+
+if [ $IS_HEAD_NODE == "true" ]; then
+    install_jdk
+    install_hadoop
+    install_mariadb
+    install_hive_metastore
+    clean_install_cache
+fi

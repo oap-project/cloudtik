@@ -7,23 +7,8 @@ ROOT_DIR="$(dirname "$(dirname "$BIN_DIR")")"
 args=$(getopt -a -o h:: -l head:: -- "$@")
 eval set -- "${args}"
 
-IS_HEAD_NODE=false
 USER_HOME=/home/$(whoami)
 RUNTIME_PATH=$USER_HOME/runtime
-
-while true
-do
-    case "$1" in
-    -h|--head)
-        IS_HEAD_NODE=true
-        ;;
-    --)
-        shift
-        break
-        ;;
-    esac
-    shift
-done
 
 # Hadoop cloud credential configuration functions
 . "$ROOT_DIR"/common/scripts/hadoop-cloud-credential.sh
@@ -403,6 +388,7 @@ function configure_jupyter_for_spark() {
   fi
 }
 
+set_head_option "$@"
 check_spark_installed
 set_head_address
 set_resources_for_spark

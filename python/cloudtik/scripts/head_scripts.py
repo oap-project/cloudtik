@@ -643,6 +643,7 @@ def health_check(address, redis_password, component, with_details):
     required=False,
     default=None,
     type=int,
+    hidden=True,
     help="The integer verbosity to set.")
 @add_click_logging_options
 def cluster_dump(hosts: Optional[str] = None,
@@ -678,7 +679,8 @@ def cluster_dump(hosts: Optional[str] = None,
         pip=pip,
         processes=processes,
         processes_verbose=processes_verbose,
-        tempfile=tempfile)
+        temp_file=tempfile,
+        verbosity=verbosity)
 
 
 @click.group(cls=NaturalOrderGroup)

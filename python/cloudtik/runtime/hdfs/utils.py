@@ -17,10 +17,6 @@ RUNTIME_PROCESSES = [
 RUNTIME_ROOT_PATH = os.path.abspath(os.path.dirname(__file__))
 
 
-def _config_runtime_resources(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-    return cluster_config
-
-
 def publish_service_uri(cluster_config: Dict[str, Any], head_node_id: str) -> None:
     workspace_name = cluster_config.get("workspace_name")
     if workspace_name is None:
@@ -38,14 +34,6 @@ def _get_runtime_processes():
     return RUNTIME_PROCESSES
 
 
-def _is_runtime_scripts(script_file):
-    return False
-
-
-def _get_runnable_command(target):
-    return None
-
-
 def _with_runtime_environment_variables(runtime_config, config, provider, node_id: str):
     runtime_envs = {"HDFS_ENABLED": True}
 
@@ -61,14 +49,6 @@ def _get_runtime_logs():
     hadoop_logs_dir = os.path.join(os.getenv("HADOOP_HOME"), "logs")
     all_logs = {"hadoop": hadoop_logs_dir}
     return all_logs
-
-
-def _validate_config(config: Dict[str, Any]):
-    pass
-
-
-def _verify_config(config: Dict[str, Any]):
-    pass
 
 
 def _get_config_object(cluster_config: Dict[str, Any], object_name: str) -> Dict[str, Any]:

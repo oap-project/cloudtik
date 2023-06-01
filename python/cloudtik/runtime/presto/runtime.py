@@ -4,9 +4,9 @@ from typing import Any, Dict, Optional, List
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_HDFS, BUILT_IN_RUNTIME_METASTORE
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.runtime import Runtime
-from cloudtik.runtime.presto.utils import _config_runtime_resources, _with_runtime_environment_variables, \
-    _is_runtime_scripts, _get_runnable_command, _get_runtime_processes, _validate_config, \
-    _verify_config, _get_runtime_logs, _get_runtime_commands, \
+from cloudtik.runtime.presto.utils import _with_runtime_environment_variables, \
+    _is_runtime_scripts, _get_runnable_command, _get_runtime_processes, \
+    _get_runtime_logs, _get_runtime_commands, \
     _get_defaults_config, _get_runtime_services, _config_depended_services, _get_runtime_service_ports
 
 logger = logging.getLogger(__name__)
@@ -20,18 +20,8 @@ class PrestoRuntime(Runtime):
 
     def prepare_config(self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         """Prepare runtime specific configurations"""
-        cluster_config = _config_runtime_resources(cluster_config)
         cluster_config = _config_depended_services(cluster_config)
         return cluster_config
-
-    def validate_config(self, cluster_config: Dict[str, Any]):
-        """Validate cluster configuration from runtime perspective."""
-        _validate_config(cluster_config)
-
-    def verify_config(self, cluster_config: Dict[str, Any]):
-        """Verify cluster configuration at the last stage of bootstrap.
-        The verification may mean a slow process to check with a server"""
-        _verify_config(cluster_config)
 
     def with_environment_variables(
             self, config: Dict[str, Any], provider: NodeProvider,

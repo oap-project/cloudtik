@@ -8,8 +8,10 @@ from cloudtik.core.workspace_provider import WorkspaceProvider, Existence
 from cloudtik.providers._private.virtual.utils import _get_tags
 from cloudtik.providers._private.virtual.workspace_config \
     import get_workspace_head_nodes, list_virtual_clusters, create_virtual_workspace, \
-    delete_virtual_workspace, check_virtual_workspace_existence, check_virtual_workspace_integrity, update_virtual_workspace, \
-    bootstrap_virtual_workspace_config
+    delete_virtual_workspace, check_virtual_workspace_existence, check_virtual_workspace_integrity, \
+    update_virtual_workspace, \
+    bootstrap_virtual_workspace_config, get_virtual_workspace_info, check_workspace_name_format, \
+    VIRTUAL_WORKSPACE_NAME_MAX_LEN
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +73,16 @@ class VirtualWorkspaceProvider(WorkspaceProvider):
                     global_variables[global_variable_name] = value
 
         return global_variables
+
+    def validate_config(self, provider_config: Dict[str, Any]):
+        if len(self.workspace_name) > VIRTUAL_WORKSPACE_NAME_MAX_LEN or \
+                not check_workspace_name_format(self.workspace_name):
+            raise RuntimeError("{} workspace name is between 1 and {} characters, "
+                               "and can only contain lowercase alphanumeric "
+                               "characters and dashes".format(provider_config["type"], VIRTUAL_WORKSPACE_NAME_MAX_LEN))
+
+    def get_workspace_info(self, config: Dict[str, Any]):
+        return get_virtual_workspace_info(config)
 
     @staticmethod
     def bootstrap_workspace_config(config: Dict[str, Any]) -> Dict[str, Any]:

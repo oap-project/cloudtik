@@ -1,6 +1,7 @@
 import copy
 import logging
 import os
+import re
 import shutil
 import subprocess
 from typing import Any, Optional
@@ -15,15 +16,25 @@ from cloudtik.core.workspace_provider import Existence
 from cloudtik.providers._private.virtual.config import get_cluster_name_from_node, with_sudo, _safe_remove_file, \
     _get_network_name, _get_bridge_interface_name, _get_sshd_config_file, _get_ssh_control_key_file, \
     _get_authorized_keys_file, _get_host_key_file, _make_sure_data_path, \
-    get_ssh_server_process_file, _find_ssh_server_process_for_workspace, DEFAULT_SSH_SERVER_PORT, _configure_docker
+    get_ssh_server_process_file, _find_ssh_server_process_for_workspace, DEFAULT_SSH_SERVER_PORT, _configure_docker, \
+    get_workspace_bridge_address
 from cloudtik.providers._private.virtual.virtual_container_scheduler import VirtualContainerScheduler
 from cloudtik.providers._private.virtual.utils import _get_node_info
 
 logger = logging.getLogger(__name__)
 
-VIRTUALWORKSPACE_NUM_CREATION_STEPS = 2
-VIRTUALWORKSPACE_NUM_DELETION_STEPS = 2
-VIRTUALWORKSPACE_TARGET_RESOURCES = 2
+VIRTUAL_WORKSPACE_NUM_CREATION_STEPS = 2
+VIRTUAL_WORKSPACE_NUM_DELETION_STEPS = 2
+VIRTUAL_WORKSPACE_TARGET_RESOURCES = 2
+
+VIRTUAL_WORKSPACE_BRIDGE_NETWORK_NAME = "bridge.network.name"
+VIRTUAL_WORKSPACE_BRIDGE_ADDRESS = "bridge.ssh.server.address"
+
+VIRTUAL_WORKSPACE_NAME_MAX_LEN = 96
+
+
+def check_workspace_name_format(workspace_name):
+    return bool(re.match("^[a-z0-9-]*$", workspace_name))
 
 
 def _create_virtual_scheduler(provider_config):
@@ -65,7 +76,7 @@ def _create_workspace(config):
     workspace_name = config["workspace_name"]
 
     current_step = 1
-    total_steps = VIRTUALWORKSPACE_NUM_CREATION_STEPS
+    total_steps = VIRTUAL_WORKSPACE_NUM_CREATION_STEPS
 
     try:
         with cli_logger.group("Creating workspace: {}", workspace_name):
@@ -252,7 +263,7 @@ def delete_virtual_workspace(config):
     workspace_name = config["workspace_name"]
 
     current_step = 1
-    total_steps = VIRTUALWORKSPACE_NUM_DELETION_STEPS
+    total_steps = VIRTUAL_WORKSPACE_NUM_DELETION_STEPS
     try:
         with cli_logger.group("Deleting workspace: {}", workspace_name):
             with cli_logger.group(
@@ -358,7 +369,7 @@ def check_virtual_workspace_existence(config):
     workspace_name = config["workspace_name"]
 
     skipped_resources = 0
-    target_resources = VIRTUALWORKSPACE_TARGET_RESOURCES
+    target_resources = VIRTUAL_WORKSPACE_TARGET_RESOURCES
     existing_resources = 0
 
     # check docker bridge network
@@ -416,3 +427,14 @@ def bootstrap_virtual_workspace_config(config):
     config = _configure_docker(config)
     return config
 
+
+def get_virtual_workspace_info(config):
+    workspace_name = config["workspace_name"]
+    network_name = _get_network_name(workspace_name)
+    bridge_address = get_workspace_bridge_address(workspace_name)
+
+    info = {
+        VIRTUAL_WORKSPACE_BRIDGE_NETWORK_NAME: network_name,
+        VIRTUAL_WORKSPACE_BRIDGE_ADDRESS: bridge_address
+    }
+    return info

@@ -380,7 +380,6 @@ def _safe_remove_file(file_to_remove):
 
 
 def _get_network_name(workspace_name):
-    workspace_name = workspace_name.replace("-", "_")
     return "cloudtik_{}".format(workspace_name)
 
 

@@ -3,20 +3,19 @@ from typing import Any, Dict, Optional, List
 
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_HDFS, BUILT_IN_RUNTIME_METASTORE
 from cloudtik.core.node_provider import NodeProvider
-from cloudtik.core.runtime import Runtime
+from cloudtik.runtime.common.runtime_base import RuntimeBase
 from cloudtik.runtime.trino.utils import _with_runtime_environment_variables, \
     _is_runtime_scripts, _get_runnable_command, _get_runtime_processes, \
-    _get_runtime_logs, _get_runtime_commands, \
-    _get_defaults_config, _get_runtime_services, _config_depended_services, _get_runtime_service_ports
+    _get_runtime_logs, _get_runtime_services, _config_depended_services, _get_runtime_service_ports
 
 logger = logging.getLogger(__name__)
 
 
-class TrinoRuntime(Runtime):
+class TrinoRuntime(RuntimeBase):
     """Implementation for Trino Runtime"""
 
     def __init__(self, runtime_config: Dict[str, Any]) -> None:
-        Runtime.__init__(self, runtime_config)
+        super().__init__(runtime_config)
 
     def prepare_config(self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         """Prepare runtime specific configurations"""
@@ -40,14 +39,6 @@ class TrinoRuntime(Runtime):
             return None
 
         return _get_runnable_command(target)
-
-    def get_runtime_commands(self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-        """Returns a copy of runtime commands to run at different stages"""
-        return _get_runtime_commands(self.runtime_config, cluster_config)
-
-    def get_defaults_config(self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-        """Returns a copy of runtime config"""
-        return _get_defaults_config(self.runtime_config, cluster_config)
 
     def get_runtime_services(self, cluster_head_ip: str):
         return _get_runtime_services(cluster_head_ip)

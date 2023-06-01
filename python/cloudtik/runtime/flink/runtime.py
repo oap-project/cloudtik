@@ -3,21 +3,20 @@ from typing import Any, Dict, Optional, List
 
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_METASTORE, BUILT_IN_RUNTIME_HDFS
 from cloudtik.core.node_provider import NodeProvider
-from cloudtik.core.runtime import Runtime
 from cloudtik.core.scaling_policy import ScalingPolicy
+from cloudtik.runtime.common.runtime_base import RuntimeBase
 from cloudtik.runtime.flink.utils import _config_runtime_resources, _with_runtime_environment_variables, \
     _is_runtime_scripts, _get_runnable_command, get_runtime_processes, _validate_config, \
-    _verify_config, get_runtime_logs, _get_runtime_commands, \
-    _get_defaults_config, _get_runtime_services, _config_depended_services, _get_runtime_service_ports, _get_scaling_policy
+    get_runtime_logs, _get_runtime_services, _config_depended_services, _get_runtime_service_ports, _get_scaling_policy
 
 logger = logging.getLogger(__name__)
 
 
-class FlinkRuntime(Runtime):
+class FlinkRuntime(RuntimeBase):
     """Implementation for Flink Runtime"""
 
     def __init__(self, runtime_config: Dict[str, Any]) -> None:
-        Runtime.__init__(self, runtime_config)
+        super().__init__(runtime_config)
 
     def prepare_config(self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         """Prepare runtime specific configurations"""
@@ -28,11 +27,6 @@ class FlinkRuntime(Runtime):
     def validate_config(self, cluster_config: Dict[str, Any]):
         """Validate cluster configuration from runtime perspective."""
         _validate_config(cluster_config)
-
-    def verify_config(self, cluster_config: Dict[str, Any]):
-        """Verify cluster configuration at the last stage of bootstrap.
-        The verification may mean a slow process to check with a server"""
-        _verify_config(cluster_config)
 
     def with_environment_variables(
             self, config: Dict[str, Any], provider: NodeProvider,
@@ -51,14 +45,6 @@ class FlinkRuntime(Runtime):
             return None
 
         return _get_runnable_command(target)
-
-    def get_runtime_commands(self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-        """Returns a copy of runtime commands to run at different stages"""
-        return _get_runtime_commands(self.runtime_config, cluster_config)
-
-    def get_defaults_config(self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-        """Returns a copy of runtime config"""
-        return _get_defaults_config(self.runtime_config, cluster_config)
 
     def get_runtime_services(self, cluster_head_ip: str):
         return _get_runtime_services(cluster_head_ip)

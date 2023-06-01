@@ -6,8 +6,7 @@ from cloudtik.core._private.cluster.cluster_tunnel_request import _request_rest_
 from cloudtik.core._private.core_utils import double_quote
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_HDFS, BUILT_IN_RUNTIME_METASTORE, \
     BUILT_IN_RUNTIME_FLINK
-from cloudtik.core._private.utils import merge_rooted_config_hierarchy, \
-    _get_runtime_config_object, is_runtime_enabled, round_memory_size_to_gb, load_head_cluster_config, \
+from cloudtik.core._private.utils import is_runtime_enabled, round_memory_size_to_gb, load_head_cluster_config, \
     RUNTIME_CONFIG_KEY, load_properties_file, save_properties_file, is_use_managed_cloud_storage, get_node_type_config, \
     print_json_formatted
 from cloudtik.core._private.workspace.workspace_operator import _get_workspace_provider
@@ -25,7 +24,6 @@ RUNTIME_PROCESSES = [
     ["proc_nodemanager", False, "NodeManager", "worker"],
 ]
 
-RUNTIME_ROOT_PATH = os.path.abspath(os.path.dirname(__file__))
 FLINK_RUNTIME_CONFIG_KEY = "flink"
 
 YARN_RESOURCE_MEMORY_RATIO = 0.8
@@ -292,26 +290,6 @@ def _validate_config(config: Dict[str, Any]):
         if ("storage" not in provider_config) and \
                 not is_use_managed_cloud_storage(config):
             raise ValueError("No storage configuration found for Flink.")
-
-
-def _verify_config(config: Dict[str, Any]):
-    pass
-
-
-def _get_config_object(cluster_config: Dict[str, Any], object_name: str) -> Dict[str, Any]:
-    config_root = os.path.join(RUNTIME_ROOT_PATH, "config")
-    runtime_commands = _get_runtime_config_object(config_root, cluster_config["provider"], object_name)
-    return merge_rooted_config_hierarchy(config_root, runtime_commands, object_name)
-
-
-def _get_runtime_commands(runtime_config: Dict[str, Any],
-                          cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-    return _get_config_object(cluster_config, "commands")
-
-
-def _get_defaults_config(runtime_config: Dict[str, Any],
-                         cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-    return _get_config_object(cluster_config, "defaults")
 
 
 def _get_runtime_services(cluster_head_ip):

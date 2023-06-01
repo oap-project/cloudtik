@@ -1,7 +1,7 @@
 import os
 from typing import Any, Dict, List
 
-from cloudtik.core._private.utils import merge_rooted_config_hierarchy, _get_runtime_config_object, \
+from cloudtik.core._private.utils import \
     publish_cluster_variable, load_properties_file, save_properties_file, subscribe_runtime_config
 from cloudtik.core._private.workspace.workspace_operator import _get_workspace_provider
 
@@ -13,7 +13,6 @@ RUNTIME_PROCESSES = [
     ["org.apache.zookeeper.server.quorum.QuorumPeerMain", False, "ZooKeeper", "worker"],
 ]
 
-RUNTIME_ROOT_PATH = os.path.abspath(os.path.dirname(__file__))
 ZOOKEEPER_RUNTIME_CONFIG_KEY = "zookeeper"
 
 
@@ -30,22 +29,6 @@ def _get_runtime_logs():
     zookeeper_logs_dir = os.path.join(os.getenv("ZOOKEEPER_HOME"), "logs")
     all_logs = {"zookeeper": zookeeper_logs_dir}
     return all_logs
-
-
-def _get_config_object(cluster_config: Dict[str, Any], object_name: str) -> Dict[str, Any]:
-    config_root = os.path.join(RUNTIME_ROOT_PATH, "config")
-    runtime_commands = _get_runtime_config_object(config_root, cluster_config["provider"], object_name)
-    return merge_rooted_config_hierarchy(config_root, runtime_commands, object_name)
-
-
-def _get_runtime_commands(runtime_config: Dict[str, Any],
-                          cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-    return _get_config_object(cluster_config, "commands")
-
-
-def _get_defaults_config(runtime_config: Dict[str, Any],
-                         cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-    return _get_config_object(cluster_config, "defaults")
 
 
 def _get_runtime_services(cluster_head_ip):

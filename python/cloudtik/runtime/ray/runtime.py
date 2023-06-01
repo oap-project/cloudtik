@@ -2,21 +2,20 @@ import logging
 from typing import Any, Dict, Optional
 
 from cloudtik.core.node_provider import NodeProvider
-from cloudtik.core.runtime import Runtime
 from cloudtik.core.scaling_policy import ScalingPolicy
+from cloudtik.runtime.common.runtime_base import RuntimeBase
 from cloudtik.runtime.ray.utils import _with_runtime_environment_variables, \
-    _get_runtime_processes, _get_runtime_logs, _get_runtime_commands, \
-    _get_defaults_config, _get_runtime_services, _get_runtime_service_ports, \
+    _get_runtime_processes, _get_runtime_logs, _get_runtime_services, _get_runtime_service_ports, \
     _get_runtime_shared_memory_ratio, _get_scaling_policy
 
 logger = logging.getLogger(__name__)
 
 
-class RayRuntime(Runtime):
+class RayRuntime(RuntimeBase):
     """Implementation for Ray Runtime"""
 
     def __init__(self, runtime_config: Dict[str, Any]) -> None:
-        Runtime.__init__(self, runtime_config)
+        super().__init__(runtime_config)
 
     def with_environment_variables(
             self, config: Dict[str, Any], provider: NodeProvider,
@@ -33,14 +32,6 @@ class RayRuntime(Runtime):
         """
         return _get_runtime_shared_memory_ratio(
             self.runtime_config, config=config)
-
-    def get_runtime_commands(self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-        """Returns a copy of runtime commands to run at different stages"""
-        return _get_runtime_commands(self.runtime_config, cluster_config)
-
-    def get_defaults_config(self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-        """Returns a copy of runtime config"""
-        return _get_defaults_config(self.runtime_config, cluster_config)
 
     def get_runtime_services(self, cluster_head_ip: str):
         return _get_runtime_services(cluster_head_ip)

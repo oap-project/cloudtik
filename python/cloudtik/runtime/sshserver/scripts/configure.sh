@@ -18,7 +18,6 @@ SSH_AUTHORIZED_KEYS_FILE=${SSH_CONFIG_HOME}/cloudtik-ssh-server-authorized_keys
 SSH_DEFAULT_PRIVATE_KEY_FILE=${SSH_CONFIG_HOME}/id_rsa
 BOOTSTRAP_PRIVATE_KEY_FILE=${USER_HOME}/cloudtik_bootstrap_key.pem
 
-
 function prepare_base_conf() {
     source_dir=$(cd $(dirname ${BASH_SOURCE[0]})/..;pwd)/conf
     output_dir=/tmp/ssh_server/conf

@@ -353,10 +353,10 @@ class VirtualContainerScheduler:
     def _get_random_container_name(self):
         # the container name prefix with workspace and cluster name
         # with a random string of 8 digits
-        workspace_name = self.provider_config["workspace_name"].replace("-", "_")
-        cluster_name = self.cluster_name.replace("-", "_")
+        workspace_name = self.provider_config["workspace_name"]
+        cluster_name = self.cluster_name
         random_id = str(uuid.uuid1())[:8]
-        return f"{workspace_name}_{cluster_name}_{random_id}"
+        return f"{workspace_name}-{cluster_name}-{random_id}"
 
     @staticmethod
     def _set_container_resources(node_config, docker_config):

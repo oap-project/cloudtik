@@ -4,6 +4,12 @@
 BIN_DIR=`dirname "$0"`
 ROOT_DIR="$(dirname "$(dirname "$BIN_DIR")")"
 
+args=$(getopt -a -o h:: -l head:: -- "$@")
+eval set -- "${args}"
+
+# import util functions
+. "$ROOT_DIR"/common/scripts/util-functions.sh
+
 if [ ! -n "${HADOOP_HOME}" ]; then
     echo "HADOOP_HOME environment variable is not set."
     exit 1
@@ -18,35 +24,14 @@ USER_HOME=/home/$(whoami)
 RUNTIME_PATH=$USER_HOME/runtime
 export CLOUD_FS_MOUNT_PATH=/cloudtik/fs
 
-# import util functions
-. "$ROOT_DIR"/common/scripts/util-functions.sh
-
 # Cloud storage fuse functions
 . "$ROOT_DIR"/common/scripts/cloud-storage-fuse.sh
 
-command=$1
-shift
-
-# Parsing arguments
-IS_HEAD_NODE=false
-
-while [[ $# -gt 0 ]]
-do
-    key="$1"
-    case $key in
-    -h|--head)
-        IS_HEAD_NODE=true
-        ;;
-    *)
-        echo "Unknown argument passed."
-        exit 1
-    esac
-    shift
-done
-
+set_head_option "$@"
+set_service_command "$@"
 set_head_address
 
-case "$command" in
+case "$SERVICE_COMMAND" in
 start)
     # Mount cloud filesystem or hdfs
     mount_cloud_fs

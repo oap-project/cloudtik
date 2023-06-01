@@ -1,26 +1,19 @@
 #!/bin/bash
 
-command=$1
-shift
+# Current bin directory
+BIN_DIR=`dirname "$0"`
+ROOT_DIR="$(dirname "$(dirname "$BIN_DIR")")"
 
-# Parsing arguments
-IS_HEAD_NODE=false
+args=$(getopt -a -o h:: -l head:: -- "$@")
+eval set -- "${args}"
 
-while [[ $# -gt 0 ]]
-do
-    key="$1"
-    case $key in
-    -h|--head)
-        IS_HEAD_NODE=true
-        ;;
-    *)
-        echo "Unknown argument passed."
-        exit 1
-    esac
-    shift
-done
+# import util functions
+. "$ROOT_DIR"/common/scripts/util-functions.sh
 
-case "$command" in
+set_head_option "$@"
+set_service_command "$@"
+
+case "$SERVICE_COMMAND" in
 start)
     if [ $IS_HEAD_NODE == "true" ]; then
         sudo service apache2 start

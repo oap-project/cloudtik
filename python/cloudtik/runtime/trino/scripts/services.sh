@@ -1,31 +1,24 @@
 #!/bin/bash
 
+# Current bin directory
+BIN_DIR=`dirname "$0"`
+ROOT_DIR="$(dirname "$(dirname "$BIN_DIR")")"
+
+args=$(getopt -a -o h:: -l head:: -- "$@")
+eval set -- "${args}"
+
+# import util functions
+. "$ROOT_DIR"/common/scripts/util-functions.sh
+
 if [ ! -n "${TRINO_HOME}" ]; then
     echo "Trino is not installed for TRINO_HOME environment variable is not set."
     exit 1
 fi
 
-command=$1
-shift
+set_head_option "$@"
+set_service_command "$@"
 
-# Parsing arguments
-IS_HEAD_NODE=false
-
-while [[ $# -gt 0 ]]
-do
-    key="$1"
-    case $key in
-    -h|--head)
-        IS_HEAD_NODE=true
-        ;;
-    *)
-        echo "Unknown argument passed."
-        exit 1
-    esac
-    shift
-done
-
-case "$command" in
+case "$SERVICE_COMMAND" in
 start)
     $TRINO_HOME/bin/launcher start
     ;;

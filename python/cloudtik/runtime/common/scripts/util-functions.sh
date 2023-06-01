@@ -47,6 +47,22 @@ funtion set_head_option() {
     done
 }
 
+function set_service_command() {
+    # this function set the SERVICE_COMMAND
+    # based on the arguments processed by getopt
+    while true
+    do
+        case "$1" in
+        --)
+            shift
+            break
+            ;;
+        esac
+        shift
+    done
+    SERVICE_COMMAND="$1"
+}
+
 function clean_install_cache() {
     (sudo rm -rf /var/lib/apt/lists/* \
         && sudo apt-get clean \

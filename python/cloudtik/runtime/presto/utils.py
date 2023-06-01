@@ -41,10 +41,6 @@ def get_memory_heap_headroom_per_node(jvm_max_memory):
     return int(jvm_max_memory * MEMORY_HEAP_HEADROOM_PER_NODE_RATIO)
 
 
-def _config_runtime_resources(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-    return cluster_config
-
-
 def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
     workspace_name = cluster_config.get("workspace_name")
     if workspace_name is None:
@@ -113,14 +109,6 @@ def _get_runtime_logs():
     logs_dir = os.path.join(os.getenv("PRESTO_HOME"), "logs")
     all_logs = {"presto": logs_dir}
     return all_logs
-
-
-def _validate_config(config: Dict[str, Any]):
-    pass
-
-
-def _verify_config(config: Dict[str, Any]):
-    pass
 
 
 def _get_config_object(cluster_config: Dict[str, Any], object_name: str) -> Dict[str, Any]:

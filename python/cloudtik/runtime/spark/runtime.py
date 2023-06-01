@@ -9,7 +9,7 @@ from cloudtik.core.scaling_policy import ScalingPolicy
 from cloudtik.runtime.spark.job_waiter import SparkJobWaiter
 from cloudtik.runtime.spark.utils import _config_runtime_resources, _with_runtime_environment_variables, \
     _is_runtime_scripts, _get_runnable_command, get_runtime_processes, _validate_config, \
-    _verify_config, get_runtime_logs, _get_runtime_commands, \
+    get_runtime_logs, _get_runtime_commands, \
     _get_defaults_config, _get_runtime_services, _config_depended_services, _get_runtime_service_ports, _get_scaling_policy
 
 logger = logging.getLogger(__name__)
@@ -30,11 +30,6 @@ class SparkRuntime(Runtime):
     def validate_config(self, cluster_config: Dict[str, Any]):
         """Validate cluster configuration from runtime perspective."""
         _validate_config(cluster_config)
-
-    def verify_config(self, cluster_config: Dict[str, Any]):
-        """Verify cluster configuration at the last stage of bootstrap.
-        The verification may mean a slow process to check with a server"""
-        _verify_config(cluster_config)
 
     def with_environment_variables(
             self, config: Dict[str, Any], provider: NodeProvider,

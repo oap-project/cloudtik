@@ -24,25 +24,8 @@ RAY_PORT = 6379
 RAY_DASHBOARD_PORT = 8265
 
 
-def _config_runtime_resources(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-    return cluster_config
-
-
-def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-    return cluster_config
-
-
 def _get_runtime_processes():
     return RUNTIME_PROCESSES
-
-
-def _is_runtime_scripts(script_file):
-    return False
-
-
-def _get_runnable_command(target):
-    command_parts = []
-    return command_parts
 
 
 def _with_runtime_environment_variables(runtime_config, config, provider, node_id: str):
@@ -69,14 +52,6 @@ def _get_runtime_logs():
     logs_dir = os.path.join("/tmp", "ray")
     all_logs = {"ray": logs_dir}
     return all_logs
-
-
-def _validate_config(config: Dict[str, Any]):
-    pass
-
-
-def _verify_config(config: Dict[str, Any]):
-    pass
 
 
 def _get_config_object(cluster_config: Dict[str, Any], object_name: str) -> Dict[str, Any]:

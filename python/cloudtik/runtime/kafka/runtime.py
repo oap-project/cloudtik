@@ -1,12 +1,11 @@
 import logging
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict
 
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_ZOOKEEPER
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.runtime import Runtime
-from cloudtik.runtime.kafka.utils import _config_runtime_resources, _with_runtime_environment_variables, \
-    _is_runtime_scripts, _get_runnable_command, _get_runtime_processes, _validate_config, \
-    _verify_config, _get_runtime_logs, _get_runtime_commands, \
+from cloudtik.runtime.kafka.utils import _with_runtime_environment_variables, \
+    _get_runtime_processes, _validate_config, _get_runtime_logs, _get_runtime_commands, \
     _get_defaults_config, _get_runtime_services, _config_depended_services
 
 logger = logging.getLogger(__name__)
@@ -20,18 +19,12 @@ class KafkaRuntime(Runtime):
 
     def prepare_config(self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         """Prepare runtime specific configurations"""
-        cluster_config = _config_runtime_resources(cluster_config)
         cluster_config = _config_depended_services(cluster_config)
         return cluster_config
 
     def validate_config(self, cluster_config: Dict[str, Any]):
         """Validate cluster configuration from runtime perspective."""
         _validate_config(cluster_config)
-
-    def verify_config(self, cluster_config: Dict[str, Any]):
-        """Verify cluster configuration at the last stage of bootstrap.
-        The verification may mean a slow process to check with a server"""
-        _verify_config(cluster_config)
 
     def with_environment_variables(
             self, config: Dict[str, Any], provider: NodeProvider,
@@ -41,20 +34,6 @@ class KafkaRuntime(Runtime):
         """
         return _with_runtime_environment_variables(
             self.runtime_config, config=config, provider=provider, node_id=node_id)
-
-    def cluster_booting_completed(
-            self, cluster_config: Dict[str, Any], head_node_id: str) -> None:
-        # Do nothing here. service uri will only be published when minimal node reached.
-        pass
-
-    def get_runnable_command(self, target: str, runtime_options: Optional[List[str]]):
-        """Return the runnable command for the target script.
-        For example: ["bash", target]
-        """
-        if not _is_runtime_scripts(target):
-            return None
-
-        return _get_runnable_command(target)
 
     def get_runtime_commands(self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         """Returns a copy of runtime commands to run at different stages"""

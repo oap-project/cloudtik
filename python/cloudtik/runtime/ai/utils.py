@@ -18,20 +18,8 @@ RUNTIME_ROOT_PATH = os.path.abspath(os.path.dirname(__file__))
 RUNTIME_CONFIG_KEY = "ai"
 
 
-def _config_runtime_resources(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-    return cluster_config
-
-
 def _get_runtime_processes():
     return RUNTIME_PROCESSES
-
-
-def _is_runtime_scripts(script_file):
-    return False
-
-
-def _get_runnable_command(target):
-    return None
 
 
 def _with_runtime_environment_variables(runtime_config, config, provider, node_id: str):
@@ -62,14 +50,6 @@ def _get_runtime_logs():
     all_logs = {"mlflow": mlflow_logs_dir
                 }
     return all_logs
-
-
-def _validate_config(config: Dict[str, Any]):
-    pass
-
-
-def _verify_config(config: Dict[str, Any]):
-    pass
 
 
 def _get_config_object(cluster_config: Dict[str, Any], object_name: str) -> Dict[str, Any]:

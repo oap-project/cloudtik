@@ -1,12 +1,11 @@
 import os
 from typing import Any, Dict
-from shlex import quote
 
 from cloudtik.core._private.core_utils import double_quote
 from cloudtik.core._private.providers import _get_workspace_provider
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_METASTORE
 from cloudtik.core._private.utils import merge_rooted_config_hierarchy, _get_runtime_config_object, is_runtime_enabled, \
-    get_node_type, get_resource_of_node_type, round_memory_size_to_gb, RUNTIME_CONFIG_KEY, get_node_type_config
+    get_node_type, get_resource_of_node_type, RUNTIME_CONFIG_KEY, get_node_type_config
 
 RUNTIME_PROCESSES = [
     # The first element is the substring to filter.
@@ -34,10 +33,6 @@ def get_query_max_memory_per_node(jvm_max_memory):
 
 def get_memory_heap_headroom_per_node(jvm_max_memory):
     return int(jvm_max_memory * MEMORY_HEAP_HEADROOM_PER_NODE_RATIO)
-
-
-def _config_runtime_resources(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-    return cluster_config
 
 
 def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
@@ -108,14 +103,6 @@ def _get_runtime_logs():
     logs_dir = os.path.join(os.getenv("TRINO_HOME"), "logs")
     all_logs = {"trino": logs_dir}
     return all_logs
-
-
-def _validate_config(config: Dict[str, Any]):
-    pass
-
-
-def _verify_config(config: Dict[str, Any]):
-    pass
 
 
 def _get_config_object(cluster_config: Dict[str, Any], object_name: str) -> Dict[str, Any]:

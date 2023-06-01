@@ -328,10 +328,6 @@ def _validate_config(config: Dict[str, Any]):
             raise ValueError("No storage configuration found for Spark.")
 
 
-def _verify_config(config: Dict[str, Any]):
-    pass
-
-
 def _get_config_object(cluster_config: Dict[str, Any], object_name: str) -> Dict[str, Any]:
     config_root = os.path.join(RUNTIME_ROOT_PATH, "config")
     runtime_commands = _get_runtime_config_object(config_root, cluster_config["provider"], object_name)

@@ -18,7 +18,7 @@ def _get_ssh_server_port(runtime_config):
     return ssh_server_config.get("port", SSH_SERVER_DEFAULT_PORT)
 
 
-def _prepare_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+def _prepare_runtime_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
     ssh_public_key = cluster_config["auth"].get("ssh_public_key")
     if not ssh_public_key:
         raise ValueError("For use SSH Server runtime, "

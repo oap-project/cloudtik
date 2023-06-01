@@ -4,7 +4,7 @@ from typing import Any, Dict
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.runtime.common.runtime_base import RuntimeBase
 from cloudtik.runtime.sshserver.utils import _get_runtime_processes, \
-    _get_runtime_service_ports, _with_runtime_environment_variables, _prepare_config
+    _get_runtime_service_ports, _with_runtime_environment_variables, _prepare_runtime_config
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +17,7 @@ class SSHServerRuntime(RuntimeBase):
 
     def prepare_config(self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         """Prepare runtime specific configurations"""
-        cluster_config = _prepare_config(cluster_config)
+        cluster_config = _prepare_runtime_config(cluster_config)
         return cluster_config
 
     def with_environment_variables(

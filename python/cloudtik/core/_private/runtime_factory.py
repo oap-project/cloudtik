@@ -26,6 +26,7 @@ BUILT_IN_RUNTIME_KAFKA = "kafka"
 BUILT_IN_RUNTIME_AI = "ai"
 BUILT_IN_RUNTIME_FLINK = "flink"
 BUILT_IN_RUNTIME_RAY = "ray"
+BUILT_IN_RUNTIME_SSHSERVER = "sshserver"
 
 DEFAULT_RUNTIMES = [BUILT_IN_RUNTIME_GANGLIA, BUILT_IN_RUNTIME_SPARK]
 
@@ -85,6 +86,11 @@ def _import_ray():
     return RayRuntime
 
 
+def _import_ssh_server():
+    from cloudtik.runtime.sshserver.runtime import SSHServerRuntime
+    return SSHServerRuntime
+
+
 _RUNTIMES = {
     "ganglia": _import_ganglia,
     "spark": _import_spark,
@@ -97,6 +103,7 @@ _RUNTIMES = {
     "ai": _import_ai,
     "flink": _import_flink,
     "ray": _import_ray,
+    "sshserver": _import_ssh_server,
 }
 
 

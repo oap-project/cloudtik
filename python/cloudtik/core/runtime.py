@@ -33,6 +33,12 @@ class Runtime:
         """
         pass
 
+    def bootstrap_config(self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Final chance to update the config with runtime specific configurations
+        This happens after provider bootstrap_config is done.
+        """
+        return cluster_config
+
     def verify_config(self, cluster_config: Dict[str, Any]):
         """Verify cluster configuration at the last stage of bootstrap.
         This happens after provider bootstrap_config is done.

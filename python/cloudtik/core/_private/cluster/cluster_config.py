@@ -9,7 +9,7 @@ import yaml
 from cloudtik.core._private.core_utils import get_cloudtik_temp_dir
 from cloudtik.core._private.debug import log_once
 from cloudtik.core._private.utils import prepare_config, decrypt_config, runtime_prepare_config, validate_config, \
-    verify_config, encrypt_config, RUNTIME_CONFIG_KEY
+    verify_config, encrypt_config, RUNTIME_CONFIG_KEY, runtime_bootstrap_config
 from cloudtik.core._private.providers import _NODE_PROVIDERS, _PROVIDER_PRETTY_NAMES
 from cloudtik.core._private.cli_logger import cli_logger, cf
 
@@ -106,6 +106,9 @@ def _bootstrap_config(config: Dict[str, Any],
             "update your install command.")
 
     resolved_config = provider_cls.bootstrap_config(config)
+    # final round to runtime for config prepare
+    resolved_config = runtime_bootstrap_config(
+        config.get(RUNTIME_CONFIG_KEY), resolved_config)
 
     # add a verify step
     verify_config(resolved_config)

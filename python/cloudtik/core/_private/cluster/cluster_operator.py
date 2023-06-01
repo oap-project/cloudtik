@@ -1690,7 +1690,7 @@ def get_cluster_dump_archive_on_head(
         raise ValueError(
             "You can only use either `--output` or `--stream`, but not both.")
 
-    if verbosity is None or verbosity > 0:
+    if not stream and (verbosity is None or verbosity > 0):
         _print_cluster_dump_warning(
             call_context,
             logs, debug_state, pip, processes)

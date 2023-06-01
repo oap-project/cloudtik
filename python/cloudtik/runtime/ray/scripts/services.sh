@@ -1,32 +1,25 @@
 #!/bin/bash
 
+# Current bin directory
+BIN_DIR=`dirname "$0"`
+ROOT_DIR="$(dirname "$(dirname "$BIN_DIR")")"
+
+args=$(getopt -a -o h:: -l head:: -- "$@")
+eval set -- "${args}"
+
+# import util functions
+. "$ROOT_DIR"/common/scripts/util-functions.sh
+
 if ! command -v ray &> /dev/null
 then
     echo "Ray is not installed for ray command is not available."
     exit 1
 fi
 
-command=$1
-shift
+set_head_option "$@"
+set_service_command "$@"
 
-# Parsing arguments
-IS_HEAD_NODE=false
-
-while [[ $# -gt 0 ]]
-do
-    key="$1"
-    case $key in
-    -h|--head)
-        IS_HEAD_NODE=true
-        ;;
-    *)
-        echo "Unknown argument passed."
-        exit 1
-    esac
-    shift
-done
-
-case "$command" in
+case "$SERVICE_COMMAND" in
 start)
     if [ $IS_HEAD_NODE == "true" ]; then
         ray start --head --node-ip-address=$CLOUDTIK_NODE_IP --port=6379 --no-monitor --disable-usage-stats > /dev/null

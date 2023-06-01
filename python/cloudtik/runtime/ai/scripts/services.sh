@@ -4,13 +4,16 @@
 BIN_DIR=`dirname "$0"`
 ROOT_DIR="$(dirname "$(dirname "$BIN_DIR")")"
 
+args=$(getopt -a -o h:: -l head:: -- "$@")
+eval set -- "${args}"
+
+# import util functions
+. "$ROOT_DIR"/common/scripts/util-functions.sh
+
 USER_HOME=/home/$(whoami)
 RUNTIME_PATH=$USER_HOME/runtime
 MLFLOW_DATA=$RUNTIME_PATH/mlflow
 MLFLOW_ARTIFACT_PATH=shared/mlflow
-
-# import util functions
-. "$ROOT_DIR"/common/scripts/util-functions.sh
 
 function set_artifact_config_for_local_hdfs() {
     DEFAULT_ARTIFACT_ROOT="hdfs://${HEAD_ADDRESS}:9000/${MLFLOW_ARTIFACT_PATH}"
@@ -75,27 +78,10 @@ function set_mlflow_server_config() {
     fi
 }
 
-command=$1
-shift
+set_head_option "$@"
+set_service_command "$@"
 
-# Parsing arguments
-IS_HEAD_NODE=false
-
-while [[ $# -gt 0 ]]
-do
-    key="$1"
-    case $key in
-    -h|--head)
-        IS_HEAD_NODE=true
-        ;;
-    *)
-        echo "Unknown argument passed."
-        exit 1
-    esac
-    shift
-done
-
-case "$command" in
+case "$SERVICE_COMMAND" in
 start)
     if [ $IS_HEAD_NODE == "true" ]; then
         set_head_address

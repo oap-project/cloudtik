@@ -1,4 +1,3 @@
-import os
 from typing import Any, Dict
 
 RUNTIME_PROCESSES = [
@@ -9,8 +8,6 @@ RUNTIME_PROCESSES = [
     ["gmetad", True, "GangliaMeta", "head"],
     ["gmond", True, "GangliaMonitor", "node"],
 ]
-
-RUNTIME_ROOT_PATH = os.path.abspath(os.path.dirname(__file__))
 
 
 def _get_runtime_processes():

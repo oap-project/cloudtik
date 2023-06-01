@@ -4,7 +4,7 @@ from typing import Any, Dict
 from cloudtik.core._private.core_utils import double_quote
 from cloudtik.core._private.providers import _get_workspace_provider
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_METASTORE
-from cloudtik.core._private.utils import merge_rooted_config_hierarchy, _get_runtime_config_object, is_runtime_enabled, \
+from cloudtik.core._private.utils import is_runtime_enabled, \
     get_node_type, get_resource_of_node_type, RUNTIME_CONFIG_KEY, get_node_type_config
 
 RUNTIME_PROCESSES = [
@@ -15,7 +15,6 @@ RUNTIME_PROCESSES = [
     ["io.trino.server.TrinoServer", False, "TrinoServer", "node"],
 ]
 
-RUNTIME_ROOT_PATH = os.path.abspath(os.path.dirname(__file__))
 TRINO_RUNTIME_CONFIG_KEY = "trino"
 
 JVM_MAX_MEMORY_RATIO = 0.8
@@ -103,22 +102,6 @@ def _get_runtime_logs():
     logs_dir = os.path.join(os.getenv("TRINO_HOME"), "logs")
     all_logs = {"trino": logs_dir}
     return all_logs
-
-
-def _get_config_object(cluster_config: Dict[str, Any], object_name: str) -> Dict[str, Any]:
-    config_root = os.path.join(RUNTIME_ROOT_PATH, "config")
-    runtime_commands = _get_runtime_config_object(config_root, cluster_config["provider"], object_name)
-    return merge_rooted_config_hierarchy(config_root, runtime_commands, object_name)
-
-
-def _get_runtime_commands(runtime_config: Dict[str, Any],
-                          cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-    return _get_config_object(cluster_config, "commands")
-
-
-def _get_defaults_config(runtime_config: Dict[str, Any],
-                         cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-    return _get_config_object(cluster_config, "defaults")
 
 
 def _get_runtime_services(cluster_head_ip):

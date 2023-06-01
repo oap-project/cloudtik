@@ -1,8 +1,8 @@
 import os
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from cloudtik.core._private.providers import _get_workspace_provider
-from cloudtik.core._private.utils import merge_rooted_config_hierarchy, _get_runtime_config_object, \
+from cloudtik.core._private.utils import \
     subscribe_cluster_variable, is_runtime_enabled, RUNTIME_CONFIG_KEY, subscribe_runtime_config, load_properties_file, \
     save_properties_file
 
@@ -14,7 +14,6 @@ RUNTIME_PROCESSES = [
     ["kafka.Kafka", False, "KafkaBroker", "node"],
 ]
 
-RUNTIME_ROOT_PATH = os.path.abspath(os.path.dirname(__file__))
 KAFKA_RUNTIME_CONFIG_KEY = "kafka"
 
 
@@ -65,22 +64,6 @@ def _validate_config(config: Dict[str, Any]):
                 KAFKA_RUNTIME_CONFIG_KEY not in runtime_config) or (
                 "zookeeper_connect" not in runtime_config[KAFKA_RUNTIME_CONFIG_KEY]):
             raise ValueError("Zookeeper connect must be configured!")
-
-
-def _get_config_object(cluster_config: Dict[str, Any], object_name: str) -> Dict[str, Any]:
-    config_root = os.path.join(RUNTIME_ROOT_PATH, "config")
-    runtime_commands = _get_runtime_config_object(config_root, cluster_config["provider"], object_name)
-    return merge_rooted_config_hierarchy(config_root, runtime_commands, object_name)
-
-
-def _get_runtime_commands(runtime_config: Dict[str, Any],
-                          cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-    return _get_config_object(cluster_config, "commands")
-
-
-def _get_defaults_config(runtime_config: Dict[str, Any],
-                         cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-    return _get_config_object(cluster_config, "defaults")
 
 
 def _get_runtime_services(cluster_head_ip):

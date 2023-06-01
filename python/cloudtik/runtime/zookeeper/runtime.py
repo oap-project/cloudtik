@@ -2,19 +2,18 @@ import logging
 from typing import Any, Dict, Tuple
 
 from cloudtik.core.node_provider import NodeProvider
-from cloudtik.core.runtime import Runtime
+from cloudtik.runtime.common.runtime_base import RuntimeBase
 from cloudtik.runtime.zookeeper.utils import _with_runtime_environment_variables, \
-    _get_runtime_processes, _get_runtime_logs, _get_runtime_commands, \
-    _get_defaults_config, _get_runtime_services, _handle_minimal_nodes_reached
+    _get_runtime_processes, _get_runtime_logs, _get_runtime_services, _handle_minimal_nodes_reached
 
 logger = logging.getLogger(__name__)
 
 
-class ZooKeeperRuntime(Runtime):
+class ZooKeeperRuntime(RuntimeBase):
     """Implementation for ZooKeeper Runtime"""
 
     def __init__(self, runtime_config: Dict[str, Any]) -> None:
-        Runtime.__init__(self, runtime_config)
+        super().__init__(runtime_config)
 
     def with_environment_variables(
             self, config: Dict[str, Any], provider: NodeProvider,
@@ -24,14 +23,6 @@ class ZooKeeperRuntime(Runtime):
         """
         return _with_runtime_environment_variables(
             self.runtime_config, config=config, provider=provider, node_id=node_id)
-
-    def get_runtime_commands(self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-        """Returns a copy of runtime commands to run at different stages"""
-        return _get_runtime_commands(self.runtime_config, cluster_config)
-
-    def get_defaults_config(self, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-        """Returns a copy of runtime config"""
-        return _get_defaults_config(self.runtime_config, cluster_config)
 
     def get_runtime_services(self, cluster_head_ip: str):
         return _get_runtime_services(cluster_head_ip)

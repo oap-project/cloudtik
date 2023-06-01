@@ -380,7 +380,7 @@ def _safe_remove_file(file_to_remove):
 
 
 def _get_network_name(workspace_name):
-    return "cloudtik_{}".format(workspace_name)
+    return "cloudtik-{}".format(workspace_name)
 
 
 def _get_bridge_interface_name(network_name):

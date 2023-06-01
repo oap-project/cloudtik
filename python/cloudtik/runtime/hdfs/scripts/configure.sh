@@ -8,21 +8,6 @@ args=$(getopt -a -o h:: -l head:: -- "$@")
 eval set -- "${args}"
 
 USER_HOME=/home/$(whoami)
-IS_HEAD_NODE=false
-
-while true
-do
-    case "$1" in
-    -h|--head)
-        IS_HEAD_NODE=true
-        ;;
-    --)
-        shift
-        break
-        ;;
-    esac
-    shift
-done
 
 # Hadoop cloud credential configuration functions
 . "$ROOT_DIR"/common/scripts/hadoop-cloud-credential.sh
@@ -108,6 +93,7 @@ function configure_hdfs() {
     fi
 }
 
+set_head_option "$@"
 check_hadoop_installed
 set_head_address
 configure_hdfs

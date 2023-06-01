@@ -7,23 +7,7 @@ ROOT_DIR="$(dirname "$(dirname "$BIN_DIR")")"
 args=$(getopt -a -o h:: -l head:: -- "$@")
 eval set -- "${args}"
 
-IS_HEAD_NODE=false
 USER_HOME=/home/$(whoami)
-
-while true
-do
-    case "$1" in
-    -h|--head)
-        IS_HEAD_NODE=true
-        ;;
-    --)
-        shift
-        break
-        ;;
-    esac
-    shift
-done
-
 
 # API cloud credential configuration functions
 . "$ROOT_DIR"/common/scripts/api-credential.sh
@@ -190,7 +174,7 @@ function configure_ai() {
     patch_libraries
 }
 
-
+set_head_option "$@"
 set_head_address
 configure_system_folders
 configure_ai

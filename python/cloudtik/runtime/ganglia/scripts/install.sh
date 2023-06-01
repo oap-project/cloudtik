@@ -7,22 +7,6 @@ ROOT_DIR="$(dirname "$(dirname "$BIN_DIR")")"
 args=$(getopt -a -o h:: -l head:: -- "$@")
 eval set -- "${args}"
 
-IS_HEAD_NODE=false
-
-while true
-do
-    case "$1" in
-    -h|--head)
-        IS_HEAD_NODE=true
-        ;;
-    --)
-        shift
-        break
-        ;;
-    esac
-    shift
-done
-
 # Util functions
 . "$ROOT_DIR"/common/scripts/util-functions.sh
 
@@ -60,5 +44,6 @@ function install_ganglia() {
     fi
 }
 
+set_head_option "$@"
 install_ganglia
 clean_install_cache

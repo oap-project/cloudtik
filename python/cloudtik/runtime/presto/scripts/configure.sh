@@ -7,23 +7,8 @@ ROOT_DIR="$(dirname "$(dirname "$BIN_DIR")")"
 args=$(getopt -a -o h:: -l head:: -- "$@")
 eval set -- "${args}"
 
-IS_HEAD_NODE=false
 USER_HOME=/home/$(whoami)
 RUNTIME_PATH=$USER_HOME/runtime
-
-while true
-do
-    case "$1" in
-    -h|--head)
-        IS_HEAD_NODE=true
-        ;;
-    --)
-        shift
-        break
-        ;;
-    esac
-    shift
-done
 
 # Util functions
 . "$ROOT_DIR"/common/scripts/util-functions.sh
@@ -230,6 +215,7 @@ function configure_presto() {
     cp ${output_dir}/presto/node.properties  ${PRESTO_HOME}/etc/node.properties
 }
 
+set_head_option "$@"
 check_presto_installed
 set_head_address
 retrieve_resources

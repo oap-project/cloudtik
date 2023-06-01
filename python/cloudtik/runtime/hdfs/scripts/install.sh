@@ -7,22 +7,6 @@ ROOT_DIR="$(dirname "$(dirname "$BIN_DIR")")"
 args=$(getopt -a -o h:: -l head:: -- "$@")
 eval set -- "${args}"
 
-IS_HEAD_NODE=false
-
-while true
-do
-    case "$1" in
-    -h|--head)
-        IS_HEAD_NODE=true
-        ;;
-    --)
-        shift
-        break
-        ;;
-    esac
-    shift
-done
-
 export HADOOP_VERSION=3.3.1
 
 export USER_HOME=/home/$(whoami)
@@ -38,6 +22,7 @@ mkdir -p $RUNTIME_PATH
 # Util functions
 . "$ROOT_DIR"/common/scripts/util-functions.sh
 
+set_head_option "$@"
 install_jdk
 install_hadoop
 clean_install_cache

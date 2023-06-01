@@ -7,22 +7,6 @@ ROOT_DIR="$(dirname "$(dirname "$BIN_DIR")")"
 args=$(getopt -a -o h:: -l head:: -- "$@")
 eval set -- "${args}"
 
-IS_HEAD_NODE=false
-
-while true
-do
-    case "$1" in
-    -h|--head)
-        IS_HEAD_NODE=true
-        ;;
-    --)
-        shift
-        break
-        ;;
-    esac
-    shift
-done
-
 if [ -z "$FLINK_VERSION" ]; then
     # if FLINK_VERSION is not set, set a default Flink version
     export FLINK_VERSION=1.14.5
@@ -158,6 +142,7 @@ function install_flink_with_cloud_jars() {
     done
 }
 
+set_head_option "$@"
 install_jdk
 install_hadoop
 install_flink

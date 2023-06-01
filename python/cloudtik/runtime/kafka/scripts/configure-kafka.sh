@@ -11,26 +11,25 @@ IS_HEAD_NODE=false
 USER_HOME=/home/$(whoami)
 RUNTIME_PATH=$USER_HOME/runtime
 
-while true
-do
-    case "$1" in
-    -h|--head)
-        IS_HEAD_NODE=true
-        ;;
-    --zookeeper_connect)
-        ZOOKEEPER_CONNECT=$2
-        shift
-        ;;
-    --)
-        shift
-        break
-        ;;
-    esac
-    shift
-done
-
 # Util functions
 . "$ROOT_DIR"/common/scripts/util-functions.sh
+
+function set_zookeeper_connect() {
+    while true
+    do
+        case "$1" in
+        --zookeeper_connect)
+            ZOOKEEPER_CONNECT=$2
+            shift
+            ;;
+        --)
+            shift
+            break
+            ;;
+        esac
+        shift
+    done
+}
 
 function prepare_base_conf() {
     source_dir=$(cd $(dirname ${BASH_SOURCE[0]})/..;pwd)/conf
@@ -106,6 +105,9 @@ function configure_kafka() {
 
     cp -r ${output_dir}/kafka/server.properties  ${KAFKA_HOME}/config/server.properties
 }
+
+set_head_option "$@"
+set_zookeeper_connect "$@"
 
 if [ $IS_HEAD_NODE == "false" ];then
     # Zookeeper doesn't run on head node

@@ -7,22 +7,6 @@ ROOT_DIR="$(dirname "$(dirname "$BIN_DIR")")"
 args=$(getopt -a -o h:: -l head:: -- "$@")
 eval set -- "${args}"
 
-IS_HEAD_NODE=false
-
-while true
-do
-    case "$1" in
-    -h|--head)
-        IS_HEAD_NODE=true
-        ;;
-    --)
-        shift
-        break
-        ;;
-    esac
-    shift
-done
-
 export USER_HOME=/home/$(whoami)
 export RUNTIME_PATH=$USER_HOME/runtime
 mkdir -p $RUNTIME_PATH
@@ -35,5 +19,6 @@ function install_ray() {
     pip --no-cache-dir -qq install ray[default,air,rllib]==2.3.0
 }
 
+set_head_option "$@"
 install_ray
 clean_install_cache

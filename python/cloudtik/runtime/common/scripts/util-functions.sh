@@ -29,7 +29,7 @@ function set_node_ip_address() {
     fi
 }
 
-funtion set_head_option() {
+function set_head_option() {
     # this function set the head variable based on the arguments processed by getopt
     IS_HEAD_NODE=false
     while true

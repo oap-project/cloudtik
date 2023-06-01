@@ -2179,6 +2179,21 @@ def runtime_prepare_config(
     return config
 
 
+def runtime_bootstrap_config(
+        runtime_config: Dict[str, Any],
+        config: Dict[str, Any]) -> Dict[str, Any]:
+    if runtime_config is None:
+        return config
+
+    # Iterate through all the runtimes
+    runtime_types = runtime_config.get(RUNTIME_TYPES_CONFIG_KEY, [])
+    for runtime_type in runtime_types:
+        runtime = _get_runtime(runtime_type, runtime_config)
+        config = runtime.bootstrap_config(config)
+
+    return config
+
+
 def runtime_verify_config(runtime_config, config):
     if runtime_config is None:
         return

@@ -220,6 +220,11 @@ def cleanup_orphan_pvcs(cluster_name, namespace):
 
 
 def get_key_pair_path_for_kubernetes(config):
-    key_pair_file_path = "~/.ssh/cloudtik_kubernetes_{}_{}.pem".format(config["provider"]["cloud_provider"]["type"],
-                                                                  config["cluster_name"])
+    provider = config["provider"]
+    if "cloud_provider" in provider:
+        key_pair_file_path = "~/.ssh/cloudtik_kubernetes_{}_{}.pem".format(
+            provider["cloud_provider"]["type"], config["cluster_name"])
+    else:
+        key_pair_file_path = "~/.ssh/cloudtik_kubernetes_{}.pem".format(
+            config["cluster_name"])
     return key_pair_file_path

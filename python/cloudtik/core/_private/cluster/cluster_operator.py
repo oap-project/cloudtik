@@ -1,21 +1,22 @@
 import copy
-import math
-import sys
-import urllib
-import urllib.parse
 import datetime
 import json
 import logging
+import math
 import os
 import random
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
+import urllib
+import urllib.parse
 from types import ModuleType
 from typing import Any, Dict, List, Optional, Tuple, Union
-import prettytable as pt
+
 import click
+import prettytable as pt
 import psutil
 import yaml
 
@@ -77,8 +78,8 @@ from cloudtik.core._private.event_system import (CreateClusterEvent, global_even
 from cloudtik.core._private.log_timer import LogTimer
 from cloudtik.core._private.cluster.cluster_dump import Archive, \
     GetParameters, Node, _get_nodes_to_dump, \
-    create_archive_for_remote_nodes, get_all_local_data, \
-    create_archive_for_cluster_nodes
+    add_archive_for_remote_nodes, get_all_local_data, \
+    add_archive_for_cluster_nodes, add_archive_for_local_node
 from cloudtik.core._private.state.control_state import ControlState
 
 from cloudtik.core._private.cluster.cluster_metrics import ClusterMetricsSummary
@@ -1634,15 +1635,16 @@ def _get_running_head_node(
                                  _allow_uninitialized_state=_allow_uninitialized_state)
 
 
-def get_local_dump_archive(stream: bool = False,
-                           output: Optional[str] = None,
-                           logs: bool = True,
-                           debug_state: bool = True,
-                           pip: bool = True,
-                           processes: bool = True,
-                           processes_verbose: bool = False,
-                           tempfile: Optional[str] = None,
-                           runtimes: str = None) -> Optional[str]:
+def dump_local(stream: bool = False,
+               output: Optional[str] = None,
+               logs: bool = True,
+               debug_state: bool = True,
+               pip: bool = True,
+               processes: bool = True,
+               processes_verbose: bool = False,
+               tempfile: Optional[str] = None,
+               runtimes: str = None,
+               verbosity: Optional[int] = None) -> Optional[str]:
     if stream and output:
         raise ValueError(
             "You can only use either `--output` or `--stream`, but not both.")
@@ -1668,12 +1670,14 @@ def get_local_dump_archive(stream: bool = False,
 
     target = output or os.path.join(os.getcwd(), os.path.basename(tmp))
     shutil.move(tmp, target)
-    cli_logger.print(f"Created local data archive at {target}")
+
+    if verbosity is None or verbosity > 0:
+        cli_logger.print(f"Created local data archive at {target}")
 
     return target
 
 
-def get_cluster_dump_archive_on_head(
+def dump_cluster_on_head(
         config: Dict[str, Any],
         call_context: CallContext,
         hosts: Optional[str] = None,
@@ -1684,20 +1688,31 @@ def get_cluster_dump_archive_on_head(
         pip: bool = True,
         processes: bool = True,
         processes_verbose: bool = False,
-        tempfile: Optional[str] = None) -> Optional[str]:
+        temp_file: Optional[str] = None,
+        verbosity: Optional[int] = None) -> Optional[str]:
     if stream and output:
         raise ValueError(
             "You can only use either `--output` or `--stream`, but not both.")
 
+    if not stream and (verbosity is None or verbosity > 0):
+        _print_cluster_dump_warning(
+            call_context,
+            logs, debug_state, pip, processes)
+
     head, workers, = _get_nodes_to_dump(config, hosts)
 
-    nodes = [
+    head_node = Node(
+        node_id=head[0],
+        host=head[1],
+        is_head=True) if head is not None else None
+
+    worker_nodes = [
         Node(
             node_id=worker[0],
             host=worker[1]) for worker in workers
     ]
 
-    if not nodes:
+    if head_node is None and not worker_nodes:
         cli_logger.error(
             "No nodes found. Specify with `--host` or by passing a "
             "cluster config to `--cluster`.")
@@ -1711,10 +1726,16 @@ def get_cluster_dump_archive_on_head(
         processes_verbose=processes_verbose,
         runtimes=get_enabled_runtimes(config))
 
-    with Archive(file=tempfile) as archive:
-        create_archive_for_remote_nodes(
-            config, call_context,
-            archive, remote_nodes=nodes, parameters=parameters)
+    with Archive(file=temp_file) as archive:
+        if head_node:
+            # dump local head node
+            add_archive_for_local_node(
+                archive, head_node, parameters)
+
+        if worker_nodes:
+            add_archive_for_remote_nodes(
+                config, call_context,
+                archive, remote_nodes=worker_nodes, parameters=parameters)
 
     tmp = archive.file
 
@@ -1724,26 +1745,20 @@ def get_cluster_dump_archive_on_head(
         os.remove(tmp)
         return None
 
-    target = output or os.path.join(os.getcwd(), os.path.basename(tmp))
+    if not output:
+        cluster_name = config["cluster_name"]
+        filename = f"{cluster_name}_" \
+                   f"{datetime.datetime.now():%Y-%m-%d_%H-%M-%S}.tar.gz"
+        target = os.path.join(os.getcwd(), filename)
+    else:
+        target = os.path.expanduser(output)
     shutil.move(tmp, target)
-    cli_logger.print(f"Created local data archive at {target}")
-
+    cli_logger.print(f"Created cluster dump archive: {target}")
     return target
 
 
-def get_cluster_dump_archive(config: Dict[str, Any],
-                             call_context: CallContext,
-                             hosts: Optional[str] = None,
-                             head_only: Optional[bool] = None,
-                             output: Optional[str] = None,
-                             logs: bool = True,
-                             debug_state: bool = True,
-                             pip: bool = True,
-                             processes: bool = True,
-                             processes_verbose: bool = False,
-                             tempfile: Optional[str] = None) -> Optional[str]:
-    # Inform the user what kind of logs are collected (before actually
-    # collecting, so they can abort)
+def _print_cluster_dump_warning(
+        call_context: CallContext, logs, debug_state, pip, processes):
     content_str = ""
     if logs:
         content_str += \
@@ -1763,7 +1778,7 @@ def get_cluster_dump_archive(config: Dict[str, Any],
             "  - Information on your running processes\n" \
             "    This includes command line arguments\n"
 
-    cli_logger.warning(
+    call_context.cli_logger.warning(
         "You are about to create a cluster dump. This will collect data from "
         "cluster nodes.\n\n"
         "The dump will contain this information:\n\n"
@@ -1772,21 +1787,41 @@ def get_cluster_dump_archive(config: Dict[str, Any],
         f"the archive and inspect its contents before sharing it with "
         f"anyone.")
 
-    head, workers = _get_nodes_to_dump(config, hosts)
 
-    if not head[0]:
-        cli_logger.error(
-            "No head node found. Cluster may not be running. ")
-        return None
+def dump_cluster(
+        config: Dict[str, Any],
+        call_context: CallContext,
+        hosts: Optional[str] = None,
+        head_only: Optional[bool] = None,
+        output: Optional[str] = None,
+        logs: bool = True,
+        debug_state: bool = True,
+        pip: bool = True,
+        processes: bool = True,
+        processes_verbose: bool = False,
+        tempfile: Optional[str] = None):
+    # Inform the user what kind of logs are collected (before actually
+    # collecting, so they can abort)
+    _print_cluster_dump_warning(
+        call_context,
+        logs, debug_state, pip, processes)
+
+    head, workers = _get_nodes_to_dump(config, hosts)
 
     head_node = Node(
             node_id=head[0],
             host=head[1],
-            is_head=True)
+            is_head=True) if head is not None else None
 
     worker_nodes = [
         Node(node_id=worker[0], host=worker[1]) for worker in workers
     ]
+
+    _cli_logger = call_context.cli_logger
+    if not head_node and not worker_nodes:
+        _cli_logger.print(
+            f"No matched cluster nodes to dump.")
+        return
 
     parameters = GetParameters(
         logs=logs,
@@ -1797,7 +1832,7 @@ def get_cluster_dump_archive(config: Dict[str, Any],
         runtimes=get_enabled_runtimes(config))
 
     with Archive(file=tempfile) as archive:
-        create_archive_for_cluster_nodes(
+        add_archive_for_cluster_nodes(
             config, call_context,
             archive,
             head_node=head_node, worker_nodes=worker_nodes,
@@ -1812,7 +1847,9 @@ def get_cluster_dump_archive(config: Dict[str, Any],
         output = os.path.expanduser(output)
 
     shutil.move(archive.file, output)
-    return output
+
+    _cli_logger.print(
+        f"Created cluster dump archive: {output}")
 
 
 def _show_worker_cpus(config: Dict[str, Any]):

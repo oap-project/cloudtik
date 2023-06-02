@@ -14,7 +14,7 @@ from cloudtik.core._private import services
 from cloudtik.core._private.cli_logger import (add_click_logging_options,
                                                cli_logger, cf)
 from cloudtik.core._private.cluster.cluster_operator import (
-    get_local_dump_archive)
+    dump_local)
 from cloudtik.core._private.constants import CLOUDTIK_PROCESSES, \
     CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
     CLOUDTIK_DEFAULT_PORT
@@ -504,7 +504,7 @@ def dump(
     if verbosity is not None:
         cli_logger.set_verbosity(verbosity)
 
-    get_local_dump_archive(
+    dump_local(
         stream=stream,
         output=output,
         logs=logs,
@@ -513,7 +513,8 @@ def dump(
         processes=processes,
         processes_verbose=processes_verbose,
         tempfile=tempfile,
-        runtimes=runtimes)
+        runtimes=runtimes,
+        verbosity=verbosity)
 
 
 @node.command(context_settings={"ignore_unknown_options": True})

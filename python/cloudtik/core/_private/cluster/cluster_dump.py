@@ -423,7 +423,7 @@ def get_archive_from_remote_node(
         runtime_arg = ",".join(parameters.runtimes)
         collect_cmd += ["--runtimes={}".format(quote(runtime_arg))]
 
-    kind = "node" if not remote_node.is_head else "head"
+    kind = "worker" if not remote_node.is_head else "head"
     remote_temp_file = tempfile.mktemp(
         prefix=f"cloudtik_{kind}_{remote_node.host}_", suffix=".tar.gz")
     collect_cmd += ["--output"]
@@ -467,7 +467,7 @@ def add_archive_for_remote_node(
     if not archive.is_open:
         archive.open()
 
-    kind = "node" if not remote_node.is_head else "head"
+    kind = "worker" if not remote_node.is_head else "head"
     node_dir = f"{kind}_{remote_node.host}"
 
     add_archive_extracted(archive, node_dir, tmp)
@@ -508,7 +508,7 @@ def add_archive_for_local_node(archive: Archive,
     if not archive.is_open:
         archive.open()
 
-    kind = "node" if not local_node.is_head else "head"
+    kind = "worker" if not local_node.is_head else "head"
     node_dir = f"{kind}_{local_node.host}"
 
     tmp = local_data_archive.file
@@ -533,6 +533,13 @@ def add_archive_for_remote_nodes(config: Dict[str, Any],
     if not archive.is_open:
         archive.open()
 
+    # This is to ensure that the parallel SSH calls below do not mess with
+    # the users terminal.
+    output_redir = call_context.is_output_redirected()
+    call_context.set_output_redirected(True)
+    allow_interactive = call_context.does_allow_interactive()
+    call_context.set_allow_interactive(False)
+
     with ThreadPoolExecutor(max_workers=MAX_PARALLEL_SSH_WORKERS) as executor:
         for remote_node in remote_nodes:
             # get node type specific runtimes
@@ -546,6 +553,9 @@ def add_archive_for_remote_nodes(config: Dict[str, Any],
                 archive=archive,
                 remote_node=remote_node,
                 parameters=node_parameters)
+
+    call_context.set_output_redirected(output_redir)
+    call_context.set_allow_interactive(allow_interactive)
 
     return archive
 

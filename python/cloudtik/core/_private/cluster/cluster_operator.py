@@ -1635,15 +1635,16 @@ def _get_running_head_node(
                                  _allow_uninitialized_state=_allow_uninitialized_state)
 
 
-def get_local_dump_archive(stream: bool = False,
-                           output: Optional[str] = None,
-                           logs: bool = True,
-                           debug_state: bool = True,
-                           pip: bool = True,
-                           processes: bool = True,
-                           processes_verbose: bool = False,
-                           tempfile: Optional[str] = None,
-                           runtimes: str = None) -> Optional[str]:
+def dump_local(stream: bool = False,
+               output: Optional[str] = None,
+               logs: bool = True,
+               debug_state: bool = True,
+               pip: bool = True,
+               processes: bool = True,
+               processes_verbose: bool = False,
+               tempfile: Optional[str] = None,
+               runtimes: str = None,
+               verbosity: Optional[int] = None) -> Optional[str]:
     if stream and output:
         raise ValueError(
             "You can only use either `--output` or `--stream`, but not both.")
@@ -1669,7 +1670,9 @@ def get_local_dump_archive(stream: bool = False,
 
     target = output or os.path.join(os.getcwd(), os.path.basename(tmp))
     shutil.move(tmp, target)
-    cli_logger.print(f"Created local data archive at {target}")
+
+    if verbosity is None or verbosity > 0:
+        cli_logger.print(f"Created local data archive at {target}")
 
     return target
 

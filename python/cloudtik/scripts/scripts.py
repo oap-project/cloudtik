@@ -105,9 +105,10 @@ def cli(logging_level, logging_format):
           "by default. If your workflow is compatible with normal shells, "
           "this can be disabled for a better user experience."))
 @add_click_logging_options
-def start(cluster_config_file, min_workers, max_workers, no_restart, restart_only,
-       yes, cluster_name, workspace_name, redirect_command_output,
-       use_login_shells):
+def start(
+        cluster_config_file, min_workers, max_workers, no_restart, restart_only,
+        yes, cluster_name, workspace_name, redirect_command_output,
+        use_login_shells):
     """Start or update a cluster."""
     if restart_only or no_restart:
         cli_logger.doassert(restart_only != no_restart,

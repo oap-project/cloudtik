@@ -11,8 +11,10 @@ import subprocess
 import sys
 import tempfile
 import threading
+from contextlib import closing
 from typing import Optional
 
+import ipaddr
 # Import psutil after others so the packaged version is used.
 import psutil
 
@@ -718,3 +720,55 @@ def get_user_temp_dir():
 
 def get_cloudtik_temp_dir():
     return os.path.join(get_user_temp_dir(), "cloudtik")
+
+
+def exec_with_output(cmd):
+    return subprocess.check_output(
+        cmd,
+        shell=True,
+    )
+
+
+def is_private_ip(ip_addr):
+    return ipaddr.IPv4Address(ip_addr).is_private
+
+
+def get_host_address(address_type="all"):
+    addresses = set()
+    for iface, addrs in psutil.net_if_addrs().items():
+        for addr in addrs:
+            if addr.family == socket.AF_INET and addr.address != '127.0.0.1':
+                if address_type == "private":
+                    if is_private_ip(addr.address):
+                        addresses.add(addr.address)
+                elif address_type == "public":
+                    if not is_private_ip(addr.address):
+                        addresses.add(addr.address)
+                else:
+                    addresses.add(addr.address)
+    return addresses
+
+
+def get_free_port(bind_address='127.0.0.1', default_port=6000):
+    """ Get free port"""
+    with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
+        test_port = default_port
+        while True:
+            result = s.connect_ex((bind_address, test_port))
+            if result != 0:
+                return test_port
+            else:
+                test_port += 1
+
+
+def generate_public_key(private_key_file, public_key_file: str = None):
+    if not public_key_file:
+        public_key_file = private_key_file + ".pub"
+    if not os.path.exists(public_key_file):
+        exec_with_output(
+            f"ssh-keygen -y "
+            f"-f {private_key_file} "
+            f"> {public_key_file} "
+            f"&& chmod 600 {public_key_file}"
+        )
+    return public_key_file

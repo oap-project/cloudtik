@@ -26,7 +26,7 @@ from cloudtik.core._private.call_context import CallContext
 from cloudtik.core._private.cluster.cluster_config import _load_cluster_config, _bootstrap_config, try_logging_config
 from cloudtik.core._private.cluster.cluster_tunnel_request import request_tunnel_to_head
 from cloudtik.core._private.cluster.cluster_utils import create_node_updater_for_exec
-from cloudtik.core._private.core_utils import kill_process_tree, double_quote, get_cloudtik_temp_dir
+from cloudtik.core._private.core_utils import kill_process_tree, double_quote, get_cloudtik_temp_dir, get_free_port
 from cloudtik.core._private.job_waiter.job_waiter_factory import create_job_waiter
 from cloudtik.core._private.runtime_factory import _get_runtime_cls
 from cloudtik.core._private.services import validate_redis_address
@@ -47,8 +47,7 @@ from cloudtik.core._private.constants import \
     CLOUDTIK_REDIS_DEFAULT_PASSWORD, CLOUDTIK_CLUSTER_STATUS_STOPPED, CLOUDTIK_CLUSTER_STATUS_RUNNING, \
     CLOUDTIK_RUNTIME_NAME, CLOUDTIK_KV_NAMESPACE_HEALTHCHECK
 from cloudtik.core._private.utils import hash_runtime_conf, \
-    hash_launch_conf, get_free_port, \
-    get_proxy_process_file, get_safe_proxy_process, \
+    hash_launch_conf, get_proxy_process_file, get_safe_proxy_process, \
     get_head_working_ip, get_node_cluster_ip, is_use_internal_ip, \
     get_attach_command, is_alive_time, is_docker_enabled, get_proxy_bind_address_to_show, \
     with_runtime_environment_variables, get_nodes_info, \

@@ -11,7 +11,7 @@ from kubernetes import client
 from kubernetes.client.rest import ApiException
 
 from cloudtik.core._private.cli_logger import cli_logger, cf
-from cloudtik.core._private.core_utils import parse_memory_resource
+from cloudtik.core._private.core_utils import parse_memory_resource, generate_public_key
 from cloudtik.core._private.docker import get_versioned_image
 from cloudtik.core._private.providers import _get_node_provider
 from cloudtik.core._private.utils import is_use_internal_ip, get_running_head_node, binary_to_hex, hex_to_binary, \
@@ -481,17 +481,26 @@ def configure_for_ssh(config):
     ssh_public_key = auth_config.get("ssh_public_key", None)
     if not auth_config.get("ssh_port", None):
         auth_config["ssh_port"] = KUBERNETES_SSH_DEFAULT_PORT
-    if ssh_public_key and ssh_private_key:
-        return
-    else:
-        key_pair_file_path = get_key_pair_path_for_kubernetes(config)
-        private_key_generation_cmd = f"test -e {key_pair_file_path} || ssh-keygen -t rsa -q -N '' -m PEM -f {key_pair_file_path}"
-        os.system(private_key_generation_cmd)
-        auth_config["ssh_private_key"] = key_pair_file_path
-        auth_config["ssh_public_key"] = f"{key_pair_file_path}.pub"
 
+    if ssh_private_key and os.path.exists(ssh_private_key):
+        # if private key was set
+        if not ssh_public_key or not os.path.exists(ssh_public_key):
+            # generate public key from the private key
+            if not ssh_public_key:
+                ssh_public_key = f"{ssh_private_key}.pub"
+            generate_public_key(ssh_private_key, ssh_public_key)
+            auth_config["ssh_public_key"] = ssh_public_key
+    else:
+        # generate a private key and public key
+        if not ssh_private_key:
+            ssh_private_key = get_key_pair_path_for_kubernetes(config)
+
+        private_key_generation_cmd = f"ssh-keygen -t rsa -q -N '' -m PEM -f {ssh_private_key}"
+        os.system(private_key_generation_cmd)
+        auth_config["ssh_private_key"] = ssh_private_key
+        auth_config["ssh_public_key"] = f"{ssh_private_key}.pub"
         cli_logger.print("Private key not specified in config, generated and using "
-                         "{}".format(key_pair_file_path))
+                         "{}".format(ssh_private_key))
 
 
 def cleanup_kubernetes_cluster(config, cluster_name, namespace):

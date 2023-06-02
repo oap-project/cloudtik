@@ -4,10 +4,10 @@ import socket
 from typing import Any, Optional
 from typing import Dict
 
-import cloudtik.core._private.utils as utils
-from cloudtik.core._private.core_utils import get_memory_in_bytes, get_cloudtik_temp_dir
+from cloudtik.core._private.core_utils import get_memory_in_bytes, get_cloudtik_temp_dir, exec_with_output, \
+    get_host_address
 from cloudtik.core._private.resource_spec import ResourceSpec
-from cloudtik.core._private.utils import exec_with_output
+from cloudtik.core._private.utils import is_docker_enabled
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME
 
 logger = logging.getLogger(__name__)
@@ -56,7 +56,7 @@ def _configure_local_node_id(config):
 
 def _get_listed_local_ip(provider):
     nodes = provider[CONFIG_KEY_NODES]
-    host_ips = utils.get_host_address(address_type="all")
+    host_ips = get_host_address(address_type="all")
     for node in nodes:
         node_ip = node["ip"]
         if node_ip in host_ips:
@@ -113,7 +113,7 @@ def _configure_node_instance_types(config):
 
 
 def _configure_docker(config):
-    if not utils.is_docker_enabled(config):
+    if not is_docker_enabled(config):
         return config
     provider = config["provider"]
     rootless = is_rootless_docker()

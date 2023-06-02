@@ -1,7 +1,6 @@
-import os.path
 from typing import Any, Dict
 
-from cloudtik.core._private.utils import exec_with_output
+from cloudtik.core._private.core_utils import generate_public_key
 
 RUNTIME_PROCESSES = [
     # The first element is the substring to filter.
@@ -24,22 +23,6 @@ def _get_ssh_server_port(runtime_config):
     return ssh_server_config.get("port", SSH_SERVER_DEFAULT_PORT)
 
 
-def _generate_public_key(private_key_file):
-    private_key_path = os.path.dirname(private_key_file)
-    private_key_file_name = os.path.basename(private_key_file)
-
-    public_key_file = os.path.join(
-        private_key_path, private_key_file_name + ".pub")
-    if not os.path.exists(public_key_file):
-        exec_with_output(
-            f"ssh-keygen -y "
-            f"-f {private_key_file} "
-            f"> {public_key_file} "
-            f"&& chmod 600 {public_key_file}"
-        )
-    return public_key_file
-
-
 def _bootstrap_runtime_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
     ssh_public_key = cluster_config["auth"].get("ssh_public_key")
     if not ssh_public_key:
@@ -49,7 +32,7 @@ def _bootstrap_runtime_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         # if public key not specified and private key is specified
         # we can generate the public key file from private key
         try:
-            ssh_public_key = _generate_public_key(ssh_private_key)
+            ssh_public_key = generate_public_key(ssh_private_key)
         except Exception:
             raise ValueError("Failed to generate public key from private key file: {}. ".format(
                 ssh_private_key) + SSH_PUBLIC_KEY_ERROR)

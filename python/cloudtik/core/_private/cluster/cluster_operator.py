@@ -58,7 +58,7 @@ from cloudtik.core._private.utils import hash_runtime_conf, \
     is_node_in_completed_status, check_for_single_worker_type, \
     get_node_specific_commands_of_runtimes, _get_node_specific_runtime_config, \
     RUNTIME_CONFIG_KEY, DOCKER_CONFIG_KEY, get_running_head_node, \
-    get_nodes_for_runtime, with_script_args, encrypt_config, convert_nodes_to_cpus, \
+    get_nodes_for_runtime, with_script_args, encrypt_config, convert_nodes_to_resource, \
     HeadNotRunningError, get_cluster_head_ip, get_command_session_name, ParallelTaskSkipped, \
     CLOUDTIK_CLUSTER_SCALING_STATUS, decode_cluster_scaling_time, RUNTIME_TYPES_CONFIG_KEY, get_node_info, \
     NODE_INFO_NODE_IP, get_cpus_of_node_info, _sum_min_workers, get_memory_of_node_info, sum_worker_gpus, \
@@ -128,6 +128,7 @@ def debug_status_string(status, error) -> str:
 
 def request_resources(num_cpus: Optional[int] = None,
                       num_gpus: Optional[int] = None,
+                      resource: Optional[Tuple[str, int]] = None,
                       bundles: Optional[List[dict]] = None,
                       config: Dict[str, Any] = None) -> None:
     if num_cpus:
@@ -136,6 +137,9 @@ def request_resources(num_cpus: Optional[int] = None,
     elif num_gpus:
         to_request = get_resource_requests_for(
             config, constants.CLOUDTIK_RESOURCE_GPU, num_gpus)
+    elif resource:
+        to_request = get_resource_requests_for(
+            config, resource[0], resource[1])
     else:
         to_request = None
     _request_resources(resources=to_request, bundles=bundles)
@@ -3297,14 +3301,18 @@ def _do_stop_node_on_head(
 
 
 def scale_cluster(config_file: str, yes: bool, override_cluster_name: Optional[str],
-                  cpus: int, gpus: int, workers: int,
-                  worker_type: Optional[str] = None, up_only: bool = False):
+                  cpus: int, gpus: int,
+                  workers: int, worker_type: Optional[str] = None,
+                  resource: Optional[str] = None,
+                  up_only: bool = False):
     config = _load_cluster_config(config_file, override_cluster_name)
     call_context = cli_call_context()
     if cpus:
         resource_string = f"{cpus} worker CPUs"
     elif gpus:
         resource_string = f"{gpus} worker GPUs"
+    elif resource:
+        resource_string = resource
     else:
         resource_string = f"{workers} workers"
     cli_logger.confirm(yes, "Are you sure that you want to scale cluster {} to {}?",
@@ -3313,29 +3321,52 @@ def scale_cluster(config_file: str, yes: bool, override_cluster_name: Optional[s
 
     _scale_cluster(config,
                    call_context=call_context,
-                   cpus=cpus, gpus=gpus, workers=workers,
-                   worker_type=worker_type, up_only=up_only)
+                   cpus=cpus, gpus=gpus,
+                   workers=workers, worker_type=worker_type,
+                   resource=resource,
+                   up_only=up_only)
+
+
+def _check_scale_parameters(
+    cpus: int, gpus: int, workers: int = None,
+    resource: Optional[str] = None,
+):
+    n = 0
+    n += 1 if cpus else 0
+    n += 1 if gpus else 0
+    n += 1 if workers else 0
+    n += 1 if resource else 0
+    if n == 0:
+        raise ValueError("Need specify either `cpus`, `gpus` `workers` or 'resource'.")
+    elif n > 1:
+        raise ValueError("Can specify only one of `cpus` `gpus` `workers` or 'resource'.")
 
 
 def _scale_cluster(config: Dict[str, Any],
                    call_context: CallContext,
                    cpus: int, gpus: int, workers: int = None,
-                   worker_type: Optional[str] = None, up_only: bool = False):
-    assert (not (cpus and workers) or not (cpus and gpus) or not (gpus and workers)), \
-        "Can specify only one of `cpus` `gpus` or `workers`."
-    assert (cpus or gpus or workers), "Need specify either `cpus`, `gpus` or `workers`."
+                   worker_type: Optional[str] = None,
+                   resource: Optional[str] = None,
+                   up_only: bool = False):
+    _check_scale_parameters(
+        cpus=cpus, gpus=gpus,
+        workers=workers,
+        resource=resource
+    )
 
     # send the head the resource request
     scale_cluster_from_head(config,
                             call_context=call_context,
-                            cpus=cpus, gpus=gpus, workers=workers,
-                            worker_type=worker_type, up_only=up_only)
+                            cpus=cpus, gpus=gpus,
+                            workers=workers, worker_type=worker_type,
+                            resource=resource, up_only=up_only)
 
 
 def scale_cluster_from_head(config: Dict[str, Any],
                             call_context: CallContext,
-                            cpus: int, gpus: int, workers: int = None,
-                            worker_type: Optional[str] = None, up_only: bool = False):
+                            cpus: int, gpus: int,
+                            workers: int = None, worker_type: Optional[str] = None,
+                            resource: Optional[str] = None, up_only: bool = False):
     # Make a request to head to scale the cluster
     cmds = [
         "cloudtik",
@@ -3351,6 +3382,8 @@ def scale_cluster_from_head(config: Dict[str, Any],
         cmds += ["--workers={}".format(workers)]
     if worker_type:
         cmds += ["--worker-type={}".format(worker_type)]
+    if resource:
+        cmds += ["--resource={}".format(resource)]
     if up_only:
         cmds += ["--up-only"]
 
@@ -3360,8 +3393,9 @@ def scale_cluster_from_head(config: Dict[str, Any],
                          cmd=final_cmd)
 
 
-def scale_cluster_on_head(yes: bool, cpus: int, gpus: int, workers: int,
-                          worker_type: Optional[str] = None, up_only: bool = False):
+def scale_cluster_on_head(yes: bool, cpus: int, gpus: int,
+                          workers: int, worker_type: Optional[str] = None,
+                          resource: Optional[str] = None, up_only: bool = False):
     config = load_head_cluster_config()
     call_context = cli_call_context()
     if not yes:
@@ -3369,6 +3403,8 @@ def scale_cluster_on_head(yes: bool, cpus: int, gpus: int, workers: int,
             resource_string = f"{cpus} worker CPUs"
         elif gpus:
             resource_string = f"{gpus} worker GPUs"
+        elif resource:
+            resource_string = resource
         else:
             resource_string = f"{workers} workers"
         cli_logger.confirm(yes, "Are you sure that you want to scale cluster {} to {}?",
@@ -3382,6 +3418,7 @@ def scale_cluster_on_head(yes: bool, cpus: int, gpus: int, workers: int,
         gpus=gpus,
         workers=workers,
         worker_type=worker_type,
+        resource=resource,
         up_only=up_only
     )
 
@@ -3392,21 +3429,33 @@ def _scale_cluster_on_head(config: Dict[str, Any],
                            gpus: int,
                            workers: int,
                            worker_type: Optional[str] = None,
+                           resource: Optional[str] = None,
                            up_only: bool = False):
-    assert (not (cpus and workers) or not (cpus and gpus) or not (gpus and workers)), \
-        "Can specify only one of `cpus` `gpus` or `workers`."
-    assert (cpus or gpus or workers), "Need specify either `cpus`, `gpus` or `workers`."
+    _check_scale_parameters(
+        cpus=cpus, gpus=gpus,
+        workers=workers,
+        resource=resource
+    )
 
+    resource_tuple = None
     # Calculate nodes request to the number of cpus
     if workers:
         # if nodes specified, we need to check there is only one worker type defined
         if not worker_type:
             check_for_single_worker_type(config)
 
-        cpus = convert_nodes_to_cpus(
-            config, workers, worker_type)
-        if cpus == 0:
-            raise RuntimeError("Not be able to convert number of workers to number of CPUs.")
+        resource_amount = convert_nodes_to_resource(
+            config, workers, worker_type, worker_type)
+        if not resource_amount:
+            raise RuntimeError("Not be able to convert number of workers to worker node resources.")
+        resource_tuple = (worker_type, resource_amount)
+    if resource:
+        # parse to resource tuple
+        resource_parts = resource.split(":")
+        if len(resource_parts) != 2:
+            raise ValueError(
+                "Invalid resource request specification. Format: resource_type:amount")
+        resource_tuple = (resource_parts[0], int(resource_parts[1]))
 
     address = services.get_address_to_use_or_die()
     kv_initialize_with_address(address, CLOUDTIK_REDIS_DEFAULT_PASSWORD)
@@ -3416,11 +3465,14 @@ def _scale_cluster_on_head(config: Dict[str, Any],
         # if it is already larger than the requests, no need to make the requests
         if _is_resource_satisfied(
                 config, call_context,
-                cpus, gpus):
+                cpus, gpus, resource_tuple):
             cli_logger.print("Resource already satisfied. Skip scaling.")
             return
 
-    request_resources(num_cpus=cpus, num_gpus=gpus, config=config)
+    request_resources(
+        num_cpus=cpus, num_gpus=gpus,
+        resource=resource_tuple,
+        config=config)
 
 
 def _get_resource_requests():
@@ -3453,7 +3505,9 @@ def _is_resource_satisfied(
         config: Dict[str, Any],
         call_context: CallContext,
         cpus: int,
-        gpus: int):
+        gpus: Optional[int] = None,
+        resource: Optional[Tuple[str, int]] = None
+):
     # check two things
     # 1. whether the request resources already larger
     requested_resources = _get_resource_requests()
@@ -3464,12 +3518,18 @@ def _is_resource_satisfied(
         if gpus and _get_requested_resource(
                 config, requested_resources, constants.CLOUDTIK_RESOURCE_GPU) >= gpus:
             return True
+        if resource and _get_requested_resource(
+                config, requested_resources, resource[0]) >= resource[1]:
+            return True
 
     # 2. whether running cluster resources already satisfied
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     if cpus and get_worker_cpus(config, provider) >= cpus:
         return True
     if gpus and get_worker_gpus(config, provider) >= gpus:
+        return True
+    if resource and get_worker_resource(
+            config, provider, resource[0]) >= resource[1]:
         return True
     return False
 

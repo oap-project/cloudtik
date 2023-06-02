@@ -542,18 +542,23 @@ def submit(cluster_config_file, cluster_name, screen, tmux, stop, start,
     type=str,
     help="The worker type of the number of workers if there are multiple worker types.")
 @click.option(
+    "--resource",
+    required=False,
+    type=str,
+    help="The resource to scale in format resource_name:amount. for example, CPU:3")
+@click.option(
     "--up-only",
     is_flag=True,
     default=False,
     help="Scale up if resources is not enough. No scale down.")
 @add_click_logging_options
 def scale(cluster_config_file, yes, cluster_name,
-          cpus, gpus, workers, worker_type, up_only):
+          cpus, gpus, workers, worker_type, resource, up_only):
     """Scale the cluster with a specific number cpus or nodes."""
     scale_cluster(
         cluster_config_file, yes, cluster_name,
         cpus=cpus, gpus=gpus,
-        workers=workers, worker_type=worker_type,
+        workers=workers, worker_type=worker_type, resource=resource,
         up_only=up_only)
 
 

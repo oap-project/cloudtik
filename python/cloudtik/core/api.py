@@ -275,6 +275,7 @@ class Cluster:
               num_gpus: Optional[int] = None,
               workers: Optional[int] = None,
               worker_type: Optional[str] = None,
+              resource: Optional[str] = None,
               up_only: bool = False,
               bundles: Optional[List[dict]] = None) -> None:
         """Reqeust to scale to accommodate the specified requests.
@@ -300,6 +301,7 @@ class Cluster:
                 available
             workers (int): Scale to number of workers.
             worker_type (str): The worker type if there were multiple workers available.
+            resource: Optional[str]: The resource to scale in format resource_name:amount. for example, CPU:3
             up_only (bool): Whether scale up only, no scale down.
             bundles (List[ResourceDict]): Scale the cluster to ensure this set of
                 resource shapes can fit. This request is persistent until another
@@ -312,6 +314,7 @@ class Cluster:
             gpus=num_gpus,
             workers=workers,
             worker_type=worker_type,
+            resource=resource,
             up_only=up_only)
 
     def start_node(self,
@@ -541,6 +544,7 @@ class ThisCluster:
               num_gpus: Optional[int] = None,
               workers: Optional[int] = None,
               worker_type: Optional[str] = None,
+              resource: Optional[str] = None,
               up_only: bool = False,
               bundles: Optional[List[dict]] = None) -> None:
         """Reqeust to scale to accommodate the specified requests.
@@ -566,6 +570,7 @@ class ThisCluster:
                 available
             workers (int): Scale to number of workers.
             worker_type (str): The worker type if there were multiple workers available.
+            resource: Optional[str]: The resource to scale in format resource_name:amount. for example, CPU:3
             up_only (bool): Whether scale up only, no scale down.
             bundles (List[ResourceDict]): Scale the cluster to ensure this set of
                 resource shapes can fit. This request is persistent until another
@@ -578,6 +583,7 @@ class ThisCluster:
             gpus=num_gpus,
             workers=workers,
             worker_type=worker_type,
+            resource=resource,
             up_only=up_only)
 
     def start_node(self,

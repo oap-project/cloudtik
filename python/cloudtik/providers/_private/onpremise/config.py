@@ -187,6 +187,7 @@ def set_node_types_resources(
             num_gpus = resources.get("GPU", 0)
             if num_gpus > 0:
                 detected_resources["GPU"] = num_gpus
+                detected_resources["accelerator_type:GPU"] = 1
 
             memory_total_in_bytes = get_memory_in_bytes(
                 resources.get("memory"))

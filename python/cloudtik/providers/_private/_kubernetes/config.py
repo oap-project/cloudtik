@@ -561,20 +561,20 @@ def fill_resources_kubernetes(config):
         pod = node_config["pod"]
         container_data = pod["spec"]["containers"][0]
 
-        autodetected_resources = get_autodetected_resources(container_data)
+        detected_resources = get_detected_resources(container_data)
         node_type_config = config["available_node_types"][node_type]
         if "resources" not in node_type_config:
             node_type_config["resources"] = {}
-        autodetected_resources.update(
+        detected_resources.update(
             node_type_config["resources"])
-        node_type_config["resources"] = autodetected_resources
+        node_type_config["resources"] = detected_resources
         logger.debug(
             "Updating the resources of node type {} to include {}.".format(
-                node_type, autodetected_resources))
+                node_type, detected_resources))
     return config
 
 
-def get_autodetected_resources(container_data):
+def get_detected_resources(container_data):
     container_resources = container_data.get("resources", None)
     if container_resources is None:
         return {"CPU": 0, "GPU": 0}
@@ -583,6 +583,8 @@ def get_autodetected_resources(container_data):
         resource_name.upper(): get_resource(container_resources, resource_name)
         for resource_name in ["cpu", "gpu"]
     }
+    if node_type_resources.get("GPU") > 0:
+        node_type_resources["accelerator_type:GPU"] = 1
 
     memory_limits = get_resource(container_resources, "memory")
     node_type_resources["memory"] = int(memory_limits)

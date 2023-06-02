@@ -349,7 +349,8 @@ def prepare_config(config: Dict[str, Any]) -> Dict[str, Any]:
     with_defaults = fillout_defaults(config)
     merge_cluster_config(with_defaults)
     prepare_docker_config(with_defaults)
-    fill_node_type_min_max_workers(with_defaults)
+    set_node_type_min_max_workers(with_defaults)
+    set_node_type_resources(with_defaults)
     return with_defaults
 
 
@@ -1140,7 +1141,7 @@ def _sum_min_workers(config: Dict[str, Any]):
     return sum_min_workers
 
 
-def fill_default_max_workers(config):
+def set_default_max_workers(config):
     if "max_workers" not in config:
         logger.debug("Global max workers not set. "
                      "Will set to the sum of min workers or {} which is larger.", CLOUDTIK_DEFAULT_MAX_WORKERS)
@@ -1152,14 +1153,14 @@ def fill_default_max_workers(config):
         config["max_workers"] = max(sum_min_workers, CLOUDTIK_DEFAULT_MAX_WORKERS)
 
 
-def fill_node_type_min_max_workers(config):
+def set_node_type_min_max_workers(config):
     """Sets default per-node max workers to global max_workers.
     This equivalent to setting the default per-node max workers to infinity,
     with the only upper constraint coming from the global max_workers.
     Sets default per-node min workers to zero.
     Also sets default max_workers for the head node to zero.
     """
-    fill_default_max_workers(config)
+    set_default_max_workers(config)
 
     node_types = config["available_node_types"]
     for node_type_name in node_types:
@@ -1175,6 +1176,17 @@ def fill_node_type_min_max_workers(config):
                 logger.debug(f"setting max workers for {node_type_name} to "
                              f"{global_max_workers}")
                 node_type_data.setdefault("max_workers", global_max_workers)
+
+
+def set_node_type_resources(config):
+    node_types = config["available_node_types"]
+    for node_type_name in node_types:
+        node_type = node_types[node_type_name]
+        if "resources" not in node_type:
+            node_type["resources"] = {}
+        resources = node_type["resources"]
+        # This is virtual resource which identified the node type for resource schedulers
+        resources[node_type_name] = 1
 
 
 def with_head_node_ip_environment_variables(head_ip, envs: Dict[str, Any] = None) -> Dict[str, Any]:

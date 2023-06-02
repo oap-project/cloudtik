@@ -17,7 +17,7 @@ from cloudtik.core._private.cluster.cluster_config import _load_cluster_config
 from cloudtik.core._private.cluster.cluster_operator import (
     attach_cluster, create_or_update_cluster, monitor_cluster,
     teardown_cluster, get_head_node_ip, kill_node_from_head, get_worker_node_ips,
-    get_cluster_dump_archive, RUN_ENV_TYPES,
+    dump_cluster, RUN_ENV_TYPES,
     show_cluster_status, start_ssh_proxy, stop_ssh_proxy, cluster_debug_status,
     cluster_health_check, cluster_process_status, attach_worker, scale_cluster,
     exec_on_nodes, submit_and_exec, _wait_for_ready, _rsync, cli_call_context, cluster_resource_metrics,
@@ -1141,7 +1141,7 @@ def cluster_dump(cluster_config_file: Optional[str] = None,
     """
     config = _load_cluster_config(cluster_config_file, cluster_name,
                                   no_config_cache=no_config_cache)
-    archive_path = get_cluster_dump_archive(
+    dump_cluster(
         config=config,
         call_context=cli_call_context(),
         hosts=hosts,
@@ -1153,10 +1153,6 @@ def cluster_dump(cluster_config_file: Optional[str] = None,
         processes=processes,
         processes_verbose=processes_verbose,
         tempfile=tempfile)
-    if archive_path:
-        click.echo(f"Created cluster dump archive: {archive_path}")
-    else:
-        click.echo("Failed to create cluster dump archive.")
 
 
 def _add_command_alias(command, name, hidden):

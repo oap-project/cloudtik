@@ -7,7 +7,7 @@ from cloudtik.core._private import services
 from cloudtik.core._private.cli_logger import (add_click_logging_options,
                                                cli_logger)
 from cloudtik.core._private.cluster.cluster_operator import (
-    debug_status_string, get_cluster_dump_archive_on_head,
+    debug_status_string, dump_cluster_on_head,
     RUN_ENV_TYPES, teardown_cluster_on_head, cluster_process_status_on_head, rsync_node_on_head, attach_node_on_head,
     start_node_on_head, stop_node_on_head, kill_node_on_head, scale_cluster_on_head,
     _wait_for_ready, _get_worker_node_ips, _get_head_node_ip,
@@ -669,7 +669,7 @@ def cluster_dump(hosts: Optional[str] = None,
 
     config = load_head_cluster_config()
     call_context = cli_call_context()
-    get_cluster_dump_archive_on_head(
+    dump_cluster_on_head(
         config, call_context,
         hosts=hosts,
         stream=stream,

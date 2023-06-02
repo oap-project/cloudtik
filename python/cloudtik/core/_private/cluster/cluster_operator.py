@@ -1,21 +1,22 @@
 import copy
-import math
-import sys
-import urllib
-import urllib.parse
 import datetime
 import json
 import logging
+import math
 import os
 import random
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
+import urllib
+import urllib.parse
 from types import ModuleType
 from typing import Any, Dict, List, Optional, Tuple, Union
-import prettytable as pt
+
 import click
+import prettytable as pt
 import psutil
 import yaml
 
@@ -77,8 +78,8 @@ from cloudtik.core._private.event_system import (CreateClusterEvent, global_even
 from cloudtik.core._private.log_timer import LogTimer
 from cloudtik.core._private.cluster.cluster_dump import Archive, \
     GetParameters, Node, _get_nodes_to_dump, \
-    create_archive_for_remote_nodes, get_all_local_data, \
-    create_archive_for_cluster_nodes, create_and_add_local_data_to_local_archive
+    add_archive_for_remote_nodes, get_all_local_data, \
+    add_archive_for_cluster_nodes, add_archive_for_local_node
 from cloudtik.core._private.state.control_state import ControlState
 
 from cloudtik.core._private.cluster.cluster_metrics import ClusterMetricsSummary
@@ -1673,7 +1674,7 @@ def get_local_dump_archive(stream: bool = False,
     return target
 
 
-def get_cluster_dump_archive_on_head(
+def dump_cluster_on_head(
         config: Dict[str, Any],
         call_context: CallContext,
         hosts: Optional[str] = None,
@@ -1723,14 +1724,15 @@ def get_cluster_dump_archive_on_head(
         runtimes=get_enabled_runtimes(config))
 
     with Archive(file=temp_file) as archive:
-        if head_node is not None:
-            # head node dump
-            create_and_add_local_data_to_local_archive(
+        if head_node:
+            # dump local head node
+            add_archive_for_local_node(
                 archive, head_node, parameters)
 
-        create_archive_for_remote_nodes(
-            config, call_context,
-            archive, remote_nodes=worker_nodes, parameters=parameters)
+        if worker_nodes:
+            add_archive_for_remote_nodes(
+                config, call_context,
+                archive, remote_nodes=worker_nodes, parameters=parameters)
 
     tmp = archive.file
 
@@ -1783,17 +1785,18 @@ def _print_cluster_dump_warning(
         f"anyone.")
 
 
-def get_cluster_dump_archive(config: Dict[str, Any],
-                             call_context: CallContext,
-                             hosts: Optional[str] = None,
-                             head_only: Optional[bool] = None,
-                             output: Optional[str] = None,
-                             logs: bool = True,
-                             debug_state: bool = True,
-                             pip: bool = True,
-                             processes: bool = True,
-                             processes_verbose: bool = False,
-                             tempfile: Optional[str] = None) -> Optional[str]:
+def dump_cluster(
+        config: Dict[str, Any],
+        call_context: CallContext,
+        hosts: Optional[str] = None,
+        head_only: Optional[bool] = None,
+        output: Optional[str] = None,
+        logs: bool = True,
+        debug_state: bool = True,
+        pip: bool = True,
+        processes: bool = True,
+        processes_verbose: bool = False,
+        tempfile: Optional[str] = None):
     # Inform the user what kind of logs are collected (before actually
     # collecting, so they can abort)
     _print_cluster_dump_warning(
@@ -1811,6 +1814,12 @@ def get_cluster_dump_archive(config: Dict[str, Any],
         Node(node_id=worker[0], host=worker[1]) for worker in workers
     ]
 
+    _cli_logger = call_context.cli_logger
+    if not head_node and not worker_nodes:
+        _cli_logger.print(
+            f"No matched cluster nodes to dump.")
+        return
+
     parameters = GetParameters(
         logs=logs,
         debug_state=debug_state,
@@ -1820,7 +1829,7 @@ def get_cluster_dump_archive(config: Dict[str, Any],
         runtimes=get_enabled_runtimes(config))
 
     with Archive(file=tempfile) as archive:
-        create_archive_for_cluster_nodes(
+        add_archive_for_cluster_nodes(
             config, call_context,
             archive,
             head_node=head_node, worker_nodes=worker_nodes,
@@ -1835,7 +1844,9 @@ def get_cluster_dump_archive(config: Dict[str, Any],
         output = os.path.expanduser(output)
 
     shutil.move(archive.file, output)
-    return output
+
+    _cli_logger.print(
+        f"Created cluster dump archive: {output}")
 
 
 def _show_worker_cpus(config: Dict[str, Any]):

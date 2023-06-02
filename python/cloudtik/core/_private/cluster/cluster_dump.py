@@ -390,7 +390,7 @@ def _wrap(items: List[str], quotes="'"):
     return f"{quotes}{' '.join(items)}{quotes}"
 
 
-def create_and_get_archive_from_remote_node(
+def get_archive_from_remote_node(
         config: Dict[str, Any],
         call_context: CallContext,
         remote_node: Node,
@@ -449,7 +449,7 @@ def create_and_get_archive_from_remote_node(
     return local_temp_file
 
 
-def create_and_add_remote_data_to_local_archive(
+def add_archive_for_remote_node(
         config: Dict[str, Any],
         call_context: CallContext,
         archive: Archive,
@@ -460,7 +460,7 @@ def create_and_add_remote_data_to_local_archive(
     Returns:
         Open archive object.
     """
-    tmp = create_and_get_archive_from_remote_node(
+    tmp = get_archive_from_remote_node(
         config, call_context,
         remote_node, parameters)
 
@@ -489,9 +489,9 @@ def add_archive_extracted(
     return archive
 
 
-def create_and_add_local_data_to_local_archive(archive: Archive,
-                                               local_node: Node,
-                                               parameters: GetParameters):
+def add_archive_for_local_node(archive: Archive,
+                               local_node: Node,
+                               parameters: GetParameters):
     """Create and get data from this node and add to archive.
 
     Args:
@@ -517,11 +517,11 @@ def create_and_add_local_data_to_local_archive(archive: Archive,
     return archive
 
 
-def create_archive_for_remote_nodes(config: Dict[str, Any],
-                                    call_context: CallContext,
-                                    archive: Archive,
-                                    remote_nodes: Sequence[Node],
-                                    parameters: GetParameters):
+def add_archive_for_remote_nodes(config: Dict[str, Any],
+                                 call_context: CallContext,
+                                 archive: Archive,
+                                 remote_nodes: Sequence[Node],
+                                 parameters: GetParameters):
     """Create an archive combining data from the remote nodes.
 
     This will parallelize calls to get data from remote nodes.
@@ -540,7 +540,7 @@ def create_archive_for_remote_nodes(config: Dict[str, Any],
             node_runtimes = _get_node_specific_runtime_types(config, remote_node.node_id)
             node_parameters.set_runtimes(node_runtimes)
             executor.submit(
-                create_and_add_remote_data_to_local_archive,
+                add_archive_for_remote_node,
                 config=config,
                 call_context=call_context.new_call_context(),
                 archive=archive,
@@ -550,10 +550,10 @@ def create_archive_for_remote_nodes(config: Dict[str, Any],
     return archive
 
 
-def create_and_get_archive_from_head_node(
+def get_archive_from_head_node(
         config: Dict[str, Any],
         call_context: CallContext,
-        worker_nodes: Optional[List[Node]],
+        nodes: Optional[List[Node]],
         parameters: GetParameters
 ) -> Optional[str]:
     """Create an archive containing logs on a remote node and transfer.
@@ -580,10 +580,10 @@ def create_and_get_archive_from_head_node(
         collect_cmd += ["--processes-verbose"] \
             if parameters.processes_verbose else ["--no-processes-verbose"]
 
-    if worker_nodes:
+    if nodes:
         # set hosts if worker list specified
         collect_cmd += ["--hosts"]
-        collect_cmd += [",".join([worker_node.host for worker_node in worker_nodes])]
+        collect_cmd += [",".join([node.host for node in nodes])]
 
     kind = "cluster"
     remote_temp_file = tempfile.mktemp(
@@ -609,20 +609,20 @@ def create_and_get_archive_from_head_node(
     return local_temp_file
 
 
-def create_and_add_workers_data_to_local_archive(
+def add_archive_from_head(
         config: Dict[str, Any],
         call_context: CallContext,
         archive: Archive,
-        worker_nodes: Optional[List[Node]],
+        nodes: Optional[List[Node]],
         parameters: GetParameters):
     """Create and get data from remote node and add to local archive.
 
     Returns:
         Open archive object.
     """
-    tmp = create_and_get_archive_from_head_node(
+    tmp = get_archive_from_head_node(
         config, call_context,
-        worker_nodes, parameters)
+        nodes, parameters)
 
     if not archive.is_open:
         archive.open()
@@ -631,7 +631,7 @@ def create_and_add_workers_data_to_local_archive(
     return archive
 
 
-def create_archive_for_cluster_nodes(
+def add_archive_for_cluster_nodes(
         config: Dict[str, Any],
         call_context: CallContext,
         archive: Archive,
@@ -659,17 +659,18 @@ def create_archive_for_cluster_nodes(
     if not archive.is_open:
         archive.open()
 
-    if head_node is not None:
-        # head node dump
-        create_and_add_remote_data_to_local_archive(
-            config, call_context,
-            archive, head_node, parameters)
+    nodes = []
 
-    if not head_only:
-        # workers dump
-        create_and_add_workers_data_to_local_archive(
-            config, call_context,
-            archive, worker_nodes, parameters)
+    if head_node:
+        nodes += [head_node]
+
+    if not head_only and worker_nodes:
+        nodes += worker_nodes
+
+    # collect data from head
+    add_archive_from_head(
+        config, call_context,
+        archive, nodes, parameters)
 
     return archive
 

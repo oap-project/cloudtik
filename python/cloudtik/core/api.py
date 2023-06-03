@@ -275,7 +275,7 @@ class Cluster:
               num_gpus: Optional[int] = None,
               workers: Optional[int] = None,
               worker_type: Optional[str] = None,
-              resource: Optional[str] = None,
+              resources: Optional[Dict[str, int]] = None,
               up_only: bool = False,
               bundles: Optional[List[dict]] = None) -> None:
         """Reqeust to scale to accommodate the specified requests.
@@ -301,11 +301,12 @@ class Cluster:
                 available
             workers (int): Scale to number of workers.
             worker_type (str): The worker type if there were multiple workers available.
-            resource: Optional[str]: The resource to scale in format resource_name:amount. for example, CPU:3
-            up_only (bool): Whether scale up only, no scale down.
+            resources: Optional[Dict[str, int]]: The resource to scale in format resource_name:amount. for example, CPU:3
             bundles (List[ResourceDict]): Scale the cluster to ensure this set of
                 resource shapes can fit. This request is persistent until another
-                call to request_resources() is made to override.
+                call to request_resources() is made to override. For example:
+                bundles=[{"GPU": 1, "CPU": 4}, {"GPU": 1, "CPU": 4}]
+            up_only (bool): Whether scale up only, no scale down.
         """
         return cluster_operator._scale_cluster(
             config=self.config,
@@ -314,7 +315,8 @@ class Cluster:
             gpus=num_gpus,
             workers=workers,
             worker_type=worker_type,
-            resource=resource,
+            resources=resources,
+            bundles=bundles,
             up_only=up_only)
 
     def start_node(self,
@@ -544,7 +546,7 @@ class ThisCluster:
               num_gpus: Optional[int] = None,
               workers: Optional[int] = None,
               worker_type: Optional[str] = None,
-              resource: Optional[str] = None,
+              resources: Optional[Dict[str, int]] = None,
               up_only: bool = False,
               bundles: Optional[List[dict]] = None) -> None:
         """Reqeust to scale to accommodate the specified requests.
@@ -570,11 +572,12 @@ class ThisCluster:
                 available
             workers (int): Scale to number of workers.
             worker_type (str): The worker type if there were multiple workers available.
-            resource: Optional[str]: The resource to scale in format resource_name:amount. for example, CPU:3
-            up_only (bool): Whether scale up only, no scale down.
+            resources: Optional[Dict[str, int]]: The resource to scale in format resource_name:amount. for example, CPU:3
             bundles (List[ResourceDict]): Scale the cluster to ensure this set of
                 resource shapes can fit. This request is persistent until another
-                call to request_resources() is made to override.
+                call to request_resources() is made to override. For example:
+                bundles=[{"GPU": 1, "CPU": 4}, {"GPU": 1, "CPU": 4}]
+            up_only (bool): Whether scale up only, no scale down.
         """
         return cluster_operator._scale_cluster_on_head(
             config=self.config,
@@ -583,7 +586,8 @@ class ThisCluster:
             gpus=num_gpus,
             workers=workers,
             worker_type=worker_type,
-            resource=resource,
+            resources=resources,
+            bundles=bundles,
             up_only=up_only)
 
     def start_node(self,

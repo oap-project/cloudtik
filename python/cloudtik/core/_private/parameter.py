@@ -183,7 +183,20 @@ class StartParams:
                 self.reserved_ports.add(port)
 
     def _check_usage(self):
-        pass
+        if self.resources is not None:
+            def build_error(resource, alternative):
+                return (
+                    f"{self.resources} -> `{resource}` cannot be a "
+                    "custom resource because it is one of the default resources "
+                    f"({constants.CLOUDTIK_DEFAULT_RESOURCES}). "
+                    f"Use `{alternative}` instead. For example, use `cloudtik node start "
+                    f"--{alternative.replace('_', '-')}=1` instead of "
+                    f"`cloudtik node start --resources={{'{resource}': 1}}`"
+                )
+
+            assert "CPU" not in self.resources, build_error("CPU", "num_cpus")
+            assert "GPU" not in self.resources, build_error("GPU", "num_gpus")
+            assert "memory" not in self.resources, build_error("memory", "memory")
 
     def _format_ports(self, pre_selected_ports):
         """Format the pre selected ports information to be more
@@ -205,5 +218,5 @@ class StartParams:
                     port_range_str = str(port_list)
                 else:
                     port_range_str = f"from {min_port} to {max_port}"
-                ports[comp] = (f"{len(port_list)} ports {port_range_str}")
+                ports[comp] = f"{len(port_list)} ports {port_range_str}"
         return ports

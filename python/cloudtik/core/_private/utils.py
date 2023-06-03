@@ -25,7 +25,7 @@ import yaml
 import cloudtik
 from cloudtik.core._private import constants, services
 from cloudtik.core._private.call_context import CallContext
-from cloudtik.core._private.cli_logger import cli_logger
+from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.cluster.cluster_metrics import ClusterMetricsSummary
 from cloudtik.core._private.concurrent_cache import ConcurrentObjectCache
 from cloudtik.core._private.constants import CLOUDTIK_WHEELS, CLOUDTIK_CLUSTER_PYTHON_VERSION, \
@@ -3081,3 +3081,88 @@ def save_server_process(
         os.makedirs(server_process_dir, exist_ok=True)
     with open(server_process_file, "w", opener=partial(os.open, mode=0o600)) as f:
         f.write(json.dumps(server_process))
+
+
+def validate_resources(resources, name="Resources"):
+    if resources is not None:
+        if isinstance(resources, Dict):
+            for key in resources.keys():
+                if not (isinstance(key, str) and isinstance(resources[key], int)):
+                    raise TypeError(
+                        f"{name} key should be str and value as int."
+                    )
+        else:
+            raise TypeError(f"{name} should be a Dict.")
+
+
+def parse_resources_json(
+    resources: str, command_arg="--resources"
+) -> Dict[str, int]:
+    try:
+        resources = json.loads(resources)
+        if not isinstance(resources, dict):
+            raise ValueError
+    except Exception:
+        cli_logger.error("`{}` is not a valid JSON string.", cf.bold(command_arg))
+        cli_logger.abort(
+            "Valid values look like this: `{}`",
+            cf.bold(
+                f'{command_arg}='
+                '\'{"CustomResource1": 1, "CustomResource2": 2}\''
+            ),
+        )
+    return resources
+
+
+def validate_bundles(bundles):
+    if bundles is not None:
+        if isinstance(bundles, List):
+            for bundle in bundles:
+                validate_resources(bundle, "Bundle")
+        else:
+            raise TypeError("Bundles should be of type List")
+
+
+def parse_bundles_json(
+    bundles: str, command_arg="--bundles"
+) -> Dict[str, int]:
+    try:
+        bundles = json.loads(bundles)
+        validate_bundles(bundles)
+    except Exception:
+        cli_logger.error("`{}` is not a valid JSON string.", cf.bold(command_arg))
+        cli_logger.abort(
+            "Valid values look like this: `{}`",
+            cf.bold(
+                f'{command_arg}='
+                '\'[{"CPU": 4, "GPU": 1}, {"CPU": 4, "GPU": 1}]\''
+            ),
+        )
+    return bundles
+
+
+def parse_resource_list(resource_list_str: str, ) -> Dict[str, int]:
+    resource_dict = {}
+    resources = resource_list_str.split(",")
+    for resource in resources:
+        resource_parts = resource.split(":")
+        if len(resource_parts) != 2:
+            raise ValueError(
+                "Invalid resource specification. Format: resource_type:amount")
+        resource_name = resource_parts[0]
+        resource_amount = int(resource_parts[1])
+        resource_dict[resource_name] = resource_amount
+    return resource_dict
+
+
+def get_resource_list_str(resources: Dict[str, int]) -> str:
+    # Format the resources in a form like 'CPU:4,GPU:1,Custom:3'.
+    return ",".join(["{}:{}".format(*kv) for kv in resources.items()])
+
+
+def parse_resources(resources_str: str, ) -> Dict[str, int]:
+    # try two ways, json or list
+    try:
+        return parse_resources_json(resources_str)
+    except Exception:
+        return parse_resource_list(resources_str)

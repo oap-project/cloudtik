@@ -1,4 +1,3 @@
-import json
 import logging
 import os
 import subprocess
@@ -22,7 +21,7 @@ from cloudtik.core._private.core_utils import get_cloudtik_temp_dir
 from cloudtik.core._private.node.node_services import NodeServicesStarter
 from cloudtik.core._private.parameter import StartParams
 from cloudtik.core._private.resource_spec import ResourceSpec
-from cloudtik.core._private.utils import with_script_args
+from cloudtik.core._private.utils import with_script_args, parse_resources_json
 from cloudtik.scripts.utils import NaturalOrderGroup
 
 logger = logging.getLogger(__name__)
@@ -151,20 +150,7 @@ def start(node_ip_address, address, port, head,
         node_ip_address = services.address_to_ip(node_ip_address)
     redirect_output = None if not no_redirect_output else True
 
-    try:
-        resources = json.loads(resources)
-    except Exception:
-        cli_logger.error("`{}` is not a valid JSON string.",
-                         cf.bold("--resources"))
-        cli_logger.abort(
-            "Valid values look like this: `{}`",
-            cf.bold("--resources='{\"CustomResource3\": 1, "
-                    "\"CustomResource2\": 2}'"))
-
-        raise Exception("Unable to parse the --resources argument using "
-                        "json.loads. Try using a format like\n\n"
-                        "    --resources='{\"CustomResource1\": 3, "
-                        "\"CustomReseource2\": 2}'")
+    resources = parse_resources_json(resources)
 
     start_params = StartParams(
         node_ip_address=node_ip_address,

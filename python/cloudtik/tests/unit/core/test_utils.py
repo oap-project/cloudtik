@@ -3,7 +3,7 @@ import copy
 import pytest
 
 from cloudtik.core._private.call_context import CallContext
-from cloudtik.core._private.core_utils import get_memory_in_bytes
+from cloudtik.core._private.core_utils import get_memory_in_bytes, format_memory
 from cloudtik.core._private.utils import update_nested_dict, process_config_with_privacy, encrypt_config, \
     decrypt_config, hash_runtime_conf, run_in_parallel_on_nodes, ParallelTaskSkipped, parse_resource_list, \
     parse_resources_json, parse_bundles_json, get_resource_list_str
@@ -378,6 +378,27 @@ class TestUtils:
         assert bundles[1]["CPU"] == 5
         assert bundles[1]["GPU"] == 2
         assert bundles[1]["Custom"] == 4
+
+    def test_format_memory(self):
+        memory_in_bytes = 1024 * 1024
+        memory_str = format_memory(memory_in_bytes)
+        assert memory_str == "1MB"
+
+        memory_in_bytes = 1024 * 1024 * 1024
+        memory_str = format_memory(memory_in_bytes)
+        assert memory_str == "1GB"
+
+        memory_in_bytes = 1024 * 1024 * 1024 * 4.05
+        memory_str = format_memory(memory_in_bytes)
+        assert memory_str == "4.05GB"
+
+        memory_in_bytes = 1024 * 1024 * 1024 * 1024
+        memory_str = format_memory(memory_in_bytes)
+        assert memory_str == "1TB"
+
+        memory_in_bytes = 1024 * 1024 * 1024 * 1024 * 1.01
+        memory_str = format_memory(memory_in_bytes)
+        assert memory_str == "1.01TB"
 
 
 if __name__ == "__main__":

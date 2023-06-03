@@ -532,6 +532,50 @@
                     "type": "integer",
                     "description": "Bandwidth of public ip in MB for node.",
                     "default": 20
+                },
+                "nodes": {
+                    "type": "array",
+                    "description": "The list of nodes for local provider.",
+                    "items": {
+                        "type": "object",
+                        "required": [
+                            "ip"
+                        ],
+                        "properties": {
+                            "ip": {
+                                "type": "string",
+                                "description": "The ip address of the node as node identifier."
+                            },
+                            "instance_type": {
+                                "type": "string",
+                                "description": "The optional instance type name defined in the instance types list."
+                            }
+                        }
+                    }
+                },
+                "instance_types": {
+                    "type": "object",
+                    "description": "Instance type definitions specifying the resources of the type.",
+                    "patternProperties": {
+                        ".*": {
+                            "type": "object",
+                            "additionalProperties": true,
+                            "properties": {
+                                "CPU": {"type": "integer"},
+                                "GPU": {"type": "integer"},
+                                "memory": {"type": "integer"}
+                            }
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "cloud_simulator_address": {
+                    "type": "string",
+                    "description": "The cloud simulator address in the format of address:port for on-premise provider."
+                },
+                "port_mapping_base": {
+                    "type": "integer",
+                    "description": "The port mapping shift to avoid port conflicts with host for virtual provider."
                 }
             }
         },
@@ -1120,6 +1164,18 @@
                         "hive_metastore_uri": {
                             "type": "string",
                             "description": "Metastore service endpoint for Presto to use."
+                        }
+                    }
+                },
+                "sshserver": {
+                    "type": "object",
+                    "description": "SSH Server runtime related configurations",
+                    "additionalProperties": true,
+                    "properties": {
+                        "port": {
+                            "type": "integer",
+                            "default": 22022,
+                            "description": "The SSH Server port."
                         }
                     }
                 }

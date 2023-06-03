@@ -700,6 +700,26 @@ def get_memory_in_bytes(memory_size):
     return 0 if parsed_value == float("inf") else int(parsed_value)
 
 
+def format_memory(memory_in_bytes, precision=2):
+    if memory_in_bytes >= MEMORY_SIZE_UNITS["P"]:
+        memory_in_pb = round(memory_in_bytes / MEMORY_SIZE_UNITS["P"], 2)
+        return "{:g}PB".format(memory_in_pb)
+    elif memory_in_bytes >= MEMORY_SIZE_UNITS["T"]:
+        memory_in_tb = round(memory_in_bytes / MEMORY_SIZE_UNITS["T"], 2)
+        return "{:g}TB".format(memory_in_tb)
+    elif memory_in_bytes >= MEMORY_SIZE_UNITS["G"]:
+        memory_in_gb = round(memory_in_bytes / MEMORY_SIZE_UNITS["G"], 2)
+        return "{:g}GB".format(memory_in_gb)
+    elif memory_in_bytes >= MEMORY_SIZE_UNITS["M"]:
+        memory_in_mb = round(memory_in_bytes / MEMORY_SIZE_UNITS["M"], 2)
+        return "{:g}MB".format(memory_in_mb)
+    elif memory_in_bytes >= MEMORY_SIZE_UNITS["K"]:
+        memory_in_kb = round(memory_in_bytes / MEMORY_SIZE_UNITS["K"], 2)
+        return "{:g}KB".format(memory_in_kb)
+    else:
+        return "{}B".format(memory_in_bytes)
+
+
 def get_ip_by_name(name):
     return socket.gethostbyname(name)
 

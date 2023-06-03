@@ -1,3 +1,5 @@
+from cloudtik.core._private.core_utils import get_memory_in_bytes, format_memory
+
 
 def get_instance_type_name(instance_type):
     instance_type_name = instance_type.get("name")
@@ -6,13 +8,15 @@ def get_instance_type_name(instance_type):
 
     # combine a name from CPU, memory
     num_cpus = instance_type.get("CPU", 0)
-    memory_gb = instance_type.get("memory", 0)
-    if num_cpus and memory_gb:
-        return "{}CPU/{}GB".format(num_cpus, memory_gb)
+    memory = get_memory_in_bytes(
+        instance_type.get("memory", 0))
+    memory_str = format_memory(memory)
+    if num_cpus and memory:
+        return "{}CPU/{}".format(num_cpus, memory_str)
     elif num_cpus:
         return "{}CPU".format(num_cpus)
-    elif memory_gb:
-        return "{}GB".format(memory_gb)
+    elif memory:
+        return "{}".format(memory_str)
     return "Unknown"
 
 

@@ -124,13 +124,6 @@ class NodeMonitor:
                 logger.exception("Failed sending heartbeat: " + str(e))
                 logger.exception(traceback.format_exc())
 
-    def _parse_resource_list(self):
-        node_resource_dict = {}
-        resource_split = self.static_resource_list.split(",")
-        for i in range(int(len(resource_split) / 2)):
-            node_resource_dict[resource_split[2 * i]] = float(resource_split[2 * i + 1])
-        return node_resource_dict
-
     def _update_process_status(self):
         """check CloudTik runtime processes on the local machine."""
         process_infos = []

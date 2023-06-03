@@ -1254,11 +1254,9 @@ def start_node_monitor(head, redis_address,
     assert resource_spec.resolved()
     static_resources = resource_spec.to_resource_dict()
 
-    # Format the resource argument in a form like 'CPU,1.0,GPU,0,Custom,3'.
-    resource_argument = ",".join(
-        ["{},{}".format(*kv) for kv in static_resources.items()])
-
-    command.append(f"--static_resource_list={resource_argument}")
+    # Format the resource argument in a form like 'CPU:1,GPU:0,Custom:3'.
+    resource_list = utils.get_resource_list_str(static_resources)
+    command.append(f"--static_resource_list={quote(resource_list)}")
 
     if runtimes and len(runtimes) > 0:
         command.append("--runtimes=" + quote(runtimes))

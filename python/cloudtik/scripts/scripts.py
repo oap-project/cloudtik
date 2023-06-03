@@ -22,6 +22,7 @@ from cloudtik.core._private.cluster.cluster_operator import (
     cluster_health_check, cluster_process_status, attach_worker, scale_cluster,
     exec_on_nodes, submit_and_exec, _wait_for_ready, _rsync, cli_call_context, cluster_resource_metrics,
     show_info)
+from cloudtik.core._private.utils import parse_bundles_json, parse_resources
 from cloudtik.scripts.head_scripts import head
 from cloudtik.scripts.node_scripts import node
 from cloudtik.scripts.runtime_scripts import runtime
@@ -543,10 +544,17 @@ def submit(cluster_config_file, cluster_name, screen, tmux, stop, start,
     type=str,
     help="The worker type of the number of workers if there are multiple worker types.")
 @click.option(
-    "--resource",
+    "--resources",
     required=False,
     type=str,
-    help="The resource to scale in format resource_name:amount. for example, CPU:3")
+    help="The resources to scale for each resource_name:amount separated by comma. "
+         "For example, CPU:4,GPU:2")
+@click.option(
+    "--bundles",
+    required=False,
+    type=str,
+    help="Additional resource bundles to scale in format [{\"resource_name\": amount}, {\"resource_name\": amount}]. "
+         "for example, [{\"CPU\": 4, \"GPU\": 1}, {\"CPU\": 8, \"GPU\": 2}]")
 @click.option(
     "--up-only",
     is_flag=True,
@@ -554,12 +562,18 @@ def submit(cluster_config_file, cluster_name, screen, tmux, stop, start,
     help="Scale up if resources is not enough. No scale down.")
 @add_click_logging_options
 def scale(cluster_config_file, yes, cluster_name,
-          cpus, gpus, workers, worker_type, resource, up_only):
+          cpus, gpus, workers, worker_type,
+          resources, bundles, up_only):
     """Scale the cluster with a specific number cpus or nodes."""
+    if bundles:
+        bundles = parse_bundles_json(bundles)
+    if resources:
+        resources = parse_resources(resources)
     scale_cluster(
         cluster_config_file, yes, cluster_name,
         cpus=cpus, gpus=gpus,
-        workers=workers, worker_type=worker_type, resource=resource,
+        workers=workers, worker_type=worker_type,
+        resources=resources, bundles=bundles,
         up_only=up_only)
 
 

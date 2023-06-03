@@ -12,7 +12,7 @@ import numpy as np
 import logging
 import collections
 from numbers import Real
-from typing import Dict
+from typing import Dict, Any
 from typing import List
 from typing import Optional
 from typing import Tuple
@@ -32,7 +32,7 @@ UPSCALING_INITIAL_NUM_NODES = 5
 NodeType = str
 
 # e.g., {"resources": ..., "max_workers": ...}.
-NodeTypeConfigDict = str
+NodeTypeConfigDict = Dict[str, Any]
 
 # e.g., {"GPU": 1}.
 ResourceDict = Dict[str, Real]
@@ -681,3 +681,45 @@ def _inplace_add(a: collections.defaultdict, b: Dict) -> None:
     a[k] should be defined for all k in b.keys()"""
     for k, v in b.items():
         a[k] += v
+
+
+def get_node_type_counts(
+        provider, nodes: List[NodeID], pending_nodes: Dict[NodeID, int],
+        node_types
+) -> Dict[NodeType, int]:
+    """Returns node type counts.
+       Counts the running nodes, pending nodes.
+    """
+    node_type_counts = collections.defaultdict(int)
+
+    def add_node(node_type):
+        if node_type not in node_types:
+            # We should not get here
+            return
+        node_type_counts[node_type] += 1
+
+    for node_id in nodes:
+        tags = provider.node_tags(node_id)
+        if CLOUDTIK_TAG_USER_NODE_TYPE in tags:
+            node_type = tags[CLOUDTIK_TAG_USER_NODE_TYPE]
+            add_node(node_type)
+
+    for node_type, count in pending_nodes.items():
+        for _ in range(count):
+            add_node(node_type)
+    return node_type_counts
+
+
+def get_unfulfilled_for_bundles(
+        bundles: List[ResourceDict], node_types, node_type_counts):
+    max_node_resources = []
+    # Fit request_resources() on all the resources as if they are idle.
+    for node_type in node_type_counts:
+        max_node_resources.extend([
+            copy.deepcopy(node_types[node_type]["resources"])
+            for _ in range(node_type_counts[node_type])
+        ])
+    # Get the unfulfilled to ensure min cluster size.
+    resource_requests_unfulfilled, _ = get_bin_pack_residual(
+        max_node_resources, bundles)
+    return resource_requests_unfulfilled

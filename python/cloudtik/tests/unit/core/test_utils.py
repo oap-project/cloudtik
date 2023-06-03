@@ -5,7 +5,8 @@ import pytest
 from cloudtik.core._private.call_context import CallContext
 from cloudtik.core._private.core_utils import get_memory_in_bytes
 from cloudtik.core._private.utils import update_nested_dict, process_config_with_privacy, encrypt_config, \
-    decrypt_config, hash_runtime_conf, run_in_parallel_on_nodes, ParallelTaskSkipped
+    decrypt_config, hash_runtime_conf, run_in_parallel_on_nodes, ParallelTaskSkipped, parse_resource_list, \
+    parse_resources_json, parse_bundles_json, get_resource_list_str
 
 TARGET_DICT_WITH_MATCHED_LIST = {
     "test_list": [
@@ -348,6 +349,38 @@ class TestUtils:
         memory_size = "4G"
         value = get_memory_in_bytes(memory_size)
         assert value == 4 * 1024 * 1024 * 1024
+
+    def test_resource_string(self):
+        resource_list_str = 'CPU:4,GPU:1,Custom:3'
+        resource_dict = parse_resource_list(resource_list_str)
+        assert resource_dict["CPU"] == 4
+        assert resource_dict["GPU"] == 1
+        assert resource_dict["Custom"] == 3
+
+        converted_str = get_resource_list_str(resource_dict)
+        assert len(converted_str) == len(resource_list_str)
+        assert "CPU:4" in converted_str
+        assert "GPU:1" in converted_str
+        assert "Custom:3" in converted_str
+
+        resource_json = '{"CPU":4,"GPU":1,"Custom":3}'
+        resource_dict = parse_resources_json(resource_json)
+        assert resource_dict["CPU"] == 4
+        assert resource_dict["GPU"] == 1
+        assert resource_dict["Custom"] == 3
+
+        bundles_json = '[{"CPU":4,"GPU":1,"Custom":3}, {"CPU":5,"GPU":2,"Custom":4}]'
+        bundles = parse_bundles_json(bundles_json)
+        assert len(bundles) == 2
+        assert bundles[0]["CPU"] == 4
+        assert bundles[0]["GPU"] == 1
+        assert bundles[0]["Custom"] == 3
+        assert bundles[1]["CPU"] == 5
+        assert bundles[1]["GPU"] == 2
+        assert bundles[1]["Custom"] == 4
+
+        resource_dict = parse_resources_json(resource_list_str)
+
 
 
 if __name__ == "__main__":

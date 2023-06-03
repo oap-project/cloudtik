@@ -18,7 +18,7 @@ from cloudtik.core._private.state import kv_store
 from cloudtik.core._private.state.kv_store import kv_initialize_with_address
 from cloudtik.core._private.utils import CLOUDTIK_CLUSTER_SCALING_ERROR, \
     CLOUDTIK_CLUSTER_SCALING_STATUS, get_head_bootstrap_config, \
-    load_head_cluster_config
+    load_head_cluster_config, parse_bundles_json, parse_resources
 from cloudtik.scripts.utils import NaturalOrderGroup, add_command_alias
 
 logger = logging.getLogger(__name__)
@@ -180,23 +180,37 @@ def exec(cmd, node_ip, all_nodes, run_env, screen, tmux,
     type=str,
     help="The worker type of the number of workers if there are multiple worker types.")
 @click.option(
-    "--resource",
+    "--resources",
     required=False,
     type=str,
-    help="The resource to scale in format resource_name:amount. for example, CPU:3")
+    help="The resources to scale for each resource_name:amount separated by comma. "
+         "For example, CPU:4,GPU:2")
+@click.option(
+    "--bundles",
+    required=False,
+    type=str,
+    help="Additional resource bundles to scale in format [{\"resource_name\": amount}, {\"resource_name\": amount}]. "
+         "for example, [{\"CPU\": 4, \"GPU\": 1}, {\"CPU\": 8, \"GPU\": 2}]")
 @click.option(
     "--up-only",
     is_flag=True,
     default=False,
     help="Scale up if resources is not enough. No scale down.")
 @add_click_logging_options
-def scale(yes, cpus, gpus, workers, worker_type, resource, up_only):
+def scale(yes, cpus, gpus, workers, worker_type,
+          resources, bundles, up_only):
     """Scale the cluster with a specific number cpus or nodes."""
+    if bundles:
+        bundles = parse_bundles_json(bundles)
+    if resources:
+        resources = parse_resources(resources)
+
     scale_cluster_on_head(
         yes,
         cpus=cpus, gpus=gpus,
         workers=workers, worker_type=worker_type,
-        resource=resource,
+        resources=resources,
+        bundles=bundles,
         up_only=up_only)
 
 

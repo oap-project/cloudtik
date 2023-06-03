@@ -379,9 +379,6 @@ class TestUtils:
         assert bundles[1]["GPU"] == 2
         assert bundles[1]["Custom"] == 4
 
-        resource_dict = parse_resources_json(resource_list_str)
-
-
 
 if __name__ == "__main__":
     import sys

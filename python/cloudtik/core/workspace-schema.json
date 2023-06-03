@@ -292,6 +292,10 @@
                     "type": "integer",
                     "description": "Bandwidth of public ip in MB for NAT.",
                     "default": 20
+                },
+                "cloud_simulator_address": {
+                    "type": "string",
+                    "description": "The cloud simulator address in the format of address:port for on-premise provider."
                 }
             }
         }

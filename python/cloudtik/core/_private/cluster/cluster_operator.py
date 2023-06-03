@@ -26,6 +26,8 @@ from cloudtik.core._private.call_context import CallContext
 from cloudtik.core._private.cluster.cluster_config import _load_cluster_config, _bootstrap_config, try_logging_config
 from cloudtik.core._private.cluster.cluster_tunnel_request import request_tunnel_to_head
 from cloudtik.core._private.cluster.cluster_utils import create_node_updater_for_exec
+from cloudtik.core._private.cluster.resource_demand_scheduler import get_bin_pack_residual, ResourceDict, \
+    get_node_type_counts, get_unfulfilled_for_bundles
 from cloudtik.core._private.core_utils import kill_process_tree, double_quote, get_cloudtik_temp_dir, get_free_port
 from cloudtik.core._private.job_waiter.job_waiter_factory import create_job_waiter
 from cloudtik.core._private.runtime_factory import _get_runtime_cls
@@ -3547,6 +3549,30 @@ def _get_requested_resource(config, requested_resources, resource_id):
     return requested
 
 
+def _get_cluster_unfulfilled_for_bundles(
+        config: Dict[str, Any],
+        bundles: List[ResourceDict]):
+    provider = _get_node_provider(config["provider"], config["cluster_name"])
+    node_types = config["available_node_types"]
+    workers = provider.non_terminated_nodes({
+        CLOUDTIK_TAG_NODE_KIND: NODE_KIND_WORKER
+    })
+    node_type_counts = get_node_type_counts(
+        provider, workers, {}, node_types)
+    return get_unfulfilled_for_bundles(
+        bundles, node_types, node_type_counts)
+
+
+def _is_bundles_fulfilled(
+        config: Dict[str, Any],
+        bundles: List[dict]):
+    unfulfilled = _get_cluster_unfulfilled_for_bundles(
+        config, bundles)
+    if unfulfilled:
+        return False
+    return True
+
+
 def _is_resource_satisfied(
         config: Dict[str, Any],
         call_context: CallContext,
@@ -3568,7 +3594,7 @@ def _is_resource_satisfied(
         if resources:
             for resource_name, resource_amount in resources.items():
                 if _get_requested_resource(
-                    config, requested_resources, resource_name) < resource_amount:
+                        config, requested_resources, resource_name) < resource_amount:
                     return False
 
     # 2. whether running cluster resources already satisfied
@@ -3584,7 +3610,11 @@ def _is_resource_satisfied(
                     config, provider, resource_name) < resource_amount:
                 return False
 
-    # TODO: check the bundles satisfied?
+    # check the bundles satisfied,
+    # this is not 100% accurate because it doesn't consider nodes that are launching
+    if bundles:
+        if not _is_bundles_fulfilled(config, bundles):
+            return False
     return True
 
 

@@ -301,7 +301,8 @@ class Cluster:
                 available
             workers (int): Scale to number of workers.
             worker_type (str): The worker type if there were multiple workers available.
-            resources: Optional[Dict[str, int]]: The resource to scale in format resource_name:amount. for example, CPU:3
+            resources: Optional[Dict[str, int]]: The resources to scale for each resource_name:amount separated by comma.
+                For example, CPU:4,GPU:1,Custom:3
             bundles (List[ResourceDict]): Scale the cluster to ensure this set of
                 resource shapes can fit. This request is persistent until another
                 call to request_resources() is made to override. For example:
@@ -572,7 +573,8 @@ class ThisCluster:
                 available
             workers (int): Scale to number of workers.
             worker_type (str): The worker type if there were multiple workers available.
-            resources: Optional[Dict[str, int]]: The resource to scale in format resource_name:amount. for example, CPU:3
+            resources: Optional[Dict[str, int]]: The resources to scale for each resource_name:amount separated by comma.
+                For example, CPU:4,GPU:1,Custom:3
             bundles (List[ResourceDict]): Scale the cluster to ensure this set of
                 resource shapes can fit. This request is persistent until another
                 call to request_resources() is made to override. For example:

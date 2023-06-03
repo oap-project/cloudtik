@@ -772,3 +772,12 @@ def generate_public_key(private_key_file, public_key_file: str = None):
             f"&& chmod 600 {public_key_file}"
         )
     return public_key_file
+
+
+def memory_to_gb(mem_bytes, precision=2):
+    return round(mem_bytes / (1024 * 1024 * 1024), precision)
+
+
+def memory_to_gb_string(mem_bytes, precision=2):
+    mem_gb = memory_to_gb(mem_bytes, precision)
+    return "{}GB".format(mem_gb)

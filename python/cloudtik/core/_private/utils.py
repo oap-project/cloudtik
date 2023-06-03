@@ -1994,12 +1994,7 @@ def get_resource_info_of_node_type(node_type, available_node_types):
     resource_info = {}
     if node_type is not None and node_type in available_node_types:
         resources = available_node_types[node_type].get("resources", {})
-        resource_info[constants.CLOUDTIK_RESOURCE_CPU] = resources.get(
-            constants.CLOUDTIK_RESOURCE_CPU, 0)
-        resource_info[constants.CLOUDTIK_RESOURCE_GPU] = resources.get(
-            constants.CLOUDTIK_RESOURCE_GPU, 0)
-        resource_info[constants.CLOUDTIK_RESOURCE_MEMORY] = resources.get(
-            constants.CLOUDTIK_RESOURCE_MEMORY, 0) / pow(1024, 3)
+        resource_info.update(resources)
     return resource_info
 
 
@@ -2378,12 +2373,18 @@ def check_for_single_worker_type(config: Dict[str, Any]):
     available_node_types = config["available_node_types"]
     head_node_type = config["head_node_type"]
     num_worker_type = 0
+    worker_type = None
     for node_type in available_node_types:
         if node_type != head_node_type:
             num_worker_type += 1
+            worker_type = node_type
 
-    if num_worker_type > 1:
+    if num_worker_type == 0:
+        raise ValueError("No worker type defined for cluster.")
+    elif num_worker_type > 1:
         raise ValueError("There are more than one worker types defined.")
+
+    return worker_type
 
 
 def get_worker_node_type(config: Dict[str, Any]):
@@ -3163,6 +3164,8 @@ def get_resource_list_str(resources: Dict[str, int]) -> str:
 def parse_resources(resources_str: str, ) -> Dict[str, int]:
     # try two ways, json or list
     try:
-        return parse_resources_json(resources_str)
+        resources = json.loads(resources_str)
+        if not isinstance(resources, dict):
+            raise ValueError
     except Exception:
         return parse_resource_list(resources_str)

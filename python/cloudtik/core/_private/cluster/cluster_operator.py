@@ -26,9 +26,10 @@ from cloudtik.core._private.call_context import CallContext
 from cloudtik.core._private.cluster.cluster_config import _load_cluster_config, _bootstrap_config, try_logging_config
 from cloudtik.core._private.cluster.cluster_tunnel_request import request_tunnel_to_head
 from cloudtik.core._private.cluster.cluster_utils import create_node_updater_for_exec
-from cloudtik.core._private.cluster.resource_demand_scheduler import get_bin_pack_residual, ResourceDict, \
+from cloudtik.core._private.cluster.resource_demand_scheduler import ResourceDict, \
     get_node_type_counts, get_unfulfilled_for_bundles
-from cloudtik.core._private.core_utils import kill_process_tree, double_quote, get_cloudtik_temp_dir, get_free_port
+from cloudtik.core._private.core_utils import kill_process_tree, double_quote, get_cloudtik_temp_dir, get_free_port, \
+    memory_to_gb, memory_to_gb_string
 from cloudtik.core._private.job_waiter.job_waiter_factory import create_job_waiter
 from cloudtik.core._private.runtime_factory import _get_runtime_cls
 from cloudtik.core._private.services import validate_redis_address
@@ -1874,8 +1875,8 @@ def _show_worker_gpus(config: Dict[str, Any]):
 
 def _show_worker_memory(config: Dict[str, Any]):
     provider = _get_node_provider(config["provider"], config["cluster_name"])
-    memory_in_gb = int(get_worker_memory(config, provider))
-    cli_logger.print("{}GB", memory_in_gb)
+    memory_in_gb = memory_to_gb_string(get_worker_memory(config, provider))
+    cli_logger.print(memory_in_gb)
 
 
 def _show_cpus_per_worker(config: Dict[str, Any]):
@@ -1899,7 +1900,8 @@ def _show_sockets_per_worker(config: Dict[str, Any]):
 def _show_memory_per_worker(config: Dict[str, Any]):
     provider = _get_node_provider(config["provider"], config["cluster_name"])
     memory_per_worker = get_memory_per_worker(config, provider)
-    cli_logger.print(memory_per_worker)
+    # convert to GB and print
+    cli_logger.print(memory_to_gb(memory_per_worker))
 
 
 def _show_total_workers(config: Dict[str, Any]):
@@ -1969,7 +1971,9 @@ def _show_cluster_info(config: Dict[str, Any],
 
     cli_logger.newline()
     cli_logger.print(cf.bold("The total worker CPUs: {}."), cluster_info["total-worker-cpus"])
-    cli_logger.print(cf.bold("The total worker memory: {}GB."), cluster_info["total-worker-memory"])
+    cli_logger.print(
+        cf.bold("The total worker memory: {}."),
+        memory_to_gb_string(cluster_info["total-worker-memory"]))
 
     head_node = cluster_info["head-id"]
     show_useful_commands(call_context=cli_call_context(),
@@ -3424,7 +3428,7 @@ def scale_cluster_from_head(
         cmds += ["--worker-type={}".format(worker_type)]
     if resources:
         resources_list = get_resource_list_str(resources)
-        cmds += ["--resource={}".format(
+        cmds += ["--resources={}".format(
             quote(resources_list))]
     if bundles:
         # json dump
@@ -3492,7 +3496,7 @@ def _scale_cluster_on_head(
     if workers:
         # if nodes specified, we need to check there is only one worker type defined
         if not worker_type:
-            check_for_single_worker_type(config)
+            worker_type = check_for_single_worker_type(config)
 
         resource_amount = convert_nodes_to_resource(
             config, workers, worker_type, worker_type)
@@ -3513,7 +3517,7 @@ def _scale_cluster_on_head(
                 cpus, gpus,
                 resources=all_resources,
                 bundles=bundles):
-            cli_logger.print("Resource already satisfied. Skip scaling.")
+            cli_logger.print("Resources request already satisfied. Skip scaling operation.")
             return
 
     request_resources(
@@ -4075,11 +4079,6 @@ def cluster_resource_metrics_on_head(
         redis_password=redis_password,
         on_head=True
     )
-
-
-def memory_to_gb_string(mem_bytes):
-    mem_gb = round(mem_bytes/(1024 * 1024 * 1024), 2)
-    return "{}GB".format(mem_gb)
 
 
 def show_cluster_metrics(

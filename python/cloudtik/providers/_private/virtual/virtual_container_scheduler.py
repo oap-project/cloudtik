@@ -74,7 +74,7 @@ def _get_container_resources(container_object):
         resources["CPU"] = round(nano_cpus / (10 ** 9), 2)
     memory_bytes = container_object.get("memory", 0)
     if memory_bytes:
-        resources["memory"] = round(memory_bytes / (1024 * 1024 * 1024), 2)
+        resources["memory"] = memory_bytes
     return resources
 
 

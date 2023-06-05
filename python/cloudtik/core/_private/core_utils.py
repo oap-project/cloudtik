@@ -31,6 +31,8 @@ win32_AssignProcessToJobObject = None
 
 logger = logging.getLogger(__name__)
 
+MEMORY_UNIT_GB = 1024 * 1024 * 1024
+
 
 class ConcurrentCounter:
     def __init__(self):
@@ -795,7 +797,7 @@ def generate_public_key(private_key_file, public_key_file: str = None):
 
 
 def memory_to_gb(mem_bytes, precision=2):
-    return round(mem_bytes / (1024 * 1024 * 1024), precision)
+    return round(mem_bytes / MEMORY_UNIT_GB, precision)
 
 
 def memory_to_gb_string(mem_bytes, precision=2):

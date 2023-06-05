@@ -29,13 +29,17 @@ function prepare_base_conf() {
 function configure_ssh_server() {
     prepare_base_conf
 
+    sudo chown $(whoami):users ~/.ssh
+    sudo chmod 700 ~/.ssh
+
     if [ ! -f "${SSH_HOST_KEY_FILE}" ]; then
         # generate the host key pair
         ssh-keygen -b 2048 -t rsa -q -N "" -f ${SSH_HOST_KEY_FILE} && chmod 600 ${SSH_HOST_KEY_FILE}
     fi
 
     if [ -f "${SSH_AUTHORIZED_KEYS_FILE}" ]; then
-        chmod 600 ${SSH_AUTHORIZED_KEYS_FILE}
+        sudo chown $(whoami):users ${SSH_AUTHORIZED_KEYS_FILE}
+        sudo chmod 600 ${SSH_AUTHORIZED_KEYS_FILE}
     fi
 
     cp ${output_dir}/sshd_config ${SSH_SSHD_CONFIG_FILE}
@@ -45,6 +49,8 @@ function configure_ssh_server() {
         # We don't overwrite the existing id_rsa. Any situation for problems?
         if [ -f "${BOOTSTRAP_PRIVATE_KEY_FILE}" ] && [ ! -f "${SSH_DEFAULT_PRIVATE_KEY_FILE}" ]; then
             cp ${BOOTSTRAP_PRIVATE_KEY_FILE} ${SSH_DEFAULT_PRIVATE_KEY_FILE}
+            sudo chown $(whoami):users ${SSH_DEFAULT_PRIVATE_KEY_FILE}
+            sudo chmod 600 ${SSH_DEFAULT_PRIVATE_KEY_FILE}
         fi
     fi
 }

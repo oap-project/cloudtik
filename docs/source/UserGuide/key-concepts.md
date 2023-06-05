@@ -47,8 +47,8 @@ All clusters within the same workspace are network connected and are accessible 
 CloudTik provider abstracts the hardware infrastructure layer so that CloudTik common facilities and runtimes
 can consistently run on every provider environments. The support of different public cloud are implemented as providers
 (such as AWS, Azure, GCP providers). Beyond the public cloud environments, we also support
-on-premise and virtual single node clustering, which are also implemented as providers
-(for example, on-premise, local, virtual providers).
+virtual single node clustering, local or on-premise clusters which are also implemented as providers
+(for example, virtual, local and on-premise providers)
 We currently support many public cloud providers and several special providers for on-premise clusters.
 More provider implementations will be added soon.
 - AWS

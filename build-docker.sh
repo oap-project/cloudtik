@@ -186,6 +186,15 @@ do
         DOCKER_FILE_PATH="localize/PRC/"
     fi
 
+    if [ "${DOCKER_FILE_PATH}" != "" ]; then
+        # for building localized cloudtik image
+        if [ -d "docker/${DOCKER_FILE_PATH}cloudtik" ] && ([ $BUILD_CLOUDTIK ] || [ $BUILD_ALL ]); then
+            docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG$GPU \
+              -t ${DOCKER_REGISTRY}cloudtik/cloudtik:$IMAGE_TAG$GPU \
+              docker/${DOCKER_FILE_PATH}cloudtik
+        fi
+    fi
+
     if [ -d "docker/${DOCKER_FILE_PATH}runtime/spark" ] && ([ $BUILD_SPARK ] || [ $BUILD_ALL ]); then
         docker build $NO_CACHE --build-arg BASE_IMAGE=$IMAGE_TAG$GPU \
           -t ${DOCKER_REGISTRY}cloudtik/spark-runtime:$IMAGE_TAG$GPU \

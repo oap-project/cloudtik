@@ -75,9 +75,13 @@ to handle its very specific implementation. In this way, a runtime can easy be i
 CloudTik and works together with other runtimes by providing services to other runtimes or consuming other runtime services.
 
 Currently, we implemented the following runtimes:
-- Ganglia: To provide monitoring services for all nodes.
-- Metastore: To provide catalog services for SQL.
-- Spark: To provide analytics capabilities.
-- Presto: To provide interactive analytics capabilities.
-- ZooKeeper: To provide coordinating and distributed consistency services.
-- Kafka: To provide event streaming services.
+- Spark Runtime: to provide distributed analytics capabilities.
+- AI Runtime: to provide distributed AI training and inference capabilities.
+- Ganglia Runtime: to provide monitoring services for all nodes.
+- Metastore Runtime: to provide catalog services for SQL.
+- Flink Runtime: to provide distributed streaming analytics capabilities.
+- Presto Runtime or Trino Runtime: to provide interactive analytics capabilities.
+- Kafka Runtime: to provide event streaming services.
+- Ray Runtime: to provide Ray based training and tuning capabilities.
+- SSH Server Runtime: to provide password-less SSH capability within cluster.
+- ZooKeeper Runtime: to provide coordinating and distributed consistency services.

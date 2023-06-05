@@ -31,11 +31,21 @@ pip install cloudtik[aws]
 
 Replace `cloudtik[aws]` with `clouditk[azure]`, `cloudtik[gcp]`, `cloudtik[aliyun]`
 if you want to create clusters on Azure, GCP, Alibaba Cloud respectively.
+
 If you want to run on Kubernetes, install `cloudtik[kubernetes]`.
 Or  `clouditk[eks]` or `cloudtik[gke]` if you are running on AWS EKS or GCP GKE cluster.
 Use `cloudtik[all]` if you want to manage clusters with all supported Cloud providers.
 
 Please refer to [User Guide: Installation](../UserGuide/installation.md) for the package links for other Python versions.
+
+If you don't have a public cloud account, you can also play with CloudTik
+easily locally with the same clustering experiences using virtual, on-premise or local providers.
+For this case, simply install cloudtik core as following command,
+```
+pip install cloudtik
+```
+Please refer to [User Guide: Running Clusters Locally](../UserGuide/running-locally.rst)
+for detailed guide for this case.
 
 ### 3. Authentication to Cloud Providers API
 

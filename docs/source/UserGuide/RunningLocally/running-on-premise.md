@@ -1,4 +1,4 @@
-# Using for On-Premise Clusters
+# Running On-Premise Clusters
 CloudTik can easily manage and scale the resources on public cloud through the cloud API/SDK.
 While users sometimes want to do some performance tests on their local machines. 
 In order to manage local machine resources conveniently, CloudTik has developed a Cloud Simulator service 
@@ -6,12 +6,15 @@ that runs on on-premise/private clusters to simulate cloud operations and create
 With the cloud-simulator, CloudTik implements an on-premise provider which calls into Cloud Simulator
 to create and release nodes from the machine pool.
 
-Please follow these steps to use for On-Premise clusters .
+Please follow these steps to use for On-Premise clusters.
 
+- System requirements
 - Prepare the machines
 - Configure and start CloudTik Cloud Simulator
 - Configure and start the cluster
 
+## System requirements
+The participating nodes need Ubuntu 20.04 or later.
 
 ## Prepare the machines
 For the machines used for CloudTik, there are a few requirements. 
@@ -68,31 +71,6 @@ and mount these disks in the directory "/mnt/cloudtik/data_disk_[number]" specif
 
 So you can either leave the data disks as raw block devices and CloudTik will do all for you
 in the same way as we do for public cloud virtual machines.
-
-For example, the disk information below, Cloudtik will use nvme0n1, nvme1n1 and nvme2n1 as storage disks.
-```buildoutcfg
-(base) ubuntu@worker01:~$ lsblk
-NAME                      MAJ:MIN RM   SIZE RO TYPE MOUNTPOINT
-loop0                       7:0    0  61.9M  1 loop /snap/core20/1494
-loop1                       7:1    0  67.2M  1 loop /snap/lxd/21835
-loop2                       7:2    0  61.9M  1 loop /snap/core20/1518
-loop3                       7:3    0    47M  1 loop /snap/snapd/16010
-loop4                       7:4    0  67.8M  1 loop /snap/lxd/22753
-loop5                       7:5    0  44.7M  1 loop /snap/snapd/15904
-sda                         8:0    0 372.6G  0 disk
-├─sda1                      8:1    0   1.1G  0 part /boot/efi
-├─sda2                      8:2    0   1.5G  0 part /boot
-└─sda3                      8:3    0 370.1G  0 part
-  └─ubuntu--vg-ubuntu--lv 253:0    0   100G  0 lvm  /
-nvme0n1                   259:0    0   1.8T  0 disk /mnt/cloudtik/data_disk_1
-nvme1n1                   259:2    0   1.8T  0 disk /mnt/cloudtik/data_disk_2
-nvme2n1                   259:3    0   1.8T  0 disk /mnt/cloudtik/data_disk_3
-nvme3n1                   259:5    0   3.7T  0 disk /mnt/disk_1
-nvme4n1                   259:8    0   3.7T  0 disk /mnt/disk_2
-nvme5n1                   259:9    0   3.7T  0 disk /mnt/disk_3
-nvme6n1                   259:10   0   3.7T  0 disk /mnt/disk_4
-
-```
 
 Or if the data disks have already been formatted and mounted at other paths,
 you can create a symbolic link from your paths to /mnt/cloudtik/data_disk_#.
@@ -156,6 +134,31 @@ nodes:
 cloudtik-simulator [--bind-address BIND_ADDRESS] [--port PORT] your_cloudtik_simulator_config
 ```
 
+## Create workspace
+With on-premise provider, you can run clusters in different conceptual workspace.
+
+In the workspace configuration, you need to specify the cloud_simulator_address.
+
+For example,
+
+```buildoutcfg
+# A unique identifier for the workspace.
+workspace_name: example-workspace
+
+# Cloud-provider specific configuration.
+provider:
+    type: onpremise
+    # We need to use Cloud Simulator for the best on-premise cluster management
+    # You can launch multiple clusters on the same set of machines, and the cloud simulator
+    # will assign individual nodes to clusters as needed.
+    cloud_simulator_address: your-cloud-simulator-ip:port
+```
+
+Execute the following command to create the workspace:
+```
+cloudtik workspace create /path/to/your-workspace-config.yaml
+```
+
 
 ## Configure and start cluster
 You need prepare the cluster configure file using on-premise provider and
@@ -163,18 +166,14 @@ start the cluster with the cluster configure file.
 
 ### Create and configure a YAML file for cluster
 
-1. On-premise provider support both docker mode and host node. 
-When using docker mode and the OS of machines is RedHat-based Linux Distributions, you need to additional initialization_command to install jq.
-For example,
+Define cloud_simulator_address for on-premise provider. (Default port is 8282)
+```buildoutcfg
+# A unique identifier for the cluster.
+cluster_name: example
 
-```buildoutcfg
-docker:
-    # Set initialization_command to install jq if the OS is Redhat, Centos or Fedora etc. (Only need on docker mode)
-    initialization_command:
-	    - which jq || (sudo yum -qq update -y && sudo yum -qq install -y jq > /dev/null) 
-```
-2. Define cloud_simulator_address for on-premise provider. (Default port is 8282)
-```buildoutcfg
+# The workspace name
+workspace_name: example-workspace
+
 # Cloud-provider specific configuration.
 provider:
     type: onpremise
@@ -184,7 +183,8 @@ provider:
     # will assign individual nodes to clusters as needed.
     cloud_simulator_address: your-cloud-simulator-ip:port
 ```
-3. Define ssh user and its ssh private key which are prepared above.
+
+Define ssh user and its ssh private key which are prepared above.
 You also need to provide ssh_proxy_command if the head node needs to access the worker node through proxy.
 ```buildoutcfg
 auth:
@@ -196,7 +196,7 @@ auth:
     # ssh_proxy_command: "ncat --proxy-type socks5 --proxy your_proxy_host:your_proxy_port %h %p"
 
 ```
-4. Define available_node_types. 
+Define available_node_types for head and worker. 
 ```buildoutcfg
 available_node_types:
     head.default:
@@ -213,5 +213,5 @@ available_node_types:
 ### Start the cluster with the configure file
 Starting the cluster is simple,
 ```buildoutcfg
-cloudtik start your_cluster_config
+cloudtik start /path/to/your-cluster-config.yaml
 ```

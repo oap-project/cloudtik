@@ -44,7 +44,7 @@ For this case, simply install cloudtik core as following command,
 ```
 pip install cloudtik
 ```
-Please refer to [User Guide: Running Clusters Locally](../UserGuide/running-locally.rst)
+Please refer to [User Guide: Running Clusters Locally](../UserGuide/running-locally.html)
 for detailed guide for this case.
 
 ### 3. Authentication to Cloud Providers API

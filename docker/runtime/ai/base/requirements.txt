@@ -16,7 +16,7 @@ h5py==3.8.0
 # ML Frameworks
 scikit-learn==1.0.2
 xgboost==1.7.5
-lightgbm=3.3.5
+lightgbm==3.3.5
 
 # DL Frameworks
 transformers==4.29.1

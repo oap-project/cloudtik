@@ -61,7 +61,7 @@ function install_ml() {
         pandas==2.0.1 \
         category-encoders==2.6.0 \
         h5py==3.8.0 \
-        lightgbm=3.3.5
+        lightgbm==3.3.5
 
     mkdir -p $RUNTIME_PATH/mlflow
 

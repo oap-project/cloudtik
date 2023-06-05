@@ -10,7 +10,6 @@ Advanced Configuring
    AdvancedConfiguring/using-custom-commands.md
    AdvancedConfiguring/using-templates.md
    AdvancedConfiguring/submitting-jobs.md
-   AdvancedConfiguring/using-for-on-premise.md
    AdvancedConfiguring/understanding-cluster-key.md
    AdvancedConfiguring/switching-client-machine.md
    AdvancedConfiguring/configuring-spot-instances.md

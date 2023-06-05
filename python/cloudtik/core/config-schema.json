@@ -502,7 +502,7 @@
                                 },
                                 "password": {
                                     "type": "string",
-                                    "description": "Azure Database password."
+                                    "description": "GCP Cloud SQL password."
                                 }
                             }
                         }

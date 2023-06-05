@@ -1,6 +1,9 @@
 # A unique identifier for the cluster.
 cluster_name: example
 
+# The workspace name
+workspace_name: example-workspace
+
 # Enable container
 docker:
     enabled: False

@@ -6,14 +6,19 @@ CloudTik enables users or enterprises to easily create and manage analytics and 
 with out-of-box optimized functionalities and performance, and to go quickly to focus on running the business workloads
 in hours or in even minutes instead of spending months to construct and optimize the platform.
 
-CloudTik provides:
+CloudTik is designed as a platform to help user focuses on business development and
+achieve "Develop once, run everywhere" with the following core capabilities:
 
-* Scalable, robust, and unified control plane and runtimes for all public clouds
+* Scalable, robust, and unified control plane and runtimes for all environments:
+
+  * Public cloud providers
+  * Single node virtual clustering
+  * Local or on-premise clusters
 * Out of box optimized runtimes for analytics and AI
 
   * Optimized Spark runtime with CloudTik optimizations
   * Optimized AI runtime with Intel oneAPI
-* Support of major public cloud providers - AWS, Azure, GCP, Kubernetes (EKS, AKS, and GKE) and more
+* Support of major public cloud providers - AWS, Azure, GCP, Kubernetes (or EKS, AKS, and GKE) and more
 * A fully open architecture and open-sourced platform
 
 .. toctree::
@@ -33,10 +38,12 @@ CloudTik provides:
    UserGuide/configuring-proxy-and-firewall.md
    UserGuide/login-to-cloud.md
    UserGuide/configuring-cloud-storage.md
+   UserGuide/configuring-cloud-database.md
    UserGuide/creating-workspace.md
    UserGuide/creating-cluster.md
    UserGuide/managing-cluster.md
    UserGuide/configuring-kubernetes-integration.md
+   UserGuide/running-locally.rst
    UserGuide/running-optimized-analytics.rst
    UserGuide/running-optimized-ai.rst
    UserGuide/advanced-configuring.rst

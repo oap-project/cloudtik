@@ -11,19 +11,22 @@ have major challenges on a combination of various aspects cared by users.
 These include high cost for software services, non-optimal performance on the corresponding hardware,
 the complexity of operating and running such a platform and lack of transparency.
 
-### CloudTik Solution
-CloudTik is designed for solving the above challenges by providing the following core capabilities:
-- Scalable, robust, and unified control plane and runtimes for all public clouds
-- Out of box optimized runtimes for analytics and AI
-  - Optimized Spark runtime with CloudTik optimizations
-  - Optimized AI runtime with Intel oneAPI
-- Support of major public cloud providers - AWS, Azure, GCP, Alibaba Cloud, Kubernetes (EKS, AKS and GKE) and more
-- A fully open architecture and open-sourced platform
-
-### Who Will Use CloudTik
 CloudTik enables researchers, data scientists, and enterprises to easily create and manage analytics and AI platform on public clouds,
 with out-of-box optimized functionalities and performance, and to go quickly to focus on running the business workloads
 in hours or in even minutes instead of spending months to construct and optimize the platform.
+
+### CloudTik Solution
+CloudTik is designed for solving the above challenges by providing a platform to help user
+focuses on business development and achieve "Develop once, run everywhere" with the following core capabilities:
+- Scalable, robust, and unified control plane and runtimes for all environments:
+  - Public cloud providers
+  - Single node virtual clustering
+  - Local or on-premise clusters
+- Out of box optimized runtimes for analytics and AI
+  - Optimized Spark runtime with CloudTik optimizations
+  - Optimized AI runtime with Intel oneAPI
+- Support of major public cloud providers - AWS, Azure, GCP, Alibaba Cloud, Kubernetes ( or EKS, AKS and GKE) and more
+- A fully open architecture and open-sourced platform
 
 ## High Level Concepts
 ### Workspace
@@ -42,22 +45,18 @@ such as network (they are in the same VPC) but vary on other aspects including i
 services running and so on. The services provided by one cluster can be discovered by other clusters
 and be consumed.
 
+### Providers
+CloudTik provider abstracts the hardware infrastructure layer so that CloudTik common facilities and runtimes
+can consistently run on every provider environments. The support of different public cloud are implemented as providers
+(such as AWS, Azure, GCP providers). Beyond the public cloud environments, we also support
+on-premise and virtual single node clustering, which are also implemented as providers
+(for example, on-premise, local, virtual providers)
+
 ### Runtimes
 For each cluster started, user can configure very easily which runtimes
 (such as Spark runtime or Machine Learning/Deep Learning runtime) are needed.
 CloudTik has designed the runtimes with the optimized configurations and libraries.
 And when the cluster is running, the runtimes are properly configured and ready for running your workload.
-
-### CLI and API
-User can use CloudTik through a command line interface (CLI) or a python application programming interface (API).
-Both CLI and API provides the management operations for both workspace and cluster, for example creating a workspace or
-starting a cluster.
-
-The same CLI and API can operate on different cloud providers with a unified workspace and cluster design.
-
-The CLI or API interacts with Cloud through two channels. It will use Cloud API to create or manage cloud provider
-resources such as launching or terminating a VM instance on cloud. It will also use SSH to interact with the VM instance
-to perform tasks like installing, configuring and managing the services running on the VM instance.
 
 ## Getting Started with CloudTik
 
@@ -92,9 +91,19 @@ pip install cloudtik[aws]
 
 Replace `cloudtik[aws]` with `clouditk[azure]`, `cloudtik[gcp]`, `cloudtik[aliyun]`
 if you want to create clusters on Azure, GCP, Alibaba Cloud respectively.
+
 If you want to run on Kubernetes, install `cloudtik[kubernetes]`.
 Or  `clouditk[eks]` or `cloudtik[gke]` if you are running on AWS EKS or GCP GKE cluster.
 Use `cloudtik[all]` if you want to manage clusters with all supported Cloud providers.
+
+If you don't have a public cloud account, you can also play with CloudTik
+easily locally with the same clustering experiences using virtual, on-premise or local providers.
+For this case, simply install cloudtik core as following command,
+```
+pip install cloudtik
+```
+Please refer to [User Guide: Running Clusters Locally](https://cloudtik.readthedocs.io/en/latest/UserGuide/running-locally.html)
+for detailed guide for this case.
 
 
 ### 3. Authentication to Cloud Providers API

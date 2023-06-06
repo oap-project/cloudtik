@@ -10,8 +10,8 @@ class OptimizedTrainingLauncher(DefaultTrainingLauncher):
     r"""
      Launcher for distributed training with MPI launcher
      """
-    def __init__(self, args):
-        super().__init__(args)
+    def __init__(self, args, distributor):
+        super().__init__(args, distributor)
 
     def get_mpi_pin_domain(self, nproc_per_node, ccl_worker_count, total_cores, flatten_node_cores):
         '''
@@ -60,7 +60,7 @@ class OptimizedTrainingLauncher(DefaultTrainingLauncher):
 
     def set_environment(self):
         args = self.args
-        if not args.hosts and not args.hostfile:
+        if not self.distributor.distributed:
             # for local single node
             cpuinfo = self.cpuinfo
         else:
@@ -72,18 +72,20 @@ class OptimizedTrainingLauncher(DefaultTrainingLauncher):
         if args.use_logical_core:
             node_cores = cpuinfo.node_logical_cores
             total_cores_per_node = cpuinfo.logical_cores()
-        if not args.nproc_per_node:
-            args.nproc_per_node = cpuinfo.sockets()
+
+        self.distributor.resolve(cpuinfo.sockets())
+
+        nproc_per_node = self.distributor.nproc_per_node
 
         flatten_node_cores = []
         for node_numa_cores in node_cores:
             flatten_node_cores.extend(node_numa_cores)
 
         mpi_pin_domain = self.get_mpi_pin_domain(
-            args.nproc_per_node, args.ccl_worker_count, total_cores_per_node, flatten_node_cores)
+            nproc_per_node, args.ccl_worker_count, total_cores_per_node, flatten_node_cores)
         self.set_env("I_MPI_PIN_DOMAIN", mpi_pin_domain)
 
-        ppn = args.nproc_per_node
+        ppn = nproc_per_node
         cores_per_rank = total_cores_per_node // ppn
 
         omp_num_threads = cores_per_rank - args.ccl_worker_count
@@ -96,5 +98,5 @@ class OptimizedTrainingLauncher(DefaultTrainingLauncher):
 
         self.set_env("CCL_WORKER_COUNT", str(args.ccl_worker_count))
         ccl_affinity = self.get_ccl_worker_affinity(
-            args.nproc_per_node, args.ccl_worker_count, total_cores_per_node, flatten_node_cores)
+            nproc_per_node, args.ccl_worker_count, total_cores_per_node, flatten_node_cores)
         self.set_env("CCL_WORKER_AFFINITY", ccl_affinity)

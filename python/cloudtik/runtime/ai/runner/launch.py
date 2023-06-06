@@ -6,6 +6,8 @@ from argparse import ArgumentParser, REMAINDER
 from argparse import RawTextHelpFormatter
 from datetime import datetime
 
+from cloudtik.runtime.ai.runner.util.distributor import Distributor
+
 logger = logging.getLogger(__name__)
 
 r"""
@@ -118,36 +120,45 @@ def add_cpu_option_params(parser):
 
 
 def add_distributed_training_params(parser):
-    group = parser.add_argument_group("Distributed Training Parameters With oneCCL backend")
+    group = parser.add_argument_group("Distributed Training Parameters")
+    group.add_argument('-np', '--num-proc', action='store', dest='num_proc',
+                       metavar='\b', type=int, default=0,
+                       help="The number of process to run for distributed training")
     group.add_argument("--nnodes", metavar='\b', type=int, default=0,
                        help="The number of nodes to use for distributed "
                        "training")
-    group.add_argument("--nproc_per_node", metavar='\b', type=int, default=0,
+    group.add_argument("--nproc-per-node", "--nproc_per_node", action='store', dest='nproc_per_node',
+                       metavar='\b', type=int, default=0,
                        help="The number of processes to launch on each node")
-    # ccl control
-    group.add_argument("--ccl_worker_count", metavar='\b', default=4, type=int,
-                       help="Core numbers per rank used for ccl communication")
-    # mpi control
-    group.add_argument("--master_addr", metavar='\b', default="127.0.0.1", type=str,
-                       help="Master node (rank 0)'s address, should be either "
-                            "the IP address or the hostname of node 0, for "
-                            "single node multi-proc training, the "
-                            "--master_addr can simply be 127.0.0.1")
-    group.add_argument("--master_port", metavar='\b', default=29500, type=int,
-                       help="Master node (rank 0)'s free port that needs to "
-                            "be used for communication during distributed "
-                            "training")
-    group.add_argument("--hostfile", metavar='\b', default="", type=str,
-                       help="Hostfile is necessary for multi-node multi-proc "
-                            "training. hostfile includes the node address list "
-                            "node address which should be either the IP address"
-                            "or the hostname.")
     group.add_argument("--hosts", metavar='\b', default="", type=str,
                        help="List of hosts separated with comma for launching tasks. "
                             "When hosts is specified, it implies distributed training. "
                             "node address which should be either the IP address"
-                            "or the hostname.")
-    group.add_argument("--more_mpi_params", metavar='\b', default="", type=str,
+                            "or the hostname with or without slots.")
+    group.add_argument("--hostfile", metavar='\b', default="", type=str,
+                       help="Hostfile is necessary for multi-node multi-proc "
+                            "training. hostfile includes the node address list "
+                            "node address which should be either the IP address"
+                            "or the hostname with or without slots.")
+
+    # ccl control
+    group.add_argument("--ccl-worker-count", "--ccl_worker_count", action='store', dest='ccl_worker_count',
+                       metavar='\b', default=4, type=int,
+                       help="Core numbers per rank used for ccl communication")
+    # mpi control
+    group.add_argument("--master-addr", "--master_addr", action='store', dest='master_addr',
+                       metavar='\b', default="127.0.0.1", type=str,
+                       help="Master node (rank 0)'s address, should be either "
+                            "the IP address or the hostname of node 0, for "
+                            "single node multi-proc training, the "
+                            "--master_addr can simply be 127.0.0.1")
+    group.add_argument("--master-port", "--master_port", action='store', dest='master_port',
+                       metavar='\b', default=29500, type=int,
+                       help="Master node (rank 0)'s free port that needs to "
+                            "be used for communication during distributed "
+                            "training")
+    group.add_argument("--mpi-args", "--more_mpi_params", action='store', dest='mpi_args',
+                       metavar='\b', default="", type=str,
                        help="User can pass more parameters for mpiexec.hydra "
                             "except for -np -ppn -hostfile and -genv I_MPI_PIN_DOMAIN")
 
@@ -166,12 +177,12 @@ def add_memory_allocator_params(parser):
 def add_multi_instance_params(parser):
     group = parser.add_argument_group("Multi-instance Parameters")
     # multi-instance control
+    group.add_argument("--ninstances", metavar='\b', default=-1, type=int,
+                       help="For multi-instance, you should give the cores number you used for per instance.")
     group.add_argument("--ncore_per_instance", metavar='\b', default=-1, type=int,
                        help="Cores per instance")
     group.add_argument("--skip_cross_node_cores", action='store_true', default=False,
                        help="If specified --ncore_per_instance, skips cross-node cores.")
-    group.add_argument("--ninstances", metavar='\b', default=-1, type=int,
-                       help="For multi-instance, you should give the cores number you used for per instance.")
     group.add_argument("--instance_idx", metavar='\b', default="-1", type=int,
                        help="Specify instance index to assign ncores_per_instance for instance_idx; "
                             "otherwise ncore_per_instance will be assigned sequentially to ninstances.")
@@ -337,11 +348,19 @@ def _setup_logger(args):
 
 
 def _run(args):
+    distributor = Distributor(
+        args.num_proc,
+        args.nnodes,
+        args.nproc_per_node,
+        args.hosts,
+        args.hostfile,
+    )
+
+    if distributor.distributed:
+        args.distributed = True
+
     if args.distributed and args.multi_instance:
         raise RuntimeError("Either args.distributed or args.multi_instance should be set")
-
-    if args.nnodes > 1 or args.hosts or args.hostfile:
-        args.distributed = True
 
     if not args.distributed:
         if args.latency_mode and args.throughput_mode:
@@ -359,19 +378,19 @@ def _run(args):
         if args.launcher == "default":
             from cloudtik.runtime.ai.runner.cpu.default_training_launcher \
                 import DefaultTrainingLauncher
-            launcher = DefaultTrainingLauncher(args)
+            launcher = DefaultTrainingLauncher(args, distributor)
         elif args.launcher == "horovod":
             from cloudtik.runtime.ai.runner.horovod_training_launcher \
                 import HorovodTrainingLauncher
-            launcher = HorovodTrainingLauncher(args)
+            launcher = HorovodTrainingLauncher(args, distributor)
         else:
             from cloudtik.runtime.ai.runner.cpu.optimized_training_launcher \
                 import OptimizedTrainingLauncher
-            launcher = OptimizedTrainingLauncher(args)
+            launcher = OptimizedTrainingLauncher(args, distributor)
     else:
         from cloudtik.runtime.ai.runner.cpu.multi_instance_launcher \
             import MultiInstanceLauncher
-        launcher = MultiInstanceLauncher(args)
+        launcher = MultiInstanceLauncher(args, distributor)
 
     launcher.launch()
 

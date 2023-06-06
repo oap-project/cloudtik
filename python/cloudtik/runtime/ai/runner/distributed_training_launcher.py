@@ -12,67 +12,35 @@ class DistributedTrainingLauncher(Launcher):
      Launcher for distributed training
      """
 
-    def __init__(self, args):
-        super().__init__(args)
-        self.hosts = None
+    def __init__(self, args, distributor):
+        super().__init__(args, distributor)
 
     def launch(self):
         """
         Set ENVs and launch process for distributed training by calling run with command
         """
-        self.verify_hosts()
         self.set_master()
         self.set_environment()
         self.run()
 
-    def verify_hosts(self):
-        args = self.args
-        # There are 3 cases
-        # 1. local single node training (args.nnodes <= 1, no args.hosts and no args.hostfile)
-        # 2. remote single node training (args.nnodes <= 1, args.hosts or args.hostfile)
-        # 3. remote multi-node training (args.nnodes == 0 or args.nnodes > 1, args.hosts or args.hostfile)
-        if not args.hosts and not os.path.exists(args.hostfile):
-            if args.nnodes is not None and args.nnodes > 1:
-                raise ValueError("hosts or hostfile is necessary when you use multi-node distributed training,")
-            # local single node training
-            if not args.master_addr:
-                args.master_addr = "127.0.0.1"
-            args.nnodes = 1
-        else:
-            # either hosts or hostfile specified, remote training
-            if args.hostfile:
-                host_list = []
-                with open(args.hostfile) as f:
-                    for line in f:
-                        line = line.strip().strip("\n")
-                        host_list.append(line)
-                if not host_list:
-                    raise ValueError("No IP listed in hostfile.")
-            else:
-                # hosts specified
-                host_list = args.hosts.split(',')
-
-            self.hosts = host_list
-            host_number = len(host_list)
-            if not args.nnodes:
-                args.nnodes = host_number
-            elif args.nnodes > host_number:
-                raise ValueError("nnodes {} cannot be greater than the number of hosts {}.".format(
-                    args.nnodes, host_number
-                ))
-            args.master_addr = host_list[0]
-
     def set_master(self):
         args = self.args
+
+        if self.distributor.distributed:
+            if not args.master_addr or args.master_addr == "127.0.0.1":
+                args.master_addr = self.distributor.hosts[0]["ip"]
+        else:
+            if not args.master_addr:
+                args.master_addr = "127.0.0.1"
+
         # set distributed related environmental variables
+        # This is only necessary for pytorch based distributed training
         self.set_env("MASTER_ADDR", args.master_addr)
         self.set_env("MASTER_PORT", str(args.master_port))
 
     def set_environment(self):
-        args = self.args
-        # Default we run single instance per node
-        if not args.nproc_per_node:
-            args.nproc_per_node = 1
+        # we default to run single proc per node if not specified
+        self.distributor.resolve()
 
     def get_command_to_run(self):
         args = self.args

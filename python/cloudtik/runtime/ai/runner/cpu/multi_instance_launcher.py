@@ -13,8 +13,8 @@ class MultiInstanceLauncher(CPULauncher):
      Launcher for single instance and multi-instance
      """
 
-    def __init__(self, args):
-        super().__init__(args)
+    def __init__(self, args, distributor):
+        super().__init__(args, distributor)
 
     def launch(self):
         args = self.args

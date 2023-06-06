@@ -3144,9 +3144,9 @@ def parse_bundles_json(
 
 def parse_resource_list(resource_list_str: str, ) -> Dict[str, int]:
     resource_dict = {}
-    resources = resource_list_str.split(",")
+    resources = [x.strip() for x in resource_list_str.split(",")]
     for resource in resources:
-        resource_parts = resource.split(":")
+        resource_parts = [x.strip() for x in resource.split(":")]
         if len(resource_parts) != 2:
             raise ValueError(
                 "Invalid resource specification. Format: resource_type:amount")

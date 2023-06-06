@@ -10,8 +10,9 @@ class Launcher:
     r"""
      Base class for launcher
     """
-    def __init__(self, args):
+    def __init__(self, args, distributor):
         self.args = args
+        self.distributor = distributor
 
     def launch(self):
         pass

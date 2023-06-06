@@ -11,8 +11,8 @@ class HorovodTrainingLauncher(DistributedTrainingLauncher):
      Launcher for distributed training with Horovod
      """
 
-    def __init__(self, args):
-        super().__init__(args)
+    def __init__(self, args, distributor):
+        super().__init__(args, distributor)
 
     def get_command_to_run(self):
         args = self.args
@@ -34,18 +34,12 @@ class HorovodTrainingLauncher(DistributedTrainingLauncher):
         from horovod.runner import _HorovodArgs
         from horovod.runner.launch import _run
 
-        num_proc = args.nnodes * args.nproc_per_node
-
         hargs = _HorovodArgs()
 
-        hargs.num_proc = num_proc
-        if args.hosts:
-            host_slots = ["{}:{}".format(host, args.nproc_per_node) for host in self.hosts]
-            host_slots_list = ",".join(host_slots)
-            hargs.hosts = host_slots_list
-        else:
-            hargs.hostfile = args.hostfile
-        hargs.mpi_args = args.more_mpi_params
+        hargs.num_proc = self.distributor.num_proc
+        hargs.hosts = self.distributor.hosts_slots_str
+
+        hargs.mpi_args = args.mpi_args
         hargs.use_mpi = args.use_mpi
         hargs.use_gloo = args.use_gloo
         hargs.verbose = args.verbose

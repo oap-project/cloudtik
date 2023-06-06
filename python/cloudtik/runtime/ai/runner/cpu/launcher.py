@@ -13,8 +13,8 @@ class CPULauncher(Launcher):
     r"""
      Base class for launcher
     """
-    def __init__(self, args):
-        super().__init__(args)
+    def __init__(self, args, distributor):
+        super().__init__(args, distributor)
         self.cpuinfo = CPUinfo()
 
     def is_numactl_available(self):

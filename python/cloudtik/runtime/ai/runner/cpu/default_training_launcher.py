@@ -18,8 +18,8 @@ class DefaultTrainingLauncher(CPULauncher, DistributedTrainingLauncher):
      Launcher for distributed training with MPI launcher
      """
 
-    def __init__(self, args):
-        super().__init__(args)
+    def __init__(self, args, distributor):
+        super().__init__(args, distributor)
 
     def run(self):
         command = self.get_command_to_run()
@@ -34,19 +34,18 @@ class DefaultTrainingLauncher(CPULauncher, DistributedTrainingLauncher):
         _OMPI_FLAGS = ['-mca pml ob1', '-mca btl ^openib']
         _NO_BINDING_ARGS = ['-bind-to none', '-map-by slot']
 
-        num_proc = args.nnodes * args.nproc_per_node
+        num_proc = self.distributor.num_proc
 
         mpi_impl_flags = _OMPI_FLAGS
-        if self.hosts and len(self.hosts) >= _LARGE_CLUSTER_THRESHOLD:
+        if self.distributor.distributed and len(self.distributor.hosts) >= _LARGE_CLUSTER_THRESHOLD:
             mpi_impl_flags.append('-mca plm_rsh_no_tree_spawn true')
             mpi_impl_flags.append(
-                '-mca plm_rsh_num_concurrent {}'.format(len(self.hosts)))
+                '-mca plm_rsh_num_concurrent {}'.format(len(self.distributor.hosts)))
 
         # if user does not specify any hosts, mpirun by default uses local host.
         # There is no need to specify localhost.
-        if self.hosts:
-            host_slots = ["{}:{}".format(host, args.nproc_per_node) for host in self.hosts]
-            host_slots_str = ",".join(host_slots)
+        if self.distributor.distributed:
+            host_slots_str = self.distributor.hosts_slots_str
             hosts_arg = '-{opt} {hosts}'.format(opt='H',
                                                 hosts=host_slots_str)
         else:
@@ -61,8 +60,8 @@ class DefaultTrainingLauncher(CPULauncher, DistributedTrainingLauncher):
             runtime_home = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
             return os.path.join(runtime_home, "scripts", "cloudtik-rsh.sh")
 
-        extra_mpi_args = args.more_mpi_params
-        if self.hosts and (not extra_mpi_args or "-mca plm_rsh_agent" not in extra_mpi_args):
+        extra_mpi_args = args.mpi_args
+        if self.distributor.distributed and (not extra_mpi_args or "-mca plm_rsh_agent" not in extra_mpi_args):
             extra_mpi_args = (
                 '{extra_mpi_args} -mca plm_rsh_agent "{rsh_agent}"'
                 .format(extra_mpi_args=extra_mpi_args if extra_mpi_args else '',
@@ -103,22 +102,28 @@ class DefaultTrainingLauncher(CPULauncher, DistributedTrainingLauncher):
     def _run_command_impi(self, command):
         args = self.args
 
+        # make sure that for IMPI cases, all the nodes have the same slots
+        self.distributor.validate_same_slots()
+
+        num_proc = self.distributor.num_proc
+        nproc_per_node = self.distributor.nproc_per_node
+
         cmd = ['mpirun']
         mpi_config = "-l -np {} -ppn {} ".format(
-            args.nnodes * args.nproc_per_node, args.nproc_per_node)
-        mpi_config += args.more_mpi_params
+            num_proc, nproc_per_node)
+        mpi_config += args.mpi_args
 
-        if args.hosts:
-            mpi_config += " -hosts {}".format(args.hosts)
-        elif args.hostfile:
-            mpi_config += " -hostfile {}".format(args.hostfile)
+        if self.distributor.distributed:
+            mpi_config += " -hosts {}".format(self.distributor.hosts_str)
+            # Unified to pass by hosts instead of hostfile
+            # mpi_config += " -hostfile {}".format(hostfile)
 
         def get_cloudtik_rsh():
             runtime_home = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
             return os.path.join(runtime_home, "scripts", "cloudtik-rsh.sh")
 
         # only add this for remote training
-        if args.hosts or args.hostfile:
+        if self.distributor.distributed:
             if "-launcher-exec" not in mpi_config:
                 mpi_config += (
                     ' -launcher rsh -launcher-exec "{launcher_exec}"'.format(

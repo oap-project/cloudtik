@@ -42,6 +42,8 @@ class HorovodTrainingLauncher(DistributedTrainingLauncher):
         hargs.mpi_args = args.mpi_args
         hargs.use_mpi = args.use_mpi
         hargs.use_gloo = args.use_gloo
+        hargs.nics = args.nics
+        hargs.output_filename = args.output_filename
         hargs.verbose = args.verbose
 
         if args.run_func:

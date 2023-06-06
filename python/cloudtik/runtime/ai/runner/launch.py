@@ -121,7 +121,7 @@ def add_cpu_option_params(parser):
 
 def add_distributed_training_params(parser):
     group = parser.add_argument_group("Distributed Training Parameters")
-    group.add_argument('-np', '--num-proc', action='store', dest='num_proc',
+    group.add_argument('--num-proc', action='store', dest='num_proc',
                        metavar='\b', type=int, default=0,
                        help="The number of process to run for distributed training")
     group.add_argument("--nnodes", metavar='\b', type=int, default=0,

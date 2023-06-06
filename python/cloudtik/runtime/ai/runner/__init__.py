@@ -37,7 +37,7 @@ class _LaunchArgs(object):
 
         # library arguments
         # MPI
-        self.more_mpi_args = None
+        self.mpi_args = None
         self.tcp_flag = None
         self.binding_args = None
         self.num_nccl_streams = None
@@ -129,7 +129,7 @@ def run(
     largs.hosts = hosts
     largs.hostfile = hostfile
     largs.launcher = "horovod"
-    largs.more_mpi_args = mpi_args
+    largs.mpi_args = mpi_args
     largs.output_filename = output_filename
     largs.verbose = verbose
     largs.use_gloo = use_gloo
@@ -202,7 +202,7 @@ def run_command(
     largs.hosts = hosts
     largs.hostfile = hostfile
     largs.launcher = launcher
-    largs.more_mpi_args = mpi_args
+    largs.mpi_args = mpi_args
     largs.output_filename = output_filename
     largs.verbose = verbose
     largs.use_gloo = use_gloo

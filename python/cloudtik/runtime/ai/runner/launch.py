@@ -1,3 +1,4 @@
+import argparse
 import glob
 import logging
 import os
@@ -95,8 +96,8 @@ rank 0: *(IP: 192.168.10.10, and has a free port: 295000)*
 
 ::
 
-    >>> cloudtik-ai-run --distributed --num-proc-per-node=xxx
-               --num-nodes=2 --hostfile hostfile python_sript --arg1 --arg2 --arg3
+    >>> cloudtik-ai-run --distributed --nproc_per_node=xxx
+               --nnodes=2 --hostfile hostfile python_sript --arg1 --arg2 --arg3
                and all other arguments of your training script)
 
 
@@ -124,11 +125,10 @@ def add_distributed_training_params(parser):
     group.add_argument('--num-proc', action='store', dest='num_proc',
                        metavar='\b', type=int, default=0,
                        help="The number of process to run for distributed training")
-    group.add_argument("--num-nodes", "--nnodes", action='store', dest='num_nodes',
-                       metavar='\b', type=int, default=0,
+    group.add_argument("--nnodes", metavar='\b', type=int, default=0,
                        help="The number of nodes to use for distributed "
                        "training")
-    group.add_argument("--num-proc-per-node", "--nproc_per_node", action='store', dest='num_proc_per_node',
+    group.add_argument("--nproc-per-node", "--nproc_per_node", action='store', dest='nproc_per_node',
                        metavar='\b', type=int, default=0,
                        help="The number of processes to launch on each node")
     group.add_argument("--hosts", metavar='\b', default="", type=str,
@@ -224,6 +224,41 @@ def add_auto_ipex_params(parser, auto_ipex_default_enabled=False):
                        help="Enable the Graph Mode for ipex.optimize")
 
 
+def make_nic_action():
+    # This is an append Action that splits the values on ','
+    class NicAction(argparse.Action):
+        def __init__(self,
+                     option_strings,
+                     dest,
+                     default=None,
+                     type=None,
+                     choices=None,
+                     required=False,
+                     help=None):
+            super(NicAction, self).__init__(
+                option_strings=option_strings,
+                dest=dest,
+                nargs=1,
+                default=default,
+                type=type,
+                choices=choices,
+                required=required,
+                help=help)
+
+        def __call__(self, parser, args, values, option_string=None):
+            if ',' in values[0]:
+                values = values[0].split(',')
+
+            # union the existing dest nics with the new ones
+            items = getattr(args, self.dest, None)
+            items = set() if items is None else items
+            items = items.union(values)
+
+            setattr(args, self.dest, items)
+
+    return NicAction
+
+
 def add_horovod_params(parser):
     group = parser.add_argument_group("Horovod Parameters")
     group.add_argument('--gloo', action='store_true', dest='use_gloo',
@@ -232,6 +267,20 @@ def add_horovod_params(parser):
     group.add_argument('--mpi', action='store_true', dest='use_mpi',
                        help='Run Horovod using the MPI controller. This will '
                             'be the default if Horovod was built with MPI support.')
+
+    group.add_argument('--network-interfaces', action=make_nic_action(), dest='nics',
+                       help='Network interfaces that can be used for communication separated by '
+                            'comma. If not specified, will find the common NICs among all '
+                            'the workers. Example: --network-interfaces "eth0,eth1".')
+
+    group.add_argument('--output-filename', action='store',
+                       help='For Gloo, writes stdout / stderr of all processes to a filename of the form '
+                            '<output_filename>/rank.<rank>/<stdout | stderr>. The <rank> will be padded with 0 '
+                            'characters to ensure lexicographical order. For MPI, delegates its behavior to mpirun.')
+
+    parser.add_argument("--verbose", default=False, action='store_true',
+                        dest='verbose',
+                        help='If this flag is set, extra messages will be printed.')
 
 
 def parse_args():
@@ -256,8 +305,8 @@ def parse_args():
                     "\n    >>> cloudtik-ai-run --distributed  python_script args\n"
                     "\n4. Multi-Node multi-process distributed training: (e.g. two nodes)\n"
                     "\n   rank 0: *(IP: 192.168.10.10, and has a free port: 295000)*\n"
-                    "\n   >>> cloudtik-ai-run --distributed --num-proc-per-node=2\n"
-                    "\n       --num-nodes=2 --hostfile hostfile python_script args\n"
+                    "\n   >>> cloudtik-ai-run --distributed --nproc_per_node=2\n"
+                    "\n       --nnodes=2 --hostfile hostfile python_script args\n"
                     "\n############################################################################# \n",
                     formatter_class=RawTextHelpFormatter)
 
@@ -277,9 +326,7 @@ def parse_args():
                         help="Do not prepend the --program script with \"python\" - just exec "
                              "it directly. Useful when the script is not a Python script.")
 
-    parser.add_argument("--verbose", default=False, action='store_true',
-                        dest='verbose',
-                        help='If this flag is set, extra messages will be printed.')
+
     parser.add_argument("--log_path", metavar='\b', default="", type=str,
                         help="The log file directory. Default path is '', which means disable logging to files.")
     parser.add_argument("--log_file_prefix", metavar='\b', default="run", type=str,
@@ -351,8 +398,8 @@ def _setup_logger(args):
 def _run(args):
     distributor = Distributor(
         args.num_proc,
-        args.num_nodes,
-        args.num_proc_per_node,
+        args.nnodes,
+        args.nproc_per_node,
         args.hosts,
         args.hostfile,
     )

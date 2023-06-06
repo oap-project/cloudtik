@@ -96,13 +96,8 @@ class TestAIUtils:
         distributor = Distributor(
             hosts="10.0.0.1, 10.0.0.2"
         )
-        assert distributor.num_proc == 0
+        assert not distributor.resolved
         assert distributor.nnodes == 2
-        assert distributor.nproc_per_node == 0
-        assert distributor.hosts[0]["ip"] == "10.0.0.1"
-        assert distributor.hosts[0]["slots"] is None
-        assert distributor.hosts[1]["ip"] == "10.0.0.2"
-        assert distributor.hosts[1]["slots"] is None
 
         distributor.resolve(3)
         assert distributor.num_proc == 6

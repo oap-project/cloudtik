@@ -6,14 +6,14 @@ class _LaunchArgs(object):
         self.executable = None
 
         # nodes and processes
-        # If nnodes and nproc_per_node is specified
+        # If num_nodes and num_proc_per_node is specified
         # hosts/hostfile can be host address only without slots
         # Or you can specify hosts with slots and specify the num_proc
         # all these are handled by Distributor
 
         self.num_proc = None
-        self.nnodes = None
-        self.nproc_per_node = None
+        self.num_nodes = None
+        self.num_proc_per_node = None
 
         # host arguments
         self.hosts = None
@@ -61,8 +61,8 @@ def run(
         args=(),
         kwargs=None,
         num_proc=None,
-        nnodes=None,
-        nproc_per_node=None,
+        num_nodes=None,
+        num_proc_per_node=None,
         hosts=None,
         hostfile=None,
         output_filename=None,
@@ -82,8 +82,8 @@ def run(
     :param args: Arguments to pass to `func`.
     :param kwargs: Keyword arguments to pass to `func`.
     :param num_proc: The number of processes for running.
-    :param nnodes: The number of nodes. if not specified, use the number of nodes in the hosts
-    :param nproc_per_node: The number of process per node.
+    :param num_nodes: The number of nodes. if not specified, use the number of nodes in the hosts
+    :param num_proc_per_node: The number of process per node.
     :param hosts: List of host names and the number of available slots
                   for running processes on each, of the form: <hostname>:<slots>
                   (e.g.: host1:2,host2:4,host3:1 indicating 2 processes can run on host1,
@@ -124,8 +124,8 @@ def run(
     largs = _LaunchArgs()
 
     largs.num_proc = num_proc
-    largs.nnodes = nnodes
-    largs.nproc_per_node = nproc_per_node
+    largs.num_nodes = num_nodes
+    largs.num_proc_per_node = num_proc_per_node
     largs.hosts = hosts
     largs.hostfile = hostfile
     largs.launcher = "horovod"
@@ -145,8 +145,8 @@ def run_command(
         program,
         program_args=None,
         num_proc=None,
-        nnodes=None,
-        nproc_per_node=None,
+        num_nodes=None,
+        num_proc_per_node=None,
         hosts=None,
         hostfile=None,
         launcher=None,
@@ -163,8 +163,8 @@ def run_command(
     :param program: The program to be run in job processes.
     :param program_args: The list of program arguments
     :param num_proc: The number of processes for running.
-    :param nnodes: The number of nodes. if not specified, use the number of nodes in the hosts
-    :param nproc_per_node: The number of process per node.
+    :param num_nodes: The number of nodes. if not specified, use the number of nodes in the hosts
+    :param num_proc_per_node: The number of process per node.
     :param hosts: List of host names and the number of available slots
                   for running processes on each, of the form: <hostname>:<slots>
                   (e.g.: host1:2,host2:4,host3:1 indicating 2 processes can run on host1,
@@ -197,8 +197,8 @@ def run_command(
     largs = _LaunchArgs()
 
     largs.num_proc = num_proc
-    largs.nnodes = nnodes
-    largs.nproc_per_node = nproc_per_node
+    largs.num_nodes = num_nodes
+    largs.num_proc_per_node = num_proc_per_node
     largs.hosts = hosts
     largs.hostfile = hostfile
     largs.launcher = launcher

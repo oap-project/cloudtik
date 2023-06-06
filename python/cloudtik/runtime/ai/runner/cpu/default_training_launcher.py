@@ -106,11 +106,11 @@ class DefaultTrainingLauncher(CPULauncher, DistributedTrainingLauncher):
         self.distributor.validate_same_slots()
 
         num_proc = self.distributor.num_proc
-        nproc_per_node = self.distributor.nproc_per_node
+        num_proc_per_node = self.distributor.num_proc_per_node
 
         cmd = ['mpirun']
         mpi_config = "-l -np {} -ppn {} ".format(
-            num_proc, nproc_per_node)
+            num_proc, num_proc_per_node)
         mpi_config += args.mpi_args
 
         if self.distributor.distributed:

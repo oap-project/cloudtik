@@ -110,6 +110,20 @@ class TestAIUtils:
 
         distributor.validate_same_slots()
 
+        distributor.resolve(4)
+        assert distributor.num_proc == 6
+        assert distributor.nnodes == 2
+        assert distributor.nproc_per_node == 3
+        assert distributor.hosts[0]["slots"] == 3
+        assert distributor.hosts[1]["slots"] == 3
+
+        distributor.resolve(4, force=True)
+        assert distributor.num_proc == 8
+        assert distributor.nnodes == 2
+        assert distributor.nproc_per_node == 4
+        assert distributor.hosts[0]["slots"] == 4
+        assert distributor.hosts[1]["slots"] == 4
+
 
 if __name__ == "__main__":
     import sys

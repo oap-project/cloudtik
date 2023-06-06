@@ -103,16 +103,20 @@ def _sum_of_host_slots(normalized_hosts, validate = True):
     return total_slots
 
 
-def _normalize_host_slots(normalized_hosts, nproc_per_node):
-    # fill in the slots if not specified
-    # replace with nproc_per_node if it is greater
-    for normalized_host in normalized_hosts:
-        slots = normalized_host["slots"]
-        if slots is None:
+def _normalize_host_slots(normalized_hosts, nproc_per_node, force=False):
+    if force:
+        for normalized_host in normalized_hosts:
             normalized_host["slots"] = nproc_per_node
-        elif slots < nproc_per_node:
-            raise ValueError("Not enough host slots.{} {} defined, {} needed.".format(
-                normalized_host["ip"], slots, nproc_per_node))
+    else:
+        # fill in the slots if not specified
+        # replace with nproc_per_node if it is greater
+        for normalized_host in normalized_hosts:
+            slots = normalized_host["slots"]
+            if slots is None:
+                normalized_host["slots"] = nproc_per_node
+            elif slots < nproc_per_node:
+                raise ValueError("Not enough host slots.{} {} defined, {} needed.".format(
+                    normalized_host["ip"], slots, nproc_per_node))
 
 
 def _normalize_nproc_per_node(num_proc, nnodes):
@@ -229,12 +233,12 @@ class Distributor:
     def resolved(self):
         return True if self.normalized_num_proc else False
 
-    def resolve(self, nproc_per_node=1):
-        if not self.normalized_num_proc:
+    def resolve(self, nproc_per_node=1, force=False):
+        if force or not self.normalized_num_proc:
             self.normalized_num_proc = self.normalized_nnodes * nproc_per_node
             self.normalized_nproc_per_node = nproc_per_node
             _normalize_host_slots(
-                self.normalized_hosts, nproc_per_node)
+                self.normalized_hosts, nproc_per_node, force=force)
 
     def _check_resolved(self):
         if not self.resolved:

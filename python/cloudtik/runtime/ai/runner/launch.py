@@ -95,8 +95,8 @@ rank 0: *(IP: 192.168.10.10, and has a free port: 295000)*
 
 ::
 
-    >>> cloudtik-ai-run --distributed --nproc_per_node=xxx
-               --nnodes=2 --hostfile hostfile python_sript --arg1 --arg2 --arg3
+    >>> cloudtik-ai-run --distributed --num-proc-per-node=xxx
+               --num-nodes=2 --hostfile hostfile python_sript --arg1 --arg2 --arg3
                and all other arguments of your training script)
 
 
@@ -121,13 +121,14 @@ def add_cpu_option_params(parser):
 
 def add_distributed_training_params(parser):
     group = parser.add_argument_group("Distributed Training Parameters")
-    group.add_argument('-np', '--num-proc', action='store', dest='num_proc',
+    group.add_argument('--num-proc', action='store', dest='num_proc',
                        metavar='\b', type=int, default=0,
                        help="The number of process to run for distributed training")
-    group.add_argument("--nnodes", metavar='\b', type=int, default=0,
+    group.add_argument("--num-nodes", "--nnodes", action='store', dest='num_nodes',
+                       metavar='\b', type=int, default=0,
                        help="The number of nodes to use for distributed "
                        "training")
-    group.add_argument("--nproc-per-node", "--nproc_per_node", action='store', dest='nproc_per_node',
+    group.add_argument("--num-proc-per-node", "--nproc_per_node", action='store', dest='num_proc_per_node',
                        metavar='\b', type=int, default=0,
                        help="The number of processes to launch on each node")
     group.add_argument("--hosts", metavar='\b', default="", type=str,
@@ -255,8 +256,8 @@ def parse_args():
                     "\n    >>> cloudtik-ai-run --distributed  python_script args\n"
                     "\n4. Multi-Node multi-process distributed training: (e.g. two nodes)\n"
                     "\n   rank 0: *(IP: 192.168.10.10, and has a free port: 295000)*\n"
-                    "\n   >>> cloudtik-ai-run --distributed --nproc_per_node=2\n"
-                    "\n       --nnodes=2 --hostfile hostfile python_script args\n"
+                    "\n   >>> cloudtik-ai-run --distributed --num-proc-per-node=2\n"
+                    "\n       --num-nodes=2 --hostfile hostfile python_script args\n"
                     "\n############################################################################# \n",
                     formatter_class=RawTextHelpFormatter)
 
@@ -350,8 +351,8 @@ def _setup_logger(args):
 def _run(args):
     distributor = Distributor(
         args.num_proc,
-        args.nnodes,
-        args.nproc_per_node,
+        args.num_nodes,
+        args.num_proc_per_node,
         args.hosts,
         args.hostfile,
     )

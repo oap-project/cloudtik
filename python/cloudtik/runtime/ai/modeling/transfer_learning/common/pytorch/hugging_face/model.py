@@ -66,3 +66,7 @@ class HuggingFaceModel(PretrainedModel):
 
         if not isinstance(epochs, int):
             raise TypeError("Invalid type for the epochs arg. Expected an int but found a {}".format(type(epochs)))
+
+    @property
+    def framework(self):
+        return "pytorch"

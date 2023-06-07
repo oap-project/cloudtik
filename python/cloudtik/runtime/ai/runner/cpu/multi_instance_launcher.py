@@ -4,6 +4,7 @@ import subprocess
 import sys
 
 from cloudtik.runtime.ai.runner.cpu.launcher import CPULauncher
+from cloudtik.runtime.ai.runner.util.utils import is_python_program
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +16,7 @@ class MultiInstanceLauncher(CPULauncher):
 
     def __init__(self, args, distributor):
         super().__init__(args, distributor)
+        self.program = None
 
     def launch(self):
         args = self.args
@@ -146,10 +148,11 @@ class MultiInstanceLauncher(CPULauncher):
                                             args.benchmark)
         os.environ["LAUNCH_CMD"] = "#"
 
-        if args.auto_ipex:
+        if args.auto_ipex and is_python_program(args.command):
             import intel_extension_for_pytorch.cpu.auto_ipex as auto_ipex
-            args.program = auto_ipex.apply_monkey_patch(
-                args.program, args.dtype, args.auto_ipex_verbose, args.disable_ipex_graph_mode)
+            program = args.command[0]
+            self.program = auto_ipex.apply_monkey_patch(
+                program, args.dtype, args.auto_ipex_verbose, args.disable_ipex_graph_mode)
 
         for i in range(args.ninstances):
             cmd = []
@@ -192,15 +195,12 @@ class MultiInstanceLauncher(CPULauncher):
                     taskset_params = "-c {}".format(cur_process_cores)
                     cmd.extend(taskset_params.split())
 
-            with_python = not args.no_python
-            if with_python:
-                cmd.append(sys.executable)
-                cmd.append("-u")
-            if args.module:
-                cmd.append("-m")
-            cmd.append(args.program)
-
-            cmd.extend(args.program_args)
+            self.with_python_command(cmd)
+            if self.program:
+                cmd.append(self.program)
+                cmd.extend(args.command[1:])
+            else:
+                cmd.extend(args.command)
             os.environ["LAUNCH_CMD"] += " ".join(cmd) + ",#"
             cmd_s = " ".join(cmd)
             if args.log_path:
@@ -224,5 +224,5 @@ class MultiInstanceLauncher(CPULauncher):
         finally:
             if args.auto_ipex:
                 # Clean the temp file
-                if os.path.exists(args.program) and args.program.endswith("_auto_ipex"):
-                    os.remove(args.program)
+                if self.program and os.path.exists(self.program) and self.program.endswith("_auto_ipex"):
+                    os.remove(self.program)

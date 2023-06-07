@@ -1,7 +1,6 @@
 class _LaunchArgs(object):
     def __init__(self):
-        self.program = None
-        self.program_args = None
+        self.command = None
         self.run_func = None
         self.executable = None
 
@@ -142,8 +141,7 @@ def run(
 
 
 def run_command(
-        program,
-        program_args=None,
+        command=None,
         num_proc=None,
         nnodes=None,
         nproc_per_node=None,
@@ -158,10 +156,9 @@ def run_command(
         network_interfaces=None
        ):
     """
-    Launch a job to run the specified process function and get the return value.
+    Launch command to run the specified process function and get the return value.
 
-    :param program: The program to be run in job processes.
-    :param program_args: The list of program arguments
+    :param command: The command with arguments to be run in job processes.
     :param num_proc: The number of processes for running.
     :param nnodes: The number of nodes. if not specified, use the number of nodes in the hosts
     :param nproc_per_node: The number of process per node.
@@ -208,7 +205,6 @@ def run_command(
     largs.use_gloo = use_gloo
     largs.use_mpi = use_mpi
     largs.nics = set(network_interfaces) if network_interfaces else None
-    largs.program = program
-    largs.program_args = program_args
+    largs.command = command
 
     return _run(largs)

@@ -1,9 +1,11 @@
+import unittest
+
 import pytest
 
 from cloudtik.runtime.ai.runner.util.distributor import Distributor
 
 
-class TestAIUtils:
+class TestAIUtils(unittest.TestCase):
     def test_distributor(self):
         distributor = Distributor(
             nnodes=2,
@@ -123,6 +125,16 @@ class TestAIUtils:
         assert distributor.nproc_per_node == 4
         assert distributor.hosts[0]["slots"] == 4
         assert distributor.hosts[1]["slots"] == 4
+
+        try:
+            distributor = Distributor(
+                num_proc=6,
+                nproc_per_node=2,
+                hosts="10.0.0.1, 10.0.0.2"
+            )
+            self.fail("Should raise error: not enough slots.")
+        except ValueError as e:
+            pass
 
 
 if __name__ == "__main__":

@@ -26,7 +26,6 @@ import yaml
 
 import tensorflow as tf
 
-from cloudtik.runtime.ai.modeling.transfer_learning.common.tensorflow import get_train_script
 from cloudtik.runtime.ai.modeling.transfer_learning.image_classification.tensorflow.image_classification_dataset \
     import TensorflowImageClassificationDataset
 from cloudtik.runtime.ai.modeling.transfer_learning.image_classification.image_classification_dataset \
@@ -37,7 +36,6 @@ from cloudtik.runtime.ai.modeling.transfer_learning.common.tensorflow.model \
     import TensorflowModel
 from cloudtik.runtime.ai.modeling.transfer_learning.common.utils \
     import validate_model_name, verify_directory
-from cloudtik.runtime.ai.runner import run_command
 
 
 class TensorflowImageClassificationModel(ImageClassificationModel, TensorflowModel):
@@ -163,26 +161,10 @@ class TensorflowImageClassificationModel(ImageClassificationModel, TensorflowMod
             self, epochs, shuffle,
             nnodes, nproc_per_node, hosts, hostfile,
             objects_path, use_horovod):
-        train_script = get_train_script()
-        command = [
-            train_script, "--objects-path", objects_path,
-            "--category", "image_classification",
-            "--epochs", str(epochs)
-        ]
-        if shuffle:
-            command += ['--shuffle']
-
-        launcher = None
-        if use_horovod:
-            launcher = "horovod"
-
-        run_command(
-            command,
-            nnodes=nnodes,
-            nproc_per_node=nproc_per_node,
-            hosts=hosts,
-            hostfile=hostfile,
-            launcher=launcher
+        self.fit_distributed(
+            epochs, shuffle,
+            nnodes, nproc_per_node, hosts, hostfile,
+            objects_path, use_horovod, category="image_classification"
         )
 
     def train(self, dataset: ImageClassificationDataset, output_dir, epochs=1, initial_checkpoints=None,
@@ -260,8 +242,8 @@ class TensorflowImageClassificationModel(ImageClassificationModel, TensorflowMod
             try:
                 self._fit_distributed(
                     epochs, shuffle_files,
-                    nnodes, nproc_per_node, hosts, hostfile,
-                    objects_path, kwargs.get('use_horovod'))
+                    nnodes, nproc_per_node, hosts, hostfile, objects_path,
+                    kwargs.get('use_horovod'))
             except Exception as err:
                 print("Error: \'{}\' occured while distributed training".format(err))
             finally:

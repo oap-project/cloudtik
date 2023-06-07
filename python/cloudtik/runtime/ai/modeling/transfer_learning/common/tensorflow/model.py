@@ -27,9 +27,11 @@ import numpy as np
 
 import tensorflow as tf
 
+from cloudtik.runtime.ai.modeling.transfer_learning.common.tensorflow import get_train_script
 from cloudtik.runtime.ai.modeling.transfer_learning.model import PretrainedModel
 from cloudtik.runtime.ai.modeling.transfer_learning.common.utils import \
     verify_directory, validate_model_name
+from cloudtik.runtime.ai.runner import run_command
 from cloudtik.runtime.ai.runner.cpu.platform_utils import PlatformUtil
 
 
@@ -210,3 +212,29 @@ class TensorflowModel(PretrainedModel):
                 shutil.rmtree(objects_path)
             except FileNotFoundError:
                 pass
+
+    def fit_distributed(
+            self, epochs, shuffle,
+            nnodes, nproc_per_node, hosts, hostfile,
+            objects_path, use_horovod, category):
+        train_script = get_train_script()
+        command = [
+            train_script, "--objects-path", objects_path,
+            "--category", category,
+            "--epochs", str(epochs)
+        ]
+        if shuffle:
+            command += ['--shuffle']
+
+        launcher = None
+        if use_horovod:
+            launcher = "horovod"
+
+        run_command(
+            command,
+            nnodes=nnodes,
+            nproc_per_node=nproc_per_node,
+            hosts=hosts,
+            hostfile=hostfile,
+            launcher=launcher
+        )

@@ -42,7 +42,7 @@ from transformers import (
 
 from datasets.arrow_dataset import Dataset
 
-from cloudtik.runtime.ai.modeling.transfer_learning.common.pytorch import get_train_script
+from cloudtik.runtime.ai.modeling.transfer_learning.common.pytorch.model import PyTorchModel
 from cloudtik.runtime.ai.modeling.transfer_learning.text_classification.pytorch.hugging_face.text_classification_dataset \
     import HuggingFaceTextClassificationDataset
 from cloudtik.runtime.ai.modeling.transfer_learning.text_classification.pytorch.text_classification_dataset \
@@ -57,7 +57,6 @@ from cloudtik.runtime.ai.modeling.transfer_learning.common.pytorch.hugging_face.
     import HuggingFaceModel
 from cloudtik.runtime.ai.modeling.transfer_learning.common.utils \
     import read_json_file, validate_model_name, verify_directory
-from cloudtik.runtime.ai.runner import run_command
 
 
 class HuggingFaceTextClassificationModel(TextClassificationModel, HuggingFaceModel):
@@ -281,22 +280,10 @@ class HuggingFaceTextClassificationModel(TextClassificationModel, HuggingFaceMod
     def _fit_distributed(
             self, nnodes, nproc_per_node, hosts, hostfile,
             epochs, batch_size, ipex_optimize, objects_path):
-        train_script = get_train_script()
-        command = [
-            train_script, "--objects-path", objects_path,
-            "--category", "text_classification",
-            "--epochs", str(epochs), "--batch-size", str(batch_size)
-        ]
-        if ipex_optimize:
-            command += ['--ipex']
-            command += ['--backend', 'ccl']
-
-        run_command(
-            command,
-            nnodes=nnodes,
-            nproc_per_node=nproc_per_node,
-            hosts=hosts,
-            hostfile=hostfile
+        PyTorchModel.fit_distributed(
+            nnodes, nproc_per_node, hosts, hostfile,
+            epochs, batch_size, ipex_optimize,
+            objects_path, category="text_classification"
         )
 
     def train(

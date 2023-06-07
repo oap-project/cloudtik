@@ -24,7 +24,6 @@ import yaml
 
 import tensorflow as tf
 
-from cloudtik.runtime.ai.modeling.transfer_learning.common.tensorflow import get_train_script
 from cloudtik.runtime.ai.modeling.transfer_learning.text_classification.tensorflow.text_classification_dataset \
     import TensorflowTextClassificationDataset
 from cloudtik.runtime.ai.modeling.transfer_learning.text_classification.text_classification_dataset \
@@ -39,8 +38,6 @@ from cloudtik.runtime.ai.modeling.transfer_learning.common.utils \
 # Note that tensorflow_text isn't used directly but the import is required to register ops used by the
 # BERT text preprocessor
 import tensorflow_text  # noqa: F401
-
-from cloudtik.runtime.ai.runner import run_command
 
 
 class TensorflowTextClassificationModel(TextClassificationModel, TensorflowModel):
@@ -169,26 +166,10 @@ class TensorflowTextClassificationModel(TextClassificationModel, TensorflowModel
             self, epochs, shuffle,
             nnodes, nproc_per_node, hosts, hostfile,
             objects_path, use_horovod):
-        train_script = get_train_script()
-        command = [
-            train_script, "--objects-path", objects_path,
-            "--category", "text_classification",
-            "--epochs", str(epochs)
-        ]
-        if shuffle:
-            command += ['--shuffle']
-
-        launcher = None
-        if use_horovod:
-            launcher = "horovod"
-
-        run_command(
-            command,
-            nnodes=nnodes,
-            nproc_per_node=nproc_per_node,
-            hosts=hosts,
-            hostfile=hostfile,
-            launcher=launcher
+        self.fit_distributed(
+            epochs, shuffle,
+            nnodes, nproc_per_node, hosts, hostfile,
+            objects_path, use_horovod, category="text_classification"
         )
 
     def train(self, dataset: TextClassificationDataset, output_dir, epochs=1, initial_checkpoints=None,

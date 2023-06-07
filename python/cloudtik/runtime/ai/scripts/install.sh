@@ -61,7 +61,11 @@ function install_ml() {
         pandas==2.0.1 \
         category-encoders==2.6.0 \
         h5py==3.8.0 \
-        lightgbm==3.3.5
+        lightgbm==3.3.5 \
+        tensorflow-text==2.11.0 \
+        datasets~=2.9.0 \
+        tensorflow-datasets~=4.8.2 \
+        tensorflow-hub~=0.12.0
 
     mkdir -p $RUNTIME_PATH/mlflow
 

@@ -134,7 +134,7 @@ def load_model(model_name: str, model, category: str, framework: str, **kwargs):
     return model_class(model_name, model, **kwargs)
 
 
-def get_model(model_name: str, category: str, framework: str, source: str = None, **kwargs):
+def get_model(model_name: str, category: str = None, framework: str = None, source: str = None, **kwargs):
     """A factory method for creating models.
 
         Args:
@@ -207,7 +207,7 @@ def search_model(model_name, category: str = None, framework: str = None, source
     for model_category in models.keys():
         if model_name in models[model_category]:
             # Found a matching model
-            candidate_models[category] = models[model_category][model_name]
+            candidate_models[model_category] = models[model_category][model_name]
 
     return candidate_models
 

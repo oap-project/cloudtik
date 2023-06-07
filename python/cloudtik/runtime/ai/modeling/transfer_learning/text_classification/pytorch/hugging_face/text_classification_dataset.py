@@ -39,7 +39,7 @@ class HuggingFaceTextClassificationDataset(TextClassificationDataset, HuggingFac
 
     def __init__(self, dataset_dir, dataset_name, split=['train'],
                  num_workers=0, shuffle_files=True,
-                 distributed=False):
+                 distributed=False, in_memory=None):
         if not isinstance(split, list):
             raise ValueError("Value of split argument must be a list.")
 
@@ -56,6 +56,7 @@ class HuggingFaceTextClassificationDataset(TextClassificationDataset, HuggingFac
         self._num_workers = num_workers
         self._shuffle = shuffle_files
         self._distributed = distributed
+        self._in_memory = in_memory
         self._info = {
             'name': dataset_name
         }
@@ -128,10 +129,12 @@ class HuggingFaceTextClassificationDataset(TextClassificationDataset, HuggingFac
 
         if subset is not None:
             downloader = DataDownloader(
-                main_dataset, self._dataset_dir, source='hugging_face', subset=subset)
+                main_dataset, self._dataset_dir, source='hugging_face',
+                subset=subset, in_memory=self._in_memory)
         else:
             downloader = DataDownloader(
-                main_dataset, self._dataset_dir, source='hugging_face')
+                main_dataset, self._dataset_dir, source='hugging_face',
+                in_memory=self._in_memory)
         return downloader.download(split=split)
 
     @property

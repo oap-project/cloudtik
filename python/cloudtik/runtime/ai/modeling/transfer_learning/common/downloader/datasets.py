@@ -98,10 +98,16 @@ class DataDownloader:
 
         elif self._source == DatasetSource.HUGGING_FACE:
             from datasets import load_dataset
+            in_memory = self._args['in_memory'] if "in_memory" in self._args else None
             if 'subset' in self._args:
-                return load_dataset(self._dataset_name, self._args['subset'], split=split, cache_dir=self._dataset_dir)
+                return load_dataset(
+                    self._dataset_name, self._args['subset'],
+                    split=split, cache_dir=self._dataset_dir,
+                    keep_in_memory=in_memory)
             else:
-                return load_dataset(self._dataset_name, split=split, cache_dir=self._dataset_dir)
+                return load_dataset(
+                    self._dataset_name, split=split, cache_dir=self._dataset_dir,
+                    keep_in_memory=in_memory)
 
         elif self._source == DatasetSource.GENERIC:
             file_path = utils.download_file(self._url, self._dataset_dir)

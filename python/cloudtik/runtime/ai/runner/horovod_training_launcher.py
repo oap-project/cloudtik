@@ -2,6 +2,7 @@ import logging
 import sys
 
 from cloudtik.runtime.ai.runner.distributed_training_launcher import DistributedTrainingLauncher
+from cloudtik.runtime.ai.runner.util.utils import is_python_program
 
 logger = logging.getLogger(__name__)
 
@@ -17,14 +18,8 @@ class HorovodTrainingLauncher(DistributedTrainingLauncher):
     def get_command_to_run(self):
         args = self.args
         cmd = []
-        with_python = not args.no_python
-        if with_python:
-            cmd.append(sys.executable)
-            cmd.append("-u")
-        if args.module:
-            cmd.append("-m")
-        cmd.append(args.program)
-        cmd.extend(args.program_args)
+        self.with_python_command(cmd)
+        cmd.extend(args.command)
         return cmd
 
     def run(self):

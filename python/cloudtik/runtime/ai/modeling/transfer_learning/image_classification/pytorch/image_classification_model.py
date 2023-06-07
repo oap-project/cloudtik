@@ -19,16 +19,17 @@
 #
 
 import copy
+import datetime
 import inspect
 import os
 import time
 import dill
 import yaml
-import subprocess
 
 from tqdm import tqdm
 import torch
 
+from cloudtik.runtime.ai.modeling.transfer_learning.common.pytorch import get_train_script
 from cloudtik.runtime.ai.modeling.transfer_learning.common.utils import \
     verify_directory, validate_model_name
 from cloudtik.runtime.ai.modeling.transfer_learning.common.pytorch.model import PyTorchModel
@@ -38,6 +39,7 @@ from cloudtik.runtime.ai.modeling.transfer_learning.image_classification.image_c
     ImageClassificationModel
 from cloudtik.runtime.ai.modeling.transfer_learning.image_classification.pytorch.image_classification_dataset import \
     PyTorchImageClassificationDataset
+from cloudtik.runtime.ai.runner import run_command
 
 
 class PyTorchImageClassificationModel(ImageClassificationModel, PyTorchModel):
@@ -240,62 +242,30 @@ class PyTorchImageClassificationModel(ImageClassificationModel, PyTorchModel):
                     'loss': train_epoch_loss,
                 }, os.path.join(checkpoint_dir, 'checkpoint.pt'))
 
-    def _fit_distributed(self, hostfile, nnodes, nproc_per_node, epochs, batch_size, ipex_optimize):
-        # TODO: for distributed
-        # distributed_vision_script = os.path.join(TLT_DISTRIBUTED_DIR, "run_train_pyt.py")
-        distributed_vision_script = "run_train_pyt.py"
+    def _fit_distributed(
+            self, nnodes, nproc_per_node, hosts, hostfile,
+            epochs, batch_size, ipex_optimize, objects_path):
+        train_script = get_train_script()
+        command = [
+            train_script, "--objects-path", objects_path,
+            "--category", "image_classification",
+            "--epochs", str(epochs), "--batch-size", str(batch_size)
+        ]
+        if ipex_optimize:
+            command += ['--ipex']
+            command += ['--backend', 'ccl']
 
-        default_port = '29500'
-        default_master_addr = '127.0.0.1'
-
-        addresses = []
-
-        if hostfile is not None:
-            if os.path.isfile(hostfile):
-                # if addresses are given as line separated IP addresses
-                with open(hostfile) as hf:
-                    addresses = hf.readlines()
-                addresses = [a.strip('\n') for a in addresses]
-            else:
-                # if addresses are given as a comma separated IP addresses
-                addresses = hostfile.split(',')
-
-            default_master_addr = addresses[0]
-
-            # If port is given in the format of "0.0.0.0:9999"
-            if ':' in default_master_addr:
-                colon_index = default_master_addr.index(':')
-                default_port = default_master_addr[colon_index + 1:]
-                default_master_addr = default_master_addr[:colon_index]
-
-                # We create/rewrite the hostfile to contain only IP addresses
-                with open('hostfile', 'w') as hf:
-                    for addr in addresses:
-                        if ':' in addr:
-                            addr = addr[:addr.index(':')]
-                        hf.write(addr + '\n')
-                hostfile = 'hostfile'
-
-        bash_command = 'python -m intel_extension_for_pytorch.cpu.launch --distributed'
-        bash_command += ' --hostfile {}'.format(hostfile)
-        bash_command += ' --nnodes {}'.format(nnodes)
-        bash_command += ' --nproc_per_node {}'.format(nproc_per_node)
-        bash_command += ' {}'.format(distributed_vision_script)
-        bash_command += ' --master_addr {}'.format(default_master_addr)
-        bash_command += ' --master_port {}'.format(default_port)
-        bash_command += ' --backend {}'.format('ccl')
-        bash_command += ' --use_case {}'.format('image_classification')
-        bash_command += ' --epochs {}'.format(epochs)
-        bash_command += ' --batch_size {}'.format(batch_size)
-        if not ipex_optimize:
-            bash_command += ' --disable_ipex'
-
-        print(bash_command)
-        subprocess.run(bash_command.split(' '))
+        run_command(
+            command,
+            nnodes=nnodes,
+            nproc_per_node=nproc_per_node,
+            hosts=hosts,
+            hostfile=hostfile
+        )
 
     def train(self, dataset: ImageClassificationDataset, output_dir, epochs=1, initial_checkpoints=None,
               do_eval=True, early_stopping=False, lr_decay=True, seed=None, ipex_optimize=False, distributed=False,
-              hostfile=None, nnodes=1, nproc_per_node=1):
+              nnodes=1, nproc_per_node=1, hosts=None, hostfile=None, shared_dir=None):
         """
             Trains the model using the specified image classification dataset. The first time training is called, it
             will get the model from torchvision and add on a fully-connected dense layer with linear activation
@@ -316,16 +286,18 @@ class PyTorchImageClassificationModel(ImageClassificationModel, PyTorchModel):
                 seed (int): Optionally set a seed for reproducibility.
                 ipex_optimize (bool): Use Intel Extension for PyTorch (IPEX). Defaults to False.
                 distributed (bool): Boolean flag to use distributed training. Defaults to False.
-                hostfile (str): Name of the hostfile for distributed training. Defaults to None.
                 nnodes (int): Number of nodes to use for distributed training. Defaults to 1.
                 nproc_per_node (int): Number of processes to spawn per node to use for distributed training. Defaults
                 to 1.
+                hosts (str): hosts list for distributed training. Defaults to None.
+                hostfile (str): Name of the hostfile for distributed training. Defaults to None.
+                shared_dir (str): The shared data dir for distributed training.
 
             Returns:
                 Trained PyTorch model object
         """
-        self._check_train_inputs(output_dir, dataset, ImageClassificationDataset, epochs, initial_checkpoints,
-                                 distributed, hostfile)
+        self._check_train_inputs(
+            output_dir, dataset, ImageClassificationDataset, epochs, initial_checkpoints)
 
         dataset_num_classes = len(dataset.class_names)
 
@@ -344,11 +316,12 @@ class PyTorchImageClassificationModel(ImageClassificationModel, PyTorchModel):
             self._optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
         if distributed:
-            # TODO: for distributed
-            # self.export_for_distributed(TLT_DISTRIBUTED_DIR, dataset)
+            objects_path = self.save_objects(dataset, shared_dir)
             batch_size = dataset._preprocessed['batch_size']
-            self._fit_distributed(hostfile, nnodes, nproc_per_node, epochs, batch_size, ipex_optimize)
-
+            self._fit_distributed(
+                nnodes, nproc_per_node, hosts, hostfile,
+                epochs, batch_size, ipex_optimize,
+                objects_path)
         else:
             # Call ipex.optimize
             if ipex_optimize:
@@ -731,7 +704,7 @@ class PyTorchImageClassificationModel(ImageClassificationModel, PyTorchModel):
             except AssertionError:
                 raise NotImplementedError("This model type is not yet supported by INC benchmarking")
 
-    def export_for_distributed(self, output_dir, dataset):
+    def save_objects(self, dataset, output_dir):
         """
         Helper function to export dataset and model objects to disk for distributed job
 
@@ -753,4 +726,8 @@ class PyTorchImageClassificationModel(ImageClassificationModel, PyTorchModel):
             "optimizer": self._optimizer,
             "loss": self._loss
         }
-        torch.save(objects_to_save, os.path.join(output_dir, "torch_saved_objects.obj"))
+        now = datetime.datetime.now()
+        filename = f"torch_objects_{now:%Y-%m-%d_%H-%M-%S}.obj"
+        objects_path = os.path.join(output_dir, filename)
+        torch.save(objects_to_save, objects_path)
+        return objects_path

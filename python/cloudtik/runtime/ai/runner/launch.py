@@ -326,7 +326,6 @@ def parse_args():
                         help="Do not prepend the --program script with \"python\" - just exec "
                              "it directly. Useful when the script is not a Python script.")
 
-
     parser.add_argument("--log_path", metavar='\b', default="", type=str,
                         help="The log file directory. Default path is '', which means disable logging to files.")
     parser.add_argument("--log_file_prefix", metavar='\b', default="run", type=str,
@@ -343,13 +342,9 @@ def parse_args():
 
     add_horovod_params(parser)
 
-    # positional
-    parser.add_argument("program", type=str,
-                        help="The full path to the program/script to be launched. "
-                             "followed by all the arguments for the script")
+    parser.add_argument('command', nargs=argparse.REMAINDER,
+                        help='Command to be executed.')
 
-    # rest from the training program
-    parser.add_argument('program_args', nargs=REMAINDER)
     args = parser.parse_args()
     args.run_func = None
     args.executable = None
@@ -413,9 +408,6 @@ def _run(args):
     if not args.distributed:
         if args.latency_mode and args.throughput_mode:
             raise RuntimeError("Either args.latency_mode or args.throughput_mode should be set")
-
-    if not args.no_python and not args.program.endswith(".py"):
-        raise RuntimeError("For non Python script, you should use '--no_python' parameter.")
 
     env_before = set(os.environ.keys())
 

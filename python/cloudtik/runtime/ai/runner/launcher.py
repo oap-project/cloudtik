@@ -1,7 +1,10 @@
 import glob
 import logging
 import os
+import sys
 from os.path import expanduser
+
+from cloudtik.runtime.ai.runner.util.utils import is_python_program
 
 logger = logging.getLogger(__name__)
 
@@ -58,3 +61,14 @@ class Launcher:
         elif os.environ[env_name] != env_value:
             logger.warning("{} in environment variable is {} while the value you set is {}".format(env_name, os.environ[env_name], env_value))
         self.log_env(env_name)
+
+    def with_python_command(self, cmd):
+        args = self.args
+        with_python = not args.no_python
+        if with_python and (
+                args.module or is_python_program(args.command)):
+            # check whether the program in the command is end with py
+            cmd.append(sys.executable)
+            cmd.append("-u")
+            if args.module:
+                cmd.append("-m")

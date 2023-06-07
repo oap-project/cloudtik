@@ -147,8 +147,8 @@ class TorchvisionImageClassificationModel(PyTorchImageClassificationModel):
             Returns:
                 Trained PyTorch model object
         """
-        self._check_train_inputs(output_dir, dataset, ImageClassificationDataset, epochs, initial_checkpoints,
-                                 distributed, hostfile)
+        self._check_train_inputs(
+            output_dir, dataset, ImageClassificationDataset, epochs, initial_checkpoints)
 
         self._distributed = distributed
 

@@ -125,3 +125,9 @@ def _get_mpi_implementation_flags(tcp_flag, env=None):
         return list(_IMPI_FLAGS), [], _IMPI_IMPL
     else:
         return None, None, None
+
+
+def is_python_program(command):
+    if not command:
+        return False
+    return command[0].endswith(".py")

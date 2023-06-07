@@ -58,15 +58,8 @@ class PyTorchModel(PretrainedModel):
             numpy.random.seed(seed)
             torch.manual_seed(seed)
 
-    def _check_train_inputs(self, output_dir, dataset, dataset_type, epochs, initial_checkpoints,
-                            distributed, hostfile):
+    def _check_train_inputs(self, output_dir, dataset, dataset_type, epochs, initial_checkpoints):
         verify_directory(output_dir)
-
-        if distributed:
-            if hostfile:
-                if not (os.path.isfile(hostfile) or isinstance(hostfile, str)):
-                    raise ValueError("hostfile could not be resolved as a file or a string. "
-                                     "Please create a new file or provide a comma separated list of IP addresses")
 
         if not isinstance(dataset, dataset_type):
             raise TypeError("The dataset must be a {} but found a {}".format(dataset_type, type(dataset)))

@@ -243,7 +243,8 @@ class Distributor:
     def _check_resolved(self):
         if not self.resolved:
             raise ValueError(
-                "There are unresolved parameters. Call resolve with nproc_per_node.")
+                "There are unresolved parameters. "
+                "Pass proper parameters or call resolve with nproc_per_node.")
 
     def validate_same_slots(self):
         if not self.hosts:
@@ -252,6 +253,16 @@ class Distributor:
         for host in self.hosts:
             if slots != host["slots"]:
                 raise ValueError("Host with different slots found.")
+
+    def export_host_file(self, host_file, with_slots=True):
+        if self.hosts is None:
+            raise ValueError("No hosts/hostfile parameter passed.")
+        # write file to contain the IP addresses and slots
+        with open(host_file, 'w') as f:
+            for host in self.hosts:
+                addr = "{}:{}".format(
+                    host["ip"], host["slots"]) if with_slots else host["ip"]
+                f.write(addr + '\n')
 
     @property
     def distributed(self):
@@ -278,11 +289,16 @@ class Distributor:
 
     @property
     def hosts_slots_str(self):
+        if self.hosts is None:
+            raise ValueError("No hosts/hostfile parameter passed.")
+
         _hosts_slots = ["{}:{}".format(
             host["ip"], host["slots"]) for host in self.hosts]
         return ",".join(_hosts_slots)
 
     @property
     def hosts_str(self):
+        if self.hosts is None:
+            raise ValueError("No hosts/hostfile parameter passed.")
         _hosts = [host["ip"] for host in self.hosts]
         return ",".join(_hosts)

@@ -3,6 +3,7 @@ import os
 import sys
 
 from cloudtik.runtime.ai.runner.launcher import Launcher
+from cloudtik.runtime.ai.runner.util.utils import is_python_program
 
 logger = logging.getLogger(__name__)
 
@@ -45,14 +46,8 @@ class DistributedTrainingLauncher(Launcher):
     def get_command_to_run(self):
         args = self.args
         cmd = []
-        with_python = not args.no_python
-        if with_python:
-            cmd.append(sys.executable)
-            cmd.append("-u")
-        if args.module:
-            cmd.append("-m")
-        cmd.append(args.program)
-        cmd.extend(args.program_args)
+        self.with_python_command(cmd)
+        cmd.extend(args.command)
         cmd_s = " ".join(cmd)
         if args.log_path:
             log_name = args.log_file_prefix + ".log"
@@ -64,3 +59,4 @@ class DistributedTrainingLauncher(Launcher):
     def run(self):
         command = self.get_command_to_run()
         logger.info(command)
+

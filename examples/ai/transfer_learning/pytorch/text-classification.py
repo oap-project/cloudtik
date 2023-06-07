@@ -71,13 +71,20 @@ if __name__ == '__main__':
     print("Model name:", model_name)
     print("Dataset name:", dataset_name)
 
+    if args.train_local:
+        dataset_dir = output_dir
+    else:
+        if not args.shared_dir:
+            raise ValueError("Must specify shared dir for distributed training.")
+        dataset_dir = args.shared_dir
+
     # Get the model
     model = model_factory.get_model(
         model_name, category=category, framework=framework)
 
     # Get the dataset
     dataset = dataset_factory.get_dataset(
-        output_dir, category, framework, dataset_name,
+        dataset_dir, category, framework, dataset_name,
         source='hugging_face', split=["train"], shuffle_files=False)
 
     # Preprocess the dataset
@@ -85,11 +92,11 @@ if __name__ == '__main__':
     dataset.shuffle_split(train_pct=0.01, val_pct=0.01, seed=10)
     assert dataset._validation_type == 'shuffle_split'
 
-    # Evaluate before training
-    pretrained_metrics = model.evaluate(dataset)
-    assert len(pretrained_metrics) > 0
-
     if args.train_local:
+        # Evaluate before training
+        pretrained_metrics = model.evaluate(dataset)
+        assert len(pretrained_metrics) > 0
+
         print("Training locally...")
         model.train(dataset, output_dir=output_dir, epochs=1, do_eval=False)
         classifier_layer = getattr(model._model, "classifier")

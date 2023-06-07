@@ -85,8 +85,8 @@ class TrainArguments:
 
 
 class Trainer:
-    def __init__(self, category: str) -> None:
-        self.category = category
+    def __init__(self) -> None:
+        pass
 
     def run(
             self,
@@ -124,7 +124,7 @@ class Trainer:
         for param in self._ddp_model.parameters():
             param.requires_grad = True
 
-        if self.category == 'text_classification':
+        if training_args.category == 'text_classification':
             for epoch in range(epochs):
                 print(f'Epoch {epoch+1}/{epochs}')
                 print('-' * 10)
@@ -172,7 +172,7 @@ class Trainer:
             if dist.get_rank() == 0:
                 print("Training loss:", training_loss)
                 print("Training accuracy:", training_acc)
-        elif self.category == 'image_classification':
+        elif training_args.category == 'image_classification':
             for epoch in range(epochs):
                 print('Epoch {}/{}'.format(epoch + 1, epochs))
 
@@ -210,7 +210,7 @@ class Trainer:
                 print("Training accuracy:", training_acc)
         else:
             raise ValueError("PyTorch Distributed Training for {} is not implemented yet"
-                             .format(self.category))
+                             .format(training_args.category))
 
     def average_gradients(self):
         size = float(dist.get_world_size())
@@ -223,7 +223,7 @@ class Trainer:
         if dist.is_initialized():
             print("Process Group already initialized")
         else:
-            # Usually the launcher will setup the MASTER_ADDR and MASTER_PORT env
+            # Usually the launcher will set the MASTER_ADDR and MASTER_PORT env
             if master_addr:
                 os.environ['MASTER_ADDR'] = master_addr
             if master_addr:

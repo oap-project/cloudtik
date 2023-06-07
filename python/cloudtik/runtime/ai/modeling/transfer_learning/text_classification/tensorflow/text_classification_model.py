@@ -24,6 +24,7 @@ import yaml
 
 import tensorflow as tf
 
+from cloudtik.runtime.ai.modeling.transfer_learning.common.tensorflow import get_train_script
 from cloudtik.runtime.ai.modeling.transfer_learning.text_classification.tensorflow.text_classification_dataset \
     import TensorflowTextClassificationDataset
 from cloudtik.runtime.ai.modeling.transfer_learning.text_classification.text_classification_dataset \
@@ -38,6 +39,8 @@ from cloudtik.runtime.ai.modeling.transfer_learning.common.utils \
 # Note that tensorflow_text isn't used directly but the import is required to register ops used by the
 # BERT text preprocessor
 import tensorflow_text  # noqa: F401
+
+from cloudtik.runtime.ai.runner import run_command
 
 
 class TensorflowTextClassificationModel(TextClassificationModel, TensorflowModel):
@@ -162,63 +165,36 @@ class TensorflowTextClassificationModel(TextClassificationModel, TensorflowModel
 
         return callbacks, train_data, validation_data
 
-    def _fit_distributed(self, epochs, shuffle, hostfile, nnodes, nproc_per_node, use_horovod):
-        import subprocess
-        # TODO: handle distributed training
-        # distributed_vision_script = os.path.join(TLT_DISTRIBUTED_DIR, 'tensorflow', 'run_train_tf.py')
-        distributed_vision_script = os.path.join('tensorflow', 'run_train_tf.py')
-
-        if use_horovod:
-            run_cmd = 'horovodrun'
-        else:
-            run_cmd = 'mpirun'
-
-            # mpirun requires these flags to be set
-            run_cmd += ' --allow-run-as-root -bind-to none -map-by slot -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH -x PATH -x NCCL_SOCKET_IFNAME=^lo,docker0 -mca pml ob1 -mca btl ^openib -mca btl_tcp_if_exclude lo,docker0'  # noqa: E501
-
-        hostfile_cmd = ''
-        np_cmd = ''
-        if os.path.isfile(hostfile):
-
-            hostfile_info = self._parse_hostfile(hostfile)
-            node_count = 0
-            if sum(hostfile_info['slots']) == 0:
-                for ip_addr in hostfile_info['ip_addresses']:
-                    hostfile_cmd += '{}:{},'.format(ip_addr, nproc_per_node)
-                    node_count += 1
-                    if node_count == nnodes:
-                        break
-
-            elif sum(hostfile_info['slots']) == nnodes * nproc_per_node:
-                for ip_addr, slots in zip(hostfile_info['ip_addresses'], hostfile_info['slots']):
-                    hostfile_cmd += '{}:{},'.format(ip_addr, slots)
-            else:
-                print("WARNING: nproc_per_node and slots in hostfile do not add up. Making equal slots for all nodes")
-                for ip_addr in hostfile_info['ip_addresses']:
-                    hostfile_cmd += '{}:{},'.format(ip_addr, nproc_per_node)
-
-            hostfile_cmd = hostfile_cmd[:-1]  # Remove trailing comma
-
-            # Final check to correct the `-np` flag's value
-            # nprocs = len(hostfile_info['ip_addresses']) * nproc_per_node
-            nprocs = nnodes * nproc_per_node
-            np_cmd = str(nprocs)
-        else:
-            raise ValueError("Error: Invalid file \'{}\'".format(hostfile))
-
-        script_cmd = 'python ' + distributed_vision_script
-        script_cmd += ' --use_case {}'.format('text_classification')
-        script_cmd += ' --epochs {}'.format(epochs)
+    def _fit_distributed(
+            self, epochs, shuffle,
+            nnodes, nproc_per_node, hosts, hostfile,
+            objects_path, use_horovod):
+        train_script = get_train_script()
+        command = [
+            train_script, "--objects-path", objects_path,
+            "--category", "text_classification",
+            "--epochs", str(epochs)
+        ]
         if shuffle:
-            script_cmd += ' --shuffle'
+            command += ['--shuffle']
 
-        bash_command = run_cmd.split(' ') + ['-np', np_cmd, '-H', hostfile_cmd] + script_cmd.split(' ')
-        print(' '.join(str(e) for e in bash_command))
-        subprocess.run(bash_command)
+        launcher = None
+        if use_horovod:
+            launcher = "horovod"
+
+        run_command(
+            command,
+            nnodes=nnodes,
+            nproc_per_node=nproc_per_node,
+            hosts=hosts,
+            hostfile=hostfile,
+            launcher=launcher
+        )
 
     def train(self, dataset: TextClassificationDataset, output_dir, epochs=1, initial_checkpoints=None,
-              do_eval=True, early_stopping=False, lr_decay=True, seed=None, enable_auto_mixed_precision=None,
-              shuffle_files=True, distributed=False, hostfile=None, nnodes=1, nproc_per_node=1,
+              do_eval=True, early_stopping=False, lr_decay=True, seed=None,
+              enable_auto_mixed_precision=None, shuffle_files=True,
+              distributed=False, nnodes=1, nproc_per_node=1, hosts=None, hostfile=None, shared_dir=None,
               **kwargs):
         """
            Trains the model using the specified binary text classification dataset. If a path to initial checkpoints is
@@ -247,7 +223,13 @@ class TensorflowTextClassificationModel(TextClassificationModel, TensorflowModel
                     running with Intel fourth generation Xeon processors, and disabled for other platforms.
                shuffle_files (bool): Boolean specifying whether to shuffle the training data before each epoch.
                seed (int): Optionally set a seed for reproducibility.
-
+               distributed (bool): Boolean flag to use distributed training. Defaults to False.
+               nnodes (int): Number of nodes to use for distributed training. Defaults to 1.
+               nproc_per_node (int): Number of processes to spawn per node to use for distributed training. Defaults
+               to 1.
+               hosts (str): hosts list for distributed training. Defaults to None.
+               hostfile (str): Name of the hostfile for distributed training. Defaults to None.
+               shared_dir (str): The shared data dir for distributed training.
            Returns:
                History object from the model.fit() call
 
@@ -276,17 +258,20 @@ class TensorflowTextClassificationModel(TextClassificationModel, TensorflowModel
                                                                     early_stopping, lr_decay, dataset_num_classes)
 
         if distributed:
+            objects_path = self.save_objects(train_data, val_data, shared_dir)
             try:
-                self.export_for_distributed(train_data, val_data)
-                self._fit_distributed(epochs, shuffle_files, hostfile, nnodes, nproc_per_node,
-                                      kwargs.get('use_horovod'))
+                self._fit_distributed(
+                    epochs, shuffle_files,
+                    nnodes, nproc_per_node, hosts, hostfile,
+                    objects_path, kwargs.get('use_horovod'))
             except Exception as err:
                 print("Error: \'{}\' occured while distributed training".format(err))
             finally:
-                self.cleanup_saved_objects_for_distributed()
+                self.cleanup_objects(objects_path)
         else:
-            history = self._model.fit(train_data, validation_data=val_data, epochs=epochs, shuffle=shuffle_files,
-                                      callbacks=callbacks)
+            history = self._model.fit(
+                train_data, validation_data=val_data, epochs=epochs,
+                shuffle=shuffle_files, callbacks=callbacks)
 
             self._history = history.history
 

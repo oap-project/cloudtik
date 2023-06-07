@@ -51,12 +51,8 @@ class HuggingFaceModel(PretrainedModel):
                             "torch.nn.modules.loss._Loss or None but found a {}. "
                             "Example: torch.nn.CrossEntropyLoss".format(type(loss)))
 
-    def _check_train_inputs(self, output_dir, dataset, dataset_type, extra_layers, epochs, distributed, hostfile):
+    def _check_train_inputs(self, output_dir, dataset, dataset_type, extra_layers, epochs):
         verify_directory(output_dir)
-
-        if distributed:
-            if hostfile is not None and not os.path.exists(os.path.join(os.getcwd(), hostfile)):
-                raise FileNotFoundError("Could not find hostfile. Consider creating one")
 
         if not isinstance(dataset, dataset_type):
             raise TypeError("The dataset must be a {} but found a {}".format(dataset_type, type(dataset)))

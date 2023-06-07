@@ -113,7 +113,7 @@ class TorchvisionImageClassificationModel(PyTorchImageClassificationModel):
 
     def train(self, dataset: ImageClassificationDataset, output_dir, epochs=1, initial_checkpoints=None,
               do_eval=True, early_stopping=False, lr_decay=True, seed=None, extra_layers=None, ipex_optimize=False,
-              distributed=False, hostfile=None, nnodes=1, nproc_per_node=1):
+              distributed=False, nnodes=1, nproc_per_node=1, hosts=None, hostfile=None, shared_dir=None):
         """
             Trains the model using the specified image classification dataset. The first time training is called, it
             will get the model from torchvision and add on a fully-connected dense layer with linear activation
@@ -139,10 +139,12 @@ class TorchvisionImageClassificationModel(PyTorchImageClassificationModel):
                     second with 512 neurons.
                 ipex_optimize (bool): Use Intel Extension for PyTorch (IPEX). Defaults to False.
                 distributed (bool): Boolean flag to use distributed training. Defaults to False.
-                hostfile (str): Name of the hostfile for distributed training. Defaults to None.
                 nnodes (int): Number of nodes to use for distributed training. Defaults to 1.
                 nproc_per_node (int): Number of processes to spawn per node to use for distributed training. Defaults
                 to 1.
+                hosts (str): hosts list for distributed training. Defaults to None.
+                hostfile (str): Name of the hostfile for distributed training. Defaults to None.
+                shared_dir (str): The shared data dir for distributed training.
 
             Returns:
                 Trained PyTorch model object
@@ -189,10 +191,12 @@ class TorchvisionImageClassificationModel(PyTorchImageClassificationModel):
                 self._model, self._optimizer = ipex.optimize(self._model, optimizer=self._optimizer)
 
         if distributed:
-            # TODO: for distributed
-            # self.export_for_distributed(TLT_DISTRIBUTED_DIR, dataset)
+            objects_path = self.save_objects(dataset, shared_dir)
             batch_size = dataset._preprocessed['batch_size']
-            self._fit_distributed(hostfile, nnodes, nproc_per_node, epochs, batch_size, ipex_optimize)
+            self._fit_distributed(
+                nnodes, nproc_per_node, hosts, hostfile,
+                epochs, batch_size, ipex_optimize,
+                objects_path)
         else:
             self._model.train()
             self._fit(output_dir, dataset, epochs, do_eval, early_stopping, lr_decay)

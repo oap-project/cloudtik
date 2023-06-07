@@ -56,6 +56,7 @@ if __name__ == "__main__":
 
     # Launch distributed job
     train_args = TrainArguments(
+        category=args.category,
         dataset=train_subset,
         model=model,
         criterion=loss,
@@ -65,6 +66,6 @@ if __name__ == "__main__":
         ipex=args.ipex
     )
 
-    trainer = Trainer(category=args.category)
+    trainer = Trainer()
     trainer.run(
         train_args, args.master_addr, args.master_port, args.backend)

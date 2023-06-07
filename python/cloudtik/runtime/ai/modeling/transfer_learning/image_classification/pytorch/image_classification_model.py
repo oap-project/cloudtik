@@ -264,8 +264,8 @@ class PyTorchImageClassificationModel(ImageClassificationModel, PyTorchModel):
         )
 
     def train(self, dataset: ImageClassificationDataset, output_dir, epochs=1, initial_checkpoints=None,
-              do_eval=True, early_stopping=False, lr_decay=True, seed=None, ipex_optimize=False, distributed=False,
-              nnodes=1, nproc_per_node=1, hosts=None, hostfile=None, shared_dir=None):
+              do_eval=True, early_stopping=False, lr_decay=True, seed=None, ipex_optimize=False,
+              distributed=False, nnodes=1, nproc_per_node=1, hosts=None, hostfile=None, shared_dir=None):
         """
             Trains the model using the specified image classification dataset. The first time training is called, it
             will get the model from torchvision and add on a fully-connected dense layer with linear activation

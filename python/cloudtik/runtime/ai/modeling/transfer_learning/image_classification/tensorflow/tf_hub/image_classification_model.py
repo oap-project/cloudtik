@@ -102,9 +102,10 @@ class TFHubImageClassificationModel(TensorflowImageClassificationModel):
         return self._model
 
     def train(self, dataset: ImageClassificationDataset, output_dir, epochs=1, initial_checkpoints=None,
-              do_eval=True, early_stopping=False, lr_decay=True, seed=None, enable_auto_mixed_precision=None,
-              shuffle_files=True, extra_layers=None, distributed=False, hostfile=None,
-              nnodes=1, nproc_per_node=1, **kwargs):
+              do_eval=True, early_stopping=False, lr_decay=True, seed=None,
+              enable_auto_mixed_precision=None, shuffle_files=True, extra_layers=None,
+              distributed=False, nnodes=1, nproc_per_node=1, hosts=None, hostfile=None, shared_dir=None,
+              **kwargs):
         """
             Trains the model using the specified image classification dataset. The first time training is called, it
             will get the feature extractor layer from TF Hub and add on a dense layer based on the number of classes
@@ -135,7 +136,13 @@ class TFHubImageClassificationModel(TensorflowImageClassificationModel):
                     layer. This can help increase accuracy when fine-tuning a TFHub model. The input should be a list of
                     integers representing the number and size of the layers, for example [1024, 512] will insert two
                     dense layers, the first with 1024 neurons and the second with 512 neurons.
-
+                distributed (bool): Boolean flag to use distributed training. Defaults to False.
+                nnodes (int): Number of nodes to use for distributed training. Defaults to 1.
+                nproc_per_node (int): Number of processes to spawn per node to use for distributed training. Defaults
+                to 1.
+                hosts (str): hosts list for distributed training. Defaults to None.
+                hostfile (str): Name of the hostfile for distributed training. Defaults to None.
+                shared_dir (str): The shared data dir for distributed training.
             Returns:
                 History object from the model.fit() call
 
@@ -148,7 +155,9 @@ class TFHubImageClassificationModel(TensorflowImageClassificationModel):
                TypeError if the extra_layers parameter is not a list of integers
         """
 
-        self._check_train_inputs(output_dir, dataset, ImageClassificationDataset, epochs, initial_checkpoints)
+        self._check_train_inputs(
+            output_dir, dataset, ImageClassificationDataset,
+            epochs, initial_checkpoints)
 
         if extra_layers:
             if not isinstance(extra_layers, list):
@@ -172,16 +181,21 @@ class TFHubImageClassificationModel(TensorflowImageClassificationModel):
 
         self._model = self._get_hub_model(dataset_num_classes, extra_layers)
 
-        callbacks, train_data, val_data = self._get_train_callbacks(dataset, output_dir, initial_checkpoints, do_eval,
-                                                                    early_stopping, lr_decay)
+        callbacks, train_data, val_data = self._get_train_callbacks(
+            dataset, output_dir, initial_checkpoints,
+            do_eval, early_stopping, lr_decay)
 
         if distributed:
-            self.export_for_distributed(train_data, val_data)
-            self._fit_distributed(epochs, shuffle_files, hostfile, nnodes, nproc_per_node, kwargs.get('use_horovod'))
-            self.cleanup_saved_objects_for_distributed()
+            objects_path = self.save_objects(train_data, val_data, shared_dir)
+            self._fit_distributed(
+                epochs, shuffle_files,
+                nnodes, nproc_per_node, hosts, hostfile,
+                objects_path, kwargs.get('use_horovod'))
+            self.cleanup_objects(objects_path)
         else:
-            history = self._model.fit(train_data, epochs=epochs, shuffle=shuffle_files, callbacks=callbacks,
-                                      validation_data=val_data)
+            history = self._model.fit(
+                train_data, epochs=epochs, shuffle=shuffle_files,
+                callbacks=callbacks, validation_data=val_data)
             self._history = history.history
             return self._history
 

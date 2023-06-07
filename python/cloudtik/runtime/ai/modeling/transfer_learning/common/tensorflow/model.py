@@ -17,20 +17,21 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 #
-
+import datetime
 import inspect
 import os
 import dill
-import re
 import shutil
 import random
 import numpy as np
 
 import tensorflow as tf
 
+from cloudtik.runtime.ai.modeling.transfer_learning.common.tensorflow import get_train_script
 from cloudtik.runtime.ai.modeling.transfer_learning.model import PretrainedModel
 from cloudtik.runtime.ai.modeling.transfer_learning.common.utils import \
     verify_directory, validate_model_name
+from cloudtik.runtime.ai.runner import run_command
 from cloudtik.runtime.ai.runner.cpu.platform_utils import PlatformUtil
 
 
@@ -175,116 +176,65 @@ class TensorflowModel(PretrainedModel):
         else:
             raise ValueError("Unable to export the model, because it hasn't been loaded or trained yet")
 
-    def export_for_distributed(self, train_data, val_data):
-        # TODO: handle distributed training
-        distributed_data_dir = ""
+    def save_objects(self, train_data, val_data, output_dir):
+        now = datetime.datetime.now()
+        path_name = f"tensorflow_objects_{now:%Y-%m-%d_%H-%M-%S}"
+        objects_path = os.path.join(output_dir, path_name)
+        os.makedirs(objects_path, exist_ok=True)
 
         # Save the model
         tf.keras.models.save_model(
             model=self._model,
-            filepath=distributed_data_dir,
+            filepath=objects_path,
             overwrite=True,
             include_optimizer=False
         )
 
         # Save the optimizer object
         tf.train.Checkpoint(optimizer=self._optimizer).save(
-            os.path.join(distributed_data_dir, 'saved_optimizer'))
+            os.path.join(objects_path, 'saved_optimizer'))
 
         # Save the loss class name and its args
-        with open(os.path.join(distributed_data_dir, 'saved_loss'), 'wb') as f:
+        with open(os.path.join(objects_path, 'saved_loss'), 'wb') as f:
             dill.dump((self._loss_class, self._loss_args), f)
 
         # Save the dataset(s)
-        train_data.save(os.path.join(distributed_data_dir, 'train_data'))
+        train_data.save(os.path.join(objects_path, 'train_data'))
         print(type(train_data))
         if val_data:
-            val_data.save(os.path.join(distributed_data_dir, 'val_data'))
+            val_data.save(os.path.join(objects_path, 'val_data'))
 
-    def cleanup_saved_objects_for_distributed(self):
-        # TODO: handle distributed training
-        distributed_data_dir = ""
+        return objects_path
 
-        dirs = ['train_data', 'val_data', 'variables', 'assets', 'model_checkpoints']
-        files = ['checkpoint', 'keras_metadata.pb']
+    def cleanup_objects(self, objects_path):
+        if os.path.isdir(objects_path):
+            try:
+                shutil.rmtree(objects_path)
+            except FileNotFoundError:
+                pass
 
-        for f in os.listdir(distributed_data_dir):
-            full_path = os.path.join(distributed_data_dir, f)
-            if os.path.isdir(full_path) and f in dirs:
-                try:
-                    shutil.rmtree(full_path)
-                except FileNotFoundError:
-                    print("'{}' already cleaned up.".format(f))
-            elif os.path.isfile(full_path) and (f in files or f.startswith('saved')):
-                try:
-                    os.remove(full_path)
-                except FileNotFoundError:
-                    print("'{}' already cleaned up.".format(f))
+    def fit_distributed(
+            self, epochs, shuffle,
+            nnodes, nproc_per_node, hosts, hostfile,
+            objects_path, use_horovod, category):
+        train_script = get_train_script()
+        command = [
+            train_script, "--objects-path", objects_path,
+            "--category", category,
+            "--epochs", str(epochs)
+        ]
+        if shuffle:
+            command += ['--shuffle']
 
-    def _parse_hostfile(self, hostfile):
-        """
-            Parses the hostfile and returns the required command. Contents of hostfile must contain IP addresses
-            (or) hostnames in any of the following forms. Note that all lines must be of the same form:
-                "127.0.0.1"
-                "127.0.0.1 slots=2"
-                "127.0.0.1:2"
-                "hostname-example.com"
-                "hostname-example.com slots=2"
-                "hostname-example.com:2"
+        launcher = None
+        if use_horovod:
+            launcher = "horovod"
 
-            Args:
-                hostfile (str): File path of the hostfile
-
-            Returns:
-                hostfile_info dict containing ip_addresses and slots
-
-        """
-        import socket
-        valid_regexes = {
-            'valid_ip': r"^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])$",  # noqa: E501
-            'valid_ip_with_slot': r"^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9]) slots=[0-9]{1,2}$",  # noqa: E501
-            'valid_ip_with_colon': r"^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9]):\d{1,2}$",  # noqa: E501
-            'valid_hostname': r"^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$",  # noqa: E501
-            'valid_hostname_with_slot': r"^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9]) slots=[0-9]{1,2}$",  # noqa: E501
-            'valid_hostname_with_colon': r"^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9]):\d{1,2}$"  # noqa: E501
-        }
-        lines = []
-        with open(hostfile, 'r') as f:
-            lines = [line.rstrip() for line in f]
-
-        matches = []
-        for line in lines:
-            found = False
-            for k, v in valid_regexes.items():
-                if re.match(v, line):
-                    found = True
-                    matches.append(k)
-                    break
-            if not found:
-                raise ValueError("Invalid line in the hostfile: {}".format(line))
-
-        hostfile_info = {
-            'ip_addresses': [],
-            'slots': []
-        }
-        for line, match in zip(lines, matches):
-            if match == 'valid_ip':
-                hostfile_info['ip_addresses'].append(line)
-                hostfile_info['slots'].append(0)
-            elif match == 'valid_ip_with_slot':
-                hostfile_info['ip_addresses'].append(line.split(' slots=')[0])
-                hostfile_info['slots'].append(line.split(' slots=')[1])
-            elif match == 'valid_ip_with_colon':
-                hostfile_info['ip_addresses'].append(line.split(':')[0])
-                hostfile_info['slots'].append(line.split(':')[1])
-            elif match == 'valid_hostname':
-                hostfile_info['ip_addresses'].append(socket.gethostbyname(line))
-                hostfile_info['slots'].append(0)
-            elif match == 'valid_hostname_with_slot':
-                hostfile_info['ip_addresses'].append(socket.gethostbyname(line.split(' slots=')[0]))
-                hostfile_info['slots'].append(line.split(' slots=')[1])
-            elif match == 'valid_hostname_with_colon':
-                hostfile_info['ip_addresses'].append(socket.gethostbyname(line.split(':')[0]))
-                hostfile_info['slots'].append(line.split(':')[1])
-
-        return hostfile_info
+        run_command(
+            command,
+            nnodes=nnodes,
+            nproc_per_node=nproc_per_node,
+            hosts=hosts,
+            hostfile=hostfile,
+            launcher=launcher
+        )

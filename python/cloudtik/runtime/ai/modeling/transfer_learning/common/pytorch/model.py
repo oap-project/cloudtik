@@ -25,8 +25,10 @@ import numpy
 import random
 import torch
 
+from cloudtik.runtime.ai.modeling.transfer_learning.common.pytorch import get_train_script
 from cloudtik.runtime.ai.modeling.transfer_learning.model import PretrainedModel
 from cloudtik.runtime.ai.modeling.transfer_learning.common.utils import verify_directory
+from cloudtik.runtime.ai.runner import run_command
 
 
 class PyTorchModel(PretrainedModel):
@@ -182,3 +184,26 @@ class PyTorchModel(PretrainedModel):
             if name == layer_name:
                 for param in module.parameters():
                     param.requires_grad = True
+
+    @staticmethod
+    def fit_distributed(
+            nnodes, nproc_per_node, hosts, hostfile,
+            epochs, batch_size, ipex_optimize,
+            objects_path, category):
+        train_script = get_train_script()
+        command = [
+            train_script, "--objects-path", objects_path,
+            "--category", category,
+            "--epochs", str(epochs), "--batch-size", str(batch_size)
+        ]
+        if ipex_optimize:
+            command += ['--ipex']
+            command += ['--backend', 'ccl']
+
+        run_command(
+            command,
+            nnodes=nnodes,
+            nproc_per_node=nproc_per_node,
+            hosts=hosts,
+            hostfile=hostfile
+        )

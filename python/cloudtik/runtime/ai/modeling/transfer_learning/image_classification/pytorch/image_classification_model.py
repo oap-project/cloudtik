@@ -29,7 +29,6 @@ import yaml
 from tqdm import tqdm
 import torch
 
-from cloudtik.runtime.ai.modeling.transfer_learning.common.pytorch import get_train_script
 from cloudtik.runtime.ai.modeling.transfer_learning.common.utils import \
     verify_directory, validate_model_name
 from cloudtik.runtime.ai.modeling.transfer_learning.common.pytorch.model import PyTorchModel
@@ -39,7 +38,6 @@ from cloudtik.runtime.ai.modeling.transfer_learning.image_classification.image_c
     ImageClassificationModel
 from cloudtik.runtime.ai.modeling.transfer_learning.image_classification.pytorch.image_classification_dataset import \
     PyTorchImageClassificationDataset
-from cloudtik.runtime.ai.runner import run_command
 
 
 class PyTorchImageClassificationModel(ImageClassificationModel, PyTorchModel):
@@ -245,27 +243,15 @@ class PyTorchImageClassificationModel(ImageClassificationModel, PyTorchModel):
     def _fit_distributed(
             self, nnodes, nproc_per_node, hosts, hostfile,
             epochs, batch_size, ipex_optimize, objects_path):
-        train_script = get_train_script()
-        command = [
-            train_script, "--objects-path", objects_path,
-            "--category", "image_classification",
-            "--epochs", str(epochs), "--batch-size", str(batch_size)
-        ]
-        if ipex_optimize:
-            command += ['--ipex']
-            command += ['--backend', 'ccl']
-
-        run_command(
-            command,
-            nnodes=nnodes,
-            nproc_per_node=nproc_per_node,
-            hosts=hosts,
-            hostfile=hostfile
+        self.fit_distributed(
+            nnodes, nproc_per_node, hosts, hostfile,
+            epochs, batch_size, ipex_optimize,
+            objects_path, category="image_classification"
         )
 
     def train(self, dataset: ImageClassificationDataset, output_dir, epochs=1, initial_checkpoints=None,
-              do_eval=True, early_stopping=False, lr_decay=True, seed=None, ipex_optimize=False, distributed=False,
-              nnodes=1, nproc_per_node=1, hosts=None, hostfile=None, shared_dir=None):
+              do_eval=True, early_stopping=False, lr_decay=True, seed=None, ipex_optimize=False,
+              distributed=False, nnodes=1, nproc_per_node=1, hosts=None, hostfile=None, shared_dir=None):
         """
             Trains the model using the specified image classification dataset. The first time training is called, it
             will get the model from torchvision and add on a fully-connected dense layer with linear activation

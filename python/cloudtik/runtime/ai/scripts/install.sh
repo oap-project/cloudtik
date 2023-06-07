@@ -62,7 +62,7 @@ function install_ml() {
         category-encoders==2.6.0 \
         h5py==3.8.0 \
         lightgbm==3.3.5 \
-        tensorflow-text==2.11.0 \
+        tensorflow-text==2.12.1 \
         datasets~=2.9.0 \
         tensorflow-datasets~=4.8.2 \
         tensorflow-hub~=0.12.0

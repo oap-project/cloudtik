@@ -111,8 +111,10 @@ class TorchvisionImageClassificationModel(PyTorchImageClassificationModel):
         self._num_classes = num_classes
         return self._model, self._optimizer
 
-    def train(self, dataset: ImageClassificationDataset, output_dir, epochs=1, initial_checkpoints=None,
-              do_eval=True, early_stopping=False, lr_decay=True, seed=None, ipex_optimize=False, extra_layers=None,
+    def train(self, dataset: ImageClassificationDataset, output_dir, *,
+              epochs=1, initial_checkpoints=None, do_eval=True,
+              early_stopping=False, lr_decay=True, seed=None,
+              ipex_optimize=False, extra_layers=None,
               distributed=False, nnodes=1, nproc_per_node=1, hosts=None, hostfile=None,
               shared_dir=None, temp_dir=None):
         """

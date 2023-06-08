@@ -69,7 +69,10 @@ class PretrainedModel(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def train(self, dataset: Dataset, output_dir, epochs=1, initial_checkpoints=None, do_eval=True):
+    def train(
+            self, dataset: Dataset, output_dir, *,
+            epochs=1, initial_checkpoints=None, do_eval=True,
+            **kwargs):
         """
         Train the model using the specified dataset
         """
@@ -101,7 +104,8 @@ class PretrainedModel(abc.ABC):
         """
         pass
 
-    def export_neural_compressor_config(self, config_file_path, dataset, batch_size, overwrite=False, **kwargs):
+    def export_neural_compressor_config(
+            self, config_file_path, dataset, batch_size, overwrite=False, **kwargs):
         """
         Writes a Neural Compressor compatible config file to the specified path usings args from the
         specified dataset and parameters. This is currently only supported for TF custom image classification
@@ -146,7 +150,8 @@ class PretrainedModel(abc.ABC):
         """
         raise NotImplementedError("Post training quantization has not been implemented for this model.")
 
-    def optimize_network(self, saved_model_dir, output_dir):
+    def optimize_network(
+            self, saved_model_dir, output_dir):
         """
         Performs FP32 network optimization on the model in the saved_model_dir
         and writes the inference-optimized model to the output_dir. Graph optimization includes converting
@@ -169,7 +174,8 @@ class PretrainedModel(abc.ABC):
         """
         raise NotImplementedError("Network optimization has not been implemented for this model.")
 
-    def benchmark_neural_compressor(self, saved_model_dir, inc_config_path, mode='performance'):
+    def benchmark_neural_compressor(
+            self, saved_model_dir, inc_config_path, mode='performance'):
         """
         Use neural compressor to benchmark the specified model for performance or accuracy.
 

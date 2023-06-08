@@ -420,8 +420,9 @@ class PyTorchImageAnomalyDetectionModel(PyTorchImageClassificationModel):
                                                        model_path, feature_extractor='cutpaste')
         return self._model
 
-    def train(self, dataset: PyTorchImageAnomalyDetectionDataset, output_dir, epochs=2,
-              initial_checkpoints=None, seed=None, generate_checkpoints=False, ipex_optimize=False,
+    def train(self, dataset: PyTorchImageAnomalyDetectionDataset, output_dir, *,
+              epochs=2, initial_checkpoints=None, do_eval=True,
+              seed=None, ipex_optimize=False, generate_checkpoints=False,
               batch_size=64, feature_dim=2048, pred_dim=512, pooling='avg',
               kernel_size=2, pca_threshold=0.99, simsiam=False, cutpaste=False, cutpaste_type='normal',
               freeze_resnet=20, head_layer=2, optim='sgd', layer_name='layer3', precision='float32'):
@@ -437,10 +438,12 @@ class PyTorchImageAnomalyDetectionModel(PyTorchImageClassificationModel):
                 pred_dim (int): Hidden dimension of the predictor, default is 512
                 epochs (int): Number of epochs to train the model
                 initial_checkpoints (str): Path to checkpoint weights to load
+                do_eval (bool): If do_eval is True and the dataset has a validation subset, the model will be evaluated
+                    at the end of each epoch.
                 seed (int): Optional, set a seed for reproducibility
+                ipex_optimize (bool): Use Intel Extension for PyTorch (IPEX). Defaults to False.
                 generate_checkpoints (bool): Whether to save/preserve the best weights during
                                              SimSiam or CutPaste training, default is False.
-                ipex_optimize (bool): Use Intel Extension for PyTorch (IPEX). Defaults to False.
                 pooling (str): Pooling to be applied on the extracted layer ('avg' or 'max'), default is 'avg'
                 kernel_size (int): Kernel size in the pooling layer, default is 2
                 pca_threshold (float): Threshold to apply to PCA model, default is 0.99

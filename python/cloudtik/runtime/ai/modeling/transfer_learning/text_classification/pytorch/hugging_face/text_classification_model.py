@@ -256,11 +256,8 @@ class HuggingFaceTextClassificationModel(TextClassificationModel, HuggingFaceMod
 
     def train(
             self,
-            dataset,
-            output_dir: str,
-            epochs: int = 1,
-            initial_checkpoints=None,
-            do_eval: bool = True,
+            dataset, output_dir: str, *,
+            epochs: int = 1, initial_checkpoints=None, do_eval: bool = True,
             early_stopping: bool = False,
             lr_decay: bool = True,
             seed: int = None,

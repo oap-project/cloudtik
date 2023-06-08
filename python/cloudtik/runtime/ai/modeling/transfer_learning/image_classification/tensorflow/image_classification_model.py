@@ -166,9 +166,9 @@ class TensorflowImageClassificationModel(ImageClassificationModel, TensorflowMod
             objects_path, use_horovod, category="image_classification"
         )
 
-    def train(self, dataset: ImageClassificationDataset,
-              output_dir, epochs=1, initial_checkpoints=None,
-              do_eval=True, early_stopping=False, lr_decay=True, seed=None,
+    def train(self, dataset: ImageClassificationDataset, output_dir, *,
+              epochs=1, initial_checkpoints=None, do_eval=True,
+              early_stopping=False, lr_decay=True, seed=None,
               enable_auto_mixed_precision=None, shuffle_files=True,
               distributed=False, nnodes=1, nproc_per_node=1, hosts=None, hostfile=None,
               shared_dir=None, temp_dir=None,

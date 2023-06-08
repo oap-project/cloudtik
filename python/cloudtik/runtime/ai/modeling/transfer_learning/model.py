@@ -101,10 +101,9 @@ class PretrainedModel(abc.ABC):
         """
         pass
 
-    @abc.abstractmethod
-    def write_inc_config_file(self, config_file_path, dataset, batch_size, overwrite=False, **kwargs):
+    def export_neural_compressor_config(self, config_file_path, dataset, batch_size, overwrite=False, **kwargs):
         """
-        Writes an Intel Neural Compressor compatible config file to the specified path usings args from the
+        Writes a Neural Compressor compatible config file to the specified path usings args from the
         specified dataset and parameters. This is currently only supported for TF custom image classification
         datasets.
 
@@ -121,37 +120,35 @@ class PretrainedModel(abc.ABC):
         Raises:
             FileExistsError if the config file already exists and overwrite is set to False
             ValueError if the parameters are not within the expected values
-            NotImplementedError if the model or dataset does not support INC yet
+            NotImplementedError if the model or dataset does not support Neural Compressor yet
         """
-        pass
+        raise NotImplementedError("Writing Neural Compressor config files has not be implemented for this model.")
 
-    @abc.abstractmethod
     def quantize(self, saved_model_dir, output_dir, inc_config_path):
         """
-        Performs post training quantization using the Intel Neural Compressor on the model from the saved_model_dir
+        Performs post training quantization using the Neural Compressor on the model from the saved_model_dir
         using the specified config file. The quantized model is written to the output directory.
 
         Args:
             saved_model_dir (str): Source directory for the model to quantize.
             output_dir (str): Writable output directory to save the quantized model
-            inc_config_path (str): Path to an INC config file (.yaml)
+            inc_config_path (str): Path to a Neural Compressor config file (.yaml)
 
         Returns:
             None
 
         Raises:
-            NotImplementedError if the model does not support INC yet
+            NotImplementedError if the model does not support Neural Compressor yet
             NotADirectoryError if the saved_model_dir is not a directory
             FileNotFoundError if a saved_model.pb is not found in the saved_model_dir or if the inc_config_path file
             is not found.
             FileExistsError if the output_dir already has a saved_model.pb file
         """
-        pass
+        raise NotImplementedError("Post training quantization has not been implemented for this model.")
 
-    @abc.abstractmethod
-    def optimize_graph(self, saved_model_dir, output_dir):
+    def optimize_network(self, saved_model_dir, output_dir):
         """
-        Performs FP32 graph optimization using the Intel Neural Compressor on the model in the saved_model_dir
+        Performs FP32 network optimization on the model in the saved_model_dir
         and writes the inference-optimized model to the output_dir. Graph optimization includes converting
         variables to constants, removing training-only operations like checkpoint saving, stripping out parts
         of the graph that are never reached, removing debug operations like CheckNumerics, folding batch
@@ -165,32 +162,31 @@ class PretrainedModel(abc.ABC):
             None
 
         Raises:
-            NotImplementedError if the model does not support INC yet
+            NotImplementedError if the model does not support network optimization yet
             NotADirectoryError if the saved_model_dir is not a directory
             FileNotFoundError if a saved_model.pb is not found in the saved_model_dir
             FileExistsError if the output_dir already has a saved_model.pb file
         """
-        pass
+        raise NotImplementedError("Network optimization has not been implemented for this model.")
 
-    @abc.abstractmethod
-    def benchmark(self, saved_model_dir, inc_config_path, mode='performance'):
+    def benchmark_neural_compressor(self, saved_model_dir, inc_config_path, mode='performance'):
         """
-        Use INC to benchmark the specified model for performance or accuracy.
+        Use neural compressor to benchmark the specified model for performance or accuracy.
 
         Args:
             saved_model_dir (str): Path to the directory where the saved model is located
-            inc_config_path (str): Path to an INC config file (.yaml)
+            inc_config_path (str): Path to neural compressor config file (.yaml)
             mode (str): performance or accuracy (defaults to performance)
 
         Returns:
             None
 
         Raises:
-            NotImplementedError if the model does not support INC yet
+            NotImplementedError if the model does not support neural compressor yet
             NotADirectoryError if the saved_model_dir is not a directory
             FileNotFoundError if a saved_model.pb is not found in the saved_model_dir or if the inc_config_path file
             is not found.
             ValueError if an unexpected mode is provided
         """
-        raise NotImplementedError("INC benchmarking is not supported for this model")
+        raise NotImplementedError("Neural compressor benchmarking is not supported for this model.")
 

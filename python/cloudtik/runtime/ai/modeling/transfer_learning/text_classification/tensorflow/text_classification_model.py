@@ -51,9 +51,6 @@ class TensorflowTextClassificationModel(TextClassificationModel, TensorflowModel
         self._dropout_layer_rate = 0.1
         self._epsilon = 1e-08
         self._generate_checkpoints = True
-
-        # placeholder for model definition
-        self._model = None
         self._num_classes = None
 
         TensorflowModel.__init__(self, model_name)
@@ -64,7 +61,6 @@ class TensorflowTextClassificationModel(TextClassificationModel, TensorflowModel
         self._check_optimizer_loss(optimizer, loss)
         self._optimizer_class = optimizer if optimizer else tf.keras.optimizers.Adam
         self._opt_args = {k: v for k, v in kwargs.items() if k in inspect.getfullargspec(self._optimizer_class).args}
-        self._optimizer = None  # This gets initialized later
         self._loss_class = loss  # This can be None, default function is defined later
         if self._loss_class:
             self._loss_args = {k: v for k, v in kwargs.items() if k in inspect.getfullargspec(self._loss_class).args}
@@ -175,7 +171,8 @@ class TensorflowTextClassificationModel(TextClassificationModel, TensorflowModel
     def train(self, dataset: TextClassificationDataset, output_dir, epochs=1, initial_checkpoints=None,
               do_eval=True, early_stopping=False, lr_decay=True, seed=None,
               enable_auto_mixed_precision=None, shuffle_files=True,
-              distributed=False, nnodes=1, nproc_per_node=1, hosts=None, hostfile=None, shared_dir=None,
+              distributed=False, nnodes=1, nproc_per_node=1, hosts=None, hostfile=None,
+              shared_dir=None, temp_dir=None,
               **kwargs):
         """
            Trains the model using the specified binary text classification dataset. If a path to initial checkpoints is
@@ -211,6 +208,7 @@ class TensorflowTextClassificationModel(TextClassificationModel, TensorflowModel
                hosts (str): hosts list for distributed training. Defaults to None.
                hostfile (str): Name of the hostfile for distributed training. Defaults to None.
                shared_dir (str): The shared data dir for distributed training.
+               temp_dir (str): The temp data dir at local.
            Returns:
                History object from the model.fit() call
 
@@ -222,7 +220,9 @@ class TensorflowTextClassificationModel(TextClassificationModel, TensorflowModel
                TypeError if the initial_checkpoints parameter is not a string
                NotImplementedError if the specified dataset has more than 2 classes
         """
-        self._check_train_inputs(output_dir, dataset, TextClassificationDataset, epochs, initial_checkpoints)
+        self._check_train_inputs(
+            output_dir, dataset, TextClassificationDataset,
+            epochs, initial_checkpoints)
 
         dataset_num_classes = len(dataset.class_names)
 
@@ -235,11 +235,14 @@ class TensorflowTextClassificationModel(TextClassificationModel, TensorflowModel
         # Set auto mixed precision
         self.set_auto_mixed_precision(enable_auto_mixed_precision)
 
-        callbacks, train_data, val_data = self._get_train_callbacks(dataset, output_dir, initial_checkpoints, do_eval,
-                                                                    early_stopping, lr_decay, dataset_num_classes)
+        callbacks, train_data, val_data = self._get_train_callbacks(
+            dataset, output_dir, initial_checkpoints, do_eval,
+            early_stopping, lr_decay, dataset_num_classes)
 
         if distributed:
-            objects_path = self.save_objects(train_data, val_data, shared_dir)
+            objects_path = self.save_objects(
+                train_data, val_data,
+                shared_dir, temp_dir)
             try:
                 self._fit_distributed(
                     epochs, shuffle_files,
@@ -318,13 +321,14 @@ class TensorflowTextClassificationModel(TextClassificationModel, TensorflowModel
 
         return tf.sigmoid(self._model.predict(input_samples)).numpy()
 
-    def write_inc_config_file(self, config_file_path, dataset, batch_size, overwrite=False,
-                              resize_interpolation='bicubic', accuracy_criterion_relative=0.01, exit_policy_timeout=0,
-                              exit_policy_max_trials=50, tuning_random_seed=9527,
-                              tuning_workspace=''):
+    def export_neural_compressor_config(
+            self, config_file_path, dataset, batch_size, overwrite=False,
+            resize_interpolation='bicubic', accuracy_criterion_relative=0.01, exit_policy_timeout=0,
+            exit_policy_max_trials=50, tuning_random_seed=9527,
+            tuning_workspace=''):
         """
-        Writes an Intel Neural Compressor compatible config file to the specified path usings args from the specified
-        dataset and parameters.
+        Writes a Neural Compressor compatible config file to the specified path
+        using args from the specified dataset and parameters.
 
         Args:
             config_file_path (str): Destination path on where to write the .yaml config file.
@@ -341,9 +345,9 @@ class TensorflowTextClassificationModel(TextClassificationModel, TensorflowModel
             exit_policy_max_trials (int): Maximum number of tuning trials (default: 50). Tuning processing finishes when
                                           the timeout or or max_trials is reached.
             tuning_random_seed (int): Random seed for deterministic tuning (default: 9527).
-            tuning_workspace (dir): Path the Intel Neural Compressor nc_workspace folder. If the string is empty and the
+            tuning_workspace (dir): Path the Neural Compressor nc_workspace folder. If the string is empty and the
                                     OUTPUT_DIR env var is set, that output directory will be used. If the string is
-                                    empty and the OUTPUT_DIR env var is not set, the default Intel Neural Compressor
+                                    empty and the OUTPUT_DIR env var is not set, the default Neural Compressor
                                     nc_workspace location will be used.
         Returns:
             None
@@ -390,8 +394,8 @@ class TensorflowTextClassificationModel(TextClassificationModel, TensorflowModel
         if not isinstance(tuning_workspace, str):
             raise ValueError('Invalid value for the nc_workspace directory. Expected a string.')
 
-        # Get the Intel Neural Compressor template
-        config_template = TextClassificationModel.get_inc_config_template_dict(self)
+        # Get the Neural Compressor template
+        config_template = TextClassificationModel.get_neural_compressor_config_template(self)
 
         # Collect the different data loaders into a list, so that we can update them all the with the data transforms
         dataloader_configs = []
@@ -472,13 +476,13 @@ class TensorflowTextClassificationModel(TextClassificationModel, TensorflowModel
 
     def quantize(self, saved_model_dir, output_dir, inc_config_path):
         """
-        Performs post training quantization using the Intel Neural Compressor on the model from the saved_model_dir
+        Performs post training quantization using the Neural Compressor on the model from the saved_model_dir
         using the specified config file. The quantized model is written to the output directory.
 
         Args:
             saved_model_dir (str): Source directory for the model to quantize.
             output_dir (str): Writable output directory to save the quantized model
-            inc_config_path (str): Path to an Intel Neural Compressor config file (.yaml)
+            inc_config_path (str): Path to a Neural Compressor config file (.yaml)
 
         Returns:
             None

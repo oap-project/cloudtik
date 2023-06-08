@@ -68,7 +68,6 @@ class TensorflowImageClassificationModel(ImageClassificationModel, TensorflowMod
         config.update(kwargs)
         self._optimizer_class = optimizer if optimizer else tf.keras.optimizers.Adam
         self._opt_args = {k: v for k, v in config.items() if k in inspect.getfullargspec(self._optimizer_class).args}
-        self._optimizer = None  # This gets initialized later
         self._loss_class = loss if loss else tf.keras.losses.SparseCategoricalCrossentropy
         self._loss_args = {k: v for k, v in config.items() if k in inspect.getfullargspec(self._loss_class).args}
         self._loss = self._loss_class(**self._loss_args)
@@ -167,10 +166,12 @@ class TensorflowImageClassificationModel(ImageClassificationModel, TensorflowMod
             objects_path, use_horovod, category="image_classification"
         )
 
-    def train(self, dataset: ImageClassificationDataset, output_dir, epochs=1, initial_checkpoints=None,
+    def train(self, dataset: ImageClassificationDataset,
+              output_dir, epochs=1, initial_checkpoints=None,
               do_eval=True, early_stopping=False, lr_decay=True, seed=None,
               enable_auto_mixed_precision=None, shuffle_files=True,
-              distributed=False, nnodes=1, nproc_per_node=1, hosts=None, hostfile=None, shared_dir=None,
+              distributed=False, nnodes=1, nproc_per_node=1, hosts=None, hostfile=None,
+              shared_dir=None, temp_dir=None,
               **kwargs):
         """
         Trains the model using the specified image classification dataset. The model is compiled and trained for
@@ -204,6 +205,7 @@ class TensorflowImageClassificationModel(ImageClassificationModel, TensorflowMod
             hosts (str): hosts list for distributed training. Defaults to None.
             hostfile (str): Name of the hostfile for distributed training. Defaults to None.
             shared_dir (str): The shared data dir for distributed training.
+            temp_dir (str): The temp data dir at locals.
 
         Returns:
             History object from the model.fit() call
@@ -238,7 +240,9 @@ class TensorflowImageClassificationModel(ImageClassificationModel, TensorflowMod
             do_eval, early_stopping, lr_decay)
 
         if distributed:
-            objects_path = self.save_objects(train_data, val_data, shared_dir)
+            objects_path = self.save_objects(
+                train_data, val_data,
+                shared_dir, temp_dir)
             try:
                 self._fit_distributed(
                     epochs, shuffle_files,
@@ -303,12 +307,14 @@ class TensorflowImageClassificationModel(ImageClassificationModel, TensorflowMod
         else:
             return predictions
 
-    def write_inc_config_file(self, config_file_path, dataset, batch_size, overwrite=False,
-                              resize_interpolation='bicubic', accuracy_criterion_relative=0.01, exit_policy_timeout=0,
-                              exit_policy_max_trials=50, tuning_random_seed=9527,
-                              tuning_workspace=''):
+    def export_neural_compressor_config(
+            self, config_file_path, dataset, batch_size, overwrite=False,
+            resize_interpolation='bicubic', accuracy_criterion_relative=0.01, exit_policy_timeout=0,
+            exit_policy_max_trials=50, tuning_random_seed=9527,
+            tuning_workspace=''):
         """
-        Writes an INC compatible config file to the specified path usings args from the specified dataset and
+        Writes a neural compressor compatible config file to the specified path
+        using args from the specified dataset and
         parameters. This is currently only supported for TF custom image classification datasets.
 
         Args:
@@ -326,8 +332,11 @@ class TensorflowImageClassificationModel(ImageClassificationModel, TensorflowMod
             exit_policy_max_trials (int): Maximum number of tuning trials (default: 50). Tuning processing finishes when
                                           the timeout or or max_trials is reached.
             tuning_random_seed (int): Random seed for deterministic tuning (default: 9527).
-            tuning_workspace (dir): Path the INC nc_workspace folder. If the string is empty and the OUTPUT_DIR env var
-                                    is set, that output directory will be used. If the string is empty and the
+            tuning_workspace (dir): Path the neural compressor nc_workspace folder.
+                                    If the string is empty and the OUTPUT_DIR env var is set,
+                                    that output directory will be used.
+                                    If the string is empty and the OUTPUT_DIR env var is not set,
+                                    the default neural compressor nc_workspace location will be used.
         Returns:
             None
 
@@ -340,9 +349,11 @@ class TensorflowImageClassificationModel(ImageClassificationModel, TensorflowMod
             raise FileExistsError('A file already exists at: {}. Provide a new file path or set overwrite=True',
                                   config_file_path)
 
-        # We can setup the a custom dataset to use the ImageFolder dataset option in INC. They don't have a TFDS option,
+        # We can set up the custom dataset to use the ImageFolder dataset option in neural compressor.
+        # They don't have a TFDS option,
         # so for now, we only support custom datasets for quantization
-        if dataset is not TensorflowImageClassificationDataset and type(dataset) != TensorflowImageClassificationDataset:
+        if dataset is not TensorflowImageClassificationDataset and type(
+                dataset) != TensorflowImageClassificationDataset:
             raise NotImplementedError('Quantization has only been implemented for TF image classification models '
                                       'with custom datasets')
 
@@ -373,8 +384,8 @@ class TensorflowImageClassificationModel(ImageClassificationModel, TensorflowMod
         if not isinstance(tuning_workspace, str):
             raise ValueError('Invalid value for the nc_workspace directory. Expected a string.')
 
-        # Get the image recognition Intel Neural Compressor template
-        config_template = ImageClassificationModel.get_inc_config_template_dict(self)
+        # Get the image recognition Neural Compressor template
+        config_template = ImageClassificationModel.get_neural_compressor_config_template(self)
 
         # Collect the different data loaders into a list, so that we can update them all the with the data transforms
         dataloader_configs = []
@@ -460,9 +471,9 @@ class TensorflowImageClassificationModel(ImageClassificationModel, TensorflowMod
         with open(config_file_path, "w") as config_file:
             yaml.dump(config_template, config_file)
 
-    def optimize_graph(self, saved_model_dir, output_dir):
+    def optimize_network(self, saved_model_dir, output_dir):
         """
-        Performs FP32 graph optimization using the Intel Neural Compressor on the model in the saved_model_dir
+        Performs FP32 graph optimization using the Neural Compressor on the model in the saved_model_dir
         and writes the inference-optimized model to the output_dir. Graph optimization includes converting
         variables to constants, removing training-only operations like checkpoint saving, stripping out parts
         of the graph that are never reached, removing debug operations like CheckNumerics, folding batch
@@ -506,13 +517,13 @@ class TensorflowImageClassificationModel(ImageClassificationModel, TensorflowMod
 
     def quantize(self, saved_model_dir, output_dir, inc_config_path):
         """
-        Performs post training quantization using the Intel Neural Compressor on the model from the saved_model_dir
+        Performs post training quantization using the Neural Compressor on the model from the saved_model_dir
         using the specified config file. The quantized model is written to the output directory
 
         Args:
             saved_model_dir (str): Source directory for the model to quantize.
             output_dir (str): Writable output directory to save the quantized model
-            inc_config_path (str): Path to an INC config file (.yaml)
+            inc_config_path (str): Path to a neural compressor config file (.yaml)
 
         Returns:
             None
@@ -551,13 +562,13 @@ class TensorflowImageClassificationModel(ImageClassificationModel, TensorflowMod
         if quantized_model:
             quantized_model.save(output_dir)
 
-    def benchmark(self, saved_model_dir, inc_config_path, mode='performance'):
+    def benchmark_neural_compressor(self, saved_model_dir, inc_config_path, mode='performance'):
         """
-        Use INC to benchmark the specified model for performance or accuracy.
+        Use neural compressor to benchmark the specified model for performance or accuracy.
 
         Args:
             saved_model_dir (str): Path to the directory where the saved model is located
-            inc_config_path (str): Path to an INC config file (.yaml)
+            inc_config_path (str): Path to a neural compressor config file (.yaml)
             mode (str): performance or accuracy (defaults to performance)
 
         Returns:

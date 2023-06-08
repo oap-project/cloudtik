@@ -17,7 +17,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 #
-import datetime
 import inspect
 import os
 import time
@@ -42,7 +41,6 @@ from transformers import (
 
 from datasets.arrow_dataset import Dataset
 
-from cloudtik.runtime.ai.modeling.transfer_learning.common.pytorch.model import PyTorchModel
 from cloudtik.runtime.ai.modeling.transfer_learning.text_classification.pytorch.hugging_face.text_classification_dataset \
     import HuggingFaceTextClassificationDataset
 from cloudtik.runtime.ai.modeling.transfer_learning.text_classification.pytorch.text_classification_dataset \
@@ -89,45 +87,15 @@ class HuggingFaceTextClassificationModel(TextClassificationModel, HuggingFaceMod
         self._check_optimizer_loss(optimizer, loss)
         self._optimizer_class = optimizer if optimizer else torch.optim.AdamW
         self._opt_args = {k: v for k, v in kwargs.items() if k in inspect.getfullargspec(self._optimizer_class).args}
-        self._optimizer = None  # This gets initialized later
         self._loss_class = loss if loss else torch.nn.CrossEntropyLoss
         self._loss_args = {k: v for k, v in kwargs.items() if k in inspect.getfullargspec(self._loss_class).args}
         self._loss = self._loss_class(**self._loss_args)
 
         # model definition
         self.hub_name = model_map[self._model_name]["hub_name"]
-        self._model = None
         self._num_classes = None
         self._trainer = None
         self._history = None
-
-    def save_objects(self, dataset, output_dir):
-        """
-        Helper function to export dataset and model objects to disk for distributed job
-
-        Args:
-            output_dir (str): Path to a directory where the dataset and model objects are saved.
-                Default file name for saving the objects is "hf_saved_objects.obj"
-            dataset (HuggingFaceTextClassificationDataset): Dataset object to save. It must be an object of
-                HuggingFaceTextClassificationDataset so that the dataset info, train, test, and validation
-                subsets can be accessed.
-        """
-
-        objects_to_save = {
-            "dataset": dataset.dataset,
-            "info": dataset.info,
-            "train_subset": dataset.train_subset,
-            "test_subset": dataset.test_subset,
-            "validation_subset": dataset.validation_subset,
-            "model": self._model,
-            "optimizer": self._optimizer,
-            "loss": self._loss
-        }
-        now = datetime.datetime.now()
-        filename = f"torch_objects_{now:%Y-%m-%d_%H-%M-%S}.obj"
-        objects_path = os.path.join(output_dir, filename)
-        torch.save(objects_to_save, objects_path)
-        return objects_path
 
     @property
     def num_classes(self):
@@ -280,7 +248,7 @@ class HuggingFaceTextClassificationModel(TextClassificationModel, HuggingFaceMod
     def _fit_distributed(
             self, nnodes, nproc_per_node, hosts, hostfile,
             epochs, batch_size, ipex_optimize, objects_path):
-        PyTorchModel.fit_distributed(
+        self.fit_distributed(
             nnodes, nproc_per_node, hosts, hostfile,
             epochs, batch_size, ipex_optimize,
             objects_path, category="text_classification"
@@ -296,10 +264,10 @@ class HuggingFaceTextClassificationModel(TextClassificationModel, HuggingFaceMod
             early_stopping: bool = False,
             lr_decay: bool = True,
             seed: int = None,
-            learning_rate: float = 1e-5,
-            extra_layers: list = None,
-            device: str = "cpu",
             ipex_optimize: bool = False,
+            extra_layers: list = None,
+            learning_rate: float = 1e-5,
+            device: str = "cpu",
             use_trainer: bool = False,
             force_download: bool = False,
             distributed=False,
@@ -308,6 +276,7 @@ class HuggingFaceTextClassificationModel(TextClassificationModel, HuggingFaceMod
             hosts=None,
             hostfile=None,
             shared_dir=None,
+            temp_dir=None,
             **kwargs
     ):
         """
@@ -325,17 +294,17 @@ class HuggingFaceTextClassificationModel(TextClassificationModel, HuggingFaceMod
                 at the end of each epoch.
             early_stopping (bool): Enable early stopping if convergence is reached while training
                 at the end of each epoch.
-            learning_rate (float): Learning rate for the model to train. Defaults to 1e-5
             lr_decay (bool): If lr_decay is True and do_eval is True, learning rate decay on the validation loss
                 is applied at the end of each epoch.
             seed (int): Optionally set a seed for reproducibility.
+            ipex_optimize (bool): Optimize the model using Intel® Extension for PyTorch. Defaults to False
             extra_layers (list[int]): Optionally insert additional dense layers between the base model and output
                 layer. This can help increase accuracy when fine-tuning a PyTorch model.
                 The input should be a list of integers representing the number and size of the layers,
                 for example [1024, 512] will insert two dense layers, the first with 1024 neurons and the
                 second with 512 neurons.
+            learning_rate (float): Learning rate for the model to train. Defaults to 1e-5
             device (str): Device to train the model. Defaults to "cpu"
-            ipex_optimize (bool): Optimize the model using Intel® Extension for PyTorch. Defaults to False
             use_trainer (bool): If use_trainer is True, then the model training is done using the Hugging Face Trainer
                 and if use_trainer is False, the model training is done using native PyTorch training loop
             force_download (bool): Downloads the model with default parameters. Defaults to False.
@@ -346,6 +315,7 @@ class HuggingFaceTextClassificationModel(TextClassificationModel, HuggingFaceMod
             hosts (str): hosts list for distributed training. Defaults to None.
             hostfile (str): Name of the hostfile for distributed training. Defaults to None.
             shared_dir (str): The shared data dir for distributed training.
+            temp_dir (str): The temp data dir at local.
 
         Returns:
             Dictionary containing the model training history
@@ -355,8 +325,9 @@ class HuggingFaceTextClassificationModel(TextClassificationModel, HuggingFaceMod
             ValueError if the given dataset has not been preprocessed yet
 
         """
-        self._check_train_inputs(output_dir, dataset, TextClassificationDataset,
-                                 extra_layers, epochs)
+        self._check_train_inputs(
+            output_dir, dataset, TextClassificationDataset,
+            epochs, extra_layers)
 
         if not self._model:
             self._num_classes = len(dataset.class_names)
@@ -435,7 +406,8 @@ class HuggingFaceTextClassificationModel(TextClassificationModel, HuggingFaceMod
                 self._history = self._trainer.evaluate()
                 print("Val Acc: {:.5f}".format(self._history.get("eval_accuracy")))
         elif distributed:
-            objects_path = self.save_objects(dataset, shared_dir)
+            objects_path = self.save_objects(
+                dataset, shared_dir, temp_dir)
             self._fit_distributed(
                 nnodes, nproc_per_node, hosts, hostfile,
                 epochs, dataset._preprocessed["batch_size"], ipex_optimize,
@@ -603,27 +575,14 @@ class HuggingFaceTextClassificationModel(TextClassificationModel, HuggingFaceMod
         else:
             raise ValueError("Unable to export the model, because it hasn't been trained yet")
 
-    def load_from_directory(self, model_dir: str, num_classes: int):
+    def export_neural_compressor_config(
+            self, config_file_path, dataset, batch_size, overwrite=False,
+            resize_interpolation='bicubic', accuracy_criterion_relative=0.01, exit_policy_timeout=0,
+            exit_policy_max_trials=50, tuning_random_seed=9527,
+            tuning_workspace=''):
         """
-        Loads a saved pytorch model from the given model_dir directory
-
-        Args:
-            model_dir(str): Path to the saved model directory
-            num_classes(int): Number of class labels
-        """
-
-        verify_directory(model_dir, require_directory_exists=True)
-        model_copy = torch.load(os.path.join(model_dir, 'model.pt'))
-        self._model = dill.loads(model_copy)
-        self._optimizer = self._optimizer_class(self._model.parameters(), lr=self._learning_rate)
-
-    def write_inc_config_file(self, config_file_path, dataset, batch_size, overwrite=False,
-                              resize_interpolation='bicubic', accuracy_criterion_relative=0.01, exit_policy_timeout=0,
-                              exit_policy_max_trials=50, tuning_random_seed=9527,
-                              tuning_workspace=''):
-        """
-        Writes an INC compatible config file to the specified path usings args from the specified dataset and
-        parameters.
+        Writes a Neural Compressor compatible config file to the specified path
+        using args from the specified dataset and parameters.
 
         Args:
             config_file_path (str): Destination path on where to write the .yaml config file.
@@ -640,9 +599,11 @@ class HuggingFaceTextClassificationModel(TextClassificationModel, HuggingFaceMod
             exit_policy_max_trials (int): Maximum number of tuning trials (default: 50). Tuning processing finishes when
                                           the timeout or or max_trials is reached.
             tuning_random_seed (int): Random seed for deterministic tuning (default: 9527).
-            tuning_workspace (dir): Path the INC nc_workspace folder. If the string is empty and the OUTPUT_DIR env var
-                                    is set, that output directory will be used. If the string is empty and the
-                                    OUTPUT_DIR env var is not set, the default INC nc_workspace location will be used.
+            tuning_workspace (dir): Path the Neural Compressor nc_workspace folder.
+                                    If the string is empty and the OUTPUT_DIR env var is set,
+                                    that output directory will be used.
+                                    If the string is empty and the OUTPUT_DIR env var is not set,
+                                    the default Neural Compressor nc_workspace location will be used.
         Returns:
             None
         Raises:
@@ -688,8 +649,8 @@ class HuggingFaceTextClassificationModel(TextClassificationModel, HuggingFaceMod
         if not isinstance(tuning_workspace, str):
             raise ValueError('Invalid value for the nc_workspace directory. Expected a string.')
 
-        # Get the Intel Neural Compressor template
-        config_template = TextClassificationModel.get_inc_config_template_dict(self)
+        # Get the Neural Compressor template
+        config_template = TextClassificationModel.get_neural_compressor_config_template(self)
 
         # Collect the different data loaders into a list, so that we can update them all the with the data transforms
         dataloader_configs = []
@@ -770,13 +731,13 @@ class HuggingFaceTextClassificationModel(TextClassificationModel, HuggingFaceMod
 
     def quantize(self, saved_model_dir, output_dir, inc_config_path):
         """
-        Performs post training quantization using the Intel Neural Compressor on the model from the saved_model_dir
+        Performs post training quantization using the Neural Compressor on the model from the saved_model_dir
         using the specified config file. The quantized model is written to the output directory.
 
         Args:
             saved_model_dir (str): Source directory for the model to quantize.
             output_dir (str): Writable output directory to save the quantized model
-            inc_config_path (str): Path to an INC config file (.yaml)
+            inc_config_path (str): Path to a Neural Compressor config file (.yaml)
 
         Returns:
             None
@@ -819,72 +780,3 @@ class HuggingFaceTextClassificationModel(TextClassificationModel, HuggingFaceMod
             p = subprocess.Popen(["mv", output_dir + "/best_model.pt", output_dir + "/model.pt"],
                                  stdout=subprocess.PIPE)
             stdout, stderr = p.communicate()
-
-    def list_layers(self, verbose=False):
-        """
-        Lists all of the named modules (e.g. features, avgpool, classifier) and layers
-        (ReLU, MaxPool2d, Dropout, Linear, etc) in a given PyTorch model
-
-        Args:
-            verbose (bool): True/False option set by default to be False, displays only high-level modules
-        """
-
-        if self._model is None:
-            raise RuntimeError('The model must be trained at least one epoch before its layers can be summarized.')
-
-        # Display a high-level list of the modules e.g. features, avgpool, classifier
-        print("\nModel Layers\n============")
-        for (name, module) in self._model.named_children():
-            if not verbose or not list(module.named_children()):
-                print('{}: {}/{} parameters are trainable'.format(
-                    name, sum(p.numel() for p in module.parameters() if p.requires_grad),
-                    sum(p.numel() for p in module.parameters())))
-            else:
-                print('{}:'.format(name))
-                for (layer_name, layer) in module.named_children():
-                    print('  {}: {}/{} parameters are trainable'.format(
-                        layer_name, sum(p.numel() for p in layer.parameters() if p.requires_grad),
-                        sum(p.numel() for p in layer.parameters())))
-
-        trainable_parameters = sum(p.numel() for p in self._model.parameters() if p.requires_grad)
-        print('\nTotal Trainable Parameters: {}/{}'.format(
-            trainable_parameters,
-            sum(p.numel() for p in self._model.parameters())))
-
-        return trainable_parameters
-
-    def freeze_layer(self, layer_name):
-        """
-        Freezes the model's layer using a layer name
-        Args:
-            layer_name (string): The layer name that will be frozen in the model
-        """
-
-        if self._model is None:
-            raise RuntimeError('The model must be trained at least one epoch before its layers can be frozen.')
-
-        # Freeze everything in the layer
-        for (name, module) in self._model.named_children():
-            if name == layer_name:
-                for param in module.parameters():
-                    param.requires_grad = False
-
-        return
-
-    def unfreeze_layer(self, layer_name):
-        """
-        Unfreezes the model's layer using a layer name
-        Args:
-            layer_name (string): The layer name that will be frozen in the model
-        """
-
-        if self._model is None:
-            raise RuntimeError('The model must be trained at least one epoch before its layers can be unfrozen.')
-
-        # Unfreeze everything in the layer
-        for (name, module) in self._model.named_children():
-            if name == layer_name:
-                for param in module.parameters():
-                    param.requires_grad = True
-
-        return

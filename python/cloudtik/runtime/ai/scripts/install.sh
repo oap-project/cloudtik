@@ -65,7 +65,8 @@ function install_ml() {
         tensorflow-text==2.12.1 \
         datasets~=2.9.0 \
         tensorflow-datasets~=4.8.2 \
-        tensorflow-hub~=0.12.0
+        tensorflow-hub~=0.12.0 \
+        protobuf==3.20.3
 
     mkdir -p $RUNTIME_PATH/mlflow
 

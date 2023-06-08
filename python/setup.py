@@ -84,6 +84,7 @@ setup_spec.extras = {
         "google-cloud-storage==2.3.0",
         "google-cloud-container==2.21.0",
         "gcsfs==2022.11.0",
+        "protobuf==3.20.3",
     ],
     "aliyun": [
         "alibabacloud_tea_openapi == 0.3.7",

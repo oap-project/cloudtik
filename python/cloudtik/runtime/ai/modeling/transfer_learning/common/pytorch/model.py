@@ -17,9 +17,11 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 #
-
+import datetime
 import inspect
 import os
+import shutil
+
 import dill
 import numpy
 import random
@@ -38,6 +40,10 @@ class PyTorchModel(PretrainedModel):
 
     def __init__(self, model_name: str):
         super().__init__(model_name)
+        self._model = None  # This gets initialized later
+        self._optimizer = None  # This gets initialized later
+        self._optimizer_class = None  # This gets initialized in subclass
+        self._loss = None  # This gets initialized in subclass
         self._lr_scheduler = None
         self._history = {}
 
@@ -101,24 +107,6 @@ class PyTorchModel(PretrainedModel):
         model_copy = torch.load(os.path.join(model_dir, 'model.pt'))
         self._model = dill.loads(model_copy)
         self._optimizer = self._optimizer_class(self._model.parameters(), lr=self._learning_rate)
-
-    def optimize_graph(self, saved_model_dir, output_dir):
-        """
-        Performs FP32 graph optimization using the Intel Neural Compressor on the model in the saved_model_dir
-        and writes the inference-optimized model to the output_dir. Graph optimization includes converting
-        variables to constants, removing training-only operations like checkpoint saving, stripping out parts
-        of the graph that are never reached, removing debug operations like CheckNumerics, folding batch
-        normalization ops into the pre-calculated weights, and fusing common operations into unified versions.
-        Args:
-            saved_model_dir (str): Source directory for the model to optimize.
-            output_dir (str): Writable output directory to save the optimized model
-        Returns:
-            None
-        Raises:
-            NotImplementedError because this hasn't been implemented yet for PyTorch
-        """
-        raise NotImplementedError("Only TensorFlow graph optimization is currently supported by the \
-                                                                      Intel Neural Compressor (INC)")
 
     def list_layers(self, verbose=False):
         """
@@ -184,6 +172,46 @@ class PyTorchModel(PretrainedModel):
             if name == layer_name:
                 for param in module.parameters():
                     param.requires_grad = True
+
+    def save_objects(self, dataset, output_dir, temp_dir):
+        """
+        Helper function to export dataset and model objects to disk for distributed job
+
+        Args:
+            dataset: Dataset object to save. It must be an object of
+                Dataset with info, train, test, and validation
+                subsets properties which can be accessed.
+            output_dir (str): Path to a directory where the dataset and model objects are saved.
+                The path/file of the save objects is returned.
+            temp_dir (str): The temp data dir at local.
+        """
+        now = datetime.datetime.now()
+        filename = f"torch_objects_{now:%Y-%m-%d_%H-%M-%S}.obj"
+        objects_path = os.path.join(output_dir, filename)
+
+        # save to temporary path and then move
+        if temp_dir:
+            save_objects_path = os.path.join(temp_dir, filename)
+        else:
+            save_objects_path = objects_path
+
+        objects_to_save = {
+            "dataset": dataset.dataset,
+            "info": dataset.info,
+            "train_subset": dataset.train_subset,
+            "test_subset": dataset.test_subset,
+            "validation_subset": dataset.validation_subset,
+            "model": self._model,
+            "optimizer": self._optimizer,
+            "loss": self._loss
+        }
+
+        torch.save(objects_to_save, save_objects_path)
+
+        if temp_dir:
+            shutil.move(save_objects_path, objects_path)
+
+        return objects_path
 
     @staticmethod
     def fit_distributed(

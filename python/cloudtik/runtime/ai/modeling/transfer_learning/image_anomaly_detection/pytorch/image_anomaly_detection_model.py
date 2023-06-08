@@ -35,15 +35,16 @@ from cloudtik.runtime.ai.modeling.transfer_learning.image_anomaly_detection.pyto
     import PyTorchImageAnomalyDetectionDataset
 from cloudtik.runtime.ai.modeling.transfer_learning.image_anomaly_detection.pytorch.simsiam \
     import builder
-from cloudtik.runtime.ai.modeling.transfer_learning.common import utils
 
 from cloudtik.runtime.ai.modeling.transfer_learning.image_anomaly_detection.pytorch.cutpaste.model \
     import ProjectionNet
 from cloudtik.runtime.ai.modeling.transfer_learning.image_anomaly_detection.pytorch.cutpaste.cutpaste \
-    import CutPasteNormal,CutPasteScar, CutPaste3Way, CutPasteUnion
+    import CutPasteNormal, CutPasteScar, CutPaste3Way, CutPasteUnion
 
 from cloudtik.runtime.ai.modeling.transfer_learning.common.utils \
     import verify_directory, validate_model_name
+from cloudtik.runtime.ai.modeling.transfer_learning.image_anomaly_detection.pytorch.utils import adjust_learning_rate, \
+    _fit_simsiam, save_checkpoint, _fit_cutpaste, find_threshold
 from cloudtik.runtime.ai.modeling.transfer_learning.image_classification.pytorch.image_classification_model \
     import PyTorchImageClassificationModel
 
@@ -125,14 +126,16 @@ class PyTorchImageAnomalyDetectionModel(PyTorchImageClassificationModel):
         """
         Class constructor
         """
-        PyTorchImageClassificationModel.__init__(self, model_name, model, optimizer, loss, **kwargs)
+        PyTorchImageClassificationModel.__init__(
+            self, model_name, model, optimizer, loss, **kwargs)
         self.simsiam = False
         self.cutpaste = False
         self._layer_name = 'layer3'
         self._pooling = 'avg'
         self._kernel_size = 2
 
-    def _check_train_inputs(self, output_dir, dataset, dataset_type, pooling, kernel_size, pca_threshold):
+    def _check_train_inputs(self, output_dir, dataset, dataset_type,
+                            pooling, kernel_size, pca_threshold):
         verify_directory(output_dir)
 
         if not isinstance(dataset, dataset_type):
@@ -249,11 +252,12 @@ class PyTorchImageAnomalyDetectionModel(PyTorchImageClassificationModel):
         file_name_least_loss = ""
         print("Fine-tuning Simsiam Model on ", epochs, "epochs using ", num_images, " training images")
         self._model.train()
+        model = self._model
 
         if ipex_optimize:
             import intel_extension_for_pytorch as ipex
             model, optimizer = ipex.optimize(
-                self._model, optimizer=optimizer,
+                model, optimizer=optimizer,
                 dtype=torch.bfloat16 if precision == 'bfloat16' else torch.float32)
 
         valid_model_name = validate_model_name(self.model_name)
@@ -261,16 +265,16 @@ class PyTorchImageAnomalyDetectionModel(PyTorchImageClassificationModel):
         verify_directory(checkpoint_dir)
 
         for epoch in range(0, self.epochs):
-            utils.adjust_learning_rate(optimizer, init_lr, epoch, self.epochs)
+            adjust_learning_rate(optimizer, init_lr, epoch, self.epochs)
 
-            curr_loss = utils._fit_simsiam(dataloader, model, criterion, optimizer, epoch, precision)
+            curr_loss = _fit_simsiam(dataloader, model, criterion, optimizer, epoch, precision)
             if generate_checkpoints:
                 if (curr_loss < best_least_Loss):
                     best_least_Loss = curr_loss
                     is_best_ans = True
                     file_name_least_loss = 'simsiam_checkpoint_{:04d}.pth.tar'.format(epoch)
 
-                utils.save_checkpoint({
+                save_checkpoint({
                     'epoch': epoch + 1,
                     'arch': self.model_name,
                     'state_dict': model.state_dict(),
@@ -281,7 +285,7 @@ class PyTorchImageAnomalyDetectionModel(PyTorchImageClassificationModel):
             else:
                 if epoch == self.epochs - 1:
                     file_name_least_loss = 'simsiam_checkpoint_{:04d}.pth.tar'.format(epoch)
-                    utils.save_checkpoint({
+                    save_checkpoint({
                         'epoch': epoch + 1,
                         'arch': self.model_name,
                         'state_dict': model.state_dict(),
@@ -356,7 +360,7 @@ class PyTorchImageAnomalyDetectionModel(PyTorchImageClassificationModel):
                 optimizer = torch.optim.Adam(self._model.parameters(), lr=0.03, weight_decay=weight_decay)
                 scheduler = None
             else:
-                print(f"ERROR unkown optimizer: {optim}")
+                raise ValueError(f"Unsupported optimizer: {optim}")
 
             num_images = len(dataset.train_subset)
             best_least_Loss = float('inf')
@@ -364,17 +368,19 @@ class PyTorchImageAnomalyDetectionModel(PyTorchImageClassificationModel):
             file_name_least_loss = ""
             print("Fine-tuning CUT-PASTE Model on ", epochs, "epochs using ", num_images, " training images")
             self._model.train()
+            model = self._model
 
             if ipex_optimize:
                 import intel_extension_for_pytorch as ipex
                 model, optimizer = ipex.optimize(
-                    self._model, optimizer=optimizer,
+                    model, optimizer=optimizer,
                     dtype=torch.bfloat16 if precision == 'bfloat16' else torch.float32)
 
             for step in range(epochs):
                 epoch = int(step / 1)
-                curr_loss = utils._fit_cutpaste(dataloader, model, criterion,
-                                                optimizer, epoch, freeze_resnet, scheduler, precision)
+                curr_loss = _fit_cutpaste(
+                    dataloader, model, criterion,
+                    optimizer, epoch, freeze_resnet, scheduler, precision)
                 if generate_checkpoints:
                     if (curr_loss < best_least_Loss):
                         best_least_Loss = curr_loss
@@ -382,7 +388,7 @@ class PyTorchImageAnomalyDetectionModel(PyTorchImageClassificationModel):
                         file_name_least_loss = 'cutpaste_checkpoint_{:04d}.pth.tar'.format(step)
 
                     # Saves the Best Intermediate Checkpoints got till this step.
-                    utils.save_checkpoint({
+                    save_checkpoint({
                         'epoch': step + 1,
                         'arch': self.model_name,
                         'state_dict': model.state_dict(),
@@ -393,7 +399,7 @@ class PyTorchImageAnomalyDetectionModel(PyTorchImageClassificationModel):
                 else:
                     if epoch == epochs - 1:
                         file_name_least_loss = 'cutpaste_checkpoint_{:04d}.pth.tar'.format(step)
-                        utils.save_checkpoint({
+                        save_checkpoint({
                             'epoch': step + 1,
                             'arch': self.model_name,
                             'state_dict': model.state_dict(),
@@ -414,8 +420,9 @@ class PyTorchImageAnomalyDetectionModel(PyTorchImageClassificationModel):
                                                        model_path, feature_extractor='cutpaste')
         return self._model
 
-    def train(self, dataset: PyTorchImageAnomalyDetectionDataset, output_dir, epochs=2,
-              initial_checkpoints=None, seed=None, generate_checkpoints=False, ipex_optimize=False,
+    def train(self, dataset: PyTorchImageAnomalyDetectionDataset, output_dir, *,
+              epochs=2, initial_checkpoints=None, do_eval=True,
+              seed=None, ipex_optimize=False, generate_checkpoints=False,
               batch_size=64, feature_dim=2048, pred_dim=512, pooling='avg',
               kernel_size=2, pca_threshold=0.99, simsiam=False, cutpaste=False, cutpaste_type='normal',
               freeze_resnet=20, head_layer=2, optim='sgd', layer_name='layer3', precision='float32'):
@@ -431,10 +438,12 @@ class PyTorchImageAnomalyDetectionModel(PyTorchImageClassificationModel):
                 pred_dim (int): Hidden dimension of the predictor, default is 512
                 epochs (int): Number of epochs to train the model
                 initial_checkpoints (str): Path to checkpoint weights to load
+                do_eval (bool): If do_eval is True and the dataset has a validation subset, the model will be evaluated
+                    at the end of each epoch.
                 seed (int): Optional, set a seed for reproducibility
+                ipex_optimize (bool): Use Intel Extension for PyTorch (IPEX). Defaults to False.
                 generate_checkpoints (bool): Whether to save/preserve the best weights during
                                              SimSiam or CutPaste training, default is False.
-                ipex_optimize (bool): Use Intel Extension for PyTorch (IPEX). Defaults to False.
                 pooling (str): Pooling to be applied on the extracted layer ('avg' or 'max'), default is 'avg'
                 kernel_size (int): Kernel size in the pooling layer, default is 2
                 pca_threshold (float): Threshold to apply to PCA model, default is 0.99
@@ -450,8 +459,9 @@ class PyTorchImageAnomalyDetectionModel(PyTorchImageClassificationModel):
             Returns:
                 Fitted principal components
         """
-        self._check_train_inputs(output_dir, dataset, PyTorchImageAnomalyDetectionDataset, pooling,
-                                 kernel_size, pca_threshold)
+        self._check_train_inputs(
+            output_dir, dataset, PyTorchImageAnomalyDetectionDataset,
+            pooling, kernel_size, pca_threshold)
 
         self._pooling = pooling
         self._kernel_size = kernel_size
@@ -559,7 +569,7 @@ class PyTorchImageAnomalyDetectionModel(PyTorchImageClassificationModel):
             gt = gt.numpy()
 
         fpr_binary, tpr_binary, thres = metrics.roc_curve(gt, scores)
-        threshold = utils.find_threshold(fpr_binary, tpr_binary, thres)
+        threshold = find_threshold(fpr_binary, tpr_binary, thres)
         auc_roc_binary = metrics.auc(fpr_binary, tpr_binary)
         accuracy_score = metrics.accuracy_score(gt, [1 if i >= threshold else 0 for i in scores])
         print(f'AUROC: {auc_roc_binary * 100}')

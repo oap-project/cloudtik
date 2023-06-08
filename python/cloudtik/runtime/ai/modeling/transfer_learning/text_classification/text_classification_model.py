@@ -37,13 +37,13 @@ class TextClassificationModel(PretrainedModel):
         # Default learning rate for text models
         self._learning_rate = 3e-5
 
-    def get_inc_config_template_dict(self):
+    def get_neural_compressor_config_template(self):
         """
-        Returns a dictionary for a config template compatible with the Intel Neural Compressor.
+        Returns a dictionary for a config template compatible with the Neural Compressor.
 
         It loads the yaml file text_classification_template.yaml and then fills in parameters
         that the model knows about (like framework and model name). There are still more parameters that need to be
-        filled in before using the config with INC (like the dataset information, size, etc).
+        filled in before using the config with Neural Compressor (like the dataset information, size, etc).
         """
         this_dir = os.path.dirname(__file__)
         template_file_path = os.path.join(this_dir, "text_classification_template.yaml")
@@ -56,7 +56,7 @@ class TextClassificationModel(PretrainedModel):
 
         # Update parameters that we know in the template
         config_template["model"]["framework"] = str(self.framework)
-        config_template["model"]["name"] = self.model_name65
+        config_template["model"]["name"] = self.model_name
 
         return config_template
 
@@ -68,15 +68,3 @@ class TextClassificationModel(PretrainedModel):
     @property
     def dropout_layer_rate(self):
         return self._dropout_layer_rate
-
-    def write_inc_config_file(self, config_file_path, dataset, batch_size, overwrite=False, **kwargs):
-        raise NotImplementedError("Writing INC config files has not be implemented yet for text classification")
-
-    def quantize(self, saved_model_dir, output_dir, inc_config_path):
-        raise NotImplementedError("Post training quantization has not been implemented yet for text classification")
-
-    def optimize_graph(self, saved_model_dir, output_dir):
-        raise NotImplementedError("Optimize graph has not been implemented yet for text classification")
-
-    def benchmark(self, saved_model_dir, inc_config_path, mode='performance'):
-        raise NotImplementedError("Benchmarking has not been implemented yet for text classification")

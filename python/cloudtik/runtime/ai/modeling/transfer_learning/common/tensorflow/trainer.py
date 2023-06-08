@@ -140,15 +140,16 @@ class Trainer:
         checkpoint = tf.train.Checkpoint(optimizer=tf.optimizers.Adam())
         checkpoint.restore(os.path.join(objects_path, 'saved_optimizer-1'))
 
-        # Load the saved loss class name and instatiate the loss
+        # Load the saved loss class name and instantiate the loss
         with open(os.path.join(objects_path, 'saved_loss'), 'rb') as f:
             loss_class, loss_args = dill.load(f)
 
         # load the dataset(s)
         train_data = tf.data.Dataset.load(os.path.join(objects_path, 'train_data'))
-        try:
-            val_data = tf.data.Dataset.load(os.path.join(objects_path, 'val_data'))
-        except FileNotFoundError:
+        val_data_path = os.path.join(objects_path, 'val_data')
+        if os.path.exists(val_data_path):
+            val_data = tf.data.Dataset.load(val_data_path)
+        else:
             val_data = None
 
         if loss_class is None:

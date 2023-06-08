@@ -41,8 +41,13 @@ class TensorflowModel(PretrainedModel):
     """
 
     def __init__(self, model_name: str):
-        self._model = None
         super().__init__(model_name)
+        self._model = None  # This gets initialized later
+        self._optimizer = None  # This gets initialized later
+        self._optimizer_class = None  # This gets initialized in subclass
+        self._loss_class = None  # This gets initialized in subclass
+        self._loss_args = None  # This gets initialized in subclass
+
         os.environ["TF_ENABLE_ONEDNN_OPTS"] = "1"
         self._history = {}
 
@@ -176,33 +181,43 @@ class TensorflowModel(PretrainedModel):
         else:
             raise ValueError("Unable to export the model, because it hasn't been loaded or trained yet")
 
-    def save_objects(self, train_data, val_data, output_dir):
+    def save_objects(self, train_data, val_data, output_dir, temp_dir=None):
         now = datetime.datetime.now()
         path_name = f"tensorflow_objects_{now:%Y-%m-%d_%H-%M-%S}"
         objects_path = os.path.join(output_dir, path_name)
-        os.makedirs(objects_path, exist_ok=True)
+
+        # save to temporary path and then move
+        if temp_dir:
+            save_objects_path = os.path.join(temp_dir, path_name)
+        else:
+            save_objects_path = objects_path
+        os.makedirs(save_objects_path, exist_ok=True)
 
         # Save the model
         tf.keras.models.save_model(
             model=self._model,
-            filepath=objects_path,
+            filepath=save_objects_path,
             overwrite=True,
             include_optimizer=False
         )
 
         # Save the optimizer object
         tf.train.Checkpoint(optimizer=self._optimizer).save(
-            os.path.join(objects_path, 'saved_optimizer'))
+            os.path.join(save_objects_path, 'saved_optimizer'))
 
         # Save the loss class name and its args
-        with open(os.path.join(objects_path, 'saved_loss'), 'wb') as f:
+        with open(os.path.join(save_objects_path, 'saved_loss'), 'wb') as f:
             dill.dump((self._loss_class, self._loss_args), f)
 
         # Save the dataset(s)
-        train_data.save(os.path.join(objects_path, 'train_data'))
+        train_data.save(os.path.join(save_objects_path, 'train_data'))
         print(type(train_data))
         if val_data:
-            val_data.save(os.path.join(objects_path, 'val_data'))
+            val_data.save(os.path.join(save_objects_path, 'val_data'))
+
+        if temp_dir:
+            # move data from save_objects_path to objects_path
+            shutil.move(save_objects_path, objects_path)
 
         return objects_path
 

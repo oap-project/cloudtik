@@ -71,13 +71,13 @@ class ImageClassificationModel(PretrainedModel):
         """
         return self._dropout_layer_rate
 
-    def get_inc_config_template_dict(self):
+    def get_neural_compressor_config_template(self):
         """
-        Returns a dictionary for a config template compatible with the Intel Neural Compressor.
+        Returns a dictionary for a config template compatible with the Neural Compressor.
 
         It loads the yaml file image_classification_template.yaml and then fills in parameters
         that the model knows about (like framework and model name). There are still more parameters that need to be
-        filled in before using the config with INC (like the dataset information, image size, etc).
+        filled in before using the config with Neural Compressor (like the dataset information, image size, etc).
         """
         this_dir = os.path.dirname(__file__)
         template_file_path = os.path.join(this_dir, "image_classification_template.yaml")

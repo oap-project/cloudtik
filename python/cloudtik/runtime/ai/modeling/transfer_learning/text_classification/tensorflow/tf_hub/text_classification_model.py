@@ -113,10 +113,12 @@ class TFHubTextClassificationModel(TensorflowTextClassificationModel):
         self._num_classes = num_classes
         return self._model
 
-    def train(self, dataset: TextClassificationDataset, output_dir, epochs=1, initial_checkpoints=None,
-              do_eval=True, early_stopping=False, lr_decay=True, seed=None,
+    def train(self, dataset: TextClassificationDataset, output_dir, *,
+              epochs=1, initial_checkpoints=None, do_eval=True,
+              early_stopping=False, lr_decay=True, seed=None,
               enable_auto_mixed_precision=None, shuffle_files=True, extra_layers=None,
-              distributed=False, nnodes=1, nproc_per_node=1, hosts=None, hostfile=None, shared_dir=None,
+              distributed=False, nnodes=1, nproc_per_node=1, hosts=None, hostfile=None,
+              shared_dir=None, temp_dir=None,
               **kwargs):
         """
            Trains the model using the specified binary text classification dataset. If a path to initial checkpoints is
@@ -156,6 +158,8 @@ class TFHubTextClassificationModel(TensorflowTextClassificationModel):
                hosts (str): hosts list for distributed training. Defaults to None.
                hostfile (str): Name of the hostfile for distributed training. Defaults to None.
                shared_dir (str): The shared data dir for distributed training.
+               temp_dir (str): The temp data dir at local.
+
            Returns:
                History object from the model.fit() call
 
@@ -168,7 +172,8 @@ class TFHubTextClassificationModel(TensorflowTextClassificationModel):
                TypeError if the extra_layers parameter is not a list of integers
         """
         self._check_train_inputs(
-            output_dir, dataset, TextClassificationDataset, epochs, initial_checkpoints)
+            output_dir, dataset, TextClassificationDataset,
+            epochs, initial_checkpoints)
 
         if extra_layers:
             if not isinstance(extra_layers, list):
@@ -199,7 +204,9 @@ class TFHubTextClassificationModel(TensorflowTextClassificationModel):
             early_stopping, lr_decay, dataset_num_classes)
 
         if distributed:
-            objects_path = self.save_objects(train_data, val_data, shared_dir)
+            objects_path = self.save_objects(
+                train_data, val_data,
+                shared_dir, temp_dir)
             self._fit_distributed(
                 epochs, shuffle_files,
                 nnodes, nproc_per_node, hosts, hostfile,

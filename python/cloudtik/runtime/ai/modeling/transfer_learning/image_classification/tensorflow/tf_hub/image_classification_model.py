@@ -101,10 +101,12 @@ class TFHubImageClassificationModel(TensorflowImageClassificationModel):
         self._num_classes = num_classes
         return self._model
 
-    def train(self, dataset: ImageClassificationDataset, output_dir, epochs=1, initial_checkpoints=None,
-              do_eval=True, early_stopping=False, lr_decay=True, seed=None,
+    def train(self, dataset: ImageClassificationDataset, output_dir, *,
+              epochs=1, initial_checkpoints=None, do_eval=True,
+              early_stopping=False, lr_decay=True, seed=None,
               enable_auto_mixed_precision=None, shuffle_files=True, extra_layers=None,
-              distributed=False, nnodes=1, nproc_per_node=1, hosts=None, hostfile=None, shared_dir=None,
+              distributed=False, nnodes=1, nproc_per_node=1, hosts=None, hostfile=None,
+              shared_dir=None, temp_dir=None,
               **kwargs):
         """
             Trains the model using the specified image classification dataset. The first time training is called, it
@@ -143,6 +145,7 @@ class TFHubImageClassificationModel(TensorflowImageClassificationModel):
                 hosts (str): hosts list for distributed training. Defaults to None.
                 hostfile (str): Name of the hostfile for distributed training. Defaults to None.
                 shared_dir (str): The shared data dir for distributed training.
+                temp_dir (str): The temp data dir at local.
             Returns:
                 History object from the model.fit() call
 
@@ -186,7 +189,9 @@ class TFHubImageClassificationModel(TensorflowImageClassificationModel):
             do_eval, early_stopping, lr_decay)
 
         if distributed:
-            objects_path = self.save_objects(train_data, val_data, shared_dir)
+            objects_path = self.save_objects(
+                train_data, val_data,
+                shared_dir, temp_dir)
             self._fit_distributed(
                 epochs, shuffle_files,
                 nnodes, nproc_per_node, hosts, hostfile,

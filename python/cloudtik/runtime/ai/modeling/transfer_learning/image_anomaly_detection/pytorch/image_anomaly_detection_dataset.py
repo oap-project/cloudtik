@@ -32,7 +32,7 @@ from torchvision.datasets.folder import default_loader, IMG_EXTENSIONS
 
 from cloudtik.runtime.ai.modeling.transfer_learning.image_anomaly_detection.pytorch.simsiam import loader as ssloader
 from cloudtik.runtime.ai.modeling.transfer_learning.image_anomaly_detection.pytorch.cutpaste.cutpaste import \
-    CutPasteNormal, CutPasteScar,CutPaste3Way, CutPasteUnion, get_cutpaste_transforms
+    CutPasteNormal, CutPasteScar, CutPaste3Way, CutPasteUnion, get_cutpaste_transforms
 from cloudtik.runtime.ai.modeling.transfer_learning.common.pytorch.dataset import PyTorchDataset
 
 
@@ -243,7 +243,7 @@ class PyTorchImageAnomalyDetectionDataset(PyTorchDataset):
         if not dataset_name:
             dataset_name = os.path.basename(dataset_dir)
 
-        PyTorchDataset.__init__(self, dataset_dir, dataset_name, dataset_catalog=None)
+        PyTorchDataset.__init__(self, dataset_dir, dataset_name)
 
         self._info = {
             "name": dataset_name,

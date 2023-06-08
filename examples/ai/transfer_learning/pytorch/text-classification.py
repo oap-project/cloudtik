@@ -120,7 +120,7 @@ if __name__ == '__main__':
 
         # Reload the saved model
         reload_model = model_factory.get_model(model_name, framework)
-        reload_model.load_from_directory(saved_model_dir, num_classes=len(dataset.class_names))
+        reload_model.load_from_directory(saved_model_dir)
 
         # Evaluate
         reload_metrics = reload_model.evaluate(dataset)

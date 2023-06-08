@@ -111,9 +111,12 @@ class TorchvisionImageClassificationModel(PyTorchImageClassificationModel):
         self._num_classes = num_classes
         return self._model, self._optimizer
 
-    def train(self, dataset: ImageClassificationDataset, output_dir, epochs=1, initial_checkpoints=None,
-              do_eval=True, early_stopping=False, lr_decay=True, seed=None, extra_layers=None, ipex_optimize=False,
-              distributed=False, nnodes=1, nproc_per_node=1, hosts=None, hostfile=None, shared_dir=None):
+    def train(self, dataset: ImageClassificationDataset, output_dir, *,
+              epochs=1, initial_checkpoints=None, do_eval=True,
+              early_stopping=False, lr_decay=True, seed=None,
+              ipex_optimize=False, extra_layers=None,
+              distributed=False, nnodes=1, nproc_per_node=1, hosts=None, hostfile=None,
+              shared_dir=None, temp_dir=None):
         """
             Trains the model using the specified image classification dataset. The first time training is called, it
             will get the model from torchvision and add on a fully-connected dense layer with linear activation
@@ -132,12 +135,12 @@ class TorchvisionImageClassificationModel(PyTorchImageClassificationModel):
                 lr_decay (bool): If lr_decay is True and do_eval is True, learning rate decay on the validation loss
                     is applied at the end of each epoch.
                 seed (int): Optionally set a seed for reproducibility.
+                ipex_optimize (bool): Use Intel Extension for PyTorch (IPEX). Defaults to False.
                 extra_layers (list[int]): Optionally insert additional dense layers between the base model and output
                     layer. This can help increase accuracy when fine-tuning a PyTorch model.
                     The input should be a list of integers representing the number and size of the layers,
                     for example [1024, 512] will insert two dense layers, the first with 1024 neurons and the
                     second with 512 neurons.
-                ipex_optimize (bool): Use Intel Extension for PyTorch (IPEX). Defaults to False.
                 distributed (bool): Boolean flag to use distributed training. Defaults to False.
                 nnodes (int): Number of nodes to use for distributed training. Defaults to 1.
                 nproc_per_node (int): Number of processes to spawn per node to use for distributed training. Defaults
@@ -145,12 +148,14 @@ class TorchvisionImageClassificationModel(PyTorchImageClassificationModel):
                 hosts (str): hosts list for distributed training. Defaults to None.
                 hostfile (str): Name of the hostfile for distributed training. Defaults to None.
                 shared_dir (str): The shared data dir for distributed training.
+                temp_dir (str): The temp data dir at local.
 
             Returns:
                 Trained PyTorch model object
         """
         self._check_train_inputs(
-            output_dir, dataset, ImageClassificationDataset, epochs, initial_checkpoints)
+            output_dir, dataset, ImageClassificationDataset,
+            epochs, initial_checkpoints)
 
         self._distributed = distributed
 
@@ -191,7 +196,8 @@ class TorchvisionImageClassificationModel(PyTorchImageClassificationModel):
                 self._model, self._optimizer = ipex.optimize(self._model, optimizer=self._optimizer)
 
         if distributed:
-            objects_path = self.save_objects(dataset, shared_dir)
+            objects_path = self.save_objects(
+                dataset, shared_dir, temp_dir)
             batch_size = dataset._preprocessed['batch_size']
             self._fit_distributed(
                 nnodes, nproc_per_node, hosts, hostfile,

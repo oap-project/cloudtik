@@ -19,7 +19,6 @@
 #
 
 import copy
-import datetime
 import inspect
 import os
 import time
@@ -58,9 +57,6 @@ class PyTorchImageClassificationModel(ImageClassificationModel, PyTorchModel):
         self._device = 'cpu'
         self._lr_scheduler = None
         self._generate_checkpoints = True
-
-        # placeholder for model definition
-        self._model = None
         self._num_classes = None
 
         PyTorchModel.__init__(self, model_name)
@@ -71,7 +67,6 @@ class PyTorchImageClassificationModel(ImageClassificationModel, PyTorchModel):
         self._check_optimizer_loss(optimizer, loss)
         self._optimizer_class = optimizer if optimizer else torch.optim.Adam
         self._opt_args = {k: v for k, v in kwargs.items() if k in inspect.getfullargspec(self._optimizer_class).args}
-        self._optimizer = None  # This gets initialized later
         self._loss_class = loss if loss else torch.nn.CrossEntropyLoss
         self._loss_args = {k: v for k, v in kwargs.items() if k in inspect.getfullargspec(self._loss_class).args}
         self._loss = self._loss_class(**self._loss_args)
@@ -249,9 +244,11 @@ class PyTorchImageClassificationModel(ImageClassificationModel, PyTorchModel):
             objects_path, category="image_classification"
         )
 
-    def train(self, dataset: ImageClassificationDataset, output_dir, epochs=1, initial_checkpoints=None,
-              do_eval=True, early_stopping=False, lr_decay=True, seed=None, ipex_optimize=False,
-              distributed=False, nnodes=1, nproc_per_node=1, hosts=None, hostfile=None, shared_dir=None):
+    def train(self, dataset: ImageClassificationDataset, output_dir, *,
+              epochs=1, initial_checkpoints=None, do_eval=True,
+              early_stopping=False, lr_decay=True, seed=None, ipex_optimize=False,
+              distributed=False, nnodes=1, nproc_per_node=1, hosts=None, hostfile=None,
+              shared_dir=None, temp_dir=None):
         """
             Trains the model using the specified image classification dataset. The first time training is called, it
             will get the model from torchvision and add on a fully-connected dense layer with linear activation
@@ -278,12 +275,14 @@ class PyTorchImageClassificationModel(ImageClassificationModel, PyTorchModel):
                 hosts (str): hosts list for distributed training. Defaults to None.
                 hostfile (str): Name of the hostfile for distributed training. Defaults to None.
                 shared_dir (str): The shared data dir for distributed training.
+                temp_dir (str): The temp data dir at local.
 
             Returns:
                 Trained PyTorch model object
         """
         self._check_train_inputs(
-            output_dir, dataset, ImageClassificationDataset, epochs, initial_checkpoints)
+            output_dir, dataset, ImageClassificationDataset,
+            epochs, initial_checkpoints)
 
         dataset_num_classes = len(dataset.class_names)
 
@@ -302,7 +301,8 @@ class PyTorchImageClassificationModel(ImageClassificationModel, PyTorchModel):
             self._optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
         if distributed:
-            objects_path = self.save_objects(dataset, shared_dir)
+            objects_path = self.save_objects(
+                dataset, shared_dir, temp_dir)
             batch_size = dataset._preprocessed['batch_size']
             self._fit_distributed(
                 nnodes, nproc_per_node, hosts, hostfile,
@@ -426,13 +426,14 @@ class PyTorchImageClassificationModel(ImageClassificationModel, PyTorchModel):
         else:
             raise ValueError("Unable to export the model, because it hasn't been trained yet")
 
-    def write_inc_config_file(self, config_file_path, dataset, batch_size, overwrite=False,
-                              resize_interpolation='bicubic', accuracy_criterion_relative=0.01, exit_policy_timeout=0,
-                              exit_policy_max_trials=50, tuning_random_seed=9527,
-                              tuning_workspace=''):
+    def export_neural_compressor_config(
+            self, config_file_path, dataset, batch_size, overwrite=False,
+            resize_interpolation='bicubic', accuracy_criterion_relative=0.01, exit_policy_timeout=0,
+            exit_policy_max_trials=50, tuning_random_seed=9527,
+            tuning_workspace=''):
         """
-        Writes an INC compatible config file to the specified path usings args from the specified dataset and
-        parameters.
+        Writes a neural compressor compatible config file to the specified path
+        using args from the specified dataset and parameters.
 
         Args:
             config_file_path (str): Destination path on where to write the .yaml config file.
@@ -449,9 +450,11 @@ class PyTorchImageClassificationModel(ImageClassificationModel, PyTorchModel):
             exit_policy_max_trials (int): Maximum number of tuning trials (default: 50). Tuning processing finishes when
                                           the timeout or or max_trials is reached.
             tuning_random_seed (int): Random seed for deterministic tuning (default: 9527).
-            tuning_workspace (dir): Path the INC nc_workspace folder. If the string is empty and the OUTPUT_DIR env var
-                                    is set, that output directory will be used. If the string is empty and the
-                                    OUTPUT_DIR env var is not set, the default INC nc_workspace location will be used.
+            tuning_workspace (dir): Path the neural compressor nc_workspace folder.
+                                    If the string is empty and the OUTPUT_DIR env var is set,
+                                    that output directory will be used.
+                                    If the string is empty and the OUTPUT_DIR env var is not set,
+                                    the default neural compressor nc_workspace location will be used.
         Returns:
             None
         Raises:
@@ -463,7 +466,7 @@ class PyTorchImageClassificationModel(ImageClassificationModel, PyTorchModel):
             raise FileExistsError('A file already exists at: {}. Provide a new file path or set overwrite=True',
                                   config_file_path)
 
-        # We can setup the a custom dataset to use the ImageFolder dataset option in INC.
+        # We can setup the a custom dataset to use the ImageFolder dataset option in neural compressor.
         # They don't have a PyTorch Dataset option, so for now, we only support custom datasets for quantization
         if dataset is not PyTorchImageClassificationDataset \
                 and type(dataset) != PyTorchImageClassificationDataset:
@@ -497,8 +500,8 @@ class PyTorchImageClassificationModel(ImageClassificationModel, PyTorchModel):
         if not isinstance(tuning_workspace, str):
             raise ValueError('Invalid value for the nc_workspace directory. Expected a string.')
 
-        # Get the image recognition Intel Neural Compressor template
-        config_template = ImageClassificationModel.get_inc_config_template_dict(self)
+        # Get the image recognition Neural Compressor template
+        config_template = ImageClassificationModel.get_neural_compressor_config_template(self)
 
         # Collect the different data loaders into a list, so that we can update them all the with the data transforms
         dataloader_configs = []
@@ -594,13 +597,13 @@ class PyTorchImageClassificationModel(ImageClassificationModel, PyTorchModel):
 
     def quantize(self, saved_model_dir, output_dir, inc_config_path):
         """
-        Performs post training quantization using the Intel Neural Compressor on the model from the saved_model_dir
+        Performs post training quantization using the Neural Compressor on the model from the saved_model_dir
         using the specified config file. The quantized model is written to the output directory.
 
         Args:
             saved_model_dir (str): Source directory for the model to quantize.
             output_dir (str): Writable output directory to save the quantized model
-            inc_config_path (str): Path to an INC config file (.yaml)
+            inc_config_path (str): Path to a neural compressor config file (.yaml)
 
         Returns:
             None
@@ -643,14 +646,14 @@ class PyTorchImageClassificationModel(ImageClassificationModel, PyTorchModel):
                                  stdout=subprocess.PIPE)
             stdout, stderr = p.communicate()
 
-    def benchmark(self, saved_model_dir, inc_config_path, mode='performance', model_type='fp32'):
+    def benchmark_neural_compressor(self, saved_model_dir, inc_config_path, mode='performance', model_type='fp32'):
         """
-        Use INC to benchmark the specified model for performance or accuracy. You must specify whether the
+        Use neural compressor to benchmark the specified model for performance or accuracy. You must specify whether the
         input model is fp32 or int8. IPEX int8 models are not supported yet.
 
         Args:
             saved_model_dir (str): Path to the directory where the saved model is located
-            inc_config_path (str): Path to an INC config file (.yaml)
+            inc_config_path (str): Path to a neural compressor config file (.yaml)
             mode (str): Performance or accuracy (defaults to performance)
             model_type (str): Floating point (fp32) or quantized integer (int8) model type
         Returns:
@@ -688,32 +691,4 @@ class PyTorchImageClassificationModel(ImageClassificationModel, PyTorchModel):
                 evaluator.model = common.Model(load(os.path.join(saved_model_dir, 'model.pt'), self._model))
                 return evaluator(mode)
             except AssertionError:
-                raise NotImplementedError("This model type is not yet supported by INC benchmarking")
-
-    def save_objects(self, dataset, output_dir):
-        """
-        Helper function to export dataset and model objects to disk for distributed job
-
-        Args:
-            output_dir (str): Path to a directory where the dataset and model objects are saved.
-                Default file name for saving the objects is "torch_saved_objects.obj"
-            dataset (ImageClassificationDataset): Dataset object to save. It must be an object of
-                ImageClassificationDataset so that the dataset info, train, test, and validation
-                subsets can be accessed.
-        """
-
-        objects_to_save = {
-            "dataset": dataset.dataset,
-            "info": dataset.info,
-            "train_subset": dataset.train_subset,
-            "test_subset": dataset.test_subset,
-            "validation_subset": dataset.validation_subset,
-            "model": self._model,
-            "optimizer": self._optimizer,
-            "loss": self._loss
-        }
-        now = datetime.datetime.now()
-        filename = f"torch_objects_{now:%Y-%m-%d_%H-%M-%S}.obj"
-        objects_path = os.path.join(output_dir, filename)
-        torch.save(objects_to_save, objects_path)
-        return objects_path
+                raise NotImplementedError("This model type is not yet supported by neural compressor benchmarking")

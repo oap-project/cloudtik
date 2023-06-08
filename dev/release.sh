@@ -14,6 +14,9 @@ do
         shift
         CLOUDTIK_BRANCH=$1
         ;;
+    --no-push)
+        NO_PUSH=YES
+        ;;
     *)
         echo "Usage: release.sh [ --branch main ]"
         exit 1
@@ -34,7 +37,9 @@ rm -rf ./python/dist/*.whl
 arch=$(uname -m)
 
 cp ./build/thirdparty/ganglia/modpython.so ./build/thirdparty/ganglia/modpython-${arch}.so
-aws s3 cp ./build/thirdparty/ganglia/modpython-${arch}.so s3://cloudtik/downloads/ganglia/
+if [ ! $NO_PUSH ]; then
+    aws s3 cp ./build/thirdparty/ganglia/modpython-${arch}.so s3://cloudtik/downloads/ganglia/
+fi
 
 INVALIDATION_PATHS=""
 for PYTHON_VERSION in "3.8" "3.9" "3.10" "3.11"
@@ -45,8 +50,12 @@ do
     source $CONDA_HOME/bin/activate cloudtik_py${PYTHON_TAG}
     bash ./build.sh --no-build-redis --no-build-ganglia
     CLOUDTIK_WHEEL=cloudtik-${CLOUDTIK_VERSION}-cp${PYTHON_TAG}-cp${PYTHON_TAG}-manylinux2014_${arch}.whl
-    aws s3 cp ./python/dist/$CLOUDTIK_WHEEL s3://cloudtik/downloads/cloudtik/
+    if [ ! $NO_PUSH ]; then
+        aws s3 cp ./python/dist/$CLOUDTIK_WHEEL s3://cloudtik/downloads/cloudtik/
+    fi
     INVALIDATION_PATHS="${INVALIDATION_PATHS} /downloads/cloudtik/${CLOUDTIK_WHEEL}"
 done
 
-aws cloudfront create-invalidation --distribution-id E3703BSG9BICN1 --paths ${INVALIDATION_PATHS}
+if [ ! $NO_PUSH ]; then
+    aws cloudfront create-invalidation --distribution-id E3703BSG9BICN1 --paths ${INVALIDATION_PATHS}
+fi

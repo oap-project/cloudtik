@@ -50,7 +50,7 @@ if __name__ == '__main__':
     )
 
     train_args = TrainArguments(
-        object_path=args.objects_path,
+        objects_path=args.objects_path,
         category=args.category,
         model=model,
         optimizer=optimizer,

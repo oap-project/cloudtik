@@ -99,7 +99,7 @@ class Trainer:
 
         # Horovod: save checkpoints only on worker 0 to prevent other workers from corrupting them.
         if hvd.rank() == 0:
-            checkpoint_file=os.path.join(
+            checkpoint_file = os.path.join(
                 training_args.objects_path, 'model_checkpoints')
             model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
                 filepath=checkpoint_file, save_weights_only=False, monitor='val_acc',

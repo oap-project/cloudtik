@@ -28,7 +28,8 @@ import optuna
 from ray import tune
 from ray.tune.search.optuna import OptunaSearch
 
-from .utils import partition_data
+from cloudtik.runtime.ai.modeling.classical_ml.classification_and_regression.xgboost.modeling.utils import \
+    partition_data
 
 """
 data_spec example:

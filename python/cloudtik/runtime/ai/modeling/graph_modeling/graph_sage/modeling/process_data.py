@@ -10,7 +10,8 @@ import argparse
 from sklearn import preprocessing
 from category_encoders import TargetEncoder
 
-from .utils import existing_file
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.utils import \
+    existing_file
 
 
 def process_data(raw_data_file, output_file):

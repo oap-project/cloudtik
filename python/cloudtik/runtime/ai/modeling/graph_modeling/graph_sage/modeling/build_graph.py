@@ -10,7 +10,7 @@ import os
 import argparse
 from collections import OrderedDict
 
-from .utils import existing_file
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.utils import existing_file
 
 
 def build_graph(

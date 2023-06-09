@@ -250,7 +250,7 @@ class PyTorchImageAnomalyDetectionModel(PyTorchImageClassificationModel):
         best_least_Loss = float('inf')
         is_best_ans = False
         file_name_least_loss = ""
-        print("Fine-tuning Simsiam Model on ", epochs, "epochs using ", num_images, " training images")
+        print("Fine-tuning Simsiam Model on", epochs, "epochs using", num_images, "training images")
         self._model.train()
         model = self._model
 
@@ -366,7 +366,7 @@ class PyTorchImageAnomalyDetectionModel(PyTorchImageClassificationModel):
             best_least_Loss = float('inf')
             is_best_ans = False
             file_name_least_loss = ""
-            print("Fine-tuning CUT-PASTE Model on ", epochs, "epochs using ", num_images, " training images")
+            print("Fine-tuning CUT-PASTE Model on", epochs, "epochs using", num_images, "training images")
             self._model.train()
             model = self._model
 

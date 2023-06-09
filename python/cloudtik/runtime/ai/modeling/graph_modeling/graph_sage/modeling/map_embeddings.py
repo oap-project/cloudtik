@@ -9,8 +9,8 @@ from collections import OrderedDict
 import torch
 import pandas as pd
 
-from .utils import existing_file
-from .utils import existing_directory
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.utils import \
+    existing_directory, existing_file
 
 
 def map_embeddings(

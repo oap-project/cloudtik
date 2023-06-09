@@ -1,7 +1,8 @@
 import argparse
 import time
 
-from .utils import existing_file, existing_directory, read_csv_files, load_config, DATA_ENGINE_PANDAS
+from cloudtik.runtime.ai.modeling.classical_ml.classification_and_regression.xgboost.modeling.utils import \
+    existing_file, existing_directory, read_csv_files, load_config, DATA_ENGINE_PANDAS
 
 
 def read_raw_data(raw_data_path, data_engine):

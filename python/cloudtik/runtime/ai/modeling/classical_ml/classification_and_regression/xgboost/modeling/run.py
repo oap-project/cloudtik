@@ -1,7 +1,9 @@
 import argparse
 
-from .process_data import process_data
-from .utils import existing_file, existing_directory, load_config, read_csv_files, DATA_ENGINE_PANDAS, DATA_ENGINE_MODIN
+from cloudtik.runtime.ai.modeling.classical_ml.classification_and_regression.xgboost.modeling.process_data import \
+    process_data
+from cloudtik.runtime.ai.modeling.classical_ml.classification_and_regression.xgboost.modeling.utils import \
+    existing_file, existing_directory, load_config, read_csv_files, DATA_ENGINE_PANDAS, DATA_ENGINE_MODIN
 
 
 def train_on_ray(

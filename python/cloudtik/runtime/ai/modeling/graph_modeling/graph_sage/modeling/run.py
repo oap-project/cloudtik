@@ -2,12 +2,18 @@ import argparse
 import os
 import sys
 
-from .utils import existing_file
-from .build_graph import build_graph
-from .partition_graph import partition_graph
-from .map_embeddings import map_embeddings
-from .map_embeddings_single import map_embeddings_single
-from .launch import launch_jobs, launch_local
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.utils import \
+    existing_file
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.build_graph import \
+    build_graph
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.partition_graph import \
+    partition_graph
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.map_embeddings import \
+    map_embeddings
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.map_embeddings_single import \
+    map_embeddings_single
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.launch import \
+    launch_jobs, launch_local
 
 GNN_HOME_PATH = os.path.abspath(os.path.dirname(__file__))
 

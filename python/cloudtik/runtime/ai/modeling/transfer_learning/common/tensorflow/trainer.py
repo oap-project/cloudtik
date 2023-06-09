@@ -114,6 +114,8 @@ class Trainer:
         steps_per_epoch_per_worker = steps_per_epoch_per_worker // hvd.size()
         if hvd.size() > 2:
             steps_per_epoch_per_worker += 1
+        if steps_per_epoch_per_worker == 0:
+            steps_per_epoch_per_worker = 1
         self.history = model.fit(
             training_args.train_data,
             validation_data=training_args.val_data,
@@ -129,7 +131,7 @@ class Trainer:
             print("Total elapsed time in minutes = ", ((end - start) / 60))
             print("Total epochs = ", len(self.history.history['loss']))
             print("Time per epoch in seconds = ", ((end - start) / len(self.history.history['loss'])))
-            print("Maximum validation accuracy = ", np.max(self.history.history['val_acc']))
+            print("Maximum validation accuracy = ", np.max(self.history.history['acc']))
 
     @classmethod
     def load_objects(cls, objects_path):

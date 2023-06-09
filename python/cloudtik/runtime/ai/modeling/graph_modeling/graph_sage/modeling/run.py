@@ -77,7 +77,7 @@ def _get_num_parts(hosts):
     return len(host_list)
 
 
-def _train_single(args):
+def _train(args):
     # Call launch which run a single local training processes
     model_file = _get_model_file(args.output_dir)
     node_embeddings_file = _get_node_embeddings_file(
@@ -86,7 +86,7 @@ def _train_single(args):
         args.temp_dir, args.dataset_name)
 
     workspace = GNN_HOME_PATH
-    exec_script = os.path.join(GNN_HOME_PATH, "train_graph_sage_single.py")
+    exec_script = os.path.join(GNN_HOME_PATH, "model", "train.py")
     job_command = (
         'numactl -N 0 {python_exe} -u '
         '{exec_script} '
@@ -141,7 +141,7 @@ def _train_distributed(args):
     _save_ip_config(ip_config, args.hosts)
 
     workspace = GNN_HOME_PATH
-    exec_script = os.path.join(GNN_HOME_PATH, "train_graph_sage.py")
+    exec_script = os.path.join(GNN_HOME_PATH, "model", "distributed", "train.py")
     job_command = (
         'numactl -N 0 {python_exe} '
         '{exec_script} '
@@ -243,7 +243,7 @@ def run(args):
 
     if not args.no_train_graph:
         if args.single_node:
-            _train_single(args)
+            _train(args)
         else:
             _train_distributed(args)
 

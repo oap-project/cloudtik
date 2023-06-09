@@ -13,11 +13,11 @@ from dgl.nn import SAGEConv
 import tqdm
 
 
-class DistributedGraphSAGE(nn.Module):
+class DistGraphSAGE(nn.Module):
     def __init__(
         self, in_feats, hidden_size, out_feats, n_layers, activation, aggregator_type
     ):
-        super(DistributedGraphSAGE, self).__init__()
+        super(DistGraphSAGE, self).__init__()
         self.layers = nn.ModuleList()
         self.activation = activation
 
@@ -40,7 +40,7 @@ class DistributedGraphSAGE(nn.Module):
         return h
 
 
-class DistributedGraphSAGEModel(nn.Module):
+class DistGraphSAGEModel(nn.Module):
     def __init__(self, vocab_size, hid_size, num_layers):
         super().__init__()
 
@@ -49,7 +49,7 @@ class DistributedGraphSAGEModel(nn.Module):
         self.emb = th.nn.Embedding(vocab_size, hid_size)
 
         # encoder is a 1-layer GraphSAGE model
-        self.encoder = DistributedGraphSAGE(
+        self.encoder = DistGraphSAGE(
             hid_size, hid_size, hid_size, num_layers, F.relu, "mean"
         )
         # decoder is a 3-layer MLP

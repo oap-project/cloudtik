@@ -27,6 +27,96 @@ class Trainer:
         self.graph = None
         self.model = None
 
+    def train(self, dataset, device, args):
+        hg = dataset[0]  # only one graph
+        print(hg)
+        print("etype to read train/test/val from: ", hg.canonical_etypes[0][1])
+        train_mask = hg.edges[hg.canonical_etypes[0][1]].data["train_mask"]
+        val_mask = hg.edges[hg.canonical_etypes[0][1]].data["val_mask"]
+        test_mask = hg.edges[hg.canonical_etypes[0][1]].data["test_mask"]
+        train_eidx = torch.nonzero(train_mask, as_tuple=False).squeeze()
+        val_eidx = torch.nonzero(val_mask, as_tuple=False).squeeze()
+        test_eidx = torch.nonzero(test_mask, as_tuple=False).squeeze()
+
+        E = hg.num_edges(hg.canonical_etypes[0][1])
+        reverse_eids = torch.cat([torch.arange(E, 2 * E), torch.arange(0, E)])
+        print("First reverse id is:  ", reverse_eids[0])
+
+        g = dgl.to_homogeneous(hg)
+        g = g.to("cuda" if args.mode == "gpu" else "cpu")
+
+        train_eidx.to(device)
+        val_eidx.to(device)
+        test_eidx.to(device)
+
+        vocab_size = g.num_nodes()
+
+        # create sampler & dataloaders
+        sampler = NeighborSampler([int(fanout) for fanout in args.fan_out.split(",")])
+        sampler = as_edge_prediction_sampler(
+            sampler,
+            exclude="reverse_id",
+            reverse_eids=reverse_eids,
+            negative_sampler=negative_sampler.Uniform(1),
+        )
+        # no neighbor sampling during test
+        test_sampler = MultiLayerFullNeighborSampler(1)
+        test_sampler = as_edge_prediction_sampler(
+            test_sampler,
+            exclude="reverse_id",
+            reverse_eids=reverse_eids,
+            negative_sampler=negative_sampler.Uniform(1),
+        )
+
+        use_uva = args.mode == "mixed"
+
+        train_dataloader = DataLoader(
+            g,
+            train_eidx,
+            sampler,
+            device=device,
+            batch_size=args.batch_size,
+            shuffle=True,
+            drop_last=False,
+            num_workers=args.num_dl_workers,
+            use_uva=use_uva,
+        )
+
+        val_dataloader = DataLoader(
+            g,
+            val_eidx,
+            sampler,
+            device=device,
+            batch_size=args.batch_size_eval,
+            shuffle=True,
+            drop_last=False,
+            num_workers=args.num_dl_workers,
+            use_uva=use_uva,
+        )
+
+        test_dataloader = DataLoader(
+            g,
+            test_eidx,
+            test_sampler,
+            device=device,
+            batch_size=args.batch_size_eval,
+            shuffle=False,
+            drop_last=False,
+            num_workers=args.num_dl_workers,
+            use_uva=use_uva,
+        )
+
+        self.graph = g
+        self.model = GraphSAGEModel(
+            vocab_size, args.num_hidden, args.num_layers).to(device)
+
+        # model training
+        print("Training...")
+        self._train(
+            args, device, g, train_dataloader, val_dataloader, test_dataloader)
+
+        return self.model
+
     def evaluate(self, model, test_dataloader):
         model.eval()
         score_all = torch.tensor(())
@@ -118,93 +208,3 @@ class Trainer:
                         best_rocauc = rocauc
                         torch.save(model.state_dict(), best_model_path)
                     print("Epoch {:05d} | Test roc_auc_score {:.4f}".format(epoch, rocauc))
-
-    def train(self, dataset, device, args):
-        hg = dataset[0]  # only one graph
-        print(hg)
-        print("etype to read train/test/val from: ", hg.canonical_etypes[0][1])
-        train_mask = hg.edges[hg.canonical_etypes[0][1]].data["train_mask"]
-        val_mask = hg.edges[hg.canonical_etypes[0][1]].data["val_mask"]
-        test_mask = hg.edges[hg.canonical_etypes[0][1]].data["test_mask"]
-        train_eidx = torch.nonzero(train_mask, as_tuple=False).squeeze()
-        val_eidx = torch.nonzero(val_mask, as_tuple=False).squeeze()
-        test_eidx = torch.nonzero(test_mask, as_tuple=False).squeeze()
-
-        E = hg.num_edges(hg.canonical_etypes[0][1])
-        reverse_eids = torch.cat([torch.arange(E, 2 * E), torch.arange(0, E)])
-        print("First reverse id is:  ", reverse_eids[0])
-
-        g = dgl.to_homogeneous(hg)
-        g = g.to("cuda" if args.mode == "gpu" else "cpu")
-
-        train_eidx.to(device)
-        val_eidx.to(device)
-        test_eidx.to(device)
-
-        vocab_size = g.num_nodes()
-
-        # create sampler & dataloaders
-        sampler = NeighborSampler([int(fanout) for fanout in args.fan_out.split(",")])
-        sampler = as_edge_prediction_sampler(
-            sampler,
-            exclude="reverse_id",
-            reverse_eids=reverse_eids,
-            negative_sampler=negative_sampler.Uniform(1),
-        )
-        # no neighbor sampling during test
-        test_sampler = MultiLayerFullNeighborSampler(1)
-        test_sampler = as_edge_prediction_sampler(
-            test_sampler,
-            exclude="reverse_id",
-            reverse_eids=reverse_eids,
-            negative_sampler=negative_sampler.Uniform(1),
-        )
-
-        use_uva = args.mode == "mixed"
-
-        train_dataloader = DataLoader(
-            g,
-            train_eidx,
-            sampler,
-            device=device,
-            batch_size=args.batch_size,
-            shuffle=True,
-            drop_last=False,
-            num_workers=args.num_dl_workers,
-            use_uva=use_uva,
-        )
-
-        val_dataloader = DataLoader(
-            g,
-            val_eidx,
-            sampler,
-            device=device,
-            batch_size=args.batch_size_eval,
-            shuffle=True,
-            drop_last=False,
-            num_workers=args.num_dl_workers,
-            use_uva=use_uva,
-        )
-
-        test_dataloader = DataLoader(
-            g,
-            test_eidx,
-            test_sampler,
-            device=device,
-            batch_size=args.batch_size_eval,
-            shuffle=False,
-            drop_last=False,
-            num_workers=args.num_dl_workers,
-            use_uva=use_uva,
-        )
-
-        self.graph = g
-        self.model = GraphSAGEModel(
-            vocab_size, args.num_hidden, args.num_layers).to(device)
-
-        # model training
-        print("Training...")
-        self._train(
-            args, device, g, train_dataloader, val_dataloader, test_dataloader)
-
-        return self.model

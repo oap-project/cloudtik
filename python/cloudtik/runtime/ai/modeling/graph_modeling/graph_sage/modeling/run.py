@@ -87,6 +87,7 @@ def _train_single(args):
     dataset_dir = _get_dataset_dir(
         args.temp_dir, args.dataset_name)
 
+    workspace = GNN_HOME_PATH
     exec_script = os.path.join(GNN_HOME_PATH, "train_graph_sage_single.py")
     job_command = (
         'numactl -N 0 {python_exe} -u '
@@ -94,7 +95,7 @@ def _train_single(args):
         '--model_file {model_file} '
         '--node_embeddings_file {node_embeddings_file} '
         '--dataset_dir {dataset_dir} '
-        '--num_epoch {num_epoch} '
+        '--num_epoch {num_epochs} '
         '--num_hidden {num_hidden} '
         '--num_layers {num_layers} '
         '--lr {lr} '
@@ -109,7 +110,7 @@ def _train_single(args):
             model_file=model_file,
             node_embeddings_file=node_embeddings_file,
             dataset_dir=dataset_dir,
-            num_epoch=args.num_epoch,
+            num_epochs=args.num_epochs,
             num_hidden=args.num_hidden,
             num_layers=args.num_layers,
             lr=args.lr,
@@ -120,8 +121,10 @@ def _train_single(args):
             num_dl_workers=args.num_dl_workers,
         )
     )
+
     launch_local(
-        job_command,
+        job_command, workspace,
+        num_workers=args.num_dl_workers,
         num_omp_threads=args.num_omp_threads
     )
 
@@ -150,7 +153,7 @@ def _train_distributed(args):
         '--graph_name {graph_name} '
         '--ip_config {ip_config} '
         '--part_config {part_config} '
-        '--num_epoch {num_epoch} '
+        '--num_epochs {num_epochs} '
         '--num_hidden {num_hidden} '
         '--num_layers {num_layers} '
         '--lr {lr} '
@@ -169,7 +172,7 @@ def _train_distributed(args):
             graph_name=args.graph_name,
             ip_config=ip_config,
             part_config=part_config,
-            num_epoch=args.num_epoch,
+            num_epochs=args.num_epochs,
             num_hidden=args.num_hidden,
             num_layers=args.num_layers,
             lr=args.lr,

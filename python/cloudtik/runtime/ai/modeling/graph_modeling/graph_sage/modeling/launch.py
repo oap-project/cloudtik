@@ -57,6 +57,36 @@ def get_remote_command(local_command, host,
         else get_cloudtik_ssh_command(local_command, host)
 
 
+def get_local_num_omp_threads(num_omp_threads, num_workers):
+    if num_omp_threads is None:
+        # TODO: cores information of container cases
+        # Here we assume all machines have the same number of CPU cores as the machine
+        # where the launch script runs.
+        num_omp_threads = max(
+            multiprocessing.cpu_count() - num_workers, 1
+        )
+        print(
+            "The number of OMP threads is set to",
+            num_omp_threads,
+        )
+    return num_omp_threads
+
+
+def get_worker_num_omp_threads(num_omp_threads, num_trainers):
+    if num_omp_threads is None:
+        # TODO: handle the case the working node is not the same as workers
+        # Here we assume all machines have the same number of CPU cores as the machine
+        # where the launch script runs.
+        num_omp_threads = max(
+            multiprocessing.cpu_count() // 2 // num_trainers, 1
+        )
+        print(
+            "The number of OMP threads per trainer is set to",
+            num_omp_threads,
+        )
+    return num_omp_threads
+
+
 def cleanup_proc(get_all_remote_pids, conn):
     """This process tries to clean up the remote training tasks."""
     print("cleanupu process runs")
@@ -612,6 +642,8 @@ def launch_jobs(
     hosts = []
     thread_list = []
     server_count_per_machine = 0
+    num_omp_threads = get_worker_num_omp_threads(
+        num_omp_threads, num_trainers)
 
     # Get the IP addresses of the cluster.
     ip_config_file = os.path.join(workspace, ip_config)
@@ -660,7 +692,7 @@ def launch_jobs(
             cmd = wrap_cmd_with_local_envvars(udf_command, server_env_vars_cur)
             cmd = (
                 wrap_cmd_with_extra_envvars(cmd, extra_envs)
-                if len(extra_envs) > 0
+                if extra_envs
                 else cmd
             )
             cmd = "cd " + str(workspace) + "; " + cmd
@@ -707,7 +739,7 @@ def launch_jobs(
         cmd = wrap_cmd_with_local_envvars(torch_dist_udf_command, client_env_vars)
         cmd = (
             wrap_cmd_with_extra_envvars(cmd, extra_envs)
-            if len(extra_envs) > 0
+            if extra_envs
             else cmd
         )
         cmd = "cd " + str(workspace) + "; " + cmd
@@ -757,8 +789,11 @@ def launch_jobs(
 
 def launch_local(
         udf_command, workspace,
+        num_workers,
         num_omp_threads,
         extra_envs=None):
+    num_omp_threads = get_local_num_omp_threads(
+        num_omp_threads, num_workers)
     env_vars_template = (
         "OMP_NUM_THREADS={OMP_NUM_THREADS} "
     )
@@ -769,7 +804,7 @@ def launch_local(
     cmd = wrap_cmd_with_local_envvars(udf_command, env_vars)
     cmd = (
         wrap_cmd_with_extra_envvars(cmd, extra_envs)
-        if len(extra_envs) > 0
+        if extra_envs
         else cmd
     )
     cmd = "cd " + str(workspace) + "; " + cmd
@@ -891,16 +926,6 @@ def main():
     assert (
         args.ip_config is not None
     ), "A user has to specify an IP configuration file with --ip_config."
-    if args.num_omp_threads is None:
-        # Here we assume all machines have the same number of CPU cores as the machine
-        # where the launch script runs.
-        args.num_omp_threads = max(
-            multiprocessing.cpu_count() // 2 // args.num_trainers, 1
-        )
-        print(
-            "The number of OMP threads per trainer is set to",
-            args.num_omp_threads,
-        )
 
     udf_command = str(udf_command[0])
     if "python" not in udf_command:

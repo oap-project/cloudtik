@@ -119,8 +119,12 @@ def build_graph(
             # edge_header.extend(["train_mask"])
             # edge_df_cols.extend(["masks_0"])
         if config["edge_features"]:
-            feat_keys = config["edge_features"]
-            print("features for CSVDataset edges: ", feat_keys)
+            edge_features = config["edge_features"]
+            print("features for edges: ", edge_features)
+            data_columns = set(df.columns)
+            feat_keys = [feature for feature in edge_features if feature in data_columns]
+            if len(feat_keys) != len(edge_features):
+                print("Valid features for edges: ", feat_keys)
             # Note: feat_as_str needs to be a string of comma separated values
             # enclosed in double quotes for dgl default parser to work
             df["edge_feat_as_str"] = df[feat_keys].astype(str).apply(",".join, axis=1)

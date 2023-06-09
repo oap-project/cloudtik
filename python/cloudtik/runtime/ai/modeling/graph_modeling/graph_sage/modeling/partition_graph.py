@@ -1,7 +1,6 @@
 # Copyright (C) 2023 Intel Corporation
 # SPDX-License-Identifier: MIT
 
-import argparse
 import time
 import os
 import torch
@@ -68,38 +67,3 @@ def partition_graph(
     ) = dgl.distributed.load_partition(
         os.path.join(output_dir, graph_name + ".json"), 0
     )
-
-
-def main(args):
-    partition_graph(
-        dataset_dir=args.dataset_dir,
-        output_dir=args.output_dir,
-        graph_name=args.graph_name,
-        num_parts=args.num_parts,
-        num_hops=args.num_hops
-    )
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Graph Partition")
-    parser.add_argument(
-        "--dataset_dir",
-        help="Path to CSVDataset graph folder ")
-    parser.add_argument(
-        "--output_dir",
-        help="Output folder to store partitions. It will create a sub folder for different partition sets")
-    parser.add_argument(
-        "--graph_name",
-        type=str,
-        default="tabformer_full_homo",
-        help="The graph name")
-    parser.add_argument(
-        "--num_parts", type=int, default=2, help="number of partitions")
-    parser.add_argument(
-        "--num_hops", type=int, default=1,
-        help="number of hops of nodes we include in a partition as HALO nodes")
-
-    args = parser.parse_args()
-    print(args)
-
-    main(args)

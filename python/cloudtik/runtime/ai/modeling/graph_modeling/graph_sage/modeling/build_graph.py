@@ -7,10 +7,7 @@ import numpy as np
 import time
 import yaml
 import os
-import argparse
 from collections import OrderedDict
-
-from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.utils import existing_file
 
 
 def build_graph(
@@ -150,32 +147,3 @@ def build_graph(
 
     t_csv_dataset = time.time()
     print("Time to write CSVDatasets", t_csv_dataset - t_renum)
-
-
-def main(args):
-    build_graph(
-        input_file=args.input_file,
-        output_dir=args.output_dir,
-        dataset_name=args.dataset_name,
-        tabular2graph=args.tabular2graph
-    )
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Build Graph Arguments")
-    parser.add_argument(
-        "--input_file",
-        type=existing_file,
-        default="",
-        help="Input file with path of the processed data in csv) ")
-    parser.add_argument(
-        "--dataset_name", default="tabformer_hetero", type=str, help="dataset name")
-    parser.add_argument(
-        "--output_dir", default="", help="The path to the output")
-    parser.add_argument(
-        "--tabular2graph", required=True, help="The path to the tabular2graph.yaml")
-
-    args = parser.parse_args()
-    print(args)
-
-    main(args)

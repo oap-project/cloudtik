@@ -9,9 +9,7 @@ from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.build_graph
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.partition_graph import \
     partition_graph
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.map_embeddings import \
-    map_embeddings
-from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.map_embeddings_single import \
-    map_embeddings_single
+    map_embeddings_distributed, map_embeddings
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.launch import \
     launch_jobs, launch_local
 
@@ -199,7 +197,7 @@ def _map_and_save_embeddings(args):
     mapped_output_file = _get_mapped_output_file(args.output_dir)
     node_embeddings_dir = _get_node_embeddings_dir(args.output_dir)
     if args.single_node:
-        map_embeddings_single(
+        map_embeddings(
             processed_data_file=args.input_file,
             node_embeddings_dir=node_embeddings_dir,
             node_embeddings_name=args.node_embeddings_name,
@@ -208,7 +206,7 @@ def _map_and_save_embeddings(args):
         )
     else:
         partition_dir = _get_partition_dir(args.temp_dir)
-        map_embeddings(
+        map_embeddings_distributed(
             processed_data_file=args.input_file,
             partition_dir=partition_dir,
             node_embeddings_dir=node_embeddings_dir,

@@ -2,12 +2,14 @@
 # SPDX-License-Identifier: MIT
 
 import argparse
-import os
 import random
 
 import dgl
 import numpy as np
 import torch as th
+
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.distributed.trainer \
+    import Trainer
 
 
 def main(args):
@@ -24,65 +26,8 @@ def main(args):
     print("Loading original data to get the global train/test/val masks")
     dataset = dgl.data.CSVDataset(args.dataset_dir, force_reload=False)
 
-    hg = dataset[0]  # only one graph
-    print(hg)
-    print("etype to read train/test/val from: ", hg.canonical_etypes[0][1])
-    train_mask = hg.edges[hg.canonical_etypes[0][1]].data["train_mask"]
-    val_mask = hg.edges[hg.canonical_etypes[0][1]].data["val_mask"]
-    test_mask = hg.edges[hg.canonical_etypes[0][1]].data["test_mask"]
-
-    E = hg.num_edges(hg.canonical_etypes[0][1])
-    # The i-th element indicates the ID of the i-th edge’s reverse edge.
-    rev_eids_map = th.cat([th.arange(E, 2 * E), th.arange(0, E)])
-
-    # load the partitioned graph (from homogeneous)
-    print("Load prepartitioned graph")
-    dgl.distributed.initialize(args.ip_config)
-    if not args.standalone:
-        th.distributed.init_process_group(backend="gloo")
-    g = dgl.distributed.DistGraph(args.graph_name, part_config=args.part_config)
-
-    train_mask_padded = th.zeros((g.num_edges(),), dtype=th.bool)
-    train_mask_padded[: train_mask.shape[0]] = train_mask
-    val_mask_padded = th.zeros((g.num_edges(),), dtype=th.bool)
-    val_mask_padded[: val_mask.shape[0]] = val_mask
-    test_mask_padded = th.zeros((g.num_edges(),), dtype=th.bool)
-    test_mask_padded[: test_mask.shape[0]] = test_mask
-
-    print("shuffle edges according to emap from global")
-    shuffled_val_mask = th.zeros((g.num_edges(),), dtype=th.bool)
-    shuffled_test_mask = th.zeros((g.num_edges(),), dtype=th.bool)
-    shuffled_rev_eids_map = th.zeros_like(rev_eids_map)
-    emap = th.load(os.path.join(os.path.dirname(args.part_config), "emap.pt"))
-    print("emap shape: ", emap.shape)
-    shuffled_val_mask[emap] = val_mask_padded
-    shuffled_val_eidx = th.nonzero(shuffled_val_mask, as_tuple=False).squeeze()
-    shuffled_test_mask[emap] = test_mask_padded
-    shuffled_test_eidx = th.nonzero(shuffled_test_mask, as_tuple=False).squeeze()
-    shuffled_rev_eids_map[emap] = rev_eids_map
-
-    train_eids = dgl.distributed.edge_split(
-        train_mask_padded,
-        g.get_partition_book(),
-        force_even=True,
-    )
-
-    if args.num_gpus == -1:
-        device = th.device("cpu")
-    else:
-        dev_id = g.rank() % args.num_gpus
-        device = th.device("cuda:" + str(dev_id))
-
-    # Pack data
-    data = (
-        train_eids,
-        shuffled_val_eidx,
-        shuffled_test_eidx,
-        shuffled_rev_eids_map,
-        g,
-    )
-    run(args, device, data)
-    print("parent ends")
+    trainer = Trainer()
+    trainer.train(dataset, args)
 
 
 if __name__ == "__main__":

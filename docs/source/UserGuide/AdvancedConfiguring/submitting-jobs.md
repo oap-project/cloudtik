@@ -31,7 +31,7 @@ For example, the user has a python file **experiment.py** to submit, and `--smok
 ```
     cloudtik submit /path/to/your-cluster-config.yaml /path/to/experiment.py  --smoke-test
 ```
-The script file will be automatically uploaded to the path "~/jobs/" on the head. And tehn it will run on head with the interpreter based on the script type.
+The script file will be automatically uploaded to the path "~/user/jobs/" on the head. And tehn it will run on head with the interpreter based on the script type.
 
 ## Script arguments quote or escaping
 If your parameters for the script contain special character like ***|,\\*** or

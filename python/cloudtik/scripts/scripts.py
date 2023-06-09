@@ -478,7 +478,7 @@ def submit(cluster_config_file, cluster_name, screen, tmux, stop, start,
 
     The script is automatically synced to the following location:
 
-        os.path.join("~/jobs", os.path.basename(script))
+        os.path.join("~/user/jobs", os.path.basename(script))
     """
     # Don't use config cache so that we will run a full bootstrap needed for start
     if start:

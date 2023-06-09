@@ -80,7 +80,7 @@ def run(args):
                 args.processed_data_file, engine=DATA_ENGINE_PANDAS)
 
         on_ray = False
-        if not args.is_single_node:
+        if not args.single_node:
             on_ray = True
 
         ray_params = get_ray_params(args)

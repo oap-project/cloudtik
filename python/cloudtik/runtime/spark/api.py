@@ -1,6 +1,6 @@
 """IMPORTANT: this is an experimental interface and not currently stable."""
 
-from typing import Union
+from typing import Union, Optional
 
 from cloudtik.core.api import Cluster, ThisCluster
 from cloudtik.runtime.spark.utils import request_rest_applications, request_rest_yarn, get_runtime_default_storage, \
@@ -8,14 +8,20 @@ from cloudtik.runtime.spark.utils import request_rest_applications, request_rest
 
 
 class SparkCluster(Cluster):
-    def __init__(self, cluster_config: Union[dict, str], should_bootstrap: bool = True) -> None:
+    def __init__(
+            self, cluster_config: Union[dict, str],
+            should_bootstrap: bool = True,
+            no_config_cache: bool = True,
+            verbosity: Optional[int] = None) -> None:
         """Create a Spark cluster object to operate on with this API.
 
         Args:
             cluster_config (Union[str, dict]): Either the config dict of the
                 cluster, or a path pointing to a file containing the config.
         """
-        Cluster.__init__(self, cluster_config, should_bootstrap)
+        super().__init__(
+            cluster_config, should_bootstrap,
+            no_config_cache, verbosity)
 
     def applications(self, endpoint: str):
         """Make a rest request to Spark History Server
@@ -41,9 +47,9 @@ class SparkCluster(Cluster):
 
 
 class ThisSparkCluster(ThisCluster):
-    def __init__(self) -> None:
+    def __init__(self, verbosity: Optional[int] = None) -> None:
         """Create a Spark cluster object to operate on with this API on head."""
-        ThisCluster.__init__(self)
+        super().__init__(verbosity)
 
     def applications(self, endpoint: str):
         """Make a rest request to Spark History Server

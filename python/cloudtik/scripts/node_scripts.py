@@ -455,17 +455,18 @@ def resources(cpu, memory, in_mb):
     default=None,
     help="Temporary file to use")
 @click.option(
-    "--verbosity",
-    required=False,
-    default=None,
-    type=int,
-    help="The integer verbosity to set")
-@click.option(
     "--runtimes",
     required=False,
     type=str,
     default=None,
     help="The list of runtimes to collect logs from")
+@click.option(
+    "--silent",
+    required=False,
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Whether print a informational message.")
 @add_click_logging_options
 def dump(
         stream: bool = False,
@@ -476,8 +477,8 @@ def dump(
         processes: bool = True,
         processes_verbose: bool = False,
         tempfile: Optional[str] = None,
-        verbosity: int = None,
-        runtimes: str = None):
+        runtimes: str = None,
+        silent: bool = False):
     """Collect local data and package into an archive.
 
     Usage:
@@ -486,10 +487,6 @@ def dump(
 
     This script is called on remote nodes to fetch their data.
     """
-    # This may stream data to stdout, so no printing here
-    if verbosity is not None:
-        cli_logger.set_verbosity(verbosity)
-
     dump_local(
         stream=stream,
         output=output,
@@ -500,7 +497,7 @@ def dump(
         processes_verbose=processes_verbose,
         tempfile=tempfile,
         runtimes=runtimes,
-        verbosity=verbosity)
+        silent=silent)
 
 
 @node.command(context_settings={"ignore_unknown_options": True})

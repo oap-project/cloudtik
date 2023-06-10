@@ -1133,6 +1133,13 @@ def health_check(cluster_config_file, cluster_name, no_config_cache, with_detail
     is_flag=True,
     default=False,
     help="Disable the local cluster config cache.")
+@click.option(
+    "--silent",
+    required=False,
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Whether print a warning message for cluster dump.")
 @add_click_logging_options
 def cluster_dump(cluster_config_file: Optional[str] = None,
                  cluster_name: str = None,
@@ -1145,7 +1152,8 @@ def cluster_dump(cluster_config_file: Optional[str] = None,
                  processes: bool = True,
                  processes_verbose: bool = False,
                  tempfile: Optional[str] = None,
-                 no_config_cache=False):
+                 no_config_cache=False,
+                 silent=False):
     """Get log data from one or more nodes.
 
     Best used with cluster configs:
@@ -1172,7 +1180,8 @@ def cluster_dump(cluster_config_file: Optional[str] = None,
         pip=pip,
         processes=processes,
         processes_verbose=processes_verbose,
-        tempfile=tempfile)
+        tempfile=tempfile,
+        silent=silent)
 
 
 def _add_command_alias(command, name, hidden):

@@ -122,9 +122,11 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process data")
     parser.add_argument(
-        "--raw_data_file", type=existing_file, help="The path to the raw transaction data file")
+        "--raw-data-file", "--raw_data_file",
+        type=existing_file,
+        help="The path to the raw transaction data file")
     parser.add_argument(
-        "--output_file",
+        "--output-file", "--output_file",
         type=str,
         help="The path to the output processed edge data file",)
     args = parser.parse_args()

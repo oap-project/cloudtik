@@ -334,13 +334,21 @@ def wrap_udf_in_torch_dist_launcher(
         # for backwards compatibility, accept python2 but technically DGL is a py3 library, so this is not recommended
         "python2.7",
         "python2",
+        "python",
     )
-    # If none of the candidate python bins match, then we go with the default `python`
-    python_bin = "python"
+
+    # find the python bin which appears first
+    python_bin_index = len(udf_command)
+    python_bin = None
     for candidate_python_bin in python_bin_allowlist:
-        if candidate_python_bin in udf_command:
+        python_bin_to_match = "{} ".format(candidate_python_bin)
+        index = udf_command.find(python_bin_to_match)
+        if 0 <= index < python_bin_index:
+            python_bin_index = index
             python_bin = candidate_python_bin
-            break
+
+    if not python_bin:
+        raise RuntimeError("Must have python bin in the command.")
 
     # transforms the udf_command from:
     #     python path/to/dist_trainer.py arg0 arg1
@@ -348,7 +356,8 @@ def wrap_udf_in_torch_dist_launcher(
     #     python -m torch.distributed.launch [DIST TORCH ARGS] path/to/dist_trainer.py arg0 arg1
     # Note: if there are multiple python commands in `udf_command`, this may do the Wrong Thing, eg launch each
     #       python command within the torch distributed launcher.
-    new_udf_command = udf_command.replace(python_bin, f"{python_bin} {torch_dist_cmd}")
+    insert_pos = index + len(python_bin)
+    new_udf_command = udf_command[:insert_pos] + " " + torch_dist_cmd + udf_command[insert_pos:]
 
     return new_udf_command
 

@@ -304,10 +304,6 @@ def add_horovod_params(parser):
                             '<output_filename>/rank.<rank>/<stdout | stderr>. The <rank> will be padded with 0 '
                             'characters to ensure lexicographical order. For MPI, delegates its behavior to mpirun.')
 
-    parser.add_argument("--verbose", default=False, action='store_true',
-                        dest='verbose',
-                        help='If this flag is set, extra messages will be printed.')
-
 
 def parse_args():
     """
@@ -363,6 +359,10 @@ def parse_args():
     parser.add_argument("--log-file-prefix", "--log_file_prefix",
                         default="run", type=str,
                         help="log file prefix")
+
+    parser.add_argument("--verbose",
+                        default=False, action='store_true',
+                        help='If this flag is set, extra messages will be printed.')
 
     add_cpu_option_params(parser)
     add_memory_allocator_params(parser)

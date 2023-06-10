@@ -659,12 +659,12 @@ def health_check(address, redis_password, component, with_details):
     default=None,
     help="Temporary file to use")
 @click.option(
-    "--verbosity",
+    "--silent",
     required=False,
-    default=None,
-    type=int,
-    hidden=True,
-    help="The integer verbosity to set.")
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Whether print a warning message for cluster dump.")
 @add_click_logging_options
 def cluster_dump(hosts: Optional[str] = None,
                  stream: bool = False,
@@ -675,7 +675,7 @@ def cluster_dump(hosts: Optional[str] = None,
                  processes: bool = True,
                  processes_verbose: bool = False,
                  tempfile: Optional[str] = None,
-                 verbosity: int = None):
+                 silent: bool = False,):
     """Collect cluster data and package into an archive on head.
 
         Usage:
@@ -684,8 +684,6 @@ def cluster_dump(hosts: Optional[str] = None,
 
         This script is called on head node to fetch the cluster data.
         """
-    if verbosity is not None:
-        cli_logger.set_verbosity(verbosity)
 
     config = load_head_cluster_config()
     call_context = cli_call_context()
@@ -700,7 +698,7 @@ def cluster_dump(hosts: Optional[str] = None,
         processes=processes,
         processes_verbose=processes_verbose,
         temp_file=tempfile,
-        verbosity=verbosity)
+        silent=silent)
 
 
 @click.group(cls=NaturalOrderGroup)

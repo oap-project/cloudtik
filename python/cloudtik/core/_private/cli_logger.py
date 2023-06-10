@@ -377,6 +377,10 @@ class CliLogger():
             return 999
         return self._verbosity
 
+    @property
+    def verbosity_overriden(self):
+        return self._verbosity_overriden
+
     def set_verbosity(self, x):
         self._verbosity = x
         self._verbosity_overriden = True

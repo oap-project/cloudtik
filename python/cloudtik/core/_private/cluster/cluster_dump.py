@@ -19,7 +19,7 @@ from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core._private.cluster.cluster_exec import exec_cluster, exec_on_head, rsync_cluster, rsync_on_head
 from cloudtik.core._private.providers import _get_node_provider
 from cloudtik.core._private.utils import get_head_working_ip, get_node_cluster_ip, get_runtime_logs, \
-    get_runtime_processes, _get_node_specific_runtime_types
+    get_runtime_processes, _get_node_specific_runtime_types, with_verbose_option
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, \
     NODE_KIND_WORKER
 
@@ -406,7 +406,7 @@ def get_archive_from_remote_node(
         Path to a temporary file containing the node's collected data.
 
     """
-    collect_cmd = ["cloudtik", "node", "dump", "--verbosity=0"]
+    collect_cmd = ["cloudtik", "node", "dump", "--silent"]
     collect_cmd += ["--logs"] if parameters.logs else ["--no-logs"]
     collect_cmd += ["--debug-state"] if parameters.debug_state else [
         "--no-debug-state"
@@ -429,6 +429,7 @@ def get_archive_from_remote_node(
     collect_cmd += ["--output"]
     collect_cmd += [remote_temp_file]
 
+    with_verbose_option(collect_cmd, call_context)
     cmd = " ".join(collect_cmd)
 
     cli_logger.print(f"Collecting data from remote node: {remote_node.host}")
@@ -577,7 +578,7 @@ def get_archive_from_head_node(
 
     """
 
-    collect_cmd = ["cloudtik", "head", "cluster-dump", "--verbosity=0"]
+    collect_cmd = ["cloudtik", "head", "cluster-dump", "--silent"]
     collect_cmd += ["--logs"] if parameters.logs else ["--no-logs"]
     collect_cmd += ["--debug-state"] if parameters.debug_state else [
         "--no-debug-state"
@@ -601,6 +602,7 @@ def get_archive_from_head_node(
     collect_cmd += ["--output"]
     collect_cmd += [remote_temp_file]
 
+    with_verbose_option(collect_cmd, call_context)
     cmd = " ".join(collect_cmd)
 
     cli_logger.print(f"Collecting cluster data from head node...")

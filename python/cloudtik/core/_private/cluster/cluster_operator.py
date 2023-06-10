@@ -67,7 +67,7 @@ from cloudtik.core._private.utils import hash_runtime_conf, \
     NODE_INFO_NODE_IP, get_cpus_of_node_info, _sum_min_workers, get_memory_of_node_info, sum_worker_gpus, \
     sum_nodes_resource, get_gpus_of_node_info, get_resource_of_node_info, get_resource_info_of_node_type, \
     get_worker_node_type, save_server_process, get_resource_requests_for, _get_head_resource_requests, \
-    get_resource_list_str
+    get_resource_list_str, with_verbose_option
 
 from cloudtik.core._private.providers import _get_node_provider, _NODE_PROVIDERS
 from cloudtik.core.tags import (
@@ -666,6 +666,8 @@ def _kill_node_from_head(config: Dict[str, Any],
         "--yes",
     ]
     cmds += ["--node-ip={}".format(node_ip)]
+
+    with_verbose_option(cmds, call_context)
     final_cmd = " ".join(cmds)
     _exec_cmd_on_cluster(config,
                          call_context=call_context,
@@ -1379,6 +1381,7 @@ def rsync_to_node_from_head(config: Dict[str, Any],
         else:
             cmds += ["--no-all-workers"]
 
+    with_verbose_option(cmds, call_context)
     final_cmd = " ".join(cmds)
     _exec_cmd_on_cluster(config,
                          call_context=call_context,
@@ -1653,7 +1656,7 @@ def dump_local(stream: bool = False,
                processes_verbose: bool = False,
                tempfile: Optional[str] = None,
                runtimes: str = None,
-               verbosity: Optional[int] = None) -> Optional[str]:
+               silent: bool = False) -> Optional[str]:
     if stream and output:
         raise ValueError(
             "You can only use either `--output` or `--stream`, but not both.")
@@ -1680,7 +1683,7 @@ def dump_local(stream: bool = False,
     target = output or os.path.join(os.getcwd(), os.path.basename(tmp))
     shutil.move(tmp, target)
 
-    if verbosity is None or verbosity > 0:
+    if not silent:
         cli_logger.print(f"Created local data archive at {target}")
 
     return target
@@ -1698,12 +1701,12 @@ def dump_cluster_on_head(
         processes: bool = True,
         processes_verbose: bool = False,
         temp_file: Optional[str] = None,
-        verbosity: Optional[int] = None) -> Optional[str]:
+        silent: bool = False) -> Optional[str]:
     if stream and output:
         raise ValueError(
             "You can only use either `--output` or `--stream`, but not both.")
 
-    if not stream and (verbosity is None or verbosity > 0):
+    if not stream and not silent:
         _print_cluster_dump_warning(
             call_context,
             logs, debug_state, pip, processes)
@@ -1808,12 +1811,14 @@ def dump_cluster(
         pip: bool = True,
         processes: bool = True,
         processes_verbose: bool = False,
-        tempfile: Optional[str] = None):
+        tempfile: Optional[str] = None,
+        silent: bool = False):
     # Inform the user what kind of logs are collected (before actually
     # collecting, so they can abort)
-    _print_cluster_dump_warning(
-        call_context,
-        logs, debug_state, pip, processes)
+    if not silent:
+        _print_cluster_dump_warning(
+            call_context,
+            logs, debug_state, pip, processes)
 
     head, workers = _get_nodes_to_dump(config, hosts)
 
@@ -1857,8 +1862,9 @@ def dump_cluster(
 
     shutil.move(archive.file, output)
 
-    _cli_logger.print(
-        f"Created cluster dump archive: {output}")
+    if not silent:
+        _cli_logger.print(
+            f"Created cluster dump archive: {output}")
 
 
 def _show_worker_cpus(config: Dict[str, Any]):
@@ -2663,6 +2669,7 @@ def _exec_node_from_head(config: Dict[str, Any],
         cmds += ["--job-waiter={}".format(job_waiter_name)]
 
     # TODO (haifeng): handle port forward and with_output for two state cases
+    with_verbose_option(cmds, call_context)
     final_cmd = " ".join(cmds)
 
     job_waiter = _create_job_waiter(
@@ -2699,6 +2706,7 @@ def attach_worker(config_file: str,
         use_screen: whether to use screen as multiplexer
         use_tmux: whether to use tmux as multiplexer
         override_cluster_name: set the name of the cluster
+        no_config_cache: no use config cache
         new: whether to force a new screen
         port_forward ( (int,int) or list[(int,int)] ): port(s) to forward
         force_to_host: Whether attach to host even running with docker
@@ -2723,6 +2731,7 @@ def attach_worker(config_file: str,
         cmds += ["--host"]
 
     # TODO (haifeng): handle port forward for two state cases
+    with_verbose_option(cmds, call_context)
     final_cmd = " ".join(cmds)
 
     _exec_cluster(
@@ -3070,6 +3079,8 @@ def _start_node_from_head(config: Dict[str, Any],
         cmds += ["--parallel"]
     else:
         cmds += ["--no-parallel"]
+
+    with_verbose_option(cmds, call_context)
     final_cmd = " ".join(cmds)
 
     _exec_cmd_on_cluster(config,
@@ -3131,6 +3142,8 @@ def _stop_node_from_head(config: Dict[str, Any],
         cmds += ["--parallel"]
     else:
         cmds += ["--no-parallel"]
+
+    with_verbose_option(cmds, call_context)
     final_cmd = " ".join(cmds)
 
     _exec_cmd_on_cluster(config,
@@ -3438,6 +3451,7 @@ def scale_cluster_from_head(
     if up_only:
         cmds += ["--up-only"]
 
+    with_verbose_option(cmds, call_context)
     final_cmd = " ".join(cmds)
     _exec_cmd_on_cluster(config,
                          call_context=call_context,

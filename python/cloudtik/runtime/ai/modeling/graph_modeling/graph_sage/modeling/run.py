@@ -306,7 +306,7 @@ if __name__ == "__main__":
         default=False, action="store_true",
         help="To do single node training")
     parser.add_argument(
-        "--no_build_graph", "--no_build_graph",
+        "--no-build-graph", "--no_build_graph",
         default=False, action="store_true",
         help="whether to build graph")
     parser.add_argument(
@@ -356,7 +356,7 @@ if __name__ == "__main__":
         help="List of hosts separated with comma for launching tasks. ")
     # Partition graph parameters
     parser.add_argument(
-        "--graph_name", "--graph_name",
+        "--graph-name", "--graph_name",
         type=str, default="tabformer_full_homo",
         help="The graph name")
     parser.add_argument(

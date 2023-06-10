@@ -117,7 +117,7 @@ def build_graph(
             # edge_df_cols.extend(["masks_0"])
         if config["edge_features"]:
             edge_features = config["edge_features"]
-            print("features for edges: ", edge_features)
+            print("Features for edges: ", edge_features)
             data_columns = set(df.columns)
             feat_keys = [feature for feature in edge_features if feature in data_columns]
             if len(feat_keys) != len(edge_features):

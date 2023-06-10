@@ -749,9 +749,3 @@ def configure_logging(log_style: Optional[str] = None,
     """
     cli_logger.configure(
         log_style=log_style, color_mode=color_mode, verbosity=verbosity)
-
-
-def get_docker_host_mount_location(cluster_name: str) -> str:
-    """Return host path that Docker mounts attach to."""
-    docker_mount_prefix = "/tmp/cloudtik/host_mounts/{cluster_name}"
-    return docker_mount_prefix.format(cluster_name=cluster_name)

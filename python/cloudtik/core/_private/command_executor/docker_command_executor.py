@@ -15,7 +15,8 @@ from cloudtik.core._private.docker import check_bind_mounts_cmd, \
     check_docker_running_cmd, \
     check_docker_image, \
     docker_start_cmds, \
-    with_docker_exec, get_configured_docker_image, get_docker_cmd, with_docker_cmd
+    with_docker_exec, get_configured_docker_image, get_docker_cmd, with_docker_cmd, \
+    get_docker_host_mount_location_for_object
 
 logger = logging.getLogger(__name__)
 
@@ -88,8 +89,9 @@ class DockerCommandExecutor(CommandExecutor):
     def run_rsync_up(self, source, target, options=None):
         options = options or {}
         host_destination = os.path.join(
-            self._get_docker_host_mount_location(
-                self.host_command_executor.cluster_name), target.lstrip("/"))
+            get_docker_host_mount_location_for_object(
+                self.host_command_executor.cluster_name, target),
+            target.lstrip("/"))
 
         host_mount_location = os.path.dirname(host_destination.rstrip("/"))
         self.host_command_executor.run(
@@ -126,8 +128,9 @@ class DockerCommandExecutor(CommandExecutor):
     def run_rsync_down(self, source, target, options=None):
         options = options or {}
         host_source = os.path.join(
-            self._get_docker_host_mount_location(
-                self.host_command_executor.cluster_name), source.lstrip("/"))
+            get_docker_host_mount_location_for_object(
+                self.host_command_executor.cluster_name, source),
+            source.lstrip("/"))
         host_mount_location = os.path.dirname(host_source.rstrip("/"))
         self.host_command_executor.run(
             f"mkdir -p {host_mount_location} && chown -R "
@@ -359,8 +362,9 @@ class DockerCommandExecutor(CommandExecutor):
                     format(
                         cmd=self.get_docker_cmd(),
                         src=os.path.join(
-                            self._get_docker_host_mount_location(
-                                self.host_command_executor.cluster_name), mount),
+                            get_docker_host_mount_location_for_object(
+                                self.host_command_executor.cluster_name, mount),
+                            mount),
                         container=self.container_name,
                         dst=self._docker_expand_user(mount)))
                 try:
@@ -463,12 +467,6 @@ class DockerCommandExecutor(CommandExecutor):
             logger.warning(
                 f"Received error while trying to auto-compute SHM size {e}")
             return run_options
-
-    def _get_docker_host_mount_location(self, cluster_name: str) -> str:
-        """Return the docker host mount directory location."""
-        # Imported here due to circular dependency in imports.
-        from cloudtik.core.api import get_docker_host_mount_location
-        return get_docker_host_mount_location(cluster_name)
 
     def _get_host_data_disks(self):
         mount_point = CLOUDTIK_DATA_DISK_MOUNT_POINT
